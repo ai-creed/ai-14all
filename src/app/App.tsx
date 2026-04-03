@@ -148,6 +148,9 @@ export function App() {
             <TerminalTabs
               tabs={activeSession?.terminalTabs ?? []}
               activeSessionId={activeSession?.activeTerminalSessionId ?? null}
+              sessionStatuses={Object.fromEntries(
+                sessions.map((s) => [s.id, s.status]),
+              )}
               onAdd={handleAddTerminal}
               onSelect={(terminalSessionId) =>
                 dispatch({
