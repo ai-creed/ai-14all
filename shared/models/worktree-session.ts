@@ -1,9 +1,6 @@
-export type ReviewMode = "files" | "changes";
+import type { ProcessAttentionState } from "./process-session";
 
-export type TerminalTab = {
-	sessionId: string;
-	label: string;
-};
+export type ReviewMode = "files" | "changes";
 
 export type WorktreeSession = {
 	id: string;
@@ -13,6 +10,7 @@ export type WorktreeSession = {
 	reviewMode: ReviewMode;
 	selectedFilePath: string | null;
 	selectedChangedFilePath: string | null;
-	activeTerminalSessionId: string | null;
-	terminalTabs: TerminalTab[];
+	activeProcessSessionId: string | null;
+	processSessionIds: string[];
+	attentionState: ProcessAttentionState;
 };
