@@ -79,4 +79,6 @@ Avoid pulling deferred scope into current work unless explicitly requested:
 
 - Run targeted tests for the areas you touch before claiming completion.
 - Prefer adding or updating tests when behavior changes materially.
+- New user-visible behavior for a phase is not done until the e2e suite covers it.
+- E2E coverage must accumulate across phases; extend the suite instead of replacing older flow coverage.
 - For planning or docs work, keep scope, phase boundaries, and architectural constraints explicit.

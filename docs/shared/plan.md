@@ -249,3 +249,13 @@ For this project, the right rhythm is:
 4. Refine the plan only after observing actual usage
 
 The product risk is not lack of ideas. The product risk is building a polished shell around the wrong session workflow.
+
+## End-To-End Coverage Rule
+
+Each phase must add end-to-end coverage for the new user-visible behavior introduced in that phase.
+
+End-to-end coverage is cumulative:
+
+- keep previously covered behavior represented in the suite
+- add new coverage for the current phase
+- do not replace older flow coverage with a latest-phase-only spec
