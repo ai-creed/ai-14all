@@ -10,6 +10,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
+    "allowArbitraryExtensions": true,
     "composite": true,
     "outDir": "dist/renderer"
   },
