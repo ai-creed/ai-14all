@@ -29,6 +29,7 @@ export function TerminalTabs({
 		<Tooltip.Provider delayDuration={150}>
 			<Tabs.Root
 				value={activeSessionId ?? undefined}
+				onValueChange={onSelect}
 				className="shell-panel shell-terminal-tabs"
 			>
 				<div className="shell-terminal-tabs__bar">

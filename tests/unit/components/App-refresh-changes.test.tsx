@@ -106,4 +106,35 @@ describe("App — refresh changes button", () => {
 			);
 		});
 	});
+
+	it("supports keyboard review-mode switching", async () => {
+		mockSetRoot.mockResolvedValueOnce({
+			id: "r1",
+			name: "test-repo",
+			rootPath: "/repo",
+		});
+		mockListWorktrees.mockResolvedValueOnce([
+			{
+				id: "wt1",
+				repositoryId: "r1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
+		]);
+
+		render(<App />);
+
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		const filesTab = await screen.findByRole("tab", { name: "Files" });
+		filesTab.focus();
+		fireEvent.keyDown(filesTab, { key: "ArrowRight" });
+
+		expect(await screen.findByRole("button", { name: "Refresh" })).toBeInTheDocument();
+	});
 });

@@ -214,6 +214,13 @@ export function App() {
 					{activeWorktree && (
 						<Tabs.Root
 							value={activeSession?.reviewMode ?? "files"}
+							onValueChange={(value) =>
+								dispatch({
+									type: "session/setReviewMode",
+									worktreeId: activeWorktree.id,
+									reviewMode: value as "files" | "changes",
+								})
+							}
 							className="shell-review-tabs"
 						>
 							<div className="shell-review-tabs__header">

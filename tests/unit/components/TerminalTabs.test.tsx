@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TerminalTabs } from "../../../src/features/terminals/TerminalTabs";
 
 describe("TerminalTabs", () => {
@@ -107,5 +107,30 @@ describe("TerminalTabs", () => {
 		expect(onAdd).toHaveBeenCalled();
 		expect(onSelect).toHaveBeenCalledWith("term-2");
 		expect(onClose).toHaveBeenCalledWith("term-1");
+	});
+
+	it("supports keyboard tab switching", async () => {
+		const onSelect = vi.fn();
+
+		render(
+			<TerminalTabs
+				tabs={[
+					{ sessionId: "term-1", label: "shell 1" },
+					{ sessionId: "term-2", label: "shell 2" },
+				]}
+				activeSessionId="term-1"
+				onSelect={onSelect}
+				onAdd={vi.fn()}
+				onClose={vi.fn()}
+			/>,
+		);
+
+		const firstTab = screen.getByRole("tab", { name: "shell 1" });
+		firstTab.focus();
+		fireEvent.keyDown(firstTab, { key: "ArrowRight" });
+
+		await waitFor(() => {
+			expect(onSelect).toHaveBeenCalledWith("term-2");
+		});
 	});
 });
