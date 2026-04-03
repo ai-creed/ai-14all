@@ -67,7 +67,7 @@ export function App() {
       .then((result) => { if (!cancelled) setActiveDiff(result); })
       .catch(() => { if (!cancelled) setActiveDiff(null); });
     return () => { cancelled = true; };
-  }, [activeWorktree?.path, activeSession?.selectedChangedFilePath]);
+  }, [activeWorktree?.path, activeSession?.selectedChangedFilePath, refreshKey]);
 
   function handleSelectChangedFile(relativePath: string) {
     if (!activeWorktree) return;
