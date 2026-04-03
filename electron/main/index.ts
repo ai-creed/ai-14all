@@ -15,5 +15,11 @@ app.whenReady().then(() => {
 			fileURLToPath(new URL("../renderer/index.html", import.meta.url)),
 		);
 	}
-	registerAppLifecycle(app, mainWindow, dispose);
+	registerAppLifecycle({
+		onMainWindowClosed: (listener) => mainWindow.on("closed", listener),
+		onWillQuit: (listener) => app.on("will-quit", listener),
+		onWindowAllClosed: (listener) => app.on("window-all-closed", listener),
+		quit: () => app.quit(),
+		dispose,
+	});
 });

@@ -1,18 +1,20 @@
-type AppLifecycle = {
-	on: (event: any, listener: any) => unknown;
+type RegisterAppLifecycleOptions = {
+	onMainWindowClosed: (listener: () => void) => void;
+	onWillQuit: (listener: () => void) => void;
+	onWindowAllClosed: (listener: () => void) => void;
 	quit: () => void;
+	dispose: () => void;
+	platform?: string;
 };
 
-type WindowLifecycle = {
-	on: (event: any, listener: any) => unknown;
-};
-
-export function registerAppLifecycle(
-	app: AppLifecycle,
-	mainWindow: WindowLifecycle,
-	dispose: () => void,
+export function registerAppLifecycle({
+	onMainWindowClosed,
+	onWillQuit,
+	onWindowAllClosed,
+	quit,
+	dispose,
 	platform = process.platform,
-): void {
+}: RegisterAppLifecycleOptions): void {
 	let disposed = false;
 
 	const disposeOnce = () => {
@@ -21,11 +23,11 @@ export function registerAppLifecycle(
 		dispose();
 	};
 
-	mainWindow.on("closed", disposeOnce);
-	app.on("will-quit", disposeOnce);
-	app.on("window-all-closed", () => {
+	onMainWindowClosed(disposeOnce);
+	onWillQuit(disposeOnce);
+	onWindowAllClosed(() => {
 		if (platform !== "darwin") {
-			app.quit();
+			quit();
 		}
 	});
 }
