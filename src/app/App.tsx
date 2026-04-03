@@ -36,12 +36,16 @@ export function App() {
 
   async function handleAddTerminal() {
     if (!activeWorktree) return;
-    const session = await createSession(activeWorktree.id, activeWorktree.path);
-    dispatch({
-      type: "session/registerTerminal",
-      worktreeId: activeWorktree.id,
-      terminalSessionId: session.id,
-    });
+    try {
+      const session = await createSession(activeWorktree.id, activeWorktree.path);
+      dispatch({
+        type: "session/registerTerminal",
+        worktreeId: activeWorktree.id,
+        terminalSessionId: session.id,
+      });
+    } catch (err) {
+      console.error("Failed to create terminal session:", err);
+    }
   }
 
   async function handleCloseTerminal(sessionId: string) {
@@ -51,6 +55,8 @@ export function App() {
       if (session && (session.status === "running" || session.status === "idle")) {
         await stopSession(sessionId);
       }
+    } catch (err) {
+      console.error("Failed to stop terminal session:", err);
     } finally {
       removeSession(sessionId);
       dispatch({
@@ -110,15 +116,16 @@ export function App() {
               onClose={handleCloseTerminal}
             />
 
-            {sessions
-              .filter((session) => session.worktreeId === activeWorktree?.id)
-              .map((session) => (
-                <TerminalPane
-                  key={session.id}
-                  session={session}
-                  visible={session.id === activeSession?.activeTerminalSessionId}
-                />
-              ))}
+            {sessions.map((session) => (
+              <TerminalPane
+                key={session.id}
+                session={session}
+                visible={
+                  session.worktreeId === activeWorktree?.id &&
+                  session.id === activeSession?.activeTerminalSessionId
+                }
+              />
+            ))}
           </div>
         )}
 
