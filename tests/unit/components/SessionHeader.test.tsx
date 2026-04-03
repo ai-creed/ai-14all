@@ -12,8 +12,10 @@ describe("SessionHeader", () => {
 			/>,
 		);
 
+		expect(screen.getByRole("banner")).toBeInTheDocument();
 		expect(screen.getByText("My Session")).toBeInTheDocument();
 		expect(screen.getByText("feature-x")).toBeInTheDocument();
 		expect(screen.getByText("3")).toBeInTheDocument();
+		expect(screen.getByText("Changes:")).toBeInTheDocument();
 	});
 });

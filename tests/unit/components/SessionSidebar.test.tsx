@@ -32,10 +32,16 @@ describe("SessionSidebar", () => {
 			/>,
 		);
 
+		expect(
+			screen.getByRole("navigation", { name: "Worktree sessions" }),
+		).toBeInTheDocument();
 		// "main" appears as both the label and the branch name
 		expect(screen.getAllByText("main")).toHaveLength(2);
 		expect(screen.getByText("feature worktree")).toBeInTheDocument();
 		expect(screen.getByText("feature-a")).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /feature worktree/i }),
+		).toHaveAttribute("data-selected", "true");
 	});
 
 	it("calls onSelect when a worktree is clicked", () => {

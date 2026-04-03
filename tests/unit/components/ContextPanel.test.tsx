@@ -13,6 +13,10 @@ describe("ContextPanel", () => {
 			/>,
 		);
 
+		expect(
+			screen.getByRole("complementary", { name: "Session context" }),
+		).toBeInTheDocument();
+		expect(screen.getByText("Active branch")).toBeInTheDocument();
 		expect(screen.getByText("feature-a")).toBeInTheDocument();
 		expect(screen.getByText("/repo/.worktrees/feature-a")).toBeInTheDocument();
 	});

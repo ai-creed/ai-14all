@@ -6,11 +6,18 @@ type Props = {
 
 export function SessionHeader({ title, branchName, changedFileCount }: Props) {
 	return (
-		<header style={{ padding: "16px 20px", borderBottom: "1px solid #d0d7de" }}>
-			<h2 style={{ margin: 0 }}>{title}</h2>
-			<div style={{ marginTop: 4, color: "#57606a", fontSize: 14 }}>
-				Branch: <strong>{branchName}</strong> · Changes:{" "}
-				<strong>{changedFileCount}</strong>
+		<header className="shell-panel shell-header">
+			<div>
+				<div className="shell-label">Active session</div>
+				<h2 className="shell-header__title">{title}</h2>
+			</div>
+			<div className="shell-header__meta">
+				<span>
+					<span>Branch:</span> <strong>{branchName}</strong>
+				</span>
+				<span>
+					<span>Changes:</span> <strong>{changedFileCount}</strong>
+				</span>
 			</div>
 		</header>
 	);

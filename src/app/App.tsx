@@ -146,173 +146,170 @@ export function App() {
 
 	if (!repository) {
 		return (
-			<main style={{ padding: 24, fontFamily: "sans-serif" }}>
-				<h1>oneforall</h1>
-				<section>
+			<main className="shell-app shell-app--setup">
+				<section className="shell-panel shell-setup-panel">
+					<h1 className="shell-setup-title">oneforall</h1>
 					<h2>Repository</h2>
 					<RepositoryInput onLoad={handleLoad} />
-					{error && <p style={{ color: "red" }}>Error: {error}</p>}
+					{error && <p className="shell-error">Error: {error}</p>}
 				</section>
 			</main>
 		);
 	}
 
 	return (
-		<main
-			style={{
-				minHeight: "100vh",
-				display: "grid",
-				gridTemplateColumns: "240px 1fr 280px",
-			}}
-		>
-			<SessionSidebar
-				worktrees={worktrees}
-				selectedWorktreeId={workspaceState.selectedWorktreeId}
-				onSelect={(worktreeId) => {
-					dispatch({ type: "session/selectWorktree", worktreeId });
-				}}
-			/>
+		<main className="shell-app">
+			<div className="shell-layout">
+				<SessionSidebar
+					worktrees={worktrees}
+					selectedWorktreeId={workspaceState.selectedWorktreeId}
+					onSelect={(worktreeId) => {
+						dispatch({ type: "session/selectWorktree", worktreeId });
+					}}
+				/>
 
-			<section style={{ display: "grid", gridTemplateRows: "auto auto 1fr" }}>
-				{activeWorktree && (
-					<SessionHeader
-						title={activeWorktree.label}
+				<section className="shell-main-column">
+					{activeWorktree && (
+						<SessionHeader
+							title={activeWorktree.label}
+							branchName={activeWorktree.branchName}
+							changedFileCount={changes.length}
+						/>
+					)}
+
+					{workspaceState.selectedWorktreeId && (
+						<div className="shell-terminal-section">
+							<TerminalTabs
+								tabs={activeSession?.terminalTabs ?? []}
+								activeSessionId={activeSession?.activeTerminalSessionId ?? null}
+								sessionStatuses={Object.fromEntries(
+									sessions.map((s) => [s.id, s.status]),
+								)}
+								onAdd={handleAddTerminal}
+								onSelect={(terminalSessionId) =>
+									dispatch({
+										type: "session/selectTerminal",
+										worktreeId: activeWorktree!.id,
+										terminalSessionId,
+									})
+								}
+								onClose={handleCloseTerminal}
+							/>
+
+							{sessions.map((session) => (
+								<TerminalPane
+									key={session.id}
+									session={session}
+									visible={
+										session.worktreeId === activeWorktree?.id &&
+										session.id === activeSession?.activeTerminalSessionId
+									}
+								/>
+							))}
+						</div>
+					)}
+
+					{activeWorktree && (
+						<div className="shell-review-grid">
+							<section className="shell-panel shell-review-rail">
+								<div className="shell-review-switches">
+									<button
+										type="button"
+										className="shell-button"
+										onClick={() =>
+											dispatch({
+												type: "session/setReviewMode",
+												worktreeId: activeWorktree.id,
+												reviewMode: "files",
+											})
+										}
+									>
+										Files
+									</button>
+									<button
+										type="button"
+										className="shell-button"
+										onClick={() =>
+											dispatch({
+												type: "session/setReviewMode",
+												worktreeId: activeWorktree.id,
+												reviewMode: "changes",
+											})
+										}
+									>
+										Changes
+									</button>
+									{activeSession?.reviewMode === "changes" && (
+										<button
+											type="button"
+											className="shell-button"
+											onClick={handleRefreshChanges}
+										>
+											Refresh
+										</button>
+									)}
+								</div>
+
+								{activeSession?.reviewMode === "files" ? (
+									<FileList
+										worktreePath={activeWorktree.path}
+										selectedFile={activeSession.selectedFilePath}
+										onSelect={(relativePath) =>
+											dispatch({
+												type: "session/selectFile",
+												worktreeId: activeWorktree.id,
+												relativePath,
+											})
+										}
+									/>
+								) : (
+									<ChangesList
+										changes={changes}
+										selectedPath={
+											activeSession?.selectedChangedFilePath ?? null
+										}
+										onSelect={handleSelectChangedFile}
+									/>
+								)}
+							</section>
+
+							<section className="shell-panel shell-viewer-panel">
+								{activeSession?.reviewMode === "files" &&
+								activeSession.selectedFilePath ? (
+									<FileViewer
+										worktreePath={activeWorktree.path}
+										relativePath={activeSession.selectedFilePath}
+									/>
+								) : activeSession?.reviewMode === "changes" && activeDiff ? (
+									<DiffViewer
+										path={activeDiff.path}
+										content={activeDiff.content}
+									/>
+								) : (
+									<p className="shell-empty-state">
+										Select a file or changed file to inspect it.
+									</p>
+								)}
+							</section>
+						</div>
+					)}
+				</section>
+
+				{activeWorktree && activeSession && (
+					<ContextPanel
 						branchName={activeWorktree.branchName}
-						changedFileCount={changes.length}
+						worktreePath={activeWorktree.path}
+						note={activeSession.note}
+						onNoteChange={(note) =>
+							dispatch({
+								type: "session/setNote",
+								worktreeId: activeWorktree.id,
+								note,
+							})
+						}
 					/>
 				)}
-
-				{workspaceState.selectedWorktreeId && (
-					<div style={{ padding: "16px 20px" }}>
-						<TerminalTabs
-							tabs={activeSession?.terminalTabs ?? []}
-							activeSessionId={activeSession?.activeTerminalSessionId ?? null}
-							sessionStatuses={Object.fromEntries(
-								sessions.map((s) => [s.id, s.status]),
-							)}
-							onAdd={handleAddTerminal}
-							onSelect={(terminalSessionId) =>
-								dispatch({
-									type: "session/selectTerminal",
-									worktreeId: activeWorktree!.id,
-									terminalSessionId,
-								})
-							}
-							onClose={handleCloseTerminal}
-						/>
-
-						{sessions.map((session) => (
-							<TerminalPane
-								key={session.id}
-								session={session}
-								visible={
-									session.worktreeId === activeWorktree?.id &&
-									session.id === activeSession?.activeTerminalSessionId
-								}
-							/>
-						))}
-					</div>
-				)}
-
-				{activeWorktree && (
-					<div
-						style={{
-							display: "grid",
-							gridTemplateColumns: "280px 1fr",
-							gap: 16,
-							padding: 16,
-						}}
-					>
-						<section>
-							<div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-								<button
-									type="button"
-									onClick={() =>
-										dispatch({
-											type: "session/setReviewMode",
-											worktreeId: activeWorktree.id,
-											reviewMode: "files",
-										})
-									}
-								>
-									Files
-								</button>
-								<button
-									type="button"
-									onClick={() =>
-										dispatch({
-											type: "session/setReviewMode",
-											worktreeId: activeWorktree.id,
-											reviewMode: "changes",
-										})
-									}
-								>
-									Changes
-								</button>
-								{activeSession?.reviewMode === "changes" && (
-									<button type="button" onClick={handleRefreshChanges}>
-										Refresh
-									</button>
-								)}
-							</div>
-
-							{activeSession?.reviewMode === "files" ? (
-								<FileList
-									worktreePath={activeWorktree.path}
-									selectedFile={activeSession.selectedFilePath}
-									onSelect={(relativePath) =>
-										dispatch({
-											type: "session/selectFile",
-											worktreeId: activeWorktree.id,
-											relativePath,
-										})
-									}
-								/>
-							) : (
-								<ChangesList
-									changes={changes}
-									selectedPath={activeSession?.selectedChangedFilePath ?? null}
-									onSelect={handleSelectChangedFile}
-								/>
-							)}
-						</section>
-
-						<section>
-							{activeSession?.reviewMode === "files" &&
-							activeSession.selectedFilePath ? (
-								<FileViewer
-									worktreePath={activeWorktree.path}
-									relativePath={activeSession.selectedFilePath}
-								/>
-							) : activeSession?.reviewMode === "changes" && activeDiff ? (
-								<DiffViewer
-									path={activeDiff.path}
-									content={activeDiff.content}
-								/>
-							) : (
-								<p style={{ color: "#57606a" }}>
-									Select a file or changed file to inspect it.
-								</p>
-							)}
-						</section>
-					</div>
-				)}
-			</section>
-
-			{activeWorktree && activeSession && (
-				<ContextPanel
-					branchName={activeWorktree.branchName}
-					worktreePath={activeWorktree.path}
-					note={activeSession.note}
-					onNoteChange={(note) =>
-						dispatch({
-							type: "session/setNote",
-							worktreeId: activeWorktree.id,
-							note,
-						})
-					}
-				/>
-			)}
+			</div>
 		</main>
 	);
 }
