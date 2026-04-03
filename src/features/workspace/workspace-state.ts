@@ -52,6 +52,9 @@ export function workspaceReducer(
   state: WorkspaceState,
   action: WorkspaceAction,
 ): WorkspaceState {
+  // Full state reset — only dispatched on initial repository load, not on
+  // worktree list refresh. A future "refresh worktrees" action should merge
+  // new worktrees into existing state to preserve open sessions.
   if (action.type === "workspace/loadWorktrees") {
     return createWorkspaceState(action.worktrees);
   }
@@ -64,7 +67,7 @@ export function workspaceReducer(
   if (!session) return state;
 
   if (action.type === "session/registerTerminal") {
-    const nextNumber = state.nextTerminalNumberByWorktreeId[action.worktreeId];
+    const nextNumber = state.nextTerminalNumberByWorktreeId[action.worktreeId] ?? 1;
     const nextTab: TerminalTab = {
       sessionId: action.terminalSessionId,
       label: `shell ${nextNumber}`,
@@ -106,27 +109,32 @@ export function workspaceReducer(
     };
   }
 
-  const nextSession: WorktreeSession =
-    action.type === "session/setNote"
-      ? { ...session, note: action.note }
-      : action.type === "session/setReviewMode"
-        ? { ...session, reviewMode: action.reviewMode }
-        : action.type === "session/selectFile"
-          ? {
-              ...session,
-              reviewMode: "files",
-              selectedFilePath: action.relativePath,
-            }
-          : action.type === "session/selectChangedFile"
-            ? {
-                ...session,
-                reviewMode: "changes",
-                selectedChangedFilePath: action.relativePath,
-              }
-            : {
-                ...session,
-                activeTerminalSessionId: action.terminalSessionId,
-              };
+  let nextSession: WorktreeSession;
+
+  if (action.type === "session/setNote") {
+    nextSession = { ...session, note: action.note };
+  } else if (action.type === "session/setReviewMode") {
+    nextSession = { ...session, reviewMode: action.reviewMode };
+  } else if (action.type === "session/selectFile") {
+    nextSession = {
+      ...session,
+      reviewMode: "files",
+      selectedFilePath: action.relativePath,
+    };
+  } else if (action.type === "session/selectChangedFile") {
+    nextSession = {
+      ...session,
+      reviewMode: "changes",
+      selectedChangedFilePath: action.relativePath,
+    };
+  } else if (action.type === "session/selectTerminal") {
+    nextSession = {
+      ...session,
+      activeTerminalSessionId: action.terminalSessionId,
+    };
+  } else {
+    return state;
+  }
 
   return {
     ...state,
