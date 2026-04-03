@@ -1,3 +1,5 @@
+import * as Tabs from "@radix-ui/react-tabs";
+import * as Tooltip from "@radix-ui/react-tooltip";
 import type { TerminalTab } from "../../../shared/models/worktree-session";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
 
@@ -24,46 +26,65 @@ export function TerminalTabs({
 	onClose,
 }: Props) {
 	return (
-		<div
-			style={{
-				display: "flex",
-				gap: 8,
-				padding: "12px 16px",
-				borderBottom: "1px solid #d0d7de",
-			}}
-		>
-			<button type="button" onClick={onAdd} aria-label="New terminal">
-				+ Terminal
-			</button>
-			{tabs.map((tab) => {
-				const status = sessionStatuses?.[tab.sessionId] ?? "running";
-				const suffix = statusSuffix[status] ?? "";
-				const isDead = status === "exited" || status === "error";
-				return (
-					<div
-						key={tab.sessionId}
-						style={{ display: "flex", alignItems: "center", gap: 4 }}
+		<Tooltip.Provider delayDuration={150}>
+			<Tabs.Root
+				value={activeSessionId ?? undefined}
+				className="shell-panel shell-terminal-tabs"
+			>
+				<div className="shell-terminal-tabs__bar">
+					<Tabs.List
+						aria-label="Terminal sessions"
+						className="shell-terminal-tabs__list"
 					>
-						<button
-							type="button"
-							data-active={String(tab.sessionId === activeSessionId)}
-							data-status={status}
-							style={isDead ? { opacity: 0.5 } : undefined}
-							onClick={() => onSelect(tab.sessionId)}
-						>
-							{tab.label}
-							{suffix}
-						</button>
-						<button
-							type="button"
-							aria-label={`Close ${tab.label}`}
-							onClick={() => onClose(tab.sessionId)}
-						>
-							×
-						</button>
-					</div>
-				);
-			})}
-		</div>
+						{tabs.map((tab) => {
+							const status = sessionStatuses?.[tab.sessionId] ?? "running";
+							const suffix = statusSuffix[status] ?? "";
+							return (
+								<div key={tab.sessionId} className="shell-terminal-tabs__item">
+									<Tabs.Trigger
+										value={tab.sessionId}
+										className="shell-terminal-tab"
+										data-status={status}
+										onClick={() => onSelect(tab.sessionId)}
+									>
+										{tab.label}
+										{suffix}
+									</Tabs.Trigger>
+									<Tooltip.Root>
+										<Tooltip.Trigger asChild>
+											<button
+												type="button"
+												className="shell-terminal-tab__close"
+												aria-label={`Close ${tab.label}`}
+												onClick={() => onClose(tab.sessionId)}
+											>
+												×
+											</button>
+										</Tooltip.Trigger>
+										<Tooltip.Portal>
+											<Tooltip.Content
+												className="shell-tooltip"
+												sideOffset={8}
+											>
+												Close terminal
+											</Tooltip.Content>
+										</Tooltip.Portal>
+									</Tooltip.Root>
+								</div>
+							);
+						})}
+					</Tabs.List>
+
+					<button
+						type="button"
+						className="shell-button"
+						onClick={onAdd}
+						aria-label="New terminal"
+					>
+						+ Terminal
+					</button>
+				</div>
+			</Tabs.Root>
+		</Tooltip.Provider>
 	);
 }

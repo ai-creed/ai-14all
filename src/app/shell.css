@@ -219,3 +219,69 @@ textarea {
 .shell-viewer-panel {
 	min-width: 0;
 }
+
+.shell-terminal-tabs {
+	padding: var(--space-3);
+}
+
+.shell-terminal-tabs__bar,
+.shell-terminal-tabs__list {
+	display: flex;
+	gap: var(--space-2);
+	align-items: center;
+	flex-wrap: wrap;
+}
+
+.shell-terminal-tabs__item {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+}
+
+.shell-terminal-tab {
+	padding: 10px 14px;
+	color: var(--text-secondary);
+	background: #0f171d;
+	border: 1px solid var(--panel-border);
+	border-radius: 999px;
+}
+
+.shell-terminal-tab[data-state="active"] {
+	color: var(--text-primary);
+	background: var(--panel-bg-elevated);
+	border-color: var(--panel-border-strong);
+}
+
+.shell-terminal-tab[data-status="exited"],
+.shell-terminal-tab[data-status="error"] {
+	opacity: 0.72;
+}
+
+.shell-terminal-tab__close {
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	color: var(--text-secondary);
+	background: transparent;
+	border: 1px solid transparent;
+	border-radius: 999px;
+}
+
+.shell-terminal-pane {
+	padding: 0;
+	overflow: hidden;
+}
+
+.shell-terminal-pane__viewport {
+	min-height: 280px;
+	padding: var(--space-3);
+	background: #0a1115;
+}
+
+.shell-tooltip {
+	padding: 6px 10px;
+	color: var(--text-primary);
+	background: #0f171d;
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+}

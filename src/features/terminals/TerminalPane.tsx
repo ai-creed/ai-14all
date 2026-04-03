@@ -100,21 +100,12 @@ export function TerminalPane({ session, visible }: Props) {
 	}, [session.id, visible]);
 
 	return (
-		<div
-			style={{
-				display: visible ? "flex" : "none",
-				flexDirection: "column",
-				height: 300,
-				border: "1px solid #444",
-				borderRadius: 4,
-				overflow: "hidden",
-				marginBottom: 8,
-			}}
+		<section
+			aria-hidden={!visible}
+			className="shell-panel shell-terminal-pane"
+			style={{ display: visible ? "block" : "none" }}
 		>
-			<div
-				ref={containerRef}
-				style={{ flex: 1, minHeight: 0, background: "#1e1e1e" }}
-			/>
-		</div>
+			<div ref={containerRef} className="shell-terminal-pane__viewport" />
+		</section>
 	);
 }

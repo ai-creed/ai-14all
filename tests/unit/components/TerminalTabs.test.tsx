@@ -17,10 +17,13 @@ describe("TerminalTabs", () => {
 			/>,
 		);
 
-		expect(screen.getByRole("button", { name: "shell 1" })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "shell 2" })).toHaveAttribute(
-			"data-active",
-			"true",
+		expect(
+			screen.getByRole("tablist", { name: "Terminal sessions" }),
+		).toBeInTheDocument();
+		expect(screen.getByRole("tab", { name: "shell 1" })).toBeInTheDocument();
+		expect(screen.getByRole("tab", { name: "shell 2" })).toHaveAttribute(
+			"data-state",
+			"active",
 		);
 	});
 
@@ -44,9 +47,9 @@ describe("TerminalTabs", () => {
 			/>,
 		);
 
-		const tab1 = screen.getByRole("button", { name: "shell 1" });
-		const tab2 = screen.getByRole("button", { name: "shell 2 (exited)" });
-		const tab3 = screen.getByRole("button", { name: "shell 3 (error)" });
+		const tab1 = screen.getByRole("tab", { name: "shell 1" });
+		const tab2 = screen.getByRole("tab", { name: "shell 2 (exited)" });
+		const tab3 = screen.getByRole("tab", { name: "shell 3 (error)" });
 
 		// Running tab has no suffix
 		expect(tab1).toHaveTextContent("shell 1");
@@ -73,7 +76,7 @@ describe("TerminalTabs", () => {
 			/>,
 		);
 
-		const tab = screen.getByRole("button", { name: "shell 1" });
+		const tab = screen.getByRole("tab", { name: "shell 1" });
 		expect(tab).toHaveTextContent("shell 1");
 		expect(tab).not.toHaveTextContent("(exited)");
 		expect(tab).toHaveAttribute("data-status", "running");
@@ -86,7 +89,10 @@ describe("TerminalTabs", () => {
 
 		render(
 			<TerminalTabs
-				tabs={[{ sessionId: "term-1", label: "shell 1" }]}
+				tabs={[
+					{ sessionId: "term-1", label: "shell 1" },
+					{ sessionId: "term-2", label: "shell 2" },
+				]}
 				activeSessionId="term-1"
 				onSelect={onSelect}
 				onAdd={onAdd}
@@ -95,11 +101,11 @@ describe("TerminalTabs", () => {
 		);
 
 		fireEvent.click(screen.getByRole("button", { name: "New terminal" }));
-		fireEvent.click(screen.getByRole("button", { name: "shell 1" }));
+		fireEvent.click(screen.getByRole("tab", { name: "shell 2" }));
 		fireEvent.click(screen.getByRole("button", { name: "Close shell 1" }));
 
 		expect(onAdd).toHaveBeenCalled();
-		expect(onSelect).toHaveBeenCalledWith("term-1");
+		expect(onSelect).toHaveBeenCalledWith("term-2");
 		expect(onClose).toHaveBeenCalledWith("term-1");
 	});
 });
