@@ -1,6 +1,8 @@
-import { useReducer, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import type { Repository } from "../../shared/models/repository";
 import type { Worktree } from "../../shared/models/worktree";
+import type { GitChange } from "../../shared/models/git-change";
+import type { GitDiff } from "../../shared/models/git-diff";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { SessionSidebar } from "../features/workspace/SessionSidebar";
 import { SessionHeader } from "../features/workspace/SessionHeader";
@@ -11,12 +13,16 @@ import { TerminalPane } from "../features/terminals/TerminalPane";
 import { useTerminalSession } from "../features/terminals/useTerminalSession";
 import { FileList } from "../features/viewer/FileList";
 import { FileViewer } from "../features/viewer/FileViewer";
+import { ChangesList } from "../features/git/ChangesList";
+import { DiffViewer } from "../features/viewer/DiffViewer";
+import { git } from "../lib/desktop-client";
 
 export function App() {
   const [repository, setRepository] = useState<Repository | null>(null);
   const [worktrees, setWorktrees] = useState<Worktree[]>([]);
   const [workspaceState, dispatch] = useReducer(workspaceReducer, createWorkspaceState([]));
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [changes, setChanges] = useState<GitChange[]>([]);
+  const [activeDiff, setActiveDiff] = useState<GitDiff | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { sessions, createSession, stopSession, removeSession } = useTerminalSession();
@@ -25,7 +31,6 @@ export function App() {
     setRepository(repo);
     setWorktrees(wts);
     dispatch({ type: "workspace/loadWorktrees", worktrees: wts });
-    setSelectedFile(null);
     setError(null);
   }
 
@@ -33,6 +38,33 @@ export function App() {
   const activeSession = workspaceState.selectedWorktreeId
     ? workspaceState.sessionsByWorktreeId[workspaceState.selectedWorktreeId] ?? null
     : null;
+
+  // Fetch changed files when active worktree changes
+  useEffect(() => {
+    if (!activeWorktree) return;
+    git.listChanges(activeWorktree.path).then(setChanges).catch(() => setChanges([]));
+  }, [activeWorktree]);
+
+  // Fetch diff when selected changed file changes
+  useEffect(() => {
+    if (!activeWorktree || !activeSession?.selectedChangedFilePath) {
+      setActiveDiff(null);
+      return;
+    }
+    git
+      .readDiff(activeWorktree.path, activeSession.selectedChangedFilePath)
+      .then(setActiveDiff)
+      .catch(() => setActiveDiff(null));
+  }, [activeWorktree, activeSession?.selectedChangedFilePath]);
+
+  function handleSelectChangedFile(relativePath: string) {
+    if (!activeWorktree) return;
+    dispatch({
+      type: "session/selectChangedFile",
+      worktreeId: activeWorktree.id,
+      relativePath,
+    });
+  }
 
   async function handleAddTerminal() {
     if (!activeWorktree) return;
@@ -87,7 +119,6 @@ export function App() {
         selectedWorktreeId={workspaceState.selectedWorktreeId}
         onSelect={(worktreeId) => {
           dispatch({ type: "session/selectWorktree", worktreeId });
-          setSelectedFile(null);
         }}
       />
 
@@ -96,7 +127,7 @@ export function App() {
           <SessionHeader
             title={activeWorktree.label}
             branchName={activeWorktree.branchName}
-            changedFileCount={0}
+            changedFileCount={changes.length}
           />
         )}
 
@@ -130,29 +161,53 @@ export function App() {
         )}
 
         {activeWorktree && (
-          <div style={{ padding: "0 20px 20px" }}>
-            <h3>Files</h3>
-            <div style={{ display: "flex", gap: 16 }}>
-              <div style={{ width: 280, flexShrink: 0 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 16, padding: 16 }}>
+            <section>
+              <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    dispatch({ type: "session/setReviewMode", worktreeId: activeWorktree.id, reviewMode: "files" })
+                  }
+                >
+                  Files
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    dispatch({ type: "session/setReviewMode", worktreeId: activeWorktree.id, reviewMode: "changes" })
+                  }
+                >
+                  Changes
+                </button>
+              </div>
+
+              {activeSession?.reviewMode === "files" ? (
                 <FileList
                   worktreePath={activeWorktree.path}
-                  selectedFile={selectedFile}
-                  onSelect={setSelectedFile}
+                  selectedFile={activeSession.selectedFilePath}
+                  onSelect={(relativePath) =>
+                    dispatch({ type: "session/selectFile", worktreeId: activeWorktree.id, relativePath })
+                  }
                 />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {selectedFile ? (
-                  <FileViewer
-                    worktreePath={activeWorktree.path}
-                    relativePath={selectedFile}
-                  />
-                ) : (
-                  <p style={{ color: "#888", fontSize: "0.85em" }}>
-                    Select a file to view its contents.
-                  </p>
-                )}
-              </div>
-            </div>
+              ) : (
+                <ChangesList
+                  changes={changes}
+                  selectedPath={activeSession?.selectedChangedFilePath ?? null}
+                  onSelect={handleSelectChangedFile}
+                />
+              )}
+            </section>
+
+            <section>
+              {activeSession?.reviewMode === "files" && activeSession.selectedFilePath ? (
+                <FileViewer worktreePath={activeWorktree.path} relativePath={activeSession.selectedFilePath} />
+              ) : activeSession?.reviewMode === "changes" && activeDiff ? (
+                <DiffViewer path={activeDiff.path} content={activeDiff.content} />
+              ) : (
+                <p style={{ color: "#57606a" }}>Select a file or changed file to inspect it.</p>
+              )}
+            </section>
           </div>
         )}
       </section>
