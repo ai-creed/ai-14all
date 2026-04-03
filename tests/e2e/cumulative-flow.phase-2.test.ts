@@ -41,8 +41,16 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
     await page.getByRole("button", { name: "New terminal" }).click();
     await page.getByRole("button", { name: "New terminal" }).click();
 
-    await expect(page.getByRole("button", { name: /shell 1/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /shell 2/i })).toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: /^shell 1(?: \((?:error|exited)\))?$/i,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: /^shell 2(?: \((?:error|exited)\))?$/i,
+      }),
+    ).toBeVisible();
     await expect(page.locator(".xterm")).toHaveCount(2, { timeout: 10_000 });
   });
 

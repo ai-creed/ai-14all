@@ -41,7 +41,11 @@ test.describe.serial("Cumulative flow — Phase 0", () => {
     await page.getByRole("button", { name: "New terminal" }).click();
 
     await expect(page.locator(".xterm")).toHaveCount(1, { timeout: 10_000 });
-    await expect(page.getByRole("button", { name: /shell 1/i })).toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: /^shell 1(?: \((?:error|exited)\))?$/i,
+      }),
+    ).toBeVisible();
   });
 
   test("runs a shell command inside the selected worktree", async () => {
@@ -60,7 +64,7 @@ test.describe.serial("Cumulative flow — Phase 0", () => {
 
   test("opens a file in the embedded viewer", async () => {
     await page.getByRole("button", { name: "Files" }).click();
-    await page.getByText("src/index.ts").click();
+    await page.getByText("src/index.ts", { exact: true }).click();
 
     await expect(page.locator(".monaco-editor")).toBeVisible({
       timeout: 15_000,
