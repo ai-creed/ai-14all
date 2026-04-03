@@ -62,6 +62,16 @@ export function createTestRepo(): TestRepo {
   });
   const worktreePath = realpathSync(worktreeDir);
 
+  // Add dirty content so the Changes flow has files to show
+  writeFileSync(
+    join(worktreePath, "src", "index.ts"),
+    'export const hello = "phase-2";\n',
+  );
+  writeFileSync(
+    join(worktreePath, "src", "new-file.ts"),
+    "export const added = true;\n",
+  );
+
   return {
     repoPath,
     worktreePath,
