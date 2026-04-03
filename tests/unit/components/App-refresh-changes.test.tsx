@@ -135,6 +135,8 @@ describe("App — refresh changes button", () => {
 		filesTab.focus();
 		fireEvent.keyDown(filesTab, { key: "ArrowRight" });
 
-		expect(await screen.findByRole("button", { name: "Refresh" })).toBeInTheDocument();
+		expect(
+			await screen.findByRole("button", { name: "Refresh" }),
+		).toBeInTheDocument();
 	});
 });
