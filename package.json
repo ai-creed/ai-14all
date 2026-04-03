@@ -1,0 +1,39 @@
+{
+  "name": "oneforall",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "@xterm/addon-fit": "^0.11.0",
+    "monaco-editor": "^0.55.1",
+    "node-pty": "^1.1.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "xterm": "^5.3.0",
+    "zod": "^4.3.6"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["electron", "esbuild", "node-pty"]
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^41.1.1",
+    "electron-vite": "^5.0.0",
+    "jsdom": "^29.0.1",
+    "typescript": "^6.0.2",
+    "vite": "^6.4.1",
+    "vitest": "^4.1.2"
+  }
+}
