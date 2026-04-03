@@ -41,13 +41,13 @@ export function App() {
 
   // Fetch changed files when active worktree changes
   useEffect(() => {
-    if (!activeWorktree) return;
+    if (!activeWorktree?.path) return;
     git.listChanges(activeWorktree.path).then(setChanges).catch(() => setChanges([]));
-  }, [activeWorktree]);
+  }, [activeWorktree?.path]);
 
   // Fetch diff when selected changed file changes
   useEffect(() => {
-    if (!activeWorktree || !activeSession?.selectedChangedFilePath) {
+    if (!activeWorktree?.path || !activeSession?.selectedChangedFilePath) {
       setActiveDiff(null);
       return;
     }
@@ -55,7 +55,7 @@ export function App() {
       .readDiff(activeWorktree.path, activeSession.selectedChangedFilePath)
       .then(setActiveDiff)
       .catch(() => setActiveDiff(null));
-  }, [activeWorktree, activeSession?.selectedChangedFilePath]);
+  }, [activeWorktree?.path, activeSession?.selectedChangedFilePath]);
 
   function handleSelectChangedFile(relativePath: string) {
     if (!activeWorktree) return;
