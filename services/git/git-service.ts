@@ -35,11 +35,22 @@ const RECOGNIZED_STATUSES = new Set<string>(["M", "A", "D", "R", "??"]);
 
 function parseStatusLine(line: string): GitChange | null {
   const raw = line.slice(0, 2).trim();
-  const path = line.slice(3).trim();
+  let path = line.slice(3).trim();
   const status = raw === "" ? "M" : raw;
 
   if (!RECOGNIZED_STATUSES.has(status)) {
     return null;
+  }
+
+  // For renames, git status outputs "R  old-path -> new-path".
+  // Extract the new (destination) path and preserve the old path for diffs.
+  if (status === "R") {
+    const arrowIdx = path.indexOf(" -> ");
+    if (arrowIdx !== -1) {
+      const oldPath = path.slice(0, arrowIdx);
+      path = path.slice(arrowIdx + 4);
+      return { path, status: status as GitChangeStatus, oldPath };
+    }
   }
 
   return { path, status: status as GitChangeStatus };
@@ -88,10 +99,14 @@ export class GitService {
       return { path: relativePath, content: stdout };
     }
 
-    const stdout = await readDiffCommand(
-      ["diff", "--no-ext-diff", "--", relativePath],
-      worktreePath,
-    );
+    // For renames, diff against HEAD with --find-renames and both old/new
+    // paths so git can detect the rename and produce proper metadata.
+    const diffArgs =
+      change.status === "R" && change.oldPath
+        ? ["diff", "--no-ext-diff", "--find-renames", "HEAD", "--", change.oldPath, relativePath]
+        : ["diff", "--no-ext-diff", "--", relativePath];
+
+    const stdout = await readDiffCommand(diffArgs, worktreePath);
     return { path: relativePath, content: stdout };
   }
 }

@@ -78,6 +78,41 @@ describe("GitService", () => {
     ).rejects.toThrow("Path escapes worktree");
   });
 
+  it("lists a renamed file with its new path", async () => {
+    // Reset modification from beforeEach so we get a clean rename
+    execSync("git checkout -- src/index.ts", {
+      cwd: worktreePath,
+      stdio: "ignore",
+    });
+    execSync("git mv src/index.ts src/main.ts", {
+      cwd: worktreePath,
+      stdio: "ignore",
+    });
+
+    const changes = await service.listChangedFiles(worktreePath);
+    const rename = changes.find((c) => c.status === "R");
+
+    expect(rename).toBeDefined();
+    expect(rename!.path).toBe("src/main.ts");
+  });
+
+  it("returns diff content for a renamed file", async () => {
+    // Reset modification from beforeEach so we get a clean rename
+    execSync("git checkout -- src/index.ts", {
+      cwd: worktreePath,
+      stdio: "ignore",
+    });
+    execSync("git mv src/index.ts src/main.ts", {
+      cwd: worktreePath,
+      stdio: "ignore",
+    });
+
+    const diff = await service.readDiff(worktreePath, "src/main.ts");
+    expect(diff.path).toBe("src/main.ts");
+    expect(diff.content).toContain("rename from");
+    expect(diff.content).toContain("rename to");
+  });
+
   it("skips unrecognized status codes in listChangedFiles", async () => {
     // All files in the worktree have recognized statuses (M, ??),
     // so the result should match the known set without any extras
