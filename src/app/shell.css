@@ -1,0 +1,84 @@
+:root {
+	--app-bg: #0b1116;
+	--panel-bg: #111a21;
+	--panel-bg-elevated: #16232c;
+	--panel-border: #24313d;
+	--panel-border-strong: #345767;
+	--text-primary: #eef7fa;
+	--text-secondary: #8fa4b1;
+	--text-muted: #6f8593;
+	--accent: #67d4b0;
+	--accent-strong: #15383d;
+	--warning: #f0c37a;
+	--danger: #d98c8c;
+	--radius-sm: 10px;
+	--radius-md: 14px;
+	--radius-lg: 18px;
+	--space-1: 4px;
+	--space-2: 8px;
+	--space-3: 12px;
+	--space-4: 16px;
+	--space-5: 20px;
+	--space-6: 24px;
+	font-family:
+		"SF Pro Text",
+		"Segoe UI",
+		-apple-system,
+		BlinkMacSystemFont,
+		sans-serif;
+	color: var(--text-primary);
+	background: var(--app-bg);
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	background: radial-gradient(circle at top, #10181f 0%, var(--app-bg) 55%);
+	color: var(--text-primary);
+}
+
+button,
+input,
+textarea {
+	font: inherit;
+}
+
+.shell-app {
+	min-height: 100vh;
+	background: transparent;
+}
+
+.shell-panel {
+	background: var(--panel-bg);
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-md);
+}
+
+.shell-label {
+	font-size: 11px;
+	line-height: 1.2;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--text-muted);
+}
+
+.shell-note-input {
+	width: 100%;
+	margin-top: var(--space-2);
+	padding: var(--space-3);
+	color: var(--text-primary);
+	background: #0d1419;
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	resize: vertical;
+}
+
+.shell-note-input:focus-visible,
+.shell-button:focus-visible,
+[role="tab"]:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
