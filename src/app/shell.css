@@ -213,7 +213,7 @@ textarea {
 .shell-review-switches {
 	display: flex;
 	gap: var(--space-2);
-	margin-bottom: var(--space-3);
+	margin-left: auto;
 }
 
 .shell-viewer-panel {
@@ -284,4 +284,72 @@ textarea {
 	background: #0f171d;
 	border: 1px solid var(--panel-border);
 	border-radius: var(--radius-sm);
+}
+
+.shell-review-tabs {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+	gap: var(--space-3);
+	min-height: 0;
+}
+
+.shell-review-tabs__header,
+.shell-review-tabs__list {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.shell-review-tab {
+	padding: 8px 12px;
+	color: var(--text-secondary);
+	background: transparent;
+	border: 1px solid transparent;
+	border-radius: 999px;
+}
+
+.shell-review-tab[data-state="active"] {
+	color: var(--text-primary);
+	background: #152128;
+	border-color: var(--panel-border);
+}
+
+.shell-rail {
+	padding: var(--space-2);
+}
+
+.shell-rail__viewport {
+	max-height: 360px;
+}
+
+.shell-scrollbar {
+	width: 10px;
+	background: transparent;
+}
+
+.shell-list {
+	display: grid;
+	gap: 6px;
+}
+
+.shell-list__item {
+	width: 100%;
+	padding: 10px 12px;
+	text-align: left;
+	color: var(--text-primary);
+	background: #0f171d;
+	border: 1px solid transparent;
+	border-radius: var(--radius-sm);
+}
+
+.shell-list__item[data-selected="true"] {
+	background: var(--panel-bg-elevated);
+	border-color: var(--panel-border-strong);
+}
+
+.shell-list__item--split {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: var(--space-3);
 }

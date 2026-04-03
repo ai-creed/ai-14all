@@ -33,38 +33,24 @@ export function FileList({
 	}, [worktreePath]);
 
 	if (loading)
-		return <p style={{ color: "#888", fontSize: "0.85em" }}>Loading files…</p>;
+		return <p className="shell-empty-state">Loading files…</p>;
 	if (error)
-		return <p style={{ color: "red", fontSize: "0.85em" }}>Error: {error}</p>;
+		return <p className="shell-error">Error: {error}</p>;
 	if (fileList.length === 0)
-		return <p style={{ color: "#888", fontSize: "0.85em" }}>No files found.</p>;
+		return <p className="shell-empty-state">No files found.</p>;
 
 	return (
-		<div
-			style={{
-				overflowY: "auto",
-				maxHeight: 300,
-				border: "1px solid #ccc",
-				borderRadius: 4,
-				fontFamily: "monospace",
-				fontSize: "0.8em",
-			}}
-		>
+		<div className="shell-list">
 			{fileList.map((relativePath) => (
-				<div
+				<button
 					key={relativePath}
+					type="button"
+					className="shell-list__item"
+					data-selected={String(selectedFile === relativePath)}
 					onClick={() => onSelect(relativePath)}
-					style={{
-						padding: "4px 8px",
-						cursor: "pointer",
-						backgroundColor:
-							selectedFile === relativePath ? "#0055cc" : "transparent",
-						color: selectedFile === relativePath ? "#fff" : "inherit",
-						userSelect: "none",
-					}}
 				>
 					{relativePath}
-				</div>
+				</button>
 			))}
 		</div>
 	);

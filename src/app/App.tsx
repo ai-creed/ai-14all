@@ -1,4 +1,6 @@
 import { useEffect, useReducer, useState } from "react";
+import * as ScrollArea from "@radix-ui/react-scroll-area";
+import * as Tabs from "@radix-ui/react-tabs";
 import type { Repository } from "../../shared/models/repository";
 import type { Worktree } from "../../shared/models/worktree";
 import type { GitChange } from "../../shared/models/git-change";
@@ -210,12 +212,18 @@ export function App() {
 					)}
 
 					{activeWorktree && (
-						<div className="shell-review-grid">
-							<section className="shell-panel shell-review-rail">
-								<div className="shell-review-switches">
-									<button
-										type="button"
-										className="shell-button"
+						<Tabs.Root
+							value={activeSession?.reviewMode ?? "files"}
+							className="shell-review-tabs"
+						>
+							<div className="shell-review-tabs__header">
+								<Tabs.List
+									aria-label="Review mode"
+									className="shell-review-tabs__list"
+								>
+									<Tabs.Trigger
+										value="files"
+										className="shell-review-tab"
 										onClick={() =>
 											dispatch({
 												type: "session/setReviewMode",
@@ -225,10 +233,10 @@ export function App() {
 										}
 									>
 										Files
-									</button>
-									<button
-										type="button"
-										className="shell-button"
+									</Tabs.Trigger>
+									<Tabs.Trigger
+										value="changes"
+										className="shell-review-tab"
 										onClick={() =>
 											dispatch({
 												type: "session/setReviewMode",
@@ -238,7 +246,10 @@ export function App() {
 										}
 									>
 										Changes
-									</button>
+									</Tabs.Trigger>
+								</Tabs.List>
+
+								<div className="shell-review-switches">
 									{activeSession?.reviewMode === "changes" && (
 										<button
 											type="button"
@@ -249,49 +260,59 @@ export function App() {
 										</button>
 									)}
 								</div>
+							</div>
 
-								{activeSession?.reviewMode === "files" ? (
-									<FileList
-										worktreePath={activeWorktree.path}
-										selectedFile={activeSession.selectedFilePath}
-										onSelect={(relativePath) =>
-											dispatch({
-												type: "session/selectFile",
-												worktreeId: activeWorktree.id,
-												relativePath,
-											})
-										}
+							<div className="shell-review-grid">
+								<ScrollArea.Root className="shell-panel shell-rail">
+									<ScrollArea.Viewport className="shell-rail__viewport">
+										{activeSession?.reviewMode === "files" ? (
+											<FileList
+												worktreePath={activeWorktree.path}
+												selectedFile={activeSession.selectedFilePath}
+												onSelect={(relativePath) =>
+													dispatch({
+														type: "session/selectFile",
+														worktreeId: activeWorktree.id,
+														relativePath,
+													})
+												}
+											/>
+										) : (
+											<ChangesList
+												changes={changes}
+												selectedPath={
+													activeSession?.selectedChangedFilePath ?? null
+												}
+												onSelect={handleSelectChangedFile}
+											/>
+										)}
+									</ScrollArea.Viewport>
+									<ScrollArea.Scrollbar
+										orientation="vertical"
+										className="shell-scrollbar"
 									/>
-								) : (
-									<ChangesList
-										changes={changes}
-										selectedPath={
-											activeSession?.selectedChangedFilePath ?? null
-										}
-										onSelect={handleSelectChangedFile}
-									/>
-								)}
-							</section>
+								</ScrollArea.Root>
 
-							<section className="shell-panel shell-viewer-panel">
-								{activeSession?.reviewMode === "files" &&
-								activeSession.selectedFilePath ? (
-									<FileViewer
-										worktreePath={activeWorktree.path}
-										relativePath={activeSession.selectedFilePath}
-									/>
-								) : activeSession?.reviewMode === "changes" && activeDiff ? (
-									<DiffViewer
-										path={activeDiff.path}
-										content={activeDiff.content}
-									/>
-								) : (
-									<p className="shell-empty-state">
-										Select a file or changed file to inspect it.
-									</p>
-								)}
-							</section>
-						</div>
+								<section className="shell-panel shell-viewer-panel">
+									{activeSession?.reviewMode === "files" &&
+									activeSession.selectedFilePath ? (
+										<FileViewer
+											worktreePath={activeWorktree.path}
+											relativePath={activeSession.selectedFilePath}
+										/>
+									) : activeSession?.reviewMode === "changes" && activeDiff ? (
+										<DiffViewer
+											path={activeDiff.path}
+											content={activeDiff.content}
+										/>
+									) : (
+										<p className="shell-empty-state">
+											Select a file or changed file to inspect it.
+										</p>
+									)}
+								</section>
+							</div>
+						</Tabs.Root>
 					)}
 				</section>
 

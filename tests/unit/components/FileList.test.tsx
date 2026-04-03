@@ -26,8 +26,10 @@ describe("FileList", () => {
 		);
 
 		// Wait for async fetch to resolve
-		expect(await screen.findByText("src/index.ts")).toBeInTheDocument();
-		expect(screen.getByText("README.md")).toBeInTheDocument();
+		expect(
+			await screen.findByRole("button", { name: "src/index.ts" }),
+		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "README.md" })).toBeInTheDocument();
 	});
 
 	it("highlights the selected file", async () => {
@@ -42,9 +44,10 @@ describe("FileList", () => {
 		);
 
 		// Wait for file list to render
-		const selectedItem = await screen.findByText("src/index.ts");
-		expect(selectedItem.style.backgroundColor).toBe("rgb(0, 85, 204)");
-		expect(selectedItem.style.color).toBe("rgb(255, 255, 255)");
+		const selectedItem = await screen.findByRole("button", {
+			name: "src/index.ts",
+		});
+		expect(selectedItem).toHaveAttribute("data-selected", "true");
 	});
 
 	it("calls onSelect when a file is clicked", async () => {
@@ -55,7 +58,7 @@ describe("FileList", () => {
 			<FileList worktreePath="/repo" selectedFile={null} onSelect={onSelect} />,
 		);
 
-		const fileItem = await screen.findByText("README.md");
+		const fileItem = await screen.findByRole("button", { name: "README.md" });
 		fireEvent.click(fileItem);
 		expect(onSelect).toHaveBeenCalledWith("README.md");
 	});

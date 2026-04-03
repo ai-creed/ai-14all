@@ -26,39 +26,51 @@ test.afterAll(async () => {
 });
 
 test.describe.serial("Cumulative flow — Phase 2", () => {
+	const worktreeNav = () =>
+		page.getByRole("navigation", { name: "Worktree sessions" });
+
 	test("loads the repository and shows the session shell", async () => {
 		await page.locator("#repo-path").fill(testRepo.repoPath);
 		await page.getByRole("button", { name: "Load" }).click();
 
-		await expect(page.getByRole("button", { name: /main/i })).toBeVisible({
+		await expect(
+			worktreeNav().getByRole("button", { name: /^main(?:\s+main)?$/i }),
+		).toBeVisible({
 			timeout: 10_000,
 		});
 		await expect(page.getByText("Active branch")).toBeVisible();
 	});
 
 	test("opens multiple terminal tabs for the selected worktree", async () => {
-		await page.getByRole("button", { name: /main/i }).click();
+		await worktreeNav()
+			.getByRole("button", { name: /^main(?:\s+main)?$/i })
+			.click();
 		await page.getByRole("button", { name: "New terminal" }).click();
 		await page.getByRole("button", { name: "New terminal" }).click();
 
 		await expect(
-			page.getByRole("button", {
+			page.getByRole("tab", {
 				name: /^shell 1(?: \((?:error|exited)\))?$/i,
 			}),
 		).toBeVisible();
 		await expect(
-			page.getByRole("button", {
+			page.getByRole("tab", {
 				name: /^shell 2(?: \((?:error|exited)\))?$/i,
 			}),
 		).toBeVisible();
+		await page.getByRole("tab", { name: /^shell 2/i }).click();
 		await expect(page.locator(".xterm")).toHaveCount(2, { timeout: 10_000 });
 	});
 
 	test("switches worktrees and restores the per-session note", async () => {
 		await page.getByLabel("Session note").fill("Main session note");
-		await page.getByRole("button", { name: /feature-a/i }).click();
+		await worktreeNav()
+			.getByRole("button", { name: /feature-a/i })
+			.click();
 		await page.getByLabel("Session note").fill("Feature note");
-		await page.getByRole("button", { name: /main/i }).click();
+		await worktreeNav()
+			.getByRole("button", { name: /^main(?:\s+main)?$/i })
+			.click();
 
 		await expect(page.getByLabel("Session note")).toHaveValue(
 			"Main session note",
@@ -66,8 +78,10 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 	});
 
 	test("shows changed files and opens a unified diff", async () => {
-		await page.getByRole("button", { name: /feature-a/i }).click();
-		await page.getByRole("button", { name: "Changes" }).click();
+		await worktreeNav()
+			.getByRole("button", { name: /feature-a/i })
+			.click();
+		await page.getByRole("tab", { name: "Changes" }).click();
 
 		const changedFileButton = page.getByRole("button", {
 			name: /src\/index\.ts/,

@@ -15,8 +15,13 @@ describe("ChangesList", () => {
 			/>,
 		);
 
-		expect(screen.getByText("src/index.ts")).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /src\/index\.ts/i }),
+		).toBeInTheDocument();
 		expect(screen.getByText("??")).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /src\/new-file\.ts/i }),
+		).toHaveAttribute("data-selected", "true");
 	});
 
 	it("calls onSelect when a file is clicked", () => {
@@ -29,7 +34,7 @@ describe("ChangesList", () => {
 			/>,
 		);
 
-		fireEvent.click(screen.getByText("src/index.ts"));
+		fireEvent.click(screen.getByRole("button", { name: /src\/index\.ts/i }));
 		expect(onSelect).toHaveBeenCalledWith("src/index.ts");
 	});
 });

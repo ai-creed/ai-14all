@@ -8,31 +8,18 @@ type Props = {
 
 export function ChangesList({ changes, selectedPath, onSelect }: Props) {
 	if (changes.length === 0) {
-		return <p style={{ color: "#57606a" }}>No changed files.</p>;
+		return <p className="shell-empty-state">No changed files.</p>;
 	}
 
 	return (
-		<div
-			style={{
-				border: "1px solid #d0d7de",
-				borderRadius: 8,
-				overflow: "hidden",
-			}}
-		>
+		<div className="shell-list">
 			{changes.map((change) => (
 				<button
 					key={change.path}
 					type="button"
+					className="shell-list__item shell-list__item--split"
+					data-selected={String(selectedPath === change.path)}
 					onClick={() => onSelect(change.path)}
-					style={{
-						display: "flex",
-						width: "100%",
-						justifyContent: "space-between",
-						padding: "8px 10px",
-						background: selectedPath === change.path ? "#eaf2ff" : "#fff",
-						border: 0,
-						borderBottom: "1px solid #d0d7de",
-					}}
 				>
 					<span>{change.path}</span>
 					<strong>{change.status}</strong>

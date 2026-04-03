@@ -62,11 +62,11 @@ async function loadRepoAndSwitchToChanges() {
 
 	// Wait for the workspace to appear
 	await waitFor(() => {
-		expect(screen.getByText("Files")).toBeInTheDocument();
+		expect(screen.getByRole("tab", { name: "Files" })).toBeInTheDocument();
 	});
 
 	// Switch to "changes" review mode
-	fireEvent.click(screen.getByRole("button", { name: "Changes" }));
+	fireEvent.click(screen.getByRole("tab", { name: "Changes" }));
 }
 
 describe("App — refresh changes button", () => {
@@ -86,7 +86,7 @@ describe("App — refresh changes button", () => {
 		await loadRepoAndSwitchToChanges();
 
 		// Switch back to files
-		fireEvent.click(screen.getByRole("button", { name: "Files" }));
+		fireEvent.click(screen.getByRole("tab", { name: "Files" }));
 
 		expect(
 			screen.queryByRole("button", { name: "Refresh" }),
