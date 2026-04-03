@@ -7,3 +7,4 @@ dist/
 .claude/
 test-results/
 playwright-report/
+docs/superpowers/
