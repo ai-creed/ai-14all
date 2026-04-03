@@ -1,0 +1,7 @@
+out
+dist
+test-results
+node_modules
+.worktrees
+docs
+pnpm-lock.yaml
