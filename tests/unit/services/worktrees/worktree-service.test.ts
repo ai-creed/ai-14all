@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execSync } from "node:child_process";
-import { WorktreeService } from "../../../services/worktrees/worktree-service.js";
+import { WorktreeService } from "../../../../services/worktrees/worktree-service.js";
 
 describe("WorktreeService", () => {
   let service: WorktreeService;

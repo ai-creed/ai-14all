@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-import { parseWorktreePorcelain } from "../../../services/worktrees/parse-worktree-porcelain.js";
+import { parseWorktreePorcelain } from "../../../../services/worktrees/parse-worktree-porcelain.js";
 
 describe("parseWorktreePorcelain", () => {
   it("parses main and linked worktrees", () => {
