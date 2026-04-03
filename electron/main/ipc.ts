@@ -10,18 +10,49 @@ import {
   ReadFileSchema,
 } from "../../shared/contracts/commands.js";
 import { WorktreeService } from "../../services/worktrees/worktree-service.js";
+import { TerminalService } from "../../services/terminals/terminal-service.js";
+import type { TerminalEventHandlers } from "../../services/terminals/terminal-service.js";
 import type { Repository } from "../../shared/models/repository.js";
+import type {
+  TerminalOutputEvent,
+  TerminalExitEvent,
+  TerminalStateEvent,
+  TerminalErrorEvent,
+} from "../../shared/contracts/events.js";
 
 // ---------------------------------------------------------------------------
 // registerIpcHandlers
 //
 // Registers ipcMain.handle entries for every command exposed via the preload
-// bridge. Implementations are stubs until the real services land in Tasks 5
-// and 7.
+// bridge. Terminal commands delegate to the PTY-backed TerminalService.
+// File commands remain stubs until Task 7.
 // ---------------------------------------------------------------------------
-export function registerIpcHandlers(_mainWindow: BrowserWindow): void {
+export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   const worktreeService = new WorktreeService();
   let currentRepository: Repository | null = null;
+
+  // --- Terminal service with event fan-out to renderer ---
+
+  const terminalEventHandlers: TerminalEventHandlers = {
+    onOutput(sessionId, data) {
+      const payload: TerminalOutputEvent = { sessionId, data };
+      mainWindow.webContents.send("terminal/output", payload);
+    },
+    onExit(sessionId, exitCode) {
+      const payload: TerminalExitEvent = { sessionId, exitCode };
+      mainWindow.webContents.send("terminal/exit", payload);
+    },
+    onState(sessionId, status) {
+      const payload: TerminalStateEvent = { sessionId, status };
+      mainWindow.webContents.send("terminal/state", payload);
+    },
+    onError(sessionId, message) {
+      const payload: TerminalErrorEvent = { sessionId, message };
+      mainWindow.webContents.send("terminal/error", payload);
+    },
+  };
+
+  const terminalService = new TerminalService(terminalEventHandlers);
 
   // --- Repository ---
 
@@ -43,34 +74,22 @@ export function registerIpcHandlers(_mainWindow: BrowserWindow): void {
 
   ipcMain.handle("terminals:create", (_event, raw: unknown) => {
     const { worktreeId, cwd } = CreateTerminalSessionSchema.parse(raw);
-    // TODO (Task 5): delegate to TerminalService
-    throw new Error(
-      `terminals:create not yet implemented (worktreeId=${worktreeId}, cwd=${cwd})`,
-    );
+    return terminalService.create(worktreeId, cwd);
   });
 
   ipcMain.handle("terminals:sendInput", (_event, raw: unknown) => {
     const { sessionId, data } = SendTerminalInputSchema.parse(raw);
-    // TODO (Task 5): delegate to TerminalService
-    throw new Error(
-      `terminals:sendInput not yet implemented (sessionId=${sessionId}, data=${data})`,
-    );
+    terminalService.sendInput(sessionId, data);
   });
 
   ipcMain.handle("terminals:resize", (_event, raw: unknown) => {
     const { sessionId, cols, rows } = ResizeTerminalSessionSchema.parse(raw);
-    // TODO (Task 5): delegate to TerminalService
-    throw new Error(
-      `terminals:resize not yet implemented (sessionId=${sessionId}, cols=${cols}, rows=${rows})`,
-    );
+    terminalService.resize(sessionId, cols, rows);
   });
 
   ipcMain.handle("terminals:stop", (_event, raw: unknown) => {
     const { sessionId } = StopTerminalSessionSchema.parse(raw);
-    // TODO (Task 5): delegate to TerminalService
-    throw new Error(
-      `terminals:stop not yet implemented (sessionId=${sessionId})`,
-    );
+    terminalService.stop(sessionId);
   });
 
   // --- Files ---
