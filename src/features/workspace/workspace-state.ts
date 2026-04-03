@@ -226,8 +226,16 @@ export function workspaceReducer(
 			...state.processSessionsById,
 			[action.process.id]: action.process,
 		};
+		const nextAdHocNumber =
+			action.process.origin === "adHoc"
+				? (state.nextAdHocNumberByWorktreeId[action.worktreeId] ?? 1) + 1
+				: (state.nextAdHocNumberByWorktreeId[action.worktreeId] ?? 1);
 		return {
 			...state,
+			nextAdHocNumberByWorktreeId: {
+				...state.nextAdHocNumberByWorktreeId,
+				[action.worktreeId]: nextAdHocNumber,
+			},
 			processSessionsById: nextProcessSessionsById,
 			sessionsByWorktreeId: {
 				...state.sessionsByWorktreeId,
@@ -330,8 +338,11 @@ export function workspaceReducer(
 			session.activeProcessSessionId === action.processId
 				? (nextProcessIds[0] ?? null)
 				: session.activeProcessSessionId;
-		const { [action.processId]: _, ...nextProcessSessionsById } =
-			state.processSessionsById;
+		const nextProcessSessionsById = Object.fromEntries(
+			Object.entries(state.processSessionsById).filter(
+				([id]) => id !== action.processId,
+			),
+		);
 		const nextSession: WorktreeSession = {
 			...session,
 			processSessionIds: nextProcessIds,

@@ -1,34 +1,47 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import * as Tooltip from "@radix-ui/react-tooltip";
-import type { TerminalTab } from "../../../shared/models/worktree-session";
-import type { TerminalSession } from "../../../shared/models/terminal-session";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import type { ProcessSession, ProcessStatus } from "../../../shared/models/process-session";
+import type { CommandPreset } from "../../../shared/models/command-preset";
+
+type ProcessTabView = Pick<
+	ProcessSession,
+	"id" | "label" | "status" | "pinned" | "attentionState"
+>;
 
 type Props = {
-	tabs: TerminalTab[];
-	activeSessionId: string | null;
-	sessionStatuses?: Record<string, TerminalSession["status"]>;
-	onSelect: (sessionId: string) => void;
-	onAdd: () => void;
-	onClose: (sessionId: string) => void;
+	processes: ProcessTabView[];
+	activeProcessId: string | null;
+	presets: CommandPreset[];
+	onSelect: (processId: string) => void;
+	onAddAdHoc: () => void;
+	onLaunchPreset: (presetId: string) => void;
+	onOpenPresetManager: () => void;
+	onClose: (processId: string) => void;
+	onStop: (processId: string) => void;
+	onRestart: (processId: string) => void;
+	onTogglePinned: (processId: string) => void;
 };
 
-const statusSuffix: Partial<Record<TerminalSession["status"], string>> = {
+const statusSuffix: Partial<Record<ProcessStatus, string>> = {
 	exited: " (exited)",
 	error: " (error)",
 };
 
 export function TerminalTabs({
-	tabs,
-	activeSessionId,
-	sessionStatuses,
+	processes,
+	activeProcessId,
+	presets,
 	onSelect,
-	onAdd,
+	onAddAdHoc,
+	onLaunchPreset,
+	onOpenPresetManager,
 	onClose,
 }: Props) {
 	return (
 		<Tooltip.Provider delayDuration={150}>
 			<Tabs.Root
-				value={activeSessionId ?? undefined}
+				value={activeProcessId ?? undefined}
 				onValueChange={onSelect}
 				className="shell-panel shell-terminal-tabs"
 			>
@@ -37,18 +50,19 @@ export function TerminalTabs({
 						aria-label="Terminal sessions"
 						className="shell-terminal-tabs__list"
 					>
-						{tabs.map((tab) => {
-							const status = sessionStatuses?.[tab.sessionId] ?? "running";
-							const suffix = statusSuffix[status] ?? "";
+						{processes.map((process) => {
+							const suffix = statusSuffix[process.status] ?? "";
 							return (
-								<div key={tab.sessionId} className="shell-terminal-tabs__item">
+								<div key={process.id} className="shell-terminal-tabs__item">
 									<Tabs.Trigger
-										value={tab.sessionId}
+										value={process.id}
 										className="shell-terminal-tab"
-										data-status={status}
-										onClick={() => onSelect(tab.sessionId)}
+										data-status={process.status}
+										data-attention={process.attentionState}
+										data-pinned={String(process.pinned)}
+										onClick={() => onSelect(process.id)}
 									>
-										{tab.label}
+										{process.label}
 										{suffix}
 									</Tabs.Trigger>
 									<Tooltip.Root>
@@ -56,8 +70,8 @@ export function TerminalTabs({
 											<button
 												type="button"
 												className="shell-terminal-tab__close"
-												aria-label={`Close ${tab.label}`}
-												onClick={() => onClose(tab.sessionId)}
+												aria-label={`Close ${process.label}`}
+												onClick={() => onClose(process.id)}
 											>
 												×
 											</button>
@@ -76,10 +90,41 @@ export function TerminalTabs({
 					<button
 						type="button"
 						className="shell-button"
-						onClick={onAdd}
-						aria-label="New terminal"
+						onClick={onAddAdHoc}
+						aria-label="+ Shell"
 					>
-						+ Terminal
+						+ Shell
+					</button>
+
+					{presets.length > 0 && (
+						<DropdownMenu.Root>
+							<DropdownMenu.Trigger asChild>
+								<button type="button" className="shell-button">
+									Launch preset
+								</button>
+							</DropdownMenu.Trigger>
+							<DropdownMenu.Portal>
+								<DropdownMenu.Content className="shell-toolbar-menu">
+									{presets.map((preset) => (
+										<DropdownMenu.Item
+											key={preset.id}
+											className="shell-toolbar-menu__item"
+											onSelect={() => onLaunchPreset(preset.id)}
+										>
+											{preset.label}
+										</DropdownMenu.Item>
+									))}
+								</DropdownMenu.Content>
+							</DropdownMenu.Portal>
+						</DropdownMenu.Root>
+					)}
+
+					<button
+						type="button"
+						className="shell-button"
+						onClick={onOpenPresetManager}
+					>
+						Manage presets
 					</button>
 				</div>
 			</Tabs.Root>

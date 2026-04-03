@@ -5,6 +5,7 @@ import type { Repository } from "../../shared/models/repository";
 import type { Worktree } from "../../shared/models/worktree";
 import type { GitChange } from "../../shared/models/git-change";
 import type { GitDiff } from "../../shared/models/git-diff";
+import type { ProcessSession } from "../../shared/models/process-session";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { SessionSidebar } from "../features/workspace/SessionSidebar";
 import { SessionHeader } from "../features/workspace/SessionHeader";
@@ -107,43 +108,64 @@ export function App() {
 		});
 	}
 
-	async function handleAddTerminal() {
+	async function handleAddAdHoc() {
 		if (!activeWorktree) return;
 		try {
-			const session = await createSession(
+			const termSession = await createSession(
 				activeWorktree.id,
 				activeWorktree.path,
 			);
-			dispatch({
-				type: "session/registerTerminal",
+			const adHocNumber =
+				workspaceState.nextAdHocNumberByWorktreeId[activeWorktree.id] ?? 1;
+			const process: ProcessSession = {
+				id: crypto.randomUUID(),
 				worktreeId: activeWorktree.id,
-				terminalSessionId: session.id,
+				terminalSessionId: termSession.id,
+				origin: "adHoc",
+				presetId: null,
+				label: `shell ${adHocNumber}`,
+				command: null,
+				status: "running",
+				lastActivityAt: null,
+				exitCode: null,
+				pinned: false,
+				attentionState: "idle",
+			};
+			dispatch({
+				type: "session/registerProcess",
+				worktreeId: activeWorktree.id,
+				process,
 			});
 		} catch (err) {
 			console.error("Failed to create terminal session:", err);
 		}
 	}
 
-	async function handleCloseTerminal(sessionId: string) {
+	async function handleCloseProcess(processId: string) {
 		if (!activeWorktree) return;
-		const session = sessions.find((entry) => entry.id === sessionId);
-		try {
-			if (
-				session &&
-				(session.status === "running" || session.status === "idle")
-			) {
-				await stopSession(sessionId);
+		const process = workspaceState.processSessionsById[processId];
+		if (!process) return;
+		const terminalId = process.terminalSessionId;
+		if (terminalId) {
+			const session = sessions.find((entry) => entry.id === terminalId);
+			try {
+				if (
+					session &&
+					(session.status === "running" || session.status === "idle")
+				) {
+					await stopSession(terminalId);
+				}
+			} catch (err) {
+				console.error("Failed to stop terminal session:", err);
+			} finally {
+				removeSession(terminalId);
 			}
-		} catch (err) {
-			console.error("Failed to stop terminal session:", err);
-		} finally {
-			removeSession(sessionId);
-			dispatch({
-				type: "session/closeTerminal",
-				worktreeId: activeWorktree.id,
-				terminalSessionId: sessionId,
-			});
 		}
+		dispatch({
+			type: "session/closeProcess",
+			worktreeId: activeWorktree.id,
+			processId,
+		});
 	}
 
 	if (!repository) {
@@ -182,32 +204,54 @@ export function App() {
 					{workspaceState.selectedWorktreeId && (
 						<div className="shell-terminal-section">
 							<TerminalTabs
-								tabs={activeSession?.terminalTabs ?? []}
-								activeSessionId={activeSession?.activeTerminalSessionId ?? null}
-								sessionStatuses={Object.fromEntries(
-									sessions.map((s) => [s.id, s.status]),
-								)}
-								onAdd={handleAddTerminal}
-								onSelect={(terminalSessionId) =>
+								processes={(activeSession?.processSessionIds ?? [])
+									.map((id) => workspaceState.processSessionsById[id])
+									.filter(Boolean)
+									.map((p) => ({
+										id: p.id,
+										label: p.label,
+										status: p.status,
+										pinned: p.pinned,
+										attentionState: p.attentionState,
+									}))}
+								activeProcessId={activeSession?.activeProcessSessionId ?? null}
+								presets={workspaceState.commandPresets}
+								onAddAdHoc={handleAddAdHoc}
+								onSelect={(processId) =>
 									dispatch({
-										type: "session/selectTerminal",
+										type: "session/selectProcess",
 										worktreeId: activeWorktree!.id,
-										terminalSessionId,
+										processId,
 									})
 								}
-								onClose={handleCloseTerminal}
+								onLaunchPreset={() => {}}
+								onOpenPresetManager={() => {}}
+								onClose={handleCloseProcess}
+								onStop={() => {}}
+								onRestart={() => {}}
+								onTogglePinned={(processId) =>
+									dispatch({
+										type: "session/toggleProcessPinned",
+										processId,
+									})
+								}
 							/>
 
-							{sessions.map((session) => (
-								<TerminalPane
-									key={session.id}
-									session={session}
-									visible={
-										session.worktreeId === activeWorktree?.id &&
-										session.id === activeSession?.activeTerminalSessionId
-									}
-								/>
-							))}
+							{sessions.map((session) => {
+								const activeProcess = activeSession?.activeProcessSessionId
+									? workspaceState.processSessionsById[activeSession.activeProcessSessionId]
+									: null;
+								return (
+									<TerminalPane
+										key={session.id}
+										session={session}
+										visible={
+											session.worktreeId === activeWorktree?.id &&
+											session.id === activeProcess?.terminalSessionId
+										}
+									/>
+								);
+							})}
 						</div>
 					)}
 
