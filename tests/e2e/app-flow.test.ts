@@ -18,8 +18,11 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await app.close();
-  testRepo.cleanup();
+  try {
+    if (app) await app.close();
+  } finally {
+    testRepo?.cleanup();
+  }
 });
 
 test.describe.serial("Phase 2 session-first workflow", () => {
