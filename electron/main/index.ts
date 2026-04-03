@@ -4,7 +4,8 @@ import { registerIpcHandlers } from "./ipc.js";
 
 app.whenReady().then(() => {
   const mainWindow = createMainWindow();
-  registerIpcHandlers(mainWindow);
+  const { dispose } = registerIpcHandlers(mainWindow);
+  app.on("will-quit", () => dispose());
 });
 
 app.on("window-all-closed", () => {

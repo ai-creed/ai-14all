@@ -27,7 +27,7 @@ import type {
 // bridge. Terminal commands delegate to the PTY-backed TerminalService.
 // File commands remain stubs until Task 7.
 // ---------------------------------------------------------------------------
-export function registerIpcHandlers(mainWindow: BrowserWindow): void {
+export function registerIpcHandlers(mainWindow: BrowserWindow): { dispose: () => void } {
   const worktreeService = new WorktreeService();
   let currentRepository: Repository | null = null;
 
@@ -109,4 +109,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       `files:read not yet implemented (worktreePath=${worktreePath}, relativePath=${relativePath})`,
     );
   });
+
+  return { dispose: () => terminalService.dispose() };
 }

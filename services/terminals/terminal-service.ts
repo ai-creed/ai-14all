@@ -87,10 +87,9 @@ export class TerminalService {
     // Handle PTY exit
     p.onExit(({ exitCode, signal }) => {
       const session = this.sessions.get(id);
-      if (session) {
-        session.meta.status = "exited";
-        session.meta.exitCode = exitCode;
-      }
+      if (!session) return; // Already cleaned up (e.g. dispose() was called)
+      session.meta.status = "exited";
+      session.meta.exitCode = exitCode;
       this.handlers.onState(id, "exited");
       this.handlers.onExit(id, exitCode, signal);
       this.sessions.delete(id);
@@ -129,22 +128,21 @@ export class TerminalService {
     if (!session) {
       throw new Error(`Terminal session not found: ${sessionId}`);
     }
-    session.meta.status = "exited";
     session.pty.kill();
-    this.sessions.delete(sessionId);
+    // Let the onExit handler handle state update, event emission, and cleanup
   }
 
   // -----------------------------------------------------------------------
   // dispose — tear down all sessions (for app quit)
   // -----------------------------------------------------------------------
   dispose(): void {
-    for (const [sessionId, session] of this.sessions) {
+    for (const session of this.sessions.values()) {
       try {
         session.pty.kill();
       } catch {
         // Best-effort cleanup; ignore errors on shutdown
       }
-      this.sessions.delete(sessionId);
     }
+    this.sessions.clear();
   }
 }
