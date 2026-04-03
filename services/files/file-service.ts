@@ -6,75 +6,81 @@ const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "out"]);
 const MAX_FILES = 200;
 
 function detectLanguage(filePath: string): string {
-  const ext = extname(filePath).toLowerCase();
-  switch (ext) {
-    case ".ts":
-    case ".tsx":
-      return "typescript";
-    case ".js":
-    case ".jsx":
-      return "javascript";
-    case ".json":
-      return "json";
-    case ".md":
-      return "markdown";
-    case ".css":
-      return "css";
-    case ".html":
-      return "html";
-    default:
-      return "plaintext";
-  }
+	const ext = extname(filePath).toLowerCase();
+	switch (ext) {
+		case ".ts":
+		case ".tsx":
+			return "typescript";
+		case ".js":
+		case ".jsx":
+			return "javascript";
+		case ".json":
+			return "json";
+		case ".md":
+			return "markdown";
+		case ".css":
+			return "css";
+		case ".html":
+			return "html";
+		default:
+			return "plaintext";
+	}
 }
 
 async function walkDir(
-  baseDir: string,
-  relDir: string,
-  results: string[]
+	baseDir: string,
+	relDir: string,
+	results: string[],
 ): Promise<void> {
-  if (results.length >= MAX_FILES) return;
+	if (results.length >= MAX_FILES) return;
 
-  const entries = await readdir(join(baseDir, relDir), { withFileTypes: true });
+	const entries = await readdir(join(baseDir, relDir), { withFileTypes: true });
 
-  for (const entry of entries) {
-    if (results.length >= MAX_FILES) break;
+	for (const entry of entries) {
+		if (results.length >= MAX_FILES) break;
 
-    const relPath = relDir ? `${relDir}/${entry.name}` : entry.name;
+		const relPath = relDir ? `${relDir}/${entry.name}` : entry.name;
 
-    if (entry.isDirectory()) {
-      if (!SKIP_DIRS.has(entry.name)) {
-        await walkDir(baseDir, relPath, results);
-      }
-    } else if (entry.isFile()) {
-      results.push(relPath);
-    }
-  }
+		if (entry.isDirectory()) {
+			if (!SKIP_DIRS.has(entry.name)) {
+				await walkDir(baseDir, relPath, results);
+			}
+		} else if (entry.isFile()) {
+			results.push(relPath);
+		}
+	}
 }
 
 export class FileService {
-  async listFiles(worktreePath: string): Promise<string[]> {
-    const results: string[] = [];
-    await walkDir(worktreePath, "", results);
-    return results;
-  }
+	async listFiles(worktreePath: string): Promise<string[]> {
+		const results: string[] = [];
+		await walkDir(worktreePath, "", results);
+		return results;
+	}
 
-  async readFile(worktreePath: string, relativePath: string): Promise<FileView> {
-    // Reject path escapes outside the worktree
-    const absolutePath = resolve(worktreePath, relativePath);
-    const normalizedWorktree = resolve(worktreePath);
-    if (!absolutePath.startsWith(normalizedWorktree + "/") && absolutePath !== normalizedWorktree) {
-      throw new Error(`Path escapes worktree: ${relativePath}`);
-    }
+	async readFile(
+		worktreePath: string,
+		relativePath: string,
+	): Promise<FileView> {
+		// Reject path escapes outside the worktree
+		const absolutePath = resolve(worktreePath, relativePath);
+		const normalizedWorktree = resolve(worktreePath);
+		if (
+			!absolutePath.startsWith(normalizedWorktree + "/") &&
+			absolutePath !== normalizedWorktree
+		) {
+			throw new Error(`Path escapes worktree: ${relativePath}`);
+		}
 
-    // Reject directories
-    const fileStat = await stat(absolutePath);
-    if (fileStat.isDirectory()) {
-      throw new Error(`Path is a directory: ${relativePath}`);
-    }
+		// Reject directories
+		const fileStat = await stat(absolutePath);
+		if (fileStat.isDirectory()) {
+			throw new Error(`Path is a directory: ${relativePath}`);
+		}
 
-    const content = await fsReadFile(absolutePath, "utf-8");
-    const language = detectLanguage(relativePath);
+		const content = await fsReadFile(absolutePath, "utf-8");
+		const language = detectLanguage(relativePath);
 
-    return { path: relativePath, content, language };
-  }
+		return { path: relativePath, content, language };
+	}
 }

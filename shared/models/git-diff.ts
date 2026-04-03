@@ -1,4 +1,4 @@
 export type GitDiff = {
-  path: string;
-  content: string;
+	path: string;
+	content: string;
 };

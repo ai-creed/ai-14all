@@ -3,23 +3,23 @@ import { z } from "zod";
 // --- Zod schemas ---
 
 export const TerminalOutputEventSchema = z.object({
-  sessionId: z.string(),
-  data: z.string(),
+	sessionId: z.string(),
+	data: z.string(),
 });
 
 export const TerminalExitEventSchema = z.object({
-  sessionId: z.string(),
-  exitCode: z.number().nullable(),
+	sessionId: z.string(),
+	exitCode: z.number().nullable(),
 });
 
 export const TerminalStateEventSchema = z.object({
-  sessionId: z.string(),
-  status: z.enum(["idle", "running", "exited", "error"]),
+	sessionId: z.string(),
+	status: z.enum(["idle", "running", "exited", "error"]),
 });
 
 export const TerminalErrorEventSchema = z.object({
-  sessionId: z.string(),
-  message: z.string(),
+	sessionId: z.string(),
+	message: z.string(),
 });
 
 // --- Payload types ---

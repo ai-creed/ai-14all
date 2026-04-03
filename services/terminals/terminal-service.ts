@@ -8,15 +8,15 @@ import type { TerminalSession } from "../../shared/models/terminal-session.js";
 // ---------------------------------------------------------------------------
 
 export type TerminalEventHandlers = {
-  onOutput: (sessionId: string, data: string) => void;
-  onExit: (sessionId: string, exitCode: number, signal?: number) => void;
-  onState: (sessionId: string, status: TerminalSession["status"]) => void;
-  onError: (sessionId: string, message: string) => void;
+	onOutput: (sessionId: string, data: string) => void;
+	onExit: (sessionId: string, exitCode: number, signal?: number) => void;
+	onState: (sessionId: string, status: TerminalSession["status"]) => void;
+	onError: (sessionId: string, message: string) => void;
 };
 
 type ActiveTerminalSession = {
-  meta: TerminalSession;
-  pty: IPty;
+	meta: TerminalSession;
+	pty: IPty;
 };
 
 // ---------------------------------------------------------------------------
@@ -27,122 +27,122 @@ type ActiveTerminalSession = {
 // TerminalEventHandlers callbacks supplied at construction time.
 // ---------------------------------------------------------------------------
 export class TerminalService {
-  private readonly sessions = new Map<string, ActiveTerminalSession>();
-  private readonly handlers: TerminalEventHandlers;
+	private readonly sessions = new Map<string, ActiveTerminalSession>();
+	private readonly handlers: TerminalEventHandlers;
 
-  constructor(handlers: TerminalEventHandlers) {
-    this.handlers = handlers;
-  }
+	constructor(handlers: TerminalEventHandlers) {
+		this.handlers = handlers;
+	}
 
-  // -----------------------------------------------------------------------
-  // create
-  // -----------------------------------------------------------------------
-  create(worktreeId: string, cwd: string): TerminalSession {
-    const id = randomUUID();
+	// -----------------------------------------------------------------------
+	// create
+	// -----------------------------------------------------------------------
+	create(worktreeId: string, cwd: string): TerminalSession {
+		const id = randomUUID();
 
-    const shell = process.env.SHELL ?? "/bin/zsh";
+		const shell = process.env.SHELL ?? "/bin/zsh";
 
-    let p: IPty;
-    try {
-      p = pty.spawn(shell, [], {
-        name: "xterm-256color",
-        cols: 80,
-        rows: 24,
-        cwd,
-        env: process.env as Record<string, string>,
-      });
-    } catch (err: unknown) {
-      const meta: TerminalSession = {
-        id,
-        worktreeId,
-        cwd,
-        status: "error",
-        exitCode: null,
-      };
-      const message =
-        err instanceof Error ? err.message : "Failed to spawn PTY";
-      this.handlers.onState(id, "error");
-      this.handlers.onError(id, message);
-      return meta;
-    }
+		let p: IPty;
+		try {
+			p = pty.spawn(shell, [], {
+				name: "xterm-256color",
+				cols: 80,
+				rows: 24,
+				cwd,
+				env: process.env as Record<string, string>,
+			});
+		} catch (err: unknown) {
+			const meta: TerminalSession = {
+				id,
+				worktreeId,
+				cwd,
+				status: "error",
+				exitCode: null,
+			};
+			const message =
+				err instanceof Error ? err.message : "Failed to spawn PTY";
+			this.handlers.onState(id, "error");
+			this.handlers.onError(id, message);
+			return meta;
+		}
 
-    const meta: TerminalSession = {
-      id,
-      worktreeId,
-      cwd,
-      status: "running",
-      exitCode: null,
-    };
+		const meta: TerminalSession = {
+			id,
+			worktreeId,
+			cwd,
+			status: "running",
+			exitCode: null,
+		};
 
-    this.sessions.set(id, { meta, pty: p });
+		this.sessions.set(id, { meta, pty: p });
 
-    // Broadcast initial state
-    this.handlers.onState(id, "running");
+		// Broadcast initial state
+		this.handlers.onState(id, "running");
 
-    // Forward PTY output
-    p.onData((data: string) => {
-      this.handlers.onOutput(id, data);
-    });
+		// Forward PTY output
+		p.onData((data: string) => {
+			this.handlers.onOutput(id, data);
+		});
 
-    // Handle PTY exit
-    p.onExit(({ exitCode, signal }) => {
-      const session = this.sessions.get(id);
-      if (!session) return; // Already cleaned up (e.g. dispose() was called)
-      session.meta.status = "exited";
-      session.meta.exitCode = exitCode;
-      this.handlers.onState(id, "exited");
-      this.handlers.onExit(id, exitCode, signal);
-      this.sessions.delete(id);
-    });
+		// Handle PTY exit
+		p.onExit(({ exitCode, signal }) => {
+			const session = this.sessions.get(id);
+			if (!session) return; // Already cleaned up (e.g. dispose() was called)
+			session.meta.status = "exited";
+			session.meta.exitCode = exitCode;
+			this.handlers.onState(id, "exited");
+			this.handlers.onExit(id, exitCode, signal);
+			this.sessions.delete(id);
+		});
 
-    return meta;
-  }
+		return meta;
+	}
 
-  // -----------------------------------------------------------------------
-  // sendInput
-  // -----------------------------------------------------------------------
-  sendInput(sessionId: string, data: string): void {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
-      throw new Error(`Terminal session not found: ${sessionId}`);
-    }
-    session.pty.write(data);
-  }
+	// -----------------------------------------------------------------------
+	// sendInput
+	// -----------------------------------------------------------------------
+	sendInput(sessionId: string, data: string): void {
+		const session = this.sessions.get(sessionId);
+		if (!session) {
+			throw new Error(`Terminal session not found: ${sessionId}`);
+		}
+		session.pty.write(data);
+	}
 
-  // -----------------------------------------------------------------------
-  // resize
-  // -----------------------------------------------------------------------
-  resize(sessionId: string, cols: number, rows: number): void {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
-      throw new Error(`Terminal session not found: ${sessionId}`);
-    }
-    session.pty.resize(cols, rows);
-  }
+	// -----------------------------------------------------------------------
+	// resize
+	// -----------------------------------------------------------------------
+	resize(sessionId: string, cols: number, rows: number): void {
+		const session = this.sessions.get(sessionId);
+		if (!session) {
+			throw new Error(`Terminal session not found: ${sessionId}`);
+		}
+		session.pty.resize(cols, rows);
+	}
 
-  // -----------------------------------------------------------------------
-  // stop
-  // -----------------------------------------------------------------------
-  stop(sessionId: string): void {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
-      throw new Error(`Terminal session not found: ${sessionId}`);
-    }
-    session.pty.kill();
-    // Let the onExit handler handle state update, event emission, and cleanup
-  }
+	// -----------------------------------------------------------------------
+	// stop
+	// -----------------------------------------------------------------------
+	stop(sessionId: string): void {
+		const session = this.sessions.get(sessionId);
+		if (!session) {
+			throw new Error(`Terminal session not found: ${sessionId}`);
+		}
+		session.pty.kill();
+		// Let the onExit handler handle state update, event emission, and cleanup
+	}
 
-  // -----------------------------------------------------------------------
-  // dispose — tear down all sessions (for app quit)
-  // -----------------------------------------------------------------------
-  dispose(): void {
-    for (const session of this.sessions.values()) {
-      try {
-        session.pty.kill();
-      } catch {
-        // Best-effort cleanup; ignore errors on shutdown
-      }
-    }
-    this.sessions.clear();
-  }
+	// -----------------------------------------------------------------------
+	// dispose — tear down all sessions (for app quit)
+	// -----------------------------------------------------------------------
+	dispose(): void {
+		for (const session of this.sessions.values()) {
+			try {
+				session.pty.kill();
+			} catch {
+				// Best-effort cleanup; ignore errors on shutdown
+			}
+		}
+		this.sessions.clear();
+	}
 }
