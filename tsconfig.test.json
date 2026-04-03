@@ -4,5 +4,5 @@
 		"outDir": "dist/test",
 		"types": ["vitest/globals", "node"]
 	},
-	"include": ["src", "shared", "services", "tests/unit", "tests/setup.ts"]
+	"include": ["src", "electron", "shared", "services", "tests/unit", "tests/setup.ts"]
 }

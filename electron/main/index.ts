@@ -2,6 +2,7 @@ import { app } from "electron";
 import { fileURLToPath } from "node:url";
 import { createMainWindow } from "./windows.js";
 import { registerIpcHandlers } from "./ipc.js";
+import { registerAppLifecycle } from "./lifecycle.js";
 
 app.whenReady().then(() => {
 	const mainWindow = createMainWindow();
@@ -14,12 +15,5 @@ app.whenReady().then(() => {
 			fileURLToPath(new URL("../renderer/index.html", import.meta.url)),
 		);
 	}
-
-	app.on("will-quit", () => dispose());
-});
-
-app.on("window-all-closed", () => {
-	if (process.platform !== "darwin") {
-		app.quit();
-	}
+	registerAppLifecycle(app, mainWindow, dispose);
 });
