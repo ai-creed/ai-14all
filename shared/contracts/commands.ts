@@ -7,6 +7,7 @@ import type {
   TerminalOutputEvent,
   TerminalExitEvent,
   TerminalStateEvent,
+  TerminalErrorEvent,
 } from "./events.js";
 
 // --- Zod schemas for command payloads ---
@@ -61,6 +62,7 @@ export type OneForAllDesktopApi = {
     onOutput(listener: (event: TerminalOutputEvent) => void): () => void;
     onExit(listener: (event: TerminalExitEvent) => void): () => void;
     onState(listener: (event: TerminalStateEvent) => void): () => void;
+    onError(listener: (event: TerminalErrorEvent) => void): () => void;
   };
   files: {
     list(worktreePath: string): Promise<string[]>;

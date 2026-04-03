@@ -4,6 +4,7 @@ import type {
   TerminalOutputEvent,
   TerminalExitEvent,
   TerminalStateEvent,
+  TerminalErrorEvent,
 } from "../../shared/contracts/events.js";
 
 // Helper: register a one-way listener on an ipcRenderer channel and return an
@@ -48,6 +49,9 @@ const api: OneForAllDesktopApi = {
     },
     onState(listener: (event: TerminalStateEvent) => void) {
       return onChannel("terminal/state", listener);
+    },
+    onError(listener: (event: TerminalErrorEvent) => void) {
+      return onChannel("terminal/error", listener);
     },
   },
   files: {

@@ -24,6 +24,7 @@ export const terminals: OneForAllDesktopApi["terminals"] = {
   onOutput: (listener) => getDesktopClient().terminals.onOutput(listener),
   onExit: (listener) => getDesktopClient().terminals.onExit(listener),
   onState: (listener) => getDesktopClient().terminals.onState(listener),
+  onError: (listener) => getDesktopClient().terminals.onError(listener),
 };
 
 export const files: OneForAllDesktopApi["files"] = {
