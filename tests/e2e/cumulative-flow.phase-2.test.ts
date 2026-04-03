@@ -7,7 +7,7 @@ import {
 } from "@playwright/test";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 
-let app: ElectronApplication;
+let app: ElectronApplication | undefined;
 let page: Page;
 let testRepo: TestRepo;
 
@@ -25,50 +25,48 @@ test.afterAll(async () => {
   }
 });
 
-test.describe.serial("Phase 2 session-first workflow", () => {
+test.describe.serial("Cumulative flow — Phase 2", () => {
   test("loads the repository and shows the session shell", async () => {
     await page.locator("#repo-path").fill(testRepo.repoPath);
-    await page.locator('button:has-text("Load")').click();
+    await page.getByRole("button", { name: "Load" }).click();
 
-    await expect(page.locator('button:has-text("main")')).toBeVisible({
+    await expect(page.getByRole("button", { name: /main/i })).toBeVisible({
       timeout: 10_000,
     });
-    await expect(page.locator("text=Active branch")).toBeVisible();
+    await expect(page.getByText("Active branch")).toBeVisible();
   });
 
   test("opens multiple terminal tabs for the selected worktree", async () => {
-    await page.locator('button:has-text("main")').click();
-    await page.locator('button[aria-label="New terminal"]').click();
-    await page.locator('button[aria-label="New terminal"]').click();
+    await page.getByRole("button", { name: /main/i }).click();
+    await page.getByRole("button", { name: "New terminal" }).click();
+    await page.getByRole("button", { name: "New terminal" }).click();
 
-    await expect(page.locator('button:has-text("shell 1")')).toBeVisible();
-    await expect(page.locator('button:has-text("shell 2")')).toBeVisible();
+    await expect(page.getByRole("button", { name: /shell 1/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /shell 2/i })).toBeVisible();
     await expect(page.locator(".xterm")).toHaveCount(2, { timeout: 10_000 });
   });
 
   test("switches worktrees and restores the per-session note", async () => {
     await page.getByLabel("Session note").fill("Main session note");
-    await page.locator('button:has-text("feature-a")').click();
+    await page.getByRole("button", { name: /feature-a/i }).click();
     await page.getByLabel("Session note").fill("Feature note");
-    await page.locator('button:has-text("main")').click();
+    await page.getByRole("button", { name: /main/i }).click();
 
-    await expect(page.getByLabel("Session note")).toHaveValue(
-      "Main session note",
-    );
+    await expect(page.getByLabel("Session note")).toHaveValue("Main session note");
   });
 
   test("shows changed files and opens a unified diff", async () => {
-    await page.locator('button:has-text("feature-a")').click();
-    await page.locator('button:has-text("Changes")').click();
+    await page.getByRole("button", { name: /feature-a/i }).click();
+    await page.getByRole("button", { name: "Changes" }).click();
 
-    // Wait for the changes list to populate, then click the changed file
-    const changedFileButton = page.getByRole("button", { name: /src\/index\.ts/ });
+    const changedFileButton = page.getByRole("button", {
+      name: /src\/index\.ts/,
+    });
     await changedFileButton.click();
 
     await expect(page.locator(".monaco-editor")).toBeVisible({
       timeout: 15_000,
     });
-    // Verify the diff content contains a diff header
-    await expect(page.locator("text=diff --git")).toBeVisible();
+    await expect(page.getByText("diff --git")).toBeVisible();
   });
 });
