@@ -1,0 +1,33 @@
+import type { OneForAllDesktopApi } from "../../shared/contracts/commands";
+
+/**
+ * Typed wrapper around the preload bridge injected as `window.oneforall`.
+ * React components should import from here rather than accessing window directly.
+ */
+export function getDesktopClient(): OneForAllDesktopApi {
+  return window.oneforall;
+}
+
+export const repository: OneForAllDesktopApi["repository"] = {
+  setRoot: (path) => getDesktopClient().repository.setRoot(path),
+  listWorktrees: () => getDesktopClient().repository.listWorktrees(),
+};
+
+export const terminals: OneForAllDesktopApi["terminals"] = {
+  create: (worktreeId, cwd) =>
+    getDesktopClient().terminals.create(worktreeId, cwd),
+  sendInput: (sessionId, data) =>
+    getDesktopClient().terminals.sendInput(sessionId, data),
+  resize: (sessionId, cols, rows) =>
+    getDesktopClient().terminals.resize(sessionId, cols, rows),
+  stop: (sessionId) => getDesktopClient().terminals.stop(sessionId),
+  onOutput: (listener) => getDesktopClient().terminals.onOutput(listener),
+  onExit: (listener) => getDesktopClient().terminals.onExit(listener),
+  onState: (listener) => getDesktopClient().terminals.onState(listener),
+};
+
+export const files: OneForAllDesktopApi["files"] = {
+  list: (worktreePath) => getDesktopClient().files.list(worktreePath),
+  read: (worktreePath, relativePath) =>
+    getDesktopClient().files.read(worktreePath, relativePath),
+};
