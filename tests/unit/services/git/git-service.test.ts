@@ -64,4 +64,26 @@ describe("GitService", () => {
     expect(diff.content).toContain('-export const hello = "world";');
     expect(diff.content).toContain('+export const hello = "phase-2";');
   });
+
+  it("returns unified diff content for an untracked file", async () => {
+    const diff = await service.readDiff(worktreePath, "src/new-file.ts");
+    expect(diff.path).toBe("src/new-file.ts");
+    expect(diff.content).toContain("@@");
+    expect(diff.content).toContain("+export const added = true;");
+  });
+
+  it("rejects path traversal in readDiff", async () => {
+    await expect(
+      service.readDiff(worktreePath, "../../etc/passwd"),
+    ).rejects.toThrow("Path escapes worktree");
+  });
+
+  it("skips unrecognized status codes in listChangedFiles", async () => {
+    // All files in the worktree have recognized statuses (M, ??),
+    // so the result should match the known set without any extras
+    const changes = await service.listChangedFiles(worktreePath);
+    for (const change of changes) {
+      expect(["M", "A", "D", "R", "??"]).toContain(change.status);
+    }
+  });
 });

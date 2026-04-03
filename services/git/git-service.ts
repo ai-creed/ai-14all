@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { GitChange, GitChangeStatus } from "../../shared/models/git-change.js";
 import type { GitDiff } from "../../shared/models/git-diff.js";
 
@@ -31,10 +31,18 @@ async function readDiffCommand(
   }
 }
 
-function parseStatusLine(line: string): GitChange {
-  const status = line.slice(0, 2).trim() as GitChangeStatus;
+const RECOGNIZED_STATUSES = new Set<string>(["M", "A", "D", "R", "??"]);
+
+function parseStatusLine(line: string): GitChange | null {
+  const raw = line.slice(0, 2).trim();
   const path = line.slice(3).trim();
-  return { path, status: status === "" ? "M" : status };
+  const status = raw === "" ? "M" : raw;
+
+  if (!RECOGNIZED_STATUSES.has(status)) {
+    return null;
+  }
+
+  return { path, status: status as GitChangeStatus };
 }
 
 export class GitService {
@@ -50,10 +58,20 @@ export class GitService {
       .map((line) => line.trimEnd())
       .filter(Boolean)
       .map(parseStatusLine)
+      .filter((entry): entry is GitChange => entry !== null)
       .sort((a, b) => a.path.localeCompare(b.path));
   }
 
   async readDiff(worktreePath: string, relativePath: string): Promise<GitDiff> {
+    const absolutePath = resolve(worktreePath, relativePath);
+    const normalizedWorktree = resolve(worktreePath);
+    if (
+      !absolutePath.startsWith(normalizedWorktree + "/") &&
+      absolutePath !== normalizedWorktree
+    ) {
+      throw new Error(`Path escapes worktree: ${relativePath}`);
+    }
+
     const changes = await this.listChangedFiles(worktreePath);
     const change = changes.find((entry) => entry.path === relativePath);
 
