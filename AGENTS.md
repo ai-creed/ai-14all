@@ -75,6 +75,11 @@ Avoid pulling deferred scope into current work unless explicitly requested:
 - Local agent execution plans live under `docs/superpowers/plans/` and are intentionally gitignored.
 - When adding or changing project direction, update the relevant design or planning doc rather than relying on conversational context only.
 
+## Branch Completion
+
+- After finishing a development branch, merge locally to master and wait for the user to do their own code review before pushing.
+- Do not push or create a PR unless specifically asked.
+
 ## Verification
 
 - Run targeted tests for the areas you touch before claiming completion.
