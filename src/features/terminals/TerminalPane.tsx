@@ -67,7 +67,7 @@ export function TerminalPane({ session, visible }: Props) {
 			fitAddonRef.current = null;
 		};
 		// session.id is stable for the lifetime of this component instance.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+
 	}, [session.id]);
 
 	// Fit + resize PTY when the pane becomes visible.
