@@ -57,4 +57,19 @@ describe("SessionSidebar", () => {
 		fireEvent.click(screen.getByRole("button", { name: /feature worktree/i }));
 		expect(onSelect).toHaveBeenCalledWith("feature-a");
 	});
+
+	it("shows worktree attention when a background process needs action", () => {
+		render(
+			<SessionSidebar
+				worktrees={worktrees}
+				selectedWorktreeId="main"
+				attentionByWorktreeId={{ "feature-a": "actionRequired" }}
+				onSelect={() => {}}
+			/>,
+		);
+
+		expect(
+			screen.getByRole("button", { name: /feature worktree/i }),
+		).toHaveAttribute("data-attention", "actionRequired");
+	});
 });

@@ -1,14 +1,17 @@
 import type { Worktree } from "../../../shared/models/worktree";
+import type { ProcessAttentionState } from "../../../shared/models/process-session";
 
 type Props = {
 	worktrees: Worktree[];
 	selectedWorktreeId: string | null;
+	attentionByWorktreeId?: Record<string, ProcessAttentionState>;
 	onSelect: (worktreeId: string) => void;
 };
 
 export function SessionSidebar({
 	worktrees,
 	selectedWorktreeId,
+	attentionByWorktreeId,
 	onSelect,
 }: Props) {
 	return (
@@ -26,6 +29,7 @@ export function SessionSidebar({
 							type="button"
 							className="shell-sidebar__item"
 							data-selected={String(selected)}
+							data-attention={attentionByWorktreeId?.[worktree.id] ?? "idle"}
 							onClick={() => onSelect(worktree.id)}
 						>
 							<strong>{worktree.label}</strong>

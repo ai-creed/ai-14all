@@ -16,7 +16,9 @@ import {
 } from "../features/workspace/workspace-state";
 import { TerminalTabs } from "../features/terminals/TerminalTabs";
 import { TerminalPane } from "../features/terminals/TerminalPane";
+import { PresetManager } from "../features/terminals/PresetManager";
 import { useTerminalSession } from "../features/terminals/useTerminalSession";
+import { deriveAttentionState } from "../features/terminals/process-attention";
 import { FileList } from "../features/viewer/FileList";
 import { FileViewer } from "../features/viewer/FileViewer";
 import { ChangesList } from "../features/git/ChangesList";
@@ -34,16 +36,7 @@ export function App() {
 	const [activeDiff, setActiveDiff] = useState<GitDiff | null>(null);
 	const [refreshKey, setRefreshKey] = useState(0);
 	const [error, setError] = useState<string | null>(null);
-
-	const { sessions, createSession, stopSession, removeSession } =
-		useTerminalSession();
-
-	function handleLoad(repo: Repository, wts: Worktree[]) {
-		setRepository(repo);
-		setWorktrees(wts);
-		dispatch({ type: "workspace/loadWorktrees", worktrees: wts });
-		setError(null);
-	}
+	const [presetManagerOpen, setPresetManagerOpen] = useState(false);
 
 	const activeWorktree =
 		worktrees.find((w) => w.id === workspaceState.selectedWorktreeId) ?? null;
@@ -51,6 +44,51 @@ export function App() {
 		? (workspaceState.sessionsByWorktreeId[workspaceState.selectedWorktreeId] ??
 			null)
 		: null;
+
+	function findProcessByTerminalSessionId(
+		terminalSessionId: string,
+	): ProcessSession | null {
+		return (
+			Object.values(workspaceState.processSessionsById).find(
+				(process) => process.terminalSessionId === terminalSessionId,
+			) ?? null
+		);
+	}
+
+	const { sessions, createSession, sendInput, stopSession, removeSession } =
+		useTerminalSession({
+			onOutput: (event) => {
+				const process = findProcessByTerminalSessionId(event.sessionId);
+				if (!process) return;
+				dispatch({
+					type: "session/recordProcessOutput",
+					worktreeId: process.worktreeId,
+					processId: process.id,
+					attentionState: deriveAttentionState(event.data),
+					at: Date.now(),
+					isViewed:
+						process.id === activeSession?.activeProcessSessionId &&
+						process.worktreeId === activeWorktree?.id,
+				});
+			},
+			onExit: (event) => {
+				const process = findProcessByTerminalSessionId(event.sessionId);
+				if (!process) return;
+				dispatch({
+					type: "session/updateProcessStatus",
+					processId: process.id,
+					status: "exited",
+					exitCode: event.exitCode ?? null,
+				});
+			},
+		});
+
+	function handleLoad(repo: Repository, wts: Worktree[]) {
+		setRepository(repo);
+		setWorktrees(wts);
+		dispatch({ type: "workspace/loadWorktrees", worktrees: wts });
+		setError(null);
+	}
 
 	// Fetch changed files when active worktree changes
 	useEffect(() => {
@@ -168,6 +206,75 @@ export function App() {
 		});
 	}
 
+	async function handleLaunchPreset(presetId: string) {
+		if (!activeWorktree) return;
+		const preset = workspaceState.commandPresets.find((p) => p.id === presetId);
+		if (!preset) return;
+		const terminal = await createSession(activeWorktree.id, activeWorktree.path);
+		dispatch({
+			type: "session/registerProcess",
+			worktreeId: activeWorktree.id,
+			process: {
+				id: crypto.randomUUID(),
+				worktreeId: activeWorktree.id,
+				terminalSessionId: terminal.id,
+				origin: "preset",
+				presetId: preset.id,
+				label: preset.label,
+				command: preset.command,
+				status: "running",
+				lastActivityAt: null,
+				exitCode: null,
+				pinned: true,
+				attentionState: "idle",
+			},
+		});
+		await sendInput(terminal.id, `${preset.command}\n`);
+	}
+
+	async function handleStopProcess(processId: string) {
+		const process = workspaceState.processSessionsById[processId];
+		if (!process?.terminalSessionId) return;
+		await stopSession(process.terminalSessionId);
+	}
+
+	async function handleRestartProcess(processId: string) {
+		const process = workspaceState.processSessionsById[processId];
+		if (!process || !activeWorktree) return;
+
+		if (process.terminalSessionId) {
+			try {
+				await stopSession(process.terminalSessionId);
+			} catch {
+				// best effort
+			}
+			removeSession(process.terminalSessionId);
+		}
+
+		const terminal = await createSession(activeWorktree.id, activeWorktree.path);
+		dispatch({
+			type: "session/replaceProcessTerminal",
+			processId,
+			terminalSessionId: terminal.id,
+		});
+		dispatch({
+			type: "session/updateProcessStatus",
+			processId,
+			status: "running",
+			exitCode: null,
+		});
+
+		if (process.command) {
+			await sendInput(terminal.id, `${process.command}\n`);
+		}
+	}
+
+	const attentionByWorktreeId = Object.fromEntries(
+		Object.entries(workspaceState.sessionsByWorktreeId).map(
+			([worktreeId, session]) => [worktreeId, session.attentionState],
+		),
+	);
+
 	if (!repository) {
 		return (
 			<main className="shell-app shell-app--setup">
@@ -187,8 +294,18 @@ export function App() {
 				<SessionSidebar
 					worktrees={worktrees}
 					selectedWorktreeId={workspaceState.selectedWorktreeId}
+					attentionByWorktreeId={attentionByWorktreeId}
 					onSelect={(worktreeId) => {
 						dispatch({ type: "session/selectWorktree", worktreeId });
+						const session =
+							workspaceState.sessionsByWorktreeId[worktreeId];
+						if (session?.activeProcessSessionId) {
+							dispatch({
+								type: "session/markProcessViewed",
+								worktreeId,
+								processId: session.activeProcessSessionId,
+							});
+						}
 					}}
 				/>
 
@@ -217,18 +334,23 @@ export function App() {
 								activeProcessId={activeSession?.activeProcessSessionId ?? null}
 								presets={workspaceState.commandPresets}
 								onAddAdHoc={handleAddAdHoc}
-								onSelect={(processId) =>
+								onSelect={(processId) => {
 									dispatch({
 										type: "session/selectProcess",
 										worktreeId: activeWorktree!.id,
 										processId,
-									})
-								}
-								onLaunchPreset={() => {}}
-								onOpenPresetManager={() => {}}
+									});
+									dispatch({
+										type: "session/markProcessViewed",
+										worktreeId: activeWorktree!.id,
+										processId,
+									});
+								}}
+								onLaunchPreset={handleLaunchPreset}
+								onOpenPresetManager={() => setPresetManagerOpen(true)}
 								onClose={handleCloseProcess}
-								onStop={() => {}}
-								onRestart={() => {}}
+								onStop={handleStopProcess}
+								onRestart={handleRestartProcess}
 								onTogglePinned={(processId) =>
 									dispatch({
 										type: "session/toggleProcessPinned",
@@ -382,6 +504,22 @@ export function App() {
 					/>
 				)}
 			</div>
+
+			<PresetManager
+				open={presetManagerOpen}
+				presets={workspaceState.commandPresets}
+				onOpenChange={setPresetManagerOpen}
+				onSave={(preset) =>
+					dispatch({ type: "preset/upsert", preset })
+				}
+				onDelete={(presetId) =>
+					dispatch({ type: "preset/remove", presetId })
+				}
+				onLaunch={(presetId) => {
+					setPresetManagerOpen(false);
+					handleLaunchPreset(presetId);
+				}}
+			/>
 		</main>
 	);
 }
