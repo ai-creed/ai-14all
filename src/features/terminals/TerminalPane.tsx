@@ -25,7 +25,7 @@ export function TerminalPane({ session, visible }: Props) {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const term = new Terminal({ cursorBlink: true, scrollback: 1000 });
+    const term = new Terminal({ cursorBlink: true, scrollback: 1000, screenReaderMode: true });
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.open(containerRef.current);
