@@ -32,3 +32,9 @@ export const files: OneForAllDesktopApi["files"] = {
   read: (worktreePath, relativePath) =>
     getDesktopClient().files.read(worktreePath, relativePath),
 };
+
+export const git: OneForAllDesktopApi["git"] = {
+  listChanges: (worktreePath) => getDesktopClient().git.listChanges(worktreePath),
+  readDiff: (worktreePath, relativePath) =>
+    getDesktopClient().git.readDiff(worktreePath, relativePath),
+};

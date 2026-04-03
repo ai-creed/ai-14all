@@ -9,6 +9,8 @@ import type {
   TerminalStateEvent,
   TerminalErrorEvent,
 } from "./events.js";
+import type { GitChange } from "../models/git-change.js";
+import type { GitDiff } from "../models/git-diff.js";
 
 // --- Zod schemas for command payloads ---
 
@@ -47,6 +49,15 @@ export const ReadFileSchema = z.object({
   relativePath: z.string(),
 });
 
+export const ListGitChangesSchema = z.object({
+  worktreePath: z.string(),
+});
+
+export const ReadGitDiffSchema = z.object({
+  worktreePath: z.string(),
+  relativePath: z.string(),
+});
+
 // --- The API surface exposed to the renderer via the preload bridge ---
 
 export type OneForAllDesktopApi = {
@@ -67,5 +78,9 @@ export type OneForAllDesktopApi = {
   files: {
     list(worktreePath: string): Promise<string[]>;
     read(worktreePath: string, relativePath: string): Promise<FileView>;
+  };
+  git: {
+    listChanges(worktreePath: string): Promise<GitChange[]>;
+    readDiff(worktreePath: string, relativePath: string): Promise<GitDiff>;
   };
 };

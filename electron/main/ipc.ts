@@ -8,10 +8,13 @@ import {
   StopTerminalSessionSchema,
   ListFilesSchema,
   ReadFileSchema,
+  ListGitChangesSchema,
+  ReadGitDiffSchema,
 } from "../../shared/contracts/commands.js";
 import { WorktreeService } from "../../services/worktrees/worktree-service.js";
 import { TerminalService } from "../../services/terminals/terminal-service.js";
 import { FileService } from "../../services/files/file-service.js";
+import { GitService } from "../../services/git/git-service.js";
 import type { TerminalEventHandlers } from "../../services/terminals/terminal-service.js";
 import type { Repository } from "../../shared/models/repository.js";
 import type {
@@ -31,6 +34,7 @@ import type {
 export function registerIpcHandlers(mainWindow: BrowserWindow): { dispose: () => void } {
   const worktreeService = new WorktreeService();
   const fileService = new FileService();
+  const gitService = new GitService();
   let currentRepository: Repository | null = null;
 
   // --- Terminal service with event fan-out to renderer ---
@@ -104,6 +108,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): { dispose: () =>
   ipcMain.handle("files:read", (_event, raw: unknown) => {
     const { worktreePath, relativePath } = ReadFileSchema.parse(raw);
     return fileService.readFile(worktreePath, relativePath);
+  });
+
+  // --- Git ---
+
+  ipcMain.handle("git:listChanges", (_event, raw: unknown) => {
+    const { worktreePath } = ListGitChangesSchema.parse(raw);
+    return gitService.listChangedFiles(worktreePath);
+  });
+
+  ipcMain.handle("git:readDiff", (_event, raw: unknown) => {
+    const { worktreePath, relativePath } = ReadGitDiffSchema.parse(raw);
+    return gitService.readDiff(worktreePath, relativePath);
   });
 
   return { dispose: () => terminalService.dispose() };

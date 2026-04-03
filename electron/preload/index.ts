@@ -62,6 +62,14 @@ const api: OneForAllDesktopApi = {
       return ipcRenderer.invoke("files:read", { worktreePath, relativePath });
     },
   },
+  git: {
+    listChanges(worktreePath) {
+      return ipcRenderer.invoke("git:listChanges", { worktreePath });
+    },
+    readDiff(worktreePath, relativePath) {
+      return ipcRenderer.invoke("git:readDiff", { worktreePath, relativePath });
+    },
+  },
 };
 
 contextBridge.exposeInMainWorld("oneforall", api);
