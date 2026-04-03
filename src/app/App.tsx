@@ -6,6 +6,7 @@ import { SessionSidebar } from "../features/workspace/SessionSidebar";
 import { SessionHeader } from "../features/workspace/SessionHeader";
 import { ContextPanel } from "../features/workspace/ContextPanel";
 import { createWorkspaceState, workspaceReducer } from "../features/workspace/workspace-state";
+import { TerminalTabs } from "../features/terminals/TerminalTabs";
 import { TerminalPane } from "../features/terminals/TerminalPane";
 import { useTerminalSession } from "../features/terminals/useTerminalSession";
 import { FileList } from "../features/viewer/FileList";
@@ -18,7 +19,7 @@ export function App() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { sessions, createSession, stopSession } = useTerminalSession();
+  const { sessions, createSession, stopSession, removeSession } = useTerminalSession();
 
   function handleLoad(repo: Repository, wts: Worktree[]) {
     setRepository(repo);
@@ -33,17 +34,32 @@ export function App() {
     ? workspaceState.sessionsByWorktreeId[workspaceState.selectedWorktreeId] ?? null
     : null;
 
-  function handleAddTerminal() {
+  async function handleAddTerminal() {
     if (!activeWorktree) return;
-    createSession(activeWorktree.id, activeWorktree.path).catch((err: unknown) => {
-      console.error("Failed to create terminal session:", err);
+    const session = await createSession(activeWorktree.id, activeWorktree.path);
+    dispatch({
+      type: "session/registerTerminal",
+      worktreeId: activeWorktree.id,
+      terminalSessionId: session.id,
     });
   }
 
-  // Sessions for the currently selected worktree.
-  const activeSessions = sessions.filter(
-    (s) => s.worktreeId === workspaceState.selectedWorktreeId,
-  );
+  async function handleCloseTerminal(sessionId: string) {
+    if (!activeWorktree) return;
+    const session = sessions.find((entry) => entry.id === sessionId);
+    try {
+      if (session && (session.status === "running" || session.status === "idle")) {
+        await stopSession(sessionId);
+      }
+    } finally {
+      removeSession(sessionId);
+      dispatch({
+        type: "session/closeTerminal",
+        worktreeId: activeWorktree.id,
+        terminalSessionId: sessionId,
+      });
+    }
+  }
 
   if (!repository) {
     return (
@@ -80,59 +96,29 @@ export function App() {
 
         {workspaceState.selectedWorktreeId && (
           <div style={{ padding: "16px 20px" }}>
-            <div style={{ marginBottom: 8, display: "flex", gap: 8 }}>
-              <button onClick={handleAddTerminal}>Open Terminal</button>
-            </div>
+            <TerminalTabs
+              tabs={activeSession?.terminalTabs ?? []}
+              activeSessionId={activeSession?.activeTerminalSessionId ?? null}
+              onAdd={handleAddTerminal}
+              onSelect={(terminalSessionId) =>
+                dispatch({
+                  type: "session/selectTerminal",
+                  worktreeId: activeWorktree!.id,
+                  terminalSessionId,
+                })
+              }
+              onClose={handleCloseTerminal}
+            />
 
-            {/*
-             * Render ALL sessions but hide those not belonging to the
-             * currently selected worktree. This keeps xterm instances alive
-             * so output continues to buffer while the user is on another worktree.
-             */}
-            {sessions.length === 0 && (
-              <p style={{ color: "#888" }}>No terminal sessions.</p>
-            )}
-
-            {sessions.map((session) => {
-              const isVisible = session.worktreeId === workspaceState.selectedWorktreeId;
-              return (
-                <div key={session.id} style={{ display: isVisible ? "block" : "none" }}>
-                  <TerminalPane session={session} visible={isVisible} />
-                  <div
-                    style={{
-                      marginBottom: 12,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      fontSize: "0.85em",
-                    }}
-                  >
-                    <span>
-                      Status:{" "}
-                      <strong>{session.status}</strong>
-                    </span>
-                    {(session.status === "running" || session.status === "idle") && (
-                      <button
-                        onClick={() => {
-                          stopSession(session.id).catch((err: unknown) => {
-                            console.error("Failed to stop session:", err);
-                          });
-                        }}
-                      >
-                        Stop Terminal
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-
-            {activeSessions.length === 0 && sessions.length > 0 && (
-              <p style={{ color: "#888" }}>
-                No terminals for this worktree. Sessions for other worktrees are
-                running in the background.
-              </p>
-            )}
+            {sessions
+              .filter((session) => session.worktreeId === activeWorktree?.id)
+              .map((session) => (
+                <TerminalPane
+                  key={session.id}
+                  session={session}
+                  visible={session.id === activeSession?.activeTerminalSessionId}
+                />
+              ))}
           </div>
         )}
 

@@ -4,8 +4,9 @@ import { terminals } from "../../lib/desktop-client";
 
 export type UseTerminalSessionResult = {
   sessions: TerminalSession[];
-  createSession: (worktreeId: string, cwd: string) => Promise<void>;
+  createSession: (worktreeId: string, cwd: string) => Promise<TerminalSession>;
   stopSession: (sessionId: string) => Promise<void>;
+  removeSession: (sessionId: string) => void;
 };
 
 /**
@@ -54,6 +55,7 @@ export function useTerminalSession(): UseTerminalSessionResult {
     async (worktreeId: string, cwd: string) => {
       const session = await terminals.create(worktreeId, cwd);
       setSessions((prev) => [...prev, session]);
+      return session;
     },
     [],
   );
@@ -62,5 +64,9 @@ export function useTerminalSession(): UseTerminalSessionResult {
     await terminals.stop(sessionId);
   }, []);
 
-  return { sessions, createSession, stopSession };
+  const removeSession = useCallback((sessionId: string) => {
+    setSessions((prev) => prev.filter((session) => session.id !== sessionId));
+  }, []);
+
+  return { sessions, createSession, stopSession, removeSession };
 }

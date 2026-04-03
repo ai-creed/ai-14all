@@ -115,17 +115,6 @@ export function TerminalPane({ session, visible }: Props) {
       }}
     >
       <div
-        style={{
-          padding: "2px 8px",
-          fontSize: "0.75em",
-          background: "#222",
-          color: "#aaa",
-          flexShrink: 0,
-        }}
-      >
-        Session {session.id.slice(0, 8)} — {session.status}
-      </div>
-      <div
         ref={containerRef}
         style={{ flex: 1, minHeight: 0, background: "#1e1e1e" }}
       />
