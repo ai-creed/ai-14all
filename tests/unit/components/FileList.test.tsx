@@ -29,7 +29,9 @@ describe("FileList", () => {
 		expect(
 			await screen.findByRole("button", { name: "src/index.ts" }),
 		).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "README.md" })).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "README.md" }),
+		).toBeInTheDocument();
 	});
 
 	it("highlights the selected file", async () => {

@@ -26,25 +26,32 @@ test.afterAll(async () => {
 });
 
 test.describe.serial("Cumulative flow — Phase 0", () => {
+	const worktreeNav = () =>
+		page.getByRole("navigation", { name: "Worktree sessions" });
+
 	test("loads a repository and shows worktree sessions", async () => {
 		await page.locator("#repo-path").fill(testRepo.repoPath);
 		await page.getByRole("button", { name: "Load" }).click();
 
-		await expect(page.getByRole("button", { name: /main/i })).toBeVisible({
+		await expect(
+			worktreeNav().getByRole("button", { name: /^main(?:\s+main)?$/i }),
+		).toBeVisible({
 			timeout: 10_000,
 		});
 		await expect(
-			page.getByRole("button", { name: /feature-a/i }),
+			worktreeNav().getByRole("button", { name: /feature-a/i }),
 		).toBeVisible();
 	});
 
 	test("selects a worktree and opens a terminal", async () => {
-		await page.getByRole("button", { name: /main/i }).click();
+		await worktreeNav()
+			.getByRole("button", { name: /^main(?:\s+main)?$/i })
+			.click();
 		await page.getByRole("button", { name: "New terminal" }).click();
 
 		await expect(page.locator(".xterm")).toHaveCount(1, { timeout: 10_000 });
 		await expect(
-			page.getByRole("button", {
+			page.getByRole("tab", {
 				name: /^shell 1(?: \((?:error|exited)\))?$/i,
 			}),
 		).toBeVisible();
@@ -64,8 +71,8 @@ test.describe.serial("Cumulative flow — Phase 0", () => {
 	});
 
 	test("opens a file in the embedded viewer", async () => {
-		await page.getByRole("button", { name: "Files" }).click();
-		await page.getByText("src/index.ts", { exact: true }).click();
+		await page.getByRole("tab", { name: "Files" }).click();
+		await page.getByRole("button", { name: "src/index.ts" }).click();
 
 		await expect(page.locator(".monaco-editor")).toBeVisible({
 			timeout: 15_000,

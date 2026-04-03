@@ -30,11 +30,14 @@ test.describe.serial("Cumulative flow — Phase 1", () => {
 		await page.locator("#repo-path").fill(testRepo.repoPath);
 		await page.getByRole("button", { name: "Load" }).click();
 
-		await page.getByRole("button", { name: /main/i }).click();
+		await page
+			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("button", { name: /^main(?:\s+main)?$/i })
+			.click();
 
 		await expect(page.getByText("Active branch")).toBeVisible();
 		await expect(page.getByText("Worktree path")).toBeVisible();
-		await expect(page.getByRole("button", { name: "Files" })).toBeVisible();
-		await expect(page.getByRole("button", { name: "Changes" })).toBeVisible();
+		await expect(page.getByRole("tab", { name: "Files" })).toBeVisible();
+		await expect(page.getByRole("tab", { name: "Changes" })).toBeVisible();
 	});
 });

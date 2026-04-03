@@ -62,10 +62,7 @@ export function TerminalTabs({
 											</button>
 										</Tooltip.Trigger>
 										<Tooltip.Portal>
-											<Tooltip.Content
-												className="shell-tooltip"
-												sideOffset={8}
-											>
+											<Tooltip.Content className="shell-tooltip" sideOffset={8}>
 												Close terminal
 											</Tooltip.Content>
 										</Tooltip.Portal>

@@ -32,10 +32,8 @@ export function FileList({
 			});
 	}, [worktreePath]);
 
-	if (loading)
-		return <p className="shell-empty-state">Loading files…</p>;
-	if (error)
-		return <p className="shell-error">Error: {error}</p>;
+	if (loading) return <p className="shell-empty-state">Loading files…</p>;
+	if (error) return <p className="shell-error">Error: {error}</p>;
 	if (fileList.length === 0)
 		return <p className="shell-empty-state">No files found.</p>;
 
