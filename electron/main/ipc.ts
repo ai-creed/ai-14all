@@ -11,6 +11,7 @@ import {
 } from "../../shared/contracts/commands.js";
 import { WorktreeService } from "../../services/worktrees/worktree-service.js";
 import { TerminalService } from "../../services/terminals/terminal-service.js";
+import { FileService } from "../../services/files/file-service.js";
 import type { TerminalEventHandlers } from "../../services/terminals/terminal-service.js";
 import type { Repository } from "../../shared/models/repository.js";
 import type {
@@ -29,6 +30,7 @@ import type {
 // ---------------------------------------------------------------------------
 export function registerIpcHandlers(mainWindow: BrowserWindow): { dispose: () => void } {
   const worktreeService = new WorktreeService();
+  const fileService = new FileService();
   let currentRepository: Repository | null = null;
 
   // --- Terminal service with event fan-out to renderer ---
@@ -96,18 +98,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): { dispose: () =>
 
   ipcMain.handle("files:list", (_event, raw: unknown) => {
     const { worktreePath } = ListFilesSchema.parse(raw);
-    // TODO (Task 7): delegate to FileService
-    throw new Error(
-      `files:list not yet implemented (worktreePath=${worktreePath})`,
-    );
+    return fileService.listFiles(worktreePath);
   });
 
   ipcMain.handle("files:read", (_event, raw: unknown) => {
     const { worktreePath, relativePath } = ReadFileSchema.parse(raw);
-    // TODO (Task 7): delegate to FileService
-    throw new Error(
-      `files:read not yet implemented (worktreePath=${worktreePath}, relativePath=${relativePath})`,
-    );
+    return fileService.readFile(worktreePath, relativePath);
   });
 
   return { dispose: () => terminalService.dispose() };

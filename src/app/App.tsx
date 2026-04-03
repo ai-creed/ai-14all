@@ -5,6 +5,8 @@ import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { WorktreeList } from "../features/worktrees/WorktreeList";
 import { TerminalPane } from "../features/terminals/TerminalPane";
 import { useTerminalSession } from "../features/terminals/useTerminalSession";
+import { FileList } from "../features/viewer/FileList";
+import { FileViewer } from "../features/viewer/FileViewer";
 
 export function App() {
   const [repository, setRepository] = useState<Repository | null>(null);
@@ -12,6 +14,7 @@ export function App() {
   const [selectedWorktreeId, setSelectedWorktreeId] = useState<string | null>(
     null,
   );
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -21,8 +24,15 @@ export function App() {
     setRepository(repo);
     setWorktrees(wts);
     setSelectedWorktreeId(null);
+    setSelectedFile(null);
     setError(null);
     setLoading(false);
+  }
+
+  // When the selected worktree changes, clear the selected file
+  function handleSelectWorktree(id: string) {
+    setSelectedWorktreeId(id);
+    setSelectedFile(null);
   }
 
   function handleAddTerminal() {
@@ -58,7 +68,7 @@ export function App() {
             <WorktreeList
               worktrees={worktrees}
               selectedWorktreeId={selectedWorktreeId}
-              onSelect={setSelectedWorktreeId}
+              onSelect={handleSelectWorktree}
             />
           )}
           {selectedWorktreeId && (
@@ -128,6 +138,37 @@ export function App() {
           )}
         </section>
       )}
+
+      {selectedWorktreeId && (() => {
+        const wt = worktrees.find((w) => w.id === selectedWorktreeId);
+        if (!wt) return null;
+        return (
+          <section style={{ marginTop: 24 }}>
+            <h2>Files</h2>
+            <div style={{ display: "flex", gap: 16 }}>
+              <div style={{ width: 280, flexShrink: 0 }}>
+                <FileList
+                  worktreePath={wt.path}
+                  selectedFile={selectedFile}
+                  onSelect={setSelectedFile}
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {selectedFile ? (
+                  <FileViewer
+                    worktreePath={wt.path}
+                    relativePath={selectedFile}
+                  />
+                ) : (
+                  <p style={{ color: "#888", fontSize: "0.85em" }}>
+                    Select a file to view its contents.
+                  </p>
+                )}
+              </div>
+            </div>
+          </section>
+        );
+      })()}
     </main>
   );
 }
