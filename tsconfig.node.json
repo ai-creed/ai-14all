@@ -12,5 +12,5 @@
     "composite": true,
     "outDir": "out"
   },
-  "include": ["electron", "electron.vite.config.ts", "shared"]
+  "include": ["electron", "electron.vite.config.ts", "shared", "services", "tests"]
 }

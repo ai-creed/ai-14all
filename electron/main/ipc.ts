@@ -9,26 +9,34 @@ import {
   ListFilesSchema,
   ReadFileSchema,
 } from "../../shared/contracts/commands.js";
+import { WorktreeService } from "../../services/worktrees/worktree-service.js";
+import type { Repository } from "../../shared/models/repository.js";
 
 // ---------------------------------------------------------------------------
 // registerIpcHandlers
 //
 // Registers ipcMain.handle entries for every command exposed via the preload
-// bridge. Implementations are stubs until the real services land in Tasks 3,
-// 5, and 7.
+// bridge. Implementations are stubs until the real services land in Tasks 5
+// and 7.
 // ---------------------------------------------------------------------------
 export function registerIpcHandlers(_mainWindow: BrowserWindow): void {
+  const worktreeService = new WorktreeService();
+  let currentRepository: Repository | null = null;
+
   // --- Repository ---
 
-  ipcMain.handle("repository:setRoot", (_event, raw: unknown) => {
+  ipcMain.handle("repository:setRoot", async (_event, raw: unknown) => {
     const { path } = SetRepositoryRootSchema.parse(raw);
-    // TODO (Task 3): delegate to RepositoryService
-    throw new Error(`repository:setRoot not yet implemented (path=${path})`);
+    const repo = await worktreeService.setRepositoryRoot(path);
+    currentRepository = repo;
+    return repo;
   });
 
-  ipcMain.handle("repository:listWorktrees", () => {
-    // TODO (Task 3): delegate to RepositoryService
-    throw new Error("repository:listWorktrees not yet implemented");
+  ipcMain.handle("repository:listWorktrees", async () => {
+    if (currentRepository === null) {
+      throw new Error("No repository root has been set. Call repository:setRoot first.");
+    }
+    return worktreeService.listWorktrees(currentRepository);
   });
 
   // --- Terminals ---
