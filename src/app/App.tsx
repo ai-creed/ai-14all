@@ -23,6 +23,7 @@ export function App() {
   const [workspaceState, dispatch] = useReducer(workspaceReducer, createWorkspaceState([]));
   const [changes, setChanges] = useState<GitChange[]>([]);
   const [activeDiff, setActiveDiff] = useState<GitDiff | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const { sessions, createSession, stopSession, removeSession } = useTerminalSession();
@@ -49,7 +50,11 @@ export function App() {
       .then((result) => { if (!cancelled) setChanges(result); })
       .catch(() => { if (!cancelled) setChanges([]); });
     return () => { cancelled = true; };
-  }, [activeWorktree?.path]);
+  }, [activeWorktree?.path, refreshKey]);
+
+  function handleRefreshChanges() {
+    setRefreshKey((k) => k + 1);
+  }
 
   // Fetch diff when selected changed file changes
   useEffect(() => {
@@ -187,6 +192,11 @@ export function App() {
                 >
                   Changes
                 </button>
+                {activeSession?.reviewMode === "changes" && (
+                  <button type="button" onClick={handleRefreshChanges}>
+                    Refresh
+                  </button>
+                )}
               </div>
 
               {activeSession?.reviewMode === "files" ? (
