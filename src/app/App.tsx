@@ -305,11 +305,6 @@ export function App() {
 				delete next[worktreeId];
 				return next;
 			});
-
-			const worktree = worktrees.find((entry) => entry.id === worktreeId);
-			if (worktree) {
-				await recreatePersistedProcesses(worktree, pending);
-			}
 		}
 
 		dispatch({ type: "session/selectWorktree", worktreeId });
@@ -319,16 +314,22 @@ export function App() {
 				worktreeId,
 				processId: pending.activeProcessSessionId,
 			});
-			return;
+		} else {
+			const session = workspaceState.sessionsByWorktreeId[worktreeId];
+			if (session?.activeProcessSessionId) {
+				dispatch({
+					type: "session/markProcessViewed",
+					worktreeId,
+					processId: session.activeProcessSessionId,
+				});
+			}
 		}
 
-		const session = workspaceState.sessionsByWorktreeId[worktreeId];
-		if (session?.activeProcessSessionId) {
-			dispatch({
-				type: "session/markProcessViewed",
-				worktreeId,
-				processId: session.activeProcessSessionId,
-			});
+		if (pending) {
+			const worktree = worktrees.find((entry) => entry.id === worktreeId);
+			if (worktree) {
+				await recreatePersistedProcesses(worktree, pending);
+			}
 		}
 	}
 
