@@ -5,7 +5,7 @@ import {
 	type ElectronApplication,
 	type Page,
 } from "@playwright/test";
-import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
@@ -137,5 +137,71 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 			page.getByRole("button", { name: "Restore previous workspace" }),
 		).toHaveCount(0);
 		await expect(page.getByRole("button", { name: "Load" })).toBeVisible();
+	});
+
+	test("remembers an always-restore choice and auto-restores on the next launch", async () => {
+		// Close the app left running by the previous test, then write a known
+		// state directly so this test does not depend on the prior tests' state.
+		// Worktree IDs equal the filesystem path of each worktree
+		// (see services/worktrees/parse-worktree-porcelain.ts).
+		await closeApp();
+
+		writeFileSync(
+			persistedStatePath,
+			JSON.stringify({
+				version: 1,
+				restorePreference: "prompt",
+				snapshot: {
+					repositoryPath: testRepo.repoPath,
+					selectedWorktreeId: testRepo.worktreePath,
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: testRepo.worktreePath,
+							note: "always-restore note",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							activeProcessSessionId: null,
+							nextAdHocNumber: 1,
+							processSessions: [],
+						},
+					],
+				},
+			}),
+		);
+
+		await launchApp();
+
+		await expect(
+			page.getByRole("button", { name: "Restore previous workspace" }),
+		).toBeVisible({ timeout: 5_000 });
+
+		// Tick "Remember my choice" and restore — this persists alwaysRestore
+		await page.getByLabel("Remember my choice").check();
+		await page.getByRole("button", { name: "Restore previous workspace" }).click();
+
+		await expect(
+			page
+				.getByRole("navigation", { name: "Worktree sessions" })
+				.getByRole("button", { name: /feature-a/i }),
+		).toHaveAttribute("data-selected", "true");
+		await expect(page.getByLabel("Session note")).toHaveValue("always-restore note");
+
+		await closeApp();
+		await launchApp();
+
+		// The restore prompt must NOT appear — alwaysRestore skips it
+		await expect(
+			page.getByRole("button", { name: "Restore previous workspace" }),
+		).toHaveCount(0);
+
+		await expect(
+			page
+				.getByRole("navigation", { name: "Worktree sessions" })
+				.getByRole("button", { name: /feature-a/i }),
+		).toHaveAttribute("data-selected", "true");
+		await expect(page.getByLabel("Session note")).toHaveValue("always-restore note");
 	});
 });

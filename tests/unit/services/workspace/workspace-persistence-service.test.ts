@@ -76,7 +76,7 @@ describe("WorkspacePersistenceService", () => {
 		);
 	});
 
-	it("falls back to default state when persisted JSON is invalid", async () => {
+	it("falls back to default state and overwrites when persisted JSON is corrupt", async () => {
 		mkdirSync(tempDir, { recursive: true });
 		writeFileSync(
 			filePath,
@@ -89,5 +89,30 @@ describe("WorkspacePersistenceService", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
+
+		// The corrupt file should have been replaced with a clean default
+		const written = JSON.parse(readFileSync(filePath, "utf8")) as unknown;
+		expect(written).toEqual({ version: 1, restorePreference: "prompt", snapshot: null });
+	});
+
+	it("falls back to default state WITHOUT overwriting when JSON is valid but fails schema", async () => {
+		mkdirSync(tempDir, { recursive: true });
+		// Valid JSON that satisfies JSON.parse but not the Zod schema (e.g. a
+		// future schema version with an unknown field or a changed type)
+		writeFileSync(
+			filePath,
+			JSON.stringify({ version: 99, restorePreference: "unknown", snapshot: null }),
+			"utf8",
+		);
+
+		await expect(service.readState()).resolves.toEqual({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		});
+
+		// The file must NOT have been overwritten — preserve future-version data
+		const surviving = JSON.parse(readFileSync(filePath, "utf8")) as { version: number };
+		expect(surviving.version).toBe(99);
 	});
 });

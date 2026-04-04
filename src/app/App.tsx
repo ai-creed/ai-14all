@@ -175,6 +175,16 @@ export function App() {
 					? `Unable to restore previous workspace: ${err.message}`
 					: "Unable to restore previous workspace.",
 			);
+			// Clear the snapshot so a subsequent alwaysRestore launch does not
+			// loop on the same broken repository path. Reset to "prompt" so the
+			// user can choose whether to restore once the path is available again.
+			const fallbackState: PersistedWorkspaceState = {
+				version: 1,
+				restorePreference: "prompt",
+				snapshot: null,
+			};
+			setRestoreState(fallbackState);
+			void workspace.writeRestoreState(fallbackState);
 			setStartupMode("ready");
 		}
 	}
@@ -315,6 +325,12 @@ export function App() {
 				processId: pending.activeProcessSessionId,
 			});
 		} else {
+			// workspaceState is the pre-dispatch snapshot from this render's
+			// closure; reading activeProcessSessionId from it is correct here
+			// because the preceding session/selectWorktree dispatch is batched
+			// by React and has not yet been applied to workspaceState.  For
+			// non-pending sessions the data we need already existed before the
+			// dispatch, so the stale read is safe.
 			const session = workspaceState.sessionsByWorktreeId[worktreeId];
 			if (session?.activeProcessSessionId) {
 				dispatch({

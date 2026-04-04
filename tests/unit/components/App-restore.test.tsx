@@ -203,6 +203,34 @@ describe("App — Phase 5 restore flow", () => {
 		expect(await screen.findByDisplayValue("main note")).toBeInTheDocument();
 	});
 
+	it("clears the snapshot and resets to prompt when alwaysRestore fails", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "alwaysRestore",
+			snapshot: {
+				repositoryPath: "/deleted-repo",
+				selectedWorktreeId: null,
+				commandPresets: [],
+				worktreeSessions: [],
+			},
+		});
+		setRootMock.mockRejectedValue(new Error("No such file or directory"));
+
+		render(<App />);
+
+		// App must reach the repo-input screen after the restore failure
+		await screen.findByRole("button", { name: "Load" });
+
+		// Must have persisted the cleared state so the next launch does not loop
+		await waitFor(() => {
+			expect(writeRestoreStateMock).toHaveBeenCalledWith({
+				version: 1,
+				restorePreference: "prompt",
+				snapshot: null,
+			});
+		});
+	});
+
 	it("dispatches worktree selection before awaiting terminal recreation", async () => {
 		// A deferred promise so we can hold createMock pending
 		let resolveTerminal!: (value: { id: string; worktreeId: string; cwd: string; status: string; exitCode: null }) => void;

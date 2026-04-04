@@ -23,7 +23,7 @@ export const PersistedWorktreeSessionSchema = z.object({
 	selectedFilePath: z.string().nullable(),
 	selectedChangedFilePath: z.string().nullable(),
 	activeProcessSessionId: z.string().nullable(),
-	nextAdHocNumber: z.number().int().positive(),
+	nextAdHocNumber: z.number().int().min(1),
 	processSessions: z.array(PersistedProcessSessionSchema),
 });
 
