@@ -202,4 +202,77 @@ describe("App — Phase 5 restore flow", () => {
 		});
 		expect(await screen.findByDisplayValue("main note")).toBeInTheDocument();
 	});
+
+	it("dispatches worktree selection before awaiting terminal recreation", async () => {
+		// A deferred promise so we can hold createMock pending
+		let resolveTerminal!: (value: { id: string; worktreeId: string; cwd: string; status: string; exitCode: null }) => void;
+		const terminalPending = new Promise<{ id: string; worktreeId: string; cwd: string; status: string; exitCode: null }>(
+			(resolve) => {
+				resolveTerminal = resolve;
+			},
+		);
+		createMock.mockReturnValueOnce(terminalPending);
+
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "alwaysRestore",
+			snapshot: {
+				repositoryPath: "/repo",
+				selectedWorktreeId: "feature-a",
+				commandPresets: [],
+				worktreeSessions: [
+					{
+						worktreeId: "main",
+						note: "main note",
+						reviewMode: "files",
+						viewerMode: "file",
+						selectedFilePath: null,
+						selectedChangedFilePath: null,
+						activeProcessSessionId: "process-main",
+						nextAdHocNumber: 2,
+						processSessions: [
+							{ id: "process-main", origin: "adHoc", presetId: null, label: "shell 1", command: null, pinned: false },
+						],
+					},
+					{
+						worktreeId: "feature-a",
+						note: "feature note",
+						reviewMode: "files",
+						viewerMode: "file",
+						selectedFilePath: null,
+						selectedChangedFilePath: null,
+						activeProcessSessionId: null,
+						nextAdHocNumber: 1,
+						processSessions: [],
+					},
+				],
+			},
+		});
+		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{ id: "feature-a", repositoryId: "repo-1", branchName: "feature-a", path: "/repo/.worktrees/feature-a", label: "feature-a", isMain: false },
+		]);
+
+		render(<App />);
+
+		// Wait for the app to finish auto-restoring (feature-a has no processes so createMock isn't called for it)
+		const mainButton = await screen.findByRole("button", { name: /main/i });
+
+		// Click main — triggers lazy hydration
+		fireEvent.click(mainButton);
+
+		// The sidebar selection should update immediately, before terminal creation resolves
+		await waitFor(() => {
+			expect(mainButton).toHaveAttribute("data-selected", "true");
+		});
+
+		// Resolve terminal creation
+		resolveTerminal({ id: "terminal-main-/repo", worktreeId: "main", cwd: "/repo", status: "running", exitCode: null });
+
+		// Eventually createMock was called
+		await waitFor(() => {
+			expect(createMock).toHaveBeenCalledWith("main", "/repo");
+		});
+	});
 });
