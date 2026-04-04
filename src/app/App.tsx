@@ -50,7 +50,7 @@ export function App() {
 		DEFAULT_PERSISTED_WORKSPACE_STATE,
 	);
 	const [startupError, setStartupError] = useState<string | null>(null);
-	// populated in restoreWorkspace (Task 4) for lazy hydration of non-selected sessions
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars -- populated in restoreWorkspace (Task 4) for lazy hydration of non-selected sessions
 	const [pendingRestoreSessions, setPendingRestoreSessions] = useState<Record<string, PersistedWorktreeSession>>({});
 
 	useEffect(() => {
@@ -176,10 +176,10 @@ export function App() {
 		[persistableState],
 	);
 
-	// eslint-disable-next-line react-hooks/exhaustive-deps -- persistableStateJson is used for change detection; persistableState (same data) is used for the write
 	useEffect(() => {
 		if (startupMode !== "ready") return;
 		void workspace.writeRestoreState(persistableState);
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- persistableStateJson is used for change detection; persistableState (same data) is used for the write
 	}, [startupMode, persistableStateJson]);
 
 	// Fetch git summary when active worktree changes or user refreshes
