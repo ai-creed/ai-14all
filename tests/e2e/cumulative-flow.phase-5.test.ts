@@ -16,6 +16,8 @@ let testRepo: TestRepo;
 let persistedStateDir: string;
 let persistedStatePath: string;
 
+// These helpers support multi-launch — this suite relaunches the app to test
+// persistence across sessions, unlike single-launch phase tests.
 async function launchApp() {
 	app = await electron.launch({
 		args: ["out/main/index.js"],
@@ -39,7 +41,7 @@ test.beforeAll(async () => {
 	persistedStateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-phase5-")));
 	persistedStatePath = join(persistedStateDir, "workspace-state.json");
 	await launchApp();
-});
+}, 60_000);
 
 test.afterAll(async () => {
 	try {
@@ -53,7 +55,7 @@ test.afterAll(async () => {
 test.describe.serial("Cumulative flow — Phase 5", () => {
 	// Each test in this suite launches the Electron app at least once and
 	// may launch it twice; 60 s gives ample headroom for slower CI machines.
-	test.setTimeout(60_000);
+	test.describe.configure({ timeout: 60_000 });
 
 	test("restores the selected session and lazily hydrates another saved worktree", async () => {
 		await page.locator("#repo-path").fill(testRepo.repoPath);
@@ -114,6 +116,11 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 	test("remembers a start-clean choice when asked", async () => {
 		await closeApp();
 		await launchApp();
+
+		// Relies on workspace state written by the first test
+		await expect(
+			page.getByRole("button", { name: "Restore previous workspace" }),
+		).toBeVisible({ timeout: 5_000 });
 
 		await page.getByLabel("Remember my choice").check();
 		await page.getByRole("button", { name: "Start clean" }).click();
