@@ -173,6 +173,16 @@ export function App() {
 				setRestoreWarning(
 					"Previously selected worktree is no longer available. Opened the first available session instead.",
 				);
+				// Keep the saved session in pending so the next persist write
+				// re-serialises it. Without this the session is permanently lost
+				// after the first write because buildWorkspaceSnapshot only reads
+				// from workspaceState, which has no entry for a missing worktree.
+				if (selectedSession) {
+					setPendingRestoreSessions((prev) => ({
+						...prev,
+						[selectedSession.worktreeId]: selectedSession,
+					}));
+				}
 			}
 		} catch (err) {
 			setStartupError(
@@ -249,12 +259,23 @@ export function App() {
 	);
 
 	const persistableSnapshot = useMemo(
-		() =>
-			repository
-				? buildWorkspaceSnapshot(repository.rootPath, workspaceState)
-				: null,
+		() => {
+			if (!repository) return null;
+			const base = buildWorkspaceSnapshot(repository.rootPath, workspaceState);
+			// Also persist sessions that are in pendingRestoreSessions but have no
+			// corresponding entry in workspaceState (i.e. the previously selected
+			// worktree is missing from the current repo). Without this they would be
+			// dropped from the snapshot on the first write after restore.
+			const baseIds = new Set(base.worktreeSessions.map((s) => s.worktreeId));
+			const orphaned = Object.values(pendingRestoreSessions).filter(
+				(s) => !baseIds.has(s.worktreeId),
+			);
+			return orphaned.length === 0
+				? base
+				: { ...base, worktreeSessions: [...base.worktreeSessions, ...orphaned] };
+		},
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- repository.rootPath drives the snapshot; the object reference changes are irrelevant
-		[repository?.rootPath, workspaceState],
+		[repository?.rootPath, workspaceState, pendingRestoreSessions],
 	);
 	const persistableState = useMemo(
 		() => ({

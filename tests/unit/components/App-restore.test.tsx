@@ -231,7 +231,18 @@ describe("App — Phase 5 restore flow", () => {
 		});
 	});
 
-	it("shows a warning and still loads the workspace when the previously selected worktree is missing", async () => {
+	it("shows a warning, loads the workspace, and preserves the missing session in the next persist write", async () => {
+		const missingSession = {
+			worktreeId: "missing-worktree",
+			note: "saved note for missing worktree",
+			reviewMode: "files" as const,
+			viewerMode: "file" as const,
+			selectedFilePath: null,
+			selectedChangedFilePath: null,
+			activeProcessSessionId: null,
+			nextAdHocNumber: 1,
+			processSessions: [],
+		};
 		readRestoreStateMock.mockResolvedValue({
 			version: 1,
 			restorePreference: "alwaysRestore",
@@ -239,7 +250,7 @@ describe("App — Phase 5 restore flow", () => {
 				repositoryPath: "/repo",
 				selectedWorktreeId: "missing-worktree",
 				commandPresets: [],
-				worktreeSessions: [],
+				worktreeSessions: [missingSession],
 			},
 		});
 		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
@@ -256,6 +267,20 @@ describe("App — Phase 5 restore flow", () => {
 		expect(screen.getByRole("status")).toHaveTextContent(
 			/previously selected worktree is no longer available/i,
 		);
+
+		// The missing session must survive in the next persist write so it is
+		// not permanently lost from the saved state
+		await waitFor(() => {
+			expect(writeRestoreStateMock).toHaveBeenCalledWith(
+				expect.objectContaining({
+					snapshot: expect.objectContaining({
+						worktreeSessions: expect.arrayContaining([
+							expect.objectContaining({ worktreeId: "missing-worktree" }),
+						]),
+					}),
+				}),
+			);
+		});
 
 		// Dismissing the banner removes it
 		await userEvent.click(screen.getByRole("button", { name: "Dismiss warning" }));
