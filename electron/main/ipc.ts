@@ -14,6 +14,8 @@ import {
 	ReadGitSummarySchema,
 	ReadWorkspaceRestoreStateSchema,
 	WriteWorkspaceRestoreStateSchema,
+	ReadGitCommitHistorySchema,
+	ReadGitCommitDetailSchema,
 } from "../../shared/contracts/commands.js";
 import type { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
 import { WorktreeService } from "../../services/worktrees/worktree-service.js";
@@ -142,6 +144,16 @@ export function registerIpcHandlers(
 	ipcMain.handle("git:readSummary", (_event, raw: unknown) => {
 		const { worktreePath } = ReadGitSummarySchema.parse(raw);
 		return gitService.readSummary(worktreePath);
+	});
+
+	ipcMain.handle("git:readCommitHistory", (_event, raw: unknown) => {
+		const { worktreePath } = ReadGitCommitHistorySchema.parse(raw);
+		return gitService.readCommitHistory(worktreePath);
+	});
+
+	ipcMain.handle("git:readCommitDetail", (_event, raw: unknown) => {
+		const { worktreePath, sha } = ReadGitCommitDetailSchema.parse(raw);
+		return gitService.readCommitDetail(worktreePath, sha);
 	});
 
 	// --- Workspace ---

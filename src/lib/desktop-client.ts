@@ -42,6 +42,10 @@ export const git: OneForAllDesktopApi["git"] = {
 		getDesktopClient().git.readDiff(worktreePath, relativePath),
 	readSummary: (worktreePath) =>
 		getDesktopClient().git.readSummary(worktreePath),
+	readCommitHistory: (worktreePath) =>
+		getDesktopClient().git.readCommitHistory(worktreePath),
+	readCommitDetail: (worktreePath, sha) =>
+		getDesktopClient().git.readCommitDetail(worktreePath, sha),
 };
 
 export const workspace: OneForAllDesktopApi["workspace"] = {

@@ -11,6 +11,12 @@ import type {
 	GitSummary,
 	GitCommitSummary,
 } from "../../shared/models/git-summary.js";
+import type {
+	GitCommitDetail,
+	GitCommitFileDiff,
+	GitCommitHistory,
+	GitCommitListEntry,
+} from "../../shared/models/git-commit-review.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -75,6 +81,34 @@ function parseStatusLine(line: string): GitChange | null {
 	}
 
 	return { path, status: status as GitChangeStatus };
+}
+
+async function resolveMergeTargetRef(worktreePath: string): Promise<string | null> {
+	for (const ref of ["origin/main", "origin/master"]) {
+		try {
+			await execFileAsync("git", ["rev-parse", "--verify", ref], {
+				cwd: worktreePath,
+			});
+			return ref;
+		} catch {
+			// try next candidate
+		}
+	}
+	return null;
+}
+
+async function readBlobAtRevision(
+	worktreePath: string,
+	revisionPath: string,
+): Promise<string> {
+	try {
+		const { stdout } = await execFileAsync("git", ["show", revisionPath], {
+			cwd: worktreePath,
+		});
+		return stdout;
+	} catch {
+		return "";
+	}
 }
 
 export class GitService {
@@ -159,5 +193,96 @@ export class GitService {
 
 		const stdout = await readDiffCommand(diffArgs, worktreePath);
 		return { path: relativePath, content: stdout };
+	}
+
+	async readCommitHistory(worktreePath: string): Promise<GitCommitHistory> {
+		const mergeTargetRef = await resolveMergeTargetRef(worktreePath);
+		if (!mergeTargetRef) {
+			return { mergeTargetRef: null, entries: [] };
+		}
+
+		const { stdout: mergeBaseStdout } = await execFileAsync(
+			"git",
+			["merge-base", "HEAD", mergeTargetRef],
+			{ cwd: worktreePath },
+		);
+		const mergeBase = mergeBaseStdout.trim();
+		const { stdout } = await execFileAsync(
+			"git",
+			["log", "--format=%H%x09%h%x09%s", "--reverse", `${mergeBase}..HEAD`],
+			{ cwd: worktreePath },
+		);
+		const entries = parseRecentCommits(stdout).map<GitCommitListEntry>((entry) => ({
+			...entry,
+			isMergeTarget: false,
+		}));
+
+		const { stdout: mergeBaseInfo } = await execFileAsync(
+			"git",
+			["log", "--format=%H%x09%h%x09%s", "-n", "1", mergeBase],
+			{ cwd: worktreePath },
+		);
+		const mergeTargetEntry = parseRecentCommits(mergeBaseInfo)[0];
+
+		return {
+			mergeTargetRef,
+			entries: mergeTargetEntry
+				? [...entries, { ...mergeTargetEntry, isMergeTarget: true }]
+				: entries,
+		};
+	}
+
+	async readCommitDetail(
+		worktreePath: string,
+		sha: string,
+	): Promise<GitCommitDetail> {
+		const [{ stdout: headerStdout }, { stdout: parentStdout }, { stdout: filesStdout }] =
+			await Promise.all([
+				execFileAsync("git", ["show", "--format=%H%x09%h%x09%s", "-s", sha], {
+					cwd: worktreePath,
+				}),
+				execFileAsync("git", ["show", "--format=%P", "-s", sha], {
+					cwd: worktreePath,
+				}),
+				execFileAsync("git", ["show", "--format=", "--name-status", "--find-renames", sha], {
+					cwd: worktreePath,
+				}),
+			]);
+
+		const [entry] = parseRecentCommits(headerStdout);
+		if (!entry) throw new Error(`Commit not found: ${sha}`);
+
+		const parentSha = parentStdout.trim().split(" ")[0] ?? "";
+		const files = await Promise.all(
+			filesStdout
+				.split("\n")
+				.map((line) => line.trim())
+				.filter(Boolean)
+				.map(async (line): Promise<GitCommitFileDiff> => {
+					const [rawStatus, fromPath, toPath] = line.split("\t");
+					const status = rawStatus?.startsWith("R") ? "R" : (rawStatus as "A" | "M" | "D");
+					const path = status === "R" ? (toPath ?? fromPath ?? "") : (fromPath ?? "");
+					const oldPath = status === "R" ? (fromPath ?? null) : null;
+
+					return {
+						path,
+						oldPath,
+						status,
+						originalContent:
+							status === "A"
+								? ""
+								: await readBlobAtRevision(
+										worktreePath,
+										`${parentSha}:${oldPath ?? path}`,
+									),
+						modifiedContent:
+							status === "D"
+								? ""
+								: await readBlobAtRevision(worktreePath, `${sha}:${path}`),
+					};
+				}),
+		);
+
+		return { sha: entry.sha, shortSha: entry.shortSha, subject: entry.subject, files };
 	}
 }

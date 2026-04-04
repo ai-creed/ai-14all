@@ -183,4 +183,48 @@ describe("GitService", () => {
 		expect(summary.changedFileCount).toBe(2);
 		expect(summary.recentCommits[0]?.subject).toBe("initial commit");
 	});
+
+	it("lists recent commits against the merge target", async () => {
+		execSync("git update-ref refs/remotes/origin/main main", {
+			cwd: repoPath,
+			stdio: "ignore",
+		});
+		execSync("git add -A", { cwd: worktreePath, stdio: "ignore" });
+		execSync('git commit -m "feature commit"', {
+			cwd: worktreePath,
+			stdio: "ignore",
+		});
+
+		const history = await service.readCommitHistory(worktreePath);
+
+		expect(history.mergeTargetRef).toBe("origin/main");
+		expect(history.entries[0]?.subject).toBe("feature commit");
+		expect(history.entries.at(-1)?.isMergeTarget).toBe(true);
+	});
+
+	it("returns per-file side-by-side data for a selected commit", async () => {
+		execSync("git update-ref refs/remotes/origin/main main", {
+			cwd: repoPath,
+			stdio: "ignore",
+		});
+		execSync("git add -A", { cwd: worktreePath, stdio: "ignore" });
+		execSync('git commit -m "feature commit"', {
+			cwd: worktreePath,
+			stdio: "ignore",
+		});
+		const sha = execSync("git rev-parse HEAD", {
+			cwd: worktreePath,
+			encoding: "utf8",
+		}).trim();
+
+		const detail = await service.readCommitDetail(worktreePath, sha);
+
+		expect(detail.shortSha).toHaveLength(7);
+		expect(detail.files[0]).toMatchObject({
+			path: "src/index.ts",
+			status: "M",
+		});
+		expect(detail.files[0]?.originalContent).toContain('export const hello = "world";');
+		expect(detail.files[0]?.modifiedContent).toContain('export const hello = "phase-2";');
+	});
 });

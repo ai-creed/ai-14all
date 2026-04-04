@@ -78,6 +78,12 @@ const api: OneForAllDesktopApi = {
 		readSummary(worktreePath) {
 			return ipcRenderer.invoke("git:readSummary", { worktreePath });
 		},
+		readCommitHistory(worktreePath) {
+			return ipcRenderer.invoke("git:readCommitHistory", { worktreePath });
+		},
+		readCommitDetail(worktreePath, sha) {
+			return ipcRenderer.invoke("git:readCommitDetail", { worktreePath, sha });
+		},
 	},
 	workspace: {
 		readRestoreState() {
