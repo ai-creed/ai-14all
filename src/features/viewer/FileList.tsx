@@ -10,6 +10,7 @@ type FileListProps = {
 	scopeRoots: string[];
 	selectedFile: string | null;
 	onSelect: (relativePath: string) => void;
+	gitSummaryError?: boolean;
 };
 
 function TreeNode({
@@ -56,6 +57,7 @@ export function FileList({
 	scopeRoots,
 	selectedFile,
 	onSelect,
+	gitSummaryError,
 }: FileListProps) {
 	const [fileList, setFileList] = useState<string[]>([]);
 	const [loading, setLoading] = useState(false);
@@ -77,6 +79,10 @@ export function FileList({
 				setLoading(false);
 			});
 	}, [worktreePath, scopeRoots]);
+
+	if (gitSummaryError) {
+		return <p className="shell-empty-state">Unable to load Git data.</p>;
+	}
 
 	if (scopeRoots.length === 0)
 		return (

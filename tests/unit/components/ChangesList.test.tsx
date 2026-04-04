@@ -37,4 +37,17 @@ describe("ChangesList", () => {
 		fireEvent.click(screen.getByRole("button", { name: /src\/index\.ts/i }));
 		expect(onSelect).toHaveBeenCalledWith("src/index.ts");
 	});
+
+	it("shows error message when gitSummaryError is true", () => {
+		render(
+			<ChangesList
+				changes={[]}
+				selectedPath={null}
+				onSelect={() => {}}
+				gitSummaryError
+			/>,
+		);
+		expect(screen.getByText("Unable to load Git data.")).toBeInTheDocument();
+		expect(screen.queryByText("No changed files.")).not.toBeInTheDocument();
+	});
 });

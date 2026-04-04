@@ -79,14 +79,26 @@ export class FileService {
 			try {
 				const stats = await stat(absoluteRoot);
 				if (stats.isDirectory()) {
-					const nested: string[] = [];
-					await walkDir(worktreePath, relativeRoot, nested);
-					nested.forEach((entry) => files.add(entry));
+					if (absoluteRoot === normalizedWorktree) {
+						// Root scope: list only immediate files, no recursion
+						const entries = await readdir(absoluteRoot, {
+							withFileTypes: true,
+						});
+						for (const entry of entries) {
+							if (entry.isFile()) {
+								files.add(entry.name);
+							}
+						}
+					} else {
+						const nested: string[] = [];
+						await walkDir(worktreePath, relativeRoot, nested);
+						nested.forEach((entry) => files.add(entry));
+					}
 				} else if (stats.isFile()) {
 					files.add(relativeRoot);
 				}
 			} catch {
-				// Path does not exist (e.g. deleted file) — skip it silently
+				// Path does not exist (e.g. deleted file) — skip silently
 			}
 		}
 

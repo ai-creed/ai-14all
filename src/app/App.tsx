@@ -98,7 +98,7 @@ export function App() {
 				changes
 					.map((change) => {
 						const lastSlash = change.path.lastIndexOf("/");
-						return lastSlash === -1 ? "" : change.path.slice(0, lastSlash);
+						return lastSlash === -1 ? "." : change.path.slice(0, lastSlash);
 					})
 					.filter(Boolean),
 			),
@@ -491,6 +491,7 @@ export function App() {
 														relativePath,
 													})
 												}
+												gitSummaryError={gitSummaryError}
 											/>
 										) : (
 											<ChangesList
@@ -499,6 +500,7 @@ export function App() {
 													activeSession?.selectedChangedFilePath ?? null
 												}
 												onSelect={handleSelectChangedFile}
+												gitSummaryError={gitSummaryError}
 											/>
 										)}
 									</ScrollArea.Viewport>

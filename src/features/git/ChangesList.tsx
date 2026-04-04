@@ -4,9 +4,19 @@ type Props = {
 	changes: GitChange[];
 	selectedPath: string | null;
 	onSelect: (relativePath: string) => void;
+	gitSummaryError?: boolean;
 };
 
-export function ChangesList({ changes, selectedPath, onSelect }: Props) {
+export function ChangesList({
+	changes,
+	selectedPath,
+	onSelect,
+	gitSummaryError,
+}: Props) {
+	if (gitSummaryError) {
+		return <p className="shell-empty-state">Unable to load Git data.</p>;
+	}
+
 	if (changes.length === 0) {
 		return <p className="shell-empty-state">No changed files.</p>;
 	}

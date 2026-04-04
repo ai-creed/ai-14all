@@ -81,5 +81,16 @@ describe("FileService", () => {
 
 			expect(files).toEqual(["src/index.ts", "src/nested/extra.ts"]);
 		});
+
+		it('lists immediate root-level files when scope root is "."', async () => {
+			// worktreeDir already has src/index.ts; add a root-level file
+			writeFileSync(join(worktreeDir, "README.md"), "# readme\n");
+
+			const result = await service.listScopedFiles(worktreeDir, ["."]);
+
+			// Should contain the root-level file but NOT recurse into src/
+			expect(result).toContain("README.md");
+			expect(result.some((p) => p.startsWith("src/"))).toBe(false);
+		});
 	});
 });

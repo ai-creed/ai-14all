@@ -134,4 +134,22 @@ describe("FileList", () => {
 		).toBeInTheDocument();
 		expect(mockListScoped).not.toHaveBeenCalled();
 	});
+
+	it("shows error message when gitSummaryError is true", async () => {
+		render(
+			<FileList
+				worktreePath="/repo"
+				scopeRoots={[]}
+				selectedFile={null}
+				onSelect={() => {}}
+				gitSummaryError
+			/>,
+		);
+		expect(
+			await screen.findByText("Unable to load Git data."),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByText("No nearby files for changed directories."),
+		).not.toBeInTheDocument();
+	});
 });
