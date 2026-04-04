@@ -1,6 +1,9 @@
+import type { GitSummary } from "./git-summary";
 import type { ProcessAttentionState } from "./process-session";
 
 export type ReviewMode = "files" | "changes";
+
+export type ViewerMode = "file" | "diff";
 
 export type WorktreeSession = {
 	id: string;
@@ -8,6 +11,8 @@ export type WorktreeSession = {
 	title: string;
 	note: string;
 	reviewMode: ReviewMode;
+	viewerMode: ViewerMode;
+	gitSummary: GitSummary | null;
 	selectedFilePath: string | null;
 	selectedChangedFilePath: string | null;
 	activeProcessSessionId: string | null;

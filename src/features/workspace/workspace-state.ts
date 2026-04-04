@@ -1,4 +1,5 @@
 import type { CommandPreset } from "../../../shared/models/command-preset";
+import type { GitSummary } from "../../../shared/models/git-summary";
 import type {
 	ProcessAttentionState,
 	ProcessSession,
@@ -76,6 +77,11 @@ export type WorkspaceAction =
 			type: "session/closeProcess";
 			worktreeId: string;
 			processId: string;
+	  }
+	| {
+			type: "session/cacheGitSummary";
+			worktreeId: string;
+			gitSummary: GitSummary | null;
 	  };
 
 function createSession(worktree: Worktree): WorktreeSession {
@@ -85,6 +91,8 @@ function createSession(worktree: Worktree): WorktreeSession {
 		title: worktree.label,
 		note: "",
 		reviewMode: "files",
+		viewerMode: "file",
+		gitSummary: null,
 		selectedFilePath: null,
 		selectedChangedFilePath: null,
 		activeProcessSessionId: null,
@@ -364,6 +372,21 @@ export function workspaceReducer(
 		};
 	}
 
+	if (action.type === "session/cacheGitSummary") {
+		const session = state.sessionsByWorktreeId[action.worktreeId];
+		if (!session) return state;
+		return {
+			...state,
+			sessionsByWorktreeId: {
+				...state.sessionsByWorktreeId,
+				[action.worktreeId]: {
+					...session,
+					gitSummary: action.gitSummary,
+				},
+			},
+		};
+	}
+
 	// --- Remaining session-level actions ---
 
 	const session = state.sessionsByWorktreeId[action.worktreeId];
@@ -379,12 +402,14 @@ export function workspaceReducer(
 		nextSession = {
 			...session,
 			reviewMode: "files",
+			viewerMode: "file",
 			selectedFilePath: action.relativePath,
 		};
 	} else if (action.type === "session/selectChangedFile") {
 		nextSession = {
 			...session,
 			reviewMode: "changes",
+			viewerMode: "diff",
 			selectedChangedFilePath: action.relativePath,
 		};
 	} else {

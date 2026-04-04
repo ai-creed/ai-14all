@@ -127,6 +127,66 @@ describe("workspaceReducer", () => {
 	});
 });
 
+describe("workspaceReducer — Phase 4 review state", () => {
+	it("stores cached git summary per worktree session", () => {
+		const state = workspaceReducer(createWorkspaceState(worktrees), {
+			type: "session/cacheGitSummary",
+			worktreeId: "main",
+			gitSummary: {
+				branchName: "main",
+				isDirty: true,
+				changedFileCount: 1,
+				changedFiles: [{ path: "src/index.ts", status: "M" }],
+				recentCommits: [
+					{ sha: "abc", shortSha: "abc", subject: "initial commit" },
+				],
+			},
+		});
+
+		expect(state.sessionsByWorktreeId.main.gitSummary?.changedFileCount).toBe(
+			1,
+		);
+	});
+
+	it("sets viewer mode to diff when selecting a changed file", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/selectFile",
+			worktreeId: "main",
+			relativePath: "src/index.ts",
+		});
+		state = workspaceReducer(state, {
+			type: "session/selectChangedFile",
+			worktreeId: "main",
+			relativePath: "src/index.ts",
+		});
+
+		expect(state.sessionsByWorktreeId.main.viewerMode).toBe("diff");
+		expect(state.sessionsByWorktreeId.main.selectedChangedFilePath).toBe(
+			"src/index.ts",
+		);
+	});
+
+	it("switches viewer mode with the selected review target", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/selectChangedFile",
+			worktreeId: "main",
+			relativePath: "src/index.ts",
+		});
+		state = workspaceReducer(state, {
+			type: "session/selectFile",
+			worktreeId: "main",
+			relativePath: "src/new-file.ts",
+		});
+
+		expect(state.sessionsByWorktreeId.main.viewerMode).toBe("file");
+		expect(state.sessionsByWorktreeId.main.selectedFilePath).toBe(
+			"src/new-file.ts",
+		);
+	});
+});
+
 describe("workspaceReducer — Phase 3 process model", () => {
 	it("stores repo-level presets", () => {
 		const initial = createWorkspaceState(worktrees);
