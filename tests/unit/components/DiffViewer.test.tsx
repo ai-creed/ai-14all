@@ -27,4 +27,14 @@ describe("DiffViewer", () => {
 			'+export const hello = "phase-2";',
 		);
 	});
+
+	it("labels the diff as a HEAD comparison", () => {
+		render(
+			<DiffViewer
+				path="src/index.ts"
+				content="diff --git a/src/index.ts b/src/index.ts"
+			/>,
+		);
+		expect(screen.getByText("Diff vs HEAD")).toBeInTheDocument();
+	});
 });

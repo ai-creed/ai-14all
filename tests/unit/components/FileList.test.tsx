@@ -4,13 +4,15 @@ import { render, screen, fireEvent } from "@testing-library/react";
 vi.mock("../../../src/lib/desktop-client", () => ({
 	files: {
 		list: vi.fn(),
+		listScoped: vi.fn(),
+		read: vi.fn(),
 	},
 }));
 
 import { FileList } from "../../../src/features/viewer/FileList";
 import { files } from "../../../src/lib/desktop-client";
 
-const mockList = vi.mocked(files.list);
+const mockListScoped = vi.mocked(files.listScoped);
 
 describe("FileList", () => {
 	beforeEach(() => {
@@ -18,16 +20,21 @@ describe("FileList", () => {
 	});
 
 	it("renders file paths from mock data", async () => {
-		mockList.mockResolvedValueOnce(["src/index.ts", "README.md"]);
+		mockListScoped.mockResolvedValueOnce(["src/index.ts", "README.md"]);
 		const onSelect = vi.fn();
 
 		render(
-			<FileList worktreePath="/repo" selectedFile={null} onSelect={onSelect} />,
+			<FileList
+				worktreePath="/repo"
+				scopeRoots={["src"]}
+				selectedFile={null}
+				onSelect={onSelect}
+			/>,
 		);
 
 		// Wait for async fetch to resolve
 		expect(
-			await screen.findByRole("button", { name: "src/index.ts" }),
+			await screen.findByRole("button", { name: "index.ts" }),
 		).toBeInTheDocument();
 		expect(
 			screen.getByRole("button", { name: "README.md" }),
@@ -35,11 +42,12 @@ describe("FileList", () => {
 	});
 
 	it("highlights the selected file", async () => {
-		mockList.mockResolvedValueOnce(["src/index.ts", "README.md"]);
+		mockListScoped.mockResolvedValueOnce(["src/index.ts", "README.md"]);
 
 		render(
 			<FileList
 				worktreePath="/repo"
+				scopeRoots={["src"]}
 				selectedFile="src/index.ts"
 				onSelect={vi.fn()}
 			/>,
@@ -47,17 +55,22 @@ describe("FileList", () => {
 
 		// Wait for file list to render
 		const selectedItem = await screen.findByRole("button", {
-			name: "src/index.ts",
+			name: "index.ts",
 		});
 		expect(selectedItem).toHaveAttribute("data-selected", "true");
 	});
 
 	it("calls onSelect when a file is clicked", async () => {
-		mockList.mockResolvedValueOnce(["src/index.ts", "README.md"]);
+		mockListScoped.mockResolvedValueOnce(["src/index.ts", "README.md"]);
 		const onSelect = vi.fn();
 
 		render(
-			<FileList worktreePath="/repo" selectedFile={null} onSelect={onSelect} />,
+			<FileList
+				worktreePath="/repo"
+				scopeRoots={["src"]}
+				selectedFile={null}
+				onSelect={onSelect}
+			/>,
 		);
 
 		const fileItem = await screen.findByRole("button", { name: "README.md" });
@@ -67,12 +80,58 @@ describe("FileList", () => {
 
 	it("shows loading state", () => {
 		// Mock that never resolves
-		mockList.mockReturnValue(new Promise(() => {}));
+		mockListScoped.mockReturnValue(new Promise(() => {}));
 
 		render(
-			<FileList worktreePath="/repo" selectedFile={null} onSelect={vi.fn()} />,
+			<FileList
+				worktreePath="/repo"
+				scopeRoots={["src"]}
+				selectedFile={null}
+				onSelect={vi.fn()}
+			/>,
 		);
 
 		expect(screen.getByText("Loading files…")).toBeInTheDocument();
+	});
+
+	it("renders folder groups for scoped files", async () => {
+		mockListScoped.mockResolvedValue([
+			"src/index.ts",
+			"src/new-file.ts",
+			"src/nested/example.ts",
+		]);
+
+		render(
+			<FileList
+				worktreePath="/repo"
+				scopeRoots={["src"]}
+				selectedFile="src/index.ts"
+				onSelect={() => {}}
+			/>,
+		);
+
+		expect(await screen.findByText("src")).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "index.ts" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "new-file.ts" }),
+		).toBeInTheDocument();
+	});
+
+	it("shows empty state when scopeRoots is empty", async () => {
+		render(
+			<FileList
+				worktreePath="/repo"
+				scopeRoots={[]}
+				selectedFile={null}
+				onSelect={() => {}}
+			/>,
+		);
+
+		expect(
+			await screen.findByText("No nearby files for changed directories."),
+		).toBeInTheDocument();
+		expect(mockListScoped).not.toHaveBeenCalled();
 	});
 });

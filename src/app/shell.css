@@ -425,3 +425,87 @@ textarea {
 .shell-toolbar-menu__item:hover {
 	background: var(--panel-bg-elevated);
 }
+
+/* Scoped file tree */
+
+.shell-tree-group {
+	display: grid;
+	gap: 2px;
+}
+
+.shell-tree-group__label {
+	padding: 6px 8px 2px;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--text-muted);
+}
+
+.shell-tree-group__children {
+	padding-left: var(--space-3);
+	display: grid;
+	gap: 2px;
+}
+
+.shell-list__item--tree {
+	padding: 6px 10px;
+}
+
+/* Viewer chrome */
+
+.shell-viewer {
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	overflow: hidden;
+}
+
+.shell-viewer__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	padding: 6px 10px;
+	background: var(--panel-bg-elevated);
+	border-bottom: 1px solid var(--panel-border);
+	font-family: monospace;
+	font-size: 0.8em;
+}
+
+.shell-viewer__title {
+	color: var(--text-secondary);
+}
+
+.shell-viewer__meta {
+	color: var(--text-muted);
+	font-size: 0.9em;
+}
+
+/* Context panel git sections */
+
+.shell-context__status {
+	margin-top: var(--space-2);
+	font-weight: 700;
+	color: var(--text-secondary);
+}
+
+.shell-context__status[data-dirty="true"] {
+	color: var(--warning);
+}
+
+.shell-context__list {
+	margin: var(--space-2) 0 0;
+	padding: 0;
+	list-style: none;
+	display: grid;
+	gap: 4px;
+}
+
+.shell-context__list li {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: var(--space-2);
+	font-size: 0.85em;
+	color: var(--text-secondary);
+}

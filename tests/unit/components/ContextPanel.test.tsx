@@ -9,6 +9,7 @@ describe("ContextPanel", () => {
 				branchName="feature-a"
 				worktreePath="/repo/.worktrees/feature-a"
 				note="Investigate flaky diff"
+				gitSummary={null}
 				onNoteChange={vi.fn()}
 			/>,
 		);
@@ -28,6 +29,7 @@ describe("ContextPanel", () => {
 				branchName="feature-a"
 				worktreePath="/repo/.worktrees/feature-a"
 				note=""
+				gitSummary={null}
 				onNoteChange={onNoteChange}
 			/>,
 		);
@@ -37,5 +39,32 @@ describe("ContextPanel", () => {
 		});
 
 		expect(onNoteChange).toHaveBeenCalledWith("Check git diff output");
+	});
+
+	it("renders git status, changed files, and recent commits", () => {
+		render(
+			<ContextPanel
+				branchName="feature-a"
+				worktreePath="/repo/.worktrees/feature-a"
+				note=""
+				gitSummary={{
+					branchName: "feature-a",
+					isDirty: true,
+					changedFileCount: 2,
+					changedFiles: [
+						{ path: "src/index.ts", status: "M" },
+						{ path: "src/new-file.ts", status: "??" },
+					],
+					recentCommits: [
+						{ sha: "abc123", shortSha: "abc123", subject: "initial commit" },
+					],
+				}}
+				onNoteChange={() => {}}
+			/>,
+		);
+
+		expect(screen.getByText("Dirty")).toBeInTheDocument();
+		expect(screen.getByText("src/index.ts")).toBeInTheDocument();
+		expect(screen.getByText("initial commit")).toBeInTheDocument();
 	});
 });

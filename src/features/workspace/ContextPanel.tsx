@@ -1,7 +1,10 @@
+import type { GitSummary } from "../../../shared/models/git-summary";
+
 type Props = {
 	branchName: string;
 	worktreePath: string;
 	note: string;
+	gitSummary: GitSummary | null;
 	onNoteChange: (note: string) => void;
 };
 
@@ -9,6 +12,7 @@ export function ContextPanel({
 	branchName,
 	worktreePath,
 	note,
+	gitSummary,
 	onNoteChange,
 }: Props) {
 	return (
@@ -19,6 +23,48 @@ export function ContextPanel({
 			<div className="shell-context__section">
 				<div className="shell-label">Worktree path</div>
 				<code className="shell-context__path">{worktreePath}</code>
+			</div>
+
+			<div className="shell-context__section">
+				<div className="shell-label">Git status</div>
+				<div
+					className="shell-context__status"
+					data-dirty={String(gitSummary?.isDirty ?? false)}
+				>
+					{gitSummary?.isDirty ? "Dirty" : "Clean"}
+				</div>
+			</div>
+
+			<div className="shell-context__section">
+				<div className="shell-label">Changed files</div>
+				{gitSummary?.changedFiles.length ? (
+					<ul className="shell-context__list">
+						{gitSummary.changedFiles.map((change) => (
+							<li key={change.path}>
+								<span>{change.path}</span>
+								<strong>{change.status}</strong>
+							</li>
+						))}
+					</ul>
+				) : (
+					<p className="shell-empty-state">No local changes.</p>
+				)}
+			</div>
+
+			<div className="shell-context__section">
+				<div className="shell-label">Recent commits</div>
+				{gitSummary?.recentCommits.length ? (
+					<ul className="shell-context__list">
+						{gitSummary.recentCommits.map((commit) => (
+							<li key={commit.sha}>
+								<code>{commit.shortSha}</code>
+								<span>{commit.subject}</span>
+							</li>
+						))}
+					</ul>
+				) : (
+					<p className="shell-empty-state">No recent commits.</p>
+				)}
 			</div>
 
 			<label htmlFor="session-note" className="shell-label">

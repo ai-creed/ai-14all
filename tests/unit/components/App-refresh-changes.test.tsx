@@ -50,6 +50,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	},
 	files: {
 		list: vi.fn().mockResolvedValue([]),
+		listScoped: vi.fn().mockResolvedValue([]),
 		read: vi.fn(),
 	},
 	git: {

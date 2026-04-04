@@ -320,6 +320,7 @@ export function App() {
 							title={activeWorktree.label}
 							branchName={activeWorktree.branchName}
 							changedFileCount={changes.length}
+							isDirty={activeSession?.gitSummary?.isDirty ?? changes.length > 0}
 						/>
 					)}
 
@@ -451,6 +452,12 @@ export function App() {
 										{activeSession?.reviewMode === "files" ? (
 											<FileList
 												worktreePath={activeWorktree.path}
+												scopeRoots={changes.map((c) => {
+													const parts = c.path.split("/");
+													return parts.length > 1
+														? parts.slice(0, -1).join("/")
+														: c.path;
+												})}
 												selectedFile={activeSession.selectedFilePath}
 												onSelect={(relativePath) =>
 													dispatch({
@@ -504,6 +511,7 @@ export function App() {
 						branchName={activeWorktree.branchName}
 						worktreePath={activeWorktree.path}
 						note={activeSession.note}
+						gitSummary={activeSession.gitSummary}
 						onNoteChange={(note) =>
 							dispatch({
 								type: "session/setNote",

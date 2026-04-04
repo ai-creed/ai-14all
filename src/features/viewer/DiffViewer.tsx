@@ -7,21 +7,10 @@ type Props = {
 
 export function DiffViewer({ path, content }: Props) {
 	return (
-		<div
-			style={{
-				border: "1px solid #d0d7de",
-				borderRadius: 8,
-				overflow: "hidden",
-			}}
-		>
-			<div
-				style={{
-					padding: "6px 10px",
-					borderBottom: "1px solid #d0d7de",
-					fontFamily: "monospace",
-				}}
-			>
-				{path}
+		<div className="shell-viewer">
+			<div className="shell-viewer__header">
+				<div className="shell-viewer__title">{path}</div>
+				<div className="shell-viewer__meta">Diff vs HEAD</div>
 			</div>
 			<Editor
 				height="420px"

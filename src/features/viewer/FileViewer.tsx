@@ -31,30 +31,14 @@ export function FileViewer({ worktreePath, relativePath }: FileViewerProps) {
 	}, [worktreePath, relativePath]);
 
 	if (loading)
-		return (
-			<p style={{ color: "#888", fontSize: "0.85em" }}>
-				Loading {relativePath}…
-			</p>
-		);
-	if (error)
-		return <p style={{ color: "red", fontSize: "0.85em" }}>Error: {error}</p>;
+		return <p className="shell-empty-state">Loading {relativePath}…</p>;
+	if (error) return <p className="shell-error">Error: {error}</p>;
 	if (!fileView) return null;
 
 	return (
-		<div
-			style={{ border: "1px solid #ccc", borderRadius: 4, overflow: "hidden" }}
-		>
-			<div
-				style={{
-					padding: "4px 8px",
-					backgroundColor: "#f5f5f5",
-					borderBottom: "1px solid #ccc",
-					fontFamily: "monospace",
-					fontSize: "0.8em",
-					color: "#333",
-				}}
-			>
-				{fileView.path}
+		<div className="shell-viewer">
+			<div className="shell-viewer__header">
+				<div className="shell-viewer__title">{fileView.path}</div>
 			</div>
 			<Editor
 				height="400px"
