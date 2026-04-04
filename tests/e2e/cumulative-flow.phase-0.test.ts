@@ -47,7 +47,7 @@ test.describe.serial("Cumulative flow — Phase 0", () => {
 		await worktreeNav()
 			.getByRole("button", { name: /^main(?:\s+main)?$/i })
 			.click();
-		await page.getByRole("button", { name: "New terminal" }).click();
+		await page.getByRole("button", { name: "+ Shell" }).click();
 
 		await expect(page.locator(".xterm")).toHaveCount(1, { timeout: 10_000 });
 		await expect(

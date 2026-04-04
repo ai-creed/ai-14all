@@ -55,16 +55,10 @@ export function PresetManager({
 									<span style={{ flex: 1 }}>
 										{preset.label} — <code>{preset.command}</code>
 									</span>
-									<button
-										type="button"
-										onClick={() => onDelete(preset.id)}
-									>
+									<button type="button" onClick={() => onDelete(preset.id)}>
 										Delete
 									</button>
-									<button
-										type="button"
-										onClick={() => onLaunch(preset.id)}
-									>
+									<button type="button" onClick={() => onLaunch(preset.id)}>
 										Launch
 									</button>
 								</li>
@@ -93,11 +87,7 @@ export function PresetManager({
 								className="shell-note-input"
 							/>
 						</div>
-						<button
-							type="button"
-							className="shell-button"
-							onClick={handleSave}
-						>
+						<button type="button" className="shell-button" onClick={handleSave}>
 							Save preset
 						</button>
 					</div>

@@ -45,8 +45,8 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 		await worktreeNav()
 			.getByRole("button", { name: /^main(?:\s+main)?$/i })
 			.click();
-		await page.getByRole("button", { name: "New terminal" }).click();
-		await page.getByRole("button", { name: "New terminal" }).click();
+		await page.getByRole("button", { name: "+ Shell" }).click();
+		await page.getByRole("button", { name: "+ Shell" }).click();
 
 		await expect(
 			page.getByRole("tab", {

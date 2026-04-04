@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+	act,
+	render,
+	screen,
+	fireEvent,
+	waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockTerminalOutputListeners: Array<
@@ -32,10 +38,12 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		sendInput: vi.fn(),
 		resize: vi.fn(),
 		stop: vi.fn(),
-		onOutput: vi.fn((listener: (event: { sessionId: string; data: string }) => void) => {
-			mockTerminalOutputListeners.push(listener);
-			return vi.fn();
-		}),
+		onOutput: vi.fn(
+			(listener: (event: { sessionId: string; data: string }) => void) => {
+				mockTerminalOutputListeners.push(listener);
+				return vi.fn();
+			},
+		),
 		onExit: vi.fn(() => vi.fn()),
 		onState: vi.fn(() => vi.fn()),
 		onError: vi.fn(() => vi.fn()),

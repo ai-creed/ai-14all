@@ -210,7 +210,10 @@ export function App() {
 		if (!activeWorktree) return;
 		const preset = workspaceState.commandPresets.find((p) => p.id === presetId);
 		if (!preset) return;
-		const terminal = await createSession(activeWorktree.id, activeWorktree.path);
+		const terminal = await createSession(
+			activeWorktree.id,
+			activeWorktree.path,
+		);
 		dispatch({
 			type: "session/registerProcess",
 			worktreeId: activeWorktree.id,
@@ -251,7 +254,10 @@ export function App() {
 			removeSession(process.terminalSessionId);
 		}
 
-		const terminal = await createSession(activeWorktree.id, activeWorktree.path);
+		const terminal = await createSession(
+			activeWorktree.id,
+			activeWorktree.path,
+		);
 		dispatch({
 			type: "session/replaceProcessTerminal",
 			processId,
@@ -297,8 +303,7 @@ export function App() {
 					attentionByWorktreeId={attentionByWorktreeId}
 					onSelect={(worktreeId) => {
 						dispatch({ type: "session/selectWorktree", worktreeId });
-						const session =
-							workspaceState.sessionsByWorktreeId[worktreeId];
+						const session = workspaceState.sessionsByWorktreeId[worktreeId];
 						if (session?.activeProcessSessionId) {
 							dispatch({
 								type: "session/markProcessViewed",
@@ -361,7 +366,9 @@ export function App() {
 
 							{sessions.map((session) => {
 								const activeProcess = activeSession?.activeProcessSessionId
-									? workspaceState.processSessionsById[activeSession.activeProcessSessionId]
+									? workspaceState.processSessionsById[
+											activeSession.activeProcessSessionId
+										]
 									: null;
 								return (
 									<TerminalPane
@@ -509,12 +516,8 @@ export function App() {
 				open={presetManagerOpen}
 				presets={workspaceState.commandPresets}
 				onOpenChange={setPresetManagerOpen}
-				onSave={(preset) =>
-					dispatch({ type: "preset/upsert", preset })
-				}
-				onDelete={(presetId) =>
-					dispatch({ type: "preset/remove", presetId })
-				}
+				onSave={(preset) => dispatch({ type: "preset/upsert", preset })}
+				onDelete={(presetId) => dispatch({ type: "preset/remove", presetId })}
 				onLaunch={(presetId) => {
 					setPresetManagerOpen(false);
 					handleLaunchPreset(presetId);

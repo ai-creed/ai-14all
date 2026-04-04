@@ -1,7 +1,10 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import type { ProcessSession, ProcessStatus } from "../../../shared/models/process-session";
+import type {
+	ProcessSession,
+	ProcessStatus,
+} from "../../../shared/models/process-session";
 import type { CommandPreset } from "../../../shared/models/command-preset";
 
 type ProcessTabView = Pick<
