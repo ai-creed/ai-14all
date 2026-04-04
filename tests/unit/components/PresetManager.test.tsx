@@ -4,11 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { PresetManager } from "../../../src/features/terminals/PresetManager";
 
 describe("PresetManager", () => {
-	it("creates and edits presets", async () => {
+	it("creates a new preset", async () => {
 		const user = userEvent.setup();
 		const onSave = vi.fn();
-		const onDelete = vi.fn();
-		const onLaunch = vi.fn();
 
 		render(
 			<PresetManager
@@ -16,8 +14,8 @@ describe("PresetManager", () => {
 				presets={[]}
 				onOpenChange={() => {}}
 				onSave={onSave}
-				onDelete={onDelete}
-				onLaunch={onLaunch}
+				onDelete={vi.fn()}
+				onLaunch={vi.fn()}
 			/>,
 		);
 
@@ -29,6 +27,45 @@ describe("PresetManager", () => {
 			id: expect.any(String),
 			label: "Claude",
 			command: "claude",
+		});
+	});
+
+	it("edits an existing preset", async () => {
+		const user = userEvent.setup();
+		const onSave = vi.fn();
+		const existing = { id: "preset-1", label: "Claude", command: "claude" };
+
+		render(
+			<PresetManager
+				open
+				presets={[existing]}
+				onOpenChange={() => {}}
+				onSave={onSave}
+				onDelete={vi.fn()}
+				onLaunch={vi.fn()}
+			/>,
+		);
+
+		// Click the Edit button to load preset into the form
+		await user.click(screen.getByRole("button", { name: "Edit" }));
+
+		// Form should be populated with existing values
+		expect(screen.getByLabelText("Preset label")).toHaveValue("Claude");
+		expect(screen.getByLabelText("Preset command")).toHaveValue("claude");
+
+		// Change the command and save
+		await user.clear(screen.getByLabelText("Preset command"));
+		await user.type(
+			screen.getByLabelText("Preset command"),
+			"claude --model opus",
+		);
+		await user.click(screen.getByRole("button", { name: "Save preset" }));
+
+		// Should save with the same id, not a new one
+		expect(onSave).toHaveBeenCalledWith({
+			id: "preset-1",
+			label: "Claude",
+			command: "claude --model opus",
 		});
 	});
 });

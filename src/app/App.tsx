@@ -329,12 +329,15 @@ export function App() {
 								processes={(activeSession?.processSessionIds ?? [])
 									.map((id) => workspaceState.processSessionsById[id])
 									.filter(Boolean)
+									.sort((a, b) => Number(b.pinned) - Number(a.pinned))
 									.map((p) => ({
 										id: p.id,
 										label: p.label,
 										status: p.status,
 										pinned: p.pinned,
 										attentionState: p.attentionState,
+										exitCode: p.exitCode,
+										lastActivityAt: p.lastActivityAt,
 									}))}
 								activeProcessId={activeSession?.activeProcessSessionId ?? null}
 								presets={workspaceState.commandPresets}

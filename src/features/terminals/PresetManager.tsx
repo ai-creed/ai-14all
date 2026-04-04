@@ -19,16 +19,24 @@ export function PresetManager({
 	onDelete,
 	onLaunch,
 }: Props) {
+	const [editingId, setEditingId] = useState<string | null>(null);
 	const [label, setLabel] = useState("");
 	const [command, setCommand] = useState("");
+
+	function handleEdit(preset: CommandPreset) {
+		setEditingId(preset.id);
+		setLabel(preset.label);
+		setCommand(preset.command);
+	}
 
 	function handleSave() {
 		if (!label.trim() || !command.trim()) return;
 		onSave({
-			id: crypto.randomUUID(),
+			id: editingId ?? crypto.randomUUID(),
 			label: label.trim(),
 			command: command.trim(),
 		});
+		setEditingId(null);
 		setLabel("");
 		setCommand("");
 	}
@@ -55,6 +63,9 @@ export function PresetManager({
 									<span style={{ flex: 1 }}>
 										{preset.label} — <code>{preset.command}</code>
 									</span>
+									<button type="button" onClick={() => handleEdit(preset)}>
+										Edit
+									</button>
 									<button type="button" onClick={() => onDelete(preset.id)}>
 										Delete
 									</button>

@@ -1,13 +1,33 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { TerminalTabs } from "../../../src/features/terminals/TerminalTabs";
 import type { ProcessSession } from "../../../shared/models/process-session";
 import type { CommandPreset } from "../../../shared/models/command-preset";
 
 type ProcessTabView = Pick<
 	ProcessSession,
-	"id" | "label" | "status" | "pinned" | "attentionState"
+	| "id"
+	| "label"
+	| "status"
+	| "pinned"
+	| "attentionState"
+	| "exitCode"
+	| "lastActivityAt"
 >;
+
+function proc(
+	overrides: Partial<ProcessTabView> & Pick<ProcessTabView, "id" | "label">,
+): ProcessTabView {
+	return {
+		status: "running",
+		pinned: false,
+		attentionState: "idle",
+		exitCode: null,
+		lastActivityAt: null,
+		...overrides,
+	};
+}
 
 const stubHandlers = {
 	onSelect: vi.fn(),
@@ -43,20 +63,8 @@ describe("TerminalTabs", () => {
 	it("renders process labels and active state", () => {
 		renderTabs(
 			[
-				{
-					id: "proc-1",
-					label: "shell 1",
-					status: "running",
-					pinned: false,
-					attentionState: "idle",
-				},
-				{
-					id: "proc-2",
-					label: "shell 2",
-					status: "running",
-					pinned: false,
-					attentionState: "idle",
-				},
+				proc({ id: "proc-1", label: "shell 1" }),
+				proc({ id: "proc-2", label: "shell 2" }),
 			],
 			"proc-2",
 		);
@@ -80,6 +88,8 @@ describe("TerminalTabs", () => {
 					status: "running",
 					pinned: false,
 					attentionState: "idle",
+					exitCode: null,
+					lastActivityAt: null,
 				},
 				{
 					id: "proc-2",
@@ -87,6 +97,8 @@ describe("TerminalTabs", () => {
 					status: "exited",
 					pinned: false,
 					attentionState: "idle",
+					exitCode: null,
+					lastActivityAt: null,
 				},
 				{
 					id: "proc-3",
@@ -94,6 +106,8 @@ describe("TerminalTabs", () => {
 					status: "error",
 					pinned: false,
 					attentionState: "idle",
+					exitCode: null,
+					lastActivityAt: null,
 				},
 			],
 			"proc-1",
@@ -114,23 +128,99 @@ describe("TerminalTabs", () => {
 		expect(tab3).toHaveAttribute("data-status", "error");
 	});
 
-	it("renders pinned and attention states for process tabs", () => {
+	it("shows exit code in the status suffix for non-zero exits", () => {
+		renderTabs(
+			[
+				{
+					id: "proc-1",
+					label: "shell 1",
+					status: "exited",
+					pinned: false,
+					attentionState: "idle",
+					exitCode: 0,
+					lastActivityAt: null,
+				},
+				{
+					id: "proc-2",
+					label: "shell 2",
+					status: "exited",
+					pinned: false,
+					attentionState: "idle",
+					exitCode: 1,
+					lastActivityAt: null,
+				},
+				{
+					id: "proc-3",
+					label: "shell 3",
+					status: "error",
+					pinned: false,
+					attentionState: "idle",
+					exitCode: 137,
+					lastActivityAt: null,
+				},
+			],
+			"proc-1",
+		);
+
+		expect(
+			screen.getByRole("tab", { name: "shell 1 (exited)" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("tab", { name: "shell 2 (exited: 1)" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("tab", { name: "shell 3 (error: 137)" }),
+		).toBeInTheDocument();
+	});
+
+	it("exposes last activity timestamp on the tab element", () => {
+		const timestamp = Date.now() - 60_000;
+
 		renderTabs(
 			[
 				{
 					id: "proc-1",
 					label: "shell 1",
 					status: "running",
-					pinned: true,
-					attentionState: "activity",
+					pinned: false,
+					attentionState: "idle",
+					exitCode: null,
+					lastActivityAt: timestamp,
 				},
 				{
 					id: "proc-2",
 					label: "shell 2",
 					status: "running",
 					pinned: false,
-					attentionState: "actionRequired",
+					attentionState: "idle",
+					exitCode: null,
+					lastActivityAt: null,
 				},
+			],
+			"proc-1",
+		);
+
+		const tab1 = screen.getByRole("tab", { name: "shell 1" });
+		const tab2 = screen.getByRole("tab", { name: "shell 2" });
+
+		expect(tab1).toHaveAttribute("data-last-activity", String(timestamp));
+		expect(tab2).not.toHaveAttribute("data-last-activity");
+	});
+
+	it("renders pinned and attention states for process tabs", () => {
+		renderTabs(
+			[
+				proc({
+					id: "proc-1",
+					label: "shell 1",
+					pinned: true,
+					attentionState: "activity",
+				}),
+				proc({
+					id: "proc-2",
+					label: "shell 2",
+					attentionState: "actionRequired",
+				}),
 			],
 			"proc-1",
 		);
@@ -145,27 +235,16 @@ describe("TerminalTabs", () => {
 		expect(tab2).toHaveAttribute("data-pinned", "false");
 	});
 
-	it("calls add, select, and close handlers", () => {
+	it("calls add, select, and close handlers", async () => {
+		const user = userEvent.setup();
 		const onAddAdHoc = vi.fn();
 		const onSelect = vi.fn();
 		const onClose = vi.fn();
 
 		renderTabs(
 			[
-				{
-					id: "proc-1",
-					label: "shell 1",
-					status: "running",
-					pinned: false,
-					attentionState: "idle",
-				},
-				{
-					id: "proc-2",
-					label: "shell 2",
-					status: "running",
-					pinned: false,
-					attentionState: "idle",
-				},
+				proc({ id: "proc-1", label: "shell 1" }),
+				proc({ id: "proc-2", label: "shell 2" }),
 			],
 			"proc-1",
 			[],
@@ -174,11 +253,63 @@ describe("TerminalTabs", () => {
 
 		fireEvent.click(screen.getByRole("button", { name: "+ Shell" }));
 		fireEvent.click(screen.getByRole("tab", { name: "shell 2" }));
-		fireEvent.click(screen.getByRole("button", { name: "Close shell 1" }));
+		await user.click(
+			screen.getByRole("button", { name: "Actions for shell 1" }),
+		);
+		await user.click(screen.getByRole("menuitem", { name: "Close" }));
 
 		expect(onAddAdHoc).toHaveBeenCalled();
 		expect(onSelect).toHaveBeenCalledWith("proc-2");
 		expect(onClose).toHaveBeenCalledWith("proc-1");
+	});
+
+	it("calls stop, restart, and toggle-pinned from the tab context menu", async () => {
+		const user = userEvent.setup();
+		const onStop = vi.fn();
+		const onRestart = vi.fn();
+		const onTogglePinned = vi.fn();
+
+		renderTabs([proc({ id: "proc-1", label: "shell 1" })], "proc-1", [], {
+			onStop,
+			onRestart,
+			onTogglePinned,
+		});
+
+		// Open the tab context menu and click Stop
+		await user.click(
+			screen.getByRole("button", { name: "Actions for shell 1" }),
+		);
+		await user.click(screen.getByRole("menuitem", { name: "Stop" }));
+		expect(onStop).toHaveBeenCalledWith("proc-1");
+
+		// Re-open and test restart
+		await user.click(
+			screen.getByRole("button", { name: "Actions for shell 1" }),
+		);
+		await user.click(screen.getByRole("menuitem", { name: "Restart" }));
+		expect(onRestart).toHaveBeenCalledWith("proc-1");
+
+		// Re-open and test pin toggle
+		await user.click(
+			screen.getByRole("button", { name: "Actions for shell 1" }),
+		);
+		await user.click(screen.getByRole("menuitem", { name: "Pin" }));
+		expect(onTogglePinned).toHaveBeenCalledWith("proc-1");
+	});
+
+	it("shows Unpin for already-pinned tabs", async () => {
+		const user = userEvent.setup();
+
+		renderTabs(
+			[proc({ id: "proc-1", label: "Claude", pinned: true })],
+			"proc-1",
+		);
+
+		await user.click(
+			screen.getByRole("button", { name: "Actions for Claude" }),
+		);
+
+		expect(screen.getByRole("menuitem", { name: "Unpin" })).toBeInTheDocument();
 	});
 
 	it("supports keyboard tab switching", async () => {
@@ -192,6 +323,8 @@ describe("TerminalTabs", () => {
 					status: "running",
 					pinned: false,
 					attentionState: "idle",
+					exitCode: null,
+					lastActivityAt: null,
 				},
 				{
 					id: "proc-2",
@@ -199,6 +332,8 @@ describe("TerminalTabs", () => {
 					status: "running",
 					pinned: false,
 					attentionState: "idle",
+					exitCode: null,
+					lastActivityAt: null,
 				},
 			],
 			"proc-1",

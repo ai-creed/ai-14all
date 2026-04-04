@@ -238,6 +238,22 @@ describe("App — process lifecycle", () => {
 		);
 	});
 
+	it("renders pinned tabs before unpinned tabs", async () => {
+		render(<App />);
+		await loadRepository();
+		// First add an ad-hoc shell (unpinned) — gets terminal-1
+		await user.click(screen.getByRole("button", { name: "+ Shell" }));
+		// Then launch a preset (pinned) — gets terminal-2
+		await createPreset("Claude", "claude");
+		await user.click(screen.getByRole("button", { name: "Launch preset" }));
+		await user.click(screen.getByRole("menuitem", { name: "Claude" }));
+
+		// Despite being added second, the pinned "Claude" tab should appear first
+		const tabs = screen.getAllByRole("tab");
+		expect(tabs[0]).toHaveTextContent("Claude");
+		expect(tabs[1]).toHaveTextContent("shell 1");
+	});
+
 	it("marks a background process as action-required from output", async () => {
 		render(<App />);
 		await loadRepository();

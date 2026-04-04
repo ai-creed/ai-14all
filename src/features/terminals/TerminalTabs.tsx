@@ -9,7 +9,13 @@ import type { CommandPreset } from "../../../shared/models/command-preset";
 
 type ProcessTabView = Pick<
 	ProcessSession,
-	"id" | "label" | "status" | "pinned" | "attentionState"
+	| "id"
+	| "label"
+	| "status"
+	| "pinned"
+	| "attentionState"
+	| "exitCode"
+	| "lastActivityAt"
 >;
 
 type Props = {
@@ -26,10 +32,18 @@ type Props = {
 	onTogglePinned: (processId: string) => void;
 };
 
-const statusSuffix: Partial<Record<ProcessStatus, string>> = {
-	exited: " (exited)",
-	error: " (error)",
-};
+function formatStatusSuffix(
+	status: ProcessStatus,
+	exitCode: number | null,
+): string {
+	if (status === "exited") {
+		return exitCode ? ` (exited: ${exitCode})` : " (exited)";
+	}
+	if (status === "error") {
+		return exitCode != null ? ` (error: ${exitCode})` : " (error)";
+	}
+	return "";
+}
 
 export function TerminalTabs({
 	processes,
@@ -40,6 +54,9 @@ export function TerminalTabs({
 	onLaunchPreset,
 	onOpenPresetManager,
 	onClose,
+	onStop,
+	onRestart,
+	onTogglePinned,
 }: Props) {
 	return (
 		<Tooltip.Provider delayDuration={150}>
@@ -54,7 +71,10 @@ export function TerminalTabs({
 						className="shell-terminal-tabs__list"
 					>
 						{processes.map((process) => {
-							const suffix = statusSuffix[process.status] ?? "";
+							const suffix = formatStatusSuffix(
+								process.status,
+								process.exitCode,
+							);
 							return (
 								<div key={process.id} className="shell-terminal-tabs__item">
 									<Tabs.Trigger
@@ -63,28 +83,54 @@ export function TerminalTabs({
 										data-status={process.status}
 										data-attention={process.attentionState}
 										data-pinned={String(process.pinned)}
+										{...(process.lastActivityAt != null
+											? { "data-last-activity": String(process.lastActivityAt) }
+											: {})}
 										onClick={() => onSelect(process.id)}
 									>
 										{process.label}
 										{suffix}
 									</Tabs.Trigger>
-									<Tooltip.Root>
-										<Tooltip.Trigger asChild>
+									<DropdownMenu.Root>
+										<DropdownMenu.Trigger asChild>
 											<button
 												type="button"
-												className="shell-terminal-tab__close"
-												aria-label={`Close ${process.label}`}
-												onClick={() => onClose(process.id)}
+												className="shell-terminal-tab__actions"
+												aria-label={`Actions for ${process.label}`}
 											>
-												×
+												···
 											</button>
-										</Tooltip.Trigger>
-										<Tooltip.Portal>
-											<Tooltip.Content className="shell-tooltip" sideOffset={8}>
-												Close terminal
-											</Tooltip.Content>
-										</Tooltip.Portal>
-									</Tooltip.Root>
+										</DropdownMenu.Trigger>
+										<DropdownMenu.Portal>
+											<DropdownMenu.Content className="shell-toolbar-menu">
+												<DropdownMenu.Item
+													className="shell-toolbar-menu__item"
+													onSelect={() => onStop(process.id)}
+												>
+													Stop
+												</DropdownMenu.Item>
+												<DropdownMenu.Item
+													className="shell-toolbar-menu__item"
+													onSelect={() => onRestart(process.id)}
+												>
+													Restart
+												</DropdownMenu.Item>
+												<DropdownMenu.Item
+													className="shell-toolbar-menu__item"
+													onSelect={() => onTogglePinned(process.id)}
+												>
+													{process.pinned ? "Unpin" : "Pin"}
+												</DropdownMenu.Item>
+												<DropdownMenu.Separator className="shell-toolbar-menu__separator" />
+												<DropdownMenu.Item
+													className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
+													onSelect={() => onClose(process.id)}
+												>
+													Close
+												</DropdownMenu.Item>
+											</DropdownMenu.Content>
+										</DropdownMenu.Portal>
+									</DropdownMenu.Root>
 								</div>
 							);
 						})}
