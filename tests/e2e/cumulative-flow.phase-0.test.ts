@@ -5,15 +5,26 @@ import {
 	type ElectronApplication,
 	type Page,
 } from "@playwright/test";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 
 let app: ElectronApplication | undefined;
 let page: Page;
 let testRepo: TestRepo;
+let persistedStateDir: string;
 
 test.beforeAll(async () => {
 	testRepo = createTestRepo();
-	app = await electron.launch({ args: ["out/main/index.js"] });
+	persistedStateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-phase0-")));
+	app = await electron.launch({
+		args: ["out/main/index.js"],
+		env: {
+			...process.env,
+			ONEFORALL_WORKSPACE_STATE_PATH: join(persistedStateDir, "workspace-state.json"),
+		},
+	});
 	page = await app.firstWindow();
 });
 
@@ -21,6 +32,7 @@ test.afterAll(async () => {
 	try {
 		if (app) await app.close();
 	} finally {
+		rmSync(persistedStateDir, { recursive: true, force: true });
 		testRepo?.cleanup();
 	}
 });

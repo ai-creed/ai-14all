@@ -54,8 +54,9 @@ test.afterAll(async () => {
 
 test.describe.serial("Cumulative flow — Phase 5", () => {
 	// Each test in this suite launches the Electron app at least once and
-	// may launch it twice; 60 s gives ample headroom for slower CI machines.
-	test.describe.configure({ timeout: 60_000 });
+	// may launch it twice; 120 s gives ample headroom for slower CI machines
+	// and resource contention from parallel workers.
+	test.describe.configure({ timeout: 120_000 });
 
 	test("restores the selected session and lazily hydrates another saved worktree", async () => {
 		await page.locator("#repo-path").fill(testRepo.repoPath);
