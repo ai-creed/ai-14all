@@ -29,6 +29,8 @@ export const terminals: OneForAllDesktopApi["terminals"] = {
 
 export const files: OneForAllDesktopApi["files"] = {
 	list: (worktreePath) => getDesktopClient().files.list(worktreePath),
+	listScoped: (worktreePath, relativeRoots) =>
+		getDesktopClient().files.listScoped(worktreePath, relativeRoots),
 	read: (worktreePath, relativePath) =>
 		getDesktopClient().files.read(worktreePath, relativePath),
 };
@@ -38,4 +40,6 @@ export const git: OneForAllDesktopApi["git"] = {
 		getDesktopClient().git.listChanges(worktreePath),
 	readDiff: (worktreePath, relativePath) =>
 		getDesktopClient().git.readDiff(worktreePath, relativePath),
+	readSummary: (worktreePath) =>
+		getDesktopClient().git.readSummary(worktreePath),
 };

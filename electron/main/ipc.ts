@@ -10,6 +10,8 @@ import {
 	ReadFileSchema,
 	ListGitChangesSchema,
 	ReadGitDiffSchema,
+	ListScopedFilesSchema,
+	ReadGitSummarySchema,
 } from "../../shared/contracts/commands.js";
 import { WorktreeService } from "../../services/worktrees/worktree-service.js";
 import { TerminalService } from "../../services/terminals/terminal-service.js";
@@ -29,7 +31,7 @@ import type {
 //
 // Registers ipcMain.handle entries for every command exposed via the preload
 // bridge. Terminal commands delegate to the PTY-backed TerminalService.
-// File commands remain stubs until Task 7.
+// File and git commands delegate to FileService and GitService respectively.
 // ---------------------------------------------------------------------------
 export function registerIpcHandlers(mainWindow: BrowserWindow): {
 	dispose: () => void;
@@ -114,6 +116,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
 		return fileService.readFile(worktreePath, relativePath);
 	});
 
+	ipcMain.handle("files:listScoped", (_event, raw: unknown) => {
+		const { worktreePath, relativeRoots } = ListScopedFilesSchema.parse(raw);
+		return fileService.listScopedFiles(worktreePath, relativeRoots);
+	});
+
 	// --- Git ---
 
 	ipcMain.handle("git:listChanges", (_event, raw: unknown) => {
@@ -124,6 +131,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
 	ipcMain.handle("git:readDiff", (_event, raw: unknown) => {
 		const { worktreePath, relativePath } = ReadGitDiffSchema.parse(raw);
 		return gitService.readDiff(worktreePath, relativePath);
+	});
+
+	ipcMain.handle("git:readSummary", (_event, raw: unknown) => {
+		const { worktreePath } = ReadGitSummarySchema.parse(raw);
+		return gitService.readSummary(worktreePath);
 	});
 
 	return { dispose: () => terminalService.dispose() };

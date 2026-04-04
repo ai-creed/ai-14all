@@ -6,6 +6,10 @@ import type {
 	GitChangeStatus,
 } from "../../shared/models/git-change.js";
 import type { GitDiff } from "../../shared/models/git-diff.js";
+import type {
+	GitSummary,
+	GitCommitSummary,
+} from "../../shared/models/git-summary.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -35,6 +39,19 @@ async function readDiffCommand(
 }
 
 const RECOGNIZED_STATUSES = new Set<string>(["M", "A", "D", "R", "??"]);
+
+function parseRecentCommits(stdout: string): GitCommitSummary[] {
+	return stdout
+		.split("\n")
+		.map((line) => line.trim())
+		.filter(Boolean)
+		.map((line) => {
+			const [sha, shortSha, subject] = line.split("\t");
+			if (!sha || !shortSha) return null;
+			return { sha, shortSha, subject: subject ?? "" };
+		})
+		.filter((entry): entry is GitCommitSummary => entry !== null);
+}
 
 function parseStatusLine(line: string): GitChange | null {
 	const raw = line.slice(0, 2).trim();
@@ -74,6 +91,24 @@ export class GitService {
 			.map(parseStatusLine)
 			.filter((entry): entry is GitChange => entry !== null)
 			.sort((a, b) => a.path.localeCompare(b.path));
+	}
+
+	async readSummary(worktreePath: string): Promise<GitSummary> {
+		const [branchResult, recentResult, changedFiles] = await Promise.all([
+			execFileAsync("git", ["branch", "--show-current"], { cwd: worktreePath }),
+			execFileAsync("git", ["log", "--format=%H%x09%h%x09%s", "-n", "5"], {
+				cwd: worktreePath,
+			}),
+			this.listChangedFiles(worktreePath),
+		]);
+
+		return {
+			branchName: branchResult.stdout.trim(),
+			isDirty: changedFiles.length > 0,
+			changedFileCount: changedFiles.length,
+			changedFiles,
+			recentCommits: parseRecentCommits(recentResult.stdout),
+		};
 	}
 
 	async readDiff(worktreePath: string, relativePath: string): Promise<GitDiff> {

@@ -133,4 +133,17 @@ describe("GitService", () => {
 			expect(["M", "A", "D", "R", "??"]).toContain(change.status);
 		}
 	});
+
+	it("returns a git summary with branch, dirty state, changes, and recent commits", async () => {
+		const summary = await service.readSummary(worktreePath);
+
+		expect(summary.branchName).toBe("feature-a");
+		expect(summary.isDirty).toBe(true);
+		expect(summary.changedFiles.map((change) => change.path)).toEqual([
+			"src/index.ts",
+			"src/new-file.ts",
+		]);
+		expect(summary.changedFileCount).toBe(2);
+		expect(summary.recentCommits[0]?.subject).toBe("initial commit");
+	});
 });

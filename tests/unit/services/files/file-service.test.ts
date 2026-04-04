@@ -48,4 +48,30 @@ describe("FileService", () => {
 			expect(files).toContain("src/index.ts");
 		});
 	});
+
+	describe("listScopedFiles", () => {
+		it("lists only files under the provided relative roots", async () => {
+			mkdirSync(join(worktreeDir, "docs"), { recursive: true });
+			writeFileSync(join(worktreeDir, "docs", "notes.md"), "# notes\n");
+
+			const files = await service.listScopedFiles(worktreeDir, ["src"]);
+
+			expect(files).toEqual(["src/index.ts"]);
+		});
+
+		it("deduplicates and sorts files across overlapping roots", async () => {
+			mkdirSync(join(worktreeDir, "src", "nested"), { recursive: true });
+			writeFileSync(
+				join(worktreeDir, "src", "nested", "extra.ts"),
+				"export {};\n",
+			);
+
+			const files = await service.listScopedFiles(worktreeDir, [
+				"src",
+				"src/nested",
+			]);
+
+			expect(files).toEqual(["src/index.ts", "src/nested/extra.ts"]);
+		});
+	});
 });

@@ -58,6 +58,12 @@ const api: OneForAllDesktopApi = {
 		list(worktreePath) {
 			return ipcRenderer.invoke("files:list", { worktreePath });
 		},
+		listScoped(worktreePath, relativeRoots) {
+			return ipcRenderer.invoke("files:listScoped", {
+				worktreePath,
+				relativeRoots,
+			});
+		},
 		read(worktreePath, relativePath) {
 			return ipcRenderer.invoke("files:read", { worktreePath, relativePath });
 		},
@@ -68,6 +74,9 @@ const api: OneForAllDesktopApi = {
 		},
 		readDiff(worktreePath, relativePath) {
 			return ipcRenderer.invoke("git:readDiff", { worktreePath, relativePath });
+		},
+		readSummary(worktreePath) {
+			return ipcRenderer.invoke("git:readSummary", { worktreePath });
 		},
 	},
 };

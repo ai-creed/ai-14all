@@ -58,6 +58,37 @@ export class FileService {
 		return results;
 	}
 
+	async listScopedFiles(
+		worktreePath: string,
+		relativeRoots: string[],
+	): Promise<string[]> {
+		const uniqueRoots = [...new Set(relativeRoots.filter(Boolean))].sort();
+		if (uniqueRoots.length === 0) return [];
+
+		const files = new Set<string>();
+		for (const relativeRoot of uniqueRoots) {
+			const absoluteRoot = resolve(worktreePath, relativeRoot);
+			const normalizedWorktree = resolve(worktreePath);
+			if (
+				!absoluteRoot.startsWith(normalizedWorktree + "/") &&
+				absoluteRoot !== normalizedWorktree
+			) {
+				throw new Error(`Path escapes worktree: ${relativeRoot}`);
+			}
+
+			const stats = await stat(absoluteRoot);
+			if (stats.isDirectory()) {
+				const nested: string[] = [];
+				await walkDir(worktreePath, relativeRoot, nested);
+				nested.forEach((entry) => files.add(entry));
+			} else if (stats.isFile()) {
+				files.add(relativeRoot);
+			}
+		}
+
+		return [...files].sort((a, b) => a.localeCompare(b));
+	}
+
 	async readFile(
 		worktreePath: string,
 		relativePath: string,
