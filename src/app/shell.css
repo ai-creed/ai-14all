@@ -509,3 +509,17 @@ textarea {
 	font-size: 0.85em;
 	color: var(--text-secondary);
 }
+
+.shell-restore-actions {
+	display: flex;
+	gap: var(--space-2);
+	margin-top: var(--space-4);
+}
+
+.shell-restore-checkbox {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	margin-top: var(--space-4);
+	color: var(--text-secondary);
+}

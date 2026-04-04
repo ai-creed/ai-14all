@@ -7,6 +7,14 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		listScoped: vi.fn(),
 		read: vi.fn(),
 	},
+	workspace: {
+		readRestoreState: vi.fn().mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		}),
+		writeRestoreState: vi.fn(),
+	},
 }));
 
 import { FileList } from "../../../src/features/viewer/FileList";

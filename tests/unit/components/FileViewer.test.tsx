@@ -6,6 +6,14 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	files: {
 		read: vi.fn(),
 	},
+	workspace: {
+		readRestoreState: vi.fn().mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		}),
+		writeRestoreState: vi.fn(),
+	},
 }));
 
 vi.mock("@monaco-editor/react", () => ({

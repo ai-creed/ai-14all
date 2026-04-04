@@ -5,7 +5,15 @@ import type { Repository } from "../../shared/models/repository";
 import type { Worktree } from "../../shared/models/worktree";
 import type { GitDiff } from "../../shared/models/git-diff";
 import type { ProcessSession } from "../../shared/models/process-session";
+import type {
+	PersistedWorkspaceState,
+	PersistedWorktreeSession,
+	RestorePreference,
+} from "../../shared/models/persisted-workspace-state";
+import { DEFAULT_PERSISTED_WORKSPACE_STATE } from "../../shared/models/persisted-workspace-state";
+import { buildWorkspaceSnapshot } from "../features/workspace/workspace-persistence";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
+import { RestorePrompt } from "../features/repository/RestorePrompt";
 import { SessionSidebar } from "../features/workspace/SessionSidebar";
 import { SessionHeader } from "../features/workspace/SessionHeader";
 import { ContextPanel } from "../features/workspace/ContextPanel";
@@ -22,7 +30,9 @@ import { FileList } from "../features/viewer/FileList";
 import { FileViewer } from "../features/viewer/FileViewer";
 import { ChangesList } from "../features/git/ChangesList";
 import { DiffViewer } from "../features/viewer/DiffViewer";
-import { git } from "../lib/desktop-client";
+import { git, workspace } from "../lib/desktop-client";
+
+type StartupMode = "loading" | "prompt" | "ready";
 
 export function App() {
 	const [repository, setRepository] = useState<Repository | null>(null);
@@ -35,6 +45,42 @@ export function App() {
 	const [refreshKey, setRefreshKey] = useState(0);
 	const [error, setError] = useState<string | null>(null);
 	const [presetManagerOpen, setPresetManagerOpen] = useState(false);
+	const [startupMode, setStartupMode] = useState<StartupMode>("loading");
+	const [restoreState, setRestoreState] = useState<PersistedWorkspaceState>(
+		DEFAULT_PERSISTED_WORKSPACE_STATE,
+	);
+	const [startupError, setStartupError] = useState<string | null>(null);
+	const [pendingRestoreSessions, setPendingRestoreSessions] = useState<
+		Record<string, PersistedWorktreeSession>
+	>({});
+
+	useEffect(() => {
+		let cancelled = false;
+
+		workspace.readRestoreState().then((state) => {
+			if (cancelled) return;
+			setRestoreState(state);
+
+			if (!state.snapshot) {
+				setStartupMode("ready");
+				return;
+			}
+			if (state.restorePreference === "alwaysStartClean") {
+				setStartupMode("ready");
+				return;
+			}
+			if (state.restorePreference === "alwaysRestore") {
+				// restoreWorkspace will be added in Task 4 — for now just go ready
+				setStartupMode("ready");
+				return;
+			}
+			setStartupMode("prompt");
+		});
+
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	const activeWorktree =
 		worktrees.find((w) => w.id === workspaceState.selectedWorktreeId) ?? null;
@@ -105,6 +151,33 @@ export function App() {
 		],
 		[changes],
 	);
+
+	const persistableSnapshot = useMemo(
+		() =>
+			repository
+				? buildWorkspaceSnapshot(repository.rootPath, workspaceState)
+				: null,
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[repository?.rootPath, workspaceState],
+	);
+	const persistableState = useMemo(
+		() => ({
+			version: 1 as const,
+			restorePreference: restoreState.restorePreference,
+			snapshot: persistableSnapshot,
+		}),
+		[persistableSnapshot, restoreState.restorePreference],
+	);
+	const persistableStateJson = useMemo(
+		() => JSON.stringify(persistableState),
+		[persistableState],
+	);
+
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	useEffect(() => {
+		if (startupMode !== "ready") return;
+		void workspace.writeRestoreState(persistableState);
+	}, [startupMode, persistableStateJson]);
 
 	// Fetch git summary when active worktree changes or user refreshes
 	useEffect(() => {
@@ -304,11 +377,63 @@ export function App() {
 		}
 	}
 
+	async function handleRestoreDecision({
+		shouldRestore,
+		rememberChoice,
+	}: {
+		shouldRestore: boolean;
+		rememberChoice: boolean;
+	}) {
+		const nextPreference: RestorePreference = rememberChoice
+			? shouldRestore
+				? "alwaysRestore"
+				: "alwaysStartClean"
+			: "prompt";
+
+		if (!shouldRestore) {
+			const nextState: PersistedWorkspaceState = {
+				version: 1,
+				restorePreference: nextPreference,
+				snapshot: null,
+			};
+			setRestoreState(nextState);
+			await workspace.writeRestoreState(nextState);
+			setStartupMode("ready");
+			return;
+		}
+
+		// restore path will be wired in Task 4 — for now just go ready
+		setRestoreState((prev) => ({ ...prev, restorePreference: nextPreference }));
+		setStartupMode("ready");
+	}
+
 	const attentionByWorktreeId = Object.fromEntries(
 		Object.entries(workspaceState.sessionsByWorktreeId).map(
 			([worktreeId, session]) => [worktreeId, session.attentionState],
 		),
 	);
+
+	if (startupMode === "loading") {
+		return (
+			<main className="shell-app shell-app--setup">
+				<section className="shell-panel shell-setup-panel">
+					<h1 className="shell-setup-title">oneforall</h1>
+					<p className="shell-empty-state">Loading workspace…</p>
+				</section>
+			</main>
+		);
+	}
+
+	if (startupMode === "prompt" && restoreState.snapshot) {
+		return (
+			<main className="shell-app shell-app--setup">
+				<RestorePrompt
+					repositoryPath={restoreState.snapshot.repositoryPath}
+					onDecide={handleRestoreDecision}
+				/>
+			</main>
+		);
+	}
 
 	if (!repository) {
 		return (
@@ -317,6 +442,7 @@ export function App() {
 					<h1 className="shell-setup-title">oneforall</h1>
 					<h2>Repository</h2>
 					<RepositoryInput onLoad={handleLoad} />
+					{startupError && <p className="shell-error">{startupError}</p>}
 					{error && <p className="shell-error">Error: {error}</p>}
 				</section>
 			</main>
