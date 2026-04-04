@@ -50,9 +50,8 @@ export function App() {
 		DEFAULT_PERSISTED_WORKSPACE_STATE,
 	);
 	const [startupError, setStartupError] = useState<string | null>(null);
-	const [pendingRestoreSessions, setPendingRestoreSessions] = useState<
-		Record<string, PersistedWorktreeSession>
-	>({});
+	// populated in restoreWorkspace (Task 4) for lazy hydration of non-selected sessions
+	const [pendingRestoreSessions, setPendingRestoreSessions] = useState<Record<string, PersistedWorktreeSession>>({});
 
 	useEffect(() => {
 		let cancelled = false;
@@ -75,6 +74,10 @@ export function App() {
 				return;
 			}
 			setStartupMode("prompt");
+		}).catch((err) => {
+			if (cancelled) return;
+			setStartupError(`Failed to load workspace state: ${String(err)}`);
+			setStartupMode("ready");
 		});
 
 		return () => {
@@ -157,7 +160,7 @@ export function App() {
 			repository
 				? buildWorkspaceSnapshot(repository.rootPath, workspaceState)
 				: null,
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- repository.rootPath drives the snapshot; the object reference changes are irrelevant
 		[repository?.rootPath, workspaceState],
 	);
 	const persistableState = useMemo(
@@ -173,7 +176,7 @@ export function App() {
 		[persistableState],
 	);
 
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- persistableStateJson is used for change detection; persistableState (same data) is used for the write
 	useEffect(() => {
 		if (startupMode !== "ready") return;
 		void workspace.writeRestoreState(persistableState);
