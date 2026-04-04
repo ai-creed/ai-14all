@@ -115,7 +115,7 @@ export class TerminalService {
 	resize(sessionId: string, cols: number, rows: number): void {
 		const session = this.sessions.get(sessionId);
 		if (!session) {
-			throw new Error(`Terminal session not found: ${sessionId}`);
+			return;
 		}
 		session.pty.resize(cols, rows);
 	}
@@ -126,7 +126,7 @@ export class TerminalService {
 	stop(sessionId: string): void {
 		const session = this.sessions.get(sessionId);
 		if (!session) {
-			throw new Error(`Terminal session not found: ${sessionId}`);
+			return;
 		}
 		session.pty.kill();
 		// Let the onExit handler handle state update, event emission, and cleanup

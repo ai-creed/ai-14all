@@ -58,6 +58,31 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 		await expect(pinnedTab).toHaveAttribute("data-pinned", "true");
 	});
 
+	test("stops, restarts, and closes an ad hoc shell from the tab actions menu", async () => {
+		await page.getByRole("button", { name: "+ Shell" }).click();
+
+		const shellTab = page.getByRole("tab", { name: "shell 1" });
+		await expect(shellTab).toBeVisible({ timeout: 10_000 });
+
+		await page.getByRole("button", { name: "Actions for shell 1" }).click();
+		await page.getByRole("menuitem", { name: "Stop" }).click();
+		await expect(
+			page.getByRole("tab", { name: /^shell 1 \(exited(?:: \d+)?\)$/i }),
+		).toBeVisible({ timeout: 10_000 });
+
+		await page.getByRole("button", { name: "Actions for shell 1" }).click();
+		await page.getByRole("menuitem", { name: "Restart" }).click();
+		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible({
+			timeout: 10_000,
+		});
+
+		await page.getByRole("button", { name: "Actions for shell 1" }).click();
+		await page.getByRole("menuitem", { name: "Close" }).click();
+		await expect(
+			page.getByRole("tab", { name: /^shell 1(?: \((?:error|exited)\))?$/i }),
+		).toHaveCount(0);
+	});
+
 	test("rolls action-required attention up to the sidebar", async () => {
 		// Switch to the feature-a worktree so the main worktree is no longer selected
 		await worktreeNav()

@@ -55,6 +55,12 @@ test.describe.serial("Cumulative flow — Phase 0", () => {
 				name: /^shell 1(?: \((?:error|exited)\))?$/i,
 			}),
 		).toBeVisible();
+
+		const terminalSection = page.locator(".shell-terminal-section");
+		await expect(terminalSection).toBeVisible();
+		const box = await terminalSection.boundingBox();
+		expect(box).not.toBeNull();
+		expect(Math.round(box!.height)).toBe(720);
 	});
 
 	test("runs a shell command inside the selected worktree", async () => {
@@ -62,12 +68,12 @@ test.describe.serial("Cumulative flow — Phase 0", () => {
 		await textarea.waitFor({ state: "attached" });
 		await textarea.focus();
 
-		await page.keyboard.type("pwd");
+		await page.keyboard.type("echo phase-0");
 		await page.keyboard.press("Enter");
 
 		await expect(
 			page.locator(".xterm-accessibility-tree").first(),
-		).toContainText(testRepo.repoPath, { timeout: 10_000 });
+		).toContainText("phase-0", { timeout: 10_000 });
 	});
 
 	test("opens a file in the embedded viewer", async () => {

@@ -83,6 +83,14 @@ textarea {
 	min-width: 0;
 }
 
+.shell-terminal-section {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+	height: 720px;
+	min-height: 720px;
+	max-height: 720px;
+}
+
 .shell-review-grid {
 	display: grid;
 	grid-template-columns: 280px minmax(0, 1fr);
@@ -268,14 +276,22 @@ textarea {
 }
 
 .shell-terminal-pane {
+	height: 100%;
+	min-height: 0;
 	padding: 0;
 	overflow: hidden;
 }
 
 .shell-terminal-pane__viewport {
-	min-height: 280px;
+	height: 100%;
+	min-height: 0;
 	padding: var(--space-3);
 	background: #0a1115;
+}
+
+.shell-terminal-pane__viewport .xterm,
+.shell-terminal-pane__viewport .xterm-screen {
+	height: 100%;
 }
 
 .shell-tooltip {

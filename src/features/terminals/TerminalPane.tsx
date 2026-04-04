@@ -20,6 +20,7 @@ export function TerminalPane({ session, visible }: Props) {
 	const termRef = useRef<Terminal | null>(null);
 	const fitAddonRef = useRef<FitAddon | null>(null);
 	const unsubOutputRef = useRef<(() => void) | null>(null);
+	const isLive = session.status === "running" || session.status === "idle";
 
 	// Mount the xterm instance once.
 	useEffect(() => {
@@ -54,7 +55,7 @@ export function TerminalPane({ session, visible }: Props) {
 		unsubOutputRef.current = unsubOutput;
 
 		// Send initial resize so the PTY knows the terminal dimensions.
-		if (term.cols > 0 && term.rows > 0) {
+		if (isLive && term.cols > 0 && term.rows > 0) {
 			terminals.resize(session.id, term.cols, term.rows).catch(() => undefined);
 		}
 
@@ -67,18 +68,18 @@ export function TerminalPane({ session, visible }: Props) {
 			fitAddonRef.current = null;
 		};
 		// session.id is stable for the lifetime of this component instance.
-	}, [session.id]);
+	}, [isLive, session.id]);
 
 	// Fit + resize PTY when the pane becomes visible.
 	useEffect(() => {
-		if (!visible) return;
+		if (!visible || !isLive) return;
 		const term = termRef.current;
 		const fitAddon = fitAddonRef.current;
 		if (!term || !fitAddon) return;
 
 		fitAddon.fit();
 		terminals.resize(session.id, term.cols, term.rows).catch(() => undefined);
-	}, [visible, session.id]);
+	}, [isLive, visible, session.id]);
 
 	// Resize on container dimension changes via ResizeObserver.
 	useEffect(() => {
@@ -90,14 +91,14 @@ export function TerminalPane({ session, visible }: Props) {
 			const fitAddon = fitAddonRef.current;
 			if (!term || !fitAddon) return;
 			// Only fit/resize when the pane is actually visible.
-			if (!visible) return;
+			if (!visible || !isLive) return;
 			fitAddon.fit();
 			terminals.resize(session.id, term.cols, term.rows).catch(() => undefined);
 		});
 
 		observer.observe(el);
 		return () => observer.disconnect();
-	}, [session.id, visible]);
+	}, [isLive, session.id, visible]);
 
 	return (
 		<section
