@@ -147,7 +147,7 @@ export function registerIpcHandlers(
 	// --- Workspace ---
 
 	ipcMain.handle("workspace:readRestoreState", (_event, raw: unknown) => {
-		ReadWorkspaceRestoreStateSchema.parse(raw ?? {});
+		ReadWorkspaceRestoreStateSchema.parse(raw ?? {}); // no-op validation for symmetry with other handlers
 		return workspacePersistence.readState();
 	});
 

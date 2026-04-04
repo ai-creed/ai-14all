@@ -12,8 +12,7 @@ import type {
 import type { GitChange } from "../models/git-change.js";
 import type { GitDiff } from "../models/git-diff.js";
 import type { GitSummary } from "../models/git-summary.js";
-import type { PersistedWorkspaceState } from "../models/persisted-workspace-state.js";
-import { PersistedWorkspaceStateSchema } from "../models/persisted-workspace-state.js";
+import { PersistedWorkspaceStateSchema, type PersistedWorkspaceState } from "../models/persisted-workspace-state.js";
 
 // --- Zod schemas for command payloads ---
 
