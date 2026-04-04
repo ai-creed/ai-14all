@@ -67,7 +67,9 @@ describe("buildWorkspaceSnapshot", () => {
 		expect(snapshot.worktreeSessions).toEqual([]);
 		expect(snapshot.selectedWorktreeId).toBeNull();
 	});
+});
 
+describe("splitPendingRestores", () => {
 	it("keeps only non-selected worktrees in the pending restore map", () => {
 		const snapshot = {
 			repositoryPath: "/repo",
@@ -104,9 +106,7 @@ describe("buildWorkspaceSnapshot", () => {
 			pendingByWorktreeId: { main: snapshot.worktreeSessions[0] },
 		});
 	});
-});
 
-describe("splitPendingRestores", () => {
 	it("puts all sessions in pendingByWorktreeId when selectedWorktreeId is null", () => {
 		const snapshot = {
 			repositoryPath: "/repo",
