@@ -49,6 +49,14 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		resize: resizeMock,
 		onOutput: onOutputMock,
 	},
+	workspace: {
+		readRestoreState: vi.fn().mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		}),
+		writeRestoreState: vi.fn(),
+	},
 }));
 
 vi.mock("@xterm/addon-fit", () => ({

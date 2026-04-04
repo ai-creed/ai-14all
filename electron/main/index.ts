@@ -1,12 +1,18 @@
 import { app } from "electron";
 import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { createMainWindow } from "./windows.js";
 import { registerIpcHandlers } from "./ipc.js";
 import { registerAppLifecycle } from "./lifecycle.js";
+import { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
 
 app.whenReady().then(() => {
 	const mainWindow = createMainWindow();
-	const { dispose } = registerIpcHandlers(mainWindow);
+	const workspacePersistence = new WorkspacePersistenceService(
+		process.env.ONEFORALL_WORKSPACE_STATE_PATH ??
+			join(app.getPath("userData"), "workspace-state.json"),
+	);
+	const { dispose } = registerIpcHandlers(mainWindow, { workspacePersistence });
 
 	if (process.env.ELECTRON_RENDERER_URL) {
 		mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);

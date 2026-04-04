@@ -8,6 +8,14 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		setRoot: vi.fn(),
 		listWorktrees: vi.fn(),
 	},
+	workspace: {
+		readRestoreState: vi.fn().mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		}),
+		writeRestoreState: vi.fn(),
+	},
 }));
 
 import { RepositoryInput } from "../../../src/features/repository/RepositoryInput";

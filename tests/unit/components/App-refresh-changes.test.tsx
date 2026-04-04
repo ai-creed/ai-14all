@@ -58,15 +58,24 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		readDiff: vi.fn(),
 		readSummary: vi.fn(),
 	},
+	workspace: {
+		readRestoreState: vi.fn().mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		}),
+		writeRestoreState: vi.fn(),
+	},
 }));
 
 import { App } from "../../../src/app/App";
-import { repository, git } from "../../../src/lib/desktop-client";
+import { repository, git, workspace } from "../../../src/lib/desktop-client";
 
 const mockSetRoot = vi.mocked(repository.setRoot);
 const mockListWorktrees = vi.mocked(repository.listWorktrees);
 const mockReadSummary = vi.mocked(git.readSummary);
 const mockReadDiff = vi.mocked(git.readDiff);
+const mockReadRestoreState = vi.mocked(workspace.readRestoreState);
 
 async function loadRepoAndSwitchToChanges() {
 	mockSetRoot.mockResolvedValueOnce({
@@ -93,6 +102,11 @@ async function loadRepoAndSwitchToChanges() {
 	});
 
 	render(<App />);
+
+	// Wait for startup loading to complete and repository input to appear
+	await waitFor(() => {
+		expect(screen.getByLabelText("Repository path")).toBeInTheDocument();
+	});
 
 	// Load the repository
 	fireEvent.change(screen.getByLabelText("Repository path"), {
@@ -136,6 +150,11 @@ async function loadRepositoryWithTwoWorktrees() {
 
 	render(<App />);
 
+	// Wait for startup loading to complete
+	await waitFor(() => {
+		expect(screen.getByLabelText("Repository path")).toBeInTheDocument();
+	});
+
 	fireEvent.change(screen.getByLabelText("Repository path"), {
 		target: { value: "/repo" },
 	});
@@ -166,6 +185,11 @@ describe("App — refresh changes button", () => {
 		mockReadDiff.mockResolvedValue({
 			path: "src/index.ts",
 			content: "diff --git a/src/index.ts b/src/index.ts\n",
+		});
+		mockReadRestoreState.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
 		});
 	});
 
@@ -219,7 +243,10 @@ describe("App — refresh changes button", () => {
 
 		render(<App />);
 
-		fireEvent.change(screen.getByLabelText("Repository path"), {
+		// Wait for startup loading to complete
+		const repoInput = await screen.findByLabelText("Repository path");
+
+		fireEvent.change(repoInput, {
 			target: { value: "/repo" },
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
@@ -352,6 +379,11 @@ async function loadRepository() {
 		},
 	]);
 
+	// Wait for startup loading to complete
+	await waitFor(() => {
+		expect(screen.getByLabelText("Repository path")).toBeInTheDocument();
+	});
+
 	fireEvent.change(screen.getByLabelText("Repository path"), {
 		target: { value: "/repo" },
 	});
@@ -387,6 +419,11 @@ describe("App — process lifecycle", () => {
 			changedFileCount: 0,
 			changedFiles: [],
 			recentCommits: [],
+		});
+		mockReadRestoreState.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
 		});
 	});
 

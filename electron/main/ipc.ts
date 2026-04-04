@@ -12,7 +12,10 @@ import {
 	ReadGitDiffSchema,
 	ListScopedFilesSchema,
 	ReadGitSummarySchema,
+	ReadWorkspaceRestoreStateSchema,
+	WriteWorkspaceRestoreStateSchema,
 } from "../../shared/contracts/commands.js";
+import type { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
 import { WorktreeService } from "../../services/worktrees/worktree-service.js";
 import { TerminalService } from "../../services/terminals/terminal-service.js";
 import { FileService } from "../../services/files/file-service.js";
@@ -33,7 +36,10 @@ import type {
 // bridge. Terminal commands delegate to the PTY-backed TerminalService.
 // File and git commands delegate to FileService and GitService respectively.
 // ---------------------------------------------------------------------------
-export function registerIpcHandlers(mainWindow: BrowserWindow): {
+export function registerIpcHandlers(
+	mainWindow: BrowserWindow,
+	{ workspacePersistence }: { workspacePersistence: WorkspacePersistenceService },
+): {
 	dispose: () => void;
 } {
 	const worktreeService = new WorktreeService();
@@ -136,6 +142,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
 	ipcMain.handle("git:readSummary", (_event, raw: unknown) => {
 		const { worktreePath } = ReadGitSummarySchema.parse(raw);
 		return gitService.readSummary(worktreePath);
+	});
+
+	// --- Workspace ---
+
+	ipcMain.handle("workspace:readRestoreState", (_event, raw: unknown) => {
+		ReadWorkspaceRestoreStateSchema.parse(raw ?? {}); // no-op validation for symmetry with other handlers
+		return workspacePersistence.readState();
+	});
+
+	ipcMain.handle("workspace:writeRestoreState", (_event, raw: unknown) => {
+		const { state } = WriteWorkspaceRestoreStateSchema.parse(raw);
+		return workspacePersistence.writeState(state);
 	});
 
 	return { dispose: () => terminalService.dispose() };
