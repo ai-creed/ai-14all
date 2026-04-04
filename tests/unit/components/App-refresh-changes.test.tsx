@@ -50,12 +50,13 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	},
 	files: {
 		list: vi.fn().mockResolvedValue([]),
-		listScoped: vi.fn().mockResolvedValue([]),
+		listScoped: vi.fn().mockResolvedValue(["src/index.ts", "src/new-file.ts"]),
 		read: vi.fn(),
 	},
 	git: {
 		listChanges: vi.fn().mockResolvedValue([]),
 		readDiff: vi.fn(),
+		readSummary: vi.fn(),
 	},
 }));
 
@@ -64,7 +65,8 @@ import { repository, git } from "../../../src/lib/desktop-client";
 
 const mockSetRoot = vi.mocked(repository.setRoot);
 const mockListWorktrees = vi.mocked(repository.listWorktrees);
-const mockListChanges = vi.mocked(git.listChanges);
+const mockReadSummary = vi.mocked(git.readSummary);
+const mockReadDiff = vi.mocked(git.readDiff);
 
 async function loadRepoAndSwitchToChanges() {
 	mockSetRoot.mockResolvedValueOnce({
@@ -82,7 +84,13 @@ async function loadRepoAndSwitchToChanges() {
 			isMain: true,
 		},
 	]);
-	mockListChanges.mockResolvedValue([{ path: "src/index.ts", status: "M" }]);
+	mockReadSummary.mockResolvedValue({
+		branchName: "main",
+		isDirty: true,
+		changedFileCount: 1,
+		changedFiles: [{ path: "src/index.ts", status: "M" }],
+		recentCommits: [{ sha: "abc", shortSha: "abc", subject: "initial commit" }],
+	});
 
 	render(<App />);
 
@@ -101,12 +109,64 @@ async function loadRepoAndSwitchToChanges() {
 	fireEvent.click(screen.getByRole("tab", { name: "Changes" }));
 }
 
+async function loadRepositoryWithTwoWorktrees() {
+	mockSetRoot.mockResolvedValueOnce({
+		id: "r1",
+		name: "test-repo",
+		rootPath: "/repo",
+	});
+	mockListWorktrees.mockResolvedValueOnce([
+		{
+			id: "wt1",
+			repositoryId: "r1",
+			branchName: "main",
+			path: "/repo",
+			label: "main",
+			isMain: true,
+		},
+		{
+			id: "wt2",
+			repositoryId: "r1",
+			branchName: "feature-a",
+			path: "/repo/.worktrees/feature-a",
+			label: "feature-a",
+			isMain: false,
+		},
+	]);
+
+	render(<App />);
+
+	fireEvent.change(screen.getByLabelText("Repository path"), {
+		target: { value: "/repo" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+	await waitFor(() => {
+		expect(
+			screen.getByRole("button", { name: /feature-a/i }),
+		).toBeInTheDocument();
+	});
+}
+
 describe("App — refresh changes button", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockTerminalOutputListeners.length = 0;
 		terminalIdCounter = 0;
-		// Re-setup the default mock for listChanges since clearAllMocks wipes it
-		mockListChanges.mockResolvedValue([{ path: "src/index.ts", status: "M" }]);
+		// Re-setup the default mock for readSummary since clearAllMocks wipes it
+		mockReadSummary.mockResolvedValue({
+			branchName: "main",
+			isDirty: true,
+			changedFileCount: 1,
+			changedFiles: [{ path: "src/index.ts", status: "M" }],
+			recentCommits: [
+				{ sha: "abc", shortSha: "abc", subject: "initial commit" },
+			],
+		});
+		mockReadDiff.mockResolvedValue({
+			path: "src/index.ts",
+			content: "diff --git a/src/index.ts b/src/index.ts\n",
+		});
 	});
 
 	it("shows a Refresh button when review mode is 'changes'", async () => {
@@ -129,12 +189,12 @@ describe("App — refresh changes button", () => {
 	it("clicking Refresh re-fetches git changes", async () => {
 		await loadRepoAndSwitchToChanges();
 
-		const callCountBefore = mockListChanges.mock.calls.length;
+		const callCountBefore = mockReadSummary.mock.calls.length;
 
 		fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
 
 		await waitFor(() => {
-			expect(mockListChanges.mock.calls.length).toBeGreaterThan(
+			expect(mockReadSummary.mock.calls.length).toBeGreaterThan(
 				callCountBefore,
 			);
 		});
@@ -172,6 +232,97 @@ describe("App — refresh changes button", () => {
 			await screen.findByRole("button", { name: "Refresh" }),
 		).toBeInTheDocument();
 	});
+
+	it("refreshes the cached git summary for the active worktree", async () => {
+		mockReadSummary.mockResolvedValue({
+			branchName: "main",
+			isDirty: true,
+			changedFileCount: 1,
+			changedFiles: [{ path: "src/index.ts", status: "M" }],
+			recentCommits: [
+				{ sha: "abc", shortSha: "abc", subject: "initial commit" },
+			],
+		});
+
+		await loadRepoAndSwitchToChanges();
+
+		const before = mockReadSummary.mock.calls.length;
+		fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+		await waitFor(() => {
+			expect(mockReadSummary.mock.calls.length).toBeGreaterThan(before);
+		});
+	});
+
+	it("restores per-worktree review selections when switching sessions", async () => {
+		mockReadSummary
+			.mockResolvedValueOnce({
+				branchName: "main",
+				isDirty: false,
+				changedFileCount: 0,
+				changedFiles: [],
+				recentCommits: [
+					{ sha: "main1", shortSha: "main1", subject: "main commit" },
+				],
+			})
+			.mockResolvedValueOnce({
+				branchName: "feature-a",
+				isDirty: true,
+				changedFileCount: 2,
+				changedFiles: [
+					{ path: "src/index.ts", status: "M" },
+					{ path: "src/new-file.ts", status: "??" },
+				],
+				recentCommits: [
+					{ sha: "feat1", shortSha: "feat1", subject: "feature commit" },
+				],
+			})
+			.mockResolvedValueOnce({
+				branchName: "main",
+				isDirty: false,
+				changedFileCount: 0,
+				changedFiles: [],
+				recentCommits: [
+					{ sha: "main1", shortSha: "main1", subject: "main commit" },
+				],
+			})
+			.mockResolvedValueOnce({
+				branchName: "feature-a",
+				isDirty: true,
+				changedFileCount: 2,
+				changedFiles: [
+					{ path: "src/index.ts", status: "M" },
+					{ path: "src/new-file.ts", status: "??" },
+				],
+				recentCommits: [
+					{ sha: "feat1", shortSha: "feat1", subject: "feature commit" },
+				],
+			});
+
+		await loadRepositoryWithTwoWorktrees();
+
+		await user.click(screen.getByRole("button", { name: /feature-a/i }));
+		await user.click(screen.getByRole("tab", { name: "Changes" }));
+
+		const changedFile = await screen.findByRole("button", {
+			name: /src\/index\.ts/,
+		});
+		await user.click(changedFile);
+		expect(changedFile).toHaveAttribute("data-selected", "true");
+
+		await user.click(
+			screen.getByRole("button", { name: /^main(?:\s+main)?$/i }),
+		);
+		await user.click(screen.getByRole("button", { name: /feature-a/i }));
+
+		expect(screen.getByRole("tab", { name: "Changes" })).toHaveAttribute(
+			"data-state",
+			"active",
+		);
+		expect(
+			await screen.findByRole("button", { name: /src\/index\.ts/ }),
+		).toHaveAttribute("data-selected", "true");
+	});
 });
 
 const user = userEvent.setup();
@@ -192,7 +343,6 @@ async function loadRepository() {
 			isMain: true,
 		},
 	]);
-	mockListChanges.mockResolvedValue([]);
 
 	fireEvent.change(screen.getByLabelText("Repository path"), {
 		target: { value: "/repo" },
@@ -223,7 +373,13 @@ describe("App — process lifecycle", () => {
 		vi.clearAllMocks();
 		terminalIdCounter = 0;
 		mockTerminalOutputListeners.length = 0;
-		mockListChanges.mockResolvedValue([]);
+		mockReadSummary.mockResolvedValue({
+			branchName: "main",
+			isDirty: false,
+			changedFileCount: 0,
+			changedFiles: [],
+			recentCommits: [],
+		});
 	});
 
 	it("launches a preset and pins the new process by default", async () => {

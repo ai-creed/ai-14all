@@ -1,9 +1,8 @@
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useState } from "react";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import * as Tabs from "@radix-ui/react-tabs";
 import type { Repository } from "../../shared/models/repository";
 import type { Worktree } from "../../shared/models/worktree";
-import type { GitChange } from "../../shared/models/git-change";
 import type { GitDiff } from "../../shared/models/git-diff";
 import type { ProcessSession } from "../../shared/models/process-session";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
@@ -32,7 +31,6 @@ export function App() {
 		workspaceReducer,
 		createWorkspaceState([]),
 	);
-	const [changes, setChanges] = useState<GitChange[]>([]);
 	const [activeDiff, setActiveDiff] = useState<GitDiff | null>(null);
 	const [refreshKey, setRefreshKey] = useState(0);
 	const [error, setError] = useState<string | null>(null);
@@ -90,24 +88,54 @@ export function App() {
 		setError(null);
 	}
 
-	// Fetch changed files when active worktree changes
+	// Derive git data from cached session state
+	const activeSummary = activeSession?.gitSummary ?? null;
+	const changes = activeSummary?.changedFiles ?? [];
+	const scopeRoots = useMemo(
+		() => [
+			...new Set(
+				changes
+					.map((change) => {
+						const lastSlash = change.path.lastIndexOf("/");
+						return lastSlash === -1
+							? change.path
+							: change.path.slice(0, lastSlash);
+					})
+					.filter(Boolean),
+			),
+		],
+		[changes],
+	);
+
+	// Fetch git summary when active worktree changes or user refreshes
 	useEffect(() => {
-		setChanges([]);
 		setActiveDiff(null);
 		if (!activeWorktree?.path) return;
 		let cancelled = false;
+
 		git
-			.listChanges(activeWorktree.path)
-			.then((result) => {
-				if (!cancelled) setChanges(result);
+			.readSummary(activeWorktree.path)
+			.then((summary) => {
+				if (cancelled) return;
+				dispatch({
+					type: "session/cacheGitSummary",
+					worktreeId: activeWorktree.id,
+					gitSummary: summary,
+				});
 			})
 			.catch(() => {
-				if (!cancelled) setChanges([]);
+				if (cancelled) return;
+				dispatch({
+					type: "session/cacheGitSummary",
+					worktreeId: activeWorktree.id,
+					gitSummary: null,
+				});
 			});
+
 		return () => {
 			cancelled = true;
 		};
-	}, [activeWorktree?.path, refreshKey]);
+	}, [activeWorktree?.id, activeWorktree?.path, refreshKey]);
 
 	function handleRefreshChanges() {
 		setRefreshKey((k) => k + 1);
@@ -320,7 +348,7 @@ export function App() {
 							title={activeWorktree.label}
 							branchName={activeWorktree.branchName}
 							changedFileCount={changes.length}
-							isDirty={activeSession?.gitSummary?.isDirty ?? changes.length > 0}
+							isDirty={activeSummary?.isDirty ?? false}
 						/>
 					)}
 
@@ -452,12 +480,7 @@ export function App() {
 										{activeSession?.reviewMode === "files" ? (
 											<FileList
 												worktreePath={activeWorktree.path}
-												scopeRoots={changes.map((c) => {
-													const parts = c.path.split("/");
-													return parts.length > 1
-														? parts.slice(0, -1).join("/")
-														: c.path;
-												})}
+												scopeRoots={scopeRoots}
 												selectedFile={activeSession.selectedFilePath}
 												onSelect={(relativePath) =>
 													dispatch({
@@ -511,7 +534,7 @@ export function App() {
 						branchName={activeWorktree.branchName}
 						worktreePath={activeWorktree.path}
 						note={activeSession.note}
-						gitSummary={activeSession.gitSummary}
+						gitSummary={activeSummary}
 						onNoteChange={(note) =>
 							dispatch({
 								type: "session/setNote",
