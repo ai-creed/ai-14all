@@ -12,6 +12,8 @@ import type {
 import type { GitChange } from "../models/git-change.js";
 import type { GitDiff } from "../models/git-diff.js";
 import type { GitSummary } from "../models/git-summary.js";
+import type { PersistedWorkspaceState } from "../models/persisted-workspace-state.js";
+import { PersistedWorkspaceStateSchema } from "../models/persisted-workspace-state.js";
 
 // --- Zod schemas for command payloads ---
 
@@ -68,6 +70,12 @@ export const ReadGitSummarySchema = z.object({
 	worktreePath: z.string(),
 });
 
+export const ReadWorkspaceRestoreStateSchema = z.object({});
+
+export const WriteWorkspaceRestoreStateSchema = z.object({
+	state: PersistedWorkspaceStateSchema,
+});
+
 // --- The API surface exposed to the renderer via the preload bridge ---
 
 export type OneForAllDesktopApi = {
@@ -97,5 +105,9 @@ export type OneForAllDesktopApi = {
 		listChanges(worktreePath: string): Promise<GitChange[]>;
 		readDiff(worktreePath: string, relativePath: string): Promise<GitDiff>;
 		readSummary(worktreePath: string): Promise<GitSummary>;
+	};
+	workspace: {
+		readRestoreState(): Promise<PersistedWorkspaceState>;
+		writeRestoreState(state: PersistedWorkspaceState): Promise<void>;
 	};
 };

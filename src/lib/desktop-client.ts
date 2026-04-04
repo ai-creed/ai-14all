@@ -43,3 +43,9 @@ export const git: OneForAllDesktopApi["git"] = {
 	readSummary: (worktreePath) =>
 		getDesktopClient().git.readSummary(worktreePath),
 };
+
+export const workspace: OneForAllDesktopApi["workspace"] = {
+	readRestoreState: () => getDesktopClient().workspace.readRestoreState(),
+	writeRestoreState: (state) =>
+		getDesktopClient().workspace.writeRestoreState(state),
+};

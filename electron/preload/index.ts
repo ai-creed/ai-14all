@@ -79,6 +79,14 @@ const api: OneForAllDesktopApi = {
 			return ipcRenderer.invoke("git:readSummary", { worktreePath });
 		},
 	},
+	workspace: {
+		readRestoreState() {
+			return ipcRenderer.invoke("workspace:readRestoreState", {});
+		},
+		writeRestoreState(state) {
+			return ipcRenderer.invoke("workspace:writeRestoreState", { state });
+		},
+	},
 };
 
 contextBridge.exposeInMainWorld("oneforall", api);
