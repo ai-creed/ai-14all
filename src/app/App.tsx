@@ -51,6 +51,7 @@ export function App() {
 		DEFAULT_PERSISTED_WORKSPACE_STATE,
 	);
 	const [startupError, setStartupError] = useState<string | null>(null);
+	const [restoreWarning, setRestoreWarning] = useState<string | null>(null);
 	const [pendingRestoreSessions, setPendingRestoreSessions] = useState<Record<string, PersistedWorktreeSession>>({});
 
 	useEffect(() => {
@@ -168,6 +169,10 @@ export function App() {
 			);
 			if (selectedWorktree && selectedSession) {
 				await recreatePersistedProcesses(selectedWorktree, selectedSession);
+			} else if (snapshot.selectedWorktreeId && !selectedWorktree) {
+				setRestoreWarning(
+					"Previously selected worktree is no longer available. Opened the first available session instead.",
+				);
 			}
 		} catch (err) {
 			setStartupError(
@@ -255,9 +260,12 @@ export function App() {
 		() => ({
 			version: 1 as const,
 			restorePreference: restoreState.restorePreference,
-			snapshot: persistableSnapshot,
+			// When no repository is open (e.g. user chose start-clean and has not
+			// yet loaded a new repo) keep the previous snapshot intact so the user
+			// can still restore it on a future launch.
+			snapshot: persistableSnapshot ?? restoreState.snapshot,
 		}),
-		[persistableSnapshot, restoreState.restorePreference],
+		[persistableSnapshot, restoreState.restorePreference, restoreState.snapshot],
 	);
 	const persistableStateJson = useMemo(
 		() => JSON.stringify(persistableState),
@@ -525,10 +533,12 @@ export function App() {
 			: "prompt";
 
 		if (!shouldRestore) {
+			// Preserve the snapshot so the user can restore it on a future launch
+			// if they change their preference back to "prompt" or "alwaysRestore".
 			const nextState: PersistedWorkspaceState = {
 				version: 1,
 				restorePreference: nextPreference,
-				snapshot: null,
+				snapshot: restoreState.snapshot,
 			};
 			setRestoreState(nextState);
 			await workspace.writeRestoreState(nextState);
@@ -585,6 +595,19 @@ export function App() {
 
 	return (
 		<main className="shell-app">
+			{restoreWarning && (
+				<div className="shell-restore-warning" role="status">
+					<span>{restoreWarning}</span>
+					<button
+						type="button"
+						className="shell-restore-warning__dismiss"
+						aria-label="Dismiss warning"
+						onClick={() => setRestoreWarning(null)}
+					>
+						×
+					</button>
+				</div>
+			)}
 			<div className="shell-layout">
 				<SessionSidebar
 					worktrees={worktrees}

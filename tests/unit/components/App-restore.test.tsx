@@ -203,6 +203,65 @@ describe("App — Phase 5 restore flow", () => {
 		expect(await screen.findByDisplayValue("main note")).toBeInTheDocument();
 	});
 
+	it("preserves the snapshot when the user chooses start clean", async () => {
+		const snapshot = {
+			repositoryPath: "/repo",
+			selectedWorktreeId: "feature-a",
+			commandPresets: [],
+			worktreeSessions: [],
+		};
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot,
+		});
+
+		render(<App />);
+
+		await userEvent.click(
+			await screen.findByRole("button", { name: "Start clean" }),
+		);
+
+		// The snapshot must survive "start clean" so the user can recover it on
+		// a future launch by switching back to prompt or alwaysRestore
+		await waitFor(() => {
+			expect(writeRestoreStateMock).toHaveBeenCalledWith(
+				expect.objectContaining({ snapshot }),
+			);
+		});
+	});
+
+	it("shows a warning and still loads the workspace when the previously selected worktree is missing", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "alwaysRestore",
+			snapshot: {
+				repositoryPath: "/repo",
+				selectedWorktreeId: "missing-worktree",
+				commandPresets: [],
+				worktreeSessions: [],
+			},
+		});
+		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+
+		// Workspace should load — the repo was found even though the worktree wasn't
+		await screen.findByRole("navigation", { name: "Worktree sessions" });
+
+		// A non-blocking status banner must explain what happened
+		expect(screen.getByRole("status")).toHaveTextContent(
+			/previously selected worktree is no longer available/i,
+		);
+
+		// Dismissing the banner removes it
+		await userEvent.click(screen.getByRole("button", { name: "Dismiss warning" }));
+		expect(screen.queryByRole("status")).not.toBeInTheDocument();
+	});
+
 	it("clears the snapshot and resets to prompt when alwaysRestore fails", async () => {
 		readRestoreStateMock.mockResolvedValue({
 			version: 1,
