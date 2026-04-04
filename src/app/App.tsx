@@ -140,7 +140,10 @@ export function App() {
 	// Derive git data from cached session state
 	const activeSummary = activeSession?.gitSummary ?? null;
 	const gitSummaryError = activeSession?.gitSummaryError ?? false;
-	const changes = activeSummary?.changedFiles ?? [];
+	const changes = useMemo(
+		() => activeSummary?.changedFiles ?? [],
+		[activeSummary],
+	);
 	const scopeRoots = useMemo(
 		() => [
 			...new Set(
