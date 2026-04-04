@@ -178,7 +178,11 @@ function restorePersistedSession(
 		selectedFilePath: snapshot.selectedFilePath,
 		selectedChangedFilePath: snapshot.selectedChangedFilePath,
 		processSessionIds: snapshot.processSessions.map((process) => process.id),
-		activeProcessSessionId: snapshot.activeProcessSessionId,
+		activeProcessSessionId:
+			snapshot.activeProcessSessionId !== null &&
+			snapshot.processSessions.some((p) => p.id === snapshot.activeProcessSessionId)
+				? snapshot.activeProcessSessionId
+				: (snapshot.processSessions[0]?.id ?? null),
 		attentionState: "idle",
 	};
 

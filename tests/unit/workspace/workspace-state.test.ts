@@ -221,6 +221,76 @@ describe("workspaceReducer — Phase 4 review state", () => {
 	});
 });
 
+describe("workspaceReducer — Phase 3 process model", () => {
+	it("stores repo-level presets", () => {
+		const initial = createWorkspaceState(worktrees);
+		const state = workspaceReducer(initial, {
+			type: "preset/upsert",
+			preset,
+		});
+		expect(state.commandPresets).toEqual([preset]);
+	});
+
+	it("registers preset-launched process sessions as pinned", () => {
+		const initial = createWorkspaceState(worktrees);
+		const state = workspaceReducer(initial, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: {
+				id: "process-1",
+				worktreeId: "main",
+				terminalSessionId: "terminal-1",
+				origin: "preset",
+				presetId: "preset-claude",
+				label: "Claude",
+				command: "claude",
+				status: "running",
+				lastActivityAt: null,
+				exitCode: null,
+				pinned: true,
+				attentionState: "idle",
+			},
+		});
+		expect(state.processSessionsById["process-1"]?.pinned).toBe(true);
+		expect(state.sessionsByWorktreeId.main.activeProcessSessionId).toBe(
+			"process-1",
+		);
+	});
+
+	it("rolls action-required attention up to the worktree session", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: {
+				id: "process-1",
+				worktreeId: "main",
+				terminalSessionId: "terminal-1",
+				origin: "preset",
+				presetId: "preset-claude",
+				label: "Claude",
+				command: "claude",
+				status: "running",
+				lastActivityAt: null,
+				exitCode: null,
+				pinned: true,
+				attentionState: "idle",
+			},
+		});
+		state = workspaceReducer(state, {
+			type: "session/recordProcessOutput",
+			worktreeId: "main",
+			processId: "process-1",
+			attentionState: "actionRequired",
+			at: 1_234,
+			isViewed: false,
+		});
+		expect(state.sessionsByWorktreeId.main.attentionState).toBe(
+			"actionRequired",
+		);
+	});
+});
+
 describe("workspaceReducer — Phase 5 persistence restore", () => {
 	it("restores the selected worktree session from a snapshot", () => {
 		let state = workspaceReducer(createWorkspaceState([]), {
@@ -296,74 +366,32 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 		expect(state.nextAdHocNumberByWorktreeId["feature-a"]).toBe(4);
 		expect(state.processSessionsById["process-2"]?.status).toBe("restarting");
 	});
-});
 
-describe("workspaceReducer — Phase 3 process model", () => {
-	it("stores repo-level presets", () => {
-		const initial = createWorkspaceState(worktrees);
-		const state = workspaceReducer(initial, {
-			type: "preset/upsert",
-			preset,
-		});
-		expect(state.commandPresets).toEqual([preset]);
-	});
-
-	it("registers preset-launched process sessions as pinned", () => {
-		const initial = createWorkspaceState(worktrees);
-		const state = workspaceReducer(initial, {
-			type: "session/registerProcess",
-			worktreeId: "main",
-			process: {
-				id: "process-1",
-				worktreeId: "main",
-				terminalSessionId: "terminal-1",
-				origin: "preset",
-				presetId: "preset-claude",
-				label: "Claude",
-				command: "claude",
-				status: "running",
-				lastActivityAt: null,
-				exitCode: null,
-				pinned: true,
-				attentionState: "idle",
+	it("clamps activeProcessSessionId when it no longer matches a restored process", () => {
+		const state = workspaceReducer(createWorkspaceState(worktrees), {
+			type: "session/restoreSnapshot",
+			snapshot: {
+				worktreeId: "feature-a",
+				note: "",
+				reviewMode: "files",
+				viewerMode: "file",
+				selectedFilePath: null,
+				selectedChangedFilePath: null,
+				activeProcessSessionId: "orphan-id", // not in processSessions
+				nextAdHocNumber: 2,
+				processSessions: [
+					{
+						id: "process-1",
+						origin: "adHoc",
+						presetId: null,
+						label: "shell 1",
+						command: null,
+						pinned: false,
+					},
+				],
 			},
 		});
-		expect(state.processSessionsById["process-1"]?.pinned).toBe(true);
-		expect(state.sessionsByWorktreeId.main.activeProcessSessionId).toBe(
-			"process-1",
-		);
-	});
 
-	it("rolls action-required attention up to the worktree session", () => {
-		let state = createWorkspaceState(worktrees);
-		state = workspaceReducer(state, {
-			type: "session/registerProcess",
-			worktreeId: "main",
-			process: {
-				id: "process-1",
-				worktreeId: "main",
-				terminalSessionId: "terminal-1",
-				origin: "preset",
-				presetId: "preset-claude",
-				label: "Claude",
-				command: "claude",
-				status: "running",
-				lastActivityAt: null,
-				exitCode: null,
-				pinned: true,
-				attentionState: "idle",
-			},
-		});
-		state = workspaceReducer(state, {
-			type: "session/recordProcessOutput",
-			worktreeId: "main",
-			processId: "process-1",
-			attentionState: "actionRequired",
-			at: 1_234,
-			isViewed: false,
-		});
-		expect(state.sessionsByWorktreeId.main.attentionState).toBe(
-			"actionRequired",
-		);
+		expect(state.sessionsByWorktreeId["feature-a"].activeProcessSessionId).toBe("process-1");
 	});
 });

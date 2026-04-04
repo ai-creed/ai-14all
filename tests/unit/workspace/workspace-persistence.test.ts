@@ -62,6 +62,12 @@ describe("buildWorkspaceSnapshot", () => {
 		});
 	});
 
+	it("returns empty worktreeSessions and null selectedWorktreeId for empty state", () => {
+		const snapshot = buildWorkspaceSnapshot("/repo", createWorkspaceState([]));
+		expect(snapshot.worktreeSessions).toEqual([]);
+		expect(snapshot.selectedWorktreeId).toBeNull();
+	});
+
 	it("keeps only non-selected worktrees in the pending restore map", () => {
 		const snapshot = {
 			repositoryPath: "/repo",
@@ -97,5 +103,32 @@ describe("buildWorkspaceSnapshot", () => {
 			selectedSession: snapshot.worktreeSessions[1],
 			pendingByWorktreeId: { main: snapshot.worktreeSessions[0] },
 		});
+	});
+});
+
+describe("splitPendingRestores", () => {
+	it("puts all sessions in pendingByWorktreeId when selectedWorktreeId is null", () => {
+		const snapshot = {
+			repositoryPath: "/repo",
+			selectedWorktreeId: null,
+			commandPresets: [],
+			worktreeSessions: [
+				{
+					worktreeId: "main",
+					note: "",
+					reviewMode: "files" as const,
+					viewerMode: "file" as const,
+					selectedFilePath: null,
+					selectedChangedFilePath: null,
+					activeProcessSessionId: null,
+					nextAdHocNumber: 1,
+					processSessions: [],
+				},
+			],
+		};
+
+		const result = splitPendingRestores(snapshot);
+		expect(result.selectedSession).toBeNull();
+		expect(result.pendingByWorktreeId).toEqual({ main: snapshot.worktreeSessions[0] });
 	});
 });
