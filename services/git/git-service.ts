@@ -150,7 +150,7 @@ export class GitService {
 						change.oldPath,
 						relativePath,
 					]
-				: ["diff", "--no-ext-diff", "--", relativePath];
+				: ["diff", "--no-ext-diff", "HEAD", "--", relativePath];
 
 		const stdout = await readDiffCommand(diffArgs, worktreePath);
 		return { path: relativePath, content: stdout };

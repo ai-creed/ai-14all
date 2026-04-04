@@ -3,6 +3,7 @@ type Props = {
 	branchName: string;
 	changedFileCount: number;
 	isDirty: boolean;
+	gitSummaryError?: boolean;
 };
 
 export function SessionHeader({
@@ -10,6 +11,7 @@ export function SessionHeader({
 	branchName,
 	changedFileCount,
 	isDirty,
+	gitSummaryError = false,
 }: Props) {
 	return (
 		<header className="shell-panel shell-header">
@@ -22,7 +24,10 @@ export function SessionHeader({
 					<span>Branch:</span> <strong>{branchName}</strong>
 				</span>
 				<span>
-					<span>Status:</span> <strong>{isDirty ? "Dirty" : "Clean"}</strong>
+					<span>Status:</span>{" "}
+					<strong>
+						{gitSummaryError ? "Unknown" : isDirty ? "Dirty" : "Clean"}
+					</strong>
 				</span>
 				<span>
 					<span>Changes:</span> <strong>{changedFileCount}</strong>

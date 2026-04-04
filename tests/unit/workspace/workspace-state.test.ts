@@ -128,6 +128,39 @@ describe("workspaceReducer", () => {
 });
 
 describe("workspaceReducer — Phase 4 review state", () => {
+	it("records git summary fetch error per worktree session", () => {
+		const state = workspaceReducer(createWorkspaceState(worktrees), {
+			type: "session/cacheGitSummary",
+			worktreeId: "main",
+			gitSummary: null,
+			error: true,
+		});
+		expect(state.sessionsByWorktreeId.main.gitSummaryError).toBe(true);
+		expect(state.sessionsByWorktreeId.main.gitSummary).toBeNull();
+	});
+
+	it("clears git summary error on successful fetch", () => {
+		let state = workspaceReducer(createWorkspaceState(worktrees), {
+			type: "session/cacheGitSummary",
+			worktreeId: "main",
+			gitSummary: null,
+			error: true,
+		});
+		state = workspaceReducer(state, {
+			type: "session/cacheGitSummary",
+			worktreeId: "main",
+			gitSummary: {
+				branchName: "main",
+				isDirty: false,
+				changedFileCount: 0,
+				changedFiles: [],
+				recentCommits: [],
+			},
+			error: false,
+		});
+		expect(state.sessionsByWorktreeId.main.gitSummaryError).toBe(false);
+	});
+
 	it("stores cached git summary per worktree session", () => {
 		const state = workspaceReducer(createWorkspaceState(worktrees), {
 			type: "session/cacheGitSummary",
@@ -141,6 +174,7 @@ describe("workspaceReducer — Phase 4 review state", () => {
 					{ sha: "abc", shortSha: "abc", subject: "initial commit" },
 				],
 			},
+			error: false,
 		});
 
 		expect(state.sessionsByWorktreeId.main.gitSummary?.changedFileCount).toBe(

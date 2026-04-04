@@ -134,6 +134,20 @@ describe("GitService", () => {
 		}
 	});
 
+	it("returns diff content for a staged (fully indexed) change", async () => {
+		// Stage the modified file
+		const { execFile } = await import("node:child_process");
+		const { promisify } = await import("node:util");
+		const execFileAsync = promisify(execFile);
+		await execFileAsync("git", ["add", "src/index.ts"], { cwd: worktreePath });
+
+		const diff = await service.readDiff(worktreePath, "src/index.ts");
+
+		expect(diff.content).toContain("@@");
+		expect(diff.content).toContain('-export const hello = "world";');
+		expect(diff.content).toContain('+export const hello = "phase-2";');
+	});
+
 	it("returns a git summary with branch, dirty state, changes, and recent commits", async () => {
 		const summary = await service.readSummary(worktreePath);
 

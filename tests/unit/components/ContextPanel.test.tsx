@@ -41,6 +41,21 @@ describe("ContextPanel", () => {
 		expect(onNoteChange).toHaveBeenCalledWith("Check git diff output");
 	});
 
+	it("shows error message when gitSummaryError is true", () => {
+		render(
+			<ContextPanel
+				branchName="feature-a"
+				worktreePath="/repo"
+				note=""
+				gitSummary={null}
+				gitSummaryError
+				onNoteChange={() => {}}
+			/>,
+		);
+		expect(screen.getByText("Unable to load Git data.")).toBeInTheDocument();
+		expect(screen.queryByText("Clean")).not.toBeInTheDocument();
+	});
+
 	it("renders git status, changed files, and recent commits", () => {
 		render(
 			<ContextPanel

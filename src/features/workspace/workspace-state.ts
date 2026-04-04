@@ -82,6 +82,7 @@ export type WorkspaceAction =
 			type: "session/cacheGitSummary";
 			worktreeId: string;
 			gitSummary: GitSummary | null;
+			error: boolean;
 	  };
 
 function createSession(worktree: Worktree): WorktreeSession {
@@ -93,6 +94,7 @@ function createSession(worktree: Worktree): WorktreeSession {
 		reviewMode: "files",
 		viewerMode: "file",
 		gitSummary: null,
+		gitSummaryError: false,
 		selectedFilePath: null,
 		selectedChangedFilePath: null,
 		activeProcessSessionId: null,
@@ -382,6 +384,7 @@ export function workspaceReducer(
 				[action.worktreeId]: {
 					...session,
 					gitSummary: action.gitSummary,
+					gitSummaryError: action.error,
 				},
 			},
 		};

@@ -13,6 +13,7 @@ export type WorktreeSession = {
 	reviewMode: ReviewMode;
 	viewerMode: ViewerMode;
 	gitSummary: GitSummary | null;
+	gitSummaryError: boolean;
 	selectedFilePath: string | null;
 	selectedChangedFilePath: string | null;
 	activeProcessSessionId: string | null;

@@ -90,6 +90,7 @@ export function App() {
 
 	// Derive git data from cached session state
 	const activeSummary = activeSession?.gitSummary ?? null;
+	const gitSummaryError = activeSession?.gitSummaryError ?? false;
 	const changes = activeSummary?.changedFiles ?? [];
 	const scopeRoots = useMemo(
 		() => [
@@ -97,9 +98,7 @@ export function App() {
 				changes
 					.map((change) => {
 						const lastSlash = change.path.lastIndexOf("/");
-						return lastSlash === -1
-							? change.path
-							: change.path.slice(0, lastSlash);
+						return lastSlash === -1 ? "" : change.path.slice(0, lastSlash);
 					})
 					.filter(Boolean),
 			),
@@ -121,6 +120,7 @@ export function App() {
 					type: "session/cacheGitSummary",
 					worktreeId: activeWorktree.id,
 					gitSummary: summary,
+					error: false,
 				});
 			})
 			.catch(() => {
@@ -129,6 +129,7 @@ export function App() {
 					type: "session/cacheGitSummary",
 					worktreeId: activeWorktree.id,
 					gitSummary: null,
+					error: true,
 				});
 			});
 
@@ -349,6 +350,7 @@ export function App() {
 							branchName={activeWorktree.branchName}
 							changedFileCount={changes.length}
 							isDirty={activeSummary?.isDirty ?? false}
+							gitSummaryError={gitSummaryError}
 						/>
 					)}
 
@@ -535,6 +537,7 @@ export function App() {
 						worktreePath={activeWorktree.path}
 						note={activeSession.note}
 						gitSummary={activeSummary}
+						gitSummaryError={gitSummaryError}
 						onNoteChange={(note) =>
 							dispatch({
 								type: "session/setNote",

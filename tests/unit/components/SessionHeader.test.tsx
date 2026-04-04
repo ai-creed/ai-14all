@@ -20,6 +20,19 @@ describe("SessionHeader", () => {
 		expect(screen.getByText("Changes:")).toBeInTheDocument();
 	});
 
+	it("renders Unknown status when gitSummaryError is true", () => {
+		render(
+			<SessionHeader
+				title="Feature Session"
+				branchName="feature-a"
+				changedFileCount={0}
+				isDirty={false}
+				gitSummaryError
+			/>,
+		);
+		expect(screen.getByText("Unknown")).toBeInTheDocument();
+	});
+
 	it("renders branch, dirty state, and changed file count", () => {
 		render(
 			<SessionHeader

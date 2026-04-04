@@ -254,6 +254,14 @@ describe("App — refresh changes button", () => {
 		});
 	});
 
+	it("dispatches gitSummaryError when readSummary rejects", async () => {
+		mockReadSummary.mockRejectedValueOnce(new Error("git error"));
+
+		await loadRepoAndSwitchToChanges();
+
+		expect(screen.getByText("Unknown")).toBeInTheDocument();
+	});
+
 	it("restores per-worktree review selections when switching sessions", async () => {
 		mockReadSummary
 			.mockResolvedValueOnce({

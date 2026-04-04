@@ -59,6 +59,14 @@ describe("FileService", () => {
 			expect(files).toEqual(["src/index.ts"]);
 		});
 
+		it("skips a non-existent root without throwing", async () => {
+			const result = await service.listScopedFiles(worktreeDir, [
+				"src",
+				"nonexistent-dir",
+			]);
+			expect(result).toEqual(["src/index.ts"]);
+		});
+
 		it("deduplicates and sorts files across overlapping roots", async () => {
 			mkdirSync(join(worktreeDir, "src", "nested"), { recursive: true });
 			writeFileSync(

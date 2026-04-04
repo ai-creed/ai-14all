@@ -76,13 +76,17 @@ export class FileService {
 				throw new Error(`Path escapes worktree: ${relativeRoot}`);
 			}
 
-			const stats = await stat(absoluteRoot);
-			if (stats.isDirectory()) {
-				const nested: string[] = [];
-				await walkDir(worktreePath, relativeRoot, nested);
-				nested.forEach((entry) => files.add(entry));
-			} else if (stats.isFile()) {
-				files.add(relativeRoot);
+			try {
+				const stats = await stat(absoluteRoot);
+				if (stats.isDirectory()) {
+					const nested: string[] = [];
+					await walkDir(worktreePath, relativeRoot, nested);
+					nested.forEach((entry) => files.add(entry));
+				} else if (stats.isFile()) {
+					files.add(relativeRoot);
+				}
+			} catch {
+				// Path does not exist (e.g. deleted file) — skip it silently
 			}
 		}
 
