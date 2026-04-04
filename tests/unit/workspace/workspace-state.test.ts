@@ -221,6 +221,83 @@ describe("workspaceReducer — Phase 4 review state", () => {
 	});
 });
 
+describe("workspaceReducer — Phase 5 persistence restore", () => {
+	it("restores the selected worktree session from a snapshot", () => {
+		let state = workspaceReducer(createWorkspaceState([]), {
+			type: "workspace/restoreSnapshot",
+			worktrees,
+			snapshot: {
+				repositoryPath: "/repo",
+				selectedWorktreeId: "feature-a",
+				commandPresets: [preset],
+				worktreeSessions: [
+					{
+						worktreeId: "feature-a",
+						note: "resume here",
+						reviewMode: "changes",
+						viewerMode: "diff",
+						selectedFilePath: null,
+						selectedChangedFilePath: "src/index.ts",
+						activeProcessSessionId: "process-1",
+						nextAdHocNumber: 2,
+						processSessions: [
+							{
+								id: "process-1",
+								origin: "preset",
+								presetId: "preset-claude",
+								label: "Claude",
+								command: "claude",
+								pinned: true,
+							},
+						],
+					},
+				],
+			},
+		});
+
+		expect(state.selectedWorktreeId).toBe("feature-a");
+		expect(state.commandPresets).toEqual([preset]);
+		expect(state.sessionsByWorktreeId["feature-a"].note).toBe("resume here");
+		expect(state.sessionsByWorktreeId["feature-a"].activeProcessSessionId).toBe("process-1");
+		expect(state.processSessionsById["process-1"]).toMatchObject({
+			terminalSessionId: null,
+			status: "restarting",
+			label: "Claude",
+			command: "claude",
+		});
+	});
+
+	it("lazily restores a non-selected worktree session", () => {
+		let state = workspaceReducer(createWorkspaceState(worktrees), {
+			type: "session/restoreSnapshot",
+			snapshot: {
+				worktreeId: "feature-a",
+				note: "later",
+				reviewMode: "files",
+				viewerMode: "file",
+				selectedFilePath: "src/new-file.ts",
+				selectedChangedFilePath: null,
+				activeProcessSessionId: "process-2",
+				nextAdHocNumber: 4,
+				processSessions: [
+					{
+						id: "process-2",
+						origin: "adHoc",
+						presetId: null,
+						label: "shell 3",
+						command: null,
+						pinned: false,
+					},
+				],
+			},
+		});
+
+		expect(state.sessionsByWorktreeId["feature-a"].selectedFilePath).toBe("src/new-file.ts");
+		expect(state.nextAdHocNumberByWorktreeId["feature-a"]).toBe(4);
+		expect(state.processSessionsById["process-2"]?.status).toBe("restarting");
+	});
+});
+
 describe("workspaceReducer — Phase 3 process model", () => {
 	it("stores repo-level presets", () => {
 		const initial = createWorkspaceState(worktrees);

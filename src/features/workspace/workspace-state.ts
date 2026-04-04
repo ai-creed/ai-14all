@@ -1,6 +1,10 @@
 import type { CommandPreset } from "../../../shared/models/command-preset";
 import type { GitSummary } from "../../../shared/models/git-summary";
 import type {
+	PersistedWorktreeSession,
+	WorkspaceSnapshot,
+} from "../../../shared/models/persisted-workspace-state";
+import type {
 	ProcessAttentionState,
 	ProcessSession,
 } from "../../../shared/models/process-session";
@@ -83,7 +87,13 @@ export type WorkspaceAction =
 			worktreeId: string;
 			gitSummary: GitSummary | null;
 			error: boolean;
-	  };
+	  }
+	| {
+			type: "workspace/restoreSnapshot";
+			worktrees: Worktree[];
+			snapshot: WorkspaceSnapshot;
+	  }
+	| { type: "session/restoreSnapshot"; snapshot: PersistedWorktreeSession };
 
 function createSession(worktree: Worktree): WorktreeSession {
 	return {
@@ -135,10 +145,88 @@ function recalculateWorktreeAttention(
 	return "idle";
 }
 
+function restorePersistedSession(
+	state: WorkspaceState,
+	snapshot: PersistedWorktreeSession,
+): WorkspaceState {
+	const session = state.sessionsByWorktreeId[snapshot.worktreeId];
+	if (!session) return state;
+
+	const nextProcessSessionsById = { ...state.processSessionsById };
+	for (const process of snapshot.processSessions) {
+		nextProcessSessionsById[process.id] = {
+			id: process.id,
+			worktreeId: snapshot.worktreeId,
+			terminalSessionId: null,
+			origin: process.origin,
+			presetId: process.presetId,
+			label: process.label,
+			command: process.command,
+			status: "restarting",
+			lastActivityAt: null,
+			exitCode: null,
+			pinned: process.pinned,
+			attentionState: "idle",
+		};
+	}
+
+	const nextSession: WorktreeSession = {
+		...session,
+		note: snapshot.note,
+		reviewMode: snapshot.reviewMode,
+		viewerMode: snapshot.viewerMode,
+		selectedFilePath: snapshot.selectedFilePath,
+		selectedChangedFilePath: snapshot.selectedChangedFilePath,
+		processSessionIds: snapshot.processSessions.map((process) => process.id),
+		activeProcessSessionId: snapshot.activeProcessSessionId,
+		attentionState: "idle",
+	};
+
+	return {
+		...state,
+		processSessionsById: nextProcessSessionsById,
+		sessionsByWorktreeId: {
+			...state.sessionsByWorktreeId,
+			[snapshot.worktreeId]: nextSession,
+		},
+		nextAdHocNumberByWorktreeId: {
+			...state.nextAdHocNumberByWorktreeId,
+			[snapshot.worktreeId]: snapshot.nextAdHocNumber,
+		},
+	};
+}
+
 export function workspaceReducer(
 	state: WorkspaceState,
 	action: WorkspaceAction,
 ): WorkspaceState {
+	if (action.type === "workspace/restoreSnapshot") {
+		const base = createWorkspaceState(action.worktrees);
+		const selectedWorktreeId =
+			action.snapshot.selectedWorktreeId &&
+			base.sessionsByWorktreeId[action.snapshot.selectedWorktreeId]
+				? action.snapshot.selectedWorktreeId
+				: base.selectedWorktreeId;
+
+		let nextState: WorkspaceState = {
+			...base,
+			selectedWorktreeId,
+			commandPresets: action.snapshot.commandPresets,
+		};
+
+		const selectedSession = action.snapshot.worktreeSessions.find(
+			(session) => session.worktreeId === selectedWorktreeId,
+		);
+		if (selectedSession) {
+			nextState = restorePersistedSession(nextState, selectedSession);
+		}
+		return nextState;
+	}
+
+	if (action.type === "session/restoreSnapshot") {
+		return restorePersistedSession(state, action.snapshot);
+	}
+
 	// Full state reset — only dispatched on initial repository load, not on
 	// worktree list refresh. A future "refresh worktrees" action should merge
 	// new worktrees into existing state to preserve open sessions.
