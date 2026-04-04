@@ -9,9 +9,10 @@ import type {
 	PersistedWorkspaceState,
 	PersistedWorktreeSession,
 	RestorePreference,
+	WorkspaceSnapshot,
 } from "../../shared/models/persisted-workspace-state";
 import { DEFAULT_PERSISTED_WORKSPACE_STATE } from "../../shared/models/persisted-workspace-state";
-import { buildWorkspaceSnapshot } from "../features/workspace/workspace-persistence";
+import { buildWorkspaceSnapshot, splitPendingRestores } from "../features/workspace/workspace-persistence";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
 import { SessionSidebar } from "../features/workspace/SessionSidebar";
@@ -30,7 +31,7 @@ import { FileList } from "../features/viewer/FileList";
 import { FileViewer } from "../features/viewer/FileViewer";
 import { ChangesList } from "../features/git/ChangesList";
 import { DiffViewer } from "../features/viewer/DiffViewer";
-import { git, workspace } from "../lib/desktop-client";
+import { git, workspace, repository as repositoryClient } from "../lib/desktop-client";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -50,7 +51,6 @@ export function App() {
 		DEFAULT_PERSISTED_WORKSPACE_STATE,
 	);
 	const [startupError, setStartupError] = useState<string | null>(null);
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars -- populated in restoreWorkspace (Task 4) for lazy hydration of non-selected sessions
 	const [pendingRestoreSessions, setPendingRestoreSessions] = useState<Record<string, PersistedWorktreeSession>>({});
 
 	useEffect(() => {
@@ -69,8 +69,7 @@ export function App() {
 				return;
 			}
 			if (state.restorePreference === "alwaysRestore") {
-				// restoreWorkspace will be added in Task 4 — for now just go ready
-				setStartupMode("ready");
+				void restoreWorkspace(state.snapshot, state.restorePreference);
 				return;
 			}
 			setStartupMode("prompt");
@@ -83,6 +82,7 @@ export function App() {
 		return () => {
 			cancelled = true;
 		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- startup-only effect; restoreWorkspace is intentionally excluded to prevent re-runs on re-render
 	}, []);
 
 	const activeWorktree =
@@ -135,6 +135,81 @@ export function App() {
 		setWorktrees(wts);
 		dispatch({ type: "workspace/loadWorktrees", worktrees: wts });
 		setError(null);
+	}
+
+	async function restoreWorkspace(
+		snapshot: WorkspaceSnapshot,
+		nextPreference: RestorePreference,
+	) {
+		try {
+			const repo = await repositoryClient.setRoot(snapshot.repositoryPath);
+			const wts = await repositoryClient.listWorktrees();
+			setRepository(repo);
+			setWorktrees(wts);
+
+			dispatch({
+				type: "workspace/restoreSnapshot",
+				worktrees: wts,
+				snapshot,
+			});
+
+			const { selectedSession, pendingByWorktreeId } = splitPendingRestores(snapshot);
+			setPendingRestoreSessions(pendingByWorktreeId);
+			setRestoreState({
+				version: 1,
+				restorePreference: nextPreference,
+				snapshot,
+			});
+			setStartupMode("ready");
+			setStartupError(null);
+
+			const selectedWorktree = wts.find(
+				(worktree) => worktree.id === (snapshot.selectedWorktreeId ?? ""),
+			);
+			if (selectedWorktree && selectedSession) {
+				await recreatePersistedProcesses(selectedWorktree, selectedSession);
+			}
+		} catch (err) {
+			setStartupError(
+				err instanceof Error
+					? `Unable to restore previous workspace: ${err.message}`
+					: "Unable to restore previous workspace.",
+			);
+			setStartupMode("ready");
+		}
+	}
+
+	async function recreatePersistedProcesses(
+		worktree: Worktree,
+		sessionSnapshot: PersistedWorktreeSession,
+	) {
+		for (const process of sessionSnapshot.processSessions) {
+			try {
+				const terminal = await createSession(worktree.id, worktree.path);
+				dispatch({
+					type: "session/replaceProcessTerminal",
+					processId: process.id,
+					terminalSessionId: terminal.id,
+				});
+				dispatch({
+					type: "session/updateProcessStatus",
+					processId: process.id,
+					status: "running",
+					exitCode: null,
+				});
+
+				if (process.command) {
+					await sendInput(terminal.id, `${process.command}\n`);
+				}
+			} catch {
+				dispatch({
+					type: "session/updateProcessStatus",
+					processId: process.id,
+					status: "error",
+					exitCode: null,
+				});
+			}
+		}
 	}
 
 	// Derive git data from cached session state
@@ -219,6 +294,42 @@ export function App() {
 
 	function handleRefreshChanges() {
 		setRefreshKey((k) => k + 1);
+	}
+
+	async function handleSelectWorktree(worktreeId: string) {
+		const pending = pendingRestoreSessions[worktreeId];
+		if (pending) {
+			dispatch({ type: "session/restoreSnapshot", snapshot: pending });
+			setPendingRestoreSessions((prev) => {
+				const next = { ...prev };
+				delete next[worktreeId];
+				return next;
+			});
+
+			const worktree = worktrees.find((entry) => entry.id === worktreeId);
+			if (worktree) {
+				await recreatePersistedProcesses(worktree, pending);
+			}
+		}
+
+		dispatch({ type: "session/selectWorktree", worktreeId });
+		if (pending?.activeProcessSessionId) {
+			dispatch({
+				type: "session/markProcessViewed",
+				worktreeId,
+				processId: pending.activeProcessSessionId,
+			});
+			return;
+		}
+
+		const session = workspaceState.sessionsByWorktreeId[worktreeId];
+		if (session?.activeProcessSessionId) {
+			dispatch({
+				type: "session/markProcessViewed",
+				worktreeId,
+				processId: session.activeProcessSessionId,
+			});
+		}
 	}
 
 	// Fetch diff when selected changed file changes
@@ -408,9 +519,9 @@ export function App() {
 			return;
 		}
 
-		// restore path will be wired in Task 4 — for now just go ready
-		setRestoreState((prev) => ({ ...prev, restorePreference: nextPreference }));
-		setStartupMode("ready");
+		if (restoreState.snapshot) {
+			await restoreWorkspace(restoreState.snapshot, nextPreference);
+		}
 	}
 
 	const attentionByWorktreeId = Object.fromEntries(
@@ -462,17 +573,7 @@ export function App() {
 					worktrees={worktrees}
 					selectedWorktreeId={workspaceState.selectedWorktreeId}
 					attentionByWorktreeId={attentionByWorktreeId}
-					onSelect={(worktreeId) => {
-						dispatch({ type: "session/selectWorktree", worktreeId });
-						const session = workspaceState.sessionsByWorktreeId[worktreeId];
-						if (session?.activeProcessSessionId) {
-							dispatch({
-								type: "session/markProcessViewed",
-								worktreeId,
-								processId: session.activeProcessSessionId,
-							});
-						}
-					}}
+					onSelect={(worktreeId) => { void handleSelectWorktree(worktreeId); }}
 				/>
 
 				<section className="shell-main-column">
