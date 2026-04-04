@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { stat } from "node:fs/promises";
 import { promisify } from "node:util";
 import { join, resolve } from "node:path";
 import type {
@@ -129,7 +130,11 @@ export class GitService {
 		}
 
 		if (change.status === "??") {
-			const absolutePath = join(worktreePath, relativePath);
+			const fileStats = await stat(absolutePath);
+			if (fileStats.isDirectory()) {
+				throw new Error(`Cannot diff directory: ${relativePath}`);
+			}
+
 			const stdout = await readDiffCommand(
 				["diff", "--no-index", "--", "/dev/null", absolutePath],
 				worktreePath,

@@ -84,6 +84,29 @@ describe("GitService", () => {
 		expect(diff.content).toContain("+export const added = true;");
 	});
 
+	it("rejects untracked directories in readDiff", async () => {
+		const nestedWorktreePath = join(
+			worktreePath,
+			".claude",
+			"worktrees",
+			"phase-6-in-session-relay",
+		);
+		mkdirSync(nestedWorktreePath, { recursive: true });
+		execSync("git init", {
+			cwd: nestedWorktreePath,
+			stdio: "ignore",
+		});
+
+		await expect(
+			service.readDiff(
+				worktreePath,
+				".claude/worktrees/phase-6-in-session-relay/",
+			),
+		).rejects.toThrow(
+			"Cannot diff directory: .claude/worktrees/phase-6-in-session-relay/",
+		);
+	});
+
 	it("rejects path traversal in readDiff", async () => {
 		await expect(
 			service.readDiff(worktreePath, "../../etc/passwd"),

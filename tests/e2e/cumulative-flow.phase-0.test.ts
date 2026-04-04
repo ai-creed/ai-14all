@@ -77,9 +77,8 @@ test.describe.serial("Cumulative flow — Phase 0", () => {
 	});
 
 	test("opens a file in the embedded viewer", async () => {
-		await page
-			.getByRole("button", { name: "src/index.ts", exact: true })
-			.click({ force: true });
+		await expect(page.getByText("src", { exact: true })).toBeVisible();
+		await page.getByRole("button", { name: "index.ts", exact: true }).click();
 
 		await expect(page.locator(".monaco-editor")).toBeVisible({
 			timeout: 15_000,

@@ -46,7 +46,9 @@ test.describe.serial("Cumulative flow — Phase 4", () => {
 		await page.getByRole("tab", { name: "Files" }).click();
 		await page.getByRole("button", { name: "new-file.ts" }).click();
 		await expect(
-			page.getByText("src/new-file.ts", { exact: true }),
+			page.locator(".shell-viewer__title").getByText("src/new-file.ts", {
+				exact: true,
+			}),
 		).toBeVisible();
 	});
 });
