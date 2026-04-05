@@ -1,0 +1,101 @@
+<svg
+	xmlns="http://www.w3.org/2000/svg"
+	viewBox="0 0 256 256"
+	fill="none"
+>
+	<title>ai-14all icon</title>
+	<defs>
+		<linearGradient id="bg" x1="32" y1="24" x2="224" y2="232" gradientUnits="userSpaceOnUse">
+			<stop offset="0" stop-color="#141d25" />
+			<stop offset="1" stop-color="#091015" />
+		</linearGradient>
+		<linearGradient id="shell" x1="74" y1="54" x2="182" y2="188" gradientUnits="userSpaceOnUse">
+			<stop offset="0" stop-color="#18242d" />
+			<stop offset="1" stop-color="#0e171d" />
+		</linearGradient>
+		<linearGradient id="visor" x1="76" y1="88" x2="180" y2="168" gradientUnits="userSpaceOnUse">
+			<stop offset="0" stop-color="#1f3a38" />
+			<stop offset="1" stop-color="#0f1f20" />
+		</linearGradient>
+	</defs>
+
+	<rect x="20" y="20" width="216" height="216" rx="42" fill="url(#bg)" />
+	<rect
+		x="20"
+		y="20"
+		width="216"
+		height="216"
+		rx="42"
+		stroke="#2e3c46"
+		stroke-width="4"
+	/>
+
+	<path
+		d="M128 44v18M128 44l-18 10M128 44l18 10M110 54v22M146 54v22"
+		stroke="#67d4b0"
+		stroke-width="7"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+	/>
+	<circle cx="110" cy="79" r="7" fill="#67d4b0" />
+	<circle cx="128" cy="64" r="7" fill="#f0c37a" />
+	<circle cx="146" cy="79" r="7" fill="#67d4b0" />
+
+	<path
+		d="M128 72c37 0 67 25 67 56 0 22-15 43-37 53l-8 25-22-18-22 18-8-25c-22-10-37-31-37-53 0-31 30-56 67-56Z"
+		fill="url(#shell)"
+		stroke="#3b4f5c"
+		stroke-width="4"
+		stroke-linejoin="round"
+	/>
+
+	<path
+		d="M81 94h94c11 0 20 9 20 20v29c0 23-19 42-42 42h-50c-23 0-42-19-42-42v-29c0-11 9-20 20-20Z"
+		fill="url(#visor)"
+		stroke="#345767"
+		stroke-width="4"
+	/>
+
+	<path
+		d="M93 120l20-9-4 26-20 7 4-24Z"
+		fill="#eef7fa"
+	/>
+	<path
+		d="M163 112c8 0 15 7 15 15 0 11-9 19-24 19h-6c2-21 6-34 15-34Z"
+		fill="#eef7fa"
+	/>
+	<circle cx="156" cy="126" r="5" fill="#0b1116" />
+
+	<path
+		d="M95 155c17 13 49 13 66 0"
+		stroke="#67d4b0"
+		stroke-width="8"
+		stroke-linecap="round"
+	/>
+	<path
+		d="M103 152l11-8M142 152h13"
+		stroke="#f0c37a"
+		stroke-width="6"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+	/>
+
+	<path
+		d="M74 96l-10-4 7-8-3-11 10 4 8-6-1 11 9 7-11 3-4 10-5-10Z"
+		fill="#f0c37a"
+		opacity="0.95"
+	/>
+	<path
+		d="M184 176l8 3-5 7 2 8-7-4-6 5 1-8-7-5 8-3 3-8 3 5Z"
+		fill="#67d4b0"
+		opacity="0.9"
+	/>
+
+	<path
+		d="M110 188h36"
+		stroke="#2e3c46"
+		stroke-width="5"
+		stroke-linecap="round"
+		opacity="0.75"
+	/>
+</svg>

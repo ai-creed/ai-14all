@@ -6,9 +6,11 @@ import { registerIpcHandlers } from "./ipc.js";
 import { registerAppLifecycle } from "./lifecycle.js";
 import { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
 
+app.setName("ai-14all");
+
 app.whenReady().then(() => {
 	const mainWindow = createMainWindow();
-		const workspacePersistence = new WorkspacePersistenceService(
+	const workspacePersistence = new WorkspacePersistenceService(
 		process.env.AI14ALL_WORKSPACE_STATE_PATH ??
 			join(app.getPath("userData"), "workspace-state.json"),
 	);
