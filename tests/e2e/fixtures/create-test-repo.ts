@@ -52,6 +52,12 @@ export function createTestRepo(): TestRepo {
 		stdio: "ignore",
 	});
 
+	// Set up origin/main remote ref so readCommitHistory can find the merge target
+	execSync("git update-ref refs/remotes/origin/main main", {
+		cwd: repoPath,
+		stdio: "ignore",
+	});
+
 	// Create linked worktree on feature-a branch
 	execSync("git branch feature-a", { cwd: repoPath, stdio: "ignore" });
 	const worktreeDir = join(repoPath, ".worktrees", "feature-a");
@@ -61,6 +67,17 @@ export function createTestRepo(): TestRepo {
 		stdio: "ignore",
 	});
 	const worktreePath = realpathSync(worktreeDir);
+
+	// Add a committed change in the feature worktree for commit review (Phase 6)
+	writeFileSync(
+		join(worktreePath, "src", "committed.ts"),
+		"export const committed = true;\n",
+	);
+	execSync("git add -A", { cwd: worktreePath, stdio: "ignore" });
+	execSync('git commit -m "feature commit"', {
+		cwd: worktreePath,
+		stdio: "ignore",
+	});
 
 	// Add dirty content so the Changes flow has files to show
 	writeFileSync(
