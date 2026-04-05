@@ -829,6 +829,34 @@ textarea {
 	font-family: var(--font-ui);
 }
 
+.shell-commit-list__row {
+	position: relative;
+	display: grid;
+	gap: 2px;
+}
+
+.shell-commit-list__row::before {
+	content: "";
+	position: absolute;
+	left: 16px;
+	top: 0;
+	bottom: 0;
+	width: 1px;
+	background: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.shell-commit-list__row[data-first="true"]::before {
+	top: 50%;
+}
+
+.shell-commit-list__row[data-last="true"]::before {
+	bottom: calc(100% - 18px);
+}
+
+.shell-commit-list__row[data-row-kind="mergeTarget"]::before {
+	background: color-mix(in srgb, var(--text-muted) 45%, transparent);
+}
+
 .shell-commit-list__item {
 	display: grid;
 	grid-template-columns: 16px auto 1fr;
@@ -841,6 +869,9 @@ textarea {
 	background: transparent;
 	border: 1px solid transparent;
 	border-radius: var(--radius-sm);
+	font-size: 0.82rem;
+	line-height: 1.25;
+	cursor: pointer;
 }
 
 .shell-commit-list__item[data-selected="true"] {
@@ -852,6 +883,15 @@ textarea {
 	color: var(--text-muted);
 }
 
+.shell-commit-list__graph-column {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 22px;
+	position: relative;
+	z-index: 1;
+}
+
 .shell-commit-list__graph {
 	display: block;
 	width: 8px;
@@ -860,10 +900,28 @@ textarea {
 	background: var(--accent);
 }
 
+.shell-commit-list__sha,
 .shell-commit-list__subject {
+	display: block;
+	font-size: 0.82rem;
+	line-height: 1.2;
+	align-self: center;
+}
+
+.shell-commit-list__sha {
+	min-width: 5.75ch;
+	color: var(--accent);
+}
+
+.shell-commit-list__subject {
+	color: var(--text-secondary);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.shell-commit-list__item[data-selected="true"] .shell-commit-list__subject {
+	color: var(--text-primary);
 }
 
 .shell-commit-list__item[data-row-kind="mergeTarget"] .shell-commit-list__graph {
@@ -873,12 +931,22 @@ textarea {
 .shell-commit-list__files {
 	display: grid;
 	gap: 2px;
-	padding-left: var(--space-4);
-	margin-top: var(--space-2);
+	padding-left: 36px;
+	margin-top: 0;
 }
 
 .shell-commit-list__files .shell-list__item {
 	font-size: 0.8rem;
+}
+
+.shell-commit-list__files .shell-list__item {
+	background: transparent;
+	border-color: transparent;
+}
+
+.shell-commit-list__files .shell-list__item[data-selected="true"] {
+	background: var(--panel-bg-elevated);
+	border-color: var(--panel-border-strong);
 }
 
 .shell-commit-diff-stack {

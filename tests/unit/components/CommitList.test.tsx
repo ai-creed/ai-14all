@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CommitList } from "../../../src/features/git/CommitList";
 
@@ -16,9 +16,22 @@ describe("CommitList", () => {
 						{ sha: "base", shortSha: "base", subject: "origin/main", isMergeTarget: true },
 					],
 				}}
-				selectedCommitSha={null}
-				selectedCommitFilePath={null}
-				activeDetail={null}
+				selectedCommitSha="abc"
+				selectedCommitFilePath="src/index.ts"
+				activeDetail={{
+					sha: "abc",
+					shortSha: "abc",
+					subject: "feature commit",
+					files: [
+						{
+							path: "src/index.ts",
+							oldPath: null,
+							status: "M",
+							originalContent: "before\n",
+							modifiedContent: "after\n",
+						},
+					],
+				}}
 				onSelectCommit={onSelectCommit}
 				onSelectCommitFile={vi.fn()}
 			/>,
@@ -30,6 +43,15 @@ describe("CommitList", () => {
 		expect(screen.getByText("feature commit")).toBeInTheDocument();
 		// Merge-target row shows its shortSha
 		expect(screen.getByText("base")).toBeInTheDocument();
+		const selectedRow = screen
+			.getByRole("button", { name: /feature commit/i })
+			.closest(".shell-commit-list__row");
+		expect(selectedRow).not.toBeNull();
+		expect(
+			within(selectedRow as HTMLElement).getByRole("button", {
+				name: /src\/index\.ts/i,
+			}),
+		).toBeInTheDocument();
 		await userEvent.click(screen.getByRole("button", { name: /feature commit/i }));
 		expect(onSelectCommit).toHaveBeenCalledWith("abc");
 	});

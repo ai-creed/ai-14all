@@ -27,36 +27,57 @@ export function CommitList({
 	return (
 		<div className="shell-commit-list">
 			<div className="shell-commit-list__target">{history.mergeTargetRef}</div>
-			{rows.map((row) => (
-				<button
-					key={row.sha}
-					type="button"
-					className="shell-commit-list__item"
-					data-selected={String(selectedCommitSha === row.sha)}
-					data-row-kind={row.rowKind}
-					onClick={() => onSelectCommit(row.sha)}
-				>
-					<span className="shell-commit-list__graph" aria-hidden="true" />
-					<code>{row.shortSha}</code>
-					<span className="shell-commit-list__subject">{row.subject}</span>
-				</button>
-			))}
-			{activeDetail && (
-				<div className="shell-commit-list__files">
-					{activeDetail.files.map((file) => (
+			{rows.map((row, index) => {
+				const isSelected = selectedCommitSha === row.sha;
+				const showFiles =
+					isSelected &&
+					row.rowKind === "commit" &&
+					activeDetail?.sha === row.sha;
+
+				return (
+					<div
+						key={row.sha}
+						className="shell-commit-list__row"
+						data-selected={String(isSelected)}
+						data-row-kind={row.rowKind}
+						data-first={String(index === 0)}
+						data-last={String(index === rows.length - 1)}
+					>
 						<button
-							key={file.path}
 							type="button"
-							className="shell-list__item shell-list__item--split"
-							data-selected={String(selectedCommitFilePath === file.path)}
-							onClick={() => onSelectCommitFile(file.path)}
+							className="shell-commit-list__item"
+							data-selected={String(isSelected)}
+							data-row-kind={row.rowKind}
+							onClick={() => onSelectCommit(row.sha)}
 						>
-							<span>{file.path}</span>
-							<strong>{file.status}</strong>
+							<span
+								className="shell-commit-list__graph-column"
+								aria-hidden="true"
+							>
+								<span className="shell-commit-list__graph" />
+							</span>
+							<code className="shell-commit-list__sha">{row.shortSha}</code>
+							<span className="shell-commit-list__subject">{row.subject}</span>
 						</button>
-					))}
-				</div>
-			)}
+						{showFiles && (
+							<div className="shell-commit-list__files">
+								{activeDetail.files.map((file) => (
+									<button
+										key={file.path}
+										type="button"
+										className="shell-list__item shell-list__item--split"
+										data-selected={String(selectedCommitFilePath === file.path)}
+										onClick={() => onSelectCommitFile(file.path)}
+									>
+										<span>{file.path}</span>
+										<strong>{file.status}</strong>
+									</button>
+								))}
+							</div>
+						)}
+					</div>
+				);
+			})}
 		</div>
 	);
 }
