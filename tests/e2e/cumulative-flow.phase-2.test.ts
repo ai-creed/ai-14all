@@ -80,16 +80,16 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 	});
 
 	test("switches worktrees and restores the per-session note", async () => {
-		await page.getByLabel("Session note").fill("Main session note");
+		await page.getByRole("textbox", { name: "Session note" }).fill("Main session note");
 		await worktreeNav()
 			.getByRole("button", { name: /feature-a/i })
 			.click();
-		await page.getByLabel("Session note").fill("Feature note");
+		await page.getByRole("textbox", { name: "Session note" }).fill("Feature note");
 		await worktreeNav()
 			.getByRole("button", { name: /^main(?:\s+main)?$/i })
 			.click();
 
-		await expect(page.getByLabel("Session note")).toHaveValue(
+		await expect(page.getByRole("textbox", { name: "Session note" })).toHaveValue(
 			"Main session note",
 		);
 	});

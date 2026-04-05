@@ -78,7 +78,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		// Phase 6: a default "shell 1" is auto-created on worktree activation.
 		// Wait for it to be stable before interacting with the Changes panel.
 		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible({ timeout: 10_000 });
-		await page.getByLabel("Session note").fill("resume here");
+		await page.getByRole("textbox", { name: "Session note" }).fill("resume here");
 		// Phase 6: force clicks in the review panel because the xterm pane in
 		// the same column keeps the accessibility tree in flux.
 		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
@@ -107,7 +107,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 				name: /feature-a/i,
 			}),
 		).toHaveAttribute("data-selected", "true");
-		await expect(page.getByLabel("Session note")).toHaveValue("resume here");
+		await expect(page.getByRole("textbox", { name: "Session note" })).toHaveValue("resume here");
 		await expect(page.getByText("Diff vs HEAD")).toBeVisible();
 		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible();
 
@@ -201,7 +201,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 				.getByRole("navigation", { name: "Worktree sessions" })
 				.getByRole("button", { name: /feature-a/i }),
 		).toHaveAttribute("data-selected", "true");
-		await expect(page.getByLabel("Session note")).toHaveValue("always-restore note");
+		await expect(page.getByRole("textbox", { name: "Session note" })).toHaveValue("always-restore note");
 
 		await closeApp();
 		await launchApp();
@@ -216,6 +216,6 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 				.getByRole("navigation", { name: "Worktree sessions" })
 				.getByRole("button", { name: /feature-a/i }),
 		).toHaveAttribute("data-selected", "true");
-		await expect(page.getByLabel("Session note")).toHaveValue("always-restore note");
+		await expect(page.getByRole("textbox", { name: "Session note" })).toHaveValue("always-restore note");
 	});
 });
