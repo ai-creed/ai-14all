@@ -181,4 +181,53 @@ describe("App — Phase 6 default shell", () => {
 
 		expect(createMock).toHaveBeenCalledTimes(1);
 	});
+
+	it("keeps the terminal panel body visible when a restored shell has no live terminal yet", async () => {
+		createMock.mockImplementation(() => new Promise(() => undefined));
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "alwaysRestore",
+			snapshot: {
+				repositoryPath: "/repo",
+				selectedWorktreeId: "main",
+				commandPresets: [],
+				worktreeSessions: [
+					{
+						worktreeId: "main",
+						note: "",
+						reviewMode: "files",
+						viewerMode: "file",
+						selectedFilePath: null,
+						selectedChangedFilePath: null,
+						selectedCommitSha: null,
+						selectedCommitFilePath: null,
+						activeProcessSessionId: "process-1",
+						nextAdHocNumber: 2,
+						processSessions: [
+							{
+								id: "process-1",
+								origin: "adHoc",
+								presetId: null,
+								label: "shell 1",
+								command: null,
+								pinned: false,
+							},
+						],
+					},
+				],
+			},
+		});
+		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+
+		expect(await screen.findByRole("tab", { name: "shell 1" })).toBeInTheDocument();
+		expect(
+			screen.getByText(/no active shell selected/i),
+		).toBeInTheDocument();
+		expect(document.querySelector(".shell-terminal-section")).not.toBeNull();
+	});
 });

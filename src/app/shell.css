@@ -88,7 +88,8 @@ textarea {
 .shell-terminal-section {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
-	min-height: 0;
+	min-height: 520px;
+	overflow: hidden;
 }
 
 .shell-review-grid {
@@ -252,7 +253,7 @@ textarea {
 
 .shell-terminal-tabs {
 	border: 0;
-	padding: 0;
+	padding: var(--space-3);
 	background: transparent;
 }
 
@@ -557,6 +558,16 @@ textarea {
 .shell-terminal-panel__body {
 	min-height: 0;
 	overflow: hidden;
+	background: #0a1115;
+	border-top: 1px solid var(--panel-border);
+}
+
+.shell-terminal-panel__empty {
+	height: 100%;
+	min-height: 0;
+	display: grid;
+	place-items: center;
+	padding: var(--space-4);
 }
 
 .shell-commit-list {

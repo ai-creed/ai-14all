@@ -64,7 +64,7 @@ export function TerminalTabs({
 			<Tabs.Root
 				value={activeProcessId ?? undefined}
 				onValueChange={onSelect}
-				className="shell-panel shell-terminal-tabs"
+				className="shell-terminal-tabs"
 			>
 				<div className="shell-terminal-tabs__bar">
 					<Tabs.List

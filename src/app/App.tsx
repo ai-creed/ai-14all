@@ -721,7 +721,7 @@ export function App() {
 					)}
 
 					{workspaceState.selectedWorktreeId && (
-						<div className="shell-terminal-section">
+						<section className="shell-panel shell-terminal-section">
 							<TerminalTabs
 								processes={(activeSession?.processSessionIds ?? [])
 									.map((id) => workspaceState.processSessionsById[id])
@@ -764,24 +764,44 @@ export function App() {
 								}
 							/>
 
-							{sessions.map((session) => {
-								const activeProcess = activeSession?.activeProcessSessionId
-									? workspaceState.processSessionsById[
-											activeSession.activeProcessSessionId
-										]
-									: null;
-								return (
-									<TerminalPane
-										key={session.id}
-										session={session}
-										visible={
-											session.worktreeId === activeWorktree?.id &&
-											session.id === activeProcess?.terminalSessionId
-										}
-									/>
-								);
-							})}
-						</div>
+							<div className="shell-terminal-panel__body">
+								{sessions.map((session) => {
+									const activeProcess = activeSession?.activeProcessSessionId
+										? workspaceState.processSessionsById[
+												activeSession.activeProcessSessionId
+											]
+										: null;
+									return (
+										<TerminalPane
+											key={session.id}
+											session={session}
+											visible={
+												session.worktreeId === activeWorktree?.id &&
+												session.id === activeProcess?.terminalSessionId
+											}
+										/>
+									);
+								})}
+
+								{!sessions.some((session) => {
+									const activeProcess = activeSession?.activeProcessSessionId
+										? workspaceState.processSessionsById[
+												activeSession.activeProcessSessionId
+											]
+										: null;
+									return (
+										session.worktreeId === activeWorktree?.id &&
+										session.id === activeProcess?.terminalSessionId
+									);
+								}) && (
+									<div className="shell-terminal-panel__empty">
+										<p className="shell-empty-state">
+											No active shell selected. Open or choose a shell to continue.
+										</p>
+									</div>
+								)}
+							</div>
+						</section>
 					)}
 
 					{activeWorktree && (
