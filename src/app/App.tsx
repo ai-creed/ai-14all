@@ -697,27 +697,26 @@ export function App() {
 
 				<section className="shell-main-column">
 					{activeWorktree && activeSession && (
-						<ContextPanel
-							worktreePath={activeWorktree.path}
-							note={activeSession.note}
-							onNoteChange={(note) =>
-								dispatch({
-									type: "session/setNote",
-									worktreeId: activeWorktree.id,
-									note,
-								})
-							}
-						/>
-					)}
-
-					{activeWorktree && (
-						<SessionHeader
-							title={activeWorktree.label}
-							branchName={activeWorktree.branchName}
-							changedFileCount={changes.length}
-							isDirty={activeSummary?.isDirty ?? false}
-							gitSummaryError={gitSummaryError}
-						/>
+						<div className="shell-header-zone">
+							<ContextPanel
+								worktreePath={activeWorktree.path}
+								note={activeSession.note}
+								onNoteChange={(note) =>
+									dispatch({
+										type: "session/setNote",
+										worktreeId: activeWorktree.id,
+										note,
+									})
+								}
+							/>
+							<SessionHeader
+								title={activeWorktree.label}
+								branchName={activeWorktree.branchName}
+								changedFileCount={changes.length}
+								isDirty={activeSummary?.isDirty ?? false}
+								gitSummaryError={gitSummaryError}
+							/>
+						</div>
 					)}
 
 					{workspaceState.selectedWorktreeId && (

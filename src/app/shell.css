@@ -74,7 +74,7 @@ textarea {
 
 .shell-main-column {
 	display: grid;
-	grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
+	grid-template-rows: auto minmax(520px, 1fr) minmax(0, 1fr);
 	gap: var(--space-4);
 	min-width: 0;
 	min-height: 0;
@@ -548,6 +548,7 @@ textarea {
 .shell-header-zone {
 	display: grid;
 	gap: var(--space-3);
+	min-width: 0;
 }
 
 .shell-terminal-panel {
