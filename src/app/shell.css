@@ -109,9 +109,23 @@ textarea {
 	line-height: 1.2;
 }
 
+.shell-top-band[data-collapsed="true"] .shell-session-info {
+	padding: var(--space-2) var(--space-4);
+}
+
 .shell-top-band[data-collapsed="true"] .shell-session-info__title {
 	margin: 0;
 	font-size: 1rem;
+}
+
+.shell-session-info__strip {
+	display: flex;
+	gap: var(--space-3);
+	align-items: center;
+	color: var(--text-secondary);
+	font-size: 0.875rem;
+	flex: 1;
+	min-width: 0;
 }
 
 .shell-session-info__path-group {
@@ -135,10 +149,6 @@ textarea {
 	font-size: 14px;
 }
 
-.shell-top-band[data-collapsed="true"] .shell-session-info__meta {
-	margin-top: 0;
-}
-
 .shell-session-info__toggle {
 	padding: 6px 10px;
 	color: var(--text-secondary);
@@ -150,6 +160,7 @@ textarea {
 .shell-session-note .shell-note-input {
 	margin-top: var(--space-2);
 	min-height: 112px;
+	resize: none;
 }
 
 .shell-terminal-section,

@@ -19,6 +19,8 @@ export function SessionHeader({
 	collapsed,
 	onToggleCollapsed,
 }: Props) {
+	const statusLabel = gitSummaryError ? "Unknown" : isDirty ? "Dirty" : "Clean";
+
 	return (
 		<section aria-label="Session info" className="shell-panel shell-session-info">
 			<div className="shell-session-info__header">
@@ -26,6 +28,13 @@ export function SessionHeader({
 					{!collapsed && <div className="shell-label">Session info</div>}
 					<h2 className="shell-session-info__title">{title}</h2>
 				</div>
+				{collapsed && (
+					<div className="shell-session-info__strip">
+						<span>{branchName}</span>
+						<span>{statusLabel}</span>
+						<span>{changedFileCount}</span>
+					</div>
+				)}
 				<button
 					type="button"
 					className="shell-session-info__toggle"
@@ -38,20 +47,22 @@ export function SessionHeader({
 			</div>
 
 			{!collapsed && (
-				<div className="shell-session-info__path-group">
-					<div className="shell-label">Worktree path</div>
-					<code className="shell-session-info__path">{worktreePath}</code>
-				</div>
-			)}
+				<>
+					<div className="shell-session-info__path-group">
+						<div className="shell-label">Worktree path</div>
+						<code className="shell-session-info__path">{worktreePath}</code>
+					</div>
 
-			<div className="shell-session-info__meta">
-				<span><span>Branch:</span> <strong>{branchName}</strong></span>
-				<span>
-					<span>Status:</span>{" "}
-					<strong>{gitSummaryError ? "Unknown" : isDirty ? "Dirty" : "Clean"}</strong>
-				</span>
-				<span><span>Changes:</span> <strong>{changedFileCount}</strong></span>
-			</div>
+					<div className="shell-session-info__meta">
+						<span><span>Branch:</span> <strong>{branchName}</strong></span>
+						<span>
+							<span>Status:</span>{" "}
+							<strong>{statusLabel}</strong>
+						</span>
+						<span><span>Changes:</span> <strong>{changedFileCount}</strong></span>
+					</div>
+				</>
+			)}
 		</section>
 	);
 }
