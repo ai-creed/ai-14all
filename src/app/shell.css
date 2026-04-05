@@ -544,6 +544,103 @@ textarea {
 	color: var(--text-secondary);
 }
 
+.shell-header-zone {
+	display: grid;
+	gap: var(--space-3);
+}
+
+.shell-terminal-panel {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+}
+
+.shell-terminal-panel__body {
+	min-height: 0;
+	overflow: hidden;
+}
+
+.shell-commit-list {
+	display: grid;
+	gap: 2px;
+	padding: var(--space-2);
+}
+
+.shell-commit-list__target {
+	padding: 4px 8px;
+	font-size: 0.8em;
+	color: var(--text-muted);
+	font-family: monospace;
+}
+
+.shell-commit-list__item {
+	display: grid;
+	grid-template-columns: 16px auto 1fr;
+	gap: var(--space-2);
+	align-items: center;
+	width: 100%;
+	padding: 6px 8px;
+	text-align: left;
+	color: var(--text-primary);
+	background: transparent;
+	border: 1px solid transparent;
+	border-radius: var(--radius-sm);
+}
+
+.shell-commit-list__item[data-selected="true"] {
+	background: var(--panel-bg-elevated);
+	border-color: var(--panel-border-strong);
+}
+
+.shell-commit-list__item[data-row-kind="mergeTarget"] {
+	color: var(--text-muted);
+}
+
+.shell-commit-list__graph {
+	display: block;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--accent);
+}
+
+.shell-commit-list__item[data-row-kind="mergeTarget"] .shell-commit-list__graph {
+	background: var(--text-muted);
+}
+
+.shell-commit-list__files {
+	display: grid;
+	gap: 2px;
+	padding-left: var(--space-4);
+	margin-top: var(--space-2);
+}
+
+.shell-commit-diff-stack {
+	overflow-y: auto;
+}
+
+.shell-commit-diff-section {
+	border-bottom: 1px solid var(--panel-border);
+}
+
+.shell-commit-diff-section__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+	padding: 6px 10px;
+	text-align: left;
+	background: var(--panel-bg-elevated);
+	border: none;
+	color: var(--text-primary);
+	font-family: monospace;
+	font-size: 0.85em;
+	cursor: pointer;
+}
+
+.shell-commit-diff-section[data-focused="true"] .shell-commit-diff-section__header {
+	border-left: 3px solid var(--accent);
+}
+
 .shell-restore-actions {
 	display: flex;
 	gap: var(--space-2);

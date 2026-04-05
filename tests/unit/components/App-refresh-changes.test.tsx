@@ -57,6 +57,8 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		listChanges: vi.fn().mockResolvedValue([]),
 		readDiff: vi.fn(),
 		readSummary: vi.fn(),
+		readCommitHistory: vi.fn().mockResolvedValue({ mergeTargetRef: null, entries: [] }),
+		readCommitDetail: vi.fn().mockResolvedValue(null),
 	},
 	workspace: {
 		readRestoreState: vi.fn().mockResolvedValue({

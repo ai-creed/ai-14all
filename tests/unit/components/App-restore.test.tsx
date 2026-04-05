@@ -42,6 +42,8 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 			content: "diff --git a/src/index.ts b/src/index.ts\n",
 		}),
 		readSummary: readSummaryMock,
+		readCommitHistory: vi.fn().mockResolvedValue({ mergeTargetRef: null, entries: [] }),
+		readCommitDetail: vi.fn().mockResolvedValue(null),
 	},
 	workspace: {
 		readRestoreState: readRestoreStateMock,

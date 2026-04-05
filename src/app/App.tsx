@@ -31,6 +31,9 @@ import { FileList } from "../features/viewer/FileList";
 import { FileViewer } from "../features/viewer/FileViewer";
 import { ChangesList } from "../features/git/ChangesList";
 import { DiffViewer } from "../features/viewer/DiffViewer";
+import { CommitList } from "../features/git/CommitList";
+import { CommitDiffStack } from "../features/git/CommitDiffStack";
+import type { GitCommitHistory, GitCommitDetail } from "../../shared/models/git-commit-review";
 import { git, workspace, repository as repositoryClient } from "../lib/desktop-client";
 
 type StartupMode = "loading" | "prompt" | "ready";
@@ -44,6 +47,9 @@ export function App() {
 	);
 	const [activeDiff, setActiveDiff] = useState<GitDiff | null>(null);
 	const [refreshKey, setRefreshKey] = useState(0);
+	const [commitHistory, setCommitHistory] = useState<GitCommitHistory | null>(null);
+	const [commitHistoryError, setCommitHistoryError] = useState(false);
+	const [activeCommitDetail, setActiveCommitDetail] = useState<GitCommitDetail | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [presetManagerOpen, setPresetManagerOpen] = useState(false);
 	const [startupMode, setStartupMode] = useState<StartupMode>("loading");
@@ -417,6 +423,35 @@ export function App() {
 		refreshKey,
 	]);
 
+	// Fetch commit history when active worktree changes or after refresh
+	useEffect(() => {
+		if (!activeWorktree?.path) return;
+		let cancelled = false;
+		git.readCommitHistory(activeWorktree.path).then((history) => {
+			if (cancelled) return;
+			setCommitHistory(history);
+			setCommitHistoryError(false);
+		}).catch(() => {
+			if (cancelled) return;
+			setCommitHistory(null);
+			setCommitHistoryError(true);
+		});
+		return () => { cancelled = true; };
+	}, [activeWorktree?.path, refreshKey]);
+
+	// Fetch commit detail when selected commit changes
+	useEffect(() => {
+		if (!activeWorktree?.path || !activeSession?.selectedCommitSha) {
+			setActiveCommitDetail(null);
+			return;
+		}
+		let cancelled = false;
+		git.readCommitDetail(activeWorktree.path, activeSession.selectedCommitSha).then((detail) => {
+			if (!cancelled) setActiveCommitDetail(detail);
+		});
+		return () => { cancelled = true; };
+	}, [activeWorktree?.path, activeSession?.selectedCommitSha]);
+
 	function handleSelectChangedFile(relativePath: string) {
 		if (!activeWorktree) return;
 		dispatch({
@@ -656,11 +691,8 @@ export function App() {
 				<section className="shell-main-column">
 					{activeWorktree && activeSession && (
 						<ContextPanel
-							branchName={activeWorktree.branchName}
 							worktreePath={activeWorktree.path}
 							note={activeSession.note}
-							gitSummary={activeSummary}
-							gitSummaryError={gitSummaryError}
 							onNoteChange={(note) =>
 								dispatch({
 									type: "session/setNote",
@@ -752,7 +784,7 @@ export function App() {
 								dispatch({
 									type: "session/setReviewMode",
 									worktreeId: activeWorktree.id,
-									reviewMode: value as "files" | "changes",
+									reviewMode: value as "files" | "changes" | "commits",
 								})
 							}
 							className="shell-review-tabs"
@@ -788,10 +820,23 @@ export function App() {
 									>
 										Changes
 									</Tabs.Trigger>
+									<Tabs.Trigger
+										value="commits"
+										className="shell-review-tab"
+										onClick={() =>
+											dispatch({
+												type: "session/setReviewMode",
+												worktreeId: activeWorktree.id,
+												reviewMode: "commits",
+											})
+										}
+									>
+										Commits
+									</Tabs.Trigger>
 								</Tabs.List>
 
 								<div className="shell-review-switches">
-									{activeSession?.reviewMode === "changes" && (
+									{(activeSession?.reviewMode === "changes" || activeSession?.reviewMode === "commits") && (
 										<button
 											type="button"
 											className="shell-button"
@@ -806,7 +851,25 @@ export function App() {
 							<div className="shell-review-grid">
 								<ScrollArea.Root className="shell-panel shell-rail">
 									<ScrollArea.Viewport className="shell-rail__viewport">
-										{activeSession?.reviewMode === "files" ? (
+										{activeSession?.reviewMode === "commits" ? (
+											<>
+												{commitHistoryError && (
+													<p className="shell-error">Could not load commit history.</p>
+												)}
+												<CommitList
+													history={commitHistory ?? { mergeTargetRef: null, entries: [] }}
+													selectedCommitSha={activeSession.selectedCommitSha}
+													selectedCommitFilePath={activeSession.selectedCommitFilePath}
+													activeDetail={activeCommitDetail}
+													onSelectCommit={(sha) =>
+														dispatch({ type: "session/selectCommit", worktreeId: activeWorktree.id, sha })
+													}
+													onSelectCommitFile={(relativePath) =>
+														dispatch({ type: "session/selectCommitFile", worktreeId: activeWorktree.id, relativePath })
+													}
+												/>
+											</>
+										) : activeSession?.reviewMode === "files" ? (
 											<FileList
 												worktreePath={activeWorktree.path}
 												scopeRoots={scopeRoots}
@@ -838,7 +901,12 @@ export function App() {
 								</ScrollArea.Root>
 
 								<section className="shell-panel shell-viewer-panel">
-									{activeSession?.reviewMode === "files" &&
+									{activeSession?.reviewMode === "commits" && activeCommitDetail ? (
+										<CommitDiffStack
+											detail={activeCommitDetail}
+											focusedPath={activeSession.selectedCommitFilePath}
+										/>
+									) : activeSession?.reviewMode === "files" &&
 									activeSession.selectedFilePath ? (
 										<FileViewer
 											worktreePath={activeWorktree.path}

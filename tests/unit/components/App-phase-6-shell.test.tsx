@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 // Mock TerminalPane to avoid xterm canvas dependency in jsdom
 vi.mock("../../../src/features/terminals/TerminalPane", () => ({
@@ -100,6 +101,54 @@ describe("App — Phase 6 default shell", () => {
 			expect(createMock).toHaveBeenCalledTimes(1);
 			expect(createMock).toHaveBeenCalledWith("main", "/repo");
 		});
+	});
+
+	it("loads commit history and opens a stacked commit diff", async () => {
+		mockReadCommitHistory.mockResolvedValue({
+			mergeTargetRef: "origin/main",
+			entries: [
+				{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+				{ sha: "base", shortSha: "base", subject: "origin/main", isMergeTarget: true },
+			],
+		});
+		mockReadCommitDetail.mockResolvedValue({
+			sha: "abc",
+			shortSha: "abc",
+			subject: "feature commit",
+			files: [
+				{
+					path: "src/index.ts",
+					oldPath: null,
+					status: "M",
+					originalContent: 'export const hello = "world";\n',
+					modifiedContent: 'export const hello = "phase-2";\n',
+				},
+			],
+		});
+
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		});
+		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+		await screen.findByLabelText("Repository path");
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		await userEvent.click(await screen.findByRole("tab", { name: "Commits" }));
+		await userEvent.click(await screen.findByRole("button", { name: /feature commit/i }));
+
+		expect(mockReadCommitDetail).toHaveBeenCalledWith("/repo", "abc");
+		expect(await screen.findByText("feature commit")).toBeInTheDocument();
+		expect(screen.getByText("src/index.ts")).toBeInTheDocument();
 	});
 
 	it("does not create a duplicate default shell on review-mode changes", async () => {
