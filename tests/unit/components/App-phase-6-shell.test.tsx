@@ -148,7 +148,7 @@ describe("App — Phase 6 default shell", () => {
 
 		expect(mockReadCommitDetail).toHaveBeenCalledWith("/repo", "abc");
 		expect(await screen.findByText("feature commit")).toBeInTheDocument();
-		expect(screen.getByText("src/index.ts")).toBeInTheDocument();
+		expect(screen.getAllByText("src/index.ts").length).toBeGreaterThan(0);
 	});
 
 	it("does not create a duplicate default shell on review-mode changes", async () => {

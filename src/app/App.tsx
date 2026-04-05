@@ -425,6 +425,8 @@ export function App() {
 
 	// Fetch commit history when active worktree changes or after refresh
 	useEffect(() => {
+		setCommitHistory(null);
+		setCommitHistoryError(false);
 		if (!activeWorktree?.path) return;
 		let cancelled = false;
 		git.readCommitHistory(activeWorktree.path).then((history) => {
@@ -441,13 +443,13 @@ export function App() {
 
 	// Fetch commit detail when selected commit changes
 	useEffect(() => {
-		if (!activeWorktree?.path || !activeSession?.selectedCommitSha) {
-			setActiveCommitDetail(null);
-			return;
-		}
+		setActiveCommitDetail(null);
+		if (!activeWorktree?.path || !activeSession?.selectedCommitSha) return;
 		let cancelled = false;
 		git.readCommitDetail(activeWorktree.path, activeSession.selectedCommitSha).then((detail) => {
 			if (!cancelled) setActiveCommitDetail(detail);
+		}).catch(() => {
+			// detail stays null, viewer shows empty state
 		});
 		return () => { cancelled = true; };
 	}, [activeWorktree?.path, activeSession?.selectedCommitSha]);
@@ -903,6 +905,7 @@ export function App() {
 								<section className="shell-panel shell-viewer-panel">
 									{activeSession?.reviewMode === "commits" && activeCommitDetail ? (
 										<CommitDiffStack
+											key={activeCommitDetail.sha}
 											detail={activeCommitDetail}
 											focusedPath={activeSession.selectedCommitFilePath}
 										/>

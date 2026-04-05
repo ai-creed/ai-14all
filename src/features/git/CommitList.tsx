@@ -48,11 +48,11 @@ export function CommitList({
 						<button
 							key={file.path}
 							type="button"
-							aria-label={file.path}
-							className="shell-list__item"
+							className="shell-list__item shell-list__item--split"
 							data-selected={String(selectedCommitFilePath === file.path)}
 							onClick={() => onSelectCommitFile(file.path)}
 						>
+							<span>{file.path}</span>
 							<strong>{file.status}</strong>
 						</button>
 					))}
