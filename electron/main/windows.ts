@@ -2,7 +2,7 @@ import { BrowserWindow } from "electron";
 import { fileURLToPath } from "node:url";
 
 export function createMainWindow(): BrowserWindow {
-	return new BrowserWindow({
+	const mainWindow = new BrowserWindow({
 		width: 1440,
 		height: 900,
 		show: !process.env.ONEFORALL_E2E,
@@ -13,4 +13,7 @@ export function createMainWindow(): BrowserWindow {
 			nodeIntegration: false,
 		},
 	});
+
+	mainWindow.maximize();
+	return mainWindow;
 }

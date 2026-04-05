@@ -73,4 +73,37 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		expect(scrollCheck.body).toBe(false);
 		expect(scrollCheck.root).toBe(false);
 	});
+
+	test("launches maximized, collapses the top band, and keeps the main window non-scrollable", async () => {
+		const isMaximized = await app!.evaluate(({ BrowserWindow }) =>
+			BrowserWindow.getAllWindows()[0].isMaximized(),
+		);
+		expect(isMaximized).toBe(true);
+
+		const loadButton = page.getByRole("button", { name: "Load" });
+		if (await loadButton.isVisible()) {
+			await page.locator("#repo-path").fill(testRepo.repoPath);
+			await loadButton.click();
+			await page
+				.getByRole("navigation", { name: "Worktree sessions" })
+				.getByRole("button", { name: /feature-a/i })
+				.click();
+		}
+
+		await expect(page.getByText("Session info")).toBeVisible();
+		await expect(page.getByRole("textbox", { name: "Session note" })).toBeVisible();
+
+		await page.getByRole("button", { name: "Collapse session info" }).click();
+		await expect(page.getByRole("textbox", { name: "Session note" })).toHaveCount(0);
+		await expect(page.getByRole("button", { name: "Expand session info" })).toBeVisible();
+
+		const scrollCheck = await page.evaluate(() => ({
+			body: document.body.scrollHeight > document.body.clientHeight,
+			root:
+				document.documentElement.scrollHeight >
+				document.documentElement.clientHeight,
+		}));
+		expect(scrollCheck.body).toBe(false);
+		expect(scrollCheck.root).toBe(false);
+	});
 });
