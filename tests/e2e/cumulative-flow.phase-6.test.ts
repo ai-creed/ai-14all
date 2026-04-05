@@ -62,6 +62,20 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			.click();
 
 		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible();
+		await page.evaluate(async () => {
+			const pane = document.querySelector<HTMLElement>(
+				'.shell-terminal-pane[aria-hidden="false"]',
+			);
+			const terminalSessionId = pane?.dataset.terminalSessionId;
+			if (!terminalSessionId) {
+				throw new Error("Visible terminal session was not found.");
+			}
+			await window.ai14all.terminals.sendInput(
+				terminalSessionId,
+				"printf '\\033]0;codex\\007'; sleep 1\n",
+			);
+		});
+		await expect(page.getByRole("tab", { name: /^codex$/i })).toBeVisible();
 		await expect(
 			page.getByTestId("review-rail").getByRole("tablist", { name: "Review mode" }),
 		).toBeVisible();
@@ -90,7 +104,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			.poll(async () => (await reviewRail.boundingBox())?.width ?? 0)
 			.toBeGreaterThan(reviewRailBefore.width);
 
-		await page.getByRole("tab", { name: "shell 1" }).click({ button: "right" });
+		await page.getByRole("tab", { name: /^codex$/i }).click({ button: "right" });
 		await expect(page.getByRole("menuitem", { name: "Pin" })).toBeVisible();
 		await page.keyboard.press("Escape");
 

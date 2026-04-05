@@ -45,6 +45,14 @@ import { git, workspace, repository as repositoryClient } from "../lib/desktop-c
 
 type StartupMode = "loading" | "prompt" | "ready";
 
+function normalizeTerminalTitle(title: string): string | null {
+	const normalized = title.trim().replace(/\s+/g, " ");
+	if (!normalized) return null;
+	if (normalized.startsWith("/") || normalized.startsWith("~/")) return null;
+	if (/^[A-Za-z]:[\\/]/.test(normalized)) return null;
+	return normalized;
+}
+
 export function App() {
 	const [reviewRailWidth, setReviewRailWidth] = useState(320);
 	const [repository, setRepository] = useState<Repository | null>(null);
@@ -836,6 +844,7 @@ export function App() {
 												activeSession.activeProcessSessionId
 											]
 										: null;
+									const process = findProcessByTerminalSessionId(session.id);
 									return (
 										<TerminalPane
 											key={session.id}
@@ -844,6 +853,16 @@ export function App() {
 												session.worktreeId === activeWorktree?.id &&
 												session.id === activeProcess?.terminalSessionId
 											}
+											onTitleChange={(title) => {
+												if (!process || process.origin !== "adHoc") return;
+												const nextLabel = normalizeTerminalTitle(title);
+												if (!nextLabel) return;
+												dispatch({
+													type: "session/updateProcessLabel",
+													processId: process.id,
+													label: nextLabel,
+												});
+											}}
 										/>
 									);
 								})}

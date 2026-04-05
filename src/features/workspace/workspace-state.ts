@@ -80,6 +80,11 @@ export type WorkspaceAction =
 			processId: string;
 	  }
 	| {
+			type: "session/updateProcessLabel";
+			processId: string;
+			label: string;
+	  }
+	| {
 			type: "session/closeProcess";
 			worktreeId: string;
 			processId: string;
@@ -323,6 +328,21 @@ export function workspaceReducer(
 				[action.processId]: {
 					...process,
 					pinned: !process.pinned,
+				},
+			},
+		};
+	}
+
+	if (action.type === "session/updateProcessLabel") {
+		const process = state.processSessionsById[action.processId];
+		if (!process || process.label === action.label) return state;
+		return {
+			...state,
+			processSessionsById: {
+				...state.processSessionsById,
+				[action.processId]: {
+					...process,
+					label: action.label,
 				},
 			},
 		};

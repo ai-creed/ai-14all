@@ -13,6 +13,7 @@ const {
 	xtermLoadAddonMock,
 	xtermOnDataMock,
 	xtermConstructorMock,
+	xtermOnTitleChangeMock,
 } = vi.hoisted(() => ({
 	resizeMock: vi.fn(() => Promise.resolve()),
 	sendInputMock: vi.fn(() => Promise.resolve()),
@@ -24,6 +25,7 @@ const {
 	xtermLoadAddonMock: vi.fn(),
 	xtermOnDataMock: vi.fn(() => ({ dispose: vi.fn() })),
 	xtermConstructorMock: vi.fn(),
+	xtermOnTitleChangeMock: vi.fn(() => ({ dispose: vi.fn() })),
 }));
 
 type ResizeObserverRecord = {
@@ -77,6 +79,7 @@ vi.mock("xterm", () => ({
 		loadAddon = xtermLoadAddonMock;
 		open = xtermOpenMock;
 		onData = xtermOnDataMock;
+		onTitleChange = xtermOnTitleChangeMock;
 		write = xtermWriteMock;
 		dispose = xtermDisposeMock;
 	},
@@ -96,9 +99,11 @@ describe("TerminalPane", () => {
 		xtermLoadAddonMock.mockReset();
 		xtermOnDataMock.mockReset();
 		xtermConstructorMock.mockReset();
+		xtermOnTitleChangeMock.mockReset();
 		resizeMock.mockImplementation(() => Promise.resolve());
 		sendInputMock.mockImplementation(() => Promise.resolve());
 		xtermOnDataMock.mockReturnValue({ dispose: vi.fn() });
+		xtermOnTitleChangeMock.mockReturnValue({ dispose: vi.fn() });
 		resizeObserverRecords.length = 0;
 		vi.stubGlobal("ResizeObserver", ResizeObserverMock);
 	});
@@ -150,5 +155,30 @@ describe("TerminalPane", () => {
 				fontFamily: expect.stringContaining("AI14All Terminal Powerline"),
 			}),
 		);
+	});
+
+	it("forwards xterm title changes to the callback prop", () => {
+		const session: TerminalSession = {
+			id: "term-1",
+			worktreeId: "wt1",
+			cwd: "/repo",
+			status: "running",
+			exitCode: null,
+		};
+		const onTitleChange = vi.fn();
+
+		render(
+			<TerminalPane
+				session={session}
+				visible={true}
+				onTitleChange={onTitleChange}
+			/>,
+		);
+
+		const titleListener = xtermOnTitleChangeMock.mock.calls[0]?.[0];
+		expect(typeof titleListener).toBe("function");
+		titleListener?.("codex");
+
+		expect(onTitleChange).toHaveBeenCalledWith("codex");
 	});
 });

@@ -125,6 +125,39 @@ describe("workspaceReducer", () => {
 			"process-1",
 		);
 	});
+
+	it("updates a process label without changing process selection", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: {
+				id: "process-1",
+				worktreeId: "main",
+				terminalSessionId: "term-1",
+				origin: "adHoc",
+				presetId: null,
+				label: "shell 1",
+				command: null,
+				status: "running",
+				lastActivityAt: null,
+				exitCode: null,
+				pinned: false,
+				attentionState: "idle",
+			},
+		});
+
+		state = workspaceReducer(state, {
+			type: "session/updateProcessLabel",
+			processId: "process-1",
+			label: "codex",
+		});
+
+		expect(state.processSessionsById["process-1"]?.label).toBe("codex");
+		expect(state.sessionsByWorktreeId.main.activeProcessSessionId).toBe(
+			"process-1",
+		);
+	});
 });
 
 describe("workspaceReducer — Phase 4 review state", () => {
