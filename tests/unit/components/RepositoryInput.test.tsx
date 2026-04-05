@@ -5,6 +5,7 @@ import type { Worktree } from "../../../shared/models/worktree";
 
 vi.mock("../../../src/lib/desktop-client", () => ({
 	repository: {
+		pickRoot: vi.fn(),
 		setRoot: vi.fn(),
 		listWorktrees: vi.fn(),
 	},
@@ -21,6 +22,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 import { RepositoryInput } from "../../../src/features/repository/RepositoryInput";
 import { repository } from "../../../src/lib/desktop-client";
 
+const mockPickRoot = vi.mocked(repository.pickRoot);
 const mockSetRoot = vi.mocked(repository.setRoot);
 const mockListWorktrees = vi.mocked(repository.listWorktrees);
 
@@ -45,7 +47,23 @@ describe("RepositoryInput", () => {
 		render(<RepositoryInput onLoad={vi.fn()} />);
 
 		expect(screen.getByLabelText("Repository path")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Browse" })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Load" })).toBeInTheDocument();
+	});
+
+	it("fills the repository path from the folder picker", async () => {
+		mockPickRoot.mockResolvedValueOnce("/picked/repo");
+
+		render(<RepositoryInput onLoad={vi.fn()} />);
+
+		fireEvent.click(screen.getByRole("button", { name: "Browse" }));
+
+		await waitFor(() => {
+			expect(mockPickRoot).toHaveBeenCalled();
+			expect(screen.getByLabelText("Repository path")).toHaveValue(
+				"/picked/repo",
+			);
+		});
 	});
 
 	it("calls setRoot then listWorktrees on submit", async () => {

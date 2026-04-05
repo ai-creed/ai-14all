@@ -1,6 +1,7 @@
-import { ipcMain } from "electron";
+import { dialog, ipcMain } from "electron";
 import type { BrowserWindow } from "electron";
 import {
+	PickRepositoryRootSchema,
 	SetRepositoryRootSchema,
 	CreateTerminalSessionSchema,
 	SendTerminalInputSchema,
@@ -80,6 +81,24 @@ export function registerIpcHandlers(
 	const terminalService = new TerminalService(terminalEventHandlers);
 
 	// --- Repository ---
+
+	ipcMain.handle("repository:pickRoot", async () => {
+		PickRepositoryRootSchema.parse({});
+
+		if (process.env.AI14ALL_E2E && process.env.AI14ALL_E2E_PICK_PATH) {
+			return process.env.AI14ALL_E2E_PICK_PATH;
+		}
+
+		const result = await dialog.showOpenDialog(mainWindow, {
+			properties: ["openDirectory"],
+		});
+
+		if (result.canceled || result.filePaths.length === 0) {
+			return null;
+		}
+
+		return result.filePaths[0] ?? null;
+	});
 
 	ipcMain.handle("repository:setRoot", async (_event, raw: unknown) => {
 		const { path } = SetRepositoryRootSchema.parse(raw);

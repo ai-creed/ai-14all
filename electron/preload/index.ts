@@ -21,6 +21,9 @@ function onChannel<T>(
 
 const api: Ai14AllDesktopApi = {
 	repository: {
+		pickRoot() {
+			return ipcRenderer.invoke("repository:pickRoot", {});
+		},
 		setRoot(path) {
 			return ipcRenderer.invoke("repository:setRoot", { path });
 		},
@@ -91,6 +94,9 @@ const api: Ai14AllDesktopApi = {
 		},
 		writeRestoreState(state) {
 			return ipcRenderer.invoke("workspace:writeRestoreState", { state });
+		},
+		onOpenPicker(listener) {
+			return onChannel("workspace/openPicker", listener);
 		},
 	},
 };

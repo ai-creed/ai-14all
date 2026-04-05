@@ -1,23 +1,60 @@
-import Editor from "@monaco-editor/react";
+import { DiffEditor } from "@monaco-editor/react";
+
+const EXTENSION_TO_LANGUAGE: Record<string, string> = {
+	ts: "typescript",
+	tsx: "typescript",
+	js: "javascript",
+	jsx: "javascript",
+	json: "json",
+	css: "css",
+	html: "html",
+	md: "markdown",
+	sh: "shell",
+	bash: "shell",
+	py: "python",
+	rs: "rust",
+	go: "go",
+	yaml: "yaml",
+	yml: "yaml",
+	toml: "ini",
+	sql: "sql",
+};
 
 type Props = {
 	path: string;
 	content: string;
+	originalContent: string;
+	modifiedContent: string;
 };
 
-export function DiffViewer({ path, content }: Props) {
+function languageFromPath(path: string): string | undefined {
+	const ext = path.split(".").pop()?.toLowerCase();
+	return ext ? EXTENSION_TO_LANGUAGE[ext] : undefined;
+}
+
+export function DiffViewer({
+	path,
+	originalContent,
+	modifiedContent,
+}: Props) {
 	return (
 		<div className="shell-viewer">
 			<div className="shell-viewer__header">
 				<div className="shell-viewer__title">{path}</div>
 				<div className="shell-viewer__meta">Diff vs HEAD</div>
 			</div>
-			<Editor
+			<DiffEditor
 				height="100%"
-				language="plaintext"
+				language={languageFromPath(path)}
 				theme="vs-dark"
-				value={content}
-				options={{ readOnly: true, minimap: { enabled: false } }}
+				original={originalContent}
+				modified={modifiedContent}
+				options={{
+					readOnly: true,
+					renderSideBySide: true,
+					minimap: { enabled: false },
+					scrollBeyondLastLine: false,
+				}}
 			/>
 		</div>
 	);

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CommitDiffStack } from "../../../src/features/git/CommitDiffStack";
 
@@ -74,6 +74,29 @@ describe("CommitDiffStack", () => {
 		// Selecting the file via focusedPath should re-expand it
 		rerender(<CommitDiffStack detail={detail} focusedPath="src/index.ts" />);
 		expect(screen.getByTestId("mock-diff-editor")).toBeInTheDocument();
+	});
+
+	it("scrolls the focused file section into view", async () => {
+		const scrollIntoView = vi.fn();
+		Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+			configurable: true,
+			value: scrollIntoView,
+		});
+
+		const { rerender } = render(
+			<CommitDiffStack detail={multiFileDetail} focusedPath={null} />,
+		);
+
+		rerender(
+			<CommitDiffStack
+				detail={multiFileDetail}
+				focusedPath="src/shell.css"
+			/>,
+		);
+
+		await waitFor(() => {
+			expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+		});
 	});
 
 	it("autosizes editors when rendering multiple commit files", () => {

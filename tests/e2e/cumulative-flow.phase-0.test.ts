@@ -24,6 +24,7 @@ test.beforeAll(async () => {
 		env: {
 			...process.env,
 			AI14ALL_E2E: "1",
+			AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
 			AI14ALL_WORKSPACE_STATE_PATH: join(persistedStateDir, "workspace-state.json"),
 		},
 	});
@@ -44,7 +45,8 @@ test.describe.serial("Cumulative flow — Phase 0", () => {
 		page.getByRole("navigation", { name: "Worktree sessions" });
 
 	test("loads a repository and shows worktree sessions", async () => {
-		await page.locator("#repo-path").fill(testRepo.repoPath);
+		await page.getByRole("button", { name: "Browse" }).click();
+		await expect(page.locator("#repo-path")).toHaveValue(testRepo.repoPath);
 		await page.getByRole("button", { name: "Load" }).click();
 
 		await expect(

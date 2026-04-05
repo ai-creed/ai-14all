@@ -9,6 +9,7 @@ export function getDesktopClient(): Ai14AllDesktopApi {
 }
 
 export const repository: Ai14AllDesktopApi["repository"] = {
+	pickRoot: () => getDesktopClient().repository.pickRoot(),
 	setRoot: (path) => getDesktopClient().repository.setRoot(path),
 	listWorktrees: () => getDesktopClient().repository.listWorktrees(),
 };
@@ -52,4 +53,5 @@ export const workspace: Ai14AllDesktopApi["workspace"] = {
 	readRestoreState: () => getDesktopClient().workspace.readRestoreState(),
 	writeRestoreState: (state) =>
 		getDesktopClient().workspace.writeRestoreState(state),
+	onOpenPicker: (listener) => getDesktopClient().workspace.onOpenPicker(listener),
 };

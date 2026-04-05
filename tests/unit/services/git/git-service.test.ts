@@ -75,6 +75,8 @@ describe("GitService", () => {
 		expect(diff.content).toContain("@@");
 		expect(diff.content).toContain('-export const hello = "world";');
 		expect(diff.content).toContain('+export const hello = "phase-2";');
+		expect(diff.originalContent).toContain('export const hello = "world";');
+		expect(diff.modifiedContent).toContain('export const hello = "phase-2";');
 	});
 
 	it("returns unified diff content for an untracked file", async () => {
@@ -82,6 +84,8 @@ describe("GitService", () => {
 		expect(diff.path).toBe("src/new-file.ts");
 		expect(diff.content).toContain("@@");
 		expect(diff.content).toContain("+export const added = true;");
+		expect(diff.originalContent).toBe("");
+		expect(diff.modifiedContent).toContain("export const added = true;");
 	});
 
 	it("rejects untracked directories in readDiff", async () => {
@@ -146,6 +150,8 @@ describe("GitService", () => {
 		expect(diff.path).toBe("src/main.ts");
 		expect(diff.content).toContain("rename from");
 		expect(diff.content).toContain("rename to");
+		expect(diff.originalContent).toContain('export const hello = "world";');
+		expect(diff.modifiedContent).toContain('export const hello = "world";');
 	});
 
 	it("skips unrecognized status codes in listChangedFiles", async () => {
@@ -169,6 +175,8 @@ describe("GitService", () => {
 		expect(diff.content).toContain("@@");
 		expect(diff.content).toContain('-export const hello = "world";');
 		expect(diff.content).toContain('+export const hello = "phase-2";');
+		expect(diff.originalContent).toContain('export const hello = "world";');
+		expect(diff.modifiedContent).toContain('export const hello = "phase-2";');
 	});
 
 	it("returns a git summary with branch, dirty state, changes, and recent commits", async () => {

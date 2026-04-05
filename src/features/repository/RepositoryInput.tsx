@@ -12,6 +12,20 @@ export function RepositoryInput({ onLoad }: Props) {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
+	async function handleBrowse() {
+		if (loading) return;
+
+		setError(null);
+		try {
+			const selectedPath = await repository.pickRoot();
+			if (selectedPath) {
+				setPath(selectedPath);
+			}
+		} catch (err) {
+			setError(err instanceof Error ? err.message : String(err));
+		}
+	}
+
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
 		if (!path.trim()) return;
@@ -45,6 +59,14 @@ export function RepositoryInput({ onLoad }: Props) {
 					disabled={loading}
 					style={{ width: 400 }}
 				/>
+				<button
+					type="button"
+					disabled={loading}
+					style={{ marginLeft: 8 }}
+					onClick={handleBrowse}
+				>
+					Browse
+				</button>
 				<button
 					type="submit"
 					disabled={loading || !path.trim()}

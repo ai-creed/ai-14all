@@ -67,6 +67,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 			snapshot: null,
 		}),
 		writeRestoreState: vi.fn(),
+		onOpenPicker: vi.fn(() => vi.fn()),
 	},
 }));
 
@@ -187,6 +188,8 @@ describe("App — refresh changes button", () => {
 		mockReadDiff.mockResolvedValue({
 			path: "src/index.ts",
 			content: "diff --git a/src/index.ts b/src/index.ts\n",
+			originalContent: 'export const hello = "world";\n',
+			modifiedContent: 'export const hello = "phase-2";\n',
 		});
 		mockReadRestoreState.mockResolvedValue({
 			version: 1,
@@ -198,7 +201,9 @@ describe("App — refresh changes button", () => {
 	it("shows a Refresh button when review mode is 'changes'", async () => {
 		await loadRepoAndSwitchToChanges();
 
-		expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Refresh review" }),
+		).toBeInTheDocument();
 	});
 
 	it("does not show a Refresh button when review mode is 'files'", async () => {
@@ -208,8 +213,8 @@ describe("App — refresh changes button", () => {
 		fireEvent.click(screen.getByRole("tab", { name: "Files" }));
 
 		expect(
-			screen.queryByRole("button", { name: "Refresh" }),
-		).not.toBeInTheDocument();
+			screen.getByRole("button", { name: "Refresh review" }),
+		).toBeInTheDocument();
 	});
 
 	it("clicking Refresh re-fetches git changes", async () => {
@@ -217,7 +222,7 @@ describe("App — refresh changes button", () => {
 
 		const callCountBefore = mockReadSummary.mock.calls.length;
 
-		fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+		fireEvent.click(screen.getByRole("button", { name: "Refresh review" }));
 
 		await waitFor(() => {
 			expect(mockReadSummary.mock.calls.length).toBeGreaterThan(
@@ -258,7 +263,7 @@ describe("App — refresh changes button", () => {
 		fireEvent.keyDown(filesTab, { key: "ArrowRight" });
 
 		expect(
-			await screen.findByRole("button", { name: "Refresh" }),
+			await screen.findByRole("button", { name: "Refresh review" }),
 		).toBeInTheDocument();
 	});
 
@@ -276,7 +281,7 @@ describe("App — refresh changes button", () => {
 		await loadRepoAndSwitchToChanges();
 
 		const before = mockReadSummary.mock.calls.length;
-		fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+		fireEvent.click(screen.getByRole("button", { name: "Refresh review" }));
 
 		await waitFor(() => {
 			expect(mockReadSummary.mock.calls.length).toBeGreaterThan(before);
@@ -284,33 +289,56 @@ describe("App — refresh changes button", () => {
 	});
 
 	it("clears a stale changed-file selection when refresh removes that file from git summary", async () => {
-		mockReadSummary
-			.mockResolvedValueOnce({
-				branchName: "main",
-				isDirty: true,
-				changedFileCount: 1,
-				changedFiles: [{ path: "src/index.ts", status: "M" }],
-				recentCommits: [
-					{ sha: "abc", shortSha: "abc", subject: "initial commit" },
-				],
-			})
-			.mockResolvedValueOnce({
-				branchName: "main",
-				isDirty: false,
-				changedFileCount: 0,
-				changedFiles: [],
-				recentCommits: [
-					{ sha: "abc", shortSha: "abc", subject: "initial commit" },
-				],
-			});
+		let currentSummary = {
+			branchName: "main",
+			isDirty: true,
+			changedFileCount: 1,
+			changedFiles: [{ path: "src/index.ts", status: "M" as const }],
+			recentCommits: [
+				{ sha: "abc", shortSha: "abc", subject: "initial commit" },
+			],
+		};
+		mockReadSummary.mockImplementation(async () => currentSummary);
 
-		await loadRepoAndSwitchToChanges();
+		mockSetRoot.mockResolvedValueOnce({
+			id: "r1",
+			name: "test-repo",
+			rootPath: "/repo",
+		});
+		mockListWorktrees.mockResolvedValueOnce([
+			{
+				id: "wt1",
+				repositoryId: "r1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
+		]);
+
+		render(<App />);
+		const repoInput = await screen.findByLabelText("Repository path");
+		fireEvent.change(repoInput, {
+			target: { value: "/repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+		await screen.findByRole("tab", { name: "Files" });
+		await user.click(screen.getByRole("tab", { name: "Changes" }));
 		await user.click(
 			await screen.findByRole("button", { name: /src\/index\.ts/i }),
 		);
 		const diffCallsBeforeRefresh = mockReadDiff.mock.calls.length;
+		currentSummary = {
+			branchName: "main",
+			isDirty: false,
+			changedFileCount: 0,
+			changedFiles: [],
+			recentCommits: [
+				{ sha: "abc", shortSha: "abc", subject: "initial commit" },
+			],
+		};
 
-		fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+		fireEvent.click(screen.getByRole("button", { name: "Refresh review" }));
 
 		await waitFor(() => {
 			expect(screen.getByText("No changed files.")).toBeInTheDocument();
@@ -319,16 +347,51 @@ describe("App — refresh changes button", () => {
 	});
 
 	it("dispatches gitSummaryError when readSummary rejects", async () => {
-		mockReadSummary.mockRejectedValueOnce(new Error("git error"));
+		mockSetRoot.mockResolvedValueOnce({
+			id: "r1",
+			name: "test-repo",
+			rootPath: "/repo",
+		});
+		mockListWorktrees.mockResolvedValueOnce([
+			{
+				id: "wt1",
+				repositoryId: "r1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
+		]);
+		mockReadSummary.mockRejectedValue(new Error("git error"));
 
-		await loadRepoAndSwitchToChanges();
+		render(<App />);
+		const repoInput = await screen.findByLabelText("Repository path");
+		fireEvent.change(repoInput, {
+			target: { value: "/repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
-		expect(screen.getByText("Unknown")).toBeInTheDocument();
+		expect(await screen.findByText("Unknown")).toBeInTheDocument();
 	});
 
 	it("restores per-worktree review selections when switching sessions", async () => {
-		mockReadSummary
-			.mockResolvedValueOnce({
+		mockReadSummary.mockImplementation(async (worktreePath: string) => {
+			if (worktreePath.includes("feature-a")) {
+				return {
+					branchName: "feature-a",
+					isDirty: true,
+					changedFileCount: 2,
+					changedFiles: [
+						{ path: "src/index.ts", status: "M" as const },
+						{ path: "src/new-file.ts", status: "??" as const },
+					],
+					recentCommits: [
+						{ sha: "feat1", shortSha: "feat1", subject: "feature commit" },
+					],
+				};
+			}
+
+			return {
 				branchName: "main",
 				isDirty: false,
 				changedFileCount: 0,
@@ -336,40 +399,8 @@ describe("App — refresh changes button", () => {
 				recentCommits: [
 					{ sha: "main1", shortSha: "main1", subject: "main commit" },
 				],
-			})
-			.mockResolvedValueOnce({
-				branchName: "feature-a",
-				isDirty: true,
-				changedFileCount: 2,
-				changedFiles: [
-					{ path: "src/index.ts", status: "M" },
-					{ path: "src/new-file.ts", status: "??" },
-				],
-				recentCommits: [
-					{ sha: "feat1", shortSha: "feat1", subject: "feature commit" },
-				],
-			})
-			.mockResolvedValueOnce({
-				branchName: "main",
-				isDirty: false,
-				changedFileCount: 0,
-				changedFiles: [],
-				recentCommits: [
-					{ sha: "main1", shortSha: "main1", subject: "main commit" },
-				],
-			})
-			.mockResolvedValueOnce({
-				branchName: "feature-a",
-				isDirty: true,
-				changedFileCount: 2,
-				changedFiles: [
-					{ path: "src/index.ts", status: "M" },
-					{ path: "src/new-file.ts", status: "??" },
-				],
-				recentCommits: [
-					{ sha: "feat1", shortSha: "feat1", subject: "feature commit" },
-				],
-			});
+			};
+		});
 
 		await loadRepositoryWithTwoWorktrees();
 
@@ -432,7 +463,8 @@ async function loadRepository() {
 }
 
 async function createPreset(label: string, command: string) {
-	await user.click(screen.getByRole("button", { name: "Manage presets" }));
+	await user.click(screen.getByRole("button", { name: "Presets" }));
+	await user.click(screen.getByRole("menuitem", { name: "Manage presets" }));
 	await user.type(screen.getByLabelText("Preset label"), label);
 	await user.type(screen.getByLabelText("Preset command"), command);
 	await user.click(screen.getByRole("button", { name: "Save preset" }));
@@ -468,7 +500,7 @@ describe("App — process lifecycle", () => {
 		render(<App />);
 		await loadRepository();
 		await createPreset("Claude", "claude");
-		await user.click(screen.getByRole("button", { name: "Launch preset" }));
+		await user.click(screen.getByRole("button", { name: "Presets" }));
 		await user.click(screen.getByRole("menuitem", { name: "Claude" }));
 
 		expect(screen.getByRole("tab", { name: /Claude/i })).toHaveAttribute(
@@ -481,10 +513,10 @@ describe("App — process lifecycle", () => {
 		render(<App />);
 		await loadRepository();
 		// First add an ad-hoc shell (unpinned) — gets terminal-1
-		await user.click(screen.getByRole("button", { name: "+ Shell" }));
+		await user.click(screen.getByRole("button", { name: "Add shell" }));
 		// Then launch a preset (pinned) — gets terminal-2
 		await createPreset("Claude", "claude");
-		await user.click(screen.getByRole("button", { name: "Launch preset" }));
+		await user.click(screen.getByRole("button", { name: "Presets" }));
 		await user.click(screen.getByRole("menuitem", { name: "Claude" }));
 
 		// Despite being added second, the pinned "Claude" tab should appear first
@@ -499,11 +531,11 @@ describe("App — process lifecycle", () => {
 		await createPreset("Claude", "claude");
 		// loadRepository auto-creates one default shell (terminal-1)
 		// Launch preset — gets terminal-2, becomes active process
-		await user.click(screen.getByRole("button", { name: "Launch preset" }));
+		await user.click(screen.getByRole("button", { name: "Presets" }));
 		await user.click(screen.getByRole("menuitem", { name: "Claude" }));
 		// Add an ad-hoc shell — gets terminal-3, becomes the active process
 		// so the preset process is now in the background
-		await user.click(screen.getByRole("button", { name: "+ Shell" }));
+		await user.click(screen.getByRole("button", { name: "Add shell" }));
 		// Emit output on preset's terminal while it's in the background
 		act(() => {
 			emitTerminalOutput("terminal-2", "Continue? [y/N]");

@@ -17,6 +17,21 @@ let testRepo: TestRepo;
 let persistedStateDir: string;
 let workspaceStatePath: string;
 
+async function ensureWorkspaceLoaded() {
+	const worktreeNav = page.getByRole("navigation", { name: "Worktree sessions" });
+	if (await worktreeNav.isVisible({ timeout: 2_000 }).catch(() => false)) {
+		return;
+	}
+
+	const repoInput = page.locator("#repo-path");
+	await expect(repoInput).toBeVisible({ timeout: 15_000 });
+	await page.getByRole("button", { name: "Browse" }).click();
+	await expect(repoInput).toHaveValue(testRepo.repoPath);
+	await repoInput.press("Enter");
+
+	await expect(worktreeNav).toBeVisible({ timeout: 15_000 });
+}
+
 test.beforeAll(async () => {
 	testRepo = createTestRepo();
 	persistedStateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-phase6-")));
@@ -26,6 +41,7 @@ test.beforeAll(async () => {
 		env: {
 			...process.env,
 			AI14ALL_E2E: "1",
+			AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
 			AI14ALL_WORKSPACE_STATE_PATH: workspaceStatePath,
 		},
 	});
@@ -43,8 +59,7 @@ test.afterAll(async () => {
 
 test.describe.serial("Cumulative flow — Phase 6", () => {
 	test("shows a default shell, opens a terminal tab context menu, and reviews a recent commit", async () => {
-		await page.locator("#repo-path").fill(testRepo.repoPath);
-		await page.getByRole("button", { name: "Load" }).click();
+		await ensureWorkspaceLoaded();
 
 		await page.getByRole("button", { name: "Presets" }).click();
 		await expect(page.getByRole("menuitem", { name: "start claude" })).toBeVisible();
@@ -86,6 +101,10 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		).toBeVisible();
 		await expect(page.getByRole("button", { name: "Refresh review" })).toBeVisible();
 
+		await page.getByRole("tab", { name: "Changes" }).click();
+		await page.getByRole("button", { name: /src\/index\.ts/i }).click();
+		await expect(page.getByText("Diff vs HEAD")).toBeVisible();
+
 		const reviewRail = page.getByTestId("review-rail");
 		const resizeHandle = page.getByTestId("review-rail-resize-handle");
 		const reviewRailBefore = await reviewRail.boundingBox();
@@ -116,8 +135,18 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await page.getByRole("tab", { name: "Commits" }).click();
 		await expect(page.getByRole("button", { name: "Refresh review" })).toBeVisible();
 		await expect(page.getByText("origin/main")).toBeVisible({ timeout: 15_000 });
+		const commitButton = page.getByRole("button", { name: /feature commit/i });
+		await expect(commitButton).toBeVisible();
+		await commitButton.click();
+		await page
+			.getByTestId("review-rail")
+			.getByRole("button", { name: /src\/committed\.ts/i })
+			.click();
 		await expect(
-			page.getByRole("button", { name: /feature commit/i }),
+			page.locator(".shell-viewer__title", { hasText: "feature commit" }),
+		).toBeVisible();
+		await expect(
+			page.locator('[data-testid="commit-diff-section-src/committed.ts"]'),
 		).toBeVisible();
 		await expect(page.getByText("Diff vs HEAD")).toHaveCount(0);
 
@@ -137,15 +166,11 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		);
 		expect(isMaximized).toBe(true);
 
-		const loadButton = page.getByRole("button", { name: "Load" });
-		if (await loadButton.isVisible()) {
-			await page.locator("#repo-path").fill(testRepo.repoPath);
-			await loadButton.click();
-			await page
-				.getByRole("navigation", { name: "Worktree sessions" })
-				.getByRole("button", { name: /feature-a/i })
-				.click();
-		}
+		await ensureWorkspaceLoaded();
+		await page
+			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("button", { name: /feature-a/i })
+			.click();
 
 		await expect(page.getByText("Session info")).toBeVisible();
 		await expect(page.getByRole("textbox", { name: "Session note" })).toBeVisible();
@@ -162,5 +187,34 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		}));
 		expect(scrollCheck.body).toBe(false);
 		expect(scrollCheck.root).toBe(false);
+	});
+
+	test("returns to the workspace picker from the app menu and keeps the current session when reopening the same repo", async () => {
+		await app!.evaluate(({ Menu, BrowserWindow }) => {
+			const mainWindow = BrowserWindow.getAllWindows()[0];
+			const menu = Menu.getApplicationMenu();
+			const workspaceMenu = menu?.items.find((item) => item.label === "Workspace");
+			const openWorkspaceItem = workspaceMenu?.submenu?.items.find(
+				(item) => item.label === "Open Workspace...",
+			);
+
+			if (!openWorkspaceItem) {
+				throw new Error("Workspace > Open Workspace... menu item was not found.");
+			}
+
+			openWorkspaceItem.click(undefined, mainWindow, undefined);
+		});
+
+		await expect(page.getByLabel("Repository path")).toBeVisible();
+		await page.locator("#repo-path").fill(testRepo.repoPath);
+		await page.getByRole("button", { name: "Load" }).click();
+
+		await expect(page.getByRole("tab", { name: /^codex$/i })).toBeVisible();
+		await expect(
+			page.getByRole("navigation", { name: "Worktree sessions" }).getByRole(
+				"button",
+				{ name: /feature-a/i },
+			),
+		).toHaveAttribute("data-selected", "true");
 	});
 });

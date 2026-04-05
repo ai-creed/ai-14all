@@ -70,6 +70,7 @@ export function App() {
 	const [error, setError] = useState<string | null>(null);
 	const [presetManagerOpen, setPresetManagerOpen] = useState(false);
 	const [startupMode, setStartupMode] = useState<StartupMode>("loading");
+	const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
 	const [restoreState, setRestoreState] = useState<PersistedWorkspaceState>(
 		DEFAULT_PERSISTED_WORKSPACE_STATE,
 	);
@@ -108,6 +109,13 @@ export function App() {
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- startup-only effect; restoreWorkspace is intentionally excluded to prevent re-runs on re-render
 	}, []);
+
+	useEffect(() => workspace.onOpenPicker(() => {
+		if (startupMode !== "ready" || repository === null) return;
+		setError(null);
+		setStartupError(null);
+		setWorkspacePickerOpen(true);
+	}), [startupMode, repository]);
 
 	const activeWorktree =
 		worktrees.find((w) => w.id === workspaceState.selectedWorktreeId) ?? null;
@@ -155,10 +163,22 @@ export function App() {
 		});
 
 	function handleLoad(repo: Repository, wts: Worktree[]) {
+		if (repository?.rootPath === repo.rootPath) {
+			setWorkspacePickerOpen(false);
+			setError(null);
+			setStartupError(null);
+			return;
+		}
+
 		setRepository(repo);
 		setWorktrees(wts);
+		defaultShellEnsuredByWorktreeRef.current.clear();
+		setPendingRestoreSessions({});
 		dispatch({ type: "workspace/loadWorktrees", worktrees: wts });
 		setError(null);
+		setStartupError(null);
+		setRestoreWarning(null);
+		setWorkspacePickerOpen(false);
 	}
 
 	async function restoreWorkspace(
@@ -706,7 +726,7 @@ export function App() {
 		);
 	}
 
-	if (!repository) {
+	if (!repository || workspacePickerOpen) {
 		return (
 			<main className="shell-app shell-app--setup">
 				<section className="shell-panel shell-setup-panel">
@@ -1030,6 +1050,8 @@ export function App() {
 										<DiffViewer
 											path={activeDiff.path}
 											content={activeDiff.content}
+											originalContent={activeDiff.originalContent}
+											modifiedContent={activeDiff.modifiedContent}
 										/>
 									) : (
 										<p className="shell-empty-state">

@@ -24,6 +24,8 @@ export const SetRepositoryRootSchema = z.object({
 	path: z.string(),
 });
 
+export const PickRepositoryRootSchema = z.object({});
+
 export const ListWorktreesSchema = z.object({});
 
 export const CreateTerminalSessionSchema = z.object({
@@ -92,6 +94,7 @@ export const ReadGitCommitDetailSchema = z.object({
 
 export type Ai14AllDesktopApi = {
 	repository: {
+		pickRoot(): Promise<string | null>;
 		setRoot(path: string): Promise<Repository>;
 		listWorktrees(): Promise<Worktree[]>;
 	};
@@ -123,5 +126,6 @@ export type Ai14AllDesktopApi = {
 	workspace: {
 		readRestoreState(): Promise<PersistedWorkspaceState>;
 		writeRestoreState(state: PersistedWorkspaceState): Promise<void>;
+		onOpenPicker(listener: () => void): () => void;
 	};
 };

@@ -22,6 +22,19 @@ const listWorktreesMock = vi.hoisted(() => vi.fn());
 const readSummaryMock = vi.hoisted(() => vi.fn());
 const mockReadCommitHistory = vi.hoisted(() => vi.fn());
 const mockReadCommitDetail = vi.hoisted(() => vi.fn());
+const openPickerListenerRef = vi.hoisted(() => ({
+	current: null as null | (() => void),
+}));
+const onOpenPickerMock = vi.hoisted(() =>
+	vi.fn((listener: () => void) => {
+		openPickerListenerRef.current = listener;
+		return () => {
+			if (openPickerListenerRef.current === listener) {
+				openPickerListenerRef.current = null;
+			}
+		};
+	}),
+);
 
 vi.mock("../../../src/lib/desktop-client", () => ({
 	repository: {
@@ -48,6 +61,8 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		readDiff: vi.fn().mockResolvedValue({
 			path: "src/index.ts",
 			content: "diff --git a/src/index.ts b/src/index.ts\n",
+			originalContent: 'export const hello = "world";\n',
+			modifiedContent: 'export const hello = "phase-2";\n',
 		}),
 		readSummary: readSummaryMock,
 		readCommitHistory: mockReadCommitHistory,
@@ -56,6 +71,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	workspace: {
 		readRestoreState: readRestoreStateMock,
 		writeRestoreState: writeRestoreStateMock,
+		onOpenPicker: onOpenPickerMock,
 	},
 }));
 
@@ -83,6 +99,7 @@ describe("App — Phase 6 default shell", () => {
 		writeRestoreStateMock.mockResolvedValue(undefined);
 		mockReadCommitHistory.mockResolvedValue([]);
 		mockReadCommitDetail.mockResolvedValue(null);
+		openPickerListenerRef.current = null;
 	});
 
 	it("creates one default shell when the selected worktree has no processes", async () => {
@@ -328,5 +345,65 @@ describe("App — Phase 6 default shell", () => {
 		expect(screen.queryByLabelText("Session note panel")).not.toBeInTheDocument();
 		expect(screen.getAllByText("master").length).toBeGreaterThanOrEqual(1);
 		expect(screen.getByRole("button", { name: "Expand top band" })).toBeInTheDocument();
+	});
+
+	it("returns to the repository picker when the workspace menu action fires", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		});
+		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "master", isMain: true },
+		]);
+
+		render(<App />);
+		await screen.findByLabelText("Repository path");
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		await screen.findByLabelText("Session info");
+		expect(openPickerListenerRef.current).not.toBeNull();
+
+		openPickerListenerRef.current?.();
+
+		expect(await screen.findByLabelText("Repository path")).toBeInTheDocument();
+	});
+
+	it("keeps the current session state when reloading the same repository from the picker", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		});
+		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "master", isMain: true },
+		]);
+
+		render(<App />);
+		await screen.findByLabelText("Repository path");
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		const noteInput = await screen.findByRole("textbox", { name: "Session note" });
+		await userEvent.clear(noteInput);
+		await userEvent.type(noteInput, "keep this session");
+		await waitFor(() => {
+			expect(screen.getByDisplayValue("keep this session")).toBeInTheDocument();
+		});
+
+		openPickerListenerRef.current?.();
+		const repoInput = await screen.findByLabelText("Repository path");
+		fireEvent.change(repoInput, { target: { value: "/repo" } });
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		expect(await screen.findByDisplayValue("keep this session")).toBeInTheDocument();
+		expect(createMock).toHaveBeenCalledTimes(1);
 	});
 });

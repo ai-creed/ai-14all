@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { promisify } from "node:util";
 import { join, resolve } from "node:path";
 import type {
@@ -113,6 +113,14 @@ async function readBlobAtRevision(
 	}
 }
 
+async function readWorkingTreeFile(absolutePath: string): Promise<string> {
+	try {
+		return await readFile(absolutePath, "utf8");
+	} catch {
+		return "";
+	}
+}
+
 export class GitService {
 	async listChangedFiles(worktreePath: string): Promise<GitChange[]> {
 		const { stdout } = await execFileAsync(
@@ -175,7 +183,12 @@ export class GitService {
 				["diff", "--no-index", "--", "/dev/null", absolutePath],
 				worktreePath,
 			);
-			return { path: relativePath, content: stdout };
+			return {
+				path: relativePath,
+				content: stdout,
+				originalContent: "",
+				modifiedContent: await readWorkingTreeFile(absolutePath),
+			};
 		}
 
 		// For renames, diff against HEAD with --find-renames and both old/new
@@ -194,7 +207,21 @@ export class GitService {
 				: ["diff", "--no-ext-diff", "HEAD", "--", relativePath];
 
 		const stdout = await readDiffCommand(diffArgs, worktreePath);
-		return { path: relativePath, content: stdout };
+		return {
+			path: relativePath,
+			content: stdout,
+			originalContent:
+				change.status === "A"
+					? ""
+					: await readBlobAtRevision(
+							worktreePath,
+							`HEAD:${change.oldPath ?? relativePath}`,
+						),
+			modifiedContent:
+				change.status === "D"
+					? ""
+					: await readWorkingTreeFile(absolutePath),
+		};
 	}
 
 	async readCommitHistory(worktreePath: string): Promise<GitCommitHistory> {

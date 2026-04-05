@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DiffEditor } from "@monaco-editor/react";
 import type { GitCommitDetail } from "../../../shared/models/git-commit-review.js";
 
@@ -48,6 +48,7 @@ function editorHeightForFile(
 
 export function CommitDiffStack({ detail, focusedPath }: Props) {
 	const [collapsedPaths, setCollapsedPaths] = useState<Set<string>>(new Set());
+	const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 	const singleFile = detail.files.length === 1;
 
 	useEffect(() => {
@@ -60,6 +61,13 @@ export function CommitDiffStack({ detail, focusedPath }: Props) {
 			});
 		}
 	}, [focusedPath]);
+
+	useEffect(() => {
+		if (!focusedPath) return;
+		const section = sectionRefs.current[focusedPath];
+		if (!section || typeof section.scrollIntoView !== "function") return;
+		section.scrollIntoView({ block: "nearest" });
+	}, [detail.sha, focusedPath]);
 
 	return (
 		<div
@@ -76,6 +84,9 @@ export function CommitDiffStack({ detail, focusedPath }: Props) {
 					return (
 						<section
 							key={file.path}
+							ref={(node) => {
+								sectionRefs.current[file.path] = node;
+							}}
 							data-testid={`commit-diff-section-${file.path}`}
 							data-focused={String(focusedPath === file.path)}
 							className="shell-commit-diff-section"

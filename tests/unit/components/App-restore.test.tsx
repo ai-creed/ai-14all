@@ -40,6 +40,8 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		readDiff: vi.fn().mockResolvedValue({
 			path: "src/index.ts",
 			content: "diff --git a/src/index.ts b/src/index.ts\n",
+			originalContent: 'export const hello = "world";\n',
+			modifiedContent: 'export const hello = "phase-2";\n',
 		}),
 		readSummary: readSummaryMock,
 		readCommitHistory: vi.fn().mockResolvedValue({ mergeTargetRef: null, entries: [] }),
@@ -48,6 +50,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	workspace: {
 		readRestoreState: readRestoreStateMock,
 		writeRestoreState: writeRestoreStateMock,
+		onOpenPicker: vi.fn(() => vi.fn()),
 	},
 }));
 
@@ -426,6 +429,6 @@ describe("App — Phase 5 restore flow", () => {
 		await waitFor(() => {
 			expect(screen.queryByLabelText("Session note panel")).not.toBeInTheDocument();
 		});
-		expect(screen.getByRole("button", { name: "Expand session info" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Expand top band" })).toBeInTheDocument();
 	});
 });
