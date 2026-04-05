@@ -2,8 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 vi.mock("@monaco-editor/react", () => ({
-	default: (props: { value: string; language: string }) => (
-		<div data-testid="diff-editor" data-language={props.language}>
+	default: (props: { value: string; language: string; theme?: string }) => (
+		<div
+			data-testid="diff-editor"
+			data-language={props.language}
+			data-theme={props.theme}
+		>
 			{props.value}
 		</div>
 	),
@@ -36,5 +40,9 @@ describe("DiffViewer", () => {
 			/>,
 		);
 		expect(screen.getByText("Diff vs HEAD")).toBeInTheDocument();
+		expect(screen.getByTestId("diff-editor")).toHaveAttribute(
+			"data-theme",
+			"vs-dark",
+		);
 	});
 });

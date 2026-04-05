@@ -5,7 +5,9 @@ import { CommitDiffStack } from "../../../src/features/git/CommitDiffStack";
 
 // Monaco DiffEditor won't load in jsdom — mock it
 vi.mock("@monaco-editor/react", () => ({
-	DiffEditor: () => <div data-testid="mock-diff-editor" />,
+	DiffEditor: (props: { theme?: string }) => (
+		<div data-testid="mock-diff-editor" data-theme={props.theme} />
+	),
 }));
 
 const detail = {
@@ -31,6 +33,10 @@ describe("CommitDiffStack", () => {
 		expect(screen.getByTestId("commit-diff-section-src/index.ts")).toHaveAttribute(
 			"data-focused",
 			"true",
+		);
+		expect(screen.getByTestId("mock-diff-editor")).toHaveAttribute(
+			"data-theme",
+			"vs-dark",
 		);
 	});
 

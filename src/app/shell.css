@@ -207,8 +207,9 @@ textarea {
 
 .shell-review-grid {
 	display: grid;
-	grid-template-columns: 280px minmax(0, 1fr);
-	gap: var(--space-4);
+	gap: var(--space-3);
+	min-height: 0;
+	overflow: hidden;
 }
 
 .shell-setup-panel {
@@ -302,8 +303,7 @@ textarea {
 }
 
 .shell-sidebar,
-.shell-review-rail,
-.shell-viewer-panel {
+.shell-review-rail {
 	padding: var(--space-4);
 }
 
@@ -343,6 +343,10 @@ textarea {
 
 .shell-viewer-panel {
 	min-width: 0;
+	min-height: 0;
+	padding: 0;
+	overflow: hidden;
+	background: #0a1115;
 }
 
 .shell-terminal-tabs {
@@ -485,41 +489,85 @@ textarea {
 	border-radius: var(--radius-sm);
 }
 
-.shell-review-tabs {
+.shell-review-shell {
 	display: grid;
-	grid-template-rows: auto minmax(0, 1fr);
-	gap: var(--space-3);
 	min-height: 0;
+	overflow: hidden;
 }
 
-.shell-review-tabs__header,
+.shell-review-rail {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+	padding: 0;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.shell-review-rail__header,
 .shell-review-tabs__list {
 	display: flex;
 	align-items: center;
 	gap: var(--space-2);
 }
 
+.shell-review-rail__header {
+	padding: var(--space-3);
+	border-bottom: 1px solid var(--panel-border);
+}
+
+.shell-review-tabs__segments {
+	flex: 1 1 auto;
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 0;
+	padding: 2px;
+	background: #0f171d;
+	border: 1px solid var(--panel-border);
+	border-radius: 10px;
+}
+
 .shell-review-tab {
-	padding: 8px 12px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 32px;
+	padding: 0 10px;
 	color: var(--text-secondary);
 	background: transparent;
 	border: 1px solid transparent;
-	border-radius: 999px;
+	border-radius: 8px;
 	cursor: pointer;
 }
 
 .shell-review-tab[data-state="active"] {
 	color: var(--text-primary);
-	background: #152128;
-	border-color: var(--panel-border);
+	background: #4b5458;
+	border-color: var(--panel-border-strong);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.shell-rail {
-	padding: var(--space-2);
+.shell-review-tab[data-state="inactive"] {
+	color: #bcc7ce;
+}
+
+.shell-review-tab:hover {
+	background: rgba(255, 255, 255, 0.03);
+}
+
+.shell-review-tab[data-state="active"]:hover {
+	background: #4b5458;
+}
+
+.shell-review-rail__scroll {
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
 }
 
 .shell-rail__viewport {
-	max-height: 360px;
+	height: 100%;
+	max-height: none;
 }
 
 .shell-scrollbar {
@@ -529,18 +577,20 @@ textarea {
 
 .shell-list {
 	display: grid;
-	gap: 6px;
+	gap: 3px;
 }
 
 .shell-list__item {
 	width: 100%;
-	padding: 10px 12px;
+	padding: 8px 10px;
 	text-align: left;
 	color: var(--text-primary);
 	background: #0f171d;
 	border: 1px solid transparent;
 	border-radius: var(--radius-sm);
 	cursor: pointer;
+	font-size: 0.82rem;
+	line-height: 1.35;
 }
 
 .shell-list__item[data-selected="true"] {
@@ -642,7 +692,7 @@ textarea {
 
 .shell-tree-group__label {
 	padding: 6px 8px 2px;
-	font-size: 11px;
+	font-size: 10px;
 	font-weight: 600;
 	letter-spacing: 0.05em;
 	text-transform: uppercase;
@@ -656,14 +706,17 @@ textarea {
 }
 
 .shell-list__item--tree {
-	padding: 6px 10px;
+	padding: 5px 8px;
+	font-size: 0.8rem;
 }
 
 /* Viewer chrome */
 
 .shell-viewer {
-	border: 1px solid var(--panel-border);
-	border-radius: var(--radius-sm);
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+	height: 100%;
+	min-height: 0;
 	overflow: hidden;
 }
 
@@ -686,6 +739,28 @@ textarea {
 .shell-viewer__meta {
 	color: var(--text-muted);
 	font-size: 0.9em;
+}
+
+.shell-viewer-panel > .shell-empty-state,
+.shell-viewer-panel > .shell-error {
+	padding: var(--space-4);
+}
+
+.shell-review-grid__resize-handle {
+	position: relative;
+	min-height: 0;
+	cursor: col-resize;
+}
+
+.shell-review-grid__resize-handle::before {
+	content: "";
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 50%;
+	width: 1px;
+	transform: translateX(-50%);
+	background: var(--panel-border);
 }
 
 /* Context panel git sections */
@@ -796,6 +871,10 @@ textarea {
 	gap: 2px;
 	padding-left: var(--space-4);
 	margin-top: var(--space-2);
+}
+
+.shell-commit-list__files .shell-list__item {
+	font-size: 0.8rem;
 }
 
 .shell-commit-diff-stack {

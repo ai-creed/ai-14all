@@ -52,12 +52,40 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			.click();
 
 		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible();
+		await expect(
+			page.getByTestId("review-rail").getByRole("tablist", { name: "Review mode" }),
+		).toBeVisible();
+		await expect(page.getByRole("button", { name: "Refresh review" })).toBeVisible();
+
+		const reviewRail = page.getByTestId("review-rail");
+		const resizeHandle = page.getByTestId("review-rail-resize-handle");
+		const reviewRailBefore = await reviewRail.boundingBox();
+		const resizeHandleBox = await resizeHandle.boundingBox();
+		if (!reviewRailBefore || !resizeHandleBox) {
+			throw new Error("Review rail resize controls were not visible.");
+		}
+
+		await page.mouse.move(
+			resizeHandleBox.x + resizeHandleBox.width / 2,
+			resizeHandleBox.y + resizeHandleBox.height / 2,
+		);
+		await page.mouse.down();
+		await page.mouse.move(
+			resizeHandleBox.x + resizeHandleBox.width / 2 + 72,
+			resizeHandleBox.y + resizeHandleBox.height / 2,
+		);
+		await page.mouse.up();
+
+		await expect
+			.poll(async () => (await reviewRail.boundingBox())?.width ?? 0)
+			.toBeGreaterThan(reviewRailBefore.width);
 
 		await page.getByRole("tab", { name: "shell 1" }).click({ button: "right" });
 		await expect(page.getByRole("menuitem", { name: "Pin" })).toBeVisible();
 		await page.keyboard.press("Escape");
 
 		await page.getByRole("tab", { name: "Commits" }).click();
+		await expect(page.getByRole("button", { name: "Refresh review" })).toBeVisible();
 		await expect(page.getByText("origin/main")).toBeVisible({ timeout: 15_000 });
 		await expect(
 			page.getByRole("button", { name: /feature commit/i }),
@@ -93,9 +121,9 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await expect(page.getByText("Session info")).toBeVisible();
 		await expect(page.getByRole("textbox", { name: "Session note" })).toBeVisible();
 
-		await page.getByRole("button", { name: "Collapse session info" }).click();
+		await page.getByRole("button", { name: "Collapse top band" }).click();
 		await expect(page.getByRole("textbox", { name: "Session note" })).toHaveCount(0);
-		await expect(page.getByRole("button", { name: "Expand session info" })).toBeVisible();
+		await expect(page.getByRole("button", { name: "Expand top band" })).toBeVisible();
 
 		const scrollCheck = await page.evaluate(() => ({
 			body: document.body.scrollHeight > document.body.clientHeight,

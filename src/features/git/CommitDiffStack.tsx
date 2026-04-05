@@ -80,6 +80,7 @@ export function CommitDiffStack({ detail, focusedPath }: Props) {
 							<DiffEditor
 								height="260px"
 								language={languageFromPath(file.path)}
+								theme="vs-dark"
 								original={file.originalContent}
 								modified={file.modifiedContent}
 								options={{

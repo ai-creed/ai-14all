@@ -20,11 +20,13 @@ vi.mock("@monaco-editor/react", () => ({
 	default: (props: {
 		value: string;
 		language: string;
+		theme?: string;
 		options?: { readOnly?: boolean };
 	}) => (
 		<div
 			data-testid="monaco-editor"
 			data-language={props.language}
+			data-theme={props.theme}
 			data-readonly={String(props.options?.readOnly ?? false)}
 		>
 			{props.value}
@@ -57,6 +59,7 @@ describe("FileViewer", () => {
 		const editor = await screen.findByTestId("monaco-editor");
 		expect(editor).toHaveTextContent('export const hello = "world";');
 		expect(editor).toHaveAttribute("data-language", "typescript");
+		expect(editor).toHaveAttribute("data-theme", "vs-dark");
 		expect(editor).toHaveAttribute("data-readonly", "true");
 	});
 

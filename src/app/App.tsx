@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+	useEffect,
+	useMemo,
+	useReducer,
+	useRef,
+	useState,
+	type MouseEvent as ReactMouseEvent,
+} from "react";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import * as Tabs from "@radix-ui/react-tabs";
 import type { Repository } from "../../shared/models/repository";
@@ -39,6 +46,7 @@ import { git, workspace, repository as repositoryClient } from "../lib/desktop-c
 type StartupMode = "loading" | "prompt" | "ready";
 
 export function App() {
+	const [reviewRailWidth, setReviewRailWidth] = useState(320);
 	const [repository, setRepository] = useState<Repository | null>(null);
 	const [worktrees, setWorktrees] = useState<Worktree[]>([]);
 	const [workspaceState, dispatch] = useReducer(
@@ -355,6 +363,30 @@ export function App() {
 
 	function handleRefreshChanges() {
 		setRefreshKey((k) => k + 1);
+	}
+
+	function handleReviewRailResizeStart(
+		event: ReactMouseEvent<HTMLDivElement>,
+	) {
+		event.preventDefault();
+		const startX = event.clientX;
+		const startWidth = reviewRailWidth;
+
+		const handleMouseMove = (moveEvent: MouseEvent) => {
+			const nextWidth = Math.min(
+				520,
+				Math.max(240, startWidth + (moveEvent.clientX - startX)),
+			);
+			setReviewRailWidth(nextWidth);
+		};
+
+		const handleMouseUp = () => {
+			window.removeEventListener("mousemove", handleMouseMove);
+			window.removeEventListener("mouseup", handleMouseUp);
+		};
+
+		window.addEventListener("mousemove", handleMouseMove);
+		window.addEventListener("mouseup", handleMouseUp);
 	}
 
 	async function handleSelectWorktree(worktreeId: string) {
@@ -847,118 +879,116 @@ export function App() {
 									reviewMode: value as "files" | "changes" | "commits",
 								})
 							}
-							className="shell-review-tabs"
+							className="shell-review-shell"
 						>
-							<div className="shell-review-tabs__header">
-								<Tabs.List
-									aria-label="Review mode"
-									className="shell-review-tabs__list"
+							<div
+								className="shell-review-grid"
+								data-testid="review-grid"
+								style={{
+									gridTemplateColumns: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
+								}}
+							>
+								<section
+									className="shell-panel shell-review-rail"
+									data-testid="review-rail"
 								>
-									<Tabs.Trigger
-										value="files"
-										className="shell-review-tab"
-										onClick={() =>
-											dispatch({
-												type: "session/setReviewMode",
-												worktreeId: activeWorktree.id,
-												reviewMode: "files",
-											})
-										}
-									>
-										Files
-									</Tabs.Trigger>
-									<Tabs.Trigger
-										value="changes"
-										className="shell-review-tab"
-										onClick={() =>
-											dispatch({
-												type: "session/setReviewMode",
-												worktreeId: activeWorktree.id,
-												reviewMode: "changes",
-											})
-										}
-									>
-										Changes
-									</Tabs.Trigger>
-									<Tabs.Trigger
-										value="commits"
-										className="shell-review-tab"
-										onClick={() =>
-											dispatch({
-												type: "session/setReviewMode",
-												worktreeId: activeWorktree.id,
-												reviewMode: "commits",
-											})
-										}
-									>
-										Commits
-									</Tabs.Trigger>
-								</Tabs.List>
-
-								<div className="shell-review-switches">
-									{(activeSession?.reviewMode === "changes" || activeSession?.reviewMode === "commits") && (
-										<button
-											type="button"
-											className="shell-button"
-											onClick={handleRefreshChanges}
+									<div className="shell-review-rail__header">
+										<Tabs.List
+											aria-label="Review mode"
+											className="shell-review-tabs__list shell-review-tabs__segments"
 										>
-											Refresh
-										</button>
-									)}
-								</div>
-							</div>
+											<Tabs.Trigger value="files" className="shell-review-tab">
+												Files
+											</Tabs.Trigger>
+											<Tabs.Trigger value="changes" className="shell-review-tab">
+												Changes
+											</Tabs.Trigger>
+											<Tabs.Trigger value="commits" className="shell-review-tab">
+												Commits
+											</Tabs.Trigger>
+										</Tabs.List>
 
-							<div className="shell-review-grid">
-								<ScrollArea.Root className="shell-panel shell-rail">
-									<ScrollArea.Viewport className="shell-rail__viewport">
-										{activeSession?.reviewMode === "commits" ? (
-											<>
-												{commitHistoryError && (
-													<p className="shell-error">Could not load commit history.</p>
-												)}
-												<CommitList
-													history={commitHistory ?? { mergeTargetRef: null, entries: [] }}
-													selectedCommitSha={activeSession.selectedCommitSha}
-													selectedCommitFilePath={activeSession.selectedCommitFilePath}
-													activeDetail={activeCommitDetail}
-													onSelectCommit={(sha) =>
-														dispatch({ type: "session/selectCommit", worktreeId: activeWorktree.id, sha })
+										<div className="shell-review-switches">
+											<button
+												type="button"
+												className="shell-button shell-button--compact shell-button--icon shell-button--round"
+												aria-label="Refresh review"
+												title="Refresh review"
+												onClick={handleRefreshChanges}
+											>
+												<span aria-hidden="true">↻</span>
+											</button>
+										</div>
+									</div>
+
+									<ScrollArea.Root className="shell-review-rail__scroll">
+										<ScrollArea.Viewport className="shell-rail__viewport">
+											{activeSession?.reviewMode === "commits" ? (
+												<>
+													{commitHistoryError && (
+														<p className="shell-error">Could not load commit history.</p>
+													)}
+													<CommitList
+														history={commitHistory ?? { mergeTargetRef: null, entries: [] }}
+														selectedCommitSha={activeSession.selectedCommitSha}
+														selectedCommitFilePath={activeSession.selectedCommitFilePath}
+														activeDetail={activeCommitDetail}
+														onSelectCommit={(sha) =>
+															dispatch({
+																type: "session/selectCommit",
+																worktreeId: activeWorktree.id,
+																sha,
+															})
+														}
+														onSelectCommitFile={(relativePath) =>
+															dispatch({
+																type: "session/selectCommitFile",
+																worktreeId: activeWorktree.id,
+																relativePath,
+															})
+														}
+													/>
+												</>
+											) : activeSession?.reviewMode === "files" ? (
+												<FileList
+													worktreePath={activeWorktree.path}
+													scopeRoots={scopeRoots}
+													selectedFile={activeSession.selectedFilePath}
+													onSelect={(relativePath) =>
+														dispatch({
+															type: "session/selectFile",
+															worktreeId: activeWorktree.id,
+															relativePath,
+														})
 													}
-													onSelectCommitFile={(relativePath) =>
-														dispatch({ type: "session/selectCommitFile", worktreeId: activeWorktree.id, relativePath })
-													}
+													gitSummaryError={gitSummaryError}
 												/>
-											</>
-										) : activeSession?.reviewMode === "files" ? (
-											<FileList
-												worktreePath={activeWorktree.path}
-												scopeRoots={scopeRoots}
-												selectedFile={activeSession.selectedFilePath}
-												onSelect={(relativePath) =>
-													dispatch({
-														type: "session/selectFile",
-														worktreeId: activeWorktree.id,
-														relativePath,
-													})
-												}
-												gitSummaryError={gitSummaryError}
-											/>
-										) : (
-											<ChangesList
-												changes={changes}
-												selectedPath={
-													activeSession?.selectedChangedFilePath ?? null
-												}
-												onSelect={handleSelectChangedFile}
-												gitSummaryError={gitSummaryError}
-											/>
-										)}
-									</ScrollArea.Viewport>
-									<ScrollArea.Scrollbar
-										orientation="vertical"
-										className="shell-scrollbar"
-									/>
-								</ScrollArea.Root>
+											) : (
+												<ChangesList
+													changes={changes}
+													selectedPath={
+														activeSession?.selectedChangedFilePath ?? null
+													}
+													onSelect={handleSelectChangedFile}
+													gitSummaryError={gitSummaryError}
+												/>
+											)}
+										</ScrollArea.Viewport>
+										<ScrollArea.Scrollbar
+											orientation="vertical"
+											className="shell-scrollbar"
+										/>
+									</ScrollArea.Root>
+								</section>
+
+								<div
+									role="separator"
+									aria-orientation="vertical"
+									aria-label="Resize review rail"
+									data-testid="review-rail-resize-handle"
+									className="shell-review-grid__resize-handle"
+									onMouseDown={handleReviewRailResizeStart}
+								/>
 
 								<section className="shell-panel shell-viewer-panel">
 									{activeSession?.reviewMode === "commits" && commitDetailError ? (

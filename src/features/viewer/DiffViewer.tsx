@@ -13,8 +13,9 @@ export function DiffViewer({ path, content }: Props) {
 				<div className="shell-viewer__meta">Diff vs HEAD</div>
 			</div>
 			<Editor
-				height="420px"
+				height="100%"
 				language="plaintext"
+				theme="vs-dark"
 				value={content}
 				options={{ readOnly: true, minimap: { enabled: false } }}
 			/>

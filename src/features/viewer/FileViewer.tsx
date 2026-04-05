@@ -41,8 +41,9 @@ export function FileViewer({ worktreePath, relativePath }: FileViewerProps) {
 				<div className="shell-viewer__title">{fileView.path}</div>
 			</div>
 			<Editor
-				height="400px"
+				height="100%"
 				language={fileView.language}
+				theme="vs-dark"
 				value={fileView.content}
 				options={{ readOnly: true, minimap: { enabled: false } }}
 			/>

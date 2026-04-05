@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+	render,
+	screen,
+	fireEvent,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // Mock TerminalPane to avoid xterm canvas dependency in jsdom
@@ -180,6 +186,68 @@ describe("App — Phase 6 default shell", () => {
 		fireEvent.click(screen.getByRole("tab", { name: "Files" }));
 
 		expect(createMock).toHaveBeenCalledTimes(1);
+	});
+
+	it("renders review tabs inside the rail panel and supports temporary resizing", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		});
+		readSummaryMock.mockResolvedValue({
+			branchName: "main",
+			isDirty: true,
+			changedFileCount: 1,
+			changedFiles: [{ path: "src/index.ts", status: "M" }],
+			recentCommits: [],
+		});
+		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+		await screen.findByLabelText("Repository path");
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		const reviewRail = await screen.findByTestId("review-rail");
+		expect(reviewRail).toContainElement(
+			within(reviewRail).getByRole("tablist", { name: "Review mode" }),
+		);
+		expect(reviewRail).toContainElement(
+			within(reviewRail).getByRole("tab", { name: "Files" }),
+		);
+		expect(
+			within(reviewRail).getByRole("button", { name: "Refresh review" }),
+		).toHaveClass(
+			"shell-button",
+			"shell-button--compact",
+			"shell-button--icon",
+			"shell-button--round",
+		);
+
+		const reviewGrid = screen.getByTestId("review-grid");
+		const resizeHandle = screen.getByTestId("review-rail-resize-handle");
+
+		expect(reviewGrid).toHaveStyle({ gridTemplateColumns: "320px 8px minmax(0, 1fr)" });
+
+		fireEvent.mouseDown(resizeHandle, { clientX: 320 });
+		fireEvent.mouseMove(window, { clientX: 420 });
+		fireEvent.mouseUp(window);
+
+		await waitFor(() => {
+			expect(reviewGrid).toHaveStyle({
+				gridTemplateColumns: "420px 8px minmax(0, 1fr)",
+			});
+		});
+
+		await userEvent.click(within(reviewRail).getByRole("tab", { name: "Commits" }));
+		expect(
+			within(reviewRail).getByRole("button", { name: "Refresh review" }),
+		).toHaveClass("shell-button--round");
 	});
 
 	it("keeps the terminal panel body visible when a restored shell has no live terminal yet", async () => {
