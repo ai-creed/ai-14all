@@ -74,9 +74,10 @@ textarea {
 
 .shell-main-column {
 	display: grid;
-	grid-template-rows: auto auto minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
 	gap: var(--space-4);
 	min-width: 0;
+	min-height: 0;
 }
 
 .shell-terminal-section,
@@ -86,9 +87,8 @@ textarea {
 
 .shell-terminal-section {
 	display: grid;
-	grid-template-rows: minmax(520px, 1fr);
-	min-height: 520px;
-	max-height: none;
+	grid-template-rows: auto minmax(0, 1fr);
+	min-height: 0;
 }
 
 .shell-review-grid {
@@ -601,6 +601,12 @@ textarea {
 	height: 8px;
 	border-radius: 50%;
 	background: var(--accent);
+}
+
+.shell-commit-list__subject {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .shell-commit-list__item[data-row-kind="mergeTarget"] .shell-commit-list__graph {

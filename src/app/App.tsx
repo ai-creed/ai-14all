@@ -50,6 +50,7 @@ export function App() {
 	const [commitHistory, setCommitHistory] = useState<GitCommitHistory | null>(null);
 	const [commitHistoryError, setCommitHistoryError] = useState(false);
 	const [activeCommitDetail, setActiveCommitDetail] = useState<GitCommitDetail | null>(null);
+	const [commitDetailError, setCommitDetailError] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [presetManagerOpen, setPresetManagerOpen] = useState(false);
 	const [startupMode, setStartupMode] = useState<StartupMode>("loading");
@@ -444,12 +445,16 @@ export function App() {
 	// Fetch commit detail when selected commit changes
 	useEffect(() => {
 		setActiveCommitDetail(null);
+		setCommitDetailError(false);
 		if (!activeWorktree?.path || !activeSession?.selectedCommitSha) return;
 		let cancelled = false;
 		git.readCommitDetail(activeWorktree.path, activeSession.selectedCommitSha).then((detail) => {
-			if (!cancelled) setActiveCommitDetail(detail);
+			if (!cancelled) {
+				setActiveCommitDetail(detail);
+				setCommitDetailError(false);
+			}
 		}).catch(() => {
-			// detail stays null, viewer shows empty state
+			if (!cancelled) setCommitDetailError(true);
 		});
 		return () => { cancelled = true; };
 	}, [activeWorktree?.path, activeSession?.selectedCommitSha]);
@@ -903,7 +908,11 @@ export function App() {
 								</ScrollArea.Root>
 
 								<section className="shell-panel shell-viewer-panel">
-									{activeSession?.reviewMode === "commits" && activeCommitDetail ? (
+									{activeSession?.reviewMode === "commits" && commitDetailError ? (
+										<p className="shell-error">
+											Could not load commit detail.
+										</p>
+									) : activeSession?.reviewMode === "commits" && activeCommitDetail ? (
 										<CommitDiffStack
 											key={activeCommitDetail.sha}
 											detail={activeCommitDetail}

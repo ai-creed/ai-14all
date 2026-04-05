@@ -35,9 +35,11 @@ async function closeApp() {
 		const proc = app.process();
 		await Promise.race([
 			app.close(),
-			new Promise<void>((resolve) => setTimeout(resolve, 5_000)),
+			new Promise<void>((resolve) => setTimeout(resolve, 10_000)),
 		]);
 		if (!proc.killed) proc.kill("SIGKILL");
+		// Allow the OS to fully release the process resources before relaunching
+		await new Promise<void>((resolve) => setTimeout(resolve, 500));
 		app = undefined;
 	}
 }

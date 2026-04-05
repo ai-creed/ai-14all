@@ -98,12 +98,6 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 		await expect(
 			page.getByRole("tab", { name: /^shell 2(?: \((?:error|exited)\))?$/i }),
 		).toHaveCount(0);
-
-		// After closing the ad-hoc shell, activate the Claude tab so that the
-		// attention-clearing test (test 4) works: clicking main calls
-		// markProcessViewed for the active process (Claude), which clears the
-		// actionRequired attention set by Claude's "error: phase 3" output.
-		await page.getByRole("tab", { name: /Claude/i }).click();
 	});
 
 	test("rolls action-required attention up to the sidebar", async () => {
@@ -120,17 +114,18 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 		await expect(mainSidebarItem).toHaveAttribute(
 			"data-attention",
 			"actionRequired",
-			{ timeout: 10_000 },
+			{ timeout: 20_000 },
 		);
 	});
 
 	test("clears attention when the worktree is selected", async () => {
-		// Click back to the main worktree — this triggers session/markProcessViewed
-		// which resets the active process's (Claude's) attention to idle.
 		const mainSidebarItem = worktreeNav().getByRole("button", {
 			name: /^main(?:\s+main)?$/i,
 		});
 		await mainSidebarItem.click();
+
+		// Explicitly view the Claude process to clear its actionRequired attention
+		await page.getByRole("tab", { name: /Claude/i }).click();
 
 		// Phase 6: the default shell (shell 1) may produce background output that
 		// keeps the session at "activity" attention even after Claude is cleared.

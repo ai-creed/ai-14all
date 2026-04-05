@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DiffEditor } from "@monaco-editor/react";
 import type { GitCommitDetail } from "../../../shared/models/git-commit-review.js";
 
@@ -7,8 +7,44 @@ type Props = {
 	focusedPath: string | null;
 };
 
+const EXTENSION_TO_LANGUAGE: Record<string, string> = {
+	ts: "typescript",
+	tsx: "typescript",
+	js: "javascript",
+	jsx: "javascript",
+	json: "json",
+	css: "css",
+	html: "html",
+	md: "markdown",
+	sh: "shell",
+	bash: "shell",
+	py: "python",
+	rs: "rust",
+	go: "go",
+	yaml: "yaml",
+	yml: "yaml",
+	toml: "ini",
+	sql: "sql",
+};
+
+function languageFromPath(path: string): string | undefined {
+	const ext = path.split(".").pop()?.toLowerCase();
+	return ext ? EXTENSION_TO_LANGUAGE[ext] : undefined;
+}
+
 export function CommitDiffStack({ detail, focusedPath }: Props) {
 	const [collapsedPaths, setCollapsedPaths] = useState<Set<string>>(new Set());
+
+	useEffect(() => {
+		if (focusedPath) {
+			setCollapsedPaths((prev) => {
+				if (!prev.has(focusedPath)) return prev;
+				const next = new Set(prev);
+				next.delete(focusedPath);
+				return next;
+			});
+		}
+	}, [focusedPath]);
 
 	return (
 		<div className="shell-commit-diff-stack">
@@ -43,7 +79,7 @@ export function CommitDiffStack({ detail, focusedPath }: Props) {
 						{!collapsed && (
 							<DiffEditor
 								height="260px"
-								language="typescript"
+								language={languageFromPath(file.path)}
 								original={file.originalContent}
 								modified={file.modifiedContent}
 								options={{

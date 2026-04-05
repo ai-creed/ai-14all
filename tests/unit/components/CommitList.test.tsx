@@ -24,7 +24,12 @@ describe("CommitList", () => {
 			/>,
 		);
 
-		expect(screen.getByText("origin/main")).toBeInTheDocument();
+		// Target ref shown as header and merge-target row rendered with its subject
+		expect(screen.getAllByText("origin/main").length).toBeGreaterThanOrEqual(2);
+		// Subject is visible text, not just aria-label
+		expect(screen.getByText("feature commit")).toBeInTheDocument();
+		// Merge-target row shows its shortSha
+		expect(screen.getByText("base")).toBeInTheDocument();
 		await userEvent.click(screen.getByRole("button", { name: /feature commit/i }));
 		expect(onSelectCommit).toHaveBeenCalledWith("abc");
 	});
