@@ -63,6 +63,14 @@ This approach is preferable to a pure styling pass because the current problem i
 
 Phase 6 should redesign the shell around a dominant center stack.
 
+The Phase 6 shell should also assume a larger default application footprint.
+
+Behavior:
+
+- the main window should open maximized as a normal window
+- it should not use native fullscreen mode
+- this is intended to preserve as much review and terminal space as possible without introducing macOS fullscreen desktop switching
+
 ### Left Sidebar
 
 The left sidebar should remain the place for:
@@ -78,7 +86,7 @@ The center workspace should become the main focus of the application.
 
 It should be organized as three stacked zones:
 
-1. session header zone
+1. collapsible top band
 2. unified terminal panel
 3. review workspace
 
@@ -86,21 +94,61 @@ The main application window should not scroll. Only the internal panels and cont
 
 This is important so the shell feels anchored and intentional instead of like a long page of unrelated sections.
 
-## Header Zone
+## Top Band
 
-The header zone should absorb the highest-value session context that was previously split across the top header and the right context rail.
+The top of the center workspace should become one compact collapsible band.
+
+It should replace the separate header block and avoid consuming unnecessary vertical space before the terminal panel.
+
+When expanded, the top band should contain two side-by-side panels:
+
+- `Session info`
+- `Session note`
+
+When collapsed, it should reduce to a thin summary strip for orientation only.
+
+The collapse behavior should apply to the whole band as one unit, not panel-by-panel.
+
+The collapsed state should be remembered across workspace restore so the shell stays consistent between launches.
+
+### Session Info Panel
+
+The `Session info` panel should absorb the highest-value session context that was previously split across the top header and the right context rail.
 
 It should show:
 
 - active worktree identity
+- worktree path
 - active branch
 - dirty or clean state
 - changed-file count
 - lightweight session state or restore warnings where relevant
 
-The header should act as the orientation and status band for the active session.
+This panel should be compact and summary-oriented. It should not become a large card with oversized typography or unnecessary empty space.
 
-It should not become a heavy toolbar or command center. The goal is clarity, not control sprawl.
+### Session Note Panel
+
+The `Session note` panel should sit beside `Session info`, not below it.
+
+Its purpose remains the same:
+
+- a lightweight manual note attached to the selected worktree session
+- a small place to leave resume context, reminders, or next-step notes
+
+This panel should stay visible in expanded mode but should no longer consume the full width of the shell.
+
+### Collapsed Summary Strip
+
+When the top band is collapsed, it should still show enough information to keep the active session obvious.
+
+The collapsed strip should retain:
+
+- worktree label
+- branch
+- dirty or clean state
+- changed-file count
+
+The note textarea should be hidden while collapsed.
 
 ## Unified Terminal Panel
 
