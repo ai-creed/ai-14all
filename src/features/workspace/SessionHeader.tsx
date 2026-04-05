@@ -22,7 +22,10 @@ export function SessionHeader({
 	const statusLabel = gitSummaryError ? "Unknown" : isDirty ? "Dirty" : "Clean";
 
 	return (
-		<section aria-label="Session info" className="shell-panel shell-session-info">
+		<section
+			aria-label="Session info"
+			className="shell-panel shell-session-info shell-session-info--framed"
+		>
 			<div className="shell-session-info__header">
 				<div>
 					{!collapsed && <div className="shell-label">Session info</div>}

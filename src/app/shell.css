@@ -11,9 +11,9 @@
 	--accent-strong: #15383d;
 	--warning: #f0c37a;
 	--danger: #d98c8c;
-	--radius-sm: 10px;
-	--radius-md: 14px;
-	--radius-lg: 18px;
+	--radius-sm: 2px;
+	--radius-md: 3px;
+	--radius-lg: 4px;
 	--space-1: 4px;
 	--space-2: 8px;
 	--space-3: 12px;
@@ -96,17 +96,30 @@ textarea {
 	padding: var(--space-4);
 }
 
+.shell-session-info--framed {
+	background: #0d1419;
+	border-color: #5a6570;
+}
+
 .shell-session-info__header {
 	display: flex;
-	align-items: flex-start;
+	align-items: center;
 	justify-content: space-between;
 	gap: var(--space-3);
 }
 
 .shell-session-info__title {
 	margin: var(--space-1) 0 0;
-	font-size: 1.1rem;
+	font-size: 1rem;
 	line-height: 1.2;
+	font-family:
+		"SF Mono",
+		"SFMono-Regular",
+		ui-monospace,
+		Menlo,
+		Monaco,
+		monospace;
+	letter-spacing: 0.01em;
 }
 
 .shell-top-band[data-collapsed="true"] .shell-session-info {
@@ -126,6 +139,13 @@ textarea {
 	font-size: 0.875rem;
 	flex: 1;
 	min-width: 0;
+	font-family:
+		"SF Mono",
+		"SFMono-Regular",
+		ui-monospace,
+		Menlo,
+		Monaco,
+		monospace;
 }
 
 .shell-session-info__path-group {
@@ -138,6 +158,18 @@ textarea {
 	color: var(--text-secondary);
 	white-space: pre-wrap;
 	word-break: break-word;
+	padding: 6px 8px;
+	background: #0a1115;
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	font-family:
+		"SF Mono",
+		"SFMono-Regular",
+		ui-monospace,
+		Menlo,
+		Monaco,
+		monospace;
+	font-size: 0.84rem;
 }
 
 .shell-session-info__meta {
@@ -146,15 +178,22 @@ textarea {
 	gap: var(--space-3);
 	margin-top: var(--space-3);
 	color: var(--text-secondary);
-	font-size: 14px;
+	font-size: 13px;
+	font-family:
+		"SF Mono",
+		"SFMono-Regular",
+		ui-monospace,
+		Menlo,
+		Monaco,
+		monospace;
 }
 
 .shell-session-info__toggle {
 	padding: 6px 10px;
 	color: var(--text-secondary);
-	background: #0f171d;
+	background: #0a1115;
 	border: 1px solid var(--panel-border);
-	border-radius: 999px;
+	border-radius: var(--radius-sm);
 }
 
 .shell-session-note .shell-note-input {
@@ -247,7 +286,7 @@ textarea {
 	color: var(--text-primary);
 	background: #0f171d;
 	border: 1px solid var(--panel-border);
-	border-radius: 999px;
+	border-radius: var(--radius-sm);
 }
 
 .shell-sidebar,

@@ -16,7 +16,9 @@ describe("SessionHeader", () => {
 			/>,
 		);
 
-		expect(screen.getByLabelText("Session info")).toBeInTheDocument();
+		expect(screen.getByLabelText("Session info")).toHaveClass(
+			"shell-session-info--framed",
+		);
 		expect(screen.getByText("Session info")).toBeInTheDocument();
 		expect(screen.getByText("/repo")).toBeInTheDocument();
 		expect(screen.getByText("my-worktree")).toBeInTheDocument();
