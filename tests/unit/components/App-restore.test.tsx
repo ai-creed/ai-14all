@@ -389,4 +389,43 @@ describe("App — Phase 5 restore flow", () => {
 			expect(createMock).toHaveBeenCalledWith("main", "/repo");
 		});
 	});
+
+	it("restores the top-band collapsed state from the saved snapshot", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "alwaysRestore",
+			snapshot: {
+				repositoryPath: "/repo",
+				selectedWorktreeId: "main",
+				topBandCollapsed: true,
+				commandPresets: [],
+				worktreeSessions: [
+					{
+						worktreeId: "main",
+						note: "resume here",
+						reviewMode: "files",
+						viewerMode: "file",
+						selectedFilePath: null,
+						selectedChangedFilePath: null,
+						selectedCommitSha: null,
+						selectedCommitFilePath: null,
+						activeProcessSessionId: null,
+						nextAdHocNumber: 1,
+						processSessions: [],
+					},
+				],
+			},
+		});
+		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+
+		await waitFor(() => {
+			expect(screen.queryByLabelText("Session note panel")).not.toBeInTheDocument();
+		});
+		expect(screen.getByRole("button", { name: "Expand session info" })).toBeInTheDocument();
+	});
 });

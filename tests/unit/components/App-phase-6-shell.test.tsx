@@ -230,4 +230,32 @@ describe("App — Phase 6 default shell", () => {
 		).toBeInTheDocument();
 		expect(document.querySelector(".shell-terminal-section")).not.toBeNull();
 	});
+
+	it("renders a compact top band and hides the note panel when collapsed", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		});
+		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "master", isMain: true },
+		]);
+
+		render(<App />);
+		await screen.findByLabelText("Repository path");
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		await screen.findByLabelText("Session info");
+		expect(screen.getByLabelText("Session note panel")).toBeInTheDocument();
+		expect(screen.queryByText("Active session")).not.toBeInTheDocument();
+
+		await userEvent.click(screen.getByRole("button", { name: "Collapse session info" }));
+
+		expect(screen.queryByLabelText("Session note panel")).not.toBeInTheDocument();
+		expect(screen.getAllByText("master").length).toBeGreaterThanOrEqual(1);
+	});
 });

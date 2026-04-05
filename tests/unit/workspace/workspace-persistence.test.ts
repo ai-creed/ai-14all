@@ -37,6 +37,7 @@ describe("buildWorkspaceSnapshot", () => {
 		expect(snapshot).toEqual({
 			repositoryPath: "/repo",
 			selectedWorktreeId: "main",
+			topBandCollapsed: false,
 			commandPresets: [],
 			worktreeSessions: [
 				{

@@ -705,26 +705,38 @@ export function App() {
 
 				<section className="shell-main-column">
 					{activeWorktree && activeSession && (
-						<div className="shell-header-zone">
-							<ContextPanel
-								worktreePath={activeWorktree.path}
-								note={activeSession.note}
-								onNoteChange={(note) =>
-									dispatch({
-										type: "session/setNote",
-										worktreeId: activeWorktree.id,
-										note,
-									})
-								}
-							/>
+						<section
+							className="shell-top-band"
+							data-collapsed={workspaceState.topBandCollapsed ? "true" : "false"}
+						>
 							<SessionHeader
 								title={activeWorktree.label}
+								worktreePath={activeWorktree.path}
 								branchName={activeWorktree.branchName}
 								changedFileCount={changes.length}
 								isDirty={activeSummary?.isDirty ?? false}
 								gitSummaryError={gitSummaryError}
+								collapsed={workspaceState.topBandCollapsed}
+								onToggleCollapsed={() =>
+									dispatch({
+										type: "workspace/setTopBandCollapsed",
+										collapsed: !workspaceState.topBandCollapsed,
+									})
+								}
 							/>
-						</div>
+							{!workspaceState.topBandCollapsed && (
+								<ContextPanel
+									note={activeSession.note}
+									onNoteChange={(note) =>
+										dispatch({
+											type: "session/setNote",
+											worktreeId: activeWorktree.id,
+											note,
+										})
+									}
+								/>
+							)}
+						</section>
 					)}
 
 					{workspaceState.selectedWorktreeId && (

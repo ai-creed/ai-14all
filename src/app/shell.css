@@ -80,6 +80,78 @@ textarea {
 	min-height: 0;
 }
 
+.shell-top-band {
+	display: grid;
+	grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+	gap: var(--space-4);
+	min-width: 0;
+}
+
+.shell-top-band[data-collapsed="true"] {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.shell-session-info,
+.shell-session-note {
+	padding: var(--space-4);
+}
+
+.shell-session-info__header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--space-3);
+}
+
+.shell-session-info__title {
+	margin: var(--space-1) 0 0;
+	font-size: 1.1rem;
+	line-height: 1.2;
+}
+
+.shell-top-band[data-collapsed="true"] .shell-session-info__title {
+	margin: 0;
+	font-size: 1rem;
+}
+
+.shell-session-info__path-group {
+	margin-top: var(--space-3);
+}
+
+.shell-session-info__path {
+	display: block;
+	margin-top: var(--space-2);
+	color: var(--text-secondary);
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.shell-session-info__meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-3);
+	margin-top: var(--space-3);
+	color: var(--text-secondary);
+	font-size: 14px;
+}
+
+.shell-top-band[data-collapsed="true"] .shell-session-info__meta {
+	margin-top: 0;
+}
+
+.shell-session-info__toggle {
+	padding: 6px 10px;
+	color: var(--text-secondary);
+	background: #0f171d;
+	border: 1px solid var(--panel-border);
+	border-radius: 999px;
+}
+
+.shell-session-note .shell-note-input {
+	margin-top: var(--space-2);
+	min-height: 112px;
+}
+
 .shell-terminal-section,
 .shell-review-grid {
 	min-width: 0;
@@ -168,8 +240,6 @@ textarea {
 }
 
 .shell-sidebar,
-.shell-context,
-.shell-header,
 .shell-review-rail,
 .shell-viewer-panel {
 	padding: var(--space-4);
@@ -197,49 +267,10 @@ textarea {
 }
 
 .shell-sidebar__branch,
-.shell-context__path,
-.shell-header__meta,
 .shell-empty-state {
 	color: var(--text-secondary);
 }
 
-.shell-header {
-	display: flex;
-	align-items: flex-start;
-	justify-content: space-between;
-	gap: var(--space-4);
-}
-
-.shell-header__title {
-	margin: var(--space-2) 0 0;
-}
-
-.shell-header__meta {
-	display: flex;
-	gap: var(--space-4);
-	padding-top: 2px;
-	font-size: 14px;
-}
-
-.shell-context__section {
-	margin: var(--space-4) 0;
-}
-
-.shell-context__branch {
-	margin-top: var(--space-2);
-	padding: var(--space-3);
-	font-weight: 700;
-	background: linear-gradient(180deg, var(--accent-strong) 0%, #102a30 100%);
-	border: 1px solid #37646d;
-	border-radius: var(--radius-sm);
-}
-
-.shell-context__path {
-	display: block;
-	margin-top: var(--space-2);
-	white-space: pre-wrap;
-	word-break: break-word;
-}
 
 .shell-review-switches {
 	display: flex;
@@ -543,12 +574,6 @@ textarea {
 	gap: var(--space-2);
 	font-size: 0.85em;
 	color: var(--text-secondary);
-}
-
-.shell-header-zone {
-	display: grid;
-	gap: var(--space-3);
-	min-width: 0;
 }
 
 .shell-terminal-panel {
