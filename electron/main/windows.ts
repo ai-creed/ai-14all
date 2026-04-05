@@ -5,6 +5,7 @@ export function createMainWindow(): BrowserWindow {
 	return new BrowserWindow({
 		width: 1440,
 		height: 900,
+		show: !process.env.ONEFORALL_E2E,
 		webPreferences: {
 			preload: fileURLToPath(new URL("../preload/index.cjs", import.meta.url)),
 			contextIsolation: true,

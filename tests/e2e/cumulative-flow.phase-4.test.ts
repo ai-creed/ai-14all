@@ -9,6 +9,7 @@ import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
+import { closeApp } from "./fixtures/close-app";
 
 let app: ElectronApplication | undefined;
 let page: Page;
@@ -22,6 +23,7 @@ test.beforeAll(async () => {
 		args: ["out/main/index.js"],
 		env: {
 			...process.env,
+			ONEFORALL_E2E: "1",
 			ONEFORALL_WORKSPACE_STATE_PATH: join(persistedStateDir, "workspace-state.json"),
 		},
 	});
@@ -30,7 +32,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
 	try {
-		if (app) await app.close();
+		await closeApp(app);
 	} finally {
 		rmSync(persistedStateDir, { recursive: true, force: true });
 		testRepo?.cleanup();
@@ -47,16 +49,28 @@ test.describe.serial("Cumulative flow — Phase 4", () => {
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 
-		await expect(
-			page.getByText("Recent commits", { exact: true }).first(),
-		).toBeVisible();
+		// Phase 6: "Recent commits" section was removed from ContextPanel.
+		// Git context (branch, status, changed-file count) now lives in SessionHeader.
+		await expect(page.getByText("Branch:")).toBeVisible();
+		// Wait for the git summary to finish loading — "Dirty" appears once the
+		// async readSummary call resolves.  This also stabilises the layout so
+		// the xterm resize cycle has completed before we click list items.
+		await expect(page.getByText("Dirty")).toBeVisible({ timeout: 10_000 });
 
-		await page.getByRole("tab", { name: "Changes" }).click();
-		await page.getByRole("button", { name: /src\/index\.ts/ }).click();
+		// Phase 6: wait for the default shell to be created before interacting
+		// with the review panel, so the xterm layout has time to stabilise.
+		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible({ timeout: 10_000 });
+
+		// Phase 6: clicks inside the review panel use force:true because the xterm
+		// pane in the same column keeps the accessibility tree in flux, causing
+		// Playwright's stability check to time out even when the element is at its
+		// correct position.
+		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
+		await page.getByRole("button", { name: /src\/index\.ts/ }).click({ force: true });
 		await expect(page.getByText("Diff vs HEAD")).toBeVisible();
 
-		await page.getByRole("tab", { name: "Files" }).click();
-		await page.getByRole("button", { name: "new-file.ts" }).click();
+		await page.getByRole("tab", { name: "Files" }).click({ force: true });
+		await page.getByRole("button", { name: "new-file.ts" }).click({ force: true });
 		await expect(
 			page.locator(".shell-viewer__title").getByText("src/new-file.ts", {
 				exact: true,

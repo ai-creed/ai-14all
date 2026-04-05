@@ -9,6 +9,7 @@ import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
+import { closeApp } from "./fixtures/close-app";
 
 let app: ElectronApplication | undefined;
 let page: Page;
@@ -22,6 +23,7 @@ test.beforeAll(async () => {
 		args: ["out/main/index.js"],
 		env: {
 			...process.env,
+			ONEFORALL_E2E: "1",
 			ONEFORALL_WORKSPACE_STATE_PATH: join(persistedStateDir, "workspace-state.json"),
 		},
 	});
@@ -30,7 +32,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
 	try {
-		if (app) await app.close();
+		await closeApp(app);
 	} finally {
 		rmSync(persistedStateDir, { recursive: true, force: true });
 		testRepo?.cleanup();
@@ -47,7 +49,8 @@ test.describe.serial("Cumulative flow — Phase 1", () => {
 			.getByRole("button", { name: /^main(?:\s+main)?$/i })
 			.click();
 
-		await expect(page.getByText("Active branch")).toBeVisible();
+		// Phase 6: "Active branch" label moved; SessionHeader now shows "Branch:"
+		await expect(page.getByText("Branch:")).toBeVisible();
 		await expect(page.getByText("Worktree path")).toBeVisible();
 		await expect(page.getByRole("tab", { name: "Files" })).toBeVisible();
 		await expect(page.getByRole("tab", { name: "Changes" })).toBeVisible();

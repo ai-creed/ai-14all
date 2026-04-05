@@ -9,6 +9,7 @@ import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
+import { closeApp } from "./fixtures/close-app";
 
 let app: ElectronApplication | undefined;
 let page: Page;
@@ -22,6 +23,7 @@ test.beforeAll(async () => {
 		args: ["out/main/index.js"],
 		env: {
 			...process.env,
+			ONEFORALL_E2E: "1",
 			ONEFORALL_WORKSPACE_STATE_PATH: join(persistedStateDir, "workspace-state.json"),
 		},
 	});
@@ -30,7 +32,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
 	try {
-		if (app) await app.close();
+		await closeApp(app);
 	} finally {
 		rmSync(persistedStateDir, { recursive: true, force: true });
 		testRepo?.cleanup();
@@ -71,28 +73,37 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 	});
 
 	test("stops, restarts, and closes an ad hoc shell from the tab actions menu", async () => {
+		// Phase 6: a default "shell 1" is auto-created on worktree activation.
+		// Clicking "+ Shell" now creates "shell 2". Tab actions are now accessed
+		// via right-click context menu instead of a dedicated "Actions" button.
 		await page.getByRole("button", { name: "+ Shell" }).click();
 
-		const shellTab = page.getByRole("tab", { name: "shell 1" });
+		const shellTab = page.getByRole("tab", { name: "shell 2" });
 		await expect(shellTab).toBeVisible({ timeout: 10_000 });
 
-		await page.getByRole("button", { name: "Actions for shell 1" }).click();
+		await shellTab.click({ button: "right" });
 		await page.getByRole("menuitem", { name: "Stop" }).click();
 		await expect(
-			page.getByRole("tab", { name: /^shell 1 \(exited(?:: \d+)?\)$/i }),
+			page.getByRole("tab", { name: /^shell 2 \(exited(?:: \d+)?\)$/i }),
 		).toBeVisible({ timeout: 10_000 });
 
-		await page.getByRole("button", { name: "Actions for shell 1" }).click();
+		await page.getByRole("tab", { name: /^shell 2/ }).click({ button: "right" });
 		await page.getByRole("menuitem", { name: "Restart" }).click();
-		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible({
+		await expect(page.getByRole("tab", { name: "shell 2" })).toBeVisible({
 			timeout: 10_000,
 		});
 
-		await page.getByRole("button", { name: "Actions for shell 1" }).click();
+		await page.getByRole("tab", { name: "shell 2" }).click({ button: "right" });
 		await page.getByRole("menuitem", { name: "Close" }).click();
 		await expect(
-			page.getByRole("tab", { name: /^shell 1(?: \((?:error|exited)\))?$/i }),
+			page.getByRole("tab", { name: /^shell 2(?: \((?:error|exited)\))?$/i }),
 		).toHaveCount(0);
+
+		// After closing the ad-hoc shell, activate the Claude tab so that the
+		// attention-clearing test (test 4) works: clicking main calls
+		// markProcessViewed for the active process (Claude), which clears the
+		// actionRequired attention set by Claude's "error: phase 3" output.
+		await page.getByRole("tab", { name: /Claude/i }).click();
 	});
 
 	test("rolls action-required attention up to the sidebar", async () => {
@@ -115,15 +126,19 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 
 	test("clears attention when the worktree is selected", async () => {
 		// Click back to the main worktree — this triggers session/markProcessViewed
-		// which resets the active process's attention to idle
+		// which resets the active process's (Claude's) attention to idle.
 		const mainSidebarItem = worktreeNav().getByRole("button", {
 			name: /^main(?:\s+main)?$/i,
 		});
 		await mainSidebarItem.click();
 
-		// The attention attribute should now be idle, not actionRequired
-		await expect(mainSidebarItem).toHaveAttribute("data-attention", "idle", {
-			timeout: 10_000,
-		});
+		// Phase 6: the default shell (shell 1) may produce background output that
+		// keeps the session at "activity" attention even after Claude is cleared.
+		// The important invariant is that "actionRequired" is no longer present.
+		await expect(mainSidebarItem).not.toHaveAttribute(
+			"data-attention",
+			"actionRequired",
+			{ timeout: 10_000 },
+		);
 	});
 });

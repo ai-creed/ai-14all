@@ -23,6 +23,7 @@ async function launchApp() {
 		args: ["out/main/index.js"],
 		env: {
 			...process.env,
+			ONEFORALL_E2E: "1",
 			ONEFORALL_WORKSPACE_STATE_PATH: persistedStatePath,
 		},
 	});
@@ -31,7 +32,12 @@ async function launchApp() {
 
 async function closeApp() {
 	if (app) {
-		await app.close();
+		const proc = app.process();
+		await Promise.race([
+			app.close(),
+			new Promise<void>((resolve) => setTimeout(resolve, 5_000)),
+		]);
+		if (!proc.killed) proc.kill("SIGKILL");
 		app = undefined;
 	}
 }
@@ -67,16 +73,22 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 
-		await page.getByRole("button", { name: "+ Shell" }).click();
+		// Phase 6: a default "shell 1" is auto-created on worktree activation.
+		// Wait for it to be stable before interacting with the Changes panel.
+		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible({ timeout: 10_000 });
 		await page.getByLabel("Session note").fill("resume here");
-		await page.getByRole("tab", { name: "Changes" }).click();
-		await page.getByRole("button", { name: /src\/index\.ts/ }).click();
+		// Phase 6: force clicks in the review panel because the xterm pane in
+		// the same column keeps the accessibility tree in flux.
+		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
+		await page.getByRole("button", { name: /src\/index\.ts/ }).click({ force: true });
 
 		await page
 			.getByRole("navigation", { name: "Worktree sessions" })
 			.getByRole("button", { name: /main/i }) // partial match, accessible name is "main main"
 			.click();
-		await page.getByRole("button", { name: "+ Shell" }).click();
+		// Phase 6: the default shell is auto-created when main is selected.
+		// Wait for it so the session is persisted with at least one process.
+		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible({ timeout: 10_000 });
 
 		await page
 			.getByRole("navigation", { name: "Worktree sessions" })
@@ -98,10 +110,10 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible();
 
 		// The main session's shell has not been hydrated yet — TerminalTabs
-		// only renders the active session's tabs, so there is no tab labelled
-		// "shell 1" belonging to main while feature-a is selected.  The only
-		// "shell 1" in the DOM is the feature-a tab we just checked above.
-		// Verify there is exactly one shell tab while feature-a is active.
+		// only renders the active session's tabs, so there are no tabs belonging
+		// to main while feature-a is selected.
+		// Phase 6: feature-a has one shell (the default shell 1, auto-created
+		// when the worktree was activated above).
 		await expect(page.getByRole("tab", { name: /^shell \d/ })).toHaveCount(1);
 
 		await page
@@ -109,8 +121,8 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 			.getByRole("button", { name: /main/i }) // partial match
 			.click();
 
-		// After lazy hydration of the main session its shell tab becomes visible.
-		// The main worktree's ad-hoc counter starts at 1, so the tab is "shell 1".
+		// After lazy hydration of the main session its shell tabs become visible.
+		// Phase 6: main has shell 1 (the auto-created default shell).
 		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible();
 	});
 

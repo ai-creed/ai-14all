@@ -9,6 +9,7 @@ import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
+import { closeApp } from "./fixtures/close-app";
 
 let app: ElectronApplication | undefined;
 let page: Page;
@@ -24,6 +25,7 @@ test.beforeAll(async () => {
 		args: ["out/main/index.js"],
 		env: {
 			...process.env,
+			ONEFORALL_E2E: "1",
 			ONEFORALL_WORKSPACE_STATE_PATH: workspaceStatePath,
 		},
 	});
@@ -32,7 +34,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
 	try {
-		if (app) await app.close();
+		await closeApp(app);
 	} finally {
 		rmSync(persistedStateDir, { recursive: true, force: true });
 		testRepo.cleanup();
