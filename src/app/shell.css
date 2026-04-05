@@ -11,6 +11,13 @@
 	--accent-strong: #15383d;
 	--warning: #f0c37a;
 	--danger: #d98c8c;
+	--font-ui:
+		"SF Mono",
+		"SFMono-Regular",
+		ui-monospace,
+		Menlo,
+		Monaco,
+		monospace;
 	--radius-sm: 2px;
 	--radius-md: 3px;
 	--radius-lg: 4px;
@@ -20,12 +27,7 @@
 	--space-4: 16px;
 	--space-5: 20px;
 	--space-6: 24px;
-	font-family:
-		"SF Pro Text",
-		"Segoe UI",
-		-apple-system,
-		BlinkMacSystemFont,
-		sans-serif;
+	font-family: var(--font-ui);
 	color: var(--text-primary);
 	background: var(--app-bg);
 }
@@ -121,13 +123,6 @@ textarea {
 	margin: var(--space-1) 0 0;
 	font-size: 1rem;
 	line-height: 1.2;
-	font-family:
-		"SF Mono",
-		"SFMono-Regular",
-		ui-monospace,
-		Menlo,
-		Monaco,
-		monospace;
 	letter-spacing: 0.01em;
 }
 
@@ -153,13 +148,6 @@ textarea {
 	font-size: 0.875rem;
 	flex: 1;
 	min-width: 0;
-	font-family:
-		"SF Mono",
-		"SFMono-Regular",
-		ui-monospace,
-		Menlo,
-		Monaco,
-		monospace;
 }
 
 .shell-top-band[data-collapsed="true"] .shell-session-info__strip {
@@ -181,13 +169,6 @@ textarea {
 	background: #0a1115;
 	border: 1px solid var(--panel-border);
 	border-radius: var(--radius-sm);
-	font-family:
-		"SF Mono",
-		"SFMono-Regular",
-		ui-monospace,
-		Menlo,
-		Monaco,
-		monospace;
 	font-size: 0.84rem;
 }
 
@@ -198,13 +179,6 @@ textarea {
 	margin-top: var(--space-3);
 	color: var(--text-secondary);
 	font-size: 13px;
-	font-family:
-		"SF Mono",
-		"SFMono-Regular",
-		ui-monospace,
-		Menlo,
-		Monaco,
-		monospace;
 }
 
 .shell-session-note {
@@ -701,7 +675,7 @@ textarea {
 	padding: 6px 10px;
 	background: var(--panel-bg-elevated);
 	border-bottom: 1px solid var(--panel-border);
-	font-family: monospace;
+	font-family: var(--font-ui);
 	font-size: 0.8em;
 }
 
@@ -773,7 +747,7 @@ textarea {
 	padding: 4px 8px;
 	font-size: 0.8em;
 	color: var(--text-muted);
-	font-family: monospace;
+	font-family: var(--font-ui);
 }
 
 .shell-commit-list__item {
@@ -842,7 +816,7 @@ textarea {
 	background: var(--panel-bg-elevated);
 	border: none;
 	color: var(--text-primary);
-	font-family: monospace;
+	font-family: var(--font-ui);
 	font-size: 0.85em;
 	cursor: pointer;
 }
