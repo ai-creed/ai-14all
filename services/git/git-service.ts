@@ -253,35 +253,43 @@ export class GitService {
 		if (!entry) throw new Error(`Commit not found: ${sha}`);
 
 		const parentSha = parentStdout.trim().split(" ")[0] ?? "";
-		const files = await Promise.all(
-			filesStdout
-				.split("\n")
-				.map((line) => line.trim())
-				.filter(Boolean)
-				.map(async (line): Promise<GitCommitFileDiff> => {
-					const [rawStatus, fromPath, toPath] = line.split("\t");
-					const status = rawStatus?.startsWith("R") ? "R" : (rawStatus as "A" | "M" | "D");
-					const path = status === "R" ? (toPath ?? fromPath ?? "") : (fromPath ?? "");
-					const oldPath = status === "R" ? (fromPath ?? null) : null;
+		const files = (
+			await Promise.all(
+				filesStdout
+					.split("\n")
+					.map((line) => line.trim())
+					.filter(Boolean)
+					.map(async (line): Promise<GitCommitFileDiff | null> => {
+						const [rawStatus, fromPath, toPath] = line.split("\t");
+						const isRename = rawStatus?.startsWith("R") ?? false;
+						const isCopy = rawStatus?.startsWith("C") ?? false;
+						const status: "A" | "M" | "D" | "R" =
+							isRename || isCopy ? "R" : (rawStatus as "A" | "M" | "D");
+						const path = isRename || isCopy ? (toPath ?? fromPath ?? "") : (fromPath ?? "");
+						const oldPath = isRename || isCopy ? (fromPath ?? null) : null;
 
-					return {
-						path,
-						oldPath,
-						status,
-						originalContent:
-							status === "A"
-								? ""
-								: await readBlobAtRevision(
-										worktreePath,
-										`${parentSha}:${oldPath ?? path}`,
-									),
-						modifiedContent:
-							status === "D"
-								? ""
-								: await readBlobAtRevision(worktreePath, `${sha}:${path}`),
-					};
-				}),
-		);
+						// Skip entries with unrecognized status (U, X, B, T, etc.)
+						if (!["A", "M", "D", "R"].includes(status)) return null;
+
+						return {
+							path,
+							oldPath,
+							status,
+							originalContent:
+								status === "A" || parentSha === ""
+									? ""
+									: await readBlobAtRevision(
+											worktreePath,
+											`${parentSha}:${oldPath ?? path}`,
+										),
+							modifiedContent:
+								status === "D"
+									? ""
+									: await readBlobAtRevision(worktreePath, `${sha}:${path}`),
+						};
+					}),
+			)
+		).filter((f): f is GitCommitFileDiff => f !== null);
 
 		return { sha: entry.sha, shortSha: entry.shortSha, subject: entry.subject, files };
 	}

@@ -226,5 +226,10 @@ describe("GitService", () => {
 		});
 		expect(detail.files[0]?.originalContent).toContain('export const hello = "world";');
 		expect(detail.files[0]?.modifiedContent).toContain('export const hello = "phase-2";');
+
+		const addedFile = detail.files.find((f) => f.status === "A");
+		if (addedFile) {
+			expect(addedFile.originalContent).toBe("");
+		}
 	});
 });

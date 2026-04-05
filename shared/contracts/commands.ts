@@ -85,7 +85,7 @@ export const ReadGitCommitHistorySchema = z.object({
 
 export const ReadGitCommitDetailSchema = z.object({
 	worktreePath: z.string(),
-	sha: z.string(),
+	sha: z.string().min(4),
 });
 
 // --- The API surface exposed to the renderer via the preload bridge ---
