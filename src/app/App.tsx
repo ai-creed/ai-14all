@@ -406,6 +406,14 @@ export function App() {
 			setActiveDiff(null);
 			return;
 		}
+		if (
+			!changes.some(
+				(change) => change.path === activeSession.selectedChangedFilePath,
+			)
+		) {
+			setActiveDiff(null);
+			return;
+		}
 		let cancelled = false;
 		git
 			.readDiff(activeWorktree.path, activeSession.selectedChangedFilePath)
@@ -421,7 +429,7 @@ export function App() {
 	}, [
 		activeWorktree?.path,
 		activeSession?.selectedChangedFilePath,
-		refreshKey,
+		changes,
 	]);
 
 	// Fetch commit history when active worktree changes or after refresh

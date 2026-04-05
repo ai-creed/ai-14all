@@ -475,6 +475,15 @@ export function workspaceReducer(
 	if (action.type === "session/cacheGitSummary") {
 		const session = state.sessionsByWorktreeId[action.worktreeId];
 		if (!session) return state;
+		const nextSelectedChangedFilePath =
+			!action.error &&
+			action.gitSummary &&
+			session.selectedChangedFilePath !== null &&
+			!action.gitSummary.changedFiles.some(
+				(change) => change.path === session.selectedChangedFilePath,
+			)
+				? null
+				: session.selectedChangedFilePath;
 		return {
 			...state,
 			sessionsByWorktreeId: {
@@ -483,6 +492,7 @@ export function workspaceReducer(
 					...session,
 					gitSummary: action.gitSummary,
 					gitSummaryError: action.error,
+					selectedChangedFilePath: nextSelectedChangedFilePath,
 				},
 			},
 		};

@@ -283,6 +283,41 @@ describe("App — refresh changes button", () => {
 		});
 	});
 
+	it("clears a stale changed-file selection when refresh removes that file from git summary", async () => {
+		mockReadSummary
+			.mockResolvedValueOnce({
+				branchName: "main",
+				isDirty: true,
+				changedFileCount: 1,
+				changedFiles: [{ path: "src/index.ts", status: "M" }],
+				recentCommits: [
+					{ sha: "abc", shortSha: "abc", subject: "initial commit" },
+				],
+			})
+			.mockResolvedValueOnce({
+				branchName: "main",
+				isDirty: false,
+				changedFileCount: 0,
+				changedFiles: [],
+				recentCommits: [
+					{ sha: "abc", shortSha: "abc", subject: "initial commit" },
+				],
+			});
+
+		await loadRepoAndSwitchToChanges();
+		await user.click(
+			await screen.findByRole("button", { name: /src\/index\.ts/i }),
+		);
+		const diffCallsBeforeRefresh = mockReadDiff.mock.calls.length;
+
+		fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+		await waitFor(() => {
+			expect(screen.getByText("No changed files.")).toBeInTheDocument();
+		});
+		expect(mockReadDiff.mock.calls.length).toBe(diffCallsBeforeRefresh);
+	});
+
 	it("dispatches gitSummaryError when readSummary rejects", async () => {
 		mockReadSummary.mockRejectedValueOnce(new Error("git error"));
 
