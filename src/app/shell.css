@@ -1,3 +1,13 @@
+@font-face {
+	font-family: "AI14All Terminal Powerline";
+	src:
+		url("../assets/fonts/meslo-lg-m-dz-powerline-regular.ttf")
+			format("truetype");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+
 :root {
 	--app-bg: #0b1116;
 	--panel-bg: #111a21;
@@ -14,6 +24,16 @@
 	--font-ui:
 		"SF Mono",
 		"SFMono-Regular",
+		ui-monospace,
+		Menlo,
+		Monaco,
+		monospace;
+	--font-terminal:
+		"AI14All Terminal Powerline",
+		"Meslo LG M DZ for Powerline",
+		"Meslo LG M for Powerline",
+		"Meslo LG M DZ Regular for Powerline",
+		"Hack",
 		ui-monospace,
 		Menlo,
 		Monaco,

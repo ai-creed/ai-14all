@@ -12,6 +12,7 @@ const {
 	xtermOpenMock,
 	xtermLoadAddonMock,
 	xtermOnDataMock,
+	xtermConstructorMock,
 } = vi.hoisted(() => ({
 	resizeMock: vi.fn(() => Promise.resolve()),
 	sendInputMock: vi.fn(() => Promise.resolve()),
@@ -22,6 +23,7 @@ const {
 	xtermOpenMock: vi.fn(),
 	xtermLoadAddonMock: vi.fn(),
 	xtermOnDataMock: vi.fn(() => ({ dispose: vi.fn() })),
+	xtermConstructorMock: vi.fn(),
 }));
 
 type ResizeObserverRecord = {
@@ -69,6 +71,9 @@ vi.mock("xterm", () => ({
 	Terminal: class TerminalMock {
 		cols = 80;
 		rows = 24;
+		constructor(options?: unknown) {
+			xtermConstructorMock(options);
+		}
 		loadAddon = xtermLoadAddonMock;
 		open = xtermOpenMock;
 		onData = xtermOnDataMock;
@@ -90,6 +95,7 @@ describe("TerminalPane", () => {
 		xtermOpenMock.mockReset();
 		xtermLoadAddonMock.mockReset();
 		xtermOnDataMock.mockReset();
+		xtermConstructorMock.mockReset();
 		resizeMock.mockImplementation(() => Promise.resolve());
 		sendInputMock.mockImplementation(() => Promise.resolve());
 		xtermOnDataMock.mockReturnValue({ dispose: vi.fn() });
@@ -126,5 +132,23 @@ describe("TerminalPane", () => {
 		exitedObserver.callback([], exitedObserver as never);
 
 		expect(resizeMock).not.toHaveBeenCalled();
+	});
+
+	it("constructs xterm with the bundled powerline font stack", () => {
+		const session: TerminalSession = {
+			id: "term-1",
+			worktreeId: "wt1",
+			cwd: "/repo",
+			status: "running",
+			exitCode: null,
+		};
+
+		render(<TerminalPane session={session} visible={true} />);
+
+		expect(xtermConstructorMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				fontFamily: expect.stringContaining("AI14All Terminal Powerline"),
+			}),
+		);
 	});
 });

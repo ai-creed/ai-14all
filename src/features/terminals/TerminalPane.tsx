@@ -30,6 +30,8 @@ export function TerminalPane({ session, visible }: Props) {
 			cursorBlink: true,
 			scrollback: 1000,
 			screenReaderMode: true,
+			fontFamily:
+				'"AI14All Terminal Powerline", "Meslo LG M DZ for Powerline", "Meslo LG M for Powerline", "Hack", ui-monospace, Menlo, Monaco, monospace',
 		});
 		const fitAddon = new FitAddon();
 		term.loadAddon(fitAddon);
