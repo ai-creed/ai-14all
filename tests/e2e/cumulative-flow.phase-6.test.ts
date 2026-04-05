@@ -46,6 +46,16 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await page.locator("#repo-path").fill(testRepo.repoPath);
 		await page.getByRole("button", { name: "Load" }).click();
 
+		await page.getByRole("tab", { name: "Commits" }).click();
+		await expect(page.getByRole("button", { name: "Refresh review" })).toBeVisible();
+		await expect(page.getByText("origin/main")).toBeVisible({ timeout: 15_000 });
+		await expect(
+			page.getByRole("button", { name: /initial commit/i }),
+		).toBeVisible();
+		await expect(
+			page.getByText("No recent commits to review."),
+		).toHaveCount(0);
+
 		await page
 			.getByRole("navigation", { name: "Worktree sessions" })
 			.getByRole("button", { name: /feature-a/i })

@@ -202,6 +202,20 @@ describe("GitService", () => {
 		expect(history.entries.at(-1)?.isMergeTarget).toBe(true);
 	});
 
+	it("falls back to the last ten commits when HEAD matches the merge target", async () => {
+		execSync("git update-ref refs/remotes/origin/main main", {
+			cwd: repoPath,
+			stdio: "ignore",
+		});
+
+		const history = await service.readCommitHistory(repoPath);
+
+		expect(history.mergeTargetRef).toBe("origin/main");
+		expect(history.entries[0]?.subject).toBe("initial commit");
+		expect(history.entries).toHaveLength(1);
+		expect(history.entries[0]?.isMergeTarget).toBe(false);
+	});
+
 	it("returns per-file side-by-side data for a selected commit", async () => {
 		execSync("git update-ref refs/remotes/origin/main main", {
 			cwd: repoPath,

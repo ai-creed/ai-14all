@@ -217,6 +217,23 @@ export class GitService {
 			isMergeTarget: false,
 		}));
 
+		if (entries.length === 0) {
+			const { stdout: fallbackStdout } = await execFileAsync(
+				"git",
+				["log", "--format=%H%x09%h%x09%s", "-n", "10", "HEAD"],
+				{ cwd: worktreePath },
+			);
+			return {
+				mergeTargetRef,
+				entries: parseRecentCommits(fallbackStdout).map<GitCommitListEntry>(
+					(entry) => ({
+						...entry,
+						isMergeTarget: false,
+					}),
+				),
+			};
+		}
+
 		const { stdout: mergeBaseInfo } = await execFileAsync(
 			"git",
 			["log", "--format=%H%x09%h%x09%s", "-n", "1", mergeBase],
