@@ -1,21 +1,11 @@
 type Props = {
-	worktreePath: string;
 	note: string;
 	onNoteChange: (note: string) => void;
 };
 
-export function ContextPanel({
-	worktreePath,
-	note,
-	onNoteChange,
-}: Props) {
+export function ContextPanel({ note, onNoteChange }: Props) {
 	return (
-		<aside aria-label="Session context" className="shell-panel shell-context">
-			<div className="shell-context__section">
-				<div className="shell-label">Worktree path</div>
-				<code className="shell-context__path">{worktreePath}</code>
-			</div>
-
+		<aside aria-label="Session note panel" className="shell-panel shell-session-note">
 			<label htmlFor="session-note" className="shell-label">
 				Session note
 			</label>

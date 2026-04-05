@@ -3,30 +3,23 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { ContextPanel } from "../../../src/features/workspace/ContextPanel";
 
 describe("ContextPanel", () => {
-	it("renders worktree path", () => {
-		render(
-			<ContextPanel
-				worktreePath="/repo/.worktrees/feature-a"
-				note="Investigate flaky diff"
-				onNoteChange={vi.fn()}
-			/>,
-		);
+	it("renders only the Session note field", () => {
+		render(<ContextPanel note="resume here" onNoteChange={vi.fn()} />);
 
 		expect(
-			screen.getByRole("complementary", { name: "Session context" }),
+			screen.getByRole("complementary", { name: "Session note panel" }),
 		).toBeInTheDocument();
-		expect(screen.getByText("/repo/.worktrees/feature-a")).toBeInTheDocument();
+		expect(screen.getByText("Session note")).toBeInTheDocument();
+		expect(screen.getByLabelText("Session note")).toHaveValue("resume here");
+		expect(
+			screen.queryByText("/repo/.worktrees/feature-a"),
+		).not.toBeInTheDocument();
 	});
 
 	it("propagates note changes", () => {
 		const onNoteChange = vi.fn();
-		render(
-			<ContextPanel
-				worktreePath="/repo/.worktrees/feature-a"
-				note=""
-				onNoteChange={onNoteChange}
-			/>,
-		);
+
+		render(<ContextPanel note="" onNoteChange={onNoteChange} />);
 
 		fireEvent.change(screen.getByLabelText("Session note"), {
 			target: { value: "Check git diff output" },
@@ -36,13 +29,7 @@ describe("ContextPanel", () => {
 	});
 
 	it("renders the note textarea with current value", () => {
-		render(
-			<ContextPanel
-				worktreePath="/repo"
-				note="My session note"
-				onNoteChange={vi.fn()}
-			/>,
-		);
+		render(<ContextPanel note="My session note" onNoteChange={vi.fn()} />);
 		expect(screen.getByLabelText("Session note")).toHaveValue("My session note");
 	});
 });
