@@ -50,4 +50,14 @@ describe("ChangesList", () => {
 		expect(screen.getByText("Unable to load Git data.")).toBeInTheDocument();
 		expect(screen.queryByText("No changed files.")).not.toBeInTheDocument();
 	});
+
+	it("wraps the empty state in a padded rail message container", () => {
+		render(
+			<ChangesList changes={[]} selectedPath={null} onSelect={() => {}} />,
+		);
+
+		expect(screen.getByText("No changed files.").parentElement).toHaveClass(
+			"shell-rail__message",
+		);
+	});
 });

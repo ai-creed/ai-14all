@@ -570,6 +570,10 @@ textarea {
 	max-height: none;
 }
 
+.shell-rail__message {
+	padding: var(--space-4);
+}
+
 .shell-scrollbar {
 	width: 10px;
 	background: transparent;

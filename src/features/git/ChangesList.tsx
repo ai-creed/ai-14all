@@ -14,11 +14,19 @@ export function ChangesList({
 	gitSummaryError,
 }: Props) {
 	if (gitSummaryError) {
-		return <p className="shell-empty-state">Unable to load Git data.</p>;
+		return (
+			<div className="shell-rail__message">
+				<p className="shell-empty-state">Unable to load Git data.</p>
+			</div>
+		);
 	}
 
 	if (changes.length === 0) {
-		return <p className="shell-empty-state">No changed files.</p>;
+		return (
+			<div className="shell-rail__message">
+				<p className="shell-empty-state">No changed files.</p>
+			</div>
+		);
 	}
 
 	return (

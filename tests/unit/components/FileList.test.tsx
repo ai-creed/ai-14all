@@ -140,6 +140,9 @@ describe("FileList", () => {
 		expect(
 			await screen.findByText("No nearby files for changed directories."),
 		).toBeInTheDocument();
+		expect(
+			screen.getByText("No nearby files for changed directories.").parentElement,
+		).toHaveClass("shell-rail__message");
 		expect(mockListScoped).not.toHaveBeenCalled();
 	});
 

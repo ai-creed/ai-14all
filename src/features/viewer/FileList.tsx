@@ -81,19 +81,34 @@ export function FileList({
 	}, [worktreePath, scopeRoots]);
 
 	if (gitSummaryError) {
-		return <p className="shell-empty-state">Unable to load Git data.</p>;
+		return (
+			<div className="shell-rail__message">
+				<p className="shell-empty-state">Unable to load Git data.</p>
+			</div>
+		);
 	}
 
 	if (scopeRoots.length === 0)
 		return (
-			<p className="shell-empty-state">
-				No nearby files for changed directories.
-			</p>
+			<div className="shell-rail__message">
+				<p className="shell-empty-state">
+					No nearby files for changed directories.
+				</p>
+			</div>
 		);
-	if (loading) return <p className="shell-empty-state">Loading files…</p>;
+	if (loading)
+		return (
+			<div className="shell-rail__message">
+				<p className="shell-empty-state">Loading files…</p>
+			</div>
+		);
 	if (error) return <p className="shell-error">Error: {error}</p>;
 	if (fileList.length === 0)
-		return <p className="shell-empty-state">No files found.</p>;
+		return (
+			<div className="shell-rail__message">
+				<p className="shell-empty-state">No files found.</p>
+			</div>
+		);
 
 	const tree = buildScopedFileTree(fileList);
 
