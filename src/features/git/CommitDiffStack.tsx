@@ -32,8 +32,23 @@ function languageFromPath(path: string): string | undefined {
 	return ext ? EXTENSION_TO_LANGUAGE[ext] : undefined;
 }
 
+function lineCount(content: string): number {
+	const normalized = content.endsWith("\n") ? content.slice(0, -1) : content;
+	if (!normalized) return 1;
+	return normalized.split("\n").length;
+}
+
+function editorHeightForFile(
+	originalContent: string,
+	modifiedContent: string,
+): string {
+	const lines = Math.max(lineCount(originalContent), lineCount(modifiedContent));
+	return `${Math.max(lines * 20 + 32, 160)}px`;
+}
+
 export function CommitDiffStack({ detail, focusedPath }: Props) {
 	const [collapsedPaths, setCollapsedPaths] = useState<Set<string>>(new Set());
+	const singleFile = detail.files.length === 1;
 
 	useEffect(() => {
 		if (focusedPath) {
@@ -47,52 +62,70 @@ export function CommitDiffStack({ detail, focusedPath }: Props) {
 	}, [focusedPath]);
 
 	return (
-		<div className="shell-commit-diff-stack">
+		<div
+			className="shell-commit-diff-stack"
+			data-single-file={String(singleFile)}
+		>
 			<div className="shell-viewer__header">
 				<div className="shell-viewer__title">{detail.subject}</div>
 				<div className="shell-viewer__meta">{detail.shortSha}</div>
 			</div>
-			{detail.files.map((file) => {
-				const collapsed = collapsedPaths.has(file.path);
-				return (
-					<section
-						key={file.path}
-						data-testid={`commit-diff-section-${file.path}`}
-						data-focused={String(focusedPath === file.path)}
-						className="shell-commit-diff-section"
-					>
-						<button
-							type="button"
-							className="shell-commit-diff-section__header"
-							onClick={() =>
-								setCollapsedPaths((prev) => {
-									const next = new Set(prev);
-									if (next.has(file.path)) next.delete(file.path);
-									else next.add(file.path);
-									return next;
-								})
-							}
+			<div className="shell-commit-diff-stack__body">
+				{detail.files.map((file) => {
+					const collapsed = collapsedPaths.has(file.path);
+					return (
+						<section
+							key={file.path}
+							data-testid={`commit-diff-section-${file.path}`}
+							data-focused={String(focusedPath === file.path)}
+							className="shell-commit-diff-section"
 						>
-							<span>{file.path}</span>
-							<strong>{file.status}</strong>
-						</button>
-						{!collapsed && (
-							<DiffEditor
-								height="260px"
-								language={languageFromPath(file.path)}
-								theme="vs-dark"
-								original={file.originalContent}
-								modified={file.modifiedContent}
-								options={{
-									readOnly: true,
-									renderSideBySide: true,
-									minimap: { enabled: false },
-								}}
-							/>
-						)}
-					</section>
-				);
-			})}
+							<button
+								type="button"
+								className="shell-commit-diff-section__header"
+								onClick={() =>
+									setCollapsedPaths((prev) => {
+										const next = new Set(prev);
+										if (next.has(file.path)) next.delete(file.path);
+										else next.add(file.path);
+										return next;
+									})
+								}
+							>
+								<span>{file.path}</span>
+								<strong>{file.status}</strong>
+							</button>
+							{!collapsed && (
+								<DiffEditor
+									height={
+										singleFile
+											? "100%"
+											: editorHeightForFile(
+													file.originalContent,
+													file.modifiedContent,
+												)
+									}
+									language={languageFromPath(file.path)}
+									theme="vs-dark"
+									original={file.originalContent}
+									modified={file.modifiedContent}
+									options={{
+										readOnly: true,
+										renderSideBySide: true,
+										minimap: { enabled: false },
+										scrollBeyondLastLine: false,
+										scrollbar: {
+											vertical: "hidden",
+											horizontal: "auto",
+											alwaysConsumeMouseWheel: false,
+										},
+									}}
+								/>
+							)}
+						</section>
+					);
+				})}
+			</div>
 		</div>
 	);
 }

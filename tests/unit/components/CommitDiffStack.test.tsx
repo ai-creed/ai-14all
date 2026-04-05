@@ -1,12 +1,16 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, rerender } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CommitDiffStack } from "../../../src/features/git/CommitDiffStack";
 
 // Monaco DiffEditor won't load in jsdom — mock it
 vi.mock("@monaco-editor/react", () => ({
-	DiffEditor: (props: { theme?: string }) => (
-		<div data-testid="mock-diff-editor" data-theme={props.theme} />
+	DiffEditor: (props: { theme?: string; height?: string }) => (
+		<div
+			data-testid="mock-diff-editor"
+			data-theme={props.theme}
+			data-height={props.height}
+		/>
 	),
 }));
 
@@ -25,6 +29,20 @@ const detail = {
 	],
 };
 
+const multiFileDetail = {
+	...detail,
+	files: [
+		...detail.files,
+		{
+			path: "src/shell.css",
+			oldPath: null,
+			status: "M" as const,
+			originalContent: ".shell {}\n",
+			modifiedContent: ".shell { color: red; }\n",
+		},
+	],
+};
+
 describe("CommitDiffStack", () => {
 	it("renders collapsible side-by-side sections for each file", () => {
 		render(<CommitDiffStack detail={detail} focusedPath="src/index.ts" />);
@@ -37,6 +55,10 @@ describe("CommitDiffStack", () => {
 		expect(screen.getByTestId("mock-diff-editor")).toHaveAttribute(
 			"data-theme",
 			"vs-dark",
+		);
+		expect(screen.getByTestId("mock-diff-editor")).toHaveAttribute(
+			"data-height",
+			"100%",
 		);
 	});
 
@@ -52,5 +74,14 @@ describe("CommitDiffStack", () => {
 		// Selecting the file via focusedPath should re-expand it
 		rerender(<CommitDiffStack detail={detail} focusedPath="src/index.ts" />);
 		expect(screen.getByTestId("mock-diff-editor")).toBeInTheDocument();
+	});
+
+	it("autosizes editors when rendering multiple commit files", () => {
+		render(<CommitDiffStack detail={multiFileDetail} focusedPath={null} />);
+
+		expect(screen.getAllByTestId("mock-diff-editor")).toHaveLength(2);
+		for (const editor of screen.getAllByTestId("mock-diff-editor")) {
+			expect(editor).toHaveAttribute("data-height", "160px");
+		}
 	});
 });
