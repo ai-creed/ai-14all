@@ -47,7 +47,8 @@ textarea {
 }
 
 .shell-app {
-	min-height: 100vh;
+	height: 100vh;
+	overflow: hidden;
 	background: transparent;
 }
 
@@ -65,9 +66,9 @@ textarea {
 
 .shell-layout {
 	display: grid;
-	grid-template-columns: 260px minmax(0, 1fr) 300px;
+	height: 100vh;
+	grid-template-columns: 240px minmax(0, 1fr);
 	gap: var(--space-4);
-	min-height: 100vh;
 	padding: var(--space-4);
 }
 
@@ -85,10 +86,9 @@ textarea {
 
 .shell-terminal-section {
 	display: grid;
-	grid-template-rows: auto minmax(0, 1fr);
-	height: 720px;
-	min-height: 720px;
-	max-height: 720px;
+	grid-template-rows: minmax(520px, 1fr);
+	min-height: 520px;
+	max-height: none;
 }
 
 .shell-review-grid {
@@ -251,7 +251,9 @@ textarea {
 }
 
 .shell-terminal-tabs {
-	padding: var(--space-3);
+	border: 0;
+	padding: 0;
+	background: transparent;
 }
 
 .shell-terminal-tabs__bar,
@@ -271,8 +273,8 @@ textarea {
 .shell-terminal-tab {
 	padding: 10px 14px;
 	color: var(--text-secondary);
-	background: #0f171d;
-	border: 1px solid var(--panel-border);
+	background: transparent;
+	border: 1px solid transparent;
 	border-radius: 999px;
 }
 
@@ -446,6 +448,12 @@ textarea {
 
 .shell-toolbar-menu__item:hover {
 	background: var(--panel-bg-elevated);
+}
+
+.shell-toolbar-menu__separator {
+	height: 1px;
+	background: var(--panel-border);
+	margin: var(--space-1) 0;
 }
 
 /* Scoped file tree */

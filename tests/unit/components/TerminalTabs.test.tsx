@@ -253,9 +253,12 @@ describe("TerminalTabs", () => {
 
 		fireEvent.click(screen.getByRole("button", { name: "+ Shell" }));
 		fireEvent.click(screen.getByRole("tab", { name: "shell 2" }));
-		await user.click(
-			screen.getByRole("button", { name: "Actions for shell 1" }),
-		);
+		await user.pointer([
+			{
+				target: screen.getByRole("tab", { name: "shell 1" }),
+				keys: "[MouseRight]",
+			},
+		]);
 		await user.click(screen.getByRole("menuitem", { name: "Close" }));
 
 		expect(onAddAdHoc).toHaveBeenCalled();
@@ -276,23 +279,32 @@ describe("TerminalTabs", () => {
 		});
 
 		// Open the tab context menu and click Stop
-		await user.click(
-			screen.getByRole("button", { name: "Actions for shell 1" }),
-		);
+		await user.pointer([
+			{
+				target: screen.getByRole("tab", { name: "shell 1" }),
+				keys: "[MouseRight]",
+			},
+		]);
 		await user.click(screen.getByRole("menuitem", { name: "Stop" }));
 		expect(onStop).toHaveBeenCalledWith("proc-1");
 
 		// Re-open and test restart
-		await user.click(
-			screen.getByRole("button", { name: "Actions for shell 1" }),
-		);
+		await user.pointer([
+			{
+				target: screen.getByRole("tab", { name: "shell 1" }),
+				keys: "[MouseRight]",
+			},
+		]);
 		await user.click(screen.getByRole("menuitem", { name: "Restart" }));
 		expect(onRestart).toHaveBeenCalledWith("proc-1");
 
 		// Re-open and test pin toggle
-		await user.click(
-			screen.getByRole("button", { name: "Actions for shell 1" }),
-		);
+		await user.pointer([
+			{
+				target: screen.getByRole("tab", { name: "shell 1" }),
+				keys: "[MouseRight]",
+			},
+		]);
 		await user.click(screen.getByRole("menuitem", { name: "Pin" }));
 		expect(onTogglePinned).toHaveBeenCalledWith("proc-1");
 	});
@@ -305,11 +317,31 @@ describe("TerminalTabs", () => {
 			"proc-1",
 		);
 
-		await user.click(
-			screen.getByRole("button", { name: "Actions for Claude" }),
-		);
+		await user.pointer([
+			{
+				target: screen.getByRole("tab", { name: "Claude" }),
+				keys: "[MouseRight]",
+			},
+		]);
 
 		expect(screen.getByRole("menuitem", { name: "Unpin" })).toBeInTheDocument();
+	});
+
+	it("opens the process actions menu on right click of a terminal tab", async () => {
+		const user = userEvent.setup();
+		renderTabs([proc({ id: "proc-1", label: "shell 1" })], "proc-1");
+
+		await user.pointer([
+			{
+				target: screen.getByRole("tab", { name: "shell 1" }),
+				keys: "[MouseRight]",
+			},
+		]);
+
+		expect(screen.getByRole("menuitem", { name: "Pin" })).toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Actions for shell 1" }),
+		).not.toBeInTheDocument();
 	});
 
 	it("supports keyboard tab switching", async () => {

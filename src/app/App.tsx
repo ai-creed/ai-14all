@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import * as Tabs from "@radix-ui/react-tabs";
 import type { Repository } from "../../shared/models/repository";
@@ -298,6 +298,21 @@ export function App() {
 		void workspace.writeRestoreState(persistableState);
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- persistableStateJson is used for change detection; persistableState (same data) is used for the write
 	}, [startupMode, persistableStateJson]);
+
+	const defaultShellEnsuredByWorktreeRef = useRef<Set<string>>(new Set());
+
+	useEffect(() => {
+		if (startupMode !== "ready") return;
+		if (!activeWorktree || !activeSession) return;
+		if (activeSession.processSessionIds.length > 0) return;
+		if (defaultShellEnsuredByWorktreeRef.current.has(activeWorktree.id)) return;
+
+		defaultShellEnsuredByWorktreeRef.current.add(activeWorktree.id);
+		void handleAddAdHoc().catch(() => {
+			defaultShellEnsuredByWorktreeRef.current.delete(activeWorktree.id);
+		});
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- guarded one-time default shell creation per worktree
+	}, [startupMode, activeWorktree?.id, activeSession?.processSessionIds.length]);
 
 	// Fetch git summary when active worktree changes or user refreshes
 	useEffect(() => {

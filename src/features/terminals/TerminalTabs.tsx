@@ -1,6 +1,7 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import * as ContextMenu from "@radix-ui/react-context-menu";
 import type {
 	ProcessSession,
 	ProcessStatus,
@@ -76,62 +77,53 @@ export function TerminalTabs({
 								process.exitCode,
 							);
 							return (
-								<div key={process.id} className="shell-terminal-tabs__item">
-									<Tabs.Trigger
-										value={process.id}
-										className="shell-terminal-tab"
-										data-status={process.status}
-										data-attention={process.attentionState}
-										data-pinned={String(process.pinned)}
-										{...(process.lastActivityAt != null
-											? { "data-last-activity": String(process.lastActivityAt) }
-											: {})}
-										onClick={() => onSelect(process.id)}
-									>
-										{process.label}
-										{suffix}
-									</Tabs.Trigger>
-									<DropdownMenu.Root>
-										<DropdownMenu.Trigger asChild>
-											<button
-												type="button"
-												className="shell-terminal-tab__actions"
-												aria-label={`Actions for ${process.label}`}
+								<ContextMenu.Root key={process.id}>
+									<ContextMenu.Trigger className="shell-terminal-tabs__item">
+										<Tabs.Trigger
+											value={process.id}
+											className="shell-terminal-tab"
+											data-status={process.status}
+											data-attention={process.attentionState}
+											data-pinned={String(process.pinned)}
+											{...(process.lastActivityAt != null
+												? { "data-last-activity": String(process.lastActivityAt) }
+												: {})}
+											onClick={() => onSelect(process.id)}
+										>
+											{process.label}
+											{suffix}
+										</Tabs.Trigger>
+									</ContextMenu.Trigger>
+									<ContextMenu.Portal>
+										<ContextMenu.Content className="shell-toolbar-menu">
+											<ContextMenu.Item
+												className="shell-toolbar-menu__item"
+												onSelect={() => onStop(process.id)}
 											>
-												···
-											</button>
-										</DropdownMenu.Trigger>
-										<DropdownMenu.Portal>
-											<DropdownMenu.Content className="shell-toolbar-menu">
-												<DropdownMenu.Item
-													className="shell-toolbar-menu__item"
-													onSelect={() => onStop(process.id)}
-												>
-													Stop
-												</DropdownMenu.Item>
-												<DropdownMenu.Item
-													className="shell-toolbar-menu__item"
-													onSelect={() => onRestart(process.id)}
-												>
-													Restart
-												</DropdownMenu.Item>
-												<DropdownMenu.Item
-													className="shell-toolbar-menu__item"
-													onSelect={() => onTogglePinned(process.id)}
-												>
-													{process.pinned ? "Unpin" : "Pin"}
-												</DropdownMenu.Item>
-												<DropdownMenu.Separator className="shell-toolbar-menu__separator" />
-												<DropdownMenu.Item
-													className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
-													onSelect={() => onClose(process.id)}
-												>
-													Close
-												</DropdownMenu.Item>
-											</DropdownMenu.Content>
-										</DropdownMenu.Portal>
-									</DropdownMenu.Root>
-								</div>
+												Stop
+											</ContextMenu.Item>
+											<ContextMenu.Item
+												className="shell-toolbar-menu__item"
+												onSelect={() => onRestart(process.id)}
+											>
+												Restart
+											</ContextMenu.Item>
+											<ContextMenu.Item
+												className="shell-toolbar-menu__item"
+												onSelect={() => onTogglePinned(process.id)}
+											>
+												{process.pinned ? "Unpin" : "Pin"}
+											</ContextMenu.Item>
+											<ContextMenu.Separator className="shell-toolbar-menu__separator" />
+											<ContextMenu.Item
+												className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
+												onSelect={() => onClose(process.id)}
+											>
+												Close
+											</ContextMenu.Item>
+										</ContextMenu.Content>
+									</ContextMenu.Portal>
+								</ContextMenu.Root>
 							);
 						})}
 					</Tabs.List>

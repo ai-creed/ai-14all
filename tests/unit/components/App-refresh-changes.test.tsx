@@ -460,15 +460,16 @@ describe("App — process lifecycle", () => {
 		render(<App />);
 		await loadRepository();
 		await createPreset("Claude", "claude");
-		// Launch preset — gets terminal-1, becomes active process
+		// loadRepository auto-creates one default shell (terminal-1)
+		// Launch preset — gets terminal-2, becomes active process
 		await user.click(screen.getByRole("button", { name: "Launch preset" }));
 		await user.click(screen.getByRole("menuitem", { name: "Claude" }));
-		// Add an ad-hoc shell — gets terminal-2, becomes the active process
+		// Add an ad-hoc shell — gets terminal-3, becomes the active process
 		// so the preset process is now in the background
 		await user.click(screen.getByRole("button", { name: "+ Shell" }));
 		// Emit output on preset's terminal while it's in the background
 		act(() => {
-			emitTerminalOutput("terminal-1", "Continue? [y/N]");
+			emitTerminalOutput("terminal-2", "Continue? [y/N]");
 		});
 
 		expect(screen.getByRole("tab", { name: /Claude/i })).toHaveAttribute(
