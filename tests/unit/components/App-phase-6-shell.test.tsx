@@ -252,10 +252,13 @@ describe("App — Phase 6 default shell", () => {
 		await screen.findByLabelText("Session info");
 		expect(screen.getByLabelText("Session note panel")).toBeInTheDocument();
 		expect(screen.queryByText("Active session")).not.toBeInTheDocument();
+		expect(document.querySelectorAll(".shell-top-band.shell-panel")).toHaveLength(1);
+		expect(screen.getByRole("button", { name: "Collapse top band" })).toBeInTheDocument();
 
-		await userEvent.click(screen.getByRole("button", { name: "Collapse session info" }));
+		await userEvent.click(screen.getByRole("button", { name: "Collapse top band" }));
 
 		expect(screen.queryByLabelText("Session note panel")).not.toBeInTheDocument();
 		expect(screen.getAllByText("master").length).toBeGreaterThanOrEqual(1);
+		expect(screen.getByRole("button", { name: "Expand top band" })).toBeInTheDocument();
 	});
 });

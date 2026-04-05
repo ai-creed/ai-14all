@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { SessionHeader } from "../../../src/features/workspace/SessionHeader";
 
 describe("SessionHeader", () => {
@@ -12,19 +12,18 @@ describe("SessionHeader", () => {
 				changedFileCount={0}
 				isDirty={false}
 				collapsed={false}
-				onToggleCollapsed={vi.fn()}
 			/>,
 		);
 
-		expect(screen.getByLabelText("Session info")).toHaveClass(
-			"shell-session-info--framed",
-		);
+		expect(screen.getByLabelText("Session info")).toHaveClass("shell-session-info");
 		expect(screen.getByText("Session info")).toBeInTheDocument();
 		expect(screen.getByText("/repo")).toBeInTheDocument();
 		expect(screen.getByText("my-worktree")).toBeInTheDocument();
 		expect(screen.getByText("main")).toBeInTheDocument();
 		expect(screen.getByText("Clean")).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Collapse session info" })).toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: /collapse/i }),
+		).not.toBeInTheDocument();
 	});
 
 	it("renders Unknown status when gitSummaryError is true", () => {
@@ -37,7 +36,6 @@ describe("SessionHeader", () => {
 				isDirty={false}
 				gitSummaryError
 				collapsed={false}
-				onToggleCollapsed={vi.fn()}
 			/>,
 		);
 
@@ -53,7 +51,6 @@ describe("SessionHeader", () => {
 				changedFileCount={2}
 				isDirty
 				collapsed
-				onToggleCollapsed={vi.fn()}
 			/>,
 		);
 
@@ -64,25 +61,8 @@ describe("SessionHeader", () => {
 		expect(
 			screen.queryByText("/repo/.worktrees/feature-a"),
 		).not.toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Expand session info" })).toBeInTheDocument();
-	});
-
-	it("calls onToggleCollapsed from the toggle button", () => {
-		const onToggleCollapsed = vi.fn();
-
-		render(
-			<SessionHeader
-				title="master"
-				worktreePath="/repo"
-				branchName="master"
-				changedFileCount={0}
-				isDirty={false}
-				collapsed={false}
-				onToggleCollapsed={onToggleCollapsed}
-			/>,
-		);
-
-		fireEvent.click(screen.getByRole("button", { name: "Collapse session info" }));
-		expect(onToggleCollapsed).toHaveBeenCalledTimes(1);
+		expect(
+			screen.queryByRole("button", { name: /expand/i }),
+		).not.toBeInTheDocument();
 	});
 });

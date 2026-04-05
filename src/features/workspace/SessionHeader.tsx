@@ -6,7 +6,6 @@ type Props = {
 	isDirty: boolean;
 	gitSummaryError?: boolean;
 	collapsed: boolean;
-	onToggleCollapsed: () => void;
 };
 
 export function SessionHeader({
@@ -17,15 +16,11 @@ export function SessionHeader({
 	isDirty,
 	gitSummaryError = false,
 	collapsed,
-	onToggleCollapsed,
 }: Props) {
 	const statusLabel = gitSummaryError ? "Unknown" : isDirty ? "Dirty" : "Clean";
 
 	return (
-		<section
-			aria-label="Session info"
-			className="shell-panel shell-session-info shell-session-info--framed"
-		>
+		<section aria-label="Session info" className="shell-session-info">
 			<div className="shell-session-info__header">
 				<div>
 					{!collapsed && <div className="shell-label">Session info</div>}
@@ -38,15 +33,6 @@ export function SessionHeader({
 						<span>{changedFileCount}</span>
 					</div>
 				)}
-				<button
-					type="button"
-					className="shell-session-info__toggle"
-					aria-expanded={!collapsed}
-					aria-label={collapsed ? "Expand session info" : "Collapse session info"}
-					onClick={onToggleCollapsed}
-				>
-					{collapsed ? "Expand" : "Collapse"}
-				</button>
 			</div>
 
 			{!collapsed && (

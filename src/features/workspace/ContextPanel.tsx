@@ -5,7 +5,7 @@ type Props = {
 
 export function ContextPanel({ note, onNoteChange }: Props) {
 	return (
-		<aside aria-label="Session note panel" className="shell-panel shell-session-note">
+		<aside aria-label="Session note panel" className="shell-session-note">
 			<label htmlFor="session-note" className="shell-label">
 				Session note
 			</label>

@@ -706,9 +706,29 @@ export function App() {
 				<section className="shell-main-column">
 					{activeWorktree && activeSession && (
 						<section
-							className="shell-top-band"
+							className="shell-panel shell-top-band"
 							data-collapsed={workspaceState.topBandCollapsed ? "true" : "false"}
 						>
+							<button
+								type="button"
+								className="shell-top-band__toggle"
+								aria-expanded={!workspaceState.topBandCollapsed}
+								aria-label={
+									workspaceState.topBandCollapsed
+										? "Expand top band"
+										: "Collapse top band"
+								}
+								onClick={() =>
+									dispatch({
+										type: "workspace/setTopBandCollapsed",
+										collapsed: !workspaceState.topBandCollapsed,
+									})
+								}
+							>
+								<span aria-hidden="true">
+									{workspaceState.topBandCollapsed ? "▾" : "▴"}
+								</span>
+							</button>
 							<SessionHeader
 								title={activeWorktree.label}
 								worktreePath={activeWorktree.path}
@@ -717,12 +737,6 @@ export function App() {
 								isDirty={activeSummary?.isDirty ?? false}
 								gitSummaryError={gitSummaryError}
 								collapsed={workspaceState.topBandCollapsed}
-								onToggleCollapsed={() =>
-									dispatch({
-										type: "workspace/setTopBandCollapsed",
-										collapsed: !workspaceState.topBandCollapsed,
-									})
-								}
 							/>
 							{!workspaceState.topBandCollapsed && (
 								<ContextPanel
