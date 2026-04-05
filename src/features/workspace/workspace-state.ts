@@ -1,4 +1,7 @@
-import type { CommandPreset } from "../../../shared/models/command-preset";
+import {
+	DEFAULT_COMMAND_PRESETS,
+	type CommandPreset,
+} from "../../../shared/models/command-preset";
 import type { GitSummary } from "../../../shared/models/git-summary";
 import type {
 	PersistedWorktreeSession,
@@ -128,7 +131,7 @@ export function createWorkspaceState(worktrees: Worktree[]): WorkspaceState {
 	return {
 		selectedWorktreeId: worktrees[0]?.id ?? null,
 		topBandCollapsed: false,
-		commandPresets: [],
+		commandPresets: DEFAULT_COMMAND_PRESETS.map((preset) => ({ ...preset })),
 		processSessionsById: {},
 		sessionsByWorktreeId: Object.fromEntries(
 			worktrees.map((worktree) => [worktree.id, createSession(worktree)]),

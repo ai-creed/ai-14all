@@ -81,7 +81,7 @@ textarea {
 }
 
 .shell-panel {
-	background: var(--panel-bg);
+	background: transparent;
 	border: 1px solid var(--panel-border);
 	border-radius: var(--radius-md);
 }
@@ -126,7 +126,7 @@ textarea {
 	place-items: center;
 	padding: 0;
 	color: var(--text-secondary);
-	background: #0a1115;
+	background: transparent;
 	border: 1px solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	line-height: 1;
@@ -186,7 +186,7 @@ textarea {
 	white-space: pre-wrap;
 	word-break: break-word;
 	padding: 6px 8px;
-	background: #0a1115;
+	background: rgba(10, 17, 21, 0.22);
 	border: 1px solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	font-size: 0.84rem;
@@ -280,7 +280,7 @@ textarea {
 	margin-top: var(--space-2);
 	padding: var(--space-3);
 	color: var(--text-primary);
-	background: #0d1419;
+	background: rgba(13, 20, 25, 0.22);
 	border: 1px solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	resize: vertical;
@@ -366,7 +366,7 @@ textarea {
 	min-height: 0;
 	padding: 0;
 	overflow: hidden;
-	background: #0a1115;
+	background: transparent;
 }
 
 .shell-terminal-tabs {

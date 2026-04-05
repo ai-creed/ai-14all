@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Worktree } from "../../../shared/models/worktree";
-import type { CommandPreset } from "../../../shared/models/command-preset";
+import {
+	DEFAULT_COMMAND_PRESETS,
+	type CommandPreset,
+} from "../../../shared/models/command-preset";
 import {
 	createWorkspaceState,
 	workspaceReducer,
@@ -40,6 +43,11 @@ describe("workspaceReducer", () => {
 		expect(state.selectedWorktreeId).toBe("main");
 		expect(state.sessionsByWorktreeId.main.reviewMode).toBe("files");
 		expect(state.sessionsByWorktreeId["feature-a"].note).toBe("");
+	});
+
+	it("seeds fresh workspaces with default terminal presets", () => {
+		const state = createWorkspaceState(worktrees);
+		expect(state.commandPresets).toEqual(DEFAULT_COMMAND_PRESETS);
 	});
 
 	it("restores worktree-specific selections when switching between sessions", () => {
@@ -261,7 +269,10 @@ describe("workspaceReducer — Phase 3 process model", () => {
 			type: "preset/upsert",
 			preset,
 		});
-		expect(state.commandPresets).toEqual([preset]);
+		expect(state.commandPresets).toEqual([
+			...DEFAULT_COMMAND_PRESETS,
+			preset,
+		]);
 	});
 
 	it("registers preset-launched process sessions as pinned", () => {

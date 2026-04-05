@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_COMMAND_PRESETS } from "../../../shared/models/command-preset";
 import { buildWorkspaceSnapshot, splitPendingRestores } from "../../../src/features/workspace/workspace-persistence";
 import { createWorkspaceState, workspaceReducer } from "../../../src/features/workspace/workspace-state";
 import { PersistedWorkspaceStateSchema } from "../../../shared/models/persisted-workspace-state";
@@ -38,7 +39,7 @@ describe("buildWorkspaceSnapshot", () => {
 			repositoryPath: "/repo",
 			selectedWorktreeId: "main",
 			topBandCollapsed: false,
-			commandPresets: [],
+			commandPresets: DEFAULT_COMMAND_PRESETS,
 			worktreeSessions: [
 				{
 					worktreeId: "main",
@@ -68,6 +69,7 @@ describe("buildWorkspaceSnapshot", () => {
 
 	it("returns empty worktreeSessions and null selectedWorktreeId for empty state", () => {
 		const snapshot = buildWorkspaceSnapshot("/repo", createWorkspaceState([]));
+		expect(snapshot.commandPresets).toEqual(DEFAULT_COMMAND_PRESETS);
 		expect(snapshot.worktreeSessions).toEqual([]);
 		expect(snapshot.selectedWorktreeId).toBeNull();
 	});
