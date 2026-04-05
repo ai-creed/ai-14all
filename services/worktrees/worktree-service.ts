@@ -6,11 +6,13 @@ import { randomUUID } from "node:crypto";
 import type { Repository } from "../../shared/models/repository.js";
 import type { Worktree } from "../../shared/models/worktree.js";
 import { parseWorktreePorcelain } from "./parse-worktree-porcelain.js";
+import { getGitBinaryPath } from "../git/git-binary.js";
 
 const execFileAsync = promisify(execFile);
+const gitBinary = getGitBinaryPath();
 
 async function git(args: string[], cwd: string): Promise<string> {
-	const { stdout } = await execFileAsync("git", args, { cwd });
+	const { stdout } = await execFileAsync(gitBinary, args, { cwd });
 	return stdout.trim();
 }
 

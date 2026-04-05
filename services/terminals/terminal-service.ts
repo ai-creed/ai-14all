@@ -29,6 +29,7 @@ type ActiveTerminalSession = {
 export class TerminalService {
 	private readonly sessions = new Map<string, ActiveTerminalSession>();
 	private readonly handlers: TerminalEventHandlers;
+	private disposed = false;
 
 	constructor(handlers: TerminalEventHandlers) {
 		this.handlers = handlers;
@@ -38,6 +39,10 @@ export class TerminalService {
 	// create
 	// -----------------------------------------------------------------------
 	create(worktreeId: string, cwd: string): TerminalSession {
+		if (this.disposed) {
+			throw new Error("Terminal service has been disposed");
+		}
+
 		const id = randomUUID();
 
 		const shell = process.env.SHELL ?? "/bin/zsh";
@@ -77,15 +82,19 @@ export class TerminalService {
 		this.sessions.set(id, { meta, pty: p });
 
 		// Broadcast initial state
-		this.handlers.onState(id, "running");
+		if (!this.disposed) {
+			this.handlers.onState(id, "running");
+		}
 
 		// Forward PTY output
 		p.onData((data: string) => {
+			if (this.disposed) return;
 			this.handlers.onOutput(id, data);
 		});
 
 		// Handle PTY exit
 		p.onExit(({ exitCode, signal }) => {
+			if (this.disposed) return;
 			const session = this.sessions.get(id);
 			if (!session) return; // Already cleaned up (e.g. dispose() was called)
 			session.meta.status = "exited";
@@ -102,6 +111,9 @@ export class TerminalService {
 	// sendInput
 	// -----------------------------------------------------------------------
 	sendInput(sessionId: string, data: string): void {
+		if (this.disposed) {
+			throw new Error("Terminal service has been disposed");
+		}
 		const session = this.sessions.get(sessionId);
 		if (!session) {
 			throw new Error(`Terminal session not found: ${sessionId}`);
@@ -113,6 +125,9 @@ export class TerminalService {
 	// resize
 	// -----------------------------------------------------------------------
 	resize(sessionId: string, cols: number, rows: number): void {
+		if (this.disposed) {
+			return;
+		}
 		const session = this.sessions.get(sessionId);
 		if (!session) {
 			return;
@@ -124,6 +139,9 @@ export class TerminalService {
 	// stop
 	// -----------------------------------------------------------------------
 	stop(sessionId: string): void {
+		if (this.disposed) {
+			return;
+		}
 		const session = this.sessions.get(sessionId);
 		if (!session) {
 			return;
@@ -136,7 +154,13 @@ export class TerminalService {
 	// dispose — tear down all sessions (for app quit)
 	// -----------------------------------------------------------------------
 	dispose(): void {
-		for (const session of this.sessions.values()) {
+		if (this.disposed) {
+			return;
+		}
+		this.disposed = true;
+		const activeSessions = [...this.sessions.values()];
+		this.sessions.clear();
+		for (const session of activeSessions) {
 			try {
 				session.pty.kill();
 			} catch {

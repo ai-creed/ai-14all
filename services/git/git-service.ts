@@ -17,15 +17,17 @@ import type {
 	GitCommitHistory,
 	GitCommitListEntry,
 } from "../../shared/models/git-commit-review.js";
+import { getGitBinaryPath } from "./git-binary.js";
 
 const execFileAsync = promisify(execFile);
+const gitBinary = getGitBinaryPath();
 
 async function readDiffCommand(
 	args: string[],
 	worktreePath: string,
 ): Promise<string> {
 	try {
-		const { stdout } = await execFileAsync("git", args, { cwd: worktreePath });
+		const { stdout } = await execFileAsync(gitBinary, args, { cwd: worktreePath });
 		return stdout;
 	} catch (error: unknown) {
 		const stdout =
@@ -86,7 +88,7 @@ function parseStatusLine(line: string): GitChange | null {
 async function resolveMergeTargetRef(worktreePath: string): Promise<string | null> {
 	for (const ref of ["origin/main", "origin/master"]) {
 		try {
-			await execFileAsync("git", ["rev-parse", "--verify", ref], {
+			await execFileAsync(gitBinary, ["rev-parse", "--verify", ref], {
 				cwd: worktreePath,
 			});
 			return ref;
@@ -102,7 +104,7 @@ async function readBlobAtRevision(
 	revisionPath: string,
 ): Promise<string> {
 	try {
-		const { stdout } = await execFileAsync("git", ["show", revisionPath], {
+		const { stdout } = await execFileAsync(gitBinary, ["show", revisionPath], {
 			cwd: worktreePath,
 		});
 		return stdout;
@@ -114,7 +116,7 @@ async function readBlobAtRevision(
 export class GitService {
 	async listChangedFiles(worktreePath: string): Promise<GitChange[]> {
 		const { stdout } = await execFileAsync(
-			"git",
+			gitBinary,
 			["status", "--short", "--untracked-files=all"],
 			{ cwd: worktreePath },
 		);
@@ -130,8 +132,8 @@ export class GitService {
 
 	async readSummary(worktreePath: string): Promise<GitSummary> {
 		const [branchResult, recentResult, changedFiles] = await Promise.all([
-			execFileAsync("git", ["branch", "--show-current"], { cwd: worktreePath }),
-			execFileAsync("git", ["log", "--format=%H%x09%h%x09%s", "-n", "5"], {
+			execFileAsync(gitBinary, ["branch", "--show-current"], { cwd: worktreePath }),
+			execFileAsync(gitBinary, ["log", "--format=%H%x09%h%x09%s", "-n", "5"], {
 				cwd: worktreePath,
 			}),
 			this.listChangedFiles(worktreePath),
@@ -202,13 +204,13 @@ export class GitService {
 		}
 
 		const { stdout: mergeBaseStdout } = await execFileAsync(
-			"git",
+			gitBinary,
 			["merge-base", "HEAD", mergeTargetRef],
 			{ cwd: worktreePath },
 		);
 		const mergeBase = mergeBaseStdout.trim();
 		const { stdout } = await execFileAsync(
-			"git",
+			gitBinary,
 			["log", "--format=%H%x09%h%x09%s", "--reverse", `${mergeBase}..HEAD`],
 			{ cwd: worktreePath },
 		);
@@ -219,7 +221,7 @@ export class GitService {
 
 		if (entries.length === 0) {
 			const { stdout: fallbackStdout } = await execFileAsync(
-				"git",
+				gitBinary,
 				["log", "--format=%H%x09%h%x09%s", "-n", "10", "HEAD"],
 				{ cwd: worktreePath },
 			);
@@ -235,7 +237,7 @@ export class GitService {
 		}
 
 		const { stdout: mergeBaseInfo } = await execFileAsync(
-			"git",
+			gitBinary,
 			["log", "--format=%H%x09%h%x09%s", "-n", "1", mergeBase],
 			{ cwd: worktreePath },
 		);
@@ -255,13 +257,13 @@ export class GitService {
 	): Promise<GitCommitDetail> {
 		const [{ stdout: headerStdout }, { stdout: parentStdout }, { stdout: filesStdout }] =
 			await Promise.all([
-				execFileAsync("git", ["show", "--format=%H%x09%h%x09%s", "-s", sha], {
+				execFileAsync(gitBinary, ["show", "--format=%H%x09%h%x09%s", "-s", sha], {
 					cwd: worktreePath,
 				}),
-				execFileAsync("git", ["show", "--format=%P", "-s", sha], {
+				execFileAsync(gitBinary, ["show", "--format=%P", "-s", sha], {
 					cwd: worktreePath,
 				}),
-				execFileAsync("git", ["show", "--format=", "--name-status", "--find-renames", sha], {
+				execFileAsync(gitBinary, ["show", "--format=", "--name-status", "--find-renames", sha], {
 					cwd: worktreePath,
 				}),
 			]);

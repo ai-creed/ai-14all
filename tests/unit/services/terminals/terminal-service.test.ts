@@ -61,4 +61,27 @@ describe("TerminalService", () => {
 		expect(pty.resize).not.toHaveBeenCalled();
 		expect(pty.kill).toHaveBeenCalledTimes(1);
 	});
+
+	it("suppresses PTY exit events while disposing active sessions", () => {
+		const pty = createPtyDouble();
+		spawnMock.mockReturnValue(pty);
+
+		const handlers = {
+			onOutput: vi.fn(),
+			onExit: vi.fn(),
+			onState: vi.fn(),
+			onError: vi.fn(),
+		};
+		const service = new TerminalService(handlers);
+
+		service.create("wt1", "/repo");
+		handlers.onState.mockClear();
+		handlers.onExit.mockClear();
+
+		expect(() => service.dispose()).not.toThrow();
+
+		expect(pty.kill).toHaveBeenCalledTimes(1);
+		expect(handlers.onState).not.toHaveBeenCalled();
+		expect(handlers.onExit).not.toHaveBeenCalled();
+	});
 });

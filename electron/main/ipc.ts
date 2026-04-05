@@ -49,24 +49,31 @@ export function registerIpcHandlers(
 	const gitService = new GitService();
 	let currentRepository: Repository | null = null;
 
+	const safeSend = <T extends object>(channel: string, payload: T) => {
+		if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
+			return;
+		}
+		mainWindow.webContents.send(channel, payload);
+	};
+
 	// --- Terminal service with event fan-out to renderer ---
 
 	const terminalEventHandlers: TerminalEventHandlers = {
 		onOutput(sessionId, data) {
 			const payload: TerminalOutputEvent = { sessionId, data };
-			mainWindow.webContents.send("terminal/output", payload);
+			safeSend("terminal/output", payload);
 		},
 		onExit(sessionId, exitCode) {
 			const payload: TerminalExitEvent = { sessionId, exitCode };
-			mainWindow.webContents.send("terminal/exit", payload);
+			safeSend("terminal/exit", payload);
 		},
 		onState(sessionId, status) {
 			const payload: TerminalStateEvent = { sessionId, status };
-			mainWindow.webContents.send("terminal/state", payload);
+			safeSend("terminal/state", payload);
 		},
 		onError(sessionId, message) {
 			const payload: TerminalErrorEvent = { sessionId, message };
-			mainWindow.webContents.send("terminal/error", payload);
+			safeSend("terminal/error", payload);
 		},
 	};
 
