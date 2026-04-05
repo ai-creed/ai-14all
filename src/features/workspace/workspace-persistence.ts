@@ -12,6 +12,7 @@ export function buildWorkspaceSnapshot(
 	return {
 		repositoryPath,
 		selectedWorktreeId: state.selectedWorktreeId,
+		topBandCollapsed: state.topBandCollapsed,
 		commandPresets: state.commandPresets,
 		worktreeSessions: Object.values(state.sessionsByWorktreeId).map((session) => ({
 			worktreeId: session.worktreeId,

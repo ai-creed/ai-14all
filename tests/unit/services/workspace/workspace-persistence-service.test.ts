@@ -42,6 +42,7 @@ describe("WorkspacePersistenceService", () => {
 			snapshot: {
 				repositoryPath: "/repo",
 				selectedWorktreeId: "feature-a",
+				topBandCollapsed: true,
 				commandPresets: [{ id: "preset-1", label: "Claude", command: "claude" }],
 				worktreeSessions: [
 					{

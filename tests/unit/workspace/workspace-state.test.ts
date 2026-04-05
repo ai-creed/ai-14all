@@ -324,6 +324,44 @@ describe("workspaceReducer — Phase 6 commit review state", () => {
 	});
 });
 
+describe("workspaceReducer — Phase 6 top-band collapse", () => {
+	it("stores and restores the top-band collapse flag", () => {
+		const worktrees = [
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
+		];
+
+		let state = createWorkspaceState(worktrees);
+		expect(state.topBandCollapsed).toBe(false);
+
+		state = workspaceReducer(state, {
+			type: "workspace/setTopBandCollapsed",
+			collapsed: true,
+		});
+		expect(state.topBandCollapsed).toBe(true);
+
+		state = workspaceReducer(state, {
+			type: "workspace/restoreSnapshot",
+			worktrees,
+			snapshot: {
+				repositoryPath: "/repo",
+				selectedWorktreeId: "main",
+				topBandCollapsed: true,
+				commandPresets: [],
+				worktreeSessions: [],
+			},
+		});
+
+		expect(state.topBandCollapsed).toBe(true);
+	});
+});
+
 describe("workspaceReducer — Phase 5 persistence restore", () => {
 	it("restores the selected worktree session from a snapshot", () => {
 		let state = workspaceReducer(createWorkspaceState([]), {
