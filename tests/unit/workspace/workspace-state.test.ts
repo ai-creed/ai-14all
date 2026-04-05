@@ -400,6 +400,30 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 		expect(state.processSessionsById["process-2"]?.status).toBe("restarting");
 	});
 
+	it("restores selectedCommitSha and reviewMode from a persisted commit-review snapshot", () => {
+		const state = workspaceReducer(createWorkspaceState(worktrees), {
+			type: "session/restoreSnapshot",
+			snapshot: {
+				worktreeId: "main",
+				note: "",
+				reviewMode: "commits",
+				viewerMode: "commit",
+				selectedFilePath: null,
+				selectedChangedFilePath: null,
+				selectedCommitSha: "abc1234",
+				selectedCommitFilePath: "src/index.ts",
+				activeProcessSessionId: null,
+				nextAdHocNumber: 1,
+				processSessions: [],
+			},
+		});
+
+		expect(state.sessionsByWorktreeId.main.reviewMode).toBe("commits");
+		expect(state.sessionsByWorktreeId.main.viewerMode).toBe("commit");
+		expect(state.sessionsByWorktreeId.main.selectedCommitSha).toBe("abc1234");
+		expect(state.sessionsByWorktreeId.main.selectedCommitFilePath).toBe("src/index.ts");
+	});
+
 	it("clamps activeProcessSessionId when it no longer matches a restored process", () => {
 		const state = workspaceReducer(createWorkspaceState(worktrees), {
 			type: "session/restoreSnapshot",
