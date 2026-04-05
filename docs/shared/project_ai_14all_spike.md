@@ -1,8 +1,8 @@
-# oneforall — Project Spike
+# ai-14all — Project Spike
 
 ## Purpose
 
-This document captures the current high-level intention for `oneforall` before any scaffolding work starts.
+This document captures the current high-level intention for `ai-14all` before any scaffolding work starts.
 
 It is not a detailed implementation plan. It exists to align on:
 
@@ -31,7 +31,7 @@ The friction is not writing code. The friction is coordinating parallel work cle
 
 ## Product Intention
 
-`oneforall` is intended to be a local desktop control panel for worktree-based development sessions.
+`ai-14all` is intended to be a local desktop control panel for worktree-based development sessions.
 
 The app should make it easy to:
 
@@ -182,7 +182,7 @@ The viewer should not try to compete with a full editor in V1.
 
 ## Restart And Restore Behavior For V1
 
-On app reopen, `oneforall` should be able to restore the previous workspace context.
+On app reopen, `ai-14all` should be able to restore the previous workspace context.
 
 That should include:
 

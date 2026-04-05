@@ -23,8 +23,8 @@ async function launchApp() {
 		args: ["out/main/index.js"],
 		env: {
 			...process.env,
-			ONEFORALL_E2E: "1",
-			ONEFORALL_WORKSPACE_STATE_PATH: persistedStatePath,
+			AI14ALL_E2E: "1",
+			AI14ALL_WORKSPACE_STATE_PATH: persistedStatePath,
 		},
 	});
 	page = await app.firstWindow();

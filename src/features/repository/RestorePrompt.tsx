@@ -10,7 +10,7 @@ export function RestorePrompt({ repositoryPath, onDecide }: Props) {
 
 	return (
 		<section className="shell-panel shell-setup-panel">
-			<h1 className="shell-setup-title">oneforall</h1>
+			<h1 className="shell-setup-title">ai-14all</h1>
 			<h2>Restore previous workspace?</h2>
 			<p className="shell-empty-state">{repositoryPath}</p>
 			<label className="shell-restore-checkbox">

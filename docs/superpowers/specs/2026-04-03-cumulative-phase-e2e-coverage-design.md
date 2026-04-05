@@ -13,7 +13,7 @@ This design does two things:
 
 ## Problem
 
-The current repo has one Playwright spec, [tests/e2e/app-flow.test.ts](/Users/vuphan/Dev/oneforall/tests/e2e/app-flow.test.ts).
+The current repo has one Playwright spec, [tests/e2e/app-flow.test.ts](/Users/vuphan/Dev/ai-14all/tests/e2e/app-flow.test.ts).
 
 That file started as a Phase 0 validation matrix and was later rewritten as a Phase 2 workflow spec. The result is that older covered behavior was replaced instead of preserved.
 
@@ -21,7 +21,7 @@ This is the wrong testing shape for a phased product plan. A new phase should ex
 
 ## Policy Change
 
-The project should adopt this rule in both [docs/shared/plan.md](/Users/vuphan/Dev/oneforall/docs/shared/plan.md) and [AGENTS.md](/Users/vuphan/Dev/oneforall/AGENTS.md):
+The project should adopt this rule in both [docs/shared/plan.md](/Users/vuphan/Dev/ai-14all/docs/shared/plan.md) and [AGENTS.md](/Users/vuphan/Dev/ai-14all/AGENTS.md):
 
 - a phase is not complete until user-visible behavior introduced in that phase has end-to-end coverage
 - end-to-end coverage is cumulative across phases
@@ -130,8 +130,8 @@ The key requirement is cumulative coverage, not a particular file count.
 
 This design is complete when all of the following are true:
 
-- [docs/shared/plan.md](/Users/vuphan/Dev/oneforall/docs/shared/plan.md) explicitly requires cumulative e2e coverage for new phase behavior
-- [AGENTS.md](/Users/vuphan/Dev/oneforall/AGENTS.md) repeats that rule as local execution guidance
+- [docs/shared/plan.md](/Users/vuphan/Dev/ai-14all/docs/shared/plan.md) explicitly requires cumulative e2e coverage for new phase behavior
+- [AGENTS.md](/Users/vuphan/Dev/ai-14all/AGENTS.md) repeats that rule as local execution guidance
 - the e2e suite no longer relies on one latest-phase replacement spec as the only source of truth
 - `pnpm test:e2e` runs cumulative coverage for all implemented phases
 - future phase work is expected to extend e2e coverage rather than overwrite it

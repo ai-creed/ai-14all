@@ -1,4 +1,4 @@
-# oneforall — Architecture Decisions
+# ai-14all — Architecture Decisions
 
 ## Purpose
 
@@ -10,9 +10,9 @@ The goal is to prevent avoidable structural drift while the codebase is still sm
 
 Primary references:
 
-- [project_oneforall_spike.md](/Users/vuphan/Dev/oneforall/project_oneforall_spike.md)
-- [plan.md](/Users/vuphan/Dev/oneforall/plan.md)
-- [phase_1_plan.md](/Users/vuphan/Dev/oneforall/phase_1_plan.md)
+- [project_ai_14all_spike.md](/Users/vuphan/Dev/ai-14all/docs/shared/project_ai_14all_spike.md)
+- [high_level_plan.md](/Users/vuphan/Dev/ai-14all/docs/shared/high_level_plan.md)
+- [phase_1_plan.md](/Users/vuphan/Dev/ai-14all/docs/superpowers/plans/phase_1_plan.md)
 
 ## AD-001 — Desktop Runtime
 

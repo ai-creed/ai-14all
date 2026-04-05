@@ -2,7 +2,7 @@
 
 ## Product
 
-`oneforall` is an Electron desktop app for managing one local repository through a session-first workflow centered on Git worktrees and embedded terminals.
+`ai-14all` is an Electron desktop app for managing one local repository through a session-first workflow centered on Git worktrees and embedded terminals.
 
 The product is not trying to become a full IDE. V1 is terminal-first, with embedded read-only code and diff inspection to keep the workflow self-contained.
 

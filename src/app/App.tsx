@@ -680,7 +680,7 @@ export function App() {
 		return (
 			<main className="shell-app shell-app--setup">
 				<section className="shell-panel shell-setup-panel">
-					<h1 className="shell-setup-title">oneforall</h1>
+					<h1 className="shell-setup-title">ai-14all</h1>
 					<p className="shell-empty-state">Loading workspace…</p>
 				</section>
 			</main>
@@ -702,7 +702,7 @@ export function App() {
 		return (
 			<main className="shell-app shell-app--setup">
 				<section className="shell-panel shell-setup-panel">
-					<h1 className="shell-setup-title">oneforall</h1>
+					<h1 className="shell-setup-title">ai-14all</h1>
 					<h2>Repository</h2>
 					<RepositoryInput onLoad={handleLoad} />
 					{startupError && <p className="shell-error">{startupError}</p>}

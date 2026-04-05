@@ -22,11 +22,11 @@ describe("GitService", () => {
 		service = new GitService();
 
 		execSync("git init", { cwd: repoPath, stdio: "ignore" });
-		execSync("git config user.email 'test@oneforall.dev'", {
+		execSync("git config user.email 'test@ai-14all.dev'", {
 			cwd: repoPath,
 			stdio: "ignore",
 		});
-		execSync("git config user.name 'oneforall test'", {
+		execSync("git config user.name 'ai-14all test'", {
 			cwd: repoPath,
 			stdio: "ignore",
 		});

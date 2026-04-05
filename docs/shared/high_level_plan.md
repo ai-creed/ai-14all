@@ -1,4 +1,4 @@
-# oneforall — High-Level Plan
+# ai-14all — High-Level Plan
 
 ## Planning Intent
 

@@ -1,19 +1,19 @@
-import type { OneForAllDesktopApi } from "../../shared/contracts/commands";
+import type { Ai14AllDesktopApi } from "../../shared/contracts/commands";
 
 /**
- * Typed wrapper around the preload bridge injected as `window.oneforall`.
+ * Typed wrapper around the preload bridge injected as `window.ai14all`.
  * React components should import from here rather than accessing window directly.
  */
-export function getDesktopClient(): OneForAllDesktopApi {
-	return window.oneforall;
+export function getDesktopClient(): Ai14AllDesktopApi {
+	return window.ai14all;
 }
 
-export const repository: OneForAllDesktopApi["repository"] = {
+export const repository: Ai14AllDesktopApi["repository"] = {
 	setRoot: (path) => getDesktopClient().repository.setRoot(path),
 	listWorktrees: () => getDesktopClient().repository.listWorktrees(),
 };
 
-export const terminals: OneForAllDesktopApi["terminals"] = {
+export const terminals: Ai14AllDesktopApi["terminals"] = {
 	create: (worktreeId, cwd) =>
 		getDesktopClient().terminals.create(worktreeId, cwd),
 	sendInput: (sessionId, data) =>
@@ -27,7 +27,7 @@ export const terminals: OneForAllDesktopApi["terminals"] = {
 	onError: (listener) => getDesktopClient().terminals.onError(listener),
 };
 
-export const files: OneForAllDesktopApi["files"] = {
+export const files: Ai14AllDesktopApi["files"] = {
 	list: (worktreePath) => getDesktopClient().files.list(worktreePath),
 	listScoped: (worktreePath, relativeRoots) =>
 		getDesktopClient().files.listScoped(worktreePath, relativeRoots),
@@ -35,7 +35,7 @@ export const files: OneForAllDesktopApi["files"] = {
 		getDesktopClient().files.read(worktreePath, relativePath),
 };
 
-export const git: OneForAllDesktopApi["git"] = {
+export const git: Ai14AllDesktopApi["git"] = {
 	listChanges: (worktreePath) =>
 		getDesktopClient().git.listChanges(worktreePath),
 	readDiff: (worktreePath, relativePath) =>
@@ -48,7 +48,7 @@ export const git: OneForAllDesktopApi["git"] = {
 		getDesktopClient().git.readCommitDetail(worktreePath, sha),
 };
 
-export const workspace: OneForAllDesktopApi["workspace"] = {
+export const workspace: Ai14AllDesktopApi["workspace"] = {
 	readRestoreState: () => getDesktopClient().workspace.readRestoreState(),
 	writeRestoreState: (state) =>
 		getDesktopClient().workspace.writeRestoreState(state),

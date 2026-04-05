@@ -237,7 +237,7 @@ The interaction rules for Phase 2 should stay simple.
 
 ## Architectural Implications
 
-The current app shell in [App.tsx](/Users/vuphan/Dev/oneforall/src/app/App.tsx) is still a Phase 0 composition of top-level local state and stacked sections.
+The current app shell in [App.tsx](/Users/vuphan/Dev/ai-14all/src/app/App.tsx) is still a Phase 0 composition of top-level local state and stacked sections.
 
 Phase 2 should move toward a session-oriented store or equivalent session model that can own:
 
@@ -246,7 +246,7 @@ Phase 2 should move toward a session-oriented store or equivalent session model 
 - per-session note state
 - per-session review selection state
 
-The current `TerminalSession` model in [terminal-session.ts](/Users/vuphan/Dev/oneforall/shared/models/terminal-session.ts) should evolve toward a clearer `ProcessSession` role under a worktree session model.
+The current `TerminalSession` model in [terminal-session.ts](/Users/vuphan/Dev/ai-14all/shared/models/terminal-session.ts) should evolve toward a clearer `ProcessSession` role under a worktree session model.
 
 This phase should not overbuild persistence or full process orchestration. It only needs enough structure to make the UI coherent and extensible.
 

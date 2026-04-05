@@ -1,8 +1,8 @@
-import type { OneForAllDesktopApi } from "../../shared/contracts/commands";
+import type { Ai14AllDesktopApi } from "../../shared/contracts/commands";
 
 declare global {
 	interface Window {
-		oneforall: OneForAllDesktopApi;
+		ai14all: Ai14AllDesktopApi;
 	}
 }
 

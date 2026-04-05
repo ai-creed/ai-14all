@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { OneForAllDesktopApi } from "../../shared/contracts/commands.js";
+import type { Ai14AllDesktopApi } from "../../shared/contracts/commands.js";
 import type {
 	TerminalOutputEvent,
 	TerminalExitEvent,
@@ -19,7 +19,7 @@ function onChannel<T>(
 	return () => ipcRenderer.removeListener(channel, handler);
 }
 
-const api: OneForAllDesktopApi = {
+const api: Ai14AllDesktopApi = {
 	repository: {
 		setRoot(path) {
 			return ipcRenderer.invoke("repository:setRoot", { path });
@@ -95,4 +95,4 @@ const api: OneForAllDesktopApi = {
 	},
 };
 
-contextBridge.exposeInMainWorld("oneforall", api);
+contextBridge.exposeInMainWorld("ai14all", api);

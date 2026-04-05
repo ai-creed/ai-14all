@@ -23,8 +23,8 @@ test.beforeAll(async () => {
 		args: ["out/main/index.js"],
 		env: {
 			...process.env,
-			ONEFORALL_E2E: "1",
-			ONEFORALL_WORKSPACE_STATE_PATH: join(persistedStateDir, "workspace-state.json"),
+			AI14ALL_E2E: "1",
+			AI14ALL_WORKSPACE_STATE_PATH: join(persistedStateDir, "workspace-state.json"),
 		},
 	});
 	page = await app.firstWindow();

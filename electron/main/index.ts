@@ -8,8 +8,8 @@ import { WorkspacePersistenceService } from "../../services/workspace/workspace-
 
 app.whenReady().then(() => {
 	const mainWindow = createMainWindow();
-	const workspacePersistence = new WorkspacePersistenceService(
-		process.env.ONEFORALL_WORKSPACE_STATE_PATH ??
+		const workspacePersistence = new WorkspacePersistenceService(
+		process.env.AI14ALL_WORKSPACE_STATE_PATH ??
 			join(app.getPath("userData"), "workspace-state.json"),
 	);
 	const { dispose } = registerIpcHandlers(mainWindow, { workspacePersistence });

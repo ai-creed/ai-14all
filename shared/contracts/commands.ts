@@ -90,7 +90,7 @@ export const ReadGitCommitDetailSchema = z.object({
 
 // --- The API surface exposed to the renderer via the preload bridge ---
 
-export type OneForAllDesktopApi = {
+export type Ai14AllDesktopApi = {
 	repository: {
 		setRoot(path: string): Promise<Repository>;
 		listWorktrees(): Promise<Worktree[]>;
