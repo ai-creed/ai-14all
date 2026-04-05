@@ -304,6 +304,27 @@ textarea {
 	background: #0f171d;
 	border: 1px solid var(--panel-border);
 	border-radius: var(--radius-sm);
+	cursor: pointer;
+}
+
+.shell-button--compact {
+	height: 32px;
+	padding: 0 10px;
+	font-size: 0.9rem;
+	line-height: 32px;
+}
+
+.shell-button--icon {
+	width: 32px;
+	padding: 0;
+	display: grid;
+	place-items: center;
+	font-size: 1rem;
+	line-height: 32px;
+}
+
+.shell-button--round {
+	border-radius: 999px;
 }
 
 .shell-sidebar,
@@ -326,6 +347,7 @@ textarea {
 	background: #0f171d;
 	border: 1px solid var(--panel-border);
 	border-radius: var(--radius-sm);
+	cursor: pointer;
 }
 
 .shell-sidebar__item[data-selected="true"] {
@@ -355,32 +377,96 @@ textarea {
 	background: transparent;
 }
 
-.shell-terminal-tabs__bar,
+.shell-terminal-tabs__bar {
+	display: flex;
+	gap: var(--space-2);
+	align-items: center;
+	min-width: 0;
+	min-height: 32px;
+}
+
+.shell-terminal-tabs__scroller {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow-x: auto;
+	overflow-y: hidden;
+	scrollbar-width: thin;
+}
+
 .shell-terminal-tabs__list {
 	display: flex;
 	gap: var(--space-2);
 	align-items: center;
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
+	min-width: 100%;
+}
+
+.shell-terminal-tabs__segments {
+	gap: 0;
+	padding: 0;
+	background: transparent;
+	border: none;
+	border-radius: 0;
 }
 
 .shell-terminal-tabs__item {
 	display: flex;
-	align-items: center;
-	gap: var(--space-1);
+	align-items: stretch;
+	flex: 1 0 180px;
+	min-width: 180px;
+	min-height: 32px;
 }
 
 .shell-terminal-tab {
-	padding: 10px 14px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	min-width: 0;
+	height: 32px;
+	padding: 0 12px;
 	color: var(--text-secondary);
 	background: transparent;
 	border: 1px solid transparent;
-	border-radius: 999px;
+	border-radius: 10px;
+	transition:
+		background-color 120ms ease,
+		border-color 120ms ease,
+		color 120ms ease;
+	cursor: pointer;
+	line-height: 32px;
+}
+
+.shell-terminal-tab__label {
+	display: block;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	line-height: 1;
 }
 
 .shell-terminal-tab[data-state="active"] {
 	color: var(--text-primary);
-	background: var(--panel-bg-elevated);
+	background: #4b5458;
 	border-color: var(--panel-border-strong);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.shell-terminal-tab[data-state="inactive"] {
+	color: #bcc7ce;
+}
+
+.shell-terminal-tab:hover {
+	background: rgba(255, 255, 255, 0.03);
+}
+
+.shell-terminal-tab[data-state="active"]:hover {
+	background: #4b5458;
+}
+
+.shell-terminal-tabs__segments .shell-terminal-tabs__item + .shell-terminal-tabs__item {
+	margin-left: var(--space-2);
 }
 
 .shell-terminal-tab[data-status="exited"],
@@ -445,6 +531,7 @@ textarea {
 	background: transparent;
 	border: 1px solid transparent;
 	border-radius: 999px;
+	cursor: pointer;
 }
 
 .shell-review-tab[data-state="active"] {
@@ -479,6 +566,7 @@ textarea {
 	background: #0f171d;
 	border: 1px solid transparent;
 	border-radius: var(--radius-sm);
+	cursor: pointer;
 }
 
 .shell-list__item[data-selected="true"] {
@@ -549,8 +637,20 @@ textarea {
 	background: var(--panel-bg-elevated);
 }
 
+.shell-toolbar-menu__item--disabled {
+	color: var(--text-muted);
+	pointer-events: none;
+}
+
 .shell-toolbar-menu__item--danger {
 	color: var(--danger);
+}
+
+.shell-terminal-tabs__utilities {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	flex: 0 0 auto;
 }
 
 .shell-toolbar-menu__separator {

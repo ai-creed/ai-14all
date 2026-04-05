@@ -72,6 +72,21 @@ describe("TerminalTabs", () => {
 		expect(
 			screen.getByRole("tablist", { name: "Terminal sessions" }),
 		).toBeInTheDocument();
+		expect(
+			screen.getByRole("tablist", { name: "Terminal sessions" }),
+		).toHaveClass("shell-terminal-tabs__list", "shell-terminal-tabs__segments");
+		expect(screen.getByRole("button", { name: "Presets" })).toHaveClass(
+			"shell-button",
+			"shell-button--compact",
+		);
+		expect(screen.getByRole("button", { name: "Add shell" })).toHaveClass(
+			"shell-button",
+			"shell-button--icon",
+			"shell-button--compact",
+		);
+		expect(
+			document.querySelector(".shell-terminal-tabs__scroller"),
+		).not.toBeNull();
 		expect(screen.getByRole("tab", { name: "shell 1" })).toBeInTheDocument();
 		expect(screen.getByRole("tab", { name: "shell 2" })).toHaveAttribute(
 			"data-state",
@@ -251,7 +266,7 @@ describe("TerminalTabs", () => {
 			{ onAddAdHoc, onSelect, onClose },
 		);
 
-		fireEvent.click(screen.getByRole("button", { name: "+ Shell" }));
+		fireEvent.click(screen.getByRole("button", { name: "Add shell" }));
 		await user.click(screen.getByRole("tab", { name: "shell 2" }));
 		await user.pointer([
 			{
@@ -264,6 +279,31 @@ describe("TerminalTabs", () => {
 		expect(onAddAdHoc).toHaveBeenCalled();
 		expect(onSelect).toHaveBeenCalledWith("proc-2");
 		expect(onClose).toHaveBeenCalledWith("proc-1");
+	});
+
+	it("uses one preset menu for launching presets and opening the manager", async () => {
+		const user = userEvent.setup();
+		const onLaunchPreset = vi.fn();
+		const onOpenPresetManager = vi.fn();
+
+		renderTabs(
+			[proc({ id: "proc-1", label: "shell 1" })],
+			"proc-1",
+			[{ id: "preset-1", label: "Claude", command: "claude" }],
+			{ onLaunchPreset, onOpenPresetManager },
+		);
+
+		expect(
+			screen.queryByRole("button", { name: "Manage presets" }),
+		).not.toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Presets" }));
+		await user.click(screen.getByRole("menuitem", { name: "Claude" }));
+		expect(onLaunchPreset).toHaveBeenCalledWith("preset-1");
+
+		await user.click(screen.getByRole("button", { name: "Presets" }));
+		await user.click(screen.getByRole("menuitem", { name: "Manage presets" }));
+		expect(onOpenPresetManager).toHaveBeenCalledTimes(1);
 	});
 
 	it("calls stop, restart, and toggle-pinned from the tab context menu", async () => {
