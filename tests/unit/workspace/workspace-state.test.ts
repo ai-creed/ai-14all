@@ -291,6 +291,39 @@ describe("workspaceReducer — Phase 3 process model", () => {
 	});
 });
 
+describe("workspaceReducer — Phase 6 commit review state", () => {
+	it("switches into commit review mode when selecting a commit", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/selectCommit",
+			worktreeId: "main",
+			sha: "abc1234",
+		});
+
+		expect(state.sessionsByWorktreeId.main.reviewMode).toBe("commits");
+		expect(state.sessionsByWorktreeId.main.viewerMode).toBe("commit");
+		expect(state.sessionsByWorktreeId.main.selectedCommitSha).toBe("abc1234");
+	});
+
+	it("records the focused file within a selected commit", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/selectCommit",
+			worktreeId: "main",
+			sha: "abc1234",
+		});
+		state = workspaceReducer(state, {
+			type: "session/selectCommitFile",
+			worktreeId: "main",
+			relativePath: "src/index.ts",
+		});
+
+		expect(state.sessionsByWorktreeId.main.selectedCommitFilePath).toBe(
+			"src/index.ts",
+		);
+	});
+});
+
 describe("workspaceReducer — Phase 5 persistence restore", () => {
 	it("restores the selected worktree session from a snapshot", () => {
 		let state = workspaceReducer(createWorkspaceState([]), {

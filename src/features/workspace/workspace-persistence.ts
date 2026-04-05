@@ -20,6 +20,8 @@ export function buildWorkspaceSnapshot(
 			viewerMode: session.viewerMode,
 			selectedFilePath: session.selectedFilePath,
 			selectedChangedFilePath: session.selectedChangedFilePath,
+			selectedCommitSha: session.selectedCommitSha,
+			selectedCommitFilePath: session.selectedCommitFilePath,
 			activeProcessSessionId: session.activeProcessSessionId,
 			nextAdHocNumber: state.nextAdHocNumberByWorktreeId[session.worktreeId] ?? 1,
 			processSessions: session.processSessionIds

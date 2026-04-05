@@ -93,7 +93,9 @@ export type WorkspaceAction =
 			worktrees: Worktree[];
 			snapshot: WorkspaceSnapshot;
 	  }
-	| { type: "session/restoreSnapshot"; snapshot: PersistedWorktreeSession };
+	| { type: "session/restoreSnapshot"; snapshot: PersistedWorktreeSession }
+	| { type: "session/selectCommit"; worktreeId: string; sha: string }
+	| { type: "session/selectCommitFile"; worktreeId: string; relativePath: string };
 
 function createSession(worktree: Worktree): WorktreeSession {
 	return {
@@ -107,6 +109,8 @@ function createSession(worktree: Worktree): WorktreeSession {
 		gitSummaryError: false,
 		selectedFilePath: null,
 		selectedChangedFilePath: null,
+		selectedCommitSha: null,
+		selectedCommitFilePath: null,
 		activeProcessSessionId: null,
 		processSessionIds: [],
 		attentionState: "idle",
@@ -177,6 +181,8 @@ function restorePersistedSession(
 		viewerMode: snapshot.viewerMode,
 		selectedFilePath: snapshot.selectedFilePath,
 		selectedChangedFilePath: snapshot.selectedChangedFilePath,
+		selectedCommitSha: snapshot.selectedCommitSha,
+		selectedCommitFilePath: snapshot.selectedCommitFilePath,
 		processSessionIds: snapshot.processSessions.map((process) => process.id),
 		activeProcessSessionId:
 			snapshot.activeProcessSessionId !== null &&
@@ -506,6 +512,21 @@ export function workspaceReducer(
 			reviewMode: "changes",
 			viewerMode: "diff",
 			selectedChangedFilePath: action.relativePath,
+		};
+	} else if (action.type === "session/selectCommit") {
+		nextSession = {
+			...session,
+			reviewMode: "commits",
+			viewerMode: "commit",
+			selectedCommitSha: action.sha,
+			selectedCommitFilePath: null,
+		};
+	} else if (action.type === "session/selectCommitFile") {
+		nextSession = {
+			...session,
+			reviewMode: "commits",
+			viewerMode: "commit",
+			selectedCommitFilePath: action.relativePath,
 		};
 	} else {
 		return state;

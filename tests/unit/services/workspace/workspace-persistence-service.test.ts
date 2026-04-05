@@ -51,6 +51,8 @@ describe("WorkspacePersistenceService", () => {
 						viewerMode: "diff" as const,
 						selectedFilePath: null,
 						selectedChangedFilePath: "src/index.ts",
+						selectedCommitSha: null,
+						selectedCommitFilePath: null,
 						activeProcessSessionId: "process-1",
 						nextAdHocNumber: 2,
 						processSessions: [
