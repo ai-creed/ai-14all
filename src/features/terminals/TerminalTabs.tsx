@@ -88,7 +88,6 @@ export function TerminalTabs({
 											{...(process.lastActivityAt != null
 												? { "data-last-activity": String(process.lastActivityAt) }
 												: {})}
-											onClick={() => onSelect(process.id)}
 										>
 											{process.label}
 											{suffix}

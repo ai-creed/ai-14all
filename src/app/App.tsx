@@ -456,6 +456,7 @@ export function App() {
 			});
 		} catch (err) {
 			console.error("Failed to create terminal session:", err);
+			throw err;
 		}
 	}
 
@@ -653,6 +654,23 @@ export function App() {
 				/>
 
 				<section className="shell-main-column">
+					{activeWorktree && activeSession && (
+						<ContextPanel
+							branchName={activeWorktree.branchName}
+							worktreePath={activeWorktree.path}
+							note={activeSession.note}
+							gitSummary={activeSummary}
+							gitSummaryError={gitSummaryError}
+							onNoteChange={(note) =>
+								dispatch({
+									type: "session/setNote",
+									worktreeId: activeWorktree.id,
+									note,
+								})
+							}
+						/>
+					)}
+
 					{activeWorktree && (
 						<SessionHeader
 							title={activeWorktree.label}
@@ -841,23 +859,6 @@ export function App() {
 						</Tabs.Root>
 					)}
 				</section>
-
-				{activeWorktree && activeSession && (
-					<ContextPanel
-						branchName={activeWorktree.branchName}
-						worktreePath={activeWorktree.path}
-						note={activeSession.note}
-						gitSummary={activeSummary}
-						gitSummaryError={gitSummaryError}
-						onNoteChange={(note) =>
-							dispatch({
-								type: "session/setNote",
-								worktreeId: activeWorktree.id,
-								note,
-							})
-						}
-					/>
-				)}
 			</div>
 
 			<PresetManager

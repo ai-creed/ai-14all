@@ -252,7 +252,7 @@ describe("TerminalTabs", () => {
 		);
 
 		fireEvent.click(screen.getByRole("button", { name: "+ Shell" }));
-		fireEvent.click(screen.getByRole("tab", { name: "shell 2" }));
+		await user.click(screen.getByRole("tab", { name: "shell 2" }));
 		await user.pointer([
 			{
 				target: screen.getByRole("tab", { name: "shell 1" }),
