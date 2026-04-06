@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
+	act,
 	render,
 	screen,
 	fireEvent,
@@ -76,6 +77,48 @@ const mockReadSummary = vi.mocked(git.readSummary);
 const mockReadRestoreState = vi.mocked(workspace.readRestoreState);
 
 const user = userEvent.setup();
+
+async function loadRepositoryWithTwoWorktrees() {
+	mockSetRoot.mockResolvedValueOnce({
+		id: "r1",
+		name: "test-repo",
+		rootPath: "/repo",
+		repoId: "repo-id-123",
+	});
+	mockListWorktrees.mockResolvedValueOnce([
+		{
+			id: "wt1",
+			repositoryId: "r1",
+			branchName: "main",
+			path: "/repo",
+			label: "main",
+			isMain: true,
+		},
+		{
+			id: "wt2",
+			repositoryId: "r1",
+			branchName: "feature-a",
+			path: "/repo/.worktrees/feature-a",
+			label: "feature-a",
+			isMain: false,
+		},
+	]);
+
+	render(<App />);
+
+	await waitFor(() => {
+		expect(screen.getByLabelText("Repository path")).toBeInTheDocument();
+	});
+
+	fireEvent.change(screen.getByLabelText("Repository path"), {
+		target: { value: "/repo" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+	await waitFor(() => {
+		expect(screen.getByRole("button", { name: /feature-a/i })).toBeInTheDocument();
+	});
+}
 
 async function loadRepositoryAndSwitchToCommits() {
 	mockSetRoot.mockResolvedValueOnce({
@@ -239,5 +282,86 @@ describe("App — degraded commit detail read", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/couldn't load commit detail/i)).toBeInTheDocument();
 		});
+	});
+});
+
+describe("App — focus-gated auto-refresh", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockReadRestoreState.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		});
+		mockReadSummary.mockResolvedValue({
+			branchName: "main",
+			isDirty: false,
+			changedFileCount: 0,
+			changedFiles: [],
+			recentCommits: [],
+		});
+		mockReadCommitHistory.mockResolvedValue({ mergeTargetRef: null, entries: [] });
+		mockReadCommitDetail.mockResolvedValue(null);
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it("polls summary and commit history only while the app window is focused", async () => {
+		await loadRepositoryAndSwitchToCommits();
+		vi.useFakeTimers();
+
+		// jsdom does not set document.hasFocus() to true by default, so dispatch a
+		// focus event to start the polling interval (window.setInterval is now fake).
+		await act(async () => {
+			window.dispatchEvent(new Event("focus"));
+		});
+
+		const summaryCallsAfterFocus = mockReadSummary.mock.calls.length;
+		const historyCallsAfterFocus = mockReadCommitHistory.mock.calls.length;
+
+		await act(async () => {
+			vi.advanceTimersByTime(15_000);
+		});
+
+		expect(mockReadSummary.mock.calls.length).toBeGreaterThan(summaryCallsAfterFocus);
+		expect(mockReadCommitHistory.mock.calls.length).toBeGreaterThan(historyCallsAfterFocus);
+
+		// Blur first and flush React so the interval is cleared before advancing timers
+		await act(async () => {
+			window.dispatchEvent(new Event("blur"));
+		});
+		act(() => {
+			vi.advanceTimersByTime(15_000);
+		});
+
+		expect(mockReadSummary.mock.calls.length).toBe(summaryCallsAfterFocus + 1);
+		expect(mockReadCommitHistory.mock.calls.length).toBe(historyCallsAfterFocus + 1);
+
+		vi.useRealTimers();
+	});
+
+	it("refreshes immediately on focus regain without double-fetching on worktree switch", async () => {
+		await loadRepositoryWithTwoWorktrees();
+
+		fireEvent.click(screen.getByRole("button", { name: /feature-a/i }));
+
+		await waitFor(() => {
+			expect(mockReadSummary.mock.calls.length).toBeGreaterThan(0);
+		});
+
+		const summaryCallsAfterSwitch = mockReadSummary.mock.calls.length;
+		vi.useFakeTimers();
+
+		await act(async () => {
+			window.dispatchEvent(new Event("blur"));
+			window.dispatchEvent(new Event("focus"));
+		});
+
+		// After act flushes all async effects, readSummary should have been called once more
+		expect(mockReadSummary.mock.calls.length).toBe(summaryCallsAfterSwitch + 1);
+
+		vi.useRealTimers();
 	});
 });

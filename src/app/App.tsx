@@ -63,6 +63,10 @@ export function App() {
 		createWorkspaceState([]),
 	);
 	const [refreshKey, setRefreshKey] = useState(0);
+	const [windowFocused, setWindowFocused] = useState(
+		typeof document !== "undefined" ? document.hasFocus() : true,
+	);
+	const previousFocusedRef = useRef(windowFocused);
 
 	type ReviewLoadState<T> = {
 		data: T | null;
@@ -462,6 +466,42 @@ export function App() {
 	function handleRefreshChanges() {
 		setRefreshKey((k) => k + 1);
 	}
+
+	useEffect(() => {
+		const handleFocus = () => setWindowFocused(true);
+		const handleBlur = () => setWindowFocused(false);
+		window.addEventListener("focus", handleFocus);
+		window.addEventListener("blur", handleBlur);
+		return () => {
+			window.removeEventListener("focus", handleFocus);
+			window.removeEventListener("blur", handleBlur);
+		};
+	}, []);
+
+	useEffect(() => {
+		if (startupMode !== "ready" || !repository || !activeWorktree || !windowFocused) return;
+
+		const interval = window.setInterval(() => {
+			handleRefreshChanges();
+		}, 15_000);
+
+		return () => window.clearInterval(interval);
+	}, [startupMode, repository?.rootPath, activeWorktree?.id, windowFocused]);
+
+	useEffect(() => {
+		const wasFocused = previousFocusedRef.current;
+		previousFocusedRef.current = windowFocused;
+
+		if (
+			!wasFocused &&
+			windowFocused &&
+			startupMode === "ready" &&
+			repository &&
+			activeWorktree
+		) {
+			handleRefreshChanges();
+		}
+	}, [windowFocused, startupMode, repository?.rootPath, activeWorktree?.id]);
 
 	function handleReviewRailResizeStart(
 		event: ReactMouseEvent<HTMLDivElement>,
