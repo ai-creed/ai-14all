@@ -337,6 +337,7 @@ export function App() {
 	// Derive git data from cached session state
 	const activeSummary = activeSession?.gitSummary ?? null;
 	const gitSummaryError = activeSession?.gitSummaryError ?? false;
+	const gitSummaryMessage = activeSession?.gitSummaryMessage ?? null;
 	const changes = useMemo(
 		() => activeSummary?.changedFiles ?? [],
 		[activeSummary],
@@ -417,26 +418,23 @@ export function App() {
 		if (!activeWorktree?.path) return;
 		let cancelled = false;
 
-		git
-			.readSummary(activeWorktree.path)
-			.then((summary) => {
-				if (cancelled) return;
-				dispatch({
-					type: "session/cacheGitSummary",
-					worktreeId: activeWorktree.id,
-					gitSummary: summary,
-					error: false,
-				});
-			})
-			.catch(() => {
-				if (cancelled) return;
-				dispatch({
-					type: "session/cacheGitSummary",
-					worktreeId: activeWorktree.id,
-					gitSummary: null,
-					error: true,
-				});
+		dispatch({ type: "session/startGitSummaryRefresh", worktreeId: activeWorktree.id });
+
+		git.readSummary(activeWorktree.path).then((summary) => {
+			if (cancelled) return;
+			dispatch({
+				type: "session/cacheGitSummarySuccess",
+				worktreeId: activeWorktree.id,
+				gitSummary: summary,
 			});
+		}).catch((err) => {
+			if (cancelled) return;
+			dispatch({
+				type: "session/cacheGitSummaryFailure",
+				worktreeId: activeWorktree.id,
+				message: err instanceof Error ? err.message : String(err),
+			});
+		});
 
 		return () => {
 			cancelled = true;
@@ -1057,14 +1055,19 @@ export function App() {
 													gitSummaryError={gitSummaryError}
 												/>
 											) : (
-												<ChangesList
-													changes={changes}
-													selectedPath={
-														activeSession?.selectedChangedFilePath ?? null
-													}
-													onSelect={handleSelectChangedFile}
-													gitSummaryError={gitSummaryError}
-												/>
+												<>
+													{gitSummaryMessage && (
+														<p className="shell-stale-notice">{gitSummaryMessage}</p>
+													)}
+													<ChangesList
+														changes={changes}
+														selectedPath={
+															activeSession?.selectedChangedFilePath ?? null
+														}
+														onSelect={handleSelectChangedFile}
+														gitSummaryError={gitSummaryError}
+													/>
+												</>
 											)}
 										</ScrollArea.Viewport>
 										<ScrollArea.Scrollbar

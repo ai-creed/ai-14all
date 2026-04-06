@@ -379,6 +379,44 @@ describe("App — refresh changes button", () => {
 		expect(await screen.findByText("Unknown")).toBeInTheDocument();
 	});
 
+	it("keeps the previous summary data in state when refresh fails", async () => {
+		mockSetRoot.mockResolvedValueOnce({
+			id: "r1",
+			name: "test-repo",
+			rootPath: "/repo",
+			repoId: "repo-id-123",
+		});
+		mockListWorktrees.mockResolvedValueOnce([
+			{
+				id: "wt1",
+				repositoryId: "r1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
+		]);
+
+		render(<App />);
+		const repoInput = await screen.findByLabelText("Repository path");
+		fireEvent.change(repoInput, { target: { value: "/repo" } });
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+		await screen.findByRole("tab", { name: "Files" });
+		await user.click(screen.getByRole("tab", { name: "Changes" }));
+
+		// Verify the initial file appears in the changes list
+		await screen.findByRole("button", { name: /src\/index\.ts/i });
+
+		// Override the mock so subsequent calls (triggered by Refresh) throw
+		mockReadSummary.mockRejectedValue(new Error("git error"));
+		fireEvent.click(screen.getByRole("button", { name: "Refresh review" }));
+
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: /src\/index\.ts/i })).toBeInTheDocument();
+			expect(screen.getByText(/showing last successful result/i)).toBeInTheDocument();
+		});
+	});
+
 	it("restores per-worktree review selections when switching sessions", async () => {
 		mockReadSummary.mockImplementation(async (worktreePath: string) => {
 			if (worktreePath.includes("feature-a")) {
