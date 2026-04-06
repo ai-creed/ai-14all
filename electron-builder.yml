@@ -1,0 +1,17 @@
+appId: dev.ai14all.desktop
+productName: ai-14all
+directories:
+  output: release
+files:
+  - out/**
+  - package.json
+asarUnpack:
+  - node_modules/node-pty/**
+mac:
+  target:
+    - target: zip
+      arch:
+        - arm64
+    - target: dmg
+      arch:
+        - arm64

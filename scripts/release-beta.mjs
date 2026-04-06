@@ -28,3 +28,8 @@ export function computeNextBetaVersion(tags) {
 export function findHeadBetaTag(tagsPointingAtHead) {
 	return tagsPointingAtHead.find((tag) => parseBetaTag(tag) !== null) ?? null;
 }
+
+if (import.meta.url === new URL(process.argv[1], "file:").href) {
+	console.error("release:beta: main() not yet implemented — coming in a later task");
+	process.exit(1);
+}

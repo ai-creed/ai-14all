@@ -1,5 +1,6 @@
 {
 	"name": "ai-14all",
+	"version": "0.1.0-dev",
 	"private": true,
 	"type": "module",
 	"main": "out/main/index.js",
@@ -15,7 +16,9 @@
 		"typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.test.json",
 		"test": "vitest run --passWithNoTests",
 		"test:e2e": "electron-vite build && playwright test",
-		"test:all": "pnpm test && pnpm test:e2e"
+		"test:all": "pnpm test && pnpm test:e2e",
+		"package:mac": "pnpm build && electron-builder --mac zip dmg --publish never",
+		"release:beta": "node scripts/release-beta.mjs"
 	},
 	"dependencies": {
 		"@monaco-editor/react": "^4.7.0",
@@ -62,6 +65,8 @@
 		"typescript": "^6.0.2",
 		"typescript-eslint": "^8.30.1",
 		"vite": "^6.4.1",
-		"vitest": "^4.1.2"
+		"vitest": "^4.1.2",
+		"electron-builder": "^26.0.12",
+		"builder-util": "^26.0.0"
 	}
 }
