@@ -92,12 +92,9 @@ export type WorkspaceAction =
 			worktreeId: string;
 			processId: string;
 	  }
-	| {
-			type: "session/cacheGitSummary";
-			worktreeId: string;
-			gitSummary: GitSummary | null;
-			error: boolean;
-	  }
+	| { type: "session/startGitSummaryRefresh"; worktreeId: string }
+	| { type: "session/cacheGitSummarySuccess"; worktreeId: string; gitSummary: GitSummary }
+	| { type: "session/cacheGitSummaryFailure"; worktreeId: string; message: string }
 	| {
 			type: "workspace/restoreSnapshot";
 			worktrees: Worktree[];
@@ -116,6 +113,8 @@ function createSession(worktree: Worktree): WorktreeSession {
 		reviewMode: "files",
 		viewerMode: "file",
 		gitSummary: null,
+		gitSummaryStale: false,
+		gitSummaryMessage: null,
 		gitSummaryError: false,
 		selectedFilePath: null,
 		selectedChangedFilePath: null,
@@ -213,6 +212,22 @@ function restorePersistedSession(
 		nextAdHocNumberByWorktreeId: {
 			...state.nextAdHocNumberByWorktreeId,
 			[snapshot.worktreeId]: snapshot.nextAdHocNumber,
+		},
+	};
+}
+
+function updateSession(
+	state: WorkspaceState,
+	worktreeId: string,
+	updater: (session: WorktreeSession) => WorktreeSession,
+): WorkspaceState {
+	const session = state.sessionsByWorktreeId[worktreeId];
+	if (!session) return state;
+	return {
+		...state,
+		sessionsByWorktreeId: {
+			...state.sessionsByWorktreeId,
+			[worktreeId]: updater(session),
 		},
 	};
 }
@@ -503,30 +518,40 @@ export function workspaceReducer(
 		};
 	}
 
-	if (action.type === "session/cacheGitSummary") {
-		const session = state.sessionsByWorktreeId[action.worktreeId];
-		if (!session) return state;
-		const nextSelectedChangedFilePath =
-			!action.error &&
-			action.gitSummary &&
-			session.selectedChangedFilePath !== null &&
-			!action.gitSummary.changedFiles.some(
-				(change) => change.path === session.selectedChangedFilePath,
-			)
-				? null
-				: session.selectedChangedFilePath;
-		return {
-			...state,
-			sessionsByWorktreeId: {
-				...state.sessionsByWorktreeId,
-				[action.worktreeId]: {
-					...session,
-					gitSummary: action.gitSummary,
-					gitSummaryError: action.error,
-					selectedChangedFilePath: nextSelectedChangedFilePath,
-				},
-			},
-		};
+	if (action.type === "session/startGitSummaryRefresh") {
+		return updateSession(state, action.worktreeId, (session) => ({
+			...session,
+			gitSummaryMessage: session.gitSummaryStale ? session.gitSummaryMessage : null,
+		}));
+	}
+
+	if (action.type === "session/cacheGitSummarySuccess") {
+		return updateSession(state, action.worktreeId, (session) => ({
+			...session,
+			gitSummary: action.gitSummary,
+			gitSummaryError: false,
+			gitSummaryStale: false,
+			gitSummaryMessage: null,
+			selectedChangedFilePath:
+				session.selectedChangedFilePath &&
+				!action.gitSummary.changedFiles.some(
+					(change) => change.path === session.selectedChangedFilePath,
+				)
+					? null
+					: session.selectedChangedFilePath,
+		}));
+	}
+
+	if (action.type === "session/cacheGitSummaryFailure") {
+		return updateSession(state, action.worktreeId, (session) => ({
+			...session,
+			gitSummaryError: session.gitSummary === null,
+			gitSummaryStale: session.gitSummary !== null,
+			gitSummaryMessage:
+				session.gitSummary === null
+					? "Couldn't load changes."
+					: "Couldn't refresh changes. Showing last successful result.",
+		}));
 	}
 
 	// --- Remaining session-level actions ---

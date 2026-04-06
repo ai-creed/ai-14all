@@ -171,10 +171,9 @@ describe("workspaceReducer", () => {
 describe("workspaceReducer — Phase 4 review state", () => {
 	it("records git summary fetch error per worktree session", () => {
 		const state = workspaceReducer(createWorkspaceState(worktrees), {
-			type: "session/cacheGitSummary",
+			type: "session/cacheGitSummaryFailure",
 			worktreeId: "main",
-			gitSummary: null,
-			error: true,
+			message: "git error",
 		});
 		expect(state.sessionsByWorktreeId.main.gitSummaryError).toBe(true);
 		expect(state.sessionsByWorktreeId.main.gitSummary).toBeNull();
@@ -182,13 +181,12 @@ describe("workspaceReducer — Phase 4 review state", () => {
 
 	it("clears git summary error on successful fetch", () => {
 		let state = workspaceReducer(createWorkspaceState(worktrees), {
-			type: "session/cacheGitSummary",
+			type: "session/cacheGitSummaryFailure",
 			worktreeId: "main",
-			gitSummary: null,
-			error: true,
+			message: "git error",
 		});
 		state = workspaceReducer(state, {
-			type: "session/cacheGitSummary",
+			type: "session/cacheGitSummarySuccess",
 			worktreeId: "main",
 			gitSummary: {
 				branchName: "main",
@@ -197,14 +195,13 @@ describe("workspaceReducer — Phase 4 review state", () => {
 				changedFiles: [],
 				recentCommits: [],
 			},
-			error: false,
 		});
 		expect(state.sessionsByWorktreeId.main.gitSummaryError).toBe(false);
 	});
 
 	it("stores cached git summary per worktree session", () => {
 		const state = workspaceReducer(createWorkspaceState(worktrees), {
-			type: "session/cacheGitSummary",
+			type: "session/cacheGitSummarySuccess",
 			worktreeId: "main",
 			gitSummary: {
 				branchName: "main",
@@ -215,7 +212,6 @@ describe("workspaceReducer — Phase 4 review state", () => {
 					{ sha: "abc", shortSha: "abc", subject: "initial commit" },
 				],
 			},
-			error: false,
 		});
 
 		expect(state.sessionsByWorktreeId.main.gitSummary?.changedFileCount).toBe(
@@ -332,6 +328,131 @@ describe("workspaceReducer — Phase 3 process model", () => {
 		expect(state.sessionsByWorktreeId.main.attentionState).toBe(
 			"actionRequired",
 		);
+	});
+});
+
+describe("workspaceReducer — git summary stale state", () => {
+	const worktree: Worktree = {
+		id: "wt1",
+		repositoryId: "r1",
+		branchName: "main",
+		path: "/repo",
+		label: "main",
+		isMain: true,
+	};
+
+	const summary = {
+		branchName: "main",
+		isDirty: true,
+		changedFileCount: 1,
+		changedFiles: [{ path: "src/index.ts", status: "M" as const }],
+		recentCommits: [{ sha: "abc", shortSha: "abc", subject: "initial commit" }],
+	};
+
+	it("marks the existing git summary stale instead of clearing it on refresh failure", () => {
+		const loaded = workspaceReducer(createWorkspaceState([worktree]), {
+			type: "session/cacheGitSummarySuccess",
+			worktreeId: "wt1",
+			gitSummary: summary,
+		});
+
+		const next = workspaceReducer(loaded, {
+			type: "session/cacheGitSummaryFailure",
+			worktreeId: "wt1",
+			message: "git error",
+		});
+
+		expect(next.sessionsByWorktreeId.wt1.gitSummary).toEqual(summary);
+		expect(next.sessionsByWorktreeId.wt1.gitSummaryStale).toBe(true);
+		expect(next.sessionsByWorktreeId.wt1.gitSummaryMessage).toMatch(/showing last successful result/i);
+	});
+
+	it("session/startGitSummaryRefresh clears the message when not already stale", () => {
+		const state = workspaceReducer(createWorkspaceState([worktree]), {
+			type: "session/startGitSummaryRefresh",
+			worktreeId: "wt1",
+		});
+
+		expect(state.sessionsByWorktreeId.wt1.gitSummaryMessage).toBeNull();
+	});
+
+	it("session/startGitSummaryRefresh preserves the message when already stale", () => {
+		const withSummary = workspaceReducer(createWorkspaceState([worktree]), {
+			type: "session/cacheGitSummarySuccess",
+			worktreeId: "wt1",
+			gitSummary: summary,
+		});
+		const stale = workspaceReducer(withSummary, {
+			type: "session/cacheGitSummaryFailure",
+			worktreeId: "wt1",
+			message: "git error",
+		});
+
+		const next = workspaceReducer(stale, {
+			type: "session/startGitSummaryRefresh",
+			worktreeId: "wt1",
+		});
+
+		expect(next.sessionsByWorktreeId.wt1.gitSummaryStale).toBe(true);
+		expect(next.sessionsByWorktreeId.wt1.gitSummaryMessage).not.toBeNull();
+	});
+
+	it("session/cacheGitSummarySuccess clears stale/error/message fields", () => {
+		const withSummary = workspaceReducer(createWorkspaceState([worktree]), {
+			type: "session/cacheGitSummarySuccess",
+			worktreeId: "wt1",
+			gitSummary: summary,
+		});
+		const stale = workspaceReducer(withSummary, {
+			type: "session/cacheGitSummaryFailure",
+			worktreeId: "wt1",
+			message: "git error",
+		});
+
+		const newSummary = { ...summary, changedFileCount: 2 };
+		const next = workspaceReducer(stale, {
+			type: "session/cacheGitSummarySuccess",
+			worktreeId: "wt1",
+			gitSummary: newSummary,
+		});
+
+		expect(next.sessionsByWorktreeId.wt1.gitSummaryError).toBe(false);
+		expect(next.sessionsByWorktreeId.wt1.gitSummaryStale).toBe(false);
+		expect(next.sessionsByWorktreeId.wt1.gitSummaryMessage).toBeNull();
+		expect(next.sessionsByWorktreeId.wt1.gitSummary).toEqual(newSummary);
+	});
+
+	it("session/cacheGitSummarySuccess invalidates selectedChangedFilePath if the file is no longer in the new summary", () => {
+		let state = workspaceReducer(createWorkspaceState([worktree]), {
+			type: "session/cacheGitSummarySuccess",
+			worktreeId: "wt1",
+			gitSummary: summary,
+		});
+		state = workspaceReducer(state, {
+			type: "session/selectChangedFile",
+			worktreeId: "wt1",
+			relativePath: "src/index.ts",
+		});
+
+		const next = workspaceReducer(state, {
+			type: "session/cacheGitSummarySuccess",
+			worktreeId: "wt1",
+			gitSummary: { ...summary, changedFiles: [], changedFileCount: 0 },
+		});
+
+		expect(next.sessionsByWorktreeId.wt1.selectedChangedFilePath).toBeNull();
+	});
+
+	it("session/cacheGitSummaryFailure with no previous summary sets gitSummaryError=true and gitSummaryStale=false", () => {
+		const next = workspaceReducer(createWorkspaceState([worktree]), {
+			type: "session/cacheGitSummaryFailure",
+			worktreeId: "wt1",
+			message: "git error",
+		});
+
+		expect(next.sessionsByWorktreeId.wt1.gitSummaryError).toBe(true);
+		expect(next.sessionsByWorktreeId.wt1.gitSummaryStale).toBe(false);
+		expect(next.sessionsByWorktreeId.wt1.gitSummary).toBeNull();
 	});
 });
 
