@@ -5,6 +5,7 @@ type Props = {
 	changedFileCount: number;
 	isDirty: boolean;
 	gitSummaryError?: boolean;
+	gitSummaryStale?: boolean;
 	collapsed: boolean;
 };
 
@@ -15,9 +16,16 @@ export function SessionHeader({
 	changedFileCount,
 	isDirty,
 	gitSummaryError = false,
+	gitSummaryStale = false,
 	collapsed,
 }: Props) {
-	const statusLabel = gitSummaryError ? "Unknown" : isDirty ? "Dirty" : "Clean";
+	const statusLabel = gitSummaryError
+		? "Unknown"
+		: gitSummaryStale
+			? `${isDirty ? "Dirty" : "Clean"} (stale)`
+			: isDirty
+				? "Dirty"
+				: "Clean";
 
 	return (
 		<section aria-label="Session info" className="shell-session-info">

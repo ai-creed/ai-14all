@@ -337,6 +337,7 @@ export function App() {
 	// Derive git data from cached session state
 	const activeSummary = activeSession?.gitSummary ?? null;
 	const gitSummaryError = activeSession?.gitSummaryError ?? false;
+	const gitSummaryStale = activeSession?.gitSummaryStale ?? false;
 	const gitSummaryMessage = activeSession?.gitSummaryMessage ?? null;
 	const changes = useMemo(
 		() => activeSummary?.changedFiles ?? [],
@@ -848,6 +849,7 @@ export function App() {
 								changedFileCount={changes.length}
 								isDirty={activeSummary?.isDirty ?? false}
 								gitSummaryError={gitSummaryError}
+								gitSummaryStale={gitSummaryStale}
 								collapsed={workspaceState.topBandCollapsed}
 							/>
 							{!workspaceState.topBandCollapsed && (
@@ -1053,21 +1055,19 @@ export function App() {
 														})
 													}
 													gitSummaryError={gitSummaryError}
+													gitSummaryMessage={gitSummaryMessage}
 												/>
 											) : (
-												<>
-													{gitSummaryMessage && (
-														<p className="shell-stale-notice">{gitSummaryMessage}</p>
-													)}
-													<ChangesList
-														changes={changes}
-														selectedPath={
-															activeSession?.selectedChangedFilePath ?? null
-														}
-														onSelect={handleSelectChangedFile}
-														gitSummaryError={gitSummaryError}
-													/>
-												</>
+												<ChangesList
+													changes={changes}
+													selectedPath={
+														activeSession?.selectedChangedFilePath ?? null
+													}
+													onSelect={handleSelectChangedFile}
+													gitSummaryError={gitSummaryError}
+													gitSummaryStale={gitSummaryStale}
+													gitSummaryMessage={gitSummaryMessage}
+												/>
 											)}
 										</ScrollArea.Viewport>
 										<ScrollArea.Scrollbar

@@ -11,6 +11,7 @@ type FileListProps = {
 	selectedFile: string | null;
 	onSelect: (relativePath: string) => void;
 	gitSummaryError?: boolean;
+	gitSummaryMessage?: string | null;
 };
 
 function TreeNode({
@@ -58,6 +59,7 @@ export function FileList({
 	selectedFile,
 	onSelect,
 	gitSummaryError,
+	gitSummaryMessage,
 }: FileListProps) {
 	const [fileList, setFileList] = useState<string[]>([]);
 	const [loading, setLoading] = useState(false);
@@ -113,15 +115,20 @@ export function FileList({
 	const tree = buildScopedFileTree(fileList);
 
 	return (
-		<div className="shell-list">
-			{tree.map((node) => (
-				<TreeNode
-					key={node.path}
-					node={node}
-					selectedFile={selectedFile}
-					onSelect={onSelect}
-				/>
-			))}
-		</div>
+		<>
+			{gitSummaryMessage && (
+				<p className="shell-inline-warning">{gitSummaryMessage}</p>
+			)}
+			<div className="shell-list">
+				{tree.map((node) => (
+					<TreeNode
+						key={node.path}
+						node={node}
+						selectedFile={selectedFile}
+						onSelect={onSelect}
+					/>
+				))}
+			</div>
+		</>
 	);
 }

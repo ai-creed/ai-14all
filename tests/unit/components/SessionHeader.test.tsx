@@ -42,6 +42,22 @@ describe("SessionHeader", () => {
 		expect(screen.getByText("Unknown")).toBeInTheDocument();
 	});
 
+	it("renders a stale status label when git summary is stale", () => {
+		render(
+			<SessionHeader
+				title="main"
+				worktreePath="/repo"
+				branchName="main"
+				changedFileCount={1}
+				isDirty
+				gitSummaryStale
+				collapsed={false}
+			/>,
+		);
+
+		expect(screen.getByText("Dirty (stale)")).toBeInTheDocument();
+	});
+
 	it("renders a compact collapsed strip without the path block", () => {
 		render(
 			<SessionHeader
