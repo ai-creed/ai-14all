@@ -1,10 +1,11 @@
 // @vitest-environment node
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execSync } from "node:child_process";
 import { WorktreeService } from "../../../../services/worktrees/worktree-service.js";
+import { GitService } from "../../../../services/git/git-service.js";
 
 describe("WorktreeService", () => {
 	let service: WorktreeService;
@@ -49,6 +50,37 @@ describe("WorktreeService", () => {
 				expect(repo.rootPath).toBe(tmpDir);
 				expect(repo.name).toBeTruthy();
 			} finally {
+				rmSync(tmpDir, { recursive: true });
+			}
+		});
+	});
+
+	describe("setRepositoryRoot — repo identity failure path", () => {
+		it("loads the repository even when repo identity resolution fails", async () => {
+			const tmpDir = mkdtempSync(join(tmpdir(), "ofa-test-"));
+			try {
+				execSync("git init", { cwd: tmpDir, stdio: "ignore" });
+				execSync("git config user.email 'phase0@example.com'", {
+					cwd: tmpDir,
+					stdio: "ignore",
+				});
+				execSync("git config user.name 'Phase 0 Test'", {
+					cwd: tmpDir,
+					stdio: "ignore",
+				});
+				execSync("git commit --allow-empty -m 'init'", {
+					cwd: tmpDir,
+					stdio: "ignore",
+				});
+
+				vi.spyOn(GitService.prototype, "readOrCreateRepoId").mockResolvedValue(null);
+
+				const repo = await service.setRepositoryRoot(tmpDir);
+
+				expect(repo.rootPath).toBe(tmpDir);
+				expect(repo.repoId).toBeNull();
+			} finally {
+				vi.restoreAllMocks();
 				rmSync(tmpDir, { recursive: true });
 			}
 		});

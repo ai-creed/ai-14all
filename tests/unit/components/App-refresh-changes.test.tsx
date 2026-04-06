@@ -85,6 +85,7 @@ async function loadRepoAndSwitchToChanges() {
 		id: "r1",
 		name: "test-repo",
 		rootPath: "/repo",
+		repoId: "repo-id-123",
 	});
 	mockListWorktrees.mockResolvedValueOnce([
 		{
@@ -131,6 +132,7 @@ async function loadRepositoryWithTwoWorktrees() {
 		id: "r1",
 		name: "test-repo",
 		rootPath: "/repo",
+		repoId: "repo-id-123",
 	});
 	mockListWorktrees.mockResolvedValueOnce([
 		{
@@ -236,6 +238,7 @@ describe("App — refresh changes button", () => {
 			id: "r1",
 			name: "test-repo",
 			rootPath: "/repo",
+			repoId: "repo-id-123",
 		});
 		mockListWorktrees.mockResolvedValueOnce([
 			{
@@ -304,6 +307,7 @@ describe("App — refresh changes button", () => {
 			id: "r1",
 			name: "test-repo",
 			rootPath: "/repo",
+			repoId: "repo-id-123",
 		});
 		mockListWorktrees.mockResolvedValueOnce([
 			{
@@ -351,6 +355,7 @@ describe("App — refresh changes button", () => {
 			id: "r1",
 			name: "test-repo",
 			rootPath: "/repo",
+			repoId: "repo-id-123",
 		});
 		mockListWorktrees.mockResolvedValueOnce([
 			{
@@ -435,6 +440,7 @@ async function loadRepository() {
 		id: "r1",
 		name: "test-repo",
 		rootPath: "/repo",
+		repoId: "repo-id-123",
 	});
 	mockListWorktrees.mockResolvedValueOnce([
 		{

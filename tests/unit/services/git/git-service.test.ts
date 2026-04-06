@@ -224,6 +224,31 @@ describe("GitService", () => {
 		expect(history.entries[0]?.isMergeTarget).toBe(false);
 	});
 
+	describe("readOrCreateRepoId", () => {
+		it("reads ai14all.repoId from local git config when present", async () => {
+			execSync("git config --local ai14all.repoId repo-id-123", {
+				cwd: repoPath,
+				stdio: "ignore",
+			});
+
+			const repoId = await service.readOrCreateRepoId(repoPath);
+			expect(repoId).toBe("repo-id-123");
+		});
+
+		it("creates and persists ai14all.repoId when missing", async () => {
+			const repoId = await service.readOrCreateRepoId(repoPath);
+			expect(repoId).toMatch(
+				/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+			);
+
+			const stored = execSync(
+				"git config --local --get ai14all.repoId",
+				{ cwd: repoPath, encoding: "utf8" },
+			).trim();
+			expect(stored).toBe(repoId);
+		});
+	});
+
 	it("returns per-file side-by-side data for a selected commit", async () => {
 		execSync("git update-ref refs/remotes/origin/main main", {
 			cwd: repoPath,

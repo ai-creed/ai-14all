@@ -26,7 +26,7 @@ const mockPickRoot = vi.mocked(repository.pickRoot);
 const mockSetRoot = vi.mocked(repository.setRoot);
 const mockListWorktrees = vi.mocked(repository.listWorktrees);
 
-const fakeRepo: Repository = { id: "r1", name: "test-repo", rootPath: "/test" };
+const fakeRepo: Repository = { id: "r1", name: "test-repo", rootPath: "/test", repoId: "repo-id-123" };
 const fakeWorktrees: Worktree[] = [
 	{
 		id: "/test",

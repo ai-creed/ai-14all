@@ -122,6 +122,36 @@ async function readWorkingTreeFile(absolutePath: string): Promise<string> {
 }
 
 export class GitService {
+	async readOrCreateRepoId(worktreePath: string): Promise<string | null> {
+		try {
+			const { stdout } = await execFileAsync(
+				gitBinary,
+				["config", "--local", "--get", "ai14all.repoId"],
+				{ cwd: worktreePath },
+			);
+			const existing = stdout.trim();
+			if (existing) return existing;
+		} catch (error) {
+			const code =
+				typeof error === "object" && error !== null && "code" in error
+					? Number((error as { code?: number | string }).code)
+					: null;
+			if (code !== 1) return null;
+		}
+
+		const nextId = crypto.randomUUID();
+		try {
+			await execFileAsync(
+				gitBinary,
+				["config", "--local", "ai14all.repoId", nextId],
+				{ cwd: worktreePath },
+			);
+			return nextId;
+		} catch {
+			return null;
+		}
+	}
+
 	async listChangedFiles(worktreePath: string): Promise<GitChange[]> {
 		const { stdout } = await execFileAsync(
 			gitBinary,

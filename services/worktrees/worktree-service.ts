@@ -7,6 +7,7 @@ import type { Repository } from "../../shared/models/repository.js";
 import type { Worktree } from "../../shared/models/worktree.js";
 import { parseWorktreePorcelain } from "./parse-worktree-porcelain.js";
 import { getGitBinaryPath } from "../git/git-binary.js";
+import { GitService } from "../git/git-service.js";
 
 const execFileAsync = promisify(execFile);
 const gitBinary = getGitBinaryPath();
@@ -55,10 +56,14 @@ export class WorktreeService {
 			);
 		}
 
+		const gitService = new GitService();
+		const repoId = await gitService.readOrCreateRepoId(toplevel);
+
 		return {
 			id: randomUUID(),
 			name: basename(toplevel),
 			rootPath,
+			repoId,
 		};
 	}
 
