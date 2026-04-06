@@ -55,16 +55,23 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 			.getByRole("button", { name: /^main(?:\s+main)?$/i })
 			.click();
 
-		// Open preset manager and add a "Claude" preset
-		await page.getByRole("button", { name: "Manage presets" }).click();
+		// Wait for the default shell to be ready before interacting with the toolbar
+		await expect(
+			page.getByRole("tab", { name: /^shell 1(?: \((?:error|exited)\))?$/i }),
+		).toBeVisible({ timeout: 10_000 });
+
+		// Open preset manager and add a "Claude" preset.
+		// "Manage presets" lives inside the "Presets" dropdown since the toolbar refactor.
+		await page.getByRole("button", { name: "Presets" }).click();
+		await page.getByRole("menuitem", { name: "Manage presets" }).click();
 		await page.getByLabel("Preset label").fill("Claude");
 		await page.getByLabel("Preset command").fill("printf 'error: phase 3\\n'");
 		await page.getByRole("button", { name: "Save preset" }).click();
 		await page.getByRole("button", { name: "Close dialog" }).click();
 
-		// Launch the preset
-		await page.getByRole("button", { name: "Launch preset" }).click();
-		await page.getByRole("menuitem", { name: "Claude" }).click();
+		// Launch the preset via the same "Presets" dropdown
+		await page.getByRole("button", { name: "Presets" }).click();
+		await page.getByRole("menuitem", { name: "Claude", exact: true }).click();
 
 		// Assert pinned process tab appears
 		const pinnedTab = page.getByRole("tab", { name: /Claude/i });
@@ -76,7 +83,7 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 		// Phase 6: a default "shell 1" is auto-created on worktree activation.
 		// Clicking "+ Shell" now creates "shell 2". Tab actions are now accessed
 		// via right-click context menu instead of a dedicated "Actions" button.
-		await page.getByRole("button", { name: "+ Shell" }).click();
+		await page.getByRole("button", { name: "Add shell" }).click();
 
 		const shellTab = page.getByRole("tab", { name: "shell 2" });
 		await expect(shellTab).toBeVisible({ timeout: 10_000 });

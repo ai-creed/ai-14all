@@ -68,7 +68,7 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 				name: /^shell 1(?: \((?:error|exited)\))?$/i,
 			}),
 		).toBeVisible({ timeout: 10_000 });
-		await page.getByRole("button", { name: "+ Shell" }).click();
+		await page.getByRole("button", { name: "Add shell" }).click();
 
 		await expect(
 			page.getByRole("tab", {
@@ -108,9 +108,7 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 		});
 		await changedFileButton.click({ force: true });
 
-		await expect(page.locator(".monaco-editor")).toBeVisible({
-			timeout: 15_000,
-		});
-		await expect(page.getByText("diff --git")).toBeVisible();
+		// DiffEditor replaced the old raw-diff text editor — check the viewer header instead
+		await expect(page.getByText("Diff vs HEAD")).toBeVisible({ timeout: 15_000 });
 	});
 });

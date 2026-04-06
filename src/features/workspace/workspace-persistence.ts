@@ -87,6 +87,59 @@ export function buildWorkspaceSnapshot(
 	};
 }
 
+/**
+ * After a repository rename, `git worktree list` may still report linked
+ * worktrees at their old paths (stale gitdir back-references). This function
+ * reconciles the rebased snapshot so that any session whose rebased worktreeId
+ * is not present in `wts` but whose original worktreeId IS present is mapped
+ * back to the original id — allowing the reducer to find and restore it.
+ *
+ * The same fallback is applied to `selectedWorktreeId`.
+ *
+ * Returns `rebasedSnapshot` unchanged when no reconciliation is needed.
+ */
+export function reconcileSnapshotToWorktrees(
+	rebasedSnapshot: WorkspaceSnapshot,
+	originalSnapshot: WorkspaceSnapshot,
+	wts: { id: string }[],
+): WorkspaceSnapshot {
+	const wtsIds = new Set(wts.map((w) => w.id));
+
+	const reconcileId = (
+		rebasedId: string | null,
+		originalId: string | null,
+	): string | null => {
+		if (!rebasedId || wtsIds.has(rebasedId)) return rebasedId;
+		if (originalId && wtsIds.has(originalId)) return originalId;
+		return rebasedId;
+	};
+
+	const reconciledSelectedId = reconcileId(
+		rebasedSnapshot.selectedWorktreeId,
+		originalSnapshot.selectedWorktreeId,
+	);
+
+	const reconciledSessions = rebasedSnapshot.worktreeSessions.map((session, i) => {
+		const originalId = originalSnapshot.worktreeSessions[i]?.worktreeId ?? null;
+		const reconciledId = reconcileId(session.worktreeId, originalId);
+		if (reconciledId === session.worktreeId) return session;
+		return { ...session, worktreeId: reconciledId ?? session.worktreeId };
+	});
+
+	if (
+		reconciledSelectedId === rebasedSnapshot.selectedWorktreeId &&
+		reconciledSessions.every((s, i) => s === rebasedSnapshot.worktreeSessions[i])
+	) {
+		return rebasedSnapshot;
+	}
+
+	return {
+		...rebasedSnapshot,
+		selectedWorktreeId: reconciledSelectedId,
+		worktreeSessions: reconciledSessions,
+	};
+}
+
 export function splitPendingRestores(snapshot: WorkspaceSnapshot): {
 	selectedSession: PersistedWorktreeSession | null;
 	pendingByWorktreeId: Record<string, PersistedWorktreeSession>;

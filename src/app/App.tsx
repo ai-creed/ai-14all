@@ -19,7 +19,7 @@ import type {
 	WorkspaceSnapshot,
 } from "../../shared/models/persisted-workspace-state";
 import { DEFAULT_PERSISTED_WORKSPACE_STATE } from "../../shared/models/persisted-workspace-state";
-import { buildWorkspaceSnapshot, rebaseSnapshotPaths, shouldReattachSnapshot, splitPendingRestores } from "../features/workspace/workspace-persistence";
+import { buildWorkspaceSnapshot, rebaseSnapshotPaths, reconcileSnapshotToWorktrees, shouldReattachSnapshot, splitPendingRestores } from "../features/workspace/workspace-persistence";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
 import { SessionSidebar } from "../features/workspace/SessionSidebar";
@@ -196,12 +196,14 @@ export function App() {
 			setRepository(repo);
 			setWorktrees(wts);
 			defaultShellEnsuredByWorktreeRef.current.clear();
+			const originalSnapshot = restoreState.snapshot!;
+			const rebasedSnapshot = rebaseSnapshotPaths(
+				originalSnapshot,
+				originalSnapshot.repositoryPath,
+				repo.rootPath,
+			);
 			const nextSnapshot: WorkspaceSnapshot = {
-				...rebaseSnapshotPaths(
-					restoreState.snapshot!,
-					restoreState.snapshot!.repositoryPath,
-					repo.rootPath,
-				),
+				...reconcileSnapshotToWorktrees(rebasedSnapshot, originalSnapshot, wts),
 				repositoryPath: repo.rootPath,
 				repoId: repo.repoId,
 			};

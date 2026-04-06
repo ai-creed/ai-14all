@@ -3,6 +3,7 @@ import { DEFAULT_COMMAND_PRESETS } from "../../../shared/models/command-preset";
 import {
 	buildWorkspaceSnapshot,
 	rebaseSnapshotPaths,
+	reconcileSnapshotToWorktrees,
 	shouldReattachSnapshot,
 	splitPendingRestores,
 } from "../../../src/features/workspace/workspace-persistence";
@@ -390,5 +391,96 @@ describe("shouldReattachSnapshot", () => {
 		expect(
 			shouldReattachSnapshot({ repoId: "id-1", name: "repo" }, null),
 		).toBe(false);
+	});
+});
+
+function makeSession(worktreeId: string, note = ""): WorkspaceSnapshot["worktreeSessions"][number] {
+	return {
+		worktreeId,
+		note,
+		reviewMode: "files",
+		viewerMode: "file",
+		selectedFilePath: null,
+		selectedChangedFilePath: null,
+		selectedCommitSha: null,
+		selectedCommitFilePath: null,
+		activeProcessSessionId: null,
+		nextAdHocNumber: 1,
+		processSessions: [],
+	};
+}
+
+describe("reconcileSnapshotToWorktrees", () => {
+	const wts = [
+		{ id: "/old/repo" },
+		{ id: "/old/repo/.worktrees/feature-a" },
+	];
+
+	it("returns rebasedSnapshot unchanged when all ids are already in wts", () => {
+		const rebased = makeMinimalSnapshot({
+			selectedWorktreeId: "/old/repo/.worktrees/feature-a",
+			worktreeSessions: [makeSession("/old/repo"), makeSession("/old/repo/.worktrees/feature-a", "note")],
+		});
+		const original = makeMinimalSnapshot({
+			selectedWorktreeId: "/old/repo/.worktrees/feature-a",
+			worktreeSessions: [makeSession("/old/repo"), makeSession("/old/repo/.worktrees/feature-a", "note")],
+		});
+		expect(reconcileSnapshotToWorktrees(rebased, original, wts)).toBe(rebased);
+	});
+
+	it("falls back to original id for linked worktree whose rebased id is absent from wts", () => {
+		// Simulates: repo renamed old→new, main worktree id updated in wts but
+		// linked worktree still reports the old path (stale gitdir).
+		const wtsAfterRename = [
+			{ id: "/new/repo" },
+			{ id: "/old/repo/.worktrees/feature-a" }, // stale — git didn't update this
+		];
+		const rebased = makeMinimalSnapshot({
+			selectedWorktreeId: "/new/repo/.worktrees/feature-a",
+			worktreeSessions: [
+				makeSession("/new/repo"),
+				makeSession("/new/repo/.worktrees/feature-a", "resume here"),
+			],
+		});
+		const original = makeMinimalSnapshot({
+			selectedWorktreeId: "/old/repo/.worktrees/feature-a",
+			worktreeSessions: [
+				makeSession("/old/repo"),
+				makeSession("/old/repo/.worktrees/feature-a", "resume here"),
+			],
+		});
+
+		const result = reconcileSnapshotToWorktrees(rebased, original, wtsAfterRename);
+
+		// Main worktree rebased id IS in wts → keep rebased
+		expect(result.worktreeSessions[0].worktreeId).toBe("/new/repo");
+		// Linked worktree rebased id is NOT in wts, original IS → fall back to original
+		expect(result.selectedWorktreeId).toBe("/old/repo/.worktrees/feature-a");
+		expect(result.worktreeSessions[1].worktreeId).toBe("/old/repo/.worktrees/feature-a");
+		// Note is preserved
+		expect(result.worktreeSessions[1].note).toBe("resume here");
+	});
+
+	it("keeps rebased id when neither rebased nor original id is in wts (worktree gone)", () => {
+		const wtsGone = [{ id: "/new/repo" }];
+		const rebased = makeMinimalSnapshot({
+			selectedWorktreeId: "/new/repo/.worktrees/feature-a",
+			worktreeSessions: [makeSession("/new/repo/.worktrees/feature-a", "note")],
+		});
+		const original = makeMinimalSnapshot({
+			selectedWorktreeId: "/old/repo/.worktrees/feature-a",
+			worktreeSessions: [makeSession("/old/repo/.worktrees/feature-a", "note")],
+		});
+
+		const result = reconcileSnapshotToWorktrees(rebased, original, wtsGone);
+		expect(result.selectedWorktreeId).toBe("/new/repo/.worktrees/feature-a");
+		expect(result.worktreeSessions[0].worktreeId).toBe("/new/repo/.worktrees/feature-a");
+	});
+
+	it("handles null selectedWorktreeId without throwing", () => {
+		const rebased = makeMinimalSnapshot({ selectedWorktreeId: null });
+		const original = makeMinimalSnapshot({ selectedWorktreeId: null });
+		const result = reconcileSnapshotToWorktrees(rebased, original, wts);
+		expect(result.selectedWorktreeId).toBeNull();
 	});
 });
