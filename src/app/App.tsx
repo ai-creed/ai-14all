@@ -45,6 +45,19 @@ import { git, workspace, repository as repositoryClient } from "../lib/desktop-c
 
 type StartupMode = "loading" | "prompt" | "ready";
 
+function shouldReattachSnapshot(
+	repo: Repository,
+	snapshot: WorkspaceSnapshot | null,
+): boolean {
+	if (!snapshot) return false;
+	if (snapshot.repoId && repo.repoId) return snapshot.repoId === repo.repoId;
+	// Basename fallback for older snapshots without repoId.
+	// Intentionally weak — only a safety net. Once older snapshots are migrated
+	// through a successful save, this fallback becomes dead code.
+	const savedName = snapshot.repositoryPath.split("/").filter(Boolean).at(-1);
+	return savedName !== undefined && savedName === repo.name;
+}
+
 function normalizeTerminalTitle(title: string): string | null {
 	const normalized = title.trim().replace(/\s+/g, " ");
 	if (!normalized) return null;
@@ -162,11 +175,38 @@ export function App() {
 			},
 		});
 
-	function handleLoad(repo: Repository, wts: Worktree[]) {
+	async function handleLoad(repo: Repository, wts: Worktree[]) {
 		if (repository?.rootPath === repo.rootPath) {
 			setWorkspacePickerOpen(false);
 			setError(null);
 			setStartupError(null);
+			return;
+		}
+
+		if (shouldReattachSnapshot(repo, restoreState.snapshot)) {
+			setRepository(repo);
+			setWorktrees(wts);
+			defaultShellEnsuredByWorktreeRef.current.clear();
+			setPendingRestoreSessions({});
+			const nextSnapshot: WorkspaceSnapshot = {
+				...restoreState.snapshot!,
+				repositoryPath: repo.rootPath,
+				repoId: repo.repoId,
+			};
+			dispatch({
+				type: "workspace/restoreSnapshot",
+				worktrees: wts,
+				snapshot: nextSnapshot,
+			});
+			const { selectedSession, pendingByWorktreeId } = splitPendingRestores(nextSnapshot);
+			setPendingRestoreSessions(pendingByWorktreeId);
+			setRestoreWarning("Recovered your previous workspace after the repository path changed.");
+			if (selectedSession) {
+				const selectedWorktree = wts.find((w) => w.id === nextSnapshot.selectedWorktreeId);
+				if (selectedWorktree) {
+					await recreatePersistedProcesses(selectedWorktree, selectedSession);
+				}
+			}
 			return;
 		}
 
@@ -230,16 +270,15 @@ export function App() {
 		} catch (err) {
 			setStartupError(
 				err instanceof Error
-					? `Unable to restore previous workspace: ${err.message}`
-					: "Unable to restore previous workspace.",
+					? `Unable to reopen previous workspace from its saved path: ${err.message}`
+					: "Unable to reopen previous workspace from its saved path.",
 			);
-			// Clear the snapshot so a subsequent alwaysRestore launch does not
-			// loop on the same broken repository path. Reset to "prompt" so the
-			// user can choose whether to restore once the path is available again.
+			// Preserve the snapshot so the user can manually reopen after path changes.
+			// Reset to "prompt" so alwaysRestore doesn't loop on a broken path.
 			const fallbackState: PersistedWorkspaceState = {
 				version: 1,
 				restorePreference: "prompt",
-				snapshot: null,
+				snapshot,
 			};
 			setRestoreState(fallbackState);
 			void workspace.writeRestoreState(fallbackState);

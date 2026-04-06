@@ -117,4 +117,34 @@ describe("RepositoryInput", () => {
 			expect(screen.getByRole("button", { name: "Loading…" })).toBeDisabled();
 		});
 	});
+
+	it("keeps the loading state until an async onLoad resolves", async () => {
+		let resolveLoad!: () => void;
+		const onLoad = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					resolveLoad = resolve;
+				}),
+		);
+
+		mockSetRoot.mockResolvedValueOnce(fakeRepo);
+		mockListWorktrees.mockResolvedValueOnce(fakeWorktrees);
+
+		render(<RepositoryInput onLoad={onLoad} />);
+
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/test" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: "Loading…" })).toBeDisabled();
+		});
+
+		resolveLoad();
+
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: "Load" })).toBeEnabled();
+		});
+	});
 });

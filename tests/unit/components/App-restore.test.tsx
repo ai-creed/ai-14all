@@ -292,7 +292,7 @@ describe("App — Phase 5 restore flow", () => {
 		expect(screen.queryByRole("status")).not.toBeInTheDocument();
 	});
 
-	it("clears the snapshot and resets to prompt when alwaysRestore fails", async () => {
+	it("preserves the snapshot and resets to prompt when alwaysRestore fails", async () => {
 		readRestoreStateMock.mockResolvedValue({
 			version: 1,
 			restorePreference: "alwaysRestore",
@@ -307,17 +307,103 @@ describe("App — Phase 5 restore flow", () => {
 
 		render(<App />);
 
-		// App must reach the repo-input screen after the restore failure
 		await screen.findByRole("button", { name: "Load" });
 
-		// Must have persisted the cleared state so the next launch does not loop
 		await waitFor(() => {
-			expect(writeRestoreStateMock).toHaveBeenCalledWith({
-				version: 1,
-				restorePreference: "prompt",
-				snapshot: null,
-			});
+			expect(writeRestoreStateMock).toHaveBeenCalledWith(
+				expect.objectContaining({
+					restorePreference: "prompt",
+					snapshot: expect.objectContaining({ repositoryPath: "/deleted-repo" }),
+				}),
+			);
 		});
+	});
+
+	it("preserves the snapshot when restore fails because the saved path is stale", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "alwaysRestore",
+			snapshot: {
+				repositoryPath: "/old-repo",
+				repoId: "repo-id-123",
+				selectedWorktreeId: null,
+				commandPresets: [],
+				worktreeSessions: [],
+			},
+		});
+		setRootMock.mockRejectedValue(new Error("No such file or directory"));
+
+		render(<App />);
+
+		await screen.findByRole("button", { name: "Load" });
+
+		await waitFor(() => {
+			expect(writeRestoreStateMock).not.toHaveBeenCalledWith(
+				expect.objectContaining({ snapshot: null }),
+			);
+		});
+	});
+
+	it("silently reattaches a preserved snapshot when the same repo is reopened manually", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: {
+				repositoryPath: "/old-repo",
+				repoId: "repo-id-123",
+				selectedWorktreeId: "/new-repo/.worktrees/feature-a",
+				commandPresets: [],
+				worktreeSessions: [
+					{
+						worktreeId: "/new-repo/.worktrees/feature-a",
+						note: "resume here",
+						reviewMode: "files",
+						viewerMode: "file",
+						selectedFilePath: null,
+						selectedChangedFilePath: null,
+						selectedCommitSha: null,
+						selectedCommitFilePath: null,
+						activeProcessSessionId: null,
+						nextAdHocNumber: 1,
+						processSessions: [],
+					},
+				],
+			},
+		});
+
+		setRootMock.mockResolvedValue({
+			id: "repo-1",
+			name: "repo",
+			rootPath: "/new-repo",
+			repoId: "repo-id-123",
+		});
+		listWorktreesMock.mockResolvedValue([
+			{
+				id: "/new-repo/.worktrees/feature-a",
+				repositoryId: "repo-1",
+				branchName: "feature-a",
+				path: "/new-repo/.worktrees/feature-a",
+				label: "feature-a",
+				isMain: false,
+			},
+		]);
+
+		render(<App />);
+
+		// With restorePreference "prompt" the app shows the RestorePrompt.
+		// The user clicks "Start clean" to reach the RepositoryInput while
+		// keeping the snapshot in restoreState for reattachment.
+		await userEvent.click(
+			await screen.findByRole("button", { name: "Start clean" }),
+		);
+
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/new-repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		expect(await screen.findByDisplayValue("resume here")).toBeInTheDocument();
+		expect(screen.getByRole("status")).toHaveTextContent(/recovered/i);
 	});
 
 	it("dispatches worktree selection before awaiting terminal recreation", async () => {

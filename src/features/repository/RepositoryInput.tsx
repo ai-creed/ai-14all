@@ -4,7 +4,7 @@ import type { Worktree } from "../../../shared/models/worktree";
 import { repository } from "../../lib/desktop-client";
 
 type Props = {
-	onLoad: (repo: Repository, worktrees: Worktree[]) => void;
+	onLoad: (repo: Repository, worktrees: Worktree[]) => void | Promise<void>;
 };
 
 export function RepositoryInput({ onLoad }: Props) {
@@ -36,7 +36,7 @@ export function RepositoryInput({ onLoad }: Props) {
 		try {
 			const repo = await repository.setRoot(path.trim());
 			const worktrees = await repository.listWorktrees();
-			onLoad(repo, worktrees);
+			await onLoad(repo, worktrees);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err));
 		} finally {
