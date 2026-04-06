@@ -101,4 +101,17 @@ describe("release-beta plan", () => {
 	it("detects a dirty working tree", () => {
 		expect(isWorkingTreeClean(" M scripts/release-beta.mjs\n")).toBe(false);
 	});
+
+	it("keeps rebuild mode when HEAD is already tagged", () => {
+		expect(
+			createReleasePlan({
+				headTags: ["v0.1.0-beta.4"],
+				allTags: ["v0.1.0-beta.1", "v0.1.0-beta.4"],
+			}),
+		).toEqual({
+			mode: "rebuild",
+			version: "0.1.0-beta.4",
+			tag: "v0.1.0-beta.4",
+		});
+	});
 });
