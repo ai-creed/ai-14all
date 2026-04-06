@@ -1115,3 +1115,146 @@ select {
 	margin-top: var(--space-4);
 	color: var(--text-secondary);
 }
+
+/* ── Markdown Preview Modal ─────────────────────────────────────────── */
+
+.shell-md-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.6);
+	z-index: 49;
+}
+
+.shell-md-modal {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: min(80vw, 1000px);
+	max-height: 80vh;
+	display: flex;
+	flex-direction: column;
+	background: var(--panel-bg);
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-md);
+	z-index: 50;
+	overflow: hidden;
+}
+
+.shell-md-modal__header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: var(--space-3) var(--space-4);
+	border-bottom: 1px solid var(--panel-border);
+	flex-shrink: 0;
+}
+
+.shell-md-modal__title {
+	font-size: 0.875rem;
+	color: var(--text-primary);
+	font-family: var(--font-terminal);
+	margin: 0;
+}
+
+.shell-md-modal__close {
+	background: transparent;
+	border: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	padding: var(--space-1);
+	line-height: 1;
+	border-radius: var(--radius-sm);
+}
+
+.shell-md-modal__close:hover {
+	color: var(--text-primary);
+	background: var(--panel-bg-elevated);
+}
+
+.shell-md-modal__scroll {
+	flex: 1;
+	overflow: hidden;
+}
+
+.shell-md-modal__body {
+	padding: var(--space-4) var(--space-6);
+	color: var(--text-primary);
+	line-height: 1.6;
+}
+
+.shell-md-modal__body h1,
+.shell-md-modal__body h2,
+.shell-md-modal__body h3,
+.shell-md-modal__body h4,
+.shell-md-modal__body h5,
+.shell-md-modal__body h6 {
+	margin-top: var(--space-4);
+	margin-bottom: var(--space-2);
+	font-weight: 600;
+	color: var(--text-primary);
+}
+
+.shell-md-modal__body p {
+	margin-bottom: var(--space-3);
+}
+
+.shell-md-modal__body pre {
+	background: var(--panel-bg-elevated);
+	padding: var(--space-3);
+	border-radius: var(--radius-sm);
+	overflow-x: auto;
+	margin-bottom: var(--space-3);
+}
+
+.shell-md-modal__body code {
+	font-family: var(--font-terminal);
+	font-size: 0.875rem;
+}
+
+.shell-md-modal__body :not(pre) > code {
+	background: var(--panel-bg-elevated);
+	padding: 2px var(--space-1);
+	border-radius: var(--radius-sm);
+	color: var(--accent);
+}
+
+.shell-md-modal__body table {
+	border-collapse: collapse;
+	width: 100%;
+	margin-bottom: var(--space-3);
+}
+
+.shell-md-modal__body th,
+.shell-md-modal__body td {
+	border: 1px solid var(--panel-border);
+	padding: var(--space-2) var(--space-3);
+	text-align: left;
+}
+
+.shell-md-modal__body th {
+	background: var(--panel-bg-elevated);
+	color: var(--text-secondary);
+}
+
+.shell-md-modal__body ul,
+.shell-md-modal__body ol {
+	margin-bottom: var(--space-3);
+	padding-left: var(--space-5);
+}
+
+.shell-md-modal__body blockquote {
+	border-left: 3px solid var(--panel-border-strong);
+	margin: 0 0 var(--space-3) 0;
+	padding-left: var(--space-4);
+	color: var(--text-muted);
+}
+
+.shell-md-modal__body a {
+	color: var(--accent);
+	text-decoration: underline;
+}
+
+.shell-md-modal__body del {
+	color: var(--text-muted);
+}

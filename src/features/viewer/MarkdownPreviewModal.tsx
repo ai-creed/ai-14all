@@ -1,0 +1,89 @@
+import { useState, useEffect } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
+import * as ScrollArea from "@radix-ui/react-scroll-area";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
+import "highlight.js/styles/github-dark.css";
+import { files } from "../../lib/desktop-client";
+
+interface Props {
+	worktreePath: string;
+	relativePath: string;
+	open: boolean;
+	onClose: () => void;
+}
+
+export function MarkdownPreviewModal({
+	worktreePath,
+	relativePath,
+	open,
+	onClose,
+}: Props) {
+	const [content, setContent] = useState<string | null>(null);
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const [reloadToken, setReloadToken] = useState(0);
+
+	useEffect(() => {
+		if (!open) return;
+		setLoading(true);
+		setError(null);
+		setContent(null);
+		files
+			.read(worktreePath, relativePath)
+			.then((view) => {
+				setContent(view.content);
+				setLoading(false);
+			})
+			.catch(() => {
+				setError("Couldn't load file contents.");
+				setLoading(false);
+			});
+	}, [open, worktreePath, relativePath, reloadToken]);
+
+	return (
+		<Dialog.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
+			<Dialog.Portal>
+				<Dialog.Overlay className="shell-md-overlay" />
+				<Dialog.Content className="shell-md-modal" aria-describedby={undefined}>
+					<div className="shell-md-modal__header">
+						<Dialog.Title className="shell-md-modal__title">
+							{relativePath}
+						</Dialog.Title>
+						<Dialog.Close className="shell-md-modal__close">✕</Dialog.Close>
+					</div>
+					{loading && (
+						<p className="shell-empty-state">Loading {relativePath}…</p>
+					)}
+					{error && (
+						<>
+							<p className="shell-error">{error}</p>
+							<button
+								type="button"
+								onClick={() => setReloadToken((x) => x + 1)}
+							>
+								Retry
+							</button>
+						</>
+					)}
+					{content !== null && (
+						<ScrollArea.Root className="shell-md-modal__scroll">
+							<ScrollArea.Viewport className="shell-md-modal__body">
+								<ReactMarkdown
+									remarkPlugins={[remarkGfm]}
+									rehypePlugins={[rehypeHighlight]}
+								>
+									{content}
+								</ReactMarkdown>
+							</ScrollArea.Viewport>
+							<ScrollArea.Scrollbar orientation="vertical">
+								<ScrollArea.Thumb />
+							</ScrollArea.Scrollbar>
+						</ScrollArea.Root>
+					)}
+				</Dialog.Content>
+			</Dialog.Portal>
+		</Dialog.Root>
+	);
+}
