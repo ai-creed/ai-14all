@@ -479,6 +479,80 @@ describe("App — Phase 5 restore flow", () => {
 		});
 	});
 
+	it("reattaches valid sessions while preserving missing worktrees during recovery", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: {
+				repositoryPath: "/old-repo",
+				repoId: "repo-id-123",
+				selectedWorktreeId: "missing-worktree",
+				commandPresets: [],
+				worktreeSessions: [
+					{
+						worktreeId: "missing-worktree",
+						note: "saved note for missing worktree",
+						reviewMode: "files" as const,
+						viewerMode: "file" as const,
+						selectedFilePath: null,
+						selectedChangedFilePath: null,
+						selectedCommitSha: null,
+						selectedCommitFilePath: null,
+						activeProcessSessionId: null,
+						nextAdHocNumber: 1,
+						processSessions: [],
+					},
+				],
+			},
+		});
+
+		setRootMock.mockResolvedValue({
+			id: "repo-1",
+			name: "repo",
+			rootPath: "/new-repo",
+			repoId: "repo-id-123",
+		});
+		listWorktreesMock.mockResolvedValue([
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/new-repo",
+				label: "main",
+				isMain: true,
+			},
+		]);
+
+		render(<App />);
+		// Navigate past RestorePrompt (restorePreference: "prompt")
+		await userEvent.click(
+			await screen.findByRole("button", { name: "Start clean" }),
+		);
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/new-repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		// App should load (main worktree is available)
+		await screen.findByRole("navigation", { name: "Worktree sessions" });
+
+		// The missing worktree session must survive in the next persist write
+		await waitFor(() => {
+			expect(writeRestoreStateMock).toHaveBeenCalledWith(
+				expect.objectContaining({
+					snapshot: expect.objectContaining({
+						worktreeSessions: expect.arrayContaining([
+							expect.objectContaining({ worktreeId: "missing-worktree" }),
+						]),
+					}),
+				}),
+			);
+		});
+
+		// A warning banner must explain what happened
+		expect(screen.getByRole("status")).toHaveTextContent(/worktree/i);
+	});
+
 	it("restores the top-band collapsed state from the saved snapshot", async () => {
 		readRestoreStateMock.mockResolvedValue({
 			version: 1,

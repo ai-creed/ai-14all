@@ -206,10 +206,18 @@ export function App() {
 				restorePreference: restoreState.restorePreference,
 				snapshot: nextSnapshot,
 			});
-			if (selectedSession) {
-				const selectedWorktree = wts.find((w) => w.id === nextSnapshot.selectedWorktreeId);
-				if (selectedWorktree) {
-					await recreatePersistedProcesses(selectedWorktree, selectedSession);
+			const selectedWorktree = wts.find((w) => w.id === nextSnapshot.selectedWorktreeId);
+			if (selectedWorktree && selectedSession) {
+				await recreatePersistedProcesses(selectedWorktree, selectedSession);
+			} else if (nextSnapshot.selectedWorktreeId && !selectedWorktree) {
+				setRestoreWarning(
+					"Recovered the previous workspace, but the selected worktree is no longer available.",
+				);
+				if (selectedSession) {
+					setPendingRestoreSessions((prev) => ({
+						...prev,
+						[selectedSession.worktreeId]: selectedSession,
+					}));
 				}
 			}
 			setError(null);
