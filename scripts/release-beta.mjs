@@ -1,3 +1,6 @@
+import { execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+
 const BETA_BASE = "0.1.0";
 const BETA_TAG_PATTERN = /^v0\.1\.0-beta\.(\d+)$/;
 
@@ -29,9 +32,6 @@ export function findHeadBetaTag(tagsPointingAtHead) {
 	return tagsPointingAtHead.find((tag) => parseBetaTag(tag) !== null) ?? null;
 }
 
-import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
-
 export function createReleasePlan({ headTags, allTags }) {
 	const headTag = findHeadBetaTag(headTags);
 	if (headTag) {
@@ -57,16 +57,21 @@ export function updatePackageJsonVersion(packageJsonText, version) {
 }
 
 function run(command, args, options = {}) {
-	return execFileSync(command, args, {
+	const result = execFileSync(command, args, {
 		stdio: "pipe",
 		encoding: "utf8",
 		...options,
-	}).trim();
+	});
+	return result == null ? "" : result.trim();
+}
+
+export function isWorkingTreeClean(statusOutput) {
+	return statusOutput.trim() === "";
 }
 
 export function main() {
 	const status = run("git", ["status", "--porcelain"]);
-	if (status !== "") {
+	if (!isWorkingTreeClean(status)) {
 		throw new Error("Release requires a clean working tree.");
 	}
 
@@ -78,6 +83,8 @@ export function main() {
 		.filter(Boolean);
 	const plan = createReleasePlan({ headTags, allTags });
 
+	// Version bump is committed before the test pipeline. If the pipeline fails,
+	// reset with: git reset HEAD~1 (soft) to recover the clean state.
 	if (plan.mode === "new-release") {
 		const nextPackageJson = updatePackageJsonVersion(
 			readFileSync("package.json", "utf8"),

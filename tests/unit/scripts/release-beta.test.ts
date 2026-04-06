@@ -3,6 +3,7 @@ import {
 	computeNextBetaVersion,
 	createReleasePlan,
 	findHeadBetaTag,
+	isWorkingTreeClean,
 	parseBetaTag,
 	updatePackageJsonVersion,
 } from "../../../scripts/release-beta.mjs";
@@ -90,5 +91,14 @@ describe("release-beta plan", () => {
 				"0.1.0-beta.3",
 			),
 		).toBe('{\n\t"name": "ai-14all",\n\t"version": "0.1.0-beta.3"\n}');
+	});
+
+	it("detects a clean working tree", () => {
+		expect(isWorkingTreeClean("")).toBe(true);
+		expect(isWorkingTreeClean("\n")).toBe(true);
+	});
+
+	it("detects a dirty working tree", () => {
+		expect(isWorkingTreeClean(" M scripts/release-beta.mjs\n")).toBe(false);
 	});
 });
