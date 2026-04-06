@@ -200,7 +200,6 @@ export function App() {
 			});
 			const { selectedSession, pendingByWorktreeId } = splitPendingRestores(nextSnapshot);
 			setPendingRestoreSessions(pendingByWorktreeId);
-			setRestoreWarning("Recovered your previous workspace after the repository path changed.");
 			setRestoreState({
 				version: 1 as const,
 				restorePreference: restoreState.restorePreference,
@@ -209,11 +208,16 @@ export function App() {
 			const selectedWorktree = wts.find((w) => w.id === nextSnapshot.selectedWorktreeId);
 			if (selectedWorktree && selectedSession) {
 				await recreatePersistedProcesses(selectedWorktree, selectedSession);
+				setRestoreWarning("Recovered your previous workspace after the repository path changed.");
 			} else if (nextSnapshot.selectedWorktreeId && !selectedWorktree) {
 				setRestoreWarning(
 					"Recovered the previous workspace, but the selected worktree is no longer available.",
 				);
 				if (selectedSession) {
+					// Keep the saved session in pending so the next persist write
+					// re-serialises it. Without this the session is permanently lost
+					// after the first write because buildWorkspaceSnapshot only reads
+					// from workspaceState, which has no entry for a missing worktree.
 					setPendingRestoreSessions((prev) => ({
 						...prev,
 						[selectedSession.worktreeId]: selectedSession,
