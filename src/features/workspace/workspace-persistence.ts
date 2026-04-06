@@ -5,6 +5,51 @@ import type {
 	WorkspaceSnapshot,
 } from "../../../shared/models/persisted-workspace-state";
 
+/**
+ * Returns true when the loaded repo likely corresponds to the saved snapshot,
+ * even if the filesystem path has changed (e.g. after a rename/move).
+ */
+export function shouldReattachSnapshot(
+	repo: { repoId: string | null; name: string },
+	snapshot: WorkspaceSnapshot | null,
+): boolean {
+	if (!snapshot) return false;
+	// When either side has a repoId, use strict identity comparison.
+	// Basename fallback only triggers when BOTH sides lack a repoId.
+	if (snapshot.repoId || repo.repoId) return snapshot.repoId === repo.repoId;
+	const savedName = snapshot.repositoryPath.split("/").filter(Boolean).at(-1);
+	return savedName !== undefined && savedName === repo.name;
+}
+
+/**
+ * Replaces the old repository path prefix with the new one in all path-based
+ * worktree IDs (selectedWorktreeId and worktreeSessions[*].worktreeId).
+ * Returns the snapshot unchanged (same reference) when prefixes are equal.
+ */
+export function rebaseSnapshotPaths(
+	snapshot: WorkspaceSnapshot,
+	oldPrefix: string,
+	newPrefix: string,
+): WorkspaceSnapshot {
+	if (oldPrefix === newPrefix) return snapshot;
+
+	const rebase = (id: string | null): string | null => {
+		if (!id) return id;
+		if (id === oldPrefix) return newPrefix;
+		if (id.startsWith(oldPrefix + "/")) return newPrefix + id.slice(oldPrefix.length);
+		return id;
+	};
+
+	return {
+		...snapshot,
+		selectedWorktreeId: rebase(snapshot.selectedWorktreeId),
+		worktreeSessions: snapshot.worktreeSessions.map((session) => ({
+			...session,
+			worktreeId: rebase(session.worktreeId) ?? session.worktreeId,
+		})),
+	};
+}
+
 export function buildWorkspaceSnapshot(
 	repositoryPath: string,
 	repoId: string | null,

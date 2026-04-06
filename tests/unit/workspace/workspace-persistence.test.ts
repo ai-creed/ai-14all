@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_COMMAND_PRESETS } from "../../../shared/models/command-preset";
-import { buildWorkspaceSnapshot, splitPendingRestores } from "../../../src/features/workspace/workspace-persistence";
+import {
+	buildWorkspaceSnapshot,
+	rebaseSnapshotPaths,
+	shouldReattachSnapshot,
+	splitPendingRestores,
+} from "../../../src/features/workspace/workspace-persistence";
 import { createWorkspaceState, workspaceReducer } from "../../../src/features/workspace/workspace-state";
 import { PersistedWorkspaceStateSchema } from "../../../shared/models/persisted-workspace-state";
+import type { WorkspaceSnapshot } from "../../../shared/models/persisted-workspace-state";
 
 describe("buildWorkspaceSnapshot", () => {
 	it("serializes only restore-worthy workspace state", () => {
@@ -231,5 +237,158 @@ describe("splitPendingRestores", () => {
 		const result = splitPendingRestores(snapshot);
 		expect(result.selectedSession).toBeNull();
 		expect(result.pendingByWorktreeId).toEqual({ main: snapshot.worktreeSessions[0] });
+	});
+});
+
+function makeMinimalSnapshot(overrides: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
+	return {
+		repositoryPath: "/repo",
+		repoId: null,
+		topBandCollapsed: false,
+		selectedWorktreeId: null,
+		commandPresets: [],
+		worktreeSessions: [],
+		...overrides,
+	};
+}
+
+describe("rebaseSnapshotPaths", () => {
+	it("replaces old prefix in selectedWorktreeId and worktree session IDs", () => {
+		const snapshot = makeMinimalSnapshot({
+			repositoryPath: "/old-repo",
+			selectedWorktreeId: "/old-repo/.worktrees/feature-a",
+			worktreeSessions: [
+				{
+					worktreeId: "/old-repo",
+					note: "main",
+					reviewMode: "files",
+					viewerMode: "file",
+					selectedFilePath: null,
+					selectedChangedFilePath: null,
+					selectedCommitSha: null,
+					selectedCommitFilePath: null,
+					activeProcessSessionId: null,
+					nextAdHocNumber: 1,
+					processSessions: [],
+				},
+				{
+					worktreeId: "/old-repo/.worktrees/feature-a",
+					note: "feature",
+					reviewMode: "files",
+					viewerMode: "file",
+					selectedFilePath: null,
+					selectedChangedFilePath: null,
+					selectedCommitSha: null,
+					selectedCommitFilePath: null,
+					activeProcessSessionId: null,
+					nextAdHocNumber: 1,
+					processSessions: [],
+				},
+			],
+		});
+
+		const rebased = rebaseSnapshotPaths(snapshot, "/old-repo", "/new-repo");
+		expect(rebased.selectedWorktreeId).toBe("/new-repo/.worktrees/feature-a");
+		expect(rebased.worktreeSessions[0].worktreeId).toBe("/new-repo");
+		expect(rebased.worktreeSessions[1].worktreeId).toBe("/new-repo/.worktrees/feature-a");
+		expect(rebased.worktreeSessions[1].note).toBe("feature");
+	});
+
+	it("returns the same reference when prefixes are equal", () => {
+		const snapshot = makeMinimalSnapshot({ selectedWorktreeId: "/repo" });
+		expect(rebaseSnapshotPaths(snapshot, "/repo", "/repo")).toBe(snapshot);
+	});
+
+	it("leaves IDs that do not match the old prefix untouched", () => {
+		const snapshot = makeMinimalSnapshot({
+			selectedWorktreeId: "unrelated-id",
+			worktreeSessions: [
+				{
+					worktreeId: "unrelated-id",
+					note: "",
+					reviewMode: "files",
+					viewerMode: "file",
+					selectedFilePath: null,
+					selectedChangedFilePath: null,
+					selectedCommitSha: null,
+					selectedCommitFilePath: null,
+					activeProcessSessionId: null,
+					nextAdHocNumber: 1,
+					processSessions: [],
+				},
+			],
+		});
+
+		const rebased = rebaseSnapshotPaths(snapshot, "/old-repo", "/new-repo");
+		expect(rebased.selectedWorktreeId).toBe("unrelated-id");
+		expect(rebased.worktreeSessions[0].worktreeId).toBe("unrelated-id");
+	});
+
+	it("handles null selectedWorktreeId", () => {
+		const snapshot = makeMinimalSnapshot({ selectedWorktreeId: null });
+		const rebased = rebaseSnapshotPaths(snapshot, "/old", "/new");
+		expect(rebased.selectedWorktreeId).toBeNull();
+	});
+});
+
+describe("shouldReattachSnapshot", () => {
+	it("returns true when both repoIds match", () => {
+		expect(
+			shouldReattachSnapshot(
+				{ repoId: "id-1", name: "repo" },
+				makeMinimalSnapshot({ repoId: "id-1" }),
+			),
+		).toBe(true);
+	});
+
+	it("returns false when repoIds differ", () => {
+		expect(
+			shouldReattachSnapshot(
+				{ repoId: "id-1", name: "repo" },
+				makeMinimalSnapshot({ repoId: "id-2" }),
+			),
+		).toBe(false);
+	});
+
+	it("returns false when snapshot has repoId but repo does not", () => {
+		expect(
+			shouldReattachSnapshot(
+				{ repoId: null, name: "repo" },
+				makeMinimalSnapshot({ repoId: "id-1" }),
+			),
+		).toBe(false);
+	});
+
+	it("returns false when repo has repoId but snapshot does not", () => {
+		expect(
+			shouldReattachSnapshot(
+				{ repoId: "id-1", name: "repo" },
+				makeMinimalSnapshot({ repoId: null }),
+			),
+		).toBe(false);
+	});
+
+	it("falls back to basename match when neither has repoId", () => {
+		expect(
+			shouldReattachSnapshot(
+				{ repoId: null, name: "my-repo" },
+				makeMinimalSnapshot({ repositoryPath: "/home/user/my-repo", repoId: null }),
+			),
+		).toBe(true);
+	});
+
+	it("returns false on basename mismatch when neither has repoId", () => {
+		expect(
+			shouldReattachSnapshot(
+				{ repoId: null, name: "different-repo" },
+				makeMinimalSnapshot({ repositoryPath: "/home/user/my-repo", repoId: null }),
+			),
+		).toBe(false);
+	});
+
+	it("returns false for null snapshot", () => {
+		expect(
+			shouldReattachSnapshot({ repoId: "id-1", name: "repo" }, null),
+		).toBe(false);
 	});
 });

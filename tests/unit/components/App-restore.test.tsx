@@ -345,17 +345,19 @@ describe("App — Phase 5 restore flow", () => {
 	});
 
 	it("silently reattaches a preserved snapshot when the same repo is reopened manually", async () => {
+		// Snapshot uses old paths — rebaseSnapshotPaths must rewrite them to match
+		// the new worktree IDs returned by listWorktrees.
 		readRestoreStateMock.mockResolvedValue({
 			version: 1,
 			restorePreference: "prompt",
 			snapshot: {
 				repositoryPath: "/old-repo",
 				repoId: "repo-id-123",
-				selectedWorktreeId: "/new-repo/.worktrees/feature-a",
+				selectedWorktreeId: "/old-repo/.worktrees/feature-a",
 				commandPresets: [],
 				worktreeSessions: [
 					{
-						worktreeId: "/new-repo/.worktrees/feature-a",
+						worktreeId: "/old-repo/.worktrees/feature-a",
 						note: "resume here",
 						reviewMode: "files",
 						viewerMode: "file",
@@ -477,6 +479,126 @@ describe("App — Phase 5 restore flow", () => {
 		await waitFor(() => {
 			expect(createMock).toHaveBeenCalledWith("main", "/repo");
 		});
+	});
+
+	it("does not reattach when only one side has a repoId", async () => {
+		// Snapshot has repoId but loaded repo does not → strict identity fails,
+		// basename fallback is suppressed → no reattachment, normal fresh load.
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: {
+				repositoryPath: "/old-repo",
+				repoId: "repo-id-123",
+				selectedWorktreeId: "/old-repo/.worktrees/feature-a",
+				commandPresets: [],
+				worktreeSessions: [
+					{
+						worktreeId: "/old-repo/.worktrees/feature-a",
+						note: "should not appear",
+						reviewMode: "files",
+						viewerMode: "file",
+						selectedFilePath: null,
+						selectedChangedFilePath: null,
+						selectedCommitSha: null,
+						selectedCommitFilePath: null,
+						activeProcessSessionId: null,
+						nextAdHocNumber: 1,
+						processSessions: [],
+					},
+				],
+			},
+		});
+
+		setRootMock.mockResolvedValue({
+			id: "repo-1",
+			name: "old-repo",
+			rootPath: "/new-path/old-repo",
+			repoId: null, // repo identity resolution failed
+		});
+		listWorktreesMock.mockResolvedValue([
+			{
+				id: "/new-path/old-repo",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/new-path/old-repo",
+				label: "main",
+				isMain: true,
+			},
+		]);
+
+		render(<App />);
+		await userEvent.click(
+			await screen.findByRole("button", { name: "Start clean" }),
+		);
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/new-path/old-repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		// Should NOT recover the old note — this is a fresh load
+		await screen.findByRole("navigation", { name: "Worktree sessions" });
+		expect(screen.queryByDisplayValue("should not appear")).not.toBeInTheDocument();
+		expect(screen.queryByRole("status")).not.toBeInTheDocument();
+	});
+
+	it("appends degraded identity warning when repo.repoId is null during reattachment", async () => {
+		// Both sides lack repoId → basename fallback triggers reattachment,
+		// but the warning should note that future recovery is degraded.
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: {
+				repositoryPath: "/old-path/my-repo",
+				repoId: null,
+				selectedWorktreeId: "/old-path/my-repo",
+				commandPresets: [],
+				worktreeSessions: [
+					{
+						worktreeId: "/old-path/my-repo",
+						note: "degraded note",
+						reviewMode: "files",
+						viewerMode: "file",
+						selectedFilePath: null,
+						selectedChangedFilePath: null,
+						selectedCommitSha: null,
+						selectedCommitFilePath: null,
+						activeProcessSessionId: null,
+						nextAdHocNumber: 1,
+						processSessions: [],
+					},
+				],
+			},
+		});
+
+		setRootMock.mockResolvedValue({
+			id: "repo-1",
+			name: "my-repo",
+			rootPath: "/new-path/my-repo",
+			repoId: null,
+		});
+		listWorktreesMock.mockResolvedValue([
+			{
+				id: "/new-path/my-repo",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/new-path/my-repo",
+				label: "main",
+				isMain: true,
+			},
+		]);
+
+		render(<App />);
+		await userEvent.click(
+			await screen.findByRole("button", { name: "Start clean" }),
+		);
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/new-path/my-repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		expect(await screen.findByDisplayValue("degraded note")).toBeInTheDocument();
+		expect(screen.getByRole("status")).toHaveTextContent(/folder name matching/i);
 	});
 
 	it("reattaches valid sessions while preserving missing worktrees during recovery", async () => {

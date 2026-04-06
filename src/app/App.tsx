@@ -19,7 +19,7 @@ import type {
 	WorkspaceSnapshot,
 } from "../../shared/models/persisted-workspace-state";
 import { DEFAULT_PERSISTED_WORKSPACE_STATE } from "../../shared/models/persisted-workspace-state";
-import { buildWorkspaceSnapshot, splitPendingRestores } from "../features/workspace/workspace-persistence";
+import { buildWorkspaceSnapshot, rebaseSnapshotPaths, shouldReattachSnapshot, splitPendingRestores } from "../features/workspace/workspace-persistence";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
 import { SessionSidebar } from "../features/workspace/SessionSidebar";
@@ -44,19 +44,6 @@ import type { GitCommitHistory, GitCommitDetail } from "../../shared/models/git-
 import { git, workspace, repository as repositoryClient } from "../lib/desktop-client";
 
 type StartupMode = "loading" | "prompt" | "ready";
-
-function shouldReattachSnapshot(
-	repo: Repository,
-	snapshot: WorkspaceSnapshot | null,
-): boolean {
-	if (!snapshot) return false;
-	if (snapshot.repoId && repo.repoId) return snapshot.repoId === repo.repoId;
-	// Basename fallback for older snapshots without repoId.
-	// Intentionally weak — only a safety net. Once older snapshots are migrated
-	// through a successful save, this fallback becomes dead code.
-	const savedName = snapshot.repositoryPath.split("/").filter(Boolean).at(-1);
-	return savedName !== undefined && savedName === repo.name;
-}
 
 function normalizeTerminalTitle(title: string): string | null {
 	const normalized = title.trim().replace(/\s+/g, " ");
@@ -188,7 +175,11 @@ export function App() {
 			setWorktrees(wts);
 			defaultShellEnsuredByWorktreeRef.current.clear();
 			const nextSnapshot: WorkspaceSnapshot = {
-				...restoreState.snapshot!,
+				...rebaseSnapshotPaths(
+					restoreState.snapshot!,
+					restoreState.snapshot!.repositoryPath,
+					repo.rootPath,
+				),
 				repositoryPath: repo.rootPath,
 				repoId: repo.repoId,
 			};
@@ -205,12 +196,17 @@ export function App() {
 				snapshot: nextSnapshot,
 			});
 			const selectedWorktree = wts.find((w) => w.id === nextSnapshot.selectedWorktreeId);
+			const degradedNote = !repo.repoId
+				? " Repository identity could not be verified — future recovery will rely on folder name matching."
+				: "";
 			if (selectedWorktree && selectedSession) {
 				await recreatePersistedProcesses(selectedWorktree, selectedSession);
-				setRestoreWarning("Recovered your previous workspace after the repository path changed.");
+				setRestoreWarning(
+					`Recovered your previous workspace after the repository path changed.${degradedNote}`,
+				);
 			} else if (nextSnapshot.selectedWorktreeId && !selectedWorktree) {
 				setRestoreWarning(
-					"Recovered the previous workspace, but the selected worktree is no longer available.",
+					`Recovered the previous workspace, but the selected worktree is no longer available.${degradedNote}`,
 				);
 				if (selectedSession) {
 					// Keep the saved session in pending so the next persist write
