@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Repository } from "../../../shared/models/repository";
 import type { Worktree } from "../../../shared/models/worktree";
 import { repository } from "../../lib/desktop-client";
+import { describeRepositoryLoadError } from "./describe-repository-load-error";
 
 type Props = {
 	onLoad: (repo: Repository, worktrees: Worktree[]) => void | Promise<void>;
@@ -38,7 +39,7 @@ export function RepositoryInput({ onLoad }: Props) {
 			const worktrees = await repository.listWorktrees();
 			await onLoad(repo, worktrees);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : String(err));
+			setError(describeRepositoryLoadError(err));
 		} finally {
 			setLoading(false);
 		}

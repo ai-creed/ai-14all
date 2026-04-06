@@ -42,6 +42,7 @@ import { CommitList } from "../features/git/CommitList";
 import { CommitDiffStack } from "../features/git/CommitDiffStack";
 import type { GitCommitHistory, GitCommitDetail } from "../../shared/models/git-commit-review";
 import { git, workspace, repository as repositoryClient } from "../lib/desktop-client";
+import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -283,10 +284,9 @@ export function App() {
 				}
 			}
 		} catch (err) {
+			const reason = describeRepositoryLoadError(err);
 			setStartupError(
-				err instanceof Error
-					? `Unable to reopen previous workspace from its saved path: ${err.message}`
-					: "Unable to reopen previous workspace from its saved path.",
+				`Could not reopen the previous workspace from its saved path. ${reason} Pick a repository to continue.`,
 			);
 			// Preserve the snapshot so the user can manually reopen after path changes.
 			// Reset to "prompt" so alwaysRestore doesn't loop on a broken path.

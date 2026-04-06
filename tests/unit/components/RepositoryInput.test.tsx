@@ -97,8 +97,25 @@ describe("RepositoryInput", () => {
 
 		await waitFor(() => {
 			expect(
-				screen.getByText("Error: Not a git repository"),
+				screen.getByText("Error: Path is not a Git repository."),
 			).toBeInTheDocument();
+		});
+	});
+
+	it("maps missing-path errors to practical setup copy", async () => {
+		mockSetRoot.mockRejectedValueOnce(
+			new Error("ENOENT: no such file or directory, realpath '/missing'"),
+		);
+
+		render(<RepositoryInput onLoad={vi.fn()} />);
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/missing" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		await waitFor(() => {
+			expect(screen.getByText("Error: Path does not exist.")).toBeInTheDocument();
+			expect(screen.getByLabelText("Repository path")).toHaveValue("/missing");
 		});
 	});
 

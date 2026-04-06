@@ -675,6 +675,29 @@ describe("App — Phase 5 restore flow", () => {
 		expect(screen.getByRole("status")).toHaveTextContent(/worktree/i);
 	});
 
+	it("shows restore failure copy in the blocking setup screen", async () => {
+		readRestoreStateMock.mockResolvedValueOnce({
+			version: 1,
+			restorePreference: "alwaysRestore",
+			snapshot: {
+				repositoryPath: "/missing",
+				repoId: "repo-1",
+				selectedWorktreeId: null,
+				worktreeSessions: [],
+			},
+		});
+		setRootMock.mockRejectedValueOnce(
+			new Error("ENOENT: no such file or directory, realpath '/missing'"),
+		);
+
+		render(<App />);
+
+		expect(
+			await screen.findByText(/could not reopen the previous workspace/i),
+		).toBeInTheDocument();
+		expect(screen.getByLabelText("Repository path")).toBeInTheDocument();
+	});
+
 	it("restores the top-band collapsed state from the saved snapshot", async () => {
 		readRestoreStateMock.mockResolvedValue({
 			version: 1,
