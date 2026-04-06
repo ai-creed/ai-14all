@@ -41,6 +41,7 @@ describe("WorkspacePersistenceService", () => {
 			restorePreference: "alwaysRestore" as const,
 			snapshot: {
 				repositoryPath: "/repo",
+				repoId: null,
 				selectedWorktreeId: "feature-a",
 				topBandCollapsed: true,
 				commandPresets: [{ id: "preset-1", label: "Claude", command: "claude" }],

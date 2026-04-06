@@ -304,7 +304,7 @@ export function App() {
 	const persistableSnapshot = useMemo(
 		() => {
 			if (!repository) return null;
-			const base = buildWorkspaceSnapshot(repository.rootPath, workspaceState);
+			const base = buildWorkspaceSnapshot(repository.rootPath, repository.repoId, workspaceState);
 			// Also persist sessions that are in pendingRestoreSessions but have no
 			// corresponding entry in workspaceState (i.e. the previously selected
 			// worktree is missing from the current repo). Without this they would be

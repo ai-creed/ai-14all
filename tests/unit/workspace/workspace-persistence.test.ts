@@ -33,10 +33,11 @@ describe("buildWorkspaceSnapshot", () => {
 			note: "resume here",
 		});
 
-		const snapshot = buildWorkspaceSnapshot("/repo", state);
+		const snapshot = buildWorkspaceSnapshot("/repo", null, state);
 
 		expect(snapshot).toEqual({
 			repositoryPath: "/repo",
+			repoId: null,
 			selectedWorktreeId: "main",
 			topBandCollapsed: false,
 			commandPresets: DEFAULT_COMMAND_PRESETS,
@@ -68,7 +69,7 @@ describe("buildWorkspaceSnapshot", () => {
 	});
 
 	it("returns empty worktreeSessions and null selectedWorktreeId for empty state", () => {
-		const snapshot = buildWorkspaceSnapshot("/repo", createWorkspaceState([]));
+		const snapshot = buildWorkspaceSnapshot("/repo", null, createWorkspaceState([]));
 		expect(snapshot.commandPresets).toEqual(DEFAULT_COMMAND_PRESETS);
 		expect(snapshot.worktreeSessions).toEqual([]);
 		expect(snapshot.selectedWorktreeId).toBeNull();
@@ -90,12 +91,45 @@ it("serializes commit review selections into the workspace snapshot", () => {
 		relativePath: "src/index.ts",
 	});
 
-	expect(buildWorkspaceSnapshot("/repo", state).worktreeSessions[0]).toMatchObject({
+	expect(buildWorkspaceSnapshot("/repo", null, state).worktreeSessions[0]).toMatchObject({
 		selectedCommitSha: "abc1234",
 		selectedCommitFilePath: "src/index.ts",
 		reviewMode: "commits",
 		viewerMode: "commit",
 	});
+});
+
+it("serializes repoId into the workspace snapshot", () => {
+	const state = createWorkspaceState([
+		{
+			id: "main",
+			repositoryId: "repo-1",
+			branchName: "main",
+			path: "/repo",
+			label: "main",
+			isMain: true,
+		},
+	]);
+
+	expect(buildWorkspaceSnapshot("/repo", "repo-id-123", state)).toMatchObject({
+		repositoryPath: "/repo",
+		repoId: "repo-id-123",
+	});
+});
+
+it("defaults repoId to null for older snapshots", () => {
+	const parsed = PersistedWorkspaceStateSchema.parse({
+		version: 1,
+		restorePreference: "prompt",
+		snapshot: {
+			repositoryPath: "/repo",
+			selectedWorktreeId: null,
+			commandPresets: [],
+			worktreeSessions: [],
+		},
+	});
+
+	expect(parsed.snapshot?.repoId).toBeNull();
 });
 
 it("keeps older phase-5 snapshots readable by defaulting commit fields to null", () => {

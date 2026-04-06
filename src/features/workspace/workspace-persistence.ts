@@ -7,10 +7,12 @@ import type {
 
 export function buildWorkspaceSnapshot(
 	repositoryPath: string,
+	repoId: string | null,
 	state: WorkspaceState,
 ): WorkspaceSnapshot {
 	return {
 		repositoryPath,
+		repoId,
 		selectedWorktreeId: state.selectedWorktreeId,
 		topBandCollapsed: state.topBandCollapsed,
 		commandPresets: state.commandPresets,

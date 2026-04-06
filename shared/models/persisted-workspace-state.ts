@@ -31,6 +31,7 @@ export const PersistedWorktreeSessionSchema = z.object({
 
 export const WorkspaceSnapshotSchema = z.object({
 	repositoryPath: z.string(),
+	repoId: z.string().nullable().optional().default(null),
 	selectedWorktreeId: z.string().nullable(),
 	topBandCollapsed: z.boolean().optional().default(false),
 	commandPresets: z.array(
