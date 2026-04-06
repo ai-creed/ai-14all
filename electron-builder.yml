@@ -1,5 +1,6 @@
 appId: dev.ai14all.desktop
 productName: ai-14all
+afterPack: ./scripts/electron-builder-after-pack.mjs
 directories:
   output: release
 files:
