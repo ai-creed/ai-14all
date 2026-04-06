@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { readFile, stat } from "node:fs/promises";
 import { promisify } from "node:util";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import type {
 	GitChange,
 	GitChangeStatus,

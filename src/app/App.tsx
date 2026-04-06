@@ -317,8 +317,8 @@ export function App() {
 				? base
 				: { ...base, worktreeSessions: [...base.worktreeSessions, ...orphaned] };
 		},
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- repository.rootPath drives the snapshot; the object reference changes are irrelevant
-		[repository?.rootPath, workspaceState, pendingRestoreSessions],
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- repository.rootPath and repository.repoId drive the snapshot; the object reference changes are irrelevant
+		[repository?.rootPath, repository?.repoId, workspaceState, pendingRestoreSessions],
 	);
 	const persistableState = useMemo(
 		() => ({
