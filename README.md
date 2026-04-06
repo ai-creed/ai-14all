@@ -75,6 +75,25 @@ pnpm test:all
 
 The current direction is focused on turning the existing Phase 6 shell into a dependable daily-use personal MVP before expanding scope further.
 
+## Beta Release (macOS)
+
+Create a private beta artifact with:
+
+```bash
+pnpm release:beta
+```
+
+This command:
+
+- requires a clean working tree
+- reuses the existing beta tag if `HEAD` is already tagged
+- otherwise computes the next `0.1.0-beta.N`
+- runs verification
+- packages the app into `release/` — share the `.dmg` with testers
+- creates the Git tag only after packaging succeeds
+
+See [docs/shared/beta-testing.md](docs/shared/beta-testing.md) for the tester-facing runtime note.
+
 ## License
 
 MIT
