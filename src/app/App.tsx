@@ -187,7 +187,6 @@ export function App() {
 			setRepository(repo);
 			setWorktrees(wts);
 			defaultShellEnsuredByWorktreeRef.current.clear();
-			setPendingRestoreSessions({});
 			const nextSnapshot: WorkspaceSnapshot = {
 				...restoreState.snapshot!,
 				repositoryPath: repo.rootPath,
