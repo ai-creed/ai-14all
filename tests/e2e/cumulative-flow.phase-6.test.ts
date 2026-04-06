@@ -5,7 +5,7 @@ import {
 	type ElectronApplication,
 	type Page,
 } from "@playwright/test";
-import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { writeFileSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
@@ -16,6 +16,7 @@ let page: Page;
 let testRepo: TestRepo;
 let persistedStateDir: string;
 let workspaceStatePath: string;
+let gitFaultsPath: string;
 
 async function ensureWorkspaceLoaded() {
 	const worktreeNav = page.getByRole("navigation", { name: "Worktree sessions" });
@@ -36,6 +37,7 @@ test.beforeAll(async () => {
 	testRepo = createTestRepo();
 	persistedStateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-phase6-")));
 	workspaceStatePath = join(persistedStateDir, "workspace-state.json");
+	gitFaultsPath = join(persistedStateDir, "git-faults.json");
 	app = await electron.launch({
 		args: ["out/main/index.js"],
 		env: {
@@ -43,6 +45,7 @@ test.beforeAll(async () => {
 			AI14ALL_E2E: "1",
 			AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
 			AI14ALL_WORKSPACE_STATE_PATH: workspaceStatePath,
+			AI14ALL_E2E_GIT_FAULTS_PATH: gitFaultsPath,
 		},
 	});
 	page = await app.firstWindow();
@@ -56,6 +59,8 @@ test.afterAll(async () => {
 		testRepo.cleanup();
 	}
 });
+
+// Note: gitFaultsPath cleanup is handled by rmSync(persistedStateDir) above.
 
 test.describe.serial("Cumulative flow — Phase 6", () => {
 	test("shows a default shell, opens a terminal tab context menu, and reviews a recent commit", async () => {
@@ -216,5 +221,42 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 				{ name: /feature-a/i },
 			),
 		).toHaveAttribute("data-selected", "true");
+	});
+
+	test("auto-refreshes review data while focused without clicking Refresh review", async () => {
+		await ensureWorkspaceLoaded();
+		await page
+			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("button", { name: /feature-a/i })
+			.click();
+		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
+
+		writeFileSync(
+			join(testRepo.worktreePath, "src", "auto-refresh.ts"),
+			"export const autoRefresh = true;\n",
+		);
+
+		await expect(
+			page.getByRole("button", { name: /src\/auto-refresh\.ts/i }),
+		).toBeVisible({ timeout: 20_000 });
+	});
+
+	test("shows stale review data when a focused refresh read fails once", async () => {
+		await ensureWorkspaceLoaded();
+		await page
+			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("button", { name: /feature-a/i })
+			.click();
+		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
+		await expect(page.getByRole("button", { name: /src\/index\.ts/i })).toBeVisible();
+
+		writeFileSync(
+			gitFaultsPath,
+			JSON.stringify({ readSummaryFailuresRemaining: 1 }),
+		);
+
+		await page.getByRole("button", { name: "Refresh review" }).click();
+		await expect(page.getByText(/showing last successful result/i)).toBeVisible();
+		await expect(page.getByRole("button", { name: /src\/index\.ts/i })).toBeVisible();
 	});
 });

@@ -1,4 +1,5 @@
 import { dialog, ipcMain } from "electron";
+import { consumeE2eGitFault } from "./e2e-git-faults.js";
 import type { BrowserWindow } from "electron";
 import {
 	PickRepositoryRootSchema,
@@ -169,6 +170,9 @@ export function registerIpcHandlers(
 
 	ipcMain.handle("git:readSummary", (_event, raw: unknown) => {
 		const { worktreePath } = ReadGitSummarySchema.parse(raw);
+		if (consumeE2eGitFault("readSummaryFailuresRemaining")) {
+			throw new Error("synthetic e2e summary failure");
+		}
 		return gitService.readSummary(worktreePath);
 	});
 
