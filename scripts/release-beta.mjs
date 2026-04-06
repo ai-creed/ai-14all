@@ -85,14 +85,17 @@ export function main() {
 
 	// Version bump is committed before the test pipeline. If the pipeline fails,
 	// reset with: git reset HEAD~1 (soft) to recover the clean state.
+	// If package.json already has the target version (interrupted run), this block
+	// is skipped and the script proceeds directly to verification and tagging.
 	if (plan.mode === "new-release") {
-		const nextPackageJson = updatePackageJsonVersion(
-			readFileSync("package.json", "utf8"),
-			plan.version,
-		);
-		writeFileSync("package.json", nextPackageJson);
-		run("git", ["add", "package.json"]);
-		run("git", ["commit", "-m", `chore: release ${plan.tag}`]);
+		const currentText = readFileSync("package.json", "utf8");
+		const nextPackageJson = updatePackageJsonVersion(currentText, plan.version);
+
+		if (nextPackageJson !== currentText) {
+			writeFileSync("package.json", nextPackageJson);
+			run("git", ["add", "package.json"]);
+			run("git", ["commit", "-m", `chore: release ${plan.tag}`]);
+		}
 	}
 
 	run("pnpm", ["test"], { stdio: "inherit" });
