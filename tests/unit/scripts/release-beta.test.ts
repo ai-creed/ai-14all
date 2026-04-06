@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
 	computeNextBetaVersion,
+	createReleasePlan,
 	findHeadBetaTag,
 	parseBetaTag,
+	updatePackageJsonVersion,
 } from "../../../scripts/release-beta.mjs";
 
 describe("release-beta", () => {
@@ -42,5 +44,51 @@ describe("release-beta", () => {
 	it("returns null when no tags match the beta pattern", () => {
 		expect(findHeadBetaTag(["v0.2.0-beta.1", "v1.0.0"])).toBeNull();
 		expect(findHeadBetaTag([])).toBeNull();
+	});
+});
+
+describe("release-beta plan", () => {
+	it("chooses rebuild mode when HEAD already has a beta tag", () => {
+		expect(
+			createReleasePlan({
+				headTags: ["v0.1.0-beta.3"],
+				allTags: ["v0.1.0-beta.1", "v0.1.0-beta.2", "v0.1.0-beta.3"],
+			}),
+		).toEqual({
+			mode: "rebuild",
+			version: "0.1.0-beta.3",
+			tag: "v0.1.0-beta.3",
+		});
+	});
+
+	it("chooses new-release mode and increments the beta suffix", () => {
+		expect(
+			createReleasePlan({
+				headTags: [],
+				allTags: ["v0.1.0-beta.1", "v0.1.0-beta.2"],
+			}),
+		).toEqual({
+			mode: "new-release",
+			version: "0.1.0-beta.3",
+			tag: "v0.1.0-beta.3",
+		});
+	});
+
+	it("updates the package version and preserves trailing newline", () => {
+		expect(
+			updatePackageJsonVersion(
+				'{\n\t"name": "ai-14all",\n\t"version": "0.1.0-dev"\n}\n',
+				"0.1.0-beta.3",
+			),
+		).toBe('{\n\t"name": "ai-14all",\n\t"version": "0.1.0-beta.3"\n}\n');
+	});
+
+	it("updates the package version without adding a trailing newline when one was not present", () => {
+		expect(
+			updatePackageJsonVersion(
+				'{\n\t"name": "ai-14all",\n\t"version": "0.1.0-dev"\n}',
+				"0.1.0-beta.3",
+			),
+		).toBe('{\n\t"name": "ai-14all",\n\t"version": "0.1.0-beta.3"\n}');
 	});
 });
