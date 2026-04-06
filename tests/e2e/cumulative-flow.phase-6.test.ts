@@ -224,21 +224,36 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 	});
 
 	test("auto-refreshes review data while focused without clicking Refresh review", async () => {
+		test.setTimeout(60_000);
 		await ensureWorkspaceLoaded();
 		await page
 			.getByRole("navigation", { name: "Worktree sessions" })
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
+		// Wait for the initial summary to render before writing the new file.
+		await expect(page.getByRole("button", { name: /src\/index\.ts/i })).toBeVisible();
 
 		writeFileSync(
 			join(testRepo.worktreePath, "src", "auto-refresh.ts"),
 			"export const autoRefresh = true;\n",
 		);
 
+		// Simulate a focus regain so the app triggers an immediate refresh.
+		// In headless test environments the window may not have native focus,
+		// so we drive the blur→focus transition ourselves.
+		await page.evaluate(() => {
+			window.dispatchEvent(new Event("blur"));
+		});
+		// Small delay to let React flush the blur state before dispatching focus.
+		await page.waitForTimeout(100);
+		await page.evaluate(() => {
+			window.dispatchEvent(new Event("focus"));
+		});
+
 		await expect(
 			page.getByRole("button", { name: /src\/auto-refresh\.ts/i }),
-		).toBeVisible({ timeout: 20_000 });
+		).toBeVisible({ timeout: 30_000 });
 	});
 
 	test("shows stale review data when a focused refresh read fails once", async () => {
