@@ -175,7 +175,7 @@ describe("TerminalPane", () => {
 			/>,
 		);
 
-		const titleListener = xtermOnTitleChangeMock.mock.calls[0]?.[0];
+		const titleListener = (xtermOnTitleChangeMock.mock.calls as unknown[][])[0]?.[0] as ((title: string) => void) | undefined;
 		expect(typeof titleListener).toBe("function");
 		titleListener?.("codex");
 

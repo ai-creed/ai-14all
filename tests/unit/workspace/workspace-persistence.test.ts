@@ -164,6 +164,8 @@ describe("splitPendingRestores", () => {
 	it("keeps only non-selected worktrees in the pending restore map", () => {
 		const snapshot = {
 			repositoryPath: "/repo",
+			repoId: null,
+			topBandCollapsed: false,
 			selectedWorktreeId: "feature-a",
 			commandPresets: [],
 			worktreeSessions: [
@@ -174,6 +176,8 @@ describe("splitPendingRestores", () => {
 					viewerMode: "file" as const,
 					selectedFilePath: "README.md",
 					selectedChangedFilePath: null,
+					selectedCommitSha: null,
+					selectedCommitFilePath: null,
 					activeProcessSessionId: null,
 					nextAdHocNumber: 1,
 					processSessions: [],
@@ -185,6 +189,8 @@ describe("splitPendingRestores", () => {
 					viewerMode: "diff" as const,
 					selectedFilePath: null,
 					selectedChangedFilePath: "src/index.ts",
+					selectedCommitSha: null,
+					selectedCommitFilePath: null,
 					activeProcessSessionId: "process-2",
 					nextAdHocNumber: 3,
 					processSessions: [],
@@ -201,6 +207,8 @@ describe("splitPendingRestores", () => {
 	it("puts all sessions in pendingByWorktreeId when selectedWorktreeId is null", () => {
 		const snapshot = {
 			repositoryPath: "/repo",
+			repoId: null,
+			topBandCollapsed: false,
 			selectedWorktreeId: null,
 			commandPresets: [],
 			worktreeSessions: [
@@ -211,6 +219,8 @@ describe("splitPendingRestores", () => {
 					viewerMode: "file" as const,
 					selectedFilePath: null,
 					selectedChangedFilePath: null,
+					selectedCommitSha: null,
+					selectedCommitFilePath: null,
 					activeProcessSessionId: null,
 					nextAdHocNumber: 1,
 					processSessions: [],

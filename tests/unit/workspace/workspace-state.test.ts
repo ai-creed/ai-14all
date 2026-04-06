@@ -395,6 +395,7 @@ describe("workspaceReducer — Phase 6 top-band collapse", () => {
 			worktrees,
 			snapshot: {
 				repositoryPath: "/repo",
+				repoId: null,
 				selectedWorktreeId: "main",
 				topBandCollapsed: true,
 				commandPresets: [],
@@ -413,6 +414,8 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 			worktrees,
 			snapshot: {
 				repositoryPath: "/repo",
+				repoId: null,
+				topBandCollapsed: false,
 				selectedWorktreeId: "feature-a",
 				commandPresets: [preset],
 				worktreeSessions: [
@@ -423,6 +426,8 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 						viewerMode: "diff",
 						selectedFilePath: null,
 						selectedChangedFilePath: "src/index.ts",
+						selectedCommitSha: null,
+						selectedCommitFilePath: null,
 						activeProcessSessionId: "process-1",
 						nextAdHocNumber: 2,
 						processSessions: [
@@ -462,6 +467,8 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 				viewerMode: "file",
 				selectedFilePath: "src/new-file.ts",
 				selectedChangedFilePath: null,
+				selectedCommitSha: null,
+				selectedCommitFilePath: null,
 				activeProcessSessionId: "process-2",
 				nextAdHocNumber: 4,
 				processSessions: [
@@ -516,6 +523,8 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 				viewerMode: "file",
 				selectedFilePath: null,
 				selectedChangedFilePath: null,
+				selectedCommitSha: null,
+				selectedCommitFilePath: null,
 				activeProcessSessionId: "orphan-id", // not in processSessions
 				nextAdHocNumber: 2,
 				processSessions: [
