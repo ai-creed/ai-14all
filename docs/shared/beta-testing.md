@@ -4,7 +4,7 @@ This beta build is intended for technical macOS testers.
 
 Requirements:
 
-- macOS
+- Apple Silicon Mac (arm64) — Intel Macs are not supported by this build
 - Git installed and available in the shell
 - any optional CLIs you personally want to use inside the embedded terminal, such as `codex` or `claude`
 

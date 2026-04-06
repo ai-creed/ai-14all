@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Arch } from "builder-util";
-import {
+import afterPack, {
 	ensurePackagedNodePtySpawnHelperExecutable,
 	getPackagedNodePtySpawnHelperPath,
 	resolvePackagedArch,
@@ -52,5 +52,16 @@ describe("electron-builder-after-pack", () => {
 		});
 		expect(changed).toBe(false);
 		expect(chmodSync).not.toHaveBeenCalled();
+	});
+});
+
+describe("afterPack", () => {
+	it("throws when the node-pty spawn-helper is not found", async () => {
+		const context = {
+			appOutDir: "/nonexistent/path",
+			packager: { appInfo: { productFilename: "ai-14all" } },
+			arch: Arch.arm64,
+		};
+		await expect(afterPack(context)).rejects.toThrow("node-pty spawn-helper not found");
 	});
 });

@@ -46,6 +46,10 @@ describe("release-beta", () => {
 		expect(findHeadBetaTag(["v0.2.0-beta.1", "v1.0.0"])).toBeNull();
 		expect(findHeadBetaTag([])).toBeNull();
 	});
+
+	it("returns the highest-sequence beta tag when multiple tags point at HEAD", () => {
+		expect(findHeadBetaTag(["v0.1.0-beta.2", "v0.1.0-beta.10"])).toBe("v0.1.0-beta.10");
+	});
 });
 
 describe("release-beta plan", () => {

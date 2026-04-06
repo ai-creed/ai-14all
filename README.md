@@ -89,7 +89,7 @@ This command:
 - reuses the existing beta tag if `HEAD` is already tagged
 - otherwise computes the next `0.1.0-beta.N`
 - runs verification
-- packages the app into `release/` — share the `.dmg` with testers
+- packages the app into `release/` — share the `.dmg` with testers (arm64 only)
 - creates the Git tag only after packaging succeeds
 
 See [docs/shared/beta-testing.md](docs/shared/beta-testing.md) for the tester-facing runtime note.

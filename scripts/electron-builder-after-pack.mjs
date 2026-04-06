@@ -52,8 +52,8 @@ export default async function afterPack(context) {
 		arch: resolvePackagedArch(context.arch),
 	});
 	if (!changed) {
-		process.stderr.write(
-			"afterPack: node-pty spawn-helper not found — packaged terminal may not work\n",
+		throw new Error(
+			"afterPack: node-pty spawn-helper not found — aborting packaging to prevent broken terminal",
 		);
 	}
 }

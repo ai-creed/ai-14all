@@ -24,12 +24,16 @@ export function computeNextBetaVersion(tags) {
 }
 
 /**
- * Returns the first beta tag pointing at HEAD that matches the pattern.
- * If multiple matching beta tags point at the same HEAD commit, returns the first one
- * found in the input array (deterministic based on git tag output order).
+ * Returns the beta tag with the highest sequence number from tags pointing at HEAD.
+ * If multiple matching beta tags point at the same HEAD commit, returns the one with
+ * the highest sequence number rather than relying on git output order.
  */
 export function findHeadBetaTag(tagsPointingAtHead) {
-	return tagsPointingAtHead.find((tag) => parseBetaTag(tag) !== null) ?? null;
+	const parsed = tagsPointingAtHead.map(parseBetaTag).filter(Boolean);
+	if (parsed.length === 0) return null;
+	return parsed.reduce((best, current) =>
+		current.sequence > best.sequence ? current : best
+	).tag;
 }
 
 export function createReleasePlan({ headTags, allTags }) {
