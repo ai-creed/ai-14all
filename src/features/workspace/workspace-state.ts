@@ -102,7 +102,8 @@ export type WorkspaceAction =
 	  }
 	| { type: "session/restoreSnapshot"; snapshot: PersistedWorktreeSession }
 	| { type: "session/selectCommit"; worktreeId: string; sha: string }
-	| { type: "session/selectCommitFile"; worktreeId: string; relativePath: string };
+	| { type: "session/selectCommitFile"; worktreeId: string; relativePath: string }
+	| { type: "session/clearSelectedCommit"; worktreeId: string };
 
 function createSession(worktree: Worktree): WorktreeSession {
 	return {
@@ -593,6 +594,12 @@ export function workspaceReducer(
 			reviewMode: "commits",
 			viewerMode: "commit",
 			selectedCommitFilePath: action.relativePath,
+		};
+	} else if (action.type === "session/clearSelectedCommit") {
+		nextSession = {
+			...session,
+			selectedCommitSha: null,
+			selectedCommitFilePath: null,
 		};
 	} else {
 		return state;

@@ -62,12 +62,29 @@ export function App() {
 		workspaceReducer,
 		createWorkspaceState([]),
 	);
-	const [activeDiff, setActiveDiff] = useState<GitDiff | null>(null);
 	const [refreshKey, setRefreshKey] = useState(0);
-	const [commitHistory, setCommitHistory] = useState<GitCommitHistory | null>(null);
-	const [commitHistoryError, setCommitHistoryError] = useState(false);
-	const [activeCommitDetail, setActiveCommitDetail] = useState<GitCommitDetail | null>(null);
-	const [commitDetailError, setCommitDetailError] = useState(false);
+
+	type ReviewLoadState<T> = {
+		data: T | null;
+		stale: boolean;
+		message: string | null;
+	};
+
+	const [commitHistoryState, setCommitHistoryState] = useState<ReviewLoadState<GitCommitHistory>>({
+		data: null,
+		stale: false,
+		message: null,
+	});
+	const [commitDetailState, setCommitDetailState] = useState<ReviewLoadState<GitCommitDetail>>({
+		data: null,
+		stale: false,
+		message: null,
+	});
+	const [diffState, setDiffState] = useState<ReviewLoadState<GitDiff>>({
+		data: null,
+		stale: false,
+		message: null,
+	});
 	const [error, setError] = useState<string | null>(null);
 	const [presetManagerOpen, setPresetManagerOpen] = useState(false);
 	const [startupMode, setStartupMode] = useState<StartupMode>("loading");
@@ -415,7 +432,7 @@ export function App() {
 
 	// Fetch git summary when active worktree changes or user refreshes
 	useEffect(() => {
-		setActiveDiff(null);
+		setDiffState({ data: null, stale: false, message: null });
 		if (!activeWorktree?.path) return;
 		let cancelled = false;
 
@@ -516,7 +533,7 @@ export function App() {
 	// Fetch diff when selected changed file changes
 	useEffect(() => {
 		if (!activeWorktree?.path || !activeSession?.selectedChangedFilePath) {
-			setActiveDiff(null);
+			setDiffState({ data: null, stale: false, message: null });
 			return;
 		}
 		if (
@@ -524,17 +541,26 @@ export function App() {
 				(change) => change.path === activeSession.selectedChangedFilePath,
 			)
 		) {
-			setActiveDiff(null);
+			setDiffState({ data: null, stale: false, message: null });
 			return;
 		}
 		let cancelled = false;
+		setDiffState((prev) => ({ ...prev, message: null }));
 		git
 			.readDiff(activeWorktree.path, activeSession.selectedChangedFilePath)
 			.then((result) => {
-				if (!cancelled) setActiveDiff(result);
+				if (!cancelled) setDiffState({ data: result, stale: false, message: null });
 			})
 			.catch(() => {
-				if (!cancelled) setActiveDiff(null);
+				if (!cancelled) {
+					setDiffState((prev) => ({
+						...prev,
+						stale: prev.data !== null,
+						message: prev.data === null
+							? "Couldn't load diff."
+							: "Couldn't refresh diff. Showing last successful result.",
+					}));
+				}
 			});
 		return () => {
 			cancelled = true;
@@ -547,35 +573,57 @@ export function App() {
 
 	// Fetch commit history when active worktree changes or after refresh
 	useEffect(() => {
-		setCommitHistory(null);
-		setCommitHistoryError(false);
-		if (!activeWorktree?.path) return;
+		if (!activeWorktree?.path) {
+			setCommitHistoryState({ data: null, stale: false, message: null });
+			return;
+		}
 		let cancelled = false;
+		setCommitHistoryState((prev) => ({ ...prev, message: null }));
 		git.readCommitHistory(activeWorktree.path).then((history) => {
 			if (cancelled) return;
-			setCommitHistory(history);
-			setCommitHistoryError(false);
+			// Clear the selected commit if it's no longer in the refreshed history
+			if (
+				activeSession?.selectedCommitSha &&
+				!history.entries.some((e) => e.sha === activeSession.selectedCommitSha)
+			) {
+				dispatch({ type: "session/clearSelectedCommit", worktreeId: activeWorktree.id });
+			}
+			setCommitHistoryState({ data: history, stale: false, message: null });
 		}).catch(() => {
 			if (cancelled) return;
-			setCommitHistory(null);
-			setCommitHistoryError(true);
+			setCommitHistoryState((prev) => ({
+				...prev,
+				stale: prev.data !== null,
+				message: prev.data === null
+					? "Couldn't load commit history."
+					: "Couldn't refresh commit history. Showing last successful result.",
+			}));
 		});
 		return () => { cancelled = true; };
-	}, [activeWorktree?.path, refreshKey]);
+	}, [activeWorktree?.id, activeWorktree?.path, refreshKey]);
 
 	// Fetch commit detail when selected commit changes
 	useEffect(() => {
-		setActiveCommitDetail(null);
-		setCommitDetailError(false);
-		if (!activeWorktree?.path || !activeSession?.selectedCommitSha) return;
+		if (!activeWorktree?.path || !activeSession?.selectedCommitSha) {
+			setCommitDetailState({ data: null, stale: false, message: null });
+			return;
+		}
 		let cancelled = false;
+		setCommitDetailState((prev) => ({ ...prev, message: null }));
 		git.readCommitDetail(activeWorktree.path, activeSession.selectedCommitSha).then((detail) => {
 			if (!cancelled) {
-				setActiveCommitDetail(detail);
-				setCommitDetailError(false);
+				setCommitDetailState({ data: detail, stale: false, message: null });
 			}
 		}).catch(() => {
-			if (!cancelled) setCommitDetailError(true);
+			if (!cancelled) {
+				setCommitDetailState((prev) => ({
+					...prev,
+					stale: prev.data !== null,
+					message: prev.data === null
+						? "Couldn't load commit detail."
+						: "Couldn't refresh commit detail. Showing last successful result.",
+				}));
+			}
 		});
 		return () => { cancelled = true; };
 	}, [activeWorktree?.path, activeSession?.selectedCommitSha]);
@@ -1018,14 +1066,16 @@ export function App() {
 										<ScrollArea.Viewport className="shell-rail__viewport">
 											{activeSession?.reviewMode === "commits" ? (
 												<>
-													{commitHistoryError && (
-														<p className="shell-error">Could not load commit history.</p>
+													{commitHistoryState.message && (
+														<p className={commitHistoryState.stale ? "shell-inline-warning" : "shell-error"}>
+															{commitHistoryState.message}
+														</p>
 													)}
 													<CommitList
-														history={commitHistory ?? { mergeTargetRef: null, entries: [] }}
+														history={commitHistoryState.data ?? { mergeTargetRef: null, entries: [] }}
 														selectedCommitSha={activeSession.selectedCommitSha}
 														selectedCommitFilePath={activeSession.selectedCommitFilePath}
-														activeDetail={activeCommitDetail}
+														activeDetail={commitDetailState.data}
 														onSelectCommit={(sha) =>
 															dispatch({
 																type: "session/selectCommit",
@@ -1087,14 +1137,14 @@ export function App() {
 								/>
 
 								<section className="shell-panel shell-viewer-panel">
-									{activeSession?.reviewMode === "commits" && commitDetailError ? (
+									{activeSession?.reviewMode === "commits" && commitDetailState.message !== null && commitDetailState.data === null ? (
 										<p className="shell-error">
-											Could not load commit detail.
+											{commitDetailState.message}
 										</p>
-									) : activeSession?.reviewMode === "commits" && activeCommitDetail ? (
+									) : activeSession?.reviewMode === "commits" && commitDetailState.data ? (
 										<CommitDiffStack
-											key={activeCommitDetail.sha}
-											detail={activeCommitDetail}
+											key={commitDetailState.data.sha}
+											detail={commitDetailState.data}
 											focusedPath={activeSession.selectedCommitFilePath}
 										/>
 									) : activeSession?.reviewMode === "files" &&
@@ -1103,12 +1153,12 @@ export function App() {
 											worktreePath={activeWorktree.path}
 											relativePath={activeSession.selectedFilePath}
 										/>
-									) : activeSession?.reviewMode === "changes" && activeDiff ? (
+									) : activeSession?.reviewMode === "changes" && diffState.data ? (
 										<DiffViewer
-											path={activeDiff.path}
-											content={activeDiff.content}
-											originalContent={activeDiff.originalContent}
-											modifiedContent={activeDiff.modifiedContent}
+											path={diffState.data.path}
+											content={diffState.data.content}
+											originalContent={diffState.data.originalContent}
+											modifiedContent={diffState.data.modifiedContent}
 										/>
 									) : (
 										<p className="shell-empty-state">

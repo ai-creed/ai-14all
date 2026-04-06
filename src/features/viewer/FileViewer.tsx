@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
 import type { FileView } from "../../../shared/models/file-view";
 import { files } from "../../lib/desktop-client";
@@ -11,28 +11,43 @@ interface FileViewerProps {
 export function FileViewer({ worktreePath, relativePath }: FileViewerProps) {
 	const [fileView, setFileView] = useState<FileView | null>(null);
 	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const [stale, setStale] = useState(false);
+	const [message, setMessage] = useState<string | null>(null);
+	const [reloadToken, setReloadToken] = useState(0);
+	const latestFileViewRef = useRef<FileView | null>(null);
+
+	useEffect(() => {
+		latestFileViewRef.current = fileView;
+	}, [fileView]);
 
 	useEffect(() => {
 		if (!worktreePath || !relativePath) return;
 		setLoading(true);
-		setError(null);
-		setFileView(null);
+		setMessage(null);
 		files
 			.read(worktreePath, relativePath)
 			.then((view) => {
 				setFileView(view);
+				setStale(false);
+				setMessage(null);
 				setLoading(false);
 			})
-			.catch((err: unknown) => {
-				setError(err instanceof Error ? err.message : String(err));
+			.catch(() => {
+				const previous = latestFileViewRef.current;
+				const canPreserve = previous?.path === relativePath;
+				setStale(canPreserve);
+				setMessage(
+					canPreserve
+						? "Couldn't refresh file contents. Showing last successful result."
+						: "Couldn't load file contents.",
+				);
 				setLoading(false);
 			});
-	}, [worktreePath, relativePath]);
+	}, [worktreePath, relativePath, reloadToken]);
 
-	if (loading)
+	if (loading && !fileView)
 		return <p className="shell-empty-state">Loading {relativePath}…</p>;
-	if (error) return <p className="shell-error">Error: {error}</p>;
+	if (message && !fileView) return <p className="shell-error">Error: {message}</p>;
 	if (!fileView) return null;
 
 	return (
@@ -40,6 +55,14 @@ export function FileViewer({ worktreePath, relativePath }: FileViewerProps) {
 			<div className="shell-viewer__header">
 				<div className="shell-viewer__title">{fileView.path}</div>
 			</div>
+			{message && (
+				<p className={stale ? "shell-inline-warning" : "shell-error"}>{message}</p>
+			)}
+			{stale && (
+				<button type="button" onClick={() => setReloadToken((x) => x + 1)}>
+					Retry
+				</button>
+			)}
 			<Editor
 				height="100%"
 				language={fileView.language}

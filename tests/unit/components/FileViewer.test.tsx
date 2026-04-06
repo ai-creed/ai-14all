@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import type { FileView } from "../../../shared/models/file-view";
 
 vi.mock("../../../src/lib/desktop-client", () => ({
@@ -85,7 +85,32 @@ describe("FileViewer", () => {
 		render(<FileViewer worktreePath="/repo" relativePath="missing.ts" />);
 
 		expect(
-			await screen.findByText("Error: File not found"),
+			await screen.findByText("Error: Couldn't load file contents."),
 		).toBeInTheDocument();
+	});
+
+	it("keeps the previous file view for the same target when reread fails", async () => {
+		mockRead
+			.mockResolvedValueOnce({
+				path: "src/index.ts",
+				language: "typescript",
+				content: "export const hello = 'world';\n",
+			})
+			.mockRejectedValueOnce(new Error("read failed"));
+
+		const { rerender } = render(
+			<FileViewer worktreePath="/repo" relativePath="src/index.ts" />,
+		);
+		await screen.findByText("src/index.ts");
+
+		// Change worktreePath to trigger a re-fetch for the same relativePath.
+		// The second mock call fails while relativePath still matches the cached
+		// fileView.path, so the component should preserve the content and show
+		// the stale message rather than clearing the view.
+		rerender(<FileViewer worktreePath="/repo2" relativePath="src/index.ts" />);
+
+		await waitFor(() => {
+			expect(screen.getByText(/showing last successful result/i)).toBeInTheDocument();
+		});
 	});
 });
