@@ -180,7 +180,7 @@ describe("App — degraded commit history read", () => {
 			recentCommits: [],
 		});
 		mockReadCommitHistory.mockResolvedValue({ mergeTargetRef: null, entries: [] });
-		mockReadCommitDetail.mockResolvedValue(null);
+		mockReadCommitDetail.mockRejectedValue(new Error("not called"));
 	});
 
 	it("keeps the previous commit list visible when commit-history refresh fails", async () => {
@@ -268,7 +268,7 @@ describe("App — degraded commit detail read", () => {
 			mergeTargetRef: "origin/main",
 			entries: [{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false }],
 		});
-		mockReadCommitDetail.mockResolvedValue(null);
+		mockReadCommitDetail.mockRejectedValue(new Error("not called"));
 	});
 
 	it("shows an error when commit detail fails to load", async () => {
@@ -301,7 +301,7 @@ describe("App — focus-gated auto-refresh", () => {
 			recentCommits: [],
 		});
 		mockReadCommitHistory.mockResolvedValue({ mergeTargetRef: null, entries: [] });
-		mockReadCommitDetail.mockResolvedValue(null);
+		mockReadCommitDetail.mockRejectedValue(new Error("not called"));
 	});
 
 	afterEach(() => {

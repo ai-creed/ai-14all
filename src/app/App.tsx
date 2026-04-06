@@ -436,7 +436,6 @@ export function App() {
 
 	// Fetch git summary when active worktree changes or user refreshes
 	useEffect(() => {
-		setDiffState({ data: null, stale: false, message: null });
 		if (!activeWorktree?.path) return;
 		let cancelled = false;
 
@@ -593,13 +592,17 @@ export function App() {
 			})
 			.catch(() => {
 				if (!cancelled) {
-					setDiffState((prev) => ({
-						...prev,
-						stale: prev.data !== null,
-						message: prev.data === null
-							? "Couldn't load diff."
-							: "Couldn't refresh diff. Showing last successful result.",
-					}));
+					const requestedPath = activeSession.selectedChangedFilePath;
+					setDiffState((prev) => {
+						const canPreserve = prev.data !== null && prev.data.path === requestedPath;
+						return {
+							data: canPreserve ? prev.data : null,
+							stale: canPreserve,
+							message: canPreserve
+								? "Couldn't refresh diff. Showing last successful result."
+								: "Couldn't load diff.",
+						};
+					});
 				}
 			});
 		return () => {
@@ -656,13 +659,17 @@ export function App() {
 			}
 		}).catch(() => {
 			if (!cancelled) {
-				setCommitDetailState((prev) => ({
-					...prev,
-					stale: prev.data !== null,
-					message: prev.data === null
-						? "Couldn't load commit detail."
-						: "Couldn't refresh commit detail. Showing last successful result.",
-				}));
+				const requestedSha = activeSession.selectedCommitSha;
+				setCommitDetailState((prev) => {
+					const canPreserve = prev.data !== null && prev.data.sha === requestedSha;
+					return {
+						data: canPreserve ? prev.data : null,
+						stale: canPreserve,
+						message: canPreserve
+							? "Couldn't refresh commit detail. Showing last successful result."
+							: "Couldn't load commit detail.",
+					};
+				});
 			}
 		});
 		return () => { cancelled = true; };

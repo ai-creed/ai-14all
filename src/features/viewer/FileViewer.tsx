@@ -35,6 +35,7 @@ export function FileViewer({ worktreePath, relativePath }: FileViewerProps) {
 			.catch(() => {
 				const previous = latestFileViewRef.current;
 				const canPreserve = previous?.path === relativePath;
+				if (!canPreserve) setFileView(null);
 				setStale(canPreserve);
 				setMessage(
 					canPreserve
