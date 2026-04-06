@@ -201,12 +201,20 @@ export function App() {
 			const { selectedSession, pendingByWorktreeId } = splitPendingRestores(nextSnapshot);
 			setPendingRestoreSessions(pendingByWorktreeId);
 			setRestoreWarning("Recovered your previous workspace after the repository path changed.");
+			setRestoreState({
+				version: 1 as const,
+				restorePreference: restoreState.restorePreference,
+				snapshot: nextSnapshot,
+			});
 			if (selectedSession) {
 				const selectedWorktree = wts.find((w) => w.id === nextSnapshot.selectedWorktreeId);
 				if (selectedWorktree) {
 					await recreatePersistedProcesses(selectedWorktree, selectedSession);
 				}
 			}
+			setError(null);
+			setStartupError(null);
+			setWorkspacePickerOpen(false);
 			return;
 		}
 
