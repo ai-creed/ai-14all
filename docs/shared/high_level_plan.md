@@ -207,6 +207,8 @@ That means:
 
 **Goal:** Make the app dependable enough for repeated daily use.
 
+**Status:** Beta-ready. Core Phase 6 hardening is complete; the remaining items are polish and can be deferred until after the first beta release.
+
 **Focus areas:**
 
 - UX cleanup
@@ -216,11 +218,14 @@ That means:
 
 **Deliverables:**
 
-- better empty and error states
-- smoother loading and refresh behavior
-- external editor integration
-- better handling for missing worktrees, failed commands, and invalid paths
-- targeted UI cleanup based on real use
+- completed:
+  - workspace recovery and path-change handling
+  - smoother loading and refresh behavior
+  - better handling for missing worktrees, failed commands, and invalid paths
+- deferred until after beta:
+  - external editor integration
+  - broader empty/error-state polish
+  - targeted UI cleanup based on real use
 
 **Exit condition:**
 
@@ -238,6 +243,8 @@ These should stay out of the initial delivery unless real usage proves they are 
 - collaboration or cloud sync
 - remote environments
 - Windows-first polish
+- external editor integration
+- broader UI state polish
 
 ## Recommended Working Rhythm
 
