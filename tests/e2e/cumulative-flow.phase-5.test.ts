@@ -5,7 +5,7 @@ import {
 	type ElectronApplication,
 	type Page,
 } from "@playwright/test";
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
@@ -217,5 +217,51 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 				.getByRole("button", { name: /feature-a/i }),
 		).toHaveAttribute("data-selected", "true");
 		await expect(page.getByRole("textbox", { name: "Session note" })).toHaveValue("always-restore note");
+	});
+
+	test("recovers the previous workspace after the repository directory is renamed", async () => {
+		// Start from a clean state so this test doesn't depend on previous test outcomes
+		await closeApp();
+		writeFileSync(
+			persistedStatePath,
+			JSON.stringify({ version: 1, restorePreference: "alwaysRestore", snapshot: null }),
+		);
+		await launchApp();
+
+		// Load the repo and set up a session note to verify later
+		await page.locator("#repo-path").fill(testRepo.repoPath);
+		await page.getByRole("button", { name: "Load" }).click();
+
+		await page
+			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("button", { name: /feature-a/i })
+			.click();
+
+		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible({ timeout: 10_000 });
+		await page.getByRole("textbox", { name: "Session note" }).fill("resume here");
+
+		// Close the app — this persists the snapshot with the original path
+		await closeApp();
+
+		// Rename the repo directory to simulate a repo move/rename
+		const renamedRepoPath = `${testRepo.repoPath}-renamed`;
+		renameSync(testRepo.repoPath, renamedRepoPath);
+
+		// Relaunch — auto-restore fails (old path no longer exists) but snapshot is preserved
+		await launchApp();
+		await expect(page.getByRole("button", { name: "Load" })).toBeVisible({ timeout: 10_000 });
+
+		// Manually open the repo at its new path — reattachment should kick in
+		await page.locator("#repo-path").fill(renamedRepoPath);
+		await page.getByRole("button", { name: "Load" }).click();
+
+		// The session note must be recovered
+		await expect(page.getByRole("textbox", { name: "Session note" })).toHaveValue("resume here", { timeout: 15_000 });
+		// A recovery banner must be visible
+		await expect(page.getByRole("status")).toContainText(/recovered/i);
+
+		// Cleanup: rename back so testRepo.cleanup() can run correctly in afterAll,
+		// or remove the renamed directory directly since the original path is now gone
+		renameSync(renamedRepoPath, testRepo.repoPath);
 	});
 });
