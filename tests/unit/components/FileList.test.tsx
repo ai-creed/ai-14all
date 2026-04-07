@@ -163,4 +163,69 @@ describe("FileList", () => {
 			screen.queryByText("No nearby files for changed directories."),
 		).not.toBeInTheDocument();
 	});
+
+	it("shows context menu with Preview item when a .md file is right-clicked", async () => {
+		mockListScoped.mockResolvedValueOnce(["README.md", "src/index.ts"]);
+		vi.mocked(files.read).mockReturnValue(new Promise(() => {}));
+
+		render(
+			<FileList
+				worktreePath="/repo"
+				scopeRoots={["."]}
+				selectedFile={null}
+				onSelect={vi.fn()}
+			/>,
+		);
+
+		const mdFile = await screen.findByRole("button", { name: "README.md" });
+		fireEvent.contextMenu(mdFile);
+
+		expect(
+			await screen.findByRole("menuitem", { name: "Preview" }),
+		).toBeInTheDocument();
+	});
+
+	it("does not show a context menu when a non-.md file is right-clicked", async () => {
+		mockListScoped.mockResolvedValueOnce(["src/index.ts"]);
+
+		render(
+			<FileList
+				worktreePath="/repo"
+				scopeRoots={["src"]}
+				selectedFile={null}
+				onSelect={vi.fn()}
+			/>,
+		);
+
+		const tsFile = await screen.findByRole("button", { name: "index.ts" });
+		fireEvent.contextMenu(tsFile);
+
+		expect(
+			screen.queryByRole("menuitem", { name: "Preview" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("opens the markdown preview modal when Preview is clicked", async () => {
+		mockListScoped.mockResolvedValueOnce(["README.md"]);
+		vi.mocked(files.read).mockReturnValue(new Promise(() => {}));
+
+		render(
+			<FileList
+				worktreePath="/repo"
+				scopeRoots={["."]}
+				selectedFile={null}
+				onSelect={vi.fn()}
+			/>,
+		);
+
+		const mdFile = await screen.findByRole("button", { name: "README.md" });
+		fireEvent.contextMenu(mdFile);
+
+		const previewItem = await screen.findByRole("menuitem", { name: "Preview" });
+		fireEvent.click(previewItem);
+
+		expect(
+			await screen.findByText("Loading README.md…"),
+		).toBeInTheDocument();
+	});
 });
