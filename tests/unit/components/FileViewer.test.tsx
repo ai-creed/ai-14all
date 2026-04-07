@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import type { FileView } from "../../../shared/models/file-view";
 
 vi.mock("../../../src/lib/desktop-client", () => ({
@@ -114,5 +114,63 @@ describe("FileViewer", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/showing last successful result/i)).toBeInTheDocument();
 		});
+	});
+
+	it("shows Preview context menu item when right-clicking header of a .md file", async () => {
+		mockRead
+			.mockResolvedValueOnce({
+				path: "README.md",
+				content: "# Hello",
+				language: "markdown",
+			})
+			.mockReturnValue(new Promise(() => {})); // preview modal fetch never resolves
+
+		render(<FileViewer worktreePath="/repo" relativePath="README.md" />);
+
+		const title = await screen.findByText("README.md");
+		fireEvent.contextMenu(title);
+
+		expect(
+			await screen.findByRole("menuitem", { name: "Preview" }),
+		).toBeInTheDocument();
+	});
+
+	it("does not show a context menu when right-clicking header of a non-.md file", async () => {
+		mockRead.mockResolvedValueOnce({
+			path: "src/index.ts",
+			content: "const x = 1;",
+			language: "typescript",
+		});
+
+		render(<FileViewer worktreePath="/repo" relativePath="src/index.ts" />);
+
+		const title = await screen.findByText("src/index.ts");
+		fireEvent.contextMenu(title);
+
+		expect(
+			screen.queryByRole("menuitem", { name: "Preview" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("opens the markdown preview modal when Preview is clicked in FileViewer", async () => {
+		mockRead
+			.mockResolvedValueOnce({
+				path: "README.md",
+				content: "# Hello",
+				language: "markdown",
+			})
+			.mockReturnValue(new Promise(() => {})); // modal fetch never resolves
+
+		render(<FileViewer worktreePath="/repo" relativePath="README.md" />);
+
+		const title = await screen.findByText("README.md");
+		fireEvent.contextMenu(title);
+
+		const previewItem = await screen.findByRole("menuitem", { name: "Preview" });
+		fireEvent.click(previewItem);
+
+		expect(
+			await screen.findByText("Loading README.md…"),
+		).toBeInTheDocument();
 	});
 });
