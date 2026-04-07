@@ -1175,9 +1175,11 @@ select {
 .shell-md-modal__scroll {
 	flex: 1;
 	overflow: hidden;
+	min-height: 0;
 }
 
 .shell-md-modal__body {
+	height: 100%;
 	padding: var(--space-4) var(--space-6);
 	color: var(--text-primary);
 	line-height: 1.6;
