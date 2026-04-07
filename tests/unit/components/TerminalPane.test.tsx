@@ -14,6 +14,8 @@ const {
 	xtermOnDataMock,
 	xtermConstructorMock,
 	xtermOnTitleChangeMock,
+	xtermAttachCustomKeyEventHandlerMock,
+	xtermClearMock,
 } = vi.hoisted(() => ({
 	resizeMock: vi.fn(() => Promise.resolve()),
 	sendInputMock: vi.fn(() => Promise.resolve()),
@@ -26,6 +28,8 @@ const {
 	xtermOnDataMock: vi.fn(() => ({ dispose: vi.fn() })),
 	xtermConstructorMock: vi.fn(),
 	xtermOnTitleChangeMock: vi.fn(() => ({ dispose: vi.fn() })),
+	xtermAttachCustomKeyEventHandlerMock: vi.fn(),
+	xtermClearMock: vi.fn(),
 }));
 
 type ResizeObserverRecord = {
@@ -82,6 +86,8 @@ vi.mock("xterm", () => ({
 		onTitleChange = xtermOnTitleChangeMock;
 		write = xtermWriteMock;
 		dispose = xtermDisposeMock;
+		attachCustomKeyEventHandler = xtermAttachCustomKeyEventHandlerMock;
+		clear = xtermClearMock;
 	},
 }));
 
@@ -100,6 +106,8 @@ describe("TerminalPane", () => {
 		xtermOnDataMock.mockReset();
 		xtermConstructorMock.mockReset();
 		xtermOnTitleChangeMock.mockReset();
+		xtermAttachCustomKeyEventHandlerMock.mockReset();
+		xtermClearMock.mockReset();
 		resizeMock.mockImplementation(() => Promise.resolve());
 		sendInputMock.mockImplementation(() => Promise.resolve());
 		xtermOnDataMock.mockReturnValue({ dispose: vi.fn() });
@@ -180,5 +188,49 @@ describe("TerminalPane", () => {
 		titleListener?.("codex");
 
 		expect(onTitleChange).toHaveBeenCalledWith("codex");
+	});
+
+	it("constructs xterm with the bundled powerline font stack and 11px text", () => {
+		const session: TerminalSession = {
+			id: "term-1",
+			worktreeId: "wt1",
+			cwd: "/repo",
+			status: "running",
+			exitCode: null,
+		};
+
+		render(<TerminalPane session={session} visible={true} />);
+
+		expect(xtermConstructorMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				fontFamily: expect.stringContaining("AI14All Terminal Powerline"),
+				fontSize: 11,
+			}),
+		);
+	});
+
+	it("clears the xterm buffer on Cmd+K without sending shell input", () => {
+		const session: TerminalSession = {
+			id: "term-1",
+			worktreeId: "wt1",
+			cwd: "/repo",
+			status: "running",
+			exitCode: null,
+		};
+
+		render(<TerminalPane session={session} visible={true} />);
+
+		const keyHandler = xtermAttachCustomKeyEventHandlerMock.mock.calls[0]?.[0] as
+			| ((event: KeyboardEvent) => boolean)
+			| undefined;
+		expect(typeof keyHandler).toBe("function");
+
+		const accepted = keyHandler?.(
+			new KeyboardEvent("keydown", { key: "k", metaKey: true }),
+		);
+
+		expect(accepted).toBe(false);
+		expect(xtermClearMock).toHaveBeenCalledTimes(1);
+		expect(sendInputMock).not.toHaveBeenCalled();
 	});
 });
