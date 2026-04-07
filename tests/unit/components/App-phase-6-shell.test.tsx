@@ -437,6 +437,72 @@ describe("App — Phase 6 default shell", () => {
 		expect(within(nav).getByText("feature-a")).toBeInTheDocument();
 	});
 
+	it("resizes, collapses, and reopens the review panel without losing selection", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		});
+		readSummaryMock.mockResolvedValue({
+			branchName: "main",
+			isDirty: true,
+			changedFileCount: 1,
+			changedFiles: [{ path: "src/index.ts", status: "M" }],
+			recentCommits: [],
+		});
+		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		listWorktreesMock.mockResolvedValue([
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
+		]);
+
+		render(<App />);
+		await screen.findByLabelText("Repository path");
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		await userEvent.click(await screen.findByRole("tab", { name: "Changes" }));
+		await userEvent.click(await screen.findByRole("button", { name: /src\/index\.ts/i }));
+		expect(await screen.findByText("Diff vs HEAD")).toBeInTheDocument();
+
+		const reviewStack = screen.getByTestId("review-stack");
+		expect(reviewStack).toHaveStyle({ gridTemplateRows: "8px 280px" });
+
+		fireEvent.mouseDown(screen.getByTestId("review-panel-resize-handle"), {
+			clientY: 500,
+		});
+		fireEvent.mouseMove(window, { clientY: 460 });
+		fireEvent.mouseUp(window);
+
+		await waitFor(() => {
+			expect(reviewStack).toHaveStyle({ gridTemplateRows: "8px 320px" });
+		});
+
+		await userEvent.click(
+			screen.getByRole("button", { name: "Collapse review panel" }),
+		);
+		expect(reviewStack).toHaveStyle({ gridTemplateRows: "28px" });
+		expect(screen.getByTestId("review-collapsed-bar")).toHaveTextContent(
+			"Review: Changes",
+		);
+		expect(screen.queryByText("Diff vs HEAD")).not.toBeInTheDocument();
+
+		await userEvent.click(
+			screen.getByRole("button", { name: "Expand review panel" }),
+		);
+
+		expect(await screen.findByText("Diff vs HEAD")).toBeInTheDocument();
+		expect(reviewStack).toHaveStyle({ gridTemplateRows: "8px 320px" });
+	});
+
 	it("keeps the current session state when reloading the same repository from the picker", async () => {
 		readRestoreStateMock.mockResolvedValue({
 			version: 1,

@@ -56,6 +56,8 @@ function normalizeTerminalTitle(title: string): string | null {
 
 export function App() {
 	const [reviewRailWidth, setReviewRailWidth] = useState(320);
+	const [reviewPanelHeight, setReviewPanelHeight] = useState(280);
+	const [reviewPanelCollapsed, setReviewPanelCollapsed] = useState(false);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const [repository, setRepository] = useState<Repository | null>(null);
 	const [worktrees, setWorktrees] = useState<Worktree[]>([]);
@@ -518,6 +520,35 @@ export function App() {
 				Math.max(240, startWidth + (moveEvent.clientX - startX)),
 			);
 			setReviewRailWidth(nextWidth);
+		};
+
+		const handleMouseUp = () => {
+			window.removeEventListener("mousemove", handleMouseMove);
+			window.removeEventListener("mouseup", handleMouseUp);
+		};
+
+		window.addEventListener("mousemove", handleMouseMove);
+		window.addEventListener("mouseup", handleMouseUp);
+	}
+
+	function handleReviewPanelResizeStart(
+		event: ReactMouseEvent<HTMLDivElement>,
+	) {
+		event.preventDefault();
+		const startY = event.clientY;
+		const startHeight = reviewPanelHeight;
+
+		const handleMouseMove = (moveEvent: MouseEvent) => {
+			const maxHeight = Math.max(160, window.innerHeight - 320);
+			// Moving the handle upward increases review height; moving it
+			// downward decreases review height and gives space back to the
+			// terminal. Keep the subtraction form explicit so unit and e2e
+			// expectations stay aligned.
+			const nextHeight = Math.min(
+				maxHeight,
+				Math.max(160, startHeight - (moveEvent.clientY - startY)),
+			);
+			setReviewPanelHeight(nextHeight);
 		};
 
 		const handleMouseUp = () => {
@@ -1073,56 +1104,108 @@ export function App() {
 					)}
 
 					{activeWorktree && (
-						<Tabs.Root
-							value={activeSession?.reviewMode ?? "files"}
-							onValueChange={(value) =>
-								dispatch({
-									type: "session/setReviewMode",
-									worktreeId: activeWorktree.id,
-									reviewMode: value as "files" | "changes" | "commits",
-								})
-							}
-							className="shell-review-shell"
+						<section
+							className="shell-review-stack"
+							data-testid="review-stack"
+							style={{
+								gridTemplateRows: reviewPanelCollapsed
+									? "28px"
+									: `8px ${reviewPanelHeight}px`,
+							}}
 						>
-							<div
-								className="shell-review-grid"
-								data-testid="review-grid"
-								style={{
-									gridTemplateColumns: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
-								}}
-							>
-								<section
-									className="shell-panel shell-review-rail"
-									data-testid="review-rail"
-								>
-									<div className="shell-review-rail__header">
-										<Tabs.List
-											aria-label="Review mode"
-											className="shell-review-tabs__list shell-review-tabs__segments"
-										>
-											<Tabs.Trigger value="files" className="shell-review-tab">
-												Files
-											</Tabs.Trigger>
-											<Tabs.Trigger value="changes" className="shell-review-tab">
-												Changes
-											</Tabs.Trigger>
-											<Tabs.Trigger value="commits" className="shell-review-tab">
-												Commits
-											</Tabs.Trigger>
-										</Tabs.List>
+							{!reviewPanelCollapsed && (
+								<div
+									role="separator"
+									aria-orientation="horizontal"
+									aria-label="Resize review panel"
+									data-testid="review-panel-resize-handle"
+									className="shell-review-stack__resize-handle"
+									onMouseDown={handleReviewPanelResizeStart}
+								/>
+							)}
 
-										<div className="shell-review-switches">
-											<button
-												type="button"
-												className="shell-button shell-button--compact shell-button--icon shell-button--round"
-												aria-label="Refresh review"
-												title="Refresh review"
-												onClick={handleRefreshChanges}
-											>
-												<span aria-hidden="true">↻</span>
-											</button>
-										</div>
+							<Tabs.Root
+								value={activeSession?.reviewMode ?? "files"}
+								onValueChange={(value) =>
+									dispatch({
+										type: "session/setReviewMode",
+										worktreeId: activeWorktree.id,
+										reviewMode: value as "files" | "changes" | "commits",
+									})
+								}
+								className="shell-review-shell"
+								data-collapsed={String(reviewPanelCollapsed)}
+							>
+								{reviewPanelCollapsed ? (
+									<div
+										className="shell-review-collapsed-bar shell-panel"
+										data-testid="review-collapsed-bar"
+									>
+										<span>{`Review: ${
+											activeSession?.reviewMode === "changes"
+												? "Changes"
+												: activeSession?.reviewMode === "commits"
+													? "Commits"
+													: "Files"
+										}`}</span>
+										<button
+											type="button"
+											className="shell-button shell-button--compact"
+											aria-label="Expand review panel"
+											onClick={() => setReviewPanelCollapsed(false)}
+										>
+											Expand
+										</button>
 									</div>
+								) : (
+									<div
+										className="shell-review-grid"
+										data-testid="review-grid"
+										style={{
+											gridTemplateColumns: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
+										}}
+									>
+										<section
+											className="shell-panel shell-review-rail"
+											data-testid="review-rail"
+										>
+											<div className="shell-review-rail__header">
+												<Tabs.List
+													aria-label="Review mode"
+													className="shell-review-tabs__list shell-review-tabs__segments"
+												>
+													<Tabs.Trigger value="files" className="shell-review-tab">
+														Files
+													</Tabs.Trigger>
+													<Tabs.Trigger value="changes" className="shell-review-tab">
+														Changes
+													</Tabs.Trigger>
+													<Tabs.Trigger value="commits" className="shell-review-tab">
+														Commits
+													</Tabs.Trigger>
+												</Tabs.List>
+
+												<div className="shell-review-switches">
+													<button
+														type="button"
+														className="shell-button shell-button--compact shell-button--icon shell-button--round"
+														aria-label="Refresh review"
+														title="Refresh review"
+														onClick={handleRefreshChanges}
+													>
+														<span aria-hidden="true">↻</span>
+													</button>
+													<button
+														type="button"
+														className="shell-button shell-button--compact shell-button--icon shell-button--round"
+														aria-label="Collapse review panel"
+														title="Collapse review panel"
+														onClick={() => setReviewPanelCollapsed(true)}
+													>
+														<span aria-hidden="true">▾</span>
+													</button>
+												</div>
+											</div>
 
 									<ScrollArea.Root className="shell-review-rail__scroll">
 										<ScrollArea.Viewport className="shell-rail__viewport">
@@ -1229,8 +1312,10 @@ export function App() {
 									)}
 								</section>
 							</div>
+							)}
 						</Tabs.Root>
-					)}
+					</section>
+				)}
 				</section>
 			</div>
 
