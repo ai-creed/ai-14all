@@ -88,6 +88,11 @@ export function createTestRepo(): TestRepo {
 		join(worktreePath, "src", "new-file.ts"),
 		"export const added = true;\n",
 	);
+	// Add a dirty .md file so the Files tab has scope for the markdown preview E2E test
+	writeFileSync(
+		join(worktreePath, "NOTES.md"),
+		"# Preview Test\n\nThis file exists for E2E markdown preview coverage.\n",
+	);
 
 	return {
 		repoPath,
