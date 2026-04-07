@@ -87,6 +87,44 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			.click();
 
 		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible();
+
+		const shellLayout = page.getByTestId("shell-layout");
+		await expect(shellLayout).toHaveAttribute(
+			"style",
+			/grid-template-columns:\s*240px minmax\(0,\s*1fr\)/,
+		);
+
+		const worktreeNav = page.getByRole("navigation", { name: "Worktree sessions" });
+		await worktreeNav.getByRole("button", { name: "Collapse sidebar" }).click();
+		await expect(shellLayout).toHaveAttribute(
+			"style",
+			/grid-template-columns:\s*56px minmax\(0,\s*1fr\)/,
+		);
+		await worktreeNav.getByRole("button", { name: "Expand sidebar" }).click();
+
+		const terminalSection = page.locator(".shell-terminal-section");
+		const terminalBefore = await terminalSection.boundingBox();
+		const reviewHandle = page.getByTestId("review-panel-resize-handle");
+		const reviewHandleBox = await reviewHandle.boundingBox();
+		if (!terminalBefore || !reviewHandleBox) {
+			throw new Error("Review panel resize handle was not visible.");
+		}
+
+		await page.mouse.move(
+			reviewHandleBox.x + reviewHandleBox.width / 2,
+			reviewHandleBox.y + reviewHandleBox.height / 2,
+		);
+		await page.mouse.down();
+		await page.mouse.move(
+			reviewHandleBox.x + reviewHandleBox.width / 2,
+			reviewHandleBox.y + reviewHandleBox.height / 2 + 60,
+		);
+		await page.mouse.up();
+
+		await expect
+			.poll(async () => (await terminalSection.boundingBox())?.height ?? 0)
+			.toBeGreaterThan(terminalBefore.height);
+
 		await page.evaluate(async () => {
 			const pane = document.querySelector<HTMLElement>(
 				'.shell-terminal-pane[aria-hidden="false"]',
@@ -109,6 +147,33 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await page.getByRole("tab", { name: "Changes" }).click();
 		await page.getByRole("button", { name: /src\/index\.ts/i }).click();
 		await expect(page.getByText("Diff vs HEAD")).toBeVisible();
+
+		await page.getByRole("button", { name: "Collapse review panel" }).click();
+		await expect(page.getByTestId("review-collapsed-bar")).toContainText(
+			"Review: Changes",
+		);
+		await page.getByRole("button", { name: "Expand review panel" }).click();
+		await expect(page.getByText("Diff vs HEAD")).toBeVisible();
+
+		const textarea = page.locator(".xterm-helper-textarea");
+		await textarea.focus();
+		await page.keyboard.type("echo phase-6-clear");
+		await page.keyboard.press("Enter");
+		await expect(
+			page.locator(".xterm-accessibility-tree").first(),
+		).toContainText("phase-6-clear", { timeout: 10_000 });
+
+		const modifier = process.platform === "darwin" ? "Meta" : "Control";
+		await page.keyboard.press(`${modifier}+K`);
+		await expect(
+			page.locator(".xterm-accessibility-tree").first(),
+		).not.toContainText("phase-6-clear");
+
+		await page.keyboard.type("echo after-clear");
+		await page.keyboard.press("Enter");
+		await expect(
+			page.locator(".xterm-accessibility-tree").first(),
+		).toContainText("after-clear", { timeout: 10_000 });
 
 		const reviewRail = page.getByTestId("review-rail");
 		const resizeHandle = page.getByTestId("review-rail-resize-handle");
