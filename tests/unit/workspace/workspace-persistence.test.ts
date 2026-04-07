@@ -436,7 +436,7 @@ describe("reconcileSnapshotToWorktrees", () => {
 			{ id: "/old/repo/.worktrees/feature-a" }, // stale — git didn't update this
 		];
 		const rebased = makeMinimalSnapshot({
-			selectedWorktreeId: "/new/repo/.worktrees/feature-a",
+			selectedWorktreeId: "/new/repo/.worktrees/feature-a", // correctly rebased
 			worktreeSessions: [
 				makeSession("/new/repo"),
 				makeSession("/new/repo/.worktrees/feature-a", "resume here"),

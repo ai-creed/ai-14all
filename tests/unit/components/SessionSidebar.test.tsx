@@ -80,4 +80,33 @@ describe("SessionSidebar", () => {
 			screen.getByRole("button", { name: /feature worktree/i }),
 		).toHaveAttribute("data-attention", "actionRequired");
 	});
+
+	it("renders the collapsed rail with initial-letter markers and no labels", () => {
+		render(
+			<SessionSidebar
+				worktrees={worktrees}
+				selectedWorktreeId="main"
+				collapsed={true}
+				onToggleCollapsed={vi.fn()}
+				onSelect={vi.fn()}
+			/>,
+		);
+
+		expect(
+			screen.getByRole("navigation", { name: "Worktree sessions" }),
+		).toHaveAttribute("data-collapsed", "true");
+
+		// Full worktree labels must NOT be rendered as <strong> elements
+		expect(screen.queryByText("feature worktree")).not.toBeInTheDocument();
+
+		// Initial-letter markers must be visible (first char uppercased)
+		// "main" → "M", "feature worktree" → "F"
+		expect(screen.getByText("M")).toBeInTheDocument();
+		expect(screen.getByText("F")).toBeInTheDocument();
+
+		// Toggle button must signal expansion intent
+		expect(
+			screen.getByRole("button", { name: "Expand sidebar" }),
+		).toBeInTheDocument();
+	});
 });

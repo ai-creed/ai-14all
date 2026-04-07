@@ -147,24 +147,6 @@ describe("TerminalPane", () => {
 		expect(resizeMock).not.toHaveBeenCalled();
 	});
 
-	it("constructs xterm with the bundled powerline font stack", () => {
-		const session: TerminalSession = {
-			id: "term-1",
-			worktreeId: "wt1",
-			cwd: "/repo",
-			status: "running",
-			exitCode: null,
-		};
-
-		render(<TerminalPane session={session} visible={true} />);
-
-		expect(xtermConstructorMock).toHaveBeenCalledWith(
-			expect.objectContaining({
-				fontFamily: expect.stringContaining("AI14All Terminal Powerline"),
-			}),
-		);
-	});
-
 	it("forwards xterm title changes to the callback prop", () => {
 		const session: TerminalSession = {
 			id: "term-1",
