@@ -215,4 +215,27 @@ describe("TerminalPane", () => {
 		expect(xtermClearMock).toHaveBeenCalledTimes(1);
 		expect(sendInputMock).not.toHaveBeenCalled();
 	});
+
+	it("does not clear the xterm buffer on Cmd+Shift+K", () => {
+		const session: TerminalSession = {
+			id: "term-1",
+			worktreeId: "wt1",
+			cwd: "/repo",
+			status: "running",
+			exitCode: null,
+		};
+
+		render(<TerminalPane session={session} visible={true} />);
+
+		const keyHandler = xtermAttachCustomKeyEventHandlerMock.mock.calls[0]?.[0] as
+			| ((event: KeyboardEvent) => boolean)
+			| undefined;
+
+		const accepted = keyHandler?.(
+			new KeyboardEvent("keydown", { key: "k", metaKey: true, shiftKey: true }),
+		);
+
+		expect(accepted).toBe(true);
+		expect(xtermClearMock).not.toHaveBeenCalled();
+	});
 });

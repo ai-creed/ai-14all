@@ -44,7 +44,8 @@ export function TerminalPane({ session, visible, onTitleChange }: Props) {
 			const isClearShortcut =
 				key === "k" &&
 				(event.metaKey || event.ctrlKey) &&
-				!event.altKey;
+				!event.altKey &&
+				!event.shiftKey;
 			if (!isClearShortcut) return true;
 			term.clear();
 			return false;

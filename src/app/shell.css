@@ -207,7 +207,7 @@ select {
 	gap: var(--space-3);
 	align-items: center;
 	color: var(--text-secondary);
-	font-size: 0.875rem;
+	font-size: var(--font-size-body);
 	flex: 1;
 	min-width: 0;
 }
@@ -231,7 +231,7 @@ select {
 	background: rgba(10, 17, 21, 0.22);
 	border: 1px solid var(--panel-border);
 	border-radius: var(--radius-sm);
-	font-size: 0.84rem;
+	font-size: var(--font-size-body);
 }
 
 .shell-session-info__meta {
@@ -240,7 +240,7 @@ select {
 	gap: var(--space-3);
 	margin-top: var(--space-3);
 	color: var(--text-secondary);
-	font-size: 13px;
+	font-size: var(--font-size-body);
 }
 
 .shell-session-note {
@@ -263,7 +263,6 @@ select {
 .shell-terminal-section {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
-	min-height: 520px;
 	overflow: hidden;
 }
 
@@ -291,7 +290,7 @@ select {
 	background: var(--accent-strong);
 	color: var(--warning);
 	padding: var(--space-2) var(--space-4);
-	font-size: 0.875rem;
+	font-size: var(--font-size-body);
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -346,7 +345,7 @@ select {
 .shell-button--compact {
 	height: 32px;
 	padding: 0 10px;
-	font-size: 0.9rem;
+	font-size: var(--font-size-body);
 	line-height: 32px;
 }
 
@@ -355,7 +354,7 @@ select {
 	padding: 0;
 	display: grid;
 	place-items: center;
-	font-size: 1rem;
+	font-size: var(--font-size-label);
 	line-height: 32px;
 }
 
