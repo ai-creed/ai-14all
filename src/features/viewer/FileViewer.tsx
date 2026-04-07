@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
+import * as ContextMenu from "@radix-ui/react-context-menu";
 import type { FileView } from "../../../shared/models/file-view";
 import { files } from "../../lib/desktop-client";
+import { MarkdownPreviewModal } from "./MarkdownPreviewModal";
 
 interface FileViewerProps {
 	worktreePath: string;
@@ -15,6 +17,7 @@ export function FileViewer({ worktreePath, relativePath }: FileViewerProps) {
 	const [message, setMessage] = useState<string | null>(null);
 	const [reloadToken, setReloadToken] = useState(0);
 	const latestFileViewRef = useRef<FileView | null>(null);
+	const [previewOpen, setPreviewOpen] = useState(false);
 
 	useEffect(() => {
 		latestFileViewRef.current = fileView;
@@ -53,9 +56,29 @@ export function FileViewer({ worktreePath, relativePath }: FileViewerProps) {
 
 	return (
 		<div className="shell-viewer">
-			<div className="shell-viewer__header">
-				<div className="shell-viewer__title">{fileView.path}</div>
-			</div>
+			{relativePath.endsWith(".md") ? (
+				<ContextMenu.Root>
+					<ContextMenu.Trigger asChild>
+						<div className="shell-viewer__header">
+							<div className="shell-viewer__title">{fileView.path}</div>
+						</div>
+					</ContextMenu.Trigger>
+					<ContextMenu.Portal>
+						<ContextMenu.Content className="shell-toolbar-menu">
+							<ContextMenu.Item
+								className="shell-toolbar-menu__item"
+								onSelect={() => setPreviewOpen(true)}
+							>
+								Preview
+							</ContextMenu.Item>
+						</ContextMenu.Content>
+					</ContextMenu.Portal>
+				</ContextMenu.Root>
+			) : (
+				<div className="shell-viewer__header">
+					<div className="shell-viewer__title">{fileView.path}</div>
+				</div>
+			)}
 			{message && (
 				<p className={stale ? "shell-inline-warning" : "shell-error"}>{message}</p>
 			)}
@@ -71,6 +94,14 @@ export function FileViewer({ worktreePath, relativePath }: FileViewerProps) {
 				value={fileView.content}
 				options={{ readOnly: true, fontSize: 12, minimap: { enabled: false } }}
 			/>
+			{previewOpen && (
+				<MarkdownPreviewModal
+					worktreePath={worktreePath}
+					relativePath={relativePath}
+					open={true}
+					onClose={() => setPreviewOpen(false)}
+				/>
+			)}
 		</div>
 	);
 }
