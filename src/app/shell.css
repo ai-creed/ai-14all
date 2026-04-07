@@ -1258,3 +1258,20 @@ select {
 .shell-md-modal__body del {
 	color: var(--text-muted);
 }
+
+.shell-md-modal__retry {
+	margin-top: var(--space-2);
+	padding: var(--space-1) var(--space-3);
+	background: transparent;
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	color: var(--text-secondary);
+	cursor: pointer;
+	font-family: var(--font-ui);
+	font-size: 0.875rem;
+}
+
+.shell-md-modal__retry:hover {
+	border-color: var(--panel-border-strong);
+	color: var(--text-primary);
+}

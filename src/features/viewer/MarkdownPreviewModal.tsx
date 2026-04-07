@@ -51,7 +51,7 @@ export function MarkdownPreviewModal({
 						<Dialog.Title className="shell-md-modal__title">
 							{relativePath}
 						</Dialog.Title>
-						<Dialog.Close className="shell-md-modal__close">✕</Dialog.Close>
+						<Dialog.Close className="shell-md-modal__close" aria-label="Close">✕</Dialog.Close>
 					</div>
 					{loading && (
 						<p className="shell-empty-state">Loading {relativePath}…</p>
@@ -60,6 +60,7 @@ export function MarkdownPreviewModal({
 						<>
 							<p className="shell-error">{error}</p>
 							<button
+								className="shell-md-modal__retry"
 								type="button"
 								onClick={() => setReloadToken((x) => x + 1)}
 							>
