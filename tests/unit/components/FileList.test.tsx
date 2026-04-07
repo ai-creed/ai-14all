@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 vi.mock("../../../src/lib/desktop-client", () => ({
 	files: {
@@ -227,5 +227,41 @@ describe("FileList", () => {
 		expect(
 			await screen.findByText("Loading README.md…"),
 		).toBeInTheDocument();
+	});
+
+	it("closes the preview modal when worktreePath changes", async () => {
+		mockListScoped.mockResolvedValue(["README.md"]);
+		vi.mocked(files.read).mockReturnValue(new Promise(() => {}));
+
+		const { rerender } = render(
+			<FileList
+				worktreePath="/repo"
+				scopeRoots={["."]}
+				selectedFile={null}
+				onSelect={vi.fn()}
+			/>,
+		);
+
+		// Open the preview
+		const mdFile = await screen.findByRole("button", { name: "README.md" });
+		fireEvent.contextMenu(mdFile);
+		const previewItem = await screen.findByRole("menuitem", { name: "Preview" });
+		fireEvent.click(previewItem);
+		await screen.findByText("Loading README.md…");
+
+		// Simulate worktree change
+		rerender(
+			<FileList
+				worktreePath="/repo2"
+				scopeRoots={["."]}
+				selectedFile={null}
+				onSelect={vi.fn()}
+			/>,
+		);
+
+		// Modal should be gone
+		await waitFor(() => {
+			expect(screen.queryByText(/Loading README\.md/)).not.toBeInTheDocument();
+		});
 	});
 });

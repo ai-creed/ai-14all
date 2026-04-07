@@ -109,6 +109,10 @@ export function FileList({
 			});
 	}, [worktreePath, scopeRoots]);
 
+	useEffect(() => {
+		setPreviewPath(null);
+	}, [worktreePath]);
+
 	if (gitSummaryError) {
 		return (
 			<div className="shell-rail__message">
