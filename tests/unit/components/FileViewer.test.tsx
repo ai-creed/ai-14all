@@ -21,13 +21,14 @@ vi.mock("@monaco-editor/react", () => ({
 		value: string;
 		language: string;
 		theme?: string;
-		options?: { readOnly?: boolean };
+		options?: { readOnly?: boolean; fontSize?: number };
 	}) => (
 		<div
 			data-testid="monaco-editor"
 			data-language={props.language}
 			data-theme={props.theme}
 			data-readonly={String(props.options?.readOnly ?? false)}
+			data-font-size={String(props.options?.fontSize ?? "")}
 		>
 			{props.value}
 		</div>
@@ -61,6 +62,7 @@ describe("FileViewer", () => {
 		expect(editor).toHaveAttribute("data-language", "typescript");
 		expect(editor).toHaveAttribute("data-theme", "vs-dark");
 		expect(editor).toHaveAttribute("data-readonly", "true");
+		expect(editor).toHaveAttribute("data-font-size", "11");
 	});
 
 	it("shows file path header", async () => {

@@ -69,7 +69,7 @@ export function FileViewer({ worktreePath, relativePath }: FileViewerProps) {
 				language={fileView.language}
 				theme="vs-dark"
 				value={fileView.content}
-				options={{ readOnly: true, minimap: { enabled: false } }}
+				options={{ readOnly: true, fontSize: 11, minimap: { enabled: false } }}
 			/>
 		</div>
 	);

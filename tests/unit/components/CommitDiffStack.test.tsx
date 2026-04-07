@@ -5,11 +5,12 @@ import { CommitDiffStack } from "../../../src/features/git/CommitDiffStack";
 
 // Monaco DiffEditor won't load in jsdom — mock it
 vi.mock("@monaco-editor/react", () => ({
-	DiffEditor: (props: { theme?: string; height?: string }) => (
+	DiffEditor: (props: { theme?: string; height?: string; options?: { fontSize?: number } }) => (
 		<div
 			data-testid="mock-diff-editor"
 			data-theme={props.theme}
 			data-height={props.height}
+			data-font-size={String(props.options?.fontSize ?? "")}
 		/>
 	),
 }));
@@ -59,6 +60,10 @@ describe("CommitDiffStack", () => {
 		expect(screen.getByTestId("mock-diff-editor")).toHaveAttribute(
 			"data-height",
 			"100%",
+		);
+		expect(screen.getByTestId("mock-diff-editor")).toHaveAttribute(
+			"data-font-size",
+			"11",
 		);
 	});
 

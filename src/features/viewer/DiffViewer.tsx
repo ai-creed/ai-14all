@@ -51,6 +51,7 @@ export function DiffViewer({
 				modified={modifiedContent}
 				options={{
 					readOnly: true,
+					fontSize: 11,
 					renderSideBySide: true,
 					minimap: { enabled: false },
 					scrollBeyondLastLine: false,

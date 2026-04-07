@@ -7,11 +7,13 @@ vi.mock("@monaco-editor/react", () => ({
 		modified: string;
 		language?: string;
 		theme?: string;
+		options?: { fontSize?: number };
 	}) => (
 		<div
 			data-testid="diff-editor"
 			data-language={props.language}
 			data-theme={props.theme}
+			data-font-size={String(props.options?.fontSize ?? "")}
 		>
 			<span data-testid="diff-editor-original">{props.original}</span>
 			<span data-testid="diff-editor-modified">{props.modified}</span>
@@ -56,6 +58,10 @@ describe("DiffViewer", () => {
 		expect(screen.getByTestId("diff-editor")).toHaveAttribute(
 			"data-theme",
 			"vs-dark",
+		);
+		expect(screen.getByTestId("diff-editor")).toHaveAttribute(
+			"data-font-size",
+			"11",
 		);
 	});
 });

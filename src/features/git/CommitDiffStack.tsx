@@ -122,6 +122,7 @@ export function CommitDiffStack({ detail, focusedPath }: Props) {
 									modified={file.modifiedContent}
 									options={{
 										readOnly: true,
+										fontSize: 11,
 										renderSideBySide: true,
 										minimap: { enabled: false },
 										scrollBeyondLastLine: false,
