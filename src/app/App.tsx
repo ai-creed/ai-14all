@@ -1109,11 +1109,45 @@ export function App() {
 							data-testid="review-stack"
 							style={{
 								gridTemplateRows: reviewPanelCollapsed
-									? "28px"
-									: `8px ${reviewPanelHeight}px`,
+									? "auto"
+									: `auto 8px ${reviewPanelHeight}px`,
 							}}
 						>
+							<div
+								className="shell-review-stack__header shell-panel"
+								data-testid="review-stack-header"
+							>
+								<span className="shell-label">{
+									activeSession?.reviewMode === "changes"
+										? "Review: Changes"
+										: activeSession?.reviewMode === "commits"
+											? "Review: Commits"
+											: "Review: Files"
+								}</span>
+								<div className="shell-review-switches">
+									<button
+										type="button"
+										className="shell-button shell-button--compact shell-button--icon shell-button--round"
+										aria-label="Refresh review"
+										title="Refresh review"
+										onClick={handleRefreshChanges}
+									>
+										<span aria-hidden="true">↻</span>
+									</button>
+									<button
+										type="button"
+										className="shell-button shell-button--compact shell-button--icon shell-button--round"
+										aria-label={reviewPanelCollapsed ? "Expand review panel" : "Collapse review panel"}
+										title={reviewPanelCollapsed ? "Expand review panel" : "Collapse review panel"}
+										onClick={() => setReviewPanelCollapsed((c) => !c)}
+									>
+										<span aria-hidden="true">{reviewPanelCollapsed ? "▴" : "▾"}</span>
+									</button>
+								</div>
+							</div>
+
 							{!reviewPanelCollapsed && (
+								<>
 								<div
 									role="separator"
 									aria-orientation="horizontal"
@@ -1122,7 +1156,6 @@ export function App() {
 									className="shell-review-stack__resize-handle"
 									onMouseDown={handleReviewPanelResizeStart}
 								/>
-							)}
 
 							<Tabs.Root
 								value={activeSession?.reviewMode ?? "files"}
@@ -1134,78 +1167,34 @@ export function App() {
 									})
 								}
 								className="shell-review-shell"
-								data-collapsed={String(reviewPanelCollapsed)}
 							>
-								{reviewPanelCollapsed ? (
-									<div
-										className="shell-review-collapsed-bar shell-panel"
-										data-testid="review-collapsed-bar"
+								<div
+									className="shell-review-grid"
+									data-testid="review-grid"
+									style={{
+										gridTemplateColumns: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
+									}}
+								>
+									<section
+										className="shell-panel shell-review-rail"
+										data-testid="review-rail"
 									>
-										<span>{`Review: ${
-											activeSession?.reviewMode === "changes"
-												? "Changes"
-												: activeSession?.reviewMode === "commits"
-													? "Commits"
-													: "Files"
-										}`}</span>
-										<button
-											type="button"
-											className="shell-button shell-button--compact"
-											aria-label="Expand review panel"
-											onClick={() => setReviewPanelCollapsed(false)}
-										>
-											Expand
-										</button>
-									</div>
-								) : (
-									<div
-										className="shell-review-grid"
-										data-testid="review-grid"
-										style={{
-											gridTemplateColumns: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
-										}}
-									>
-										<section
-											className="shell-panel shell-review-rail"
-											data-testid="review-rail"
-										>
-											<div className="shell-review-rail__header">
-												<Tabs.List
-													aria-label="Review mode"
-													className="shell-review-tabs__list shell-review-tabs__segments"
-												>
-													<Tabs.Trigger value="files" className="shell-review-tab">
-														Files
-													</Tabs.Trigger>
-													<Tabs.Trigger value="changes" className="shell-review-tab">
-														Changes
-													</Tabs.Trigger>
-													<Tabs.Trigger value="commits" className="shell-review-tab">
-														Commits
-													</Tabs.Trigger>
-												</Tabs.List>
-
-												<div className="shell-review-switches">
-													<button
-														type="button"
-														className="shell-button shell-button--compact shell-button--icon shell-button--round"
-														aria-label="Refresh review"
-														title="Refresh review"
-														onClick={handleRefreshChanges}
-													>
-														<span aria-hidden="true">↻</span>
-													</button>
-													<button
-														type="button"
-														className="shell-button shell-button--compact shell-button--icon shell-button--round"
-														aria-label="Collapse review panel"
-														title="Collapse review panel"
-														onClick={() => setReviewPanelCollapsed(true)}
-													>
-														<span aria-hidden="true">▾</span>
-													</button>
-												</div>
-											</div>
+										<div className="shell-review-rail__header">
+											<Tabs.List
+												aria-label="Review mode"
+												className="shell-review-tabs__list shell-review-tabs__segments"
+											>
+												<Tabs.Trigger value="files" className="shell-review-tab">
+													Files
+												</Tabs.Trigger>
+												<Tabs.Trigger value="changes" className="shell-review-tab">
+													Changes
+												</Tabs.Trigger>
+												<Tabs.Trigger value="commits" className="shell-review-tab">
+													Commits
+												</Tabs.Trigger>
+											</Tabs.List>
+										</div>
 
 									<ScrollArea.Root className="shell-review-rail__scroll">
 										<ScrollArea.Viewport className="shell-rail__viewport">
@@ -1312,11 +1301,12 @@ export function App() {
 									)}
 								</section>
 							</div>
-							)}
 						</Tabs.Root>
-					</section>
-				)}
+						</>
+					)}
 				</section>
+				)}
+					</section>
 			</div>
 
 			<PresetManager

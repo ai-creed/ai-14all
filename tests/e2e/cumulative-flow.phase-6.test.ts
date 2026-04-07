@@ -149,7 +149,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await expect(page.getByText("Diff vs HEAD")).toBeVisible();
 
 		await page.getByRole("button", { name: "Collapse review panel" }).click();
-		await expect(page.getByTestId("review-collapsed-bar")).toContainText(
+		await expect(page.getByTestId("review-stack-header")).toContainText(
 			"Review: Changes",
 		);
 		await page.getByRole("button", { name: "Expand review panel" }).click();

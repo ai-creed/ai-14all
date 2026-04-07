@@ -238,7 +238,7 @@ describe("App — Phase 6 default shell", () => {
 			within(reviewRail).getByRole("tab", { name: "Files" }),
 		);
 		expect(
-			within(reviewRail).getByRole("button", { name: "Refresh review" }),
+			screen.getByRole("button", { name: "Refresh review" }),
 		).toHaveClass(
 			"shell-button",
 			"shell-button--compact",
@@ -263,7 +263,7 @@ describe("App — Phase 6 default shell", () => {
 
 		await userEvent.click(within(reviewRail).getByRole("tab", { name: "Commits" }));
 		expect(
-			within(reviewRail).getByRole("button", { name: "Refresh review" }),
+			screen.getByRole("button", { name: "Refresh review" }),
 		).toHaveClass("shell-button--round");
 	});
 
@@ -474,7 +474,7 @@ describe("App — Phase 6 default shell", () => {
 		expect(await screen.findByText("Diff vs HEAD")).toBeInTheDocument();
 
 		const reviewStack = screen.getByTestId("review-stack");
-		expect(reviewStack).toHaveStyle({ gridTemplateRows: "8px 280px" });
+		expect(reviewStack).toHaveStyle({ gridTemplateRows: "auto 8px 280px" });
 
 		fireEvent.mouseDown(screen.getByTestId("review-panel-resize-handle"), {
 			clientY: 500,
@@ -483,14 +483,14 @@ describe("App — Phase 6 default shell", () => {
 		fireEvent.mouseUp(window);
 
 		await waitFor(() => {
-			expect(reviewStack).toHaveStyle({ gridTemplateRows: "8px 320px" });
+			expect(reviewStack).toHaveStyle({ gridTemplateRows: "auto 8px 320px" });
 		});
 
 		await userEvent.click(
 			screen.getByRole("button", { name: "Collapse review panel" }),
 		);
-		expect(reviewStack).toHaveStyle({ gridTemplateRows: "28px" });
-		expect(screen.getByTestId("review-collapsed-bar")).toHaveTextContent(
+		expect(reviewStack).toHaveStyle({ gridTemplateRows: "auto" });
+		expect(screen.getByTestId("review-stack-header")).toHaveTextContent(
 			"Review: Changes",
 		);
 		expect(screen.queryByText("Diff vs HEAD")).not.toBeInTheDocument();
@@ -500,7 +500,7 @@ describe("App — Phase 6 default shell", () => {
 		);
 
 		expect(await screen.findByText("Diff vs HEAD")).toBeInTheDocument();
-		expect(reviewStack).toHaveStyle({ gridTemplateRows: "8px 320px" });
+		expect(reviewStack).toHaveStyle({ gridTemplateRows: "auto 8px 320px" });
 	});
 
 	it("keeps the current session state when reloading the same repository from the picker", async () => {
