@@ -373,6 +373,70 @@ describe("App — Phase 6 default shell", () => {
 		expect(await screen.findByLabelText("Repository path")).toBeInTheDocument();
 	});
 
+	it("collapses the sidebar into a thin rail and reopens it", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		});
+		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		listWorktreesMock.mockResolvedValue([
+			{
+				id: "feature-a",
+				repositoryId: "repo-1",
+				branchName: "feature-a",
+				path: "/repo/.worktrees/feature-a",
+				label: "feature-a",
+				isMain: false,
+			},
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
+		]);
+
+		render(<App />);
+		await screen.findByLabelText("Repository path");
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		const shellLayout = await screen.findByTestId("shell-layout");
+		const nav = screen.getByRole("navigation", { name: "Worktree sessions" });
+		expect(shellLayout).toHaveStyle({
+			gridTemplateColumns: "240px minmax(0, 1fr)",
+		});
+		expect(within(nav).getByText("feature-a")).toBeInTheDocument();
+
+		await userEvent.click(
+			within(nav).getByRole("button", { name: "Collapse sidebar" }),
+		);
+
+		expect(shellLayout).toHaveStyle({
+			gridTemplateColumns: "56px minmax(0, 1fr)",
+		});
+		expect(nav).toHaveAttribute("data-collapsed", "true");
+		expect(within(nav).queryByText("feature-a")).not.toBeInTheDocument();
+		expect(
+			within(nav).getByRole("button", { name: "feature-a feature-a" }),
+		).toHaveTextContent("F");
+
+		await userEvent.click(
+			within(nav).getByRole("button", { name: "Expand sidebar" }),
+		);
+
+		expect(shellLayout).toHaveStyle({
+			gridTemplateColumns: "240px minmax(0, 1fr)",
+		});
+		expect(nav).toHaveAttribute("data-collapsed", "false");
+		expect(within(nav).getByText("feature-a")).toBeInTheDocument();
+	});
+
 	it("keeps the current session state when reloading the same repository from the picker", async () => {
 		readRestoreStateMock.mockResolvedValue({
 			version: 1,

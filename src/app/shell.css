@@ -89,7 +89,6 @@ textarea {
 .shell-layout {
 	display: grid;
 	height: 100vh;
-	grid-template-columns: 240px minmax(0, 1fr);
 	gap: var(--space-4);
 	padding: var(--space-4);
 }
@@ -322,9 +321,45 @@ textarea {
 	border-radius: 999px;
 }
 
-.shell-sidebar,
+.shell-sidebar {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+	padding: var(--space-3);
+	min-width: 0;
+}
+
 .shell-review-rail {
 	padding: var(--space-4);
+}
+
+.shell-sidebar__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-2);
+}
+
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__header {
+	justify-content: center;
+}
+
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__list {
+	justify-items: center;
+}
+
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__item {
+	width: 40px;
+	height: 40px;
+	padding: 0;
+	justify-content: center;
+}
+
+.shell-sidebar__marker {
+	display: inline-grid;
+	place-items: center;
+	width: 100%;
+	height: 100%;
+	font-weight: 600;
 }
 
 .shell-sidebar__list {

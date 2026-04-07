@@ -28,6 +28,8 @@ describe("SessionSidebar", () => {
 			<SessionSidebar
 				worktrees={worktrees}
 				selectedWorktreeId="feature-a"
+				collapsed={false}
+				onToggleCollapsed={vi.fn()}
 				onSelect={vi.fn()}
 			/>,
 		);
@@ -35,9 +37,11 @@ describe("SessionSidebar", () => {
 		expect(
 			screen.getByRole("navigation", { name: "Worktree sessions" }),
 		).toBeInTheDocument();
-		// "main" appears as both the label and the branch name
-		expect(screen.getAllByText("main")).toHaveLength(2);
+		// When branchName equals label (e.g. the "main" worktree), the branch <div>
+		// is intentionally hidden to avoid redundancy — only the <strong> label is shown.
+		expect(screen.getAllByText("main")).toHaveLength(1);
 		expect(screen.getByText("feature worktree")).toBeInTheDocument();
+		// "feature-a" branch is shown because it differs from the label "feature worktree"
 		expect(screen.getByText("feature-a")).toBeInTheDocument();
 		expect(
 			screen.getByRole("button", { name: /feature worktree/i }),
@@ -50,6 +54,8 @@ describe("SessionSidebar", () => {
 			<SessionSidebar
 				worktrees={worktrees}
 				selectedWorktreeId="main"
+				collapsed={false}
+				onToggleCollapsed={vi.fn()}
 				onSelect={onSelect}
 			/>,
 		);
@@ -64,6 +70,8 @@ describe("SessionSidebar", () => {
 				worktrees={worktrees}
 				selectedWorktreeId="main"
 				attentionByWorktreeId={{ "feature-a": "actionRequired" }}
+				collapsed={false}
+				onToggleCollapsed={vi.fn()}
 				onSelect={() => {}}
 			/>,
 		);

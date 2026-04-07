@@ -56,6 +56,7 @@ function normalizeTerminalTitle(title: string): string | null {
 
 export function App() {
 	const [reviewRailWidth, setReviewRailWidth] = useState(320);
+	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const [repository, setRepository] = useState<Repository | null>(null);
 	const [worktrees, setWorktrees] = useState<Worktree[]>([]);
 	const [workspaceState, dispatch] = useReducer(
@@ -905,12 +906,24 @@ export function App() {
 					</button>
 				</div>
 			)}
-			<div className="shell-layout">
+			<div
+				className="shell-layout"
+				data-testid="shell-layout"
+				style={{
+					gridTemplateColumns: `${
+						sidebarCollapsed ? 56 : 240
+					}px minmax(0, 1fr)`,
+				}}
+			>
 				<SessionSidebar
 					worktrees={worktrees}
 					selectedWorktreeId={workspaceState.selectedWorktreeId}
 					attentionByWorktreeId={attentionByWorktreeId}
-					onSelect={(worktreeId) => { void handleSelectWorktree(worktreeId); }}
+					collapsed={sidebarCollapsed}
+					onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
+					onSelect={(worktreeId) => {
+						void handleSelectWorktree(worktreeId);
+					}}
 				/>
 
 				<section className="shell-main-column">
