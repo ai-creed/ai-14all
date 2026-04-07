@@ -63,7 +63,7 @@ describe("CommitDiffStack", () => {
 		);
 		expect(screen.getByTestId("mock-diff-editor")).toHaveAttribute(
 			"data-font-size",
-			"11",
+			"12",
 		);
 	});
 

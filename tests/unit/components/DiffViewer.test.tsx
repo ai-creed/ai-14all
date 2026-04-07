@@ -61,7 +61,7 @@ describe("DiffViewer", () => {
 		);
 		expect(screen.getByTestId("diff-editor")).toHaveAttribute(
 			"data-font-size",
-			"11",
+			"12",
 		);
 	});
 });

@@ -62,7 +62,7 @@ describe("FileViewer", () => {
 		expect(editor).toHaveAttribute("data-language", "typescript");
 		expect(editor).toHaveAttribute("data-theme", "vs-dark");
 		expect(editor).toHaveAttribute("data-readonly", "true");
-		expect(editor).toHaveAttribute("data-font-size", "11");
+		expect(editor).toHaveAttribute("data-font-size", "12");
 	});
 
 	it("shows file path header", async () => {

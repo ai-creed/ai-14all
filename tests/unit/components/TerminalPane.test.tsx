@@ -186,7 +186,7 @@ describe("TerminalPane", () => {
 		expect(xtermConstructorMock).toHaveBeenCalledWith(
 			expect.objectContaining({
 				fontFamily: expect.stringContaining("AI14All Terminal Powerline"),
-				fontSize: 11,
+				fontSize: 12,
 			}),
 		);
 	});
