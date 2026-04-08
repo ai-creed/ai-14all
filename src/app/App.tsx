@@ -1504,7 +1504,13 @@ export function App() {
 				loading={createLoading}
 				error={createError}
 				busy={createBusy}
-				onOpenChange={setCreateDialogOpen}
+				onOpenChange={(open) => {
+					setCreateDialogOpen(open);
+					if (!open) {
+						setCreateName("");
+						setCreateError(null);
+					}
+				}}
 				onNameChange={setCreateName}
 				onConfirm={() => {
 					void handleConfirmCreateWorktree();

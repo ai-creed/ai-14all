@@ -36,6 +36,7 @@ export function NewWorktreeDialog({
 					<label className="shell-modal__field">
 						<span className="shell-label">Name</span>
 						<input
+							autoFocus
 							value={name}
 							onChange={(event) => onNameChange(event.target.value)}
 							className="shell-note-input"

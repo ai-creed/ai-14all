@@ -1318,3 +1318,33 @@ select {
 	justify-content: flex-end;
 	margin-top: var(--space-4);
 }
+
+.shell-modal__copy {
+	color: var(--text-secondary);
+	font-size: var(--font-size-body);
+	margin: var(--space-2) 0;
+}
+
+.shell-error-banner {
+	padding: var(--space-2) var(--space-3);
+	background: rgba(217, 140, 140, 0.12);
+	border: 1px solid rgba(217, 140, 140, 0.3);
+	border-radius: var(--radius-sm);
+	color: var(--danger);
+	font-size: var(--font-size-body);
+	margin-top: var(--space-2);
+}
+
+.shell-button--danger {
+	background: transparent;
+	border-color: rgba(217, 140, 140, 0.5);
+	color: var(--danger);
+}
+
+.shell-button--danger:hover {
+	background: rgba(217, 140, 140, 0.12);
+}
+
+.shell-modal--worktree {
+	/* Modifier for worktree lifecycle dialogs; currently uses base .shell-modal styles. */
+}
