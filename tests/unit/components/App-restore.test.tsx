@@ -4,7 +4,21 @@ import userEvent from "@testing-library/user-event";
 
 // Mock TerminalPane to avoid xterm canvas dependency in jsdom
 vi.mock("../../../src/features/terminals/TerminalPane", () => ({
-	TerminalPane: () => null,
+	TerminalPane: ({
+		session,
+		visible,
+	}: {
+		session: { id: string };
+		visible: boolean;
+	}) => (
+		<section
+			aria-hidden={!visible}
+			className="shell-panel shell-terminal-pane"
+			data-terminal-session-id={session.id}
+			data-testid={`terminal-pane-${session.id}`}
+			style={{ display: visible ? "block" : "none" }}
+		/>
+	),
 }));
 
 const createMock = vi.hoisted(() => vi.fn());
@@ -150,6 +164,56 @@ describe("App — Phase 5 restore flow", () => {
 		);
 		expect(await screen.findByDisplayValue("resume here")).toBeInTheDocument();
 		expect(screen.getByRole("tab", { name: "Changes" })).toHaveAttribute("data-state", "active");
+	});
+
+	it("restores saved split-shell layout and clears stale split slots", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "alwaysRestore",
+			snapshot: {
+				repositoryPath: "/repo",
+				selectedWorktreeId: "feature-a",
+				commandPresets: [],
+				worktreeSessions: [
+					{
+						worktreeId: "feature-a",
+						note: "resume here",
+						reviewMode: "files",
+						viewerMode: "file",
+						selectedFilePath: null,
+						selectedChangedFilePath: null,
+						selectedCommitSha: null,
+						selectedCommitFilePath: null,
+						activeProcessSessionId: "process-1",
+						terminalLayoutMode: "split",
+						splitLeftProcessId: "process-1",
+						splitRightProcessId: "missing-process",
+						nextAdHocNumber: 3,
+						processSessions: [
+							{
+								id: "process-1",
+								origin: "adHoc",
+								presetId: null,
+								label: "shell 1",
+								command: null,
+								pinned: false,
+							},
+						],
+					},
+				],
+			},
+		});
+		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{ id: "feature-a", repositoryId: "repo-1", branchName: "feature-a", path: "/repo/.worktrees/feature-a", label: "feature-a", isMain: false },
+		]);
+
+		render(<App />);
+
+		expect(await screen.findByRole("button", { name: "Disable split shells" })).toBeInTheDocument();
+		expect(screen.getByText(/No shell assigned to this split pane/i)).toBeInTheDocument();
+		expect(document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]')).toHaveLength(1);
 	});
 
 	it("lazily hydrates a saved non-selected worktree only after selection", async () => {

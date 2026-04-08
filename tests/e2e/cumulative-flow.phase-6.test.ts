@@ -426,4 +426,33 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			page.getByRole("heading", { name: "Preview Test" }),
 		).not.toBeVisible();
 	});
+
+	test("shows two assigned shells side by side and preserves split mode when switching worktrees", async () => {
+		test.setTimeout(60_000);
+		await ensureWorkspaceLoaded();
+
+		const worktreeNav = page.getByRole("navigation", { name: "Worktree sessions" });
+		const terminalTabs = page.getByRole("tablist", { name: "Terminal sessions" });
+		await worktreeNav.getByRole("button", { name: /feature-a/i }).click();
+		await expect(terminalTabs.getByRole("tab")).toHaveCount(1, { timeout: 15_000 });
+
+		await page.getByRole("button", { name: "Add shell" }).click();
+		await expect(terminalTabs.getByRole("tab")).toHaveCount(2, { timeout: 15_000 });
+
+		await terminalTabs.getByRole("tab").nth(0).click({ button: "right" });
+		await page.getByRole("menuitem", { name: "Show in split left" }).click();
+
+		await terminalTabs.getByRole("tab").nth(1).click({ button: "right" });
+		await page.getByRole("menuitem", { name: "Show in split right" }).click();
+
+		await expect(page.getByRole("button", { name: "Disable split shells" })).toBeVisible();
+		await expect(page.locator('.shell-terminal-pane[aria-hidden="false"]')).toHaveCount(2);
+
+		await worktreeNav.getByRole("button", { name: /^main$/ }).click();
+		await expect(page.getByRole("button", { name: "Enable split shells" })).toBeVisible();
+
+		await worktreeNav.getByRole("button", { name: /feature-a/i }).click();
+		await expect(page.getByRole("button", { name: "Disable split shells" })).toBeVisible();
+		await expect(page.locator('.shell-terminal-pane[aria-hidden="false"]')).toHaveCount(2);
+	});
 });
