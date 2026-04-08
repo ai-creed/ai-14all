@@ -9,4 +9,5 @@ test-results/
 playwright-report/
 docs/superpowers/plans/
 .worktrees/
+.superpowers/
 release/
