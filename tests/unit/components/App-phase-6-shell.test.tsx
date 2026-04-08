@@ -13,15 +13,18 @@ vi.mock("../../../src/features/terminals/TerminalPane", () => ({
 	TerminalPane: ({
 		session,
 		visible,
+		onActivate,
 	}: {
 		session: { id: string };
 		visible: boolean;
+		onActivate?: () => void;
 	}) => (
 		<section
 			aria-hidden={!visible}
 			className="shell-panel shell-terminal-pane"
 			data-terminal-session-id={session.id}
 			data-testid={`terminal-pane-${session.id}`}
+			onMouseDown={onActivate}
 			style={{ display: visible ? "block" : "none" }}
 		/>
 	),
@@ -36,6 +39,9 @@ const listWorktreesMock = vi.hoisted(() => vi.fn());
 const readSummaryMock = vi.hoisted(() => vi.fn());
 const mockReadCommitHistory = vi.hoisted(() => vi.fn());
 const mockReadCommitDetail = vi.hoisted(() => vi.fn());
+const outputListenersRef = vi.hoisted(() => ({
+	current: [] as Array<(event: { sessionId: string; data: string }) => void>,
+}));
 const openPickerListenerRef = vi.hoisted(() => ({
 	current: null as null | (() => void),
 }));
@@ -60,7 +66,14 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		sendInput: sendInputMock,
 		resize: vi.fn(),
 		stop: vi.fn(),
-		onOutput: vi.fn(() => vi.fn()),
+		onOutput: vi.fn((listener: (event: { sessionId: string; data: string }) => void) => {
+			outputListenersRef.current.push(listener);
+			return () => {
+				outputListenersRef.current = outputListenersRef.current.filter(
+					(current) => current !== listener,
+				);
+			};
+		}),
 		onExit: vi.fn(() => vi.fn()),
 		onState: vi.fn(() => vi.fn()),
 		onError: vi.fn(() => vi.fn()),
@@ -114,6 +127,7 @@ describe("App — Phase 6 default shell", () => {
 		writeRestoreStateMock.mockResolvedValue(undefined);
 		mockReadCommitHistory.mockResolvedValue([]);
 		mockReadCommitDetail.mockResolvedValue(null);
+		outputListenersRef.current = [];
 		openPickerListenerRef.current = null;
 	});
 
@@ -397,6 +411,235 @@ describe("App — Phase 6 default shell", () => {
 		expect(document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]')).toHaveLength(2);
 		expect(screen.getByTestId("terminal-pane-terminal-main-0")).toHaveAttribute("aria-hidden", "false");
 		expect(screen.getByTestId("terminal-pane-terminal-main-1")).toHaveAttribute("aria-hidden", "false");
+	});
+
+	it("renders split panes in explicit left and right slot order", async () => {
+		let terminalCount = 0;
+		createMock.mockImplementation((worktreeId: string, cwd: string) =>
+			Promise.resolve({
+				id: `terminal-${worktreeId}-${terminalCount++}`,
+				worktreeId,
+				cwd,
+				status: "running",
+				exitCode: null,
+			}),
+		);
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "alwaysRestore",
+			snapshot: {
+				repositoryPath: "/repo",
+				selectedWorktreeId: "main",
+				commandPresets: [],
+				worktreeSessions: [
+					{
+						worktreeId: "main",
+						note: "",
+						reviewMode: "files",
+						viewerMode: "file",
+						selectedFilePath: null,
+						selectedChangedFilePath: null,
+						selectedCommitSha: null,
+						selectedCommitFilePath: null,
+						activeProcessSessionId: "process-1",
+						terminalLayoutMode: "split",
+						splitLeftProcessId: "process-2",
+						splitRightProcessId: "process-1",
+						nextAdHocNumber: 3,
+						processSessions: [
+							{
+								id: "process-1",
+								origin: "adHoc",
+								presetId: null,
+								label: "shell 1",
+								command: null,
+								pinned: false,
+							},
+							{
+								id: "process-2",
+								origin: "adHoc",
+								presetId: null,
+								label: "shell 2",
+								command: null,
+								pinned: false,
+							},
+						],
+					},
+				],
+			},
+		});
+		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+
+		await screen.findByRole("button", { name: "Disable split shells" });
+		const visiblePanes = Array.from(
+			document.querySelectorAll<HTMLElement>('.shell-terminal-pane[aria-hidden="false"]'),
+		);
+		expect(visiblePanes).toHaveLength(2);
+		expect(visiblePanes[0]).toHaveAttribute("data-terminal-session-id", "terminal-main-1");
+		expect(visiblePanes[1]).toHaveAttribute("data-terminal-session-id", "terminal-main-0");
+	});
+
+	it("treats output from any visible split pane as already viewed", async () => {
+		let terminalCount = 0;
+		createMock.mockImplementation((worktreeId: string, cwd: string) =>
+			Promise.resolve({
+				id: `terminal-${worktreeId}-${terminalCount++}`,
+				worktreeId,
+				cwd,
+				status: "running",
+				exitCode: null,
+			}),
+		);
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "alwaysRestore",
+			snapshot: {
+				repositoryPath: "/repo",
+				selectedWorktreeId: "main",
+				commandPresets: [],
+				worktreeSessions: [
+					{
+						worktreeId: "main",
+						note: "",
+						reviewMode: "files",
+						viewerMode: "file",
+						selectedFilePath: null,
+						selectedChangedFilePath: null,
+						selectedCommitSha: null,
+						selectedCommitFilePath: null,
+						activeProcessSessionId: "process-1",
+						terminalLayoutMode: "split",
+						splitLeftProcessId: "process-1",
+						splitRightProcessId: "process-2",
+						nextAdHocNumber: 3,
+						processSessions: [
+							{
+								id: "process-1",
+								origin: "adHoc",
+								presetId: null,
+								label: "shell 1",
+								command: null,
+								pinned: false,
+							},
+							{
+								id: "process-2",
+								origin: "adHoc",
+								presetId: null,
+								label: "shell 2",
+								command: null,
+								pinned: false,
+							},
+						],
+					},
+				],
+			},
+		});
+		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+
+		await screen.findByRole("button", { name: "Disable split shells" });
+		expect(screen.getByRole("tab", { name: "shell 2" })).toHaveAttribute(
+			"data-attention",
+			"idle",
+		);
+
+		for (const listener of outputListenersRef.current) {
+			listener({
+				sessionId: "terminal-main-1",
+				data: "progress update\n",
+			});
+		}
+
+		await waitFor(() => {
+			expect(screen.getByRole("tab", { name: "shell 2" })).toHaveAttribute(
+				"data-attention",
+				"idle",
+			);
+		});
+	});
+
+	it("selects clicked split pane as the active process", async () => {
+		let terminalCount = 0;
+		createMock.mockImplementation((worktreeId: string, cwd: string) =>
+			Promise.resolve({
+				id: `terminal-${worktreeId}-${terminalCount++}`,
+				worktreeId,
+				cwd,
+				status: "running",
+				exitCode: null,
+			}),
+		);
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "alwaysRestore",
+			snapshot: {
+				repositoryPath: "/repo",
+				selectedWorktreeId: "main",
+				commandPresets: [],
+				worktreeSessions: [
+					{
+						worktreeId: "main",
+						note: "",
+						reviewMode: "files",
+						viewerMode: "file",
+						selectedFilePath: null,
+						selectedChangedFilePath: null,
+						selectedCommitSha: null,
+						selectedCommitFilePath: null,
+						activeProcessSessionId: "process-1",
+						terminalLayoutMode: "split",
+						splitLeftProcessId: "process-1",
+						splitRightProcessId: "process-2",
+						nextAdHocNumber: 3,
+						processSessions: [
+							{
+								id: "process-1",
+								origin: "adHoc",
+								presetId: null,
+								label: "shell 1",
+								command: null,
+								pinned: false,
+							},
+							{
+								id: "process-2",
+								origin: "adHoc",
+								presetId: null,
+								label: "shell 2",
+								command: null,
+								pinned: false,
+							},
+						],
+					},
+				],
+			},
+		});
+		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+
+		await screen.findByRole("button", { name: "Disable split shells" });
+		expect(screen.getByRole("tab", { name: "shell 1" })).toHaveAttribute("data-state", "active");
+		expect(screen.getByRole("tab", { name: "shell 2" })).toHaveAttribute("data-state", "inactive");
+
+		await userEvent.pointer([
+			{ target: screen.getByTestId("terminal-pane-terminal-main-1"), keys: "[MouseLeft]" },
+		]);
+
+		await waitFor(() => {
+			expect(screen.getByRole("tab", { name: "shell 2" })).toHaveAttribute("data-state", "active");
+		});
 	});
 
 	it("keeps split layout on one worktree session without affecting another", async () => {

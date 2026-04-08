@@ -182,6 +182,11 @@ export function App() {
 			: activeSession?.activeProcessSessionId
 				? [activeSession.activeProcessSessionId]
 				: [];
+	const visibleTerminalSessionIds = visibleProcessIds.flatMap((processId) => {
+		const terminalSessionId =
+			workspaceState.processSessionsById[processId]?.terminalSessionId;
+		return terminalSessionId ? [terminalSessionId] : [];
+	});
 
 	function findProcessByTerminalSessionId(
 		terminalSessionId: string,
@@ -193,9 +198,18 @@ export function App() {
 		);
 	}
 
-	function getTerminalIdForProcess(processId: string | null): string | null {
-		if (!processId) return null;
-		return workspaceState.processSessionsById[processId]?.terminalSessionId ?? null;
+	function selectActiveProcess(processId: string) {
+		if (!activeWorktree) return;
+		dispatch({
+			type: "session/selectProcess",
+			worktreeId: activeWorktree.id,
+			processId,
+		});
+		dispatch({
+			type: "session/markProcessViewed",
+			worktreeId: activeWorktree.id,
+			processId,
+		});
 	}
 
 	const { sessions, createSession, sendInput, stopSession, removeSession } =
@@ -210,7 +224,7 @@ export function App() {
 					attentionState: deriveAttentionState(event.data),
 					at: Date.now(),
 					isViewed:
-						process.id === activeSession?.activeProcessSessionId &&
+						visibleProcessIds.includes(process.id) &&
 						process.worktreeId === activeWorktree?.id,
 				});
 			},
@@ -225,6 +239,16 @@ export function App() {
 				});
 			},
 		});
+	const orderedSessions =
+		activeSession?.terminalLayoutMode === "split"
+			? [
+					...visibleTerminalSessionIds.flatMap((sessionId) => {
+						const session = sessions.find((candidate) => candidate.id === sessionId);
+						return session ? [session] : [];
+					}),
+					...sessions.filter((session) => !visibleTerminalSessionIds.includes(session.id)),
+				]
+			: sessions;
 
 	async function handleLoad(repo: Repository, wts: Worktree[]) {
 		if (repository?.rootPath === repo.rootPath) {
@@ -1221,18 +1245,7 @@ export function App() {
 								splitLeftProcessId={activeSession?.splitLeftProcessId ?? null}
 								splitRightProcessId={activeSession?.splitRightProcessId ?? null}
 								onAddAdHoc={handleAddAdHoc}
-								onSelect={(processId) => {
-									dispatch({
-										type: "session/selectProcess",
-										worktreeId: activeWorktree!.id,
-										processId,
-									});
-									dispatch({
-										type: "session/markProcessViewed",
-										worktreeId: activeWorktree!.id,
-										processId,
-									});
-								}}
+								onSelect={selectActiveProcess}
 								onLaunchPreset={handleLaunchPreset}
 								onOpenPresetManager={() => setPresetManagerOpen(true)}
 								onClose={handleCloseProcess}
@@ -1278,7 +1291,7 @@ export function App() {
 										: "shell-terminal-panel__body"
 								}
 							>
-								{sessions.map((session) => {
+								{orderedSessions.map((session) => {
 									const process = findProcessByTerminalSessionId(session.id);
 									return (
 										<TerminalPane
@@ -1301,6 +1314,10 @@ export function App() {
 													processId: process.id,
 													label: nextLabel,
 												});
+											}}
+											onActivate={() => {
+												if (!process || process.worktreeId !== activeWorktree?.id) return;
+												selectActiveProcess(process.id);
 											}}
 										/>
 									);

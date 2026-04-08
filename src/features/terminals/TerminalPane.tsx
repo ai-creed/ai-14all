@@ -9,6 +9,7 @@ type Props = {
 	session: TerminalSession;
 	visible: boolean;
 	onTitleChange?: (title: string) => void;
+	onActivate?: () => void;
 };
 
 /**
@@ -16,7 +17,12 @@ type Props = {
  * When `visible` is false the container is hidden via CSS but NOT unmounted,
  * so the xterm instance keeps buffering output from the still-running PTY.
  */
-export function TerminalPane({ session, visible, onTitleChange }: Props) {
+export function TerminalPane({
+	session,
+	visible,
+	onTitleChange,
+	onActivate,
+}: Props) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const termRef = useRef<Terminal | null>(null);
 	const fitAddonRef = useRef<FitAddon | null>(null);
@@ -125,6 +131,7 @@ export function TerminalPane({ session, visible, onTitleChange }: Props) {
 			aria-hidden={!visible}
 			className="shell-panel shell-terminal-pane"
 			data-terminal-session-id={session.id}
+			onMouseDown={onActivate}
 			style={{ display: visible ? "block" : "none" }}
 		>
 			<div ref={containerRef} className="shell-terminal-pane__viewport" />
