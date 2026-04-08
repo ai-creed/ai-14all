@@ -1110,9 +1110,20 @@ export function App() {
 							style={{
 								gridTemplateRows: reviewPanelCollapsed
 									? "auto"
-									: `auto 8px ${reviewPanelHeight}px`,
+									: `8px auto ${reviewPanelHeight}px`,
 							}}
 						>
+							{!reviewPanelCollapsed && (
+								<div
+									role="separator"
+									aria-orientation="horizontal"
+									aria-label="Resize review panel"
+									data-testid="review-panel-resize-handle"
+									className="shell-review-stack__resize-handle"
+									onMouseDown={handleReviewPanelResizeStart}
+								/>
+							)}
+
 							<div
 								className="shell-review-stack__header shell-panel"
 								data-testid="review-stack-header"
@@ -1148,14 +1159,6 @@ export function App() {
 
 							{!reviewPanelCollapsed && (
 								<>
-								<div
-									role="separator"
-									aria-orientation="horizontal"
-									aria-label="Resize review panel"
-									data-testid="review-panel-resize-handle"
-									className="shell-review-stack__resize-handle"
-									onMouseDown={handleReviewPanelResizeStart}
-								/>
 
 							<Tabs.Root
 								value={activeSession?.reviewMode ?? "files"}
