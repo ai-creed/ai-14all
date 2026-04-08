@@ -65,6 +65,10 @@ export function App() {
 		workspaceReducer,
 		createWorkspaceState([]),
 	);
+	const worktreesRef = useRef(worktrees);
+	worktreesRef.current = worktrees;
+	const workspaceStateRef = useRef(workspaceState);
+	workspaceStateRef.current = workspaceState;
 	const [refreshKey, setRefreshKey] = useState(0);
 	const [windowFocused, setWindowFocused] = useState(
 		typeof document !== "undefined" ? document.hasFocus() : true,
@@ -475,16 +479,16 @@ export function App() {
 		const latest = await repositoryClient.listWorktrees();
 		const latestIds = new Set(latest.map((worktree) => worktree.id));
 		const skipCleanupIds = new Set(options?.skipRuntimeCleanupWorktreeIds ?? []);
-		const removedWorktreeIds = worktrees
+		const removedWorktreeIds = worktreesRef.current
 			.filter((worktree) => !latestIds.has(worktree.id))
 			.filter((worktree) => !skipCleanupIds.has(worktree.id))
 			.map((worktree) => worktree.id);
 
 		for (const removedWorktreeId of removedWorktreeIds) {
-			const removedSession = workspaceState.sessionsByWorktreeId[removedWorktreeId];
+			const removedSession = workspaceStateRef.current.sessionsByWorktreeId[removedWorktreeId];
 			if (!removedSession) continue;
 			for (const processId of removedSession.processSessionIds) {
-				const process = workspaceState.processSessionsById[processId];
+				const process = workspaceStateRef.current.processSessionsById[processId];
 				if (!process?.terminalSessionId) continue;
 				try {
 					await stopSession(process.terminalSessionId);

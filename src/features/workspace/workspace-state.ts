@@ -267,8 +267,8 @@ export function workspaceReducer(
 	}
 
 	// Full state reset — only dispatched on initial repository load, not on
-	// worktree list refresh. A future "refresh worktrees" action should merge
-	// new worktrees into existing state to preserve open sessions.
+	// worktree list refresh. Use workspace/reconcileWorktrees to merge new
+	// worktrees into existing state and preserve open sessions.
 	if (action.type === "workspace/loadWorktrees") {
 		return createWorkspaceState(action.worktrees);
 	}
