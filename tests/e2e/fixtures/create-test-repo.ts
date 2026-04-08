@@ -52,8 +52,13 @@ export function createTestRepo(): TestRepo {
 		stdio: "ignore",
 	});
 
-	// Set up origin/main remote ref so readCommitHistory can find the merge target
-	execSync("git update-ref refs/remotes/origin/main main", {
+	// Keep Phase 6 merge-target tests working while Phase 7 create-worktree
+	// flows require origin/master specifically.
+	execSync("git update-ref refs/remotes/origin/main HEAD", {
+		cwd: repoPath,
+		stdio: "ignore",
+	});
+	execSync("git update-ref refs/remotes/origin/master HEAD", {
 		cwd: repoPath,
 		stdio: "ignore",
 	});
