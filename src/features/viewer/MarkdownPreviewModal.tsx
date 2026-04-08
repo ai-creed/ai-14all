@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import * as ScrollArea from "@radix-ui/react-scroll-area";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -69,19 +68,16 @@ export function MarkdownPreviewModal({
 						</>
 					)}
 					{content !== null && (
-						<ScrollArea.Root className="shell-md-modal__scroll">
-							<ScrollArea.Viewport className="shell-md-modal__body">
+						<div className="shell-md-modal__scroll">
+							<div className="shell-md-modal__body">
 								<ReactMarkdown
 									remarkPlugins={[remarkGfm]}
 									rehypePlugins={[rehypeHighlight]}
 								>
 									{content}
 								</ReactMarkdown>
-							</ScrollArea.Viewport>
-							<ScrollArea.Scrollbar orientation="vertical">
-								<ScrollArea.Thumb />
-							</ScrollArea.Scrollbar>
-						</ScrollArea.Root>
+							</div>
+						</div>
 					)}
 				</Dialog.Content>
 			</Dialog.Portal>

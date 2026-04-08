@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
+import type { OnMount } from "@monaco-editor/react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import type { FileView } from "../../../shared/models/file-view";
 import { files } from "../../lib/desktop-client";
@@ -18,6 +19,8 @@ export function FileViewer({ worktreePath, relativePath }: FileViewerProps) {
 	const [reloadToken, setReloadToken] = useState(0);
 	const latestFileViewRef = useRef<FileView | null>(null);
 	const [previewOpen, setPreviewOpen] = useState(false);
+	const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
+	const previewActionRef = useRef<{ dispose(): void } | null>(null);
 
 	useEffect(() => {
 		latestFileViewRef.current = fileView;
@@ -26,6 +29,25 @@ export function FileViewer({ worktreePath, relativePath }: FileViewerProps) {
 	useEffect(() => {
 		setPreviewOpen(false);
 	}, [worktreePath, relativePath]);
+
+	useEffect(() => {
+		if (!editorRef.current) return;
+		previewActionRef.current?.dispose();
+		previewActionRef.current = null;
+		if (relativePath.endsWith(".md")) {
+			previewActionRef.current = editorRef.current.addAction({
+				id: "markdown-preview",
+				label: "Preview",
+				contextMenuGroupId: "navigation",
+				contextMenuOrder: 1.5,
+				run: () => setPreviewOpen(true),
+			});
+		}
+		return () => {
+			previewActionRef.current?.dispose();
+			previewActionRef.current = null;
+		};
+	}, [relativePath]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	useEffect(() => {
 		if (!worktreePath || !relativePath) return;
@@ -97,6 +119,18 @@ export function FileViewer({ worktreePath, relativePath }: FileViewerProps) {
 				theme="vs-dark"
 				value={fileView.content}
 				options={{ readOnly: true, fontSize: 12, minimap: { enabled: false } }}
+				onMount={(editor) => {
+					editorRef.current = editor;
+					if (relativePath.endsWith(".md")) {
+						previewActionRef.current = editor.addAction({
+							id: "markdown-preview",
+							label: "Preview",
+							contextMenuGroupId: "navigation",
+							contextMenuOrder: 1.5,
+							run: () => setPreviewOpen(true),
+						});
+					}
+				}}
 			/>
 			{previewOpen && (
 				<MarkdownPreviewModal
