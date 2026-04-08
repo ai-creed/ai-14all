@@ -9,6 +9,7 @@ import { files } from "../../lib/desktop-client";
 interface Props {
 	worktreePath: string;
 	relativePath: string;
+	contentOverride?: string | null;
 	open: boolean;
 	onClose: () => void;
 }
@@ -16,6 +17,7 @@ interface Props {
 export function MarkdownPreviewModal({
 	worktreePath,
 	relativePath,
+	contentOverride = null,
 	open,
 	onClose,
 }: Props) {
@@ -26,6 +28,12 @@ export function MarkdownPreviewModal({
 
 	useEffect(() => {
 		if (!open) return;
+		if (contentOverride !== null) {
+			setError(null);
+			setLoading(false);
+			setContent(contentOverride);
+			return;
+		}
 		setLoading(true);
 		setError(null);
 		setContent(null);
@@ -39,7 +47,7 @@ export function MarkdownPreviewModal({
 				setError("Couldn't load file contents.");
 				setLoading(false);
 			});
-	}, [open, worktreePath, relativePath, reloadToken]);
+	}, [open, worktreePath, relativePath, reloadToken, contentOverride]);
 
 	return (
 		<Dialog.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>

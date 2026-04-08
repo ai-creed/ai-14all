@@ -1,6 +1,10 @@
+import { useEffect, useState } from "react";
+import * as ContextMenu from "@radix-ui/react-context-menu";
 import type { GitChange } from "../../../shared/models/git-change";
+import { MarkdownPreviewModal } from "../viewer/MarkdownPreviewModal";
 
 type Props = {
+	worktreePath: string;
 	changes: GitChange[];
 	selectedPath: string | null;
 	onSelect: (relativePath: string) => void;
@@ -10,6 +14,7 @@ type Props = {
 };
 
 export function ChangesList({
+	worktreePath,
 	changes,
 	selectedPath,
 	onSelect,
@@ -17,6 +22,12 @@ export function ChangesList({
 	gitSummaryStale,
 	gitSummaryMessage,
 }: Props) {
+	const [previewPath, setPreviewPath] = useState<string | null>(null);
+
+	useEffect(() => {
+		setPreviewPath(null);
+	}, [worktreePath]);
+
 	if (gitSummaryError) {
 		return (
 			<div className="shell-rail__message">
@@ -46,19 +57,49 @@ export function ChangesList({
 				</div>
 			) : (
 				<div className="shell-list">
-					{changes.map((change) => (
-						<button
-							key={change.path}
-							type="button"
-							className="shell-list__item shell-list__item--split"
-							data-selected={String(selectedPath === change.path)}
-							onClick={() => onSelect(change.path)}
-						>
-							<span>{change.path}</span>
-							<strong>{change.status}</strong>
-						</button>
-					))}
+					{changes.map((change) => {
+						const button = (
+							<button
+								key={change.path}
+								type="button"
+								className="shell-list__item shell-list__item--split"
+								data-selected={String(selectedPath === change.path)}
+								onClick={() => onSelect(change.path)}
+							>
+								<span>{change.path}</span>
+								<strong>{change.status}</strong>
+							</button>
+						);
+
+						if (!change.path.endsWith(".md")) {
+							return button;
+						}
+
+						return (
+							<ContextMenu.Root key={change.path}>
+								<ContextMenu.Trigger asChild>{button}</ContextMenu.Trigger>
+								<ContextMenu.Portal>
+									<ContextMenu.Content className="shell-toolbar-menu">
+										<ContextMenu.Item
+											className="shell-toolbar-menu__item"
+											onSelect={() => setPreviewPath(change.path)}
+										>
+											Preview
+										</ContextMenu.Item>
+									</ContextMenu.Content>
+								</ContextMenu.Portal>
+							</ContextMenu.Root>
+						);
+					})}
 				</div>
+			)}
+			{previewPath !== null && (
+				<MarkdownPreviewModal
+					worktreePath={worktreePath}
+					relativePath={previewPath}
+					open={true}
+					onClose={() => setPreviewPath(null)}
+				/>
 			)}
 		</>
 	);

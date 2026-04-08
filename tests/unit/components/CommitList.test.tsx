@@ -1,7 +1,17 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+
+vi.mock("../../../src/lib/desktop-client", () => ({
+	files: {
+		read: vi.fn(),
+	},
+}));
+
 import { CommitList } from "../../../src/features/git/CommitList";
+import { files } from "../../../src/lib/desktop-client";
+
+const mockRead = vi.mocked(files.read);
 
 describe("CommitList", () => {
 	it("renders commits before files and notifies on commit selection", async () => {
@@ -9,6 +19,7 @@ describe("CommitList", () => {
 
 		render(
 			<CommitList
+				worktreePath="/repo"
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
@@ -63,6 +74,7 @@ describe("CommitList", () => {
 
 		render(
 			<CommitList
+				worktreePath="/repo"
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
@@ -87,6 +99,7 @@ describe("CommitList", () => {
 	it("shows changed files for a selected merge-target commit", () => {
 		render(
 			<CommitList
+				worktreePath="/repo"
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
@@ -128,6 +141,7 @@ describe("CommitList", () => {
 	it("shows an empty state when no merge target ref exists", () => {
 		render(
 			<CommitList
+				worktreePath="/repo"
 				history={{ mergeTargetRef: null, entries: [] }}
 				selectedCommitSha={null}
 				selectedCommitFilePath={null}
@@ -137,5 +151,78 @@ describe("CommitList", () => {
 			/>,
 		);
 		expect(screen.getByText(/no recent commits/i)).toBeInTheDocument();
+	});
+
+	it("shows Preview for markdown commit files and uses snapshot content", async () => {
+		render(
+			<CommitList
+				worktreePath="/repo"
+				history={{
+					mergeTargetRef: "origin/main",
+					entries: [
+						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+					],
+				}}
+				selectedCommitSha="abc"
+				selectedCommitFilePath={null}
+				activeDetail={{
+					sha: "abc",
+					shortSha: "abc",
+					subject: "feature commit",
+					files: [
+						{
+							path: "docs/notes.md",
+							oldPath: null,
+							status: "M",
+							originalContent: "# Before\n",
+							modifiedContent: "# Commit Preview\n",
+						},
+					],
+				}}
+				onSelectCommit={vi.fn()}
+				onSelectCommitFile={vi.fn()}
+			/>,
+		);
+
+		fireEvent.contextMenu(screen.getByRole("button", { name: /docs\/notes\.md/i }));
+		await userEvent.click(await screen.findByRole("menuitem", { name: "Preview" }));
+
+		expect(await screen.findByRole("heading", { name: "Commit Preview" })).toBeInTheDocument();
+		expect(mockRead).not.toHaveBeenCalled();
+	});
+
+	it("does not show Preview for deleted markdown commit files", () => {
+		render(
+			<CommitList
+				worktreePath="/repo"
+				history={{
+					mergeTargetRef: "origin/main",
+					entries: [
+						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+					],
+				}}
+				selectedCommitSha="abc"
+				selectedCommitFilePath={null}
+				activeDetail={{
+					sha: "abc",
+					shortSha: "abc",
+					subject: "feature commit",
+					files: [
+						{
+							path: "docs/notes.md",
+							oldPath: null,
+							status: "D",
+							originalContent: "# Removed\n",
+							modifiedContent: "",
+						},
+					],
+				}}
+				onSelectCommit={vi.fn()}
+				onSelectCommitFile={vi.fn()}
+			/>,
+		);
+
+		fireEvent.contextMenu(screen.getByRole("button", { name: /docs\/notes\.md/i }));
+		expect(screen.queryByRole("menuitem", { name: "Preview" })).not.toBeInTheDocument();
 	});
 });

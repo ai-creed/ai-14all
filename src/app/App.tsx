@@ -1486,10 +1486,11 @@ export function App() {
 															{commitHistoryState.message}
 														</p>
 													)}
-													<CommitList
-														history={commitHistoryState.data ?? { mergeTargetRef: null, entries: [] }}
-														selectedCommitSha={activeSession.selectedCommitSha}
-														selectedCommitFilePath={activeSession.selectedCommitFilePath}
+												<CommitList
+													worktreePath={activeWorktree.path}
+													history={commitHistoryState.data ?? { mergeTargetRef: null, entries: [] }}
+													selectedCommitSha={activeSession.selectedCommitSha}
+													selectedCommitFilePath={activeSession.selectedCommitFilePath}
 														activeDetail={commitDetailState.data}
 														onSelectCommit={(sha) =>
 															dispatch({
@@ -1530,6 +1531,7 @@ export function App() {
 												/>
 											) : (
 												<ChangesList
+													worktreePath={activeWorktree.path}
 													changes={changes}
 													selectedPath={
 														activeSession?.selectedChangedFilePath ?? null

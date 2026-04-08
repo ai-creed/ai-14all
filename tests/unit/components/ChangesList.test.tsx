@@ -1,11 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+
+vi.mock("../../../src/lib/desktop-client", () => ({
+	files: {
+		read: vi.fn(),
+	},
+}));
+
 import { ChangesList } from "../../../src/features/git/ChangesList";
+import { files } from "../../../src/lib/desktop-client";
+
+const mockRead = vi.mocked(files.read);
 
 describe("ChangesList", () => {
 	it("renders changed files with status badges", () => {
 		render(
 			<ChangesList
+				worktreePath="/repo"
 				changes={[
 					{ path: "src/index.ts", status: "M" },
 					{ path: "src/new-file.ts", status: "??" },
@@ -28,6 +39,7 @@ describe("ChangesList", () => {
 		const onSelect = vi.fn();
 		render(
 			<ChangesList
+				worktreePath="/repo"
 				changes={[{ path: "src/index.ts", status: "M" }]}
 				selectedPath={null}
 				onSelect={onSelect}
@@ -41,6 +53,7 @@ describe("ChangesList", () => {
 	it("shows error message when gitSummaryError is true", () => {
 		render(
 			<ChangesList
+				worktreePath="/repo"
 				changes={[]}
 				selectedPath={null}
 				onSelect={() => {}}
@@ -53,11 +66,51 @@ describe("ChangesList", () => {
 
 	it("wraps the empty state in a padded rail message container", () => {
 		render(
-			<ChangesList changes={[]} selectedPath={null} onSelect={() => {}} />,
+			<ChangesList worktreePath="/repo" changes={[]} selectedPath={null} onSelect={() => {}} />,
 		);
 
 		expect(screen.getByText("No changed files.").parentElement).toHaveClass(
 			"shell-rail__message",
 		);
+	});
+
+	it("shows Preview for markdown files and opens the preview modal", async () => {
+		mockRead.mockResolvedValueOnce({
+			path: "NOTES.md",
+			content: "# Preview Test\n",
+			language: "markdown",
+		});
+
+		render(
+			<ChangesList
+				worktreePath="/repo"
+				changes={[
+					{ path: "NOTES.md", status: "M" },
+					{ path: "src/index.ts", status: "M" },
+				]}
+				selectedPath={null}
+				onSelect={vi.fn()}
+			/>,
+		);
+
+		fireEvent.contextMenu(screen.getByRole("button", { name: /notes\.md/i }));
+		fireEvent.click(await screen.findByRole("menuitem", { name: "Preview" }));
+
+		expect(await screen.findByRole("heading", { name: "Preview Test" })).toBeInTheDocument();
+		expect(mockRead).toHaveBeenCalledWith("/repo", "NOTES.md");
+	});
+
+	it("does not show Preview for non-markdown changed files", () => {
+		render(
+			<ChangesList
+				worktreePath="/repo"
+				changes={[{ path: "src/index.ts", status: "M" }]}
+				selectedPath={null}
+				onSelect={vi.fn()}
+			/>,
+		);
+
+		fireEvent.contextMenu(screen.getByRole("button", { name: /src\/index\.ts/i }));
+		expect(screen.queryByRole("menuitem", { name: "Preview" })).not.toBeInTheDocument();
 	});
 });

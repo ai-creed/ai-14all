@@ -78,6 +78,10 @@ export function createTestRepo(): TestRepo {
 		join(worktreePath, "src", "committed.ts"),
 		"export const committed = true;\n",
 	);
+	writeFileSync(
+		join(worktreePath, "COMMIT_NOTES.md"),
+		"# Committed Preview\n\nThis markdown file is part of the reviewed commit.\n",
+	);
 	execSync("git add -A", { cwd: worktreePath, stdio: "ignore" });
 	execSync('git commit -m "feature commit"', {
 		cwd: worktreePath,

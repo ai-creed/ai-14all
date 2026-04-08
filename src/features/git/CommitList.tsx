@@ -1,7 +1,11 @@
+import { useEffect, useState } from "react";
+import * as ContextMenu from "@radix-ui/react-context-menu";
 import { buildLinearCommitGraph } from "./build-linear-commit-graph.js";
 import type { GitCommitHistory, GitCommitDetail } from "../../../shared/models/git-commit-review.js";
+import { MarkdownPreviewModal } from "../viewer/MarkdownPreviewModal";
 
 type Props = {
+	worktreePath: string;
 	history: GitCommitHistory;
 	selectedCommitSha: string | null;
 	selectedCommitFilePath: string | null;
@@ -12,6 +16,7 @@ type Props = {
 };
 
 export function CommitList({
+	worktreePath,
 	history,
 	selectedCommitSha,
 	selectedCommitFilePath,
@@ -20,6 +25,15 @@ export function CommitList({
 	onDeselectCommit,
 	onSelectCommitFile,
 }: Props) {
+	const [previewState, setPreviewState] = useState<{
+		path: string;
+		content: string;
+	} | null>(null);
+
+	useEffect(() => {
+		setPreviewState(null);
+	}, [worktreePath, activeDetail?.sha]);
+
 	if (!history.mergeTargetRef || history.entries.length === 0) {
 		return <p className="shell-empty-state">No recent commits to review.</p>;
 	}
@@ -60,23 +74,59 @@ export function CommitList({
 						</button>
 						{showFiles && (
 							<div className="shell-commit-list__files">
-								{activeDetail.files.map((file) => (
-									<button
-										key={file.path}
-										type="button"
-										className="shell-list__item shell-list__item--split"
-										data-selected={String(selectedCommitFilePath === file.path)}
-										onClick={() => onSelectCommitFile(file.path)}
-									>
-										<span>{file.path}</span>
-										<strong>{file.status}</strong>
-									</button>
-								))}
+								{activeDetail.files.map((file) => {
+									const button = (
+										<button
+											key={file.path}
+											type="button"
+											className="shell-list__item shell-list__item--split"
+											data-selected={String(selectedCommitFilePath === file.path)}
+											onClick={() => onSelectCommitFile(file.path)}
+										>
+											<span>{file.path}</span>
+											<strong>{file.status}</strong>
+										</button>
+									);
+
+									if (!file.path.endsWith(".md") || file.status === "D") {
+										return button;
+									}
+
+									return (
+										<ContextMenu.Root key={file.path}>
+											<ContextMenu.Trigger asChild>{button}</ContextMenu.Trigger>
+											<ContextMenu.Portal>
+												<ContextMenu.Content className="shell-toolbar-menu">
+													<ContextMenu.Item
+														className="shell-toolbar-menu__item"
+														onSelect={() =>
+															setPreviewState({
+																path: file.path,
+																content: file.modifiedContent,
+															})
+														}
+													>
+														Preview
+													</ContextMenu.Item>
+												</ContextMenu.Content>
+											</ContextMenu.Portal>
+										</ContextMenu.Root>
+									);
+								})}
 							</div>
 						)}
 					</div>
 				);
 			})}
+			{previewState !== null && (
+				<MarkdownPreviewModal
+					worktreePath={worktreePath}
+					relativePath={previewState.path}
+					contentOverride={previewState.content}
+					open={true}
+					onClose={() => setPreviewState(null)}
+				/>
+			)}
 		</div>
 	);
 }

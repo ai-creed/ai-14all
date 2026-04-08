@@ -378,7 +378,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await page.getByRole("tab", { name: "Files" }).click({ force: true });
 
 		// Wait for NOTES.md to appear (scopeRoots includes "." for root-level dirty files)
-		const notesButton = page.getByRole("button", { name: "NOTES.md" });
+		const notesButton = page.getByRole("button", { name: /^NOTES\.md/i });
 		await expect(notesButton).toBeVisible({ timeout: 10_000 });
 
 		// Right-click to open context menu
@@ -400,6 +400,33 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		).not.toBeVisible();
 	});
 
+	test("right-clicking a .md file in Changes shows Preview and opens the markdown modal", async () => {
+		await ensureWorkspaceLoaded();
+
+		await page
+			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("button", { name: /feature-a/i })
+			.click();
+
+		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
+
+		const notesButton = page.getByRole("button", { name: /^NOTES\.md/i });
+		await expect(notesButton).toBeVisible({ timeout: 10_000 });
+
+		await notesButton.click({ button: "right" });
+		await expect(page.getByRole("menuitem", { name: "Preview" })).toBeVisible();
+		await page.getByRole("menuitem", { name: "Preview" }).click();
+
+		await expect(
+			page.getByRole("heading", { name: "Preview Test" }),
+		).toBeVisible({ timeout: 10_000 });
+
+		await page.keyboard.press("Escape");
+		await expect(
+			page.getByRole("heading", { name: "Preview Test" }),
+		).not.toBeVisible();
+	});
+
 	test("right-clicking viewer panel header of a .md file shows Preview and opens the modal", async () => {
 		await ensureWorkspaceLoaded();
 
@@ -411,7 +438,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 
 		// Open Files tab and click NOTES.md to load it in the viewer
 		await page.getByRole("tab", { name: "Files" }).click({ force: true });
-		const notesButton = page.getByRole("button", { name: "NOTES.md" });
+		const notesButton = page.getByRole("button", { name: "NOTES.md", exact: true });
 		await expect(notesButton).toBeVisible({ timeout: 10_000 });
 		await notesButton.click();
 
@@ -433,6 +460,39 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await page.keyboard.press("Escape");
 		await expect(
 			page.getByRole("heading", { name: "Preview Test" }),
+		).not.toBeVisible();
+	});
+
+	test("right-clicking a markdown file under selected commit previews commit snapshot", async () => {
+		await ensureWorkspaceLoaded();
+
+		await page
+			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("button", { name: /feature-a/i })
+			.click();
+
+		await page.getByRole("tab", { name: "Commits" }).click({ force: true });
+		await page.getByRole("button", { name: /initial commit/i }).click();
+		const commitButton = page.getByRole("button", { name: /feature commit/i });
+		await expect(commitButton).toBeVisible({ timeout: 10_000 });
+		await commitButton.click();
+
+		const commitNotesButton = page
+			.getByTestId("review-rail")
+			.getByRole("button", { name: /^COMMIT_NOTES\.md/i });
+		await expect(commitNotesButton).toBeVisible({ timeout: 10_000 });
+
+		await commitNotesButton.click({ button: "right" });
+		await expect(page.getByRole("menuitem", { name: "Preview" })).toBeVisible();
+		await page.getByRole("menuitem", { name: "Preview" }).click();
+
+		await expect(
+			page.getByRole("heading", { name: "Committed Preview" }),
+		).toBeVisible({ timeout: 10_000 });
+
+		await page.keyboard.press("Escape");
+		await expect(
+			page.getByRole("heading", { name: "Committed Preview" }),
 		).not.toBeVisible();
 	});
 
