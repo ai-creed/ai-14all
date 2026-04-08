@@ -102,7 +102,71 @@ describe("WorktreeService", () => {
 		});
 	});
 
+	describe("setRepositoryRoot — worktree repair", () => {
+		it("repairs stale worktree paths when repo directory was renamed", async () => {
+			const tmpDir = makeTestRepo();
+			try {
+				execSync("git branch wt-branch", { cwd: tmpDir, stdio: "ignore" });
+				mkdirSync(join(tmpDir, ".worktrees"), { recursive: true });
+				const wtPath = join(tmpDir, ".worktrees", "wt-branch");
+				execSync(`git worktree add "${wtPath}" wt-branch`, {
+					cwd: tmpDir,
+					stdio: "ignore",
+				});
+
+				// Simulate a repo rename by rewriting the gitdir pointer to a
+				// non-existent path, as would happen after `mv repo-old repo-new`.
+				const gitdirFile = join(tmpDir, ".git", "worktrees", "wt-branch", "gitdir");
+				writeFileSync(gitdirFile, "/nonexistent/old-repo/.worktrees/wt-branch/.git\n");
+
+				// Before repair, git considers this worktree prunable.
+				const porcelain = execSync("git worktree list --porcelain", { cwd: tmpDir }).toString();
+				expect(porcelain).toContain("prunable");
+
+				// Loading the repository should auto-repair the stale path.
+				const repo = await service.setRepositoryRoot(tmpDir);
+
+				const porcelainAfter = execSync("git worktree list --porcelain", { cwd: tmpDir }).toString();
+				expect(porcelainAfter).not.toContain("prunable");
+
+				const worktrees = await service.listWorktrees(repo);
+				expect(worktrees.some((wt) => wt.branchName === "wt-branch")).toBe(true);
+			} finally {
+				rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+	});
+
 	describe("listWorktrees", () => {
+		it("excludes worktrees whose directories no longer exist on disk", async () => {
+			const tmpDir = makeTestRepo();
+			try {
+				execSync("git branch stale-branch", { cwd: tmpDir, stdio: "ignore" });
+				mkdirSync(join(tmpDir, ".worktrees"), { recursive: true });
+				const stalePath = join(tmpDir, ".worktrees", "stale-branch");
+				execSync(`git worktree add "${stalePath}" stale-branch`, {
+					cwd: tmpDir,
+					stdio: "ignore",
+				});
+
+				const repo = await service.setRepositoryRoot(tmpDir);
+
+				// Verify the worktree appears before deletion
+				const before = await service.listWorktrees(repo);
+				expect(before.some((wt) => wt.branchName === "stale-branch")).toBe(true);
+
+				// Simulate external deletion of the worktree directory (but NOT git prune)
+				rmSync(stalePath, { recursive: true, force: true });
+
+				// After directory removal, listWorktrees should exclude it
+				const after = await service.listWorktrees(repo);
+				expect(after.some((wt) => wt.branchName === "stale-branch")).toBe(false);
+				expect(after.length).toBe(before.length - 1);
+			} finally {
+				rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+
 		it("returns at least the main worktree for a valid repo", async () => {
 			const tmpDir = mkdtempSync(join(tmpdir(), "ofa-test-"));
 			try {

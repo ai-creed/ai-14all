@@ -1,4 +1,4 @@
-import { stat, access, mkdir } from "node:fs/promises";
+import { stat, access, mkdir, readdir } from "node:fs/promises";
 import { constants } from "node:fs";
 import { basename, join } from "node:path";
 import { execFile } from "node:child_process";
@@ -81,6 +81,25 @@ export class WorktreeService {
 
 		const repoId = await gitService.readOrCreateRepoId(toplevel);
 
+		// Repair stale worktree paths left behind by repo renames/moves.
+		// This is idempotent and fast when paths are already correct.
+		const worktreesDir = join(rootPath, ".worktrees");
+		if (await pathExists(worktreesDir)) {
+			try {
+				const entries = await readdir(worktreesDir, { withFileTypes: true });
+				const dirs = entries
+					.filter((e) => e.isDirectory())
+					.map((e) => join(worktreesDir, e.name));
+				if (dirs.length > 0) {
+					await execFileAsync(gitBinary, ["worktree", "repair", ...dirs], {
+						cwd: rootPath,
+					});
+				}
+			} catch {
+				// Repair is best-effort; don't block repository loading.
+			}
+		}
+
 		return {
 			id: randomUUID(),
 			name: basename(toplevel),
@@ -99,7 +118,14 @@ export class WorktreeService {
 			["worktree", "list", "--porcelain"],
 			repository.rootPath,
 		);
-		return parseWorktreePorcelain(output, repository.id);
+		const all = parseWorktreePorcelain(output, repository.id);
+		const live: Worktree[] = [];
+		for (const wt of all) {
+			if (await pathExists(wt.path)) {
+				live.push(wt);
+			}
+		}
+		return live;
 	}
 
 	async previewCreateWorktree(
