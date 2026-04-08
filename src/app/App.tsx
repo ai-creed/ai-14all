@@ -170,6 +170,18 @@ export function App() {
 		? (workspaceState.sessionsByWorktreeId[workspaceState.selectedWorktreeId] ??
 			null)
 		: null;
+	const splitVisibleProcessIds =
+		activeSession?.terminalLayoutMode === "split"
+			? [activeSession.splitLeftProcessId, activeSession.splitRightProcessId].filter(
+					(id): id is string => !!id,
+				)
+			: [];
+	const visibleProcessIds =
+		activeSession?.terminalLayoutMode === "split"
+			? splitVisibleProcessIds
+			: activeSession?.activeProcessSessionId
+				? [activeSession.activeProcessSessionId]
+				: [];
 
 	function findProcessByTerminalSessionId(
 		terminalSessionId: string,
@@ -179,6 +191,11 @@ export function App() {
 				(process) => process.terminalSessionId === terminalSessionId,
 			) ?? null
 		);
+	}
+
+	function getTerminalIdForProcess(processId: string | null): string | null {
+		if (!processId) return null;
+		return workspaceState.processSessionsById[processId]?.terminalSessionId ?? null;
 	}
 
 	const { sessions, createSession, sendInput, stopSession, removeSession } =
@@ -1200,6 +1217,9 @@ export function App() {
 									}))}
 								activeProcessId={activeSession?.activeProcessSessionId ?? null}
 								presets={workspaceState.commandPresets}
+								layoutMode={activeSession?.terminalLayoutMode ?? "single"}
+								splitLeftProcessId={activeSession?.splitLeftProcessId ?? null}
+								splitRightProcessId={activeSession?.splitRightProcessId ?? null}
 								onAddAdHoc={handleAddAdHoc}
 								onSelect={(processId) => {
 									dispatch({
@@ -1224,15 +1244,41 @@ export function App() {
 										processId,
 									})
 								}
+								onToggleSplitMode={() =>
+									dispatch({
+										type: "session/setTerminalLayoutMode",
+										worktreeId: activeWorktree!.id,
+										layoutMode:
+											activeSession?.terminalLayoutMode === "split"
+												? "single"
+												: "split",
+									})
+								}
+								onShowInSplit={(processId, slot) =>
+									dispatch({
+										type: "session/assignProcessToSplitSlot",
+										worktreeId: activeWorktree!.id,
+										processId,
+										slot,
+									})
+								}
+								onRemoveFromSplit={(processId) =>
+									dispatch({
+										type: "session/removeProcessFromSplit",
+										worktreeId: activeWorktree!.id,
+										processId,
+									})
+								}
 							/>
 
-							<div className="shell-terminal-panel__body">
+							<div
+								className={
+									activeSession?.terminalLayoutMode === "split"
+										? "shell-terminal-panel__body shell-terminal-panel__body--split"
+										: "shell-terminal-panel__body"
+								}
+							>
 								{sessions.map((session) => {
-									const activeProcess = activeSession?.activeProcessSessionId
-										? workspaceState.processSessionsById[
-												activeSession.activeProcessSessionId
-											]
-										: null;
 									const process = findProcessByTerminalSessionId(session.id);
 									return (
 										<TerminalPane
@@ -1240,7 +1286,11 @@ export function App() {
 											session={session}
 											visible={
 												session.worktreeId === activeWorktree?.id &&
-												session.id === activeProcess?.terminalSessionId
+												visibleProcessIds.some(
+													(processId) =>
+														workspaceState.processSessionsById[processId]
+															?.terminalSessionId === session.id,
+												)
 											}
 											onTitleChange={(title) => {
 												if (!process || process.origin !== "adHoc") return;
@@ -1256,7 +1306,34 @@ export function App() {
 									);
 								})}
 
-								{!sessions.some((session) => {
+								{activeSession?.terminalLayoutMode === "split" ? (
+									<>
+										{!activeSession.splitLeftProcessId && (
+											<div
+												className="shell-terminal-split__empty"
+												data-slot="left"
+												onMouseDown={() => undefined}
+											>
+												<p className="shell-empty-state">
+													No shell assigned to this split pane. Use a tab menu to show one
+													here.
+												</p>
+											</div>
+										)}
+										{!activeSession.splitRightProcessId && (
+											<div
+												className="shell-terminal-split__empty"
+												data-slot="right"
+												onMouseDown={() => undefined}
+											>
+												<p className="shell-empty-state">
+													No shell assigned to this split pane. Use a tab menu to show one
+													here.
+												</p>
+											</div>
+										)}
+									</>
+								) : !sessions.some((session) => {
 									const activeProcess = activeSession?.activeProcessSessionId
 										? workspaceState.processSessionsById[
 												activeSession.activeProcessSessionId
@@ -1266,13 +1343,13 @@ export function App() {
 										session.worktreeId === activeWorktree?.id &&
 										session.id === activeProcess?.terminalSessionId
 									);
-								}) && (
+								}) ? (
 									<div className="shell-terminal-panel__empty">
 										<p className="shell-empty-state">
 											No active shell selected. Open or choose a shell to continue.
 										</p>
 									</div>
-								)}
+								) : null}
 							</div>
 						</section>
 					)}

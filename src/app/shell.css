@@ -909,12 +909,27 @@ select {
 	border-top: 1px solid var(--panel-border);
 }
 
+.shell-terminal-panel__body--split {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: 1px;
+	background: var(--panel-border);
+}
+
 .shell-terminal-panel__empty {
 	height: 100%;
 	min-height: 0;
 	display: grid;
 	place-items: center;
 	padding: var(--space-4);
+}
+
+.shell-terminal-split__empty {
+	min-height: 0;
+	display: grid;
+	place-items: center;
+	padding: var(--space-4);
+	background: #0a1115;
 }
 
 .shell-commit-list {
