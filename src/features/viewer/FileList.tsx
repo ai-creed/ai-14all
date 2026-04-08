@@ -1,9 +1,12 @@
+// src/features/viewer/FileList.tsx
 import { useEffect, useState } from "react";
+import * as ContextMenu from "@radix-ui/react-context-menu";
 import { files } from "../../lib/desktop-client";
 import {
 	buildScopedFileTree,
 	type ScopedFileTreeNode,
 } from "./build-scoped-file-tree";
+import { MarkdownPreviewModal } from "./MarkdownPreviewModal";
 
 type FileListProps = {
 	worktreePath: string;
@@ -18,13 +21,15 @@ function TreeNode({
 	node,
 	selectedFile,
 	onSelect,
+	onPreview,
 }: {
 	node: ScopedFileTreeNode;
 	selectedFile: string | null;
 	onSelect: (relativePath: string) => void;
+	onPreview: (relativePath: string) => void;
 }) {
 	if (node.type === "file") {
-		return (
+		const button = (
 			<button
 				type="button"
 				className="shell-list__item shell-list__item--tree"
@@ -34,6 +39,26 @@ function TreeNode({
 				{node.name}
 			</button>
 		);
+
+		if (node.name.endsWith(".md")) {
+			return (
+				<ContextMenu.Root>
+					<ContextMenu.Trigger asChild>{button}</ContextMenu.Trigger>
+					<ContextMenu.Portal>
+						<ContextMenu.Content className="shell-toolbar-menu">
+							<ContextMenu.Item
+								className="shell-toolbar-menu__item"
+								onSelect={() => onPreview(node.path)}
+							>
+								Preview
+							</ContextMenu.Item>
+						</ContextMenu.Content>
+					</ContextMenu.Portal>
+				</ContextMenu.Root>
+			);
+		}
+
+		return button;
 	}
 
 	return (
@@ -46,6 +71,7 @@ function TreeNode({
 						node={child}
 						selectedFile={selectedFile}
 						onSelect={onSelect}
+						onPreview={onPreview}
 					/>
 				))}
 			</div>
@@ -64,6 +90,7 @@ export function FileList({
 	const [fileList, setFileList] = useState<string[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [previewPath, setPreviewPath] = useState<string | null>(null);
 
 	useEffect(() => {
 		if (scopeRoots.length === 0) return;
@@ -81,6 +108,10 @@ export function FileList({
 				setLoading(false);
 			});
 	}, [worktreePath, scopeRoots]);
+
+	useEffect(() => {
+		setPreviewPath(null);
+	}, [worktreePath]);
 
 	if (gitSummaryError) {
 		return (
@@ -126,9 +157,18 @@ export function FileList({
 						node={node}
 						selectedFile={selectedFile}
 						onSelect={onSelect}
+						onPreview={setPreviewPath}
 					/>
 				))}
 			</div>
+			{previewPath !== null && (
+				<MarkdownPreviewModal
+					worktreePath={worktreePath}
+					relativePath={previewPath}
+					open={true}
+					onClose={() => setPreviewPath(null)}
+				/>
+			)}
 		</>
 	);
 }

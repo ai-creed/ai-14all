@@ -355,4 +355,75 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await expect(page.getByText(/showing last successful result/i)).toBeVisible();
 		await expect(page.getByRole("button", { name: /src\/index\.ts/i })).toBeVisible();
 	});
+
+	test("right-clicking a .md file shows Preview and opens the markdown modal", async () => {
+		await ensureWorkspaceLoaded();
+
+		// Navigate to feature-a — it has a dirty NOTES.md so scopeRoots is non-empty
+		await page
+			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("button", { name: /feature-a/i })
+			.click();
+
+		// Switch to Files tab in the review rail
+		await page.getByRole("tab", { name: "Files" }).click({ force: true });
+
+		// Wait for NOTES.md to appear (scopeRoots includes "." for root-level dirty files)
+		const notesButton = page.getByRole("button", { name: "NOTES.md" });
+		await expect(notesButton).toBeVisible({ timeout: 10_000 });
+
+		// Right-click to open context menu
+		await notesButton.click({ button: "right" });
+		await expect(page.getByRole("menuitem", { name: "Preview" })).toBeVisible();
+
+		// Click Preview
+		await page.getByRole("menuitem", { name: "Preview" }).click();
+
+		// Modal should appear with rendered heading from "# Preview Test"
+		await expect(
+			page.getByRole("heading", { name: "Preview Test" }),
+		).toBeVisible({ timeout: 10_000 });
+
+		// ESC should close the modal
+		await page.keyboard.press("Escape");
+		await expect(
+			page.getByRole("heading", { name: "Preview Test" }),
+		).not.toBeVisible();
+	});
+
+	test("right-clicking viewer panel header of a .md file shows Preview and opens the modal", async () => {
+		await ensureWorkspaceLoaded();
+
+		// Navigate to feature-a
+		await page
+			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("button", { name: /feature-a/i })
+			.click();
+
+		// Open Files tab and click NOTES.md to load it in the viewer
+		await page.getByRole("tab", { name: "Files" }).click({ force: true });
+		const notesButton = page.getByRole("button", { name: "NOTES.md" });
+		await expect(notesButton).toBeVisible({ timeout: 10_000 });
+		await notesButton.click();
+
+		// Wait for viewer header to show the file path
+		const viewerTitle = page.locator(".shell-viewer__title", { hasText: "NOTES.md" });
+		await expect(viewerTitle).toBeVisible({ timeout: 10_000 });
+
+		// Right-click the viewer header
+		await viewerTitle.click({ button: "right" });
+		await expect(page.getByRole("menuitem", { name: "Preview" })).toBeVisible();
+
+		// Click Preview — modal should open with "# Preview Test" heading
+		await page.getByRole("menuitem", { name: "Preview" }).click();
+		await expect(
+			page.getByRole("heading", { name: "Preview Test" }),
+		).toBeVisible({ timeout: 10_000 });
+
+		// ESC closes the modal
+		await page.keyboard.press("Escape");
+		await expect(
+			page.getByRole("heading", { name: "Preview Test" }),
+		).not.toBeVisible();
+	});
 });
