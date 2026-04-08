@@ -55,6 +55,9 @@ describe("WorkspacePersistenceService", () => {
 						selectedChangedFilePath: "src/index.ts",
 						selectedCommitSha: null,
 						selectedCommitFilePath: null,
+						terminalLayoutMode: "single" as const,
+						splitLeftProcessId: null,
+						splitRightProcessId: null,
 						activeProcessSessionId: "process-1",
 						nextAdHocNumber: 2,
 						processSessions: [
