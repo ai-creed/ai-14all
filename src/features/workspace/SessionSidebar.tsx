@@ -1,3 +1,4 @@
+import * as ContextMenu from "@radix-ui/react-context-menu";
 import type { Worktree } from "../../../shared/models/worktree";
 import type { ProcessAttentionState } from "../../../shared/models/process-session";
 
@@ -43,34 +44,44 @@ export function SessionSidebar({
 			<div className="shell-sidebar__list">
 				{worktrees.map((worktree) => {
 					const selected = worktree.id === selectedWorktreeId;
+					const item = (
+						<button
+							type="button"
+							className="shell-sidebar__item"
+							data-selected={String(selected)}
+							data-attention={attentionByWorktreeId?.[worktree.id] ?? "idle"}
+							aria-label={worktree.branchName !== worktree.label ? `${worktree.label} ${worktree.branchName}` : worktree.label}
+							onClick={() => onSelect(worktree.id)}
+						>
+							{collapsed ? <span className="shell-sidebar__marker">{worktree.label.slice(0, 1).toUpperCase()}</span> : <>
+								<strong>{worktree.label}</strong>
+								{worktree.branchName !== worktree.label && (
+									<div className="shell-sidebar__branch">{worktree.branchName}</div>
+								)}
+							</>}
+						</button>
+					);
+
+					if (collapsed || worktree.isMain) {
+						return <div key={worktree.id}>{item}</div>;
+					}
+
 					return (
-						<div key={worktree.id} className="shell-sidebar__row">
-							<button
-								type="button"
-								className="shell-sidebar__item"
-								data-selected={String(selected)}
-								data-attention={attentionByWorktreeId?.[worktree.id] ?? "idle"}
-								aria-label={worktree.branchName !== worktree.label ? `${worktree.label} ${worktree.branchName}` : worktree.label}
-								onClick={() => onSelect(worktree.id)}
-							>
-								{collapsed ? <span className="shell-sidebar__marker">{worktree.label.slice(0, 1).toUpperCase()}</span> : <>
-									<strong>{worktree.label}</strong>
-									{worktree.branchName !== worktree.label && (
-										<div className="shell-sidebar__branch">{worktree.branchName}</div>
-									)}
-								</>}
-							</button>
-							{!collapsed && !worktree.isMain && (
-								<button
-									type="button"
-									className="shell-button shell-button--icon shell-button--compact"
-									aria-label={`Remove ${worktree.label}`}
-									onClick={() => onRemoveWorktree(worktree.id)}
-								>
-									×
-								</button>
-							)}
-						</div>
+						<ContextMenu.Root key={worktree.id}>
+							<ContextMenu.Trigger asChild>
+								{item}
+							</ContextMenu.Trigger>
+							<ContextMenu.Portal>
+								<ContextMenu.Content className="shell-toolbar-menu">
+									<ContextMenu.Item
+										className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
+										onSelect={() => onRemoveWorktree(worktree.id)}
+									>
+										Remove worktree
+									</ContextMenu.Item>
+								</ContextMenu.Content>
+							</ContextMenu.Portal>
+						</ContextMenu.Root>
 					);
 				})}
 			</div>
@@ -82,7 +93,7 @@ export function SessionSidebar({
 					onClick={onCreateWorktree}
 					aria-label="New worktree"
 				>
-					{collapsed ? "+" : "New worktree"}
+					{collapsed ? "+" : "+ New worktree"}
 				</button>
 			</div>
 		</nav>

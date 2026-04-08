@@ -95,7 +95,8 @@ test.describe.serial("Cumulative flow — Phase 7", () => {
 	test("removes feature-a via the Remove Worktree dialog and deletes its branch", async () => {
 		test.setTimeout(60_000);
 		await worktreeNav().getByRole("button", { name: "feature-a", exact: true }).click();
-		await page.getByRole("button", { name: "Remove feature-a" }).click();
+		await worktreeNav().getByRole("button", { name: "feature-a", exact: true }).click({ button: "right" });
+		await page.getByRole("menuitem", { name: "Remove worktree" }).click();
 		// The fixture intentionally leaves feature-a dirty with uncommitted file changes.
 		await expect(page.getByText("Dirty worktree: yes")).toBeVisible({ timeout: 10_000 });
 		await expect(page.getByText(/Running app sessions:/)).toBeVisible({ timeout: 10_000 });

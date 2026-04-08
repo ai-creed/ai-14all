@@ -118,7 +118,7 @@ describe("SessionSidebar", () => {
 		).toBeInTheDocument();
 	});
 
-	it("shows a bottom New worktree button and only exposes remove for non-main rows", () => {
+	it("shows a bottom New worktree button with a plus prefix and no inline remove buttons", () => {
 		render(
 			<SessionSidebar
 				worktrees={worktrees}
@@ -131,8 +131,11 @@ describe("SessionSidebar", () => {
 			/>,
 		);
 
-		expect(screen.getByRole("button", { name: "New worktree" })).toBeInTheDocument();
-		expect(screen.queryByRole("button", { name: "Remove main" })).not.toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Remove feature worktree" })).toBeInTheDocument();
+		const newButton = screen.getByRole("button", { name: "New worktree" });
+		expect(newButton).toBeInTheDocument();
+		expect(newButton.textContent).toBe("+ New worktree");
+
+		// Remove action is in a context menu, not an inline button
+		expect(screen.queryByRole("button", { name: /Remove/ })).not.toBeInTheDocument();
 	});
 });

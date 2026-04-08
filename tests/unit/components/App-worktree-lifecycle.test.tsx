@@ -190,7 +190,9 @@ it("warns about dirty state and running sessions before removing a worktree", as
 		expect(screen.getByRole("tab", { name: /shell 1/i })).toBeInTheDocument();
 	});
 
-	await userEvent.click(screen.getByRole("button", { name: "Remove feature-a" }));
+	// Right-click the worktree to open the context menu, then click "Remove worktree"
+	fireEvent.contextMenu(screen.getByRole("button", { name: "feature-a" }));
+	await userEvent.click(await screen.findByRole("menuitem", { name: "Remove worktree" }));
 
 	expect(await screen.findByText("Dirty worktree: yes")).toBeInTheDocument();
 	expect(screen.getByText("Running app sessions: shell 1")).toBeInTheDocument();
