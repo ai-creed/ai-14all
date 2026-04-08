@@ -61,21 +61,18 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 			.getByRole("button", { name: /^main(?:\s+main)?$/i })
 			.click();
 
-		// Phase 6: a default "shell 1" is auto-created on worktree activation.
-		// Wait for it, then add one more shell to reach two tabs.
-		await expect(
-			page.getByRole("tab", {
-				name: /^shell 1(?: \((?:error|exited)\))?$/i,
-			}),
-		).toBeVisible({ timeout: 10_000 });
+		// Phase 6: a default shell is auto-created on worktree activation.
+		// The xterm title changes to the CWD almost immediately, so match by
+		// position rather than by name. Wait for the first tab, then add one
+		// more shell and wait for a second tab to appear.
+		const terminalTabs = page
+			.getByRole("tablist", { name: "Terminal sessions" })
+			.getByRole("tab");
+		await expect(terminalTabs.first()).toBeVisible({ timeout: 10_000 });
 		await page.getByRole("button", { name: "Add shell" }).click();
 
-		await expect(
-			page.getByRole("tab", {
-				name: /^shell 2(?: \((?:error|exited)\))?$/i,
-			}),
-		).toBeVisible({ timeout: 10_000 });
-		await page.getByRole("tab", { name: /^shell 2/i }).click();
+		await expect(terminalTabs).toHaveCount(2, { timeout: 10_000 });
+		await terminalTabs.nth(1).click();
 		await expect(page.locator(".xterm")).toHaveCount(2, { timeout: 10_000 });
 	});
 
