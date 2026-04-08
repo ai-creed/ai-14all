@@ -83,6 +83,10 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await expect(
 			page.getByText("No recent commits to review."),
 		).toHaveCount(0);
+		await page.getByRole("button", { name: /initial commit/i }).click();
+		await expect(
+			page.getByTestId("review-rail").getByRole("button", { name: /src\/index\.ts/i }),
+		).toBeVisible();
 
 		await page
 			.getByRole("navigation", { name: "Worktree sessions" })

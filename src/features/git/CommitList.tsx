@@ -31,10 +31,7 @@ export function CommitList({
 			<div className="shell-commit-list__target">{history.mergeTargetRef}</div>
 			{rows.map((row, index) => {
 				const isSelected = selectedCommitSha === row.sha;
-				const showFiles =
-					isSelected &&
-					row.rowKind === "commit" &&
-					activeDetail?.sha === row.sha;
+				const showFiles = isSelected && activeDetail?.sha === row.sha;
 
 				return (
 					<div

@@ -84,6 +84,47 @@ describe("CommitList", () => {
 		expect(onSelectCommit).not.toHaveBeenCalled();
 	});
 
+	it("shows changed files for a selected merge-target commit", () => {
+		render(
+			<CommitList
+				history={{
+					mergeTargetRef: "origin/main",
+					entries: [
+						{ sha: "base", shortSha: "base", subject: "origin/main", isMergeTarget: true },
+					],
+				}}
+				selectedCommitSha="base"
+				selectedCommitFilePath={null}
+				activeDetail={{
+					sha: "base",
+					shortSha: "base",
+					subject: "origin/main",
+					files: [
+						{
+							path: "src/index.ts",
+							oldPath: null,
+							status: "M",
+							originalContent: "before\n",
+							modifiedContent: "after\n",
+						},
+					],
+				}}
+				onSelectCommit={vi.fn()}
+				onSelectCommitFile={vi.fn()}
+			/>,
+		);
+
+		const selectedRow = screen
+			.getByRole("button", { name: /origin\/main/i })
+			.closest(".shell-commit-list__row");
+		expect(selectedRow).not.toBeNull();
+		expect(
+			within(selectedRow as HTMLElement).getByRole("button", {
+				name: /src\/index\.ts/i,
+			}),
+		).toBeInTheDocument();
+	});
+
 	it("shows an empty state when no merge target ref exists", () => {
 		render(
 			<CommitList

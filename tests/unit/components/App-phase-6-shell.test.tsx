@@ -203,7 +203,17 @@ describe("App — Phase 6 default shell", () => {
 		await waitFor(() => {
 			expect(screen.getAllByText("feature commit").length).toBeGreaterThanOrEqual(1);
 		});
-		expect(screen.getAllByText("src/index.ts").length).toBeGreaterThan(0);
+		const selectedRow = screen
+			.getByRole("button", { name: /feature commit/i })
+			.closest(".shell-commit-list__row");
+		expect(selectedRow).not.toBeNull();
+		await waitFor(() => {
+			expect(
+				within(selectedRow as HTMLElement).getByRole("button", {
+					name: /src\/index\.ts/i,
+				}),
+			).toBeInTheDocument();
+		});
 	});
 
 	it("does not create a duplicate default shell on review-mode changes", async () => {
