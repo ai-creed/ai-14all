@@ -18,6 +18,10 @@ import {
 	WriteWorkspaceRestoreStateSchema,
 	ReadGitCommitHistorySchema,
 	ReadGitCommitDetailSchema,
+	PreviewCreateWorktreeSchema,
+	CreateWorktreeSchema,
+	PreviewRemoveWorktreeSchema,
+	RemoveWorktreeSchema,
 } from "../../shared/contracts/commands.js";
 import type { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
 import { WorktreeService } from "../../services/worktrees/worktree-service.js";
@@ -115,6 +119,38 @@ export function registerIpcHandlers(
 			);
 		}
 		return worktreeService.listWorktrees(currentRepository);
+	});
+
+	ipcMain.handle("repository:previewCreateWorktree", async (_event, raw: unknown) => {
+		if (currentRepository === null) {
+			throw new Error("No repository root has been set. Call repository:setRoot first.");
+		}
+		const { name } = PreviewCreateWorktreeSchema.parse(raw);
+		return worktreeService.previewCreateWorktree(currentRepository, name);
+	});
+
+	ipcMain.handle("repository:createWorktree", async (_event, raw: unknown) => {
+		if (currentRepository === null) {
+			throw new Error("No repository root has been set. Call repository:setRoot first.");
+		}
+		const { name } = CreateWorktreeSchema.parse(raw);
+		return worktreeService.createWorktree(currentRepository, name);
+	});
+
+	ipcMain.handle("repository:previewRemoveWorktree", async (_event, raw: unknown) => {
+		if (currentRepository === null) {
+			throw new Error("No repository root has been set. Call repository:setRoot first.");
+		}
+		const { worktreeId } = PreviewRemoveWorktreeSchema.parse(raw);
+		return worktreeService.previewRemoveWorktree(currentRepository, worktreeId);
+	});
+
+	ipcMain.handle("repository:removeWorktree", async (_event, raw: unknown) => {
+		if (currentRepository === null) {
+			throw new Error("No repository root has been set. Call repository:setRoot first.");
+		}
+		const { worktreeId } = RemoveWorktreeSchema.parse(raw);
+		await worktreeService.removeWorktree(currentRepository, worktreeId);
 	});
 
 	// --- Terminals ---

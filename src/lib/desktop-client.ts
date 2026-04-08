@@ -12,6 +12,13 @@ export const repository: Ai14AllDesktopApi["repository"] = {
 	pickRoot: () => getDesktopClient().repository.pickRoot(),
 	setRoot: (path) => getDesktopClient().repository.setRoot(path),
 	listWorktrees: () => getDesktopClient().repository.listWorktrees(),
+	previewCreateWorktree: (name) =>
+		getDesktopClient().repository.previewCreateWorktree(name),
+	createWorktree: (name) => getDesktopClient().repository.createWorktree(name),
+	previewRemoveWorktree: (worktreeId) =>
+		getDesktopClient().repository.previewRemoveWorktree(worktreeId),
+	removeWorktree: (worktreeId) =>
+		getDesktopClient().repository.removeWorktree(worktreeId),
 };
 
 export const terminals: Ai14AllDesktopApi["terminals"] = {

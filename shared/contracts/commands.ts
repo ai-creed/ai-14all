@@ -17,6 +17,10 @@ import type {
 	GitCommitHistory,
 } from "../models/git-commit-review.js";
 import { PersistedWorkspaceStateSchema, type PersistedWorkspaceState } from "../models/persisted-workspace-state.js";
+import type {
+	CreateWorktreePreview,
+	RemoveWorktreePreview,
+} from "../models/worktree-lifecycle.js";
 
 // --- Zod schemas for command payloads ---
 
@@ -90,6 +94,22 @@ export const ReadGitCommitDetailSchema = z.object({
 	sha: z.string().min(4),
 });
 
+export const PreviewCreateWorktreeSchema = z.object({
+	name: z.string(),
+});
+
+export const CreateWorktreeSchema = z.object({
+	name: z.string(),
+});
+
+export const PreviewRemoveWorktreeSchema = z.object({
+	worktreeId: z.string(),
+});
+
+export const RemoveWorktreeSchema = z.object({
+	worktreeId: z.string(),
+});
+
 // --- The API surface exposed to the renderer via the preload bridge ---
 
 export type Ai14AllDesktopApi = {
@@ -97,6 +117,10 @@ export type Ai14AllDesktopApi = {
 		pickRoot(): Promise<string | null>;
 		setRoot(path: string): Promise<Repository>;
 		listWorktrees(): Promise<Worktree[]>;
+		previewCreateWorktree(name: string): Promise<CreateWorktreePreview>;
+		createWorktree(name: string): Promise<Worktree>;
+		previewRemoveWorktree(worktreeId: string): Promise<RemoveWorktreePreview>;
+		removeWorktree(worktreeId: string): Promise<void>;
 	};
 	terminals: {
 		create(worktreeId: string, cwd: string): Promise<TerminalSession>;

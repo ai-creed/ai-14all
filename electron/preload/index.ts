@@ -30,6 +30,18 @@ const api: Ai14AllDesktopApi = {
 		listWorktrees() {
 			return ipcRenderer.invoke("repository:listWorktrees");
 		},
+		previewCreateWorktree(name) {
+			return ipcRenderer.invoke("repository:previewCreateWorktree", { name });
+		},
+		createWorktree(name) {
+			return ipcRenderer.invoke("repository:createWorktree", { name });
+		},
+		previewRemoveWorktree(worktreeId) {
+			return ipcRenderer.invoke("repository:previewRemoveWorktree", { worktreeId });
+		},
+		removeWorktree(worktreeId) {
+			return ipcRenderer.invoke("repository:removeWorktree", { worktreeId });
+		},
 	},
 	terminals: {
 		create(worktreeId, cwd) {
