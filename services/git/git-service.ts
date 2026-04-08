@@ -279,7 +279,7 @@ export class GitService {
 		if (entries.length === 0) {
 			const { stdout: fallbackStdout } = await execFileAsync(
 				gitBinary,
-				["log", "--format=%H%x09%h%x09%s", "-n", "10", "HEAD"],
+				["log", "--format=%H%x09%h%x09%s", "-n", "20", "HEAD"],
 				{ cwd: worktreePath },
 			);
 			return {
@@ -293,18 +293,20 @@ export class GitService {
 			};
 		}
 
+		// Always show at least 20 commits total: pad with merge target history.
+		const countFromTarget = Math.max(1, 20 - entries.length);
 		const { stdout: mergeBaseInfo } = await execFileAsync(
 			gitBinary,
-			["log", "--format=%H%x09%h%x09%s", "-n", "1", mergeBase],
+			["log", "--format=%H%x09%h%x09%s", "-n", String(countFromTarget), mergeBase],
 			{ cwd: worktreePath },
 		);
-		const mergeTargetEntry = parseRecentCommits(mergeBaseInfo)[0];
+		const targetEntries = parseRecentCommits(mergeBaseInfo).map<GitCommitListEntry>(
+			(entry) => ({ ...entry, isMergeTarget: true }),
+		);
 
 		return {
 			mergeTargetRef,
-			entries: mergeTargetEntry
-				? [...entries, { ...mergeTargetEntry, isMergeTarget: true }]
-				: entries,
+			entries: [...entries, ...targetEntries],
 		};
 	}
 

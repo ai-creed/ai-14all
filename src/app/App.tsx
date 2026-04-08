@@ -1220,6 +1220,12 @@ export function App() {
 																sha,
 															})
 														}
+														onDeselectCommit={() =>
+															dispatch({
+																type: "session/clearSelectedCommit",
+																worktreeId: activeWorktree.id,
+															})
+														}
 														onSelectCommitFile={(relativePath) =>
 															dispatch({
 																type: "session/selectCommitFile",

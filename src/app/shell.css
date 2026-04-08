@@ -1011,6 +1011,10 @@ select {
 
 .shell-commit-list__sha {
 	min-width: 5.75ch;
+	color: #a78bfa;
+}
+
+.shell-commit-list__item[data-row-kind="mergeTarget"] .shell-commit-list__sha {
 	color: var(--accent);
 }
 

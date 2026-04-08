@@ -52,8 +52,36 @@ describe("CommitList", () => {
 				name: /src\/index\.ts/i,
 			}),
 		).toBeInTheDocument();
+		// Click the non-selected merge-target row to verify selection is notified.
+		await userEvent.click(screen.getByRole("button", { name: /origin\/main/i }));
+		expect(onSelectCommit).toHaveBeenCalledWith("base");
+	});
+
+	it("deselects the commit when clicking the already-selected row", async () => {
+		const onSelectCommit = vi.fn();
+		const onDeselectCommit = vi.fn();
+
+		render(
+			<CommitList
+				history={{
+					mergeTargetRef: "origin/main",
+					entries: [
+						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+						{ sha: "base", shortSha: "base", subject: "initial commit", isMergeTarget: true },
+					],
+				}}
+				selectedCommitSha="abc"
+				selectedCommitFilePath={null}
+				activeDetail={null}
+				onSelectCommit={onSelectCommit}
+				onDeselectCommit={onDeselectCommit}
+				onSelectCommitFile={vi.fn()}
+			/>,
+		);
+
 		await userEvent.click(screen.getByRole("button", { name: /feature commit/i }));
-		expect(onSelectCommit).toHaveBeenCalledWith("abc");
+		expect(onDeselectCommit).toHaveBeenCalledTimes(1);
+		expect(onSelectCommit).not.toHaveBeenCalled();
 	});
 
 	it("shows an empty state when no merge target ref exists", () => {

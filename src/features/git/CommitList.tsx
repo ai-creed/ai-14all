@@ -7,6 +7,7 @@ type Props = {
 	selectedCommitFilePath: string | null;
 	activeDetail: GitCommitDetail | null;
 	onSelectCommit: (sha: string) => void;
+	onDeselectCommit?: () => void;
 	onSelectCommitFile: (relativePath: string) => void;
 };
 
@@ -16,6 +17,7 @@ export function CommitList({
 	selectedCommitFilePath,
 	activeDetail,
 	onSelectCommit,
+	onDeselectCommit,
 	onSelectCommitFile,
 }: Props) {
 	if (!history.mergeTargetRef || history.entries.length === 0) {
@@ -48,7 +50,7 @@ export function CommitList({
 							className="shell-commit-list__item"
 							data-selected={String(isSelected)}
 							data-row-kind={row.rowKind}
-							onClick={() => onSelectCommit(row.sha)}
+							onClick={() => isSelected ? onDeselectCommit?.() : onSelectCommit(row.sha)}
 						>
 							<span
 								className="shell-commit-list__graph-column"
