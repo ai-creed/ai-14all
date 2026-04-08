@@ -57,9 +57,13 @@ test.describe.serial("Cumulative flow — Phase 4", () => {
 		// the xterm resize cycle has completed before we click list items.
 		await expect(page.getByText("Dirty")).toBeVisible({ timeout: 10_000 });
 
-		// Phase 6: wait for the default shell to be created before interacting
-		// with the review panel, so the xterm layout has time to stabilise.
-		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible({ timeout: 10_000 });
+		// Phase 6: wait for the default shell tab to appear before interacting
+		// with the review panel. We match any tab in the terminal tablist rather
+		// than the exact title "shell 1" because the xterm title changes to the
+		// shell's CWD almost immediately after the shell starts.
+		await expect(
+			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
+		).toBeVisible({ timeout: 10_000 });
 
 		// Phase 6: clicks inside the review panel use force:true because the xterm
 		// pane in the same column keeps the accessibility tree in flux, causing

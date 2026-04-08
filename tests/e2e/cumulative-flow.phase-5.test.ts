@@ -124,8 +124,12 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 			.click();
 
 		// After lazy hydration of the main session its shell tabs become visible.
-		// Phase 6: main has shell 1 (the auto-created default shell).
-		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible();
+		// Phase 6: main gets an auto-created default shell. We match any tab in
+		// the terminal tablist rather than "shell 1" because the xterm title may
+		// have already changed to the shell CWD by the time we check.
+		await expect(
+			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
+		).toBeVisible();
 	});
 
 	test("remembers a start-clean choice when asked", async () => {
