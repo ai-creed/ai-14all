@@ -19,6 +19,10 @@
 	--text-muted: #6f8593;
 	--accent: #67d4b0;
 	--accent-strong: #15383d;
+	--pane-border-sessions: rgba(79, 179, 255, 0.5);
+	--pane-border-session-info: rgba(246, 169, 74, 0.5);
+	--pane-border-terminal: rgba(67, 211, 158, 0.5);
+	--pane-border-review: rgba(243, 107, 138, 0.5);
 	--warning: #f0c37a;
 	--danger: #d98c8c;
 	--font-ui:
@@ -123,7 +127,8 @@ select {
 .shell-review-stack__resize-handle {
 	position: relative;
 	cursor: row-resize;
-	padding-block: 8px;
+	height: 16px;
+	padding: 0;
 }
 
 .shell-review-stack__resize-handle::before {
@@ -131,9 +136,8 @@ select {
 	position: absolute;
 	left: 0;
 	right: 0;
-	top: 50%;
+	top: 0;
 	height: 1px;
-	transform: translateY(-50%);
 	background: var(--panel-border);
 }
 
@@ -142,9 +146,14 @@ select {
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--space-3);
-	padding: 0 var(--space-3);
-	height: 36px;
-	border-bottom: 1px solid var(--panel-border);
+	padding: 4px;
+	min-height: 36px;
+	border-bottom: none;
+	border-color: var(--pane-border-review);
+}
+
+.shell-review-stack__header > .shell-label {
+	margin-left: 8px;
 }
 
 .shell-top-band {
@@ -155,6 +164,7 @@ select {
 	min-width: 0;
 	padding: var(--space-4);
 	padding-right: 52px;
+	border-color: var(--pane-border-session-info);
 }
 
 .shell-top-band[data-collapsed="true"] {
@@ -173,7 +183,8 @@ select {
 	color: var(--text-secondary);
 	background: transparent;
 	border: 1px solid var(--panel-border);
-	border-radius: var(--radius-sm);
+	border-radius: 999px;
+	cursor: pointer;
 	line-height: 1;
 }
 
@@ -272,6 +283,7 @@ select {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
 	overflow: hidden;
+	border-color: var(--pane-border-terminal);
 }
 
 .shell-review-grid {
@@ -375,6 +387,7 @@ select {
 	grid-template-rows: auto minmax(0, 1fr);
 	padding: var(--space-3);
 	min-width: 0;
+	border-color: var(--pane-border-sessions);
 }
 
 .shell-review-rail {
@@ -460,6 +473,7 @@ select {
 	padding: 0;
 	overflow: hidden;
 	background: transparent;
+	border-color: var(--pane-border-review);
 }
 
 .shell-terminal-tabs {
@@ -580,12 +594,14 @@ select {
 	min-height: 0;
 	padding: 0;
 	overflow: hidden;
+	border: none;
+	border-radius: 0;
 }
 
 .shell-terminal-pane__viewport {
 	height: 100%;
 	min-height: 0;
-	padding: var(--space-3);
+	padding: 0;
 	background: #0a1115;
 }
 
@@ -615,6 +631,7 @@ select {
 	min-width: 0;
 	min-height: 0;
 	overflow: hidden;
+	border-color: var(--pane-border-review);
 }
 
 .shell-review-rail__header,
@@ -625,8 +642,7 @@ select {
 }
 
 .shell-review-rail__header {
-	padding: var(--space-3);
-	border-bottom: 1px solid var(--panel-border);
+	padding: 4px;
 }
 
 .shell-review-tabs__segments {
