@@ -381,6 +381,10 @@ select {
 	gap: var(--space-2);
 }
 
+.shell-sidebar[data-collapsed="true"] {
+	padding-inline: 8px;
+}
+
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__header {
 	justify-content: center;
 }
