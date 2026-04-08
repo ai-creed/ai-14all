@@ -4,6 +4,7 @@ import type { ProcessAttentionState } from "./process-session";
 export type ReviewMode = "files" | "changes" | "commits";
 
 export type ViewerMode = "file" | "diff" | "commit";
+export type TerminalLayoutMode = "single" | "split";
 
 export type WorktreeSession = {
 	id: string;
@@ -23,4 +24,7 @@ export type WorktreeSession = {
 	activeProcessSessionId: string | null;
 	processSessionIds: string[];
 	attentionState: ProcessAttentionState;
+	terminalLayoutMode: TerminalLayoutMode;
+	splitLeftProcessId: string | null;
+	splitRightProcessId: string | null;
 };

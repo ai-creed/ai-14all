@@ -71,6 +71,9 @@ export function buildWorkspaceSnapshot(
 			selectedCommitSha: session.selectedCommitSha,
 			selectedCommitFilePath: session.selectedCommitFilePath,
 			activeProcessSessionId: session.activeProcessSessionId,
+			terminalLayoutMode: session.terminalLayoutMode,
+			splitLeftProcessId: session.splitLeftProcessId,
+			splitRightProcessId: session.splitRightProcessId,
 			nextAdHocNumber: state.nextAdHocNumberByWorktreeId[session.worktreeId] ?? 1,
 			processSessions: session.processSessionIds
 				.map((id) => state.processSessionsById[id])
