@@ -111,9 +111,13 @@ export class WorktreeService {
 			throw new Error("Worktree name must contain at least one letter or number.");
 		}
 
-		await execFileAsync(gitBinary, ["check-ref-format", "--branch", normalizedName], {
-			cwd: repository.rootPath,
-		});
+		try {
+			await execFileAsync(gitBinary, ["check-ref-format", "--branch", normalizedName], {
+				cwd: repository.rootPath,
+			});
+		} catch {
+			throw new Error(`"${normalizedName}" is not a valid Git branch name.`);
+		}
 
 		const branchExists = await execFileAsync(
 			gitBinary,

@@ -115,6 +115,7 @@ export function App() {
 	const [removePreview, setRemovePreview] = useState<RemoveWorktreePreview | null>(null);
 	const [removeError, setRemoveError] = useState<string | null>(null);
 	const [removeBusy, setRemoveBusy] = useState(false);
+	const [confirmedDirtyRemoval, setConfirmedDirtyRemoval] = useState(false);
 	const [startupMode, setStartupMode] = useState<StartupMode>("loading");
 	const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
 	const [restoreState, setRestoreState] = useState<PersistedWorkspaceState>(
@@ -1529,7 +1530,15 @@ export function App() {
 				}
 				error={removeError}
 				busy={removeBusy}
-				onOpenChange={setRemoveDialogOpen}
+				confirmedDirty={confirmedDirtyRemoval}
+				onConfirmedDirtyChange={setConfirmedDirtyRemoval}
+				onOpenChange={(open) => {
+					setRemoveDialogOpen(open);
+					if (!open) {
+						setRemoveTargetId(null);
+						setConfirmedDirtyRemoval(false);
+					}
+				}}
 				onConfirm={() => {
 					void handleConfirmRemoveWorktree();
 				}}

@@ -195,6 +195,7 @@ it("warns about dirty state and running sessions before removing a worktree", as
 	expect(await screen.findByText("Dirty worktree: yes")).toBeInTheDocument();
 	expect(screen.getByText("Running app sessions: shell 1")).toBeInTheDocument();
 
+	await userEvent.click(screen.getByRole("checkbox", { name: /I understand/ }));
 	await userEvent.click(screen.getByRole("button", { name: "Remove worktree" }));
 
 	await waitFor(() => {

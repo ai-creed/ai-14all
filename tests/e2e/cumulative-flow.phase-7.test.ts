@@ -99,6 +99,7 @@ test.describe.serial("Cumulative flow — Phase 7", () => {
 		// The fixture intentionally leaves feature-a dirty with uncommitted file changes.
 		await expect(page.getByText("Dirty worktree: yes")).toBeVisible({ timeout: 10_000 });
 		await expect(page.getByText(/Running app sessions:/)).toBeVisible({ timeout: 10_000 });
+		await page.getByRole("checkbox", { name: /I understand this worktree has uncommitted changes/ }).check();
 		await page.getByRole("button", { name: "Remove worktree" }).click();
 		// Wait for the dialog to close before checking the sidebar and branch.
 		// While the Radix UI dialog is open it sets aria-hidden on the rest of the

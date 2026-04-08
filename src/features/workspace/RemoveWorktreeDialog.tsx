@@ -7,8 +7,10 @@ type Props = {
 	runningProcessLabels: string[];
 	error: string | null;
 	busy: boolean;
+	confirmedDirty: boolean;
 	onOpenChange: (open: boolean) => void;
 	onConfirm: () => void;
+	onConfirmedDirtyChange: (v: boolean) => void;
 };
 
 export function RemoveWorktreeDialog({
@@ -17,8 +19,10 @@ export function RemoveWorktreeDialog({
 	runningProcessLabels,
 	error,
 	busy,
+	confirmedDirty,
 	onOpenChange,
 	onConfirm,
+	onConfirmedDirtyChange,
 }: Props) {
 	return (
 		<Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -35,12 +39,22 @@ export function RemoveWorktreeDialog({
 							<div>Running app sessions: {runningProcessLabels.length === 0 ? "none" : runningProcessLabels.join(", ")}</div>
 						</div>
 					)}
+					{preview?.isDirty && (
+						<label className="shell-modal__confirm-dirty">
+							<input
+								type="checkbox"
+								checked={confirmedDirty}
+								onChange={(e) => onConfirmedDirtyChange(e.target.checked)}
+							/>
+							{" "}I understand this worktree has uncommitted changes
+						</label>
+					)}
 					<p className="shell-modal__copy">
 						This will remove the linked worktree and force-delete its local branch.
 					</p>
 					{error && <div className="shell-error-banner">{error}</div>}
 					<div className="shell-modal__actions">
-						<button type="button" className="shell-button shell-button--danger" onClick={onConfirm} disabled={!preview || busy}>
+						<button type="button" className="shell-button shell-button--danger" onClick={onConfirm} disabled={!preview || busy || (preview.isDirty && !confirmedDirty)}>
 							Remove worktree
 						</button>
 					</div>
