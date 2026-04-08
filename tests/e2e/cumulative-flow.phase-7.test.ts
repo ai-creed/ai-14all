@@ -59,7 +59,7 @@ test.describe.serial("Cumulative flow — Phase 7", () => {
 		await page.getByRole("button", { name: "New worktree" }).click();
 		await page.getByLabel("Name").fill("Feature B");
 		await expect(page.getByText("/.worktrees/feature-b")).toBeVisible({ timeout: 15_000 });
-		await expect(page.getByText("origin/master")).toBeVisible();
+		await expect(page.getByRole("dialog", { name: "New worktree" }).getByText("origin/master")).toBeVisible();
 		await page.getByRole("button", { name: "Create worktree" }).click();
 		await expect(worktreeNav().getByRole("button", { name: "feature-b", exact: true })).toBeVisible({
 			timeout: 15_000,
@@ -98,7 +98,7 @@ test.describe.serial("Cumulative flow — Phase 7", () => {
 		await page.getByRole("button", { name: "Remove feature-a" }).click();
 		// The fixture intentionally leaves feature-a dirty with uncommitted file changes.
 		await expect(page.getByText("Dirty worktree: yes")).toBeVisible({ timeout: 10_000 });
-		await expect(page.getByText(/Running app sessions:/)).toBeVisible();
+		await expect(page.getByText(/Running app sessions:/)).toBeVisible({ timeout: 10_000 });
 		await page.getByRole("button", { name: "Remove worktree" }).click();
 		// Wait for the dialog to close before checking the sidebar and branch.
 		// While the Radix UI dialog is open it sets aria-hidden on the rest of the
