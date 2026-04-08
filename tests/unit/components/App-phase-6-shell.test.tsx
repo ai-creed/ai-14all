@@ -423,7 +423,7 @@ describe("App — Phase 6 default shell", () => {
 		expect(nav).toHaveAttribute("data-collapsed", "true");
 		expect(within(nav).queryByText("feature-a")).not.toBeInTheDocument();
 		expect(
-			within(nav).getByRole("button", { name: "feature-a feature-a" }),
+			within(nav).getByRole("button", { name: "feature-a" }),
 		).toHaveTextContent("F");
 
 		await userEvent.click(

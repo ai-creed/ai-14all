@@ -8,6 +8,8 @@ type Props = {
 	collapsed: boolean;
 	onToggleCollapsed: () => void;
 	onSelect: (worktreeId: string) => void;
+	onCreateWorktree: () => void;
+	onRemoveWorktree: (worktreeId: string) => void;
 };
 
 export function SessionSidebar({
@@ -17,6 +19,8 @@ export function SessionSidebar({
 	collapsed,
 	onToggleCollapsed,
 	onSelect,
+	onCreateWorktree,
+	onRemoveWorktree,
 }: Props) {
 	return (
 		<nav
@@ -39,30 +43,47 @@ export function SessionSidebar({
 			<div className="shell-sidebar__list">
 				{worktrees.map((worktree) => {
 					const selected = worktree.id === selectedWorktreeId;
-					const marker = worktree.label.slice(0, 1).toUpperCase();
 					return (
-						<button
-							key={worktree.id}
-							type="button"
-							className="shell-sidebar__item"
-							data-selected={String(selected)}
-							data-attention={attentionByWorktreeId?.[worktree.id] ?? "idle"}
-							aria-label={`${worktree.label} ${worktree.branchName}`}
-							onClick={() => onSelect(worktree.id)}
-						>
-							{collapsed ? (
-								<span className="shell-sidebar__marker">{marker}</span>
-							) : (
-								<>
+						<div key={worktree.id} className="shell-sidebar__row">
+							<button
+								type="button"
+								className="shell-sidebar__item"
+								data-selected={String(selected)}
+								data-attention={attentionByWorktreeId?.[worktree.id] ?? "idle"}
+								aria-label={worktree.branchName !== worktree.label ? `${worktree.label} ${worktree.branchName}` : worktree.label}
+								onClick={() => onSelect(worktree.id)}
+							>
+								{collapsed ? <span className="shell-sidebar__marker">{worktree.label.slice(0, 1).toUpperCase()}</span> : <>
 									<strong>{worktree.label}</strong>
 									{worktree.branchName !== worktree.label && (
 										<div className="shell-sidebar__branch">{worktree.branchName}</div>
 									)}
-								</>
+								</>}
+							</button>
+							{!collapsed && !worktree.isMain && (
+								<button
+									type="button"
+									className="shell-button shell-button--icon shell-button--compact"
+									aria-label={`Remove ${worktree.label}`}
+									onClick={() => onRemoveWorktree(worktree.id)}
+								>
+									×
+								</button>
 							)}
-						</button>
+						</div>
 					);
 				})}
+			</div>
+
+			<div className="shell-sidebar__footer">
+				<button
+					type="button"
+					className="shell-button shell-button--compact"
+					onClick={onCreateWorktree}
+					aria-label="New worktree"
+				>
+					{collapsed ? "+" : "New worktree"}
+				</button>
 			</div>
 		</nav>
 	);

@@ -116,7 +116,7 @@ async function loadRepositoryWithTwoWorktrees() {
 	fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
 	await waitFor(() => {
-		expect(screen.getByRole("button", { name: /feature-a/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "feature-a" })).toBeInTheDocument();
 	});
 }
 
@@ -384,7 +384,7 @@ describe("App — focus-gated auto-refresh", () => {
 	it("refreshes immediately on focus regain without double-fetching on worktree switch", async () => {
 		await loadRepositoryWithTwoWorktrees();
 
-		fireEvent.click(screen.getByRole("button", { name: /feature-a/i }));
+		fireEvent.click(screen.getByRole("button", { name: "feature-a" }));
 
 		await waitFor(() => {
 			expect(mockReadSummary.mock.calls.length).toBeGreaterThan(0);

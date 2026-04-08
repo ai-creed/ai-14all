@@ -18,6 +18,10 @@ import type {
 	RestorePreference,
 	WorkspaceSnapshot,
 } from "../../shared/models/persisted-workspace-state";
+import type {
+	CreateWorktreePreview,
+	RemoveWorktreePreview,
+} from "../../shared/models/worktree-lifecycle";
 import { DEFAULT_PERSISTED_WORKSPACE_STATE } from "../../shared/models/persisted-workspace-state";
 import { buildWorkspaceSnapshot, rebaseSnapshotPaths, reconcileSnapshotToWorktrees, shouldReattachSnapshot, splitPendingRestores } from "../features/workspace/workspace-persistence";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
@@ -32,6 +36,8 @@ import {
 import { TerminalTabs } from "../features/terminals/TerminalTabs";
 import { TerminalPane } from "../features/terminals/TerminalPane";
 import { PresetManager } from "../features/terminals/PresetManager";
+import { NewWorktreeDialog } from "../features/workspace/NewWorktreeDialog";
+import { RemoveWorktreeDialog } from "../features/workspace/RemoveWorktreeDialog";
 import { useTerminalSession } from "../features/terminals/useTerminalSession";
 import { deriveAttentionState } from "../features/terminals/process-attention";
 import { FileList } from "../features/viewer/FileList";
@@ -98,6 +104,17 @@ export function App() {
 	});
 	const [error, setError] = useState<string | null>(null);
 	const [presetManagerOpen, setPresetManagerOpen] = useState(false);
+	const [createDialogOpen, setCreateDialogOpen] = useState(false);
+	const [createName, setCreateName] = useState("");
+	const [createPreview, setCreatePreview] = useState<CreateWorktreePreview | null>(null);
+	const [createLoading, setCreateLoading] = useState(false);
+	const [createError, setCreateError] = useState<string | null>(null);
+	const [createBusy, setCreateBusy] = useState(false);
+	const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
+	const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
+	const [removePreview, setRemovePreview] = useState<RemoveWorktreePreview | null>(null);
+	const [removeError, setRemoveError] = useState<string | null>(null);
+	const [removeBusy, setRemoveBusy] = useState(false);
 	const [startupMode, setStartupMode] = useState<StartupMode>("loading");
 	const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
 	const [restoreState, setRestoreState] = useState<PersistedWorkspaceState>(
@@ -471,6 +488,54 @@ export function App() {
 		};
 	}, [activeWorktree?.id, activeWorktree?.path, refreshKey]);
 
+	useEffect(() => {
+		if (!createDialogOpen || !createName.trim()) {
+			setCreatePreview(null);
+			setCreateError(null);
+			return;
+		}
+		let cancelled = false;
+		const timeoutId = window.setTimeout(() => {
+			setCreateLoading(true);
+			repositoryClient.previewCreateWorktree(createName).then((preview) => {
+				if (cancelled) return;
+				setCreatePreview(preview);
+				setCreateError(null);
+			}).catch((err) => {
+				if (cancelled) return;
+				setCreatePreview(null);
+				setCreateError(err instanceof Error ? err.message : String(err));
+			}).finally(() => {
+				if (!cancelled) setCreateLoading(false);
+			});
+		}, 350);
+		return () => {
+			cancelled = true;
+			window.clearTimeout(timeoutId);
+		};
+	}, [createDialogOpen, createName]);
+
+	useEffect(() => {
+		if (!removeDialogOpen || !removeTargetId) {
+			setRemovePreview(null);
+			setRemoveError(null);
+			return;
+		}
+		let cancelled = false;
+		repositoryClient.previewRemoveWorktree(removeTargetId).then((preview) => {
+			if (!cancelled) {
+				setRemovePreview(preview);
+				setRemoveError(null);
+			}
+		}).catch((err) => {
+			if (!cancelled) {
+				setRemovePreview(null);
+				setRemoveError(err instanceof Error ? err.message : String(err));
+			}
+		});
+		return () => { cancelled = true; };
+	}, [removeDialogOpen, removeTargetId]);
+
 	async function refreshWorktreeInventory(options?: {
 		preferredSelectedWorktreeId?: string | null;
 		skipRuntimeCleanupWorktreeIds?: string[];
@@ -644,6 +709,60 @@ export function App() {
 			if (worktree) {
 				await recreatePersistedProcesses(worktree, pending);
 			}
+		}
+	}
+
+	async function handleConfirmCreateWorktree() {
+		if (!createPreview) return;
+		setCreateBusy(true);
+		try {
+			const created = await repositoryClient.createWorktree(createName);
+			await refreshWorktreeInventory({ preferredSelectedWorktreeId: created.id });
+			setCreateDialogOpen(false);
+			setCreateName("");
+			setCreatePreview(null);
+		} catch (err) {
+			setCreateError(err instanceof Error ? err.message : String(err));
+			await refreshWorktreeInventory();
+		} finally {
+			setCreateBusy(false);
+		}
+	}
+
+	async function closeProcessesForWorktree(worktreeId: string) {
+		const session = workspaceStateRef.current.sessionsByWorktreeId[worktreeId];
+		if (!session) return;
+		for (const processId of session.processSessionIds) {
+			const process = workspaceStateRef.current.processSessionsById[processId];
+			if (process?.terminalSessionId) {
+				try {
+					await stopSession(process.terminalSessionId);
+				} catch {
+					// Removal is already confirmed; continue clearing renderer state.
+				}
+				removeSession(process.terminalSessionId);
+			}
+			dispatch({ type: "session/closeProcess", worktreeId, processId });
+		}
+	}
+
+	async function handleConfirmRemoveWorktree() {
+		if (!removePreview) return;
+		setRemoveBusy(true);
+		try {
+			await closeProcessesForWorktree(removePreview.worktreeId);
+			await repositoryClient.removeWorktree(removePreview.worktreeId);
+			await refreshWorktreeInventory({
+				skipRuntimeCleanupWorktreeIds: [removePreview.worktreeId],
+			});
+			setRemoveDialogOpen(false);
+			setRemoveTargetId(null);
+			setRemovePreview(null);
+		} catch (err) {
+			setRemoveError(err instanceof Error ? err.message : String(err));
+			await refreshWorktreeInventory();
+		} finally {
+			setRemoveBusy(false);
 		}
 	}
 
@@ -998,6 +1117,11 @@ export function App() {
 					onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
 					onSelect={(worktreeId) => {
 						void handleSelectWorktree(worktreeId);
+					}}
+					onCreateWorktree={() => setCreateDialogOpen(true)}
+					onRemoveWorktree={(worktreeId) => {
+						setRemoveTargetId(worktreeId);
+						setRemoveDialogOpen(true);
 					}}
 				/>
 
@@ -1371,6 +1495,37 @@ export function App() {
 				onLaunch={(presetId) => {
 					setPresetManagerOpen(false);
 					handleLaunchPreset(presetId);
+				}}
+			/>
+			<NewWorktreeDialog
+				open={createDialogOpen}
+				name={createName}
+				preview={createPreview}
+				loading={createLoading}
+				error={createError}
+				busy={createBusy}
+				onOpenChange={setCreateDialogOpen}
+				onNameChange={setCreateName}
+				onConfirm={() => {
+					void handleConfirmCreateWorktree();
+				}}
+			/>
+			<RemoveWorktreeDialog
+				open={removeDialogOpen}
+				preview={removePreview}
+				runningProcessLabels={
+					removeTargetId
+						? (workspaceState.sessionsByWorktreeId[removeTargetId]?.processSessionIds ?? [])
+								.map((id) => workspaceState.processSessionsById[id])
+								.filter((process): process is ProcessSession => !!process && process.status === "running")
+								.map((process) => process.label)
+						: []
+				}
+				error={removeError}
+				busy={removeBusy}
+				onOpenChange={setRemoveDialogOpen}
+				onConfirm={() => {
+					void handleConfirmRemoveWorktree();
 				}}
 			/>
 		</main>

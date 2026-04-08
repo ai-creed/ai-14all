@@ -31,6 +31,8 @@ describe("SessionSidebar", () => {
 				collapsed={false}
 				onToggleCollapsed={vi.fn()}
 				onSelect={vi.fn()}
+				onCreateWorktree={vi.fn()}
+				onRemoveWorktree={vi.fn()}
 			/>,
 		);
 
@@ -44,7 +46,7 @@ describe("SessionSidebar", () => {
 		// "feature-a" branch is shown because it differs from the label "feature worktree"
 		expect(screen.getByText("feature-a")).toBeInTheDocument();
 		expect(
-			screen.getByRole("button", { name: /feature worktree/i }),
+			screen.getByRole("button", { name: "feature worktree feature-a" }),
 		).toHaveAttribute("data-selected", "true");
 	});
 
@@ -57,10 +59,12 @@ describe("SessionSidebar", () => {
 				collapsed={false}
 				onToggleCollapsed={vi.fn()}
 				onSelect={onSelect}
+				onCreateWorktree={vi.fn()}
+				onRemoveWorktree={vi.fn()}
 			/>,
 		);
 
-		fireEvent.click(screen.getByRole("button", { name: /feature worktree/i }));
+		fireEvent.click(screen.getByRole("button", { name: "feature worktree feature-a" }));
 		expect(onSelect).toHaveBeenCalledWith("feature-a");
 	});
 
@@ -73,11 +77,13 @@ describe("SessionSidebar", () => {
 				collapsed={false}
 				onToggleCollapsed={vi.fn()}
 				onSelect={() => {}}
+				onCreateWorktree={vi.fn()}
+				onRemoveWorktree={vi.fn()}
 			/>,
 		);
 
 		expect(
-			screen.getByRole("button", { name: /feature worktree/i }),
+			screen.getByRole("button", { name: "feature worktree feature-a" }),
 		).toHaveAttribute("data-attention", "actionRequired");
 	});
 
@@ -89,6 +95,8 @@ describe("SessionSidebar", () => {
 				collapsed={true}
 				onToggleCollapsed={vi.fn()}
 				onSelect={vi.fn()}
+				onCreateWorktree={vi.fn()}
+				onRemoveWorktree={vi.fn()}
 			/>,
 		);
 
@@ -108,5 +116,23 @@ describe("SessionSidebar", () => {
 		expect(
 			screen.getByRole("button", { name: "Expand sidebar" }),
 		).toBeInTheDocument();
+	});
+
+	it("shows a bottom New worktree button and only exposes remove for non-main rows", () => {
+		render(
+			<SessionSidebar
+				worktrees={worktrees}
+				selectedWorktreeId="main"
+				collapsed={false}
+				onToggleCollapsed={vi.fn()}
+				onSelect={vi.fn()}
+				onCreateWorktree={vi.fn()}
+				onRemoveWorktree={vi.fn()}
+			/>,
+		);
+
+		expect(screen.getByRole("button", { name: "New worktree" })).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "Remove main" })).not.toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Remove feature worktree" })).toBeInTheDocument();
 	});
 });

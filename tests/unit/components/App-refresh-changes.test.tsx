@@ -170,7 +170,7 @@ async function loadRepositoryWithTwoWorktrees() {
 
 	await waitFor(() => {
 		expect(
-			screen.getByRole("button", { name: /feature-a/i }),
+			screen.getByRole("button", { name: "feature-a" }),
 		).toBeInTheDocument();
 	});
 }
@@ -539,7 +539,7 @@ describe("App — refresh changes button", () => {
 
 		await loadRepositoryWithTwoWorktrees();
 
-		await user.click(screen.getByRole("button", { name: /feature-a/i }));
+		await user.click(screen.getByRole("button", { name: "feature-a" }));
 		await user.click(screen.getByRole("tab", { name: "Changes" }));
 
 		const changedFile = await screen.findByRole("button", {
@@ -551,7 +551,7 @@ describe("App — refresh changes button", () => {
 		await user.click(
 			screen.getByRole("button", { name: /^main(?:\s+main)?$/i }),
 		);
-		await user.click(screen.getByRole("button", { name: /feature-a/i }));
+		await user.click(screen.getByRole("button", { name: "feature-a" }));
 
 		expect(screen.getByRole("tab", { name: "Changes" })).toHaveAttribute(
 			"data-state",
