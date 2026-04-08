@@ -55,9 +55,10 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 			.getByRole("button", { name: /^main(?:\s+main)?$/i })
 			.click();
 
-		// Wait for the default shell to be ready before interacting with the toolbar
+		// Wait for the default shell to be ready before interacting with the toolbar.
+		// The xterm title changes to the CWD quickly, so match any tab.
 		await expect(
-			page.getByRole("tab", { name: /^shell 1(?: \((?:error|exited)\))?$/i }),
+			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
 		).toBeVisible({ timeout: 10_000 });
 
 		// Open preset manager and add a "Claude" preset.
@@ -83,28 +84,36 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 		// Phase 6: a default "shell 1" is auto-created on worktree activation.
 		// Clicking "+ Shell" now creates "shell 2". Tab actions are now accessed
 		// via right-click context menu instead of a dedicated "Actions" button.
-		await page.getByRole("button", { name: "Add shell" }).click();
+		//
+		// The xterm title changes to the CWD almost immediately after each shell
+		// starts, so tab names are not reliable identifiers. Instead, count tabs
+		// before and after adding, and identify shell 2 by its position (last tab).
+		const termTabs = page
+			.getByRole("tablist", { name: "Terminal sessions" })
+			.getByRole("tab");
+		const countBefore = await termTabs.count();
 
-		const shellTab = page.getByRole("tab", { name: "shell 2" });
-		await expect(shellTab).toBeVisible({ timeout: 10_000 });
+		await page.getByRole("button", { name: "Add shell" }).click();
+		await expect(termTabs).toHaveCount(countBefore + 1, { timeout: 10_000 });
+
+		// The newly added shell is always appended last.
+		const shellTab = termTabs.last();
 
 		await shellTab.click({ button: "right" });
 		await page.getByRole("menuitem", { name: "Stop" }).click();
-		await expect(
-			page.getByRole("tab", { name: /^shell 2 \(exited(?:: \d+)?\)$/i }),
-		).toBeVisible({ timeout: 10_000 });
-
-		await page.getByRole("tab", { name: /^shell 2/ }).click({ button: "right" });
-		await page.getByRole("menuitem", { name: "Restart" }).click();
-		await expect(page.getByRole("tab", { name: "shell 2" })).toBeVisible({
+		await expect(shellTab).toHaveAttribute("data-status", /exited|error/, {
 			timeout: 10_000,
 		});
 
-		await page.getByRole("tab", { name: "shell 2" }).click({ button: "right" });
+		await shellTab.click({ button: "right" });
+		await page.getByRole("menuitem", { name: "Restart" }).click();
+		await expect(shellTab).toHaveAttribute("data-status", "running", {
+			timeout: 10_000,
+		});
+
+		await shellTab.click({ button: "right" });
 		await page.getByRole("menuitem", { name: "Close" }).click();
-		await expect(
-			page.getByRole("tab", { name: /^shell 2(?: \((?:error|exited)\))?$/i }),
-		).toHaveCount(0);
+		await expect(termTabs).toHaveCount(countBefore, { timeout: 10_000 });
 	});
 
 	test("rolls action-required attention up to the sidebar", async () => {
