@@ -123,6 +123,7 @@ select {
 .shell-review-stack__resize-handle {
 	position: relative;
 	cursor: row-resize;
+	padding-block: 8px;
 }
 
 .shell-review-stack__resize-handle::before {

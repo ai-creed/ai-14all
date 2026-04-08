@@ -1110,7 +1110,7 @@ export function App() {
 							style={{
 								gridTemplateRows: reviewPanelCollapsed
 									? "auto"
-									: `8px auto ${reviewPanelHeight}px`,
+									: `auto auto ${reviewPanelHeight}px`,
 							}}
 						>
 							{!reviewPanelCollapsed && (

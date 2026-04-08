@@ -474,7 +474,7 @@ describe("App — Phase 6 default shell", () => {
 		expect(await screen.findByText("Diff vs HEAD")).toBeInTheDocument();
 
 		const reviewStack = screen.getByTestId("review-stack");
-		expect(reviewStack).toHaveStyle({ gridTemplateRows: "8px auto 280px" });
+		expect(reviewStack).toHaveStyle({ gridTemplateRows: "auto auto 280px" });
 
 		fireEvent.mouseDown(screen.getByTestId("review-panel-resize-handle"), {
 			clientY: 500,
@@ -483,7 +483,7 @@ describe("App — Phase 6 default shell", () => {
 		fireEvent.mouseUp(window);
 
 		await waitFor(() => {
-			expect(reviewStack).toHaveStyle({ gridTemplateRows: "8px auto 320px" });
+			expect(reviewStack).toHaveStyle({ gridTemplateRows: "auto auto 320px" });
 		});
 
 		await userEvent.click(
@@ -500,7 +500,7 @@ describe("App — Phase 6 default shell", () => {
 		);
 
 		expect(await screen.findByText("Diff vs HEAD")).toBeInTheDocument();
-		expect(reviewStack).toHaveStyle({ gridTemplateRows: "8px auto 320px" });
+		expect(reviewStack).toHaveStyle({ gridTemplateRows: "auto auto 320px" });
 	});
 
 	it("keeps the current session state when reloading the same repository from the picker", async () => {
