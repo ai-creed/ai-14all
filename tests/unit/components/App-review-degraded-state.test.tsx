@@ -167,6 +167,19 @@ async function loadRepositoryAndSwitchToCommits() {
 describe("App — degraded commit history read", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		// mockReset drains any leftover Once-queue values from previous tests so
+		// background refreshWorktreeInventory calls don't receive undefined.
+		mockListWorktrees.mockReset();
+		mockListWorktrees.mockResolvedValue([
+			{
+				id: "wt1",
+				repositoryId: "r1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
+		]);
 		mockReadRestoreState.mockResolvedValue({
 			version: 1,
 			restorePreference: "prompt",
@@ -252,6 +265,19 @@ describe("App — degraded commit history read", () => {
 describe("App — degraded commit detail read", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		// mockReset drains any leftover Once-queue values from previous tests so
+		// background refreshWorktreeInventory calls don't receive undefined.
+		mockListWorktrees.mockReset();
+		mockListWorktrees.mockResolvedValue([
+			{
+				id: "wt1",
+				repositoryId: "r1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
+		]);
 		mockReadRestoreState.mockResolvedValue({
 			version: 1,
 			restorePreference: "prompt",
@@ -288,6 +314,19 @@ describe("App — degraded commit detail read", () => {
 describe("App — focus-gated auto-refresh", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		// mockReset drains any leftover Once-queue values from previous tests so
+		// background refreshWorktreeInventory calls don't receive undefined.
+		mockListWorktrees.mockReset();
+		mockListWorktrees.mockResolvedValue([
+			{
+				id: "wt1",
+				repositoryId: "r1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
+		]);
 		mockReadRestoreState.mockResolvedValue({
 			version: 1,
 			restorePreference: "prompt",

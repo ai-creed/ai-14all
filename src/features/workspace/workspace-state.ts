@@ -103,7 +103,8 @@ export type WorkspaceAction =
 	| { type: "session/restoreSnapshot"; snapshot: PersistedWorktreeSession }
 	| { type: "session/selectCommit"; worktreeId: string; sha: string }
 	| { type: "session/selectCommitFile"; worktreeId: string; relativePath: string }
-	| { type: "session/clearSelectedCommit"; worktreeId: string };
+	| { type: "session/clearSelectedCommit"; worktreeId: string }
+	| { type: "workspace/reconcileWorktrees"; worktrees: Worktree[] };
 
 function createSession(worktree: Worktree): WorktreeSession {
 	return {
@@ -270,6 +271,41 @@ export function workspaceReducer(
 	// new worktrees into existing state to preserve open sessions.
 	if (action.type === "workspace/loadWorktrees") {
 		return createWorkspaceState(action.worktrees);
+	}
+
+	if (action.type === "workspace/reconcileWorktrees") {
+		const nextWorktreeIds = new Set(action.worktrees.map((worktree) => worktree.id));
+		const nextSessionsByWorktreeId = Object.fromEntries(
+			action.worktrees.map((worktree) => [
+				worktree.id,
+				state.sessionsByWorktreeId[worktree.id] ?? createSession(worktree),
+			]),
+		);
+		const nextProcessSessionsById = Object.fromEntries(
+			Object.entries(state.processSessionsById).filter(([, process]) =>
+				nextWorktreeIds.has(process.worktreeId),
+			),
+		);
+		const nextNumbers = Object.fromEntries(
+			action.worktrees.map((worktree) => [
+				worktree.id,
+				state.nextAdHocNumberByWorktreeId[worktree.id] ?? 1,
+			]),
+		);
+		const preferredSelection =
+			state.selectedWorktreeId && nextWorktreeIds.has(state.selectedWorktreeId)
+				? state.selectedWorktreeId
+				: (action.worktrees.find((worktree) => worktree.isMain)?.id ??
+					action.worktrees[0]?.id ??
+					null);
+
+		return {
+			...state,
+			selectedWorktreeId: preferredSelection,
+			processSessionsById: nextProcessSessionsById,
+			sessionsByWorktreeId: nextSessionsByWorktreeId,
+			nextAdHocNumberByWorktreeId: nextNumbers,
+		};
 	}
 
 	if (action.type === "workspace/setTopBandCollapsed") {

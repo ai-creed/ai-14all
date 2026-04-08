@@ -467,7 +467,47 @@ export function App() {
 		};
 	}, [activeWorktree?.id, activeWorktree?.path, refreshKey]);
 
-	function handleRefreshChanges() {
+	async function refreshWorktreeInventory(options?: {
+		preferredSelectedWorktreeId?: string | null;
+		skipRuntimeCleanupWorktreeIds?: string[];
+	}) {
+		if (!repository) return;
+		const latest = await repositoryClient.listWorktrees();
+		const latestIds = new Set(latest.map((worktree) => worktree.id));
+		const skipCleanupIds = new Set(options?.skipRuntimeCleanupWorktreeIds ?? []);
+		const removedWorktreeIds = worktrees
+			.filter((worktree) => !latestIds.has(worktree.id))
+			.filter((worktree) => !skipCleanupIds.has(worktree.id))
+			.map((worktree) => worktree.id);
+
+		for (const removedWorktreeId of removedWorktreeIds) {
+			const removedSession = workspaceState.sessionsByWorktreeId[removedWorktreeId];
+			if (!removedSession) continue;
+			for (const processId of removedSession.processSessionIds) {
+				const process = workspaceState.processSessionsById[processId];
+				if (!process?.terminalSessionId) continue;
+				try {
+					await stopSession(process.terminalSessionId);
+				} catch {
+					// External worktree removal already invalidated the cwd; still
+					// clear the renderer's runtime copy so stale terminals disappear.
+				}
+				removeSession(process.terminalSessionId);
+			}
+		}
+
+		setWorktrees(latest);
+		dispatch({ type: "workspace/reconcileWorktrees", worktrees: latest });
+		if (options?.preferredSelectedWorktreeId && latestIds.has(options.preferredSelectedWorktreeId)) {
+			dispatch({
+				type: "session/selectWorktree",
+				worktreeId: options.preferredSelectedWorktreeId,
+			});
+		}
+	}
+
+	async function handleRefreshChanges() {
+		await refreshWorktreeInventory();
 		setRefreshKey((k) => k + 1);
 	}
 
@@ -486,7 +526,7 @@ export function App() {
 		if (startupMode !== "ready" || !repository || !activeWorktree || !windowFocused) return;
 
 		const interval = window.setInterval(() => {
-			handleRefreshChanges();
+			void handleRefreshChanges();
 		}, 15_000);
 
 		return () => window.clearInterval(interval);
@@ -503,7 +543,7 @@ export function App() {
 			repository &&
 			activeWorktree
 		) {
-			handleRefreshChanges();
+			void handleRefreshChanges();
 		}
 	}, [windowFocused, startupMode, repository?.rootPath, activeWorktree?.id]);
 

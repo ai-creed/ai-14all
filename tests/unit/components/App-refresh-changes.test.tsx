@@ -128,13 +128,7 @@ async function loadRepoAndSwitchToChanges() {
 }
 
 async function loadRepositoryWithTwoWorktrees() {
-	mockSetRoot.mockResolvedValueOnce({
-		id: "r1",
-		name: "test-repo",
-		rootPath: "/repo",
-		repoId: "repo-id-123",
-	});
-	mockListWorktrees.mockResolvedValueOnce([
+	const twoWorktrees = [
 		{
 			id: "wt1",
 			repositoryId: "r1",
@@ -151,7 +145,16 @@ async function loadRepositoryWithTwoWorktrees() {
 			label: "feature-a",
 			isMain: false,
 		},
-	]);
+	];
+	mockSetRoot.mockResolvedValueOnce({
+		id: "r1",
+		name: "test-repo",
+		rootPath: "/repo",
+		repoId: "repo-id-123",
+	});
+	// Set a persistent default so background refreshes (focus/interval) keep
+	// both worktrees alive and don't reconcile feature-a away.
+	mockListWorktrees.mockResolvedValue(twoWorktrees);
 
 	render(<App />);
 
@@ -198,6 +201,20 @@ describe("App — refresh changes button", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
+		// Reset and set a default fallback for listWorktrees. mockReset() is used
+		// here (not clearAllMocks) to drain any stale Once-queue values left over
+		// from previous tests — clearAllMocks() does not drain the Once queue.
+		mockListWorktrees.mockReset();
+		mockListWorktrees.mockResolvedValue([
+			{
+				id: "wt1",
+				repositoryId: "r1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
+		]);
 	});
 
 	it("shows a Refresh button when review mode is 'changes'", async () => {
@@ -450,6 +467,45 @@ describe("App — refresh changes button", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/showing last successful result/i)).toBeInTheDocument();
 			expect(screen.getByRole("button", { name: /src\/index\.ts/i })).toBeInTheDocument();
+		});
+	});
+
+	it("refreshes worktree discovery alongside git summary so active branch identity updates", async () => {
+		mockSetRoot.mockResolvedValueOnce({
+			id: "r1",
+			name: "test-repo",
+			rootPath: "/repo",
+			repoId: "repo-id-123",
+		});
+		mockListWorktrees
+			.mockResolvedValueOnce([
+				{
+					id: "wt1",
+					repositoryId: "r1",
+					branchName: "feature-a",
+					path: "/repo",
+					label: "repo",
+					isMain: false,
+				},
+			])
+			.mockResolvedValueOnce([
+				{
+					id: "wt1",
+					repositoryId: "r1",
+					branchName: "feature-b",
+					path: "/repo",
+					label: "repo",
+					isMain: false,
+				},
+			]);
+
+		await loadRepoAndSwitchToChanges();
+		expect(screen.getAllByText("feature-a").length).toBeGreaterThan(0);
+
+		fireEvent.click(screen.getByRole("button", { name: "Refresh review" }));
+
+		await waitFor(() => {
+			expect(screen.getAllByText("feature-b").length).toBeGreaterThan(0);
 		});
 	});
 

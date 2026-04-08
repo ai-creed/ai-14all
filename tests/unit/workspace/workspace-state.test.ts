@@ -456,6 +456,49 @@ describe("workspaceReducer — git summary stale state", () => {
 	});
 });
 
+describe("workspaceReducer — Phase 7 worktree reconciliation", () => {
+	it("reconciles discovered worktrees while preserving surviving session state", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/setNote",
+			worktreeId: "feature-a",
+			note: "keep me",
+		});
+		state = workspaceReducer(state, {
+			type: "workspace/reconcileWorktrees",
+			worktrees: [
+				worktrees[0],
+				{
+					id: "feature-b",
+					repositoryId: "repo-1",
+					branchName: "feature-b",
+					path: "/repo/.worktrees/feature-b",
+					label: "feature-b",
+					isMain: false,
+				},
+			],
+		});
+
+		expect(state.sessionsByWorktreeId.main).toBeDefined();
+		expect(state.sessionsByWorktreeId["feature-a"]).toBeUndefined();
+		expect(state.sessionsByWorktreeId["feature-b"].note).toBe("");
+	});
+
+	it("falls back to the main worktree when the selected worktree disappears", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/selectWorktree",
+			worktreeId: "feature-a",
+		});
+		state = workspaceReducer(state, {
+			type: "workspace/reconcileWorktrees",
+			worktrees: [worktrees[0]],
+		});
+
+		expect(state.selectedWorktreeId).toBe("main");
+	});
+});
+
 describe("workspaceReducer — Phase 6 commit review state", () => {
 	it("switches into commit review mode when selecting a commit", () => {
 		let state = createWorkspaceState(worktrees);
