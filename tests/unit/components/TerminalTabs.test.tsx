@@ -38,6 +38,15 @@ const stubHandlers = {
 	onStop: vi.fn(),
 	onRestart: vi.fn(),
 	onTogglePinned: vi.fn(),
+	onToggleSplitMode: vi.fn(),
+	onShowInSplit: vi.fn(),
+	onRemoveFromSplit: vi.fn(),
+};
+
+type RenderOptions = {
+	layoutMode?: "single" | "split";
+	splitLeftProcessId?: string | null;
+	splitRightProcessId?: string | null;
 };
 
 function renderTabs(
@@ -45,6 +54,7 @@ function renderTabs(
 	activeProcessId: string | null = null,
 	presets: CommandPreset[] = [],
 	overrides: Partial<typeof stubHandlers> = {},
+	options: RenderOptions = {},
 ) {
 	const handlers = { ...stubHandlers, ...overrides };
 	// Reset all stubs before each render
@@ -54,6 +64,9 @@ function renderTabs(
 			processes={processes}
 			activeProcessId={activeProcessId}
 			presets={presets}
+			layoutMode={options.layoutMode ?? "single"}
+			splitLeftProcessId={options.splitLeftProcessId ?? null}
+			splitRightProcessId={options.splitRightProcessId ?? null}
 			{...handlers}
 		/>,
 	);
@@ -92,6 +105,22 @@ describe("TerminalTabs", () => {
 			"data-state",
 			"active",
 		);
+	});
+
+	it("renders split toggle state and calls layout toggle handler", async () => {
+		const user = userEvent.setup();
+		const onToggleSplitMode = vi.fn();
+
+		renderTabs(
+			[proc({ id: "proc-1", label: "shell 1" })],
+			"proc-1",
+			[],
+			{ onToggleSplitMode },
+		);
+
+		await user.click(screen.getByRole("button", { name: "Enable split shells" }));
+
+		expect(onToggleSplitMode).toHaveBeenCalledTimes(1);
 	});
 
 	it("shows visual indicator and data-status for exited and errored tabs", () => {
@@ -347,6 +376,38 @@ describe("TerminalTabs", () => {
 		]);
 		await user.click(screen.getByRole("menuitem", { name: "Pin" }));
 		expect(onTogglePinned).toHaveBeenCalledWith("proc-1");
+	});
+
+	it("shows split-slot actions in tab context menu", async () => {
+		const user = userEvent.setup();
+		const onShowInSplit = vi.fn();
+		const onRemoveFromSplit = vi.fn();
+
+		renderTabs(
+			[proc({ id: "proc-1", label: "shell 1" })],
+			"proc-1",
+			[],
+			{ onShowInSplit, onRemoveFromSplit },
+			{ layoutMode: "split", splitLeftProcessId: "proc-1" },
+		);
+
+		await user.pointer([
+			{
+				target: screen.getByRole("tab", { name: "shell 1" }),
+				keys: "[MouseRight]",
+			},
+		]);
+		await user.click(screen.getByRole("menuitem", { name: "Show in split right" }));
+		expect(onShowInSplit).toHaveBeenCalledWith("proc-1", "right");
+
+		await user.pointer([
+			{
+				target: screen.getByRole("tab", { name: "shell 1" }),
+				keys: "[MouseRight]",
+			},
+		]);
+		await user.click(screen.getByRole("menuitem", { name: "Remove from split" }));
+		expect(onRemoveFromSplit).toHaveBeenCalledWith("proc-1");
 	});
 
 	it("shows Unpin for already-pinned tabs", async () => {

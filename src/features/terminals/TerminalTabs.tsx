@@ -19,10 +19,15 @@ type ProcessTabView = Pick<
 	| "lastActivityAt"
 >;
 
+type SplitSlot = "left" | "right";
+
 type Props = {
 	processes: ProcessTabView[];
 	activeProcessId: string | null;
 	presets: CommandPreset[];
+	layoutMode: "single" | "split";
+	splitLeftProcessId: string | null;
+	splitRightProcessId: string | null;
 	onSelect: (processId: string) => void;
 	onAddAdHoc: () => void;
 	onLaunchPreset: (presetId: string) => void;
@@ -31,6 +36,9 @@ type Props = {
 	onStop: (processId: string) => void;
 	onRestart: (processId: string) => void;
 	onTogglePinned: (processId: string) => void;
+	onToggleSplitMode: () => void;
+	onShowInSplit: (processId: string, slot: SplitSlot) => void;
+	onRemoveFromSplit: (processId: string) => void;
 };
 
 function formatStatusSuffix(
@@ -50,6 +58,9 @@ export function TerminalTabs({
 	processes,
 	activeProcessId,
 	presets,
+	layoutMode,
+	splitLeftProcessId,
+	splitRightProcessId,
 	onSelect,
 	onAddAdHoc,
 	onLaunchPreset,
@@ -58,6 +69,9 @@ export function TerminalTabs({
 	onStop,
 	onRestart,
 	onTogglePinned,
+	onToggleSplitMode,
+	onShowInSplit,
+	onRemoveFromSplit,
 }: Props) {
 	return (
 		<Tooltip.Provider delayDuration={150}>
@@ -86,6 +100,13 @@ export function TerminalTabs({
 												data-status={process.status}
 												data-attention={process.attentionState}
 												data-pinned={String(process.pinned)}
+												data-split-slot={
+													splitLeftProcessId === process.id
+														? "left"
+														: splitRightProcessId === process.id
+															? "right"
+															: "none"
+												}
 												{...(process.lastActivityAt != null
 													? { "data-last-activity": String(process.lastActivityAt) }
 													: {})}
@@ -116,6 +137,27 @@ export function TerminalTabs({
 												>
 													{process.pinned ? "Unpin" : "Pin"}
 												</ContextMenu.Item>
+												<ContextMenu.Item
+													className="shell-toolbar-menu__item"
+													onSelect={() => onShowInSplit(process.id, "left")}
+												>
+													Show in split left
+												</ContextMenu.Item>
+												<ContextMenu.Item
+													className="shell-toolbar-menu__item"
+													onSelect={() => onShowInSplit(process.id, "right")}
+												>
+													Show in split right
+												</ContextMenu.Item>
+												{(splitLeftProcessId === process.id ||
+													splitRightProcessId === process.id) && (
+													<ContextMenu.Item
+														className="shell-toolbar-menu__item"
+														onSelect={() => onRemoveFromSplit(process.id)}
+													>
+														Remove from split
+													</ContextMenu.Item>
+												)}
 												<ContextMenu.Separator className="shell-toolbar-menu__separator" />
 												<ContextMenu.Item
 													className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
@@ -139,6 +181,19 @@ export function TerminalTabs({
 							aria-label="Add shell"
 						>
 							+
+						</button>
+						<button
+							type="button"
+							className="shell-button shell-button--compact"
+							aria-pressed={layoutMode === "split"}
+							aria-label={
+								layoutMode === "split"
+									? "Disable split shells"
+									: "Enable split shells"
+							}
+							onClick={onToggleSplitMode}
+						>
+							Split
 						</button>
 
 						<DropdownMenu.Root>
