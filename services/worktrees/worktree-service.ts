@@ -1,4 +1,4 @@
-import { stat, access, mkdir, realpath } from "node:fs/promises";
+import { stat, access, mkdir } from "node:fs/promises";
 import { constants } from "node:fs";
 import { basename, join } from "node:path";
 import { execFile } from "node:child_process";
