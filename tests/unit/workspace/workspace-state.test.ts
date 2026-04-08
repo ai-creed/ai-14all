@@ -743,6 +743,9 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 						selectedChangedFilePath: "src/index.ts",
 						selectedCommitSha: null,
 						selectedCommitFilePath: null,
+						terminalLayoutMode: "single" as const,
+						splitLeftProcessId: null,
+						splitRightProcessId: null,
 						activeProcessSessionId: "process-1",
 						nextAdHocNumber: 2,
 						processSessions: [
@@ -784,6 +787,9 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 				selectedChangedFilePath: null,
 				selectedCommitSha: null,
 				selectedCommitFilePath: null,
+				terminalLayoutMode: "single" as const,
+				splitLeftProcessId: null,
+				splitRightProcessId: null,
 				activeProcessSessionId: "process-2",
 				nextAdHocNumber: 4,
 				processSessions: [
@@ -816,6 +822,9 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 				selectedChangedFilePath: null,
 				selectedCommitSha: "abc1234",
 				selectedCommitFilePath: "src/index.ts",
+				terminalLayoutMode: "single" as const,
+				splitLeftProcessId: null,
+				splitRightProcessId: null,
 				activeProcessSessionId: null,
 				nextAdHocNumber: 1,
 				processSessions: [],
@@ -840,6 +849,9 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 				selectedChangedFilePath: null,
 				selectedCommitSha: null,
 				selectedCommitFilePath: null,
+				terminalLayoutMode: "single" as const,
+				splitLeftProcessId: null,
+				splitRightProcessId: null,
 				activeProcessSessionId: "orphan-id", // not in processSessions
 				nextAdHocNumber: 2,
 				processSessions: [
