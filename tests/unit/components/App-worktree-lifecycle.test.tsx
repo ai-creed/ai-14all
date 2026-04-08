@@ -1,4 +1,4 @@
-import { it, expect, vi, beforeEach } from "vitest";
+import { it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -117,6 +117,12 @@ beforeEach(() => {
 	vi.clearAllMocks();
 });
 
+afterEach(() => {
+	// mockResolvedValueOnce queues survive vi.clearAllMocks(); reset the queue on
+	// the most-overloaded mock to prevent leakage into subsequent tests.
+	mockListWorktrees.mockReset();
+});
+
 it("previews and creates a new worktree from the sidebar modal", async () => {
 	mockListWorktrees
 		.mockResolvedValueOnce(initialWorktrees)
@@ -167,6 +173,82 @@ it("previews and creates a new worktree from the sidebar modal", async () => {
 
 	expect(mockCreateWorktree).toHaveBeenCalledWith("Feature B");
 	expect(await screen.findByRole("button", { name: "feature-b" })).toBeInTheDocument();
+});
+
+it("creates a default shell for a worktree recreated after removal with the same id", async () => {
+	// Bug: closeProcessesForWorktree never removes the worktree id from
+	// defaultShellEnsuredByWorktreeRef, so a recreated worktree with the same id
+	// gets no default shell (the Set still contains it from the first visit).
+	mockListWorktrees
+		.mockResolvedValueOnce(initialWorktrees) // initial load
+		.mockResolvedValueOnce([initialWorktrees[0]]) // after remove
+		.mockResolvedValueOnce([...initialWorktrees]); // after recreate
+
+	mockPreviewRemoveWorktree.mockResolvedValue({
+		worktreeId: "feature-a",
+		label: "feature-a",
+		branchName: "feature-a",
+		path: "/repo/.worktrees/feature-a",
+		isMain: false,
+		isDirty: false,
+	});
+	mockRemoveWorktree.mockResolvedValue(undefined);
+
+	mockPreviewCreateWorktree.mockResolvedValue({
+		name: "feature-a",
+		branchName: "feature-a",
+		path: "/repo/.worktrees/feature-a",
+		baseRef: "origin/master",
+		baseCommit: { sha: "abc123456789", shortSha: "abc1234", subject: "initial commit" },
+	});
+	mockCreateWorktree.mockResolvedValue({
+		id: "feature-a",
+		repositoryId: "r1",
+		branchName: "feature-a",
+		path: "/repo/.worktrees/feature-a",
+		label: "feature-a",
+		isMain: false,
+	});
+
+	await loadRepository();
+
+	// Select feature-a — default shell is auto-created on first visit
+	await userEvent.click(screen.getByRole("button", { name: "feature-a" }));
+	await waitFor(() => {
+		expect(screen.getByRole("tab", { name: /shell 1/i })).toBeInTheDocument();
+	});
+
+	const createsBefore = vi.mocked(terminals.create).mock.calls.filter(
+		(c) => c[0] === "feature-a",
+	).length;
+	expect(createsBefore).toBe(1);
+
+	// Remove feature-a (isDirty:false — no confirmation checkbox required)
+	fireEvent.contextMenu(screen.getByRole("button", { name: "feature-a" }));
+	await userEvent.click(await screen.findByRole("menuitem", { name: "Remove worktree" }));
+	await screen.findByText("Dirty worktree: no");
+	await userEvent.click(screen.getByRole("button", { name: "Remove worktree" }));
+	await waitFor(() => {
+		expect(screen.queryByRole("button", { name: "feature-a" })).not.toBeInTheDocument();
+	});
+
+	// Recreate feature-a with the same id/path
+	await userEvent.click(screen.getByRole("button", { name: "New worktree" }));
+	await userEvent.type(screen.getByRole("textbox", { name: "Name" }), "feature-a");
+	// Wait for preview to load (350ms debounce + async mock) before clicking
+	await screen.findByText("origin/master");
+	await userEvent.click(screen.getByRole("button", { name: "Create worktree" }));
+	await waitFor(() => {
+		expect(screen.getByRole("button", { name: "feature-a" })).toBeInTheDocument();
+	});
+
+	// A default shell must be created for the recreated worktree
+	await waitFor(() => {
+		const createsAfter = vi.mocked(terminals.create).mock.calls.filter(
+			(c) => c[0] === "feature-a",
+		).length;
+		expect(createsAfter).toBe(2);
+	});
 });
 
 it("warns about dirty state and running sessions before removing a worktree", async () => {

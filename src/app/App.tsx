@@ -745,6 +745,10 @@ export function App() {
 			}
 			dispatch({ type: "session/closeProcess", worktreeId, processId });
 		}
+		// Clear the guard so a future worktree reusing the same id (same path) gets
+		// a fresh default shell instead of being skipped because the id is still in
+		// the Set from the removed worktree's first visit.
+		defaultShellEnsuredByWorktreeRef.current.delete(worktreeId);
 	}
 
 	async function handleConfirmRemoveWorktree() {

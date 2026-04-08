@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execSync } from "node:child_process";
@@ -218,7 +218,9 @@ describe("WorktreeService", () => {
 				const created = await service.createWorktree(repo, "Feature B");
 
 				expect(created.branchName).toBe("feature-b");
-				expect(created.path).toBe(join(tmpDir, ".worktrees", "feature-b"));
+				// realpathSync resolves symlinks (e.g. /var → /private/var on macOS)
+				// so the comparison matches git's resolved path.
+				expect(created.path).toBe(join(realpathSync(tmpDir), ".worktrees", "feature-b"));
 				expect(execSync("git branch --list feature-b", { cwd: tmpDir }).toString()).toContain(
 					"feature-b",
 				);
@@ -226,6 +228,59 @@ describe("WorktreeService", () => {
 					execSync("git -C \"" + created.path + "\" branch --show-current").toString().trim(),
 				).toBe("feature-b");
 			} finally {
+				rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+
+		it("returns id and path consistent with listWorktrees (no unresolved-symlink override)", async () => {
+			// On macOS, mkdtempSync returns /var/... which git resolves to /private/var/...
+			// The bug: createWorktree overrides with preview.path (unresolved) so the id
+			// never matches what listWorktrees returns — breaking auto-select after create.
+			const tmpDir = makeTestRepo();
+			try {
+				const repo = await service.setRepositoryRoot(tmpDir);
+				const created = await service.createWorktree(repo, "Symlink ID Test");
+
+				const worktrees = await service.listWorktrees(repo);
+				const found = worktrees.find((wt) => wt.branchName === "symlink-id-test");
+				expect(found).toBeDefined();
+				expect(created.id).toBe(found!.id);
+				expect(created.path).toBe(found!.path);
+			} finally {
+				rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+
+		it("deletes the branch when git worktree add fails (rollback)", async () => {
+			// Bug: if git worktree add fails after git branch succeeds, the branch
+			// is stranded. Fix: catch the failure and delete the branch before rethrowing.
+			const tmpDir = makeTestRepo();
+			try {
+				const repo = await service.setRepositoryRoot(tmpDir);
+
+				// Create a file at the target path so git worktree add will fail.
+				mkdirSync(join(tmpDir, ".worktrees"), { recursive: true });
+				const conflictPath = join(tmpDir, ".worktrees", "rollback-test");
+				writeFileSync(conflictPath, "blocking file\n");
+
+				// Bypass the previewCreateWorktree pathExists guard so we reach git worktree add.
+				vi.spyOn(service, "previewCreateWorktree").mockResolvedValueOnce({
+					name: "Rollback Test",
+					branchName: "rollback-test",
+					path: conflictPath,
+					baseRef: "origin/master",
+					baseCommit: { sha: "deadbeef1234", shortSha: "deadbee", subject: "initial commit" },
+				});
+
+				await expect(service.createWorktree(repo, "Rollback Test")).rejects.toThrow();
+
+				// Branch must be cleaned up — no dangling branch left behind.
+				const branches = execSync("git branch --list rollback-test", { cwd: tmpDir })
+					.toString()
+					.trim();
+				expect(branches).toBe("");
+			} finally {
+				vi.restoreAllMocks();
 				rmSync(tmpDir, { recursive: true, force: true });
 			}
 		});

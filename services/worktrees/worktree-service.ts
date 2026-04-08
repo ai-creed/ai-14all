@@ -192,19 +192,27 @@ export class WorktreeService {
 				`Could not create branch ${preview.branchName}. Another process may have created it after preview validation.`,
 			);
 		}
-		await execFileAsync(
-			gitBinary,
-			["worktree", "add", preview.path, preview.branchName],
-			{ cwd: repository.rootPath },
-		);
+		try {
+			await execFileAsync(
+				gitBinary,
+				["worktree", "add", preview.path, preview.branchName],
+				{ cwd: repository.rootPath },
+			);
+		} catch {
+			// git worktree add failed — roll back the branch created above.
+			await execFileAsync(gitBinary, ["branch", "-D", preview.branchName], {
+				cwd: repository.rootPath,
+			}).catch(() => {});
+			throw new Error(
+				`Could not create worktree at ${preview.path}. The branch ${preview.branchName} has been removed.`,
+			);
+		}
 		const worktrees = await this.listWorktrees(repository);
 		const created = worktrees.find((entry) => entry.branchName === preview.branchName && !entry.isMain);
 		if (!created) {
 			throw new Error(`Created worktree not found after refresh: ${preview.path}`);
 		}
-		// Normalize path to the unresolved form used by the caller (git may return
-		// a realpath-resolved path, e.g. /private/var on macOS instead of /var).
-		return { ...created, path: preview.path, id: preview.path };
+		return created;
 	}
 
 	async previewRemoveWorktree(
