@@ -1122,6 +1122,7 @@ export function App() {
 					onCreateWorktree={() => setCreateDialogOpen(true)}
 					onRemoveWorktree={(worktreeId) => {
 						setRemoveTargetId(worktreeId);
+						setConfirmedDirtyRemoval(false);
 						setRemoveDialogOpen(true);
 					}}
 				/>
