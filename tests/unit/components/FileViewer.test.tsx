@@ -173,4 +173,31 @@ describe("FileViewer", () => {
 			await screen.findByText("Loading README.md…"),
 		).toBeInTheDocument();
 	});
+
+	it("closes preview modal when relativePath changes", async () => {
+		mockRead
+			.mockResolvedValueOnce({
+				path: "README.md",
+				content: "# Hello",
+				language: "markdown",
+			})
+			.mockReturnValue(new Promise(() => {})); // modal fetch + subsequent viewer fetches never resolve
+
+		const { rerender } = render(
+			<FileViewer worktreePath="/repo" relativePath="README.md" />,
+		);
+
+		// Open the preview modal
+		const title = await screen.findByText("README.md");
+		fireEvent.contextMenu(title);
+		fireEvent.click(await screen.findByRole("menuitem", { name: "Preview" }));
+		expect(await screen.findByText("Loading README.md…")).toBeInTheDocument();
+
+		// Navigate to a different file — modal should close
+		rerender(<FileViewer worktreePath="/repo" relativePath="src/index.ts" />);
+
+		await waitFor(() => {
+			expect(screen.queryByText("Loading README.md…")).not.toBeInTheDocument();
+		});
+	});
 });

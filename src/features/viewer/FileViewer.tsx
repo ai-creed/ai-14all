@@ -24,6 +24,10 @@ export function FileViewer({ worktreePath, relativePath }: FileViewerProps) {
 	}, [fileView]);
 
 	useEffect(() => {
+		setPreviewOpen(false);
+	}, [worktreePath, relativePath]);
+
+	useEffect(() => {
 		if (!worktreePath || !relativePath) return;
 		setLoading(true);
 		setMessage(null);
