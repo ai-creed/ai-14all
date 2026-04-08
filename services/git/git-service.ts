@@ -277,6 +277,8 @@ export class GitService {
 		}));
 
 		if (entries.length === 0) {
+			// HEAD is at or behind the merge target — all visible commits are already
+			// in the target, so mark them accordingly (green, not purple).
 			const { stdout: fallbackStdout } = await execFileAsync(
 				gitBinary,
 				["log", "--format=%H%x09%h%x09%s", "-n", "20", "HEAD"],
@@ -287,7 +289,7 @@ export class GitService {
 				entries: parseRecentCommits(fallbackStdout).map<GitCommitListEntry>(
 					(entry) => ({
 						...entry,
-						isMergeTarget: false,
+						isMergeTarget: true,
 					}),
 				),
 			};

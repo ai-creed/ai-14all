@@ -221,7 +221,7 @@ describe("GitService", () => {
 		expect(history.mergeTargetRef).toBe("origin/main");
 		expect(history.entries[0]?.subject).toBe("initial commit");
 		expect(history.entries).toHaveLength(1);
-		expect(history.entries[0]?.isMergeTarget).toBe(false);
+		expect(history.entries[0]?.isMergeTarget).toBe(true);
 	});
 
 	describe("readOrCreateRepoId", () => {
