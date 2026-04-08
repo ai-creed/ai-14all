@@ -184,8 +184,9 @@ export function TerminalTabs({
 						</button>
 						<button
 							type="button"
-							className="shell-button shell-button--compact"
+							className="shell-button shell-button--icon shell-button--compact shell-button--round shell-terminal-tabs__split-toggle"
 							aria-pressed={layoutMode === "split"}
+							data-active={layoutMode === "split" ? "true" : "false"}
 							aria-label={
 								layoutMode === "split"
 									? "Disable split shells"
@@ -193,7 +194,14 @@ export function TerminalTabs({
 							}
 							onClick={onToggleSplitMode}
 						>
-							Split
+							<svg
+								aria-hidden="true"
+								viewBox="0 0 16 16"
+								className="shell-terminal-tabs__split-toggle-icon"
+							>
+								<rect x="2" y="3" width="5" height="10" rx="1.5" />
+								<rect x="9" y="3" width="5" height="10" rx="1.5" />
+							</svg>
 						</button>
 
 						<DropdownMenu.Root>

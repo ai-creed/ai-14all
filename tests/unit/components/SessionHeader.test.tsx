@@ -26,6 +26,40 @@ describe("SessionHeader", () => {
 		).not.toBeInTheDocument();
 	});
 
+	it("renders a concise ahead or behind line only for dirty worktrees", () => {
+		const { rerender } = render(
+			<SessionHeader
+				title="feature-a"
+				worktreePath="/repo/.worktrees/feature-a"
+				branchName="feature-a"
+				changedFileCount={2}
+				isDirty
+				mergeTargetRef="origin/main"
+				aheadCount={1}
+				behindCount={0}
+				collapsed={false}
+			/>,
+		);
+
+		expect(screen.getByText("1 ahead of origin/main")).toBeInTheDocument();
+
+		rerender(
+			<SessionHeader
+				title="main"
+				worktreePath="/repo"
+				branchName="main"
+				changedFileCount={0}
+				isDirty={false}
+				mergeTargetRef="origin/main"
+				aheadCount={0}
+				behindCount={0}
+				collapsed={false}
+			/>,
+		);
+
+		expect(screen.queryByText(/origin\/main/)).not.toBeInTheDocument();
+	});
+
 	it("renders Unknown status when gitSummaryError is true", () => {
 		render(
 			<SessionHeader

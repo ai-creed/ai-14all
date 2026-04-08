@@ -109,6 +109,7 @@ export type WorkspaceAction =
 			type: "session/setTerminalLayoutMode";
 			worktreeId: string;
 			layoutMode: TerminalLayoutMode;
+			autoAssignProcessIds?: string[];
 	  }
 	| {
 			type: "session/assignProcessToSplitSlot";
@@ -369,10 +370,27 @@ export function workspaceReducer(
 	}
 
 	if (action.type === "session/setTerminalLayoutMode") {
-		return updateSession(state, action.worktreeId, (session) => ({
-			...session,
-			terminalLayoutMode: action.layoutMode,
-		}));
+		return updateSession(state, action.worktreeId, (session) => {
+			const shouldAutoAssign =
+				action.layoutMode === "split" &&
+				!session.splitLeftProcessId &&
+				!session.splitRightProcessId &&
+				action.autoAssignProcessIds?.length === 2;
+			const nextSession: WorktreeSession = {
+				...session,
+				terminalLayoutMode: action.layoutMode,
+				splitLeftProcessId: shouldAutoAssign
+					? (action.autoAssignProcessIds?.[0] ?? null)
+					: session.splitLeftProcessId,
+				splitRightProcessId: shouldAutoAssign
+					? (action.autoAssignProcessIds?.[1] ?? null)
+					: session.splitRightProcessId,
+			};
+			return {
+				...nextSession,
+				...sanitizeSplitAssignments(nextSession),
+			};
+		});
 	}
 
 	if (action.type === "session/assignProcessToSplitSlot") {

@@ -557,6 +557,70 @@ describe("workspaceReducer — split shell mode", () => {
 		expect(state.sessionsByWorktreeId.main.splitRightProcessId).toBe("process-2");
 	});
 
+	it("auto-assigns exactly two processes when enabling split mode with empty slots", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("process-1", "main", "shell 1"),
+		});
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("process-2", "main", "shell 2"),
+		});
+		state = workspaceReducer(state, {
+			type: "session/setTerminalLayoutMode",
+			worktreeId: "main",
+			layoutMode: "split",
+			autoAssignProcessIds: ["process-1", "process-2"],
+		});
+
+		expect(state.sessionsByWorktreeId.main.terminalLayoutMode).toBe("split");
+		expect(state.sessionsByWorktreeId.main.splitLeftProcessId).toBe("process-1");
+		expect(state.sessionsByWorktreeId.main.splitRightProcessId).toBe("process-2");
+	});
+
+	it("keeps existing split assignments when enabling split mode again", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("process-1", "main", "shell 1"),
+		});
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("process-2", "main", "shell 2"),
+		});
+		state = workspaceReducer(state, {
+			type: "session/assignProcessToSplitSlot",
+			worktreeId: "main",
+			processId: "process-2",
+			slot: "left",
+		});
+		state = workspaceReducer(state, {
+			type: "session/assignProcessToSplitSlot",
+			worktreeId: "main",
+			processId: "process-1",
+			slot: "right",
+		});
+		state = workspaceReducer(state, {
+			type: "session/setTerminalLayoutMode",
+			worktreeId: "main",
+			layoutMode: "single",
+		});
+		state = workspaceReducer(state, {
+			type: "session/setTerminalLayoutMode",
+			worktreeId: "main",
+			layoutMode: "split",
+			autoAssignProcessIds: ["process-1", "process-2"],
+		});
+
+		expect(state.sessionsByWorktreeId.main.splitLeftProcessId).toBe("process-2");
+		expect(state.sessionsByWorktreeId.main.splitRightProcessId).toBe("process-1");
+	});
+
 	it("clears split slots that reference a closed process", () => {
 		let state = createWorkspaceState(worktrees);
 		state = workspaceReducer(state, {

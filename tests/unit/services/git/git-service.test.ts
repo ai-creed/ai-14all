@@ -180,16 +180,37 @@ describe("GitService", () => {
 	});
 
 	it("returns a git summary with branch, dirty state, changes, and recent commits", async () => {
+		execSync("git update-ref refs/remotes/origin/main main", {
+			cwd: repoPath,
+			stdio: "ignore",
+		});
+		execSync("git add -A", { cwd: worktreePath, stdio: "ignore" });
+		execSync('git commit -m "feature commit"', {
+			cwd: worktreePath,
+			stdio: "ignore",
+		});
+		writeFileSync(
+			join(worktreePath, "src", "index.ts"),
+			'export const hello = "phase-3";\n',
+		);
+		writeFileSync(
+			join(worktreePath, "src", "new-file.ts"),
+			"export const added = false;\n",
+		);
+
 		const summary = await service.readSummary(worktreePath);
 
 		expect(summary.branchName).toBe("feature-a");
 		expect(summary.isDirty).toBe(true);
+		expect(summary.mergeTargetRef).toBe("origin/main");
+		expect(summary.aheadCount).toBe(1);
+		expect(summary.behindCount).toBe(0);
 		expect(summary.changedFiles.map((change) => change.path)).toEqual([
 			"src/index.ts",
 			"src/new-file.ts",
 		]);
 		expect(summary.changedFileCount).toBe(2);
-		expect(summary.recentCommits[0]?.subject).toBe("initial commit");
+		expect(summary.recentCommits[0]?.subject).toBe("feature commit");
 	});
 
 	it("lists recent commits against the merge target", async () => {

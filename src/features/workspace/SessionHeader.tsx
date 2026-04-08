@@ -4,6 +4,9 @@ type Props = {
 	branchName: string;
 	changedFileCount: number;
 	isDirty: boolean;
+	mergeTargetRef?: string | null;
+	aheadCount?: number;
+	behindCount?: number;
 	gitSummaryError?: boolean;
 	gitSummaryStale?: boolean;
 	collapsed: boolean;
@@ -15,6 +18,9 @@ export function SessionHeader({
 	branchName,
 	changedFileCount,
 	isDirty,
+	mergeTargetRef = null,
+	aheadCount = 0,
+	behindCount = 0,
 	gitSummaryError = false,
 	gitSummaryStale = false,
 	collapsed,
@@ -26,6 +32,20 @@ export function SessionHeader({
 			: isDirty
 				? "Dirty"
 				: "Clean";
+	const branchDescription =
+		!collapsed &&
+		isDirty &&
+		!gitSummaryError &&
+		!gitSummaryStale &&
+		mergeTargetRef
+			? aheadCount > 0 && behindCount > 0
+				? `${aheadCount} ahead, ${behindCount} behind ${mergeTargetRef}`
+				: aheadCount > 0
+					? `${aheadCount} ahead of ${mergeTargetRef}`
+					: behindCount > 0
+						? `${behindCount} behind ${mergeTargetRef}`
+						: `In sync with ${mergeTargetRef}`
+			: null;
 
 	return (
 		<section aria-label="Session info" className="shell-session-info">
@@ -33,6 +53,9 @@ export function SessionHeader({
 				<div>
 					{!collapsed && <div className="shell-label">Session info</div>}
 					<h2 className="shell-session-info__title">{title}</h2>
+					{branchDescription && (
+						<div className="shell-session-info__description">{branchDescription}</div>
+					)}
 				</div>
 				{collapsed && (
 					<div className="shell-session-info__strip">

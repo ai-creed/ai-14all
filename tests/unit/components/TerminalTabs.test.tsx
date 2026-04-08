@@ -118,9 +118,33 @@ describe("TerminalTabs", () => {
 			{ onToggleSplitMode },
 		);
 
-		await user.click(screen.getByRole("button", { name: "Enable split shells" }));
+		const splitButton = screen.getByRole("button", { name: "Enable split shells" });
+		expect(splitButton).toHaveAttribute("aria-pressed", "false");
+		expect(splitButton).toHaveClass(
+			"shell-button",
+			"shell-button--icon",
+			"shell-button--compact",
+			"shell-button--round",
+			"shell-terminal-tabs__split-toggle",
+		);
+
+		await user.click(splitButton);
 
 		expect(onToggleSplitMode).toHaveBeenCalledTimes(1);
+	});
+
+	it("shows active styling on the split icon button when split mode is enabled", () => {
+		renderTabs(
+			[proc({ id: "proc-1", label: "shell 1" })],
+			"proc-1",
+			[],
+			{},
+			{ layoutMode: "split" },
+		);
+
+		const splitButton = screen.getByRole("button", { name: "Disable split shells" });
+		expect(splitButton).toHaveAttribute("aria-pressed", "true");
+		expect(splitButton).toHaveAttribute("data-active", "true");
 	});
 
 	it("shows visual indicator and data-status for exited and errored tabs", () => {

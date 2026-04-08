@@ -99,6 +99,30 @@ async function resolveMergeTargetRef(worktreePath: string): Promise<string | nul
 	return null;
 }
 
+async function readAheadBehindCounts(
+	worktreePath: string,
+	mergeTargetRef: string | null,
+): Promise<{ aheadCount: number; behindCount: number }> {
+	if (!mergeTargetRef) {
+		return { aheadCount: 0, behindCount: 0 };
+	}
+
+	try {
+		const { stdout } = await execFileAsync(
+			gitBinary,
+			["rev-list", "--left-right", "--count", `HEAD...${mergeTargetRef}`],
+			{ cwd: worktreePath },
+		);
+		const [aheadRaw = "0", behindRaw = "0"] = stdout.trim().split(/\s+/);
+		return {
+			aheadCount: Number(aheadRaw) || 0,
+			behindCount: Number(behindRaw) || 0,
+		};
+	} catch {
+		return { aheadCount: 0, behindCount: 0 };
+	}
+}
+
 async function readBlobAtRevision(
 	worktreePath: string,
 	revisionPath: string,
@@ -169,17 +193,25 @@ export class GitService {
 	}
 
 	async readSummary(worktreePath: string): Promise<GitSummary> {
-		const [branchResult, recentResult, changedFiles] = await Promise.all([
+		const [branchResult, recentResult, changedFiles, mergeTargetRef] = await Promise.all([
 			execFileAsync(gitBinary, ["branch", "--show-current"], { cwd: worktreePath }),
 			execFileAsync(gitBinary, ["log", "--format=%H%x09%h%x09%s", "-n", "5"], {
 				cwd: worktreePath,
 			}),
 			this.listChangedFiles(worktreePath),
+			resolveMergeTargetRef(worktreePath),
 		]);
+		const { aheadCount, behindCount } = await readAheadBehindCounts(
+			worktreePath,
+			mergeTargetRef,
+		);
 
 		return {
 			branchName: branchResult.stdout.trim(),
 			isDirty: changedFiles.length > 0,
+			mergeTargetRef,
+			aheadCount,
+			behindCount,
 			changedFileCount: changedFiles.length,
 			changedFiles,
 			recentCommits: parseRecentCommits(recentResult.stdout),

@@ -170,6 +170,10 @@ export function App() {
 		? (workspaceState.sessionsByWorktreeId[workspaceState.selectedWorktreeId] ??
 			null)
 		: null;
+	const activeProcesses = (activeSession?.processSessionIds ?? [])
+		.map((id) => workspaceState.processSessionsById[id])
+		.filter(Boolean)
+		.sort((a, b) => Number(b.pinned) - Number(a.pinned));
 	const splitVisibleProcessIds =
 		activeSession?.terminalLayoutMode === "split"
 			? [activeSession.splitLeftProcessId, activeSession.splitRightProcessId].filter(
@@ -1204,6 +1208,9 @@ export function App() {
 								branchName={activeWorktree.branchName}
 								changedFileCount={changes.length}
 								isDirty={activeSummary?.isDirty ?? false}
+								mergeTargetRef={activeSummary?.mergeTargetRef ?? null}
+								aheadCount={activeSummary?.aheadCount ?? 0}
+								behindCount={activeSummary?.behindCount ?? 0}
 								gitSummaryError={gitSummaryError}
 								gitSummaryStale={gitSummaryStale}
 								collapsed={workspaceState.topBandCollapsed}
@@ -1225,17 +1232,13 @@ export function App() {
 
 					{workspaceState.selectedWorktreeId && (
 						<section className="shell-panel shell-terminal-section">
-							<TerminalTabs
-								processes={(activeSession?.processSessionIds ?? [])
-									.map((id) => workspaceState.processSessionsById[id])
-									.filter(Boolean)
-									.sort((a, b) => Number(b.pinned) - Number(a.pinned))
-									.map((p) => ({
-										id: p.id,
-										label: p.label,
-										status: p.status,
-										pinned: p.pinned,
-										attentionState: p.attentionState,
+								<TerminalTabs
+									processes={activeProcesses.map((p) => ({
+											id: p.id,
+											label: p.label,
+											status: p.status,
+											pinned: p.pinned,
+											attentionState: p.attentionState,
 										exitCode: p.exitCode,
 										lastActivityAt: p.lastActivityAt,
 									}))}
@@ -1265,6 +1268,13 @@ export function App() {
 											activeSession?.terminalLayoutMode === "split"
 												? "single"
 												: "split",
+										autoAssignProcessIds:
+											activeSession?.terminalLayoutMode === "single" &&
+											!activeSession.splitLeftProcessId &&
+											!activeSession.splitRightProcessId &&
+											activeProcesses.length === 2
+												? activeProcesses.map((process) => process.id)
+												: undefined,
 									})
 								}
 								onShowInSplit={(processId, slot) =>

@@ -413,6 +413,40 @@ describe("App — Phase 6 default shell", () => {
 		expect(screen.getByTestId("terminal-pane-terminal-main-1")).toHaveAttribute("aria-hidden", "false");
 	});
 
+	it("auto-assigns two existing shells when enabling split mode", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		});
+		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+		await screen.findByLabelText("Repository path");
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		await waitFor(() => {
+			expect(screen.getByRole("tab", { name: "shell 1" })).toBeInTheDocument();
+		});
+		await userEvent.click(screen.getByRole("button", { name: "Add shell" }));
+		await waitFor(() => {
+			expect(screen.getByRole("tab", { name: "shell 2" })).toBeInTheDocument();
+		});
+
+		await userEvent.click(screen.getByRole("button", { name: "Enable split shells" }));
+
+		await waitFor(() => {
+			expect(document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]')).toHaveLength(2);
+		});
+		expect(screen.queryByText(/No shell assigned to this split pane/i)).not.toBeInTheDocument();
+	});
+
 	it("renders split panes in explicit left and right slot order", async () => {
 		let terminalCount = 0;
 		createMock.mockImplementation((worktreeId: string, cwd: string) =>

@@ -74,7 +74,9 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 
 		await page.getByRole("tab", { name: "Commits" }).click();
 		await expect(page.getByRole("button", { name: "Refresh review" })).toBeVisible();
-		await expect(page.getByText("origin/main")).toBeVisible({ timeout: 15_000 });
+		await expect(
+			page.getByTestId("review-rail").getByText("origin/main"),
+		).toBeVisible({ timeout: 15_000 });
 		await expect(
 			page.getByRole("button", { name: /initial commit/i }),
 		).toBeVisible();
@@ -88,6 +90,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			.click();
 
 		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible();
+		await expect(page.getByText("1 ahead of origin/main")).toBeVisible();
 
 		const shellLayout = page.getByTestId("shell-layout");
 		await expect(shellLayout).toHaveAttribute(
@@ -216,7 +219,9 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 
 		await page.getByRole("tab", { name: "Commits" }).click();
 		await expect(page.getByRole("button", { name: "Refresh review" })).toBeVisible();
-		await expect(page.getByText("origin/main")).toBeVisible({ timeout: 15_000 });
+		await expect(
+			page.getByTestId("review-rail").getByText("origin/main"),
+		).toBeVisible({ timeout: 15_000 });
 		const commitButton = page.getByRole("button", { name: /feature commit/i });
 		await expect(commitButton).toBeVisible();
 		await commitButton.click();
@@ -438,6 +443,10 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 
 		await page.getByRole("button", { name: "Add shell" }).click();
 		await expect(terminalTabs.getByRole("tab")).toHaveCount(2, { timeout: 15_000 });
+
+		await page.getByRole("button", { name: "Enable split shells" }).click();
+		await expect(page.getByRole("button", { name: "Disable split shells" })).toBeVisible();
+		await expect(page.locator('.shell-terminal-pane[aria-hidden="false"]')).toHaveCount(2);
 
 		await terminalTabs.getByRole("tab").nth(0).click({ button: "right" });
 		await page.getByRole("menuitem", { name: "Show in split left" }).click();
