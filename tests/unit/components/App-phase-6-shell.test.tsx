@@ -316,37 +316,44 @@ describe("App — Phase 6 default shell", () => {
 	it("keeps the terminal panel body visible when a restored shell has no live terminal yet", async () => {
 		createMock.mockImplementation(() => new Promise(() => undefined));
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "alwaysRestore",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/repo",
-				selectedWorktreeId: "main",
-				commandPresets: [],
-				worktreeSessions: [
-					{
-						worktreeId: "main",
-						note: "",
-						reviewMode: "files",
-						viewerMode: "file",
-						selectedFilePath: null,
-						selectedChangedFilePath: null,
-						selectedCommitSha: null,
-						selectedCommitFilePath: null,
-						activeProcessSessionId: "process-1",
-						nextAdHocNumber: 2,
-						processSessions: [
-							{
-								id: "process-1",
-								origin: "adHoc",
-								presetId: null,
-								label: "shell 1",
-								command: null,
-								pinned: false,
-							},
-						],
-					},
-				],
-			},
+				repoId: null,
+				snapshot: {
+					repositoryPath: "/repo",
+					selectedWorktreeId: "main",
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: "main",
+							note: "",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							selectedCommitSha: null,
+							selectedCommitFilePath: null,
+							activeProcessSessionId: "process-1",
+							nextAdHocNumber: 2,
+							processSessions: [
+								{
+									id: "process-1",
+									origin: "adHoc",
+									presetId: null,
+									label: "shell 1",
+									command: null,
+									pinned: false,
+								},
+							],
+						},
+					],
+				},
+			}],
 		});
 		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
@@ -375,48 +382,55 @@ describe("App — Phase 6 default shell", () => {
 			}),
 		);
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "alwaysRestore",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/repo",
-				selectedWorktreeId: "main",
-				commandPresets: [],
-				worktreeSessions: [
-					{
-						worktreeId: "main",
-						note: "",
-						reviewMode: "files",
-						viewerMode: "file",
-						selectedFilePath: null,
-						selectedChangedFilePath: null,
-						selectedCommitSha: null,
-						selectedCommitFilePath: null,
-						activeProcessSessionId: "process-1",
-						terminalLayoutMode: "split",
-						splitLeftProcessId: "process-1",
-						splitRightProcessId: "process-2",
-						nextAdHocNumber: 3,
-						processSessions: [
-							{
-								id: "process-1",
-								origin: "adHoc",
-								presetId: null,
-								label: "shell 1",
-								command: null,
-								pinned: false,
-							},
-							{
-								id: "process-2",
-								origin: "adHoc",
-								presetId: null,
-								label: "shell 2",
-								command: null,
-								pinned: false,
-							},
-						],
-					},
-				],
-			},
+				repoId: null,
+				snapshot: {
+					repositoryPath: "/repo",
+					selectedWorktreeId: "main",
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: "main",
+							note: "",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							selectedCommitSha: null,
+							selectedCommitFilePath: null,
+							activeProcessSessionId: "process-1",
+							terminalLayoutMode: "split",
+							splitLeftProcessId: "process-1",
+							splitRightProcessId: "process-2",
+							nextAdHocNumber: 3,
+							processSessions: [
+								{
+									id: "process-1",
+									origin: "adHoc",
+									presetId: null,
+									label: "shell 1",
+									command: null,
+									pinned: false,
+								},
+								{
+									id: "process-2",
+									origin: "adHoc",
+									presetId: null,
+									label: "shell 2",
+									command: null,
+									pinned: false,
+								},
+							],
+						},
+					],
+				},
+			}],
 		});
 		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
@@ -478,48 +492,55 @@ describe("App — Phase 6 default shell", () => {
 			}),
 		);
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "alwaysRestore",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/repo",
-				selectedWorktreeId: "main",
-				commandPresets: [],
-				worktreeSessions: [
-					{
-						worktreeId: "main",
-						note: "",
-						reviewMode: "files",
-						viewerMode: "file",
-						selectedFilePath: null,
-						selectedChangedFilePath: null,
-						selectedCommitSha: null,
-						selectedCommitFilePath: null,
-						activeProcessSessionId: "process-1",
-						terminalLayoutMode: "split",
-						splitLeftProcessId: "process-2",
-						splitRightProcessId: "process-1",
-						nextAdHocNumber: 3,
-						processSessions: [
-							{
-								id: "process-1",
-								origin: "adHoc",
-								presetId: null,
-								label: "shell 1",
-								command: null,
-								pinned: false,
-							},
-							{
-								id: "process-2",
-								origin: "adHoc",
-								presetId: null,
-								label: "shell 2",
-								command: null,
-								pinned: false,
-							},
-						],
-					},
-				],
-			},
+				repoId: null,
+				snapshot: {
+					repositoryPath: "/repo",
+					selectedWorktreeId: "main",
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: "main",
+							note: "",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							selectedCommitSha: null,
+							selectedCommitFilePath: null,
+							activeProcessSessionId: "process-1",
+							terminalLayoutMode: "split",
+							splitLeftProcessId: "process-2",
+							splitRightProcessId: "process-1",
+							nextAdHocNumber: 3,
+							processSessions: [
+								{
+									id: "process-1",
+									origin: "adHoc",
+									presetId: null,
+									label: "shell 1",
+									command: null,
+									pinned: false,
+								},
+								{
+									id: "process-2",
+									origin: "adHoc",
+									presetId: null,
+									label: "shell 2",
+									command: null,
+									pinned: false,
+								},
+							],
+						},
+					],
+				},
+			}],
 		});
 		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
@@ -550,48 +571,55 @@ describe("App — Phase 6 default shell", () => {
 			}),
 		);
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "alwaysRestore",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/repo",
-				selectedWorktreeId: "main",
-				commandPresets: [],
-				worktreeSessions: [
-					{
-						worktreeId: "main",
-						note: "",
-						reviewMode: "files",
-						viewerMode: "file",
-						selectedFilePath: null,
-						selectedChangedFilePath: null,
-						selectedCommitSha: null,
-						selectedCommitFilePath: null,
-						activeProcessSessionId: "process-1",
-						terminalLayoutMode: "split",
-						splitLeftProcessId: "process-1",
-						splitRightProcessId: "process-2",
-						nextAdHocNumber: 3,
-						processSessions: [
-							{
-								id: "process-1",
-								origin: "adHoc",
-								presetId: null,
-								label: "shell 1",
-								command: null,
-								pinned: false,
-							},
-							{
-								id: "process-2",
-								origin: "adHoc",
-								presetId: null,
-								label: "shell 2",
-								command: null,
-								pinned: false,
-							},
-						],
-					},
-				],
-			},
+				repoId: null,
+				snapshot: {
+					repositoryPath: "/repo",
+					selectedWorktreeId: "main",
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: "main",
+							note: "",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							selectedCommitSha: null,
+							selectedCommitFilePath: null,
+							activeProcessSessionId: "process-1",
+							terminalLayoutMode: "split",
+							splitLeftProcessId: "process-1",
+							splitRightProcessId: "process-2",
+							nextAdHocNumber: 3,
+							processSessions: [
+								{
+									id: "process-1",
+									origin: "adHoc",
+									presetId: null,
+									label: "shell 1",
+									command: null,
+									pinned: false,
+								},
+								{
+									id: "process-2",
+									origin: "adHoc",
+									presetId: null,
+									label: "shell 2",
+									command: null,
+									pinned: false,
+								},
+							],
+						},
+					],
+				},
+			}],
 		});
 		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
@@ -634,48 +662,55 @@ describe("App — Phase 6 default shell", () => {
 			}),
 		);
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "alwaysRestore",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/repo",
-				selectedWorktreeId: "main",
-				commandPresets: [],
-				worktreeSessions: [
-					{
-						worktreeId: "main",
-						note: "",
-						reviewMode: "files",
-						viewerMode: "file",
-						selectedFilePath: null,
-						selectedChangedFilePath: null,
-						selectedCommitSha: null,
-						selectedCommitFilePath: null,
-						activeProcessSessionId: "process-1",
-						terminalLayoutMode: "split",
-						splitLeftProcessId: "process-1",
-						splitRightProcessId: "process-2",
-						nextAdHocNumber: 3,
-						processSessions: [
-							{
-								id: "process-1",
-								origin: "adHoc",
-								presetId: null,
-								label: "shell 1",
-								command: null,
-								pinned: false,
-							},
-							{
-								id: "process-2",
-								origin: "adHoc",
-								presetId: null,
-								label: "shell 2",
-								command: null,
-								pinned: false,
-							},
-						],
-					},
-				],
-			},
+				repoId: null,
+				snapshot: {
+					repositoryPath: "/repo",
+					selectedWorktreeId: "main",
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: "main",
+							note: "",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							selectedCommitSha: null,
+							selectedCommitFilePath: null,
+							activeProcessSessionId: "process-1",
+							terminalLayoutMode: "split",
+							splitLeftProcessId: "process-1",
+							splitRightProcessId: "process-2",
+							nextAdHocNumber: 3,
+							processSessions: [
+								{
+									id: "process-1",
+									origin: "adHoc",
+									presetId: null,
+									label: "shell 1",
+									command: null,
+									pinned: false,
+								},
+								{
+									id: "process-2",
+									origin: "adHoc",
+									presetId: null,
+									label: "shell 2",
+									command: null,
+									pinned: false,
+								},
+							],
+						},
+					],
+				},
+			}],
 		});
 		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([

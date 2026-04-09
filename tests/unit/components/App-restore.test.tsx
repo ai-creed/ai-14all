@@ -104,14 +104,21 @@ describe("App — Phase 5 restore flow", () => {
 
 	it("shows the restore prompt when a promptable snapshot exists", async () => {
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "prompt",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/repo",
-				selectedWorktreeId: "feature-a",
-				commandPresets: [],
-				worktreeSessions: [],
-			},
+				repoId: null,
+				snapshot: {
+					repositoryPath: "/repo",
+					selectedWorktreeId: "feature-a",
+					commandPresets: [],
+					worktreeSessions: [],
+				},
+			}],
 		});
 
 		render(<App />);
@@ -123,35 +130,42 @@ describe("App — Phase 5 restore flow", () => {
 
 	it("restores the selected worktree, recreates saved shells, and replays commands", async () => {
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "prompt",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/repo",
-				selectedWorktreeId: "feature-a",
-				commandPresets: [{ id: "preset-claude", label: "Claude", command: "claude" }],
-				worktreeSessions: [
-					{
-						worktreeId: "feature-a",
-						note: "resume here",
-						reviewMode: "changes",
-						viewerMode: "diff",
-						selectedFilePath: null,
-						selectedChangedFilePath: "src/index.ts",
-						activeProcessSessionId: "process-1",
-						nextAdHocNumber: 3,
-						processSessions: [
-							{
-								id: "process-1",
-								origin: "preset",
-								presetId: "preset-claude",
-								label: "Claude",
-								command: "claude",
-								pinned: true,
-							},
-						],
-					},
-				],
-			},
+				repoId: null,
+				snapshot: {
+					repositoryPath: "/repo",
+					selectedWorktreeId: "feature-a",
+					commandPresets: [{ id: "preset-claude", label: "Claude", command: "claude" }],
+					worktreeSessions: [
+						{
+							worktreeId: "feature-a",
+							note: "resume here",
+							reviewMode: "changes",
+							viewerMode: "diff",
+							selectedFilePath: null,
+							selectedChangedFilePath: "src/index.ts",
+							activeProcessSessionId: "process-1",
+							nextAdHocNumber: 3,
+							processSessions: [
+								{
+									id: "process-1",
+									origin: "preset",
+									presetId: "preset-claude",
+									label: "Claude",
+									command: "claude",
+									pinned: true,
+								},
+							],
+						},
+					],
+				},
+			}],
 		});
 		openRepositoryMock.mockResolvedValue({
 			workspaceId: "repo-1",
@@ -181,40 +195,47 @@ describe("App — Phase 5 restore flow", () => {
 
 	it("restores saved split-shell layout and clears stale split slots", async () => {
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "alwaysRestore",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/repo",
-				selectedWorktreeId: "feature-a",
-				commandPresets: [],
-				worktreeSessions: [
-					{
-						worktreeId: "feature-a",
-						note: "resume here",
-						reviewMode: "files",
-						viewerMode: "file",
-						selectedFilePath: null,
-						selectedChangedFilePath: null,
-						selectedCommitSha: null,
-						selectedCommitFilePath: null,
-						activeProcessSessionId: "process-1",
-						terminalLayoutMode: "split",
-						splitLeftProcessId: "process-1",
-						splitRightProcessId: "missing-process",
-						nextAdHocNumber: 3,
-						processSessions: [
-							{
-								id: "process-1",
-								origin: "adHoc",
-								presetId: null,
-								label: "shell 1",
-								command: null,
-								pinned: false,
-							},
-						],
-					},
-				],
-			},
+				repoId: null,
+				snapshot: {
+					repositoryPath: "/repo",
+					selectedWorktreeId: "feature-a",
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: "feature-a",
+							note: "resume here",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							selectedCommitSha: null,
+							selectedCommitFilePath: null,
+							activeProcessSessionId: "process-1",
+							terminalLayoutMode: "split",
+							splitLeftProcessId: "process-1",
+							splitRightProcessId: "missing-process",
+							nextAdHocNumber: 3,
+							processSessions: [
+								{
+									id: "process-1",
+									origin: "adHoc",
+									presetId: null,
+									label: "shell 1",
+									command: null,
+									pinned: false,
+								},
+							],
+						},
+					],
+				},
+			}],
 		});
 		openRepositoryMock.mockResolvedValue({
 			workspaceId: "repo-1",
@@ -234,39 +255,46 @@ describe("App — Phase 5 restore flow", () => {
 
 	it("lazily hydrates a saved non-selected worktree only after selection", async () => {
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "alwaysRestore",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/repo",
-				selectedWorktreeId: "feature-a",
-				commandPresets: [],
-				worktreeSessions: [
-					{
-						worktreeId: "main",
-						note: "main note",
-						reviewMode: "files",
-						viewerMode: "file",
-						selectedFilePath: "README.md",
-						selectedChangedFilePath: null,
-						activeProcessSessionId: "process-main",
-						nextAdHocNumber: 2,
-						processSessions: [
-							{ id: "process-main", origin: "adHoc", presetId: null, label: "shell 1", command: null, pinned: false },
-						],
-					},
-					{
-						worktreeId: "feature-a",
-						note: "feature note",
-						reviewMode: "files",
-						viewerMode: "file",
-						selectedFilePath: null,
-						selectedChangedFilePath: null,
-						activeProcessSessionId: null,
-						nextAdHocNumber: 1,
-						processSessions: [],
-					},
-				],
-			},
+				repoId: null,
+				snapshot: {
+					repositoryPath: "/repo",
+					selectedWorktreeId: "feature-a",
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: "main",
+							note: "main note",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: "README.md",
+							selectedChangedFilePath: null,
+							activeProcessSessionId: "process-main",
+							nextAdHocNumber: 2,
+							processSessions: [
+								{ id: "process-main", origin: "adHoc", presetId: null, label: "shell 1", command: null, pinned: false },
+							],
+						},
+						{
+							worktreeId: "feature-a",
+							note: "feature note",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							activeProcessSessionId: null,
+							nextAdHocNumber: 1,
+							processSessions: [],
+						},
+					],
+				},
+			}],
 		});
 		openRepositoryMock.mockResolvedValue({
 			workspaceId: "repo-1",
@@ -299,9 +327,11 @@ describe("App — Phase 5 restore flow", () => {
 			worktreeSessions: [],
 		};
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "prompt",
-			snapshot,
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{ workspaceId: "ws-main", repositoryPath: "/repo", repoId: null, snapshot }],
 		});
 
 		render(<App />);
@@ -342,14 +372,21 @@ describe("App — Phase 5 restore flow", () => {
 			processSessions: [],
 		};
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "alwaysRestore",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/repo",
-				selectedWorktreeId: "missing-worktree",
-				commandPresets: [],
-				worktreeSessions: [missingSession],
-			},
+				repoId: null,
+				snapshot: {
+					repositoryPath: "/repo",
+					selectedWorktreeId: "missing-worktree",
+					commandPresets: [],
+					worktreeSessions: [missingSession],
+				},
+			}],
 		});
 		openRepositoryMock.mockResolvedValue({
 			workspaceId: "repo-1",
@@ -395,14 +432,21 @@ describe("App — Phase 5 restore flow", () => {
 
 	it("preserves the snapshot and resets to prompt when alwaysRestore fails", async () => {
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "alwaysRestore",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/deleted-repo",
-				selectedWorktreeId: null,
-				commandPresets: [],
-				worktreeSessions: [],
-			},
+				repoId: null,
+				snapshot: {
+					repositoryPath: "/deleted-repo",
+					selectedWorktreeId: null,
+					commandPresets: [],
+					worktreeSessions: [],
+				},
+			}],
 		});
 		openRepositoryMock.mockRejectedValue(new Error("No such file or directory"));
 
@@ -426,15 +470,22 @@ describe("App — Phase 5 restore flow", () => {
 
 	it("preserves the snapshot when restore fails because the saved path is stale", async () => {
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "alwaysRestore",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/old-repo",
 				repoId: "repo-id-123",
-				selectedWorktreeId: null,
-				commandPresets: [],
-				worktreeSessions: [],
-			},
+				snapshot: {
+					repositoryPath: "/old-repo",
+					repoId: "repo-id-123",
+					selectedWorktreeId: null,
+					commandPresets: [],
+					worktreeSessions: [],
+				},
+			}],
 		});
 		openRepositoryMock.mockRejectedValue(new Error("No such file or directory"));
 
@@ -453,29 +504,36 @@ describe("App — Phase 5 restore flow", () => {
 		// Snapshot uses old paths — rebaseSnapshotPaths must rewrite them to match
 		// the new worktree IDs returned by listWorktrees.
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "prompt",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/old-repo",
 				repoId: "repo-id-123",
-				selectedWorktreeId: "/old-repo/.worktrees/feature-a",
-				commandPresets: [],
-				worktreeSessions: [
-					{
-						worktreeId: "/old-repo/.worktrees/feature-a",
-						note: "resume here",
-						reviewMode: "files",
-						viewerMode: "file",
-						selectedFilePath: null,
-						selectedChangedFilePath: null,
-						selectedCommitSha: null,
-						selectedCommitFilePath: null,
-						activeProcessSessionId: null,
-						nextAdHocNumber: 1,
-						processSessions: [],
-					},
-				],
-			},
+				snapshot: {
+					repositoryPath: "/old-repo",
+					repoId: "repo-id-123",
+					selectedWorktreeId: "/old-repo/.worktrees/feature-a",
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: "/old-repo/.worktrees/feature-a",
+							note: "resume here",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							selectedCommitSha: null,
+							selectedCommitFilePath: null,
+							activeProcessSessionId: null,
+							nextAdHocNumber: 1,
+							processSessions: [],
+						},
+					],
+				},
+			}],
 		});
 
 		openRepositoryMock.mockResolvedValue({
@@ -527,39 +585,46 @@ describe("App — Phase 5 restore flow", () => {
 		createMock.mockReturnValueOnce(terminalPending);
 
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "alwaysRestore",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/repo",
-				selectedWorktreeId: "feature-a",
-				commandPresets: [],
-				worktreeSessions: [
-					{
-						worktreeId: "main",
-						note: "main note",
-						reviewMode: "files",
-						viewerMode: "file",
-						selectedFilePath: null,
-						selectedChangedFilePath: null,
-						activeProcessSessionId: "process-main",
-						nextAdHocNumber: 2,
-						processSessions: [
-							{ id: "process-main", origin: "adHoc", presetId: null, label: "shell 1", command: null, pinned: false },
-						],
-					},
-					{
-						worktreeId: "feature-a",
-						note: "feature note",
-						reviewMode: "files",
-						viewerMode: "file",
-						selectedFilePath: null,
-						selectedChangedFilePath: null,
-						activeProcessSessionId: null,
-						nextAdHocNumber: 1,
-						processSessions: [],
-					},
-				],
-			},
+				repoId: null,
+				snapshot: {
+					repositoryPath: "/repo",
+					selectedWorktreeId: "feature-a",
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: "main",
+							note: "main note",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							activeProcessSessionId: "process-main",
+							nextAdHocNumber: 2,
+							processSessions: [
+								{ id: "process-main", origin: "adHoc", presetId: null, label: "shell 1", command: null, pinned: false },
+							],
+						},
+						{
+							worktreeId: "feature-a",
+							note: "feature note",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							activeProcessSessionId: null,
+							nextAdHocNumber: 1,
+							processSessions: [],
+						},
+					],
+				},
+			}],
 		});
 		openRepositoryMock.mockResolvedValue({
 			workspaceId: "repo-1",
@@ -596,29 +661,36 @@ describe("App — Phase 5 restore flow", () => {
 		// Snapshot has repoId but loaded repo does not → strict identity fails,
 		// basename fallback is suppressed → no reattachment, normal fresh load.
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "prompt",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/old-repo",
 				repoId: "repo-id-123",
-				selectedWorktreeId: "/old-repo/.worktrees/feature-a",
-				commandPresets: [],
-				worktreeSessions: [
-					{
-						worktreeId: "/old-repo/.worktrees/feature-a",
-						note: "should not appear",
-						reviewMode: "files",
-						viewerMode: "file",
-						selectedFilePath: null,
-						selectedChangedFilePath: null,
-						selectedCommitSha: null,
-						selectedCommitFilePath: null,
-						activeProcessSessionId: null,
-						nextAdHocNumber: 1,
-						processSessions: [],
-					},
-				],
-			},
+				snapshot: {
+					repositoryPath: "/old-repo",
+					repoId: "repo-id-123",
+					selectedWorktreeId: "/old-repo/.worktrees/feature-a",
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: "/old-repo/.worktrees/feature-a",
+							note: "should not appear",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							selectedCommitSha: null,
+							selectedCommitFilePath: null,
+							activeProcessSessionId: null,
+							nextAdHocNumber: 1,
+							processSessions: [],
+						},
+					],
+				},
+			}],
 		});
 
 		openRepositoryMock.mockResolvedValue({
@@ -660,29 +732,36 @@ describe("App — Phase 5 restore flow", () => {
 		// Both sides lack repoId → basename fallback triggers reattachment,
 		// but the warning should note that future recovery is degraded.
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "prompt",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/old-path/my-repo",
 				repoId: null,
-				selectedWorktreeId: "/old-path/my-repo",
-				commandPresets: [],
-				worktreeSessions: [
-					{
-						worktreeId: "/old-path/my-repo",
-						note: "degraded note",
-						reviewMode: "files",
-						viewerMode: "file",
-						selectedFilePath: null,
-						selectedChangedFilePath: null,
-						selectedCommitSha: null,
-						selectedCommitFilePath: null,
-						activeProcessSessionId: null,
-						nextAdHocNumber: 1,
-						processSessions: [],
-					},
-				],
-			},
+				snapshot: {
+					repositoryPath: "/old-path/my-repo",
+					repoId: null,
+					selectedWorktreeId: "/old-path/my-repo",
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: "/old-path/my-repo",
+							note: "degraded note",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							selectedCommitSha: null,
+							selectedCommitFilePath: null,
+							activeProcessSessionId: null,
+							nextAdHocNumber: 1,
+							processSessions: [],
+						},
+					],
+				},
+			}],
 		});
 
 		openRepositoryMock.mockResolvedValue({
@@ -720,29 +799,36 @@ describe("App — Phase 5 restore flow", () => {
 
 	it("reattaches valid sessions while preserving missing worktrees during recovery", async () => {
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "prompt",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/old-repo",
 				repoId: "repo-id-123",
-				selectedWorktreeId: "missing-worktree",
-				commandPresets: [],
-				worktreeSessions: [
-					{
-						worktreeId: "missing-worktree",
-						note: "saved note for missing worktree",
-						reviewMode: "files" as const,
-						viewerMode: "file" as const,
-						selectedFilePath: null,
-						selectedChangedFilePath: null,
-						selectedCommitSha: null,
-						selectedCommitFilePath: null,
-						activeProcessSessionId: null,
-						nextAdHocNumber: 1,
-						processSessions: [],
-					},
-				],
-			},
+				snapshot: {
+					repositoryPath: "/old-repo",
+					repoId: "repo-id-123",
+					selectedWorktreeId: "missing-worktree",
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: "missing-worktree",
+							note: "saved note for missing worktree",
+							reviewMode: "files" as const,
+							viewerMode: "file" as const,
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							selectedCommitSha: null,
+							selectedCommitFilePath: null,
+							activeProcessSessionId: null,
+							nextAdHocNumber: 1,
+							processSessions: [],
+						},
+					],
+				},
+			}],
 		});
 
 		openRepositoryMock.mockResolvedValue({
@@ -802,14 +888,21 @@ describe("App — Phase 5 restore flow", () => {
 
 	it("shows restore failure copy in the blocking setup screen", async () => {
 		readRestoreStateMock.mockResolvedValueOnce({
-			version: 1,
+			version: 2,
 			restorePreference: "alwaysRestore",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/missing",
 				repoId: "repo-1",
-				selectedWorktreeId: null,
-				worktreeSessions: [],
-			},
+				snapshot: {
+					repositoryPath: "/missing",
+					repoId: "repo-1",
+					selectedWorktreeId: null,
+					worktreeSessions: [],
+				},
+			}],
 		});
 		openRepositoryMock.mockRejectedValueOnce(
 			new Error("ENOENT: no such file or directory, realpath '/missing'"),
@@ -825,29 +918,36 @@ describe("App — Phase 5 restore flow", () => {
 
 	it("restores the top-band collapsed state from the saved snapshot", async () => {
 		readRestoreStateMock.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "alwaysRestore",
-			snapshot: {
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
 				repositoryPath: "/repo",
-				selectedWorktreeId: "main",
-				topBandCollapsed: true,
-				commandPresets: [],
-				worktreeSessions: [
-					{
-						worktreeId: "main",
-						note: "resume here",
-						reviewMode: "files",
-						viewerMode: "file",
-						selectedFilePath: null,
-						selectedChangedFilePath: null,
-						selectedCommitSha: null,
-						selectedCommitFilePath: null,
-						activeProcessSessionId: null,
-						nextAdHocNumber: 1,
-						processSessions: [],
-					},
-				],
-			},
+				repoId: null,
+				snapshot: {
+					repositoryPath: "/repo",
+					selectedWorktreeId: "main",
+					topBandCollapsed: true,
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: "main",
+							note: "resume here",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							selectedCommitSha: null,
+							selectedCommitFilePath: null,
+							activeProcessSessionId: null,
+							nextAdHocNumber: 1,
+							processSessions: [],
+						},
+					],
+				},
+			}],
 		});
 		openRepositoryMock.mockResolvedValue({
 			workspaceId: "repo-1",

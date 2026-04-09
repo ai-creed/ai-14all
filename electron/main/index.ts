@@ -6,6 +6,7 @@ import { registerIpcHandlers } from "./ipc.js";
 import { registerAppLifecycle } from "./lifecycle.js";
 import { buildApplicationMenu } from "./menu.js";
 import { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
+import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 
 app.setName("ai-14all");
 
@@ -16,7 +17,8 @@ app.whenReady().then(() => {
 		process.env.AI14ALL_WORKSPACE_STATE_PATH ??
 			join(app.getPath("userData"), "workspace-state.json"),
 	);
-	const { dispose } = registerIpcHandlers(mainWindow, { workspacePersistence });
+	const workspaceRegistry = new WorkspaceRegistryService();
+	const { dispose } = registerIpcHandlers(mainWindow, { workspacePersistence, workspaceRegistry });
 
 	if (process.env.ELECTRON_RENDERER_URL) {
 		mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);

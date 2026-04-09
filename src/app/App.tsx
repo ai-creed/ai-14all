@@ -84,7 +84,7 @@ export function App() {
 		: null;
 	const repository = activeWorkspace?.repository ?? null;
 	const worktrees = activeWorkspace?.worktrees ?? [];
-	const workspaceId = appWorkspaces.activeWorkspaceId ?? "";
+	const activeWorkspaceId = appWorkspaces.activeWorkspaceId;
 	const workspaceState = activeWorkspace?.workspaceState ?? createWorkspaceState([]);
 
 	// Keep a "shadow" ref for the active workspace's workspaceState that is
@@ -189,32 +189,17 @@ export function App() {
 		workspace.readRestoreState().then((result) => {
 			if (cancelled) return;
 
-			// Cast to the union so we can handle a v1 payload during the transition
-			// period when old persisted files still exist on disk.
-			const rawState = result as { version: 1; restorePreference: RestorePreference; snapshot: WorkspaceSnapshot | null } | typeof result;
+			// V2 state: pick the active workspace's snapshot for restore logic
+			const activeSaved = result.activeWorkspaceId
+				? result.workspaces.find((w) => w.workspaceId === result.activeWorkspaceId)
+				: result.workspaces[0];
+			const snapshot = activeSaved?.snapshot ?? null;
+			// Collect non-active workspaces to register as dormant entries
+			const dormantSaved = result.workspaces.filter(
+				(w) => w.workspaceId !== (activeSaved?.workspaceId ?? ""),
+			);
 
-			let preference: RestorePreference;
-			let snapshot: WorkspaceSnapshot | null;
-			let dormantSaved: PersistedSavedWorkspace[] = [];
-
-			if ((rawState as { version: number }).version === 1) {
-				const v1 = rawState as { version: 1; restorePreference: RestorePreference; snapshot: WorkspaceSnapshot | null };
-				preference = v1.restorePreference;
-				snapshot = v1.snapshot;
-			} else {
-				// V2 state: pick the active workspace's snapshot for restore logic
-				preference = result.restorePreference;
-				const activeSaved = result.activeWorkspaceId
-					? result.workspaces.find((w) => w.workspaceId === result.activeWorkspaceId)
-					: result.workspaces[0];
-				snapshot = activeSaved?.snapshot ?? null;
-				// Collect non-active workspaces to register as dormant entries
-				dormantSaved = result.workspaces.filter(
-					(w) => w.workspaceId !== (activeSaved?.workspaceId ?? ""),
-				);
-			}
-
-			setRestorePreference(preference);
+			setRestorePreference(result.restorePreference);
 			setSavedSnapshot(snapshot);
 			setSavedDormantWorkspaces(dormantSaved);
 
@@ -222,12 +207,12 @@ export function App() {
 				setStartupMode("ready");
 				return;
 			}
-			if (preference === "alwaysStartClean") {
+			if (result.restorePreference === "alwaysStartClean") {
 				setStartupMode("ready");
 				return;
 			}
-			if (preference === "alwaysRestore") {
-				void restoreWorkspace(snapshot, preference, dormantSaved);
+			if (result.restorePreference === "alwaysRestore") {
+				void restoreWorkspace(snapshot, result.restorePreference, dormantSaved);
 				return;
 			}
 			setStartupMode("prompt");
@@ -244,11 +229,11 @@ export function App() {
 	}, []);
 
 	useEffect(() => workspace.onOpenPicker(() => {
-		if (startupMode !== "ready" || repository === null) return;
+		if (startupMode !== "ready") return;
 		setError(null);
 		setStartupError(null);
 		setWorkspacePickerOpen(true);
-	}), [startupMode, repository]);
+	}), [startupMode]);
 
 	const activeWorktree =
 		worktrees.find((w) => w.id === workspaceState.selectedWorktreeId) ?? null;
@@ -758,11 +743,6 @@ export function App() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- persistableStateJson for change detection; persistableStateV2 for the write
 	}, [startupMode, persistableStateJson]);
 
-	// Handle start-clean (v1-style snapshot must survive so user can restore on next launch).
-	// For the v2 persist path, we need to write the snapshot inside a v2 workspaces array.
-	// We use savedSnapshot for this.
-	const savedSnapshotForPersist = savedSnapshot;
-
 	const defaultShellEnsuredByWorktreeRef = useRef<Set<string>>(new Set());
 
 	useEffect(() => {
@@ -807,7 +787,7 @@ export function App() {
 	}, [activeWorktree?.id, activeWorktree?.path, refreshKey]);
 
 	useEffect(() => {
-		if (!createDialogOpen || !createName.trim()) {
+		if (!createDialogOpen || !createName.trim() || !activeWorkspaceId) {
 			setCreatePreview(null);
 			setCreateError(null);
 			return;
@@ -815,7 +795,7 @@ export function App() {
 		let cancelled = false;
 		const timeoutId = window.setTimeout(() => {
 			setCreateLoading(true);
-			repositoryClient.previewCreateWorktree(workspaceId, createName).then((preview) => {
+			repositoryClient.previewCreateWorktree(activeWorkspaceId, createName).then((preview) => {
 				if (cancelled) return;
 				setCreatePreview(preview);
 				setCreateError(null);
@@ -834,13 +814,13 @@ export function App() {
 	}, [createDialogOpen, createName]);
 
 	useEffect(() => {
-		if (!removeDialogOpen || !removeTargetId) {
+		if (!removeDialogOpen || !removeTargetId || !activeWorkspaceId) {
 			setRemovePreview(null);
 			setRemoveError(null);
 			return;
 		}
 		let cancelled = false;
-		repositoryClient.previewRemoveWorktree(workspaceId, removeTargetId).then((preview) => {
+		repositoryClient.previewRemoveWorktree(activeWorkspaceId, removeTargetId).then((preview) => {
 			if (!cancelled) {
 				setRemovePreview(preview);
 				setRemoveError(null);
@@ -858,8 +838,8 @@ export function App() {
 		preferredSelectedWorktreeId?: string | null;
 		skipRuntimeCleanupWorktreeIds?: string[];
 	}) {
-		if (!repository) return;
-		const latest = await repositoryClient.listWorktrees(workspaceId);
+		if (!repository || !activeWorkspaceId) return;
+		const latest = await repositoryClient.listWorktrees(activeWorkspaceId);
 		const latestIds = new Set(latest.map((worktree) => worktree.id));
 		const skipCleanupIds = new Set(options?.skipRuntimeCleanupWorktreeIds ?? []);
 		const removedWorktreeIds = worktreesRef.current
@@ -1006,8 +986,8 @@ export function App() {
 
 	async function handleSelectWorktree(worktreeId: string) {
 		const pending = pendingRestoreSessions[worktreeId];
-		if (pending) {
-			dispatch({ type: "session/restoreSnapshot", workspaceId, snapshot: pending });
+		if (pending && activeWorkspaceId) {
+			dispatch({ type: "session/restoreSnapshot", workspaceId: activeWorkspaceId, snapshot: pending });
 			setPendingRestoreSessions((prev) => {
 				const next = { ...prev };
 				delete next[worktreeId];
@@ -1039,19 +1019,19 @@ export function App() {
 			}
 		}
 
-		if (pending) {
+		if (pending && activeWorkspaceId) {
 			const worktree = worktrees.find((entry) => entry.id === worktreeId);
 			if (worktree) {
-				await recreatePersistedProcesses(worktree, pending, workspaceId);
+				await recreatePersistedProcesses(worktree, pending, activeWorkspaceId);
 			}
 		}
 	}
 
 	async function handleConfirmCreateWorktree() {
-		if (!createPreview) return;
+		if (!createPreview || !activeWorkspaceId) return;
 		setCreateBusy(true);
 		try {
-			const created = await repositoryClient.createWorktree(workspaceId, createName);
+			const created = await repositoryClient.createWorktree(activeWorkspaceId, createName);
 			await refreshWorktreeInventory({ preferredSelectedWorktreeId: created.id });
 			setCreateDialogOpen(false);
 			setCreateName("");
@@ -1086,11 +1066,11 @@ export function App() {
 	}
 
 	async function handleConfirmRemoveWorktree() {
-		if (!removePreview) return;
+		if (!removePreview || !activeWorkspaceId) return;
 		setRemoveBusy(true);
 		try {
 			await closeProcessesForWorktree(removePreview.worktreeId);
-			await repositoryClient.removeWorktree(workspaceId, removePreview.worktreeId);
+			await repositoryClient.removeWorktree(activeWorkspaceId, removePreview.worktreeId);
 			await refreshWorktreeInventory({
 				skipRuntimeCleanupWorktreeIds: [removePreview.worktreeId],
 			});
@@ -1221,10 +1201,10 @@ export function App() {
 	}
 
 	async function handleAddAdHoc() {
-		if (!activeWorktree) return;
+		if (!activeWorktree || !activeWorkspaceId) return;
 		try {
 			const termSession = await createSession(
-				workspaceId,
+				activeWorkspaceId,
 				activeWorktree.id,
 				activeWorktree.path,
 			);
@@ -1232,7 +1212,7 @@ export function App() {
 				workspaceState.nextAdHocNumberByWorktreeId[activeWorktree.id] ?? 1;
 			const process: ProcessSession = {
 				id: crypto.randomUUID(),
-				workspaceId,
+				workspaceId: activeWorkspaceId,
 				worktreeId: activeWorktree.id,
 				terminalSessionId: termSession.id,
 				origin: "adHoc",
@@ -1284,11 +1264,11 @@ export function App() {
 	}
 
 	async function handleLaunchPreset(presetId: string) {
-		if (!activeWorktree) return;
+		if (!activeWorktree || !activeWorkspaceId) return;
 		const preset = workspaceState.commandPresets.find((p) => p.id === presetId);
 		if (!preset) return;
 		const terminal = await createSession(
-			workspaceId,
+			activeWorkspaceId,
 			activeWorktree.id,
 			activeWorktree.path,
 		);
@@ -1297,7 +1277,7 @@ export function App() {
 			worktreeId: activeWorktree.id,
 			process: {
 				id: crypto.randomUUID(),
-				workspaceId,
+				workspaceId: activeWorkspaceId,
 				worktreeId: activeWorktree.id,
 				terminalSessionId: terminal.id,
 				origin: "preset",
@@ -1322,7 +1302,7 @@ export function App() {
 
 	async function handleRestartProcess(processId: string) {
 		const process = workspaceState.processSessionsById[processId];
-		if (!process || !activeWorktree) return;
+		if (!process || !activeWorktree || !activeWorkspaceId) return;
 
 		if (process.terminalSessionId) {
 			try {
@@ -1334,7 +1314,7 @@ export function App() {
 		}
 
 		const terminal = await createSession(
-			workspaceId,
+			activeWorkspaceId,
 			activeWorktree.id,
 			activeWorktree.path,
 		);
@@ -1377,13 +1357,13 @@ export function App() {
 				version: 2,
 				restorePreference: nextPreference,
 				activeWorkspaceId: null,
-				workspaceOrder: savedSnapshotForPersist ? ["fallback"] : [],
-				workspaces: savedSnapshotForPersist
+				workspaceOrder: savedSnapshot ? ["fallback"] : [],
+				workspaces: savedSnapshot
 					? [{
 						workspaceId: "fallback",
-						repositoryPath: savedSnapshotForPersist.repositoryPath,
-						repoId: savedSnapshotForPersist.repoId ?? null,
-						snapshot: savedSnapshotForPersist,
+						repositoryPath: savedSnapshot.repositoryPath,
+						repoId: savedSnapshot.repoId ?? null,
+						snapshot: savedSnapshot,
 					}]
 					: [],
 			};
@@ -1395,6 +1375,30 @@ export function App() {
 		if (savedSnapshot) {
 			await restoreWorkspace(savedSnapshot, nextPreference, savedDormantWorkspaces);
 		}
+	}
+
+	async function handleRemoveWorkspace(wsId: string) {
+		const ws = appWorkspaces.workspacesById[wsId];
+		if (!ws?.workspaceState) {
+			// Dormant — no live sessions, safe to remove immediately
+			dispatchAppWorkspaces({ type: "workspace/remove", workspaceId: wsId });
+			return;
+		}
+		const liveSessions = Object.values(ws.workspaceState.processSessionsById).filter(
+			(p) => p.status === "running" && p.terminalSessionId !== null,
+		);
+		if (liveSessions.length > 0) {
+			const confirmed = window.confirm(
+				`"${ws.repository.name}" has ${liveSessions.length} active terminal(s). Remove it and stop all running terminals?`,
+			);
+			if (!confirmed) return;
+			await Promise.all(
+				liveSessions.flatMap((p) =>
+					p.terminalSessionId ? [stopSession(p.terminalSessionId)] : [],
+				),
+			);
+		}
+		dispatchAppWorkspaces({ type: "workspace/remove", workspaceId: wsId });
 	}
 
 	const attentionByWorktreeId = Object.fromEntries(
@@ -1475,7 +1479,7 @@ export function App() {
 							workspaces={switcherWorkspaces}
 							activeWorkspaceId={appWorkspaces.activeWorkspaceId}
 							onSelect={(wsId) => { void activateWorkspace(wsId); }}
-							onRemove={(wsId) => { dispatchAppWorkspaces({ type: "workspace/remove", workspaceId: wsId }); }}
+							onRemove={(wsId) => { void handleRemoveWorkspace(wsId); }}
 						/>
 					)}
 					<SessionSidebar

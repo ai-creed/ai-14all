@@ -47,14 +47,19 @@ import type {
 // ---------------------------------------------------------------------------
 export function registerIpcHandlers(
 	mainWindow: BrowserWindow,
-	{ workspacePersistence }: { workspacePersistence: WorkspacePersistenceService },
+	{
+		workspacePersistence,
+		workspaceRegistry,
+	}: {
+		workspacePersistence: WorkspacePersistenceService;
+		workspaceRegistry: WorkspaceRegistryService;
+	},
 ): {
 	dispose: () => void;
 } {
 	const worktreeService = new WorktreeService();
 	const fileService = new FileService();
 	const gitService = new GitService();
-	const workspaceRegistry = new WorkspaceRegistryService();
 
 	const safeSend = <T extends object>(channel: string, payload: T) => {
 		if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {

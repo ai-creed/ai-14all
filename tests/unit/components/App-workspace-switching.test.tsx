@@ -211,6 +211,9 @@ describe("workspace switching", () => {
 	});
 
 	it("unregisters a non-active workspace from the sidebar", async () => {
+		// Workspace removal with live terminals requires confirmation; auto-confirm in this test.
+		vi.spyOn(window, "confirm").mockReturnValue(true);
+
 		let onOpenPickerCallback: (() => void) | null = null;
 
 		const { workspace: workspaceMock } = await import("../../../src/lib/desktop-client");
