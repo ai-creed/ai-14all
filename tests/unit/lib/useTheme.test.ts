@@ -25,11 +25,18 @@ function mockMatchMedia(systemIsLight: boolean) {
 	}};
 }
 
+let originalMatchMedia: typeof window.matchMedia;
+
 beforeEach(() => {
+	originalMatchMedia = window.matchMedia;
 	document.documentElement.removeAttribute("data-theme");
 });
 
 afterEach(() => {
+	Object.defineProperty(window, "matchMedia", {
+		writable: true,
+		value: originalMatchMedia,
+	});
 	vi.restoreAllMocks();
 });
 

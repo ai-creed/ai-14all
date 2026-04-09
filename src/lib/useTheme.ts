@@ -18,6 +18,8 @@ export function useTheme(): {
 	setTheme: (mode: ThemeMode) => void;
 } {
 	const [mode, setMode] = useState<ThemeMode>("system");
+	// Lazy initializer: apply theme synchronously during render to prevent
+	// a flash of unstyled content before the first useEffect fires.
 	const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => {
 		const resolved = getSystemTheme();
 		applyTheme(resolved);
