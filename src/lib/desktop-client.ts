@@ -23,8 +23,8 @@ export const repository: Ai14AllDesktopApi["repository"] = {
 };
 
 export const terminals: Ai14AllDesktopApi["terminals"] = {
-	create: (worktreeId, cwd) =>
-		getDesktopClient().terminals.create(worktreeId, cwd),
+	create: (workspaceId, worktreeId, cwd) =>
+		getDesktopClient().terminals.create(workspaceId, worktreeId, cwd),
 	sendInput: (sessionId, data) =>
 		getDesktopClient().terminals.sendInput(sessionId, data),
 	resize: (sessionId, cols, rows) =>

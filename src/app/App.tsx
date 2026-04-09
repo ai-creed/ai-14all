@@ -65,6 +65,7 @@ export function App() {
 	const [reviewPanelCollapsed, setReviewPanelCollapsed] = useState(false);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const [repository, setRepository] = useState<Repository | null>(null);
+	const [workspaceId, setWorkspaceId] = useState<string>("");
 	const [worktrees, setWorktrees] = useState<Worktree[]>([]);
 	const [workspaceState, dispatch] = useReducer(
 		workspaceReducer,
@@ -274,7 +275,9 @@ export function App() {
 		}
 
 		if (shouldReattachSnapshot(repo, restoreState.snapshot)) {
+			const nextWorkspaceId = repo.id;
 			setRepository(repo);
+			setWorkspaceId(nextWorkspaceId);
 			setWorktrees(wts);
 			defaultShellEnsuredByWorktreeRef.current.clear();
 			const originalSnapshot = restoreState.snapshot!;
@@ -292,6 +295,7 @@ export function App() {
 				type: "workspace/restoreSnapshot",
 				worktrees: wts,
 				snapshot: nextSnapshot,
+				workspaceId: nextWorkspaceId,
 			});
 			const { selectedSession, pendingByWorktreeId } = splitPendingRestores(nextSnapshot);
 			setPendingRestoreSessions(pendingByWorktreeId);
@@ -305,7 +309,7 @@ export function App() {
 				? " Repository identity could not be verified — future recovery will rely on folder name matching."
 				: "";
 			if (selectedWorktree && selectedSession) {
-				await recreatePersistedProcesses(selectedWorktree, selectedSession);
+				await recreatePersistedProcesses(selectedWorktree, selectedSession, nextWorkspaceId);
 				setRestoreWarning(
 					`Recovered your previous workspace after the repository path changed.${degradedNote}`,
 				);
@@ -331,6 +335,7 @@ export function App() {
 		}
 
 		setRepository(repo);
+		setWorkspaceId(repo.id);
 		setWorktrees(wts);
 		defaultShellEnsuredByWorktreeRef.current.clear();
 		setPendingRestoreSessions({});
@@ -350,13 +355,16 @@ export function App() {
 			const repo = await repositoryClient.setRoot(snapshot.repositoryPath);
 			// @ts-expect-error TODO: Task 6 will replace this with workspace-scoped listWorktrees
 			const wts = await repositoryClient.listWorktrees();
+			const restoredWorkspaceId = repo.id;
 			setRepository(repo);
+			setWorkspaceId(restoredWorkspaceId);
 			setWorktrees(wts);
 
 			dispatch({
 				type: "workspace/restoreSnapshot",
 				worktrees: wts,
 				snapshot,
+				workspaceId: restoredWorkspaceId,
 			});
 
 			const { selectedSession, pendingByWorktreeId } = splitPendingRestores(snapshot);
@@ -373,7 +381,7 @@ export function App() {
 				(worktree) => worktree.id === (snapshot.selectedWorktreeId ?? ""),
 			);
 			if (selectedWorktree && selectedSession) {
-				await recreatePersistedProcesses(selectedWorktree, selectedSession);
+				await recreatePersistedProcesses(selectedWorktree, selectedSession, restoredWorkspaceId);
 			} else if (snapshot.selectedWorktreeId && !selectedWorktree) {
 				setRestoreWarning(
 					"Previously selected worktree is no longer available. Opened the first available session instead.",
@@ -411,10 +419,11 @@ export function App() {
 	async function recreatePersistedProcesses(
 		worktree: Worktree,
 		sessionSnapshot: PersistedWorktreeSession,
+		activeWorkspaceId: string,
 	) {
 		for (const process of sessionSnapshot.processSessions) {
 			try {
-				const terminal = await createSession(worktree.id, worktree.path);
+				const terminal = await createSession(activeWorkspaceId, worktree.id, worktree.path);
 				dispatch({
 					type: "session/replaceProcessTerminal",
 					processId: process.id,
@@ -736,7 +745,7 @@ export function App() {
 	async function handleSelectWorktree(worktreeId: string) {
 		const pending = pendingRestoreSessions[worktreeId];
 		if (pending) {
-			dispatch({ type: "session/restoreSnapshot", snapshot: pending });
+			dispatch({ type: "session/restoreSnapshot", workspaceId, snapshot: pending });
 			setPendingRestoreSessions((prev) => {
 				const next = { ...prev };
 				delete next[worktreeId];
@@ -771,7 +780,7 @@ export function App() {
 		if (pending) {
 			const worktree = worktrees.find((entry) => entry.id === worktreeId);
 			if (worktree) {
-				await recreatePersistedProcesses(worktree, pending);
+				await recreatePersistedProcesses(worktree, pending, workspaceId);
 			}
 		}
 	}
@@ -955,6 +964,7 @@ export function App() {
 		if (!activeWorktree) return;
 		try {
 			const termSession = await createSession(
+				workspaceId,
 				activeWorktree.id,
 				activeWorktree.path,
 			);
@@ -962,6 +972,7 @@ export function App() {
 				workspaceState.nextAdHocNumberByWorktreeId[activeWorktree.id] ?? 1;
 			const process: ProcessSession = {
 				id: crypto.randomUUID(),
+				workspaceId,
 				worktreeId: activeWorktree.id,
 				terminalSessionId: termSession.id,
 				origin: "adHoc",
@@ -1017,6 +1028,7 @@ export function App() {
 		const preset = workspaceState.commandPresets.find((p) => p.id === presetId);
 		if (!preset) return;
 		const terminal = await createSession(
+			workspaceId,
 			activeWorktree.id,
 			activeWorktree.path,
 		);
@@ -1025,6 +1037,7 @@ export function App() {
 			worktreeId: activeWorktree.id,
 			process: {
 				id: crypto.randomUUID(),
+				workspaceId,
 				worktreeId: activeWorktree.id,
 				terminalSessionId: terminal.id,
 				origin: "preset",
@@ -1061,6 +1074,7 @@ export function App() {
 		}
 
 		const terminal = await createSession(
+			workspaceId,
 			activeWorktree.id,
 			activeWorktree.path,
 		);

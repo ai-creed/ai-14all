@@ -39,6 +39,23 @@ describe("TerminalService", () => {
 		spawnMock.mockReset();
 	});
 
+	it("creates terminal sessions with workspace ownership metadata", () => {
+		const pty = createPtyDouble();
+		spawnMock.mockReturnValue(pty);
+
+		const handlers = {
+			onOutput: vi.fn(),
+			onExit: vi.fn(),
+			onState: vi.fn(),
+			onError: vi.fn(),
+		};
+		const service = new TerminalService(handlers);
+
+		const session = service.create("ws-a", "worktree-a", "/repo-a");
+		expect(session.workspaceId).toBe("ws-a");
+		expect(session.worktreeId).toBe("worktree-a");
+	});
+
 	it("ignores stale stop and resize commands after a terminal has exited", () => {
 		const pty = createPtyDouble();
 		spawnMock.mockReturnValue(pty);
@@ -51,7 +68,7 @@ describe("TerminalService", () => {
 		};
 		const service = new TerminalService(handlers);
 
-		const session = service.create("wt1", "/repo");
+		const session = service.create("ws-1", "wt1", "/repo");
 
 		expect(() => service.stop(session.id)).not.toThrow();
 		expect(pty.kill).toHaveBeenCalledTimes(1);
@@ -74,7 +91,7 @@ describe("TerminalService", () => {
 		};
 		const service = new TerminalService(handlers);
 
-		service.create("wt1", "/repo");
+		service.create("ws-1", "wt1", "/repo");
 		handlers.onState.mockClear();
 		handlers.onExit.mockClear();
 

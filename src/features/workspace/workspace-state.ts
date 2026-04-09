@@ -100,8 +100,9 @@ export type WorkspaceAction =
 			type: "workspace/restoreSnapshot";
 			worktrees: Worktree[];
 			snapshot: WorkspaceSnapshot;
+			workspaceId: string;
 	  }
-	| { type: "session/restoreSnapshot"; snapshot: PersistedWorktreeSession }
+	| { type: "session/restoreSnapshot"; workspaceId: string; snapshot: PersistedWorktreeSession }
 	| { type: "session/selectCommit"; worktreeId: string; sha: string }
 	| { type: "session/selectCommitFile"; worktreeId: string; relativePath: string }
 	| { type: "session/clearSelectedCommit"; worktreeId: string }
@@ -204,6 +205,7 @@ function sanitizeSplitAssignments(
 function restorePersistedSession(
 	state: WorkspaceState,
 	snapshot: PersistedWorktreeSession,
+	workspaceId: string,
 ): WorkspaceState {
 	const session = state.sessionsByWorktreeId[snapshot.worktreeId];
 	if (!session) return state;
@@ -212,6 +214,7 @@ function restorePersistedSession(
 	for (const process of snapshot.processSessions) {
 		nextProcessSessionsById[process.id] = {
 			id: process.id,
+			workspaceId,
 			worktreeId: snapshot.worktreeId,
 			terminalSessionId: null,
 			origin: process.origin,
@@ -304,13 +307,13 @@ export function workspaceReducer(
 			(session) => session.worktreeId === selectedWorktreeId,
 		);
 		if (selectedSession) {
-			nextState = restorePersistedSession(nextState, selectedSession);
+			nextState = restorePersistedSession(nextState, selectedSession, action.workspaceId);
 		}
 		return nextState;
 	}
 
 	if (action.type === "session/restoreSnapshot") {
-		return restorePersistedSession(state, action.snapshot);
+		return restorePersistedSession(state, action.snapshot, action.workspaceId);
 	}
 
 	// Full state reset — only dispatched on initial repository load, not on

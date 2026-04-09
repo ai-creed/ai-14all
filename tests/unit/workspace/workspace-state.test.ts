@@ -42,6 +42,7 @@ function makeProcess(
 ): ProcessSession {
 	return {
 		id,
+		workspaceId: "ws-test",
 		worktreeId,
 		terminalSessionId: `terminal-${id}`,
 		origin: "adHoc",
@@ -708,6 +709,7 @@ describe("workspaceReducer — Phase 6 top-band collapse", () => {
 		state = workspaceReducer(state, {
 			type: "workspace/restoreSnapshot",
 			worktrees,
+			workspaceId: "ws-test",
 			snapshot: {
 				repositoryPath: "/repo",
 				repoId: null,
@@ -727,6 +729,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 		let state = workspaceReducer(createWorkspaceState([]), {
 			type: "workspace/restoreSnapshot",
 			worktrees,
+			workspaceId: "ws-test",
 			snapshot: {
 				repositoryPath: "/repo",
 				repoId: null,
@@ -778,6 +781,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 	it("lazily restores a non-selected worktree session", () => {
 		let state = workspaceReducer(createWorkspaceState(worktrees), {
 			type: "session/restoreSnapshot",
+			workspaceId: "ws-test",
 			snapshot: {
 				worktreeId: "feature-a",
 				note: "later",
@@ -813,6 +817,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 	it("restores selectedCommitSha and reviewMode from a persisted commit-review snapshot", () => {
 		const state = workspaceReducer(createWorkspaceState(worktrees), {
 			type: "session/restoreSnapshot",
+			workspaceId: "ws-test",
 			snapshot: {
 				worktreeId: "main",
 				note: "",
@@ -840,6 +845,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 	it("clamps activeProcessSessionId when it no longer matches a restored process", () => {
 		const state = workspaceReducer(createWorkspaceState(worktrees), {
 			type: "session/restoreSnapshot",
+			workspaceId: "ws-test",
 			snapshot: {
 				worktreeId: "feature-a",
 				note: "",

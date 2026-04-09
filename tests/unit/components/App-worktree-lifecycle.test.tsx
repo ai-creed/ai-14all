@@ -16,9 +16,10 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		removeWorktree: vi.fn(),
 	},
 	terminals: {
-		create: vi.fn((worktreeId: string, cwd: string) =>
+		create: vi.fn((workspaceId: string, worktreeId: string, cwd: string) =>
 			Promise.resolve({
 				id: `terminal-${worktreeId}-${Date.now()}`,
+				workspaceId,
 				worktreeId,
 				cwd,
 				status: "running",
@@ -219,7 +220,7 @@ it("creates a default shell for a worktree recreated after removal with the same
 	});
 
 	const createsBefore = vi.mocked(terminals.create).mock.calls.filter(
-		(c) => c[0] === "feature-a",
+		(c) => c[1] === "feature-a",
 	).length;
 	expect(createsBefore).toBe(1);
 
@@ -245,7 +246,7 @@ it("creates a default shell for a worktree recreated after removal with the same
 	// A default shell must be created for the recreated worktree
 	await waitFor(() => {
 		const createsAfter = vi.mocked(terminals.create).mock.calls.filter(
-			(c) => c[0] === "feature-a",
+			(c) => c[1] === "feature-a",
 		).length;
 		expect(createsAfter).toBe(2);
 	});

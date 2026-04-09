@@ -108,9 +108,10 @@ describe("App — Phase 6 default shell", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		let terminalCount = 0;
-		createMock.mockImplementation((worktreeId: string, cwd: string) =>
+		createMock.mockImplementation((workspaceId: string, worktreeId: string, cwd: string) =>
 			Promise.resolve({
 				id: `terminal-${worktreeId}-${terminalCount++}`,
+				workspaceId,
 				worktreeId,
 				cwd,
 				status: "running",
@@ -151,7 +152,7 @@ describe("App — Phase 6 default shell", () => {
 
 		await waitFor(() => {
 			expect(createMock).toHaveBeenCalledTimes(1);
-			expect(createMock).toHaveBeenCalledWith("main", "/repo");
+			expect(createMock).toHaveBeenCalledWith("repo-1", "main", "/repo");
 		});
 	});
 
@@ -357,9 +358,10 @@ describe("App — Phase 6 default shell", () => {
 
 	it("renders two visible terminal panes when split mode has left and right assignments", async () => {
 		let terminalCount = 0;
-		createMock.mockImplementation((worktreeId: string, cwd: string) =>
+		createMock.mockImplementation((workspaceId: string, worktreeId: string, cwd: string) =>
 			Promise.resolve({
 				id: `terminal-${worktreeId}-${terminalCount++}`,
+				workspaceId,
 				worktreeId,
 				cwd,
 				status: "running",
@@ -459,9 +461,10 @@ describe("App — Phase 6 default shell", () => {
 
 	it("renders split panes in explicit left and right slot order", async () => {
 		let terminalCount = 0;
-		createMock.mockImplementation((worktreeId: string, cwd: string) =>
+		createMock.mockImplementation((workspaceId: string, worktreeId: string, cwd: string) =>
 			Promise.resolve({
 				id: `terminal-${worktreeId}-${terminalCount++}`,
+				workspaceId,
 				worktreeId,
 				cwd,
 				status: "running",
@@ -530,9 +533,10 @@ describe("App — Phase 6 default shell", () => {
 
 	it("treats output from any visible split pane as already viewed", async () => {
 		let terminalCount = 0;
-		createMock.mockImplementation((worktreeId: string, cwd: string) =>
+		createMock.mockImplementation((workspaceId: string, worktreeId: string, cwd: string) =>
 			Promise.resolve({
 				id: `terminal-${worktreeId}-${terminalCount++}`,
+				workspaceId,
 				worktreeId,
 				cwd,
 				status: "running",
@@ -613,9 +617,10 @@ describe("App — Phase 6 default shell", () => {
 
 	it("selects clicked split pane as the active process", async () => {
 		let terminalCount = 0;
-		createMock.mockImplementation((worktreeId: string, cwd: string) =>
+		createMock.mockImplementation((workspaceId: string, worktreeId: string, cwd: string) =>
 			Promise.resolve({
 				id: `terminal-${worktreeId}-${terminalCount++}`,
+				workspaceId,
 				worktreeId,
 				cwd,
 				status: "running",

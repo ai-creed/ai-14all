@@ -39,6 +39,7 @@ export const PreviewCreateWorktreeSchema = z.object({ workspaceId: z.string(), n
 export const PreviewRemoveWorktreeSchema = z.object({ workspaceId: z.string(), worktreeId: z.string() });
 
 export const CreateTerminalSessionSchema = z.object({
+	workspaceId: z.string(),
 	worktreeId: z.string(),
 	cwd: z.string(),
 });
@@ -112,7 +113,7 @@ export type Ai14AllDesktopApi = {
 		removeWorktree(workspaceId: string, worktreeId: string): Promise<void>;
 	};
 	terminals: {
-		create(worktreeId: string, cwd: string): Promise<TerminalSession>;
+		create(workspaceId: string, worktreeId: string, cwd: string): Promise<TerminalSession>;
 		sendInput(sessionId: string, data: string): Promise<void>;
 		resize(sessionId: string, cols: number, rows: number): Promise<void>;
 		stop(sessionId: string): Promise<void>;

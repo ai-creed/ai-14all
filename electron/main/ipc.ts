@@ -143,8 +143,8 @@ export function registerIpcHandlers(
 	// --- Terminals ---
 
 	ipcMain.handle("terminals:create", (_event, raw: unknown) => {
-		const { worktreeId, cwd } = CreateTerminalSessionSchema.parse(raw);
-		return terminalService.create(worktreeId, cwd);
+		const { workspaceId, worktreeId, cwd } = CreateTerminalSessionSchema.parse(raw);
+		return terminalService.create(workspaceId, worktreeId, cwd);
 	});
 
 	ipcMain.handle("terminals:sendInput", (_event, raw: unknown) => {

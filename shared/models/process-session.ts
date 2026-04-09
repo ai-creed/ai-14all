@@ -4,6 +4,7 @@ export type ProcessStatus = "running" | "exited" | "error" | "restarting";
 
 export type ProcessSession = {
 	id: string;
+	workspaceId: string;
 	worktreeId: string;
 	terminalSessionId: string | null;
 	origin: ProcessOrigin;

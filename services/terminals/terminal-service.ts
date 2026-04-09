@@ -38,7 +38,7 @@ export class TerminalService {
 	// -----------------------------------------------------------------------
 	// create
 	// -----------------------------------------------------------------------
-	create(worktreeId: string, cwd: string): TerminalSession {
+	create(workspaceId: string, worktreeId: string, cwd: string): TerminalSession {
 		if (this.disposed) {
 			throw new Error("Terminal service has been disposed");
 		}
@@ -59,6 +59,7 @@ export class TerminalService {
 		} catch (err: unknown) {
 			const meta: TerminalSession = {
 				id,
+				workspaceId,
 				worktreeId,
 				cwd,
 				status: "error",
@@ -73,6 +74,7 @@ export class TerminalService {
 
 		const meta: TerminalSession = {
 			id,
+			workspaceId,
 			worktreeId,
 			cwd,
 			status: "running",

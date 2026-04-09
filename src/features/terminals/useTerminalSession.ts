@@ -17,7 +17,7 @@ export type RuntimeListeners = {
 
 export type UseTerminalSessionResult = {
 	sessions: TerminalSession[];
-	createSession: (worktreeId: string, cwd: string) => Promise<TerminalSession>;
+	createSession: (workspaceId: string, worktreeId: string, cwd: string) => Promise<TerminalSession>;
 	stopSession: (sessionId: string) => Promise<void>;
 	removeSession: (sessionId: string) => void;
 	sendInput: (sessionId: string, data: string) => Promise<void>;
@@ -77,8 +77,8 @@ export function useTerminalSession(
 		};
 	}, []);
 
-	const createSession = useCallback(async (worktreeId: string, cwd: string) => {
-		const session = await terminals.create(worktreeId, cwd);
+	const createSession = useCallback(async (workspaceId: string, worktreeId: string, cwd: string) => {
+		const session = await terminals.create(workspaceId, worktreeId, cwd);
 		setSessions((prev) => [...prev, session]);
 		return session;
 	}, []);

@@ -73,9 +73,10 @@ import { App } from "../../../src/app/App";
 describe("App — Phase 5 restore flow", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		createMock.mockImplementation((worktreeId: string, cwd: string) =>
+		createMock.mockImplementation((workspaceId: string, worktreeId: string, cwd: string) =>
 			Promise.resolve({
 				id: `terminal-${worktreeId}-${cwd}`,
+				workspaceId,
 				worktreeId,
 				cwd,
 				status: "running",
@@ -156,7 +157,7 @@ describe("App — Phase 5 restore flow", () => {
 
 		await waitFor(() => {
 			expect(setRootMock).toHaveBeenCalledWith("/repo");
-			expect(createMock).toHaveBeenCalledWith("feature-a", "/repo/.worktrees/feature-a");
+			expect(createMock).toHaveBeenCalledWith("repo-1", "feature-a", "/repo/.worktrees/feature-a");
 		});
 		expect(sendInputMock).toHaveBeenCalledWith(
 			expect.stringContaining("terminal-feature-a"),
@@ -261,13 +262,13 @@ describe("App — Phase 5 restore flow", () => {
 		render(<App />);
 
 		await waitFor(() => {
-			expect(createMock).not.toHaveBeenCalledWith("main", "/repo");
+			expect(createMock).not.toHaveBeenCalledWith("repo-1", "main", "/repo");
 		});
 
 		fireEvent.click(await screen.findByRole("button", { name: /main/i }));
 
 		await waitFor(() => {
-			expect(createMock).toHaveBeenCalledWith("main", "/repo");
+			expect(createMock).toHaveBeenCalledWith("repo-1", "main", "/repo");
 		});
 		expect(await screen.findByDisplayValue("main note")).toBeInTheDocument();
 	});
@@ -474,8 +475,8 @@ describe("App — Phase 5 restore flow", () => {
 
 	it("dispatches worktree selection before awaiting terminal recreation", async () => {
 		// A deferred promise so we can hold createMock pending
-		let resolveTerminal!: (value: { id: string; worktreeId: string; cwd: string; status: string; exitCode: null }) => void;
-		const terminalPending = new Promise<{ id: string; worktreeId: string; cwd: string; status: string; exitCode: null }>(
+		let resolveTerminal!: (value: { id: string; workspaceId: string; worktreeId: string; cwd: string; status: string; exitCode: null }) => void;
+		const terminalPending = new Promise<{ id: string; workspaceId: string; worktreeId: string; cwd: string; status: string; exitCode: null }>(
 			(resolve) => {
 				resolveTerminal = resolve;
 			},
@@ -537,11 +538,11 @@ describe("App — Phase 5 restore flow", () => {
 		});
 
 		// Resolve terminal creation
-		resolveTerminal({ id: "terminal-main-/repo", worktreeId: "main", cwd: "/repo", status: "running", exitCode: null });
+		resolveTerminal({ id: "terminal-main-/repo", workspaceId: "repo-1", worktreeId: "main", cwd: "/repo", status: "running", exitCode: null });
 
 		// Eventually createMock was called
 		await waitFor(() => {
-			expect(createMock).toHaveBeenCalledWith("main", "/repo");
+			expect(createMock).toHaveBeenCalledWith("repo-1", "main", "/repo");
 		});
 	});
 
