@@ -231,6 +231,37 @@ describe("GitService", () => {
 		expect(history.entries.at(-1)?.isMergeTarget).toBe(true);
 	});
 
+	it("orders unmerged commits newest first", async () => {
+		execSync("git update-ref refs/remotes/origin/main main", {
+			cwd: repoPath,
+			stdio: "ignore",
+		});
+		writeFileSync(
+			join(worktreePath, "src", "index.ts"),
+			'export const hello = "feature-1";\n',
+		);
+		execSync("git add -A", { cwd: worktreePath, stdio: "ignore" });
+		execSync('git commit -m "feature commit 1"', {
+			cwd: worktreePath,
+			stdio: "ignore",
+		});
+		writeFileSync(
+			join(worktreePath, "src", "index.ts"),
+			'export const hello = "feature-2";\n',
+		);
+		execSync("git add -A", { cwd: worktreePath, stdio: "ignore" });
+		execSync('git commit -m "feature commit 2"', {
+			cwd: worktreePath,
+			stdio: "ignore",
+		});
+
+		const history = await service.readCommitHistory(worktreePath);
+
+		expect(history.entries[0]?.subject).toBe("feature commit 2");
+		expect(history.entries[1]?.subject).toBe("feature commit 1");
+		expect(history.entries.at(-1)?.isMergeTarget).toBe(true);
+	});
+
 	it("falls back to the last twenty commits when HEAD matches the merge target", async () => {
 		execSync("git update-ref refs/remotes/origin/main main", {
 			cwd: repoPath,

@@ -34,6 +34,7 @@ import {
 	createWorkspaceState,
 	workspaceReducer,
 	type WorkspaceAction,
+	type WorkspaceState,
 } from "../features/workspace/workspace-state";
 import {
 	appWorkspacesReducer,
@@ -87,11 +88,21 @@ export function App() {
 	const activeWorkspaceId = appWorkspaces.activeWorkspaceId;
 	const workspaceState = activeWorkspace?.workspaceState ?? createWorkspaceState([]);
 
+	// Stable ref to the full multi-workspace state — used by onOutput/onExit to
+	// route events from inactive workspaces without depending on the render cycle.
+	const appWorkspacesRef = useRef(appWorkspaces);
+	appWorkspacesRef.current = appWorkspaces;
+
 	// Keep a "shadow" ref for the active workspace's workspaceState that is
 	// updated synchronously when dispatch is called, so that multiple sequential
 	// dispatch calls in async code each see the accumulated state rather than
 	// a stale render snapshot.
 	const activeWorkspaceStateRef = useRef(workspaceState);
+	// Per-workspace shadow state for inactive workspaces. Mirrors the role of
+	// activeWorkspaceStateRef for background PTY events: updated synchronously in
+	// the onOutput/onExit else branches so burst events accumulate rather than
+	// overwriting each other before the next React render.
+	const inactiveWorkspaceStatesRef = useRef<Map<string, WorkspaceState>>(new Map());
 	// Reset the shadow ref whenever the active workspace changes (e.g. workspace
 	// switch or initial register). The workspaceState derived from the render is
 	// authoritative at render time.
@@ -99,6 +110,11 @@ export function App() {
 	if (prevActiveWorkspaceIdRef.current !== appWorkspaces.activeWorkspaceId) {
 		prevActiveWorkspaceIdRef.current = appWorkspaces.activeWorkspaceId;
 		activeWorkspaceStateRef.current = workspaceState;
+		// Drop the inactive shadow for the workspace that just became active — the
+		// active shadow ref now owns accumulation for it.
+		if (appWorkspaces.activeWorkspaceId) {
+			inactiveWorkspaceStatesRef.current.delete(appWorkspaces.activeWorkspaceId);
+		}
 	}
 
 	// Stable dispatch wrapper — always applies to the shadow ref so sequential
@@ -265,12 +281,17 @@ export function App() {
 
 	function findProcessByTerminalSessionId(
 		terminalSessionId: string,
-	): ProcessSession | null {
-		return (
-			Object.values(workspaceState.processSessionsById).find(
-				(process) => process.terminalSessionId === terminalSessionId,
-			) ?? null
-		);
+	): { process: ProcessSession; workspaceId: string } | null {
+		// Search all hydrated workspaces so events from inactive workspaces are
+		// still routed correctly while they run in the background.
+		for (const ws of Object.values(appWorkspacesRef.current.workspacesById)) {
+			if (!ws.workspaceState) continue;
+			const process = Object.values(ws.workspaceState.processSessionsById).find(
+				(p) => p.terminalSessionId === terminalSessionId,
+			);
+			if (process) return { process, workspaceId: ws.workspaceId };
+		}
+		return null;
 	}
 
 	function selectActiveProcess(processId: string) {
@@ -290,9 +311,10 @@ export function App() {
 	const { sessions, createSession, sendInput, stopSession, removeSession } =
 		useTerminalSession({
 			onOutput: (event) => {
-				const process = findProcessByTerminalSessionId(event.sessionId);
-				if (!process) return;
-				dispatch({
+				const found = findProcessByTerminalSessionId(event.sessionId);
+				if (!found) return;
+				const { process, workspaceId: ownerWsId } = found;
+				const action: WorkspaceAction = {
 					type: "session/recordProcessOutput",
 					worktreeId: process.worktreeId,
 					processId: process.id,
@@ -301,17 +323,51 @@ export function App() {
 					isViewed:
 						visibleProcessIds.includes(process.id) &&
 						process.worktreeId === activeWorktree?.id,
-				});
+				};
+				if (ownerWsId === appWorkspacesRef.current.activeWorkspaceId) {
+					dispatch(action);
+				} else {
+					// Route to the inactive workspace. Read from the per-workspace shadow
+					// map first so rapid burst events accumulate correctly instead of both
+					// reads seeing the same pre-render snapshot.
+					const baseState =
+						inactiveWorkspaceStatesRef.current.get(ownerWsId) ??
+						appWorkspacesRef.current.workspacesById[ownerWsId]?.workspaceState;
+					if (!baseState) return;
+					const nextState = workspaceReducer(baseState, action);
+					inactiveWorkspaceStatesRef.current.set(ownerWsId, nextState);
+					dispatchAppWorkspaces({
+						type: "workspace/updateWorkspaceState",
+						workspaceId: ownerWsId,
+						workspaceState: nextState,
+					});
+				}
 			},
 			onExit: (event) => {
-				const process = findProcessByTerminalSessionId(event.sessionId);
-				if (!process) return;
-				dispatch({
+				const found = findProcessByTerminalSessionId(event.sessionId);
+				if (!found) return;
+				const { process, workspaceId: ownerWsId } = found;
+				const action: WorkspaceAction = {
 					type: "session/updateProcessStatus",
 					processId: process.id,
 					status: "exited",
 					exitCode: event.exitCode ?? null,
-				});
+				};
+				if (ownerWsId === appWorkspacesRef.current.activeWorkspaceId) {
+					dispatch(action);
+				} else {
+					const baseState =
+						inactiveWorkspaceStatesRef.current.get(ownerWsId) ??
+						appWorkspacesRef.current.workspacesById[ownerWsId]?.workspaceState;
+					if (!baseState) return;
+					const nextState = workspaceReducer(baseState, action);
+					inactiveWorkspaceStatesRef.current.set(ownerWsId, nextState);
+					dispatchAppWorkspaces({
+						type: "workspace/updateWorkspaceState",
+						workspaceId: ownerWsId,
+						workspaceState: nextState,
+					});
+				}
 			},
 		});
 	const orderedSessions =
@@ -346,9 +402,10 @@ export function App() {
 		// Apply persisted snapshot if available
 		const snapshot = target.persistedSnapshot?.snapshot;
 		let nextWorkspaceState = createWorkspaceState(newWorktrees);
+		let reconciledSnapshot: WorkspaceSnapshot | null = null;
 		if (snapshot) {
 			const rebasedSnapshot = rebaseSnapshotPaths(snapshot, snapshot.repositoryPath, repository.rootPath);
-			const reconciledSnapshot = reconcileSnapshotToWorktrees(rebasedSnapshot, snapshot, newWorktrees);
+			reconciledSnapshot = reconcileSnapshotToWorktrees(rebasedSnapshot, snapshot, newWorktrees);
 			nextWorkspaceState = workspaceReducer(createWorkspaceState(newWorktrees), {
 				type: "workspace/restoreSnapshot",
 				worktrees: newWorktrees,
@@ -373,6 +430,38 @@ export function App() {
 		if (openedId !== workspaceId) {
 			// The backend assigned a different workspaceId — remove the stale dormant entry
 			dispatchAppWorkspaces({ type: "workspace/remove", workspaceId });
+		}
+
+		// Prime the shadow ref so async dispatch calls during recreatePersistedProcesses
+		// see the correct initial state rather than a stale pre-render snapshot.
+		prevActiveWorkspaceIdRef.current = openedId;
+		activeWorkspaceStateRef.current = nextWorkspaceState;
+
+		if (reconciledSnapshot) {
+			const { selectedSession, pendingByWorktreeId } = splitPendingRestores(reconciledSnapshot);
+			setPendingRestoreSessions(pendingByWorktreeId);
+			setSavedSnapshot(reconciledSnapshot);
+			const selectedWorktree = reconciledSnapshot.selectedWorktreeId
+				? newWorktrees.find((wt) => wt.id === reconciledSnapshot!.selectedWorktreeId) ?? null
+				: null;
+			if (selectedWorktree && selectedSession) {
+				// Build a scoped dispatch pinned to openedId. If the user switches
+				// workspace before recreatePersistedProcesses finishes, the global
+				// dispatch() would follow prevActiveWorkspaceIdRef.current (now pointing
+				// at the new active workspace). The scoped dispatch bypasses that ref so
+				// late loop iterations still write to the workspace being hydrated.
+				const capturedId = openedId;
+				const localShadow = { current: nextWorkspaceState };
+				const scopedDispatch = (action: WorkspaceAction) => {
+					localShadow.current = workspaceReducer(localShadow.current, action);
+					dispatchAppWorkspaces({
+						type: "workspace/updateWorkspaceState",
+						workspaceId: capturedId,
+						workspaceState: localShadow.current,
+					});
+				};
+				await recreatePersistedProcesses(selectedWorktree, selectedSession, openedId, scopedDispatch);
+			}
 		}
 	}
 
@@ -616,17 +705,18 @@ export function App() {
 	async function recreatePersistedProcesses(
 		worktree: Worktree,
 		sessionSnapshot: PersistedWorktreeSession,
-		activeWorkspaceId: string,
+		targetWorkspaceId: string,
+		dispatchFn: (action: WorkspaceAction) => void = dispatch,
 	) {
 		for (const process of sessionSnapshot.processSessions) {
 			try {
-				const terminal = await createSession(activeWorkspaceId, worktree.id, worktree.path);
-				dispatch({
+				const terminal = await createSession(targetWorkspaceId, worktree.id, worktree.path);
+				dispatchFn({
 					type: "session/replaceProcessTerminal",
 					processId: process.id,
 					terminalSessionId: terminal.id,
 				});
-				dispatch({
+				dispatchFn({
 					type: "session/updateProcessStatus",
 					processId: process.id,
 					status: "running",
@@ -637,7 +727,7 @@ export function App() {
 					await sendInput(terminal.id, `${process.command}\n`);
 				}
 			} catch {
-				dispatch({
+				dispatchFn({
 					type: "session/updateProcessStatus",
 					processId: process.id,
 					status: "error",
@@ -883,6 +973,9 @@ export function App() {
 						workspaceState: reconciled,
 					},
 				});
+				// Sync the shadow ref so subsequent dispatch() calls in this function
+				// see the reconciled state rather than the pre-reconcile snapshot.
+				activeWorkspaceStateRef.current = reconciled;
 			}
 		}
 
@@ -1630,7 +1723,7 @@ export function App() {
 								}
 							>
 								{orderedSessions.map((session) => {
-									const process = findProcessByTerminalSessionId(session.id);
+									const process = findProcessByTerminalSessionId(session.id)?.process ?? null;
 									return (
 										<TerminalPane
 											key={session.id}

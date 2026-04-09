@@ -300,7 +300,7 @@ export class GitService {
 		const mergeBase = mergeBaseStdout.trim();
 		const { stdout } = await execFileAsync(
 			gitBinary,
-			["log", "--format=%H%x09%h%x09%s", "--reverse", `${mergeBase}..HEAD`],
+			["log", "--format=%H%x09%h%x09%s", `${mergeBase}..HEAD`],
 			{ cwd: worktreePath },
 		);
 		const entries = parseRecentCommits(stdout).map<GitCommitListEntry>((entry) => ({

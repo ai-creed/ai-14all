@@ -9,7 +9,9 @@ export class WorkspaceRegistryService {
 				(repository.repoId && repository.repoId === entry.repository.repoId) ||
 				repository.rootPath === entry.repository.rootPath
 			) {
-				return { workspaceId, repository };
+				// Update the stored entry so the backend reflects the latest path/metadata.
+				this.byWorkspaceId.set(workspaceId, entry.repository);
+				return { workspaceId, repository: entry.repository };
 			}
 		}
 		this.byWorkspaceId.set(entry.workspaceId, entry.repository);
