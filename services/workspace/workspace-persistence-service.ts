@@ -2,14 +2,53 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
 	DEFAULT_PERSISTED_WORKSPACE_STATE,
-	PersistedWorkspaceStateSchema,
-	type PersistedWorkspaceState,
+	PersistedWorkspaceStateV1Schema,
+	PersistedWorkspaceStateV2Schema,
+	type PersistedWorkspaceStateV2,
 } from "../../shared/models/persisted-workspace-state.js";
+
+function migratePersistedWorkspaceState(raw: unknown): PersistedWorkspaceStateV2 {
+	const parsedV1 = PersistedWorkspaceStateV1Schema.safeParse(raw);
+	if (parsedV1.success) {
+		const snapshot = parsedV1.data.snapshot;
+		if (!snapshot) {
+			return {
+				version: 2,
+				restorePreference: parsedV1.data.restorePreference,
+				activeWorkspaceId: null,
+				workspaceOrder: [],
+				workspaces: [],
+			};
+		}
+		const workspaceId = snapshot.repoId
+			? `workspace:${snapshot.repoId}`
+			: `workspace:${snapshot.repositoryPath}`;
+		return {
+			version: 2,
+			restorePreference: parsedV1.data.restorePreference,
+			activeWorkspaceId: workspaceId,
+			workspaceOrder: [workspaceId],
+			workspaces: [
+				{
+					workspaceId,
+					repositoryPath: snapshot.repositoryPath,
+					repoId: snapshot.repoId,
+					snapshot,
+				},
+			],
+		};
+	}
+
+	const parsedV2 = PersistedWorkspaceStateV2Schema.safeParse(raw);
+	if (parsedV2.success) return parsedV2.data;
+
+	throw new Error("Unsupported persisted workspace schema");
+}
 
 export class WorkspacePersistenceService {
 	constructor(private readonly filePath: string) {}
 
-	async readState(): Promise<PersistedWorkspaceState> {
+	async readState(): Promise<PersistedWorkspaceStateV2> {
 		let raw: string;
 		try {
 			raw = await readFile(this.filePath, "utf8");
@@ -30,16 +69,17 @@ export class WorkspacePersistenceService {
 			return DEFAULT_PERSISTED_WORKSPACE_STATE;
 		}
 
-		const result = PersistedWorkspaceStateSchema.safeParse(parsed);
-		if (result.success) return result.data;
-
-		// File is valid JSON but does not match the current schema (e.g. written
-		// by a newer app version).  Return the default without overwriting so
-		// the data survives a downgrade.
-		return DEFAULT_PERSISTED_WORKSPACE_STATE;
+		try {
+			return migratePersistedWorkspaceState(parsed);
+		} catch {
+			// File is valid JSON but does not match any known schema (e.g. written
+			// by a newer app version).  Return the default without overwriting so
+			// the data survives a downgrade.
+			return DEFAULT_PERSISTED_WORKSPACE_STATE;
+		}
 	}
 
-	async writeState(state: PersistedWorkspaceState): Promise<void> {
+	async writeState(state: PersistedWorkspaceStateV2): Promise<void> {
 		await mkdir(dirname(this.filePath), { recursive: true });
 		await writeFile(
 			this.filePath,

@@ -11,6 +11,32 @@ import { createWorkspaceState, workspaceReducer } from "../../../src/features/wo
 import { PersistedWorkspaceStateSchema } from "../../../shared/models/persisted-workspace-state";
 import type { WorkspaceSnapshot } from "../../../shared/models/persisted-workspace-state";
 
+it("serializes multiple workspaces into one persisted file", () => {
+	const parsed = PersistedWorkspaceStateSchema.parse({
+		version: 2,
+		restorePreference: "prompt",
+		activeWorkspaceId: "ws-a",
+		workspaceOrder: ["ws-a", "ws-b"],
+		workspaces: [
+			{
+				workspaceId: "ws-a",
+				repositoryPath: "/repo-a",
+				repoId: "repo-id-a",
+				snapshot: {
+					repositoryPath: "/repo-a",
+					repoId: "repo-id-a",
+					selectedWorktreeId: null,
+					topBandCollapsed: false,
+					commandPresets: [],
+					worktreeSessions: [],
+				},
+			},
+		],
+	});
+
+	expect(parsed.workspaceOrder).toEqual(["ws-a", "ws-b"]);
+});
+
 describe("buildWorkspaceSnapshot", () => {
 	it("serializes only restore-worthy workspace state", () => {
 		let state = createWorkspaceState([

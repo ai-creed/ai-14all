@@ -43,11 +43,31 @@ export const WorkspaceSnapshotSchema = z.object({
 	worktreeSessions: z.array(PersistedWorktreeSessionSchema),
 });
 
-export const PersistedWorkspaceStateSchema = z.object({
+export const PersistedSavedWorkspaceSchema = z.object({
+	workspaceId: z.string(),
+	repositoryPath: z.string(),
+	repoId: z.string().nullable().optional().default(null),
+	snapshot: WorkspaceSnapshotSchema,
+});
+
+export const PersistedWorkspaceStateV1Schema = z.object({
 	version: z.literal(1),
 	restorePreference: RestorePreferenceSchema,
 	snapshot: WorkspaceSnapshotSchema.nullable(),
 });
+
+export const PersistedWorkspaceStateV2Schema = z.object({
+	version: z.literal(2),
+	restorePreference: RestorePreferenceSchema,
+	activeWorkspaceId: z.string().nullable(),
+	workspaceOrder: z.array(z.string()),
+	workspaces: z.array(PersistedSavedWorkspaceSchema),
+});
+
+export const PersistedWorkspaceStateSchema = z.discriminatedUnion("version", [
+	PersistedWorkspaceStateV1Schema,
+	PersistedWorkspaceStateV2Schema,
+]);
 
 export type RestorePreference = z.infer<typeof RestorePreferenceSchema>;
 export type PersistedProcessSession = z.infer<
@@ -57,20 +77,15 @@ export type PersistedWorktreeSession = z.infer<
 	typeof PersistedWorktreeSessionSchema
 >;
 export type WorkspaceSnapshot = z.infer<typeof WorkspaceSnapshotSchema>;
-export type PersistedWorkspaceState = z.infer<
-	typeof PersistedWorkspaceStateSchema
->;
+export type PersistedSavedWorkspace = z.infer<typeof PersistedSavedWorkspaceSchema>;
+export type PersistedWorkspaceStateV1 = z.infer<typeof PersistedWorkspaceStateV1Schema>;
+export type PersistedWorkspaceStateV2 = z.infer<typeof PersistedWorkspaceStateV2Schema>;
+export type PersistedWorkspaceState = PersistedWorkspaceStateV1 | PersistedWorkspaceStateV2;
 
-export const DEFAULT_PERSISTED_WORKSPACE_STATE: PersistedWorkspaceState = {
-	version: 1,
+export const DEFAULT_PERSISTED_WORKSPACE_STATE: PersistedWorkspaceStateV2 = {
+	version: 2,
 	restorePreference: "prompt",
-	snapshot: null,
-};
-
-// Minimal type for Task 1. Task 2 will replace this with a Zod-backed version.
-export type PersistedSavedWorkspace = {
-	workspaceId: string;
-	repositoryPath: string;
-	repoId: string | null;
-	snapshot: WorkspaceSnapshot;
+	activeWorkspaceId: null,
+	workspaceOrder: [],
+	workspaces: [],
 };

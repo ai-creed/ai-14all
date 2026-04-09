@@ -13,7 +13,7 @@ import type { Worktree } from "../../shared/models/worktree";
 import type { GitDiff } from "../../shared/models/git-diff";
 import type { ProcessSession } from "../../shared/models/process-session";
 import type {
-	PersistedWorkspaceState,
+	PersistedWorkspaceStateV1,
 	PersistedWorktreeSession,
 	RestorePreference,
 	WorkspaceSnapshot,
@@ -22,7 +22,6 @@ import type {
 	CreateWorktreePreview,
 	RemoveWorktreePreview,
 } from "../../shared/models/worktree-lifecycle";
-import { DEFAULT_PERSISTED_WORKSPACE_STATE } from "../../shared/models/persisted-workspace-state";
 import { buildWorkspaceSnapshot, rebaseSnapshotPaths, reconcileSnapshotToWorktrees, shouldReattachSnapshot, splitPendingRestores } from "../features/workspace/workspace-persistence";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
@@ -118,9 +117,11 @@ export function App() {
 	const [confirmedDirtyRemoval, setConfirmedDirtyRemoval] = useState(false);
 	const [startupMode, setStartupMode] = useState<StartupMode>("loading");
 	const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
-	const [restoreState, setRestoreState] = useState<PersistedWorkspaceState>(
-		DEFAULT_PERSISTED_WORKSPACE_STATE,
-	);
+	const [restoreState, setRestoreState] = useState<PersistedWorkspaceStateV1>({
+		version: 1,
+		restorePreference: "prompt",
+		snapshot: null,
+	});
 	const [startupError, setStartupError] = useState<string | null>(null);
 	const [restoreWarning, setRestoreWarning] = useState<string | null>(null);
 	const [pendingRestoreSessions, setPendingRestoreSessions] = useState<Record<string, PersistedWorktreeSession>>({});
@@ -128,8 +129,17 @@ export function App() {
 	useEffect(() => {
 		let cancelled = false;
 
-		workspace.readRestoreState().then((state) => {
+		workspace.readRestoreState().then((rawState) => {
 			if (cancelled) return;
+			// Normalize to v1 for single-workspace restore logic. Multi-workspace
+			// support will extend this in a later task.
+			const state: PersistedWorkspaceStateV1 = rawState.version === 1
+				? rawState
+				: {
+					version: 1,
+					restorePreference: rawState.restorePreference,
+					snapshot: rawState.workspaces[0]?.snapshot ?? null,
+				};
 			setRestoreState(state);
 
 			if (!state.snapshot) {
@@ -383,7 +393,7 @@ export function App() {
 			);
 			// Preserve the snapshot so the user can manually reopen after path changes.
 			// Reset to "prompt" so alwaysRestore doesn't loop on a broken path.
-			const fallbackState: PersistedWorkspaceState = {
+			const fallbackState: PersistedWorkspaceStateV1 = {
 				version: 1,
 				restorePreference: "prompt",
 				snapshot,
@@ -1077,7 +1087,7 @@ export function App() {
 		if (!shouldRestore) {
 			// Preserve the snapshot so the user can restore it on a future launch
 			// if they change their preference back to "prompt" or "alwaysRestore".
-			const nextState: PersistedWorkspaceState = {
+			const nextState: PersistedWorkspaceStateV1 = {
 				version: 1,
 				restorePreference: nextPreference,
 				snapshot: restoreState.snapshot,
