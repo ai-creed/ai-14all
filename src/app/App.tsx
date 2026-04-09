@@ -44,6 +44,7 @@ import { TerminalPane } from "../features/terminals/TerminalPane";
 import { PresetManager } from "../features/terminals/PresetManager";
 import { NewWorktreeDialog } from "../features/workspace/NewWorktreeDialog";
 import { RemoveWorktreeDialog } from "../features/workspace/RemoveWorktreeDialog";
+import { LoadWorkspaceDialog } from "../features/workspace/LoadWorkspaceDialog";
 import { useTerminalSession } from "../features/terminals/useTerminalSession";
 import { deriveAttentionState } from "../features/terminals/process-attention";
 import { FileList } from "../features/viewer/FileList";
@@ -1581,7 +1582,7 @@ export function App() {
 		);
 	}
 
-	if (!repository || workspacePickerOpen) {
+	if (!repository) {
 		return (
 			<main className="shell-app shell-app--setup">
 				<section className="shell-panel shell-setup-panel">
@@ -1624,6 +1625,7 @@ export function App() {
 						workspaces={sidebarWorkspaces}
 						collapsed={sidebarCollapsed}
 						onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
+						onLoadWorkspace={() => setWorkspacePickerOpen(true)}
 						onOpenWorkspace={(workspaceId) => {
 							void activateWorkspace(workspaceId);
 						}}
@@ -2078,6 +2080,11 @@ export function App() {
 					setPresetManagerOpen(false);
 					handleLaunchPreset(presetId);
 				}}
+			/>
+			<LoadWorkspaceDialog
+				open={workspacePickerOpen}
+				onOpenChange={setWorkspacePickerOpen}
+				onLoadPath={(path) => handleLoadPath(path)}
 			/>
 			<NewWorktreeDialog
 				open={createDialogOpen}

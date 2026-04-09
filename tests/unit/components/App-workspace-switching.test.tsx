@@ -190,6 +190,57 @@ describe("workspace switching", () => {
 		expect(group).toHaveAttribute("data-active-workspace", "true");
 	});
 
+	it("opens load workspace dialog from sidebar footer", async () => {
+		openRepositoryMock.mockResolvedValueOnce({
+			workspaceId: "ws-a",
+			repository: { id: "repo-a", name: "repo-a", rootPath: "/repo-a", repoId: "repo-id-a" },
+		});
+		listWorktreesMock.mockResolvedValueOnce([
+			{ id: "/repo-a", repositoryId: "repo-a", branchName: "main", path: "/repo-a", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+
+		await userEvent.type(await screen.findByLabelText(/repository path/i), "/repo-a");
+		await userEvent.click(screen.getByRole("button", { name: "Load" }));
+		await screen.findByRole("group", { name: "repo-a" });
+
+		await userEvent.click(screen.getByRole("button", { name: "Load workspace" }));
+
+		expect(await screen.findByRole("dialog", { name: "Load workspace" })).toBeInTheDocument();
+		expect(screen.getByLabelText("Repository path")).toBeInTheDocument();
+	});
+
+	it("opens same load workspace dialog from workspace menu event", async () => {
+		let onOpenPickerCallback: (() => void) | null = null;
+
+		const { workspace: workspaceMock } = await import("../../../src/lib/desktop-client");
+		vi.mocked(workspaceMock.onOpenPicker).mockImplementation((cb) => {
+			onOpenPickerCallback = cb;
+			return () => {};
+		});
+
+		openRepositoryMock.mockResolvedValueOnce({
+			workspaceId: "ws-a",
+			repository: { id: "repo-a", name: "repo-a", rootPath: "/repo-a", repoId: "repo-id-a" },
+		});
+		listWorktreesMock.mockResolvedValueOnce([
+			{ id: "/repo-a", repositoryId: "repo-a", branchName: "main", path: "/repo-a", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+
+		await userEvent.type(await screen.findByLabelText(/repository path/i), "/repo-a");
+		await userEvent.click(screen.getByRole("button", { name: "Load" }));
+		await screen.findByRole("group", { name: "repo-a" });
+
+		if (onOpenPickerCallback) {
+			onOpenPickerCallback();
+		}
+
+		expect(await screen.findByRole("dialog", { name: "Load workspace" })).toBeInTheDocument();
+	});
+
 	it("switches active workspace when selecting a worktree in another workspace group", async () => {
 		let onOpenPickerCallback: (() => void) | null = null;
 

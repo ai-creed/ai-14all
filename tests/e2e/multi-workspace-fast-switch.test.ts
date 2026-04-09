@@ -101,21 +101,11 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 			page.locator(".xterm-accessibility-tree").first(),
 		).toContainText("workspace-switch-test", { timeout: 10_000 });
 
-		// Open repo B as a second workspace via the app menu
-		await app!.evaluate(({ Menu, BrowserWindow }) => {
-			const mainWindow = BrowserWindow.getAllWindows()[0];
-			const menu = Menu.getApplicationMenu();
-			const workspaceMenu = menu?.items.find((item) => item.label === "Workspace");
-			const openWorkspaceItem = workspaceMenu?.submenu?.items.find(
-				(item) => item.label === "Open Workspace...",
-			);
-			if (!openWorkspaceItem) {
-				throw new Error("Workspace > Open Workspace... menu item was not found.");
-			}
-			openWorkspaceItem.click(undefined, mainWindow, undefined);
-		});
+		// Open repo B as second workspace from sidebar footer modal.
+		await page.getByRole("button", { name: "Load workspace" }).click();
 
-		// Fill in repo B path and load it
+		// Fill in repo B path and load it.
+		await expect(page.getByRole("dialog", { name: "Load workspace" })).toBeVisible({ timeout: 5_000 });
 		await expect(page.getByLabel("Repository path")).toBeVisible({ timeout: 5_000 });
 		await page.locator("#repo-path").fill(repoB.repoPath);
 		await page.getByRole("button", { name: "Load" }).click();

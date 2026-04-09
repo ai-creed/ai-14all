@@ -16,6 +16,7 @@ type Props = {
 	workspaces: SessionSidebarWorkspace[];
 	collapsed: boolean;
 	onToggleCollapsed: () => void;
+	onLoadWorkspace: () => void;
 	onOpenWorkspace: (workspaceId: string) => void;
 	onSelect: (workspaceId: string, worktreeId: string) => void;
 	onCreateWorktree: (workspaceId: string) => void;
@@ -27,6 +28,7 @@ export function SessionSidebar({
 	workspaces,
 	collapsed,
 	onToggleCollapsed,
+	onLoadWorkspace,
 	onOpenWorkspace,
 	onSelect,
 	onCreateWorktree,
@@ -162,6 +164,16 @@ export function SessionSidebar({
 						)}
 					</section>
 				))}
+			</div>
+			<div className="shell-sidebar__footer shell-sidebar__footer--global">
+				<button
+					type="button"
+					className="shell-button shell-button--compact"
+					onClick={onLoadWorkspace}
+					aria-label="Load workspace"
+				>
+					{collapsed ? "Load" : "Load workspace"}
+				</button>
 			</div>
 		</nav>
 	);
