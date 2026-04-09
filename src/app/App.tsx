@@ -344,6 +344,49 @@ export function App() {
 	// handleLoadPath — called from RepositoryInput and restoreWorkspace
 	// ---------------------------------------------------------------------------
 
+	async function activateWorkspace(workspaceId: string) {
+		const target = appWorkspaces.workspacesById[workspaceId];
+		if (!target) return;
+
+		if (target.workspaceState) {
+			// Already hydrated — just switch
+			dispatchAppWorkspaces({ type: "workspace/select", workspaceId });
+			return;
+		}
+
+		// Dormant — hydrate it
+		const { workspaceId: openedId, repository } = await workspace.openRepository(target.repository.rootPath);
+		const newWorktrees = await repositoryClient.listWorktrees(openedId);
+
+		// Apply persisted snapshot if available
+		const snapshot = target.persistedSnapshot?.snapshot;
+		let nextWorkspaceState = createWorkspaceState(newWorktrees);
+		if (snapshot) {
+			const rebasedSnapshot = rebaseSnapshotPaths(snapshot, snapshot.repositoryPath, repository.rootPath);
+			const reconciledSnapshot = reconcileSnapshotToWorktrees(rebasedSnapshot, snapshot, newWorktrees);
+			nextWorkspaceState = workspaceReducer(createWorkspaceState(newWorktrees), {
+				type: "workspace/restoreSnapshot",
+				worktrees: newWorktrees,
+				snapshot: reconciledSnapshot,
+				workspaceId: openedId,
+			});
+		}
+
+		dispatchAppWorkspaces({
+			type: "workspace/register",
+			workspace: {
+				workspaceId: openedId,
+				repository,
+				worktrees: newWorktrees,
+				workspaceState: nextWorkspaceState,
+				persistedSnapshot: target.persistedSnapshot,
+				hydrationState: "active",
+				loadError: null,
+			},
+		});
+		dispatchAppWorkspaces({ type: "workspace/select", workspaceId: openedId });
+	}
+
 	async function handleLoadPath(path: string) {
 		const { workspaceId: newWorkspaceId, repository: newRepo } =
 			await workspace.openRepository(path);
@@ -1431,9 +1474,8 @@ export function App() {
 						<WorkspaceSwitcher
 							workspaces={switcherWorkspaces}
 							activeWorkspaceId={appWorkspaces.activeWorkspaceId}
-							onSelect={(wsId) => {
-								dispatchAppWorkspaces({ type: "workspace/select", workspaceId: wsId });
-							}}
+							onSelect={(wsId) => { void activateWorkspace(wsId); }}
+							onRemove={(wsId) => { dispatchAppWorkspaces({ type: "workspace/remove", workspaceId: wsId }); }}
 						/>
 					)}
 					<SessionSidebar

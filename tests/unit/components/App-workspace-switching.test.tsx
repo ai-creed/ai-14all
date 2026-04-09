@@ -209,4 +209,50 @@ describe("workspace switching", () => {
 			expect(screen.getByRole("button", { name: "repo-b" })).toHaveAttribute("data-selected", "false");
 		});
 	});
+
+	it("unregisters a non-active workspace from the sidebar", async () => {
+		let onOpenPickerCallback: (() => void) | null = null;
+
+		const { workspace: workspaceMock } = await import("../../../src/lib/desktop-client");
+		vi.mocked(workspaceMock.onOpenPicker).mockImplementation((cb) => {
+			onOpenPickerCallback = cb;
+			return () => {};
+		});
+
+		openRepositoryMock
+			.mockResolvedValueOnce({
+				workspaceId: "ws-a",
+				repository: { id: "repo-a", name: "repo-a", rootPath: "/repo-a", repoId: "repo-id-a" },
+			})
+			.mockResolvedValueOnce({
+				workspaceId: "ws-b",
+				repository: { id: "repo-b", name: "repo-b", rootPath: "/repo-b", repoId: "repo-id-b" },
+			});
+		listWorktreesMock
+			.mockResolvedValueOnce([{ id: "/repo-a", repositoryId: "repo-a", branchName: "main", path: "/repo-a", label: "main", isMain: true }])
+			.mockResolvedValueOnce([{ id: "/repo-b", repositoryId: "repo-b", branchName: "main", path: "/repo-b", label: "main", isMain: true }]);
+
+		render(<App />);
+
+		// Load repo-a
+		await userEvent.type(await screen.findByLabelText(/repository path/i), "/repo-a");
+		await userEvent.click(screen.getByRole("button", { name: "Load" }));
+		await screen.findByRole("button", { name: "repo-a" });
+
+		// Open picker to load repo-b
+		if (onOpenPickerCallback) {
+			onOpenPickerCallback();
+		}
+		await userEvent.type(await screen.findByLabelText(/repository path/i), "/repo-b");
+		await userEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		// Wait for both workspaces to appear
+		await screen.findByRole("button", { name: "repo-b" });
+		expect(screen.getByRole("button", { name: "repo-a" })).toBeInTheDocument();
+
+		// Remove repo-a via its remove button
+		await userEvent.click(screen.getByRole("button", { name: /remove repo-a/i }));
+		expect(screen.queryByRole("button", { name: "repo-a" })).not.toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "repo-b" })).toBeInTheDocument();
+	});
 });

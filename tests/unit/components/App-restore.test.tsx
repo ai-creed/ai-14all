@@ -78,6 +78,10 @@ import { App } from "../../../src/app/App";
 describe("App — Phase 5 restore flow", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		// Reset once-queues so that any unconsumed mockResolvedValueOnce entries
+		// from a previous test do not bleed into the next test.
+		openRepositoryMock.mockReset();
+		listWorktreesMock.mockReset();
 		createMock.mockImplementation((workspaceId: string, worktreeId: string, cwd: string) =>
 			Promise.resolve({
 				id: `terminal-${worktreeId}-${cwd}`,
@@ -924,6 +928,54 @@ describe("App — Phase 5 restore flow", () => {
 		expect(screen.getByRole("button", { name: "repo-a" })).toHaveAttribute("data-selected", "true");
 		// ws-b is dormant — visible in the switcher but not active
 		expect(screen.getByRole("button", { name: "repo-b" })).toHaveAttribute("data-selected", "false");
+	});
+
+	it("hydrates a dormant restored workspace on first selection", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 2,
+			restorePreference: "alwaysRestore",
+			activeWorkspaceId: "ws-a",
+			workspaceOrder: ["ws-a", "ws-b"],
+			workspaces: [
+				{
+					workspaceId: "ws-a",
+					repositoryPath: "/repo-a",
+					repoId: "repo-id-a",
+					snapshot: { repositoryPath: "/repo-a", repoId: "repo-id-a", selectedWorktreeId: null, topBandCollapsed: false, commandPresets: [], worktreeSessions: [] },
+				},
+				{
+					workspaceId: "ws-b",
+					repositoryPath: "/repo-b",
+					repoId: "repo-id-b",
+					snapshot: { repositoryPath: "/repo-b", repoId: "repo-id-b", selectedWorktreeId: null, topBandCollapsed: false, commandPresets: [], worktreeSessions: [] },
+				},
+			],
+		});
+
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "ws-a",
+			repository: { id: "repo-a", name: "repo-a", rootPath: "/repo-a", repoId: "repo-id-a" },
+		});
+		listWorktreesMock.mockResolvedValue([
+			{ id: "/repo-a", repositoryId: "repo-a", branchName: "main", path: "/repo-a", label: "main", isMain: true }
+		]);
+
+		render(<App />);
+
+		// Wait for initial restore to complete
+		await screen.findByRole("button", { name: "repo-b" });
+
+		// Now clicking repo-b should trigger openRepository for /repo-b
+		openRepositoryMock.mockResolvedValueOnce({
+			workspaceId: "ws-b",
+			repository: { id: "repo-b", name: "repo-b", rootPath: "/repo-b", repoId: "repo-id-b" },
+		});
+		listWorktreesMock.mockResolvedValueOnce([
+			{ id: "/repo-b", repositoryId: "repo-b", branchName: "main", path: "/repo-b", label: "main", isMain: true }
+		]);
+
+		await userEvent.click(screen.getByRole("button", { name: "repo-b" }));
+		expect(openRepositoryMock).toHaveBeenCalledWith("/repo-b");
 	});
 
 	it("registers non-active saved workspaces as dormant switcher entries after user confirms restore", async () => {
