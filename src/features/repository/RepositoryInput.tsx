@@ -1,14 +1,12 @@
 import { useState } from "react";
-import type { Repository } from "../../../shared/models/repository";
-import type { Worktree } from "../../../shared/models/worktree";
 import { repository } from "../../lib/desktop-client";
 import { describeRepositoryLoadError } from "./describe-repository-load-error";
 
 type Props = {
-	onLoad: (repo: Repository, worktrees: Worktree[]) => void | Promise<void>;
+	onLoadPath: (path: string) => Promise<void>;
 };
 
-export function RepositoryInput({ onLoad }: Props) {
+export function RepositoryInput({ onLoadPath }: Props) {
 	const [path, setPath] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -35,11 +33,7 @@ export function RepositoryInput({ onLoad }: Props) {
 		setError(null);
 
 		try {
-			// @ts-expect-error TODO: Task 6 will replace this with workspace.openRepository
-			const repo = await repository.setRoot(path.trim());
-			// @ts-expect-error TODO: Task 6 will replace this with workspace-scoped listWorktrees
-			const worktrees = await repository.listWorktrees();
-			await onLoad(repo, worktrees);
+			await onLoadPath(path.trim());
 		} catch (err) {
 			setError(describeRepositoryLoadError(err));
 		} finally {

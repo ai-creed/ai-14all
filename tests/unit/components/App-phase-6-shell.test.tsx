@@ -34,7 +34,7 @@ const createMock = vi.hoisted(() => vi.fn());
 const sendInputMock = vi.hoisted(() => vi.fn());
 const readRestoreStateMock = vi.hoisted(() => vi.fn());
 const writeRestoreStateMock = vi.hoisted(() => vi.fn());
-const setRootMock = vi.hoisted(() => vi.fn());
+const openRepositoryMock = vi.hoisted(() => vi.fn());
 const listWorktreesMock = vi.hoisted(() => vi.fn());
 const readSummaryMock = vi.hoisted(() => vi.fn());
 const mockReadCommitHistory = vi.hoisted(() => vi.fn());
@@ -57,9 +57,19 @@ const onOpenPickerMock = vi.hoisted(() =>
 );
 
 vi.mock("../../../src/lib/desktop-client", () => ({
+	workspace: {
+		openRepository: openRepositoryMock,
+		readRestoreState: readRestoreStateMock,
+		writeRestoreState: writeRestoreStateMock,
+		onOpenPicker: onOpenPickerMock,
+	},
 	repository: {
-		setRoot: setRootMock,
 		listWorktrees: listWorktreesMock,
+		pickRoot: vi.fn(),
+		previewCreateWorktree: vi.fn(),
+		createWorktree: vi.fn(),
+		previewRemoveWorktree: vi.fn(),
+		removeWorktree: vi.fn(),
 	},
 	terminals: {
 		create: createMock,
@@ -95,11 +105,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		readCommitHistory: mockReadCommitHistory,
 		readCommitDetail: mockReadCommitDetail,
 	},
-	workspace: {
-		readRestoreState: readRestoreStateMock,
-		writeRestoreState: writeRestoreStateMock,
-		onOpenPicker: onOpenPickerMock,
-	},
+
 }));
 
 import { App } from "../../../src/app/App";
@@ -138,7 +144,7 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
 		]);
@@ -184,7 +190,7 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
 		]);
@@ -223,7 +229,7 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
 		]);
@@ -258,7 +264,7 @@ describe("App — Phase 6 default shell", () => {
 			changedFiles: [{ path: "src/index.ts", status: "M" }],
 			recentCommits: [],
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
 		]);
@@ -342,7 +348,7 @@ describe("App — Phase 6 default shell", () => {
 				],
 			},
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
 		]);
@@ -412,7 +418,7 @@ describe("App — Phase 6 default shell", () => {
 				],
 			},
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
 		]);
@@ -431,7 +437,7 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
 		]);
@@ -515,7 +521,7 @@ describe("App — Phase 6 default shell", () => {
 				],
 			},
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
 		]);
@@ -587,7 +593,7 @@ describe("App — Phase 6 default shell", () => {
 				],
 			},
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
 		]);
@@ -671,7 +677,7 @@ describe("App — Phase 6 default shell", () => {
 				],
 			},
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
 		]);
@@ -697,7 +703,7 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
 			{ id: "feature-a", repositoryId: "repo-1", branchName: "feature-a", path: "/repo/.worktrees/feature-a", label: "feature-a", isMain: false },
@@ -750,7 +756,7 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "master", isMain: true },
 		]);
@@ -781,7 +787,7 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "master", isMain: true },
 		]);
@@ -807,7 +813,7 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
 			{
 				id: "feature-a",
@@ -878,7 +884,7 @@ describe("App — Phase 6 default shell", () => {
 			changedFiles: [{ path: "src/index.ts", status: "M" }],
 			recentCommits: [],
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
 			{
 				id: "main",
@@ -937,7 +943,7 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "master", isMain: true },
 		]);

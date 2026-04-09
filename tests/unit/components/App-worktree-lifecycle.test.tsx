@@ -7,9 +7,21 @@ vi.mock("../../../src/features/terminals/TerminalPane", () => ({
 }));
 
 vi.mock("../../../src/lib/desktop-client", () => ({
+	workspace: {
+		openRepository: vi.fn(),
+		readRestoreState: vi.fn().mockResolvedValue({
+			version: 2,
+			restorePreference: "alwaysStartClean",
+			activeWorkspaceId: null,
+			workspaceOrder: [],
+			workspaces: [],
+		}),
+		writeRestoreState: vi.fn(),
+		onOpenPicker: vi.fn(() => vi.fn()),
+	},
 	repository: {
-		setRoot: vi.fn(),
 		listWorktrees: vi.fn(),
+		pickRoot: vi.fn(),
 		previewCreateWorktree: vi.fn(),
 		createWorktree: vi.fn(),
 		previewRemoveWorktree: vi.fn(),
@@ -52,21 +64,12 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		readCommitHistory: vi.fn().mockResolvedValue({ mergeTargetRef: null, entries: [] }),
 		readCommitDetail: vi.fn().mockResolvedValue(null),
 	},
-	workspace: {
-		readRestoreState: vi.fn().mockResolvedValue({
-			version: 1,
-			restorePreference: "prompt",
-			snapshot: null,
-		}),
-		writeRestoreState: vi.fn(),
-		onOpenPicker: vi.fn(() => vi.fn()),
-	},
 }));
 
 import { App } from "../../../src/app/App";
-import { repository, terminals } from "../../../src/lib/desktop-client";
+import { workspace, repository, terminals } from "../../../src/lib/desktop-client";
 
-const mockSetRoot = vi.mocked(repository.setRoot);
+const mockOpenRepository = vi.mocked(workspace.openRepository);
 const mockListWorktrees = vi.mocked(repository.listWorktrees);
 const mockPreviewCreateWorktree = vi.mocked(repository.previewCreateWorktree);
 const mockCreateWorktree = vi.mocked(repository.createWorktree);
@@ -94,11 +97,14 @@ const initialWorktrees = [
 ];
 
 async function loadRepository() {
-	mockSetRoot.mockResolvedValueOnce({
-		id: "r1",
-		name: "repo",
-		rootPath: "/repo",
-		repoId: "repo-id-123",
+	mockOpenRepository.mockResolvedValueOnce({
+		workspaceId: "r1",
+		repository: {
+			id: "r1",
+			name: "repo",
+			rootPath: "/repo",
+			repoId: "repo-id-123",
+		},
 	});
 
 	render(<App />);
@@ -172,7 +178,7 @@ it("previews and creates a new worktree from the sidebar modal", async () => {
 
 	await userEvent.click(screen.getByRole("button", { name: "Create worktree" }));
 
-	expect(mockCreateWorktree).toHaveBeenCalledWith("Feature B");
+	expect(mockCreateWorktree).toHaveBeenCalledWith("r1", "Feature B");
 	expect(await screen.findByRole("button", { name: "feature-b" })).toBeInTheDocument();
 });
 
@@ -286,7 +292,7 @@ it("warns about dirty state and running sessions before removing a worktree", as
 	await waitFor(() => {
 		expect(mockStop).toHaveBeenCalled();
 	});
-	expect(mockRemoveWorktree).toHaveBeenCalledWith("feature-a");
+	expect(mockRemoveWorktree).toHaveBeenCalledWith("r1", "feature-a");
 	await waitFor(() => {
 		expect(screen.queryByRole("button", { name: "feature-a" })).not.toBeInTheDocument();
 	});

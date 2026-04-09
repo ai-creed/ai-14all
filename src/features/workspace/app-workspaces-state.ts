@@ -1,4 +1,5 @@
 import type { AppWorkspace } from "../../../shared/models/app-workspace";
+import type { WorkspaceState } from "./workspace-state";
 
 export type AppWorkspacesState = {
 	activeWorkspaceId: string | null;
@@ -9,7 +10,8 @@ export type AppWorkspacesState = {
 export type AppWorkspacesAction =
 	| { type: "workspace/register"; workspace: AppWorkspace }
 	| { type: "workspace/select"; workspaceId: string }
-	| { type: "workspace/remove"; workspaceId: string };
+	| { type: "workspace/remove"; workspaceId: string }
+	| { type: "workspace/updateWorkspaceState"; workspaceId: string; workspaceState: WorkspaceState };
 
 export function createAppWorkspacesState(): AppWorkspacesState {
 	return {
@@ -54,6 +56,18 @@ export function appWorkspacesReducer(
 			]),
 		);
 		return { ...state, activeWorkspaceId: action.workspaceId, workspacesById };
+	}
+
+	if (action.type === "workspace/updateWorkspaceState") {
+		const existing = state.workspacesById[action.workspaceId];
+		if (!existing) return state;
+		return {
+			...state,
+			workspacesById: {
+				...state.workspacesById,
+				[action.workspaceId]: { ...existing, workspaceState: action.workspaceState },
+			},
+		};
 	}
 
 	if (action.type === "workspace/remove") {

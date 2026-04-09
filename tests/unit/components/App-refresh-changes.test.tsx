@@ -22,8 +22,12 @@ vi.mock("../../../src/features/terminals/TerminalPane", () => ({
 // Mock desktop-client before importing App
 vi.mock("../../../src/lib/desktop-client", () => ({
 	repository: {
-		setRoot: vi.fn(),
 		listWorktrees: vi.fn(),
+		pickRoot: vi.fn(),
+		previewCreateWorktree: vi.fn(),
+		createWorktree: vi.fn(),
+		previewRemoveWorktree: vi.fn(),
+		removeWorktree: vi.fn(),
 	},
 	terminals: {
 		create: vi.fn(() =>
@@ -61,6 +65,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		readCommitDetail: vi.fn().mockResolvedValue(null),
 	},
 	workspace: {
+		openRepository: vi.fn(),
 		readRestoreState: vi.fn().mockResolvedValue({
 			version: 1,
 			restorePreference: "prompt",
@@ -72,21 +77,16 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 }));
 
 import { App } from "../../../src/app/App";
-import { repository, git, workspace } from "../../../src/lib/desktop-client";
+import { workspace, repository, git, workspace } from "../../../src/lib/desktop-client";
 
-const mockSetRoot = vi.mocked(repository.setRoot);
+const mockOpenRepository = vi.mocked(workspace.openRepository);
 const mockListWorktrees = vi.mocked(repository.listWorktrees);
 const mockReadSummary = vi.mocked(git.readSummary);
 const mockReadDiff = vi.mocked(git.readDiff);
 const mockReadRestoreState = vi.mocked(workspace.readRestoreState);
 
 async function loadRepoAndSwitchToChanges() {
-	mockSetRoot.mockResolvedValueOnce({
-		id: "r1",
-		name: "test-repo",
-		rootPath: "/repo",
-		repoId: "repo-id-123",
-	});
+	mockOpenRepository.mockResolvedValueOnce({ workspaceId: "r1", repository: { id: "r1", name: "test-repo", rootPath: "/repo", repoId: "repo-id-123" } });
 	mockListWorktrees.mockResolvedValueOnce([
 		{
 			id: "wt1",
@@ -146,12 +146,7 @@ async function loadRepositoryWithTwoWorktrees() {
 			isMain: false,
 		},
 	];
-	mockSetRoot.mockResolvedValueOnce({
-		id: "r1",
-		name: "test-repo",
-		rootPath: "/repo",
-		repoId: "repo-id-123",
-	});
+	mockOpenRepository.mockResolvedValueOnce({ workspaceId: "r1", repository: { id: "r1", name: "test-repo", rootPath: "/repo", repoId: "repo-id-123" } });
 	// Set a persistent default so background refreshes (focus/interval) keep
 	// both worktrees alive and don't reconcile feature-a away.
 	mockListWorktrees.mockResolvedValue(twoWorktrees);
@@ -251,12 +246,7 @@ describe("App — refresh changes button", () => {
 	});
 
 	it("supports keyboard review-mode switching", async () => {
-		mockSetRoot.mockResolvedValueOnce({
-			id: "r1",
-			name: "test-repo",
-			rootPath: "/repo",
-			repoId: "repo-id-123",
-		});
+		mockOpenRepository.mockResolvedValueOnce({ workspaceId: "r1", repository: { id: "r1", name: "test-repo", rootPath: "/repo", repoId: "repo-id-123" } });
 		mockListWorktrees.mockResolvedValueOnce([
 			{
 				id: "wt1",
@@ -320,12 +310,7 @@ describe("App — refresh changes button", () => {
 		};
 		mockReadSummary.mockImplementation(async () => currentSummary);
 
-		mockSetRoot.mockResolvedValueOnce({
-			id: "r1",
-			name: "test-repo",
-			rootPath: "/repo",
-			repoId: "repo-id-123",
-		});
+		mockOpenRepository.mockResolvedValueOnce({ workspaceId: "r1", repository: { id: "r1", name: "test-repo", rootPath: "/repo", repoId: "repo-id-123" } });
 		mockListWorktrees.mockResolvedValueOnce([
 			{
 				id: "wt1",
@@ -368,12 +353,7 @@ describe("App — refresh changes button", () => {
 	});
 
 	it("dispatches gitSummaryError when readSummary rejects", async () => {
-		mockSetRoot.mockResolvedValueOnce({
-			id: "r1",
-			name: "test-repo",
-			rootPath: "/repo",
-			repoId: "repo-id-123",
-		});
+		mockOpenRepository.mockResolvedValueOnce({ workspaceId: "r1", repository: { id: "r1", name: "test-repo", rootPath: "/repo", repoId: "repo-id-123" } });
 		mockListWorktrees.mockResolvedValueOnce([
 			{
 				id: "wt1",
@@ -397,12 +377,7 @@ describe("App — refresh changes button", () => {
 	});
 
 	it("keeps the previous summary data in state when refresh fails", async () => {
-		mockSetRoot.mockResolvedValueOnce({
-			id: "r1",
-			name: "test-repo",
-			rootPath: "/repo",
-			repoId: "repo-id-123",
-		});
+		mockOpenRepository.mockResolvedValueOnce({ workspaceId: "r1", repository: { id: "r1", name: "test-repo", rootPath: "/repo", repoId: "repo-id-123" } });
 		mockListWorktrees.mockResolvedValueOnce([
 			{
 				id: "wt1",
@@ -435,12 +410,7 @@ describe("App — refresh changes button", () => {
 	});
 
 	it("renders stale copy above a preserved changes list", async () => {
-		mockSetRoot.mockResolvedValueOnce({
-			id: "r1",
-			name: "test-repo",
-			rootPath: "/repo",
-			repoId: "repo-id-123",
-		});
+		mockOpenRepository.mockResolvedValueOnce({ workspaceId: "r1", repository: { id: "r1", name: "test-repo", rootPath: "/repo", repoId: "repo-id-123" } });
 		mockListWorktrees.mockResolvedValueOnce([
 			{
 				id: "wt1",
@@ -471,12 +441,7 @@ describe("App — refresh changes button", () => {
 	});
 
 	it("refreshes worktree discovery alongside git summary so active branch identity updates", async () => {
-		mockSetRoot.mockResolvedValueOnce({
-			id: "r1",
-			name: "test-repo",
-			rootPath: "/repo",
-			repoId: "repo-id-123",
-		});
+		mockOpenRepository.mockResolvedValueOnce({ workspaceId: "r1", repository: { id: "r1", name: "test-repo", rootPath: "/repo", repoId: "repo-id-123" } });
 		mockListWorktrees
 			.mockResolvedValueOnce([
 				{
@@ -566,12 +531,7 @@ describe("App — refresh changes button", () => {
 const user = userEvent.setup();
 
 async function loadRepository() {
-	mockSetRoot.mockResolvedValueOnce({
-		id: "r1",
-		name: "test-repo",
-		rootPath: "/repo",
-		repoId: "repo-id-123",
-	});
+	mockOpenRepository.mockResolvedValueOnce({ workspaceId: "r1", repository: { id: "r1", name: "test-repo", rootPath: "/repo", repoId: "repo-id-123" } });
 	mockListWorktrees.mockResolvedValueOnce([
 		{
 			id: "wt1",

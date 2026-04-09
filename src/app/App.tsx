@@ -1,4 +1,5 @@
 import {
+	useCallback,
 	useEffect,
 	useMemo,
 	useReducer,
@@ -8,30 +9,36 @@ import {
 } from "react";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import * as Tabs from "@radix-ui/react-tabs";
-import type { Repository } from "../../shared/models/repository";
 import type { Worktree } from "../../shared/models/worktree";
 import type { GitDiff } from "../../shared/models/git-diff";
 import type { ProcessSession } from "../../shared/models/process-session";
 import type {
-	PersistedWorkspaceStateV1,
 	PersistedWorktreeSession,
+	PersistedSavedWorkspace,
 	RestorePreference,
 	WorkspaceSnapshot,
+	PersistedWorkspaceStateV2,
 } from "../../shared/models/persisted-workspace-state";
 import type {
 	CreateWorktreePreview,
 	RemoveWorktreePreview,
 } from "../../shared/models/worktree-lifecycle";
-import { buildWorkspaceSnapshot, rebaseSnapshotPaths, reconcileSnapshotToWorktrees, shouldReattachSnapshot, splitPendingRestores } from "../features/workspace/workspace-persistence";
+import { buildSavedWorkspace, rebaseSnapshotPaths, reconcileSnapshotToWorktrees, shouldReattachSnapshot, splitPendingRestores } from "../features/workspace/workspace-persistence";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
 import { SessionSidebar } from "../features/workspace/SessionSidebar";
 import { SessionHeader } from "../features/workspace/SessionHeader";
 import { ContextPanel } from "../features/workspace/ContextPanel";
+import { WorkspaceSwitcher } from "../features/workspace/WorkspaceSwitcher";
 import {
 	createWorkspaceState,
 	workspaceReducer,
+	type WorkspaceAction,
 } from "../features/workspace/workspace-state";
+import {
+	appWorkspacesReducer,
+	createAppWorkspacesState,
+} from "../features/workspace/app-workspaces-state";
 import { TerminalTabs } from "../features/terminals/TerminalTabs";
 import { TerminalPane } from "../features/terminals/TerminalPane";
 import { PresetManager } from "../features/terminals/PresetManager";
@@ -64,13 +71,55 @@ export function App() {
 	const [reviewPanelHeight, setReviewPanelHeight] = useState(280);
 	const [reviewPanelCollapsed, setReviewPanelCollapsed] = useState(false);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-	const [repository, setRepository] = useState<Repository | null>(null);
-	const [workspaceId, setWorkspaceId] = useState<string>("");
-	const [worktrees, setWorktrees] = useState<Worktree[]>([]);
-	const [workspaceState, dispatch] = useReducer(
-		workspaceReducer,
-		createWorkspaceState([]),
+
+	// Multi-workspace registry
+	const [appWorkspaces, dispatchAppWorkspaces] = useReducer(
+		appWorkspacesReducer,
+		createAppWorkspacesState(),
 	);
+
+	// Derive active workspace data
+	const activeWorkspace = appWorkspaces.activeWorkspaceId
+		? (appWorkspaces.workspacesById[appWorkspaces.activeWorkspaceId] ?? null)
+		: null;
+	const repository = activeWorkspace?.repository ?? null;
+	const worktrees = activeWorkspace?.worktrees ?? [];
+	const workspaceId = appWorkspaces.activeWorkspaceId ?? "";
+	const workspaceState = activeWorkspace?.workspaceState ?? createWorkspaceState([]);
+
+	// Keep a "shadow" ref for the active workspace's workspaceState that is
+	// updated synchronously when dispatch is called, so that multiple sequential
+	// dispatch calls in async code each see the accumulated state rather than
+	// a stale render snapshot.
+	const activeWorkspaceStateRef = useRef(workspaceState);
+	// Reset the shadow ref whenever the active workspace changes (e.g. workspace
+	// switch or initial register). The workspaceState derived from the render is
+	// authoritative at render time.
+	const prevActiveWorkspaceIdRef = useRef<string | null>(null);
+	if (prevActiveWorkspaceIdRef.current !== appWorkspaces.activeWorkspaceId) {
+		prevActiveWorkspaceIdRef.current = appWorkspaces.activeWorkspaceId;
+		activeWorkspaceStateRef.current = workspaceState;
+	}
+
+	// Stable dispatch wrapper — always applies to the shadow ref so sequential
+	// async calls accumulate correctly without waiting for React to re-render.
+	const dispatch = useCallback(
+		(action: WorkspaceAction) => {
+			const wsId = prevActiveWorkspaceIdRef.current;
+			if (!wsId) return;
+			const nextState = workspaceReducer(activeWorkspaceStateRef.current, action);
+			activeWorkspaceStateRef.current = nextState;
+			dispatchAppWorkspaces({
+				type: "workspace/updateWorkspaceState",
+				workspaceId: wsId,
+				workspaceState: nextState,
+			});
+		},
+		// dispatchAppWorkspaces is stable (from useReducer); no deps needed
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[],
+	);
+
 	const worktreesRef = useRef(worktrees);
 	worktreesRef.current = worktrees;
 	const workspaceStateRef = useRef(workspaceState);
@@ -118,42 +167,67 @@ export function App() {
 	const [confirmedDirtyRemoval, setConfirmedDirtyRemoval] = useState(false);
 	const [startupMode, setStartupMode] = useState<StartupMode>("loading");
 	const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
-	const [restoreState, setRestoreState] = useState<PersistedWorkspaceStateV1>({
-		version: 1,
-		restorePreference: "prompt",
-		snapshot: null,
-	});
+
+	// V2 restore state — restorePreference lives here; workspace snapshots are in appWorkspaces
+	const [restorePreference, setRestorePreference] = useState<RestorePreference>("prompt");
+	// V1 snapshot preserved for start-clean flow and snapshot reattachment
+	const [savedSnapshot, setSavedSnapshot] = useState<WorkspaceSnapshot | null>(null);
+	// Non-active workspaces from v2 restore state — registered as dormant on startup
+	const [savedDormantWorkspaces, setSavedDormantWorkspaces] = useState<PersistedSavedWorkspace[]>([]);
+
 	const [startupError, setStartupError] = useState<string | null>(null);
 	const [restoreWarning, setRestoreWarning] = useState<string | null>(null);
 	const [pendingRestoreSessions, setPendingRestoreSessions] = useState<Record<string, PersistedWorktreeSession>>({});
 
+	// ---------------------------------------------------------------------------
+	// Startup / restore effect
+	// ---------------------------------------------------------------------------
+
 	useEffect(() => {
 		let cancelled = false;
 
-		workspace.readRestoreState().then((rawState) => {
+		workspace.readRestoreState().then((result) => {
 			if (cancelled) return;
-			// Normalize to v1 for single-workspace restore logic. Multi-workspace
-			// support will extend this in a later task.
-			// @ts-expect-error TODO: Task 6 will replace this with multi-workspace logic
-			const state: PersistedWorkspaceStateV1 = rawState.version === 1
-				? rawState
-				: {
-					version: 1,
-					restorePreference: rawState.restorePreference,
-					snapshot: rawState.workspaces[0]?.snapshot ?? null,
-				};
-			setRestoreState(state);
 
-			if (!state.snapshot) {
+			// Cast to the union so we can handle a v1 payload during the transition
+			// period when old persisted files still exist on disk.
+			const rawState = result as { version: 1; restorePreference: RestorePreference; snapshot: WorkspaceSnapshot | null } | typeof result;
+
+			let preference: RestorePreference;
+			let snapshot: WorkspaceSnapshot | null;
+			let dormantSaved: PersistedSavedWorkspace[] = [];
+
+			if ((rawState as { version: number }).version === 1) {
+				const v1 = rawState as { version: 1; restorePreference: RestorePreference; snapshot: WorkspaceSnapshot | null };
+				preference = v1.restorePreference;
+				snapshot = v1.snapshot;
+			} else {
+				// V2 state: pick the active workspace's snapshot for restore logic
+				preference = result.restorePreference;
+				const activeSaved = result.activeWorkspaceId
+					? result.workspaces.find((w) => w.workspaceId === result.activeWorkspaceId)
+					: result.workspaces[0];
+				snapshot = activeSaved?.snapshot ?? null;
+				// Collect non-active workspaces to register as dormant entries
+				dormantSaved = result.workspaces.filter(
+					(w) => w.workspaceId !== (activeSaved?.workspaceId ?? ""),
+				);
+			}
+
+			setRestorePreference(preference);
+			setSavedSnapshot(snapshot);
+			setSavedDormantWorkspaces(dormantSaved);
+
+			if (!snapshot) {
 				setStartupMode("ready");
 				return;
 			}
-			if (state.restorePreference === "alwaysStartClean") {
+			if (preference === "alwaysStartClean") {
 				setStartupMode("ready");
 				return;
 			}
-			if (state.restorePreference === "alwaysRestore") {
-				void restoreWorkspace(state.snapshot, state.restorePreference);
+			if (preference === "alwaysRestore") {
+				void restoreWorkspace(snapshot, preference, dormantSaved);
 				return;
 			}
 			setStartupMode("prompt");
@@ -266,50 +340,79 @@ export function App() {
 				]
 			: sessions;
 
-	async function handleLoad(repo: Repository, wts: Worktree[]) {
-		if (repository?.rootPath === repo.rootPath) {
+	// ---------------------------------------------------------------------------
+	// handleLoadPath — called from RepositoryInput and restoreWorkspace
+	// ---------------------------------------------------------------------------
+
+	async function handleLoadPath(path: string) {
+		const { workspaceId: newWorkspaceId, repository: newRepo } =
+			await workspace.openRepository(path);
+
+		// If the same workspace is already active, just close the picker without
+		// re-loading — preserve all in-progress session state.
+		if (
+			newWorkspaceId === appWorkspaces.activeWorkspaceId &&
+			appWorkspaces.workspacesById[newWorkspaceId]
+		) {
 			setWorkspacePickerOpen(false);
 			setError(null);
 			setStartupError(null);
 			return;
 		}
 
-		if (shouldReattachSnapshot(repo, restoreState.snapshot)) {
-			const nextWorkspaceId = repo.id;
-			setRepository(repo);
-			setWorkspaceId(nextWorkspaceId);
-			setWorktrees(wts);
-			defaultShellEnsuredByWorktreeRef.current.clear();
-			const originalSnapshot = restoreState.snapshot!;
+		const newWorktrees = await repositoryClient.listWorktrees(newWorkspaceId);
+
+		// Check for snapshot reattachment
+		if (shouldReattachSnapshot(newRepo, savedSnapshot)) {
+			const originalSnapshot = savedSnapshot!;
 			const rebasedSnapshot = rebaseSnapshotPaths(
 				originalSnapshot,
 				originalSnapshot.repositoryPath,
-				repo.rootPath,
+				newRepo.rootPath,
 			);
 			const nextSnapshot: WorkspaceSnapshot = {
-				...reconcileSnapshotToWorktrees(rebasedSnapshot, originalSnapshot, wts),
-				repositoryPath: repo.rootPath,
-				repoId: repo.repoId,
+				...reconcileSnapshotToWorktrees(rebasedSnapshot, originalSnapshot, newWorktrees),
+				repositoryPath: newRepo.rootPath,
+				repoId: newRepo.repoId,
 			};
-			dispatch({
+
+			const initialState = createWorkspaceState(newWorktrees);
+			const stateWithSnapshot = workspaceReducer(initialState, {
 				type: "workspace/restoreSnapshot",
-				worktrees: wts,
+				worktrees: newWorktrees,
 				snapshot: nextSnapshot,
-				workspaceId: nextWorkspaceId,
+				workspaceId: newWorkspaceId,
 			});
+
+			dispatchAppWorkspaces({
+				type: "workspace/register",
+				workspace: {
+					workspaceId: newWorkspaceId,
+					repository: newRepo,
+					worktrees: newWorktrees,
+					workspaceState: stateWithSnapshot,
+					persistedSnapshot: null,
+					hydrationState: "active",
+					loadError: null,
+				},
+			});
+			dispatchAppWorkspaces({ type: "workspace/select", workspaceId: newWorkspaceId });
+
+			// Prime the shadow ref so async dispatch calls during recreatePersistedProcesses
+			// see the correct initial state rather than a stale pre-render snapshot.
+			prevActiveWorkspaceIdRef.current = newWorkspaceId;
+			activeWorkspaceStateRef.current = stateWithSnapshot;
+
 			const { selectedSession, pendingByWorktreeId } = splitPendingRestores(nextSnapshot);
 			setPendingRestoreSessions(pendingByWorktreeId);
-			setRestoreState({
-				version: 1 as const,
-				restorePreference: restoreState.restorePreference,
-				snapshot: nextSnapshot,
-			});
-			const selectedWorktree = wts.find((w) => w.id === nextSnapshot.selectedWorktreeId);
-			const degradedNote = !repo.repoId
+			setSavedSnapshot(nextSnapshot);
+
+			const selectedWorktree = newWorktrees.find((w) => w.id === nextSnapshot.selectedWorktreeId);
+			const degradedNote = !newRepo.repoId
 				? " Repository identity could not be verified — future recovery will rely on folder name matching."
 				: "";
 			if (selectedWorktree && selectedSession) {
-				await recreatePersistedProcesses(selectedWorktree, selectedSession, nextWorkspaceId);
+				await recreatePersistedProcesses(selectedWorktree, selectedSession, newWorkspaceId);
 				setRestoreWarning(
 					`Recovered your previous workspace after the repository path changed.${degradedNote}`,
 				);
@@ -318,10 +421,6 @@ export function App() {
 					`Recovered the previous workspace, but the selected worktree is no longer available.${degradedNote}`,
 				);
 				if (selectedSession) {
-					// Keep the saved session in pending so the next persist write
-					// re-serialises it. Without this the session is permanently lost
-					// after the first write because buildWorkspaceSnapshot only reads
-					// from workspaceState, which has no entry for a missing worktree.
 					setPendingRestoreSessions((prev) => ({
 						...prev,
 						[selectedSession.worktreeId]: selectedSession,
@@ -334,12 +433,34 @@ export function App() {
 			return;
 		}
 
-		setRepository(repo);
-		setWorkspaceId(repo.id);
-		setWorktrees(wts);
+		// Normal load (no reattachment)
+		const existing = appWorkspaces.workspacesById[newWorkspaceId];
+		const initialState = existing?.workspaceState ?? createWorkspaceState(newWorktrees);
+		const freshState = workspaceReducer(initialState, {
+			type: "workspace/loadWorktrees",
+			worktrees: newWorktrees,
+		});
+
+		dispatchAppWorkspaces({
+			type: "workspace/register",
+			workspace: {
+				workspaceId: newWorkspaceId,
+				repository: newRepo,
+				worktrees: newWorktrees,
+				workspaceState: freshState,
+				persistedSnapshot: existing?.persistedSnapshot ?? null,
+				hydrationState: "active",
+				loadError: null,
+			},
+		});
+		dispatchAppWorkspaces({ type: "workspace/select", workspaceId: newWorkspaceId });
+
+		// Prime the shadow ref for any async dispatch calls that follow.
+		prevActiveWorkspaceIdRef.current = newWorkspaceId;
+		activeWorkspaceStateRef.current = freshState;
+
 		defaultShellEnsuredByWorktreeRef.current.clear();
 		setPendingRestoreSessions({});
-		dispatch({ type: "workspace/loadWorktrees", worktrees: wts });
 		setError(null);
 		setStartupError(null);
 		setRestoreWarning(null);
@@ -349,31 +470,66 @@ export function App() {
 	async function restoreWorkspace(
 		snapshot: WorkspaceSnapshot,
 		nextPreference: RestorePreference,
+		dormantWorkspaces: PersistedSavedWorkspace[] = [],
 	) {
 		try {
-			// @ts-expect-error TODO: Task 6 will replace this with workspace.openRepository
-			const repo = await repositoryClient.setRoot(snapshot.repositoryPath);
-			// @ts-expect-error TODO: Task 6 will replace this with workspace-scoped listWorktrees
-			const wts = await repositoryClient.listWorktrees();
-			const restoredWorkspaceId = repo.id;
-			setRepository(repo);
-			setWorkspaceId(restoredWorkspaceId);
-			setWorktrees(wts);
+			const { workspaceId: restoredWorkspaceId, repository: restoredRepo } =
+				await workspace.openRepository(snapshot.repositoryPath);
+			const wts = await repositoryClient.listWorktrees(restoredWorkspaceId);
 
-			dispatch({
+			const initialState = createWorkspaceState(wts);
+			const stateWithSnapshot = workspaceReducer(initialState, {
 				type: "workspace/restoreSnapshot",
 				worktrees: wts,
 				snapshot,
 				workspaceId: restoredWorkspaceId,
 			});
 
+			dispatchAppWorkspaces({
+				type: "workspace/register",
+				workspace: {
+					workspaceId: restoredWorkspaceId,
+					repository: restoredRepo,
+					worktrees: wts,
+					workspaceState: stateWithSnapshot,
+					persistedSnapshot: null,
+					hydrationState: "active",
+					loadError: null,
+				},
+			});
+			dispatchAppWorkspaces({ type: "workspace/select", workspaceId: restoredWorkspaceId });
+
+			// Prime the shadow ref so async dispatch calls during recreatePersistedProcesses
+			// see the correct initial state rather than a stale pre-render snapshot.
+			prevActiveWorkspaceIdRef.current = restoredWorkspaceId;
+			activeWorkspaceStateRef.current = stateWithSnapshot;
+
+			// Register non-active saved workspaces as dormant so they appear in the
+			// WorkspaceSwitcher immediately after restore, without re-opening them.
+			for (const saved of dormantWorkspaces) {
+				dispatchAppWorkspaces({
+					type: "workspace/register",
+					workspace: {
+						workspaceId: saved.workspaceId,
+						repository: {
+							id: saved.workspaceId,
+							name: saved.repositoryPath.split("/").filter(Boolean).at(-1) ?? saved.repositoryPath,
+							rootPath: saved.repositoryPath,
+							repoId: saved.repoId ?? null,
+						},
+						worktrees: [],
+						workspaceState: null,
+						persistedSnapshot: saved,
+						hydrationState: "dormant",
+						loadError: null,
+					},
+				});
+			}
+
 			const { selectedSession, pendingByWorktreeId } = splitPendingRestores(snapshot);
 			setPendingRestoreSessions(pendingByWorktreeId);
-			setRestoreState({
-				version: 1,
-				restorePreference: nextPreference,
-				snapshot,
-			});
+			setRestorePreference(nextPreference);
+			setSavedSnapshot(snapshot);
 			setStartupMode("ready");
 			setStartupError(null);
 
@@ -404,13 +560,22 @@ export function App() {
 			);
 			// Preserve the snapshot so the user can manually reopen after path changes.
 			// Reset to "prompt" so alwaysRestore doesn't loop on a broken path.
-			const fallbackState: PersistedWorkspaceStateV1 = {
-				version: 1,
+			setRestorePreference("prompt");
+			setSavedSnapshot(snapshot);
+			const fallbackState: PersistedWorkspaceStateV2 = {
+				version: 2,
 				restorePreference: "prompt",
-				snapshot,
+				activeWorkspaceId: null,
+				workspaceOrder: [],
+				workspaces: snapshot
+					? [{
+						workspaceId: "fallback",
+						repositoryPath: snapshot.repositoryPath,
+						repoId: snapshot.repoId ?? null,
+						snapshot,
+					}]
+					: [],
 			};
-			setRestoreState(fallbackState);
-			// @ts-expect-error TODO: Task 6 will replace this with V2 state
 			void workspace.writeRestoreState(fallbackState);
 			setStartupMode("ready");
 		}
@@ -473,47 +638,87 @@ export function App() {
 		[changes],
 	);
 
-	const persistableSnapshot = useMemo(
-		() => {
-			if (!repository) return null;
-			const base = buildWorkspaceSnapshot(repository.rootPath, repository.repoId, workspaceState);
-			// Also persist sessions that are in pendingRestoreSessions but have no
-			// corresponding entry in workspaceState (i.e. the previously selected
-			// worktree is missing from the current repo). Without this they would be
-			// dropped from the snapshot on the first write after restore.
-			const baseIds = new Set(base.worktreeSessions.map((s) => s.worktreeId));
-			const orphaned = Object.values(pendingRestoreSessions).filter(
-				(s) => !baseIds.has(s.worktreeId),
+	// ---------------------------------------------------------------------------
+	// Persist effect — writes V2 state
+	// ---------------------------------------------------------------------------
+
+	const persistableStateV2: PersistedWorkspaceStateV2 = useMemo(() => {
+		const workspaces = appWorkspaces.workspaceOrder.flatMap((wsId) => {
+			const ws = appWorkspaces.workspacesById[wsId];
+			if (!ws) return [];
+
+			// For dormant workspaces, preserve the original persisted snapshot
+			if (!ws.workspaceState && ws.persistedSnapshot) {
+				return [ws.persistedSnapshot];
+			}
+			if (!ws.workspaceState) return [];
+
+			// Build live snapshot, merging in any orphaned pending sessions
+			const base = buildSavedWorkspace(
+				ws.workspaceId,
+				ws.repository.rootPath,
+				ws.repository.repoId ?? null,
+				ws.workspaceState,
 			);
-			return orphaned.length === 0
-				? base
-				: { ...base, worktreeSessions: [...base.worktreeSessions, ...orphaned] };
-		},
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- repository.rootPath and repository.repoId drive the snapshot; the object reference changes are irrelevant
-		[repository?.rootPath, repository?.repoId, workspaceState, pendingRestoreSessions],
-	);
-	const persistableState = useMemo(
-		() => ({
-			version: 1 as const,
-			restorePreference: restoreState.restorePreference,
-			// When no repository is open (e.g. user chose start-clean and has not
-			// yet loaded a new repo) keep the previous snapshot intact so the user
-			// can still restore it on a future launch.
-			snapshot: persistableSnapshot ?? restoreState.snapshot,
-		}),
-		[persistableSnapshot, restoreState.restorePreference, restoreState.snapshot],
-	);
+
+			// For the active workspace, include orphaned pending sessions
+			if (ws.workspaceId === appWorkspaces.activeWorkspaceId && Object.keys(pendingRestoreSessions).length > 0) {
+				const baseIds = new Set(base.snapshot.worktreeSessions.map((s) => s.worktreeId));
+				const orphaned = Object.values(pendingRestoreSessions).filter(
+					(s) => !baseIds.has(s.worktreeId),
+				);
+				if (orphaned.length > 0) {
+					return [{
+						...base,
+						snapshot: {
+							...base.snapshot,
+							worktreeSessions: [...base.snapshot.worktreeSessions, ...orphaned],
+						},
+					}];
+				}
+			}
+
+			return [base];
+		});
+
+		// When no workspaces are loaded but we have a saved snapshot (e.g. after
+		// start-clean or restore failure), preserve the snapshot so it survives
+		// the next launch. This mirrors the v1 behavior of keeping snapshot alive.
+		const effectiveWorkspaces =
+			workspaces.length === 0 && savedSnapshot
+				? [{
+					workspaceId: "fallback",
+					repositoryPath: savedSnapshot.repositoryPath,
+					repoId: savedSnapshot.repoId ?? null,
+					snapshot: savedSnapshot,
+				}]
+				: workspaces;
+
+		return {
+			version: 2,
+			restorePreference,
+			activeWorkspaceId: appWorkspaces.activeWorkspaceId,
+			workspaceOrder: appWorkspaces.workspaceOrder,
+			workspaces: effectiveWorkspaces,
+		};
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- deep equality via JSON for change detection
+	}, [appWorkspaces, restorePreference, pendingRestoreSessions, savedSnapshot]);
+
 	const persistableStateJson = useMemo(
-		() => JSON.stringify(persistableState),
-		[persistableState],
+		() => JSON.stringify(persistableStateV2),
+		[persistableStateV2],
 	);
 
 	useEffect(() => {
 		if (startupMode !== "ready") return;
-		// @ts-expect-error TODO: Task 6 will replace this with V2 state
-		void workspace.writeRestoreState(persistableState);
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- persistableStateJson is used for change detection; persistableState (same data) is used for the write
+		void workspace.writeRestoreState(persistableStateV2);
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- persistableStateJson for change detection; persistableStateV2 for the write
 	}, [startupMode, persistableStateJson]);
+
+	// Handle start-clean (v1-style snapshot must survive so user can restore on next launch).
+	// For the v2 persist path, we need to write the snapshot inside a v2 workspaces array.
+	// We use savedSnapshot for this.
+	const savedSnapshotForPersist = savedSnapshot;
 
 	const defaultShellEnsuredByWorktreeRef = useRef<Set<string>>(new Set());
 
@@ -567,8 +772,7 @@ export function App() {
 		let cancelled = false;
 		const timeoutId = window.setTimeout(() => {
 			setCreateLoading(true);
-			// @ts-expect-error TODO: Task 6 will replace this with workspace-scoped call
-			repositoryClient.previewCreateWorktree(createName).then((preview) => {
+			repositoryClient.previewCreateWorktree(workspaceId, createName).then((preview) => {
 				if (cancelled) return;
 				setCreatePreview(preview);
 				setCreateError(null);
@@ -593,8 +797,7 @@ export function App() {
 			return;
 		}
 		let cancelled = false;
-		// @ts-expect-error TODO: Task 6 will replace this with workspace-scoped call
-		repositoryClient.previewRemoveWorktree(removeTargetId).then((preview) => {
+		repositoryClient.previewRemoveWorktree(workspaceId, removeTargetId).then((preview) => {
 			if (!cancelled) {
 				setRemovePreview(preview);
 				setRemoveError(null);
@@ -613,8 +816,7 @@ export function App() {
 		skipRuntimeCleanupWorktreeIds?: string[];
 	}) {
 		if (!repository) return;
-		// @ts-expect-error TODO: Task 6 will replace this with workspace-scoped call
-		const latest = await repositoryClient.listWorktrees();
+		const latest = await repositoryClient.listWorktrees(workspaceId);
 		const latestIds = new Set(latest.map((worktree) => worktree.id));
 		const skipCleanupIds = new Set(options?.skipRuntimeCleanupWorktreeIds ?? []);
 		const removedWorktreeIds = worktreesRef.current
@@ -638,8 +840,25 @@ export function App() {
 			}
 		}
 
-		setWorktrees(latest);
-		dispatch({ type: "workspace/reconcileWorktrees", worktrees: latest });
+		// Update the active workspace's worktrees list in appWorkspaces
+		if (appWorkspaces.activeWorkspaceId) {
+			const currentWs = appWorkspaces.workspacesById[appWorkspaces.activeWorkspaceId];
+			if (currentWs) {
+				const reconciled = workspaceReducer(workspaceStateRef.current, {
+					type: "workspace/reconcileWorktrees",
+					worktrees: latest,
+				});
+				dispatchAppWorkspaces({
+					type: "workspace/register",
+					workspace: {
+						...currentWs,
+						worktrees: latest,
+						workspaceState: reconciled,
+					},
+				});
+			}
+		}
+
 		if (options?.preferredSelectedWorktreeId && latestIds.has(options.preferredSelectedWorktreeId)) {
 			dispatch({
 				type: "session/selectWorktree",
@@ -789,8 +1008,7 @@ export function App() {
 		if (!createPreview) return;
 		setCreateBusy(true);
 		try {
-			// @ts-expect-error TODO: Task 6 will replace this with workspace-scoped call
-			const created = await repositoryClient.createWorktree(createName);
+			const created = await repositoryClient.createWorktree(workspaceId, createName);
 			await refreshWorktreeInventory({ preferredSelectedWorktreeId: created.id });
 			setCreateDialogOpen(false);
 			setCreateName("");
@@ -829,8 +1047,7 @@ export function App() {
 		setRemoveBusy(true);
 		try {
 			await closeProcessesForWorktree(removePreview.worktreeId);
-			// @ts-expect-error TODO: Task 6 will replace this with workspace-scoped call
-			await repositoryClient.removeWorktree(removePreview.worktreeId);
+			await repositoryClient.removeWorktree(workspaceId, removePreview.worktreeId);
 			await refreshWorktreeInventory({
 				skipRuntimeCleanupWorktreeIds: [removePreview.worktreeId],
 			});
@@ -1111,20 +1328,29 @@ export function App() {
 		if (!shouldRestore) {
 			// Preserve the snapshot so the user can restore it on a future launch
 			// if they change their preference back to "prompt" or "alwaysRestore".
-			const nextState: PersistedWorkspaceStateV1 = {
-				version: 1,
+			setRestorePreference(nextPreference);
+			// Write a v2 state that preserves the snapshot
+			const nextState: PersistedWorkspaceStateV2 = {
+				version: 2,
 				restorePreference: nextPreference,
-				snapshot: restoreState.snapshot,
+				activeWorkspaceId: null,
+				workspaceOrder: savedSnapshotForPersist ? ["fallback"] : [],
+				workspaces: savedSnapshotForPersist
+					? [{
+						workspaceId: "fallback",
+						repositoryPath: savedSnapshotForPersist.repositoryPath,
+						repoId: savedSnapshotForPersist.repoId ?? null,
+						snapshot: savedSnapshotForPersist,
+					}]
+					: [],
 			};
-			setRestoreState(nextState);
-			// @ts-expect-error TODO: Task 6 will replace this with V2 state
 			await workspace.writeRestoreState(nextState);
 			setStartupMode("ready");
 			return;
 		}
 
-		if (restoreState.snapshot) {
-			await restoreWorkspace(restoreState.snapshot, nextPreference);
+		if (savedSnapshot) {
+			await restoreWorkspace(savedSnapshot, nextPreference, savedDormantWorkspaces);
 		}
 	}
 
@@ -1133,6 +1359,12 @@ export function App() {
 			([worktreeId, session]) => [worktreeId, session.attentionState],
 		),
 	);
+
+	// Workspace switcher data
+	const switcherWorkspaces = appWorkspaces.workspaceOrder
+		.map((id) => appWorkspaces.workspacesById[id])
+		.filter((ws): ws is NonNullable<typeof ws> => ws != null)
+		.map((ws) => ({ workspaceId: ws.workspaceId, name: ws.repository.name }));
 
 	if (startupMode === "loading") {
 		return (
@@ -1145,11 +1377,11 @@ export function App() {
 		);
 	}
 
-	if (startupMode === "prompt" && restoreState.snapshot) {
+	if (startupMode === "prompt" && savedSnapshot) {
 		return (
 			<main className="shell-app shell-app--setup">
 				<RestorePrompt
-					repositoryPath={restoreState.snapshot.repositoryPath}
+					repositoryPath={savedSnapshot.repositoryPath}
 					onDecide={handleRestoreDecision}
 				/>
 			</main>
@@ -1162,7 +1394,7 @@ export function App() {
 				<section className="shell-panel shell-setup-panel">
 					<h1 className="shell-setup-title">ai-14all</h1>
 					<h2>Repository</h2>
-					<RepositoryInput onLoad={handleLoad} />
+					<RepositoryInput onLoadPath={(path) => handleLoadPath(path)} />
 					{startupError && <p className="shell-error">{startupError}</p>}
 					{error && <p className="shell-error">Error: {error}</p>}
 				</section>
@@ -1194,22 +1426,33 @@ export function App() {
 					}px minmax(0, 1fr)`,
 				}}
 			>
-				<SessionSidebar
-					worktrees={worktrees}
-					selectedWorktreeId={workspaceState.selectedWorktreeId}
-					attentionByWorktreeId={attentionByWorktreeId}
-					collapsed={sidebarCollapsed}
-					onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
-					onSelect={(worktreeId) => {
-						void handleSelectWorktree(worktreeId);
-					}}
-					onCreateWorktree={() => setCreateDialogOpen(true)}
-					onRemoveWorktree={(worktreeId) => {
-						setRemoveTargetId(worktreeId);
-						setConfirmedDirtyRemoval(false);
-						setRemoveDialogOpen(true);
-					}}
-				/>
+				<div className="shell-sidebar-column">
+					{switcherWorkspaces.length > 0 && (
+						<WorkspaceSwitcher
+							workspaces={switcherWorkspaces}
+							activeWorkspaceId={appWorkspaces.activeWorkspaceId}
+							onSelect={(wsId) => {
+								dispatchAppWorkspaces({ type: "workspace/select", workspaceId: wsId });
+							}}
+						/>
+					)}
+					<SessionSidebar
+						worktrees={worktrees}
+						selectedWorktreeId={workspaceState.selectedWorktreeId}
+						attentionByWorktreeId={attentionByWorktreeId}
+						collapsed={sidebarCollapsed}
+						onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
+						onSelect={(worktreeId) => {
+							void handleSelectWorktree(worktreeId);
+						}}
+						onCreateWorktree={() => setCreateDialogOpen(true)}
+						onRemoveWorktree={(worktreeId) => {
+							setRemoveTargetId(worktreeId);
+							setConfirmedDirtyRemoval(false);
+							setRemoveDialogOpen(true);
+						}}
+					/>
+				</div>
 
 				<section className="shell-main-column">
 					{activeWorktree && activeSession && (

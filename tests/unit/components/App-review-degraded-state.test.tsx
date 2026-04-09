@@ -16,8 +16,12 @@ vi.mock("../../../src/features/terminals/TerminalPane", () => ({
 // Mock desktop-client before importing App
 vi.mock("../../../src/lib/desktop-client", () => ({
 	repository: {
-		setRoot: vi.fn(),
 		listWorktrees: vi.fn(),
+		pickRoot: vi.fn(),
+		previewCreateWorktree: vi.fn(),
+		createWorktree: vi.fn(),
+		previewRemoveWorktree: vi.fn(),
+		removeWorktree: vi.fn(),
 	},
 	terminals: {
 		create: vi.fn(() =>
@@ -56,6 +60,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		readCommitDetail: vi.fn().mockResolvedValue(null),
 	},
 	workspace: {
+		openRepository: vi.fn(),
 		readRestoreState: vi.fn().mockResolvedValue({
 			version: 1,
 			restorePreference: "prompt",
@@ -67,9 +72,9 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 }));
 
 import { App } from "../../../src/app/App";
-import { repository, git, workspace } from "../../../src/lib/desktop-client";
+import { workspace, repository, git, workspace } from "../../../src/lib/desktop-client";
 
-const mockSetRoot = vi.mocked(repository.setRoot);
+const mockOpenRepository = vi.mocked(workspace.openRepository);
 const mockListWorktrees = vi.mocked(repository.listWorktrees);
 const mockReadCommitHistory = vi.mocked(git.readCommitHistory);
 const mockReadCommitDetail = vi.mocked(git.readCommitDetail);
@@ -79,12 +84,7 @@ const mockReadRestoreState = vi.mocked(workspace.readRestoreState);
 const user = userEvent.setup();
 
 async function loadRepositoryWithTwoWorktrees() {
-	mockSetRoot.mockResolvedValueOnce({
-		id: "r1",
-		name: "test-repo",
-		rootPath: "/repo",
-		repoId: "repo-id-123",
-	});
+	mockOpenRepository.mockResolvedValueOnce({ workspaceId: "r1", repository: { id: "r1", name: "test-repo", rootPath: "/repo", repoId: "repo-id-123" } });
 	mockListWorktrees.mockResolvedValueOnce([
 		{
 			id: "wt1",
@@ -121,12 +121,7 @@ async function loadRepositoryWithTwoWorktrees() {
 }
 
 async function loadRepositoryAndSwitchToCommits() {
-	mockSetRoot.mockResolvedValueOnce({
-		id: "r1",
-		name: "test-repo",
-		rootPath: "/repo",
-		repoId: "repo-id-123",
-	});
+	mockOpenRepository.mockResolvedValueOnce({ workspaceId: "r1", repository: { id: "r1", name: "test-repo", rootPath: "/repo", repoId: "repo-id-123" } });
 	mockListWorktrees.mockResolvedValueOnce([
 		{
 			id: "wt1",

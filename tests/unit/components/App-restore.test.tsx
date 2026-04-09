@@ -25,14 +25,24 @@ const createMock = vi.hoisted(() => vi.fn());
 const sendInputMock = vi.hoisted(() => vi.fn());
 const readRestoreStateMock = vi.hoisted(() => vi.fn());
 const writeRestoreStateMock = vi.hoisted(() => vi.fn());
-const setRootMock = vi.hoisted(() => vi.fn());
+const openRepositoryMock = vi.hoisted(() => vi.fn());
 const listWorktreesMock = vi.hoisted(() => vi.fn());
 const readSummaryMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../../../src/lib/desktop-client", () => ({
+	workspace: {
+		openRepository: openRepositoryMock,
+		readRestoreState: readRestoreStateMock,
+		writeRestoreState: writeRestoreStateMock,
+		onOpenPicker: vi.fn(() => vi.fn()),
+	},
 	repository: {
-		setRoot: setRootMock,
 		listWorktrees: listWorktreesMock,
+		pickRoot: vi.fn(),
+		previewCreateWorktree: vi.fn(),
+		createWorktree: vi.fn(),
+		previewRemoveWorktree: vi.fn(),
+		removeWorktree: vi.fn(),
 	},
 	terminals: {
 		create: createMock,
@@ -60,11 +70,6 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		readSummary: readSummaryMock,
 		readCommitHistory: vi.fn().mockResolvedValue({ mergeTargetRef: null, entries: [] }),
 		readCommitDetail: vi.fn().mockResolvedValue(null),
-	},
-	workspace: {
-		readRestoreState: readRestoreStateMock,
-		writeRestoreState: writeRestoreStateMock,
-		onOpenPicker: vi.fn(() => vi.fn()),
 	},
 }));
 
@@ -144,7 +149,10 @@ describe("App — Phase 5 restore flow", () => {
 				],
 			},
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null },
+		});
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
 			{ id: "feature-a", repositoryId: "repo-1", branchName: "feature-a", path: "/repo/.worktrees/feature-a", label: "feature-a", isMain: false },
@@ -156,7 +164,7 @@ describe("App — Phase 5 restore flow", () => {
 		);
 
 		await waitFor(() => {
-			expect(setRootMock).toHaveBeenCalledWith("/repo");
+			expect(openRepositoryMock).toHaveBeenCalledWith("/repo");
 			expect(createMock).toHaveBeenCalledWith("repo-1", "feature-a", "/repo/.worktrees/feature-a");
 		});
 		expect(sendInputMock).toHaveBeenCalledWith(
@@ -204,7 +212,10 @@ describe("App — Phase 5 restore flow", () => {
 				],
 			},
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null },
+		});
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
 			{ id: "feature-a", repositoryId: "repo-1", branchName: "feature-a", path: "/repo/.worktrees/feature-a", label: "feature-a", isMain: false },
@@ -253,7 +264,10 @@ describe("App — Phase 5 restore flow", () => {
 				],
 			},
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null },
+		});
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
 			{ id: "feature-a", repositoryId: "repo-1", branchName: "feature-a", path: "/repo/.worktrees/feature-a", label: "feature-a", isMain: false },
@@ -293,10 +307,20 @@ describe("App — Phase 5 restore flow", () => {
 		);
 
 		// The snapshot must survive "start clean" so the user can recover it on
-		// a future launch by switching back to prompt or alwaysRestore
+		// a future launch by switching back to prompt or alwaysRestore.
+		// With v2 state, it's persisted in workspaces array.
 		await waitFor(() => {
 			expect(writeRestoreStateMock).toHaveBeenCalledWith(
-				expect.objectContaining({ snapshot }),
+				expect.objectContaining({
+					version: 2,
+					workspaces: expect.arrayContaining([
+						expect.objectContaining({
+							snapshot: expect.objectContaining({
+								repositoryPath: "/repo",
+							}),
+						}),
+					]),
+				}),
 			);
 		});
 	});
@@ -323,7 +347,10 @@ describe("App — Phase 5 restore flow", () => {
 				worktreeSessions: [missingSession],
 			},
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null },
+		});
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
 		]);
@@ -343,11 +370,16 @@ describe("App — Phase 5 restore flow", () => {
 		await waitFor(() => {
 			expect(writeRestoreStateMock).toHaveBeenCalledWith(
 				expect.objectContaining({
-					snapshot: expect.objectContaining({
-						worktreeSessions: expect.arrayContaining([
-							expect.objectContaining({ worktreeId: "missing-worktree" }),
-						]),
-					}),
+					version: 2,
+					workspaces: expect.arrayContaining([
+						expect.objectContaining({
+							snapshot: expect.objectContaining({
+								worktreeSessions: expect.arrayContaining([
+									expect.objectContaining({ worktreeId: "missing-worktree" }),
+								]),
+							}),
+						}),
+					]),
 				}),
 			);
 		});
@@ -368,7 +400,7 @@ describe("App — Phase 5 restore flow", () => {
 				worktreeSessions: [],
 			},
 		});
-		setRootMock.mockRejectedValue(new Error("No such file or directory"));
+		openRepositoryMock.mockRejectedValue(new Error("No such file or directory"));
 
 		render(<App />);
 
@@ -378,7 +410,11 @@ describe("App — Phase 5 restore flow", () => {
 			expect(writeRestoreStateMock).toHaveBeenCalledWith(
 				expect.objectContaining({
 					restorePreference: "prompt",
-					snapshot: expect.objectContaining({ repositoryPath: "/deleted-repo" }),
+					workspaces: expect.arrayContaining([
+						expect.objectContaining({
+							snapshot: expect.objectContaining({ repositoryPath: "/deleted-repo" }),
+						}),
+					]),
 				}),
 			);
 		});
@@ -396,7 +432,7 @@ describe("App — Phase 5 restore flow", () => {
 				worktreeSessions: [],
 			},
 		});
-		setRootMock.mockRejectedValue(new Error("No such file or directory"));
+		openRepositoryMock.mockRejectedValue(new Error("No such file or directory"));
 
 		render(<App />);
 
@@ -404,7 +440,7 @@ describe("App — Phase 5 restore flow", () => {
 
 		await waitFor(() => {
 			expect(writeRestoreStateMock).not.toHaveBeenCalledWith(
-				expect.objectContaining({ snapshot: null }),
+				expect.objectContaining({ workspaces: [] }),
 			);
 		});
 	});
@@ -438,11 +474,14 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		});
 
-		setRootMock.mockResolvedValue({
-			id: "repo-1",
-			name: "repo",
-			rootPath: "/new-repo",
-			repoId: "repo-id-123",
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/new-repo",
+				repoId: "repo-id-123",
+			},
 		});
 		listWorktreesMock.mockResolvedValue([
 			{
@@ -518,7 +557,10 @@ describe("App — Phase 5 restore flow", () => {
 				],
 			},
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null },
+		});
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
 			{ id: "feature-a", repositoryId: "repo-1", branchName: "feature-a", path: "/repo/.worktrees/feature-a", label: "feature-a", isMain: false },
@@ -575,11 +617,14 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		});
 
-		setRootMock.mockResolvedValue({
-			id: "repo-1",
-			name: "old-repo",
-			rootPath: "/new-path/old-repo",
-			repoId: null, // repo identity resolution failed
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "old-repo",
+				rootPath: "/new-path/old-repo",
+				repoId: null, // repo identity resolution failed
+			},
 		});
 		listWorktreesMock.mockResolvedValue([
 			{
@@ -636,11 +681,14 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		});
 
-		setRootMock.mockResolvedValue({
-			id: "repo-1",
-			name: "my-repo",
-			rootPath: "/new-path/my-repo",
-			repoId: null,
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "my-repo",
+				rootPath: "/new-path/my-repo",
+				repoId: null,
+			},
 		});
 		listWorktreesMock.mockResolvedValue([
 			{
@@ -693,11 +741,14 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		});
 
-		setRootMock.mockResolvedValue({
-			id: "repo-1",
-			name: "repo",
-			rootPath: "/new-repo",
-			repoId: "repo-id-123",
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/new-repo",
+				repoId: "repo-id-123",
+			},
 		});
 		listWorktreesMock.mockResolvedValue([
 			{
@@ -727,11 +778,16 @@ describe("App — Phase 5 restore flow", () => {
 		await waitFor(() => {
 			expect(writeRestoreStateMock).toHaveBeenCalledWith(
 				expect.objectContaining({
-					snapshot: expect.objectContaining({
-						worktreeSessions: expect.arrayContaining([
-							expect.objectContaining({ worktreeId: "missing-worktree" }),
-						]),
-					}),
+					version: 2,
+					workspaces: expect.arrayContaining([
+						expect.objectContaining({
+							snapshot: expect.objectContaining({
+								worktreeSessions: expect.arrayContaining([
+									expect.objectContaining({ worktreeId: "missing-worktree" }),
+								]),
+							}),
+						}),
+					]),
 				}),
 			);
 		});
@@ -751,7 +807,7 @@ describe("App — Phase 5 restore flow", () => {
 				worktreeSessions: [],
 			},
 		});
-		setRootMock.mockRejectedValueOnce(
+		openRepositoryMock.mockRejectedValueOnce(
 			new Error("ENOENT: no such file or directory, realpath '/missing'"),
 		);
 
@@ -789,7 +845,10 @@ describe("App — Phase 5 restore flow", () => {
 				],
 			},
 		});
-		setRootMock.mockResolvedValue({ id: "repo-1", name: "repo", rootPath: "/repo" });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null },
+		});
 		listWorktreesMock.mockResolvedValue([
 			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
 		]);
@@ -800,5 +859,140 @@ describe("App — Phase 5 restore flow", () => {
 			expect(screen.queryByLabelText("Session note panel")).not.toBeInTheDocument();
 		});
 		expect(screen.getByRole("button", { name: "Expand top band" })).toBeInTheDocument();
+	});
+
+	it("registers non-active saved workspaces as dormant switcher entries on alwaysRestore", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 2,
+			restorePreference: "alwaysRestore",
+			activeWorkspaceId: "ws-a",
+			workspaceOrder: ["ws-a", "ws-b"],
+			workspaces: [
+				{
+					workspaceId: "ws-a",
+					repositoryPath: "/repo-a",
+					repoId: null,
+					snapshot: {
+						repositoryPath: "/repo-a",
+						selectedWorktreeId: "main-a",
+						commandPresets: [],
+						worktreeSessions: [
+							{
+								worktreeId: "main-a",
+								note: "",
+								reviewMode: "files",
+								viewerMode: "file",
+								selectedFilePath: null,
+								selectedChangedFilePath: null,
+								activeProcessSessionId: null,
+								nextAdHocNumber: 1,
+								processSessions: [],
+							},
+						],
+					},
+				},
+				{
+					workspaceId: "ws-b",
+					repositoryPath: "/repo-b",
+					repoId: null,
+					snapshot: {
+						repositoryPath: "/repo-b",
+						selectedWorktreeId: null,
+						commandPresets: [],
+						worktreeSessions: [],
+					},
+				},
+			],
+		});
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "ws-a",
+			repository: { id: "ws-a", name: "repo-a", rootPath: "/repo-a", repoId: null },
+		});
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main-a", repositoryId: "ws-a", branchName: "main", path: "/repo-a", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+
+		// Both workspace switcher buttons should appear after restore
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: "repo-a" })).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: "repo-b" })).toBeInTheDocument();
+		});
+
+		// ws-a is the active workspace
+		expect(screen.getByRole("button", { name: "repo-a" })).toHaveAttribute("data-selected", "true");
+		// ws-b is dormant — visible in the switcher but not active
+		expect(screen.getByRole("button", { name: "repo-b" })).toHaveAttribute("data-selected", "false");
+	});
+
+	it("registers non-active saved workspaces as dormant switcher entries after user confirms restore", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 2,
+			restorePreference: "prompt",
+			activeWorkspaceId: "ws-a",
+			workspaceOrder: ["ws-a", "ws-b"],
+			workspaces: [
+				{
+					workspaceId: "ws-a",
+					repositoryPath: "/repo-a",
+					repoId: null,
+					snapshot: {
+						repositoryPath: "/repo-a",
+						selectedWorktreeId: "main-a",
+						commandPresets: [],
+						worktreeSessions: [
+							{
+								worktreeId: "main-a",
+								note: "",
+								reviewMode: "files",
+								viewerMode: "file",
+								selectedFilePath: null,
+								selectedChangedFilePath: null,
+								activeProcessSessionId: null,
+								nextAdHocNumber: 1,
+								processSessions: [],
+							},
+						],
+					},
+				},
+				{
+					workspaceId: "ws-b",
+					repositoryPath: "/repo-b",
+					repoId: null,
+					snapshot: {
+						repositoryPath: "/repo-b",
+						selectedWorktreeId: null,
+						commandPresets: [],
+						worktreeSessions: [],
+					},
+				},
+			],
+		});
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "ws-a",
+			repository: { id: "ws-a", name: "repo-a", rootPath: "/repo-a", repoId: null },
+		});
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main-a", repositoryId: "ws-a", branchName: "main", path: "/repo-a", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+
+		// Confirm restore via the prompt
+		await userEvent.click(
+			await screen.findByRole("button", { name: "Restore previous workspace" }),
+		);
+
+		// Both workspace switcher buttons should appear after confirming restore
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: "repo-a" })).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: "repo-b" })).toBeInTheDocument();
+		});
+
+		// ws-a is the active workspace
+		expect(screen.getByRole("button", { name: "repo-a" })).toHaveAttribute("data-selected", "true");
+		// ws-b is dormant — visible in the switcher but not active
+		expect(screen.getByRole("button", { name: "repo-b" })).toHaveAttribute("data-selected", "false");
 	});
 });
