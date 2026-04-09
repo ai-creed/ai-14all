@@ -55,6 +55,7 @@ import { CommitList } from "../features/git/CommitList";
 import { CommitDiffStack } from "../features/git/CommitDiffStack";
 import type { GitCommitHistory, GitCommitDetail } from "../../shared/models/git-commit-review";
 import { git, workspace, repository as repositoryClient } from "../lib/desktop-client";
+import { useTheme } from "../lib/useTheme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
 
 type StartupMode = "loading" | "prompt" | "ready";
@@ -68,6 +69,7 @@ function normalizeTerminalTitle(title: string): string | null {
 }
 
 export function App() {
+	const { resolvedTheme } = useTheme();
 	const [reviewRailWidth, setReviewRailWidth] = useState(320);
 	const [reviewPanelHeight, setReviewPanelHeight] = useState(280);
 	const [reviewPanelCollapsed, setReviewPanelCollapsed] = useState(false);
@@ -2047,6 +2049,7 @@ export function App() {
 										<FileViewer
 											worktreePath={activeWorktree.path}
 											relativePath={activeSession.selectedFilePath}
+											resolvedTheme={resolvedTheme}
 										/>
 									) : activeSession?.reviewMode === "changes" && diffState.data ? (
 										<DiffViewer
@@ -2054,6 +2057,7 @@ export function App() {
 											content={diffState.data.content}
 											originalContent={diffState.data.originalContent}
 											modifiedContent={diffState.data.modifiedContent}
+											resolvedTheme={resolvedTheme}
 										/>
 									) : (
 										<p className="shell-empty-state">
