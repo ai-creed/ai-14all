@@ -133,6 +133,7 @@ export function App() {
 			if (cancelled) return;
 			// Normalize to v1 for single-workspace restore logic. Multi-workspace
 			// support will extend this in a later task.
+			// @ts-expect-error TODO: Task 6 will replace this with multi-workspace logic
 			const state: PersistedWorkspaceStateV1 = rawState.version === 1
 				? rawState
 				: {
@@ -345,7 +346,9 @@ export function App() {
 		nextPreference: RestorePreference,
 	) {
 		try {
+			// @ts-expect-error TODO: Task 6 will replace this with workspace.openRepository
 			const repo = await repositoryClient.setRoot(snapshot.repositoryPath);
+			// @ts-expect-error TODO: Task 6 will replace this with workspace-scoped listWorktrees
 			const wts = await repositoryClient.listWorktrees();
 			setRepository(repo);
 			setWorktrees(wts);
@@ -399,6 +402,7 @@ export function App() {
 				snapshot,
 			};
 			setRestoreState(fallbackState);
+			// @ts-expect-error TODO: Task 6 will replace this with V2 state
 			void workspace.writeRestoreState(fallbackState);
 			setStartupMode("ready");
 		}
@@ -497,6 +501,7 @@ export function App() {
 
 	useEffect(() => {
 		if (startupMode !== "ready") return;
+		// @ts-expect-error TODO: Task 6 will replace this with V2 state
 		void workspace.writeRestoreState(persistableState);
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- persistableStateJson is used for change detection; persistableState (same data) is used for the write
 	}, [startupMode, persistableStateJson]);
@@ -553,6 +558,7 @@ export function App() {
 		let cancelled = false;
 		const timeoutId = window.setTimeout(() => {
 			setCreateLoading(true);
+			// @ts-expect-error TODO: Task 6 will replace this with workspace-scoped call
 			repositoryClient.previewCreateWorktree(createName).then((preview) => {
 				if (cancelled) return;
 				setCreatePreview(preview);
@@ -578,6 +584,7 @@ export function App() {
 			return;
 		}
 		let cancelled = false;
+		// @ts-expect-error TODO: Task 6 will replace this with workspace-scoped call
 		repositoryClient.previewRemoveWorktree(removeTargetId).then((preview) => {
 			if (!cancelled) {
 				setRemovePreview(preview);
@@ -597,6 +604,7 @@ export function App() {
 		skipRuntimeCleanupWorktreeIds?: string[];
 	}) {
 		if (!repository) return;
+		// @ts-expect-error TODO: Task 6 will replace this with workspace-scoped call
 		const latest = await repositoryClient.listWorktrees();
 		const latestIds = new Set(latest.map((worktree) => worktree.id));
 		const skipCleanupIds = new Set(options?.skipRuntimeCleanupWorktreeIds ?? []);
@@ -772,6 +780,7 @@ export function App() {
 		if (!createPreview) return;
 		setCreateBusy(true);
 		try {
+			// @ts-expect-error TODO: Task 6 will replace this with workspace-scoped call
 			const created = await repositoryClient.createWorktree(createName);
 			await refreshWorktreeInventory({ preferredSelectedWorktreeId: created.id });
 			setCreateDialogOpen(false);
@@ -811,6 +820,7 @@ export function App() {
 		setRemoveBusy(true);
 		try {
 			await closeProcessesForWorktree(removePreview.worktreeId);
+			// @ts-expect-error TODO: Task 6 will replace this with workspace-scoped call
 			await repositoryClient.removeWorktree(removePreview.worktreeId);
 			await refreshWorktreeInventory({
 				skipRuntimeCleanupWorktreeIds: [removePreview.worktreeId],
@@ -1093,6 +1103,7 @@ export function App() {
 				snapshot: restoreState.snapshot,
 			};
 			setRestoreState(nextState);
+			// @ts-expect-error TODO: Task 6 will replace this with V2 state
 			await workspace.writeRestoreState(nextState);
 			setStartupMode("ready");
 			return;

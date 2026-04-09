@@ -35,7 +35,9 @@ export function RepositoryInput({ onLoad }: Props) {
 		setError(null);
 
 		try {
+			// @ts-expect-error TODO: Task 6 will replace this with workspace.openRepository
 			const repo = await repository.setRoot(path.trim());
+			// @ts-expect-error TODO: Task 6 will replace this with workspace-scoped listWorktrees
 			const worktrees = await repository.listWorktrees();
 			await onLoad(repo, worktrees);
 		} catch (err) {

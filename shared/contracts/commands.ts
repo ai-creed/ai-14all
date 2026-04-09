@@ -16,7 +16,7 @@ import type {
 	GitCommitDetail,
 	GitCommitHistory,
 } from "../models/git-commit-review.js";
-import { PersistedWorkspaceStateSchema, type PersistedWorkspaceState } from "../models/persisted-workspace-state.js";
+import { PersistedWorkspaceStateV2Schema, type PersistedWorkspaceStateV2 } from "../models/persisted-workspace-state.js";
 import type {
 	CreateWorktreePreview,
 	RemoveWorktreePreview,
@@ -24,13 +24,19 @@ import type {
 
 // --- Zod schemas for command payloads ---
 
-export const SetRepositoryRootSchema = z.object({
-	path: z.string(),
-});
-
 export const PickRepositoryRootSchema = z.object({});
 
-export const ListWorktreesSchema = z.object({});
+export const OpenRepositoryWorkspaceSchema = z.object({ path: z.string() });
+
+export const ListWorktreesSchema = z.object({ workspaceId: z.string() });
+
+export const CreateWorktreeSchema = z.object({ workspaceId: z.string(), name: z.string() });
+
+export const RemoveWorktreeSchema = z.object({ workspaceId: z.string(), worktreeId: z.string() });
+
+export const PreviewCreateWorktreeSchema = z.object({ workspaceId: z.string(), name: z.string() });
+
+export const PreviewRemoveWorktreeSchema = z.object({ workspaceId: z.string(), worktreeId: z.string() });
 
 export const CreateTerminalSessionSchema = z.object({
 	worktreeId: z.string(),
@@ -82,7 +88,7 @@ export const ReadGitSummarySchema = z.object({
 export const ReadWorkspaceRestoreStateSchema = z.object({});
 
 export const WriteWorkspaceRestoreStateSchema = z.object({
-	state: PersistedWorkspaceStateSchema,
+	state: PersistedWorkspaceStateV2Schema,
 });
 
 export const ReadGitCommitHistorySchema = z.object({
@@ -94,33 +100,16 @@ export const ReadGitCommitDetailSchema = z.object({
 	sha: z.string().min(4),
 });
 
-export const PreviewCreateWorktreeSchema = z.object({
-	name: z.string(),
-});
-
-export const CreateWorktreeSchema = z.object({
-	name: z.string(),
-});
-
-export const PreviewRemoveWorktreeSchema = z.object({
-	worktreeId: z.string(),
-});
-
-export const RemoveWorktreeSchema = z.object({
-	worktreeId: z.string(),
-});
-
 // --- The API surface exposed to the renderer via the preload bridge ---
 
 export type Ai14AllDesktopApi = {
 	repository: {
 		pickRoot(): Promise<string | null>;
-		setRoot(path: string): Promise<Repository>;
-		listWorktrees(): Promise<Worktree[]>;
-		previewCreateWorktree(name: string): Promise<CreateWorktreePreview>;
-		createWorktree(name: string): Promise<Worktree>;
-		previewRemoveWorktree(worktreeId: string): Promise<RemoveWorktreePreview>;
-		removeWorktree(worktreeId: string): Promise<void>;
+		listWorktrees(workspaceId: string): Promise<Worktree[]>;
+		previewCreateWorktree(workspaceId: string, name: string): Promise<CreateWorktreePreview>;
+		createWorktree(workspaceId: string, name: string): Promise<Worktree>;
+		previewRemoveWorktree(workspaceId: string, worktreeId: string): Promise<RemoveWorktreePreview>;
+		removeWorktree(workspaceId: string, worktreeId: string): Promise<void>;
 	};
 	terminals: {
 		create(worktreeId: string, cwd: string): Promise<TerminalSession>;
@@ -148,8 +137,9 @@ export type Ai14AllDesktopApi = {
 		readCommitDetail(worktreePath: string, sha: string): Promise<GitCommitDetail>;
 	};
 	workspace: {
-		readRestoreState(): Promise<PersistedWorkspaceState>;
-		writeRestoreState(state: PersistedWorkspaceState): Promise<void>;
+		openRepository(path: string): Promise<{ workspaceId: string; repository: Repository }>;
+		readRestoreState(): Promise<PersistedWorkspaceStateV2>;
+		writeRestoreState(state: PersistedWorkspaceStateV2): Promise<void>;
 		onOpenPicker(listener: () => void): () => void;
 	};
 };

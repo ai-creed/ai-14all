@@ -10,15 +10,16 @@ export function getDesktopClient(): Ai14AllDesktopApi {
 
 export const repository: Ai14AllDesktopApi["repository"] = {
 	pickRoot: () => getDesktopClient().repository.pickRoot(),
-	setRoot: (path) => getDesktopClient().repository.setRoot(path),
-	listWorktrees: () => getDesktopClient().repository.listWorktrees(),
-	previewCreateWorktree: (name) =>
-		getDesktopClient().repository.previewCreateWorktree(name),
-	createWorktree: (name) => getDesktopClient().repository.createWorktree(name),
-	previewRemoveWorktree: (worktreeId) =>
-		getDesktopClient().repository.previewRemoveWorktree(worktreeId),
-	removeWorktree: (worktreeId) =>
-		getDesktopClient().repository.removeWorktree(worktreeId),
+	listWorktrees: (workspaceId) =>
+		getDesktopClient().repository.listWorktrees(workspaceId),
+	previewCreateWorktree: (workspaceId, name) =>
+		getDesktopClient().repository.previewCreateWorktree(workspaceId, name),
+	createWorktree: (workspaceId, name) =>
+		getDesktopClient().repository.createWorktree(workspaceId, name),
+	previewRemoveWorktree: (workspaceId, worktreeId) =>
+		getDesktopClient().repository.previewRemoveWorktree(workspaceId, worktreeId),
+	removeWorktree: (workspaceId, worktreeId) =>
+		getDesktopClient().repository.removeWorktree(workspaceId, worktreeId),
 };
 
 export const terminals: Ai14AllDesktopApi["terminals"] = {
@@ -57,6 +58,7 @@ export const git: Ai14AllDesktopApi["git"] = {
 };
 
 export const workspace: Ai14AllDesktopApi["workspace"] = {
+	openRepository: (path) => getDesktopClient().workspace.openRepository(path),
 	readRestoreState: () => getDesktopClient().workspace.readRestoreState(),
 	writeRestoreState: (state) =>
 		getDesktopClient().workspace.writeRestoreState(state),

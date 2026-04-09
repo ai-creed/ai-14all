@@ -24,23 +24,20 @@ const api: Ai14AllDesktopApi = {
 		pickRoot() {
 			return ipcRenderer.invoke("repository:pickRoot", {});
 		},
-		setRoot(path) {
-			return ipcRenderer.invoke("repository:setRoot", { path });
+		listWorktrees(workspaceId) {
+			return ipcRenderer.invoke("repository:listWorktrees", { workspaceId });
 		},
-		listWorktrees() {
-			return ipcRenderer.invoke("repository:listWorktrees");
+		previewCreateWorktree(workspaceId, name) {
+			return ipcRenderer.invoke("repository:previewCreateWorktree", { workspaceId, name });
 		},
-		previewCreateWorktree(name) {
-			return ipcRenderer.invoke("repository:previewCreateWorktree", { name });
+		createWorktree(workspaceId, name) {
+			return ipcRenderer.invoke("repository:createWorktree", { workspaceId, name });
 		},
-		createWorktree(name) {
-			return ipcRenderer.invoke("repository:createWorktree", { name });
+		previewRemoveWorktree(workspaceId, worktreeId) {
+			return ipcRenderer.invoke("repository:previewRemoveWorktree", { workspaceId, worktreeId });
 		},
-		previewRemoveWorktree(worktreeId) {
-			return ipcRenderer.invoke("repository:previewRemoveWorktree", { worktreeId });
-		},
-		removeWorktree(worktreeId) {
-			return ipcRenderer.invoke("repository:removeWorktree", { worktreeId });
+		removeWorktree(workspaceId, worktreeId) {
+			return ipcRenderer.invoke("repository:removeWorktree", { workspaceId, worktreeId });
 		},
 	},
 	terminals: {
@@ -101,6 +98,9 @@ const api: Ai14AllDesktopApi = {
 		},
 	},
 	workspace: {
+		openRepository(path) {
+			return ipcRenderer.invoke("workspace:openRepository", { path });
+		},
 		readRestoreState() {
 			return ipcRenderer.invoke("workspace:readRestoreState", {});
 		},

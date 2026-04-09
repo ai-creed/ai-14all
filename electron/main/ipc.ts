@@ -3,7 +3,7 @@ import { consumeE2eGitFault } from "./e2e-git-faults.js";
 import type { BrowserWindow } from "electron";
 import {
 	PickRepositoryRootSchema,
-	SetRepositoryRootSchema,
+	OpenRepositoryWorkspaceSchema,
 	CreateTerminalSessionSchema,
 	SendTerminalInputSchema,
 	ResizeTerminalSessionSchema,
@@ -18,18 +18,19 @@ import {
 	WriteWorkspaceRestoreStateSchema,
 	ReadGitCommitHistorySchema,
 	ReadGitCommitDetailSchema,
+	ListWorktreesSchema,
 	PreviewCreateWorktreeSchema,
 	CreateWorktreeSchema,
 	PreviewRemoveWorktreeSchema,
 	RemoveWorktreeSchema,
 } from "../../shared/contracts/commands.js";
 import type { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
+import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 import { WorktreeService } from "../../services/worktrees/worktree-service.js";
 import { TerminalService } from "../../services/terminals/terminal-service.js";
 import { FileService } from "../../services/files/file-service.js";
 import { GitService } from "../../services/git/git-service.js";
 import type { TerminalEventHandlers } from "../../services/terminals/terminal-service.js";
-import type { Repository } from "../../shared/models/repository.js";
 import type {
 	TerminalOutputEvent,
 	TerminalExitEvent,
@@ -53,7 +54,7 @@ export function registerIpcHandlers(
 	const worktreeService = new WorktreeService();
 	const fileService = new FileService();
 	const gitService = new GitService();
-	let currentRepository: Repository | null = null;
+	const workspaceRegistry = new WorkspaceRegistryService();
 
 	const safeSend = <T extends object>(channel: string, payload: T) => {
 		if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
@@ -87,8 +88,8 @@ export function registerIpcHandlers(
 
 	// --- Repository ---
 
-	ipcMain.handle("repository:pickRoot", async () => {
-		PickRepositoryRootSchema.parse({});
+	ipcMain.handle("repository:pickRoot", async (_event, raw: unknown) => {
+		PickRepositoryRootSchema.parse(raw);
 
 		if (process.env.AI14ALL_E2E && process.env.AI14ALL_E2E_PICK_PATH) {
 			return process.env.AI14ALL_E2E_PICK_PATH;
@@ -105,52 +106,38 @@ export function registerIpcHandlers(
 		return result.filePaths[0] ?? null;
 	});
 
-	ipcMain.handle("repository:setRoot", async (_event, raw: unknown) => {
-		const { path } = SetRepositoryRootSchema.parse(raw);
-		const repo = await worktreeService.setRepositoryRoot(path);
-		currentRepository = repo;
-		return repo;
+	ipcMain.handle("workspace:openRepository", async (_event, raw: unknown) => {
+		const { path } = OpenRepositoryWorkspaceSchema.parse(raw);
+		const repository = await worktreeService.setRepositoryRoot(path);
+		const proposedWorkspaceId = repository.repoId
+			? `workspace:${repository.repoId}`
+			: `workspace:${repository.rootPath}`;
+		return workspaceRegistry.register({ workspaceId: proposedWorkspaceId, repository });
 	});
 
-	ipcMain.handle("repository:listWorktrees", async () => {
-		if (currentRepository === null) {
-			throw new Error(
-				"No repository root has been set. Call repository:setRoot first.",
-			);
-		}
-		return worktreeService.listWorktrees(currentRepository);
+	ipcMain.handle("repository:listWorktrees", async (_event, raw: unknown) => {
+		const { workspaceId } = ListWorktreesSchema.parse(raw);
+		return worktreeService.listWorktrees(workspaceRegistry.get(workspaceId));
 	});
 
 	ipcMain.handle("repository:previewCreateWorktree", async (_event, raw: unknown) => {
-		if (currentRepository === null) {
-			throw new Error("No repository root has been set. Call repository:setRoot first.");
-		}
-		const { name } = PreviewCreateWorktreeSchema.parse(raw);
-		return worktreeService.previewCreateWorktree(currentRepository, name);
+		const { workspaceId, name } = PreviewCreateWorktreeSchema.parse(raw);
+		return worktreeService.previewCreateWorktree(workspaceRegistry.get(workspaceId), name);
 	});
 
 	ipcMain.handle("repository:createWorktree", async (_event, raw: unknown) => {
-		if (currentRepository === null) {
-			throw new Error("No repository root has been set. Call repository:setRoot first.");
-		}
-		const { name } = CreateWorktreeSchema.parse(raw);
-		return worktreeService.createWorktree(currentRepository, name);
+		const { workspaceId, name } = CreateWorktreeSchema.parse(raw);
+		return worktreeService.createWorktree(workspaceRegistry.get(workspaceId), name);
 	});
 
 	ipcMain.handle("repository:previewRemoveWorktree", async (_event, raw: unknown) => {
-		if (currentRepository === null) {
-			throw new Error("No repository root has been set. Call repository:setRoot first.");
-		}
-		const { worktreeId } = PreviewRemoveWorktreeSchema.parse(raw);
-		return worktreeService.previewRemoveWorktree(currentRepository, worktreeId);
+		const { workspaceId, worktreeId } = PreviewRemoveWorktreeSchema.parse(raw);
+		return worktreeService.previewRemoveWorktree(workspaceRegistry.get(workspaceId), worktreeId);
 	});
 
 	ipcMain.handle("repository:removeWorktree", async (_event, raw: unknown) => {
-		if (currentRepository === null) {
-			throw new Error("No repository root has been set. Call repository:setRoot first.");
-		}
-		const { worktreeId } = RemoveWorktreeSchema.parse(raw);
-		await worktreeService.removeWorktree(currentRepository, worktreeId);
+		const { workspaceId, worktreeId } = RemoveWorktreeSchema.parse(raw);
+		await worktreeService.removeWorktree(workspaceRegistry.get(workspaceId), worktreeId);
 	});
 
 	// --- Terminals ---
