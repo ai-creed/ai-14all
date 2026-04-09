@@ -370,6 +370,10 @@ export function App() {
 			},
 		});
 		dispatchAppWorkspaces({ type: "workspace/select", workspaceId: openedId });
+		if (openedId !== workspaceId) {
+			// The backend assigned a different workspaceId — remove the stale dormant entry
+			dispatchAppWorkspaces({ type: "workspace/remove", workspaceId });
+		}
 	}
 
 	async function handleLoadPath(path: string) {

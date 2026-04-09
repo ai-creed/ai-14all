@@ -194,5 +194,22 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 		await expect(
 			workspaceSwitcher().getByRole("button", { name: nameA, exact: true }),
 		).toHaveAttribute("data-selected", "true");
+
+		// --- dormant workspace hydration ---
+		// Repo B was registered as dormant when the persisted state was restored.
+		// Clicking its switcher button must hydrate it (load the repo in the current
+		// session) and make it the active workspace — without restarting the app.
+		await workspaceSwitcher().getByRole("button", { name: nameB, exact: true }).click();
+
+		// Repo B must now be marked as selected
+		await expect(
+			workspaceSwitcher().getByRole("button", { name: nameB, exact: true }),
+		).toHaveAttribute("data-selected", "true", { timeout: 15_000 });
+
+		// Hydration must have completed: repo B's worktree nav becomes visible,
+		// confirming the workspace was fully loaded (not just switched in the UI).
+		await expect(
+			page.getByRole("navigation", { name: "Worktree sessions" }),
+		).toBeVisible({ timeout: 20_000 });
 	});
 });
