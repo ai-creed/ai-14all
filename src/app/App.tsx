@@ -26,10 +26,9 @@ import type {
 import { buildSavedWorkspace, rebaseSnapshotPaths, reconcileSnapshotToWorktrees, shouldReattachSnapshot, splitPendingRestores } from "../features/workspace/workspace-persistence";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
-import { SessionSidebar } from "../features/workspace/SessionSidebar";
+import { SessionSidebar, type SessionSidebarWorkspace } from "../features/workspace/SessionSidebar";
 import { SessionHeader } from "../features/workspace/SessionHeader";
 import { ContextPanel } from "../features/workspace/ContextPanel";
-import { WorkspaceSwitcher } from "../features/workspace/WorkspaceSwitcher";
 import {
 	createWorkspaceState,
 	workspaceReducer,
@@ -385,14 +384,23 @@ export function App() {
 	// handleLoadPath — called from RepositoryInput and restoreWorkspace
 	// ---------------------------------------------------------------------------
 
-	async function activateWorkspace(workspaceId: string) {
-		const target = appWorkspaces.workspacesById[workspaceId];
-		if (!target) return;
+	async function activateWorkspace(workspaceId: string): Promise<{
+		workspaceId: string;
+		worktrees: Worktree[];
+		workspaceState: WorkspaceState;
+	} | null> {
+		const target = appWorkspacesRef.current.workspacesById[workspaceId];
+		if (!target) return null;
 
 		if (target.workspaceState) {
-			// Already hydrated — just switch
+			prevActiveWorkspaceIdRef.current = workspaceId;
+			activeWorkspaceStateRef.current = target.workspaceState;
 			dispatchAppWorkspaces({ type: "workspace/select", workspaceId });
-			return;
+			return {
+				workspaceId,
+				worktrees: target.worktrees,
+				workspaceState: target.workspaceState,
+			};
 		}
 
 		// Dormant — hydrate it
@@ -463,6 +471,12 @@ export function App() {
 				await recreatePersistedProcesses(selectedWorktree, selectedSession, openedId, scopedDispatch);
 			}
 		}
+
+		return {
+			workspaceId: openedId,
+			worktrees: newWorktrees,
+			workspaceState: nextWorkspaceState,
+		};
 	}
 
 	async function handleLoadPath(path: string) {
@@ -626,7 +640,7 @@ export function App() {
 			activeWorkspaceStateRef.current = stateWithSnapshot;
 
 			// Register non-active saved workspaces as dormant so they appear in the
-			// WorkspaceSwitcher immediately after restore, without re-opening them.
+			// grouped sessions sidebar immediately after restore, without re-opening them.
 			for (const saved of dormantWorkspaces) {
 				dispatchAppWorkspaces({
 					type: "workspace/register",
@@ -1081,10 +1095,21 @@ export function App() {
 		window.addEventListener("mouseup", handleMouseUp);
 	}
 
-	async function handleSelectWorktree(worktreeId: string) {
+	async function handleSelectWorktree(
+		worktreeId: string,
+		targetContext?: {
+			workspaceId: string;
+			worktrees: Worktree[];
+			workspaceState: WorkspaceState;
+		},
+	) {
+		const targetWorkspaceId = targetContext?.workspaceId ?? activeWorkspaceId;
+		if (!targetWorkspaceId) return;
+		const targetWorktrees = targetContext?.worktrees ?? worktrees;
+		const targetWorkspaceState = targetContext?.workspaceState ?? workspaceState;
 		const pending = pendingRestoreSessions[worktreeId];
-		if (pending && activeWorkspaceId) {
-			dispatch({ type: "session/restoreSnapshot", workspaceId: activeWorkspaceId, snapshot: pending });
+		if (pending) {
+			dispatch({ type: "session/restoreSnapshot", workspaceId: targetWorkspaceId, snapshot: pending });
 			setPendingRestoreSessions((prev) => {
 				const next = { ...prev };
 				delete next[worktreeId];
@@ -1106,7 +1131,7 @@ export function App() {
 			// by React and has not yet been applied to workspaceState.  For
 			// non-pending sessions the data we need already existed before the
 			// dispatch, so the stale read is safe.
-			const session = workspaceState.sessionsByWorktreeId[worktreeId];
+			const session = targetWorkspaceState.sessionsByWorktreeId[worktreeId];
 			if (session?.activeProcessSessionId) {
 				dispatch({
 					type: "session/markProcessViewed",
@@ -1116,12 +1141,25 @@ export function App() {
 			}
 		}
 
-		if (pending && activeWorkspaceId) {
-			const worktree = worktrees.find((entry) => entry.id === worktreeId);
+		if (pending) {
+			const worktree = targetWorktrees.find((entry) => entry.id === worktreeId);
 			if (worktree) {
-				await recreatePersistedProcesses(worktree, pending, activeWorkspaceId);
+				await recreatePersistedProcesses(worktree, pending, targetWorkspaceId);
 			}
 		}
+	}
+
+	async function handleSelectSidebarWorktree(workspaceId: string, worktreeId: string) {
+		const targetContext =
+			workspaceId === appWorkspacesRef.current.activeWorkspaceId
+				? {
+						workspaceId,
+						worktrees,
+						workspaceState,
+					}
+				: await activateWorkspace(workspaceId);
+		if (!targetContext) return;
+		await handleSelectWorktree(worktreeId, targetContext);
 	}
 
 	async function handleConfirmCreateWorktree() {
@@ -1498,17 +1536,28 @@ export function App() {
 		dispatchAppWorkspaces({ type: "workspace/remove", workspaceId: wsId });
 	}
 
-	const attentionByWorktreeId = Object.fromEntries(
-		Object.entries(workspaceState.sessionsByWorktreeId).map(
-			([worktreeId, session]) => [worktreeId, session.attentionState],
-		),
-	);
-
-	// Workspace switcher data
-	const switcherWorkspaces = appWorkspaces.workspaceOrder
+	const sidebarWorkspaces: SessionSidebarWorkspace[] = appWorkspaces.workspaceOrder
 		.map((id) => appWorkspaces.workspacesById[id])
 		.filter((ws): ws is NonNullable<typeof ws> => ws != null)
-		.map((ws) => ({ workspaceId: ws.workspaceId, name: ws.repository.name }));
+		.map((ws) => ({
+			workspaceId: ws.workspaceId,
+			name: ws.repository.name,
+			worktrees: ws.worktrees,
+			selectedWorktreeId:
+				ws.workspaceState?.selectedWorktreeId ??
+				ws.persistedSnapshot?.snapshot.selectedWorktreeId ??
+				null,
+			attentionByWorktreeId:
+				ws.workspaceState
+					? Object.fromEntries(
+							Object.entries(ws.workspaceState.sessionsByWorktreeId).map(
+								([worktreeId, session]) => [worktreeId, session.attentionState],
+							),
+						)
+					: {},
+			active: ws.workspaceId === activeWorkspaceId,
+			hydrated: ws.workspaceState !== null,
+		}));
 
 	if (startupMode === "loading") {
 		return (
@@ -1571,28 +1620,28 @@ export function App() {
 				}}
 			>
 				<div className="shell-sidebar-column">
-					{switcherWorkspaces.length > 0 && (
-						<WorkspaceSwitcher
-							workspaces={switcherWorkspaces}
-							activeWorkspaceId={appWorkspaces.activeWorkspaceId}
-							onSelect={(wsId) => { void activateWorkspace(wsId); }}
-							onRemove={(wsId) => { void handleRemoveWorkspace(wsId); }}
-						/>
-					)}
 					<SessionSidebar
-						worktrees={worktrees}
-						selectedWorktreeId={workspaceState.selectedWorktreeId}
-						attentionByWorktreeId={attentionByWorktreeId}
+						workspaces={sidebarWorkspaces}
 						collapsed={sidebarCollapsed}
 						onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
-						onSelect={(worktreeId) => {
-							void handleSelectWorktree(worktreeId);
+						onOpenWorkspace={(workspaceId) => {
+							void activateWorkspace(workspaceId);
 						}}
-						onCreateWorktree={() => setCreateDialogOpen(true)}
-						onRemoveWorktree={(worktreeId) => {
+						onSelect={(workspaceId, worktreeId) => {
+							void handleSelectSidebarWorktree(workspaceId, worktreeId);
+						}}
+						onCreateWorktree={(workspaceId) => {
+							if (workspaceId !== activeWorkspaceId) return;
+							setCreateDialogOpen(true);
+						}}
+						onRemoveWorktree={(workspaceId, worktreeId) => {
+							if (workspaceId !== activeWorkspaceId) return;
 							setRemoveTargetId(worktreeId);
 							setConfirmedDirtyRemoval(false);
 							setRemoveDialogOpen(true);
+						}}
+						onRemoveWorkspace={(workspaceId) => {
+							void handleRemoveWorkspace(workspaceId);
 						}}
 					/>
 				</div>

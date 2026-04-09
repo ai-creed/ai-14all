@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // Mock TerminalPane to avoid xterm canvas dependency in jsdom
@@ -965,7 +965,7 @@ describe("App — Phase 5 restore flow", () => {
 		expect(screen.getByRole("button", { name: "Expand top band" })).toBeInTheDocument();
 	});
 
-	it("registers non-active saved workspaces as dormant switcher entries on alwaysRestore", async () => {
+	it("registers non-active saved workspaces as dormant sidebar groups on alwaysRestore", async () => {
 		readRestoreStateMock.mockResolvedValue({
 			version: 2,
 			restorePreference: "alwaysRestore",
@@ -1018,16 +1018,14 @@ describe("App — Phase 5 restore flow", () => {
 
 		render(<App />);
 
-		// Both workspace switcher buttons should appear after restore
+		const sidebar = await screen.findByRole("navigation", { name: "Worktree sessions" });
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: "repo-a" })).toBeInTheDocument();
-			expect(screen.getByRole("button", { name: "repo-b" })).toBeInTheDocument();
+			expect(within(sidebar).getByRole("group", { name: "repo-a" })).toBeInTheDocument();
+			expect(within(sidebar).getByRole("group", { name: "repo-b" })).toBeInTheDocument();
 		});
 
-		// ws-a is the active workspace
-		expect(screen.getByRole("button", { name: "repo-a" })).toHaveAttribute("data-selected", "true");
-		// ws-b is dormant — visible in the switcher but not active
-		expect(screen.getByRole("button", { name: "repo-b" })).toHaveAttribute("data-selected", "false");
+		expect(within(sidebar).getByRole("group", { name: "repo-a" })).toHaveAttribute("data-active-workspace", "true");
+		expect(within(sidebar).getByRole("group", { name: "repo-b" })).toHaveAttribute("data-active-workspace", "false");
 	});
 
 	it("hydrates a dormant restored workspace on first selection", async () => {
@@ -1063,7 +1061,7 @@ describe("App — Phase 5 restore flow", () => {
 		render(<App />);
 
 		// Wait for initial restore to complete
-		await screen.findByRole("button", { name: "repo-b" });
+		await screen.findByRole("group", { name: "repo-b" });
 
 		// Now clicking repo-b should trigger openRepository for /repo-b
 		openRepositoryMock.mockResolvedValueOnce({
@@ -1078,7 +1076,7 @@ describe("App — Phase 5 restore flow", () => {
 		expect(openRepositoryMock).toHaveBeenCalledWith("/repo-b");
 	});
 
-	it("registers non-active saved workspaces as dormant switcher entries after user confirms restore", async () => {
+	it("registers non-active saved workspaces as dormant sidebar groups after user confirms restore", async () => {
 		readRestoreStateMock.mockResolvedValue({
 			version: 2,
 			restorePreference: "prompt",
@@ -1136,15 +1134,13 @@ describe("App — Phase 5 restore flow", () => {
 			await screen.findByRole("button", { name: "Restore previous workspace" }),
 		);
 
-		// Both workspace switcher buttons should appear after confirming restore
+		const sidebar = screen.getByRole("navigation", { name: "Worktree sessions" });
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: "repo-a" })).toBeInTheDocument();
-			expect(screen.getByRole("button", { name: "repo-b" })).toBeInTheDocument();
+			expect(within(sidebar).getByRole("group", { name: "repo-a" })).toBeInTheDocument();
+			expect(within(sidebar).getByRole("group", { name: "repo-b" })).toBeInTheDocument();
 		});
 
-		// ws-a is the active workspace
-		expect(screen.getByRole("button", { name: "repo-a" })).toHaveAttribute("data-selected", "true");
-		// ws-b is dormant — visible in the switcher but not active
-		expect(screen.getByRole("button", { name: "repo-b" })).toHaveAttribute("data-selected", "false");
+		expect(within(sidebar).getByRole("group", { name: "repo-a" })).toHaveAttribute("data-active-workspace", "true");
+		expect(within(sidebar).getByRole("group", { name: "repo-b" })).toHaveAttribute("data-active-workspace", "false");
 	});
 });

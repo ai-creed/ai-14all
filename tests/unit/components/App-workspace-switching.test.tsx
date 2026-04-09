@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // Mock TerminalPane to avoid xterm canvas dependency in jsdom
@@ -102,7 +102,7 @@ beforeEach(() => {
 });
 
 describe("workspace switching", () => {
-	it("shows the workspace switcher with the loaded repo after initial load", async () => {
+	it("shows the loaded repo as a workspace group in the sessions sidebar", async () => {
 		openRepositoryMock.mockResolvedValueOnce({
 			workspaceId: "ws-a",
 			repository: { id: "repo-a", name: "repo-a", rootPath: "/repo-a", repoId: "repo-id-a" },
@@ -117,37 +117,13 @@ describe("workspace switching", () => {
 		await userEvent.type(input, "/repo-a");
 		await userEvent.click(screen.getByRole("button", { name: "Load" }));
 
-		// Workspace switcher with repo-a should appear
-		await screen.findByRole("button", { name: "repo-a" });
-		expect(screen.getByRole("button", { name: "repo-a" })).toBeInTheDocument();
+		const sidebar = screen.getByRole("navigation", { name: "Worktree sessions" });
+		const group = await within(sidebar).findByRole("group", { name: "repo-a" });
+		expect(group).toHaveAttribute("data-active-workspace", "true");
+		expect(within(group).getByRole("button", { name: /^main(?:\s+main)?$/i })).toBeInTheDocument();
 	});
 
-	it("shows workspace switcher after loading a repository", async () => {
-		openRepositoryMock.mockResolvedValueOnce({
-			workspaceId: "ws-a",
-			repository: { id: "repo-a", name: "repo-a", rootPath: "/repo-a", repoId: "repo-id-a" },
-		});
-		listWorktreesMock.mockResolvedValueOnce([
-			{ id: "/repo-a", repositoryId: "repo-a", branchName: "main", path: "/repo-a", label: "main", isMain: true },
-		]);
-
-		render(<App />);
-
-		const input = await screen.findByLabelText(/repository path/i);
-		await userEvent.type(input, "/repo-a");
-		await userEvent.click(screen.getByRole("button", { name: "Load" }));
-
-		// Workspace switcher with repo-a should appear
-		await waitFor(() => {
-			expect(screen.getByRole("button", { name: "repo-a" })).toBeInTheDocument();
-		});
-
-		// The repo-a switcher button should be in the selected state
-		expect(screen.getByRole("button", { name: "repo-a" })).toHaveAttribute("data-selected", "true");
-	});
-
-	it("switches active workspace when selecting a different workspace in the switcher", async () => {
-		// This test simulates: open ws-a, open workspace picker (via onOpenPicker), load ws-b, switch back to ws-a
+	it("shows one workspace group per loaded repository", async () => {
 		let onOpenPickerCallback: (() => void) | null = null;
 
 		const { workspace: workspaceMock } = await import("../../../src/lib/desktop-client");
@@ -170,7 +146,74 @@ describe("workspace switching", () => {
 				{ id: "/repo-a", repositoryId: "repo-a", branchName: "main", path: "/repo-a", label: "main", isMain: true },
 			])
 			.mockResolvedValueOnce([
-				{ id: "/repo-b", repositoryId: "repo-b", branchName: "main", path: "/repo-b", label: "main", isMain: true },
+				{ id: "/repo-b", repositoryId: "repo-b", branchName: "stable", path: "/repo-b", label: "stable", isMain: true },
+			]);
+
+		render(<App />);
+
+		const input = await screen.findByLabelText(/repository path/i);
+		await userEvent.type(input, "/repo-a");
+		await userEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		if (onOpenPickerCallback) {
+			onOpenPickerCallback();
+		}
+
+		const input2 = await screen.findByLabelText(/repository path/i);
+		await userEvent.type(input2, "/repo-b");
+		await userEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		const sidebar = screen.getByRole("navigation", { name: "Worktree sessions" });
+		await waitFor(() => {
+			expect(within(sidebar).getByRole("group", { name: "repo-a" })).toBeInTheDocument();
+			expect(within(sidebar).getByRole("group", { name: "repo-b" })).toBeInTheDocument();
+		});
+	});
+
+	it("marks the first loaded workspace group as active", async () => {
+		openRepositoryMock.mockResolvedValueOnce({
+			workspaceId: "ws-a",
+			repository: { id: "repo-a", name: "repo-a", rootPath: "/repo-a", repoId: "repo-id-a" },
+		});
+		listWorktreesMock.mockResolvedValueOnce([
+			{ id: "/repo-a", repositoryId: "repo-a", branchName: "main", path: "/repo-a", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+
+		const input = await screen.findByLabelText(/repository path/i);
+		await userEvent.type(input, "/repo-a");
+		await userEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		const sidebar = screen.getByRole("navigation", { name: "Worktree sessions" });
+		const group = await within(sidebar).findByRole("group", { name: "repo-a" });
+		expect(group).toHaveAttribute("data-active-workspace", "true");
+	});
+
+	it("switches active workspace when selecting a worktree in another workspace group", async () => {
+		let onOpenPickerCallback: (() => void) | null = null;
+
+		const { workspace: workspaceMock } = await import("../../../src/lib/desktop-client");
+		vi.mocked(workspaceMock.onOpenPicker).mockImplementation((cb) => {
+			onOpenPickerCallback = cb;
+			return () => {};
+		});
+
+		openRepositoryMock
+			.mockResolvedValueOnce({
+				workspaceId: "ws-a",
+				repository: { id: "repo-a", name: "repo-a", rootPath: "/repo-a", repoId: "repo-id-a" },
+			})
+			.mockResolvedValueOnce({
+				workspaceId: "ws-b",
+				repository: { id: "repo-b", name: "repo-b", rootPath: "/repo-b", repoId: "repo-id-b" },
+			});
+		listWorktreesMock
+			.mockResolvedValueOnce([
+				{ id: "/repo-a", repositoryId: "repo-a", branchName: "main", path: "/repo-a", label: "main", isMain: true },
+			])
+			.mockResolvedValueOnce([
+				{ id: "/repo-b", repositoryId: "repo-b", branchName: "stable", path: "/repo-b", label: "stable", isMain: true },
 			]);
 
 		render(<App />);
@@ -180,9 +223,8 @@ describe("workspace switching", () => {
 		await userEvent.type(input, "/repo-a");
 		await userEvent.click(screen.getByRole("button", { name: "Load" }));
 
-		await screen.findByRole("button", { name: "repo-a" });
+		await screen.findByRole("navigation", { name: "Worktree sessions" });
 
-		// Trigger picker open to load repo-b
 		if (onOpenPickerCallback) {
 			onOpenPickerCallback();
 		}
@@ -191,22 +233,25 @@ describe("workspace switching", () => {
 		await userEvent.type(input2, "/repo-b");
 		await userEvent.click(screen.getByRole("button", { name: "Load" }));
 
-		// Both workspace buttons should appear
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: "repo-a" })).toBeInTheDocument();
-			expect(screen.getByRole("button", { name: "repo-b" })).toBeInTheDocument();
+			const latestSidebar = screen.getByRole("navigation", { name: "Worktree sessions" });
+			expect(within(latestSidebar).getByRole("group", { name: "repo-a" })).toBeInTheDocument();
+			expect(within(latestSidebar).getByRole("group", { name: "repo-b" })).toBeInTheDocument();
 		});
 
-		// repo-b should be active now
-		expect(screen.getByRole("button", { name: "repo-b" })).toHaveAttribute("data-selected", "true");
-		expect(screen.getByRole("button", { name: "repo-a" })).toHaveAttribute("data-selected", "false");
+		const sidebar = screen.getByRole("navigation", { name: "Worktree sessions" });
+		const repoAGroup = within(sidebar).getByRole("group", { name: "repo-a" });
+		const repoBGroup = within(sidebar).getByRole("group", { name: "repo-b" });
+		expect(repoBGroup).toHaveAttribute("data-active-workspace", "true");
+		expect(repoAGroup).toHaveAttribute("data-active-workspace", "false");
 
-		// Switch back to repo-a
-		await userEvent.click(screen.getByRole("button", { name: "repo-a" }));
+		await userEvent.click(
+			within(repoAGroup).getByRole("button", { name: /^main(?:\s+main)?$/i }),
+		);
 
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: "repo-a" })).toHaveAttribute("data-selected", "true");
-			expect(screen.getByRole("button", { name: "repo-b" })).toHaveAttribute("data-selected", "false");
+			expect(repoAGroup).toHaveAttribute("data-active-workspace", "true");
+			expect(repoBGroup).toHaveAttribute("data-active-workspace", "false");
 		});
 	});
 
@@ -240,7 +285,7 @@ describe("workspace switching", () => {
 		// Load repo-a
 		await userEvent.type(await screen.findByLabelText(/repository path/i), "/repo-a");
 		await userEvent.click(screen.getByRole("button", { name: "Load" }));
-		await screen.findByRole("button", { name: "repo-a" });
+		await screen.findByRole("group", { name: "repo-a" });
 
 		// Open picker to load repo-b
 		if (onOpenPickerCallback) {
@@ -249,13 +294,12 @@ describe("workspace switching", () => {
 		await userEvent.type(await screen.findByLabelText(/repository path/i), "/repo-b");
 		await userEvent.click(screen.getByRole("button", { name: "Load" }));
 
-		// Wait for both workspaces to appear
-		await screen.findByRole("button", { name: "repo-b" });
-		expect(screen.getByRole("button", { name: "repo-a" })).toBeInTheDocument();
+		const sidebar = screen.getByRole("navigation", { name: "Worktree sessions" });
+		await within(sidebar).findByRole("group", { name: "repo-b" });
+		expect(within(sidebar).getByRole("group", { name: "repo-a" })).toBeInTheDocument();
 
-		// Remove repo-a via its remove button
-		await userEvent.click(screen.getByRole("button", { name: /remove repo-a/i }));
-		expect(screen.queryByRole("button", { name: "repo-a" })).not.toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "repo-b" })).toBeInTheDocument();
+		await userEvent.click(within(sidebar).getByRole("button", { name: /remove repo-a/i }));
+		expect(within(sidebar).queryByRole("group", { name: "repo-a" })).not.toBeInTheDocument();
+		expect(within(sidebar).getByRole("group", { name: "repo-b" })).toBeInTheDocument();
 	});
 });

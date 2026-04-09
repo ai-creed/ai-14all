@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { SessionSidebar } from "../../../src/features/workspace/SessionSidebar";
 import type { Worktree } from "../../../shared/models/worktree";
 
@@ -22,31 +22,44 @@ const worktrees: Worktree[] = [
 	},
 ];
 
+const workspaces = [
+	{
+		workspaceId: "ws-a",
+		name: "repo-a",
+		worktrees,
+		selectedWorktreeId: "feature-a",
+		attentionByWorktreeId: {},
+		active: true,
+		hydrated: true,
+	},
+];
+
 describe("SessionSidebar", () => {
 	it("renders worktree labels and branches", () => {
 		render(
 			<SessionSidebar
-				worktrees={worktrees}
-				selectedWorktreeId="feature-a"
+				workspaces={workspaces}
 				collapsed={false}
 				onToggleCollapsed={vi.fn()}
+				onOpenWorkspace={vi.fn()}
 				onSelect={vi.fn()}
 				onCreateWorktree={vi.fn()}
 				onRemoveWorktree={vi.fn()}
+				onRemoveWorkspace={vi.fn()}
 			/>,
 		);
 
-		expect(
-			screen.getByRole("navigation", { name: "Worktree sessions" }),
-		).toBeInTheDocument();
+		const sidebar = screen.getByRole("navigation", { name: "Worktree sessions" });
+		const group = within(sidebar).getByRole("group", { name: "repo-a" });
 		// When branchName equals label (e.g. the "main" worktree), the branch <div>
 		// is intentionally hidden to avoid redundancy — only the <strong> label is shown.
-		expect(screen.getAllByText("main")).toHaveLength(1);
-		expect(screen.getByText("feature worktree")).toBeInTheDocument();
+		expect(within(group).getByRole("button", { name: "repo-a" })).toHaveAttribute("data-selected", "true");
+		expect(within(group).getAllByText("main")).toHaveLength(1);
+		expect(within(group).getByText("feature worktree")).toBeInTheDocument();
 		// "feature-a" branch is shown because it differs from the label "feature worktree"
-		expect(screen.getByText("feature-a")).toBeInTheDocument();
+		expect(within(group).getByText("feature-a")).toBeInTheDocument();
 		expect(
-			screen.getByRole("button", { name: "feature worktree feature-a" }),
+			within(group).getByRole("button", { name: "feature worktree feature-a" }),
 		).toHaveAttribute("data-selected", "true");
 	});
 
@@ -54,31 +67,32 @@ describe("SessionSidebar", () => {
 		const onSelect = vi.fn();
 		render(
 			<SessionSidebar
-				worktrees={worktrees}
-				selectedWorktreeId="main"
+				workspaces={[{ ...workspaces[0], selectedWorktreeId: "main" }]}
 				collapsed={false}
 				onToggleCollapsed={vi.fn()}
+				onOpenWorkspace={vi.fn()}
 				onSelect={onSelect}
 				onCreateWorktree={vi.fn()}
 				onRemoveWorktree={vi.fn()}
+				onRemoveWorkspace={vi.fn()}
 			/>,
 		);
 
 		fireEvent.click(screen.getByRole("button", { name: "feature worktree feature-a" }));
-		expect(onSelect).toHaveBeenCalledWith("feature-a");
+		expect(onSelect).toHaveBeenCalledWith("ws-a", "feature-a");
 	});
 
 	it("shows worktree attention when a background process needs action", () => {
 		render(
 			<SessionSidebar
-				worktrees={worktrees}
-				selectedWorktreeId="main"
-				attentionByWorktreeId={{ "feature-a": "actionRequired" }}
+				workspaces={[{ ...workspaces[0], selectedWorktreeId: "main", attentionByWorktreeId: { "feature-a": "actionRequired" } }]}
 				collapsed={false}
 				onToggleCollapsed={vi.fn()}
+				onOpenWorkspace={vi.fn()}
 				onSelect={() => {}}
 				onCreateWorktree={vi.fn()}
 				onRemoveWorktree={vi.fn()}
+				onRemoveWorkspace={vi.fn()}
 			/>,
 		);
 
@@ -90,13 +104,14 @@ describe("SessionSidebar", () => {
 	it("renders the collapsed rail with initial-letter markers and no labels", () => {
 		render(
 			<SessionSidebar
-				worktrees={worktrees}
-				selectedWorktreeId="main"
+				workspaces={[{ ...workspaces[0], selectedWorktreeId: "main" }]}
 				collapsed={true}
 				onToggleCollapsed={vi.fn()}
+				onOpenWorkspace={vi.fn()}
 				onSelect={vi.fn()}
 				onCreateWorktree={vi.fn()}
 				onRemoveWorktree={vi.fn()}
+				onRemoveWorkspace={vi.fn()}
 			/>,
 		);
 
@@ -107,8 +122,8 @@ describe("SessionSidebar", () => {
 		// Full worktree labels must NOT be rendered as <strong> elements
 		expect(screen.queryByText("feature worktree")).not.toBeInTheDocument();
 
-		// Initial-letter markers must be visible (first char uppercased)
-		// "main" → "M", "feature worktree" → "F"
+		// Group badge plus worktree markers should still be visible when collapsed.
+		expect(screen.getByRole("button", { name: "repo-a" })).toBeInTheDocument();
 		expect(screen.getByText("M")).toBeInTheDocument();
 		expect(screen.getByText("F")).toBeInTheDocument();
 
@@ -118,24 +133,59 @@ describe("SessionSidebar", () => {
 		).toBeInTheDocument();
 	});
 
-	it("shows a bottom New worktree button with a plus prefix and no inline remove buttons", () => {
+	it("shows active workspace controls in the group header/footer", () => {
 		render(
 			<SessionSidebar
-				worktrees={worktrees}
-				selectedWorktreeId="main"
+				workspaces={[{ ...workspaces[0], selectedWorktreeId: "main" }]}
 				collapsed={false}
 				onToggleCollapsed={vi.fn()}
+				onOpenWorkspace={vi.fn()}
 				onSelect={vi.fn()}
 				onCreateWorktree={vi.fn()}
 				onRemoveWorktree={vi.fn()}
+				onRemoveWorkspace={vi.fn()}
 			/>,
 		);
 
 		const newButton = screen.getByRole("button", { name: "New worktree" });
 		expect(newButton).toBeInTheDocument();
 		expect(newButton.textContent).toBe("+ New worktree");
+		expect(screen.getByRole("button", { name: "repo-a" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Remove repo-a" })).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "Remove worktree" })).not.toBeInTheDocument();
+	});
 
-		// Remove action is in a context menu, not an inline button
-		expect(screen.queryByRole("button", { name: /Remove/ })).not.toBeInTheDocument();
+	it("only marks the selected worktree inside the active workspace group", () => {
+		render(
+			<SessionSidebar
+				workspaces={[
+					{ ...workspaces[0], selectedWorktreeId: "feature-a", active: true, name: "repo-a" },
+					{
+						...workspaces[0],
+						workspaceId: "ws-b",
+						name: "repo-b",
+						selectedWorktreeId: "feature-a",
+						active: false,
+					},
+				]}
+				collapsed={false}
+				onToggleCollapsed={vi.fn()}
+				onOpenWorkspace={vi.fn()}
+				onSelect={vi.fn()}
+				onCreateWorktree={vi.fn()}
+				onRemoveWorktree={vi.fn()}
+				onRemoveWorkspace={vi.fn()}
+			/>,
+		);
+
+		const activeGroup = screen.getByRole("group", { name: "repo-a" });
+		const inactiveGroup = screen.getByRole("group", { name: "repo-b" });
+
+		expect(
+			within(activeGroup).getByRole("button", { name: "feature worktree feature-a" }),
+		).toHaveAttribute("data-selected", "true");
+		expect(
+			within(inactiveGroup).getByRole("button", { name: "feature worktree feature-a" }),
+		).toHaveAttribute("data-selected", "false");
 	});
 });

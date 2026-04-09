@@ -64,8 +64,8 @@ test.afterAll(async () => {
 	}
 });
 
-const workspaceSwitcher = () =>
-	page.getByRole("navigation", { name: "Workspaces" });
+const workspaceSidebar = () =>
+	page.getByRole("navigation", { name: "Worktree sessions" });
 
 test.describe.serial("Multi-workspace fast-switch", () => {
 	test.describe.configure({ timeout: 120_000 });
@@ -120,23 +120,27 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 		await page.locator("#repo-path").fill(repoB.repoPath);
 		await page.getByRole("button", { name: "Load" }).click();
 
-		// Workspace switcher must now show both repos.
-		// Use exact: true so the "Remove <name>" button (aria-label) does not match.
+		// Sessions sidebar must now show both workspace groups.
 		const nameA = basename(repoA.repoPath);
 		const nameB = basename(repoB.repoPath);
 		await expect(
-			workspaceSwitcher().getByRole("button", { name: nameA, exact: true }),
+			workspaceSidebar().getByRole("group", { name: nameA }),
 		).toBeVisible({ timeout: 10_000 });
 		await expect(
-			workspaceSwitcher().getByRole("button", { name: nameB, exact: true }),
+			workspaceSidebar().getByRole("group", { name: nameB }),
 		).toBeVisible({ timeout: 10_000 });
 
-		// Switch back to repo A via the workspace switcher
-		await workspaceSwitcher().getByRole("button", { name: nameA, exact: true }).click();
+		// Switch back to repo A by selecting its worktree inside that workspace group.
+		await workspaceSidebar()
+			.getByRole("group", { name: nameA })
+			.getByRole("button", { name: /^main(?:\s+main)?$/i })
+			.click();
 
 		// Repo A worktree nav must be active with main selected
 		await expect(
-			worktreeNav.getByRole("button", { name: /^main(?:\s+main)?$/i }),
+			workspaceSidebar()
+				.getByRole("group", { name: nameA })
+				.getByRole("button", { name: /^main(?:\s+main)?$/i }),
 		).toBeVisible({ timeout: 10_000 });
 
 		// The terminal session from the earlier repo A session must still be present.
@@ -150,14 +154,14 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 	test("restart restores previously active workspace and shows dormant ones", async () => {
 		// Set up: ensure both repos are registered before closing.
 		// The previous test left repo A active with repo B dormant.
-		// Confirm both workspace buttons are present before closing.
+		// Confirm both workspace groups are present before closing.
 		const nameA = basename(repoA.repoPath);
 		const nameB = basename(repoB.repoPath);
 		await expect(
-			workspaceSwitcher().getByRole("button", { name: nameA, exact: true }),
+			workspaceSidebar().getByRole("group", { name: nameA }),
 		).toBeVisible({ timeout: 10_000 });
 		await expect(
-			workspaceSwitcher().getByRole("button", { name: nameB, exact: true }),
+			workspaceSidebar().getByRole("group", { name: nameB }),
 		).toBeVisible({ timeout: 10_000 });
 
 		await closeApp();
@@ -179,37 +183,32 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 			.getByRole("button", { name: "Restore previous workspace" })
 			.click({ timeout: 20_000 });
 
-		// Repo A (previously active) must appear in the workspace switcher.
-		// Use exact: true so the "Remove <name>" button does not match.
+		// Repo A (previously active) must appear in the grouped sidebar.
 		await expect(
-			workspaceSwitcher().getByRole("button", { name: nameA, exact: true }),
+			workspaceSidebar().getByRole("group", { name: nameA }),
 		).toBeVisible({ timeout: 15_000 });
 
-		// Repo B (dormant) must also be visible in the switcher
+		// Repo B (dormant) must also be visible in the sidebar.
 		await expect(
-			workspaceSwitcher().getByRole("button", { name: nameB, exact: true }),
+			workspaceSidebar().getByRole("group", { name: nameB }),
 		).toBeVisible({ timeout: 10_000 });
 
-		// Repo A workspace must be marked as selected
+		// Repo A workspace must be marked as active.
 		await expect(
-			workspaceSwitcher().getByRole("button", { name: nameA, exact: true }),
-		).toHaveAttribute("data-selected", "true");
+			workspaceSidebar().getByRole("group", { name: nameA }),
+		).toHaveAttribute("data-active-workspace", "true");
 
-		// --- dormant workspace hydration ---
 		// Repo B was registered as dormant when the persisted state was restored.
-		// Clicking its switcher button must hydrate it (load the repo in the current
-		// session) and make it the active workspace — without restarting the app.
-		await workspaceSwitcher().getByRole("button", { name: nameB, exact: true }).click();
+		// Clicking its group header hydrates it and makes it active.
+		await workspaceSidebar().getByRole("button", { name: nameB, exact: true }).click();
 
-		// Repo B must now be marked as selected
+		// Repo B must now be marked as active.
 		await expect(
-			workspaceSwitcher().getByRole("button", { name: nameB, exact: true }),
-		).toHaveAttribute("data-selected", "true", { timeout: 15_000 });
+			workspaceSidebar().getByRole("group", { name: nameB }),
+		).toHaveAttribute("data-active-workspace", "true", { timeout: 15_000 });
 
-		// Hydration must have completed: repo B's worktree nav becomes visible,
-		// confirming the workspace was fully loaded (not just switched in the UI).
 		await expect(
-			page.getByRole("navigation", { name: "Worktree sessions" }),
+			workspaceSidebar().getByRole("group", { name: nameB }).getByRole("button", { name: /^main(?:\s+main)?$/i }),
 		).toBeVisible({ timeout: 20_000 });
 	});
 });
