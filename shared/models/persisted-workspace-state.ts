@@ -66,3 +66,11 @@ export const DEFAULT_PERSISTED_WORKSPACE_STATE: PersistedWorkspaceState = {
 	restorePreference: "prompt",
 	snapshot: null,
 };
+
+// Minimal type for Task 1. Task 2 will replace this with a Zod-backed version.
+export type PersistedSavedWorkspace = {
+	workspaceId: string;
+	repositoryPath: string;
+	repoId: string | null;
+	snapshot: WorkspaceSnapshot;
+};
