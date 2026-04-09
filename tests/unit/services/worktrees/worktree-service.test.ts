@@ -232,6 +232,24 @@ describe("WorktreeService", () => {
 			}
 		});
 
+		it("creates a linked worktree for an existing branch when no worktree exists yet", async () => {
+			const tmpDir = makeTestRepo();
+			try {
+				execSync("git branch existing-branch", { cwd: tmpDir, stdio: "ignore" });
+
+				const repo = await service.setRepositoryRoot(tmpDir);
+				const created = await service.createWorktree(repo, "existing-branch");
+
+				expect(created.branchName).toBe("existing-branch");
+				expect(created.path).toBe(join(realpathSync(tmpDir), ".worktrees", "existing-branch"));
+				expect(
+					execSync("git -C \"" + created.path + "\" branch --show-current").toString().trim(),
+				).toBe("existing-branch");
+			} finally {
+				rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+
 		it("returns id and path consistent with listWorktrees (no unresolved-symlink override)", async () => {
 			// On macOS, mkdtempSync returns /var/... which git resolves to /private/var/...
 			// The bug: createWorktree overrides with preview.path (unresolved) so the id
@@ -279,6 +297,36 @@ describe("WorktreeService", () => {
 					.toString()
 					.trim();
 				expect(branches).toBe("");
+			} finally {
+				vi.restoreAllMocks();
+				rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+
+		it("does not delete a pre-existing branch when git worktree add fails", async () => {
+			const tmpDir = makeTestRepo();
+			try {
+				execSync("git branch existing-branch", { cwd: tmpDir, stdio: "ignore" });
+				const repo = await service.setRepositoryRoot(tmpDir);
+
+				mkdirSync(join(tmpDir, ".worktrees"), { recursive: true });
+				const conflictPath = join(tmpDir, ".worktrees", "existing-branch");
+				writeFileSync(conflictPath, "blocking file\n");
+
+				vi.spyOn(service, "previewCreateWorktree").mockResolvedValueOnce({
+					name: "existing-branch",
+					branchName: "existing-branch",
+					path: conflictPath,
+					baseRef: "origin/master",
+					baseCommit: { sha: "deadbeef1234", shortSha: "deadbee", subject: "initial commit" },
+				});
+
+				await expect(service.createWorktree(repo, "existing-branch")).rejects.toThrow();
+
+				const branches = execSync("git branch --list existing-branch", { cwd: tmpDir })
+					.toString()
+					.trim();
+				expect(branches).toContain("existing-branch");
 			} finally {
 				vi.restoreAllMocks();
 				rmSync(tmpDir, { recursive: true, force: true });

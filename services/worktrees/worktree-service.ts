@@ -40,6 +40,14 @@ async function pathExists(path: string): Promise<boolean> {
 	}
 }
 
+async function localBranchExists(repository: Repository, branchName: string): Promise<boolean> {
+	return execFileAsync(
+		gitBinary,
+		["show-ref", "--verify", "--quiet", `refs/heads/${branchName}`],
+		{ cwd: repository.rootPath },
+	).then(() => true).catch(() => false);
+}
+
 export class WorktreeService {
 	/**
 	 * Validates `rootPath` as an existing directory that is the root of a git
@@ -145,15 +153,6 @@ export class WorktreeService {
 			throw new Error(`"${normalizedName}" is not a valid Git branch name.`);
 		}
 
-		const branchExists = await execFileAsync(
-			gitBinary,
-			["show-ref", "--verify", "--quiet", `refs/heads/${normalizedName}`],
-			{ cwd: repository.rootPath },
-		).then(() => true).catch(() => false);
-		if (branchExists) {
-			throw new Error(`Branch already exists: ${normalizedName}`);
-		}
-
 		const path = join(repository.rootPath, ".worktrees", normalizedName);
 		if (await pathExists(path)) {
 			throw new Error(`Worktree path already exists: ${path}`);
@@ -181,16 +180,20 @@ export class WorktreeService {
 	async createWorktree(repository: Repository, name: string): Promise<Worktree> {
 		const preview = await this.previewCreateWorktree(repository, name);
 		await mkdir(join(repository.rootPath, ".worktrees"), { recursive: true });
-		try {
-			await execFileAsync(
-				gitBinary,
-				["branch", preview.branchName, preview.baseRef],
-				{ cwd: repository.rootPath },
-			);
-		} catch (error) {
-			throw new Error(
-				`Could not create branch ${preview.branchName}. Another process may have created it after preview validation.`,
-			);
+		const branchExists = await localBranchExists(repository, preview.branchName);
+		const createdBranch = !branchExists;
+		if (createdBranch) {
+			try {
+				await execFileAsync(
+					gitBinary,
+					["branch", preview.branchName, preview.baseRef],
+					{ cwd: repository.rootPath },
+				);
+			} catch {
+				throw new Error(
+					`Could not create branch ${preview.branchName}. Another process may have created it after preview validation.`,
+				);
+			}
 		}
 		try {
 			await execFileAsync(
@@ -199,12 +202,17 @@ export class WorktreeService {
 				{ cwd: repository.rootPath },
 			);
 		} catch {
-			// git worktree add failed — roll back the branch created above.
-			await execFileAsync(gitBinary, ["branch", "-D", preview.branchName], {
-				cwd: repository.rootPath,
-			}).catch(() => {});
+			if (createdBranch) {
+				// git worktree add failed — roll back only the branch created by this call.
+				await execFileAsync(gitBinary, ["branch", "-D", preview.branchName], {
+					cwd: repository.rootPath,
+				}).catch(() => {});
+				throw new Error(
+					`Could not create worktree at ${preview.path}. The branch ${preview.branchName} has been removed.`,
+				);
+			}
 			throw new Error(
-				`Could not create worktree at ${preview.path}. The branch ${preview.branchName} has been removed.`,
+				`Could not create worktree at ${preview.path} for existing branch ${preview.branchName}.`,
 			);
 		}
 		const worktrees = await this.listWorktrees(repository);
