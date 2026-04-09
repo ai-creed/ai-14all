@@ -238,4 +238,72 @@ describe("TerminalPane", () => {
 		expect(accepted).toBe(true);
 		expect(xtermClearMock).not.toHaveBeenCalled();
 	});
+
+	it("sends \\n on Shift+Enter keydown and blocks xterm", () => {
+		const session: TerminalSession = {
+			id: "term-1",
+			worktreeId: "wt1",
+			cwd: "/repo",
+			status: "running",
+			exitCode: null,
+		};
+
+		render(<TerminalPane session={session} visible={true} />);
+
+		const keyHandler = xtermAttachCustomKeyEventHandlerMock.mock.calls[0]?.[0] as
+			| ((event: KeyboardEvent) => boolean)
+			| undefined;
+
+		const accepted = keyHandler?.(
+			new KeyboardEvent("keydown", { key: "Enter", shiftKey: true }),
+		);
+
+		expect(accepted).toBe(false);
+		expect(sendInputMock).toHaveBeenCalledWith("term-1", "\n");
+		expect(xtermClearMock).not.toHaveBeenCalled();
+	});
+
+	it("blocks xterm on Shift+Enter keypress without sending extra data", () => {
+		const session: TerminalSession = {
+			id: "term-1",
+			worktreeId: "wt1",
+			cwd: "/repo",
+			status: "running",
+			exitCode: null,
+		};
+
+		render(<TerminalPane session={session} visible={true} />);
+
+		const keyHandler = xtermAttachCustomKeyEventHandlerMock.mock.calls[0]?.[0] as
+			| ((event: KeyboardEvent) => boolean)
+			| undefined;
+
+		const accepted = keyHandler?.(
+			new KeyboardEvent("keypress", { key: "Enter", shiftKey: true }),
+		);
+
+		expect(accepted).toBe(false);
+		expect(sendInputMock).not.toHaveBeenCalled();
+	});
+
+	it("does not intercept plain Enter", () => {
+		const session: TerminalSession = {
+			id: "term-1",
+			worktreeId: "wt1",
+			cwd: "/repo",
+			status: "running",
+			exitCode: null,
+		};
+
+		render(<TerminalPane session={session} visible={true} />);
+
+		const keyHandler = xtermAttachCustomKeyEventHandlerMock.mock.calls[0]?.[0] as
+			| ((event: KeyboardEvent) => boolean)
+			| undefined;
+
+		const accepted = keyHandler?.(new KeyboardEvent("keydown", { key: "Enter" }));
+
+		expect(accepted).toBe(true);
+		expect(sendInputMock).not.toHaveBeenCalled();
+	});
 });

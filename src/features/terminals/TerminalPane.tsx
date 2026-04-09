@@ -45,6 +45,23 @@ export function TerminalPane({
 		term.loadAddon(fitAddon);
 		term.open(containerRef.current);
 		term.attachCustomKeyEventHandler((event) => {
+			// Shift+Enter: send literal newline so agent TUIs can distinguish it from
+			// plain Enter. xterm maps keyCode 13 to '\r' regardless of shiftKey; we
+			// intercept and send '\n' instead, which raw-mode apps read as distinct.
+			// Must block on keypress too — otherwise xterm's _keyPress fires after our
+			// keydown returns false (_keyDownHandled stays false) and sends '\r'.
+			if (
+				event.key === "Enter" &&
+				event.shiftKey &&
+				!event.ctrlKey &&
+				!event.altKey &&
+				!event.metaKey
+			) {
+				if (event.type === "keydown") {
+					terminals.sendInput(session.id, "\n").catch(() => {});
+				}
+				return false;
+			}
 			if (event.type !== "keydown") return true;
 			const key = event.key.toLowerCase();
 			const isClearShortcut =
