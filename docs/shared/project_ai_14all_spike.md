@@ -76,17 +76,19 @@ The MVP should focus on four things:
 
 If those four parts work well together, the core product is validated.
 
-The MVP should optimize for one repository used heavily, not multiple repositories used lightly.
+The product should still optimize for one active workspace and one active worktree session at a time, even though the app can now keep a small set of repository-scoped workspaces registered.
 
-Multi-repository support remains part of the long-term direction, but it should not shape the first version.
+Multi-workspace support should remain intentionally lightweight rather than turning into a dashboard.
 
 ## MVP Capabilities
 
 The MVP should support:
 
-- registering the primary local repository for the current workspace
+- registering a small set of local repositories as app workspaces
+- fast switching between repo-scoped workspaces
 - detecting and listing Git worktrees
 - opening a session view for each worktree
+- creating and removing worktrees from the app
 - running multiple PTY-backed terminal sessions per worktree
 - streaming live terminal output
 - sending input to running processes
@@ -96,9 +98,9 @@ The MVP should support:
 - opening files in an embedded code viewer
 - keeping the terminal fully interactive for shells, agents, and long-running commands
 - showing basic Git state such as branch, changed files, and recent commits
-- persisting local metadata such as repos, presets, notes, recent files, and layout state
+- persisting local metadata such as workspaces, presets, notes, recent files, and layout state
 
-For V1, the one-repo flow should feel first-class and obvious.
+For V1, the one-active-workspace flow should feel first-class and obvious even when several workspaces are registered.
 
 ## Git Surface For V1
 
@@ -627,7 +629,7 @@ The current direction is:
 - local-first
 - macOS first
 - Electron for V1
-- one repository first, multi-repo later
+- several repo-scoped workspaces, one active at a time
 - worktree-session-first UX
 - session-first navigation rather than dashboard-first navigation
 - terminal/process orchestration as the core value

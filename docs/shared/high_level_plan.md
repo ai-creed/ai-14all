@@ -9,7 +9,8 @@ It is not a task-by-task implementation checklist yet.
 The plan assumes:
 
 - Electron for V1
-- one repository first
+- repository-scoped workspaces with fast switching
+- one active workspace visible at a time
 - session-first UX
 - interactive terminal sessions as the core workflow
 - read-only code and diff inspection in the embedded viewer
@@ -98,7 +99,7 @@ The codebase should now have a stable architectural spine so later UI and proces
 
 ## Phase 2 — Session-First Workflow
 
-**Goal:** Build the first end-to-end user experience around a single repository with multiple worktrees.
+**Goal:** Build the first end-to-end user experience around one repository-scoped workspace with multiple worktrees.
 
 **Focus areas:**
 
@@ -231,12 +232,30 @@ That means:
 
 The app is useful enough that the user prefers it over their prior fragmented setup for at least part of real daily work.
 
+## Phase 7 — Workspace Expansion And Lifecycle
+
+**Goal:** Extend the shell from one repo-scoped workspace to a small set of fast-switchable workspaces while keeping the session-first model intact.
+
+**Focus areas:**
+
+- basic worktree lifecycle from inside the app
+- split terminal mode
+- multi-workspace registration, switching, and restore
+
+**Deliverables:**
+
+- create and remove worktrees from the sidebar flow
+- split-shell mode inside one worktree session
+- several repo-scoped workspaces registered in one app window
+- one active workspace visible at a time
+- background terminals continue running while another workspace is active
+- restore the previously active workspace while keeping other saved workspaces available
+
 ## Deferred Until After MVP
 
 These should stay out of the initial delivery unless real usage proves they are urgently needed:
 
-- multi-repository UX as a first-class flow
-- worktree creation and deletion from the app
+- simultaneous multi-workspace dashboards or comparisons
 - deep integration with specific agent APIs
 - editable embedded code editor
 - advanced Git operations

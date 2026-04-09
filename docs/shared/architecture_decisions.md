@@ -148,24 +148,25 @@ Model the frontend around worktree sessions, not files and not standalone termin
 
 - store shape and UI navigation should revolve around the selected worktree session
 
-## AD-007 — Repo Scope For V1
+## AD-007 — Workspace Scope For Current Product
 
 **Decision**
 
-Support one repository well in V1.
+Support several repository-scoped workspaces in one app, but keep only one workspace foregrounded at a time.
 
-Do not let multi-repo concerns complicate early architecture.
+Do not let that expansion collapse the session-first model into a dashboard.
 
 **Why**
 
-- reduces early scope
-- keeps core workflows clear
-- avoids overbuilding registration and navigation too early
+- preserves the worktree-session-centered workflow
+- supports real use across two or three active projects
+- keeps renderer and backend logic explicitly workspace-scoped
 
 **Implication**
 
 - keep repository abstractions in the model
-- but optimize the first UX and first services for a single active repository
+- scope runtime state, IPC, and persistence by `workspaceId`
+- still optimize the shell for one active workspace and one active worktree session at a time
 
 ## AD-008 — Command Preset Scope
 
