@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_COMMAND_PRESETS } from "../../../shared/models/command-preset";
 import {
+	buildSavedWorkspace,
 	buildWorkspaceSnapshot,
+	findSavedWorkspaceMatch,
 	rebaseSnapshotPaths,
 	reconcileSnapshotToWorktrees,
 	shouldReattachSnapshot,
@@ -610,4 +612,35 @@ describe("reconcileSnapshotToWorktrees", () => {
 		const result = reconcileSnapshotToWorktrees(rebased, original, wts);
 		expect(result.selectedWorktreeId).toBeNull();
 	});
+});
+
+it("builds a saved workspace entry from repo-scoped runtime state", () => {
+	const state = createWorkspaceState([
+		{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+	]);
+
+	const saved = buildSavedWorkspace("ws-a", "/repo", "repo-id-a", state);
+	expect(saved.workspaceId).toBe("ws-a");
+	expect(saved.snapshot.repositoryPath).toBe("/repo");
+});
+
+it("finds a saved workspace by repoId before falling back to path", () => {
+	expect(
+		findSavedWorkspaceMatch(
+			{
+				workspaceId: "ws-a",
+				repositoryPath: "/repo-a",
+				repoId: "repo-id-a",
+				snapshot: {
+					repositoryPath: "/repo-a",
+					repoId: "repo-id-a",
+					selectedWorktreeId: null,
+					topBandCollapsed: false,
+					commandPresets: [],
+					worktreeSessions: [],
+				},
+			},
+			{ repoId: "repo-id-a", rootPath: "/different-path", name: "repo-a" },
+		),
+	).toBe(true);
 });

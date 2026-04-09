@@ -1,6 +1,7 @@
 import type { WorkspaceState } from "./workspace-state";
 import type {
 	PersistedProcessSession,
+	PersistedSavedWorkspace,
 	PersistedWorktreeSession,
 	WorkspaceSnapshot,
 } from "../../../shared/models/persisted-workspace-state";
@@ -141,6 +142,28 @@ export function reconcileSnapshotToWorktrees(
 		selectedWorktreeId: reconciledSelectedId,
 		worktreeSessions: reconciledSessions,
 	};
+}
+
+export function buildSavedWorkspace(
+	workspaceId: string,
+	repositoryPath: string,
+	repoId: string | null,
+	state: WorkspaceState,
+): PersistedSavedWorkspace {
+	return {
+		workspaceId,
+		repositoryPath,
+		repoId,
+		snapshot: buildWorkspaceSnapshot(repositoryPath, repoId, state),
+	};
+}
+
+export function findSavedWorkspaceMatch(
+	saved: PersistedSavedWorkspace,
+	repo: { repoId: string | null; rootPath: string; name: string },
+): boolean {
+	if (saved.repoId || repo.repoId) return saved.repoId === repo.repoId;
+	return saved.repositoryPath === repo.rootPath;
 }
 
 export function splitPendingRestores(snapshot: WorkspaceSnapshot): {
