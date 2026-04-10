@@ -4,14 +4,16 @@ import type { OnMount } from "@monaco-editor/react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import type { FileView } from "../../../shared/models/file-view";
 import { files } from "../../lib/desktop-client";
+import type { ResolvedTheme } from "../../lib/useTheme";
 import { MarkdownPreviewModal } from "./MarkdownPreviewModal";
 
 interface FileViewerProps {
 	worktreePath: string;
 	relativePath: string;
+	resolvedTheme: ResolvedTheme;
 }
 
-export function FileViewer({ worktreePath, relativePath }: FileViewerProps) {
+export function FileViewer({ worktreePath, relativePath, resolvedTheme }: FileViewerProps) {
 	const [fileView, setFileView] = useState<FileView | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [stale, setStale] = useState(false);
@@ -116,7 +118,7 @@ export function FileViewer({ worktreePath, relativePath }: FileViewerProps) {
 			<Editor
 				height="100%"
 				language={fileView.language}
-				theme="vs-dark"
+				theme={resolvedTheme === "light" ? "vs" : "vs-dark"}
 				value={fileView.content}
 				options={{ readOnly: true, fontSize: 12, minimap: { enabled: false } }}
 				onMount={(editor) => {

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { DiffEditor } from "@monaco-editor/react";
 import type { GitCommitDetail } from "../../../shared/models/git-commit-review.js";
+import type { ResolvedTheme } from "../../lib/useTheme";
 
 type Props = {
 	detail: GitCommitDetail;
 	focusedPath: string | null;
+	resolvedTheme: ResolvedTheme;
 };
 
 const EXTENSION_TO_LANGUAGE: Record<string, string> = {
@@ -46,7 +48,7 @@ function editorHeightForFile(
 	return `${Math.max(lines * 20 + 32, 160)}px`;
 }
 
-export function CommitDiffStack({ detail, focusedPath }: Props) {
+export function CommitDiffStack({ detail, focusedPath, resolvedTheme }: Props) {
 	const [collapsedPaths, setCollapsedPaths] = useState<Set<string>>(new Set());
 	const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 	const singleFile = detail.files.length === 1;
@@ -117,7 +119,7 @@ export function CommitDiffStack({ detail, focusedPath }: Props) {
 												)
 									}
 									language={languageFromPath(file.path)}
-									theme="vs-dark"
+									theme={resolvedTheme === "light" ? "vs" : "vs-dark"}
 									original={file.originalContent}
 									modified={file.modifiedContent}
 									options={{

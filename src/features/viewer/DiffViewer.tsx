@@ -1,4 +1,5 @@
 import { DiffEditor } from "@monaco-editor/react";
+import type { ResolvedTheme } from "../../lib/useTheme";
 
 const EXTENSION_TO_LANGUAGE: Record<string, string> = {
 	ts: "typescript",
@@ -25,6 +26,7 @@ type Props = {
 	content: string;
 	originalContent: string;
 	modifiedContent: string;
+	resolvedTheme: ResolvedTheme;
 };
 
 function languageFromPath(path: string): string | undefined {
@@ -36,6 +38,7 @@ export function DiffViewer({
 	path,
 	originalContent,
 	modifiedContent,
+	resolvedTheme,
 }: Props) {
 	return (
 		<div className="shell-viewer">
@@ -46,7 +49,7 @@ export function DiffViewer({
 			<DiffEditor
 				height="100%"
 				language={languageFromPath(path)}
-				theme="vs-dark"
+				theme={resolvedTheme === "light" ? "vs" : "vs-dark"}
 				original={originalContent}
 				modified={modifiedContent}
 				options={{
