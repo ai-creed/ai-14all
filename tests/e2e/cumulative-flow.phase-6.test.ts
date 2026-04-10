@@ -510,7 +510,8 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 
 		await page.getByRole("button", { name: "Enable split shells" }).click();
 		await expect(page.getByRole("button", { name: "Disable split shells" })).toBeVisible();
-		await expect(page.locator('.shell-terminal-pane[aria-hidden="false"]')).toHaveCount(2);
+
+		await expect(page.locator('.shell-terminal-pane:not([aria-hidden="true"])')).toHaveCount(2);
 
 		await terminalTabs.getByRole("tab").nth(0).click({ button: "right" });
 		await page.getByRole("menuitem", { name: "Show in split left" }).click();
@@ -519,13 +520,13 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await page.getByRole("menuitem", { name: "Show in split right" }).click();
 
 		await expect(page.getByRole("button", { name: "Disable split shells" })).toBeVisible();
-		await expect(page.locator('.shell-terminal-pane[aria-hidden="false"]')).toHaveCount(2);
+		await expect(page.locator('.shell-terminal-pane:not([aria-hidden="true"])')).toHaveCount(2);
 
 		await worktreeNav.getByRole("button", { name: /^main$/ }).click();
 		await expect(page.getByRole("button", { name: "Enable split shells" })).toBeVisible();
 
 		await worktreeNav.getByRole("button", { name: /feature-a/i }).click();
 		await expect(page.getByRole("button", { name: "Disable split shells" })).toBeVisible();
-		await expect(page.locator('.shell-terminal-pane[aria-hidden="false"]')).toHaveCount(2);
+		await expect(page.locator('.shell-terminal-pane:not([aria-hidden="true"])')).toHaveCount(2);
 	});
 });

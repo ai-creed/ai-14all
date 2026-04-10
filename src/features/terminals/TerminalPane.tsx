@@ -173,7 +173,7 @@ export function TerminalPane({
 
 	return (
 		<section
-			aria-hidden={!visible}
+			aria-hidden={visible ? "false" : "true"}
 			className="shell-panel shell-terminal-pane"
 			data-terminal-session-id={session.id}
 			onMouseDown={onActivate}
