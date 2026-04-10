@@ -16,6 +16,8 @@ const {
 	xtermOnTitleChangeMock,
 	xtermAttachCustomKeyEventHandlerMock,
 	xtermClearMock,
+	xtermScrollToBottomMock,
+	xtermBufferMock,
 } = vi.hoisted(() => ({
 	resizeMock: vi.fn(() => Promise.resolve()),
 	sendInputMock: vi.fn(() => Promise.resolve()),
@@ -30,6 +32,8 @@ const {
 	xtermOnTitleChangeMock: vi.fn(() => ({ dispose: vi.fn() })),
 	xtermAttachCustomKeyEventHandlerMock: vi.fn(),
 	xtermClearMock: vi.fn(),
+	xtermScrollToBottomMock: vi.fn(),
+	xtermBufferMock: { active: { viewportY: 100, baseY: 100 } },
 }));
 
 type ResizeObserverRecord = {
@@ -77,6 +81,7 @@ vi.mock("xterm", () => ({
 	Terminal: class TerminalMock {
 		cols = 80;
 		rows = 24;
+		buffer = xtermBufferMock;
 		constructor(options?: unknown) {
 			xtermConstructorMock(options);
 		}
@@ -88,6 +93,7 @@ vi.mock("xterm", () => ({
 		dispose = xtermDisposeMock;
 		attachCustomKeyEventHandler = xtermAttachCustomKeyEventHandlerMock;
 		clear = xtermClearMock;
+		scrollToBottom = xtermScrollToBottomMock;
 	},
 }));
 
@@ -108,6 +114,8 @@ describe("TerminalPane", () => {
 		xtermOnTitleChangeMock.mockReset();
 		xtermAttachCustomKeyEventHandlerMock.mockReset();
 		xtermClearMock.mockReset();
+		xtermScrollToBottomMock.mockReset();
+		xtermBufferMock.active = { viewportY: 100, baseY: 100 };
 		resizeMock.mockImplementation(() => Promise.resolve());
 		sendInputMock.mockImplementation(() => Promise.resolve());
 		xtermOnDataMock.mockReturnValue({ dispose: vi.fn() });
@@ -305,5 +313,103 @@ describe("TerminalPane", () => {
 
 		expect(accepted).toBe(true);
 		expect(sendInputMock).not.toHaveBeenCalled();
+	});
+
+	it("scrolls to bottom after fit when terminal was at bottom on visibility change", () => {
+		const session: TerminalSession = {
+			id: "term-1",
+			worktreeId: "wt1",
+			cwd: "/repo",
+			status: "running",
+			exitCode: null,
+		};
+
+		// Terminal at bottom: viewportY === baseY
+		xtermBufferMock.active = { viewportY: 100, baseY: 100 };
+
+		const { rerender } = render(
+			<TerminalPane session={session} visible={false} />,
+		);
+
+		xtermScrollToBottomMock.mockClear();
+		fitMock.mockClear();
+
+		rerender(<TerminalPane session={session} visible={true} />);
+
+		expect(fitMock).toHaveBeenCalled();
+		expect(xtermScrollToBottomMock).toHaveBeenCalled();
+	});
+
+	it("does not scroll to bottom after fit when user has scrolled up on visibility change", () => {
+		const session: TerminalSession = {
+			id: "term-1",
+			worktreeId: "wt1",
+			cwd: "/repo",
+			status: "running",
+			exitCode: null,
+		};
+
+		// User scrolled up: viewportY < baseY
+		xtermBufferMock.active = { viewportY: 50, baseY: 100 };
+
+		const { rerender } = render(
+			<TerminalPane session={session} visible={false} />,
+		);
+
+		xtermScrollToBottomMock.mockClear();
+		fitMock.mockClear();
+
+		rerender(<TerminalPane session={session} visible={true} />);
+
+		expect(fitMock).toHaveBeenCalled();
+		expect(xtermScrollToBottomMock).not.toHaveBeenCalled();
+	});
+
+	it("scrolls to bottom after fit on container resize when terminal was at bottom", () => {
+		const session: TerminalSession = {
+			id: "term-1",
+			worktreeId: "wt1",
+			cwd: "/repo",
+			status: "running",
+			exitCode: null,
+		};
+
+		// Terminal at bottom
+		xtermBufferMock.active = { viewportY: 100, baseY: 100 };
+
+		render(<TerminalPane session={session} visible={true} />);
+
+		xtermScrollToBottomMock.mockClear();
+		fitMock.mockClear();
+
+		// Trigger ResizeObserver callback
+		const observer = resizeObserverRecords[0];
+		observer.callback([], observer as never);
+
+		expect(fitMock).toHaveBeenCalled();
+		expect(xtermScrollToBottomMock).toHaveBeenCalled();
+	});
+
+	it("does not scroll to bottom after resize when user has scrolled up", () => {
+		const session: TerminalSession = {
+			id: "term-1",
+			worktreeId: "wt1",
+			cwd: "/repo",
+			status: "running",
+			exitCode: null,
+		};
+
+		render(<TerminalPane session={session} visible={true} />);
+
+		// User scrolled up after render
+		xtermBufferMock.active = { viewportY: 50, baseY: 100 };
+		xtermScrollToBottomMock.mockClear();
+		fitMock.mockClear();
+
+		const observer = resizeObserverRecords[0];
+		observer.callback([], observer as never);
+
+		expect(fitMock).toHaveBeenCalled();
+		expect(xtermScrollToBottomMock).not.toHaveBeenCalled();
 	});
 });

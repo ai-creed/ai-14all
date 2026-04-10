@@ -120,7 +120,10 @@ export function TerminalPane({
 		const fitAddon = fitAddonRef.current;
 		if (!term || !fitAddon) return;
 
+		const wasAtBottom =
+			term.buffer.active.viewportY >= term.buffer.active.baseY;
 		fitAddon.fit();
+		if (wasAtBottom) term.scrollToBottom();
 		terminals.resize(session.id, term.cols, term.rows).catch(() => undefined);
 	}, [isLive, visible, session.id]);
 
@@ -135,7 +138,10 @@ export function TerminalPane({
 			if (!term || !fitAddon) return;
 			// Only fit/resize when the pane is actually visible.
 			if (!visible || !isLive) return;
+			const wasAtBottom =
+				term.buffer.active.viewportY >= term.buffer.active.baseY;
 			fitAddon.fit();
+			if (wasAtBottom) term.scrollToBottom();
 			terminals.resize(session.id, term.cols, term.rows).catch(() => undefined);
 		});
 
