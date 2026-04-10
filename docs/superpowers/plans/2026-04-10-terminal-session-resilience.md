@@ -643,10 +643,16 @@ async function recreatePersistedProcesses(
 					processId: process.id,
 					terminalSessionId: liveSession.id,
 				});
+				// Map TerminalSession status → ProcessSession status:
+				// idle/running → running, error → error, exited → exited
+				const processStatus =
+					liveSession.status === "error" ? "error"
+						: liveSession.status === "exited" ? "exited"
+							: "running";
 				dispatchFn({
 					type: "session/updateProcessStatus",
 					processId: process.id,
-					status: liveSession.status === "running" ? "running" : "exited",
+					status: processStatus,
 					exitCode: liveSession.exitCode,
 				});
 			} else {
