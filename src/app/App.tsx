@@ -2043,6 +2043,7 @@ export function App() {
 											key={commitDetailState.data.sha}
 											detail={commitDetailState.data}
 											focusedPath={activeSession.selectedCommitFilePath}
+											resolvedTheme={resolvedTheme}
 										/>
 									) : activeSession?.reviewMode === "files" &&
 									activeSession.selectedFilePath ? (
