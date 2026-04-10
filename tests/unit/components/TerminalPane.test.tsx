@@ -390,6 +390,94 @@ describe("TerminalPane", () => {
 		expect(xtermScrollToBottomMock).toHaveBeenCalled();
 	});
 
+	it("sends escaped file path to PTY on file drop", () => {
+		const session: TerminalSession = {
+			id: "term-1",
+			worktreeId: "wt1",
+			cwd: "/repo",
+			status: "running",
+			exitCode: null,
+		};
+
+		const { container } = render(
+			<TerminalPane session={session} visible={true} />,
+		);
+
+		sendInputMock.mockClear();
+
+		const section = container.querySelector("section")!;
+		const dropEvent = new Event("drop", { bubbles: true });
+		Object.defineProperty(dropEvent, "dataTransfer", {
+			value: {
+				files: [{ path: "/Users/vu/my project/file.txt" }],
+			},
+		});
+		section.dispatchEvent(dropEvent);
+
+		expect(sendInputMock).toHaveBeenCalledWith(
+			"term-1",
+			"/Users/vu/my\\ project/file.txt",
+		);
+	});
+
+	it("sends multiple escaped file paths separated by spaces on multi-file drop", () => {
+		const session: TerminalSession = {
+			id: "term-1",
+			worktreeId: "wt1",
+			cwd: "/repo",
+			status: "running",
+			exitCode: null,
+		};
+
+		const { container } = render(
+			<TerminalPane session={session} visible={true} />,
+		);
+
+		sendInputMock.mockClear();
+
+		const section = container.querySelector("section")!;
+		const dropEvent = new Event("drop", { bubbles: true });
+		Object.defineProperty(dropEvent, "dataTransfer", {
+			value: {
+				files: [
+					{ path: "/Users/vu/a.txt" },
+					{ path: "/Users/vu/b file.txt" },
+				],
+			},
+		});
+		section.dispatchEvent(dropEvent);
+
+		expect(sendInputMock).toHaveBeenCalledWith(
+			"term-1",
+			"/Users/vu/a.txt /Users/vu/b\\ file.txt",
+		);
+	});
+
+	it("does not send input on drop with no files", () => {
+		const session: TerminalSession = {
+			id: "term-1",
+			worktreeId: "wt1",
+			cwd: "/repo",
+			status: "running",
+			exitCode: null,
+		};
+
+		const { container } = render(
+			<TerminalPane session={session} visible={true} />,
+		);
+
+		sendInputMock.mockClear();
+
+		const section = container.querySelector("section")!;
+		const dropEvent = new Event("drop", { bubbles: true });
+		Object.defineProperty(dropEvent, "dataTransfer", {
+			value: { files: [] },
+		});
+		section.dispatchEvent(dropEvent);
+
+		expect(sendInputMock).not.toHaveBeenCalled();
+	});
+
 	it("does not scroll to bottom after resize when user has scrolled up", () => {
 		const session: TerminalSession = {
 			id: "term-1",

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Terminal } from "xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "xterm/css/xterm.css";
@@ -149,12 +149,36 @@ export function TerminalPane({
 		return () => observer.disconnect();
 	}, [isLive, session.id, visible]);
 
+	const handleDragOver = useCallback((e: React.DragEvent) => {
+		e.preventDefault();
+	}, []);
+
+	const handleDrop = useCallback(
+		(e: React.DragEvent) => {
+			e.preventDefault();
+			const files = e.dataTransfer?.files;
+			if (!files || files.length === 0) return;
+
+			const paths = Array.from(files)
+				.map((f) => (f as File & { path?: string }).path)
+				.filter(Boolean)
+				.map((p) => p!.replace(/([\\  !"#$&'()*,:;<>?@[\]^`{|}~])/g, "\\$1"));
+
+			if (paths.length > 0) {
+				terminals.sendInput(session.id, paths.join(" ")).catch(() => {});
+			}
+		},
+		[session.id],
+	);
+
 	return (
 		<section
 			aria-hidden={!visible}
 			className="shell-panel shell-terminal-pane"
 			data-terminal-session-id={session.id}
 			onMouseDown={onActivate}
+			onDragOver={handleDragOver}
+			onDrop={handleDrop}
 			style={{ display: visible ? "block" : "none" }}
 		>
 			<div ref={containerRef} className="shell-terminal-pane__viewport" />
