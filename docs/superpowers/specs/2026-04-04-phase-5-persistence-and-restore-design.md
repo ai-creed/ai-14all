@@ -1,5 +1,7 @@
 # Phase 5 — Persistence And Restore Design
 
+> **Update (2026-04-10):** The terminal session resilience spec extends this restore contract to attempt live PTY reconnection before fresh creation when the renderer reloads but the main process survives. Cold starts and cross-session restores still follow the fresh-shell recreation path.
+
 ## Purpose
 
 This spec defines the next product step after the completed Phase 4 code inspection and Git review work.

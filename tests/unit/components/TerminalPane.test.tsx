@@ -63,9 +63,11 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	},
 	workspace: {
 		readRestoreState: vi.fn().mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "prompt",
-			snapshot: null,
+			activeWorkspaceId: null,
+			workspaceOrder: [],
+			workspaces: [],
 		}),
 		writeRestoreState: vi.fn(),
 	},
@@ -99,6 +101,18 @@ vi.mock("xterm", () => ({
 
 import { TerminalPane } from "../../../src/features/terminals/TerminalPane";
 
+function makeSession(overrides: Partial<TerminalSession> = {}): TerminalSession {
+	return {
+		id: "term-1",
+		workspaceId: "ws-1",
+		worktreeId: "wt1",
+		cwd: "/repo",
+		status: "running",
+		exitCode: null,
+		...overrides,
+	};
+}
+
 describe("TerminalPane", () => {
 	beforeEach(() => {
 		resizeMock.mockReset();
@@ -125,18 +139,8 @@ describe("TerminalPane", () => {
 	});
 
 	it("does not send resize events for a visible exited session", () => {
-		const runningSession: TerminalSession = {
-			id: "term-1",
-			worktreeId: "wt1",
-			cwd: "/repo",
-			status: "running",
-			exitCode: null,
-		};
-		const exitedSession: TerminalSession = {
-			...runningSession,
-			status: "exited",
-			exitCode: 0,
-		};
+		const runningSession = makeSession();
+		const exitedSession = makeSession({ status: "exited", exitCode: 0 });
 
 		const { rerender } = render(
 			<TerminalPane session={runningSession} visible={true} />,
@@ -156,13 +160,7 @@ describe("TerminalPane", () => {
 	});
 
 	it("forwards xterm title changes to the callback prop", () => {
-		const session: TerminalSession = {
-			id: "term-1",
-			worktreeId: "wt1",
-			cwd: "/repo",
-			status: "running",
-			exitCode: null,
-		};
+		const session = makeSession();
 		const onTitleChange = vi.fn();
 
 		render(
@@ -181,13 +179,7 @@ describe("TerminalPane", () => {
 	});
 
 	it("constructs xterm with the bundled powerline font stack and 11px text", () => {
-		const session: TerminalSession = {
-			id: "term-1",
-			worktreeId: "wt1",
-			cwd: "/repo",
-			status: "running",
-			exitCode: null,
-		};
+		const session = makeSession();
 
 		render(<TerminalPane session={session} visible={true} />);
 
@@ -200,13 +192,7 @@ describe("TerminalPane", () => {
 	});
 
 	it("clears the xterm buffer on Cmd+K without sending shell input", () => {
-		const session: TerminalSession = {
-			id: "term-1",
-			worktreeId: "wt1",
-			cwd: "/repo",
-			status: "running",
-			exitCode: null,
-		};
+		const session = makeSession();
 
 		render(<TerminalPane session={session} visible={true} />);
 
@@ -225,13 +211,7 @@ describe("TerminalPane", () => {
 	});
 
 	it("does not clear the xterm buffer on Cmd+Shift+K", () => {
-		const session: TerminalSession = {
-			id: "term-1",
-			worktreeId: "wt1",
-			cwd: "/repo",
-			status: "running",
-			exitCode: null,
-		};
+		const session = makeSession();
 
 		render(<TerminalPane session={session} visible={true} />);
 
@@ -248,13 +228,7 @@ describe("TerminalPane", () => {
 	});
 
 	it("sends \\n on Shift+Enter keydown and blocks xterm", () => {
-		const session: TerminalSession = {
-			id: "term-1",
-			worktreeId: "wt1",
-			cwd: "/repo",
-			status: "running",
-			exitCode: null,
-		};
+		const session = makeSession();
 
 		render(<TerminalPane session={session} visible={true} />);
 
@@ -272,13 +246,7 @@ describe("TerminalPane", () => {
 	});
 
 	it("blocks xterm on Shift+Enter keypress without sending extra data", () => {
-		const session: TerminalSession = {
-			id: "term-1",
-			worktreeId: "wt1",
-			cwd: "/repo",
-			status: "running",
-			exitCode: null,
-		};
+		const session = makeSession();
 
 		render(<TerminalPane session={session} visible={true} />);
 
@@ -295,13 +263,7 @@ describe("TerminalPane", () => {
 	});
 
 	it("does not intercept plain Enter", () => {
-		const session: TerminalSession = {
-			id: "term-1",
-			worktreeId: "wt1",
-			cwd: "/repo",
-			status: "running",
-			exitCode: null,
-		};
+		const session = makeSession();
 
 		render(<TerminalPane session={session} visible={true} />);
 
@@ -316,13 +278,7 @@ describe("TerminalPane", () => {
 	});
 
 	it("scrolls to bottom after fit when terminal was at bottom on visibility change", () => {
-		const session: TerminalSession = {
-			id: "term-1",
-			worktreeId: "wt1",
-			cwd: "/repo",
-			status: "running",
-			exitCode: null,
-		};
+		const session = makeSession();
 
 		// Terminal at bottom: viewportY === baseY
 		xtermBufferMock.active = { viewportY: 100, baseY: 100 };
@@ -341,13 +297,7 @@ describe("TerminalPane", () => {
 	});
 
 	it("does not scroll to bottom after fit when user has scrolled up on visibility change", () => {
-		const session: TerminalSession = {
-			id: "term-1",
-			worktreeId: "wt1",
-			cwd: "/repo",
-			status: "running",
-			exitCode: null,
-		};
+		const session = makeSession();
 
 		// User scrolled up: viewportY < baseY
 		xtermBufferMock.active = { viewportY: 50, baseY: 100 };
@@ -366,13 +316,7 @@ describe("TerminalPane", () => {
 	});
 
 	it("scrolls to bottom after fit on container resize when terminal was at bottom", () => {
-		const session: TerminalSession = {
-			id: "term-1",
-			worktreeId: "wt1",
-			cwd: "/repo",
-			status: "running",
-			exitCode: null,
-		};
+		const session = makeSession();
 
 		// Terminal at bottom
 		xtermBufferMock.active = { viewportY: 100, baseY: 100 };
@@ -391,13 +335,7 @@ describe("TerminalPane", () => {
 	});
 
 	it("sends escaped file path to PTY on file drop", () => {
-		const session: TerminalSession = {
-			id: "term-1",
-			worktreeId: "wt1",
-			cwd: "/repo",
-			status: "running",
-			exitCode: null,
-		};
+		const session = makeSession();
 
 		const { container } = render(
 			<TerminalPane session={session} visible={true} />,
@@ -421,13 +359,7 @@ describe("TerminalPane", () => {
 	});
 
 	it("sends multiple escaped file paths separated by spaces on multi-file drop", () => {
-		const session: TerminalSession = {
-			id: "term-1",
-			worktreeId: "wt1",
-			cwd: "/repo",
-			status: "running",
-			exitCode: null,
-		};
+		const session = makeSession();
 
 		const { container } = render(
 			<TerminalPane session={session} visible={true} />,
@@ -454,13 +386,7 @@ describe("TerminalPane", () => {
 	});
 
 	it("does not send input on drop with no files", () => {
-		const session: TerminalSession = {
-			id: "term-1",
-			worktreeId: "wt1",
-			cwd: "/repo",
-			status: "running",
-			exitCode: null,
-		};
+		const session = makeSession();
 
 		const { container } = render(
 			<TerminalPane session={session} visible={true} />,
@@ -479,13 +405,7 @@ describe("TerminalPane", () => {
 	});
 
 	it("does not scroll to bottom after resize when user has scrolled up", () => {
-		const session: TerminalSession = {
-			id: "term-1",
-			worktreeId: "wt1",
-			cwd: "/repo",
-			status: "running",
-			exitCode: null,
-		};
+		const session = makeSession();
 
 		render(<TerminalPane session={session} visible={true} />);
 

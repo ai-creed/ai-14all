@@ -197,6 +197,8 @@ That should include:
 
 V1 does not need true live PTY reattachment.
 
+> **Update (2026-04-10):** Live PTY reattachment is supported for renderer reloads while the main process is still running. The original statement remains true for cold starts after the app closes.
+
 That means the app does not need to reconnect to the exact same in-memory shell process from before the app closed.
 
 Instead, V1 should restore the prior context cleanly enough that the user can continue working without rebuilding their workspace manually.

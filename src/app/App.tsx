@@ -12,6 +12,7 @@ import * as Tabs from "@radix-ui/react-tabs";
 import type { Worktree } from "../../shared/models/worktree";
 import type { GitDiff } from "../../shared/models/git-diff";
 import type { ProcessSession } from "../../shared/models/process-session";
+import type { TerminalSession } from "../../shared/models/terminal-session";
 import type {
 	PersistedWorktreeSession,
 	PersistedSavedWorkspace,
@@ -54,7 +55,7 @@ import { DiffViewer } from "../features/viewer/DiffViewer";
 import { CommitList } from "../features/git/CommitList";
 import { CommitDiffStack } from "../features/git/CommitDiffStack";
 import type { GitCommitHistory, GitCommitDetail } from "../../shared/models/git-commit-review";
-import { git, workspace, repository as repositoryClient } from "../lib/desktop-client";
+import { git, terminals, workspace, repository as repositoryClient } from "../lib/desktop-client";
 import { useTheme } from "../lib/useTheme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
 
@@ -204,15 +205,13 @@ export function App() {
 	useEffect(() => {
 		let cancelled = false;
 
-		workspace.readRestoreState().then((result) => {
+		void workspace.readRestoreState().then(async (result) => {
 			if (cancelled) return;
 
-			// V2 state: pick the active workspace's snapshot for restore logic
 			const activeSaved = result.activeWorkspaceId
 				? result.workspaces.find((w) => w.workspaceId === result.activeWorkspaceId)
 				: result.workspaces[0];
 			const snapshot = activeSaved?.snapshot ?? null;
-			// Collect non-active workspaces to register as dormant entries
 			const dormantSaved = result.workspaces.filter(
 				(w) => w.workspaceId !== (activeSaved?.workspaceId ?? ""),
 			);
@@ -233,6 +232,22 @@ export function App() {
 				void restoreWorkspace(snapshot, result.restorePreference, dormantSaved);
 				return;
 			}
+
+			// A renderer reload should reconnect immediately when the main process
+			// still owns live terminal sessions for the saved workspace.
+			if (activeSaved?.workspaceId) {
+				try {
+					const liveSessions = await terminals.list(activeSaved.workspaceId);
+					if (cancelled) return;
+					if (liveSessions.length > 0) {
+						void restoreWorkspace(snapshot, result.restorePreference, dormantSaved);
+						return;
+					}
+				} catch {
+					// Fall through to the regular prompt path.
+				}
+			}
+
 			setStartupMode("prompt");
 		}).catch((err) => {
 			if (cancelled) return;
@@ -310,7 +325,7 @@ export function App() {
 		});
 	}
 
-	const { sessions, createSession, sendInput, stopSession, removeSession } =
+	const { sessions, createSession, sendInput, stopSession, removeSession, adoptSession } =
 		useTerminalSession({
 			onOutput: (event) => {
 				const found = findProcessByTerminalSessionId(event.sessionId);
@@ -725,23 +740,56 @@ export function App() {
 		targetWorkspaceId: string,
 		dispatchFn: (action: WorkspaceAction) => void = dispatch,
 	) {
+		let liveSessions: Map<string, TerminalSession> = new Map();
+		try {
+			const list = await terminals.list(targetWorkspaceId);
+			liveSessions = new Map(list.map((session) => [session.id, session]));
+		} catch {
+			// Fall back to fresh creation when the backend cannot enumerate sessions.
+		}
+
 		for (const process of sessionSnapshot.processSessions) {
 			try {
-				const terminal = await createSession(targetWorkspaceId, worktree.id, worktree.path);
-				dispatchFn({
-					type: "session/replaceProcessTerminal",
-					processId: process.id,
-					terminalSessionId: terminal.id,
-				});
-				dispatchFn({
-					type: "session/updateProcessStatus",
-					processId: process.id,
-					status: "running",
-					exitCode: null,
-				});
+				const liveSession = process.terminalSessionId
+					? liveSessions.get(process.terminalSessionId)
+					: undefined;
 
-				if (process.command) {
-					await sendInput(terminal.id, `${process.command}\n`);
+				if (liveSession) {
+					adoptSession(liveSession);
+					dispatchFn({
+						type: "session/replaceProcessTerminal",
+						processId: process.id,
+						terminalSessionId: liveSession.id,
+					});
+					const processStatus =
+						liveSession.status === "error"
+							? "error"
+							: liveSession.status === "exited"
+								? "exited"
+								: "running";
+					dispatchFn({
+						type: "session/updateProcessStatus",
+						processId: process.id,
+						status: processStatus,
+						exitCode: liveSession.exitCode,
+					});
+				} else {
+					const terminal = await createSession(targetWorkspaceId, worktree.id, worktree.path);
+					dispatchFn({
+						type: "session/replaceProcessTerminal",
+						processId: process.id,
+						terminalSessionId: terminal.id,
+					});
+					dispatchFn({
+						type: "session/updateProcessStatus",
+						processId: process.id,
+						status: "running",
+						exitCode: null,
+					});
+
+					if (process.command) {
+						await sendInput(terminal.id, `${process.command}\n`);
+					}
 				}
 			} catch {
 				dispatchFn({

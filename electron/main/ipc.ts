@@ -8,6 +8,7 @@ import {
 	SendTerminalInputSchema,
 	ResizeTerminalSessionSchema,
 	StopTerminalSessionSchema,
+	ListTerminalSessionsSchema,
 	ListFilesSchema,
 	ReadFileSchema,
 	ListGitChangesSchema,
@@ -150,6 +151,11 @@ export function registerIpcHandlers(
 	ipcMain.handle("terminals:create", (_event, raw: unknown) => {
 		const { workspaceId, worktreeId, cwd } = CreateTerminalSessionSchema.parse(raw);
 		return terminalService.create(workspaceId, worktreeId, cwd);
+	});
+
+	ipcMain.handle("terminals:list", (_event, raw: unknown) => {
+		const { workspaceId } = ListTerminalSessionsSchema.parse(raw);
+		return terminalService.listSessions(workspaceId);
 	});
 
 	ipcMain.handle("terminals:sendInput", (_event, raw: unknown) => {

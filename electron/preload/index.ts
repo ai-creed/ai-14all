@@ -44,6 +44,9 @@ const api: Ai14AllDesktopApi = {
 		create(workspaceId, worktreeId, cwd) {
 			return ipcRenderer.invoke("terminals:create", { workspaceId, worktreeId, cwd });
 		},
+		list(workspaceId) {
+			return ipcRenderer.invoke("terminals:list", { workspaceId });
+		},
 		sendInput(sessionId, data) {
 			return ipcRenderer.invoke("terminals:sendInput", { sessionId, data });
 		},

@@ -110,6 +110,17 @@ export class TerminalService {
 	}
 
 	// -----------------------------------------------------------------------
+	// listSessions — pure read from the sessions Map
+	// -----------------------------------------------------------------------
+	listSessions(workspaceId?: string): TerminalSession[] {
+		const all = [...this.sessions.values()].map((session) => session.meta);
+		if (workspaceId !== undefined) {
+			return all.filter((session) => session.workspaceId === workspaceId);
+		}
+		return all;
+	}
+
+	// -----------------------------------------------------------------------
 	// sendInput
 	// -----------------------------------------------------------------------
 	sendInput(sessionId: string, data: string): void {

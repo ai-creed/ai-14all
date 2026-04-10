@@ -1094,39 +1094,47 @@ test.describe.serial("Terminal session resilience", () => {
 		await page.locator("#repo-path").fill(testRepo.repoPath);
 		await page.getByRole("button", { name: "Load" }).click();
 
-		// Wait for a terminal tab to appear (auto-created shell)
+		// Wait for the default shell tab to appear. Match the existing resilient
+		// pattern because the xterm title may change from "shell 1" quickly.
 		await expect(
-			page.getByRole("tab", { name: "shell 1" }),
+			page.getByRole("tab", { name: /^shell 1(?: \((?:error|exited)\))?$/i }),
 		).toBeVisible({ timeout: 10_000 });
 
 		// Send a marker command so we can verify the terminal is the same PTY
 		const marker = `echo RESILIENCE_MARKER_${Date.now()}`;
 		// Find the terminal pane and type into it
-		const terminalPane = page.locator(".shell-terminal-pane").first();
-		await terminalPane.click();
+		const textarea = page.locator(".xterm-helper-textarea");
+		await textarea.waitFor({ state: "attached" });
+		await textarea.focus();
 		await page.keyboard.type(marker);
 		await page.keyboard.press("Enter");
 
 		// Wait for the marker to appear in terminal output
-		await expect(terminalPane).toContainText("RESILIENCE_MARKER", { timeout: 5_000 });
+		await expect(
+			page.locator(".xterm-accessibility-tree").first(),
+		).toContainText("RESILIENCE_MARKER", { timeout: 10_000 });
 
 		// Force a renderer reload (Cmd+R equivalent)
 		await page.reload();
 
-		// After reload, the terminal tab should reappear (reconnected)
+		// After reload, the terminal tablist should reappear. Do not rely on the
+		// exact tab title because xterm may have already changed it to the cwd.
 		await expect(
-			page.getByRole("tab", { name: "shell 1" }),
+			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
 		).toBeVisible({ timeout: 15_000 });
 
 		// Send another command to verify the terminal is interactive
 		const postReloadMarker = `echo POST_RELOAD_${Date.now()}`;
-		const terminalPaneAfter = page.locator(".shell-terminal-pane").first();
-		await terminalPaneAfter.click();
+		const textareaAfter = page.locator(".xterm-helper-textarea");
+		await textareaAfter.waitFor({ state: "attached" });
+		await textareaAfter.focus();
 		await page.keyboard.type(postReloadMarker);
 		await page.keyboard.press("Enter");
 
 		// Verify the post-reload command output appears
-		await expect(terminalPaneAfter).toContainText("POST_RELOAD", { timeout: 5_000 });
+		await expect(
+			page.locator(".xterm-accessibility-tree").first(),
+		).toContainText("POST_RELOAD", { timeout: 10_000 });
 	});
 });
 ```

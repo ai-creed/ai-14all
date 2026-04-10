@@ -198,6 +198,8 @@ The codebase should now have a stable architectural spine so later UI and proces
 
 V1 should restore context, not true live PTY attachment.
 
+> **Update (2026-04-10):** Live PTY reattachment is supported for renderer reloads with a surviving main process. Cross-session restores still use the fresh-shell restore path.
+
 That means:
 
 - reopen the workspace shape

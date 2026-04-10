@@ -33,6 +33,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		create: vi.fn(() =>
 			Promise.resolve({
 				id: `terminal-${++terminalIdCounter}`,
+				workspaceId: "r1",
 				worktreeId: "wt1",
 				cwd: "/repo",
 				status: "running",
@@ -42,6 +43,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		sendInput: vi.fn(),
 		resize: vi.fn(),
 		stop: vi.fn(),
+		list: vi.fn().mockResolvedValue([]),
 		onOutput: vi.fn(
 			(listener: (event: { sessionId: string; data: string }) => void) => {
 				mockTerminalOutputListeners.push(listener);
@@ -67,9 +69,11 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	workspace: {
 		openRepository: vi.fn(),
 		readRestoreState: vi.fn().mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "prompt",
-			snapshot: null,
+			activeWorkspaceId: null,
+			workspaceOrder: [],
+			workspaces: [],
 		}),
 		writeRestoreState: vi.fn(),
 		onOpenPicker: vi.fn(() => vi.fn()),
@@ -77,7 +81,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 }));
 
 import { App } from "../../../src/app/App";
-import { workspace, repository, git, workspace } from "../../../src/lib/desktop-client";
+import { workspace, repository, git } from "../../../src/lib/desktop-client";
 
 const mockOpenRepository = vi.mocked(workspace.openRepository);
 const mockListWorktrees = vi.mocked(repository.listWorktrees);
@@ -192,9 +196,11 @@ describe("App — refresh changes button", () => {
 			modifiedContent: 'export const hello = "phase-2";\n',
 		});
 		mockReadRestoreState.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "prompt",
-			snapshot: null,
+			activeWorkspaceId: null,
+			workspaceOrder: [],
+			workspaces: [],
 		});
 		// Reset and set a default fallback for listWorktrees. mockReset() is used
 		// here (not clearAllMocks) to drain any stale Once-queue values left over
@@ -586,9 +592,11 @@ describe("App — process lifecycle", () => {
 			recentCommits: [],
 		});
 		mockReadRestoreState.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "prompt",
-			snapshot: null,
+			activeWorkspaceId: null,
+			workspaceOrder: [],
+			workspaces: [],
 		});
 	});
 

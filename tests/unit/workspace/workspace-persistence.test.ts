@@ -36,6 +36,9 @@ it("serializes multiple workspaces into one persisted file", () => {
 		],
 	});
 
+	if (parsed.version !== 2) {
+		throw new Error("expected v2 persisted state");
+	}
 	expect(parsed.workspaceOrder).toEqual(["ws-a", "ws-b"]);
 });
 
@@ -49,6 +52,7 @@ describe("buildWorkspaceSnapshot", () => {
 			worktreeId: "main",
 			process: {
 				id: "process-1",
+				workspaceId: "workspace-1",
 				worktreeId: "main",
 				terminalSessionId: "terminal-live",
 				origin: "adHoc",
@@ -99,6 +103,7 @@ describe("buildWorkspaceSnapshot", () => {
 							label: "shell 1",
 							command: null,
 							pinned: false,
+							terminalSessionId: "terminal-live",
 						},
 					],
 				},
@@ -167,6 +172,9 @@ it("defaults repoId to null for older snapshots", () => {
 		},
 	});
 
+	if (parsed.version !== 1) {
+		throw new Error("expected v1 persisted state");
+	}
 	expect(parsed.snapshot?.repoId).toBeNull();
 });
 
@@ -194,8 +202,130 @@ it("keeps older phase-5 snapshots readable by defaulting commit fields to null",
 		},
 	});
 
+	if (parsed.version !== 1) {
+		throw new Error("expected v1 persisted state");
+	}
 	expect(parsed.snapshot?.worktreeSessions[0]?.selectedCommitSha).toBeNull();
 	expect(parsed.snapshot?.worktreeSessions[0]?.selectedCommitFilePath).toBeNull();
+});
+
+it("defaults terminalSessionId to null for older snapshots without it", () => {
+	const parsed = PersistedWorkspaceStateSchema.parse({
+		version: 1,
+		restorePreference: "prompt",
+		snapshot: {
+			repositoryPath: "/repo",
+			selectedWorktreeId: "main",
+			commandPresets: [],
+			worktreeSessions: [
+				{
+					worktreeId: "main",
+					note: "",
+					reviewMode: "files",
+					viewerMode: "file",
+					selectedFilePath: null,
+					selectedChangedFilePath: null,
+					activeProcessSessionId: null,
+					nextAdHocNumber: 1,
+					processSessions: [
+						{
+							id: "p1",
+							origin: "adHoc",
+							presetId: null,
+							label: "shell 1",
+							command: null,
+							pinned: false,
+						},
+					],
+				},
+			],
+		},
+	});
+
+	if (parsed.version !== 1) {
+		throw new Error("expected v1 persisted state");
+	}
+	expect(parsed.snapshot?.worktreeSessions[0]?.processSessions[0]?.terminalSessionId).toBeNull();
+});
+
+it("preserves terminalSessionId when present in persisted data", () => {
+	const parsed = PersistedWorkspaceStateSchema.parse({
+		version: 2,
+		restorePreference: "prompt",
+		activeWorkspaceId: "ws-a",
+		workspaceOrder: ["ws-a"],
+		workspaces: [
+			{
+				workspaceId: "ws-a",
+				repositoryPath: "/repo",
+				repoId: null,
+				snapshot: {
+					repositoryPath: "/repo",
+					selectedWorktreeId: "main",
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: "main",
+							note: "",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							activeProcessSessionId: "p1",
+							nextAdHocNumber: 2,
+							processSessions: [
+								{
+									id: "p1",
+									origin: "adHoc",
+									presetId: null,
+									label: "shell 1",
+									command: "claude",
+									pinned: false,
+									terminalSessionId: "term-abc",
+								},
+							],
+						},
+					],
+				},
+			},
+		],
+	});
+
+	if (parsed.version !== 2) {
+		throw new Error("expected v2 persisted state");
+	}
+	expect(
+		parsed.workspaces[0].snapshot.worktreeSessions[0].processSessions[0].terminalSessionId,
+	).toBe("term-abc");
+});
+
+it("includes terminalSessionId in buildWorkspaceSnapshot output", () => {
+	let state = createWorkspaceState([
+		{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+	]);
+	state = workspaceReducer(state, {
+		type: "session/registerProcess",
+		worktreeId: "main",
+			process: {
+				id: "process-1",
+				workspaceId: "workspace-1",
+			worktreeId: "main",
+			terminalSessionId: "terminal-live-123",
+			origin: "adHoc",
+			presetId: null,
+			label: "shell 1",
+			command: "claude",
+			status: "running",
+			lastActivityAt: 1234,
+			exitCode: null,
+			pinned: false,
+			attentionState: "idle",
+		},
+	});
+
+	const snapshot = buildWorkspaceSnapshot("/repo", null, state);
+
+	expect(snapshot.worktreeSessions[0].processSessions[0].terminalSessionId).toBe("terminal-live-123");
 });
 
 it("serializes split-shell layout fields into the workspace snapshot", () => {
@@ -212,10 +342,11 @@ it("serializes split-shell layout fields into the workspace snapshot", () => {
 	state = workspaceReducer(state, {
 		type: "session/registerProcess",
 		worktreeId: "main",
-		process: {
-			id: "process-1",
-			worktreeId: "main",
-			terminalSessionId: "terminal-1",
+			process: {
+				id: "process-1",
+				workspaceId: "workspace-1",
+				worktreeId: "main",
+				terminalSessionId: "terminal-1",
 			origin: "adHoc",
 			presetId: null,
 			label: "shell 1",
@@ -270,6 +401,9 @@ it("defaults split-shell fields for older snapshots", () => {
 		},
 	});
 
+	if (parsed.version !== 1) {
+		throw new Error("expected v1 persisted state");
+	}
 	expect(parsed.snapshot?.worktreeSessions[0]?.terminalLayoutMode).toBe("single");
 	expect(parsed.snapshot?.worktreeSessions[0]?.splitLeftProcessId).toBeNull();
 	expect(parsed.snapshot?.worktreeSessions[0]?.splitRightProcessId).toBeNull();

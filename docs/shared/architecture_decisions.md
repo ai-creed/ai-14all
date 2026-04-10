@@ -197,6 +197,8 @@ Early phases should persist definitions and UI context, not live process state.
 - reopen sessions and shell entry points cleanly
 - do not promise reconnecting to the exact same live process
 
+> **Update (2026-04-10):** The terminal session resilience spec (`docs/superpowers/specs/2026-04-10-terminal-session-resilience-design.md`) adds live terminal identity to persisted state for renderer-reload reconnection. Fresh creation remains the fallback when no live PTY exists, and cold-start restore behavior is unchanged.
+
 ## AD-010 — Code Viewer Scope
 
 **Decision**

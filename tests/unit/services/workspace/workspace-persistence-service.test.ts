@@ -77,6 +77,7 @@ describe("WorkspacePersistenceService", () => {
 										label: "shell 1",
 										command: null,
 										pinned: false,
+										terminalSessionId: null,
 									},
 								],
 							},

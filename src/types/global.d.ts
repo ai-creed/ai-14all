@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 import type { Ai14AllDesktopApi } from "../../shared/contracts/commands";
 
 declare global {

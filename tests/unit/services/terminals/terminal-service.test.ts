@@ -101,4 +101,93 @@ describe("TerminalService", () => {
 		expect(handlers.onState).not.toHaveBeenCalled();
 		expect(handlers.onExit).not.toHaveBeenCalled();
 	});
+
+	it("listSessions returns all active sessions", () => {
+		const ptyA = createPtyDouble();
+		const ptyB = createPtyDouble();
+		spawnMock
+			.mockReturnValueOnce(ptyA)
+			.mockReturnValueOnce(ptyB);
+
+		const handlers = {
+			onOutput: vi.fn(),
+			onExit: vi.fn(),
+			onState: vi.fn(),
+			onError: vi.fn(),
+		};
+		const service = new TerminalService(handlers);
+
+		const s1 = service.create("ws-a", "wt1", "/repo-a");
+		const s2 = service.create("ws-a", "wt2", "/repo-a/wt2");
+
+		const list = service.listSessions();
+		expect(list).toHaveLength(2);
+		expect(list.map((s) => s.id).sort()).toEqual([s1.id, s2.id].sort());
+	});
+
+	it("listSessions filters by workspaceId", () => {
+		const ptyA = createPtyDouble();
+		const ptyB = createPtyDouble();
+		spawnMock
+			.mockReturnValueOnce(ptyA)
+			.mockReturnValueOnce(ptyB);
+
+		const handlers = {
+			onOutput: vi.fn(),
+			onExit: vi.fn(),
+			onState: vi.fn(),
+			onError: vi.fn(),
+		};
+		const service = new TerminalService(handlers);
+
+		service.create("ws-a", "wt1", "/repo-a");
+		const s2 = service.create("ws-b", "wt1", "/repo-b");
+
+		const list = service.listSessions("ws-b");
+		expect(list).toHaveLength(1);
+		expect(list[0].id).toBe(s2.id);
+	});
+
+	it("listSessions returns empty array after dispose", () => {
+		const pty = createPtyDouble();
+		spawnMock.mockReturnValue(pty);
+
+		const handlers = {
+			onOutput: vi.fn(),
+			onExit: vi.fn(),
+			onState: vi.fn(),
+			onError: vi.fn(),
+		};
+		const service = new TerminalService(handlers);
+
+		service.create("ws-a", "wt1", "/repo-a");
+		service.dispose();
+
+		expect(service.listSessions()).toEqual([]);
+	});
+
+	it("listSessions excludes exited sessions", () => {
+		const ptyA = createPtyDouble();
+		const ptyB = createPtyDouble();
+		spawnMock
+			.mockReturnValueOnce(ptyA)
+			.mockReturnValueOnce(ptyB);
+
+		const handlers = {
+			onOutput: vi.fn(),
+			onExit: vi.fn(),
+			onState: vi.fn(),
+			onError: vi.fn(),
+		};
+		const service = new TerminalService(handlers);
+
+		const s1 = service.create("ws-a", "wt1", "/repo-a");
+		service.create("ws-a", "wt2", "/repo-a/wt2");
+
+		service.stop(s1.id);
+
+		const list = service.listSessions();
+		expect(list).toHaveLength(1);
+		expect(list[0].id).not.toBe(s1.id);
+	});
 });

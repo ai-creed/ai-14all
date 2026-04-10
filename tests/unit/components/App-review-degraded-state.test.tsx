@@ -27,6 +27,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		create: vi.fn(() =>
 			Promise.resolve({
 				id: "terminal-1",
+				workspaceId: "r1",
 				worktreeId: "wt1",
 				cwd: "/repo",
 				status: "running",
@@ -36,6 +37,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		sendInput: vi.fn(),
 		resize: vi.fn(),
 		stop: vi.fn(),
+		list: vi.fn().mockResolvedValue([]),
 		onOutput: vi.fn(() => vi.fn()),
 		onExit: vi.fn(() => vi.fn()),
 		onState: vi.fn(() => vi.fn()),
@@ -62,9 +64,11 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	workspace: {
 		openRepository: vi.fn(),
 		readRestoreState: vi.fn().mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "prompt",
-			snapshot: null,
+			activeWorkspaceId: null,
+			workspaceOrder: [],
+			workspaces: [],
 		}),
 		writeRestoreState: vi.fn(),
 		onOpenPicker: vi.fn(() => vi.fn()),
@@ -72,7 +76,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 }));
 
 import { App } from "../../../src/app/App";
-import { workspace, repository, git, workspace } from "../../../src/lib/desktop-client";
+import { workspace, repository, git } from "../../../src/lib/desktop-client";
 
 const mockOpenRepository = vi.mocked(workspace.openRepository);
 const mockListWorktrees = vi.mocked(repository.listWorktrees);
@@ -176,9 +180,11 @@ describe("App — degraded commit history read", () => {
 			},
 		]);
 		mockReadRestoreState.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "prompt",
-			snapshot: null,
+			activeWorkspaceId: null,
+			workspaceOrder: [],
+			workspaces: [],
 		});
 		mockReadSummary.mockResolvedValue({
 			branchName: "main",
@@ -274,9 +280,11 @@ describe("App — degraded commit detail read", () => {
 			},
 		]);
 		mockReadRestoreState.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "prompt",
-			snapshot: null,
+			activeWorkspaceId: null,
+			workspaceOrder: [],
+			workspaces: [],
 		});
 		mockReadSummary.mockResolvedValue({
 			branchName: "main",
@@ -323,9 +331,11 @@ describe("App — focus-gated auto-refresh", () => {
 			},
 		]);
 		mockReadRestoreState.mockResolvedValue({
-			version: 1,
+			version: 2,
 			restorePreference: "prompt",
-			snapshot: null,
+			activeWorkspaceId: null,
+			workspaceOrder: [],
+			workspaces: [],
 		});
 		mockReadSummary.mockResolvedValue({
 			branchName: "main",

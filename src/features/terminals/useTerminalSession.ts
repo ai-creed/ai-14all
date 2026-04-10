@@ -21,6 +21,7 @@ export type UseTerminalSessionResult = {
 	stopSession: (sessionId: string) => Promise<void>;
 	removeSession: (sessionId: string) => void;
 	sendInput: (sessionId: string, data: string) => Promise<void>;
+	adoptSession: (session: TerminalSession) => void;
 };
 
 /**
@@ -91,9 +92,23 @@ export function useTerminalSession(
 		setSessions((prev) => prev.filter((session) => session.id !== sessionId));
 	}, []);
 
+	const adoptSession = useCallback((session: TerminalSession) => {
+		setSessions((prev) => {
+			if (prev.some((existing) => existing.id === session.id)) return prev;
+			return [...prev, session];
+		});
+	}, []);
+
 	const sendInput = useCallback(async (sessionId: string, data: string) => {
 		await terminals.sendInput(sessionId, data);
 	}, []);
 
-	return { sessions, createSession, stopSession, removeSession, sendInput };
+	return {
+		sessions,
+		createSession,
+		stopSession,
+		removeSession,
+		sendInput,
+		adoptSession,
+	};
 }

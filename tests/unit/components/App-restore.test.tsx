@@ -23,6 +23,7 @@ vi.mock("../../../src/features/terminals/TerminalPane", () => ({
 
 const createMock = vi.hoisted(() => vi.fn());
 const sendInputMock = vi.hoisted(() => vi.fn());
+const listMock = vi.hoisted(() => vi.fn());
 const readRestoreStateMock = vi.hoisted(() => vi.fn());
 const writeRestoreStateMock = vi.hoisted(() => vi.fn());
 const openRepositoryMock = vi.hoisted(() => vi.fn());
@@ -49,6 +50,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		sendInput: sendInputMock,
 		resize: vi.fn(),
 		stop: vi.fn(),
+		list: listMock,
 		onOutput: vi.fn(() => vi.fn()),
 		onExit: vi.fn(() => vi.fn()),
 		onState: vi.fn(() => vi.fn()),
@@ -92,6 +94,7 @@ describe("App — Phase 5 restore flow", () => {
 				exitCode: null,
 			}),
 		);
+		listMock.mockResolvedValue([]);
 		readSummaryMock.mockResolvedValue({
 			branchName: "feature-a",
 			isDirty: true,
@@ -126,6 +129,80 @@ describe("App — Phase 5 restore flow", () => {
 		expect(
 			await screen.findByRole("button", { name: "Restore previous workspace" }),
 		).toBeInTheDocument();
+	});
+
+	it("auto-restores on renderer reload when live terminal sessions still exist", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 2,
+			restorePreference: "prompt",
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
+				repositoryPath: "/repo",
+				repoId: null,
+				snapshot: {
+					repositoryPath: "/repo",
+					selectedWorktreeId: "feature-a",
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: "feature-a",
+							note: "",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							selectedCommitSha: null,
+							selectedCommitFilePath: null,
+							activeProcessSessionId: "process-1",
+							terminalLayoutMode: "single",
+							splitLeftProcessId: null,
+							splitRightProcessId: null,
+							nextAdHocNumber: 2,
+							processSessions: [
+								{
+									id: "process-1",
+									origin: "adHoc",
+									presetId: null,
+									label: "shell 1",
+									command: "claude",
+									pinned: false,
+									terminalSessionId: "live-term-1",
+								},
+							],
+						},
+					],
+				},
+			}],
+		});
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "ws-main",
+			repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null },
+		});
+		listWorktreesMock.mockResolvedValue([
+			{ id: "feature-a", repositoryId: "repo-1", branchName: "feature-a", path: "/repo/.worktrees/feature-a", label: "feature-a", isMain: false },
+		]);
+		listMock.mockResolvedValue([
+			{
+				id: "live-term-1",
+				workspaceId: "ws-main",
+				worktreeId: "feature-a",
+				cwd: "/repo/.worktrees/feature-a",
+				status: "running",
+				exitCode: null,
+			},
+		]);
+
+		render(<App />);
+
+		await waitFor(() => {
+			expect(openRepositoryMock).toHaveBeenCalledWith("/repo");
+			expect(listMock).toHaveBeenCalledWith("ws-main");
+		});
+		expect(
+			screen.queryByRole("button", { name: "Restore previous workspace" }),
+		).not.toBeInTheDocument();
 	});
 
 	it("restores the selected worktree, recreates saved shells, and replays commands", async () => {
@@ -251,6 +328,149 @@ describe("App — Phase 5 restore flow", () => {
 		expect(await screen.findByRole("button", { name: "Disable split shells" })).toBeInTheDocument();
 		expect(screen.getByText(/No shell assigned to this split pane/i)).toBeInTheDocument();
 		expect(document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]')).toHaveLength(1);
+	});
+
+	it("reconnects to a live backend session instead of creating a new one", async () => {
+		const liveTerminalId = "live-terminal-abc";
+
+		readRestoreStateMock.mockResolvedValue({
+			version: 2,
+			restorePreference: "alwaysRestore",
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
+				repositoryPath: "/repo",
+				repoId: null,
+				snapshot: {
+					repositoryPath: "/repo",
+					selectedWorktreeId: "feature-a",
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: "feature-a",
+							note: "",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							selectedCommitSha: null,
+							selectedCommitFilePath: null,
+							activeProcessSessionId: "process-1",
+							terminalLayoutMode: "single",
+							splitLeftProcessId: null,
+							splitRightProcessId: null,
+							nextAdHocNumber: 2,
+							processSessions: [
+								{
+									id: "process-1",
+									origin: "adHoc",
+									presetId: null,
+									label: "shell 1",
+									command: "claude",
+									pinned: false,
+									terminalSessionId: liveTerminalId,
+								},
+							],
+						},
+					],
+				},
+			}],
+		});
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null },
+		});
+		listWorktreesMock.mockResolvedValue([
+			{ id: "feature-a", repositoryId: "repo-1", branchName: "feature-a", path: "/repo/.worktrees/feature-a", label: "feature-a", isMain: false },
+		]);
+		listMock.mockResolvedValue([
+			{
+				id: liveTerminalId,
+				workspaceId: "repo-1",
+				worktreeId: "feature-a",
+				cwd: "/repo/.worktrees/feature-a",
+				status: "running",
+				exitCode: null,
+			},
+		]);
+
+		render(<App />);
+
+		await waitFor(() => {
+			expect(createMock).not.toHaveBeenCalled();
+			expect(listMock).toHaveBeenCalledWith("repo-1");
+		});
+
+		expect(
+			document.querySelector(`[data-terminal-session-id="${liveTerminalId}"]`),
+		).toBeInTheDocument();
+		expect(sendInputMock).not.toHaveBeenCalled();
+	});
+
+	it("falls back to fresh creation when persisted terminal session is no longer alive", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 2,
+			restorePreference: "alwaysRestore",
+			activeWorkspaceId: "ws-main",
+			workspaceOrder: ["ws-main"],
+			workspaces: [{
+				workspaceId: "ws-main",
+				repositoryPath: "/repo",
+				repoId: null,
+				snapshot: {
+					repositoryPath: "/repo",
+					selectedWorktreeId: "feature-a",
+					commandPresets: [],
+					worktreeSessions: [
+						{
+							worktreeId: "feature-a",
+							note: "",
+							reviewMode: "files",
+							viewerMode: "file",
+							selectedFilePath: null,
+							selectedChangedFilePath: null,
+							selectedCommitSha: null,
+							selectedCommitFilePath: null,
+							activeProcessSessionId: "process-1",
+							terminalLayoutMode: "single",
+							splitLeftProcessId: null,
+							splitRightProcessId: null,
+							nextAdHocNumber: 2,
+							processSessions: [
+								{
+									id: "process-1",
+									origin: "adHoc",
+									presetId: null,
+									label: "shell 1",
+									command: "claude",
+									pinned: false,
+									terminalSessionId: "dead-terminal-xyz",
+								},
+							],
+						},
+					],
+				},
+			}],
+		});
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null },
+		});
+		listWorktreesMock.mockResolvedValue([
+			{ id: "feature-a", repositoryId: "repo-1", branchName: "feature-a", path: "/repo/.worktrees/feature-a", label: "feature-a", isMain: false },
+		]);
+		listMock.mockResolvedValue([]);
+
+		render(<App />);
+
+		await waitFor(() => {
+			expect(createMock).toHaveBeenCalledWith("repo-1", "feature-a", "/repo/.worktrees/feature-a");
+		});
+		expect(sendInputMock).toHaveBeenCalledWith(
+			expect.stringContaining("terminal-feature-a"),
+			"claude\n",
+		);
 	});
 
 	it("lazily hydrates a saved non-selected worktree only after selection", async () => {

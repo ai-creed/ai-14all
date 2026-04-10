@@ -112,6 +112,7 @@ describe("workspaceReducer", () => {
 			worktreeId: "main",
 			process: {
 				id: "process-1",
+				workspaceId: "ws-test",
 				worktreeId: "main",
 				terminalSessionId: "term-1",
 				origin: "adHoc",
@@ -130,6 +131,7 @@ describe("workspaceReducer", () => {
 			worktreeId: "main",
 			process: {
 				id: "process-2",
+				workspaceId: "ws-test",
 				worktreeId: "main",
 				terminalSessionId: "term-2",
 				origin: "adHoc",
@@ -164,6 +166,7 @@ describe("workspaceReducer", () => {
 			worktreeId: "main",
 			process: {
 				id: "process-1",
+				workspaceId: "ws-test",
 				worktreeId: "main",
 				terminalSessionId: "term-1",
 				origin: "adHoc",
@@ -301,6 +304,7 @@ describe("workspaceReducer — Phase 3 process model", () => {
 			worktreeId: "main",
 			process: {
 				id: "process-1",
+				workspaceId: "ws-test",
 				worktreeId: "main",
 				terminalSessionId: "terminal-1",
 				origin: "preset",
@@ -327,6 +331,7 @@ describe("workspaceReducer — Phase 3 process model", () => {
 			worktreeId: "main",
 			process: {
 				id: "process-1",
+				workspaceId: "ws-test",
 				worktreeId: "main",
 				terminalSessionId: "terminal-1",
 				origin: "preset",
@@ -759,6 +764,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 								label: "Claude",
 								command: "claude",
 								pinned: true,
+								terminalSessionId: null,
 							},
 						],
 					},
@@ -804,6 +810,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 						label: "shell 3",
 						command: null,
 						pinned: false,
+						terminalSessionId: null,
 					},
 				],
 			},
@@ -868,6 +875,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 						label: "shell 1",
 						command: null,
 						pinned: false,
+						terminalSessionId: null,
 					},
 				],
 			},

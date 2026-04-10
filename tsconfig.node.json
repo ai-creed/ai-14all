@@ -12,5 +12,11 @@
 		"composite": true,
 		"outDir": "out"
 	},
-	"include": ["electron", "electron.vite.config.ts", "shared", "services"]
+	"include": [
+		"electron",
+		"electron.vite.config.ts",
+		"shared",
+		"services",
+		"src/features/workspace/workspace-state.ts"
+	]
 }

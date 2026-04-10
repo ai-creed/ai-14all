@@ -59,6 +59,10 @@ export const StopTerminalSessionSchema = z.object({
 	sessionId: z.string(),
 });
 
+export const ListTerminalSessionsSchema = z.object({
+	workspaceId: z.string().optional(),
+});
+
 export const ListFilesSchema = z.object({
 	worktreePath: z.string(),
 });
@@ -114,6 +118,7 @@ export type Ai14AllDesktopApi = {
 	};
 	terminals: {
 		create(workspaceId: string, worktreeId: string, cwd: string): Promise<TerminalSession>;
+		list(workspaceId?: string): Promise<TerminalSession[]>;
 		sendInput(sessionId: string, data: string): Promise<void>;
 		resize(sessionId: string, cols: number, rows: number): Promise<void>;
 		stop(sessionId: string): Promise<void>;

@@ -86,6 +86,7 @@ export function buildWorkspaceSnapshot(
 					label: process.label,
 					command: process.command,
 					pinned: process.pinned,
+					terminalSessionId: process.terminalSessionId,
 				})),
 		})),
 	};

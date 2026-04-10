@@ -124,11 +124,11 @@ describe("workspace switching", () => {
 	});
 
 	it("shows one workspace group per loaded repository", async () => {
-		let onOpenPickerCallback: (() => void) | null = null;
+		let onOpenPickerCallback: (() => void) | undefined;
 
 		const { workspace: workspaceMock } = await import("../../../src/lib/desktop-client");
 		vi.mocked(workspaceMock.onOpenPicker).mockImplementation((cb) => {
-			onOpenPickerCallback = cb;
+			onOpenPickerCallback = cb as () => void;
 			return () => {};
 		});
 
@@ -155,9 +155,7 @@ describe("workspace switching", () => {
 		await userEvent.type(input, "/repo-a");
 		await userEvent.click(screen.getByRole("button", { name: "Load" }));
 
-		if (onOpenPickerCallback) {
-			onOpenPickerCallback();
-		}
+		onOpenPickerCallback?.();
 
 		const input2 = await screen.findByLabelText(/repository path/i);
 		await userEvent.type(input2, "/repo-b");
@@ -212,11 +210,11 @@ describe("workspace switching", () => {
 	});
 
 	it("opens same load workspace dialog from workspace menu event", async () => {
-		let onOpenPickerCallback: (() => void) | null = null;
+		let onOpenPickerCallback: (() => void) | undefined;
 
 		const { workspace: workspaceMock } = await import("../../../src/lib/desktop-client");
 		vi.mocked(workspaceMock.onOpenPicker).mockImplementation((cb) => {
-			onOpenPickerCallback = cb;
+			onOpenPickerCallback = cb as () => void;
 			return () => {};
 		});
 
@@ -234,19 +232,17 @@ describe("workspace switching", () => {
 		await userEvent.click(screen.getByRole("button", { name: "Load" }));
 		await screen.findByRole("group", { name: "repo-a" });
 
-		if (onOpenPickerCallback) {
-			onOpenPickerCallback();
-		}
+		onOpenPickerCallback?.();
 
 		expect(await screen.findByRole("dialog", { name: "Load workspace" })).toBeInTheDocument();
 	});
 
 	it("switches active workspace when selecting a worktree in another workspace group", async () => {
-		let onOpenPickerCallback: (() => void) | null = null;
+		let onOpenPickerCallback: (() => void) | undefined;
 
 		const { workspace: workspaceMock } = await import("../../../src/lib/desktop-client");
 		vi.mocked(workspaceMock.onOpenPicker).mockImplementation((cb) => {
-			onOpenPickerCallback = cb;
+			onOpenPickerCallback = cb as () => void;
 			return () => {};
 		});
 
@@ -276,9 +272,7 @@ describe("workspace switching", () => {
 
 		await screen.findByRole("navigation", { name: "Worktree sessions" });
 
-		if (onOpenPickerCallback) {
-			onOpenPickerCallback();
-		}
+		onOpenPickerCallback?.();
 
 		const input2 = await screen.findByLabelText(/repository path/i);
 		await userEvent.type(input2, "/repo-b");
@@ -310,11 +304,11 @@ describe("workspace switching", () => {
 		// Workspace removal with live terminals requires confirmation; auto-confirm in this test.
 		vi.spyOn(window, "confirm").mockReturnValue(true);
 
-		let onOpenPickerCallback: (() => void) | null = null;
+		let onOpenPickerCallback: (() => void) | undefined;
 
 		const { workspace: workspaceMock } = await import("../../../src/lib/desktop-client");
 		vi.mocked(workspaceMock.onOpenPicker).mockImplementation((cb) => {
-			onOpenPickerCallback = cb;
+			onOpenPickerCallback = cb as () => void;
 			return () => {};
 		});
 
@@ -339,9 +333,7 @@ describe("workspace switching", () => {
 		await screen.findByRole("group", { name: "repo-a" });
 
 		// Open picker to load repo-b
-		if (onOpenPickerCallback) {
-			onOpenPickerCallback();
-		}
+		onOpenPickerCallback?.();
 		await userEvent.type(await screen.findByLabelText(/repository path/i), "/repo-b");
 		await userEvent.click(screen.getByRole("button", { name: "Load" }));
 

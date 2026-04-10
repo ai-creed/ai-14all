@@ -13,6 +13,7 @@ export const PersistedProcessSessionSchema = z.object({
 	label: z.string(),
 	command: z.string().nullable(),
 	pinned: z.boolean(),
+	terminalSessionId: z.string().nullable().optional().default(null),
 });
 
 export const PersistedWorktreeSessionSchema = z.object({
