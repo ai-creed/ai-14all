@@ -166,6 +166,27 @@ describe("TerminalService", () => {
 		expect(service.listSessions()).toEqual([]);
 	});
 
+	it("spawns a login shell so profile PATH is available", () => {
+		const pty = createPtyDouble();
+		spawnMock.mockReturnValue(pty);
+
+		const handlers = {
+			onOutput: vi.fn(),
+			onExit: vi.fn(),
+			onState: vi.fn(),
+			onError: vi.fn(),
+		};
+		const service = new TerminalService(handlers);
+
+		service.create("ws-a", "wt1", "/repo-a");
+
+		expect(spawnMock).toHaveBeenCalledWith(
+			expect.any(String),
+			["-l"],
+			expect.objectContaining({ cwd: "/repo-a" }),
+		);
+	});
+
 	it("listSessions excludes exited sessions", () => {
 		const ptyA = createPtyDouble();
 		const ptyB = createPtyDouble();

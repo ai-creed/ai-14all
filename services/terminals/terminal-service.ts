@@ -49,7 +49,7 @@ export class TerminalService {
 
 		let p: IPty;
 		try {
-			p = pty.spawn(shell, [], {
+			p = pty.spawn(shell, ["-l"], {
 				name: "xterm-256color",
 				cols: 80,
 				rows: 24,
