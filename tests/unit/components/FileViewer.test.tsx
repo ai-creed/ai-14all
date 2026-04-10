@@ -54,7 +54,13 @@ describe("FileViewer", () => {
 	it("renders Monaco editor with file content and readOnly", async () => {
 		mockRead.mockResolvedValueOnce(fakeFileView);
 
-		render(<FileViewer worktreePath="/repo" relativePath="src/index.ts" />);
+		render(
+			<FileViewer
+				worktreePath="/repo"
+				relativePath="src/index.ts"
+				resolvedTheme="dark"
+			/>,
+		);
 
 		// Wait for async fetch to resolve and editor to render
 		const editor = await screen.findByTestId("monaco-editor");
@@ -68,7 +74,13 @@ describe("FileViewer", () => {
 	it("shows file path header", async () => {
 		mockRead.mockResolvedValueOnce(fakeFileView);
 
-		render(<FileViewer worktreePath="/repo" relativePath="src/index.ts" />);
+		render(
+			<FileViewer
+				worktreePath="/repo"
+				relativePath="src/index.ts"
+				resolvedTheme="dark"
+			/>,
+		);
 
 		expect(await screen.findByText("src/index.ts")).toBeInTheDocument();
 	});
@@ -76,7 +88,13 @@ describe("FileViewer", () => {
 	it("shows loading state while fetching", () => {
 		mockRead.mockReturnValue(new Promise(() => {}));
 
-		render(<FileViewer worktreePath="/repo" relativePath="src/index.ts" />);
+		render(
+			<FileViewer
+				worktreePath="/repo"
+				relativePath="src/index.ts"
+				resolvedTheme="dark"
+			/>,
+		);
 
 		expect(screen.getByText("Loading src/index.ts…")).toBeInTheDocument();
 	});
@@ -84,7 +102,13 @@ describe("FileViewer", () => {
 	it("shows error when fetch fails", async () => {
 		mockRead.mockRejectedValueOnce(new Error("File not found"));
 
-		render(<FileViewer worktreePath="/repo" relativePath="missing.ts" />);
+		render(
+			<FileViewer
+				worktreePath="/repo"
+				relativePath="missing.ts"
+				resolvedTheme="dark"
+			/>,
+		);
 
 		expect(
 			await screen.findByText("Error: Couldn't load file contents."),
@@ -101,7 +125,11 @@ describe("FileViewer", () => {
 			.mockRejectedValueOnce(new Error("read failed"));
 
 		const { rerender } = render(
-			<FileViewer worktreePath="/repo" relativePath="src/index.ts" />,
+			<FileViewer
+				worktreePath="/repo"
+				relativePath="src/index.ts"
+				resolvedTheme="dark"
+			/>,
 		);
 		await screen.findByText("src/index.ts");
 
@@ -109,7 +137,13 @@ describe("FileViewer", () => {
 		// The second mock call fails while relativePath still matches the cached
 		// fileView.path, so the component should preserve the content and show
 		// the stale message rather than clearing the view.
-		rerender(<FileViewer worktreePath="/repo2" relativePath="src/index.ts" />);
+		rerender(
+			<FileViewer
+				worktreePath="/repo2"
+				relativePath="src/index.ts"
+				resolvedTheme="dark"
+			/>,
+		);
 
 		await waitFor(() => {
 			expect(screen.getByText(/showing last successful result/i)).toBeInTheDocument();
@@ -125,7 +159,13 @@ describe("FileViewer", () => {
 			})
 			.mockReturnValue(new Promise(() => {})); // preview modal fetch never resolves
 
-		render(<FileViewer worktreePath="/repo" relativePath="README.md" />);
+		render(
+			<FileViewer
+				worktreePath="/repo"
+				relativePath="README.md"
+				resolvedTheme="dark"
+			/>,
+		);
 
 		const title = await screen.findByText("README.md");
 		fireEvent.contextMenu(title);
@@ -142,7 +182,13 @@ describe("FileViewer", () => {
 			language: "typescript",
 		});
 
-		render(<FileViewer worktreePath="/repo" relativePath="src/index.ts" />);
+		render(
+			<FileViewer
+				worktreePath="/repo"
+				relativePath="src/index.ts"
+				resolvedTheme="dark"
+			/>,
+		);
 
 		const title = await screen.findByText("src/index.ts");
 		fireEvent.contextMenu(title);
@@ -161,7 +207,13 @@ describe("FileViewer", () => {
 			})
 			.mockReturnValue(new Promise(() => {})); // modal fetch never resolves
 
-		render(<FileViewer worktreePath="/repo" relativePath="README.md" />);
+		render(
+			<FileViewer
+				worktreePath="/repo"
+				relativePath="README.md"
+				resolvedTheme="dark"
+			/>,
+		);
 
 		const title = await screen.findByText("README.md");
 		fireEvent.contextMenu(title);
@@ -184,7 +236,11 @@ describe("FileViewer", () => {
 			.mockReturnValue(new Promise(() => {})); // modal fetch + subsequent viewer fetches never resolve
 
 		const { rerender } = render(
-			<FileViewer worktreePath="/repo" relativePath="README.md" />,
+			<FileViewer
+				worktreePath="/repo"
+				relativePath="README.md"
+				resolvedTheme="dark"
+			/>,
 		);
 
 		// Open the preview modal
@@ -194,7 +250,13 @@ describe("FileViewer", () => {
 		expect(await screen.findByText("Loading README.md…")).toBeInTheDocument();
 
 		// Navigate to a different file — modal should close
-		rerender(<FileViewer worktreePath="/repo" relativePath="src/index.ts" />);
+		rerender(
+			<FileViewer
+				worktreePath="/repo"
+				relativePath="src/index.ts"
+				resolvedTheme="dark"
+			/>,
+		);
 
 		await waitFor(() => {
 			expect(screen.queryByText("Loading README.md…")).not.toBeInTheDocument();

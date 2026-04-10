@@ -33,6 +33,7 @@ describe("DiffViewer", () => {
 				}
 				originalContent={'export const hello = "world";\n'}
 				modifiedContent={'export const hello = "phase-2";\n'}
+				resolvedTheme="dark"
 			/>,
 		);
 
@@ -52,6 +53,7 @@ describe("DiffViewer", () => {
 				content="diff --git a/src/index.ts b/src/index.ts"
 				originalContent=""
 				modifiedContent=""
+				resolvedTheme="dark"
 			/>,
 		);
 		expect(screen.getByText("Diff vs HEAD")).toBeInTheDocument();

@@ -46,7 +46,13 @@ const multiFileDetail = {
 
 describe("CommitDiffStack", () => {
 	it("renders collapsible side-by-side sections for each file", () => {
-		render(<CommitDiffStack detail={detail} focusedPath="src/index.ts" />);
+		render(
+			<CommitDiffStack
+				detail={detail}
+				focusedPath="src/index.ts"
+				resolvedTheme="dark"
+			/>,
+		);
 
 		expect(screen.getByText("src/index.ts")).toBeInTheDocument();
 		expect(screen.getByTestId("commit-diff-section-src/index.ts")).toHaveAttribute(
@@ -69,7 +75,7 @@ describe("CommitDiffStack", () => {
 
 	it("re-expands a collapsed section when focusedPath targets it", async () => {
 		const { rerender } = render(
-			<CommitDiffStack detail={detail} focusedPath={null} />,
+			<CommitDiffStack detail={detail} focusedPath={null} resolvedTheme="dark" />,
 		);
 
 		// Collapse the section
@@ -77,7 +83,13 @@ describe("CommitDiffStack", () => {
 		expect(screen.queryByTestId("mock-diff-editor")).not.toBeInTheDocument();
 
 		// Selecting the file via focusedPath should re-expand it
-		rerender(<CommitDiffStack detail={detail} focusedPath="src/index.ts" />);
+		rerender(
+			<CommitDiffStack
+				detail={detail}
+				focusedPath="src/index.ts"
+				resolvedTheme="dark"
+			/>,
+		);
 		expect(screen.getByTestId("mock-diff-editor")).toBeInTheDocument();
 	});
 
@@ -89,13 +101,18 @@ describe("CommitDiffStack", () => {
 		});
 
 		const { rerender } = render(
-			<CommitDiffStack detail={multiFileDetail} focusedPath={null} />,
+			<CommitDiffStack
+				detail={multiFileDetail}
+				focusedPath={null}
+				resolvedTheme="dark"
+			/>,
 		);
 
 		rerender(
 			<CommitDiffStack
 				detail={multiFileDetail}
 				focusedPath="src/shell.css"
+				resolvedTheme="dark"
 			/>,
 		);
 
@@ -105,7 +122,13 @@ describe("CommitDiffStack", () => {
 	});
 
 	it("autosizes editors when rendering multiple commit files", () => {
-		render(<CommitDiffStack detail={multiFileDetail} focusedPath={null} />);
+		render(
+			<CommitDiffStack
+				detail={multiFileDetail}
+				focusedPath={null}
+				resolvedTheme="dark"
+			/>,
+		);
 
 		expect(screen.getAllByTestId("mock-diff-editor")).toHaveLength(2);
 		for (const editor of screen.getAllByTestId("mock-diff-editor")) {
