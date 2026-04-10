@@ -25,6 +25,7 @@
 	--pane-border-review: rgba(243, 107, 138, 0.5);
 	--warning: #f0c37a;
 	--danger: #d98c8c;
+	--sha-color: #a78bfa;
 	--font-ui:
 		"SF Mono",
 		"SFMono-Regular",
@@ -78,6 +79,7 @@
 	--pane-border-review: rgba(200, 60, 80, 0.4);
 	--warning: #b07800;
 	--danger: #c0404a;
+	--sha-color: #6d4cbc;
 	color: var(--text-primary);
 	background: var(--app-bg);
 }
@@ -85,6 +87,18 @@
 [data-theme="light"] body {
 	background: radial-gradient(circle at top, #e8edf4 0%, #f0f2f5 55%);
 	color: var(--text-primary);
+}
+
+[data-theme="light"] .shell-terminal-tab:hover,
+[data-theme="light"] .shell-review-tab:hover {
+	background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .shell-terminal-tab[data-state="active"],
+[data-theme="light"] .shell-terminal-tab[data-state="active"]:hover,
+[data-theme="light"] .shell-review-tab[data-state="active"],
+[data-theme="light"] .shell-review-tab[data-state="active"]:hover {
+	box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.06);
 }
 
 * {
@@ -278,7 +292,7 @@ select {
 	white-space: pre-wrap;
 	word-break: break-word;
 	padding: 6px 8px;
-	background: rgba(10, 17, 21, 0.22);
+	background: var(--panel-bg-elevated);
 	border: 1px solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	font-size: var(--font-size-body);
@@ -387,7 +401,7 @@ select {
 .shell-button {
 	padding: 8px 12px;
 	color: var(--text-primary);
-	background: #0f171d;
+	background: var(--panel-bg);
 	border: 1px solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	cursor: pointer;
@@ -551,7 +565,7 @@ select {
 	padding: var(--space-3);
 	text-align: left;
 	color: var(--text-primary);
-	background: #0f171d;
+	background: var(--panel-bg);
 	border: 1px solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	cursor: pointer;
@@ -669,13 +683,13 @@ select {
 
 .shell-terminal-tab[data-state="active"] {
 	color: var(--text-primary);
-	background: #4b5458;
+	background: var(--panel-bg-elevated);
 	border-color: var(--panel-border-strong);
 	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .shell-terminal-tab[data-state="inactive"] {
-	color: #bcc7ce;
+	color: var(--text-secondary);
 }
 
 .shell-terminal-tab:hover {
@@ -683,7 +697,7 @@ select {
 }
 
 .shell-terminal-tab[data-state="active"]:hover {
-	background: #4b5458;
+	background: var(--panel-bg-elevated);
 }
 
 .shell-terminal-tabs__segments .shell-terminal-tabs__item + .shell-terminal-tabs__item {
@@ -718,7 +732,7 @@ select {
 	height: 100%;
 	min-height: 0;
 	padding: 0;
-	background: #0a1115;
+	background: var(--app-bg);
 }
 
 .shell-terminal-pane__viewport .xterm,
@@ -729,7 +743,7 @@ select {
 .shell-tooltip {
 	padding: 6px 10px;
 	color: var(--text-primary);
-	background: #0f171d;
+	background: var(--panel-bg);
 	border: 1px solid var(--panel-border);
 	border-radius: var(--radius-sm);
 }
@@ -767,7 +781,7 @@ select {
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: 0;
 	padding: 2px;
-	background: #0f171d;
+	background: var(--panel-bg);
 	border: 1px solid var(--panel-border);
 	border-radius: 10px;
 }
@@ -787,13 +801,13 @@ select {
 
 .shell-review-tab[data-state="active"] {
 	color: var(--text-primary);
-	background: #4b5458;
+	background: var(--panel-bg-elevated);
 	border-color: var(--panel-border-strong);
 	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .shell-review-tab[data-state="inactive"] {
-	color: #bcc7ce;
+	color: var(--text-secondary);
 }
 
 .shell-review-tab:hover {
@@ -801,7 +815,7 @@ select {
 }
 
 .shell-review-tab[data-state="active"]:hover {
-	background: #4b5458;
+	background: var(--panel-bg-elevated);
 }
 
 .shell-review-rail__scroll {
@@ -834,7 +848,7 @@ select {
 	padding: 8px 10px;
 	text-align: left;
 	color: var(--text-primary);
-	background: #0f171d;
+	background: var(--panel-bg);
 	border: 1px solid transparent;
 	border-radius: var(--radius-sm);
 	cursor: pointer;
@@ -1086,7 +1100,7 @@ select {
 .shell-terminal-panel__body {
 	min-height: 0;
 	overflow: hidden;
-	background: #0a1115;
+	background: var(--app-bg);
 	border-top: 1px solid var(--panel-border);
 }
 
@@ -1110,7 +1124,7 @@ select {
 	display: grid;
 	place-items: center;
 	padding: var(--space-4);
-	background: #0a1115;
+	background: var(--app-bg);
 }
 
 .shell-commit-list {
@@ -1207,7 +1221,7 @@ select {
 
 .shell-commit-list__sha {
 	min-width: 5.75ch;
-	color: #a78bfa;
+	color: var(--sha-color);
 }
 
 .shell-commit-list__item[data-row-kind="mergeTarget"] .shell-commit-list__sha {
