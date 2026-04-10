@@ -2,12 +2,18 @@ import * as ContextMenu from "@radix-ui/react-context-menu";
 import type { Worktree } from "../../../shared/models/worktree";
 import type { ProcessAttentionState } from "../../../shared/models/process-session";
 
+type WorktreeProcessSummary = {
+	activeProcesses: { label: string }[];
+	inactiveCount: number;
+};
+
 export type SessionSidebarWorkspace = {
 	workspaceId: string;
 	name: string;
 	worktrees: Worktree[];
 	selectedWorktreeId: string | null;
 	attentionByWorktreeId: Record<string, ProcessAttentionState>;
+	processesByWorktreeId?: Record<string, WorktreeProcessSummary>;
 	active: boolean;
 	hydrated: boolean;
 };
@@ -100,6 +106,7 @@ export function SessionSidebar({
 							{workspace.worktrees.map((worktree) => {
 								const selected =
 									workspace.active && worktree.id === workspace.selectedWorktreeId;
+								const summary = workspace.processesByWorktreeId?.[worktree.id];
 								const item = (
 									<button
 										type="button"
@@ -113,6 +120,21 @@ export function SessionSidebar({
 											<strong>{worktree.label}</strong>
 											{worktree.branchName !== worktree.label && (
 												<div className="shell-sidebar__branch">{worktree.branchName}</div>
+											)}
+											{summary && (
+												<div className="shell-sidebar__processes">
+													{summary.activeProcesses.map((proc, i) => (
+														<div key={i} className="shell-sidebar__process">
+															<span data-testid="process-running-indicator" className="shell-sidebar__process-indicator" />
+															<span className="shell-sidebar__process-label">{proc.label}</span>
+														</div>
+													))}
+													{summary.inactiveCount > 0 && (
+														<div className="shell-sidebar__process shell-sidebar__process--inactive">
+															{summary.inactiveCount} inactive shell{summary.inactiveCount === 1 ? "" : "s"}
+														</div>
+													)}
+												</div>
 											)}
 										</>}
 									</button>

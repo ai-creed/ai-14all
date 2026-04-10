@@ -1558,6 +1558,26 @@ export function App() {
 							),
 						)
 					: {},
+			processesByWorktreeId: ws.workspaceState
+				? Object.fromEntries(
+						Object.entries(ws.workspaceState.sessionsByWorktreeId).map(
+							([worktreeId, session]) => {
+								const processes = session.processSessionIds
+									.map((id) => ws.workspaceState!.processSessionsById[id])
+									.filter(Boolean);
+								return [
+									worktreeId,
+									{
+										activeProcesses: processes
+											.filter((p) => p.status === "running")
+											.map((p) => ({ label: p.label })),
+										inactiveCount: processes.filter((p) => p.status !== "running").length,
+									},
+								];
+							},
+						),
+					)
+				: {},
 			active: ws.workspaceId === activeWorkspaceId,
 			hydrated: ws.workspaceState !== null,
 		}));

@@ -160,6 +160,122 @@ describe("SessionSidebar", () => {
 		expect(screen.queryByRole("button", { name: "Remove worktree" })).not.toBeInTheDocument();
 	});
 
+	it("shows active processes with indicator and label under worktree", () => {
+		render(
+			<SessionSidebar
+				workspaces={[{
+					...workspaces[0],
+					selectedWorktreeId: "main",
+					processesByWorktreeId: {
+						main: {
+							activeProcesses: [{ label: "claude" }, { label: "npm run dev" }],
+							inactiveCount: 0,
+						},
+					},
+				}]}
+				collapsed={false}
+				onToggleCollapsed={vi.fn()}
+				onLoadWorkspace={vi.fn()}
+				onOpenWorkspace={vi.fn()}
+				onSelect={vi.fn()}
+				onCreateWorktree={vi.fn()}
+				onRemoveWorktree={vi.fn()}
+				onRemoveWorkspace={vi.fn()}
+			/>,
+		);
+
+		const group = screen.getByRole("group", { name: "repo-a" });
+		expect(within(group).getByText("claude")).toBeInTheDocument();
+		expect(within(group).getByText("npm run dev")).toBeInTheDocument();
+		// Each active process should have a running indicator
+		const indicators = within(group).getAllByTestId("process-running-indicator");
+		expect(indicators).toHaveLength(2);
+	});
+
+	it("shows inactive shell count when greater than zero", () => {
+		render(
+			<SessionSidebar
+				workspaces={[{
+					...workspaces[0],
+					selectedWorktreeId: "main",
+					processesByWorktreeId: {
+						main: {
+							activeProcesses: [{ label: "claude" }],
+							inactiveCount: 3,
+						},
+					},
+				}]}
+				collapsed={false}
+				onToggleCollapsed={vi.fn()}
+				onLoadWorkspace={vi.fn()}
+				onOpenWorkspace={vi.fn()}
+				onSelect={vi.fn()}
+				onCreateWorktree={vi.fn()}
+				onRemoveWorktree={vi.fn()}
+				onRemoveWorkspace={vi.fn()}
+			/>,
+		);
+
+		const group = screen.getByRole("group", { name: "repo-a" });
+		expect(within(group).getByText("3 inactive shells")).toBeInTheDocument();
+	});
+
+	it("hides inactive shell line when count is zero", () => {
+		render(
+			<SessionSidebar
+				workspaces={[{
+					...workspaces[0],
+					selectedWorktreeId: "main",
+					processesByWorktreeId: {
+						main: {
+							activeProcesses: [{ label: "claude" }],
+							inactiveCount: 0,
+						},
+					},
+				}]}
+				collapsed={false}
+				onToggleCollapsed={vi.fn()}
+				onLoadWorkspace={vi.fn()}
+				onOpenWorkspace={vi.fn()}
+				onSelect={vi.fn()}
+				onCreateWorktree={vi.fn()}
+				onRemoveWorktree={vi.fn()}
+				onRemoveWorkspace={vi.fn()}
+			/>,
+		);
+
+		const group = screen.getByRole("group", { name: "repo-a" });
+		expect(within(group).queryByText(/inactive shell/)).not.toBeInTheDocument();
+	});
+
+	it("does not show process details in collapsed mode", () => {
+		render(
+			<SessionSidebar
+				workspaces={[{
+					...workspaces[0],
+					selectedWorktreeId: "main",
+					processesByWorktreeId: {
+						main: {
+							activeProcesses: [{ label: "claude" }],
+							inactiveCount: 2,
+						},
+					},
+				}]}
+				collapsed={true}
+				onToggleCollapsed={vi.fn()}
+				onLoadWorkspace={vi.fn()}
+				onOpenWorkspace={vi.fn()}
+				onSelect={vi.fn()}
+				onCreateWorktree={vi.fn()}
+				onRemoveWorktree={vi.fn()}
+				onRemoveWorkspace={vi.fn()}
+			/>,
+		);
+
+		expect(screen.queryByText("claude")).not.toBeInTheDocument();
+		expect(screen.queryByText(/inactive shell/)).not.toBeInTheDocument();
+	});
+
 	it("only marks the selected worktree inside the active workspace group", () => {
 		render(
 			<SessionSidebar

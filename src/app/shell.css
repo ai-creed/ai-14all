@@ -581,6 +581,40 @@ select {
 	color: var(--text-secondary);
 }
 
+.shell-sidebar__processes {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	margin-top: 2px;
+}
+
+.shell-sidebar__process {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	font-size: 0.75rem;
+	color: var(--text-secondary);
+}
+
+.shell-sidebar__process-indicator {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--accent);
+	flex-shrink: 0;
+}
+
+.shell-sidebar__process-label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.shell-sidebar__process--inactive {
+	color: var(--text-muted);
+	font-size: 0.7rem;
+}
+
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-group {
 	align-items: center;
 	padding-inline: 0;
