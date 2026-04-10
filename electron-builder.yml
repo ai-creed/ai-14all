@@ -9,6 +9,7 @@ files:
 asarUnpack:
   - node_modules/node-pty/**
 mac:
+  icon: assets/ai-14all-icon.icns
   target:
     - target: zip
       arch:
