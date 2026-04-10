@@ -34,6 +34,8 @@
 | Test | `tests/unit/workspace/workspace-persistence.test.ts` | terminalSessionId schema + snapshot tests |
 | Test | `tests/unit/terminals/useTerminalSession.test.ts` | adoptSession tests (new file) |
 | Test | `tests/unit/workspace/reconnect-restore.test.ts` | Reconnect-first restore logic tests (new file) |
+| Test | `tests/unit/components/App-restore.test.tsx` | Integration: reconnect vs fresh-create restore (modify) |
+| Test | `tests/e2e/terminal-session-resilience.test.ts` | E2E: terminal survives renderer reload (new file) |
 
 ---
 
@@ -439,7 +441,7 @@ Create `tests/unit/terminals/useTerminalSession.test.ts`:
 import { describe, expect, it, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 
-vi.mock("../../src/lib/desktop-client", () => ({
+vi.mock("../../../src/lib/desktop-client", () => ({
 	terminals: {
 		create: vi.fn(),
 		sendInput: vi.fn(),
@@ -453,12 +455,12 @@ vi.mock("../../src/lib/desktop-client", () => ({
 	},
 }));
 
-import { useTerminalSession } from "../../src/features/terminals/useTerminalSession";
-import type { TerminalSession } from "../../shared/models/terminal-session";
+import { useTerminalSession } from "../../../src/features/terminals/useTerminalSession";
+import type { TerminalSession } from "../../../shared/models/terminal-session";
 
 describe("useTerminalSession.adoptSession", () => {
 	it("adds session to list without calling terminals.create", async () => {
-		const { terminals } = await import("../../src/lib/desktop-client");
+		const { terminals } = await import("../../../src/lib/desktop-client");
 
 		const { result } = renderHook(() => useTerminalSession());
 
@@ -481,7 +483,7 @@ describe("useTerminalSession.adoptSession", () => {
 	});
 
 	it("adopted session receives state updates from backend events", async () => {
-		const { terminals } = await import("../../src/lib/desktop-client");
+		const { terminals } = await import("../../../src/lib/desktop-client");
 
 		// Capture the onState listener
 		let stateListener: ((event: { sessionId: string; status: string }) => void) | null = null;
@@ -686,10 +688,10 @@ Ensure `TerminalSession` type is imported in App.tsx. Check existing imports —
 import type { TerminalSession } from "../../shared/models/terminal-session";
 ```
 
-- [ ] **Step 4: Verify the app builds**
+- [ ] **Step 4: Verify the app typechecks**
 
-Run: `npx tsc --noEmit`
-Expected: No type errors
+Run: `pnpm typecheck`
+This runs `tsc --noEmit` against all three tsconfigs (renderer, node, test). Expected: No type errors.
 
 - [ ] **Step 5: Commit**
 
@@ -803,7 +805,341 @@ git commit -m "docs: annotate superseded PTY reattachment decisions"
 
 ---
 
-### Task 8: Manual verification
+### Task 8: Integration tests — App restore with reconnection
+
+**Files:**
+- Modify: `tests/unit/components/App-restore.test.tsx`
+
+The existing test file mocks `desktop-client` including `terminals.create`. We need to add `terminals.list` to the mock and add tests for both reconnection and fresh-creation fallback paths.
+
+- [ ] **Step 1: Add `list` mock to existing desktop-client mock**
+
+In `tests/unit/components/App-restore.test.tsx`, the mock at line 47-56 needs `list` added. Add a hoisted mock at the top (near line 24-26):
+
+```typescript
+const listMock = vi.hoisted(() => vi.fn());
+```
+
+Add `list: listMock` to the `terminals` mock object (after `stop: vi.fn(),`):
+
+```typescript
+list: listMock,
+```
+
+In `beforeEach` (after `createMock.mockImplementation(...)` around line 102), add default for `listMock`:
+
+```typescript
+listMock.mockResolvedValue([]);
+```
+
+- [ ] **Step 2: Write failing test — reconnects to live session instead of creating new**
+
+Add this test inside the `describe("App — Phase 5 restore flow")` block:
+
+```typescript
+it("reconnects to a live backend session instead of creating a new one", async () => {
+	const liveTerminalId = "live-terminal-abc";
+
+	readRestoreStateMock.mockResolvedValue({
+		version: 2,
+		restorePreference: "alwaysRestore",
+		activeWorkspaceId: "ws-main",
+		workspaceOrder: ["ws-main"],
+		workspaces: [{
+			workspaceId: "ws-main",
+			repositoryPath: "/repo",
+			repoId: null,
+			snapshot: {
+				repositoryPath: "/repo",
+				selectedWorktreeId: "feature-a",
+				commandPresets: [],
+				worktreeSessions: [
+					{
+						worktreeId: "feature-a",
+						note: "",
+						reviewMode: "files",
+						viewerMode: "file",
+						selectedFilePath: null,
+						selectedChangedFilePath: null,
+						selectedCommitSha: null,
+						selectedCommitFilePath: null,
+						activeProcessSessionId: "process-1",
+						terminalLayoutMode: "single",
+						splitLeftProcessId: null,
+						splitRightProcessId: null,
+						nextAdHocNumber: 2,
+						processSessions: [
+							{
+								id: "process-1",
+								origin: "adHoc",
+								presetId: null,
+								label: "shell 1",
+								command: "claude",
+								pinned: false,
+								terminalSessionId: liveTerminalId,
+							},
+						],
+					},
+				],
+			},
+		}],
+	});
+	openRepositoryMock.mockResolvedValue({
+		workspaceId: "repo-1",
+		repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null },
+	});
+	listWorktreesMock.mockResolvedValue([
+		{ id: "feature-a", repositoryId: "repo-1", branchName: "feature-a", path: "/repo/.worktrees/feature-a", label: "feature-a", isMain: false },
+	]);
+
+	// Backend reports the session is still alive
+	listMock.mockResolvedValue([
+		{
+			id: liveTerminalId,
+			workspaceId: "repo-1",
+			worktreeId: "feature-a",
+			cwd: "/repo/.worktrees/feature-a",
+			status: "running",
+			exitCode: null,
+		},
+	]);
+
+	render(<App />);
+
+	await waitFor(() => {
+		// Should NOT create a new terminal — reconnected to the live one
+		expect(createMock).not.toHaveBeenCalled();
+		// Should have called list to discover live sessions
+		expect(listMock).toHaveBeenCalledWith("repo-1");
+	});
+
+	// The adopted session should have a mounted TerminalPane
+	expect(
+		document.querySelector(`[data-terminal-session-id="${liveTerminalId}"]`),
+	).toBeInTheDocument();
+
+	// No command replay — the agent is already running
+	expect(sendInputMock).not.toHaveBeenCalled();
+});
+```
+
+- [ ] **Step 3: Write failing test — falls back to fresh creation when session is dead**
+
+```typescript
+it("falls back to fresh creation when persisted terminal session is no longer alive", async () => {
+	readRestoreStateMock.mockResolvedValue({
+		version: 2,
+		restorePreference: "alwaysRestore",
+		activeWorkspaceId: "ws-main",
+		workspaceOrder: ["ws-main"],
+		workspaces: [{
+			workspaceId: "ws-main",
+			repositoryPath: "/repo",
+			repoId: null,
+			snapshot: {
+				repositoryPath: "/repo",
+				selectedWorktreeId: "feature-a",
+				commandPresets: [],
+				worktreeSessions: [
+					{
+						worktreeId: "feature-a",
+						note: "",
+						reviewMode: "files",
+						viewerMode: "file",
+						selectedFilePath: null,
+						selectedChangedFilePath: null,
+						selectedCommitSha: null,
+						selectedCommitFilePath: null,
+						activeProcessSessionId: "process-1",
+						terminalLayoutMode: "single",
+						splitLeftProcessId: null,
+						splitRightProcessId: null,
+						nextAdHocNumber: 2,
+						processSessions: [
+							{
+								id: "process-1",
+								origin: "adHoc",
+								presetId: null,
+								label: "shell 1",
+								command: "claude",
+								pinned: false,
+								terminalSessionId: "dead-terminal-xyz",
+							},
+						],
+					},
+				],
+			},
+		}],
+	});
+	openRepositoryMock.mockResolvedValue({
+		workspaceId: "repo-1",
+		repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null },
+	});
+	listWorktreesMock.mockResolvedValue([
+		{ id: "feature-a", repositoryId: "repo-1", branchName: "feature-a", path: "/repo/.worktrees/feature-a", label: "feature-a", isMain: false },
+	]);
+
+	// Backend reports no live sessions — the terminal died
+	listMock.mockResolvedValue([]);
+
+	render(<App />);
+
+	await waitFor(() => {
+		// Should fall back to creating a new terminal
+		expect(createMock).toHaveBeenCalledWith("repo-1", "feature-a", "/repo/.worktrees/feature-a");
+	});
+	// Should replay the command since this is a fresh terminal
+	expect(sendInputMock).toHaveBeenCalledWith(
+		expect.stringContaining("terminal-feature-a"),
+		"claude\n",
+	);
+});
+```
+
+- [ ] **Step 4: Run tests to verify they fail**
+
+Run: `npx vitest run tests/unit/components/App-restore.test.tsx`
+Expected: FAIL — reconnection logic not yet in `recreatePersistedProcesses` (these tests depend on Task 5 being complete; run after Task 5)
+
+Note: If running in plan order (Tasks 1-7 already done), both tests should pass. If running before Task 5, they will fail as expected.
+
+- [ ] **Step 5: Verify tests pass (after Task 5 implementation)**
+
+Run: `npx vitest run tests/unit/components/App-restore.test.tsx`
+Expected: All PASS including new reconnection tests
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add tests/unit/components/App-restore.test.tsx
+git commit -m "test: integration tests for reconnect-first terminal restore"
+```
+
+---
+
+### Task 9: E2E test — terminal survives renderer reload
+
+**Files:**
+- Create: `tests/e2e/terminal-session-resilience.test.ts`
+
+This test follows the existing cumulative-flow pattern: launch Electron, interact, verify. The key difference is it triggers a renderer reload mid-session and verifies the terminal reconnects.
+
+- [ ] **Step 1: Write the e2e test**
+
+Create `tests/e2e/terminal-session-resilience.test.ts`:
+
+```typescript
+import {
+	test,
+	expect,
+	_electron as electron,
+	type ElectronApplication,
+	type Page,
+} from "@playwright/test";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
+
+let app: ElectronApplication | undefined;
+let page: Page;
+let testRepo: TestRepo;
+let persistedStateDir: string;
+let persistedStatePath: string;
+
+test.beforeAll(async () => {
+	testRepo = createTestRepo();
+	persistedStateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-resilience-")));
+	persistedStatePath = join(persistedStateDir, "workspace-state.json");
+
+	app = await electron.launch({
+		args: ["out/main/index.js"],
+		env: {
+			...process.env,
+			AI14ALL_E2E: "1",
+			AI14ALL_WORKSPACE_STATE_PATH: persistedStatePath,
+		},
+	});
+	page = await app.firstWindow();
+}, 60_000);
+
+test.afterAll(async () => {
+	try {
+		if (app) {
+			const proc = app.process();
+			await Promise.race([
+				app.close(),
+				new Promise<void>((resolve) => setTimeout(resolve, 10_000)),
+			]);
+			if (!proc.killed) proc.kill("SIGKILL");
+			app = undefined;
+		}
+	} finally {
+		rmSync(persistedStateDir, { recursive: true, force: true });
+		testRepo.cleanup();
+	}
+});
+
+test.describe.serial("Terminal session resilience", () => {
+	test.describe.configure({ timeout: 120_000 });
+
+	test("terminal survives renderer reload and remains interactive", async () => {
+		// Load a workspace
+		await page.locator("#repo-path").fill(testRepo.repoPath);
+		await page.getByRole("button", { name: "Load" }).click();
+
+		// Wait for a terminal tab to appear (auto-created shell)
+		await expect(
+			page.getByRole("tab", { name: "shell 1" }),
+		).toBeVisible({ timeout: 10_000 });
+
+		// Send a marker command so we can verify the terminal is the same PTY
+		const marker = `echo RESILIENCE_MARKER_${Date.now()}`;
+		// Find the terminal pane and type into it
+		const terminalPane = page.locator(".shell-terminal-pane").first();
+		await terminalPane.click();
+		await page.keyboard.type(marker);
+		await page.keyboard.press("Enter");
+
+		// Wait for the marker to appear in terminal output
+		await expect(terminalPane).toContainText("RESILIENCE_MARKER", { timeout: 5_000 });
+
+		// Force a renderer reload (Cmd+R equivalent)
+		await page.reload();
+
+		// After reload, the terminal tab should reappear (reconnected)
+		await expect(
+			page.getByRole("tab", { name: "shell 1" }),
+		).toBeVisible({ timeout: 15_000 });
+
+		// Send another command to verify the terminal is interactive
+		const postReloadMarker = `echo POST_RELOAD_${Date.now()}`;
+		const terminalPaneAfter = page.locator(".shell-terminal-pane").first();
+		await terminalPaneAfter.click();
+		await page.keyboard.type(postReloadMarker);
+		await page.keyboard.press("Enter");
+
+		// Verify the post-reload command output appears
+		await expect(terminalPaneAfter).toContainText("POST_RELOAD", { timeout: 5_000 });
+	});
+});
+```
+
+- [ ] **Step 2: Run the e2e test**
+
+Run: `pnpm test:e2e -- --grep "Terminal session resilience"`
+Expected: PASS — terminal survives reload and accepts new input
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add tests/e2e/terminal-session-resilience.test.ts
+git commit -m "test(e2e): terminal survives renderer reload and remains interactive"
+```
+
+---
+
+### Task 10: Manual verification
 
 Not automated — run manually in dev mode.
 
