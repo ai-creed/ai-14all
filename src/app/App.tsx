@@ -48,12 +48,14 @@ import { RemoveWorktreeDialog } from "../features/workspace/RemoveWorktreeDialog
 import { LoadWorkspaceDialog } from "../features/workspace/LoadWorkspaceDialog";
 import { useTerminalSession } from "../features/terminals/useTerminalSession";
 import { deriveAttentionState } from "../features/terminals/process-attention";
+import { consumeOutputPreview } from "../features/terminals/output-preview";
 import { FileList } from "../features/viewer/FileList";
 import { FileViewer } from "../features/viewer/FileViewer";
 import { ChangesList } from "../features/git/ChangesList";
 import { DiffViewer } from "../features/viewer/DiffViewer";
 import { CommitList } from "../features/git/CommitList";
 import { CommitDiffStack } from "../features/git/CommitDiffStack";
+import { buildWorktreeProcessSummary } from "../features/workspace/sidebar-shell-summary";
 import type { GitCommitHistory, GitCommitDetail } from "../../shared/models/git-commit-review";
 import { git, terminals, workspace, repository as repositoryClient } from "../lib/desktop-client";
 import { logRendererShellEvent } from "../features/terminals/shell-event-logger";
@@ -76,6 +78,7 @@ export function App() {
 	const [reviewPanelHeight, setReviewPanelHeight] = useState(280);
 	const [reviewPanelCollapsed, setReviewPanelCollapsed] = useState(false);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+	const [sidebarNow, setSidebarNow] = useState(() => Date.now());
 
 	// Multi-workspace registry
 	const [appWorkspaces, dispatchAppWorkspaces] = useReducer(
@@ -107,6 +110,7 @@ export function App() {
 	// the onOutput/onExit else branches so burst events accumulate rather than
 	// overwriting each other before the next React render.
 	const inactiveWorkspaceStatesRef = useRef<Map<string, WorkspaceState>>(new Map());
+	const outputPreviewBuffersRef = useRef<Map<string, string>>(new Map());
 	// Reset the shadow ref whenever the active workspace changes (e.g. workspace
 	// switch or initial register). The workspaceState derived from the render is
 	// authoritative at render time.
@@ -120,6 +124,13 @@ export function App() {
 			inactiveWorkspaceStatesRef.current.delete(appWorkspaces.activeWorkspaceId);
 		}
 	}
+
+	useEffect(() => {
+		const interval = window.setInterval(() => {
+			setSidebarNow(Date.now());
+		}, 1_000);
+		return () => window.clearInterval(interval);
+	}, []);
 
 	// Stable dispatch wrapper — always applies to the shadow ref so sequential
 	// async calls accumulate correctly without waiting for React to re-render.
@@ -363,21 +374,29 @@ export function App() {
 	}
 
 	const { sessions, createSession, sendInput, stopSession, removeSession, adoptSession } =
-		useTerminalSession({
-			onOutput: (event) => {
-				const found = findProcessByTerminalSessionId(event.sessionId);
-				if (!found) return;
-				const { process, workspaceId: ownerWsId } = found;
-				const action: WorkspaceAction = {
-					type: "session/recordProcessOutput",
-					worktreeId: process.worktreeId,
-					processId: process.id,
+			useTerminalSession({
+				onOutput: (event) => {
+					const found = findProcessByTerminalSessionId(event.sessionId);
+					if (!found) return;
+					const priorBuffer = outputPreviewBuffersRef.current.get(event.sessionId) ?? "";
+					const previewUpdate = consumeOutputPreview(priorBuffer, event.data);
+					if (previewUpdate.nextBuffer) {
+						outputPreviewBuffersRef.current.set(event.sessionId, previewUpdate.nextBuffer);
+					} else {
+						outputPreviewBuffersRef.current.delete(event.sessionId);
+					}
+					const { process, workspaceId: ownerWsId } = found;
+					const action: WorkspaceAction = {
+						type: "session/recordProcessOutput",
+						worktreeId: process.worktreeId,
+						processId: process.id,
 					attentionState: deriveAttentionState(event.data),
-					at: Date.now(),
-					isViewed:
-						visibleProcessIds.includes(process.id) &&
-						process.worktreeId === activeWorktree?.id,
-				};
+						at: Date.now(),
+						isViewed:
+							visibleProcessIds.includes(process.id) &&
+							process.worktreeId === activeWorktree?.id,
+						lastOutputPreview: previewUpdate.preview,
+					};
 				if (ownerWsId === appWorkspacesRef.current.activeWorkspaceId) {
 					dispatch(action);
 				} else {
@@ -397,11 +416,12 @@ export function App() {
 					});
 				}
 			},
-			onExit: (event) => {
-				const found = findProcessByTerminalSessionId(event.sessionId);
-				if (!found) return;
-				const { process, workspaceId: ownerWsId } = found;
-				const action: WorkspaceAction = {
+				onExit: (event) => {
+					const found = findProcessByTerminalSessionId(event.sessionId);
+					if (!found) return;
+					outputPreviewBuffersRef.current.delete(event.sessionId);
+					const { process, workspaceId: ownerWsId } = found;
+					const action: WorkspaceAction = {
 					type: "session/updateProcessStatus",
 					processId: process.id,
 					status: "exited",
@@ -422,16 +442,43 @@ export function App() {
 						workspaceState: nextState,
 					});
 				}
-				void logBindingChange({
-					reasonKind: "process_exit",
-					reason: "pty_exit",
+					void logBindingChange({
+						reasonKind: "process_exit",
+						reason: "pty_exit",
 					isExpected: false,
 					expectedBecause: null,
 					previousBinding: { terminalSessionId: event.sessionId, processId: process.id, workspaceId: ownerWsId },
-					nextBinding: null,
-				});
-			},
-		});
+						nextBinding: null,
+					});
+				},
+				onError: (event) => {
+					const found = findProcessByTerminalSessionId(event.sessionId);
+					if (!found) return;
+					outputPreviewBuffersRef.current.delete(event.sessionId);
+					const { process, workspaceId: ownerWsId } = found;
+					const action: WorkspaceAction = {
+						type: "session/updateProcessStatus",
+						processId: process.id,
+						status: "error",
+						exitCode: null,
+					};
+					if (ownerWsId === appWorkspacesRef.current.activeWorkspaceId) {
+						dispatch(action);
+					} else {
+						const baseState =
+							inactiveWorkspaceStatesRef.current.get(ownerWsId) ??
+							appWorkspacesRef.current.workspacesById[ownerWsId]?.workspaceState;
+						if (!baseState) return;
+						const nextState = workspaceReducer(baseState, action);
+						inactiveWorkspaceStatesRef.current.set(ownerWsId, nextState);
+						dispatchAppWorkspaces({
+							type: "workspace/updateWorkspaceState",
+							workspaceId: ownerWsId,
+							workspaceState: nextState,
+						});
+					}
+				},
+			});
 	const orderedSessions =
 		activeSession?.terminalLayoutMode === "split"
 			? [
@@ -1586,12 +1633,13 @@ export function App() {
 				) {
 					await stopSession(terminalId);
 				}
-			} catch (err) {
-				console.error("Failed to stop terminal session:", err);
-			} finally {
-				removeSession(terminalId);
+				} catch (err) {
+					console.error("Failed to stop terminal session:", err);
+				} finally {
+					outputPreviewBuffersRef.current.delete(terminalId);
+					removeSession(terminalId);
+				}
 			}
-		}
 		dispatch({
 			type: "session/closeProcess",
 			worktreeId: activeWorktree.id,
@@ -1647,6 +1695,7 @@ export function App() {
 			} catch {
 				// best effort
 			}
+			outputPreviewBuffersRef.current.delete(process.terminalSessionId);
 			removeSession(process.terminalSessionId);
 		}
 
@@ -1757,25 +1806,20 @@ export function App() {
 							),
 						)
 					: {},
-			processesByWorktreeId: ws.workspaceState
-				? Object.fromEntries(
-						Object.entries(ws.workspaceState.sessionsByWorktreeId).map(
-							([worktreeId, session]) => {
-								const processes = session.processSessionIds
-									.map((id) => ws.workspaceState!.processSessionsById[id])
-									.filter(Boolean);
-								return [
-									worktreeId,
-									{
-										activeProcesses: processes
-											.filter((p) => p.status === "running")
-											.map((p) => ({ label: p.label })),
-										inactiveCount: processes.filter((p) => p.status !== "running").length,
-									},
-								];
-							},
-						),
-					)
+				processesByWorktreeId: ws.workspaceState
+					? Object.fromEntries(
+							Object.entries(ws.workspaceState.sessionsByWorktreeId).map(
+								([worktreeId, session]) => {
+									const processes = session.processSessionIds
+										.map((id) => ws.workspaceState!.processSessionsById[id])
+										.filter(Boolean);
+									return [
+										worktreeId,
+										buildWorktreeProcessSummary(processes, sidebarNow, 3),
+									];
+								},
+							),
+						)
 				: {},
 			active: ws.workspaceId === activeWorkspaceId,
 			hydrated: ws.workspaceState !== null,

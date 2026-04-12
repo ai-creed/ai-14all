@@ -70,7 +70,7 @@ These are sidebar-facing derived states, not a new backend process-state source 
 `action required`
 
 - process status is `running`
-- latest attention state is `actionRequired`
+- latched process attention state is `actionRequired`
 - context text shows the last output preview
 
 `active`
@@ -90,17 +90,41 @@ These are sidebar-facing derived states, not a new backend process-state source 
 
 - process status is `exited`, `error`, or `restarting`
 - context text shows `exit 0`, `exit 1`, `error`, or `restarting`
+- `restarting` intentionally shares the `exited` dot treatment; the context text is what distinguishes it
 
 ### Priority Order
 
 When multiple signals are present, the row should resolve using this order:
 
-1. `error` / `exited` / `restarting`
-2. `action required`
+1. `action required`
+2. `error` / `exited` / `restarting`
 3. `active`
 4. `idle`
 
-This keeps the row honest when a process has both older output and a newer terminal lifecycle transition.
+This keeps the row honest while still prioritizing shells that are currently waiting on the user over shells that have already terminated or failed.
+
+### Attention Semantics
+
+The sidebar should use the existing latched `ProcessSession.attentionState`, not a new "latest chunk only" interpretation.
+
+That means:
+
+- if a running shell has reached `actionRequired`, the row stays `action required` until the user views that shell or another existing action explicitly clears that attention state
+- newer non-action output should not downgrade the row from `action required` to `active` by itself
+
+This matches the current session-attention model and avoids prompts briefly flashing red and then disappearing before the user notices them.
+
+### Time Base And Refresh Cadence
+
+Because `active` and `idle` are time-derived sidebar states, the renderer must have a lightweight notion of "now" while the sidebar is visible.
+
+Recommended behavior:
+
+- derive shell-summary state against a renderer `now` timestamp
+- refresh that `now` value on a lightweight cadence such as once per second
+- keep this as UI-only state; do not dispatch reducer actions just to age rows from `active` to `idle`
+
+Without a periodic renderer tick, rows would remain stale until unrelated output or UI updates happen.
 
 ## Dot Semantics
 
@@ -142,6 +166,15 @@ This field should not store scrollback or broad history.
 
 It should hold only the latest useful single-line preview for sidebar display.
 
+`lastOutputPreview` is renderer runtime state, not durable session history.
+
+Persistence rule:
+
+- do not add `lastOutputPreview` to saved workspace snapshot schemas
+- on restore or reconnect, initialize it as `null` and repopulate it from future terminal output
+
+This keeps persistence lean and avoids turning a sidebar hint into quasi-scrollback.
+
 ### Preview Extraction Rules
 
 On terminal output:
@@ -154,6 +187,18 @@ On terminal output:
 - ignore blank or obviously useless noise-only lines
 
 If no useful preview line is available from a given output chunk, keep the prior preview. Do not clear the stored preview on empty or noise-only output chunks, because that would make active rows flicker and reduce sidebar usefulness.
+
+Because terminal output events are chunked rather than line-aware, preview extraction should operate on complete visible lines, not blindly on each raw chunk.
+
+Implementation guidance:
+
+- keep a small ephemeral trailing-fragment buffer per live terminal session in the output handling path
+- append each incoming chunk to that buffer before extracting lines
+- update `lastOutputPreview` only from complete visible lines
+- retain an unterminated trailing fragment in the buffer for the next chunk
+- do not persist that buffer and do not add it to `ProcessSession` unless another feature later needs it
+
+This avoids sidebar previews showing broken partial words or half-rendered prompts when a shell emits fragmented output.
 
 ## Worktree Card Behavior
 
@@ -177,6 +222,7 @@ Recommended scope:
 - extend `ProcessSession` with `lastOutputPreview`
 - update that field from the existing terminal output event path
 - derive sidebar shell-summary state from `status`, `attentionState`, `lastActivityAt`, and `lastOutputPreview`
+- add a lightweight renderer-side clock tick for time-based `active` and `idle` presentation
 - keep Electron main, preload, and IPC thin unless implementation reveals a genuine shared-contract need
 
 Do not add:
@@ -184,6 +230,7 @@ Do not add:
 - a provider-aware agent-state system
 - a new backend summary service
 - a second sidebar-specific state store
+- persisted sidebar preview history
 
 ## Testing
 
@@ -192,20 +239,23 @@ Do not add:
 1. Derived row-state logic resolves `action required`, `active`, `idle after 10s`, and `exited` correctly
 2. Quiet-age formatting is stable and readable
 3. Preview extraction strips ANSI sequences, skips empty lines, and truncates as expected
+4. Latched `action required` state stays red until the process is viewed
+5. Chunked terminal output does not produce broken partial preview text
 
 ### Component tests
 
-4. Sidebar rows render dot semantics correctly for all four states
-5. Rows show last-output preview for `action required` and `active`
-6. Rows show quiet-age context for `idle`
-7. Rows show exit context for `exited`
-8. Rows sort by severity and recency as intended
+6. Sidebar rows render dot semantics correctly for all four states
+7. Rows show last-output preview for `action required` and `active`
+8. Rows show quiet-age context for `idle`
+9. Rows show exit context for `exited`
+10. A renderer clock tick causes an `active` row to age into `idle` without requiring new output
+11. Rows sort by severity and recency as intended
 
 ### E2E coverage
 
-9. A shell producing output appears as active in the sidebar
-10. After `10s` of quiet, that shell appears as idle with a quiet-age hint
-11. A prompt or failure message surfaces as action-required in the sidebar
+12. A shell producing output appears as active in the sidebar
+13. After `10s` of quiet, that shell appears as idle with a quiet-age hint
+14. A prompt or failure message surfaces as action-required in the sidebar and stays surfaced until viewed
 
 ## UX Outcome
 

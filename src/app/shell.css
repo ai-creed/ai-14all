@@ -593,7 +593,7 @@ select {
 	align-items: center;
 	gap: var(--space-1);
 	font-size: 0.75rem;
-	color: var(--text-secondary);
+	min-width: 0;
 }
 
 .shell-sidebar__process-indicator {
@@ -604,13 +604,37 @@ select {
 	flex-shrink: 0;
 }
 
+.shell-sidebar__process-indicator[data-state="actionRequired"] {
+	background: var(--danger);
+}
+
+.shell-sidebar__process-indicator[data-state="active"] {
+	background: var(--accent);
+}
+
+.shell-sidebar__process-indicator[data-state="idle"] {
+	background: var(--text-muted);
+}
+
+.shell-sidebar__process-indicator[data-state="exited"] {
+	background: transparent;
+	border: 1px solid var(--text-muted);
+}
+
 .shell-sidebar__process-label {
+	color: var(--text-primary);
+	flex-shrink: 0;
+}
+
+.shell-sidebar__process-context {
+	color: var(--text-muted);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	min-width: 0;
 }
 
-.shell-sidebar__process--inactive {
+.shell-sidebar__process--overflow {
 	color: var(--text-muted);
 	font-size: 0.7rem;
 }

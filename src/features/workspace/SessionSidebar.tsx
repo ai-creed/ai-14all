@@ -1,11 +1,7 @@
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import type { Worktree } from "../../../shared/models/worktree";
 import type { ProcessAttentionState } from "../../../shared/models/process-session";
-
-type WorktreeProcessSummary = {
-	activeProcesses: { label: string }[];
-	inactiveCount: number;
-};
+import type { WorktreeProcessSummary } from "./sidebar-shell-summary";
 
 export type SessionSidebarWorkspace = {
 	workspaceId: string;
@@ -106,7 +102,7 @@ export function SessionSidebar({
 							{workspace.worktrees.map((worktree) => {
 								const selected =
 									workspace.active && worktree.id === workspace.selectedWorktreeId;
-								const summary = workspace.processesByWorktreeId?.[worktree.id];
+									const summary = workspace.processesByWorktreeId?.[worktree.id];
 								const item = (
 									<button
 										type="button"
@@ -121,20 +117,29 @@ export function SessionSidebar({
 											{worktree.branchName !== worktree.label && (
 												<div className="shell-sidebar__branch">{worktree.branchName}</div>
 											)}
-											{summary && (
-												<div className="shell-sidebar__processes">
-													{summary.activeProcesses.map((proc, i) => (
-														<div key={i} className="shell-sidebar__process">
-															<span data-testid="process-running-indicator" className="shell-sidebar__process-indicator" />
-															<span className="shell-sidebar__process-label">{proc.label}</span>
-														</div>
-													))}
-													{summary.inactiveCount > 0 && (
-														<div className="shell-sidebar__process shell-sidebar__process--inactive">
-															{summary.inactiveCount} inactive shell{summary.inactiveCount === 1 ? "" : "s"}
-														</div>
-													)}
-												</div>
+												{summary && (
+													<div className="shell-sidebar__processes">
+														{summary.rows.map((row) => (
+															<div key={row.id} className="shell-sidebar__process">
+																<span
+																	data-testid="process-state-indicator"
+																	className="shell-sidebar__process-indicator"
+																	data-state={row.state}
+																/>
+																<span className="shell-sidebar__process-label">{row.label}</span>
+																{row.context ? (
+																	<span className="shell-sidebar__process-context">
+																		{row.context}
+																	</span>
+																) : null}
+															</div>
+														))}
+														{summary.overflowCount > 0 && (
+															<div className="shell-sidebar__process shell-sidebar__process--overflow">
+																{summary.overflowCount} more shell{summary.overflowCount === 1 ? "" : "s"}
+															</div>
+														)}
+													</div>
 											)}
 										</>}
 									</button>
