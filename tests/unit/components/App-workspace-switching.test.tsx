@@ -26,6 +26,7 @@ const listWorktreesMock = vi.hoisted(() => vi.fn());
 const readRestoreStateMock = vi.hoisted(() => vi.fn());
 const writeRestoreStateMock = vi.hoisted(() => vi.fn());
 const createMock = vi.hoisted(() => vi.fn());
+const diagnosticsLogMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 
 vi.mock("../../../src/lib/desktop-client", () => ({
 	workspace: {
@@ -69,6 +70,9 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		list: vi.fn().mockResolvedValue([]),
 		listScoped: vi.fn().mockResolvedValue([]),
 		read: vi.fn(),
+	},
+	diagnostics: {
+		logShellEvent: diagnosticsLogMock,
 	},
 }));
 
@@ -297,6 +301,61 @@ describe("workspace switching", () => {
 		await waitFor(() => {
 			expect(repoAGroup).toHaveAttribute("data-active-workspace", "true");
 			expect(repoBGroup).toHaveAttribute("data-active-workspace", "false");
+		});
+	});
+
+	it("logs workspace selection as a user_action transition", async () => {
+		openRepositoryMock
+			.mockResolvedValueOnce({
+				workspaceId: "ws-a",
+				repository: { id: "repo-a", name: "repo-a", rootPath: "/repo-a", repoId: "repo-id-a" },
+			})
+			.mockResolvedValueOnce({
+				workspaceId: "ws-b",
+				repository: { id: "repo-b", name: "repo-b", rootPath: "/repo-b", repoId: "repo-id-b" },
+			});
+		listWorktreesMock
+			.mockResolvedValueOnce([{ id: "/repo-a", repositoryId: "repo-a", branchName: "main", path: "/repo-a", label: "main", isMain: true }])
+			.mockResolvedValueOnce([{ id: "/repo-b", repositoryId: "repo-b", branchName: "stable", path: "/repo-b", label: "stable", isMain: true }]);
+
+		let onOpenPickerCallback: (() => void) | undefined;
+		const { workspace: workspaceMock } = await import("../../../src/lib/desktop-client");
+		vi.mocked(workspaceMock.onOpenPicker).mockImplementation((cb) => {
+			onOpenPickerCallback = cb as () => void;
+			return () => {};
+		});
+
+		render(<App />);
+
+		await userEvent.type(await screen.findByLabelText(/repository path/i), "/repo-a");
+		await userEvent.click(screen.getByRole("button", { name: "Load" }));
+		await screen.findByRole("group", { name: "repo-a" });
+
+		onOpenPickerCallback?.();
+		await userEvent.type(await screen.findByLabelText(/repository path/i), "/repo-b");
+		await userEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		const sidebar = screen.getByRole("navigation", { name: "Worktree sessions" });
+		const repoBGroup = await within(sidebar).findByRole("group", { name: "repo-b" });
+		const repoAGroup = within(sidebar).getByRole("group", { name: "repo-a" });
+
+		// Switch to repo-a first so that clicking stable in repoBGroup is a cross-workspace switch
+		await userEvent.click(within(repoAGroup).getByRole("button", { name: /main/i }));
+		await waitFor(() => {
+			expect(repoAGroup).toHaveAttribute("data-active-workspace", "true");
+		});
+
+		diagnosticsLogMock.mockClear();
+		await userEvent.click(within(repoBGroup).getByRole("button", { name: /stable/i }));
+
+		await waitFor(() => {
+			expect(diagnosticsLogMock).toHaveBeenCalledWith(
+				expect.objectContaining({
+					event: "workspace-select",
+					reasonKind: "user_action",
+					reason: "workspace_switch",
+				}),
+			);
 		});
 	});
 

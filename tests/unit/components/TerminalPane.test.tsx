@@ -6,6 +6,7 @@ const {
 	resizeMock,
 	sendInputMock,
 	onOutputMock,
+	logShellEventMock,
 	fitMock,
 	xtermWriteMock,
 	xtermDisposeMock,
@@ -22,6 +23,7 @@ const {
 	resizeMock: vi.fn(() => Promise.resolve()),
 	sendInputMock: vi.fn(() => Promise.resolve()),
 	onOutputMock: vi.fn(() => vi.fn()),
+	logShellEventMock: vi.fn(() => Promise.resolve()),
 	fitMock: vi.fn(),
 	xtermWriteMock: vi.fn(),
 	xtermDisposeMock: vi.fn(),
@@ -70,6 +72,9 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 			workspaces: [],
 		}),
 		writeRestoreState: vi.fn(),
+	},
+	diagnostics: {
+		logShellEvent: logShellEventMock,
 	},
 }));
 
@@ -419,5 +424,24 @@ describe("TerminalPane", () => {
 
 		expect(fitMock).toHaveBeenCalled();
 		expect(xtermScrollToBottomMock).not.toHaveBeenCalled();
+	});
+
+	it("logs mount and unmount with pane instance metadata", () => {
+		const session = makeSession();
+		logShellEventMock.mockClear();
+		const { unmount } = render(<TerminalPane session={session} visible={true} />);
+
+		expect(logShellEventMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				event: "renderer-terminal-mounted",
+				source: "renderer",
+				data: expect.objectContaining({ terminalSessionId: "term-1" }),
+			}),
+		);
+
+		unmount();
+		expect(logShellEventMock).toHaveBeenCalledWith(
+			expect.objectContaining({ event: "renderer-terminal-unmounted" }),
+		);
 	});
 });

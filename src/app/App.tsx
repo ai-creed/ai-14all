@@ -56,6 +56,7 @@ import { CommitList } from "../features/git/CommitList";
 import { CommitDiffStack } from "../features/git/CommitDiffStack";
 import type { GitCommitHistory, GitCommitDetail } from "../../shared/models/git-commit-review";
 import { git, terminals, workspace, repository as repositoryClient } from "../lib/desktop-client";
+import { logRendererShellEvent } from "../features/terminals/shell-event-logger";
 import { useTheme } from "../lib/useTheme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
 
@@ -203,6 +204,15 @@ export function App() {
 	// ---------------------------------------------------------------------------
 
 	useEffect(() => {
+		void logRendererShellEvent({
+			event: "renderer-start",
+			windowId: null,
+			data: { activeWorkspaceId: appWorkspacesRef.current.activeWorkspaceId },
+		});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	useEffect(() => {
 		let cancelled = false;
 
 		void workspace.readRestoreState().then(async (result) => {
@@ -237,9 +247,12 @@ export function App() {
 			// still owns live terminal sessions for the saved workspace.
 			if (activeSaved?.workspaceId) {
 				try {
+					void logRendererShellEvent({ event: "renderer-reconnect-list-start", windowId: null, data: { targetWorkspaceId: activeSaved.workspaceId } });
 					const liveSessions = await terminals.list(activeSaved.workspaceId);
 					if (cancelled) return;
+					void logRendererShellEvent({ event: "renderer-reconnect-list-success", windowId: null, data: { targetWorkspaceId: activeSaved.workspaceId, liveBackendSessionIds: liveSessions.map((s) => s.id) } });
 					if (liveSessions.length > 0) {
+						void logRendererShellEvent({ event: "renderer-reload-detected", windowId: null, reasonKind: "window_lifecycle", reason: "renderer_reload", data: { targetWorkspaceId: activeSaved.workspaceId, liveSessionCount: liveSessions.length } });
 						void restoreWorkspace(snapshot, result.restorePreference, dormantSaved);
 						return;
 					}
@@ -742,8 +755,10 @@ export function App() {
 	) {
 		let liveSessions: Map<string, TerminalSession> = new Map();
 		try {
+			void logRendererShellEvent({ event: "renderer-reconnect-list-start", windowId: null, data: { targetWorkspaceId } });
 			const list = await terminals.list(targetWorkspaceId);
 			liveSessions = new Map(list.map((session) => [session.id, session]));
+			void logRendererShellEvent({ event: "renderer-reconnect-list-success", windowId: null, data: { targetWorkspaceId, liveBackendSessionIds: list.map((s) => s.id) } });
 		} catch {
 			// Fall back to fresh creation when the backend cannot enumerate sessions.
 		}
@@ -755,6 +770,7 @@ export function App() {
 					: undefined;
 
 				if (liveSession) {
+					void logRendererShellEvent({ event: "renderer-reconnect-adopt", windowId: null, reasonKind: "system_reconnect", reason: "renderer_reload", data: { terminalSessionId: liveSession.id, processId: process.id } });
 					adoptSession(liveSession);
 					dispatchFn({
 						type: "session/replaceProcessTerminal",
@@ -774,6 +790,7 @@ export function App() {
 						exitCode: liveSession.exitCode,
 					});
 				} else {
+					void logRendererShellEvent({ event: "renderer-reconnect-fallback-create", windowId: null, reasonKind: "system_reconnect", reason: "renderer_reload", data: { processId: process.id, worktreeId: worktree.id } });
 					const terminal = await createSession(targetWorkspaceId, worktree.id, worktree.path);
 					dispatchFn({
 						type: "session/replaceProcessTerminal",
@@ -1058,8 +1075,52 @@ export function App() {
 	}
 
 	useEffect(() => {
-		const handleFocus = () => setWindowFocused(true);
-		const handleBlur = () => setWindowFocused(false);
+		const handleFocus = () => {
+			setWindowFocused(true);
+			void logRendererShellEvent({
+				event: "renderer-window-focus",
+				windowId: null,
+				reasonKind: "window_lifecycle",
+				reason: "app_focus",
+				data: {
+					activeWorkspaceId: appWorkspacesRef.current.activeWorkspaceId,
+					activeWorktreeId: activeWorkspaceStateRef.current.selectedWorktreeId,
+				},
+			});
+			void logRendererShellEvent({
+				event: "app-became-active",
+				windowId: null,
+				reasonKind: "window_lifecycle",
+				reason: "app_focus",
+				data: {
+					activeWorkspaceId: appWorkspacesRef.current.activeWorkspaceId,
+					activeWorktreeId: activeWorkspaceStateRef.current.selectedWorktreeId,
+				},
+			});
+		};
+		const handleBlur = () => {
+			setWindowFocused(false);
+			void logRendererShellEvent({
+				event: "renderer-window-blur",
+				windowId: null,
+				reasonKind: "window_lifecycle",
+				reason: "app_blur",
+				data: {
+					activeWorkspaceId: appWorkspacesRef.current.activeWorkspaceId,
+					activeWorktreeId: activeWorkspaceStateRef.current.selectedWorktreeId,
+				},
+			});
+			void logRendererShellEvent({
+				event: "app-became-inactive",
+				windowId: null,
+				reasonKind: "window_lifecycle",
+				reason: "app_blur",
+				data: {
+					activeWorkspaceId: appWorkspacesRef.current.activeWorkspaceId,
+					activeWorktreeId: activeWorkspaceStateRef.current.selectedWorktreeId,
+				},
+			});
+		};
 		window.addEventListener("focus", handleFocus);
 		window.addEventListener("blur", handleBlur);
 		return () => {
@@ -1158,6 +1219,19 @@ export function App() {
 		if (!targetWorkspaceId) return;
 		const targetWorktrees = targetContext?.worktrees ?? worktrees;
 		const targetWorkspaceState = targetContext?.workspaceState ?? workspaceState;
+
+		void logRendererShellEvent({
+			event: "worktree-select",
+			windowId: null,
+			reasonKind: "user_action",
+			reason: "worktree_switch",
+			data: {
+				activeWorkspaceId: targetWorkspaceId,
+				previousWorktreeId: activeWorkspaceStateRef.current.selectedWorktreeId,
+				nextWorktreeId: worktreeId,
+			},
+		});
+
 		const pending = pendingRestoreSessions[worktreeId];
 		if (pending) {
 			dispatch({ type: "session/restoreSnapshot", workspaceId: targetWorkspaceId, snapshot: pending });
@@ -1201,6 +1275,19 @@ export function App() {
 	}
 
 	async function handleSelectSidebarWorktree(workspaceId: string, worktreeId: string) {
+		const isCrossWorkspace = workspaceId !== appWorkspacesRef.current.activeWorkspaceId;
+		if (isCrossWorkspace) {
+			void logRendererShellEvent({
+				event: "workspace-select",
+				windowId: null,
+				reasonKind: "user_action",
+				reason: "workspace_switch",
+				data: {
+					activeWorkspaceId: appWorkspacesRef.current.activeWorkspaceId,
+					nextWorkspaceId: workspaceId,
+				},
+			});
+		}
 		const targetContext =
 			workspaceId === appWorkspacesRef.current.activeWorkspaceId
 				? {

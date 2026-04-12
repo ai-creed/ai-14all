@@ -4,6 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import "xterm/css/xterm.css";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
 import { terminals } from "../../lib/desktop-client";
+import { logRendererShellEvent } from "./shell-event-logger";
 
 type Props = {
 	session: TerminalSession;
@@ -27,7 +28,35 @@ export function TerminalPane({
 	const termRef = useRef<Terminal | null>(null);
 	const fitAddonRef = useRef<FitAddon | null>(null);
 	const unsubOutputRef = useRef<(() => void) | null>(null);
+	const paneInstanceIdRef = useRef(`pane_${session.id}_${Math.random().toString(36).slice(2, 8)}`);
 	const isLive = session.status === "running" || session.status === "idle";
+
+	// Mount the xterm instance once.
+	useEffect(() => {
+		void logRendererShellEvent({
+			event: "renderer-terminal-mounted",
+			windowId: null,
+			data: {
+				terminalSessionId: session.id,
+				paneInstanceId: paneInstanceIdRef.current,
+				visible,
+			},
+		});
+		return () => {
+			void logRendererShellEvent({
+				event: "renderer-terminal-unmounted",
+				windowId: null,
+				reasonKind: "renderer_drop",
+				reason: "pane_unmounted",
+				data: {
+					terminalSessionId: session.id,
+					paneInstanceId: paneInstanceIdRef.current,
+				},
+			});
+		};
+		// session.id is stable for the lifetime of this component instance.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [session.id]);
 
 	// Mount the xterm instance once.
 	useEffect(() => {
@@ -112,6 +141,15 @@ export function TerminalPane({
 		};
 		// session.id is stable for the lifetime of this component instance.
 	}, [isLive, session.id]);
+
+	// Log pane visibility changes.
+	useEffect(() => {
+		void logRendererShellEvent({
+			event: visible ? "terminal-pane-visible" : "terminal-pane-hidden",
+			windowId: null,
+			data: { terminalSessionId: session.id, paneInstanceId: paneInstanceIdRef.current },
+		});
+	}, [visible, session.id]);
 
 	// Fit + resize PTY when the pane becomes visible.
 	useEffect(() => {

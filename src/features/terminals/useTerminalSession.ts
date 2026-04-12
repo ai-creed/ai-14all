@@ -7,6 +7,7 @@ import type {
 	TerminalErrorEvent,
 } from "../../../shared/contracts/events";
 import { terminals } from "../../lib/desktop-client";
+import { logRendererShellEvent } from "./shell-event-logger";
 
 export type RuntimeListeners = {
 	onOutput?: (event: TerminalOutputEvent) => void;
@@ -78,9 +79,18 @@ export function useTerminalSession(
 		};
 	}, []);
 
+	const sessionsRef = useRef<TerminalSession[]>([]);
+
 	const createSession = useCallback(async (workspaceId: string, worktreeId: string, cwd: string) => {
+		logRendererShellEvent({ event: "renderer-session-create-request", windowId: null, data: { workspaceId, worktreeId, cwd } }).catch(() => {});
 		const session = await terminals.create(workspaceId, worktreeId, cwd);
-		setSessions((prev) => [...prev, session]);
+		setSessions((prev) => {
+			const next = [...prev, session];
+			sessionsRef.current = next;
+			return next;
+		});
+		logRendererShellEvent({ event: "renderer-session-create-success", windowId: null, data: { terminalSessionId: session.id, workspaceId, worktreeId, trackedRendererSessionIds: sessionsRef.current.map((s) => s.id) } }).catch(() => {});
+		logRendererShellEvent({ event: "renderer-session-tracked", windowId: null, data: { terminalSessionId: session.id, trackedRendererSessionIds: sessionsRef.current.map((s) => s.id) } }).catch(() => {});
 		return session;
 	}, []);
 
@@ -95,7 +105,10 @@ export function useTerminalSession(
 	const adoptSession = useCallback((session: TerminalSession) => {
 		setSessions((prev) => {
 			if (prev.some((existing) => existing.id === session.id)) return prev;
-			return [...prev, session];
+			const next = [...prev, session];
+			sessionsRef.current = next;
+			logRendererShellEvent({ event: "renderer-session-adopt", windowId: null, data: { terminalSessionId: session.id, trackedRendererSessionIds: next.map((s) => s.id) } }).catch(() => {});
+			return next;
 		});
 	}, []);
 
