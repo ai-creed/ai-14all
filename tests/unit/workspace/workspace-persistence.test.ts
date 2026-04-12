@@ -58,12 +58,13 @@ describe("buildWorkspaceSnapshot", () => {
 				origin: "adHoc",
 				presetId: null,
 				label: "shell 1",
-				command: null,
-				status: "running",
-				lastActivityAt: 1234,
-				exitCode: null,
-				pinned: false,
-				attentionState: "actionRequired",
+					command: null,
+					status: "running",
+					lastActivityAt: 1234,
+					lastOutputPreview: null,
+					exitCode: null,
+					pinned: false,
+					attentionState: "actionRequired",
 			},
 		});
 		state = workspaceReducer(state, {
@@ -72,10 +73,14 @@ describe("buildWorkspaceSnapshot", () => {
 			note: "resume here",
 		});
 
-		const snapshot = buildWorkspaceSnapshot("/repo", null, state);
+			const snapshot = buildWorkspaceSnapshot("/repo", null, state);
 
-		expect(snapshot).toEqual({
-			repositoryPath: "/repo",
+			expect(
+				snapshot.worktreeSessions[0]?.processSessions[0],
+			).not.toHaveProperty("lastOutputPreview");
+
+			expect(snapshot).toEqual({
+				repositoryPath: "/repo",
 			repoId: null,
 			selectedWorktreeId: "main",
 			topBandCollapsed: false,
@@ -314,12 +319,13 @@ it("includes terminalSessionId in buildWorkspaceSnapshot output", () => {
 			origin: "adHoc",
 			presetId: null,
 			label: "shell 1",
-			command: "claude",
-			status: "running",
-			lastActivityAt: 1234,
-			exitCode: null,
-			pinned: false,
-			attentionState: "idle",
+				command: "claude",
+				status: "running",
+				lastActivityAt: 1234,
+				lastOutputPreview: null,
+				exitCode: null,
+				pinned: false,
+				attentionState: "idle",
 		},
 	});
 
@@ -349,12 +355,13 @@ it("serializes split-shell layout fields into the workspace snapshot", () => {
 				terminalSessionId: "terminal-1",
 			origin: "adHoc",
 			presetId: null,
-			label: "shell 1",
-			command: null,
-			status: "running",
-			lastActivityAt: null,
-			exitCode: null,
-			pinned: false,
+				label: "shell 1",
+				command: null,
+				status: "running",
+				lastActivityAt: null,
+				lastOutputPreview: null,
+				exitCode: null,
+				pinned: false,
 			attentionState: "idle",
 		},
 	});

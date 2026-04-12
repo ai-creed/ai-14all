@@ -66,14 +66,15 @@ export type WorkspaceAction =
 			status: ProcessSession["status"];
 			exitCode?: number | null;
 	  }
-	| {
-			type: "session/recordProcessOutput";
-			worktreeId: string;
-			processId: string;
-			attentionState: ProcessAttentionState;
-			at: number;
-			isViewed: boolean;
-	  }
+		| {
+				type: "session/recordProcessOutput";
+				worktreeId: string;
+				processId: string;
+				attentionState: ProcessAttentionState;
+				at: number;
+				isViewed: boolean;
+				lastOutputPreview?: string;
+		  }
 	| {
 			type: "session/markProcessViewed";
 			worktreeId: string;
@@ -212,21 +213,22 @@ function restorePersistedSession(
 
 	const nextProcessSessionsById = { ...state.processSessionsById };
 	for (const process of snapshot.processSessions) {
-		nextProcessSessionsById[process.id] = {
-			id: process.id,
-			workspaceId,
-			worktreeId: snapshot.worktreeId,
-			terminalSessionId: null,
+			nextProcessSessionsById[process.id] = {
+				id: process.id,
+				workspaceId,
+				worktreeId: snapshot.worktreeId,
+				terminalSessionId: null,
 			origin: process.origin,
 			presetId: process.presetId,
 			label: process.label,
-			command: process.command,
-			status: "restarting",
-			lastActivityAt: null,
-			exitCode: null,
-			pinned: process.pinned,
-			attentionState: "idle",
-		};
+				command: process.command,
+				status: "restarting",
+				lastActivityAt: null,
+				lastOutputPreview: null,
+				exitCode: null,
+				pinned: process.pinned,
+				attentionState: "idle",
+			};
 	}
 
 	const nextSession: WorktreeSession = {
@@ -593,12 +595,15 @@ export function workspaceReducer(
 				: process.attentionState;
 		const nextProcessSessionsById = {
 			...state.processSessionsById,
-			[action.processId]: {
-				...process,
-				attentionState: nextAttention,
-				lastActivityAt: action.at,
-			},
-		};
+				[action.processId]: {
+					...process,
+					attentionState: nextAttention,
+					lastActivityAt: action.at,
+					...(action.lastOutputPreview !== undefined
+						? { lastOutputPreview: action.lastOutputPreview }
+						: {}),
+				},
+			};
 		const nextSession: WorktreeSession = {
 			...session,
 			attentionState: recalculateWorktreeAttention(

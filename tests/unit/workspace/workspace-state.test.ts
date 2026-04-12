@@ -48,12 +48,13 @@ function makeProcess(
 		origin: "adHoc",
 		presetId: null,
 		label,
-		command: null,
-		status: "running",
-		lastActivityAt: null,
-		exitCode: null,
-		pinned: false,
-		attentionState: "idle",
+			command: null,
+			status: "running",
+			lastActivityAt: null,
+			lastOutputPreview: null,
+			exitCode: null,
+			pinned: false,
+			attentionState: "idle",
 	};
 }
 
@@ -118,12 +119,13 @@ describe("workspaceReducer", () => {
 				origin: "adHoc",
 				presetId: null,
 				label: "shell 1",
-				command: null,
-				status: "running",
-				lastActivityAt: null,
-				exitCode: null,
-				pinned: false,
-				attentionState: "idle",
+					command: null,
+					status: "running",
+					lastActivityAt: null,
+					lastOutputPreview: null,
+					exitCode: null,
+					pinned: false,
+					attentionState: "idle",
 			},
 		});
 		state = workspaceReducer(state, {
@@ -137,12 +139,13 @@ describe("workspaceReducer", () => {
 				origin: "adHoc",
 				presetId: null,
 				label: "shell 2",
-				command: null,
-				status: "running",
-				lastActivityAt: null,
-				exitCode: null,
-				pinned: false,
-				attentionState: "idle",
+					command: null,
+					status: "running",
+					lastActivityAt: null,
+					lastOutputPreview: null,
+					exitCode: null,
+					pinned: false,
+					attentionState: "idle",
 			},
 		});
 		state = workspaceReducer(state, {
@@ -172,12 +175,13 @@ describe("workspaceReducer", () => {
 				origin: "adHoc",
 				presetId: null,
 				label: "shell 1",
-				command: null,
-				status: "running",
-				lastActivityAt: null,
-				exitCode: null,
-				pinned: false,
-				attentionState: "idle",
+					command: null,
+					status: "running",
+					lastActivityAt: null,
+					lastOutputPreview: null,
+					exitCode: null,
+					pinned: false,
+					attentionState: "idle",
 			},
 		});
 
@@ -310,12 +314,13 @@ describe("workspaceReducer — Phase 3 process model", () => {
 				origin: "preset",
 				presetId: "preset-claude",
 				label: "Claude",
-				command: "claude",
-				status: "running",
-				lastActivityAt: null,
-				exitCode: null,
-				pinned: true,
-				attentionState: "idle",
+					command: "claude",
+					status: "running",
+					lastActivityAt: null,
+					lastOutputPreview: null,
+					exitCode: null,
+					pinned: true,
+					attentionState: "idle",
 			},
 		});
 		expect(state.processSessionsById["process-1"]?.pinned).toBe(true);
@@ -337,12 +342,13 @@ describe("workspaceReducer — Phase 3 process model", () => {
 				origin: "preset",
 				presetId: "preset-claude",
 				label: "Claude",
-				command: "claude",
-				status: "running",
-				lastActivityAt: null,
-				exitCode: null,
-				pinned: true,
-				attentionState: "idle",
+					command: "claude",
+					status: "running",
+					lastActivityAt: null,
+					lastOutputPreview: null,
+					exitCode: null,
+					pinned: true,
+					attentionState: "idle",
 			},
 		});
 		state = workspaceReducer(state, {
@@ -354,6 +360,87 @@ describe("workspaceReducer — Phase 3 process model", () => {
 			isViewed: false,
 		});
 		expect(state.sessionsByWorktreeId.main.attentionState).toBe(
+			"actionRequired",
+		);
+	});
+
+	it("stores the latest output preview when a chunk yields a complete line", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("process-1", "main", "shell 1"),
+		});
+
+		state = workspaceReducer(state, {
+			type: "session/recordProcessOutput",
+			worktreeId: "main",
+			processId: "process-1",
+			attentionState: "activity",
+			at: 1_000,
+			isViewed: false,
+			lastOutputPreview: "compiled in 124ms",
+		});
+
+		expect(state.processSessionsById["process-1"]?.lastOutputPreview).toBe(
+			"compiled in 124ms",
+		);
+	});
+
+	it("keeps the prior preview when an output chunk has no useful preview", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: {
+				...makeProcess("process-1", "main", "shell 1"),
+				lastOutputPreview: "compiled in 124ms",
+			},
+		});
+
+		state = workspaceReducer(state, {
+			type: "session/recordProcessOutput",
+			worktreeId: "main",
+			processId: "process-1",
+			attentionState: "activity",
+			at: 2_000,
+			isViewed: false,
+			lastOutputPreview: undefined,
+		});
+
+		expect(state.processSessionsById["process-1"]?.lastOutputPreview).toBe(
+			"compiled in 124ms",
+		);
+	});
+
+	it("keeps actionRequired latched until the process is viewed", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("process-1", "main", "shell 1"),
+		});
+
+		state = workspaceReducer(state, {
+			type: "session/recordProcessOutput",
+			worktreeId: "main",
+			processId: "process-1",
+			attentionState: "actionRequired",
+			at: 1_000,
+			isViewed: false,
+			lastOutputPreview: "Continue? [y/N]",
+		});
+		state = workspaceReducer(state, {
+			type: "session/recordProcessOutput",
+			worktreeId: "main",
+			processId: "process-1",
+			attentionState: "activity",
+			at: 2_000,
+			isViewed: false,
+			lastOutputPreview: "compiled in 124ms",
+		});
+
+		expect(state.processSessionsById["process-1"]?.attentionState).toBe(
 			"actionRequired",
 		);
 	});
