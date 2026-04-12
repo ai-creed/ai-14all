@@ -251,6 +251,70 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		expect(scrollCheck.root).toBe(false);
 	});
 
+	test("shows active, idle, and action-required shell summaries in the sidebar", async () => {
+		test.setTimeout(90_000);
+		await ensureWorkspaceLoaded();
+
+		const worktreeNav = page.getByRole("navigation", { name: "Worktree sessions" });
+		const mainItem = worktreeNav.getByRole("button", { name: /^main(?:\s+main)?$/i });
+
+		await page.evaluate(async () => {
+			const pane = document.querySelector<HTMLElement>(
+				'.shell-terminal-pane[aria-hidden="false"]',
+			);
+			const terminalSessionId = pane?.dataset.terminalSessionId;
+			if (!terminalSessionId) throw new Error("Visible terminal session not found.");
+			await window.ai14all.terminals.sendInput(
+				terminalSessionId,
+				"printf 'compiled in 124ms\\n'\n",
+			);
+		});
+
+		await expect(mainItem.locator(".shell-sidebar__process-context")).toContainText(
+			"compiled in 124ms",
+			{
+				timeout: 10_000,
+			},
+		);
+
+		await page.waitForTimeout(11_000);
+		await expect(mainItem.locator(".shell-sidebar__process-context")).toContainText(
+			/quiet for 1[01]s/,
+			{
+				timeout: 5_000,
+			},
+		);
+
+		const mainTerminalSessionId = await page.evaluate(() => {
+			const pane = document.querySelector<HTMLElement>(
+				'.shell-terminal-pane[aria-hidden="false"]',
+			);
+			const terminalSessionId = pane?.dataset.terminalSessionId;
+			if (!terminalSessionId) throw new Error("Visible terminal session not found.");
+			return terminalSessionId;
+		});
+
+		await worktreeNav.getByRole("button", { name: /feature-a/i }).click();
+
+		await page.evaluate(async (terminalSessionId) => {
+			await window.ai14all.terminals.sendInput(
+				terminalSessionId,
+				"printf 'Continue? [y/N]\\n'\n",
+			);
+		}, mainTerminalSessionId);
+
+		await expect(mainItem).toHaveAttribute("data-attention", "actionRequired", {
+			timeout: 10_000,
+		});
+
+		await expect(mainItem.locator(".shell-sidebar__process-context")).toContainText(
+			"Continue? [y/N]",
+			{
+				timeout: 10_000,
+			},
+		);
+	});
+
 	test("launches maximized, collapses the top band, and keeps the main window non-scrollable", async () => {
 		const isMaximized = await app!.evaluate(({ BrowserWindow }) =>
 			BrowserWindow.getAllWindows()[0].isMaximized(),
