@@ -114,6 +114,11 @@ const api: Ai14AllDesktopApi = {
 			return onChannel("workspace/openPicker", listener);
 		},
 	},
+	diagnostics: {
+		logShellEvent(event) {
+			return ipcRenderer.invoke("diagnostics:logShellEvent", event);
+		},
+	},
 };
 
 contextBridge.exposeInMainWorld("ai14all", api);

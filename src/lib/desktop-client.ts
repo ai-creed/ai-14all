@@ -65,3 +65,7 @@ export const workspace: Ai14AllDesktopApi["workspace"] = {
 		getDesktopClient().workspace.writeRestoreState(state),
 	onOpenPicker: (listener) => getDesktopClient().workspace.onOpenPicker(listener),
 };
+
+export const diagnostics: Ai14AllDesktopApi["diagnostics"] = {
+	logShellEvent: (event) => getDesktopClient().diagnostics.logShellEvent(event),
+};

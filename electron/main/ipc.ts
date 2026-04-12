@@ -24,9 +24,11 @@ import {
 	CreateWorktreeSchema,
 	PreviewRemoveWorktreeSchema,
 	RemoveWorktreeSchema,
+	LogShellEventSchema,
 } from "../../shared/contracts/commands.js";
 import type { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
+import type { ShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
 import { WorktreeService } from "../../services/worktrees/worktree-service.js";
 import { TerminalService } from "../../services/terminals/terminal-service.js";
 import { FileService } from "../../services/files/file-service.js";
@@ -51,9 +53,11 @@ export function registerIpcHandlers(
 	{
 		workspacePersistence,
 		workspaceRegistry,
+		shellEventLog,
 	}: {
 		workspacePersistence: WorkspacePersistenceService;
 		workspaceRegistry: WorkspaceRegistryService;
+		shellEventLog?: ShellEventLogService;
 	},
 ): {
 	dispose: () => void;
@@ -64,8 +68,10 @@ export function registerIpcHandlers(
 
 	const safeSend = <T extends object>(channel: string, payload: T) => {
 		if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
+			shellEventLog?.log({ source: "main", event: "terminal-handler-dropped", windowId: null, data: { channel } });
 			return;
 		}
+		shellEventLog?.log({ source: "main", event: "terminal-handler-forwarded", windowId: mainWindow.id, data: { channel } });
 		mainWindow.webContents.send(channel, payload);
 	};
 
@@ -150,12 +156,16 @@ export function registerIpcHandlers(
 
 	ipcMain.handle("terminals:create", (_event, raw: unknown) => {
 		const { workspaceId, worktreeId, cwd } = CreateTerminalSessionSchema.parse(raw);
+		shellEventLog?.log({ source: "main", event: "terminal-create-request", windowId: mainWindow.id, data: { workspaceId, worktreeId, cwd } });
 		return terminalService.create(workspaceId, worktreeId, cwd);
 	});
 
 	ipcMain.handle("terminals:list", (_event, raw: unknown) => {
 		const { workspaceId } = ListTerminalSessionsSchema.parse(raw);
-		return terminalService.listSessions(workspaceId);
+		shellEventLog?.log({ source: "main", event: "main-session-list-request", windowId: mainWindow.id, data: { workspaceId } });
+		const sessions = terminalService.listSessions(workspaceId);
+		shellEventLog?.log({ source: "main", event: "main-session-list-response", windowId: mainWindow.id, data: { workspaceId, liveBackendSessionIds: sessions.map((s) => s.id) } });
+		return sessions;
 	});
 
 	ipcMain.handle("terminals:sendInput", (_event, raw: unknown) => {
@@ -170,6 +180,7 @@ export function registerIpcHandlers(
 
 	ipcMain.handle("terminals:stop", (_event, raw: unknown) => {
 		const { sessionId } = StopTerminalSessionSchema.parse(raw);
+		shellEventLog?.log({ source: "main", event: "terminal-stop-request", windowId: mainWindow.id, data: { terminalSessionId: sessionId } });
 		terminalService.stop(sessionId);
 	});
 
@@ -230,6 +241,14 @@ export function registerIpcHandlers(
 	ipcMain.handle("workspace:writeRestoreState", (_event, raw: unknown) => {
 		const { state } = WriteWorkspaceRestoreStateSchema.parse(raw);
 		return workspacePersistence.writeState(state);
+	});
+
+	// --- Diagnostics ---
+
+	ipcMain.handle("diagnostics:logShellEvent", (_event, raw: unknown) => {
+		const parsed = LogShellEventSchema.safeParse(raw);
+		if (!parsed.success) return;
+		shellEventLog?.log(parsed.data);
 	});
 
 	return { dispose: () => terminalService.dispose() };

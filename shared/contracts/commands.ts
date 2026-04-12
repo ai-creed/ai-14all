@@ -9,6 +9,7 @@ import type {
 	TerminalStateEvent,
 	TerminalErrorEvent,
 } from "./events.js";
+import { ShellReasonKindSchema } from "../models/shell-event-record.js";
 import type { GitChange } from "../models/git-change.js";
 import type { GitDiff } from "../models/git-diff.js";
 import type { GitSummary } from "../models/git-summary.js";
@@ -90,6 +91,20 @@ export const ReadGitSummarySchema = z.object({
 	worktreePath: z.string(),
 });
 
+export const LogShellEventSchema = z.object({
+	source: z.enum(["main", "renderer"]),
+	event: z.string(),
+	windowId: z.number().int().nullable(),
+	rendererAt: z.string().nullable().optional(),
+	rendererSeq: z.number().int().positive().nullable().optional(),
+	reasonKind: ShellReasonKindSchema.nullable().optional(),
+	reason: z.string().nullable().optional(),
+	triggerEventId: z.string().nullable().optional(),
+	isExpected: z.boolean().nullable().optional(),
+	expectedBecause: z.string().nullable().optional(),
+	data: z.record(z.string(), z.unknown()),
+});
+
 export const ReadWorkspaceRestoreStateSchema = z.object({});
 
 export const WriteWorkspaceRestoreStateSchema = z.object({
@@ -147,5 +162,8 @@ export type Ai14AllDesktopApi = {
 		readRestoreState(): Promise<PersistedWorkspaceStateV2>;
 		writeRestoreState(state: PersistedWorkspaceStateV2): Promise<void>;
 		onOpenPicker(listener: () => void): () => void;
+	};
+	diagnostics: {
+		logShellEvent(event: z.infer<typeof LogShellEventSchema>): Promise<void>;
 	};
 };
