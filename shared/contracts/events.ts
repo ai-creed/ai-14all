@@ -28,3 +28,10 @@ export type TerminalOutputEvent = z.infer<typeof TerminalOutputEventSchema>;
 export type TerminalExitEvent = z.infer<typeof TerminalExitEventSchema>;
 export type TerminalStateEvent = z.infer<typeof TerminalStateEventSchema>;
 export type TerminalErrorEvent = z.infer<typeof TerminalErrorEventSchema>;
+
+export {
+	ShellEventRecordSchema,
+	ShellReasonKindSchema,
+	type ShellEventRecord,
+	type ShellReasonKind,
+} from "../models/shell-event-record.js";
