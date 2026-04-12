@@ -187,6 +187,40 @@ describe("TerminalService", () => {
 		);
 	});
 
+	it("logs create, input, output, missing-session, and exit events", () => {
+		const pty = createPtyDouble();
+		spawnMock.mockReturnValue(pty);
+		const logMock = vi.fn();
+		const service = new TerminalService(
+			{
+				onOutput: vi.fn(),
+				onExit: vi.fn(),
+				onState: vi.fn(),
+				onError: vi.fn(),
+			},
+			{ log: logMock } as never,
+		);
+
+		const session = service.create("ws-a", "wt1", "/repo-a");
+		expect(logMock).toHaveBeenCalledWith(expect.objectContaining({
+			event: "terminal-create-success",
+			data: expect.objectContaining({ terminalSessionId: session.id, workspaceId: "ws-a" }),
+		}));
+
+		service.sendInput(session.id, "echo hi\r");
+		expect(logMock).toHaveBeenCalledWith(expect.objectContaining({ event: "terminal-send-input" }));
+
+		const onData = (pty.onData as unknown as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as ((data: string) => void);
+		onData("hello\r\n");
+		expect(logMock).toHaveBeenCalledWith(expect.objectContaining({ event: "terminal-output" }));
+
+		expect(() => service.sendInput("missing", "pwd\r")).toThrow();
+		expect(logMock).toHaveBeenCalledWith(expect.objectContaining({ event: "terminal-session-missing" }));
+
+		service.stop(session.id);
+		expect(logMock).toHaveBeenCalledWith(expect.objectContaining({ event: "terminal-exit" }));
+	});
+
 	it("listSessions excludes exited sessions", () => {
 		const ptyA = createPtyDouble();
 		const ptyB = createPtyDouble();

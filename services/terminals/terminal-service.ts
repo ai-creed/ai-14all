@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import pty from "node-pty";
 import type { IPty } from "node-pty";
 import type { TerminalSession } from "../../shared/models/terminal-session.js";
+import type { ShellEventLogInput } from "../diagnostics/shell-event-log-service.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -29,10 +30,12 @@ type ActiveTerminalSession = {
 export class TerminalService {
 	private readonly sessions = new Map<string, ActiveTerminalSession>();
 	private readonly handlers: TerminalEventHandlers;
+	private readonly shellEventLog?: { log: (event: ShellEventLogInput) => void };
 	private disposed = false;
 
-	constructor(handlers: TerminalEventHandlers) {
+	constructor(handlers: TerminalEventHandlers, shellEventLog?: { log: (event: ShellEventLogInput) => void }) {
 		this.handlers = handlers;
+		this.shellEventLog = shellEventLog;
 	}
 
 	// -----------------------------------------------------------------------
@@ -44,6 +47,8 @@ export class TerminalService {
 		}
 
 		const id = randomUUID();
+
+		this.shellEventLog?.log({ source: "main", event: "terminal-create-start", windowId: null, data: { workspaceId, worktreeId, cwd } });
 
 		const shell = process.env.SHELL ?? "/bin/zsh";
 
@@ -67,6 +72,7 @@ export class TerminalService {
 			};
 			const message =
 				err instanceof Error ? err.message : "Failed to spawn PTY";
+			this.shellEventLog?.log({ source: "main", event: "terminal-create-failed", windowId: null, data: { terminalSessionId: id, workspaceId, worktreeId, cwd, message } });
 			this.handlers.onState(id, "error");
 			this.handlers.onError(id, message);
 			return meta;
@@ -83,6 +89,31 @@ export class TerminalService {
 
 		this.sessions.set(id, { meta, pty: p });
 
+		this.shellEventLog?.log({
+			source: "main",
+			event: "terminal-create-success",
+			windowId: null,
+			data: {
+				terminalSessionId: id,
+				workspaceId,
+				worktreeId,
+				cwd,
+				liveBackendSessionIds: this.listSessions().map((s) => s.id),
+			},
+		});
+		this.shellEventLog?.log({
+			source: "main",
+			event: "terminal-session-registered",
+			windowId: null,
+			data: {
+				terminalSessionId: id,
+				workspaceId,
+				worktreeId,
+				cwd,
+				liveBackendSessionIds: this.listSessions().map((s) => s.id),
+			},
+		});
+
 		// Broadcast initial state
 		if (!this.disposed) {
 			this.handlers.onState(id, "running");
@@ -91,6 +122,20 @@ export class TerminalService {
 		// Forward PTY output
 		p.onData((data: string) => {
 			if (this.disposed) return;
+			this.shellEventLog?.log({
+				source: "main",
+				event: "terminal-output",
+				windowId: null,
+				data: {
+					terminalSessionId: id,
+					workspaceId,
+					worktreeId,
+					text: data,
+					hex: Buffer.from(data, "utf8").toString("hex"),
+					byteLength: Buffer.byteLength(data, "utf8"),
+					truncated: false,
+				},
+			});
 			this.handlers.onOutput(id, data);
 		});
 
@@ -101,6 +146,15 @@ export class TerminalService {
 			if (!session) return; // Already cleaned up (e.g. dispose() was called)
 			session.meta.status = "exited";
 			session.meta.exitCode = exitCode;
+			this.shellEventLog?.log({
+				source: "main",
+				event: "terminal-exit",
+				windowId: null,
+				reasonKind: "process_exit",
+				reason: "pty_exit",
+				isExpected: false,
+				data: { terminalSessionId: id, workspaceId, worktreeId, exitCode, signal },
+			});
 			this.handlers.onState(id, "exited");
 			this.handlers.onExit(id, exitCode, signal);
 			this.sessions.delete(id);
@@ -129,8 +183,24 @@ export class TerminalService {
 		}
 		const session = this.sessions.get(sessionId);
 		if (!session) {
+			this.shellEventLog?.log({ source: "main", event: "terminal-session-missing", windowId: null, data: { terminalSessionId: sessionId, operation: "sendInput" } });
 			throw new Error(`Terminal session not found: ${sessionId}`);
 		}
+		const { meta } = session;
+		this.shellEventLog?.log({
+			source: "main",
+			event: "terminal-send-input",
+			windowId: null,
+			data: {
+				terminalSessionId: sessionId,
+				workspaceId: meta.workspaceId,
+				worktreeId: meta.worktreeId,
+				text: data,
+				hex: Buffer.from(data, "utf8").toString("hex"),
+				byteLength: Buffer.byteLength(data, "utf8"),
+				truncated: false,
+			},
+		});
 		session.pty.write(data);
 	}
 
@@ -145,6 +215,7 @@ export class TerminalService {
 		if (!session) {
 			return;
 		}
+		this.shellEventLog?.log({ source: "main", event: "terminal-resize", windowId: null, data: { terminalSessionId: sessionId, cols, rows } });
 		session.pty.resize(cols, rows);
 	}
 
@@ -159,6 +230,7 @@ export class TerminalService {
 		if (!session) {
 			return;
 		}
+		this.shellEventLog?.log({ source: "main", event: "terminal-stop-request", windowId: null, reasonKind: "user_action", reason: "user_stop", data: { terminalSessionId: sessionId } });
 		session.pty.kill();
 		// Let the onExit handler handle state update, event emission, and cleanup
 	}
@@ -175,6 +247,15 @@ export class TerminalService {
 		this.sessions.clear();
 		for (const session of activeSessions) {
 			try {
+				this.shellEventLog?.log({
+					source: "main",
+					event: "terminal-dispose",
+					windowId: null,
+					reasonKind: "backend_cleanup",
+					reason: "service_dispose",
+					isExpected: false,
+					data: { terminalSessionId: session.meta.id, workspaceId: session.meta.workspaceId, worktreeId: session.meta.worktreeId },
+				});
 				session.pty.kill();
 			} catch {
 				// Best-effort cleanup; ignore errors on shutdown
