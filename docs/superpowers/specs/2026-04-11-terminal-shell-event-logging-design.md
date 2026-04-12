@@ -173,15 +173,21 @@ type ShellEventRecord = {
   source: "main" | "renderer";
   event: string;
   windowId: number | null;
+  rendererAt?: string | null;
+  rendererSeq?: number | null;
   reasonKind?: "user_action" | "system_reconnect" | "window_lifecycle" | "process_exit" | "backend_cleanup" | "renderer_drop" | "unknown";
   reason?: string | null;
   triggerEventId?: string | null;
+  isExpected?: boolean | null;
+  expectedBecause?: string | null;
   eventId: string;
   data: Record<string, unknown>;
 };
 ```
 
 `eventId` is unique per event. `triggerEventId` links derived events to the explicit action that caused them.
+
+`seq` is the durable write order in the log file, not a guarantee of original renderer emission order. For renderer-originated events, `rendererAt` and `rendererSeq` must be populated so analysis can reconstruct renderer-local ordering when IPC delivery order differs from emission order.
 
 ## Correlation Payload
 
@@ -247,14 +253,14 @@ Log:
 
 - `app-log-start`
 - `app-log-pruned`
-- `main-window-created`
-- `main-window-focus`
-- `main-window-blur`
-- `main-window-close`
-- `main-window-webcontents-did-start-loading`
-- `main-window-webcontents-did-finish-load`
-- `main-window-webcontents-render-process-gone`
-- `main-window-webcontents-destroyed`
+- `window-created`
+- `window-focus`
+- `window-blur`
+- `window-close`
+- `window-webcontents-did-start-loading`
+- `window-webcontents-did-finish-load`
+- `window-webcontents-render-process-gone`
+- `window-webcontents-destroyed`
 - `renderer-start`
 - `renderer-before-unload`
 - `renderer-window-focus`
@@ -265,6 +271,8 @@ Log:
 - `app-became-active`
 
 These events provide the app/background/foreground timeline needed to inspect shell loss around blur, focus regain, and reloads.
+
+All `window-*` events must populate `windowId` with the owning Electron `BrowserWindow` ID.
 
 ### Workspace And Worktree Context Changes
 
@@ -308,7 +316,6 @@ Log:
 - `terminal-exit`
 - `terminal-dispose`
 - `terminal-session-missing`
-- `terminal-binding-changed`
 
 These events are the PTY source of truth.
 
@@ -380,13 +387,36 @@ Text helps quick inspection. Hex preserves exact byte-level truth when escape se
 
 ### Truncation
 
-Large chunks may be truncated to keep single-event size bounded, but truncation must preserve:
+Large chunks may be truncated to keep single-event size bounded.
+
+Concrete rule:
+
+- truncate `text` and `hex` payload fields at 4 KiB of original text content per event
+
+Truncation must preserve:
 
 - exact byte length
 - truncation flag
 - leading payload content
 
 This prevents unbounded growth while keeping events useful.
+
+## Write Durability
+
+Because the most important evidence may appear immediately before a PTY exit or renderer/process crash, the log write path must favor durability over throughput.
+
+Required rule:
+
+- Electron main must append shell-event records synchronously to a single open file descriptor for this temporary diagnostics phase
+
+If implementation later switches to buffered async writes, it must explicitly flush and `fsync` after these critical events at minimum:
+
+- `terminal-exit`
+- `terminal-create-failed`
+- `window-webcontents-render-process-gone`
+- `shell-log-disabled`
+
+For this investigation phase, the preferred implementation is synchronous append so crash-adjacent ordering and durability stay simple.
 
 ## Expected Vs Unexpected Session Change Rules
 
