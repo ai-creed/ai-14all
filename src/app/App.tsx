@@ -338,6 +338,30 @@ export function App() {
 		});
 	}
 
+	function logBindingChange(input: {
+		triggerEventId?: string | null;
+		reasonKind: "user_action" | "system_reconnect" | "window_lifecycle" | "renderer_drop" | "process_exit" | "backend_cleanup" | "unknown";
+		reason: string;
+		isExpected: boolean;
+		expectedBecause: string | null;
+		previousBinding: Record<string, unknown> | null;
+		nextBinding: Record<string, unknown> | null;
+	}) {
+		return logRendererShellEvent({
+			event: "terminal-binding-changed",
+			windowId: null,
+			triggerEventId: input.triggerEventId ?? null,
+			reasonKind: input.reasonKind,
+			reason: input.reason,
+			isExpected: input.isExpected,
+			expectedBecause: input.expectedBecause,
+			data: {
+				previousBinding: input.previousBinding,
+				nextBinding: input.nextBinding,
+			},
+		});
+	}
+
 	const { sessions, createSession, sendInput, stopSession, removeSession, adoptSession } =
 		useTerminalSession({
 			onOutput: (event) => {
@@ -398,6 +422,14 @@ export function App() {
 						workspaceState: nextState,
 					});
 				}
+				void logBindingChange({
+					reasonKind: "process_exit",
+					reason: "pty_exit",
+					isExpected: false,
+					expectedBecause: null,
+					previousBinding: { terminalSessionId: event.sessionId, processId: process.id, workspaceId: ownerWsId },
+					nextBinding: null,
+				});
 			},
 		});
 	const orderedSessions =
@@ -771,6 +803,14 @@ export function App() {
 
 				if (liveSession) {
 					void logRendererShellEvent({ event: "renderer-reconnect-adopt", windowId: null, reasonKind: "system_reconnect", reason: "renderer_reload", data: { terminalSessionId: liveSession.id, processId: process.id } });
+					void logBindingChange({
+						reasonKind: "system_reconnect",
+						reason: "renderer_reload",
+						isExpected: true,
+						expectedBecause: "renderer_reload_reconnect",
+						previousBinding: null,
+						nextBinding: { terminalSessionId: liveSession.id, processId: process.id, targetWorkspaceId },
+					});
 					adoptSession(liveSession);
 					dispatchFn({
 						type: "session/replaceProcessTerminal",
@@ -1231,6 +1271,17 @@ export function App() {
 				nextWorktreeId: worktreeId,
 			},
 		});
+		void logBindingChange({
+			reasonKind: "user_action",
+			reason: "worktree_switch",
+			isExpected: true,
+			expectedBecause: "user_explicit_worktree_select",
+			previousBinding: {
+				workspaceId: targetWorkspaceId,
+				worktreeId: activeWorkspaceStateRef.current.selectedWorktreeId,
+			},
+			nextBinding: { workspaceId: targetWorkspaceId, worktreeId },
+		});
 
 		const pending = pendingRestoreSessions[worktreeId];
 		if (pending) {
@@ -1286,6 +1337,17 @@ export function App() {
 					activeWorkspaceId: appWorkspacesRef.current.activeWorkspaceId,
 					nextWorkspaceId: workspaceId,
 				},
+			});
+			void logBindingChange({
+				reasonKind: "user_action",
+				reason: "workspace_switch",
+				isExpected: true,
+				expectedBecause: "user_explicit_workspace_select",
+				previousBinding: {
+					workspaceId: appWorkspacesRef.current.activeWorkspaceId,
+					worktreeId: activeWorkspaceStateRef.current.selectedWorktreeId,
+				},
+				nextBinding: { workspaceId, worktreeId },
 			});
 		}
 		const targetContext =

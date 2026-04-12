@@ -34,7 +34,7 @@ export function createMainWindow(shellEventLog?: ShellEventLogService): BrowserW
 	mainWindow.on("closed", () => shellEventLog?.log({ source: "main", event: "window-close", windowId, data: {} }));
 	mainWindow.webContents.on("did-start-loading", () => shellEventLog?.log({ source: "main", event: "window-webcontents-did-start-loading", windowId, data: {} }));
 	mainWindow.webContents.on("did-finish-load", () => shellEventLog?.log({ source: "main", event: "window-webcontents-did-finish-load", windowId, data: {} }));
-	mainWindow.webContents.on("render-process-gone", (_evt, details) => shellEventLog?.log({ source: "main", event: "window-webcontents-render-process-gone", windowId, reasonKind: "window_lifecycle", reason: "renderer_process_gone", data: details as Record<string, unknown> }));
+	mainWindow.webContents.on("render-process-gone", (_evt, details) => shellEventLog?.log({ source: "main", event: "window-webcontents-render-process-gone", windowId, reasonKind: "window_lifecycle", reason: "renderer_process_gone", data: details as unknown as Record<string, unknown> }));
 	mainWindow.webContents.once("destroyed", () => shellEventLog?.log({ source: "main", event: "window-webcontents-destroyed", windowId, reasonKind: "window_lifecycle", reason: "webcontents_destroyed", data: {} }));
 
 	mainWindow.maximize();

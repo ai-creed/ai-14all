@@ -64,6 +64,9 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		readCommitHistory: vi.fn().mockResolvedValue({ mergeTargetRef: null, entries: [] }),
 		readCommitDetail: vi.fn().mockResolvedValue(null),
 	},
+	diagnostics: {
+		logShellEvent: vi.fn(() => Promise.resolve()),
+	},
 }));
 
 import { App } from "../../../src/app/App";

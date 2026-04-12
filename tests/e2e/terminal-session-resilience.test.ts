@@ -5,7 +5,7 @@ import {
 	type ElectronApplication,
 	type Page,
 } from "@playwright/test";
-import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
@@ -16,17 +16,27 @@ let page: Page;
 let testRepo: TestRepo;
 let persistedStateDir: string;
 let persistedStatePath: string;
+let userDataDir: string;
+
+function readShellLog(): string {
+	const logDir = join(userDataDir, "diagnostics", "shell-events");
+	const files = readdirSync(logDir).sort();
+	if (files.length === 0) return "";
+	return readFileSync(join(logDir, files[files.length - 1]!), "utf8");
+}
 
 test.beforeAll(async () => {
 	testRepo = createTestRepo();
 	persistedStateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-resilience-")));
 	persistedStatePath = join(persistedStateDir, "workspace-state.json");
+	userDataDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-user-data-")));
 	app = await electron.launch({
 		args: ["out/main/index.js"],
 		env: {
 			...process.env,
 			AI14ALL_E2E: "1",
 			AI14ALL_WORKSPACE_STATE_PATH: persistedStatePath,
+			AI14ALL_USER_DATA_PATH: userDataDir,
 		},
 	});
 	page = await app.firstWindow();
@@ -37,6 +47,7 @@ test.afterAll(async () => {
 		await closeApp(app);
 	} finally {
 		rmSync(persistedStateDir, { recursive: true, force: true });
+		rmSync(userDataDir, { recursive: true, force: true });
 		testRepo.cleanup();
 	}
 });
@@ -82,5 +93,8 @@ test.describe.serial("Terminal session resilience", () => {
 		await expect(
 			page.locator(".xterm-accessibility-tree").first(),
 		).toContainText("POST_RELOAD", { timeout: 10_000 });
+
+		await expect.poll(() => readShellLog(), { timeout: 5_000 }).toContain("\"event\":\"renderer-reconnect-adopt\"");
+		await expect.poll(() => readShellLog(), { timeout: 5_000 }).toContain("\"event\":\"terminal-binding-changed\"");
 	});
 });

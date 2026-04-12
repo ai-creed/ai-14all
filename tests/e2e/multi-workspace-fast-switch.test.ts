@@ -5,7 +5,7 @@ import {
 	type ElectronApplication,
 	type Page,
 } from "@playwright/test";
-import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { basename } from "node:path";
@@ -18,6 +18,18 @@ let repoA: TestRepo;
 let repoB: TestRepo;
 let persistedStateDir: string;
 let persistedStatePath: string;
+let userDataDir: string;
+
+function readShellLog(): string {
+	try {
+		const logDir = join(userDataDir, "diagnostics", "shell-events");
+		const files = readdirSync(logDir).sort();
+		if (files.length === 0) return "";
+		return readFileSync(join(logDir, files[files.length - 1]!), "utf8");
+	} catch {
+		return "";
+	}
+}
 
 async function launchApp() {
 	app = await electron.launch({
@@ -27,6 +39,7 @@ async function launchApp() {
 			AI14ALL_E2E: "1",
 			AI14ALL_E2E_PICK_PATH: repoA.repoPath,
 			AI14ALL_WORKSPACE_STATE_PATH: persistedStatePath,
+			AI14ALL_USER_DATA_PATH: userDataDir,
 		},
 	});
 	page = await app.firstWindow();
@@ -51,6 +64,7 @@ test.beforeAll(async () => {
 	repoB = createSecondTestRepo();
 	persistedStateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-mws-")));
 	persistedStatePath = join(persistedStateDir, "workspace-state.json");
+	userDataDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-user-data-")));
 	await launchApp();
 }, 60_000);
 
@@ -59,6 +73,7 @@ test.afterAll(async () => {
 		await closeApp();
 	} finally {
 		rmSync(persistedStateDir, { recursive: true, force: true });
+		rmSync(userDataDir, { recursive: true, force: true });
 		repoA?.cleanup();
 		repoB?.cleanup();
 	}
@@ -139,6 +154,9 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 		await expect(
 			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
 		).toBeVisible({ timeout: 10_000 });
+
+		await expect.poll(() => readShellLog(), { timeout: 5_000 }).toContain("\"reason\":\"workspace_switch\"");
+		await expect.poll(() => readShellLog(), { timeout: 5_000 }).not.toContain("\"reason\":\"unexpected_session_removal\"");
 	});
 
 	test("restart restores previously active workspace and shows dormant ones", async () => {

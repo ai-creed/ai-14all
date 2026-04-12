@@ -13,6 +13,9 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		onState: vi.fn(() => vi.fn()),
 		onError: vi.fn(() => vi.fn()),
 	},
+	diagnostics: {
+		logShellEvent: vi.fn(() => Promise.resolve()),
+	},
 }));
 
 import { useTerminalSession } from "../../../src/features/terminals/useTerminalSession";

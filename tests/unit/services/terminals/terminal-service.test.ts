@@ -221,6 +221,34 @@ describe("TerminalService", () => {
 		expect(logMock).toHaveBeenCalledWith(expect.objectContaining({ event: "terminal-exit" }));
 	});
 
+	it("logs terminal-binding-changed for each live session on dispose", () => {
+		const pty = createPtyDouble();
+		spawnMock.mockReturnValue(pty);
+		const logMock = vi.fn();
+		const service = new TerminalService(
+			{
+				onOutput: vi.fn(),
+				onExit: vi.fn(),
+				onState: vi.fn(),
+				onError: vi.fn(),
+			},
+			{ log: logMock } as never,
+		);
+
+		const session = service.create("ws-a", "wt1", "/repo-a");
+		logMock.mockClear();
+
+		service.dispose();
+
+		expect(logMock).toHaveBeenCalledWith(expect.objectContaining({
+			event: "terminal-binding-changed",
+			reasonKind: "backend_cleanup",
+			reason: "service_dispose",
+			isExpected: false,
+			data: expect.objectContaining({ terminalSessionId: session.id }),
+		}));
+	});
+
 	it("listSessions excludes exited sessions", () => {
 		const ptyA = createPtyDouble();
 		const ptyB = createPtyDouble();

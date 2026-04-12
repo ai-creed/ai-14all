@@ -73,6 +73,9 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		writeRestoreState: vi.fn(),
 		onOpenPicker: vi.fn(() => vi.fn()),
 	},
+	diagnostics: {
+		logShellEvent: vi.fn(() => Promise.resolve()),
+	},
 }));
 
 import { App } from "../../../src/app/App";

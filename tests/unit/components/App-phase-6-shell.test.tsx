@@ -105,7 +105,9 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		readCommitHistory: mockReadCommitHistory,
 		readCommitDetail: mockReadCommitDetail,
 	},
-
+	diagnostics: {
+		logShellEvent: vi.fn(() => Promise.resolve()),
+	},
 }));
 
 import { App } from "../../../src/app/App";

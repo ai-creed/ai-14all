@@ -256,6 +256,16 @@ export class TerminalService {
 					isExpected: false,
 					data: { terminalSessionId: session.meta.id, workspaceId: session.meta.workspaceId, worktreeId: session.meta.worktreeId },
 				});
+				this.shellEventLog?.log({
+					source: "main",
+					event: "terminal-binding-changed",
+					windowId: null,
+					reasonKind: "backend_cleanup",
+					reason: "service_dispose",
+					isExpected: false,
+					expectedBecause: null,
+					data: { terminalSessionId: session.meta.id, workspaceId: session.meta.workspaceId, worktreeId: session.meta.worktreeId },
+				});
 				session.pty.kill();
 			} catch {
 				// Best-effort cleanup; ignore errors on shutdown
