@@ -257,6 +257,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 
 		const worktreeNav = page.getByRole("navigation", { name: "Worktree sessions" });
 		const mainItem = worktreeNav.getByRole("button", { name: /^main(?:\s+main)?$/i });
+		await mainItem.click();
 
 		await page.evaluate(async () => {
 			const pane = document.querySelector<HTMLElement>(

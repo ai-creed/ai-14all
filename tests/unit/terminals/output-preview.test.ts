@@ -35,6 +35,20 @@ describe("consumeOutputPreview", () => {
 		});
 	});
 
+	it("strips OSC sequences and does not treat their body as visible text", () => {
+		// Shell prompts emit OSC title/cwd sequences like ESC]2;user@host:/path BEL.
+		// The body must not surface as process context in the sidebar.
+		expect(
+			consumeOutputPreview(
+				"",
+				"compiled in 124ms\n\u001b]2;vuphan@host:/tmp/repo\u0007\u001b]7;file:///tmp/repo\u0007\n",
+			),
+		).toEqual({
+			nextBuffer: "",
+			preview: "compiled in 124ms",
+		});
+	});
+
 	it("collapses whitespace and truncates long lines", () => {
 		const result = consumeOutputPreview(
 			"",
