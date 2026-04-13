@@ -65,6 +65,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		readSummary: vi.fn(),
 		readCommitHistory: vi.fn().mockResolvedValue({ mergeTargetRef: null, entries: [] }),
 		readCommitDetail: vi.fn().mockResolvedValue(null),
+		getRemoteStatus: vi.fn().mockResolvedValue({ hasRemote: false, ahead: 0, behind: 0 }),
 	},
 	workspace: {
 		openRepository: vi.fn(),

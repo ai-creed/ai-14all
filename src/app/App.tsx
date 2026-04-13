@@ -52,11 +52,13 @@ import { consumeOutputPreview } from "../features/terminals/output-preview";
 import { FileList } from "../features/viewer/FileList";
 import { FileViewer } from "../features/viewer/FileViewer";
 import { ChangesList } from "../features/git/ChangesList";
+import { DiscardChangeDialog } from "../features/git/DiscardChangeDialog";
 import { DiffViewer } from "../features/viewer/DiffViewer";
 import { CommitList } from "../features/git/CommitList";
 import { CommitDiffStack } from "../features/git/CommitDiffStack";
 import { buildWorktreeProcessSummary } from "../features/workspace/sidebar-shell-summary";
 import type { GitCommitHistory, GitCommitDetail } from "../../shared/models/git-commit-review";
+import type { RemoteStatus } from "../../shared/models/git-remote-status";
 import { git, terminals, workspace, repository as repositoryClient } from "../lib/desktop-client";
 import { logRendererShellEvent } from "../features/terminals/shell-event-logger";
 import { useTheme } from "../lib/useTheme";
@@ -190,6 +192,8 @@ export function App() {
 	const [createLoading, setCreateLoading] = useState(false);
 	const [createError, setCreateError] = useState<string | null>(null);
 	const [createBusy, setCreateBusy] = useState(false);
+	const [remoteStatus, setRemoteStatus] = useState<RemoteStatus | null>(null);
+	const [discardPath, setDiscardPath] = useState<string | null>(null);
 	const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
 	const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
 	const [removePreview, setRemovePreview] = useState<RemoveWorktreePreview | null>(null);
@@ -1161,6 +1165,18 @@ export function App() {
 		setRefreshKey((k) => k + 1);
 	}
 
+	async function handleDiscardChange() {
+		if (!activeWorktree?.path || !discardPath) return;
+		await git.discardChange(activeWorktree.path, discardPath);
+		setRefreshKey((k) => k + 1);
+	}
+
+	async function handlePushBranch(force: boolean) {
+		if (!activeWorktree?.path) return;
+		await git.pushBranch(activeWorktree.path, force);
+		setRefreshKey((k) => k + 1);
+	}
+
 	useEffect(() => {
 		const handleFocus = () => {
 			setWindowFocused(true);
@@ -1539,6 +1555,23 @@ export function App() {
 					? "Couldn't load commit history."
 					: "Couldn't refresh commit history. Showing last successful result.",
 			}));
+		});
+		return () => { cancelled = true; };
+	}, [activeWorktree?.id, activeWorktree?.path, refreshKey]);
+
+	// Fetch remote status when active worktree changes or after refresh
+	useEffect(() => {
+		if (!activeWorktree?.path) {
+			setRemoteStatus(null);
+			return;
+		}
+		let cancelled = false;
+		git.getRemoteStatus(activeWorktree.path).then((status) => {
+			if (cancelled) return;
+			setRemoteStatus(status);
+		}).catch(() => {
+			if (cancelled) return;
+			setRemoteStatus(null);
 		});
 		return () => { cancelled = true; };
 	}, [activeWorktree?.id, activeWorktree?.path, refreshKey]);
@@ -2249,6 +2282,8 @@ export function App() {
 																relativePath,
 															})
 														}
+														remoteStatus={remoteStatus}
+														onPush={handlePushBranch}
 													/>
 												</>
 											) : activeSession?.reviewMode === "files" ? (
@@ -2274,6 +2309,7 @@ export function App() {
 														activeSession?.selectedChangedFilePath ?? null
 													}
 													onSelect={handleSelectChangedFile}
+													onDiscardChange={(relativePath) => setDiscardPath(relativePath)}
 													gitSummaryError={gitSummaryError}
 													gitSummaryStale={gitSummaryStale}
 													gitSummaryMessage={gitSummaryMessage}
@@ -2398,6 +2434,12 @@ export function App() {
 				onConfirm={() => {
 					void handleConfirmRemoveWorktree();
 				}}
+			/>
+			<DiscardChangeDialog
+				open={discardPath !== null}
+				relativePath={discardPath}
+				onOpenChange={(open) => { if (!open) setDiscardPath(null); }}
+				onConfirm={handleDiscardChange}
 			/>
 		</main>
 	);

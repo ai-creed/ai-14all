@@ -105,6 +105,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		readSummary: readSummaryMock,
 		readCommitHistory: mockReadCommitHistory,
 		readCommitDetail: mockReadCommitDetail,
+		getRemoteStatus: vi.fn().mockResolvedValue({ hasRemote: false, ahead: 0, behind: 0 }),
 	},
 	diagnostics: {
 		logShellEvent: vi.fn(() => Promise.resolve()),
