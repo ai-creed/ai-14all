@@ -1,11 +1,12 @@
 import { execFile } from "node:child_process";
-import { readFile, stat } from "node:fs/promises";
+import { readFile, stat, unlink } from "node:fs/promises";
 import { promisify } from "node:util";
 import { resolve } from "node:path";
 import type {
 	GitChange,
 	GitChangeStatus,
 } from "../../shared/models/git-change.js";
+import type { RemoteStatus } from "../../shared/models/git-remote-status.js";
 import type { GitDiff } from "../../shared/models/git-diff.js";
 import type {
 	GitSummary,
@@ -404,5 +405,64 @@ export class GitService {
 		).filter((f): f is GitCommitFileDiff => f !== null);
 
 		return { sha: entry.sha, shortSha: entry.shortSha, subject: entry.subject, files };
+	}
+
+	async discardChange(worktreePath: string, relativePath: string): Promise<void> {
+		const absolutePath = resolve(worktreePath, relativePath);
+		const normalizedWorktree = resolve(worktreePath);
+		if (
+			!absolutePath.startsWith(normalizedWorktree + "/") &&
+			absolutePath !== normalizedWorktree
+		) {
+			throw new Error(`Path escapes worktree: ${relativePath}`);
+		}
+
+		const changes = await this.listChangedFiles(worktreePath);
+		const change = changes.find((entry) => entry.path === relativePath);
+		if (!change) {
+			throw new Error(`No changed file found for ${relativePath}`);
+		}
+
+		if (change.status === "??") {
+			await unlink(absolutePath);
+			return;
+		}
+
+		await execFileAsync(
+			gitBinary,
+			["restore", "--source=HEAD", "--staged", "--worktree", "--", relativePath],
+			{ cwd: worktreePath },
+		);
+	}
+
+	async getRemoteStatus(worktreePath: string): Promise<RemoteStatus> {
+		try {
+			await execFileAsync(
+				gitBinary,
+				["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+				{ cwd: worktreePath },
+			);
+		} catch {
+			return { hasRemote: false, ahead: 0, behind: 0 };
+		}
+
+		try {
+			const [aheadResult, behindResult] = await Promise.all([
+				execFileAsync(gitBinary, ["rev-list", "--count", "@{u}..HEAD"], { cwd: worktreePath }),
+				execFileAsync(gitBinary, ["rev-list", "--count", "HEAD..@{u}"], { cwd: worktreePath }),
+			]);
+			return {
+				hasRemote: true,
+				ahead: Number(aheadResult.stdout.trim()) || 0,
+				behind: Number(behindResult.stdout.trim()) || 0,
+			};
+		} catch {
+			return { hasRemote: false, ahead: 0, behind: 0 };
+		}
+	}
+
+	async pushBranch(worktreePath: string, force: boolean): Promise<void> {
+		const args = force ? ["push", "--force-with-lease"] : ["push"];
+		await execFileAsync(gitBinary, args, { cwd: worktreePath });
 	}
 }

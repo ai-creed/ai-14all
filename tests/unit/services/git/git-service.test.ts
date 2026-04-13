@@ -331,4 +331,76 @@ describe("GitService", () => {
 			expect(addedFile.originalContent).toBe("");
 		}
 	});
+
+	describe("discardChange", () => {
+		it("restores a modified tracked file to HEAD content", async () => {
+			await service.discardChange(worktreePath, "src/index.ts");
+			const changes = await service.listChangedFiles(worktreePath);
+			expect(changes.find((c) => c.path === "src/index.ts")).toBeUndefined();
+		});
+
+		it("deletes an untracked file", async () => {
+			await service.discardChange(worktreePath, "src/new-file.ts");
+			const changes = await service.listChangedFiles(worktreePath);
+			expect(changes.find((c) => c.path === "src/new-file.ts")).toBeUndefined();
+		});
+
+		it("rejects path traversal", async () => {
+			await expect(
+				service.discardChange(worktreePath, "../../etc/passwd"),
+			).rejects.toThrow("Path escapes worktree");
+		});
+
+		it("throws when file is not in changed list", async () => {
+			await expect(
+				service.discardChange(worktreePath, "src/nonexistent.ts"),
+			).rejects.toThrow("No changed file found");
+		});
+	});
+
+	describe("getRemoteStatus", () => {
+		it("returns hasRemote false when no upstream tracking branch exists", async () => {
+			const status = await service.getRemoteStatus(worktreePath);
+			expect(status).toEqual({ hasRemote: false, ahead: 0, behind: 0 });
+		});
+
+		it("returns ahead count after local commits against a remote", async () => {
+			const remotePath = realpathSync(mkdtempSync(join(tmpdir(), "ofa-remote-")));
+			execSync("git init --bare", { cwd: remotePath, stdio: "ignore" });
+			execSync(`git remote add origin ${remotePath}`, { cwd: worktreePath, stdio: "ignore" });
+
+			execSync("git add -A && git commit -m 'wip'", { cwd: worktreePath, stdio: "ignore", shell: true });
+			execSync("git push -u origin HEAD", { cwd: worktreePath, stdio: "ignore" });
+
+			writeFileSync(join(worktreePath, "src", "extra.ts"), "export const x = 1;\n");
+			execSync("git add -A && git commit -m 'unpushed'", { cwd: worktreePath, stdio: "ignore", shell: true });
+
+			const status = await service.getRemoteStatus(worktreePath);
+			expect(status.hasRemote).toBe(true);
+			expect(status.ahead).toBe(1);
+			expect(status.behind).toBe(0);
+
+			rmSync(remotePath, { recursive: true, force: true });
+		});
+	});
+
+	describe("pushBranch", () => {
+		it("pushes to the tracking remote", async () => {
+			const remotePath = realpathSync(mkdtempSync(join(tmpdir(), "ofa-remote-")));
+			execSync("git init --bare", { cwd: remotePath, stdio: "ignore" });
+			execSync(`git remote add origin ${remotePath}`, { cwd: worktreePath, stdio: "ignore" });
+			execSync("git add -A && git commit -m 'wip'", { cwd: worktreePath, stdio: "ignore", shell: true });
+			execSync("git push -u origin HEAD", { cwd: worktreePath, stdio: "ignore" });
+
+			writeFileSync(join(worktreePath, "src", "extra.ts"), "export const x = 1;\n");
+			execSync("git add -A && git commit -m 'unpushed'", { cwd: worktreePath, stdio: "ignore", shell: true });
+
+			await service.pushBranch(worktreePath, false);
+
+			const statusAfter = await service.getRemoteStatus(worktreePath);
+			expect(statusAfter.ahead).toBe(0);
+
+			rmSync(remotePath, { recursive: true, force: true });
+		});
+	});
 });
