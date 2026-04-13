@@ -99,6 +99,15 @@ const api: Ai14AllDesktopApi = {
 		readCommitDetail(worktreePath, sha) {
 			return ipcRenderer.invoke("git:readCommitDetail", { worktreePath, sha });
 		},
+		discardChange(worktreePath, relativePath) {
+			return ipcRenderer.invoke("git:discardChange", { worktreePath, relativePath });
+		},
+		getRemoteStatus(worktreePath) {
+			return ipcRenderer.invoke("git:getRemoteStatus", { worktreePath });
+		},
+		pushBranch(worktreePath, force) {
+			return ipcRenderer.invoke("git:pushBranch", { worktreePath, force });
+		},
 	},
 	workspace: {
 		openRepository(path) {

@@ -17,6 +17,7 @@ import type {
 	GitCommitDetail,
 	GitCommitHistory,
 } from "../models/git-commit-review.js";
+import type { RemoteStatus } from "../models/git-remote-status.js";
 import { PersistedWorkspaceStateV2Schema, type PersistedWorkspaceStateV2 } from "../models/persisted-workspace-state.js";
 import type {
 	CreateWorktreePreview,
@@ -120,6 +121,20 @@ export const ReadGitCommitDetailSchema = z.object({
 	sha: z.string().min(4),
 });
 
+export const DiscardGitChangeSchema = z.object({
+	worktreePath: z.string(),
+	relativePath: z.string(),
+});
+
+export const GetGitRemoteStatusSchema = z.object({
+	worktreePath: z.string(),
+});
+
+export const PushGitBranchSchema = z.object({
+	worktreePath: z.string(),
+	force: z.boolean(),
+});
+
 // --- The API surface exposed to the renderer via the preload bridge ---
 
 export type Ai14AllDesktopApi = {
@@ -156,6 +171,9 @@ export type Ai14AllDesktopApi = {
 		readSummary(worktreePath: string): Promise<GitSummary>;
 		readCommitHistory(worktreePath: string): Promise<GitCommitHistory>;
 		readCommitDetail(worktreePath: string, sha: string): Promise<GitCommitDetail>;
+		discardChange(worktreePath: string, relativePath: string): Promise<void>;
+		getRemoteStatus(worktreePath: string): Promise<RemoteStatus>;
+		pushBranch(worktreePath: string, force: boolean): Promise<void>;
 	};
 	workspace: {
 		openRepository(path: string): Promise<{ workspaceId: string; repository: Repository }>;

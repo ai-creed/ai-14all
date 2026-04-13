@@ -19,6 +19,9 @@ import {
 	WriteWorkspaceRestoreStateSchema,
 	ReadGitCommitHistorySchema,
 	ReadGitCommitDetailSchema,
+	DiscardGitChangeSchema,
+	GetGitRemoteStatusSchema,
+	PushGitBranchSchema,
 	ListWorktreesSchema,
 	PreviewCreateWorktreeSchema,
 	CreateWorktreeSchema,
@@ -229,6 +232,21 @@ export function registerIpcHandlers(
 	ipcMain.handle("git:readCommitDetail", (_event, raw: unknown) => {
 		const { worktreePath, sha } = ReadGitCommitDetailSchema.parse(raw);
 		return gitService.readCommitDetail(worktreePath, sha);
+	});
+
+	ipcMain.handle("git:discardChange", (_event, raw: unknown) => {
+		const { worktreePath, relativePath } = DiscardGitChangeSchema.parse(raw);
+		return gitService.discardChange(worktreePath, relativePath);
+	});
+
+	ipcMain.handle("git:getRemoteStatus", (_event, raw: unknown) => {
+		const { worktreePath } = GetGitRemoteStatusSchema.parse(raw);
+		return gitService.getRemoteStatus(worktreePath);
+	});
+
+	ipcMain.handle("git:pushBranch", (_event, raw: unknown) => {
+		const { worktreePath, force } = PushGitBranchSchema.parse(raw);
+		return gitService.pushBranch(worktreePath, force);
 	});
 
 	// --- Workspace ---
