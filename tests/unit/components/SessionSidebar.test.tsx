@@ -160,7 +160,7 @@ describe("SessionSidebar", () => {
 		expect(screen.queryByRole("button", { name: "Remove worktree" })).not.toBeInTheDocument();
 	});
 
-	it("shows active processes with indicator and label under worktree", () => {
+	it("shows shell summary rows with state dots and context text", () => {
 		render(
 			<SessionSidebar
 				workspaces={[{
@@ -168,8 +168,23 @@ describe("SessionSidebar", () => {
 					selectedWorktreeId: "main",
 					processesByWorktreeId: {
 						main: {
-							activeProcesses: [{ label: "claude" }, { label: "npm run dev" }],
-							inactiveCount: 0,
+							rows: [
+								{
+									id: "process-1",
+									label: "claude",
+									state: "actionRequired",
+									context: "Continue? [y/N]",
+									lastActivityAt: 19_000,
+								},
+								{
+									id: "process-2",
+									label: "npm run dev",
+									state: "idle",
+									context: "quiet for 18s",
+									lastActivityAt: 2_000,
+								},
+							],
+							overflowCount: 1,
 						},
 					},
 				}]}
@@ -184,15 +199,19 @@ describe("SessionSidebar", () => {
 			/>,
 		);
 
-		const group = screen.getByRole("group", { name: "repo-a" });
-		expect(within(group).getByText("claude")).toBeInTheDocument();
-		expect(within(group).getByText("npm run dev")).toBeInTheDocument();
-		// Each active process should have a running indicator
-		const indicators = within(group).getAllByTestId("process-running-indicator");
-		expect(indicators).toHaveLength(2);
-	});
+			const group = screen.getByRole("group", { name: "repo-a" });
+			expect(within(group).getByText("claude")).toBeInTheDocument();
+			expect(within(group).getByText("npm run dev")).toBeInTheDocument();
+			expect(within(group).getByText("Continue? [y/N]")).toBeInTheDocument();
+			expect(within(group).getByText("quiet for 18s")).toBeInTheDocument();
+			expect(within(group).getByText("1 more shell")).toBeInTheDocument();
+			const indicators = within(group).getAllByTestId("process-state-indicator");
+			expect(indicators).toHaveLength(2);
+			expect(indicators[0]).toHaveAttribute("data-state", "actionRequired");
+			expect(indicators[1]).toHaveAttribute("data-state", "idle");
+		});
 
-	it("shows inactive shell count when greater than zero", () => {
+	it("shows overflow shell count when greater than zero", () => {
 		render(
 			<SessionSidebar
 				workspaces={[{
@@ -200,8 +219,16 @@ describe("SessionSidebar", () => {
 					selectedWorktreeId: "main",
 					processesByWorktreeId: {
 						main: {
-							activeProcesses: [{ label: "claude" }],
-							inactiveCount: 3,
+							rows: [
+								{
+									id: "process-1",
+									label: "claude",
+									state: "active",
+									context: "compiled in 124ms",
+									lastActivityAt: 19_000,
+								},
+							],
+							overflowCount: 3,
 						},
 					},
 				}]}
@@ -214,13 +241,13 @@ describe("SessionSidebar", () => {
 				onRemoveWorktree={vi.fn()}
 				onRemoveWorkspace={vi.fn()}
 			/>,
-		);
+			);
 
-		const group = screen.getByRole("group", { name: "repo-a" });
-		expect(within(group).getByText("3 inactive shells")).toBeInTheDocument();
-	});
+			const group = screen.getByRole("group", { name: "repo-a" });
+			expect(within(group).getByText("3 more shells")).toBeInTheDocument();
+		});
 
-	it("hides inactive shell line when count is zero", () => {
+	it("hides overflow shell line when count is zero", () => {
 		render(
 			<SessionSidebar
 				workspaces={[{
@@ -228,8 +255,16 @@ describe("SessionSidebar", () => {
 					selectedWorktreeId: "main",
 					processesByWorktreeId: {
 						main: {
-							activeProcesses: [{ label: "claude" }],
-							inactiveCount: 0,
+							rows: [
+								{
+									id: "process-1",
+									label: "claude",
+									state: "active",
+									context: "compiled in 124ms",
+									lastActivityAt: 19_000,
+								},
+							],
+							overflowCount: 0,
 						},
 					},
 				}]}
@@ -242,11 +277,11 @@ describe("SessionSidebar", () => {
 				onRemoveWorktree={vi.fn()}
 				onRemoveWorkspace={vi.fn()}
 			/>,
-		);
+			);
 
-		const group = screen.getByRole("group", { name: "repo-a" });
-		expect(within(group).queryByText(/inactive shell/)).not.toBeInTheDocument();
-	});
+			const group = screen.getByRole("group", { name: "repo-a" });
+			expect(within(group).queryByText(/more shell/)).not.toBeInTheDocument();
+		});
 
 	it("does not show process details in collapsed mode", () => {
 		render(
@@ -256,8 +291,16 @@ describe("SessionSidebar", () => {
 					selectedWorktreeId: "main",
 					processesByWorktreeId: {
 						main: {
-							activeProcesses: [{ label: "claude" }],
-							inactiveCount: 2,
+							rows: [
+								{
+									id: "process-1",
+									label: "claude",
+									state: "active",
+									context: "compiled in 124ms",
+									lastActivityAt: 19_000,
+								},
+							],
+							overflowCount: 2,
 						},
 					},
 				}]}
@@ -272,9 +315,9 @@ describe("SessionSidebar", () => {
 			/>,
 		);
 
-		expect(screen.queryByText("claude")).not.toBeInTheDocument();
-		expect(screen.queryByText(/inactive shell/)).not.toBeInTheDocument();
-	});
+			expect(screen.queryByText("claude")).not.toBeInTheDocument();
+			expect(screen.queryByText(/more shell/)).not.toBeInTheDocument();
+		});
 
 	it("only marks the selected worktree inside the active workspace group", () => {
 		render(

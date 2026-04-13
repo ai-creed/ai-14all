@@ -13,6 +13,7 @@ export type ProcessSession = {
 	command: string | null;
 	status: ProcessStatus;
 	lastActivityAt: number | null;
+	lastOutputPreview: string | null;
 	exitCode: number | null;
 	pinned: boolean;
 	attentionState: ProcessAttentionState;

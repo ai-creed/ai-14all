@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
+	act,
 	render,
 	screen,
 	fireEvent,
@@ -649,6 +650,69 @@ describe("App — Phase 6 default shell", () => {
 				"idle",
 			);
 		});
+	});
+
+	it("ages a sidebar shell from active preview to idle quiet hint", async () => {
+		vi.useFakeTimers();
+
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		});
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null },
+		});
+		listWorktreesMock.mockResolvedValue([
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
+		]);
+
+		try {
+			await act(async () => {
+				render(<App />);
+				await Promise.resolve();
+				await Promise.resolve();
+			});
+
+			fireEvent.change(screen.getByLabelText("Repository path"), {
+				target: { value: "/repo" },
+			});
+
+			await act(async () => {
+				fireEvent.click(screen.getByRole("button", { name: "Load" }));
+				await Promise.resolve();
+				await Promise.resolve();
+			});
+
+			expect(screen.getByRole("tab", { name: "shell 1" })).toBeInTheDocument();
+
+			await act(async () => {
+				for (const listener of outputListenersRef.current) {
+					listener({
+						sessionId: "terminal-main-0",
+						data: "compiled in 124ms\n",
+					});
+				}
+			});
+
+			expect(screen.getByText("compiled in 124ms")).toBeInTheDocument();
+
+			act(() => {
+				vi.advanceTimersByTime(11_000);
+			});
+
+			expect(screen.getByText("quiet for 11s")).toBeInTheDocument();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it("selects clicked split pane as the active process", async () => {
