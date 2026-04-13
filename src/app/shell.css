@@ -623,7 +623,10 @@ select {
 
 .shell-sidebar__process-label {
 	color: var(--text-primary);
-	flex-shrink: 0;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .shell-sidebar__process-context {

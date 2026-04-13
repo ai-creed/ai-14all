@@ -126,9 +126,9 @@ export function SessionSidebar({
 																	className="shell-sidebar__process-indicator"
 																	data-state={row.state}
 																/>
-																<span className="shell-sidebar__process-label">{row.label}</span>
+																<span className="shell-sidebar__process-label" title={row.label}>{row.label}</span>
 																{row.context ? (
-																	<span className="shell-sidebar__process-context">
+																	<span className="shell-sidebar__process-context" title={row.context}>
 																		{row.context}
 																	</span>
 																) : null}
