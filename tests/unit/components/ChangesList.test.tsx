@@ -5,6 +5,9 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	files: {
 		read: vi.fn(),
 	},
+	git: {
+		discardChange: vi.fn(),
+	},
 }));
 
 import { ChangesList } from "../../../src/features/git/ChangesList";
@@ -23,6 +26,7 @@ describe("ChangesList", () => {
 				]}
 				selectedPath="src/new-file.ts"
 				onSelect={vi.fn()}
+				onDiscardChange={vi.fn()}
 			/>,
 		);
 
@@ -43,6 +47,7 @@ describe("ChangesList", () => {
 				changes={[{ path: "src/index.ts", status: "M" }]}
 				selectedPath={null}
 				onSelect={onSelect}
+				onDiscardChange={vi.fn()}
 			/>,
 		);
 
@@ -57,6 +62,7 @@ describe("ChangesList", () => {
 				changes={[]}
 				selectedPath={null}
 				onSelect={() => {}}
+				onDiscardChange={vi.fn()}
 				gitSummaryError
 			/>,
 		);
@@ -66,7 +72,7 @@ describe("ChangesList", () => {
 
 	it("wraps the empty state in a padded rail message container", () => {
 		render(
-			<ChangesList worktreePath="/repo" changes={[]} selectedPath={null} onSelect={() => {}} />,
+			<ChangesList worktreePath="/repo" changes={[]} selectedPath={null} onSelect={() => {}} onDiscardChange={vi.fn()} />,
 		);
 
 		expect(screen.getByText("No changed files.").parentElement).toHaveClass(
@@ -90,6 +96,7 @@ describe("ChangesList", () => {
 				]}
 				selectedPath={null}
 				onSelect={vi.fn()}
+				onDiscardChange={vi.fn()}
 			/>,
 		);
 
@@ -107,10 +114,56 @@ describe("ChangesList", () => {
 				changes={[{ path: "src/index.ts", status: "M" }]}
 				selectedPath={null}
 				onSelect={vi.fn()}
+				onDiscardChange={vi.fn()}
 			/>,
 		);
 
 		fireEvent.contextMenu(screen.getByRole("button", { name: /src\/index\.ts/i }));
 		expect(screen.queryByRole("menuitem", { name: "Preview" })).not.toBeInTheDocument();
+	});
+
+	it("shows Discard in context menu for all files", () => {
+		render(
+			<ChangesList
+				worktreePath="/repo"
+				changes={[{ path: "src/index.ts", status: "M" }]}
+				selectedPath={null}
+				onSelect={vi.fn()}
+				onDiscardChange={vi.fn()}
+			/>,
+		);
+		fireEvent.contextMenu(screen.getByRole("button", { name: /src\/index\.ts/i }));
+		expect(screen.getByRole("menuitem", { name: "Discard changes" })).toBeInTheDocument();
+	});
+
+	it("shows both Preview and Discard for markdown files", () => {
+		render(
+			<ChangesList
+				worktreePath="/repo"
+				changes={[{ path: "NOTES.md", status: "M" }]}
+				selectedPath={null}
+				onSelect={vi.fn()}
+				onDiscardChange={vi.fn()}
+			/>,
+		);
+		fireEvent.contextMenu(screen.getByRole("button", { name: /notes\.md/i }));
+		expect(screen.getByRole("menuitem", { name: "Preview" })).toBeInTheDocument();
+		expect(screen.getByRole("menuitem", { name: "Discard changes" })).toBeInTheDocument();
+	});
+
+	it("calls onDiscardChange with path when Discard is clicked", () => {
+		const onDiscardChange = vi.fn();
+		render(
+			<ChangesList
+				worktreePath="/repo"
+				changes={[{ path: "src/index.ts", status: "M" }]}
+				selectedPath={null}
+				onSelect={vi.fn()}
+				onDiscardChange={onDiscardChange}
+			/>,
+		);
+		fireEvent.contextMenu(screen.getByRole("button", { name: /src\/index\.ts/i }));
+		fireEvent.click(screen.getByRole("menuitem", { name: "Discard changes" }));
+		expect(onDiscardChange).toHaveBeenCalledWith("src/index.ts");
 	});
 });

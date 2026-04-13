@@ -8,6 +8,7 @@ type Props = {
 	changes: GitChange[];
 	selectedPath: string | null;
 	onSelect: (relativePath: string) => void;
+	onDiscardChange: (relativePath: string) => void;
 	gitSummaryError?: boolean;
 	gitSummaryStale?: boolean;
 	gitSummaryMessage?: string | null;
@@ -18,6 +19,7 @@ export function ChangesList({
 	changes,
 	selectedPath,
 	onSelect,
+	onDiscardChange,
 	gitSummaryError,
 	gitSummaryStale,
 	gitSummaryMessage,
@@ -71,20 +73,26 @@ export function ChangesList({
 							</button>
 						);
 
-						if (!change.path.endsWith(".md")) {
-							return button;
-						}
+						const isMd = change.path.endsWith(".md");
 
 						return (
 							<ContextMenu.Root key={change.path}>
 								<ContextMenu.Trigger asChild>{button}</ContextMenu.Trigger>
 								<ContextMenu.Portal>
 									<ContextMenu.Content className="shell-toolbar-menu">
+										{isMd && (
+											<ContextMenu.Item
+												className="shell-toolbar-menu__item"
+												onSelect={() => setPreviewPath(change.path)}
+											>
+												Preview
+											</ContextMenu.Item>
+										)}
 										<ContextMenu.Item
-											className="shell-toolbar-menu__item"
-											onSelect={() => setPreviewPath(change.path)}
+											className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
+											onSelect={() => onDiscardChange(change.path)}
 										>
-											Preview
+											Discard changes
 										</ContextMenu.Item>
 									</ContextMenu.Content>
 								</ContextMenu.Portal>
