@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("../../../src/lib/desktop-client", () => ({
@@ -224,5 +224,145 @@ describe("CommitList", () => {
 
 		fireEvent.contextMenu(screen.getByRole("button", { name: /docs\/notes\.md/i }));
 		expect(screen.queryByRole("menuitem", { name: "Preview" })).not.toBeInTheDocument();
+	});
+
+	it("renders the push strip when remoteStatus is provided", () => {
+		render(
+			<CommitList
+				worktreePath="/repo"
+				history={{
+					mergeTargetRef: "origin/main",
+					entries: [
+						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+					],
+				}}
+				selectedCommitSha={null}
+				selectedCommitFilePath={null}
+				activeDetail={null}
+				onSelectCommit={vi.fn()}
+				onSelectCommitFile={vi.fn()}
+				remoteStatus={{ hasRemote: true, ahead: 2, behind: 0 }}
+				onPush={vi.fn()}
+			/>,
+		);
+		expect(screen.getByText(/↑2/)).toBeInTheDocument();
+		expect(screen.getByText(/↓0/)).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Push" })).toBeInTheDocument();
+	});
+
+	it("disables push button when ahead is 0", () => {
+		render(
+			<CommitList
+				worktreePath="/repo"
+				history={{
+					mergeTargetRef: "origin/main",
+					entries: [
+						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+					],
+				}}
+				selectedCommitSha={null}
+				selectedCommitFilePath={null}
+				activeDetail={null}
+				onSelectCommit={vi.fn()}
+				onSelectCommitFile={vi.fn()}
+				remoteStatus={{ hasRemote: true, ahead: 0, behind: 0 }}
+				onPush={vi.fn()}
+			/>,
+		);
+		expect(screen.getByRole("button", { name: "Push" })).toBeDisabled();
+	});
+
+	it("disables push button when hasRemote is false", () => {
+		render(
+			<CommitList
+				worktreePath="/repo"
+				history={{
+					mergeTargetRef: "origin/main",
+					entries: [
+						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+					],
+				}}
+				selectedCommitSha={null}
+				selectedCommitFilePath={null}
+				activeDetail={null}
+				onSelectCommit={vi.fn()}
+				onSelectCommitFile={vi.fn()}
+				remoteStatus={{ hasRemote: false, ahead: 0, behind: 0 }}
+				onPush={vi.fn()}
+			/>,
+		);
+		expect(screen.getByRole("button", { name: "Push" })).toBeDisabled();
+	});
+
+	it("calls onPush(false) directly when behind is 0 and Push is clicked", async () => {
+		const onPush = vi.fn().mockResolvedValue(undefined);
+		render(
+			<CommitList
+				worktreePath="/repo"
+				history={{
+					mergeTargetRef: "origin/main",
+					entries: [
+						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+					],
+				}}
+				selectedCommitSha={null}
+				selectedCommitFilePath={null}
+				activeDetail={null}
+				onSelectCommit={vi.fn()}
+				onSelectCommitFile={vi.fn()}
+				remoteStatus={{ hasRemote: true, ahead: 1, behind: 0 }}
+				onPush={onPush}
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Push" }));
+		await waitFor(() => {
+			expect(onPush).toHaveBeenCalledWith(false);
+		});
+	});
+
+	it("opens the force push dialog when behind > 0 and Push is clicked", async () => {
+		render(
+			<CommitList
+				worktreePath="/repo"
+				history={{
+					mergeTargetRef: "origin/main",
+					entries: [
+						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+					],
+				}}
+				selectedCommitSha={null}
+				selectedCommitFilePath={null}
+				activeDetail={null}
+				onSelectCommit={vi.fn()}
+				onSelectCommitFile={vi.fn()}
+				remoteStatus={{ hasRemote: true, ahead: 1, behind: 2 }}
+				onPush={vi.fn().mockResolvedValue(undefined)}
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Push" }));
+		await waitFor(() => {
+			expect(screen.getByText(/2 commit/i)).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: "Force Push" })).toBeInTheDocument();
+		});
+	});
+
+	it("does not render push strip when remoteStatus is not provided", () => {
+		render(
+			<CommitList
+				worktreePath="/repo"
+				history={{
+					mergeTargetRef: "origin/main",
+					entries: [
+						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+					],
+				}}
+				selectedCommitSha={null}
+				selectedCommitFilePath={null}
+				activeDetail={null}
+				onSelectCommit={vi.fn()}
+				onSelectCommitFile={vi.fn()}
+			/>,
+		);
+		expect(screen.queryByRole("button", { name: "Push" })).not.toBeInTheDocument();
 	});
 });

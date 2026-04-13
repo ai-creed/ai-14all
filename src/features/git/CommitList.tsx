@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import { buildLinearCommitGraph } from "./build-linear-commit-graph.js";
 import type { GitCommitHistory, GitCommitDetail } from "../../../shared/models/git-commit-review.js";
+import type { RemoteStatus } from "../../../shared/models/git-remote-status.js";
 import { MarkdownPreviewModal } from "../viewer/MarkdownPreviewModal";
+import { ForcePushDialog } from "./ForcePushDialog";
 
 type Props = {
 	worktreePath: string;
@@ -13,6 +15,8 @@ type Props = {
 	onSelectCommit: (sha: string) => void;
 	onDeselectCommit?: () => void;
 	onSelectCommitFile: (relativePath: string) => void;
+	remoteStatus?: RemoteStatus | null;
+	onPush?: (force: boolean) => Promise<void>;
 };
 
 export function CommitList({
@@ -24,11 +28,14 @@ export function CommitList({
 	onSelectCommit,
 	onDeselectCommit,
 	onSelectCommitFile,
+	remoteStatus,
+	onPush,
 }: Props) {
 	const [previewState, setPreviewState] = useState<{
 		path: string;
 		content: string;
 	} | null>(null);
+	const [forcePushOpen, setForcePushOpen] = useState(false);
 
 	useEffect(() => {
 		setPreviewState(null);
@@ -39,9 +46,41 @@ export function CommitList({
 	}
 
 	const rows = buildLinearCommitGraph(history.entries);
+	const pushDisabled = !remoteStatus?.hasRemote || (remoteStatus?.ahead ?? 0) === 0;
+
+	function handlePushClick() {
+		if (!remoteStatus || !onPush) return;
+		if (remoteStatus.behind > 0) {
+			setForcePushOpen(true);
+		} else {
+			void onPush(false);
+		}
+	}
 
 	return (
 		<div className="shell-commit-list">
+			{remoteStatus && (
+				<div className="shell-commit-push-strip">
+					<span className="shell-commit-push-strip__counts">
+						<span>↑{remoteStatus.ahead}</span>
+						<span>↓{remoteStatus.behind}</span>
+					</span>
+					<button
+						type="button"
+						className="shell-button shell-button--compact"
+						disabled={pushDisabled}
+						onClick={handlePushClick}
+					>
+						Push
+					</button>
+					<ForcePushDialog
+						open={forcePushOpen}
+						behind={remoteStatus.behind}
+						onOpenChange={setForcePushOpen}
+						onConfirm={() => onPush?.(true) ?? Promise.resolve()}
+					/>
+				</div>
+			)}
 			<div className="shell-commit-list__target">{history.mergeTargetRef}</div>
 			{rows.map((row, index) => {
 				const isSelected = selectedCommitSha === row.sha;

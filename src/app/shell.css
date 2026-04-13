@@ -1194,6 +1194,22 @@ select {
 	padding: var(--space-2);
 }
 
+.shell-commit-push-strip {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	padding: var(--space-2) var(--space-3);
+	border-bottom: 1px solid var(--panel-border);
+	font-size: 0.75rem;
+}
+
+.shell-commit-push-strip__counts {
+	display: flex;
+	gap: var(--space-2);
+	color: var(--text-muted);
+	flex: 1;
+}
+
 .shell-commit-list__target {
 	padding: 4px 8px;
 	font-size: 0.8em;
