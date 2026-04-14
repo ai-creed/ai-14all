@@ -440,7 +440,7 @@ describe("TerminalPane", () => {
 		render(<TerminalPane session={session} visible={true} />);
 
 		// User scrolled up after render
-		xtermBufferMock.active = { viewportY: 50, baseY: 100 };
+		xtermBufferMock.active = { viewportY: 50, baseY: 100, cursorY: 23 };
 		xtermScrollToBottomMock.mockClear();
 		fitMock.mockClear();
 
