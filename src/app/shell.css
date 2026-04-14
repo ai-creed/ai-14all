@@ -801,6 +801,10 @@ select {
 	height: 100%;
 }
 
+.shell-terminal-pane__viewport .xterm .xterm-viewport {
+	overflow-anchor: none;
+}
+
 .shell-tooltip {
 	padding: 6px 10px;
 	color: var(--text-primary);

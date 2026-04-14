@@ -18,6 +18,7 @@ const {
 	xtermAttachCustomKeyEventHandlerMock,
 	xtermClearMock,
 	xtermScrollToBottomMock,
+	xtermScrollLinesMock,
 	xtermBufferMock,
 } = vi.hoisted(() => ({
 	resizeMock: vi.fn(() => Promise.resolve()),
@@ -35,7 +36,8 @@ const {
 	xtermAttachCustomKeyEventHandlerMock: vi.fn(),
 	xtermClearMock: vi.fn(),
 	xtermScrollToBottomMock: vi.fn(),
-	xtermBufferMock: { active: { viewportY: 100, baseY: 100 } },
+	xtermScrollLinesMock: vi.fn(),
+	xtermBufferMock: { active: { viewportY: 100, baseY: 100, cursorY: 23 } },
 }));
 
 type ResizeObserverRecord = {
@@ -101,6 +103,7 @@ vi.mock("xterm", () => ({
 		attachCustomKeyEventHandler = xtermAttachCustomKeyEventHandlerMock;
 		clear = xtermClearMock;
 		scrollToBottom = xtermScrollToBottomMock;
+		scrollLines = xtermScrollLinesMock;
 	},
 }));
 
@@ -134,7 +137,8 @@ describe("TerminalPane", () => {
 		xtermAttachCustomKeyEventHandlerMock.mockReset();
 		xtermClearMock.mockReset();
 		xtermScrollToBottomMock.mockReset();
-		xtermBufferMock.active = { viewportY: 100, baseY: 100 };
+		xtermScrollLinesMock.mockReset();
+		xtermBufferMock.active = { viewportY: 100, baseY: 100, cursorY: 23 };
 		resizeMock.mockImplementation(() => Promise.resolve());
 		sendInputMock.mockImplementation(() => Promise.resolve());
 		xtermOnDataMock.mockReturnValue({ dispose: vi.fn() });
@@ -282,61 +286,82 @@ describe("TerminalPane", () => {
 		expect(sendInputMock).not.toHaveBeenCalled();
 	});
 
-	it("scrolls to bottom after fit when terminal was at bottom on visibility change", () => {
+	it("preserves cursor-anchored scroll after fit on visibility change", () => {
 		const session = makeSession();
 
-		// Terminal at bottom: viewportY === baseY
-		xtermBufferMock.active = { viewportY: 100, baseY: 100 };
+		// Cursor in view (cursorAbsY = 100+23 = 123, viewport 100..123)
+		xtermBufferMock.active = { viewportY: 100, baseY: 100, cursorY: 23 };
 
 		const { rerender } = render(
 			<TerminalPane session={session} visible={false} />,
 		);
 
-		xtermScrollToBottomMock.mockClear();
+		xtermScrollLinesMock.mockClear();
 		fitMock.mockClear();
+
+		// Simulate fit() shifting the buffer (e.g. reflow added lines)
+		fitMock.mockImplementation(() => {
+			xtermBufferMock.active = { viewportY: 0, baseY: 110, cursorY: 23 };
+		});
 
 		rerender(<TerminalPane session={session} visible={true} />);
 
 		expect(fitMock).toHaveBeenCalled();
-		expect(xtermScrollToBottomMock).toHaveBeenCalled();
+		// newCursorAbsY = 110+23 = 133, cursorOffset was 23
+		// targetViewportY = 133 - 23 = 110, delta = 110 - 0 = 110
+		expect(xtermScrollLinesMock).toHaveBeenCalledWith(110);
 	});
 
-	it("does not scroll to bottom after fit when user has scrolled up on visibility change", () => {
+	it("restores viewportY after fit when user has scrolled up on visibility change", () => {
 		const session = makeSession();
 
-		// User scrolled up: viewportY < baseY
-		xtermBufferMock.active = { viewportY: 50, baseY: 100 };
+		// User scrolled up: cursor NOT in view (cursorAbsY=100+23=123, viewport 50..73)
+		xtermBufferMock.active = { viewportY: 50, baseY: 100, cursorY: 23 };
 
 		const { rerender } = render(
 			<TerminalPane session={session} visible={false} />,
 		);
 
+		xtermScrollLinesMock.mockClear();
 		xtermScrollToBottomMock.mockClear();
 		fitMock.mockClear();
+
+		// Simulate fit() resetting viewportY to 0
+		fitMock.mockImplementation(() => {
+			xtermBufferMock.active = { viewportY: 0, baseY: 100, cursorY: 23 };
+		});
 
 		rerender(<TerminalPane session={session} visible={true} />);
 
 		expect(fitMock).toHaveBeenCalled();
 		expect(xtermScrollToBottomMock).not.toHaveBeenCalled();
+		// Should restore to saved viewportY: delta = 50 - 0 = 50
+		expect(xtermScrollLinesMock).toHaveBeenCalledWith(50);
 	});
 
-	it("scrolls to bottom after fit on container resize when terminal was at bottom", () => {
+	it("preserves cursor-anchored scroll after fit on container resize", () => {
 		const session = makeSession();
 
-		// Terminal at bottom
-		xtermBufferMock.active = { viewportY: 100, baseY: 100 };
+		// Cursor in view at bottom
+		xtermBufferMock.active = { viewportY: 100, baseY: 100, cursorY: 23 };
 
 		render(<TerminalPane session={session} visible={true} />);
 
-		xtermScrollToBottomMock.mockClear();
+		xtermScrollLinesMock.mockClear();
 		fitMock.mockClear();
+
+		// Simulate fit() shifting the buffer
+		fitMock.mockImplementation(() => {
+			xtermBufferMock.active = { viewportY: 0, baseY: 110, cursorY: 23 };
+		});
 
 		// Trigger ResizeObserver callback
 		const observer = resizeObserverRecords[0];
 		observer.callback([], observer as never);
 
 		expect(fitMock).toHaveBeenCalled();
-		expect(xtermScrollToBottomMock).toHaveBeenCalled();
+		// Same math: newCursorAbsY=133, offset=23, target=110, delta=110
+		expect(xtermScrollLinesMock).toHaveBeenCalledWith(110);
 	});
 
 	it("sends escaped file path to PTY on file drop", () => {

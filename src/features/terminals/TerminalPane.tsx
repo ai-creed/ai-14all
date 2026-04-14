@@ -31,6 +31,36 @@ export function TerminalPane({
 	const paneInstanceIdRef = useRef(`pane_${session.id}_${Math.random().toString(36).slice(2, 8)}`);
 	const isLive = session.status === "running" || session.status === "idle";
 
+	/**
+	 * Fit the terminal to its container while preserving the scroll anchor.
+	 *
+	 * Anchor rule:
+	 *  - Cursor visible in viewport → keep it at the same offset from the
+	 *    viewport top (user is at the prompt / interacting with PTY input).
+	 *  - Cursor NOT visible → user scrolled away to read history; restore
+	 *    the previous viewportY as closely as possible.
+	 */
+	const fitPreservingScroll = useCallback((term: Terminal, fitAddon: FitAddon) => {
+		const buf = term.buffer.active;
+		const cursorAbsY = buf.baseY + buf.cursorY;
+		const viewportY = buf.viewportY;
+		const cursorInView =
+			cursorAbsY >= viewportY && cursorAbsY < viewportY + term.rows;
+		const cursorOffset = cursorAbsY - viewportY;
+
+		fitAddon.fit();
+
+		if (cursorInView) {
+			const newCursorAbsY = term.buffer.active.baseY + term.buffer.active.cursorY;
+			const targetViewportY = newCursorAbsY - cursorOffset;
+			const delta = targetViewportY - term.buffer.active.viewportY;
+			if (delta !== 0) term.scrollLines(delta);
+		} else {
+			const delta = viewportY - term.buffer.active.viewportY;
+			if (delta !== 0) term.scrollLines(delta);
+		}
+	}, []);
+
 	// Mount the xterm instance once.
 	useEffect(() => {
 		void logRendererShellEvent({
@@ -158,12 +188,9 @@ export function TerminalPane({
 		const fitAddon = fitAddonRef.current;
 		if (!term || !fitAddon) return;
 
-		const wasAtBottom =
-			term.buffer.active.viewportY >= term.buffer.active.baseY;
-		fitAddon.fit();
-		if (wasAtBottom) term.scrollToBottom();
+		fitPreservingScroll(term, fitAddon);
 		terminals.resize(session.id, term.cols, term.rows).catch(() => undefined);
-	}, [isLive, visible, session.id]);
+	}, [isLive, visible, session.id, fitPreservingScroll]);
 
 	// Resize on container dimension changes via ResizeObserver.
 	useEffect(() => {
@@ -176,16 +203,13 @@ export function TerminalPane({
 			if (!term || !fitAddon) return;
 			// Only fit/resize when the pane is actually visible.
 			if (!visible || !isLive) return;
-			const wasAtBottom =
-				term.buffer.active.viewportY >= term.buffer.active.baseY;
-			fitAddon.fit();
-			if (wasAtBottom) term.scrollToBottom();
+			fitPreservingScroll(term, fitAddon);
 			terminals.resize(session.id, term.cols, term.rows).catch(() => undefined);
 		});
 
 		observer.observe(el);
 		return () => observer.disconnect();
-	}, [isLive, session.id, visible]);
+	}, [isLive, session.id, visible, fitPreservingScroll]);
 
 	const handleDragOver = useCallback((e: React.DragEvent) => {
 		e.preventDefault();
