@@ -80,6 +80,7 @@ export function App() {
 	const [reviewPanelHeight, setReviewPanelHeight] = useState(280);
 	const [reviewPanelCollapsed, setReviewPanelCollapsed] = useState(false);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+	const [sidebarWidth, setSidebarWidth] = useState(240);
 	const [sidebarNow, setSidebarNow] = useState(() => Date.now());
 
 	// Multi-workspace registry
@@ -1281,6 +1282,30 @@ export function App() {
 		window.addEventListener("mouseup", handleMouseUp);
 	}
 
+	function handleSidebarResizeStart(
+		event: ReactMouseEvent<HTMLDivElement>,
+	) {
+		event.preventDefault();
+		const startX = event.clientX;
+		const startWidth = sidebarWidth;
+
+		const handleMouseMove = (moveEvent: MouseEvent) => {
+			const nextWidth = Math.min(
+				480,
+				Math.max(180, startWidth + (moveEvent.clientX - startX)),
+			);
+			setSidebarWidth(nextWidth);
+		};
+
+		const handleMouseUp = () => {
+			window.removeEventListener("mousemove", handleMouseMove);
+			window.removeEventListener("mouseup", handleMouseUp);
+		};
+
+		window.addEventListener("mousemove", handleMouseMove);
+		window.addEventListener("mouseup", handleMouseUp);
+	}
+
 	function handleReviewPanelResizeStart(
 		event: ReactMouseEvent<HTMLDivElement>,
 	) {
@@ -1914,11 +1939,18 @@ export function App() {
 				data-testid="shell-layout"
 				style={{
 					gridTemplateColumns: `${
-						sidebarCollapsed ? 56 : 240
+						sidebarCollapsed ? 56 : sidebarWidth
 					}px minmax(0, 1fr)`,
 				}}
 			>
 				<div className="shell-sidebar-column">
+					{!sidebarCollapsed && (
+						<div
+							className="shell-sidebar-column__resize-handle"
+							data-testid="sidebar-resize-handle"
+							onMouseDown={handleSidebarResizeStart}
+						/>
+					)}
 					<SessionSidebar
 						workspaces={sidebarWorkspaces}
 						collapsed={sidebarCollapsed}
