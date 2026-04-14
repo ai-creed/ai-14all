@@ -369,11 +369,11 @@ describe("GitService", () => {
 			execSync("git init --bare", { cwd: remotePath, stdio: "ignore" });
 			execSync(`git remote add origin ${remotePath}`, { cwd: worktreePath, stdio: "ignore" });
 
-			execSync("git add -A && git commit -m 'wip'", { cwd: worktreePath, stdio: "ignore", shell: true });
+			execSync("git add -A && git commit -m 'wip'", { cwd: worktreePath, stdio: "ignore", shell: "/bin/sh" });
 			execSync("git push -u origin HEAD", { cwd: worktreePath, stdio: "ignore" });
 
 			writeFileSync(join(worktreePath, "src", "extra.ts"), "export const x = 1;\n");
-			execSync("git add -A && git commit -m 'unpushed'", { cwd: worktreePath, stdio: "ignore", shell: true });
+			execSync("git add -A && git commit -m 'unpushed'", { cwd: worktreePath, stdio: "ignore", shell: "/bin/sh" });
 
 			const status = await service.getRemoteStatus(worktreePath);
 			expect(status.hasRemote).toBe(true);
@@ -389,11 +389,11 @@ describe("GitService", () => {
 			const remotePath = realpathSync(mkdtempSync(join(tmpdir(), "ofa-remote-")));
 			execSync("git init --bare", { cwd: remotePath, stdio: "ignore" });
 			execSync(`git remote add origin ${remotePath}`, { cwd: worktreePath, stdio: "ignore" });
-			execSync("git add -A && git commit -m 'wip'", { cwd: worktreePath, stdio: "ignore", shell: true });
+			execSync("git add -A && git commit -m 'wip'", { cwd: worktreePath, stdio: "ignore", shell: "/bin/sh" });
 			execSync("git push -u origin HEAD", { cwd: worktreePath, stdio: "ignore" });
 
 			writeFileSync(join(worktreePath, "src", "extra.ts"), "export const x = 1;\n");
-			execSync("git add -A && git commit -m 'unpushed'", { cwd: worktreePath, stdio: "ignore", shell: true });
+			execSync("git add -A && git commit -m 'unpushed'", { cwd: worktreePath, stdio: "ignore", shell: "/bin/sh" });
 
 			await service.pushBranch(worktreePath, false);
 

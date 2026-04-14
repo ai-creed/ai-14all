@@ -818,7 +818,7 @@ describe("workspaceReducer — Phase 6 top-band collapse", () => {
 
 describe("workspaceReducer — Phase 5 persistence restore", () => {
 	it("restores the selected worktree session from a snapshot", () => {
-		let state = workspaceReducer(createWorkspaceState([]), {
+		const state = workspaceReducer(createWorkspaceState([]), {
 			type: "workspace/restoreSnapshot",
 			worktrees,
 			workspaceId: "ws-test",
@@ -872,7 +872,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 	});
 
 	it("lazily restores a non-selected worktree session", () => {
-		let state = workspaceReducer(createWorkspaceState(worktrees), {
+		const state = workspaceReducer(createWorkspaceState(worktrees), {
 			type: "session/restoreSnapshot",
 			workspaceId: "ws-test",
 			snapshot: {

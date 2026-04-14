@@ -1279,7 +1279,7 @@ describe("App — Phase 5 restore flow", () => {
 			repository: { id: "repo-a", name: "repo-a", rootPath: "/repo-a", repoId: "repo-id-a" },
 		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "/repo-a", repositoryId: "repo-a", branchName: "main", path: "/repo-a", label: "main", isMain: true }
+			{ id: "/repo-a", repositoryId: "repo-a", branchName: "main", path: "/repo-a", label: "main", isMain: true },
 		]);
 
 		render(<App />);
@@ -1293,7 +1293,7 @@ describe("App — Phase 5 restore flow", () => {
 			repository: { id: "repo-b", name: "repo-b", rootPath: "/repo-b", repoId: "repo-id-b" },
 		});
 		listWorktreesMock.mockResolvedValueOnce([
-			{ id: "/repo-b", repositoryId: "repo-b", branchName: "main", path: "/repo-b", label: "main", isMain: true }
+			{ id: "/repo-b", repositoryId: "repo-b", branchName: "main", path: "/repo-b", label: "main", isMain: true },
 		]);
 
 		await userEvent.click(screen.getByRole("button", { name: "repo-b" }));

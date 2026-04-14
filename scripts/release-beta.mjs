@@ -32,7 +32,7 @@ export function findHeadBetaTag(tagsPointingAtHead) {
 	const parsed = tagsPointingAtHead.map(parseBetaTag).filter(Boolean);
 	if (parsed.length === 0) return null;
 	return parsed.reduce((best, current) =>
-		current.sequence > best.sequence ? current : best
+		current.sequence > best.sequence ? current : best,
 	).tag;
 }
 
