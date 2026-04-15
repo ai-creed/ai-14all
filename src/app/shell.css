@@ -58,8 +58,8 @@
 }
 
 :root {
-	--font-size-body: 12px;
-	--font-size-label: 15px;
+	--font-size-body: 13px;
+	--font-size-label: 16px;
 }
 
 [data-theme="light"] {
@@ -152,8 +152,35 @@ select {
 }
 
 .shell-sidebar-column {
+	position: relative;
 	display: flex;
 	min-height: 0;
+}
+
+.shell-sidebar-column__resize-handle {
+	position: absolute;
+	top: 0;
+	right: -8px;
+	width: 16px;
+	height: 100%;
+	cursor: col-resize;
+	z-index: 10;
+}
+
+.shell-sidebar-column__resize-handle::before {
+	content: "";
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 50%;
+	width: 1px;
+	transform: translateX(-50%);
+	background: transparent;
+	transition: background 0.15s;
+}
+
+.shell-sidebar-column__resize-handle:hover::before {
+	background: var(--accent);
 }
 
 .shell-main-column {

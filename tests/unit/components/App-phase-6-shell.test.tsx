@@ -1039,6 +1039,180 @@ describe("App — Phase 6 default shell", () => {
 		expect(reviewStack).toHaveStyle({ gridTemplateRows: "auto auto 320px" });
 	});
 
+	it("resizes the sidebar by dragging the resize handle", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		});
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+		await screen.findByLabelText("Repository path");
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		const layout = await screen.findByTestId("shell-layout");
+		const resizeHandle = screen.getByTestId("sidebar-resize-handle");
+
+		expect(layout).toHaveStyle({ gridTemplateColumns: "240px minmax(0, 1fr)" });
+
+		fireEvent.mouseDown(resizeHandle, { clientX: 240 });
+		fireEvent.mouseMove(window, { clientX: 350 });
+		fireEvent.mouseUp(window);
+
+		await waitFor(() => {
+			expect(layout).toHaveStyle({
+				gridTemplateColumns: "350px minmax(0, 1fr)",
+			});
+		});
+	});
+
+	it("clamps sidebar width to minimum 180px", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		});
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+		await screen.findByLabelText("Repository path");
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		const layout = await screen.findByTestId("shell-layout");
+		const resizeHandle = screen.getByTestId("sidebar-resize-handle");
+
+		fireEvent.mouseDown(resizeHandle, { clientX: 240 });
+		fireEvent.mouseMove(window, { clientX: 50 });
+		fireEvent.mouseUp(window);
+
+		await waitFor(() => {
+			expect(layout).toHaveStyle({
+				gridTemplateColumns: "180px minmax(0, 1fr)",
+			});
+		});
+	});
+
+	it("clamps sidebar width to maximum 480px", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		});
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+		await screen.findByLabelText("Repository path");
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		const layout = await screen.findByTestId("shell-layout");
+		const resizeHandle = screen.getByTestId("sidebar-resize-handle");
+
+		fireEvent.mouseDown(resizeHandle, { clientX: 240 });
+		fireEvent.mouseMove(window, { clientX: 900 });
+		fireEvent.mouseUp(window);
+
+		await waitFor(() => {
+			expect(layout).toHaveStyle({
+				gridTemplateColumns: "480px minmax(0, 1fr)",
+			});
+		});
+	});
+
+	it("hides the resize handle when sidebar is collapsed", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		});
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+		await screen.findByLabelText("Repository path");
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		expect(await screen.findByTestId("sidebar-resize-handle")).toBeInTheDocument();
+
+		const collapseButton = screen.getByRole("button", { name: /collapse sidebar/i });
+		await userEvent.click(collapseButton);
+
+		await waitFor(() => {
+			expect(screen.queryByTestId("sidebar-resize-handle")).not.toBeInTheDocument();
+		});
+
+		const layout = screen.getByTestId("shell-layout");
+		expect(layout).toHaveStyle({ gridTemplateColumns: "56px minmax(0, 1fr)" });
+	});
+
+	it("preserves sidebar width after collapse and expand", async () => {
+		readRestoreStateMock.mockResolvedValue({
+			version: 1,
+			restorePreference: "prompt",
+			snapshot: null,
+		});
+		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		listWorktreesMock.mockResolvedValue([
+			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		]);
+
+		render(<App />);
+		await screen.findByLabelText("Repository path");
+		fireEvent.change(screen.getByLabelText("Repository path"), {
+			target: { value: "/repo" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+		const layout = await screen.findByTestId("shell-layout");
+		const resizeHandle = screen.getByTestId("sidebar-resize-handle");
+
+		// Widen sidebar to 400px
+		fireEvent.mouseDown(resizeHandle, { clientX: 240 });
+		fireEvent.mouseMove(window, { clientX: 400 });
+		fireEvent.mouseUp(window);
+
+		await waitFor(() => {
+			expect(layout).toHaveStyle({ gridTemplateColumns: "400px minmax(0, 1fr)" });
+		});
+
+		// Collapse
+		const collapseButton = screen.getByRole("button", { name: /collapse sidebar/i });
+		await userEvent.click(collapseButton);
+		await waitFor(() => {
+			expect(layout).toHaveStyle({ gridTemplateColumns: "56px minmax(0, 1fr)" });
+		});
+
+		// Expand — width should be preserved
+		const expandButton = screen.getByRole("button", { name: /expand sidebar/i });
+		await userEvent.click(expandButton);
+		await waitFor(() => {
+			expect(layout).toHaveStyle({ gridTemplateColumns: "400px minmax(0, 1fr)" });
+		});
+	});
+
 	it("keeps the current session state when reloading the same repository from the picker", async () => {
 		readRestoreStateMock.mockResolvedValue({
 			version: 1,
