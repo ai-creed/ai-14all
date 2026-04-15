@@ -153,6 +153,39 @@ export function App() {
 		[],
 	);
 
+	function getWorkspaceStateById(workspaceId: string): WorkspaceState | null {
+		if (workspaceId === appWorkspacesRef.current.activeWorkspaceId) {
+			return activeWorkspaceStateRef.current;
+		}
+		return (
+			inactiveWorkspaceStatesRef.current.get(workspaceId) ??
+			appWorkspacesRef.current.workspacesById[workspaceId]?.workspaceState ??
+			null
+		);
+	}
+
+	function createScopedWorkspaceDispatch(workspaceId: string) {
+		const localShadow = { current: getWorkspaceStateById(workspaceId) };
+		return (action: WorkspaceAction) => {
+			const baseState = localShadow.current ?? getWorkspaceStateById(workspaceId);
+			if (!baseState) return;
+			const nextState = workspaceReducer(baseState, action);
+			localShadow.current = nextState;
+			if (workspaceId === appWorkspacesRef.current.activeWorkspaceId) {
+				prevActiveWorkspaceIdRef.current = workspaceId;
+				activeWorkspaceStateRef.current = nextState;
+				inactiveWorkspaceStatesRef.current.delete(workspaceId);
+			} else {
+				inactiveWorkspaceStatesRef.current.set(workspaceId, nextState);
+			}
+			dispatchAppWorkspaces({
+				type: "workspace/updateWorkspaceState",
+				workspaceId,
+				workspaceState: nextState,
+			});
+		};
+	}
+
 	const worktreesRef = useRef(worktrees);
 	worktreesRef.current = worktrees;
 	const workspaceStateRef = useRef(workspaceState);
@@ -1617,18 +1650,22 @@ export function App() {
 
 	async function handleAddAdHoc() {
 		if (!activeWorktree || !activeWorkspaceId) return;
+		const targetWorkspaceId = activeWorkspaceId;
+		const targetWorktree = activeWorktree;
 		try {
 			const termSession = await createSession(
-				activeWorkspaceId,
-				activeWorktree.id,
-				activeWorktree.path,
+				targetWorkspaceId,
+				targetWorktree.id,
+				targetWorktree.path,
 			);
+			const targetWorkspaceState = getWorkspaceStateById(targetWorkspaceId);
+			if (!targetWorkspaceState) return;
 			const adHocNumber =
-				workspaceState.nextAdHocNumberByWorktreeId[activeWorktree.id] ?? 1;
+				targetWorkspaceState.nextAdHocNumberByWorktreeId[targetWorktree.id] ?? 1;
 			const process: ProcessSession = {
 				id: crypto.randomUUID(),
-				workspaceId: activeWorkspaceId,
-				worktreeId: activeWorktree.id,
+				workspaceId: targetWorkspaceId,
+				worktreeId: targetWorktree.id,
 				terminalSessionId: termSession.id,
 				origin: "adHoc",
 				presetId: null,
@@ -1641,9 +1678,9 @@ export function App() {
 					pinned: false,
 					attentionState: "idle",
 			};
-			dispatch({
+			createScopedWorkspaceDispatch(targetWorkspaceId)({
 				type: "session/registerProcess",
-				worktreeId: activeWorktree.id,
+				worktreeId: targetWorktree.id,
 				process,
 			});
 		} catch (err) {
@@ -1653,7 +1690,9 @@ export function App() {
 	}
 
 	async function handleCloseProcess(processId: string) {
-		if (!activeWorktree) return;
+		if (!activeWorktree || !activeWorkspaceId) return;
+		const targetWorkspaceId = activeWorkspaceId;
+		const targetWorktreeId = activeWorktree.id;
 		const process = workspaceState.processSessionsById[processId];
 		if (!process) return;
 		const terminalId = process.terminalSessionId;
@@ -1673,29 +1712,31 @@ export function App() {
 					removeSession(terminalId);
 				}
 			}
-		dispatch({
+		createScopedWorkspaceDispatch(targetWorkspaceId)({
 			type: "session/closeProcess",
-			worktreeId: activeWorktree.id,
+			worktreeId: targetWorktreeId,
 			processId,
 		});
 	}
 
 	async function handleLaunchPreset(presetId: string) {
 		if (!activeWorktree || !activeWorkspaceId) return;
+		const targetWorkspaceId = activeWorkspaceId;
+		const targetWorktree = activeWorktree;
 		const preset = workspaceState.commandPresets.find((p) => p.id === presetId);
 		if (!preset) return;
 		const terminal = await createSession(
-			activeWorkspaceId,
-			activeWorktree.id,
-			activeWorktree.path,
+			targetWorkspaceId,
+			targetWorktree.id,
+			targetWorktree.path,
 		);
-		dispatch({
+		createScopedWorkspaceDispatch(targetWorkspaceId)({
 			type: "session/registerProcess",
-			worktreeId: activeWorktree.id,
+			worktreeId: targetWorktree.id,
 			process: {
 				id: crypto.randomUUID(),
-				workspaceId: activeWorkspaceId,
-				worktreeId: activeWorktree.id,
+				workspaceId: targetWorkspaceId,
+				worktreeId: targetWorktree.id,
 				terminalSessionId: terminal.id,
 				origin: "preset",
 				presetId: preset.id,
@@ -1721,6 +1762,8 @@ export function App() {
 	async function handleRestartProcess(processId: string) {
 		const process = workspaceState.processSessionsById[processId];
 		if (!process || !activeWorktree || !activeWorkspaceId) return;
+		const targetWorkspaceId = activeWorkspaceId;
+		const targetWorktree = activeWorktree;
 
 		if (process.terminalSessionId) {
 			try {
@@ -1733,16 +1776,17 @@ export function App() {
 		}
 
 		const terminal = await createSession(
-			activeWorkspaceId,
-			activeWorktree.id,
-			activeWorktree.path,
+			targetWorkspaceId,
+			targetWorktree.id,
+			targetWorktree.path,
 		);
-		dispatch({
+		const dispatchToTargetWorkspace = createScopedWorkspaceDispatch(targetWorkspaceId);
+		dispatchToTargetWorkspace({
 			type: "session/replaceProcessTerminal",
 			processId,
 			terminalSessionId: terminal.id,
 		});
-		dispatch({
+		dispatchToTargetWorkspace({
 			type: "session/updateProcessStatus",
 			processId,
 			status: "running",

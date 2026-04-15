@@ -1,5 +1,6 @@
 import { dialog, ipcMain } from "electron";
 import { consumeE2eGitFault } from "./e2e-git-faults.js";
+import { consumeE2eTerminalCreateDelay } from "./e2e-terminal-create-delay.js";
 import type { BrowserWindow } from "electron";
 import {
 	PickRepositoryRootSchema,
@@ -157,9 +158,10 @@ export function registerIpcHandlers(
 
 	// --- Terminals ---
 
-	ipcMain.handle("terminals:create", (_event, raw: unknown) => {
+	ipcMain.handle("terminals:create", async (_event, raw: unknown) => {
 		const { workspaceId, worktreeId, cwd } = CreateTerminalSessionSchema.parse(raw);
 		shellEventLog?.log({ source: "main", event: "terminal-create-request", windowId: mainWindow.id, data: { workspaceId, worktreeId, cwd } });
+		await consumeE2eTerminalCreateDelay();
 		return terminalService.create(workspaceId, worktreeId, cwd);
 	});
 

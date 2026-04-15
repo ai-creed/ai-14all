@@ -360,6 +360,97 @@ describe("workspace switching", () => {
 		});
 	});
 
+	it("keeps a newly added shell attached to its original workspace if the user switches away before creation resolves", async () => {
+		let onOpenPickerCallback: (() => void) | undefined;
+
+		const { workspace: workspaceMock } = await import("../../../src/lib/desktop-client");
+		vi.mocked(workspaceMock.onOpenPicker).mockImplementation((cb) => {
+			onOpenPickerCallback = cb as () => void;
+			return () => {};
+		});
+
+		openRepositoryMock
+			.mockResolvedValueOnce({
+				workspaceId: "ws-a",
+				repository: { id: "repo-a", name: "repo-a", rootPath: "/repo-a", repoId: "repo-id-a" },
+			})
+			.mockResolvedValueOnce({
+				workspaceId: "ws-b",
+				repository: { id: "repo-b", name: "repo-b", rootPath: "/repo-b", repoId: "repo-id-b" },
+			});
+		listWorktreesMock
+			.mockResolvedValueOnce([
+				{ id: "/repo-a", repositoryId: "repo-a", branchName: "main", path: "/repo-a", label: "main", isMain: true },
+			])
+			.mockResolvedValueOnce([
+				{ id: "/repo-b", repositoryId: "repo-b", branchName: "stable", path: "/repo-b", label: "stable", isMain: true },
+			]);
+
+		render(<App />);
+
+		await userEvent.type(await screen.findByLabelText(/repository path/i), "/repo-a");
+		await userEvent.click(screen.getByRole("button", { name: "Load" }));
+		const sidebar = await screen.findByRole("navigation", { name: "Worktree sessions" });
+		const repoAGroup = await within(sidebar).findByRole("group", { name: "repo-a" });
+
+		await waitFor(() => {
+			expect(screen.getByRole("tab", { name: "shell 1" })).toBeInTheDocument();
+		});
+
+		onOpenPickerCallback?.();
+		await userEvent.type(await screen.findByLabelText(/repository path/i), "/repo-b");
+		await userEvent.click(screen.getByRole("button", { name: "Load" }));
+		const repoBGroup = await within(sidebar).findByRole("group", { name: "repo-b" });
+
+		await userEvent.click(within(repoAGroup).getByRole("button", { name: /^main(?:\s+main)?$/i }));
+		await waitFor(() => {
+			expect(repoAGroup).toHaveAttribute("data-active-workspace", "true");
+		});
+
+		let resolveCreate: ((value: {
+			id: string;
+			workspaceId: string;
+			worktreeId: string;
+			cwd: string;
+			status: "running";
+			exitCode: null;
+		}) => void) | null = null;
+		const pendingCreate = new Promise<{
+			id: string;
+			workspaceId: string;
+			worktreeId: string;
+			cwd: string;
+			status: "running";
+			exitCode: null;
+		}>((resolve) => {
+			resolveCreate = resolve;
+		});
+		createMock.mockImplementationOnce(() => pendingCreate);
+
+		await userEvent.click(screen.getByRole("button", { name: "Add shell" }));
+		await userEvent.click(within(repoBGroup).getByRole("button", { name: /^stable(?:\s+stable)?$/i }));
+
+		await waitFor(() => {
+			expect(repoBGroup).toHaveAttribute("data-active-workspace", "true");
+		});
+
+		resolveCreate?.({
+			id: "terminal-ws-a-shell-2",
+			workspaceId: "ws-a",
+			worktreeId: "/repo-a",
+			cwd: "/repo-a",
+			status: "running",
+			exitCode: null,
+		});
+
+		await userEvent.click(within(repoAGroup).getByRole("button", { name: /^main(?:\s+main)?$/i }));
+
+		await waitFor(() => {
+			expect(repoAGroup).toHaveAttribute("data-active-workspace", "true");
+			expect(screen.getByRole("tab", { name: "shell 2" })).toBeInTheDocument();
+		});
+	});
+
 	it("unregisters a non-active workspace from the sidebar", async () => {
 		// Workspace removal with live terminals requires confirmation; auto-confirm in this test.
 		vi.spyOn(window, "confirm").mockReturnValue(true);
