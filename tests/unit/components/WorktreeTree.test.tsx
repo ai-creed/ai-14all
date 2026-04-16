@@ -170,3 +170,24 @@ describe("WorktreeTree root refresh", () => {
 		expect(mockListTracked).toHaveBeenCalledTimes(2);
 	});
 });
+
+describe("WorktreeTree markdown preview", () => {
+	it("calls onPreviewMarkdown when Preview is picked on a .md file", async () => {
+		mockListTracked.mockResolvedValueOnce(["README.md", "src/a.ts"]);
+		const onPreviewMarkdown = vi.fn();
+		renderTree({ expandedPaths: [""], onPreviewMarkdown });
+		const mdRow = await screen.findByText("README.md");
+		fireEvent.contextMenu(mdRow);
+		const preview = await screen.findByRole("menuitem", { name: "Preview" });
+		fireEvent.click(preview);
+		expect(onPreviewMarkdown).toHaveBeenCalledWith("README.md");
+	});
+
+	it("does not show a preview menu on non-.md files", async () => {
+		mockListTracked.mockResolvedValueOnce(["src/a.ts"]);
+		renderTree({ expandedPaths: ["", "src"] });
+		const tsRow = await screen.findByText("a.ts");
+		fireEvent.contextMenu(tsRow);
+		expect(screen.queryByRole("menuitem", { name: "Preview" })).toBeNull();
+	});
+});
