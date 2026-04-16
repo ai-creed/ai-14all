@@ -1,4 +1,4 @@
-import type { GitChangeStatus } from "../../shared/models/git-change";
+import type { GitChangeStatus } from "../../../shared/models/git-change";
 import {
 	type FileTreeNode,
 	WORKTREE_TREE_ROOT_PATH,
