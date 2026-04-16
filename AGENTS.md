@@ -2,13 +2,13 @@
 
 ## Product
 
-`ai-14all` is an Electron desktop app for managing one local repository through a session-first workflow centered on Git worktrees and embedded terminals.
+`ai-14all` is an Electron desktop app for managing several local repository-scoped workspaces through a session-first workflow centered on Git worktrees and embedded terminals.
 
 The product is not trying to become a full IDE. V1 is terminal-first, with embedded read-only code and diff inspection to keep the workflow self-contained.
 
 ## Workflow Priorities
 
-The product should optimize for one active worktree session at a time.
+The product should optimize for one active worktree session at a time within the selected workspace.
 
 Keep these workflow priorities intact:
 
@@ -21,10 +21,7 @@ Keep these workflow priorities intact:
 Do not expand the product scope into:
 
 - multi-worktree comparison
-- persistence or restore behavior
-- command presets
-- terminal attention states
-- advanced Git operations
+- advanced Git operations beyond lightweight review
 - editable embedded code workflows
 
 ## Architecture Rules
@@ -48,14 +45,14 @@ The frontend should stay session-first:
 V1 assumptions:
 
 - Electron for the desktop runtime
-- one repository first
+- multiple repository-scoped workspaces with fast switching
 - interactive terminal sessions as the primary workflow
 - embedded viewer is read-only and review-oriented, not a primary editor
+- workspace and session persistence across restarts
+- basic worktree removal from the app
 
 Avoid pulling deferred scope into current work unless explicitly requested:
 
-- multi-repository UX
-- worktree creation or deletion from the app
 - deep agent API integrations
 - advanced Git client behavior
 - collaboration or sync features
