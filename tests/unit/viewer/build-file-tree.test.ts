@@ -11,11 +11,11 @@ describe("buildFileTree", () => {
 
 	it("builds nested directories from flat relative paths", () => {
 		const tree = buildFileTree(["src/a.ts", "src/nested/b.ts", "README.md"]);
-		expect(tree.map((n) => n.name)).toEqual(["README.md", "src"]);
+		expect(tree.map((n) => n.name)).toEqual(["src", "README.md"]);
 		const srcDir = tree.find((n) => n.name === "src");
 		expect(srcDir?.type).toBe("directory");
 		if (srcDir?.type === "directory") {
-			expect(srcDir.children.map((c) => c.name)).toEqual(["a.ts", "nested"]);
+			expect(srcDir.children.map((c) => c.name)).toEqual(["nested", "a.ts"]);
 		}
 	});
 

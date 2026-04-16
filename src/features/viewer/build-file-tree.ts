@@ -16,7 +16,7 @@ export type FileTreeNode =
 function sortNodes(nodes: FileTreeNode[]): FileTreeNode[] {
 	return [...nodes].sort((a, b) => {
 		if (a.type !== b.type) {
-			return a.type === "file" ? -1 : 1;
+			return a.type === "file" ? 1 : -1;
 		}
 		return a.name.localeCompare(b.name);
 	});

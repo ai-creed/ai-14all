@@ -1098,8 +1098,43 @@ select {
 }
 
 .shell-list__item--tree {
+	display: flex;
+	align-items: center;
 	padding: 5px 8px;
+	width: calc(100% - 8px);
 	font-size: 0.8rem;
+	line-height: 1;
+	background: transparent;
+	overflow: hidden;
+}
+
+.shell-list__item--tree[data-selected="true"] {
+	background: var(--panel-bg-elevated);
+}
+
+.shell-list__item--dir {
+	color: var(--text-secondary);
+	font-weight: 600;
+	font-style: italic;
+}
+
+
+.shell-tree-search {
+	width: auto;
+	height: 32px;
+	margin: 8px 8px 8px 0;
+	padding: 4px;
+	resize: none;
+}
+
+.shell-tree-chevron {
+	display: inline-block;
+	width: 1em;
+	text-align: center;
+	font-size: 1.3em;
+	color: var(--text-muted);
+	margin-right: 3px;
+	flex-shrink: 0;
 }
 
 /* Viewer chrome */

@@ -52,7 +52,7 @@ describe("parseWorktreePorcelain", () => {
 		expect(result[1].branchName).toBe(
 			"3333333333333333333333333333333333333333",
 		);
-		expect(result[1].label).toBe("3333333333333333333333333333333333333333");
+		expect(result[1].label).toBe("detached");
 		expect(result[1].isMain).toBe(false);
 	});
 

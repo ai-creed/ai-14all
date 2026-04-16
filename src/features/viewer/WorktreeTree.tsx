@@ -106,7 +106,7 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 	const rowVirtualizer = useVirtualizer({
 		count: rows.length,
 		getScrollElement: () => scrollParentRef.current,
-		estimateSize: () => 24,
+		estimateSize: () => 28,
 		overscan: 10,
 	});
 
@@ -114,7 +114,6 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 		const isDir = row.kind === "dir";
 		const isRoot = row.kind === "dir" && row.path === WORKTREE_TREE_ROOT_PATH;
 		const handleClick = () => {
-			if (isRoot) return;
 			if (isDir) {
 				const next = expandedSet.has(row.path)
 					? expandedPaths.filter((p) => p !== row.path)
@@ -132,10 +131,15 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 						: "shell-list__item shell-list__item--tree"
 				}
 				data-selected={!isDir && row.path === selectedFile}
-				style={{ paddingLeft: `${row.depth * 12}px` }}
+				style={{ paddingLeft: `${row.depth * 16}px` }}
 				onClick={handleClick}
 			>
-				{row.name}
+				{isDir && (
+					<span className="shell-tree-chevron" aria-hidden="true">
+						{row.expanded ? "▾" : "▸"}
+					</span>
+				)}
+				<span style={{ lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1 }}>{row.name}</span>
 				{row.kind === "file" && row.gitStatus && (
 					<span
 						className={`shell-tree-badge shell-tree-badge--${row.gitStatus === "??" ? "untracked" : row.gitStatus.toLowerCase()}`}
@@ -187,7 +191,7 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 	}
 
 	return (
-		<div className="shell-list">
+		<div className="shell-list" style={{ marginLeft: "8px" }}>
 			{gitSummaryError && (
 				<p className="shell-inline-warning">
 					{gitSummaryMessage ?? "Git summary unavailable — file badges are hidden."}
@@ -198,7 +202,7 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 			)}
 			<input
 				type="text"
-				className="shell-tree-search"
+				className="shell-note-input shell-tree-search"
 				placeholder="Search files…"
 				value={inputTerm}
 				onChange={(e) => setInputTerm(e.target.value)}

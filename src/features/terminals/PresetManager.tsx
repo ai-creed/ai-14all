@@ -98,21 +98,21 @@ export function PresetManager({
 								className="shell-note-input"
 							/>
 						</div>
-						<button type="button" className="shell-button" onClick={handleSave}>
-							Save preset
-						</button>
+						<div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
+							<button type="button" className="shell-button" onClick={handleSave}>
+								Save preset
+							</button>
+							<Dialog.Close asChild>
+								<button
+									type="button"
+									className="shell-button"
+									aria-label="Close dialog"
+								>
+									Close
+								</button>
+							</Dialog.Close>
+						</div>
 					</div>
-
-					<Dialog.Close asChild>
-						<button
-							type="button"
-							className="shell-button"
-							style={{ marginTop: "var(--space-4)" }}
-							aria-label="Close dialog"
-						>
-							Close
-						</button>
-					</Dialog.Close>
 				</Dialog.Content>
 			</Dialog.Portal>
 		</Dialog.Root>

@@ -42,7 +42,7 @@ export function parseWorktreePorcelain(
 			branchName = branchRef.replace(/^refs\/heads\//, "");
 		}
 
-		const label = branchName;
+		const label = worktreePath.split("/").filter(Boolean).pop() ?? branchName;
 		const isMain = index === 0;
 
 		return {
