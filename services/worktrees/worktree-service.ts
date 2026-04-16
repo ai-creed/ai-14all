@@ -136,6 +136,17 @@ export class WorktreeService {
 		return live;
 	}
 
+	/**
+	 * Returns the worktree whose `id` matches, or throws "Unknown worktree".
+	 * Used by IPC handlers that take `worktreeId` from the renderer.
+	 */
+	async findWorktree(repository: Repository, worktreeId: string): Promise<Worktree> {
+		const worktrees = await this.listWorktrees(repository);
+		const match = worktrees.find((wt) => wt.id === worktreeId);
+		if (!match) throw new Error(`Unknown worktree: ${worktreeId}`);
+		return match;
+	}
+
 	async previewCreateWorktree(
 		repository: Repository,
 		name: string,

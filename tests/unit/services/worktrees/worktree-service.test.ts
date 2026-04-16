@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -388,5 +388,36 @@ describe("WorktreeService", () => {
 				rmSync(tmpDir, { recursive: true, force: true });
 			}
 		});
+	});
+});
+
+describe("WorktreeService.findWorktree", () => {
+	let repoPath: string;
+
+	beforeEach(() => {
+		repoPath = realpathSync(mkdtempSync(join(tmpdir(), "ofa-wt-find-")));
+		execSync("git init -q", { cwd: repoPath });
+		execSync("git config user.email test@a.dev", { cwd: repoPath });
+		execSync("git config user.name test", { cwd: repoPath });
+		writeFileSync(join(repoPath, "README.md"), "hi\n");
+		execSync("git add -A && git commit -q -m init", { cwd: repoPath, shell: "/bin/zsh" });
+	});
+
+	afterEach(() => {
+		rmSync(repoPath, { recursive: true, force: true });
+	});
+
+	it("returns the worktree whose id matches", async () => {
+		const svc = new WorktreeService();
+		const repo = await svc.setRepositoryRoot(repoPath);
+		const worktrees = await svc.listWorktrees(repo);
+		const target = worktrees[0]!;
+		await expect(svc.findWorktree(repo, target.id)).resolves.toEqual(target);
+	});
+
+	it("throws for an unknown worktree id", async () => {
+		const svc = new WorktreeService();
+		const repo = await svc.setRepositoryRoot(repoPath);
+		await expect(svc.findWorktree(repo, "wt-nope")).rejects.toThrow(/Unknown worktree/);
 	});
 });

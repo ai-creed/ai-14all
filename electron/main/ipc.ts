@@ -29,6 +29,7 @@ import {
 	PreviewRemoveWorktreeSchema,
 	RemoveWorktreeSchema,
 	LogShellEventSchema,
+	ListTrackedFilesSchema,
 } from "../../shared/contracts/commands.js";
 import type { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
@@ -204,6 +205,13 @@ export function registerIpcHandlers(
 	ipcMain.handle("files:listScoped", (_event, raw: unknown) => {
 		const { worktreePath, relativeRoots } = ListScopedFilesSchema.parse(raw);
 		return fileService.listScopedFiles(worktreePath, relativeRoots);
+	});
+
+	ipcMain.handle("files:listTracked", async (_event, raw: unknown) => {
+		const { workspaceId, worktreeId } = ListTrackedFilesSchema.parse(raw);
+		const repository = workspaceRegistry.get(workspaceId);
+		const worktree = await worktreeService.findWorktree(repository, worktreeId);
+		return fileService.listTrackedFiles(worktree.path);
 	});
 
 	// --- Git ---
