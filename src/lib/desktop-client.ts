@@ -41,6 +41,8 @@ export const files: Ai14AllDesktopApi["files"] = {
 	list: (worktreePath) => getDesktopClient().files.list(worktreePath),
 	listScoped: (worktreePath, relativeRoots) =>
 		getDesktopClient().files.listScoped(worktreePath, relativeRoots),
+	listTracked: (workspaceId, worktreeId) =>
+		getDesktopClient().files.listTracked(workspaceId, worktreeId),
 	read: (worktreePath, relativePath) =>
 		getDesktopClient().files.read(worktreePath, relativePath),
 };
