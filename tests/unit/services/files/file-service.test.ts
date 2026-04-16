@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import { execSync } from "node:child_process";
+import { mkdtempSync, realpathSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { FileService } from "../../../../services/files/file-service.js";
@@ -91,6 +92,47 @@ describe("FileService", () => {
 			// Should contain the root-level file but NOT recurse into src/
 			expect(result).toContain("README.md");
 			expect(result.some((p) => p.startsWith("src/"))).toBe(false);
+		});
+	});
+
+	describe("listTrackedFiles", () => {
+		let gitRepoDir: string;
+
+		beforeEach(() => {
+			gitRepoDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-ls-files-")));
+			execSync("git init -q", { cwd: gitRepoDir });
+			execSync("git config user.email test@ai-14all.dev", { cwd: gitRepoDir });
+			execSync("git config user.name test", { cwd: gitRepoDir });
+			mkdirSync(join(gitRepoDir, "src"), { recursive: true });
+			writeFileSync(join(gitRepoDir, "src", "a.ts"), "export const a = 1;\n");
+			writeFileSync(join(gitRepoDir, "README.md"), "# readme\n");
+			writeFileSync(join(gitRepoDir, ".gitignore"), "ignored.txt\nnode_modules/\n");
+			writeFileSync(join(gitRepoDir, "ignored.txt"), "skip me\n");
+			mkdirSync(join(gitRepoDir, "node_modules"), { recursive: true });
+			writeFileSync(join(gitRepoDir, "node_modules", "pkg.js"), "x\n");
+			execSync("git add -A && git commit -q -m init", { cwd: gitRepoDir });
+			writeFileSync(join(gitRepoDir, "untracked.md"), "new\n");
+		});
+
+		afterEach(() => {
+			rmSync(gitRepoDir, { recursive: true, force: true });
+		});
+
+		it("lists tracked and non-ignored untracked files, honoring gitignore", async () => {
+			const svc = new FileService();
+			const list = await svc.listTrackedFiles(gitRepoDir);
+			expect(list).toEqual(expect.arrayContaining([".gitignore", "README.md", "src/a.ts", "untracked.md"]));
+			expect(list).not.toContain("ignored.txt");
+			expect(list).not.toContain("node_modules/pkg.js");
+		});
+
+		it("rejects when the directory is not a git working tree", async () => {
+			const nonRepo = mkdtempSync(join(tmpdir(), "ofa-non-git-"));
+			try {
+				await expect(new FileService().listTrackedFiles(nonRepo)).rejects.toThrow();
+			} finally {
+				rmSync(nonRepo, { recursive: true, force: true });
+			}
 		});
 	});
 });

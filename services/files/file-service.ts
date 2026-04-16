@@ -1,6 +1,11 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { readdir, readFile as fsReadFile, stat } from "node:fs/promises";
 import { join, resolve, extname } from "node:path";
 import type { FileView } from "../../shared/models/file-view.js";
+import { getGitBinaryPath } from "../git/git-binary.js";
+
+const execFileAsync = promisify(execFile);
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "out"]);
 const MAX_FILES = 200;
@@ -103,6 +108,16 @@ export class FileService {
 		}
 
 		return [...files].sort((a, b) => a.localeCompare(b));
+	}
+
+	async listTrackedFiles(worktreePath: string): Promise<string[]> {
+		const gitBinary = getGitBinaryPath();
+		const { stdout } = await execFileAsync(
+			gitBinary,
+			["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+			{ cwd: worktreePath, maxBuffer: 64 * 1024 * 1024 },
+		);
+		return stdout.split("\0").filter((entry) => entry.length > 0);
 	}
 
 	async readFile(
