@@ -785,3 +785,33 @@ it("finds a saved workspace by repoId before falling back to path", () => {
 		),
 	).toBe(true);
 });
+
+it("treeExpandedPaths does not survive a snapshot round-trip", () => {
+	// Build state with one worktree and set tree expanded paths
+	let state = createWorkspaceState([
+		{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+	]);
+	state = workspaceReducer(state, {
+		type: "session/setTreeExpandedPaths",
+		worktreeId: "main",
+		paths: ["", "src"],
+	});
+	expect(state.sessionsByWorktreeId["main"].treeExpandedPaths).toEqual(["", "src"]);
+
+	// Serialize to snapshot
+	const snapshot = buildWorkspaceSnapshot("/repo", null, state);
+	const { selectedSession } = splitPendingRestores({ ...snapshot, selectedWorktreeId: "main" });
+
+	// Restore snapshot into fresh state
+	let restored = createWorkspaceState([
+		{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+	]);
+	restored = workspaceReducer(restored, {
+		type: "session/restoreSnapshot",
+		workspaceId: "ws-1",
+		snapshot: selectedSession!,
+	});
+
+	// treeExpandedPaths must be reset to [] — it is never persisted
+	expect(restored.sessionsByWorktreeId["main"].treeExpandedPaths).toEqual([]);
+});
