@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 
 vi.mock("../../../src/lib/desktop-client", () => ({
 	files: {
@@ -99,5 +99,35 @@ describe("WorktreeTree expand/collapse + selection", () => {
 		const rootRow = await screen.findByText("repo");
 		fireEvent.click(rootRow);
 		expect(onExpandedPathsChange.mock.calls.filter(([, paths]) => JSON.stringify(paths) !== JSON.stringify([""]))).toEqual([]);
+	});
+});
+
+describe("WorktreeTree search", () => {
+	afterEach(() => { vi.useRealTimers(); });
+
+	it("filters rows after the debounce elapses", async () => {
+		mockListTracked.mockResolvedValueOnce(["src/App.tsx", "src/other.ts", "README.md"]);
+		renderTree({ expandedPaths: [""] });
+		// Wait for the async load to complete before switching to fake timers
+		await screen.findByText("README.md");
+		vi.useFakeTimers();
+		const input = screen.getByLabelText("Search files");
+		fireEvent.change(input, { target: { value: "app" } });
+		expect(screen.queryByText("README.md")).toBeInTheDocument();
+		await act(async () => { vi.advanceTimersByTime(130); });
+		expect(screen.queryByText("README.md")).not.toBeInTheDocument();
+		expect(screen.getByText("App.tsx")).toBeInTheDocument();
+	});
+
+	it("does not dispatch onExpandedPathsChange when searching", async () => {
+		mockListTracked.mockResolvedValueOnce(["src/deep/App.tsx"]);
+		const onExpandedPathsChange = vi.fn();
+		renderTree({ expandedPaths: [""], onExpandedPathsChange });
+		// Wait for the async load to complete before switching to fake timers
+		const input = await screen.findByLabelText("Search files");
+		vi.useFakeTimers();
+		fireEvent.change(input, { target: { value: "App" } });
+		await act(async () => { vi.advanceTimersByTime(130); });
+		expect(onExpandedPathsChange.mock.calls.filter(([, paths]) => paths.includes("src"))).toEqual([]);
 	});
 });
