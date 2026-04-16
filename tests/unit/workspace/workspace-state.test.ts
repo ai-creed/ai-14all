@@ -816,6 +816,21 @@ describe("workspaceReducer — Phase 6 top-band collapse", () => {
 	});
 });
 
+describe("treeExpandedPaths defaults", () => {
+	it("initializes treeExpandedPaths to an empty array on a fresh session", () => {
+		const worktree: Worktree = {
+			id: "wt-1",
+			repositoryId: "repo-1",
+			branchName: "main",
+			path: "/tmp/wt-1",
+			label: "main",
+			isMain: true,
+		};
+		const state = createWorkspaceState([worktree]);
+		expect(state.sessionsByWorktreeId["wt-1"].treeExpandedPaths).toEqual([]);
+	});
+});
+
 describe("workspaceReducer — Phase 5 persistence restore", () => {
 	it("restores the selected worktree session from a snapshot", () => {
 		const state = workspaceReducer(createWorkspaceState([]), {

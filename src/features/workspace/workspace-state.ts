@@ -148,6 +148,7 @@ function createSession(worktree: Worktree): WorktreeSession {
 		terminalLayoutMode: "single",
 		splitLeftProcessId: null,
 		splitRightProcessId: null,
+		treeExpandedPaths: [],
 	};
 }
 

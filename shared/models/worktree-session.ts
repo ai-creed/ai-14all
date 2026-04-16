@@ -27,4 +27,11 @@ export type WorktreeSession = {
 	terminalLayoutMode: TerminalLayoutMode;
 	splitLeftProcessId: string | null;
 	splitRightProcessId: string | null;
+	/**
+	 * Per-worktree expand state for the Files tree. Held in memory only and
+	 * intentionally omitted from `PersistedWorktreeSessionSchema` so that
+	 * every app restart resets to the default (root-only) state. See
+	 * docs/superpowers/specs/2026-04-16-worktree-file-tree-design.md §4.6.
+	 */
+	treeExpandedPaths: string[];
 };
