@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import type { GitChange, GitChangeStatus } from "../../../shared/models/git-change";
 import { files } from "../../lib/desktop-client";
@@ -101,6 +102,13 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 			}),
 		[tree, worktreeLabel, expandedSet, changedFilesMap, searchTerm],
 	);
+
+	const rowVirtualizer = useVirtualizer({
+		count: rows.length,
+		getScrollElement: () => scrollParentRef.current,
+		estimateSize: () => 24,
+		overscan: 10,
+	});
 
 	function renderRow(row: VisibleRow) {
 		const isDir = row.kind === "dir";
@@ -214,7 +222,19 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 				className="shell-tree-scroll"
 				style={{ overflow: "auto" }}
 			>
-				<div>{rows.map(renderRow)}</div>
+				<div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
+					{rowVirtualizer.getVirtualItems().map((virtualRow) => {
+						const row = rows[virtualRow.index]!;
+						return (
+							<div
+								key={`${row.kind}:${row.path}`}
+								style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${virtualRow.start}px)` }}
+							>
+								{renderRow(row)}
+							</div>
+						);
+					})}
+				</div>
 			</div>
 			{searchTerm.trim().length > 0 && rows.length === 1 && (
 				<p className="shell-empty-state">No files match "{searchTerm}".</p>

@@ -1,6 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 
+vi.mock("@tanstack/react-virtual", () => ({
+	useVirtualizer: (options: { count: number }) => ({
+		getTotalSize: () => options.count * 24,
+		getVirtualItems: () =>
+			Array.from({ length: options.count }, (_, i) => ({
+				index: i,
+				start: i * 24,
+				size: 24,
+				key: String(i),
+			})),
+		measureElement: () => 0,
+	}),
+}));
+
 vi.mock("../../../src/lib/desktop-client", () => ({
 	files: {
 		listTracked: vi.fn(),
