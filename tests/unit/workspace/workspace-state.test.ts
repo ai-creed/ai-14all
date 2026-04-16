@@ -816,6 +816,37 @@ describe("workspaceReducer — Phase 6 top-band collapse", () => {
 	});
 });
 
+describe("session/setTreeExpandedPaths", () => {
+	it("updates treeExpandedPaths on the target session only", () => {
+		const wtA: Worktree = { id: "wt-a", repositoryId: "repo-1", branchName: "a", path: "/tmp/a", label: "a", isMain: true };
+		const wtB: Worktree = { id: "wt-b", repositoryId: "repo-1", branchName: "b", path: "/tmp/b", label: "b", isMain: false };
+		const initial = createWorkspaceState([wtA, wtB]);
+		const next = workspaceReducer(initial, { type: "session/setTreeExpandedPaths", worktreeId: "wt-a", paths: ["", "src"] });
+		expect(next.sessionsByWorktreeId["wt-a"].treeExpandedPaths).toEqual(["", "src"]);
+		expect(next.sessionsByWorktreeId["wt-b"].treeExpandedPaths).toEqual([]);
+	});
+
+	it("is a no-op when the worktreeId is unknown", () => {
+		const wtA: Worktree = { id: "wt-a", repositoryId: "repo-1", branchName: "a", path: "/tmp/a", label: "a", isMain: true };
+		const initial = createWorkspaceState([wtA]);
+		const next = workspaceReducer(initial, { type: "session/setTreeExpandedPaths", worktreeId: "wt-does-not-exist", paths: ["x"] });
+		expect(next).toBe(initial);
+	});
+
+	it("drops treeExpandedPaths when workspace/reconcileWorktrees removes that worktree (spec §4.6)", () => {
+		const wtA: Worktree = { id: "wt-a", repositoryId: "repo-1", branchName: "a", path: "/tmp/a", label: "a", isMain: true };
+		const wtB: Worktree = { id: "wt-b", repositoryId: "repo-1", branchName: "b", path: "/tmp/b", label: "b", isMain: false };
+		let state = createWorkspaceState([wtA, wtB]);
+		state = workspaceReducer(state, { type: "session/setTreeExpandedPaths", worktreeId: "wt-b", paths: ["", "src"] });
+		expect(state.sessionsByWorktreeId["wt-b"].treeExpandedPaths).toEqual(["", "src"]);
+
+		const after = workspaceReducer(state, { type: "workspace/reconcileWorktrees", worktrees: [wtA] });
+
+		expect(after.sessionsByWorktreeId["wt-b"]).toBeUndefined();
+		expect(after.sessionsByWorktreeId["wt-a"].treeExpandedPaths).toEqual([]);
+	});
+});
+
 describe("treeExpandedPaths defaults", () => {
 	it("initializes treeExpandedPaths to an empty array on a fresh session", () => {
 		const worktree: Worktree = {
