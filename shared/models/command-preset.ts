@@ -15,4 +15,14 @@ export const DEFAULT_COMMAND_PRESETS: CommandPreset[] = [
 		label: "start codex",
 		command: "codex",
 	},
+	{
+		id: "preset-start-claude-yolo",
+		label: "start claude (yolo)",
+		command: "claude --dangerously-skip-permissions",
+	},
+	{
+		id: "preset-start-codex-yolo",
+		label: "start codex (yolo)",
+		command: "codex --full-auto",
+	},
 ];
