@@ -186,22 +186,15 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 		return <div key={`${row.kind}:${row.path}`}>{body}</div>;
 	}
 
-	if (error) {
-		return (
-			<div className="shell-rail__message">
-				<p className="shell-error">
-					Unable to load files: {error}
-				</p>
-			</div>
-		);
-	}
-
 	return (
 		<div className="shell-list">
 			{gitSummaryError && (
 				<p className="shell-inline-warning">
 					{gitSummaryMessage ?? "Git summary unavailable — file badges are hidden."}
 				</p>
+			)}
+			{error && (
+				<p className="shell-error">Unable to load files: {error}</p>
 			)}
 			<input
 				type="text"
@@ -210,6 +203,7 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 				value={inputTerm}
 				onChange={(e) => setInputTerm(e.target.value)}
 				aria-label="Search files"
+				disabled={!!error}
 			/>
 			{loading && fileList.length === 0 && (
 				<p className="shell-empty-state">Loading files…</p>

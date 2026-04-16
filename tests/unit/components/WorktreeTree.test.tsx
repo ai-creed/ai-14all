@@ -62,9 +62,13 @@ describe("WorktreeTree basic states", () => {
 
 	it("renders an error message when listTracked rejects", async () => {
 		mockListTracked.mockRejectedValueOnce(new Error("boom"));
-		renderTree();
+		renderTree({ worktreeLabel: "repo" });
 		expect(await screen.findByText(/Unable to load files/i)).toBeInTheDocument();
 		expect(await screen.findByText(/boom/)).toBeInTheDocument();
+		// Root row + Refresh must still be accessible for retry
+		expect(screen.getByText("repo")).toBeInTheDocument();
+		fireEvent.contextMenu(screen.getByText("repo"));
+		expect(await screen.findByRole("menuitem", { name: "Refresh" })).toBeInTheDocument();
 	});
 
 	it("renders the root row + top-level entries on successful load", async () => {
