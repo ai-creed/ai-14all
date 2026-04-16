@@ -79,6 +79,9 @@ const api: Ai14AllDesktopApi = {
 				relativeRoots,
 			});
 		},
+		listTracked(workspaceId, worktreeId) {
+			return ipcRenderer.invoke("files:listTracked", { workspaceId, worktreeId });
+		},
 		read(worktreePath, relativePath) {
 			return ipcRenderer.invoke("files:read", { worktreePath, relativePath });
 		},
