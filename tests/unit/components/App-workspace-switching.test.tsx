@@ -407,14 +407,14 @@ describe("workspace switching", () => {
 			expect(repoAGroup).toHaveAttribute("data-active-workspace", "true");
 		});
 
-		let resolveCreate: ((value: {
+		let resolveCreate!: (value: {
 			id: string;
 			workspaceId: string;
 			worktreeId: string;
 			cwd: string;
 			status: "running";
 			exitCode: null;
-		}) => void) | null = null;
+		}) => void;
 		const pendingCreate = new Promise<{
 			id: string;
 			workspaceId: string;
@@ -434,7 +434,7 @@ describe("workspace switching", () => {
 			expect(repoBGroup).toHaveAttribute("data-active-workspace", "true");
 		});
 
-		resolveCreate?.({
+		resolveCreate({
 			id: "terminal-ws-a-shell-2",
 			workspaceId: "ws-a",
 			worktreeId: "/repo-a",
