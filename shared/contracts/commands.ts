@@ -88,6 +88,11 @@ export const ListScopedFilesSchema = z.object({
 	relativeRoots: z.array(z.string()),
 });
 
+export const ListTrackedFilesSchema = z.object({
+	workspaceId: z.string().min(1),
+	worktreeId: z.string().min(1),
+});
+
 export const ReadGitSummarySchema = z.object({
 	worktreePath: z.string(),
 });
@@ -163,6 +168,7 @@ export type Ai14AllDesktopApi = {
 			worktreePath: string,
 			relativeRoots: string[],
 		): Promise<string[]>;
+		listTracked(workspaceId: string, worktreeId: string): Promise<string[]>;
 		read(worktreePath: string, relativePath: string): Promise<FileView>;
 	};
 	git: {
