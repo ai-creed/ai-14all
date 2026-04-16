@@ -156,3 +156,17 @@ describe("WorktreeTree git status indicators", () => {
 		expect(screen.queryByText(/Unable to load Git data/i)).toBeNull();
 	});
 });
+
+describe("WorktreeTree root refresh", () => {
+	it("re-fetches files when Refresh is picked from the root context menu", async () => {
+		mockListTracked.mockResolvedValue(["src/a.ts"]);
+		renderTree({ worktreeLabel: "repo", expandedPaths: [""] });
+		await screen.findByText("repo");
+		expect(mockListTracked).toHaveBeenCalledTimes(1);
+		const rootRow = screen.getByText("repo");
+		fireEvent.contextMenu(rootRow);
+		const refreshItem = await screen.findByRole("menuitem", { name: "Refresh" });
+		fireEvent.click(refreshItem);
+		expect(mockListTracked).toHaveBeenCalledTimes(2);
+	});
+});
