@@ -16,6 +16,12 @@ export const PersistedProcessSessionSchema = z.object({
 	terminalSessionId: z.string().nullable().optional().default(null),
 });
 
+/**
+ * Persisted shape for a worktree session. Must NOT include
+ * `treeExpandedPaths` — expand state is intentionally memory-only and
+ * resets on app restart. See
+ * docs/superpowers/specs/2026-04-16-worktree-file-tree-design.md §4.6.
+ */
 export const PersistedWorktreeSessionSchema = z.object({
 	worktreeId: z.string(),
 	note: z.string(),

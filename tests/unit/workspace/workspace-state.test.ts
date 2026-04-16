@@ -9,6 +9,7 @@ import {
 	workspaceReducer,
 } from "../../../src/features/workspace/workspace-state";
 import type { ProcessSession } from "../../../shared/models/process-session";
+import { PersistedWorktreeSessionSchema } from "../../../shared/models/persisted-workspace-state";
 
 const worktrees: Worktree[] = [
 	{
@@ -1015,5 +1016,27 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 		});
 
 		expect(state.sessionsByWorktreeId["feature-a"].activeProcessSessionId).toBe("process-1");
+	});
+});
+
+describe("persistence omits treeExpandedPaths", () => {
+	it("is not a key in the persisted schema shape (guards §4.6)", () => {
+		expect(Object.keys(PersistedWorktreeSessionSchema.shape)).not.toContain("treeExpandedPaths");
+	});
+
+	it("strips treeExpandedPaths from parse output even if supplied", () => {
+		const persisted = PersistedWorktreeSessionSchema.parse({
+			worktreeId: "wt-a",
+			note: "",
+			reviewMode: "files",
+			viewerMode: "file",
+			selectedFilePath: null,
+			selectedChangedFilePath: null,
+			activeProcessSessionId: null,
+			nextAdHocNumber: 1,
+			processSessions: [],
+			treeExpandedPaths: ["", "src"],
+		});
+		expect(persisted).not.toHaveProperty("treeExpandedPaths");
 	});
 });
