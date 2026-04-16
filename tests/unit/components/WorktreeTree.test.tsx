@@ -131,3 +131,28 @@ describe("WorktreeTree search", () => {
 		expect(onExpandedPathsChange.mock.calls.filter(([, paths]) => paths.includes("src"))).toEqual([]);
 	});
 });
+
+describe("WorktreeTree git status indicators", () => {
+	it("renders the status letter next to a changed file", async () => {
+		mockListTracked.mockResolvedValueOnce(["src/a.ts", "src/b.ts"]);
+		renderTree({ expandedPaths: ["", "src"], changedFiles: [{ path: "src/a.ts", status: "M" }] });
+		const row = await screen.findByText("a.ts");
+		const badge = row.parentElement?.querySelector("[data-git-status]");
+		expect(badge?.getAttribute("data-git-status")).toBe("M");
+	});
+
+	it("suppresses badges when gitSummaryError is true", async () => {
+		mockListTracked.mockResolvedValueOnce(["src/a.ts"]);
+		renderTree({ expandedPaths: ["", "src"], changedFiles: [{ path: "src/a.ts", status: "M" }], gitSummaryError: true, gitSummaryMessage: "fake message" });
+		await screen.findByText("a.ts");
+		expect(document.querySelector("[data-git-status]")).toBeNull();
+		expect(screen.getByText("fake message")).toBeInTheDocument();
+	});
+
+	it("still renders the tree when gitSummaryError is true (no hard-block)", async () => {
+		mockListTracked.mockResolvedValueOnce(["src/a.ts"]);
+		renderTree({ expandedPaths: ["", "src"], gitSummaryError: true });
+		expect(await screen.findByText("a.ts")).toBeInTheDocument();
+		expect(screen.queryByText(/Unable to load Git data/i)).toBeNull();
+	});
+});
