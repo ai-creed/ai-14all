@@ -31,6 +31,8 @@ Replace the current scoped file list (showing only files in directories where gi
 11. Explicit root node at the top of the tree, labeled with the worktree's `label`; the "Refresh" action lives on its context menu.
 12. A git-summary failure must **not** block the tree. The tree still renders from `files.listTracked`; only the status badges are suppressed and an inline non-blocking warning is shown.
 13. The data endpoint resolves identity server-side from `workspaceId + worktreeId` — the renderer never hands the main process a raw absolute worktree path for this feature.
+14. Fetches are protected by a monotonic request-id guard: a late response from a superseded fetch (worktree switch, overlapping refresh) must never be applied to the UI.
+15. The root row uses a single canonical sentinel path (`WORKTREE_TREE_ROOT_PATH === ""`) everywhere expand state, row keys, and search overlay logic reference it. The sentinel is never sent over IPC and never passed to `onSelect`.
 
 ## 4. Architecture
 
@@ -68,6 +70,20 @@ The existing `listScopedFiles` handler remains in place for this change; it is r
 - Rename `buildScopedFileTree` → `buildFileTree` (algorithm unchanged; input is any list of `/`-separated relative paths).
 - Rename exported node type `ScopedFileTreeNode` → `FileTreeNode`. Shape unchanged.
 
+#### 4.2.1 Root sentinel
+
+The explicit root row is **not** a file or directory returned by `git ls-files`; it is a synthetic wrapper. To participate in the same `expandedPaths`/`VisibleRow.path` space as every other entry it needs a canonical, unambiguous path value.
+
+- **Sentinel value:** the empty string `""`.
+  - Export as `export const WORKTREE_TREE_ROOT_PATH = "" as const;` from `src/features/viewer/build-file-tree.ts`.
+- **Safe** because `git ls-files` never emits an empty path, and no real relative file path starts with a path separator in the format we operate on.
+- **Used in exactly three places:**
+  1. `VisibleRow.path` for the root row is `WORKTREE_TREE_ROOT_PATH`.
+  2. `treeExpandedPaths` initialized with `[WORKTREE_TREE_ROOT_PATH]` the first time a worktree's tree loads successfully (requirement 4).
+  3. Search-overlay logic considers the root sentinel as always expanded while search is active (ensures the root row + any matching descendants remain visible).
+- Row keys for the virtualizer use `row.kind + ":" + row.path`, so the root's key is `"dir:"` — distinct from any other node's key.
+- The sentinel is never passed to `onSelect` (the root row is a dir, not a file) and never sent in any IPC payload.
+
 ### 4.3 Flattening for virtualization
 
 Compute a flat, ordered array of visible rows from `(tree, expandedPaths, searchState)`:
@@ -102,8 +118,14 @@ WorktreeTree                    (src/features/viewer/WorktreeTree.tsx — new)
 ```
 
 - Row height is fixed (single text line + padding) so `@tanstack/react-virtual` can use `estimateSize` cheaply.
-- `VirtualizedRows` receives the flat rows + a stable `getKey` based on `row.kind + row.path`.
-- `TreeRow` for markdown files keeps the existing "Preview" context menu item; non-markdown file rows have no context menu (v1).
+- `VirtualizedRows` receives the flat rows + a stable `getKey` based on `row.kind + ":" + row.path`.
+- `TreeRow` for markdown files keeps the "Preview" context menu item; non-markdown file rows have no context menu (v1).
+
+**Markdown preview wiring.** `MarkdownPreviewModal` still reads via `files.read(worktreePath, relativePath)` (see `src/features/viewer/MarkdownPreviewModal.tsx:40`). Migrating `files.read` to the identity-based contract is follow-up work (§8) and is **not** in this spec. To keep `WorktreeTree` free of the raw `worktreePath` dependency:
+
+- `WorktreeTree` exposes an optional callback prop `onPreviewMarkdown?(relativePath)`. When a markdown file's context-menu "Preview" fires, the tree calls this callback and does nothing else.
+- `App.tsx` owns the preview modal state (current preview path + open flag) and renders `<MarkdownPreviewModal worktreePath={activeWorktree.path} relativePath={…} open={…} onClose={…} />` as a sibling of `<WorktreeTree>`, exactly as it renders today alongside `FileList`. Closing the modal clears the path; switching worktrees clears the path.
+- This keeps the raw `worktreePath` isolated to the one caller that still needs it, and lets `files.read` migrate later without touching the tree.
 
 ### 4.5 Props
 
@@ -116,6 +138,7 @@ type WorktreeTreeProps = {
   worktreeLabel: string;          // display label for the explicit root row (from Worktree.label)
   selectedFile: string | null;
   onSelect: (relativePath: string) => void;
+  onPreviewMarkdown?: (relativePath: string) => void;  // opens MarkdownPreviewModal in parent
   changedFiles: GitChange[];      // from gitSummary, used for status indicators
   gitSummaryError?: boolean;
   gitSummaryMessage?: string | null;
@@ -142,7 +165,7 @@ Shape additions:
 
 - `shared/models/worktree-session.ts` — add `treeExpandedPaths: string[]` to the in-memory `WorktreeSession` type.
 - `shared/models/persisted-workspace-state.ts` — **do NOT add** `treeExpandedPaths` to `PersistedWorktreeSessionSchema`. This guarantees expand state is not written to disk and therefore resets on app restart, satisfying requirement 5. Add a short comment in the schema explaining the intentional omission.
-- Default value when `createSession` is called: `treeExpandedPaths: []`. The root path is added lazily by `WorktreeTree` the first time a load succeeds (dispatch `session/setTreeExpandedPaths` with `[rootPath]`). This keeps the defaults generator ignorant of runtime concerns like the worktree root path.
+- Default value when `createSession` is called: `treeExpandedPaths: []`. The root sentinel is added lazily by `WorktreeTree` the first time a load succeeds for a given `worktreeId` (dispatch `session/setTreeExpandedPaths` with `[WORKTREE_TREE_ROOT_PATH]` — i.e. `[""]`). This keeps the defaults generator ignorant of runtime concerns and means a freshly-reconciled session (existing or new) always starts with the root-only state, satisfying requirement 4.
 
 New reducer action:
 
@@ -158,27 +181,70 @@ Simple, debounced writes: `WorktreeTree` holds its own `Set<string>` mirror for 
 - **`worktreeId` changes:** fetch; read `treeExpandedPaths` from the newly-active session.
 - **Root context menu → "Refresh":** fetch; leave `treeExpandedPaths` untouched.
 
+#### 4.7.1 Stale-request handling
+
+Multiple fetch triggers can fire concurrently (fast worktree switch, focus + refresh race, etc.), and a slow in-flight response from an older fetch must **not** overwrite state belonging to a newer context. All fetches run through a generation guard:
+
+```ts
+const requestIdRef = useRef(0);
+
+async function reload() {
+  const myId = ++requestIdRef.current;
+  const capturedWorktreeId = worktreeId;
+  setLoading(true);
+  setError(null);
+  try {
+    const list = await files.listTracked(workspaceId, worktreeId);
+    if (requestIdRef.current !== myId) return;           // superseded fetch
+    if (capturedWorktreeId !== worktreeId) return;       // worktree switched
+    setFiles(list);
+  } catch (err) {
+    if (requestIdRef.current !== myId) return;
+    if (capturedWorktreeId !== worktreeId) return;
+    setError(err instanceof Error ? err.message : String(err));
+  } finally {
+    if (requestIdRef.current === myId) setLoading(false);
+  }
+}
+```
+
+- Every fetch trigger calls `reload()` — no direct `setFiles`/`setError` from outside this function.
+- Component unmount implicitly invalidates in-flight requests because `requestIdRef` is part of the unmounted instance; any late resolution no-ops on the now-unmounted component.
+- Unit test: two sequential `reload()` calls where the first resolves after the second; assert only the second result is visible.
+
 ### 4.8 App.tsx wiring changes
 
 - Remove the `scopeRoots` `useMemo` (currently around `src/app/App.tsx:956`).
+- Lift preview state from `FileList` to `App`: `const [previewPath, setPreviewPath] = useState<string | null>(null);` in the same scope that renders the review pane; reset to `null` on `activeWorktree.id` change.
 - Replace `<FileList worktreePath scopeRoots selectedFile onSelect gitSummaryError gitSummaryMessage />` with
   ```tsx
-  <WorktreeTree
-    workspaceId={activeWorkspaceId}
-    worktreeId={activeWorktree.id}
-    worktreeLabel={activeWorktree.label}
-    selectedFile={activeSession.selectedFilePath}
-    onSelect={(relativePath) => dispatch({ type: "session/selectFile", worktreeId: activeWorktree.id, relativePath })}
-    changedFiles={changes}
-    gitSummaryError={gitSummaryError}
-    gitSummaryMessage={gitSummaryMessage}
-    expandedPaths={activeSession.treeExpandedPaths}
-    onExpandedPathsChange={(worktreeId, paths) =>
-      dispatch({ type: "session/setTreeExpandedPaths", worktreeId, paths })
-    }
-  />
+  <>
+    <WorktreeTree
+      workspaceId={activeWorkspaceId}
+      worktreeId={activeWorktree.id}
+      worktreeLabel={activeWorktree.label}
+      selectedFile={activeSession.selectedFilePath}
+      onSelect={(relativePath) => dispatch({ type: "session/selectFile", worktreeId: activeWorktree.id, relativePath })}
+      onPreviewMarkdown={setPreviewPath}
+      changedFiles={changes}
+      gitSummaryError={gitSummaryError}
+      gitSummaryMessage={gitSummaryMessage}
+      expandedPaths={activeSession.treeExpandedPaths}
+      onExpandedPathsChange={(worktreeId, paths) =>
+        dispatch({ type: "session/setTreeExpandedPaths", worktreeId, paths })
+      }
+    />
+    {previewPath !== null && (
+      <MarkdownPreviewModal
+        worktreePath={activeWorktree.path}
+        relativePath={previewPath}
+        open={true}
+        onClose={() => setPreviewPath(null)}
+      />
+    )}
+  </>
   ```
-- Delete `src/features/viewer/FileList.tsx` and `src/features/viewer/build-scoped-file-tree.ts` (the latter moves to `build-file-tree.ts`). Migrate its tests.
+- Delete `src/features/viewer/FileList.tsx` and `src/features/viewer/build-scoped-file-tree.ts` (the latter moves to `build-file-tree.ts`). Migrate its tests. `MarkdownPreviewModal` is untouched.
 
 ## 5. Dependency
 
@@ -216,13 +282,18 @@ Add `@tanstack/react-virtual` (single dependency, ~3 KB gzipped).
   - Round-trip through `toSnapshot`/`applySnapshot` (or equivalent) does **not** preserve `treeExpandedPaths` — confirming restart resets expand state.
 - `src/features/viewer/WorktreeTree.test.tsx` (new)
   - Renders empty / loading / error / loaded states.
-  - On first successful load, dispatches `onExpandedPathsChange` with `[worktreeRootPath]` exactly once.
-  - Clicking a dir toggles expand (dispatches `onExpandedPathsChange`); clicking a file fires `onSelect`.
-  - Search filter: hides non-matching branches, auto-expands ancestors, does not call `onExpandedPathsChange` while searching (overlay is local).
+  - On first successful load, dispatches `onExpandedPathsChange` with exactly `[WORKTREE_TREE_ROOT_PATH]` (`[""]`).
+  - Row key for the root row is `"dir:"` (sentinel round-trip through virtualizer stub).
+  - Clicking a dir toggles expand (dispatches `onExpandedPathsChange`); clicking a file fires `onSelect` and never fires with the root sentinel.
+  - Search filter: hides non-matching branches, auto-expands ancestors, does not call `onExpandedPathsChange` while searching (overlay is local); the root row stays visible while search is active.
   - Git status indicator appears for matching `changedFiles` entries; disappears when `gitSummaryError` is true and `changedFiles` is empty.
   - `gitSummaryError === true` still renders the tree (assert row count > 0 for a non-empty `files` array); the old "Unable to load Git data" blocking state must **not** appear.
   - Root context menu → "Refresh" triggers a reload (mock `files.listTracked`).
+  - **Stale-response guard:** two `reload()` calls where the first resolves after the second — assert only the second result is applied, `loading` ends `false`, and no duplicate state update happens for the superseded response.
+  - **Worktree-switch guard:** `reload()` in flight, component re-renders with a different `worktreeId`; the in-flight response must not overwrite the post-switch state.
   - Virtualization layer stubbed (mock `@tanstack/react-virtual` or override to render all rows) so DOM assertions are straightforward.
+- `src/features/viewer/build-file-tree.test.ts`
+  - Export and value of `WORKTREE_TREE_ROOT_PATH` is `""` (locks the sentinel down).
 
 ### 7.2 E2E
 
