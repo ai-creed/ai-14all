@@ -49,7 +49,8 @@ import { LoadWorkspaceDialog } from "../features/workspace/LoadWorkspaceDialog";
 import { useTerminalSession } from "../features/terminals/useTerminalSession";
 import { deriveAttentionState } from "../features/terminals/process-attention";
 import { consumeOutputPreview } from "../features/terminals/output-preview";
-import { FileList } from "../features/viewer/FileList";
+import { WorktreeTree } from "../features/viewer/WorktreeTree";
+import { MarkdownPreviewModal } from "../features/viewer/MarkdownPreviewModal";
 import { FileViewer } from "../features/viewer/FileViewer";
 import { ChangesList } from "../features/git/ChangesList";
 import { DiscardChangeDialog } from "../features/git/DiscardChangeDialog";
@@ -228,6 +229,7 @@ export function App() {
 	const [createBusy, setCreateBusy] = useState(false);
 	const [remoteStatus, setRemoteStatus] = useState<RemoteStatus | null>(null);
 	const [discardPath, setDiscardPath] = useState<string | null>(null);
+	const [treePreviewPath, setTreePreviewPath] = useState<string | null>(null);
 	const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
 	const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
 	const [removePreview, setRemovePreview] = useState<RemoveWorktreePreview | null>(null);
@@ -953,20 +955,6 @@ export function App() {
 		() => activeSummary?.changedFiles ?? [],
 		[activeSummary],
 	);
-	const scopeRoots = useMemo(
-		() => [
-			...new Set(
-				changes
-					.map((change) => {
-						const lastSlash = change.path.lastIndexOf("/");
-						return lastSlash === -1 ? "." : change.path.slice(0, lastSlash);
-					})
-					.filter(Boolean),
-			),
-		],
-		[changes],
-	);
-
 	// ---------------------------------------------------------------------------
 	// Persist effect — writes V2 state
 	// ---------------------------------------------------------------------------
@@ -1043,6 +1031,10 @@ export function App() {
 		void workspace.writeRestoreState(persistableStateV2);
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- persistableStateJson for change detection; persistableStateV2 for the write
 	}, [startupMode, persistableStateJson]);
+
+	useEffect(() => {
+		setTreePreviewPath(null);
+	}, [activeWorktree?.id]);
 
 	const defaultShellEnsuredByWorktreeRef = useRef<Set<string>>(new Set());
 
@@ -2363,20 +2355,41 @@ export function App() {
 													/>
 												</>
 											) : activeSession?.reviewMode === "files" ? (
-												<FileList
-													worktreePath={activeWorktree.path}
-													scopeRoots={scopeRoots}
-													selectedFile={activeSession.selectedFilePath}
-													onSelect={(relativePath) =>
-														dispatch({
-															type: "session/selectFile",
-															worktreeId: activeWorktree.id,
-															relativePath,
-														})
-													}
-													gitSummaryError={gitSummaryError}
-													gitSummaryMessage={gitSummaryMessage}
-												/>
+												<>
+													<WorktreeTree
+														workspaceId={activeWorkspaceId ?? ""}
+														worktreeId={activeWorktree.id}
+														worktreeLabel={activeWorktree.label}
+														selectedFile={activeSession.selectedFilePath}
+														onSelect={(relativePath) =>
+															dispatch({
+																type: "session/selectFile",
+																worktreeId: activeWorktree.id,
+																relativePath,
+															})
+														}
+														onPreviewMarkdown={setTreePreviewPath}
+														changedFiles={changes}
+														gitSummaryError={gitSummaryError}
+														gitSummaryMessage={gitSummaryMessage}
+														expandedPaths={activeSession.treeExpandedPaths}
+														onExpandedPathsChange={(worktreeId, paths) =>
+															dispatch({
+																type: "session/setTreeExpandedPaths",
+																worktreeId,
+																paths,
+															})
+														}
+													/>
+													{treePreviewPath !== null && (
+														<MarkdownPreviewModal
+															worktreePath={activeWorktree.path}
+															relativePath={treePreviewPath}
+															open={true}
+															onClose={() => setTreePreviewPath(null)}
+														/>
+													)}
+												</>
 											) : (
 												<ChangesList
 													worktreePath={activeWorktree.path}
