@@ -178,14 +178,6 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 		return <div key={`${row.kind}:${row.path}`}>{body}</div>;
 	}
 
-	if (loading && fileList.length === 0) {
-		return (
-			<div className="shell-rail__message">
-				<p className="shell-empty-state">Loading files…</p>
-			</div>
-		);
-	}
-
 	if (error) {
 		return (
 			<div className="shell-rail__message">
@@ -211,6 +203,9 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 				onChange={(e) => setInputTerm(e.target.value)}
 				aria-label="Search files"
 			/>
+			{loading && fileList.length === 0 && (
+				<p className="shell-empty-state">Loading files…</p>
+			)}
 			{fileList.length === 0 && !loading && (
 				<p className="shell-empty-state">No files in this worktree.</p>
 			)}

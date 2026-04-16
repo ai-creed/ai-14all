@@ -191,3 +191,36 @@ describe("WorktreeTree markdown preview", () => {
 		expect(screen.queryByRole("menuitem", { name: "Preview" })).toBeNull();
 	});
 });
+
+describe("WorktreeTree stale-request guard", () => {
+	it("ignores a superseded response (later refresh wins)", async () => {
+		let resolveFirst: (v: string[]) => void = () => {};
+		const firstPromise = new Promise<string[]>((resolve) => { resolveFirst = resolve; });
+		mockListTracked.mockReturnValueOnce(firstPromise);
+		mockListTracked.mockResolvedValueOnce(["from-second.ts"]);
+		renderTree({ worktreeLabel: "repo", expandedPaths: [""] });
+		const rootRow = await screen.findByText("repo");
+		fireEvent.contextMenu(rootRow);
+		const refresh = await screen.findByRole("menuitem", { name: "Refresh" });
+		fireEvent.click(refresh);
+		resolveFirst(["from-first.ts"]);
+		expect(await screen.findByText("from-second.ts")).toBeInTheDocument();
+		expect(screen.queryByText("from-first.ts")).toBeNull();
+	});
+
+	it("ignores in-flight responses after a worktree switch", async () => {
+		let resolveA: (v: string[]) => void = () => {};
+		const pendingA = new Promise<string[]>((resolve) => { resolveA = resolve; });
+		mockListTracked.mockImplementationOnce(() => pendingA);
+		mockListTracked.mockResolvedValueOnce(["wt-b-file.ts"]);
+		const { rerender } = render(
+			<WorktreeTree workspaceId="ws-1" worktreeId="wt-a" worktreeLabel="A" selectedFile={null} onSelect={vi.fn()} changedFiles={[]} expandedPaths={[""]} onExpandedPathsChange={vi.fn()} />,
+		);
+		rerender(
+			<WorktreeTree workspaceId="ws-1" worktreeId="wt-b" worktreeLabel="B" selectedFile={null} onSelect={vi.fn()} changedFiles={[]} expandedPaths={[""]} onExpandedPathsChange={vi.fn()} />,
+		);
+		resolveA(["wt-a-file.ts"]);
+		expect(await screen.findByText("wt-b-file.ts")).toBeInTheDocument();
+		expect(screen.queryByText("wt-a-file.ts")).toBeNull();
+	});
+});
