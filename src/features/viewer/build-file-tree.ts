@@ -1,9 +1,11 @@
-export type ScopedFileTreeNode =
+export const WORKTREE_TREE_ROOT_PATH = "" as const;
+
+export type FileTreeNode =
 	| {
 			type: "directory";
 			name: string;
 			path: string;
-			children: ScopedFileTreeNode[];
+			children: FileTreeNode[];
 	  }
 	| {
 			type: "file";
@@ -11,7 +13,7 @@ export type ScopedFileTreeNode =
 			path: string;
 	  };
 
-function sortNodes(nodes: ScopedFileTreeNode[]): ScopedFileTreeNode[] {
+function sortNodes(nodes: FileTreeNode[]): FileTreeNode[] {
 	return [...nodes].sort((a, b) => {
 		if (a.type !== b.type) {
 			return a.type === "file" ? -1 : 1;
@@ -20,8 +22,8 @@ function sortNodes(nodes: ScopedFileTreeNode[]): ScopedFileTreeNode[] {
 	});
 }
 
-export function buildScopedFileTree(paths: string[]): ScopedFileTreeNode[] {
-	const root: ScopedFileTreeNode[] = [];
+export function buildFileTree(paths: string[]): FileTreeNode[] {
+	const root: FileTreeNode[] = [];
 
 	for (const fullPath of paths) {
 		const parts = fullPath.split("/");
@@ -38,7 +40,7 @@ export function buildScopedFileTree(paths: string[]): ScopedFileTreeNode[] {
 			}
 
 			let next = current.find(
-				(node): node is Extract<ScopedFileTreeNode, { type: "directory" }> =>
+				(node): node is Extract<FileTreeNode, { type: "directory" }> =>
 					node.type === "directory" && node.path === currentPath,
 			);
 			if (!next) {
@@ -54,7 +56,7 @@ export function buildScopedFileTree(paths: string[]): ScopedFileTreeNode[] {
 		}
 	}
 
-	function sortTree(nodes: ScopedFileTreeNode[]): ScopedFileTreeNode[] {
+	function sortTree(nodes: FileTreeNode[]): FileTreeNode[] {
 		return sortNodes(nodes).map((node) =>
 			node.type === "directory"
 				? { ...node, children: sortTree(node.children) }

@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import { files } from "../../lib/desktop-client";
 import {
-	buildScopedFileTree,
-	type ScopedFileTreeNode,
-} from "./build-scoped-file-tree";
+	buildFileTree as buildScopedFileTree,
+	type FileTreeNode as ScopedFileTreeNode,
+} from "./build-file-tree";
 import { MarkdownPreviewModal } from "./MarkdownPreviewModal";
 
 type FileListProps = {
