@@ -121,7 +121,7 @@ test.afterAll(async () => {
 		repoA?.cleanup();
 		repoB?.cleanup();
 	}
-});
+}, 90_000);
 
 test.describe.serial("Workspace shell persistence", () => {
 	test.describe.configure({ timeout: 120_000 });

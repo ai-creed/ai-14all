@@ -77,7 +77,7 @@ test.afterAll(async () => {
 		repoA?.cleanup();
 		repoB?.cleanup();
 	}
-});
+}, 90_000);
 
 const workspaceSidebar = () =>
 	page.getByRole("navigation", { name: "Worktree sessions" });

@@ -28,7 +28,7 @@ test.beforeAll(async () => {
 		},
 	});
 	page = await app.firstWindow({ timeout: 60_000 });
-});
+}, 90_000);
 
 test.afterAll(async () => {
 	try {

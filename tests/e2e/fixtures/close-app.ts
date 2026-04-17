@@ -13,4 +13,7 @@ export async function closeApp(app: ElectronApplication | undefined): Promise<vo
 		new Promise<void>((resolve) => setTimeout(resolve, 5_000)),
 	]);
 	if (!proc.killed) proc.kill("SIGKILL");
+	// Give the OS a moment to release file descriptors and ports before the
+	// next Electron instance launches in a subsequent beforeAll.
+	await new Promise<void>((resolve) => setTimeout(resolve, 500));
 }

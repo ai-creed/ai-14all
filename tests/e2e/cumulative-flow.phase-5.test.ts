@@ -49,7 +49,7 @@ test.beforeAll(async () => {
 	persistedStateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-phase5-")));
 	persistedStatePath = join(persistedStateDir, "workspace-state.json");
 	await launchApp();
-}, 60_000);
+}, 90_000);
 
 test.afterAll(async () => {
 	try {

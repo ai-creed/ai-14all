@@ -50,7 +50,7 @@ test.afterAll(async () => {
 		rmSync(userDataDir, { recursive: true, force: true });
 		testRepo.cleanup();
 	}
-});
+}, 90_000);
 
 test.describe.serial("Terminal session resilience", () => {
 	test.describe.configure({ timeout: 120_000 });
