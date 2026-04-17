@@ -94,10 +94,10 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 		// Wait for worktree nav to appear and select main
 		const worktreeNav = page.getByRole("navigation", { name: "Worktree sessions" });
 		await expect(
-			worktreeNav.getByRole("button", { name: /^main(?:\s+main)?$/i }),
+			worktreeNav.getByRole("button", { name: / main$/i }),
 		).toBeVisible({ timeout: 15_000 });
 		await worktreeNav
-			.getByRole("button", { name: /^main(?:\s+main)?$/i })
+			.getByRole("button", { name: / main$/i })
 			.click();
 
 		// Wait for the default shell tab to appear (auto-created on worktree activation)
@@ -138,14 +138,14 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 		// Switch back to repo A by selecting its worktree inside that workspace group.
 		await workspaceSidebar()
 			.getByRole("group", { name: nameA })
-			.getByRole("button", { name: /^main(?:\s+main)?$/i })
+			.getByRole("button", { name: / main$/i })
 			.click();
 
 		// Repo A worktree nav must be active with main selected
 		await expect(
 			workspaceSidebar()
 				.getByRole("group", { name: nameA })
-				.getByRole("button", { name: /^main(?:\s+main)?$/i }),
+				.getByRole("button", { name: / main$/i }),
 		).toBeVisible({ timeout: 10_000 });
 
 		// The terminal session from the earlier repo A session must still be present.
@@ -216,7 +216,7 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 		).toHaveAttribute("data-active-workspace", "true", { timeout: 15_000 });
 
 		await expect(
-			workspaceSidebar().getByRole("group", { name: nameB }).getByRole("button", { name: /^main(?:\s+main)?$/i }),
+			workspaceSidebar().getByRole("group", { name: nameB }).getByRole("button", { name: / main$/i }),
 		).toBeVisible({ timeout: 20_000 });
 	});
 });

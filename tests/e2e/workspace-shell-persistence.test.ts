@@ -58,10 +58,10 @@ async function ensureTwoWorkspacesLoaded() {
 	await page.getByRole("button", { name: "Load" }).click();
 
 	await expect(
-		groupForRepo(repoA.repoPath).getByRole("button", { name: /^main(?:\s+main)?$/i }),
+		groupForRepo(repoA.repoPath).getByRole("button", { name: / main$/i }),
 	).toBeVisible({ timeout: 15_000 });
 	await groupForRepo(repoA.repoPath)
-		.getByRole("button", { name: /^main(?:\s+main)?$/i })
+		.getByRole("button", { name: / main$/i })
 		.click();
 
 	await expect(
@@ -75,7 +75,7 @@ async function ensureTwoWorkspacesLoaded() {
 
 	await expect(groupForRepo(repoB.repoPath)).toBeVisible({ timeout: 15_000 });
 	await groupForRepo(repoB.repoPath)
-		.getByRole("button", { name: /^main(?:\s+main)?$/i })
+		.getByRole("button", { name: / main$/i })
 		.click();
 
 	await expect(
@@ -83,11 +83,11 @@ async function ensureTwoWorkspacesLoaded() {
 	).toBeVisible({ timeout: 15_000 });
 
 	await groupForRepo(repoA.repoPath)
-		.getByRole("button", { name: /^main(?:\s+main)?$/i })
+		.getByRole("button", { name: / main$/i })
 		.click();
 
 	await expect(
-		groupForRepo(repoA.repoPath).getByRole("button", { name: /^main(?:\s+main)?$/i }),
+		groupForRepo(repoA.repoPath).getByRole("button", { name: / main$/i }),
 	).toBeVisible({ timeout: 10_000 });
 }
 
@@ -141,14 +141,14 @@ test.describe.serial("Workspace shell persistence", () => {
 		// Switch away immediately after requesting the shell to expose timing bugs
 		// between shell creation and workspace rebinding.
 		await groupForRepo(repoB.repoPath)
-			.getByRole("button", { name: /^main(?:\s+main)?$/i })
+			.getByRole("button", { name: / main$/i })
 			.click();
 		await expect(
-			groupForRepo(repoB.repoPath).getByRole("button", { name: /^main(?:\s+main)?$/i }),
+			groupForRepo(repoB.repoPath).getByRole("button", { name: / main$/i }),
 		).toBeVisible({ timeout: 10_000 });
 
 		await groupForRepo(repoA.repoPath)
-			.getByRole("button", { name: /^main(?:\s+main)?$/i })
+			.getByRole("button", { name: / main$/i })
 			.click();
 
 		const createdSessionId = await expect

@@ -48,11 +48,11 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 		await page.getByRole("button", { name: "Load" }).click();
 
 		await expect(
-			worktreeNav().getByRole("button", { name: /^main(?:\s+main)?$/i }),
+			worktreeNav().getByRole("button", { name: / main$/i }),
 		).toBeVisible({ timeout: 10_000 });
 
 		await worktreeNav()
-			.getByRole("button", { name: /^main(?:\s+main)?$/i })
+			.getByRole("button", { name: / main$/i })
 			.click();
 
 		// Wait for the default shell to be ready before interacting with the toolbar.
@@ -125,7 +125,7 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 		// The "main" sidebar item should show actionRequired attention
 		// because the preset command output "error: phase 3" which triggers the heuristic
 		const mainSidebarItem = worktreeNav().getByRole("button", {
-			name: /^main(?:\s+main)?$/i,
+			name: / main$/i,
 		});
 		await expect(mainSidebarItem).toHaveAttribute(
 			"data-attention",
@@ -136,7 +136,7 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 
 	test("clears attention when the worktree is selected", async () => {
 		const mainSidebarItem = worktreeNav().getByRole("button", {
-			name: /^main(?:\s+main)?$/i,
+			name: / main$/i,
 		});
 		await mainSidebarItem.click();
 

@@ -46,7 +46,7 @@ test.describe.serial("Cumulative flow — Phase 1", () => {
 
 		await page
 			.getByRole("navigation", { name: "Worktree sessions" })
-			.getByRole("button", { name: /^main(?:\s+main)?$/i })
+			.getByRole("button", { name: / main$/i })
 			.click();
 
 		// Phase 6: "Active branch" label moved; SessionHeader now shows "Branch:"

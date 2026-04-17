@@ -48,7 +48,7 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 		await page.getByRole("button", { name: "Load" }).click();
 
 		await expect(
-			worktreeNav().getByRole("button", { name: /^main(?:\s+main)?$/i }),
+			worktreeNav().getByRole("button", { name: / main$/i }),
 		).toBeVisible({
 			timeout: 10_000,
 		});
@@ -58,7 +58,7 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 
 	test("opens multiple terminal tabs for the selected worktree", async () => {
 		await worktreeNav()
-			.getByRole("button", { name: /^main(?:\s+main)?$/i })
+			.getByRole("button", { name: / main$/i })
 			.click();
 
 		// Phase 6: a default shell is auto-created on worktree activation.
@@ -83,7 +83,7 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 			.click();
 		await page.getByRole("textbox", { name: "Session note" }).fill("Feature note");
 		await worktreeNav()
-			.getByRole("button", { name: /^main(?:\s+main)?$/i })
+			.getByRole("button", { name: / main$/i })
 			.click();
 
 		await expect(page.getByRole("textbox", { name: "Session note" })).toHaveValue(
