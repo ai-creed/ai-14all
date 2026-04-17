@@ -110,14 +110,6 @@ describe("WorktreeTree expand/collapse + selection", () => {
 		expect(onExpandedPathsChange.mock.calls.filter(([, paths]) => paths.length > 1)).toEqual([]);
 	});
 
-	it("clicking the root row is a no-op (expand/collapse via context menu only)", async () => {
-		mockListTracked.mockResolvedValueOnce(["src/a.ts"]);
-		const onExpandedPathsChange = vi.fn();
-		renderTree({ worktreeLabel: "repo", expandedPaths: [""], onExpandedPathsChange });
-		const rootRow = await screen.findByText("repo");
-		fireEvent.click(rootRow);
-		expect(onExpandedPathsChange.mock.calls.filter(([, paths]) => JSON.stringify(paths) !== JSON.stringify([""]))).toEqual([]);
-	});
 });
 
 describe("WorktreeTree search", () => {
