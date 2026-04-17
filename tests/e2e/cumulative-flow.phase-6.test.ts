@@ -503,7 +503,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 
 		// Open Files tab and click NOTES.md to load it in the viewer
 		await page.getByRole("tab", { name: "Files" }).click({ force: true });
-		const notesButton = page.getByRole("button", { name: "NOTES.md", exact: true });
+		const notesButton = page.getByRole("button", { name: "NOTES.md" });
 		await expect(notesButton).toBeVisible({ timeout: 10_000 });
 		await notesButton.click();
 

@@ -27,7 +27,7 @@ async function launchApp() {
 			AI14ALL_WORKSPACE_STATE_PATH: persistedStatePath,
 		},
 	});
-	page = await app.firstWindow();
+	page = await app.firstWindow({ timeout: 60_000 });
 }
 
 async function closeApp() {
