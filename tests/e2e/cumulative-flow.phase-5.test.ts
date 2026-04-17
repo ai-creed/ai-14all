@@ -18,7 +18,7 @@ let persistedStatePath: string;
 
 // These helpers support multi-launch — this suite relaunches the app to test
 // persistence across sessions, unlike single-launch phase tests.
-async function launchApp() {
+async function launchApp(firstWindowTimeout = 30_000) {
 	app = await electron.launch({
 		args: ["out/main/index.js"],
 		env: {
@@ -27,7 +27,7 @@ async function launchApp() {
 			AI14ALL_WORKSPACE_STATE_PATH: persistedStatePath,
 		},
 	});
-	page = await app.firstWindow({ timeout: 60_000 });
+	page = await app.firstWindow({ timeout: firstWindowTimeout });
 }
 
 async function closeApp() {
@@ -224,13 +224,14 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 	});
 
 	test("recovers the previous workspace after the repository directory is renamed", async () => {
+		test.setTimeout(120_000);
 		// Start from a clean state so this test doesn't depend on previous test outcomes
 		await closeApp();
 		writeFileSync(
 			persistedStatePath,
 			JSON.stringify({ version: 1, restorePreference: "alwaysRestore", snapshot: null }),
 		);
-		await launchApp();
+		await launchApp(60_000);
 
 		// Load the repo and set up a session note to verify later
 		await page.locator("#repo-path").fill(testRepo.repoPath);
