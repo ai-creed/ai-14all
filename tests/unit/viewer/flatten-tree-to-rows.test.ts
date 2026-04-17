@@ -14,8 +14,8 @@ describe("flattenTreeToRows (no search)", () => {
 		});
 		expect(rows.map((r) => `${r.kind}:${r.path}`)).toEqual([
 			"dir:",
-			"file:README.md",
 			"dir:src",
+			"file:README.md",
 		]);
 	});
 
@@ -30,10 +30,10 @@ describe("flattenTreeToRows (no search)", () => {
 		});
 		expect(rows.map((r) => `${r.kind}:${r.path}`)).toEqual([
 			"dir:",
-			"file:README.md",
 			"dir:src",
-			"file:src/a.ts",
 			"dir:src/nested",
+			"file:src/a.ts",
+			"file:README.md",
 		]);
 	});
 
