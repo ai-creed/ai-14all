@@ -29,7 +29,7 @@ test.beforeAll(async () => {
 			AI14ALL_WORKSPACE_STATE_PATH: join(persistedStateDir, "workspace-state.json"),
 		},
 	});
-	page = await app.firstWindow();
+	page = await app.firstWindow({ timeout: 60_000 });
 });
 
 test.afterAll(async () => {

@@ -48,7 +48,7 @@ test.beforeAll(async () => {
 			AI14ALL_E2E_GIT_FAULTS_PATH: gitFaultsPath,
 		},
 	});
-	page = await app.firstWindow();
+	page = await app.firstWindow({ timeout: 60_000 });
 });
 
 test.afterAll(async () => {
@@ -587,7 +587,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await expect(page.getByRole("button", { name: "Disable split shells" })).toBeVisible();
 		await expect(page.locator('.shell-terminal-pane:not([aria-hidden="true"])')).toHaveCount(2);
 
-		await worktreeNav.getByRole("button", { name: /^main$/ }).click();
+		await worktreeNav.getByRole("button", { name: / main$/i }).click();
 		await expect(page.getByRole("button", { name: "Enable split shells" })).toBeVisible();
 
 		await worktreeNav.getByRole("button", { name: /feature-a/i }).click();

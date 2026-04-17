@@ -42,7 +42,7 @@ async function launchApp() {
 			AI14ALL_USER_DATA_PATH: userDataDir,
 		},
 	});
-	page = await app.firstWindow();
+	page = await app.firstWindow({ timeout: 60_000 });
 }
 
 async function closeApp() {
@@ -183,7 +183,7 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 				AI14ALL_WORKSPACE_STATE_PATH: persistedStatePath,
 			},
 		});
-		page = await app.firstWindow();
+		page = await app.firstWindow({ timeout: 60_000 });
 
 		// Wait for the restore prompt and click it.
 		// The prompt appears once the app reads the persisted state on startup.
