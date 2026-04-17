@@ -125,6 +125,8 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 		};
 		const body = (
 			<div
+				role="button"
+				tabIndex={0}
 				className={
 					isDir
 						? "shell-list__item shell-list__item--tree shell-list__item--dir"

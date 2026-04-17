@@ -68,7 +68,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await ensureWorkspaceLoaded();
 
 		await page.getByRole("button", { name: "Presets" }).click();
-		await expect(page.getByRole("menuitem", { name: "start claude" })).toBeVisible();
+		await expect(page.getByRole("menuitem", { name: "start claude", exact: true })).toBeVisible();
 		await expect(page.getByRole("menuitem", { name: "start codex" })).toBeVisible();
 		await page.keyboard.press("Escape");
 

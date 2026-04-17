@@ -74,6 +74,7 @@ test.describe.serial("Cumulative flow — Phase 4", () => {
 		await expect(page.getByText("Diff vs HEAD")).toBeVisible();
 
 		await page.getByRole("tab", { name: "Files" }).click({ force: true });
+		await page.getByRole("button", { name: "src", exact: true }).click({ force: true });
 		await page.getByRole("button", { name: "new-file.ts" }).click({ force: true });
 		await expect(
 			page.locator(".shell-viewer__title").getByText("src/new-file.ts", {

@@ -99,7 +99,9 @@ test.describe.serial("Cumulative flow — Phase 0", () => {
 		// before attempting the click. The explicit tab click also ensures the
 		// review panel is the active tab so the viewer updates on file selection.
 		await page.getByRole("tab", { name: "Files" }).click({ force: true });
-		await expect(page.getByText("src", { exact: true })).toBeVisible();
+		await expect(page.getByRole("button", { name: "src", exact: true })).toBeVisible();
+		// Expand src directory so index.ts becomes visible.
+		await page.getByRole("button", { name: "src", exact: true }).click({ force: true });
 		// Phase 6: force the click because the xterm pane in the same column
 		// keeps the accessibility tree in flux, causing Playwright's stability
 		// check to time out even when the button is at its correct position.
