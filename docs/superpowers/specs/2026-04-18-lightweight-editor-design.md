@@ -26,7 +26,8 @@ The "read-only embedded code viewer" decision in `docs/shared/architecture_decis
 
 **Worktree tree:**
 - Right-clicking a file node shows an "Edit" item **only when the file is editable** (see Whitelist).
-- Selecting a file and pressing `Cmd+E` is equivalent; the shortcut is a no-op when the selected file is not editable.
+- Markdown files (`.md`) must continue to show the existing "Preview" item (see `src/features/viewer/WorktreeTree.tsx` and `tests/unit/components/WorktreeTree.test.tsx`). On a markdown row the context menu shows **both** "Preview" and "Edit". "Edit" is added alongside "Preview", never in place of it.
+- Selecting a file and pressing `Cmd+E` is equivalent to choosing "Edit"; the shortcut is a no-op when the selected file is not editable.
 
 **Editor modal:**
 - Opens centered over the app, captures focus and pointer events (worktree/session switches are unreachable while open).
@@ -38,12 +39,26 @@ The "read-only embedded code viewer" decision in `docs/shared/architecture_decis
 - Both enabled only when `dirty === true` (buffer differs from last-loaded content).
 - While a save is in-flight, additional save presses are ignored.
 
+## Shortcut Ownership
+
+While the editor modal is open, it owns `Cmd+S`, `Cmd+E`, and `Esc`. This follows and extends the scope rules in `docs/superpowers/specs/2026-04-07-phase-6-ui-ux-hardening-design.md`:
+
+- `Cmd+S` is handled at the **modal level** (not window-level, not Monaco-local), listening on the modal root. The handler calls `preventDefault()` to suppress browser save-page and any app-level `Cmd+S` bindings. The handler is a no-op when the buffer is clean or a save is in flight.
+- `Cmd+E` handling:
+  - When the modal is closed: a **window-level** handler (owned by `App`) checks the currently selected file; if editable, it opens the modal. `preventDefault()` is called to suppress any default.
+  - When the modal is open: `Cmd+E` is swallowed at the modal level (no-op) so that pressing it again does not race-open a second instance.
+- `Esc` is handled at the modal level through the Radix `Dialog` `onOpenChange` / `onEscapeKeyDown` path, routed through the same close logic as the Close button and backdrop click (dirty → `ConfirmCloseDialog`).
+- Monaco's internal keybindings remain active inside the editor surface for typing/navigation (arrows, `Cmd+F` find widget, undo/redo). Specifically, `Cmd+S` is **not** bound inside Monaco — the modal-level handler wins because it is installed on the modal root and calls `preventDefault()` before Monaco sees it.
+- When the modal is open, app-level shortcuts (e.g. terminal focus bindings) are suppressed for the keys listed above; unrelated app shortcuts continue to behave as defined by their own scope.
+
+`SaveConflictDialog` and `ConfirmCloseDialog`, when mounted, inherit Radix's focus-trap behavior and their own `Esc`-to-cancel; while either is open, the editor-level `Cmd+S`/`Cmd+E` shortcuts are disabled.
+
 ## Whitelist
 
 A file is "editable" when its basename or extension matches the whitelist. The same predicate gates:
 - visibility of the "Edit" context menu item,
 - the `Cmd+E` shortcut handler,
-- the `file:openForEdit` IPC handler (defense-in-depth).
+- the `files:openForEdit` IPC handler (defense-in-depth).
 
 **By exact basename:** `.gitignore`, `.gitattributes`, `.editorconfig`, `.prettierrc`, `.prettierignore`, `.eslintignore`, `.npmrc`, `.nvmrc`, `.dockerignore`, `Dockerfile`, `Makefile`, `LICENSE`, `README`.
 
@@ -60,13 +75,17 @@ Monaco configuration:
 - language resolved by extension (or `plaintext` for basename-matched config files with no extension hint),
 - line numbers on,
 - find widget (`Cmd+F`) enabled,
-- minimap off, command palette off, replace off, suggestions off.
+- minimap off, command palette off, replace off, suggestions off,
+- **theme** inherited from the app's current theme source: use `vs-dark` when the app is in dark mode and `vs` when in light mode, and resubscribe to theme changes so the editor switches live per `docs/superpowers/specs/2026-04-09-dark-light-mode-design.md`,
+- **font size** explicitly set to `11px`, matching the existing Monaco surfaces (FileViewer, DiffViewer) per `docs/superpowers/specs/2026-04-07-phase-6-ui-ux-hardening-design.md` (§ "Monaco").
+
+The editor must reuse whatever theme hook / context existing Monaco surfaces already use so the modal stays in sync with the rest of the shell without introducing a parallel theme path.
 
 ### `src/features/viewer/ConfirmCloseDialog.tsx`
 A `@radix-ui/react-dialog` dialog with Save / Discard / Cancel. Invoked from `EditorModal` when close is requested with a dirty buffer.
 
 ### `src/features/viewer/SaveConflictDialog.tsx`
-Shown when `file:save` returns `{ok: false, reason: 'mtime-conflict'}`. Offers Reload / Overwrite / Cancel. Reload with a dirty buffer re-prompts for confirmation.
+Shown when `files:save` returns `{ok: false, reason: 'mtime-conflict'}`. Offers Reload / Overwrite / Cancel. Reload with a dirty buffer re-prompts for confirmation.
 
 ### `shared/editor/editableFiles.ts`
 Pure helper: `isEditable(basename: string): boolean`. Single source of truth for the whitelist, imported by renderer (menu/shortcut gating) and main (IPC guard).
@@ -76,8 +95,8 @@ Extended with `openForEdit` and `saveFile` methods. Both reuse the existing work
 
 ### `electron/ipc/fileEdit.ts`
 Two handlers registered on the file IPC bridge:
-- `file:openForEdit({worktreePath, relativePath})` → `{ok, content, mtimeMs}` or `{ok: false, reason}`.
-- `file:save({worktreePath, relativePath, content, expectedMtimeMs})` → `{ok, mtimeMs}` or `{ok: false, reason, currentMtimeMs?}`.
+- `files:openForEdit({worktreePath, relativePath})` → `{ok, content, mtimeMs}` or `{ok: false, reason}`.
+- `files:save({worktreePath, relativePath, content, expectedMtimeMs})` → `{ok, mtimeMs}` or `{ok: false, reason, currentMtimeMs?}`.
 
 Schemas defined in `shared/contracts/commands.ts` with Zod (mirroring `ReadFileSchema`: `{worktreePath, relativePath}`). Validated on both sides.
 
@@ -92,7 +111,7 @@ No shared code is extracted from `MarkdownPreviewModal` in v1; the pattern is re
 
 ### Open
 1. User triggers "Edit" (menu or `Cmd+E`); renderer asserts `isEditable(basename(relativePath))`.
-2. Renderer calls `window.api.file.openForEdit({worktreePath, relativePath})`.
+2. Renderer calls `window.api.files.openForEdit({worktreePath, relativePath})`.
 3. Main resolves the absolute path against `worktreePath` and rejects if it escapes the worktree (reusing `file-service.ts:123` logic).
 4. Main re-checks `isEditable`; if false → reject.
 5. Main runs a binary sniff (null byte in first 8 KB); if hit → reject.
@@ -106,7 +125,7 @@ No shared code is extracted from `MarkdownPreviewModal` in v1; the pattern is re
 
 ### Save
 1. User presses `Cmd+S` or clicks Save; `saving` flag set, concurrent presses ignored.
-2. Renderer calls `window.api.file.save({worktreePath, relativePath, content, expectedMtimeMs: mtimeMs})`.
+2. Renderer calls `window.api.files.save({worktreePath, relativePath, content, expectedMtimeMs: mtimeMs})`.
 3. Main resolves path, rejects escape, re-checks `isEditable`.
 4. Main `stat(path)`:
    - Missing → `{ok: false, reason: 'not-found'}`.
@@ -169,11 +188,16 @@ Follows TDD per project convention: failing tests first, then implementation.
   - typing sets `dirty`, Save enables;
   - `Cmd+S` when clean is a no-op;
   - `Cmd+S` when dirty calls save IPC exactly once; a second press while pending is ignored;
+  - `Cmd+S` handler calls `preventDefault()` (browser save-page not triggered);
+  - `Cmd+E` is a no-op while the modal is open;
   - save success clears `dirty`, updates `mtimeMs`, surfaces "Saved" toast;
   - save `mtime-conflict` renders `SaveConflictDialog`; Reload, Overwrite, Cancel each wired;
   - close clean dismisses immediately;
   - close dirty renders `ConfirmCloseDialog`; Save, Discard, Cancel each wired;
-  - `Esc` routes through the same close path.
+  - `Esc` routes through the same close path;
+  - Monaco receives `theme = 'vs'` in light mode and `'vs-dark'` in dark mode, updates live on theme change;
+  - Monaco receives `fontSize: 11`.
+- `WorktreeTree.test.tsx` — markdown rows show both "Preview" and "Edit" items in the context menu; non-markdown editable rows show only "Edit"; non-editable rows show neither; non-editable selection + `Cmd+E` is a no-op.
 - `services/files/file-service.test.ts` — `openForEdit` happy path, path-escape reject, whitelist reject, binary reject, size reject, `ENOENT`; `saveFile` happy path, mtime mismatch returns `currentMtimeMs`, path-escape reject, `ENOENT` / `EACCES` mapped.
 
 **E2E (Playwright, extends the cumulative flow suite per `docs/superpowers/specs/2026-04-03-cumulative-phase-e2e-coverage-design.md`):**
@@ -182,6 +206,7 @@ New file `tests/e2e/cumulative-flow.phase-9.test.ts` follows the existing `cumul
 - Open a whitelisted file via "Edit" context menu → modal appears with content.
 - Type, save via `Cmd+S`, reopen → content persisted on disk.
 - Non-whitelisted file → "Edit" item hidden.
+- Markdown file → context menu shows both "Preview" and "Edit"; existing Preview flow still works.
 - `Cmd+E` with a non-whitelisted selection → no-op.
 - Close with a dirty buffer → `ConfirmCloseDialog` appears.
 - Mtime conflict: write the file externally between open and save → `SaveConflictDialog` appears.
