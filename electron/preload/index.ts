@@ -166,6 +166,11 @@ const api: Ai14AllDesktopApi = {
 			return ipcRenderer.invoke("diagnostics:logShellEvent", event);
 		},
 	},
+	keyboard: {
+		loadKeybindings() {
+			return ipcRenderer.invoke("keyboard:loadKeybindings", {});
+		},
+	},
 };
 
 contextBridge.exposeInMainWorld("ai14all", api);
