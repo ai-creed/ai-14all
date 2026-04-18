@@ -5,6 +5,7 @@ import "xterm/css/xterm.css";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
 import { files, terminals } from "../../lib/desktop-client";
 import { logRendererShellEvent } from "./shell-event-logger";
+import { useKeyboardRegistry } from "../keyboard/keyboard-context";
 
 type Props = {
 	session: TerminalSession;
@@ -29,6 +30,11 @@ export function TerminalPane({
 	const fitAddonRef = useRef<FitAddon | null>(null);
 	const unsubOutputRef = useRef<(() => void) | null>(null);
 	const paneInstanceIdRef = useRef(`pane_${session.id}_${Math.random().toString(36).slice(2, 8)}`);
+	const keyboardRegistry = useKeyboardRegistry();
+	// Use a ref so the stable xterm effect closure always sees the latest registry
+	// without needing to re-run (which would remount the entire xterm instance).
+	const keyboardRegistryRef = useRef(keyboardRegistry);
+	keyboardRegistryRef.current = keyboardRegistry;
 	const isLive = session.status === "running" || session.status === "idle";
 
 	/**
@@ -104,6 +110,13 @@ export function TerminalPane({
 		term.loadAddon(fitAddon);
 		term.open(containerRef.current);
 		term.attachCustomKeyEventHandler((event) => {
+			// Let registered global shortcuts bubble to the document-level handler.
+			// Returning false prevents xterm from calling preventDefault(), so the
+			// event propagates normally to our useKeyboardShortcuts document listener.
+			// Use the ref — not the closed-over value — so registry updates after the
+			// async IPC call are visible without re-running this effect.
+			if (keyboardRegistryRef.current?.matchesAny(event)) return false;
+
 			// Shift+Enter: send literal newline so agent TUIs can distinguish it from
 			// plain Enter. xterm maps keyCode 13 to '\r' regardless of shiftKey; we
 			// intercept and send '\n' instead, which raw-mode apps read as distinct.
