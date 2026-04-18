@@ -217,6 +217,8 @@ It exists for inspection and review, not primary editing.
 - support file viewing, search, and diff-oriented review
 - defer editing workflows
 
+> **Update (2026-04-18):** The lightweight editor spec (`docs/superpowers/specs/2026-04-18-lightweight-editor-design.md`) adds a narrow fast-path editing surface for agent-authored files and small config files via a modal, triggered per-file from the worktree tree. It is intentionally scoped to single-buffer, explicit-save, whitelist-gated editing and does not introduce IDE features (tabs, project-wide find/replace, refactors, Git integration, live file-watching). The embedded code viewer remains read-only in its inline form; editing is an explicit opt-in modal. The "no IDE drift" guardrail is preserved by scope, not by the read-only constraint.
+
 ## AD-011 — Terminal Attention Model
 
 **Decision**

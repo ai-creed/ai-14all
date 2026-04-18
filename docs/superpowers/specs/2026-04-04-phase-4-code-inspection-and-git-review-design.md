@@ -26,7 +26,7 @@ The intended outcome is that the user can stay in one worktree session, run comm
 
 Phase 4 should not include:
 
-- editable embedded code workflows
+- editable embedded code workflows (see note below)
 - staging, unstaging, discard, checkout, or commit actions
 - commit-by-commit review flows
 - commit diff browsing
@@ -36,6 +36,8 @@ Phase 4 should not include:
 - persistence or restore behavior
 
 Those belong to later phases or only after real usage proves they are needed.
+
+> **Update (2026-04-18):** A narrow fast-path editor is introduced as an explicit opt-in modal in `docs/superpowers/specs/2026-04-18-lightweight-editor-design.md`. The inline viewer used by Phase 4 remains read-only; editing is not an inline workflow. See `AD-010` update for the architectural framing.
 
 ## Product Direction
 

@@ -259,7 +259,7 @@ These should stay out of the initial delivery unless real usage proves they are 
 
 - simultaneous multi-workspace dashboards or comparisons
 - deep integration with specific agent APIs
-- editable embedded code editor
+- full editable embedded code editor (IDE-scope: multi-file tabs, project-wide find/replace, refactors, Git integration, live file-watching)
 - advanced Git operations
 - collaboration or cloud sync
 - remote environments
