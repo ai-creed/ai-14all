@@ -259,3 +259,43 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 		});
 	});
 });
+
+test.describe.serial("Cumulative flow — Phase 9 (Keyboard shortcuts)", () => {
+	test("navigates to main worktree as baseline", async () => {
+		test.setTimeout(60_000);
+		// Select main worktree first so there is a "next" to navigate to
+		await page
+			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("button", { name: / main$/i })
+			.click();
+	});
+
+	test("Cmd+] switches to the next worktree", async () => {
+		test.setTimeout(30_000);
+		// Press the shortcut — document listener handles it regardless of focus
+		await page.keyboard.press("Meta+]");
+		// feature-a should now be the active worktree (the only other one).
+		// SessionSidebar sets data-selected="true" on the active worktree button.
+		await expect(
+			page
+				.getByRole("navigation", { name: "Worktree sessions" })
+				.getByRole("button", { name: "feature-a", exact: true }),
+		).toHaveAttribute("data-selected", "true", { timeout: 10_000 });
+	});
+
+	test("Cmd+Shift+P opens the shortcuts help modal", async () => {
+		test.setTimeout(20_000);
+		await page.keyboard.press("Meta+Shift+P");
+		await expect(
+			page.getByRole("dialog", { name: "Keyboard shortcuts" }),
+		).toBeVisible({ timeout: 8_000 });
+	});
+
+	test("Escape closes the shortcuts help modal", async () => {
+		test.setTimeout(10_000);
+		await page.keyboard.press("Escape");
+		await expect(
+			page.getByRole("dialog", { name: "Keyboard shortcuts" }),
+		).not.toBeVisible({ timeout: 5_000 });
+	});
+});
