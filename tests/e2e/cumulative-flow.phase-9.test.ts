@@ -72,9 +72,9 @@ test.describe.serial("Cumulative flow — Phase 9", () => {
 		).toHaveAttribute("data-selected", "true", { timeout: 10_000 });
 	});
 
-	test("Cmd+/ opens the shortcuts help modal", async () => {
+	test("Cmd+Shift+/ opens the shortcuts help modal", async () => {
 		test.setTimeout(20_000);
-		await page.keyboard.press("Meta+/");
+		await page.keyboard.press("Meta+Shift+/");
 		await expect(
 			page.getByRole("dialog", { name: "Keyboard shortcuts" }),
 		).toBeVisible({ timeout: 8_000 });

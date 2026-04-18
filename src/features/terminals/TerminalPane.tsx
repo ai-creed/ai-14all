@@ -110,6 +110,11 @@ export function TerminalPane({
 		term.loadAddon(fitAddon);
 		term.open(containerRef.current);
 		term.attachCustomKeyEventHandler((event) => {
+			// When any dialog is open, let Escape bubble to its native Escape handler.
+			// Without this, xterm swallows Escape (a terminal control character) even
+			// when a Radix dialog is focused, preventing the dialog from closing.
+			if (event.key === "Escape" && document.querySelector('[role="dialog"]')) return false;
+
 			// Let registered global shortcuts bubble to the document-level handler.
 			// Returning false prevents xterm from calling preventDefault(), so the
 			// event propagates normally to our useKeyboardShortcuts document listener.
