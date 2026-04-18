@@ -1,7 +1,8 @@
 import Editor from "@monaco-editor/react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { files } from "../../lib/desktop-client";
+import { ConfirmCloseDialog } from "./ConfirmCloseDialog";
 import { SaveConflictDialog } from "./SaveConflictDialog";
 
 type ResolvedTheme = "light" | "dark";
@@ -83,15 +84,19 @@ export function EditorModal({
 	const [saving, setSaving] = useState(false);
 	const [status, setStatus] = useState<{ kind: "saved" | "error"; message: string } | null>(null);
 	const [conflict, setConflict] = useState<{ currentMtimeMs: number } | null>(null);
+	const [confirmClose, setConfirmClose] = useState(false);
 
 	const dirty = content !== originalContent;
 
-	const handleClose = useCallback(() => {
-		onClose();
-	}, [onClose]);
+	const dirtyRef = useRef(dirty);
+	useEffect(() => {
+		dirtyRef.current = dirty;
+	}, [dirty]);
 
-	const handleSave = useCallback(async () => {
-		if (!dirty || saving) return;
+	const nestedDialogOpen = conflict !== null || confirmClose;
+
+	const handleSave = useCallback(async (): Promise<boolean> => {
+		if (!dirty || saving) return false;
 		setSaving(true);
 		setStatus(null);
 		const result = await files.save({
@@ -106,13 +111,14 @@ export function EditorModal({
 			setMtimeMs(result.mtimeMs);
 			const when = new Date().toLocaleTimeString();
 			setStatus({ kind: "saved", message: `Saved ${when}` });
-			return;
+			return true;
 		}
 		if (result.reason === "mtime-conflict") {
 			setConflict({ currentMtimeMs: result.currentMtimeMs });
-			return;
+			return false;
 		}
 		setStatus({ kind: "error", message: errorMessageForReason(result.reason) });
+		return false;
 	}, [content, dirty, mtimeMs, relativePath, saving, worktreePath]);
 
 	const handleOverwrite = useCallback(async () => {
@@ -151,6 +157,46 @@ export function EditorModal({
 
 	const handleCancelConflict = useCallback(() => setConflict(null), []);
 
+	const requestClose = useCallback(() => {
+		if (dirty) {
+			setConfirmClose(true);
+			return;
+		}
+		onClose();
+	}, [dirty, onClose]);
+
+	const confirmSaveThenClose = useCallback(async () => {
+		const saved = await handleSave();
+		setConfirmClose(false);
+		if (saved) onClose();
+	}, [handleSave, onClose]);
+
+	const confirmDiscard = useCallback(() => {
+		setConfirmClose(false);
+		onClose();
+	}, [onClose]);
+
+	const cancelConfirmClose = useCallback(() => setConfirmClose(false), []);
+
+	const onDialogKeyDown = useCallback<React.KeyboardEventHandler<HTMLElement>>(
+		(e) => {
+			if (nestedDialogOpen) return;
+			const meta = e.metaKey || e.ctrlKey;
+			if (!meta) return;
+			if (e.key === "s") {
+				e.preventDefault();
+				e.stopPropagation();
+				if (dirty && !saving) void handleSave();
+				return;
+			}
+			if (e.key === "e") {
+				e.preventDefault();
+				e.stopPropagation();
+			}
+		},
+		[dirty, handleSave, nestedDialogOpen, saving],
+	);
+
 	// Auto-clear status after 3s
 	useEffect(() => {
 		if (!status) return;
@@ -163,7 +209,7 @@ export function EditorModal({
 			<Dialog.Root
 				open={true}
 				onOpenChange={(next) => {
-					if (!next) handleClose();
+					if (!next) requestClose();
 				}}
 			>
 				<Dialog.Portal>
@@ -171,6 +217,7 @@ export function EditorModal({
 					<Dialog.Content
 						className="shell-editor-modal"
 						aria-describedby={undefined}
+						onKeyDownCapture={onDialogKeyDown}
 					>
 						<header className="shell-editor-modal__header">
 							<Dialog.Title className="shell-editor-modal__title">
@@ -180,7 +227,7 @@ export function EditorModal({
 								type="button"
 								className="shell-editor-modal__close"
 								aria-label="Close"
-								onClick={handleClose}
+								onClick={requestClose}
 							>
 								Close
 							</button>
@@ -217,6 +264,12 @@ export function EditorModal({
 				onReload={handleReload}
 				onOverwrite={handleOverwrite}
 				onCancel={handleCancelConflict}
+			/>
+			<ConfirmCloseDialog
+				open={confirmClose}
+				onSave={confirmSaveThenClose}
+				onDiscard={confirmDiscard}
+				onCancel={cancelConfirmClose}
 			/>
 		</>
 	);

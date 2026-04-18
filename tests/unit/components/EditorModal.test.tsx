@@ -189,3 +189,96 @@ describe("EditorModal mtime conflict", () => {
 		expect(screen.getByRole("button", { name: /save/i })).toBeDisabled();
 	});
 });
+
+describe("EditorModal shortcuts and confirm-close", () => {
+	beforeEach(() => {
+		saveMock.mockReset();
+		openForEditMock.mockReset();
+	});
+
+	function findEditorDialog(): HTMLElement {
+		// The first role="dialog" in DOM is the editor modal
+		return screen.getAllByRole("dialog")[0];
+	}
+
+	function fireKey(target: HTMLElement, key: string, meta = true): KeyboardEvent {
+		const ev = new KeyboardEvent("keydown", {
+			key,
+			metaKey: meta,
+			cancelable: true,
+			bubbles: true,
+		});
+		target.dispatchEvent(ev);
+		return ev;
+	}
+
+	it("Cmd+S when clean is a no-op but still prevents default", async () => {
+		render(<EditorModal {...baseProps} />);
+		const ev = fireKey(findEditorDialog(), "s");
+		expect(saveMock).not.toHaveBeenCalled();
+		expect(ev.defaultPrevented).toBe(true);
+	});
+
+	it("Cmd+S when dirty calls save and prevents default", async () => {
+		saveMock.mockResolvedValueOnce({ ok: true, mtimeMs: 200 });
+		render(<EditorModal {...baseProps} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		const ev = fireKey(findEditorDialog(), "s");
+		expect(saveMock).toHaveBeenCalledTimes(1);
+		expect(ev.defaultPrevented).toBe(true);
+	});
+
+	it("Cmd+E is swallowed and prevents default", async () => {
+		render(<EditorModal {...baseProps} />);
+		const ev = fireKey(findEditorDialog(), "e");
+		expect(ev.defaultPrevented).toBe(true);
+	});
+
+	it("Cmd+S is disabled while SaveConflictDialog is open", async () => {
+		saveMock.mockResolvedValueOnce({
+			ok: false,
+			reason: "mtime-conflict",
+			currentMtimeMs: 500,
+		});
+		render(<EditorModal {...baseProps} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /save/i }));
+		await screen.findByText(/file changed on disk/i);
+		fireKey(findEditorDialog(), "s");
+		expect(saveMock).toHaveBeenCalledTimes(1); // no additional call
+	});
+
+	it("close clean dismisses immediately", async () => {
+		const onClose = vi.fn();
+		render(<EditorModal {...baseProps} onClose={onClose} />);
+		await userEvent.click(screen.getByRole("button", { name: /close/i }));
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
+	it("close dirty shows ConfirmCloseDialog", async () => {
+		render(<EditorModal {...baseProps} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /close/i }));
+		expect(await screen.findByText(/unsaved changes/i)).toBeInTheDocument();
+	});
+
+	it("Discard from ConfirmCloseDialog calls onClose", async () => {
+		const onClose = vi.fn();
+		render(<EditorModal {...baseProps} onClose={onClose} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /close/i }));
+		await userEvent.click(await screen.findByRole("button", { name: /discard/i }));
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
+	it("Save from ConfirmCloseDialog saves then closes", async () => {
+		saveMock.mockResolvedValueOnce({ ok: true, mtimeMs: 200 });
+		const onClose = vi.fn();
+		render(<EditorModal {...baseProps} onClose={onClose} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /close/i }));
+		await userEvent.click(await screen.findByRole("button", { name: /^save$/i }));
+		expect(saveMock).toHaveBeenCalledTimes(1);
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+});
