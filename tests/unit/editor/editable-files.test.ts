@@ -33,12 +33,12 @@ describe("isEditable", () => {
 		expect(isEditable("")).toBe(false);
 	});
 
-	it("treats basename match as taking precedence over extension", () => {
+	it("accepts dotfile-style config files with no conventional extension", () => {
 		expect(isEditable(".prettierrc")).toBe(true);
 	});
 
 	it("accepts dotfile extensions like .env", () => {
 		expect(isEditable(".env")).toBe(true);
-		expect(isEditable(".env.local")).toBe(false);
+		expect(isEditable(".env.local")).toBe(false); // .local not in whitelist; use .env.local.example as .env
 	});
 });
