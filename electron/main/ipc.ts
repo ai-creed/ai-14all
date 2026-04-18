@@ -12,6 +12,8 @@ import {
 	ListTerminalSessionsSchema,
 	ListFilesSchema,
 	ReadFileSchema,
+	OpenFileForEditSchema,
+	SaveFileSchema,
 	ListGitChangesSchema,
 	ReadGitDiffSchema,
 	ListScopedFilesSchema,
@@ -200,6 +202,21 @@ export function registerIpcHandlers(
 	ipcMain.handle("files:read", (_event, raw: unknown) => {
 		const { worktreePath, relativePath } = ReadFileSchema.parse(raw);
 		return fileService.readFile(worktreePath, relativePath);
+	});
+
+	ipcMain.handle("files:openForEdit", async (_event, raw: unknown) => {
+		const { worktreePath, relativePath } = OpenFileForEditSchema.parse(raw);
+		return fileService.openForEdit(worktreePath, relativePath);
+	});
+
+	ipcMain.handle("files:save", async (_event, raw: unknown) => {
+		const parsed = SaveFileSchema.parse(raw);
+		return fileService.saveFile(
+			parsed.worktreePath,
+			parsed.relativePath,
+			parsed.content,
+			parsed.expectedMtimeMs,
+		);
 	});
 
 	ipcMain.handle("files:listScoped", (_event, raw: unknown) => {
