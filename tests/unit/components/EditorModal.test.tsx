@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { EditorModal } from "../../../src/features/viewer/EditorModal";
@@ -121,5 +121,71 @@ describe("EditorModal save flow", () => {
 		await userEvent.click(screen.getByRole("button", { name: /save/i }));
 		expect(await screen.findByText(/permission/i)).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /save/i })).not.toBeDisabled();
+	});
+});
+
+describe("EditorModal mtime conflict", () => {
+	beforeEach(() => {
+		saveMock.mockReset();
+		openForEditMock.mockReset();
+	});
+
+	it("shows SaveConflictDialog when save returns mtime-conflict", async () => {
+		saveMock.mockResolvedValueOnce({
+			ok: false,
+			reason: "mtime-conflict",
+			currentMtimeMs: 500,
+		});
+		render(<EditorModal {...baseProps} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /save/i }));
+		expect(await screen.findByText(/file changed on disk/i)).toBeInTheDocument();
+	});
+
+	it("Overwrite re-saves with currentMtimeMs", async () => {
+		saveMock
+			.mockResolvedValueOnce({ ok: false, reason: "mtime-conflict", currentMtimeMs: 500 })
+			.mockResolvedValueOnce({ ok: true, mtimeMs: 600 });
+		render(<EditorModal {...baseProps} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /save/i }));
+		await userEvent.click(await screen.findByRole("button", { name: /overwrite/i }));
+		expect(saveMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ expectedMtimeMs: 500 }));
+	});
+
+	it("Cancel dismisses dialog and leaves buffer dirty", async () => {
+		saveMock.mockResolvedValueOnce({
+			ok: false,
+			reason: "mtime-conflict",
+			currentMtimeMs: 500,
+		});
+		render(<EditorModal {...baseProps} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /save/i }));
+		await userEvent.click(await screen.findByRole("button", { name: /cancel/i }));
+		expect(screen.queryByText(/file changed on disk/i)).not.toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /save/i })).not.toBeDisabled();
+	});
+
+	it("Reload replaces buffer with disk content and clears dirty", async () => {
+		saveMock.mockResolvedValueOnce({
+			ok: false,
+			reason: "mtime-conflict",
+			currentMtimeMs: 500,
+		});
+		openForEditMock.mockResolvedValueOnce({
+			ok: true,
+			content: "from-disk",
+			mtimeMs: 500,
+		});
+		render(<EditorModal {...baseProps} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /save/i }));
+		await userEvent.click(await screen.findByRole("button", { name: /reload/i }));
+		expect(openForEditMock).toHaveBeenCalledWith("/wt", "NOTES.md");
+		await waitFor(() => {
+			expect((screen.getByTestId("monaco") as HTMLTextAreaElement).value).toBe("from-disk");
+		});
+		expect(screen.getByRole("button", { name: /save/i })).toBeDisabled();
 	});
 });

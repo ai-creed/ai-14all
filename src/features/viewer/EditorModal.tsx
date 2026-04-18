@@ -2,6 +2,7 @@ import Editor from "@monaco-editor/react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { files } from "../../lib/desktop-client";
+import { SaveConflictDialog } from "./SaveConflictDialog";
 
 type ResolvedTheme = "light" | "dark";
 
@@ -81,6 +82,7 @@ export function EditorModal({
 	const [mtimeMs, setMtimeMs] = useState(initialMtimeMs);
 	const [saving, setSaving] = useState(false);
 	const [status, setStatus] = useState<{ kind: "saved" | "error"; message: string } | null>(null);
+	const [conflict, setConflict] = useState<{ currentMtimeMs: number } | null>(null);
 
 	const dirty = content !== originalContent;
 
@@ -107,10 +109,47 @@ export function EditorModal({
 			return;
 		}
 		if (result.reason === "mtime-conflict") {
-			// conflict handling comes in Task 11 — for now fall through to generic error
+			setConflict({ currentMtimeMs: result.currentMtimeMs });
+			return;
 		}
 		setStatus({ kind: "error", message: errorMessageForReason(result.reason) });
 	}, [content, dirty, mtimeMs, relativePath, saving, worktreePath]);
+
+	const handleOverwrite = useCallback(async () => {
+		if (!conflict) return;
+		const expected = conflict.currentMtimeMs;
+		setConflict(null);
+		setSaving(true);
+		const result = await files.save({
+			worktreePath,
+			relativePath,
+			content,
+			expectedMtimeMs: expected,
+		});
+		setSaving(false);
+		if (result.ok) {
+			setOriginalContent(content);
+			setMtimeMs(result.mtimeMs);
+			setStatus({ kind: "saved", message: `Saved ${new Date().toLocaleTimeString()}` });
+		} else {
+			setStatus({ kind: "error", message: errorMessageForReason(result.reason) });
+		}
+	}, [conflict, content, relativePath, worktreePath]);
+
+	const handleReload = useCallback(async () => {
+		const result = await files.openForEdit(worktreePath, relativePath);
+		setConflict(null);
+		if (result.ok) {
+			setOriginalContent(result.content);
+			setContent(result.content);
+			setMtimeMs(result.mtimeMs);
+			setStatus({ kind: "saved", message: "Reloaded from disk" });
+		} else {
+			setStatus({ kind: "error", message: errorMessageForReason(result.reason) });
+		}
+	}, [relativePath, worktreePath]);
+
+	const handleCancelConflict = useCallback(() => setConflict(null), []);
 
 	// Auto-clear status after 3s
 	useEffect(() => {
@@ -120,57 +159,65 @@ export function EditorModal({
 	}, [status]);
 
 	return (
-		<Dialog.Root
-			open={true}
-			onOpenChange={(next) => {
-				if (!next) handleClose();
-			}}
-		>
-			<Dialog.Portal>
-				<Dialog.Overlay className="shell-editor-overlay" />
-				<Dialog.Content
-					className="shell-editor-modal"
-					aria-describedby={undefined}
-				>
-					<header className="shell-editor-modal__header">
-						<Dialog.Title className="shell-editor-modal__title">
-							{relativePath}
-						</Dialog.Title>
-						<button
-							type="button"
-							className="shell-editor-modal__close"
-							aria-label="Close"
-							onClick={handleClose}
-						>
-							Close
-						</button>
-					</header>
-					<div className="shell-editor-modal__body">
-						<Editor
-							value={content}
-							onChange={(v) => setContent(v ?? "")}
-							theme={monacoTheme}
-							language={language}
-							options={MONACO_OPTIONS}
-						/>
-					</div>
-					<footer className="shell-editor-modal__footer">
-						<span
-							className={`shell-editor-modal__status shell-editor-modal__status--${status?.kind ?? "idle"}`}
-						>
-							{status?.message ?? ""}
-						</span>
-						<button
-							type="button"
-							className="shell-btn shell-btn--primary"
-							disabled={!dirty || saving}
-							onClick={() => void handleSave()}
-						>
-							{saving ? "Saving…" : "Save"}
-						</button>
-					</footer>
-				</Dialog.Content>
-			</Dialog.Portal>
-		</Dialog.Root>
+		<>
+			<Dialog.Root
+				open={true}
+				onOpenChange={(next) => {
+					if (!next) handleClose();
+				}}
+			>
+				<Dialog.Portal>
+					<Dialog.Overlay className="shell-editor-overlay" />
+					<Dialog.Content
+						className="shell-editor-modal"
+						aria-describedby={undefined}
+					>
+						<header className="shell-editor-modal__header">
+							<Dialog.Title className="shell-editor-modal__title">
+								{relativePath}
+							</Dialog.Title>
+							<button
+								type="button"
+								className="shell-editor-modal__close"
+								aria-label="Close"
+								onClick={handleClose}
+							>
+								Close
+							</button>
+						</header>
+						<div className="shell-editor-modal__body">
+							<Editor
+								value={content}
+								onChange={(v) => setContent(v ?? "")}
+								theme={monacoTheme}
+								language={language}
+								options={MONACO_OPTIONS}
+							/>
+						</div>
+						<footer className="shell-editor-modal__footer">
+							<span
+								className={`shell-editor-modal__status shell-editor-modal__status--${status?.kind ?? "idle"}`}
+							>
+								{status?.message ?? ""}
+							</span>
+							<button
+								type="button"
+								className="shell-btn shell-btn--primary"
+								disabled={!dirty || saving}
+								onClick={() => void handleSave()}
+							>
+								{saving ? "Saving…" : "Save"}
+							</button>
+						</footer>
+					</Dialog.Content>
+				</Dialog.Portal>
+			</Dialog.Root>
+			<SaveConflictDialog
+				open={conflict !== null}
+				onReload={handleReload}
+				onOverwrite={handleOverwrite}
+				onCancel={handleCancelConflict}
+			/>
+		</>
 	);
 }
