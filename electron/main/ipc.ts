@@ -1,4 +1,6 @@
-import { dialog, ipcMain } from "electron";
+import { dialog, ipcMain, app } from "electron";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { consumeE2eGitFault } from "./e2e-git-faults.js";
 import { consumeE2eTerminalCreateDelay } from "./e2e-terminal-create-delay.js";
 import type { BrowserWindow } from "electron";
@@ -30,6 +32,7 @@ import {
 	RemoveWorktreeSchema,
 	LogShellEventSchema,
 	ListTrackedFilesSchema,
+	LoadKeybindingsSchema,
 } from "../../shared/contracts/commands.js";
 import type { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
@@ -277,6 +280,19 @@ export function registerIpcHandlers(
 		const parsed = LogShellEventSchema.safeParse(raw);
 		if (!parsed.success) return;
 		shellEventLog?.log(parsed.data);
+	});
+
+	// --- Keyboard ---
+
+	ipcMain.handle("keyboard:loadKeybindings", async (_event, raw: unknown) => {
+		LoadKeybindingsSchema.parse(raw);
+		const filePath = join(app.getPath("userData"), "keybindings.json");
+		try {
+			return await readFile(filePath, "utf-8");
+		} catch (err: unknown) {
+			if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+			throw err;
+		}
 	});
 
 	return { dispose: () => terminalService.dispose() };

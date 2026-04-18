@@ -77,3 +77,7 @@ export const workspace: Ai14AllDesktopApi["workspace"] = {
 export const diagnostics: Ai14AllDesktopApi["diagnostics"] = {
 	logShellEvent: (event) => getDesktopClient().diagnostics.logShellEvent(event),
 };
+
+export const keyboard: Ai14AllDesktopApi["keyboard"] = {
+	loadKeybindings: () => getDesktopClient().keyboard.loadKeybindings(),
+};
