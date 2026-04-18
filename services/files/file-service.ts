@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import { readdir, readFile as fsReadFile, stat } from "node:fs/promises";
 import { join, resolve, extname } from "node:path";
 import type { FileView } from "../../shared/models/file-view.js";
+import type { OpenFileForEditResult } from "../../shared/contracts/commands.js";
 import { getGitBinaryPath } from "../git/git-binary.js";
 import { isEditable } from "../../shared/editor/editable-files.js";
 
@@ -138,11 +139,11 @@ export class FileService {
 	async openForEdit(
 		worktreePath: string,
 		relativePath: string,
-	): Promise<import("../../shared/contracts/commands.js").OpenFileForEditResult> {
-		const basename = relativePath.split("/").pop() ?? "";
-		if (!isEditable(basename)) return { ok: false, reason: "not-editable" };
+	): Promise<OpenFileForEditResult> {
 		const resolved = this.resolveInsideWorktree(worktreePath, relativePath);
 		if (!resolved.ok) return resolved;
+		const basename = relativePath.split("/").pop() ?? "";
+		if (!isEditable(basename)) return { ok: false, reason: "not-editable" };
 		let stats: import("node:fs").Stats;
 		try {
 			stats = await stat(resolved.absolute);
@@ -170,15 +171,9 @@ export class FileService {
 		worktreePath: string,
 		relativePath: string,
 	): Promise<FileView> {
-		// Reject path escapes outside the worktree
-		const absolutePath = resolve(worktreePath, relativePath);
-		const normalizedWorktree = resolve(worktreePath);
-		if (
-			!absolutePath.startsWith(normalizedWorktree + "/") &&
-			absolutePath !== normalizedWorktree
-		) {
-			throw new Error(`Path escapes worktree: ${relativePath}`);
-		}
+		const resolved = this.resolveInsideWorktree(worktreePath, relativePath);
+		if (!resolved.ok) throw new Error(`Path escapes worktree: ${relativePath}`);
+		const absolutePath = resolved.absolute;
 
 		// Reject directories
 		const fileStat = await stat(absolutePath);

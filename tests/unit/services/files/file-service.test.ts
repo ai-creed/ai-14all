@@ -1,10 +1,16 @@
 // @vitest-environment node
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { execSync } from "node:child_process";
 import { mkdtempSync, realpathSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { FileService, MAX_EDITOR_FILE_BYTES } from "../../../../services/files/file-service.js";
+
+vi.mock("node:fs/promises", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("node:fs/promises")>();
+	return { ...actual, stat: vi.fn(actual.stat) };
+});
+import * as fsPromises from "node:fs/promises";
 
 describe("FileService", () => {
 	let service: FileService;
@@ -191,5 +197,16 @@ describe("FileService.openForEdit", () => {
 		const svc = new FileService();
 		const res = await svc.openForEdit(wt, "missing.md");
 		expect(res).toEqual({ ok: false, reason: "not-found" });
+	});
+
+	it("returns permission-denied when stat throws EACCES", async () => {
+		const wt = makeWorktree();
+		vi.mocked(fsPromises.stat).mockRejectedValueOnce(
+			Object.assign(new Error("EACCES"), { code: "EACCES" }),
+		);
+		const svc = new FileService();
+		const res = await svc.openForEdit(wt, "notes.md");
+		expect(res).toEqual({ ok: false, reason: "permission-denied" });
+		vi.mocked(fsPromises.stat).mockRestore();
 	});
 });
