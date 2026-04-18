@@ -8,7 +8,7 @@ import { FileService, MAX_EDITOR_FILE_BYTES } from "../../../../services/files/f
 
 vi.mock("node:fs/promises", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("node:fs/promises")>();
-	return { ...actual, stat: vi.fn(actual.stat) };
+	return { ...actual, stat: vi.fn(actual.stat), writeFile: vi.fn(actual.writeFile) };
 });
 import * as fsPromises from "node:fs/promises";
 
@@ -262,5 +262,29 @@ describe("FileService.saveFile", () => {
 		const svc = new FileService();
 		const res = await svc.saveFile(wt, "ghost.md", "x", 0);
 		expect(res).toEqual({ ok: false, reason: "not-found" });
+	});
+
+	it("returns permission-denied when writeFile throws EACCES", async () => {
+		const wt = makeWorktree();
+		writeFileSync(join(wt, "notes.md"), "a\n", "utf8");
+		const mtime = statSync(join(wt, "notes.md")).mtimeMs;
+		vi.mocked(fsPromises.writeFile).mockRejectedValueOnce(
+			Object.assign(new Error("EACCES"), { code: "EACCES" }),
+		);
+		const svc = new FileService();
+		const res = await svc.saveFile(wt, "notes.md", "b\n", mtime);
+		expect(res).toEqual({ ok: false, reason: "permission-denied" });
+	});
+
+	it("returns disk-full when writeFile throws ENOSPC", async () => {
+		const wt = makeWorktree();
+		writeFileSync(join(wt, "notes.md"), "a\n", "utf8");
+		const mtime = statSync(join(wt, "notes.md")).mtimeMs;
+		vi.mocked(fsPromises.writeFile).mockRejectedValueOnce(
+			Object.assign(new Error("ENOSPC"), { code: "ENOSPC" }),
+		);
+		const svc = new FileService();
+		const res = await svc.saveFile(wt, "notes.md", "b\n", mtime);
+		expect(res).toEqual({ ok: false, reason: "disk-full" });
 	});
 });
