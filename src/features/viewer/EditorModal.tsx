@@ -1,6 +1,7 @@
 import Editor from "@monaco-editor/react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { files } from "../../lib/desktop-client";
 
 type ResolvedTheme = "light" | "dark";
 
@@ -50,11 +51,24 @@ function languageForBasename(basename: string): string {
 	return "plaintext";
 }
 
+function errorMessageForReason(reason: string): string {
+	switch (reason) {
+		case "permission-denied":
+			return "Permission denied";
+		case "disk-full":
+			return "Disk full";
+		case "not-found":
+			return "File no longer exists";
+		default:
+			return "Save failed";
+	}
+}
+
 export function EditorModal({
-	worktreePath: _worktreePath,
+	worktreePath,
 	relativePath,
 	initialContent,
-	initialMtimeMs: _initialMtimeMs,
+	initialMtimeMs,
 	theme,
 	onClose,
 }: EditorModalProps) {
@@ -62,9 +76,48 @@ export function EditorModal({
 	const monacoTheme = theme === "light" ? "vs" : "vs-dark";
 	const language = useMemo(() => languageForBasename(basename), [basename]);
 
+	const [originalContent, setOriginalContent] = useState(initialContent);
+	const [content, setContent] = useState(initialContent);
+	const [mtimeMs, setMtimeMs] = useState(initialMtimeMs);
+	const [saving, setSaving] = useState(false);
+	const [status, setStatus] = useState<{ kind: "saved" | "error"; message: string } | null>(null);
+
+	const dirty = content !== originalContent;
+
 	const handleClose = useCallback(() => {
 		onClose();
 	}, [onClose]);
+
+	const handleSave = useCallback(async () => {
+		if (!dirty || saving) return;
+		setSaving(true);
+		setStatus(null);
+		const result = await files.save({
+			worktreePath,
+			relativePath,
+			content,
+			expectedMtimeMs: mtimeMs,
+		});
+		setSaving(false);
+		if (result.ok) {
+			setOriginalContent(content);
+			setMtimeMs(result.mtimeMs);
+			const when = new Date().toLocaleTimeString();
+			setStatus({ kind: "saved", message: `Saved ${when}` });
+			return;
+		}
+		if (result.reason === "mtime-conflict") {
+			// conflict handling comes in Task 11 — for now fall through to generic error
+		}
+		setStatus({ kind: "error", message: errorMessageForReason(result.reason) });
+	}, [content, dirty, mtimeMs, relativePath, saving, worktreePath]);
+
+	// Auto-clear status after 3s
+	useEffect(() => {
+		if (!status) return;
+		const id = setTimeout(() => setStatus(null), 3000);
+		return () => clearTimeout(id);
+	}, [status]);
 
 	return (
 		<Dialog.Root
@@ -94,14 +147,27 @@ export function EditorModal({
 					</header>
 					<div className="shell-editor-modal__body">
 						<Editor
-							value={initialContent}
+							value={content}
+							onChange={(v) => setContent(v ?? "")}
 							theme={monacoTheme}
 							language={language}
 							options={MONACO_OPTIONS}
 						/>
 					</div>
 					<footer className="shell-editor-modal__footer">
-						{/* save button added in Task 10 */}
+						<span
+							className={`shell-editor-modal__status shell-editor-modal__status--${status?.kind ?? "idle"}`}
+						>
+							{status?.message ?? ""}
+						</span>
+						<button
+							type="button"
+							className="shell-btn shell-btn--primary"
+							disabled={!dirty || saving}
+							onClick={() => void handleSave()}
+						>
+							{saving ? "Saving…" : "Save"}
+						</button>
 					</footer>
 				</Dialog.Content>
 			</Dialog.Portal>

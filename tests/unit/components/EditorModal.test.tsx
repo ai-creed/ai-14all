@@ -1,7 +1,18 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { EditorModal } from "../../../src/features/viewer/EditorModal";
+import { files } from "../../../src/lib/desktop-client";
+
+vi.mock("../../../src/lib/desktop-client", () => ({
+	files: {
+		save: vi.fn(),
+		openForEdit: vi.fn(),
+	},
+}));
+
+const saveMock = files.save as unknown as ReturnType<typeof vi.fn>;
+const openForEditMock = files.openForEdit as unknown as ReturnType<typeof vi.fn>;
 
 vi.mock("@monaco-editor/react", () => ({
 	__esModule: true,
@@ -49,5 +60,66 @@ describe("EditorModal", () => {
 	it("uses vs theme when theme prop is light", () => {
 		render(<EditorModal {...baseProps} theme="light" />);
 		expect(screen.getByTestId("monaco").dataset.theme).toBe("vs");
+	});
+});
+
+describe("EditorModal save flow", () => {
+	beforeEach(() => {
+		saveMock.mockReset();
+		openForEditMock.mockReset();
+	});
+
+	it("disables Save when clean", () => {
+		render(<EditorModal {...baseProps} />);
+		expect(screen.getByRole("button", { name: /save/i })).toBeDisabled();
+	});
+
+	it("enables Save after typing", async () => {
+		render(<EditorModal {...baseProps} />);
+		await userEvent.type(screen.getByTestId("monaco"), " world");
+		expect(screen.getByRole("button", { name: /save/i })).not.toBeDisabled();
+	});
+
+	it("calls files.save with expectedMtimeMs on click", async () => {
+		saveMock.mockResolvedValueOnce({ ok: true, mtimeMs: 200 });
+		render(<EditorModal {...baseProps} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /save/i }));
+		expect(saveMock).toHaveBeenCalledWith({
+			worktreePath: "/wt",
+			relativePath: "NOTES.md",
+			content: "hellox",
+			expectedMtimeMs: 100,
+		});
+	});
+
+	it("shows Saved status and disables Save on success", async () => {
+		saveMock.mockResolvedValueOnce({ ok: true, mtimeMs: 200 });
+		render(<EditorModal {...baseProps} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /save/i }));
+		expect(await screen.findByText(/saved/i)).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /save/i })).toBeDisabled();
+	});
+
+	it("ignores a second Save press while in-flight", async () => {
+		let resolve!: (v: unknown) => void;
+		saveMock.mockReturnValueOnce(new Promise((r) => (resolve = r)));
+		render(<EditorModal {...baseProps} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		const btn = screen.getByRole("button", { name: /save/i });
+		await userEvent.click(btn);
+		await userEvent.click(btn);
+		expect(saveMock).toHaveBeenCalledTimes(1);
+		resolve({ ok: true, mtimeMs: 200 });
+	});
+
+	it("shows inline error and keeps Save enabled on write failure", async () => {
+		saveMock.mockResolvedValueOnce({ ok: false, reason: "permission-denied" });
+		render(<EditorModal {...baseProps} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /save/i }));
+		expect(await screen.findByText(/permission/i)).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /save/i })).not.toBeDisabled();
 	});
 });
