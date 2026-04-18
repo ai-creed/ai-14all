@@ -51,6 +51,8 @@ import { deriveAttentionState } from "../features/terminals/process-attention";
 import { consumeOutputPreview } from "../features/terminals/output-preview";
 import { WorktreeTree } from "../features/viewer/WorktreeTree";
 import { MarkdownPreviewModal } from "../features/viewer/MarkdownPreviewModal";
+import { EditorModal } from "../features/viewer/EditorModal";
+import { isEditable } from "../../shared/editor/editable-files";
 import { FileViewer } from "../features/viewer/FileViewer";
 import { ChangesList } from "../features/git/ChangesList";
 import { DiscardChangeDialog } from "../features/git/DiscardChangeDialog";
@@ -60,7 +62,7 @@ import { CommitDiffStack } from "../features/git/CommitDiffStack";
 import { buildWorktreeProcessSummary } from "../features/workspace/sidebar-shell-summary";
 import type { GitCommitHistory, GitCommitDetail } from "../../shared/models/git-commit-review";
 import type { RemoteStatus } from "../../shared/models/git-remote-status";
-import { git, terminals, workspace, repository as repositoryClient } from "../lib/desktop-client";
+import { git, terminals, workspace, repository as repositoryClient, files } from "../lib/desktop-client";
 import { logRendererShellEvent } from "../features/terminals/shell-event-logger";
 import { useTheme } from "../lib/useTheme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
@@ -230,6 +232,12 @@ export function App() {
 	const [remoteStatus, setRemoteStatus] = useState<RemoteStatus | null>(null);
 	const [discardPath, setDiscardPath] = useState<string | null>(null);
 	const [treePreviewPath, setTreePreviewPath] = useState<string | null>(null);
+	const [editorTarget, setEditorTarget] = useState<{
+		worktreePath: string;
+		relativePath: string;
+		content: string;
+		mtimeMs: number;
+	} | null>(null);
 	const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
 	const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
 	const [removePreview, setRemovePreview] = useState<RemoveWorktreePreview | null>(null);
@@ -359,6 +367,38 @@ export function App() {
 			workspaceState.processSessionsById[processId]?.terminalSessionId;
 		return terminalSessionId ? [terminalSessionId] : [];
 	});
+
+	const openEditorForFile = useCallback(
+		async (relativePath: string) => {
+			if (!activeWorktree) return;
+			const basename = relativePath.split("/").pop() ?? "";
+			if (!isEditable(basename)) return;
+			const res = await files.openForEdit(activeWorktree.path, relativePath);
+			if (!res.ok) return;
+			setEditorTarget({
+				worktreePath: activeWorktree.path,
+				relativePath,
+				content: res.content,
+				mtimeMs: res.mtimeMs,
+			});
+		},
+		[activeWorktree],
+	);
+
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (!(e.metaKey || e.ctrlKey) || e.key !== "e") return;
+			if (editorTarget !== null) return; // modal owns it while open
+			const selectedPath = activeSession?.selectedFilePath ?? null;
+			if (!selectedPath) return;
+			const basename = selectedPath.split("/").pop() ?? "";
+			if (!isEditable(basename)) return;
+			e.preventDefault();
+			void openEditorForFile(selectedPath);
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [editorTarget, openEditorForFile, activeSession?.selectedFilePath]);
 
 	function findProcessByTerminalSessionId(
 		terminalSessionId: string,
@@ -2369,6 +2409,7 @@ export function App() {
 															})
 														}
 														onPreviewMarkdown={setTreePreviewPath}
+								onEditFile={openEditorForFile}
 														changedFiles={changes}
 														gitSummaryError={gitSummaryError}
 														gitSummaryMessage={gitSummaryMessage}
@@ -2387,6 +2428,16 @@ export function App() {
 															relativePath={treePreviewPath}
 															open={true}
 															onClose={() => setTreePreviewPath(null)}
+														/>
+													)}
+													{editorTarget !== null && (
+														<EditorModal
+															worktreePath={editorTarget.worktreePath}
+															relativePath={editorTarget.relativePath}
+															initialContent={editorTarget.content}
+															initialMtimeMs={editorTarget.mtimeMs}
+															theme={resolvedTheme}
+															onClose={() => setEditorTarget(null)}
 														/>
 													)}
 												</>
