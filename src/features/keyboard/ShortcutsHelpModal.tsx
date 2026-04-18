@@ -18,10 +18,11 @@ export function ShortcutsHelpModal({ open, onClose, registry }: Props) {
   return (
     <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <Dialog.Portal>
-        <Dialog.Overlay className="shell-dialog-overlay" />
+        <Dialog.Overlay className="shell-modal-overlay" />
         <Dialog.Content
-          className="shell-dialog-content shell-shortcuts-modal"
+          className="shell-modal shell-shortcuts-modal"
           aria-label="Keyboard shortcuts"
+          aria-describedby={undefined}
         >
           <Dialog.Title className="shell-shortcuts-modal__title">
             Keyboard Shortcuts
