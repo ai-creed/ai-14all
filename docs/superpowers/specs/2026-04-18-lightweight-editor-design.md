@@ -131,13 +131,13 @@ No shared code is extracted from `MarkdownPreviewModal` in v1; the pattern is re
    - Missing → `{ok: false, reason: 'not-found'}`.
    - `mtimeMs !== expectedMtimeMs` → `{ok: false, reason: 'mtime-conflict', currentMtimeMs}`.
 5. Otherwise main writes UTF-8, re-stats, returns `{ok: true, mtimeMs}`.
-6. On success: `originalContent = content`, `dirty = false`, `mtimeMs` updated, toast "Saved".
+6. On success: `originalContent = content`, `dirty = false`, `mtimeMs` updated, inline status "Saved HH:MM:SS" shown in the modal footer (auto-clears after 3s).
 7. On conflict: `SaveConflictDialog` shown. Reload → re-run Open (with dirty-buffer re-confirm). Overwrite → re-save with `expectedMtimeMs = currentMtimeMs`. Cancel → dismiss, buffer stays dirty.
 
 ### Close
 - Clean → close immediately.
 - Dirty → `ConfirmCloseDialog`:
-  - Save → attempts save; on success closes; on failure stays open with error toast.
+  - Save → attempts save; on success closes; on failure stays open with inline error status in the footer.
   - Discard → close without save.
   - Cancel → dismiss, stay open.
 
@@ -154,7 +154,7 @@ Stronger guarantees (e.g. sidecar lockfile, `fs.watch`-based live detection, pos
 
 ## Error Handling
 
-**Open errors (surfaced as toasts; modal does not open):**
+**Open errors (surfaced as inline status on the tree/viewer surface using the existing `shell-error-banner` pattern; modal does not open):**
 - `ENOENT` / stat failure → "File not found".
 - Path escape attempt → "Invalid file path" (should not occur from normal UI).
 - Whitelist bypass attempt → "File type not editable".
@@ -162,7 +162,7 @@ Stronger guarantees (e.g. sidecar lockfile, `fs.watch`-based live detection, pos
 - Size > 1 MB → "File too large for quick editor".
 - `EACCES` on read → "Permission denied".
 
-**Save errors (surfaced as toasts; buffer stays dirty):**
+**Save errors (surfaced as inline status in the modal footer; buffer stays dirty):**
 - `mtime-conflict` → conflict dialog (see Data Flow).
 - `ENOENT` (deleted mid-edit) → "File no longer exists"; "Save as copy" is deferred.
 - `EACCES` / `EROFS` → "Cannot write: <reason>".
@@ -174,7 +174,7 @@ Stronger guarantees (e.g. sidecar lockfile, `fs.watch`-based live detection, pos
 - Monaco bundle load failure → modal body renders an inline error message; Close still works.
 
 **Always:**
-- All IPC results validated against Zod schemas at the renderer boundary; schema mismatch surfaces an error toast and closes the modal.
+- All IPC results validated against Zod schemas at the renderer boundary; schema mismatch surfaces an inline error in the modal footer and closes the modal.
 - All errors are logged via the existing logger; never swallowed.
 
 ## Testing
@@ -190,7 +190,7 @@ Follows TDD per project convention: failing tests first, then implementation.
   - `Cmd+S` when dirty calls save IPC exactly once; a second press while pending is ignored;
   - `Cmd+S` handler calls `preventDefault()` (browser save-page not triggered);
   - `Cmd+E` is a no-op while the modal is open;
-  - save success clears `dirty`, updates `mtimeMs`, surfaces "Saved" toast;
+  - save success clears `dirty`, updates `mtimeMs`, surfaces inline "Saved HH:MM:SS" status in the footer that auto-clears after 3s;
   - save `mtime-conflict` renders `SaveConflictDialog`; Reload, Overwrite, Cancel each wired;
   - close clean dismisses immediately;
   - close dirty renders `ConfirmCloseDialog`; Save, Discard, Cancel each wired;
