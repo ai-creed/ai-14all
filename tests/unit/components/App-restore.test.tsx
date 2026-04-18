@@ -77,6 +77,9 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	diagnostics: {
 		logShellEvent: vi.fn(() => Promise.resolve()),
 	},
+	keyboard: {
+		loadKeybindings: vi.fn().mockResolvedValue(null),
+	},
 }));
 
 import { App } from "../../../src/app/App";
