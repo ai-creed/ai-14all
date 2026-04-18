@@ -74,6 +74,66 @@ export const ReadFileSchema = z.object({
 	relativePath: z.string(),
 });
 
+export const OpenFileForEditSchema = z.object({
+	worktreePath: z.string(),
+	relativePath: z.string(),
+});
+
+export const OpenFileForEditResultSchema = z.union([
+	z.object({
+		ok: z.literal(true),
+		content: z.string(),
+		mtimeMs: z.number(),
+	}),
+	z.object({
+		ok: z.literal(false),
+		reason: z.enum([
+			"not-found",
+			"not-editable",
+			"binary",
+			"too-large",
+			"permission-denied",
+			"path-escape",
+			"read-failed",
+		]),
+	}),
+]);
+
+export const SaveFileSchema = z.object({
+	worktreePath: z.string(),
+	relativePath: z.string(),
+	content: z.string(),
+	expectedMtimeMs: z.number(),
+});
+
+export const SaveFileResultSchema = z.union([
+	z.object({
+		ok: z.literal(true),
+		mtimeMs: z.number(),
+	}),
+	z.object({
+		ok: z.literal(false),
+		reason: z.literal("mtime-conflict"),
+		currentMtimeMs: z.number(),
+	}),
+	z.object({
+		ok: z.literal(false),
+		reason: z.enum([
+			"not-found",
+			"not-editable",
+			"path-escape",
+			"permission-denied",
+			"disk-full",
+			"write-failed",
+		]),
+	}),
+]);
+
+export type OpenFileForEdit = z.infer<typeof OpenFileForEditSchema>;
+export type OpenFileForEditResult = z.infer<typeof OpenFileForEditResultSchema>;
+export type SaveFile = z.infer<typeof SaveFileSchema>;
+export type SaveFileResult = z.infer<typeof SaveFileResultSchema>;
+
 export const ListGitChangesSchema = z.object({
 	worktreePath: z.string(),
 });
@@ -170,6 +230,16 @@ export type Ai14AllDesktopApi = {
 		): Promise<string[]>;
 		listTracked(workspaceId: string, worktreeId: string): Promise<string[]>;
 		read(worktreePath: string, relativePath: string): Promise<FileView>;
+		openForEdit(
+			worktreePath: string,
+			relativePath: string,
+		): Promise<OpenFileForEditResult>;
+		save(args: {
+			worktreePath: string;
+			relativePath: string;
+			content: string;
+			expectedMtimeMs: number;
+		}): Promise<SaveFileResult>;
 	};
 	git: {
 		listChanges(worktreePath: string): Promise<GitChange[]>;

@@ -85,6 +85,12 @@ const api: Ai14AllDesktopApi = {
 		read(worktreePath, relativePath) {
 			return ipcRenderer.invoke("files:read", { worktreePath, relativePath });
 		},
+		openForEdit(worktreePath, relativePath) {
+			return ipcRenderer.invoke("files:openForEdit", { worktreePath, relativePath });
+		},
+		save(args) {
+			return ipcRenderer.invoke("files:save", args);
+		},
 	},
 	git: {
 		listChanges(worktreePath) {

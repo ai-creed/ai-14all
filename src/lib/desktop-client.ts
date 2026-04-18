@@ -45,6 +45,9 @@ export const files: Ai14AllDesktopApi["files"] = {
 		getDesktopClient().files.listTracked(workspaceId, worktreeId),
 	read: (worktreePath, relativePath) =>
 		getDesktopClient().files.read(worktreePath, relativePath),
+	openForEdit: (worktreePath, relativePath) =>
+		getDesktopClient().files.openForEdit(worktreePath, relativePath),
+	save: (args) => getDesktopClient().files.save(args),
 };
 
 export const git: Ai14AllDesktopApi["git"] = {
