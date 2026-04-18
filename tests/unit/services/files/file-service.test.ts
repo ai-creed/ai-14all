@@ -4,7 +4,7 @@ import { execSync } from "node:child_process";
 import { mkdtempSync, realpathSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { FileService } from "../../../../services/files/file-service.js";
+import { FileService, MAX_EDITOR_FILE_BYTES } from "../../../../services/files/file-service.js";
 
 describe("FileService", () => {
 	let service: FileService;
@@ -134,5 +134,62 @@ describe("FileService", () => {
 				rmSync(nonRepo, { recursive: true, force: true });
 			}
 		});
+	});
+});
+
+describe("FileService.openForEdit", () => {
+	function makeWorktree(): string {
+		return mkdtempSync(join(tmpdir(), "ai14all-editor-"));
+	}
+
+	it("returns content and mtimeMs for a whitelisted text file", async () => {
+		const wt = makeWorktree();
+		writeFileSync(join(wt, "NOTES.md"), "hello\n", "utf8");
+		const svc = new FileService();
+		const res = await svc.openForEdit(wt, "NOTES.md");
+		expect(res.ok).toBe(true);
+		if (res.ok) {
+			expect(res.content).toBe("hello\n");
+			expect(res.mtimeMs).toBeGreaterThan(0);
+		}
+	});
+
+	it("rejects non-whitelisted extension", async () => {
+		const wt = makeWorktree();
+		writeFileSync(join(wt, "image.png"), Buffer.from([1, 2, 3]));
+		const svc = new FileService();
+		const res = await svc.openForEdit(wt, "image.png");
+		expect(res).toEqual({ ok: false, reason: "not-editable" });
+	});
+
+	it("rejects binary content via null-byte sniff", async () => {
+		const wt = makeWorktree();
+		writeFileSync(join(wt, "a.json"), Buffer.from([0x7b, 0x00, 0x7d]));
+		const svc = new FileService();
+		const res = await svc.openForEdit(wt, "a.json");
+		expect(res).toEqual({ ok: false, reason: "binary" });
+	});
+
+	it("rejects files larger than the size cap", async () => {
+		const wt = makeWorktree();
+		const big = "x".repeat(MAX_EDITOR_FILE_BYTES + 1);
+		writeFileSync(join(wt, "big.md"), big, "utf8");
+		const svc = new FileService();
+		const res = await svc.openForEdit(wt, "big.md");
+		expect(res).toEqual({ ok: false, reason: "too-large" });
+	});
+
+	it("rejects path escapes", async () => {
+		const wt = makeWorktree();
+		const svc = new FileService();
+		const res = await svc.openForEdit(wt, "../outside.md");
+		expect(res).toEqual({ ok: false, reason: "path-escape" });
+	});
+
+	it("returns not-found for missing files", async () => {
+		const wt = makeWorktree();
+		const svc = new FileService();
+		const res = await svc.openForEdit(wt, "missing.md");
+		expect(res).toEqual({ ok: false, reason: "not-found" });
 	});
 });

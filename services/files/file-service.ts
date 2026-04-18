@@ -4,6 +4,9 @@ import { readdir, readFile as fsReadFile, stat } from "node:fs/promises";
 import { join, resolve, extname } from "node:path";
 import type { FileView } from "../../shared/models/file-view.js";
 import { getGitBinaryPath } from "../git/git-binary.js";
+import { isEditable } from "../../shared/editor/editable-files.js";
+
+export const MAX_EDITOR_FILE_BYTES = 1_000_000;
 
 const execFileAsync = promisify(execFile);
 
@@ -118,6 +121,49 @@ export class FileService {
 			{ cwd: worktreePath, maxBuffer: 64 * 1024 * 1024 },
 		);
 		return stdout.split("\0").filter((entry) => entry.length > 0);
+	}
+
+	private resolveInsideWorktree(
+		worktreePath: string,
+		relativePath: string,
+	): { ok: true; absolute: string } | { ok: false; reason: "path-escape" } {
+		const absolutePath = resolve(worktreePath, relativePath);
+		const normalizedWorktree = resolve(worktreePath);
+		const inside =
+			absolutePath === normalizedWorktree ||
+			absolutePath.startsWith(normalizedWorktree + "/");
+		return inside ? { ok: true, absolute: absolutePath } : { ok: false, reason: "path-escape" };
+	}
+
+	async openForEdit(
+		worktreePath: string,
+		relativePath: string,
+	): Promise<import("../../shared/contracts/commands.js").OpenFileForEditResult> {
+		const basename = relativePath.split("/").pop() ?? "";
+		if (!isEditable(basename)) return { ok: false, reason: "not-editable" };
+		const resolved = this.resolveInsideWorktree(worktreePath, relativePath);
+		if (!resolved.ok) return resolved;
+		let stats: import("node:fs").Stats;
+		try {
+			stats = await stat(resolved.absolute);
+		} catch (err) {
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code === "ENOENT") return { ok: false, reason: "not-found" };
+			if (code === "EACCES") return { ok: false, reason: "permission-denied" };
+			return { ok: false, reason: "read-failed" };
+		}
+		if (stats.size > MAX_EDITOR_FILE_BYTES) return { ok: false, reason: "too-large" };
+		let buffer: Buffer;
+		try {
+			buffer = await fsReadFile(resolved.absolute);
+		} catch (err) {
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code === "EACCES") return { ok: false, reason: "permission-denied" };
+			return { ok: false, reason: "read-failed" };
+		}
+		const sniff = buffer.subarray(0, Math.min(buffer.length, 8192));
+		if (sniff.includes(0)) return { ok: false, reason: "binary" };
+		return { ok: true, content: buffer.toString("utf8"), mtimeMs: stats.mtimeMs };
 	}
 
 	async readFile(
