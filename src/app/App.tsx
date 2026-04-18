@@ -86,6 +86,7 @@ import { useTheme } from "../lib/useTheme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
 import { useKeyboardShortcuts } from "../features/keyboard/useKeyboardShortcuts";
 import { KeyboardContext } from "../features/keyboard/keyboard-context";
+import { ShortcutsHelpModal } from "../features/keyboard/ShortcutsHelpModal";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -284,7 +285,6 @@ export function App() {
 	const [startupMode, setStartupMode] = useState<StartupMode>("loading");
 	const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
 	const [shortcutsOpen, setShortcutsOpen] = useState(false);
-	void shortcutsOpen; // consumed by ShortcutsHelpModal in Task 7
 
 	// V2 restore state — restorePreference lives here; workspace snapshots are in appWorkspaces
 	const [restorePreference, setRestorePreference] =
@@ -3041,6 +3041,11 @@ export function App() {
 					if (!open) setDiscardPath(null);
 				}}
 				onConfirm={handleDiscardChange}
+			/>
+			<ShortcutsHelpModal
+				open={shortcutsOpen}
+				onClose={() => setShortcutsOpen(false)}
+				registry={keyboardRegistry}
 			/>
 		</main>
 		</KeyboardContext.Provider>
