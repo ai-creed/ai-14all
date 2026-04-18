@@ -1719,3 +1719,80 @@ select {
 .shell-modal--workspace-picker {
 	width: min(640px, calc(100vw - 32px));
 }
+
+.shell-shortcuts-modal {
+	width: min(520px, calc(100vw - 32px));
+	max-height: calc(100vh - 64px);
+	overflow-y: auto;
+}
+
+.shell-shortcuts-modal__title {
+	font-size: var(--font-size-body);
+	font-weight: 600;
+	color: var(--text-primary);
+	padding-right: var(--space-6);
+	margin: 0 0 var(--space-3) 0;
+}
+
+.shell-shortcuts-modal__close {
+	position: absolute;
+	top: var(--space-3);
+	right: var(--space-3);
+	background: none;
+	border: none;
+	color: var(--text-secondary);
+	cursor: pointer;
+	font-size: var(--font-size-body);
+	line-height: 1;
+	padding: var(--space-1);
+	border-radius: var(--radius-sm);
+}
+
+.shell-shortcuts-modal__close:hover {
+	color: var(--text-primary);
+}
+
+.shell-shortcuts-modal__groups {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+.shell-shortcuts-modal__group {
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	padding: var(--space-2) var(--space-3);
+}
+
+.shell-shortcuts-modal__group-label {
+	font-size: var(--font-size-label);
+	font-weight: 600;
+	color: var(--text-secondary);
+	margin: 0 0 var(--space-2) 0;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.shell-shortcuts-modal__table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.shell-shortcuts-modal__table tr + tr td {
+	padding-top: var(--space-1);
+}
+
+.shell-shortcuts-modal__action-label {
+	color: var(--text-primary);
+	font-size: var(--font-size-body);
+	width: 100%;
+}
+
+.shell-shortcuts-modal__key {
+	white-space: nowrap;
+	text-align: right;
+	color: var(--text-secondary);
+	font-size: var(--font-size-label);
+	font-family: ui-monospace, monospace;
+	padding-left: var(--space-4);
+}
