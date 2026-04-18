@@ -224,6 +224,16 @@ describe("WorktreeTree editor context menu", () => {
 		expect(screen.queryByRole("menuitem", { name: "Preview" })).toBeNull();
 	});
 
+	it("shows only Edit on a .md row when only onEditFile is provided (no preview handler)", async () => {
+		mockListTracked.mockResolvedValueOnce(["README.md"]);
+		const onEditFile = vi.fn();
+		renderTree({ expandedPaths: [""], onEditFile });
+		const mdRow = await screen.findByText("README.md");
+		fireEvent.contextMenu(mdRow);
+		expect(await screen.findByRole("menuitem", { name: "Edit" })).toBeInTheDocument();
+		expect(screen.queryByRole("menuitem", { name: "Preview" })).toBeNull();
+	});
+
 	it("shows no context menu items on a non-whitelisted file", async () => {
 		mockListTracked.mockResolvedValueOnce(["image.png"]);
 		const onEditFile = vi.fn();

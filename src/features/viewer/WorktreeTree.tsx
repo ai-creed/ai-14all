@@ -175,8 +175,10 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 		if (row.kind === "file") {
 			const name = row.name;
 			const isMarkdown = name.endsWith(".md");
-			const canEdit = isEditable(name) && !!props.onEditFile;
-			const canPreview = isMarkdown && !!props.onPreviewMarkdown;
+			const editFile = props.onEditFile;
+			const previewMarkdown = props.onPreviewMarkdown;
+			const canEdit = isEditable(name) && editFile != null;
+			const canPreview = isMarkdown && previewMarkdown != null;
 			if (!canPreview && !canEdit) {
 				return <div key={`${row.kind}:${row.path}`}>{body}</div>;
 			}
@@ -185,18 +187,18 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 					<ContextMenu.Trigger asChild>{body}</ContextMenu.Trigger>
 					<ContextMenu.Portal>
 						<ContextMenu.Content className="shell-toolbar-menu">
-							{canPreview ? (
+							{canPreview && previewMarkdown ? (
 								<ContextMenu.Item
 									className="shell-toolbar-menu__item"
-									onSelect={() => props.onPreviewMarkdown!(row.path)}
+									onSelect={() => previewMarkdown(row.path)}
 								>
 									Preview
 								</ContextMenu.Item>
 							) : null}
-							{canEdit ? (
+							{canEdit && editFile ? (
 								<ContextMenu.Item
 									className="shell-toolbar-menu__item"
-									onSelect={() => props.onEditFile!(row.path)}
+									onSelect={() => editFile(row.path)}
 								>
 									Edit
 								</ContextMenu.Item>
