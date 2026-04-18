@@ -1,4 +1,8 @@
 import type { Ai14AllDesktopApi } from "../../shared/contracts/commands";
+import {
+	OpenFileForEditResultSchema,
+	SaveFileResultSchema,
+} from "../../shared/contracts/commands";
 
 /**
  * Typed wrapper around the preload bridge injected as `window.ai14all`.
@@ -45,9 +49,14 @@ export const files: Ai14AllDesktopApi["files"] = {
 		getDesktopClient().files.listTracked(workspaceId, worktreeId),
 	read: (worktreePath, relativePath) =>
 		getDesktopClient().files.read(worktreePath, relativePath),
-	openForEdit: (worktreePath, relativePath) =>
-		getDesktopClient().files.openForEdit(worktreePath, relativePath),
-	save: (args) => getDesktopClient().files.save(args),
+	openForEdit: async (worktreePath, relativePath) => {
+		const raw = await getDesktopClient().files.openForEdit(worktreePath, relativePath);
+		return OpenFileForEditResultSchema.parse(raw);
+	},
+	save: async (args) => {
+		const raw = await getDesktopClient().files.save(args);
+		return SaveFileResultSchema.parse(raw);
+	},
 };
 
 export const git: Ai14AllDesktopApi["git"] = {
