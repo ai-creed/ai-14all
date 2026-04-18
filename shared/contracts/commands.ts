@@ -140,6 +140,8 @@ export const PushGitBranchSchema = z.object({
 	force: z.boolean(),
 });
 
+export const LoadKeybindingsSchema = z.object({});
+
 // --- The API surface exposed to the renderer via the preload bridge ---
 
 export type Ai14AllDesktopApi = {
@@ -189,5 +191,8 @@ export type Ai14AllDesktopApi = {
 	};
 	diagnostics: {
 		logShellEvent(event: z.infer<typeof LogShellEventSchema>): Promise<void>;
+	};
+	keyboard: {
+		loadKeybindings(): Promise<string | null>;
 	};
 };
