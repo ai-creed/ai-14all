@@ -84,6 +84,8 @@ import {
 import { logRendererShellEvent } from "../features/terminals/shell-event-logger";
 import { useTheme } from "../lib/useTheme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
+import { useKeyboardShortcuts } from "../features/keyboard/useKeyboardShortcuts";
+import { KeyboardContext } from "../features/keyboard/keyboard-context";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -281,6 +283,8 @@ export function App() {
 	const [confirmedDirtyRemoval, setConfirmedDirtyRemoval] = useState(false);
 	const [startupMode, setStartupMode] = useState<StartupMode>("loading");
 	const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
+	const [shortcutsOpen, setShortcutsOpen] = useState(false);
+	void shortcutsOpen; // consumed by ShortcutsHelpModal in Task 7
 
 	// V2 restore state — restorePreference lives here; workspace snapshots are in appWorkspaces
 	const [restorePreference, setRestorePreference] =
@@ -421,6 +425,116 @@ export function App() {
 
 	const activeWorktree =
 		worktrees.find((w) => w.id === workspaceState.selectedWorktreeId) ?? null;
+
+	// Only this ref is new — the others already exist in App.tsx
+	const activeWorktreeRef = useRef(activeWorktree);
+	activeWorktreeRef.current = activeWorktree;
+
+	const keyboardRegistry = useKeyboardShortcuts({
+		"worktree.selectNext": () => {
+			const wts = worktreesRef.current;
+			const state = workspaceStateRef.current;
+			if (wts.length === 0) return;
+			const idx = wts.findIndex((w) => w.id === state.selectedWorktreeId);
+			const next = wts[(idx + 1) % wts.length];
+			if (next) dispatch({ type: "session/selectWorktree", worktreeId: next.id });
+		},
+		"worktree.selectPrev": () => {
+			const wts = worktreesRef.current;
+			const state = workspaceStateRef.current;
+			if (wts.length === 0) return;
+			const idx = wts.findIndex((w) => w.id === state.selectedWorktreeId);
+			const prev = wts[(idx - 1 + wts.length) % wts.length];
+			if (prev) dispatch({ type: "session/selectWorktree", worktreeId: prev.id });
+		},
+		"workspace.selectNext": () => {
+			const aws = appWorkspacesRef.current;
+			const order = aws.workspaceOrder;
+			if (order.length === 0) return;
+			const idx = order.indexOf(aws.activeWorkspaceId ?? "");
+			const nextId = order[(idx + 1) % order.length];
+			if (nextId) dispatchAppWorkspaces({ type: "workspace/select", workspaceId: nextId });
+		},
+		"workspace.selectPrev": () => {
+			const aws = appWorkspacesRef.current;
+			const order = aws.workspaceOrder;
+			if (order.length === 0) return;
+			const idx = order.indexOf(aws.activeWorkspaceId ?? "");
+			const prevId = order[(idx - 1 + order.length) % order.length];
+			if (prevId) dispatchAppWorkspaces({ type: "workspace/select", workspaceId: prevId });
+		},
+		"terminal.new": () => {
+			void handleAddAdHoc();
+		},
+		"terminal.close": () => {
+			const state = workspaceStateRef.current;
+			const awt = activeWorktreeRef.current;
+			if (!awt) return;
+			const session = state.sessionsByWorktreeId[awt.id];
+			if (session?.activeProcessSessionId) {
+				void handleCloseProcess(session.activeProcessSessionId);
+			}
+		},
+		"terminal.selectNext": () => {
+			const state = workspaceStateRef.current;
+			const awt = activeWorktreeRef.current;
+			if (!awt) return;
+			const session = state.sessionsByWorktreeId[awt.id];
+			if (!session) return;
+			const ids = session.processSessionIds;
+			if (ids.length === 0) return;
+			const idx = ids.indexOf(session.activeProcessSessionId ?? "");
+			const nextId = ids[(idx + 1) % ids.length];
+			if (nextId) dispatch({ type: "session/selectProcess", worktreeId: awt.id, processId: nextId });
+		},
+		"terminal.selectPrev": () => {
+			const state = workspaceStateRef.current;
+			const awt = activeWorktreeRef.current;
+			if (!awt) return;
+			const session = state.sessionsByWorktreeId[awt.id];
+			if (!session) return;
+			const ids = session.processSessionIds;
+			if (ids.length === 0) return;
+			const idx = ids.indexOf(session.activeProcessSessionId ?? "");
+			const prevId = ids[(idx - 1 + ids.length) % ids.length];
+			if (prevId) dispatch({ type: "session/selectProcess", worktreeId: awt.id, processId: prevId });
+		},
+		"terminal.toggleSplit": () => {
+			const state = workspaceStateRef.current;
+			const awt = activeWorktreeRef.current;
+			if (!awt) return;
+			const session = state.sessionsByWorktreeId[awt.id];
+			if (!session) return;
+			dispatch({
+				type: "session/setTerminalLayoutMode",
+				worktreeId: awt.id,
+				layoutMode: session.terminalLayoutMode === "single" ? "split" : "single",
+			});
+		},
+		"layout.toggleTopBand": () => {
+			const state = workspaceStateRef.current;
+			dispatch({ type: "workspace/setTopBandCollapsed", collapsed: !state.topBandCollapsed });
+		},
+		"review.files": () => {
+			const awt = activeWorktreeRef.current;
+			if (awt) dispatch({ type: "session/setReviewMode", worktreeId: awt.id, reviewMode: "files" });
+		},
+		"review.changes": () => {
+			const awt = activeWorktreeRef.current;
+			if (awt) dispatch({ type: "session/setReviewMode", worktreeId: awt.id, reviewMode: "changes" });
+		},
+		"review.commits": () => {
+			const awt = activeWorktreeRef.current;
+			if (awt) dispatch({ type: "session/setReviewMode", worktreeId: awt.id, reviewMode: "commits" });
+		},
+		"ui.openWorkspacePicker": () => {
+			setWorkspacePickerOpen(true);
+		},
+		"ui.showShortcuts": () => {
+			setShortcutsOpen(true);
+		},
+	});
+
 	const activeSession = workspaceState.selectedWorktreeId
 		? (workspaceState.sessionsByWorktreeId[workspaceState.selectedWorktreeId] ??
 			null)
@@ -2277,6 +2391,7 @@ export function App() {
 	}
 
 	return (
+		<KeyboardContext.Provider value={keyboardRegistry}>
 		<main className="shell-app">
 			{restoreWarning && (
 				<div className="shell-restore-warning" role="status">
@@ -2928,5 +3043,6 @@ export function App() {
 				onConfirm={handleDiscardChange}
 			/>
 		</main>
+		</KeyboardContext.Provider>
 	);
 }
