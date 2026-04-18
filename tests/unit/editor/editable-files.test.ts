@@ -17,6 +17,12 @@ describe("isEditable", () => {
 		expect(isEditable("Makefile")).toBe(true);
 		expect(isEditable("LICENSE")).toBe(true);
 		expect(isEditable("README")).toBe(true);
+		expect(isEditable(".gitattributes")).toBe(true);
+		expect(isEditable(".prettierignore")).toBe(true);
+		expect(isEditable(".eslintignore")).toBe(true);
+		expect(isEditable(".npmrc")).toBe(true);
+		expect(isEditable(".nvmrc")).toBe(true);
+		expect(isEditable(".dockerignore")).toBe(true);
 		expect(isEditable("dockerfile")).toBe(false);
 		expect(isEditable("makefile")).toBe(false);
 	});
