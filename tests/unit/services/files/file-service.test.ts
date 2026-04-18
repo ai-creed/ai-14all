@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { execSync } from "node:child_process";
-import { mkdtempSync, realpathSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync, writeFileSync, mkdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { FileService, MAX_EDITOR_FILE_BYTES } from "../../../../services/files/file-service.js";
@@ -208,5 +208,59 @@ describe("FileService.openForEdit", () => {
 		const res = await svc.openForEdit(wt, "notes.md");
 		expect(res).toEqual({ ok: false, reason: "permission-denied" });
 		vi.mocked(fsPromises.stat).mockRestore();
+	});
+});
+
+describe("FileService.saveFile", () => {
+	function makeWorktree(): string {
+		return mkdtempSync(join(tmpdir(), "ai14all-save-"));
+	}
+
+	it("writes content and returns a new mtimeMs when expected matches", async () => {
+		const wt = makeWorktree();
+		writeFileSync(join(wt, "NOTES.md"), "a\n", "utf8");
+		const mtime = statSync(join(wt, "NOTES.md")).mtimeMs;
+		const svc = new FileService();
+		const res = await svc.saveFile(wt, "NOTES.md", "b\n", mtime);
+		expect(res.ok).toBe(true);
+		if (res.ok) expect(res.mtimeMs).toBeGreaterThanOrEqual(mtime);
+		const readback = await svc.openForEdit(wt, "NOTES.md");
+		expect(readback.ok).toBe(true);
+		if (readback.ok) expect(readback.content).toBe("b\n");
+	});
+
+	it("returns mtime-conflict when expectedMtimeMs is stale", async () => {
+		const wt = makeWorktree();
+		writeFileSync(join(wt, "NOTES.md"), "a\n", "utf8");
+		const svc = new FileService();
+		const res = await svc.saveFile(wt, "NOTES.md", "b\n", 0); // 0 is always stale
+		expect(res.ok).toBe(false);
+		if (!res.ok && res.reason === "mtime-conflict") {
+			expect(res.currentMtimeMs).toBeGreaterThan(0);
+		} else {
+			throw new Error("expected mtime-conflict");
+		}
+	});
+
+	it("rejects non-whitelisted files", async () => {
+		const wt = makeWorktree();
+		writeFileSync(join(wt, "a.png"), "x", "utf8");
+		const svc = new FileService();
+		const res = await svc.saveFile(wt, "a.png", "y", 0);
+		expect(res).toEqual({ ok: false, reason: "not-editable" });
+	});
+
+	it("rejects path escapes", async () => {
+		const wt = makeWorktree();
+		const svc = new FileService();
+		const res = await svc.saveFile(wt, "../escape.md", "x", 0);
+		expect(res).toEqual({ ok: false, reason: "path-escape" });
+	});
+
+	it("returns not-found when the file does not exist", async () => {
+		const wt = makeWorktree();
+		const svc = new FileService();
+		const res = await svc.saveFile(wt, "ghost.md", "x", 0);
+		expect(res).toEqual({ ok: false, reason: "not-found" });
 	});
 });
