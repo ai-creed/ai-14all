@@ -202,6 +202,39 @@ describe("WorktreeTree markdown preview", () => {
 	});
 });
 
+describe("WorktreeTree editor context menu", () => {
+	it("shows both Preview and Edit on a .md row when onEditFile is provided", async () => {
+		mockListTracked.mockResolvedValueOnce(["README.md"]);
+		const onPreviewMarkdown = vi.fn();
+		const onEditFile = vi.fn();
+		renderTree({ expandedPaths: [""], onPreviewMarkdown, onEditFile });
+		const mdRow = await screen.findByText("README.md");
+		fireEvent.contextMenu(mdRow);
+		expect(await screen.findByRole("menuitem", { name: "Preview" })).toBeInTheDocument();
+		expect(screen.getByRole("menuitem", { name: "Edit" })).toBeInTheDocument();
+	});
+
+	it("shows only Edit (no Preview) on a non-markdown whitelisted file", async () => {
+		mockListTracked.mockResolvedValueOnce(["package.json"]);
+		const onEditFile = vi.fn();
+		renderTree({ expandedPaths: [""], onEditFile });
+		const row = await screen.findByText("package.json");
+		fireEvent.contextMenu(row);
+		expect(await screen.findByRole("menuitem", { name: "Edit" })).toBeInTheDocument();
+		expect(screen.queryByRole("menuitem", { name: "Preview" })).toBeNull();
+	});
+
+	it("shows no context menu items on a non-whitelisted file", async () => {
+		mockListTracked.mockResolvedValueOnce(["image.png"]);
+		const onEditFile = vi.fn();
+		renderTree({ expandedPaths: [""], onEditFile });
+		const row = await screen.findByText("image.png");
+		fireEvent.contextMenu(row);
+		expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull();
+		expect(screen.queryByRole("menuitem", { name: "Preview" })).toBeNull();
+	});
+});
+
 describe("WorktreeTree stale-request guard", () => {
 	it("ignores a superseded response (later refresh wins)", async () => {
 		let resolveFirst: (v: string[]) => void = () => {};

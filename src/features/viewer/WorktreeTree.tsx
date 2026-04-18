@@ -3,6 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import type { GitChange, GitChangeStatus } from "../../../shared/models/git-change";
 import { files } from "../../lib/desktop-client";
+import { isEditable } from "../../../shared/editor/editable-files";
 import { buildFileTree, WORKTREE_TREE_ROOT_PATH } from "./build-file-tree";
 import { flattenTreeToRows, type VisibleRow } from "./flatten-tree-to-rows";
 
@@ -13,6 +14,7 @@ export type WorktreeTreeProps = {
 	selectedFile: string | null;
 	onSelect: (relativePath: string) => void;
 	onPreviewMarkdown?: (relativePath: string) => void;
+	onEditFile?: (relativePath: string) => void;
 	changedFiles: GitChange[];
 	gitSummaryError?: boolean;
 	gitSummaryMessage?: string | null;
@@ -170,20 +172,35 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 				</ContextMenu.Root>
 			);
 		}
-		const isMarkdown = row.kind === "file" && row.name.endsWith(".md");
-		if (isMarkdown && props.onPreviewMarkdown) {
-			const handler = props.onPreviewMarkdown;
+		if (row.kind === "file") {
+			const name = row.name;
+			const isMarkdown = name.endsWith(".md");
+			const canEdit = isEditable(name) && !!props.onEditFile;
+			const canPreview = isMarkdown && !!props.onPreviewMarkdown;
+			if (!canPreview && !canEdit) {
+				return <div key={`${row.kind}:${row.path}`}>{body}</div>;
+			}
 			return (
 				<ContextMenu.Root key={`${row.kind}:${row.path}`}>
 					<ContextMenu.Trigger asChild>{body}</ContextMenu.Trigger>
 					<ContextMenu.Portal>
 						<ContextMenu.Content className="shell-toolbar-menu">
-							<ContextMenu.Item
-								className="shell-toolbar-menu__item"
-								onSelect={() => handler(row.path)}
-							>
-								Preview
-							</ContextMenu.Item>
+							{canPreview ? (
+								<ContextMenu.Item
+									className="shell-toolbar-menu__item"
+									onSelect={() => props.onPreviewMarkdown!(row.path)}
+								>
+									Preview
+								</ContextMenu.Item>
+							) : null}
+							{canEdit ? (
+								<ContextMenu.Item
+									className="shell-toolbar-menu__item"
+									onSelect={() => props.onEditFile!(row.path)}
+								>
+									Edit
+								</ContextMenu.Item>
+							) : null}
 						</ContextMenu.Content>
 					</ContextMenu.Portal>
 				</ContextMenu.Root>
