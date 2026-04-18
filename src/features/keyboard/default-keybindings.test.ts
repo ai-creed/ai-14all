@@ -9,13 +9,14 @@ describe("getDefaultBindings", () => {
     expect(unique.size).toBe(keys.length);
   });
 
-  it("contains all 16 expected actions for macos", () => {
+  it("contains all 17 expected actions for macos", () => {
     const bindings = getDefaultBindings("macos");
     const actions = bindings.map((b) => b.action);
     expect(actions).toContain("worktree.selectNext");
     expect(actions).toContain("terminal.new");
     expect(actions).toContain("ui.showShortcuts");
     expect(actions).toContain("worktree.add");
-    expect(bindings).toHaveLength(16);
+    expect(actions).toContain("layout.toggleSidebar");
+    expect(bindings).toHaveLength(17);
   });
 });

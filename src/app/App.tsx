@@ -518,6 +518,9 @@ export function App() {
 			const state = workspaceStateRef.current;
 			dispatch({ type: "workspace/setTopBandCollapsed", collapsed: !state.topBandCollapsed });
 		},
+		"layout.toggleSidebar": () => {
+			setSidebarCollapsed((current) => !current);
+		},
 		"review.files": () => {
 			const awt = activeWorktreeRef.current;
 			if (awt) dispatch({ type: "session/setReviewMode", worktreeId: awt.id, reviewMode: "files" });
