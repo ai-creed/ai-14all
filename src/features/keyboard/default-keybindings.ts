@@ -8,6 +8,7 @@ export type ActionGroup = {
 export const ACTION_LABELS: Record<string, string> = {
   "worktree.selectNext":    "Next worktree",
   "worktree.selectPrev":    "Previous worktree",
+  "worktree.add":           "Add worktree",
   "workspace.selectNext":   "Next workspace",
   "workspace.selectPrev":   "Previous workspace",
   "terminal.new":           "New terminal",
@@ -24,7 +25,7 @@ export const ACTION_LABELS: Record<string, string> = {
 };
 
 export const ACTION_GROUPS: ActionGroup[] = [
-  { label: "Worktree",  actions: ["worktree.selectNext", "worktree.selectPrev"] },
+  { label: "Worktree",  actions: ["worktree.selectNext", "worktree.selectPrev", "worktree.add"] },
   { label: "Workspace", actions: ["workspace.selectNext", "workspace.selectPrev"] },
   { label: "Terminal",  actions: ["terminal.new", "terminal.close", "terminal.selectNext", "terminal.selectPrev", "terminal.toggleSplit"] },
   { label: "Layout",    actions: ["layout.toggleTopBand"] },
@@ -35,6 +36,7 @@ export const ACTION_GROUPS: ActionGroup[] = [
 const MACOS_DEFAULTS: Array<{ action: string; key: string }> = [
   { action: "worktree.selectNext",    key: "cmd+]" },
   { action: "worktree.selectPrev",    key: "cmd+[" },
+  { action: "worktree.add",           key: "cmd+n" },
   { action: "workspace.selectNext",   key: "cmd+shift+]" },
   { action: "workspace.selectPrev",   key: "cmd+shift+[" },
   { action: "terminal.new",           key: "cmd+t" },
@@ -47,7 +49,7 @@ const MACOS_DEFAULTS: Array<{ action: string; key: string }> = [
   { action: "review.changes",         key: "cmd+2" },
   { action: "review.commits",         key: "cmd+3" },
   { action: "ui.openWorkspacePicker", key: "cmd+o" },
-  { action: "ui.showShortcuts",       key: "cmd+/" },
+  { action: "ui.showShortcuts",       key: "cmd+shift+/" },
 ];
 
 export function getDefaultBindings(platform: Platform): Array<{ action: string; key: string }> {

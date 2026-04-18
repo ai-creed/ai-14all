@@ -447,6 +447,9 @@ export function App() {
 			const prev = wts[(idx - 1 + wts.length) % wts.length];
 			if (prev) dispatch({ type: "session/selectWorktree", worktreeId: prev.id });
 		},
+		"worktree.add": () => {
+			setCreateDialogOpen(true);
+		},
 		"workspace.selectNext": () => {
 			const aws = appWorkspacesRef.current;
 			const order = aws.workspaceOrder;
