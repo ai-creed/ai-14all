@@ -238,6 +238,7 @@ export function App() {
 		content: string;
 		mtimeMs: number;
 	} | null>(null);
+	const [openEditorError, setOpenEditorError] = useState<string | null>(null);
 	const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
 	const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
 	const [removePreview, setRemovePreview] = useState<RemoveWorktreePreview | null>(null);
@@ -373,14 +374,22 @@ export function App() {
 			if (!activeWorktree) return;
 			const basename = relativePath.split("/").pop() ?? "";
 			if (!isEditable(basename)) return;
-			const res = await files.openForEdit(activeWorktree.path, relativePath);
-			if (!res.ok) return;
-			setEditorTarget({
-				worktreePath: activeWorktree.path,
-				relativePath,
-				content: res.content,
-				mtimeMs: res.mtimeMs,
-			});
+			try {
+				const res = await files.openForEdit(activeWorktree.path, relativePath);
+				if (!res.ok) {
+					setOpenEditorError(`Cannot open file: ${res.reason}`);
+					return;
+				}
+				setOpenEditorError(null);
+				setEditorTarget({
+					worktreePath: activeWorktree.path,
+					relativePath,
+					content: res.content,
+					mtimeMs: res.mtimeMs,
+				});
+			} catch {
+				setOpenEditorError("Failed to open file for editing");
+			}
 		},
 		[activeWorktree],
 	);
@@ -2396,6 +2405,9 @@ export function App() {
 												</>
 											) : activeSession?.reviewMode === "files" ? (
 												<>
+													{openEditorError !== null && (
+														<p className="shell-error">{openEditorError}</p>
+													)}
 													<WorktreeTree
 														workspaceId={activeWorkspaceId ?? ""}
 														worktreeId={activeWorktree.id}
@@ -2409,7 +2421,7 @@ export function App() {
 															})
 														}
 														onPreviewMarkdown={setTreePreviewPath}
-								onEditFile={openEditorForFile}
+														onEditFile={openEditorForFile}
 														changedFiles={changes}
 														gitSummaryError={gitSummaryError}
 														gitSummaryMessage={gitSummaryMessage}
