@@ -89,13 +89,10 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 		// Click logo.png to select it (triggers session/selectFile)
 		const pngRow = page.locator(".shell-list__item--tree").filter({ hasText: /^logo\.png/ });
 		await pngRow.click();
-		// Small wait for state to settle
-		await page.waitForTimeout(200);
 		// Press Cmd+E — should be a no-op for non-whitelisted file
 		await page.keyboard.press("Meta+e");
-		await page.waitForTimeout(500);
 		// No editor dialog should have appeared
-		await expect(page.getByRole("dialog")).toHaveCount(0);
+		await expect(page.locator(".shell-editor-modal")).toHaveCount(0, { timeout: 1_000 });
 	});
 
 	test("Edit opens modal with file content for a whitelisted file", async () => {
@@ -103,8 +100,8 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 		const notesMdRow = page.locator(".shell-list__item--tree").filter({ hasText: /^NOTES\.md/ });
 		await notesMdRow.click({ button: "right" });
 		await page.getByRole("menuitem", { name: "Edit" }).click();
-		// Modal should be visible (dialog role)
-		const dialog = page.getByRole("dialog").first();
+		// Modal should be visible
+		const dialog = page.locator(".shell-editor-modal");
 		await expect(dialog).toBeVisible({ timeout: 10_000 });
 		// Modal should contain some of the file content
 		await expect(dialog.getByText("Preview Test")).toBeVisible({ timeout: 5_000 });
@@ -112,15 +109,13 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 
 	test("editing and saving via Cmd+S persists content to disk", async () => {
 		test.setTimeout(30_000);
-		const dialog = page.getByRole("dialog").first();
+		const dialog = page.locator(".shell-editor-modal");
 		// The Monaco editor is in the dialog — click inside it and type
-		const editorArea = dialog.locator(".monaco-editor").first();
+		const editorArea = dialog.locator(".monaco-editor");
 		await editorArea.click();
 		// Move to end of document and add a new line
 		await page.keyboard.press("Meta+End");
 		await page.keyboard.type("\n<!-- e2e-edit -->");
-		// Wait for Monaco to process keystrokes and mark the buffer dirty
-		await page.waitForTimeout(200);
 		// Save button should now be enabled (dirty)
 		const saveBtn = dialog.getByRole("button", { name: "Save" });
 		await expect(saveBtn).toBeEnabled({ timeout: 5_000 });
@@ -128,6 +123,8 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 		await page.keyboard.press("Meta+s");
 		// Inline "Saved" status should appear in footer
 		await expect(dialog.getByText(/Saved \d{1,2}:\d{2}:\d{2}/)).toBeVisible({ timeout: 10_000 });
+		// Modal should stay open after save
+		await expect(dialog).toBeVisible();
 		// File on disk should now contain the edit
 		const diskContent = readFileSync(join(testRepo.worktreePath, "NOTES.md"), "utf8");
 		expect(diskContent).toContain("e2e-edit");
@@ -142,15 +139,13 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 		const notesMdRow = page.locator(".shell-list__item--tree").filter({ hasText: /^NOTES\.md/ });
 		await notesMdRow.click({ button: "right" });
 		await page.getByRole("menuitem", { name: "Edit" }).click();
-		const dialog = page.getByRole("dialog").first();
+		const dialog = page.locator(".shell-editor-modal");
 		await expect(dialog).toBeVisible({ timeout: 10_000 });
 		// Type to make dirty
-		const editorArea = dialog.locator(".monaco-editor").first();
+		const editorArea = dialog.locator(".monaco-editor");
 		await editorArea.click();
 		await page.keyboard.press("Meta+End");
 		await page.keyboard.type("\n<!-- dirty -->");
-		// Wait for Monaco to process keystrokes
-		await page.waitForTimeout(200);
 		// Click Close
 		await dialog.getByRole("button", { name: "Close" }).click();
 		// ConfirmCloseDialog should appear
@@ -173,17 +168,14 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 		await expect(indexRow).toBeVisible({ timeout: 5_000 });
 		await indexRow.click({ button: "right" });
 		await page.getByRole("menuitem", { name: "Edit" }).click();
-		const dialog = page.getByRole("dialog").first();
+		const dialog = page.locator(".shell-editor-modal");
 		await expect(dialog).toBeVisible({ timeout: 10_000 });
 		// Make a small edit to become dirty
-		const editorArea = dialog.locator(".monaco-editor").first();
+		const editorArea = dialog.locator(".monaco-editor");
 		await editorArea.click();
 		await page.keyboard.press("Meta+End");
 		await page.keyboard.type(" // e2e");
-		// Wait for Monaco to process keystrokes
-		await page.waitForTimeout(200);
 		// Externally overwrite the file to change its mtime
-		await page.waitForTimeout(50); // small gap to ensure mtime differs
 		writeFileSync(join(testRepo.worktreePath, "src", "index.ts"), 'export const hello = "conflict";\n');
 		// Press Cmd+S — should detect mtime conflict
 		await page.keyboard.press("Meta+s");
@@ -210,5 +202,6 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 		await expect(page.getByText("Preview Test")).toBeVisible({ timeout: 10_000 });
 		// Close it
 		await page.keyboard.press("Escape");
+		await expect(page.getByText("Preview Test")).not.toBeVisible({ timeout: 5_000 });
 	});
 });
