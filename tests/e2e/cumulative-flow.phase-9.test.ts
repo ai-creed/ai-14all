@@ -5,7 +5,13 @@ import {
 	type ElectronApplication,
 	type Page,
 } from "@playwright/test";
-import { mkdtempSync, realpathSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import {
+	mkdtempSync,
+	realpathSync,
+	rmSync,
+	writeFileSync,
+	readFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
@@ -25,7 +31,10 @@ test.beforeAll(async () => {
 			...process.env,
 			AI14ALL_E2E: "1",
 			AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
-			AI14ALL_WORKSPACE_STATE_PATH: join(persistedStateDir, "workspace-state.json"),
+			AI14ALL_WORKSPACE_STATE_PATH: join(
+				persistedStateDir,
+				"workspace-state.json",
+			),
 		},
 	});
 	page = await app.firstWindow({ timeout: 60_000 });
@@ -56,17 +65,23 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 			.getByRole("button", { name: "feature-a", exact: true })
 			.click();
 		await page.getByRole("tab", { name: "Files" }).click();
-		await expect(page.getByText("feature-a", { exact: true }).first()).toBeVisible({
+		await expect(
+			page.getByText("feature-a", { exact: true }).first(),
+		).toBeVisible({
 			timeout: 15_000,
 		});
 	});
 
 	test("right-clicking a whitelisted .md file shows both Preview and Edit", async () => {
 		test.setTimeout(30_000);
-		const notesMdRow = page.locator(".shell-list__item--tree").filter({ hasText: /^NOTES\.md/ });
+		const notesMdRow = page
+			.locator(".shell-list__item--tree")
+			.filter({ hasText: /^NOTES\.md/ });
 		await expect(notesMdRow).toBeVisible({ timeout: 10_000 });
 		await notesMdRow.click({ button: "right" });
-		await expect(page.getByRole("menuitem", { name: "Preview" })).toBeVisible({ timeout: 5_000 });
+		await expect(page.getByRole("menuitem", { name: "Preview" })).toBeVisible({
+			timeout: 5_000,
+		});
 		await expect(page.getByRole("menuitem", { name: "Edit" })).toBeVisible();
 		// Dismiss menu
 		await page.keyboard.press("Escape");
@@ -74,12 +89,16 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 
 	test("right-clicking a non-whitelisted file shows neither Preview nor Edit", async () => {
 		test.setTimeout(30_000);
-		const pngRow = page.locator(".shell-list__item--tree").filter({ hasText: /^logo\.png/ });
+		const pngRow = page
+			.locator(".shell-list__item--tree")
+			.filter({ hasText: /^logo\.png/ });
 		await expect(pngRow).toBeVisible({ timeout: 10_000 });
 		await pngRow.click({ button: "right" });
 		// No menuitem should appear
 		await expect(page.getByRole("menuitem", { name: "Edit" })).toHaveCount(0);
-		await expect(page.getByRole("menuitem", { name: "Preview" })).toHaveCount(0);
+		await expect(page.getByRole("menuitem", { name: "Preview" })).toHaveCount(
+			0,
+		);
 		// Click elsewhere to dismiss any potential menu
 		await page.keyboard.press("Escape");
 	});
@@ -87,24 +106,32 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 	test("Cmd+E on a non-whitelisted file is a no-op", async () => {
 		test.setTimeout(30_000);
 		// Click logo.png to select it (triggers session/selectFile)
-		const pngRow = page.locator(".shell-list__item--tree").filter({ hasText: /^logo\.png/ });
+		const pngRow = page
+			.locator(".shell-list__item--tree")
+			.filter({ hasText: /^logo\.png/ });
 		await pngRow.click();
 		// Press Cmd+E — should be a no-op for non-whitelisted file
 		await page.keyboard.press("Meta+e");
 		// No editor dialog should have appeared
-		await expect(page.locator(".shell-editor-modal")).toHaveCount(0, { timeout: 1_000 });
+		await expect(page.locator(".shell-editor-modal")).toHaveCount(0, {
+			timeout: 1_000,
+		});
 	});
 
 	test("Edit opens modal with file content for a whitelisted file", async () => {
 		test.setTimeout(30_000);
-		const notesMdRow = page.locator(".shell-list__item--tree").filter({ hasText: /^NOTES\.md/ });
+		const notesMdRow = page
+			.locator(".shell-list__item--tree")
+			.filter({ hasText: /^NOTES\.md/ });
 		await notesMdRow.click({ button: "right" });
 		await page.getByRole("menuitem", { name: "Edit" }).click();
 		// Modal should be visible
 		const dialog = page.locator(".shell-editor-modal");
 		await expect(dialog).toBeVisible({ timeout: 10_000 });
 		// Modal should contain some of the file content
-		await expect(dialog.getByText("Preview Test")).toBeVisible({ timeout: 5_000 });
+		await expect(dialog.getByText("Preview Test")).toBeVisible({
+			timeout: 5_000,
+		});
 	});
 
 	test("editing and saving via Cmd+S persists content to disk", async () => {
@@ -122,11 +149,16 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 		// Save with Cmd+S
 		await page.keyboard.press("Meta+s");
 		// Inline "Saved" status should appear in footer
-		await expect(dialog.getByText(/Saved \d{1,2}:\d{2}:\d{2}/)).toBeVisible({ timeout: 10_000 });
+		await expect(dialog.getByText(/Saved \d{1,2}:\d{2}:\d{2}/)).toBeVisible({
+			timeout: 10_000,
+		});
 		// Modal should stay open after save
 		await expect(dialog).toBeVisible();
 		// File on disk should now contain the edit
-		const diskContent = readFileSync(join(testRepo.worktreePath, "NOTES.md"), "utf8");
+		const diskContent = readFileSync(
+			join(testRepo.worktreePath, "NOTES.md"),
+			"utf8",
+		);
 		expect(diskContent).toContain("e2e-edit");
 		// Close the modal
 		await dialog.getByRole("button", { name: "Close" }).click();
@@ -136,7 +168,9 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 	test("closing with dirty buffer shows ConfirmCloseDialog; Cancel keeps modal open", async () => {
 		test.setTimeout(30_000);
 		// Open NOTES.md again
-		const notesMdRow = page.locator(".shell-list__item--tree").filter({ hasText: /^NOTES\.md/ });
+		const notesMdRow = page
+			.locator(".shell-list__item--tree")
+			.filter({ hasText: /^NOTES\.md/ });
 		await notesMdRow.click({ button: "right" });
 		await page.getByRole("menuitem", { name: "Edit" }).click();
 		const dialog = page.locator(".shell-editor-modal");
@@ -149,7 +183,9 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 		// Click Close
 		await dialog.getByRole("button", { name: "Close" }).click();
 		// ConfirmCloseDialog should appear
-		await expect(page.getByText("Unsaved changes")).toBeVisible({ timeout: 5_000 });
+		await expect(page.getByText("Unsaved changes")).toBeVisible({
+			timeout: 5_000,
+		});
 		// Click Cancel — modal stays open
 		await page.getByRole("button", { name: "Cancel" }).click();
 		await expect(dialog).toBeVisible({ timeout: 5_000 });
@@ -164,7 +200,9 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 		// Open src/index.ts (a .ts file — also whitelisted and editable)
 		const srcDir = page.locator(".shell-list__item--dir", { hasText: "src" });
 		await srcDir.click(); // expand src
-		const indexRow = page.locator(".shell-list__item--tree").filter({ hasText: /^index\.ts/ });
+		const indexRow = page
+			.locator(".shell-list__item--tree")
+			.filter({ hasText: /^index\.ts/ });
 		await expect(indexRow).toBeVisible({ timeout: 5_000 });
 		await indexRow.click({ button: "right" });
 		await page.getByRole("menuitem", { name: "Edit" }).click();
@@ -176,17 +214,27 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 		await page.keyboard.press("Meta+End");
 		await page.keyboard.type(" // e2e");
 		// Externally overwrite the file to change its mtime
-		writeFileSync(join(testRepo.worktreePath, "src", "index.ts"), 'export const hello = "conflict";\n');
+		writeFileSync(
+			join(testRepo.worktreePath, "src", "index.ts"),
+			'export const hello = "conflict";\n',
+		);
 		// Press Cmd+S — should detect mtime conflict
 		await page.keyboard.press("Meta+s");
 		// SaveConflictDialog should appear
-		await expect(page.getByText("File changed on disk")).toBeVisible({ timeout: 10_000 });
+		await expect(page.getByText("File changed on disk")).toBeVisible({
+			timeout: 10_000,
+		});
 		// Click Overwrite to force-save
 		await page.getByRole("button", { name: "Overwrite" }).click();
 		// Modal should remain open after overwrite; Saved status should appear
-		await expect(dialog.getByText(/Saved \d{1,2}:\d{2}:\d{2}/)).toBeVisible({ timeout: 10_000 });
+		await expect(dialog.getByText(/Saved \d{1,2}:\d{2}:\d{2}/)).toBeVisible({
+			timeout: 10_000,
+		});
 		// Disk content should match the editor buffer (with the e2e edit)
-		const diskContent = readFileSync(join(testRepo.worktreePath, "src", "index.ts"), "utf8");
+		const diskContent = readFileSync(
+			join(testRepo.worktreePath, "src", "index.ts"),
+			"utf8",
+		);
 		expect(diskContent).toContain("e2e");
 		// Close cleanly
 		await dialog.getByRole("button", { name: "Close" }).click();
@@ -195,13 +243,19 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 
 	test("Markdown Preview flow still works (phase-8 regression)", async () => {
 		test.setTimeout(30_000);
-		const notesMdRow = page.locator(".shell-list__item--tree").filter({ hasText: /^NOTES\.md/ });
+		const notesMdRow = page
+			.locator(".shell-list__item--tree")
+			.filter({ hasText: /^NOTES\.md/ });
 		await notesMdRow.click({ button: "right" });
 		await page.getByRole("menuitem", { name: "Preview" }).click();
 		// Markdown preview modal should open
-		await expect(page.getByText("Preview Test")).toBeVisible({ timeout: 10_000 });
+		await expect(page.getByText("Preview Test")).toBeVisible({
+			timeout: 10_000,
+		});
 		// Close it
 		await page.keyboard.press("Escape");
-		await expect(page.getByText("Preview Test")).not.toBeVisible({ timeout: 5_000 });
+		await expect(page.getByText("Preview Test")).not.toBeVisible({
+			timeout: 5_000,
+		});
 	});
 });

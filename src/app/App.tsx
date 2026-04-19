@@ -24,10 +24,19 @@ import type {
 	CreateWorktreePreview,
 	RemoveWorktreePreview,
 } from "../../shared/models/worktree-lifecycle";
-import { buildSavedWorkspace, rebaseSnapshotPaths, reconcileSnapshotToWorktrees, shouldReattachSnapshot, splitPendingRestores } from "../features/workspace/workspace-persistence";
+import {
+	buildSavedWorkspace,
+	rebaseSnapshotPaths,
+	reconcileSnapshotToWorktrees,
+	shouldReattachSnapshot,
+	splitPendingRestores,
+} from "../features/workspace/workspace-persistence";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
-import { SessionSidebar, type SessionSidebarWorkspace } from "../features/workspace/SessionSidebar";
+import {
+	SessionSidebar,
+	type SessionSidebarWorkspace,
+} from "../features/workspace/SessionSidebar";
 import { SessionHeader } from "../features/workspace/SessionHeader";
 import { ContextPanel } from "../features/workspace/ContextPanel";
 import {
@@ -60,9 +69,18 @@ import { DiffViewer } from "../features/viewer/DiffViewer";
 import { CommitList } from "../features/git/CommitList";
 import { CommitDiffStack } from "../features/git/CommitDiffStack";
 import { buildWorktreeProcessSummary } from "../features/workspace/sidebar-shell-summary";
-import type { GitCommitHistory, GitCommitDetail } from "../../shared/models/git-commit-review";
+import type {
+	GitCommitHistory,
+	GitCommitDetail,
+} from "../../shared/models/git-commit-review";
 import type { RemoteStatus } from "../../shared/models/git-remote-status";
-import { git, terminals, workspace, repository as repositoryClient, files } from "../lib/desktop-client";
+import {
+	git,
+	terminals,
+	workspace,
+	repository as repositoryClient,
+	files,
+} from "../lib/desktop-client";
 import { logRendererShellEvent } from "../features/terminals/shell-event-logger";
 import { useTheme } from "../lib/useTheme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
@@ -99,7 +117,8 @@ export function App() {
 	const repository = activeWorkspace?.repository ?? null;
 	const worktrees = activeWorkspace?.worktrees ?? [];
 	const activeWorkspaceId = appWorkspaces.activeWorkspaceId;
-	const workspaceState = activeWorkspace?.workspaceState ?? createWorkspaceState([]);
+	const workspaceState =
+		activeWorkspace?.workspaceState ?? createWorkspaceState([]);
 
 	// Stable ref to the full multi-workspace state — used by onOutput/onExit to
 	// route events from inactive workspaces without depending on the render cycle.
@@ -115,7 +134,9 @@ export function App() {
 	// activeWorkspaceStateRef for background PTY events: updated synchronously in
 	// the onOutput/onExit else branches so burst events accumulate rather than
 	// overwriting each other before the next React render.
-	const inactiveWorkspaceStatesRef = useRef<Map<string, WorkspaceState>>(new Map());
+	const inactiveWorkspaceStatesRef = useRef<Map<string, WorkspaceState>>(
+		new Map(),
+	);
 	const outputPreviewBuffersRef = useRef<Map<string, string>>(new Map());
 	// Reset the shadow ref whenever the active workspace changes (e.g. workspace
 	// switch or initial register). The workspaceState derived from the render is
@@ -127,7 +148,9 @@ export function App() {
 		// Drop the inactive shadow for the workspace that just became active — the
 		// active shadow ref now owns accumulation for it.
 		if (appWorkspaces.activeWorkspaceId) {
-			inactiveWorkspaceStatesRef.current.delete(appWorkspaces.activeWorkspaceId);
+			inactiveWorkspaceStatesRef.current.delete(
+				appWorkspaces.activeWorkspaceId,
+			);
 		}
 	}
 
@@ -144,7 +167,10 @@ export function App() {
 		(action: WorkspaceAction) => {
 			const wsId = prevActiveWorkspaceIdRef.current;
 			if (!wsId) return;
-			const nextState = workspaceReducer(activeWorkspaceStateRef.current, action);
+			const nextState = workspaceReducer(
+				activeWorkspaceStateRef.current,
+				action,
+			);
 			activeWorkspaceStateRef.current = nextState;
 			dispatchAppWorkspaces({
 				type: "workspace/updateWorkspaceState",
@@ -171,7 +197,8 @@ export function App() {
 	function createScopedWorkspaceDispatch(workspaceId: string) {
 		const localShadow = { current: getWorkspaceStateById(workspaceId) };
 		return (action: WorkspaceAction) => {
-			const baseState = localShadow.current ?? getWorkspaceStateById(workspaceId);
+			const baseState =
+				localShadow.current ?? getWorkspaceStateById(workspaceId);
 			if (!baseState) return;
 			const nextState = workspaceReducer(baseState, action);
 			localShadow.current = nextState;
@@ -206,12 +233,16 @@ export function App() {
 		message: string | null;
 	};
 
-	const [commitHistoryState, setCommitHistoryState] = useState<ReviewLoadState<GitCommitHistory>>({
+	const [commitHistoryState, setCommitHistoryState] = useState<
+		ReviewLoadState<GitCommitHistory>
+	>({
 		data: null,
 		stale: false,
 		message: null,
 	});
-	const [commitDetailState, setCommitDetailState] = useState<ReviewLoadState<GitCommitDetail>>({
+	const [commitDetailState, setCommitDetailState] = useState<
+		ReviewLoadState<GitCommitDetail>
+	>({
 		data: null,
 		stale: false,
 		message: null,
@@ -225,7 +256,8 @@ export function App() {
 	const [presetManagerOpen, setPresetManagerOpen] = useState(false);
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
 	const [createName, setCreateName] = useState("");
-	const [createPreview, setCreatePreview] = useState<CreateWorktreePreview | null>(null);
+	const [createPreview, setCreatePreview] =
+		useState<CreateWorktreePreview | null>(null);
 	const [createLoading, setCreateLoading] = useState(false);
 	const [createError, setCreateError] = useState<string | null>(null);
 	const [createBusy, setCreateBusy] = useState(false);
@@ -241,7 +273,8 @@ export function App() {
 	const [openEditorError, setOpenEditorError] = useState<string | null>(null);
 	const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
 	const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
-	const [removePreview, setRemovePreview] = useState<RemoveWorktreePreview | null>(null);
+	const [removePreview, setRemovePreview] =
+		useState<RemoveWorktreePreview | null>(null);
 	const [removeError, setRemoveError] = useState<string | null>(null);
 	const [removeBusy, setRemoveBusy] = useState(false);
 	const [confirmedDirtyRemoval, setConfirmedDirtyRemoval] = useState(false);
@@ -249,15 +282,22 @@ export function App() {
 	const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
 
 	// V2 restore state — restorePreference lives here; workspace snapshots are in appWorkspaces
-	const [restorePreference, setRestorePreference] = useState<RestorePreference>("prompt");
+	const [restorePreference, setRestorePreference] =
+		useState<RestorePreference>("prompt");
 	// V1 snapshot preserved for start-clean flow and snapshot reattachment
-	const [savedSnapshot, setSavedSnapshot] = useState<WorkspaceSnapshot | null>(null);
+	const [savedSnapshot, setSavedSnapshot] = useState<WorkspaceSnapshot | null>(
+		null,
+	);
 	// Non-active workspaces from v2 restore state — registered as dormant on startup
-	const [savedDormantWorkspaces, setSavedDormantWorkspaces] = useState<PersistedSavedWorkspace[]>([]);
+	const [savedDormantWorkspaces, setSavedDormantWorkspaces] = useState<
+		PersistedSavedWorkspace[]
+	>([]);
 
 	const [startupError, setStartupError] = useState<string | null>(null);
 	const [restoreWarning, setRestoreWarning] = useState<string | null>(null);
-	const [pendingRestoreSessions, setPendingRestoreSessions] = useState<Record<string, PersistedWorktreeSession>>({});
+	const [pendingRestoreSessions, setPendingRestoreSessions] = useState<
+		Record<string, PersistedWorktreeSession>
+	>({});
 
 	// ---------------------------------------------------------------------------
 	// Startup / restore effect
@@ -275,58 +315,91 @@ export function App() {
 	useEffect(() => {
 		let cancelled = false;
 
-		void workspace.readRestoreState().then(async (result) => {
-			if (cancelled) return;
+		void workspace
+			.readRestoreState()
+			.then(async (result) => {
+				if (cancelled) return;
 
-			const activeSaved = result.activeWorkspaceId
-				? result.workspaces.find((w) => w.workspaceId === result.activeWorkspaceId)
-				: result.workspaces[0];
-			const snapshot = activeSaved?.snapshot ?? null;
-			const dormantSaved = result.workspaces.filter(
-				(w) => w.workspaceId !== (activeSaved?.workspaceId ?? ""),
-			);
+				const activeSaved = result.activeWorkspaceId
+					? result.workspaces.find(
+							(w) => w.workspaceId === result.activeWorkspaceId,
+						)
+					: result.workspaces[0];
+				const snapshot = activeSaved?.snapshot ?? null;
+				const dormantSaved = result.workspaces.filter(
+					(w) => w.workspaceId !== (activeSaved?.workspaceId ?? ""),
+				);
 
-			setRestorePreference(result.restorePreference);
-			setSavedSnapshot(snapshot);
-			setSavedDormantWorkspaces(dormantSaved);
+				setRestorePreference(result.restorePreference);
+				setSavedSnapshot(snapshot);
+				setSavedDormantWorkspaces(dormantSaved);
 
-			if (!snapshot) {
-				setStartupMode("ready");
-				return;
-			}
-			if (result.restorePreference === "alwaysStartClean") {
-				setStartupMode("ready");
-				return;
-			}
-			if (result.restorePreference === "alwaysRestore") {
-				void restoreWorkspace(snapshot, result.restorePreference, dormantSaved);
-				return;
-			}
-
-			// A renderer reload should reconnect immediately when the main process
-			// still owns live terminal sessions for the saved workspace.
-			if (activeSaved?.workspaceId) {
-				try {
-					void logRendererShellEvent({ event: "renderer-reconnect-list-start", windowId: null, data: { targetWorkspaceId: activeSaved.workspaceId } });
-					const liveSessions = await terminals.list(activeSaved.workspaceId);
-					if (cancelled) return;
-					void logRendererShellEvent({ event: "renderer-reconnect-list-success", windowId: null, data: { targetWorkspaceId: activeSaved.workspaceId, liveBackendSessionIds: liveSessions.map((s) => s.id) } });
-					if (liveSessions.length > 0) {
-						void logRendererShellEvent({ event: "renderer-reload-detected", windowId: null, reasonKind: "window_lifecycle", reason: "renderer_reload", data: { targetWorkspaceId: activeSaved.workspaceId, liveSessionCount: liveSessions.length } });
-						void restoreWorkspace(snapshot, result.restorePreference, dormantSaved);
-						return;
-					}
-				} catch {
-					// Fall through to the regular prompt path.
+				if (!snapshot) {
+					setStartupMode("ready");
+					return;
 				}
-			}
+				if (result.restorePreference === "alwaysStartClean") {
+					setStartupMode("ready");
+					return;
+				}
+				if (result.restorePreference === "alwaysRestore") {
+					void restoreWorkspace(
+						snapshot,
+						result.restorePreference,
+						dormantSaved,
+					);
+					return;
+				}
 
-			setStartupMode("prompt");
-		}).catch((err) => {
-			if (cancelled) return;
-			setStartupError(`Failed to load workspace state: ${String(err)}`);
-			setStartupMode("ready");
-		});
+				// A renderer reload should reconnect immediately when the main process
+				// still owns live terminal sessions for the saved workspace.
+				if (activeSaved?.workspaceId) {
+					try {
+						void logRendererShellEvent({
+							event: "renderer-reconnect-list-start",
+							windowId: null,
+							data: { targetWorkspaceId: activeSaved.workspaceId },
+						});
+						const liveSessions = await terminals.list(activeSaved.workspaceId);
+						if (cancelled) return;
+						void logRendererShellEvent({
+							event: "renderer-reconnect-list-success",
+							windowId: null,
+							data: {
+								targetWorkspaceId: activeSaved.workspaceId,
+								liveBackendSessionIds: liveSessions.map((s) => s.id),
+							},
+						});
+						if (liveSessions.length > 0) {
+							void logRendererShellEvent({
+								event: "renderer-reload-detected",
+								windowId: null,
+								reasonKind: "window_lifecycle",
+								reason: "renderer_reload",
+								data: {
+									targetWorkspaceId: activeSaved.workspaceId,
+									liveSessionCount: liveSessions.length,
+								},
+							});
+							void restoreWorkspace(
+								snapshot,
+								result.restorePreference,
+								dormantSaved,
+							);
+							return;
+						}
+					} catch {
+						// Fall through to the regular prompt path.
+					}
+				}
+
+				setStartupMode("prompt");
+			})
+			.catch((err) => {
+				if (cancelled) return;
+				setStartupError(`Failed to load workspace state: ${String(err)}`);
+				setStartupMode("ready");
+			});
 
 		return () => {
 			cancelled = true;
@@ -334,12 +407,16 @@ export function App() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- startup-only effect; restoreWorkspace is intentionally excluded to prevent re-runs on re-render
 	}, []);
 
-	useEffect(() => workspace.onOpenPicker(() => {
-		if (startupMode !== "ready") return;
-		setError(null);
-		setStartupError(null);
-		setWorkspacePickerOpen(true);
-	}), [startupMode]);
+	useEffect(
+		() =>
+			workspace.onOpenPicker(() => {
+				if (startupMode !== "ready") return;
+				setError(null);
+				setStartupError(null);
+				setWorkspacePickerOpen(true);
+			}),
+		[startupMode],
+	);
 
 	const activeWorktree =
 		worktrees.find((w) => w.id === workspaceState.selectedWorktreeId) ?? null;
@@ -353,9 +430,10 @@ export function App() {
 		.sort((a, b) => Number(b.pinned) - Number(a.pinned));
 	const splitVisibleProcessIds =
 		activeSession?.terminalLayoutMode === "split"
-			? [activeSession.splitLeftProcessId, activeSession.splitRightProcessId].filter(
-					(id): id is string => !!id,
-				)
+			? [
+					activeSession.splitLeftProcessId,
+					activeSession.splitRightProcessId,
+				].filter((id): id is string => !!id)
 			: [];
 	const visibleProcessIds =
 		activeSession?.terminalLayoutMode === "split"
@@ -440,7 +518,14 @@ export function App() {
 
 	function logBindingChange(input: {
 		triggerEventId?: string | null;
-		reasonKind: "user_action" | "system_reconnect" | "window_lifecycle" | "renderer_drop" | "process_exit" | "backend_cleanup" | "unknown";
+		reasonKind:
+			| "user_action"
+			| "system_reconnect"
+			| "window_lifecycle"
+			| "renderer_drop"
+			| "process_exit"
+			| "backend_cleanup"
+			| "unknown";
 		reason: string;
 		isExpected: boolean;
 		expectedBecause: string | null;
@@ -462,120 +547,138 @@ export function App() {
 		});
 	}
 
-	const { sessions, createSession, sendInput, stopSession, removeSession, adoptSession } =
-			useTerminalSession({
-				onOutput: (event) => {
-					const found = findProcessByTerminalSessionId(event.sessionId);
-					if (!found) return;
-					const priorBuffer = outputPreviewBuffersRef.current.get(event.sessionId) ?? "";
-					const previewUpdate = consumeOutputPreview(priorBuffer, event.data);
-					if (previewUpdate.nextBuffer) {
-						outputPreviewBuffersRef.current.set(event.sessionId, previewUpdate.nextBuffer);
-					} else {
-						outputPreviewBuffersRef.current.delete(event.sessionId);
-					}
-					const { process, workspaceId: ownerWsId } = found;
-					const action: WorkspaceAction = {
-						type: "session/recordProcessOutput",
-						worktreeId: process.worktreeId,
-						processId: process.id,
-					attentionState: deriveAttentionState(event.data),
-						at: Date.now(),
-						isViewed:
-							visibleProcessIds.includes(process.id) &&
-							process.worktreeId === activeWorktree?.id,
-						lastOutputPreview: previewUpdate.preview,
-					};
-				if (ownerWsId === appWorkspacesRef.current.activeWorkspaceId) {
-					dispatch(action);
-				} else {
-					// Route to the inactive workspace. Read from the per-workspace shadow
-					// map first so rapid burst events accumulate correctly instead of both
-					// reads seeing the same pre-render snapshot.
-					const baseState =
-						inactiveWorkspaceStatesRef.current.get(ownerWsId) ??
-						appWorkspacesRef.current.workspacesById[ownerWsId]?.workspaceState;
-					if (!baseState) return;
-					const nextState = workspaceReducer(baseState, action);
-					inactiveWorkspaceStatesRef.current.set(ownerWsId, nextState);
-					dispatchAppWorkspaces({
-						type: "workspace/updateWorkspaceState",
-						workspaceId: ownerWsId,
-						workspaceState: nextState,
-					});
-				}
-			},
-				onExit: (event) => {
-					const found = findProcessByTerminalSessionId(event.sessionId);
-					if (!found) return;
-					outputPreviewBuffersRef.current.delete(event.sessionId);
-					const { process, workspaceId: ownerWsId } = found;
-					const action: WorkspaceAction = {
-					type: "session/updateProcessStatus",
+	const {
+		sessions,
+		createSession,
+		sendInput,
+		stopSession,
+		removeSession,
+		adoptSession,
+	} = useTerminalSession({
+		onOutput: (event) => {
+			const found = findProcessByTerminalSessionId(event.sessionId);
+			if (!found) return;
+			const priorBuffer =
+				outputPreviewBuffersRef.current.get(event.sessionId) ?? "";
+			const previewUpdate = consumeOutputPreview(priorBuffer, event.data);
+			if (previewUpdate.nextBuffer) {
+				outputPreviewBuffersRef.current.set(
+					event.sessionId,
+					previewUpdate.nextBuffer,
+				);
+			} else {
+				outputPreviewBuffersRef.current.delete(event.sessionId);
+			}
+			const { process, workspaceId: ownerWsId } = found;
+			const action: WorkspaceAction = {
+				type: "session/recordProcessOutput",
+				worktreeId: process.worktreeId,
+				processId: process.id,
+				attentionState: deriveAttentionState(event.data),
+				at: Date.now(),
+				isViewed:
+					visibleProcessIds.includes(process.id) &&
+					process.worktreeId === activeWorktree?.id,
+				lastOutputPreview: previewUpdate.preview,
+			};
+			if (ownerWsId === appWorkspacesRef.current.activeWorkspaceId) {
+				dispatch(action);
+			} else {
+				// Route to the inactive workspace. Read from the per-workspace shadow
+				// map first so rapid burst events accumulate correctly instead of both
+				// reads seeing the same pre-render snapshot.
+				const baseState =
+					inactiveWorkspaceStatesRef.current.get(ownerWsId) ??
+					appWorkspacesRef.current.workspacesById[ownerWsId]?.workspaceState;
+				if (!baseState) return;
+				const nextState = workspaceReducer(baseState, action);
+				inactiveWorkspaceStatesRef.current.set(ownerWsId, nextState);
+				dispatchAppWorkspaces({
+					type: "workspace/updateWorkspaceState",
+					workspaceId: ownerWsId,
+					workspaceState: nextState,
+				});
+			}
+		},
+		onExit: (event) => {
+			const found = findProcessByTerminalSessionId(event.sessionId);
+			if (!found) return;
+			outputPreviewBuffersRef.current.delete(event.sessionId);
+			const { process, workspaceId: ownerWsId } = found;
+			const action: WorkspaceAction = {
+				type: "session/updateProcessStatus",
+				processId: process.id,
+				status: "exited",
+				exitCode: event.exitCode ?? null,
+			};
+			if (ownerWsId === appWorkspacesRef.current.activeWorkspaceId) {
+				dispatch(action);
+			} else {
+				const baseState =
+					inactiveWorkspaceStatesRef.current.get(ownerWsId) ??
+					appWorkspacesRef.current.workspacesById[ownerWsId]?.workspaceState;
+				if (!baseState) return;
+				const nextState = workspaceReducer(baseState, action);
+				inactiveWorkspaceStatesRef.current.set(ownerWsId, nextState);
+				dispatchAppWorkspaces({
+					type: "workspace/updateWorkspaceState",
+					workspaceId: ownerWsId,
+					workspaceState: nextState,
+				});
+			}
+			void logBindingChange({
+				reasonKind: "process_exit",
+				reason: "pty_exit",
+				isExpected: false,
+				expectedBecause: null,
+				previousBinding: {
+					terminalSessionId: event.sessionId,
 					processId: process.id,
-					status: "exited",
-					exitCode: event.exitCode ?? null,
-				};
-				if (ownerWsId === appWorkspacesRef.current.activeWorkspaceId) {
-					dispatch(action);
-				} else {
-					const baseState =
-						inactiveWorkspaceStatesRef.current.get(ownerWsId) ??
-						appWorkspacesRef.current.workspacesById[ownerWsId]?.workspaceState;
-					if (!baseState) return;
-					const nextState = workspaceReducer(baseState, action);
-					inactiveWorkspaceStatesRef.current.set(ownerWsId, nextState);
-					dispatchAppWorkspaces({
-						type: "workspace/updateWorkspaceState",
-						workspaceId: ownerWsId,
-						workspaceState: nextState,
-					});
-				}
-					void logBindingChange({
-						reasonKind: "process_exit",
-						reason: "pty_exit",
-					isExpected: false,
-					expectedBecause: null,
-					previousBinding: { terminalSessionId: event.sessionId, processId: process.id, workspaceId: ownerWsId },
-						nextBinding: null,
-					});
+					workspaceId: ownerWsId,
 				},
-				onError: (event) => {
-					const found = findProcessByTerminalSessionId(event.sessionId);
-					if (!found) return;
-					outputPreviewBuffersRef.current.delete(event.sessionId);
-					const { process, workspaceId: ownerWsId } = found;
-					const action: WorkspaceAction = {
-						type: "session/updateProcessStatus",
-						processId: process.id,
-						status: "error",
-						exitCode: null,
-					};
-					if (ownerWsId === appWorkspacesRef.current.activeWorkspaceId) {
-						dispatch(action);
-					} else {
-						const baseState =
-							inactiveWorkspaceStatesRef.current.get(ownerWsId) ??
-							appWorkspacesRef.current.workspacesById[ownerWsId]?.workspaceState;
-						if (!baseState) return;
-						const nextState = workspaceReducer(baseState, action);
-						inactiveWorkspaceStatesRef.current.set(ownerWsId, nextState);
-						dispatchAppWorkspaces({
-							type: "workspace/updateWorkspaceState",
-							workspaceId: ownerWsId,
-							workspaceState: nextState,
-						});
-					}
-				},
+				nextBinding: null,
 			});
+		},
+		onError: (event) => {
+			const found = findProcessByTerminalSessionId(event.sessionId);
+			if (!found) return;
+			outputPreviewBuffersRef.current.delete(event.sessionId);
+			const { process, workspaceId: ownerWsId } = found;
+			const action: WorkspaceAction = {
+				type: "session/updateProcessStatus",
+				processId: process.id,
+				status: "error",
+				exitCode: null,
+			};
+			if (ownerWsId === appWorkspacesRef.current.activeWorkspaceId) {
+				dispatch(action);
+			} else {
+				const baseState =
+					inactiveWorkspaceStatesRef.current.get(ownerWsId) ??
+					appWorkspacesRef.current.workspacesById[ownerWsId]?.workspaceState;
+				if (!baseState) return;
+				const nextState = workspaceReducer(baseState, action);
+				inactiveWorkspaceStatesRef.current.set(ownerWsId, nextState);
+				dispatchAppWorkspaces({
+					type: "workspace/updateWorkspaceState",
+					workspaceId: ownerWsId,
+					workspaceState: nextState,
+				});
+			}
+		},
+	});
 	const orderedSessions =
 		activeSession?.terminalLayoutMode === "split"
 			? [
 					...visibleTerminalSessionIds.flatMap((sessionId) => {
-						const session = sessions.find((candidate) => candidate.id === sessionId);
+						const session = sessions.find(
+							(candidate) => candidate.id === sessionId,
+						);
 						return session ? [session] : [];
 					}),
-					...sessions.filter((session) => !visibleTerminalSessionIds.includes(session.id)),
+					...sessions.filter(
+						(session) => !visibleTerminalSessionIds.includes(session.id),
+					),
 				]
 			: sessions;
 
@@ -603,7 +706,8 @@ export function App() {
 		}
 
 		// Dormant — hydrate it
-		const { workspaceId: openedId, repository } = await workspace.openRepository(target.repository.rootPath);
+		const { workspaceId: openedId, repository } =
+			await workspace.openRepository(target.repository.rootPath);
 		const newWorktrees = await repositoryClient.listWorktrees(openedId);
 
 		// Apply persisted snapshot if available
@@ -611,14 +715,25 @@ export function App() {
 		let nextWorkspaceState = createWorkspaceState(newWorktrees);
 		let reconciledSnapshot: WorkspaceSnapshot | null = null;
 		if (snapshot) {
-			const rebasedSnapshot = rebaseSnapshotPaths(snapshot, snapshot.repositoryPath, repository.rootPath);
-			reconciledSnapshot = reconcileSnapshotToWorktrees(rebasedSnapshot, snapshot, newWorktrees);
-			nextWorkspaceState = workspaceReducer(createWorkspaceState(newWorktrees), {
-				type: "workspace/restoreSnapshot",
-				worktrees: newWorktrees,
-				snapshot: reconciledSnapshot,
-				workspaceId: openedId,
-			});
+			const rebasedSnapshot = rebaseSnapshotPaths(
+				snapshot,
+				snapshot.repositoryPath,
+				repository.rootPath,
+			);
+			reconciledSnapshot = reconcileSnapshotToWorktrees(
+				rebasedSnapshot,
+				snapshot,
+				newWorktrees,
+			);
+			nextWorkspaceState = workspaceReducer(
+				createWorkspaceState(newWorktrees),
+				{
+					type: "workspace/restoreSnapshot",
+					worktrees: newWorktrees,
+					snapshot: reconciledSnapshot,
+					workspaceId: openedId,
+				},
+			);
 		}
 
 		dispatchAppWorkspaces({
@@ -645,11 +760,14 @@ export function App() {
 		activeWorkspaceStateRef.current = nextWorkspaceState;
 
 		if (reconciledSnapshot) {
-			const { selectedSession, pendingByWorktreeId } = splitPendingRestores(reconciledSnapshot);
+			const { selectedSession, pendingByWorktreeId } =
+				splitPendingRestores(reconciledSnapshot);
 			setPendingRestoreSessions(pendingByWorktreeId);
 			setSavedSnapshot(reconciledSnapshot);
 			const selectedWorktree = reconciledSnapshot.selectedWorktreeId
-				? newWorktrees.find((wt) => wt.id === reconciledSnapshot!.selectedWorktreeId) ?? null
+				? (newWorktrees.find(
+						(wt) => wt.id === reconciledSnapshot!.selectedWorktreeId,
+					) ?? null)
 				: null;
 			if (selectedWorktree && selectedSession) {
 				// Build a scoped dispatch pinned to openedId. If the user switches
@@ -667,7 +785,12 @@ export function App() {
 						workspaceState: localShadow.current,
 					});
 				};
-				await recreatePersistedProcesses(selectedWorktree, selectedSession, openedId, scopedDispatch);
+				await recreatePersistedProcesses(
+					selectedWorktree,
+					selectedSession,
+					openedId,
+					scopedDispatch,
+				);
 			}
 		}
 
@@ -705,7 +828,11 @@ export function App() {
 				newRepo.rootPath,
 			);
 			const nextSnapshot: WorkspaceSnapshot = {
-				...reconcileSnapshotToWorktrees(rebasedSnapshot, originalSnapshot, newWorktrees),
+				...reconcileSnapshotToWorktrees(
+					rebasedSnapshot,
+					originalSnapshot,
+					newWorktrees,
+				),
 				repositoryPath: newRepo.rootPath,
 				repoId: newRepo.repoId,
 			};
@@ -730,23 +857,33 @@ export function App() {
 					loadError: null,
 				},
 			});
-			dispatchAppWorkspaces({ type: "workspace/select", workspaceId: newWorkspaceId });
+			dispatchAppWorkspaces({
+				type: "workspace/select",
+				workspaceId: newWorkspaceId,
+			});
 
 			// Prime the shadow ref so async dispatch calls during recreatePersistedProcesses
 			// see the correct initial state rather than a stale pre-render snapshot.
 			prevActiveWorkspaceIdRef.current = newWorkspaceId;
 			activeWorkspaceStateRef.current = stateWithSnapshot;
 
-			const { selectedSession, pendingByWorktreeId } = splitPendingRestores(nextSnapshot);
+			const { selectedSession, pendingByWorktreeId } =
+				splitPendingRestores(nextSnapshot);
 			setPendingRestoreSessions(pendingByWorktreeId);
 			setSavedSnapshot(nextSnapshot);
 
-			const selectedWorktree = newWorktrees.find((w) => w.id === nextSnapshot.selectedWorktreeId);
+			const selectedWorktree = newWorktrees.find(
+				(w) => w.id === nextSnapshot.selectedWorktreeId,
+			);
 			const degradedNote = !newRepo.repoId
 				? " Repository identity could not be verified — future recovery will rely on folder name matching."
 				: "";
 			if (selectedWorktree && selectedSession) {
-				await recreatePersistedProcesses(selectedWorktree, selectedSession, newWorkspaceId);
+				await recreatePersistedProcesses(
+					selectedWorktree,
+					selectedSession,
+					newWorkspaceId,
+				);
 				setRestoreWarning(
 					`Recovered your previous workspace after the repository path changed.${degradedNote}`,
 				);
@@ -769,7 +906,8 @@ export function App() {
 
 		// Normal load (no reattachment)
 		const existing = appWorkspaces.workspacesById[newWorkspaceId];
-		const initialState = existing?.workspaceState ?? createWorkspaceState(newWorktrees);
+		const initialState =
+			existing?.workspaceState ?? createWorkspaceState(newWorktrees);
 		const freshState = workspaceReducer(initialState, {
 			type: "workspace/loadWorktrees",
 			worktrees: newWorktrees,
@@ -787,7 +925,10 @@ export function App() {
 				loadError: null,
 			},
 		});
-		dispatchAppWorkspaces({ type: "workspace/select", workspaceId: newWorkspaceId });
+		dispatchAppWorkspaces({
+			type: "workspace/select",
+			workspaceId: newWorkspaceId,
+		});
 
 		// Prime the shadow ref for any async dispatch calls that follow.
 		prevActiveWorkspaceIdRef.current = newWorkspaceId;
@@ -831,7 +972,10 @@ export function App() {
 					loadError: null,
 				},
 			});
-			dispatchAppWorkspaces({ type: "workspace/select", workspaceId: restoredWorkspaceId });
+			dispatchAppWorkspaces({
+				type: "workspace/select",
+				workspaceId: restoredWorkspaceId,
+			});
 
 			// Prime the shadow ref so async dispatch calls during recreatePersistedProcesses
 			// see the correct initial state rather than a stale pre-render snapshot.
@@ -847,7 +991,9 @@ export function App() {
 						workspaceId: saved.workspaceId,
 						repository: {
 							id: saved.workspaceId,
-							name: saved.repositoryPath.split("/").filter(Boolean).at(-1) ?? saved.repositoryPath,
+							name:
+								saved.repositoryPath.split("/").filter(Boolean).at(-1) ??
+								saved.repositoryPath,
 							rootPath: saved.repositoryPath,
 							repoId: saved.repoId ?? null,
 						},
@@ -860,7 +1006,8 @@ export function App() {
 				});
 			}
 
-			const { selectedSession, pendingByWorktreeId } = splitPendingRestores(snapshot);
+			const { selectedSession, pendingByWorktreeId } =
+				splitPendingRestores(snapshot);
 			setPendingRestoreSessions(pendingByWorktreeId);
 			setRestorePreference(nextPreference);
 			setSavedSnapshot(snapshot);
@@ -871,7 +1018,11 @@ export function App() {
 				(worktree) => worktree.id === (snapshot.selectedWorktreeId ?? ""),
 			);
 			if (selectedWorktree && selectedSession) {
-				await recreatePersistedProcesses(selectedWorktree, selectedSession, restoredWorkspaceId);
+				await recreatePersistedProcesses(
+					selectedWorktree,
+					selectedSession,
+					restoredWorkspaceId,
+				);
 			} else if (snapshot.selectedWorktreeId && !selectedWorktree) {
 				setRestoreWarning(
 					"Previously selected worktree is no longer available. Opened the first available session instead.",
@@ -902,12 +1053,14 @@ export function App() {
 				activeWorkspaceId: null,
 				workspaceOrder: [],
 				workspaces: snapshot
-					? [{
-						workspaceId: "fallback",
-						repositoryPath: snapshot.repositoryPath,
-						repoId: snapshot.repoId ?? null,
-						snapshot,
-					}]
+					? [
+							{
+								workspaceId: "fallback",
+								repositoryPath: snapshot.repositoryPath,
+								repoId: snapshot.repoId ?? null,
+								snapshot,
+							},
+						]
 					: [],
 			};
 			void workspace.writeRestoreState(fallbackState);
@@ -923,10 +1076,21 @@ export function App() {
 	) {
 		let liveSessions: Map<string, TerminalSession> = new Map();
 		try {
-			void logRendererShellEvent({ event: "renderer-reconnect-list-start", windowId: null, data: { targetWorkspaceId } });
+			void logRendererShellEvent({
+				event: "renderer-reconnect-list-start",
+				windowId: null,
+				data: { targetWorkspaceId },
+			});
 			const list = await terminals.list(targetWorkspaceId);
 			liveSessions = new Map(list.map((session) => [session.id, session]));
-			void logRendererShellEvent({ event: "renderer-reconnect-list-success", windowId: null, data: { targetWorkspaceId, liveBackendSessionIds: list.map((s) => s.id) } });
+			void logRendererShellEvent({
+				event: "renderer-reconnect-list-success",
+				windowId: null,
+				data: {
+					targetWorkspaceId,
+					liveBackendSessionIds: list.map((s) => s.id),
+				},
+			});
 		} catch {
 			// Fall back to fresh creation when the backend cannot enumerate sessions.
 		}
@@ -938,14 +1102,24 @@ export function App() {
 					: undefined;
 
 				if (liveSession) {
-					void logRendererShellEvent({ event: "renderer-reconnect-adopt", windowId: null, reasonKind: "system_reconnect", reason: "renderer_reload", data: { terminalSessionId: liveSession.id, processId: process.id } });
+					void logRendererShellEvent({
+						event: "renderer-reconnect-adopt",
+						windowId: null,
+						reasonKind: "system_reconnect",
+						reason: "renderer_reload",
+						data: { terminalSessionId: liveSession.id, processId: process.id },
+					});
 					void logBindingChange({
 						reasonKind: "system_reconnect",
 						reason: "renderer_reload",
 						isExpected: true,
 						expectedBecause: "renderer_reload_reconnect",
 						previousBinding: null,
-						nextBinding: { terminalSessionId: liveSession.id, processId: process.id, targetWorkspaceId },
+						nextBinding: {
+							terminalSessionId: liveSession.id,
+							processId: process.id,
+							targetWorkspaceId,
+						},
 					});
 					adoptSession(liveSession);
 					dispatchFn({
@@ -966,8 +1140,18 @@ export function App() {
 						exitCode: liveSession.exitCode,
 					});
 				} else {
-					void logRendererShellEvent({ event: "renderer-reconnect-fallback-create", windowId: null, reasonKind: "system_reconnect", reason: "renderer_reload", data: { processId: process.id, worktreeId: worktree.id } });
-					const terminal = await createSession(targetWorkspaceId, worktree.id, worktree.path);
+					void logRendererShellEvent({
+						event: "renderer-reconnect-fallback-create",
+						windowId: null,
+						reasonKind: "system_reconnect",
+						reason: "renderer_reload",
+						data: { processId: process.id, worktreeId: worktree.id },
+					});
+					const terminal = await createSession(
+						targetWorkspaceId,
+						worktree.id,
+						worktree.path,
+					);
 					dispatchFn({
 						type: "session/replaceProcessTerminal",
 						processId: process.id,
@@ -1028,19 +1212,29 @@ export function App() {
 			);
 
 			// For the active workspace, include orphaned pending sessions
-			if (ws.workspaceId === appWorkspaces.activeWorkspaceId && Object.keys(pendingRestoreSessions).length > 0) {
-				const baseIds = new Set(base.snapshot.worktreeSessions.map((s) => s.worktreeId));
+			if (
+				ws.workspaceId === appWorkspaces.activeWorkspaceId &&
+				Object.keys(pendingRestoreSessions).length > 0
+			) {
+				const baseIds = new Set(
+					base.snapshot.worktreeSessions.map((s) => s.worktreeId),
+				);
 				const orphaned = Object.values(pendingRestoreSessions).filter(
 					(s) => !baseIds.has(s.worktreeId),
 				);
 				if (orphaned.length > 0) {
-					return [{
-						...base,
-						snapshot: {
-							...base.snapshot,
-							worktreeSessions: [...base.snapshot.worktreeSessions, ...orphaned],
+					return [
+						{
+							...base,
+							snapshot: {
+								...base.snapshot,
+								worktreeSessions: [
+									...base.snapshot.worktreeSessions,
+									...orphaned,
+								],
+							},
 						},
-					}];
+					];
 				}
 			}
 
@@ -1052,12 +1246,14 @@ export function App() {
 		// the next launch. This mirrors the v1 behavior of keeping snapshot alive.
 		const effectiveWorkspaces =
 			workspaces.length === 0 && savedSnapshot
-				? [{
-					workspaceId: "fallback",
-					repositoryPath: savedSnapshot.repositoryPath,
-					repoId: savedSnapshot.repoId ?? null,
-					snapshot: savedSnapshot,
-				}]
+				? [
+						{
+							workspaceId: "fallback",
+							repositoryPath: savedSnapshot.repositoryPath,
+							repoId: savedSnapshot.repoId ?? null,
+							snapshot: savedSnapshot,
+						},
+					]
 				: workspaces;
 
 		return {
@@ -1067,7 +1263,7 @@ export function App() {
 			workspaceOrder: appWorkspaces.workspaceOrder,
 			workspaces: effectiveWorkspaces,
 		};
-	// eslint-disable-next-line react-hooks/exhaustive-deps -- deep equality via JSON for change detection
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- deep equality via JSON for change detection
 	}, [appWorkspaces, restorePreference, pendingRestoreSessions, savedSnapshot]);
 
 	const persistableStateJson = useMemo(
@@ -1098,30 +1294,40 @@ export function App() {
 			defaultShellEnsuredByWorktreeRef.current.delete(activeWorktree.id);
 		});
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- guarded one-time default shell creation per worktree
-	}, [startupMode, activeWorktree?.id, activeSession?.processSessionIds.length]);
+	}, [
+		startupMode,
+		activeWorktree?.id,
+		activeSession?.processSessionIds.length,
+	]);
 
 	// Fetch git summary when active worktree changes or user refreshes
 	useEffect(() => {
 		if (!activeWorktree?.path) return;
 		let cancelled = false;
 
-		dispatch({ type: "session/startGitSummaryRefresh", worktreeId: activeWorktree.id });
-
-		git.readSummary(activeWorktree.path).then((summary) => {
-			if (cancelled) return;
-			dispatch({
-				type: "session/cacheGitSummarySuccess",
-				worktreeId: activeWorktree.id,
-				gitSummary: summary,
-			});
-		}).catch((err) => {
-			if (cancelled) return;
-			dispatch({
-				type: "session/cacheGitSummaryFailure",
-				worktreeId: activeWorktree.id,
-				message: err instanceof Error ? err.message : String(err),
-			});
+		dispatch({
+			type: "session/startGitSummaryRefresh",
+			worktreeId: activeWorktree.id,
 		});
+
+		git
+			.readSummary(activeWorktree.path)
+			.then((summary) => {
+				if (cancelled) return;
+				dispatch({
+					type: "session/cacheGitSummarySuccess",
+					worktreeId: activeWorktree.id,
+					gitSummary: summary,
+				});
+			})
+			.catch((err) => {
+				if (cancelled) return;
+				dispatch({
+					type: "session/cacheGitSummaryFailure",
+					worktreeId: activeWorktree.id,
+					message: err instanceof Error ? err.message : String(err),
+				});
+			});
 
 		return () => {
 			cancelled = true;
@@ -1137,17 +1343,21 @@ export function App() {
 		let cancelled = false;
 		const timeoutId = window.setTimeout(() => {
 			setCreateLoading(true);
-			repositoryClient.previewCreateWorktree(activeWorkspaceId, createName).then((preview) => {
-				if (cancelled) return;
-				setCreatePreview(preview);
-				setCreateError(null);
-			}).catch((err) => {
-				if (cancelled) return;
-				setCreatePreview(null);
-				setCreateError(err instanceof Error ? err.message : String(err));
-			}).finally(() => {
-				if (!cancelled) setCreateLoading(false);
-			});
+			repositoryClient
+				.previewCreateWorktree(activeWorkspaceId, createName)
+				.then((preview) => {
+					if (cancelled) return;
+					setCreatePreview(preview);
+					setCreateError(null);
+				})
+				.catch((err) => {
+					if (cancelled) return;
+					setCreatePreview(null);
+					setCreateError(err instanceof Error ? err.message : String(err));
+				})
+				.finally(() => {
+					if (!cancelled) setCreateLoading(false);
+				});
 		}, 350);
 		return () => {
 			cancelled = true;
@@ -1162,18 +1372,23 @@ export function App() {
 			return;
 		}
 		let cancelled = false;
-		repositoryClient.previewRemoveWorktree(activeWorkspaceId, removeTargetId).then((preview) => {
-			if (!cancelled) {
-				setRemovePreview(preview);
-				setRemoveError(null);
-			}
-		}).catch((err) => {
-			if (!cancelled) {
-				setRemovePreview(null);
-				setRemoveError(err instanceof Error ? err.message : String(err));
-			}
-		});
-		return () => { cancelled = true; };
+		repositoryClient
+			.previewRemoveWorktree(activeWorkspaceId, removeTargetId)
+			.then((preview) => {
+				if (!cancelled) {
+					setRemovePreview(preview);
+					setRemoveError(null);
+				}
+			})
+			.catch((err) => {
+				if (!cancelled) {
+					setRemovePreview(null);
+					setRemoveError(err instanceof Error ? err.message : String(err));
+				}
+			});
+		return () => {
+			cancelled = true;
+		};
 	}, [removeDialogOpen, removeTargetId]);
 
 	async function refreshWorktreeInventory(options?: {
@@ -1183,17 +1398,21 @@ export function App() {
 		if (!repository || !activeWorkspaceId) return;
 		const latest = await repositoryClient.listWorktrees(activeWorkspaceId);
 		const latestIds = new Set(latest.map((worktree) => worktree.id));
-		const skipCleanupIds = new Set(options?.skipRuntimeCleanupWorktreeIds ?? []);
+		const skipCleanupIds = new Set(
+			options?.skipRuntimeCleanupWorktreeIds ?? [],
+		);
 		const removedWorktreeIds = worktreesRef.current
 			.filter((worktree) => !latestIds.has(worktree.id))
 			.filter((worktree) => !skipCleanupIds.has(worktree.id))
 			.map((worktree) => worktree.id);
 
 		for (const removedWorktreeId of removedWorktreeIds) {
-			const removedSession = workspaceStateRef.current.sessionsByWorktreeId[removedWorktreeId];
+			const removedSession =
+				workspaceStateRef.current.sessionsByWorktreeId[removedWorktreeId];
 			if (!removedSession) continue;
 			for (const processId of removedSession.processSessionIds) {
-				const process = workspaceStateRef.current.processSessionsById[processId];
+				const process =
+					workspaceStateRef.current.processSessionsById[processId];
 				if (!process?.terminalSessionId) continue;
 				try {
 					await stopSession(process.terminalSessionId);
@@ -1207,7 +1426,8 @@ export function App() {
 
 		// Update the active workspace's worktrees list in appWorkspaces
 		if (appWorkspaces.activeWorkspaceId) {
-			const currentWs = appWorkspaces.workspacesById[appWorkspaces.activeWorkspaceId];
+			const currentWs =
+				appWorkspaces.workspacesById[appWorkspaces.activeWorkspaceId];
 			if (currentWs) {
 				const reconciled = workspaceReducer(workspaceStateRef.current, {
 					type: "workspace/reconcileWorktrees",
@@ -1227,7 +1447,10 @@ export function App() {
 			}
 		}
 
-		if (options?.preferredSelectedWorktreeId && latestIds.has(options.preferredSelectedWorktreeId)) {
+		if (
+			options?.preferredSelectedWorktreeId &&
+			latestIds.has(options.preferredSelectedWorktreeId)
+		) {
 			dispatch({
 				type: "session/selectWorktree",
 				worktreeId: options.preferredSelectedWorktreeId,
@@ -1308,7 +1531,13 @@ export function App() {
 	}, []);
 
 	useEffect(() => {
-		if (startupMode !== "ready" || !repository || !activeWorktree || !windowFocused) return;
+		if (
+			startupMode !== "ready" ||
+			!repository ||
+			!activeWorktree ||
+			!windowFocused
+		)
+			return;
 
 		const interval = window.setInterval(() => {
 			void handleRefreshChanges();
@@ -1332,9 +1561,7 @@ export function App() {
 		}
 	}, [windowFocused, startupMode, repository?.rootPath, activeWorktree?.id]);
 
-	function handleReviewRailResizeStart(
-		event: ReactMouseEvent<HTMLDivElement>,
-	) {
+	function handleReviewRailResizeStart(event: ReactMouseEvent<HTMLDivElement>) {
 		event.preventDefault();
 		const startX = event.clientX;
 		const startWidth = reviewRailWidth;
@@ -1356,9 +1583,7 @@ export function App() {
 		window.addEventListener("mouseup", handleMouseUp);
 	}
 
-	function handleSidebarResizeStart(
-		event: ReactMouseEvent<HTMLDivElement>,
-	) {
+	function handleSidebarResizeStart(event: ReactMouseEvent<HTMLDivElement>) {
 		event.preventDefault();
 		const startX = event.clientX;
 		const startWidth = sidebarWidth;
@@ -1420,7 +1645,8 @@ export function App() {
 		const targetWorkspaceId = targetContext?.workspaceId ?? activeWorkspaceId;
 		if (!targetWorkspaceId) return;
 		const targetWorktrees = targetContext?.worktrees ?? worktrees;
-		const targetWorkspaceState = targetContext?.workspaceState ?? workspaceState;
+		const targetWorkspaceState =
+			targetContext?.workspaceState ?? workspaceState;
 
 		void logRendererShellEvent({
 			event: "worktree-select",
@@ -1447,7 +1673,11 @@ export function App() {
 
 		const pending = pendingRestoreSessions[worktreeId];
 		if (pending) {
-			dispatch({ type: "session/restoreSnapshot", workspaceId: targetWorkspaceId, snapshot: pending });
+			dispatch({
+				type: "session/restoreSnapshot",
+				workspaceId: targetWorkspaceId,
+				snapshot: pending,
+			});
 			setPendingRestoreSessions((prev) => {
 				const next = { ...prev };
 				delete next[worktreeId];
@@ -1487,8 +1717,12 @@ export function App() {
 		}
 	}
 
-	async function handleSelectSidebarWorktree(workspaceId: string, worktreeId: string) {
-		const isCrossWorkspace = workspaceId !== appWorkspacesRef.current.activeWorkspaceId;
+	async function handleSelectSidebarWorktree(
+		workspaceId: string,
+		worktreeId: string,
+	) {
+		const isCrossWorkspace =
+			workspaceId !== appWorkspacesRef.current.activeWorkspaceId;
 		if (isCrossWorkspace) {
 			void logRendererShellEvent({
 				event: "workspace-select",
@@ -1528,8 +1762,13 @@ export function App() {
 		if (!createPreview || !activeWorkspaceId) return;
 		setCreateBusy(true);
 		try {
-			const created = await repositoryClient.createWorktree(activeWorkspaceId, createName);
-			await refreshWorktreeInventory({ preferredSelectedWorktreeId: created.id });
+			const created = await repositoryClient.createWorktree(
+				activeWorkspaceId,
+				createName,
+			);
+			await refreshWorktreeInventory({
+				preferredSelectedWorktreeId: created.id,
+			});
 			setCreateDialogOpen(false);
 			setCreateName("");
 			setCreatePreview(null);
@@ -1567,7 +1806,10 @@ export function App() {
 		setRemoveBusy(true);
 		try {
 			await closeProcessesForWorktree(removePreview.worktreeId);
-			await repositoryClient.removeWorktree(activeWorkspaceId, removePreview.worktreeId);
+			await repositoryClient.removeWorktree(
+				activeWorkspaceId,
+				removePreview.worktreeId,
+			);
 			await refreshWorktreeInventory({
 				skipRuntimeCleanupWorktreeIds: [removePreview.worktreeId],
 			});
@@ -1601,13 +1843,15 @@ export function App() {
 		git
 			.readDiff(activeWorktree.path, activeSession.selectedChangedFilePath)
 			.then((result) => {
-				if (!cancelled) setDiffState({ data: result, stale: false, message: null });
+				if (!cancelled)
+					setDiffState({ data: result, stale: false, message: null });
 			})
 			.catch(() => {
 				if (!cancelled) {
 					const requestedPath = activeSession.selectedChangedFilePath;
 					setDiffState((prev) => {
-						const canPreserve = prev.data !== null && prev.data.path === requestedPath;
+						const canPreserve =
+							prev.data !== null && prev.data.path === requestedPath;
 						return {
 							data: canPreserve ? prev.data : null,
 							stale: canPreserve,
@@ -1621,11 +1865,7 @@ export function App() {
 		return () => {
 			cancelled = true;
 		};
-	}, [
-		activeWorktree?.path,
-		activeSession?.selectedChangedFilePath,
-		changes,
-	]);
+	}, [activeWorktree?.path, activeSession?.selectedChangedFilePath, changes]);
 
 	// Fetch commit history when active worktree changes or after refresh
 	useEffect(() => {
@@ -1635,27 +1875,38 @@ export function App() {
 		}
 		let cancelled = false;
 		setCommitHistoryState((prev) => ({ ...prev, message: null }));
-		git.readCommitHistory(activeWorktree.path).then((history) => {
-			if (cancelled) return;
-			// Clear the selected commit if it's no longer in the refreshed history
-			if (
-				activeSession?.selectedCommitSha &&
-				!history.entries.some((e) => e.sha === activeSession.selectedCommitSha)
-			) {
-				dispatch({ type: "session/clearSelectedCommit", worktreeId: activeWorktree.id });
-			}
-			setCommitHistoryState({ data: history, stale: false, message: null });
-		}).catch(() => {
-			if (cancelled) return;
-			setCommitHistoryState((prev) => ({
-				...prev,
-				stale: prev.data !== null,
-				message: prev.data === null
-					? "Couldn't load commit history."
-					: "Couldn't refresh commit history. Showing last successful result.",
-			}));
-		});
-		return () => { cancelled = true; };
+		git
+			.readCommitHistory(activeWorktree.path)
+			.then((history) => {
+				if (cancelled) return;
+				// Clear the selected commit if it's no longer in the refreshed history
+				if (
+					activeSession?.selectedCommitSha &&
+					!history.entries.some(
+						(e) => e.sha === activeSession.selectedCommitSha,
+					)
+				) {
+					dispatch({
+						type: "session/clearSelectedCommit",
+						worktreeId: activeWorktree.id,
+					});
+				}
+				setCommitHistoryState({ data: history, stale: false, message: null });
+			})
+			.catch(() => {
+				if (cancelled) return;
+				setCommitHistoryState((prev) => ({
+					...prev,
+					stale: prev.data !== null,
+					message:
+						prev.data === null
+							? "Couldn't load commit history."
+							: "Couldn't refresh commit history. Showing last successful result.",
+				}));
+			});
+		return () => {
+			cancelled = true;
+		};
 	}, [activeWorktree?.id, activeWorktree?.path, refreshKey]);
 
 	// Fetch remote status when active worktree changes or after refresh
@@ -1665,14 +1916,19 @@ export function App() {
 			return;
 		}
 		let cancelled = false;
-		git.getRemoteStatus(activeWorktree.path).then((status) => {
-			if (cancelled) return;
-			setRemoteStatus(status);
-		}).catch(() => {
-			if (cancelled) return;
-			setRemoteStatus(null);
-		});
-		return () => { cancelled = true; };
+		git
+			.getRemoteStatus(activeWorktree.path)
+			.then((status) => {
+				if (cancelled) return;
+				setRemoteStatus(status);
+			})
+			.catch(() => {
+				if (cancelled) return;
+				setRemoteStatus(null);
+			});
+		return () => {
+			cancelled = true;
+		};
 	}, [activeWorktree?.id, activeWorktree?.path, refreshKey]);
 
 	// Fetch commit detail when selected commit changes
@@ -1683,26 +1939,32 @@ export function App() {
 		}
 		let cancelled = false;
 		setCommitDetailState((prev) => ({ ...prev, message: null }));
-		git.readCommitDetail(activeWorktree.path, activeSession.selectedCommitSha).then((detail) => {
-			if (!cancelled) {
-				setCommitDetailState({ data: detail, stale: false, message: null });
-			}
-		}).catch(() => {
-			if (!cancelled) {
-				const requestedSha = activeSession.selectedCommitSha;
-				setCommitDetailState((prev) => {
-					const canPreserve = prev.data !== null && prev.data.sha === requestedSha;
-					return {
-						data: canPreserve ? prev.data : null,
-						stale: canPreserve,
-						message: canPreserve
-							? "Couldn't refresh commit detail. Showing last successful result."
-							: "Couldn't load commit detail.",
-					};
-				});
-			}
-		});
-		return () => { cancelled = true; };
+		git
+			.readCommitDetail(activeWorktree.path, activeSession.selectedCommitSha)
+			.then((detail) => {
+				if (!cancelled) {
+					setCommitDetailState({ data: detail, stale: false, message: null });
+				}
+			})
+			.catch(() => {
+				if (!cancelled) {
+					const requestedSha = activeSession.selectedCommitSha;
+					setCommitDetailState((prev) => {
+						const canPreserve =
+							prev.data !== null && prev.data.sha === requestedSha;
+						return {
+							data: canPreserve ? prev.data : null,
+							stale: canPreserve,
+							message: canPreserve
+								? "Couldn't refresh commit detail. Showing last successful result."
+								: "Couldn't load commit detail.",
+						};
+					});
+				}
+			});
+		return () => {
+			cancelled = true;
+		};
 	}, [activeWorktree?.path, activeSession?.selectedCommitSha]);
 
 	function handleSelectChangedFile(relativePath: string) {
@@ -1727,7 +1989,8 @@ export function App() {
 			const targetWorkspaceState = getWorkspaceStateById(targetWorkspaceId);
 			if (!targetWorkspaceState) return;
 			const adHocNumber =
-				targetWorkspaceState.nextAdHocNumberByWorktreeId[targetWorktree.id] ?? 1;
+				targetWorkspaceState.nextAdHocNumberByWorktreeId[targetWorktree.id] ??
+				1;
 			const process: ProcessSession = {
 				id: crypto.randomUUID(),
 				workspaceId: targetWorkspaceId,
@@ -1736,13 +1999,13 @@ export function App() {
 				origin: "adHoc",
 				presetId: null,
 				label: `shell ${adHocNumber}`,
-					command: null,
-					status: "running",
-					lastActivityAt: null,
-					lastOutputPreview: null,
-					exitCode: null,
-					pinned: false,
-					attentionState: "idle",
+				command: null,
+				status: "running",
+				lastActivityAt: null,
+				lastOutputPreview: null,
+				exitCode: null,
+				pinned: false,
+				attentionState: "idle",
 			};
 			createScopedWorkspaceDispatch(targetWorkspaceId)({
 				type: "session/registerProcess",
@@ -1771,13 +2034,13 @@ export function App() {
 				) {
 					await stopSession(terminalId);
 				}
-				} catch (err) {
-					console.error("Failed to stop terminal session:", err);
-				} finally {
-					outputPreviewBuffersRef.current.delete(terminalId);
-					removeSession(terminalId);
-				}
+			} catch (err) {
+				console.error("Failed to stop terminal session:", err);
+			} finally {
+				outputPreviewBuffersRef.current.delete(terminalId);
+				removeSession(terminalId);
 			}
+		}
 		createScopedWorkspaceDispatch(targetWorkspaceId)({
 			type: "session/closeProcess",
 			worktreeId: targetWorktreeId,
@@ -1807,13 +2070,13 @@ export function App() {
 				origin: "preset",
 				presetId: preset.id,
 				label: preset.label,
-					command: preset.command,
-					status: "running",
-					lastActivityAt: null,
-					lastOutputPreview: null,
-					exitCode: null,
-					pinned: true,
-					attentionState: "idle",
+				command: preset.command,
+				status: "running",
+				lastActivityAt: null,
+				lastOutputPreview: null,
+				exitCode: null,
+				pinned: true,
+				attentionState: "idle",
 			},
 		});
 		await sendInput(terminal.id, `${preset.command}\n`);
@@ -1846,7 +2109,8 @@ export function App() {
 			targetWorktree.id,
 			targetWorktree.path,
 		);
-		const dispatchToTargetWorkspace = createScopedWorkspaceDispatch(targetWorkspaceId);
+		const dispatchToTargetWorkspace =
+			createScopedWorkspaceDispatch(targetWorkspaceId);
 		dispatchToTargetWorkspace({
 			type: "session/replaceProcessTerminal",
 			processId,
@@ -1888,12 +2152,14 @@ export function App() {
 				activeWorkspaceId: null,
 				workspaceOrder: savedSnapshot ? ["fallback"] : [],
 				workspaces: savedSnapshot
-					? [{
-						workspaceId: "fallback",
-						repositoryPath: savedSnapshot.repositoryPath,
-						repoId: savedSnapshot.repoId ?? null,
-						snapshot: savedSnapshot,
-					}]
+					? [
+							{
+								workspaceId: "fallback",
+								repositoryPath: savedSnapshot.repositoryPath,
+								repoId: savedSnapshot.repoId ?? null,
+								snapshot: savedSnapshot,
+							},
+						]
 					: [],
 			};
 			await workspace.writeRestoreState(nextState);
@@ -1902,7 +2168,11 @@ export function App() {
 		}
 
 		if (savedSnapshot) {
-			await restoreWorkspace(savedSnapshot, nextPreference, savedDormantWorkspaces);
+			await restoreWorkspace(
+				savedSnapshot,
+				nextPreference,
+				savedDormantWorkspaces,
+			);
 		}
 	}
 
@@ -1913,9 +2183,9 @@ export function App() {
 			dispatchAppWorkspaces({ type: "workspace/remove", workspaceId: wsId });
 			return;
 		}
-		const liveSessions = Object.values(ws.workspaceState.processSessionsById).filter(
-			(p) => p.status === "running" && p.terminalSessionId !== null,
-		);
+		const liveSessions = Object.values(
+			ws.workspaceState.processSessionsById,
+		).filter((p) => p.status === "running" && p.terminalSessionId !== null);
 		if (liveSessions.length > 0) {
 			const confirmed = window.confirm(
 				`"${ws.repository.name}" has ${liveSessions.length} active terminal(s). Remove it and stop all running terminals?`,
@@ -1930,19 +2200,19 @@ export function App() {
 		dispatchAppWorkspaces({ type: "workspace/remove", workspaceId: wsId });
 	}
 
-	const sidebarWorkspaces: SessionSidebarWorkspace[] = appWorkspaces.workspaceOrder
-		.map((id) => appWorkspaces.workspacesById[id])
-		.filter((ws): ws is NonNullable<typeof ws> => ws != null)
-		.map((ws) => ({
-			workspaceId: ws.workspaceId,
-			name: ws.repository.name,
-			worktrees: ws.worktrees,
-			selectedWorktreeId:
-				ws.workspaceState?.selectedWorktreeId ??
-				ws.persistedSnapshot?.snapshot.selectedWorktreeId ??
-				null,
-			attentionByWorktreeId:
-				ws.workspaceState
+	const sidebarWorkspaces: SessionSidebarWorkspace[] =
+		appWorkspaces.workspaceOrder
+			.map((id) => appWorkspaces.workspacesById[id])
+			.filter((ws): ws is NonNullable<typeof ws> => ws != null)
+			.map((ws) => ({
+				workspaceId: ws.workspaceId,
+				name: ws.repository.name,
+				worktrees: ws.worktrees,
+				selectedWorktreeId:
+					ws.workspaceState?.selectedWorktreeId ??
+					ws.persistedSnapshot?.snapshot.selectedWorktreeId ??
+					null,
+				attentionByWorktreeId: ws.workspaceState
 					? Object.fromEntries(
 							Object.entries(ws.workspaceState.sessionsByWorktreeId).map(
 								([worktreeId, session]) => [worktreeId, session.attentionState],
@@ -1963,10 +2233,10 @@ export function App() {
 								},
 							),
 						)
-				: {},
-			active: ws.workspaceId === activeWorkspaceId,
-			hydrated: ws.workspaceState !== null,
-		}));
+					: {},
+				active: ws.workspaceId === activeWorkspaceId,
+				hydrated: ws.workspaceState !== null,
+			}));
 
 	if (startupMode === "loading") {
 		return (
@@ -2067,7 +2337,9 @@ export function App() {
 					{activeWorktree && activeSession && (
 						<section
 							className="shell-panel shell-top-band"
-							data-collapsed={workspaceState.topBandCollapsed ? "true" : "false"}
+							data-collapsed={
+								workspaceState.topBandCollapsed ? "true" : "false"
+							}
 						>
 							<button
 								type="button"
@@ -2119,16 +2391,16 @@ export function App() {
 
 					{workspaceState.selectedWorktreeId && (
 						<section className="shell-panel shell-terminal-section">
-								<TerminalTabs
-									processes={activeProcesses.map((p) => ({
-											id: p.id,
-											label: p.label,
-											status: p.status,
-											pinned: p.pinned,
-											attentionState: p.attentionState,
-										exitCode: p.exitCode,
-										lastActivityAt: p.lastActivityAt,
-									}))}
+							<TerminalTabs
+								processes={activeProcesses.map((p) => ({
+									id: p.id,
+									label: p.label,
+									status: p.status,
+									pinned: p.pinned,
+									attentionState: p.attentionState,
+									exitCode: p.exitCode,
+									lastActivityAt: p.lastActivityAt,
+								}))}
 								activeProcessId={activeSession?.activeProcessSessionId ?? null}
 								presets={workspaceState.commandPresets}
 								layoutMode={activeSession?.terminalLayoutMode ?? "single"}
@@ -2189,7 +2461,8 @@ export function App() {
 								}
 							>
 								{orderedSessions.map((session) => {
-									const process = findProcessByTerminalSessionId(session.id)?.process ?? null;
+									const process =
+										findProcessByTerminalSessionId(session.id)?.process ?? null;
 									return (
 										<TerminalPane
 											key={session.id}
@@ -2213,7 +2486,11 @@ export function App() {
 												});
 											}}
 											onActivate={() => {
-												if (!process || process.worktreeId !== activeWorktree?.id) return;
+												if (
+													!process ||
+													process.worktreeId !== activeWorktree?.id
+												)
+													return;
 												selectActiveProcess(process.id);
 											}}
 										/>
@@ -2229,8 +2506,8 @@ export function App() {
 												onMouseDown={() => undefined}
 											>
 												<p className="shell-empty-state">
-													No shell assigned to this split pane. Use a tab menu to show one
-													here.
+													No shell assigned to this split pane. Use a tab menu
+													to show one here.
 												</p>
 											</div>
 										)}
@@ -2241,26 +2518,27 @@ export function App() {
 												onMouseDown={() => undefined}
 											>
 												<p className="shell-empty-state">
-													No shell assigned to this split pane. Use a tab menu to show one
-													here.
+													No shell assigned to this split pane. Use a tab menu
+													to show one here.
 												</p>
 											</div>
 										)}
 									</>
 								) : !sessions.some((session) => {
-									const activeProcess = activeSession?.activeProcessSessionId
-										? workspaceState.processSessionsById[
-												activeSession.activeProcessSessionId
-											]
-										: null;
-									return (
-										session.worktreeId === activeWorktree?.id &&
-										session.id === activeProcess?.terminalSessionId
-									);
-								}) ? (
+										const activeProcess = activeSession?.activeProcessSessionId
+											? workspaceState.processSessionsById[
+													activeSession.activeProcessSessionId
+												]
+											: null;
+										return (
+											session.worktreeId === activeWorktree?.id &&
+											session.id === activeProcess?.terminalSessionId
+										);
+								  }) ? (
 									<div className="shell-terminal-panel__empty">
 										<p className="shell-empty-state">
-											No active shell selected. Open or choose a shell to continue.
+											No active shell selected. Open or choose a shell to
+											continue.
 										</p>
 									</div>
 								) : null}
@@ -2293,13 +2571,13 @@ export function App() {
 								className="shell-review-stack__header shell-panel"
 								data-testid="review-stack-header"
 							>
-								<span className="shell-label">{
-									activeSession?.reviewMode === "changes"
+								<span className="shell-label">
+									{activeSession?.reviewMode === "changes"
 										? "Review: Changes"
 										: activeSession?.reviewMode === "commits"
 											? "Review: Commits"
-											: "Review: Files"
-								}</span>
+											: "Review: Files"}
+								</span>
 								<div className="shell-review-switches">
 									<button
 										type="button"
@@ -2313,217 +2591,260 @@ export function App() {
 									<button
 										type="button"
 										className="shell-button shell-button--compact shell-button--icon shell-button--round"
-										aria-label={reviewPanelCollapsed ? "Expand review panel" : "Collapse review panel"}
-										title={reviewPanelCollapsed ? "Expand review panel" : "Collapse review panel"}
+										aria-label={
+											reviewPanelCollapsed
+												? "Expand review panel"
+												: "Collapse review panel"
+										}
+										title={
+											reviewPanelCollapsed
+												? "Expand review panel"
+												: "Collapse review panel"
+										}
 										onClick={() => setReviewPanelCollapsed((c) => !c)}
 									>
-										<span aria-hidden="true">{reviewPanelCollapsed ? "▴" : "▾"}</span>
+										<span aria-hidden="true">
+											{reviewPanelCollapsed ? "▴" : "▾"}
+										</span>
 									</button>
 								</div>
 							</div>
 
 							{!reviewPanelCollapsed && (
 								<>
-
-							<Tabs.Root
-								value={activeSession?.reviewMode ?? "files"}
-								onValueChange={(value) =>
-									dispatch({
-										type: "session/setReviewMode",
-										worktreeId: activeWorktree.id,
-										reviewMode: value as "files" | "changes" | "commits",
-									})
-								}
-								className="shell-review-shell"
-							>
-								<div
-									className="shell-review-grid"
-									data-testid="review-grid"
-									style={{
-										gridTemplateColumns: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
-									}}
-								>
-									<section
-										className="shell-panel shell-review-rail"
-										data-testid="review-rail"
+									<Tabs.Root
+										value={activeSession?.reviewMode ?? "files"}
+										onValueChange={(value) =>
+											dispatch({
+												type: "session/setReviewMode",
+												worktreeId: activeWorktree.id,
+												reviewMode: value as "files" | "changes" | "commits",
+											})
+										}
+										className="shell-review-shell"
 									>
-										<div className="shell-review-rail__header">
-											<Tabs.List
-												aria-label="Review mode"
-												className="shell-review-tabs__list shell-review-tabs__segments"
+										<div
+											className="shell-review-grid"
+											data-testid="review-grid"
+											style={{
+												gridTemplateColumns: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
+											}}
+										>
+											<section
+												className="shell-panel shell-review-rail"
+												data-testid="review-rail"
 											>
-												<Tabs.Trigger value="files" className="shell-review-tab">
-													Files
-												</Tabs.Trigger>
-												<Tabs.Trigger value="changes" className="shell-review-tab">
-													Changes
-												</Tabs.Trigger>
-												<Tabs.Trigger value="commits" className="shell-review-tab">
-													Commits
-												</Tabs.Trigger>
-											</Tabs.List>
+												<div className="shell-review-rail__header">
+													<Tabs.List
+														aria-label="Review mode"
+														className="shell-review-tabs__list shell-review-tabs__segments"
+													>
+														<Tabs.Trigger
+															value="files"
+															className="shell-review-tab"
+														>
+															Files
+														</Tabs.Trigger>
+														<Tabs.Trigger
+															value="changes"
+															className="shell-review-tab"
+														>
+															Changes
+														</Tabs.Trigger>
+														<Tabs.Trigger
+															value="commits"
+															className="shell-review-tab"
+														>
+															Commits
+														</Tabs.Trigger>
+													</Tabs.List>
+												</div>
+
+												<ScrollArea.Root className="shell-review-rail__scroll">
+													<ScrollArea.Viewport className="shell-rail__viewport">
+														{activeSession?.reviewMode === "commits" ? (
+															<>
+																{commitHistoryState.message && (
+																	<p
+																		className={
+																			commitHistoryState.stale
+																				? "shell-inline-warning"
+																				: "shell-error"
+																		}
+																	>
+																		{commitHistoryState.message}
+																	</p>
+																)}
+																<CommitList
+																	worktreePath={activeWorktree.path}
+																	history={
+																		commitHistoryState.data ?? {
+																			mergeTargetRef: null,
+																			entries: [],
+																		}
+																	}
+																	selectedCommitSha={
+																		activeSession.selectedCommitSha
+																	}
+																	selectedCommitFilePath={
+																		activeSession.selectedCommitFilePath
+																	}
+																	activeDetail={commitDetailState.data}
+																	onSelectCommit={(sha) =>
+																		dispatch({
+																			type: "session/selectCommit",
+																			worktreeId: activeWorktree.id,
+																			sha,
+																		})
+																	}
+																	onDeselectCommit={() =>
+																		dispatch({
+																			type: "session/clearSelectedCommit",
+																			worktreeId: activeWorktree.id,
+																		})
+																	}
+																	onSelectCommitFile={(relativePath) =>
+																		dispatch({
+																			type: "session/selectCommitFile",
+																			worktreeId: activeWorktree.id,
+																			relativePath,
+																		})
+																	}
+																	remoteStatus={remoteStatus}
+																	onPush={handlePushBranch}
+																/>
+															</>
+														) : activeSession?.reviewMode === "files" ? (
+															<>
+																{openEditorError !== null && (
+																	<p className="shell-error">
+																		{openEditorError}
+																	</p>
+																)}
+																<WorktreeTree
+																	workspaceId={activeWorkspaceId ?? ""}
+																	worktreeId={activeWorktree.id}
+																	worktreeLabel={activeWorktree.label}
+																	selectedFile={activeSession.selectedFilePath}
+																	onSelect={(relativePath) =>
+																		dispatch({
+																			type: "session/selectFile",
+																			worktreeId: activeWorktree.id,
+																			relativePath,
+																		})
+																	}
+																	onPreviewMarkdown={setTreePreviewPath}
+																	onEditFile={openEditorForFile}
+																	changedFiles={changes}
+																	gitSummaryError={gitSummaryError}
+																	gitSummaryMessage={gitSummaryMessage}
+																	expandedPaths={
+																		activeSession.treeExpandedPaths
+																	}
+																	onExpandedPathsChange={(worktreeId, paths) =>
+																		dispatch({
+																			type: "session/setTreeExpandedPaths",
+																			worktreeId,
+																			paths,
+																		})
+																	}
+																/>
+																{treePreviewPath !== null && (
+																	<MarkdownPreviewModal
+																		worktreePath={activeWorktree.path}
+																		relativePath={treePreviewPath}
+																		open={true}
+																		onClose={() => setTreePreviewPath(null)}
+																	/>
+																)}
+																{editorTarget !== null && (
+																	<EditorModal
+																		worktreePath={editorTarget.worktreePath}
+																		relativePath={editorTarget.relativePath}
+																		initialContent={editorTarget.content}
+																		initialMtimeMs={editorTarget.mtimeMs}
+																		theme={resolvedTheme}
+																		onClose={() => setEditorTarget(null)}
+																	/>
+																)}
+															</>
+														) : (
+															<ChangesList
+																worktreePath={activeWorktree.path}
+																changes={changes}
+																selectedPath={
+																	activeSession?.selectedChangedFilePath ?? null
+																}
+																onSelect={handleSelectChangedFile}
+																onDiscardChange={(relativePath) =>
+																	setDiscardPath(relativePath)
+																}
+																gitSummaryError={gitSummaryError}
+																gitSummaryStale={gitSummaryStale}
+																gitSummaryMessage={gitSummaryMessage}
+															/>
+														)}
+													</ScrollArea.Viewport>
+													<ScrollArea.Scrollbar
+														orientation="vertical"
+														className="shell-scrollbar"
+													/>
+												</ScrollArea.Root>
+											</section>
+
+											<div
+												role="separator"
+												aria-orientation="vertical"
+												aria-label="Resize review rail"
+												data-testid="review-rail-resize-handle"
+												className="shell-review-grid__resize-handle"
+												onMouseDown={handleReviewRailResizeStart}
+											/>
+
+											<section className="shell-panel shell-viewer-panel">
+												{activeSession?.reviewMode === "commits" &&
+												commitDetailState.message !== null &&
+												commitDetailState.data === null ? (
+													<p className="shell-error">
+														{commitDetailState.message}
+													</p>
+												) : activeSession?.reviewMode === "commits" &&
+												  commitDetailState.data ? (
+													<CommitDiffStack
+														key={commitDetailState.data.sha}
+														detail={commitDetailState.data}
+														focusedPath={activeSession.selectedCommitFilePath}
+														resolvedTheme={resolvedTheme}
+													/>
+												) : activeSession?.reviewMode === "files" &&
+												  activeSession.selectedFilePath ? (
+													<FileViewer
+														worktreePath={activeWorktree.path}
+														relativePath={activeSession.selectedFilePath}
+														resolvedTheme={resolvedTheme}
+													/>
+												) : activeSession?.reviewMode === "changes" &&
+												  diffState.data ? (
+													<DiffViewer
+														path={diffState.data.path}
+														content={diffState.data.content}
+														originalContent={diffState.data.originalContent}
+														modifiedContent={diffState.data.modifiedContent}
+														resolvedTheme={resolvedTheme}
+													/>
+												) : (
+													<p className="shell-empty-state">
+														Select a file or changed file to inspect it.
+													</p>
+												)}
+											</section>
 										</div>
-
-									<ScrollArea.Root className="shell-review-rail__scroll">
-										<ScrollArea.Viewport className="shell-rail__viewport">
-											{activeSession?.reviewMode === "commits" ? (
-												<>
-													{commitHistoryState.message && (
-														<p className={commitHistoryState.stale ? "shell-inline-warning" : "shell-error"}>
-															{commitHistoryState.message}
-														</p>
-													)}
-												<CommitList
-													worktreePath={activeWorktree.path}
-													history={commitHistoryState.data ?? { mergeTargetRef: null, entries: [] }}
-													selectedCommitSha={activeSession.selectedCommitSha}
-													selectedCommitFilePath={activeSession.selectedCommitFilePath}
-														activeDetail={commitDetailState.data}
-														onSelectCommit={(sha) =>
-															dispatch({
-																type: "session/selectCommit",
-																worktreeId: activeWorktree.id,
-																sha,
-															})
-														}
-														onDeselectCommit={() =>
-															dispatch({
-																type: "session/clearSelectedCommit",
-																worktreeId: activeWorktree.id,
-															})
-														}
-														onSelectCommitFile={(relativePath) =>
-															dispatch({
-																type: "session/selectCommitFile",
-																worktreeId: activeWorktree.id,
-																relativePath,
-															})
-														}
-														remoteStatus={remoteStatus}
-														onPush={handlePushBranch}
-													/>
-												</>
-											) : activeSession?.reviewMode === "files" ? (
-												<>
-													{openEditorError !== null && (
-														<p className="shell-error">{openEditorError}</p>
-													)}
-													<WorktreeTree
-														workspaceId={activeWorkspaceId ?? ""}
-														worktreeId={activeWorktree.id}
-														worktreeLabel={activeWorktree.label}
-														selectedFile={activeSession.selectedFilePath}
-														onSelect={(relativePath) =>
-															dispatch({
-																type: "session/selectFile",
-																worktreeId: activeWorktree.id,
-																relativePath,
-															})
-														}
-														onPreviewMarkdown={setTreePreviewPath}
-														onEditFile={openEditorForFile}
-														changedFiles={changes}
-														gitSummaryError={gitSummaryError}
-														gitSummaryMessage={gitSummaryMessage}
-														expandedPaths={activeSession.treeExpandedPaths}
-														onExpandedPathsChange={(worktreeId, paths) =>
-															dispatch({
-																type: "session/setTreeExpandedPaths",
-																worktreeId,
-																paths,
-															})
-														}
-													/>
-													{treePreviewPath !== null && (
-														<MarkdownPreviewModal
-															worktreePath={activeWorktree.path}
-															relativePath={treePreviewPath}
-															open={true}
-															onClose={() => setTreePreviewPath(null)}
-														/>
-													)}
-													{editorTarget !== null && (
-														<EditorModal
-															worktreePath={editorTarget.worktreePath}
-															relativePath={editorTarget.relativePath}
-															initialContent={editorTarget.content}
-															initialMtimeMs={editorTarget.mtimeMs}
-															theme={resolvedTheme}
-															onClose={() => setEditorTarget(null)}
-														/>
-													)}
-												</>
-											) : (
-												<ChangesList
-													worktreePath={activeWorktree.path}
-													changes={changes}
-													selectedPath={
-														activeSession?.selectedChangedFilePath ?? null
-													}
-													onSelect={handleSelectChangedFile}
-													onDiscardChange={(relativePath) => setDiscardPath(relativePath)}
-													gitSummaryError={gitSummaryError}
-													gitSummaryStale={gitSummaryStale}
-													gitSummaryMessage={gitSummaryMessage}
-												/>
-											)}
-										</ScrollArea.Viewport>
-										<ScrollArea.Scrollbar
-											orientation="vertical"
-											className="shell-scrollbar"
-										/>
-									</ScrollArea.Root>
-								</section>
-
-								<div
-									role="separator"
-									aria-orientation="vertical"
-									aria-label="Resize review rail"
-									data-testid="review-rail-resize-handle"
-									className="shell-review-grid__resize-handle"
-									onMouseDown={handleReviewRailResizeStart}
-								/>
-
-								<section className="shell-panel shell-viewer-panel">
-									{activeSession?.reviewMode === "commits" && commitDetailState.message !== null && commitDetailState.data === null ? (
-										<p className="shell-error">
-											{commitDetailState.message}
-										</p>
-									) : activeSession?.reviewMode === "commits" && commitDetailState.data ? (
-										<CommitDiffStack
-											key={commitDetailState.data.sha}
-											detail={commitDetailState.data}
-											focusedPath={activeSession.selectedCommitFilePath}
-											resolvedTheme={resolvedTheme}
-										/>
-									) : activeSession?.reviewMode === "files" &&
-									activeSession.selectedFilePath ? (
-										<FileViewer
-											worktreePath={activeWorktree.path}
-											relativePath={activeSession.selectedFilePath}
-											resolvedTheme={resolvedTheme}
-										/>
-									) : activeSession?.reviewMode === "changes" && diffState.data ? (
-										<DiffViewer
-											path={diffState.data.path}
-											content={diffState.data.content}
-											originalContent={diffState.data.originalContent}
-											modifiedContent={diffState.data.modifiedContent}
-											resolvedTheme={resolvedTheme}
-										/>
-									) : (
-										<p className="shell-empty-state">
-											Select a file or changed file to inspect it.
-										</p>
-									)}
-								</section>
-							</div>
-						</Tabs.Root>
-						</>
+									</Tabs.Root>
+								</>
+							)}
+						</section>
 					)}
 				</section>
-				)}
-					</section>
 			</div>
 
 			<PresetManager
@@ -2566,9 +2887,15 @@ export function App() {
 				preview={removePreview}
 				runningProcessLabels={
 					removeTargetId
-						? (workspaceState.sessionsByWorktreeId[removeTargetId]?.processSessionIds ?? [])
+						? (
+								workspaceState.sessionsByWorktreeId[removeTargetId]
+									?.processSessionIds ?? []
+							)
 								.map((id) => workspaceState.processSessionsById[id])
-								.filter((process): process is ProcessSession => !!process && process.status === "running")
+								.filter(
+									(process): process is ProcessSession =>
+										!!process && process.status === "running",
+								)
 								.map((process) => process.label)
 						: []
 				}
@@ -2590,7 +2917,9 @@ export function App() {
 			<DiscardChangeDialog
 				open={discardPath !== null}
 				relativePath={discardPath}
-				onOpenChange={(open) => { if (!open) setDiscardPath(null); }}
+				onOpenChange={(open) => {
+					if (!open) setDiscardPath(null);
+				}}
 				onConfirm={handleDiscardChange}
 			/>
 		</main>

@@ -1,9 +1,17 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { readdir, readFile as fsReadFile, stat, writeFile } from "node:fs/promises";
+import {
+	readdir,
+	readFile as fsReadFile,
+	stat,
+	writeFile,
+} from "node:fs/promises";
 import { join, resolve, extname } from "node:path";
 import type { FileView } from "../../shared/models/file-view.js";
-import type { OpenFileForEditResult, SaveFileResult } from "../../shared/contracts/commands.js";
+import type {
+	OpenFileForEditResult,
+	SaveFileResult,
+} from "../../shared/contracts/commands.js";
 import { getGitBinaryPath } from "../git/git-binary.js";
 import { isEditable } from "../../shared/editor/editable-files.js";
 
@@ -133,7 +141,9 @@ export class FileService {
 		const inside =
 			absolutePath === normalizedWorktree ||
 			absolutePath.startsWith(normalizedWorktree + "/");
-		return inside ? { ok: true, absolute: absolutePath } : { ok: false, reason: "path-escape" };
+		return inside
+			? { ok: true, absolute: absolutePath }
+			: { ok: false, reason: "path-escape" };
 	}
 
 	async openForEdit(
@@ -153,7 +163,8 @@ export class FileService {
 			if (code === "EACCES") return { ok: false, reason: "permission-denied" };
 			return { ok: false, reason: "read-failed" };
 		}
-		if (stats.size > MAX_EDITOR_FILE_BYTES) return { ok: false, reason: "too-large" };
+		if (stats.size > MAX_EDITOR_FILE_BYTES)
+			return { ok: false, reason: "too-large" };
 		let buffer: Buffer;
 		try {
 			buffer = await fsReadFile(resolved.absolute);
@@ -164,7 +175,11 @@ export class FileService {
 		}
 		const sniff = buffer.subarray(0, Math.min(buffer.length, 8192));
 		if (sniff.includes(0)) return { ok: false, reason: "binary" };
-		return { ok: true, content: buffer.toString("utf8"), mtimeMs: stats.mtimeMs };
+		return {
+			ok: true,
+			content: buffer.toString("utf8"),
+			mtimeMs: stats.mtimeMs,
+		};
 	}
 
 	async saveFile(
@@ -188,14 +203,19 @@ export class FileService {
 			return { ok: false, reason: "write-failed" };
 		}
 		if (stats.mtimeMs !== expectedMtimeMs) {
-			return { ok: false, reason: "mtime-conflict", currentMtimeMs: stats.mtimeMs };
+			return {
+				ok: false,
+				reason: "mtime-conflict",
+				currentMtimeMs: stats.mtimeMs,
+			};
 		}
 
 		try {
 			await writeFile(resolved.absolute, content, "utf8");
 		} catch (err) {
 			const code = (err as NodeJS.ErrnoException).code;
-			if (code === "EACCES" || code === "EROFS") return { ok: false, reason: "permission-denied" };
+			if (code === "EACCES" || code === "EROFS")
+				return { ok: false, reason: "permission-denied" };
 			if (code === "ENOSPC") return { ok: false, reason: "disk-full" };
 			return { ok: false, reason: "write-failed" };
 		}

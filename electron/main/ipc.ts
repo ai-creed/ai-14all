@@ -75,10 +75,20 @@ export function registerIpcHandlers(
 
 	const safeSend = <T extends object>(channel: string, payload: T) => {
 		if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
-			shellEventLog?.log({ source: "main", event: "terminal-handler-dropped", windowId: null, data: { channel } });
+			shellEventLog?.log({
+				source: "main",
+				event: "terminal-handler-dropped",
+				windowId: null,
+				data: { channel },
+			});
 			return;
 		}
-		shellEventLog?.log({ source: "main", event: "terminal-handler-forwarded", windowId: mainWindow.id, data: { channel } });
+		shellEventLog?.log({
+			source: "main",
+			event: "terminal-handler-forwarded",
+			windowId: mainWindow.id,
+			data: { channel },
+		});
 		mainWindow.webContents.send(channel, payload);
 	};
 
@@ -131,7 +141,10 @@ export function registerIpcHandlers(
 		const proposedWorkspaceId = repository.repoId
 			? `workspace:${repository.repoId}`
 			: `workspace:${repository.rootPath}`;
-		return workspaceRegistry.register({ workspaceId: proposedWorkspaceId, repository });
+		return workspaceRegistry.register({
+			workspaceId: proposedWorkspaceId,
+			repository,
+		});
 	});
 
 	ipcMain.handle("repository:listWorktrees", async (_event, raw: unknown) => {
@@ -139,40 +152,75 @@ export function registerIpcHandlers(
 		return worktreeService.listWorktrees(workspaceRegistry.get(workspaceId));
 	});
 
-	ipcMain.handle("repository:previewCreateWorktree", async (_event, raw: unknown) => {
-		const { workspaceId, name } = PreviewCreateWorktreeSchema.parse(raw);
-		return worktreeService.previewCreateWorktree(workspaceRegistry.get(workspaceId), name);
-	});
+	ipcMain.handle(
+		"repository:previewCreateWorktree",
+		async (_event, raw: unknown) => {
+			const { workspaceId, name } = PreviewCreateWorktreeSchema.parse(raw);
+			return worktreeService.previewCreateWorktree(
+				workspaceRegistry.get(workspaceId),
+				name,
+			);
+		},
+	);
 
 	ipcMain.handle("repository:createWorktree", async (_event, raw: unknown) => {
 		const { workspaceId, name } = CreateWorktreeSchema.parse(raw);
-		return worktreeService.createWorktree(workspaceRegistry.get(workspaceId), name);
+		return worktreeService.createWorktree(
+			workspaceRegistry.get(workspaceId),
+			name,
+		);
 	});
 
-	ipcMain.handle("repository:previewRemoveWorktree", async (_event, raw: unknown) => {
-		const { workspaceId, worktreeId } = PreviewRemoveWorktreeSchema.parse(raw);
-		return worktreeService.previewRemoveWorktree(workspaceRegistry.get(workspaceId), worktreeId);
-	});
+	ipcMain.handle(
+		"repository:previewRemoveWorktree",
+		async (_event, raw: unknown) => {
+			const { workspaceId, worktreeId } =
+				PreviewRemoveWorktreeSchema.parse(raw);
+			return worktreeService.previewRemoveWorktree(
+				workspaceRegistry.get(workspaceId),
+				worktreeId,
+			);
+		},
+	);
 
 	ipcMain.handle("repository:removeWorktree", async (_event, raw: unknown) => {
 		const { workspaceId, worktreeId } = RemoveWorktreeSchema.parse(raw);
-		await worktreeService.removeWorktree(workspaceRegistry.get(workspaceId), worktreeId);
+		await worktreeService.removeWorktree(
+			workspaceRegistry.get(workspaceId),
+			worktreeId,
+		);
 	});
 
 	// --- Terminals ---
 
 	ipcMain.handle("terminals:create", async (_event, raw: unknown) => {
-		const { workspaceId, worktreeId, cwd } = CreateTerminalSessionSchema.parse(raw);
-		shellEventLog?.log({ source: "main", event: "terminal-create-request", windowId: mainWindow.id, data: { workspaceId, worktreeId, cwd } });
+		const { workspaceId, worktreeId, cwd } =
+			CreateTerminalSessionSchema.parse(raw);
+		shellEventLog?.log({
+			source: "main",
+			event: "terminal-create-request",
+			windowId: mainWindow.id,
+			data: { workspaceId, worktreeId, cwd },
+		});
 		await consumeE2eTerminalCreateDelay();
 		return terminalService.create(workspaceId, worktreeId, cwd);
 	});
 
 	ipcMain.handle("terminals:list", (_event, raw: unknown) => {
 		const { workspaceId } = ListTerminalSessionsSchema.parse(raw);
-		shellEventLog?.log({ source: "main", event: "main-session-list-request", windowId: mainWindow.id, data: { workspaceId } });
+		shellEventLog?.log({
+			source: "main",
+			event: "main-session-list-request",
+			windowId: mainWindow.id,
+			data: { workspaceId },
+		});
 		const sessions = terminalService.listSessions(workspaceId);
-		shellEventLog?.log({ source: "main", event: "main-session-list-response", windowId: mainWindow.id, data: { workspaceId, liveBackendSessionIds: sessions.map((s) => s.id) } });
+		shellEventLog?.log({
+			source: "main",
+			event: "main-session-list-response",
+			windowId: mainWindow.id,
+			data: { workspaceId, liveBackendSessionIds: sessions.map((s) => s.id) },
+		});
 		return sessions;
 	});
 
@@ -188,7 +236,12 @@ export function registerIpcHandlers(
 
 	ipcMain.handle("terminals:stop", (_event, raw: unknown) => {
 		const { sessionId } = StopTerminalSessionSchema.parse(raw);
-		shellEventLog?.log({ source: "main", event: "terminal-stop-request", windowId: mainWindow.id, data: { terminalSessionId: sessionId } });
+		shellEventLog?.log({
+			source: "main",
+			event: "terminal-stop-request",
+			windowId: mainWindow.id,
+			data: { terminalSessionId: sessionId },
+		});
 		terminalService.stop(sessionId);
 	});
 

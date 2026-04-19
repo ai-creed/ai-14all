@@ -15,10 +15,28 @@ const BASENAMES = new Set<string>([
 ]);
 
 const EXTENSIONS = new Set<string>([
-	".md", ".txt", ".json", ".yml", ".yaml",
-	".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
-	".css", ".scss", ".html", ".sh", ".py",
-	".toml", ".env", ".ini", ".conf", ".xml", ".lock",
+	".md",
+	".txt",
+	".json",
+	".yml",
+	".yaml",
+	".ts",
+	".tsx",
+	".js",
+	".jsx",
+	".mjs",
+	".cjs",
+	".css",
+	".scss",
+	".html",
+	".sh",
+	".py",
+	".toml",
+	".env",
+	".ini",
+	".conf",
+	".xml",
+	".lock",
 ]);
 
 export function isEditable(basename: string): boolean {

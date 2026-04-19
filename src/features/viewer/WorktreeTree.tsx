@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import * as ContextMenu from "@radix-ui/react-context-menu";
-import type { GitChange, GitChangeStatus } from "../../../shared/models/git-change";
+import type {
+	GitChange,
+	GitChangeStatus,
+} from "../../../shared/models/git-change";
 import { files } from "../../lib/desktop-client";
 import { isEditable } from "../../../shared/editor/editable-files";
 import { buildFileTree, WORKTREE_TREE_ROOT_PATH } from "./build-file-tree";
@@ -143,7 +146,18 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 						{row.expanded ? "▾" : "▸"}
 					</span>
 				)}
-				<span style={{ lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1 }}>{row.name}</span>
+				<span
+					style={{
+						lineHeight: 1,
+						overflow: "hidden",
+						textOverflow: "ellipsis",
+						whiteSpace: "nowrap",
+						minWidth: 0,
+						flex: 1,
+					}}
+				>
+					{row.name}
+				</span>
 				{row.kind === "file" && row.gitStatus && (
 					<span
 						className={`shell-tree-badge shell-tree-badge--${row.gitStatus === "??" ? "untracked" : row.gitStatus.toLowerCase()}`}
@@ -215,12 +229,11 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 		<div className="shell-list" style={{ marginLeft: "8px" }}>
 			{gitSummaryError && (
 				<p className="shell-inline-warning">
-					{gitSummaryMessage ?? "Git summary unavailable — file badges are hidden."}
+					{gitSummaryMessage ??
+						"Git summary unavailable — file badges are hidden."}
 				</p>
 			)}
-			{error && (
-				<p className="shell-error">Unable to load files: {error}</p>
-			)}
+			{error && <p className="shell-error">Unable to load files: {error}</p>}
 			<input
 				type="text"
 				className="shell-note-input shell-tree-search"
@@ -241,13 +254,24 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 				className="shell-tree-scroll"
 				style={{ overflow: "auto" }}
 			>
-				<div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
+				<div
+					style={{
+						height: rowVirtualizer.getTotalSize(),
+						position: "relative",
+					}}
+				>
 					{rowVirtualizer.getVirtualItems().map((virtualRow) => {
 						const row = rows[virtualRow.index]!;
 						return (
 							<div
 								key={`${row.kind}:${row.path}`}
-								style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${virtualRow.start}px)` }}
+								style={{
+									position: "absolute",
+									top: 0,
+									left: 0,
+									width: "100%",
+									transform: `translateY(${virtualRow.start}px)`,
+								}}
 							>
 								{renderRow(row)}
 							</div>

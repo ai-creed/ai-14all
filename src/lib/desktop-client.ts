@@ -21,7 +21,10 @@ export const repository: Ai14AllDesktopApi["repository"] = {
 	createWorktree: (workspaceId, name) =>
 		getDesktopClient().repository.createWorktree(workspaceId, name),
 	previewRemoveWorktree: (workspaceId, worktreeId) =>
-		getDesktopClient().repository.previewRemoveWorktree(workspaceId, worktreeId),
+		getDesktopClient().repository.previewRemoveWorktree(
+			workspaceId,
+			worktreeId,
+		),
 	removeWorktree: (workspaceId, worktreeId) =>
 		getDesktopClient().repository.removeWorktree(workspaceId, worktreeId),
 };
@@ -50,7 +53,10 @@ export const files: Ai14AllDesktopApi["files"] = {
 	read: (worktreePath, relativePath) =>
 		getDesktopClient().files.read(worktreePath, relativePath),
 	openForEdit: async (worktreePath, relativePath) => {
-		const raw = await getDesktopClient().files.openForEdit(worktreePath, relativePath);
+		const raw = await getDesktopClient().files.openForEdit(
+			worktreePath,
+			relativePath,
+		);
 		return OpenFileForEditResultSchema.parse(raw);
 	},
 	save: async (args) => {
@@ -83,7 +89,8 @@ export const workspace: Ai14AllDesktopApi["workspace"] = {
 	readRestoreState: () => getDesktopClient().workspace.readRestoreState(),
 	writeRestoreState: (state) =>
 		getDesktopClient().workspace.writeRestoreState(state),
-	onOpenPicker: (listener) => getDesktopClient().workspace.onOpenPicker(listener),
+	onOpenPicker: (listener) =>
+		getDesktopClient().workspace.onOpenPicker(listener),
 };
 
 export const diagnostics: Ai14AllDesktopApi["diagnostics"] = {

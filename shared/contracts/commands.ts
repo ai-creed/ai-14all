@@ -18,7 +18,10 @@ import type {
 	GitCommitHistory,
 } from "../models/git-commit-review.js";
 import type { RemoteStatus } from "../models/git-remote-status.js";
-import { PersistedWorkspaceStateV2Schema, type PersistedWorkspaceStateV2 } from "../models/persisted-workspace-state.js";
+import {
+	PersistedWorkspaceStateV2Schema,
+	type PersistedWorkspaceStateV2,
+} from "../models/persisted-workspace-state.js";
 import type {
 	CreateWorktreePreview,
 	RemoveWorktreePreview,
@@ -32,13 +35,25 @@ export const OpenRepositoryWorkspaceSchema = z.object({ path: z.string() });
 
 export const ListWorktreesSchema = z.object({ workspaceId: z.string() });
 
-export const CreateWorktreeSchema = z.object({ workspaceId: z.string(), name: z.string() });
+export const CreateWorktreeSchema = z.object({
+	workspaceId: z.string(),
+	name: z.string(),
+});
 
-export const RemoveWorktreeSchema = z.object({ workspaceId: z.string(), worktreeId: z.string() });
+export const RemoveWorktreeSchema = z.object({
+	workspaceId: z.string(),
+	worktreeId: z.string(),
+});
 
-export const PreviewCreateWorktreeSchema = z.object({ workspaceId: z.string(), name: z.string() });
+export const PreviewCreateWorktreeSchema = z.object({
+	workspaceId: z.string(),
+	name: z.string(),
+});
 
-export const PreviewRemoveWorktreeSchema = z.object({ workspaceId: z.string(), worktreeId: z.string() });
+export const PreviewRemoveWorktreeSchema = z.object({
+	workspaceId: z.string(),
+	worktreeId: z.string(),
+});
 
 export const CreateTerminalSessionSchema = z.object({
 	workspaceId: z.string(),
@@ -206,13 +221,23 @@ export type Ai14AllDesktopApi = {
 	repository: {
 		pickRoot(): Promise<string | null>;
 		listWorktrees(workspaceId: string): Promise<Worktree[]>;
-		previewCreateWorktree(workspaceId: string, name: string): Promise<CreateWorktreePreview>;
+		previewCreateWorktree(
+			workspaceId: string,
+			name: string,
+		): Promise<CreateWorktreePreview>;
 		createWorktree(workspaceId: string, name: string): Promise<Worktree>;
-		previewRemoveWorktree(workspaceId: string, worktreeId: string): Promise<RemoveWorktreePreview>;
+		previewRemoveWorktree(
+			workspaceId: string,
+			worktreeId: string,
+		): Promise<RemoveWorktreePreview>;
 		removeWorktree(workspaceId: string, worktreeId: string): Promise<void>;
 	};
 	terminals: {
-		create(workspaceId: string, worktreeId: string, cwd: string): Promise<TerminalSession>;
+		create(
+			workspaceId: string,
+			worktreeId: string,
+			cwd: string,
+		): Promise<TerminalSession>;
 		list(workspaceId?: string): Promise<TerminalSession[]>;
 		sendInput(sessionId: string, data: string): Promise<void>;
 		resize(sessionId: string, cols: number, rows: number): Promise<void>;
@@ -246,13 +271,18 @@ export type Ai14AllDesktopApi = {
 		readDiff(worktreePath: string, relativePath: string): Promise<GitDiff>;
 		readSummary(worktreePath: string): Promise<GitSummary>;
 		readCommitHistory(worktreePath: string): Promise<GitCommitHistory>;
-		readCommitDetail(worktreePath: string, sha: string): Promise<GitCommitDetail>;
+		readCommitDetail(
+			worktreePath: string,
+			sha: string,
+		): Promise<GitCommitDetail>;
 		discardChange(worktreePath: string, relativePath: string): Promise<void>;
 		getRemoteStatus(worktreePath: string): Promise<RemoteStatus>;
 		pushBranch(worktreePath: string, force: boolean): Promise<void>;
 	};
 	workspace: {
-		openRepository(path: string): Promise<{ workspaceId: string; repository: Repository }>;
+		openRepository(
+			path: string,
+		): Promise<{ workspaceId: string; repository: Repository }>;
 		readRestoreState(): Promise<PersistedWorkspaceStateV2>;
 		writeRestoreState(state: PersistedWorkspaceStateV2): Promise<void>;
 		onOpenPicker(listener: () => void): () => void;

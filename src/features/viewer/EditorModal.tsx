@@ -82,8 +82,13 @@ export function EditorModal({
 	const [content, setContent] = useState(initialContent);
 	const [mtimeMs, setMtimeMs] = useState(initialMtimeMs);
 	const [saving, setSaving] = useState(false);
-	const [status, setStatus] = useState<{ kind: "saved" | "error"; message: string } | null>(null);
-	const [conflict, setConflict] = useState<{ currentMtimeMs: number } | null>(null);
+	const [status, setStatus] = useState<{
+		kind: "saved" | "error";
+		message: string;
+	} | null>(null);
+	const [conflict, setConflict] = useState<{ currentMtimeMs: number } | null>(
+		null,
+	);
 	const [confirmClose, setConfirmClose] = useState(false);
 
 	const dirty = content !== originalContent;
@@ -136,9 +141,15 @@ export function EditorModal({
 		if (result.ok) {
 			setOriginalContent(content);
 			setMtimeMs(result.mtimeMs);
-			setStatus({ kind: "saved", message: `Saved ${new Date().toLocaleTimeString()}` });
+			setStatus({
+				kind: "saved",
+				message: `Saved ${new Date().toLocaleTimeString()}`,
+			});
 		} else {
-			setStatus({ kind: "error", message: errorMessageForReason(result.reason) });
+			setStatus({
+				kind: "error",
+				message: errorMessageForReason(result.reason),
+			});
 		}
 	}, [conflict, content, relativePath, worktreePath]);
 
@@ -151,7 +162,10 @@ export function EditorModal({
 			setMtimeMs(result.mtimeMs);
 			setStatus({ kind: "saved", message: "Reloaded from disk" });
 		} else {
-			setStatus({ kind: "error", message: errorMessageForReason(result.reason) });
+			setStatus({
+				kind: "error",
+				message: errorMessageForReason(result.reason),
+			});
 		}
 	}, [relativePath, worktreePath]);
 

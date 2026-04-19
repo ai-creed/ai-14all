@@ -26,7 +26,9 @@ import { files } from "../../../src/lib/desktop-client";
 
 const mockListTracked = vi.mocked(files.listTracked);
 
-function renderTree(overrides: Partial<React.ComponentProps<typeof WorktreeTree>> = {}) {
+function renderTree(
+	overrides: Partial<React.ComponentProps<typeof WorktreeTree>> = {},
+) {
 	return render(
 		<WorktreeTree
 			workspaceId="ws-1"
@@ -57,24 +59,34 @@ describe("WorktreeTree basic states", () => {
 		mockListTracked.mockResolvedValueOnce([]);
 		renderTree({ worktreeLabel: "my-repo" });
 		expect(await screen.findByText("my-repo")).toBeInTheDocument();
-		expect(await screen.findByText(/No files in this worktree/i)).toBeInTheDocument();
+		expect(
+			await screen.findByText(/No files in this worktree/i),
+		).toBeInTheDocument();
 	});
 
 	it("renders an error message when listTracked rejects", async () => {
 		mockListTracked.mockRejectedValueOnce(new Error("boom"));
 		renderTree({ worktreeLabel: "repo" });
-		expect(await screen.findByText(/Unable to load files/i)).toBeInTheDocument();
+		expect(
+			await screen.findByText(/Unable to load files/i),
+		).toBeInTheDocument();
 		expect(await screen.findByText(/boom/)).toBeInTheDocument();
 		// Root row + Refresh must still be accessible for retry
 		expect(screen.getByText("repo")).toBeInTheDocument();
 		fireEvent.contextMenu(screen.getByText("repo"));
-		expect(await screen.findByRole("menuitem", { name: "Refresh" })).toBeInTheDocument();
+		expect(
+			await screen.findByRole("menuitem", { name: "Refresh" }),
+		).toBeInTheDocument();
 	});
 
 	it("renders the root row + top-level entries on successful load", async () => {
 		mockListTracked.mockResolvedValueOnce(["README.md", "src/a.ts"]);
 		const onExpandedPathsChange = vi.fn();
-		renderTree({ worktreeLabel: "repo", expandedPaths: [], onExpandedPathsChange });
+		renderTree({
+			worktreeLabel: "repo",
+			expandedPaths: [],
+			onExpandedPathsChange,
+		});
 		expect(await screen.findByText("repo")).toBeInTheDocument();
 		expect(onExpandedPathsChange).toHaveBeenCalledWith("wt-1", [""]);
 	});
@@ -107,16 +119,23 @@ describe("WorktreeTree expand/collapse + selection", () => {
 		const fileRow = await screen.findByText("a.ts");
 		fireEvent.click(fileRow);
 		expect(onSelect).toHaveBeenCalledWith("src/a.ts");
-		expect(onExpandedPathsChange.mock.calls.filter(([, paths]) => paths.length > 1)).toEqual([]);
+		expect(
+			onExpandedPathsChange.mock.calls.filter(([, paths]) => paths.length > 1),
+		).toEqual([]);
 	});
-
 });
 
 describe("WorktreeTree search", () => {
-	afterEach(() => { vi.useRealTimers(); });
+	afterEach(() => {
+		vi.useRealTimers();
+	});
 
 	it("filters rows after the debounce elapses", async () => {
-		mockListTracked.mockResolvedValueOnce(["src/App.tsx", "src/other.ts", "README.md"]);
+		mockListTracked.mockResolvedValueOnce([
+			"src/App.tsx",
+			"src/other.ts",
+			"README.md",
+		]);
 		renderTree({ expandedPaths: [""] });
 		// Wait for the async load to complete before switching to fake timers
 		await screen.findByText("README.md");
@@ -124,7 +143,9 @@ describe("WorktreeTree search", () => {
 		const input = screen.getByLabelText("Search files");
 		fireEvent.change(input, { target: { value: "app" } });
 		expect(screen.queryByText("README.md")).toBeInTheDocument();
-		await act(async () => { vi.advanceTimersByTime(130); });
+		await act(async () => {
+			vi.advanceTimersByTime(130);
+		});
 		expect(screen.queryByText("README.md")).not.toBeInTheDocument();
 		expect(screen.getByText("App.tsx")).toBeInTheDocument();
 	});
@@ -137,15 +158,24 @@ describe("WorktreeTree search", () => {
 		const input = await screen.findByLabelText("Search files");
 		vi.useFakeTimers();
 		fireEvent.change(input, { target: { value: "App" } });
-		await act(async () => { vi.advanceTimersByTime(130); });
-		expect(onExpandedPathsChange.mock.calls.filter(([, paths]) => paths.includes("src"))).toEqual([]);
+		await act(async () => {
+			vi.advanceTimersByTime(130);
+		});
+		expect(
+			onExpandedPathsChange.mock.calls.filter(([, paths]) =>
+				paths.includes("src"),
+			),
+		).toEqual([]);
 	});
 });
 
 describe("WorktreeTree git status indicators", () => {
 	it("renders the status letter next to a changed file", async () => {
 		mockListTracked.mockResolvedValueOnce(["src/a.ts", "src/b.ts"]);
-		renderTree({ expandedPaths: ["", "src"], changedFiles: [{ path: "src/a.ts", status: "M" }] });
+		renderTree({
+			expandedPaths: ["", "src"],
+			changedFiles: [{ path: "src/a.ts", status: "M" }],
+		});
 		const row = await screen.findByText("a.ts");
 		const badge = row.parentElement?.querySelector("[data-git-status]");
 		expect(badge?.getAttribute("data-git-status")).toBe("M");
@@ -153,7 +183,12 @@ describe("WorktreeTree git status indicators", () => {
 
 	it("suppresses badges when gitSummaryError is true", async () => {
 		mockListTracked.mockResolvedValueOnce(["src/a.ts"]);
-		renderTree({ expandedPaths: ["", "src"], changedFiles: [{ path: "src/a.ts", status: "M" }], gitSummaryError: true, gitSummaryMessage: "fake message" });
+		renderTree({
+			expandedPaths: ["", "src"],
+			changedFiles: [{ path: "src/a.ts", status: "M" }],
+			gitSummaryError: true,
+			gitSummaryMessage: "fake message",
+		});
 		await screen.findByText("a.ts");
 		expect(document.querySelector("[data-git-status]")).toBeNull();
 		expect(screen.getByText("fake message")).toBeInTheDocument();
@@ -175,7 +210,9 @@ describe("WorktreeTree root refresh", () => {
 		expect(mockListTracked).toHaveBeenCalledTimes(1);
 		const rootRow = screen.getByText("repo");
 		fireEvent.contextMenu(rootRow);
-		const refreshItem = await screen.findByRole("menuitem", { name: "Refresh" });
+		const refreshItem = await screen.findByRole("menuitem", {
+			name: "Refresh",
+		});
 		fireEvent.click(refreshItem);
 		expect(mockListTracked).toHaveBeenCalledTimes(2);
 	});
@@ -210,7 +247,9 @@ describe("WorktreeTree editor context menu", () => {
 		renderTree({ expandedPaths: [""], onPreviewMarkdown, onEditFile });
 		const mdRow = await screen.findByText("README.md");
 		fireEvent.contextMenu(mdRow);
-		expect(await screen.findByRole("menuitem", { name: "Preview" })).toBeInTheDocument();
+		expect(
+			await screen.findByRole("menuitem", { name: "Preview" }),
+		).toBeInTheDocument();
 		expect(screen.getByRole("menuitem", { name: "Edit" })).toBeInTheDocument();
 	});
 
@@ -220,7 +259,9 @@ describe("WorktreeTree editor context menu", () => {
 		renderTree({ expandedPaths: [""], onEditFile });
 		const row = await screen.findByText("package.json");
 		fireEvent.contextMenu(row);
-		expect(await screen.findByRole("menuitem", { name: "Edit" })).toBeInTheDocument();
+		expect(
+			await screen.findByRole("menuitem", { name: "Edit" }),
+		).toBeInTheDocument();
 		expect(screen.queryByRole("menuitem", { name: "Preview" })).toBeNull();
 	});
 
@@ -230,7 +271,9 @@ describe("WorktreeTree editor context menu", () => {
 		renderTree({ expandedPaths: [""], onEditFile });
 		const mdRow = await screen.findByText("README.md");
 		fireEvent.contextMenu(mdRow);
-		expect(await screen.findByRole("menuitem", { name: "Edit" })).toBeInTheDocument();
+		expect(
+			await screen.findByRole("menuitem", { name: "Edit" }),
+		).toBeInTheDocument();
 		expect(screen.queryByRole("menuitem", { name: "Preview" })).toBeNull();
 	});
 
@@ -248,7 +291,9 @@ describe("WorktreeTree editor context menu", () => {
 describe("WorktreeTree stale-request guard", () => {
 	it("ignores a superseded response (later refresh wins)", async () => {
 		let resolveFirst: (v: string[]) => void = () => {};
-		const firstPromise = new Promise<string[]>((resolve) => { resolveFirst = resolve; });
+		const firstPromise = new Promise<string[]>((resolve) => {
+			resolveFirst = resolve;
+		});
 		mockListTracked.mockReturnValueOnce(firstPromise);
 		mockListTracked.mockResolvedValueOnce(["from-second.ts"]);
 		renderTree({ worktreeLabel: "repo", expandedPaths: [""] });
@@ -263,14 +308,34 @@ describe("WorktreeTree stale-request guard", () => {
 
 	it("ignores in-flight responses after a worktree switch", async () => {
 		let resolveA: (v: string[]) => void = () => {};
-		const pendingA = new Promise<string[]>((resolve) => { resolveA = resolve; });
+		const pendingA = new Promise<string[]>((resolve) => {
+			resolveA = resolve;
+		});
 		mockListTracked.mockImplementationOnce(() => pendingA);
 		mockListTracked.mockResolvedValueOnce(["wt-b-file.ts"]);
 		const { rerender } = render(
-			<WorktreeTree workspaceId="ws-1" worktreeId="wt-a" worktreeLabel="A" selectedFile={null} onSelect={vi.fn()} changedFiles={[]} expandedPaths={[""]} onExpandedPathsChange={vi.fn()} />,
+			<WorktreeTree
+				workspaceId="ws-1"
+				worktreeId="wt-a"
+				worktreeLabel="A"
+				selectedFile={null}
+				onSelect={vi.fn()}
+				changedFiles={[]}
+				expandedPaths={[""]}
+				onExpandedPathsChange={vi.fn()}
+			/>,
 		);
 		rerender(
-			<WorktreeTree workspaceId="ws-1" worktreeId="wt-b" worktreeLabel="B" selectedFile={null} onSelect={vi.fn()} changedFiles={[]} expandedPaths={[""]} onExpandedPathsChange={vi.fn()} />,
+			<WorktreeTree
+				workspaceId="ws-1"
+				worktreeId="wt-b"
+				worktreeLabel="B"
+				selectedFile={null}
+				onSelect={vi.fn()}
+				changedFiles={[]}
+				expandedPaths={[""]}
+				onExpandedPathsChange={vi.fn()}
+			/>,
 		);
 		resolveA(["wt-a-file.ts"]);
 		expect(await screen.findByText("wt-b-file.ts")).toBeInTheDocument();

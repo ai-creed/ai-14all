@@ -12,7 +12,9 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 }));
 
 const saveMock = files.save as unknown as ReturnType<typeof vi.fn>;
-const openForEditMock = files.openForEdit as unknown as ReturnType<typeof vi.fn>;
+const openForEditMock = files.openForEdit as unknown as ReturnType<
+	typeof vi.fn
+>;
 
 vi.mock("@monaco-editor/react", () => ({
 	__esModule: true,
@@ -139,18 +141,29 @@ describe("EditorModal mtime conflict", () => {
 		render(<EditorModal {...baseProps} />);
 		await userEvent.type(screen.getByTestId("monaco"), "x");
 		await userEvent.click(screen.getByRole("button", { name: /save/i }));
-		expect(await screen.findByText(/file changed on disk/i)).toBeInTheDocument();
+		expect(
+			await screen.findByText(/file changed on disk/i),
+		).toBeInTheDocument();
 	});
 
 	it("Overwrite re-saves with currentMtimeMs", async () => {
 		saveMock
-			.mockResolvedValueOnce({ ok: false, reason: "mtime-conflict", currentMtimeMs: 500 })
+			.mockResolvedValueOnce({
+				ok: false,
+				reason: "mtime-conflict",
+				currentMtimeMs: 500,
+			})
 			.mockResolvedValueOnce({ ok: true, mtimeMs: 600 });
 		render(<EditorModal {...baseProps} />);
 		await userEvent.type(screen.getByTestId("monaco"), "x");
 		await userEvent.click(screen.getByRole("button", { name: /save/i }));
-		await userEvent.click(await screen.findByRole("button", { name: /overwrite/i }));
-		expect(saveMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ expectedMtimeMs: 500 }));
+		await userEvent.click(
+			await screen.findByRole("button", { name: /overwrite/i }),
+		);
+		expect(saveMock).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({ expectedMtimeMs: 500 }),
+		);
 	});
 
 	it("Cancel dismisses dialog and leaves buffer dirty", async () => {
@@ -162,7 +175,9 @@ describe("EditorModal mtime conflict", () => {
 		render(<EditorModal {...baseProps} />);
 		await userEvent.type(screen.getByTestId("monaco"), "x");
 		await userEvent.click(screen.getByRole("button", { name: /save/i }));
-		await userEvent.click(await screen.findByRole("button", { name: /cancel/i }));
+		await userEvent.click(
+			await screen.findByRole("button", { name: /cancel/i }),
+		);
 		expect(screen.queryByText(/file changed on disk/i)).not.toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /save/i })).not.toBeDisabled();
 	});
@@ -181,10 +196,14 @@ describe("EditorModal mtime conflict", () => {
 		render(<EditorModal {...baseProps} />);
 		await userEvent.type(screen.getByTestId("monaco"), "x");
 		await userEvent.click(screen.getByRole("button", { name: /save/i }));
-		await userEvent.click(await screen.findByRole("button", { name: /reload/i }));
+		await userEvent.click(
+			await screen.findByRole("button", { name: /reload/i }),
+		);
 		expect(openForEditMock).toHaveBeenCalledWith("/wt", "NOTES.md");
 		await waitFor(() => {
-			expect((screen.getByTestId("monaco") as HTMLTextAreaElement).value).toBe("from-disk");
+			expect((screen.getByTestId("monaco") as HTMLTextAreaElement).value).toBe(
+				"from-disk",
+			);
 		});
 		expect(screen.getByRole("button", { name: /save/i })).toBeDisabled();
 	});
@@ -201,7 +220,11 @@ describe("EditorModal shortcuts and confirm-close", () => {
 		return screen.getAllByRole("dialog")[0];
 	}
 
-	function fireKey(target: HTMLElement, key: string, meta = true): KeyboardEvent {
+	function fireKey(
+		target: HTMLElement,
+		key: string,
+		meta = true,
+	): KeyboardEvent {
 		const ev = new KeyboardEvent("keydown", {
 			key,
 			metaKey: meta,
@@ -267,7 +290,9 @@ describe("EditorModal shortcuts and confirm-close", () => {
 		render(<EditorModal {...baseProps} onClose={onClose} />);
 		await userEvent.type(screen.getByTestId("monaco"), "x");
 		await userEvent.click(screen.getByRole("button", { name: /close/i }));
-		await userEvent.click(await screen.findByRole("button", { name: /discard/i }));
+		await userEvent.click(
+			await screen.findByRole("button", { name: /discard/i }),
+		);
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
@@ -277,7 +302,9 @@ describe("EditorModal shortcuts and confirm-close", () => {
 		render(<EditorModal {...baseProps} onClose={onClose} />);
 		await userEvent.type(screen.getByTestId("monaco"), "x");
 		await userEvent.click(screen.getByRole("button", { name: /close/i }));
-		await userEvent.click(await screen.findByRole("button", { name: /^save$/i }));
+		await userEvent.click(
+			await screen.findByRole("button", { name: /^save$/i }),
+		);
 		expect(saveMock).toHaveBeenCalledTimes(1);
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});

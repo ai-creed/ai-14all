@@ -28,21 +28,37 @@ const api: Ai14AllDesktopApi = {
 			return ipcRenderer.invoke("repository:listWorktrees", { workspaceId });
 		},
 		previewCreateWorktree(workspaceId, name) {
-			return ipcRenderer.invoke("repository:previewCreateWorktree", { workspaceId, name });
+			return ipcRenderer.invoke("repository:previewCreateWorktree", {
+				workspaceId,
+				name,
+			});
 		},
 		createWorktree(workspaceId, name) {
-			return ipcRenderer.invoke("repository:createWorktree", { workspaceId, name });
+			return ipcRenderer.invoke("repository:createWorktree", {
+				workspaceId,
+				name,
+			});
 		},
 		previewRemoveWorktree(workspaceId, worktreeId) {
-			return ipcRenderer.invoke("repository:previewRemoveWorktree", { workspaceId, worktreeId });
+			return ipcRenderer.invoke("repository:previewRemoveWorktree", {
+				workspaceId,
+				worktreeId,
+			});
 		},
 		removeWorktree(workspaceId, worktreeId) {
-			return ipcRenderer.invoke("repository:removeWorktree", { workspaceId, worktreeId });
+			return ipcRenderer.invoke("repository:removeWorktree", {
+				workspaceId,
+				worktreeId,
+			});
 		},
 	},
 	terminals: {
 		create(workspaceId, worktreeId, cwd) {
-			return ipcRenderer.invoke("terminals:create", { workspaceId, worktreeId, cwd });
+			return ipcRenderer.invoke("terminals:create", {
+				workspaceId,
+				worktreeId,
+				cwd,
+			});
 		},
 		list(workspaceId) {
 			return ipcRenderer.invoke("terminals:list", { workspaceId });
@@ -80,13 +96,19 @@ const api: Ai14AllDesktopApi = {
 			});
 		},
 		listTracked(workspaceId, worktreeId) {
-			return ipcRenderer.invoke("files:listTracked", { workspaceId, worktreeId });
+			return ipcRenderer.invoke("files:listTracked", {
+				workspaceId,
+				worktreeId,
+			});
 		},
 		read(worktreePath, relativePath) {
 			return ipcRenderer.invoke("files:read", { worktreePath, relativePath });
 		},
 		openForEdit(worktreePath, relativePath) {
-			return ipcRenderer.invoke("files:openForEdit", { worktreePath, relativePath });
+			return ipcRenderer.invoke("files:openForEdit", {
+				worktreePath,
+				relativePath,
+			});
 		},
 		save(args) {
 			return ipcRenderer.invoke("files:save", args);
@@ -109,7 +131,10 @@ const api: Ai14AllDesktopApi = {
 			return ipcRenderer.invoke("git:readCommitDetail", { worktreePath, sha });
 		},
 		discardChange(worktreePath, relativePath) {
-			return ipcRenderer.invoke("git:discardChange", { worktreePath, relativePath });
+			return ipcRenderer.invoke("git:discardChange", {
+				worktreePath,
+				relativePath,
+			});
 		},
 		getRemoteStatus(worktreePath) {
 			return ipcRenderer.invoke("git:getRemoteStatus", { worktreePath });
