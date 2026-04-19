@@ -182,7 +182,24 @@ describe("EditorModal mtime conflict", () => {
 		expect(screen.getByRole("button", { name: /save/i })).not.toBeDisabled();
 	});
 
-	it("Reload replaces buffer with disk content and clears dirty", async () => {
+	it("Reload with dirty buffer shows ConfirmCloseDialog instead of reloading immediately", async () => {
+		saveMock.mockResolvedValueOnce({
+			ok: false,
+			reason: "mtime-conflict",
+			currentMtimeMs: 500,
+		});
+		render(<EditorModal {...baseProps} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /save/i }));
+		await userEvent.click(
+			await screen.findByRole("button", { name: /reload/i }),
+		);
+		// Should show confirm dialog, not reload yet
+		expect(await screen.findByText(/unsaved changes/i)).toBeInTheDocument();
+		expect(openForEditMock).not.toHaveBeenCalled();
+	});
+
+	it("Reload Discard replaces buffer with disk content and clears dirty", async () => {
 		saveMock.mockResolvedValueOnce({
 			ok: false,
 			reason: "mtime-conflict",
@@ -199,6 +216,10 @@ describe("EditorModal mtime conflict", () => {
 		await userEvent.click(
 			await screen.findByRole("button", { name: /reload/i }),
 		);
+		// ConfirmCloseDialog is now shown — click Discard
+		await userEvent.click(
+			await screen.findByRole("button", { name: /discard/i }),
+		);
 		expect(openForEditMock).toHaveBeenCalledWith("/wt", "NOTES.md");
 		await waitFor(() => {
 			expect((screen.getByTestId("monaco") as HTMLTextAreaElement).value).toBe(
@@ -206,6 +227,78 @@ describe("EditorModal mtime conflict", () => {
 			);
 		});
 		expect(screen.getByRole("button", { name: /save/i })).toBeDisabled();
+	});
+});
+
+describe("EditorModal save error recovery", () => {
+	beforeEach(() => {
+		saveMock.mockReset();
+		openForEditMock.mockReset();
+	});
+
+	it("handleSave: files.save throws → saving resets to false, error status shown", async () => {
+		saveMock.mockRejectedValueOnce(new Error("IPC error"));
+		render(<EditorModal {...baseProps} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /save/i }));
+		// saving must reset — button re-enabled (buffer still dirty)
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: /save/i })).not.toBeDisabled();
+		});
+		expect(screen.getByText("Save failed: unexpected error")).toBeInTheDocument();
+	});
+
+	it("handleOverwrite: files.save throws → saving resets to false, error status shown", async () => {
+		saveMock
+			.mockResolvedValueOnce({ ok: false, reason: "mtime-conflict", currentMtimeMs: 500 })
+			.mockRejectedValueOnce(new Error("disk error"));
+		render(<EditorModal {...baseProps} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /save/i }));
+		await userEvent.click(await screen.findByRole("button", { name: /overwrite/i }));
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: /save/i })).not.toBeDisabled();
+		});
+		expect(screen.getByText("Save failed: unexpected error")).toBeInTheDocument();
+	});
+});
+
+describe("EditorModal reload pending-reload flow", () => {
+	beforeEach(() => {
+		saveMock.mockReset();
+		openForEditMock.mockReset();
+	});
+
+	it("Save-then-reload path: saves then reloads without calling onClose", async () => {
+		saveMock
+			.mockResolvedValueOnce({ ok: false, reason: "mtime-conflict", currentMtimeMs: 500 })
+			.mockResolvedValueOnce({ ok: true, mtimeMs: 600 });
+		openForEditMock.mockResolvedValueOnce({ ok: true, content: "saved-then-reloaded", mtimeMs: 700 });
+		const onClose = vi.fn();
+		render(<EditorModal {...baseProps} onClose={onClose} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		// Trigger mtime-conflict
+		await userEvent.click(screen.getByRole("button", { name: /save/i }));
+		// Click Reload to enter pending-reload state
+		await userEvent.click(await screen.findByRole("button", { name: /reload/i }));
+		// ConfirmCloseDialog open — click Save
+		await userEvent.click(await screen.findByRole("button", { name: /^save$/i }));
+		// Should reload, not close
+		expect(onClose).not.toHaveBeenCalled();
+		await waitFor(() => expect(openForEditMock).toHaveBeenCalledWith("/wt", "NOTES.md"));
+	});
+
+	it("Cancel from pending-reload ConfirmCloseDialog clears pendingReload without reload or close", async () => {
+		saveMock.mockResolvedValueOnce({ ok: false, reason: "mtime-conflict", currentMtimeMs: 500 });
+		const onClose = vi.fn();
+		render(<EditorModal {...baseProps} onClose={onClose} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /save/i }));
+		await userEvent.click(await screen.findByRole("button", { name: /reload/i }));
+		await userEvent.click(await screen.findByRole("button", { name: /cancel/i }));
+		expect(onClose).not.toHaveBeenCalled();
+		expect(openForEditMock).not.toHaveBeenCalled();
+		expect(screen.queryByText(/unsaved changes/i)).not.toBeInTheDocument();
 	});
 });
 

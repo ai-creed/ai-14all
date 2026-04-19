@@ -90,6 +90,7 @@ export function EditorModal({
 		null,
 	);
 	const [confirmClose, setConfirmClose] = useState(false);
+	const [pendingReload, setPendingReload] = useState(false);
 
 	const dirty = content !== originalContent;
 
@@ -104,26 +105,32 @@ export function EditorModal({
 		if (!dirty || saving) return false;
 		setSaving(true);
 		setStatus(null);
-		const result = await files.save({
-			worktreePath,
-			relativePath,
-			content,
-			expectedMtimeMs: mtimeMs,
-		});
-		setSaving(false);
-		if (result.ok) {
-			setOriginalContent(content);
-			setMtimeMs(result.mtimeMs);
-			const when = new Date().toLocaleTimeString();
-			setStatus({ kind: "saved", message: `Saved ${when}` });
-			return true;
-		}
-		if (result.reason === "mtime-conflict") {
-			setConflict({ currentMtimeMs: result.currentMtimeMs });
+		try {
+			const result = await files.save({
+				worktreePath,
+				relativePath,
+				content,
+				expectedMtimeMs: mtimeMs,
+			});
+			if (result.ok) {
+				setOriginalContent(content);
+				setMtimeMs(result.mtimeMs);
+				const when = new Date().toLocaleTimeString();
+				setStatus({ kind: "saved", message: `Saved ${when}` });
+				return true;
+			}
+			if (result.reason === "mtime-conflict") {
+				setConflict({ currentMtimeMs: result.currentMtimeMs });
+				return false;
+			}
+			setStatus({ kind: "error", message: errorMessageForReason(result.reason) });
 			return false;
+		} catch {
+			setStatus({ kind: "error", message: "Save failed: unexpected error" });
+			return false;
+		} finally {
+			setSaving(false);
 		}
-		setStatus({ kind: "error", message: errorMessageForReason(result.reason) });
-		return false;
 	}, [content, dirty, mtimeMs, relativePath, saving, worktreePath]);
 
 	const handleOverwrite = useCallback(async () => {
@@ -131,43 +138,48 @@ export function EditorModal({
 		const expected = conflict.currentMtimeMs;
 		setConflict(null);
 		setSaving(true);
-		const result = await files.save({
-			worktreePath,
-			relativePath,
-			content,
-			expectedMtimeMs: expected,
-		});
-		setSaving(false);
-		if (result.ok) {
-			setOriginalContent(content);
-			setMtimeMs(result.mtimeMs);
-			setStatus({
-				kind: "saved",
-				message: `Saved ${new Date().toLocaleTimeString()}`,
+		try {
+			const result = await files.save({
+				worktreePath,
+				relativePath,
+				content,
+				expectedMtimeMs: expected,
 			});
-		} else {
-			setStatus({
-				kind: "error",
-				message: errorMessageForReason(result.reason),
-			});
+			if (result.ok) {
+				setOriginalContent(content);
+				setMtimeMs(result.mtimeMs);
+				setStatus({ kind: "saved", message: `Saved ${new Date().toLocaleTimeString()}` });
+			} else {
+				setStatus({ kind: "error", message: errorMessageForReason(result.reason) });
+			}
+		} catch {
+			setStatus({ kind: "error", message: "Save failed: unexpected error" });
+		} finally {
+			setSaving(false);
 		}
 	}, [conflict, content, relativePath, worktreePath]);
 
-	const handleReload = useCallback(async () => {
+	const executeReload = useCallback(async () => {
 		const result = await files.openForEdit(worktreePath, relativePath);
-		setConflict(null);
 		if (result.ok) {
 			setOriginalContent(result.content);
 			setContent(result.content);
 			setMtimeMs(result.mtimeMs);
 			setStatus({ kind: "saved", message: "Reloaded from disk" });
 		} else {
-			setStatus({
-				kind: "error",
-				message: errorMessageForReason(result.reason),
-			});
+			setStatus({ kind: "error", message: errorMessageForReason(result.reason) });
 		}
 	}, [relativePath, worktreePath]);
+
+	const handleReload = useCallback(async () => {
+		setConflict(null);
+		if (dirty) {
+			setPendingReload(true);
+			setConfirmClose(true);
+			return;
+		}
+		await executeReload();
+	}, [dirty, executeReload]);
 
 	const handleCancelConflict = useCallback(() => setConflict(null), []);
 
@@ -182,15 +194,29 @@ export function EditorModal({
 	const confirmSaveThenClose = useCallback(async () => {
 		const saved = await handleSave();
 		setConfirmClose(false);
-		if (saved) onClose();
-	}, [handleSave, onClose]);
-
-	const confirmDiscard = useCallback(() => {
-		setConfirmClose(false);
+		if (!saved) return;
+		if (pendingReload) {
+			setPendingReload(false);
+			await executeReload();
+			return;
+		}
 		onClose();
-	}, [onClose]);
+	}, [executeReload, handleSave, onClose, pendingReload]);
 
-	const cancelConfirmClose = useCallback(() => setConfirmClose(false), []);
+	const confirmDiscard = useCallback(async () => {
+		setConfirmClose(false);
+		if (pendingReload) {
+			setPendingReload(false);
+			await executeReload();
+			return;
+		}
+		onClose();
+	}, [executeReload, onClose, pendingReload]);
+
+	const cancelConfirmClose = useCallback(() => {
+		setConfirmClose(false);
+		setPendingReload(false);
+	}, []);
 
 	const onDialogKeyDown = useCallback<React.KeyboardEventHandler<HTMLElement>>(
 		(e) => {

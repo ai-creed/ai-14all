@@ -219,8 +219,13 @@ export class FileService {
 			if (code === "ENOSPC") return { ok: false, reason: "disk-full" };
 			return { ok: false, reason: "write-failed" };
 		}
-		const newStats = await stat(resolved.absolute);
-		return { ok: true, mtimeMs: newStats.mtimeMs };
+		try {
+			const newStats = await stat(resolved.absolute);
+			return { ok: true, mtimeMs: newStats.mtimeMs };
+		} catch {
+			// Write succeeded; fall back to current time as approximate mtime
+			return { ok: true, mtimeMs: Date.now() };
+		}
 	}
 
 	async readFile(

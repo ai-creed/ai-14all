@@ -313,4 +313,31 @@ describe("FileService.saveFile", () => {
 		const res = await svc.saveFile(wt, "notes.md", "b\n", mtime);
 		expect(res).toEqual({ ok: false, reason: "disk-full" });
 	});
+
+	it("returns ok:true with Date.now() fallback when post-write stat throws", async () => {
+		const wt = makeWorktree();
+		writeFileSync(join(wt, "notes.md"), "a\n", "utf8");
+		const mtime = statSync(join(wt, "notes.md")).mtimeMs;
+		// First stat call (pre-write mtime check) passes through; second (post-write) throws
+		const statMock = vi.mocked(fsPromises.stat);
+		let statCallCount = 0;
+		statMock.mockImplementation(async (...args) => {
+			statCallCount++;
+			if (statCallCount === 2) {
+				throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+			}
+			const { stat: realStat } = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+			return realStat(...args as Parameters<typeof realStat>);
+		});
+		const before = Date.now();
+		const svc = new FileService();
+		const res = await svc.saveFile(wt, "notes.md", "b\n", mtime);
+		const after = Date.now();
+		statMock.mockRestore();
+		expect(res.ok).toBe(true);
+		if (res.ok) {
+			expect(res.mtimeMs).toBeGreaterThanOrEqual(before);
+			expect(res.mtimeMs).toBeLessThanOrEqual(after);
+		}
+	});
 });
