@@ -175,7 +175,7 @@ describe("FileViewer", () => {
 		).toBeInTheDocument();
 	});
 
-	it("does not show a context menu when right-clicking header of a non-.md file", async () => {
+	it("does not show a context menu when right-clicking header of a non-.md file without onEditFile", async () => {
 		mockRead.mockResolvedValueOnce({
 			path: "src/index.ts",
 			content: "const x = 1;",
@@ -196,6 +196,86 @@ describe("FileViewer", () => {
 		expect(
 			screen.queryByRole("menuitem", { name: "Preview" }),
 		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("menuitem", { name: "Edit" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("shows Edit context menu item for editable files when onEditFile is provided", async () => {
+		mockRead.mockResolvedValueOnce({
+			path: "src/index.ts",
+			content: "const x = 1;",
+			language: "typescript",
+		});
+
+		render(
+			<FileViewer
+				worktreePath="/repo"
+				relativePath="src/index.ts"
+				resolvedTheme="dark"
+				onEditFile={vi.fn()}
+			/>,
+		);
+
+		const title = await screen.findByText("src/index.ts");
+		fireEvent.contextMenu(title);
+
+		expect(
+			await screen.findByRole("menuitem", { name: "Edit" }),
+		).toBeInTheDocument();
+	});
+
+	it("calls onEditFile with relativePath when Edit is clicked", async () => {
+		mockRead.mockResolvedValueOnce({
+			path: "src/index.ts",
+			content: "const x = 1;",
+			language: "typescript",
+		});
+
+		const onEditFile = vi.fn();
+		render(
+			<FileViewer
+				worktreePath="/repo"
+				relativePath="src/index.ts"
+				resolvedTheme="dark"
+				onEditFile={onEditFile}
+			/>,
+		);
+
+		const title = await screen.findByText("src/index.ts");
+		fireEvent.contextMenu(title);
+		fireEvent.click(await screen.findByRole("menuitem", { name: "Edit" }));
+
+		expect(onEditFile).toHaveBeenCalledWith("src/index.ts");
+	});
+
+	it("shows both Preview and Edit for .md files when onEditFile is provided", async () => {
+		mockRead
+			.mockResolvedValueOnce({
+				path: "README.md",
+				content: "# Hello",
+				language: "markdown",
+			})
+			.mockReturnValue(new Promise(() => {}));
+
+		render(
+			<FileViewer
+				worktreePath="/repo"
+				relativePath="README.md"
+				resolvedTheme="dark"
+				onEditFile={vi.fn()}
+			/>,
+		);
+
+		const title = await screen.findByText("README.md");
+		fireEvent.contextMenu(title);
+
+		expect(
+			await screen.findByRole("menuitem", { name: "Preview" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("menuitem", { name: "Edit" }),
+		).toBeInTheDocument();
 	});
 
 	it("opens the markdown preview modal when Preview is clicked in FileViewer", async () => {

@@ -15,6 +15,7 @@ export type EditorModalProps = {
 	initialMtimeMs: number;
 	theme: ResolvedTheme;
 	onClose: () => void;
+	onFileSaved?: () => void;
 };
 
 const MONACO_OPTIONS = {
@@ -75,6 +76,7 @@ export function EditorModal({
 	initialMtimeMs,
 	theme,
 	onClose,
+	onFileSaved,
 }: EditorModalProps) {
 	const basename = relativePath.split("/").pop() ?? relativePath;
 	const monacoTheme = theme === "light" ? "vs" : "vs-dark";
@@ -120,6 +122,7 @@ export function EditorModal({
 				setMtimeMs(result.mtimeMs);
 				const when = new Date().toLocaleTimeString();
 				setStatus({ kind: "saved", message: `Saved ${when}` });
+				onFileSaved?.();
 				return true;
 			}
 			if (result.reason === "mtime-conflict") {
@@ -134,7 +137,7 @@ export function EditorModal({
 		} finally {
 			setSaving(false);
 		}
-	}, [content, dirty, mtimeMs, relativePath, saving, workspaceId, worktreeId]);
+	}, [content, dirty, mtimeMs, onFileSaved, relativePath, saving, workspaceId, worktreeId]);
 
 	const handleOverwrite = useCallback(async () => {
 		if (!conflict) return;
@@ -153,6 +156,7 @@ export function EditorModal({
 				setOriginalContent(content);
 				setMtimeMs(result.mtimeMs);
 				setStatus({ kind: "saved", message: `Saved ${new Date().toLocaleTimeString()}` });
+				onFileSaved?.();
 			} else {
 				setStatus({ kind: "error", message: errorMessageForReason(result.reason) });
 			}
@@ -161,7 +165,7 @@ export function EditorModal({
 		} finally {
 			setSaving(false);
 		}
-	}, [conflict, content, relativePath, workspaceId, worktreeId]);
+	}, [conflict, content, onFileSaved, relativePath, workspaceId, worktreeId]);
 
 	const executeReload = useCallback(async () => {
 		const result = await files.openForEdit(workspaceId, worktreeId, relativePath);

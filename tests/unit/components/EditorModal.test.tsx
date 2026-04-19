@@ -404,3 +404,49 @@ describe("EditorModal shortcuts and confirm-close", () => {
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 });
+
+describe("EditorModal onFileSaved callback", () => {
+	beforeEach(() => {
+		saveMock.mockReset();
+		openForEditMock.mockReset();
+	});
+
+	it("calls onFileSaved after a successful save", async () => {
+		saveMock.mockResolvedValueOnce({ ok: true, mtimeMs: 200 });
+		const onFileSaved = vi.fn();
+		render(<EditorModal {...baseProps} onFileSaved={onFileSaved} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /save/i }));
+		await screen.findByText(/saved/i);
+		expect(onFileSaved).toHaveBeenCalledTimes(1);
+	});
+
+	it("does not call onFileSaved when save fails", async () => {
+		saveMock.mockResolvedValueOnce({ ok: false, reason: "permission-denied" });
+		const onFileSaved = vi.fn();
+		render(<EditorModal {...baseProps} onFileSaved={onFileSaved} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /save/i }));
+		await screen.findByText(/permission denied/i);
+		expect(onFileSaved).not.toHaveBeenCalled();
+	});
+
+	it("calls onFileSaved after overwrite resolves conflict", async () => {
+		saveMock.mockResolvedValueOnce({
+			ok: false,
+			reason: "mtime-conflict",
+			currentMtimeMs: 500,
+		});
+		const onFileSaved = vi.fn();
+		render(<EditorModal {...baseProps} onFileSaved={onFileSaved} />);
+		await userEvent.type(screen.getByTestId("monaco"), "x");
+		await userEvent.click(screen.getByRole("button", { name: /save/i }));
+
+		saveMock.mockResolvedValueOnce({ ok: true, mtimeMs: 600 });
+		await userEvent.click(
+			await screen.findByRole("button", { name: /overwrite/i }),
+		);
+		await screen.findByText(/saved/i);
+		expect(onFileSaved).toHaveBeenCalledTimes(1);
+	});
+});

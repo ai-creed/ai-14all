@@ -2768,6 +2768,7 @@ export function App() {
 																		initialMtimeMs={editorTarget.mtimeMs}
 																		theme={resolvedTheme}
 																		onClose={() => setEditorTarget(null)}
+																		onFileSaved={() => setRefreshKey((k) => k + 1)}
 																	/>
 																)}
 															</>
@@ -2825,6 +2826,7 @@ export function App() {
 														worktreePath={activeWorktree.path}
 														relativePath={activeSession.selectedFilePath}
 														resolvedTheme={resolvedTheme}
+														onEditFile={openEditorForFile}
 													/>
 												) : activeSession?.reviewMode === "changes" &&
 												  diffState.data ? (

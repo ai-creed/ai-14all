@@ -6,14 +6,16 @@ import type { FileView } from "../../../shared/models/file-view";
 import { files } from "../../lib/desktop-client";
 import type { ResolvedTheme } from "../../lib/useTheme";
 import { MarkdownPreviewModal } from "./MarkdownPreviewModal";
+import { isEditable } from "../../../shared/editor/editable-files";
 
 interface FileViewerProps {
 	worktreePath: string;
 	relativePath: string;
 	resolvedTheme: ResolvedTheme;
+	onEditFile?: (path: string) => void;
 }
 
-export function FileViewer({ worktreePath, relativePath, resolvedTheme }: FileViewerProps) {
+export function FileViewer({ worktreePath, relativePath, resolvedTheme, onEditFile }: FileViewerProps) {
 	const [fileView, setFileView] = useState<FileView | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [stale, setStale] = useState(false);
@@ -82,9 +84,14 @@ export function FileViewer({ worktreePath, relativePath, resolvedTheme }: FileVi
 	if (message && !fileView) return <p className="shell-error">Error: {message}</p>;
 	if (!fileView) return null;
 
+	const basename = relativePath.split("/").pop() ?? "";
+	const isMarkdown = relativePath.endsWith(".md");
+	const canEdit = isEditable(basename);
+	const hasMenuItems = isMarkdown || (canEdit && !!onEditFile);
+
 	return (
 		<div className="shell-viewer">
-			{relativePath.endsWith(".md") ? (
+			{hasMenuItems ? (
 				<ContextMenu.Root>
 					<ContextMenu.Trigger asChild>
 						<div className="shell-viewer__header">
@@ -93,12 +100,22 @@ export function FileViewer({ worktreePath, relativePath, resolvedTheme }: FileVi
 					</ContextMenu.Trigger>
 					<ContextMenu.Portal>
 						<ContextMenu.Content className="shell-toolbar-menu">
-							<ContextMenu.Item
-								className="shell-toolbar-menu__item"
-								onSelect={() => setPreviewOpen(true)}
-							>
-								Preview
-							</ContextMenu.Item>
+							{isMarkdown && (
+								<ContextMenu.Item
+									className="shell-toolbar-menu__item"
+									onSelect={() => setPreviewOpen(true)}
+								>
+									Preview
+								</ContextMenu.Item>
+							)}
+							{canEdit && onEditFile && (
+								<ContextMenu.Item
+									className="shell-toolbar-menu__item"
+									onSelect={() => onEditFile(relativePath)}
+								>
+									Edit
+								</ContextMenu.Item>
+							)}
 						</ContextMenu.Content>
 					</ContextMenu.Portal>
 				</ContextMenu.Root>
