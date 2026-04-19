@@ -1748,6 +1748,8 @@ select {
 	position: fixed;
 	inset: 0;
 	background: rgba(3, 8, 12, 0.7);
+	/* Confirm/action dialogs must stack above other modals (e.g. editor at 49/50). */
+	z-index: 51;
 }
 
 .shell-modal {
@@ -1760,6 +1762,7 @@ select {
 	background: var(--panel-bg-elevated);
 	border: 1px solid var(--panel-border-strong);
 	border-radius: var(--radius-md);
+	z-index: 52;
 }
 
 .shell-modal__preview {
