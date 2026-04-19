@@ -1636,6 +1636,104 @@ select {
 	outline-offset: 2px;
 }
 
+/* ── Lightweight Editor Modal ───────────────────────────────────────── */
+
+.shell-editor-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.6);
+	z-index: 49;
+}
+
+.shell-editor-modal {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: min(90vw, 1200px);
+	height: 80vh;
+	display: flex;
+	flex-direction: column;
+	background: var(--panel-bg);
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-md);
+	z-index: 50;
+	overflow: hidden;
+}
+
+.shell-editor-modal__header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: var(--space-3) var(--space-4);
+	border-bottom: 1px solid var(--panel-border);
+	flex-shrink: 0;
+}
+
+.shell-editor-modal__title {
+	font-size: 0.875rem;
+	color: var(--text-primary);
+	font-family: var(--font-terminal);
+	margin: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.shell-editor-modal__close {
+	background: transparent;
+	border: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	padding: var(--space-1) var(--space-2);
+	line-height: 1;
+	border-radius: var(--radius-sm);
+	flex-shrink: 0;
+}
+
+.shell-editor-modal__close:hover {
+	color: var(--text-primary);
+	background: var(--panel-bg-elevated);
+}
+
+.shell-editor-modal__close:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.shell-editor-modal__body {
+	flex: 1;
+	min-height: 0;
+}
+
+.shell-editor-modal__footer {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--space-3);
+	padding: var(--space-2) var(--space-4);
+	border-top: 1px solid var(--panel-border);
+	flex-shrink: 0;
+}
+
+.shell-editor-modal__status {
+	font-size: 0.8125rem;
+	font-family: var(--font-terminal);
+	flex: 1;
+}
+
+.shell-editor-modal__status--saved {
+	color: var(--text-success, var(--accent));
+}
+
+.shell-editor-modal__status--error {
+	color: var(--text-danger, #e05c5c);
+}
+
+.shell-editor-modal__status--idle {
+	color: transparent;
+}
+
 .shell-sidebar__footer {
 	margin-top: auto;
 	padding-top: var(--space-3);

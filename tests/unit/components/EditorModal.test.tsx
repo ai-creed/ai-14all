@@ -35,7 +35,8 @@ vi.mock("@monaco-editor/react", () => ({
 }));
 
 const baseProps = {
-	worktreePath: "/wt",
+	workspaceId: "workspace:test",
+	worktreeId: "wt-1",
 	relativePath: "NOTES.md",
 	initialContent: "hello",
 	initialMtimeMs: 100,
@@ -88,7 +89,8 @@ describe("EditorModal save flow", () => {
 		await userEvent.type(screen.getByTestId("monaco"), "x");
 		await userEvent.click(screen.getByRole("button", { name: /save/i }));
 		expect(saveMock).toHaveBeenCalledWith({
-			worktreePath: "/wt",
+			workspaceId: "workspace:test",
+			worktreeId: "wt-1",
 			relativePath: "NOTES.md",
 			content: "hellox",
 			expectedMtimeMs: 100,
@@ -220,7 +222,7 @@ describe("EditorModal mtime conflict", () => {
 		await userEvent.click(
 			await screen.findByRole("button", { name: /discard/i }),
 		);
-		expect(openForEditMock).toHaveBeenCalledWith("/wt", "NOTES.md");
+		expect(openForEditMock).toHaveBeenCalledWith("workspace:test", "wt-1", "NOTES.md");
 		await waitFor(() => {
 			expect((screen.getByTestId("monaco") as HTMLTextAreaElement).value).toBe(
 				"from-disk",
@@ -285,7 +287,7 @@ describe("EditorModal reload pending-reload flow", () => {
 		await userEvent.click(await screen.findByRole("button", { name: /^save$/i }));
 		// Should reload, not close
 		expect(onClose).not.toHaveBeenCalled();
-		await waitFor(() => expect(openForEditMock).toHaveBeenCalledWith("/wt", "NOTES.md"));
+		await waitFor(() => expect(openForEditMock).toHaveBeenCalledWith("workspace:test", "wt-1", "NOTES.md"));
 	});
 
 	it("Cancel from pending-reload ConfirmCloseDialog clears pendingReload without reload or close", async () => {

@@ -21,6 +21,8 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 	return {
 		...actual,
 		stat: vi.fn(actual.stat),
+		lstat: vi.fn(actual.lstat),
+		realpath: vi.fn(actual.realpath),
 		writeFile: vi.fn(actual.writeFile),
 	};
 });
@@ -227,6 +229,7 @@ describe("FileService.openForEdit", () => {
 
 	it("returns permission-denied when stat throws EACCES", async () => {
 		const wt = makeWorktree();
+		writeFileSync(join(wt, "notes.md"), "");
 		vi.mocked(fsPromises.stat).mockRejectedValueOnce(
 			Object.assign(new Error("EACCES"), { code: "EACCES" }),
 		);

@@ -258,18 +258,18 @@ export function registerIpcHandlers(
 	});
 
 	ipcMain.handle("files:openForEdit", async (_event, raw: unknown) => {
-		const { worktreePath, relativePath } = OpenFileForEditSchema.parse(raw);
-		return fileService.openForEdit(worktreePath, relativePath);
+		const { workspaceId, worktreeId, relativePath } = OpenFileForEditSchema.parse(raw);
+		const repository = workspaceRegistry.get(workspaceId);
+		const worktree = await worktreeService.findWorktree(repository, worktreeId);
+		return fileService.openForEdit(worktree.path, relativePath);
 	});
 
 	ipcMain.handle("files:save", async (_event, raw: unknown) => {
-		const parsed = SaveFileSchema.parse(raw);
-		return fileService.saveFile(
-			parsed.worktreePath,
-			parsed.relativePath,
-			parsed.content,
-			parsed.expectedMtimeMs,
-		);
+		const { workspaceId, worktreeId, relativePath, content, expectedMtimeMs } =
+			SaveFileSchema.parse(raw);
+		const repository = workspaceRegistry.get(workspaceId);
+		const worktree = await worktreeService.findWorktree(repository, worktreeId);
+		return fileService.saveFile(worktree.path, relativePath, content, expectedMtimeMs);
 	});
 
 	ipcMain.handle("files:listScoped", (_event, raw: unknown) => {

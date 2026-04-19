@@ -52,9 +52,10 @@ export const files: Ai14AllDesktopApi["files"] = {
 		getDesktopClient().files.listTracked(workspaceId, worktreeId),
 	read: (worktreePath, relativePath) =>
 		getDesktopClient().files.read(worktreePath, relativePath),
-	openForEdit: async (worktreePath, relativePath) => {
+	openForEdit: async (workspaceId, worktreeId, relativePath) => {
 		const raw = await getDesktopClient().files.openForEdit(
-			worktreePath,
+			workspaceId,
+			worktreeId,
 			relativePath,
 		);
 		return OpenFileForEditResultSchema.parse(raw);

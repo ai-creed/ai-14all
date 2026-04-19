@@ -265,7 +265,8 @@ export function App() {
 	const [discardPath, setDiscardPath] = useState<string | null>(null);
 	const [treePreviewPath, setTreePreviewPath] = useState<string | null>(null);
 	const [editorTarget, setEditorTarget] = useState<{
-		worktreePath: string;
+		workspaceId: string;
+		worktreeId: string;
 		relativePath: string;
 		content: string;
 		mtimeMs: number;
@@ -449,18 +450,19 @@ export function App() {
 
 	const openEditorForFile = useCallback(
 		async (relativePath: string) => {
-			if (!activeWorktree) return;
+			if (!activeWorktree || !activeWorkspaceId) return;
 			const basename = relativePath.split("/").pop() ?? "";
 			if (!isEditable(basename)) return;
 			try {
-				const res = await files.openForEdit(activeWorktree.path, relativePath);
+				const res = await files.openForEdit(activeWorkspaceId, activeWorktree.id, relativePath);
 				if (!res.ok) {
 					setOpenEditorError(`Cannot open file: ${res.reason}`);
 					return;
 				}
 				setOpenEditorError(null);
 				setEditorTarget({
-					worktreePath: activeWorktree.path,
+					workspaceId: activeWorkspaceId,
+					worktreeId: activeWorktree.id,
 					relativePath,
 					content: res.content,
 					mtimeMs: res.mtimeMs,
@@ -469,7 +471,7 @@ export function App() {
 				setOpenEditorError("Failed to open file for editing");
 			}
 		},
-		[activeWorktree],
+		[activeWorktree, activeWorkspaceId],
 	);
 
 	useEffect(() => {
@@ -2759,7 +2761,8 @@ export function App() {
 																)}
 																{editorTarget !== null && (
 																	<EditorModal
-																		worktreePath={editorTarget.worktreePath}
+																		workspaceId={editorTarget.workspaceId}
+																		worktreeId={editorTarget.worktreeId}
 																		relativePath={editorTarget.relativePath}
 																		initialContent={editorTarget.content}
 																		initialMtimeMs={editorTarget.mtimeMs}

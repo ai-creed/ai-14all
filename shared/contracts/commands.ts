@@ -90,7 +90,8 @@ export const ReadFileSchema = z.object({
 });
 
 export const OpenFileForEditSchema = z.object({
-	worktreePath: z.string(),
+	workspaceId: z.string().min(1),
+	worktreeId: z.string().min(1),
 	relativePath: z.string(),
 });
 
@@ -115,7 +116,8 @@ export const OpenFileForEditResultSchema = z.union([
 ]);
 
 export const SaveFileSchema = z.object({
-	worktreePath: z.string(),
+	workspaceId: z.string().min(1),
+	worktreeId: z.string().min(1),
 	relativePath: z.string(),
 	content: z.string(),
 	expectedMtimeMs: z.number(),
@@ -256,11 +258,13 @@ export type Ai14AllDesktopApi = {
 		listTracked(workspaceId: string, worktreeId: string): Promise<string[]>;
 		read(worktreePath: string, relativePath: string): Promise<FileView>;
 		openForEdit(
-			worktreePath: string,
+			workspaceId: string,
+			worktreeId: string,
 			relativePath: string,
 		): Promise<OpenFileForEditResult>;
 		save(args: {
-			worktreePath: string;
+			workspaceId: string;
+			worktreeId: string;
 			relativePath: string;
 			content: string;
 			expectedMtimeMs: number;

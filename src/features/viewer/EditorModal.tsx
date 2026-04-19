@@ -8,7 +8,8 @@ import { SaveConflictDialog } from "./SaveConflictDialog";
 type ResolvedTheme = "light" | "dark";
 
 export type EditorModalProps = {
-	worktreePath: string;
+	workspaceId: string;
+	worktreeId: string;
 	relativePath: string;
 	initialContent: string;
 	initialMtimeMs: number;
@@ -67,7 +68,8 @@ function errorMessageForReason(reason: string): string {
 }
 
 export function EditorModal({
-	worktreePath,
+	workspaceId,
+	worktreeId,
 	relativePath,
 	initialContent,
 	initialMtimeMs,
@@ -107,7 +109,8 @@ export function EditorModal({
 		setStatus(null);
 		try {
 			const result = await files.save({
-				worktreePath,
+				workspaceId,
+				worktreeId,
 				relativePath,
 				content,
 				expectedMtimeMs: mtimeMs,
@@ -131,7 +134,7 @@ export function EditorModal({
 		} finally {
 			setSaving(false);
 		}
-	}, [content, dirty, mtimeMs, relativePath, saving, worktreePath]);
+	}, [content, dirty, mtimeMs, relativePath, saving, workspaceId, worktreeId]);
 
 	const handleOverwrite = useCallback(async () => {
 		if (!conflict) return;
@@ -140,7 +143,8 @@ export function EditorModal({
 		setSaving(true);
 		try {
 			const result = await files.save({
-				worktreePath,
+				workspaceId,
+				worktreeId,
 				relativePath,
 				content,
 				expectedMtimeMs: expected,
@@ -157,10 +161,10 @@ export function EditorModal({
 		} finally {
 			setSaving(false);
 		}
-	}, [conflict, content, relativePath, worktreePath]);
+	}, [conflict, content, relativePath, workspaceId, worktreeId]);
 
 	const executeReload = useCallback(async () => {
-		const result = await files.openForEdit(worktreePath, relativePath);
+		const result = await files.openForEdit(workspaceId, worktreeId, relativePath);
 		if (result.ok) {
 			setOriginalContent(result.content);
 			setContent(result.content);
@@ -169,9 +173,13 @@ export function EditorModal({
 		} else {
 			setStatus({ kind: "error", message: errorMessageForReason(result.reason) });
 		}
-	}, [relativePath, worktreePath]);
+	}, [relativePath, workspaceId, worktreeId]);
 
 	const handleReload = useCallback(async () => {
+		if (conflict) {
+			// Accept the on-disk mtime so confirmSaveThenClose can overwrite correctly
+			setMtimeMs(conflict.currentMtimeMs);
+		}
 		setConflict(null);
 		if (dirty) {
 			setPendingReload(true);
@@ -179,7 +187,7 @@ export function EditorModal({
 			return;
 		}
 		await executeReload();
-	}, [dirty, executeReload]);
+	}, [conflict, dirty, executeReload]);
 
 	const handleCancelConflict = useCallback(() => setConflict(null), []);
 
@@ -194,7 +202,10 @@ export function EditorModal({
 	const confirmSaveThenClose = useCallback(async () => {
 		const saved = await handleSave();
 		setConfirmClose(false);
-		if (!saved) return;
+		if (!saved) {
+			setPendingReload(false);
+			return;
+		}
 		if (pendingReload) {
 			setPendingReload(false);
 			await executeReload();

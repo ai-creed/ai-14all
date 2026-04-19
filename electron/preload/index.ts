@@ -104,9 +104,10 @@ const api: Ai14AllDesktopApi = {
 		read(worktreePath, relativePath) {
 			return ipcRenderer.invoke("files:read", { worktreePath, relativePath });
 		},
-		openForEdit(worktreePath, relativePath) {
+		openForEdit(workspaceId, worktreeId, relativePath) {
 			return ipcRenderer.invoke("files:openForEdit", {
-				worktreePath,
+				workspaceId,
+				worktreeId,
 				relativePath,
 			});
 		},

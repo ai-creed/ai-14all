@@ -4,6 +4,8 @@ import {
 	readdir,
 	readFile as fsReadFile,
 	stat,
+	lstat,
+	realpath,
 	writeFile,
 } from "node:fs/promises";
 import { join, resolve, extname } from "node:path";
@@ -154,6 +156,22 @@ export class FileService {
 		if (!resolved.ok) return resolved;
 		const basename = relativePath.split("/").pop() ?? "";
 		if (!isEditable(basename)) return { ok: false, reason: "not-editable" };
+		try {
+			const lstats = await lstat(resolved.absolute);
+			if (lstats.isSymbolicLink()) {
+				const [realWorktree, realFile] = await Promise.all([
+					realpath(worktreePath),
+					realpath(resolved.absolute),
+				]);
+				if (realFile !== realWorktree && !realFile.startsWith(realWorktree + "/"))
+					return { ok: false, reason: "path-escape" };
+			}
+		} catch (err) {
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code === "ENOENT") return { ok: false, reason: "not-found" };
+			if (code === "EACCES") return { ok: false, reason: "permission-denied" };
+			return { ok: false, reason: "read-failed" };
+		}
 		let stats: import("node:fs").Stats;
 		try {
 			stats = await stat(resolved.absolute);
@@ -192,7 +210,22 @@ export class FileService {
 		if (!resolved.ok) return resolved;
 		const basename = relativePath.split("/").pop() ?? "";
 		if (!isEditable(basename)) return { ok: false, reason: "not-editable" };
-
+		try {
+			const lstats = await lstat(resolved.absolute);
+			if (lstats.isSymbolicLink()) {
+				const [realWorktree, realFile] = await Promise.all([
+					realpath(worktreePath),
+					realpath(resolved.absolute),
+				]);
+				if (realFile !== realWorktree && !realFile.startsWith(realWorktree + "/"))
+					return { ok: false, reason: "path-escape" };
+			}
+		} catch (err) {
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code === "ENOENT") return { ok: false, reason: "not-found" };
+			if (code === "EACCES") return { ok: false, reason: "permission-denied" };
+			return { ok: false, reason: "write-failed" };
+		}
 		let stats: import("node:fs").Stats;
 		try {
 			stats = await stat(resolved.absolute);
