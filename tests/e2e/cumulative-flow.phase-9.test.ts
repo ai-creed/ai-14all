@@ -263,6 +263,21 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 test.describe.serial("Cumulative flow — Phase 9 (Keyboard shortcuts)", () => {
 	test("navigates to main worktree as baseline", async () => {
 		test.setTimeout(60_000);
+		// Guard: if the app reset to the initial screen, reload the repo first
+		const isOnInitialScreen = await page
+			.getByRole("button", { name: "Browse" })
+			.isVisible({ timeout: 2_000 })
+			.catch(() => false);
+		if (isOnInitialScreen) {
+			await page.getByRole("button", { name: "Browse" }).click();
+			await expect(page.locator("#repo-path")).toHaveValue(testRepo.repoPath);
+			await page.getByRole("button", { name: "Load" }).click();
+			await expect(
+				page
+					.getByRole("navigation", { name: "Worktree sessions" })
+					.getByRole("button", { name: "feature-a", exact: true }),
+			).toBeVisible({ timeout: 15_000 });
+		}
 		// Select main worktree first so there is a "next" to navigate to
 		await page
 			.getByRole("navigation", { name: "Worktree sessions" })
