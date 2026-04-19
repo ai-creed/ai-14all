@@ -102,6 +102,8 @@ export function createTestRepo(): TestRepo {
 		join(worktreePath, "NOTES.md"),
 		"# Preview Test\n\nThis file exists for E2E markdown preview coverage.\n",
 	);
+	// Add a non-whitelisted binary-extension file for editor whitelist e2e test
+	writeFileSync(join(worktreePath, "logo.png"), "fake-png\n");
 
 	return {
 		repoPath,
