@@ -1,9 +1,11 @@
-import Editor from "@monaco-editor/react";
+import Editor, { type OnMount } from "@monaco-editor/react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { files } from "../../lib/desktop-client";
 import { ConfirmCloseDialog } from "./ConfirmCloseDialog";
 import { SaveConflictDialog } from "./SaveConflictDialog";
+
+type MonacoEditorInstance = Parameters<OnMount>[0];
 
 type ResolvedTheme = "light" | "dark";
 
@@ -98,15 +100,21 @@ export function EditorModal({
 
 	const dirty = content !== originalContent;
 
-	const dirtyRef = useRef(dirty);
-	useEffect(() => {
-		dirtyRef.current = dirty;
-	}, [dirty]);
+	// Monaco's model is authoritative and synchronous; React `content` state may
+	// lag behind rapid edits (e.g. when a save keybinding fires before the last
+	// onChange commit). Read the live value from the editor at save time so we
+	// never persist an intermediate buffer.
+	const editorRef = useRef<MonacoEditorInstance | null>(null);
+	const handleEditorMount: OnMount = useCallback((editor) => {
+		editorRef.current = editor;
+	}, []);
 
 	const nestedDialogOpen = conflict !== null || confirmClose;
 
 	const handleSave = useCallback(async (): Promise<boolean> => {
-		if (!dirty || saving) return false;
+		const latest = editorRef.current?.getValue() ?? content;
+		const isDirty = latest !== originalContent;
+		if (!isDirty || saving) return false;
 		setSaving(true);
 		setStatus(null);
 		try {
@@ -114,11 +122,12 @@ export function EditorModal({
 				workspaceId,
 				worktreeId,
 				relativePath,
-				content,
+				content: latest,
 				expectedMtimeMs: mtimeMs,
 			});
 			if (result.ok) {
-				setOriginalContent(content);
+				setOriginalContent(latest);
+				setContent(latest);
 				setMtimeMs(result.mtimeMs);
 				const when = new Date().toLocaleTimeString();
 				setStatus({ kind: "saved", message: `Saved ${when}` });
@@ -137,11 +146,12 @@ export function EditorModal({
 		} finally {
 			setSaving(false);
 		}
-	}, [content, dirty, mtimeMs, onFileSaved, relativePath, saving, workspaceId, worktreeId]);
+	}, [content, mtimeMs, onFileSaved, originalContent, relativePath, saving, workspaceId, worktreeId]);
 
 	const handleOverwrite = useCallback(async () => {
 		if (!conflict) return;
 		const expected = conflict.currentMtimeMs;
+		const latest = editorRef.current?.getValue() ?? content;
 		setConflict(null);
 		setSaving(true);
 		try {
@@ -149,11 +159,12 @@ export function EditorModal({
 				workspaceId,
 				worktreeId,
 				relativePath,
-				content,
+				content: latest,
 				expectedMtimeMs: expected,
 			});
 			if (result.ok) {
-				setOriginalContent(content);
+				setOriginalContent(latest);
+				setContent(latest);
 				setMtimeMs(result.mtimeMs);
 				setStatus({ kind: "saved", message: `Saved ${new Date().toLocaleTimeString()}` });
 				onFileSaved?.();
@@ -291,6 +302,7 @@ export function EditorModal({
 							<Editor
 								value={content}
 								onChange={(v) => setContent(v ?? "")}
+								onMount={handleEditorMount}
 								theme={monacoTheme}
 								language={language}
 								options={MONACO_OPTIONS}
