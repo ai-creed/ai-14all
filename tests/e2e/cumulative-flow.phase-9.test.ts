@@ -84,6 +84,20 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 		await page.keyboard.press("Escape");
 	});
 
+	test("Cmd+E on a non-whitelisted file is a no-op", async () => {
+		test.setTimeout(30_000);
+		// Click logo.png to select it (triggers session/selectFile)
+		const pngRow = page.locator(".shell-list__item--tree").filter({ hasText: /^logo\.png/ });
+		await pngRow.click();
+		// Small wait for state to settle
+		await page.waitForTimeout(200);
+		// Press Cmd+E — should be a no-op for non-whitelisted file
+		await page.keyboard.press("Meta+e");
+		await page.waitForTimeout(500);
+		// No editor dialog should have appeared
+		await expect(page.getByRole("dialog")).toHaveCount(0);
+	});
+
 	test("Edit opens modal with file content for a whitelisted file", async () => {
 		test.setTimeout(30_000);
 		const notesMdRow = page.locator(".shell-list__item--tree").filter({ hasText: /^NOTES\.md/ });
