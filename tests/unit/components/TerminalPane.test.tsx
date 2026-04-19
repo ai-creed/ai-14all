@@ -20,6 +20,7 @@ const {
 	xtermScrollToBottomMock,
 	xtermScrollLinesMock,
 	xtermBufferMock,
+	getPathForFileMock,
 } = vi.hoisted(() => ({
 	resizeMock: vi.fn(() => Promise.resolve()),
 	sendInputMock: vi.fn(() => Promise.resolve()),
@@ -38,6 +39,7 @@ const {
 	xtermScrollToBottomMock: vi.fn(),
 	xtermScrollLinesMock: vi.fn(),
 	xtermBufferMock: { active: { viewportY: 100, baseY: 100, cursorY: 23 } },
+	getPathForFileMock: vi.fn<(file: unknown) => string>(),
 }));
 
 type ResizeObserverRecord = {
@@ -77,6 +79,9 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	},
 	diagnostics: {
 		logShellEvent: logShellEventMock,
+	},
+	files: {
+		getPathForFile: getPathForFileMock,
 	},
 }));
 
@@ -138,6 +143,7 @@ describe("TerminalPane", () => {
 		xtermClearMock.mockReset();
 		xtermScrollToBottomMock.mockReset();
 		xtermScrollLinesMock.mockReset();
+		getPathForFileMock.mockReset();
 		xtermBufferMock.active = { viewportY: 100, baseY: 100, cursorY: 23 };
 		resizeMock.mockImplementation(() => Promise.resolve());
 		sendInputMock.mockImplementation(() => Promise.resolve());
@@ -364,7 +370,7 @@ describe("TerminalPane", () => {
 		expect(xtermScrollLinesMock).toHaveBeenCalledWith(110);
 	});
 
-	it("sends escaped file path to PTY on file drop", () => {
+	it("resolves file paths via webUtils getPathForFile and sends escaped path to PTY on drop", () => {
 		const session = makeSession();
 
 		const { container } = render(
@@ -373,15 +379,19 @@ describe("TerminalPane", () => {
 
 		sendInputMock.mockClear();
 
+		const file = { name: "file.txt" };
+		getPathForFileMock.mockImplementation((f) =>
+			f === file ? "/Users/vu/my project/file.txt" : "",
+		);
+
 		const section = container.querySelector("section")!;
 		const dropEvent = new Event("drop", { bubbles: true });
 		Object.defineProperty(dropEvent, "dataTransfer", {
-			value: {
-				files: [{ path: "/Users/vu/my project/file.txt" }],
-			},
+			value: { files: [file] },
 		});
 		section.dispatchEvent(dropEvent);
 
+		expect(getPathForFileMock).toHaveBeenCalledWith(file);
 		expect(sendInputMock).toHaveBeenCalledWith(
 			"term-1",
 			"/Users/vu/my\\ project/file.txt",
@@ -397,15 +407,18 @@ describe("TerminalPane", () => {
 
 		sendInputMock.mockClear();
 
+		const fileA = { name: "a.txt" };
+		const fileB = { name: "b file.txt" };
+		getPathForFileMock.mockImplementation((f) => {
+			if (f === fileA) return "/Users/vu/a.txt";
+			if (f === fileB) return "/Users/vu/b file.txt";
+			return "";
+		});
+
 		const section = container.querySelector("section")!;
 		const dropEvent = new Event("drop", { bubbles: true });
 		Object.defineProperty(dropEvent, "dataTransfer", {
-			value: {
-				files: [
-					{ path: "/Users/vu/a.txt" },
-					{ path: "/Users/vu/b file.txt" },
-				],
-			},
+			value: { files: [fileA, fileB] },
 		});
 		section.dispatchEvent(dropEvent);
 
@@ -428,6 +441,28 @@ describe("TerminalPane", () => {
 		const dropEvent = new Event("drop", { bubbles: true });
 		Object.defineProperty(dropEvent, "dataTransfer", {
 			value: { files: [] },
+		});
+		section.dispatchEvent(dropEvent);
+
+		expect(sendInputMock).not.toHaveBeenCalled();
+	});
+
+	it("skips files when getPathForFile returns empty string", () => {
+		const session = makeSession();
+
+		const { container } = render(
+			<TerminalPane session={session} visible={true} />,
+		);
+
+		sendInputMock.mockClear();
+
+		const file = { name: "from-web.png" };
+		getPathForFileMock.mockReturnValue("");
+
+		const section = container.querySelector("section")!;
+		const dropEvent = new Event("drop", { bubbles: true });
+		Object.defineProperty(dropEvent, "dataTransfer", {
+			value: { files: [file] },
 		});
 		section.dispatchEvent(dropEvent);
 

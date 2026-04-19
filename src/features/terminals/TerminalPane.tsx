@@ -3,7 +3,7 @@ import { Terminal } from "xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "xterm/css/xterm.css";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
-import { terminals } from "../../lib/desktop-client";
+import { files, terminals } from "../../lib/desktop-client";
 import { logRendererShellEvent } from "./shell-event-logger";
 
 type Props = {
@@ -218,13 +218,13 @@ export function TerminalPane({
 	const handleDrop = useCallback(
 		(e: React.DragEvent) => {
 			e.preventDefault();
-			const files = e.dataTransfer?.files;
-			if (!files || files.length === 0) return;
+			const dropped = e.dataTransfer?.files;
+			if (!dropped || dropped.length === 0) return;
 
-			const paths = Array.from(files)
-				.map((f) => (f as File & { path?: string }).path)
+			const paths = Array.from(dropped)
+				.map((f) => files.getPathForFile(f))
 				.filter(Boolean)
-				.map((p) => p!.replace(/([\\  !"#$&'()*,:;<>?@[\]^`{|}~])/g, "\\$1"));
+				.map((p) => p.replace(/([\\  !"#$&'()*,:;<>?@[\]^`{|}~])/g, "\\$1"));
 
 			if (paths.length > 0) {
 				terminals.sendInput(session.id, paths.join(" ")).catch(() => {});

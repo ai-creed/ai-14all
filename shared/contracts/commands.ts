@@ -269,6 +269,7 @@ export type Ai14AllDesktopApi = {
 			content: string;
 			expectedMtimeMs: number;
 		}): Promise<SaveFileResult>;
+		getPathForFile(file: File): string;
 	};
 	git: {
 		listChanges(worktreePath: string): Promise<GitChange[]>;

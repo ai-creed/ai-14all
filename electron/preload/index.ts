@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { Ai14AllDesktopApi } from "../../shared/contracts/commands.js";
 import type {
 	TerminalOutputEvent,
@@ -113,6 +113,9 @@ const api: Ai14AllDesktopApi = {
 		},
 		save(args) {
 			return ipcRenderer.invoke("files:save", args);
+		},
+		getPathForFile(file) {
+			return webUtils.getPathForFile(file);
 		},
 	},
 	git: {

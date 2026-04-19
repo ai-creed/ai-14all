@@ -64,6 +64,7 @@ export const files: Ai14AllDesktopApi["files"] = {
 		const raw = await getDesktopClient().files.save(args);
 		return SaveFileResultSchema.parse(raw);
 	},
+	getPathForFile: (file) => getDesktopClient().files.getPathForFile(file),
 };
 
 export const git: Ai14AllDesktopApi["git"] = {
