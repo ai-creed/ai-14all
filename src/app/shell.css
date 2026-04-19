@@ -1645,6 +1645,13 @@ select {
 	z-index: 49;
 }
 
+/* When a nested dialog (e.g. ConfirmCloseDialog) opens on top, Radix sets
+   data-aria-hidden on the editor overlay. Disable pointer events so the
+   nested dialog's buttons are clickable. */
+.shell-editor-overlay[data-aria-hidden="true"] {
+	pointer-events: none;
+}
+
 .shell-editor-modal {
 	position: fixed;
 	top: 50%;
@@ -1748,7 +1755,6 @@ select {
 	position: fixed;
 	inset: 0;
 	background: rgba(3, 8, 12, 0.7);
-	z-index: 60;
 }
 
 .shell-modal {
@@ -1761,7 +1767,6 @@ select {
 	background: var(--panel-bg-elevated);
 	border: 1px solid var(--panel-border-strong);
 	border-radius: var(--radius-md);
-	z-index: 61;
 }
 
 .shell-modal__preview {
