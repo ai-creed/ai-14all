@@ -184,16 +184,18 @@ select {
 }
 
 .shell-main-column {
-	display: grid;
-	grid-template-rows: auto minmax(240px, 1fr) auto;
+	display: flex;
+	flex-direction: column;
 	gap: var(--space-4);
 	min-width: 0;
 	min-height: 0;
+	overflow: hidden;
 }
 
 .shell-review-stack {
 	display: grid;
 	min-height: 0;
+	flex-shrink: 0;
 }
 
 .shell-review-stack__resize-handle {
@@ -355,6 +357,8 @@ select {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
 	overflow: hidden;
+	flex: 1;
+	min-height: 0;
 	border-color: var(--pane-border-terminal);
 }
 
@@ -678,6 +682,136 @@ select {
 	justify-content: center;
 }
 
+
+/* ── Session chip bar ────────────────────────────────── */
+
+.shell-chip-bar {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	padding: 0 var(--space-4);
+	height: 36px;
+	flex-shrink: 0;
+	background: var(--panel-bg);
+	border-bottom: 1px solid var(--panel-border);
+	overflow: hidden;
+}
+
+.shell-chip-bar__identity {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	min-width: 0;
+}
+
+.shell-chip-bar__title {
+	font-size: 0.8125rem;
+	font-weight: 600;
+	color: var(--text-primary);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 200px;
+}
+
+.shell-chip-bar__rename {
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: var(--text-muted);
+	padding: 2px var(--space-1);
+	border-radius: var(--radius-sm);
+	font-size: 0.75rem;
+	line-height: 1;
+	opacity: 0;
+	transition: opacity 0.1s;
+}
+.shell-chip-bar:hover .shell-chip-bar__rename,
+.shell-chip-bar__rename:focus-visible {
+	opacity: 1;
+	color: var(--text-secondary);
+}
+.shell-chip-bar__rename:hover { color: var(--text-primary); }
+
+.shell-chip-bar__meta {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	font-size: 0.75rem;
+	color: var(--text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	flex-shrink: 1;
+	min-width: 0;
+}
+
+.shell-chip-bar__worktree,
+.shell-chip-bar__branch {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.shell-chip-bar__sep { user-select: none; }
+
+.shell-chip-bar__status {
+	display: flex;
+	align-items: center;
+	margin-left: var(--space-1);
+}
+
+.shell-chip-bar__clean {
+	font-size: 0.7rem;
+	color: var(--text-muted);
+	white-space: nowrap;
+}
+
+.shell-chip-bar__dirty-chip {
+	background: none;
+	border: 1px solid var(--accent);
+	color: var(--accent);
+	border-radius: var(--radius-md);
+	padding: 1px var(--space-2);
+	font-size: 0.7rem;
+	cursor: pointer;
+	white-space: nowrap;
+}
+.shell-chip-bar__dirty-chip:hover {
+	background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.shell-chip-bar__actions {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	margin-left: auto;
+	flex-shrink: 0;
+}
+
+.shell-chip-bar__action {
+	background: none;
+	border: 1px solid var(--panel-border);
+	color: var(--text-secondary);
+	border-radius: var(--radius-md);
+	padding: 2px var(--space-2);
+	font-size: 0.7rem;
+	cursor: pointer;
+	white-space: nowrap;
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+}
+.shell-chip-bar__action:hover {
+	border-color: var(--text-muted);
+	color: var(--text-primary);
+}
+
+.shell-chip-bar__note-dot {
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: var(--accent);
+	display: inline-block;
+}
 
 .shell-review-switches {
 	display: flex;
