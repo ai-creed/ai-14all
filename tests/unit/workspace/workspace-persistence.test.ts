@@ -88,6 +88,7 @@ describe("buildWorkspaceSnapshot", () => {
 			worktreeSessions: [
 				{
 					worktreeId: "main",
+					title: "",
 					note: "resume here",
 					reviewMode: "files",
 					viewerMode: "file",
@@ -848,5 +849,32 @@ describe("PersistedWorktreeSessionSchema title field", () => {
 			title: "Payments refactor",
 		});
 		expect(parsed.title).toBe("Payments refactor");
+	});
+});
+
+describe("buildWorkspaceSnapshot title round-trip", () => {
+	const worktrees = [
+		{
+			id: "main",
+			repositoryId: "repo-1",
+			branchName: "main",
+			path: "/repo",
+			label: "main",
+			isMain: true,
+		},
+	];
+
+	it("persists and restores a custom title through the snapshot", () => {
+		const initial = createWorkspaceState(worktrees);
+		const withTitle = workspaceReducer(initial, {
+			type: "session/setTitle",
+			worktreeId: "main",
+			title: "Launch prep",
+		});
+		const snapshot = buildWorkspaceSnapshot("/repo", "repo-1", withTitle);
+		const persisted = snapshot.worktreeSessions.find(
+			(s) => s.worktreeId === "main",
+		);
+		expect(persisted?.title).toBe("Launch prep");
 	});
 });

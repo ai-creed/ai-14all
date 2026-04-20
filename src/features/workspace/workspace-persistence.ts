@@ -64,6 +64,7 @@ export function buildWorkspaceSnapshot(
 		commandPresets: state.commandPresets,
 		worktreeSessions: Object.values(state.sessionsByWorktreeId).map((session) => ({
 			worktreeId: session.worktreeId,
+			title: session.title,
 			note: session.note,
 			reviewMode: session.reviewMode,
 			viewerMode: session.viewerMode,
