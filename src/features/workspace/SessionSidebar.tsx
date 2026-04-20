@@ -1,7 +1,9 @@
+import * as React from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import type { Worktree } from "../../../shared/models/worktree";
 import type { ProcessAttentionState } from "../../../shared/models/process-session";
 import type { WorktreeProcessSummary } from "./sidebar-shell-summary";
+import { displayTitle } from "./session-display-title";
 
 export type SessionSidebarWorkspace = {
 	workspaceId: string;
@@ -10,6 +12,7 @@ export type SessionSidebarWorkspace = {
 	selectedWorktreeId: string | null;
 	attentionByWorktreeId: Record<string, ProcessAttentionState>;
 	processesByWorktreeId?: Record<string, WorktreeProcessSummary>;
+	titleByWorktreeId?: Record<string, string>;
 	active: boolean;
 	hydrated: boolean;
 };
@@ -24,6 +27,9 @@ type Props = {
 	onCreateWorktree: (workspaceId: string) => void;
 	onRemoveWorktree: (workspaceId: string, worktreeId: string) => void;
 	onRemoveWorkspace: (workspaceId: string) => void;
+	onRenameSession?: (workspaceId: string, worktreeId: string, title: string) => void;
+	onRequestExpand?: (workspaceId: string, worktreeId: string) => void;
+	pendingRename?: { workspaceId: string; worktreeId: string } | null;
 };
 
 export function SessionSidebar({
@@ -36,7 +42,37 @@ export function SessionSidebar({
 	onCreateWorktree,
 	onRemoveWorktree,
 	onRemoveWorkspace,
+	onRenameSession,
+	onRequestExpand,
+	pendingRename,
 }: Props) {
+	const [renaming, setRenaming] = React.useState<{ workspaceId: string; worktreeId: string } | null>(null);
+	const [draft, setDraft] = React.useState("");
+
+	React.useEffect(() => {
+		if (collapsed || !pendingRename) return;
+		const target = workspaces.find(
+			(w) => w.workspaceId === pendingRename.workspaceId,
+		);
+		if (!target || !target.active) return;
+		setDraft(target.titleByWorktreeId?.[pendingRename.worktreeId] ?? "");
+		setRenaming(pendingRename);
+	}, [collapsed, pendingRename, workspaces]);
+
+	function startRename(workspaceId: string, worktreeId: string, currentTitle: string) {
+		setDraft(currentTitle);
+		setRenaming({ workspaceId, worktreeId });
+	}
+
+	function commitRename(workspaceId: string, worktreeId: string) {
+		onRenameSession?.(workspaceId, worktreeId, draft.trim());
+		setRenaming(null);
+	}
+
+	function cancelRename() {
+		setRenaming(null);
+	}
+
 	return (
 		<nav
 			aria-label="Worktree sessions"
@@ -102,50 +138,115 @@ export function SessionSidebar({
 							{workspace.worktrees.map((worktree) => {
 								const selected =
 									workspace.active && worktree.id === workspace.selectedWorktreeId;
-									const summary = workspace.processesByWorktreeId?.[worktree.id];
-								const item = (
+								const summary = workspace.processesByWorktreeId?.[worktree.id];
+								const rawTitle = workspace.titleByWorktreeId?.[worktree.id] ?? "";
+								const shownTitle = displayTitle(rawTitle, worktree);
+								const hasCustomTitle = rawTitle.trim().length > 0;
+								const isRenamingThisRow =
+									renaming?.workspaceId === workspace.workspaceId &&
+									renaming?.worktreeId === worktree.id;
+
+								const rowCommonProps = {
+									className: "shell-sidebar__item",
+									"data-selected": String(selected),
+									"data-attention": workspace.attentionByWorktreeId[worktree.id] ?? "idle",
+									"aria-label":
+										worktree.branchName !== shownTitle
+											? `${shownTitle} ${worktree.branchName}`
+											: shownTitle,
+								};
+
+								const rowContents = isRenamingThisRow ? (
+									<input
+										autoFocus
+										aria-label="Rename session"
+										className="shell-sidebar__rename-input"
+										value={draft}
+										onChange={(e) => setDraft(e.target.value)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter") {
+												e.preventDefault();
+												commitRename(workspace.workspaceId, worktree.id);
+											} else if (e.key === "Escape") {
+												e.preventDefault();
+												cancelRename();
+											}
+										}}
+										onBlur={() => commitRename(workspace.workspaceId, worktree.id)}
+									/>
+								) : collapsed ? (
+									<span className="shell-sidebar__marker">
+										{shownTitle.slice(0, 1).toUpperCase()}
+									</span>
+								) : (
+									<>
+										<strong
+											onDoubleClick={(e) => {
+												if (!workspace.active) return;
+												e.stopPropagation();
+												startRename(workspace.workspaceId, worktree.id, rawTitle);
+											}}
+										>
+											{shownTitle}
+										</strong>
+										{hasCustomTitle && (
+											<div className="shell-sidebar__worktree-label">{worktree.label}</div>
+										)}
+										{worktree.branchName !== worktree.label && (
+											<div className="shell-sidebar__branch">{worktree.branchName}</div>
+										)}
+										{summary && (
+											<div className="shell-sidebar__processes">
+												{summary.rows.map((row) => (
+													<div key={row.id} className="shell-sidebar__process">
+														<span
+															data-testid="process-state-indicator"
+															className="shell-sidebar__process-indicator"
+															data-state={row.state}
+														/>
+														<span className="shell-sidebar__process-label" title={row.label}>{row.label}</span>
+														{row.context ? (
+															<span className="shell-sidebar__process-context" title={row.context}>
+																{row.context}
+															</span>
+														) : null}
+													</div>
+												))}
+												{summary.overflowCount > 0 && (
+													<div className="shell-sidebar__process shell-sidebar__process--overflow">
+														{summary.overflowCount} more shell{summary.overflowCount === 1 ? "" : "s"}
+													</div>
+												)}
+											</div>
+										)}
+									</>
+								);
+
+								const item = isRenamingThisRow ? (
+									<div role="presentation" {...rowCommonProps}>
+										{rowContents}
+									</div>
+								) : (
 									<button
 										type="button"
-										className="shell-sidebar__item"
-										data-selected={String(selected)}
-										data-attention={workspace.attentionByWorktreeId[worktree.id] ?? "idle"}
-										aria-label={worktree.branchName !== worktree.label ? `${worktree.label} ${worktree.branchName}` : worktree.label}
+										{...rowCommonProps}
 										onClick={() => onSelect(workspace.workspaceId, worktree.id)}
+										onKeyDown={(e) => {
+											if (e.key === "F2") {
+												e.preventDefault();
+												if (collapsed || !workspace.active) {
+													onRequestExpand?.(workspace.workspaceId, worktree.id);
+													return;
+												}
+												startRename(workspace.workspaceId, worktree.id, rawTitle);
+											}
+										}}
 									>
-										{collapsed ? <span className="shell-sidebar__marker">{worktree.label.slice(0, 1).toUpperCase()}</span> : <>
-											<strong>{worktree.label}</strong>
-											{worktree.branchName !== worktree.label && (
-												<div className="shell-sidebar__branch">{worktree.branchName}</div>
-											)}
-												{summary && (
-													<div className="shell-sidebar__processes">
-														{summary.rows.map((row) => (
-															<div key={row.id} className="shell-sidebar__process">
-																<span
-																	data-testid="process-state-indicator"
-																	className="shell-sidebar__process-indicator"
-																	data-state={row.state}
-																/>
-																<span className="shell-sidebar__process-label" title={row.label}>{row.label}</span>
-																{row.context ? (
-																	<span className="shell-sidebar__process-context" title={row.context}>
-																		{row.context}
-																	</span>
-																) : null}
-															</div>
-														))}
-														{summary.overflowCount > 0 && (
-															<div className="shell-sidebar__process shell-sidebar__process--overflow">
-																{summary.overflowCount} more shell{summary.overflowCount === 1 ? "" : "s"}
-															</div>
-														)}
-													</div>
-											)}
-										</>}
+										{rowContents}
 									</button>
 								);
 
-								if (collapsed || worktree.isMain || !workspace.active) {
+								if (collapsed || !workspace.active) {
 									return <div key={worktree.id}>{item}</div>;
 								}
 
@@ -157,11 +258,25 @@ export function SessionSidebar({
 										<ContextMenu.Portal>
 											<ContextMenu.Content className="shell-toolbar-menu">
 												<ContextMenu.Item
-													className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
-													onSelect={() => onRemoveWorktree(workspace.workspaceId, worktree.id)}
+													className="shell-toolbar-menu__item"
+													onSelect={() => {
+														if (collapsed || !workspace.active) {
+															onRequestExpand?.(workspace.workspaceId, worktree.id);
+															return;
+														}
+														startRename(workspace.workspaceId, worktree.id, rawTitle);
+													}}
 												>
-													Remove worktree
+													Rename session
 												</ContextMenu.Item>
+												{!worktree.isMain && (
+													<ContextMenu.Item
+														className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
+														onSelect={() => onRemoveWorktree(workspace.workspaceId, worktree.id)}
+													>
+														Remove worktree
+													</ContextMenu.Item>
+												)}
 											</ContextMenu.Content>
 										</ContextMenu.Portal>
 									</ContextMenu.Root>
@@ -183,9 +298,9 @@ export function SessionSidebar({
 									type="button"
 									className="shell-button shell-button--compact"
 									onClick={() => onCreateWorktree(workspace.workspaceId)}
-									aria-label="New worktree"
+									aria-label="New session"
 								>
-									{collapsed ? "+" : "+ New worktree"}
+									{collapsed ? "+" : "+ New session"}
 								</button>
 							</div>
 						)}

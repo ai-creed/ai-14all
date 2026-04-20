@@ -170,7 +170,7 @@ it("previews and creates a new worktree from the sidebar modal", async () => {
 
 	await loadRepository();
 
-	await userEvent.click(screen.getByRole("button", { name: "New worktree" }));
+	await userEvent.click(screen.getByRole("button", { name: "New session" }));
 	await userEvent.type(screen.getByRole("textbox", { name: "Name" }), "Feature B");
 
 	expect(
@@ -244,7 +244,7 @@ it("creates a default shell for a worktree recreated after removal with the same
 	});
 
 	// Recreate feature-a with the same id/path
-	await userEvent.click(screen.getByRole("button", { name: "New worktree" }));
+	await userEvent.click(screen.getByRole("button", { name: "New session" }));
 	await userEvent.type(screen.getByRole("textbox", { name: "Name" }), "feature-a");
 	// Wait for preview to load (350ms debounce + async mock) before clicking
 	await screen.findByText("origin/master");

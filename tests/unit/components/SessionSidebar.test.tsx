@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { SessionSidebar } from "../../../src/features/workspace/SessionSidebar";
 import type { Worktree } from "../../../shared/models/worktree";
 
@@ -152,9 +153,9 @@ describe("SessionSidebar", () => {
 			/>,
 		);
 
-		const newButton = screen.getByRole("button", { name: "New worktree" });
+		const newButton = screen.getByRole("button", { name: "New session" });
 		expect(newButton).toBeInTheDocument();
-		expect(newButton.textContent).toBe("+ New worktree");
+		expect(newButton.textContent).toBe("+ New session");
 		expect(screen.getByRole("button", { name: "repo-a" })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Remove repo-a" })).toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: "Remove worktree" })).not.toBeInTheDocument();
@@ -352,5 +353,161 @@ describe("SessionSidebar", () => {
 		expect(
 			within(inactiveGroup).getByRole("button", { name: "feature worktree feature-a" }),
 		).toHaveAttribute("data-selected", "false");
+	});
+});
+
+import React from "react";
+
+function renderSidebar(overrides: Partial<React.ComponentProps<typeof SessionSidebar>> = {}) {
+	const onRenameSession = vi.fn();
+	const onRequestExpand = vi.fn();
+	const props: React.ComponentProps<typeof SessionSidebar> = {
+		workspaces: [
+			{
+				...workspaces[0],
+				titleByWorktreeId: { "feature-a": "", main: "" },
+			},
+		],
+		collapsed: false,
+		onToggleCollapsed: vi.fn(),
+		onLoadWorkspace: vi.fn(),
+		onOpenWorkspace: vi.fn(),
+		onSelect: vi.fn(),
+		onCreateWorktree: vi.fn(),
+		onRemoveWorktree: vi.fn(),
+		onRemoveWorkspace: vi.fn(),
+		onRenameSession,
+		onRequestExpand,
+		...overrides,
+	};
+	const utils = render(<SessionSidebar {...props} />);
+	return { onRenameSession, onRequestExpand, ...utils };
+}
+
+describe("SessionSidebar display title", () => {
+	it("shows session title as primary label and worktree label as subordinate", () => {
+		const titled = {
+			...workspaces[0],
+			titleByWorktreeId: { "feature-a": "Auth rewrite", main: "" },
+		};
+		render(
+			<SessionSidebar
+				workspaces={[titled]}
+				collapsed={false}
+				onToggleCollapsed={vi.fn()}
+				onLoadWorkspace={vi.fn()}
+				onOpenWorkspace={vi.fn()}
+				onSelect={vi.fn()}
+				onCreateWorktree={vi.fn()}
+				onRemoveWorktree={vi.fn()}
+				onRemoveWorkspace={vi.fn()}
+				onRenameSession={vi.fn()}
+				onRequestExpand={vi.fn()}
+			/>,
+		);
+		const group = screen.getByRole("group", { name: "repo-a" });
+		// Custom title on feature-a
+		expect(within(group).getByText("Auth rewrite")).toBeInTheDocument();
+		// Worktree label shown as subordinate
+		expect(within(group).getByText("feature worktree")).toBeInTheDocument();
+		// "main" has no custom title: single label, no redundant subordinate
+		expect(within(group).getAllByText("main")).toHaveLength(1);
+	});
+});
+
+describe("SessionSidebar rename", () => {
+	it("enters rename on double-click and commits trimmed value on Enter", () => {
+		const { onRenameSession } = renderSidebar();
+		fireEvent.doubleClick(screen.getByText("feature worktree"));
+		const input = screen.getByRole("textbox", { name: /rename session/i });
+		fireEvent.change(input, { target: { value: "  Auth rewrite  " } });
+		fireEvent.keyDown(input, { key: "Enter" });
+		expect(onRenameSession).toHaveBeenCalledWith("ws-a", "feature-a", "Auth rewrite");
+	});
+
+	it("cancels rename on Esc without dispatching", () => {
+		const { onRenameSession } = renderSidebar();
+		fireEvent.doubleClick(screen.getByText("feature worktree"));
+		const input = screen.getByRole("textbox", { name: /rename session/i });
+		fireEvent.change(input, { target: { value: "abandoned" } });
+		fireEvent.keyDown(input, { key: "Escape" });
+		expect(onRenameSession).not.toHaveBeenCalled();
+		expect(screen.queryByRole("textbox")).toBeNull();
+	});
+
+	it("commits trimmed value on blur", () => {
+		const { onRenameSession } = renderSidebar();
+		fireEvent.doubleClick(screen.getByText("feature worktree"));
+		const input = screen.getByRole("textbox", { name: /rename session/i });
+		fireEvent.change(input, { target: { value: "  New name  " } });
+		fireEvent.blur(input);
+		expect(onRenameSession).toHaveBeenCalledWith("ws-a", "feature-a", "New name");
+	});
+
+	it("empty input clears the custom title", () => {
+		const { onRenameSession } = renderSidebar({
+			workspaces: [
+				{
+					...workspaces[0],
+					titleByWorktreeId: { "feature-a": "Auth rewrite", main: "" },
+				},
+			],
+		});
+		fireEvent.doubleClick(screen.getByText("Auth rewrite"));
+		const input = screen.getByRole("textbox", { name: /rename session/i });
+		fireEvent.change(input, { target: { value: "   " } });
+		fireEvent.keyDown(input, { key: "Enter" });
+		expect(onRenameSession).toHaveBeenCalledWith("ws-a", "feature-a", "");
+	});
+
+	it("F2 on a focused row starts rename", () => {
+		const { onRenameSession } = renderSidebar();
+		const row = screen.getByRole("button", { name: /feature worktree/ });
+		row.focus();
+		fireEvent.keyDown(row, { key: "F2" });
+		const input = screen.getByRole("textbox", { name: /rename session/i });
+		fireEvent.change(input, { target: { value: "Quick rename" } });
+		fireEvent.keyDown(input, { key: "Enter" });
+		expect(onRenameSession).toHaveBeenCalledWith("ws-a", "feature-a", "Quick rename");
+	});
+
+	it("context menu rename item exists on a non-main row and not Remove worktree alongside it", async () => {
+		renderSidebar();
+		const row = screen.getByRole("button", { name: /feature worktree/ });
+		fireEvent.contextMenu(row);
+		const rename = await screen.findByRole("menuitem", { name: /rename session/i });
+		expect(rename).toBeInTheDocument();
+		const remove = await screen.findByRole("menuitem", { name: /remove worktree/i });
+		expect(remove).toBeInTheDocument();
+	});
+
+	it("context menu on the main row shows Rename session but NOT Remove worktree", async () => {
+		renderSidebar();
+		const row = screen.getByRole("button", { name: "main" });
+		fireEvent.contextMenu(row);
+		const rename = await screen.findByRole("menuitem", { name: /rename session/i });
+		expect(rename).toBeInTheDocument();
+		expect(screen.queryByRole("menuitem", { name: /remove worktree/i })).toBeNull();
+	});
+
+	it("when collapsed, F2 calls onRequestExpand instead of opening rename locally", () => {
+		const { onRequestExpand, onRenameSession } = renderSidebar({ collapsed: true });
+		const marker = screen.getAllByRole("button").find((el) =>
+			el.classList.contains("shell-sidebar__item"),
+		);
+		expect(marker).toBeTruthy();
+		marker!.focus();
+		fireEvent.keyDown(marker!, { key: "F2" });
+		expect(onRequestExpand).toHaveBeenCalledWith("ws-a", expect.any(String));
+		expect(onRenameSession).not.toHaveBeenCalled();
+	});
+});
+
+describe("SessionSidebar footer label", () => {
+	it("labels the footer action '+ New session'", () => {
+		renderSidebar();
+		const btn = screen.getByRole("button", { name: /new session/i });
+		expect(btn).toBeInTheDocument();
+		expect(btn.textContent).toBe("+ New session");
 	});
 });

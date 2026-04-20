@@ -236,7 +236,7 @@ function restorePersistedSession(
 
 	const nextSession: WorktreeSession = {
 		...session,
-		title: snapshot.title,
+		title: snapshot.title ?? "",
 		note: snapshot.note,
 		reviewMode: snapshot.reviewMode,
 		viewerMode: snapshot.viewerMode,

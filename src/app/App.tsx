@@ -39,6 +39,7 @@ import {
 } from "../features/workspace/SessionSidebar";
 import { SessionHeader } from "../features/workspace/SessionHeader";
 import { ContextPanel } from "../features/workspace/ContextPanel";
+import { displayTitle } from "../features/workspace/session-display-title";
 import {
 	createWorkspaceState,
 	workspaceReducer,
@@ -102,6 +103,7 @@ export function App() {
 	const [reviewPanelCollapsed, setReviewPanelCollapsed] = useState(false);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const [sidebarWidth, setSidebarWidth] = useState(240);
+	const [pendingRename, setPendingRename] = useState<{ workspaceId: string; worktreeId: string } | null>(null);
 	const [sidebarNow, setSidebarNow] = useState(() => Date.now());
 
 	// Multi-workspace registry
@@ -2236,6 +2238,13 @@ export function App() {
 							),
 						)
 					: {},
+				titleByWorktreeId: ws.workspaceState
+					? Object.fromEntries(
+							Object.entries(ws.workspaceState.sessionsByWorktreeId).map(
+								([worktreeId, session]) => [worktreeId, session.title],
+							),
+						)
+					: {},
 				active: ws.workspaceId === activeWorkspaceId,
 				hydrated: ws.workspaceState !== null,
 			}));
@@ -2332,6 +2341,19 @@ export function App() {
 						onRemoveWorkspace={(workspaceId) => {
 							void handleRemoveWorkspace(workspaceId);
 						}}
+						onRenameSession={(workspaceId, worktreeId, title) => {
+							if (workspaceId !== activeWorkspaceId) return;
+							dispatch({ type: "session/setTitle", worktreeId, title });
+							setPendingRename(null);
+						}}
+						onRequestExpand={(workspaceId, worktreeId) => {
+							if (sidebarCollapsed) setSidebarCollapsed(false);
+							if (workspaceId !== activeWorkspaceId) {
+								void activateWorkspace(workspaceId);
+							}
+							setPendingRename({ workspaceId, worktreeId });
+						}}
+						pendingRename={pendingRename}
 					/>
 				</div>
 
@@ -2364,7 +2386,7 @@ export function App() {
 								</span>
 							</button>
 							<SessionHeader
-								title={activeWorktree.label}
+								title={displayTitle(activeSession.title, activeWorktree)}
 								worktreePath={activeWorktree.path}
 								branchName={activeWorktree.branchName}
 								changedFileCount={changes.length}
