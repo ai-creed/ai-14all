@@ -1282,13 +1282,13 @@ describe("App — Phase 5 restore flow", () => {
 					workspaceId: "ws-a",
 					repositoryPath: "/repo-a",
 					repoId: "repo-id-a",
-					snapshot: { repositoryPath: "/repo-a", repoId: "repo-id-a", selectedWorktreeId: null, topBandCollapsed: false, commandPresets: [], worktreeSessions: [] },
+					snapshot: { repositoryPath: "/repo-a", repoId: "repo-id-a", selectedWorktreeId: null, commandPresets: [], worktreeSessions: [] },
 				},
 				{
 					workspaceId: "ws-b",
 					repositoryPath: "/repo-b",
 					repoId: "repo-id-b",
-					snapshot: { repositoryPath: "/repo-b", repoId: "repo-id-b", selectedWorktreeId: null, topBandCollapsed: false, commandPresets: [], worktreeSessions: [] },
+					snapshot: { repositoryPath: "/repo-b", repoId: "repo-id-b", selectedWorktreeId: null, commandPresets: [], worktreeSessions: [] },
 				},
 			],
 		});
