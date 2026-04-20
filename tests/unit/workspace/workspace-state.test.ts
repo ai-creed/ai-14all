@@ -1049,6 +1049,51 @@ describe("createWorkspaceState title default", () => {
 	});
 });
 
+describe("restorePersistedSession title hydration", () => {
+	it("hydrates title from a new-format snapshot", () => {
+		const initial = createWorkspaceState(worktrees);
+		const snapshot = PersistedWorktreeSessionSchema.parse({
+			worktreeId: "main",
+			title: "Auth rewrite",
+			note: "",
+			reviewMode: "files",
+			viewerMode: "file",
+			selectedFilePath: null,
+			selectedChangedFilePath: null,
+			activeProcessSessionId: null,
+			nextAdHocNumber: 1,
+			processSessions: [],
+		});
+		const next = workspaceReducer(initial, {
+			type: "session/restoreSnapshot",
+			workspaceId: "ws-test",
+			snapshot,
+		});
+		expect(next.sessionsByWorktreeId["main"].title).toBe("Auth rewrite");
+	});
+
+	it("hydrates an old snapshot (no title key) to an empty title without visual change", () => {
+		const initial = createWorkspaceState(worktrees);
+		const snapshot = PersistedWorktreeSessionSchema.parse({
+			worktreeId: "main",
+			note: "",
+			reviewMode: "files",
+			viewerMode: "file",
+			selectedFilePath: null,
+			selectedChangedFilePath: null,
+			activeProcessSessionId: null,
+			nextAdHocNumber: 1,
+			processSessions: [],
+		});
+		const next = workspaceReducer(initial, {
+			type: "session/restoreSnapshot",
+			workspaceId: "ws-test",
+			snapshot,
+		});
+		expect(next.sessionsByWorktreeId["main"].title).toBe("");
+	});
+});
+
 describe("session/setTitle", () => {
 	it("stores a trimmed custom title", () => {
 		const initial = createWorkspaceState(worktrees);
