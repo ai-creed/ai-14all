@@ -142,7 +142,7 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 		await editorArea.click();
 		// Move to end of document and add a new line
 		await page.keyboard.press("Meta+End");
-		await page.keyboard.type("\n<!-- e2e-edit -->");
+		await page.keyboard.type("\n<!-- e2e-edit -->", { delay: 20 });
 		// Save button should now be enabled (dirty)
 		const saveBtn = dialog.getByRole("button", { name: "Save" });
 		await expect(saveBtn).toBeEnabled({ timeout: 5_000 });
@@ -179,7 +179,7 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 		const editorArea = dialog.locator(".monaco-editor");
 		await editorArea.click();
 		await page.keyboard.press("Meta+End");
-		await page.keyboard.type("\n<!-- dirty -->");
+		await page.keyboard.type("\n<!-- dirty -->", { delay: 20 });
 		// Click Close
 		await dialog.getByRole("button", { name: "Close" }).click();
 		// ConfirmCloseDialog should appear
@@ -212,7 +212,7 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 		const editorArea = dialog.locator(".monaco-editor");
 		await editorArea.click();
 		await page.keyboard.press("Meta+End");
-		await page.keyboard.type(" // e2e");
+		await page.keyboard.type(" // e2e", { delay: 20 });
 		// Externally overwrite the file to change its mtime
 		writeFileSync(
 			join(testRepo.worktreePath, "src", "index.ts"),
