@@ -49,9 +49,8 @@ test.describe.serial("Cumulative flow — Phase 1", () => {
 			.getByRole("button", { name: / main$/i })
 			.click();
 
-		// Phase 6: "Active branch" label moved; SessionHeader now shows "Branch:"
-		await expect(page.getByText("Branch:")).toBeVisible();
-		await expect(page.getByText("Worktree path")).toBeVisible();
+		// Chip bar replaces the top band — verify session context is visible
+		await expect(page.getByRole("region", { name: "Session" })).toBeVisible();
 		await expect(page.getByRole("tab", { name: "Files" })).toBeVisible();
 		await expect(page.getByRole("tab", { name: "Changes" })).toBeVisible();
 	});

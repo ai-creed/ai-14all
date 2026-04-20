@@ -49,9 +49,8 @@ test.describe.serial("Cumulative flow — Phase 4", () => {
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 
-		// Phase 6: "Recent commits" section was removed from ContextPanel.
-		// Git context (branch, status, changed-file count) now lives in SessionHeader.
-		await expect(page.getByText("Branch:")).toBeVisible();
+		// Chip bar replaces the top band — verify session context is visible
+		await expect(page.getByRole("region", { name: "Session" })).toBeVisible();
 		// Wait for the git summary to finish loading — "Dirty" appears once the
 		// async readSummary call resolves.  This also stabilises the layout so
 		// the xterm resize cycle has completed before we click list items.

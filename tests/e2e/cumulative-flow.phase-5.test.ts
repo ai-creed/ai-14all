@@ -78,7 +78,10 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		// Phase 6: a default "shell 1" is auto-created on worktree activation.
 		// Wait for it to be stable before interacting with the Changes panel.
 		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible({ timeout: 10_000 });
-		await page.getByRole("textbox", { name: "Session note" }).fill("resume here");
+		await page.getByRole("button", { name: /open note/i }).click();
+		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
+		await page.getByRole("textbox", { name: /session note/i }).fill("resume here");
+		await page.keyboard.press("Escape");
 		// Phase 6: force clicks in the review panel because the xterm pane in
 		// the same column keeps the accessibility tree in flux.
 		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
@@ -107,7 +110,10 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 				name: /feature-a/i,
 			}),
 		).toHaveAttribute("data-selected", "true");
-		await expect(page.getByRole("textbox", { name: "Session note" })).toHaveValue("resume here");
+		await page.getByRole("button", { name: /open note/i }).click();
+		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
+		await expect(page.getByRole("textbox", { name: /session note/i })).toHaveValue("resume here");
+		await page.keyboard.press("Escape");
 		await expect(page.getByText("Diff vs HEAD")).toBeVisible();
 		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible();
 
@@ -205,7 +211,10 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 				.getByRole("navigation", { name: "Worktree sessions" })
 				.getByRole("button", { name: /feature-a/i }),
 		).toHaveAttribute("data-selected", "true");
-		await expect(page.getByRole("textbox", { name: "Session note" })).toHaveValue("always-restore note");
+		await page.getByRole("button", { name: /open note/i }).click();
+		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
+		await expect(page.getByRole("textbox", { name: /session note/i })).toHaveValue("always-restore note");
+		await page.keyboard.press("Escape");
 
 		await closeApp();
 		await launchApp();
@@ -220,7 +229,10 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 				.getByRole("navigation", { name: "Worktree sessions" })
 				.getByRole("button", { name: /feature-a/i }),
 		).toHaveAttribute("data-selected", "true");
-		await expect(page.getByRole("textbox", { name: "Session note" })).toHaveValue("always-restore note");
+		await page.getByRole("button", { name: /open note/i }).click();
+		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
+		await expect(page.getByRole("textbox", { name: /session note/i })).toHaveValue("always-restore note");
+		await page.keyboard.press("Escape");
 	});
 
 	test("recovers the previous workspace after the repository directory is renamed", async () => {
@@ -243,7 +255,10 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 			.click();
 
 		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible({ timeout: 10_000 });
-		await page.getByRole("textbox", { name: "Session note" }).fill("resume here");
+		await page.getByRole("button", { name: /open note/i }).click();
+		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
+		await page.getByRole("textbox", { name: /session note/i }).fill("resume here");
+		await page.keyboard.press("Escape");
 
 		// Close the app — this persists the snapshot with the original path
 		await closeApp();
@@ -261,7 +276,10 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		await page.getByRole("button", { name: "Load" }).click();
 
 		// The session note must be recovered
-		await expect(page.getByRole("textbox", { name: "Session note" })).toHaveValue("resume here", { timeout: 15_000 });
+		await page.getByRole("button", { name: /open note/i }).click();
+		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
+		await expect(page.getByRole("textbox", { name: /session note/i })).toHaveValue("resume here", { timeout: 15_000 });
+		await page.keyboard.press("Escape");
 		// A recovery banner must be visible
 		await expect(page.getByRole("status")).toContainText(/recovered/i);
 
