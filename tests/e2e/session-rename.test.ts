@@ -5,7 +5,7 @@ import {
 	type ElectronApplication,
 	type Page,
 } from "@playwright/test";
-import { mkdtempSync, readFileSync, realpathSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
@@ -34,19 +34,26 @@ test.beforeAll(async () => {
 			AI14ALL_WORKSPACE_STATE_PATH: persistedStatePath,
 		},
 	});
-	page = await app.firstWindow();
+	page = await app.firstWindow({ timeout: 60_000 });
+	await page.getByRole("button", { name: "Browse" }).click();
+	await expect(page.locator("#repo-path")).toHaveValue(testRepo.repoPath);
 	await page.getByRole("button", { name: "Load" }).click();
 	await expect(
 		worktreeNav().getByRole("button", { name: /main/i }),
 	).toBeVisible({ timeout: 15_000 });
-});
+}, 90_000);
 
 test.afterAll(async () => {
-	await closeApp(app);
-	testRepo.cleanup();
+	try {
+		await closeApp(app);
+	} finally {
+		const stateDir = persistedStatePath.replace(/\/[^/]+$/, "");
+		rmSync(stateDir, { recursive: true, force: true });
+		testRepo?.cleanup();
+	}
 });
 
-test("renames a session via double-click and persists the title after restart", async () => {
+test("renames a session via F2 and persists the title after restart", async () => {
 	test.setTimeout(60_000);
 
 	const sessionButton = worktreeNav().getByRole("button", { name: /main/i });
@@ -55,8 +62,9 @@ test("renames a session via double-click and persists the title after restart", 
 		page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
 	).toBeVisible({ timeout: 15_000 });
 
-	// Double-click the session label to start inline rename
-	await sessionButton.dblclick();
+	// Focus the session button and press F2 to start inline rename
+	await sessionButton.focus();
+	await page.keyboard.press("F2");
 	const renameInput = page.getByRole("textbox", { name: "Rename session" });
 	await expect(renameInput).toBeVisible({ timeout: 5_000 });
 	await renameInput.fill("My Custom Title");
@@ -79,7 +87,8 @@ test("clears the custom title when rename is submitted empty", async () => {
 	test.setTimeout(30_000);
 
 	const sessionButton = worktreeNav().getByRole("button", { name: /My Custom Title/i });
-	await sessionButton.dblclick();
+	await sessionButton.focus();
+	await page.keyboard.press("F2");
 	const renameInput = page.getByRole("textbox", { name: "Rename session" });
 	await expect(renameInput).toBeVisible({ timeout: 5_000 });
 	await renameInput.fill("");
