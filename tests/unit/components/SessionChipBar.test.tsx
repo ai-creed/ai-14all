@@ -76,4 +76,18 @@ describe("SessionChipBar", () => {
 		await user.click(screen.getByRole("button", { name: /open note/i }));
 		expect(spy).toHaveBeenCalledTimes(1);
 	});
+
+	it("hides branch separator when branchName is null", () => {
+		render(<SessionChipBar {...defaults} branchName={null} />);
+		expect(screen.queryByText("·")).not.toBeInTheDocument();
+		expect(screen.queryByText(/feature\/x/)).not.toBeInTheDocument();
+	});
+
+	it("calls onFilesClick when Files button clicked", async () => {
+		const user = userEvent.setup();
+		const spy = vi.fn();
+		render(<SessionChipBar {...defaults} onFilesClick={spy} />);
+		await user.click(screen.getByRole("button", { name: /open files/i }));
+		expect(spy).toHaveBeenCalledTimes(1);
+	});
 });
