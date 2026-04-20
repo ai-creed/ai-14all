@@ -24,6 +24,7 @@ export const PersistedProcessSessionSchema = z.object({
  */
 export const PersistedWorktreeSessionSchema = z.object({
 	worktreeId: z.string(),
+	title: z.string().optional().default(""),
 	note: z.string(),
 	reviewMode: z.enum(["files", "changes", "commits"]),
 	viewerMode: z.enum(["file", "diff", "commit"]),

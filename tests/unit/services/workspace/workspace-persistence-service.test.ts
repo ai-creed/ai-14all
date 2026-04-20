@@ -57,6 +57,7 @@ describe("WorkspacePersistenceService", () => {
 						worktreeSessions: [
 							{
 								worktreeId: "feature-a",
+								title: "",
 								note: "resume here",
 								reviewMode: "changes" as const,
 								viewerMode: "diff" as const,

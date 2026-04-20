@@ -815,3 +815,38 @@ it("treeExpandedPaths does not survive a snapshot round-trip", () => {
 	// treeExpandedPaths must be reset to [] — it is never persisted
 	expect(restored.sessionsByWorktreeId["main"].treeExpandedPaths).toEqual([]);
 });
+
+import { PersistedWorktreeSessionSchema } from "../../../shared/models/persisted-workspace-state";
+
+describe("PersistedWorktreeSessionSchema title field", () => {
+	it("defaults to empty string when missing", () => {
+		const parsed = PersistedWorktreeSessionSchema.parse({
+			worktreeId: "w1",
+			note: "",
+			reviewMode: "files",
+			viewerMode: "file",
+			selectedFilePath: null,
+			selectedChangedFilePath: null,
+			activeProcessSessionId: null,
+			nextAdHocNumber: 1,
+			processSessions: [],
+		});
+		expect(parsed.title).toBe("");
+	});
+
+	it("round-trips a custom title", () => {
+		const parsed = PersistedWorktreeSessionSchema.parse({
+			worktreeId: "w1",
+			note: "",
+			reviewMode: "files",
+			viewerMode: "file",
+			selectedFilePath: null,
+			selectedChangedFilePath: null,
+			activeProcessSessionId: null,
+			nextAdHocNumber: 1,
+			processSessions: [],
+			title: "Payments refactor",
+		});
+		expect(parsed.title).toBe("Payments refactor");
+	});
+});
