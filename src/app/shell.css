@@ -1469,6 +1469,69 @@ select {
 	color: var(--text-secondary);
 }
 
+/* ── Note sheet ─────────────────────────────────────── */
+
+.shell-note-sheet__overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.35);
+	z-index: 49;
+}
+
+.shell-note-sheet {
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	width: clamp(280px, 28vw, 420px);
+	background: var(--panel-bg);
+	border-left: 1px solid var(--panel-border);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	padding: var(--space-4);
+	z-index: 50;
+	outline: none;
+}
+
+.shell-note-sheet__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.shell-note-sheet__title {
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: var(--text-secondary);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	margin: 0;
+}
+
+.shell-note-sheet__close {
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: var(--text-muted);
+	padding: var(--space-1);
+	line-height: 1;
+	border-radius: var(--radius-sm);
+}
+.shell-note-sheet__close:hover { color: var(--text-primary); }
+
+.shell-note-sheet__textarea {
+	flex: 1;
+	resize: none;
+	min-height: 0;
+	height: 100%;
+}
+
+[data-theme="light"] .shell-note-sheet {
+	background: var(--panel-bg);
+	border-left-color: var(--panel-border);
+}
+
 /* ── Markdown Preview Modal ─────────────────────────────────────────── */
 
 .shell-md-overlay {
