@@ -777,46 +777,6 @@ describe("workspaceReducer — Phase 6 commit review state", () => {
 	});
 });
 
-describe("workspaceReducer — Phase 6 top-band collapse", () => {
-	it("stores and restores the top-band collapse flag", () => {
-		const worktrees = [
-			{
-				id: "main",
-				repositoryId: "repo-1",
-				branchName: "main",
-				path: "/repo",
-				label: "main",
-				isMain: true,
-			},
-		];
-
-		let state = createWorkspaceState(worktrees);
-		expect(state.topBandCollapsed).toBe(false);
-
-		state = workspaceReducer(state, {
-			type: "workspace/setTopBandCollapsed",
-			collapsed: true,
-		});
-		expect(state.topBandCollapsed).toBe(true);
-
-		state = workspaceReducer(state, {
-			type: "workspace/restoreSnapshot",
-			worktrees,
-			workspaceId: "ws-test",
-			snapshot: {
-				repositoryPath: "/repo",
-				repoId: null,
-				selectedWorktreeId: "main",
-				topBandCollapsed: true,
-				commandPresets: [],
-				worktreeSessions: [],
-			},
-		});
-
-		expect(state.topBandCollapsed).toBe(true);
-	});
-});
-
 describe("session/setTreeExpandedPaths", () => {
 	it("updates treeExpandedPaths on the target session only", () => {
 		const wtA: Worktree = { id: "wt-a", repositoryId: "repo-1", branchName: "a", path: "/tmp/a", label: "a", isMain: true };
@@ -872,7 +832,6 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 			snapshot: {
 				repositoryPath: "/repo",
 				repoId: null,
-				topBandCollapsed: false,
 				selectedWorktreeId: "feature-a",
 				commandPresets: [preset],
 				worktreeSessions: [
