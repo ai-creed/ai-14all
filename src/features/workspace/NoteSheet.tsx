@@ -12,7 +12,7 @@ export function NoteSheet({ open, note, onNoteChange, onClose }: Props) {
 		<Dialog.Root open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
 			<Dialog.Portal>
 				<Dialog.Overlay className="shell-note-sheet__overlay" />
-				<Dialog.Content className="shell-note-sheet" aria-label="Session note">
+				<Dialog.Content className="shell-note-sheet">
 					<div className="shell-note-sheet__header">
 						<Dialog.Title className="shell-note-sheet__title">Session note</Dialog.Title>
 						<Dialog.Close asChild>

@@ -1525,11 +1525,7 @@ select {
 	resize: none;
 	min-height: 0;
 	height: 100%;
-}
-
-[data-theme="light"] .shell-note-sheet {
-	background: var(--panel-bg);
-	border-left-color: var(--panel-border);
+	margin-top: 0; /* cancel .shell-note-input margin-top inside flex sheet */
 }
 
 /* ── Markdown Preview Modal ─────────────────────────────────────────── */
