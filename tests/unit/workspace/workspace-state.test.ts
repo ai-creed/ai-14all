@@ -1048,3 +1048,39 @@ describe("createWorkspaceState title default", () => {
 		expect(state.sessionsByWorktreeId["feature-a"].title).toBe("");
 	});
 });
+
+describe("session/setTitle", () => {
+	it("stores a trimmed custom title", () => {
+		const initial = createWorkspaceState(worktrees);
+		const next = workspaceReducer(initial, {
+			type: "session/setTitle",
+			worktreeId: "main",
+			title: "  Launch prep  ",
+		});
+		expect(next.sessionsByWorktreeId["main"].title).toBe("Launch prep");
+	});
+
+	it("treats whitespace-only input as clearing the title", () => {
+		const initial = workspaceReducer(createWorkspaceState(worktrees), {
+			type: "session/setTitle",
+			worktreeId: "main",
+			title: "temp",
+		});
+		const cleared = workspaceReducer(initial, {
+			type: "session/setTitle",
+			worktreeId: "main",
+			title: "   ",
+		});
+		expect(cleared.sessionsByWorktreeId["main"].title).toBe("");
+	});
+
+	it("is a no-op for unknown worktrees", () => {
+		const initial = createWorkspaceState(worktrees);
+		const next = workspaceReducer(initial, {
+			type: "session/setTitle",
+			worktreeId: "does-not-exist",
+			title: "x",
+		});
+		expect(next).toBe(initial);
+	});
+});

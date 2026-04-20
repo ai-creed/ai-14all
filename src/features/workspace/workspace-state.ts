@@ -125,6 +125,7 @@ export type WorkspaceAction =
 			processId: string;
 	  }
 	| { type: "session/setTreeExpandedPaths"; worktreeId: string; paths: string[] }
+	| { type: "session/setTitle"; worktreeId: string; title: string }
 	| { type: "workspace/reconcileWorktrees"; worktrees: Worktree[] };
 
 function createSession(worktree: Worktree): WorktreeSession {
@@ -455,6 +456,13 @@ export function workspaceReducer(
 				[action.worktreeId]: { ...session, treeExpandedPaths: action.paths },
 			},
 		};
+	}
+
+	if (action.type === "session/setTitle") {
+		return updateSession(state, action.worktreeId, (session) => ({
+			...session,
+			title: action.title.trim(),
+		}));
 	}
 
 	// --- Preset actions (repo-level, not worktree-scoped) ---
