@@ -852,7 +852,7 @@ describe("App — Phase 6 default shell", () => {
 		expect(document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]')).toHaveLength(2);
 	});
 
-	it("renders a compact top band and hides the note panel when collapsed", async () => {
+	it("renders the chip bar and toggles the note sheet", async () => {
 		readRestoreStateMock.mockResolvedValue({
 			version: 1,
 			restorePreference: "prompt",
@@ -870,17 +870,18 @@ describe("App — Phase 6 default shell", () => {
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
-		await screen.findByLabelText("Session info");
-		expect(screen.getByLabelText("Session note panel")).toBeInTheDocument();
+		await screen.findByRole("region", { name: "Session" });
 		expect(screen.queryByText("Active session")).not.toBeInTheDocument();
-		expect(document.querySelectorAll(".shell-top-band.shell-panel")).toHaveLength(1);
-		expect(screen.getByRole("button", { name: "Collapse top band" })).toBeInTheDocument();
+		expect(document.querySelectorAll(".shell-chip-bar")).toHaveLength(1);
+		expect(screen.getByRole("button", { name: "Open note" })).toBeInTheDocument();
 
-		await userEvent.click(screen.getByRole("button", { name: "Collapse top band" }));
+		// Note sheet is closed by default
+		expect(screen.queryByRole("textbox", { name: "Session note" })).not.toBeInTheDocument();
 
-		expect(screen.queryByLabelText("Session note panel")).not.toBeInTheDocument();
+		// Open note sheet
+		await userEvent.click(screen.getByRole("button", { name: "Open note" }));
+		expect(await screen.findByRole("textbox", { name: "Session note" })).toBeInTheDocument();
 		expect(screen.getAllByText("master").length).toBeGreaterThanOrEqual(1);
-		expect(screen.getByRole("button", { name: "Expand top band" })).toBeInTheDocument();
 	});
 
 	it("returns to the repository picker when the workspace menu action fires", async () => {
@@ -901,7 +902,7 @@ describe("App — Phase 6 default shell", () => {
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
-		await screen.findByLabelText("Session info");
+		await screen.findByRole("region", { name: "Session" });
 		expect(openPickerListenerRef.current).not.toBeNull();
 
 		openPickerListenerRef.current?.();
@@ -1231,6 +1232,8 @@ describe("App — Phase 6 default shell", () => {
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
+		// Open the note sheet to access the textarea
+		await userEvent.click(await screen.findByRole("button", { name: "Open note" }));
 		const noteInput = await screen.findByRole("textbox", { name: "Session note" });
 		await userEvent.clear(noteInput);
 		await userEvent.type(noteInput, "keep this session");
@@ -1238,11 +1241,19 @@ describe("App — Phase 6 default shell", () => {
 			expect(screen.getByDisplayValue("keep this session")).toBeInTheDocument();
 		});
 
+		// Close note sheet before navigating away
+		await userEvent.click(screen.getByRole("button", { name: "Close note sheet" }));
+		await waitFor(() => {
+			expect(screen.queryByRole("textbox", { name: "Session note" })).not.toBeInTheDocument();
+		});
+
 		openPickerListenerRef.current?.();
 		const repoInput = await screen.findByLabelText("Repository path");
 		fireEvent.change(repoInput, { target: { value: "/repo" } });
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
+		// Reopen note sheet to verify state was preserved
+		await userEvent.click(await screen.findByRole("button", { name: "Open note" }));
 		expect(await screen.findByDisplayValue("keep this session")).toBeInTheDocument();
 		expect(createMock).toHaveBeenCalledTimes(1);
 	});

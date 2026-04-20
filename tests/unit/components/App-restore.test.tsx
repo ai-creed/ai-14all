@@ -270,7 +270,13 @@ describe("App — Phase 5 restore flow", () => {
 			expect.stringContaining("terminal-feature-a"),
 			"claude\n",
 		);
+		// Open note sheet to verify restored note, then close before checking tabs
+		await userEvent.click(await screen.findByRole("button", { name: "Open note" }));
 		expect(await screen.findByDisplayValue("resume here")).toBeInTheDocument();
+		await userEvent.click(screen.getByRole("button", { name: "Close note sheet" }));
+		await waitFor(() => {
+			expect(screen.queryByRole("textbox", { name: "Session note" })).not.toBeInTheDocument();
+		});
 		expect(screen.getByRole("tab", { name: "Changes" })).toHaveAttribute("data-state", "active");
 	});
 
@@ -540,6 +546,8 @@ describe("App — Phase 5 restore flow", () => {
 		await waitFor(() => {
 			expect(createMock).toHaveBeenCalledWith("repo-1", "main", "/repo");
 		});
+		// Open note sheet to verify restored note
+		await userEvent.click(await screen.findByRole("button", { name: "Open note" }));
 		expect(await screen.findByDisplayValue("main note")).toBeInTheDocument();
 	});
 
@@ -794,7 +802,13 @@ describe("App — Phase 5 restore flow", () => {
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
+		// Open note sheet to verify restored note, then close before checking status
+		await userEvent.click(await screen.findByRole("button", { name: "Open note" }));
 		expect(await screen.findByDisplayValue("resume here")).toBeInTheDocument();
+		await userEvent.click(screen.getByRole("button", { name: "Close note sheet" }));
+		await waitFor(() => {
+			expect(screen.queryByRole("textbox", { name: "Session note" })).not.toBeInTheDocument();
+		});
 		expect(screen.getByRole("status")).toHaveTextContent(/recovered/i);
 	});
 
@@ -1017,7 +1031,13 @@ describe("App — Phase 5 restore flow", () => {
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
+		// Open note sheet to verify restored note, then close before checking status
+		await userEvent.click(await screen.findByRole("button", { name: "Open note" }));
 		expect(await screen.findByDisplayValue("degraded note")).toBeInTheDocument();
+		await userEvent.click(screen.getByRole("button", { name: "Close note sheet" }));
+		await waitFor(() => {
+			expect(screen.queryByRole("textbox", { name: "Session note" })).not.toBeInTheDocument();
+		});
 		expect(screen.getByRole("status")).toHaveTextContent(/folder name matching/i);
 	});
 
@@ -1140,7 +1160,7 @@ describe("App — Phase 5 restore flow", () => {
 		expect(screen.getByLabelText("Repository path")).toBeInTheDocument();
 	});
 
-	it("restores the top-band collapsed state from the saved snapshot", async () => {
+	it("restores and shows the chip bar with note sheet closed by default", async () => {
 		readRestoreStateMock.mockResolvedValue({
 			version: 2,
 			restorePreference: "alwaysRestore",
@@ -1153,7 +1173,6 @@ describe("App — Phase 5 restore flow", () => {
 				snapshot: {
 					repositoryPath: "/repo",
 					selectedWorktreeId: "main",
-					topBandCollapsed: true,
 					commandPresets: [],
 					worktreeSessions: [
 						{
@@ -1183,10 +1202,10 @@ describe("App — Phase 5 restore flow", () => {
 
 		render(<App />);
 
-		await waitFor(() => {
-			expect(screen.queryByLabelText("Session note panel")).not.toBeInTheDocument();
-		});
-		expect(screen.getByRole("button", { name: "Expand top band" })).toBeInTheDocument();
+		// Chip bar renders; note sheet is closed by default
+		await screen.findByRole("region", { name: "Session" });
+		expect(screen.queryByRole("textbox", { name: "Session note" })).not.toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Open note" })).toBeInTheDocument();
 	});
 
 	it("registers non-active saved workspaces as dormant sidebar groups on alwaysRestore", async () => {

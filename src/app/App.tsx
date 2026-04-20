@@ -37,8 +37,8 @@ import {
 	SessionSidebar,
 	type SessionSidebarWorkspace,
 } from "../features/workspace/SessionSidebar";
-import { SessionHeader } from "../features/workspace/SessionHeader";
-import { ContextPanel } from "../features/workspace/ContextPanel";
+import { SessionChipBar } from "../features/workspace/SessionChipBar";
+import { NoteSheet } from "../features/workspace/NoteSheet";
 import { displayTitle } from "../features/workspace/session-display-title";
 import {
 	createWorkspaceState,
@@ -105,6 +105,7 @@ export function App() {
 	const [sidebarWidth, setSidebarWidth] = useState(240);
 	const [pendingRename, setPendingRename] = useState<{ workspaceId: string; worktreeId: string } | null>(null);
 	const [sidebarNow, setSidebarNow] = useState(() => Date.now());
+	const [noteSheetOpen, setNoteSheetOpen] = useState(false);
 
 	// Multi-workspace registry
 	const [appWorkspaces, dispatchAppWorkspaces] = useReducer(
@@ -1976,6 +1977,21 @@ export function App() {
 		};
 	}, [activeWorktree?.path, activeSession?.selectedCommitSha]);
 
+	// Cmd+; keyboard shortcut to toggle note sheet
+	useEffect(() => {
+		const handler = (e: KeyboardEvent) => {
+			if (e.defaultPrevented) return;
+			if ((e.target as HTMLElement).closest?.(".xterm") !== null) return;
+			const isMac = navigator.platform.toUpperCase().includes("MAC");
+			const modKey = isMac ? e.metaKey : e.ctrlKey;
+			if (!modKey || e.key !== ";") return;
+			e.preventDefault();
+			setNoteSheetOpen((prev) => !prev);
+		};
+		document.addEventListener("keydown", handler);
+		return () => document.removeEventListener("keydown", handler);
+	}, []);
+
 	function handleSelectChangedFile(relativePath: string) {
 		if (!activeWorktree) return;
 		dispatch({
@@ -2364,59 +2380,39 @@ export function App() {
 
 				<section className="shell-main-column">
 					{activeWorktree && activeSession && (
-						<section
-							className="shell-panel shell-top-band"
-							data-collapsed={
-								workspaceState.topBandCollapsed ? "true" : "false"
-							}
-						>
-							<button
-								type="button"
-								className="shell-top-band__toggle"
-								aria-expanded={!workspaceState.topBandCollapsed}
-								aria-label={
-									workspaceState.topBandCollapsed
-										? "Expand top band"
-										: "Collapse top band"
+						<SessionChipBar
+							sessionTitle={displayTitle(activeSession.title, activeWorktree)}
+							worktreeLabel={activeWorktree.label}
+							branchName={activeWorktree.branchName}
+							isDirty={activeSummary?.isDirty ?? false}
+							changedFileCount={changes.length}
+							noteNonEmpty={activeSession.note.trim() !== ""}
+							onRenameClick={() => {
+								if (activeWorkspaceId !== null && activeWorktree !== null) {
+									setSidebarCollapsed(false);
+									setPendingRename({
+										workspaceId: activeWorkspaceId,
+										worktreeId: activeWorktree.id,
+									});
 								}
-								onClick={() =>
-									dispatch({
-										type: "workspace/setTopBandCollapsed",
-										collapsed: !workspaceState.topBandCollapsed,
-									})
-								}
-							>
-								<span aria-hidden="true">
-									{workspaceState.topBandCollapsed ? "▾" : "▴"}
-								</span>
-							</button>
-							<SessionHeader
-								title={displayTitle(activeSession.title, activeWorktree)}
-								worktreePath={activeWorktree.path}
-								branchName={activeWorktree.branchName}
-								changedFileCount={changes.length}
-								isDirty={activeSummary?.isDirty ?? false}
-								mergeTargetRef={activeSummary?.mergeTargetRef ?? null}
-								aheadCount={activeSummary?.aheadCount ?? 0}
-								behindCount={activeSummary?.behindCount ?? 0}
-								gitSummaryError={gitSummaryError}
-								gitSummaryStale={gitSummaryStale}
-								collapsed={workspaceState.topBandCollapsed}
-							/>
-							{!workspaceState.topBandCollapsed && (
-								<ContextPanel
-									note={activeSession.note}
-									onNoteChange={(note) =>
-										dispatch({
-											type: "session/setNote",
-											worktreeId: activeWorktree.id,
-											note,
-										})
-									}
-								/>
-							)}
-						</section>
+							}}
+							onDirtyClick={() => setReviewPanelCollapsed(false)}
+							onFilesClick={() => {
+								// Slice E: Files overlay — placeholder
+							}}
+							onNoteClick={() => setNoteSheetOpen((prev) => !prev)}
+						/>
 					)}
+					<NoteSheet
+						open={noteSheetOpen}
+						note={activeSession?.note ?? ""}
+						onNoteChange={(note) => {
+							if (activeWorktree) {
+								dispatch({ type: "session/setNote", worktreeId: activeWorktree.id, note });
+							}
+						}}
+						onClose={() => setNoteSheetOpen(false)}
+					/>
 
 					{workspaceState.selectedWorktreeId && (
 						<section className="shell-panel shell-terminal-section">

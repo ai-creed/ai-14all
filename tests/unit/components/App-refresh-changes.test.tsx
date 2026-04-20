@@ -383,7 +383,12 @@ describe("App — refresh changes button", () => {
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
-		expect(await screen.findByText("Unknown")).toBeInTheDocument();
+		// Wait for review panel to appear then switch to Changes to verify error state
+		await screen.findByRole("tab", { name: "Files" });
+		await userEvent.click(screen.getByRole("tab", { name: "Changes" }));
+		await waitFor(() => {
+			expect(screen.getByText("Unable to load Git data.")).toBeInTheDocument();
+		}, { timeout: 3000 });
 	});
 
 	it("keeps the previous summary data in state when refresh fails", async () => {
