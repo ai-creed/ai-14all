@@ -44,7 +44,7 @@ export const WorkspaceSnapshotSchema = z.object({
 	repositoryPath: z.string(),
 	repoId: z.string().nullable().optional().default(null),
 	selectedWorktreeId: z.string().nullable(),
-	topBandCollapsed: z.boolean().optional().default(false),
+	topBandCollapsed: z.boolean().optional(),
 	commandPresets: z.array(
 		z.object({ id: z.string(), label: z.string(), command: z.string() }),
 	),

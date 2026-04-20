@@ -20,7 +20,6 @@ import type {
 
 export type WorkspaceState = {
 	selectedWorktreeId: string | null;
-	topBandCollapsed: boolean;
 	commandPresets: CommandPreset[];
 	processSessionsById: Record<string, ProcessSession>;
 	sessionsByWorktreeId: Record<string, WorktreeSession>;
@@ -29,7 +28,6 @@ export type WorkspaceState = {
 
 export type WorkspaceAction =
 	| { type: "workspace/loadWorktrees"; worktrees: Worktree[] }
-	| { type: "workspace/setTopBandCollapsed"; collapsed: boolean }
 	| { type: "session/selectWorktree"; worktreeId: string }
 	| { type: "session/setNote"; worktreeId: string; note: string }
 	| {
@@ -157,7 +155,6 @@ function createSession(worktree: Worktree): WorktreeSession {
 export function createWorkspaceState(worktrees: Worktree[]): WorkspaceState {
 	return {
 		selectedWorktreeId: worktrees[0]?.id ?? null,
-		topBandCollapsed: false,
 		commandPresets: DEFAULT_COMMAND_PRESETS.map((preset) => ({ ...preset })),
 		processSessionsById: {},
 		sessionsByWorktreeId: Object.fromEntries(
@@ -305,7 +302,6 @@ export function workspaceReducer(
 		let nextState: WorkspaceState = {
 			...base,
 			selectedWorktreeId,
-			topBandCollapsed: action.snapshot.topBandCollapsed ?? false,
 			commandPresets: action.snapshot.commandPresets,
 		};
 
@@ -368,10 +364,6 @@ export function workspaceReducer(
 			sessionsByWorktreeId: nextSessionsByWorktreeId,
 			nextAdHocNumberByWorktreeId: nextNumbers,
 		};
-	}
-
-	if (action.type === "workspace/setTopBandCollapsed") {
-		return { ...state, topBandCollapsed: action.collapsed };
 	}
 
 	if (action.type === "session/selectWorktree") {
