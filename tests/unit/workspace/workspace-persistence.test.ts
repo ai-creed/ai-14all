@@ -28,7 +28,6 @@ it("serializes multiple workspaces into one persisted file", () => {
 					repositoryPath: "/repo-a",
 					repoId: "repo-id-a",
 					selectedWorktreeId: null,
-					topBandCollapsed: false,
 					commandPresets: [],
 					worktreeSessions: [],
 				},
@@ -83,7 +82,6 @@ describe("buildWorkspaceSnapshot", () => {
 				repositoryPath: "/repo",
 			repoId: null,
 			selectedWorktreeId: "main",
-			topBandCollapsed: false,
 			commandPresets: DEFAULT_COMMAND_PRESETS,
 			worktreeSessions: [
 				{
@@ -422,7 +420,6 @@ describe("splitPendingRestores", () => {
 		const snapshot = {
 			repositoryPath: "/repo",
 			repoId: null,
-			topBandCollapsed: false,
 			selectedWorktreeId: "feature-a",
 			commandPresets: [],
 			worktreeSessions: [
@@ -473,7 +470,6 @@ describe("splitPendingRestores", () => {
 		const snapshot = {
 			repositoryPath: "/repo",
 			repoId: null,
-			topBandCollapsed: false,
 			selectedWorktreeId: null,
 			commandPresets: [],
 			worktreeSessions: [
@@ -507,7 +503,6 @@ function makeMinimalSnapshot(overrides: Partial<WorkspaceSnapshot> = {}): Worksp
 	return {
 		repositoryPath: "/repo",
 		repoId: null,
-		topBandCollapsed: false,
 		selectedWorktreeId: null,
 		commandPresets: [],
 		worktreeSessions: [],
@@ -784,7 +779,6 @@ it("finds a saved workspace by repoId before falling back to path", () => {
 					repositoryPath: "/repo-a",
 					repoId: "repo-id-a",
 					selectedWorktreeId: null,
-					topBandCollapsed: false,
 					commandPresets: [],
 					worktreeSessions: [],
 				},

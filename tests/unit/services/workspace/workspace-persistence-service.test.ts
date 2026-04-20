@@ -52,7 +52,6 @@ describe("WorkspacePersistenceService", () => {
 						repositoryPath: "/repo",
 						repoId: null,
 						selectedWorktreeId: "feature-a",
-						topBandCollapsed: true,
 						commandPresets: [{ id: "preset-1", label: "Claude", command: "claude" }],
 						worktreeSessions: [
 							{
@@ -152,7 +151,6 @@ describe("WorkspacePersistenceService", () => {
 					repositoryPath: "/repo",
 					repoId: "repo-id-123",
 					selectedWorktreeId: "main",
-					topBandCollapsed: false,
 					commandPresets: [],
 					worktreeSessions: [],
 				},

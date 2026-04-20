@@ -50,7 +50,6 @@ describe("appWorkspacesReducer", () => {
 						repositoryPath: "/repo-b",
 						repoId: "repo-id-b",
 						selectedWorktreeId: null,
-						topBandCollapsed: false,
 						commandPresets: [],
 						worktreeSessions: [],
 					},
