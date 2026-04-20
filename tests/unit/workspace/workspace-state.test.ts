@@ -878,6 +878,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 				worktreeSessions: [
 					{
 						worktreeId: "feature-a",
+						title: "",
 						note: "resume here",
 						reviewMode: "changes",
 						viewerMode: "diff",
@@ -924,6 +925,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 			workspaceId: "ws-test",
 			snapshot: {
 				worktreeId: "feature-a",
+				title: "",
 				note: "later",
 				reviewMode: "files",
 				viewerMode: "file",
@@ -961,6 +963,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 			workspaceId: "ws-test",
 			snapshot: {
 				worktreeId: "main",
+				title: "",
 				note: "",
 				reviewMode: "commits",
 				viewerMode: "commit",
@@ -989,6 +992,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 			workspaceId: "ws-test",
 			snapshot: {
 				worktreeId: "feature-a",
+				title: "",
 				note: "",
 				reviewMode: "files",
 				viewerMode: "file",

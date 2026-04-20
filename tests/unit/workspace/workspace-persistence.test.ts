@@ -428,6 +428,7 @@ describe("splitPendingRestores", () => {
 			worktreeSessions: [
 				{
 					worktreeId: "main",
+					title: "",
 					note: "main note",
 					reviewMode: "files" as const,
 					viewerMode: "file" as const,
@@ -444,6 +445,7 @@ describe("splitPendingRestores", () => {
 				},
 				{
 					worktreeId: "feature-a",
+					title: "",
 					note: "feature note",
 					reviewMode: "changes" as const,
 					viewerMode: "diff" as const,
@@ -477,6 +479,7 @@ describe("splitPendingRestores", () => {
 			worktreeSessions: [
 				{
 					worktreeId: "main",
+					title: "",
 					note: "",
 					reviewMode: "files" as const,
 					viewerMode: "file" as const,
@@ -520,6 +523,7 @@ describe("rebaseSnapshotPaths", () => {
 			worktreeSessions: [
 				{
 					worktreeId: "/old-repo",
+					title: "",
 					note: "main",
 					reviewMode: "files",
 					viewerMode: "file",
@@ -536,6 +540,7 @@ describe("rebaseSnapshotPaths", () => {
 				},
 				{
 					worktreeId: "/old-repo/.worktrees/feature-a",
+					title: "",
 					note: "feature",
 					reviewMode: "files",
 					viewerMode: "file",
@@ -571,6 +576,7 @@ describe("rebaseSnapshotPaths", () => {
 			worktreeSessions: [
 				{
 					worktreeId: "unrelated-id",
+					title: "",
 					note: "",
 					reviewMode: "files",
 					viewerMode: "file",
@@ -665,6 +671,7 @@ describe("shouldReattachSnapshot", () => {
 function makeSession(worktreeId: string, note = ""): WorkspaceSnapshot["worktreeSessions"][number] {
 	return {
 		worktreeId,
+		title: "",
 		note,
 		reviewMode: "files",
 		viewerMode: "file",

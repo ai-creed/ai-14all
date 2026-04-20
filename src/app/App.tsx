@@ -258,6 +258,7 @@ export function App() {
 	const [presetManagerOpen, setPresetManagerOpen] = useState(false);
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
 	const [createName, setCreateName] = useState("");
+	const [createSessionTitle, setCreateSessionTitle] = useState("");
 	const [createPreview, setCreatePreview] =
 		useState<CreateWorktreePreview | null>(null);
 	const [createLoading, setCreateLoading] = useState(false);
@@ -1770,11 +1771,15 @@ export function App() {
 				activeWorkspaceId,
 				createName,
 			);
+			if (createSessionTitle.trim()) {
+				dispatch({ type: "session/setTitle", worktreeId: created.id, title: createSessionTitle });
+			}
 			await refreshWorktreeInventory({
 				preferredSelectedWorktreeId: created.id,
 			});
 			setCreateDialogOpen(false);
 			setCreateName("");
+			setCreateSessionTitle("");
 			setCreatePreview(null);
 		} catch (err) {
 			setCreateError(err instanceof Error ? err.message : String(err));
@@ -2893,6 +2898,7 @@ export function App() {
 			<NewWorktreeDialog
 				open={createDialogOpen}
 				name={createName}
+				sessionTitle={createSessionTitle}
 				preview={createPreview}
 				loading={createLoading}
 				error={createError}
@@ -2901,10 +2907,12 @@ export function App() {
 					setCreateDialogOpen(open);
 					if (!open) {
 						setCreateName("");
+						setCreateSessionTitle("");
 						setCreateError(null);
 					}
 				}}
 				onNameChange={setCreateName}
+				onSessionTitleChange={setCreateSessionTitle}
 				onConfirm={() => {
 					void handleConfirmCreateWorktree();
 				}}

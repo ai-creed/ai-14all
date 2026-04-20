@@ -4,24 +4,28 @@ import type { CreateWorktreePreview } from "../../../shared/models/worktree-life
 type Props = {
 	open: boolean;
 	name: string;
+	sessionTitle: string;
 	preview: CreateWorktreePreview | null;
 	loading: boolean;
 	error: string | null;
 	busy: boolean;
 	onOpenChange: (open: boolean) => void;
 	onNameChange: (name: string) => void;
+	onSessionTitleChange: (title: string) => void;
 	onConfirm: () => void;
 };
 
 export function NewWorktreeDialog({
 	open,
 	name,
+	sessionTitle,
 	preview,
 	loading,
 	error,
 	busy,
 	onOpenChange,
 	onNameChange,
+	onSessionTitleChange,
 	onConfirm,
 }: Props) {
 	return (
@@ -29,7 +33,7 @@ export function NewWorktreeDialog({
 			<Dialog.Portal>
 				<Dialog.Overlay className="shell-modal-overlay" />
 				<Dialog.Content className="shell-modal shell-modal--worktree">
-					<Dialog.Title>New worktree</Dialog.Title>
+					<Dialog.Title>New session</Dialog.Title>
 					<p className="shell-modal__copy">
 						This will create a new branch and linked worktree.
 					</p>
@@ -39,6 +43,15 @@ export function NewWorktreeDialog({
 							autoFocus
 							value={name}
 							onChange={(event) => onNameChange(event.target.value)}
+							className="shell-note-input"
+						/>
+					</label>
+					<label className="shell-modal__field">
+						<span className="shell-label">Session title <span className="shell-label--optional">(optional)</span></span>
+						<input
+							value={sessionTitle}
+							onChange={(event) => onSessionTitleChange(event.target.value)}
+							placeholder={preview?.branchName ?? ""}
 							className="shell-note-input"
 						/>
 					</label>

@@ -56,10 +56,10 @@ test.describe.serial("Cumulative flow — Phase 7", () => {
 
 	test("creates a new worktree via the New Worktree dialog", async () => {
 		test.setTimeout(60_000);
-		await page.getByRole("button", { name: "New worktree" }).click();
+		await page.getByRole("button", { name: "New session" }).click();
 		await page.getByLabel("Name").fill("Feature B");
 		await expect(page.getByText("/.worktrees/feature-b")).toBeVisible({ timeout: 15_000 });
-		await expect(page.getByRole("dialog", { name: "New worktree" }).getByText("origin/master")).toBeVisible();
+		await expect(page.getByRole("dialog", { name: "New session" }).getByText("origin/master")).toBeVisible();
 		await page.getByRole("button", { name: "Create worktree" }).click();
 		await expect(worktreeNav().getByRole("button", { name: "feature-b", exact: true })).toBeVisible({
 			timeout: 15_000,
