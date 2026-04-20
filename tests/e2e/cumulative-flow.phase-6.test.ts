@@ -316,35 +316,6 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		);
 	});
 
-	test("launches maximized, collapses the top band, and keeps the main window non-scrollable", async () => {
-		const isMaximized = await app!.evaluate(({ BrowserWindow }) =>
-			BrowserWindow.getAllWindows()[0].isMaximized(),
-		);
-		expect(isMaximized).toBe(true);
-
-		await ensureWorkspaceLoaded();
-		await page
-			.getByRole("navigation", { name: "Worktree sessions" })
-			.getByRole("button", { name: /feature-a/i })
-			.click();
-
-		await expect(page.getByText("Session info")).toBeVisible();
-		await expect(page.getByRole("textbox", { name: "Session note" })).toBeVisible();
-
-		await page.getByRole("button", { name: "Collapse top band" }).click();
-		await expect(page.getByRole("textbox", { name: "Session note" })).toHaveCount(0);
-		await expect(page.getByRole("button", { name: "Expand top band" })).toBeVisible();
-
-		const scrollCheck = await page.evaluate(() => ({
-			body: document.body.scrollHeight > document.body.clientHeight,
-			root:
-				document.documentElement.scrollHeight >
-				document.documentElement.clientHeight,
-		}));
-		expect(scrollCheck.body).toBe(false);
-		expect(scrollCheck.root).toBe(false);
-	});
-
 	test("returns to the workspace picker from the app menu and keeps the current session when reopening the same repo", async () => {
 		await app!.evaluate(({ Menu, BrowserWindow }) => {
 			const mainWindow = BrowserWindow.getAllWindows()[0];

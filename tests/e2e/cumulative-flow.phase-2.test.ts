@@ -77,18 +77,30 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 	});
 
 	test("switches worktrees and restores the per-session note", async () => {
-		await page.getByRole("textbox", { name: "Session note" }).fill("Main session note");
+		await page.getByRole("button", { name: /open note/i }).click();
+		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
+		await page.getByRole("textbox", { name: /session note/i }).fill("Main session note");
+		await page.keyboard.press("Escape");
+
 		await worktreeNav()
 			.getByRole("button", { name: /feature-a/i })
 			.click();
-		await page.getByRole("textbox", { name: "Session note" }).fill("Feature note");
+
+		await page.getByRole("button", { name: /open note/i }).click();
+		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
+		await page.getByRole("textbox", { name: /session note/i }).fill("Feature note");
+		await page.keyboard.press("Escape");
+
 		await worktreeNav()
 			.getByRole("button", { name: / main$/i })
 			.click();
 
-		await expect(page.getByRole("textbox", { name: "Session note" })).toHaveValue(
+		await page.getByRole("button", { name: /open note/i }).click();
+		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
+		await expect(page.getByRole("textbox", { name: /session note/i })).toHaveValue(
 			"Main session note",
 		);
+		await page.keyboard.press("Escape");
 	});
 
 	test("shows changed files and opens a unified diff", async () => {
