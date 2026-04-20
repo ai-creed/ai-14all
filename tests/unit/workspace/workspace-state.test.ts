@@ -1040,3 +1040,11 @@ describe("persistence omits treeExpandedPaths", () => {
 		expect(persisted).not.toHaveProperty("treeExpandedPaths");
 	});
 });
+
+describe("createWorkspaceState title default", () => {
+	it("creates sessions with an empty title, not the worktree label", () => {
+		const state = createWorkspaceState(worktrees);
+		expect(state.sessionsByWorktreeId["main"].title).toBe("");
+		expect(state.sessionsByWorktreeId["feature-a"].title).toBe("");
+	});
+});

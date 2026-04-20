@@ -131,7 +131,7 @@ function createSession(worktree: Worktree): WorktreeSession {
 	return {
 		id: worktree.id,
 		worktreeId: worktree.id,
-		title: worktree.label,
+		title: "",
 		note: "",
 		reviewMode: "files",
 		viewerMode: "file",
