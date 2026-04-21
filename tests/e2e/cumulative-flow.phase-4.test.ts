@@ -56,6 +56,13 @@ test.describe.serial("Cumulative flow — Phase 4", () => {
 		// the xterm resize cycle has completed before we click list items.
 		await expect(page.getByRole("button", { name: /\d+ changed/i })).toBeVisible({ timeout: 10_000 });
 
+		// Slice D: review drawer starts collapsed on fresh sessions; click the
+		// dirty chip to expand before interacting with Files/Changes/Commits tabs.
+		await page.getByRole("button", { name: /\d+ changed/i }).click();
+		await expect(
+			page.getByRole("region", { name: "Review" }),
+		).toHaveAttribute("data-open", "true");
+
 		// Phase 6: wait for the default shell tab to appear before interacting
 		// with the review panel. We match any tab in the terminal tablist rather
 		// than the exact title "shell 1" because the xterm title changes to the
