@@ -238,6 +238,7 @@ function restorePersistedSession(
 		title: snapshot.title ?? "",
 		note: snapshot.note,
 		reviewMode: snapshot.reviewMode,
+		reviewDrawerOpen: snapshot.reviewDrawerOpen,
 		viewerMode: snapshot.viewerMode,
 		selectedFilePath: snapshot.selectedFilePath,
 		selectedChangedFilePath: snapshot.selectedChangedFilePath,

@@ -1127,3 +1127,67 @@ describe("session/setReviewDrawerOpen", () => {
 		expect(next).toBe(state);
 	});
 });
+
+describe("restorePersistedSession reviewDrawerOpen hydration", () => {
+	it("restorePersistedSession restores reviewDrawerOpen=true from snapshot", () => {
+		const state = createWorkspaceState([
+			{ id: "/repo", label: "main", branchName: "main", path: "/repo", isMain: true },
+		] as unknown as Parameters<typeof createWorkspaceState>[0]);
+		const snapshot = {
+			worktreeId: "/repo",
+			title: "",
+			note: "",
+			reviewMode: "files" as const,
+			reviewDrawerOpen: true,
+			viewerMode: "file" as const,
+			selectedFilePath: null,
+			selectedChangedFilePath: null,
+			selectedCommitSha: null,
+			selectedCommitFilePath: null,
+			activeProcessSessionId: null,
+			terminalLayoutMode: "single" as const,
+			splitLeftProcessId: null,
+			splitRightProcessId: null,
+			nextAdHocNumber: 1,
+			processSessions: [],
+		};
+		const next = workspaceReducer(state, {
+			type: "session/restoreSnapshot",
+			workspaceId: "ws-1",
+			snapshot,
+		});
+		expect(next.sessionsByWorktreeId["/repo"].reviewDrawerOpen).toBe(true);
+	});
+
+	it("restorePersistedSession restores reviewDrawerOpen=false (explicit collapsed)", () => {
+		const state = createWorkspaceState([
+			{ id: "/repo", label: "main", branchName: "main", path: "/repo", isMain: true },
+		] as unknown as Parameters<typeof createWorkspaceState>[0]);
+		// Seed session with open=true first
+		state.sessionsByWorktreeId["/repo"].reviewDrawerOpen = true;
+		const snapshot = {
+			worktreeId: "/repo",
+			title: "",
+			note: "",
+			reviewMode: "files" as const,
+			reviewDrawerOpen: false,
+			viewerMode: "file" as const,
+			selectedFilePath: null,
+			selectedChangedFilePath: null,
+			selectedCommitSha: null,
+			selectedCommitFilePath: null,
+			activeProcessSessionId: null,
+			terminalLayoutMode: "single" as const,
+			splitLeftProcessId: null,
+			splitRightProcessId: null,
+			nextAdHocNumber: 1,
+			processSessions: [],
+		};
+		const next = workspaceReducer(state, {
+			type: "session/restoreSnapshot",
+			workspaceId: "ws-1",
+			snapshot,
+		});
+		expect(next.sessionsByWorktreeId["/repo"].reviewDrawerOpen).toBe(false);
+	});
+});
