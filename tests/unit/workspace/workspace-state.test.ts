@@ -1012,6 +1012,15 @@ describe("createWorkspaceState title default", () => {
 	});
 });
 
+describe("createWorkspaceState reviewDrawerOpen default", () => {
+	it("createWorkspaceState defaults reviewDrawerOpen to false for new sessions", () => {
+		const state = createWorkspaceState([
+			{ id: "/repo", label: "main", branchName: "main", path: "/repo", isMain: true },
+		] as unknown as Parameters<typeof createWorkspaceState>[0]);
+		expect(state.sessionsByWorktreeId["/repo"].reviewDrawerOpen).toBe(false);
+	});
+});
+
 describe("restorePersistedSession title hydration", () => {
 	it("hydrates title from a new-format snapshot", () => {
 		const initial = createWorkspaceState(worktrees);

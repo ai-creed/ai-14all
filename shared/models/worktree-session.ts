@@ -12,6 +12,7 @@ export type WorktreeSession = {
 	title: string;
 	note: string;
 	reviewMode: ReviewMode;
+	reviewDrawerOpen: boolean;
 	viewerMode: ViewerMode;
 	gitSummary: GitSummary | null;
 	gitSummaryStale: boolean;

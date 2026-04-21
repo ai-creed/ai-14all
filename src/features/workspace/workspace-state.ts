@@ -133,6 +133,7 @@ function createSession(worktree: Worktree): WorktreeSession {
 		title: "",
 		note: "",
 		reviewMode: "files",
+		reviewDrawerOpen: false,
 		viewerMode: "file",
 		gitSummary: null,
 		gitSummaryStale: false,
