@@ -7,6 +7,7 @@ import {
 	waitFor,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ensureReviewDrawerOpen } from "../helpers/review-drawer";
 
 // Mock TerminalPane to avoid xterm canvas dependency in jsdom
 vi.mock("../../../src/features/terminals/TerminalPane", () => ({
@@ -153,6 +154,12 @@ async function loadRepositoryAndSwitchToCommits() {
 		target: { value: "/repo" },
 	});
 	fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+	// Wait for the review drawer, then expand it so the tabs mount.
+	await waitFor(() =>
+		expect(screen.getByRole("region", { name: "Review" })).toBeInTheDocument(),
+	);
+	ensureReviewDrawerOpen();
 
 	// Wait for the workspace to appear
 	await waitFor(() => {

@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 import { closeApp } from "./fixtures/close-app";
+import { ensureReviewDrawerOpen } from "./helpers/review-drawer";
 
 let app: ElectronApplication | undefined;
 let page: Page;
@@ -72,6 +73,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await expect(page.getByRole("menuitem", { name: "start codex", exact: true })).toBeVisible();
 		await page.keyboard.press("Escape");
 
+		await ensureReviewDrawerOpen(page);
 		await page.getByRole("tab", { name: "Commits" }).click();
 		await expect(page.getByRole("button", { name: "Refresh review" })).toBeVisible();
 		await expect(
@@ -113,9 +115,12 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		);
 		await worktreeNav.getByRole("button", { name: "Expand sidebar" }).click();
 
+		// Expand the review drawer for feature-a so the resize handle is mounted.
+		await ensureReviewDrawerOpen(page);
+
 		const terminalSection = page.locator(".shell-terminal-section");
 		const terminalBefore = await terminalSection.boundingBox();
-		const reviewHandle = page.getByTestId("review-panel-resize-handle");
+		const reviewHandle = page.getByTestId("review-drawer-resize-handle");
 		const reviewHandleBox = await reviewHandle.boundingBox();
 		if (!terminalBefore || !reviewHandleBox) {
 			throw new Error("Review panel resize handle was not visible.");
@@ -167,11 +172,16 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await page.getByRole("button", { name: /src\/index\.ts/i }).click();
 		await expect(page.getByText("Diff vs HEAD")).toBeVisible();
 
-		await page.getByRole("button", { name: "Collapse review panel" }).click();
-		await expect(page.getByTestId("review-stack-header")).toContainText(
-			"Review: Changes",
+		await page.getByRole("button", { name: "Collapse review drawer" }).click();
+		await expect(page.getByRole("region", { name: "Review" })).toHaveAttribute(
+			"data-open",
+			"false",
 		);
-		await page.getByRole("button", { name: "Expand review panel" }).click();
+		await page.getByRole("button", { name: "Expand review drawer" }).click();
+		await expect(page.getByRole("tab", { name: "Changes" })).toHaveAttribute(
+			"data-state",
+			"active",
+		);
 		await expect(page.getByText("Diff vs HEAD")).toBeVisible();
 
 		const textarea = page.locator('.shell-terminal-pane[aria-hidden="false"] .xterm-helper-textarea');
@@ -359,6 +369,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			.getByRole("navigation", { name: "Worktree sessions" })
 			.getByRole("button", { name: /feature-a/i })
 			.click();
+		await ensureReviewDrawerOpen(page);
 		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
 		// Wait for the initial summary to render before writing the new file.
 		await expect(page.getByRole("button", { name: /src\/index\.ts/i })).toBeVisible();
@@ -391,6 +402,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			.getByRole("navigation", { name: "Worktree sessions" })
 			.getByRole("button", { name: /feature-a/i })
 			.click();
+		await ensureReviewDrawerOpen(page);
 		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
 		await expect(page.getByRole("button", { name: /src\/index\.ts/i })).toBeVisible();
 
@@ -414,6 +426,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			.click();
 
 		// Switch to Files tab in the review rail
+		await ensureReviewDrawerOpen(page);
 		await page.getByRole("tab", { name: "Files" }).click({ force: true });
 
 		// Wait for NOTES.md to appear (scopeRoots includes "." for root-level dirty files)
@@ -447,6 +460,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 
+		await ensureReviewDrawerOpen(page);
 		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
 
 		const notesButton = page.getByRole("button", { name: /^NOTES\.md/i });
@@ -476,6 +490,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			.click();
 
 		// Open Files tab and click NOTES.md to load it in the viewer
+		await ensureReviewDrawerOpen(page);
 		await page.getByRole("tab", { name: "Files" }).click({ force: true });
 		const notesButton = page.getByRole("button", { name: /^NOTES\.md/ });
 		await expect(notesButton).toBeVisible({ timeout: 10_000 });
@@ -510,6 +525,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 
+		await ensureReviewDrawerOpen(page);
 		await page.getByRole("tab", { name: "Commits" }).click({ force: true });
 		await page.getByRole("button", { name: /initial commit/i }).click();
 		const commitButton = page.getByRole("button", { name: /feature commit/i });

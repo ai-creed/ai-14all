@@ -8,6 +8,7 @@ import {
 	within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ensureReviewDrawerOpen } from "../helpers/review-drawer";
 
 // Mock TerminalPane to avoid xterm canvas dependency in jsdom
 vi.mock("../../../src/features/terminals/TerminalPane", () => ({
@@ -206,6 +207,8 @@ describe("App — Phase 6 default shell", () => {
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
+		await screen.findByRole("region", { name: "Review" });
+		ensureReviewDrawerOpen();
 		await userEvent.click(await screen.findByRole("tab", { name: "Commits" }));
 		await userEvent.click(await screen.findByRole("button", { name: /feature commit/i }));
 
@@ -249,6 +252,8 @@ describe("App — Phase 6 default shell", () => {
 			expect(createMock).toHaveBeenCalledTimes(1);
 		});
 
+		await screen.findByRole("region", { name: "Review" });
+		ensureReviewDrawerOpen();
 		fireEvent.click(await screen.findByRole("tab", { name: "Changes" }));
 		fireEvent.click(screen.getByRole("tab", { name: "Files" }));
 
@@ -280,6 +285,8 @@ describe("App — Phase 6 default shell", () => {
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
+		await screen.findByRole("region", { name: "Review" });
+		ensureReviewDrawerOpen();
 		const reviewRail = await screen.findByTestId("review-rail");
 		expect(reviewRail).toContainElement(
 			within(reviewRail).getByRole("tablist", { name: "Review mode" }),
@@ -1006,38 +1013,44 @@ describe("App — Phase 6 default shell", () => {
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
+		await screen.findByRole("region", { name: "Review" });
+		ensureReviewDrawerOpen();
 		await userEvent.click(await screen.findByRole("tab", { name: "Changes" }));
 		await userEvent.click(await screen.findByRole("button", { name: /src\/index\.ts/i }));
 		expect(await screen.findByText("Diff vs HEAD")).toBeInTheDocument();
 
-		const reviewStack = screen.getByTestId("review-drawer");
-		expect(reviewStack).toHaveStyle({ gridTemplateRows: "auto auto 280px" });
+		const reviewDrawer = screen.getByTestId("review-drawer");
+		expect(reviewDrawer).toHaveStyle({ gridTemplateRows: "auto auto 280px" });
 
-		fireEvent.mouseDown(screen.getByTestId("review-panel-resize-handle"), {
+		fireEvent.mouseDown(screen.getByTestId("review-drawer-resize-handle"), {
 			clientY: 500,
 		});
 		fireEvent.mouseMove(window, { clientY: 460 });
 		fireEvent.mouseUp(window);
 
 		await waitFor(() => {
-			expect(reviewStack).toHaveStyle({ gridTemplateRows: "auto auto 320px" });
+			expect(reviewDrawer).toHaveStyle({ gridTemplateRows: "auto auto 320px" });
 		});
 
 		await userEvent.click(
-			screen.getByRole("button", { name: "Collapse review panel" }),
+			screen.getByRole("button", { name: "Collapse review drawer" }),
 		);
-		expect(reviewStack).toHaveStyle({ gridTemplateRows: "auto" });
-		expect(screen.getByTestId("review-stack-header")).toHaveTextContent(
-			"Review: Changes",
-		);
+		expect(reviewDrawer).toHaveStyle({ gridTemplateRows: "auto" });
+		expect(reviewDrawer).toHaveAttribute("data-open", "false");
 		expect(screen.queryByText("Diff vs HEAD")).not.toBeInTheDocument();
 
 		await userEvent.click(
-			screen.getByRole("button", { name: "Expand review panel" }),
+			screen.getByRole("button", { name: "Expand review drawer" }),
 		);
 
+		await waitFor(() =>
+			expect(screen.getByRole("tab", { name: "Changes" })).toHaveAttribute(
+				"data-state",
+				"active",
+			),
+		);
 		expect(await screen.findByText("Diff vs HEAD")).toBeInTheDocument();
-		expect(reviewStack).toHaveStyle({ gridTemplateRows: "auto auto 320px" });
+		expect(reviewDrawer).toHaveStyle({ gridTemplateRows: "auto auto 320px" });
 	});
 
 	it("resizes the sidebar by dragging the resize handle", async () => {

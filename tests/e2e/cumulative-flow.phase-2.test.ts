@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 import { closeApp } from "./fixtures/close-app";
+import { ensureReviewDrawerOpen } from "./helpers/review-drawer";
 
 let app: ElectronApplication | undefined;
 let page: Page;
@@ -110,6 +111,7 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 		// Phase 6: force clicks inside the review panel because the xterm pane
 		// in the same column keeps the accessibility tree in flux, causing
 		// Playwright's stability check to time out on the file list buttons.
+		await ensureReviewDrawerOpen(page);
 		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
 
 		const changedFileButton = page.getByRole("button", {

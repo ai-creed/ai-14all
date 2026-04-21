@@ -228,6 +228,7 @@ describe("App — Phase 5 restore flow", () => {
 							worktreeId: "feature-a",
 							note: "resume here",
 							reviewMode: "changes",
+							reviewDrawerOpen: true,
 							viewerMode: "diff",
 							selectedFilePath: null,
 							selectedChangedFilePath: "src/index.ts",

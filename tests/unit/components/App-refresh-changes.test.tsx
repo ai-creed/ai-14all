@@ -7,6 +7,7 @@ import {
 	waitFor,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ensureReviewDrawerOpen } from "../helpers/review-drawer";
 
 const mockTerminalOutputListeners: Array<
 	(event: { sessionId: string; data: string }) => void
@@ -125,6 +126,12 @@ async function loadRepoAndSwitchToChanges() {
 		target: { value: "/repo" },
 	});
 	fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+	// Wait for the review drawer, then expand it so the tabs mount.
+	await waitFor(() =>
+		expect(screen.getByRole("region", { name: "Review" })).toBeInTheDocument(),
+	);
+	ensureReviewDrawerOpen();
 
 	// Wait for the workspace to appear
 	await waitFor(() => {
@@ -278,6 +285,8 @@ describe("App — refresh changes button", () => {
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
+		await screen.findByRole("region", { name: "Review" });
+		ensureReviewDrawerOpen();
 		const filesTab = await screen.findByRole("tab", { name: "Files" });
 		filesTab.focus();
 		fireEvent.keyDown(filesTab, { key: "ArrowRight" });
@@ -338,6 +347,8 @@ describe("App — refresh changes button", () => {
 			target: { value: "/repo" },
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+		await screen.findByRole("region", { name: "Review" });
+		ensureReviewDrawerOpen();
 		await screen.findByRole("tab", { name: "Files" });
 		await user.click(screen.getByRole("tab", { name: "Changes" }));
 		await user.click(
@@ -384,6 +395,8 @@ describe("App — refresh changes button", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
 		// Wait for review panel to appear then switch to Changes to verify error state
+		await screen.findByRole("region", { name: "Review" });
+		ensureReviewDrawerOpen();
 		await screen.findByRole("tab", { name: "Files" });
 		await userEvent.click(screen.getByRole("tab", { name: "Changes" }));
 		await waitFor(() => {
@@ -408,6 +421,8 @@ describe("App — refresh changes button", () => {
 		const repoInput = await screen.findByLabelText("Repository path");
 		fireEvent.change(repoInput, { target: { value: "/repo" } });
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+		await screen.findByRole("region", { name: "Review" });
+		ensureReviewDrawerOpen();
 		await screen.findByRole("tab", { name: "Files" });
 		await user.click(screen.getByRole("tab", { name: "Changes" }));
 
@@ -441,6 +456,8 @@ describe("App — refresh changes button", () => {
 		const repoInput = await screen.findByLabelText("Repository path");
 		fireEvent.change(repoInput, { target: { value: "/repo" } });
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
+		await screen.findByRole("region", { name: "Review" });
+		ensureReviewDrawerOpen();
 		await screen.findByRole("tab", { name: "Files" });
 		await user.click(screen.getByRole("tab", { name: "Changes" }));
 
@@ -520,6 +537,7 @@ describe("App — refresh changes button", () => {
 		await loadRepositoryWithTwoWorktrees();
 
 		await user.click(screen.getByRole("button", { name: "feature-a" }));
+		ensureReviewDrawerOpen();
 		await user.click(screen.getByRole("tab", { name: "Changes" }));
 
 		const changedFile = await screen.findByRole("button", {
@@ -532,6 +550,7 @@ describe("App — refresh changes button", () => {
 			screen.getByRole("button", { name: /^main(?:\s+main)?$/i }),
 		);
 		await user.click(screen.getByRole("button", { name: "feature-a" }));
+		ensureReviewDrawerOpen();
 
 		expect(screen.getByRole("tab", { name: "Changes" })).toHaveAttribute(
 			"data-state",
@@ -568,6 +587,10 @@ async function loadRepository() {
 	});
 	fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
+	await waitFor(() =>
+		expect(screen.getByRole("region", { name: "Review" })).toBeInTheDocument(),
+	);
+	ensureReviewDrawerOpen();
 	await waitFor(() => {
 		expect(screen.getByRole("tab", { name: "Files" })).toBeInTheDocument();
 	});

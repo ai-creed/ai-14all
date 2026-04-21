@@ -9,6 +9,7 @@ import { mkdtempSync, realpathSync, renameSync, rmSync, writeFileSync } from "no
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
+import { ensureReviewDrawerOpen } from "./helpers/review-drawer";
 
 let app: ElectronApplication | undefined;
 let page: Page;
@@ -84,6 +85,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		await page.keyboard.press("Escape");
 		// Phase 6: force clicks in the review panel because the xterm pane in
 		// the same column keeps the accessibility tree in flux.
+		await ensureReviewDrawerOpen(page);
 		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
 		await page.getByRole("button", { name: /src\/index\.ts/ }).click({ force: true });
 
@@ -117,15 +119,23 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
 		await expect(page.getByRole("textbox", { name: /session note/i })).toHaveValue("resume here");
 		await page.keyboard.press("Escape");
+		await ensureReviewDrawerOpen(page);
 		await expect(page.getByText("Diff vs HEAD")).toBeVisible();
-		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible();
+		// Match by position — xterm title changes to CWD almost immediately,
+		// so "shell 1" cannot be matched reliably after restore.
+		await expect(
+			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
+		).toBeVisible();
 
 		// The main session's shell has not been hydrated yet — TerminalTabs
 		// only renders the active session's tabs, so there are no tabs belonging
 		// to main while feature-a is selected.
 		// Phase 6: feature-a has one shell (the default shell 1, auto-created
-		// when the worktree was activated above).
-		await expect(page.getByRole("tab", { name: /^shell \d/ })).toHaveCount(1);
+		// when the worktree was activated above). Count by tablist rather than
+		// by name — xterm title changes to the CWD almost immediately.
+		await expect(
+			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab"),
+		).toHaveCount(1);
 
 		await page
 			.getByRole("navigation", { name: "Worktree sessions" })

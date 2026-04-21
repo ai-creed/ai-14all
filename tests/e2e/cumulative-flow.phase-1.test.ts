@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 import { closeApp } from "./fixtures/close-app";
+import { ensureReviewDrawerOpen } from "./helpers/review-drawer";
 
 let app: ElectronApplication | undefined;
 let page: Page;
@@ -51,6 +52,7 @@ test.describe.serial("Cumulative flow — Phase 1", () => {
 
 		// Chip bar replaces the top band — verify session context is visible
 		await expect(page.getByRole("region", { name: "Session" })).toBeVisible();
+		await ensureReviewDrawerOpen(page);
 		await expect(page.getByRole("tab", { name: "Files" })).toBeVisible();
 		await expect(page.getByRole("tab", { name: "Changes" })).toBeVisible();
 	});

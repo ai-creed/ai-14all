@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 import { closeApp } from "./fixtures/close-app";
+import { ensureReviewDrawerOpen } from "./helpers/review-drawer";
 
 let app: ElectronApplication | undefined;
 let page: Page;
@@ -98,6 +99,7 @@ test.describe.serial("Cumulative flow — Phase 0", () => {
 		// Phase 6: ensure the Files tab is active and the file list has rendered
 		// before attempting the click. The explicit tab click also ensures the
 		// review panel is the active tab so the viewer updates on file selection.
+		await ensureReviewDrawerOpen(page);
 		await page.getByRole("tab", { name: "Files" }).click({ force: true });
 		await expect(page.getByRole("button", { name: "src", exact: true })).toBeVisible();
 		// Expand src directory so index.ts becomes visible.
