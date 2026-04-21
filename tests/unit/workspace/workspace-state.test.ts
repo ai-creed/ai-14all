@@ -1101,3 +1101,29 @@ describe("session/setTitle", () => {
 		expect(next).toBe(initial);
 	});
 });
+
+describe("session/setReviewDrawerOpen", () => {
+	it("session/setReviewDrawerOpen sets the flag on the target session", () => {
+		const state = createWorkspaceState([
+			{ id: "/repo", label: "main", branchName: "main", path: "/repo", isMain: true },
+		] as unknown as Parameters<typeof createWorkspaceState>[0]);
+		const next = workspaceReducer(state, {
+			type: "session/setReviewDrawerOpen",
+			worktreeId: "/repo",
+			open: true,
+		});
+		expect(next.sessionsByWorktreeId["/repo"].reviewDrawerOpen).toBe(true);
+	});
+
+	it("session/setReviewDrawerOpen is a no-op for an unknown worktreeId", () => {
+		const state = createWorkspaceState([
+			{ id: "/repo", label: "main", branchName: "main", path: "/repo", isMain: true },
+		] as unknown as Parameters<typeof createWorkspaceState>[0]);
+		const next = workspaceReducer(state, {
+			type: "session/setReviewDrawerOpen",
+			worktreeId: "/does-not-exist",
+			open: true,
+		});
+		expect(next).toBe(state);
+	});
+});

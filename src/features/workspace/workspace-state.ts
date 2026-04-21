@@ -35,6 +35,7 @@ export type WorkspaceAction =
 			worktreeId: string;
 			reviewMode: ReviewMode;
 	  }
+	| { type: "session/setReviewDrawerOpen"; worktreeId: string; open: boolean }
 	| { type: "session/selectFile"; worktreeId: string; relativePath: string }
 	| {
 			type: "session/selectChangedFile";
@@ -750,6 +751,8 @@ export function workspaceReducer(
 		nextSession = { ...session, note: action.note };
 	} else if (action.type === "session/setReviewMode") {
 		nextSession = { ...session, reviewMode: action.reviewMode };
+	} else if (action.type === "session/setReviewDrawerOpen") {
+		nextSession = { ...session, reviewDrawerOpen: action.open };
 	} else if (action.type === "session/selectFile") {
 		nextSession = {
 			...session,
