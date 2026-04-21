@@ -70,6 +70,7 @@ import { DiffViewer } from "../features/viewer/DiffViewer";
 import { CommitList } from "../features/git/CommitList";
 import { CommitDiffStack } from "../features/git/CommitDiffStack";
 import { ReviewDrawer } from "../features/review/ReviewDrawer";
+import { useReviewDrawerAutoExpand } from "../features/review/use-review-drawer-auto-expand";
 import { buildWorktreeProcessSummary } from "../features/workspace/sidebar-shell-summary";
 import type {
 	GitCommitHistory,
@@ -1194,6 +1195,31 @@ export function App() {
 		() => activeSummary?.changedFiles ?? [],
 		[activeSummary],
 	);
+
+	// ---------------------------------------------------------------------------
+	// Review drawer auto-expand — clean→dirty transitions (spec §4.3)
+	// ---------------------------------------------------------------------------
+	const summaryReady =
+		activeSession?.gitSummary !== null &&
+		activeSession?.gitSummary !== undefined;
+	const openReviewDrawer = useCallback(
+		(worktreeId: string) => {
+			dispatch({
+				type: "session/setReviewDrawerOpen",
+				worktreeId,
+				open: true,
+			});
+		},
+		[dispatch],
+	);
+	const autoExpand = useReviewDrawerAutoExpand({
+		activeWorktreeId: activeWorktree?.id ?? null,
+		changedCount: changes.length,
+		summaryReady,
+		currentlyOpen: activeSession?.reviewDrawerOpen ?? false,
+		open: openReviewDrawer,
+	});
+
 	// ---------------------------------------------------------------------------
 	// Persist effect — writes V2 state
 	// ---------------------------------------------------------------------------
@@ -2397,13 +2423,13 @@ export function App() {
 								}
 							}}
 							onDirtyClick={() => {
-								if (activeWorktree) {
-									dispatch({
-										type: "session/setReviewDrawerOpen",
-										worktreeId: activeWorktree.id,
-										open: true,
-									});
-								}
+								if (!activeWorktree) return;
+								autoExpand.noteUserExpand(activeWorktree.id);
+								dispatch({
+									type: "session/setReviewDrawerOpen",
+									worktreeId: activeWorktree.id,
+									open: true,
+								});
 							}}
 							onFilesClick={() => {
 								// Slice E: Files overlay — placeholder
@@ -2588,6 +2614,11 @@ export function App() {
 							onToggle={() => {
 								if (!activeWorktree) return;
 								const next = !(activeSession?.reviewDrawerOpen ?? false);
+								if (!next && (activeSummary?.isDirty ?? false)) {
+									autoExpand.noteUserCollapse(activeWorktree.id);
+								} else if (next) {
+									autoExpand.noteUserExpand(activeWorktree.id);
+								}
 								dispatch({
 									type: "session/setReviewDrawerOpen",
 									worktreeId: activeWorktree.id,
