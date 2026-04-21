@@ -69,6 +69,7 @@ import { DiscardChangeDialog } from "../features/git/DiscardChangeDialog";
 import { DiffViewer } from "../features/viewer/DiffViewer";
 import { CommitList } from "../features/git/CommitList";
 import { CommitDiffStack } from "../features/git/CommitDiffStack";
+import { ReviewDrawer } from "../features/review/ReviewDrawer";
 import { buildWorktreeProcessSummary } from "../features/workspace/sidebar-shell-summary";
 import type {
 	GitCommitHistory,
@@ -100,7 +101,6 @@ export function App() {
 	const { resolvedTheme } = useTheme();
 	const [reviewRailWidth, setReviewRailWidth] = useState(320);
 	const [reviewPanelHeight, setReviewPanelHeight] = useState(280);
-	const [reviewPanelCollapsed, setReviewPanelCollapsed] = useState(false);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const [sidebarWidth, setSidebarWidth] = useState(240);
 	const [pendingRename, setPendingRename] = useState<{ workspaceId: string; worktreeId: string } | null>(null);
@@ -2396,7 +2396,15 @@ export function App() {
 									});
 								}
 							}}
-							onDirtyClick={() => setReviewPanelCollapsed(false)}
+							onDirtyClick={() => {
+								if (activeWorktree) {
+									dispatch({
+										type: "session/setReviewDrawerOpen",
+										worktreeId: activeWorktree.id,
+										open: true,
+									});
+								}
+							}}
 							onFilesClick={() => {
 								// Slice E: Files overlay — placeholder
 							}}
@@ -2572,305 +2580,259 @@ export function App() {
 					)}
 
 					{activeWorktree && (
-						<section
-							className="shell-review-stack"
-							data-testid="review-stack"
-							style={{
-								gridTemplateRows: reviewPanelCollapsed
-									? "auto"
-									: `auto auto ${reviewPanelHeight}px`,
+						<ReviewDrawer
+							open={activeSession?.reviewDrawerOpen ?? false}
+							isDirty={activeSummary?.isDirty ?? false}
+							changedFileCount={changes.length}
+							panelHeight={reviewPanelHeight}
+							onToggle={() => {
+								if (!activeWorktree) return;
+								const next = !(activeSession?.reviewDrawerOpen ?? false);
+								dispatch({
+									type: "session/setReviewDrawerOpen",
+									worktreeId: activeWorktree.id,
+									open: next,
+								});
 							}}
+							onRefresh={handleRefreshChanges}
+							onResizeStart={(e) =>
+								handleReviewPanelResizeStart(
+									e as ReactMouseEvent<HTMLDivElement>,
+								)
+							}
 						>
-							{!reviewPanelCollapsed && (
-								<div
-									role="separator"
-									aria-orientation="horizontal"
-									aria-label="Resize review panel"
-									data-testid="review-panel-resize-handle"
-									className="shell-review-stack__resize-handle"
-									onMouseDown={handleReviewPanelResizeStart}
-								/>
-							)}
-
-							<div
-								className="shell-review-stack__header shell-panel"
-								data-testid="review-stack-header"
+							<Tabs.Root
+								value={activeSession?.reviewMode ?? "files"}
+								onValueChange={(value) =>
+									dispatch({
+										type: "session/setReviewMode",
+										worktreeId: activeWorktree.id,
+										reviewMode: value as "files" | "changes" | "commits",
+									})
+								}
+								className="shell-review-shell"
 							>
-								<span className="shell-label">
-									{activeSession?.reviewMode === "changes"
-										? "Review: Changes"
-										: activeSession?.reviewMode === "commits"
-											? "Review: Commits"
-											: "Review: Files"}
-								</span>
-								<div className="shell-review-switches">
-									<button
-										type="button"
-										className="shell-button shell-button--compact shell-button--icon shell-button--round"
-										aria-label="Refresh review"
-										title="Refresh review"
-										onClick={handleRefreshChanges}
+								<div
+									className="shell-review-grid"
+									data-testid="review-grid"
+									style={{
+										gridTemplateColumns: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
+									}}
+								>
+									<section
+										className="shell-panel shell-review-rail"
+										data-testid="review-rail"
 									>
-										<span aria-hidden="true">↻</span>
-									</button>
-									<button
-										type="button"
-										className="shell-button shell-button--compact shell-button--icon shell-button--round"
-										aria-label={
-											reviewPanelCollapsed
-												? "Expand review panel"
-												: "Collapse review panel"
-										}
-										title={
-											reviewPanelCollapsed
-												? "Expand review panel"
-												: "Collapse review panel"
-										}
-										onClick={() => setReviewPanelCollapsed((c) => !c)}
-									>
-										<span aria-hidden="true">
-											{reviewPanelCollapsed ? "▴" : "▾"}
-										</span>
-									</button>
-								</div>
-							</div>
-
-							{!reviewPanelCollapsed && (
-								<>
-									<Tabs.Root
-										value={activeSession?.reviewMode ?? "files"}
-										onValueChange={(value) =>
-											dispatch({
-												type: "session/setReviewMode",
-												worktreeId: activeWorktree.id,
-												reviewMode: value as "files" | "changes" | "commits",
-											})
-										}
-										className="shell-review-shell"
-									>
-										<div
-											className="shell-review-grid"
-											data-testid="review-grid"
-											style={{
-												gridTemplateColumns: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
-											}}
-										>
-											<section
-												className="shell-panel shell-review-rail"
-												data-testid="review-rail"
+										<div className="shell-review-rail__header">
+											<Tabs.List
+												aria-label="Review mode"
+												className="shell-review-tabs__list shell-review-tabs__segments"
 											>
-												<div className="shell-review-rail__header">
-													<Tabs.List
-														aria-label="Review mode"
-														className="shell-review-tabs__list shell-review-tabs__segments"
-													>
-														<Tabs.Trigger
-															value="files"
-															className="shell-review-tab"
-														>
-															Files
-														</Tabs.Trigger>
-														<Tabs.Trigger
-															value="changes"
-															className="shell-review-tab"
-														>
-															Changes
-														</Tabs.Trigger>
-														<Tabs.Trigger
-															value="commits"
-															className="shell-review-tab"
-														>
-															Commits
-														</Tabs.Trigger>
-													</Tabs.List>
-												</div>
+												<Tabs.Trigger
+													value="files"
+													className="shell-review-tab"
+												>
+													Files
+												</Tabs.Trigger>
+												<Tabs.Trigger
+													value="changes"
+													className="shell-review-tab"
+												>
+													Changes
+												</Tabs.Trigger>
+												<Tabs.Trigger
+													value="commits"
+													className="shell-review-tab"
+												>
+													Commits
+												</Tabs.Trigger>
+											</Tabs.List>
+										</div>
 
-												<ScrollArea.Root className="shell-review-rail__scroll">
-													<ScrollArea.Viewport className="shell-rail__viewport">
-														{activeSession?.reviewMode === "commits" ? (
-															<>
-																{commitHistoryState.message && (
-																	<p
-																		className={
-																			commitHistoryState.stale
-																				? "shell-inline-warning"
-																				: "shell-error"
-																		}
-																	>
-																		{commitHistoryState.message}
-																	</p>
-																)}
-																<CommitList
-																	worktreePath={activeWorktree.path}
-																	history={
-																		commitHistoryState.data ?? {
-																			mergeTargetRef: null,
-																			entries: [],
-																		}
-																	}
-																	selectedCommitSha={
-																		activeSession.selectedCommitSha
-																	}
-																	selectedCommitFilePath={
-																		activeSession.selectedCommitFilePath
-																	}
-																	activeDetail={commitDetailState.data}
-																	onSelectCommit={(sha) =>
-																		dispatch({
-																			type: "session/selectCommit",
-																			worktreeId: activeWorktree.id,
-																			sha,
-																		})
-																	}
-																	onDeselectCommit={() =>
-																		dispatch({
-																			type: "session/clearSelectedCommit",
-																			worktreeId: activeWorktree.id,
-																		})
-																	}
-																	onSelectCommitFile={(relativePath) =>
-																		dispatch({
-																			type: "session/selectCommitFile",
-																			worktreeId: activeWorktree.id,
-																			relativePath,
-																		})
-																	}
-																	remoteStatus={remoteStatus}
-																	onPush={handlePushBranch}
-																/>
-															</>
-														) : activeSession?.reviewMode === "files" ? (
-															<>
-																{openEditorError !== null && (
-																	<p className="shell-error">
-																		{openEditorError}
-																	</p>
-																)}
-																<WorktreeTree
-																	workspaceId={activeWorkspaceId ?? ""}
-																	worktreeId={activeWorktree.id}
-																	worktreeLabel={activeWorktree.label}
-																	selectedFile={activeSession.selectedFilePath}
-																	onSelect={(relativePath) =>
-																		dispatch({
-																			type: "session/selectFile",
-																			worktreeId: activeWorktree.id,
-																			relativePath,
-																		})
-																	}
-																	onPreviewMarkdown={setTreePreviewPath}
-																	onEditFile={openEditorForFile}
-																	changedFiles={changes}
-																	gitSummaryError={gitSummaryError}
-																	gitSummaryMessage={gitSummaryMessage}
-																	expandedPaths={
-																		activeSession.treeExpandedPaths
-																	}
-																	onExpandedPathsChange={(worktreeId, paths) =>
-																		dispatch({
-																			type: "session/setTreeExpandedPaths",
-																			worktreeId,
-																			paths,
-																		})
-																	}
-																/>
-																{treePreviewPath !== null && (
-																	<MarkdownPreviewModal
-																		worktreePath={activeWorktree.path}
-																		relativePath={treePreviewPath}
-																		open={true}
-																		onClose={() => setTreePreviewPath(null)}
-																	/>
-																)}
-																{editorTarget !== null && (
-																	<EditorModal
-																		workspaceId={editorTarget.workspaceId}
-																		worktreeId={editorTarget.worktreeId}
-																		relativePath={editorTarget.relativePath}
-																		initialContent={editorTarget.content}
-																		initialMtimeMs={editorTarget.mtimeMs}
-																		theme={resolvedTheme}
-																		onClose={() => setEditorTarget(null)}
-																		onFileSaved={() => setRefreshKey((k) => k + 1)}
-																	/>
-																)}
-															</>
-														) : (
-															<ChangesList
+										<ScrollArea.Root className="shell-review-rail__scroll">
+											<ScrollArea.Viewport className="shell-rail__viewport">
+												{activeSession?.reviewMode === "commits" ? (
+													<>
+														{commitHistoryState.message && (
+															<p
+																className={
+																	commitHistoryState.stale
+																		? "shell-inline-warning"
+																		: "shell-error"
+																}
+															>
+																{commitHistoryState.message}
+															</p>
+														)}
+														<CommitList
+															worktreePath={activeWorktree.path}
+															history={
+																commitHistoryState.data ?? {
+																	mergeTargetRef: null,
+																	entries: [],
+																}
+															}
+															selectedCommitSha={
+																activeSession.selectedCommitSha
+															}
+															selectedCommitFilePath={
+																activeSession.selectedCommitFilePath
+															}
+															activeDetail={commitDetailState.data}
+															onSelectCommit={(sha) =>
+																dispatch({
+																	type: "session/selectCommit",
+																	worktreeId: activeWorktree.id,
+																	sha,
+																})
+															}
+															onDeselectCommit={() =>
+																dispatch({
+																	type: "session/clearSelectedCommit",
+																	worktreeId: activeWorktree.id,
+																})
+															}
+															onSelectCommitFile={(relativePath) =>
+																dispatch({
+																	type: "session/selectCommitFile",
+																	worktreeId: activeWorktree.id,
+																	relativePath,
+																})
+															}
+															remoteStatus={remoteStatus}
+															onPush={handlePushBranch}
+														/>
+													</>
+												) : activeSession?.reviewMode === "files" ? (
+													<>
+														{openEditorError !== null && (
+															<p className="shell-error">
+																{openEditorError}
+															</p>
+														)}
+														<WorktreeTree
+															workspaceId={activeWorkspaceId ?? ""}
+															worktreeId={activeWorktree.id}
+															worktreeLabel={activeWorktree.label}
+															selectedFile={activeSession.selectedFilePath}
+															onSelect={(relativePath) =>
+																dispatch({
+																	type: "session/selectFile",
+																	worktreeId: activeWorktree.id,
+																	relativePath,
+																})
+															}
+															onPreviewMarkdown={setTreePreviewPath}
+															onEditFile={openEditorForFile}
+															changedFiles={changes}
+															gitSummaryError={gitSummaryError}
+															gitSummaryMessage={gitSummaryMessage}
+															expandedPaths={
+																activeSession.treeExpandedPaths
+															}
+															onExpandedPathsChange={(worktreeId, paths) =>
+																dispatch({
+																	type: "session/setTreeExpandedPaths",
+																	worktreeId,
+																	paths,
+																})
+															}
+														/>
+														{treePreviewPath !== null && (
+															<MarkdownPreviewModal
 																worktreePath={activeWorktree.path}
-																changes={changes}
-																selectedPath={
-																	activeSession?.selectedChangedFilePath ?? null
-																}
-																onSelect={handleSelectChangedFile}
-																onDiscardChange={(relativePath) =>
-																	setDiscardPath(relativePath)
-																}
-																gitSummaryError={gitSummaryError}
-																gitSummaryStale={gitSummaryStale}
-																gitSummaryMessage={gitSummaryMessage}
+																relativePath={treePreviewPath}
+																open={true}
+																onClose={() => setTreePreviewPath(null)}
 															/>
 														)}
-													</ScrollArea.Viewport>
-													<ScrollArea.Scrollbar
-														orientation="vertical"
-														className="shell-scrollbar"
-													/>
-												</ScrollArea.Root>
-											</section>
-
-											<div
-												role="separator"
-												aria-orientation="vertical"
-												aria-label="Resize review rail"
-												data-testid="review-rail-resize-handle"
-												className="shell-review-grid__resize-handle"
-												onMouseDown={handleReviewRailResizeStart}
-											/>
-
-											<section className="shell-panel shell-viewer-panel">
-												{activeSession?.reviewMode === "commits" &&
-												commitDetailState.message !== null &&
-												commitDetailState.data === null ? (
-													<p className="shell-error">
-														{commitDetailState.message}
-													</p>
-												) : activeSession?.reviewMode === "commits" &&
-												  commitDetailState.data ? (
-													<CommitDiffStack
-														key={commitDetailState.data.sha}
-														detail={commitDetailState.data}
-														focusedPath={activeSession.selectedCommitFilePath}
-														resolvedTheme={resolvedTheme}
-													/>
-												) : activeSession?.reviewMode === "files" &&
-												  activeSession.selectedFilePath ? (
-													<FileViewer
-														worktreePath={activeWorktree.path}
-														relativePath={activeSession.selectedFilePath}
-														resolvedTheme={resolvedTheme}
-														onEditFile={openEditorForFile}
-													/>
-												) : activeSession?.reviewMode === "changes" &&
-												  diffState.data ? (
-													<DiffViewer
-														path={diffState.data.path}
-														content={diffState.data.content}
-														originalContent={diffState.data.originalContent}
-														modifiedContent={diffState.data.modifiedContent}
-														resolvedTheme={resolvedTheme}
-													/>
+														{editorTarget !== null && (
+															<EditorModal
+																workspaceId={editorTarget.workspaceId}
+																worktreeId={editorTarget.worktreeId}
+																relativePath={editorTarget.relativePath}
+																initialContent={editorTarget.content}
+																initialMtimeMs={editorTarget.mtimeMs}
+																theme={resolvedTheme}
+																onClose={() => setEditorTarget(null)}
+																onFileSaved={() => setRefreshKey((k) => k + 1)}
+															/>
+														)}
+													</>
 												) : (
-													<p className="shell-empty-state">
-														Select a file or changed file to inspect it.
-													</p>
+													<ChangesList
+														worktreePath={activeWorktree.path}
+														changes={changes}
+														selectedPath={
+															activeSession?.selectedChangedFilePath ?? null
+														}
+														onSelect={handleSelectChangedFile}
+														onDiscardChange={(relativePath) =>
+															setDiscardPath(relativePath)
+														}
+														gitSummaryError={gitSummaryError}
+														gitSummaryStale={gitSummaryStale}
+														gitSummaryMessage={gitSummaryMessage}
+													/>
 												)}
-											</section>
-										</div>
-									</Tabs.Root>
-								</>
-							)}
-						</section>
+											</ScrollArea.Viewport>
+											<ScrollArea.Scrollbar
+												orientation="vertical"
+												className="shell-scrollbar"
+											/>
+										</ScrollArea.Root>
+									</section>
+
+									<div
+										role="separator"
+										aria-orientation="vertical"
+										aria-label="Resize review rail"
+										data-testid="review-rail-resize-handle"
+										className="shell-review-grid__resize-handle"
+										onMouseDown={handleReviewRailResizeStart}
+									/>
+
+									<section className="shell-panel shell-viewer-panel">
+										{activeSession?.reviewMode === "commits" &&
+										commitDetailState.message !== null &&
+										commitDetailState.data === null ? (
+											<p className="shell-error">
+												{commitDetailState.message}
+											</p>
+										) : activeSession?.reviewMode === "commits" &&
+										  commitDetailState.data ? (
+											<CommitDiffStack
+												key={commitDetailState.data.sha}
+												detail={commitDetailState.data}
+												focusedPath={activeSession.selectedCommitFilePath}
+												resolvedTheme={resolvedTheme}
+											/>
+										) : activeSession?.reviewMode === "files" &&
+										  activeSession.selectedFilePath ? (
+											<FileViewer
+												worktreePath={activeWorktree.path}
+												relativePath={activeSession.selectedFilePath}
+												resolvedTheme={resolvedTheme}
+												onEditFile={openEditorForFile}
+											/>
+										) : activeSession?.reviewMode === "changes" &&
+										  diffState.data ? (
+											<DiffViewer
+												path={diffState.data.path}
+												content={diffState.data.content}
+												originalContent={diffState.data.originalContent}
+												modifiedContent={diffState.data.modifiedContent}
+												resolvedTheme={resolvedTheme}
+											/>
+										) : (
+											<p className="shell-empty-state">
+												Select a file or changed file to inspect it.
+											</p>
+										)}
+									</section>
+								</div>
+							</Tabs.Root>
+						</ReviewDrawer>
 					)}
 				</section>
 			</div>

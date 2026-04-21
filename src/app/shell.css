@@ -192,44 +192,6 @@ select {
 	overflow: hidden;
 }
 
-.shell-review-stack {
-	display: grid;
-	min-height: 0;
-	flex-shrink: 0;
-}
-
-.shell-review-stack__resize-handle {
-	position: relative;
-	cursor: row-resize;
-	height: 16px;
-	padding: 0;
-}
-
-.shell-review-stack__resize-handle::before {
-	content: "";
-	position: absolute;
-	left: 0;
-	right: 0;
-	top: 0;
-	height: 1px;
-	background: var(--panel-border);
-}
-
-.shell-review-stack__header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--space-3);
-	padding: 4px;
-	min-height: 36px;
-	border-bottom: none;
-	border-color: var(--pane-border-review);
-}
-
-.shell-review-stack__header > .shell-label {
-	margin-left: 8px;
-}
-
 .shell-review-drawer {
 	display: grid;
 	min-height: 0;
@@ -851,12 +813,6 @@ select {
 	border-radius: 50%;
 	background: var(--accent);
 	display: inline-block;
-}
-
-.shell-review-switches {
-	display: flex;
-	gap: var(--space-2);
-	margin-left: auto;
 }
 
 .shell-viewer-panel {

@@ -1010,7 +1010,7 @@ describe("App — Phase 6 default shell", () => {
 		await userEvent.click(await screen.findByRole("button", { name: /src\/index\.ts/i }));
 		expect(await screen.findByText("Diff vs HEAD")).toBeInTheDocument();
 
-		const reviewStack = screen.getByTestId("review-stack");
+		const reviewStack = screen.getByTestId("review-drawer");
 		expect(reviewStack).toHaveStyle({ gridTemplateRows: "auto auto 280px" });
 
 		fireEvent.mouseDown(screen.getByTestId("review-panel-resize-handle"), {
