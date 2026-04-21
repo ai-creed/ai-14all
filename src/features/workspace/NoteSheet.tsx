@@ -27,7 +27,6 @@ export function NoteSheet({ open, note, onNoteChange, onClose }: Props) {
 						value={note}
 						onChange={(e) => onNoteChange(e.target.value)}
 						placeholder="Write a note for this session…"
-						// eslint-disable-next-line jsx-a11y/no-autofocus
 						autoFocus
 					/>
 				</Dialog.Content>
