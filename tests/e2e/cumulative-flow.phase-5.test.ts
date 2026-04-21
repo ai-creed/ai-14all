@@ -93,7 +93,10 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 			.click();
 		// Phase 6: the default shell is auto-created when main is selected.
 		// Wait for it so the session is persisted with at least one process.
-		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible({ timeout: 10_000 });
+		// Match by position — xterm title changes to CWD almost immediately.
+		await expect(
+			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
+		).toBeVisible({ timeout: 10_000 });
 
 		await page
 			.getByRole("navigation", { name: "Worktree sessions" })
