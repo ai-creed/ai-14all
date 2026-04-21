@@ -51,10 +51,10 @@ test.describe.serial("Cumulative flow — Phase 4", () => {
 
 		// Chip bar replaces the top band — verify session context is visible
 		await expect(page.getByRole("region", { name: "Session" })).toBeVisible();
-		// Wait for the git summary to finish loading — "Dirty" appears once the
+		// Wait for the git summary to finish loading — dirty chip appears once the
 		// async readSummary call resolves.  This also stabilises the layout so
 		// the xterm resize cycle has completed before we click list items.
-		await expect(page.getByText("Dirty")).toBeVisible({ timeout: 10_000 });
+		await expect(page.getByRole("button", { name: /\d+ changed/i })).toBeVisible({ timeout: 10_000 });
 
 		// Phase 6: wait for the default shell tab to appear before interacting
 		// with the review panel. We match any tab in the terminal tablist rather

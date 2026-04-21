@@ -93,8 +93,11 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 
-		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible();
-		await expect(page.getByText("1 ahead of origin/main")).toBeVisible();
+		await expect(
+			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
+		).toBeVisible({ timeout: 10_000 });
+		// Chip bar dirty chip confirms git summary loaded (replaced ContextPanel "1 ahead" text)
+		await expect(page.getByRole("button", { name: /\d+ changed/i })).toBeVisible({ timeout: 10_000 });
 
 		const shellLayout = page.getByTestId("shell-layout");
 		await expect(shellLayout).toHaveAttribute(

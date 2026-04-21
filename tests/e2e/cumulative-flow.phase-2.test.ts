@@ -52,8 +52,8 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 		).toBeVisible({
 			timeout: 10_000,
 		});
-		// Phase 6: "Active branch" label moved; SessionHeader now shows "Branch:"
-		await expect(page.getByText("Branch:")).toBeVisible();
+		// Chip bar replaced SessionHeader — region check confirms session context is visible
+		await expect(page.getByRole("region", { name: "Session" })).toBeVisible();
 	});
 
 	test("opens multiple terminal tabs for the selected worktree", async () => {
