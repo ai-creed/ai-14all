@@ -230,6 +230,46 @@ select {
 	margin-left: 8px;
 }
 
+.shell-review-drawer {
+	display: grid;
+	min-height: 0;
+	/* Keep the drawer out of the flex-shrink loop in .shell-main-column
+	   so the terminal section (flex: 1) cannot compress the drawer below
+	   panelHeight and break the resize handle. Mirrors the previous
+	   .shell-review-stack rule. */
+	flex-shrink: 0;
+}
+
+.shell-review-drawer__resize-handle {
+	cursor: ns-resize;
+	height: 6px;
+	background: transparent;
+}
+
+.shell-review-drawer__header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 6px 12px;
+	border-top: 1px solid var(--panel-border);
+}
+
+.shell-review-drawer__status {
+	margin-left: auto;
+	font-size: 0.75rem;
+	color: var(--text-secondary);
+}
+
+.shell-review-drawer__actions {
+	display: inline-flex;
+	gap: 4px;
+}
+
+.shell-review-drawer__body {
+	min-height: 0;
+	display: grid;
+}
+
 .shell-top-band {
 	position: relative;
 	display: grid;
