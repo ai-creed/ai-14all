@@ -2464,8 +2464,27 @@ export function App() {
 						onClose={() => setFilesOverlayOpen(false)}
 						trackedFilesLoader={trackedFilesLoader}
 						gitStatusMap={gitStatusMap}
-						onViewFile={(_path) => {
-							// Fleshed out in Task 7
+						onViewFile={(path) => {
+							if (!activeWorktree) {
+								setFilesOverlayOpen(false);
+								return;
+							}
+							dispatch({
+								type: "session/selectFile",
+								worktreeId: activeWorktree.id,
+								relativePath: path,
+							});
+							dispatch({
+								type: "session/setReviewMode",
+								worktreeId: activeWorktree.id,
+								reviewMode: "files",
+							});
+							dispatch({
+								type: "session/setReviewDrawerOpen",
+								worktreeId: activeWorktree.id,
+								open: true,
+							});
+							autoExpand.noteUserExpand(activeWorktree.id);
 							setFilesOverlayOpen(false);
 						}}
 						onEditFile={(_path) => {

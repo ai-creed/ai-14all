@@ -130,6 +130,12 @@ export function FilesOverlay(props: FilesOverlayProps) {
 							setSelectedIndex(rows.length - 1);
 							return;
 						}
+						if (e.key === "Enter") {
+							e.preventDefault();
+							const path = rows[selectedIndex];
+							if (path) props.onViewFile(path);
+							return;
+						}
 					}}
 				>
 					<Dialog.Title className="shell-files-overlay__title">Files</Dialog.Title>
@@ -184,6 +190,7 @@ export function FilesOverlay(props: FilesOverlayProps) {
 													"shell-files-overlay__row" +
 													(virtualRow.index === selectedIndex ? " shell-files-overlay__row--selected" : "")
 												}
+												onClick={() => props.onViewFile(path)}
 												style={{
 													position: "absolute",
 													top: 0,

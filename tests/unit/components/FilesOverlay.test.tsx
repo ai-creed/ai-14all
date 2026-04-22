@@ -279,3 +279,53 @@ describe("FilesOverlay — keyboard navigation", () => {
 		expect(input).toBe(document.activeElement);
 	});
 });
+
+describe("FilesOverlay — view action", () => {
+	it("invokes onViewFile with the selected path on Enter", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(["src/a.ts", "src/b.ts"]);
+		const onViewFile = vi.fn();
+		render(
+			<FilesOverlay
+				{...defaults}
+				trackedFilesLoader={loader}
+				onViewFile={onViewFile}
+			/>,
+		);
+		await screen.findByText("a.ts");
+		await user.keyboard("{ArrowDown}{Enter}");
+		expect(onViewFile).toHaveBeenCalledWith("src/b.ts");
+	});
+
+	it("invokes onViewFile on row click", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(["src/a.ts"]);
+		const onViewFile = vi.fn();
+		render(
+			<FilesOverlay
+				{...defaults}
+				trackedFilesLoader={loader}
+				onViewFile={onViewFile}
+			/>,
+		);
+		await screen.findByText("a.ts");
+		await user.click(screen.getByTestId("files-overlay-row-src/a.ts"));
+		expect(onViewFile).toHaveBeenCalledWith("src/a.ts");
+	});
+
+	it("does nothing on Enter when the list is empty", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue([]);
+		const onViewFile = vi.fn();
+		render(
+			<FilesOverlay
+				{...defaults}
+				trackedFilesLoader={loader}
+				onViewFile={onViewFile}
+			/>,
+		);
+		await screen.findByText(/no files/i);
+		await user.keyboard("{Enter}");
+		expect(onViewFile).not.toHaveBeenCalled();
+	});
+});
