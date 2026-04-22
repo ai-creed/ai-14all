@@ -89,6 +89,10 @@ import {
 import { logRendererShellEvent } from "../features/terminals/shell-event-logger";
 import { useTheme } from "../lib/useTheme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
+import {
+	detectPlatform,
+	isFilesOverlayShortcut,
+} from "./files-overlay-shortcut";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -2031,6 +2035,19 @@ export function App() {
 		document.addEventListener("keydown", handler);
 		return () => document.removeEventListener("keydown", handler);
 	}, []);
+
+	// Cmd+P (macOS) / Ctrl+Shift+P (Win/Linux) shortcut to open Files overlay
+	useEffect(() => {
+		const platform = detectPlatform();
+		const handler = (e: KeyboardEvent) => {
+			if (!isFilesOverlayShortcut(e, platform)) return;
+			if (!activeWorktree) return;
+			e.preventDefault();
+			setFilesOverlayOpen(true);
+		};
+		document.addEventListener("keydown", handler);
+		return () => document.removeEventListener("keydown", handler);
+	}, [activeWorktree]);
 
 	function handleSelectChangedFile(relativePath: string) {
 		if (!activeWorktree) return;
