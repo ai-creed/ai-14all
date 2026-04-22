@@ -64,6 +64,7 @@ import { MarkdownPreviewModal } from "../features/viewer/MarkdownPreviewModal";
 import { EditorModal } from "../features/viewer/EditorModal";
 import { isEditable } from "../../shared/editor/editable-files";
 import { FilesOverlay } from "../features/files/FilesOverlay";
+import { ShortcutsHelp } from "../features/shortcuts/ShortcutsHelp";
 import { FileViewer } from "../features/viewer/FileViewer";
 import { ChangesList } from "../features/git/ChangesList";
 import { DiscardChangeDialog } from "../features/git/DiscardChangeDialog";
@@ -115,6 +116,7 @@ export function App() {
 	const [sidebarNow, setSidebarNow] = useState(() => Date.now());
 	const [noteSheetOpen, setNoteSheetOpen] = useState(false);
 	const [filesOverlayOpen, setFilesOverlayOpen] = useState(false);
+	const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
 
 	// Multi-workspace registry
 	const [appWorkspaces, dispatchAppWorkspaces] = useReducer(
@@ -2086,6 +2088,18 @@ export function App() {
 		return () => document.removeEventListener("keydown", handler);
 	}, [activeWorkspaceId, activeWorktree?.id, appPlatform]);
 
+	// Cmd+/ or Cmd+? / Ctrl+/ or Ctrl+? shortcut to show shortcuts help
+	useEffect(() => {
+		const helpShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "shortcuts-help")!;
+		const handler = (e: KeyboardEvent) => {
+			if (!helpShortcut.predicate(e, appPlatform)) return;
+			e.preventDefault();
+			setShortcutsHelpOpen((prev) => !prev);
+		};
+		document.addEventListener("keydown", handler);
+		return () => document.removeEventListener("keydown", handler);
+	}, [appPlatform]);
+
 	function handleSelectChangedFile(relativePath: string) {
 		if (!activeWorktree) return;
 		dispatch({
@@ -2546,6 +2560,11 @@ export function App() {
 							void openEditorForFile(path);
 						}}
 						isEditable={isEditable}
+					/>
+					<ShortcutsHelp
+						open={shortcutsHelpOpen}
+						platform={appPlatform}
+						onClose={() => setShortcutsHelpOpen(false)}
 					/>
 
 					{workspaceState.selectedWorktreeId && (
