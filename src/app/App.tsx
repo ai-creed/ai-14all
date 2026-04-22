@@ -90,9 +90,9 @@ import { logRendererShellEvent } from "../features/terminals/shell-event-logger"
 import { useTheme } from "../lib/useTheme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
 import {
+	SHORTCUT_REGISTRY,
 	detectPlatform,
-	isFilesOverlayShortcut,
-} from "./files-overlay-shortcut";
+} from "./shortcut-registry";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -106,6 +106,7 @@ function normalizeTerminalTitle(title: string): string | null {
 
 export function App() {
 	const { resolvedTheme } = useTheme();
+	const appPlatform = useMemo(detectPlatform, []);
 	const [reviewRailWidth, setReviewRailWidth] = useState(320);
 	const [reviewPanelHeight, setReviewPanelHeight] = useState(280);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -2021,33 +2022,69 @@ export function App() {
 		};
 	}, [activeWorktree?.path, activeSession?.selectedCommitSha]);
 
-	// Cmd+; keyboard shortcut to toggle note sheet
+	// Cmd+; / Ctrl+; keyboard shortcut to toggle note sheet
 	useEffect(() => {
+		const noteShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "note-sheet")!;
 		const handler = (e: KeyboardEvent) => {
-			if (e.defaultPrevented) return;
-			if ((e.target as HTMLElement).closest?.(".xterm") !== null) return;
-			const isMac = navigator.platform.toUpperCase().includes("MAC");
-			const modKey = isMac ? e.metaKey : e.ctrlKey;
-			if (!modKey || e.key !== ";") return;
+			if (!noteShortcut.predicate(e, appPlatform)) return;
 			e.preventDefault();
 			setNoteSheetOpen((prev) => !prev);
 		};
 		document.addEventListener("keydown", handler);
 		return () => document.removeEventListener("keydown", handler);
-	}, []);
+	}, [appPlatform]);
 
-	// Cmd+P (macOS) / Ctrl+Shift+P (Win/Linux) shortcut to open Files overlay
+	// Cmd+P / Ctrl+Shift+P shortcut to open Files overlay
 	useEffect(() => {
-		const platform = detectPlatform();
+		const filesShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "files-overlay")!;
 		const handler = (e: KeyboardEvent) => {
-			if (!isFilesOverlayShortcut(e, platform)) return;
+			if (!filesShortcut.predicate(e, appPlatform)) return;
 			if (!activeWorktree) return;
 			e.preventDefault();
 			setFilesOverlayOpen(true);
 		};
 		document.addEventListener("keydown", handler);
 		return () => document.removeEventListener("keydown", handler);
-	}, [activeWorktree?.id]);
+	}, [activeWorktree?.id, appPlatform]);
+
+	// Cmd+J / Ctrl+J shortcut to toggle review drawer
+	useEffect(() => {
+		const reviewShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "review-drawer")!;
+		const handler = (e: KeyboardEvent) => {
+			if (!reviewShortcut.predicate(e, appPlatform)) return;
+			if (!activeWorktree) return;
+			e.preventDefault();
+			const session = workspaceStateRef.current.sessionsByWorktreeId[activeWorktree.id];
+			const currentlyOpen = session?.reviewDrawerOpen ?? false;
+			const next = !currentlyOpen;
+			if (!next && (activeSummary?.isDirty ?? false)) {
+				autoExpand.noteUserCollapse(activeWorktree.id);
+			} else if (next) {
+				autoExpand.noteUserExpand(activeWorktree.id);
+			}
+			dispatch({
+				type: "session/setReviewDrawerOpen",
+				worktreeId: activeWorktree.id,
+				open: next,
+			});
+		};
+		document.addEventListener("keydown", handler);
+		return () => document.removeEventListener("keydown", handler);
+	}, [activeWorktree?.id, activeSummary?.isDirty, appPlatform, autoExpand, dispatch]);
+
+	// Cmd+Shift+R / Ctrl+Alt+R shortcut to rename active session
+	useEffect(() => {
+		const renameShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "rename-session")!;
+		const handler = (e: KeyboardEvent) => {
+			if (!renameShortcut.predicate(e, appPlatform)) return;
+			if (!activeWorkspaceId || !activeWorktree) return;
+			e.preventDefault();
+			setSidebarCollapsed(false);
+			setPendingRename({ workspaceId: activeWorkspaceId, worktreeId: activeWorktree.id });
+		};
+		document.addEventListener("keydown", handler);
+		return () => document.removeEventListener("keydown", handler);
+	}, [activeWorkspaceId, activeWorktree?.id, appPlatform]);
 
 	function handleSelectChangedFile(relativePath: string) {
 		if (!activeWorktree) return;
