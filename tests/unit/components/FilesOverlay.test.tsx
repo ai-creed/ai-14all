@@ -126,3 +126,59 @@ describe("FilesOverlay — tracked-file list", () => {
 		await vi.waitFor(() => expect(loader).toHaveBeenCalledTimes(2));
 	});
 });
+
+describe("FilesOverlay — search", () => {
+	it("renders a search input that is auto-focused on open", async () => {
+		const loader = vi.fn().mockResolvedValue(["src/a.ts"]);
+		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
+		const input = await screen.findByPlaceholderText(/search files/i);
+		expect(input).toBe(document.activeElement);
+	});
+
+	it("filters the list as the user types", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(["src/foo.ts", "src/bar.ts"]);
+		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
+		await screen.findByText("foo.ts");
+		const input = screen.getByPlaceholderText(/search files/i);
+		await user.type(input, "foo");
+		expect(screen.getByText("foo.ts")).toBeInTheDocument();
+		expect(screen.queryByText("bar.ts")).not.toBeInTheDocument();
+	});
+
+	it("shows an empty-results message when search matches nothing", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(["src/foo.ts"]);
+		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
+		await screen.findByText("foo.ts");
+		const input = screen.getByPlaceholderText(/search files/i);
+		await user.type(input, "xyz");
+		expect(screen.getByText(/no files match/i)).toBeInTheDocument();
+	});
+
+	it("restores the full list when the query is cleared", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(["src/foo.ts", "src/bar.ts"]);
+		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
+		await screen.findByText("foo.ts");
+		const input = screen.getByPlaceholderText(/search files/i);
+		await user.type(input, "foo");
+		expect(screen.queryByText("bar.ts")).not.toBeInTheDocument();
+		await user.clear(input);
+		expect(screen.getByText("bar.ts")).toBeInTheDocument();
+	});
+
+	it("resets the query to empty when the overlay is re-opened", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(["src/foo.ts"]);
+		const { rerender } = render(
+			<FilesOverlay {...defaults} trackedFilesLoader={loader} />,
+		);
+		const input = await screen.findByPlaceholderText(/search files/i);
+		await user.type(input, "foo");
+		rerender(<FilesOverlay {...defaults} isOpen={false} trackedFilesLoader={loader} />);
+		rerender(<FilesOverlay {...defaults} isOpen={true} trackedFilesLoader={loader} />);
+		const reopenedInput = await screen.findByPlaceholderText(/search files/i);
+		expect((reopenedInput as HTMLInputElement).value).toBe("");
+	});
+});

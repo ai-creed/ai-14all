@@ -2102,6 +2102,17 @@ select {
 	text-align: right;
 }
 
+.shell-files-overlay__search {
+	flex: 0 0 auto;
+	margin: 10px 14px;
+	padding: 8px 10px;
+	font-size: 14px;
+	background: rgba(255, 255, 255, 0.04);
+	border: 1px solid var(--panel-border);
+	border-radius: 6px;
+	outline: none;
+}
+
 .sr-only {
 	position: absolute;
 	width: 1px;

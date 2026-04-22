@@ -1,5 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { matchFiles } from "../../../shared/files/match-files";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { GitChangeStatus } from "../../../shared/models/git-change";
 
@@ -57,7 +58,18 @@ export function FilesOverlay(props: FilesOverlayProps) {
 		};
 	}, [isOpen, trackedFilesLoader]);
 
-	const rows = tracked;
+	const [query, setQuery] = useState("");
+
+	useEffect(() => {
+		if (!isOpen) setQuery("");
+	}, [isOpen]);
+
+	const filtered = useMemo(() => {
+		if (tracked.length === 0) return [];
+		return matchFiles(query, tracked).map((s) => s.path);
+	}, [query, tracked]);
+
+	const rows = filtered;
 
 	const virtualizer = useVirtualizer({
 		count: rows.length,
@@ -85,6 +97,14 @@ export function FilesOverlay(props: FilesOverlayProps) {
 						Search and open files from the active session.
 					</Dialog.Description>
 					<div className="shell-files-overlay__body">
+						<input
+							className="shell-files-overlay__search"
+							data-testid="files-overlay-search"
+							placeholder="Search files"
+							value={query}
+							onChange={(e) => setQuery(e.target.value)}
+							autoFocus
+						/>
 						{loadError ? (
 							<div
 								className="shell-files-overlay__empty"
@@ -93,8 +113,10 @@ export function FilesOverlay(props: FilesOverlayProps) {
 							>
 								Couldn't load files. {loadError}
 							</div>
-						) : rows.length === 0 ? (
+						) : tracked.length === 0 ? (
 							<div className="shell-files-overlay__empty">No files in this worktree.</div>
+						) : rows.length === 0 ? (
+							<div className="shell-files-overlay__empty">No files match.</div>
 						) : (
 							<div
 								ref={scrollParentRef}
