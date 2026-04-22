@@ -2047,7 +2047,7 @@ export function App() {
 		};
 		document.addEventListener("keydown", handler);
 		return () => document.removeEventListener("keydown", handler);
-	}, [activeWorktree]);
+	}, [activeWorktree?.id]);
 
 	function handleSelectChangedFile(relativePath: string) {
 		if (!activeWorktree) return;
