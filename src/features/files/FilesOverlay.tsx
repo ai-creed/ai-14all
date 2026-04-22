@@ -130,6 +130,14 @@ export function FilesOverlay(props: FilesOverlayProps) {
 							setSelectedIndex(rows.length - 1);
 							return;
 						}
+						if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+							e.preventDefault();
+							const path = rows[selectedIndex];
+							if (!path) return;
+							const base = basenameOf(path);
+							if (props.isEditable(base)) props.onEditFile(path);
+							return;
+						}
 						if (e.key === "Enter") {
 							e.preventDefault();
 							const path = rows[selectedIndex];
@@ -218,6 +226,24 @@ export function FilesOverlay(props: FilesOverlayProps) {
 								</div>
 							</div>
 						)}
+					</div>
+					<div
+						className="shell-files-overlay__footer"
+						data-testid="files-overlay-footer"
+						data-edit-available={(() => {
+							const path = rows[selectedIndex];
+							if (!path) return "false";
+							return props.isEditable(basenameOf(path)) ? "true" : "false";
+						})()}
+					>
+						<span className="shell-files-overlay__footer-path">
+							{rows[selectedIndex] ?? ""}
+						</span>
+						<span className="shell-files-overlay__footer-hints">
+							<kbd>↵</kbd> View
+							<kbd>⌘↵</kbd> Edit
+							<kbd>Esc</kbd> Close
+						</span>
 					</div>
 				</Dialog.Content>
 			</Dialog.Portal>

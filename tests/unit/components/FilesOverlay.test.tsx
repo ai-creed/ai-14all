@@ -329,3 +329,76 @@ describe("FilesOverlay — view action", () => {
 		expect(onViewFile).not.toHaveBeenCalled();
 	});
 });
+
+describe("FilesOverlay — edit action", () => {
+	const paths = ["src/a.ts", "src/image.png"];
+
+	it("invokes onEditFile on Cmd+Enter when the selected file is editable", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(paths);
+		const onEditFile = vi.fn();
+		render(
+			<FilesOverlay
+				{...defaults}
+				trackedFilesLoader={loader}
+				onEditFile={onEditFile}
+				isEditable={(basename) => basename.endsWith(".ts")}
+			/>,
+		);
+		await screen.findByText("a.ts");
+		await user.keyboard("{Meta>}{Enter}{/Meta}");
+		expect(onEditFile).toHaveBeenCalledWith("src/a.ts");
+	});
+
+	it("invokes onEditFile on Ctrl+Enter when the selected file is editable", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(paths);
+		const onEditFile = vi.fn();
+		render(
+			<FilesOverlay
+				{...defaults}
+				trackedFilesLoader={loader}
+				onEditFile={onEditFile}
+				isEditable={(basename) => basename.endsWith(".ts")}
+			/>,
+		);
+		await screen.findByText("a.ts");
+		await user.keyboard("{Control>}{Enter}{/Control}");
+		expect(onEditFile).toHaveBeenCalledWith("src/a.ts");
+	});
+
+	it("does not invoke onEditFile for a non-editable selection", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(paths);
+		const onEditFile = vi.fn();
+		render(
+			<FilesOverlay
+				{...defaults}
+				trackedFilesLoader={loader}
+				onEditFile={onEditFile}
+				isEditable={(basename) => basename.endsWith(".ts")}
+			/>,
+		);
+		await screen.findByText("a.ts");
+		await user.keyboard("{ArrowDown}");
+		await user.keyboard("{Meta>}{Enter}{/Meta}");
+		expect(onEditFile).not.toHaveBeenCalled();
+	});
+
+	it("footer hint shows Edit availability for the current selection", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(paths);
+		render(
+			<FilesOverlay
+				{...defaults}
+				trackedFilesLoader={loader}
+				isEditable={(basename) => basename.endsWith(".ts")}
+			/>,
+		);
+		await screen.findByText("a.ts");
+		const footer = screen.getByTestId("files-overlay-footer");
+		expect(footer).toHaveAttribute("data-edit-available", "true");
+		await user.keyboard("{ArrowDown}");
+		expect(footer).toHaveAttribute("data-edit-available", "false");
+	});
+});

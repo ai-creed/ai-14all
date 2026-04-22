@@ -2487,9 +2487,9 @@ export function App() {
 							autoExpand.noteUserExpand(activeWorktree.id);
 							setFilesOverlayOpen(false);
 						}}
-						onEditFile={(_path) => {
-							// Fleshed out in Task 8
+						onEditFile={(path) => {
 							setFilesOverlayOpen(false);
+							void openEditorForFile(path);
 						}}
 						isEditable={isEditable}
 					/>

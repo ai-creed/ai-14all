@@ -2118,6 +2118,41 @@ select {
 	outline: none;
 }
 
+.shell-files-overlay__footer {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 14px;
+	border-top: 1px solid var(--panel-border);
+	font-size: 12px;
+}
+
+.shell-files-overlay__footer-path {
+	flex: 1 1 auto;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.shell-files-overlay__footer-hints {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+}
+
+.shell-files-overlay__footer-hints kbd {
+	padding: 2px 6px;
+	border: 1px solid var(--panel-border);
+	border-radius: 4px;
+	background: rgba(255, 255, 255, 0.04);
+	font-size: 11px;
+}
+
+.shell-files-overlay__footer[data-edit-available="false"] .shell-files-overlay__footer-hints kbd:nth-child(2) {
+	opacity: 0.4;
+}
+
 .sr-only {
 	position: absolute;
 	width: 1px;
