@@ -482,6 +482,11 @@ export function App() {
 		[activeWorktree, activeWorkspaceId],
 	);
 
+	const trackedFilesLoader = useCallback(async () => {
+		if (!activeWorkspaceId || !activeWorktree) return [];
+		return files.listTracked(activeWorkspaceId, activeWorktree.id);
+	}, [activeWorkspaceId, activeWorktree]);
+
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
 			if (!(e.metaKey || e.ctrlKey) || e.key !== "e") return;
@@ -2457,10 +2462,7 @@ export function App() {
 					<FilesOverlay
 						isOpen={filesOverlayOpen}
 						onClose={() => setFilesOverlayOpen(false)}
-						trackedFilesLoader={async () => {
-							if (!activeWorkspaceId || !activeWorktree) return [];
-							return files.listTracked(activeWorkspaceId, activeWorktree.id);
-						}}
+						trackedFilesLoader={trackedFilesLoader}
 						gitStatusMap={gitStatusMap}
 						onViewFile={(_path) => {
 							// Fleshed out in Task 7
@@ -2470,7 +2472,7 @@ export function App() {
 							// Fleshed out in Task 8
 							setFilesOverlayOpen(false);
 						}}
-						isEditable={(basename) => isEditable(basename)}
+						isEditable={isEditable}
 					/>
 
 					{workspaceState.selectedWorktreeId && (
