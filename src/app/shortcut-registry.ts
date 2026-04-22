@@ -96,8 +96,8 @@ export const SHORTCUT_REGISTRY: AppShortcut[] = [
 	{
 		id: "shortcuts-help",
 		label: "Show shortcuts",
-		mac: "⌘/  or  ⌘?",
-		other: "Ctrl+/  or  Ctrl+?",
+		mac: "⌘/ or ⌘?",
+		other: "Ctrl+/ or Ctrl+?",
 		predicate: isShortcutsHelpShortcut,
 	},
 ];

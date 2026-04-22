@@ -2164,3 +2164,98 @@ select {
 	white-space: nowrap;
 	border: 0;
 }
+
+/* ── Shortcuts help overlay ──────────────────────────────── */
+
+.shell-shortcuts-help__overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.45);
+	z-index: 900;
+}
+
+.shell-shortcuts-help {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	z-index: 901;
+	background: var(--panel-bg);
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-lg);
+	width: 400px;
+	max-width: calc(100vw - 32px);
+	outline: none;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.shell-shortcuts-help__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--space-3) var(--space-4);
+	border-bottom: 1px solid var(--panel-border);
+}
+
+.shell-shortcuts-help__title {
+	color: var(--text-primary);
+	font-size: 13px;
+	font-weight: 600;
+	margin: 0;
+}
+
+.shell-shortcuts-help__close {
+	background: none;
+	border: none;
+	color: var(--text-secondary);
+	cursor: pointer;
+	padding: var(--space-1);
+	font-size: 12px;
+	line-height: 1;
+	border-radius: var(--radius-sm);
+}
+
+.shell-shortcuts-help__close:hover {
+	color: var(--text-primary);
+}
+
+.shell-shortcuts-help__list {
+	list-style: none;
+	margin: 0;
+	padding: var(--space-2) 0;
+}
+
+.shell-shortcuts-help__row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--space-2) var(--space-4);
+}
+
+.shell-shortcuts-help__label {
+	color: var(--text-primary);
+	font-size: 12px;
+}
+
+.shell-shortcuts-help__keys {
+	color: var(--text-secondary);
+	font-size: 11px;
+	font-family: var(--font-ui);
+	background: var(--panel-bg-elevated);
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	padding: 2px 6px;
+}
+
+/* Reduced motion: disable all overlay/sheet animations */
+@media (prefers-reduced-motion: reduce) {
+	.shell-shortcuts-help__overlay,
+	.shell-shortcuts-help,
+	.shell-note-sheet__overlay,
+	.shell-note-sheet,
+	.shell-files-overlay__backdrop,
+	.shell-files-overlay {
+		animation: none !important;
+		transition: none !important;
+	}
+}
