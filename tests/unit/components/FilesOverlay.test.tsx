@@ -69,3 +69,60 @@ describe("FilesOverlay — chip-bar wiring contract", () => {
 		expect(screen.queryByTestId("files-overlay")).not.toBeInTheDocument();
 	});
 });
+
+describe("FilesOverlay — tracked-file list", () => {
+	it("calls trackedFilesLoader when it opens", async () => {
+		const loader = vi.fn().mockResolvedValue(["src/a.ts", "src/b.ts"]);
+		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
+		await vi.waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+	});
+
+	it("does not call trackedFilesLoader when closed", () => {
+		const loader = vi.fn().mockResolvedValue([]);
+		render(<FilesOverlay {...defaults} isOpen={false} trackedFilesLoader={loader} />);
+		expect(loader).not.toHaveBeenCalled();
+	});
+
+	it("renders each tracked path as a row", async () => {
+		const loader = vi.fn().mockResolvedValue(["src/a.ts", "src/b.ts"]);
+		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
+		expect(await screen.findByText("a.ts")).toBeInTheDocument();
+		expect(await screen.findByText("b.ts")).toBeInTheDocument();
+	});
+
+	it("renders Git status for a file that has one", async () => {
+		const loader = vi.fn().mockResolvedValue(["src/a.ts"]);
+		const statusMap = new Map<string, "M" | "A" | "D" | "R" | "??">([["src/a.ts", "M"]]);
+		render(
+			<FilesOverlay
+				{...defaults}
+				trackedFilesLoader={loader}
+				gitStatusMap={statusMap}
+			/>,
+		);
+		expect(await screen.findByTestId("files-overlay-row-status-src/a.ts")).toHaveTextContent("M");
+	});
+
+	it("shows an empty-state message when the worktree has no tracked files", async () => {
+		const loader = vi.fn().mockResolvedValue([]);
+		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
+		expect(await screen.findByText(/no files/i)).toBeInTheDocument();
+	});
+
+	it("renders an error message when the loader rejects", async () => {
+		const loader = vi.fn().mockRejectedValue(new Error("ipc down"));
+		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
+		expect(await screen.findByText(/couldn't load files/i)).toBeInTheDocument();
+	});
+
+	it("re-loads when the overlay is closed and re-opened", async () => {
+		const loader = vi.fn().mockResolvedValue([]);
+		const { rerender } = render(
+			<FilesOverlay {...defaults} trackedFilesLoader={loader} />,
+		);
+		await vi.waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+		rerender(<FilesOverlay {...defaults} isOpen={false} trackedFilesLoader={loader} />);
+		rerender(<FilesOverlay {...defaults} isOpen={true} trackedFilesLoader={loader} />);
+		await vi.waitFor(() => expect(loader).toHaveBeenCalledTimes(2));
+	});
+});

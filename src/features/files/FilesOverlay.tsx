@@ -1,4 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { useEffect, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import type { GitChangeStatus } from "../../../shared/models/git-change";
 
 export interface FilesOverlayProps {
@@ -11,8 +13,58 @@ export interface FilesOverlayProps {
 	isEditable: (basename: string) => boolean;
 }
 
+const ROW_HEIGHT = 28;
+
+function basenameOf(path: string): string {
+	const slash = path.lastIndexOf("/");
+	return slash === -1 ? path : path.slice(slash + 1);
+}
+
+function dirnameOf(path: string): string {
+	const slash = path.lastIndexOf("/");
+	return slash === -1 ? "" : path.slice(0, slash);
+}
+
 export function FilesOverlay(props: FilesOverlayProps) {
-	const { isOpen, onClose } = props;
+	const { isOpen, onClose, trackedFilesLoader, gitStatusMap } = props;
+	const [tracked, setTracked] = useState<string[]>([]);
+	const [loadError, setLoadError] = useState<string | null>(null);
+	const scrollParentRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		if (!isOpen) {
+			setTracked([]);
+			setLoadError(null);
+			return;
+		}
+		let cancelled = false;
+		void (async () => {
+			try {
+				const paths = await trackedFilesLoader();
+				if (!cancelled) {
+					setTracked(paths);
+					setLoadError(null);
+				}
+			} catch (err) {
+				if (!cancelled) {
+					setLoadError(err instanceof Error ? err.message : String(err));
+					setTracked([]);
+				}
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [isOpen, trackedFilesLoader]);
+
+	const rows = tracked;
+
+	const virtualizer = useVirtualizer({
+		count: rows.length,
+		getScrollElement: () => scrollParentRef.current,
+		estimateSize: () => ROW_HEIGHT,
+		overscan: 10,
+	});
 
 	return (
 		<Dialog.Root
@@ -32,8 +84,66 @@ export function FilesOverlay(props: FilesOverlayProps) {
 					<Dialog.Description className="sr-only">
 						Search and open files from the active session.
 					</Dialog.Description>
-					<div className="shell-files-overlay__body" data-testid="files-overlay-body">
-						{/* search, list, footer land in later tasks */}
+					<div className="shell-files-overlay__body">
+						{loadError ? (
+							<div
+								className="shell-files-overlay__empty"
+								data-testid="files-overlay-error"
+								role="alert"
+							>
+								Couldn't load files. {loadError}
+							</div>
+						) : rows.length === 0 ? (
+							<div className="shell-files-overlay__empty">No files in this worktree.</div>
+						) : (
+							<div
+								ref={scrollParentRef}
+								className="shell-files-overlay__list"
+								data-testid="files-overlay-list"
+							>
+								<div
+									style={{
+										position: "relative",
+										height: virtualizer.getTotalSize(),
+										width: "100%",
+									}}
+								>
+									{virtualizer.getVirtualItems().map((virtualRow) => {
+										const path = rows[virtualRow.index];
+										const base = basenameOf(path);
+										const dir = dirnameOf(path);
+										const status = gitStatusMap.get(path);
+										return (
+											<div
+												key={path}
+												className="shell-files-overlay__row"
+												style={{
+													position: "absolute",
+													top: 0,
+													left: 0,
+													width: "100%",
+													height: ROW_HEIGHT,
+													transform: `translateY(${virtualRow.start}px)`,
+												}}
+											>
+												<span className="shell-files-overlay__row-basename">{base}</span>
+												{dir && (
+													<span className="shell-files-overlay__row-dir">{dir}</span>
+												)}
+												{status && (
+													<span
+														className="shell-files-overlay__row-status"
+														data-testid={`files-overlay-row-status-${path}`}
+													>
+														{status}
+													</span>
+												)}
+											</div>
+										);
+									})}
+								</div>
+							</div>
+						)}
 					</div>
 				</Dialog.Content>
 			</Dialog.Portal>

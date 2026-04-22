@@ -2051,6 +2051,57 @@ select {
 	min-height: 0;
 }
 
+.shell-files-overlay__list {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+}
+
+.shell-files-overlay__empty {
+	padding: 24px;
+	text-align: center;
+	font-size: 13px;
+	color: var(--text-secondary);
+}
+
+.shell-files-overlay__row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 0 14px;
+	font-size: 13px;
+	cursor: pointer;
+}
+
+.shell-files-overlay__row:hover {
+	background: rgba(255, 255, 255, 0.04);
+}
+
+.shell-files-overlay__row-basename {
+	font-weight: 500;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.shell-files-overlay__row-dir {
+	font-size: 12px;
+	color: var(--text-secondary);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.shell-files-overlay__row-status {
+	margin-left: auto;
+	font-size: 11px;
+	font-weight: 600;
+	min-width: 16px;
+	text-align: right;
+}
+
 .sr-only {
 	position: absolute;
 	width: 1px;
