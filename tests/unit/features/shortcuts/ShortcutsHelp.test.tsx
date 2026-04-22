@@ -59,4 +59,11 @@ describe("ShortcutsHelp", () => {
 		render(<ShortcutsHelp open platform="mac" onClose={() => {}} />);
 		expect(screen.getByRole("button", { name: /close shortcuts/i })).toBeInTheDocument();
 	});
+
+	it("calls onClose when close button is clicked", async () => {
+		const onClose = vi.fn();
+		render(<ShortcutsHelp open={true} platform="mac" onClose={onClose} />);
+		await userEvent.click(screen.getByTestId("shortcuts-help-close"));
+		expect(onClose).toHaveBeenCalledOnce();
+	});
 });

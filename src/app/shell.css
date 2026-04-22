@@ -2170,8 +2170,8 @@ select {
 .shell-shortcuts-help__overlay {
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.45);
-	z-index: 900;
+	background: var(--shell-overlay-backdrop, rgba(0, 0, 0, 0.45));
+	z-index: 49;
 }
 
 .shell-shortcuts-help {
@@ -2179,7 +2179,7 @@ select {
 	top: 50%;
 	left: 50%;
 	transform: translate(-50%, -50%);
-	z-index: 901;
+	z-index: 50;
 	background: var(--panel-bg);
 	border: 1px solid var(--panel-border);
 	border-radius: var(--radius-lg);

@@ -15,7 +15,6 @@ export function ShortcutsHelp({ open, platform, onClose }: Props) {
 				<Dialog.Content
 					className="shell-shortcuts-help"
 					data-testid="shortcuts-help"
-					aria-label="Keyboard shortcuts"
 				>
 					<div className="shell-shortcuts-help__header">
 						<Dialog.Title className="shell-shortcuts-help__title">
@@ -26,6 +25,7 @@ export function ShortcutsHelp({ open, platform, onClose }: Props) {
 								type="button"
 								className="shell-shortcuts-help__close"
 								aria-label="Close shortcuts"
+								data-testid="shortcuts-help-close"
 							>
 								✕
 							</button>
