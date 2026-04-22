@@ -182,3 +182,100 @@ describe("FilesOverlay — search", () => {
 		expect((reopenedInput as HTMLInputElement).value).toBe("");
 	});
 });
+
+describe("FilesOverlay — keyboard navigation", () => {
+	it("defaults selection to the first row", async () => {
+		const loader = vi.fn().mockResolvedValue(["src/a.ts", "src/b.ts"]);
+		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
+		await screen.findByText("a.ts");
+		expect(screen.getByTestId("files-overlay-row-src/a.ts")).toHaveAttribute(
+			"data-selected",
+			"true",
+		);
+	});
+
+	it("moves selection on ArrowDown", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(["src/a.ts", "src/b.ts"]);
+		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
+		await screen.findByText("a.ts");
+		await user.keyboard("{ArrowDown}");
+		expect(screen.getByTestId("files-overlay-row-src/b.ts")).toHaveAttribute(
+			"data-selected",
+			"true",
+		);
+	});
+
+	it("does not advance past the last row on ArrowDown", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(["src/a.ts", "src/b.ts"]);
+		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
+		await screen.findByText("a.ts");
+		await user.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}");
+		expect(screen.getByTestId("files-overlay-row-src/b.ts")).toHaveAttribute(
+			"data-selected",
+			"true",
+		);
+	});
+
+	it("moves selection on ArrowUp", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(["src/a.ts", "src/b.ts"]);
+		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
+		await screen.findByText("a.ts");
+		await user.keyboard("{ArrowDown}{ArrowUp}");
+		expect(screen.getByTestId("files-overlay-row-src/a.ts")).toHaveAttribute(
+			"data-selected",
+			"true",
+		);
+	});
+
+	it("jumps to first row on Home", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(["src/a.ts", "src/b.ts", "src/c.ts"]);
+		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
+		await screen.findByText("a.ts");
+		await user.keyboard("{ArrowDown}{ArrowDown}");
+		await user.keyboard("{Home}");
+		expect(screen.getByTestId("files-overlay-row-src/a.ts")).toHaveAttribute(
+			"data-selected",
+			"true",
+		);
+	});
+
+	it("jumps to last row on End", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(["src/a.ts", "src/b.ts", "src/c.ts"]);
+		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
+		await screen.findByText("a.ts");
+		await user.keyboard("{End}");
+		expect(screen.getByTestId("files-overlay-row-src/c.ts")).toHaveAttribute(
+			"data-selected",
+			"true",
+		);
+	});
+
+	it("resets selection to first row when the query narrows the list", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(["src/alpha.ts", "src/beta.ts"]);
+		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
+		await screen.findByText("alpha.ts");
+		await user.keyboard("{ArrowDown}");
+		const input = screen.getByPlaceholderText(/search files/i);
+		await user.type(input, "alp");
+		expect(screen.getByTestId("files-overlay-row-src/alpha.ts")).toHaveAttribute(
+			"data-selected",
+			"true",
+		);
+	});
+
+	it("keeps focus in the search input while arrow keys navigate", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(["src/a.ts", "src/b.ts"]);
+		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
+		const input = await screen.findByPlaceholderText(/search files/i);
+		expect(input).toBe(document.activeElement);
+		await user.keyboard("{ArrowDown}");
+		expect(input).toBe(document.activeElement);
+	});
+});

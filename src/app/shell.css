@@ -2077,6 +2077,11 @@ select {
 	background: rgba(255, 255, 255, 0.04);
 }
 
+.shell-files-overlay__row--selected,
+.shell-files-overlay__row[data-selected="true"] {
+	background: rgba(77, 163, 255, 0.16);
+}
+
 .shell-files-overlay__row-basename {
 	font-weight: 500;
 	white-space: nowrap;

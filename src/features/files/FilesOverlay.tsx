@@ -78,6 +78,23 @@ export function FilesOverlay(props: FilesOverlayProps) {
 		overscan: 10,
 	});
 
+	const [selectedIndex, setSelectedIndex] = useState(0);
+
+	useEffect(() => {
+		setSelectedIndex(0);
+	}, [query, isOpen]);
+
+	useEffect(() => {
+		if (selectedIndex >= rows.length && rows.length > 0) {
+			setSelectedIndex(rows.length - 1);
+		}
+	}, [rows.length, selectedIndex]);
+
+	useEffect(() => {
+		if (rows.length === 0) return;
+		virtualizer.scrollToIndex(selectedIndex, { align: "auto" });
+	}, [selectedIndex, rows.length, virtualizer]);
+
 	return (
 		<Dialog.Root
 			open={isOpen}
@@ -91,6 +108,29 @@ export function FilesOverlay(props: FilesOverlayProps) {
 					className="shell-files-overlay"
 					data-testid="files-overlay"
 					aria-label="Files"
+					onKeyDown={(e) => {
+						if (rows.length === 0) return;
+						if (e.key === "ArrowDown") {
+							e.preventDefault();
+							setSelectedIndex((i) => Math.min(rows.length - 1, i + 1));
+							return;
+						}
+						if (e.key === "ArrowUp") {
+							e.preventDefault();
+							setSelectedIndex((i) => Math.max(0, i - 1));
+							return;
+						}
+						if (e.key === "Home") {
+							e.preventDefault();
+							setSelectedIndex(0);
+							return;
+						}
+						if (e.key === "End") {
+							e.preventDefault();
+							setSelectedIndex(rows.length - 1);
+							return;
+						}
+					}}
 				>
 					<Dialog.Title className="shell-files-overlay__title">Files</Dialog.Title>
 					<Dialog.Description className="sr-only">
@@ -138,7 +178,12 @@ export function FilesOverlay(props: FilesOverlayProps) {
 										return (
 											<div
 												key={path}
-												className="shell-files-overlay__row"
+												data-testid={`files-overlay-row-${path}`}
+												data-selected={virtualRow.index === selectedIndex ? "true" : "false"}
+												className={
+													"shell-files-overlay__row" +
+													(virtualRow.index === selectedIndex ? " shell-files-overlay__row--selected" : "")
+												}
 												style={{
 													position: "absolute",
 													top: 0,
