@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 import { closeApp } from "./fixtures/close-app";
 import { ensureReviewDrawerOpen } from "./helpers/review-drawer";
+import { openFilesOverlayViaChipBar } from "./helpers/files-overlay";
 
 let app: ElectronApplication | undefined;
 let page: Page;
@@ -583,5 +584,18 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await worktreeNav.getByRole("button", { name: /feature-a/i }).click();
 		await expect(page.getByRole("button", { name: "Disable split shells" })).toBeVisible();
 		await expect(page.locator('.shell-terminal-pane:not([aria-hidden="true"])')).toHaveCount(2);
+	});
+
+	test("chip bar Files button opens the overlay and routes selection to the drawer", async () => {
+		test.setTimeout(30_000);
+		// createTestRepo seeds src/index.ts — search for it.
+		await openFilesOverlayViaChipBar(page);
+		await page.getByTestId("files-overlay-search").fill("index");
+		await page.keyboard.press("Enter");
+		await expect(page.getByTestId("files-overlay")).toHaveCount(0);
+		await expect(page.getByRole("region", { name: "Review" })).toHaveAttribute(
+			"data-open",
+			"true",
+		);
 	});
 });
