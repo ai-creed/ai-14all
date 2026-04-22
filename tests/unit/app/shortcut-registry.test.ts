@@ -1,149 +1,164 @@
 import { describe, it, expect } from "vitest";
 import {
-    SHORTCUT_REGISTRY,
-    type AppShortcut,
+	SHORTCUT_REGISTRY,
+	type AppShortcut,
 } from "../../../src/app/shortcut-registry";
 
 // Minimal KeyboardEvent factory — only sets the fields the predicates inspect.
 function evt(partial: Partial<KeyboardEvent>): KeyboardEvent {
-    return {
-        key: "p",
-        metaKey: false,
-        ctrlKey: false,
-        shiftKey: false,
-        altKey: false,
-        defaultPrevented: false,
-        target: document.body,
-        ...partial,
-    } as unknown as KeyboardEvent;
+	return {
+		key: "p",
+		metaKey: false,
+		ctrlKey: false,
+		shiftKey: false,
+		altKey: false,
+		defaultPrevented: false,
+		target: document.body,
+		...partial,
+	} as unknown as KeyboardEvent;
 }
 
 function entry(id: string): AppShortcut {
-    const s = SHORTCUT_REGISTRY.find((e) => e.id === id);
-    if (!s) throw new Error(`No registry entry for id="${id}"`);
-    return s;
+	const s = SHORTCUT_REGISTRY.find((e) => e.id === id);
+	if (!s) throw new Error(`No registry entry for id="${id}"`);
+	return s;
 }
 
 function xtermTarget(): HTMLElement {
-    const wrap = document.createElement("div");
-    wrap.className = "xterm";
-    const child = document.createElement("div");
-    wrap.appendChild(child);
-    document.body.appendChild(wrap);
-    return child;
+	const wrap = document.createElement("div");
+	wrap.className = "xterm";
+	const child = document.createElement("div");
+	wrap.appendChild(child);
+	document.body.appendChild(wrap);
+	return child;
 }
 
 describe("SHORTCUT_REGISTRY structure", () => {
-    const requiredIds = [
-        "files-overlay",
-        "note-sheet",
-        "review-drawer",
-        "rename-session",
-        "shortcuts-help",
-    ];
+	const requiredIds = [
+		"files-overlay",
+		"note-sheet",
+		"review-drawer",
+		"rename-session",
+		"shortcuts-help",
+	];
 
-    it("contains all five required entries", () => {
-        const ids = SHORTCUT_REGISTRY.map((s) => s.id);
-        for (const id of requiredIds) {
-            expect(ids).toContain(id);
-        }
-    });
+	it("contains all five required entries", () => {
+		const ids = SHORTCUT_REGISTRY.map((s) => s.id);
+		for (const id of requiredIds) {
+			expect(ids).toContain(id);
+		}
+	});
 
-    it("every entry has non-empty label, mac, and other display strings", () => {
-        for (const s of SHORTCUT_REGISTRY) {
-            expect(s.label.length).toBeGreaterThan(0);
-            expect(s.mac.length).toBeGreaterThan(0);
-            expect(s.other.length).toBeGreaterThan(0);
-        }
-    });
+	it("every entry has non-empty label, mac, and other display strings", () => {
+		for (const s of SHORTCUT_REGISTRY) {
+			expect(s.label.length).toBeGreaterThan(0);
+			expect(s.mac.length).toBeGreaterThan(0);
+			expect(s.other.length).toBeGreaterThan(0);
+		}
+	});
 });
 
 describe("files-overlay predicate", () => {
-    it("matches Cmd+P on mac", () => {
-        expect(entry("files-overlay").predicate(evt({ metaKey: true, key: "p" }), "mac")).toBe(true);
-    });
-    it("matches Ctrl+Shift+P on other", () => {
-        expect(entry("files-overlay").predicate(evt({ ctrlKey: true, shiftKey: true, key: "P" }), "other")).toBe(true);
-    });
+	it("matches Cmd+P on mac", () => {
+		expect(entry("files-overlay").predicate(evt({ metaKey: true, key: "p" }), "mac")).toBe(true);
+	});
+	it("matches Ctrl+Shift+P on other", () => {
+		expect(entry("files-overlay").predicate(evt({ ctrlKey: true, shiftKey: true, key: "P" }), "other")).toBe(true);
+	});
 });
 
 describe("note-sheet predicate", () => {
-    it("matches Cmd+; on mac", () => {
-        expect(entry("note-sheet").predicate(evt({ metaKey: true, key: ";" }), "mac")).toBe(true);
-    });
-    it("matches Ctrl+; on other", () => {
-        expect(entry("note-sheet").predicate(evt({ ctrlKey: true, key: ";" }), "other")).toBe(true);
-    });
-    it("does not match Cmd+; when altKey is held", () => {
-        expect(entry("note-sheet").predicate(evt({ metaKey: true, altKey: true, key: ";" }), "mac")).toBe(false);
-    });
+	it("matches Cmd+; on mac", () => {
+		expect(entry("note-sheet").predicate(evt({ metaKey: true, key: ";" }), "mac")).toBe(true);
+	});
+	it("matches Ctrl+; on other", () => {
+		expect(entry("note-sheet").predicate(evt({ ctrlKey: true, key: ";" }), "other")).toBe(true);
+	});
+	it("does not match Cmd+; when altKey is held", () => {
+		expect(entry("note-sheet").predicate(evt({ metaKey: true, altKey: true, key: ";" }), "mac")).toBe(false);
+	});
+	it("does not match Ctrl+Shift+; on other (shiftKey held)", () => {
+		expect(entry("note-sheet").predicate(evt({ ctrlKey: true, shiftKey: true, key: ";" }), "other")).toBe(false);
+	});
+	it("does not match when defaultPrevented", () => {
+		expect(entry("note-sheet").predicate(evt({ metaKey: true, key: ";", defaultPrevented: true }), "mac")).toBe(false);
+	});
 });
 
 describe("review-drawer predicate", () => {
-    it("matches Cmd+J on mac", () => {
-        expect(entry("review-drawer").predicate(evt({ metaKey: true, key: "j" }), "mac")).toBe(true);
-    });
-    it("matches Cmd+J (uppercase) on mac", () => {
-        expect(entry("review-drawer").predicate(evt({ metaKey: true, key: "J" }), "mac")).toBe(true);
-    });
-    it("matches Ctrl+J on other", () => {
-        expect(entry("review-drawer").predicate(evt({ ctrlKey: true, key: "j" }), "other")).toBe(true);
-    });
-    it("does not match when shiftKey is held", () => {
-        expect(entry("review-drawer").predicate(evt({ metaKey: true, shiftKey: true, key: "j" }), "mac")).toBe(false);
-    });
+	it("matches Cmd+J on mac", () => {
+		expect(entry("review-drawer").predicate(evt({ metaKey: true, key: "j" }), "mac")).toBe(true);
+	});
+	it("matches Cmd+J (uppercase) on mac", () => {
+		expect(entry("review-drawer").predicate(evt({ metaKey: true, key: "J" }), "mac")).toBe(true);
+	});
+	it("matches Ctrl+J on other", () => {
+		expect(entry("review-drawer").predicate(evt({ ctrlKey: true, key: "j" }), "other")).toBe(true);
+	});
+	it("does not match when shiftKey is held", () => {
+		expect(entry("review-drawer").predicate(evt({ metaKey: true, shiftKey: true, key: "j" }), "mac")).toBe(false);
+	});
+	it("does not match when defaultPrevented", () => {
+		expect(entry("review-drawer").predicate(evt({ metaKey: true, key: "j", defaultPrevented: true }), "mac")).toBe(false);
+	});
 });
 
 describe("rename-session predicate", () => {
-    it("matches Cmd+Shift+R on mac", () => {
-        expect(entry("rename-session").predicate(evt({ metaKey: true, shiftKey: true, key: "R" }), "mac")).toBe(true);
-    });
-    it("matches Ctrl+Alt+R on other", () => {
-        expect(entry("rename-session").predicate(evt({ ctrlKey: true, altKey: true, key: "r" }), "other")).toBe(true);
-    });
-    it("does not match plain Cmd+R on mac (no shift)", () => {
-        expect(entry("rename-session").predicate(evt({ metaKey: true, key: "r" }), "mac")).toBe(false);
-    });
-    it("does not match plain Ctrl+R on other (no alt)", () => {
-        expect(entry("rename-session").predicate(evt({ ctrlKey: true, key: "r" }), "other")).toBe(false);
-    });
+	it("matches Cmd+Shift+R on mac", () => {
+		expect(entry("rename-session").predicate(evt({ metaKey: true, shiftKey: true, key: "R" }), "mac")).toBe(true);
+	});
+	it("matches Ctrl+Alt+R on other", () => {
+		expect(entry("rename-session").predicate(evt({ ctrlKey: true, altKey: true, key: "r" }), "other")).toBe(true);
+	});
+	it("does not match plain Cmd+R on mac (no shift)", () => {
+		expect(entry("rename-session").predicate(evt({ metaKey: true, key: "r" }), "mac")).toBe(false);
+	});
+	it("does not match plain Ctrl+R on other (no alt)", () => {
+		expect(entry("rename-session").predicate(evt({ ctrlKey: true, key: "r" }), "other")).toBe(false);
+	});
+	it("does not match when defaultPrevented", () => {
+		expect(entry("rename-session").predicate(evt({ metaKey: true, shiftKey: true, key: "R", defaultPrevented: true }), "mac")).toBe(false);
+	});
 });
 
 describe("shortcuts-help predicate", () => {
-    it("matches Cmd+/ on mac", () => {
-        expect(entry("shortcuts-help").predicate(evt({ metaKey: true, key: "/" }), "mac")).toBe(true);
-    });
-    it("matches Cmd+? on mac (Shift+/ key)", () => {
-        expect(entry("shortcuts-help").predicate(evt({ metaKey: true, shiftKey: true, key: "?" }), "mac")).toBe(true);
-    });
-    it("matches Ctrl+/ on other", () => {
-        expect(entry("shortcuts-help").predicate(evt({ ctrlKey: true, key: "/" }), "other")).toBe(true);
-    });
-    it("matches Ctrl+? on other", () => {
-        expect(entry("shortcuts-help").predicate(evt({ ctrlKey: true, shiftKey: true, key: "?" }), "other")).toBe(true);
-    });
+	it("matches Cmd+/ on mac", () => {
+		expect(entry("shortcuts-help").predicate(evt({ metaKey: true, key: "/" }), "mac")).toBe(true);
+	});
+	it("matches Cmd+? on mac (Shift+/ key)", () => {
+		expect(entry("shortcuts-help").predicate(evt({ metaKey: true, shiftKey: true, key: "?" }), "mac")).toBe(true);
+	});
+	it("matches Ctrl+/ on other", () => {
+		expect(entry("shortcuts-help").predicate(evt({ ctrlKey: true, key: "/" }), "other")).toBe(true);
+	});
+	it("matches Ctrl+? on other", () => {
+		expect(entry("shortcuts-help").predicate(evt({ ctrlKey: true, shiftKey: true, key: "?" }), "other")).toBe(true);
+	});
+	it("does not match when defaultPrevented", () => {
+		expect(entry("shortcuts-help").predicate(evt({ metaKey: true, key: "/", defaultPrevented: true }), "mac")).toBe(false);
+	});
 });
 
 describe("terminal-first ownership — all shortcuts", () => {
-    afterEach(() => {
-        document.body.innerHTML = "";
-    });
+	afterEach(() => {
+		document.body.innerHTML = "";
+	});
 
-    // Per-entry triggers that would fire on mac when focus is NOT in the terminal.
-    const macTriggers: Record<string, Partial<KeyboardEvent>> = {
-        "files-overlay": { metaKey: true, key: "p" },
-        "note-sheet": { metaKey: true, key: ";" },
-        "review-drawer": { metaKey: true, key: "j" },
-        "rename-session": { metaKey: true, shiftKey: true, key: "R" },
-        "shortcuts-help": { metaKey: true, key: "/" },
-    };
+	// Per-entry triggers that would fire on mac when focus is NOT in the terminal.
+	const macTriggers: Record<string, Partial<KeyboardEvent>> = {
+		"files-overlay": { metaKey: true, key: "p" },
+		"note-sheet": { metaKey: true, key: ";" },
+		"review-drawer": { metaKey: true, key: "j" },
+		"rename-session": { metaKey: true, shiftKey: true, key: "R" },
+		"shortcuts-help": { metaKey: true, key: "/" },
+	};
 
-    it("no shortcut predicate fires when focus is inside .xterm", () => {
-        const target = xtermTarget();
-        for (const s of SHORTCUT_REGISTRY) {
-            const trigger = macTriggers[s.id];
-            // Each predicate uses its own trigger so the guard, not a key mismatch, causes the false.
-            expect(s.predicate(evt({ ...trigger, target }), "mac")).toBe(false);
-        }
-    });
+	it("no shortcut predicate fires when focus is inside .xterm", () => {
+		const target = xtermTarget();
+		for (const s of SHORTCUT_REGISTRY) {
+			const trigger = macTriggers[s.id];
+			// Each predicate uses its own trigger so the guard, not a key mismatch, causes the false.
+			expect(s.predicate(evt({ ...trigger, target }), "mac")).toBe(false);
+		}
+	});
 });
