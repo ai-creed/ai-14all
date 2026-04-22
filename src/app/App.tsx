@@ -63,6 +63,7 @@ import { WorktreeTree } from "../features/viewer/WorktreeTree";
 import { MarkdownPreviewModal } from "../features/viewer/MarkdownPreviewModal";
 import { EditorModal } from "../features/viewer/EditorModal";
 import { isEditable } from "../../shared/editor/editable-files";
+import { FilesOverlay } from "../features/files/FilesOverlay";
 import { FileViewer } from "../features/viewer/FileViewer";
 import { ChangesList } from "../features/git/ChangesList";
 import { DiscardChangeDialog } from "../features/git/DiscardChangeDialog";
@@ -77,6 +78,7 @@ import type {
 	GitCommitDetail,
 } from "../../shared/models/git-commit-review";
 import type { RemoteStatus } from "../../shared/models/git-remote-status";
+import type { GitChangeStatus } from "../../shared/models/git-change";
 import {
 	git,
 	terminals,
@@ -107,6 +109,7 @@ export function App() {
 	const [pendingRename, setPendingRename] = useState<{ workspaceId: string; worktreeId: string } | null>(null);
 	const [sidebarNow, setSidebarNow] = useState(() => Date.now());
 	const [noteSheetOpen, setNoteSheetOpen] = useState(false);
+	const [filesOverlayOpen, setFilesOverlayOpen] = useState(false);
 
 	// Multi-workspace registry
 	const [appWorkspaces, dispatchAppWorkspaces] = useReducer(
@@ -1195,6 +1198,12 @@ export function App() {
 		() => activeSummary?.changedFiles ?? [],
 		[activeSummary],
 	);
+
+	const gitStatusMap = useMemo(() => {
+		const map = new Map<string, GitChangeStatus>();
+		for (const change of changes) map.set(change.path, change.status);
+		return map;
+	}, [changes]);
 
 	// ---------------------------------------------------------------------------
 	// Review drawer auto-expand — clean→dirty transitions (spec §4.3)
@@ -2431,9 +2440,7 @@ export function App() {
 									open: true,
 								});
 							}}
-							onFilesClick={() => {
-								// Slice E: Files overlay — placeholder
-							}}
+							onFilesClick={() => setFilesOverlayOpen(true)}
 							onNoteClick={() => setNoteSheetOpen((prev) => !prev)}
 						/>
 					)}
@@ -2446,6 +2453,24 @@ export function App() {
 							}
 						}}
 						onClose={() => setNoteSheetOpen(false)}
+					/>
+					<FilesOverlay
+						isOpen={filesOverlayOpen}
+						onClose={() => setFilesOverlayOpen(false)}
+						trackedFilesLoader={async () => {
+							if (!activeWorkspaceId || !activeWorktree) return [];
+							return files.listTracked(activeWorkspaceId, activeWorktree.id);
+						}}
+						gitStatusMap={gitStatusMap}
+						onViewFile={(_path) => {
+							// Fleshed out in Task 7
+							setFilesOverlayOpen(false);
+						}}
+						onEditFile={(_path) => {
+							// Fleshed out in Task 8
+							setFilesOverlayOpen(false);
+						}}
+						isEditable={(basename) => isEditable(basename)}
 					/>
 
 					{workspaceState.selectedWorktreeId && (

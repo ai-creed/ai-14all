@@ -54,3 +54,18 @@ describe("FilesOverlay scaffold", () => {
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 });
+
+describe("FilesOverlay — chip-bar wiring contract", () => {
+	it("renders the Files title region in the dialog header so the chip-bar handler can aim at it", () => {
+		render(<FilesOverlay {...defaults} />);
+		const dialog = screen.getByRole("dialog", { name: /files/i });
+		expect(dialog).toHaveAttribute("data-testid", "files-overlay");
+	});
+
+	it("closes via onOpenChange(false) when parent sets isOpen=false via re-render", () => {
+		const { rerender } = render(<FilesOverlay {...defaults} />);
+		expect(screen.getByTestId("files-overlay")).toBeInTheDocument();
+		rerender(<FilesOverlay {...defaults} isOpen={false} />);
+		expect(screen.queryByTestId("files-overlay")).not.toBeInTheDocument();
+	});
+});
