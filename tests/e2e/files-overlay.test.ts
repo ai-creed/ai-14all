@@ -101,7 +101,8 @@ test.describe.serial("Files overlay", () => {
 	test("pointer click selects a file and closes the overlay", async () => {
 		test.setTimeout(30_000);
 		await openFilesOverlayViaChipBar(page);
-		await page.getByText("README.md").click();
+		// Scope to the overlay to avoid matching the file tree behind the backdrop (async load)
+		await page.locator("[data-testid='files-overlay'] .shell-files-overlay__row-basename", { hasText: "README.md" }).click();
 		await expect(page.getByTestId("files-overlay")).toHaveCount(0);
 		await expect(page.getByRole("region", { name: "Review" })).toHaveAttribute(
 			"data-open",
