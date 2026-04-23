@@ -87,6 +87,8 @@ test.describe.serial("Files overlay", () => {
 		test.setTimeout(30_000);
 		await openFilesOverlayViaChipBar(page);
 		await page.getByTestId("files-overlay-search").fill("index");
+		// Wait for the file list to load before pressing Enter (async trackedFilesLoader)
+		await expect(page.locator(".shell-files-overlay__row-basename").first()).toBeVisible({ timeout: 10_000 });
 		await page.keyboard.press("Enter");
 		await expect(page.getByTestId("files-overlay")).toHaveCount(0);
 		const drawer = page.getByRole("region", { name: "Review" });

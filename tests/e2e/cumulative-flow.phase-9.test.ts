@@ -219,11 +219,15 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 		await editorArea.click();
 		await page.keyboard.press("Meta+End");
 		await page.keyboard.type(" // e2e");
+		// Wait for the editor to register the edit before saving
+		await expect(dialog.getByRole("button", { name: "Save" })).toBeEnabled({ timeout: 5_000 });
 		// Externally overwrite the file to change its mtime
 		writeFileSync(
 			join(testRepo.worktreePath, "src", "index.ts"),
 			'export const hello = "conflict";\n',
 		);
+		// Brief pause so the mtime change is visible to the app on the next stat call
+		await page.waitForTimeout(200);
 		// Press Cmd+S — should detect mtime conflict
 		await page.keyboard.press("Meta+s");
 		// SaveConflictDialog should appear
