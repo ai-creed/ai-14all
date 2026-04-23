@@ -2240,6 +2240,10 @@ select {
 	color: var(--text-primary);
 }
 
+.shell-shortcuts-help__group-label {
+	margin-left: 16px;
+}
+
 .shell-shortcuts-help__list {
 	list-style: none;
 	margin: 0;

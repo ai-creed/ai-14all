@@ -64,7 +64,249 @@ function isShortcutsHelpShortcut(e: KeyboardEvent, platform: Platform): boolean 
 	return e.ctrlKey && !e.metaKey && !e.altKey;
 }
 
+function isWorktreeSelectNextShortcut(e: KeyboardEvent, platform: Platform): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "]") return false;
+	if (e.altKey || e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
+function isWorktreeSelectPrevShortcut(e: KeyboardEvent, platform: Platform): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "[") return false;
+	if (e.altKey || e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
+function isWorktreeAddShortcut(e: KeyboardEvent, platform: Platform): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "n" && e.key !== "N") return false;
+	if (e.altKey || e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
+// Shift+] on US keyboard produces "}" as e.key
+function isWorkspaceSelectNextShortcut(e: KeyboardEvent, platform: Platform): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "}") return false;
+	if (e.altKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
+// Shift+[ on US keyboard produces "{" as e.key
+function isWorkspaceSelectPrevShortcut(e: KeyboardEvent, platform: Platform): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "{") return false;
+	if (e.altKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
+function isTerminalNewShortcut(e: KeyboardEvent, platform: Platform): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "t" && e.key !== "T") return false;
+	if (e.altKey || e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
+function isTerminalCloseShortcut(e: KeyboardEvent, platform: Platform): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "w" && e.key !== "W") return false;
+	if (e.altKey || !e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
+function isTerminalSelectNextShortcut(e: KeyboardEvent, platform: Platform): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "d" && e.key !== "D") return false;
+	if (e.altKey || !e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
+function isTerminalSelectPrevShortcut(e: KeyboardEvent, platform: Platform): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "a" && e.key !== "A") return false;
+	if (e.altKey || !e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
+function isTerminalToggleSplitShortcut(e: KeyboardEvent, platform: Platform): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "d" && e.key !== "D") return false;
+	if (e.altKey || e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
+function isLayoutToggleSidebarShortcut(e: KeyboardEvent, platform: Platform): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "b" && e.key !== "B") return false;
+	if (e.altKey || e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
+function isReviewFilesShortcut(e: KeyboardEvent, platform: Platform): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "1") return false;
+	if (e.altKey || e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
+function isReviewChangesShortcut(e: KeyboardEvent, platform: Platform): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "2") return false;
+	if (e.altKey || e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
+function isReviewCommitsShortcut(e: KeyboardEvent, platform: Platform): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "3") return false;
+	if (e.altKey || e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
+function isOpenWorkspacePickerShortcut(e: KeyboardEvent, platform: Platform): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "o" && e.key !== "O") return false;
+	if (e.altKey || e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
 export const SHORTCUT_REGISTRY: AppShortcut[] = [
+	{
+		id: "worktree.selectNext",
+		label: "Next worktree",
+		mac: "⌘]",
+		other: "Ctrl+]",
+		predicate: isWorktreeSelectNextShortcut,
+	},
+	{
+		id: "worktree.selectPrev",
+		label: "Previous worktree",
+		mac: "⌘[",
+		other: "Ctrl+[",
+		predicate: isWorktreeSelectPrevShortcut,
+	},
+	{
+		id: "worktree.add",
+		label: "Add worktree",
+		mac: "⌘N",
+		other: "Ctrl+N",
+		predicate: isWorktreeAddShortcut,
+	},
+	{
+		id: "workspace.selectNext",
+		label: "Next workspace",
+		mac: "⌘⇧]",
+		other: "Ctrl+Shift+]",
+		predicate: isWorkspaceSelectNextShortcut,
+	},
+	{
+		id: "workspace.selectPrev",
+		label: "Previous workspace",
+		mac: "⌘⇧[",
+		other: "Ctrl+Shift+[",
+		predicate: isWorkspaceSelectPrevShortcut,
+	},
+	{
+		id: "ui.openWorkspacePicker",
+		label: "Open workspace",
+		mac: "⌘O",
+		other: "Ctrl+O",
+		predicate: isOpenWorkspacePickerShortcut,
+	},
+	{
+		id: "terminal.new",
+		label: "New terminal",
+		mac: "⌘T",
+		other: "Ctrl+T",
+		predicate: isTerminalNewShortcut,
+	},
+	{
+		id: "terminal.close",
+		label: "Close terminal",
+		mac: "⌘⇧W",
+		other: "Ctrl+Shift+W",
+		predicate: isTerminalCloseShortcut,
+	},
+	{
+		id: "terminal.selectNext",
+		label: "Next terminal",
+		mac: "⌘⇧D",
+		other: "Ctrl+Shift+D",
+		predicate: isTerminalSelectNextShortcut,
+	},
+	{
+		id: "terminal.selectPrev",
+		label: "Previous terminal",
+		mac: "⌘⇧A",
+		other: "Ctrl+Shift+A",
+		predicate: isTerminalSelectPrevShortcut,
+	},
+	{
+		id: "terminal.toggleSplit",
+		label: "Toggle split mode",
+		mac: "⌘D",
+		other: "Ctrl+D",
+		predicate: isTerminalToggleSplitShortcut,
+	},
+	{
+		id: "layout.toggleSidebar",
+		label: "Toggle sidebar",
+		mac: "⌘B",
+		other: "Ctrl+B",
+		predicate: isLayoutToggleSidebarShortcut,
+	},
+	{
+		id: "review.files",
+		label: "Review: Files",
+		mac: "⌘1",
+		other: "Ctrl+1",
+		predicate: isReviewFilesShortcut,
+	},
+	{
+		id: "review.changes",
+		label: "Review: Changes",
+		mac: "⌘2",
+		other: "Ctrl+2",
+		predicate: isReviewChangesShortcut,
+	},
+	{
+		id: "review.commits",
+		label: "Review: Commits",
+		mac: "⌘3",
+		other: "Ctrl+3",
+		predicate: isReviewCommitsShortcut,
+	},
 	{
 		id: "files-overlay",
 		label: "Open Files",

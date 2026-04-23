@@ -2100,6 +2100,219 @@ export function App() {
 		return () => document.removeEventListener("keydown", handler);
 	}, [appPlatform]);
 
+	// Cmd+] / Ctrl+] and Cmd+[ / Ctrl+[ — cycle through worktrees
+	useEffect(() => {
+		const nextShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "worktree.selectNext")!;
+		const prevShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "worktree.selectPrev")!;
+		const handler = (e: KeyboardEvent) => {
+			const isNext = nextShortcut.predicate(e, appPlatform);
+			const isPrev = prevShortcut.predicate(e, appPlatform);
+			if (!isNext && !isPrev) return;
+			const wts = worktreesRef.current;
+			const currentId = workspaceStateRef.current.selectedWorktreeId;
+			if (!wts.length || !currentId) return;
+			const idx = wts.findIndex((w) => w.id === currentId);
+			if (idx === -1) return;
+			const nextIdx = isNext
+				? (idx + 1) % wts.length
+				: (idx - 1 + wts.length) % wts.length;
+			const nextId = wts[nextIdx]?.id;
+			if (!nextId) return;
+			e.preventDefault();
+			dispatch({ type: "session/selectWorktree", worktreeId: nextId });
+		};
+		document.addEventListener("keydown", handler);
+		return () => document.removeEventListener("keydown", handler);
+	}, [appPlatform, dispatch]);
+
+	// Cmd+N / Ctrl+N — add worktree
+	useEffect(() => {
+		const shortcut = SHORTCUT_REGISTRY.find((s) => s.id === "worktree.add")!;
+		const handler = (e: KeyboardEvent) => {
+			if (!shortcut.predicate(e, appPlatform)) return;
+			if (!activeWorkspaceId) return;
+			e.preventDefault();
+			setCreateDialogOpen(true);
+		};
+		document.addEventListener("keydown", handler);
+		return () => document.removeEventListener("keydown", handler);
+	}, [appPlatform, activeWorkspaceId]);
+
+	// Cmd+Shift+] / Ctrl+Shift+] and Cmd+Shift+[ / Ctrl+Shift+[ — cycle through workspaces
+	useEffect(() => {
+		const nextShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "workspace.selectNext")!;
+		const prevShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "workspace.selectPrev")!;
+		const handler = (e: KeyboardEvent) => {
+			const isNext = nextShortcut.predicate(e, appPlatform);
+			const isPrev = prevShortcut.predicate(e, appPlatform);
+			if (!isNext && !isPrev) return;
+			const order = appWorkspacesRef.current.workspaceOrder;
+			const currentId = appWorkspacesRef.current.activeWorkspaceId;
+			if (order.length < 2 || !currentId) return;
+			const idx = order.indexOf(currentId);
+			if (idx === -1) return;
+			const nextIdx = isNext
+				? (idx + 1) % order.length
+				: (idx - 1 + order.length) % order.length;
+			const nextId = order[nextIdx];
+			if (!nextId) return;
+			e.preventDefault();
+			void activateWorkspace(nextId);
+		};
+		document.addEventListener("keydown", handler);
+		return () => document.removeEventListener("keydown", handler);
+		// activateWorkspace reads from refs internally — stale closure is safe
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [appPlatform]);
+
+	// Cmd+O / Ctrl+O — open workspace picker (menu accelerator already fires this via IPC;
+	// this handler covers the renderer path for completeness)
+	useEffect(() => {
+		const shortcut = SHORTCUT_REGISTRY.find((s) => s.id === "ui.openWorkspacePicker")!;
+		const handler = (e: KeyboardEvent) => {
+			if (!shortcut.predicate(e, appPlatform)) return;
+			if (startupMode !== "ready") return;
+			e.preventDefault();
+			setWorkspacePickerOpen(true);
+		};
+		document.addEventListener("keydown", handler);
+		return () => document.removeEventListener("keydown", handler);
+	}, [appPlatform, startupMode]);
+
+	// Cmd+T / Ctrl+T — new terminal
+	useEffect(() => {
+		const shortcut = SHORTCUT_REGISTRY.find((s) => s.id === "terminal.new")!;
+		const handler = (e: KeyboardEvent) => {
+			if (!shortcut.predicate(e, appPlatform)) return;
+			e.preventDefault();
+			void handleAddAdHoc();
+		};
+		document.addEventListener("keydown", handler);
+		return () => document.removeEventListener("keydown", handler);
+	}, [appPlatform, activeWorktree?.id, activeWorkspaceId]); // handleAddAdHoc closes over these
+
+	// Cmd+Shift+W / Ctrl+Shift+W — close active terminal
+	useEffect(() => {
+		const shortcut = SHORTCUT_REGISTRY.find((s) => s.id === "terminal.close")!;
+		const handler = (e: KeyboardEvent) => {
+			if (!shortcut.predicate(e, appPlatform)) return;
+			const currentState = workspaceStateRef.current;
+			const currentWorktreeId = currentState.selectedWorktreeId;
+			if (!currentWorktreeId) return;
+			const activeProcessId =
+				currentState.sessionsByWorktreeId[currentWorktreeId]?.activeProcessSessionId;
+			if (!activeProcessId) return;
+			e.preventDefault();
+			void handleCloseProcess(activeProcessId);
+		};
+		document.addEventListener("keydown", handler);
+		return () => document.removeEventListener("keydown", handler);
+	}, [appPlatform, activeWorktree?.id, activeWorkspaceId]); // handleCloseProcess closes over these
+
+	// Cmd+Shift+D / Ctrl+Shift+D and Cmd+Shift+A / Ctrl+Shift+A — cycle through terminals
+	useEffect(() => {
+		const nextShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "terminal.selectNext")!;
+		const prevShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "terminal.selectPrev")!;
+		const handler = (e: KeyboardEvent) => {
+			const isNext = nextShortcut.predicate(e, appPlatform);
+			const isPrev = prevShortcut.predicate(e, appPlatform);
+			if (!isNext && !isPrev) return;
+			const currentState = workspaceStateRef.current;
+			const currentWorktreeId = currentState.selectedWorktreeId;
+			if (!currentWorktreeId) return;
+			const session = currentState.sessionsByWorktreeId[currentWorktreeId];
+			if (!session) return;
+			const processes = (session.processSessionIds ?? [])
+				.map((id) => currentState.processSessionsById[id])
+				.filter(Boolean)
+				.sort((a, b) => Number(b.pinned) - Number(a.pinned));
+			if (processes.length < 2) return;
+			const currentProcessId = session.activeProcessSessionId;
+			const idx = processes.findIndex((p) => p.id === currentProcessId);
+			const nextIdx = isNext
+				? (idx + 1) % processes.length
+				: (idx - 1 + processes.length) % processes.length;
+			const nextProcessId = processes[nextIdx]?.id;
+			if (!nextProcessId) return;
+			e.preventDefault();
+			dispatch({ type: "session/selectProcess", worktreeId: currentWorktreeId, processId: nextProcessId });
+			dispatch({ type: "session/markProcessViewed", worktreeId: currentWorktreeId, processId: nextProcessId });
+		};
+		document.addEventListener("keydown", handler);
+		return () => document.removeEventListener("keydown", handler);
+	}, [appPlatform, dispatch]);
+
+	// Cmd+D / Ctrl+D — toggle split terminal mode
+	useEffect(() => {
+		const shortcut = SHORTCUT_REGISTRY.find((s) => s.id === "terminal.toggleSplit")!;
+		const handler = (e: KeyboardEvent) => {
+			if (!shortcut.predicate(e, appPlatform)) return;
+			const currentState = workspaceStateRef.current;
+			const currentWorktreeId = currentState.selectedWorktreeId;
+			if (!currentWorktreeId) return;
+			const session = currentState.sessionsByWorktreeId[currentWorktreeId];
+			if (!session) return;
+			e.preventDefault();
+			const isSplit = session.terminalLayoutMode === "split";
+			const processes = (session.processSessionIds ?? [])
+				.map((id) => currentState.processSessionsById[id])
+				.filter(Boolean)
+				.sort((a, b) => Number(b.pinned) - Number(a.pinned));
+			dispatch({
+				type: "session/setTerminalLayoutMode",
+				worktreeId: currentWorktreeId,
+				layoutMode: isSplit ? "single" : "split",
+				autoAssignProcessIds:
+					!isSplit &&
+					!session.splitLeftProcessId &&
+					!session.splitRightProcessId &&
+					processes.length === 2
+						? processes.map((p) => p.id)
+						: undefined,
+			});
+		};
+		document.addEventListener("keydown", handler);
+		return () => document.removeEventListener("keydown", handler);
+	}, [appPlatform, dispatch]);
+
+	// Cmd+B / Ctrl+B — toggle sidebar
+	useEffect(() => {
+		const shortcut = SHORTCUT_REGISTRY.find((s) => s.id === "layout.toggleSidebar")!;
+		const handler = (e: KeyboardEvent) => {
+			if (!shortcut.predicate(e, appPlatform)) return;
+			e.preventDefault();
+			setSidebarCollapsed((current) => !current);
+		};
+		document.addEventListener("keydown", handler);
+		return () => document.removeEventListener("keydown", handler);
+	}, [appPlatform]);
+
+	// Cmd+1/2/3 / Ctrl+1/2/3 — switch review pane tab and open drawer
+	useEffect(() => {
+		const filesShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "review.files")!;
+		const changesShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "review.changes")!;
+		const commitsShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "review.commits")!;
+		const handler = (e: KeyboardEvent) => {
+			let reviewMode: "files" | "changes" | "commits" | null = null;
+			if (filesShortcut.predicate(e, appPlatform)) reviewMode = "files";
+			else if (changesShortcut.predicate(e, appPlatform)) reviewMode = "changes";
+			else if (commitsShortcut.predicate(e, appPlatform)) reviewMode = "commits";
+			if (!reviewMode) return;
+			const currentState = workspaceStateRef.current;
+			const currentWorktreeId = currentState.selectedWorktreeId;
+			if (!currentWorktreeId) return;
+			e.preventDefault();
+			const session = currentState.sessionsByWorktreeId[currentWorktreeId];
+			dispatch({ type: "session/setReviewMode", worktreeId: currentWorktreeId, reviewMode });
+			if (!(session?.reviewDrawerOpen ?? false)) {
+				autoExpand.noteUserExpand(currentWorktreeId);
+				dispatch({ type: "session/setReviewDrawerOpen", worktreeId: currentWorktreeId, open: true });
+			}
+		};
+		document.addEventListener("keydown", handler);
+		return () => document.removeEventListener("keydown", handler);
+	}, [appPlatform, autoExpand, dispatch]);
+
 	function handleSelectChangedFile(relativePath: string) {
 		if (!activeWorktree) return;
 		dispatch({
