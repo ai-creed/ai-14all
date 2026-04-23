@@ -2434,7 +2434,7 @@ export function App() {
 				data-testid="shell-layout"
 				style={{
 					gridTemplateColumns: `${
-						sidebarCollapsed ? 56 : sidebarWidth
+						sidebarCollapsed ? 68 : sidebarWidth
 					}px minmax(0, 1fr)`,
 				}}
 			>
@@ -2511,6 +2511,11 @@ export function App() {
 									type: "session/setReviewDrawerOpen",
 									worktreeId: activeWorktree.id,
 									open: true,
+								});
+								dispatch({
+									type: "session/setReviewMode",
+									worktreeId: activeWorktree.id,
+									reviewMode: "changes",
 								});
 							}}
 							onFilesClick={() => setFilesOverlayOpen(true)}

@@ -55,7 +55,7 @@ export function RemoveWorktreeDialog({
 					{error && <div className="shell-error-banner">{error}</div>}
 					<div className="shell-modal__actions">
 						<button type="button" className="shell-button shell-button--danger" onClick={onConfirm} disabled={!preview || busy || (preview.isDirty && !confirmedDirty)}>
-							Remove worktree
+							{busy ? "Removing…" : "Remove worktree"}
 						</button>
 					</div>
 				</Dialog.Content>

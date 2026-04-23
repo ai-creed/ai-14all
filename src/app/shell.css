@@ -440,6 +440,11 @@ select {
 	cursor: pointer;
 }
 
+.shell-button:hover {
+	border-color: var(--text-muted);
+	color: var(--text-primary);
+}
+
 .shell-button--compact {
 	height: 32px;
 	padding: 0 10px;
@@ -497,6 +502,7 @@ select {
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__item {
 	width: 40px;
 	height: 40px;
+	min-height: unset;
 	padding: 0;
 	justify-content: center;
 }
@@ -575,6 +581,11 @@ select {
 .shell-sidebar__workspace-badge[data-selected="true"] {
 	color: var(--text-primary);
 	background: rgba(98, 180, 255, 0.22);
+}
+
+.shell-sidebar__workspace-badge:hover {
+	background: rgba(255, 255, 255, 0.1);
+	color: var(--text-primary);
 }
 
 .shell-sidebar__workspace-items {
@@ -677,7 +688,9 @@ select {
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-group {
 	align-items: center;
-	padding-inline: 0;
+	padding: 0;
+	background: transparent;
+	border: none;
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-header {
@@ -1970,6 +1983,13 @@ select {
 	color: var(--text-secondary);
 	font-size: var(--font-size-body);
 	margin: var(--space-2) 0;
+}
+
+.shell-modal__field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	margin-top: var(--space-4);
 }
 
 .shell-modal__confirm-dirty {
