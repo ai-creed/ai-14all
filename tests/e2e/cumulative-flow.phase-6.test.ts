@@ -591,6 +591,8 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		// createTestRepo seeds src/index.ts — search for it.
 		await openFilesOverlayViaChipBar(page);
 		await page.getByTestId("files-overlay-search").fill("index");
+		// Wait for async file list to load before pressing Enter
+		await expect(page.locator(".shell-files-overlay__row-basename").first()).toBeVisible({ timeout: 10_000 });
 		await page.keyboard.press("Enter");
 		await expect(page.getByTestId("files-overlay")).toHaveCount(0);
 		await expect(page.getByRole("region", { name: "Review" })).toHaveAttribute(

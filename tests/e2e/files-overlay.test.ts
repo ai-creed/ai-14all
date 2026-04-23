@@ -117,6 +117,6 @@ test.describe.serial("Files overlay", () => {
 		await expect(page.getByTestId("files-overlay")).toBeVisible();
 		await page.keyboard.press("Escape");
 		await expect(page.getByTestId("files-overlay")).toHaveCount(0);
-		await expect(trigger).toBeFocused();
+		await expect(trigger).toBeFocused({ timeout: 3_000 });
 	});
 });
