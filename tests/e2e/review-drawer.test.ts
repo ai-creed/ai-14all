@@ -114,7 +114,16 @@ test.describe.serial("Review drawer", () => {
 		await expect(drawer().getByText(/clean/i)).toBeVisible({ timeout: 10_000 });
 
 		writeFileSync(join(testRepo.repoPath, "dirty-file.txt"), "hello\n");
-		execSync(`git add -A`, { cwd: testRepo.repoPath });
+		// Retry git add in case the app holds the index.lock briefly
+		for (let attempt = 0; attempt < 5; attempt++) {
+			try {
+				execSync(`git add -A`, { cwd: testRepo.repoPath });
+				break;
+			} catch (err) {
+				if (attempt === 4) throw err;
+				execSync(`sleep 0.4`);
+			}
+		}
 
 		// Trigger a new summary fetch via the drawer's Refresh button — this
 		// drives the 0→>0 transition.
