@@ -962,7 +962,7 @@ describe("App — Phase 6 default shell", () => {
 		);
 
 		expect(shellLayout).toHaveStyle({
-			gridTemplateColumns: "56px minmax(0, 1fr)",
+			gridTemplateColumns: "68px minmax(0, 1fr)",
 		});
 		expect(nav).toHaveAttribute("data-collapsed", "true");
 		expect(within(nav).queryByText("feature-a")).not.toBeInTheDocument();
@@ -1179,7 +1179,7 @@ describe("App — Phase 6 default shell", () => {
 		});
 
 		const layout = screen.getByTestId("shell-layout");
-		expect(layout).toHaveStyle({ gridTemplateColumns: "56px minmax(0, 1fr)" });
+		expect(layout).toHaveStyle({ gridTemplateColumns: "68px minmax(0, 1fr)" });
 	});
 
 	it("preserves sidebar width after collapse and expand", async () => {
@@ -1216,7 +1216,7 @@ describe("App — Phase 6 default shell", () => {
 		const collapseButton = screen.getByRole("button", { name: /collapse sidebar/i });
 		await userEvent.click(collapseButton);
 		await waitFor(() => {
-			expect(layout).toHaveStyle({ gridTemplateColumns: "56px minmax(0, 1fr)" });
+			expect(layout).toHaveStyle({ gridTemplateColumns: "68px minmax(0, 1fr)" });
 		});
 
 		// Expand — width should be preserved
