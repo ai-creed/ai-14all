@@ -78,7 +78,7 @@ test.describe.serial("Files overlay", () => {
 		await openFilesOverlayViaChipBar(page);
 		const search = page.getByTestId("files-overlay-search");
 		await search.fill("inde");
-		await expect(page.getByText("index.ts")).toBeVisible();
+		await expect(page.locator(".shell-files-overlay__row-basename", { hasText: "index.ts" })).toBeVisible();
 		await expect(page.getByText("README.md")).toHaveCount(0);
 		await closeFilesOverlay(page);
 	});

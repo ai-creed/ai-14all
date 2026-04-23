@@ -199,8 +199,12 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 
 	test("mtime conflict: external write between open and save shows SaveConflictDialog", async () => {
 		test.setTimeout(30_000);
+		// Ensure the review drawer is open and on the Files tab before touching the tree
+		await ensureReviewDrawerOpen(page);
+		await page.getByRole("tab", { name: "Files" }).click();
 		// Open src/index.ts (a .ts file — also whitelisted and editable)
 		const srcDir = page.locator(".shell-list__item--dir", { hasText: "src" });
+		await expect(srcDir).toBeVisible({ timeout: 10_000 });
 		await srcDir.click(); // expand src
 		const indexRow = page
 			.locator(".shell-list__item--tree")
