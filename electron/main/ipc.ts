@@ -1,4 +1,5 @@
 import { dialog, ipcMain } from "electron";
+import { openExternalUrl } from "./services/openExternal.js";
 import { consumeE2eGitFault } from "./e2e-git-faults.js";
 import { consumeE2eTerminalCreateDelay } from "./e2e-terminal-create-delay.js";
 import type { BrowserWindow } from "electron";
@@ -339,6 +340,15 @@ export function registerIpcHandlers(
 	ipcMain.handle("workspace:writeRestoreState", (_event, raw: unknown) => {
 		const { state } = WriteWorkspaceRestoreStateSchema.parse(raw);
 		return workspacePersistence.writeState(state);
+	});
+
+	// --- System ---
+
+	ipcMain.handle("system:openExternal", async (_event, raw: unknown) => {
+		if (typeof raw !== "object" || raw === null || typeof (raw as { url?: unknown }).url !== "string") {
+			throw new Error("system:openExternal expects { url: string }");
+		}
+		await openExternalUrl((raw as { url: string }).url);
 	});
 
 	// --- Diagnostics ---
