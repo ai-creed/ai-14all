@@ -21,7 +21,7 @@ describe("GitService", () => {
 		repoPath = realpathSync(mkdtempSync(join(tmpdir(), "ofa-git-test-")));
 		service = new GitService();
 
-		execSync("git init", { cwd: repoPath, stdio: "ignore" });
+		execSync("git init -b main", { cwd: repoPath, stdio: "ignore" });
 		execSync("git config user.email 'test@ai-14all.dev'", {
 			cwd: repoPath,
 			stdio: "ignore",
