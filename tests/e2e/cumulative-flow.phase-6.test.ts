@@ -21,7 +21,9 @@ let workspaceStatePath: string;
 let gitFaultsPath: string;
 
 async function ensureWorkspaceLoaded() {
-	const worktreeNav = page.getByRole("navigation", { name: "Worktree sessions" });
+	const worktreeNav = page.getByRole("navigation", {
+		name: "Worktree sessions",
+	});
 	if (await worktreeNav.isVisible({ timeout: 2_000 }).catch(() => false)) {
 		return;
 	}
@@ -70,25 +72,31 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await ensureWorkspaceLoaded();
 
 		await page.getByRole("button", { name: "Presets" }).click();
-		await expect(page.getByRole("menuitem", { name: "start claude", exact: true })).toBeVisible();
-		await expect(page.getByRole("menuitem", { name: "start codex", exact: true })).toBeVisible();
+		await expect(
+			page.getByRole("menuitem", { name: "start claude", exact: true }),
+		).toBeVisible();
+		await expect(
+			page.getByRole("menuitem", { name: "start codex", exact: true }),
+		).toBeVisible();
 		await page.keyboard.press("Escape");
 
 		await ensureReviewDrawerOpen(page);
 		await page.getByRole("tab", { name: "Commits" }).click();
-		await expect(page.getByRole("button", { name: "Refresh review" })).toBeVisible();
+		await expect(
+			page.getByRole("button", { name: "Refresh review" }),
+		).toBeVisible();
 		await expect(
 			page.getByTestId("review-rail").getByText("origin/main"),
 		).toBeVisible({ timeout: 15_000 });
 		await expect(
 			page.getByRole("button", { name: /initial commit/i }),
 		).toBeVisible();
-		await expect(
-			page.getByText("No recent commits to review."),
-		).toHaveCount(0);
+		await expect(page.getByText("No recent commits to review.")).toHaveCount(0);
 		await page.getByRole("button", { name: /initial commit/i }).click();
 		await expect(
-			page.getByTestId("review-rail").getByRole("button", { name: /src\/index\.ts/i }),
+			page
+				.getByTestId("review-rail")
+				.getByRole("button", { name: /src\/index\.ts/i }),
 		).toBeVisible();
 
 		await page
@@ -97,10 +105,15 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			.click();
 
 		await expect(
-			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
+			page
+				.getByRole("tablist", { name: "Terminal sessions" })
+				.getByRole("tab")
+				.first(),
 		).toBeVisible({ timeout: 10_000 });
 		// Chip bar dirty chip confirms git summary loaded (replaced ContextPanel "1 ahead" text)
-		await expect(page.getByRole("button", { name: /\d+ changed/i })).toBeVisible({ timeout: 10_000 });
+		await expect(
+			page.getByRole("button", { name: /\d+ changed/i }),
+		).toBeVisible({ timeout: 10_000 });
 
 		const shellLayout = page.getByTestId("shell-layout");
 		await expect(shellLayout).toHaveAttribute(
@@ -108,7 +121,9 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			/grid-template-columns:\s*240px minmax\(0px?,\s*1fr\)/,
 		);
 
-		const worktreeNav = page.getByRole("navigation", { name: "Worktree sessions" });
+		const worktreeNav = page.getByRole("navigation", {
+			name: "Worktree sessions",
+		});
 		await worktreeNav.getByRole("button", { name: "Collapse sidebar" }).click();
 		await expect(shellLayout).toHaveAttribute(
 			"style",
@@ -160,14 +175,20 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		// Check the tab context menu while the title is still "codex".
 		// This must happen before the Ctrl+L clear below, which causes the shell
 		// to reprint its prompt and reset the xterm title back to the CWD.
-		await page.getByRole("tab", { name: /^codex$/i }).click({ button: "right" });
+		await page
+			.getByRole("tab", { name: /^codex$/i })
+			.click({ button: "right" });
 		await expect(page.getByRole("menuitem", { name: "Pin" })).toBeVisible();
 		await page.keyboard.press("Escape");
 
 		await expect(
-			page.getByTestId("review-rail").getByRole("tablist", { name: "Review mode" }),
+			page
+				.getByTestId("review-rail")
+				.getByRole("tablist", { name: "Review mode" }),
 		).toBeVisible();
-		await expect(page.getByRole("button", { name: "Refresh review" })).toBeVisible();
+		await expect(
+			page.getByRole("button", { name: "Refresh review" }),
+		).toBeVisible();
 
 		await page.getByRole("tab", { name: "Changes" }).click();
 		await page.getByRole("button", { name: /src\/index\.ts/i }).click();
@@ -185,14 +206,18 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		);
 		await expect(page.getByText("Diff vs HEAD")).toBeVisible();
 
-		const textarea = page.locator('.shell-terminal-pane[aria-hidden="false"] .xterm-helper-textarea');
+		const textarea = page.locator(
+			'.shell-terminal-pane[aria-hidden="false"] .xterm-helper-textarea',
+		);
 		await textarea.focus();
 		await page.keyboard.type("echo phase-6-clear");
 		await page.keyboard.press("Enter");
 		const visibleAccessTree = page.locator(
 			'.shell-terminal-pane[aria-hidden="false"] .xterm-accessibility-tree',
 		);
-		await expect(visibleAccessTree).toContainText("phase-6-clear", { timeout: 10_000 });
+		await expect(visibleAccessTree).toContainText("phase-6-clear", {
+			timeout: 10_000,
+		});
 
 		// Cmd+K / Ctrl+K clears the xterm buffer — tested in TerminalPane unit tests.
 		// In e2e, Playwright CDP key events are untrusted and don't reach xterm's
@@ -203,14 +228,19 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 				'.shell-terminal-pane[aria-hidden="false"]',
 			);
 			const terminalSessionId = pane?.dataset.terminalSessionId;
-			if (!terminalSessionId) throw new Error("Visible terminal session not found.");
+			if (!terminalSessionId)
+				throw new Error("Visible terminal session not found.");
 			await window.ai14all.terminals.sendInput(terminalSessionId, "\x0c");
 		});
-		await expect(visibleAccessTree).not.toContainText("phase-6-clear", { timeout: 5_000 });
+		await expect(visibleAccessTree).not.toContainText("phase-6-clear", {
+			timeout: 5_000,
+		});
 
 		await page.keyboard.type("echo after-clear");
 		await page.keyboard.press("Enter");
-		await expect(visibleAccessTree).toContainText("after-clear", { timeout: 10_000 });
+		await expect(visibleAccessTree).toContainText("after-clear", {
+			timeout: 10_000,
+		});
 
 		const reviewRail = page.getByTestId("review-rail");
 		const resizeHandle = page.getByTestId("review-rail-resize-handle");
@@ -236,7 +266,9 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			.toBeGreaterThan(reviewRailBefore.width);
 
 		await page.getByRole("tab", { name: "Commits" }).click();
-		await expect(page.getByRole("button", { name: "Refresh review" })).toBeVisible();
+		await expect(
+			page.getByRole("button", { name: "Refresh review" }),
+		).toBeVisible();
 		await expect(
 			page.getByTestId("review-rail").getByText("origin/main"),
 		).toBeVisible({ timeout: 15_000 });
@@ -269,7 +301,9 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		test.setTimeout(90_000);
 		await ensureWorkspaceLoaded();
 
-		const worktreeNav = page.getByRole("navigation", { name: "Worktree sessions" });
+		const worktreeNav = page.getByRole("navigation", {
+			name: "Worktree sessions",
+		});
 		const mainItem = worktreeNav.getByRole("button", { name: / main$/i });
 		await mainItem.click();
 
@@ -278,34 +312,34 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 				'.shell-terminal-pane[aria-hidden="false"]',
 			);
 			const terminalSessionId = pane?.dataset.terminalSessionId;
-			if (!terminalSessionId) throw new Error("Visible terminal session not found.");
+			if (!terminalSessionId)
+				throw new Error("Visible terminal session not found.");
 			await window.ai14all.terminals.sendInput(
 				terminalSessionId,
 				"printf 'compiled in 124ms\\n'\n",
 			);
 		});
 
-		await expect(mainItem.locator(".shell-sidebar__process-context")).toContainText(
-			"compiled in 124ms",
-			{
-				timeout: 10_000,
-			},
-		);
+		await expect(
+			mainItem.locator(".shell-sidebar__process-context"),
+		).toContainText("compiled in 124ms", {
+			timeout: 10_000,
+		});
 
 		await page.waitForTimeout(11_000);
-		await expect(mainItem.locator(".shell-sidebar__process-context")).toContainText(
-			/quiet for 1[01]s/,
-			{
-				timeout: 5_000,
-			},
-		);
+		await expect(
+			mainItem.locator(".shell-sidebar__process-context"),
+		).toContainText(/quiet for 1[01]s/, {
+			timeout: 5_000,
+		});
 
 		const mainTerminalSessionId = await page.evaluate(() => {
 			const pane = document.querySelector<HTMLElement>(
 				'.shell-terminal-pane[aria-hidden="false"]',
 			);
 			const terminalSessionId = pane?.dataset.terminalSessionId;
-			if (!terminalSessionId) throw new Error("Visible terminal session not found.");
+			if (!terminalSessionId)
+				throw new Error("Visible terminal session not found.");
 			return terminalSessionId;
 		});
 
@@ -322,25 +356,28 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			timeout: 10_000,
 		});
 
-		await expect(mainItem.locator(".shell-sidebar__process-context")).toContainText(
-			"Continue? [y/N]",
-			{
-				timeout: 10_000,
-			},
-		);
+		await expect(
+			mainItem.locator(".shell-sidebar__process-context"),
+		).toContainText("Continue? [y/N]", {
+			timeout: 10_000,
+		});
 	});
 
 	test("returns to the workspace picker from the app menu and keeps the current session when reopening the same repo", async () => {
 		await app!.evaluate(({ Menu, BrowserWindow }) => {
 			const mainWindow = BrowserWindow.getAllWindows()[0];
 			const menu = Menu.getApplicationMenu();
-			const workspaceMenu = menu?.items.find((item) => item.label === "Workspace");
+			const workspaceMenu = menu?.items.find(
+				(item) => item.label === "Workspace",
+			);
 			const openWorkspaceItem = workspaceMenu?.submenu?.items.find(
 				(item) => item.label === "Open Workspace...",
 			);
 
 			if (!openWorkspaceItem) {
-				throw new Error("Workspace > Open Workspace... menu item was not found.");
+				throw new Error(
+					"Workspace > Open Workspace... menu item was not found.",
+				);
 			}
 
 			openWorkspaceItem.click(undefined, mainWindow, undefined);
@@ -353,13 +390,15 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		// The xterm title was reset from "codex" to the CWD by Ctrl+L in the first
 		// test. Check for any terminal tab to verify the session was restored.
 		await expect(
-			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
+			page
+				.getByRole("tablist", { name: "Terminal sessions" })
+				.getByRole("tab")
+				.first(),
 		).toBeVisible();
 		await expect(
-			page.getByRole("navigation", { name: "Worktree sessions" }).getByRole(
-				"button",
-				{ name: /feature-a/i },
-			),
+			page
+				.getByRole("navigation", { name: "Worktree sessions" })
+				.getByRole("button", { name: /feature-a/i }),
 		).toHaveAttribute("data-selected", "true");
 	});
 
@@ -373,7 +412,9 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await ensureReviewDrawerOpen(page);
 		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
 		// Wait for the initial summary to render before writing the new file.
-		await expect(page.getByRole("button", { name: /src\/index\.ts/i })).toBeVisible();
+		await expect(
+			page.getByRole("button", { name: /src\/index\.ts/i }),
+		).toBeVisible();
 
 		writeFileSync(
 			join(testRepo.worktreePath, "src", "auto-refresh.ts"),
@@ -405,7 +446,9 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			.click();
 		await ensureReviewDrawerOpen(page);
 		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
-		await expect(page.getByRole("button", { name: /src\/index\.ts/i })).toBeVisible();
+		await expect(
+			page.getByRole("button", { name: /src\/index\.ts/i }),
+		).toBeVisible();
 
 		writeFileSync(
 			gitFaultsPath,
@@ -413,8 +456,12 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		);
 
 		await page.getByRole("button", { name: "Refresh review" }).click();
-		await expect(page.getByText(/showing last successful result/i)).toBeVisible();
-		await expect(page.getByRole("button", { name: /src\/index\.ts/i })).toBeVisible();
+		await expect(
+			page.getByText(/showing last successful result/i),
+		).toBeVisible();
+		await expect(
+			page.getByRole("button", { name: /src\/index\.ts/i }),
+		).toBeVisible();
 	});
 
 	test("right-clicking a .md file shows Preview and opens the markdown modal", async () => {
@@ -498,7 +545,9 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await notesButton.click();
 
 		// Wait for viewer header to show the file path
-		const viewerTitle = page.locator(".shell-viewer__title", { hasText: "NOTES.md" });
+		const viewerTitle = page.locator(".shell-viewer__title", {
+			hasText: "NOTES.md",
+		});
 		await expect(viewerTitle).toBeVisible({ timeout: 10_000 });
 
 		// Right-click the viewer header
@@ -556,18 +605,30 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		test.setTimeout(60_000);
 		await ensureWorkspaceLoaded();
 
-		const worktreeNav = page.getByRole("navigation", { name: "Worktree sessions" });
-		const terminalTabs = page.getByRole("tablist", { name: "Terminal sessions" });
+		const worktreeNav = page.getByRole("navigation", {
+			name: "Worktree sessions",
+		});
+		const terminalTabs = page.getByRole("tablist", {
+			name: "Terminal sessions",
+		});
 		await worktreeNav.getByRole("button", { name: /feature-a/i }).click();
-		await expect(terminalTabs.getByRole("tab")).toHaveCount(1, { timeout: 15_000 });
+		await expect(terminalTabs.getByRole("tab")).toHaveCount(1, {
+			timeout: 15_000,
+		});
 
 		await page.getByRole("button", { name: "Add shell" }).click();
-		await expect(terminalTabs.getByRole("tab")).toHaveCount(2, { timeout: 15_000 });
+		await expect(terminalTabs.getByRole("tab")).toHaveCount(2, {
+			timeout: 15_000,
+		});
 
 		await page.getByRole("button", { name: "Enable split shells" }).click();
-		await expect(page.getByRole("button", { name: "Disable split shells" })).toBeVisible();
+		await expect(
+			page.getByRole("button", { name: "Disable split shells" }),
+		).toBeVisible();
 
-		await expect(page.locator('.shell-terminal-pane:not([aria-hidden="true"])')).toHaveCount(2);
+		await expect(
+			page.locator('.shell-terminal-pane:not([aria-hidden="true"])'),
+		).toHaveCount(2);
 
 		await terminalTabs.getByRole("tab").nth(0).click({ button: "right" });
 		await page.getByRole("menuitem", { name: "Show in split left" }).click();
@@ -575,15 +636,25 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await terminalTabs.getByRole("tab").nth(1).click({ button: "right" });
 		await page.getByRole("menuitem", { name: "Show in split right" }).click();
 
-		await expect(page.getByRole("button", { name: "Disable split shells" })).toBeVisible();
-		await expect(page.locator('.shell-terminal-pane:not([aria-hidden="true"])')).toHaveCount(2);
+		await expect(
+			page.getByRole("button", { name: "Disable split shells" }),
+		).toBeVisible();
+		await expect(
+			page.locator('.shell-terminal-pane:not([aria-hidden="true"])'),
+		).toHaveCount(2);
 
 		await worktreeNav.getByRole("button", { name: / main$/i }).click();
-		await expect(page.getByRole("button", { name: "Enable split shells" })).toBeVisible();
+		await expect(
+			page.getByRole("button", { name: "Enable split shells" }),
+		).toBeVisible();
 
 		await worktreeNav.getByRole("button", { name: /feature-a/i }).click();
-		await expect(page.getByRole("button", { name: "Disable split shells" })).toBeVisible();
-		await expect(page.locator('.shell-terminal-pane:not([aria-hidden="true"])')).toHaveCount(2);
+		await expect(
+			page.getByRole("button", { name: "Disable split shells" }),
+		).toBeVisible();
+		await expect(
+			page.locator('.shell-terminal-pane:not([aria-hidden="true"])'),
+		).toHaveCount(2);
 	});
 
 	test("chip bar Files button opens the overlay and routes selection to the drawer", async () => {
@@ -592,7 +663,9 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await openFilesOverlayViaChipBar(page);
 		await page.getByTestId("files-overlay-search").fill("index");
 		// Wait for async file list to load before pressing Enter
-		await expect(page.locator(".shell-files-overlay__row-basename").first()).toBeVisible({ timeout: 10_000 });
+		await expect(
+			page.locator(".shell-files-overlay__row-basename").first(),
+		).toBeVisible({ timeout: 10_000 });
 		await page.keyboard.press("Enter");
 		await expect(page.getByTestId("files-overlay")).toHaveCount(0);
 		await expect(page.getByRole("region", { name: "Review" })).toHaveAttribute(

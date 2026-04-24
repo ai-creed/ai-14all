@@ -4,20 +4,41 @@ import { NoteSheet } from "../../../src/features/workspace/NoteSheet";
 
 describe("NoteSheet", () => {
 	it("renders textarea with note value when open", () => {
-		render(<NoteSheet open note="hello" onNoteChange={() => {}} onClose={() => {}} />);
-		expect(screen.getByRole("textbox", { name: /session note/i })).toHaveValue("hello");
+		render(
+			<NoteSheet
+				open
+				note="hello"
+				onNoteChange={() => {}}
+				onClose={() => {}}
+			/>,
+		);
+		expect(screen.getByRole("textbox", { name: /session note/i })).toHaveValue(
+			"hello",
+		);
 	});
 
 	it("does not render textarea when closed", () => {
-		render(<NoteSheet open={false} note="hello" onNoteChange={() => {}} onClose={() => {}} />);
-		expect(screen.queryByRole("textbox", { name: /session note/i })).not.toBeInTheDocument();
+		render(
+			<NoteSheet
+				open={false}
+				note="hello"
+				onNoteChange={() => {}}
+				onClose={() => {}}
+			/>,
+		);
+		expect(
+			screen.queryByRole("textbox", { name: /session note/i }),
+		).not.toBeInTheDocument();
 	});
 
 	it("calls onNoteChange when user types", async () => {
 		const user = userEvent.setup();
 		const spy = vi.fn();
 		render(<NoteSheet open note="" onNoteChange={spy} onClose={() => {}} />);
-		await user.type(screen.getByRole("textbox", { name: /session note/i }), "ab");
+		await user.type(
+			screen.getByRole("textbox", { name: /session note/i }),
+			"ab",
+		);
 		expect(spy).toHaveBeenCalledTimes(2);
 	});
 

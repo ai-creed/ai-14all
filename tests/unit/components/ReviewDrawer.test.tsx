@@ -44,15 +44,21 @@ describe("ReviewDrawer", () => {
 			</ReviewDrawer>,
 		);
 		expect(screen.getByTestId("body")).toBeInTheDocument();
-		expect(screen.getByRole("separator", { name: /resize review/i })).toBeInTheDocument();
+		expect(
+			screen.getByRole("separator", { name: /resize review/i }),
+		).toBeInTheDocument();
 	});
 
 	it("toggle button reflects aria-expanded", () => {
 		const { rerender } = render(<ReviewDrawer {...defaults} open={false} />);
-		const toggle = screen.getByRole("button", { name: /expand review drawer/i });
+		const toggle = screen.getByRole("button", {
+			name: /expand review drawer/i,
+		});
 		expect(toggle).toHaveAttribute("aria-expanded", "false");
 		rerender(<ReviewDrawer {...defaults} open />);
-		const toggle2 = screen.getByRole("button", { name: /collapse review drawer/i });
+		const toggle2 = screen.getByRole("button", {
+			name: /collapse review drawer/i,
+		});
 		expect(toggle2).toHaveAttribute("aria-expanded", "true");
 	});
 
@@ -60,7 +66,9 @@ describe("ReviewDrawer", () => {
 		const user = userEvent.setup();
 		const spy = vi.fn();
 		render(<ReviewDrawer {...defaults} onToggle={spy} />);
-		await user.click(screen.getByRole("button", { name: /expand review drawer/i }));
+		await user.click(
+			screen.getByRole("button", { name: /expand review drawer/i }),
+		);
 		expect(spy).toHaveBeenCalledTimes(1);
 	});
 

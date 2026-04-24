@@ -8,7 +8,12 @@ type Props = {
 	onConfirm: () => Promise<void>;
 };
 
-export function DiscardChangeDialog({ open, relativePath, onOpenChange, onConfirm }: Props) {
+export function DiscardChangeDialog({
+	open,
+	relativePath,
+	onOpenChange,
+	onConfirm,
+}: Props) {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -29,10 +34,14 @@ export function DiscardChangeDialog({ open, relativePath, onOpenChange, onConfir
 		<Dialog.Root open={open} onOpenChange={onOpenChange}>
 			<Dialog.Portal>
 				<Dialog.Overlay className="shell-modal-overlay" />
-				<Dialog.Content className="shell-modal shell-modal--worktree" aria-describedby={undefined}>
+				<Dialog.Content
+					className="shell-modal shell-modal--worktree"
+					aria-describedby={undefined}
+				>
 					<Dialog.Title>Discard changes</Dialog.Title>
 					<p className="shell-modal__copy">
-						Discard changes to <strong>{relativePath}</strong>? This cannot be undone.
+						Discard changes to <strong>{relativePath}</strong>? This cannot be
+						undone.
 					</p>
 					{error && <div className="shell-error-banner">{error}</div>}
 					<div className="shell-modal__actions">
@@ -47,7 +56,9 @@ export function DiscardChangeDialog({ open, relativePath, onOpenChange, onConfir
 						<button
 							type="button"
 							className="shell-button shell-button--danger"
-							onClick={() => { void handleConfirm(); }}
+							onClick={() => {
+								void handleConfirm();
+							}}
 							disabled={busy}
 						>
 							Discard

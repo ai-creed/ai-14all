@@ -12,11 +12,16 @@ import type { ShellEventRecord } from "../../shared/models/shell-event-record.js
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 const MAX_TEXT_CHARS = 4096;
 
-export type ShellEventLogInput = Omit<ShellEventRecord, "at" | "runId" | "seq" | "eventId"> & {
+export type ShellEventLogInput = Omit<
+	ShellEventRecord,
+	"at" | "runId" | "seq" | "eventId"
+> & {
 	eventId?: string;
 };
 
-export type ShellEventLogService = ReturnType<typeof createShellEventLogService>;
+export type ShellEventLogService = ReturnType<
+	typeof createShellEventLogService
+>;
 
 export function createShellEventLogService(input: {
 	userDataPath: string;

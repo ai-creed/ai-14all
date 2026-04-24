@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parseManifest, type UpdateManifest } from "../../../shared/update/manifest.js";
+import {
+	parseManifest,
+	type UpdateManifest,
+} from "../../../shared/update/manifest.js";
 
 const VALID = `version: 0.1.1
 releaseDate: '2026-05-01T12:00:00.000Z'

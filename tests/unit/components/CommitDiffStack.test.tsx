@@ -5,7 +5,11 @@ import { CommitDiffStack } from "../../../src/features/git/CommitDiffStack";
 
 // Monaco DiffEditor won't load in jsdom — mock it
 vi.mock("@monaco-editor/react", () => ({
-	DiffEditor: (props: { theme?: string; height?: string; options?: { fontSize?: number } }) => (
+	DiffEditor: (props: {
+		theme?: string;
+		height?: string;
+		options?: { fontSize?: number };
+	}) => (
 		<div
 			data-testid="mock-diff-editor"
 			data-theme={props.theme}
@@ -55,10 +59,9 @@ describe("CommitDiffStack", () => {
 		);
 
 		expect(screen.getByText("src/index.ts")).toBeInTheDocument();
-		expect(screen.getByTestId("commit-diff-section-src/index.ts")).toHaveAttribute(
-			"data-focused",
-			"true",
-		);
+		expect(
+			screen.getByTestId("commit-diff-section-src/index.ts"),
+		).toHaveAttribute("data-focused", "true");
 		expect(screen.getByTestId("mock-diff-editor")).toHaveAttribute(
 			"data-theme",
 			"vs-dark",
@@ -75,7 +78,11 @@ describe("CommitDiffStack", () => {
 
 	it("re-expands a collapsed section when focusedPath targets it", async () => {
 		const { rerender } = render(
-			<CommitDiffStack detail={detail} focusedPath={null} resolvedTheme="dark" />,
+			<CommitDiffStack
+				detail={detail}
+				focusedPath={null}
+				resolvedTheme="dark"
+			/>,
 		);
 
 		// Collapse the section

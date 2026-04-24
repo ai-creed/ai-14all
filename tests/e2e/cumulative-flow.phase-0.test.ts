@@ -26,7 +26,10 @@ test.beforeAll(async () => {
 			...process.env,
 			AI14ALL_E2E: "1",
 			AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
-			AI14ALL_WORKSPACE_STATE_PATH: join(persistedStateDir, "workspace-state.json"),
+			AI14ALL_WORKSPACE_STATE_PATH: join(
+				persistedStateDir,
+				"workspace-state.json",
+			),
 		},
 	});
 	page = await app.firstWindow({ timeout: 60_000 });
@@ -101,13 +104,19 @@ test.describe.serial("Cumulative flow — Phase 0", () => {
 		// review panel is the active tab so the viewer updates on file selection.
 		await ensureReviewDrawerOpen(page);
 		await page.getByRole("tab", { name: "Files" }).click({ force: true });
-		await expect(page.getByRole("button", { name: "src", exact: true })).toBeVisible();
+		await expect(
+			page.getByRole("button", { name: "src", exact: true }),
+		).toBeVisible();
 		// Expand src directory so index.ts becomes visible.
-		await page.getByRole("button", { name: "src", exact: true }).click({ force: true });
+		await page
+			.getByRole("button", { name: "src", exact: true })
+			.click({ force: true });
 		// Phase 6: force the click because the xterm pane in the same column
 		// keeps the accessibility tree in flux, causing Playwright's stability
 		// check to time out even when the button is at its correct position.
-		await page.getByRole("button", { name: "index.ts", exact: true }).click({ force: true });
+		await page
+			.getByRole("button", { name: "index.ts", exact: true })
+			.click({ force: true });
 
 		await expect(page.locator(".monaco-editor")).toBeVisible({
 			timeout: 15_000,

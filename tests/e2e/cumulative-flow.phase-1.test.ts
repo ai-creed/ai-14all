@@ -25,7 +25,10 @@ test.beforeAll(async () => {
 		env: {
 			...process.env,
 			AI14ALL_E2E: "1",
-			AI14ALL_WORKSPACE_STATE_PATH: join(persistedStateDir, "workspace-state.json"),
+			AI14ALL_WORKSPACE_STATE_PATH: join(
+				persistedStateDir,
+				"workspace-state.json",
+			),
 		},
 	});
 	page = await app.firstWindow({ timeout: 60_000 });

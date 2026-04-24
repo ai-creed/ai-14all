@@ -35,7 +35,10 @@ describe("rewriteManifest", () => {
 	});
 
 	it("throws when the DMG entry is missing", () => {
-		const broken = EMITTED.replace(/- url: ai-14all-0\.1\.0-arm64\.dmg[\s\S]*$/, "");
+		const broken = EMITTED.replace(
+			/- url: ai-14all-0\.1\.0-arm64\.dmg[\s\S]*$/,
+			"",
+		);
 		expect(() => rewriteManifest(broken, "0.1.0")).toThrow();
 	});
 

@@ -7,7 +7,9 @@ import {
 	type PersistedWorkspaceStateV2,
 } from "../../shared/models/persisted-workspace-state.js";
 
-function migratePersistedWorkspaceState(raw: unknown): PersistedWorkspaceStateV2 {
+function migratePersistedWorkspaceState(
+	raw: unknown,
+): PersistedWorkspaceStateV2 {
 	const parsedV1 = PersistedWorkspaceStateV1Schema.safeParse(raw);
 	if (parsedV1.success) {
 		const snapshot = parsedV1.data.snapshot;

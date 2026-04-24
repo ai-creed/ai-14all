@@ -146,7 +146,9 @@ export function FilesOverlay(props: FilesOverlayProps) {
 						}
 					}}
 				>
-					<Dialog.Title className="shell-files-overlay__title">Files</Dialog.Title>
+					<Dialog.Title className="shell-files-overlay__title">
+						Files
+					</Dialog.Title>
 					<Dialog.Description className="sr-only">
 						Search and open files from the active session.
 					</Dialog.Description>
@@ -168,7 +170,9 @@ export function FilesOverlay(props: FilesOverlayProps) {
 								Couldn't load files. {loadError}
 							</div>
 						) : tracked.length === 0 ? (
-							<div className="shell-files-overlay__empty">No files in this worktree.</div>
+							<div className="shell-files-overlay__empty">
+								No files in this worktree.
+							</div>
 						) : rows.length === 0 ? (
 							<div className="shell-files-overlay__empty">No files match.</div>
 						) : (
@@ -193,10 +197,14 @@ export function FilesOverlay(props: FilesOverlayProps) {
 											<div
 												key={path}
 												data-testid={`files-overlay-row-${path}`}
-												data-selected={virtualRow.index === selectedIndex ? "true" : "false"}
+												data-selected={
+													virtualRow.index === selectedIndex ? "true" : "false"
+												}
 												className={
 													"shell-files-overlay__row" +
-													(virtualRow.index === selectedIndex ? " shell-files-overlay__row--selected" : "")
+													(virtualRow.index === selectedIndex
+														? " shell-files-overlay__row--selected"
+														: "")
 												}
 												onClick={() => props.onViewFile(path)}
 												style={{
@@ -208,9 +216,13 @@ export function FilesOverlay(props: FilesOverlayProps) {
 													transform: `translateY(${virtualRow.start}px)`,
 												}}
 											>
-												<span className="shell-files-overlay__row-basename">{base}</span>
+												<span className="shell-files-overlay__row-basename">
+													{base}
+												</span>
 												{dir && (
-													<span className="shell-files-overlay__row-dir">{dir}</span>
+													<span className="shell-files-overlay__row-dir">
+														{dir}
+													</span>
 												)}
 												{status && (
 													<span

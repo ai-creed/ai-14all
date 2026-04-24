@@ -33,7 +33,10 @@ export class TerminalService {
 	private readonly shellEventLog?: { log: (event: ShellEventLogInput) => void };
 	private disposed = false;
 
-	constructor(handlers: TerminalEventHandlers, shellEventLog?: { log: (event: ShellEventLogInput) => void }) {
+	constructor(
+		handlers: TerminalEventHandlers,
+		shellEventLog?: { log: (event: ShellEventLogInput) => void },
+	) {
 		this.handlers = handlers;
 		this.shellEventLog = shellEventLog;
 	}
@@ -41,14 +44,23 @@ export class TerminalService {
 	// -----------------------------------------------------------------------
 	// create
 	// -----------------------------------------------------------------------
-	create(workspaceId: string, worktreeId: string, cwd: string): TerminalSession {
+	create(
+		workspaceId: string,
+		worktreeId: string,
+		cwd: string,
+	): TerminalSession {
 		if (this.disposed) {
 			throw new Error("Terminal service has been disposed");
 		}
 
 		const id = randomUUID();
 
-		this.shellEventLog?.log({ source: "main", event: "terminal-create-start", windowId: null, data: { workspaceId, worktreeId, cwd } });
+		this.shellEventLog?.log({
+			source: "main",
+			event: "terminal-create-start",
+			windowId: null,
+			data: { workspaceId, worktreeId, cwd },
+		});
 
 		const shell = process.env.SHELL ?? "/bin/zsh";
 
@@ -72,7 +84,12 @@ export class TerminalService {
 			};
 			const message =
 				err instanceof Error ? err.message : "Failed to spawn PTY";
-			this.shellEventLog?.log({ source: "main", event: "terminal-create-failed", windowId: null, data: { terminalSessionId: id, workspaceId, worktreeId, cwd, message } });
+			this.shellEventLog?.log({
+				source: "main",
+				event: "terminal-create-failed",
+				windowId: null,
+				data: { terminalSessionId: id, workspaceId, worktreeId, cwd, message },
+			});
 			this.handlers.onState(id, "error");
 			this.handlers.onError(id, message);
 			return meta;
@@ -153,7 +170,13 @@ export class TerminalService {
 				reasonKind: "process_exit",
 				reason: "pty_exit",
 				isExpected: false,
-				data: { terminalSessionId: id, workspaceId, worktreeId, exitCode, signal },
+				data: {
+					terminalSessionId: id,
+					workspaceId,
+					worktreeId,
+					exitCode,
+					signal,
+				},
 			});
 			this.handlers.onState(id, "exited");
 			this.handlers.onExit(id, exitCode, signal);
@@ -183,7 +206,12 @@ export class TerminalService {
 		}
 		const session = this.sessions.get(sessionId);
 		if (!session) {
-			this.shellEventLog?.log({ source: "main", event: "terminal-session-missing", windowId: null, data: { terminalSessionId: sessionId, operation: "sendInput" } });
+			this.shellEventLog?.log({
+				source: "main",
+				event: "terminal-session-missing",
+				windowId: null,
+				data: { terminalSessionId: sessionId, operation: "sendInput" },
+			});
 			throw new Error(`Terminal session not found: ${sessionId}`);
 		}
 		const { meta } = session;
@@ -215,7 +243,12 @@ export class TerminalService {
 		if (!session) {
 			return;
 		}
-		this.shellEventLog?.log({ source: "main", event: "terminal-resize", windowId: null, data: { terminalSessionId: sessionId, cols, rows } });
+		this.shellEventLog?.log({
+			source: "main",
+			event: "terminal-resize",
+			windowId: null,
+			data: { terminalSessionId: sessionId, cols, rows },
+		});
 		session.pty.resize(cols, rows);
 	}
 
@@ -230,7 +263,14 @@ export class TerminalService {
 		if (!session) {
 			return;
 		}
-		this.shellEventLog?.log({ source: "main", event: "terminal-stop-request", windowId: null, reasonKind: "user_action", reason: "user_stop", data: { terminalSessionId: sessionId } });
+		this.shellEventLog?.log({
+			source: "main",
+			event: "terminal-stop-request",
+			windowId: null,
+			reasonKind: "user_action",
+			reason: "user_stop",
+			data: { terminalSessionId: sessionId },
+		});
 		session.pty.kill();
 		// Let the onExit handler handle state update, event emission, and cleanup
 	}
@@ -254,7 +294,11 @@ export class TerminalService {
 					reasonKind: "backend_cleanup",
 					reason: "service_dispose",
 					isExpected: false,
-					data: { terminalSessionId: session.meta.id, workspaceId: session.meta.workspaceId, worktreeId: session.meta.worktreeId },
+					data: {
+						terminalSessionId: session.meta.id,
+						workspaceId: session.meta.workspaceId,
+						worktreeId: session.meta.worktreeId,
+					},
 				});
 				this.shellEventLog?.log({
 					source: "main",
@@ -264,7 +308,11 @@ export class TerminalService {
 					reason: "service_dispose",
 					isExpected: false,
 					expectedBecause: null,
-					data: { terminalSessionId: session.meta.id, workspaceId: session.meta.workspaceId, worktreeId: session.meta.worktreeId },
+					data: {
+						terminalSessionId: session.meta.id,
+						workspaceId: session.meta.workspaceId,
+						worktreeId: session.meta.worktreeId,
+					},
 				});
 				session.pty.kill();
 			} catch {

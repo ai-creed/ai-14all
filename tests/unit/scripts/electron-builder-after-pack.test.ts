@@ -62,6 +62,8 @@ describe("afterPack", () => {
 			packager: { appInfo: { productFilename: "ai-14all" } },
 			arch: Arch.arm64,
 		};
-		await expect(afterPack(context)).rejects.toThrow("node-pty spawn-helper not found");
+		await expect(afterPack(context)).rejects.toThrow(
+			"node-pty spawn-helper not found",
+		);
 	});
 });

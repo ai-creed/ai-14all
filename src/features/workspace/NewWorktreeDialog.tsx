@@ -47,7 +47,10 @@ export function NewWorktreeDialog({
 						/>
 					</label>
 					<label className="shell-modal__field">
-						<span className="shell-label">Session title <span className="shell-label--optional">(optional)</span></span>
+						<span className="shell-label">
+							Session title{" "}
+							<span className="shell-label--optional">(optional)</span>
+						</span>
 						<input
 							value={sessionTitle}
 							onChange={(event) => onSessionTitleChange(event.target.value)}
@@ -57,19 +60,34 @@ export function NewWorktreeDialog({
 					</label>
 					{preview && (
 						<div className="shell-modal__preview">
-							<div><span>Name:</span> <strong>{preview.name}</strong></div>
-							<div><span>Branch:</span> <strong>{preview.branchName}</strong></div>
-							<div><span>Path:</span> <code>{preview.path}</code></div>
-							<div><span>Base:</span> <strong>{preview.baseRef}</strong></div>
+							<div>
+								<span>Name:</span> <strong>{preview.name}</strong>
+							</div>
+							<div>
+								<span>Branch:</span> <strong>{preview.branchName}</strong>
+							</div>
+							<div>
+								<span>Path:</span> <code>{preview.path}</code>
+							</div>
+							<div>
+								<span>Base:</span> <strong>{preview.baseRef}</strong>
+							</div>
 							<div>
 								<span>Latest commit:</span>{" "}
-								<strong>{preview.baseCommit.shortSha} {preview.baseCommit.subject}</strong>
+								<strong>
+									{preview.baseCommit.shortSha} {preview.baseCommit.subject}
+								</strong>
 							</div>
 						</div>
 					)}
 					{error && <div className="shell-error-banner">{error}</div>}
 					<div className="shell-modal__actions">
-						<button type="button" className="shell-button" onClick={onConfirm} disabled={!preview || loading || busy}>
+						<button
+							type="button"
+							className="shell-button"
+							onClick={onConfirm}
+							disabled={!preview || loading || busy}
+						>
 							Create worktree
 						</button>
 					</div>

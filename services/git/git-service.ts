@@ -28,7 +28,9 @@ async function readDiffCommand(
 	worktreePath: string,
 ): Promise<string> {
 	try {
-		const { stdout } = await execFileAsync(gitBinary, args, { cwd: worktreePath });
+		const { stdout } = await execFileAsync(gitBinary, args, {
+			cwd: worktreePath,
+		});
 		return stdout;
 	} catch (error: unknown) {
 		const stdout =
@@ -86,7 +88,9 @@ function parseStatusLine(line: string): GitChange | null {
 	return { path, status: status as GitChangeStatus };
 }
 
-async function resolveMergeTargetRef(worktreePath: string): Promise<string | null> {
+async function resolveMergeTargetRef(
+	worktreePath: string,
+): Promise<string | null> {
 	for (const ref of ["origin/main", "origin/master"]) {
 		try {
 			await execFileAsync(gitBinary, ["rev-parse", "--verify", ref], {
@@ -194,14 +198,21 @@ export class GitService {
 	}
 
 	async readSummary(worktreePath: string): Promise<GitSummary> {
-		const [branchResult, recentResult, changedFiles, mergeTargetRef] = await Promise.all([
-			execFileAsync(gitBinary, ["branch", "--show-current"], { cwd: worktreePath }),
-			execFileAsync(gitBinary, ["log", "--format=%H%x09%h%x09%s", "-n", "5"], {
-				cwd: worktreePath,
-			}),
-			this.listChangedFiles(worktreePath),
-			resolveMergeTargetRef(worktreePath),
-		]);
+		const [branchResult, recentResult, changedFiles, mergeTargetRef] =
+			await Promise.all([
+				execFileAsync(gitBinary, ["branch", "--show-current"], {
+					cwd: worktreePath,
+				}),
+				execFileAsync(
+					gitBinary,
+					["log", "--format=%H%x09%h%x09%s", "-n", "5"],
+					{
+						cwd: worktreePath,
+					},
+				),
+				this.listChangedFiles(worktreePath),
+				resolveMergeTargetRef(worktreePath),
+			]);
 		const { aheadCount, behindCount } = await readAheadBehindCounts(
 			worktreePath,
 			mergeTargetRef,
@@ -281,9 +292,7 @@ export class GitService {
 							`HEAD:${change.oldPath ?? relativePath}`,
 						),
 			modifiedContent:
-				change.status === "D"
-					? ""
-					: await readWorkingTreeFile(absolutePath),
+				change.status === "D" ? "" : await readWorkingTreeFile(absolutePath),
 		};
 	}
 
@@ -304,10 +313,12 @@ export class GitService {
 			["log", "--format=%H%x09%h%x09%s", `${mergeBase}..HEAD`],
 			{ cwd: worktreePath },
 		);
-		const entries = parseRecentCommits(stdout).map<GitCommitListEntry>((entry) => ({
-			...entry,
-			isMergeTarget: false,
-		}));
+		const entries = parseRecentCommits(stdout).map<GitCommitListEntry>(
+			(entry) => ({
+				...entry,
+				isMergeTarget: false,
+			}),
+		);
 
 		if (entries.length === 0) {
 			// HEAD is at or behind the merge target — all visible commits are already
@@ -332,12 +343,18 @@ export class GitService {
 		const countFromTarget = Math.max(1, 20 - entries.length);
 		const { stdout: mergeBaseInfo } = await execFileAsync(
 			gitBinary,
-			["log", "--format=%H%x09%h%x09%s", "-n", String(countFromTarget), mergeBase],
+			[
+				"log",
+				"--format=%H%x09%h%x09%s",
+				"-n",
+				String(countFromTarget),
+				mergeBase,
+			],
 			{ cwd: worktreePath },
 		);
-		const targetEntries = parseRecentCommits(mergeBaseInfo).map<GitCommitListEntry>(
-			(entry) => ({ ...entry, isMergeTarget: true }),
-		);
+		const targetEntries = parseRecentCommits(
+			mergeBaseInfo,
+		).map<GitCommitListEntry>((entry) => ({ ...entry, isMergeTarget: true }));
 
 		return {
 			mergeTargetRef,
@@ -349,18 +366,25 @@ export class GitService {
 		worktreePath: string,
 		sha: string,
 	): Promise<GitCommitDetail> {
-		const [{ stdout: headerStdout }, { stdout: parentStdout }, { stdout: filesStdout }] =
-			await Promise.all([
-				execFileAsync(gitBinary, ["show", "--format=%H%x09%h%x09%s", "-s", sha], {
+		const [
+			{ stdout: headerStdout },
+			{ stdout: parentStdout },
+			{ stdout: filesStdout },
+		] = await Promise.all([
+			execFileAsync(gitBinary, ["show", "--format=%H%x09%h%x09%s", "-s", sha], {
+				cwd: worktreePath,
+			}),
+			execFileAsync(gitBinary, ["show", "--format=%P", "-s", sha], {
+				cwd: worktreePath,
+			}),
+			execFileAsync(
+				gitBinary,
+				["show", "--format=", "--name-status", "--find-renames", sha],
+				{
 					cwd: worktreePath,
-				}),
-				execFileAsync(gitBinary, ["show", "--format=%P", "-s", sha], {
-					cwd: worktreePath,
-				}),
-				execFileAsync(gitBinary, ["show", "--format=", "--name-status", "--find-renames", sha], {
-					cwd: worktreePath,
-				}),
-			]);
+				},
+			),
+		]);
 
 		const [entry] = parseRecentCommits(headerStdout);
 		if (!entry) throw new Error(`Commit not found: ${sha}`);
@@ -378,7 +402,10 @@ export class GitService {
 						const isCopy = rawStatus?.startsWith("C") ?? false;
 						const status: "A" | "M" | "D" | "R" =
 							isRename || isCopy ? "R" : (rawStatus as "A" | "M" | "D");
-						const path = isRename || isCopy ? (toPath ?? fromPath ?? "") : (fromPath ?? "");
+						const path =
+							isRename || isCopy
+								? (toPath ?? fromPath ?? "")
+								: (fromPath ?? "");
 						const oldPath = isRename || isCopy ? (fromPath ?? null) : null;
 
 						// Skip entries with unrecognized status (U, X, B, T, etc.)
@@ -404,10 +431,18 @@ export class GitService {
 			)
 		).filter((f): f is GitCommitFileDiff => f !== null);
 
-		return { sha: entry.sha, shortSha: entry.shortSha, subject: entry.subject, files };
+		return {
+			sha: entry.sha,
+			shortSha: entry.shortSha,
+			subject: entry.subject,
+			files,
+		};
 	}
 
-	async discardChange(worktreePath: string, relativePath: string): Promise<void> {
+	async discardChange(
+		worktreePath: string,
+		relativePath: string,
+	): Promise<void> {
 		const absolutePath = resolve(worktreePath, relativePath);
 		const normalizedWorktree = resolve(worktreePath);
 		if (
@@ -430,7 +465,14 @@ export class GitService {
 
 		await execFileAsync(
 			gitBinary,
-			["restore", "--source=HEAD", "--staged", "--worktree", "--", relativePath],
+			[
+				"restore",
+				"--source=HEAD",
+				"--staged",
+				"--worktree",
+				"--",
+				relativePath,
+			],
 			{ cwd: worktreePath },
 		);
 	}
@@ -448,8 +490,12 @@ export class GitService {
 
 		try {
 			const [aheadResult, behindResult] = await Promise.all([
-				execFileAsync(gitBinary, ["rev-list", "--count", "@{u}..HEAD"], { cwd: worktreePath }),
-				execFileAsync(gitBinary, ["rev-list", "--count", "HEAD..@{u}"], { cwd: worktreePath }),
+				execFileAsync(gitBinary, ["rev-list", "--count", "@{u}..HEAD"], {
+					cwd: worktreePath,
+				}),
+				execFileAsync(gitBinary, ["rev-list", "--count", "HEAD..@{u}"], {
+					cwd: worktreePath,
+				}),
 			]);
 			return {
 				hasRemote: true,

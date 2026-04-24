@@ -1,13 +1,19 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-import { mkdtempSync, mkdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
+import {
+	mkdtempSync,
+	mkdirSync,
+	readFileSync,
+	utimesSync,
+	writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import {
-	createShellEventLogService,
-} from "../../../../services/diagnostics/shell-event-log-service.js";
+import { createShellEventLogService } from "../../../../services/diagnostics/shell-event-log-service.js";
 
-function makeService(overrides: Partial<Parameters<typeof createShellEventLogService>[0]> = {}) {
+function makeService(
+	overrides: Partial<Parameters<typeof createShellEventLogService>[0]> = {},
+) {
 	const root = mkdtempSync(join(tmpdir(), "ai14all-shell-log-"));
 	return {
 		root,
@@ -34,9 +40,9 @@ describe("ShellEventLogService", () => {
 		});
 
 		const text = readFileSync(service.getLogPath()!, "utf8").trim();
-		expect(text).toContain("\"event\":\"app-log-start\"");
-		expect(text).toContain("\"seq\":2");
-		expect(text).toContain("\"runId\":\"run_fixed\"");
+		expect(text).toContain('"event":"app-log-start"');
+		expect(text).toContain('"seq":2');
+		expect(text).toContain('"runId":"run_fixed"');
 		expect(root).toBeTruthy();
 	});
 
@@ -64,7 +70,11 @@ describe("ShellEventLogService", () => {
 		mkdirSync(dir, { recursive: true });
 		const oldPath = join(dir, "2026-04-01T00-00-00.000Z-run_old.jsonl");
 		writeFileSync(oldPath, "{}\n");
-		utimesSync(oldPath, new Date("2026-04-01T00:00:00.000Z"), new Date("2026-04-01T00:00:00.000Z"));
+		utimesSync(
+			oldPath,
+			new Date("2026-04-01T00:00:00.000Z"),
+			new Date("2026-04-01T00:00:00.000Z"),
+		);
 
 		createShellEventLogService({
 			userDataPath: root,
@@ -83,7 +93,11 @@ describe("ShellEventLogService", () => {
 		mkdirSync(dir, { recursive: true });
 		const oldPath = join(dir, "2026-04-01T00-00-00.000Z-run_old.jsonl");
 		writeFileSync(oldPath, "{}\n");
-		utimesSync(oldPath, new Date("2026-04-01T00:00:00.000Z"), new Date("2026-04-01T00:00:00.000Z"));
+		utimesSync(
+			oldPath,
+			new Date("2026-04-01T00:00:00.000Z"),
+			new Date("2026-04-01T00:00:00.000Z"),
+		);
 
 		const service = createShellEventLogService({
 			userDataPath: root,
@@ -93,9 +107,15 @@ describe("ShellEventLogService", () => {
 			randomId: () => "run_prune_event",
 		});
 
-		const lines = readFileSync(service.getLogPath()!, "utf8").trim().split("\n");
-		expect(lines.some((line) => line.includes("\"event\":\"app-log-pruned\""))).toBe(true);
-		expect(lines.some((line) => line.includes("\"prunedFileCount\":1"))).toBe(true);
+		const lines = readFileSync(service.getLogPath()!, "utf8")
+			.trim()
+			.split("\n");
+		expect(
+			lines.some((line) => line.includes('"event":"app-log-pruned"')),
+		).toBe(true);
+		expect(lines.some((line) => line.includes('"prunedFileCount":1'))).toBe(
+			true,
+		);
 	});
 
 	it("truncates payload text and keeps byteLength plus truncated flag", () => {
@@ -111,7 +131,9 @@ describe("ShellEventLogService", () => {
 			},
 		});
 
-		const lines = readFileSync(service.getLogPath()!, "utf8").trim().split("\n");
+		const lines = readFileSync(service.getLogPath()!, "utf8")
+			.trim()
+			.split("\n");
 		const record = JSON.parse(lines[lines.length - 1]!);
 		expect(record.data.truncated).toBe(true);
 		expect(record.data.byteLength).toBe(5000);

@@ -12,7 +12,9 @@ afterEach(() => {
 	vi.unstubAllEnvs();
 });
 
-async function freshGetGitBinaryPath(): Promise<(typeof import("../../../../services/git/git-binary.js"))["getGitBinaryPath"]> {
+async function freshGetGitBinaryPath(): Promise<
+	(typeof import("../../../../services/git/git-binary.js"))["getGitBinaryPath"]
+> {
 	vi.resetModules();
 	const mod = await import("../../../../services/git/git-binary.js");
 	return mod.getGitBinaryPath;

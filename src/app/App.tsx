@@ -93,10 +93,7 @@ import { UpdateBanner } from "../features/updater/UpdateBanner";
 import { logRendererShellEvent } from "../features/terminals/shell-event-logger";
 import { useTheme } from "../lib/useTheme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
-import {
-	SHORTCUT_REGISTRY,
-	detectPlatform,
-} from "./shortcut-registry";
+import { SHORTCUT_REGISTRY, detectPlatform } from "./shortcut-registry";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -115,13 +112,18 @@ export function App() {
 	const [reviewPanelHeight, setReviewPanelHeight] = useState(280);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const [sidebarWidth, setSidebarWidth] = useState(240);
-	const [pendingRename, setPendingRename] = useState<{ workspaceId: string; worktreeId: string } | null>(null);
+	const [pendingRename, setPendingRename] = useState<{
+		workspaceId: string;
+		worktreeId: string;
+	} | null>(null);
 	const [sidebarNow, setSidebarNow] = useState(() => Date.now());
 	const [noteSheetOpen, setNoteSheetOpen] = useState(false);
 	const [filesOverlayOpen, setFilesOverlayOpen] = useState(false);
 	const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
 	const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
-	const [updateDismissedFor, setUpdateDismissedFor] = useState<string | null>(null);
+	const [updateDismissedFor, setUpdateDismissedFor] = useState<string | null>(
+		null,
+	);
 
 	useEffect(() => {
 		return system.onUpdateAvailable((info) => {
@@ -483,7 +485,11 @@ export function App() {
 			const basename = relativePath.split("/").pop() ?? "";
 			if (!isEditable(basename)) return;
 			try {
-				const res = await files.openForEdit(activeWorkspaceId, activeWorktree.id, relativePath);
+				const res = await files.openForEdit(
+					activeWorkspaceId,
+					activeWorktree.id,
+					relativePath,
+				);
 				if (!res.ok) {
 					setOpenEditorError(`Cannot open file: ${res.reason}`);
 					return;
@@ -1834,7 +1840,11 @@ export function App() {
 				createName,
 			);
 			if (createSessionTitle.trim()) {
-				dispatch({ type: "session/setTitle", worktreeId: created.id, title: createSessionTitle });
+				dispatch({
+					type: "session/setTitle",
+					worktreeId: created.id,
+					title: createSessionTitle,
+				});
 			}
 			await refreshWorktreeInventory({
 				preferredSelectedWorktreeId: created.id,
@@ -2052,7 +2062,9 @@ export function App() {
 
 	// Cmd+P / Ctrl+Shift+P shortcut to open Files overlay
 	useEffect(() => {
-		const filesShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "files-overlay")!;
+		const filesShortcut = SHORTCUT_REGISTRY.find(
+			(s) => s.id === "files-overlay",
+		)!;
 		const handler = (e: KeyboardEvent) => {
 			if (!filesShortcut.predicate(e, appPlatform)) return;
 			if (!activeWorktree) return;
@@ -2065,12 +2077,15 @@ export function App() {
 
 	// Cmd+J / Ctrl+J shortcut to toggle review drawer
 	useEffect(() => {
-		const reviewShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "review-drawer")!;
+		const reviewShortcut = SHORTCUT_REGISTRY.find(
+			(s) => s.id === "review-drawer",
+		)!;
 		const handler = (e: KeyboardEvent) => {
 			if (!reviewShortcut.predicate(e, appPlatform)) return;
 			if (!activeWorktree) return;
 			e.preventDefault();
-			const session = workspaceStateRef.current.sessionsByWorktreeId[activeWorktree.id];
+			const session =
+				workspaceStateRef.current.sessionsByWorktreeId[activeWorktree.id];
 			const currentlyOpen = session?.reviewDrawerOpen ?? false;
 			const next = !currentlyOpen;
 			if (!next && (activeSummary?.isDirty ?? false)) {
@@ -2086,17 +2101,28 @@ export function App() {
 		};
 		document.addEventListener("keydown", handler);
 		return () => document.removeEventListener("keydown", handler);
-	}, [activeWorktree?.id, activeSummary?.isDirty, appPlatform, autoExpand, dispatch]);
+	}, [
+		activeWorktree?.id,
+		activeSummary?.isDirty,
+		appPlatform,
+		autoExpand,
+		dispatch,
+	]);
 
 	// Cmd+Shift+R / Ctrl+Alt+R shortcut to rename active session
 	useEffect(() => {
-		const renameShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "rename-session")!;
+		const renameShortcut = SHORTCUT_REGISTRY.find(
+			(s) => s.id === "rename-session",
+		)!;
 		const handler = (e: KeyboardEvent) => {
 			if (!renameShortcut.predicate(e, appPlatform)) return;
 			if (!activeWorkspaceId || !activeWorktree) return;
 			e.preventDefault();
 			setSidebarCollapsed(false);
-			setPendingRename({ workspaceId: activeWorkspaceId, worktreeId: activeWorktree.id });
+			setPendingRename({
+				workspaceId: activeWorkspaceId,
+				worktreeId: activeWorktree.id,
+			});
 		};
 		document.addEventListener("keydown", handler);
 		return () => document.removeEventListener("keydown", handler);
@@ -2104,7 +2130,9 @@ export function App() {
 
 	// Cmd+/ or Cmd+? / Ctrl+/ or Ctrl+? shortcut to show shortcuts help
 	useEffect(() => {
-		const helpShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "shortcuts-help")!;
+		const helpShortcut = SHORTCUT_REGISTRY.find(
+			(s) => s.id === "shortcuts-help",
+		)!;
 		const handler = (e: KeyboardEvent) => {
 			if (!helpShortcut.predicate(e, appPlatform)) return;
 			e.preventDefault();
@@ -2116,8 +2144,12 @@ export function App() {
 
 	// Cmd+] / Ctrl+] and Cmd+[ / Ctrl+[ — cycle through worktrees
 	useEffect(() => {
-		const nextShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "worktree.selectNext")!;
-		const prevShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "worktree.selectPrev")!;
+		const nextShortcut = SHORTCUT_REGISTRY.find(
+			(s) => s.id === "worktree.selectNext",
+		)!;
+		const prevShortcut = SHORTCUT_REGISTRY.find(
+			(s) => s.id === "worktree.selectPrev",
+		)!;
 		const handler = (e: KeyboardEvent) => {
 			const isNext = nextShortcut.predicate(e, appPlatform);
 			const isPrev = prevShortcut.predicate(e, appPlatform);
@@ -2154,8 +2186,12 @@ export function App() {
 
 	// Cmd+Shift+] / Ctrl+Shift+] and Cmd+Shift+[ / Ctrl+Shift+[ — cycle through workspaces
 	useEffect(() => {
-		const nextShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "workspace.selectNext")!;
-		const prevShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "workspace.selectPrev")!;
+		const nextShortcut = SHORTCUT_REGISTRY.find(
+			(s) => s.id === "workspace.selectNext",
+		)!;
+		const prevShortcut = SHORTCUT_REGISTRY.find(
+			(s) => s.id === "workspace.selectPrev",
+		)!;
 		const handler = (e: KeyboardEvent) => {
 			const isNext = nextShortcut.predicate(e, appPlatform);
 			const isPrev = prevShortcut.predicate(e, appPlatform);
@@ -2182,7 +2218,9 @@ export function App() {
 	// Cmd+O / Ctrl+O — open workspace picker (menu accelerator already fires this via IPC;
 	// this handler covers the renderer path for completeness)
 	useEffect(() => {
-		const shortcut = SHORTCUT_REGISTRY.find((s) => s.id === "ui.openWorkspacePicker")!;
+		const shortcut = SHORTCUT_REGISTRY.find(
+			(s) => s.id === "ui.openWorkspacePicker",
+		)!;
 		const handler = (e: KeyboardEvent) => {
 			if (!shortcut.predicate(e, appPlatform)) return;
 			if (startupMode !== "ready") return;
@@ -2214,7 +2252,8 @@ export function App() {
 			const currentWorktreeId = currentState.selectedWorktreeId;
 			if (!currentWorktreeId) return;
 			const activeProcessId =
-				currentState.sessionsByWorktreeId[currentWorktreeId]?.activeProcessSessionId;
+				currentState.sessionsByWorktreeId[currentWorktreeId]
+					?.activeProcessSessionId;
 			if (!activeProcessId) return;
 			e.preventDefault();
 			void handleCloseProcess(activeProcessId);
@@ -2225,8 +2264,12 @@ export function App() {
 
 	// Cmd+Shift+D / Ctrl+Shift+D and Cmd+Shift+A / Ctrl+Shift+A — cycle through terminals
 	useEffect(() => {
-		const nextShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "terminal.selectNext")!;
-		const prevShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "terminal.selectPrev")!;
+		const nextShortcut = SHORTCUT_REGISTRY.find(
+			(s) => s.id === "terminal.selectNext",
+		)!;
+		const prevShortcut = SHORTCUT_REGISTRY.find(
+			(s) => s.id === "terminal.selectPrev",
+		)!;
 		const handler = (e: KeyboardEvent) => {
 			const isNext = nextShortcut.predicate(e, appPlatform);
 			const isPrev = prevShortcut.predicate(e, appPlatform);
@@ -2249,8 +2292,16 @@ export function App() {
 			const nextProcessId = processes[nextIdx]?.id;
 			if (!nextProcessId) return;
 			e.preventDefault();
-			dispatch({ type: "session/selectProcess", worktreeId: currentWorktreeId, processId: nextProcessId });
-			dispatch({ type: "session/markProcessViewed", worktreeId: currentWorktreeId, processId: nextProcessId });
+			dispatch({
+				type: "session/selectProcess",
+				worktreeId: currentWorktreeId,
+				processId: nextProcessId,
+			});
+			dispatch({
+				type: "session/markProcessViewed",
+				worktreeId: currentWorktreeId,
+				processId: nextProcessId,
+			});
 		};
 		document.addEventListener("keydown", handler);
 		return () => document.removeEventListener("keydown", handler);
@@ -2258,7 +2309,9 @@ export function App() {
 
 	// Cmd+D / Ctrl+D — toggle split terminal mode
 	useEffect(() => {
-		const shortcut = SHORTCUT_REGISTRY.find((s) => s.id === "terminal.toggleSplit")!;
+		const shortcut = SHORTCUT_REGISTRY.find(
+			(s) => s.id === "terminal.toggleSplit",
+		)!;
 		const handler = (e: KeyboardEvent) => {
 			if (!shortcut.predicate(e, appPlatform)) return;
 			const currentState = workspaceStateRef.current;
@@ -2291,7 +2344,9 @@ export function App() {
 
 	// Cmd+B / Ctrl+B — toggle sidebar
 	useEffect(() => {
-		const shortcut = SHORTCUT_REGISTRY.find((s) => s.id === "layout.toggleSidebar")!;
+		const shortcut = SHORTCUT_REGISTRY.find(
+			(s) => s.id === "layout.toggleSidebar",
+		)!;
 		const handler = (e: KeyboardEvent) => {
 			if (!shortcut.predicate(e, appPlatform)) return;
 			e.preventDefault();
@@ -2303,24 +2358,40 @@ export function App() {
 
 	// Cmd+1/2/3 / Ctrl+1/2/3 — switch review pane tab and open drawer
 	useEffect(() => {
-		const filesShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "review.files")!;
-		const changesShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "review.changes")!;
-		const commitsShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "review.commits")!;
+		const filesShortcut = SHORTCUT_REGISTRY.find(
+			(s) => s.id === "review.files",
+		)!;
+		const changesShortcut = SHORTCUT_REGISTRY.find(
+			(s) => s.id === "review.changes",
+		)!;
+		const commitsShortcut = SHORTCUT_REGISTRY.find(
+			(s) => s.id === "review.commits",
+		)!;
 		const handler = (e: KeyboardEvent) => {
 			let reviewMode: "files" | "changes" | "commits" | null = null;
 			if (filesShortcut.predicate(e, appPlatform)) reviewMode = "files";
-			else if (changesShortcut.predicate(e, appPlatform)) reviewMode = "changes";
-			else if (commitsShortcut.predicate(e, appPlatform)) reviewMode = "commits";
+			else if (changesShortcut.predicate(e, appPlatform))
+				reviewMode = "changes";
+			else if (commitsShortcut.predicate(e, appPlatform))
+				reviewMode = "commits";
 			if (!reviewMode) return;
 			const currentState = workspaceStateRef.current;
 			const currentWorktreeId = currentState.selectedWorktreeId;
 			if (!currentWorktreeId) return;
 			e.preventDefault();
 			const session = currentState.sessionsByWorktreeId[currentWorktreeId];
-			dispatch({ type: "session/setReviewMode", worktreeId: currentWorktreeId, reviewMode });
+			dispatch({
+				type: "session/setReviewMode",
+				worktreeId: currentWorktreeId,
+				reviewMode,
+			});
 			if (!(session?.reviewDrawerOpen ?? false)) {
 				autoExpand.noteUserExpand(currentWorktreeId);
-				dispatch({ type: "session/setReviewDrawerOpen", worktreeId: currentWorktreeId, open: true });
+				dispatch({
+					type: "session/setReviewDrawerOpen",
+					worktreeId: currentWorktreeId,
+					open: true,
+				});
 			}
 		};
 		document.addEventListener("keydown", handler);
@@ -2759,7 +2830,11 @@ export function App() {
 						note={activeSession?.note ?? ""}
 						onNoteChange={(note) => {
 							if (activeWorktree) {
-								dispatch({ type: "session/setNote", worktreeId: activeWorktree.id, note });
+								dispatch({
+									type: "session/setNote",
+									worktreeId: activeWorktree.id,
+									note,
+								});
 							}
 						}}
 						onClose={() => setNoteSheetOpen(false)}
@@ -3093,9 +3168,7 @@ export function App() {
 												) : activeSession?.reviewMode === "files" ? (
 													<>
 														{openEditorError !== null && (
-															<p className="shell-error">
-																{openEditorError}
-															</p>
+															<p className="shell-error">{openEditorError}</p>
 														)}
 														<WorktreeTree
 															workspaceId={activeWorkspaceId ?? ""}
@@ -3114,9 +3187,7 @@ export function App() {
 															changedFiles={changes}
 															gitSummaryError={gitSummaryError}
 															gitSummaryMessage={gitSummaryMessage}
-															expandedPaths={
-																activeSession.treeExpandedPaths
-															}
+															expandedPaths={activeSession.treeExpandedPaths}
 															onExpandedPathsChange={(worktreeId, paths) =>
 																dispatch({
 																	type: "session/setTreeExpandedPaths",
@@ -3183,9 +3254,7 @@ export function App() {
 										{activeSession?.reviewMode === "commits" &&
 										commitDetailState.message !== null &&
 										commitDetailState.data === null ? (
-											<p className="shell-error">
-												{commitDetailState.message}
-											</p>
+											<p className="shell-error">{commitDetailState.message}</p>
 										) : activeSession?.reviewMode === "commits" &&
 										  commitDetailState.data ? (
 											<CommitDiffStack

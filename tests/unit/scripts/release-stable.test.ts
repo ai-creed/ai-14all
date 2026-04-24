@@ -13,7 +13,10 @@ describe("parseCli", () => {
 		expect(parseCli(["major"])).toEqual({ mode: "bump", bump: "major" });
 	});
 	it("parses explicit version", () => {
-		expect(parseCli(["--version", "0.1.0"])).toEqual({ mode: "explicit", version: "0.1.0" });
+		expect(parseCli(["--version", "0.1.0"])).toEqual({
+			mode: "explicit",
+			version: "0.1.0",
+		});
 	});
 	it("rejects unknown input", () => {
 		expect(() => parseCli([])).toThrow();
@@ -23,27 +26,51 @@ describe("parseCli", () => {
 
 describe("computeTargetVersion", () => {
 	it("bumps patch on an already-stable version", () => {
-		expect(computeTargetVersion({ current: "0.1.0", cli: { mode: "bump", bump: "patch" } })).toBe("0.1.1");
+		expect(
+			computeTargetVersion({
+				current: "0.1.0",
+				cli: { mode: "bump", bump: "patch" },
+			}),
+		).toBe("0.1.1");
 	});
 	it("bumps minor and resets patch", () => {
-		expect(computeTargetVersion({ current: "0.1.4", cli: { mode: "bump", bump: "minor" } })).toBe("0.2.0");
+		expect(
+			computeTargetVersion({
+				current: "0.1.4",
+				cli: { mode: "bump", bump: "minor" },
+			}),
+		).toBe("0.2.0");
 	});
 	it("bumps major and resets minor and patch", () => {
-		expect(computeTargetVersion({ current: "0.3.2", cli: { mode: "bump", bump: "major" } })).toBe("1.0.0");
+		expect(
+			computeTargetVersion({
+				current: "0.3.2",
+				cli: { mode: "bump", bump: "major" },
+			}),
+		).toBe("1.0.0");
 	});
 	it("accepts explicit version from any current version", () => {
 		expect(
-			computeTargetVersion({ current: "0.1.0-beta.14", cli: { mode: "explicit", version: "0.1.0" } }),
+			computeTargetVersion({
+				current: "0.1.0-beta.14",
+				cli: { mode: "explicit", version: "0.1.0" },
+			}),
 		).toBe("0.1.0");
 	});
 	it("rejects bump mode when current is non-stable", () => {
 		expect(() =>
-			computeTargetVersion({ current: "0.1.0-beta.14", cli: { mode: "bump", bump: "patch" } }),
+			computeTargetVersion({
+				current: "0.1.0-beta.14",
+				cli: { mode: "bump", bump: "patch" },
+			}),
 		).toThrow(/explicit/);
 	});
 	it("rejects explicit version that is not stable semver", () => {
 		expect(() =>
-			computeTargetVersion({ current: "0.1.0", cli: { mode: "explicit", version: "0.1.0-beta.1" } }),
+			computeTargetVersion({
+				current: "0.1.0",
+				cli: { mode: "explicit", version: "0.1.0-beta.1" },
+			}),
 		).toThrow();
 	});
 });

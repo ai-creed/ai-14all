@@ -13,7 +13,10 @@ files:
 
 describe("decideUpdateAction", () => {
 	it("notifies when the manifest version is newer", () => {
-		const result = decideUpdateAction({ currentVersion: "0.1.0", manifestYaml: PUBLISHED });
+		const result = decideUpdateAction({
+			currentVersion: "0.1.0",
+			manifestYaml: PUBLISHED,
+		});
 		expect(result.kind).toBe("notify");
 		if (result.kind !== "notify") return;
 		expect(result.info.version).toBe("0.1.1");
@@ -23,13 +26,19 @@ describe("decideUpdateAction", () => {
 	});
 
 	it("stays silent when the manifest version equals current", () => {
-		const result = decideUpdateAction({ currentVersion: "0.1.1", manifestYaml: PUBLISHED });
+		const result = decideUpdateAction({
+			currentVersion: "0.1.1",
+			manifestYaml: PUBLISHED,
+		});
 		expect(result.kind).toBe("silent");
 	});
 
 	it("stays silent when the manifest is invalid", () => {
 		const broken = PUBLISHED.replace("version: 0.1.1", "version: 0.1.1-beta.1");
-		const result = decideUpdateAction({ currentVersion: "0.1.0", manifestYaml: broken });
+		const result = decideUpdateAction({
+			currentVersion: "0.1.0",
+			manifestYaml: broken,
+		});
 		expect(result.kind).toBe("silent");
 	});
 

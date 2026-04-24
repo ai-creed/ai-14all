@@ -34,9 +34,16 @@ export function RemoveWorktreeDialog({
 						<div className="shell-modal__preview">
 							<div>Name: {preview.label}</div>
 							<div>Branch: {preview.branchName}</div>
-							<div>Path: <code>{preview.path}</code></div>
+							<div>
+								Path: <code>{preview.path}</code>
+							</div>
 							<div>Dirty worktree: {preview.isDirty ? "yes" : "no"}</div>
-							<div>Running app sessions: {runningProcessLabels.length === 0 ? "none" : runningProcessLabels.join(", ")}</div>
+							<div>
+								Running app sessions:{" "}
+								{runningProcessLabels.length === 0
+									? "none"
+									: runningProcessLabels.join(", ")}
+							</div>
 						</div>
 					)}
 					{preview?.isDirty && (
@@ -45,16 +52,24 @@ export function RemoveWorktreeDialog({
 								type="checkbox"
 								checked={confirmedDirty}
 								onChange={(e) => onConfirmedDirtyChange(e.target.checked)}
-							/>
-							{" "}I understand this worktree has uncommitted changes
+							/>{" "}
+							I understand this worktree has uncommitted changes
 						</label>
 					)}
 					<p className="shell-modal__copy">
-						This will remove the linked worktree and force-delete its local branch.
+						This will remove the linked worktree and force-delete its local
+						branch.
 					</p>
 					{error && <div className="shell-error-banner">{error}</div>}
 					<div className="shell-modal__actions">
-						<button type="button" className="shell-button shell-button--danger" onClick={onConfirm} disabled={!preview || busy || (preview.isDirty && !confirmedDirty)}>
+						<button
+							type="button"
+							className="shell-button shell-button--danger"
+							onClick={onConfirm}
+							disabled={
+								!preview || busy || (preview.isDirty && !confirmedDirty)
+							}
+						>
 							{busy ? "Removing…" : "Remove worktree"}
 						</button>
 					</div>

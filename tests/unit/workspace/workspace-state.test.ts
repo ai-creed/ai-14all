@@ -49,13 +49,13 @@ function makeProcess(
 		origin: "adHoc",
 		presetId: null,
 		label,
-			command: null,
-			status: "running",
-			lastActivityAt: null,
-			lastOutputPreview: null,
-			exitCode: null,
-			pinned: false,
-			attentionState: "idle",
+		command: null,
+		status: "running",
+		lastActivityAt: null,
+		lastOutputPreview: null,
+		exitCode: null,
+		pinned: false,
+		attentionState: "idle",
 	};
 }
 
@@ -120,13 +120,13 @@ describe("workspaceReducer", () => {
 				origin: "adHoc",
 				presetId: null,
 				label: "shell 1",
-					command: null,
-					status: "running",
-					lastActivityAt: null,
-					lastOutputPreview: null,
-					exitCode: null,
-					pinned: false,
-					attentionState: "idle",
+				command: null,
+				status: "running",
+				lastActivityAt: null,
+				lastOutputPreview: null,
+				exitCode: null,
+				pinned: false,
+				attentionState: "idle",
 			},
 		});
 		state = workspaceReducer(state, {
@@ -140,13 +140,13 @@ describe("workspaceReducer", () => {
 				origin: "adHoc",
 				presetId: null,
 				label: "shell 2",
-					command: null,
-					status: "running",
-					lastActivityAt: null,
-					lastOutputPreview: null,
-					exitCode: null,
-					pinned: false,
-					attentionState: "idle",
+				command: null,
+				status: "running",
+				lastActivityAt: null,
+				lastOutputPreview: null,
+				exitCode: null,
+				pinned: false,
+				attentionState: "idle",
 			},
 		});
 		state = workspaceReducer(state, {
@@ -176,13 +176,13 @@ describe("workspaceReducer", () => {
 				origin: "adHoc",
 				presetId: null,
 				label: "shell 1",
-					command: null,
-					status: "running",
-					lastActivityAt: null,
-					lastOutputPreview: null,
-					exitCode: null,
-					pinned: false,
-					attentionState: "idle",
+				command: null,
+				status: "running",
+				lastActivityAt: null,
+				lastOutputPreview: null,
+				exitCode: null,
+				pinned: false,
+				attentionState: "idle",
 			},
 		});
 
@@ -296,10 +296,7 @@ describe("workspaceReducer — Phase 3 process model", () => {
 			type: "preset/upsert",
 			preset,
 		});
-		expect(state.commandPresets).toEqual([
-			...DEFAULT_COMMAND_PRESETS,
-			preset,
-		]);
+		expect(state.commandPresets).toEqual([...DEFAULT_COMMAND_PRESETS, preset]);
 	});
 
 	it("registers preset-launched process sessions as pinned", () => {
@@ -315,13 +312,13 @@ describe("workspaceReducer — Phase 3 process model", () => {
 				origin: "preset",
 				presetId: "preset-claude",
 				label: "Claude",
-					command: "claude",
-					status: "running",
-					lastActivityAt: null,
-					lastOutputPreview: null,
-					exitCode: null,
-					pinned: true,
-					attentionState: "idle",
+				command: "claude",
+				status: "running",
+				lastActivityAt: null,
+				lastOutputPreview: null,
+				exitCode: null,
+				pinned: true,
+				attentionState: "idle",
 			},
 		});
 		expect(state.processSessionsById["process-1"]?.pinned).toBe(true);
@@ -343,13 +340,13 @@ describe("workspaceReducer — Phase 3 process model", () => {
 				origin: "preset",
 				presetId: "preset-claude",
 				label: "Claude",
-					command: "claude",
-					status: "running",
-					lastActivityAt: null,
-					lastOutputPreview: null,
-					exitCode: null,
-					pinned: true,
-					attentionState: "idle",
+				command: "claude",
+				status: "running",
+				lastActivityAt: null,
+				lastOutputPreview: null,
+				exitCode: null,
+				pinned: true,
+				attentionState: "idle",
 			},
 		});
 		state = workspaceReducer(state, {
@@ -480,7 +477,9 @@ describe("workspaceReducer — git summary stale state", () => {
 
 		expect(next.sessionsByWorktreeId.wt1.gitSummary).toEqual(summary);
 		expect(next.sessionsByWorktreeId.wt1.gitSummaryStale).toBe(true);
-		expect(next.sessionsByWorktreeId.wt1.gitSummaryMessage).toMatch(/showing last successful result/i);
+		expect(next.sessionsByWorktreeId.wt1.gitSummaryMessage).toMatch(
+			/showing last successful result/i,
+		);
 	});
 
 	it("session/startGitSummaryRefresh clears the message when not already stale", () => {
@@ -647,8 +646,12 @@ describe("workspaceReducer — split shell mode", () => {
 		});
 
 		expect(state.sessionsByWorktreeId.main.terminalLayoutMode).toBe("split");
-		expect(state.sessionsByWorktreeId.main.splitLeftProcessId).toBe("process-1");
-		expect(state.sessionsByWorktreeId.main.splitRightProcessId).toBe("process-2");
+		expect(state.sessionsByWorktreeId.main.splitLeftProcessId).toBe(
+			"process-1",
+		);
+		expect(state.sessionsByWorktreeId.main.splitRightProcessId).toBe(
+			"process-2",
+		);
 	});
 
 	it("auto-assigns exactly two processes when enabling split mode with empty slots", () => {
@@ -671,8 +674,12 @@ describe("workspaceReducer — split shell mode", () => {
 		});
 
 		expect(state.sessionsByWorktreeId.main.terminalLayoutMode).toBe("split");
-		expect(state.sessionsByWorktreeId.main.splitLeftProcessId).toBe("process-1");
-		expect(state.sessionsByWorktreeId.main.splitRightProcessId).toBe("process-2");
+		expect(state.sessionsByWorktreeId.main.splitLeftProcessId).toBe(
+			"process-1",
+		);
+		expect(state.sessionsByWorktreeId.main.splitRightProcessId).toBe(
+			"process-2",
+		);
 	});
 
 	it("keeps existing split assignments when enabling split mode again", () => {
@@ -711,8 +718,12 @@ describe("workspaceReducer — split shell mode", () => {
 			autoAssignProcessIds: ["process-1", "process-2"],
 		});
 
-		expect(state.sessionsByWorktreeId.main.splitLeftProcessId).toBe("process-2");
-		expect(state.sessionsByWorktreeId.main.splitRightProcessId).toBe("process-1");
+		expect(state.sessionsByWorktreeId.main.splitLeftProcessId).toBe(
+			"process-2",
+		);
+		expect(state.sessionsByWorktreeId.main.splitRightProcessId).toBe(
+			"process-1",
+		);
 	});
 
 	it("clears split slots that reference a closed process", () => {
@@ -779,29 +790,85 @@ describe("workspaceReducer — Phase 6 commit review state", () => {
 
 describe("session/setTreeExpandedPaths", () => {
 	it("updates treeExpandedPaths on the target session only", () => {
-		const wtA: Worktree = { id: "wt-a", repositoryId: "repo-1", branchName: "a", path: "/tmp/a", label: "a", isMain: true };
-		const wtB: Worktree = { id: "wt-b", repositoryId: "repo-1", branchName: "b", path: "/tmp/b", label: "b", isMain: false };
+		const wtA: Worktree = {
+			id: "wt-a",
+			repositoryId: "repo-1",
+			branchName: "a",
+			path: "/tmp/a",
+			label: "a",
+			isMain: true,
+		};
+		const wtB: Worktree = {
+			id: "wt-b",
+			repositoryId: "repo-1",
+			branchName: "b",
+			path: "/tmp/b",
+			label: "b",
+			isMain: false,
+		};
 		const initial = createWorkspaceState([wtA, wtB]);
-		const next = workspaceReducer(initial, { type: "session/setTreeExpandedPaths", worktreeId: "wt-a", paths: ["", "src"] });
-		expect(next.sessionsByWorktreeId["wt-a"].treeExpandedPaths).toEqual(["", "src"]);
+		const next = workspaceReducer(initial, {
+			type: "session/setTreeExpandedPaths",
+			worktreeId: "wt-a",
+			paths: ["", "src"],
+		});
+		expect(next.sessionsByWorktreeId["wt-a"].treeExpandedPaths).toEqual([
+			"",
+			"src",
+		]);
 		expect(next.sessionsByWorktreeId["wt-b"].treeExpandedPaths).toEqual([]);
 	});
 
 	it("is a no-op when the worktreeId is unknown", () => {
-		const wtA: Worktree = { id: "wt-a", repositoryId: "repo-1", branchName: "a", path: "/tmp/a", label: "a", isMain: true };
+		const wtA: Worktree = {
+			id: "wt-a",
+			repositoryId: "repo-1",
+			branchName: "a",
+			path: "/tmp/a",
+			label: "a",
+			isMain: true,
+		};
 		const initial = createWorkspaceState([wtA]);
-		const next = workspaceReducer(initial, { type: "session/setTreeExpandedPaths", worktreeId: "wt-does-not-exist", paths: ["x"] });
+		const next = workspaceReducer(initial, {
+			type: "session/setTreeExpandedPaths",
+			worktreeId: "wt-does-not-exist",
+			paths: ["x"],
+		});
 		expect(next).toBe(initial);
 	});
 
 	it("drops treeExpandedPaths when workspace/reconcileWorktrees removes that worktree (spec §4.6)", () => {
-		const wtA: Worktree = { id: "wt-a", repositoryId: "repo-1", branchName: "a", path: "/tmp/a", label: "a", isMain: true };
-		const wtB: Worktree = { id: "wt-b", repositoryId: "repo-1", branchName: "b", path: "/tmp/b", label: "b", isMain: false };
+		const wtA: Worktree = {
+			id: "wt-a",
+			repositoryId: "repo-1",
+			branchName: "a",
+			path: "/tmp/a",
+			label: "a",
+			isMain: true,
+		};
+		const wtB: Worktree = {
+			id: "wt-b",
+			repositoryId: "repo-1",
+			branchName: "b",
+			path: "/tmp/b",
+			label: "b",
+			isMain: false,
+		};
 		let state = createWorkspaceState([wtA, wtB]);
-		state = workspaceReducer(state, { type: "session/setTreeExpandedPaths", worktreeId: "wt-b", paths: ["", "src"] });
-		expect(state.sessionsByWorktreeId["wt-b"].treeExpandedPaths).toEqual(["", "src"]);
+		state = workspaceReducer(state, {
+			type: "session/setTreeExpandedPaths",
+			worktreeId: "wt-b",
+			paths: ["", "src"],
+		});
+		expect(state.sessionsByWorktreeId["wt-b"].treeExpandedPaths).toEqual([
+			"",
+			"src",
+		]);
 
-		const after = workspaceReducer(state, { type: "workspace/reconcileWorktrees", worktrees: [wtA] });
+		const after = workspaceReducer(state, {
+			type: "workspace/reconcileWorktrees",
+			worktrees: [wtA],
+		});
 
 		expect(after.sessionsByWorktreeId["wt-b"]).toBeUndefined();
 		expect(after.sessionsByWorktreeId["wt-a"].treeExpandedPaths).toEqual([]);
@@ -870,7 +937,9 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 		expect(state.selectedWorktreeId).toBe("feature-a");
 		expect(state.commandPresets).toEqual([preset]);
 		expect(state.sessionsByWorktreeId["feature-a"].note).toBe("resume here");
-		expect(state.sessionsByWorktreeId["feature-a"].activeProcessSessionId).toBe("process-1");
+		expect(state.sessionsByWorktreeId["feature-a"].activeProcessSessionId).toBe(
+			"process-1",
+		);
 		expect(state.processSessionsById["process-1"]).toMatchObject({
 			terminalSessionId: null,
 			status: "restarting",
@@ -913,7 +982,9 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 			},
 		});
 
-		expect(state.sessionsByWorktreeId["feature-a"].selectedFilePath).toBe("src/new-file.ts");
+		expect(state.sessionsByWorktreeId["feature-a"].selectedFilePath).toBe(
+			"src/new-file.ts",
+		);
 		expect(state.nextAdHocNumberByWorktreeId["feature-a"]).toBe(4);
 		expect(state.processSessionsById["process-2"]?.status).toBe("restarting");
 	});
@@ -945,7 +1016,9 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 		expect(state.sessionsByWorktreeId.main.reviewMode).toBe("commits");
 		expect(state.sessionsByWorktreeId.main.viewerMode).toBe("commit");
 		expect(state.sessionsByWorktreeId.main.selectedCommitSha).toBe("abc1234");
-		expect(state.sessionsByWorktreeId.main.selectedCommitFilePath).toBe("src/index.ts");
+		expect(state.sessionsByWorktreeId.main.selectedCommitFilePath).toBe(
+			"src/index.ts",
+		);
 	});
 
 	it("clamps activeProcessSessionId when it no longer matches a restored process", () => {
@@ -982,13 +1055,17 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 			},
 		});
 
-		expect(state.sessionsByWorktreeId["feature-a"].activeProcessSessionId).toBe("process-1");
+		expect(state.sessionsByWorktreeId["feature-a"].activeProcessSessionId).toBe(
+			"process-1",
+		);
 	});
 });
 
 describe("persistence omits treeExpandedPaths", () => {
 	it("is not a key in the persisted schema shape (guards §4.6)", () => {
-		expect(Object.keys(PersistedWorktreeSessionSchema.shape)).not.toContain("treeExpandedPaths");
+		expect(Object.keys(PersistedWorktreeSessionSchema.shape)).not.toContain(
+			"treeExpandedPaths",
+		);
 	});
 
 	it("strips treeExpandedPaths from parse output even if supplied", () => {
@@ -1019,7 +1096,13 @@ describe("createWorkspaceState title default", () => {
 describe("createWorkspaceState reviewDrawerOpen default", () => {
 	it("createWorkspaceState defaults reviewDrawerOpen to false for new sessions", () => {
 		const state = createWorkspaceState([
-			{ id: "/repo", label: "main", branchName: "main", path: "/repo", isMain: true },
+			{
+				id: "/repo",
+				label: "main",
+				branchName: "main",
+				path: "/repo",
+				isMain: true,
+			},
 		] as unknown as Parameters<typeof createWorkspaceState>[0]);
 		expect(state.sessionsByWorktreeId["/repo"].reviewDrawerOpen).toBe(false);
 	});
@@ -1109,7 +1192,13 @@ describe("session/setTitle", () => {
 describe("session/setReviewDrawerOpen", () => {
 	it("session/setReviewDrawerOpen sets the flag on the target session", () => {
 		const state = createWorkspaceState([
-			{ id: "/repo", label: "main", branchName: "main", path: "/repo", isMain: true },
+			{
+				id: "/repo",
+				label: "main",
+				branchName: "main",
+				path: "/repo",
+				isMain: true,
+			},
 		] as unknown as Parameters<typeof createWorkspaceState>[0]);
 		const next = workspaceReducer(state, {
 			type: "session/setReviewDrawerOpen",
@@ -1121,7 +1210,13 @@ describe("session/setReviewDrawerOpen", () => {
 
 	it("session/setReviewDrawerOpen is a no-op for an unknown worktreeId", () => {
 		const state = createWorkspaceState([
-			{ id: "/repo", label: "main", branchName: "main", path: "/repo", isMain: true },
+			{
+				id: "/repo",
+				label: "main",
+				branchName: "main",
+				path: "/repo",
+				isMain: true,
+			},
 		] as unknown as Parameters<typeof createWorkspaceState>[0]);
 		const next = workspaceReducer(state, {
 			type: "session/setReviewDrawerOpen",
@@ -1135,7 +1230,13 @@ describe("session/setReviewDrawerOpen", () => {
 describe("restorePersistedSession reviewDrawerOpen hydration", () => {
 	it("restorePersistedSession restores reviewDrawerOpen=true from snapshot", () => {
 		const state = createWorkspaceState([
-			{ id: "/repo", label: "main", branchName: "main", path: "/repo", isMain: true },
+			{
+				id: "/repo",
+				label: "main",
+				branchName: "main",
+				path: "/repo",
+				isMain: true,
+			},
 		] as unknown as Parameters<typeof createWorkspaceState>[0]);
 		const snapshot = {
 			worktreeId: "/repo",
@@ -1165,7 +1266,13 @@ describe("restorePersistedSession reviewDrawerOpen hydration", () => {
 
 	it("restorePersistedSession restores reviewDrawerOpen=false (explicit collapsed)", () => {
 		const state = createWorkspaceState([
-			{ id: "/repo", label: "main", branchName: "main", path: "/repo", isMain: true },
+			{
+				id: "/repo",
+				label: "main",
+				branchName: "main",
+				path: "/repo",
+				isMain: true,
+			},
 		] as unknown as Parameters<typeof createWorkspaceState>[0]);
 		// Seed session with open=true first
 		state.sessionsByWorktreeId["/repo"].reviewDrawerOpen = true;

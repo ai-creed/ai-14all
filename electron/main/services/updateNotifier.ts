@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
 import type { WebContents } from "electron";
 import { parseManifest } from "../../../shared/update/manifest.js";
-import { compareStableVersions, isStableVersion } from "../../../shared/update/semver.js";
+import {
+	compareStableVersions,
+	isStableVersion,
+} from "../../../shared/update/semver.js";
 import type { UpdateInfo } from "../../../shared/contracts/commands.js";
 
 export type UpdateDecision =
@@ -81,7 +84,8 @@ export function startUpdateNotifier(args: StartArgs): () => void {
 					process.env.AI14ALL_E2E_UPDATE_URL ??
 					"https://downloads.ai-creed.dev/ai-14all/99.0.0/ai-14all-99.0.0-arm64.dmg",
 				releaseDate:
-					process.env.AI14ALL_E2E_UPDATE_RELEASE_DATE ?? new Date().toISOString(),
+					process.env.AI14ALL_E2E_UPDATE_RELEASE_DATE ??
+					new Date().toISOString(),
 			};
 			args.webContents.send("update:available", info);
 			return;

@@ -5,7 +5,9 @@ import "./app/shell.css";
 
 if (import.meta.hot) {
 	import.meta.hot.on("vite:beforeFullReload", () => {
-		console.warn("[HMR] Full page reload blocked to preserve terminal sessions.");
+		console.warn(
+			"[HMR] Full page reload blocked to preserve terminal sessions.",
+		);
 		throw "[HMR] Blocked";
 	});
 }

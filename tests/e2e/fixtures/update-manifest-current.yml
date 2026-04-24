@@ -1,7 +1,7 @@
 # NOTE: version field is patched at test time to match the running app's version.
 # The placeholder __CURRENT_VERSION__ is replaced before the fixture is written to disk.
 version: __CURRENT_VERSION__
-releaseDate: '2026-04-24T12:00:00.000Z'
+releaseDate: "2026-04-24T12:00:00.000Z"
 path: https://github.com/ai-creed/ai-14all/releases/download/v__CURRENT_VERSION__/ai-14all-__CURRENT_VERSION__-arm64.dmg
 sha512: ZHVtbXktc2hhNTEy
 files:

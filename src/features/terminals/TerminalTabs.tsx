@@ -108,7 +108,11 @@ export function TerminalTabs({
 															: "none"
 												}
 												{...(process.lastActivityAt != null
-													? { "data-last-activity": String(process.lastActivityAt) }
+													? {
+															"data-last-activity": String(
+																process.lastActivityAt,
+															),
+														}
 													: {})}
 											>
 												<span className="shell-terminal-tab__label">
@@ -206,7 +210,10 @@ export function TerminalTabs({
 
 						<DropdownMenu.Root>
 							<DropdownMenu.Trigger asChild>
-								<button type="button" className="shell-button shell-button--compact">
+								<button
+									type="button"
+									className="shell-button shell-button--compact"
+								>
 									Presets
 								</button>
 							</DropdownMenu.Trigger>

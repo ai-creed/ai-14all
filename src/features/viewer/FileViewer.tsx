@@ -15,7 +15,12 @@ interface FileViewerProps {
 	onEditFile?: (path: string) => void;
 }
 
-export function FileViewer({ worktreePath, relativePath, resolvedTheme, onEditFile }: FileViewerProps) {
+export function FileViewer({
+	worktreePath,
+	relativePath,
+	resolvedTheme,
+	onEditFile,
+}: FileViewerProps) {
 	const [fileView, setFileView] = useState<FileView | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [stale, setStale] = useState(false);
@@ -81,7 +86,8 @@ export function FileViewer({ worktreePath, relativePath, resolvedTheme, onEditFi
 
 	if (loading && !fileView)
 		return <p className="shell-empty-state">Loading {relativePath}…</p>;
-	if (message && !fileView) return <p className="shell-error">Error: {message}</p>;
+	if (message && !fileView)
+		return <p className="shell-error">Error: {message}</p>;
 	if (!fileView) return null;
 
 	const basename = relativePath.split("/").pop() ?? "";
@@ -125,7 +131,9 @@ export function FileViewer({ worktreePath, relativePath, resolvedTheme, onEditFi
 				</div>
 			)}
 			{message && (
-				<p className={stale ? "shell-inline-warning" : "shell-error"}>{message}</p>
+				<p className={stale ? "shell-inline-warning" : "shell-error"}>
+					{message}
+				</p>
 			)}
 			{stale && (
 				<button type="button" onClick={() => setReloadToken((x) => x + 1)}>

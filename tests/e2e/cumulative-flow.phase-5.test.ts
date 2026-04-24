@@ -5,7 +5,13 @@ import {
 	type ElectronApplication,
 	type Page,
 } from "@playwright/test";
-import { mkdtempSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+	mkdtempSync,
+	realpathSync,
+	renameSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
@@ -78,16 +84,24 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 
 		// Phase 6: a default "shell 1" is auto-created on worktree activation.
 		// Wait for it to be stable before interacting with the Changes panel.
-		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible({ timeout: 10_000 });
+		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible({
+			timeout: 10_000,
+		});
 		await page.getByRole("button", { name: /open note/i }).click();
-		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
-		await page.getByRole("textbox", { name: /session note/i }).fill("resume here");
+		await expect(
+			page.getByRole("dialog", { name: /session note/i }),
+		).toBeVisible();
+		await page
+			.getByRole("textbox", { name: /session note/i })
+			.fill("resume here");
 		await page.keyboard.press("Escape");
 		// Phase 6: force clicks in the review panel because the xterm pane in
 		// the same column keeps the accessibility tree in flux.
 		await ensureReviewDrawerOpen(page);
 		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
-		await page.getByRole("button", { name: /src\/index\.ts/ }).click({ force: true });
+		await page
+			.getByRole("button", { name: /src\/index\.ts/ })
+			.click({ force: true });
 
 		await page
 			.getByRole("navigation", { name: "Worktree sessions" })
@@ -97,7 +111,10 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		// Wait for it so the session is persisted with at least one process.
 		// Match by position — xterm title changes to CWD almost immediately.
 		await expect(
-			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
+			page
+				.getByRole("tablist", { name: "Terminal sessions" })
+				.getByRole("tab")
+				.first(),
 		).toBeVisible({ timeout: 10_000 });
 
 		await page
@@ -108,23 +125,34 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		await closeApp();
 		await launchApp();
 
-		await page.getByRole("button", { name: "Restore previous workspace" }).click();
+		await page
+			.getByRole("button", { name: "Restore previous workspace" })
+			.click();
 
 		await expect(
-			page.getByRole("navigation", { name: "Worktree sessions" }).getByRole("button", {
-				name: /feature-a/i,
-			}),
+			page
+				.getByRole("navigation", { name: "Worktree sessions" })
+				.getByRole("button", {
+					name: /feature-a/i,
+				}),
 		).toHaveAttribute("data-selected", "true");
 		await page.getByRole("button", { name: /open note/i }).click();
-		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
-		await expect(page.getByRole("textbox", { name: /session note/i })).toHaveValue("resume here");
+		await expect(
+			page.getByRole("dialog", { name: /session note/i }),
+		).toBeVisible();
+		await expect(
+			page.getByRole("textbox", { name: /session note/i }),
+		).toHaveValue("resume here");
 		await page.keyboard.press("Escape");
 		await ensureReviewDrawerOpen(page);
 		await expect(page.getByText("Diff vs HEAD")).toBeVisible();
 		// Match by position — xterm title changes to CWD almost immediately,
 		// so "shell 1" cannot be matched reliably after restore.
 		await expect(
-			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
+			page
+				.getByRole("tablist", { name: "Terminal sessions" })
+				.getByRole("tab")
+				.first(),
 		).toBeVisible();
 
 		// The main session's shell has not been hydrated yet — TerminalTabs
@@ -147,7 +175,10 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		// the terminal tablist rather than "shell 1" because the xterm title may
 		// have already changed to the shell CWD by the time we check.
 		await expect(
-			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
+			page
+				.getByRole("tablist", { name: "Terminal sessions" })
+				.getByRole("tab")
+				.first(),
 		).toBeVisible();
 	});
 
@@ -163,9 +194,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		await page.getByLabel("Remember my choice").check();
 		await page.getByRole("button", { name: "Start clean" }).click();
 
-		await expect(
-			page.getByRole("button", { name: "Load" }),
-		).toBeVisible();
+		await expect(page.getByRole("button", { name: "Load" })).toBeVisible();
 
 		await closeApp();
 		await launchApp();
@@ -217,7 +246,9 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 
 		// Tick "Remember my choice" and restore — this persists alwaysRestore
 		await page.getByLabel("Remember my choice").check();
-		await page.getByRole("button", { name: "Restore previous workspace" }).click();
+		await page
+			.getByRole("button", { name: "Restore previous workspace" })
+			.click();
 
 		await expect(
 			page
@@ -225,8 +256,12 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 				.getByRole("button", { name: /feature-a/i }),
 		).toHaveAttribute("data-selected", "true");
 		await page.getByRole("button", { name: /open note/i }).click();
-		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
-		await expect(page.getByRole("textbox", { name: /session note/i })).toHaveValue("always-restore note");
+		await expect(
+			page.getByRole("dialog", { name: /session note/i }),
+		).toBeVisible();
+		await expect(
+			page.getByRole("textbox", { name: /session note/i }),
+		).toHaveValue("always-restore note");
 		await page.keyboard.press("Escape");
 
 		await closeApp();
@@ -243,8 +278,12 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 				.getByRole("button", { name: /feature-a/i }),
 		).toHaveAttribute("data-selected", "true");
 		await page.getByRole("button", { name: /open note/i }).click();
-		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
-		await expect(page.getByRole("textbox", { name: /session note/i })).toHaveValue("always-restore note");
+		await expect(
+			page.getByRole("dialog", { name: /session note/i }),
+		).toBeVisible();
+		await expect(
+			page.getByRole("textbox", { name: /session note/i }),
+		).toHaveValue("always-restore note");
 		await page.keyboard.press("Escape");
 	});
 
@@ -254,7 +293,11 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		await closeApp();
 		writeFileSync(
 			persistedStatePath,
-			JSON.stringify({ version: 1, restorePreference: "alwaysRestore", snapshot: null }),
+			JSON.stringify({
+				version: 1,
+				restorePreference: "alwaysRestore",
+				snapshot: null,
+			}),
 		);
 		await launchApp(60_000);
 
@@ -267,10 +310,16 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 
-		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible({ timeout: 10_000 });
+		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible({
+			timeout: 10_000,
+		});
 		await page.getByRole("button", { name: /open note/i }).click();
-		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
-		await page.getByRole("textbox", { name: /session note/i }).fill("resume here");
+		await expect(
+			page.getByRole("dialog", { name: /session note/i }),
+		).toBeVisible();
+		await page
+			.getByRole("textbox", { name: /session note/i })
+			.fill("resume here");
 		await page.keyboard.press("Escape");
 
 		// Close the app — this persists the snapshot with the original path
@@ -282,7 +331,9 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 
 		// Relaunch — auto-restore fails (old path no longer exists) but snapshot is preserved
 		await launchApp();
-		await expect(page.getByRole("button", { name: "Load" })).toBeVisible({ timeout: 10_000 });
+		await expect(page.getByRole("button", { name: "Load" })).toBeVisible({
+			timeout: 10_000,
+		});
 
 		// Manually open the repo at its new path — reattachment should kick in
 		await page.locator("#repo-path").fill(renamedRepoPath);
@@ -290,8 +341,12 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 
 		// The session note must be recovered
 		await page.getByRole("button", { name: /open note/i }).click();
-		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
-		await expect(page.getByRole("textbox", { name: /session note/i })).toHaveValue("resume here", { timeout: 15_000 });
+		await expect(
+			page.getByRole("dialog", { name: /session note/i }),
+		).toBeVisible();
+		await expect(
+			page.getByRole("textbox", { name: /session note/i }),
+		).toHaveValue("resume here", { timeout: 15_000 });
 		await page.keyboard.press("Escape");
 		// A recovery banner must be visible
 		await expect(page.getByRole("status")).toContainText(/recovered/i);

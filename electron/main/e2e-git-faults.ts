@@ -8,7 +8,8 @@ type GitFaultState = {
 };
 
 export function consumeE2eGitFault(key: keyof GitFaultState): boolean {
-	if (!process.env.AI14ALL_E2E || !process.env.AI14ALL_E2E_GIT_FAULTS_PATH) return false;
+	if (!process.env.AI14ALL_E2E || !process.env.AI14ALL_E2E_GIT_FAULTS_PATH)
+		return false;
 	const controlPath = process.env.AI14ALL_E2E_GIT_FAULTS_PATH;
 	if (!existsSync(controlPath)) return false;
 

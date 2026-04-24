@@ -40,12 +40,17 @@ async function pathExists(path: string): Promise<boolean> {
 	}
 }
 
-async function localBranchExists(repository: Repository, branchName: string): Promise<boolean> {
+async function localBranchExists(
+	repository: Repository,
+	branchName: string,
+): Promise<boolean> {
 	return execFileAsync(
 		gitBinary,
 		["show-ref", "--verify", "--quiet", `refs/heads/${branchName}`],
 		{ cwd: repository.rootPath },
-	).then(() => true).catch(() => false);
+	)
+		.then(() => true)
+		.catch(() => false);
 }
 
 export class WorktreeService {
@@ -140,7 +145,10 @@ export class WorktreeService {
 	 * Returns the worktree whose `id` matches, or throws "Unknown worktree".
 	 * Used by IPC handlers that take `worktreeId` from the renderer.
 	 */
-	async findWorktree(repository: Repository, worktreeId: string): Promise<Worktree> {
+	async findWorktree(
+		repository: Repository,
+		worktreeId: string,
+	): Promise<Worktree> {
 		const worktrees = await this.listWorktrees(repository);
 		const match = worktrees.find((wt) => wt.id === worktreeId);
 		if (!match) throw new Error(`Unknown worktree: ${worktreeId}`);
@@ -153,13 +161,19 @@ export class WorktreeService {
 	): Promise<CreateWorktreePreview> {
 		const normalizedName = normalizeWorktreeName(name);
 		if (!normalizedName) {
-			throw new Error("Worktree name must contain at least one letter or number.");
+			throw new Error(
+				"Worktree name must contain at least one letter or number.",
+			);
 		}
 
 		try {
-			await execFileAsync(gitBinary, ["check-ref-format", "--branch", normalizedName], {
-				cwd: repository.rootPath,
-			});
+			await execFileAsync(
+				gitBinary,
+				["check-ref-format", "--branch", normalizedName],
+				{
+					cwd: repository.rootPath,
+				},
+			);
 		} catch {
 			throw new Error(`"${normalizedName}" is not a valid Git branch name.`);
 		}
@@ -188,10 +202,16 @@ export class WorktreeService {
 		};
 	}
 
-	async createWorktree(repository: Repository, name: string): Promise<Worktree> {
+	async createWorktree(
+		repository: Repository,
+		name: string,
+	): Promise<Worktree> {
 		const preview = await this.previewCreateWorktree(repository, name);
 		await mkdir(join(repository.rootPath, ".worktrees"), { recursive: true });
-		const branchExists = await localBranchExists(repository, preview.branchName);
+		const branchExists = await localBranchExists(
+			repository,
+			preview.branchName,
+		);
 		const createdBranch = !branchExists;
 		if (createdBranch) {
 			try {
@@ -227,9 +247,13 @@ export class WorktreeService {
 			);
 		}
 		const worktrees = await this.listWorktrees(repository);
-		const created = worktrees.find((entry) => entry.branchName === preview.branchName && !entry.isMain);
+		const created = worktrees.find(
+			(entry) => entry.branchName === preview.branchName && !entry.isMain,
+		);
 		if (!created) {
-			throw new Error(`Created worktree not found after refresh: ${preview.path}`);
+			throw new Error(
+				`Created worktree not found after refresh: ${preview.path}`,
+			);
 		}
 		return created;
 	}
@@ -258,17 +282,18 @@ export class WorktreeService {
 		};
 	}
 
-	async removeWorktree(repository: Repository, worktreeId: string): Promise<void> {
+	async removeWorktree(
+		repository: Repository,
+		worktreeId: string,
+	): Promise<void> {
 		const preview = await this.previewRemoveWorktree(repository, worktreeId);
 		await execFileAsync(
 			gitBinary,
 			["worktree", "remove", "--force", preview.path],
 			{ cwd: repository.rootPath },
 		);
-		await execFileAsync(
-			gitBinary,
-			["branch", "-D", preview.branchName],
-			{ cwd: repository.rootPath },
-		);
+		await execFileAsync(gitBinary, ["branch", "-D", preview.branchName], {
+			cwd: repository.rootPath,
+		});
 	}
 }

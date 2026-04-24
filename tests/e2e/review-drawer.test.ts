@@ -71,7 +71,9 @@ test.beforeAll(async () => {
 	execSync("git add .gitignore && git commit -m 'ignore worktrees'", {
 		cwd: testRepo.repoPath,
 	});
-	const stateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-review-drawer-")));
+	const stateDir = realpathSync(
+		mkdtempSync(join(tmpdir(), "ofa-review-drawer-")),
+	);
 	persistedStatePath = join(stateDir, "workspace-state.json");
 	await firstLaunch();
 }, 90_000);
@@ -132,7 +134,9 @@ test.describe.serial("Review drawer", () => {
 		await expect(
 			page.getByRole("button", { name: /\d+ changed/i }),
 		).toBeVisible({ timeout: 10_000 });
-		await expect(drawer()).toHaveAttribute("data-open", "true", { timeout: 5_000 });
+		await expect(drawer()).toHaveAttribute("data-open", "true", {
+			timeout: 5_000,
+		});
 
 		// Explicit collapse while dirty should stick through subsequent refreshes.
 		await page.getByRole("button", { name: /collapse review drawer/i }).click();

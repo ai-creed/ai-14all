@@ -16,34 +16,44 @@ describe("ShortcutsHelp", () => {
 
 	it("has accessible name 'Keyboard shortcuts'", () => {
 		render(<ShortcutsHelp open platform="mac" onClose={() => {}} />);
-		expect(screen.getByRole("dialog", { name: /keyboard shortcuts/i })).toBeInTheDocument();
+		expect(
+			screen.getByRole("dialog", { name: /keyboard shortcuts/i }),
+		).toBeInTheDocument();
 	});
 
 	it("renders a row for every registry entry", () => {
 		render(<ShortcutsHelp open platform="mac" onClose={() => {}} />);
 		for (const s of SHORTCUT_REGISTRY) {
-			expect(screen.getByTestId(`shortcuts-help-row-${s.id}`)).toBeInTheDocument();
+			expect(
+				screen.getByTestId(`shortcuts-help-row-${s.id}`),
+			).toBeInTheDocument();
 		}
 	});
 
 	it("shows each shortcut label", () => {
 		render(<ShortcutsHelp open platform="mac" onClose={() => {}} />);
 		for (const s of SHORTCUT_REGISTRY) {
-			expect(screen.getByTestId(`shortcuts-help-row-${s.id}`)).toHaveTextContent(s.label);
+			expect(
+				screen.getByTestId(`shortcuts-help-row-${s.id}`),
+			).toHaveTextContent(s.label);
 		}
 	});
 
 	it("shows mac display keys when platform='mac'", () => {
 		render(<ShortcutsHelp open platform="mac" onClose={() => {}} />);
 		for (const s of SHORTCUT_REGISTRY) {
-			expect(screen.getByTestId(`shortcuts-help-row-${s.id}`)).toHaveTextContent(s.mac);
+			expect(
+				screen.getByTestId(`shortcuts-help-row-${s.id}`),
+			).toHaveTextContent(s.mac);
 		}
 	});
 
 	it("shows other display keys when platform='other'", () => {
 		render(<ShortcutsHelp open platform="other" onClose={() => {}} />);
 		for (const s of SHORTCUT_REGISTRY) {
-			expect(screen.getByTestId(`shortcuts-help-row-${s.id}`)).toHaveTextContent(s.other);
+			expect(
+				screen.getByTestId(`shortcuts-help-row-${s.id}`),
+			).toHaveTextContent(s.other);
 		}
 	});
 
@@ -57,7 +67,9 @@ describe("ShortcutsHelp", () => {
 
 	it("renders a close button", () => {
 		render(<ShortcutsHelp open platform="mac" onClose={() => {}} />);
-		expect(screen.getByRole("button", { name: /close shortcuts/i })).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /close shortcuts/i }),
+		).toBeInTheDocument();
 	});
 
 	it("calls onClose when close button is clicked", async () => {

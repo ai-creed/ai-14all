@@ -52,7 +52,9 @@ describe("WorkspacePersistenceService", () => {
 						repositoryPath: "/repo",
 						repoId: null,
 						selectedWorktreeId: "feature-a",
-						commandPresets: [{ id: "preset-1", label: "Claude", command: "claude" }],
+						commandPresets: [
+							{ id: "preset-1", label: "Claude", command: "claude" },
+						],
 						worktreeSessions: [
 							{
 								worktreeId: "feature-a",
@@ -129,7 +131,11 @@ describe("WorkspacePersistenceService", () => {
 		// future schema version with an unknown field or a changed type)
 		writeFileSync(
 			filePath,
-			JSON.stringify({ version: 99, restorePreference: "unknown", snapshot: null }),
+			JSON.stringify({
+				version: 99,
+				restorePreference: "unknown",
+				snapshot: null,
+			}),
 			"utf8",
 		);
 
@@ -138,7 +144,9 @@ describe("WorkspacePersistenceService", () => {
 		});
 
 		// The file must NOT have been overwritten — preserve future-version data
-		const surviving = JSON.parse(readFileSync(filePath, "utf8")) as { version: number };
+		const surviving = JSON.parse(readFileSync(filePath, "utf8")) as {
+			version: number;
+		};
 		expect(surviving.version).toBe(99);
 	});
 

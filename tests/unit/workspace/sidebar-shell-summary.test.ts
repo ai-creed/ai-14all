@@ -57,7 +57,9 @@ describe("buildWorktreeProcessSummary", () => {
 			4,
 		);
 
-		expect(summary.rows.map((row) => [row.label, row.state, row.context])).toEqual([
+		expect(
+			summary.rows.map((row) => [row.label, row.state, row.context]),
+		).toEqual([
 			["claude", "actionRequired", "Continue? [y/N]"],
 			["lint", "exited", "exit 1"],
 			["dev", "active", "compiled in 124ms"],

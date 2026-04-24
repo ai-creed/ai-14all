@@ -72,7 +72,13 @@ describe("ChangesList", () => {
 
 	it("wraps the empty state in a padded rail message container", () => {
 		render(
-			<ChangesList worktreePath="/repo" changes={[]} selectedPath={null} onSelect={() => {}} onDiscardChange={vi.fn()} />,
+			<ChangesList
+				worktreePath="/repo"
+				changes={[]}
+				selectedPath={null}
+				onSelect={() => {}}
+				onDiscardChange={vi.fn()}
+			/>,
 		);
 
 		expect(screen.getByText("No changed files.").parentElement).toHaveClass(
@@ -103,7 +109,9 @@ describe("ChangesList", () => {
 		fireEvent.contextMenu(screen.getByRole("button", { name: /notes\.md/i }));
 		fireEvent.click(await screen.findByRole("menuitem", { name: "Preview" }));
 
-		expect(await screen.findByRole("heading", { name: "Preview Test" })).toBeInTheDocument();
+		expect(
+			await screen.findByRole("heading", { name: "Preview Test" }),
+		).toBeInTheDocument();
 		expect(mockRead).toHaveBeenCalledWith("/repo", "NOTES.md");
 	});
 
@@ -118,8 +126,12 @@ describe("ChangesList", () => {
 			/>,
 		);
 
-		fireEvent.contextMenu(screen.getByRole("button", { name: /src\/index\.ts/i }));
-		expect(screen.queryByRole("menuitem", { name: "Preview" })).not.toBeInTheDocument();
+		fireEvent.contextMenu(
+			screen.getByRole("button", { name: /src\/index\.ts/i }),
+		);
+		expect(
+			screen.queryByRole("menuitem", { name: "Preview" }),
+		).not.toBeInTheDocument();
 	});
 
 	it("shows Discard in context menu for all files", () => {
@@ -132,8 +144,12 @@ describe("ChangesList", () => {
 				onDiscardChange={vi.fn()}
 			/>,
 		);
-		fireEvent.contextMenu(screen.getByRole("button", { name: /src\/index\.ts/i }));
-		expect(screen.getByRole("menuitem", { name: "Discard changes" })).toBeInTheDocument();
+		fireEvent.contextMenu(
+			screen.getByRole("button", { name: /src\/index\.ts/i }),
+		);
+		expect(
+			screen.getByRole("menuitem", { name: "Discard changes" }),
+		).toBeInTheDocument();
 	});
 
 	it("shows both Preview and Discard for markdown files", () => {
@@ -147,8 +163,12 @@ describe("ChangesList", () => {
 			/>,
 		);
 		fireEvent.contextMenu(screen.getByRole("button", { name: /notes\.md/i }));
-		expect(screen.getByRole("menuitem", { name: "Preview" })).toBeInTheDocument();
-		expect(screen.getByRole("menuitem", { name: "Discard changes" })).toBeInTheDocument();
+		expect(
+			screen.getByRole("menuitem", { name: "Preview" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("menuitem", { name: "Discard changes" }),
+		).toBeInTheDocument();
 	});
 
 	it("calls onDiscardChange with path when Discard is clicked", () => {
@@ -162,7 +182,9 @@ describe("ChangesList", () => {
 				onDiscardChange={onDiscardChange}
 			/>,
 		);
-		fireEvent.contextMenu(screen.getByRole("button", { name: /src\/index\.ts/i }));
+		fireEvent.contextMenu(
+			screen.getByRole("button", { name: /src\/index\.ts/i }),
+		);
 		fireEvent.click(screen.getByRole("menuitem", { name: "Discard changes" }));
 		expect(onDiscardChange).toHaveBeenCalledWith("src/index.ts");
 	});

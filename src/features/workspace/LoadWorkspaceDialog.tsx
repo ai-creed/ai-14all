@@ -15,7 +15,8 @@ export function LoadWorkspaceDialog({ open, onOpenChange, onLoadPath }: Props) {
 				<Dialog.Content className="shell-modal shell-modal--workspace-picker">
 					<Dialog.Title>Load workspace</Dialog.Title>
 					<p className="shell-modal__copy">
-						Open another repository-scoped workspace without leaving current session view.
+						Open another repository-scoped workspace without leaving current
+						session view.
 					</p>
 					<RepositoryInput onLoadPath={onLoadPath} />
 				</Dialog.Content>

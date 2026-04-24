@@ -60,7 +60,11 @@ export function SessionChipBar({
 						{changedFileCount} changed
 					</button>
 				) : (
-					<span className="shell-chip-bar__clean" title="Clean — no changes" aria-label="Clean">
+					<span
+						className="shell-chip-bar__clean"
+						title="Clean — no changes"
+						aria-label="Clean"
+					>
 						✓ clean
 					</span>
 				)}

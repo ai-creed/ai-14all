@@ -1,5 +1,8 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
-import type { Ai14AllDesktopApi, UpdateInfo } from "../../shared/contracts/commands.js";
+import type {
+	Ai14AllDesktopApi,
+	UpdateInfo,
+} from "../../shared/contracts/commands.js";
 import type {
 	TerminalOutputEvent,
 	TerminalExitEvent,
@@ -50,7 +53,8 @@ for (const channel of ["update:available"] as const) {
 		delete pendingOnceRemovers[channel];
 	};
 	ipcRenderer.once(channel, handler);
-	pendingOnceRemovers[channel] = () => ipcRenderer.removeListener(channel, handler);
+	pendingOnceRemovers[channel] = () =>
+		ipcRenderer.removeListener(channel, handler);
 }
 
 const api: Ai14AllDesktopApi = {

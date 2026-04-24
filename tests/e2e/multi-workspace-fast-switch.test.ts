@@ -5,7 +5,13 @@ import {
 	type ElectronApplication,
 	type Page,
 } from "@playwright/test";
-import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import {
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { basename } from "node:path";
@@ -92,13 +98,13 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 		await page.getByRole("button", { name: "Load" }).click();
 
 		// Wait for worktree nav to appear and select main
-		const worktreeNav = page.getByRole("navigation", { name: "Worktree sessions" });
+		const worktreeNav = page.getByRole("navigation", {
+			name: "Worktree sessions",
+		});
 		await expect(
 			worktreeNav.getByRole("button", { name: / main$/i }),
 		).toBeVisible({ timeout: 15_000 });
-		await worktreeNav
-			.getByRole("button", { name: / main$/i })
-			.click();
+		await worktreeNav.getByRole("button", { name: / main$/i }).click();
 
 		// Wait for the default shell tab to appear (auto-created on worktree activation)
 		await expect(
@@ -120,8 +126,12 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 		await page.getByRole("button", { name: "Load workspace" }).click();
 
 		// Fill in repo B path and load it.
-		await expect(page.getByRole("dialog", { name: "Load workspace" })).toBeVisible({ timeout: 5_000 });
-		await expect(page.getByLabel("Repository path")).toBeVisible({ timeout: 5_000 });
+		await expect(
+			page.getByRole("dialog", { name: "Load workspace" }),
+		).toBeVisible({ timeout: 5_000 });
+		await expect(page.getByLabel("Repository path")).toBeVisible({
+			timeout: 5_000,
+		});
 		await page.locator("#repo-path").fill(repoB.repoPath);
 		await page.getByRole("button", { name: "Load" }).click();
 
@@ -152,11 +162,18 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 		// Use any tab in the terminal tablist — the xterm title may have already
 		// changed from "shell 1" to the CWD by the time we switch back.
 		await expect(
-			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
+			page
+				.getByRole("tablist", { name: "Terminal sessions" })
+				.getByRole("tab")
+				.first(),
 		).toBeVisible({ timeout: 10_000 });
 
-		await expect.poll(() => readShellLog(), { timeout: 5_000 }).toContain("\"reason\":\"workspace_switch\"");
-		await expect.poll(() => readShellLog(), { timeout: 5_000 }).not.toContain("\"reason\":\"unexpected_session_removal\"");
+		await expect
+			.poll(() => readShellLog(), { timeout: 5_000 })
+			.toContain('"reason":"workspace_switch"');
+		await expect
+			.poll(() => readShellLog(), { timeout: 5_000 })
+			.not.toContain('"reason":"unexpected_session_removal"');
 	});
 
 	test("restart restores previously active workspace and shows dormant ones", async () => {
@@ -208,7 +225,9 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 
 		// Repo B was registered as dormant when the persisted state was restored.
 		// Clicking its group header hydrates it and makes it active.
-		await workspaceSidebar().getByRole("button", { name: nameB, exact: true }).click();
+		await workspaceSidebar()
+			.getByRole("button", { name: nameB, exact: true })
+			.click();
 
 		// Repo B must now be marked as active.
 		await expect(
@@ -216,7 +235,9 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 		).toHaveAttribute("data-active-workspace", "true", { timeout: 15_000 });
 
 		await expect(
-			workspaceSidebar().getByRole("group", { name: nameB }).getByRole("button", { name: / main$/i }),
+			workspaceSidebar()
+				.getByRole("group", { name: nameB })
+				.getByRole("button", { name: / main$/i }),
 		).toBeVisible({ timeout: 20_000 });
 	});
 });

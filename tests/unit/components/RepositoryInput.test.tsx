@@ -66,7 +66,9 @@ describe("RepositoryInput", () => {
 	});
 
 	it("shows error text when onLoadPath rejects", async () => {
-		const onLoadPath = vi.fn().mockRejectedValueOnce(new Error("Not a git repository"));
+		const onLoadPath = vi
+			.fn()
+			.mockRejectedValueOnce(new Error("Not a git repository"));
 
 		render(<RepositoryInput onLoadPath={onLoadPath} />);
 
@@ -83,9 +85,11 @@ describe("RepositoryInput", () => {
 	});
 
 	it("maps missing-path errors to practical setup copy", async () => {
-		const onLoadPath = vi.fn().mockRejectedValueOnce(
-			new Error("ENOENT: no such file or directory, realpath '/missing'"),
-		);
+		const onLoadPath = vi
+			.fn()
+			.mockRejectedValueOnce(
+				new Error("ENOENT: no such file or directory, realpath '/missing'"),
+			);
 
 		render(<RepositoryInput onLoadPath={onLoadPath} />);
 		fireEvent.change(screen.getByLabelText("Repository path"), {
@@ -94,7 +98,9 @@ describe("RepositoryInput", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
 		await waitFor(() => {
-			expect(screen.getByText("Error: Path does not exist.")).toBeInTheDocument();
+			expect(
+				screen.getByText("Error: Path does not exist."),
+			).toBeInTheDocument();
 			expect(screen.getByLabelText("Repository path")).toHaveValue("/missing");
 		});
 	});

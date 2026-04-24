@@ -5,7 +5,12 @@ type WorkspaceSwitcherProps = {
 	onRemove?: (workspaceId: string) => void;
 };
 
-export function WorkspaceSwitcher({ workspaces, activeWorkspaceId, onSelect, onRemove }: WorkspaceSwitcherProps) {
+export function WorkspaceSwitcher({
+	workspaces,
+	activeWorkspaceId,
+	onSelect,
+	onRemove,
+}: WorkspaceSwitcherProps) {
 	return (
 		<nav aria-label="Workspaces" className="workspace-switcher">
 			{workspaces.map((ws) => (

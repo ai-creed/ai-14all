@@ -5,7 +5,14 @@ import {
 	type ElectronApplication,
 	type Page,
 } from "@playwright/test";
-import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { basename, join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
@@ -65,11 +72,16 @@ async function ensureTwoWorkspacesLoaded() {
 		.click();
 
 	await expect(
-		page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
+		page
+			.getByRole("tablist", { name: "Terminal sessions" })
+			.getByRole("tab")
+			.first(),
 	).toBeVisible({ timeout: 15_000 });
 
 	await page.getByRole("button", { name: "Load workspace" }).click();
-	await expect(page.getByRole("dialog", { name: "Load workspace" })).toBeVisible({ timeout: 5_000 });
+	await expect(
+		page.getByRole("dialog", { name: "Load workspace" }),
+	).toBeVisible({ timeout: 5_000 });
 	await page.locator("#repo-path").fill(repoB.repoPath);
 	await page.getByRole("button", { name: "Load" }).click();
 
@@ -79,7 +91,10 @@ async function ensureTwoWorkspacesLoaded() {
 		.click();
 
 	await expect(
-		page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
+		page
+			.getByRole("tablist", { name: "Terminal sessions" })
+			.getByRole("tab")
+			.first(),
 	).toBeVisible({ timeout: 15_000 });
 
 	await groupForRepo(repoA.repoPath)
@@ -94,7 +109,9 @@ async function ensureTwoWorkspacesLoaded() {
 test.beforeAll(async () => {
 	repoA = createTestRepo();
 	repoB = createSecondTestRepo();
-	persistedStateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-ws-shell-")));
+	persistedStateDir = realpathSync(
+		mkdtempSync(join(tmpdir(), "ofa-ws-shell-")),
+	);
 	persistedStatePath = join(persistedStateDir, "workspace-state.json");
 	terminalDelayPath = join(persistedStateDir, "terminal-delay.json");
 	userDataDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-user-data-")));
@@ -135,7 +152,10 @@ test.describe.serial("Workspace shell persistence", () => {
 		const countBefore = await terminalTabs.count();
 		const seqBeforeAdd = latestSeq();
 
-		writeFileSync(terminalDelayPath, JSON.stringify({ nextCreateDelayMs: 1_000 }));
+		writeFileSync(
+			terminalDelayPath,
+			JSON.stringify({ nextCreateDelayMs: 1_000 }),
+		);
 		await page.getByRole("button", { name: "Add shell" }).click();
 
 		// Switch away immediately after requesting the shell to expose timing bugs
@@ -152,20 +172,23 @@ test.describe.serial("Workspace shell persistence", () => {
 			.click();
 
 		const createdSessionId = await expect
-			.poll(() => {
-				const events = readShellEvents();
-				const created = events
-					.filter((event) => event.seq > seqBeforeAdd)
-					.find(
-						(event) =>
-							event.event === "renderer-session-create-success" &&
-							event.data.terminalSessionId &&
-							event.data.worktreeId === repoA.repoPath,
-					);
-				return typeof created?.data.terminalSessionId === "string"
-					? created.data.terminalSessionId
-					: null;
-			}, { timeout: 15_000 })
+			.poll(
+				() => {
+					const events = readShellEvents();
+					const created = events
+						.filter((event) => event.seq > seqBeforeAdd)
+						.find(
+							(event) =>
+								event.event === "renderer-session-create-success" &&
+								event.data.terminalSessionId &&
+								event.data.worktreeId === repoA.repoPath,
+						);
+					return typeof created?.data.terminalSessionId === "string"
+						? created.data.terminalSessionId
+						: null;
+				},
+				{ timeout: 15_000 },
+			)
 			.not.toBeNull();
 
 		const createdForWrongWorkspace = readShellEvents().some(
@@ -176,7 +199,9 @@ test.describe.serial("Workspace shell persistence", () => {
 		);
 		expect(createdForWrongWorkspace).toBe(false);
 
-		await expect(terminalTabs).toHaveCount(countBefore + 1, { timeout: 15_000 });
+		await expect(terminalTabs).toHaveCount(countBefore + 1, {
+			timeout: 15_000,
+		});
 
 		const lifecycleEvents = readShellEvents().filter(
 			(event) =>

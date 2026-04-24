@@ -232,16 +232,19 @@ app.whenReady().then(async () => {
 			);
 		}
 
-		writeFileSync(
-			pngPath,
-			readFileSync(join(iconsetDir, "icon_512x512.png")),
+		writeFileSync(pngPath, readFileSync(join(iconsetDir, "icon_512x512.png")));
+
+		execFileSync(
+			"/usr/bin/iconutil",
+			["-c", "icns", iconsetDir, "-o", icnsPath.pathname],
+			{
+				stdio: "ignore",
+			},
 		);
 
-		execFileSync("/usr/bin/iconutil", ["-c", "icns", iconsetDir, "-o", icnsPath.pathname], {
-			stdio: "ignore",
-		});
-
-		console.log(`Generated icons in ${new URL("../assets/", import.meta.url).pathname}`);
+		console.log(
+			`Generated icons in ${new URL("../assets/", import.meta.url).pathname}`,
+		);
 		app.quit();
 	} catch (error) {
 		console.error(error);

@@ -100,6 +100,7 @@ export const diagnostics: Ai14AllDesktopApi["diagnostics"] = {
 };
 
 export const system: Ai14AllDesktopApi["system"] = {
-	onUpdateAvailable: (listener) => getDesktopClient().system.onUpdateAvailable(listener),
+	onUpdateAvailable: (listener) =>
+		getDesktopClient().system.onUpdateAvailable(listener),
 	openExternal: (url) => getDesktopClient().system.openExternal(url),
 };

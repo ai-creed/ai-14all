@@ -37,7 +37,8 @@ export function rebaseSnapshotPaths(
 	const rebase = (id: string | null): string | null => {
 		if (!id) return id;
 		if (id === oldPrefix) return newPrefix;
-		if (id.startsWith(oldPrefix + "/")) return newPrefix + id.slice(oldPrefix.length);
+		if (id.startsWith(oldPrefix + "/"))
+			return newPrefix + id.slice(oldPrefix.length);
 		return id;
 	};
 
@@ -61,35 +62,40 @@ export function buildWorkspaceSnapshot(
 		repoId,
 		selectedWorktreeId: state.selectedWorktreeId,
 		commandPresets: state.commandPresets,
-		worktreeSessions: Object.values(state.sessionsByWorktreeId).map((session) => ({
-			worktreeId: session.worktreeId,
-			title: session.title,
-			note: session.note,
-			reviewMode: session.reviewMode,
-			reviewDrawerOpen: session.reviewDrawerOpen,
-			viewerMode: session.viewerMode,
-			selectedFilePath: session.selectedFilePath,
-			selectedChangedFilePath: session.selectedChangedFilePath,
-			selectedCommitSha: session.selectedCommitSha,
-			selectedCommitFilePath: session.selectedCommitFilePath,
-			activeProcessSessionId: session.activeProcessSessionId,
-			terminalLayoutMode: session.terminalLayoutMode,
-			splitLeftProcessId: session.splitLeftProcessId,
-			splitRightProcessId: session.splitRightProcessId,
-			nextAdHocNumber: state.nextAdHocNumberByWorktreeId[session.worktreeId] ?? 1,
-			processSessions: session.processSessionIds
-				.map((id) => state.processSessionsById[id])
-				.filter((process): process is NonNullable<typeof process> => !!process)
-				.map<PersistedProcessSession>((process) => ({
-					id: process.id,
-					origin: process.origin,
-					presetId: process.presetId,
-					label: process.label,
-					command: process.command,
-					pinned: process.pinned,
-					terminalSessionId: process.terminalSessionId,
-				})),
-		})),
+		worktreeSessions: Object.values(state.sessionsByWorktreeId).map(
+			(session) => ({
+				worktreeId: session.worktreeId,
+				title: session.title,
+				note: session.note,
+				reviewMode: session.reviewMode,
+				reviewDrawerOpen: session.reviewDrawerOpen,
+				viewerMode: session.viewerMode,
+				selectedFilePath: session.selectedFilePath,
+				selectedChangedFilePath: session.selectedChangedFilePath,
+				selectedCommitSha: session.selectedCommitSha,
+				selectedCommitFilePath: session.selectedCommitFilePath,
+				activeProcessSessionId: session.activeProcessSessionId,
+				terminalLayoutMode: session.terminalLayoutMode,
+				splitLeftProcessId: session.splitLeftProcessId,
+				splitRightProcessId: session.splitRightProcessId,
+				nextAdHocNumber:
+					state.nextAdHocNumberByWorktreeId[session.worktreeId] ?? 1,
+				processSessions: session.processSessionIds
+					.map((id) => state.processSessionsById[id])
+					.filter(
+						(process): process is NonNullable<typeof process> => !!process,
+					)
+					.map<PersistedProcessSession>((process) => ({
+						id: process.id,
+						origin: process.origin,
+						presetId: process.presetId,
+						label: process.label,
+						command: process.command,
+						pinned: process.pinned,
+						terminalSessionId: process.terminalSessionId,
+					})),
+			}),
+		),
 	};
 }
 
@@ -125,16 +131,21 @@ export function reconcileSnapshotToWorktrees(
 		originalSnapshot.selectedWorktreeId,
 	);
 
-	const reconciledSessions = rebasedSnapshot.worktreeSessions.map((session, i) => {
-		const originalId = originalSnapshot.worktreeSessions[i]?.worktreeId ?? null;
-		const reconciledId = reconcileId(session.worktreeId, originalId);
-		if (reconciledId === session.worktreeId) return session;
-		return { ...session, worktreeId: reconciledId ?? session.worktreeId };
-	});
+	const reconciledSessions = rebasedSnapshot.worktreeSessions.map(
+		(session, i) => {
+			const originalId =
+				originalSnapshot.worktreeSessions[i]?.worktreeId ?? null;
+			const reconciledId = reconcileId(session.worktreeId, originalId);
+			if (reconciledId === session.worktreeId) return session;
+			return { ...session, worktreeId: reconciledId ?? session.worktreeId };
+		},
+	);
 
 	if (
 		reconciledSelectedId === rebasedSnapshot.selectedWorktreeId &&
-		reconciledSessions.every((s, i) => s === rebasedSnapshot.worktreeSessions[i])
+		reconciledSessions.every(
+			(s, i) => s === rebasedSnapshot.worktreeSessions[i],
+		)
 	) {
 		return rebasedSnapshot;
 	}

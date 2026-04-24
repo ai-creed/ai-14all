@@ -5,7 +5,13 @@ import {
 	type ElectronApplication,
 	type Page,
 } from "@playwright/test";
-import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import {
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
@@ -27,7 +33,9 @@ function readShellLog(): string {
 
 test.beforeAll(async () => {
 	testRepo = createTestRepo();
-	persistedStateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-resilience-")));
+	persistedStateDir = realpathSync(
+		mkdtempSync(join(tmpdir(), "ofa-resilience-")),
+	);
 	persistedStatePath = join(persistedStateDir, "workspace-state.json");
 	userDataDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-user-data-")));
 	app = await electron.launch({
@@ -80,7 +88,10 @@ test.describe.serial("Terminal session resilience", () => {
 			page.getByRole("button", { name: "Restore previous workspace" }),
 		).toHaveCount(0);
 		await expect(
-			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
+			page
+				.getByRole("tablist", { name: "Terminal sessions" })
+				.getByRole("tab")
+				.first(),
 		).toBeVisible({ timeout: 15_000 });
 
 		const postReloadMarker = `echo POST_RELOAD_${Date.now()}`;
@@ -94,7 +105,11 @@ test.describe.serial("Terminal session resilience", () => {
 			page.locator(".xterm-accessibility-tree").first(),
 		).toContainText("POST_RELOAD", { timeout: 10_000 });
 
-		await expect.poll(() => readShellLog(), { timeout: 5_000 }).toContain("\"event\":\"renderer-reconnect-adopt\"");
-		await expect.poll(() => readShellLog(), { timeout: 5_000 }).toContain("\"event\":\"terminal-binding-changed\"");
+		await expect
+			.poll(() => readShellLog(), { timeout: 5_000 })
+			.toContain('"event":"renderer-reconnect-adopt"');
+		await expect
+			.poll(() => readShellLog(), { timeout: 5_000 })
+			.toContain('"event":"terminal-binding-changed"');
 	});
 });

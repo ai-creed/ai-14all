@@ -60,82 +60,182 @@ describe("SHORTCUT_REGISTRY structure", () => {
 
 describe("files-overlay predicate", () => {
 	it("matches Cmd+P on mac", () => {
-		expect(entry("files-overlay").predicate(evt({ metaKey: true, key: "p" }), "mac")).toBe(true);
+		expect(
+			entry("files-overlay").predicate(evt({ metaKey: true, key: "p" }), "mac"),
+		).toBe(true);
 	});
 	it("matches Ctrl+Shift+P on other", () => {
-		expect(entry("files-overlay").predicate(evt({ ctrlKey: true, shiftKey: true, key: "P" }), "other")).toBe(true);
+		expect(
+			entry("files-overlay").predicate(
+				evt({ ctrlKey: true, shiftKey: true, key: "P" }),
+				"other",
+			),
+		).toBe(true);
 	});
 });
 
 describe("note-sheet predicate", () => {
 	it("matches Cmd+; on mac", () => {
-		expect(entry("note-sheet").predicate(evt({ metaKey: true, key: ";" }), "mac")).toBe(true);
+		expect(
+			entry("note-sheet").predicate(evt({ metaKey: true, key: ";" }), "mac"),
+		).toBe(true);
 	});
 	it("matches Ctrl+; on other", () => {
-		expect(entry("note-sheet").predicate(evt({ ctrlKey: true, key: ";" }), "other")).toBe(true);
+		expect(
+			entry("note-sheet").predicate(evt({ ctrlKey: true, key: ";" }), "other"),
+		).toBe(true);
 	});
 	it("does not match Cmd+; when altKey is held", () => {
-		expect(entry("note-sheet").predicate(evt({ metaKey: true, altKey: true, key: ";" }), "mac")).toBe(false);
+		expect(
+			entry("note-sheet").predicate(
+				evt({ metaKey: true, altKey: true, key: ";" }),
+				"mac",
+			),
+		).toBe(false);
 	});
 	it("does not match Ctrl+Shift+; on other (shiftKey held)", () => {
-		expect(entry("note-sheet").predicate(evt({ ctrlKey: true, shiftKey: true, key: ";" }), "other")).toBe(false);
+		expect(
+			entry("note-sheet").predicate(
+				evt({ ctrlKey: true, shiftKey: true, key: ";" }),
+				"other",
+			),
+		).toBe(false);
 	});
 	it("does not match when defaultPrevented", () => {
-		expect(entry("note-sheet").predicate(evt({ metaKey: true, key: ";", defaultPrevented: true }), "mac")).toBe(false);
+		expect(
+			entry("note-sheet").predicate(
+				evt({ metaKey: true, key: ";", defaultPrevented: true }),
+				"mac",
+			),
+		).toBe(false);
 	});
 });
 
 describe("review-drawer predicate", () => {
 	it("matches Cmd+J on mac", () => {
-		expect(entry("review-drawer").predicate(evt({ metaKey: true, key: "j" }), "mac")).toBe(true);
+		expect(
+			entry("review-drawer").predicate(evt({ metaKey: true, key: "j" }), "mac"),
+		).toBe(true);
 	});
 	it("matches Cmd+J (uppercase) on mac", () => {
-		expect(entry("review-drawer").predicate(evt({ metaKey: true, key: "J" }), "mac")).toBe(true);
+		expect(
+			entry("review-drawer").predicate(evt({ metaKey: true, key: "J" }), "mac"),
+		).toBe(true);
 	});
 	it("matches Ctrl+J on other", () => {
-		expect(entry("review-drawer").predicate(evt({ ctrlKey: true, key: "j" }), "other")).toBe(true);
+		expect(
+			entry("review-drawer").predicate(
+				evt({ ctrlKey: true, key: "j" }),
+				"other",
+			),
+		).toBe(true);
 	});
 	it("does not match when shiftKey is held", () => {
-		expect(entry("review-drawer").predicate(evt({ metaKey: true, shiftKey: true, key: "j" }), "mac")).toBe(false);
+		expect(
+			entry("review-drawer").predicate(
+				evt({ metaKey: true, shiftKey: true, key: "j" }),
+				"mac",
+			),
+		).toBe(false);
 	});
 	it("does not match when defaultPrevented", () => {
-		expect(entry("review-drawer").predicate(evt({ metaKey: true, key: "j", defaultPrevented: true }), "mac")).toBe(false);
+		expect(
+			entry("review-drawer").predicate(
+				evt({ metaKey: true, key: "j", defaultPrevented: true }),
+				"mac",
+			),
+		).toBe(false);
 	});
 });
 
 describe("rename-session predicate", () => {
 	it("matches Cmd+Shift+R on mac", () => {
-		expect(entry("rename-session").predicate(evt({ metaKey: true, shiftKey: true, key: "R" }), "mac")).toBe(true);
+		expect(
+			entry("rename-session").predicate(
+				evt({ metaKey: true, shiftKey: true, key: "R" }),
+				"mac",
+			),
+		).toBe(true);
 	});
 	it("matches Ctrl+Alt+R on other", () => {
-		expect(entry("rename-session").predicate(evt({ ctrlKey: true, altKey: true, key: "r" }), "other")).toBe(true);
+		expect(
+			entry("rename-session").predicate(
+				evt({ ctrlKey: true, altKey: true, key: "r" }),
+				"other",
+			),
+		).toBe(true);
 	});
 	it("does not match plain Cmd+R on mac (no shift)", () => {
-		expect(entry("rename-session").predicate(evt({ metaKey: true, key: "r" }), "mac")).toBe(false);
+		expect(
+			entry("rename-session").predicate(
+				evt({ metaKey: true, key: "r" }),
+				"mac",
+			),
+		).toBe(false);
 	});
 	it("does not match plain Ctrl+R on other (no alt)", () => {
-		expect(entry("rename-session").predicate(evt({ ctrlKey: true, key: "r" }), "other")).toBe(false);
+		expect(
+			entry("rename-session").predicate(
+				evt({ ctrlKey: true, key: "r" }),
+				"other",
+			),
+		).toBe(false);
 	});
 	it("does not match when defaultPrevented", () => {
-		expect(entry("rename-session").predicate(evt({ metaKey: true, shiftKey: true, key: "R", defaultPrevented: true }), "mac")).toBe(false);
+		expect(
+			entry("rename-session").predicate(
+				evt({
+					metaKey: true,
+					shiftKey: true,
+					key: "R",
+					defaultPrevented: true,
+				}),
+				"mac",
+			),
+		).toBe(false);
 	});
 });
 
 describe("shortcuts-help predicate", () => {
 	it("matches Cmd+/ on mac", () => {
-		expect(entry("shortcuts-help").predicate(evt({ metaKey: true, key: "/" }), "mac")).toBe(true);
+		expect(
+			entry("shortcuts-help").predicate(
+				evt({ metaKey: true, key: "/" }),
+				"mac",
+			),
+		).toBe(true);
 	});
 	it("matches Cmd+? on mac (Shift+/ key)", () => {
-		expect(entry("shortcuts-help").predicate(evt({ metaKey: true, shiftKey: true, key: "?" }), "mac")).toBe(true);
+		expect(
+			entry("shortcuts-help").predicate(
+				evt({ metaKey: true, shiftKey: true, key: "?" }),
+				"mac",
+			),
+		).toBe(true);
 	});
 	it("matches Ctrl+/ on other", () => {
-		expect(entry("shortcuts-help").predicate(evt({ ctrlKey: true, key: "/" }), "other")).toBe(true);
+		expect(
+			entry("shortcuts-help").predicate(
+				evt({ ctrlKey: true, key: "/" }),
+				"other",
+			),
+		).toBe(true);
 	});
 	it("matches Ctrl+? on other", () => {
-		expect(entry("shortcuts-help").predicate(evt({ ctrlKey: true, shiftKey: true, key: "?" }), "other")).toBe(true);
+		expect(
+			entry("shortcuts-help").predicate(
+				evt({ ctrlKey: true, shiftKey: true, key: "?" }),
+				"other",
+			),
+		).toBe(true);
 	});
 	it("does not match when defaultPrevented", () => {
-		expect(entry("shortcuts-help").predicate(evt({ metaKey: true, key: "/", defaultPrevented: true }), "mac")).toBe(false);
+		expect(
+			entry("shortcuts-help").predicate(
+				evt({ metaKey: true, key: "/", defaultPrevented: true }),
+				"mac",
+			),
+		).toBe(false);
 	});
 });
 

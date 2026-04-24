@@ -1,5 +1,6 @@
-// eslint-disable-next-line no-control-regex
-const ANSI_ESCAPE_RE = /\u001B(?:\][^\u0007\u001B]*(?:\u0007|\u001B\\)|[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
+/* eslint-disable no-control-regex */
+const ANSI_ESCAPE_RE = /(?:\][^]*(?:|\\)|[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
+/* eslint-enable no-control-regex */
 const PREVIEW_MAX_LENGTH = 47;
 const BUFFER_MAX_LENGTH = 240;
 

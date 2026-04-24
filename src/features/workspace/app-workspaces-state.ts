@@ -11,7 +11,11 @@ export type AppWorkspacesAction =
 	| { type: "workspace/register"; workspace: AppWorkspace }
 	| { type: "workspace/select"; workspaceId: string }
 	| { type: "workspace/remove"; workspaceId: string }
-	| { type: "workspace/updateWorkspaceState"; workspaceId: string; workspaceState: WorkspaceState };
+	| {
+			type: "workspace/updateWorkspaceState";
+			workspaceId: string;
+			workspaceState: WorkspaceState;
+	  };
 
 export function createAppWorkspacesState(): AppWorkspacesState {
 	return {
@@ -28,7 +32,8 @@ export function appWorkspacesReducer(
 	if (action.type === "workspace/register") {
 		const exists = state.workspacesById[action.workspace.workspaceId];
 		return {
-			activeWorkspaceId: state.activeWorkspaceId ?? action.workspace.workspaceId,
+			activeWorkspaceId:
+				state.activeWorkspaceId ?? action.workspace.workspaceId,
 			workspaceOrder: exists
 				? state.workspaceOrder
 				: [...state.workspaceOrder, action.workspace.workspaceId],
@@ -65,7 +70,10 @@ export function appWorkspacesReducer(
 			...state,
 			workspacesById: {
 				...state.workspacesById,
-				[action.workspaceId]: { ...existing, workspaceState: action.workspaceState },
+				[action.workspaceId]: {
+					...existing,
+					workspaceState: action.workspaceState,
+				},
 			},
 		};
 	}
@@ -73,10 +81,14 @@ export function appWorkspacesReducer(
 	if (action.type === "workspace/remove") {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { [action.workspaceId]: _removed, ...rest } = state.workspacesById;
-		const workspaceOrder = state.workspaceOrder.filter((id) => id !== action.workspaceId);
+		const workspaceOrder = state.workspaceOrder.filter(
+			(id) => id !== action.workspaceId,
+		);
 		return {
 			activeWorkspaceId:
-				state.activeWorkspaceId === action.workspaceId ? (workspaceOrder[0] ?? null) : state.activeWorkspaceId,
+				state.activeWorkspaceId === action.workspaceId
+					? (workspaceOrder[0] ?? null)
+					: state.activeWorkspaceId,
 			workspaceOrder,
 			workspacesById: rest,
 		};

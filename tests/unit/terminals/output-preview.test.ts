@@ -54,6 +54,8 @@ describe("consumeOutputPreview", () => {
 			"",
 			"build    succeeded    after    a    surprisingly    long    amount    of    time\n",
 		);
-		expect(result.preview).toBe("build succeeded after a surprisingly long am...");
+		expect(result.preview).toBe(
+			"build succeeded after a surprisingly long am...",
+		);
 	});
 });

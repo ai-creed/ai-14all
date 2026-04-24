@@ -26,7 +26,10 @@ test.beforeAll(async () => {
 			...process.env,
 			AI14ALL_E2E: "1",
 			AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
-			AI14ALL_WORKSPACE_STATE_PATH: join(persistedStateDir, "workspace-state.json"),
+			AI14ALL_WORKSPACE_STATE_PATH: join(
+				persistedStateDir,
+				"workspace-state.json",
+			),
 		},
 	});
 	page = await app.firstWindow({ timeout: 60_000 });
@@ -65,7 +68,9 @@ test.describe.serial("Cumulative flow — Phase 8", () => {
 		await page.getByRole("tab", { name: "Files" }).click();
 
 		// Tree root row (worktree label) should be visible
-		await expect(page.getByText("feature-a", { exact: true }).first()).toBeVisible({
+		await expect(
+			page.getByText("feature-a", { exact: true }).first(),
+		).toBeVisible({
 			timeout: 15_000,
 		});
 	});
@@ -80,7 +85,9 @@ test.describe.serial("Cumulative flow — Phase 8", () => {
 		await srcRow.click();
 
 		// index.ts should now be visible as a child
-		await expect(page.locator(".shell-list__item--tree", { hasText: "index.ts" })).toBeVisible({
+		await expect(
+			page.locator(".shell-list__item--tree", { hasText: "index.ts" }),
+		).toBeVisible({
 			timeout: 5_000,
 		});
 	});
@@ -97,10 +104,14 @@ test.describe.serial("Cumulative flow — Phase 8", () => {
 		await page.waitForTimeout(300);
 
 		// index.ts should still be visible
-		await expect(page.locator(".shell-list__item--tree", { hasText: "index.ts" })).toBeVisible();
+		await expect(
+			page.locator(".shell-list__item--tree", { hasText: "index.ts" }),
+		).toBeVisible();
 
 		// NOTES.md should not be visible
-		await expect(page.locator(".shell-list__item--tree", { hasText: "NOTES.md" })).toHaveCount(0);
+		await expect(
+			page.locator(".shell-list__item--tree", { hasText: "NOTES.md" }),
+		).toHaveCount(0);
 	});
 
 	test("clear search restores all files; clicking a file shows it in viewer", async () => {
@@ -112,14 +123,18 @@ test.describe.serial("Cumulative flow — Phase 8", () => {
 		await page.waitForTimeout(300);
 
 		// NOTES.md should reappear (use exact text to avoid matching COMMIT_NOTES.md)
-		const notesMdRow = page.locator(".shell-list__item--tree").filter({ hasText: /^NOTES\.md/ });
+		const notesMdRow = page
+			.locator(".shell-list__item--tree")
+			.filter({ hasText: /^NOTES\.md/ });
 		await expect(notesMdRow).toBeVisible({ timeout: 5_000 });
 
 		// Click NOTES.md to select it
 		await notesMdRow.click();
 
 		// FileViewer should show NOTES.md in the title
-		await expect(page.locator(".shell-viewer__title", { hasText: "NOTES.md" })).toBeVisible({
+		await expect(
+			page.locator(".shell-viewer__title", { hasText: "NOTES.md" }),
+		).toBeVisible({
 			timeout: 10_000,
 		});
 	});
@@ -140,7 +155,9 @@ test.describe.serial("Cumulative flow — Phase 8", () => {
 		await expect(rootRow).toBeVisible({ timeout: 10_000 });
 
 		// src folder row should still be visible after refresh
-		await expect(page.locator(".shell-list__item--dir", { hasText: "src" })).toBeVisible({
+		await expect(
+			page.locator(".shell-list__item--dir", { hasText: "src" }),
+		).toBeVisible({
 			timeout: 10_000,
 		});
 	});

@@ -2,10 +2,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { handlers, handleMock } = vi.hoisted(() => {
-	const handlers = new Map<string, (event: unknown, payload: unknown) => unknown>();
-	const handleMock = vi.fn((channel: string, handler: (event: unknown, payload: unknown) => unknown) => {
-		handlers.set(channel, handler);
-	});
+	const handlers = new Map<
+		string,
+		(event: unknown, payload: unknown) => unknown
+	>();
+	const handleMock = vi.fn(
+		(
+			channel: string,
+			handler: (event: unknown, payload: unknown) => unknown,
+		) => {
+			handlers.set(channel, handler);
+		},
+	);
 	return { handlers, handleMock };
 });
 
@@ -34,12 +42,16 @@ vi.mock("electron", () => ({
 }));
 
 vi.mock("../../../services/worktrees/worktree-service.js", () => {
-	function WorktreeService(this: unknown) { return worktreeServiceInstance; }
+	function WorktreeService(this: unknown) {
+		return worktreeServiceInstance;
+	}
 	return { WorktreeService };
 });
 
 vi.mock("../../../services/files/file-service.js", () => {
-	function FileService(this: unknown) { return fileServiceInstance; }
+	function FileService(this: unknown) {
+		return fileServiceInstance;
+	}
 	return { FileService };
 });
 
@@ -59,7 +71,10 @@ describe("registerIpcHandlers diagnostics", () => {
 				webContents: { isDestroyed: () => false, send: vi.fn() },
 			} as never,
 			{
-				workspacePersistence: { readState: vi.fn(), writeState: vi.fn() } as never,
+				workspacePersistence: {
+					readState: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
 				workspaceRegistry: { register: vi.fn(), get: vi.fn() } as never,
 				shellEventLog: { log: logMock } as never,
 			},
@@ -67,14 +82,17 @@ describe("registerIpcHandlers diagnostics", () => {
 
 		const handler = handlers.get("diagnostics:logShellEvent");
 		expect(handler).toBeTypeOf("function");
-		await handler?.({}, {
-			source: "renderer",
-			event: "renderer-start",
-			windowId: 1,
-			rendererAt: "2026-04-12T00:00:00.000Z",
-			rendererSeq: 1,
-			data: {},
-		});
+		await handler?.(
+			{},
+			{
+				source: "renderer",
+				event: "renderer-start",
+				windowId: 1,
+				rendererAt: "2026-04-12T00:00:00.000Z",
+				rendererSeq: 1,
+				data: {},
+			},
+		);
 
 		expect(logMock).toHaveBeenCalledWith(
 			expect.objectContaining({ event: "renderer-start", rendererSeq: 1 }),
@@ -89,7 +107,10 @@ describe("registerIpcHandlers diagnostics", () => {
 				webContents: { isDestroyed: () => false, send: vi.fn() },
 			} as never,
 			{
-				workspacePersistence: { readState: vi.fn(), writeState: vi.fn() } as never,
+				workspacePersistence: {
+					readState: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
 				workspaceRegistry: { register: vi.fn(), get: vi.fn() } as never,
 				shellEventLog: { log: logMock } as never,
 			},
@@ -112,10 +133,20 @@ describe("registerIpcHandlers files:listTracked identity resolution", () => {
 
 	const register = (registryGet: (workspaceId: string) => unknown) => {
 		registerIpcHandlers(
-			{ id: 1, isDestroyed: () => false, webContents: { isDestroyed: () => false, send: vi.fn() } } as never,
 			{
-				workspacePersistence: { readState: vi.fn(), writeState: vi.fn() } as never,
-				workspaceRegistry: { register: vi.fn(), get: vi.fn(registryGet) } as never,
+				id: 1,
+				isDestroyed: () => false,
+				webContents: { isDestroyed: () => false, send: vi.fn() },
+			} as never,
+			{
+				workspacePersistence: {
+					readState: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
+				workspaceRegistry: {
+					register: vi.fn(),
+					get: vi.fn(registryGet),
+				} as never,
 			},
 		);
 		const handler = handlers.get("files:listTracked");
@@ -124,37 +155,68 @@ describe("registerIpcHandlers files:listTracked identity resolution", () => {
 	};
 
 	it("rejects when the workspaceId is unknown", async () => {
-		const handler = register(() => { throw new Error("Unknown workspace: wk-nope"); });
-		await expect(handler({}, { workspaceId: "wk-nope", worktreeId: "wt-x" })).rejects.toThrow(/Unknown workspace/);
+		const handler = register(() => {
+			throw new Error("Unknown workspace: wk-nope");
+		});
+		await expect(
+			handler({}, { workspaceId: "wk-nope", worktreeId: "wt-x" }),
+		).rejects.toThrow(/Unknown workspace/);
 		expect(worktreeServiceInstance.findWorktree).not.toHaveBeenCalled();
 		expect(fileServiceInstance.listTrackedFiles).not.toHaveBeenCalled();
 	});
 
 	it("rejects when the worktreeId is unknown under a known workspace", async () => {
 		const repository = { repoId: "repo-1", rootPath: "/tmp/repo" };
-		worktreeServiceInstance.findWorktree.mockRejectedValueOnce(new Error("Unknown worktree: wt-nope"));
+		worktreeServiceInstance.findWorktree.mockRejectedValueOnce(
+			new Error("Unknown worktree: wt-nope"),
+		);
 		const handler = register(() => repository);
-		await expect(handler({}, { workspaceId: "wk-ok", worktreeId: "wt-nope" })).rejects.toThrow(/Unknown worktree/);
-		expect(worktreeServiceInstance.findWorktree).toHaveBeenCalledWith(repository, "wt-nope");
+		await expect(
+			handler({}, { workspaceId: "wk-ok", worktreeId: "wt-nope" }),
+		).rejects.toThrow(/Unknown worktree/);
+		expect(worktreeServiceInstance.findWorktree).toHaveBeenCalledWith(
+			repository,
+			"wt-nope",
+		);
 		expect(fileServiceInstance.listTrackedFiles).not.toHaveBeenCalled();
 	});
 
 	it("resolves identity and returns the tracked file list on the happy path", async () => {
 		const repository = { repoId: "repo-1", rootPath: "/tmp/repo" };
-		const worktree = { id: "wt-ok", repositoryId: "repo-1", branchName: "main", path: "/tmp/repo/.worktrees/main", label: "main", isMain: true };
+		const worktree = {
+			id: "wt-ok",
+			repositoryId: "repo-1",
+			branchName: "main",
+			path: "/tmp/repo/.worktrees/main",
+			label: "main",
+			isMain: true,
+		};
 		worktreeServiceInstance.findWorktree.mockResolvedValueOnce(worktree);
-		fileServiceInstance.listTrackedFiles.mockResolvedValueOnce(["README.md", "src/index.ts"]);
+		fileServiceInstance.listTrackedFiles.mockResolvedValueOnce([
+			"README.md",
+			"src/index.ts",
+		]);
 		const handler = register(() => repository);
-		const result = await handler({}, { workspaceId: "wk-ok", worktreeId: "wt-ok" });
+		const result = await handler(
+			{},
+			{ workspaceId: "wk-ok", worktreeId: "wt-ok" },
+		);
 		expect(result).toEqual(["README.md", "src/index.ts"]);
-		expect(worktreeServiceInstance.findWorktree).toHaveBeenCalledWith(repository, "wt-ok");
-		expect(fileServiceInstance.listTrackedFiles).toHaveBeenCalledWith("/tmp/repo/.worktrees/main");
+		expect(worktreeServiceInstance.findWorktree).toHaveBeenCalledWith(
+			repository,
+			"wt-ok",
+		);
+		expect(fileServiceInstance.listTrackedFiles).toHaveBeenCalledWith(
+			"/tmp/repo/.worktrees/main",
+		);
 	});
 
 	it("rejects malformed payloads via schema validation", async () => {
 		const handler = register(() => ({ repoId: "x", rootPath: "/tmp/x" }));
 		await expect(handler({}, { worktreeId: "wt-x" })).rejects.toThrow();
-		await expect(handler({}, { workspaceId: "", worktreeId: "wt-x" })).rejects.toThrow();
+		await expect(
+			handler({}, { workspaceId: "", worktreeId: "wt-x" }),
+		).rejects.toThrow();
 		expect(worktreeServiceInstance.findWorktree).not.toHaveBeenCalled();
 	});
 });

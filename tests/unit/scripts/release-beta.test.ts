@@ -37,9 +37,9 @@ describe("release-beta", () => {
 	});
 
 	it("detects the matching beta tag already pointing at HEAD", () => {
-		expect(
-			findHeadBetaTag(["v0.1.0-beta.4", "v0.2.0-beta.1"]),
-		).toBe("v0.1.0-beta.4");
+		expect(findHeadBetaTag(["v0.1.0-beta.4", "v0.2.0-beta.1"])).toBe(
+			"v0.1.0-beta.4",
+		);
 	});
 
 	it("returns null when no tags match the beta pattern", () => {
@@ -48,7 +48,9 @@ describe("release-beta", () => {
 	});
 
 	it("returns the highest-sequence beta tag when multiple tags point at HEAD", () => {
-		expect(findHeadBetaTag(["v0.1.0-beta.2", "v0.1.0-beta.10"])).toBe("v0.1.0-beta.10");
+		expect(findHeadBetaTag(["v0.1.0-beta.2", "v0.1.0-beta.10"])).toBe(
+			"v0.1.0-beta.10",
+		);
 	});
 });
 

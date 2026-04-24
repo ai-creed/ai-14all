@@ -61,9 +61,13 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 			changedFiles: [],
 			recentCommits: [],
 		}),
-		readCommitHistory: vi.fn().mockResolvedValue({ mergeTargetRef: null, entries: [] }),
+		readCommitHistory: vi
+			.fn()
+			.mockResolvedValue({ mergeTargetRef: null, entries: [] }),
 		readCommitDetail: vi.fn().mockResolvedValue(null),
-		getRemoteStatus: vi.fn().mockResolvedValue({ hasRemote: false, ahead: 0, behind: 0 }),
+		getRemoteStatus: vi
+			.fn()
+			.mockResolvedValue({ hasRemote: false, ahead: 0, behind: 0 }),
 	},
 	diagnostics: {
 		logShellEvent: vi.fn(() => Promise.resolve()),
@@ -75,7 +79,11 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 }));
 
 import { App } from "../../../src/app/App";
-import { workspace, repository, terminals } from "../../../src/lib/desktop-client";
+import {
+	workspace,
+	repository,
+	terminals,
+} from "../../../src/lib/desktop-client";
 
 const mockOpenRepository = vi.mocked(workspace.openRepository);
 const mockListWorktrees = vi.mocked(repository.listWorktrees);
@@ -124,7 +132,9 @@ async function loadRepository() {
 	fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
 	await waitFor(() => {
-		expect(screen.getByRole("button", { name: "feature-a" })).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "feature-a" }),
+		).toBeInTheDocument();
 	});
 }
 
@@ -175,19 +185,30 @@ it("previews and creates a new worktree from the sidebar modal", async () => {
 	await loadRepository();
 
 	await userEvent.click(screen.getByRole("button", { name: "New session" }));
-	await userEvent.type(screen.getByRole("textbox", { name: "Name" }), "Feature B");
+	await userEvent.type(
+		screen.getByRole("textbox", { name: "Name" }),
+		"Feature B",
+	);
 
 	expect(
-		await screen.findByText("This will create a new branch and linked worktree."),
+		await screen.findByText(
+			"This will create a new branch and linked worktree.",
+		),
 	).toBeInTheDocument();
-	expect(await screen.findByText("/repo/.worktrees/feature-b")).toBeInTheDocument();
+	expect(
+		await screen.findByText("/repo/.worktrees/feature-b"),
+	).toBeInTheDocument();
 	expect(screen.getByText("origin/master")).toBeInTheDocument();
 	expect(screen.getByText("abc1234 initial commit")).toBeInTheDocument();
 
-	await userEvent.click(screen.getByRole("button", { name: "Create worktree" }));
+	await userEvent.click(
+		screen.getByRole("button", { name: "Create worktree" }),
+	);
 
 	expect(mockCreateWorktree).toHaveBeenCalledWith("r1", "Feature B");
-	expect(await screen.findByRole("button", { name: "feature-b" })).toBeInTheDocument();
+	expect(
+		await screen.findByRole("button", { name: "feature-b" }),
+	).toBeInTheDocument();
 });
 
 it("creates a default shell for a worktree recreated after removal with the same id", async () => {
@@ -214,7 +235,11 @@ it("creates a default shell for a worktree recreated after removal with the same
 		branchName: "feature-a",
 		path: "/repo/.worktrees/feature-a",
 		baseRef: "origin/master",
-		baseCommit: { sha: "abc123456789", shortSha: "abc1234", subject: "initial commit" },
+		baseCommit: {
+			sha: "abc123456789",
+			shortSha: "abc1234",
+			subject: "initial commit",
+		},
 	});
 	mockCreateWorktree.mockResolvedValue({
 		id: "feature-a",
@@ -233,35 +258,48 @@ it("creates a default shell for a worktree recreated after removal with the same
 		expect(screen.getByRole("tab", { name: /shell 1/i })).toBeInTheDocument();
 	});
 
-	const createsBefore = vi.mocked(terminals.create).mock.calls.filter(
-		(c) => c[1] === "feature-a",
-	).length;
+	const createsBefore = vi
+		.mocked(terminals.create)
+		.mock.calls.filter((c) => c[1] === "feature-a").length;
 	expect(createsBefore).toBe(1);
 
 	// Remove feature-a (isDirty:false — no confirmation checkbox required)
 	fireEvent.contextMenu(screen.getByRole("button", { name: "feature-a" }));
-	await userEvent.click(await screen.findByRole("menuitem", { name: "Remove worktree" }));
+	await userEvent.click(
+		await screen.findByRole("menuitem", { name: "Remove worktree" }),
+	);
 	await screen.findByText("Dirty worktree: no");
-	await userEvent.click(screen.getByRole("button", { name: "Remove worktree" }));
+	await userEvent.click(
+		screen.getByRole("button", { name: "Remove worktree" }),
+	);
 	await waitFor(() => {
-		expect(screen.queryByRole("button", { name: "feature-a" })).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "feature-a" }),
+		).not.toBeInTheDocument();
 	});
 
 	// Recreate feature-a with the same id/path
 	await userEvent.click(screen.getByRole("button", { name: "New session" }));
-	await userEvent.type(screen.getByRole("textbox", { name: "Name" }), "feature-a");
+	await userEvent.type(
+		screen.getByRole("textbox", { name: "Name" }),
+		"feature-a",
+	);
 	// Wait for preview to load (350ms debounce + async mock) before clicking
 	await screen.findByText("origin/master");
-	await userEvent.click(screen.getByRole("button", { name: "Create worktree" }));
+	await userEvent.click(
+		screen.getByRole("button", { name: "Create worktree" }),
+	);
 	await waitFor(() => {
-		expect(screen.getByRole("button", { name: "feature-a" })).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "feature-a" }),
+		).toBeInTheDocument();
 	});
 
 	// A default shell must be created for the recreated worktree
 	await waitFor(() => {
-		const createsAfter = vi.mocked(terminals.create).mock.calls.filter(
-			(c) => c[1] === "feature-a",
-		).length;
+		const createsAfter = vi
+			.mocked(terminals.create)
+			.mock.calls.filter((c) => c[1] === "feature-a").length;
 		expect(createsAfter).toBe(2);
 	});
 });
@@ -289,19 +327,25 @@ it("warns about dirty state and running sessions before removing a worktree", as
 
 	// Right-click the worktree to open the context menu, then click "Remove worktree"
 	fireEvent.contextMenu(screen.getByRole("button", { name: "feature-a" }));
-	await userEvent.click(await screen.findByRole("menuitem", { name: "Remove worktree" }));
+	await userEvent.click(
+		await screen.findByRole("menuitem", { name: "Remove worktree" }),
+	);
 
 	expect(await screen.findByText("Dirty worktree: yes")).toBeInTheDocument();
 	expect(screen.getByText("Running app sessions: shell 1")).toBeInTheDocument();
 
 	await userEvent.click(screen.getByRole("checkbox", { name: /I understand/ }));
-	await userEvent.click(screen.getByRole("button", { name: "Remove worktree" }));
+	await userEvent.click(
+		screen.getByRole("button", { name: "Remove worktree" }),
+	);
 
 	await waitFor(() => {
 		expect(mockStop).toHaveBeenCalled();
 	});
 	expect(mockRemoveWorktree).toHaveBeenCalledWith("r1", "feature-a");
 	await waitFor(() => {
-		expect(screen.queryByRole("button", { name: "feature-a" })).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "feature-a" }),
+		).not.toBeInTheDocument();
 	});
 });

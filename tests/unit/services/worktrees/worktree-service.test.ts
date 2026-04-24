@@ -1,6 +1,12 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync, realpathSync } from "node:fs";
+import {
+	mkdtempSync,
+	rmSync,
+	writeFileSync,
+	mkdirSync,
+	realpathSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execSync } from "node:child_process";
@@ -14,12 +20,21 @@ import { GitService } from "../../../../services/git/git-service.js";
 function makeTestRepo(): string {
 	const tmpDir = mkdtempSync(join(tmpdir(), "ofa-test-"));
 	execSync("git init", { cwd: tmpDir, stdio: "ignore" });
-	execSync("git config user.email 'phase7@example.com'", { cwd: tmpDir, stdio: "ignore" });
-	execSync("git config user.name 'Phase 7 Test'", { cwd: tmpDir, stdio: "ignore" });
+	execSync("git config user.email 'phase7@example.com'", {
+		cwd: tmpDir,
+		stdio: "ignore",
+	});
+	execSync("git config user.name 'Phase 7 Test'", {
+		cwd: tmpDir,
+		stdio: "ignore",
+	});
 	writeFileSync(join(tmpDir, "README.md"), "# repo\n");
 	execSync("git add README.md", { cwd: tmpDir, stdio: "ignore" });
 	execSync('git commit -m "initial commit"', { cwd: tmpDir, stdio: "ignore" });
-	execSync("git update-ref refs/remotes/origin/master HEAD", { cwd: tmpDir, stdio: "ignore" });
+	execSync("git update-ref refs/remotes/origin/master HEAD", {
+		cwd: tmpDir,
+		stdio: "ignore",
+	});
 	return tmpDir;
 }
 
@@ -89,7 +104,9 @@ describe("WorktreeService", () => {
 					stdio: "ignore",
 				});
 
-				vi.spyOn(GitService.prototype, "readOrCreateRepoId").mockResolvedValue(null);
+				vi.spyOn(GitService.prototype, "readOrCreateRepoId").mockResolvedValue(
+					null,
+				);
 
 				const repo = await service.setRepositoryRoot(tmpDir);
 
@@ -116,21 +133,36 @@ describe("WorktreeService", () => {
 
 				// Simulate a repo rename by rewriting the gitdir pointer to a
 				// non-existent path, as would happen after `mv repo-old repo-new`.
-				const gitdirFile = join(tmpDir, ".git", "worktrees", "wt-branch", "gitdir");
-				writeFileSync(gitdirFile, "/nonexistent/old-repo/.worktrees/wt-branch/.git\n");
+				const gitdirFile = join(
+					tmpDir,
+					".git",
+					"worktrees",
+					"wt-branch",
+					"gitdir",
+				);
+				writeFileSync(
+					gitdirFile,
+					"/nonexistent/old-repo/.worktrees/wt-branch/.git\n",
+				);
 
 				// Before repair, git considers this worktree prunable.
-				const porcelain = execSync("git worktree list --porcelain", { cwd: tmpDir }).toString();
+				const porcelain = execSync("git worktree list --porcelain", {
+					cwd: tmpDir,
+				}).toString();
 				expect(porcelain).toContain("prunable");
 
 				// Loading the repository should auto-repair the stale path.
 				const repo = await service.setRepositoryRoot(tmpDir);
 
-				const porcelainAfter = execSync("git worktree list --porcelain", { cwd: tmpDir }).toString();
+				const porcelainAfter = execSync("git worktree list --porcelain", {
+					cwd: tmpDir,
+				}).toString();
 				expect(porcelainAfter).not.toContain("prunable");
 
 				const worktrees = await service.listWorktrees(repo);
-				expect(worktrees.some((wt) => wt.branchName === "wt-branch")).toBe(true);
+				expect(worktrees.some((wt) => wt.branchName === "wt-branch")).toBe(
+					true,
+				);
 			} finally {
 				rmSync(tmpDir, { recursive: true, force: true });
 			}
@@ -153,14 +185,18 @@ describe("WorktreeService", () => {
 
 				// Verify the worktree appears before deletion
 				const before = await service.listWorktrees(repo);
-				expect(before.some((wt) => wt.branchName === "stale-branch")).toBe(true);
+				expect(before.some((wt) => wt.branchName === "stale-branch")).toBe(
+					true,
+				);
 
 				// Simulate external deletion of the worktree directory (but NOT git prune)
 				rmSync(stalePath, { recursive: true, force: true });
 
 				// After directory removal, listWorktrees should exclude it
 				const after = await service.listWorktrees(repo);
-				expect(after.some((wt) => wt.branchName === "stale-branch")).toBe(false);
+				expect(after.some((wt) => wt.branchName === "stale-branch")).toBe(
+					false,
+				);
 				expect(after.length).toBe(before.length - 1);
 			} finally {
 				rmSync(tmpDir, { recursive: true, force: true });
@@ -220,12 +256,16 @@ describe("WorktreeService", () => {
 				expect(created.branchName).toBe("feature-b");
 				// realpathSync resolves symlinks (e.g. /var → /private/var on macOS)
 				// so the comparison matches git's resolved path.
-				expect(created.path).toBe(join(realpathSync(tmpDir), ".worktrees", "feature-b"));
-				expect(execSync("git branch --list feature-b", { cwd: tmpDir }).toString()).toContain(
-					"feature-b",
+				expect(created.path).toBe(
+					join(realpathSync(tmpDir), ".worktrees", "feature-b"),
 				);
 				expect(
-					execSync("git -C \"" + created.path + "\" branch --show-current").toString().trim(),
+					execSync("git branch --list feature-b", { cwd: tmpDir }).toString(),
+				).toContain("feature-b");
+				expect(
+					execSync('git -C "' + created.path + '" branch --show-current')
+						.toString()
+						.trim(),
 				).toBe("feature-b");
 			} finally {
 				rmSync(tmpDir, { recursive: true, force: true });
@@ -235,15 +275,22 @@ describe("WorktreeService", () => {
 		it("creates a linked worktree for an existing branch when no worktree exists yet", async () => {
 			const tmpDir = makeTestRepo();
 			try {
-				execSync("git branch existing-branch", { cwd: tmpDir, stdio: "ignore" });
+				execSync("git branch existing-branch", {
+					cwd: tmpDir,
+					stdio: "ignore",
+				});
 
 				const repo = await service.setRepositoryRoot(tmpDir);
 				const created = await service.createWorktree(repo, "existing-branch");
 
 				expect(created.branchName).toBe("existing-branch");
-				expect(created.path).toBe(join(realpathSync(tmpDir), ".worktrees", "existing-branch"));
+				expect(created.path).toBe(
+					join(realpathSync(tmpDir), ".worktrees", "existing-branch"),
+				);
 				expect(
-					execSync("git -C \"" + created.path + "\" branch --show-current").toString().trim(),
+					execSync('git -C "' + created.path + '" branch --show-current')
+						.toString()
+						.trim(),
 				).toBe("existing-branch");
 			} finally {
 				rmSync(tmpDir, { recursive: true, force: true });
@@ -260,7 +307,9 @@ describe("WorktreeService", () => {
 				const created = await service.createWorktree(repo, "Symlink ID Test");
 
 				const worktrees = await service.listWorktrees(repo);
-				const found = worktrees.find((wt) => wt.branchName === "symlink-id-test");
+				const found = worktrees.find(
+					(wt) => wt.branchName === "symlink-id-test",
+				);
 				expect(found).toBeDefined();
 				expect(created.id).toBe(found!.id);
 				expect(created.path).toBe(found!.path);
@@ -287,13 +336,21 @@ describe("WorktreeService", () => {
 					branchName: "rollback-test",
 					path: conflictPath,
 					baseRef: "origin/master",
-					baseCommit: { sha: "deadbeef1234", shortSha: "deadbee", subject: "initial commit" },
+					baseCommit: {
+						sha: "deadbeef1234",
+						shortSha: "deadbee",
+						subject: "initial commit",
+					},
 				});
 
-				await expect(service.createWorktree(repo, "Rollback Test")).rejects.toThrow();
+				await expect(
+					service.createWorktree(repo, "Rollback Test"),
+				).rejects.toThrow();
 
 				// Branch must be cleaned up — no dangling branch left behind.
-				const branches = execSync("git branch --list rollback-test", { cwd: tmpDir })
+				const branches = execSync("git branch --list rollback-test", {
+					cwd: tmpDir,
+				})
 					.toString()
 					.trim();
 				expect(branches).toBe("");
@@ -306,7 +363,10 @@ describe("WorktreeService", () => {
 		it("does not delete a pre-existing branch when git worktree add fails", async () => {
 			const tmpDir = makeTestRepo();
 			try {
-				execSync("git branch existing-branch", { cwd: tmpDir, stdio: "ignore" });
+				execSync("git branch existing-branch", {
+					cwd: tmpDir,
+					stdio: "ignore",
+				});
 				const repo = await service.setRepositoryRoot(tmpDir);
 
 				mkdirSync(join(tmpDir, ".worktrees"), { recursive: true });
@@ -318,12 +378,20 @@ describe("WorktreeService", () => {
 					branchName: "existing-branch",
 					path: conflictPath,
 					baseRef: "origin/master",
-					baseCommit: { sha: "deadbeef1234", shortSha: "deadbee", subject: "initial commit" },
+					baseCommit: {
+						sha: "deadbeef1234",
+						shortSha: "deadbee",
+						subject: "initial commit",
+					},
 				});
 
-				await expect(service.createWorktree(repo, "existing-branch")).rejects.toThrow();
+				await expect(
+					service.createWorktree(repo, "existing-branch"),
+				).rejects.toThrow();
 
-				const branches = execSync("git branch --list existing-branch", { cwd: tmpDir })
+				const branches = execSync("git branch --list existing-branch", {
+					cwd: tmpDir,
+				})
 					.toString()
 					.trim();
 				expect(branches).toContain("existing-branch");
@@ -340,23 +408,35 @@ describe("WorktreeService", () => {
 			try {
 				execSync("git branch feature-c", { cwd: tmpDir, stdio: "ignore" });
 				mkdirSync(join(tmpDir, ".worktrees"), { recursive: true });
-				execSync(`git worktree add "${join(tmpDir, ".worktrees", "feature-c")}" feature-c`, {
-					cwd: tmpDir,
-					stdio: "ignore",
-				});
-				writeFileSync(join(tmpDir, ".worktrees", "feature-c", "dirty.txt"), "dirty\n");
+				execSync(
+					`git worktree add "${join(tmpDir, ".worktrees", "feature-c")}" feature-c`,
+					{
+						cwd: tmpDir,
+						stdio: "ignore",
+					},
+				);
+				writeFileSync(
+					join(tmpDir, ".worktrees", "feature-c", "dirty.txt"),
+					"dirty\n",
+				);
 
 				const repo = await service.setRepositoryRoot(tmpDir);
-				const worktree = (await service.listWorktrees(repo)).find((entry) => !entry.isMain)!;
+				const worktree = (await service.listWorktrees(repo)).find(
+					(entry) => !entry.isMain,
+				)!;
 				const preview = await service.previewRemoveWorktree(repo, worktree.id);
 				expect(preview.isDirty).toBe(true);
 
 				await service.removeWorktree(repo, worktree.id);
 
-				expect(execSync("git worktree list --porcelain", { cwd: tmpDir }).toString()).not.toContain(
-					".worktrees/feature-c",
-				);
-				expect(execSync("git branch --list feature-c", { cwd: tmpDir }).toString().trim()).toBe("");
+				expect(
+					execSync("git worktree list --porcelain", { cwd: tmpDir }).toString(),
+				).not.toContain(".worktrees/feature-c");
+				expect(
+					execSync("git branch --list feature-c", { cwd: tmpDir })
+						.toString()
+						.trim(),
+				).toBe("");
 			} finally {
 				rmSync(tmpDir, { recursive: true, force: true });
 			}
@@ -379,7 +459,9 @@ describe("WorktreeService", () => {
 					stdio: "ignore",
 				});
 				const repo = await service.setRepositoryRoot(tmpDir);
-				const main = (await service.listWorktrees(repo)).find((entry) => entry.isMain)!;
+				const main = (await service.listWorktrees(repo)).find(
+					(entry) => entry.isMain,
+				)!;
 
 				await expect(service.removeWorktree(repo, main.id)).rejects.toThrow(
 					"Cannot remove the main worktree.",
@@ -400,7 +482,10 @@ describe("WorktreeService.findWorktree", () => {
 		execSync("git config user.email test@a.dev", { cwd: repoPath });
 		execSync("git config user.name test", { cwd: repoPath });
 		writeFileSync(join(repoPath, "README.md"), "hi\n");
-		execSync("git add -A && git commit -q -m init", { cwd: repoPath, shell: "/bin/zsh" });
+		execSync("git add -A && git commit -q -m init", {
+			cwd: repoPath,
+			shell: "/bin/zsh",
+		});
 	});
 
 	afterEach(() => {
@@ -418,6 +503,8 @@ describe("WorktreeService.findWorktree", () => {
 	it("throws for an unknown worktree id", async () => {
 		const svc = new WorktreeService();
 		const repo = await svc.setRepositoryRoot(repoPath);
-		await expect(svc.findWorktree(repo, "wt-nope")).rejects.toThrow(/Unknown worktree/);
+		await expect(svc.findWorktree(repo, "wt-nope")).rejects.toThrow(
+			/Unknown worktree/,
+		);
 	});
 });

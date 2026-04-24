@@ -163,7 +163,10 @@ export class FileService {
 					realpath(worktreePath),
 					realpath(resolved.absolute),
 				]);
-				if (realFile !== realWorktree && !realFile.startsWith(realWorktree + "/"))
+				if (
+					realFile !== realWorktree &&
+					!realFile.startsWith(realWorktree + "/")
+				)
 					return { ok: false, reason: "path-escape" };
 			}
 		} catch (err) {
@@ -217,7 +220,10 @@ export class FileService {
 					realpath(worktreePath),
 					realpath(resolved.absolute),
 				]);
-				if (realFile !== realWorktree && !realFile.startsWith(realWorktree + "/"))
+				if (
+					realFile !== realWorktree &&
+					!realFile.startsWith(realWorktree + "/")
+				)
 					return { ok: false, reason: "path-escape" };
 			}
 		} catch (err) {

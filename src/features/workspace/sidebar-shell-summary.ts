@@ -23,7 +23,9 @@ const severityRank: Record<SidebarShellState, number> = {
 	idle: 0,
 };
 
-function deriveExitedContext(process: Pick<ProcessSession, "status" | "exitCode">): string {
+function deriveExitedContext(
+	process: Pick<ProcessSession, "status" | "exitCode">,
+): string {
 	if (process.status === "restarting") return "restarting";
 	if (process.status === "error") return "error";
 	return process.exitCode != null ? `exit ${process.exitCode}` : "exit 0";
@@ -40,7 +42,10 @@ function deriveState(
 ): SidebarShellState {
 	if (process.status !== "running") return "exited";
 	if (process.attentionState === "actionRequired") return "actionRequired";
-	if (process.lastActivityAt != null && now - process.lastActivityAt <= ACTIVE_WINDOW_MS) {
+	if (
+		process.lastActivityAt != null &&
+		now - process.lastActivityAt <= ACTIVE_WINDOW_MS
+	) {
 		return "active";
 	}
 	return "idle";
@@ -57,7 +62,9 @@ function deriveContext(
 	if (state === "exited") return deriveExitedContext(process);
 	if (state === "idle") {
 		return formatQuietAge(
-			process.lastActivityAt == null ? ACTIVE_WINDOW_MS : now - process.lastActivityAt,
+			process.lastActivityAt == null
+				? ACTIVE_WINDOW_MS
+				: now - process.lastActivityAt,
 		);
 	}
 	return process.lastOutputPreview ?? "";
@@ -91,7 +98,8 @@ export function buildWorktreeProcessSummary(
 			};
 		})
 		.sort((left, right) => {
-			const severityDelta = severityRank[right.state] - severityRank[left.state];
+			const severityDelta =
+				severityRank[right.state] - severityRank[left.state];
 			if (severityDelta !== 0) return severityDelta;
 			return (right.lastActivityAt ?? 0) - (left.lastActivityAt ?? 0);
 		});

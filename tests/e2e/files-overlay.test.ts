@@ -22,7 +22,9 @@ let testRepo: TestRepo;
 let persistedStateDir: string;
 
 async function ensureWorkspaceLoaded(): Promise<void> {
-	const worktreeNav = page.getByRole("navigation", { name: "Worktree sessions" });
+	const worktreeNav = page.getByRole("navigation", {
+		name: "Worktree sessions",
+	});
 	if (await worktreeNav.isVisible({ timeout: 2_000 }).catch(() => false)) {
 		return;
 	}
@@ -36,7 +38,9 @@ async function ensureWorkspaceLoaded(): Promise<void> {
 
 test.beforeAll(async () => {
 	testRepo = createTestRepo();
-	persistedStateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-files-overlay-")));
+	persistedStateDir = realpathSync(
+		mkdtempSync(join(tmpdir(), "ofa-files-overlay-")),
+	);
 	const workspaceStatePath = join(persistedStateDir, "workspace-state.json");
 	app = await electron.launch({
 		args: ["out/main/index.js"],
@@ -78,7 +82,11 @@ test.describe.serial("Files overlay", () => {
 		await openFilesOverlayViaChipBar(page);
 		const search = page.getByTestId("files-overlay-search");
 		await search.fill("inde");
-		await expect(page.locator(".shell-files-overlay__row-basename", { hasText: "index.ts" })).toBeVisible();
+		await expect(
+			page.locator(".shell-files-overlay__row-basename", {
+				hasText: "index.ts",
+			}),
+		).toBeVisible();
 		await expect(page.getByText("README.md")).toHaveCount(0);
 		await closeFilesOverlay(page);
 	});
@@ -88,21 +96,29 @@ test.describe.serial("Files overlay", () => {
 		await openFilesOverlayViaChipBar(page);
 		await page.getByTestId("files-overlay-search").fill("index");
 		// Wait for the file list to load before pressing Enter (async trackedFilesLoader)
-		await expect(page.locator(".shell-files-overlay__row-basename").first()).toBeVisible({ timeout: 10_000 });
+		await expect(
+			page.locator(".shell-files-overlay__row-basename").first(),
+		).toBeVisible({ timeout: 10_000 });
 		await page.keyboard.press("Enter");
 		await expect(page.getByTestId("files-overlay")).toHaveCount(0);
 		const drawer = page.getByRole("region", { name: "Review" });
 		await expect(drawer).toHaveAttribute("data-open", "true");
-		await expect(
-			page.getByRole("tab", { name: /files/i }),
-		).toHaveAttribute("data-state", "active");
+		await expect(page.getByRole("tab", { name: /files/i })).toHaveAttribute(
+			"data-state",
+			"active",
+		);
 	});
 
 	test("pointer click selects a file and closes the overlay", async () => {
 		test.setTimeout(30_000);
 		await openFilesOverlayViaChipBar(page);
 		// Scope to the overlay to avoid matching the file tree behind the backdrop (async load)
-		await page.locator("[data-testid='files-overlay'] .shell-files-overlay__row-basename", { hasText: "README.md" }).click();
+		await page
+			.locator(
+				"[data-testid='files-overlay'] .shell-files-overlay__row-basename",
+				{ hasText: "README.md" },
+			)
+			.click();
 		await expect(page.getByTestId("files-overlay")).toHaveCount(0);
 		await expect(page.getByRole("region", { name: "Review" })).toHaveAttribute(
 			"data-open",

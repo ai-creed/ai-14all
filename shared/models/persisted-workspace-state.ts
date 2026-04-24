@@ -86,10 +86,18 @@ export type PersistedWorktreeSession = z.infer<
 	typeof PersistedWorktreeSessionSchema
 >;
 export type WorkspaceSnapshot = z.infer<typeof WorkspaceSnapshotSchema>;
-export type PersistedSavedWorkspace = z.infer<typeof PersistedSavedWorkspaceSchema>;
-export type PersistedWorkspaceStateV1 = z.infer<typeof PersistedWorkspaceStateV1Schema>;
-export type PersistedWorkspaceStateV2 = z.infer<typeof PersistedWorkspaceStateV2Schema>;
-export type PersistedWorkspaceState = PersistedWorkspaceStateV1 | PersistedWorkspaceStateV2;
+export type PersistedSavedWorkspace = z.infer<
+	typeof PersistedSavedWorkspaceSchema
+>;
+export type PersistedWorkspaceStateV1 = z.infer<
+	typeof PersistedWorkspaceStateV1Schema
+>;
+export type PersistedWorkspaceStateV2 = z.infer<
+	typeof PersistedWorkspaceStateV2Schema
+>;
+export type PersistedWorkspaceState =
+	| PersistedWorkspaceStateV1
+	| PersistedWorkspaceStateV2;
 
 export const DEFAULT_PERSISTED_WORKSPACE_STATE: PersistedWorkspaceStateV2 = {
 	version: 2,

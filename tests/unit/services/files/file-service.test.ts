@@ -329,8 +329,11 @@ describe("FileService.saveFile", () => {
 			if (statCallCount === 2) {
 				throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
 			}
-			const { stat: realStat } = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
-			return realStat(...args as Parameters<typeof realStat>);
+			const { stat: realStat } =
+				await vi.importActual<typeof import("node:fs/promises")>(
+					"node:fs/promises",
+				);
+			return realStat(...(args as Parameters<typeof realStat>));
 		});
 		const before = Date.now();
 		const svc = new FileService();

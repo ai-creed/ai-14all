@@ -14,7 +14,11 @@ const SHORTCUT_GROUPS: { label: string; ids: string[] }[] = [
 	},
 	{
 		label: "Workspace",
-		ids: ["workspace.selectNext", "workspace.selectPrev", "ui.openWorkspacePicker"],
+		ids: [
+			"workspace.selectNext",
+			"workspace.selectPrev",
+			"ui.openWorkspacePicker",
+		],
 	},
 	{
 		label: "Terminal",
@@ -32,7 +36,13 @@ const SHORTCUT_GROUPS: { label: string; ids: string[] }[] = [
 	},
 	{
 		label: "Review",
-		ids: ["review.files", "review.changes", "review.commits", "review-drawer", "files-overlay"],
+		ids: [
+			"review.files",
+			"review.changes",
+			"review.commits",
+			"review-drawer",
+			"files-overlay",
+		],
 	},
 	{
 		label: "Session",
@@ -48,7 +58,12 @@ export function ShortcutsHelp({ open, platform, onClose }: Props) {
 	const byId = Object.fromEntries(SHORTCUT_REGISTRY.map((s) => [s.id, s]));
 
 	return (
-		<Dialog.Root open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+		<Dialog.Root
+			open={open}
+			onOpenChange={(v) => {
+				if (!v) onClose();
+			}}
+		>
 			<Dialog.Portal>
 				<Dialog.Overlay className="shell-shortcuts-help__overlay" />
 				<Dialog.Content
@@ -72,13 +87,16 @@ export function ShortcutsHelp({ open, platform, onClose }: Props) {
 					</div>
 					<div className="shell-shortcuts-help__body">
 						{SHORTCUT_GROUPS.map((group) => {
-							const shortcuts = group.ids
-								.map((id) => byId[id])
-								.filter(Boolean);
+							const shortcuts = group.ids.map((id) => byId[id]).filter(Boolean);
 							if (!shortcuts.length) return null;
 							return (
-								<section key={group.label} className="shell-shortcuts-help__group">
-									<h3 className="shell-shortcuts-help__group-label">{group.label}</h3>
+								<section
+									key={group.label}
+									className="shell-shortcuts-help__group"
+								>
+									<h3 className="shell-shortcuts-help__group-label">
+										{group.label}
+									</h3>
 									<ul className="shell-shortcuts-help__list" role="list">
 										{shortcuts.map((shortcut) => (
 											<li

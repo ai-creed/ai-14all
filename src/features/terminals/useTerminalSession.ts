@@ -18,7 +18,11 @@ export type RuntimeListeners = {
 
 export type UseTerminalSessionResult = {
 	sessions: TerminalSession[];
-	createSession: (workspaceId: string, worktreeId: string, cwd: string) => Promise<TerminalSession>;
+	createSession: (
+		workspaceId: string,
+		worktreeId: string,
+		cwd: string,
+	) => Promise<TerminalSession>;
 	stopSession: (sessionId: string) => Promise<void>;
 	removeSession: (sessionId: string) => void;
 	sendInput: (sessionId: string, data: string) => Promise<void>;
@@ -81,18 +85,41 @@ export function useTerminalSession(
 
 	const sessionsRef = useRef<TerminalSession[]>([]);
 
-	const createSession = useCallback(async (workspaceId: string, worktreeId: string, cwd: string) => {
-		logRendererShellEvent({ event: "renderer-session-create-request", windowId: null, data: { workspaceId, worktreeId, cwd } }).catch(() => {});
-		const session = await terminals.create(workspaceId, worktreeId, cwd);
-		setSessions((prev) => {
-			const next = [...prev, session];
-			sessionsRef.current = next;
-			return next;
-		});
-		logRendererShellEvent({ event: "renderer-session-create-success", windowId: null, data: { terminalSessionId: session.id, workspaceId, worktreeId, trackedRendererSessionIds: sessionsRef.current.map((s) => s.id) } }).catch(() => {});
-		logRendererShellEvent({ event: "renderer-session-tracked", windowId: null, data: { terminalSessionId: session.id, trackedRendererSessionIds: sessionsRef.current.map((s) => s.id) } }).catch(() => {});
-		return session;
-	}, []);
+	const createSession = useCallback(
+		async (workspaceId: string, worktreeId: string, cwd: string) => {
+			logRendererShellEvent({
+				event: "renderer-session-create-request",
+				windowId: null,
+				data: { workspaceId, worktreeId, cwd },
+			}).catch(() => {});
+			const session = await terminals.create(workspaceId, worktreeId, cwd);
+			setSessions((prev) => {
+				const next = [...prev, session];
+				sessionsRef.current = next;
+				return next;
+			});
+			logRendererShellEvent({
+				event: "renderer-session-create-success",
+				windowId: null,
+				data: {
+					terminalSessionId: session.id,
+					workspaceId,
+					worktreeId,
+					trackedRendererSessionIds: sessionsRef.current.map((s) => s.id),
+				},
+			}).catch(() => {});
+			logRendererShellEvent({
+				event: "renderer-session-tracked",
+				windowId: null,
+				data: {
+					terminalSessionId: session.id,
+					trackedRendererSessionIds: sessionsRef.current.map((s) => s.id),
+				},
+			}).catch(() => {});
+			return session;
+		},
+		[],
+	);
 
 	const stopSession = useCallback(async (sessionId: string) => {
 		await terminals.stop(sessionId);
@@ -107,7 +134,14 @@ export function useTerminalSession(
 			if (prev.some((existing) => existing.id === session.id)) return prev;
 			const next = [...prev, session];
 			sessionsRef.current = next;
-			logRendererShellEvent({ event: "renderer-session-adopt", windowId: null, data: { terminalSessionId: session.id, trackedRendererSessionIds: next.map((s) => s.id) } }).catch(() => {});
+			logRendererShellEvent({
+				event: "renderer-session-adopt",
+				windowId: null,
+				data: {
+					terminalSessionId: session.id,
+					trackedRendererSessionIds: next.map((s) => s.id),
+				},
+			}).catch(() => {});
 			return next;
 		});
 	}, []);

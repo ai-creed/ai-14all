@@ -2,7 +2,10 @@ import { useState } from "react";
 
 type Props = {
 	repositoryPath: string;
-	onDecide: (decision: { shouldRestore: boolean; rememberChoice: boolean }) => void;
+	onDecide: (decision: {
+		shouldRestore: boolean;
+		rememberChoice: boolean;
+	}) => void;
 };
 
 export function RestorePrompt({ repositoryPath, onDecide }: Props) {

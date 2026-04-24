@@ -114,7 +114,9 @@ vi.mock("xterm", () => ({
 
 import { TerminalPane } from "../../../src/features/terminals/TerminalPane";
 
-function makeSession(overrides: Partial<TerminalSession> = {}): TerminalSession {
+function makeSession(
+	overrides: Partial<TerminalSession> = {},
+): TerminalSession {
 	return {
 		id: "term-1",
 		workspaceId: "ws-1",
@@ -186,7 +188,9 @@ describe("TerminalPane", () => {
 			/>,
 		);
 
-		const titleListener = (xtermOnTitleChangeMock.mock.calls as unknown[][])[0]?.[0] as ((title: string) => void) | undefined;
+		const titleListener = (
+			xtermOnTitleChangeMock.mock.calls as unknown[][]
+		)[0]?.[0] as ((title: string) => void) | undefined;
 		expect(typeof titleListener).toBe("function");
 		titleListener?.("codex");
 
@@ -211,9 +215,8 @@ describe("TerminalPane", () => {
 
 		render(<TerminalPane session={session} visible={true} />);
 
-		const keyHandler = xtermAttachCustomKeyEventHandlerMock.mock.calls[0]?.[0] as
-			| ((event: KeyboardEvent) => boolean)
-			| undefined;
+		const keyHandler = xtermAttachCustomKeyEventHandlerMock.mock
+			.calls[0]?.[0] as ((event: KeyboardEvent) => boolean) | undefined;
 		expect(typeof keyHandler).toBe("function");
 
 		const accepted = keyHandler?.(
@@ -230,9 +233,8 @@ describe("TerminalPane", () => {
 
 		render(<TerminalPane session={session} visible={true} />);
 
-		const keyHandler = xtermAttachCustomKeyEventHandlerMock.mock.calls[0]?.[0] as
-			| ((event: KeyboardEvent) => boolean)
-			| undefined;
+		const keyHandler = xtermAttachCustomKeyEventHandlerMock.mock
+			.calls[0]?.[0] as ((event: KeyboardEvent) => boolean) | undefined;
 
 		const accepted = keyHandler?.(
 			new KeyboardEvent("keydown", { key: "k", metaKey: true, shiftKey: true }),
@@ -247,9 +249,8 @@ describe("TerminalPane", () => {
 
 		render(<TerminalPane session={session} visible={true} />);
 
-		const keyHandler = xtermAttachCustomKeyEventHandlerMock.mock.calls[0]?.[0] as
-			| ((event: KeyboardEvent) => boolean)
-			| undefined;
+		const keyHandler = xtermAttachCustomKeyEventHandlerMock.mock
+			.calls[0]?.[0] as ((event: KeyboardEvent) => boolean) | undefined;
 
 		const accepted = keyHandler?.(
 			new KeyboardEvent("keydown", { key: "Enter", shiftKey: true }),
@@ -265,9 +266,8 @@ describe("TerminalPane", () => {
 
 		render(<TerminalPane session={session} visible={true} />);
 
-		const keyHandler = xtermAttachCustomKeyEventHandlerMock.mock.calls[0]?.[0] as
-			| ((event: KeyboardEvent) => boolean)
-			| undefined;
+		const keyHandler = xtermAttachCustomKeyEventHandlerMock.mock
+			.calls[0]?.[0] as ((event: KeyboardEvent) => boolean) | undefined;
 
 		const accepted = keyHandler?.(
 			new KeyboardEvent("keypress", { key: "Enter", shiftKey: true }),
@@ -282,11 +282,12 @@ describe("TerminalPane", () => {
 
 		render(<TerminalPane session={session} visible={true} />);
 
-		const keyHandler = xtermAttachCustomKeyEventHandlerMock.mock.calls[0]?.[0] as
-			| ((event: KeyboardEvent) => boolean)
-			| undefined;
+		const keyHandler = xtermAttachCustomKeyEventHandlerMock.mock
+			.calls[0]?.[0] as ((event: KeyboardEvent) => boolean) | undefined;
 
-		const accepted = keyHandler?.(new KeyboardEvent("keydown", { key: "Enter" }));
+		const accepted = keyHandler?.(
+			new KeyboardEvent("keydown", { key: "Enter" }),
+		);
 
 		expect(accepted).toBe(true);
 		expect(sendInputMock).not.toHaveBeenCalled();
@@ -489,7 +490,9 @@ describe("TerminalPane", () => {
 	it("logs mount and unmount with pane instance metadata", () => {
 		const session = makeSession();
 		logShellEventMock.mockClear();
-		const { unmount } = render(<TerminalPane session={session} visible={true} />);
+		const { unmount } = render(
+			<TerminalPane session={session} visible={true} />,
+		);
 
 		expect(logShellEventMock).toHaveBeenCalledWith(
 			expect.objectContaining({

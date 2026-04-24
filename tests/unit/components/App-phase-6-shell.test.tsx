@@ -78,14 +78,16 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		sendInput: sendInputMock,
 		resize: vi.fn(),
 		stop: vi.fn(),
-		onOutput: vi.fn((listener: (event: { sessionId: string; data: string }) => void) => {
-			outputListenersRef.current.push(listener);
-			return () => {
-				outputListenersRef.current = outputListenersRef.current.filter(
-					(current) => current !== listener,
-				);
-			};
-		}),
+		onOutput: vi.fn(
+			(listener: (event: { sessionId: string; data: string }) => void) => {
+				outputListenersRef.current.push(listener);
+				return () => {
+					outputListenersRef.current = outputListenersRef.current.filter(
+						(current) => current !== listener,
+					);
+				};
+			},
+		),
 		onExit: vi.fn(() => vi.fn()),
 		onState: vi.fn(() => vi.fn()),
 		onError: vi.fn(() => vi.fn()),
@@ -106,7 +108,9 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		readSummary: readSummaryMock,
 		readCommitHistory: mockReadCommitHistory,
 		readCommitDetail: mockReadCommitDetail,
-		getRemoteStatus: vi.fn().mockResolvedValue({ hasRemote: false, ahead: 0, behind: 0 }),
+		getRemoteStatus: vi
+			.fn()
+			.mockResolvedValue({ hasRemote: false, ahead: 0, behind: 0 }),
 	},
 	diagnostics: {
 		logShellEvent: vi.fn(() => Promise.resolve()),
@@ -123,15 +127,16 @@ describe("App — Phase 6 default shell", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		let terminalCount = 0;
-		createMock.mockImplementation((workspaceId: string, worktreeId: string, cwd: string) =>
-			Promise.resolve({
-				id: `terminal-${worktreeId}-${terminalCount++}`,
-				workspaceId,
-				worktreeId,
-				cwd,
-				status: "running",
-				exitCode: null,
-			}),
+		createMock.mockImplementation(
+			(workspaceId: string, worktreeId: string, cwd: string) =>
+				Promise.resolve({
+					id: `terminal-${worktreeId}-${terminalCount++}`,
+					workspaceId,
+					worktreeId,
+					cwd,
+					status: "running",
+					exitCode: null,
+				}),
 		);
 		readSummaryMock.mockResolvedValue({
 			branchName: "main",
@@ -153,9 +158,24 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
@@ -175,8 +195,18 @@ describe("App — Phase 6 default shell", () => {
 		mockReadCommitHistory.mockResolvedValue({
 			mergeTargetRef: "origin/main",
 			entries: [
-				{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
-				{ sha: "base", shortSha: "base", subject: "origin/main", isMergeTarget: true },
+				{
+					sha: "abc",
+					shortSha: "abc",
+					subject: "feature commit",
+					isMergeTarget: false,
+				},
+				{
+					sha: "base",
+					shortSha: "base",
+					subject: "origin/main",
+					isMergeTarget: true,
+				},
 			],
 		});
 		mockReadCommitDetail.mockResolvedValue({
@@ -199,9 +229,24 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
@@ -214,12 +259,16 @@ describe("App — Phase 6 default shell", () => {
 		await screen.findByRole("region", { name: "Review" });
 		ensureReviewDrawerOpen();
 		await userEvent.click(await screen.findByRole("tab", { name: "Commits" }));
-		await userEvent.click(await screen.findByRole("button", { name: /feature commit/i }));
+		await userEvent.click(
+			await screen.findByRole("button", { name: /feature commit/i }),
+		);
 
 		expect(mockReadCommitDetail).toHaveBeenCalledWith("/repo", "abc");
 		// "feature commit" appears in both the commit rail (subject) and the diff header
 		await waitFor(() => {
-			expect(screen.getAllByText("feature commit").length).toBeGreaterThanOrEqual(1);
+			expect(
+				screen.getAllByText("feature commit").length,
+			).toBeGreaterThanOrEqual(1);
 		});
 		const selectedRow = screen
 			.getByRole("button", { name: /feature commit/i })
@@ -240,9 +289,24 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
@@ -277,9 +341,24 @@ describe("App — Phase 6 default shell", () => {
 			changedFiles: [{ path: "src/index.ts", status: "M" }],
 			recentCommits: [],
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
@@ -298,9 +377,7 @@ describe("App — Phase 6 default shell", () => {
 		expect(reviewRail).toContainElement(
 			within(reviewRail).getByRole("tab", { name: "Files" }),
 		);
-		expect(
-			screen.getByRole("button", { name: "Refresh review" }),
-		).toHaveClass(
+		expect(screen.getByRole("button", { name: "Refresh review" })).toHaveClass(
 			"shell-button",
 			"shell-button--compact",
 			"shell-button--icon",
@@ -310,7 +387,9 @@ describe("App — Phase 6 default shell", () => {
 		const reviewGrid = screen.getByTestId("review-grid");
 		const resizeHandle = screen.getByTestId("review-rail-resize-handle");
 
-		expect(reviewGrid).toHaveStyle({ gridTemplateColumns: "320px 8px minmax(0, 1fr)" });
+		expect(reviewGrid).toHaveStyle({
+			gridTemplateColumns: "320px 8px minmax(0, 1fr)",
+		});
 
 		fireEvent.mouseDown(resizeHandle, { clientX: 320 });
 		fireEvent.mouseMove(window, { clientX: 420 });
@@ -322,10 +401,12 @@ describe("App — Phase 6 default shell", () => {
 			});
 		});
 
-		await userEvent.click(within(reviewRail).getByRole("tab", { name: "Commits" }));
-		expect(
-			screen.getByRole("button", { name: "Refresh review" }),
-		).toHaveClass("shell-button--round");
+		await userEvent.click(
+			within(reviewRail).getByRole("tab", { name: "Commits" }),
+		);
+		expect(screen.getByRole("button", { name: "Refresh review" })).toHaveClass(
+			"shell-button--round",
+		);
 	});
 
 	it("keeps the terminal panel body visible when a restored shell has no live terminal yet", async () => {
@@ -335,129 +416,172 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "alwaysRestore",
 			activeWorkspaceId: "ws-main",
 			workspaceOrder: ["ws-main"],
-			workspaces: [{
-				workspaceId: "ws-main",
-				repositoryPath: "/repo",
-				repoId: null,
-				snapshot: {
+			workspaces: [
+				{
+					workspaceId: "ws-main",
 					repositoryPath: "/repo",
-					selectedWorktreeId: "main",
-					commandPresets: [],
-					worktreeSessions: [
-						{
-							worktreeId: "main",
-							note: "",
-							reviewMode: "files",
-							viewerMode: "file",
-							selectedFilePath: null,
-							selectedChangedFilePath: null,
-							selectedCommitSha: null,
-							selectedCommitFilePath: null,
-							activeProcessSessionId: "process-1",
-							nextAdHocNumber: 2,
-							processSessions: [
-								{
-									id: "process-1",
-									origin: "adHoc",
-									presetId: null,
-									label: "shell 1",
-									command: null,
-									pinned: false,
-								},
-							],
-						},
-					],
+					repoId: null,
+					snapshot: {
+						repositoryPath: "/repo",
+						selectedWorktreeId: "main",
+						commandPresets: [],
+						worktreeSessions: [
+							{
+								worktreeId: "main",
+								note: "",
+								reviewMode: "files",
+								viewerMode: "file",
+								selectedFilePath: null,
+								selectedChangedFilePath: null,
+								selectedCommitSha: null,
+								selectedCommitFilePath: null,
+								activeProcessSessionId: "process-1",
+								nextAdHocNumber: 2,
+								processSessions: [
+									{
+										id: "process-1",
+										origin: "adHoc",
+										presetId: null,
+										label: "shell 1",
+										command: null,
+										pinned: false,
+									},
+								],
+							},
+						],
+					},
 				},
-			}],
+			],
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
 
-		expect(await screen.findByRole("tab", { name: "shell 1" })).toBeInTheDocument();
 		expect(
-			screen.getByText(/no active shell selected/i),
+			await screen.findByRole("tab", { name: "shell 1" }),
 		).toBeInTheDocument();
+		expect(screen.getByText(/no active shell selected/i)).toBeInTheDocument();
 		expect(document.querySelector(".shell-terminal-section")).not.toBeNull();
 	});
 
 	it("renders two visible terminal panes when split mode has left and right assignments", async () => {
 		let terminalCount = 0;
-		createMock.mockImplementation((workspaceId: string, worktreeId: string, cwd: string) =>
-			Promise.resolve({
-				id: `terminal-${worktreeId}-${terminalCount++}`,
-				workspaceId,
-				worktreeId,
-				cwd,
-				status: "running",
-				exitCode: null,
-			}),
+		createMock.mockImplementation(
+			(workspaceId: string, worktreeId: string, cwd: string) =>
+				Promise.resolve({
+					id: `terminal-${worktreeId}-${terminalCount++}`,
+					workspaceId,
+					worktreeId,
+					cwd,
+					status: "running",
+					exitCode: null,
+				}),
 		);
 		readRestoreStateMock.mockResolvedValue({
 			version: 2,
 			restorePreference: "alwaysRestore",
 			activeWorkspaceId: "ws-main",
 			workspaceOrder: ["ws-main"],
-			workspaces: [{
-				workspaceId: "ws-main",
-				repositoryPath: "/repo",
-				repoId: null,
-				snapshot: {
+			workspaces: [
+				{
+					workspaceId: "ws-main",
 					repositoryPath: "/repo",
-					selectedWorktreeId: "main",
-					commandPresets: [],
-					worktreeSessions: [
-						{
-							worktreeId: "main",
-							note: "",
-							reviewMode: "files",
-							viewerMode: "file",
-							selectedFilePath: null,
-							selectedChangedFilePath: null,
-							selectedCommitSha: null,
-							selectedCommitFilePath: null,
-							activeProcessSessionId: "process-1",
-							terminalLayoutMode: "split",
-							splitLeftProcessId: "process-1",
-							splitRightProcessId: "process-2",
-							nextAdHocNumber: 3,
-							processSessions: [
-								{
-									id: "process-1",
-									origin: "adHoc",
-									presetId: null,
-									label: "shell 1",
-									command: null,
-									pinned: false,
-								},
-								{
-									id: "process-2",
-									origin: "adHoc",
-									presetId: null,
-									label: "shell 2",
-									command: null,
-									pinned: false,
-								},
-							],
-						},
-					],
+					repoId: null,
+					snapshot: {
+						repositoryPath: "/repo",
+						selectedWorktreeId: "main",
+						commandPresets: [],
+						worktreeSessions: [
+							{
+								worktreeId: "main",
+								note: "",
+								reviewMode: "files",
+								viewerMode: "file",
+								selectedFilePath: null,
+								selectedChangedFilePath: null,
+								selectedCommitSha: null,
+								selectedCommitFilePath: null,
+								activeProcessSessionId: "process-1",
+								terminalLayoutMode: "split",
+								splitLeftProcessId: "process-1",
+								splitRightProcessId: "process-2",
+								nextAdHocNumber: 3,
+								processSessions: [
+									{
+										id: "process-1",
+										origin: "adHoc",
+										presetId: null,
+										label: "shell 1",
+										command: null,
+										pinned: false,
+									},
+									{
+										id: "process-2",
+										origin: "adHoc",
+										presetId: null,
+										label: "shell 2",
+										command: null,
+										pinned: false,
+									},
+								],
+							},
+						],
+					},
 				},
-			}],
+			],
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
 
 		await screen.findByRole("button", { name: "Disable split shells" });
-		expect(document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]')).toHaveLength(2);
-		expect(screen.getByTestId("terminal-pane-terminal-main-0")).toHaveAttribute("aria-hidden", "false");
-		expect(screen.getByTestId("terminal-pane-terminal-main-1")).toHaveAttribute("aria-hidden", "false");
+		expect(
+			document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]'),
+		).toHaveLength(2);
+		expect(screen.getByTestId("terminal-pane-terminal-main-0")).toHaveAttribute(
+			"aria-hidden",
+			"false",
+		);
+		expect(screen.getByTestId("terminal-pane-terminal-main-1")).toHaveAttribute(
+			"aria-hidden",
+			"false",
+		);
 	});
 
 	it("auto-assigns two existing shells when enabling split mode", async () => {
@@ -466,9 +590,24 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
@@ -486,159 +625,209 @@ describe("App — Phase 6 default shell", () => {
 			expect(screen.getByRole("tab", { name: "shell 2" })).toBeInTheDocument();
 		});
 
-		await userEvent.click(screen.getByRole("button", { name: "Enable split shells" }));
+		await userEvent.click(
+			screen.getByRole("button", { name: "Enable split shells" }),
+		);
 
 		await waitFor(() => {
-			expect(document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]')).toHaveLength(2);
+			expect(
+				document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]'),
+			).toHaveLength(2);
 		});
-		expect(screen.queryByText(/No shell assigned to this split pane/i)).not.toBeInTheDocument();
+		expect(
+			screen.queryByText(/No shell assigned to this split pane/i),
+		).not.toBeInTheDocument();
 	});
 
 	it("renders split panes in explicit left and right slot order", async () => {
 		let terminalCount = 0;
-		createMock.mockImplementation((workspaceId: string, worktreeId: string, cwd: string) =>
-			Promise.resolve({
-				id: `terminal-${worktreeId}-${terminalCount++}`,
-				workspaceId,
-				worktreeId,
-				cwd,
-				status: "running",
-				exitCode: null,
-			}),
+		createMock.mockImplementation(
+			(workspaceId: string, worktreeId: string, cwd: string) =>
+				Promise.resolve({
+					id: `terminal-${worktreeId}-${terminalCount++}`,
+					workspaceId,
+					worktreeId,
+					cwd,
+					status: "running",
+					exitCode: null,
+				}),
 		);
 		readRestoreStateMock.mockResolvedValue({
 			version: 2,
 			restorePreference: "alwaysRestore",
 			activeWorkspaceId: "ws-main",
 			workspaceOrder: ["ws-main"],
-			workspaces: [{
-				workspaceId: "ws-main",
-				repositoryPath: "/repo",
-				repoId: null,
-				snapshot: {
+			workspaces: [
+				{
+					workspaceId: "ws-main",
 					repositoryPath: "/repo",
-					selectedWorktreeId: "main",
-					commandPresets: [],
-					worktreeSessions: [
-						{
-							worktreeId: "main",
-							note: "",
-							reviewMode: "files",
-							viewerMode: "file",
-							selectedFilePath: null,
-							selectedChangedFilePath: null,
-							selectedCommitSha: null,
-							selectedCommitFilePath: null,
-							activeProcessSessionId: "process-1",
-							terminalLayoutMode: "split",
-							splitLeftProcessId: "process-2",
-							splitRightProcessId: "process-1",
-							nextAdHocNumber: 3,
-							processSessions: [
-								{
-									id: "process-1",
-									origin: "adHoc",
-									presetId: null,
-									label: "shell 1",
-									command: null,
-									pinned: false,
-								},
-								{
-									id: "process-2",
-									origin: "adHoc",
-									presetId: null,
-									label: "shell 2",
-									command: null,
-									pinned: false,
-								},
-							],
-						},
-					],
+					repoId: null,
+					snapshot: {
+						repositoryPath: "/repo",
+						selectedWorktreeId: "main",
+						commandPresets: [],
+						worktreeSessions: [
+							{
+								worktreeId: "main",
+								note: "",
+								reviewMode: "files",
+								viewerMode: "file",
+								selectedFilePath: null,
+								selectedChangedFilePath: null,
+								selectedCommitSha: null,
+								selectedCommitFilePath: null,
+								activeProcessSessionId: "process-1",
+								terminalLayoutMode: "split",
+								splitLeftProcessId: "process-2",
+								splitRightProcessId: "process-1",
+								nextAdHocNumber: 3,
+								processSessions: [
+									{
+										id: "process-1",
+										origin: "adHoc",
+										presetId: null,
+										label: "shell 1",
+										command: null,
+										pinned: false,
+									},
+									{
+										id: "process-2",
+										origin: "adHoc",
+										presetId: null,
+										label: "shell 2",
+										command: null,
+										pinned: false,
+									},
+								],
+							},
+						],
+					},
 				},
-			}],
+			],
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
 
 		await screen.findByRole("button", { name: "Disable split shells" });
 		const visiblePanes = Array.from(
-			document.querySelectorAll<HTMLElement>('.shell-terminal-pane[aria-hidden="false"]'),
+			document.querySelectorAll<HTMLElement>(
+				'.shell-terminal-pane[aria-hidden="false"]',
+			),
 		);
 		expect(visiblePanes).toHaveLength(2);
-		expect(visiblePanes[0]).toHaveAttribute("data-terminal-session-id", "terminal-main-1");
-		expect(visiblePanes[1]).toHaveAttribute("data-terminal-session-id", "terminal-main-0");
+		expect(visiblePanes[0]).toHaveAttribute(
+			"data-terminal-session-id",
+			"terminal-main-1",
+		);
+		expect(visiblePanes[1]).toHaveAttribute(
+			"data-terminal-session-id",
+			"terminal-main-0",
+		);
 	});
 
 	it("treats output from any visible split pane as already viewed", async () => {
 		let terminalCount = 0;
-		createMock.mockImplementation((workspaceId: string, worktreeId: string, cwd: string) =>
-			Promise.resolve({
-				id: `terminal-${worktreeId}-${terminalCount++}`,
-				workspaceId,
-				worktreeId,
-				cwd,
-				status: "running",
-				exitCode: null,
-			}),
+		createMock.mockImplementation(
+			(workspaceId: string, worktreeId: string, cwd: string) =>
+				Promise.resolve({
+					id: `terminal-${worktreeId}-${terminalCount++}`,
+					workspaceId,
+					worktreeId,
+					cwd,
+					status: "running",
+					exitCode: null,
+				}),
 		);
 		readRestoreStateMock.mockResolvedValue({
 			version: 2,
 			restorePreference: "alwaysRestore",
 			activeWorkspaceId: "ws-main",
 			workspaceOrder: ["ws-main"],
-			workspaces: [{
-				workspaceId: "ws-main",
-				repositoryPath: "/repo",
-				repoId: null,
-				snapshot: {
+			workspaces: [
+				{
+					workspaceId: "ws-main",
 					repositoryPath: "/repo",
-					selectedWorktreeId: "main",
-					commandPresets: [],
-					worktreeSessions: [
-						{
-							worktreeId: "main",
-							note: "",
-							reviewMode: "files",
-							viewerMode: "file",
-							selectedFilePath: null,
-							selectedChangedFilePath: null,
-							selectedCommitSha: null,
-							selectedCommitFilePath: null,
-							activeProcessSessionId: "process-1",
-							terminalLayoutMode: "split",
-							splitLeftProcessId: "process-1",
-							splitRightProcessId: "process-2",
-							nextAdHocNumber: 3,
-							processSessions: [
-								{
-									id: "process-1",
-									origin: "adHoc",
-									presetId: null,
-									label: "shell 1",
-									command: null,
-									pinned: false,
-								},
-								{
-									id: "process-2",
-									origin: "adHoc",
-									presetId: null,
-									label: "shell 2",
-									command: null,
-									pinned: false,
-								},
-							],
-						},
-					],
+					repoId: null,
+					snapshot: {
+						repositoryPath: "/repo",
+						selectedWorktreeId: "main",
+						commandPresets: [],
+						worktreeSessions: [
+							{
+								worktreeId: "main",
+								note: "",
+								reviewMode: "files",
+								viewerMode: "file",
+								selectedFilePath: null,
+								selectedChangedFilePath: null,
+								selectedCommitSha: null,
+								selectedCommitFilePath: null,
+								activeProcessSessionId: "process-1",
+								terminalLayoutMode: "split",
+								splitLeftProcessId: "process-1",
+								splitRightProcessId: "process-2",
+								nextAdHocNumber: 3,
+								processSessions: [
+									{
+										id: "process-1",
+										origin: "adHoc",
+										presetId: null,
+										label: "shell 1",
+										command: null,
+										pinned: false,
+									},
+									{
+										id: "process-2",
+										origin: "adHoc",
+										presetId: null,
+										label: "shell 2",
+										command: null,
+										pinned: false,
+									},
+								],
+							},
+						],
+					},
 				},
-			}],
+			],
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
@@ -674,7 +863,12 @@ describe("App — Phase 6 default shell", () => {
 		});
 		openRepositoryMock.mockResolvedValue({
 			workspaceId: "repo-1",
-			repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null },
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
 		});
 		listWorktreesMock.mockResolvedValue([
 			{
@@ -729,84 +923,114 @@ describe("App — Phase 6 default shell", () => {
 
 	it("selects clicked split pane as the active process", async () => {
 		let terminalCount = 0;
-		createMock.mockImplementation((workspaceId: string, worktreeId: string, cwd: string) =>
-			Promise.resolve({
-				id: `terminal-${worktreeId}-${terminalCount++}`,
-				workspaceId,
-				worktreeId,
-				cwd,
-				status: "running",
-				exitCode: null,
-			}),
+		createMock.mockImplementation(
+			(workspaceId: string, worktreeId: string, cwd: string) =>
+				Promise.resolve({
+					id: `terminal-${worktreeId}-${terminalCount++}`,
+					workspaceId,
+					worktreeId,
+					cwd,
+					status: "running",
+					exitCode: null,
+				}),
 		);
 		readRestoreStateMock.mockResolvedValue({
 			version: 2,
 			restorePreference: "alwaysRestore",
 			activeWorkspaceId: "ws-main",
 			workspaceOrder: ["ws-main"],
-			workspaces: [{
-				workspaceId: "ws-main",
-				repositoryPath: "/repo",
-				repoId: null,
-				snapshot: {
+			workspaces: [
+				{
+					workspaceId: "ws-main",
 					repositoryPath: "/repo",
-					selectedWorktreeId: "main",
-					commandPresets: [],
-					worktreeSessions: [
-						{
-							worktreeId: "main",
-							note: "",
-							reviewMode: "files",
-							viewerMode: "file",
-							selectedFilePath: null,
-							selectedChangedFilePath: null,
-							selectedCommitSha: null,
-							selectedCommitFilePath: null,
-							activeProcessSessionId: "process-1",
-							terminalLayoutMode: "split",
-							splitLeftProcessId: "process-1",
-							splitRightProcessId: "process-2",
-							nextAdHocNumber: 3,
-							processSessions: [
-								{
-									id: "process-1",
-									origin: "adHoc",
-									presetId: null,
-									label: "shell 1",
-									command: null,
-									pinned: false,
-								},
-								{
-									id: "process-2",
-									origin: "adHoc",
-									presetId: null,
-									label: "shell 2",
-									command: null,
-									pinned: false,
-								},
-							],
-						},
-					],
+					repoId: null,
+					snapshot: {
+						repositoryPath: "/repo",
+						selectedWorktreeId: "main",
+						commandPresets: [],
+						worktreeSessions: [
+							{
+								worktreeId: "main",
+								note: "",
+								reviewMode: "files",
+								viewerMode: "file",
+								selectedFilePath: null,
+								selectedChangedFilePath: null,
+								selectedCommitSha: null,
+								selectedCommitFilePath: null,
+								activeProcessSessionId: "process-1",
+								terminalLayoutMode: "split",
+								splitLeftProcessId: "process-1",
+								splitRightProcessId: "process-2",
+								nextAdHocNumber: 3,
+								processSessions: [
+									{
+										id: "process-1",
+										origin: "adHoc",
+										presetId: null,
+										label: "shell 1",
+										command: null,
+										pinned: false,
+									},
+									{
+										id: "process-2",
+										origin: "adHoc",
+										presetId: null,
+										label: "shell 2",
+										command: null,
+										pinned: false,
+									},
+								],
+							},
+						],
+					},
 				},
-			}],
+			],
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
 
 		await screen.findByRole("button", { name: "Disable split shells" });
-		expect(screen.getByRole("tab", { name: "shell 1" })).toHaveAttribute("data-state", "active");
-		expect(screen.getByRole("tab", { name: "shell 2" })).toHaveAttribute("data-state", "inactive");
+		expect(screen.getByRole("tab", { name: "shell 1" })).toHaveAttribute(
+			"data-state",
+			"active",
+		);
+		expect(screen.getByRole("tab", { name: "shell 2" })).toHaveAttribute(
+			"data-state",
+			"inactive",
+		);
 
 		await userEvent.pointer([
-			{ target: screen.getByTestId("terminal-pane-terminal-main-1"), keys: "[MouseLeft]" },
+			{
+				target: screen.getByTestId("terminal-pane-terminal-main-1"),
+				keys: "[MouseLeft]",
+			},
 		]);
 
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: "shell 2" })).toHaveAttribute("data-state", "active");
+			expect(screen.getByRole("tab", { name: "shell 2" })).toHaveAttribute(
+				"data-state",
+				"active",
+			);
 		});
 	});
 
@@ -816,10 +1040,32 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
-			{ id: "feature-a", repositoryId: "repo-1", branchName: "feature-a", path: "/repo/.worktrees/feature-a", label: "feature-a", isMain: false },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
+			{
+				id: "feature-a",
+				repositoryId: "repo-1",
+				branchName: "feature-a",
+				path: "/repo/.worktrees/feature-a",
+				label: "feature-a",
+				isMain: false,
+			},
 		]);
 
 		render(<App />);
@@ -829,7 +1075,9 @@ describe("App — Phase 6 default shell", () => {
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
-		await userEvent.click(await screen.findByRole("button", { name: "feature-a" }));
+		await userEvent.click(
+			await screen.findByRole("button", { name: "feature-a" }),
+		);
 		await waitFor(() => {
 			expect(screen.getByRole("tab", { name: "shell 1" })).toBeInTheDocument();
 		});
@@ -839,28 +1087,50 @@ describe("App — Phase 6 default shell", () => {
 		});
 
 		await userEvent.pointer([
-			{ target: screen.getByRole("tab", { name: "shell 1" }), keys: "[MouseRight]" },
+			{
+				target: screen.getByRole("tab", { name: "shell 1" }),
+				keys: "[MouseRight]",
+			},
 		]);
-		await userEvent.click(screen.getByRole("menuitem", { name: "Show in split left" }));
+		await userEvent.click(
+			screen.getByRole("menuitem", { name: "Show in split left" }),
+		);
 		await userEvent.pointer([
-			{ target: screen.getByRole("tab", { name: "shell 2" }), keys: "[MouseRight]" },
+			{
+				target: screen.getByRole("tab", { name: "shell 2" }),
+				keys: "[MouseRight]",
+			},
 		]);
-		await userEvent.click(screen.getByRole("menuitem", { name: "Show in split right" }));
+		await userEvent.click(
+			screen.getByRole("menuitem", { name: "Show in split right" }),
+		);
 
-		expect(screen.getByRole("button", { name: "Disable split shells" })).toBeInTheDocument();
-		expect(document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]')).toHaveLength(2);
+		expect(
+			screen.getByRole("button", { name: "Disable split shells" }),
+		).toBeInTheDocument();
+		expect(
+			document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]'),
+		).toHaveLength(2);
 
 		await userEvent.click(screen.getByRole("button", { name: "main" }));
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: "Enable split shells" })).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: "Enable split shells" }),
+			).toBeInTheDocument();
 		});
-		expect(document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]')).toHaveLength(1);
+		expect(
+			document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]'),
+		).toHaveLength(1);
 
 		await userEvent.click(screen.getByRole("button", { name: "feature-a" }));
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: "Disable split shells" })).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: "Disable split shells" }),
+			).toBeInTheDocument();
 		});
-		expect(document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]')).toHaveLength(2);
+		expect(
+			document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]'),
+		).toHaveLength(2);
 	});
 
 	it("renders the chip bar and toggles the note sheet", async () => {
@@ -869,9 +1139,24 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "master", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "master",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
@@ -884,14 +1169,20 @@ describe("App — Phase 6 default shell", () => {
 		await screen.findByRole("region", { name: "Session" });
 		expect(screen.queryByText("Active session")).not.toBeInTheDocument();
 		expect(document.querySelectorAll(".shell-chip-bar")).toHaveLength(1);
-		expect(screen.getByRole("button", { name: "Open note" })).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Open note" }),
+		).toBeInTheDocument();
 
 		// Note sheet is closed by default
-		expect(screen.queryByRole("textbox", { name: "Session note" })).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("textbox", { name: "Session note" }),
+		).not.toBeInTheDocument();
 
 		// Open note sheet
 		await userEvent.click(screen.getByRole("button", { name: "Open note" }));
-		expect(await screen.findByRole("textbox", { name: "Session note" })).toBeInTheDocument();
+		expect(
+			await screen.findByRole("textbox", { name: "Session note" }),
+		).toBeInTheDocument();
 		expect(screen.getAllByText("master").length).toBeGreaterThanOrEqual(1);
 	});
 
@@ -901,9 +1192,24 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "master", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "master",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
@@ -927,7 +1233,15 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
 			{
 				id: "feature-a",
@@ -998,7 +1312,15 @@ describe("App — Phase 6 default shell", () => {
 			changedFiles: [{ path: "src/index.ts", status: "M" }],
 			recentCommits: [],
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
 			{
 				id: "main",
@@ -1020,7 +1342,9 @@ describe("App — Phase 6 default shell", () => {
 		await screen.findByRole("region", { name: "Review" });
 		ensureReviewDrawerOpen();
 		await userEvent.click(await screen.findByRole("tab", { name: "Changes" }));
-		await userEvent.click(await screen.findByRole("button", { name: /src\/index\.ts/i }));
+		await userEvent.click(
+			await screen.findByRole("button", { name: /src\/index\.ts/i }),
+		);
 		expect(await screen.findByText("Diff vs HEAD")).toBeInTheDocument();
 
 		const reviewDrawer = screen.getByTestId("review-drawer");
@@ -1063,9 +1387,24 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
@@ -1097,9 +1436,24 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
@@ -1129,9 +1483,24 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
@@ -1161,9 +1530,24 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
@@ -1173,13 +1557,19 @@ describe("App — Phase 6 default shell", () => {
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
-		expect(await screen.findByTestId("sidebar-resize-handle")).toBeInTheDocument();
+		expect(
+			await screen.findByTestId("sidebar-resize-handle"),
+		).toBeInTheDocument();
 
-		const collapseButton = screen.getByRole("button", { name: /collapse sidebar/i });
+		const collapseButton = screen.getByRole("button", {
+			name: /collapse sidebar/i,
+		});
 		await userEvent.click(collapseButton);
 
 		await waitFor(() => {
-			expect(screen.queryByTestId("sidebar-resize-handle")).not.toBeInTheDocument();
+			expect(
+				screen.queryByTestId("sidebar-resize-handle"),
+			).not.toBeInTheDocument();
 		});
 
 		const layout = screen.getByTestId("shell-layout");
@@ -1192,9 +1582,24 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
@@ -1213,21 +1618,31 @@ describe("App — Phase 6 default shell", () => {
 		fireEvent.mouseUp(window);
 
 		await waitFor(() => {
-			expect(layout).toHaveStyle({ gridTemplateColumns: "400px minmax(0, 1fr)" });
+			expect(layout).toHaveStyle({
+				gridTemplateColumns: "400px minmax(0, 1fr)",
+			});
 		});
 
 		// Collapse
-		const collapseButton = screen.getByRole("button", { name: /collapse sidebar/i });
+		const collapseButton = screen.getByRole("button", {
+			name: /collapse sidebar/i,
+		});
 		await userEvent.click(collapseButton);
 		await waitFor(() => {
-			expect(layout).toHaveStyle({ gridTemplateColumns: "68px minmax(0, 1fr)" });
+			expect(layout).toHaveStyle({
+				gridTemplateColumns: "68px minmax(0, 1fr)",
+			});
 		});
 
 		// Expand — width should be preserved
-		const expandButton = screen.getByRole("button", { name: /expand sidebar/i });
+		const expandButton = screen.getByRole("button", {
+			name: /expand sidebar/i,
+		});
 		await userEvent.click(expandButton);
 		await waitFor(() => {
-			expect(layout).toHaveStyle({ gridTemplateColumns: "400px minmax(0, 1fr)" });
+			expect(layout).toHaveStyle({
+				gridTemplateColumns: "400px minmax(0, 1fr)",
+			});
 		});
 	});
 
@@ -1237,9 +1652,24 @@ describe("App — Phase 6 default shell", () => {
 			restorePreference: "prompt",
 			snapshot: null,
 		});
-		openRepositoryMock.mockResolvedValue({ workspaceId: "repo-1", repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null } });
+		openRepositoryMock.mockResolvedValue({
+			workspaceId: "repo-1",
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
+		});
 		listWorktreesMock.mockResolvedValue([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "master", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "master",
+				isMain: true,
+			},
 		]);
 
 		render(<App />);
@@ -1250,8 +1680,12 @@ describe("App — Phase 6 default shell", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
 		// Open the note sheet to access the textarea
-		await userEvent.click(await screen.findByRole("button", { name: "Open note" }));
-		const noteInput = await screen.findByRole("textbox", { name: "Session note" });
+		await userEvent.click(
+			await screen.findByRole("button", { name: "Open note" }),
+		);
+		const noteInput = await screen.findByRole("textbox", {
+			name: "Session note",
+		});
 		await userEvent.clear(noteInput);
 		await userEvent.type(noteInput, "keep this session");
 		await waitFor(() => {
@@ -1259,9 +1693,13 @@ describe("App — Phase 6 default shell", () => {
 		});
 
 		// Close note sheet before navigating away
-		await userEvent.click(screen.getByRole("button", { name: "Close note sheet" }));
+		await userEvent.click(
+			screen.getByRole("button", { name: "Close note sheet" }),
+		);
 		await waitFor(() => {
-			expect(screen.queryByRole("textbox", { name: "Session note" })).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole("textbox", { name: "Session note" }),
+			).not.toBeInTheDocument();
 		});
 
 		openPickerListenerRef.current?.();
@@ -1270,8 +1708,12 @@ describe("App — Phase 6 default shell", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
 		// Reopen note sheet to verify state was preserved
-		await userEvent.click(await screen.findByRole("button", { name: "Open note" }));
-		expect(await screen.findByDisplayValue("keep this session")).toBeInTheDocument();
+		await userEvent.click(
+			await screen.findByRole("button", { name: "Open note" }),
+		);
+		expect(
+			await screen.findByDisplayValue("keep this session"),
+		).toBeInTheDocument();
 		expect(createMock).toHaveBeenCalledTimes(1);
 	});
 });

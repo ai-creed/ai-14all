@@ -10,13 +10,20 @@ global.ResizeObserver = class ResizeObserver {
 
 // Mock window.matchMedia for useTheme hook (only in browser-like environments)
 if (typeof window !== "undefined") {
-	const listeners: Array<(e: Pick<MediaQueryListEvent, "matches">) => void> = [];
+	const listeners: Array<(e: Pick<MediaQueryListEvent, "matches">) => void> =
+		[];
 	const mql = {
 		matches: false, // Default to dark mode
-		addEventListener: (_: string, cb: (e: Pick<MediaQueryListEvent, "matches">) => void) => {
+		addEventListener: (
+			_: string,
+			cb: (e: Pick<MediaQueryListEvent, "matches">) => void,
+		) => {
 			listeners.push(cb);
 		},
-		removeEventListener: (_: string, cb: (e: Pick<MediaQueryListEvent, "matches">) => void) => {
+		removeEventListener: (
+			_: string,
+			cb: (e: Pick<MediaQueryListEvent, "matches">) => void,
+		) => {
 			const idx = listeners.indexOf(cb);
 			if (idx > -1) listeners.splice(idx, 1);
 		},

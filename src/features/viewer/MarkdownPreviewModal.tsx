@@ -50,7 +50,12 @@ export function MarkdownPreviewModal({
 	}, [open, worktreePath, relativePath, reloadToken, contentOverride]);
 
 	return (
-		<Dialog.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
+		<Dialog.Root
+			open={open}
+			onOpenChange={(isOpen) => {
+				if (!isOpen) onClose();
+			}}
+		>
 			<Dialog.Portal>
 				<Dialog.Overlay className="shell-md-overlay" />
 				<Dialog.Content className="shell-md-modal" aria-describedby={undefined}>
@@ -58,7 +63,9 @@ export function MarkdownPreviewModal({
 						<Dialog.Title className="shell-md-modal__title">
 							{relativePath}
 						</Dialog.Title>
-						<Dialog.Close className="shell-md-modal__close" aria-label="Close">✕</Dialog.Close>
+						<Dialog.Close className="shell-md-modal__close" aria-label="Close">
+							✕
+						</Dialog.Close>
 					</div>
 					{loading && (
 						<p className="shell-empty-state">Loading {relativePath}…</p>

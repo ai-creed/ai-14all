@@ -105,9 +105,7 @@ describe("TerminalService", () => {
 	it("listSessions returns all active sessions", () => {
 		const ptyA = createPtyDouble();
 		const ptyB = createPtyDouble();
-		spawnMock
-			.mockReturnValueOnce(ptyA)
-			.mockReturnValueOnce(ptyB);
+		spawnMock.mockReturnValueOnce(ptyA).mockReturnValueOnce(ptyB);
 
 		const handlers = {
 			onOutput: vi.fn(),
@@ -128,9 +126,7 @@ describe("TerminalService", () => {
 	it("listSessions filters by workspaceId", () => {
 		const ptyA = createPtyDouble();
 		const ptyB = createPtyDouble();
-		spawnMock
-			.mockReturnValueOnce(ptyA)
-			.mockReturnValueOnce(ptyB);
+		spawnMock.mockReturnValueOnce(ptyA).mockReturnValueOnce(ptyB);
 
 		const handlers = {
 			onOutput: vi.fn(),
@@ -202,23 +198,37 @@ describe("TerminalService", () => {
 		);
 
 		const session = service.create("ws-a", "wt1", "/repo-a");
-		expect(logMock).toHaveBeenCalledWith(expect.objectContaining({
-			event: "terminal-create-success",
-			data: expect.objectContaining({ terminalSessionId: session.id, workspaceId: "ws-a" }),
-		}));
+		expect(logMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				event: "terminal-create-success",
+				data: expect.objectContaining({
+					terminalSessionId: session.id,
+					workspaceId: "ws-a",
+				}),
+			}),
+		);
 
 		service.sendInput(session.id, "echo hi\r");
-		expect(logMock).toHaveBeenCalledWith(expect.objectContaining({ event: "terminal-send-input" }));
+		expect(logMock).toHaveBeenCalledWith(
+			expect.objectContaining({ event: "terminal-send-input" }),
+		);
 
-		const onData = (pty.onData as unknown as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as ((data: string) => void);
+		const onData = (pty.onData as unknown as ReturnType<typeof vi.fn>).mock
+			.calls[0]?.[0] as (data: string) => void;
 		onData("hello\r\n");
-		expect(logMock).toHaveBeenCalledWith(expect.objectContaining({ event: "terminal-output" }));
+		expect(logMock).toHaveBeenCalledWith(
+			expect.objectContaining({ event: "terminal-output" }),
+		);
 
 		expect(() => service.sendInput("missing", "pwd\r")).toThrow();
-		expect(logMock).toHaveBeenCalledWith(expect.objectContaining({ event: "terminal-session-missing" }));
+		expect(logMock).toHaveBeenCalledWith(
+			expect.objectContaining({ event: "terminal-session-missing" }),
+		);
 
 		service.stop(session.id);
-		expect(logMock).toHaveBeenCalledWith(expect.objectContaining({ event: "terminal-exit" }));
+		expect(logMock).toHaveBeenCalledWith(
+			expect.objectContaining({ event: "terminal-exit" }),
+		);
 	});
 
 	it("logs terminal-binding-changed for each live session on dispose", () => {
@@ -240,21 +250,21 @@ describe("TerminalService", () => {
 
 		service.dispose();
 
-		expect(logMock).toHaveBeenCalledWith(expect.objectContaining({
-			event: "terminal-binding-changed",
-			reasonKind: "backend_cleanup",
-			reason: "service_dispose",
-			isExpected: false,
-			data: expect.objectContaining({ terminalSessionId: session.id }),
-		}));
+		expect(logMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				event: "terminal-binding-changed",
+				reasonKind: "backend_cleanup",
+				reason: "service_dispose",
+				isExpected: false,
+				data: expect.objectContaining({ terminalSessionId: session.id }),
+			}),
+		);
 	});
 
 	it("listSessions excludes exited sessions", () => {
 		const ptyA = createPtyDouble();
 		const ptyB = createPtyDouble();
-		spawnMock
-			.mockReturnValueOnce(ptyA)
-			.mockReturnValueOnce(ptyB);
+		spawnMock.mockReturnValueOnce(ptyA).mockReturnValueOnce(ptyB);
 
 		const handlers = {
 			onOutput: vi.fn(),

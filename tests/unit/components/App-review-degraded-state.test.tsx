@@ -59,9 +59,13 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 			changedFiles: [],
 			recentCommits: [],
 		}),
-		readCommitHistory: vi.fn().mockResolvedValue({ mergeTargetRef: null, entries: [] }),
+		readCommitHistory: vi
+			.fn()
+			.mockResolvedValue({ mergeTargetRef: null, entries: [] }),
 		readCommitDetail: vi.fn().mockResolvedValue(null),
-		getRemoteStatus: vi.fn().mockResolvedValue({ hasRemote: false, ahead: 0, behind: 0 }),
+		getRemoteStatus: vi
+			.fn()
+			.mockResolvedValue({ hasRemote: false, ahead: 0, behind: 0 }),
 	},
 	workspace: {
 		openRepository: vi.fn(),
@@ -97,7 +101,15 @@ const mockReadRestoreState = vi.mocked(workspace.readRestoreState);
 const user = userEvent.setup();
 
 async function loadRepositoryWithTwoWorktrees() {
-	mockOpenRepository.mockResolvedValueOnce({ workspaceId: "r1", repository: { id: "r1", name: "test-repo", rootPath: "/repo", repoId: "repo-id-123" } });
+	mockOpenRepository.mockResolvedValueOnce({
+		workspaceId: "r1",
+		repository: {
+			id: "r1",
+			name: "test-repo",
+			rootPath: "/repo",
+			repoId: "repo-id-123",
+		},
+	});
 	mockListWorktrees.mockResolvedValueOnce([
 		{
 			id: "wt1",
@@ -129,12 +141,22 @@ async function loadRepositoryWithTwoWorktrees() {
 	fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
 	await waitFor(() => {
-		expect(screen.getByRole("button", { name: "feature-a" })).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "feature-a" }),
+		).toBeInTheDocument();
 	});
 }
 
 async function loadRepositoryAndSwitchToCommits() {
-	mockOpenRepository.mockResolvedValueOnce({ workspaceId: "r1", repository: { id: "r1", name: "test-repo", rootPath: "/repo", repoId: "repo-id-123" } });
+	mockOpenRepository.mockResolvedValueOnce({
+		workspaceId: "r1",
+		repository: {
+			id: "r1",
+			name: "test-repo",
+			rootPath: "/repo",
+			repoId: "repo-id-123",
+		},
+	});
 	mockListWorktrees.mockResolvedValueOnce([
 		{
 			id: "wt1",
@@ -174,7 +196,10 @@ async function loadRepositoryAndSwitchToCommits() {
 	await user.click(screen.getByRole("tab", { name: "Commits" }));
 
 	await waitFor(() => {
-		expect(screen.getByRole("tab", { name: "Commits" })).toHaveAttribute("data-state", "active");
+		expect(screen.getByRole("tab", { name: "Commits" })).toHaveAttribute(
+			"data-state",
+			"active",
+		);
 	});
 }
 
@@ -208,7 +233,10 @@ describe("App — degraded commit history read", () => {
 			changedFiles: [],
 			recentCommits: [],
 		});
-		mockReadCommitHistory.mockResolvedValue({ mergeTargetRef: null, entries: [] });
+		mockReadCommitHistory.mockResolvedValue({
+			mergeTargetRef: null,
+			entries: [],
+		});
 		mockReadCommitDetail.mockRejectedValue(new Error("not called"));
 	});
 
@@ -218,7 +246,14 @@ describe("App — degraded commit history read", () => {
 			if (failHistory) throw new Error("history failed");
 			return {
 				mergeTargetRef: "origin/main",
-				entries: [{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false }],
+				entries: [
+					{
+						sha: "abc",
+						shortSha: "abc",
+						subject: "feature commit",
+						isMergeTarget: false,
+					},
+				],
 			};
 		});
 
@@ -226,15 +261,21 @@ describe("App — degraded commit history read", () => {
 
 		// Wait for the initial commit to appear
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /feature commit/i })).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /feature commit/i }),
+			).toBeInTheDocument();
 		});
 
 		failHistory = true;
 		fireEvent.click(screen.getByRole("button", { name: "Refresh review" }));
 
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /feature commit/i })).toBeInTheDocument();
-			expect(screen.getByText(/couldn't refresh commit history/i)).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /feature commit/i }),
+			).toBeInTheDocument();
+			expect(
+				screen.getByText(/couldn't refresh commit history/i),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -244,12 +285,21 @@ describe("App — degraded commit history read", () => {
 		await loadRepositoryAndSwitchToCommits();
 
 		await waitFor(() => {
-			expect(screen.getByText(/couldn't load commit history/i)).toBeInTheDocument();
+			expect(
+				screen.getByText(/couldn't load commit history/i),
+			).toBeInTheDocument();
 		});
 	});
 
 	it("clears the selected commit when it is no longer present after refresh", async () => {
-		let currentEntries = [{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false }];
+		let currentEntries = [
+			{
+				sha: "abc",
+				shortSha: "abc",
+				subject: "feature commit",
+				isMergeTarget: false,
+			},
+		];
 		mockReadCommitHistory.mockImplementation(async () => ({
 			mergeTargetRef: "origin/main",
 			entries: currentEntries,
@@ -264,7 +314,9 @@ describe("App — degraded commit history read", () => {
 		await loadRepositoryAndSwitchToCommits();
 
 		// Wait for commit to appear and select it
-		const commitBtn = await screen.findByRole("button", { name: /feature commit/i });
+		const commitBtn = await screen.findByRole("button", {
+			name: /feature commit/i,
+		});
 		fireEvent.click(commitBtn);
 
 		// Refresh with the commit removed
@@ -273,7 +325,9 @@ describe("App — degraded commit history read", () => {
 
 		await waitFor(() => {
 			// Commit list is now empty — the selection should have been cleared
-			expect(screen.queryByRole("button", { name: /feature commit/i })).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole("button", { name: /feature commit/i }),
+			).not.toBeInTheDocument();
 		});
 	});
 });
@@ -310,7 +364,14 @@ describe("App — degraded commit detail read", () => {
 		});
 		mockReadCommitHistory.mockResolvedValue({
 			mergeTargetRef: "origin/main",
-			entries: [{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false }],
+			entries: [
+				{
+					sha: "abc",
+					shortSha: "abc",
+					subject: "feature commit",
+					isMergeTarget: false,
+				},
+			],
 		});
 		mockReadCommitDetail.mockRejectedValue(new Error("not called"));
 	});
@@ -320,11 +381,15 @@ describe("App — degraded commit detail read", () => {
 
 		await loadRepositoryAndSwitchToCommits();
 
-		const commitBtn = await screen.findByRole("button", { name: /feature commit/i });
+		const commitBtn = await screen.findByRole("button", {
+			name: /feature commit/i,
+		});
 		fireEvent.click(commitBtn);
 
 		await waitFor(() => {
-			expect(screen.getByText(/couldn't load commit detail/i)).toBeInTheDocument();
+			expect(
+				screen.getByText(/couldn't load commit detail/i),
+			).toBeInTheDocument();
 		});
 	});
 });
@@ -359,7 +424,10 @@ describe("App — focus-gated auto-refresh", () => {
 			changedFiles: [],
 			recentCommits: [],
 		});
-		mockReadCommitHistory.mockResolvedValue({ mergeTargetRef: null, entries: [] });
+		mockReadCommitHistory.mockResolvedValue({
+			mergeTargetRef: null,
+			entries: [],
+		});
 		mockReadCommitDetail.mockRejectedValue(new Error("not called"));
 	});
 
@@ -384,8 +452,12 @@ describe("App — focus-gated auto-refresh", () => {
 			vi.advanceTimersByTime(15_000);
 		});
 
-		expect(mockReadSummary.mock.calls.length).toBeGreaterThan(summaryCallsAfterFocus);
-		expect(mockReadCommitHistory.mock.calls.length).toBeGreaterThan(historyCallsAfterFocus);
+		expect(mockReadSummary.mock.calls.length).toBeGreaterThan(
+			summaryCallsAfterFocus,
+		);
+		expect(mockReadCommitHistory.mock.calls.length).toBeGreaterThan(
+			historyCallsAfterFocus,
+		);
 
 		// Blur first and flush React so the interval is cleared before advancing timers
 		await act(async () => {
@@ -396,7 +468,9 @@ describe("App — focus-gated auto-refresh", () => {
 		});
 
 		expect(mockReadSummary.mock.calls.length).toBe(summaryCallsAfterFocus + 1);
-		expect(mockReadCommitHistory.mock.calls.length).toBe(historyCallsAfterFocus + 1);
+		expect(mockReadCommitHistory.mock.calls.length).toBe(
+			historyCallsAfterFocus + 1,
+		);
 
 		vi.useRealTimers();
 	});

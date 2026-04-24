@@ -41,7 +41,11 @@ app.whenReady().then(() => {
 			join(app.getPath("userData"), "workspace-state.json"),
 	);
 	const workspaceRegistry = new WorkspaceRegistryService();
-	const { dispose } = registerIpcHandlers(mainWindow, { workspacePersistence, workspaceRegistry, shellEventLog });
+	const { dispose } = registerIpcHandlers(mainWindow, {
+		workspacePersistence,
+		workspaceRegistry,
+		shellEventLog,
+	});
 
 	if (process.env.ELECTRON_RENDERER_URL) {
 		mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);

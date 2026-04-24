@@ -19,21 +19,28 @@ export type ParseResult =
 	| { ok: true; value: UpdateManifest }
 	| { ok: false; reason: string };
 
-const DOWNLOAD_HOST_PREFIX = "https://github.com/ai-creed/ai-14all/releases/download/";
+const DOWNLOAD_HOST_PREFIX =
+	"https://github.com/ai-creed/ai-14all/releases/download/";
 
 export function parseManifest(raw: string): ParseResult {
 	let doc: unknown;
 	try {
 		doc = parseYaml(raw);
 	} catch (err) {
-		return { ok: false, reason: `yaml parse failed: ${(err as Error).message}` };
+		return {
+			ok: false,
+			reason: `yaml parse failed: ${(err as Error).message}`,
+		};
 	}
 	if (!isPlainObject(doc)) {
 		return { ok: false, reason: "manifest must be a mapping" };
 	}
 	const version = doc.version;
 	if (typeof version !== "string" || !isStableVersion(version)) {
-		return { ok: false, reason: `version must be strict semver, got ${String(version)}` };
+		return {
+			ok: false,
+			reason: `version must be strict semver, got ${String(version)}`,
+		};
 	}
 	const releaseDate = doc.releaseDate;
 	if (typeof releaseDate !== "string" || releaseDate.length === 0) {
@@ -58,15 +65,24 @@ export function parseManifest(raw: string): ParseResult {
 		}
 		const url = entry.url;
 		if (typeof url !== "string" || !url.startsWith(DOWNLOAD_HOST_PREFIX)) {
-			return { ok: false, reason: `files[${i}].url must live on ${DOWNLOAD_HOST_PREFIX}` };
+			return {
+				ok: false,
+				reason: `files[${i}].url must live on ${DOWNLOAD_HOST_PREFIX}`,
+			};
 		}
 		const sha512 = entry.sha512;
 		if (typeof sha512 !== "string" || sha512.length === 0) {
-			return { ok: false, reason: `files[${i}].sha512 must be a non-empty string` };
+			return {
+				ok: false,
+				reason: `files[${i}].sha512 must be a non-empty string`,
+			};
 		}
 		const size = entry.size;
 		if (typeof size !== "number" || !Number.isFinite(size) || size <= 0) {
-			return { ok: false, reason: `files[${i}].size must be a positive number` };
+			return {
+				ok: false,
+				reason: `files[${i}].size must be a positive number`,
+			};
 		}
 		files.push({ url, sha512, size });
 	}

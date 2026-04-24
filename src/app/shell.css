@@ -1,8 +1,7 @@
 @font-face {
 	font-family: "AI14All Terminal Powerline";
-	src:
-		url("../assets/fonts/meslo-lg-m-dz-powerline-regular.ttf")
-			format("truetype");
+	src: url("../assets/fonts/meslo-lg-m-dz-powerline-regular.ttf")
+		format("truetype");
 	font-weight: 400;
 	font-style: normal;
 	font-display: swap;
@@ -27,22 +26,11 @@
 	--danger: #d98c8c;
 	--sha-color: #a78bfa;
 	--font-ui:
-		"SF Mono",
-		"SFMono-Regular",
-		ui-monospace,
-		Menlo,
-		Monaco,
-		monospace;
+		"SF Mono", "SFMono-Regular", ui-monospace, Menlo, Monaco, monospace;
 	--font-terminal:
-		"AI14All Terminal Powerline",
-		"Meslo LG M DZ for Powerline",
-		"Meslo LG M for Powerline",
-		"Meslo LG M DZ Regular for Powerline",
-		"Hack",
-		ui-monospace,
-		Menlo,
-		Monaco,
-		monospace;
+		"AI14All Terminal Powerline", "Meslo LG M DZ for Powerline",
+		"Meslo LG M for Powerline", "Meslo LG M DZ Regular for Powerline", "Hack",
+		ui-monospace, Menlo, Monaco, monospace;
 	--radius-sm: 2px;
 	--radius-md: 3px;
 	--radius-lg: 4px;
@@ -697,7 +685,6 @@ select {
 	justify-content: center;
 }
 
-
 /* ── Session chip bar ────────────────────────────────── */
 
 .shell-chip-bar {
@@ -746,7 +733,9 @@ select {
 	opacity: 1;
 	color: var(--text-secondary);
 }
-.shell-chip-bar__rename:hover { color: var(--text-primary); }
+.shell-chip-bar__rename:hover {
+	color: var(--text-primary);
+}
 
 .shell-chip-bar__meta {
 	display: flex;
@@ -766,7 +755,9 @@ select {
 	text-overflow: ellipsis;
 }
 
-.shell-chip-bar__sep { user-select: none; }
+.shell-chip-bar__sep {
+	user-select: none;
+}
 
 .shell-chip-bar__status {
 	display: flex;
@@ -931,7 +922,9 @@ select {
 	background: var(--panel-bg-elevated);
 }
 
-.shell-terminal-tabs__segments .shell-terminal-tabs__item + .shell-terminal-tabs__item {
+.shell-terminal-tabs__segments
+	.shell-terminal-tabs__item
+	+ .shell-terminal-tabs__item {
 	margin-left: var(--space-2);
 }
 
@@ -1261,7 +1254,6 @@ select {
 	font-style: italic;
 }
 
-
 .shell-tree-search {
 	width: auto;
 	height: 32px;
@@ -1525,7 +1517,8 @@ select {
 	color: var(--text-primary);
 }
 
-.shell-commit-list__item[data-row-kind="mergeTarget"] .shell-commit-list__graph {
+.shell-commit-list__item[data-row-kind="mergeTarget"]
+	.shell-commit-list__graph {
 	background: var(--text-muted);
 }
 
@@ -1564,7 +1557,8 @@ select {
 	overflow-x: hidden;
 }
 
-.shell-commit-diff-stack[data-single-file="true"] .shell-commit-diff-stack__body {
+.shell-commit-diff-stack[data-single-file="true"]
+	.shell-commit-diff-stack__body {
 	overflow: hidden;
 }
 
@@ -1594,7 +1588,8 @@ select {
 	cursor: pointer;
 }
 
-.shell-commit-diff-section[data-focused="true"] .shell-commit-diff-section__header {
+.shell-commit-diff-section[data-focused="true"]
+	.shell-commit-diff-section__header {
 	border-left: 3px solid var(--accent);
 }
 
@@ -1661,7 +1656,9 @@ select {
 	line-height: 1;
 	border-radius: var(--radius-sm);
 }
-.shell-note-sheet__close:hover { color: var(--text-primary); }
+.shell-note-sheet__close:hover {
+	color: var(--text-primary);
+}
 
 .shell-note-sheet__textarea {
 	flex: 1;
@@ -2170,7 +2167,9 @@ select {
 	font-size: 11px;
 }
 
-.shell-files-overlay__footer[data-edit-available="false"] .shell-files-overlay__footer-hints kbd:nth-child(2) {
+.shell-files-overlay__footer[data-edit-available="false"]
+	.shell-files-overlay__footer-hints
+	kbd:nth-child(2) {
 	opacity: 0.4;
 }
 

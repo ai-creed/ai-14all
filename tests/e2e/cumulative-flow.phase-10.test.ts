@@ -17,8 +17,11 @@ let testRepo: TestRepo;
 let persistedStateDir: string;
 
 async function ensureWorkspaceLoaded() {
-	const worktreeNav = page.getByRole("navigation", { name: "Worktree sessions" });
-	if (await worktreeNav.isVisible({ timeout: 2_000 }).catch(() => false)) return;
+	const worktreeNav = page.getByRole("navigation", {
+		name: "Worktree sessions",
+	});
+	if (await worktreeNav.isVisible({ timeout: 2_000 }).catch(() => false))
+		return;
 	const repoInput = page.locator("#repo-path");
 	await expect(repoInput).toBeVisible({ timeout: 15_000 });
 	await page.getByRole("button", { name: "Browse" }).click();
@@ -36,7 +39,10 @@ test.beforeAll(async () => {
 			...process.env,
 			AI14ALL_E2E: "1",
 			AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
-			AI14ALL_WORKSPACE_STATE_PATH: join(persistedStateDir, "workspace-state.json"),
+			AI14ALL_WORKSPACE_STATE_PATH: join(
+				persistedStateDir,
+				"workspace-state.json",
+			),
 		},
 	});
 	page = await app.firstWindow({ timeout: 60_000 });
@@ -56,8 +62,8 @@ test.describe.serial("Cumulative flow — Phase 10", () => {
 	let modKey: string;
 	test.beforeAll(async () => {
 		await ensureWorkspaceLoaded();
-		const isMac: boolean = await page.evaluate(
-			() => navigator.platform.toUpperCase().includes("MAC"),
+		const isMac: boolean = await page.evaluate(() =>
+			navigator.platform.toUpperCase().includes("MAC"),
 		);
 		modKey = isMac ? "Meta" : "Control";
 		// Select the main worktree session so the chip bar is rendered.
@@ -79,9 +85,15 @@ test.describe.serial("Cumulative flow — Phase 10", () => {
 			page.getByRole("dialog", { name: /keyboard shortcuts/i }),
 		).toBeVisible({ timeout: 5_000 });
 		// Verify at least the files-overlay and review-drawer entries are shown.
-		await expect(page.getByTestId("shortcuts-help-row-files-overlay")).toBeVisible();
-		await expect(page.getByTestId("shortcuts-help-row-review-drawer")).toBeVisible();
-		await expect(page.getByTestId("shortcuts-help-row-rename-session")).toBeVisible();
+		await expect(
+			page.getByTestId("shortcuts-help-row-files-overlay"),
+		).toBeVisible();
+		await expect(
+			page.getByTestId("shortcuts-help-row-review-drawer"),
+		).toBeVisible();
+		await expect(
+			page.getByTestId("shortcuts-help-row-rename-session"),
+		).toBeVisible();
 		// Escape closes it.
 		await page.keyboard.press("Escape");
 		await expect(
@@ -96,17 +108,23 @@ test.describe.serial("Cumulative flow — Phase 10", () => {
 		const drawer = page.getByRole("region", { name: "Review" });
 		const isOpen = await drawer.getAttribute("data-open");
 		if (isOpen === "true") {
-			await page.getByRole("button", { name: "Collapse review drawer" }).click();
+			await page
+				.getByRole("button", { name: "Collapse review drawer" })
+				.click();
 			await expect(drawer).toHaveAttribute("data-open", "false");
 		}
 		// Focus non-terminal area.
 		await page.getByRole("region", { name: "Session" }).click();
 		// Toggle open.
 		await page.keyboard.press(`${modKey}+j`);
-		await expect(drawer).toHaveAttribute("data-open", "true", { timeout: 5_000 });
+		await expect(drawer).toHaveAttribute("data-open", "true", {
+			timeout: 5_000,
+		});
 		// Toggle closed.
 		await page.keyboard.press(`${modKey}+j`);
-		await expect(drawer).toHaveAttribute("data-open", "false", { timeout: 5_000 });
+		await expect(drawer).toHaveAttribute("data-open", "false", {
+			timeout: 5_000,
+		});
 	});
 
 	test("rename shortcut expands sidebar and focuses the rename input", async () => {
@@ -115,9 +133,7 @@ test.describe.serial("Cumulative flow — Phase 10", () => {
 		// Focus non-terminal area.
 		await page.getByRole("region", { name: "Session" }).click();
 		await page.keyboard.press(
-			modKey === "Meta"
-				? "Meta+Shift+r"
-				: "Control+Alt+r",
+			modKey === "Meta" ? "Meta+Shift+r" : "Control+Alt+r",
 		);
 		// Rename input should appear in the sidebar.
 		await expect(
@@ -134,7 +150,9 @@ test.describe.serial("Cumulative flow — Phase 10", () => {
 		test.setTimeout(30_000);
 		await ensureWorkspaceLoaded();
 		// Close the shortcuts help if it is open.
-		const helpDialog = page.getByRole("dialog", { name: /keyboard shortcuts/i });
+		const helpDialog = page.getByRole("dialog", {
+			name: /keyboard shortcuts/i,
+		});
 		if (await helpDialog.isVisible({ timeout: 500 }).catch(() => false)) {
 			await page.keyboard.press("Escape");
 		}

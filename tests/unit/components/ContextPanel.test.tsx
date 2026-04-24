@@ -30,6 +30,8 @@ describe("ContextPanel", () => {
 
 	it("renders the note textarea with current value", () => {
 		render(<ContextPanel note="My session note" onNoteChange={vi.fn()} />);
-		expect(screen.getByLabelText("Session note")).toHaveValue("My session note");
+		expect(screen.getByLabelText("Session note")).toHaveValue(
+			"My session note",
+		);
 	});
 });

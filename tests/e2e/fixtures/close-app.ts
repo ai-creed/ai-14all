@@ -5,7 +5,9 @@ import type { ElectronApplication } from "@playwright/test";
  * `app.close()` can hang when Monaco or xterm hold the renderer, so we
  * race it against a short timeout and force-kill the process if needed.
  */
-export async function closeApp(app: ElectronApplication | undefined): Promise<void> {
+export async function closeApp(
+	app: ElectronApplication | undefined,
+): Promise<void> {
 	if (!app) return;
 	const proc = app.process();
 	await Promise.race([

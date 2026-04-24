@@ -1,5 +1,8 @@
 import type { Platform } from "./files-overlay-shortcut";
-import { isFilesOverlayShortcut, detectPlatform } from "./files-overlay-shortcut";
+import {
+	isFilesOverlayShortcut,
+	detectPlatform,
+} from "./files-overlay-shortcut";
 
 export type { Platform };
 export { detectPlatform };
@@ -44,7 +47,10 @@ function isReviewDrawerShortcut(e: KeyboardEvent, platform: Platform): boolean {
 	return e.ctrlKey && !e.metaKey;
 }
 
-function isRenameSessionShortcut(e: KeyboardEvent, platform: Platform): boolean {
+function isRenameSessionShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
 	if (e.defaultPrevented) return false;
 	const keyIsR = e.key === "r" || e.key === "R";
 	if (!keyIsR) return false;
@@ -55,7 +61,10 @@ function isRenameSessionShortcut(e: KeyboardEvent, platform: Platform): boolean 
 	return e.ctrlKey && e.altKey && !e.metaKey && !e.shiftKey;
 }
 
-function isShortcutsHelpShortcut(e: KeyboardEvent, platform: Platform): boolean {
+function isShortcutsHelpShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
 	if (e.defaultPrevented) return false;
 	const keyIsHelp = e.key === "?" || e.key === "/";
 	if (!keyIsHelp) return false;
@@ -64,7 +73,10 @@ function isShortcutsHelpShortcut(e: KeyboardEvent, platform: Platform): boolean 
 	return e.ctrlKey && !e.metaKey && !e.altKey;
 }
 
-function isWorktreeSelectNextShortcut(e: KeyboardEvent, platform: Platform): boolean {
+function isWorktreeSelectNextShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
 	if (e.defaultPrevented) return false;
 	if (e.key !== "]") return false;
 	if (e.altKey || e.shiftKey) return false;
@@ -73,7 +85,10 @@ function isWorktreeSelectNextShortcut(e: KeyboardEvent, platform: Platform): boo
 	return e.ctrlKey && !e.metaKey;
 }
 
-function isWorktreeSelectPrevShortcut(e: KeyboardEvent, platform: Platform): boolean {
+function isWorktreeSelectPrevShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
 	if (e.defaultPrevented) return false;
 	if (e.key !== "[") return false;
 	if (e.altKey || e.shiftKey) return false;
@@ -92,7 +107,10 @@ function isWorktreeAddShortcut(e: KeyboardEvent, platform: Platform): boolean {
 }
 
 // Shift+] on US keyboard produces "}" as e.key
-function isWorkspaceSelectNextShortcut(e: KeyboardEvent, platform: Platform): boolean {
+function isWorkspaceSelectNextShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
 	if (e.defaultPrevented) return false;
 	if (e.key !== "}") return false;
 	if (e.altKey) return false;
@@ -102,7 +120,10 @@ function isWorkspaceSelectNextShortcut(e: KeyboardEvent, platform: Platform): bo
 }
 
 // Shift+[ on US keyboard produces "{" as e.key
-function isWorkspaceSelectPrevShortcut(e: KeyboardEvent, platform: Platform): boolean {
+function isWorkspaceSelectPrevShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
 	if (e.defaultPrevented) return false;
 	if (e.key !== "{") return false;
 	if (e.altKey) return false;
@@ -120,7 +141,10 @@ function isTerminalNewShortcut(e: KeyboardEvent, platform: Platform): boolean {
 	return e.ctrlKey && !e.metaKey;
 }
 
-function isTerminalCloseShortcut(e: KeyboardEvent, platform: Platform): boolean {
+function isTerminalCloseShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
 	if (e.defaultPrevented) return false;
 	if (e.key !== "w" && e.key !== "W") return false;
 	if (e.altKey || !e.shiftKey) return false;
@@ -129,7 +153,10 @@ function isTerminalCloseShortcut(e: KeyboardEvent, platform: Platform): boolean 
 	return e.ctrlKey && !e.metaKey;
 }
 
-function isTerminalSelectNextShortcut(e: KeyboardEvent, platform: Platform): boolean {
+function isTerminalSelectNextShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
 	if (e.defaultPrevented) return false;
 	if (e.key !== "d" && e.key !== "D") return false;
 	if (e.altKey || !e.shiftKey) return false;
@@ -138,7 +165,10 @@ function isTerminalSelectNextShortcut(e: KeyboardEvent, platform: Platform): boo
 	return e.ctrlKey && !e.metaKey;
 }
 
-function isTerminalSelectPrevShortcut(e: KeyboardEvent, platform: Platform): boolean {
+function isTerminalSelectPrevShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
 	if (e.defaultPrevented) return false;
 	if (e.key !== "a" && e.key !== "A") return false;
 	if (e.altKey || !e.shiftKey) return false;
@@ -147,7 +177,10 @@ function isTerminalSelectPrevShortcut(e: KeyboardEvent, platform: Platform): boo
 	return e.ctrlKey && !e.metaKey;
 }
 
-function isTerminalToggleSplitShortcut(e: KeyboardEvent, platform: Platform): boolean {
+function isTerminalToggleSplitShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
 	if (e.defaultPrevented) return false;
 	if (e.key !== "d" && e.key !== "D") return false;
 	if (e.altKey || e.shiftKey) return false;
@@ -156,7 +189,10 @@ function isTerminalToggleSplitShortcut(e: KeyboardEvent, platform: Platform): bo
 	return e.ctrlKey && !e.metaKey;
 }
 
-function isLayoutToggleSidebarShortcut(e: KeyboardEvent, platform: Platform): boolean {
+function isLayoutToggleSidebarShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
 	if (e.defaultPrevented) return false;
 	if (e.key !== "b" && e.key !== "B") return false;
 	if (e.altKey || e.shiftKey) return false;
@@ -174,7 +210,10 @@ function isReviewFilesShortcut(e: KeyboardEvent, platform: Platform): boolean {
 	return e.ctrlKey && !e.metaKey;
 }
 
-function isReviewChangesShortcut(e: KeyboardEvent, platform: Platform): boolean {
+function isReviewChangesShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
 	if (e.defaultPrevented) return false;
 	if (e.key !== "2") return false;
 	if (e.altKey || e.shiftKey) return false;
@@ -183,7 +222,10 @@ function isReviewChangesShortcut(e: KeyboardEvent, platform: Platform): boolean 
 	return e.ctrlKey && !e.metaKey;
 }
 
-function isReviewCommitsShortcut(e: KeyboardEvent, platform: Platform): boolean {
+function isReviewCommitsShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
 	if (e.defaultPrevented) return false;
 	if (e.key !== "3") return false;
 	if (e.altKey || e.shiftKey) return false;
@@ -192,7 +234,10 @@ function isReviewCommitsShortcut(e: KeyboardEvent, platform: Platform): boolean 
 	return e.ctrlKey && !e.metaKey;
 }
 
-function isOpenWorkspacePickerShortcut(e: KeyboardEvent, platform: Platform): boolean {
+function isOpenWorkspacePickerShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
 	if (e.defaultPrevented) return false;
 	if (e.key !== "o" && e.key !== "O") return false;
 	if (e.altKey || e.shiftKey) return false;

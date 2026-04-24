@@ -28,7 +28,9 @@ export function TerminalPane({
 	const termRef = useRef<Terminal | null>(null);
 	const fitAddonRef = useRef<FitAddon | null>(null);
 	const unsubOutputRef = useRef<(() => void) | null>(null);
-	const paneInstanceIdRef = useRef(`pane_${session.id}_${Math.random().toString(36).slice(2, 8)}`);
+	const paneInstanceIdRef = useRef(
+		`pane_${session.id}_${Math.random().toString(36).slice(2, 8)}`,
+	);
 	const isLive = session.status === "running" || session.status === "idle";
 
 	/**
@@ -40,26 +42,30 @@ export function TerminalPane({
 	 *  - Cursor NOT visible → user scrolled away to read history; restore
 	 *    the previous viewportY as closely as possible.
 	 */
-	const fitPreservingScroll = useCallback((term: Terminal, fitAddon: FitAddon) => {
-		const buf = term.buffer.active;
-		const cursorAbsY = buf.baseY + buf.cursorY;
-		const viewportY = buf.viewportY;
-		const cursorInView =
-			cursorAbsY >= viewportY && cursorAbsY < viewportY + term.rows;
-		const cursorOffset = cursorAbsY - viewportY;
+	const fitPreservingScroll = useCallback(
+		(term: Terminal, fitAddon: FitAddon) => {
+			const buf = term.buffer.active;
+			const cursorAbsY = buf.baseY + buf.cursorY;
+			const viewportY = buf.viewportY;
+			const cursorInView =
+				cursorAbsY >= viewportY && cursorAbsY < viewportY + term.rows;
+			const cursorOffset = cursorAbsY - viewportY;
 
-		fitAddon.fit();
+			fitAddon.fit();
 
-		if (cursorInView) {
-			const newCursorAbsY = term.buffer.active.baseY + term.buffer.active.cursorY;
-			const targetViewportY = newCursorAbsY - cursorOffset;
-			const delta = targetViewportY - term.buffer.active.viewportY;
-			if (delta !== 0) term.scrollLines(delta);
-		} else {
-			const delta = viewportY - term.buffer.active.viewportY;
-			if (delta !== 0) term.scrollLines(delta);
-		}
-	}, []);
+			if (cursorInView) {
+				const newCursorAbsY =
+					term.buffer.active.baseY + term.buffer.active.cursorY;
+				const targetViewportY = newCursorAbsY - cursorOffset;
+				const delta = targetViewportY - term.buffer.active.viewportY;
+				if (delta !== 0) term.scrollLines(delta);
+			} else {
+				const delta = viewportY - term.buffer.active.viewportY;
+				if (delta !== 0) term.scrollLines(delta);
+			}
+		},
+		[],
+	);
 
 	// Mount the xterm instance once.
 	useEffect(() => {
@@ -177,7 +183,10 @@ export function TerminalPane({
 		void logRendererShellEvent({
 			event: visible ? "terminal-pane-visible" : "terminal-pane-hidden",
 			windowId: null,
-			data: { terminalSessionId: session.id, paneInstanceId: paneInstanceIdRef.current },
+			data: {
+				terminalSessionId: session.id,
+				paneInstanceId: paneInstanceIdRef.current,
+			},
 		});
 	}, [visible, session.id]);
 

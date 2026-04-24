@@ -62,27 +62,35 @@ test.describe("Session chip bar", () => {
 	});
 
 	test("chip bar shows worktree label as session title when no custom title", async () => {
-		await expect(
-			page.getByRole("region", { name: "Session" }),
-		).toContainText("main");
+		await expect(page.getByRole("region", { name: "Session" })).toContainText(
+			"main",
+		);
 	});
 
 	test("rename via chip bar focuses rail rename input", async () => {
 		await page.getByRole("button", { name: /rename session/i }).click();
-		await expect(page.getByRole("textbox", { name: /rename session/i })).toBeVisible();
+		await expect(
+			page.getByRole("textbox", { name: /rename session/i }),
+		).toBeVisible();
 		await page.keyboard.press("Escape");
 	});
 
 	test("note sheet opens and closes from chip bar Note button", async () => {
 		await page.getByRole("button", { name: /open note/i }).click();
-		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
+		await expect(
+			page.getByRole("dialog", { name: /session note/i }),
+		).toBeVisible();
 		await page.keyboard.press("Escape");
-		await expect(page.getByRole("dialog", { name: /session note/i })).not.toBeVisible();
+		await expect(
+			page.getByRole("dialog", { name: /session note/i }),
+		).not.toBeVisible();
 	});
 
 	test("note typed in sheet persists after close and reopen", async () => {
 		await page.getByRole("button", { name: /open note/i }).click();
-		await page.getByRole("textbox", { name: /session note/i }).fill("e2e note text");
+		await page
+			.getByRole("textbox", { name: /session note/i })
+			.fill("e2e note text");
 		await page.keyboard.press("Escape");
 		await page.getByRole("button", { name: /open note/i }).click();
 		await expect(
@@ -95,7 +103,9 @@ test.describe("Session chip bar", () => {
 
 	test("note indicator appears after typing in sheet", async () => {
 		await page.getByRole("button", { name: /open note/i }).click();
-		await page.getByRole("textbox", { name: /session note/i }).fill("indicator test");
+		await page
+			.getByRole("textbox", { name: /session note/i })
+			.fill("indicator test");
 		await page.keyboard.press("Escape");
 		await expect(
 			page.getByRole("button", { name: /open note/i }),
@@ -119,11 +129,16 @@ test.describe("Session chip bar", () => {
 		await page.getByRole("button", { name: /open note/i }).focus();
 		const isMac = process.platform === "darwin";
 		await page.keyboard.press(isMac ? "Meta+;" : "Control+;");
-		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
+		await expect(
+			page.getByRole("dialog", { name: /session note/i }),
+		).toBeVisible();
 		await page.keyboard.press("Escape");
 	});
 
 	test("dirty chip and review expansion — manual smoke only", async () => {
-		test.skip(true, "Requires dirty worktree setup — cover in manual smoke pass.");
+		test.skip(
+			true,
+			"Requires dirty worktree setup — cover in manual smoke pass.",
+		);
 	});
 });

@@ -3,15 +3,15 @@ name: release
 on:
   push:
     tags:
-      - 'v*.*.*'
-      - '!v*-*'
+      - "v*.*.*"
+      - "!v*-*"
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Tag or branch to release from'
+        description: "Tag or branch to release from"
         required: true
       version:
-        description: 'Override version (required for smoke runs with no tag)'
+        description: "Override version (required for smoke runs with no tag)"
         required: false
 
 jobs:
@@ -38,7 +38,7 @@ jobs:
       - name: Setup Node + pnpm
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: "22"
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
 

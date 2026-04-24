@@ -28,19 +28,30 @@ describe("SessionChipBar", () => {
 	});
 
 	it("shows clean indicator when not dirty", () => {
-		render(<SessionChipBar {...defaults} isDirty={false} changedFileCount={0} />);
+		render(
+			<SessionChipBar {...defaults} isDirty={false} changedFileCount={0} />,
+		);
 		expect(screen.getByTitle(/clean/i)).toBeInTheDocument();
 	});
 
 	it("shows dirty chip with count when dirty", () => {
 		render(<SessionChipBar {...defaults} isDirty changedFileCount={3} />);
-		expect(screen.getByRole("button", { name: /3 changed/i })).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /3 changed/i }),
+		).toBeInTheDocument();
 	});
 
 	it("calls onDirtyClick when dirty chip clicked", async () => {
 		const user = userEvent.setup();
 		const spy = vi.fn();
-		render(<SessionChipBar {...defaults} isDirty changedFileCount={2} onDirtyClick={spy} />);
+		render(
+			<SessionChipBar
+				{...defaults}
+				isDirty
+				changedFileCount={2}
+				onDirtyClick={spy}
+			/>,
+		);
 		await user.click(screen.getByRole("button", { name: /2 changed/i }));
 		expect(spy).toHaveBeenCalledTimes(1);
 	});

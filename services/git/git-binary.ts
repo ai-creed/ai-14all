@@ -7,9 +7,9 @@ export function getGitBinaryPath(): string {
 
 	if (process.platform === "darwin") {
 		const candidates = [
-			"/usr/bin/git",          // Xcode Command Line Tools
+			"/usr/bin/git", // Xcode Command Line Tools
 			"/opt/homebrew/bin/git", // Homebrew on Apple Silicon
-			"/usr/local/bin/git",    // Homebrew on Intel
+			"/usr/local/bin/git", // Homebrew on Intel
 		];
 		const found = candidates.find((p) => existsSync(p));
 		if (found) return found;

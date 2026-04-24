@@ -259,7 +259,8 @@ export function registerIpcHandlers(
 	});
 
 	ipcMain.handle("files:openForEdit", async (_event, raw: unknown) => {
-		const { workspaceId, worktreeId, relativePath } = OpenFileForEditSchema.parse(raw);
+		const { workspaceId, worktreeId, relativePath } =
+			OpenFileForEditSchema.parse(raw);
 		const repository = workspaceRegistry.get(workspaceId);
 		const worktree = await worktreeService.findWorktree(repository, worktreeId);
 		return fileService.openForEdit(worktree.path, relativePath);
@@ -270,7 +271,12 @@ export function registerIpcHandlers(
 			SaveFileSchema.parse(raw);
 		const repository = workspaceRegistry.get(workspaceId);
 		const worktree = await worktreeService.findWorktree(repository, worktreeId);
-		return fileService.saveFile(worktree.path, relativePath, content, expectedMtimeMs);
+		return fileService.saveFile(
+			worktree.path,
+			relativePath,
+			content,
+			expectedMtimeMs,
+		);
 	});
 
 	ipcMain.handle("files:listScoped", (_event, raw: unknown) => {
@@ -345,7 +351,11 @@ export function registerIpcHandlers(
 	// --- System ---
 
 	ipcMain.handle("system:openExternal", async (_event, raw: unknown) => {
-		if (typeof raw !== "object" || raw === null || typeof (raw as { url?: unknown }).url !== "string") {
+		if (
+			typeof raw !== "object" ||
+			raw === null ||
+			typeof (raw as { url?: unknown }).url !== "string"
+		) {
 			throw new Error("system:openExternal expects { url: string }");
 		}
 		await openExternalUrl((raw as { url: string }).url);

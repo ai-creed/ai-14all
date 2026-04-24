@@ -44,7 +44,10 @@ function editorHeightForFile(
 	originalContent: string,
 	modifiedContent: string,
 ): string {
-	const lines = Math.max(lineCount(originalContent), lineCount(modifiedContent));
+	const lines = Math.max(
+		lineCount(originalContent),
+		lineCount(modifiedContent),
+	);
 	return `${Math.max(lines * 20 + 32, 160)}px`;
 }
 

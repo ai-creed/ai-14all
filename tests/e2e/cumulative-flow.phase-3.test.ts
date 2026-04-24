@@ -24,7 +24,10 @@ test.beforeAll(async () => {
 		env: {
 			...process.env,
 			AI14ALL_E2E: "1",
-			AI14ALL_WORKSPACE_STATE_PATH: join(persistedStateDir, "workspace-state.json"),
+			AI14ALL_WORKSPACE_STATE_PATH: join(
+				persistedStateDir,
+				"workspace-state.json",
+			),
 		},
 	});
 	page = await app.firstWindow({ timeout: 60_000 });
@@ -58,7 +61,10 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 		// Wait for the default shell to be ready before interacting with the toolbar.
 		// The xterm title changes to the CWD quickly, so match any tab.
 		await expect(
-			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
+			page
+				.getByRole("tablist", { name: "Terminal sessions" })
+				.getByRole("tab")
+				.first(),
 		).toBeVisible({ timeout: 10_000 });
 
 		// Open preset manager and add a "Claude" preset.

@@ -8,7 +8,10 @@ export function buildApplicationMenu(mainWindow: BrowserWindow): Menu {
 				label: "Open Workspace...",
 				accelerator: "CmdOrCtrl+O",
 				click: () => {
-					if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
+					if (
+						mainWindow.isDestroyed() ||
+						mainWindow.webContents.isDestroyed()
+					) {
 						return;
 					}
 					mainWindow.webContents.send("workspace/openPicker");
@@ -27,7 +30,12 @@ export function buildApplicationMenu(mainWindow: BrowserWindow): Menu {
 					{ role: "windowMenu" },
 					{ role: "help" },
 				]
-			: [workspaceMenu, { role: "editMenu" }, { role: "viewMenu" }, { role: "help" }];
+			: [
+					workspaceMenu,
+					{ role: "editMenu" },
+					{ role: "viewMenu" },
+					{ role: "help" },
+				];
 
 	return Menu.buildFromTemplate(template);
 }

@@ -25,7 +25,10 @@ test.beforeAll(async () => {
 		env: {
 			...process.env,
 			AI14ALL_E2E: "1",
-			AI14ALL_WORKSPACE_STATE_PATH: join(persistedStateDir, "workspace-state.json"),
+			AI14ALL_WORKSPACE_STATE_PATH: join(
+				persistedStateDir,
+				"workspace-state.json",
+			),
 		},
 	});
 	page = await app.firstWindow({ timeout: 60_000 });
@@ -79,8 +82,12 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 
 	test("switches worktrees and restores the per-session note", async () => {
 		await page.getByRole("button", { name: /open note/i }).click();
-		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
-		await page.getByRole("textbox", { name: /session note/i }).fill("Main session note");
+		await expect(
+			page.getByRole("dialog", { name: /session note/i }),
+		).toBeVisible();
+		await page
+			.getByRole("textbox", { name: /session note/i })
+			.fill("Main session note");
 		await page.keyboard.press("Escape");
 
 		await worktreeNav()
@@ -88,8 +95,12 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 			.click();
 
 		await page.getByRole("button", { name: /open note/i }).click();
-		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
-		await page.getByRole("textbox", { name: /session note/i }).fill("Feature note");
+		await expect(
+			page.getByRole("dialog", { name: /session note/i }),
+		).toBeVisible();
+		await page
+			.getByRole("textbox", { name: /session note/i })
+			.fill("Feature note");
 		await page.keyboard.press("Escape");
 
 		await worktreeNav()
@@ -97,10 +108,12 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 			.click();
 
 		await page.getByRole("button", { name: /open note/i }).click();
-		await expect(page.getByRole("dialog", { name: /session note/i })).toBeVisible();
-		await expect(page.getByRole("textbox", { name: /session note/i })).toHaveValue(
-			"Main session note",
-		);
+		await expect(
+			page.getByRole("dialog", { name: /session note/i }),
+		).toBeVisible();
+		await expect(
+			page.getByRole("textbox", { name: /session note/i }),
+		).toHaveValue("Main session note");
 		await page.keyboard.press("Escape");
 	});
 
@@ -120,6 +133,8 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 		await changedFileButton.click({ force: true });
 
 		// DiffEditor replaced the old raw-diff text editor — check the viewer header instead
-		await expect(page.getByText("Diff vs HEAD")).toBeVisible({ timeout: 15_000 });
+		await expect(page.getByText("Diff vs HEAD")).toBeVisible({
+			timeout: 15_000,
+		});
 	});
 });

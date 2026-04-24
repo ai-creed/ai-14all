@@ -8,7 +8,12 @@ type Props = {
 	onConfirm: () => Promise<void>;
 };
 
-export function ForcePushDialog({ open, behind, onOpenChange, onConfirm }: Props) {
+export function ForcePushDialog({
+	open,
+	behind,
+	onOpenChange,
+	onConfirm,
+}: Props) {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -29,11 +34,14 @@ export function ForcePushDialog({ open, behind, onOpenChange, onConfirm }: Props
 		<Dialog.Root open={open} onOpenChange={onOpenChange}>
 			<Dialog.Portal>
 				<Dialog.Overlay className="shell-modal-overlay" />
-				<Dialog.Content className="shell-modal shell-modal--worktree" aria-describedby={undefined}>
+				<Dialog.Content
+					className="shell-modal shell-modal--worktree"
+					aria-describedby={undefined}
+				>
 					<Dialog.Title>Force push?</Dialog.Title>
 					<p className="shell-modal__copy">
-						Remote has {behind} commit{behind === 1 ? "" : "s"} your branch doesn't have.
-						Push anyway with --force-with-lease?
+						Remote has {behind} commit{behind === 1 ? "" : "s"} your branch
+						doesn't have. Push anyway with --force-with-lease?
 					</p>
 					{error && <div className="shell-error-banner">{error}</div>}
 					<div className="shell-modal__actions">
@@ -48,7 +56,9 @@ export function ForcePushDialog({ open, behind, onOpenChange, onConfirm }: Props
 						<button
 							type="button"
 							className="shell-button shell-button--danger"
-							onClick={() => { void handleConfirm(); }}
+							onClick={() => {
+								void handleConfirm();
+							}}
 							disabled={busy}
 						>
 							Force Push

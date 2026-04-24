@@ -293,10 +293,10 @@ describe("GitService", () => {
 				/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
 			);
 
-			const stored = execSync(
-				"git config --local --get ai14all.repoId",
-				{ cwd: repoPath, encoding: "utf8" },
-			).trim();
+			const stored = execSync("git config --local --get ai14all.repoId", {
+				cwd: repoPath,
+				encoding: "utf8",
+			}).trim();
 			expect(stored).toBe(repoId);
 		});
 	});
@@ -323,8 +323,12 @@ describe("GitService", () => {
 			path: "src/index.ts",
 			status: "M",
 		});
-		expect(detail.files[0]?.originalContent).toContain('export const hello = "world";');
-		expect(detail.files[0]?.modifiedContent).toContain('export const hello = "phase-2";');
+		expect(detail.files[0]?.originalContent).toContain(
+			'export const hello = "world";',
+		);
+		expect(detail.files[0]?.modifiedContent).toContain(
+			'export const hello = "phase-2";',
+		);
 
 		const addedFile = detail.files.find((f) => f.status === "A");
 		if (addedFile) {
@@ -365,15 +369,34 @@ describe("GitService", () => {
 		});
 
 		it("returns ahead count after local commits against a remote", async () => {
-			const remotePath = realpathSync(mkdtempSync(join(tmpdir(), "ofa-remote-")));
+			const remotePath = realpathSync(
+				mkdtempSync(join(tmpdir(), "ofa-remote-")),
+			);
 			execSync("git init --bare", { cwd: remotePath, stdio: "ignore" });
-			execSync(`git remote add origin ${remotePath}`, { cwd: worktreePath, stdio: "ignore" });
+			execSync(`git remote add origin ${remotePath}`, {
+				cwd: worktreePath,
+				stdio: "ignore",
+			});
 
-			execSync("git add -A && git commit -m 'wip'", { cwd: worktreePath, stdio: "ignore", shell: "/bin/sh" });
-			execSync("git push -u origin HEAD", { cwd: worktreePath, stdio: "ignore" });
+			execSync("git add -A && git commit -m 'wip'", {
+				cwd: worktreePath,
+				stdio: "ignore",
+				shell: "/bin/sh",
+			});
+			execSync("git push -u origin HEAD", {
+				cwd: worktreePath,
+				stdio: "ignore",
+			});
 
-			writeFileSync(join(worktreePath, "src", "extra.ts"), "export const x = 1;\n");
-			execSync("git add -A && git commit -m 'unpushed'", { cwd: worktreePath, stdio: "ignore", shell: "/bin/sh" });
+			writeFileSync(
+				join(worktreePath, "src", "extra.ts"),
+				"export const x = 1;\n",
+			);
+			execSync("git add -A && git commit -m 'unpushed'", {
+				cwd: worktreePath,
+				stdio: "ignore",
+				shell: "/bin/sh",
+			});
 
 			const status = await service.getRemoteStatus(worktreePath);
 			expect(status.hasRemote).toBe(true);
@@ -386,14 +409,33 @@ describe("GitService", () => {
 
 	describe("pushBranch", () => {
 		it("pushes to the tracking remote", async () => {
-			const remotePath = realpathSync(mkdtempSync(join(tmpdir(), "ofa-remote-")));
+			const remotePath = realpathSync(
+				mkdtempSync(join(tmpdir(), "ofa-remote-")),
+			);
 			execSync("git init --bare", { cwd: remotePath, stdio: "ignore" });
-			execSync(`git remote add origin ${remotePath}`, { cwd: worktreePath, stdio: "ignore" });
-			execSync("git add -A && git commit -m 'wip'", { cwd: worktreePath, stdio: "ignore", shell: "/bin/sh" });
-			execSync("git push -u origin HEAD", { cwd: worktreePath, stdio: "ignore" });
+			execSync(`git remote add origin ${remotePath}`, {
+				cwd: worktreePath,
+				stdio: "ignore",
+			});
+			execSync("git add -A && git commit -m 'wip'", {
+				cwd: worktreePath,
+				stdio: "ignore",
+				shell: "/bin/sh",
+			});
+			execSync("git push -u origin HEAD", {
+				cwd: worktreePath,
+				stdio: "ignore",
+			});
 
-			writeFileSync(join(worktreePath, "src", "extra.ts"), "export const x = 1;\n");
-			execSync("git add -A && git commit -m 'unpushed'", { cwd: worktreePath, stdio: "ignore", shell: "/bin/sh" });
+			writeFileSync(
+				join(worktreePath, "src", "extra.ts"),
+				"export const x = 1;\n",
+			);
+			execSync("git add -A && git commit -m 'unpushed'", {
+				cwd: worktreePath,
+				stdio: "ignore",
+				shell: "/bin/sh",
+			});
 
 			await service.pushBranch(worktreePath, false);
 

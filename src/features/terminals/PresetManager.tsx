@@ -98,8 +98,19 @@ export function PresetManager({
 								className="shell-note-input"
 							/>
 						</div>
-						<div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
-							<button type="button" className="shell-button" onClick={handleSave}>
+						<div
+							style={{
+								display: "flex",
+								justifyContent: "flex-end",
+								gap: "var(--space-2)",
+								marginTop: "var(--space-3)",
+							}}
+						>
+							<button
+								type="button"
+								className="shell-button"
+								onClick={handleSave}
+							>
 								Save preset
 							</button>
 							<Dialog.Close asChild>

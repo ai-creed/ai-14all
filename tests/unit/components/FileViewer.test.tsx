@@ -146,7 +146,9 @@ describe("FileViewer", () => {
 		);
 
 		await waitFor(() => {
-			expect(screen.getByText(/showing last successful result/i)).toBeInTheDocument();
+			expect(
+				screen.getByText(/showing last successful result/i),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -273,9 +275,7 @@ describe("FileViewer", () => {
 		expect(
 			await screen.findByRole("menuitem", { name: "Preview" }),
 		).toBeInTheDocument();
-		expect(
-			screen.getByRole("menuitem", { name: "Edit" }),
-		).toBeInTheDocument();
+		expect(screen.getByRole("menuitem", { name: "Edit" })).toBeInTheDocument();
 	});
 
 	it("opens the markdown preview modal when Preview is clicked in FileViewer", async () => {
@@ -298,12 +298,12 @@ describe("FileViewer", () => {
 		const title = await screen.findByText("README.md");
 		fireEvent.contextMenu(title);
 
-		const previewItem = await screen.findByRole("menuitem", { name: "Preview" });
+		const previewItem = await screen.findByRole("menuitem", {
+			name: "Preview",
+		});
 		fireEvent.click(previewItem);
 
-		expect(
-			await screen.findByText("Loading README.md…"),
-		).toBeInTheDocument();
+		expect(await screen.findByText("Loading README.md…")).toBeInTheDocument();
 	});
 
 	it("closes preview modal when relativePath changes", async () => {

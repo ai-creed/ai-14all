@@ -79,7 +79,9 @@ describe("FilesOverlay — tracked-file list", () => {
 
 	it("does not call trackedFilesLoader when closed", () => {
 		const loader = vi.fn().mockResolvedValue([]);
-		render(<FilesOverlay {...defaults} isOpen={false} trackedFilesLoader={loader} />);
+		render(
+			<FilesOverlay {...defaults} isOpen={false} trackedFilesLoader={loader} />,
+		);
 		expect(loader).not.toHaveBeenCalled();
 	});
 
@@ -92,7 +94,9 @@ describe("FilesOverlay — tracked-file list", () => {
 
 	it("renders Git status for a file that has one", async () => {
 		const loader = vi.fn().mockResolvedValue(["src/a.ts"]);
-		const statusMap = new Map<string, "M" | "A" | "D" | "R" | "??">([["src/a.ts", "M"]]);
+		const statusMap = new Map<string, "M" | "A" | "D" | "R" | "??">([
+			["src/a.ts", "M"],
+		]);
 		render(
 			<FilesOverlay
 				{...defaults}
@@ -100,7 +104,9 @@ describe("FilesOverlay — tracked-file list", () => {
 				gitStatusMap={statusMap}
 			/>,
 		);
-		expect(await screen.findByTestId("files-overlay-row-status-src/a.ts")).toHaveTextContent("M");
+		expect(
+			await screen.findByTestId("files-overlay-row-status-src/a.ts"),
+		).toHaveTextContent("M");
 	});
 
 	it("shows an empty-state message when the worktree has no tracked files", async () => {
@@ -121,8 +127,12 @@ describe("FilesOverlay — tracked-file list", () => {
 			<FilesOverlay {...defaults} trackedFilesLoader={loader} />,
 		);
 		await vi.waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
-		rerender(<FilesOverlay {...defaults} isOpen={false} trackedFilesLoader={loader} />);
-		rerender(<FilesOverlay {...defaults} isOpen={true} trackedFilesLoader={loader} />);
+		rerender(
+			<FilesOverlay {...defaults} isOpen={false} trackedFilesLoader={loader} />,
+		);
+		rerender(
+			<FilesOverlay {...defaults} isOpen={true} trackedFilesLoader={loader} />,
+		);
 		await vi.waitFor(() => expect(loader).toHaveBeenCalledTimes(2));
 	});
 });
@@ -176,8 +186,12 @@ describe("FilesOverlay — search", () => {
 		);
 		const input = await screen.findByPlaceholderText(/search files/i);
 		await user.type(input, "foo");
-		rerender(<FilesOverlay {...defaults} isOpen={false} trackedFilesLoader={loader} />);
-		rerender(<FilesOverlay {...defaults} isOpen={true} trackedFilesLoader={loader} />);
+		rerender(
+			<FilesOverlay {...defaults} isOpen={false} trackedFilesLoader={loader} />,
+		);
+		rerender(
+			<FilesOverlay {...defaults} isOpen={true} trackedFilesLoader={loader} />,
+		);
 		const reopenedInput = await screen.findByPlaceholderText(/search files/i);
 		expect((reopenedInput as HTMLInputElement).value).toBe("");
 	});
@@ -232,7 +246,9 @@ describe("FilesOverlay — keyboard navigation", () => {
 
 	it("jumps to first row on Home", async () => {
 		const user = userEvent.setup();
-		const loader = vi.fn().mockResolvedValue(["src/a.ts", "src/b.ts", "src/c.ts"]);
+		const loader = vi
+			.fn()
+			.mockResolvedValue(["src/a.ts", "src/b.ts", "src/c.ts"]);
 		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
 		await screen.findByText("a.ts");
 		await user.keyboard("{ArrowDown}{ArrowDown}");
@@ -245,7 +261,9 @@ describe("FilesOverlay — keyboard navigation", () => {
 
 	it("jumps to last row on End", async () => {
 		const user = userEvent.setup();
-		const loader = vi.fn().mockResolvedValue(["src/a.ts", "src/b.ts", "src/c.ts"]);
+		const loader = vi
+			.fn()
+			.mockResolvedValue(["src/a.ts", "src/b.ts", "src/c.ts"]);
 		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
 		await screen.findByText("a.ts");
 		await user.keyboard("{End}");
@@ -263,10 +281,9 @@ describe("FilesOverlay — keyboard navigation", () => {
 		await user.keyboard("{ArrowDown}");
 		const input = screen.getByPlaceholderText(/search files/i);
 		await user.type(input, "alp");
-		expect(screen.getByTestId("files-overlay-row-src/alpha.ts")).toHaveAttribute(
-			"data-selected",
-			"true",
-		);
+		expect(
+			screen.getByTestId("files-overlay-row-src/alpha.ts"),
+		).toHaveAttribute("data-selected", "true");
 	});
 
 	it("keeps focus in the search input while arrow keys navigate", async () => {

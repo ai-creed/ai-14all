@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildFileTree, WORKTREE_TREE_ROOT_PATH } from "../../../src/features/viewer/build-file-tree";
+import {
+	buildFileTree,
+	WORKTREE_TREE_ROOT_PATH,
+} from "../../../src/features/viewer/build-file-tree";
 import { flattenTreeToRows } from "../../../src/features/viewer/flatten-tree-to-rows";
 
 describe("flattenTreeToRows (no search)", () => {
@@ -62,7 +65,9 @@ describe("flattenTreeToRows (no search)", () => {
 			changedFiles: new Map([["src/a.ts", "M"]]),
 			searchTerm: "",
 		});
-		const fileRow = rows.find((r) => r.kind === "file" && r.path === "src/a.ts");
+		const fileRow = rows.find(
+			(r) => r.kind === "file" && r.path === "src/a.ts",
+		);
 		expect(fileRow).toMatchObject({ gitStatus: "M" });
 	});
 });
@@ -94,7 +99,9 @@ describe("flattenTreeToRows (search)", () => {
 			changedFiles: new Map(),
 			searchTerm: "SRC/APP",
 		});
-		expect(rows.some((r) => r.kind === "file" && r.path === "src/App.tsx")).toBe(true);
+		expect(
+			rows.some((r) => r.kind === "file" && r.path === "src/App.tsx"),
+		).toBe(true);
 	});
 
 	it("returns only the root row when search has no matches", () => {

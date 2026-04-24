@@ -6,11 +6,21 @@ describe("WorkspaceRegistryService", () => {
 		const service = new WorkspaceRegistryService();
 		const first = service.register({
 			workspaceId: "ws-repo-id-1",
-			repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: "repo-id-1" },
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: "repo-id-1",
+			},
 		});
 		const second = service.register({
 			workspaceId: "ws-ignored",
-			repository: { id: "repo-1b", name: "repo", rootPath: "/repo", repoId: "repo-id-1" },
+			repository: {
+				id: "repo-1b",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: "repo-id-1",
+			},
 		});
 
 		expect(second.workspaceId).toBe(first.workspaceId);
@@ -20,11 +30,21 @@ describe("WorkspaceRegistryService", () => {
 		const service = new WorkspaceRegistryService();
 		const first = service.register({
 			workspaceId: "ws-path-1",
-			repository: { id: "repo-1", name: "repo", rootPath: "/repo", repoId: null },
+			repository: {
+				id: "repo-1",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
 		});
 		const second = service.register({
 			workspaceId: "ws-ignored",
-			repository: { id: "repo-1b", name: "repo", rootPath: "/repo", repoId: null },
+			repository: {
+				id: "repo-1b",
+				name: "repo",
+				rootPath: "/repo",
+				repoId: null,
+			},
 		});
 
 		expect(second.workspaceId).toBe(first.workspaceId);

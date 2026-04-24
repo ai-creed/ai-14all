@@ -16,18 +16,26 @@ function evt(partial: Partial<KeyboardEvent>): KeyboardEvent {
 
 describe("isFilesOverlayShortcut", () => {
 	it("matches Cmd+P on macOS", () => {
-		expect(isFilesOverlayShortcut(evt({ metaKey: true, key: "p" }), "mac")).toBe(true);
+		expect(
+			isFilesOverlayShortcut(evt({ metaKey: true, key: "p" }), "mac"),
+		).toBe(true);
 	});
 
 	it("does not match Cmd+Shift+P on macOS", () => {
 		expect(
-			isFilesOverlayShortcut(evt({ metaKey: true, shiftKey: true, key: "p" }), "mac"),
+			isFilesOverlayShortcut(
+				evt({ metaKey: true, shiftKey: true, key: "p" }),
+				"mac",
+			),
 		).toBe(false);
 	});
 
 	it("matches Ctrl+Shift+P on Windows/Linux", () => {
 		expect(
-			isFilesOverlayShortcut(evt({ ctrlKey: true, shiftKey: true, key: "P" }), "other"),
+			isFilesOverlayShortcut(
+				evt({ ctrlKey: true, shiftKey: true, key: "P" }),
+				"other",
+			),
 		).toBe(true);
 	});
 

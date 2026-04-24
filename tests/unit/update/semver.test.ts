@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { compareStableVersions, isStableVersion } from "../../../shared/update/semver.js";
+import {
+	compareStableVersions,
+	isStableVersion,
+} from "../../../shared/update/semver.js";
 
 describe("isStableVersion", () => {
 	it("accepts strict three-segment semver", () => {

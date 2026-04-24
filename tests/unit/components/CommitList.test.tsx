@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("../../../src/lib/desktop-client", () => ({
@@ -23,8 +29,18 @@ describe("CommitList", () => {
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
-						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
-						{ sha: "base", shortSha: "base", subject: "origin/main", isMergeTarget: true },
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
+						{
+							sha: "base",
+							shortSha: "base",
+							subject: "origin/main",
+							isMergeTarget: true,
+						},
 					],
 				}}
 				selectedCommitSha="abc"
@@ -64,7 +80,9 @@ describe("CommitList", () => {
 			}),
 		).toBeInTheDocument();
 		// Click the non-selected merge-target row to verify selection is notified.
-		await userEvent.click(screen.getByRole("button", { name: /origin\/main/i }));
+		await userEvent.click(
+			screen.getByRole("button", { name: /origin\/main/i }),
+		);
 		expect(onSelectCommit).toHaveBeenCalledWith("base");
 	});
 
@@ -78,8 +96,18 @@ describe("CommitList", () => {
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
-						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
-						{ sha: "base", shortSha: "base", subject: "initial commit", isMergeTarget: true },
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
+						{
+							sha: "base",
+							shortSha: "base",
+							subject: "initial commit",
+							isMergeTarget: true,
+						},
 					],
 				}}
 				selectedCommitSha="abc"
@@ -91,7 +119,9 @@ describe("CommitList", () => {
 			/>,
 		);
 
-		await userEvent.click(screen.getByRole("button", { name: /feature commit/i }));
+		await userEvent.click(
+			screen.getByRole("button", { name: /feature commit/i }),
+		);
 		expect(onDeselectCommit).toHaveBeenCalledTimes(1);
 		expect(onSelectCommit).not.toHaveBeenCalled();
 	});
@@ -103,7 +133,12 @@ describe("CommitList", () => {
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
-						{ sha: "base", shortSha: "base", subject: "origin/main", isMergeTarget: true },
+						{
+							sha: "base",
+							shortSha: "base",
+							subject: "origin/main",
+							isMergeTarget: true,
+						},
 					],
 				}}
 				selectedCommitSha="base"
@@ -160,7 +195,12 @@ describe("CommitList", () => {
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
-						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
 					],
 				}}
 				selectedCommitSha="abc"
@@ -184,10 +224,16 @@ describe("CommitList", () => {
 			/>,
 		);
 
-		fireEvent.contextMenu(screen.getByRole("button", { name: /docs\/notes\.md/i }));
-		await userEvent.click(await screen.findByRole("menuitem", { name: "Preview" }));
+		fireEvent.contextMenu(
+			screen.getByRole("button", { name: /docs\/notes\.md/i }),
+		);
+		await userEvent.click(
+			await screen.findByRole("menuitem", { name: "Preview" }),
+		);
 
-		expect(await screen.findByRole("heading", { name: "Commit Preview" })).toBeInTheDocument();
+		expect(
+			await screen.findByRole("heading", { name: "Commit Preview" }),
+		).toBeInTheDocument();
 		expect(mockRead).not.toHaveBeenCalled();
 	});
 
@@ -198,7 +244,12 @@ describe("CommitList", () => {
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
-						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
 					],
 				}}
 				selectedCommitSha="abc"
@@ -222,8 +273,12 @@ describe("CommitList", () => {
 			/>,
 		);
 
-		fireEvent.contextMenu(screen.getByRole("button", { name: /docs\/notes\.md/i }));
-		expect(screen.queryByRole("menuitem", { name: "Preview" })).not.toBeInTheDocument();
+		fireEvent.contextMenu(
+			screen.getByRole("button", { name: /docs\/notes\.md/i }),
+		);
+		expect(
+			screen.queryByRole("menuitem", { name: "Preview" }),
+		).not.toBeInTheDocument();
 	});
 
 	it("renders the push strip when remoteStatus is provided", () => {
@@ -233,7 +288,12 @@ describe("CommitList", () => {
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
-						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
 					],
 				}}
 				selectedCommitSha={null}
@@ -257,7 +317,12 @@ describe("CommitList", () => {
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
-						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
 					],
 				}}
 				selectedCommitSha={null}
@@ -279,7 +344,12 @@ describe("CommitList", () => {
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
-						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
 					],
 				}}
 				selectedCommitSha={null}
@@ -302,7 +372,12 @@ describe("CommitList", () => {
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
-						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
 					],
 				}}
 				selectedCommitSha={null}
@@ -327,7 +402,12 @@ describe("CommitList", () => {
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
-						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
 					],
 				}}
 				selectedCommitSha={null}
@@ -342,7 +422,9 @@ describe("CommitList", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Push" }));
 		await waitFor(() => {
 			expect(screen.getByText(/2 commit/i)).toBeInTheDocument();
-			expect(screen.getByRole("button", { name: "Force Push" })).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: "Force Push" }),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -353,7 +435,12 @@ describe("CommitList", () => {
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
-						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
 					],
 				}}
 				selectedCommitSha={null}
@@ -363,6 +450,8 @@ describe("CommitList", () => {
 				onSelectCommitFile={vi.fn()}
 			/>,
 		);
-		expect(screen.queryByRole("button", { name: "Push" })).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Push" }),
+		).not.toBeInTheDocument();
 	});
 });

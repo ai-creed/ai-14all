@@ -111,14 +111,13 @@ describe("TerminalTabs", () => {
 		const user = userEvent.setup();
 		const onToggleSplitMode = vi.fn();
 
-		renderTabs(
-			[proc({ id: "proc-1", label: "shell 1" })],
-			"proc-1",
-			[],
-			{ onToggleSplitMode },
-		);
+		renderTabs([proc({ id: "proc-1", label: "shell 1" })], "proc-1", [], {
+			onToggleSplitMode,
+		});
 
-		const splitButton = screen.getByRole("button", { name: "Enable split shells" });
+		const splitButton = screen.getByRole("button", {
+			name: "Enable split shells",
+		});
 		expect(splitButton).toHaveAttribute("aria-pressed", "false");
 		expect(splitButton).toHaveClass(
 			"shell-button",
@@ -142,7 +141,9 @@ describe("TerminalTabs", () => {
 			{ layoutMode: "split" },
 		);
 
-		const splitButton = screen.getByRole("button", { name: "Disable split shells" });
+		const splitButton = screen.getByRole("button", {
+			name: "Disable split shells",
+		});
 		expect(splitButton).toHaveAttribute("aria-pressed", "true");
 		expect(splitButton).toHaveAttribute("data-active", "true");
 	});
@@ -421,7 +422,9 @@ describe("TerminalTabs", () => {
 				keys: "[MouseRight]",
 			},
 		]);
-		await user.click(screen.getByRole("menuitem", { name: "Show in split right" }));
+		await user.click(
+			screen.getByRole("menuitem", { name: "Show in split right" }),
+		);
 		expect(onShowInSplit).toHaveBeenCalledWith("proc-1", "right");
 
 		await user.pointer([
@@ -430,7 +433,9 @@ describe("TerminalTabs", () => {
 				keys: "[MouseRight]",
 			},
 		]);
-		await user.click(screen.getByRole("menuitem", { name: "Remove from split" }));
+		await user.click(
+			screen.getByRole("menuitem", { name: "Remove from split" }),
+		);
 		expect(onRemoveFromSplit).toHaveBeenCalledWith("proc-1");
 	});
 

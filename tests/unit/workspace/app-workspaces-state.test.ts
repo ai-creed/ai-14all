@@ -122,7 +122,10 @@ describe("appWorkspacesReducer", () => {
 				},
 			},
 		};
-		state = appWorkspacesReducer(state, { type: "workspace/remove", workspaceId: "ws-a" });
+		state = appWorkspacesReducer(state, {
+			type: "workspace/remove",
+			workspaceId: "ws-a",
+		});
 		expect(state.activeWorkspaceId).toBe("ws-b");
 		expect(state.workspaceOrder).toEqual(["ws-b"]);
 		expect(state.workspacesById["ws-a"]).toBeUndefined();
@@ -139,8 +142,14 @@ describe("appWorkspacesReducer", () => {
 			hydrationState: "active" as const,
 			loadError: null,
 		};
-		state = appWorkspacesReducer(state, { type: "workspace/register", workspace: wsA });
-		state = appWorkspacesReducer(state, { type: "workspace/register", workspace: { ...wsA, worktrees: [] } });
+		state = appWorkspacesReducer(state, {
+			type: "workspace/register",
+			workspace: wsA,
+		});
+		state = appWorkspacesReducer(state, {
+			type: "workspace/register",
+			workspace: { ...wsA, worktrees: [] },
+		});
 		expect(state.workspaceOrder).toHaveLength(1);
 		expect(state.workspaceOrder).toEqual(["ws-a"]);
 	});
@@ -161,7 +170,10 @@ describe("appWorkspacesReducer", () => {
 				},
 			},
 		};
-		const next = appWorkspacesReducer(state, { type: "workspace/select", workspaceId: "ws-nonexistent" });
+		const next = appWorkspacesReducer(state, {
+			type: "workspace/select",
+			workspaceId: "ws-nonexistent",
+		});
 		expect(next).toBe(state);
 	});
 });

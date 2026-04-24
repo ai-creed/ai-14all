@@ -48,7 +48,9 @@ describe("useTerminalSession.adoptSession", () => {
 	it("adopted session receives state updates from backend events", async () => {
 		const { terminals } = await import("../../../src/lib/desktop-client");
 
-		let stateListener: ((event: { sessionId: string; status: string }) => void) | null = null;
+		let stateListener:
+			| ((event: { sessionId: string; status: string }) => void)
+			| null = null;
 		vi.mocked(terminals.onState).mockImplementation((listener) => {
 			stateListener = listener as typeof stateListener;
 			return vi.fn();

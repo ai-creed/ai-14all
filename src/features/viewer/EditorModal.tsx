@@ -138,7 +138,10 @@ export function EditorModal({
 				setConflict({ currentMtimeMs: result.currentMtimeMs });
 				return false;
 			}
-			setStatus({ kind: "error", message: errorMessageForReason(result.reason) });
+			setStatus({
+				kind: "error",
+				message: errorMessageForReason(result.reason),
+			});
 			return false;
 		} catch {
 			setStatus({ kind: "error", message: "Save failed: unexpected error" });
@@ -146,7 +149,16 @@ export function EditorModal({
 		} finally {
 			setSaving(false);
 		}
-	}, [content, mtimeMs, onFileSaved, originalContent, relativePath, saving, workspaceId, worktreeId]);
+	}, [
+		content,
+		mtimeMs,
+		onFileSaved,
+		originalContent,
+		relativePath,
+		saving,
+		workspaceId,
+		worktreeId,
+	]);
 
 	const handleOverwrite = useCallback(async () => {
 		if (!conflict) return;
@@ -166,10 +178,16 @@ export function EditorModal({
 				setOriginalContent(latest);
 				setContent(latest);
 				setMtimeMs(result.mtimeMs);
-				setStatus({ kind: "saved", message: `Saved ${new Date().toLocaleTimeString()}` });
+				setStatus({
+					kind: "saved",
+					message: `Saved ${new Date().toLocaleTimeString()}`,
+				});
 				onFileSaved?.();
 			} else {
-				setStatus({ kind: "error", message: errorMessageForReason(result.reason) });
+				setStatus({
+					kind: "error",
+					message: errorMessageForReason(result.reason),
+				});
 			}
 		} catch {
 			setStatus({ kind: "error", message: "Save failed: unexpected error" });
@@ -179,14 +197,21 @@ export function EditorModal({
 	}, [conflict, content, onFileSaved, relativePath, workspaceId, worktreeId]);
 
 	const executeReload = useCallback(async () => {
-		const result = await files.openForEdit(workspaceId, worktreeId, relativePath);
+		const result = await files.openForEdit(
+			workspaceId,
+			worktreeId,
+			relativePath,
+		);
 		if (result.ok) {
 			setOriginalContent(result.content);
 			setContent(result.content);
 			setMtimeMs(result.mtimeMs);
 			setStatus({ kind: "saved", message: "Reloaded from disk" });
 		} else {
-			setStatus({ kind: "error", message: errorMessageForReason(result.reason) });
+			setStatus({
+				kind: "error",
+				message: errorMessageForReason(result.reason),
+			});
 		}
 	}, [relativePath, workspaceId, worktreeId]);
 

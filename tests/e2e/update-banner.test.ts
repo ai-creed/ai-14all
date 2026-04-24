@@ -5,7 +5,13 @@ import {
 	type ElectronApplication,
 	type Page,
 } from "@playwright/test";
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+	mkdtempSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -20,7 +26,9 @@ interface Harness {
 }
 
 const FIXTURE_DIR = fileURLToPath(new URL("./fixtures/", import.meta.url));
-const PACKAGE_JSON = fileURLToPath(new URL("../../package.json", import.meta.url));
+const PACKAGE_JSON = fileURLToPath(
+	new URL("../../package.json", import.meta.url),
+);
 const NEWER_FIXTURE = join(FIXTURE_DIR, "update-manifest-newer.yml");
 const INVALID_FIXTURE = join(FIXTURE_DIR, "update-manifest-invalid.yml");
 
@@ -42,21 +50,28 @@ function materializeCurrentFixture(tmpDir: string): string {
 
 async function launch(extraEnv: Record<string, string>): Promise<Harness> {
 	const testRepo = createTestRepo();
-	const persistedStateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-update-")));
+	const persistedStateDir = realpathSync(
+		mkdtempSync(join(tmpdir(), "ofa-update-")),
+	);
 	const app = await electron.launch({
 		args: ["out/main/index.js"],
 		env: {
 			...process.env,
 			AI14ALL_E2E: "1",
 			AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
-			AI14ALL_WORKSPACE_STATE_PATH: join(persistedStateDir, "workspace-state.json"),
+			AI14ALL_WORKSPACE_STATE_PATH: join(
+				persistedStateDir,
+				"workspace-state.json",
+			),
 			...extraEnv,
 		},
 	});
 	const page = await app.firstWindow({ timeout: 60_000 });
 
 	// Load the workspace so the main layout (which hosts UpdateBanner) is rendered.
-	const worktreeNav = page.getByRole("navigation", { name: "Worktree sessions" });
+	const worktreeNav = page.getByRole("navigation", {
+		name: "Worktree sessions",
+	});
 	if (!(await worktreeNav.isVisible({ timeout: 2_000 }).catch(() => false))) {
 		const repoInput = page.locator("#repo-path");
 		await expect(repoInput).toBeVisible({ timeout: 15_000 });
@@ -99,8 +114,13 @@ test.describe("banner appears on newer manifest and Download calls openExternal"
 		await expect
 			.poll(() =>
 				h.app.evaluate(() => {
-					type CaptureGlobal = { __AI14ALL_E2E_OPEN_EXTERNAL_CALLS__?: string[] };
-					return (globalThis as CaptureGlobal).__AI14ALL_E2E_OPEN_EXTERNAL_CALLS__ ?? [];
+					type CaptureGlobal = {
+						__AI14ALL_E2E_OPEN_EXTERNAL_CALLS__?: string[];
+					};
+					return (
+						(globalThis as CaptureGlobal).__AI14ALL_E2E_OPEN_EXTERNAL_CALLS__ ??
+						[]
+					);
 				}),
 			)
 			.toContain(

@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import { buildLinearCommitGraph } from "./build-linear-commit-graph.js";
-import type { GitCommitHistory, GitCommitDetail } from "../../../shared/models/git-commit-review.js";
+import type {
+	GitCommitHistory,
+	GitCommitDetail,
+} from "../../../shared/models/git-commit-review.js";
 import type { RemoteStatus } from "../../../shared/models/git-remote-status.js";
 import { MarkdownPreviewModal } from "../viewer/MarkdownPreviewModal";
 import { ForcePushDialog } from "./ForcePushDialog";
@@ -46,7 +49,8 @@ export function CommitList({
 	}
 
 	const rows = buildLinearCommitGraph(history.entries);
-	const pushDisabled = !remoteStatus?.hasRemote || (remoteStatus?.ahead ?? 0) === 0;
+	const pushDisabled =
+		!remoteStatus?.hasRemote || (remoteStatus?.ahead ?? 0) === 0;
 
 	function handlePushClick() {
 		if (!remoteStatus || !onPush) return;
@@ -100,7 +104,9 @@ export function CommitList({
 							className="shell-commit-list__item"
 							data-selected={String(isSelected)}
 							data-row-kind={row.rowKind}
-							onClick={() => isSelected ? onDeselectCommit?.() : onSelectCommit(row.sha)}
+							onClick={() =>
+								isSelected ? onDeselectCommit?.() : onSelectCommit(row.sha)
+							}
 						>
 							<span
 								className="shell-commit-list__graph-column"
@@ -119,7 +125,9 @@ export function CommitList({
 											key={file.path}
 											type="button"
 											className="shell-list__item shell-list__item--split"
-											data-selected={String(selectedCommitFilePath === file.path)}
+											data-selected={String(
+												selectedCommitFilePath === file.path,
+											)}
 											onClick={() => onSelectCommitFile(file.path)}
 										>
 											<span>{file.path}</span>
@@ -133,7 +141,9 @@ export function CommitList({
 
 									return (
 										<ContextMenu.Root key={file.path}>
-											<ContextMenu.Trigger asChild>{button}</ContextMenu.Trigger>
+											<ContextMenu.Trigger asChild>
+												{button}
+											</ContextMenu.Trigger>
 											<ContextMenu.Portal>
 												<ContextMenu.Content className="shell-toolbar-menu">
 													<ContextMenu.Item

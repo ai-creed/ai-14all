@@ -54,7 +54,9 @@ export function SessionHeader({
 					{!collapsed && <div className="shell-label">Session info</div>}
 					<h2 className="shell-session-info__title">{title}</h2>
 					{branchDescription && (
-						<div className="shell-session-info__description">{branchDescription}</div>
+						<div className="shell-session-info__description">
+							{branchDescription}
+						</div>
 					)}
 				</div>
 				{collapsed && (
@@ -74,12 +76,15 @@ export function SessionHeader({
 					</div>
 
 					<div className="shell-session-info__meta">
-						<span><span>Branch:</span> <strong>{branchName}</strong></span>
 						<span>
-							<span>Status:</span>{" "}
-							<strong>{statusLabel}</strong>
+							<span>Branch:</span> <strong>{branchName}</strong>
 						</span>
-						<span><span>Changes:</span> <strong>{changedFileCount}</strong></span>
+						<span>
+							<span>Status:</span> <strong>{statusLabel}</strong>
+						</span>
+						<span>
+							<span>Changes:</span> <strong>{changedFileCount}</strong>
+						</span>
 					</div>
 				</>
 			)}

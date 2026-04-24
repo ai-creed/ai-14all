@@ -20,9 +20,13 @@ function mockMatchMedia(systemIsLight: boolean) {
 		writable: true,
 		value: vi.fn().mockReturnValue(mql),
 	});
-	return { mql, listeners, triggerChange: (matches: boolean) => {
-		listeners.forEach((cb) => cb({ matches }));
-	}};
+	return {
+		mql,
+		listeners,
+		triggerChange: (matches: boolean) => {
+			listeners.forEach((cb) => cb({ matches }));
+		},
+	};
 }
 
 let originalMatchMedia: typeof window.matchMedia;

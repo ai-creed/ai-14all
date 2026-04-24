@@ -9,7 +9,10 @@ import {
 	shouldReattachSnapshot,
 	splitPendingRestores,
 } from "../../../src/features/workspace/workspace-persistence";
-import { createWorkspaceState, workspaceReducer } from "../../../src/features/workspace/workspace-state";
+import {
+	createWorkspaceState,
+	workspaceReducer,
+} from "../../../src/features/workspace/workspace-state";
 import { PersistedWorkspaceStateSchema } from "../../../shared/models/persisted-workspace-state";
 import type { WorkspaceSnapshot } from "../../../shared/models/persisted-workspace-state";
 
@@ -44,7 +47,14 @@ it("serializes multiple workspaces into one persisted file", () => {
 describe("buildWorkspaceSnapshot", () => {
 	it("serializes only restore-worthy workspace state", () => {
 		let state = createWorkspaceState([
-			{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
 		]);
 		state = workspaceReducer(state, {
 			type: "session/registerProcess",
@@ -57,13 +67,13 @@ describe("buildWorkspaceSnapshot", () => {
 				origin: "adHoc",
 				presetId: null,
 				label: "shell 1",
-					command: null,
-					status: "running",
-					lastActivityAt: 1234,
-					lastOutputPreview: null,
-					exitCode: null,
-					pinned: false,
-					attentionState: "actionRequired",
+				command: null,
+				status: "running",
+				lastActivityAt: 1234,
+				lastOutputPreview: null,
+				exitCode: null,
+				pinned: false,
+				attentionState: "actionRequired",
 			},
 		});
 		state = workspaceReducer(state, {
@@ -72,14 +82,14 @@ describe("buildWorkspaceSnapshot", () => {
 			note: "resume here",
 		});
 
-			const snapshot = buildWorkspaceSnapshot("/repo", null, state);
+		const snapshot = buildWorkspaceSnapshot("/repo", null, state);
 
-			expect(
-				snapshot.worktreeSessions[0]?.processSessions[0],
-			).not.toHaveProperty("lastOutputPreview");
+		expect(snapshot.worktreeSessions[0]?.processSessions[0]).not.toHaveProperty(
+			"lastOutputPreview",
+		);
 
-			expect(snapshot).toEqual({
-				repositoryPath: "/repo",
+		expect(snapshot).toEqual({
+			repositoryPath: "/repo",
 			repoId: null,
 			selectedWorktreeId: "main",
 			commandPresets: DEFAULT_COMMAND_PRESETS,
@@ -117,7 +127,11 @@ describe("buildWorkspaceSnapshot", () => {
 	});
 
 	it("returns empty worktreeSessions and null selectedWorktreeId for empty state", () => {
-		const snapshot = buildWorkspaceSnapshot("/repo", null, createWorkspaceState([]));
+		const snapshot = buildWorkspaceSnapshot(
+			"/repo",
+			null,
+			createWorkspaceState([]),
+		);
 		expect(snapshot.commandPresets).toEqual(DEFAULT_COMMAND_PRESETS);
 		expect(snapshot.worktreeSessions).toEqual([]);
 		expect(snapshot.selectedWorktreeId).toBeNull();
@@ -126,7 +140,14 @@ describe("buildWorkspaceSnapshot", () => {
 
 it("serializes commit review selections into the workspace snapshot", () => {
 	let state = createWorkspaceState([
-		{ id: "feature-a", repositoryId: "repo-1", branchName: "feature-a", path: "/repo/.worktrees/feature-a", label: "feature-a", isMain: false },
+		{
+			id: "feature-a",
+			repositoryId: "repo-1",
+			branchName: "feature-a",
+			path: "/repo/.worktrees/feature-a",
+			label: "feature-a",
+			isMain: false,
+		},
 	]);
 	state = workspaceReducer(state, {
 		type: "session/selectCommit",
@@ -139,7 +160,9 @@ it("serializes commit review selections into the workspace snapshot", () => {
 		relativePath: "src/index.ts",
 	});
 
-	expect(buildWorkspaceSnapshot("/repo", null, state).worktreeSessions[0]).toMatchObject({
+	expect(
+		buildWorkspaceSnapshot("/repo", null, state).worktreeSessions[0],
+	).toMatchObject({
 		selectedCommitSha: "abc1234",
 		selectedCommitFilePath: "src/index.ts",
 		reviewMode: "commits",
@@ -211,7 +234,9 @@ it("keeps older phase-5 snapshots readable by defaulting commit fields to null",
 		throw new Error("expected v1 persisted state");
 	}
 	expect(parsed.snapshot?.worktreeSessions[0]?.selectedCommitSha).toBeNull();
-	expect(parsed.snapshot?.worktreeSessions[0]?.selectedCommitFilePath).toBeNull();
+	expect(
+		parsed.snapshot?.worktreeSessions[0]?.selectedCommitFilePath,
+	).toBeNull();
 });
 
 it("defaults terminalSessionId to null for older snapshots without it", () => {
@@ -250,7 +275,9 @@ it("defaults terminalSessionId to null for older snapshots without it", () => {
 	if (parsed.version !== 1) {
 		throw new Error("expected v1 persisted state");
 	}
-	expect(parsed.snapshot?.worktreeSessions[0]?.processSessions[0]?.terminalSessionId).toBeNull();
+	expect(
+		parsed.snapshot?.worktreeSessions[0]?.processSessions[0]?.terminalSessionId,
+	).toBeNull();
 });
 
 it("preserves terminalSessionId when present in persisted data", () => {
@@ -300,38 +327,48 @@ it("preserves terminalSessionId when present in persisted data", () => {
 		throw new Error("expected v2 persisted state");
 	}
 	expect(
-		parsed.workspaces[0].snapshot.worktreeSessions[0].processSessions[0].terminalSessionId,
+		parsed.workspaces[0].snapshot.worktreeSessions[0].processSessions[0]
+			.terminalSessionId,
 	).toBe("term-abc");
 });
 
 it("includes terminalSessionId in buildWorkspaceSnapshot output", () => {
 	let state = createWorkspaceState([
-		{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		{
+			id: "main",
+			repositoryId: "repo-1",
+			branchName: "main",
+			path: "/repo",
+			label: "main",
+			isMain: true,
+		},
 	]);
 	state = workspaceReducer(state, {
 		type: "session/registerProcess",
 		worktreeId: "main",
-			process: {
-				id: "process-1",
-				workspaceId: "workspace-1",
+		process: {
+			id: "process-1",
+			workspaceId: "workspace-1",
 			worktreeId: "main",
 			terminalSessionId: "terminal-live-123",
 			origin: "adHoc",
 			presetId: null,
 			label: "shell 1",
-				command: "claude",
-				status: "running",
-				lastActivityAt: 1234,
-				lastOutputPreview: null,
-				exitCode: null,
-				pinned: false,
-				attentionState: "idle",
+			command: "claude",
+			status: "running",
+			lastActivityAt: 1234,
+			lastOutputPreview: null,
+			exitCode: null,
+			pinned: false,
+			attentionState: "idle",
 		},
 	});
 
 	const snapshot = buildWorkspaceSnapshot("/repo", null, state);
 
-	expect(snapshot.worktreeSessions[0].processSessions[0].terminalSessionId).toBe("terminal-live-123");
+	expect(
+		snapshot.worktreeSessions[0].processSessions[0].terminalSessionId,
+	).toBe("terminal-live-123");
 });
 
 it("serializes split-shell layout fields into the workspace snapshot", () => {
@@ -348,20 +385,20 @@ it("serializes split-shell layout fields into the workspace snapshot", () => {
 	state = workspaceReducer(state, {
 		type: "session/registerProcess",
 		worktreeId: "main",
-			process: {
-				id: "process-1",
-				workspaceId: "workspace-1",
-				worktreeId: "main",
-				terminalSessionId: "terminal-1",
+		process: {
+			id: "process-1",
+			workspaceId: "workspace-1",
+			worktreeId: "main",
+			terminalSessionId: "terminal-1",
 			origin: "adHoc",
 			presetId: null,
-				label: "shell 1",
-				command: null,
-				status: "running",
-				lastActivityAt: null,
-				lastOutputPreview: null,
-				exitCode: null,
-				pinned: false,
+			label: "shell 1",
+			command: null,
+			status: "running",
+			lastActivityAt: null,
+			lastOutputPreview: null,
+			exitCode: null,
+			pinned: false,
 			attentionState: "idle",
 		},
 	});
@@ -377,7 +414,9 @@ it("serializes split-shell layout fields into the workspace snapshot", () => {
 		slot: "left",
 	});
 
-	expect(buildWorkspaceSnapshot("/repo", null, state).worktreeSessions[0]).toMatchObject({
+	expect(
+		buildWorkspaceSnapshot("/repo", null, state).worktreeSessions[0],
+	).toMatchObject({
 		terminalLayoutMode: "split",
 		splitLeftProcessId: "process-1",
 		splitRightProcessId: null,
@@ -411,7 +450,9 @@ it("defaults split-shell fields for older snapshots", () => {
 	if (parsed.version !== 1) {
 		throw new Error("expected v1 persisted state");
 	}
-	expect(parsed.snapshot?.worktreeSessions[0]?.terminalLayoutMode).toBe("single");
+	expect(parsed.snapshot?.worktreeSessions[0]?.terminalLayoutMode).toBe(
+		"single",
+	);
 	expect(parsed.snapshot?.worktreeSessions[0]?.splitLeftProcessId).toBeNull();
 	expect(parsed.snapshot?.worktreeSessions[0]?.splitRightProcessId).toBeNull();
 });
@@ -499,11 +540,15 @@ describe("splitPendingRestores", () => {
 
 		const result = splitPendingRestores(snapshot);
 		expect(result.selectedSession).toBeNull();
-		expect(result.pendingByWorktreeId).toEqual({ main: snapshot.worktreeSessions[0] });
+		expect(result.pendingByWorktreeId).toEqual({
+			main: snapshot.worktreeSessions[0],
+		});
 	});
 });
 
-function makeMinimalSnapshot(overrides: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
+function makeMinimalSnapshot(
+	overrides: Partial<WorkspaceSnapshot> = {},
+): WorkspaceSnapshot {
 	return {
 		repositoryPath: "/repo",
 		repoId: null,
@@ -562,7 +607,9 @@ describe("rebaseSnapshotPaths", () => {
 		const rebased = rebaseSnapshotPaths(snapshot, "/old-repo", "/new-repo");
 		expect(rebased.selectedWorktreeId).toBe("/new-repo/.worktrees/feature-a");
 		expect(rebased.worktreeSessions[0].worktreeId).toBe("/new-repo");
-		expect(rebased.worktreeSessions[1].worktreeId).toBe("/new-repo/.worktrees/feature-a");
+		expect(rebased.worktreeSessions[1].worktreeId).toBe(
+			"/new-repo/.worktrees/feature-a",
+		);
 		expect(rebased.worktreeSessions[1].note).toBe("feature");
 	});
 
@@ -649,7 +696,10 @@ describe("shouldReattachSnapshot", () => {
 		expect(
 			shouldReattachSnapshot(
 				{ repoId: null, name: "my-repo" },
-				makeMinimalSnapshot({ repositoryPath: "/home/user/my-repo", repoId: null }),
+				makeMinimalSnapshot({
+					repositoryPath: "/home/user/my-repo",
+					repoId: null,
+				}),
 			),
 		).toBe(true);
 	});
@@ -658,19 +708,25 @@ describe("shouldReattachSnapshot", () => {
 		expect(
 			shouldReattachSnapshot(
 				{ repoId: null, name: "different-repo" },
-				makeMinimalSnapshot({ repositoryPath: "/home/user/my-repo", repoId: null }),
+				makeMinimalSnapshot({
+					repositoryPath: "/home/user/my-repo",
+					repoId: null,
+				}),
 			),
 		).toBe(false);
 	});
 
 	it("returns false for null snapshot", () => {
-		expect(
-			shouldReattachSnapshot({ repoId: "id-1", name: "repo" }, null),
-		).toBe(false);
+		expect(shouldReattachSnapshot({ repoId: "id-1", name: "repo" }, null)).toBe(
+			false,
+		);
 	});
 });
 
-function makeSession(worktreeId: string, note = ""): WorkspaceSnapshot["worktreeSessions"][number] {
+function makeSession(
+	worktreeId: string,
+	note = "",
+): WorkspaceSnapshot["worktreeSessions"][number] {
 	return {
 		worktreeId,
 		title: "",
@@ -692,19 +748,22 @@ function makeSession(worktreeId: string, note = ""): WorkspaceSnapshot["worktree
 }
 
 describe("reconcileSnapshotToWorktrees", () => {
-	const wts = [
-		{ id: "/old/repo" },
-		{ id: "/old/repo/.worktrees/feature-a" },
-	];
+	const wts = [{ id: "/old/repo" }, { id: "/old/repo/.worktrees/feature-a" }];
 
 	it("returns rebasedSnapshot unchanged when all ids are already in wts", () => {
 		const rebased = makeMinimalSnapshot({
 			selectedWorktreeId: "/old/repo/.worktrees/feature-a",
-			worktreeSessions: [makeSession("/old/repo"), makeSession("/old/repo/.worktrees/feature-a", "note")],
+			worktreeSessions: [
+				makeSession("/old/repo"),
+				makeSession("/old/repo/.worktrees/feature-a", "note"),
+			],
 		});
 		const original = makeMinimalSnapshot({
 			selectedWorktreeId: "/old/repo/.worktrees/feature-a",
-			worktreeSessions: [makeSession("/old/repo"), makeSession("/old/repo/.worktrees/feature-a", "note")],
+			worktreeSessions: [
+				makeSession("/old/repo"),
+				makeSession("/old/repo/.worktrees/feature-a", "note"),
+			],
 		});
 		expect(reconcileSnapshotToWorktrees(rebased, original, wts)).toBe(rebased);
 	});
@@ -731,13 +790,19 @@ describe("reconcileSnapshotToWorktrees", () => {
 			],
 		});
 
-		const result = reconcileSnapshotToWorktrees(rebased, original, wtsAfterRename);
+		const result = reconcileSnapshotToWorktrees(
+			rebased,
+			original,
+			wtsAfterRename,
+		);
 
 		// Main worktree rebased id IS in wts → keep rebased
 		expect(result.worktreeSessions[0].worktreeId).toBe("/new/repo");
 		// Linked worktree rebased id is NOT in wts, original IS → fall back to original
 		expect(result.selectedWorktreeId).toBe("/old/repo/.worktrees/feature-a");
-		expect(result.worktreeSessions[1].worktreeId).toBe("/old/repo/.worktrees/feature-a");
+		expect(result.worktreeSessions[1].worktreeId).toBe(
+			"/old/repo/.worktrees/feature-a",
+		);
 		// Note is preserved
 		expect(result.worktreeSessions[1].note).toBe("resume here");
 	});
@@ -755,7 +820,9 @@ describe("reconcileSnapshotToWorktrees", () => {
 
 		const result = reconcileSnapshotToWorktrees(rebased, original, wtsGone);
 		expect(result.selectedWorktreeId).toBe("/new/repo/.worktrees/feature-a");
-		expect(result.worktreeSessions[0].worktreeId).toBe("/new/repo/.worktrees/feature-a");
+		expect(result.worktreeSessions[0].worktreeId).toBe(
+			"/new/repo/.worktrees/feature-a",
+		);
 	});
 
 	it("handles null selectedWorktreeId without throwing", () => {
@@ -768,7 +835,14 @@ describe("reconcileSnapshotToWorktrees", () => {
 
 it("builds a saved workspace entry from repo-scoped runtime state", () => {
 	const state = createWorkspaceState([
-		{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		{
+			id: "main",
+			repositoryId: "repo-1",
+			branchName: "main",
+			path: "/repo",
+			label: "main",
+			isMain: true,
+		},
 	]);
 
 	const saved = buildSavedWorkspace("ws-a", "/repo", "repo-id-a", state);
@@ -799,22 +873,42 @@ it("finds a saved workspace by repoId before falling back to path", () => {
 it("treeExpandedPaths does not survive a snapshot round-trip", () => {
 	// Build state with one worktree and set tree expanded paths
 	let state = createWorkspaceState([
-		{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		{
+			id: "main",
+			repositoryId: "repo-1",
+			branchName: "main",
+			path: "/repo",
+			label: "main",
+			isMain: true,
+		},
 	]);
 	state = workspaceReducer(state, {
 		type: "session/setTreeExpandedPaths",
 		worktreeId: "main",
 		paths: ["", "src"],
 	});
-	expect(state.sessionsByWorktreeId["main"].treeExpandedPaths).toEqual(["", "src"]);
+	expect(state.sessionsByWorktreeId["main"].treeExpandedPaths).toEqual([
+		"",
+		"src",
+	]);
 
 	// Serialize to snapshot
 	const snapshot = buildWorkspaceSnapshot("/repo", null, state);
-	const { selectedSession } = splitPendingRestores({ ...snapshot, selectedWorktreeId: "main" });
+	const { selectedSession } = splitPendingRestores({
+		...snapshot,
+		selectedWorktreeId: "main",
+	});
 
 	// Restore snapshot into fresh state
 	let restored = createWorkspaceState([
-		{ id: "main", repositoryId: "repo-1", branchName: "main", path: "/repo", label: "main", isMain: true },
+		{
+			id: "main",
+			repositoryId: "repo-1",
+			branchName: "main",
+			path: "/repo",
+			label: "main",
+			isMain: true,
+		},
 	]);
 	restored = workspaceReducer(restored, {
 		type: "session/restoreSnapshot",
@@ -891,7 +985,13 @@ describe("buildWorkspaceSnapshot title round-trip", () => {
 describe("reviewDrawerOpen persistence", () => {
 	it("buildWorkspaceSnapshot emits reviewDrawerOpen from session state", () => {
 		const state = createWorkspaceState([
-			{ id: "/repo", label: "main", branchName: "main", path: "/repo", isMain: true },
+			{
+				id: "/repo",
+				label: "main",
+				branchName: "main",
+				path: "/repo",
+				isMain: true,
+			},
 		] as unknown as Parameters<typeof createWorkspaceState>[0]);
 		state.sessionsByWorktreeId["/repo"].reviewDrawerOpen = true;
 		const snapshot = buildWorkspaceSnapshot("/repo", null, state);

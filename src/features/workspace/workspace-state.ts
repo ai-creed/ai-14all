@@ -65,15 +65,15 @@ export type WorkspaceAction =
 			status: ProcessSession["status"];
 			exitCode?: number | null;
 	  }
-		| {
-				type: "session/recordProcessOutput";
-				worktreeId: string;
-				processId: string;
-				attentionState: ProcessAttentionState;
-				at: number;
-				isViewed: boolean;
-				lastOutputPreview?: string;
-		  }
+	| {
+			type: "session/recordProcessOutput";
+			worktreeId: string;
+			processId: string;
+			attentionState: ProcessAttentionState;
+			at: number;
+			isViewed: boolean;
+			lastOutputPreview?: string;
+	  }
 	| {
 			type: "session/markProcessViewed";
 			worktreeId: string;
@@ -94,17 +94,33 @@ export type WorkspaceAction =
 			processId: string;
 	  }
 	| { type: "session/startGitSummaryRefresh"; worktreeId: string }
-	| { type: "session/cacheGitSummarySuccess"; worktreeId: string; gitSummary: GitSummary }
-	| { type: "session/cacheGitSummaryFailure"; worktreeId: string; message: string }
+	| {
+			type: "session/cacheGitSummarySuccess";
+			worktreeId: string;
+			gitSummary: GitSummary;
+	  }
+	| {
+			type: "session/cacheGitSummaryFailure";
+			worktreeId: string;
+			message: string;
+	  }
 	| {
 			type: "workspace/restoreSnapshot";
 			worktrees: Worktree[];
 			snapshot: WorkspaceSnapshot;
 			workspaceId: string;
 	  }
-	| { type: "session/restoreSnapshot"; workspaceId: string; snapshot: PersistedWorktreeSession }
+	| {
+			type: "session/restoreSnapshot";
+			workspaceId: string;
+			snapshot: PersistedWorktreeSession;
+	  }
 	| { type: "session/selectCommit"; worktreeId: string; sha: string }
-	| { type: "session/selectCommitFile"; worktreeId: string; relativePath: string }
+	| {
+			type: "session/selectCommitFile";
+			worktreeId: string;
+			relativePath: string;
+	  }
 	| { type: "session/clearSelectedCommit"; worktreeId: string }
 	| {
 			type: "session/setTerminalLayoutMode";
@@ -123,7 +139,11 @@ export type WorkspaceAction =
 			worktreeId: string;
 			processId: string;
 	  }
-	| { type: "session/setTreeExpandedPaths"; worktreeId: string; paths: string[] }
+	| {
+			type: "session/setTreeExpandedPaths";
+			worktreeId: string;
+			paths: string[];
+	  }
 	| { type: "session/setTitle"; worktreeId: string; title: string }
 	| { type: "workspace/reconcileWorktrees"; worktrees: Worktree[] };
 
@@ -215,22 +235,22 @@ function restorePersistedSession(
 
 	const nextProcessSessionsById = { ...state.processSessionsById };
 	for (const process of snapshot.processSessions) {
-			nextProcessSessionsById[process.id] = {
-				id: process.id,
-				workspaceId,
-				worktreeId: snapshot.worktreeId,
-				terminalSessionId: null,
+		nextProcessSessionsById[process.id] = {
+			id: process.id,
+			workspaceId,
+			worktreeId: snapshot.worktreeId,
+			terminalSessionId: null,
 			origin: process.origin,
 			presetId: process.presetId,
 			label: process.label,
-				command: process.command,
-				status: "restarting",
-				lastActivityAt: null,
-				lastOutputPreview: null,
-				exitCode: null,
-				pinned: process.pinned,
-				attentionState: "idle",
-			};
+			command: process.command,
+			status: "restarting",
+			lastActivityAt: null,
+			lastOutputPreview: null,
+			exitCode: null,
+			pinned: process.pinned,
+			attentionState: "idle",
+		};
 	}
 
 	const nextSession: WorktreeSession = {
@@ -247,7 +267,9 @@ function restorePersistedSession(
 		processSessionIds: snapshot.processSessions.map((process) => process.id),
 		activeProcessSessionId:
 			snapshot.activeProcessSessionId !== null &&
-			snapshot.processSessions.some((p) => p.id === snapshot.activeProcessSessionId)
+			snapshot.processSessions.some(
+				(p) => p.id === snapshot.activeProcessSessionId,
+			)
 				? snapshot.activeProcessSessionId
 				: (snapshot.processSessions[0]?.id ?? null),
 		attentionState: "idle",
@@ -312,7 +334,11 @@ export function workspaceReducer(
 			(session) => session.worktreeId === selectedWorktreeId,
 		);
 		if (selectedSession) {
-			nextState = restorePersistedSession(nextState, selectedSession, action.workspaceId);
+			nextState = restorePersistedSession(
+				nextState,
+				selectedSession,
+				action.workspaceId,
+			);
 		}
 		return nextState;
 	}
@@ -329,10 +355,13 @@ export function workspaceReducer(
 	}
 
 	if (action.type === "workspace/reconcileWorktrees") {
-		const nextWorktreeIds = new Set(action.worktrees.map((worktree) => worktree.id));
+		const nextWorktreeIds = new Set(
+			action.worktrees.map((worktree) => worktree.id),
+		);
 		const nextSessionsByWorktreeId = Object.fromEntries(
 			action.worktrees.map((worktree) => {
-				const existing = state.sessionsByWorktreeId[worktree.id] ?? createSession(worktree);
+				const existing =
+					state.sessionsByWorktreeId[worktree.id] ?? createSession(worktree);
 				return [
 					worktree.id,
 					{
@@ -399,7 +428,8 @@ export function workspaceReducer(
 
 	if (action.type === "session/assignProcessToSplitSlot") {
 		const session = state.sessionsByWorktreeId[action.worktreeId];
-		if (!session || !session.processSessionIds.includes(action.processId)) return state;
+		if (!session || !session.processSessionIds.includes(action.processId))
+			return state;
 		const nextSession: WorktreeSession = {
 			...session,
 			terminalLayoutMode: "split",
@@ -613,15 +643,15 @@ export function workspaceReducer(
 				: process.attentionState;
 		const nextProcessSessionsById = {
 			...state.processSessionsById,
-				[action.processId]: {
-					...process,
-					attentionState: nextAttention,
-					lastActivityAt: action.at,
-					...(action.lastOutputPreview !== undefined
-						? { lastOutputPreview: action.lastOutputPreview }
-						: {}),
-				},
-			};
+			[action.processId]: {
+				...process,
+				attentionState: nextAttention,
+				lastActivityAt: action.at,
+				...(action.lastOutputPreview !== undefined
+					? { lastOutputPreview: action.lastOutputPreview }
+					: {}),
+			},
+		};
 		const nextSession: WorktreeSession = {
 			...session,
 			attentionState: recalculateWorktreeAttention(
@@ -708,7 +738,9 @@ export function workspaceReducer(
 	if (action.type === "session/startGitSummaryRefresh") {
 		return updateSession(state, action.worktreeId, (session) => ({
 			...session,
-			gitSummaryMessage: session.gitSummaryStale ? session.gitSummaryMessage : null,
+			gitSummaryMessage: session.gitSummaryStale
+				? session.gitSummaryMessage
+				: null,
 		}));
 	}
 

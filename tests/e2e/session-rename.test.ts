@@ -59,7 +59,10 @@ test("renames a session via F2 and persists the title after restart", async () =
 	const sessionButton = worktreeNav().getByRole("button", { name: /main/i });
 	await sessionButton.click();
 	await expect(
-		page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab").first(),
+		page
+			.getByRole("tablist", { name: "Terminal sessions" })
+			.getByRole("tab")
+			.first(),
 	).toBeVisible({ timeout: 15_000 });
 
 	// Focus the session button and press F2 to start inline rename
@@ -86,7 +89,9 @@ test("renames a session via F2 and persists the title after restart", async () =
 test("clears the custom title when rename is submitted empty", async () => {
 	test.setTimeout(30_000);
 
-	const sessionButton = worktreeNav().getByRole("button", { name: /My Custom Title/i });
+	const sessionButton = worktreeNav().getByRole("button", {
+		name: /My Custom Title/i,
+	});
 	await sessionButton.focus();
 	await page.keyboard.press("F2");
 	const renameInput = page.getByRole("textbox", { name: "Rename session" });

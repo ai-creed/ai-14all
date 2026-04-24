@@ -27,7 +27,11 @@ type Props = {
 	onCreateWorktree: (workspaceId: string) => void;
 	onRemoveWorktree: (workspaceId: string, worktreeId: string) => void;
 	onRemoveWorkspace: (workspaceId: string) => void;
-	onRenameSession?: (workspaceId: string, worktreeId: string, title: string) => void;
+	onRenameSession?: (
+		workspaceId: string,
+		worktreeId: string,
+		title: string,
+	) => void;
 	onRequestExpand?: (workspaceId: string, worktreeId: string) => void;
 	pendingRename?: { workspaceId: string; worktreeId: string } | null;
 };
@@ -46,7 +50,10 @@ export function SessionSidebar({
 	onRequestExpand,
 	pendingRename,
 }: Props) {
-	const [renaming, setRenaming] = React.useState<{ workspaceId: string; worktreeId: string } | null>(null);
+	const [renaming, setRenaming] = React.useState<{
+		workspaceId: string;
+		worktreeId: string;
+	} | null>(null);
 	const [draft, setDraft] = React.useState("");
 
 	React.useEffect(() => {
@@ -59,7 +66,11 @@ export function SessionSidebar({
 		setRenaming(pendingRename);
 	}, [collapsed, pendingRename, workspaces]);
 
-	function startRename(workspaceId: string, worktreeId: string, currentTitle: string) {
+	function startRename(
+		workspaceId: string,
+		worktreeId: string,
+		currentTitle: string,
+	) {
 		setDraft(currentTitle);
 		setRenaming({ workspaceId, worktreeId });
 	}
@@ -137,9 +148,11 @@ export function SessionSidebar({
 						<div className="shell-sidebar__workspace-items">
 							{workspace.worktrees.map((worktree) => {
 								const selected =
-									workspace.active && worktree.id === workspace.selectedWorktreeId;
+									workspace.active &&
+									worktree.id === workspace.selectedWorktreeId;
 								const summary = workspace.processesByWorktreeId?.[worktree.id];
-								const rawTitle = workspace.titleByWorktreeId?.[worktree.id] ?? "";
+								const rawTitle =
+									workspace.titleByWorktreeId?.[worktree.id] ?? "";
 								const shownTitle = displayTitle(rawTitle, worktree);
 								const hasCustomTitle = rawTitle.trim().length > 0;
 								const isRenamingThisRow =
@@ -149,7 +162,8 @@ export function SessionSidebar({
 								const rowCommonProps = {
 									className: "shell-sidebar__item",
 									"data-selected": String(selected),
-									"data-attention": workspace.attentionByWorktreeId[worktree.id] ?? "idle",
+									"data-attention":
+										workspace.attentionByWorktreeId[worktree.id] ?? "idle",
 									"aria-label":
 										worktree.branchName !== shownTitle
 											? `${shownTitle} ${worktree.branchName}`
@@ -172,7 +186,9 @@ export function SessionSidebar({
 												cancelRename();
 											}
 										}}
-										onBlur={() => commitRename(workspace.workspaceId, worktree.id)}
+										onBlur={() =>
+											commitRename(workspace.workspaceId, worktree.id)
+										}
 									/>
 								) : collapsed ? (
 									<span className="shell-sidebar__marker">
@@ -184,16 +200,24 @@ export function SessionSidebar({
 											onDoubleClick={(e) => {
 												if (!workspace.active) return;
 												e.stopPropagation();
-												startRename(workspace.workspaceId, worktree.id, rawTitle);
+												startRename(
+													workspace.workspaceId,
+													worktree.id,
+													rawTitle,
+												);
 											}}
 										>
 											{shownTitle}
 										</strong>
 										{hasCustomTitle && (
-											<div className="shell-sidebar__worktree-label">{worktree.label}</div>
+											<div className="shell-sidebar__worktree-label">
+												{worktree.label}
+											</div>
 										)}
 										{worktree.branchName !== worktree.label && (
-											<div className="shell-sidebar__branch">{worktree.branchName}</div>
+											<div className="shell-sidebar__branch">
+												{worktree.branchName}
+											</div>
 										)}
 										{summary && (
 											<div className="shell-sidebar__processes">
@@ -204,9 +228,17 @@ export function SessionSidebar({
 															className="shell-sidebar__process-indicator"
 															data-state={row.state}
 														/>
-														<span className="shell-sidebar__process-label" title={row.label}>{row.label}</span>
+														<span
+															className="shell-sidebar__process-label"
+															title={row.label}
+														>
+															{row.label}
+														</span>
 														{row.context ? (
-															<span className="shell-sidebar__process-context" title={row.context}>
+															<span
+																className="shell-sidebar__process-context"
+																title={row.context}
+															>
 																{row.context}
 															</span>
 														) : null}
@@ -214,7 +246,8 @@ export function SessionSidebar({
 												))}
 												{summary.overflowCount > 0 && (
 													<div className="shell-sidebar__process shell-sidebar__process--overflow">
-														{summary.overflowCount} more shell{summary.overflowCount === 1 ? "" : "s"}
+														{summary.overflowCount} more shell
+														{summary.overflowCount === 1 ? "" : "s"}
 													</div>
 												)}
 											</div>
@@ -238,7 +271,11 @@ export function SessionSidebar({
 													onRequestExpand?.(workspace.workspaceId, worktree.id);
 													return;
 												}
-												startRename(workspace.workspaceId, worktree.id, rawTitle);
+												startRename(
+													workspace.workspaceId,
+													worktree.id,
+													rawTitle,
+												);
 											}
 										}}
 									>
@@ -252,19 +289,24 @@ export function SessionSidebar({
 
 								return (
 									<ContextMenu.Root key={worktree.id}>
-										<ContextMenu.Trigger asChild>
-											{item}
-										</ContextMenu.Trigger>
+										<ContextMenu.Trigger asChild>{item}</ContextMenu.Trigger>
 										<ContextMenu.Portal>
 											<ContextMenu.Content className="shell-toolbar-menu">
 												<ContextMenu.Item
 													className="shell-toolbar-menu__item"
 													onSelect={() => {
 														if (collapsed || !workspace.active) {
-															onRequestExpand?.(workspace.workspaceId, worktree.id);
+															onRequestExpand?.(
+																workspace.workspaceId,
+																worktree.id,
+															);
 															return;
 														}
-														startRename(workspace.workspaceId, worktree.id, rawTitle);
+														startRename(
+															workspace.workspaceId,
+															worktree.id,
+															rawTitle,
+														);
 													}}
 												>
 													Rename session
@@ -272,7 +314,12 @@ export function SessionSidebar({
 												{!worktree.isMain && (
 													<ContextMenu.Item
 														className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
-														onSelect={() => onRemoveWorktree(workspace.workspaceId, worktree.id)}
+														onSelect={() =>
+															onRemoveWorktree(
+																workspace.workspaceId,
+																worktree.id,
+															)
+														}
 													>
 														Remove worktree
 													</ContextMenu.Item>
