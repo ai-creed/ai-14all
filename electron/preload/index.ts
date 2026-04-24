@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
-import type { Ai14AllDesktopApi } from "../../shared/contracts/commands.js";
+import type { Ai14AllDesktopApi, UpdateInfo } from "../../shared/contracts/commands.js";
 import type {
 	TerminalOutputEvent,
 	TerminalExitEvent,
@@ -164,6 +164,14 @@ const api: Ai14AllDesktopApi = {
 	diagnostics: {
 		logShellEvent(event) {
 			return ipcRenderer.invoke("diagnostics:logShellEvent", event);
+		},
+	},
+	system: {
+		onUpdateAvailable(listener) {
+			return onChannel<UpdateInfo>("update:available", listener);
+		},
+		openExternal(url) {
+			return ipcRenderer.invoke("system:openExternal", { url });
 		},
 	},
 };
