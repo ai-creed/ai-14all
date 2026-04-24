@@ -11,8 +11,10 @@ export type UpdateDecision =
 export interface DecideInput {
 	currentVersion: string;
 	manifestYaml: string;
-	/** Skip the stable-version guard. Set to true in E2E mode so pre-release
-	 *  builds can exercise the manifest-file path end-to-end. */
+	/** Allow non-stable current versions to proceed past the semver guard.
+	 *  Set to true in E2E mode so beta builds can exercise the manifest-file
+	 *  decision path. When set and currentVersion IS stable, the version
+	 *  comparison still runs normally. */
 	skipVersionCheck?: boolean;
 }
 

@@ -27,9 +27,12 @@ function onChannelBuffered<T>(
 	channel: string,
 	listener: (event: T) => void,
 ): () => void {
+	// Cancel the pre-capture once-handler — live listener takes over from here.
+	pendingOnceRemovers[channel]?.();
+	delete pendingOnceRemovers[channel];
 	const buf = pendingEvents[channel] as T | undefined;
 	if (buf !== undefined) {
-		// Already received before listener registered — replay synchronously.
+		// Already received before listener registered — replay on next microtask.
 		delete pendingEvents[channel];
 		queueMicrotask(() => listener(buf));
 	}
@@ -37,11 +40,17 @@ function onChannelBuffered<T>(
 }
 
 // Eagerly capture events that may arrive before React mounts.
+// When onChannelBuffered registers a live listener, the once-handler is replaced
+// and any pending entry is drained — preventing a stale buffer leak.
 const pendingEvents: Record<string, unknown> = {};
+const pendingOnceRemovers: Record<string, () => void> = {};
 for (const channel of ["update:available"] as const) {
-	ipcRenderer.once(channel, (_: Electron.IpcRendererEvent, payload: unknown) => {
+	const handler = (_: Electron.IpcRendererEvent, payload: unknown) => {
 		pendingEvents[channel] = payload;
-	});
+		delete pendingOnceRemovers[channel];
+	};
+	ipcRenderer.once(channel, handler);
+	pendingOnceRemovers[channel] = () => ipcRenderer.removeListener(channel, handler);
 }
 
 const api: Ai14AllDesktopApi = {

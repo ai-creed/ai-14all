@@ -31,7 +31,7 @@ export function rewriteManifest(raw: string, targetVersion: string): string {
 	}
 	const versionedBase = `${BASE}/${targetVersion}/`;
 	const rewrittenFiles = doc.files.map((file) => {
-		if (file.url.startsWith("http")) {
+		if (file.url.startsWith("https://") || file.url.startsWith("http://")) {
 			throw new Error(`files[].url already absolute: ${file.url}`);
 		}
 		return { ...file, url: `${versionedBase}${file.url}` };
