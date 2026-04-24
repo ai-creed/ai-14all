@@ -1,0 +1,142 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - '!v*-*'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Tag or branch to release from'
+        required: true
+      version:
+        description: 'Override version (required for smoke runs with no tag)'
+        required: false
+
+jobs:
+  release:
+    runs-on: macos-14
+    timeout-minutes: 30
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    steps:
+      - name: Resolve version
+        id: resolve
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            tag="${GITHUB_REF_NAME}"
+            echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout at ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Setup Node + pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint + format + typecheck
+        run: |
+          pnpm lint
+          pnpm format
+          pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: E2E tests
+        run: pnpm test:e2e
+
+      - name: Align package.json version with target
+        shell: bash
+        run: |
+          target="${{ steps.resolve.outputs.version }}"
+          current=$(node -p "require('./package.json').version")
+          if [ "${{ github.event_name }}" = "push" ] && [ "$current" != "$target" ]; then
+            echo "tag points at commit whose package.json is $current, expected $target"
+            exit 1
+          fi
+          node -e "const fs=require('fs');const p=require('./package.json');p.version='${target}';fs.writeFileSync('package.json', JSON.stringify(p, null, '\t')+'\n');"
+
+      - name: Package DMG + ZIP + manifest
+        run: pnpm package:mac
+
+      - name: Pre-rewrite validation
+        shell: bash
+        run: |
+          target="${{ steps.resolve.outputs.version }}"
+          emitted_version=$(node -e "const y=require('js-yaml');console.log(y.load(require('fs').readFileSync('release/latest-mac.yml','utf8')).version)")
+          if [ "$emitted_version" != "$target" ]; then
+            echo "emitted manifest version $emitted_version != target $target"
+            exit 1
+          fi
+
+      - name: Rewrite manifest to published form
+        shell: bash
+        run: |
+          target="${{ steps.resolve.outputs.version }}"
+          pnpm exec tsx scripts/rewrite-manifest.ts \
+            release/latest-mac.yml release/latest-mac.published.yml "$target"
+
+      - name: Post-rewrite validation
+        shell: bash
+        run: |
+          grep -q "https://downloads.ai-creed.dev/ai-14all/${{ steps.resolve.outputs.version }}/" release/latest-mac.published.yml
+
+      - name: Upload to Cloudflare R2
+        shell: bash
+        run: |
+          target="${{ steps.resolve.outputs.version }}"
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 cp release/ s3://ai-14all-releases/ai-14all/${target}/ \
+            --recursive \
+            --exclude '*' \
+            --include '*.dmg' --include '*.zip' \
+            --endpoint-url "$endpoint"
+
+      - name: Publish manifest to ai-creed
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.AI_CREED_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          git config --global user.email "release-bot@ai-creed.dev"
+          git config --global user.name "ai-creed release bot"
+          git clone git@github.com:ai-creed/ai-creed.git "$RUNNER_TEMP/ai-creed"
+          cp release/latest-mac.published.yml "$RUNNER_TEMP/ai-creed/public/ai-14all/latest-mac.yml"
+          cd "$RUNNER_TEMP/ai-creed"
+          git pull --rebase origin master
+          git add public/ai-14all/latest-mac.yml
+          git commit -m "chore(releases): ai-14all v${{ steps.resolve.outputs.version }}"
+          git push origin master
+
+      - name: Create or refresh GitHub Release
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="v${{ steps.resolve.outputs.version }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" release/*.dmg release/*.zip --clobber
+          else
+            gh release create "$tag" release/*.dmg release/*.zip \
+              --title "$tag" \
+              --notes "See CHANGELOG.md for release notes."
+          fi
