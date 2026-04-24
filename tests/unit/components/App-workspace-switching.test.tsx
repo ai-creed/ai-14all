@@ -75,6 +75,10 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	diagnostics: {
 		logShellEvent: diagnosticsLogMock,
 	},
+	system: {
+		onUpdateAvailable: vi.fn(() => vi.fn()),
+		openExternal: vi.fn(() => Promise.resolve()),
+	},
 }));
 
 import { App } from "../../../src/app/App";

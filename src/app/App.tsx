@@ -24,6 +24,7 @@ import type {
 	CreateWorktreePreview,
 	RemoveWorktreePreview,
 } from "../../shared/models/worktree-lifecycle";
+import type { UpdateInfo } from "../../shared/contracts/commands";
 import {
 	buildSavedWorkspace,
 	rebaseSnapshotPaths,
@@ -86,7 +87,9 @@ import {
 	workspace,
 	repository as repositoryClient,
 	files,
+	system,
 } from "../lib/desktop-client";
+import { UpdateBanner } from "../features/updater/UpdateBanner";
 import { logRendererShellEvent } from "../features/terminals/shell-event-logger";
 import { useTheme } from "../lib/useTheme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
@@ -117,6 +120,17 @@ export function App() {
 	const [noteSheetOpen, setNoteSheetOpen] = useState(false);
 	const [filesOverlayOpen, setFilesOverlayOpen] = useState(false);
 	const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+	const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+	const [updateDismissedFor, setUpdateDismissedFor] = useState<string | null>(null);
+
+	useEffect(() => {
+		return system.onUpdateAvailable((info) => {
+			setUpdateInfo(info);
+		});
+	}, []);
+
+	const bannerInfo =
+		updateInfo && updateInfo.version !== updateDismissedFor ? updateInfo : null;
 
 	// Multi-workspace registry
 	const [appWorkspaces, dispatchAppWorkspaces] = useReducer(
@@ -2700,6 +2714,11 @@ export function App() {
 				</div>
 
 				<section className="shell-main-column">
+					<UpdateBanner
+						info={bannerInfo}
+						onDownload={(url) => void system.openExternal(url)}
+						onDismiss={() => setUpdateDismissedFor(updateInfo?.version ?? null)}
+					/>
 					{activeWorktree && activeSession && (
 						<SessionChipBar
 							sessionTitle={displayTitle(activeSession.title, activeWorktree)}
