@@ -18,7 +18,8 @@
 		"test:e2e": "electron-vite build && playwright test",
 		"test:all": "pnpm test && pnpm test:e2e",
 		"package:mac": "pnpm build && electron-builder --mac zip dmg --publish never",
-		"release:beta": "node scripts/release-beta.mjs"
+		"release:beta": "node scripts/release-beta.mjs",
+		"release:stable": "node scripts/release-stable.mjs"
 	},
 	"dependencies": {
 		"@monaco-editor/react": "^4.7.0",
