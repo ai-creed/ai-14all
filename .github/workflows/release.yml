@@ -18,12 +18,6 @@ jobs:
   release:
     runs-on: macos-14
     timeout-minutes: 30
-    env:
-      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     steps:
       - name: Resolve version
         id: resolve
@@ -96,18 +90,7 @@ jobs:
       - name: Post-rewrite validation
         shell: bash
         run: |
-          grep -q "https://downloads.ai-creed.dev/ai-14all/${{ steps.resolve.outputs.version }}/" release/latest-mac.published.yml
-
-      - name: Upload to Cloudflare R2
-        shell: bash
-        run: |
-          target="${{ steps.resolve.outputs.version }}"
-          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          aws s3 cp release/ s3://ai-14all-releases/ai-14all/${target}/ \
-            --recursive \
-            --exclude '*' \
-            --include '*.dmg' --include '*.zip' \
-            --endpoint-url "$endpoint"
+          grep -q "https://github.com/ai-creed/ai-14all/releases/download/v${{ steps.resolve.outputs.version }}/" release/latest-mac.published.yml
 
       - name: Publish manifest to ai-creed
         shell: bash

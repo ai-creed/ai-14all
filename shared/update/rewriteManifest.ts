@@ -1,6 +1,6 @@
 import { dump as dumpYaml, load as parseYaml } from "js-yaml";
 
-const BASE = "https://downloads.ai-creed.dev/ai-14all";
+const BASE = "https://github.com/ai-creed/ai-14all/releases/download";
 
 interface EmittedFile {
 	url: string;
@@ -29,7 +29,7 @@ export function rewriteManifest(raw: string, targetVersion: string): string {
 	if (!Array.isArray(doc.files) || doc.files.length === 0) {
 		throw new Error("emitted manifest has no files");
 	}
-	const versionedBase = `${BASE}/${targetVersion}/`;
+	const versionedBase = `${BASE}/v${targetVersion}/`;
 	const rewrittenFiles = doc.files.map((file) => {
 		if (file.url.startsWith("https://") || file.url.startsWith("http://")) {
 			throw new Error(`files[].url already absolute: ${file.url}`);

@@ -19,7 +19,7 @@ export type ParseResult =
 	| { ok: true; value: UpdateManifest }
 	| { ok: false; reason: string };
 
-const DOWNLOAD_HOST_PREFIX = "https://downloads.ai-creed.dev/";
+const DOWNLOAD_HOST_PREFIX = "https://github.com/ai-creed/ai-14all/releases/download/";
 
 export function parseManifest(raw: string): ParseResult {
 	let doc: unknown;

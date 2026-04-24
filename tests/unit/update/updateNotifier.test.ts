@@ -3,10 +3,10 @@ import { decideUpdateAction } from "../../../electron/main/services/updateNotifi
 
 const PUBLISHED = `version: 0.1.1
 releaseDate: '2026-05-01T12:00:00.000Z'
-path: https://downloads.ai-creed.dev/ai-14all/0.1.1/ai-14all-0.1.1-arm64.dmg
+path: https://github.com/ai-creed/ai-14all/releases/download/v0.1.1/ai-14all-0.1.1-arm64.dmg
 sha512: ZG1nLXNoYQ==
 files:
-  - url: https://downloads.ai-creed.dev/ai-14all/0.1.1/ai-14all-0.1.1-arm64.dmg
+  - url: https://github.com/ai-creed/ai-14all/releases/download/v0.1.1/ai-14all-0.1.1-arm64.dmg
     sha512: ZG1nLXNoYQ==
     size: 1000
 `;
@@ -18,7 +18,7 @@ describe("decideUpdateAction", () => {
 		if (result.kind !== "notify") return;
 		expect(result.info.version).toBe("0.1.1");
 		expect(result.info.url).toBe(
-			"https://downloads.ai-creed.dev/ai-14all/0.1.1/ai-14all-0.1.1-arm64.dmg",
+			"https://github.com/ai-creed/ai-14all/releases/download/v0.1.1/ai-14all-0.1.1-arm64.dmg",
 		);
 	});
 

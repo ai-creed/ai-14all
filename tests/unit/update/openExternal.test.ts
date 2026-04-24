@@ -4,13 +4,13 @@ import { isAllowedExternalUrl } from "../../../electron/main/services/openExtern
 describe("isAllowedExternalUrl", () => {
 	it("accepts URLs on the canonical download host", () => {
 		expect(
-			isAllowedExternalUrl("https://downloads.ai-creed.dev/ai-14all/0.1.0/foo.dmg"),
+			isAllowedExternalUrl("https://github.com/ai-creed/ai-14all/releases/download/v0.1.0/foo.dmg"),
 		).toBe(true);
 	});
 
 	it("rejects other hosts", () => {
 		expect(isAllowedExternalUrl("https://evil.example.com/malware.dmg")).toBe(false);
-		expect(isAllowedExternalUrl("https://ai-creed.dev/ai-14all/foo.dmg")).toBe(false);
+		expect(isAllowedExternalUrl("https://downloads.ai-creed.dev/ai-14all/foo.dmg")).toBe(false);
 	});
 
 	it("rejects non-https schemes", () => {

@@ -1,6 +1,6 @@
 import { shell } from "electron";
 
-const ALLOWED_HOST = "downloads.ai-creed.dev";
+const ALLOWED_HOST = "github.com";
 const E2E_CAPTURE_KEY = "__AI14ALL_E2E_OPEN_EXTERNAL_CALLS__";
 
 export function isAllowedExternalUrl(url: string): boolean {

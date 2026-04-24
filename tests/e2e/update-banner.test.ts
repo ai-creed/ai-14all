@@ -104,7 +104,7 @@ test.describe("banner appears on newer manifest and Download calls openExternal"
 				}),
 			)
 			.toContain(
-				"https://downloads.ai-creed.dev/ai-14all/99.0.0/ai-14all-99.0.0-arm64.dmg",
+				"https://github.com/ai-creed/ai-14all/releases/download/v99.0.0/ai-14all-99.0.0-arm64.dmg",
 			);
 	});
 

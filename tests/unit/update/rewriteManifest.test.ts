@@ -18,13 +18,13 @@ describe("rewriteManifest", () => {
 	it("prefixes every file url with the canonical base and swaps path to the DMG", () => {
 		const rewritten = rewriteManifest(EMITTED, "0.1.0");
 		expect(rewritten).toContain(
-			"path: https://downloads.ai-creed.dev/ai-14all/0.1.0/ai-14all-0.1.0-arm64.dmg",
+			"path: https://github.com/ai-creed/ai-14all/releases/download/v0.1.0/ai-14all-0.1.0-arm64.dmg",
 		);
 		expect(rewritten).toContain(
-			"url: https://downloads.ai-creed.dev/ai-14all/0.1.0/ai-14all-0.1.0-arm64.dmg",
+			"url: https://github.com/ai-creed/ai-14all/releases/download/v0.1.0/ai-14all-0.1.0-arm64.dmg",
 		);
 		expect(rewritten).toContain(
-			"url: https://downloads.ai-creed.dev/ai-14all/0.1.0/ai-14all-0.1.0-arm64-mac.zip",
+			"url: https://github.com/ai-creed/ai-14all/releases/download/v0.1.0/ai-14all-0.1.0-arm64-mac.zip",
 		);
 	});
 

@@ -3,13 +3,13 @@ import { parseManifest, type UpdateManifest } from "../../../shared/update/manif
 
 const VALID = `version: 0.1.1
 releaseDate: '2026-05-01T12:00:00.000Z'
-path: https://downloads.ai-creed.dev/ai-14all/0.1.1/ai-14all-0.1.1-arm64.dmg
+path: https://github.com/ai-creed/ai-14all/releases/download/v0.1.1/ai-14all-0.1.1-arm64.dmg
 sha512: ZHVtbXktZG1nLXNoYQ==
 files:
-  - url: https://downloads.ai-creed.dev/ai-14all/0.1.1/ai-14all-0.1.1-arm64.dmg
+  - url: https://github.com/ai-creed/ai-14all/releases/download/v0.1.1/ai-14all-0.1.1-arm64.dmg
     sha512: ZHVtbXktZG1nLXNoYQ==
     size: 1000
-  - url: https://downloads.ai-creed.dev/ai-14all/0.1.1/ai-14all-0.1.1-arm64-mac.zip
+  - url: https://github.com/ai-creed/ai-14all/releases/download/v0.1.1/ai-14all-0.1.1-arm64-mac.zip
     sha512: ZHVtbXktemlwLXNoYQ==
     size: 2000
 `;
@@ -22,7 +22,7 @@ describe("parseManifest", () => {
 		const m: UpdateManifest = result.value;
 		expect(m.version).toBe("0.1.1");
 		expect(m.path).toBe(
-			"https://downloads.ai-creed.dev/ai-14all/0.1.1/ai-14all-0.1.1-arm64.dmg",
+			"https://github.com/ai-creed/ai-14all/releases/download/v0.1.1/ai-14all-0.1.1-arm64.dmg",
 		);
 		expect(m.files.length).toBe(2);
 	});
@@ -35,7 +35,7 @@ describe("parseManifest", () => {
 
 	it("rejects path on wrong host", () => {
 		const bad = VALID.replace(
-			"https://downloads.ai-creed.dev/",
+			"https://github.com/ai-creed/ai-14all/releases/download/",
 			"https://evil.example.com/",
 		);
 		const result = parseManifest(bad);
