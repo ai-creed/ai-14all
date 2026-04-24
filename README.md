@@ -1,102 +1,50 @@
 # ai-14all
 
-## Summary
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/ai-creed/ai-14all?display_name=tag)](https://github.com/ai-creed/ai-14all/releases)
+[![macOS arm64](https://img.shields.io/badge/macOS-arm64-informational)](#install)
 
-`ai-14all` is an Electron desktop app for managing several local repository-scoped workspaces through a session-first workflow built around Git worktrees and embedded terminals.
+A terminal-first Electron shell for orchestrating AI coding agents against Git worktrees. Each session is pinned to one worktree; the terminal is the primary surface, and file review, notes, and Git inspection are summoned on demand.
 
-The app is terminal-first. It is meant to keep the active worktree, shell sessions, code inspection, and lightweight Git review in one place without turning into a full IDE.
+![ai-14all session view](./docs/assets/hero.png)
 
-## Current Scope
+**Status:** v0.1.0 (first stable release). Apple Silicon only. Unsigned build — see [KNOWN-ISSUES](./KNOWN-ISSUES.md).
 
-The current project scope is:
+## Install
 
-- several local repository-scoped workspaces with fast switching
-- one active workspace visible at a time
-- one active worktree session at a time
-- multiple embedded terminal sessions per worktree
-- basic worktree creation and removal from the app
-- read-only file viewing and diff inspection
-- lightweight Git review for working-tree changes and recent commits
-- persisted multi-workspace restore for practical restart behavior
+Download the latest DMG:
 
-Deliberately out of scope for the current MVP:
+- [ai-14all-0.1.0-arm64.dmg](https://downloads.ai-creed.dev/ai-14all/0.1.0/ai-14all-0.1.0-arm64.dmg)
 
-- simultaneous multi-workspace dashboards in one window
-- advanced Git client operations
-- editable embedded code workflows
-- remote environments
-- collaboration or sync features
+Because the build is unsigned, macOS Gatekeeper blocks it on first launch. Right-click the app in Finder, choose Open, and confirm. Alternatively:
 
-## Required Setup (Prerequisites)
-
-You need:
-
-- Node.js 20+
-- `pnpm`
-- Git
-- a macOS or Linux environment supported by Electron and `node-pty`
-
-The app shell also depends on:
-
-- a local Git repository to load
-- Git worktrees if you want the full session workflow
-
-## Installation Guide (for dev)
-
-1. Clone the repository.
-2. Install dependencies:
-
-```bash
-pnpm install
+```sh
+xattr -dr com.apple.quarantine /Applications/ai-14all.app
 ```
 
-3. Start the app in development mode:
+### Optional: verify the download
 
-```bash
+The release manifest at [ai-creed.dev/ai-14all/latest-mac.yml](https://ai-creed.dev/ai-14all/latest-mac.yml) lists the sha512 of every shipped artifact. Compare it against your local download:
+
+```sh
+shasum -a 512 ai-14all-0.1.0-arm64.dmg | awk '{print $1}' | xxd -r -p | base64
+```
+
+This produces the same base64-encoded digest that appears in `latest-mac.yml` under the matching `files[].sha512` field. If they differ, the download is corrupt or tampered.
+
+## Build from source
+
+```sh
+pnpm install
 pnpm dev
 ```
 
-Useful commands:
+## Project page
 
-```bash
-pnpm build
-pnpm test
-pnpm test:e2e
-pnpm test:all
-```
+https://ai-creed.dev/projects/ai-14all
 
-## Phase Roadmap
+## Links
 
-- Phase 0: technical spike for Electron, PTY terminals, Git worktree discovery, and basic file viewing
-- Phase 1: core app skeleton, shared contracts, and session-oriented architecture
-- Phase 2: session-first workflow with worktree navigation, terminal workspace, and review workspace
-- Phase 3: process session lifecycle, presets, and attention model
-- Phase 4: code inspection and lightweight Git review
-- Phase 5: persistence and restore for workspace context
-- Phase 6: shell redesign, commit review, and personal MVP hardening
-- Phase 7: basic worktree lifecycle, split shells, and multi-workspace fast switching
-
-The current direction is focused on keeping the multi-workspace shell dependable for daily use without drifting into a full IDE or multi-repo dashboard.
-
-## Beta Release (macOS)
-
-Create a private beta artifact with:
-
-```bash
-pnpm release:beta
-```
-
-This command:
-
-- requires a clean working tree
-- reuses the existing beta tag if `HEAD` is already tagged
-- otherwise computes the next `0.1.0-beta.N`
-- runs verification
-- packages the app into `release/` — share the `.dmg` with testers (arm64 only)
-- creates the Git tag only after packaging succeeds
-
-See [docs/shared/beta-testing.md](docs/shared/beta-testing.md) for the tester-facing runtime note.
-
-## License
-
-MIT
+- Changelog: [CHANGELOG.md](./CHANGELOG.md)
+- Known issues: [KNOWN-ISSUES.md](./KNOWN-ISSUES.md)
+- License: MIT — see [LICENSE](./LICENSE)
