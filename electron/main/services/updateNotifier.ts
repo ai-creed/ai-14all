@@ -11,10 +11,13 @@ export type UpdateDecision =
 export interface DecideInput {
 	currentVersion: string;
 	manifestYaml: string;
+	/** Skip the stable-version guard. Set to true in E2E mode so pre-release
+	 *  builds can exercise the manifest-file path end-to-end. */
+	skipVersionCheck?: boolean;
 }
 
 export function decideUpdateAction(input: DecideInput): UpdateDecision {
-	if (!isStableVersion(input.currentVersion)) {
+	if (!input.skipVersionCheck && !isStableVersion(input.currentVersion)) {
 		return { kind: "silent", reason: "current version is not stable" };
 	}
 	const parsed = parseManifest(input.manifestYaml);
@@ -22,8 +25,12 @@ export function decideUpdateAction(input: DecideInput): UpdateDecision {
 		return { kind: "silent", reason: `invalid manifest: ${parsed.reason}` };
 	}
 	const m = parsed.value;
-	if (compareStableVersions(m.version, input.currentVersion) <= 0) {
-		return { kind: "silent", reason: "manifest not newer than current" };
+	// When skipVersionCheck is set the current version may be a pre-release, so
+	// skip the numeric comparison (any manifest that reaches here is "newer").
+	if (!input.skipVersionCheck || isStableVersion(input.currentVersion)) {
+		if (compareStableVersions(m.version, input.currentVersion) <= 0) {
+			return { kind: "silent", reason: "manifest not newer than current" };
+		}
 	}
 	return {
 		kind: "notify",
@@ -106,6 +113,7 @@ export function startUpdateNotifier(args: StartArgs): () => void {
 		const decision = decideUpdateAction({
 			currentVersion: args.currentVersion,
 			manifestYaml: text,
+			skipVersionCheck: process.env.AI14ALL_E2E === "1",
 		});
 		if (decision.kind === "silent") {
 			log.info(`silent: ${decision.reason}`);

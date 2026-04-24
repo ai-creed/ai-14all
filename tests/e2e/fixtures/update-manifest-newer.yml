@@ -1,0 +1,8 @@
+version: 99.0.0
+releaseDate: '2026-12-31T12:00:00.000Z'
+path: https://downloads.ai-creed.dev/ai-14all/99.0.0/ai-14all-99.0.0-arm64.dmg
+sha512: ZHVtbXktc2hhNTEy
+files:
+  - url: https://downloads.ai-creed.dev/ai-14all/99.0.0/ai-14all-99.0.0-arm64.dmg
+    sha512: ZHVtbXktc2hhNTEy
+    size: 1000

@@ -1,0 +1,9 @@
+# Wrong host — validator must reject this and the banner must not render.
+version: 99.0.0
+releaseDate: '2026-12-31T12:00:00.000Z'
+path: https://evil.example.com/malware.dmg
+sha512: ZHVtbXktc2hhNTEy
+files:
+  - url: https://evil.example.com/malware.dmg
+    sha512: ZHVtbXktc2hhNTEy
+    size: 1000

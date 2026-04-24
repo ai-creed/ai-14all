@@ -19,6 +19,31 @@ function onChannel<T>(
 	return () => ipcRenderer.removeListener(channel, handler);
 }
 
+// Buffered variant: captures up to one event before the renderer registers its
+// listener, then replays it immediately on registration. Used for fire-once
+// events like update:available that may arrive during app startup before React
+// has mounted and called useEffect.
+function onChannelBuffered<T>(
+	channel: string,
+	listener: (event: T) => void,
+): () => void {
+	const buf = pendingEvents[channel] as T | undefined;
+	if (buf !== undefined) {
+		// Already received before listener registered — replay synchronously.
+		delete pendingEvents[channel];
+		queueMicrotask(() => listener(buf));
+	}
+	return onChannel(channel, listener);
+}
+
+// Eagerly capture events that may arrive before React mounts.
+const pendingEvents: Record<string, unknown> = {};
+for (const channel of ["update:available"] as const) {
+	ipcRenderer.once(channel, (_: Electron.IpcRendererEvent, payload: unknown) => {
+		pendingEvents[channel] = payload;
+	});
+}
+
 const api: Ai14AllDesktopApi = {
 	repository: {
 		pickRoot() {
@@ -168,7 +193,7 @@ const api: Ai14AllDesktopApi = {
 	},
 	system: {
 		onUpdateAvailable(listener) {
-			return onChannel<UpdateInfo>("update:available", listener);
+			return onChannelBuffered<UpdateInfo>("update:available", listener);
 		},
 		openExternal(url) {
 			return ipcRenderer.invoke("system:openExternal", { url });
