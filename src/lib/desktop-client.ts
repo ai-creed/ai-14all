@@ -98,3 +98,8 @@ export const workspace: Ai14AllDesktopApi["workspace"] = {
 export const diagnostics: Ai14AllDesktopApi["diagnostics"] = {
 	logShellEvent: (event) => getDesktopClient().diagnostics.logShellEvent(event),
 };
+
+export const system: Ai14AllDesktopApi["system"] = {
+	onUpdateAvailable: (listener) => getDesktopClient().system.onUpdateAvailable(listener),
+	openExternal: (url) => getDesktopClient().system.openExternal(url),
+};
