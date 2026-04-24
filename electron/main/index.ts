@@ -8,6 +8,7 @@ import { buildApplicationMenu } from "./menu.js";
 import { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 import { createShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
+import { startUpdateNotifier } from "./services/updateNotifier.js";
 
 app.setName("ai-14all");
 
@@ -29,6 +30,11 @@ app.whenReady().then(() => {
 	});
 
 	const mainWindow = createMainWindow(shellEventLog);
+	startUpdateNotifier({
+		currentVersion: app.getVersion(),
+		webContents: mainWindow.webContents,
+		isPackaged: app.isPackaged,
+	});
 	Menu.setApplicationMenu(buildApplicationMenu(mainWindow));
 	const workspacePersistence = new WorkspacePersistenceService(
 		process.env.AI14ALL_WORKSPACE_STATE_PATH ??
