@@ -78,11 +78,13 @@ jobs:
         shell: bash
         run: |
           target="${{ steps.resolve.outputs.version }}"
-          emitted_version=$(node -e "const y=require('js-yaml');console.log(y.load(require('fs').readFileSync('release/latest-mac.yml','utf8')).version)")
-          if [ "$emitted_version" != "$target" ]; then
-            echo "emitted manifest version $emitted_version != target $target"
-            exit 1
-          fi
+          node -e "
+            const y=require('js-yaml');
+            const m=y.load(require('fs').readFileSync('release/latest-mac.yml','utf8'));
+            if(m.version!=='${target}'){throw new Error('emitted version '+m.version+' != target ${target}');}
+            if(!m.sha512){throw new Error('top-level sha512 is empty');}
+            m.files.forEach((f,i)=>{if(!f.sha512)throw new Error('files['+i+'].sha512 is empty');});
+          "
 
       - name: Rewrite manifest to published form
         shell: bash
@@ -119,9 +121,9 @@ jobs:
           git config --global user.email "release-bot@ai-creed.dev"
           git config --global user.name "ai-creed release bot"
           git clone git@github.com:ai-creed/ai-creed.git "$RUNNER_TEMP/ai-creed"
-          cp release/latest-mac.published.yml "$RUNNER_TEMP/ai-creed/public/ai-14all/latest-mac.yml"
           cd "$RUNNER_TEMP/ai-creed"
           git pull --rebase origin master
+          cp "$GITHUB_WORKSPACE/release/latest-mac.published.yml" "$RUNNER_TEMP/ai-creed/public/ai-14all/latest-mac.yml"
           git add public/ai-14all/latest-mac.yml
           git commit -m "chore(releases): ai-14all v${{ steps.resolve.outputs.version }}"
           git push origin master
