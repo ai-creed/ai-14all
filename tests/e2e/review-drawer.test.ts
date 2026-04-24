@@ -117,11 +117,11 @@ test.describe.serial("Review drawer", () => {
 		// Retry git add in case the app holds the index.lock briefly
 		for (let attempt = 0; attempt < 5; attempt++) {
 			try {
-				execSync(`git add -A`, { cwd: testRepo.repoPath });
+				execSync("git add -A", { cwd: testRepo.repoPath });
 				break;
 			} catch (err) {
 				if (attempt === 4) throw err;
-				execSync(`sleep 0.4`);
+				execSync("sleep 0.4");
 			}
 		}
 
@@ -139,7 +139,7 @@ test.describe.serial("Review drawer", () => {
 		await expect(drawer()).toHaveAttribute("data-open", "false");
 
 		writeFileSync(join(testRepo.repoPath, "dirty-file-2.txt"), "world\n");
-		execSync(`git add -A`, { cwd: testRepo.repoPath });
+		execSync("git add -A", { cwd: testRepo.repoPath });
 		await page.getByRole("button", { name: "Refresh review" }).click();
 		await expect(drawer()).toHaveAttribute("data-open", "false");
 	});
