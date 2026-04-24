@@ -27,7 +27,7 @@ export function createTestRepo(): TestRepo {
 	const repoPath = realpathSync(raw);
 
 	// Initialize repo
-	execSync("git init", { cwd: repoPath, stdio: "ignore" });
+	execSync("git init -b main", { cwd: repoPath, stdio: "ignore" });
 	execSync("git config user.email 'e2e@test.com'", {
 		cwd: repoPath,
 		stdio: "ignore",
