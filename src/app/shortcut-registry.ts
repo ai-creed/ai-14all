@@ -28,6 +28,24 @@ function targetOwnsTyping(target: HTMLElement | null): boolean {
 	return false;
 }
 
+/**
+ * Like targetOwnsTyping but allows firing from inside the terminal (xterm).
+ * Used for terminal management shortcuts that must work regardless of whether
+ * the user's focus is inside the terminal pane or outside it.
+ */
+function targetOwnsTypingExcludingXterm(target: HTMLElement | null): boolean {
+	if (!target || typeof target.closest !== "function") return false;
+	// Explicitly allow xterm — skip it and fall through to other checks.
+	if (target.closest(".xterm")) return false;
+	if (target.closest('[role="dialog"]')) return true;
+	if (target.closest(".monaco-editor")) return true;
+	if (target.closest('[contenteditable="true"]')) return true;
+	if (target.closest('[role="textbox"]')) return true;
+	const tag = target.tagName;
+	if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+	return false;
+}
+
 function isNoteSheetShortcut(e: KeyboardEvent, platform: Platform): boolean {
 	if (e.defaultPrevented) return false;
 	if (e.key !== ";") return false;
@@ -136,19 +154,20 @@ function isTerminalNewShortcut(e: KeyboardEvent, platform: Platform): boolean {
 	if (e.defaultPrevented) return false;
 	if (e.key !== "t" && e.key !== "T") return false;
 	if (e.altKey || e.shiftKey) return false;
-	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null)) return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
 	return e.ctrlKey && !e.metaKey;
 }
 
+// ⌘⇧X / Ctrl+Shift+X — avoids macOS "Close All Windows" (⌘⇧W) system intercept
 function isTerminalCloseShortcut(
 	e: KeyboardEvent,
 	platform: Platform,
 ): boolean {
 	if (e.defaultPrevented) return false;
-	if (e.key !== "w" && e.key !== "W") return false;
+	if (e.key !== "x" && e.key !== "X") return false;
 	if (e.altKey || !e.shiftKey) return false;
-	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null)) return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
 	return e.ctrlKey && !e.metaKey;
 }
@@ -160,7 +179,7 @@ function isTerminalSelectNextShortcut(
 	if (e.defaultPrevented) return false;
 	if (e.key !== "d" && e.key !== "D") return false;
 	if (e.altKey || !e.shiftKey) return false;
-	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null)) return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
 	return e.ctrlKey && !e.metaKey;
 }
@@ -172,7 +191,7 @@ function isTerminalSelectPrevShortcut(
 	if (e.defaultPrevented) return false;
 	if (e.key !== "a" && e.key !== "A") return false;
 	if (e.altKey || !e.shiftKey) return false;
-	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null)) return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
 	return e.ctrlKey && !e.metaKey;
 }
@@ -184,7 +203,7 @@ function isTerminalToggleSplitShortcut(
 	if (e.defaultPrevented) return false;
 	if (e.key !== "d" && e.key !== "D") return false;
 	if (e.altKey || e.shiftKey) return false;
-	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null)) return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
 	return e.ctrlKey && !e.metaKey;
 }
@@ -299,8 +318,8 @@ export const SHORTCUT_REGISTRY: AppShortcut[] = [
 	{
 		id: "terminal.close",
 		label: "Close terminal",
-		mac: "⌘⇧W",
-		other: "Ctrl+Shift+W",
+		mac: "⌘⇧X",
+		other: "Ctrl+Shift+X",
 		predicate: isTerminalCloseShortcut,
 	},
 	{
