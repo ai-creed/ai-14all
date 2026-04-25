@@ -72,7 +72,12 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 		await page.getByRole("button", { name: "Presets" }).click();
 		await page.getByRole("menuitem", { name: "Manage presets" }).click();
 		await page.getByLabel("Preset label").fill("Claude");
-		await page.getByLabel("Preset command").fill("printf 'error: phase 3\\n'");
+		// Repeat the error output after a short delay so at least one chunk
+		// arrives while another tab is active (Claude tab is viewed immediately
+		// on launch, which suppresses attention escalation for the first chunk).
+		await page
+			.getByLabel("Preset command")
+			.fill("printf 'error: phase 3\\n'; sleep 2; printf 'error: phase 3\\n'");
 		await page.getByRole("button", { name: "Save preset" }).click();
 		await page.getByRole("button", { name: "Close dialog" }).click();
 
