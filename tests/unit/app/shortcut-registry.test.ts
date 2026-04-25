@@ -59,13 +59,18 @@ describe("SHORTCUT_REGISTRY structure", () => {
 });
 
 describe("files-overlay predicate", () => {
-	it("matches Cmd+Shift+P on mac", () => {
+	it("matches Cmd+P on mac", () => {
+		expect(
+			entry("files-overlay").predicate(evt({ metaKey: true, key: "p" }), "mac"),
+		).toBe(true);
+	});
+	it("does not match Cmd+Shift+P on mac (that opens shortcuts help)", () => {
 		expect(
 			entry("files-overlay").predicate(
 				evt({ metaKey: true, shiftKey: true, key: "P" }),
 				"mac",
 			),
-		).toBe(true);
+		).toBe(false);
 	});
 	it("matches Ctrl+Shift+P on other", () => {
 		expect(
@@ -249,7 +254,7 @@ describe("terminal-first ownership — all shortcuts", () => {
 
 	// Per-entry triggers that would fire on mac when focus is NOT in the terminal.
 	const macTriggers: Record<string, Partial<KeyboardEvent>> = {
-		"files-overlay": { metaKey: true, shiftKey: true, key: "P" },
+		"files-overlay": { metaKey: true, key: "p" },
 		"note-sheet": { metaKey: true, key: ";" },
 		"review-drawer": { metaKey: true, key: "j" },
 		"rename-session": { metaKey: true, shiftKey: true, key: "R" },

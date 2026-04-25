@@ -84,6 +84,18 @@ function isShortcutsHelpShortcut(
 	platform: Platform,
 ): boolean {
 	if (e.defaultPrevented) return false;
+	// ⌘⇧P (VS Code-style command palette analogy) — mac only
+	const keyIsShiftP =
+		platform === "mac" &&
+		(e.key === "p" || e.key === "P") &&
+		e.shiftKey &&
+		e.metaKey &&
+		!e.ctrlKey &&
+		!e.altKey;
+	if (keyIsShiftP) {
+		return !targetOwnsTyping(e.target as HTMLElement | null);
+	}
+	// ⌘/ or ⌘? / Ctrl+/ or Ctrl+?
 	const keyIsHelp = e.key === "?" || e.key === "/";
 	if (!keyIsHelp) return false;
 	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
@@ -374,7 +386,7 @@ export const SHORTCUT_REGISTRY: AppShortcut[] = [
 	{
 		id: "files-overlay",
 		label: "Open Files",
-		mac: "⌘⇧P",
+		mac: "⌘P",
 		other: "Ctrl+Shift+P",
 		predicate: isFilesOverlayShortcut,
 	},
@@ -402,7 +414,7 @@ export const SHORTCUT_REGISTRY: AppShortcut[] = [
 	{
 		id: "shortcuts-help",
 		label: "Show shortcuts",
-		mac: "⌘/ or ⌘?",
+		mac: "⌘⇧P or ⌘/",
 		other: "Ctrl+/ or Ctrl+?",
 		predicate: isShortcutsHelpShortcut,
 	},
