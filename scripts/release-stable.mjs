@@ -45,11 +45,12 @@ export function rewriteVersionInPackageJson(text, version) {
 }
 
 function run(cmd, args, options = {}) {
-	return execFileSync(cmd, args, {
+	const out = execFileSync(cmd, args, {
 		stdio: "pipe",
 		encoding: "utf8",
 		...options,
-	}).trim();
+	});
+	return out == null ? "" : out.trim();
 }
 
 export function main(argv = process.argv.slice(2)) {
