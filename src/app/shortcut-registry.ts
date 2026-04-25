@@ -374,7 +374,7 @@ export const SHORTCUT_REGISTRY: AppShortcut[] = [
 	{
 		id: "files-overlay",
 		label: "Open Files",
-		mac: "⌘P",
+		mac: "⌘⇧P",
 		other: "Ctrl+Shift+P",
 		predicate: isFilesOverlayShortcut,
 	},

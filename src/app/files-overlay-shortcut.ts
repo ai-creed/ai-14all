@@ -33,7 +33,7 @@ export function isFilesOverlayShortcut(
 	if (targetOwnsTyping(event.target as HTMLElement | null)) return false;
 
 	if (platform === "mac") {
-		return event.metaKey && !event.ctrlKey && !event.shiftKey;
+		return event.metaKey && event.shiftKey && !event.ctrlKey;
 	}
 	return event.ctrlKey && event.shiftKey && !event.metaKey;
 }

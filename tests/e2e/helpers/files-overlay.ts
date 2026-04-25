@@ -7,7 +7,7 @@ export async function openFilesOverlayViaChipBar(page: Page): Promise<void> {
 
 export async function openFilesOverlayViaShortcut(page: Page): Promise<void> {
 	const isMac = process.platform === "darwin";
-	await page.keyboard.press(isMac ? "Meta+KeyP" : "Control+Shift+KeyP");
+	await page.keyboard.press(isMac ? "Meta+Shift+KeyP" : "Control+Shift+KeyP");
 	await expect(page.getByTestId("files-overlay")).toBeVisible();
 }
 
