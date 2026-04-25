@@ -17,6 +17,7 @@ Keep these workflow priorities intact:
 - code and Git inspection should stay in the same session workflow
 - active branch and worktree context should be hard to miss
 - session state should stay simple unless real usage proves otherwise
+- agent handoff during review may flow through generic agent-pull surfaces (e.g. local MCP tools the agent calls); the app does not push to vendor APIs
 
 Do not expand the product scope into:
 
@@ -53,7 +54,7 @@ V1 assumptions:
 
 Avoid pulling deferred scope into current work unless explicitly requested:
 
-- deep agent API integrations
+- vendor-specific or push-direction agent API integrations (generic agent-pull surfaces such as local MCP tools are in scope when they support the review workflow)
 - advanced Git client behavior
 - collaboration or sync features
 - remote environment support
