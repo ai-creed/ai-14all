@@ -21,7 +21,7 @@ describe("isFilesOverlayShortcut", () => {
 		).toBe(true);
 	});
 
-	it("does not match Cmd+Shift+P on macOS", () => {
+	it("does not match Cmd+Shift+P on macOS (that opens shortcuts help)", () => {
 		expect(
 			isFilesOverlayShortcut(
 				evt({ metaKey: true, shiftKey: true, key: "p" }),

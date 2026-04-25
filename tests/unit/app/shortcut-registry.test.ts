@@ -64,6 +64,14 @@ describe("files-overlay predicate", () => {
 			entry("files-overlay").predicate(evt({ metaKey: true, key: "p" }), "mac"),
 		).toBe(true);
 	});
+	it("does not match Cmd+Shift+P on mac (that opens shortcuts help)", () => {
+		expect(
+			entry("files-overlay").predicate(
+				evt({ metaKey: true, shiftKey: true, key: "P" }),
+				"mac",
+			),
+		).toBe(false);
+	});
 	it("matches Ctrl+Shift+P on other", () => {
 		expect(
 			entry("files-overlay").predicate(
