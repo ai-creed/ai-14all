@@ -166,7 +166,8 @@ function isTerminalNewShortcut(e: KeyboardEvent, platform: Platform): boolean {
 	if (e.defaultPrevented) return false;
 	if (e.key !== "t" && e.key !== "T") return false;
 	if (e.altKey || e.shiftKey) return false;
-	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null)) return false;
+	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null))
+		return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
 	return e.ctrlKey && !e.metaKey;
 }
@@ -179,7 +180,8 @@ function isTerminalCloseShortcut(
 	if (e.defaultPrevented) return false;
 	if (e.key !== "x" && e.key !== "X") return false;
 	if (e.altKey || !e.shiftKey) return false;
-	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null)) return false;
+	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null))
+		return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
 	return e.ctrlKey && !e.metaKey;
 }
@@ -191,7 +193,8 @@ function isTerminalSelectNextShortcut(
 	if (e.defaultPrevented) return false;
 	if (e.key !== "d" && e.key !== "D") return false;
 	if (e.altKey || !e.shiftKey) return false;
-	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null)) return false;
+	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null))
+		return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
 	return e.ctrlKey && !e.metaKey;
 }
@@ -203,7 +206,8 @@ function isTerminalSelectPrevShortcut(
 	if (e.defaultPrevented) return false;
 	if (e.key !== "a" && e.key !== "A") return false;
 	if (e.altKey || !e.shiftKey) return false;
-	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null)) return false;
+	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null))
+		return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
 	return e.ctrlKey && !e.metaKey;
 }
@@ -215,7 +219,8 @@ function isTerminalToggleSplitShortcut(
 	if (e.defaultPrevented) return false;
 	if (e.key !== "d" && e.key !== "D") return false;
 	if (e.altKey || e.shiftKey) return false;
-	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null)) return false;
+	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null))
+		return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
 	return e.ctrlKey && !e.metaKey;
 }
