@@ -61,6 +61,7 @@ export function DiffViewer({
 					renderSideBySide: true,
 					minimap: { enabled: false },
 					scrollBeyondLastLine: false,
+					glyphMargin: true,
 				}}
 				onMount={(editor) => {
 					onMount?.(path, editor);
