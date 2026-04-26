@@ -8,7 +8,17 @@ import type {
 	TerminalExitEvent,
 	TerminalStateEvent,
 	TerminalErrorEvent,
+	ReviewCommentChangedEvent,
 } from "../../shared/contracts/events.js";
+import {
+	REVIEW_LIST,
+	REVIEW_CREATE,
+	REVIEW_MARK_ADDRESSED,
+	REVIEW_REOPEN,
+	REVIEW_DELETE,
+	REVIEW_REBASE,
+	REVIEW_COMMENT_CHANGED,
+} from "../../shared/contracts/review-comments.js";
 
 // Helper: register a one-way listener on an ipcRenderer channel and return an
 // unsubscribe function (matching the onXxx pattern in the API type).
@@ -210,6 +220,29 @@ const api: Ai14AllDesktopApi = {
 		},
 		openExternal(url) {
 			return ipcRenderer.invoke("system:openExternal", { url });
+		},
+	},
+	reviewComments: {
+		list(worktreeId) {
+			return ipcRenderer.invoke(REVIEW_LIST, { worktreeId });
+		},
+		create(input) {
+			return ipcRenderer.invoke(REVIEW_CREATE, input);
+		},
+		markAddressed(commentId) {
+			return ipcRenderer.invoke(REVIEW_MARK_ADDRESSED, { commentId });
+		},
+		reopen(commentId) {
+			return ipcRenderer.invoke(REVIEW_REOPEN, { commentId });
+		},
+		delete(commentId) {
+			return ipcRenderer.invoke(REVIEW_DELETE, { commentId });
+		},
+		rebaseWorktreeIds(mapping) {
+			return ipcRenderer.invoke(REVIEW_REBASE, { mapping });
+		},
+		onChanged(handler: (event: ReviewCommentChangedEvent) => void) {
+			return onChannel(REVIEW_COMMENT_CHANGED, handler);
 		},
 	},
 };

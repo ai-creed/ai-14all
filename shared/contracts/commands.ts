@@ -26,6 +26,11 @@ import type {
 	CreateWorktreePreview,
 	RemoveWorktreePreview,
 } from "../models/worktree-lifecycle.js";
+import type { ReviewComment } from "../models/review-comment.js";
+import type {
+	ReviewCreateRequest,
+	ReviewCommentChangedEvent,
+} from "./review-comments.js";
 
 // --- Zod schemas for command payloads ---
 
@@ -306,5 +311,19 @@ export type Ai14AllDesktopApi = {
 	system: {
 		onUpdateAvailable(listener: (info: UpdateInfo) => void): () => void;
 		openExternal(url: string): Promise<void>;
+	};
+	reviewComments: {
+		list(worktreeId: string): Promise<{ comments: ReviewComment[] }>;
+		create(input: ReviewCreateRequest): Promise<{ comment: ReviewComment }>;
+		markAddressed(
+			commentId: string,
+		): Promise<
+			| { ok: true }
+			| { ok: false; error: "not_found" | "already_addressed" }
+		>;
+		reopen(commentId: string): Promise<{ comment: ReviewComment | null }>;
+		delete(commentId: string): Promise<{ deleted: boolean }>;
+		rebaseWorktreeIds(mapping: Record<string, string>): Promise<{ ok: true }>;
+		onChanged(handler: (event: ReviewCommentChangedEvent) => void): () => void;
 	};
 };

@@ -35,3 +35,9 @@ export {
 	type ShellEventRecord,
 	type ShellReasonKind,
 } from "../models/shell-event-record.js";
+
+export {
+	REVIEW_COMMENT_CHANGED,
+	ReviewCommentChangedEventSchema,
+	type ReviewCommentChangedEvent,
+} from "./review-comments.js";
