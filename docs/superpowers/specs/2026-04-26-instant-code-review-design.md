@@ -154,7 +154,7 @@ On missing file, the store starts as `{ version: 1, comments: [] }`. On invalid 
 
 **Transport:** HTTP MCP, bound to `127.0.0.1` only.
 
-**Strict stable port (no fallback).** The server reserves a single port that is stable across all app runs. On first boot, the installer picks a candidate port by trying random values from a configured high range (e.g., 51000–51999) until one binds successfully, then closes that probe socket and persists the chosen port in `<userData>/ai-14all/mcp-config.json` as `{ "port": <number> }`. Every subsequent boot binds only that exact persisted port (no further probing, no fallback). If the port is unavailable at boot:
+**Strict stable port (no fallback).** The server reserves a single port that is stable across all app runs. On first boot, `ReviewMcpServer` initialization in Electron main picks a candidate port by trying random values from a configured high range (e.g., 51000–51999) until one binds successfully, then closes the probe socket and persists the chosen port in `<userData>/ai-14all/mcp-config.json` as `{ "port": <number> }`. Every subsequent boot binds only that exact persisted port (no further probing, no fallback). `AgentSkillInstaller` reads the persisted port from `mcp-config.json` at install/reinstall time; it does not select ports. If the port is unavailable at boot:
 
 - The server does **not** silently fall back to a fresh port (a fresh port would invalidate the URL already registered in agent provider configs and silently break the agent integration).
 - The boot logs a `port-unavailable` diagnostic to main.
