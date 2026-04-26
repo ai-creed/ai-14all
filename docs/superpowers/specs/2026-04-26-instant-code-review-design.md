@@ -87,6 +87,21 @@ Single source of truth: `ReviewCommentService` in main. Renderer mutates via IPC
 
 Review comments are intentionally **not** stored in `PersistedWorkspaceState` / `PersistedWorktreeSession`. The existing workspace restore state is assembled and written by the renderer as a whole snapshot; letting a main-side service also mutate that file would create overwrite races. Review comments instead live in a separate main-owned JSON store so app-mediated UI changes and MCP tool calls share one durable write path.
 
+### Worktree-id rebase / reconciliation hook
+
+`worktreeId` in this app is a path-based identifier. When the user moves the repository on disk, the renderer rebases all path-based IDs in the workspace snapshot via `rebaseSnapshotPaths` (`src/features/workspace/workspace-persistence.ts`) and then resolves edge cases via `reconcileSnapshotToWorktrees` (same file). After this work, an old `worktreeId` in `PersistedWorkspaceState` may have become a new `worktreeId`.
+
+Because `ReviewCommentStore` lives outside `PersistedWorkspaceState`, it does not automatically follow this rewrite. Without a hook, comments would become orphaned (keyed by an old `worktreeId` that the rest of the app no longer uses).
+
+This spec adds an explicit hook:
+
+1. After the renderer applies `rebaseSnapshotPaths` + `reconcileSnapshotToWorktrees` and decides on a final reconciled snapshot, it computes a `Map<oldWorktreeId, newWorktreeId>` describing the rewrite (entries only for IDs that actually changed; identity entries are omitted).
+2. The renderer calls a new IPC `reviewComments.rebaseWorktreeIds(mapping)` synchronously before any subsequent persistence write, handing the map to main.
+3. `ReviewCommentService` rewrites every `comments[].worktreeId` whose value matches a key in the mapping to the corresponding new id, then asks `ReviewCommentStore` to persist the result via the same write-temp-then-rename path used for normal mutations.
+4. The renderer then dispatches a normal change event so `useReviewComments` and any open sidebars re-fetch.
+
+If the IPC call fails (extremely unlikely; main-side I/O), the renderer logs the failure and surfaces a one-time toast: "Could not migrate review comments for the renamed worktree. Restart ai-14all to retry." Comments are never silently dropped — the only way an entry leaves the store is an explicit user delete or an explicit worktree removal (the existing `ReviewCommentService` worktree-removed hook).
+
 ## Data Model
 
 New shared model `shared/models/review-comment.ts`:
@@ -139,7 +154,7 @@ On missing file, the store starts as `{ version: 1, comments: [] }`. On invalid 
 
 **Transport:** HTTP MCP, bound to `127.0.0.1` only.
 
-**Strict stable port (no fallback).** The server reserves a single port that is stable across all app runs. On first boot, it picks a free port from a high-numbered range (e.g., 51000–51999) via `node:net.createServer().listen(0)` constrained to that range, then persists it in `<userData>/ai-14all/mcp-config.json` as `{ "port": <number> }`. Every subsequent boot binds the same port. If the port is unavailable at boot:
+**Strict stable port (no fallback).** The server reserves a single port that is stable across all app runs. On first boot, the installer picks a candidate port by trying random values from a configured high range (e.g., 51000–51999) until one binds successfully, then closes that probe socket and persists the chosen port in `<userData>/ai-14all/mcp-config.json` as `{ "port": <number> }`. Every subsequent boot binds only that exact persisted port (no further probing, no fallback). If the port is unavailable at boot:
 
 - The server does **not** silently fall back to a fresh port (a fresh port would invalidate the URL already registered in agent provider configs and silently break the agent integration).
 - The boot logs a `port-unavailable` diagnostic to main.
@@ -212,13 +227,13 @@ The current `shell-review-grid` template is `[rail | resize | main]`. After this
 **Hover (primary, no selection required):**
 1. User hovers a line on the modified pane.
 2. A `+` icon appears in that line's gutter / glyph margin.
-3. Click → inline form opens at the top of the sidebar list (textarea + Save / Cancel).
-4. On Save: `startLine = endLine = hovered line`, `snippet = that line's text`. Form closes; new card appears.
+3. Click → if the click is on an editor in `CommitDiffStack` whose file is not the current `focusedPath`, the handler first sets `focusedPath` to that editor's file (so the sidebar swaps to show its comments). Then the inline form opens at the top of the sidebar list (textarea + Save / Cancel).
+4. On Save: `startLine = endLine = hovered line`, `snippet = that line's text`. Form closes; new card appears in the sidebar (which is now scoped to the right file).
 
 **Selection (supported):**
 1. User drag-selects a line range on the modified pane.
 2. A small floating "+ Add comment" button appears near the selection.
-3. Click → same inline form opens, with `startLine`, `endLine`, and `snippet` pre-filled from the selection.
+3. Click → same focus-first behavior as the hover path: if the selection is in a non-focused editor, set `focusedPath` first, then open the inline form with `startLine`, `endLine`, and `snippet` pre-filled from the selection.
 
 The DiffViewer remains read-only (Monaco `readOnly: true`); only gutter decorations and overlays are added.
 
@@ -304,6 +319,7 @@ JSON / TOML config edits use the standard write-temp-then-rename pattern. Read e
 | Agent calls tool while app is shutting down | MCP server unbound → connection refused. Skill catches and prints "ai-14all is not running." |
 | App restart with addressed comments persisted | Reload via `ReviewCommentStore`. Same UI state, dimmed cards still present. |
 | Worktree removed from app while comments exist | Comments removed alongside the worktree session via the existing worktree-removal flow (a hook in `ReviewCommentService` listens for worktree-removed events). |
+| Repository moved on disk → worktree IDs rebased | Renderer computes an `oldId → newId` map from rebased + reconciled snapshot vs original; calls IPC `reviewComments.rebaseWorktreeIds(mapping)`; `ReviewCommentService` rewrites `comments[].worktreeId` and persists. No comments dropped. See "Worktree-id rebase / reconciliation hook" under Architecture. |
 | Multiple app instances | Last-launched instance wins the port file; earlier instance still runs but agents won't find it. Acceptable per single-instance assumption. |
 | MCP server fails to bind reserved port at boot | Logged to main as `port-unavailable`. Persistent diagnostic appears in the diagnostics panel and install-modal status row. **No fallback to a fresh port** (would invalidate URLs already registered in agent configs). UI review feature continues to work. User must resolve the port conflict and restart ai-14all. |
 | IPC failure from renderer (rare) | Toast: "Could not save review comment" with a retry hint. Local optimistic state is rolled back. |
@@ -312,7 +328,7 @@ JSON / TOML config edits use the standard write-temp-then-rename pattern. Read e
 
 ### Unit tests
 
-- `services/review/review-comment-service.test.ts` — CRUD per worktree, status transitions (open ↔ addressed), idempotency of `markAddressed`, hook into worktree-removed events.
+- `services/review/review-comment-service.test.ts` — CRUD per worktree, status transitions (open ↔ addressed), idempotency of `markAddressed`, hook into worktree-removed events, `rebaseWorktreeIds(mapping)` rewrites only matching entries (identity entries left alone, unmatched entries untouched, no records dropped).
 - `services/review/review-comment-store.test.ts` — missing file defaults to an empty v1 store; valid v1 store loads; invalid JSON / unsupported version logs a diagnostic and preserves the existing file; writes use temp-then-rename.
 - `tests/unit/review/use-review-comments.test.ts` — renderer hook over IPC mock; create, list, markAddressed, reopen, delete; live update via change events.
 - `tests/unit/review/ReviewCommentSidebar.test.tsx` — rendering open vs addressed cards, dim styling on addressed, click-to-scroll handler called with correct line range, empty state.
@@ -329,7 +345,8 @@ JSON / TOML config edits use the standard write-temp-then-rename pattern. Read e
   - Comment persists across renderer reload (terminal-resilience pattern).
   - Mark addressed via ✓ → card dims; reopen → un-dims.
   - Delete → card and badge gone.
-  - Same flow in commits mode (select commit → file → add via gutter).
+  - Same flow in commits mode (select commit → file → add via gutter); clicking `+` on a non-focused file in `CommitDiffStack` first sets `focusedPath`, then opens the form for that file.
+  - After a simulated repository path change, comments survive the worktree-id rebase (open the same worktree at its new path; previously-added comments still appear in the sidebar).
 - `tests/e2e/review-mcp.test.ts`:
   - Spawn an in-process MCP client (using `@modelcontextprotocol/sdk` client) → `list_pending_reviews` returns the comment created in UI.
   - Client calls `mark_review_addressed` → sidebar card live-updates to addressed.
