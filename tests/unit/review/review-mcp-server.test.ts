@@ -1,0 +1,132 @@
+import { describe, it, expect, afterEach } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { ReviewCommentService } from "../../../services/review/review-comment-service";
+import { ReviewCommentStore } from "../../../services/review/review-comment-store";
+import { ReviewMcpServer } from "../../../services/review/review-mcp-server";
+
+async function makeRig() {
+	const dir = await mkdtemp(join(tmpdir(), "mcp-rig-"));
+	const store = new ReviewCommentStore(join(dir, "review-comments.json"));
+	const service = new ReviewCommentService(store);
+	await service.init();
+	const resolver = {
+		resolve: async (p: string) => p,
+		refresh: async () => {},
+	};
+	const server = new ReviewMcpServer(service, resolver, {
+		port: 0,
+		host: "127.0.0.1",
+	});
+	const port = await server.start();
+	const url = `http://127.0.0.1:${port}/mcp`;
+	const client = new Client({ name: "test-client", version: "1.0.0" });
+	await client.connect(new StreamableHTTPClientTransport(new URL(url)));
+	return {
+		dir,
+		service,
+		server,
+		client,
+		cleanup: async () => {
+			await client.close();
+			await server.stop();
+			await rm(dir, { recursive: true, force: true });
+		},
+	};
+}
+
+describe("ReviewMcpServer", () => {
+	let rig: Awaited<ReturnType<typeof makeRig>>;
+
+	afterEach(async () => {
+		await rig.cleanup();
+	});
+
+	it("list_pending_reviews returns only open comments for matching worktree", async () => {
+		rig = await makeRig();
+		const { service, client } = rig;
+
+		// open comment in target worktree
+		await service.create({
+			worktreeId: "/repo",
+			filePath: "src/index.ts",
+			startLine: 1,
+			endLine: 3,
+			snippet: "const x = 1",
+			body: "Fix this please",
+			source: "working-tree",
+			commitSha: null,
+		});
+
+		// addressed comment in same worktree — should be excluded
+		const addressed = await service.create({
+			worktreeId: "/repo",
+			filePath: "src/index.ts",
+			startLine: 5,
+			endLine: 5,
+			snippet: "const y = 2",
+			body: "Already fixed",
+			source: "working-tree",
+			commitSha: null,
+		});
+		await service.markAddressed(addressed.id);
+
+		// open comment in different worktree — should be excluded
+		await service.create({
+			worktreeId: "/other-repo",
+			filePath: "src/other.ts",
+			startLine: 1,
+			endLine: 1,
+			snippet: "const z = 3",
+			body: "Different worktree",
+			source: "working-tree",
+			commitSha: null,
+		});
+
+		const result = await client.callTool({
+			name: "list_pending_reviews",
+			arguments: { worktreePath: "/repo" },
+		});
+
+		const content = result.content as Array<{ type: string; text: string }>;
+		const parsed = JSON.parse(content[0].text) as { reviews: unknown[] };
+		expect(parsed.reviews).toHaveLength(1);
+		expect((parsed.reviews[0] as { body: string }).body).toBe("Fix this please");
+	});
+
+	it("mark_review_addressed flips status; second call returns already_addressed", async () => {
+		rig = await makeRig();
+		const { service, client } = rig;
+
+		const comment = await service.create({
+			worktreeId: "/repo",
+			filePath: "src/index.ts",
+			startLine: 1,
+			endLine: 1,
+			snippet: "const x = 1",
+			body: "Review comment",
+			source: "working-tree",
+			commitSha: null,
+		});
+
+		const first = await client.callTool({
+			name: "mark_review_addressed",
+			arguments: { commentId: comment.id },
+		});
+		const firstContent = first.content as Array<{ type: string; text: string }>;
+		const firstParsed = JSON.parse(firstContent[0].text) as { ok: boolean };
+		expect(firstParsed.ok).toBe(true);
+
+		const second = await client.callTool({
+			name: "mark_review_addressed",
+			arguments: { commentId: comment.id },
+		});
+		const secondContent = second.content as Array<{ type: string; text: string }>;
+		const secondParsed = JSON.parse(secondContent[0].text) as { ok: boolean; error: string };
+		expect(secondParsed.ok).toBe(false);
+		expect(secondParsed.error).toBe("already_addressed");
+	});
+});
