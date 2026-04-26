@@ -118,3 +118,9 @@ export const reviewComments: Ai14AllDesktopApi["reviewComments"] = {
 	onChanged: (handler: (event: ReviewCommentChangedEvent) => void) =>
 		getDesktopClient().reviewComments.onChanged(handler),
 };
+
+export const agentInstall: Ai14AllDesktopApi["agentInstall"] = {
+	listProviders: () => getDesktopClient().agentInstall.listProviders(),
+	install: (ids) => getDesktopClient().agentInstall.install(ids),
+	uninstall: (ids) => getDesktopClient().agentInstall.uninstall(ids),
+};

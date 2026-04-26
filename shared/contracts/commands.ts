@@ -326,4 +326,22 @@ export type Ai14AllDesktopApi = {
 		rebaseWorktreeIds(mapping: Record<string, string>): Promise<{ ok: true }>;
 		onChanged(handler: (event: ReviewCommentChangedEvent) => void): () => void;
 	};
+	agentInstall: {
+		listProviders(): Promise<{
+			providers: Array<{
+				id: "claude-code" | "codex";
+				displayName: string;
+				cliAvailable: boolean;
+				configRootDetected: boolean;
+				installed: boolean;
+			}>;
+			mcp: { port: number | null; bindError: string | null };
+		}>;
+		install(ids: ("claude-code" | "codex")[]): Promise<{
+			results: Array<{ id: "claude-code" | "codex"; ok: boolean; message: string | null }>;
+		}>;
+		uninstall(ids: ("claude-code" | "codex")[]): Promise<{
+			results: Array<{ id: "claude-code" | "codex"; ok: boolean; message: string | null }>;
+		}>;
+	};
 };

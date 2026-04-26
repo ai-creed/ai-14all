@@ -1,4 +1,12 @@
-import { dialog, ipcMain } from "electron";
+import { app, dialog, ipcMain } from "electron";
+import { AgentSkillInstaller } from "../../services/review/agent-skill-installer/index.js";
+import {
+	AGENT_INSTALL_LIST,
+	AGENT_INSTALL_DO,
+	AGENT_INSTALL_UNINSTALL,
+	InstallRequestSchema,
+	UninstallRequestSchema,
+} from "../../shared/contracts/agent-install.js";
 import { openExternalUrl } from "./services/openExternal.js";
 import { consumeE2eGitFault } from "./e2e-git-faults.js";
 import { consumeE2eTerminalCreateDelay } from "./e2e-terminal-create-delay.js";
@@ -440,6 +448,34 @@ export function registerIpcHandlers(
 
 	const offReview = reviewCommentService.onChange((kind) => {
 		safeSend(REVIEW_COMMENT_CHANGED, { kind });
+	});
+
+	// --- Agent Install ---
+
+	const installer = new AgentSkillInstaller({
+		home: app.getPath("home"),
+		resourcesPath: process.resourcesPath ?? app.getAppPath(),
+		getMcpUrl: () => review.mcpStatus.getUrl(),
+	});
+
+	ipcMain.handle(AGENT_INSTALL_LIST, async () => {
+		const providers = await installer.listProviders();
+		return {
+			providers,
+			mcp: { port: review.mcpStatus.port, bindError: review.mcpStatus.bindError },
+		};
+	});
+
+	ipcMain.handle(AGENT_INSTALL_DO, async (_e, raw) => {
+		const { providerIds } = InstallRequestSchema.parse(raw);
+		const results = await installer.install(providerIds);
+		return { results };
+	});
+
+	ipcMain.handle(AGENT_INSTALL_UNINSTALL, async (_e, raw) => {
+		const { providerIds } = UninstallRequestSchema.parse(raw);
+		const results = await installer.uninstall(providerIds);
+		return { results };
 	});
 
 	return {

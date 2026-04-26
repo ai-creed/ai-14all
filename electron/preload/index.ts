@@ -19,6 +19,11 @@ import {
 	REVIEW_REBASE,
 	REVIEW_COMMENT_CHANGED,
 } from "../../shared/contracts/review-comments.js";
+import {
+	AGENT_INSTALL_LIST,
+	AGENT_INSTALL_DO,
+	AGENT_INSTALL_UNINSTALL,
+} from "../../shared/contracts/agent-install.js";
 
 // Helper: register a one-way listener on an ipcRenderer channel and return an
 // unsubscribe function (matching the onXxx pattern in the API type).
@@ -243,6 +248,17 @@ const api: Ai14AllDesktopApi = {
 		},
 		onChanged(handler: (event: ReviewCommentChangedEvent) => void) {
 			return onChannel(REVIEW_COMMENT_CHANGED, handler);
+		},
+	},
+	agentInstall: {
+		listProviders() {
+			return ipcRenderer.invoke(AGENT_INSTALL_LIST, {});
+		},
+		install(ids: ("claude-code" | "codex")[]) {
+			return ipcRenderer.invoke(AGENT_INSTALL_DO, { providerIds: ids });
+		},
+		uninstall(ids: ("claude-code" | "codex")[]) {
+			return ipcRenderer.invoke(AGENT_INSTALL_UNINSTALL, { providerIds: ids });
 		},
 	},
 };
