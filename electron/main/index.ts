@@ -9,6 +9,8 @@ import { WorkspacePersistenceService } from "../../services/workspace/workspace-
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 import { createShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
 import { startUpdateNotifier } from "./services/updateNotifier.js";
+import { ReviewCommentStore } from "../../services/review/review-comment-store.js";
+import { ReviewCommentService } from "../../services/review/review-comment-service.js";
 
 app.setName("ai-14all");
 
@@ -16,7 +18,7 @@ if (process.env.AI14ALL_USER_DATA_PATH) {
 	app.setPath("userData", process.env.AI14ALL_USER_DATA_PATH);
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
 	const shellEventLog = createShellEventLogService({
 		userDataPath: app.getPath("userData"),
 		isPackaged: app.isPackaged,
@@ -41,10 +43,17 @@ app.whenReady().then(() => {
 			join(app.getPath("userData"), "workspace-state.json"),
 	);
 	const workspaceRegistry = new WorkspaceRegistryService();
+	const reviewUserDir = join(app.getPath("userData"), "ai-14all");
+	const reviewCommentStore = new ReviewCommentStore(
+		join(reviewUserDir, "review-comments.json"),
+	);
+	const reviewCommentService = new ReviewCommentService(reviewCommentStore);
+	await reviewCommentService.init();
 	const { dispose } = registerIpcHandlers(mainWindow, {
 		workspacePersistence,
 		workspaceRegistry,
 		shellEventLog,
+		review: { service: reviewCommentService },
 	});
 
 	if (process.env.ELECTRON_RENDERER_URL) {

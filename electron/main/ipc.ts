@@ -37,6 +37,22 @@ import {
 import type { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 import type { ShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
+import type { ReviewCommentService } from "../../services/review/review-comment-service.js";
+import {
+	REVIEW_LIST,
+	REVIEW_CREATE,
+	REVIEW_MARK_ADDRESSED,
+	REVIEW_REOPEN,
+	REVIEW_DELETE,
+	REVIEW_REBASE,
+	REVIEW_COMMENT_CHANGED,
+	ReviewListRequestSchema,
+	ReviewCreateRequestSchema,
+	ReviewMarkAddressedRequestSchema,
+	ReviewReopenRequestSchema,
+	ReviewDeleteRequestSchema,
+	ReviewRebaseRequestSchema,
+} from "../../shared/contracts/review-comments.js";
 import { WorktreeService } from "../../services/worktrees/worktree-service.js";
 import { TerminalService } from "../../services/terminals/terminal-service.js";
 import { FileService } from "../../services/files/file-service.js";
@@ -62,14 +78,17 @@ export function registerIpcHandlers(
 		workspacePersistence,
 		workspaceRegistry,
 		shellEventLog,
+		review,
 	}: {
 		workspacePersistence: WorkspacePersistenceService;
 		workspaceRegistry: WorkspaceRegistryService;
 		shellEventLog?: ShellEventLogService;
+		review: { service: ReviewCommentService };
 	},
 ): {
 	dispose: () => void;
 } {
+	const reviewCommentService = review.service;
 	const worktreeService = new WorktreeService();
 	const fileService = new FileService();
 	const gitService = new GitService();
@@ -190,6 +209,7 @@ export function registerIpcHandlers(
 			workspaceRegistry.get(workspaceId),
 			worktreeId,
 		);
+		await reviewCommentService.removeByWorktree(worktreeId);
 	});
 
 	// --- Terminals ---
@@ -369,5 +389,50 @@ export function registerIpcHandlers(
 		shellEventLog?.log(parsed.data);
 	});
 
-	return { dispose: () => terminalService.dispose() };
+	// --- Review Comments ---
+
+	ipcMain.handle(REVIEW_LIST, async (_event, raw: unknown) => {
+		const { worktreeId } = ReviewListRequestSchema.parse(raw);
+		return { comments: reviewCommentService.listByWorktree(worktreeId) };
+	});
+
+	ipcMain.handle(REVIEW_CREATE, async (_event, raw: unknown) => {
+		const input = ReviewCreateRequestSchema.parse(raw);
+		const comment = await reviewCommentService.create(input);
+		return { comment };
+	});
+
+	ipcMain.handle(REVIEW_MARK_ADDRESSED, async (_event, raw: unknown) => {
+		const { commentId } = ReviewMarkAddressedRequestSchema.parse(raw);
+		return reviewCommentService.markAddressed(commentId);
+	});
+
+	ipcMain.handle(REVIEW_REOPEN, async (_event, raw: unknown) => {
+		const { commentId } = ReviewReopenRequestSchema.parse(raw);
+		const comment = await reviewCommentService.reopen(commentId);
+		return { comment };
+	});
+
+	ipcMain.handle(REVIEW_DELETE, async (_event, raw: unknown) => {
+		const { commentId } = ReviewDeleteRequestSchema.parse(raw);
+		const deleted = await reviewCommentService.delete(commentId);
+		return { deleted };
+	});
+
+	ipcMain.handle(REVIEW_REBASE, async (_event, raw: unknown) => {
+		const { mapping } = ReviewRebaseRequestSchema.parse(raw);
+		await reviewCommentService.rebaseWorktreeIds(new Map(Object.entries(mapping)));
+		return { ok: true as const };
+	});
+
+	const offReview = reviewCommentService.onChange((kind) => {
+		safeSend(REVIEW_COMMENT_CHANGED, { kind });
+	});
+
+	return {
+		dispose: () => {
+			offReview();
+			terminalService.dispose();
+		},
+	};
 }
