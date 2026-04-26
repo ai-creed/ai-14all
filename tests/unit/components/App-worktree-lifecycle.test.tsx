@@ -85,6 +85,14 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		rebaseWorktreeIds: vi.fn().mockResolvedValue({}),
 		onChanged: vi.fn(() => vi.fn()),
 	},
+	events: {
+		onOpenInstallModal: vi.fn(() => vi.fn()),
+	},
+	agentInstall: {
+		listProviders: vi.fn().mockResolvedValue({ providers: [], mcp: { port: null, bindError: null } }),
+		install: vi.fn().mockResolvedValue({ results: [] }),
+		uninstall: vi.fn().mockResolvedValue({ results: [] }),
+	},
 }));
 
 import { App } from "../../../src/app/App";

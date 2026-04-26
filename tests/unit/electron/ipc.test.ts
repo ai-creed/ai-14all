@@ -37,6 +37,7 @@ const { worktreeServiceInstance, fileServiceInstance } = vi.hoisted(() => {
 });
 
 vi.mock("electron", () => ({
+	app: { getPath: vi.fn(() => "/tmp/test-home"), getAppPath: vi.fn(() => "/tmp/app-resources") },
 	dialog: { showOpenDialog: vi.fn() },
 	ipcMain: { handle: handleMock },
 }));
