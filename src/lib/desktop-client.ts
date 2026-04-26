@@ -3,6 +3,7 @@ import {
 	OpenFileForEditResultSchema,
 	SaveFileResultSchema,
 } from "../../shared/contracts/commands";
+import type { ReviewCommentChangedEvent } from "../../shared/contracts/review-comments";
 
 /**
  * Typed wrapper around the preload bridge injected as `window.ai14all`.
@@ -103,4 +104,17 @@ export const system: Ai14AllDesktopApi["system"] = {
 	onUpdateAvailable: (listener) =>
 		getDesktopClient().system.onUpdateAvailable(listener),
 	openExternal: (url) => getDesktopClient().system.openExternal(url),
+};
+
+export const reviewComments: Ai14AllDesktopApi["reviewComments"] = {
+	list: (worktreeId) => getDesktopClient().reviewComments.list(worktreeId),
+	create: (input) => getDesktopClient().reviewComments.create(input),
+	markAddressed: (commentId) =>
+		getDesktopClient().reviewComments.markAddressed(commentId),
+	reopen: (commentId) => getDesktopClient().reviewComments.reopen(commentId),
+	delete: (commentId) => getDesktopClient().reviewComments.delete(commentId),
+	rebaseWorktreeIds: (mapping) =>
+		getDesktopClient().reviewComments.rebaseWorktreeIds(mapping),
+	onChanged: (handler: (event: ReviewCommentChangedEvent) => void) =>
+		getDesktopClient().reviewComments.onChanged(handler),
 };
