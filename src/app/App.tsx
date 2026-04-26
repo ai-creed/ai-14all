@@ -514,11 +514,28 @@ export function App() {
 	const [addingDraft, setAddingDraft] = useState<NewCommentDraft | null>(null);
 	const [selectionDraft, setSelectionDraft] = useState<SelectionDraft>(null);
 	const [installModalOpen, setInstallModalOpen] = useState(false);
+	const [commentSidebarOpen, setCommentSidebarOpen] = useState(false);
 
 	useEffect(() => {
 		const off = events.onOpenInstallModal(() => setInstallModalOpen(true));
 		return off;
 	}, []);
+
+	useEffect(() => {
+		const currentFilePath =
+			activeSession?.reviewMode === "commits"
+				? (activeSession.selectedCommitFilePath ?? null)
+				: (activeSession?.selectedChangedFilePath ?? null);
+		const hasComments =
+			currentFilePath !== null &&
+			reviewState.comments.some((c) => c.filePath === currentFilePath);
+		setCommentSidebarOpen(hasComments);
+	}, [
+		activeSession?.reviewMode,
+		activeSession?.selectedCommitFilePath,
+		activeSession?.selectedChangedFilePath,
+		reviewState.comments,
+	]);
 
 	const ensureFileFocused = useCallback(
 		(filePath: string) => {
@@ -3168,7 +3185,9 @@ export function App() {
 									className="shell-review-grid"
 									data-testid="review-grid"
 									style={{
-										gridTemplateColumns: `${reviewRailWidth}px 8px minmax(0, 1fr) 8px ${activeSession?.reviewSidebarWidth ?? 280}px`,
+										gridTemplateColumns: commentSidebarOpen
+										? `${reviewRailWidth}px 8px minmax(0, 1fr) 8px ${activeSession?.reviewSidebarWidth ?? 280}px`
+										: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
 									}}
 								>
 									<section
@@ -3381,6 +3400,7 @@ export function App() {
 										) : activeSession?.reviewMode === "changes" &&
 										  diffState.data ? (
 											<DiffViewer
+												key={diffState.data.path}
 												path={diffState.data.path}
 												content={diffState.data.content}
 												originalContent={diffState.data.originalContent}
@@ -3424,9 +3444,32 @@ export function App() {
 												+ Add comment for L{selectionDraft.startLine}–{selectionDraft.endLine}
 											</button>
 										)}
+										{(() => {
+											const currentFilePath =
+												activeSession?.reviewMode === "commits"
+													? (activeSession.selectedCommitFilePath ?? null)
+													: (activeSession?.selectedChangedFilePath ?? null);
+											if (!currentFilePath) return null;
+											const openCount = reviewState.comments.filter(
+												(c) => c.filePath === currentFilePath && c.status === "open",
+											).length;
+											return (
+												<button
+													type="button"
+													className="shell-review-comments-toggle"
+													title={commentSidebarOpen ? "Hide comments" : "Show comments"}
+													onClick={() => setCommentSidebarOpen((o) => !o)}
+												>
+													<svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+														<path d="M2 2h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5l-3 2V3a1 1 0 0 1 1-1z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+													</svg>
+													{openCount > 0 && <span>{openCount}</span>}
+												</button>
+											);
+										})()}
 									</section>
 
-									{(() => {
+									{commentSidebarOpen && (() => {
 										const currentFilePath =
 											activeSession?.reviewMode === "commits"
 												? (activeSession.selectedCommitFilePath ?? null)

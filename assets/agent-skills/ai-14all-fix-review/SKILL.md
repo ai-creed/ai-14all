@@ -12,7 +12,7 @@ You have access to an MCP server named `ai-14all` (registered by the ai-14all de
 
 ## How to apply this skill
 
-1. Confirm the desktop app is running by checking that `<userData>/ai-14all/mcp-port` exists. (`<userData>` is the OS-conventional Electron userData dir: `~/Library/Application Support/ai-14all/` on macOS, `%APPDATA%\\ai-14all\\` on Windows, `~/.config/ai-14all/` on Linux.) If the file is missing, tell the user "ai-14all is not running; please launch the app and try again," and stop.
+1. Confirm the desktop app is running by checking that `<userData>/ai-14all/ai-14all/mcp-port` exists. (`<userData>` is the OS-conventional Electron userData dir: `~/Library/Application Support/ai-14all/` on macOS, `%APPDATA%\\ai-14all\\` on Windows, `~/.config/ai-14all/` on Linux.) If the file is missing, tell the user "ai-14all is not running; please launch the app and try again," and stop.
 2. Determine the worktree path you are running inside (the working directory of your current session).
 3. Call `list_pending_reviews({ worktreePath })`.
 4. For each returned review:

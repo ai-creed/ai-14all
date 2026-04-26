@@ -98,6 +98,7 @@ function DiffEditorSlot({
 				renderSideBySide: true,
 				minimap: { enabled: false },
 				scrollBeyondLastLine: false,
+				glyphMargin: true,
 				scrollbar: {
 					vertical: "hidden",
 					horizontal: "auto",

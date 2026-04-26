@@ -188,11 +188,14 @@ select {
 	   panelHeight and break the resize handle. Mirrors the previous
 	   .shell-review-stack rule. */
 	flex-shrink: 0;
+	border: 1px solid var(--pane-border-review);
+	border-radius: var(--radius-md);
+	overflow: hidden;
 }
 
 .shell-review-drawer__resize-handle {
 	cursor: ns-resize;
-	height: 6px;
+	height: 4px;
 	background: transparent;
 }
 
@@ -201,7 +204,7 @@ select {
 	align-items: center;
 	gap: 12px;
 	padding: 6px 12px;
-	border-top: 1px solid var(--panel-border);
+	border-bottom: 1px solid var(--pane-border-review);
 }
 
 .shell-review-drawer__status {
@@ -354,9 +357,15 @@ select {
 
 .shell-review-grid {
 	display: grid;
-	gap: var(--space-3);
+	gap: 0;
 	min-height: 0;
 	overflow: hidden;
+	border-radius: var(--radius-md);
+}
+
+.shell-review-grid > .shell-panel {
+	border: none;
+	border-radius: 0;
 }
 
 .shell-setup-panel {
@@ -825,7 +834,6 @@ select {
 	padding: 0;
 	overflow: hidden;
 	background: transparent;
-	border-color: var(--pane-border-review);
 }
 
 .shell-terminal-tabs {
@@ -989,7 +997,6 @@ select {
 	min-width: 0;
 	min-height: 0;
 	overflow: hidden;
-	border-color: var(--pane-border-review);
 }
 
 .shell-review-rail__header,
@@ -2280,6 +2287,28 @@ select {
 }
 
 /* Reduced motion: disable all overlay/sheet animations */
+.shell-review-comments-toggle {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 7px;
+	background: var(--panel-bg-elevated);
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	color: var(--text-secondary);
+	font-size: 11px;
+	cursor: pointer;
+	z-index: 10;
+}
+
+.shell-review-comments-toggle:hover {
+	border-color: var(--panel-border-strong);
+	color: var(--text-primary);
+}
+
 .shell-review-floating-add {
 	position: absolute;
 	right: 12px;
@@ -2303,4 +2332,230 @@ select {
 		animation: none !important;
 		transition: none !important;
 	}
+}
+
+/* ── Review comment sidebar ──────────────────────────────────── */
+
+.shell-review-comment-sidebar {
+	grid-column: 5;
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+	min-height: 0;
+	overflow: hidden;
+	border-left: 1px solid var(--panel-border);
+}
+
+.shell-review-comment-sidebar__header {
+	padding: var(--space-2) var(--space-3);
+	border-bottom: 1px solid var(--panel-border);
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.shell-review-comment-sidebar__header-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.shell-review-comment-sidebar__icon {
+	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+.shell-review-comment-sidebar__title {
+	line-height: 1.2;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--text-muted);
+	font-size: var(--font-size-body);
+}
+
+.shell-review-comment-sidebar__count {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 11px;
+	color: var(--text-muted);
+	margin-left: auto;
+}
+.shell-review-comment-sidebar__count[data-active="false"] {
+	opacity: 0.4;
+}
+
+.shell-review-comment-sidebar__path {
+	font-size: 11px;
+	color: var(--text-secondary);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	direction: rtl;
+	text-align: left;
+	min-width: 0;
+}
+
+.shell-review-comment-sidebar__list {
+	overflow-y: auto;
+	padding: var(--space-2);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+/* ── Review comment card ────────────────────────────────────── */
+
+.shell-review-comment-card {
+	background: var(--panel-bg);
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-md);
+	padding: var(--space-1) var(--space-2);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	flex-shrink: 0;
+}
+
+.shell-review-comment-card[data-status="addressed"] {
+	opacity: 0.55;
+}
+
+.shell-review-comment-card__header {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.shell-review-comment-card__range {
+	background: var(--panel-bg-elevated);
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	color: var(--accent);
+	font-size: 11px;
+	font-family: var(--font-terminal);
+	padding: 1px var(--space-1);
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.shell-review-comment-card__range:hover {
+	border-color: var(--panel-border-strong);
+}
+
+.shell-review-comment-card__status {
+	font-size: 10px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--text-muted);
+	background: var(--panel-bg-elevated);
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	padding: 1px var(--space-1);
+}
+
+.shell-review-comment-card[data-status="open"] .shell-review-comment-card__status {
+	color: var(--accent);
+	border-color: var(--accent);
+}
+
+.shell-review-comment-card__actions {
+	margin-left: auto;
+	display: flex;
+	gap: var(--space-1);
+}
+
+.shell-review-comment-card__body {
+	margin: 0;
+	font-size: 11px;
+	color: var(--text-primary);
+	line-height: 1.5;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.shell-review-comment-card__action {
+	background: none;
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	color: var(--text-secondary);
+	font-size: 11px;
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.shell-review-comment-card__action:hover {
+	border-color: var(--panel-border-strong);
+	color: var(--text-primary);
+}
+
+/* ── Review comment form ────────────────────────────────────── */
+
+.shell-review-comment-form {
+	background: var(--panel-bg);
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-md);
+	padding: var(--space-2) var(--space-3);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	flex-shrink: 0;
+}
+
+.shell-review-comment-form > textarea {
+	width: 100%;
+	box-sizing: border-box;
+	padding: var(--space-2) var(--space-3);
+	background: var(--app-bg);
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	color: var(--text-primary);
+	font-size: 11px;
+	font-family: var(--font-ui);
+	resize: vertical;
+	min-height: 60px;
+}
+
+.shell-review-comment-form > textarea:focus-visible {
+	outline: 1px solid var(--accent);
+	border-color: var(--accent);
+}
+
+.shell-review-comment-form__actions {
+	display: flex;
+	gap: var(--space-2);
+	justify-content: flex-end;
+}
+
+.shell-review-comment-form__actions > button {
+	background: none;
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	color: var(--text-secondary);
+	font-size: 11px;
+	padding: var(--space-1) var(--space-3);
+	cursor: pointer;
+}
+
+.shell-review-comment-form__actions > button[type="submit"] {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: var(--app-bg);
+	font-weight: 600;
+}
+
+.shell-review-comment-form__actions > button[type="submit"]:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+.shell-review-comment-form__actions > button:not([type="submit"]):hover {
+	border-color: var(--panel-border-strong);
+	color: var(--text-primary);
 }

@@ -9,6 +9,7 @@ function fakeModified(lineCount = 3) {
 		onMouseMove: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 		onMouseDown: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 		onDidChangeCursorSelection: vi.fn().mockReturnValue({ dispose: vi.fn() }),
+		onDidChangeModel: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 		deltaDecorations: vi.fn().mockReturnValue([]),
 		revealLineInCenter: vi.fn(),
 		getModel: vi.fn().mockReturnValue({ getLineCount: () => lineCount, getLineContent: () => "" }),

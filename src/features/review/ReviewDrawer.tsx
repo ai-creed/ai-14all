@@ -42,7 +42,7 @@ export function ReviewDrawer({
 				/>
 			)}
 
-			<div className="shell-review-drawer__header shell-panel">
+			<div className="shell-review-drawer__header">
 				<button
 					type="button"
 					className="shell-review-drawer__toggle shell-button shell-button--compact shell-button--icon shell-button--round"

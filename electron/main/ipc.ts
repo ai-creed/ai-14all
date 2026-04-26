@@ -1,4 +1,5 @@
 import { app, dialog, ipcMain } from "electron";
+import { join } from "node:path";
 import { AgentSkillInstaller } from "../../services/review/agent-skill-installer/index.js";
 import {
 	AGENT_INSTALL_LIST,
@@ -454,7 +455,7 @@ export function registerIpcHandlers(
 
 	const installer = new AgentSkillInstaller({
 		home: app.getPath("home"),
-		resourcesPath: process.resourcesPath ?? app.getAppPath(),
+		resourcesPath: app.isPackaged ? process.resourcesPath : join(app.getAppPath(), "assets"),
 		getMcpUrl: () => review.mcpStatus.getUrl(),
 	});
 

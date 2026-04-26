@@ -32,26 +32,28 @@ export function ReviewCommentCard({
 				<span className="shell-review-comment-card__status">
 					{comment.status}
 				</span>
+				<div className="shell-review-comment-card__actions">
+					<button
+						type="button"
+						className="shell-review-comment-card__action"
+						aria-label={comment.status === "open" ? "mark addressed" : "reopen"}
+						title={comment.status === "open" ? "Mark as addressed" : "Reopen comment"}
+						onClick={() => onToggleAddressed(comment.id)}
+					>
+						{comment.status === "open" ? "✓" : "↺"}
+					</button>
+					<button
+						type="button"
+						className="shell-review-comment-card__action"
+						aria-label="delete comment"
+						title="Delete comment"
+						onClick={() => onDelete(comment.id)}
+					>
+						✕
+					</button>
+				</div>
 			</header>
 			<p className="shell-review-comment-card__body">{comment.body}</p>
-			<footer className="shell-review-comment-card__footer">
-				<button
-					type="button"
-					aria-label={
-						comment.status === "open" ? "mark addressed" : "reopen"
-					}
-					onClick={() => onToggleAddressed(comment.id)}
-				>
-					{comment.status === "open" ? "✓" : "↺"}
-				</button>
-				<button
-					type="button"
-					aria-label="delete comment"
-					onClick={() => onDelete(comment.id)}
-				>
-					⋯
-				</button>
-			</footer>
 		</article>
 	);
 }

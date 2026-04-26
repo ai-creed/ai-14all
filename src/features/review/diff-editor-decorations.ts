@@ -51,6 +51,10 @@ export function installAddAffordances(
 
 	renderAllPlus();
 
+	const modelSub = (modified as unknown as MonacoEditor.IStandaloneCodeEditor).onDidChangeModel(
+		() => renderAllPlus(),
+	);
+
 	const moveSub = modified.onMouseMove((e) => {
 		hoveredLine = e.target?.position?.lineNumber ?? null;
 	});
@@ -102,6 +106,7 @@ export function installAddAffordances(
 	});
 
 	return () => {
+		modelSub.dispose();
 		moveSub.dispose();
 		downSub.dispose();
 		selSub.dispose();
