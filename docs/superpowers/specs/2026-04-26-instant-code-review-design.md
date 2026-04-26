@@ -52,7 +52,7 @@ Three subsystems with a single source of truth in Electron main:
 │                                                             │
 │  ReviewCommentService (NEW, source of truth)                │
 │    ├─ in-memory Map<worktreeId, ReviewComment[]>            │
-│    ├─ persists via WorkspacePersistenceService (existing)   │
+│    ├─ persists via ReviewCommentStore (NEW, separate file)  │
 │    ├─ exposed to renderer via IPC (CRUD + change events)    │
 │    └─ exposed to MCP server via direct in-process calls     │
 │                                                             │
@@ -85,12 +85,16 @@ Three subsystems with a single source of truth in Electron main:
 
 Single source of truth: `ReviewCommentService` in main. Renderer mutates via IPC and subscribes to change events for live updates. MCP server reads/writes the same service object — no inter-process sync.
 
+Review comments are intentionally **not** stored in `PersistedWorkspaceState` / `PersistedWorktreeSession`. The existing workspace restore state is assembled and written by the renderer as a whole snapshot; letting a main-side service also mutate that file would create overwrite races. Review comments instead live in a separate main-owned JSON store so app-mediated UI changes and MCP tool calls share one durable write path.
+
 ## Data Model
 
 New shared model `shared/models/review-comment.ts`:
 
 ```ts
 export type ReviewCommentStatus = "open" | "addressed";
+
+export type ReviewCommentSource = "working-tree" | "commit";
 
 export type ReviewComment = {
   id: string;                  // uuid v4
@@ -101,14 +105,27 @@ export type ReviewComment = {
   snippet: string;             // modified-side text at [startLine..endLine] when commented
   body: string;                // user's review text
   status: ReviewCommentStatus; // default "open"
+  source: ReviewCommentSource; // where the comment was authored from
+  commitSha: string | null;    // set iff source === "commit"; null otherwise
   createdAt: string;           // ISO 8601 timestamp
   addressedAt: string | null;  // ISO 8601; set when addressed, cleared on reopen
 };
 ```
 
-**Anchoring strategy** (interpretation 3 from brainstorm): comments anchor to `(filePath, snippet)` primarily, with `(startLine, endLine)` as a hint. Agents must search the snippet in the current file content to locate the comment if line numbers no longer match. This unifies working-tree comments and commit-mode comments under one schema — no commit-SHA tagging needed.
+**Anchoring strategy** (interpretation 3 from brainstorm): comments anchor to `(filePath, snippet)` primarily, with `(startLine, endLine)` as a hint. Agents must search the snippet in the current file content to locate the comment if line numbers no longer match. `source` and `commitSha` are informational provenance — they are not used for relocation, but they let the agent reason about context (e.g., "this comment was written against a 3-commits-back version; the file may have moved or been rewritten since"). When the snippet is not findable in the current file, the agent uses provenance to phrase a useful "couldn't locate" message back to the user.
 
-**Persistence**: a new `reviewComments: ReviewComment[]` field is added to `PersistedWorktreeSession`. The existing `WorkspacePersistenceService` schema is bumped from `PersistedWorkspaceStateV2` to a new `PersistedWorkspaceStateV3` with a migration that defaults the new field to `[]` for V1/V2 states. No other fields change.
+**Persistence**: a new `ReviewCommentStore` persists comments to `<userData>/ai-14all/review-comments.json` using write-temp-then-rename. The file is owned by Electron main and is not written by renderer workspace persistence.
+
+Store shape:
+
+```ts
+type PersistedReviewCommentStore = {
+  version: 1;
+  comments: ReviewComment[];
+};
+```
+
+On missing file, the store starts as `{ version: 1, comments: [] }`. On invalid JSON or unsupported version, the service logs a diagnostic and starts with an empty in-memory store without overwriting the file, matching the existing downgrade-preservation posture used by workspace restore state. No `PersistedWorkspaceStateV3` migration is required for this feature.
 
 **Lifecycle**:
 - Create → `status: "open"`, `addressedAt: null`.
@@ -120,7 +137,16 @@ export type ReviewComment = {
 
 **Server name:** `ai-14all` (product-level, intentionally not tool-specific so future tools can land under the same server).
 
-**Transport:** HTTP MCP, bound to `127.0.0.1` only. The server attempts to bind a port reserved at first boot (persisted in `<userData>/ai-14all/mcp-config.json` as `{ "port": <number> }`). If the reserved port is unavailable, it picks a fresh free port via `node:net.createServer().listen(0)`, persists the new value, and surfaces a "Reinstall agent integration" hint in the install modal. Once listening, the server writes a liveness file to `<userData>/ai-14all/mcp-port` (single-line text containing the active port). The liveness file is deleted on app shutdown.
+**Transport:** HTTP MCP, bound to `127.0.0.1` only.
+
+**Strict stable port (no fallback).** The server reserves a single port that is stable across all app runs. On first boot, it picks a free port from a high-numbered range (e.g., 51000–51999) via `node:net.createServer().listen(0)` constrained to that range, then persists it in `<userData>/ai-14all/mcp-config.json` as `{ "port": <number> }`. Every subsequent boot binds the same port. If the port is unavailable at boot:
+
+- The server does **not** silently fall back to a fresh port (a fresh port would invalidate the URL already registered in agent provider configs and silently break the agent integration).
+- The boot logs a `port-unavailable` diagnostic to main.
+- A persistent warning appears in the app diagnostics panel and the install modal status row: "MCP server could not bind port <N>. Resolve the port conflict and restart ai-14all to re-enable agent integration."
+- The review feature still works in the UI; only the agent integration is unavailable.
+
+Once listening, the server writes a liveness file to `<userData>/ai-14all/mcp-port` (single-line text containing the active port — same value every run). The liveness file is deleted on graceful shutdown. The skill checks this file before each call purely as a "is ai-14all running?" signal — not as port discovery.
 
 **Tool — `list_pending_reviews`**
 
@@ -134,7 +160,9 @@ output: {
     endLine: number;
     snippet: string;
     body: string;
-    status: "open";       // tool only returns open comments
+    status: "open";                                  // tool only returns open comments
+    source: "working-tree" | "commit";               // provenance
+    commitSha: string | null;                        // set iff source === "commit"
     createdAt: string;
     addressedAt: null;
   }>;
@@ -194,6 +222,23 @@ The current `shell-review-grid` template is `[rail | resize | main]`. After this
 
 The DiffViewer remains read-only (Monaco `readOnly: true`); only gutter decorations and overlays are added.
 
+When the comment is created, `source` and `commitSha` are populated from the current viewing context: `source: "working-tree"` (and `commitSha: null`) in changes mode; `source: "commit"`, `commitSha: <selected commit SHA>` in commits mode.
+
+### DiffViewer integration contract
+
+Today's `DiffViewer` (`src/features/viewer/DiffViewer.tsx`) renders a single Monaco `DiffEditor` with no `onMount` callback, refs, decorations, or scroll API. Today's `CommitDiffStack` renders one `DiffEditor` per file in the commit, all simultaneously. Both need explicit lifecycle hooks for the comment affordances to work cleanly.
+
+This spec extends `DiffViewer` and `CommitDiffStack` with the following contract:
+
+1. **`DiffViewer` and each `DiffEditor` inside `CommitDiffStack` accept an `onMount(filePath, editor)` callback** that fires when the Monaco editor instance is ready. The callback hands back the file path the editor is showing and the Monaco `IStandaloneDiffEditor` instance.
+2. **A renderer-scoped `DiffEditorRegistry`** (a small map maintained alongside `ReviewCommentSidebar`) tracks `Map<filePath, IStandaloneDiffEditor>` for editors currently mounted. `onMount` registers; an `onUnmount(filePath)` callback (or React effect cleanup) deregisters.
+3. **Per-editor gutter / hover handlers** are installed inside the editor's modified-side pane (`editor.getModifiedEditor()`) at mount time and torn down at unmount. Each editor owns its own `+` glyph decoration, hover listener, and selection listener — no global handlers.
+4. **Sidebar scoping rules:**
+   - In changes mode, exactly one editor is mounted at a time (the currently selected changed file). The sidebar scopes to that file.
+   - In commits mode, multiple editors are mounted simultaneously inside `CommitDiffStack`. The sidebar scopes to `focusedPath` (the file the user most recently selected from `CommitList`). When the user changes `focusedPath`, the sidebar swaps content; the gutter `+` keeps working on every visible editor (each user can still hover and add a comment on any file in the stack — the new comment appears in the sidebar once the file becomes focused).
+5. **Click-comment-to-scroll:** sidebar looks up the editor by `filePath` in the registry, calls `editor.getModifiedEditor().revealLineInCenter(comment.startLine)`, and applies a transient highlight decoration on `[startLine..endLine]`. If the editor is not in the registry (e.g., the file isn't currently mounted in commits mode because user is focused elsewhere), the click first sets `focusedPath` to that file (via `CommitList` selection state), then performs the scroll on the next render once the editor is mounted.
+6. **Decoration / handler cleanup** uses Monaco's `editor.onDidDispose` and React effect cleanup so no listeners leak when the user switches files or commits.
+
 ### Cross-file visibility
 
 - `ChangesList` (changes mode): a small badge `[N]` next to each file name when N open comments exist for that file.
@@ -204,52 +249,44 @@ The DiffViewer remains read-only (Monaco `readOnly: true`); only gutter decorati
 A new "Install agent integration" item appears in the app settings menu and opens a modal:
 
 - **Header:** "Install ai-14all-fix-review skill + MCP server"
-- **Per-provider rows** (each greyed if the provider's config root is not detected on disk):
-  - ☐ Claude Code — writes `~/.claude/skills/ai-14all-fix-review/SKILL.md` and merges an entry into `~/.claude.json`'s `mcpServers` map.
-  - ☐ Codex — writes `~/.codex/skills/ai-14all-fix-review/SKILL.md` and merges an entry into `~/.codex/config.toml`'s `[mcp_servers.ai-14all]` table.
+- **Per-provider rows** (each greyed if the provider's CLI is not on `PATH` *and* its config root is not detected on disk):
+  - ☐ Claude Code — writes `~/.claude/skills/ai-14all-fix-review/SKILL.md` and registers the MCP server using the official CLI (preferred): `claude mcp add --transport http --scope user ai-14all <url>`. If the CLI is unavailable, falls back to a direct merge into the user-scoped Claude config file with a "best-effort, please verify" notice.
+  - ☐ Codex — writes `~/.codex/skills/ai-14all-fix-review/SKILL.md` and registers the MCP server using the official CLI (preferred), e.g. `codex mcp add --url <url> ai-14all`. If the CLI is unavailable, falls back to a direct merge into `~/.codex/config.toml` with a "best-effort, please verify" notice.
 - **Other agents** (expandable section): copy-paste-ready snippets — the SKILL.md content and a generic MCP server config example — for users to wire up by hand.
 - **Install button** (disabled until at least one provider checked).
 - **Per-provider status row** after install: `Installed ✓` / `Failed: <reason>` / `Update available` (when shipped asset version is newer than installed).
 
 A separate "Reinstall agent integration" entry overwrites/updates installed assets; "Remove agent integration" deletes the skill folder and removes the MCP server entry while preserving all unrelated keys.
 
-### Provider details (verified)
+### Provider details (to verify during implementation)
+
+The exact on-disk JSON / TOML shapes for each provider are not load-bearing for this design because the installer drives the official CLI when available. The notes below capture what the agent guide reported at brainstorm time; treat each item as "verify, then either use the CLI invocation or — only if no CLI exists — write the file directly."
 
 **Claude Code:**
-- MCP config file: `~/.claude.json` (single file containing OAuth, project state, and `mcpServers` map).
-- HTTP MCP entry shape:
-  ```json
-  {
-    "mcpServers": {
-      "ai-14all": { "command": "http", "url": "http://127.0.0.1:<port>" }
-    }
-  }
-  ```
+- Preferred install action: `claude mcp add --transport http --scope user ai-14all <url>`
+- Preferred verification / "already installed" detection: `claude mcp get ai-14all`
+- Preferred uninstall: `claude mcp remove ai-14all`
+- Direct-edit fallback (only if `claude` CLI is absent on PATH): the user-scoped Claude config file (per agent-guide report: `~/.claude.json`, key `mcpServers.ai-14all`). The on-disk JSON shape **must be confirmed against the running CLI** before shipping the fallback path; the installer surfaces a "best-effort, please verify" notice in this case.
 - Skill folder: `~/.claude/skills/ai-14all-fix-review/SKILL.md` with YAML frontmatter (`name`, `description` required).
-- Reload: hot-reloaded inside an existing CC session — no restart required for either MCP entries or skill changes.
-- File backups: Claude Code keeps timestamped backups of `~/.claude.json` (5 retained). Installer does not need to manage these.
+- Reload: agent guide reports hot-reload inside an existing CC session for both MCP entries and skill changes. Verify and document this in the install modal so the user knows whether to restart.
+- Backups: Claude Code is reported to keep timestamped backups of its config (5 retained). Installer does not manage these.
 
 **Codex:**
-- MCP config file: `~/.codex/config.toml`. HTTP MCP supported via `url` (and optional `bearer_token_env_var` / `http_headers`).
-- Entry shape:
-  ```toml
-  [mcp_servers.ai-14all]
-  url = "http://127.0.0.1:<port>"
-  ```
-- Skill folder: `~/.codex/skills/ai-14all-fix-review/SKILL.md`. (Codex's older "custom prompts" mechanism is deprecated; skills are the supported successor.)
-- Reload: **Codex requires a restart after `config.toml` changes**. Skills are auto-detected; restart only if a new top-level skills dir was created.
+- Preferred install action: `codex mcp add --url <url> ai-14all` (verify exact flag spelling and ordering against current `codex --help` before shipping).
+- Preferred verification / uninstall: corresponding `codex mcp` subcommands (verify exact form).
+- Direct-edit fallback (only if `codex` CLI is absent on PATH): `~/.codex/config.toml`, table `[mcp_servers.ai-14all]`. The on-disk TOML shape and HTTP-transport support **must be confirmed against the running CLI** before shipping the fallback path; the installer surfaces a "best-effort, please verify" notice in this case.
+- Skill folder: `~/.codex/skills/ai-14all-fix-review/SKILL.md`. (Codex's older "custom prompts" mechanism is reported deprecated in favour of skills.)
+- Reload: agent guide reports Codex requires a restart after MCP config changes. Surface this in the install-modal status row so the user knows to restart their Codex session.
 
-### Port file readout in the skill
+### Liveness check in the skill
 
-Because the MCP `url` baked into the provider config carries a port that may change across app restarts, the skill itself must resolve the live port before each call:
+The MCP server uses a strict stable port (see "Transport" above), so the URL baked into the provider config is valid for the life of the install. The skill's only runtime concern is whether the app is currently running.
 
-1. Read `<userData>/ai-14all/mcp-port` (path is OS-conventional; documented in skill).
-2. If the file is missing → report "ai-14all is not running" and stop.
-3. Otherwise call the MCP server using the URL it read.
+The skill checks `<userData>/ai-14all/mcp-port` before each tool call:
+1. File missing → app is not running. The skill prints a friendly hint ("ai-14all is not running; please launch the app and try again") and stops.
+2. File present → the MCP client makes its normal call against the URL already configured in the provider's MCP entry.
 
-**Decision for v1: reserve a stable port across runs.** The app picks a random free port the first time it boots and persists it to `<userData>/ai-14all/mcp-config.json` as `{ "port": <number> }`. Subsequent boots try to bind that same port; if it is busy, fall back to a fresh random port, update the persisted config, and surface a non-blocking notice in the install modal status row so the user knows to "Reinstall agent integration" to refresh the URL in their provider configs.
-
-This avoids relying on agent MCP clients re-reading the URL per call (behavior varies by client and is not guaranteed). The port file at `<userData>/ai-14all/mcp-port` still exists as a runtime liveness signal the skill checks before each call (missing → "ai-14all is not running"); but the URL baked into provider configs is intended to remain valid for the life of the install.
+The file's contents (the port number) are mainly diagnostic; the skill does not read them to construct a URL. They give the user something concrete to inspect when troubleshooting.
 
 ### Atomic writes
 
@@ -265,23 +302,24 @@ JSON / TOML config edits use the standard write-temp-then-rename pattern. Read e
 | User has no Monaco selection when adding | Use the gutter `+` (always available). Selection-based add is opt-in. |
 | Two agents concurrently call `mark_review_addressed` on same id | `ReviewCommentService` runs single-threaded in main. First call wins; second returns `{ok:false, error:"already_addressed"}`. Agents tolerate this. |
 | Agent calls tool while app is shutting down | MCP server unbound → connection refused. Skill catches and prints "ai-14all is not running." |
-| App restart with addressed comments persisted | Reload via `WorkspacePersistenceService`. Same UI state, dimmed cards still present. |
+| App restart with addressed comments persisted | Reload via `ReviewCommentStore`. Same UI state, dimmed cards still present. |
 | Worktree removed from app while comments exist | Comments removed alongside the worktree session via the existing worktree-removal flow (a hook in `ReviewCommentService` listens for worktree-removed events). |
 | Multiple app instances | Last-launched instance wins the port file; earlier instance still runs but agents won't find it. Acceptable per single-instance assumption. |
-| MCP server fails to bind at boot | Logged to main, surfaced in diagnostics. UI review feature continues to work. Install modal shows a warning if user opens it. |
+| MCP server fails to bind reserved port at boot | Logged to main as `port-unavailable`. Persistent diagnostic appears in the diagnostics panel and install-modal status row. **No fallback to a fresh port** (would invalidate URLs already registered in agent configs). UI review feature continues to work. User must resolve the port conflict and restart ai-14all. |
 | IPC failure from renderer (rare) | Toast: "Could not save review comment" with a retry hint. Local optimistic state is rolled back. |
 
 ## Testing Strategy
 
 ### Unit tests
 
-- `services/review/review-comment-service.test.ts` — CRUD per worktree, status transitions (open ↔ addressed), idempotency of `markAddressed`, hook into worktree-removed events, persistence schema migration.
+- `services/review/review-comment-service.test.ts` — CRUD per worktree, status transitions (open ↔ addressed), idempotency of `markAddressed`, hook into worktree-removed events.
+- `services/review/review-comment-store.test.ts` — missing file defaults to an empty v1 store; valid v1 store loads; invalid JSON / unsupported version logs a diagnostic and preserves the existing file; writes use temp-then-rename.
 - `tests/unit/review/use-review-comments.test.ts` — renderer hook over IPC mock; create, list, markAddressed, reopen, delete; live update via change events.
 - `tests/unit/review/ReviewCommentSidebar.test.tsx` — rendering open vs addressed cards, dim styling on addressed, click-to-scroll handler called with correct line range, empty state.
 - `tests/unit/review/diff-gutter-add-handler.test.ts` — hover line N → `+` shown → click → calls add with `{filePath, startLine: N, endLine: N, snippet: <line content>}`.
 - `tests/unit/review/selection-add-handler.test.ts` — Monaco selection range → floating button → click → calls add with selection's range and snippet.
 - `tests/unit/review/review-mcp-server.test.ts` — server boot writes port file; `list_pending_reviews` filters by `worktreePath` and returns only open; `mark_review_addressed` toggles status and is idempotent on duplicate calls.
-- `tests/unit/review/agent-skill-installer.test.ts` — Claude provider install writes skill file and merges into `~/.claude.json` without dropping unrelated keys; Codex provider install writes skill and TOML entry; uninstall removes both; reinstall replaces existing.
+- `tests/unit/review/agent-skill-installer.test.ts` — Claude provider install writes the skill file and invokes `claude mcp add` with the expected args (CLI mocked); detects "already installed" via `claude mcp get`; uninstall invokes `claude mcp remove`; CLI-absent fallback writes/merges the configured config file without dropping unrelated keys. Same coverage shape for Codex.
 
 ### E2E tests (accumulate per AGENTS.md verification rule)
 
@@ -296,9 +334,9 @@ JSON / TOML config edits use the standard write-temp-then-rename pattern. Read e
   - Spawn an in-process MCP client (using `@modelcontextprotocol/sdk` client) → `list_pending_reviews` returns the comment created in UI.
   - Client calls `mark_review_addressed` → sidebar card live-updates to addressed.
 - `tests/e2e/agent-skill-install.test.ts`:
-  - Open install modal, select Claude provider, install → temp `~/.claude.json` has `mcpServers["ai-14all"]` entry; temp skills dir has `ai-14all-fix-review/SKILL.md`.
-  - Reinstall path detected via per-provider status row.
-  - Uninstall removes assets without touching unrelated keys.
+  - Open install modal with the Claude CLI stubbed on `PATH` → install runs `claude mcp add` with the expected arguments and writes the skill file under the temp `~/.claude/skills/` dir.
+  - With the Claude CLI absent → install takes the direct-edit fallback path; assert the configured fallback file is written without dropping unrelated keys, and the install row shows the "best-effort, please verify" notice.
+  - Reinstall and uninstall flows mirror the above for both CLI-present and CLI-absent paths.
 
 ### Deferred to manual smoke
 
@@ -317,7 +355,9 @@ JSON / TOML config edits use the standard write-temp-then-rename pattern. Read e
 
 ## Verification Notes (resolve during implementation)
 
-- Confirm exact JSON shape Claude Code expects for an HTTP MCP server entry (the agent guide reported `{ "command": "http", "url": "..." }`; verify against the running CLI's accepted schema or its example configs before shipping the installer).
-- Confirm Codex's exact TOML schema for HTTP MCP servers (additional fields beyond `url` may be required or recommended).
+- Confirm `claude mcp add` flag spelling and behavior on the currently shipped Claude Code CLI (`--transport http`, `--scope user`, server-name + URL ordering). Use `claude mcp add --help`. Same for `claude mcp get` and `claude mcp remove`.
+- Confirm `codex mcp add` flag spelling and behavior on the currently shipped Codex CLI; equivalent for verification and removal subcommands.
+- Confirm exact JSON shape Claude Code expects on disk for an HTTP MCP server entry (only needed for the CLI-absent fallback). Agent guide reported `{ "command": "http", "url": "..." }`; verify before shipping fallback.
+- Confirm Codex's exact TOML schema for HTTP MCP servers on disk (only needed for the CLI-absent fallback).
 - Confirm Monaco's hover / glyph-margin event API supports a per-line `+` decoration cleanly inside `DiffEditor` (its API differs from `Editor`); fall back to a hover-to-show overlay button if needed.
-- Confirm the existing `WorkspacePersistenceService` migration pattern accommodates a simple additive field for `reviewComments`; if it does not, a small extension to the migration framework is part of this work.
+- Confirm the separate `ReviewCommentStore` path is included in app diagnostics / backup guidance where appropriate; no workspace-state migration is expected for this feature.
