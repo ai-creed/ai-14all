@@ -2271,6 +2271,14 @@ select {
 	padding: 2px 6px;
 }
 
+.shell-review-plus-decoration::before {
+	content: "+";
+	display: block;
+	text-align: center;
+	color: var(--shell-accent, #4a90e2);
+	cursor: pointer;
+}
+
 /* Reduced motion: disable all overlay/sheet animations */
 @media (prefers-reduced-motion: reduce) {
 	.shell-shortcuts-help__overlay,
