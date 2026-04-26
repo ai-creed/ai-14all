@@ -4,13 +4,14 @@ import {
 	scrollToLineRange,
 } from "../../../src/features/review/diff-editor-decorations";
 
-function fakeModified() {
+function fakeModified(lineCount = 3) {
 	return {
 		onMouseMove: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 		onMouseDown: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 		onDidChangeCursorSelection: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 		deltaDecorations: vi.fn().mockReturnValue([]),
 		revealLineInCenter: vi.fn(),
+		getModel: vi.fn().mockReturnValue({ getLineCount: () => lineCount, getLineContent: () => "" }),
 	};
 }
 
@@ -61,6 +62,7 @@ describe("diff-editor-decorations", () => {
 		});
 		modified.deltaDecorations.mockReturnValue([]);
 		(modified as any).getModel = () => ({
+			getLineCount: () => 5,
 			getLineContent: () => "const x = 1;",
 		});
 		installAddAffordances(editor as any, {
@@ -88,6 +90,7 @@ describe("diff-editor-decorations", () => {
 			return { dispose: vi.fn() };
 		});
 		(modified as any).getModel = () => ({
+			getLineCount: () => 5,
 			getLineContent: (l: number) => `line ${l}`,
 		});
 		const onSelectionChange = vi.fn();

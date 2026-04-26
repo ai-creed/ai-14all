@@ -28,35 +28,31 @@ export function installAddAffordances(
 	let plusDecorations: string[] = [];
 	let hoveredLine: number | null = null;
 
-	const renderPlus = (line: number | null) => {
-		const next = line
-			? [
-					{
-						range: {
-							startLineNumber: line,
-							startColumn: 1,
-							endLineNumber: line,
-							endColumn: 1,
-						},
-						options: {
-							glyphMarginClassName: PLUS_DECORATION_CLASS,
-							glyphMarginHoverMessage: { value: "Add review comment" },
-						},
-					},
-				]
-			: [];
+	const renderAllPlus = () => {
+		const model = (modified as unknown as MonacoEditor.IStandaloneCodeEditor).getModel();
+		const lineCount = model?.getLineCount() ?? 0;
+		const next = Array.from({ length: lineCount }, (_, i) => ({
+			range: {
+				startLineNumber: i + 1,
+				startColumn: 1,
+				endLineNumber: i + 1,
+				endColumn: 1,
+			},
+			options: {
+				glyphMarginClassName: PLUS_DECORATION_CLASS,
+				glyphMarginHoverMessage: { value: "Add review comment" },
+			},
+		}));
 		plusDecorations = (modified as unknown as MonacoEditor.IStandaloneCodeEditor).deltaDecorations(
 			plusDecorations,
 			next,
 		);
 	};
 
+	renderAllPlus();
+
 	const moveSub = modified.onMouseMove((e) => {
-		const line = e.target?.position?.lineNumber ?? null;
-		if (line !== hoveredLine) {
-			hoveredLine = line;
-			renderPlus(line);
-		}
+		hoveredLine = e.target?.position?.lineNumber ?? null;
 	});
 
 	const downSub = modified.onMouseDown((e) => {
@@ -109,7 +105,10 @@ export function installAddAffordances(
 		moveSub.dispose();
 		downSub.dispose();
 		selSub.dispose();
-		renderPlus(null);
+		plusDecorations = (modified as unknown as MonacoEditor.IStandaloneCodeEditor).deltaDecorations(
+			plusDecorations,
+			[],
+		);
 	};
 }
 
