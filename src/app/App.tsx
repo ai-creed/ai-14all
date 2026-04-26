@@ -529,12 +529,13 @@ export function App() {
 		const hasComments =
 			currentFilePath !== null &&
 			reviewState.comments.some((c) => c.filePath === currentFilePath);
-		setCommentSidebarOpen(hasComments);
+		setCommentSidebarOpen(hasComments || addingDraft !== null);
 	}, [
 		activeSession?.reviewMode,
 		activeSession?.selectedCommitFilePath,
 		activeSession?.selectedChangedFilePath,
 		reviewState.comments,
+		addingDraft,
 	]);
 
 	const ensureFileFocused = useCallback(

@@ -1,5 +1,6 @@
 import { DiffEditor } from "@monaco-editor/react";
 import type { editor as MonacoEditor } from "monaco-editor";
+import { useEffect, useRef } from "react";
 import type { ResolvedTheme } from "../../lib/useTheme";
 
 const EXTENSION_TO_LANGUAGE: Record<string, string> = {
@@ -43,6 +44,17 @@ export function DiffViewer({
 	resolvedTheme,
 	onMount,
 }: Props) {
+	const editorRef = useRef<MonacoEditor.IStandaloneDiffEditor | null>(null);
+
+	useEffect(() => {
+		return () => {
+			// Null out models before @monaco-editor/react disposes the editor so
+			// DiffEditorWidget can reset cleanly — avoids "TextModel disposed before
+			// DiffEditorWidget model got reset" invariant error.
+			editorRef.current?.setModel(null);
+		};
+	}, []);
+
 	return (
 		<div className="shell-viewer">
 			<div className="shell-viewer__header">
@@ -64,6 +76,7 @@ export function DiffViewer({
 					glyphMargin: true,
 				}}
 				onMount={(editor) => {
+					editorRef.current = editor;
 					onMount?.(path, editor);
 				}}
 			/>
