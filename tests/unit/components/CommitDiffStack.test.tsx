@@ -9,14 +9,19 @@ vi.mock("@monaco-editor/react", () => ({
 		theme?: string;
 		height?: string;
 		options?: { fontSize?: number };
-	}) => (
-		<div
-			data-testid="mock-diff-editor"
-			data-theme={props.theme}
-			data-height={props.height}
-			data-font-size={String(props.options?.fontSize ?? "")}
-		/>
-	),
+		onMount?: (editor: unknown) => void;
+	}) => {
+		const fakeEditor = { getModifiedEditor: vi.fn() };
+		props.onMount?.(fakeEditor);
+		return (
+			<div
+				data-testid="mock-diff-editor"
+				data-theme={props.theme}
+				data-height={props.height}
+				data-font-size={String(props.options?.fontSize ?? "")}
+			/>
+		);
+	},
 }));
 
 const detail = {
@@ -47,6 +52,10 @@ const multiFileDetail = {
 		},
 	],
 };
+
+function detailWithTwoFiles() {
+	return multiFileDetail;
+}
 
 describe("CommitDiffStack", () => {
 	it("renders collapsible side-by-side sections for each file", () => {
@@ -141,5 +150,19 @@ describe("CommitDiffStack", () => {
 		for (const editor of screen.getAllByTestId("mock-diff-editor")) {
 			expect(editor).toHaveAttribute("data-height", "160px");
 		}
+	});
+
+	it("calls onEditorMount once per file", () => {
+		const onMount = vi.fn();
+		render(
+			<CommitDiffStack
+				detail={detailWithTwoFiles()}
+				focusedPath={null}
+				resolvedTheme="light"
+				onEditorMount={onMount}
+				onRequestFocus={() => {}}
+			/>,
+		);
+		expect(onMount).toHaveBeenCalledTimes(2);
 	});
 });

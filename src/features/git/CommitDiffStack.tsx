@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { DiffEditor } from "@monaco-editor/react";
-import type { GitCommitDetail } from "../../../shared/models/git-commit-review.js";
+import type { GitCommitDetail, GitCommitFileDiff } from "../../../shared/models/git-commit-review.js";
 import type { ResolvedTheme } from "../../lib/useTheme";
 
 type Props = {
 	detail: GitCommitDetail;
 	focusedPath: string | null;
 	resolvedTheme: ResolvedTheme;
+	onEditorMount?: (
+		filePath: string,
+		editor: import("monaco-editor").editor.IStandaloneDiffEditor,
+	) => void;
+	onEditorUnmount?: (filePath: string) => void;
+	onRequestFocus?: (filePath: string) => void;
 };
 
 const EXTENSION_TO_LANGUAGE: Record<string, string> = {
@@ -51,7 +57,68 @@ function editorHeightForFile(
 	return `${Math.max(lines * 20 + 32, 160)}px`;
 }
 
-export function CommitDiffStack({ detail, focusedPath, resolvedTheme }: Props) {
+type DiffEditorSlotProps = {
+	file: GitCommitFileDiff;
+	singleFile: boolean;
+	resolvedTheme: ResolvedTheme;
+	onEditorMount?: (
+		filePath: string,
+		editor: import("monaco-editor").editor.IStandaloneDiffEditor,
+	) => void;
+	onEditorUnmount?: (filePath: string) => void;
+};
+
+function DiffEditorSlot({
+	file,
+	singleFile,
+	resolvedTheme,
+	onEditorMount,
+	onEditorUnmount,
+}: DiffEditorSlotProps) {
+	useEffect(() => {
+		return () => {
+			onEditorUnmount?.(file.path);
+		};
+	}, [file.path, onEditorUnmount]);
+
+	return (
+		<DiffEditor
+			height={
+				singleFile
+					? "100%"
+					: editorHeightForFile(file.originalContent, file.modifiedContent)
+			}
+			language={languageFromPath(file.path)}
+			theme={resolvedTheme === "light" ? "vs" : "vs-dark"}
+			original={file.originalContent}
+			modified={file.modifiedContent}
+			options={{
+				readOnly: true,
+				fontSize: 12,
+				renderSideBySide: true,
+				minimap: { enabled: false },
+				scrollBeyondLastLine: false,
+				scrollbar: {
+					vertical: "hidden",
+					horizontal: "auto",
+					alwaysConsumeMouseWheel: false,
+				},
+			}}
+			onMount={(editor) => {
+				onEditorMount?.(file.path, editor);
+			}}
+		/>
+	);
+}
+
+export function CommitDiffStack({
+	detail,
+	focusedPath,
+	resolvedTheme,
+	onEditorMount,
+	onEditorUnmount,
+	onRequestFocus: _onRequestFocus,
+}: Props) {
 	const [collapsedPaths, setCollapsedPaths] = useState<Set<string>>(new Set());
 	const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 	const singleFile = detail.files.length === 1;
@@ -112,31 +179,12 @@ export function CommitDiffStack({ detail, focusedPath, resolvedTheme }: Props) {
 								<strong>{file.status}</strong>
 							</button>
 							{!collapsed && (
-								<DiffEditor
-									height={
-										singleFile
-											? "100%"
-											: editorHeightForFile(
-													file.originalContent,
-													file.modifiedContent,
-												)
-									}
-									language={languageFromPath(file.path)}
-									theme={resolvedTheme === "light" ? "vs" : "vs-dark"}
-									original={file.originalContent}
-									modified={file.modifiedContent}
-									options={{
-										readOnly: true,
-										fontSize: 12,
-										renderSideBySide: true,
-										minimap: { enabled: false },
-										scrollBeyondLastLine: false,
-										scrollbar: {
-											vertical: "hidden",
-											horizontal: "auto",
-											alwaysConsumeMouseWheel: false,
-										},
-									}}
+								<DiffEditorSlot
+									file={file}
+									singleFile={singleFile}
+									resolvedTheme={resolvedTheme}
+									onEditorMount={onEditorMount}
+									onEditorUnmount={onEditorUnmount}
 								/>
 							)}
 						</section>
