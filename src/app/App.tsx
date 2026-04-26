@@ -97,7 +97,9 @@ import {
 	repository as repositoryClient,
 	files,
 	system,
+	reviewComments,
 } from "../lib/desktop-client";
+import { countOpenCommentsInFiles } from "../features/git/commit-list-badge";
 import { UpdateBanner } from "../features/updater/UpdateBanner";
 import { logRendererShellEvent } from "../features/terminals/shell-event-logger";
 import { useTheme } from "../lib/useTheme";
@@ -501,6 +503,11 @@ export function App() {
 		}
 		return counts;
 	}, [reviewState.comments]);
+	const selectedCommitOpenCommentCount = useMemo(() => {
+		if (!activeSession?.selectedCommitSha || !commitDetailState.data) return 0;
+		const filePaths = commitDetailState.data.files.map((f) => f.path);
+		return countOpenCommentsInFiles(filePaths, openCommentCounts);
+	}, [activeSession?.selectedCommitSha, commitDetailState.data, openCommentCounts]);
 	const diffEditorRegistry = useMemo(() => createDiffEditorRegistry(), []);
 	const [addingDraft, setAddingDraft] = useState<NewCommentDraft | null>(null);
 	const [selectionDraft, setSelectionDraft] = useState<SelectionDraft>(null);
@@ -3214,6 +3221,7 @@ export function App() {
 															}
 															remoteStatus={remoteStatus}
 															onPush={handlePushBranch}
+					selectedCommitOpenCommentCount={selectedCommitOpenCommentCount}
 														/>
 													</>
 												) : activeSession?.reviewMode === "files" ? (

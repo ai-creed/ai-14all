@@ -20,6 +20,7 @@ type Props = {
 	onSelectCommitFile: (relativePath: string) => void;
 	remoteStatus?: RemoteStatus | null;
 	onPush?: (force: boolean) => Promise<void>;
+	selectedCommitOpenCommentCount?: number;
 };
 
 export function CommitList({
@@ -33,6 +34,7 @@ export function CommitList({
 	onSelectCommitFile,
 	remoteStatus,
 	onPush,
+	selectedCommitOpenCommentCount,
 }: Props) {
 	const [previewState, setPreviewState] = useState<{
 		path: string;
@@ -116,6 +118,14 @@ export function CommitList({
 							</span>
 							<code className="shell-commit-list__sha">{row.shortSha}</code>
 							<span className="shell-commit-list__subject">{row.subject}</span>
+							{isSelected && selectedCommitOpenCommentCount && selectedCommitOpenCommentCount > 0 ? (
+								<span
+									className="shell-review-comment-badge"
+									aria-label={`${selectedCommitOpenCommentCount} open review comments on files in this commit`}
+								>
+									[{selectedCommitOpenCommentCount}]
+								</span>
+							) : null}
 						</button>
 						{showFiles && (
 							<div className="shell-commit-list__files">
