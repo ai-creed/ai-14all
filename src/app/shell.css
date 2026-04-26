@@ -2280,6 +2280,19 @@ select {
 }
 
 /* Reduced motion: disable all overlay/sheet animations */
+.shell-review-floating-add {
+	position: absolute;
+	right: 12px;
+	bottom: 12px;
+	padding: 6px 10px;
+	background: var(--shell-accent, #4a90e2);
+	color: white;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	z-index: 10;
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.shell-shortcuts-help__overlay,
 	.shell-shortcuts-help,

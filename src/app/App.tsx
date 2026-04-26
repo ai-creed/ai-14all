@@ -74,6 +74,15 @@ import { CommitList } from "../features/git/CommitList";
 import { CommitDiffStack } from "../features/git/CommitDiffStack";
 import { ReviewDrawer } from "../features/review/ReviewDrawer";
 import { useReviewDrawerAutoExpand } from "../features/review/use-review-drawer-auto-expand";
+import { useReviewComments } from "../features/review/useReviewComments";
+import { ReviewCommentSidebar, type NewCommentDraft } from "../features/review/ReviewCommentSidebar";
+import { createDiffEditorRegistry } from "../features/review/diff-editor-registry";
+import {
+	installAddAffordances,
+	scrollToLineRange,
+	type SelectionDraft,
+} from "../features/review/diff-editor-decorations";
+import { AgentInstallModal } from "../features/review/AgentInstallModal";
 import { buildWorktreeProcessSummary } from "../features/workspace/sidebar-shell-summary";
 import type {
 	GitCommitHistory,
@@ -478,6 +487,39 @@ export function App() {
 			workspaceState.processSessionsById[processId]?.terminalSessionId;
 		return terminalSessionId ? [terminalSessionId] : [];
 	});
+
+	// ---------------------------------------------------------------------------
+	// Review comments / diff affordances
+	// ---------------------------------------------------------------------------
+	const reviewState = useReviewComments(activeWorktree?.id ?? null);
+	const diffEditorRegistry = useMemo(() => createDiffEditorRegistry(), []);
+	const [addingDraft, setAddingDraft] = useState<NewCommentDraft | null>(null);
+	const [selectionDraft, setSelectionDraft] = useState<SelectionDraft>(null);
+	const [installModalOpen, setInstallModalOpen] = useState(false);
+
+	const ensureFileFocused = useCallback(
+		(filePath: string) => {
+			if (!activeWorktree) return;
+			if (activeSession?.reviewMode === "commits") {
+				if (activeSession.selectedCommitFilePath !== filePath) {
+					dispatch({
+						type: "session/selectCommitFile",
+						worktreeId: activeWorktree.id,
+						relativePath: filePath,
+					});
+				}
+			} else {
+				if (activeSession?.selectedChangedFilePath !== filePath) {
+					dispatch({
+						type: "session/selectChangedFile",
+						worktreeId: activeWorktree.id,
+						relativePath: filePath,
+					});
+				}
+			}
+		},
+		[activeWorktree, activeSession, dispatch],
+	);
 
 	const openEditorForFile = useCallback(
 		async (relativePath: string) => {
@@ -3078,7 +3120,7 @@ export function App() {
 									className="shell-review-grid"
 									data-testid="review-grid"
 									style={{
-										gridTemplateColumns: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
+										gridTemplateColumns: `${reviewRailWidth}px 8px minmax(0, 1fr) 8px ${activeSession?.reviewSidebarWidth ?? 280}px`,
 									}}
 								>
 									<section
@@ -3262,6 +3304,21 @@ export function App() {
 												detail={commitDetailState.data}
 												focusedPath={activeSession.selectedCommitFilePath}
 												resolvedTheme={resolvedTheme}
+												onEditorMount={(filePath, editor) => {
+													diffEditorRegistry.register(filePath, editor);
+													const dispose = installAddAffordances(editor, {
+														filePath,
+														onEnsureFileFocused: ensureFileFocused,
+														onAddSingleLine: ({ filePath, line, snippet }) =>
+															setAddingDraft({ filePath, startLine: line, endLine: line, snippet }),
+														onSelectionChange: (draft) => setSelectionDraft(draft),
+													});
+													editor.onDidDispose(() => {
+														dispose();
+														diffEditorRegistry.unregister(filePath);
+													});
+												}}
+												onEditorUnmount={(filePath) => diffEditorRegistry.unregister(filePath)}
 											/>
 										) : activeSession?.reviewMode === "files" &&
 										  activeSession.selectedFilePath ? (
@@ -3279,13 +3336,86 @@ export function App() {
 												originalContent={diffState.data.originalContent}
 												modifiedContent={diffState.data.modifiedContent}
 												resolvedTheme={resolvedTheme}
+												onMount={(filePath, editor) => {
+													diffEditorRegistry.register(filePath, editor);
+													const dispose = installAddAffordances(editor, {
+														filePath,
+														onEnsureFileFocused: ensureFileFocused,
+														onAddSingleLine: ({ filePath, line, snippet }) =>
+															setAddingDraft({ filePath, startLine: line, endLine: line, snippet }),
+														onSelectionChange: (draft) => setSelectionDraft(draft),
+													});
+													editor.onDidDispose(() => {
+														dispose();
+														diffEditorRegistry.unregister(filePath);
+													});
+												}}
 											/>
 										) : (
 											<p className="shell-empty-state">
 												Select a file or changed file to inspect it.
 											</p>
 										)}
+										{selectionDraft && (
+											<button
+												type="button"
+												className="shell-review-floating-add"
+												onClick={() => {
+													ensureFileFocused(selectionDraft.filePath);
+													setAddingDraft({
+														filePath: selectionDraft.filePath,
+														startLine: selectionDraft.startLine,
+														endLine: selectionDraft.endLine,
+														snippet: selectionDraft.snippet,
+													});
+													setSelectionDraft(null);
+												}}
+											>
+												+ Add comment for L{selectionDraft.startLine}–{selectionDraft.endLine}
+											</button>
+										)}
 									</section>
+
+									{(() => {
+										const currentFilePath =
+											activeSession?.reviewMode === "commits"
+												? (activeSession.selectedCommitFilePath ?? null)
+												: (activeSession?.selectedChangedFilePath ?? null);
+										return currentFilePath ? (
+											<ReviewCommentSidebar
+												filePath={currentFilePath}
+												comments={reviewState.comments}
+												addingForFile={addingDraft}
+												onScrollTo={(range) => {
+													const editor = diffEditorRegistry.get(currentFilePath);
+													if (editor) scrollToLineRange(editor, range);
+												}}
+												onToggleAddressed={async (commentId) => {
+													const c = reviewState.comments.find((c) => c.id === commentId);
+													if (!c) return;
+													if (c.status === "open") await reviewState.markAddressed(commentId);
+													else await reviewState.reopen(commentId);
+												}}
+												onDelete={(commentId) => reviewState.remove(commentId)}
+												onSubmitNew={async (draft, body) => {
+													await reviewState.create({
+														filePath: draft.filePath,
+														startLine: draft.startLine,
+														endLine: draft.endLine,
+														snippet: draft.snippet,
+														body,
+														source: activeSession?.reviewMode === "commits" ? "commit" : "working-tree",
+														commitSha:
+															activeSession?.reviewMode === "commits"
+																? (activeSession as any).selectedCommitSha ?? null
+																: null,
+													});
+													setAddingDraft(null);
+												}}
+												onCancelNew={() => setAddingDraft(null)}
+											/>
+										) : null;
+									})()}
 								</div>
 							</Tabs.Root>
 						</ReviewDrawer>
@@ -3371,6 +3501,7 @@ export function App() {
 				}}
 				onConfirm={handleDiscardChange}
 			/>
+			<AgentInstallModal open={installModalOpen} onClose={() => setInstallModalOpen(false)} />
 		</main>
 	);
 }

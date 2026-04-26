@@ -119,6 +119,15 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		onUpdateAvailable: vi.fn(() => vi.fn()),
 		openExternal: vi.fn(() => Promise.resolve()),
 	},
+	reviewComments: {
+		list: vi.fn().mockResolvedValue({ comments: [] }),
+		create: vi.fn().mockResolvedValue({}),
+		markAddressed: vi.fn().mockResolvedValue({}),
+		reopen: vi.fn().mockResolvedValue({}),
+		delete: vi.fn().mockResolvedValue({}),
+		rebaseWorktreeIds: vi.fn().mockResolvedValue({}),
+		onChanged: vi.fn(() => vi.fn()),
+	},
 }));
 
 import { App } from "../../../src/app/App";
@@ -388,7 +397,7 @@ describe("App — Phase 6 default shell", () => {
 		const resizeHandle = screen.getByTestId("review-rail-resize-handle");
 
 		expect(reviewGrid).toHaveStyle({
-			gridTemplateColumns: "320px 8px minmax(0, 1fr)",
+			gridTemplateColumns: "320px 8px minmax(0, 1fr) 8px 280px",
 		});
 
 		fireEvent.mouseDown(resizeHandle, { clientX: 320 });
@@ -397,7 +406,7 @@ describe("App — Phase 6 default shell", () => {
 
 		await waitFor(() => {
 			expect(reviewGrid).toHaveStyle({
-				gridTemplateColumns: "420px 8px minmax(0, 1fr)",
+				gridTemplateColumns: "420px 8px minmax(0, 1fr) 8px 280px",
 			});
 		});
 

@@ -91,6 +91,15 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		onUpdateAvailable: vi.fn(() => vi.fn()),
 		openExternal: vi.fn(() => Promise.resolve()),
 	},
+	reviewComments: {
+		list: vi.fn().mockResolvedValue({ comments: [] }),
+		create: vi.fn().mockResolvedValue({}),
+		markAddressed: vi.fn().mockResolvedValue({}),
+		reopen: vi.fn().mockResolvedValue({}),
+		delete: vi.fn().mockResolvedValue({}),
+		rebaseWorktreeIds: vi.fn().mockResolvedValue({}),
+		onChanged: vi.fn(() => vi.fn()),
+	},
 }));
 
 import { App } from "../../../src/app/App";
