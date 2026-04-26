@@ -124,3 +124,7 @@ export const agentInstall: Ai14AllDesktopApi["agentInstall"] = {
 	install: (ids) => getDesktopClient().agentInstall.install(ids),
 	uninstall: (ids) => getDesktopClient().agentInstall.uninstall(ids),
 };
+
+export const events: Ai14AllDesktopApi["events"] = {
+	onOpenInstallModal: (handler) => getDesktopClient().events.onOpenInstallModal(handler),
+};

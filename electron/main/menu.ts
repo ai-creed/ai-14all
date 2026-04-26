@@ -17,6 +17,18 @@ export function buildApplicationMenu(mainWindow: BrowserWindow): Menu {
 					mainWindow.webContents.send("workspace/openPicker");
 				},
 			},
+			{
+				label: "Install agent integration…",
+				click: () => {
+					if (
+						mainWindow.isDestroyed() ||
+						mainWindow.webContents.isDestroyed()
+					) {
+						return;
+					}
+					mainWindow.webContents.send("review:openInstallModal");
+				},
+			},
 		],
 	};
 

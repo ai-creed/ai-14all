@@ -261,6 +261,11 @@ const api: Ai14AllDesktopApi = {
 			return ipcRenderer.invoke(AGENT_INSTALL_UNINSTALL, { providerIds: ids });
 		},
 	},
+	events: {
+		onOpenInstallModal(handler: () => void) {
+			return onChannel("review:openInstallModal", handler);
+		},
+	},
 };
 
 contextBridge.exposeInMainWorld("ai14all", api);

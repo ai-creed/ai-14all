@@ -344,4 +344,7 @@ export type Ai14AllDesktopApi = {
 			results: Array<{ id: "claude-code" | "codex"; ok: boolean; message: string | null }>;
 		}>;
 	};
+	events: {
+		onOpenInstallModal(handler: () => void): () => void;
+	};
 };

@@ -99,6 +99,7 @@ import {
 	files,
 	system,
 	reviewComments,
+	events,
 } from "../lib/desktop-client";
 import { countOpenCommentsInFiles } from "../features/git/commit-list-badge";
 import { UpdateBanner } from "../features/updater/UpdateBanner";
@@ -513,6 +514,11 @@ export function App() {
 	const [addingDraft, setAddingDraft] = useState<NewCommentDraft | null>(null);
 	const [selectionDraft, setSelectionDraft] = useState<SelectionDraft>(null);
 	const [installModalOpen, setInstallModalOpen] = useState(false);
+
+	useEffect(() => {
+		const off = events.onOpenInstallModal(() => setInstallModalOpen(true));
+		return off;
+	}, []);
 
 	const ensureFileFocused = useCallback(
 		(filePath: string) => {
