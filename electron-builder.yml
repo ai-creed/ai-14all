@@ -6,6 +6,8 @@ directories:
 files:
   - out/**
   - package.json
+extraResources:
+  - assets/agent-skills/**/*
 asarUnpack:
   - node_modules/node-pty/**
 mac:
