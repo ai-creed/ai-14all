@@ -184,7 +184,7 @@ output: {
 }
 ```
 
-`worktreePath` is resolved to an absolute, real path (symlinks followed) before lookup; matched against worktree absolute paths known to the app. Returns `{ reviews: [] }` if path is unknown or has no open comments. Never throws on unknown worktree.
+`worktreePath` is matched to an internal worktree id by a path-to-worktree-id resolver injected into `ReviewMcpServer` at construction time. The resolver is built from `WorkspaceRegistryService`'s known worktrees: it `realpath`'s every known worktree path once at boot (and on registry change events), and on each tool call it `realpath`'s the incoming `worktreePath` and looks the result up in that map. This avoids the failure mode where the agent's cwd is reachable through a symlink while the comment's `worktreeId` was recorded against the canonical path (or vice versa). Returns `{ reviews: [] }` if the path resolves to no known worktree, or if it resolves to one that has no open comments. Never throws on unknown worktree.
 
 **Tool — `mark_review_addressed`**
 
@@ -257,16 +257,16 @@ This spec extends `DiffViewer` and `CommitDiffStack` with the following contract
 ### Cross-file visibility
 
 - `ChangesList` (changes mode): a small badge `[N]` next to each file name when N open comments exist for that file.
-- `CommitList` (commits mode): a small badge `[N]` next to each commit when N open comments exist for files touched by that commit (derived from the commit's file list intersected with `comments[].filePath`).
+- `CommitList` (commits mode): a small badge `[N]` next to **the currently selected commit only**, derived from `activeCommitDetail.files` intersected with `comments[].filePath`. v1 does not surface badges on non-selected commits — `GitCommitListEntry` does not carry file lists today, and adding a per-commit detail cache or extending the porcelain query is out of scope for this feature. Per-commit badges across the list can land in v2 if the file lists become cheaply available.
 
 ## Install
 
 A new "Install agent integration" item appears in the app settings menu and opens a modal:
 
 - **Header:** "Install ai-14all-fix-review skill + MCP server"
-- **Per-provider rows** (each greyed if the provider's CLI is not on `PATH` *and* its config root is not detected on disk):
-  - ☐ Claude Code — writes `~/.claude/skills/ai-14all-fix-review/SKILL.md` and registers the MCP server using the official CLI (preferred): `claude mcp add --transport http --scope user ai-14all <url>`. If the CLI is unavailable, falls back to a direct merge into the user-scoped Claude config file with a "best-effort, please verify" notice.
-  - ☐ Codex — writes `~/.codex/skills/ai-14all-fix-review/SKILL.md` and registers the MCP server using the official CLI (preferred), e.g. `codex mcp add --url <url> ai-14all`. If the CLI is unavailable, falls back to a direct merge into `~/.codex/config.toml` with a "best-effort, please verify" notice.
+- **Per-provider rows** (each greyed unless the provider's CLI is on `PATH`; config-root detection is informational only):
+  - ☐ Claude Code — writes `~/.claude/skills/ai-14all-fix-review/SKILL.md` and registers the MCP server via the official CLI: `claude mcp add --transport http --scope user ai-14all <url>`. If the CLI is not on `PATH`, the row is disabled and the modal points the user to "Other agents" for the manual-setup snippet.
+  - ☐ Codex — writes `~/.codex/skills/ai-14all-fix-review/SKILL.md` and registers the MCP server via the official CLI, e.g. `codex mcp add --url <url> ai-14all`. CLI absence → disabled row + manual-setup snippet (same as Claude).
 - **Other agents** (expandable section): copy-paste-ready snippets — the SKILL.md content and a generic MCP server config example — for users to wire up by hand.
 - **Install button** (disabled until at least one provider checked).
 - **Per-provider status row** after install: `Installed ✓` / `Failed: <reason>` / `Update available` (when shipped asset version is newer than installed).
@@ -278,18 +278,18 @@ A separate "Reinstall agent integration" entry overwrites/updates installed asse
 The exact on-disk JSON / TOML shapes for each provider are not load-bearing for this design because the installer drives the official CLI when available. The notes below capture what the agent guide reported at brainstorm time; treat each item as "verify, then either use the CLI invocation or — only if no CLI exists — write the file directly."
 
 **Claude Code:**
-- Preferred install action: `claude mcp add --transport http --scope user ai-14all <url>`
-- Preferred verification / "already installed" detection: `claude mcp get ai-14all`
-- Preferred uninstall: `claude mcp remove ai-14all`
-- Direct-edit fallback (only if `claude` CLI is absent on PATH): the user-scoped Claude config file (per agent-guide report: `~/.claude.json`, key `mcpServers.ai-14all`). The on-disk JSON shape **must be confirmed against the running CLI** before shipping the fallback path; the installer surfaces a "best-effort, please verify" notice in this case.
+- Install action: `claude mcp add --transport http --scope user ai-14all <url>`
+- Verification / "already installed" detection: `claude mcp get ai-14all`
+- Uninstall: `claude mcp remove ai-14all`
+- CLI absent → row disabled; user follows the manual-setup snippet from the "Other agents" section of the install modal. v1 explicitly does not write to the user-scoped Claude config file directly.
 - Skill folder: `~/.claude/skills/ai-14all-fix-review/SKILL.md` with YAML frontmatter (`name`, `description` required).
 - Reload: agent guide reports hot-reload inside an existing CC session for both MCP entries and skill changes. Verify and document this in the install modal so the user knows whether to restart.
 - Backups: Claude Code is reported to keep timestamped backups of its config (5 retained). Installer does not manage these.
 
 **Codex:**
-- Preferred install action: `codex mcp add --url <url> ai-14all` (verify exact flag spelling and ordering against current `codex --help` before shipping).
-- Preferred verification / uninstall: corresponding `codex mcp` subcommands (verify exact form).
-- Direct-edit fallback (only if `codex` CLI is absent on PATH): `~/.codex/config.toml`, table `[mcp_servers.ai-14all]`. The on-disk TOML shape and HTTP-transport support **must be confirmed against the running CLI** before shipping the fallback path; the installer surfaces a "best-effort, please verify" notice in this case.
+- Install action: `codex mcp add --url <url> ai-14all` (verify exact flag spelling and ordering against current `codex --help` before shipping).
+- Verification / uninstall: corresponding `codex mcp` subcommands (verify exact form).
+- CLI absent → row disabled; user follows the manual-setup snippet from "Other agents". v1 explicitly does not write to `~/.codex/config.toml` directly.
 - Skill folder: `~/.codex/skills/ai-14all-fix-review/SKILL.md`. (Codex's older "custom prompts" mechanism is reported deprecated in favour of skills.)
 - Reload: agent guide reports Codex requires a restart after MCP config changes. Surface this in the install-modal status row so the user knows to restart their Codex session.
 
@@ -374,7 +374,5 @@ JSON / TOML config edits use the standard write-temp-then-rename pattern. Read e
 
 - Confirm `claude mcp add` flag spelling and behavior on the currently shipped Claude Code CLI (`--transport http`, `--scope user`, server-name + URL ordering). Use `claude mcp add --help`. Same for `claude mcp get` and `claude mcp remove`.
 - Confirm `codex mcp add` flag spelling and behavior on the currently shipped Codex CLI; equivalent for verification and removal subcommands.
-- Confirm exact JSON shape Claude Code expects on disk for an HTTP MCP server entry (only needed for the CLI-absent fallback). Agent guide reported `{ "command": "http", "url": "..." }`; verify before shipping fallback.
-- Confirm Codex's exact TOML schema for HTTP MCP servers on disk (only needed for the CLI-absent fallback).
 - Confirm Monaco's hover / glyph-margin event API supports a per-line `+` decoration cleanly inside `DiffEditor` (its API differs from `Editor`); fall back to a hover-to-show overlay button if needed.
 - Confirm the separate `ReviewCommentStore` path is included in app diagnostics / backup guidance where appropriate; no workspace-state migration is expected for this feature.
