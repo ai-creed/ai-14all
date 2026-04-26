@@ -11,6 +11,14 @@ import { createShellEventLogService } from "../../services/diagnostics/shell-eve
 import { startUpdateNotifier } from "./services/updateNotifier.js";
 import { ReviewCommentStore } from "../../services/review/review-comment-store.js";
 import { ReviewCommentService } from "../../services/review/review-comment-service.js";
+import { WorktreeService } from "../../services/worktrees/worktree-service.js";
+import {
+	loadOrPickPort,
+	writeLivenessFile,
+	deleteLivenessFile,
+} from "../../services/review/mcp-port-config.js";
+import { ReviewMcpServer } from "../../services/review/review-mcp-server.js";
+import { createWorktreePathResolver } from "../../services/review/worktree-path-resolver.js";
 
 app.setName("ai-14all");
 
@@ -49,11 +57,73 @@ app.whenReady().then(async () => {
 	);
 	const reviewCommentService = new ReviewCommentService(reviewCommentStore);
 	await reviewCommentService.init();
+
+	const worktreeService = new WorktreeService();
+
+	const portConfigPath = join(reviewUserDir, "mcp-config.json");
+	const livenessPath = join(reviewUserDir, "mcp-port");
+
+	const buildResolverEntries = async () => {
+		const entries: { id: string; path: string }[] = [];
+		for (const repo of workspaceRegistry.listRepositories()) {
+			try {
+				const worktrees = await worktreeService.listWorktrees(repo);
+				for (const wt of worktrees) entries.push({ id: wt.id, path: wt.path });
+			} catch (err) {
+				console.warn(
+					"[review-mcp] could not list worktrees for repo",
+					repo.rootPath,
+					err,
+				);
+			}
+		}
+		return entries;
+	};
+
+	const worktreePathResolver = await createWorktreePathResolver(buildResolverEntries);
+
+	const offRegistry = workspaceRegistry.onChange(() => {
+		void worktreePathResolver.refresh();
+	});
+
+	let mcpServer: ReviewMcpServer | null = null;
+	let mcpPort: number | null = null;
+	let mcpBindError: string | null = null;
+
+	try {
+		const desiredPort = await loadOrPickPort(portConfigPath, {
+			rangeStart: 51000,
+			rangeEnd: 51999,
+		});
+		mcpServer = new ReviewMcpServer(reviewCommentService, worktreePathResolver, {
+			port: desiredPort,
+			host: "127.0.0.1",
+		});
+		mcpPort = await mcpServer.start();
+		await writeLivenessFile(livenessPath, mcpPort);
+	} catch (err) {
+		mcpBindError = (err as Error).message;
+		console.error("[review-mcp] bind failure", err);
+	}
+
+	const reviewMcpStatus = {
+		get port() { return mcpPort; },
+		get bindError() { return mcpBindError; },
+		getUrl(): string | null {
+			return mcpPort === null ? null : `http://127.0.0.1:${mcpPort}/mcp`;
+		},
+	};
+
 	const { dispose } = registerIpcHandlers(mainWindow, {
 		workspacePersistence,
 		workspaceRegistry,
+		worktreeService,
 		shellEventLog,
-		review: { service: reviewCommentService },
+		review: {
+			service: reviewCommentService,
+			mcpStatus: reviewMcpStatus,
+			worktreePathResolver,
+		},
 	});
 
 	if (process.env.ELECTRON_RENDERER_URL) {
@@ -63,6 +133,12 @@ app.whenReady().then(async () => {
 			fileURLToPath(new URL("../renderer/index.html", import.meta.url)),
 		);
 	}
+	app.on("before-quit", () => {
+		offRegistry();
+		void deleteLivenessFile(livenessPath);
+		void mcpServer?.stop().catch(() => {});
+	});
+
 	registerAppLifecycle({
 		onMainWindowClosed: (listener) => mainWindow.on("closed", listener),
 		onWillQuit: (listener) => app.on("will-quit", listener),

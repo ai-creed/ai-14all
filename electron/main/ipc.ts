@@ -38,6 +38,7 @@ import type { WorkspacePersistenceService } from "../../services/workspace/works
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 import type { ShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
 import type { ReviewCommentService } from "../../services/review/review-comment-service.js";
+import type { WorktreePathResolver } from "../../services/review/worktree-path-resolver.js";
 import {
 	REVIEW_LIST,
 	REVIEW_CREATE,
@@ -77,19 +78,28 @@ export function registerIpcHandlers(
 	{
 		workspacePersistence,
 		workspaceRegistry,
+		worktreeService,
 		shellEventLog,
 		review,
 	}: {
 		workspacePersistence: WorkspacePersistenceService;
 		workspaceRegistry: WorkspaceRegistryService;
+		worktreeService: WorktreeService;
 		shellEventLog?: ShellEventLogService;
-		review: { service: ReviewCommentService };
+		review: {
+			service: ReviewCommentService;
+			mcpStatus: {
+				readonly port: number | null;
+				readonly bindError: string | null;
+				getUrl: () => string | null;
+			};
+			worktreePathResolver: WorktreePathResolver;
+		};
 	},
 ): {
 	dispose: () => void;
 } {
 	const reviewCommentService = review.service;
-	const worktreeService = new WorktreeService();
 	const fileService = new FileService();
 	const gitService = new GitService();
 
@@ -185,10 +195,12 @@ export function registerIpcHandlers(
 
 	ipcMain.handle("repository:createWorktree", async (_event, raw: unknown) => {
 		const { workspaceId, name } = CreateWorktreeSchema.parse(raw);
-		return worktreeService.createWorktree(
+		const result = await worktreeService.createWorktree(
 			workspaceRegistry.get(workspaceId),
 			name,
 		);
+		await review.worktreePathResolver.refresh();
+		return result;
 	});
 
 	ipcMain.handle(
@@ -210,6 +222,7 @@ export function registerIpcHandlers(
 			worktreeId,
 		);
 		await reviewCommentService.removeByWorktree(worktreeId);
+		await review.worktreePathResolver.refresh();
 	});
 
 	// --- Terminals ---
