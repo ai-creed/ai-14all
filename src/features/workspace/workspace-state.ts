@@ -36,6 +36,11 @@ export type WorkspaceAction =
 			reviewMode: ReviewMode;
 	  }
 	| { type: "session/setReviewDrawerOpen"; worktreeId: string; open: boolean }
+	| {
+			type: "session/setReviewSidebarWidth";
+			worktreeId: string;
+			width: number;
+	  }
 	| { type: "session/selectFile"; worktreeId: string; relativePath: string }
 	| {
 			type: "session/selectChangedFile";
@@ -170,6 +175,7 @@ function createSession(worktree: Worktree): WorktreeSession {
 		terminalLayoutMode: "single",
 		splitLeftProcessId: null,
 		splitRightProcessId: null,
+		reviewSidebarWidth: 280,
 		treeExpandedPaths: [],
 	};
 }
@@ -276,6 +282,7 @@ function restorePersistedSession(
 		terminalLayoutMode: snapshot.terminalLayoutMode,
 		splitLeftProcessId: snapshot.splitLeftProcessId,
 		splitRightProcessId: snapshot.splitRightProcessId,
+		reviewSidebarWidth: snapshot.reviewSidebarWidth ?? 280,
 	};
 	const sanitizedSplit = sanitizeSplitAssignments(nextSession);
 
@@ -786,6 +793,8 @@ export function workspaceReducer(
 		nextSession = { ...session, reviewMode: action.reviewMode };
 	} else if (action.type === "session/setReviewDrawerOpen") {
 		nextSession = { ...session, reviewDrawerOpen: action.open };
+	} else if (action.type === "session/setReviewSidebarWidth") {
+		nextSession = { ...session, reviewSidebarWidth: action.width };
 	} else if (action.type === "session/selectFile") {
 		nextSession = {
 			...session,

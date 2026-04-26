@@ -28,6 +28,7 @@ export type WorktreeSession = {
 	terminalLayoutMode: TerminalLayoutMode;
 	splitLeftProcessId: string | null;
 	splitRightProcessId: string | null;
+	reviewSidebarWidth: number;
 	/**
 	 * Per-worktree expand state for the Files tree. Held in memory only and
 	 * intentionally omitted from `PersistedWorktreeSessionSchema` so that

@@ -109,6 +109,7 @@ describe("buildWorkspaceSnapshot", () => {
 					terminalLayoutMode: "single",
 					splitLeftProcessId: null,
 					splitRightProcessId: null,
+					reviewSidebarWidth: 280,
 					nextAdHocNumber: 2,
 					processSessions: [
 						{
@@ -479,6 +480,7 @@ describe("splitPendingRestores", () => {
 					terminalLayoutMode: "single" as const,
 					splitLeftProcessId: null,
 					splitRightProcessId: null,
+					reviewSidebarWidth: 280,
 					activeProcessSessionId: null,
 					nextAdHocNumber: 1,
 					processSessions: [],
@@ -497,6 +499,7 @@ describe("splitPendingRestores", () => {
 					terminalLayoutMode: "single" as const,
 					splitLeftProcessId: null,
 					splitRightProcessId: null,
+					reviewSidebarWidth: 280,
 					activeProcessSessionId: "process-2",
 					nextAdHocNumber: 3,
 					processSessions: [],
@@ -531,6 +534,7 @@ describe("splitPendingRestores", () => {
 					terminalLayoutMode: "single" as const,
 					splitLeftProcessId: null,
 					splitRightProcessId: null,
+					reviewSidebarWidth: 280,
 					activeProcessSessionId: null,
 					nextAdHocNumber: 1,
 					processSessions: [],
@@ -579,6 +583,7 @@ describe("rebaseSnapshotPaths", () => {
 					terminalLayoutMode: "single" as const,
 					splitLeftProcessId: null,
 					splitRightProcessId: null,
+					reviewSidebarWidth: 280,
 					activeProcessSessionId: null,
 					nextAdHocNumber: 1,
 					processSessions: [],
@@ -597,6 +602,7 @@ describe("rebaseSnapshotPaths", () => {
 					terminalLayoutMode: "single" as const,
 					splitLeftProcessId: null,
 					splitRightProcessId: null,
+					reviewSidebarWidth: 280,
 					activeProcessSessionId: null,
 					nextAdHocNumber: 1,
 					processSessions: [],
@@ -636,6 +642,7 @@ describe("rebaseSnapshotPaths", () => {
 					terminalLayoutMode: "single" as const,
 					splitLeftProcessId: null,
 					splitRightProcessId: null,
+					reviewSidebarWidth: 280,
 					activeProcessSessionId: null,
 					nextAdHocNumber: 1,
 					processSessions: [],
@@ -741,6 +748,7 @@ function makeSession(
 		terminalLayoutMode: "single",
 		splitLeftProcessId: null,
 		splitRightProcessId: null,
+		reviewSidebarWidth: 280,
 		activeProcessSessionId: null,
 		nextAdHocNumber: 1,
 		processSessions: [],
@@ -1011,5 +1019,59 @@ describe("reviewDrawerOpen persistence", () => {
 			processSessions: [],
 		});
 		expect(parsed.reviewDrawerOpen).toBe(false);
+	});
+});
+
+describe("reviewSidebarWidth persistence", () => {
+	const worktrees = [
+		{
+			id: "main",
+			repositoryId: "repo-1",
+			branchName: "main",
+			path: "/repo",
+			label: "main",
+			isMain: true,
+		},
+	];
+
+	it("round-trips reviewSidebarWidth through the snapshot", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/setReviewSidebarWidth",
+			worktreeId: "main",
+			width: 360,
+		});
+
+		const snapshot = buildWorkspaceSnapshot("/repo", null, state);
+		expect(snapshot.worktreeSessions[0].reviewSidebarWidth).toBe(360);
+
+		const { selectedSession } = splitPendingRestores({
+			...snapshot,
+			selectedWorktreeId: "main",
+		});
+
+		let restored = createWorkspaceState(worktrees);
+		restored = workspaceReducer(restored, {
+			type: "session/restoreSnapshot",
+			workspaceId: "ws-1",
+			snapshot: selectedSession!,
+		});
+
+		expect(restored.sessionsByWorktreeId["main"].reviewSidebarWidth).toBe(360);
+	});
+
+	it("PersistedWorktreeSessionSchema defaults reviewSidebarWidth to 280 when absent", () => {
+		const parsed = PersistedWorktreeSessionSchema.parse({
+			worktreeId: "main",
+			note: "",
+			reviewMode: "files",
+			viewerMode: "file",
+			selectedFilePath: null,
+			selectedChangedFilePath: null,
+			activeProcessSessionId: null,
+			nextAdHocNumber: 1,
+			processSessions: [],
+		});
+		expect(parsed.reviewSidebarWidth).toBe(280);
 	});
 });

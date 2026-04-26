@@ -37,6 +37,7 @@ export const PersistedWorktreeSessionSchema = z.object({
 	terminalLayoutMode: z.enum(["single", "split"]).optional().default("single"),
 	splitLeftProcessId: z.string().nullable().optional().default(null),
 	splitRightProcessId: z.string().nullable().optional().default(null),
+	reviewSidebarWidth: z.number().int().min(120).max(800).optional().default(280),
 	nextAdHocNumber: z.number().int().min(1),
 	processSessions: z.array(PersistedProcessSessionSchema),
 });

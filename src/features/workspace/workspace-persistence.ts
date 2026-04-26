@@ -78,6 +78,7 @@ export function buildWorkspaceSnapshot(
 				terminalLayoutMode: session.terminalLayoutMode,
 				splitLeftProcessId: session.splitLeftProcessId,
 				splitRightProcessId: session.splitRightProcessId,
+				reviewSidebarWidth: session.reviewSidebarWidth,
 				nextAdHocNumber:
 					state.nextAdHocNumberByWorktreeId[session.worktreeId] ?? 1,
 				processSessions: session.processSessionIds

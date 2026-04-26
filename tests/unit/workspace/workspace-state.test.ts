@@ -916,6 +916,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 						terminalLayoutMode: "single" as const,
 						splitLeftProcessId: null,
 						splitRightProcessId: null,
+							reviewSidebarWidth: 280,
 						activeProcessSessionId: "process-1",
 						nextAdHocNumber: 2,
 						processSessions: [
@@ -966,6 +967,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 				terminalLayoutMode: "single" as const,
 				splitLeftProcessId: null,
 				splitRightProcessId: null,
+				reviewSidebarWidth: 280,
 				activeProcessSessionId: "process-2",
 				nextAdHocNumber: 4,
 				processSessions: [
@@ -1007,6 +1009,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 				terminalLayoutMode: "single" as const,
 				splitLeftProcessId: null,
 				splitRightProcessId: null,
+				reviewSidebarWidth: 280,
 				activeProcessSessionId: null,
 				nextAdHocNumber: 1,
 				processSessions: [],
@@ -1039,6 +1042,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 				terminalLayoutMode: "single" as const,
 				splitLeftProcessId: null,
 				splitRightProcessId: null,
+				reviewSidebarWidth: 280,
 				activeProcessSessionId: "orphan-id", // not in processSessions
 				nextAdHocNumber: 2,
 				processSessions: [
@@ -1253,6 +1257,7 @@ describe("restorePersistedSession reviewDrawerOpen hydration", () => {
 			terminalLayoutMode: "single" as const,
 			splitLeftProcessId: null,
 			splitRightProcessId: null,
+			reviewSidebarWidth: 280,
 			nextAdHocNumber: 1,
 			processSessions: [],
 		};
@@ -1291,6 +1296,7 @@ describe("restorePersistedSession reviewDrawerOpen hydration", () => {
 			terminalLayoutMode: "single" as const,
 			splitLeftProcessId: null,
 			splitRightProcessId: null,
+			reviewSidebarWidth: 280,
 			nextAdHocNumber: 1,
 			processSessions: [],
 		};
