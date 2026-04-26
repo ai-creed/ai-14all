@@ -1,6 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
+const fakeEditor = {
+	getModifiedEditor: vi.fn(() => ({
+		onMouseMove: vi.fn(),
+		onMouseDown: vi.fn(),
+		onDidChangeCursorSelection: vi.fn(),
+		deltaDecorations: vi.fn(),
+		revealLineInCenter: vi.fn(),
+	})),
+};
+
 vi.mock("@monaco-editor/react", () => ({
 	DiffEditor: (props: {
 		original: string;
@@ -8,17 +18,21 @@ vi.mock("@monaco-editor/react", () => ({
 		language?: string;
 		theme?: string;
 		options?: { fontSize?: number };
-	}) => (
-		<div
-			data-testid="diff-editor"
-			data-language={props.language}
-			data-theme={props.theme}
-			data-font-size={String(props.options?.fontSize ?? "")}
-		>
-			<span data-testid="diff-editor-original">{props.original}</span>
-			<span data-testid="diff-editor-modified">{props.modified}</span>
-		</div>
-	),
+		onMount?: (editor: typeof fakeEditor) => void;
+	}) => {
+		props.onMount?.(fakeEditor);
+		return (
+			<div
+				data-testid="diff-editor"
+				data-language={props.language}
+				data-theme={props.theme}
+				data-font-size={String(props.options?.fontSize ?? "")}
+			>
+				<span data-testid="diff-editor-original">{props.original}</span>
+				<span data-testid="diff-editor-modified">{props.modified}</span>
+			</div>
+		);
+	},
 }));
 
 import { DiffViewer } from "../../../src/features/viewer/DiffViewer";
@@ -64,6 +78,24 @@ describe("DiffViewer", () => {
 		expect(screen.getByTestId("diff-editor")).toHaveAttribute(
 			"data-font-size",
 			"12",
+		);
+	});
+
+	it("calls onMount with filePath and editor instance when DiffEditor mounts", async () => {
+		const onMount = vi.fn();
+		render(
+			<DiffViewer
+				path="src/foo.ts"
+				content=""
+				originalContent="a"
+				modifiedContent="b"
+				resolvedTheme="light"
+				onMount={onMount}
+			/>,
+		);
+		expect(onMount).toHaveBeenCalledWith(
+			"src/foo.ts",
+			expect.objectContaining({ getModifiedEditor: expect.any(Function) }),
 		);
 	});
 });

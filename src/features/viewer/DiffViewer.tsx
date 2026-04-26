@@ -1,4 +1,5 @@
 import { DiffEditor } from "@monaco-editor/react";
+import type { editor as MonacoEditor } from "monaco-editor";
 import type { ResolvedTheme } from "../../lib/useTheme";
 
 const EXTENSION_TO_LANGUAGE: Record<string, string> = {
@@ -27,6 +28,7 @@ type Props = {
 	originalContent: string;
 	modifiedContent: string;
 	resolvedTheme: ResolvedTheme;
+	onMount?: (filePath: string, editor: MonacoEditor.IStandaloneDiffEditor) => void;
 };
 
 function languageFromPath(path: string): string | undefined {
@@ -39,6 +41,7 @@ export function DiffViewer({
 	originalContent,
 	modifiedContent,
 	resolvedTheme,
+	onMount,
 }: Props) {
 	return (
 		<div className="shell-viewer">
@@ -58,6 +61,9 @@ export function DiffViewer({
 					renderSideBySide: true,
 					minimap: { enabled: false },
 					scrollBeyondLastLine: false,
+				}}
+				onMount={(editor) => {
+					onMount?.(path, editor);
 				}}
 			/>
 		</div>
