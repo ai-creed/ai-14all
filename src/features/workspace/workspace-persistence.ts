@@ -52,6 +52,29 @@ export function rebaseSnapshotPaths(
 	};
 }
 
+export function buildWorktreeIdRebaseMapping(
+	originalSnapshot: WorkspaceSnapshot,
+	oldPrefix: string,
+	newPrefix: string,
+): Record<string, string> {
+	if (oldPrefix === newPrefix) return {};
+	const map: Record<string, string> = {};
+	const consider = (id: string | null) => {
+		if (!id) return;
+		if (map[id]) return;
+		let next: string | null = null;
+		if (id === oldPrefix) next = newPrefix;
+		else if (id.startsWith(oldPrefix + "/"))
+			next = newPrefix + id.slice(oldPrefix.length);
+		if (next && next !== id) map[id] = next;
+	};
+	consider(originalSnapshot.selectedWorktreeId);
+	for (const s of originalSnapshot.worktreeSessions) {
+		consider(s.worktreeId);
+	}
+	return map;
+}
+
 export function buildWorkspaceSnapshot(
 	repositoryPath: string,
 	repoId: string | null,

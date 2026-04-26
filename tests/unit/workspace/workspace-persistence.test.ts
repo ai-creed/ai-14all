@@ -3,6 +3,7 @@ import { DEFAULT_COMMAND_PRESETS } from "../../../shared/models/command-preset";
 import {
 	buildSavedWorkspace,
 	buildWorkspaceSnapshot,
+	buildWorktreeIdRebaseMapping,
 	findSavedWorkspaceMatch,
 	rebaseSnapshotPaths,
 	reconcileSnapshotToWorktrees,
@@ -1073,5 +1074,47 @@ describe("reviewSidebarWidth persistence", () => {
 			processSessions: [],
 		});
 		expect(parsed.reviewSidebarWidth).toBe(280);
+	});
+});
+
+function makeSnapshot(
+	sessions: { worktreeId: string }[],
+): WorkspaceSnapshot {
+	return {
+		repositoryPath: "/repo",
+		repoId: null,
+		selectedWorktreeId: sessions[0]?.worktreeId ?? null,
+		commandPresets: [],
+		worktreeSessions: sessions.map((s) => makeSession(s.worktreeId)),
+	};
+}
+
+describe("buildWorktreeIdRebaseMapping", () => {
+	it("derives from prefixes regardless of session ordering", () => {
+		const snap = makeSnapshot([
+			{ worktreeId: "/old/keep-me" },
+			{ worktreeId: "/old/a" },
+		]);
+		expect(
+			buildWorktreeIdRebaseMapping(snap, "/old", "/new"),
+		).toEqual({
+			"/old/keep-me": "/new/keep-me",
+			"/old/a": "/new/a",
+		});
+	});
+
+	it("returns empty when prefixes match", () => {
+		const snap = makeSnapshot([{ worktreeId: "/x" }]);
+		expect(buildWorktreeIdRebaseMapping(snap, "/x", "/x")).toEqual({});
+	});
+
+	it("ignores ids that don't share the prefix", () => {
+		const snap = makeSnapshot([
+			{ worktreeId: "/old/a" },
+			{ worktreeId: "/unrelated/b" },
+		]);
+		expect(buildWorktreeIdRebaseMapping(snap, "/old", "/new")).toEqual({
+			"/old/a": "/new/a",
+		});
 	});
 });

@@ -27,6 +27,7 @@ import type {
 import type { UpdateInfo } from "../../shared/contracts/commands";
 import {
 	buildSavedWorkspace,
+	buildWorktreeIdRebaseMapping,
 	rebaseSnapshotPaths,
 	reconcileSnapshotToWorktrees,
 	shouldReattachSnapshot,
@@ -834,6 +835,18 @@ export function App() {
 					workspaceId: openedId,
 				},
 			);
+			const rebaseMapping = buildWorktreeIdRebaseMapping(
+				snapshot,
+				snapshot.repositoryPath,
+				repository.rootPath,
+			);
+			if (Object.keys(rebaseMapping).length > 0) {
+				try {
+					await reviewComments.rebaseWorktreeIds(rebaseMapping);
+				} catch (err) {
+					console.warn("[review] rebase IPC failed", err);
+				}
+			}
 		}
 
 		dispatchAppWorkspaces({
@@ -936,6 +949,19 @@ export function App() {
 				repositoryPath: newRepo.rootPath,
 				repoId: newRepo.repoId,
 			};
+
+			const rebaseMapping = buildWorktreeIdRebaseMapping(
+				originalSnapshot,
+				originalSnapshot.repositoryPath,
+				newRepo.rootPath,
+			);
+			if (Object.keys(rebaseMapping).length > 0) {
+				try {
+					await reviewComments.rebaseWorktreeIds(rebaseMapping);
+				} catch (err) {
+					console.warn("[review] rebase IPC failed", err);
+				}
+			}
 
 			const initialState = createWorkspaceState(newWorktrees);
 			const stateWithSnapshot = workspaceReducer(initialState, {
