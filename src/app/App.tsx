@@ -492,6 +492,15 @@ export function App() {
 	// Review comments / diff affordances
 	// ---------------------------------------------------------------------------
 	const reviewState = useReviewComments(activeWorktree?.id ?? null);
+	const openCommentCounts = useMemo(() => {
+		const counts: Record<string, number> = {};
+		for (const c of reviewState.comments) {
+			if (c.status === "open") {
+				counts[c.filePath] = (counts[c.filePath] ?? 0) + 1;
+			}
+		}
+		return counts;
+	}, [reviewState.comments]);
 	const diffEditorRegistry = useMemo(() => createDiffEditorRegistry(), []);
 	const [addingDraft, setAddingDraft] = useState<NewCommentDraft | null>(null);
 	const [selectionDraft, setSelectionDraft] = useState<SelectionDraft>(null);
@@ -3273,6 +3282,7 @@ export function App() {
 														gitSummaryError={gitSummaryError}
 														gitSummaryStale={gitSummaryStale}
 														gitSummaryMessage={gitSummaryMessage}
+														openCommentCounts={openCommentCounts}
 													/>
 												)}
 											</ScrollArea.Viewport>

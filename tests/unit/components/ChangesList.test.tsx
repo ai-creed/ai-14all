@@ -171,6 +171,20 @@ describe("ChangesList", () => {
 		).toBeInTheDocument();
 	});
 
+	it("renders [N] badge next to file name when openCommentCounts has entries", () => {
+		render(
+			<ChangesList
+				worktreePath="/repo"
+				changes={[{ path: "src/foo.ts", status: "M" }]}
+				selectedPath={null}
+				onSelect={() => {}}
+				onDiscardChange={() => {}}
+				openCommentCounts={{ "src/foo.ts": 3 }}
+			/>,
+		);
+		expect(screen.getByText(/\[3\]/)).toBeInTheDocument();
+	});
+
 	it("calls onDiscardChange with path when Discard is clicked", () => {
 		const onDiscardChange = vi.fn();
 		render(

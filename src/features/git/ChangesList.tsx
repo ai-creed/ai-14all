@@ -12,6 +12,7 @@ type Props = {
 	gitSummaryError?: boolean;
 	gitSummaryStale?: boolean;
 	gitSummaryMessage?: string | null;
+	openCommentCounts?: Record<string, number>;
 };
 
 export function ChangesList({
@@ -23,6 +24,7 @@ export function ChangesList({
 	gitSummaryError,
 	gitSummaryStale,
 	gitSummaryMessage,
+	openCommentCounts,
 }: Props) {
 	const [previewPath, setPreviewPath] = useState<string | null>(null);
 
@@ -69,6 +71,14 @@ export function ChangesList({
 								onClick={() => onSelect(change.path)}
 							>
 								<span>{change.path}</span>
+								{openCommentCounts?.[change.path] ? (
+									<span
+										className="shell-review-comment-badge"
+										aria-label={`${openCommentCounts[change.path]} open review comments`}
+									>
+										[{openCommentCounts[change.path]}]
+									</span>
+								) : null}
 								<strong>{change.status}</strong>
 							</button>
 						);
