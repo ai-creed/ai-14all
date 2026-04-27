@@ -2453,7 +2453,8 @@ select {
 	padding: 1px var(--space-1);
 }
 
-.shell-review-comment-card[data-status="open"] .shell-review-comment-card__status {
+.shell-review-comment-card[data-status="open"]
+	.shell-review-comment-card__status {
 	color: var(--accent);
 	border-color: var(--accent);
 }
@@ -2557,4 +2558,42 @@ select {
 .shell-review-comment-form__actions > button:not([type="submit"]):hover {
 	border-color: var(--panel-border-strong);
 	color: var(--text-primary);
+}
+
+/* ── Review expanded portal ──────────────────────────── */
+
+.shell-review-expanded-portal {
+	position: fixed;
+	/* left/top/right set via inline style — never hard-code right: 0 because
+	   .shell-layout has viewport padding; the main column does not reach the edge */
+	bottom: 0;
+	z-index: 30;
+	display: flex;
+	flex-direction: column;
+	background: var(--panel-bg);
+	border-top: 1px solid var(--pane-border-review);
+	border-radius: var(--radius-md) var(--radius-md) 0 0;
+	box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
+	transform: translateY(0);
+	transition: transform 220ms ease-out;
+	overflow: hidden;
+}
+
+.shell-review-expanded-portal[data-leaving="true"] {
+	transform: translateY(100%);
+}
+
+.shell-review-expanded-portal .shell-review-drawer__body {
+	/* Portal is display:flex flex-direction:column; header is fixed height.
+	   Body must stretch to fill remaining portal height. */
+	flex: 1;
+	min-height: 0;
+	display: grid;
+}
+
+.shell-review-drawer__body--placeholder {
+	/* Holds the panelHeight grid row while the portal is active, preventing
+	   the terminal section from resizing */
+	visibility: hidden;
+	pointer-events: none;
 }

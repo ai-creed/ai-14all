@@ -41,6 +41,7 @@ const SHORTCUT_GROUPS: { label: string; ids: string[] }[] = [
 			"review.changes",
 			"review.commits",
 			"review-drawer",
+			"review.expand",
 			"files-overlay",
 		],
 	},

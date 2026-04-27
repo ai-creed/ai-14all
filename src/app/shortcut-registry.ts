@@ -73,6 +73,16 @@ function isReviewDrawerShortcut(e: KeyboardEvent, platform: Platform): boolean {
 	return e.ctrlKey && !e.metaKey;
 }
 
+function isReviewExpandShortcut(e: KeyboardEvent, platform: Platform): boolean {
+	if (e.defaultPrevented) return false;
+	const keyIsJ = e.key === "j" || e.key === "J";
+	if (!keyIsJ) return false;
+	if (e.altKey || !e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
 function isRenameSessionShortcut(
 	e: KeyboardEvent,
 	platform: Platform,
@@ -416,6 +426,13 @@ export const SHORTCUT_REGISTRY: AppShortcut[] = [
 		mac: "⌘J",
 		other: "Ctrl+J",
 		predicate: isReviewDrawerShortcut,
+	},
+	{
+		id: "review.expand",
+		label: "Toggle full review",
+		mac: "⌘⇧J",
+		other: "Ctrl+Shift+J",
+		predicate: isReviewExpandShortcut,
 	},
 	{
 		id: "rename-session",
