@@ -1,5 +1,6 @@
 import {
 	forwardRef,
+	useCallback,
 	useEffect,
 	useImperativeHandle,
 	useLayoutEffect,
@@ -111,7 +112,7 @@ export const ReviewExpandedPortal = forwardRef<
 		};
 	}, []);
 
-	function handleCollapse() {
+	const handleCollapse = useCallback(() => {
 		const el = portalRef.current;
 		if (!el) {
 			onCollapse();
@@ -125,22 +126,28 @@ export const ReviewExpandedPortal = forwardRef<
 		}
 		setLeaving(true);
 		// Fallback: if transitionend never fires (reduced-motion, CSS not loaded, etc.)
-		// still unmount after the transition duration + margin.
-		collapseTimerRef.current = setTimeout(onCollapse, 300);
+		// still call onCollapse after the transition duration + margin.
+		// Setting ref to null before calling onCollapse acts as the "handled" sentinel
+		// so a late transitionend cannot double-call.
+		collapseTimerRef.current = setTimeout(() => {
+			collapseTimerRef.current = null;
+			onCollapse();
+		}, 300);
 		el.addEventListener(
 			"transitionend",
 			() => {
-				if (collapseTimerRef.current !== null) {
-					clearTimeout(collapseTimerRef.current);
-					collapseTimerRef.current = null;
-				}
+				if (collapseTimerRef.current === null) return; // timeout already fired
+				clearTimeout(collapseTimerRef.current);
+				collapseTimerRef.current = null;
 				onCollapse();
 			},
 			{ once: true },
 		);
-	}
+	}, [onCollapse]);
 
-	useImperativeHandle(ref, () => ({ collapse: handleCollapse }), []);
+	useImperativeHandle(ref, () => ({ collapse: handleCollapse }), [
+		handleCollapse,
+	]);
 
 	const content = (
 		<div

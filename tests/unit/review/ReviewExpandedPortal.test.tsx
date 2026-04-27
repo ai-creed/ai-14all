@@ -108,6 +108,33 @@ describe("ReviewExpandedPortal", () => {
 		expect(onCollapse).toHaveBeenCalledTimes(1);
 	});
 
+	it("timer fires; late transitionend does not call onCollapse again", () => {
+		vi.useFakeTimers();
+		try {
+			const onCollapse = vi.fn();
+			const handleRef = createRef<ReviewExpandedPortalHandle>();
+			render(
+				<ReviewExpandedPortal ref={handleRef} {...makeProps({ onCollapse })} />,
+			);
+			const portal = screen.getByTestId("review-expanded-portal");
+			act(() => {
+				handleRef.current?.collapse();
+			});
+			// Advance past the 300ms fallback timeout
+			act(() => {
+				vi.advanceTimersByTime(301);
+			});
+			expect(onCollapse).toHaveBeenCalledTimes(1);
+			// Late transitionend must not call onCollapse a second time
+			act(() => {
+				portal.dispatchEvent(new Event("transitionend"));
+			});
+			expect(onCollapse).toHaveBeenCalledTimes(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it("observes both chipBarRef and mainColRef elements", () => {
 		const observe = vi.fn();
 		class ResizeObserverSpy {
