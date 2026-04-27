@@ -96,7 +96,7 @@ export function FileViewer({
 	const hasMenuItems = isMarkdown || (canEdit && !!onEditFile);
 
 	return (
-		<div className="shell-viewer">
+		<div className="shell-viewer" data-readonly-editor="true">
 			{hasMenuItems ? (
 				<ContextMenu.Root>
 					<ContextMenu.Trigger asChild>

@@ -146,7 +146,7 @@ describe("isFilesOverlayShortcut", () => {
 		div.remove();
 	});
 
-	it("does not match when target is inside a Monaco editor surface", () => {
+	it("does not match when target is inside a writable Monaco editor surface", () => {
 		const monaco = document.createElement("div");
 		monaco.className = "monaco-editor";
 		const child = document.createElement("div");
@@ -159,6 +159,24 @@ describe("isFilesOverlayShortcut", () => {
 			),
 		).toBe(false);
 		monaco.remove();
+	});
+
+	it("matches when target is inside a read-only Monaco editor (FileViewer/DiffViewer)", () => {
+		const wrapper = document.createElement("div");
+		wrapper.setAttribute("data-readonly-editor", "true");
+		const monaco = document.createElement("div");
+		monaco.className = "monaco-editor";
+		const child = document.createElement("div");
+		monaco.appendChild(child);
+		wrapper.appendChild(monaco);
+		document.body.appendChild(wrapper);
+		expect(
+			isFilesOverlayShortcut(
+				evt({ metaKey: true, key: "p", target: child }),
+				"mac",
+			),
+		).toBe(true);
+		wrapper.remove();
 	});
 
 	it("matches when target is a plain body / non-terminal element", () => {

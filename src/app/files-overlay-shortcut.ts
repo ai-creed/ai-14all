@@ -10,7 +10,10 @@ function targetOwnsTyping(target: HTMLElement | null): boolean {
 
 	if (target.closest(".xterm")) return true;
 	if (target.closest('[role="dialog"]')) return true;
-	if (target.closest(".monaco-editor")) return true;
+	// Read-only Monaco editors (FileViewer, DiffViewer) are wrapped in
+	// [data-readonly-editor] — shortcuts should still fire from inside them.
+	const monacoEl = target.closest(".monaco-editor");
+	if (monacoEl && !monacoEl.closest("[data-readonly-editor]")) return true;
 	if (target.closest('[contenteditable="true"]')) return true;
 	if (target.closest('[role="textbox"]')) return true;
 
