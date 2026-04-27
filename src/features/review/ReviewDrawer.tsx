@@ -6,6 +6,9 @@ type Props = {
 	onToggle: () => void;
 	onRefresh: () => void;
 	onResizeStart: (e: React.MouseEvent) => void;
+	expanded?: boolean;
+	onExpand?: () => void;
+	onCollapse?: () => void;
 	children?: React.ReactNode;
 };
 
@@ -17,9 +20,13 @@ export function ReviewDrawer({
 	onToggle,
 	onRefresh,
 	onResizeStart,
+	expanded,
+	onExpand,
+	onCollapse,
 	children,
 }: Props) {
 	const toggleLabel = open ? "Collapse review drawer" : "Expand review drawer";
+	const expandLabel = expanded ? "Collapse full review" : "Expand to full review";
 	return (
 		<section
 			className="shell-review-drawer"
@@ -81,10 +88,24 @@ export function ReviewDrawer({
 					>
 						<span aria-hidden="true">↻</span>
 					</button>
+					<button
+						type="button"
+						className="shell-button shell-button--compact shell-button--icon shell-button--round"
+						aria-label={expandLabel}
+						title={expandLabel}
+						data-active={expanded ? "true" : "false"}
+						onClick={expanded ? onCollapse : onExpand}
+					>
+						<span aria-hidden="true">{expanded ? "⬇" : "⬆"}</span>
+					</button>
 				</div>
 			</div>
 
-			{open && <div className="shell-review-drawer__body">{children}</div>}
+			{open && (
+				expanded
+					? <div className="shell-review-drawer__body--placeholder" />
+					: <div className="shell-review-drawer__body">{children}</div>
+			)}
 		</section>
 	);
 }

@@ -85,4 +85,57 @@ describe("ReviewDrawer", () => {
 		expect(refresh).toHaveBeenCalledTimes(1);
 		expect(toggle).not.toHaveBeenCalled();
 	});
+
+	describe("expand button", () => {
+		it("shows expand button when open and not expanded", () => {
+			render(<ReviewDrawer {...defaults} open />);
+			expect(
+				screen.getByRole("button", { name: /expand to full review/i }),
+			).toBeInTheDocument();
+		});
+
+		it("shows collapse button when expanded", () => {
+			render(<ReviewDrawer {...defaults} open expanded />);
+			expect(
+				screen.getByRole("button", { name: /collapse full review/i }),
+			).toBeInTheDocument();
+		});
+
+		it("calls onExpand when expand button is clicked", async () => {
+			const user = userEvent.setup();
+			const onExpand = vi.fn();
+			render(<ReviewDrawer {...defaults} open onExpand={onExpand} />);
+			await user.click(screen.getByRole("button", { name: /expand to full review/i }));
+			expect(onExpand).toHaveBeenCalledTimes(1);
+		});
+
+		it("calls onCollapse when collapse button is clicked", async () => {
+			const user = userEvent.setup();
+			const onCollapse = vi.fn();
+			render(<ReviewDrawer {...defaults} open expanded onCollapse={onCollapse} />);
+			await user.click(screen.getByRole("button", { name: /collapse full review/i }));
+			expect(onCollapse).toHaveBeenCalledTimes(1);
+		});
+
+		it("renders placeholder body instead of children when open and expanded", () => {
+			render(
+				<ReviewDrawer {...defaults} open expanded>
+					<span data-testid="body">contents</span>
+				</ReviewDrawer>,
+			);
+			expect(screen.queryByTestId("body")).not.toBeInTheDocument();
+			expect(
+				document.querySelector(".shell-review-drawer__body--placeholder"),
+			).toBeInTheDocument();
+		});
+
+		it("renders children normally when open and not expanded", () => {
+			render(
+				<ReviewDrawer {...defaults} open>
+					<span data-testid="body">contents</span>
+				</ReviewDrawer>,
+			);
+			expect(screen.getByTestId("body")).toBeInTheDocument();
+		});
+	});
 });
