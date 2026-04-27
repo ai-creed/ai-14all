@@ -3,7 +3,9 @@ import { join } from "node:path";
 
 export type SkillAsset = { content: string };
 
-export async function loadBundledSkill(appResourcesPath: string): Promise<SkillAsset> {
+export async function loadBundledSkill(
+	appResourcesPath: string,
+): Promise<SkillAsset> {
 	const path = join(
 		appResourcesPath,
 		"agent-skills",

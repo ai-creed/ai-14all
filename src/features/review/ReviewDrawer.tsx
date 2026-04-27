@@ -106,33 +106,35 @@ export function ReviewDrawer({
 					>
 						<span aria-hidden="true">{expanded ? "⬇" : "⬆"}</span>
 					</button>
-					{onToggleCommentSidebar && openCommentCount !== null && openCommentCount !== undefined && (
-						<button
-							type="button"
-							className="shell-review-comments-toggle"
-							aria-label={
-								commentSidebarOpen ? "Hide comments" : "Show comments"
-							}
-							title={commentSidebarOpen ? "Hide comments" : "Show comments"}
-							data-active={commentSidebarOpen ? "true" : "false"}
-							onClick={onToggleCommentSidebar}
-						>
-							<svg
-								width="13"
-								height="13"
-								viewBox="0 0 16 16"
-								fill="none"
-								aria-hidden="true"
+					{onToggleCommentSidebar &&
+						openCommentCount !== null &&
+						openCommentCount !== undefined && (
+							<button
+								type="button"
+								className="shell-review-comments-toggle"
+								aria-label={
+									commentSidebarOpen ? "Hide comments" : "Show comments"
+								}
+								title={commentSidebarOpen ? "Hide comments" : "Show comments"}
+								data-active={commentSidebarOpen ? "true" : "false"}
+								onClick={onToggleCommentSidebar}
 							>
-								<path
-									d="M2 2h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5l-3 2V3a1 1 0 0 1 1-1z"
-									stroke="currentColor"
-									strokeWidth="1.5"
-									strokeLinejoin="round"
-								/>
-							</svg>
-						</button>
-					)}
+								<svg
+									width="13"
+									height="13"
+									viewBox="0 0 16 16"
+									fill="none"
+									aria-hidden="true"
+								>
+									<path
+										d="M2 2h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5l-3 2V3a1 1 0 0 1 1-1z"
+										stroke="currentColor"
+										strokeWidth="1.5"
+										strokeLinejoin="round"
+									/>
+								</svg>
+							</button>
+						)}
 				</div>
 			</div>
 

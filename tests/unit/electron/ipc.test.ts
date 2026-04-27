@@ -37,7 +37,10 @@ const { worktreeServiceInstance, fileServiceInstance } = vi.hoisted(() => {
 });
 
 vi.mock("electron", () => ({
-	app: { getPath: vi.fn(() => "/tmp/test-home"), getAppPath: vi.fn(() => "/tmp/app-resources") },
+	app: {
+		getPath: vi.fn(() => "/tmp/test-home"),
+		getAppPath: vi.fn(() => "/tmp/app-resources"),
+	},
 	dialog: { showOpenDialog: vi.fn() },
 	ipcMain: { handle: handleMock },
 }));
@@ -79,7 +82,20 @@ describe("registerIpcHandlers diagnostics", () => {
 				workspaceRegistry: { register: vi.fn(), get: vi.fn() } as never,
 				worktreeService: worktreeServiceInstance as never,
 				shellEventLog: { log: logMock } as never,
-				review: { service: { onChange: vi.fn(() => () => {}), removeByWorktree: vi.fn(), listByWorktree: vi.fn(() => []), create: vi.fn(), markAddressed: vi.fn(), reopen: vi.fn(), delete: vi.fn(), rebaseWorktreeIds: vi.fn() }, mcpStatus: { port: null, bindError: null, getUrl: () => null }, worktreePathResolver: { resolve: vi.fn(), refresh: vi.fn() } } as never,
+				review: {
+					service: {
+						onChange: vi.fn(() => () => {}),
+						removeByWorktree: vi.fn(),
+						listByWorktree: vi.fn(() => []),
+						create: vi.fn(),
+						markAddressed: vi.fn(),
+						reopen: vi.fn(),
+						delete: vi.fn(),
+						rebaseWorktreeIds: vi.fn(),
+					},
+					mcpStatus: { port: null, bindError: null, getUrl: () => null },
+					worktreePathResolver: { resolve: vi.fn(), refresh: vi.fn() },
+				} as never,
 			},
 		);
 
@@ -117,7 +133,20 @@ describe("registerIpcHandlers diagnostics", () => {
 				workspaceRegistry: { register: vi.fn(), get: vi.fn() } as never,
 				worktreeService: worktreeServiceInstance as never,
 				shellEventLog: { log: logMock } as never,
-				review: { service: { onChange: vi.fn(() => () => {}), removeByWorktree: vi.fn(), listByWorktree: vi.fn(() => []), create: vi.fn(), markAddressed: vi.fn(), reopen: vi.fn(), delete: vi.fn(), rebaseWorktreeIds: vi.fn() }, mcpStatus: { port: null, bindError: null, getUrl: () => null }, worktreePathResolver: { resolve: vi.fn(), refresh: vi.fn() } } as never,
+				review: {
+					service: {
+						onChange: vi.fn(() => () => {}),
+						removeByWorktree: vi.fn(),
+						listByWorktree: vi.fn(() => []),
+						create: vi.fn(),
+						markAddressed: vi.fn(),
+						reopen: vi.fn(),
+						delete: vi.fn(),
+						rebaseWorktreeIds: vi.fn(),
+					},
+					mcpStatus: { port: null, bindError: null, getUrl: () => null },
+					worktreePathResolver: { resolve: vi.fn(), refresh: vi.fn() },
+				} as never,
 			},
 		);
 
@@ -153,7 +182,20 @@ describe("registerIpcHandlers files:listTracked identity resolution", () => {
 					get: vi.fn(registryGet),
 				} as never,
 				worktreeService: worktreeServiceInstance as never,
-				review: { service: { onChange: vi.fn(() => () => {}), removeByWorktree: vi.fn(), listByWorktree: vi.fn(() => []), create: vi.fn(), markAddressed: vi.fn(), reopen: vi.fn(), delete: vi.fn(), rebaseWorktreeIds: vi.fn() }, mcpStatus: { port: null, bindError: null, getUrl: () => null }, worktreePathResolver: { resolve: vi.fn(), refresh: vi.fn() } } as never,
+				review: {
+					service: {
+						onChange: vi.fn(() => () => {}),
+						removeByWorktree: vi.fn(),
+						listByWorktree: vi.fn(() => []),
+						create: vi.fn(),
+						markAddressed: vi.fn(),
+						reopen: vi.fn(),
+						delete: vi.fn(),
+						rebaseWorktreeIds: vi.fn(),
+					},
+					mcpStatus: { port: null, bindError: null, getUrl: () => null },
+					worktreePathResolver: { resolve: vi.fn(), refresh: vi.fn() },
+				} as never,
 			},
 		);
 		const handler = handlers.get("files:listTracked");

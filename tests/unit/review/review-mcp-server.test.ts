@@ -94,7 +94,9 @@ describe("ReviewMcpServer", () => {
 		const content = result.content as Array<{ type: string; text: string }>;
 		const parsed = JSON.parse(content[0].text) as { reviews: unknown[] };
 		expect(parsed.reviews).toHaveLength(1);
-		expect((parsed.reviews[0] as { body: string }).body).toBe("Fix this please");
+		expect((parsed.reviews[0] as { body: string }).body).toBe(
+			"Fix this please",
+		);
 	});
 
 	it("mark_review_addressed flips status; second call returns already_addressed", async () => {
@@ -124,8 +126,14 @@ describe("ReviewMcpServer", () => {
 			name: "mark_review_addressed",
 			arguments: { commentId: comment.id },
 		});
-		const secondContent = second.content as Array<{ type: string; text: string }>;
-		const secondParsed = JSON.parse(secondContent[0].text) as { ok: boolean; error: string };
+		const secondContent = second.content as Array<{
+			type: string;
+			text: string;
+		}>;
+		const secondParsed = JSON.parse(secondContent[0].text) as {
+			ok: boolean;
+			error: string;
+		};
 		expect(secondParsed.ok).toBe(false);
 		expect(secondParsed.error).toBe("already_addressed");
 	});

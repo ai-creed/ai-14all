@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { DiffEditor } from "@monaco-editor/react";
-import type { GitCommitDetail, GitCommitFileDiff } from "../../../shared/models/git-commit-review.js";
+import type {
+	GitCommitDetail,
+	GitCommitFileDiff,
+} from "../../../shared/models/git-commit-review.js";
 import type { ResolvedTheme } from "../../lib/useTheme";
 
 type Props = {
@@ -118,7 +121,6 @@ export function CommitDiffStack({
 	resolvedTheme,
 	onEditorMount,
 	onEditorUnmount,
-	onRequestFocus: _onRequestFocus,
 }: Props) {
 	const [collapsedPaths, setCollapsedPaths] = useState<Set<string>>(new Set());
 	const sectionRefs = useRef<Record<string, HTMLElement | null>>({});

@@ -38,7 +38,10 @@ export function ReviewCommentSidebar({
 	const openCount = fileComments.filter((c) => c.status === "open").length;
 
 	return (
-		<aside className="shell-review-comment-sidebar" data-testid="review-comment-sidebar">
+		<aside
+			className="shell-review-comment-sidebar"
+			data-testid="review-comment-sidebar"
+		>
 			<header className="shell-review-comment-sidebar__header">
 				<div className="shell-review-comment-sidebar__header-row">
 					<svg

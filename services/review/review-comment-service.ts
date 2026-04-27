@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import type { ReviewComment } from "../../shared/models/review-comment.js";
 import type { ReviewCommentStore } from "./review-comment-store.js";
 
-export type ChangeKind = "created" | "addressed" | "reopened" | "deleted" | "rebased";
+export type ChangeKind =
+	| "created"
+	| "addressed"
+	| "reopened"
+	| "deleted"
+	| "rebased";
 export type ChangeListener = (kind: ChangeKind) => void;
 
 export type CreateInput = Omit<
@@ -52,7 +57,9 @@ export class ReviewCommentService {
 
 	async markAddressed(
 		id: string,
-	): Promise<{ ok: true } | { ok: false; error: "not_found" | "already_addressed" }> {
+	): Promise<
+		{ ok: true } | { ok: false; error: "not_found" | "already_addressed" }
+	> {
 		const found = this.find(id);
 		if (!found) return { ok: false, error: "not_found" };
 		if (found.status === "addressed")

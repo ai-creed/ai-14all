@@ -8,7 +8,9 @@ export type WorktreePathResolver = {
 };
 
 export async function createWorktreePathResolver(
-	listWorktrees: () => WorktreeRegistryEntry[] | Promise<WorktreeRegistryEntry[]>,
+	listWorktrees: () =>
+		| WorktreeRegistryEntry[]
+		| Promise<WorktreeRegistryEntry[]>,
 ): Promise<WorktreePathResolver> {
 	let canonicalToId = new Map<string, string>();
 

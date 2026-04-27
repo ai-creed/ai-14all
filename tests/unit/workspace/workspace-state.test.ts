@@ -916,7 +916,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 						terminalLayoutMode: "single" as const,
 						splitLeftProcessId: null,
 						splitRightProcessId: null,
-							reviewSidebarWidth: 280,
+						reviewSidebarWidth: 280,
 						activeProcessSessionId: "process-1",
 						nextAdHocNumber: 2,
 						processSessions: [

@@ -9,7 +9,9 @@ type Props = {
 export function AgentInstallModal({ open, onClose }: Props) {
 	const status = useAgentInstallStatus();
 	const [selected, setSelected] = useState<Set<string>>(new Set());
-	const [results, setResults] = useState<Record<string, { ok: boolean; message: string | null }>>({});
+	const [results, setResults] = useState<
+		Record<string, { ok: boolean; message: string | null }>
+	>({});
 	const [busy, setBusy] = useState(false);
 
 	useEffect(() => {
@@ -18,12 +20,17 @@ export function AgentInstallModal({ open, onClose }: Props) {
 
 	if (!open) return null;
 	return (
-		<div className="shell-modal" role="dialog" aria-label="Install agent integration">
+		<div
+			className="shell-modal"
+			role="dialog"
+			aria-label="Install agent integration"
+		>
 			<div className="shell-modal__panel">
 				<h2>Install ai-14all-fix-review skill + MCP server</h2>
 				{status.bindError && (
 					<p className="shell-error">
-						MCP server could not bind. {status.bindError}. Resolve and restart ai-14all.
+						MCP server could not bind. {status.bindError}. Resolve and restart
+						ai-14all.
 					</p>
 				)}
 				<ul className="shell-install-list">
@@ -71,9 +78,15 @@ export function AgentInstallModal({ open, onClose }: Props) {
 						disabled={selected.size === 0 || busy}
 						onClick={async () => {
 							setBusy(true);
-							const r = await status.install(Array.from(selected) as ("claude-code" | "codex")[]);
-							const map: Record<string, { ok: boolean; message: string | null }> = {};
-							for (const item of r) map[item.id] = { ok: item.ok, message: item.message };
+							const r = await status.install(
+								Array.from(selected) as ("claude-code" | "codex")[],
+							);
+							const map: Record<
+								string,
+								{ ok: boolean; message: string | null }
+							> = {};
+							for (const item of r)
+								map[item.id] = { ok: item.ok, message: item.message };
 							setResults(map);
 							setBusy(false);
 						}}

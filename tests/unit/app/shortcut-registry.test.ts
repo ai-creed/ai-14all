@@ -331,7 +331,9 @@ describe("terminal-first ownership — all shortcuts", () => {
 		document.body.appendChild(monaco);
 		for (const s of SHORTCUT_REGISTRY) {
 			const trigger = macTriggers[s.id];
-			expect(s.predicate(evt({ ...trigger, target: child }), "mac")).toBe(false);
+			expect(s.predicate(evt({ ...trigger, target: child }), "mac")).toBe(
+				false,
+			);
 		}
 	});
 
@@ -366,9 +368,9 @@ describe("terminal-first ownership — all shortcuts", () => {
 		for (const s of SHORTCUT_REGISTRY) {
 			const trigger = macTriggers[s.id];
 			if (!trigger) continue;
-			expect(
-				s.predicate(evt({ ...trigger, target: textarea }), "mac"),
-			).toBe(true);
+			expect(s.predicate(evt({ ...trigger, target: textarea }), "mac")).toBe(
+				true,
+			);
 		}
 	});
 });

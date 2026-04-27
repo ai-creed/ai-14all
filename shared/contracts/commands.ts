@@ -318,8 +318,7 @@ export type Ai14AllDesktopApi = {
 		markAddressed(
 			commentId: string,
 		): Promise<
-			| { ok: true }
-			| { ok: false; error: "not_found" | "already_addressed" }
+			{ ok: true } | { ok: false; error: "not_found" | "already_addressed" }
 		>;
 		reopen(commentId: string): Promise<{ comment: ReviewComment | null }>;
 		delete(commentId: string): Promise<{ deleted: boolean }>;
@@ -338,10 +337,18 @@ export type Ai14AllDesktopApi = {
 			mcp: { port: number | null; bindError: string | null };
 		}>;
 		install(ids: ("claude-code" | "codex")[]): Promise<{
-			results: Array<{ id: "claude-code" | "codex"; ok: boolean; message: string | null }>;
+			results: Array<{
+				id: "claude-code" | "codex";
+				ok: boolean;
+				message: string | null;
+			}>;
 		}>;
 		uninstall(ids: ("claude-code" | "codex")[]): Promise<{
-			results: Array<{ id: "claude-code" | "codex"; ok: boolean; message: string | null }>;
+			results: Array<{
+				id: "claude-code" | "codex";
+				ok: boolean;
+				message: string | null;
+			}>;
 		}>;
 	};
 	events: {

@@ -6,7 +6,8 @@ import { join } from "node:path";
 
 const execMock = vi.fn();
 vi.mock("node:child_process", () => ({
-	execFile: (cmd: string, args: string[], cb: any) => execMock(cmd, args, cb),
+	execFile: (cmd: string, args: string[], cb: (...rest: unknown[]) => void) =>
+		execMock(cmd, args, cb),
 }));
 
 import { CodexProvider } from "../../../services/review/agent-skill-installer/codex-provider.js";
@@ -33,7 +34,13 @@ describe("CodexProvider", () => {
 			skill: { content: "skill body" },
 		});
 		const callArgs = execMock.mock.calls[0]?.[1];
-		expect(callArgs).toEqual(["mcp", "add", "--url", "http://127.0.0.1:51234", "ai-14all"]);
+		expect(callArgs).toEqual([
+			"mcp",
+			"add",
+			"--url",
+			"http://127.0.0.1:51234",
+			"ai-14all",
+		]);
 		const skill = await readFile(
 			join(dir, ".codex", "skills", "ai-14all-fix-review", "SKILL.md"),
 			"utf-8",
@@ -60,7 +67,9 @@ describe("CodexProvider", () => {
 	});
 
 	it("uninstall runs `codex mcp remove` and deletes the skill folder", async () => {
-		execMock.mockImplementation((_cmd, _args, cb) => cb(null, { stdout: "", stderr: "" }));
+		execMock.mockImplementation((_cmd, _args, cb) =>
+			cb(null, { stdout: "", stderr: "" }),
+		);
 		const provider = new CodexProvider({
 			home: dir,
 			cliPath: "codex",

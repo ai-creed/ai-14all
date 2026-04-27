@@ -29,7 +29,10 @@ type Props = {
 	originalContent: string;
 	modifiedContent: string;
 	resolvedTheme: ResolvedTheme;
-	onMount?: (filePath: string, editor: MonacoEditor.IStandaloneDiffEditor) => void;
+	onMount?: (
+		filePath: string,
+		editor: MonacoEditor.IStandaloneDiffEditor,
+	) => void;
 };
 
 function languageFromPath(path: string): string | undefined {

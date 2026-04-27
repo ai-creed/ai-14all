@@ -1077,9 +1077,7 @@ describe("reviewSidebarWidth persistence", () => {
 	});
 });
 
-function makeSnapshot(
-	sessions: { worktreeId: string }[],
-): WorkspaceSnapshot {
+function makeSnapshot(sessions: { worktreeId: string }[]): WorkspaceSnapshot {
 	return {
 		repositoryPath: "/repo",
 		repoId: null,
@@ -1095,9 +1093,7 @@ describe("buildWorktreeIdRebaseMapping", () => {
 			{ worktreeId: "/old/keep-me" },
 			{ worktreeId: "/old/a" },
 		]);
-		expect(
-			buildWorktreeIdRebaseMapping(snap, "/old", "/new"),
-		).toEqual({
+		expect(buildWorktreeIdRebaseMapping(snap, "/old", "/new")).toEqual({
 			"/old/keep-me": "/new/keep-me",
 			"/old/a": "/new/a",
 		});

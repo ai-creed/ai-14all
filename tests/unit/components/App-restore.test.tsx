@@ -104,7 +104,10 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		onOpenInstallModal: vi.fn(() => vi.fn()),
 	},
 	agentInstall: {
-		listProviders: vi.fn().mockResolvedValue({ providers: [], mcp: { port: null, bindError: null } }),
+		listProviders: vi.fn().mockResolvedValue({
+			providers: [],
+			mcp: { port: null, bindError: null },
+		}),
 		install: vi.fn().mockResolvedValue({ results: [] }),
 		uninstall: vi.fn().mockResolvedValue({ results: [] }),
 	},

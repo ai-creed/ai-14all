@@ -19,7 +19,10 @@ describe("mcp-port-config", () => {
 
 	it("first call picks a port and persists it", async () => {
 		const cfgPath = join(dir, "mcp-config.json");
-		const port = await loadOrPickPort(cfgPath, { rangeStart: 51000, rangeEnd: 51999 });
+		const port = await loadOrPickPort(cfgPath, {
+			rangeStart: 51000,
+			rangeEnd: 51999,
+		});
 		expect(port).toBeGreaterThanOrEqual(51000);
 		expect(port).toBeLessThanOrEqual(51999);
 		const written = JSON.parse(await readFile(cfgPath, "utf-8"));
@@ -29,7 +32,10 @@ describe("mcp-port-config", () => {
 	it("subsequent call returns the persisted port", async () => {
 		const cfgPath = join(dir, "mcp-config.json");
 		await writeFile(cfgPath, JSON.stringify({ port: 51234 }), "utf-8");
-		const port = await loadOrPickPort(cfgPath, { rangeStart: 51000, rangeEnd: 51999 });
+		const port = await loadOrPickPort(cfgPath, {
+			rangeStart: 51000,
+			rangeEnd: 51999,
+		});
 		expect(port).toBe(51234);
 	});
 

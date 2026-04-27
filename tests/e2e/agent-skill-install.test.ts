@@ -135,7 +135,8 @@ test.describe.serial("AgentSkillInstaller — CLI-present path", () => {
 
 		// Call install via window.ai14all.agentInstall
 		const results = await page.evaluate(async () => {
-			const ai = (window as unknown as { ai14all: typeof window.ai14all }).ai14all;
+			const ai = (window as unknown as { ai14all: typeof window.ai14all })
+				.ai14all;
 			return ai.agentInstall.install(["claude-code", "codex"]);
 		});
 
@@ -175,7 +176,9 @@ test.describe.serial("AgentSkillInstaller — CLI-present path", () => {
 
 		// Shim log: verify claude CLI was called with the expected MCP args
 		const shimLog = readFileSync(shimLogFile, "utf-8");
-		expect(shimLog).toMatch(/claude mcp add --transport http --scope user ai-14all/);
+		expect(shimLog).toMatch(
+			/claude mcp add --transport http --scope user ai-14all/,
+		);
 
 		// Shim log: verify codex CLI was called with --url
 		expect(shimLog).toMatch(/codex mcp add --url .+ ai-14all/);
@@ -268,16 +271,15 @@ test.describe.serial("AgentSkillInstaller — CLI-absent path", () => {
 		test.setTimeout(60_000);
 
 		const providers = await page.evaluate(async () => {
-			const ai = (window as unknown as { ai14all: typeof window.ai14all }).ai14all;
+			const ai = (window as unknown as { ai14all: typeof window.ai14all })
+				.ai14all;
 			return ai.agentInstall.listProviders();
 		});
 
 		const claude = providers.find(
 			(p: { id: string }) => p.id === "claude-code",
 		);
-		const codex = providers.find(
-			(p: { id: string }) => p.id === "codex",
-		);
+		const codex = providers.find((p: { id: string }) => p.id === "codex");
 
 		// CLI not on PATH — both unavailable
 		expect(claude?.cliAvailable).toBe(false);
@@ -292,7 +294,8 @@ test.describe.serial("AgentSkillInstaller — CLI-absent path", () => {
 		test.setTimeout(60_000);
 
 		const results = await page.evaluate(async () => {
-			const ai = (window as unknown as { ai14all: typeof window.ai14all }).ai14all;
+			const ai = (window as unknown as { ai14all: typeof window.ai14all })
+				.ai14all;
 			return ai.agentInstall.install(["claude-code"]);
 		});
 

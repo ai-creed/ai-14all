@@ -4,10 +4,10 @@ import { countOpenCommentsInFiles } from "../../../src/features/git/commit-list-
 describe("countOpenCommentsInFiles", () => {
 	it("sums open counts for the given file paths", () => {
 		expect(
-			countOpenCommentsInFiles(
-				["src/foo.ts", "src/bar.ts"],
-				{ "src/foo.ts": 2, "src/baz.ts": 5 },
-			),
+			countOpenCommentsInFiles(["src/foo.ts", "src/bar.ts"], {
+				"src/foo.ts": 2,
+				"src/baz.ts": 5,
+			}),
 		).toBe(2);
 	});
 

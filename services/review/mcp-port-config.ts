@@ -29,8 +29,10 @@ export async function loadOrPickPort(
 	}
 
 	const span = range.rangeEnd - range.rangeStart + 1;
-	const candidates = Array.from({ length: span }, (_, i) => range.rangeStart + i)
-		.sort(() => Math.random() - 0.5);
+	const candidates = Array.from(
+		{ length: span },
+		(_, i) => range.rangeStart + i,
+	).sort(() => Math.random() - 0.5);
 	for (const candidate of candidates) {
 		if (await tryBind(candidate)) {
 			await mkdir(dirname(configPath), { recursive: true });

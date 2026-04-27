@@ -443,7 +443,9 @@ export function registerIpcHandlers(
 
 	ipcMain.handle(REVIEW_REBASE, async (_event, raw: unknown) => {
 		const { mapping } = ReviewRebaseRequestSchema.parse(raw);
-		await reviewCommentService.rebaseWorktreeIds(new Map(Object.entries(mapping)));
+		await reviewCommentService.rebaseWorktreeIds(
+			new Map(Object.entries(mapping)),
+		);
 		return { ok: true as const };
 	});
 
@@ -455,7 +457,9 @@ export function registerIpcHandlers(
 
 	const installer = new AgentSkillInstaller({
 		home: app.getPath("home"),
-		resourcesPath: app.isPackaged ? process.resourcesPath : join(app.getAppPath(), "assets"),
+		resourcesPath: app.isPackaged
+			? process.resourcesPath
+			: join(app.getAppPath(), "assets"),
 		getMcpUrl: () => review.mcpStatus.getUrl(),
 	});
 
@@ -463,7 +467,10 @@ export function registerIpcHandlers(
 		const providers = await installer.listProviders();
 		return {
 			providers,
-			mcp: { port: review.mcpStatus.port, bindError: review.mcpStatus.bindError },
+			mcp: {
+				port: review.mcpStatus.port,
+				bindError: review.mcpStatus.bindError,
+			},
 		};
 	});
 

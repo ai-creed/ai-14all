@@ -189,9 +189,7 @@ describe("ReviewCommentService", () => {
 			source: "working-tree",
 			commitSha: null,
 		});
-		await ctx.service.rebaseWorktreeIds(
-			new Map([["/old/a", "/new/a"]]),
-		);
+		await ctx.service.rebaseWorktreeIds(new Map([["/old/a", "/new/a"]]));
 		expect(ctx.service.listByWorktree("/new/a")[0]?.id).toBe(a.id);
 		expect(ctx.service.listByWorktree("/keep")[0]?.id).toBe(b.id);
 		expect(ctx.service.listByWorktree("/old/a")).toHaveLength(0);

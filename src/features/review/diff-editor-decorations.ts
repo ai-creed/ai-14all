@@ -29,7 +29,9 @@ export function installAddAffordances(
 	let hoveredLine: number | null = null;
 
 	const renderAllPlus = () => {
-		const model = (modified as unknown as MonacoEditor.IStandaloneCodeEditor).getModel();
+		const model = (
+			modified as unknown as MonacoEditor.IStandaloneCodeEditor
+		).getModel();
 		const lineCount = model?.getLineCount() ?? 0;
 		const next = Array.from({ length: lineCount }, (_, i) => ({
 			range: {
@@ -43,17 +45,16 @@ export function installAddAffordances(
 				glyphMarginHoverMessage: { value: "Add review comment" },
 			},
 		}));
-		plusDecorations = (modified as unknown as MonacoEditor.IStandaloneCodeEditor).deltaDecorations(
-			plusDecorations,
-			next,
-		);
+		plusDecorations = (
+			modified as unknown as MonacoEditor.IStandaloneCodeEditor
+		).deltaDecorations(plusDecorations, next);
 	};
 
 	renderAllPlus();
 
-	const modelSub = (modified as unknown as MonacoEditor.IStandaloneCodeEditor).onDidChangeModel(
-		() => renderAllPlus(),
-	);
+	const modelSub = (
+		modified as unknown as MonacoEditor.IStandaloneCodeEditor
+	).onDidChangeModel(() => renderAllPlus());
 
 	const moveSub = modified.onMouseMove((e) => {
 		hoveredLine = e.target?.position?.lineNumber ?? null;
@@ -96,7 +97,8 @@ export function installAddAffordances(
 			return;
 		}
 		const lines: string[] = [];
-		for (let l = startLine; l <= endLine; l++) lines.push(model.getLineContent(l));
+		for (let l = startLine; l <= endLine; l++)
+			lines.push(model.getLineContent(l));
 		handlers.onSelectionChange({
 			filePath: handlers.filePath,
 			startLine,
@@ -110,10 +112,9 @@ export function installAddAffordances(
 		moveSub.dispose();
 		downSub.dispose();
 		selSub.dispose();
-		plusDecorations = (modified as unknown as MonacoEditor.IStandaloneCodeEditor).deltaDecorations(
-			plusDecorations,
-			[],
-		);
+		plusDecorations = (
+			modified as unknown as MonacoEditor.IStandaloneCodeEditor
+		).deltaDecorations(plusDecorations, []);
 	};
 }
 

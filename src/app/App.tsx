@@ -3179,7 +3179,7 @@ export function App() {
 												: "working-tree",
 										commitSha:
 											activeSession?.reviewMode === "commits"
-												? ((activeSession as any).selectedCommitSha ?? null)
+												? (activeSession.selectedCommitSha ?? null)
 												: null,
 									});
 									setAddingDraft(null);
@@ -3518,77 +3518,78 @@ export function App() {
 						</section>
 					)}
 
-					{activeWorktree && (() => {
-						const currentReviewFilePath =
-							activeSession?.reviewMode === "commits"
-								? (activeSession.selectedCommitFilePath ?? null)
-								: (activeSession?.reviewMode === "changes"
-									? (activeSession.selectedChangedFilePath ?? null)
-									: null);
-						const openCommentCount = currentReviewFilePath
-							? reviewState.comments.filter(
-								(c) =>
-									c.filePath === currentReviewFilePath &&
-									c.status === "open",
-							).length
-							: null;
-						const toggleCommentSidebar = () =>
-							setCommentSidebarOpen((o) => !o);
-						return (
-							<>
-								<ReviewDrawer
-									open={activeSession?.reviewDrawerOpen ?? false}
-									isDirty={activeSummary?.isDirty ?? false}
-									changedFileCount={changes.length}
-									panelHeight={reviewPanelHeight}
-									onToggle={() => {
-										if (!activeWorktree) return;
-										const next = !(activeSession?.reviewDrawerOpen ?? false);
-										if (!next && (activeSummary?.isDirty ?? false)) {
-											autoExpand.noteUserCollapse(activeWorktree.id);
-										} else if (next) {
-											autoExpand.noteUserExpand(activeWorktree.id);
-										}
-										dispatch({
-											type: "session/setReviewDrawerOpen",
-											worktreeId: activeWorktree.id,
-											open: next,
-										});
-									}}
-									onRefresh={handleRefreshChanges}
-									onResizeStart={(e) =>
-										handleReviewPanelResizeStart(
-											e as ReactMouseEvent<HTMLDivElement>,
-										)
-									}
-									expanded={reviewExpanded}
-									onExpand={() => setReviewExpanded(true)}
-									onCollapse={collapseReviewExpanded}
-									commentSidebarOpen={commentSidebarOpen}
-									onToggleCommentSidebar={toggleCommentSidebar}
-									openCommentCount={openCommentCount}
-								>
-									{!reviewExpanded ? reviewTabContent : null}
-								</ReviewDrawer>
-								{reviewExpanded && (
-									<ReviewExpandedPortal
-										ref={expandedPortalRef}
-										mainColRef={mainColRef}
-										chipBarRef={chipBarRef}
-										onCollapse={() => setReviewExpanded(false)}
-										onRefresh={handleRefreshChanges}
+					{activeWorktree &&
+						(() => {
+							const currentReviewFilePath =
+								activeSession?.reviewMode === "commits"
+									? (activeSession.selectedCommitFilePath ?? null)
+									: activeSession?.reviewMode === "changes"
+										? (activeSession.selectedChangedFilePath ?? null)
+										: null;
+							const openCommentCount = currentReviewFilePath
+								? reviewState.comments.filter(
+										(c) =>
+											c.filePath === currentReviewFilePath &&
+											c.status === "open",
+									).length
+								: null;
+							const toggleCommentSidebar = () =>
+								setCommentSidebarOpen((o) => !o);
+							return (
+								<>
+									<ReviewDrawer
+										open={activeSession?.reviewDrawerOpen ?? false}
 										isDirty={activeSummary?.isDirty ?? false}
 										changedFileCount={changes.length}
+										panelHeight={reviewPanelHeight}
+										onToggle={() => {
+											if (!activeWorktree) return;
+											const next = !(activeSession?.reviewDrawerOpen ?? false);
+											if (!next && (activeSummary?.isDirty ?? false)) {
+												autoExpand.noteUserCollapse(activeWorktree.id);
+											} else if (next) {
+												autoExpand.noteUserExpand(activeWorktree.id);
+											}
+											dispatch({
+												type: "session/setReviewDrawerOpen",
+												worktreeId: activeWorktree.id,
+												open: next,
+											});
+										}}
+										onRefresh={handleRefreshChanges}
+										onResizeStart={(e) =>
+											handleReviewPanelResizeStart(
+												e as ReactMouseEvent<HTMLDivElement>,
+											)
+										}
+										expanded={reviewExpanded}
+										onExpand={() => setReviewExpanded(true)}
+										onCollapse={collapseReviewExpanded}
 										commentSidebarOpen={commentSidebarOpen}
 										onToggleCommentSidebar={toggleCommentSidebar}
 										openCommentCount={openCommentCount}
 									>
-										{reviewTabContent}
-									</ReviewExpandedPortal>
-								)}
-							</>
-						);
-					})()}
+										{!reviewExpanded ? reviewTabContent : null}
+									</ReviewDrawer>
+									{reviewExpanded && (
+										<ReviewExpandedPortal
+											ref={expandedPortalRef}
+											mainColRef={mainColRef}
+											chipBarRef={chipBarRef}
+											onCollapse={() => setReviewExpanded(false)}
+											onRefresh={handleRefreshChanges}
+											isDirty={activeSummary?.isDirty ?? false}
+											changedFileCount={changes.length}
+											commentSidebarOpen={commentSidebarOpen}
+											onToggleCommentSidebar={toggleCommentSidebar}
+											openCommentCount={openCommentCount}
+										>
+											{reviewTabContent}
+										</ReviewExpandedPortal>
+									)}
+								</>
+							);
+						})()}
 				</section>
 			</div>
 

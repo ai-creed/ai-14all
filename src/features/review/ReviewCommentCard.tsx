@@ -15,16 +15,16 @@ export function ReviewCommentCard({
 }: Props) {
 	const range = `L${comment.startLine}–${comment.endLine}`;
 	return (
-		<article
-			className="shell-review-comment-card"
-			data-status={comment.status}
-		>
+		<article className="shell-review-comment-card" data-status={comment.status}>
 			<header className="shell-review-comment-card__header">
 				<button
 					type="button"
 					className="shell-review-comment-card__range"
 					onClick={() =>
-						onScrollTo({ startLine: comment.startLine, endLine: comment.endLine })
+						onScrollTo({
+							startLine: comment.startLine,
+							endLine: comment.endLine,
+						})
 					}
 				>
 					{range}
@@ -37,7 +37,9 @@ export function ReviewCommentCard({
 						type="button"
 						className="shell-review-comment-card__action"
 						aria-label={comment.status === "open" ? "mark addressed" : "reopen"}
-						title={comment.status === "open" ? "Mark as addressed" : "Reopen comment"}
+						title={
+							comment.status === "open" ? "Mark as addressed" : "Reopen comment"
+						}
 						onClick={() => onToggleAddressed(comment.id)}
 					>
 						{comment.status === "open" ? "✓" : "↺"}

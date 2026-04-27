@@ -118,7 +118,9 @@ export function CommitList({
 							</span>
 							<code className="shell-commit-list__sha">{row.shortSha}</code>
 							<span className="shell-commit-list__subject">{row.subject}</span>
-							{isSelected && selectedCommitOpenCommentCount && selectedCommitOpenCommentCount > 0 ? (
+							{isSelected &&
+							selectedCommitOpenCommentCount &&
+							selectedCommitOpenCommentCount > 0 ? (
 								<span
 									className="shell-review-comment-badge"
 									aria-label={`${selectedCommitOpenCommentCount} open review comments on files in this commit`}

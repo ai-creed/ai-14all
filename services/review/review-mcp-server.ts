@@ -59,9 +59,7 @@ export class ReviewMcpServer {
 			async ({ commentId }) => {
 				const result = await this.service.markAddressed(commentId);
 				return {
-					content: [
-						{ type: "text" as const, text: JSON.stringify(result) },
-					],
+					content: [{ type: "text" as const, text: JSON.stringify(result) }],
 				};
 			},
 		);
@@ -73,23 +71,28 @@ export class ReviewMcpServer {
 
 		const server = http.createServer((req, res) => {
 			void (async () => {
-				const sessionId = (req.headers["mcp-session-id"] as string | undefined) ?? null;
+				const sessionId =
+					(req.headers["mcp-session-id"] as string | undefined) ?? null;
 				if (sessionId && sessions.has(sessionId)) {
 					await sessions.get(sessionId)!.handleRequest(req, res);
 					return;
 				}
 				// New session — fresh McpServer + transport
-				const sessionMcp = new McpServer({ name: "ai-14all", version: "0.1.0" });
-				this.registerTools(sessionMcp);
-				const t: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
-					sessionIdGenerator: () => randomUUID(),
-					onsessioninitialized: (sid) => {
-						sessions.set(sid, t);
-					},
-					onsessionclosed: (sid) => {
-						sessions.delete(sid);
-					},
+				const sessionMcp = new McpServer({
+					name: "ai-14all",
+					version: "0.1.0",
 				});
+				this.registerTools(sessionMcp);
+				const t: StreamableHTTPServerTransport =
+					new StreamableHTTPServerTransport({
+						sessionIdGenerator: () => randomUUID(),
+						onsessioninitialized: (sid) => {
+							sessions.set(sid, t);
+						},
+						onsessionclosed: (sid) => {
+							sessions.delete(sid);
+						},
+					});
 				await sessionMcp.connect(t);
 				await t.handleRequest(req, res);
 			})();

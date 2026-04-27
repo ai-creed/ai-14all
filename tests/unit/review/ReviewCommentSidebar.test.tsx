@@ -74,6 +74,8 @@ describe("ReviewCommentSidebar", () => {
 				onCancelNew={() => {}}
 			/>,
 		);
-		expect(screen.getByPlaceholderText(/what should the agent/i)).toBeInTheDocument();
+		expect(
+			screen.getByPlaceholderText(/what should the agent/i),
+		).toBeInTheDocument();
 	});
 });

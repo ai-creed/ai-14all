@@ -6,7 +6,8 @@ import { join } from "node:path";
 
 const execMock = vi.fn();
 vi.mock("node:child_process", () => ({
-	execFile: (cmd: string, args: string[], cb: any) => execMock(cmd, args, cb),
+	execFile: (cmd: string, args: string[], cb: (...rest: unknown[]) => void) =>
+		execMock(cmd, args, cb),
 }));
 
 import { ClaudeProvider } from "../../../services/review/agent-skill-installer/claude-provider.js";
@@ -69,7 +70,9 @@ describe("ClaudeProvider", () => {
 	});
 
 	it("uninstall runs `claude mcp remove` and deletes the skill folder", async () => {
-		execMock.mockImplementation((_cmd, _args, cb) => cb(null, { stdout: "", stderr: "" }));
+		execMock.mockImplementation((_cmd, _args, cb) =>
+			cb(null, { stdout: "", stderr: "" }),
+		);
 		const provider = new ClaudeProvider({
 			home: dir,
 			cliPath: "claude",

@@ -41,9 +41,7 @@ describe("ReviewCommentStore", () => {
 		const store = new ReviewCommentStore(join(dir, "review-comments.json"));
 		const c = comment();
 		await store.save([c]);
-		const reopened = new ReviewCommentStore(
-			join(dir, "review-comments.json"),
-		);
+		const reopened = new ReviewCommentStore(join(dir, "review-comments.json"));
 		expect(await reopened.load()).toEqual([c]);
 	});
 

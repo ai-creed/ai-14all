@@ -2,12 +2,13 @@ import { describe, it, expect, vi } from "vitest";
 import { WorkspaceRegistryService } from "../../../services/workspace/workspace-registry-service";
 import type { Repository } from "../../../shared/models/repository";
 
-const repo = (id: string, root: string): Repository => ({
-	id,
-	name: id,
-	rootPath: root,
-	repoId: null,
-}) as Repository;
+const repo = (id: string, root: string): Repository =>
+	({
+		id,
+		name: id,
+		rootPath: root,
+		repoId: null,
+	}) as Repository;
 
 describe("WorkspaceRegistryService", () => {
 	it("listRepositories returns every registered repository", () => {

@@ -5,7 +5,10 @@ type Event =
 	| { kind: "unregistered"; filePath: string };
 
 export type DiffEditorRegistry = {
-	register: (filePath: string, editor: MonacoEditor.IStandaloneDiffEditor) => void;
+	register: (
+		filePath: string,
+		editor: MonacoEditor.IStandaloneDiffEditor,
+	) => void;
 	unregister: (filePath: string) => void;
 	get: (filePath: string) => MonacoEditor.IStandaloneDiffEditor | undefined;
 	subscribe: (listener: (event: Event) => void) => () => void;

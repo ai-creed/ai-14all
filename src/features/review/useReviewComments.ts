@@ -54,5 +54,14 @@ export function useReviewComments(worktreeId: string | null) {
 		[],
 	);
 
-	return { comments, loading, error, refresh, create, markAddressed, reopen, remove };
+	return {
+		comments,
+		loading,
+		error,
+		refresh,
+		create,
+		markAddressed,
+		reopen,
+		remove,
+	};
 }

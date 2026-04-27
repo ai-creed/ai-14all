@@ -1,8 +1,19 @@
 import { describe, it, expect, vi } from "vitest";
+import type { editor as MonacoEditor } from "monaco-editor";
 import {
 	installAddAffordances,
 	scrollToLineRange,
 } from "../../../src/features/review/diff-editor-decorations";
+
+type MouseHandler = (e: {
+	target: {
+		element?: { className: string };
+		position?: { lineNumber: number };
+	};
+}) => void;
+type SelectionHandler = (e: {
+	selection: { startLineNumber: number; endLineNumber: number };
+}) => void;
 
 function fakeModified(lineCount = 3) {
 	return {
@@ -12,25 +23,30 @@ function fakeModified(lineCount = 3) {
 		onDidChangeModel: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 		deltaDecorations: vi.fn().mockReturnValue([]),
 		revealLineInCenter: vi.fn(),
-		getModel: vi.fn().mockReturnValue({ getLineCount: () => lineCount, getLineContent: () => "" }),
+		getModel: vi.fn().mockReturnValue({
+			getLineCount: () => lineCount,
+			getLineContent: () => "",
+		}),
 	};
 }
 
 function fakeEditor() {
 	const modified = fakeModified();
+	const editor = {
+		getModifiedEditor: () => modified,
+		onDidDispose: vi.fn().mockReturnValue({ dispose: vi.fn() }),
+	};
 	return {
 		modified,
-		editor: {
-			getModifiedEditor: () => modified,
-			onDidDispose: vi.fn().mockReturnValue({ dispose: vi.fn() }),
-		},
+		editor,
+		typedEditor: editor as unknown as MonacoEditor.IStandaloneDiffEditor,
 	};
 }
 
 describe("diff-editor-decorations", () => {
 	it("registers mouse + selection listeners and returns a disposer", () => {
-		const { editor, modified } = fakeEditor();
-		const dispose = installAddAffordances(editor as any, {
+		const { typedEditor, modified } = fakeEditor();
+		const dispose = installAddAffordances(typedEditor, {
 			filePath: "src/foo.ts",
 			onAddSingleLine: vi.fn(),
 			onSelectionChange: vi.fn(),
@@ -43,30 +59,26 @@ describe("diff-editor-decorations", () => {
 	});
 
 	it("onEnsureFileFocused is called before onAddSingleLine when gutter + clicked", () => {
-		const { editor, modified } = fakeEditor();
+		const { typedEditor, modified } = fakeEditor();
 		const order: string[] = [];
 		const ensure = vi.fn(() => order.push("focus"));
 		const add = vi.fn(() => order.push("add"));
-		let mouseDownHandler:
-			| ((e: { target: { element: { className: string } } }) => void)
-			| null = null;
-		modified.onMouseDown.mockImplementation((h: any) => {
+		let mouseDownHandler: MouseHandler | null = null;
+		modified.onMouseDown.mockImplementation((h: MouseHandler) => {
 			mouseDownHandler = h;
 			return { dispose: vi.fn() };
 		});
-		let moveHandler:
-			| ((e: { target: { position: { lineNumber: number } } }) => void)
-			| null = null;
-		modified.onMouseMove.mockImplementation((h: any) => {
+		let moveHandler: MouseHandler | null = null;
+		modified.onMouseMove.mockImplementation((h: MouseHandler) => {
 			moveHandler = h;
 			return { dispose: vi.fn() };
 		});
 		modified.deltaDecorations.mockReturnValue([]);
-		(modified as any).getModel = () => ({
+		modified.getModel.mockReturnValue({
 			getLineCount: () => 5,
 			getLineContent: () => "const x = 1;",
 		});
-		installAddAffordances(editor as any, {
+		installAddAffordances(typedEditor, {
 			filePath: "src/foo.ts",
 			onAddSingleLine: add,
 			onSelectionChange: vi.fn(),
@@ -82,22 +94,20 @@ describe("diff-editor-decorations", () => {
 	});
 
 	it("onSelectionChange fires with draft on multi-line selection and null on collapse", () => {
-		const { editor, modified } = fakeEditor();
-		let selHandler:
-			| ((e: {
-					selection: { startLineNumber: number; endLineNumber: number };
-				}) => void)
-			| null = null;
-		modified.onDidChangeCursorSelection.mockImplementation((h: any) => {
-			selHandler = h;
-			return { dispose: vi.fn() };
-		});
-		(modified as any).getModel = () => ({
+		const { typedEditor, modified } = fakeEditor();
+		let selHandler: SelectionHandler | null = null;
+		modified.onDidChangeCursorSelection.mockImplementation(
+			(h: SelectionHandler) => {
+				selHandler = h;
+				return { dispose: vi.fn() };
+			},
+		);
+		modified.getModel.mockReturnValue({
 			getLineCount: () => 5,
 			getLineContent: (l: number) => `line ${l}`,
 		});
 		const onSelectionChange = vi.fn();
-		installAddAffordances(editor as any, {
+		installAddAffordances(typedEditor, {
 			filePath: "src/foo.ts",
 			onAddSingleLine: vi.fn(),
 			onSelectionChange,
@@ -117,8 +127,8 @@ describe("diff-editor-decorations", () => {
 	});
 
 	it("scrollToLineRange calls revealLineInCenter on the modified pane", () => {
-		const { editor, modified } = fakeEditor();
-		scrollToLineRange(editor as any, { startLine: 12, endLine: 18 });
+		const { typedEditor, modified } = fakeEditor();
+		scrollToLineRange(typedEditor, { startLine: 12, endLine: 18 });
 		expect(modified.revealLineInCenter).toHaveBeenCalledWith(12);
 	});
 });

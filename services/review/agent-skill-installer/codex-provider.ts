@@ -19,7 +19,11 @@ export class CodexProvider {
 		return join(this.deps.home, ".codex", "skills", "ai-14all-fix-review");
 	}
 
-	async install(input: { serverName: string; url: string; skill: SkillAsset }): Promise<void> {
+	async install(input: {
+		serverName: string;
+		url: string;
+		skill: SkillAsset;
+	}): Promise<void> {
 		if (!(await this.deps.isCliAvailable())) {
 			throw new Error(
 				"codex CLI is not available on PATH; install Codex or use the manual-setup snippet.",

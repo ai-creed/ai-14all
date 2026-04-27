@@ -80,7 +80,8 @@ app.whenReady().then(async () => {
 		return entries;
 	};
 
-	const worktreePathResolver = await createWorktreePathResolver(buildResolverEntries);
+	const worktreePathResolver =
+		await createWorktreePathResolver(buildResolverEntries);
 
 	const offRegistry = workspaceRegistry.onChange(() => {
 		void worktreePathResolver.refresh();
@@ -95,10 +96,14 @@ app.whenReady().then(async () => {
 			rangeStart: 51000,
 			rangeEnd: 51999,
 		});
-		mcpServer = new ReviewMcpServer(reviewCommentService, worktreePathResolver, {
-			port: desiredPort,
-			host: "127.0.0.1",
-		});
+		mcpServer = new ReviewMcpServer(
+			reviewCommentService,
+			worktreePathResolver,
+			{
+				port: desiredPort,
+				host: "127.0.0.1",
+			},
+		);
 		mcpPort = await mcpServer.start();
 		await writeLivenessFile(livenessPath, mcpPort);
 	} catch (err) {
@@ -107,8 +112,12 @@ app.whenReady().then(async () => {
 	}
 
 	const reviewMcpStatus = {
-		get port() { return mcpPort; },
-		get bindError() { return mcpBindError; },
+		get port() {
+			return mcpPort;
+		},
+		get bindError() {
+			return mcpBindError;
+		},
 		getUrl(): string | null {
 			return mcpPort === null ? null : `http://127.0.0.1:${mcpPort}/mcp`;
 		},

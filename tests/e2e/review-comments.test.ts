@@ -57,7 +57,9 @@ async function relaunch() {
 	await page
 		.getByRole("button", { name: "Restore previous workspace" })
 		.click();
-	const worktreeNav = page.getByRole("navigation", { name: "Worktree sessions" });
+	const worktreeNav = page.getByRole("navigation", {
+		name: "Worktree sessions",
+	});
 	await expect(
 		worktreeNav.getByRole("button", { name: /feature-a/i }),
 	).toBeVisible({ timeout: 15_000 });
@@ -69,14 +71,17 @@ async function relaunch() {
  * cursor placement), per diff-editor-decorations.ts onDidChangeCursorSelection.
  */
 async function selectTwoLinesInModifiedEditor() {
-	await page.waitForSelector(".modified-in-monaco-diff-editor", { timeout: 15_000 });
+	await page.waitForSelector(".modified-in-monaco-diff-editor", {
+		timeout: 15_000,
+	});
 	const modifiedPane = page.locator(".modified-in-monaco-diff-editor");
 	const viewLines = modifiedPane.locator(".view-line");
 	await expect(viewLines.first()).toBeVisible({ timeout: 10_000 });
 
 	const firstLine = viewLines.first();
 	const box = await firstLine.boundingBox();
-	if (!box) throw new Error("Modified editor first view-line has no bounding box");
+	if (!box)
+		throw new Error("Modified editor first view-line has no bounding box");
 
 	// Click to focus the editor
 	await page.mouse.click(box.x + 60, box.y + box.height / 2);
@@ -91,14 +96,18 @@ async function selectTwoLinesInModifiedEditor() {
 
 test.beforeAll(async () => {
 	testRepo = createTestRepo();
-	persistedStateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-review-comments-")));
+	persistedStateDir = realpathSync(
+		mkdtempSync(join(tmpdir(), "ofa-review-comments-")),
+	);
 	persistedStatePath = join(persistedStateDir, "workspace-state.json");
 
 	// Launch and open the workspace — navigates to feature-a which has dirty files
 	await launchRaw();
 	await page.getByRole("button", { name: "Browse" }).click();
 	await page.getByRole("button", { name: "Load" }).click();
-	const worktreeNav = page.getByRole("navigation", { name: "Worktree sessions" });
+	const worktreeNav = page.getByRole("navigation", {
+		name: "Worktree sessions",
+	});
 	await expect(
 		worktreeNav.getByRole("button", { name: /feature-a/i }),
 	).toBeVisible({ timeout: 15_000 });
@@ -116,7 +125,10 @@ test.afterAll(async () => {
 });
 
 test.describe.serial("Review comments", () => {
-	test.skip(true, "Blocked: contextBridge/preload not surfacing window.ai14all under Playwright 1.59 + Electron 41 — all E2E tests broken in this environment");
+	test.skip(
+		true,
+		"Blocked: contextBridge/preload not surfacing window.ai14all under Playwright 1.59 + Electron 41 — all E2E tests broken in this environment",
+	);
 
 	test("author, persist, mark addressed, delete in changes mode", async () => {
 		test.setTimeout(120_000);
@@ -126,12 +138,16 @@ test.describe.serial("Review comments", () => {
 		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
 
 		// Wait for src/index.ts in the changes list and click it
-		const changedFileButton = page.getByRole("button", { name: /src\/index\.ts/i });
+		const changedFileButton = page.getByRole("button", {
+			name: /src\/index\.ts/i,
+		});
 		await expect(changedFileButton).toBeVisible({ timeout: 15_000 });
 		await changedFileButton.click({ force: true });
 
 		// Wait for the diff viewer to appear
-		await expect(page.getByText("Diff vs HEAD")).toBeVisible({ timeout: 15_000 });
+		await expect(page.getByText("Diff vs HEAD")).toBeVisible({
+			timeout: 15_000,
+		});
 
 		// Select two lines in the modified editor to trigger the floating add button
 		await selectTwoLinesInModifiedEditor();
@@ -144,7 +160,9 @@ test.describe.serial("Review comments", () => {
 		await floatingAdd.click();
 
 		// Fill the textarea with a comment
-		const textarea = page.locator('textarea[placeholder="What should the agent change?"]');
+		const textarea = page.locator(
+			'textarea[placeholder="What should the agent change?"]',
+		);
 		await expect(textarea).toBeVisible({ timeout: 5_000 });
 		await textarea.fill("rename x");
 
@@ -156,8 +174,12 @@ test.describe.serial("Review comments", () => {
 		await expect(commentCard).toBeVisible({ timeout: 10_000 });
 
 		// Assert range text "L" and the comment body
-		await expect(commentCard.locator(".shell-review-comment-card__range")).toContainText("L");
-		await expect(commentCard.locator(".shell-review-comment-card__body")).toHaveText("rename x");
+		await expect(
+			commentCard.locator(".shell-review-comment-card__range"),
+		).toContainText("L");
+		await expect(
+			commentCard.locator(".shell-review-comment-card__body"),
+		).toHaveText("rename x");
 
 		// Assert the changes list shows [1] badge next to src/index.ts
 		const badge = page.locator(".shell-review-comment-badge");
@@ -171,22 +193,34 @@ test.describe.serial("Review comments", () => {
 		// Open drawer and go to Changes tab again
 		await ensureReviewDrawerOpen(page);
 		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
-		await page.getByRole("button", { name: /src\/index\.ts/i }).click({ force: true });
-		await expect(page.getByText("Diff vs HEAD")).toBeVisible({ timeout: 15_000 });
+		await page
+			.getByRole("button", { name: /src\/index\.ts/i })
+			.click({ force: true });
+		await expect(page.getByText("Diff vs HEAD")).toBeVisible({
+			timeout: 15_000,
+		});
 
 		// Assert the comment card persisted
 		const persistedCard = page.locator(".shell-review-comment-card");
 		await expect(persistedCard).toBeVisible({ timeout: 10_000 });
-		await expect(persistedCard.locator(".shell-review-comment-card__body")).toHaveText("rename x");
+		await expect(
+			persistedCard.locator(".shell-review-comment-card__body"),
+		).toHaveText("rename x");
 
 		// Mark addressed
 		await page.getByRole("button", { name: "mark addressed" }).click();
-		await expect(persistedCard).toHaveAttribute("data-status", "addressed", { timeout: 5_000 });
+		await expect(persistedCard).toHaveAttribute("data-status", "addressed", {
+			timeout: 5_000,
+		});
 
 		// Delete the comment
 		await page.getByRole("button", { name: "delete comment" }).click();
-		await expect(page.locator(".shell-review-comment-card")).toHaveCount(0, { timeout: 5_000 });
-		await expect(page.locator(".shell-review-comment-badge")).toHaveCount(0, { timeout: 5_000 });
+		await expect(page.locator(".shell-review-comment-card")).toHaveCount(0, {
+			timeout: 5_000,
+		});
+		await expect(page.locator(".shell-review-comment-badge")).toHaveCount(0, {
+			timeout: 5_000,
+		});
 	});
 
 	test("add comment in commits mode via focus-first", async () => {
@@ -209,8 +243,12 @@ test.describe.serial("Review comments", () => {
 		await commitFileButton.click();
 
 		// Wait for the diff viewer to appear
-		await expect(page.locator(".shell-viewer__title", { hasText: "feature commit" })).toBeVisible({ timeout: 15_000 });
-		await expect(page.locator(".modified-in-monaco-diff-editor")).toBeVisible({ timeout: 15_000 });
+		await expect(
+			page.locator(".shell-viewer__title", { hasText: "feature commit" }),
+		).toBeVisible({ timeout: 15_000 });
+		await expect(page.locator(".modified-in-monaco-diff-editor")).toBeVisible({
+			timeout: 15_000,
+		});
 
 		// Select two lines in the modified editor to trigger the floating add button
 		await selectTwoLinesInModifiedEditor();
@@ -223,7 +261,9 @@ test.describe.serial("Review comments", () => {
 		await floatingAdd.click();
 
 		// Fill the textarea with a comment
-		const textarea = page.locator('textarea[placeholder="What should the agent change?"]');
+		const textarea = page.locator(
+			'textarea[placeholder="What should the agent change?"]',
+		);
 		await expect(textarea).toBeVisible({ timeout: 5_000 });
 		await textarea.fill("rename committed");
 
@@ -233,7 +273,11 @@ test.describe.serial("Review comments", () => {
 		// Assert comment card is visible in the sidebar
 		const commentCard = page.locator(".shell-review-comment-card");
 		await expect(commentCard).toBeVisible({ timeout: 10_000 });
-		await expect(commentCard.locator(".shell-review-comment-card__body")).toHaveText("rename committed");
-		await expect(commentCard.locator(".shell-review-comment-card__range")).toContainText("L");
+		await expect(
+			commentCard.locator(".shell-review-comment-card__body"),
+		).toHaveText("rename committed");
+		await expect(
+			commentCard.locator(".shell-review-comment-card__range"),
+		).toContainText("L");
 	});
 });

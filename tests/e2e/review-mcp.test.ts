@@ -98,9 +98,7 @@ test.describe.serial("Review MCP server", () => {
 					.ai14all;
 				const ws = await ai.workspace.openRepository(repoPath);
 				const worktrees = await ai.repository.listWorktrees(ws.id);
-				const linked = worktrees.find(
-					(wt: { isMain: boolean }) => !wt.isMain,
-				);
+				const linked = worktrees.find((wt: { isMain: boolean }) => !wt.isMain);
 				if (!linked) throw new Error("feature-a worktree not found");
 				return { workspaceId: ws.id, worktreeId: linked.id };
 			},
@@ -200,9 +198,10 @@ test.describe.serial("Review MCP server", () => {
 				type: string;
 				text: string;
 			}>;
-			const markAgainResponse = JSON.parse(
-				markAgainContent[0]!.text,
-			) as { ok: boolean; error?: string };
+			const markAgainResponse = JSON.parse(markAgainContent[0]!.text) as {
+				ok: boolean;
+				error?: string;
+			};
 			expect(markAgainResponse.ok).toBe(false);
 			expect(markAgainResponse.error).toBe("already_addressed");
 

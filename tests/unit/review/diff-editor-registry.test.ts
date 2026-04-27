@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { createDiffEditorRegistry } from "../../../src/features/review/diff-editor-registry";
 
-const fakeEditor = (id: string) => ({ __id: id }) as unknown as import("monaco-editor").editor.IStandaloneDiffEditor;
+const fakeEditor = (id: string) =>
+	({
+		__id: id,
+	}) as unknown as import("monaco-editor").editor.IStandaloneDiffEditor;
 
 describe("DiffEditorRegistry", () => {
 	it("registers and retrieves by file path", () => {

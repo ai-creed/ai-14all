@@ -261,11 +261,15 @@ export function FilesOverlay(props: FilesOverlayProps) {
 							{rows[selectedIndex] ?? ""}
 						</span>
 						<span className="shell-files-overlay__footer-hints">
-							<span><kbd>↵</kbd> View</span>
+							<span>
+								<kbd>↵</kbd> View
+							</span>
 							<span className="shell-files-overlay__footer-hint-edit">
 								<kbd>⌘↵</kbd> Edit
 							</span>
-							<span><kbd>Esc</kbd> Close</span>
+							<span>
+								<kbd>Esc</kbd> Close
+							</span>
 						</span>
 					</div>
 				</Dialog.Content>
