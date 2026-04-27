@@ -72,8 +72,10 @@ describe("diff-editor-decorations", () => {
 			onSelectionChange: vi.fn(),
 			onEnsureFileFocused: ensure,
 		});
-		moveHandler?.({ target: { position: { lineNumber: 5 } } });
-		mouseDownHandler?.({
+		// biome-ignore lint/style/noNonNullAssertion: mockImplementation runs synchronously, so handlers are set
+		moveHandler!({ target: { position: { lineNumber: 5 } } });
+		// biome-ignore lint/style/noNonNullAssertion: mockImplementation runs synchronously, so handlers are set
+		mouseDownHandler!({
 			target: { element: { className: "shell-review-plus-decoration" } },
 		});
 		expect(order).toEqual(["focus", "add"]);
@@ -101,14 +103,16 @@ describe("diff-editor-decorations", () => {
 			onSelectionChange,
 			onEnsureFileFocused: vi.fn(),
 		});
-		selHandler?.({ selection: { startLineNumber: 3, endLineNumber: 5 } });
+		// biome-ignore lint/style/noNonNullAssertion: mockImplementation runs synchronously, so handlers are set
+		selHandler!({ selection: { startLineNumber: 3, endLineNumber: 5 } });
 		expect(onSelectionChange).toHaveBeenCalledWith({
 			filePath: "src/foo.ts",
 			startLine: 3,
 			endLine: 5,
 			snippet: "line 3\nline 4\nline 5",
 		});
-		selHandler?.({ selection: { startLineNumber: 5, endLineNumber: 5 } });
+		// biome-ignore lint/style/noNonNullAssertion: mockImplementation runs synchronously, so handlers are set
+		selHandler!({ selection: { startLineNumber: 5, endLineNumber: 5 } });
 		expect(onSelectionChange).toHaveBeenLastCalledWith(null);
 	});
 

@@ -81,10 +81,14 @@ export class ReviewMcpServer {
 				// New session — fresh McpServer + transport
 				const sessionMcp = new McpServer({ name: "ai-14all", version: "0.1.0" });
 				this.registerTools(sessionMcp);
-				const t = new StreamableHTTPServerTransport({
+				const t: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
 					sessionIdGenerator: () => randomUUID(),
-					onsessioninitialized: (sid) => sessions.set(sid, t),
-					onsessionclosed: (sid) => sessions.delete(sid),
+					onsessioninitialized: (sid) => {
+						sessions.set(sid, t);
+					},
+					onsessionclosed: (sid) => {
+						sessions.delete(sid);
+					},
 				});
 				await sessionMcp.connect(t);
 				await t.handleRequest(req, res);
