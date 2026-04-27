@@ -608,8 +608,8 @@ export function App() {
 			e.preventDefault();
 			void openEditorForFile(selectedPath);
 		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
+		window.addEventListener("keydown", onKey, true);
+		return () => window.removeEventListener("keydown", onKey, true);
 	}, [editorTarget, openEditorForFile, activeSession?.selectedFilePath]);
 
 	function findProcessByTerminalSessionId(
@@ -2164,8 +2164,8 @@ export function App() {
 			e.preventDefault();
 			setNoteSheetOpen((prev) => !prev);
 		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
+		document.addEventListener("keydown", handler, true);
+		return () => document.removeEventListener("keydown", handler, true);
 	}, [appPlatform]);
 
 	// Cmd+P / Ctrl+Shift+P shortcut to open Files overlay
@@ -2179,8 +2179,8 @@ export function App() {
 			e.preventDefault();
 			setFilesOverlayOpen(true);
 		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
+		document.addEventListener("keydown", handler, true);
+		return () => document.removeEventListener("keydown", handler, true);
 	}, [activeWorktree?.id, appPlatform]);
 
 	// Cmd+J / Ctrl+J shortcut to toggle review drawer
@@ -2207,8 +2207,8 @@ export function App() {
 				open: next,
 			});
 		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
+		document.addEventListener("keydown", handler, true);
+		return () => document.removeEventListener("keydown", handler, true);
 	}, [
 		activeWorktree?.id,
 		activeSummary?.isDirty,
@@ -2232,8 +2232,8 @@ export function App() {
 				worktreeId: activeWorktree.id,
 			});
 		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
+		document.addEventListener("keydown", handler, true);
+		return () => document.removeEventListener("keydown", handler, true);
 	}, [activeWorkspaceId, activeWorktree?.id, appPlatform]);
 
 	// Cmd+/ or Cmd+? / Ctrl+/ or Ctrl+? shortcut to show shortcuts help
@@ -2246,8 +2246,8 @@ export function App() {
 			e.preventDefault();
 			setShortcutsHelpOpen((prev) => !prev);
 		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
+		document.addEventListener("keydown", handler, true);
+		return () => document.removeEventListener("keydown", handler, true);
 	}, [appPlatform]);
 
 	// Cmd+] / Ctrl+] and Cmd+[ / Ctrl+[ — cycle through worktrees
@@ -2275,8 +2275,8 @@ export function App() {
 			e.preventDefault();
 			dispatch({ type: "session/selectWorktree", worktreeId: nextId });
 		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
+		document.addEventListener("keydown", handler, true);
+		return () => document.removeEventListener("keydown", handler, true);
 	}, [appPlatform, dispatch]);
 
 	// Cmd+N / Ctrl+N — add worktree
@@ -2288,8 +2288,8 @@ export function App() {
 			e.preventDefault();
 			setCreateDialogOpen(true);
 		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
+		document.addEventListener("keydown", handler, true);
+		return () => document.removeEventListener("keydown", handler, true);
 	}, [appPlatform, activeWorkspaceId]);
 
 	// Cmd+Shift+] / Ctrl+Shift+] and Cmd+Shift+[ / Ctrl+Shift+[ — cycle through workspaces
@@ -2317,8 +2317,8 @@ export function App() {
 			e.preventDefault();
 			void activateWorkspace(nextId);
 		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
+		document.addEventListener("keydown", handler, true);
+		return () => document.removeEventListener("keydown", handler, true);
 		// activateWorkspace reads from refs internally — stale closure is safe
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [appPlatform]);
@@ -2335,8 +2335,8 @@ export function App() {
 			e.preventDefault();
 			setWorkspacePickerOpen(true);
 		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
+		document.addEventListener("keydown", handler, true);
+		return () => document.removeEventListener("keydown", handler, true);
 	}, [appPlatform, startupMode]);
 
 	// Cmd+T / Ctrl+T — new terminal
@@ -2347,8 +2347,8 @@ export function App() {
 			e.preventDefault();
 			void handleAddAdHoc();
 		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
+		document.addEventListener("keydown", handler, true);
+		return () => document.removeEventListener("keydown", handler, true);
 	}, [appPlatform, activeWorktree?.id, activeWorkspaceId]); // handleAddAdHoc closes over these
 
 	// Cmd+Shift+W / Ctrl+Shift+W — close active terminal
@@ -2366,8 +2366,8 @@ export function App() {
 			e.preventDefault();
 			void handleCloseProcess(activeProcessId);
 		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
+		document.addEventListener("keydown", handler, true);
+		return () => document.removeEventListener("keydown", handler, true);
 	}, [appPlatform, activeWorktree?.id, activeWorkspaceId]); // handleCloseProcess closes over these
 
 	// Cmd+Shift+D / Ctrl+Shift+D and Cmd+Shift+A / Ctrl+Shift+A — cycle through terminals
@@ -2411,8 +2411,8 @@ export function App() {
 				processId: nextProcessId,
 			});
 		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
+		document.addEventListener("keydown", handler, true);
+		return () => document.removeEventListener("keydown", handler, true);
 	}, [appPlatform, dispatch]);
 
 	// Cmd+D / Ctrl+D — toggle split terminal mode
@@ -2446,8 +2446,8 @@ export function App() {
 						: undefined,
 			});
 		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
+		document.addEventListener("keydown", handler, true);
+		return () => document.removeEventListener("keydown", handler, true);
 	}, [appPlatform, dispatch]);
 
 	// Cmd+B / Ctrl+B — toggle sidebar
@@ -2460,8 +2460,8 @@ export function App() {
 			e.preventDefault();
 			setSidebarCollapsed((current) => !current);
 		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
+		document.addEventListener("keydown", handler, true);
+		return () => document.removeEventListener("keydown", handler, true);
 	}, [appPlatform]);
 
 	// Cmd+1/2/3 / Ctrl+1/2/3 — switch review pane tab and open drawer
@@ -2502,8 +2502,8 @@ export function App() {
 				});
 			}
 		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
+		document.addEventListener("keydown", handler, true);
+		return () => document.removeEventListener("keydown", handler, true);
 	}, [appPlatform, autoExpand, dispatch]);
 
 	function handleSelectChangedFile(relativePath: string) {
@@ -2561,7 +2561,7 @@ export function App() {
 		if (!activeWorktree || !activeWorkspaceId) return;
 		const targetWorkspaceId = activeWorkspaceId;
 		const targetWorktreeId = activeWorktree.id;
-		const process = workspaceState.processSessionsById[processId];
+		const process = workspaceStateRef.current.processSessionsById[processId];
 		if (!process) return;
 		const terminalId = process.terminalSessionId;
 		if (terminalId) {

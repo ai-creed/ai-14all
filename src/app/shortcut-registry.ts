@@ -20,7 +20,11 @@ function targetOwnsTyping(target: HTMLElement | null): boolean {
 	if (!target || typeof target.closest !== "function") return false;
 	if (target.closest(".xterm")) return true;
 	if (target.closest('[role="dialog"]')) return true;
-	if (target.closest(".monaco-editor")) return true;
+	// Monaco's .inputarea is a <textarea>, so check Monaco BEFORE the generic
+	// TEXTAREA guard. Read-only editors (FileViewer, DiffViewer) are wrapped in
+	// [data-readonly-editor] — shortcuts should still fire from inside them.
+	const monacoEl = target.closest(".monaco-editor");
+	if (monacoEl) return !monacoEl.closest("[data-readonly-editor]");
 	if (target.closest('[contenteditable="true"]')) return true;
 	if (target.closest('[role="textbox"]')) return true;
 	const tag = target.tagName;
@@ -38,7 +42,11 @@ function targetOwnsTypingExcludingXterm(target: HTMLElement | null): boolean {
 	// Explicitly allow xterm — skip it and fall through to other checks.
 	if (target.closest(".xterm")) return false;
 	if (target.closest('[role="dialog"]')) return true;
-	if (target.closest(".monaco-editor")) return true;
+	// Monaco's .inputarea is a <textarea>, so check Monaco BEFORE the generic
+	// TEXTAREA guard. Read-only editors (FileViewer, DiffViewer) are wrapped in
+	// [data-readonly-editor] — shortcuts should still fire from inside them.
+	const monacoEl = target.closest(".monaco-editor");
+	if (monacoEl) return !monacoEl.closest("[data-readonly-editor]");
 	if (target.closest('[contenteditable="true"]')) return true;
 	if (target.closest('[role="textbox"]')) return true;
 	const tag = target.tagName;

@@ -56,7 +56,7 @@ export function DiffViewer({
 	}, []);
 
 	return (
-		<div className="shell-viewer">
+		<div className="shell-viewer" data-readonly-editor="true">
 			<div className="shell-viewer__header">
 				<div className="shell-viewer__title">{path}</div>
 				<div className="shell-viewer__meta">Diff vs HEAD</div>

@@ -2175,8 +2175,7 @@ select {
 }
 
 .shell-files-overlay__footer[data-edit-available="false"]
-	.shell-files-overlay__footer-hints
-	kbd:nth-child(2) {
+	.shell-files-overlay__footer-hint-edit {
 	opacity: 0.4;
 }
 
