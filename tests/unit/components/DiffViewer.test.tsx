@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 const fakeEditor = {
+	setModel: vi.fn(),
 	getModifiedEditor: vi.fn(() => ({
 		onMouseMove: vi.fn(),
 		onMouseDown: vi.fn(),
