@@ -297,4 +297,25 @@ describe("terminal-first ownership — all shortcuts", () => {
 			expect(s.predicate(evt({ ...trigger, target: child }), "mac")).toBe(true);
 		}
 	});
+
+	it("all shortcut predicates fire when Monaco's internal textarea has focus in a read-only editor", () => {
+		// Monaco focuses a hidden <textarea> (.inputarea) — must not be caught
+		// by the generic TEXTAREA guard before the [data-readonly-editor] check.
+		const wrapper = document.createElement("div");
+		wrapper.setAttribute("data-readonly-editor", "true");
+		const monaco = document.createElement("div");
+		monaco.className = "monaco-editor";
+		const textarea = document.createElement("textarea");
+		textarea.className = "inputarea monaco-mouse-cursor-text";
+		monaco.appendChild(textarea);
+		wrapper.appendChild(monaco);
+		document.body.appendChild(wrapper);
+		for (const s of SHORTCUT_REGISTRY) {
+			const trigger = macTriggers[s.id];
+			if (!trigger) continue;
+			expect(
+				s.predicate(evt({ ...trigger, target: textarea }), "mac"),
+			).toBe(true);
+		}
+	});
 });

@@ -179,6 +179,27 @@ describe("isFilesOverlayShortcut", () => {
 		wrapper.remove();
 	});
 
+	it("matches when Monaco's internal textarea has focus inside a read-only editor", () => {
+		// Monaco focuses a hidden <textarea> (.inputarea) which was previously
+		// caught by the generic TEXTAREA guard before [data-readonly-editor] was checked.
+		const wrapper = document.createElement("div");
+		wrapper.setAttribute("data-readonly-editor", "true");
+		const monaco = document.createElement("div");
+		monaco.className = "monaco-editor";
+		const textarea = document.createElement("textarea");
+		textarea.className = "inputarea monaco-mouse-cursor-text";
+		monaco.appendChild(textarea);
+		wrapper.appendChild(monaco);
+		document.body.appendChild(wrapper);
+		expect(
+			isFilesOverlayShortcut(
+				evt({ metaKey: true, key: "p", target: textarea }),
+				"mac",
+			),
+		).toBe(true);
+		wrapper.remove();
+	});
+
 	it("matches when target is a plain body / non-terminal element", () => {
 		expect(
 			isFilesOverlayShortcut(
