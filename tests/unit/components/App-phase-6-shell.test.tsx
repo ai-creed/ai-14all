@@ -405,7 +405,7 @@ describe("App — Phase 6 default shell", () => {
 		const resizeHandle = screen.getByTestId("review-rail-resize-handle");
 
 		expect(reviewGrid).toHaveStyle({
-			gridTemplateColumns: "320px 8px minmax(0, 1fr) 8px 280px",
+			gridTemplateColumns: "320px 8px minmax(0, 1fr)",
 		});
 
 		fireEvent.mouseDown(resizeHandle, { clientX: 320 });
@@ -414,7 +414,7 @@ describe("App — Phase 6 default shell", () => {
 
 		await waitFor(() => {
 			expect(reviewGrid).toHaveStyle({
-				gridTemplateColumns: "420px 8px minmax(0, 1fr) 8px 280px",
+				gridTemplateColumns: "420px 8px minmax(0, 1fr)",
 			});
 		});
 
