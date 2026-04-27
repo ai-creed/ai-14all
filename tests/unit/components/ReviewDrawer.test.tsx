@@ -105,15 +105,21 @@ describe("ReviewDrawer", () => {
 			const user = userEvent.setup();
 			const onExpand = vi.fn();
 			render(<ReviewDrawer {...defaults} open onExpand={onExpand} />);
-			await user.click(screen.getByRole("button", { name: /expand to full review/i }));
+			await user.click(
+				screen.getByRole("button", { name: /expand to full review/i }),
+			);
 			expect(onExpand).toHaveBeenCalledTimes(1);
 		});
 
 		it("calls onCollapse when collapse button is clicked", async () => {
 			const user = userEvent.setup();
 			const onCollapse = vi.fn();
-			render(<ReviewDrawer {...defaults} open expanded onCollapse={onCollapse} />);
-			await user.click(screen.getByRole("button", { name: /collapse full review/i }));
+			render(
+				<ReviewDrawer {...defaults} open expanded onCollapse={onCollapse} />,
+			);
+			await user.click(
+				screen.getByRole("button", { name: /collapse full review/i }),
+			);
 			expect(onCollapse).toHaveBeenCalledTimes(1);
 		});
 

@@ -12,7 +12,9 @@ function makeEl(tag = "div") {
 	return el;
 }
 
-function makeProps(overrides: Partial<React.ComponentProps<typeof ReviewExpandedPortal>> = {}) {
+function makeProps(
+	overrides: Partial<React.ComponentProps<typeof ReviewExpandedPortal>> = {},
+) {
 	const mainColRef = { current: makeEl() };
 	const chipBarRef = { current: makeEl() };
 	return {
@@ -47,7 +49,11 @@ describe("ReviewExpandedPortal", () => {
 	});
 
 	it("shows changed-file count when dirty", () => {
-		render(<ReviewExpandedPortal {...makeProps({ isDirty: true, changedFileCount: 5 })} />);
+		render(
+			<ReviewExpandedPortal
+				{...makeProps({ isDirty: true, changedFileCount: 5 })}
+			/>,
+		);
 		expect(screen.getByLabelText(/5 changed files/i)).toBeInTheDocument();
 	});
 
@@ -63,7 +69,9 @@ describe("ReviewExpandedPortal", () => {
 		const user = userEvent.setup();
 		render(<ReviewExpandedPortal {...makeProps()} />);
 		const portal = screen.getByTestId("review-expanded-portal");
-		await user.click(screen.getByRole("button", { name: /collapse full review/i }));
+		await user.click(
+			screen.getByRole("button", { name: /collapse full review/i }),
+		);
 		expect(portal).toHaveAttribute("data-leaving", "true");
 	});
 
@@ -72,21 +80,31 @@ describe("ReviewExpandedPortal", () => {
 		const onCollapse = vi.fn();
 		render(<ReviewExpandedPortal {...makeProps({ onCollapse })} />);
 		const portal = screen.getByTestId("review-expanded-portal");
-		await user.click(screen.getByRole("button", { name: /collapse full review/i }));
+		await user.click(
+			screen.getByRole("button", { name: /collapse full review/i }),
+		);
 		expect(onCollapse).not.toHaveBeenCalled();
-		act(() => { portal.dispatchEvent(new Event("transitionend")); });
+		act(() => {
+			portal.dispatchEvent(new Event("transitionend"));
+		});
 		expect(onCollapse).toHaveBeenCalledTimes(1);
 	});
 
 	it("collapse() imperative handle sets data-leaving and calls onCollapse after transitionend", async () => {
 		const onCollapse = vi.fn();
 		const handleRef = createRef<ReviewExpandedPortalHandle>();
-		render(<ReviewExpandedPortal ref={handleRef} {...makeProps({ onCollapse })} />);
+		render(
+			<ReviewExpandedPortal ref={handleRef} {...makeProps({ onCollapse })} />,
+		);
 		const portal = screen.getByTestId("review-expanded-portal");
-		act(() => { handleRef.current?.collapse(); });
+		act(() => {
+			handleRef.current?.collapse();
+		});
 		expect(portal).toHaveAttribute("data-leaving", "true");
 		expect(onCollapse).not.toHaveBeenCalled();
-		act(() => { portal.dispatchEvent(new Event("transitionend")); });
+		act(() => {
+			portal.dispatchEvent(new Event("transitionend"));
+		});
 		expect(onCollapse).toHaveBeenCalledTimes(1);
 	});
 

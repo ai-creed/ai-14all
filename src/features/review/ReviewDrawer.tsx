@@ -26,7 +26,9 @@ export function ReviewDrawer({
 	children,
 }: Props) {
 	const toggleLabel = open ? "Collapse review drawer" : "Expand review drawer";
-	const expandLabel = expanded ? "Collapse full review" : "Expand to full review";
+	const expandLabel = expanded
+		? "Collapse full review"
+		: "Expand to full review";
 	return (
 		<section
 			className="shell-review-drawer"
@@ -101,11 +103,12 @@ export function ReviewDrawer({
 				</div>
 			</div>
 
-			{open && (
-				expanded
-					? <div className="shell-review-drawer__body--placeholder" />
-					: <div className="shell-review-drawer__body">{children}</div>
-			)}
+			{open &&
+				(expanded ? (
+					<div className="shell-review-drawer__body--placeholder" />
+				) : (
+					<div className="shell-review-drawer__body">{children}</div>
+				))}
 		</section>
 	);
 }

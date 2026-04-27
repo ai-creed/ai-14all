@@ -2454,7 +2454,8 @@ select {
 	padding: 1px var(--space-1);
 }
 
-.shell-review-comment-card[data-status="open"] .shell-review-comment-card__status {
+.shell-review-comment-card[data-status="open"]
+	.shell-review-comment-card__status {
 	color: var(--accent);
 	border-color: var(--accent);
 }

@@ -56,11 +56,15 @@ let modKey: string;
 
 test.beforeAll(async () => {
 	testRepo = createTestRepo();
-	const stateDir = realpathSync(mkdtempSync(join(tmpdir(), "ai14all-e2e-expand-")));
+	const stateDir = realpathSync(
+		mkdtempSync(join(tmpdir(), "ai14all-e2e-expand-")),
+	);
 	persistedStatePath = join(stateDir, "workspace-state.json");
 
 	writeFileSync(join(testRepo.repoPath, ".gitignore"), ".worktrees/\n");
-	execSync("git add .gitignore && git commit -m 'init'", { cwd: testRepo.repoPath });
+	execSync("git add .gitignore && git commit -m 'init'", {
+		cwd: testRepo.repoPath,
+	});
 
 	// Untracked file makes the review pane dirty so it has content to show.
 	writeFileSync(join(testRepo.repoPath, "hello.txt"), "hello\n");
@@ -97,7 +101,9 @@ test.describe.serial("Review expand mode", () => {
 	});
 
 	test("collapse button in portal closes portal", async () => {
-		await portal().getByRole("button", { name: /collapse full review/i }).click();
+		await portal()
+			.getByRole("button", { name: /collapse full review/i })
+			.click();
 		await expect(portal()).toHaveCount(0);
 		// Drawer state unchanged — still closed
 		await expect(drawer()).toHaveAttribute("data-open", "false");
@@ -105,13 +111,19 @@ test.describe.serial("Review expand mode", () => {
 
 	test("terminal height does not change when toggling portal (drawer closed)", async () => {
 		const terminalSection = page.locator(".shell-terminal-section");
-		const heightBefore = await terminalSection.evaluate((el) => el.clientHeight);
+		const heightBefore = await terminalSection.evaluate(
+			(el) => el.clientHeight,
+		);
 
 		await page.keyboard.press(`${modKey}+Shift+j`);
 		await expect(portal()).toBeVisible();
-		const heightDuring = await terminalSection.evaluate((el) => el.clientHeight);
+		const heightDuring = await terminalSection.evaluate(
+			(el) => el.clientHeight,
+		);
 
-		await portal().getByRole("button", { name: /collapse full review/i }).click();
+		await portal()
+			.getByRole("button", { name: /collapse full review/i })
+			.click();
 		await expect(portal()).toHaveCount(0);
 		const heightAfter = await terminalSection.evaluate((el) => el.clientHeight);
 
@@ -125,14 +137,18 @@ test.describe.serial("Review expand mode", () => {
 		await expect(drawer()).toHaveAttribute("data-open", "true");
 
 		const terminalSection = page.locator(".shell-terminal-section");
-		const heightBefore = await terminalSection.evaluate((el) => el.clientHeight);
+		const heightBefore = await terminalSection.evaluate(
+			(el) => el.clientHeight,
+		);
 
 		await page.keyboard.press(`${modKey}+Shift+j`);
 		await expect(portal()).toBeVisible();
 
 		// Drawer still open, terminal height unchanged
 		await expect(drawer()).toHaveAttribute("data-open", "true");
-		const heightDuring = await terminalSection.evaluate((el) => el.clientHeight);
+		const heightDuring = await terminalSection.evaluate(
+			(el) => el.clientHeight,
+		);
 		expect(heightDuring).toBe(heightBefore);
 	});
 
@@ -147,14 +163,58 @@ test.describe.serial("Review expand mode", () => {
 		await page.getByRole("button", { name: /expand to full review/i }).click();
 		await expect(portal()).toBeVisible();
 		// collapse to clean up
-		await portal().getByRole("button", { name: /collapse full review/i }).click();
+		await portal()
+			.getByRole("button", { name: /collapse full review/i })
+			.click();
+		await expect(portal()).toHaveCount(0);
+	});
+
+	test("portal left/right tracks main column after sidebar resize", async () => {
+		// Open portal
+		await page.keyboard.press(`${modKey}+Shift+j`);
+		await expect(portal()).toBeVisible();
+
+		const leftBefore = await portal().evaluate((el) =>
+			parseInt((el as HTMLElement).style.left),
+		);
+
+		// Drag the sidebar resize handle to widen the sidebar
+		const handle = page.getByTestId("sidebar-resize-handle");
+		const handleBox = await handle.boundingBox();
+		if (handleBox) {
+			await page.mouse.move(
+				handleBox.x + handleBox.width / 2,
+				handleBox.y + handleBox.height / 2,
+			);
+			await page.mouse.down();
+			await page.mouse.move(
+				handleBox.x + handleBox.width / 2 + 60,
+				handleBox.y + handleBox.height / 2,
+				{ steps: 5 },
+			);
+			await page.mouse.up();
+		}
+
+		const leftAfter = await portal().evaluate((el) =>
+			parseInt((el as HTMLElement).style.left),
+		);
+		expect(leftAfter).toBeGreaterThan(leftBefore);
+
+		// Collapse portal to clean up
+		await portal()
+			.getByRole("button", { name: /collapse full review/i })
+			.click();
 		await expect(portal()).toHaveCount(0);
 	});
 
 	test("review.expand row appears in shortcuts help", async () => {
 		await page.keyboard.press(`${modKey}+Slash`);
-		await expect(page.getByRole("dialog", { name: /keyboard shortcuts/i })).toBeVisible();
-		await expect(page.getByTestId("shortcuts-help-row-review.expand")).toBeVisible();
+		await expect(
+			page.getByRole("dialog", { name: /keyboard shortcuts/i }),
+		).toBeVisible();
+		await expect(
+			page.getByTestId("shortcuts-help-row-review.expand"),
+		).toBeVisible();
 		await page.keyboard.press("Escape");
 	});
 });

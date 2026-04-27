@@ -32,12 +32,25 @@ export const ReviewExpandedPortal = forwardRef<
 	ReviewExpandedPortalHandle,
 	ReviewExpandedPortalProps
 >(function ReviewExpandedPortal(
-	{ mainColRef, chipBarRef, onCollapse, onRefresh, isDirty, changedFileCount, children },
+	{
+		mainColRef,
+		chipBarRef,
+		onCollapse,
+		onRefresh,
+		isDirty,
+		changedFileCount,
+		children,
+	},
 	ref,
 ) {
 	const portalRef = useRef<HTMLDivElement>(null);
 	const [rect, setRect] = useState<PortalRect>({ top: 0, left: 0, right: 0 });
 	const rectRef = useRef<PortalRect>({ top: 0, left: 0, right: 0 });
+
+	// Start in leaving state so the first render is off-screen; rAF below removes it.
+	const [leaving, setLeaving] = useState(true);
+	const entryRafRef = useRef<number | null>(null);
+	const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	function recomputePosition() {
 		const mainCol = mainColRef.current;
@@ -51,7 +64,12 @@ export const ReviewExpandedPortal = forwardRef<
 			right: window.innerWidth - mainRect.right,
 		};
 		const prev = rectRef.current;
-		if (next.top === prev.top && next.left === prev.left && next.right === prev.right) return;
+		if (
+			next.top === prev.top &&
+			next.left === prev.left &&
+			next.right === prev.right
+		)
+			return;
 		rectRef.current = next;
 		setRect(next);
 	}
@@ -78,15 +96,19 @@ export const ReviewExpandedPortal = forwardRef<
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	// Entry animation: mount in slide-down position, remove on next frame.
+	// Entry animation: initial render is off-screen (leaving=true); remove on next frame.
+	// Cleanup also cancels any pending collapse timer so no stale callback fires on unmount.
 	useEffect(() => {
-		const el = portalRef.current;
-		if (!el) return;
-		el.setAttribute("data-leaving", "true");
-		const id = requestAnimationFrame(() => {
-			el.removeAttribute("data-leaving");
+		entryRafRef.current = requestAnimationFrame(() => {
+			setLeaving(false);
+			entryRafRef.current = null;
 		});
-		return () => cancelAnimationFrame(id);
+		return () => {
+			if (entryRafRef.current !== null)
+				cancelAnimationFrame(entryRafRef.current);
+			if (collapseTimerRef.current !== null)
+				clearTimeout(collapseTimerRef.current);
+		};
 	}, []);
 
 	function handleCollapse() {
@@ -95,8 +117,27 @@ export const ReviewExpandedPortal = forwardRef<
 			onCollapse();
 			return;
 		}
-		el.setAttribute("data-leaving", "true");
-		el.addEventListener("transitionend", () => onCollapse(), { once: true });
+		// Cancel entry rAF if still pending — otherwise setting leaving=true would be
+		// a no-op (it's already true) and the transition never starts.
+		if (entryRafRef.current !== null) {
+			cancelAnimationFrame(entryRafRef.current);
+			entryRafRef.current = null;
+		}
+		setLeaving(true);
+		// Fallback: if transitionend never fires (reduced-motion, CSS not loaded, etc.)
+		// still unmount after the transition duration + margin.
+		collapseTimerRef.current = setTimeout(onCollapse, 300);
+		el.addEventListener(
+			"transitionend",
+			() => {
+				if (collapseTimerRef.current !== null) {
+					clearTimeout(collapseTimerRef.current);
+					collapseTimerRef.current = null;
+				}
+				onCollapse();
+			},
+			{ once: true },
+		);
 	}
 
 	useImperativeHandle(ref, () => ({ collapse: handleCollapse }), []);
@@ -106,6 +147,7 @@ export const ReviewExpandedPortal = forwardRef<
 			ref={portalRef}
 			className="shell-review-expanded-portal"
 			data-testid="review-expanded-portal"
+			data-leaving={leaving ? "true" : undefined}
 			style={{ top: rect.top, left: rect.left, right: rect.right }}
 		>
 			<div className="shell-review-drawer__header">
