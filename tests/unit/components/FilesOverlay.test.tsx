@@ -1,5 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { detectPlatform } from "../../../src/app/files-overlay-shortcut";
+
+vi.mock("../../../src/app/files-overlay-shortcut", () => ({
+	detectPlatform: vi.fn(() => "other"),
+}));
 
 vi.mock("@tanstack/react-virtual", () => ({
 	useVirtualizer: (options: { count: number }) => ({
@@ -382,7 +387,8 @@ describe("FilesOverlay — a11y and focus restoration", () => {
 describe("FilesOverlay — edit action", () => {
 	const paths = ["src/a.ts", "src/image.png"];
 
-	it("invokes onEditFile on Cmd+Enter when the selected file is editable", async () => {
+	it("invokes onEditFile on Cmd+Enter (mac) when the selected file is editable", async () => {
+		vi.mocked(detectPlatform).mockReturnValue("mac");
 		const user = userEvent.setup();
 		const loader = vi.fn().mockResolvedValue(paths);
 		const onEditFile = vi.fn();
@@ -399,7 +405,8 @@ describe("FilesOverlay — edit action", () => {
 		expect(onEditFile).toHaveBeenCalledWith("src/a.ts");
 	});
 
-	it("invokes onEditFile on Ctrl+Enter when the selected file is editable", async () => {
+	it("invokes onEditFile on Ctrl+Enter (other) when the selected file is editable", async () => {
+		vi.mocked(detectPlatform).mockReturnValue("other");
 		const user = userEvent.setup();
 		const loader = vi.fn().mockResolvedValue(paths);
 		const onEditFile = vi.fn();
@@ -416,22 +423,26 @@ describe("FilesOverlay — edit action", () => {
 		expect(onEditFile).toHaveBeenCalledWith("src/a.ts");
 	});
 
-	it("does not invoke onEditFile for a non-editable selection", async () => {
+	it("falls back to onViewFile when modifier+Enter is pressed on a non-editable file", async () => {
+		vi.mocked(detectPlatform).mockReturnValue("other");
 		const user = userEvent.setup();
 		const loader = vi.fn().mockResolvedValue(paths);
 		const onEditFile = vi.fn();
+		const onViewFile = vi.fn();
 		render(
 			<FilesOverlay
 				{...defaults}
 				trackedFilesLoader={loader}
 				onEditFile={onEditFile}
+				onViewFile={onViewFile}
 				isEditable={(basename) => basename.endsWith(".ts")}
 			/>,
 		);
 		await screen.findByText("a.ts");
-		await user.keyboard("{ArrowDown}");
-		await user.keyboard("{Meta>}{Enter}{/Meta}");
+		await user.keyboard("{ArrowDown}"); // select image.png (non-editable)
+		await user.keyboard("{Control>}{Enter}{/Control}");
 		expect(onEditFile).not.toHaveBeenCalled();
+		expect(onViewFile).toHaveBeenCalledWith("src/image.png");
 	});
 
 	it("footer hint shows Edit availability for the current selection", async () => {

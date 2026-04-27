@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { matchFiles } from "../../../shared/files/match-files";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { GitChangeStatus } from "../../../shared/models/git-change";
+import { detectPlatform } from "../../app/files-overlay-shortcut";
 
 export interface FilesOverlayProps {
 	isOpen: boolean;
@@ -130,13 +131,21 @@ export function FilesOverlay(props: FilesOverlayProps) {
 							setSelectedIndex(rows.length - 1);
 							return;
 						}
-						if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-							e.preventDefault();
-							const path = rows[selectedIndex];
-							if (!path) return;
-							const base = basenameOf(path);
-							if (props.isEditable(base)) props.onEditFile(path);
-							return;
+						if (e.key === "Enter") {
+							const platform = detectPlatform();
+							const modifierHeld =
+								platform === "mac"
+									? e.metaKey && !e.ctrlKey
+									: e.ctrlKey && !e.metaKey;
+							if (modifierHeld) {
+								const path = rows[selectedIndex];
+								if (path && props.isEditable(basenameOf(path))) {
+									e.preventDefault();
+									props.onEditFile(path);
+									return;
+								}
+								// not editable — fall through to plain Enter (view)
+							}
 						}
 						if (e.key === "Enter") {
 							e.preventDefault();
@@ -252,9 +261,11 @@ export function FilesOverlay(props: FilesOverlayProps) {
 							{rows[selectedIndex] ?? ""}
 						</span>
 						<span className="shell-files-overlay__footer-hints">
-							<kbd>↵</kbd> View
-							<kbd>⌘↵</kbd> Edit
-							<kbd>Esc</kbd> Close
+							<span><kbd>↵</kbd> View</span>
+							<span className="shell-files-overlay__footer-hint-edit">
+								<kbd>⌘↵</kbd> Edit
+							</span>
+							<span><kbd>Esc</kbd> Close</span>
 						</span>
 					</div>
 				</Dialog.Content>
