@@ -3139,40 +3139,6 @@ export function App() {
 							{selectionDraft.endLine}
 						</button>
 					)}
-					{(() => {
-						const currentFilePath =
-							activeSession?.reviewMode === "commits"
-								? (activeSession.selectedCommitFilePath ?? null)
-								: (activeSession?.selectedChangedFilePath ?? null);
-						if (!currentFilePath) return null;
-						const openCount = reviewState.comments.filter(
-							(c) => c.filePath === currentFilePath && c.status === "open",
-						).length;
-						return (
-							<button
-								type="button"
-								className="shell-review-comments-toggle"
-								title={commentSidebarOpen ? "Hide comments" : "Show comments"}
-								onClick={() => setCommentSidebarOpen((o) => !o)}
-							>
-								<svg
-									width="13"
-									height="13"
-									viewBox="0 0 16 16"
-									fill="none"
-									aria-hidden="true"
-								>
-									<path
-										d="M2 2h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5l-3 2V3a1 1 0 0 1 1-1z"
-										stroke="currentColor"
-										strokeWidth="1.5"
-										strokeLinejoin="round"
-									/>
-								</svg>
-								{openCount > 0 && <span>{openCount}</span>}
-							</button>
-						);
-					})()}
 				</section>
 
 				{commentSidebarOpen &&
@@ -3552,52 +3518,77 @@ export function App() {
 						</section>
 					)}
 
-					{activeWorktree && (
-						<ReviewDrawer
-							open={activeSession?.reviewDrawerOpen ?? false}
-							isDirty={activeSummary?.isDirty ?? false}
-							changedFileCount={changes.length}
-							panelHeight={reviewPanelHeight}
-							onToggle={() => {
-								if (!activeWorktree) return;
-								const next = !(activeSession?.reviewDrawerOpen ?? false);
-								if (!next && (activeSummary?.isDirty ?? false)) {
-									autoExpand.noteUserCollapse(activeWorktree.id);
-								} else if (next) {
-									autoExpand.noteUserExpand(activeWorktree.id);
-								}
-								dispatch({
-									type: "session/setReviewDrawerOpen",
-									worktreeId: activeWorktree.id,
-									open: next,
-								});
-							}}
-							onRefresh={handleRefreshChanges}
-							onResizeStart={(e) =>
-								handleReviewPanelResizeStart(
-									e as ReactMouseEvent<HTMLDivElement>,
-								)
-							}
-							expanded={reviewExpanded}
-							onExpand={() => setReviewExpanded(true)}
-							onCollapse={collapseReviewExpanded}
-						>
-							{!reviewExpanded ? reviewTabContent : null}
-						</ReviewDrawer>
-					)}
-					{reviewExpanded && activeWorktree && (
-						<ReviewExpandedPortal
-							ref={expandedPortalRef}
-							mainColRef={mainColRef}
-							chipBarRef={chipBarRef}
-							onCollapse={() => setReviewExpanded(false)}
-							onRefresh={handleRefreshChanges}
-							isDirty={activeSummary?.isDirty ?? false}
-							changedFileCount={changes.length}
-						>
-							{reviewTabContent}
-						</ReviewExpandedPortal>
-					)}
+					{activeWorktree && (() => {
+						const currentReviewFilePath =
+							activeSession?.reviewMode === "commits"
+								? (activeSession.selectedCommitFilePath ?? null)
+								: (activeSession?.reviewMode === "changes"
+									? (activeSession.selectedChangedFilePath ?? null)
+									: null);
+						const openCommentCount = currentReviewFilePath
+							? reviewState.comments.filter(
+								(c) =>
+									c.filePath === currentReviewFilePath &&
+									c.status === "open",
+							).length
+							: null;
+						const toggleCommentSidebar = () =>
+							setCommentSidebarOpen((o) => !o);
+						return (
+							<>
+								<ReviewDrawer
+									open={activeSession?.reviewDrawerOpen ?? false}
+									isDirty={activeSummary?.isDirty ?? false}
+									changedFileCount={changes.length}
+									panelHeight={reviewPanelHeight}
+									onToggle={() => {
+										if (!activeWorktree) return;
+										const next = !(activeSession?.reviewDrawerOpen ?? false);
+										if (!next && (activeSummary?.isDirty ?? false)) {
+											autoExpand.noteUserCollapse(activeWorktree.id);
+										} else if (next) {
+											autoExpand.noteUserExpand(activeWorktree.id);
+										}
+										dispatch({
+											type: "session/setReviewDrawerOpen",
+											worktreeId: activeWorktree.id,
+											open: next,
+										});
+									}}
+									onRefresh={handleRefreshChanges}
+									onResizeStart={(e) =>
+										handleReviewPanelResizeStart(
+											e as ReactMouseEvent<HTMLDivElement>,
+										)
+									}
+									expanded={reviewExpanded}
+									onExpand={() => setReviewExpanded(true)}
+									onCollapse={collapseReviewExpanded}
+									commentSidebarOpen={commentSidebarOpen}
+									onToggleCommentSidebar={toggleCommentSidebar}
+									openCommentCount={openCommentCount}
+								>
+									{!reviewExpanded ? reviewTabContent : null}
+								</ReviewDrawer>
+								{reviewExpanded && (
+									<ReviewExpandedPortal
+										ref={expandedPortalRef}
+										mainColRef={mainColRef}
+										chipBarRef={chipBarRef}
+										onCollapse={() => setReviewExpanded(false)}
+										onRefresh={handleRefreshChanges}
+										isDirty={activeSummary?.isDirty ?? false}
+										changedFileCount={changes.length}
+										commentSidebarOpen={commentSidebarOpen}
+										onToggleCommentSidebar={toggleCommentSidebar}
+										openCommentCount={openCommentCount}
+									>
+										{reviewTabContent}
+									</ReviewExpandedPortal>
+								)}
+							</>
+						);
+					})()}
 				</section>
 			</div>
 
