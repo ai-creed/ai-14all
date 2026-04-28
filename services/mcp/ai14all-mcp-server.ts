@@ -11,6 +11,16 @@ type Options = { port: number; host: string };
 
 export type SessionNoteBridgeLike = Pick<SessionNoteBridge, "read" | "append">;
 
+export async function resolveWithRefresh(
+	resolver: WorktreePathResolver,
+	worktreePath: string,
+): Promise<string | null> {
+	const first = await resolver.resolve(worktreePath);
+	if (first) return first;
+	await resolver.refresh();
+	return resolver.resolve(worktreePath);
+}
+
 export class Ai14allMcpServer {
 	private httpServer: http.Server | null = null;
 

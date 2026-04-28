@@ -6,7 +6,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { ReviewCommentService } from "../../../services/review/review-comment-service";
 import { ReviewCommentStore } from "../../../services/review/review-comment-store";
-import { Ai14allMcpServer } from "../../../services/mcp/ai14all-mcp-server";
+import { Ai14allMcpServer, resolveWithRefresh } from "../../../services/mcp/ai14all-mcp-server";
 
 async function makeRig() {
 	const dir = await mkdtemp(join(tmpdir(), "mcp-rig-"));
@@ -147,5 +147,43 @@ describe("Ai14allMcpServer", () => {
 		};
 		expect(secondParsed.ok).toBe(false);
 		expect(secondParsed.error).toBe("already_addressed");
+	});
+});
+
+describe("resolveWithRefresh", () => {
+	it("returns id on first try without refresh", async () => {
+		const refresh = vi.fn(async () => {});
+		const resolver = {
+			resolve: vi.fn(async (_p: string) => "wt-1"),
+			refresh,
+		};
+		const id = await resolveWithRefresh(resolver, "/path");
+		expect(id).toBe("wt-1");
+		expect(refresh).not.toHaveBeenCalled();
+	});
+
+	it("refreshes once and re-resolves on first null", async () => {
+		const refresh = vi.fn(async () => {});
+		let calls = 0;
+		const resolver = {
+			resolve: vi.fn(async () => (calls++ === 0 ? null : "wt-2")),
+			refresh,
+		};
+		const id = await resolveWithRefresh(resolver, "/path");
+		expect(id).toBe("wt-2");
+		expect(refresh).toHaveBeenCalledTimes(1);
+		expect(resolver.resolve).toHaveBeenCalledTimes(2);
+	});
+
+	it("returns null after refresh-and-retry still misses (no infinite loop)", async () => {
+		const refresh = vi.fn(async () => {});
+		const resolver = {
+			resolve: vi.fn(async () => null),
+			refresh,
+		};
+		const id = await resolveWithRefresh(resolver, "/path");
+		expect(id).toBeNull();
+		expect(refresh).toHaveBeenCalledTimes(1);
+		expect(resolver.resolve).toHaveBeenCalledTimes(2);
 	});
 });
