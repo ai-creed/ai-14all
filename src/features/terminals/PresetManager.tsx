@@ -1,5 +1,5 @@
-import * as Dialog from "@radix-ui/react-dialog";
 import { useState } from "react";
+import { AppDialog } from "../../components/AppDialog";
 import type { CommandPreset } from "../../../shared/models/command-preset";
 
 type Props = {
@@ -42,90 +42,99 @@ export function PresetManager({
 	}
 
 	return (
-		<Dialog.Root open={open} onOpenChange={onOpenChange}>
-			<Dialog.Portal>
-				<Dialog.Overlay className="shell-preset-overlay" />
-				<Dialog.Content className="shell-preset-dialog">
-					<Dialog.Title>Command presets</Dialog.Title>
-
-					{presets.length > 0 && (
-						<ul style={{ listStyle: "none", padding: 0 }}>
-							{presets.map((preset) => (
-								<li
-									key={preset.id}
-									style={{
-										display: "flex",
-										alignItems: "center",
-										gap: "var(--space-2)",
-										marginBottom: "var(--space-2)",
-									}}
-								>
-									<span style={{ flex: 1 }}>
-										{preset.label} — <code>{preset.command}</code>
-									</span>
-									<button type="button" onClick={() => handleEdit(preset)}>
-										Edit
-									</button>
-									<button type="button" onClick={() => onDelete(preset.id)}>
-										Delete
-									</button>
-									<button type="button" onClick={() => onLaunch(preset.id)}>
-										Launch
-									</button>
-								</li>
-							))}
-						</ul>
-					)}
-
-					<div style={{ marginTop: "var(--space-4)" }}>
-						<div style={{ marginBottom: "var(--space-2)" }}>
-							<label htmlFor="preset-label">Preset label</label>
-							<input
-								id="preset-label"
-								type="text"
-								value={label}
-								onChange={(e) => setLabel(e.target.value)}
-								className="shell-note-input"
-							/>
-						</div>
-						<div style={{ marginBottom: "var(--space-2)" }}>
-							<label htmlFor="preset-command">Preset command</label>
-							<input
-								id="preset-command"
-								type="text"
-								value={command}
-								onChange={(e) => setCommand(e.target.value)}
-								className="shell-note-input"
-							/>
-						</div>
-						<div
-							style={{
-								display: "flex",
-								justifyContent: "flex-end",
-								gap: "var(--space-2)",
-								marginTop: "var(--space-3)",
-							}}
-						>
-							<button
-								type="button"
-								className="shell-button"
-								onClick={handleSave}
+		<AppDialog open={open} onOpenChange={onOpenChange} size="wide">
+			<AppDialog.Title>Command presets</AppDialog.Title>
+			<AppDialog.Body>
+				{presets.length > 0 && (
+					<ul style={{ listStyle: "none", padding: 0 }}>
+						{presets.map((preset) => (
+							<li
+								key={preset.id}
+								style={{
+									display: "flex",
+									alignItems: "center",
+									gap: "var(--space-2)",
+									marginBottom: "var(--space-2)",
+								}}
 							>
-								Save preset
-							</button>
-							<Dialog.Close asChild>
+								<span style={{ flex: 1 }}>
+									{preset.label} — <code>{preset.command}</code>
+								</span>
 								<button
 									type="button"
-									className="shell-button"
-									aria-label="Close dialog"
+									className="shell-button shell-button--compact"
+									onClick={() => handleEdit(preset)}
 								>
-									Close
+									Edit
 								</button>
-							</Dialog.Close>
-						</div>
+								<button
+									type="button"
+									className="shell-button shell-button--compact"
+									onClick={() => onDelete(preset.id)}
+								>
+									Delete
+								</button>
+								<button
+									type="button"
+									className="shell-button shell-button--compact"
+									onClick={() => onLaunch(preset.id)}
+								>
+									Launch
+								</button>
+							</li>
+						))}
+					</ul>
+				)}
+
+				<div style={{ marginTop: "var(--space-4)" }}>
+					<div style={{ marginBottom: "var(--space-2)" }}>
+						<label htmlFor="preset-label">Preset label</label>
+						<input
+							id="preset-label"
+							type="text"
+							value={label}
+							onChange={(e) => setLabel(e.target.value)}
+							className="shell-input"
+						/>
 					</div>
-				</Dialog.Content>
-			</Dialog.Portal>
-		</Dialog.Root>
+					<div style={{ marginBottom: "var(--space-2)" }}>
+						<label htmlFor="preset-command">Preset command</label>
+						<input
+							id="preset-command"
+							type="text"
+							value={command}
+							onChange={(e) => setCommand(e.target.value)}
+							className="shell-input"
+						/>
+					</div>
+					<div
+						style={{
+							display: "flex",
+							justifyContent: "flex-end",
+							gap: "var(--space-2)",
+							marginTop: "var(--space-3)",
+						}}
+					>
+						<button
+							type="button"
+							className="shell-button shell-button--compact"
+							onClick={handleSave}
+						>
+							Save preset
+						</button>
+					</div>
+				</div>
+			</AppDialog.Body>
+			<AppDialog.Footer>
+				<button
+					type="button"
+					className="shell-button shell-button--compact"
+					aria-label="Close dialog"
+					onClick={() => onOpenChange(false)}
+				>
+					Close
+				</button>
+			</AppDialog.Footer>
+		</AppDialog>
 	);
 }
