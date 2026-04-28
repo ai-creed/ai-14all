@@ -32,7 +32,7 @@ export function RemoveWorktreeDialog({
 			</AppDialog.Description>
 			<AppDialog.Body>
 				{preview && (
-					<div className="shell-modal__preview">
+					<div className="shell-app-dialog__preview">
 						<div>Name: {preview.label}</div>
 						<div>Branch: {preview.branchName}</div>
 						<div>
