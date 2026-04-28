@@ -1,4 +1,4 @@
-import * as Dialog from "@radix-ui/react-dialog";
+import { AppDialog } from "../../components/AppDialog";
 import type { RemoveWorktreePreview } from "../../../shared/models/worktree-lifecycle";
 
 type Props = {
@@ -25,56 +25,57 @@ export function RemoveWorktreeDialog({
 	onConfirmedDirtyChange,
 }: Props) {
 	return (
-		<Dialog.Root open={open} onOpenChange={onOpenChange}>
-			<Dialog.Portal>
-				<Dialog.Overlay className="shell-modal-overlay" />
-				<Dialog.Content className="shell-modal shell-modal--worktree">
-					<Dialog.Title>Remove worktree</Dialog.Title>
-					{preview && (
-						<div className="shell-modal__preview">
-							<div>Name: {preview.label}</div>
-							<div>Branch: {preview.branchName}</div>
-							<div>
-								Path: <code>{preview.path}</code>
-							</div>
-							<div>Dirty worktree: {preview.isDirty ? "yes" : "no"}</div>
-							<div>
-								Running app sessions:{" "}
-								{runningProcessLabels.length === 0
-									? "none"
-									: runningProcessLabels.join(", ")}
-							</div>
+		<AppDialog open={open} onOpenChange={onOpenChange}>
+			<AppDialog.Title>Remove session</AppDialog.Title>
+			<AppDialog.Description>
+				This will remove <strong>{preview?.label}</strong>'s worktree from disk.
+			</AppDialog.Description>
+			<AppDialog.Body>
+				{preview && (
+					<div className="shell-modal__preview">
+						<div>Name: {preview.label}</div>
+						<div>Branch: {preview.branchName}</div>
+						<div>
+							Path: <code>{preview.path}</code>
 						</div>
-					)}
-					{preview?.isDirty && (
-						<label className="shell-modal__confirm-dirty">
-							<input
-								type="checkbox"
-								checked={confirmedDirty}
-								onChange={(e) => onConfirmedDirtyChange(e.target.checked)}
-							/>{" "}
-							I understand this worktree has uncommitted changes
-						</label>
-					)}
-					<p className="shell-modal__copy">
-						This will remove the linked worktree and force-delete its local
-						branch.
-					</p>
-					{error && <div className="shell-error-banner">{error}</div>}
-					<div className="shell-modal__actions">
-						<button
-							type="button"
-							className="shell-button shell-button--danger"
-							onClick={onConfirm}
-							disabled={
-								!preview || busy || (preview.isDirty && !confirmedDirty)
-							}
-						>
-							{busy ? "Removing…" : "Remove worktree"}
-						</button>
+						<div>Dirty worktree: {preview.isDirty ? "yes" : "no"}</div>
+						<div>
+							Running app sessions:{" "}
+							{runningProcessLabels.length === 0
+								? "none"
+								: runningProcessLabels.join(", ")}
+						</div>
 					</div>
-				</Dialog.Content>
-			</Dialog.Portal>
-		</Dialog.Root>
+				)}
+				{preview?.isDirty && (
+					<label className="shell-app-dialog__confirm-dirty">
+						<input
+							type="checkbox"
+							checked={confirmedDirty}
+							onChange={(e) => onConfirmedDirtyChange(e.target.checked)}
+						/>{" "}
+						I understand this worktree has uncommitted changes
+					</label>
+				)}
+				{error && <div className="shell-error-banner">{error}</div>}
+			</AppDialog.Body>
+			<AppDialog.Footer>
+				<button
+					type="button"
+					className="shell-button shell-button--compact"
+					onClick={() => onOpenChange(false)}
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					className="shell-button shell-button--compact shell-button--danger"
+					onClick={onConfirm}
+					disabled={!preview || busy || (preview.isDirty && !confirmedDirty)}
+				>
+					{busy ? "Removing…" : "Remove worktree"}
+				</button>
+			</AppDialog.Footer>
+		</AppDialog>
 	);
 }
