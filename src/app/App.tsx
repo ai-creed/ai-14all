@@ -93,6 +93,7 @@ import {
 import { AgentInstallModal } from "../features/review/AgentInstallModal";
 import { useAgentInstallStatus } from "../features/review/useAgentInstallStatus";
 import { buildWorktreeProcessSummary } from "../features/workspace/sidebar-shell-summary";
+import { useNoteBridgeReceiver } from "../features/workspace/use-note-bridge-receiver";
 import type {
 	GitCommitHistory,
 	GitCommitDetail,
@@ -345,6 +346,23 @@ export function App() {
 	const [removeBusy, setRemoveBusy] = useState(false);
 	const [confirmedDirtyRemoval, setConfirmedDirtyRemoval] = useState(false);
 	const [startupMode, setStartupMode] = useState<StartupMode>("loading");
+
+	useNoteBridgeReceiver({
+		startupMode,
+		workspaces: {
+			forEach(cb) {
+				for (const id of appWorkspacesRef.current.workspaceOrder) {
+					const state = getWorkspaceStateById(id);
+					if (state) cb(id, state);
+				}
+			},
+		},
+		dispatchTo: (workspaceId, action) => {
+			createScopedWorkspaceDispatch(workspaceId)(action);
+		},
+		api: window.ai14all.noteBridge,
+	});
+
 	const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
 
 	// V2 restore state — restorePreference lives here; workspace snapshots are in appWorkspaces
