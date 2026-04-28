@@ -1,4 +1,4 @@
-import * as Dialog from "@radix-ui/react-dialog";
+import { AppDialog } from "../../components/AppDialog";
 
 type Props = {
 	open: boolean;
@@ -14,45 +14,22 @@ export function ConfirmCloseDialog({
 	onCancel,
 }: Props) {
 	return (
-		<Dialog.Root
-			open={open}
-			onOpenChange={(next) => {
-				if (!next) onCancel();
-			}}
-		>
-			<Dialog.Portal>
-				<Dialog.Overlay className="shell-modal-overlay" />
-				<Dialog.Content
-					className="shell-modal shell-modal--confirm"
-					aria-describedby={undefined}
-				>
-					<Dialog.Title className="shell-modal__title">
-						Unsaved changes
-					</Dialog.Title>
-					<p className="shell-modal__body">
-						Save your changes before closing the editor?
-					</p>
-					<div className="shell-modal__actions">
-						<button type="button" className="shell-btn" onClick={onCancel}>
-							Cancel
-						</button>
-						<button
-							type="button"
-							className="shell-btn shell-btn--danger"
-							onClick={onDiscard}
-						>
-							Discard
-						</button>
-						<button
-							type="button"
-							className="shell-btn shell-btn--primary"
-							onClick={onSave}
-						>
-							Save
-						</button>
-					</div>
-				</Dialog.Content>
-			</Dialog.Portal>
-		</Dialog.Root>
+		<AppDialog open={open} onOpenChange={(next) => { if (!next) onCancel(); }}>
+			<AppDialog.Title>Unsaved changes</AppDialog.Title>
+			<AppDialog.Description>
+				Save your changes before closing the editor?
+			</AppDialog.Description>
+			<AppDialog.Footer>
+				<button type="button" className="shell-button shell-button--compact" onClick={onCancel}>
+					Cancel
+				</button>
+				<button type="button" className="shell-button shell-button--compact shell-button--danger" onClick={onDiscard}>
+					Discard
+				</button>
+				<button type="button" className="shell-button shell-button--compact shell-button--primary" onClick={onSave}>
+					Save
+				</button>
+			</AppDialog.Footer>
+		</AppDialog>
 	);
 }
