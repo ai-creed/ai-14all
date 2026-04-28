@@ -91,6 +91,7 @@ import {
 	type SelectionDraft,
 } from "../features/review/diff-editor-decorations";
 import { AgentInstallModal } from "../features/review/AgentInstallModal";
+import { useAgentInstallStatus } from "../features/review/useAgentInstallStatus";
 import { buildWorktreeProcessSummary } from "../features/workspace/sidebar-shell-summary";
 import type {
 	GitCommitHistory,
@@ -537,6 +538,7 @@ export function App() {
 	const diffEditorRegistry = useMemo(() => createDiffEditorRegistry(), []);
 	const [addingDraft, setAddingDraft] = useState<NewCommentDraft | null>(null);
 	const [selectionDraft, setSelectionDraft] = useState<SelectionDraft>(null);
+	const agentInstallStatus = useAgentInstallStatus();
 	const [installModalOpen, setInstallModalOpen] = useState(false);
 	const [commentSidebarOpen, setCommentSidebarOpen] = useState(false);
 
@@ -3674,6 +3676,7 @@ export function App() {
 			<AgentInstallModal
 				open={installModalOpen}
 				onClose={() => setInstallModalOpen(false)}
+				status={agentInstallStatus}
 			/>
 		</main>
 	);
