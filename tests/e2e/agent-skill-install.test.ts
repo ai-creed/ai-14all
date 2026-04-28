@@ -340,3 +340,25 @@ test.describe.serial("AgentSkillInstaller — CLI-absent path", () => {
 		// 4. Click the CTA Install… button; assert install modal becomes visible.
 	});
 });
+
+test.skip("AgentInstallModal closes on Escape", async () => {
+	// Pending Playwright/Electron preload harness fix.
+	// Intent: open install modal via menu, press Escape, assert modal not visible.
+});
+
+test.skip("AgentInstallModal closes on overlay click", async () => {
+	// Pending harness fix.
+	// Intent: open install modal, click .shell-app-dialog__overlay, assert modal not visible.
+});
+
+test.skip("AgentInstallModal restores focus on close", async () => {
+	// Pending harness fix.
+	// Intent: open via menu (focus on menu trigger), close via Escape, assert
+	// trigger receives focus again.
+});
+
+test.skip("NewWorktreeDialog closes on Escape", async () => {
+	// Pending harness fix.
+	// Intent: open new-session dialog from sidebar, press Escape, assert dialog
+	// not visible and underlying app remains interactive.
+});
