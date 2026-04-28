@@ -160,24 +160,26 @@ export function installNoteBridgeReceiver(deps: {
 
 Behaviour per request:
 
-1. Locate session: iterate `workspaces.forEach`; the first `(workspaceId, state)` whose `state.sessions` contains a session with `session.worktreeId === req.worktreeId` wins. Record both the `workspaceId` and the matched session.
+1. Locate session: iterate `workspaces.forEach`; the first `(workspaceId, state)` whose `state.sessionsByWorktreeId[req.worktreeId]` is defined wins. Record both the `workspaceId` and the matched `session = state.sessionsByWorktreeId[req.worktreeId]`. (`WorkspaceState.sessionsByWorktreeId: Record<string, WorktreeSession>` — see `src/features/workspace/workspace-state.ts:25`. Direct key lookup; no scan.)
 2. If no match in any workspace → reply `{ id, ok: false, error: "no_session", message: "no session for worktreeId" }` and return.
 3. **`op: "read"`**: reply `{ id, ok: true, op: "read", note: session.note }`.
 4. **`op: "append"`**: compute `appendedSection` and `next` per §6.1. Call `dispatchTo(workspaceId, { type: "session/setNote", worktreeId, note: next })`. Reply `{ id, ok: true, op: "append", note: next, appendedSection }`.
 
-Lifecycle:
+Lifecycle (gated on app readiness):
 
-- On install: send `api.sendNoteBridgeReady()` so the main-side bridge flips `rendererReady = true`.
-- On returned unsubscribe: send `api.sendNoteBridgeGoodbye()` and remove the request listener. This is wired to the `useEffect` cleanup in `App.tsx`, plus a `beforeunload` listener so HMR / reloads also notify the bridge.
+- The receiver is installed only after the app reaches `startupMode === "ready"` (see `src/app/App.tsx:119,347` for the `StartupMode` enum and the transitions to `"ready"`). Before that, workspaces have not been restored yet, `sessionsByWorktreeId` is empty for all known worktrees, and an agent call would resolve to a valid worktree in main but receive a misleading `no_session`.
+- On install (after `"ready"`): send `api.sendNoteBridgeReady()` so the main-side bridge flips `rendererReady = true`.
+- On returned unsubscribe: send `api.sendNoteBridgeGoodbye()` and remove the request listener. Wired to the `useEffect` cleanup in `App.tsx`, plus a `beforeunload` listener so HMR / reloads also notify the bridge.
+- If startup ever unwinds (e.g., user is sent back to the repository prompt and `startupMode` leaves `"ready"`, or if the model later supports re-entering startup), the effect cleanup fires `goodbye` and the bridge returns to `rendererReady = false`. Subsequent agent calls then get `renderer_not_ready` until the next ready.
 
-`App.tsx` integration: a single `useEffect` mounts the receiver once. `WorkspaceLookup` is implemented inline using the existing refs; `dispatchTo(workspaceId, action)` reuses `getWorkspaceStateById` + the existing per-workspace reducer dispatch path (`src/app/App.tsx:250-290`).
+`App.tsx` integration: a single `useEffect`, gated on `startupMode === "ready"`, mounts the receiver. `WorkspaceLookup` is implemented inline using the existing refs (`activeWorkspaceStateRef` + `inactiveWorkspaceStatesRef`); `dispatchTo(workspaceId, action)` reuses `getWorkspaceStateById` + the existing per-workspace reducer dispatch path (`src/app/App.tsx:250-290`).
 
 ### 5.5 Wiring
 
 - In `electron/main/index.ts`, after `mainWindow` is created and before `Ai14allMcpServer.start()`:
   - Instantiate `const sessionNoteBridge = new SessionNoteBridge(() => mainWindow.webContents)`.
   - Pass it into the `Ai14allMcpServer` constructor.
-- Boot-order note: the MCP server starts before `mainWindow.loadURL/loadFile` (see `electron/main/index.ts:138`). The bridge therefore starts in `rendererReady = false`. Any agent call that arrives before the renderer mounts and pings `mcp:note:ready` will fast-fail with `RendererNotReady` rather than waiting 5 s for a timeout. Once the receiver pings, subsequent calls succeed.
+- Boot-order note: the MCP server starts before `mainWindow.loadURL/loadFile` (see `electron/main/index.ts:138`). The bridge therefore starts in `rendererReady = false`. The renderer also restores its persisted workspace state asynchronously after mount and only sets `startupMode === "ready"` once that completes (see `src/app/App.tsx:404,467,1196,1249,2756`). The receiver does **not** ping `mcp:note:ready` until both conditions hold: the receiver is installed (renderer mounted) **and** `startupMode === "ready"` (workspaces restored). Any agent call arriving before then fast-fails with `renderer_not_ready` rather than misleading the agent with `no_session` from an empty `sessionsByWorktreeId`. Agents should treat `renderer_not_ready` as retryable.
 - Shutdown: extend the existing `app.on("before-quit", …)` block in `electron/main/index.ts:145` to also call `sessionNoteBridge.dispose()`.
 - `App.tsx`: one effect calls `installNoteBridgeReceiver(...)`. The cleanup function returned by the effect calls the receiver's unsubscribe (which sends `mcp:note:goodbye`).
 
@@ -222,7 +224,7 @@ const next = prev.length === 0 ? section : `${prev}\n\n${section}`;
 |---|---|---|
 | `worktreePath` not in any worktree | `Ai14allMcpServer` (resolver pre-check, never hits bridge) | `no_worktree` |
 | WorktreeId has no session in any workspace | renderer receiver, returned via `NoteBridgeReply` | `no_session` |
-| Renderer not yet mounted (early boot) or window destroyed | `SessionNoteBridge` (`rendererReady === false` or webContents null) | `renderer_not_ready` |
+| Renderer not yet mounted, workspace restore not complete (`startupMode !== "ready"`), or window destroyed | `SessionNoteBridge` (`rendererReady === false` or webContents null) | `renderer_not_ready` (retryable) |
 | Renderer announced `mcp:note:goodbye` mid-flight | `SessionNoteBridge` (rejects pending entries) | `renderer_gone` |
 | IPC reply timeout (5 s) | `SessionNoteBridge` (timer fires) | `bridge_timeout` |
 | Bridge disposed (app shutdown) mid-flight | `SessionNoteBridge.dispose()` | `bridge_disposed` |
@@ -236,7 +238,7 @@ All non-validation errors are returned as JSON tool content with `ok: false`. Th
 
 - **Concurrent appends from one agent.** Renderer reducer is single-threaded; sequential dispatches preserve order.
 - **Renderer reload (Vite HMR / window reload) during in-flight request.** A `beforeunload` listener fires `mcp:note:goodbye`, so the bridge rejects the in-flight request with `renderer_gone` rather than waiting 5 s. After reload, the receiver re-installs and pings `mcp:note:ready`; subsequent calls succeed.
-- **Early-boot agent call.** MCP server starts before the renderer mounts. Calls during this window return `renderer_not_ready` immediately. Once the receiver pings ready, the bridge accepts requests.
+- **Early-boot agent call.** MCP server starts before the renderer mounts, and the renderer further defers `mcp:note:ready` until `startupMode === "ready"` (i.e., persisted workspace state has been restored and `sessionsByWorktreeId` is populated). Calls during this window return `renderer_not_ready` immediately, never `no_session` from an empty session map. Agents should retry on `renderer_not_ready`.
 - **Worktree exists but session lives in an inactive workspace.** Receiver still finds it (search covers active + inactive) and dispatches into the owning workspace. The note update applies even if the user is not currently looking at that workspace.
 - **Body containing `## ` headings.** Allowed; no escaping. The user wrote it (via the agent), and the textarea is a freeform editor anyway.
 - **Body with trailing newline.** Preserved verbatim; no trim.
@@ -254,6 +256,8 @@ All non-validation errors are returned as JSON tool content with `ok: false`. Th
 - read returns the current note for the matched workspace.
 - timestamp components zero-padded (single-digit month/day/hour/minute).
 - on install the receiver calls `api.sendNoteBridgeReady()`; the unsubscribe returned by `installNoteBridgeReceiver` calls `api.sendNoteBridgeGoodbye()`.
+- session lookup uses `state.sessionsByWorktreeId[req.worktreeId]` (verifies the spec's keyed-record shape, not a scan over a non-existent `state.sessions` array).
+- App-level effect test: with `startupMode === "loading"`, `installNoteBridgeReceiver` is **not** mounted and no `sendNoteBridgeReady` fires; once `startupMode` flips to `"ready"`, the effect mounts the receiver and the ready ping fires exactly once.
 
 ### 8.2 Unit (main) — `tests/unit/mcp/session-note-bridge.test.ts`
 
