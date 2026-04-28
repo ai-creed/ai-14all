@@ -46,28 +46,28 @@ export function RepositoryInput({ onLoadPath }: Props) {
 			<div>
 				<label htmlFor="repo-path">Repository path</label>
 			</div>
-			<div style={{ marginTop: 4 }}>
+			<div className="shell-input-row" style={{ marginTop: 4 }}>
 				<input
 					id="repo-path"
 					type="text"
+					className="shell-input"
 					value={path}
 					onChange={(e) => setPath(e.target.value)}
 					placeholder="/path/to/repo"
 					disabled={loading}
-					style={{ width: 400 }}
 				/>
 				<button
 					type="button"
+					className="shell-button shell-button--compact"
 					disabled={loading}
-					style={{ marginLeft: 8 }}
 					onClick={handleBrowse}
 				>
 					Browse
 				</button>
 				<button
 					type="submit"
+					className="shell-button shell-button--compact shell-button--primary"
 					disabled={loading || !path.trim()}
-					style={{ marginLeft: 8 }}
 				>
 					{loading ? "Loading…" : "Load"}
 				</button>

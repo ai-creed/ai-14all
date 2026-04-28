@@ -147,4 +147,15 @@ describe("RepositoryInput", () => {
 			expect(screen.getByRole("button", { name: "Load" })).toBeEnabled();
 		});
 	});
+
+	it("uses shell-input on the path field and shell-button on actions", () => {
+		const { container } = render(<RepositoryInput onLoadPath={vi.fn()} />);
+		const input = container.querySelector("input#repo-path");
+		expect(input?.className).toContain("shell-input");
+		const browse = screen.getByRole("button", { name: "Browse" });
+		expect(browse.className).toContain("shell-button");
+		expect(browse.className).toContain("shell-button--compact");
+		const submit = screen.getByRole("button", { name: /load/i });
+		expect(submit.className).toContain("shell-button--primary");
+	});
 });
