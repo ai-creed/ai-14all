@@ -28,7 +28,9 @@ export function RemoveWorktreeDialog({
 		<AppDialog open={open} onOpenChange={onOpenChange}>
 			<AppDialog.Title>Remove session</AppDialog.Title>
 			<AppDialog.Description>
-				This will remove <strong>{preview?.label}</strong>'s worktree from disk.
+				{preview
+					? `Remove ${preview.label}'s worktree from disk?`
+					: "Remove this worktree from disk?"}
 			</AppDialog.Description>
 			<AppDialog.Body>
 				{preview && (

@@ -437,9 +437,14 @@ select {
 	cursor: pointer;
 }
 
-.shell-button:hover {
+.shell-button:hover:not(:disabled) {
 	border-color: var(--text-muted);
 	color: var(--text-primary);
+}
+
+.shell-button:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
 }
 
 .shell-button--compact {
@@ -1114,7 +1119,6 @@ select {
 .shell-terminal-tab[data-pinned="true"] {
 	border-left: 3px solid var(--accent);
 }
-
 
 .shell-toolbar-menu {
 	padding: var(--space-2);
@@ -1931,7 +1935,6 @@ select {
 	margin-top: var(--space-3);
 }
 
-
 .shell-error-banner {
 	padding: var(--space-2) var(--space-3);
 	background: rgba(217, 140, 140, 0.12);
@@ -1948,7 +1951,7 @@ select {
 	color: var(--danger);
 }
 
-.shell-button--danger:hover {
+.shell-button--danger:hover:not(:disabled) {
 	background: rgba(217, 140, 140, 0.12);
 }
 
@@ -1956,7 +1959,7 @@ select {
 	border-color: var(--accent);
 	color: var(--accent);
 }
-.shell-button--primary:hover {
+.shell-button--primary:hover:not(:disabled) {
 	background: var(--accent-strong);
 }
 
@@ -1982,7 +1985,6 @@ select {
 	font-size: var(--font-size-body);
 	margin-top: var(--space-2);
 }
-
 
 /* ---- App Dialog (replaces .shell-modal*) ---- */
 .shell-app-dialog__overlay {
