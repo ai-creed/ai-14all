@@ -3,10 +3,13 @@ import { EventEmitter } from "node:events";
 import {
 	SessionNoteBridge,
 	RendererNotReadyError,
+	BridgeTimeoutError,
+	RendererGoneError,
 } from "../../../services/mcp/session-note-bridge";
 import {
 	NOTE_BRIDGE_READY,
 	NOTE_BRIDGE_GOODBYE,
+	NOTE_BRIDGE_REPLY,
 } from "../../../shared/contracts/note-bridge";
 
 // Fake ipcMain — emits events the same way Electron's ipcMain does.
@@ -80,5 +83,107 @@ describe("SessionNoteBridge — readiness", () => {
 			RendererNotReadyError,
 		);
 		bridge.dispose();
+	});
+});
+
+describe("SessionNoteBridge — request/reply", () => {
+	let ipc: ReturnType<typeof makeFakeIpcMain>;
+	let wc: ReturnType<typeof makeFakeWebContents>;
+	let bridge: SessionNoteBridge;
+
+	beforeEach(() => {
+		ipc = makeFakeIpcMain();
+		wc = makeFakeWebContents();
+		bridge = new SessionNoteBridge(() => wc as unknown as Electron.WebContents, {
+			ipcMain: ipc as unknown as Electron.IpcMain,
+			timeoutMs: 50,
+		});
+		ipc.emit(NOTE_BRIDGE_READY);
+	});
+
+	afterEach(() => {
+		bridge.dispose();
+	});
+
+	it("append: resolves with note + appendedSection from reply", async () => {
+		const promise = bridge.append("wt-1", "Idea", "body");
+		expect(wc.send).toHaveBeenCalledTimes(1);
+		const [, sentReq] = wc.send.mock.calls[0];
+		const id = (sentReq as { id: string }).id;
+		ipc.emit(NOTE_BRIDGE_REPLY, {
+			id,
+			ok: true,
+			op: "append",
+			note: "## Idea — 2026-04-28 14:32\n\nbody",
+			appendedSection: "## Idea — 2026-04-28 14:32",
+		});
+		await expect(promise).resolves.toEqual({
+			note: "## Idea — 2026-04-28 14:32\n\nbody",
+			appendedSection: "## Idea — 2026-04-28 14:32",
+		});
+	});
+
+	it("read: resolves with note from reply", async () => {
+		const promise = bridge.read("wt-1");
+		const [, sentReq] = wc.send.mock.calls[0];
+		const id = (sentReq as { id: string }).id;
+		ipc.emit(NOTE_BRIDGE_REPLY, {
+			id,
+			ok: true,
+			op: "read",
+			note: "existing",
+		});
+		await expect(promise).resolves.toEqual({ note: "existing" });
+	});
+
+	it("rejects with no_session error from reply", async () => {
+		const promise = bridge.read("wt-missing");
+		const [, sentReq] = wc.send.mock.calls[0];
+		const id = (sentReq as { id: string }).id;
+		ipc.emit(NOTE_BRIDGE_REPLY, {
+			id,
+			ok: false,
+			error: "no_session",
+			message: "no session for worktreeId",
+		});
+		await expect(promise).rejects.toMatchObject({
+			message: "no session for worktreeId",
+			code: "no_session",
+		});
+	});
+
+	it("rejects BridgeTimeoutError after timeoutMs with no reply", async () => {
+		await expect(bridge.read("wt-1")).rejects.toBeInstanceOf(
+			BridgeTimeoutError,
+		);
+	});
+
+	it("drops replies for unknown ids without throwing", async () => {
+		const promise = bridge.read("wt-1");
+		const [, sentReq] = wc.send.mock.calls[0];
+		const realId = (sentReq as { id: string }).id;
+		// Unknown id
+		expect(() =>
+			ipc.emit(NOTE_BRIDGE_REPLY, {
+				id: "unknown",
+				ok: true,
+				op: "read",
+				note: "x",
+			}),
+		).not.toThrow();
+		// Real id still resolves correctly
+		ipc.emit(NOTE_BRIDGE_REPLY, {
+			id: realId,
+			ok: true,
+			op: "read",
+			note: "y",
+		});
+		await expect(promise).resolves.toEqual({ note: "y" });
+	});
+
+	it("goodbye rejects in-flight requests with RendererGoneError", async () => {
+		const promise = bridge.read("wt-1");
+		ipc.emit(NOTE_BRIDGE_GOODBYE);
+		await expect(promise).rejects.toBeInstanceOf(RendererGoneError);
 	});
 });

@@ -6,6 +6,7 @@ import {
 	NOTE_BRIDGE_REPLY,
 	NOTE_BRIDGE_REQUEST,
 	type NoteBridgeReply,
+	type NoteBridgeReplyError,
 	type NoteBridgeRequest,
 } from "../../shared/contracts/note-bridge.js";
 
@@ -32,6 +33,14 @@ type Deps = {
 	ipcMain?: Electron.IpcMain;
 	timeoutMs?: number;
 };
+
+type CodedError = Error & { code?: string };
+
+function throwReplyError(r: NoteBridgeReplyError): never {
+	const err: CodedError = new Error(r.message);
+	err.code = r.error;
+	throw err;
+}
 
 export class SessionNoteBridge {
 	private readonly ipcMain: Electron.IpcMain;
@@ -74,18 +83,22 @@ export class SessionNoteBridge {
 
 	read(worktreeId: string): Promise<{ note: string }> {
 		return this.send({ op: "read", worktreeId }).then((r) => {
-			if (!r.ok) throw new Error(r.error);
+			if (!r.ok) throwReplyError(r);
 			if (r.op !== "read") throw new Error("bridge protocol mismatch");
 			return { note: r.note };
 		});
 	}
 
 	append(
-		_worktreeId: string,
-		_title: string,
-		_body: string,
+		worktreeId: string,
+		title: string,
+		body: string,
 	): Promise<{ note: string; appendedSection: string }> {
-		throw new Error("not implemented yet");
+		return this.send({ op: "append", worktreeId, title, body }).then((r) => {
+			if (!r.ok) throwReplyError(r);
+			if (r.op !== "append") throw new Error("bridge protocol mismatch");
+			return { note: r.note, appendedSection: r.appendedSection };
+		});
 	}
 
 	dispose(): void {
