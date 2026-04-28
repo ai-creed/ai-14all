@@ -1,4 +1,5 @@
 import type { ReviewComment } from "../../../shared/models/review-comment";
+import { AgentInstallCta } from "./AgentInstallCta";
 import { ReviewCommentCard } from "./ReviewCommentCard";
 import { ReviewCommentForm } from "./ReviewCommentForm";
 
@@ -18,6 +19,8 @@ type Props = {
 	onDelete: (commentId: string) => void;
 	onSubmitNew: (draft: NewCommentDraft, body: string) => void;
 	onCancelNew: () => void;
+	installCtaVisible?: boolean;
+	onOpenInstall?: () => void;
 };
 
 export function ReviewCommentSidebar({
@@ -29,6 +32,8 @@ export function ReviewCommentSidebar({
 	onDelete,
 	onSubmitNew,
 	onCancelNew,
+	installCtaVisible,
+	onOpenInstall,
 }: Props) {
 	const fileComments = filePath
 		? comments
@@ -99,6 +104,9 @@ export function ReviewCommentSidebar({
 					))
 				)}
 			</div>
+			{installCtaVisible && onOpenInstall && (
+				<AgentInstallCta onOpenInstall={onOpenInstall} />
+			)}
 		</aside>
 	);
 }
