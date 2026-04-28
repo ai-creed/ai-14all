@@ -5,6 +5,7 @@ import {
 	RendererNotReadyError,
 	BridgeTimeoutError,
 	RendererGoneError,
+	BridgeDisposedError,
 } from "../../../services/mcp/session-note-bridge";
 import {
 	NOTE_BRIDGE_READY,
@@ -185,5 +186,36 @@ describe("SessionNoteBridge — request/reply", () => {
 		const promise = bridge.read("wt-1");
 		ipc.emit(NOTE_BRIDGE_GOODBYE);
 		await expect(promise).rejects.toBeInstanceOf(RendererGoneError);
+	});
+});
+
+describe("SessionNoteBridge — dispose", () => {
+	it("rejects pending requests with BridgeDisposedError, removes listeners, idempotent", async () => {
+		const ipc = makeFakeIpcMain();
+		const wc = makeFakeWebContents();
+		const bridge = new SessionNoteBridge(
+			() => wc as unknown as Electron.WebContents,
+			{
+				ipcMain: ipc as unknown as Electron.IpcMain,
+				timeoutMs: 5000,
+			},
+		);
+		ipc.emit(NOTE_BRIDGE_READY);
+		const promise = bridge.read("wt-1");
+
+		expect(ipc.listenerCount(NOTE_BRIDGE_READY)).toBe(1);
+		expect(ipc.listenerCount(NOTE_BRIDGE_GOODBYE)).toBe(1);
+		expect(ipc.listenerCount(NOTE_BRIDGE_REPLY)).toBe(1);
+
+		bridge.dispose();
+
+		expect(ipc.listenerCount(NOTE_BRIDGE_READY)).toBe(0);
+		expect(ipc.listenerCount(NOTE_BRIDGE_GOODBYE)).toBe(0);
+		expect(ipc.listenerCount(NOTE_BRIDGE_REPLY)).toBe(0);
+
+		await expect(promise).rejects.toBeInstanceOf(BridgeDisposedError);
+
+		// Idempotent
+		expect(() => bridge.dispose()).not.toThrow();
 	});
 });
