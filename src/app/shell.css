@@ -335,7 +335,7 @@ select {
 	border-left: 1px solid var(--panel-border);
 }
 
-.shell-session-note .shell-note-input {
+.shell-session-note .shell-input {
 	margin-top: var(--space-2);
 	min-height: 112px;
 	resize: none;
@@ -410,8 +410,7 @@ select {
 	color: var(--text-muted);
 }
 
-.shell-input,
-.shell-note-input {
+.shell-input {
 	width: 100%;
 	margin-top: var(--space-2);
 	padding: var(--space-3);
@@ -423,7 +422,6 @@ select {
 }
 
 .shell-input:focus-visible,
-.shell-note-input:focus-visible,
 .shell-button:focus-visible,
 [role="tab"]:focus-visible {
 	outline: 1px solid var(--accent);
@@ -1117,25 +1115,6 @@ select {
 	border-left: 3px solid var(--accent);
 }
 
-.shell-preset-dialog {
-	position: fixed;
-	top: 50%;
-	left: 50%;
-	transform: translate(-50%, -50%);
-	width: min(480px, 90vw);
-	padding: var(--space-6);
-	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
-	border-radius: var(--radius-md);
-	z-index: 50;
-}
-
-.shell-preset-overlay {
-	position: fixed;
-	inset: 0;
-	background: rgba(0, 0, 0, 0.5);
-	z-index: 49;
-}
 
 .shell-toolbar-menu {
 	padding: var(--space-2);
@@ -1674,7 +1653,7 @@ select {
 	resize: none;
 	min-height: 0;
 	height: 100%;
-	margin-top: 0; /* cancel .shell-note-input margin-top inside flex sheet */
+	margin-top: 0; /* cancel .shell-input margin-top inside flex sheet */
 }
 
 /* ── Markdown Preview Modal ─────────────────────────────────────────── */
@@ -1952,62 +1931,6 @@ select {
 	margin-top: var(--space-3);
 }
 
-.shell-modal-overlay {
-	position: fixed;
-	inset: 0;
-	background: rgba(3, 8, 12, 0.7);
-	/* Confirm/action dialogs must stack above other modals (e.g. editor at 49/50). */
-	z-index: 51;
-}
-
-.shell-modal {
-	position: fixed;
-	top: 50%;
-	left: 50%;
-	width: min(460px, calc(100vw - 32px));
-	transform: translate(-50%, -50%);
-	padding: var(--space-4);
-	background: var(--panel-bg-elevated);
-	border: 1px solid var(--panel-border-strong);
-	border-radius: var(--radius-md);
-	z-index: 52;
-}
-
-.shell-modal__preview {
-	display: grid;
-	gap: var(--space-2);
-	margin: var(--space-3) 0;
-}
-
-.shell-modal__actions {
-	display: flex;
-	justify-content: flex-end;
-	gap: 8px;
-	margin-top: var(--space-4);
-}
-
-.shell-modal__copy {
-	color: var(--text-secondary);
-	font-size: var(--font-size-body);
-	margin: var(--space-2) 0;
-}
-
-.shell-modal__field {
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-2);
-	margin-top: var(--space-4);
-}
-
-.shell-modal__confirm-dirty {
-	display: flex;
-	align-items: center;
-	gap: var(--space-2);
-	font-size: var(--text-sm);
-	color: var(--status-danger, #f87171);
-	margin-top: var(--space-2);
-	cursor: pointer;
-}
 
 .shell-error-banner {
 	padding: var(--space-2) var(--space-3);
@@ -2050,45 +1973,6 @@ select {
 	margin-top: 0;
 }
 
-.shell-button-primary {
-	background: var(--accent);
-	border: 1px solid var(--accent);
-	border-radius: var(--radius-sm);
-	color: var(--app-bg);
-	font-size: var(--font-size-body);
-	font-weight: 600;
-	padding: var(--space-1) var(--space-3);
-	cursor: pointer;
-}
-
-.shell-button-primary:hover {
-	opacity: 0.88;
-}
-
-.shell-button-primary:disabled {
-	opacity: 0.45;
-	cursor: not-allowed;
-}
-
-.shell-button-secondary {
-	background: transparent;
-	border: 1px solid var(--panel-border);
-	border-radius: var(--radius-sm);
-	color: var(--text-secondary);
-	font-size: var(--font-size-body);
-	padding: var(--space-1) var(--space-3);
-	cursor: pointer;
-}
-
-.shell-button-secondary:hover {
-	border-color: var(--panel-border-strong);
-	color: var(--text-primary);
-}
-
-.shell-button-secondary:disabled {
-	opacity: 0.45;
-	cursor: not-allowed;
-}
 
 .shell-info {
 	color: var(--accent);
@@ -2096,13 +1980,6 @@ select {
 	margin-top: var(--space-2);
 }
 
-.shell-modal--worktree {
-	/* Modifier for worktree lifecycle dialogs; currently uses base .shell-modal styles. */
-}
-
-.shell-modal--workspace-picker {
-	width: min(640px, calc(100vw - 32px));
-}
 
 /* ---- App Dialog (replaces .shell-modal*) ---- */
 .shell-app-dialog__overlay {
