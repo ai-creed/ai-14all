@@ -418,10 +418,15 @@ select {
 	margin-top: var(--space-2);
 	padding: var(--space-3);
 	color: var(--text-primary);
-	background: rgba(13, 20, 25, 0.22);
+	background: var(--panel-bg);
 	border: 1px solid var(--panel-border-strong);
 	border-radius: var(--radius-sm);
 	resize: vertical;
+	font: inherit;
+}
+
+.shell-input:hover:not(:disabled):not(:focus) {
+	border-color: var(--text-muted);
 }
 
 .shell-input:focus-visible,
