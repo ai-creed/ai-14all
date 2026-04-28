@@ -333,6 +333,8 @@ export type Ai14AllDesktopApi = {
 				cliAvailable: boolean;
 				configRootDetected: boolean;
 				installed: boolean;
+				cliPath: string | null;
+				cliSource: "override" | "path" | "fixed" | "shell" | "none";
 			}>;
 			mcp: { port: number | null; bindError: string | null };
 		}>;
@@ -349,6 +351,25 @@ export type Ai14AllDesktopApi = {
 				ok: boolean;
 				message: string | null;
 			}>;
+		}>;
+		pickCliPath(id: "claude-code" | "codex"): Promise<{
+			canceled: boolean;
+			path: string | null;
+		}>;
+		setCliOverride(
+			id: "claude-code" | "codex",
+			path: string | null,
+		): Promise<{
+			providers: Array<{
+				id: "claude-code" | "codex";
+				displayName: string;
+				cliAvailable: boolean;
+				configRootDetected: boolean;
+				installed: boolean;
+				cliPath: string | null;
+				cliSource: "override" | "path" | "fixed" | "shell" | "none";
+			}>;
+			mcp: { port: number | null; bindError: string | null };
 		}>;
 	};
 	events: {
