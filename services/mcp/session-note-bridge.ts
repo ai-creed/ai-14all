@@ -119,6 +119,9 @@ export class SessionNoteBridge {
 			| { op: "read"; worktreeId: string }
 			| { op: "append"; worktreeId: string; title: string; body: string },
 	): Promise<NoteBridgeReply> {
+		if (this.disposed) {
+			return Promise.reject(new BridgeDisposedError("bridge disposed"));
+		}
 		if (!this.rendererReady) {
 			return Promise.reject(
 				new RendererNotReadyError("renderer not ready"),

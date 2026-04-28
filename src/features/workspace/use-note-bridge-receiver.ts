@@ -14,12 +14,18 @@ export function useNoteBridgeReceiver(args: UseNoteBridgeReceiverArgs): void {
 	const { startupMode, workspaces, dispatchTo, api, now } = args;
 	useEffect(() => {
 		if (startupMode !== "ready") return;
-		const off = installNoteBridgeReceiver({
+		const rawOff = installNoteBridgeReceiver({
 			workspaces,
 			dispatchTo,
 			api,
 			now,
 		});
+		let called = false;
+		const off = () => {
+			if (called) return;
+			called = true;
+			rawOff();
+		};
 		const handleBeforeUnload = () => off();
 		window.addEventListener("beforeunload", handleBeforeUnload);
 		return () => {
