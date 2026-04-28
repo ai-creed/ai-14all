@@ -1971,7 +1971,7 @@ select {
 	flex-wrap: wrap;
 }
 .shell-input-row > .shell-input {
-	flex: 1 1 auto;
+	flex: 1 1 0;
 	min-width: 240px;
 	margin-top: 0;
 }
