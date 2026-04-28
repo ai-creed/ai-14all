@@ -62,7 +62,10 @@ export class AgentSkillInstaller {
 		);
 	}
 
-	private async detect(id: ProviderId, override: string | null): Promise<Detection> {
+	private async detect(
+		id: ProviderId,
+		override: string | null,
+	): Promise<Detection> {
 		const accessFn = this.deps._access ?? access;
 		return detectCliPath(PROVIDER_CMD[id], {
 			home: this.deps.home,
@@ -148,7 +151,11 @@ export class AgentSkillInstaller {
 			}));
 		}
 		const overrides = await this.overrideStore.load();
-		const results: Array<{ id: ProviderId; ok: boolean; message: string | null }> = [];
+		const results: Array<{
+			id: ProviderId;
+			ok: boolean;
+			message: string | null;
+		}> = [];
 		for (const id of ids) {
 			try {
 				const override = overrides[id] ?? null;
@@ -191,7 +198,11 @@ export class AgentSkillInstaller {
 
 	async uninstall(ids: ProviderId[]) {
 		const overrides = await this.overrideStore.load();
-		const results: Array<{ id: ProviderId; ok: boolean; message: string | null }> = [];
+		const results: Array<{
+			id: ProviderId;
+			ok: boolean;
+			message: string | null;
+		}> = [];
 		for (const id of ids) {
 			try {
 				const override = overrides[id] ?? null;

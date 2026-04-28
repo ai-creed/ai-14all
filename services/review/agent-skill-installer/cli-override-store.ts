@@ -1,11 +1,17 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { z } from "zod";
-import { ProviderIdSchema, type ProviderId } from "../../../shared/contracts/agent-install.js";
+import {
+	ProviderIdSchema,
+	type ProviderId,
+} from "../../../shared/contracts/agent-install.js";
 
 // Zod 4: z.record(enum, ...) requires every key. z.partialRecord allows
 // payloads that contain only a subset of provider keys.
-const PersistedSchema = z.partialRecord(ProviderIdSchema, z.string().nullable());
+const PersistedSchema = z.partialRecord(
+	ProviderIdSchema,
+	z.string().nullable(),
+);
 
 export type OverrideMap = Partial<Record<ProviderId, string | null>>;
 

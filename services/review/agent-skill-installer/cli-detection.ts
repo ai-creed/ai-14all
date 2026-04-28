@@ -16,27 +16,28 @@ export type DetectDeps = {
 	access: (path: string) => Promise<void>;
 };
 
-const FIXED_CANDIDATES: Record<"claude" | "codex", (home: string) => string[]> = {
-	claude: (home) => [
-		join(home, ".claude", "local", "claude"),
-		"/opt/homebrew/bin/claude",
-		"/usr/local/bin/claude",
-		join(home, ".local", "bin", "claude"),
-		join(home, ".bun", "bin", "claude"),
-		join(home, ".npm-global", "bin", "claude"),
-		join(home, ".volta", "bin", "claude"),
-		join(home, ".cargo", "bin", "claude"),
-	],
-	codex: (home) => [
-		"/opt/homebrew/bin/codex",
-		"/usr/local/bin/codex",
-		join(home, ".local", "bin", "codex"),
-		join(home, ".bun", "bin", "codex"),
-		join(home, ".npm-global", "bin", "codex"),
-		join(home, ".volta", "bin", "codex"),
-		join(home, ".cargo", "bin", "codex"),
-	],
-};
+const FIXED_CANDIDATES: Record<"claude" | "codex", (home: string) => string[]> =
+	{
+		claude: (home) => [
+			join(home, ".claude", "local", "claude"),
+			"/opt/homebrew/bin/claude",
+			"/usr/local/bin/claude",
+			join(home, ".local", "bin", "claude"),
+			join(home, ".bun", "bin", "claude"),
+			join(home, ".npm-global", "bin", "claude"),
+			join(home, ".volta", "bin", "claude"),
+			join(home, ".cargo", "bin", "claude"),
+		],
+		codex: (home) => [
+			"/opt/homebrew/bin/codex",
+			"/usr/local/bin/codex",
+			join(home, ".local", "bin", "codex"),
+			join(home, ".bun", "bin", "codex"),
+			join(home, ".npm-global", "bin", "codex"),
+			join(home, ".volta", "bin", "codex"),
+			join(home, ".cargo", "bin", "codex"),
+		],
+	};
 
 async function fileExists(
 	access: DetectDeps["access"],
@@ -63,7 +64,10 @@ export async function detectCliPath(
 	const lookup = deps.platform === "win32" ? "where" : "which";
 	try {
 		const { stdout } = await deps.exec(lookup, [cmd]);
-		const first = stdout.split(/\r?\n/).map((s) => s.trim()).find(Boolean);
+		const first = stdout
+			.split(/\r?\n/)
+			.map((s) => s.trim())
+			.find(Boolean);
 		if (first) return { cliPath: first, source: "path" };
 	} catch {
 		/* fall through */
@@ -86,7 +90,10 @@ export async function detectCliPath(
 				["-ilc", `command -v ${cmd}`],
 				{ timeout: 2000 },
 			);
-			const first = stdout.split(/\r?\n/).map((s) => s.trim()).find(Boolean);
+			const first = stdout
+				.split(/\r?\n/)
+				.map((s) => s.trim())
+				.find(Boolean);
 			if (first && (await fileExists(deps.access, first))) {
 				return { cliPath: first, source: "shell" };
 			}

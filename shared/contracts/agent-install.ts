@@ -5,7 +5,8 @@ export const AGENT_INSTALL_DO = "agentInstall:install" as const;
 export const AGENT_INSTALL_UNINSTALL = "agentInstall:uninstall" as const;
 export const AGENT_INSTALL_STATUS = "agentInstall:status" as const;
 export const AGENT_INSTALL_PICK_CLI = "agentInstall:pickCliPath" as const;
-export const AGENT_INSTALL_SET_OVERRIDE = "agentInstall:setCliOverride" as const;
+export const AGENT_INSTALL_SET_OVERRIDE =
+	"agentInstall:setCliOverride" as const;
 
 export const ProviderIdSchema = z.enum(["claude-code", "codex"]);
 export type ProviderId = z.infer<typeof ProviderIdSchema>;

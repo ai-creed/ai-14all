@@ -93,7 +93,9 @@ describe("AgentSkillInstaller (detection + override)", () => {
 
 	it("install fails for a provider when detection returns null", async () => {
 		// no override, no PATH (`which` rejects), no fixed candidates, no shell
-		execMock.mockImplementation((_cmd, _args, cb) => cb(new Error("not found")));
+		execMock.mockImplementation((_cmd, _args, cb) =>
+			cb(new Error("not found")),
+		);
 		const installer = newInstaller();
 		const res = await installer.install(["claude-code"]);
 		expect(res[0].ok).toBe(false);
@@ -101,7 +103,9 @@ describe("AgentSkillInstaller (detection + override)", () => {
 	});
 
 	it("uninstall fails gracefully when detection returns null", async () => {
-		execMock.mockImplementation((_cmd, _args, cb) => cb(new Error("not found")));
+		execMock.mockImplementation((_cmd, _args, cb) =>
+			cb(new Error("not found")),
+		);
 		const installer = newInstaller();
 		const res = await installer.uninstall(["claude-code"]);
 		expect(res[0].ok).toBe(false);
@@ -110,9 +114,9 @@ describe("AgentSkillInstaller (detection + override)", () => {
 
 	it("setOverride rejects directories", async () => {
 		const installer = newInstaller();
-		await expect(
-			installer.setOverride("claude-code", dir),
-		).rejects.toThrow(/not a regular file/i);
+		await expect(installer.setOverride("claude-code", dir)).rejects.toThrow(
+			/not a regular file/i,
+		);
 	});
 
 	it("setOverride rejects missing paths", async () => {

@@ -3,7 +3,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mkdtemp, writeFile, chmod, rm, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { detectCliPath, type DetectDeps } from "../../../services/review/agent-skill-installer/cli-detection.js";
+import {
+	detectCliPath,
+	type DetectDeps,
+} from "../../../services/review/agent-skill-installer/cli-detection.js";
 
 async function makeExec(dir: string, name: string): Promise<string> {
 	const p = join(dir, name);
@@ -64,7 +67,10 @@ describe("detectCliPath", () => {
 			if (p === "/nope/claude") throw new Error("ENOENT");
 		};
 		const result = await detectCliPath("claude", deps);
-		expect(result).toEqual({ cliPath: "/usr/local/bin/claude", source: "path" });
+		expect(result).toEqual({
+			cliPath: "/usr/local/bin/claude",
+			source: "path",
+		});
 	});
 
 	it("returns PATH detection when `which` succeeds", async () => {

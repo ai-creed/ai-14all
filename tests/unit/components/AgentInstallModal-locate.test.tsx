@@ -5,7 +5,9 @@ import userEvent from "@testing-library/user-event";
 import { AgentInstallModal } from "../../../src/features/review/AgentInstallModal";
 import type { AgentInstallStatus } from "../../../src/features/review/useAgentInstallStatus";
 
-function makeStatus(overrides: Partial<AgentInstallStatus> = {}): AgentInstallStatus {
+function makeStatus(
+	overrides: Partial<AgentInstallStatus> = {},
+): AgentInstallStatus {
 	const refresh = vi.fn(async () => {});
 	return {
 		providers: [
@@ -45,9 +47,7 @@ function makeStatus(overrides: Partial<AgentInstallStatus> = {}): AgentInstallSt
 describe("AgentInstallModal — Locate CLI", () => {
 	it("shows Locate CLI button only when cliAvailable=false", () => {
 		const status = makeStatus();
-		render(
-			<AgentInstallModal open onClose={() => {}} status={status} />,
-		);
+		render(<AgentInstallModal open onClose={() => {}} status={status} />);
 		expect(screen.getByText(/Locate Claude Code CLI…/)).toBeTruthy();
 		expect(screen.queryByText(/Locate Codex CLI…/)).toBeNull();
 	});
@@ -63,9 +63,7 @@ describe("AgentInstallModal — Locate CLI", () => {
 				mcp: { port: 9999, bindError: null },
 			})),
 		});
-		render(
-			<AgentInstallModal open onClose={() => {}} status={status} />,
-		);
+		render(<AgentInstallModal open onClose={() => {}} status={status} />);
 		await userEvent.click(screen.getByText(/Locate Claude Code CLI…/));
 		await waitFor(() => {
 			expect(status.pickCliPath).toHaveBeenCalledWith("claude-code");
@@ -80,9 +78,7 @@ describe("AgentInstallModal — Locate CLI", () => {
 		const status = makeStatus({
 			pickCliPath: vi.fn(async () => ({ canceled: true, path: null })),
 		});
-		render(
-			<AgentInstallModal open onClose={() => {}} status={status} />,
-		);
+		render(<AgentInstallModal open onClose={() => {}} status={status} />);
 		await userEvent.click(screen.getByText(/Locate Claude Code CLI…/));
 		expect(status.setCliOverride).not.toHaveBeenCalled();
 	});
@@ -97,12 +93,8 @@ describe("AgentInstallModal — Locate CLI", () => {
 				throw new Error("Path does not exist: /bad/path");
 			}),
 		});
-		render(
-			<AgentInstallModal open onClose={() => {}} status={status} />,
-		);
+		render(<AgentInstallModal open onClose={() => {}} status={status} />);
 		await userEvent.click(screen.getByText(/Locate Claude Code CLI…/));
-		expect(
-			await screen.findByText(/Path does not exist/),
-		).toBeTruthy();
+		expect(await screen.findByText(/Path does not exist/)).toBeTruthy();
 	});
 });
