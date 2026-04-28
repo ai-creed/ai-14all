@@ -100,6 +100,14 @@ describe("AgentSkillInstaller (detection + override)", () => {
 		expect(res[0].message).toMatch(/claude CLI is not available/i);
 	});
 
+	it("uninstall fails gracefully when detection returns null", async () => {
+		execMock.mockImplementation((_cmd, _args, cb) => cb(new Error("not found")));
+		const installer = newInstaller();
+		const res = await installer.uninstall(["claude-code"]);
+		expect(res[0].ok).toBe(false);
+		expect(res[0].message).toMatch(/not available/i);
+	});
+
 	it("setOverride rejects directories", async () => {
 		const installer = newInstaller();
 		await expect(

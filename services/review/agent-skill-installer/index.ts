@@ -153,8 +153,6 @@ export class AgentSkillInstaller {
 			try {
 				const override = overrides[id] ?? null;
 				const detection = await this.detect(id, override);
-				const cliPath = detection?.cliPath ?? PROVIDER_CMD[id];
-				const isCliAvailable = async () => detection !== null;
 				// Fail fast before loading the bundled skill if CLI is unavailable.
 				// ClaudeProvider/CodexProvider also check this, but checking early
 				// avoids an unnecessary disk read and surfaces the clearest error.
@@ -165,6 +163,8 @@ export class AgentSkillInstaller {
 						`${cmd} CLI is not available; install ${name} or set a CLI path override.`,
 					);
 				}
+				const cliPath = detection.cliPath; // safe: null guard throws above
+				const isCliAvailable = async () => detection !== null;
 				const skill = await loadBundledSkill(this.deps.resourcesPath);
 				if (id === "claude-code") {
 					const p = new ClaudeProvider({
@@ -196,7 +196,12 @@ export class AgentSkillInstaller {
 			try {
 				const override = overrides[id] ?? null;
 				const detection = await this.detect(id, override);
-				const cliPath = detection?.cliPath ?? PROVIDER_CMD[id];
+				if (detection === null) {
+					throw new Error(
+						`${PROVIDER_CMD[id]} CLI is not available; cannot uninstall MCP server.`,
+					);
+				}
+				const cliPath = detection.cliPath;
 				const isCliAvailable = async () => detection !== null;
 				if (id === "claude-code") {
 					const p = new ClaudeProvider({
