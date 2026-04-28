@@ -108,7 +108,10 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 
 		// Wait for the default shell tab to appear (auto-created on worktree activation)
 		await expect(
-			page.getByRole("tab", { name: /^shell 1(?: \((?:error|exited)\))?$/i }),
+			page
+				.getByRole("tablist", { name: "Terminal sessions" })
+				.getByRole("tab")
+				.first(),
 		).toBeVisible({ timeout: 15_000 });
 		await expect(page.locator(".xterm")).toHaveCount(1, { timeout: 10_000 });
 
@@ -132,7 +135,7 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 		await expect(page.getByLabel("Repository path")).toBeVisible({
 			timeout: 5_000,
 		});
-		await page.locator("#repo-path").fill(repoB.repoPath);
+		await page.getByLabel("Repository path").fill(repoB.repoPath);
 		await page.getByRole("button", { name: "Load" }).click();
 
 		// Sessions sidebar must now show both workspace groups.

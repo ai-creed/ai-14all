@@ -79,7 +79,7 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 			.getByLabel("Preset command")
 			.fill("printf 'error: phase 3\\n'; sleep 2; printf 'error: phase 3\\n'");
 		await page.getByRole("button", { name: "Save preset" }).click();
-		await page.getByRole("button", { name: "Close dialog" }).click();
+		await page.getByRole("button", { name: "Close" }).click();
 
 		// Launch the preset via the same "Presets" dropdown
 		await page.getByRole("button", { name: "Presets" }).click();

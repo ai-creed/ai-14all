@@ -82,7 +82,7 @@ async function ensureTwoWorkspacesLoaded() {
 	await expect(
 		page.getByRole("dialog", { name: "Load workspace" }),
 	).toBeVisible({ timeout: 5_000 });
-	await page.locator("#repo-path").fill(repoB.repoPath);
+	await page.getByLabel("Repository path").fill(repoB.repoPath);
 	await page.getByRole("button", { name: "Load" }).click();
 
 	await expect(groupForRepo(repoB.repoPath)).toBeVisible({ timeout: 15_000 });

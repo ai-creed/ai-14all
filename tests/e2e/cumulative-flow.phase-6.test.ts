@@ -384,7 +384,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		});
 
 		await expect(page.getByLabel("Repository path")).toBeVisible();
-		await page.locator("#repo-path").fill(testRepo.repoPath);
+		await page.getByLabel("Repository path").fill(testRepo.repoPath);
 		await page.getByRole("button", { name: "Load" }).click();
 
 		// The xterm title was reset from "codex" to the CWD by Ctrl+L in the first

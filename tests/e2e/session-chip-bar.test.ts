@@ -101,6 +101,34 @@ test.describe("Session chip bar", () => {
 		await page.keyboard.press("Escape");
 	});
 
+	test("note sheet previews markdown and returns to editing", async () => {
+		await page.getByRole("button", { name: /open note/i }).click();
+		await page
+			.getByRole("textbox", { name: /session note/i })
+			.fill("## E2E Finding\n\n- Rendered item");
+
+		await page.getByRole("button", { name: "Preview" }).click();
+
+		await expect(
+			page.getByRole("region", { name: /session note preview/i }),
+		).toBeVisible();
+		await expect(
+			page.getByRole("heading", { name: "E2E Finding", level: 2 }),
+		).toBeVisible();
+		await expect(page.getByText("Rendered item")).toBeVisible();
+		await expect(
+			page.getByRole("textbox", { name: /session note/i }),
+		).not.toBeVisible();
+
+		await page.getByRole("button", { name: "Edit" }).click();
+
+		await expect(
+			page.getByRole("textbox", { name: /session note/i }),
+		).toHaveValue("## E2E Finding\n\n- Rendered item");
+		await page.getByRole("textbox", { name: /session note/i }).fill("");
+		await page.keyboard.press("Escape");
+	});
+
 	test("note indicator appears after typing in sheet", async () => {
 		await page.getByRole("button", { name: /open note/i }).click();
 		await page

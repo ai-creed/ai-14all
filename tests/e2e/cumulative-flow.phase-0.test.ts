@@ -71,9 +71,10 @@ test.describe.serial("Cumulative flow — Phase 0", () => {
 		// Phase 6: a default shell is automatically created when a worktree is
 		// activated.  Wait for it instead of clicking "+ Shell".
 		await expect(
-			page.getByRole("tab", {
-				name: /^shell 1(?: \((?:error|exited)\))?$/i,
-			}),
+			page
+				.getByRole("tablist", { name: "Terminal sessions" })
+				.getByRole("tab")
+				.first(),
 		).toBeVisible({ timeout: 10_000 });
 		await expect(page.locator(".xterm")).toHaveCount(1, { timeout: 10_000 });
 

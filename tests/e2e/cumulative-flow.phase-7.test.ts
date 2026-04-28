@@ -142,7 +142,7 @@ test.describe.serial("Cumulative flow — Phase 7", () => {
 		// While the Radix UI dialog is open it sets aria-hidden on the rest of the
 		// page, so sidebar buttons are not findable via getByRole until it closes.
 		await expect(
-			page.getByRole("dialog", { name: "Remove worktree" }),
+			page.getByRole("dialog", { name: "Remove session" }),
 		).toHaveCount(0, {
 			timeout: 15_000,
 		});
