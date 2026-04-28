@@ -51,6 +51,11 @@ export function useAgentInstallStatus() {
 		return agentInstall.pickCliPath(id);
 	}, []);
 
+	// setCliOverride updates state directly from the response payload (rather
+	// than calling refresh()) to avoid a redundant round trip — the response
+	// already contains the updated provider list. This is intentional divergence
+	// from install/uninstall which call refresh() because those IPC calls return
+	// only results, not the updated provider list.
 	const setCliOverride = useCallback(
 		async (id: Provider["id"], path: string | null) => {
 			const res = await agentInstall.setCliOverride(id, path);

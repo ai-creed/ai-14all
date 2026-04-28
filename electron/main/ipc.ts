@@ -490,15 +490,17 @@ export function registerIpcHandlers(
 		return { results };
 	});
 
-	ipcMain.handle(AGENT_INSTALL_PICK_CLI, async (_e, raw) => {
+	ipcMain.handle(AGENT_INSTALL_PICK_CLI, async (e, raw) => {
 		const { providerId } = PickCliPathRequestSchema.parse(raw);
-		const focused = BrowserWindow.getFocusedWindow();
+		// Use the sender's window so the dialog parents correctly even if the
+		// user focused another window after opening the modal.
+		const senderWindow = BrowserWindow.fromWebContents(e.sender) ?? undefined;
 		const opts = {
 			properties: ["openFile" as const],
 			message: `Locate ${providerId === "claude-code" ? "Claude Code" : "Codex"} CLI`,
 		};
-		const result = focused
-			? await dialog.showOpenDialog(focused, opts)
+		const result = senderWindow
+			? await dialog.showOpenDialog(senderWindow, opts)
 			: await dialog.showOpenDialog(opts);
 		if (result.canceled || result.filePaths.length === 0) {
 			return { canceled: true, path: null };

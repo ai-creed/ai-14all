@@ -539,6 +539,9 @@ export function App() {
 	const [addingDraft, setAddingDraft] = useState<NewCommentDraft | null>(null);
 	const [selectionDraft, setSelectionDraft] = useState<SelectionDraft>(null);
 	const agentInstallStatus = useAgentInstallStatus();
+	// providers starts as [] before the first refresh resolves. length > 0 guards
+	// against that window, so the CTA is hidden during initial load rather than
+	// flickering visible before providers are known.
 	const installCtaVisible =
 		agentInstallStatus.providers.length > 0 &&
 		agentInstallStatus.providers.every((p) => !p.installed);

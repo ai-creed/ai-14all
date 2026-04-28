@@ -63,7 +63,7 @@ export async function detectCliPath(
 	// Tier 2: which/where
 	const lookup = deps.platform === "win32" ? "where" : "which";
 	try {
-		const { stdout } = await deps.exec(lookup, [cmd]);
+		const { stdout } = await deps.exec(lookup, [cmd], { timeout: 1000 });
 		const first = stdout
 			.split(/\r?\n/)
 			.map((s) => s.trim())

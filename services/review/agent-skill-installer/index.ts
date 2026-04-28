@@ -132,12 +132,16 @@ export class AgentSkillInstaller {
 				throw new Error(`Path does not exist: ${path}`);
 			}
 			if (!info.isFile()) {
-				throw new Error(
-					`Path is not a regular file (directories and .app bundles are not allowed): ${path}`,
-				);
+				throw new Error(`Path is not a regular file: ${path}`);
 			}
 		}
 		await this.overrideStore.set(id, path);
+		// The subsequent listProviders() call re-runs detectCliPath which checks
+		// file existence again. If the file was deleted between stat() above and
+		// detectCliPath's access() below, the override is persisted but reports
+		// cliAvailable:false — a dangling pointer. The next listProviders() call
+		// will reflect the correct state, and install() will fall through detection
+		// tiers as designed. No corrective action needed here.
 		return this.listProviders();
 	}
 
