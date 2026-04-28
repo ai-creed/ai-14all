@@ -1,4 +1,4 @@
-import * as Dialog from "@radix-ui/react-dialog";
+import { AppDialog } from "../../components/AppDialog";
 import type { CreateWorktreePreview } from "../../../shared/models/worktree-lifecycle";
 
 type Props = {
@@ -29,70 +29,67 @@ export function NewWorktreeDialog({
 	onConfirm,
 }: Props) {
 	return (
-		<Dialog.Root open={open} onOpenChange={onOpenChange}>
-			<Dialog.Portal>
-				<Dialog.Overlay className="shell-modal-overlay" />
-				<Dialog.Content className="shell-modal shell-modal--worktree">
-					<Dialog.Title>New session</Dialog.Title>
-					<p className="shell-modal__copy">
-						This will create a new branch and linked worktree.
-					</p>
-					<label className="shell-modal__field">
-						<span className="shell-label">Name</span>
-						<input
-							autoFocus
-							value={name}
-							onChange={(event) => onNameChange(event.target.value)}
-							className="shell-note-input"
-						/>
-					</label>
-					<label className="shell-modal__field">
-						<span className="shell-label">
-							Session title{" "}
-							<span className="shell-label--optional">(optional)</span>
-						</span>
-						<input
-							value={sessionTitle}
-							onChange={(event) => onSessionTitleChange(event.target.value)}
-							placeholder={preview?.branchName ?? ""}
-							className="shell-note-input"
-						/>
-					</label>
-					{preview && (
-						<div className="shell-modal__preview">
-							<div>
-								<span>Name:</span> <strong>{preview.name}</strong>
-							</div>
-							<div>
-								<span>Branch:</span> <strong>{preview.branchName}</strong>
-							</div>
-							<div>
-								<span>Path:</span> <code>{preview.path}</code>
-							</div>
-							<div>
-								<span>Base:</span> <strong>{preview.baseRef}</strong>
-							</div>
-							<div>
-								<span>Latest commit:</span>{" "}
-								<strong>
-									{preview.baseCommit.shortSha} {preview.baseCommit.subject}
-								</strong>
-							</div>
+		<AppDialog open={open} onOpenChange={onOpenChange}>
+			<AppDialog.Title>New session</AppDialog.Title>
+			<AppDialog.Description>
+				This will create a new branch and linked worktree.
+			</AppDialog.Description>
+			<AppDialog.Body>
+				<label className="shell-app-dialog__field">
+					<span className="shell-label">Name</span>
+					<input
+						autoFocus
+						value={name}
+						onChange={(event) => onNameChange(event.target.value)}
+						className="shell-input"
+					/>
+				</label>
+				<label className="shell-app-dialog__field">
+					<span className="shell-label">
+						Session title{" "}
+						<span className="shell-label--optional">(optional)</span>
+					</span>
+					<input
+						value={sessionTitle}
+						onChange={(event) => onSessionTitleChange(event.target.value)}
+						placeholder={preview?.branchName ?? ""}
+						className="shell-input"
+					/>
+				</label>
+				{preview && (
+					<div className="shell-app-dialog__preview">
+						<div>
+							<span>Name:</span> <strong>{preview.name}</strong>
 						</div>
-					)}
-					{error && <div className="shell-error-banner">{error}</div>}
-					<div className="shell-modal__actions">
-						<button
-							type="button"
-							className="shell-button"
-							onClick={onConfirm}
-							disabled={!preview || loading || busy}
-						>
-							Create worktree
-						</button>
+						<div>
+							<span>Branch:</span> <strong>{preview.branchName}</strong>
+						</div>
+						<div>
+							<span>Path:</span> <code>{preview.path}</code>
+						</div>
+						<div>
+							<span>Base:</span> <strong>{preview.baseRef}</strong>
+						</div>
+						<div>
+							<span>Latest commit:</span>{" "}
+							<strong>
+								{preview.baseCommit.shortSha} {preview.baseCommit.subject}
+							</strong>
+						</div>
 					</div>
-				</Dialog.Content>
-			</Dialog.Portal>
-		</Dialog.Root>
+				)}
+				{error && <div className="shell-error-banner">{error}</div>}
+			</AppDialog.Body>
+			<AppDialog.Footer>
+				<button
+					type="button"
+					className="shell-button shell-button--compact shell-button--primary"
+					onClick={onConfirm}
+					disabled={!preview || loading || busy}
+				>
+					Create worktree
+				</button>
+			</AppDialog.Footer>
+		</AppDialog>
 	);
 }
