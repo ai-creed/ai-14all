@@ -7,15 +7,20 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { ReviewCommentService } from "../../../services/review/review-comment-service";
 import { ReviewCommentStore } from "../../../services/review/review-comment-store";
 import { Ai14allMcpServer, resolveWithRefresh } from "../../../services/mcp/ai14all-mcp-server";
+import { RendererNotReadyError } from "../../../services/mcp/session-note-bridge";
 
-async function makeRig() {
+async function makeRig(opts: { resolveResult?: string | null } = {}) {
 	const dir = await mkdtemp(join(tmpdir(), "mcp-rig-"));
 	const store = new ReviewCommentStore(join(dir, "review-comments.json"));
 	const service = new ReviewCommentService(store);
 	await service.init();
+	const resolved =
+		opts.resolveResult === undefined ? "/repo" : opts.resolveResult;
 	const resolver = {
-		resolve: async (p: string) => p,
-		refresh: async () => {},
+		resolve: vi.fn(async (_p: string) =>
+			resolved === null ? null : "/repo",
+		),
+		refresh: vi.fn(async () => {}),
 	};
 	const bridge = {
 		read: vi.fn(async (_id: string) => ({ note: "" })),
@@ -41,6 +46,7 @@ async function makeRig() {
 		server,
 		client,
 		bridge,
+		resolver,
 		cleanup: async () => {
 			await client.close();
 			await server.stop();
@@ -185,5 +191,57 @@ describe("resolveWithRefresh", () => {
 		expect(id).toBeNull();
 		expect(refresh).toHaveBeenCalledTimes(1);
 		expect(resolver.resolve).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe("read_session_note", () => {
+	let rig: Awaited<ReturnType<typeof makeRig>>;
+	afterEach(async () => {
+		await rig.cleanup();
+	});
+
+	it("returns the note for the resolved worktree", async () => {
+		rig = await makeRig();
+		rig.bridge.read.mockResolvedValueOnce({ note: "existing note" });
+
+		const result = await rig.client.callTool({
+			name: "read_session_note",
+			arguments: { worktreePath: "/repo" },
+		});
+		const content = result.content as Array<{ type: string; text: string }>;
+		const parsed = JSON.parse(content[0].text);
+		expect(parsed).toEqual({ ok: true, note: "existing note" });
+		expect(rig.bridge.read).toHaveBeenCalledWith("/repo");
+	});
+
+	it("returns no_worktree when resolver yields null even after refresh", async () => {
+		rig = await makeRig({ resolveResult: null });
+		const result = await rig.client.callTool({
+			name: "read_session_note",
+			arguments: { worktreePath: "/missing" },
+		});
+		const content = result.content as Array<{ type: string; text: string }>;
+		const parsed = JSON.parse(content[0].text);
+		expect(parsed.ok).toBe(false);
+		expect(parsed.error).toBe("no_worktree");
+	});
+
+	it("maps RendererNotReadyError to renderer_not_ready", async () => {
+		rig = await makeRig();
+		rig.bridge.read.mockRejectedValueOnce(
+			new RendererNotReadyError("nope"),
+		);
+		const result = await rig.client.callTool({
+			name: "read_session_note",
+			arguments: { worktreePath: "/repo" },
+		});
+		const parsed = JSON.parse(
+			(result.content as Array<{ text: string }>)[0].text,
+		);
+		expect(parsed).toEqual({
+			ok: false,
+			error: "renderer_not_ready",
+			message: expect.any(String),
+		});
 	});
 });

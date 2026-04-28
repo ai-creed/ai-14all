@@ -6,6 +6,12 @@ import { z } from "zod";
 import type { ReviewCommentService } from "../review/review-comment-service.js";
 import type { WorktreePathResolver } from "../review/worktree-path-resolver.js";
 import type { SessionNoteBridge } from "./session-note-bridge.js";
+import {
+	BridgeDisposedError,
+	BridgeTimeoutError,
+	RendererGoneError,
+	RendererNotReadyError,
+} from "./session-note-bridge.js";
 
 type Options = { port: number; host: string };
 
@@ -21,6 +27,38 @@ export async function resolveWithRefresh(
 	return resolver.resolve(worktreePath);
 }
 
+function jsonOk(payload: Record<string, unknown>) {
+	return {
+		content: [
+			{
+				type: "text" as const,
+				text: JSON.stringify({ ok: true, ...payload }),
+			},
+		],
+	};
+}
+
+function jsonError(code: string, message: string) {
+	return {
+		content: [
+			{
+				type: "text" as const,
+				text: JSON.stringify({ ok: false, error: code, message }),
+			},
+		],
+	};
+}
+
+function mapBridgeErrorCode(err: unknown): string {
+	if (err instanceof RendererNotReadyError) return "renderer_not_ready";
+	if (err instanceof RendererGoneError) return "renderer_gone";
+	if (err instanceof BridgeTimeoutError) return "bridge_timeout";
+	if (err instanceof BridgeDisposedError) return "bridge_disposed";
+	const code = (err as { code?: string } | null)?.code;
+	if (code) return code;
+	return "internal_error";
+}
+
 export class Ai14allMcpServer {
 	private httpServer: http.Server | null = null;
 
@@ -33,7 +71,7 @@ export class Ai14allMcpServer {
 
 	private registerTools(mcp: McpServer): void {
 		this.registerReviewTools(mcp);
-		// note tools registered in a later task
+		this.registerNoteTools(mcp);
 	}
 
 	private registerReviewTools(mcp: McpServer): void {
@@ -80,6 +118,29 @@ export class Ai14allMcpServer {
 				return {
 					content: [{ type: "text" as const, text: JSON.stringify(result) }],
 				};
+			},
+		);
+	}
+
+	private registerNoteTools(mcp: McpServer): void {
+		mcp.tool(
+			"read_session_note",
+			"Read the current ai-14all session note. Useful before appending to avoid duplicates.",
+			{ worktreePath: z.string().min(1) },
+			async ({ worktreePath }) => {
+				const worktreeId = await resolveWithRefresh(this.resolver, worktreePath);
+				if (!worktreeId) {
+					return jsonError("no_worktree", `no worktree at path: ${worktreePath}`);
+				}
+				try {
+					const { note } = await this.noteBridge.read(worktreeId);
+					return jsonOk({ note });
+				} catch (err) {
+					return jsonError(
+						mapBridgeErrorCode(err),
+						(err as Error).message ?? "bridge error",
+					);
+				}
 			},
 		);
 	}
