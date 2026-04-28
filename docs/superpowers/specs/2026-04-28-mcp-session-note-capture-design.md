@@ -170,13 +170,15 @@ const next = prev.length === 0 ? section : `${prev}\n\n${section}`;
 
 ### 6.3 Error matrix
 
-| Failure | Detection | Result code |
+| Failure | Layer that produces it | Result code |
 |---|---|---|
-| `worktreePath` not in any worktree | `resolver.resolve` returns null | `no_worktree` |
-| WorktreeId has no session record | renderer can't find it | `no_session` |
-| Renderer not mounted yet | `getWebContents()` null | `renderer_unavailable` |
-| IPC reply timeout (5 s) | bridge timer fires | `bridge_timeout` |
-| Empty title / body | zod | (SDK validation error) |
+| `worktreePath` not in any worktree | `Ai14allMcpServer` (resolver pre-check, never hits bridge) | `no_worktree` |
+| WorktreeId has no session record | renderer receiver, returned via `NoteBridgeReply` | `no_session` |
+| Renderer not mounted yet | `SessionNoteBridge` (rejects before sending IPC) | `renderer_unavailable` |
+| IPC reply timeout (5 s) | `SessionNoteBridge` (timer fires) | `bridge_timeout` |
+| Empty title / body | zod inside MCP SDK | (SDK validation error) |
+
+`Ai14allMcpServer` is the only layer that builds the final tool result JSON. It catches bridge rejections and maps them to `{ ok: false, error: <code>, message }`. The `NoteBridgeReply` union therefore only needs to carry the renderer-side code (`no_session`); other codes never travel over IPC.
 
 All non-validation errors are returned as JSON tool content with `ok: false`. The agent can choose to retry or surface to the user.
 
