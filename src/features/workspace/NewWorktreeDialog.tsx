@@ -36,7 +36,7 @@ export function NewWorktreeDialog({
 			</AppDialog.Description>
 			<AppDialog.Body>
 				<label className="shell-app-dialog__field">
-					<span className="shell-label">Name</span>
+					<span>Name</span>
 					<input
 						autoFocus
 						value={name}
@@ -45,10 +45,7 @@ export function NewWorktreeDialog({
 					/>
 				</label>
 				<label className="shell-app-dialog__field">
-					<span className="shell-label">
-						Session title{" "}
-						<span className="shell-label--optional">(optional)</span>
-					</span>
+					<span>Session title (optional)</span>
 					<input
 						value={sessionTitle}
 						onChange={(event) => onSessionTitleChange(event.target.value)}
