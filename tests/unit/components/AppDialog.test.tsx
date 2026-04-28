@@ -41,7 +41,7 @@ describe("AppDialog", () => {
 			</AppDialog>,
 		);
 		expect(
-			screen.queryByText("", { selector: ".shell-app-dialog__description" }),
+			document.querySelector(".shell-app-dialog__description"),
 		).not.toBeInTheDocument();
 	});
 

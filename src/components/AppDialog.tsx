@@ -48,7 +48,7 @@ export function AppDialog({
 		size === "wide" ? "shell-app-dialog shell-app-dialog--wide" : "shell-app-dialog";
 	const contentProps = hasDescriptionChild(children)
 		? {}
-		: { "aria-describedby": undefined as string | undefined };
+		: { "aria-describedby": undefined };
 	return (
 		<Dialog.Root open={open} onOpenChange={onOpenChange}>
 			<Dialog.Portal>
