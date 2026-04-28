@@ -9,7 +9,9 @@ type AppDialogProps = {
 };
 
 export function Title({ children }: { children: ReactNode }) {
-	return <Dialog.Title className="shell-app-dialog__title">{children}</Dialog.Title>;
+	return (
+		<Dialog.Title className="shell-app-dialog__title">{children}</Dialog.Title>
+	);
 }
 Title.displayName = "AppDialog.Title";
 
@@ -45,7 +47,9 @@ export function AppDialog({
 	children,
 }: AppDialogProps) {
 	const className =
-		size === "wide" ? "shell-app-dialog shell-app-dialog--wide" : "shell-app-dialog";
+		size === "wide"
+			? "shell-app-dialog shell-app-dialog--wide"
+			: "shell-app-dialog";
 	const contentProps = hasDescriptionChild(children)
 		? {}
 		: { "aria-describedby": undefined };

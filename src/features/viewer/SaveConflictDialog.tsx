@@ -14,19 +14,36 @@ export function SaveConflictDialog({
 	onCancel,
 }: Props) {
 	return (
-		<AppDialog open={open} onOpenChange={(next) => { if (!next) onCancel(); }}>
+		<AppDialog
+			open={open}
+			onOpenChange={(next) => {
+				if (!next) onCancel();
+			}}
+		>
 			<AppDialog.Title>File changed on disk</AppDialog.Title>
 			<AppDialog.Description>
 				This file was modified outside the editor. Pick how to resolve.
 			</AppDialog.Description>
 			<AppDialog.Footer>
-				<button type="button" className="shell-button shell-button--compact" onClick={onCancel}>
+				<button
+					type="button"
+					className="shell-button shell-button--compact"
+					onClick={onCancel}
+				>
 					Cancel
 				</button>
-				<button type="button" className="shell-button shell-button--compact shell-button--danger" onClick={onOverwrite}>
+				<button
+					type="button"
+					className="shell-button shell-button--compact shell-button--danger"
+					onClick={onOverwrite}
+				>
 					Overwrite
 				</button>
-				<button type="button" className="shell-button shell-button--compact shell-button--primary" onClick={onReload}>
+				<button
+					type="button"
+					className="shell-button shell-button--compact shell-button--primary"
+					onClick={onReload}
+				>
 					Reload
 				</button>
 			</AppDialog.Footer>

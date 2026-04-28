@@ -72,9 +72,7 @@ export function RepositoryInput({ onLoadPath }: Props) {
 					{loading ? "Loading…" : "Load"}
 				</button>
 			</div>
-			{error && (
-				<div className="shell-error">Error: {error}</div>
-			)}
+			{error && <div className="shell-error">Error: {error}</div>}
 		</form>
 	);
 }

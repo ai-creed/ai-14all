@@ -34,7 +34,8 @@ export function DiscardChangeDialog({
 		<AppDialog open={open} onOpenChange={onOpenChange}>
 			<AppDialog.Title>Discard changes</AppDialog.Title>
 			<AppDialog.Description>
-				Discard changes to <strong>{relativePath}</strong>? This cannot be undone.
+				Discard changes to <strong>{relativePath}</strong>? This cannot be
+				undone.
 			</AppDialog.Description>
 			<AppDialog.Body>
 				{error && <div className="shell-error-banner">{error}</div>}

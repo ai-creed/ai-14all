@@ -25,8 +25,15 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 	}, [open, refresh]);
 
 	return (
-		<AppDialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-			<AppDialog.Title>Install ai-14all-fix-review skill + MCP server</AppDialog.Title>
+		<AppDialog
+			open={open}
+			onOpenChange={(o) => {
+				if (!o) onClose();
+			}}
+		>
+			<AppDialog.Title>
+				Install ai-14all-fix-review skill + MCP server
+			</AppDialog.Title>
 			<AppDialog.Body>
 				{status.bindError && (
 					<p className="shell-error">
@@ -131,10 +138,8 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 						const r = await status.install(
 							Array.from(selected) as ("claude-code" | "codex")[],
 						);
-						const map: Record<
-							string,
-							{ ok: boolean; message: string | null }
-						> = {};
+						const map: Record<string, { ok: boolean; message: string | null }> =
+							{};
 						for (const item of r)
 							map[item.id] = { ok: item.ok, message: item.message };
 						setResults(map);

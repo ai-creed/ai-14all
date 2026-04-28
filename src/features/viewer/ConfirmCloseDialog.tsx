@@ -14,19 +14,36 @@ export function ConfirmCloseDialog({
 	onCancel,
 }: Props) {
 	return (
-		<AppDialog open={open} onOpenChange={(next) => { if (!next) onCancel(); }}>
+		<AppDialog
+			open={open}
+			onOpenChange={(next) => {
+				if (!next) onCancel();
+			}}
+		>
 			<AppDialog.Title>Unsaved changes</AppDialog.Title>
 			<AppDialog.Description>
 				Save your changes before closing the editor?
 			</AppDialog.Description>
 			<AppDialog.Footer>
-				<button type="button" className="shell-button shell-button--compact" onClick={onCancel}>
+				<button
+					type="button"
+					className="shell-button shell-button--compact"
+					onClick={onCancel}
+				>
 					Cancel
 				</button>
-				<button type="button" className="shell-button shell-button--compact shell-button--danger" onClick={onDiscard}>
+				<button
+					type="button"
+					className="shell-button shell-button--compact shell-button--danger"
+					onClick={onDiscard}
+				>
 					Discard
 				</button>
-				<button type="button" className="shell-button shell-button--compact shell-button--primary" onClick={onSave}>
+				<button
+					type="button"
+					className="shell-button shell-button--compact shell-button--primary"
+					onClick={onSave}
+				>
 					Save
 				</button>
 			</AppDialog.Footer>
