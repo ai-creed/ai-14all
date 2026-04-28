@@ -715,7 +715,7 @@ async function createPreset(label: string, command: string) {
 	await user.type(screen.getByLabelText("Preset label"), label);
 	await user.type(screen.getByLabelText("Preset command"), command);
 	await user.click(screen.getByRole("button", { name: "Save preset" }));
-	await user.click(screen.getByRole("button", { name: "Close dialog" }));
+	await user.click(screen.getByRole("button", { name: "Close" }));
 }
 
 function emitTerminalOutput(sessionId: string, data: string) {

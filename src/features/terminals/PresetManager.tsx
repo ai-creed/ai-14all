@@ -125,16 +125,6 @@ export function PresetManager({
 					</div>
 				</div>
 			</AppDialog.Body>
-			<AppDialog.Footer>
-				<button
-					type="button"
-					className="shell-button shell-button--compact"
-					aria-label="Close dialog"
-					onClick={() => onOpenChange(false)}
-				>
-					Close
-				</button>
-			</AppDialog.Footer>
 		</AppDialog>
 	);
 }

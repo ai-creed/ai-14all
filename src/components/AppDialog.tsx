@@ -58,6 +58,15 @@ export function AppDialog({
 			<Dialog.Portal>
 				<Dialog.Overlay className="shell-app-dialog__overlay" />
 				<Dialog.Content className={className} {...contentProps}>
+					<Dialog.Close asChild>
+						<button
+							type="button"
+							className="shell-button shell-button--icon shell-app-dialog__close"
+							aria-label="Close"
+						>
+							×
+						</button>
+					</Dialog.Close>
 					{children}
 				</Dialog.Content>
 			</Dialog.Portal>
