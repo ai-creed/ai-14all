@@ -34,6 +34,14 @@ export class CodexProvider {
 		const tmp = join(dir, "SKILL.md.ai-14all.tmp");
 		await writeFile(tmp, input.skill.content, "utf-8");
 		await rename(tmp, join(dir, "SKILL.md"));
+		// Idempotent: remove any prior registration before adding. Handles the
+		// case where the user wiped the skill dir manually but ~/.codex/config
+		// still has the server entry, which makes `mcp add` fail.
+		try {
+			await exec(this.deps.cliPath, ["mcp", "remove", input.serverName]);
+		} catch {
+			/* not registered — fine */
+		}
 		await exec(this.deps.cliPath, [
 			"mcp",
 			"add",

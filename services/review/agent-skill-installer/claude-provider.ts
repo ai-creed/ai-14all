@@ -32,6 +32,15 @@ export class ClaudeProvider {
 			);
 		}
 		await this.writeSkill(input.skill);
+		// Idempotent: remove any prior registration before adding. Handles the
+		// case where the user wiped the skill dir manually but ~/.claude.json
+		// still has the server entry, which makes `mcp add` fail with
+		// "already exists".
+		try {
+			await exec(this.deps.cliPath, ["mcp", "remove", input.serverName]);
+		} catch {
+			/* not registered — fine */
+		}
 		await exec(this.deps.cliPath, [
 			"mcp",
 			"add",

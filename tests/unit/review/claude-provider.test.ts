@@ -33,8 +33,9 @@ describe("ClaudeProvider", () => {
 			url: "http://127.0.0.1:51234",
 			skill: { content: "skill body" },
 		});
-		const callArgs = execMock.mock.calls[0]?.[1];
-		expect(callArgs).toEqual([
+		// install is idempotent: first call is `mcp remove` (swallowed), then `mcp add`.
+		expect(execMock.mock.calls[0]?.[1]).toEqual(["mcp", "remove", "ai-14all"]);
+		expect(execMock.mock.calls[1]?.[1]).toEqual([
 			"mcp",
 			"add",
 			"--transport",
