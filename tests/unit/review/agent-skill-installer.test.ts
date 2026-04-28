@@ -102,14 +102,18 @@ describe("AgentSkillInstaller (detection + override)", () => {
 		expect(res[0].message).toMatch(/claude CLI is not available/i);
 	});
 
-	it("uninstall fails gracefully when detection returns null", async () => {
+	it("uninstall succeeds even when detection returns null", async () => {
+		// CLI unavailable but skill directory removal should still proceed.
+		// execMock will reject for `which`, `$SHELL -ilc`, and `claude mcp remove`;
+		// the provider skips `mcp remove` when isCliAvailable() returns false, so
+		// the only execMock calls are the detection probes — all rejected → null detection.
 		execMock.mockImplementation((_cmd, _args, cb) =>
 			cb(new Error("not found")),
 		);
 		const installer = newInstaller();
 		const res = await installer.uninstall(["claude-code"]);
-		expect(res[0].ok).toBe(false);
-		expect(res[0].message).toMatch(/not available/i);
+		expect(res[0].ok).toBe(true);
+		expect(res[0].message).toBeNull();
 	});
 
 	it("setOverride rejects directories", async () => {

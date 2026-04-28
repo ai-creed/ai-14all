@@ -21,25 +21,7 @@ export class CliOverrideStore {
 
 	#queue: Promise<void> = Promise.resolve();
 
-	async #sweepTmp(): Promise<void> {
-		const dir = dirname(this.filePath);
-		let entries: string[];
-		try {
-			const { readdir } = await import("node:fs/promises");
-			entries = await readdir(dir);
-		} catch {
-			return;
-		}
-		const { rm } = await import("node:fs/promises");
-		await Promise.allSettled(
-			entries
-				.filter((e) => e.startsWith(".cli-overrides.tmp-"))
-				.map((e) => rm(join(dir, e), { force: true })),
-		);
-	}
-
 	async load(): Promise<OverrideMap> {
-		void this.#sweepTmp(); // non-blocking sweep; errors are swallowed
 		let raw: string;
 		try {
 			raw = await readFile(this.filePath, "utf-8");
@@ -58,7 +40,7 @@ export class CliOverrideStore {
 	}
 
 	async set(id: ProviderId, path: string | null): Promise<void> {
-		this.#queue = this.#queue.then(() => this.#doSet(id, path));
+		this.#queue = this.#queue.catch(() => {}).then(() => this.#doSet(id, path));
 		return this.#queue;
 	}
 

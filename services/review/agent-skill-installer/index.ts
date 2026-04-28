@@ -211,12 +211,12 @@ export class AgentSkillInstaller {
 			try {
 				const override = overrides[id] ?? null;
 				const detection = await this.detect(id, override);
-				if (detection === null) {
-					throw new Error(
-						`${PROVIDER_CMD[id]} CLI is not available; cannot uninstall MCP server.`,
-					);
-				}
-				const cliPath = detection.cliPath;
+				// Always attempt local skill removal regardless of CLI availability.
+				// Providers remove the skill directory first, then optionally run
+				// `mcp remove` only when isCliAvailable() returns true. Gating on
+				// detection here would prevent users from cleaning up after moving or
+				// deleting their CLI.
+				const cliPath = detection?.cliPath ?? PROVIDER_CMD[id];
 				const isCliAvailable = async () => detection !== null;
 				if (id === "claude-code") {
 					const p = new ClaudeProvider({
