@@ -14,7 +14,7 @@ export function AgentInstallCta({ onOpenInstall }: Props) {
 			</p>
 			<button
 				type="button"
-				className="shell-button-primary"
+				className="shell-button shell-button--compact shell-button--primary"
 				onClick={onOpenInstall}
 			>
 				Install…

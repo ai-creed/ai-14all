@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AppDialog } from "../../components/AppDialog";
 import type { AgentInstallStatus } from "./useAgentInstallStatus";
 
 type Props = {
@@ -23,15 +24,10 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 		if (open) void refresh();
 	}, [open, refresh]);
 
-	if (!open) return null;
 	return (
-		<div
-			className="shell-modal"
-			role="dialog"
-			aria-label="Install agent integration"
-		>
-			<div className="shell-modal__panel">
-				<h2>Install ai-14all-fix-review skill + MCP server</h2>
+		<AppDialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+			<AppDialog.Title>Install ai-14all-fix-review skill + MCP server</AppDialog.Title>
+			<AppDialog.Body>
 				{status.bindError && (
 					<p className="shell-error">
 						MCP server could not bind. {status.bindError}. Resolve and restart
@@ -71,7 +67,7 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 								{!p.cliAvailable && (
 									<button
 										type="button"
-										className="shell-button-secondary"
+										className="shell-button shell-button--compact"
 										disabled={busy}
 										onClick={async () => {
 											setPickError((m) => ({ ...m, [p.id]: null }));
@@ -116,32 +112,38 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 						);
 					})}
 				</ul>
-				<div className="shell-modal__actions">
-					<button type="button" onClick={onClose} disabled={busy}>
-						Close
-					</button>
-					<button
-						type="button"
-						disabled={selected.size === 0 || busy}
-						onClick={async () => {
-							setBusy(true);
-							const r = await status.install(
-								Array.from(selected) as ("claude-code" | "codex")[],
-							);
-							const map: Record<
-								string,
-								{ ok: boolean; message: string | null }
-							> = {};
-							for (const item of r)
-								map[item.id] = { ok: item.ok, message: item.message };
-							setResults(map);
-							setBusy(false);
-						}}
-					>
-						Install
-					</button>
-				</div>
-			</div>
-		</div>
+			</AppDialog.Body>
+			<AppDialog.Footer>
+				<button
+					type="button"
+					className="shell-button shell-button--compact"
+					onClick={onClose}
+					disabled={busy}
+				>
+					Close
+				</button>
+				<button
+					type="button"
+					className="shell-button shell-button--compact shell-button--primary"
+					disabled={selected.size === 0 || busy}
+					onClick={async () => {
+						setBusy(true);
+						const r = await status.install(
+							Array.from(selected) as ("claude-code" | "codex")[],
+						);
+						const map: Record<
+							string,
+							{ ok: boolean; message: string | null }
+						> = {};
+						for (const item of r)
+							map[item.id] = { ok: item.ok, message: item.message };
+						setResults(map);
+						setBusy(false);
+					}}
+				>
+					Install
+				</button>
+			</AppDialog.Footer>
+		</AppDialog>
 	);
 }
