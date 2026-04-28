@@ -46,7 +46,7 @@ export function RepositoryInput({ onLoadPath }: Props) {
 			<div>
 				<label htmlFor="repo-path">Repository path</label>
 			</div>
-			<div className="shell-input-row" style={{ marginTop: 4 }}>
+			<div className="shell-input-row">
 				<input
 					id="repo-path"
 					type="text"
@@ -73,7 +73,7 @@ export function RepositoryInput({ onLoadPath }: Props) {
 				</button>
 			</div>
 			{error && (
-				<div style={{ marginTop: 8, color: "red" }}>Error: {error}</div>
+				<div className="shell-error">Error: {error}</div>
 			)}
 		</form>
 	);

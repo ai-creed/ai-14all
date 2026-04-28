@@ -117,7 +117,7 @@ export function PresetManager({
 					>
 						<button
 							type="button"
-							className="shell-button shell-button--compact"
+							className="shell-button shell-button--compact shell-button--primary"
 							onClick={handleSave}
 						>
 							Save preset

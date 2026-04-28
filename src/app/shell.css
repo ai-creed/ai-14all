@@ -1973,6 +1973,9 @@ select {
 	margin-top: 0;
 }
 
+.shell-app-dialog .shell-input-row {
+	margin-top: var(--space-3);
+}
 
 .shell-info {
 	color: var(--accent);
