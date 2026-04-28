@@ -11,7 +11,7 @@ export function ContextPanel({ note, onNoteChange }: Props) {
 			</label>
 			<textarea
 				id="session-note"
-				className="shell-note-input"
+				className="shell-input"
 				value={note}
 				onChange={(event) => onNoteChange(event.target.value)}
 				rows={6}

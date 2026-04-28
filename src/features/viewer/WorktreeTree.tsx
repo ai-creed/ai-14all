@@ -236,7 +236,7 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 			{error && <p className="shell-error">Unable to load files: {error}</p>}
 			<input
 				type="text"
-				className="shell-note-input shell-tree-search"
+				className="shell-input shell-tree-search"
 				placeholder="Search files…"
 				value={inputTerm}
 				onChange={(e) => setInputTerm(e.target.value)}

@@ -34,7 +34,7 @@ export function NoteSheet({ open, note, onNoteChange, onClose }: Props) {
 					</div>
 					<textarea
 						aria-label="Session note"
-						className="shell-note-input shell-note-sheet__textarea"
+						className="shell-input shell-note-sheet__textarea"
 						value={note}
 						onChange={(e) => onNoteChange(e.target.value)}
 						placeholder="Write a note for this session…"
