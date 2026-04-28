@@ -65,6 +65,8 @@ export function main(argv = process.argv.slice(2)) {
 
 	// Local pre-flight
 	run("pnpm", ["install", "--frozen-lockfile"], { stdio: "inherit" });
+	run("pnpm", ["lint"], { stdio: "inherit" });
+	run("pnpm", ["format"], { stdio: "inherit" });
 	run("pnpm", ["typecheck"], { stdio: "inherit" });
 	run("pnpm", ["test"], { stdio: "inherit" });
 	run("pnpm", ["package:mac"], { stdio: "inherit" });

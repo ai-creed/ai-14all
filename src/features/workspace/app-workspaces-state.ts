@@ -79,7 +79,6 @@ export function appWorkspacesReducer(
 	}
 
 	if (action.type === "workspace/remove") {
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { [action.workspaceId]: _removed, ...rest } = state.workspacesById;
 		const workspaceOrder = state.workspaceOrder.filter(
 			(id) => id !== action.workspaceId,

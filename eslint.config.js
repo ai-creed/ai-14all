@@ -38,6 +38,15 @@ export default tseslint.config(
 			"@stylistic/semi": ["error", "always"],
 			"@stylistic/comma-dangle": ["error", "always-multiline"],
 			"react-hooks/exhaustive-deps": "warn",
+			"@typescript-eslint/no-unused-vars": [
+				"error",
+				{
+					argsIgnorePattern: "^_",
+					varsIgnorePattern: "^_",
+					caughtErrorsIgnorePattern: "^_",
+					destructuredArrayIgnorePattern: "^_",
+				},
+			],
 		},
 	},
 );
