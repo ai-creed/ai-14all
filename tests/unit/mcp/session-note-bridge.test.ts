@@ -19,10 +19,8 @@ function makeFakeIpcMain() {
 	return {
 		on: (channel: string, handler: (_: unknown, ...args: unknown[]) => void) =>
 			ee.on(channel, handler),
-		removeListener: (
-			channel: string,
-			handler: (...args: unknown[]) => void,
-		) => ee.removeListener(channel, handler),
+		removeListener: (channel: string, handler: (...args: unknown[]) => void) =>
+			ee.removeListener(channel, handler),
 		listenerCount: (channel: string) => ee.listenerCount(channel),
 		emit: (channel: string, ...args: unknown[]) =>
 			ee.emit(channel, {} as unknown, ...args),
@@ -47,9 +45,12 @@ describe("SessionNoteBridge — readiness", () => {
 	});
 
 	it("rejects with RendererNotReadyError before mcp:note:ready", async () => {
-		const bridge = new SessionNoteBridge(() => wc as unknown as Electron.WebContents, {
-			ipcMain: ipc as unknown as Electron.IpcMain,
-		});
+		const bridge = new SessionNoteBridge(
+			() => wc as unknown as Electron.WebContents,
+			{
+				ipcMain: ipc as unknown as Electron.IpcMain,
+			},
+		);
 		await expect(bridge.read("wt-1")).rejects.toBeInstanceOf(
 			RendererNotReadyError,
 		);
@@ -69,9 +70,12 @@ describe("SessionNoteBridge — readiness", () => {
 	});
 
 	it("flips ready on mcp:note:ready and back on mcp:note:goodbye", async () => {
-		const bridge = new SessionNoteBridge(() => wc as unknown as Electron.WebContents, {
-			ipcMain: ipc as unknown as Electron.IpcMain,
-		});
+		const bridge = new SessionNoteBridge(
+			() => wc as unknown as Electron.WebContents,
+			{
+				ipcMain: ipc as unknown as Electron.IpcMain,
+			},
+		);
 		ipc.emit(NOTE_BRIDGE_READY);
 		// After ready: a request is dispatched (we don't care about reply for this test —
 		// it will time out, which we'll cover later). Just assert the IPC send happened.
@@ -95,10 +99,13 @@ describe("SessionNoteBridge — request/reply", () => {
 	beforeEach(() => {
 		ipc = makeFakeIpcMain();
 		wc = makeFakeWebContents();
-		bridge = new SessionNoteBridge(() => wc as unknown as Electron.WebContents, {
-			ipcMain: ipc as unknown as Electron.IpcMain,
-			timeoutMs: 50,
-		});
+		bridge = new SessionNoteBridge(
+			() => wc as unknown as Electron.WebContents,
+			{
+				ipcMain: ipc as unknown as Electron.IpcMain,
+				timeoutMs: 50,
+			},
+		);
 		ipc.emit(NOTE_BRIDGE_READY);
 	});
 

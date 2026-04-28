@@ -84,9 +84,7 @@ app.whenReady().then(async () => {
 	const worktreePathResolver =
 		await createWorktreePathResolver(buildResolverEntries);
 
-	const sessionNoteBridge = new SessionNoteBridge(
-		() => mainWindow.webContents,
-	);
+	const sessionNoteBridge = new SessionNoteBridge(() => mainWindow.webContents);
 
 	const offRegistry = workspaceRegistry.onChange(() => {
 		void worktreePathResolver.refresh();

@@ -6,8 +6,14 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { ReviewCommentService } from "../../../services/review/review-comment-service";
 import { ReviewCommentStore } from "../../../services/review/review-comment-store";
-import { Ai14allMcpServer, resolveWithRefresh } from "../../../services/mcp/ai14all-mcp-server";
-import { BridgeTimeoutError, RendererNotReadyError } from "../../../services/mcp/session-note-bridge";
+import {
+	Ai14allMcpServer,
+	resolveWithRefresh,
+} from "../../../services/mcp/ai14all-mcp-server";
+import {
+	BridgeTimeoutError,
+	RendererNotReadyError,
+} from "../../../services/mcp/session-note-bridge";
 
 async function makeRig(opts: { resolveResult?: string | null } = {}) {
 	const dir = await mkdtemp(join(tmpdir(), "mcp-rig-"));
@@ -17,19 +23,15 @@ async function makeRig(opts: { resolveResult?: string | null } = {}) {
 	const resolved =
 		opts.resolveResult === undefined ? "/repo" : opts.resolveResult;
 	const resolver = {
-		resolve: vi.fn(async (_p: string) =>
-			resolved === null ? null : "/repo",
-		),
+		resolve: vi.fn(async (_p: string) => (resolved === null ? null : "/repo")),
 		refresh: vi.fn(async () => {}),
 	};
 	const bridge = {
 		read: vi.fn(async (_id: string) => ({ note: "" })),
-		append: vi.fn(
-			async (_id: string, title: string, _body: string) => ({
-				note: "stub",
-				appendedSection: `## ${title} — 2026-04-28 14:32`,
-			}),
-		),
+		append: vi.fn(async (_id: string, title: string, _body: string) => ({
+			note: "stub",
+			appendedSection: `## ${title} — 2026-04-28 14:32`,
+		})),
 		dispose: vi.fn(),
 	};
 	const server = new Ai14allMcpServer(service, resolver, bridge, {
@@ -228,9 +230,7 @@ describe("read_session_note", () => {
 
 	it("maps RendererNotReadyError to renderer_not_ready", async () => {
 		rig = await makeRig();
-		rig.bridge.read.mockRejectedValueOnce(
-			new RendererNotReadyError("nope"),
-		);
+		rig.bridge.read.mockRejectedValueOnce(new RendererNotReadyError("nope"));
 		const result = await rig.client.callTool({
 			name: "read_session_note",
 			arguments: { worktreePath: "/repo" },

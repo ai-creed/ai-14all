@@ -158,8 +158,7 @@ describe("installNoteBridgeReceiver", () => {
 			title: "T",
 			body: "B",
 		});
-		const expected =
-			"previous\n\n## T — 2026-04-28 14:32\n\nB";
+		const expected = "previous\n\n## T — 2026-04-28 14:32\n\nB";
 		expect(dispatch).toHaveBeenCalledWith(
 			"ws-A",
 			expect.objectContaining({ note: expected }),

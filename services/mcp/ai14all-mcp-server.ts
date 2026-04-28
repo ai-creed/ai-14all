@@ -128,9 +128,15 @@ export class Ai14allMcpServer {
 			"Read the current ai-14all session note. Useful before appending to avoid duplicates.",
 			{ worktreePath: z.string().min(1) },
 			async ({ worktreePath }) => {
-				const worktreeId = await resolveWithRefresh(this.resolver, worktreePath);
+				const worktreeId = await resolveWithRefresh(
+					this.resolver,
+					worktreePath,
+				);
 				if (!worktreeId) {
-					return jsonError("no_worktree", `no worktree at path: ${worktreePath}`);
+					return jsonError(
+						"no_worktree",
+						`no worktree at path: ${worktreePath}`,
+					);
 				}
 				try {
 					const { note } = await this.noteBridge.read(worktreeId);
@@ -153,7 +159,10 @@ export class Ai14allMcpServer {
 				body: z.string().min(1),
 			},
 			async ({ worktreePath, title, body }) => {
-				const worktreeId = await resolveWithRefresh(this.resolver, worktreePath);
+				const worktreeId = await resolveWithRefresh(
+					this.resolver,
+					worktreePath,
+				);
 				if (!worktreeId) {
 					return jsonError(
 						"no_worktree",

@@ -59,10 +59,7 @@ export class SessionNoteBridge {
 		}
 		this.pending.clear();
 	};
-	private readonly replyHandler = (
-		_: unknown,
-		reply: NoteBridgeReply,
-	) => {
+	private readonly replyHandler = (_: unknown, reply: NoteBridgeReply) => {
 		const p = this.pending.get(reply.id);
 		if (!p) return; // unknown id — drop
 		this.pending.delete(reply.id);
@@ -123,9 +120,7 @@ export class SessionNoteBridge {
 			return Promise.reject(new BridgeDisposedError("bridge disposed"));
 		}
 		if (!this.rendererReady) {
-			return Promise.reject(
-				new RendererNotReadyError("renderer not ready"),
-			);
+			return Promise.reject(new RendererNotReadyError("renderer not ready"));
 		}
 		const wc = this.getWebContents();
 		if (!wc) {

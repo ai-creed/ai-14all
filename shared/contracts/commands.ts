@@ -31,10 +31,7 @@ import type {
 	ReviewCreateRequest,
 	ReviewCommentChangedEvent,
 } from "./review-comments.js";
-import type {
-	NoteBridgeReply,
-	NoteBridgeRequest,
-} from "./note-bridge.js";
+import type { NoteBridgeReply, NoteBridgeRequest } from "./note-bridge.js";
 
 // --- Zod schemas for command payloads ---
 

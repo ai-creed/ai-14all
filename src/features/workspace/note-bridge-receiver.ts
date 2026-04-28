@@ -7,9 +7,7 @@ import type { WorkspaceState, WorkspaceAction } from "./workspace-state";
 
 export type WorkspaceLookup = {
 	/** Iterates [workspaceId, state] over active + inactive workspaces. */
-	forEach(
-		cb: (workspaceId: string, state: WorkspaceState) => void,
-	): void;
+	forEach(cb: (workspaceId: string, state: WorkspaceState) => void): void;
 };
 
 export type WorkspaceDispatch = (

@@ -89,9 +89,7 @@ test.describe("mcp session note", () => {
 				name: "read_session_note",
 				arguments: { worktreePath },
 			});
-			const parsed = JSON.parse(
-				(r.content as Array<{ text: string }>)[0].text,
-			);
+			const parsed = JSON.parse((r.content as Array<{ text: string }>)[0].text);
 			if (parsed.ok || parsed.error !== "renderer_not_ready") {
 				readReady = true;
 				break;
