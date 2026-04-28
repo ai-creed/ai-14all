@@ -539,6 +539,9 @@ export function App() {
 	const [addingDraft, setAddingDraft] = useState<NewCommentDraft | null>(null);
 	const [selectionDraft, setSelectionDraft] = useState<SelectionDraft>(null);
 	const agentInstallStatus = useAgentInstallStatus();
+	const installCtaVisible =
+		agentInstallStatus.providers.length > 0 &&
+		agentInstallStatus.providers.every((p) => !p.installed);
 	const [installModalOpen, setInstallModalOpen] = useState(false);
 	const [commentSidebarOpen, setCommentSidebarOpen] = useState(false);
 
@@ -3187,6 +3190,8 @@ export function App() {
 									setAddingDraft(null);
 								}}
 								onCancelNew={() => setAddingDraft(null)}
+								installCtaVisible={installCtaVisible}
+								onOpenInstall={() => setInstallModalOpen(true)}
 							/>
 						) : null;
 					})()}

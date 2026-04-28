@@ -317,4 +317,26 @@ test.describe.serial("AgentSkillInstaller — CLI-absent path", () => {
 		// ~/.codex/config.toml must NOT exist
 		expect(existsSync(join(tempHomeDir, ".codex", "config.toml"))).toBe(false);
 	});
+
+	test.skip("installs claude-code via override path picked from file dialog", async () => {
+		// Harness currently broken — see top-of-file skip reason.
+		// When unblocked:
+		// 1. Build a fixture binary: `#!/bin/sh\necho "$@" >> "$AI14ALL_TEST_LOG"\n`
+		//    chmod +x, place under tmpdir.
+		// 2. Stub dialog.showOpenDialog via ElectronApplication.evaluate:
+		//    `dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] })`
+		// 3. Open install modal, click "Locate Claude Code CLI…", confirm row flips
+		//    to "CLI detected (override: …)", check box, click Install.
+		// 4. Assert AI14ALL_TEST_LOG contains "mcp add --transport http --scope user
+		//    ai-14all <url>".
+	});
+
+	test.skip("opens install modal from sidebar CTA when no provider is installed", async () => {
+		// Harness currently broken — see top-of-file skip reason.
+		// When unblocked:
+		// 1. Launch app fresh (no SKILL.md persisted).
+		// 2. Open a worktree with the review drawer.
+		// 3. Assert data-testid="agent-install-cta" is visible in the comment sidebar.
+		// 4. Click the CTA Install… button; assert install modal becomes visible.
+	});
 });
