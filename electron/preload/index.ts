@@ -22,6 +22,8 @@ const REVIEW_COMMENT_CHANGED = "reviewComments:changed";
 const AGENT_INSTALL_LIST = "agentInstall:listProviders";
 const AGENT_INSTALL_DO = "agentInstall:install";
 const AGENT_INSTALL_UNINSTALL = "agentInstall:uninstall";
+const AGENT_INSTALL_PICK_CLI = "agentInstall:pickCliPath";
+const AGENT_INSTALL_SET_OVERRIDE = "agentInstall:setCliOverride";
 
 // Helper: register a one-way listener on an ipcRenderer channel and return an
 // unsubscribe function (matching the onXxx pattern in the API type).
@@ -257,6 +259,15 @@ const api: Ai14AllDesktopApi = {
 		},
 		uninstall(ids: ("claude-code" | "codex")[]) {
 			return ipcRenderer.invoke(AGENT_INSTALL_UNINSTALL, { providerIds: ids });
+		},
+		pickCliPath(id: "claude-code" | "codex") {
+			return ipcRenderer.invoke(AGENT_INSTALL_PICK_CLI, { providerId: id });
+		},
+		setCliOverride(id: "claude-code" | "codex", path: string | null) {
+			return ipcRenderer.invoke(AGENT_INSTALL_SET_OVERRIDE, {
+				providerId: id,
+				path,
+			});
 		},
 	},
 	events: {

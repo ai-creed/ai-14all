@@ -1,17 +1,20 @@
-import { app, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import { join } from "node:path";
 import { AgentSkillInstaller } from "../../services/review/agent-skill-installer/index.js";
 import {
 	AGENT_INSTALL_LIST,
 	AGENT_INSTALL_DO,
 	AGENT_INSTALL_UNINSTALL,
+	AGENT_INSTALL_PICK_CLI,
+	AGENT_INSTALL_SET_OVERRIDE,
 	InstallRequestSchema,
 	UninstallRequestSchema,
+	PickCliPathRequestSchema,
+	SetCliOverrideRequestSchema,
 } from "../../shared/contracts/agent-install.js";
 import { openExternalUrl } from "./services/openExternal.js";
 import { consumeE2eGitFault } from "./e2e-git-faults.js";
 import { consumeE2eTerminalCreateDelay } from "./e2e-terminal-create-delay.js";
-import type { BrowserWindow } from "electron";
 import {
 	PickRepositoryRootSchema,
 	OpenRepositoryWorkspaceSchema,
@@ -485,6 +488,34 @@ export function registerIpcHandlers(
 		const { providerIds } = UninstallRequestSchema.parse(raw);
 		const results = await installer.uninstall(providerIds);
 		return { results };
+	});
+
+	ipcMain.handle(AGENT_INSTALL_PICK_CLI, async (_e, raw) => {
+		const { providerId } = PickCliPathRequestSchema.parse(raw);
+		const focused = BrowserWindow.getFocusedWindow();
+		const opts = {
+			properties: ["openFile" as const],
+			message: `Locate ${providerId === "claude-code" ? "Claude Code" : "Codex"} CLI`,
+		};
+		const result = focused
+			? await dialog.showOpenDialog(focused, opts)
+			: await dialog.showOpenDialog(opts);
+		if (result.canceled || result.filePaths.length === 0) {
+			return { canceled: true, path: null };
+		}
+		return { canceled: false, path: result.filePaths[0] };
+	});
+
+	ipcMain.handle(AGENT_INSTALL_SET_OVERRIDE, async (_e, raw) => {
+		const { providerId, path } = SetCliOverrideRequestSchema.parse(raw);
+		const { providers } = await installer.setOverride(providerId, path);
+		return {
+			providers,
+			mcp: {
+				port: review.mcpStatus.port,
+				bindError: review.mcpStatus.bindError,
+			},
+		};
 	});
 
 	return {

@@ -123,6 +123,9 @@ export const agentInstall: Ai14AllDesktopApi["agentInstall"] = {
 	listProviders: () => getDesktopClient().agentInstall.listProviders(),
 	install: (ids) => getDesktopClient().agentInstall.install(ids),
 	uninstall: (ids) => getDesktopClient().agentInstall.uninstall(ids),
+	pickCliPath: (id) => getDesktopClient().agentInstall.pickCliPath(id),
+	setCliOverride: (id, path) =>
+		getDesktopClient().agentInstall.setCliOverride(id, path),
 };
 
 export const events: Ai14AllDesktopApi["events"] = {
