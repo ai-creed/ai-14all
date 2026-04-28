@@ -132,3 +132,10 @@ export const events: Ai14AllDesktopApi["events"] = {
 	onOpenInstallModal: (handler) =>
 		getDesktopClient().events.onOpenInstallModal(handler),
 };
+
+export const noteBridge: Ai14AllDesktopApi["noteBridge"] = {
+	onRequest: (handler) => getDesktopClient().noteBridge.onRequest(handler),
+	sendReply: (reply) => getDesktopClient().noteBridge.sendReply(reply),
+	sendReady: () => getDesktopClient().noteBridge.sendReady(),
+	sendGoodbye: () => getDesktopClient().noteBridge.sendGoodbye(),
+};

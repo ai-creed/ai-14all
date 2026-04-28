@@ -131,6 +131,12 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	events: {
 		onOpenInstallModal: vi.fn(() => vi.fn()),
 	},
+	noteBridge: {
+		onRequest: vi.fn(() => vi.fn()),
+		sendReply: vi.fn(),
+		sendReady: vi.fn(),
+		sendGoodbye: vi.fn(),
+	},
 	agentInstall: {
 		listProviders: vi.fn().mockResolvedValue({
 			providers: [],

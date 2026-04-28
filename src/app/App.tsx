@@ -109,6 +109,7 @@ import {
 	system,
 	reviewComments,
 	events,
+	noteBridge,
 } from "../lib/desktop-client";
 import { countOpenCommentsInFiles } from "../features/git/commit-list-badge";
 import { UpdateBanner } from "../features/updater/UpdateBanner";
@@ -360,7 +361,7 @@ export function App() {
 		dispatchTo: (workspaceId, action) => {
 			createScopedWorkspaceDispatch(workspaceId)(action);
 		},
-		api: window.ai14all.noteBridge,
+		api: noteBridge,
 	});
 
 	const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
