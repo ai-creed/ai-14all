@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mkdtemp, writeFile, chmod, rm, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { detectCliPath } from "../../../services/review/agent-skill-installer/cli-detection.js";
+import { detectCliPath, type DetectDeps } from "../../../services/review/agent-skill-installer/cli-detection.js";
 
 async function makeExec(dir: string, name: string): Promise<string> {
 	const p = join(dir, name);
@@ -12,7 +12,7 @@ async function makeExec(dir: string, name: string): Promise<string> {
 	return p;
 }
 
-function defaultDeps(home: string) {
+function defaultDeps(home: string): DetectDeps {
 	return {
 		home,
 		platform: "darwin" as NodeJS.Platform,
@@ -91,7 +91,7 @@ describe("detectCliPath", () => {
 		});
 		// real fs access for fixed candidates
 		const { access: realAccess } = await import("node:fs/promises");
-		deps.access = realAccess;
+		deps.access = realAccess as DetectDeps["access"];
 		const result = await detectCliPath("claude", deps);
 		expect(result).toEqual({ cliPath: path, source: "fixed" });
 	});
