@@ -109,7 +109,15 @@ jobs:
           cd "$RUNNER_TEMP/ai-creed"
           git pull --rebase origin master
           cp "$GITHUB_WORKSPACE/release/latest-mac.published.yml" "$RUNNER_TEMP/ai-creed/public/ai-14all/latest-mac.yml"
-          git add public/ai-14all/latest-mac.yml
+          target="${{ steps.resolve.outputs.version }}"
+          mdx="src/content/projects/ai-14all.mdx"
+          sed -i.bak -E \
+            -e "s|ai-14all-[0-9]+\.[0-9]+\.[0-9]+-arm64\.dmg|ai-14all-${target}-arm64.dmg|g" \
+            -e "s|releases/download/v[0-9]+\.[0-9]+\.[0-9]+/|releases/download/v${target}/|g" \
+            -e "s|\*\*v[0-9]+\.[0-9]+\.[0-9]+\*\*|**v${target}**|g" \
+            "$mdx"
+          rm "$mdx.bak"
+          git add public/ai-14all/latest-mac.yml "$mdx"
           git commit -m "chore(releases): ai-14all v${{ steps.resolve.outputs.version }}"
           git push origin master
 
