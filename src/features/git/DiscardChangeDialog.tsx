@@ -1,5 +1,5 @@
 import { useState } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
+import { AppDialog } from "../../components/AppDialog";
 
 type Props = {
 	open: boolean;
@@ -31,41 +31,34 @@ export function DiscardChangeDialog({
 	}
 
 	return (
-		<Dialog.Root open={open} onOpenChange={onOpenChange}>
-			<Dialog.Portal>
-				<Dialog.Overlay className="shell-modal-overlay" />
-				<Dialog.Content
-					className="shell-modal shell-modal--worktree"
-					aria-describedby={undefined}
+		<AppDialog open={open} onOpenChange={onOpenChange}>
+			<AppDialog.Title>Discard changes</AppDialog.Title>
+			<AppDialog.Description>
+				Discard changes to <strong>{relativePath}</strong>? This cannot be undone.
+			</AppDialog.Description>
+			<AppDialog.Body>
+				{error && <div className="shell-error-banner">{error}</div>}
+			</AppDialog.Body>
+			<AppDialog.Footer>
+				<button
+					type="button"
+					className="shell-button shell-button--compact"
+					onClick={() => onOpenChange(false)}
+					disabled={busy}
 				>
-					<Dialog.Title>Discard changes</Dialog.Title>
-					<p className="shell-modal__copy">
-						Discard changes to <strong>{relativePath}</strong>? This cannot be
-						undone.
-					</p>
-					{error && <div className="shell-error-banner">{error}</div>}
-					<div className="shell-modal__actions">
-						<button
-							type="button"
-							className="shell-button"
-							onClick={() => onOpenChange(false)}
-							disabled={busy}
-						>
-							Cancel
-						</button>
-						<button
-							type="button"
-							className="shell-button shell-button--danger"
-							onClick={() => {
-								void handleConfirm();
-							}}
-							disabled={busy}
-						>
-							Discard
-						</button>
-					</div>
-				</Dialog.Content>
-			</Dialog.Portal>
-		</Dialog.Root>
+					Cancel
+				</button>
+				<button
+					type="button"
+					className="shell-button shell-button--compact shell-button--danger"
+					onClick={() => {
+						void handleConfirm();
+					}}
+					disabled={busy}
+				>
+					Discard
+				</button>
+			</AppDialog.Footer>
+		</AppDialog>
 	);
 }
