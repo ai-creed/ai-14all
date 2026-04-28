@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -17,7 +17,17 @@ async function makeRig() {
 		resolve: async (p: string) => p,
 		refresh: async () => {},
 	};
-	const server = new Ai14allMcpServer(service, resolver, {
+	const bridge = {
+		read: vi.fn(async (_id: string) => ({ note: "" })),
+		append: vi.fn(
+			async (_id: string, title: string, _body: string) => ({
+				note: "stub",
+				appendedSection: `## ${title} — 2026-04-28 14:32`,
+			}),
+		),
+		dispose: vi.fn(),
+	};
+	const server = new Ai14allMcpServer(service, resolver, bridge, {
 		port: 0,
 		host: "127.0.0.1",
 	});
@@ -30,6 +40,7 @@ async function makeRig() {
 		service,
 		server,
 		client,
+		bridge,
 		cleanup: async () => {
 			await client.close();
 			await server.stop();

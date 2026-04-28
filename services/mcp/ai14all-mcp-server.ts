@@ -5,8 +5,11 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { z } from "zod";
 import type { ReviewCommentService } from "../review/review-comment-service.js";
 import type { WorktreePathResolver } from "../review/worktree-path-resolver.js";
+import type { SessionNoteBridge } from "./session-note-bridge.js";
 
 type Options = { port: number; host: string };
+
+export type SessionNoteBridgeLike = Pick<SessionNoteBridge, "read" | "append">;
 
 export class Ai14allMcpServer {
 	private httpServer: http.Server | null = null;
@@ -14,6 +17,7 @@ export class Ai14allMcpServer {
 	constructor(
 		private readonly service: ReviewCommentService,
 		private readonly resolver: WorktreePathResolver,
+		private readonly noteBridge: SessionNoteBridgeLike,
 		private readonly options: Options,
 	) {}
 
