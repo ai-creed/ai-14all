@@ -83,6 +83,14 @@ export function NewWorktreeDialog({
 			<AppDialog.Footer>
 				<button
 					type="button"
+					className="shell-button shell-button--compact"
+					onClick={() => onOpenChange(false)}
+					disabled={busy}
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
 					className="shell-button shell-button--compact shell-button--primary"
 					onClick={onConfirm}
 					disabled={!preview || loading || busy}
