@@ -17,6 +17,7 @@ Buttons are also inconsistent. The toolbar uses `.shell-button` + `.shell-button
 1. One shared dialog component that all 9 confirm/discard dialogs use.
 2. Dialog buttons match the toolbar visual language.
 3. Affirmative and destructive intent signaled by **color only**, not shape — preserves the flat terminal aesthetic.
+4. All dialog text inputs share one input style (the existing preset/note input look), with a thinner focus outline that applies globally (inputs, buttons, tabs).
 
 ## Non-Goals
 
@@ -154,6 +155,53 @@ Identical shape/size/typography across toolbar and dialogs. Color signals intent
 
 `AgentInstallCta` (sidebar footer Install… button) keeps an emphasized look but switches from the deleted `.shell-button-primary` (filled accent) to `.shell-button shell-button--compact shell-button--primary` (accent border + text) — matches dialog buttons and toolbar shape.
 
+### Input unification
+
+The existing `.shell-note-input` is a slight misnomer — born for session notes, but already reused by PresetManager (label + command inputs), NewWorktreeDialog (name + session title), ContextPanel, NoteSheet, and WorktreeTree. The current rule:
+
+```css
+.shell-note-input {
+	width: 100%;
+	margin-top: var(--space-2);
+	padding: var(--space-3);
+	color: var(--text-primary);
+	background: rgba(13, 20, 25, 0.22);
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	resize: vertical;
+}
+```
+
+Renamed to `.shell-input` and applied to every dialog text input. The visual itself does not change — only the class name. RepositoryInput (LoadWorkspaceDialog's path field, currently a bare `<input>` with inline `style={{ width: 400 }}`) adopts `.shell-input` and drops the inline styles; the Browse and Submit buttons get `shell-button shell-button--compact` (Submit also takes `--primary`).
+
+Affected files (rename consumers): `src/features/terminals/PresetManager.tsx`, `src/features/workspace/ContextPanel.tsx`, `src/features/workspace/NoteSheet.tsx`, `src/features/workspace/NewWorktreeDialog.tsx`, `src/features/viewer/WorktreeTree.tsx`, plus `src/app/shell.css`. RepositoryInput gains the class.
+
+### Focus outline thinning
+
+Today's rule:
+
+```css
+.shell-note-input:focus-visible,
+.shell-button:focus-visible,
+[role="tab"]:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+```
+
+Becomes:
+
+```css
+.shell-input:focus-visible,
+.shell-button:focus-visible,
+[role="tab"]:focus-visible {
+	outline: 1px solid var(--accent);
+	outline-offset: 2px;
+}
+```
+
+Applies globally — inputs, buttons, and tabs all gain the lighter focus ring. Matches the terminal aesthetic (thin, precise borders rather than chunky web emphasis).
+
 ## Migration
 
 | Dialog | Frame today | Frame after |
@@ -181,8 +229,9 @@ CSS cleanup commit (last):
 - Remove `.shell-modal-overlay`, `.shell-modal`, `.shell-modal__preview`, `.shell-modal__actions`, `.shell-modal__copy`, `.shell-modal__field`, `.shell-modal__confirm-dirty`, `.shell-modal--worktree`, `.shell-modal--workspace-picker`.
 - Remove `.shell-preset-overlay`, `.shell-preset-dialog`.
 - Remove `.shell-button-primary`, `.shell-button-secondary` (replaced by `.shell-button--primary` modifier).
+- Remove `.shell-note-input` (renamed to `.shell-input` in its own phase).
 
-Pre-deletion grep confirms no other consumers (Editor/MarkdownPreview do not use `.shell-modal`).
+Pre-deletion grep confirms no other consumers (Editor/MarkdownPreview do not use `.shell-modal`; no remaining `shell-note-input` references after the rename phase).
 
 ## Testing
 
@@ -204,6 +253,8 @@ Pre-deletion grep confirms no other consumers (Editor/MarkdownPreview do not use
   - Footer top divider is visible.
   - Buttons match the toolbar in height, radius, font.
   - Long-body dialogs (PresetManager, AgentInstallModal) scroll inside the body, with title and footer pinned.
+  - All text inputs across dialogs share the same look (LoadWorkspace path, NewWorktree name/title, PresetManager label/command).
+  - Focus rings on inputs, buttons, and tabs are 1 px (not 2 px).
 
 ## Error Handling
 
@@ -216,9 +267,10 @@ Pre-deletion grep confirms no other consumers (Editor/MarkdownPreview do not use
 Per the rule against >3-file changes per task, split into reviewable plans:
 
 1. **Component + CSS + button modifier** — `AppDialog.tsx`, new `.shell-app-dialog*` block in `shell.css`, new `.shell-button--primary` rule, AppDialog unit test. No dialog migrations yet; old `.shell-modal*` classes remain. (3 files.)
-2. **Migrate batch A** — LoadWorkspaceDialog, NewWorktreeDialog, RemoveWorktreeDialog. Update their tests' class-name assertions.
-3. **Migrate batch B** — ConfirmCloseDialog, SaveConflictDialog, DiscardChangeDialog, ForcePushDialog. Update their tests.
-4. **Migrate batch C** — PresetManager, AgentInstallModal. Update `AgentInstallCta` button to use the new `--primary` modifier. Update tests.
-5. **CSS cleanup** — delete dead `.shell-modal*`, `.shell-preset-*`, `.shell-button-primary`, `.shell-button-secondary` rules. Pre-deletion grep verifies no remaining consumers. (1 file.)
+2. **Input rename + focus outline thin** — rename `.shell-note-input` → `.shell-input` in `shell.css`, update the 5 TSX consumers (PresetManager, ContextPanel, NoteSheet, NewWorktreeDialog, WorktreeTree), apply `.shell-input` to RepositoryInput (drop inline styles, apply `shell-button shell-button--compact` to its Browse + Submit buttons, Submit also `--primary`), thin the focus-outline rule from 2 px to 1 px. (1 CSS file + 6 TSX files — exceeds the 3-file rule, so this phase splits into two sub-tasks: 2a CSS rename + outline, 2b TSX consumer updates.)
+3. **Migrate batch A** — LoadWorkspaceDialog, NewWorktreeDialog, RemoveWorktreeDialog. Update their tests' class-name assertions.
+4. **Migrate batch B** — ConfirmCloseDialog, SaveConflictDialog, DiscardChangeDialog, ForcePushDialog. Update their tests.
+5. **Migrate batch C** — PresetManager, AgentInstallModal. Update `AgentInstallCta` button to use the new `--primary` modifier. Update tests.
+6. **CSS cleanup** — delete dead `.shell-modal*`, `.shell-preset-*`, `.shell-button-primary`, `.shell-button-secondary` rules. Pre-deletion grep verifies no remaining consumers. (1 file.)
 
 Each phase ships independently and leaves the app in a working state.
