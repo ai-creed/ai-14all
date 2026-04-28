@@ -31,6 +31,10 @@ import type {
 	ReviewCreateRequest,
 	ReviewCommentChangedEvent,
 } from "./review-comments.js";
+import type {
+	NoteBridgeReply,
+	NoteBridgeRequest,
+} from "./note-bridge.js";
 
 // --- Zod schemas for command payloads ---
 
@@ -371,6 +375,12 @@ export type Ai14AllDesktopApi = {
 			}>;
 			mcp: { port: number | null; bindError: string | null };
 		}>;
+	};
+	noteBridge: {
+		onRequest(handler: (req: NoteBridgeRequest) => void): () => void;
+		sendReply(reply: NoteBridgeReply): void;
+		sendReady(): void;
+		sendGoodbye(): void;
 	};
 	events: {
 		onOpenInstallModal(handler: () => void): () => void;

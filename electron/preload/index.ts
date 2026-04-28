@@ -10,6 +10,10 @@ import type {
 	TerminalErrorEvent,
 	ReviewCommentChangedEvent,
 } from "../../shared/contracts/events.js";
+import type {
+	NoteBridgeReply,
+	NoteBridgeRequest,
+} from "../../shared/contracts/note-bridge.js";
 // Channel name constants duplicated from shared/contracts to avoid pulling Zod
 // into the sandboxed preload context (sandbox:true blocks require("zod")).
 const REVIEW_LIST = "reviewComments:list";
@@ -24,6 +28,10 @@ const AGENT_INSTALL_DO = "agentInstall:install";
 const AGENT_INSTALL_UNINSTALL = "agentInstall:uninstall";
 const AGENT_INSTALL_PICK_CLI = "agentInstall:pickCliPath";
 const AGENT_INSTALL_SET_OVERRIDE = "agentInstall:setCliOverride";
+const NOTE_BRIDGE_REQUEST = "mcp:note:request";
+const NOTE_BRIDGE_REPLY = "mcp:note:reply";
+const NOTE_BRIDGE_READY = "mcp:note:ready";
+const NOTE_BRIDGE_GOODBYE = "mcp:note:goodbye";
 
 // Helper: register a one-way listener on an ipcRenderer channel and return an
 // unsubscribe function (matching the onXxx pattern in the API type).
@@ -268,6 +276,20 @@ const api: Ai14AllDesktopApi = {
 				providerId: id,
 				path,
 			});
+		},
+	},
+	noteBridge: {
+		onRequest(handler: (req: NoteBridgeRequest) => void) {
+			return onChannel(NOTE_BRIDGE_REQUEST, handler);
+		},
+		sendReply(reply: NoteBridgeReply) {
+			ipcRenderer.send(NOTE_BRIDGE_REPLY, reply);
+		},
+		sendReady() {
+			ipcRenderer.send(NOTE_BRIDGE_READY);
+		},
+		sendGoodbye() {
+			ipcRenderer.send(NOTE_BRIDGE_GOODBYE);
 		},
 	},
 	events: {
