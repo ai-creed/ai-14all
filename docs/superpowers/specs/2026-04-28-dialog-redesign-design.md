@@ -52,7 +52,7 @@ API contract:
 | `onOpenChange` | `(open: boolean) => void` | Fired on overlay click, Esc, or `AppDialog.Close`. |
 | `size` | `"default" \| "wide"` | `default` = 460 px (replaces `.shell-modal`); `wide` = 640 px (replaces `.shell-modal--workspace-picker`, `.shell-preset-dialog`). |
 | `<AppDialog.Title>` | `ReactNode` | Wraps `Dialog.Title`. Required for a11y. |
-| `<AppDialog.Description>` | `ReactNode` | Wraps `Dialog.Description`. Optional. Renders intro/help text. |
+| `<AppDialog.Description>` | `ReactNode` | Wraps `Dialog.Description`. Optional. Renders intro/help text. When the caller does not pass a Description child, AppDialog detects this via `React.Children.toArray(children)` (looking for an element whose `type` is `AppDialog.Description`) and forwards `aria-describedby={undefined}` to `Dialog.Content` to suppress Radix's missing-description warning. |
 | `<AppDialog.Body>` | `ReactNode` | Scroll container (overflow:auto, flex-grow). Fills remaining space. |
 | `<AppDialog.Footer>` | `ReactNode` | Flex row, justify-end, top divider. Caller chooses buttons. |
 
@@ -112,12 +112,26 @@ Lives in `src/app/shell.css` under a new section (`.shell-app-dialog*`):
 }
 ```
 
+The body-layout helpers (`.shell-app-dialog__field`, `.shell-app-dialog__preview`, `.shell-app-dialog__confirm-dirty`) are also added in this same block — see the next subsection — with rules copied verbatim from the existing `.shell-modal__*` equivalents.
+
 Notes:
 
 - Inherits `--font-ui` (no monospace switch — terminal aesthetic comes from palette + tight radii + small body, not from the dialog font).
 - `flex-column + max-height + overflow:auto` lets long bodies scroll while title and footer stay pinned. Today's `.shell-modal` doesn't constrain height — silently overflows on small viewports.
 - Footer top divider (`--panel-border`) is the polish anchoring the action row consistently across all dialogs. No existing dialog has this; the consistency is the visual win.
 - Frame palette/radius/border match the sidebar/file-overlay so the dialog reads as part of the same surface family.
+
+### Body-layout helper classes (renamed from `.shell-modal__*`)
+
+The current `.shell-modal__preview`, `.shell-modal__field`, and `.shell-modal__confirm-dirty` rules carry real layout/styling for fields and previews inside dialog bodies (NewWorktreeDialog uses `__field` and `__preview`; RemoveWorktreeDialog uses `__confirm-dirty`). Body-content layout is a non-goal of this redesign, but the class names are coupled to the soon-to-be-deleted `.shell-modal*` family — they must move.
+
+Rename them under the new prefix:
+
+- `.shell-modal__preview` → `.shell-app-dialog__preview`
+- `.shell-modal__field` → `.shell-app-dialog__field`
+- `.shell-modal__confirm-dirty` → `.shell-app-dialog__confirm-dirty`
+
+Rules are copied verbatim (no visual change). Consumers (NewWorktreeDialog, RemoveWorktreeDialog, and any others surfaced by grep) update class names during their migration phase. The old names are deleted only in the final CSS-cleanup phase, after every consumer has migrated.
 
 ### Button unification
 
@@ -172,9 +186,13 @@ The existing `.shell-note-input` is a slight misnomer — born for session notes
 }
 ```
 
-Renamed to `.shell-input` and applied to every dialog text input. The visual itself does not change — only the class name. RepositoryInput (LoadWorkspaceDialog's path field, currently a bare `<input>` with inline `style={{ width: 400 }}`) adopts `.shell-input` and drops the inline styles; the Browse and Submit buttons get `shell-button shell-button--compact` (Submit also takes `--primary`).
+Renamed to `.shell-input`. To keep the app working at every phase, the migration uses alias-then-migrate-then-delete:
 
-Affected files (rename consumers): `src/features/terminals/PresetManager.tsx`, `src/features/workspace/ContextPanel.tsx`, `src/features/workspace/NoteSheet.tsx`, `src/features/workspace/NewWorktreeDialog.tsx`, `src/features/viewer/WorktreeTree.tsx`, plus `src/app/shell.css`. RepositoryInput gains the class.
+1. **Alias phase** — rewrite the rule as `.shell-input, .shell-note-input { ... }` so both names produce identical styling. Update the focus rule the same way: `.shell-input:focus-visible, .shell-note-input:focus-visible, .shell-button:focus-visible, [role="tab"]:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }`. CSS-only change.
+2. **Migrate phase(s)** — switch every consumer's className from `shell-note-input` to `shell-input`. Apply `.shell-input` to RepositoryInput (LoadWorkspaceDialog's path field, currently a bare `<input>` with inline `style={{ width: 400 }}`); drop the inline styles; the Browse and Submit buttons get `shell-button shell-button--compact` (Submit also takes `--primary`). Consumers split into sub-tasks to respect the >3-file rule (see Implementation Phasing).
+3. **Cleanup phase** — delete `.shell-note-input` from the rules. Pre-deletion grep verifies no remaining consumers.
+
+Affected consumer files: `src/features/terminals/PresetManager.tsx`, `src/features/workspace/ContextPanel.tsx`, `src/features/workspace/NoteSheet.tsx`, `src/features/workspace/NewWorktreeDialog.tsx`, `src/features/viewer/WorktreeTree.tsx`, plus `src/features/repository/RepositoryInput.tsx` (gains the class).
 
 ### Focus outline thinning
 
@@ -189,10 +207,11 @@ Today's rule:
 }
 ```
 
-Becomes:
+Becomes (alongside the input alias above, in the same alias phase):
 
 ```css
 .shell-input:focus-visible,
+.shell-note-input:focus-visible,
 .shell-button:focus-visible,
 [role="tab"]:focus-visible {
 	outline: 1px solid var(--accent);
@@ -200,7 +219,7 @@ Becomes:
 }
 ```
 
-Applies globally — inputs, buttons, and tabs all gain the lighter focus ring. Matches the terminal aesthetic (thin, precise borders rather than chunky web emphasis).
+The `.shell-note-input:focus-visible` selector is dropped only in the cleanup phase, once the rename has propagated to all consumers. Applies globally — inputs, buttons, and tabs all gain the lighter focus ring. Matches the terminal aesthetic (thin, precise borders rather than chunky web emphasis).
 
 ## Migration
 
@@ -223,15 +242,17 @@ Per-dialog steps:
 3. Move body content into `<AppDialog.Body>`.
 4. Wrap the action row in `<AppDialog.Footer>`.
 5. Normalize button classNames per the unification table above.
+6. Rename body-layout helpers used by this dialog: `shell-modal__field` → `shell-app-dialog__field`, `shell-modal__preview` → `shell-app-dialog__preview`, `shell-modal__confirm-dirty` → `shell-app-dialog__confirm-dirty`. (Phase 1 adds the new rules alongside the old ones; the old ones are removed in cleanup.)
 
 CSS cleanup commit (last):
 
-- Remove `.shell-modal-overlay`, `.shell-modal`, `.shell-modal__preview`, `.shell-modal__actions`, `.shell-modal__copy`, `.shell-modal__field`, `.shell-modal__confirm-dirty`, `.shell-modal--worktree`, `.shell-modal--workspace-picker`.
+- Remove `.shell-modal-overlay`, `.shell-modal`, `.shell-modal__actions`, `.shell-modal__copy`, `.shell-modal--worktree`, `.shell-modal--workspace-picker`.
+- Remove `.shell-modal__preview`, `.shell-modal__field`, `.shell-modal__confirm-dirty` (their renamed `.shell-app-dialog__*` equivalents already exist from Phase 1; consumers migrated during their dialog's migration phase).
 - Remove `.shell-preset-overlay`, `.shell-preset-dialog`.
 - Remove `.shell-button-primary`, `.shell-button-secondary` (replaced by `.shell-button--primary` modifier).
-- Remove `.shell-note-input` (renamed to `.shell-input` in its own phase).
+- Remove `.shell-note-input` (alias deleted; consumers migrated during the input migration phases).
 
-Pre-deletion grep confirms no other consumers (Editor/MarkdownPreview do not use `.shell-modal`; no remaining `shell-note-input` references after the rename phase).
+Pre-deletion grep confirms no other consumers (Editor/MarkdownPreview do not use `.shell-modal`; no remaining `shell-note-input` or old `shell-modal__*` body-layout references after migration phases).
 
 ## Testing
 
@@ -242,7 +263,17 @@ Pre-deletion grep confirms no other consumers (Editor/MarkdownPreview do not use
   - Calls `onOpenChange(false)` on overlay click and on Esc.
   - Applies `--wide` modifier when `size="wide"`.
   - Description slot is omitted from DOM when not provided.
+  - When Description child is absent, `Dialog.Content` receives `aria-describedby={undefined}` (suppressing the Radix missing-description warning).
 - Per-dialog test files already exist for the migrated dialogs. Update class-name assertions where they reference `.shell-modal*` (rename to `.shell-app-dialog*`). Logic and behavioral assertions unchanged.
+
+### E2E
+
+The repo has an existing globally-skipped Playwright + Electron suite (`tests/e2e/agent-skill-install.test.ts`, lines 1–17 explain the preload-timing issue blocking the harness). Following the precedent set in the prior fix-review-installer spec, add the cases below to that file but leave them in the `describe.skip` block until the harness is unblocked. Do **not** claim e2e coverage in PR descriptions for this work — unit tests + manual checks remain the real gate.
+
+Cases to add (skipped):
+
+- AgentInstallModal: pressing **Esc** closes the modal; clicking the overlay closes the modal; the previously-focused element receives focus on close (focus restore).
+- NewWorktreeDialog (representative migrated Radix dialog): pressing **Esc** closes the dialog; the underlying app remains interactive after close.
 
 ### Manual
 
@@ -264,13 +295,30 @@ Pre-deletion grep confirms no other consumers (Editor/MarkdownPreview do not use
 
 ## Implementation Phasing
 
-Per the rule against >3-file changes per task, split into reviewable plans:
+Phases below are reviewable batches that ship together. The implementation plan written next (via the writing-plans skill) will further decompose each phase into per-task units that respect the >3-file-per-task rule — typically one dialog + its test file per task. Each phase leaves the app in a working state.
 
-1. **Component + CSS + button modifier** — `AppDialog.tsx`, new `.shell-app-dialog*` block in `shell.css`, new `.shell-button--primary` rule, AppDialog unit test. No dialog migrations yet; old `.shell-modal*` classes remain. (3 files.)
-2. **Input rename + focus outline thin** — rename `.shell-note-input` → `.shell-input` in `shell.css`, update the 5 TSX consumers (PresetManager, ContextPanel, NoteSheet, NewWorktreeDialog, WorktreeTree), apply `.shell-input` to RepositoryInput (drop inline styles, apply `shell-button shell-button--compact` to its Browse + Submit buttons, Submit also `--primary`), thin the focus-outline rule from 2 px to 1 px. (1 CSS file + 6 TSX files — exceeds the 3-file rule, so this phase splits into two sub-tasks: 2a CSS rename + outline, 2b TSX consumer updates.)
-3. **Migrate batch A** — LoadWorkspaceDialog, NewWorktreeDialog, RemoveWorktreeDialog. Update their tests' class-name assertions.
-4. **Migrate batch B** — ConfirmCloseDialog, SaveConflictDialog, DiscardChangeDialog, ForcePushDialog. Update their tests.
-5. **Migrate batch C** — PresetManager, AgentInstallModal. Update `AgentInstallCta` button to use the new `--primary` modifier. Update tests.
-6. **CSS cleanup** — delete dead `.shell-modal*`, `.shell-preset-*`, `.shell-button-primary`, `.shell-button-secondary` rules. Pre-deletion grep verifies no remaining consumers. (1 file.)
+1. **Foundations (CSS + component)** — add the new CSS alongside the old, no consumer changes:
+   - `src/components/AppDialog.tsx` (new component) + unit test.
+   - `src/app/shell.css`: add `.shell-app-dialog*` block (frame + body-layout helpers `__field/__preview/__confirm-dirty`); add `.shell-button--primary` modifier; add `.shell-input` as a co-selector with `.shell-note-input` (`.shell-input, .shell-note-input { ... }`); rewrite the focus-outline rule to include `.shell-input` and thin to 1 px.
+   - Old `.shell-modal*`, `.shell-preset-*`, `.shell-button-primary`, `.shell-button-secondary`, `.shell-note-input` rules all remain. App is unchanged visually except for the slightly thinner focus ring (intentional).
+   - 3 files: AppDialog.tsx, AppDialog.test.tsx, shell.css.
 
-Each phase ships independently and leaves the app in a working state.
+2. **Input migration — non-dialog consumers** — switch `shell-note-input` → `shell-input` in:
+   - `src/features/workspace/ContextPanel.tsx`
+   - `src/features/workspace/NoteSheet.tsx`
+   - `src/features/viewer/WorktreeTree.tsx`
+   - 3 files. No CSS change.
+
+3. **Migrate dialog batch A** — LoadWorkspaceDialog, NewWorktreeDialog, RemoveWorktreeDialog. Each dialog: replace Radix boilerplate with `<AppDialog>`, normalize buttons, rename `shell-modal__field/preview/confirm-dirty` consumers to `shell-app-dialog__*`, switch any inputs from `shell-note-input` to `shell-input`. Apply `.shell-input` + `shell-button shell-button--compact` to RepositoryInput (used inside LoadWorkspaceDialog) and drop its inline styles. Update each dialog's existing test for class-name assertions. 3 dialog files + RepositoryInput + their test files.
+
+4. **Migrate dialog batch B** — ConfirmCloseDialog, SaveConflictDialog, DiscardChangeDialog, ForcePushDialog. Same per-dialog procedure. Update tests.
+
+5. **Migrate dialog batch C** — PresetManager (rename its `shell-note-input` consumers to `shell-input` here), AgentInstallModal. Update `AgentInstallCta` button to use the new `--primary` modifier. Update tests. Add the e2e cases (skipped) to `tests/e2e/agent-skill-install.test.ts` for AgentInstallModal Esc + overlay-click + focus restore, and one NewWorktreeDialog Esc case.
+
+6. **CSS cleanup** — pre-deletion grep verifies zero remaining consumers, then delete:
+   - `.shell-modal-overlay`, `.shell-modal`, `.shell-modal__actions`, `.shell-modal__copy`, `.shell-modal--worktree`, `.shell-modal--workspace-picker`.
+   - `.shell-modal__preview`, `.shell-modal__field`, `.shell-modal__confirm-dirty`.
+   - `.shell-preset-overlay`, `.shell-preset-dialog`.
+   - `.shell-button-primary`, `.shell-button-secondary`.
+   - `.shell-note-input` selector (alias removed; `.shell-input` remains as the canonical name).
+   - 1 file (shell.css).
