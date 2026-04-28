@@ -460,11 +460,12 @@ export function registerIpcHandlers(
 		resourcesPath: app.isPackaged
 			? process.resourcesPath
 			: join(app.getAppPath(), "assets"),
+		userDataPath: app.getPath("userData"),
 		getMcpUrl: () => review.mcpStatus.getUrl(),
 	});
 
 	ipcMain.handle(AGENT_INSTALL_LIST, async () => {
-		const providers = await installer.listProviders();
+		const { providers } = await installer.listProviders();
 		return {
 			providers,
 			mcp: {
