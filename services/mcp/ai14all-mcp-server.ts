@@ -143,6 +143,38 @@ export class Ai14allMcpServer {
 				}
 			},
 		);
+
+		mcp.tool(
+			"append_session_note",
+			"Append a new section to the current ai-14all session note. Call ONLY when the user explicitly asks to save / note / remember something. Do NOT call autonomously.",
+			{
+				worktreePath: z.string().min(1),
+				title: z.string().min(1),
+				body: z.string().min(1),
+			},
+			async ({ worktreePath, title, body }) => {
+				const worktreeId = await resolveWithRefresh(this.resolver, worktreePath);
+				if (!worktreeId) {
+					return jsonError(
+						"no_worktree",
+						`no worktree at path: ${worktreePath}`,
+					);
+				}
+				try {
+					const { note, appendedSection } = await this.noteBridge.append(
+						worktreeId,
+						title,
+						body,
+					);
+					return jsonOk({ appendedSection, note });
+				} catch (err) {
+					return jsonError(
+						mapBridgeErrorCode(err),
+						(err as Error).message ?? "bridge error",
+					);
+				}
+			},
+		);
 	}
 
 	async start(): Promise<number> {

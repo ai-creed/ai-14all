@@ -7,7 +7,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { ReviewCommentService } from "../../../services/review/review-comment-service";
 import { ReviewCommentStore } from "../../../services/review/review-comment-store";
 import { Ai14allMcpServer, resolveWithRefresh } from "../../../services/mcp/ai14all-mcp-server";
-import { RendererNotReadyError } from "../../../services/mcp/session-note-bridge";
+import { BridgeTimeoutError, RendererNotReadyError } from "../../../services/mcp/session-note-bridge";
 
 async function makeRig(opts: { resolveResult?: string | null } = {}) {
 	const dir = await mkdtemp(join(tmpdir(), "mcp-rig-"));
@@ -243,5 +243,80 @@ describe("read_session_note", () => {
 			error: "renderer_not_ready",
 			message: expect.any(String),
 		});
+	});
+});
+
+describe("append_session_note", () => {
+	let rig: Awaited<ReturnType<typeof makeRig>>;
+	afterEach(async () => {
+		await rig.cleanup();
+	});
+
+	it("forwards bridge.append result including appendedSection", async () => {
+		rig = await makeRig();
+		rig.bridge.append.mockResolvedValueOnce({
+			note: "## Idea — 2026-04-28 14:32\n\nbody",
+			appendedSection: "## Idea — 2026-04-28 14:32",
+		});
+		const result = await rig.client.callTool({
+			name: "append_session_note",
+			arguments: { worktreePath: "/repo", title: "Idea", body: "body" },
+		});
+		const parsed = JSON.parse(
+			(result.content as Array<{ text: string }>)[0].text,
+		);
+		expect(parsed).toEqual({
+			ok: true,
+			appendedSection: "## Idea — 2026-04-28 14:32",
+			note: "## Idea — 2026-04-28 14:32\n\nbody",
+		});
+		expect(rig.bridge.append).toHaveBeenCalledWith("/repo", "Idea", "body");
+	});
+
+	it("uses resolveWithRefresh: succeeds when first resolve is null but refresh fixes it", async () => {
+		rig = await makeRig();
+		rig.resolver.resolve
+			.mockResolvedValueOnce(null)
+			.mockResolvedValueOnce("/repo");
+		rig.bridge.append.mockResolvedValueOnce({
+			note: "n",
+			appendedSection: "## t — ts",
+		});
+		const result = await rig.client.callTool({
+			name: "append_session_note",
+			arguments: { worktreePath: "/repo", title: "t", body: "b" },
+		});
+		const parsed = JSON.parse(
+			(result.content as Array<{ text: string }>)[0].text,
+		);
+		expect(parsed.ok).toBe(true);
+		expect(rig.resolver.refresh).toHaveBeenCalledTimes(1);
+	});
+
+	it("returns no_worktree when both resolves miss", async () => {
+		rig = await makeRig();
+		rig.resolver.resolve.mockResolvedValue(null);
+		const result = await rig.client.callTool({
+			name: "append_session_note",
+			arguments: { worktreePath: "/x", title: "t", body: "b" },
+		});
+		const parsed = JSON.parse(
+			(result.content as Array<{ text: string }>)[0].text,
+		);
+		expect(parsed.ok).toBe(false);
+		expect(parsed.error).toBe("no_worktree");
+	});
+
+	it("maps BridgeTimeoutError to bridge_timeout", async () => {
+		rig = await makeRig();
+		rig.bridge.append.mockRejectedValueOnce(new BridgeTimeoutError("t"));
+		const result = await rig.client.callTool({
+			name: "append_session_note",
+			arguments: { worktreePath: "/repo", title: "t", body: "b" },
+		});
+		const parsed = JSON.parse(
+			(result.content as Array<{ text: string }>)[0].text,
+		);
+		expect(parsed.error).toBe("bridge_timeout");
 	});
 });
