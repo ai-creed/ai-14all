@@ -4,6 +4,24 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] – 2026-04-28
+
+### Added
+
+- **MCP session note tools.** The ai-14all MCP server now exposes `read_session_note` and `append_session_note`, letting agents append timestamped markdown sections to the active worktree session note when explicitly requested.
+- **Session note markdown preview.** The note sheet now has an Edit/Preview toggle that renders notes as GitHub-flavored markdown using the existing preview stack.
+
+### Changed
+
+- MCP server internals were generalized from review-only to ai-14all-wide tooling, with a renderer note bridge that waits for restored workspace state before accepting note calls.
+- E2E release coverage now includes the note-sheet markdown preview flow.
+
+### Fixed
+
+- Session note bridge cleanup is idempotent across renderer reloads and bridge disposal.
+- MCP note worktree resolution refreshes once before returning `no_worktree`, reducing stale resolver failures after workspace changes.
+- Several E2E selectors were updated to match the shared dialog/input components, restoring the full E2E suite for release validation.
+
 ## [0.1.1] – 2026-04-28
 
 ### Added
