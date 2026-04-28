@@ -49,4 +49,39 @@ describe("NoteSheet", () => {
 		await user.keyboard("{Escape}");
 		expect(spy).toHaveBeenCalledTimes(1);
 	});
+
+	it("toggles between editable note text and markdown preview", async () => {
+		const user = userEvent.setup();
+		render(
+			<NoteSheet
+				open
+				note={"## Finding\n\n- First item"}
+				onNoteChange={() => {}}
+				onClose={() => {}}
+			/>,
+		);
+
+		expect(
+			screen.getByRole("textbox", { name: /session note/i }),
+		).toBeVisible();
+
+		await user.click(screen.getByRole("button", { name: "Preview" }));
+
+		expect(
+			screen.queryByRole("textbox", { name: /session note/i }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.getByRole("region", { name: /session note preview/i }),
+		).toBeVisible();
+		expect(
+			screen.getByRole("heading", { name: "Finding", level: 2 }),
+		).toBeInTheDocument();
+		expect(screen.getByText("First item")).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Edit" }));
+
+		expect(screen.getByRole("textbox", { name: /session note/i })).toHaveValue(
+			"## Finding\n\n- First item",
+		);
+	});
 });

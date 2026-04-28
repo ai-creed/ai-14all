@@ -1640,6 +1640,7 @@ select {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	gap: var(--space-3);
 }
 
 .shell-note-sheet__title {
@@ -1664,12 +1665,62 @@ select {
 	color: var(--text-primary);
 }
 
+.shell-note-sheet__actions {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.shell-note-sheet__mode {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px;
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	background: var(--panel-bg-elevated);
+}
+
+.shell-note-sheet__mode-button {
+	min-width: 56px;
+	border: none;
+	border-radius: calc(var(--radius-sm) - 2px);
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 0.75rem;
+	line-height: 1;
+	padding: 6px 8px;
+}
+
+.shell-note-sheet__mode-button:hover {
+	color: var(--text-primary);
+}
+
+.shell-note-sheet__mode-button[data-active="true"] {
+	background: var(--panel-bg);
+	color: var(--text-primary);
+	box-shadow: 0 0 0 1px var(--panel-border-strong);
+}
+
 .shell-note-sheet__textarea {
 	flex: 1;
 	resize: none;
 	min-height: 0;
 	height: 100%;
 	margin-top: 0; /* cancel .shell-input margin-top inside flex sheet */
+}
+
+.shell-note-sheet__preview {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	background: var(--panel-bg-elevated);
+}
+
+.shell-note-sheet__preview-body {
+	padding: var(--space-3);
 }
 
 /* ── Markdown Preview Modal ─────────────────────────────────────────── */
