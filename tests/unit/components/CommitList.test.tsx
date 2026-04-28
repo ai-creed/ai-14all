@@ -423,7 +423,7 @@ describe("CommitList", () => {
 		await waitFor(() => {
 			expect(screen.getByText(/2 commit/i)).toBeInTheDocument();
 			expect(
-				screen.getByRole("button", { name: "Force Push" }),
+				screen.getByRole("button", { name: "Force push" }),
 			).toBeInTheDocument();
 		});
 	});

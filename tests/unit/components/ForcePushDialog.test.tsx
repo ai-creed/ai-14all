@@ -15,7 +15,7 @@ describe("ForcePushDialog", () => {
 		expect(screen.getByText(/3 commit/i)).toBeInTheDocument();
 	});
 
-	it("calls onConfirm and closes on Force Push", async () => {
+	it("calls onConfirm and closes on Force push", async () => {
 		const onConfirm = vi.fn().mockResolvedValue(undefined);
 		const onOpenChange = vi.fn();
 		render(
@@ -26,7 +26,7 @@ describe("ForcePushDialog", () => {
 				onConfirm={onConfirm}
 			/>,
 		);
-		fireEvent.click(screen.getByRole("button", { name: "Force Push" }));
+		fireEvent.click(screen.getByRole("button", { name: "Force push" }));
 		await waitFor(() => {
 			expect(onConfirm).toHaveBeenCalledTimes(1);
 			expect(onOpenChange).toHaveBeenCalledWith(false);
@@ -43,7 +43,7 @@ describe("ForcePushDialog", () => {
 				onConfirm={onConfirm}
 			/>,
 		);
-		fireEvent.click(screen.getByRole("button", { name: "Force Push" }));
+		fireEvent.click(screen.getByRole("button", { name: "Force push" }));
 		await waitFor(() => {
 			expect(screen.getByText("network error")).toBeInTheDocument();
 		});

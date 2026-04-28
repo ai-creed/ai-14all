@@ -32,7 +32,7 @@ export function ForcePushDialog({
 
 	return (
 		<AppDialog open={open} onOpenChange={onOpenChange}>
-			<AppDialog.Title>Force push?</AppDialog.Title>
+			<AppDialog.Title>Force push</AppDialog.Title>
 			<AppDialog.Description>
 				Remote has {behind} commit{behind === 1 ? "" : "s"} your branch doesn't
 				have. Push anyway with --force-with-lease?
@@ -57,7 +57,7 @@ export function ForcePushDialog({
 					}}
 					disabled={busy}
 				>
-					Force Push
+					Force push
 				</button>
 			</AppDialog.Footer>
 		</AppDialog>
