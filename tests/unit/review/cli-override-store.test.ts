@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { CliOverrideStore } from "../../../services/review/agent-skill-installer/cli-override-store.js";
 
 describe("CliOverrideStore", () => {
@@ -55,5 +55,8 @@ describe("CliOverrideStore", () => {
 		await store.set("claude-code", "/a");
 		const persisted = await readFile(file, "utf-8");
 		expect(JSON.parse(persisted)).toEqual({ "claude-code": "/a" });
+		// Verify no leftover temp files
+		const entries = await readdir(dirname(file));
+		expect(entries.some((e) => e.includes(".tmp-"))).toBe(false);
 	});
 });

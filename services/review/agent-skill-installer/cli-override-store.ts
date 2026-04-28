@@ -12,6 +12,8 @@ export type OverrideMap = Partial<Record<ProviderId, string | null>>;
 export class CliOverrideStore {
 	constructor(private readonly filePath: string) {}
 
+	#queue: Promise<void> = Promise.resolve();
+
 	async load(): Promise<OverrideMap> {
 		let raw: string;
 		try {
@@ -31,12 +33,17 @@ export class CliOverrideStore {
 	}
 
 	async set(id: ProviderId, path: string | null): Promise<void> {
+		this.#queue = this.#queue.then(() => this.#doSet(id, path));
+		return this.#queue;
+	}
+
+	async #doSet(id: ProviderId, path: string | null): Promise<void> {
 		const current = await this.load();
 		const next: OverrideMap = { ...current, [id]: path };
 		await mkdir(dirname(this.filePath), { recursive: true });
 		const tmp = join(
 			dirname(this.filePath),
-			`.${id}-cli-overrides.tmp-${process.pid}`,
+			`.cli-overrides.tmp-${process.pid}`,
 		);
 		await writeFile(tmp, JSON.stringify(next, null, 2), "utf-8");
 		await rename(tmp, this.filePath);
