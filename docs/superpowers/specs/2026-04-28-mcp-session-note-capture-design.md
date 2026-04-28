@@ -129,7 +129,7 @@ export type NoteBridgeReplyError = {
 export type NoteBridgeReply = NoteBridgeReplySuccess | NoteBridgeReplyError;
 ```
 
-Only `no_session` is sent over the IPC reply channel. All other failure modes (`no_worktree`, `renderer_not_ready`, `bridge_timeout`, `bridge_disposed`) are produced by main-side code and never travel over IPC.
+Only `no_session` is sent over the IPC reply channel. All other failure modes (`no_worktree`, `renderer_not_ready`, `renderer_gone`, `bridge_timeout`, `bridge_disposed`) are produced by main-side code and never travel over IPC.
 
 ### 5.4 New (renderer)
 
@@ -218,11 +218,31 @@ const next = prev.length === 0 ? section : `${prev}\n\n${section}`;
   - Success: `{ ok: true, note: string }`
   - Failure: `{ ok: false, error: <code>, message: <human> }`
 
+### 6.2.1 Resolver freshness (note tools only)
+
+`WorktreePathResolver` is initialized at boot from a snapshot of registered repositories and refreshed asynchronously when `workspaceRegistry` changes (`electron/main/index.ts:83-88`). The renderer can reach `startupMode === "ready"` (and thus pass the `renderer_not_ready` gate) before the resolver's debounced refresh has caught up to a newly-registered repo. A direct `resolver.resolve(worktreePath)` could then return `null` for a path that *does* belong to a real, mounted worktree.
+
+To avoid surfacing a misleading `no_worktree` to the agent, both `append_session_note` and `read_session_note` use a small helper inside `Ai14allMcpServer`:
+
+```ts
+async function resolveWithRefresh(
+  resolver: WorktreePathResolver,
+  worktreePath: string,
+): Promise<string | null> {
+  const first = await resolver.resolve(worktreePath);
+  if (first) return first;
+  await resolver.refresh();           // force re-read of registered repos
+  return resolver.resolve(worktreePath);
+}
+```
+
+Only on the second null does the tool return `no_worktree`. This is scoped to the note tools (existing review tools keep their current single-shot resolve to avoid changing their behaviour).
+
 ### 6.3 Error matrix
 
 | Failure | Layer that produces it | Result code |
 |---|---|---|
-| `worktreePath` not in any worktree | `Ai14allMcpServer` (resolver pre-check, never hits bridge) | `no_worktree` |
+| `worktreePath` not in any worktree (after resolver refresh-and-retry, see §6.2.1) | `Ai14allMcpServer` (resolver pre-check, never hits bridge) | `no_worktree` |
 | WorktreeId has no session in any workspace | renderer receiver, returned via `NoteBridgeReply` | `no_session` |
 | Renderer not yet mounted, workspace restore not complete (`startupMode !== "ready"`), or window destroyed | `SessionNoteBridge` (`rendererReady === false` or webContents null) | `renderer_not_ready` (retryable) |
 | Renderer announced `mcp:note:goodbye` mid-flight | `SessionNoteBridge` (rejects pending entries) | `renderer_gone` |
@@ -276,6 +296,8 @@ All non-validation errors are returned as JSON tool content with `ok: false`. Th
 - `append_session_note` happy path with stub bridge → returns `{ ok: true, appendedSection, note }` (verifies the server forwards `appendedSection` from the bridge reply unchanged).
 - `read_session_note` happy path → returns `{ ok: true, note }`.
 - bridge rejection mapping: `RendererNotReady` → `renderer_not_ready`, `BridgeTimeout` → `bridge_timeout`, `RendererGone` → `renderer_gone`, `BridgeDisposed` → `bridge_disposed`.
+- resolver refresh-and-retry: stub resolver returns null on first `resolve`, then non-null after `refresh()` — `append_session_note` succeeds on the same call (no `no_worktree` leaked). Verify `refresh()` was called exactly once.
+- resolver still null after refresh → tool returns `{ ok: false, error: "no_worktree" }` (no infinite retry loop).
 
 All MCP server tests connect via the `@modelcontextprotocol/sdk` `StreamableHTTPClientTransport` (same pattern as the existing `tests/unit/review/review-mcp-server.test.ts`). No raw `fetch` / `curl` against the endpoint — the Streamable HTTP protocol requires `initialize` + session header negotiation, which the SDK client handles for us.
 
