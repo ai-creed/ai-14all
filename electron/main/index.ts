@@ -17,7 +17,7 @@ import {
 	writeLivenessFile,
 	deleteLivenessFile,
 } from "../../services/review/mcp-port-config.js";
-import { ReviewMcpServer } from "../../services/review/review-mcp-server.js";
+import { Ai14allMcpServer } from "../../services/mcp/ai14all-mcp-server.js";
 import { createWorktreePathResolver } from "../../services/review/worktree-path-resolver.js";
 
 app.setName("ai-14all");
@@ -87,7 +87,7 @@ app.whenReady().then(async () => {
 		void worktreePathResolver.refresh();
 	});
 
-	let mcpServer: ReviewMcpServer | null = null;
+	let mcpServer: Ai14allMcpServer | null = null;
 	let mcpPort: number | null = null;
 	let mcpBindError: string | null = null;
 
@@ -96,7 +96,7 @@ app.whenReady().then(async () => {
 			rangeStart: 51000,
 			rangeEnd: 51999,
 		});
-		mcpServer = new ReviewMcpServer(
+		mcpServer = new Ai14allMcpServer(
 			reviewCommentService,
 			worktreePathResolver,
 			{

@@ -6,7 +6,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { ReviewCommentService } from "../../../services/review/review-comment-service";
 import { ReviewCommentStore } from "../../../services/review/review-comment-store";
-import { ReviewMcpServer } from "../../../services/review/review-mcp-server";
+import { Ai14allMcpServer } from "../../../services/mcp/ai14all-mcp-server";
 
 async function makeRig() {
 	const dir = await mkdtemp(join(tmpdir(), "mcp-rig-"));
@@ -17,7 +17,7 @@ async function makeRig() {
 		resolve: async (p: string) => p,
 		refresh: async () => {},
 	};
-	const server = new ReviewMcpServer(service, resolver, {
+	const server = new Ai14allMcpServer(service, resolver, {
 		port: 0,
 		host: "127.0.0.1",
 	});
@@ -38,7 +38,7 @@ async function makeRig() {
 	};
 }
 
-describe("ReviewMcpServer", () => {
+describe("Ai14allMcpServer", () => {
 	let rig: Awaited<ReturnType<typeof makeRig>>;
 
 	afterEach(async () => {

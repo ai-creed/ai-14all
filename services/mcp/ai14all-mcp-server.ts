@@ -3,12 +3,12 @@ import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
-import type { ReviewCommentService } from "./review-comment-service.js";
-import type { WorktreePathResolver } from "./worktree-path-resolver.js";
+import type { ReviewCommentService } from "../review/review-comment-service.js";
+import type { WorktreePathResolver } from "../review/worktree-path-resolver.js";
 
 type Options = { port: number; host: string };
 
-export class ReviewMcpServer {
+export class Ai14allMcpServer {
 	private httpServer: http.Server | null = null;
 
 	constructor(
@@ -18,6 +18,11 @@ export class ReviewMcpServer {
 	) {}
 
 	private registerTools(mcp: McpServer): void {
+		this.registerReviewTools(mcp);
+		// note tools registered in a later task
+	}
+
+	private registerReviewTools(mcp: McpServer): void {
 		mcp.tool(
 			"list_pending_reviews",
 			{ worktreePath: z.string().min(1) },
