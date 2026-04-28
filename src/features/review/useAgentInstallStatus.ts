@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { agentInstall } from "../../lib/desktop-client";
 
-type Provider = {
+export type CliSource = "override" | "path" | "fixed" | "shell" | "none";
+
+export type Provider = {
 	id: "claude-code" | "codex";
 	displayName: string;
 	cliAvailable: boolean;
 	configRootDetected: boolean;
 	installed: boolean;
+	cliPath: string | null;
+	cliSource: CliSource;
 };
 
 export function useAgentInstallStatus() {
@@ -43,5 +47,31 @@ export function useAgentInstallStatus() {
 		[refresh],
 	);
 
-	return { providers, mcpPort, bindError, refresh, install, uninstall };
+	const pickCliPath = useCallback(async (id: Provider["id"]) => {
+		return agentInstall.pickCliPath(id);
+	}, []);
+
+	const setCliOverride = useCallback(
+		async (id: Provider["id"], path: string | null) => {
+			const res = await agentInstall.setCliOverride(id, path);
+			setProviders(res.providers);
+			setMcpPort(res.mcp.port);
+			setBindError(res.mcp.bindError);
+			return res;
+		},
+		[],
+	);
+
+	return {
+		providers,
+		mcpPort,
+		bindError,
+		refresh,
+		install,
+		uninstall,
+		pickCliPath,
+		setCliOverride,
+	};
 }
+
+export type AgentInstallStatus = ReturnType<typeof useAgentInstallStatus>;
