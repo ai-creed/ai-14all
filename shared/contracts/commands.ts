@@ -177,7 +177,8 @@ export const ListTrackedFilesSchema = z.object({
 });
 
 export const ReadGitSummarySchema = z.object({
-	worktreePath: z.string(),
+	workspaceId: z.string().min(1),
+	worktreeId: z.string().min(1),
 });
 
 export const LogShellEventSchema = z.object({
@@ -290,7 +291,7 @@ export type Ai14AllDesktopApi = {
 	git: {
 		listChanges(worktreePath: string): Promise<GitChange[]>;
 		readDiff(worktreePath: string, relativePath: string): Promise<GitDiff>;
-		readSummary(worktreePath: string): Promise<GitSummary>;
+		readSummary(workspaceId: string, worktreeId: string): Promise<GitSummary>;
 		readCommitHistory(
 			workspaceId: string,
 			worktreeId: string,

@@ -186,8 +186,11 @@ const api: Ai14AllDesktopApi = {
 		readDiff(worktreePath, relativePath) {
 			return ipcRenderer.invoke("git:readDiff", { worktreePath, relativePath });
 		},
-		readSummary(worktreePath) {
-			return ipcRenderer.invoke("git:readSummary", { worktreePath });
+		readSummary(workspaceId, worktreeId) {
+			return ipcRenderer.invoke("git:readSummary", {
+				workspaceId,
+				worktreeId,
+			});
 		},
 		readCommitHistory(workspaceId, worktreeId) {
 			return ipcRenderer.invoke("git:readCommitHistory", {

@@ -618,8 +618,8 @@ describe("App — refresh changes button", () => {
 	});
 
 	it("restores per-worktree review selections when switching sessions", async () => {
-		mockReadSummary.mockImplementation(async (worktreePath: string) => {
-			if (worktreePath.includes("feature-a")) {
+		mockReadSummary.mockImplementation(async (_workspaceId: string, worktreeId: string) => {
+			if (worktreeId === "wt2") {
 				return {
 					branchName: "feature-a",
 					isDirty: true,

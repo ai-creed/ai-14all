@@ -1534,7 +1534,7 @@ export function App() {
 
 	// Fetch git summary when active worktree changes or user refreshes
 	useEffect(() => {
-		if (!activeWorktree?.path) return;
+		if (!activeWorktree?.id || !activeWorkspaceId) return;
 		let cancelled = false;
 
 		dispatch({
@@ -1543,7 +1543,7 @@ export function App() {
 		});
 
 		git
-			.readSummary(activeWorktree.path)
+			.readSummary(activeWorkspaceId, activeWorktree.id)
 			.then((summary) => {
 				if (cancelled) return;
 				dispatch({

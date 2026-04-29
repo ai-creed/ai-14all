@@ -348,12 +348,14 @@ export function registerIpcHandlers(
 		return gitService.readDiff(worktreePath, relativePath);
 	});
 
-	ipcMain.handle("git:readSummary", (_event, raw: unknown) => {
-		const { worktreePath } = ReadGitSummarySchema.parse(raw);
+	ipcMain.handle("git:readSummary", async (_event, raw: unknown) => {
+		const { workspaceId, worktreeId } = ReadGitSummarySchema.parse(raw);
+		const repository = workspaceRegistry.get(workspaceId);
+		const worktree = await worktreeService.findWorktree(repository, worktreeId);
 		if (consumeE2eGitFault("readSummaryFailuresRemaining")) {
 			throw new Error("synthetic e2e summary failure");
 		}
-		return gitService.readSummary(worktreePath);
+		return gitService.readSummary(worktree.path);
 	});
 
 	ipcMain.handle("git:readCommitHistory", async (_event, raw: unknown) => {
