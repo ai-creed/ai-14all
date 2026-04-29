@@ -123,6 +123,7 @@ import { useUpdateInfoListener } from "./hooks/use-update-info-listener";
 import { useKeyboardShortcut } from "./hooks/use-keyboard-shortcut";
 import { useStartupRestore } from "./hooks/use-startup-restore";
 import { useGitSummaryLoader } from "./hooks/use-git-summary-loader";
+import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-empty-worktree";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -1026,7 +1027,7 @@ export function App() {
 		prevActiveWorkspaceIdRef.current = newWorkspaceId;
 		activeWorkspaceStateRef.current = freshState;
 
-		defaultShellEnsuredByWorktreeRef.current.clear();
+		resetDefaultShellEnsured();
 		setPendingRestoreSessions({});
 		setError(null);
 		setStartupError(null);
@@ -1404,24 +1405,16 @@ export function App() {
 		setTreePreviewPath(null);
 	}, [activeWorktree?.id]);
 
-	const defaultShellEnsuredByWorktreeRef = useRef<Set<string>>(new Set());
-
-	useEffect(() => {
-		if (startupMode !== "ready") return;
-		if (!activeWorktree || !activeSession) return;
-		if (activeSession.processSessionIds.length > 0) return;
-		if (defaultShellEnsuredByWorktreeRef.current.has(activeWorktree.id)) return;
-
-		defaultShellEnsuredByWorktreeRef.current.add(activeWorktree.id);
-		void handleAddAdHoc().catch(() => {
-			defaultShellEnsuredByWorktreeRef.current.delete(activeWorktree.id);
-		});
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- guarded one-time default shell creation per worktree
-	}, [
+	const {
+		resetAll: resetDefaultShellEnsured,
+		forgetWorktree: forgetDefaultShellEnsuredForWorktree,
+	} = useDefaultShellOnEmptyWorktree({
 		startupMode,
-		activeWorktree?.id,
-		activeSession?.processSessionIds.length,
-	]);
+		activeWorktreeId: activeWorktree?.id,
+		activeSessionProcessCount: activeSession?.processSessionIds.length ?? 0,
+		hasActiveSession: !!activeSession,
+		createDefaultShell: handleAddAdHoc,
+	});
 
 	useGitSummaryLoader({
 		workspaceId: activeWorkspaceId,
@@ -1757,7 +1750,7 @@ async function handleSelectWorktree(
 		// Clear the guard so a future worktree reusing the same id (same path) gets
 		// a fresh default shell instead of being skipped because the id is still in
 		// the Set from the removed worktree's first visit.
-		defaultShellEnsuredByWorktreeRef.current.delete(worktreeId);
+		forgetDefaultShellEnsuredForWorktree(worktreeId);
 	}
 
 	async function handleConfirmRemoveWorktree() {
