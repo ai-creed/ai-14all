@@ -24,10 +24,7 @@ import {
 } from "../features/workspace/logic/workspace-persistence";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
-import {
-	SessionSidebar,
-	type SessionSidebarWorkspace,
-} from "../features/workspace/components/SessionSidebar";
+import { type SessionSidebarWorkspace } from "../features/workspace/components/SessionSidebar";
 import { SessionChipBar } from "../features/workspace/components/SessionChipBar";
 import { NoteSheet } from "../features/workspace/components/NoteSheet";
 import { displayTitle } from "../features/workspace/logic/session-display-title";
@@ -97,6 +94,7 @@ import { DialogStack } from "./components/DialogStack";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { ReviewDrawerSection } from "./components/ReviewDrawerSection";
 import { ReviewArea } from "./components/ReviewArea";
+import { SidebarPanel } from "./components/SidebarPanel";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -1933,53 +1931,26 @@ async function handleSelectWorktree(
 					}px minmax(0, 1fr)`,
 				}}
 			>
-				<div className="shell-sidebar-column">
-					{!sidebarCollapsed && (
-						<div
-							className="shell-sidebar-column__resize-handle"
-							data-testid="sidebar-resize-handle"
-							onMouseDown={handleSidebarResizeStart}
-						/>
-					)}
-					<SessionSidebar
-						workspaces={sidebarWorkspaces}
-						collapsed={sidebarCollapsed}
-						onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
-						onLoadWorkspace={() => setWorkspacePickerOpen(true)}
-						onOpenWorkspace={(workspaceId) => {
-							void activateWorkspace(workspaceId);
-						}}
-						onSelect={(workspaceId, worktreeId) => {
-							void handleSelectSidebarWorktree(workspaceId, worktreeId);
-						}}
-						onCreateWorktree={(workspaceId) => {
-							if (workspaceId !== activeWorkspaceId) return;
-							setCreateDialogOpen(true);
-						}}
-						onRemoveWorktree={(workspaceId, worktreeId) => {
-							if (workspaceId !== activeWorkspaceId) return;
-							setRemoveTargetId(worktreeId);
-							setConfirmedDirtyRemoval(false);
-							setRemoveDialogOpen(true);
-						}}
-						onRemoveWorkspace={(workspaceId) => {
-							void handleRemoveWorkspace(workspaceId);
-						}}
-						onRenameSession={(workspaceId, worktreeId, title) => {
-							if (workspaceId !== activeWorkspaceId) return;
-							dispatch({ type: "session/setTitle", worktreeId, title });
-							setPendingRename(null);
-						}}
-						onRequestExpand={(workspaceId, worktreeId) => {
-							if (sidebarCollapsed) setSidebarCollapsed(false);
-							if (workspaceId !== activeWorkspaceId) {
-								void activateWorkspace(workspaceId);
-							}
-							setPendingRename({ workspaceId, worktreeId });
-						}}
-						pendingRename={pendingRename}
-					/>
-				</div>
+				<SidebarPanel
+					sidebarWorkspaces={sidebarWorkspaces}
+					sidebarCollapsed={sidebarCollapsed}
+					setSidebarCollapsed={setSidebarCollapsed}
+					handleSidebarResizeStart={handleSidebarResizeStart}
+					activeWorkspaceId={activeWorkspaceId}
+					pendingRename={pendingRename}
+					setPendingRename={setPendingRename}
+					openWorkspacePicker={() => setWorkspacePickerOpen(true)}
+					openCreateWorktreeDialog={() => setCreateDialogOpen(true)}
+					openRemoveWorktreeDialog={(worktreeId) => {
+						setRemoveTargetId(worktreeId);
+						setConfirmedDirtyRemoval(false);
+						setRemoveDialogOpen(true);
+					}}
+					activateWorkspace={activateWorkspace}
+					handleSelectSidebarWorktree={handleSelectSidebarWorktree}
+					handleRemoveWorkspace={handleRemoveWorkspace}
+					dispatch={dispatch}
+				/>
 
 				<section className="shell-main-column" ref={mainColRef}>
 					<UpdateBanner
