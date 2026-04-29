@@ -90,6 +90,7 @@ import { ReviewDrawerSection } from "./components/ReviewDrawerSection";
 import { ReviewArea } from "./components/ReviewArea";
 import { SidebarPanel } from "./components/SidebarPanel";
 import { MainColumnChrome } from "./components/MainColumnChrome";
+import { RestoreBanner } from "./components/RestoreBanner";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -1904,19 +1905,10 @@ async function handleSelectWorktree(
 
 	return (
 		<main className="shell-app">
-			{restoreWarning && (
-				<div className="shell-restore-warning" role="status">
-					<span>{restoreWarning}</span>
-					<button
-						type="button"
-						className="shell-restore-warning__dismiss"
-						aria-label="Dismiss warning"
-						onClick={() => setRestoreWarning(null)}
-					>
-						×
-					</button>
-				</div>
-			)}
+			<RestoreBanner
+				message={restoreWarning}
+				onDismiss={() => setRestoreWarning(null)}
+			/>
 			<div
 				className="shell-layout"
 				data-testid="shell-layout"
