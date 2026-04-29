@@ -84,8 +84,8 @@ export const git: Ai14AllDesktopApi["git"] = {
 		getDesktopClient().git.discardChange(workspaceId, worktreeId, relativePath),
 	getRemoteStatus: (workspaceId, worktreeId) =>
 		getDesktopClient().git.getRemoteStatus(workspaceId, worktreeId),
-	pushBranch: (worktreePath, force) =>
-		getDesktopClient().git.pushBranch(worktreePath, force),
+	pushBranch: (workspaceId, worktreeId, force) =>
+		getDesktopClient().git.pushBranch(workspaceId, worktreeId, force),
 };
 
 export const workspace: Ai14AllDesktopApi["workspace"] = {

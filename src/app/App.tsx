@@ -1702,8 +1702,8 @@ export function App() {
 	}
 
 	async function handlePushBranch(force: boolean) {
-		if (!activeWorktree?.path) return;
-		await git.pushBranch(activeWorktree.path, force);
+		if (!activeWorktree?.id || !activeWorkspaceId) return;
+		await git.pushBranch(activeWorkspaceId, activeWorktree.id, force);
 		setRefreshKey((k) => k + 1);
 	}
 

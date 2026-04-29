@@ -229,7 +229,8 @@ export const GetGitRemoteStatusSchema = z.object({
 });
 
 export const PushGitBranchSchema = z.object({
-	worktreePath: z.string(),
+	workspaceId: z.string().min(1),
+	worktreeId: z.string().min(1),
 	force: z.boolean(),
 });
 
@@ -329,7 +330,11 @@ export type Ai14AllDesktopApi = {
 			workspaceId: string,
 			worktreeId: string,
 		): Promise<RemoteStatus>;
-		pushBranch(worktreePath: string, force: boolean): Promise<void>;
+		pushBranch(
+			workspaceId: string,
+			worktreeId: string,
+			force: boolean,
+		): Promise<void>;
 	};
 	workspace: {
 		openRepository(

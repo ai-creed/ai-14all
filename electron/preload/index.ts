@@ -227,8 +227,12 @@ const api: Ai14AllDesktopApi = {
 				worktreeId,
 			});
 		},
-		pushBranch(worktreePath, force) {
-			return ipcRenderer.invoke("git:pushBranch", { worktreePath, force });
+		pushBranch(workspaceId, worktreeId, force) {
+			return ipcRenderer.invoke("git:pushBranch", {
+				workspaceId,
+				worktreeId,
+				force,
+			});
 		},
 	},
 	workspace: {
