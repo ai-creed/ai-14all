@@ -93,10 +93,7 @@ import { AgentInstallModal } from "../features/review/components/AgentInstallMod
 import { useAgentInstallStatus } from "../features/review/hooks/use-agent-install-status";
 import { buildWorktreeProcessSummary } from "../features/workspace/logic/sidebar-shell-summary";
 import { useNoteBridgeReceiver } from "../features/workspace/hooks/use-note-bridge-receiver";
-import type {
-	GitCommitHistory,
-	GitCommitDetail,
-} from "../../shared/models/git-commit-review";
+import type { GitCommitDetail } from "../../shared/models/git-commit-review";
 import type { GitChangeStatus } from "../../shared/models/git-change";
 import {
 	git,
@@ -122,6 +119,7 @@ import { useChangesRefreshLoop } from "./hooks/use-changes-refresh-loop";
 import { useTickingNow } from "./hooks/use-ticking-now";
 import { useRemoteStatusLoader } from "./hooks/use-remote-status-loader";
 import { useDiffLoader } from "./hooks/use-diff-loader";
+import { useCommitHistoryLoader } from "./hooks/use-commit-history-loader";
 import type { ReviewLoadState } from "./hooks/review-load-state";
 
 type StartupMode = "loading" | "prompt" | "ready";
@@ -296,13 +294,6 @@ export function App() {
 		typeof document !== "undefined" ? document.hasFocus() : true,
 	);
 
-	const [commitHistoryState, setCommitHistoryState] = useState<
-		ReviewLoadState<GitCommitHistory>
-	>({
-		data: null,
-		stale: false,
-		message: null,
-	});
 	const [commitDetailState, setCommitDetailState] = useState<
 		ReviewLoadState<GitCommitDetail>
 	>({
@@ -1917,47 +1908,20 @@ async function handleSelectWorktree(
 		changes,
 	});
 
-	// Fetch commit history when active worktree changes or after refresh
-	useEffect(() => {
-		if (!activeWorktree?.id || !activeWorkspaceId) {
-			setCommitHistoryState({ data: null, stale: false, message: null });
-			return;
-		}
-		let cancelled = false;
-		setCommitHistoryState((prev) => ({ ...prev, message: null }));
-		git
-			.readCommitHistory(activeWorkspaceId, activeWorktree.id)
-			.then((history) => {
-				if (cancelled) return;
-				// Clear the selected commit if it's no longer in the refreshed history
-				if (
-					activeSession?.selectedCommitSha &&
-					!history.entries.some(
-						(e) => e.sha === activeSession.selectedCommitSha,
-					)
-				) {
-					dispatch({
-						type: "session/clearSelectedCommit",
-						worktreeId: activeWorktree.id,
-					});
-				}
-				setCommitHistoryState({ data: history, stale: false, message: null });
-			})
-			.catch(() => {
-				if (cancelled) return;
-				setCommitHistoryState((prev) => ({
-					...prev,
-					stale: prev.data !== null,
-					message:
-						prev.data === null
-							? "Couldn't load commit history."
-							: "Couldn't refresh commit history. Showing last successful result.",
-				}));
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [activeWorktree?.id, activeWorktree?.path, refreshKey]);
+	const commitHistoryState = useCommitHistoryLoader({
+		workspaceId: activeWorkspaceId,
+		worktreeId: activeWorktree?.id,
+		refreshKey,
+		selectedCommitSha: activeSession?.selectedCommitSha,
+		onClearStaleSelectedCommit: () => {
+			if (activeWorktree?.id) {
+				dispatch({
+					type: "session/clearSelectedCommit",
+					worktreeId: activeWorktree.id,
+				});
+			}
+		},
+	});
 
 	const remoteStatus = useRemoteStatusLoader({
 		workspaceId: activeWorkspaceId,
