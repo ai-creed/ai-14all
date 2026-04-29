@@ -2109,14 +2109,14 @@ export function App() {
 
 	// Fetch commit history when active worktree changes or after refresh
 	useEffect(() => {
-		if (!activeWorktree?.path) {
+		if (!activeWorktree?.id || !activeWorkspaceId) {
 			setCommitHistoryState({ data: null, stale: false, message: null });
 			return;
 		}
 		let cancelled = false;
 		setCommitHistoryState((prev) => ({ ...prev, message: null }));
 		git
-			.readCommitHistory(activeWorktree.path)
+			.readCommitHistory(activeWorkspaceId, activeWorktree.id)
 			.then((history) => {
 				if (cancelled) return;
 				// Clear the selected commit if it's no longer in the refreshed history

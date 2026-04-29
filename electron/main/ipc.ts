@@ -356,9 +356,11 @@ export function registerIpcHandlers(
 		return gitService.readSummary(worktreePath);
 	});
 
-	ipcMain.handle("git:readCommitHistory", (_event, raw: unknown) => {
-		const { worktreePath } = ReadGitCommitHistorySchema.parse(raw);
-		return gitService.readCommitHistory(worktreePath);
+	ipcMain.handle("git:readCommitHistory", async (_event, raw: unknown) => {
+		const { workspaceId, worktreeId } = ReadGitCommitHistorySchema.parse(raw);
+		const repository = workspaceRegistry.get(workspaceId);
+		const worktree = await worktreeService.findWorktree(repository, worktreeId);
+		return gitService.readCommitHistory(worktree.path);
 	});
 
 	ipcMain.handle("git:readCommitDetail", (_event, raw: unknown) => {

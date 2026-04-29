@@ -201,7 +201,8 @@ export const WriteWorkspaceRestoreStateSchema = z.object({
 });
 
 export const ReadGitCommitHistorySchema = z.object({
-	worktreePath: z.string(),
+	workspaceId: z.string().min(1),
+	worktreeId: z.string().min(1),
 });
 
 export const ReadGitCommitDetailSchema = z.object({
@@ -290,7 +291,10 @@ export type Ai14AllDesktopApi = {
 		listChanges(worktreePath: string): Promise<GitChange[]>;
 		readDiff(worktreePath: string, relativePath: string): Promise<GitDiff>;
 		readSummary(worktreePath: string): Promise<GitSummary>;
-		readCommitHistory(worktreePath: string): Promise<GitCommitHistory>;
+		readCommitHistory(
+			workspaceId: string,
+			worktreeId: string,
+		): Promise<GitCommitHistory>;
 		readCommitDetail(
 			worktreePath: string,
 			sha: string,

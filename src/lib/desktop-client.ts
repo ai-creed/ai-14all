@@ -75,8 +75,8 @@ export const git: Ai14AllDesktopApi["git"] = {
 		getDesktopClient().git.readDiff(worktreePath, relativePath),
 	readSummary: (worktreePath) =>
 		getDesktopClient().git.readSummary(worktreePath),
-	readCommitHistory: (worktreePath) =>
-		getDesktopClient().git.readCommitHistory(worktreePath),
+	readCommitHistory: (workspaceId, worktreeId) =>
+		getDesktopClient().git.readCommitHistory(workspaceId, worktreeId),
 	readCommitDetail: (worktreePath, sha) =>
 		getDesktopClient().git.readCommitDetail(worktreePath, sha),
 	discardChange: (worktreePath, relativePath) =>
