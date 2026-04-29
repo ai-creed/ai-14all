@@ -326,9 +326,12 @@ export function registerIpcHandlers(
 		);
 	});
 
-	ipcMain.handle("files:listScoped", (_event, raw: unknown) => {
-		const { worktreePath, relativeRoots } = ListScopedFilesSchema.parse(raw);
-		return fileService.listScopedFiles(worktreePath, relativeRoots);
+	ipcMain.handle("files:listScoped", async (_event, raw: unknown) => {
+		const { workspaceId, worktreeId, relativeRoots } =
+			ListScopedFilesSchema.parse(raw);
+		const repository = workspaceRegistry.get(workspaceId);
+		const worktree = await worktreeService.findWorktree(repository, worktreeId);
+		return fileService.listScopedFiles(worktree.path, relativeRoots);
 	});
 
 	ipcMain.handle("files:listTracked", async (_event, raw: unknown) => {

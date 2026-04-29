@@ -168,7 +168,8 @@ export const ReadGitDiffSchema = z.object({
 });
 
 export const ListScopedFilesSchema = z.object({
-	worktreePath: z.string(),
+	workspaceId: z.string().min(1),
+	worktreeId: z.string().min(1),
 	relativeRoots: z.array(z.string()),
 });
 
@@ -270,7 +271,8 @@ export type Ai14AllDesktopApi = {
 	files: {
 		list(workspaceId: string, worktreeId: string): Promise<string[]>;
 		listScoped(
-			worktreePath: string,
+			workspaceId: string,
+			worktreeId: string,
 			relativeRoots: string[],
 		): Promise<string[]>;
 		listTracked(workspaceId: string, worktreeId: string): Promise<string[]>;
