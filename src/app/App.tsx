@@ -79,7 +79,7 @@ import {
 	type ReviewExpandedPortalHandle,
 } from "../features/review/ReviewExpandedPortal";
 import { useReviewDrawerAutoExpand } from "../features/review/use-review-drawer-auto-expand";
-import { useReviewComments } from "../features/review/useReviewComments";
+import { useReviewComments } from "../features/review/use-review-comments";
 import {
 	ReviewCommentSidebar,
 	type NewCommentDraft,
