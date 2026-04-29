@@ -37,7 +37,7 @@ describe("MarkdownPreviewModal", () => {
 
 		render(
 			<MarkdownPreviewModal
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={vi.fn()}
@@ -52,7 +52,7 @@ describe("MarkdownPreviewModal", () => {
 
 		render(
 			<MarkdownPreviewModal
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={vi.fn()}
@@ -68,7 +68,7 @@ describe("MarkdownPreviewModal", () => {
 
 		render(
 			<MarkdownPreviewModal
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={vi.fn()}
@@ -88,7 +88,7 @@ describe("MarkdownPreviewModal", () => {
 
 		render(
 			<MarkdownPreviewModal
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={vi.fn()}
@@ -108,7 +108,7 @@ describe("MarkdownPreviewModal", () => {
 
 		render(
 			<MarkdownPreviewModal
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={vi.fn()}
@@ -129,7 +129,7 @@ describe("MarkdownPreviewModal", () => {
 
 		render(
 			<MarkdownPreviewModal
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={vi.fn()}
@@ -147,7 +147,7 @@ describe("MarkdownPreviewModal", () => {
 
 		render(
 			<MarkdownPreviewModal
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={vi.fn()}
@@ -167,7 +167,7 @@ describe("MarkdownPreviewModal", () => {
 
 		render(
 			<MarkdownPreviewModal
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={vi.fn()}
@@ -189,7 +189,7 @@ describe("MarkdownPreviewModal", () => {
 
 		render(
 			<MarkdownPreviewModal
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={onClose}

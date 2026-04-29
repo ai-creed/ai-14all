@@ -9,14 +9,16 @@ import { MarkdownPreviewModal } from "./MarkdownPreviewModal";
 import { isEditable } from "../../../shared/editor/editable-files";
 
 interface FileViewerProps {
-	worktreePath: string;
+	workspaceId: string;
+	worktreeId: string;
 	relativePath: string;
 	resolvedTheme: ResolvedTheme;
 	onEditFile?: (path: string) => void;
 }
 
 export function FileViewer({
-	worktreePath,
+	workspaceId,
+	worktreeId,
 	relativePath,
 	resolvedTheme,
 	onEditFile,
@@ -37,7 +39,7 @@ export function FileViewer({
 
 	useEffect(() => {
 		setPreviewOpen(false);
-	}, [worktreePath, relativePath]);
+	}, [workspaceId, worktreeId, relativePath]);
 
 	useEffect(() => {
 		if (!editorRef.current) return;
@@ -59,11 +61,11 @@ export function FileViewer({
 	}, [relativePath]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	useEffect(() => {
-		if (!worktreePath || !relativePath) return;
+		if (!workspaceId || !worktreeId || !relativePath) return;
 		setLoading(true);
 		setMessage(null);
 		files
-			.read(worktreePath, relativePath)
+			.read(workspaceId, worktreeId, relativePath)
 			.then((view) => {
 				setFileView(view);
 				setStale(false);
@@ -82,7 +84,7 @@ export function FileViewer({
 				);
 				setLoading(false);
 			});
-	}, [worktreePath, relativePath, reloadToken]);
+	}, [workspaceId, worktreeId, relativePath, reloadToken]);
 
 	if (loading && !fileView)
 		return <p className="shell-empty-state">Loading {relativePath}…</p>;
@@ -161,7 +163,8 @@ export function FileViewer({
 			/>
 			{previewOpen && (
 				<MarkdownPreviewModal
-					worktreePath={worktreePath}
+					workspaceId={workspaceId}
+					worktreeId={worktreeId}
 					relativePath={relativePath}
 					open={true}
 					onClose={() => setPreviewOpen(false)}

@@ -92,7 +92,8 @@ export const ListFilesSchema = z.object({
 });
 
 export const ReadFileSchema = z.object({
-	worktreePath: z.string(),
+	workspaceId: z.string().min(1),
+	worktreeId: z.string().min(1),
 	relativePath: z.string(),
 });
 
@@ -278,7 +279,11 @@ export type Ai14AllDesktopApi = {
 			relativeRoots: string[],
 		): Promise<string[]>;
 		listTracked(workspaceId: string, worktreeId: string): Promise<string[]>;
-		read(worktreePath: string, relativePath: string): Promise<FileView>;
+		read(
+			workspaceId: string,
+			worktreeId: string,
+			relativePath: string,
+		): Promise<FileView>;
 		openForEdit(
 			workspaceId: string,
 			worktreeId: string,

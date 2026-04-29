@@ -163,8 +163,12 @@ const api: Ai14AllDesktopApi = {
 				worktreeId,
 			});
 		},
-		read(worktreePath, relativePath) {
-			return ipcRenderer.invoke("files:read", { worktreePath, relativePath });
+		read(workspaceId, worktreeId, relativePath) {
+			return ipcRenderer.invoke("files:read", {
+				workspaceId,
+				worktreeId,
+				relativePath,
+			});
 		},
 		openForEdit(workspaceId, worktreeId, relativePath) {
 			return ipcRenderer.invoke("files:openForEdit", {

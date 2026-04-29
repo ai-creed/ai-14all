@@ -10,7 +10,8 @@ import { MarkdownPreviewModal } from "../viewer/MarkdownPreviewModal";
 import { ForcePushDialog } from "./ForcePushDialog";
 
 type Props = {
-	worktreePath: string;
+	workspaceId: string;
+	worktreeId: string;
 	history: GitCommitHistory;
 	selectedCommitSha: string | null;
 	selectedCommitFilePath: string | null;
@@ -24,7 +25,8 @@ type Props = {
 };
 
 export function CommitList({
-	worktreePath,
+	workspaceId,
+	worktreeId,
 	history,
 	selectedCommitSha,
 	selectedCommitFilePath,
@@ -44,7 +46,7 @@ export function CommitList({
 
 	useEffect(() => {
 		setPreviewState(null);
-	}, [worktreePath, activeDetail?.sha]);
+	}, [workspaceId, worktreeId, activeDetail?.sha]);
 
 	if (!history.mergeTargetRef || history.entries.length === 0) {
 		return <p className="shell-empty-state">No recent commits to review.</p>;
@@ -181,7 +183,8 @@ export function CommitList({
 			})}
 			{previewState !== null && (
 				<MarkdownPreviewModal
-					worktreePath={worktreePath}
+					workspaceId={workspaceId}
+					worktreeId={worktreeId}
 					relativePath={previewState.path}
 					contentOverride={previewState.content}
 					open={true}

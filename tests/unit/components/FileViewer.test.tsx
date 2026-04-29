@@ -56,7 +56,7 @@ describe("FileViewer", () => {
 
 		render(
 			<FileViewer
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="src/index.ts"
 				resolvedTheme="dark"
 			/>,
@@ -76,7 +76,7 @@ describe("FileViewer", () => {
 
 		render(
 			<FileViewer
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="src/index.ts"
 				resolvedTheme="dark"
 			/>,
@@ -90,7 +90,7 @@ describe("FileViewer", () => {
 
 		render(
 			<FileViewer
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="src/index.ts"
 				resolvedTheme="dark"
 			/>,
@@ -104,7 +104,7 @@ describe("FileViewer", () => {
 
 		render(
 			<FileViewer
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="missing.ts"
 				resolvedTheme="dark"
 			/>,
@@ -126,20 +126,21 @@ describe("FileViewer", () => {
 
 		const { rerender } = render(
 			<FileViewer
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="src/index.ts"
 				resolvedTheme="dark"
 			/>,
 		);
 		await screen.findByText("src/index.ts");
 
-		// Change worktreePath to trigger a re-fetch for the same relativePath.
+		// Change worktree to trigger a re-fetch for the same relativePath.
 		// The second mock call fails while relativePath still matches the cached
 		// fileView.path, so the component should preserve the content and show
 		// the stale message rather than clearing the view.
 		rerender(
 			<FileViewer
-				worktreePath="/repo2"
+				workspaceId="workspace:test"
+				worktreeId="wt-other"
 				relativePath="src/index.ts"
 				resolvedTheme="dark"
 			/>,
@@ -163,7 +164,7 @@ describe("FileViewer", () => {
 
 		render(
 			<FileViewer
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="README.md"
 				resolvedTheme="dark"
 			/>,
@@ -186,7 +187,7 @@ describe("FileViewer", () => {
 
 		render(
 			<FileViewer
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="src/index.ts"
 				resolvedTheme="dark"
 			/>,
@@ -212,7 +213,7 @@ describe("FileViewer", () => {
 
 		render(
 			<FileViewer
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="src/index.ts"
 				resolvedTheme="dark"
 				onEditFile={vi.fn()}
@@ -237,7 +238,7 @@ describe("FileViewer", () => {
 		const onEditFile = vi.fn();
 		render(
 			<FileViewer
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="src/index.ts"
 				resolvedTheme="dark"
 				onEditFile={onEditFile}
@@ -262,7 +263,7 @@ describe("FileViewer", () => {
 
 		render(
 			<FileViewer
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="README.md"
 				resolvedTheme="dark"
 				onEditFile={vi.fn()}
@@ -289,7 +290,7 @@ describe("FileViewer", () => {
 
 		render(
 			<FileViewer
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="README.md"
 				resolvedTheme="dark"
 			/>,
@@ -317,7 +318,7 @@ describe("FileViewer", () => {
 
 		const { rerender } = render(
 			<FileViewer
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="README.md"
 				resolvedTheme="dark"
 			/>,
@@ -332,7 +333,7 @@ describe("FileViewer", () => {
 		// Navigate to a different file — modal should close
 		rerender(
 			<FileViewer
-				worktreePath="/repo"
+				workspaceId="workspace:test" worktreeId="wt-test"
 				relativePath="src/index.ts"
 				resolvedTheme="dark"
 			/>,

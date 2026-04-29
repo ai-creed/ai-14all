@@ -4,7 +4,8 @@ import type { GitChange } from "../../../shared/models/git-change";
 import { MarkdownPreviewModal } from "../viewer/MarkdownPreviewModal";
 
 type Props = {
-	worktreePath: string;
+	workspaceId: string;
+	worktreeId: string;
 	changes: GitChange[];
 	selectedPath: string | null;
 	onSelect: (relativePath: string) => void;
@@ -16,7 +17,8 @@ type Props = {
 };
 
 export function ChangesList({
-	worktreePath,
+	workspaceId,
+	worktreeId,
 	changes,
 	selectedPath,
 	onSelect,
@@ -30,7 +32,7 @@ export function ChangesList({
 
 	useEffect(() => {
 		setPreviewPath(null);
-	}, [worktreePath]);
+	}, [workspaceId, worktreeId]);
 
 	if (gitSummaryError) {
 		return (
@@ -113,7 +115,8 @@ export function ChangesList({
 			)}
 			{previewPath !== null && (
 				<MarkdownPreviewModal
-					worktreePath={worktreePath}
+					workspaceId={workspaceId}
+					worktreeId={worktreeId}
 					relativePath={previewPath}
 					open={true}
 					onClose={() => setPreviewPath(null)}

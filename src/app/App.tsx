@@ -2956,7 +2956,8 @@ export function App() {
 										</p>
 									)}
 									<CommitList
-										worktreePath={activeWorktree.path}
+										workspaceId={activeWorkspaceId ?? ""}
+										worktreeId={activeWorktree.id}
 										history={
 											commitHistoryState.data ?? {
 												mergeTargetRef: null,
@@ -3028,7 +3029,8 @@ export function App() {
 									/>
 									{treePreviewPath !== null && (
 										<MarkdownPreviewModal
-											worktreePath={activeWorktree.path}
+											workspaceId={activeWorkspaceId ?? ""}
+											worktreeId={activeWorktree.id}
 											relativePath={treePreviewPath}
 											open={true}
 											onClose={() => setTreePreviewPath(null)}
@@ -3049,7 +3051,8 @@ export function App() {
 								</>
 							) : (
 								<ChangesList
-									worktreePath={activeWorktree.path}
+									workspaceId={activeWorkspaceId ?? ""}
+									worktreeId={activeWorktree.id}
 									changes={changes}
 									selectedPath={activeSession?.selectedChangedFilePath ?? null}
 									onSelect={handleSelectChangedFile}
@@ -3117,7 +3120,8 @@ export function App() {
 					) : activeSession?.reviewMode === "files" &&
 					  activeSession.selectedFilePath ? (
 						<FileViewer
-							worktreePath={activeWorktree.path}
+							workspaceId={activeWorkspaceId ?? ""}
+							worktreeId={activeWorktree.id}
 							relativePath={activeSession.selectedFilePath}
 							resolvedTheme={resolvedTheme}
 							onEditFile={openEditorForFile}

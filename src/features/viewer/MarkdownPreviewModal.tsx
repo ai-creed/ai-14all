@@ -7,7 +7,8 @@ import "highlight.js/styles/github-dark.css";
 import { files } from "../../lib/desktop-client";
 
 interface Props {
-	worktreePath: string;
+	workspaceId: string;
+	worktreeId: string;
 	relativePath: string;
 	contentOverride?: string | null;
 	open: boolean;
@@ -15,7 +16,8 @@ interface Props {
 }
 
 export function MarkdownPreviewModal({
-	worktreePath,
+	workspaceId,
+	worktreeId,
 	relativePath,
 	contentOverride = null,
 	open,
@@ -38,7 +40,7 @@ export function MarkdownPreviewModal({
 		setError(null);
 		setContent(null);
 		files
-			.read(worktreePath, relativePath)
+			.read(workspaceId, worktreeId, relativePath)
 			.then((view) => {
 				setContent(view.content);
 				setLoading(false);
@@ -47,7 +49,7 @@ export function MarkdownPreviewModal({
 				setError("Couldn't load file contents.");
 				setLoading(false);
 			});
-	}, [open, worktreePath, relativePath, reloadToken, contentOverride]);
+	}, [open, workspaceId, worktreeId, relativePath, reloadToken, contentOverride]);
 
 	return (
 		<Dialog.Root
