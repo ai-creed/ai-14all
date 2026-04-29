@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { WorktreeList } from "../../../src/features/worktrees/WorktreeList";
+import { WorktreeList } from "../../../src/features/workspace/WorktreeList";
 import type { Worktree } from "../../../shared/models/worktree";
 
 const worktrees: Worktree[] = [
