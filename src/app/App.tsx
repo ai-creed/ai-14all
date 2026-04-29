@@ -112,6 +112,7 @@ import { useKeyboardShortcut } from "./hooks/use-keyboard-shortcut";
 import { useNextPrevShortcut } from "./hooks/use-next-prev-shortcut";
 import { useActiveWorkspace } from "./hooks/use-active-workspace";
 import { useTerminalRuntime } from "./hooks/use-terminal-runtime";
+import { useWorkspacePickerListener } from "./hooks/use-workspace-picker-listener";
 import { useStartupRestore } from "./hooks/use-startup-restore";
 import { useGitSummaryLoader } from "./hooks/use-git-summary-loader";
 import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-empty-worktree";
@@ -273,16 +274,14 @@ export function App() {
 		restoreWorkspace,
 	});
 
-	useEffect(
-		() =>
-			workspace.onOpenPicker(() => {
-				if (startupMode !== "ready") return;
-				setError(null);
-				setStartupError(null);
-				setWorkspacePickerOpen(true);
-			}),
-		[startupMode],
-	);
+	useWorkspacePickerListener({
+		startupMode,
+		onOpen: () => {
+			setError(null);
+			setStartupError(null);
+			setWorkspacePickerOpen(true);
+		},
+	});
 
 	const activeWorktree =
 		worktrees.find((w) => w.id === workspaceState.selectedWorktreeId) ?? null;
