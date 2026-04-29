@@ -201,8 +201,11 @@ const api: Ai14AllDesktopApi = {
 				relativePath,
 			});
 		},
-		getRemoteStatus(worktreePath) {
-			return ipcRenderer.invoke("git:getRemoteStatus", { worktreePath });
+		getRemoteStatus(workspaceId, worktreeId) {
+			return ipcRenderer.invoke("git:getRemoteStatus", {
+				workspaceId,
+				worktreeId,
+			});
 		},
 		pushBranch(worktreePath, force) {
 			return ipcRenderer.invoke("git:pushBranch", { worktreePath, force });

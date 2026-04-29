@@ -2151,13 +2151,13 @@ export function App() {
 
 	// Fetch remote status when active worktree changes or after refresh
 	useEffect(() => {
-		if (!activeWorktree?.path) {
+		if (!activeWorktree?.id || !activeWorkspaceId) {
 			setRemoteStatus(null);
 			return;
 		}
 		let cancelled = false;
 		git
-			.getRemoteStatus(activeWorktree.path)
+			.getRemoteStatus(activeWorkspaceId, activeWorktree.id)
 			.then((status) => {
 				if (cancelled) return;
 				setRemoteStatus(status);
@@ -2169,7 +2169,7 @@ export function App() {
 		return () => {
 			cancelled = true;
 		};
-	}, [activeWorktree?.id, activeWorktree?.path, refreshKey]);
+	}, [activeWorkspaceId, activeWorktree?.id, refreshKey]);
 
 	// Fetch commit detail when selected commit changes
 	useEffect(() => {

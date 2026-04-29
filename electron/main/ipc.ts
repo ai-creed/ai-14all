@@ -371,9 +371,11 @@ export function registerIpcHandlers(
 		return gitService.discardChange(worktreePath, relativePath);
 	});
 
-	ipcMain.handle("git:getRemoteStatus", (_event, raw: unknown) => {
-		const { worktreePath } = GetGitRemoteStatusSchema.parse(raw);
-		return gitService.getRemoteStatus(worktreePath);
+	ipcMain.handle("git:getRemoteStatus", async (_event, raw: unknown) => {
+		const { workspaceId, worktreeId } = GetGitRemoteStatusSchema.parse(raw);
+		const repository = workspaceRegistry.get(workspaceId);
+		const worktree = await worktreeService.findWorktree(repository, worktreeId);
+		return gitService.getRemoteStatus(worktree.path);
 	});
 
 	ipcMain.handle("git:pushBranch", (_event, raw: unknown) => {

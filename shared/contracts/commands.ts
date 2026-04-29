@@ -215,7 +215,8 @@ export const DiscardGitChangeSchema = z.object({
 });
 
 export const GetGitRemoteStatusSchema = z.object({
-	worktreePath: z.string(),
+	workspaceId: z.string().min(1),
+	worktreeId: z.string().min(1),
 });
 
 export const PushGitBranchSchema = z.object({
@@ -295,7 +296,10 @@ export type Ai14AllDesktopApi = {
 			sha: string,
 		): Promise<GitCommitDetail>;
 		discardChange(worktreePath: string, relativePath: string): Promise<void>;
-		getRemoteStatus(worktreePath: string): Promise<RemoteStatus>;
+		getRemoteStatus(
+			workspaceId: string,
+			worktreeId: string,
+		): Promise<RemoteStatus>;
 		pushBranch(worktreePath: string, force: boolean): Promise<void>;
 	};
 	workspace: {
