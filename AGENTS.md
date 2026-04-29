@@ -70,6 +70,12 @@ Do not put renderer implementation types into `shared/`. The `shared/` layer mus
 - Raw filesystem paths from the renderer are forbidden in `ipc.ts`. Exception: MCP agent-pull tool surfaces in `services/mcp/` and the `WorktreePathResolver`, where the path is part of the tool's external contract.
 - Both resolvers throw on unknown ids — do not add `if (!x)` checks; thrown errors propagate as rejected promises to the renderer.
 
+### Diagnostics Logging
+
+- `ShellEventLogService` runs in one of three modes: `off` (production / packaged builds by default), `sampled` (dev / beta builds — logs 1 of every 50 `terminal-output` events plus the first event of each burst), `full` (every event, expensive under load).
+- Override via `AI14ALL_DEBUG=1` (sampled) or `AI14ALL_DEBUG=full` (verbose). Tests requiring complete event logs should construct the service with `mode: "full"` explicitly.
+- Sampled mode drops events; do not use diagnostic logs as authoritative state.
+
 ### Test File Layout
 
 - New feature-owned tests live under `tests/unit/<domain>/` or `tests/unit/features/<domain>/`, where `<domain>` is the feature folder name (`review`, `workspace`, `terminals`, `viewer`, `git`, `files`, `editor`, `app`).
