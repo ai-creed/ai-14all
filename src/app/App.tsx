@@ -55,12 +55,14 @@ import {
 } from "../lib/desktop-client";
 import { countOpenCommentsInFiles } from "../features/git/logic/commit-list-badge";
 import { logRendererShellEvent } from "../features/terminals/logic/shell-event-logger";
+import { logBindingChange } from "./logging/log-binding-change";
 import { useTheme } from "../lib/use-theme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
 import { detectPlatform } from "./shortcut-registry";
 import { useWindowFocus } from "./hooks/use-window-focus";
 import { useWorkspacePersistence } from "./hooks/use-workspace-persistence";
 import { useWorkspaceRemoval } from "./hooks/use-workspace-removal";
+import { useWorktreeSelection } from "./hooks/use-worktree-selection";
 import { usePaneResizers } from "./hooks/use-pane-resizers";
 import { useChangesRefreshLoop } from "./hooks/use-changes-refresh-loop";
 import { useTickingNow } from "./hooks/use-ticking-now";
@@ -381,37 +383,6 @@ export function App() {
 			type: "session/markProcessViewed",
 			worktreeId: activeWorktree.id,
 			processId,
-		});
-	}
-
-	function logBindingChange(input: {
-		triggerEventId?: string | null;
-		reasonKind:
-			| "user_action"
-			| "system_reconnect"
-			| "window_lifecycle"
-			| "renderer_drop"
-			| "process_exit"
-			| "backend_cleanup"
-			| "unknown";
-		reason: string;
-		isExpected: boolean;
-		expectedBecause: string | null;
-		previousBinding: Record<string, unknown> | null;
-		nextBinding: Record<string, unknown> | null;
-	}) {
-		return logRendererShellEvent({
-			event: "terminal-binding-changed",
-			windowId: null,
-			triggerEventId: input.triggerEventId ?? null,
-			reasonKind: input.reasonKind,
-			reason: input.reason,
-			isExpected: input.isExpected,
-			expectedBecause: input.expectedBecause,
-			data: {
-				previousBinding: input.previousBinding,
-				nextBinding: input.nextBinding,
-			},
 		});
 	}
 
@@ -1249,129 +1220,18 @@ export function App() {
 		onRefresh: handleRefreshChanges,
 	});
 
-async function handleSelectWorktree(
-		worktreeId: string,
-		targetContext?: {
-			workspaceId: string;
-			worktrees: Worktree[];
-			workspaceState: WorkspaceState;
-		},
-	) {
-		const targetWorkspaceId = targetContext?.workspaceId ?? activeWorkspaceId;
-		if (!targetWorkspaceId) return;
-		const targetWorktrees = targetContext?.worktrees ?? worktrees;
-		const targetWorkspaceState =
-			targetContext?.workspaceState ?? workspaceState;
-
-		void logRendererShellEvent({
-			event: "worktree-select",
-			windowId: null,
-			reasonKind: "user_action",
-			reason: "worktree_switch",
-			data: {
-				activeWorkspaceId: targetWorkspaceId,
-				previousWorktreeId: activeWorkspaceStateRef.current.selectedWorktreeId,
-				nextWorktreeId: worktreeId,
-			},
-		});
-		void logBindingChange({
-			reasonKind: "user_action",
-			reason: "worktree_switch",
-			isExpected: true,
-			expectedBecause: "user_explicit_worktree_select",
-			previousBinding: {
-				workspaceId: targetWorkspaceId,
-				worktreeId: activeWorkspaceStateRef.current.selectedWorktreeId,
-			},
-			nextBinding: { workspaceId: targetWorkspaceId, worktreeId },
-		});
-
-		const pending = pendingRestoreSessions[worktreeId];
-		if (pending) {
-			dispatch({
-				type: "session/restoreSnapshot",
-				workspaceId: targetWorkspaceId,
-				snapshot: pending,
-			});
-			setPendingRestoreSessions((prev) => {
-				const next = { ...prev };
-				delete next[worktreeId];
-				return next;
-			});
-		}
-
-		dispatch({ type: "session/selectWorktree", worktreeId });
-		if (pending?.activeProcessSessionId) {
-			dispatch({
-				type: "session/markProcessViewed",
-				worktreeId,
-				processId: pending.activeProcessSessionId,
-			});
-		} else {
-			// workspaceState is the pre-dispatch snapshot from this render's
-			// closure; reading activeProcessSessionId from it is correct here
-			// because the preceding session/selectWorktree dispatch is batched
-			// by React and has not yet been applied to workspaceState.  For
-			// non-pending sessions the data we need already existed before the
-			// dispatch, so the stale read is safe.
-			const session = targetWorkspaceState.sessionsByWorktreeId[worktreeId];
-			if (session?.activeProcessSessionId) {
-				dispatch({
-					type: "session/markProcessViewed",
-					worktreeId,
-					processId: session.activeProcessSessionId,
-				});
-			}
-		}
-
-		if (pending) {
-			const worktree = targetWorktrees.find((entry) => entry.id === worktreeId);
-			if (worktree) {
-				await recreatePersistedProcesses(worktree, pending, targetWorkspaceId);
-			}
-		}
-	}
-
-	async function handleSelectSidebarWorktree(
-		workspaceId: string,
-		worktreeId: string,
-	) {
-		const isCrossWorkspace =
-			workspaceId !== appWorkspacesRef.current.activeWorkspaceId;
-		if (isCrossWorkspace) {
-			void logRendererShellEvent({
-				event: "workspace-select",
-				windowId: null,
-				reasonKind: "user_action",
-				reason: "workspace_switch",
-				data: {
-					activeWorkspaceId: appWorkspacesRef.current.activeWorkspaceId,
-					nextWorkspaceId: workspaceId,
-				},
-			});
-			void logBindingChange({
-				reasonKind: "user_action",
-				reason: "workspace_switch",
-				isExpected: true,
-				expectedBecause: "user_explicit_workspace_select",
-				previousBinding: {
-					workspaceId: appWorkspacesRef.current.activeWorkspaceId,
-					worktreeId: activeWorkspaceStateRef.current.selectedWorktreeId,
-				},
-				nextBinding: { workspaceId, worktreeId },
-			});
-		}
-		const targetContext =
-			workspaceId === appWorkspacesRef.current.activeWorkspaceId
-				? {
-						workspaceId,
-						worktrees,
-						workspaceState,
-					}
-				: await activateWorkspace(workspaceId);
-		if (!targetContext) return;
-		await handleSelectWorktree(worktreeId, targetContext);
-	}
+	const { handleSelectSidebarWorktree } = useWorktreeSelection({
+		activeWorkspaceId,
+		worktrees,
+		workspaceState,
+		appWorkspacesRef,
+		activeWorkspaceStateRef,
+		pendingRestoreSessions,
+		setPendingRestoreSessions,
+		dispatch,
+		activateWorkspace,
+		recreatePersistedProcesses,
+	});
 
 	const { handleConfirmCreateWorktree, handleConfirmRemoveWorktree } =
 		useWorktreeActions({
