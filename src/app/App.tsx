@@ -23,7 +23,6 @@ import type {
 	CreateWorktreePreview,
 	RemoveWorktreePreview,
 } from "../../shared/models/worktree-lifecycle";
-import type { UpdateInfo } from "../../shared/contracts/commands";
 import {
 	buildSavedWorkspace,
 	buildWorktreeIdRebaseMapping,
@@ -120,6 +119,7 @@ import { useRemoteStatusLoader } from "./hooks/use-remote-status-loader";
 import { useDiffLoader } from "./hooks/use-diff-loader";
 import { useCommitHistoryLoader } from "./hooks/use-commit-history-loader";
 import { useCommitDetailLoader } from "./hooks/use-commit-detail-loader";
+import { useUpdateInfoListener } from "./hooks/use-update-info-listener";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -164,16 +164,10 @@ export function App() {
 	const [noteSheetOpen, setNoteSheetOpen] = useState(false);
 	const [filesOverlayOpen, setFilesOverlayOpen] = useState(false);
 	const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
-	const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+	const updateInfo = useUpdateInfoListener();
 	const [updateDismissedFor, setUpdateDismissedFor] = useState<string | null>(
 		null,
 	);
-
-	useEffect(() => {
-		return system.onUpdateAvailable((info) => {
-			setUpdateInfo(info);
-		});
-	}, []);
 
 	const bannerInfo =
 		updateInfo && updateInfo.version !== updateDismissedFor ? updateInfo : null;
