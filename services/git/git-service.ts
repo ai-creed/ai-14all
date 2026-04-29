@@ -472,14 +472,25 @@ export class GitService {
 							originalContent:
 								status === "A" || parentSha === ""
 									? ""
-									: await readBlobAtRevision(
-											worktreePath,
-											`${parentSha}:${oldPath ?? path}`,
+									: capContent(
+											await readBlobAtRevision(
+												worktreePath,
+												`${parentSha}:${oldPath ?? path}`,
+											),
+											MAX_COMMIT_FILE_BYTES,
+											"original",
 										),
 							modifiedContent:
 								status === "D"
 									? ""
-									: await readBlobAtRevision(worktreePath, `${sha}:${path}`),
+									: capContent(
+											await readBlobAtRevision(
+												worktreePath,
+												`${sha}:${path}`,
+											),
+											MAX_COMMIT_FILE_BYTES,
+											"modified",
+										),
 						};
 					}),
 			)
