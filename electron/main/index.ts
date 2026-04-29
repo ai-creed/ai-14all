@@ -124,7 +124,7 @@ app.whenReady().then(async () => {
 		},
 	};
 
-	const { dispose } = registerIpcHandlers(mainWindow, {
+	const { dispose, flushPersistence } = registerIpcHandlers(mainWindow, {
 		workspacePersistence,
 		workspaceRegistry,
 		worktreeService,
@@ -143,11 +143,17 @@ app.whenReady().then(async () => {
 			fileURLToPath(new URL("../renderer/index.html", import.meta.url)),
 		);
 	}
-	app.on("before-quit", () => {
+	let flushingBeforeQuit = false;
+	app.on("before-quit", (event) => {
 		offRegistry();
 		void deleteLivenessFile(livenessPath);
 		void mcpServer?.stop().catch(() => {});
 		sessionNoteBridge.dispose();
+
+		if (flushingBeforeQuit) return;
+		event.preventDefault();
+		flushingBeforeQuit = true;
+		void flushPersistence().finally(() => app.quit());
 	});
 
 	registerAppLifecycle({
