@@ -113,6 +113,7 @@ import { useActiveWorkspace } from "./hooks/use-active-workspace";
 import { useTerminalRuntime } from "./hooks/use-terminal-runtime";
 import { useWorkspacePickerListener } from "./hooks/use-workspace-picker-listener";
 import { useInstallModalListener } from "./hooks/use-install-modal-listener";
+import { useRendererStartLog } from "./hooks/use-renderer-start-log";
 import { useStartupRestore } from "./hooks/use-startup-restore";
 import { useGitSummaryLoader } from "./hooks/use-git-summary-loader";
 import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-empty-worktree";
@@ -256,14 +257,7 @@ export function App() {
 	// Startup / restore effect
 	// ---------------------------------------------------------------------------
 
-	useEffect(() => {
-		void logRendererShellEvent({
-			event: "renderer-start",
-			windowId: null,
-			data: { activeWorkspaceId: appWorkspacesRef.current.activeWorkspaceId },
-		});
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	useRendererStartLog(appWorkspacesRef.current.activeWorkspaceId);
 
 	useStartupRestore({
 		setStartupMode,
