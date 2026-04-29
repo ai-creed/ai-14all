@@ -36,8 +36,8 @@ export function createLargeRepo(
 	const run = (cmd: string) => execSync(cmd, { cwd: rootPath, stdio: "ignore" });
 
 	run("git init -q -b main");
-	run('git config user.email test@example.com');
-	run('git config user.name Test');
+	run("git config user.email test@example.com");
+	run("git config user.name Test");
 
 	// Seed `fileCount` deterministic small files and commit them.
 	for (let i = 0; i < fileCount; i++) {
@@ -71,7 +71,7 @@ export function createLargeRepo(
 			const path = join(rootPath, `commit-${String(i).padStart(4, "0")}.txt`);
 			writeFileSync(path, `commit content ${i}\n`);
 		}
-		run('git add -A && git commit -q -m "large commit"');
+		run("git add -A && git commit -q -m large-commit");
 	}
 
 	const cleanup = () => {
