@@ -4,7 +4,6 @@ import {
 	useMemo,
 	useRef,
 	useState,
-	type MouseEvent as ReactMouseEvent,
 } from "react";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import * as Tabs from "@radix-ui/react-tabs";
@@ -52,9 +51,7 @@ import { ChangesList } from "../features/git/components/ChangesList";
 import { DiffViewer } from "../features/viewer/components/DiffViewer";
 import { CommitList } from "../features/git/components/CommitList";
 import { CommitDiffStack } from "../features/git/components/CommitDiffStack";
-import { ReviewDrawer } from "../features/review/components/ReviewDrawer";
 import {
-	ReviewExpandedPortal,
 	type ReviewExpandedPortalHandle,
 } from "../features/review/components/ReviewExpandedPortal";
 import { useReviewDrawerAutoExpand } from "../features/review/hooks/use-review-drawer-auto-expand";
@@ -116,6 +113,7 @@ import { useCreateWorktreePreview } from "./hooks/use-create-worktree-preview";
 import { useRemoveWorktreePreview } from "./hooks/use-remove-worktree-preview";
 import { DialogStack } from "./components/DialogStack";
 import { TerminalPanel } from "./components/TerminalPanel";
+import { ReviewDrawerSection } from "./components/ReviewDrawerSection";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -2482,78 +2480,28 @@ async function handleSelectWorktree(
 					/>
 
 
-					{activeWorktree &&
-						(() => {
-							const currentReviewFilePath =
-								activeSession?.reviewMode === "commits"
-									? (activeSession.selectedCommitFilePath ?? null)
-									: activeSession?.reviewMode === "changes"
-										? (activeSession.selectedChangedFilePath ?? null)
-										: null;
-							const openCommentCount = currentReviewFilePath
-								? reviewState.comments.filter(
-										(c) =>
-											c.filePath === currentReviewFilePath &&
-											c.status === "open",
-									).length
-								: null;
-							const toggleCommentSidebar = () =>
-								setCommentSidebarOpen((o) => !o);
-							return (
-								<>
-									<ReviewDrawer
-										open={activeSession?.reviewDrawerOpen ?? false}
-										isDirty={activeSummary?.isDirty ?? false}
-										changedFileCount={changes.length}
-										panelHeight={reviewPanelHeight}
-										onToggle={() => {
-											if (!activeWorktree) return;
-											const next = !(activeSession?.reviewDrawerOpen ?? false);
-											if (!next && (activeSummary?.isDirty ?? false)) {
-												autoExpand.noteUserCollapse(activeWorktree.id);
-											} else if (next) {
-												autoExpand.noteUserExpand(activeWorktree.id);
-											}
-											dispatch({
-												type: "session/setReviewDrawerOpen",
-												worktreeId: activeWorktree.id,
-												open: next,
-											});
-										}}
-										onRefresh={handleRefreshChanges}
-										onResizeStart={(e) =>
-											handleReviewPanelResizeStart(
-												e as ReactMouseEvent<HTMLDivElement>,
-											)
-										}
-										expanded={reviewExpanded}
-										onExpand={() => setReviewExpanded(true)}
-										onCollapse={collapseReviewExpanded}
-										commentSidebarOpen={commentSidebarOpen}
-										onToggleCommentSidebar={toggleCommentSidebar}
-										openCommentCount={openCommentCount}
-									>
-										{!reviewExpanded ? reviewTabContent : null}
-									</ReviewDrawer>
-									{reviewExpanded && (
-										<ReviewExpandedPortal
-											ref={expandedPortalRef}
-											mainColRef={mainColRef}
-											chipBarRef={chipBarRef}
-											onCollapse={() => setReviewExpanded(false)}
-											onRefresh={handleRefreshChanges}
-											isDirty={activeSummary?.isDirty ?? false}
-											changedFileCount={changes.length}
-											commentSidebarOpen={commentSidebarOpen}
-											onToggleCommentSidebar={toggleCommentSidebar}
-											openCommentCount={openCommentCount}
-										>
-											{reviewTabContent}
-										</ReviewExpandedPortal>
-									)}
-								</>
-							);
-						})()}
+					<ReviewDrawerSection
+						activeWorktree={activeWorktree}
+						activeSession={activeSession ?? null}
+						activeSummary={activeSummary}
+						changedFileCount={changes.length}
+						reviewState={reviewState}
+						reviewPanelHeight={reviewPanelHeight}
+						onResizeStart={handleReviewPanelResizeStart}
+						reviewExpanded={reviewExpanded}
+						setReviewExpanded={setReviewExpanded}
+						collapseReviewExpanded={collapseReviewExpanded}
+						expandedPortalRef={expandedPortalRef}
+						mainColRef={mainColRef}
+						chipBarRef={chipBarRef}
+						commentSidebarOpen={commentSidebarOpen}
+						setCommentSidebarOpen={setCommentSidebarOpen}
+						autoExpand={autoExpand}
+						dispatch={dispatch}
+						handleRefreshChanges={handleRefreshChanges}
+					>
+						{reviewTabContent}
+					</ReviewDrawerSection>
 				</section>
 			</div>
 
