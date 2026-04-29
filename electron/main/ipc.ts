@@ -343,9 +343,11 @@ export function registerIpcHandlers(
 
 	// --- Git ---
 
-	ipcMain.handle("git:listChanges", (_event, raw: unknown) => {
-		const { worktreePath } = ListGitChangesSchema.parse(raw);
-		return gitService.listChangedFiles(worktreePath);
+	ipcMain.handle("git:listChanges", async (_event, raw: unknown) => {
+		const { workspaceId, worktreeId } = ListGitChangesSchema.parse(raw);
+		const repository = workspaceRegistry.get(workspaceId);
+		const worktree = await worktreeService.findWorktree(repository, worktreeId);
+		return gitService.listChangedFiles(worktree.path);
 	});
 
 	ipcMain.handle("git:readDiff", (_event, raw: unknown) => {

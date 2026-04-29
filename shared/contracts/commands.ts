@@ -159,7 +159,8 @@ export type SaveFile = z.infer<typeof SaveFileSchema>;
 export type SaveFileResult = z.infer<typeof SaveFileResultSchema>;
 
 export const ListGitChangesSchema = z.object({
-	worktreePath: z.string(),
+	workspaceId: z.string().min(1),
+	worktreeId: z.string().min(1),
 });
 
 export const ReadGitDiffSchema = z.object({
@@ -292,7 +293,10 @@ export type Ai14AllDesktopApi = {
 		getPathForFile(file: File): string;
 	};
 	git: {
-		listChanges(worktreePath: string): Promise<GitChange[]>;
+		listChanges(
+			workspaceId: string,
+			worktreeId: string,
+		): Promise<GitChange[]>;
 		readDiff(worktreePath: string, relativePath: string): Promise<GitDiff>;
 		readSummary(workspaceId: string, worktreeId: string): Promise<GitSummary>;
 		readCommitHistory(

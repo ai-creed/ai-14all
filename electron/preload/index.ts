@@ -181,8 +181,8 @@ const api: Ai14AllDesktopApi = {
 		},
 	},
 	git: {
-		listChanges(worktreePath) {
-			return ipcRenderer.invoke("git:listChanges", { worktreePath });
+		listChanges(workspaceId, worktreeId) {
+			return ipcRenderer.invoke("git:listChanges", { workspaceId, worktreeId });
 		},
 		readDiff(worktreePath, relativePath) {
 			return ipcRenderer.invoke("git:readDiff", { worktreePath, relativePath });
