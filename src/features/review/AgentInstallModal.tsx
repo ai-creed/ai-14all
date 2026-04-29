@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AppDialog } from "../../components/AppDialog";
-import type { AgentInstallStatus } from "./useAgentInstallStatus";
+import type { AgentInstallStatus } from "./use-agent-install-status";
 
 type Props = {
 	open: boolean;

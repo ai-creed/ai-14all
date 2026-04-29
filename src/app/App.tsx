@@ -91,7 +91,7 @@ import {
 	type SelectionDraft,
 } from "../features/review/diff-editor-decorations";
 import { AgentInstallModal } from "../features/review/AgentInstallModal";
-import { useAgentInstallStatus } from "../features/review/useAgentInstallStatus";
+import { useAgentInstallStatus } from "../features/review/use-agent-install-status";
 import { buildWorktreeProcessSummary } from "../features/workspace/sidebar-shell-summary";
 import { useNoteBridgeReceiver } from "../features/workspace/use-note-bridge-receiver";
 import type {

@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AgentInstallModal } from "../../../src/features/review/AgentInstallModal";
-import type { AgentInstallStatus } from "../../../src/features/review/useAgentInstallStatus";
+import type { AgentInstallStatus } from "../../../src/features/review/use-agent-install-status";
 
 function makeStatus(
 	overrides: Partial<AgentInstallStatus> = {},
