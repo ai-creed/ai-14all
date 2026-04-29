@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { rewriteManifest } from "../shared/update/rewriteManifest.js";
+import { rewriteManifest } from "../shared/update/rewrite-manifest.js";
 
 function main(): void {
 	const [, , input, output, version] = process.argv;

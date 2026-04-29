@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rewriteManifest } from "../../../shared/update/rewriteManifest.js";
+import { rewriteManifest } from "../../../shared/update/rewrite-manifest.js";
 
 const EMITTED = `version: 0.1.0
 releaseDate: '2026-04-24T10:00:00.000Z'
