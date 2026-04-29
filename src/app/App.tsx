@@ -116,6 +116,7 @@ import { useRendererStartLog } from "./hooks/use-renderer-start-log";
 import { useEditFileShortcut } from "./hooks/use-edit-file-shortcut";
 import { useGitActions } from "./hooks/use-git-actions";
 import { useProcessActions } from "./hooks/use-process-actions";
+import { useWorktreeActions } from "./hooks/use-worktree-actions";
 import { useStartupRestore } from "./hooks/use-startup-restore";
 import { useGitSummaryLoader } from "./hooks/use-git-summary-loader";
 import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-empty-worktree";
@@ -1440,79 +1441,31 @@ async function handleSelectWorktree(
 		await handleSelectWorktree(worktreeId, targetContext);
 	}
 
-	async function handleConfirmCreateWorktree() {
-		if (!createPreview || !activeWorkspaceId) return;
-		setCreateBusy(true);
-		try {
-			const created = await repositoryClient.createWorktree(
-				activeWorkspaceId,
-				createName,
-			);
-			if (createSessionTitle.trim()) {
-				dispatch({
-					type: "session/setTitle",
-					worktreeId: created.id,
-					title: createSessionTitle,
-				});
-			}
-			await refreshWorktreeInventory({
-				preferredSelectedWorktreeId: created.id,
-			});
-			setCreateDialogOpen(false);
-			setCreateName("");
-			setCreateSessionTitle("");
-			setCreatePreview(null);
-		} catch (err) {
-			setCreateError(err instanceof Error ? err.message : String(err));
-			await refreshWorktreeInventory();
-		} finally {
-			setCreateBusy(false);
-		}
-	}
-
-	async function closeProcessesForWorktree(worktreeId: string) {
-		const session = workspaceStateRef.current.sessionsByWorktreeId[worktreeId];
-		if (!session) return;
-		for (const processId of session.processSessionIds) {
-			const process = workspaceStateRef.current.processSessionsById[processId];
-			if (process?.terminalSessionId) {
-				try {
-					await stopSession(process.terminalSessionId);
-				} catch {
-					// Removal is already confirmed; continue clearing renderer state.
-				}
-				removeSession(process.terminalSessionId);
-			}
-			dispatch({ type: "session/closeProcess", worktreeId, processId });
-		}
-		// Clear the guard so a future worktree reusing the same id (same path) gets
-		// a fresh default shell instead of being skipped because the id is still in
-		// the Set from the removed worktree's first visit.
-		forgetDefaultShellEnsuredForWorktree(worktreeId);
-	}
-
-	async function handleConfirmRemoveWorktree() {
-		if (!removePreview || !activeWorkspaceId) return;
-		setRemoveBusy(true);
-		try {
-			await closeProcessesForWorktree(removePreview.worktreeId);
-			await repositoryClient.removeWorktree(
-				activeWorkspaceId,
-				removePreview.worktreeId,
-			);
-			await refreshWorktreeInventory({
-				skipRuntimeCleanupWorktreeIds: [removePreview.worktreeId],
-			});
-			setRemoveDialogOpen(false);
-			setRemoveTargetId(null);
-			setRemovePreview(null);
-		} catch (err) {
-			setRemoveError(err instanceof Error ? err.message : String(err));
-			await refreshWorktreeInventory();
-		} finally {
-			setRemoveBusy(false);
-		}
-	}
+	const { handleConfirmCreateWorktree, handleConfirmRemoveWorktree } =
+		useWorktreeActions({
+		workspaceId: activeWorkspaceId,
+		workspaceStateRef,
+		createPreview,
+		createName,
+		createSessionTitle,
+		setCreateBusy,
+		setCreateDialogOpen,
+		setCreateName,
+		setCreateSessionTitle,
+		setCreatePreview,
+		setCreateError,
+		removePreview,
+		setRemoveBusy,
+		setRemoveDialogOpen,
+		setRemoveTargetId,
+		setRemovePreview,
+		setRemoveError,
+		dispatch,
+		stopSession,
+		removeSession,
+		forgetDefaultShellEnsuredForWorktree,
+		refreshWorktreeInventory,
+	});
 
 	const diffState = useDiffLoader({
 		workspaceId: activeWorkspaceId,
