@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decideUpdateAction } from "../../../electron/main/services/updateNotifier.js";
+import { decideUpdateAction } from "../../../electron/main/services/update-notifier.js";
 
 const PUBLISHED = `version: 0.1.1
 releaseDate: '2026-05-01T12:00:00.000Z'

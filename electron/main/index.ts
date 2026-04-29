@@ -8,7 +8,7 @@ import { buildApplicationMenu } from "./menu.js";
 import { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 import { createShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
-import { startUpdateNotifier } from "./services/updateNotifier.js";
+import { startUpdateNotifier } from "./services/update-notifier.js";
 import { ReviewCommentStore } from "../../services/review/review-comment-store.js";
 import { ReviewCommentService } from "../../services/review/review-comment-service.js";
 import { WorktreeService } from "../../services/worktrees/worktree-service.js";
