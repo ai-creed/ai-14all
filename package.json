@@ -15,6 +15,7 @@
 		"postinstall": "node scripts/ensure-node-pty-spawn-helper.mjs",
 		"typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.test.json",
 		"test": "vitest run --passWithNoTests",
+		"test:perf": "vitest run --config vitest.perf.config.ts",
 		"test:e2e": "electron-vite build && playwright test",
 		"test:all": "pnpm test && pnpm test:e2e",
 		"package:mac": "pnpm build && electron-builder --mac zip dmg --publish never",
