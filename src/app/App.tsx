@@ -98,7 +98,6 @@ import type {
 	GitCommitHistory,
 	GitCommitDetail,
 } from "../../shared/models/git-commit-review";
-import type { RemoteStatus } from "../../shared/models/git-remote-status";
 import type { GitChangeStatus } from "../../shared/models/git-change";
 import {
 	git,
@@ -122,6 +121,7 @@ import { useWorkspacePersistence } from "./hooks/use-workspace-persistence";
 import { usePaneResizers } from "./hooks/use-pane-resizers";
 import { useChangesRefreshLoop } from "./hooks/use-changes-refresh-loop";
 import { useTickingNow } from "./hooks/use-ticking-now";
+import { useRemoteStatusLoader } from "./hooks/use-remote-status-loader";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -330,7 +330,6 @@ export function App() {
 	const [createLoading, setCreateLoading] = useState(false);
 	const [createError, setCreateError] = useState<string | null>(null);
 	const [createBusy, setCreateBusy] = useState(false);
-	const [remoteStatus, setRemoteStatus] = useState<RemoteStatus | null>(null);
 	const [discardPath, setDiscardPath] = useState<string | null>(null);
 	const [treePreviewPath, setTreePreviewPath] = useState<string | null>(null);
 	const [editorTarget, setEditorTarget] = useState<{
@@ -2019,27 +2018,11 @@ async function handleSelectWorktree(
 		};
 	}, [activeWorktree?.id, activeWorktree?.path, refreshKey]);
 
-	// Fetch remote status when active worktree changes or after refresh
-	useEffect(() => {
-		if (!activeWorktree?.id || !activeWorkspaceId) {
-			setRemoteStatus(null);
-			return;
-		}
-		let cancelled = false;
-		git
-			.getRemoteStatus(activeWorkspaceId, activeWorktree.id)
-			.then((status) => {
-				if (cancelled) return;
-				setRemoteStatus(status);
-			})
-			.catch(() => {
-				if (cancelled) return;
-				setRemoteStatus(null);
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [activeWorkspaceId, activeWorktree?.id, refreshKey]);
+	const remoteStatus = useRemoteStatusLoader({
+		workspaceId: activeWorkspaceId,
+		worktreeId: activeWorktree?.id,
+		refreshKey,
+	});
 
 	// Fetch commit detail when selected commit changes
 	useEffect(() => {
