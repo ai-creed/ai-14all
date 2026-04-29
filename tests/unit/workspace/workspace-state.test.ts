@@ -7,7 +7,7 @@ import {
 import {
 	createWorkspaceState,
 	workspaceReducer,
-} from "../../../src/features/workspace/workspace-state";
+} from "../../../src/features/workspace/logic/workspace-state";
 import type { ProcessSession } from "../../../shared/models/process-session";
 import { PersistedWorktreeSessionSchema } from "../../../shared/models/persisted-workspace-state";
 

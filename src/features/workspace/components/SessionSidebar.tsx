@@ -1,9 +1,9 @@
 import * as React from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
-import type { Worktree } from "../../../shared/models/worktree";
-import type { ProcessAttentionState } from "../../../shared/models/process-session";
-import type { WorktreeProcessSummary } from "./sidebar-shell-summary";
-import { displayTitle } from "./session-display-title";
+import type { Worktree } from "../../../../shared/models/worktree";
+import type { ProcessAttentionState } from "../../../../shared/models/process-session";
+import type { WorktreeProcessSummary } from "../logic/sidebar-shell-summary";
+import { displayTitle } from "../logic/session-display-title";
 
 export type SessionSidebarWorkspace = {
 	workspaceId: string;

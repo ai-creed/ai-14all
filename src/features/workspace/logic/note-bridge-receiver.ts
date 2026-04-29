@@ -1,8 +1,8 @@
-import type { Ai14AllDesktopApi } from "../../../shared/contracts/commands";
+import type { Ai14AllDesktopApi } from "../../../../shared/contracts/commands";
 import type {
 	NoteBridgeReply,
 	NoteBridgeRequest,
-} from "../../../shared/contracts/note-bridge";
+} from "../../../../shared/contracts/note-bridge";
 import type { WorkspaceState, WorkspaceAction } from "./workspace-state";
 
 export type WorkspaceLookup = {

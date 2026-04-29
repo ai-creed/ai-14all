@@ -1,4 +1,4 @@
-import type { ProcessSession } from "../../../shared/models/process-session";
+import type { ProcessSession } from "../../../../shared/models/process-session";
 
 export type SidebarShellState = "actionRequired" | "active" | "idle" | "exited";
 

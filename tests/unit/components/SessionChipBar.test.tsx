@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { SessionChipBar } from "../../../src/features/workspace/SessionChipBar";
+import { SessionChipBar } from "../../../src/features/workspace/components/SessionChipBar";
 
 const defaults = {
 	sessionTitle: "My session",

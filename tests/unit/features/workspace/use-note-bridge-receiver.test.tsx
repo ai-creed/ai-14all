@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useNoteBridgeReceiver } from "../../../../src/features/workspace/use-note-bridge-receiver";
+import { useNoteBridgeReceiver } from "../../../../src/features/workspace/hooks/use-note-bridge-receiver";
 
 function makeApi() {
 	return {

@@ -32,32 +32,32 @@ import {
 	reconcileSnapshotToWorktrees,
 	shouldReattachSnapshot,
 	splitPendingRestores,
-} from "../features/workspace/workspace-persistence";
+} from "../features/workspace/logic/workspace-persistence";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
 import {
 	SessionSidebar,
 	type SessionSidebarWorkspace,
-} from "../features/workspace/SessionSidebar";
-import { SessionChipBar } from "../features/workspace/SessionChipBar";
-import { NoteSheet } from "../features/workspace/NoteSheet";
-import { displayTitle } from "../features/workspace/session-display-title";
+} from "../features/workspace/components/SessionSidebar";
+import { SessionChipBar } from "../features/workspace/components/SessionChipBar";
+import { NoteSheet } from "../features/workspace/components/NoteSheet";
+import { displayTitle } from "../features/workspace/logic/session-display-title";
 import {
 	createWorkspaceState,
 	workspaceReducer,
 	type WorkspaceAction,
 	type WorkspaceState,
-} from "../features/workspace/workspace-state";
+} from "../features/workspace/logic/workspace-state";
 import {
 	appWorkspacesReducer,
 	createAppWorkspacesState,
-} from "../features/workspace/app-workspaces-state";
+} from "../features/workspace/logic/app-workspaces-state";
 import { TerminalTabs } from "../features/terminals/TerminalTabs";
 import { TerminalPane } from "../features/terminals/TerminalPane";
 import { PresetManager } from "../features/terminals/PresetManager";
-import { NewWorktreeDialog } from "../features/workspace/NewWorktreeDialog";
-import { RemoveWorktreeDialog } from "../features/workspace/RemoveWorktreeDialog";
-import { LoadWorkspaceDialog } from "../features/workspace/LoadWorkspaceDialog";
+import { NewWorktreeDialog } from "../features/workspace/components/NewWorktreeDialog";
+import { RemoveWorktreeDialog } from "../features/workspace/components/RemoveWorktreeDialog";
+import { LoadWorkspaceDialog } from "../features/workspace/components/LoadWorkspaceDialog";
 import { useTerminalSession } from "../features/terminals/use-terminal-session";
 import { deriveAttentionState } from "../features/terminals/process-attention";
 import { consumeOutputPreview } from "../features/terminals/output-preview";
@@ -92,8 +92,8 @@ import {
 } from "../features/review/diff-editor-decorations";
 import { AgentInstallModal } from "../features/review/AgentInstallModal";
 import { useAgentInstallStatus } from "../features/review/use-agent-install-status";
-import { buildWorktreeProcessSummary } from "../features/workspace/sidebar-shell-summary";
-import { useNoteBridgeReceiver } from "../features/workspace/use-note-bridge-receiver";
+import { buildWorktreeProcessSummary } from "../features/workspace/logic/sidebar-shell-summary";
+import { useNoteBridgeReceiver } from "../features/workspace/hooks/use-note-bridge-receiver";
 import type {
 	GitCommitHistory,
 	GitCommitDetail,

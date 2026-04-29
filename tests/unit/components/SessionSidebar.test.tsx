@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { SessionSidebar } from "../../../src/features/workspace/SessionSidebar";
+import { SessionSidebar } from "../../../src/features/workspace/components/SessionSidebar";
 import type { Worktree } from "../../../shared/models/worktree";
 
 const worktrees: Worktree[] = [

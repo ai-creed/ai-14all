@@ -3,8 +3,8 @@ import {
 	createAppWorkspacesState,
 	appWorkspacesReducer,
 	type AppWorkspacesState,
-} from "../../../src/features/workspace/app-workspaces-state";
-import { createWorkspaceState } from "../../../src/features/workspace/workspace-state";
+} from "../../../src/features/workspace/logic/app-workspaces-state";
+import { createWorkspaceState } from "../../../src/features/workspace/logic/workspace-state";
 
 const repoA = {
 	id: "repo-a",

@@ -1,4 +1,4 @@
-import type { AppWorkspace } from "../../../shared/models/app-workspace";
+import type { AppWorkspace } from "../../../../shared/models/app-workspace";
 import type { WorkspaceState } from "./workspace-state";
 
 export type AppWorkspacesState = {

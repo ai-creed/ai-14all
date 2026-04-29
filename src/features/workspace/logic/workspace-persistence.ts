@@ -4,7 +4,7 @@ import type {
 	PersistedSavedWorkspace,
 	PersistedWorktreeSession,
 	WorkspaceSnapshot,
-} from "../../../shared/models/persisted-workspace-state";
+} from "../../../../shared/models/persisted-workspace-state";
 
 /**
  * Returns true when the loaded repo likely corresponds to the saved snapshot,

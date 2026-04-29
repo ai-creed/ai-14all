@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import {
 	installNoteBridgeReceiver,
 	type WorkspaceLookup,
-} from "../../../../src/features/workspace/note-bridge-receiver";
-import type { WorkspaceState } from "../../../../src/features/workspace/workspace-state";
+} from "../../../../src/features/workspace/logic/note-bridge-receiver";
+import type { WorkspaceState } from "../../../../src/features/workspace/logic/workspace-state";
 import type { NoteBridgeReply } from "../../../../shared/contracts/note-bridge";
 
 function makeState(overrides: Partial<WorkspaceState> = {}): WorkspaceState {

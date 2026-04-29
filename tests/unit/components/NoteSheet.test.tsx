@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { NoteSheet } from "../../../src/features/workspace/NoteSheet";
+import { NoteSheet } from "../../../src/features/workspace/components/NoteSheet";
 
 describe("NoteSheet", () => {
 	it("renders textarea with note value when open", () => {

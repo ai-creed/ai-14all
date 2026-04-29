@@ -1,24 +1,24 @@
 import {
 	DEFAULT_COMMAND_PRESETS,
 	type CommandPreset,
-} from "../../../shared/models/command-preset";
-import type { GitSummary } from "../../../shared/models/git-summary";
+} from "../../../../shared/models/command-preset";
+import type { GitSummary } from "../../../../shared/models/git-summary";
 import type {
 	PersistedWorktreeSession,
 	WorkspaceSnapshot,
-} from "../../../shared/models/persisted-workspace-state";
+} from "../../../../shared/models/persisted-workspace-state";
 import type {
 	ProcessAttentionState,
 	ProcessSession,
-} from "../../../shared/models/process-session";
-import type { Worktree } from "../../../shared/models/worktree";
+} from "../../../../shared/models/process-session";
+import type { Worktree } from "../../../../shared/models/worktree";
 import type {
 	ReviewMode,
 	TerminalLayoutMode,
 	WorktreeSession,
-} from "../../../shared/models/worktree-session";
+} from "../../../../shared/models/worktree-session";
 
-import type { WorkspaceState } from "../../../shared/models/workspace-state";
+import type { WorkspaceState } from "../../../../shared/models/workspace-state";
 export type { WorkspaceState };
 
 export type WorkspaceAction =

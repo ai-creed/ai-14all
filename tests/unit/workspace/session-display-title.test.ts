@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Worktree } from "../../../shared/models/worktree";
-import { displayTitle } from "../../../src/features/workspace/session-display-title";
+import { displayTitle } from "../../../src/features/workspace/logic/session-display-title";
 
 const worktree: Worktree = {
 	id: "w1",

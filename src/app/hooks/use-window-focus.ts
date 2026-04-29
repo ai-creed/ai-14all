@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { MutableRefObject } from "react";
-import type { AppWorkspacesState } from "../../features/workspace/app-workspaces-state";
-import type { WorkspaceState } from "../../features/workspace/workspace-state";
+import type { AppWorkspacesState } from "../../features/workspace/logic/app-workspaces-state";
+import type { WorkspaceState } from "../../features/workspace/logic/workspace-state";
 import { logRendererShellEvent } from "../../features/terminals/shell-event-logger";
 
 type Options = {

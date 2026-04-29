@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { SessionHeader } from "../../../src/features/workspace/SessionHeader";
+import { SessionHeader } from "../../../src/features/workspace/components/SessionHeader";
 
 describe("SessionHeader", () => {
 	it("renders the expanded Session info panel", () => {

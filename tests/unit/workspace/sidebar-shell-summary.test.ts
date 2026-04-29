@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	buildWorktreeProcessSummary,
 	formatQuietAge,
-} from "../../../src/features/workspace/sidebar-shell-summary";
+} from "../../../src/features/workspace/logic/sidebar-shell-summary";
 
 const now = 20_000;
 

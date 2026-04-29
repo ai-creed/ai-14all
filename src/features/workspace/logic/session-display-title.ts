@@ -1,4 +1,4 @@
-import type { Worktree } from "../../../shared/models/worktree";
+import type { Worktree } from "../../../../shared/models/worktree";
 
 export function displayTitle(sessionTitle: string, worktree: Worktree): string {
 	const trimmed = sessionTitle.trim();

@@ -1,4 +1,4 @@
-import type { Worktree } from "../../../shared/models/worktree";
+import type { Worktree } from "../../../../shared/models/worktree";
 
 type Props = {
 	worktrees: Worktree[];

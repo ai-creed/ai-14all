@@ -9,11 +9,11 @@ import {
 	reconcileSnapshotToWorktrees,
 	shouldReattachSnapshot,
 	splitPendingRestores,
-} from "../../../src/features/workspace/workspace-persistence";
+} from "../../../src/features/workspace/logic/workspace-persistence";
 import {
 	createWorkspaceState,
 	workspaceReducer,
-} from "../../../src/features/workspace/workspace-state";
+} from "../../../src/features/workspace/logic/workspace-state";
 import { PersistedWorkspaceStateSchema } from "../../../shared/models/persisted-workspace-state";
 import type { WorkspaceSnapshot } from "../../../shared/models/persisted-workspace-state";
 

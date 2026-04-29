@@ -1,5 +1,5 @@
-import { AppDialog } from "../../components/AppDialog";
-import type { CreateWorktreePreview } from "../../../shared/models/worktree-lifecycle";
+import { AppDialog } from "../../../components/AppDialog";
+import type { CreateWorktreePreview } from "../../../../shared/models/worktree-lifecycle";
 
 type Props = {
 	open: boolean;

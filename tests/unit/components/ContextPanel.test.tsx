@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { ContextPanel } from "../../../src/features/workspace/ContextPanel";
+import { ContextPanel } from "../../../src/features/workspace/components/ContextPanel";
 
 describe("ContextPanel", () => {
 	it("renders only the Session note field", () => {

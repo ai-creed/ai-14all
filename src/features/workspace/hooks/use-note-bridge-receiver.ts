@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import {
 	installNoteBridgeReceiver,
 	type InstallReceiverDeps,
-} from "./note-bridge-receiver";
+} from "../logic/note-bridge-receiver";
 
 export type StartupMode = "loading" | "prompt" | "ready";
 

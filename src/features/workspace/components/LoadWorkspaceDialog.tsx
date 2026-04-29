@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { AppDialog } from "../../components/AppDialog";
-import { repository } from "../../lib/desktop-client";
-import { describeRepositoryLoadError } from "../repository/describe-repository-load-error";
+import { AppDialog } from "../../../components/AppDialog";
+import { repository } from "../../../lib/desktop-client";
+import { describeRepositoryLoadError } from "../../repository/describe-repository-load-error";
 
 type Props = {
 	open: boolean;
