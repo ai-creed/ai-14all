@@ -1,6 +1,4 @@
-import { execFile } from "node:child_process";
 import { readFile, stat, unlink } from "node:fs/promises";
-import { promisify } from "node:util";
 import { resolve } from "node:path";
 import type {
 	GitChange,
@@ -19,35 +17,67 @@ import type {
 	GitCommitListEntry,
 } from "../../shared/models/git-commit-review.js";
 import { getGitBinaryPath } from "./git-binary.js";
+import {
+	GitCommandRunner,
+	type GitCommandFailure,
+} from "./git-command-runner.js";
 
-const execFileAsync = promisify(execFile);
 const gitBinary = getGitBinaryPath();
+const runner = new GitCommandRunner({ binary: gitBinary });
+
+class GitRunnerError extends Error {
+	constructor(
+		public readonly reason: GitCommandFailure,
+		public readonly label: string,
+		stderr?: string,
+	) {
+		const detail =
+			reason.kind === "command-failed"
+				? `command-failed (exit ${reason.exitCode})`
+				: reason.kind === "missing-ref"
+					? `missing-ref ${reason.ref}`
+					: reason.kind;
+		super(`git ${label} failed: ${detail}${stderr ? `\n${stderr}` : ""}`);
+		this.name = "GitRunnerError";
+	}
+}
+
+async function runGit(
+	args: string[],
+	opts: {
+		cwd: string;
+		label: string;
+		timeoutMs?: number;
+		maxBufferBytes?: number;
+		expectExitCodes?: number[];
+	},
+): Promise<string> {
+	const result = await runner.run({
+		args,
+		cwd: opts.cwd,
+		label: opts.label,
+		timeoutMs: opts.timeoutMs,
+		maxBufferBytes: opts.maxBufferBytes,
+		expectExitCodes: opts.expectExitCodes,
+	});
+	if (!result.ok) {
+		throw new GitRunnerError(result.reason, opts.label, result.stderr);
+	}
+	return result.stdout;
+}
 
 async function readDiffCommand(
 	args: string[],
 	worktreePath: string,
 ): Promise<string> {
-	try {
-		const { stdout } = await execFileAsync(gitBinary, args, {
-			cwd: worktreePath,
-		});
-		return stdout;
-	} catch (error: unknown) {
-		const stdout =
-			typeof error === "object" && error !== null && "stdout" in error
-				? String((error as { stdout?: string }).stdout ?? "")
-				: "";
-		const code =
-			typeof error === "object" && error !== null && "code" in error
-				? Number((error as { code?: number | string }).code)
-				: null;
-
-		if (code === 1 && stdout) {
-			return stdout;
-		}
-
-		throw error;
-	}
+	// Diff exits 1 when there are differences — treat as success.
+	return runGit(args, {
+		cwd: worktreePath,
+		label: "diff",
+		timeoutMs: 30_000,
+		maxBufferBytes: 32 * 1024 * 1024,
+		expectExitCodes: [0, 1],
+	});
 }
 
 const RECOGNIZED_STATUSES = new Set<string>(["M", "A", "D", "R", "??"]);
@@ -74,8 +104,6 @@ function parseStatusLine(line: string): GitChange | null {
 		return null;
 	}
 
-	// For renames, git status outputs "R  old-path -> new-path".
-	// Extract the new (destination) path and preserve the old path for diffs.
 	if (status === "R") {
 		const arrowIdx = path.indexOf(" -> ");
 		if (arrowIdx !== -1) {
@@ -93,8 +121,10 @@ async function resolveMergeTargetRef(
 ): Promise<string | null> {
 	for (const ref of ["origin/main", "origin/master"]) {
 		try {
-			await execFileAsync(gitBinary, ["rev-parse", "--verify", ref], {
+			await runGit(["rev-parse", "--verify", ref], {
 				cwd: worktreePath,
+				label: "rev-parse.merge-target",
+				timeoutMs: 10_000,
 			});
 			return ref;
 		} catch {
@@ -113,10 +143,9 @@ async function readAheadBehindCounts(
 	}
 
 	try {
-		const { stdout } = await execFileAsync(
-			gitBinary,
+		const stdout = await runGit(
 			["rev-list", "--left-right", "--count", `HEAD...${mergeTargetRef}`],
-			{ cwd: worktreePath },
+			{ cwd: worktreePath, label: "rev-list.ahead-behind", timeoutMs: 15_000 },
 		);
 		const [aheadRaw = "0", behindRaw = "0"] = stdout.trim().split(/\s+/);
 		return {
@@ -133,10 +162,12 @@ async function readBlobAtRevision(
 	revisionPath: string,
 ): Promise<string> {
 	try {
-		const { stdout } = await execFileAsync(gitBinary, ["show", revisionPath], {
+		return await runGit(["show", revisionPath], {
 			cwd: worktreePath,
+			label: "show.blob",
+			timeoutMs: 15_000,
+			maxBufferBytes: 32 * 1024 * 1024,
 		});
-		return stdout;
 	} catch {
 		return "";
 	}
@@ -153,28 +184,30 @@ async function readWorkingTreeFile(absolutePath: string): Promise<string> {
 export class GitService {
 	async readOrCreateRepoId(worktreePath: string): Promise<string | null> {
 		try {
-			const { stdout } = await execFileAsync(
-				gitBinary,
+			const stdout = await runGit(
 				["config", "--local", "--get", "ai14all.repoId"],
-				{ cwd: worktreePath },
+				{ cwd: worktreePath, label: "config.get.repoId", timeoutMs: 5_000 },
 			);
 			const existing = stdout.trim();
 			if (existing) return existing;
 		} catch (error) {
-			const code =
-				typeof error === "object" && error !== null && "code" in error
-					? Number((error as { code?: number | string }).code)
-					: null;
-			if (code !== 1) return null;
+			if (error instanceof GitRunnerError) {
+				const reason = error.reason;
+				if (reason.kind !== "command-failed" || reason.exitCode !== 1) {
+					return null;
+				}
+			} else {
+				return null;
+			}
 		}
 
 		const nextId = crypto.randomUUID();
 		try {
-			await execFileAsync(
-				gitBinary,
-				["config", "--local", "ai14all.repoId", nextId],
-				{ cwd: worktreePath },
-			);
+			await runGit(["config", "--local", "ai14all.repoId", nextId], {
+				cwd: worktreePath,
+				label: "config.set.repoId",
+				timeoutMs: 5_000,
+			});
 			return nextId;
 		} catch {
 			return null;
@@ -182,10 +215,14 @@ export class GitService {
 	}
 
 	async listChangedFiles(worktreePath: string): Promise<GitChange[]> {
-		const { stdout } = await execFileAsync(
-			gitBinary,
+		const stdout = await runGit(
 			["status", "--short", "--untracked-files=all"],
-			{ cwd: worktreePath },
+			{
+				cwd: worktreePath,
+				label: "status",
+				timeoutMs: 15_000,
+				maxBufferBytes: 64 * 1024 * 1024,
+			},
 		);
 
 		return stdout
@@ -198,18 +235,18 @@ export class GitService {
 	}
 
 	async readSummary(worktreePath: string): Promise<GitSummary> {
-		const [branchResult, recentResult, changedFiles, mergeTargetRef] =
+		const [branchStdout, recentStdout, changedFiles, mergeTargetRef] =
 			await Promise.all([
-				execFileAsync(gitBinary, ["branch", "--show-current"], {
+				runGit(["branch", "--show-current"], {
 					cwd: worktreePath,
+					label: "branch.show-current",
+					timeoutMs: 10_000,
 				}),
-				execFileAsync(
-					gitBinary,
-					["log", "--format=%H%x09%h%x09%s", "-n", "5"],
-					{
-						cwd: worktreePath,
-					},
-				),
+				runGit(["log", "--format=%H%x09%h%x09%s", "-n", "5"], {
+					cwd: worktreePath,
+					label: "log.recent",
+					timeoutMs: 15_000,
+				}),
 				this.listChangedFiles(worktreePath),
 				resolveMergeTargetRef(worktreePath),
 			]);
@@ -219,14 +256,14 @@ export class GitService {
 		);
 
 		return {
-			branchName: branchResult.stdout.trim(),
+			branchName: branchStdout.trim(),
 			isDirty: changedFiles.length > 0,
 			mergeTargetRef,
 			aheadCount,
 			behindCount,
 			changedFileCount: changedFiles.length,
 			changedFiles,
-			recentCommits: parseRecentCommits(recentResult.stdout),
+			recentCommits: parseRecentCommits(recentStdout),
 		};
 	}
 
@@ -265,8 +302,6 @@ export class GitService {
 			};
 		}
 
-		// For renames, diff against HEAD with --find-renames and both old/new
-		// paths so git can detect the rename and produce proper metadata.
 		const diffArgs =
 			change.status === "R" && change.oldPath
 				? [
@@ -302,16 +337,19 @@ export class GitService {
 			return { mergeTargetRef: null, entries: [] };
 		}
 
-		const { stdout: mergeBaseStdout } = await execFileAsync(
-			gitBinary,
+		const mergeBaseStdout = await runGit(
 			["merge-base", "HEAD", mergeTargetRef],
-			{ cwd: worktreePath },
+			{ cwd: worktreePath, label: "merge-base", timeoutMs: 10_000 },
 		);
 		const mergeBase = mergeBaseStdout.trim();
-		const { stdout } = await execFileAsync(
-			gitBinary,
+		const stdout = await runGit(
 			["log", "--format=%H%x09%h%x09%s", `${mergeBase}..HEAD`],
-			{ cwd: worktreePath },
+			{
+				cwd: worktreePath,
+				label: "log.history",
+				timeoutMs: 15_000,
+				maxBufferBytes: 16 * 1024 * 1024,
+			},
 		);
 		const entries = parseRecentCommits(stdout).map<GitCommitListEntry>(
 			(entry) => ({
@@ -321,12 +359,9 @@ export class GitService {
 		);
 
 		if (entries.length === 0) {
-			// HEAD is at or behind the merge target — all visible commits are already
-			// in the target, so mark them accordingly (green, not purple).
-			const { stdout: fallbackStdout } = await execFileAsync(
-				gitBinary,
+			const fallbackStdout = await runGit(
 				["log", "--format=%H%x09%h%x09%s", "-n", "20", "HEAD"],
-				{ cwd: worktreePath },
+				{ cwd: worktreePath, label: "log.fallback", timeoutMs: 15_000 },
 			);
 			return {
 				mergeTargetRef,
@@ -339,10 +374,8 @@ export class GitService {
 			};
 		}
 
-		// Always show at least 20 commits total: pad with merge target history.
 		const countFromTarget = Math.max(1, 20 - entries.length);
-		const { stdout: mergeBaseInfo } = await execFileAsync(
-			gitBinary,
+		const mergeBaseInfo = await runGit(
 			[
 				"log",
 				"--format=%H%x09%h%x09%s",
@@ -350,7 +383,7 @@ export class GitService {
 				String(countFromTarget),
 				mergeBase,
 			],
-			{ cwd: worktreePath },
+			{ cwd: worktreePath, label: "log.merge-base", timeoutMs: 15_000 },
 		);
 		const targetEntries = parseRecentCommits(
 			mergeBaseInfo,
@@ -366,22 +399,24 @@ export class GitService {
 		worktreePath: string,
 		sha: string,
 	): Promise<GitCommitDetail> {
-		const [
-			{ stdout: headerStdout },
-			{ stdout: parentStdout },
-			{ stdout: filesStdout },
-		] = await Promise.all([
-			execFileAsync(gitBinary, ["show", "--format=%H%x09%h%x09%s", "-s", sha], {
+		const [headerStdout, parentStdout, filesStdout] = await Promise.all([
+			runGit(["show", "--format=%H%x09%h%x09%s", "-s", sha], {
 				cwd: worktreePath,
+				label: "show.header",
+				timeoutMs: 10_000,
 			}),
-			execFileAsync(gitBinary, ["show", "--format=%P", "-s", sha], {
+			runGit(["show", "--format=%P", "-s", sha], {
 				cwd: worktreePath,
+				label: "show.parents",
+				timeoutMs: 10_000,
 			}),
-			execFileAsync(
-				gitBinary,
+			runGit(
 				["show", "--format=", "--name-status", "--find-renames", sha],
 				{
 					cwd: worktreePath,
+					label: "show.name-status",
+					timeoutMs: 15_000,
+					maxBufferBytes: 16 * 1024 * 1024,
 				},
 			),
 		]);
@@ -408,7 +443,6 @@ export class GitService {
 								: (fromPath ?? "");
 						const oldPath = isRename || isCopy ? (fromPath ?? null) : null;
 
-						// Skip entries with unrecognized status (U, X, B, T, etc.)
 						if (!["A", "M", "D", "R"].includes(status)) return null;
 
 						return {
@@ -463,8 +497,7 @@ export class GitService {
 			return;
 		}
 
-		await execFileAsync(
-			gitBinary,
+		await runGit(
 			[
 				"restore",
 				"--source=HEAD",
@@ -473,34 +506,37 @@ export class GitService {
 				"--",
 				relativePath,
 			],
-			{ cwd: worktreePath },
+			{ cwd: worktreePath, label: "restore", timeoutMs: 15_000 },
 		);
 	}
 
 	async getRemoteStatus(worktreePath: string): Promise<RemoteStatus> {
 		try {
-			await execFileAsync(
-				gitBinary,
+			await runGit(
 				["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
-				{ cwd: worktreePath },
+				{ cwd: worktreePath, label: "rev-parse.upstream", timeoutMs: 10_000 },
 			);
 		} catch {
 			return { hasRemote: false, ahead: 0, behind: 0 };
 		}
 
 		try {
-			const [aheadResult, behindResult] = await Promise.all([
-				execFileAsync(gitBinary, ["rev-list", "--count", "@{u}..HEAD"], {
+			const [aheadStdout, behindStdout] = await Promise.all([
+				runGit(["rev-list", "--count", "@{u}..HEAD"], {
 					cwd: worktreePath,
+					label: "rev-list.ahead",
+					timeoutMs: 10_000,
 				}),
-				execFileAsync(gitBinary, ["rev-list", "--count", "HEAD..@{u}"], {
+				runGit(["rev-list", "--count", "HEAD..@{u}"], {
 					cwd: worktreePath,
+					label: "rev-list.behind",
+					timeoutMs: 10_000,
 				}),
 			]);
 			return {
 				hasRemote: true,
-				ahead: Number(aheadResult.stdout.trim()) || 0,
-				behind: Number(behindResult.stdout.trim()) || 0,
+				ahead: Number(aheadStdout.trim()) || 0,
+				behind: Number(behindStdout.trim()) || 0,
 			};
 		} catch {
 			return { hasRemote: false, ahead: 0, behind: 0 };
@@ -509,6 +545,10 @@ export class GitService {
 
 	async pushBranch(worktreePath: string, force: boolean): Promise<void> {
 		const args = force ? ["push", "--force-with-lease"] : ["push"];
-		await execFileAsync(gitBinary, args, { cwd: worktreePath });
+		await runGit(args, {
+			cwd: worktreePath,
+			label: "push",
+			timeoutMs: 60_000,
+		});
 	}
 }
