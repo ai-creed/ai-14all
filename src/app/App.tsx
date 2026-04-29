@@ -119,6 +119,7 @@ import { describeRepositoryLoadError } from "../features/repository/describe-rep
 import { SHORTCUT_REGISTRY, detectPlatform } from "./shortcut-registry";
 import { useWindowFocus } from "./hooks/use-window-focus";
 import { useWorkspacePersistence } from "./hooks/use-workspace-persistence";
+import { usePaneResizers } from "./hooks/use-pane-resizers";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -133,8 +134,14 @@ function normalizeTerminalTitle(title: string): string | null {
 export function App() {
 	const { resolvedTheme } = useTheme();
 	const appPlatform = useMemo(detectPlatform, []);
-	const [reviewRailWidth, setReviewRailWidth] = useState(320);
-	const [reviewPanelHeight, setReviewPanelHeight] = useState(280);
+	const {
+		reviewRailWidth,
+		reviewPanelHeight,
+		sidebarWidth,
+		handleReviewRailResizeStart,
+		handleSidebarResizeStart,
+		handleReviewPanelResizeStart,
+	} = usePaneResizers({});
 	const [reviewExpanded, setReviewExpanded] = useState(false);
 	const chipBarRef = useRef<HTMLDivElement>(null);
 	const mainColRef = useRef<HTMLElement>(null);
@@ -149,7 +156,6 @@ export function App() {
 	}
 
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-	const [sidebarWidth, setSidebarWidth] = useState(240);
 	const [pendingRename, setPendingRename] = useState<{
 		workspaceId: string;
 		worktreeId: string;
@@ -1746,80 +1752,7 @@ export function App() {
 		}
 	}, [windowFocused, startupMode, repository?.rootPath, activeWorktree?.id]);
 
-	function handleReviewRailResizeStart(event: ReactMouseEvent<HTMLDivElement>) {
-		event.preventDefault();
-		const startX = event.clientX;
-		const startWidth = reviewRailWidth;
-
-		const handleMouseMove = (moveEvent: MouseEvent) => {
-			const nextWidth = Math.min(
-				520,
-				Math.max(240, startWidth + (moveEvent.clientX - startX)),
-			);
-			setReviewRailWidth(nextWidth);
-		};
-
-		const handleMouseUp = () => {
-			window.removeEventListener("mousemove", handleMouseMove);
-			window.removeEventListener("mouseup", handleMouseUp);
-		};
-
-		window.addEventListener("mousemove", handleMouseMove);
-		window.addEventListener("mouseup", handleMouseUp);
-	}
-
-	function handleSidebarResizeStart(event: ReactMouseEvent<HTMLDivElement>) {
-		event.preventDefault();
-		const startX = event.clientX;
-		const startWidth = sidebarWidth;
-
-		const handleMouseMove = (moveEvent: MouseEvent) => {
-			const nextWidth = Math.min(
-				480,
-				Math.max(180, startWidth + (moveEvent.clientX - startX)),
-			);
-			setSidebarWidth(nextWidth);
-		};
-
-		const handleMouseUp = () => {
-			window.removeEventListener("mousemove", handleMouseMove);
-			window.removeEventListener("mouseup", handleMouseUp);
-		};
-
-		window.addEventListener("mousemove", handleMouseMove);
-		window.addEventListener("mouseup", handleMouseUp);
-	}
-
-	function handleReviewPanelResizeStart(
-		event: ReactMouseEvent<HTMLDivElement>,
-	) {
-		event.preventDefault();
-		const startY = event.clientY;
-		const startHeight = reviewPanelHeight;
-
-		const handleMouseMove = (moveEvent: MouseEvent) => {
-			const maxHeight = Math.max(160, window.innerHeight - 320);
-			// Moving the handle upward increases review height; moving it
-			// downward decreases review height and gives space back to the
-			// terminal. Keep the subtraction form explicit so unit and e2e
-			// expectations stay aligned.
-			const nextHeight = Math.min(
-				maxHeight,
-				Math.max(160, startHeight - (moveEvent.clientY - startY)),
-			);
-			setReviewPanelHeight(nextHeight);
-		};
-
-		const handleMouseUp = () => {
-			window.removeEventListener("mousemove", handleMouseMove);
-			window.removeEventListener("mouseup", handleMouseUp);
-		};
-
-		window.addEventListener("mousemove", handleMouseMove);
-		window.addEventListener("mouseup", handleMouseUp);
-	}
-
-	async function handleSelectWorktree(
+async function handleSelectWorktree(
 		worktreeId: string,
 		targetContext?: {
 			workspaceId: string;
