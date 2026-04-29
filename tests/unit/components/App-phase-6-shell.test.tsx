@@ -289,7 +289,7 @@ describe("App — Phase 6 default shell", () => {
 			await screen.findByRole("button", { name: /feature commit/i }),
 		);
 
-		expect(mockReadCommitDetail).toHaveBeenCalledWith("/repo", "abc");
+		expect(mockReadCommitDetail).toHaveBeenCalledWith("repo-1", "main", "abc");
 		// "feature commit" appears in both the commit rail (subject) and the diff header
 		await waitFor(() => {
 			expect(
