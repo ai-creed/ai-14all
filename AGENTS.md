@@ -64,6 +64,13 @@ Avoid mixing component files and non-component modules in the same feature folde
 
 Do not put renderer implementation types into `shared/`. The `shared/` layer must not import from `src/`; move renderer-only state and view models into the relevant feature folder.
 
+### Test File Layout
+
+- New feature-owned tests live under `tests/unit/<domain>/` or `tests/unit/features/<domain>/`, where `<domain>` is the feature folder name (`review`, `workspace`, `terminals`, `viewer`, `git`, `files`, `editor`, `app`).
+- Do not add new test files to `tests/unit/components/`. That folder is a legacy catch-all and will be drained opportunistically when its tests' source code is touched.
+- Test file names mirror their source: `SessionSidebar.tsx` → `tests/unit/workspace/SessionSidebar.test.tsx`, `use-theme.ts` → `tests/unit/lib/use-theme.test.ts`.
+- For pure-logic modules, place the test next to its source domain.
+
 ## Product Boundaries
 
 V1 assumptions:
