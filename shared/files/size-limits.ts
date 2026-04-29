@@ -1,0 +1,4 @@
+export const MAX_FILE_VIEW_BYTES = 5_000_000;
+export const MAX_DIFF_PAYLOAD_BYTES = 8_000_000;
+export const MAX_COMMIT_FILE_BYTES = 2_000_000;
+export const BINARY_SNIFF_BYTES = 8_000;
