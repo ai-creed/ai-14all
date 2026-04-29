@@ -121,6 +121,7 @@ import { useWindowFocus } from "./hooks/use-window-focus";
 import { useWorkspacePersistence } from "./hooks/use-workspace-persistence";
 import { usePaneResizers } from "./hooks/use-pane-resizers";
 import { useChangesRefreshLoop } from "./hooks/use-changes-refresh-loop";
+import { useTickingNow } from "./hooks/use-ticking-now";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -161,7 +162,7 @@ export function App() {
 		workspaceId: string;
 		worktreeId: string;
 	} | null>(null);
-	const [sidebarNow, setSidebarNow] = useState(() => Date.now());
+	const sidebarNow = useTickingNow(1_000);
 	const [noteSheetOpen, setNoteSheetOpen] = useState(false);
 	const [filesOverlayOpen, setFilesOverlayOpen] = useState(false);
 	const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
@@ -228,13 +229,6 @@ export function App() {
 			);
 		}
 	}
-
-	useEffect(() => {
-		const interval = window.setInterval(() => {
-			setSidebarNow(Date.now());
-		}, 1_000);
-		return () => window.clearInterval(interval);
-	}, []);
 
 	// Stable dispatch wrapper — always applies to the shadow ref so sequential
 	// async calls accumulate correctly without waiting for React to re-render.
