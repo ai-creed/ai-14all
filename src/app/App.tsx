@@ -120,6 +120,7 @@ import { SHORTCUT_REGISTRY, detectPlatform } from "./shortcut-registry";
 import { useWindowFocus } from "./hooks/use-window-focus";
 import { useWorkspacePersistence } from "./hooks/use-workspace-persistence";
 import { usePaneResizers } from "./hooks/use-pane-resizers";
+import { useChangesRefreshLoop } from "./hooks/use-changes-refresh-loop";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -299,7 +300,6 @@ export function App() {
 	const [windowFocused, setWindowFocused] = useState(
 		typeof document !== "undefined" ? document.hasFocus() : true,
 	);
-	const previousFocusedRef = useRef(windowFocused);
 
 	type ReviewLoadState<T> = {
 		data: T | null;
@@ -1721,36 +1721,13 @@ export function App() {
 		activeWorkspaceStateRef,
 	});
 
-	useEffect(() => {
-		if (
-			startupMode !== "ready" ||
-			!repository ||
-			!activeWorktree ||
-			!windowFocused
-		)
-			return;
-
-		const interval = window.setInterval(() => {
-			void handleRefreshChanges();
-		}, 15_000);
-
-		return () => window.clearInterval(interval);
-	}, [startupMode, repository?.rootPath, activeWorktree?.id, windowFocused]);
-
-	useEffect(() => {
-		const wasFocused = previousFocusedRef.current;
-		previousFocusedRef.current = windowFocused;
-
-		if (
-			!wasFocused &&
-			windowFocused &&
-			startupMode === "ready" &&
-			repository &&
-			activeWorktree
-		) {
-			void handleRefreshChanges();
-		}
-	}, [windowFocused, startupMode, repository?.rootPath, activeWorktree?.id]);
+	useChangesRefreshLoop({
+		startupMode,
+		repository,
+		activeWorktree,
+		windowFocused,
+		onRefresh: handleRefreshChanges,
+	});
 
 async function handleSelectWorktree(
 		worktreeId: string,
