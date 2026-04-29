@@ -19,10 +19,7 @@ import type {
 	WorkspaceSnapshot,
 	PersistedWorkspaceStateV2,
 } from "../../shared/models/persisted-workspace-state";
-import type {
-	CreateWorktreePreview,
-	RemoveWorktreePreview,
-} from "../../shared/models/worktree-lifecycle";
+import type { RemoveWorktreePreview } from "../../shared/models/worktree-lifecycle";
 import {
 	buildSavedWorkspace,
 	buildWorktreeIdRebaseMapping,
@@ -124,6 +121,7 @@ import { useKeyboardShortcut } from "./hooks/use-keyboard-shortcut";
 import { useStartupRestore } from "./hooks/use-startup-restore";
 import { useGitSummaryLoader } from "./hooks/use-git-summary-loader";
 import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-empty-worktree";
+import { useCreateWorktreePreview } from "./hooks/use-create-worktree-preview";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -296,10 +294,6 @@ export function App() {
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
 	const [createName, setCreateName] = useState("");
 	const [createSessionTitle, setCreateSessionTitle] = useState("");
-	const [createPreview, setCreatePreview] =
-		useState<CreateWorktreePreview | null>(null);
-	const [createLoading, setCreateLoading] = useState(false);
-	const [createError, setCreateError] = useState<string | null>(null);
 	const [createBusy, setCreateBusy] = useState(false);
 	const [discardPath, setDiscardPath] = useState<string | null>(null);
 	const [treePreviewPath, setTreePreviewPath] = useState<string | null>(null);
@@ -1423,36 +1417,17 @@ export function App() {
 		dispatch,
 	});
 
-	useEffect(() => {
-		if (!createDialogOpen || !createName.trim() || !activeWorkspaceId) {
-			setCreatePreview(null);
-			setCreateError(null);
-			return;
-		}
-		let cancelled = false;
-		const timeoutId = window.setTimeout(() => {
-			setCreateLoading(true);
-			repositoryClient
-				.previewCreateWorktree(activeWorkspaceId, createName)
-				.then((preview) => {
-					if (cancelled) return;
-					setCreatePreview(preview);
-					setCreateError(null);
-				})
-				.catch((err) => {
-					if (cancelled) return;
-					setCreatePreview(null);
-					setCreateError(err instanceof Error ? err.message : String(err));
-				})
-				.finally(() => {
-					if (!cancelled) setCreateLoading(false);
-				});
-		}, 350);
-		return () => {
-			cancelled = true;
-			window.clearTimeout(timeoutId);
-		};
-	}, [createDialogOpen, createName]);
+	const {
+		preview: createPreview,
+		loading: createLoading,
+		error: createError,
+		setPreview: setCreatePreview,
+		setError: setCreateError,
+	} = useCreateWorktreePreview({
+		open: createDialogOpen,
+		name: createName,
+		workspaceId: activeWorkspaceId,
+	});
 
 	useEffect(() => {
 		if (!removeDialogOpen || !removeTargetId || !activeWorkspaceId) {
