@@ -114,6 +114,7 @@ import { useTerminalRuntime } from "./hooks/use-terminal-runtime";
 import { useWorkspacePickerListener } from "./hooks/use-workspace-picker-listener";
 import { useInstallModalListener } from "./hooks/use-install-modal-listener";
 import { useRendererStartLog } from "./hooks/use-renderer-start-log";
+import { useEditFileShortcut } from "./hooks/use-edit-file-shortcut";
 import { useStartupRestore } from "./hooks/use-startup-restore";
 import { useGitSummaryLoader } from "./hooks/use-git-summary-loader";
 import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-empty-worktree";
@@ -425,20 +426,11 @@ export function App() {
 		return files.listTracked(activeWorkspaceId, activeWorktree.id);
 	}, [activeWorkspaceId, activeWorktree]);
 
-	useEffect(() => {
-		const onKey = (e: KeyboardEvent) => {
-			if (!(e.metaKey || e.ctrlKey) || e.key !== "e") return;
-			if (editorTarget !== null) return; // modal owns it while open
-			const selectedPath = activeSession?.selectedFilePath ?? null;
-			if (!selectedPath) return;
-			const basename = selectedPath.split("/").pop() ?? "";
-			if (!isEditable(basename)) return;
-			e.preventDefault();
-			void openEditorForFile(selectedPath);
-		};
-		window.addEventListener("keydown", onKey, true);
-		return () => window.removeEventListener("keydown", onKey, true);
-	}, [editorTarget, openEditorForFile, activeSession?.selectedFilePath]);
+	useEditFileShortcut({
+		editorOpen: editorTarget !== null,
+		selectedFilePath: activeSession?.selectedFilePath ?? null,
+		onOpen: openEditorForFile,
+	});
 
 	function selectActiveProcess(processId: string) {
 		if (!activeWorktree) return;
