@@ -24,10 +24,8 @@ import {
 } from "../features/workspace/logic/workspace-persistence";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
+import { isEditable } from "../../shared/editor/editable-files";
 import { type SessionSidebarWorkspace } from "../features/workspace/components/SessionSidebar";
-import { SessionChipBar } from "../features/workspace/components/SessionChipBar";
-import { NoteSheet } from "../features/workspace/components/NoteSheet";
-import { displayTitle } from "../features/workspace/logic/session-display-title";
 import {
 	createWorkspaceState,
 	workspaceReducer,
@@ -35,9 +33,6 @@ import {
 	type WorkspaceState,
 } from "../features/workspace/logic/workspace-state";
 import { PresetManager } from "../features/terminals/components/PresetManager";
-import { isEditable } from "../../shared/editor/editable-files";
-import { FilesOverlay } from "../features/files/FilesOverlay";
-import { ShortcutsHelp } from "../features/shortcuts/ShortcutsHelp";
 import {
 	type ReviewExpandedPortalHandle,
 } from "../features/review/components/ReviewExpandedPortal";
@@ -59,7 +54,6 @@ import {
 	noteBridge,
 } from "../lib/desktop-client";
 import { countOpenCommentsInFiles } from "../features/git/logic/commit-list-badge";
-import { UpdateBanner } from "../features/updater/UpdateBanner";
 import { logRendererShellEvent } from "../features/terminals/logic/shell-event-logger";
 import { useTheme } from "../lib/use-theme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
@@ -95,6 +89,7 @@ import { TerminalPanel } from "./components/TerminalPanel";
 import { ReviewDrawerSection } from "./components/ReviewDrawerSection";
 import { ReviewArea } from "./components/ReviewArea";
 import { SidebarPanel } from "./components/SidebarPanel";
+import { MainColumnChrome } from "./components/MainColumnChrome";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -1953,100 +1948,31 @@ async function handleSelectWorktree(
 				/>
 
 				<section className="shell-main-column" ref={mainColRef}>
-					<UpdateBanner
-						info={bannerInfo}
-						onDownload={(url) => void system.openExternal(url)}
-						onDismiss={() => setUpdateDismissedFor(updateInfo?.version ?? null)}
-					/>
-					{activeWorktree && activeSession && (
-						<div ref={chipBarRef}>
-							<SessionChipBar
-								sessionTitle={displayTitle(activeSession.title, activeWorktree)}
-								worktreeLabel={activeWorktree.label}
-								branchName={activeWorktree.branchName}
-								isDirty={activeSummary?.isDirty ?? false}
-								changedFileCount={changes.length}
-								noteNonEmpty={activeSession.note.trim() !== ""}
-								onRenameClick={() => {
-									if (activeWorkspaceId !== null && activeWorktree !== null) {
-										setSidebarCollapsed(false);
-										setPendingRename({
-											workspaceId: activeWorkspaceId,
-											worktreeId: activeWorktree.id,
-										});
-									}
-								}}
-								onDirtyClick={() => {
-									if (!activeWorktree) return;
-									autoExpand.noteUserExpand(activeWorktree.id);
-									dispatch({
-										type: "session/setReviewDrawerOpen",
-										worktreeId: activeWorktree.id,
-										open: true,
-									});
-									dispatch({
-										type: "session/setReviewMode",
-										worktreeId: activeWorktree.id,
-										reviewMode: "changes",
-									});
-								}}
-								onFilesClick={() => setFilesOverlayOpen(true)}
-								onNoteClick={() => setNoteSheetOpen((prev) => !prev)}
-							/>
-						</div>
-					)}
-					<NoteSheet
-						open={noteSheetOpen}
-						note={activeSession?.note ?? ""}
-						onNoteChange={(note) => {
-							if (activeWorktree) {
-								dispatch({
-									type: "session/setNote",
-									worktreeId: activeWorktree.id,
-									note,
-								});
-							}
-						}}
-						onClose={() => setNoteSheetOpen(false)}
-					/>
-					<FilesOverlay
-						isOpen={filesOverlayOpen}
-						onClose={() => setFilesOverlayOpen(false)}
+					<MainColumnChrome
+						bannerInfo={bannerInfo}
+						updateInfoVersion={updateInfo?.version ?? null}
+						setUpdateDismissedFor={setUpdateDismissedFor}
+						onOpenExternal={(url) => void system.openExternal(url)}
+						chipBarRef={chipBarRef}
+						activeWorktree={activeWorktree}
+						activeSession={activeSession ?? null}
+						activeSummary={activeSummary}
+						changedFileCount={changes.length}
+						activeWorkspaceId={activeWorkspaceId}
+						setSidebarCollapsed={setSidebarCollapsed}
+						setPendingRename={setPendingRename}
+						autoExpand={autoExpand}
+						dispatch={dispatch}
+						noteSheetOpen={noteSheetOpen}
+						setNoteSheetOpen={setNoteSheetOpen}
+						filesOverlayOpen={filesOverlayOpen}
+						setFilesOverlayOpen={setFilesOverlayOpen}
 						trackedFilesLoader={trackedFilesLoader}
 						gitStatusMap={gitStatusMap}
-						onViewFile={(path) => {
-							if (!activeWorktree) {
-								setFilesOverlayOpen(false);
-								return;
-							}
-							dispatch({
-								type: "session/selectFile",
-								worktreeId: activeWorktree.id,
-								relativePath: path,
-							});
-							dispatch({
-								type: "session/setReviewMode",
-								worktreeId: activeWorktree.id,
-								reviewMode: "files",
-							});
-							dispatch({
-								type: "session/setReviewDrawerOpen",
-								worktreeId: activeWorktree.id,
-								open: true,
-							});
-							autoExpand.noteUserExpand(activeWorktree.id);
-							setFilesOverlayOpen(false);
-						}}
-						onEditFile={(path) => {
-							setFilesOverlayOpen(false);
-							void openEditorForFile(path);
-						}}
-						isEditable={isEditable}
-					/>
-					<ShortcutsHelp
-						open={shortcutsHelpOpen}
-						platform={appPlatform}
-						onClose={() => setShortcutsHelpOpen(false)}
+						openEditorForFile={openEditorForFile}
+						shortcutsHelpOpen={shortcutsHelpOpen}
+						setShortcutsHelpOpen={setShortcutsHelpOpen}
+						appPlatform={appPlatform}
 					/>
 
 					<TerminalPanel
