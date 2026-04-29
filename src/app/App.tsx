@@ -97,7 +97,7 @@ import { UpdateBanner } from "../features/updater/UpdateBanner";
 import { logRendererShellEvent } from "../features/terminals/logic/shell-event-logger";
 import { useTheme } from "../lib/use-theme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
-import { SHORTCUT_REGISTRY, detectPlatform } from "./shortcut-registry";
+import { detectPlatform } from "./shortcut-registry";
 import { useWindowFocus } from "./hooks/use-window-focus";
 import { useWorkspacePersistence } from "./hooks/use-workspace-persistence";
 import { usePaneResizers } from "./hooks/use-pane-resizers";
@@ -1821,46 +1821,45 @@ async function handleSelectWorktree(
 	);
 
 	// Cmd+1/2/3 / Ctrl+1/2/3 — switch review pane tab and open drawer
-	useEffect(() => {
-		const filesShortcut = SHORTCUT_REGISTRY.find(
-			(s) => s.id === "review.files",
-		)!;
-		const changesShortcut = SHORTCUT_REGISTRY.find(
-			(s) => s.id === "review.changes",
-		)!;
-		const commitsShortcut = SHORTCUT_REGISTRY.find(
-			(s) => s.id === "review.commits",
-		)!;
-		const handler = (e: KeyboardEvent) => {
-			let reviewMode: "files" | "changes" | "commits" | null = null;
-			if (filesShortcut.predicate(e, appPlatform)) reviewMode = "files";
-			else if (changesShortcut.predicate(e, appPlatform))
-				reviewMode = "changes";
-			else if (commitsShortcut.predicate(e, appPlatform))
-				reviewMode = "commits";
-			if (!reviewMode) return;
-			const currentState = workspaceStateRef.current;
-			const currentWorktreeId = currentState.selectedWorktreeId;
-			if (!currentWorktreeId) return;
-			e.preventDefault();
-			const session = currentState.sessionsByWorktreeId[currentWorktreeId];
-			dispatch({
-				type: "session/setReviewMode",
-				worktreeId: currentWorktreeId,
-				reviewMode,
-			});
-			if (!(session?.reviewDrawerOpen ?? false)) {
-				autoExpand.noteUserExpand(currentWorktreeId);
+	const switchReviewMode = useCallback(
+		(reviewMode: "files" | "changes" | "commits") =>
+			(e: KeyboardEvent) => {
+				const currentState = workspaceStateRef.current;
+				const currentWorktreeId = currentState.selectedWorktreeId;
+				if (!currentWorktreeId) return;
+				e.preventDefault();
+				const session = currentState.sessionsByWorktreeId[currentWorktreeId];
 				dispatch({
-					type: "session/setReviewDrawerOpen",
+					type: "session/setReviewMode",
 					worktreeId: currentWorktreeId,
-					open: true,
+					reviewMode,
 				});
-			}
-		};
-		document.addEventListener("keydown", handler, true);
-		return () => document.removeEventListener("keydown", handler, true);
-	}, [appPlatform, autoExpand, dispatch]);
+				if (!(session?.reviewDrawerOpen ?? false)) {
+					autoExpand.noteUserExpand(currentWorktreeId);
+					dispatch({
+						type: "session/setReviewDrawerOpen",
+						worktreeId: currentWorktreeId,
+						open: true,
+					});
+				}
+			},
+		[autoExpand, dispatch, workspaceStateRef],
+	);
+	useKeyboardShortcut("review.files", appPlatform, switchReviewMode("files"), [
+		switchReviewMode,
+	]);
+	useKeyboardShortcut(
+		"review.changes",
+		appPlatform,
+		switchReviewMode("changes"),
+		[switchReviewMode],
+	);
+	useKeyboardShortcut(
+		"review.commits",
+		appPlatform,
+		switchReviewMode("commits"),
+		[switchReviewMode],
+	);
 
 	function handleSelectChangedFile(relativePath: string) {
 		if (!activeWorktree) return;
