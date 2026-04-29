@@ -3,6 +3,11 @@ import pty from "node-pty";
 import type { IPty } from "node-pty";
 import type { TerminalSession } from "../../shared/models/terminal-session.js";
 import type { ShellEventLogInput } from "../diagnostics/shell-event-log-service.js";
+import { OutputBatcher } from "./output-batcher.js";
+
+const OUTPUT_BATCH_WINDOW_MS = Number(
+	process.env.AI14ALL_TERMINAL_BATCH_MS ?? 16,
+);
 
 // ---------------------------------------------------------------------------
 // Types
@@ -136,7 +141,12 @@ export class TerminalService {
 			this.handlers.onState(id, "running");
 		}
 
-		// Forward PTY output
+		// Forward PTY output through a batcher to bound IPC event rate.
+		const batcher = new OutputBatcher(OUTPUT_BATCH_WINDOW_MS, (data) => {
+			if (this.disposed) return;
+			this.handlers.onOutput(id, data);
+		});
+
 		p.onData((data: string) => {
 			if (this.disposed) return;
 			this.shellEventLog?.log({
@@ -153,12 +163,13 @@ export class TerminalService {
 					truncated: false,
 				},
 			});
-			this.handlers.onOutput(id, data);
+			batcher.push(data);
 		});
 
 		// Handle PTY exit
 		p.onExit(({ exitCode, signal }) => {
 			if (this.disposed) return;
+			batcher.drain();
 			const session = this.sessions.get(id);
 			if (!session) return; // Already cleaned up (e.g. dispose() was called)
 			session.meta.status = "exited";
