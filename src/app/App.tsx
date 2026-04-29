@@ -117,6 +117,7 @@ import { logRendererShellEvent } from "../features/terminals/shell-event-logger"
 import { useTheme } from "../lib/use-theme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
 import { SHORTCUT_REGISTRY, detectPlatform } from "./shortcut-registry";
+import { useWindowFocus } from "./hooks/use-window-focus";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -1707,60 +1708,11 @@ export function App() {
 		setRefreshKey((k) => k + 1);
 	}
 
-	useEffect(() => {
-		const handleFocus = () => {
-			setWindowFocused(true);
-			void logRendererShellEvent({
-				event: "renderer-window-focus",
-				windowId: null,
-				reasonKind: "window_lifecycle",
-				reason: "app_focus",
-				data: {
-					activeWorkspaceId: appWorkspacesRef.current.activeWorkspaceId,
-					activeWorktreeId: activeWorkspaceStateRef.current.selectedWorktreeId,
-				},
-			});
-			void logRendererShellEvent({
-				event: "app-became-active",
-				windowId: null,
-				reasonKind: "window_lifecycle",
-				reason: "app_focus",
-				data: {
-					activeWorkspaceId: appWorkspacesRef.current.activeWorkspaceId,
-					activeWorktreeId: activeWorkspaceStateRef.current.selectedWorktreeId,
-				},
-			});
-		};
-		const handleBlur = () => {
-			setWindowFocused(false);
-			void logRendererShellEvent({
-				event: "renderer-window-blur",
-				windowId: null,
-				reasonKind: "window_lifecycle",
-				reason: "app_blur",
-				data: {
-					activeWorkspaceId: appWorkspacesRef.current.activeWorkspaceId,
-					activeWorktreeId: activeWorkspaceStateRef.current.selectedWorktreeId,
-				},
-			});
-			void logRendererShellEvent({
-				event: "app-became-inactive",
-				windowId: null,
-				reasonKind: "window_lifecycle",
-				reason: "app_blur",
-				data: {
-					activeWorkspaceId: appWorkspacesRef.current.activeWorkspaceId,
-					activeWorktreeId: activeWorkspaceStateRef.current.selectedWorktreeId,
-				},
-			});
-		};
-		window.addEventListener("focus", handleFocus);
-		window.addEventListener("blur", handleBlur);
-		return () => {
-			window.removeEventListener("focus", handleFocus);
-			window.removeEventListener("blur", handleBlur);
-		};
-	}, []);
+	useWindowFocus({
+		setWindowFocused,
+		appWorkspacesRef,
+		activeWorkspaceStateRef,
+	});
 
 	useEffect(() => {
 		if (
