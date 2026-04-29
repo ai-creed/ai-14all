@@ -19,7 +19,6 @@ import type {
 	WorkspaceSnapshot,
 	PersistedWorkspaceStateV2,
 } from "../../shared/models/persisted-workspace-state";
-import type { RemoveWorktreePreview } from "../../shared/models/worktree-lifecycle";
 import {
 	buildSavedWorkspace,
 	buildWorktreeIdRebaseMapping,
@@ -122,6 +121,7 @@ import { useStartupRestore } from "./hooks/use-startup-restore";
 import { useGitSummaryLoader } from "./hooks/use-git-summary-loader";
 import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-empty-worktree";
 import { useCreateWorktreePreview } from "./hooks/use-create-worktree-preview";
+import { useRemoveWorktreePreview } from "./hooks/use-remove-worktree-preview";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -307,9 +307,6 @@ export function App() {
 	const [openEditorError, setOpenEditorError] = useState<string | null>(null);
 	const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
 	const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
-	const [removePreview, setRemovePreview] =
-		useState<RemoveWorktreePreview | null>(null);
-	const [removeError, setRemoveError] = useState<string | null>(null);
 	const [removeBusy, setRemoveBusy] = useState(false);
 	const [confirmedDirtyRemoval, setConfirmedDirtyRemoval] = useState(false);
 	const [startupMode, setStartupMode] = useState<StartupMode>("loading");
@@ -1429,31 +1426,16 @@ export function App() {
 		workspaceId: activeWorkspaceId,
 	});
 
-	useEffect(() => {
-		if (!removeDialogOpen || !removeTargetId || !activeWorkspaceId) {
-			setRemovePreview(null);
-			setRemoveError(null);
-			return;
-		}
-		let cancelled = false;
-		repositoryClient
-			.previewRemoveWorktree(activeWorkspaceId, removeTargetId)
-			.then((preview) => {
-				if (!cancelled) {
-					setRemovePreview(preview);
-					setRemoveError(null);
-				}
-			})
-			.catch((err) => {
-				if (!cancelled) {
-					setRemovePreview(null);
-					setRemoveError(err instanceof Error ? err.message : String(err));
-				}
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [removeDialogOpen, removeTargetId]);
+	const {
+		preview: removePreview,
+		error: removeError,
+		setPreview: setRemovePreview,
+		setError: setRemoveError,
+	} = useRemoveWorktreePreview({
+		open: removeDialogOpen,
+		worktreeId: removeTargetId,
+		workspaceId: activeWorkspaceId,
+	});
 
 	async function refreshWorktreeInventory(options?: {
 		preferredSelectedWorktreeId?: string | null;
