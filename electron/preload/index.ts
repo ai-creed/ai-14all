@@ -214,9 +214,10 @@ const api: Ai14AllDesktopApi = {
 				sha,
 			});
 		},
-		discardChange(worktreePath, relativePath) {
+		discardChange(workspaceId, worktreeId, relativePath) {
 			return ipcRenderer.invoke("git:discardChange", {
-				worktreePath,
+				workspaceId,
+				worktreeId,
 				relativePath,
 			});
 		},

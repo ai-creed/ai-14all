@@ -1696,8 +1696,8 @@ export function App() {
 	}
 
 	async function handleDiscardChange() {
-		if (!activeWorktree?.path || !discardPath) return;
-		await git.discardChange(activeWorktree.path, discardPath);
+		if (!activeWorktree?.id || !activeWorkspaceId || !discardPath) return;
+		await git.discardChange(activeWorkspaceId, activeWorktree.id, discardPath);
 		setRefreshKey((k) => k + 1);
 	}
 

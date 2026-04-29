@@ -386,9 +386,12 @@ export function registerIpcHandlers(
 		return gitService.readCommitDetail(worktree.path, sha);
 	});
 
-	ipcMain.handle("git:discardChange", (_event, raw: unknown) => {
-		const { worktreePath, relativePath } = DiscardGitChangeSchema.parse(raw);
-		return gitService.discardChange(worktreePath, relativePath);
+	ipcMain.handle("git:discardChange", async (_event, raw: unknown) => {
+		const { workspaceId, worktreeId, relativePath } =
+			DiscardGitChangeSchema.parse(raw);
+		const repository = workspaceRegistry.get(workspaceId);
+		const worktree = await worktreeService.findWorktree(repository, worktreeId);
+		return gitService.discardChange(worktree.path, relativePath);
 	});
 
 	ipcMain.handle("git:getRemoteStatus", async (_event, raw: unknown) => {

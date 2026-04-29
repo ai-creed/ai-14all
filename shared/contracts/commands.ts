@@ -218,7 +218,8 @@ export const ReadGitCommitDetailSchema = z.object({
 });
 
 export const DiscardGitChangeSchema = z.object({
-	worktreePath: z.string(),
+	workspaceId: z.string().min(1),
+	worktreeId: z.string().min(1),
 	relativePath: z.string(),
 });
 
@@ -319,7 +320,11 @@ export type Ai14AllDesktopApi = {
 			worktreeId: string,
 			sha: string,
 		): Promise<GitCommitDetail>;
-		discardChange(worktreePath: string, relativePath: string): Promise<void>;
+		discardChange(
+			workspaceId: string,
+			worktreeId: string,
+			relativePath: string,
+		): Promise<void>;
 		getRemoteStatus(
 			workspaceId: string,
 			worktreeId: string,
