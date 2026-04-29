@@ -28,10 +28,18 @@ if (process.env.AI14ALL_USER_DATA_PATH) {
 }
 
 app.whenReady().then(async () => {
+	const debugMode = process.env.AI14ALL_DEBUG;
+	const shellEventLogMode =
+		debugMode === "full"
+			? ("full" as const)
+			: debugMode === "1"
+				? ("sampled" as const)
+				: undefined;
 	const shellEventLog = createShellEventLogService({
 		userDataPath: app.getPath("userData"),
 		isPackaged: app.isPackaged,
 		appVersion: app.getVersion(),
+		mode: shellEventLogMode,
 	});
 	shellEventLog.log({
 		source: "main",

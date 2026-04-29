@@ -11,6 +11,9 @@ import type { ShellEventRecord } from "../../shared/models/shell-event-record.js
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 const MAX_TEXT_CHARS = 4096;
+const TERMINAL_OUTPUT_SAMPLE_EVERY = 50;
+
+export type ShellEventLogMode = "off" | "sampled" | "full";
 
 export type ShellEventLogInput = Omit<
 	ShellEventRecord,
@@ -27,11 +30,16 @@ export function createShellEventLogService(input: {
 	userDataPath: string;
 	isPackaged: boolean;
 	appVersion: string;
+	mode?: ShellEventLogMode;
 	now?: () => Date;
 	randomId?: () => string;
 }) {
 	const now = input.now ?? (() => new Date());
 	const enabled = !input.isPackaged || input.appVersion.includes("-beta.");
+	// Default mode: off when packaged release; sampled for dev / beta builds.
+	// Override via constructor input or AI14ALL_DEBUG=full for verbose diagnostics.
+	const mode: ShellEventLogMode =
+		input.mode ?? (enabled ? "sampled" : "off");
 	const runId = (input.randomId ?? randomUUID)();
 	const dirPath = join(input.userDataPath, "diagnostics", "shell-events");
 	const logPath = enabled
@@ -43,6 +51,7 @@ export function createShellEventLogService(input: {
 	let seq = 0;
 	let disabled = !enabled;
 	let prunedFileCount = 0;
+	let outputCounter = 0;
 
 	if (enabled) {
 		mkdirSync(dirPath, { recursive: true });
@@ -76,7 +85,20 @@ export function createShellEventLogService(input: {
 		isEnabled: () => enabled && !disabled,
 		getLogPath: () => logPath,
 		log(event: ShellEventLogInput) {
-			if (!logPath || disabled) return;
+			if (!logPath || disabled || mode === "off") return;
+
+			// Sample high-volume terminal-output events when in sampled mode.
+			// Always log the first event in a burst, then 1 of every N.
+			if (event.event === "terminal-output" && mode === "sampled") {
+				outputCounter += 1;
+				if (
+					outputCounter !== 1 &&
+					outputCounter % TERMINAL_OUTPUT_SAMPLE_EVERY !== 0
+				) {
+					return;
+				}
+			}
+
 			const currentSeq = ++seq;
 			const record: ShellEventRecord = {
 				at: now().toISOString(),
