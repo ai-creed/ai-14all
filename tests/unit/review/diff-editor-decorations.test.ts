@@ -3,7 +3,7 @@ import type { editor as MonacoEditor } from "monaco-editor";
 import {
 	installAddAffordances,
 	scrollToLineRange,
-} from "../../../src/features/review/diff-editor-decorations";
+} from "../../../src/features/review/logic/diff-editor-decorations";
 
 type MouseHandler = (e: {
 	target: {

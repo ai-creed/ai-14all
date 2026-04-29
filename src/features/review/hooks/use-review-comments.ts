@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { reviewComments } from "../../lib/desktop-client";
-import type { ReviewComment } from "../../../shared/models/review-comment";
-import type { ReviewCreateRequest } from "../../../shared/contracts/review-comments";
+import { reviewComments } from "../../../lib/desktop-client";
+import type { ReviewComment } from "../../../../shared/models/review-comment";
+import type { ReviewCreateRequest } from "../../../../shared/contracts/review-comments";
 
 export function useReviewComments(worktreeId: string | null) {
 	const [comments, setComments] = useState<ReviewComment[]>([]);

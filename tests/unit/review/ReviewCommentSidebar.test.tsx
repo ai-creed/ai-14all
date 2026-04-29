@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { ReviewCommentSidebar } from "../../../src/features/review/ReviewCommentSidebar";
+import { ReviewCommentSidebar } from "../../../src/features/review/components/ReviewCommentSidebar";
 import type { ReviewComment } from "../../../shared/models/review-comment";
 
 const c = (over: Partial<ReviewComment> = {}): ReviewComment => ({

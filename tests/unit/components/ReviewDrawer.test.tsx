@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ReviewDrawer } from "../../../src/features/review/ReviewDrawer";
+import { ReviewDrawer } from "../../../src/features/review/components/ReviewDrawer";
 
 const defaults = {
 	open: false,

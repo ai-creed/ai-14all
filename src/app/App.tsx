@@ -73,25 +73,25 @@ import { DiscardChangeDialog } from "../features/git/DiscardChangeDialog";
 import { DiffViewer } from "../features/viewer/components/DiffViewer";
 import { CommitList } from "../features/git/CommitList";
 import { CommitDiffStack } from "../features/git/CommitDiffStack";
-import { ReviewDrawer } from "../features/review/ReviewDrawer";
+import { ReviewDrawer } from "../features/review/components/ReviewDrawer";
 import {
 	ReviewExpandedPortal,
 	type ReviewExpandedPortalHandle,
-} from "../features/review/ReviewExpandedPortal";
-import { useReviewDrawerAutoExpand } from "../features/review/use-review-drawer-auto-expand";
-import { useReviewComments } from "../features/review/use-review-comments";
+} from "../features/review/components/ReviewExpandedPortal";
+import { useReviewDrawerAutoExpand } from "../features/review/hooks/use-review-drawer-auto-expand";
+import { useReviewComments } from "../features/review/hooks/use-review-comments";
 import {
 	ReviewCommentSidebar,
 	type NewCommentDraft,
-} from "../features/review/ReviewCommentSidebar";
-import { createDiffEditorRegistry } from "../features/review/diff-editor-registry";
+} from "../features/review/components/ReviewCommentSidebar";
+import { createDiffEditorRegistry } from "../features/review/logic/diff-editor-registry";
 import {
 	installAddAffordances,
 	scrollToLineRange,
 	type SelectionDraft,
-} from "../features/review/diff-editor-decorations";
-import { AgentInstallModal } from "../features/review/AgentInstallModal";
-import { useAgentInstallStatus } from "../features/review/use-agent-install-status";
+} from "../features/review/logic/diff-editor-decorations";
+import { AgentInstallModal } from "../features/review/components/AgentInstallModal";
+import { useAgentInstallStatus } from "../features/review/hooks/use-agent-install-status";
 import { buildWorktreeProcessSummary } from "../features/workspace/logic/sidebar-shell-summary";
 import { useNoteBridgeReceiver } from "../features/workspace/hooks/use-note-bridge-receiver";
 import type {

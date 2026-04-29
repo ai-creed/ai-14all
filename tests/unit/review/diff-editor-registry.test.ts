@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createDiffEditorRegistry } from "../../../src/features/review/diff-editor-registry";
+import { createDiffEditorRegistry } from "../../../src/features/review/logic/diff-editor-registry";
 
 const fakeEditor = (id: string) =>
 	({

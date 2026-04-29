@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { ReviewCommentCard } from "../../../src/features/review/ReviewCommentCard";
+import { ReviewCommentCard } from "../../../src/features/review/components/ReviewCommentCard";
 import type { ReviewComment } from "../../../shared/models/review-comment";
 
 const base: ReviewComment = {

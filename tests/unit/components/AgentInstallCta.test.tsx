@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { AgentInstallCta } from "../../../src/features/review/AgentInstallCta";
+import { AgentInstallCta } from "../../../src/features/review/components/AgentInstallCta";
 
 describe("AgentInstallCta", () => {
 	it("renders the install copy and a button", () => {

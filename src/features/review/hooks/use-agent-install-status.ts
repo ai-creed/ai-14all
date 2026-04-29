@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { agentInstall } from "../../lib/desktop-client";
+import { agentInstall } from "../../../lib/desktop-client";
 
 export type CliSource = "override" | "path" | "fixed" | "shell" | "none";
 

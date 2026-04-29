@@ -1,4 +1,4 @@
-import type { ReviewComment } from "../../../shared/models/review-comment";
+import type { ReviewComment } from "../../../../shared/models/review-comment";
 
 type Props = {
 	comment: ReviewComment;

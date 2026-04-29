@@ -19,7 +19,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	},
 }));
 
-import { useReviewComments } from "../../../src/features/review/use-review-comments";
+import { useReviewComments } from "../../../src/features/review/hooks/use-review-comments";
 
 const c = {
 	id: "c1",

@@ -1,5 +1,5 @@
 import { renderHook, act } from "@testing-library/react";
-import { useReviewDrawerAutoExpand } from "../../../src/features/review/use-review-drawer-auto-expand";
+import { useReviewDrawerAutoExpand } from "../../../src/features/review/hooks/use-review-drawer-auto-expand";
 
 describe("useReviewDrawerAutoExpand", () => {
 	it("does not auto-expand on first summary even if dirty (restore case)", () => {

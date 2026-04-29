@@ -1,7 +1,7 @@
-import type { ReviewComment } from "../../../shared/models/review-comment";
+import type { ReviewComment } from "../../../../shared/models/review-comment";
 import { AgentInstallCta } from "./AgentInstallCta";
-import { ReviewCommentCard } from "./ReviewCommentCard";
-import { ReviewCommentForm } from "./ReviewCommentForm";
+import { ReviewCommentCard } from "../components/ReviewCommentCard";
+import { ReviewCommentForm } from "../components/ReviewCommentForm";
 
 export type NewCommentDraft = {
 	filePath: string;

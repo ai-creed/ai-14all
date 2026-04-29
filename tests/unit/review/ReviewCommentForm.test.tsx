@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { ReviewCommentForm } from "../../../src/features/review/ReviewCommentForm";
+import { ReviewCommentForm } from "../../../src/features/review/components/ReviewCommentForm";
 
 describe("ReviewCommentForm", () => {
 	it("calls onSave with body when Save clicked", () => {

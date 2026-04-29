@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import {
 	ReviewExpandedPortal,
 	type ReviewExpandedPortalHandle,
-} from "../../../src/features/review/ReviewExpandedPortal";
+} from "../../../src/features/review/components/ReviewExpandedPortal";
 
 function makeEl(tag = "div") {
 	const el = document.createElement(tag);
