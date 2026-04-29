@@ -5,8 +5,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import * as ScrollArea from "@radix-ui/react-scroll-area";
-import * as Tabs from "@radix-ui/react-tabs";
 import type { Worktree } from "../../shared/models/worktree";
 import type { TerminalSession } from "../../shared/models/terminal-session";
 import type {
@@ -40,32 +38,16 @@ import {
 	type WorkspaceState,
 } from "../features/workspace/logic/workspace-state";
 import { PresetManager } from "../features/terminals/components/PresetManager";
-import { WorktreeTree } from "../features/viewer/components/WorktreeTree";
-import { MarkdownPreviewModal } from "../features/viewer/components/MarkdownPreviewModal";
-import { EditorModal } from "../features/viewer/components/EditorModal";
 import { isEditable } from "../../shared/editor/editable-files";
 import { FilesOverlay } from "../features/files/FilesOverlay";
 import { ShortcutsHelp } from "../features/shortcuts/ShortcutsHelp";
-import { FileViewer } from "../features/viewer/components/FileViewer";
-import { ChangesList } from "../features/git/components/ChangesList";
-import { DiffViewer } from "../features/viewer/components/DiffViewer";
-import { CommitList } from "../features/git/components/CommitList";
-import { CommitDiffStack } from "../features/git/components/CommitDiffStack";
 import {
 	type ReviewExpandedPortalHandle,
 } from "../features/review/components/ReviewExpandedPortal";
 import { useReviewDrawerAutoExpand } from "../features/review/hooks/use-review-drawer-auto-expand";
 import { useReviewComments } from "../features/review/hooks/use-review-comments";
-import {
-	ReviewCommentSidebar,
-	type NewCommentDraft,
-} from "../features/review/components/ReviewCommentSidebar";
-import { createDiffEditorRegistry } from "../features/review/logic/diff-editor-registry";
-import {
-	installAddAffordances,
-	scrollToLineRange,
-	type SelectionDraft,
-} from "../features/review/logic/diff-editor-decorations";
+import { type NewCommentDraft } from "../features/review/components/ReviewCommentSidebar";
+import { type SelectionDraft } from "../features/review/logic/diff-editor-decorations";
 import { useAgentInstallStatus } from "../features/review/hooks/use-agent-install-status";
 import { buildWorktreeProcessSummary } from "../features/workspace/logic/sidebar-shell-summary";
 import { useNoteBridgeReceiver } from "../features/workspace/hooks/use-note-bridge-receiver";
@@ -114,6 +96,7 @@ import { useRemoveWorktreePreview } from "./hooks/use-remove-worktree-preview";
 import { DialogStack } from "./components/DialogStack";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { ReviewDrawerSection } from "./components/ReviewDrawerSection";
+import { ReviewArea } from "./components/ReviewArea";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -189,7 +172,6 @@ export function App() {
 	const [createSessionTitle, setCreateSessionTitle] = useState("");
 	const [createBusy, setCreateBusy] = useState(false);
 	const [discardPath, setDiscardPath] = useState<string | null>(null);
-	const [treePreviewPath, setTreePreviewPath] = useState<string | null>(null);
 	const [editorTarget, setEditorTarget] = useState<{
 		workspaceId: string;
 		worktreeId: string;
@@ -321,7 +303,6 @@ export function App() {
 		commitDetailState.data,
 		openCommentCounts,
 	]);
-	const diffEditorRegistry = useMemo(() => createDiffEditorRegistry(), []);
 	const [addingDraft, setAddingDraft] = useState<NewCommentDraft | null>(null);
 	const [selectionDraft, setSelectionDraft] = useState<SelectionDraft>(null);
 	const agentInstallStatus = useAgentInstallStatus();
@@ -352,30 +333,6 @@ export function App() {
 		reviewState.comments,
 		addingDraft,
 	]);
-
-	const ensureFileFocused = useCallback(
-		(filePath: string) => {
-			if (!activeWorktree) return;
-			if (activeSession?.reviewMode === "commits") {
-				if (activeSession.selectedCommitFilePath !== filePath) {
-					dispatch({
-						type: "session/selectCommitFile",
-						worktreeId: activeWorktree.id,
-						relativePath: filePath,
-					});
-				}
-			} else {
-				if (activeSession?.selectedChangedFilePath !== filePath) {
-					dispatch({
-						type: "session/selectChangedFile",
-						worktreeId: activeWorktree.id,
-						relativePath: filePath,
-					});
-				}
-			}
-		},
-		[activeWorktree, activeSession, dispatch],
-	);
 
 	const openEditorForFile = useCallback(
 		async (relativePath: string) => {
@@ -1144,10 +1101,6 @@ export function App() {
 		persistableState: persistableStateV2,
 		persistableStateJson,
 	});
-
-	useEffect(() => {
-		setTreePreviewPath(null);
-	}, [activeWorktree?.id]);
 
 	const {
 		handleAddAdHoc,
@@ -1956,341 +1909,6 @@ async function handleSelectWorktree(
 		);
 	}
 
-	const reviewTabContent = activeWorktree ? (
-		<Tabs.Root
-			value={activeSession?.reviewMode ?? "files"}
-			onValueChange={(value) =>
-				dispatch({
-					type: "session/setReviewMode",
-					worktreeId: activeWorktree.id,
-					reviewMode: value as "files" | "changes" | "commits",
-				})
-			}
-			className="shell-review-shell"
-		>
-			<div
-				className="shell-review-grid"
-				data-testid="review-grid"
-				style={{
-					gridTemplateColumns: commentSidebarOpen
-						? `${reviewRailWidth}px 8px minmax(0, 1fr) 8px ${activeSession?.reviewSidebarWidth ?? 280}px`
-						: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
-				}}
-			>
-				<section
-					className="shell-panel shell-review-rail"
-					data-testid="review-rail"
-				>
-					<div className="shell-review-rail__header">
-						<Tabs.List
-							aria-label="Review mode"
-							className="shell-review-tabs__list shell-review-tabs__segments"
-						>
-							<Tabs.Trigger value="files" className="shell-review-tab">
-								Files
-							</Tabs.Trigger>
-							<Tabs.Trigger value="changes" className="shell-review-tab">
-								Changes
-							</Tabs.Trigger>
-							<Tabs.Trigger value="commits" className="shell-review-tab">
-								Commits
-							</Tabs.Trigger>
-						</Tabs.List>
-					</div>
-
-					<ScrollArea.Root className="shell-review-rail__scroll">
-						<ScrollArea.Viewport className="shell-rail__viewport">
-							{activeSession?.reviewMode === "commits" ? (
-								<>
-									{commitHistoryState.message && (
-										<p
-											className={
-												commitHistoryState.stale
-													? "shell-inline-warning"
-													: "shell-error"
-											}
-										>
-											{commitHistoryState.message}
-										</p>
-									)}
-									<CommitList
-										workspaceId={activeWorkspaceId ?? ""}
-										worktreeId={activeWorktree.id}
-										history={
-											commitHistoryState.data ?? {
-												mergeTargetRef: null,
-												entries: [],
-											}
-										}
-										selectedCommitSha={activeSession.selectedCommitSha}
-										selectedCommitFilePath={
-											activeSession.selectedCommitFilePath
-										}
-										activeDetail={commitDetailState.data}
-										onSelectCommit={(sha) =>
-											dispatch({
-												type: "session/selectCommit",
-												worktreeId: activeWorktree.id,
-												sha,
-											})
-										}
-										onDeselectCommit={() =>
-											dispatch({
-												type: "session/clearSelectedCommit",
-												worktreeId: activeWorktree.id,
-											})
-										}
-										onSelectCommitFile={(relativePath) =>
-											dispatch({
-												type: "session/selectCommitFile",
-												worktreeId: activeWorktree.id,
-												relativePath,
-											})
-										}
-										remoteStatus={remoteStatus}
-										onPush={handlePushBranch}
-										selectedCommitOpenCommentCount={
-											selectedCommitOpenCommentCount
-										}
-									/>
-								</>
-							) : activeSession?.reviewMode === "files" ? (
-								<>
-									{openEditorError !== null && (
-										<p className="shell-error">{openEditorError}</p>
-									)}
-									<WorktreeTree
-										workspaceId={activeWorkspaceId ?? ""}
-										worktreeId={activeWorktree.id}
-										worktreeLabel={activeWorktree.label}
-										selectedFile={activeSession.selectedFilePath}
-										onSelect={(relativePath) =>
-											dispatch({
-												type: "session/selectFile",
-												worktreeId: activeWorktree.id,
-												relativePath,
-											})
-										}
-										onPreviewMarkdown={setTreePreviewPath}
-										onEditFile={openEditorForFile}
-										changedFiles={changes}
-										gitSummaryError={gitSummaryError}
-										gitSummaryMessage={gitSummaryMessage}
-										expandedPaths={activeSession.treeExpandedPaths}
-										onExpandedPathsChange={(worktreeId, paths) =>
-											dispatch({
-												type: "session/setTreeExpandedPaths",
-												worktreeId,
-												paths,
-											})
-										}
-									/>
-									{treePreviewPath !== null && (
-										<MarkdownPreviewModal
-											workspaceId={activeWorkspaceId ?? ""}
-											worktreeId={activeWorktree.id}
-											relativePath={treePreviewPath}
-											open={true}
-											onClose={() => setTreePreviewPath(null)}
-										/>
-									)}
-									{editorTarget !== null && (
-										<EditorModal
-											workspaceId={editorTarget.workspaceId}
-											worktreeId={editorTarget.worktreeId}
-											relativePath={editorTarget.relativePath}
-											initialContent={editorTarget.content}
-											initialMtimeMs={editorTarget.mtimeMs}
-											theme={resolvedTheme}
-											onClose={() => setEditorTarget(null)}
-											onFileSaved={() => setRefreshKey((k) => k + 1)}
-										/>
-									)}
-								</>
-							) : (
-								<ChangesList
-									workspaceId={activeWorkspaceId ?? ""}
-									worktreeId={activeWorktree.id}
-									changes={changes}
-									selectedPath={activeSession?.selectedChangedFilePath ?? null}
-									onSelect={handleSelectChangedFile}
-									onDiscardChange={(relativePath) =>
-										setDiscardPath(relativePath)
-									}
-									gitSummaryError={gitSummaryError}
-									gitSummaryStale={gitSummaryStale}
-									gitSummaryMessage={gitSummaryMessage}
-									openCommentCounts={openCommentCounts}
-								/>
-							)}
-						</ScrollArea.Viewport>
-						<ScrollArea.Scrollbar
-							orientation="vertical"
-							className="shell-scrollbar"
-						/>
-					</ScrollArea.Root>
-				</section>
-
-				<div
-					role="separator"
-					aria-orientation="vertical"
-					aria-label="Resize review rail"
-					data-testid="review-rail-resize-handle"
-					className="shell-review-grid__resize-handle"
-					onMouseDown={handleReviewRailResizeStart}
-				/>
-
-				<section className="shell-panel shell-viewer-panel">
-					{activeSession?.reviewMode === "commits" &&
-					commitDetailState.message !== null &&
-					commitDetailState.data === null ? (
-						<p className="shell-error">{commitDetailState.message}</p>
-					) : activeSession?.reviewMode === "commits" &&
-					  commitDetailState.data ? (
-						<CommitDiffStack
-							key={commitDetailState.data.sha}
-							detail={commitDetailState.data}
-							focusedPath={activeSession.selectedCommitFilePath}
-							resolvedTheme={resolvedTheme}
-							onEditorMount={(filePath, editor) => {
-								diffEditorRegistry.register(filePath, editor);
-								const dispose = installAddAffordances(editor, {
-									filePath,
-									onEnsureFileFocused: ensureFileFocused,
-									onAddSingleLine: ({ filePath, line, snippet }) =>
-										setAddingDraft({
-											filePath,
-											startLine: line,
-											endLine: line,
-											snippet,
-										}),
-									onSelectionChange: (draft) => setSelectionDraft(draft),
-								});
-								editor.onDidDispose(() => {
-									dispose();
-									diffEditorRegistry.unregister(filePath);
-								});
-							}}
-							onEditorUnmount={(filePath) =>
-								diffEditorRegistry.unregister(filePath)
-							}
-						/>
-					) : activeSession?.reviewMode === "files" &&
-					  activeSession.selectedFilePath ? (
-						<FileViewer
-							workspaceId={activeWorkspaceId ?? ""}
-							worktreeId={activeWorktree.id}
-							relativePath={activeSession.selectedFilePath}
-							resolvedTheme={resolvedTheme}
-							onEditFile={openEditorForFile}
-						/>
-					) : activeSession?.reviewMode === "changes" && diffState.data ? (
-						<DiffViewer
-							key={diffState.data.path}
-							path={diffState.data.path}
-							content={diffState.data.content}
-							originalContent={diffState.data.originalContent}
-							modifiedContent={diffState.data.modifiedContent}
-							resolvedTheme={resolvedTheme}
-							onMount={(filePath, editor) => {
-								diffEditorRegistry.register(filePath, editor);
-								const dispose = installAddAffordances(editor, {
-									filePath,
-									onEnsureFileFocused: ensureFileFocused,
-									onAddSingleLine: ({ filePath, line, snippet }) =>
-										setAddingDraft({
-											filePath,
-											startLine: line,
-											endLine: line,
-											snippet,
-										}),
-									onSelectionChange: (draft) => setSelectionDraft(draft),
-								});
-								editor.onDidDispose(() => {
-									dispose();
-									diffEditorRegistry.unregister(filePath);
-								});
-							}}
-						/>
-					) : (
-						<p className="shell-empty-state">
-							Select a file or changed file to inspect it.
-						</p>
-					)}
-					{selectionDraft && (
-						<button
-							type="button"
-							className="shell-review-floating-add"
-							onClick={() => {
-								ensureFileFocused(selectionDraft.filePath);
-								setAddingDraft({
-									filePath: selectionDraft.filePath,
-									startLine: selectionDraft.startLine,
-									endLine: selectionDraft.endLine,
-									snippet: selectionDraft.snippet,
-								});
-								setSelectionDraft(null);
-							}}
-						>
-							+ Add comment for L{selectionDraft.startLine}–
-							{selectionDraft.endLine}
-						</button>
-					)}
-				</section>
-
-				{commentSidebarOpen &&
-					(() => {
-						const currentFilePath =
-							activeSession?.reviewMode === "commits"
-								? (activeSession.selectedCommitFilePath ?? null)
-								: (activeSession?.selectedChangedFilePath ?? null);
-						return currentFilePath ? (
-							<ReviewCommentSidebar
-								filePath={currentFilePath}
-								comments={reviewState.comments}
-								addingForFile={addingDraft}
-								onScrollTo={(range) => {
-									const editor = diffEditorRegistry.get(currentFilePath);
-									if (editor) scrollToLineRange(editor, range);
-								}}
-								onToggleAddressed={async (commentId) => {
-									const c = reviewState.comments.find(
-										(c) => c.id === commentId,
-									);
-									if (!c) return;
-									if (c.status === "open")
-										await reviewState.markAddressed(commentId);
-									else await reviewState.reopen(commentId);
-								}}
-								onDelete={(commentId) => reviewState.remove(commentId)}
-								onSubmitNew={async (draft, body) => {
-									await reviewState.create({
-										filePath: draft.filePath,
-										startLine: draft.startLine,
-										endLine: draft.endLine,
-										snippet: draft.snippet,
-										body,
-										source:
-											activeSession?.reviewMode === "commits"
-												? "commit"
-												: "working-tree",
-										commitSha:
-											activeSession?.reviewMode === "commits"
-												? (activeSession.selectedCommitSha ?? null)
-												: null,
-									});
-									setAddingDraft(null);
-								}}
-								onCancelNew={() => setAddingDraft(null)}
-								installCtaVisible={installCtaVisible}
-								onOpenInstall={() => setInstallModalOpen(true)}
-							/>
-						) : null;
-					})()}
-			</div>
-		</Tabs.Root>
-	) : null;
-
 	return (
 		<main className="shell-app">
 			{restoreWarning && (
@@ -2500,7 +2118,47 @@ async function handleSelectWorktree(
 						dispatch={dispatch}
 						handleRefreshChanges={handleRefreshChanges}
 					>
-						{reviewTabContent}
+						{activeWorktree && (
+							<ReviewArea
+								activeWorktree={activeWorktree}
+								activeSession={activeSession ?? null}
+								activeWorkspaceId={activeWorkspaceId}
+								workspaceState={workspaceState}
+								changes={changes}
+								openCommentCounts={openCommentCounts}
+								commitHistoryState={commitHistoryState}
+								commitDetailState={commitDetailState}
+								diffState={diffState}
+								remoteStatus={remoteStatus}
+								selectedCommitOpenCommentCount={
+									selectedCommitOpenCommentCount
+								}
+								gitSummaryError={gitSummaryError}
+								gitSummaryMessage={gitSummaryMessage}
+								gitSummaryStale={gitSummaryStale}
+								reviewState={reviewState}
+								reviewRailWidth={reviewRailWidth}
+								handleReviewRailResizeStart={handleReviewRailResizeStart}
+								commentSidebarOpen={commentSidebarOpen}
+								resolvedTheme={resolvedTheme}
+								editorTarget={editorTarget}
+								setEditorTarget={setEditorTarget}
+								openEditorForFile={openEditorForFile}
+								openEditorError={openEditorError}
+								setOpenEditorError={setOpenEditorError}
+								installCtaVisible={installCtaVisible}
+								onOpenInstall={() => setInstallModalOpen(true)}
+								dispatch={dispatch}
+								handlePushBranch={handlePushBranch}
+								handleSelectChangedFile={handleSelectChangedFile}
+								setDiscardPath={setDiscardPath}
+								bumpRefreshKey={() => setRefreshKey((k) => k + 1)}
+								addingDraft={addingDraft}
+								setAddingDraft={setAddingDraft}
+								selectionDraft={selectionDraft}
+								setSelectionDraft={setSelectionDraft}
+							/>
+						)}
 					</ReviewDrawerSection>
 				</section>
 			</div>
