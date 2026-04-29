@@ -41,6 +41,29 @@ The frontend should stay session-first:
 - avoid file-first or terminal-first state shapes that bypass the session model
 - terminals, Git review, and local note state should belong to the active worktree session
 
+## Frontend Structure And Naming
+
+Feature code should be organized by feature domain first, then by file role.
+
+Within a feature folder, prefer this shape as the feature grows:
+
+- `components/` for React components
+- `hooks/` for React hooks
+- `logic/` for app-specific pure logic, reducers, selectors, state builders, and workflow helpers
+- `types/` only when feature-local types become large enough to justify separation
+
+Keep filenames visually scannable by role:
+
+- React component files use `PascalCase.tsx` and live under `components/`.
+- React hook files use `kebab-case.ts` and live under `hooks/`, even when the exported hook is camelCase.
+- Non-component logic files use `kebab-case.ts` and live under `logic/` or an established non-component folder.
+- Shared contracts, shared models, services, Electron main/preload files, and utility modules use `kebab-case.ts`.
+- Test filenames should match the source filename plus `.test`, and tests should live in a folder that mirrors the source domain when practical.
+
+Avoid mixing component files and non-component modules in the same feature folder once there is more than one role present. A small feature may start flat, but when adding the second role, split it into role folders as part of the same change.
+
+Do not put renderer implementation types into `shared/`. The `shared/` layer must not import from `src/`; move renderer-only state and view models into the relevant feature folder.
+
 ## Product Boundaries
 
 V1 assumptions:

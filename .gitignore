@@ -8,6 +8,7 @@ dist/
 test-results/
 playwright-report/
 docs/superpowers/plans/
+docs/shared/*architecture-hardening*
 .worktrees/
 .superpowers/
 release/
