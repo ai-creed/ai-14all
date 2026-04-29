@@ -2066,7 +2066,11 @@ export function App() {
 
 	// Fetch diff when selected changed file changes
 	useEffect(() => {
-		if (!activeWorktree?.path || !activeSession?.selectedChangedFilePath) {
+		if (
+			!activeWorktree?.id ||
+			!activeWorkspaceId ||
+			!activeSession?.selectedChangedFilePath
+		) {
 			setDiffState({ data: null, stale: false, message: null });
 			return;
 		}
@@ -2081,7 +2085,11 @@ export function App() {
 		let cancelled = false;
 		setDiffState((prev) => ({ ...prev, message: null }));
 		git
-			.readDiff(activeWorktree.path, activeSession.selectedChangedFilePath)
+			.readDiff(
+				activeWorkspaceId,
+				activeWorktree.id,
+				activeSession.selectedChangedFilePath,
+			)
 			.then((result) => {
 				if (!cancelled)
 					setDiffState({ data: result, stale: false, message: null });
