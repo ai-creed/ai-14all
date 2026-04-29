@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { PresetManager } from "../../../src/features/terminals/PresetManager";
+import { PresetManager } from "../../../src/features/terminals/components/PresetManager";
 
 describe("PresetManager", () => {
 	it("creates a new preset", async () => {

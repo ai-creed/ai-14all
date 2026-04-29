@@ -2,7 +2,7 @@ import { it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("../../../src/features/terminals/TerminalPane", () => ({
+vi.mock("../../../src/features/terminals/components/TerminalPane", () => ({
 	TerminalPane: () => null,
 }));
 

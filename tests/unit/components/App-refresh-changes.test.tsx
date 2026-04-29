@@ -16,7 +16,7 @@ const mockTerminalOutputListeners: Array<
 let terminalIdCounter = 0;
 
 // Mock TerminalPane to avoid xterm canvas dependency in jsdom
-vi.mock("../../../src/features/terminals/TerminalPane", () => ({
+vi.mock("../../../src/features/terminals/components/TerminalPane", () => ({
 	TerminalPane: () => null,
 }));
 

@@ -52,15 +52,15 @@ import {
 	appWorkspacesReducer,
 	createAppWorkspacesState,
 } from "../features/workspace/logic/app-workspaces-state";
-import { TerminalTabs } from "../features/terminals/TerminalTabs";
-import { TerminalPane } from "../features/terminals/TerminalPane";
-import { PresetManager } from "../features/terminals/PresetManager";
+import { TerminalTabs } from "../features/terminals/components/TerminalTabs";
+import { TerminalPane } from "../features/terminals/components/TerminalPane";
+import { PresetManager } from "../features/terminals/components/PresetManager";
 import { NewWorktreeDialog } from "../features/workspace/components/NewWorktreeDialog";
 import { RemoveWorktreeDialog } from "../features/workspace/components/RemoveWorktreeDialog";
 import { LoadWorkspaceDialog } from "../features/workspace/components/LoadWorkspaceDialog";
-import { useTerminalSession } from "../features/terminals/use-terminal-session";
-import { deriveAttentionState } from "../features/terminals/process-attention";
-import { consumeOutputPreview } from "../features/terminals/output-preview";
+import { useTerminalSession } from "../features/terminals/hooks/use-terminal-session";
+import { deriveAttentionState } from "../features/terminals/logic/process-attention";
+import { consumeOutputPreview } from "../features/terminals/logic/output-preview";
 import { WorktreeTree } from "../features/viewer/components/WorktreeTree";
 import { MarkdownPreviewModal } from "../features/viewer/components/MarkdownPreviewModal";
 import { EditorModal } from "../features/viewer/components/EditorModal";
@@ -113,7 +113,7 @@ import {
 } from "../lib/desktop-client";
 import { countOpenCommentsInFiles } from "../features/git/commit-list-badge";
 import { UpdateBanner } from "../features/updater/UpdateBanner";
-import { logRendererShellEvent } from "../features/terminals/shell-event-logger";
+import { logRendererShellEvent } from "../features/terminals/logic/shell-event-logger";
 import { useTheme } from "../lib/use-theme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
 import { SHORTCUT_REGISTRY, detectPlatform } from "./shortcut-registry";

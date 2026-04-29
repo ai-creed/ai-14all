@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { TerminalSession } from "../../../shared/models/terminal-session";
+import type { TerminalSession } from "../../../../shared/models/terminal-session";
 import type {
 	TerminalOutputEvent,
 	TerminalExitEvent,
 	TerminalStateEvent,
 	TerminalErrorEvent,
-} from "../../../shared/contracts/events";
-import { terminals } from "../../lib/desktop-client";
-import { logRendererShellEvent } from "./shell-event-logger";
+} from "../../../../shared/contracts/events";
+import { terminals } from "../../../lib/desktop-client";
+import { logRendererShellEvent } from "../logic/shell-event-logger";
 
 export type RuntimeListeners = {
 	onOutput?: (event: TerminalOutputEvent) => void;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveAttentionState } from "../../../src/features/terminals/process-attention";
+import { deriveAttentionState } from "../../../src/features/terminals/logic/process-attention";
 
 describe("deriveAttentionState", () => {
 	it("returns actionRequired for confirmation prompts", () => {

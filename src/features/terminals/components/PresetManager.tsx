@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { AppDialog } from "../../components/AppDialog";
-import type { CommandPreset } from "../../../shared/models/command-preset";
+import { AppDialog } from "../../../components/AppDialog";
+import type { CommandPreset } from "../../../../shared/models/command-preset";
 
 type Props = {
 	open: boolean;

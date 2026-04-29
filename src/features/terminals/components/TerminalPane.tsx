@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef } from "react";
 import { Terminal } from "xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "xterm/css/xterm.css";
-import type { TerminalSession } from "../../../shared/models/terminal-session";
-import { files, terminals } from "../../lib/desktop-client";
-import { logRendererShellEvent } from "./shell-event-logger";
+import type { TerminalSession } from "../../../../shared/models/terminal-session";
+import { files, terminals } from "../../../lib/desktop-client";
+import { logRendererShellEvent } from "../logic/shell-event-logger";
 
 type Props = {
 	session: TerminalSession;

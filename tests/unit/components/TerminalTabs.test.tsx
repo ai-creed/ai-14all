@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { TerminalTabs } from "../../../src/features/terminals/TerminalTabs";
+import { TerminalTabs } from "../../../src/features/terminals/components/TerminalTabs";
 import type { ProcessSession } from "../../../shared/models/process-session";
 import type { CommandPreset } from "../../../shared/models/command-preset";
 

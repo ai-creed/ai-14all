@@ -5,8 +5,8 @@ import * as ContextMenu from "@radix-ui/react-context-menu";
 import type {
 	ProcessSession,
 	ProcessStatus,
-} from "../../../shared/models/process-session";
-import type { CommandPreset } from "../../../shared/models/command-preset";
+} from "../../../../shared/models/process-session";
+import type { CommandPreset } from "../../../../shared/models/command-preset";
 
 type ProcessTabView = Pick<
 	ProcessSession,

@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import type { MutableRefObject } from "react";
 import type { AppWorkspacesState } from "../../features/workspace/logic/app-workspaces-state";
 import type { WorkspaceState } from "../../features/workspace/logic/workspace-state";
-import { logRendererShellEvent } from "../../features/terminals/shell-event-logger";
+import { logRendererShellEvent } from "../../features/terminals/logic/shell-event-logger";
 
 type Options = {
 	setWindowFocused: (focused: boolean) => void;

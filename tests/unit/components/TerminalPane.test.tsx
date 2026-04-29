@@ -112,7 +112,7 @@ vi.mock("xterm", () => ({
 	},
 }));
 
-import { TerminalPane } from "../../../src/features/terminals/TerminalPane";
+import { TerminalPane } from "../../../src/features/terminals/components/TerminalPane";
 
 function makeSession(
 	overrides: Partial<TerminalSession> = {},

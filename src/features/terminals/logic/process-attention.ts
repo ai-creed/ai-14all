@@ -1,4 +1,4 @@
-import type { ProcessAttentionState } from "../../../shared/models/process-session";
+import type { ProcessAttentionState } from "../../../../shared/models/process-session";
 
 const actionRequiredPatterns = [
 	/\bcontinue\?/i,

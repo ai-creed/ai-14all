@@ -1,4 +1,4 @@
-import { diagnostics } from "../../lib/desktop-client.js";
+import { diagnostics } from "../../../lib/desktop-client.js";
 
 let rendererSeq = 0;
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { consumeOutputPreview } from "../../../src/features/terminals/output-preview";
+import { consumeOutputPreview } from "../../../src/features/terminals/logic/output-preview";
 
 describe("consumeOutputPreview", () => {
 	it("extracts the last complete visible line and strips ANSI codes", () => {
