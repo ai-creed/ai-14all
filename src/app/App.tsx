@@ -9,7 +9,6 @@ import {
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import * as Tabs from "@radix-ui/react-tabs";
 import type { Worktree } from "../../shared/models/worktree";
-import type { ProcessSession } from "../../shared/models/process-session";
 import type { TerminalSession } from "../../shared/models/terminal-session";
 import type {
 	PersistedWorktreeSession,
@@ -44,9 +43,6 @@ import {
 import { TerminalTabs } from "../features/terminals/components/TerminalTabs";
 import { TerminalPane } from "../features/terminals/components/TerminalPane";
 import { PresetManager } from "../features/terminals/components/PresetManager";
-import { NewWorktreeDialog } from "../features/workspace/components/NewWorktreeDialog";
-import { RemoveWorktreeDialog } from "../features/workspace/components/RemoveWorktreeDialog";
-import { LoadWorkspaceDialog } from "../features/workspace/components/LoadWorkspaceDialog";
 import { WorktreeTree } from "../features/viewer/components/WorktreeTree";
 import { MarkdownPreviewModal } from "../features/viewer/components/MarkdownPreviewModal";
 import { EditorModal } from "../features/viewer/components/EditorModal";
@@ -55,7 +51,6 @@ import { FilesOverlay } from "../features/files/FilesOverlay";
 import { ShortcutsHelp } from "../features/shortcuts/ShortcutsHelp";
 import { FileViewer } from "../features/viewer/components/FileViewer";
 import { ChangesList } from "../features/git/components/ChangesList";
-import { DiscardChangeDialog } from "../features/git/components/DiscardChangeDialog";
 import { DiffViewer } from "../features/viewer/components/DiffViewer";
 import { CommitList } from "../features/git/components/CommitList";
 import { CommitDiffStack } from "../features/git/components/CommitDiffStack";
@@ -76,7 +71,6 @@ import {
 	scrollToLineRange,
 	type SelectionDraft,
 } from "../features/review/logic/diff-editor-decorations";
-import { AgentInstallModal } from "../features/review/components/AgentInstallModal";
 import { useAgentInstallStatus } from "../features/review/hooks/use-agent-install-status";
 import { buildWorktreeProcessSummary } from "../features/workspace/logic/sidebar-shell-summary";
 import { useNoteBridgeReceiver } from "../features/workspace/hooks/use-note-bridge-receiver";
@@ -122,6 +116,7 @@ import { useGitSummaryLoader } from "./hooks/use-git-summary-loader";
 import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-empty-worktree";
 import { useCreateWorktreePreview } from "./hooks/use-create-worktree-preview";
 import { useRemoveWorktreePreview } from "./hooks/use-remove-worktree-preview";
+import { DialogStack } from "./components/DialogStack";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -2719,77 +2714,39 @@ async function handleSelectWorktree(
 					handleLaunchPreset(presetId);
 				}}
 			/>
-			<LoadWorkspaceDialog
-				open={workspacePickerOpen}
-				onOpenChange={setWorkspacePickerOpen}
-				onLoadPath={(path) => handleLoadPath(path)}
-			/>
-			<NewWorktreeDialog
-				open={createDialogOpen}
-				name={createName}
-				sessionTitle={createSessionTitle}
-				preview={createPreview}
-				loading={createLoading}
-				error={createError}
-				busy={createBusy}
-				onOpenChange={(open) => {
-					setCreateDialogOpen(open);
-					if (!open) {
-						setCreateName("");
-						setCreateSessionTitle("");
-						setCreateError(null);
-					}
-				}}
-				onNameChange={setCreateName}
-				onSessionTitleChange={setCreateSessionTitle}
-				onConfirm={() => {
-					void handleConfirmCreateWorktree();
-				}}
-			/>
-			<RemoveWorktreeDialog
-				open={removeDialogOpen}
-				preview={removePreview}
-				runningProcessLabels={
-					removeTargetId
-						? (
-								workspaceState.sessionsByWorktreeId[removeTargetId]
-									?.processSessionIds ?? []
-							)
-								.map((id) => workspaceState.processSessionsById[id])
-								.filter(
-									(process): process is ProcessSession =>
-										!!process && process.status === "running",
-								)
-								.map((process) => process.label)
-						: []
-				}
-				error={removeError}
-				busy={removeBusy}
-				confirmedDirty={confirmedDirtyRemoval}
-				onConfirmedDirtyChange={setConfirmedDirtyRemoval}
-				onOpenChange={(open) => {
-					setRemoveDialogOpen(open);
-					if (!open) {
-						setRemoveTargetId(null);
-						setConfirmedDirtyRemoval(false);
-					}
-				}}
-				onConfirm={() => {
-					void handleConfirmRemoveWorktree();
-				}}
-			/>
-			<DiscardChangeDialog
-				open={discardPath !== null}
-				relativePath={discardPath}
-				onOpenChange={(open) => {
-					if (!open) setDiscardPath(null);
-				}}
-				onConfirm={handleDiscardChange}
-			/>
-			<AgentInstallModal
-				open={installModalOpen}
-				onClose={() => setInstallModalOpen(false)}
-				status={agentInstallStatus}
+			<DialogStack
+				workspacePickerOpen={workspacePickerOpen}
+				setWorkspacePickerOpen={setWorkspacePickerOpen}
+				handleLoadPath={handleLoadPath}
+				createDialogOpen={createDialogOpen}
+				setCreateDialogOpen={setCreateDialogOpen}
+				createName={createName}
+				setCreateName={setCreateName}
+				createSessionTitle={createSessionTitle}
+				setCreateSessionTitle={setCreateSessionTitle}
+				createPreview={createPreview}
+				createLoading={createLoading}
+				createError={createError}
+				setCreateError={setCreateError}
+				createBusy={createBusy}
+				handleConfirmCreateWorktree={handleConfirmCreateWorktree}
+				removeDialogOpen={removeDialogOpen}
+				setRemoveDialogOpen={setRemoveDialogOpen}
+				removePreview={removePreview}
+				removeError={removeError}
+				removeBusy={removeBusy}
+				removeTargetId={removeTargetId}
+				setRemoveTargetId={setRemoveTargetId}
+				confirmedDirtyRemoval={confirmedDirtyRemoval}
+				setConfirmedDirtyRemoval={setConfirmedDirtyRemoval}
+				workspaceState={workspaceState}
+				handleConfirmRemoveWorktree={handleConfirmRemoveWorktree}
+				discardPath={discardPath}
+				setDiscardPath={setDiscardPath}
+				handleDiscardChange={handleDiscardChange}
+				installModalOpen={installModalOpen}
+				setInstallModalOpen={setInstallModalOpen}
+				agentInstallStatus={agentInstallStatus}
 			/>
 		</main>
 	);
