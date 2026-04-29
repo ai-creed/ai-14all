@@ -121,6 +121,7 @@ import { useCommitHistoryLoader } from "./hooks/use-commit-history-loader";
 import { useCommitDetailLoader } from "./hooks/use-commit-detail-loader";
 import { useUpdateInfoListener } from "./hooks/use-update-info-listener";
 import { useKeyboardShortcut } from "./hooks/use-keyboard-shortcut";
+import { useStartupRestore } from "./hooks/use-startup-restore";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -366,100 +367,14 @@ export function App() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	useEffect(() => {
-		let cancelled = false;
-
-		void workspace
-			.readRestoreState()
-			.then(async (result) => {
-				if (cancelled) return;
-
-				const activeSaved = result.activeWorkspaceId
-					? result.workspaces.find(
-							(w) => w.workspaceId === result.activeWorkspaceId,
-						)
-					: result.workspaces[0];
-				const snapshot = activeSaved?.snapshot ?? null;
-				const dormantSaved = result.workspaces.filter(
-					(w) => w.workspaceId !== (activeSaved?.workspaceId ?? ""),
-				);
-
-				setRestorePreference(result.restorePreference);
-				setSavedSnapshot(snapshot);
-				setSavedDormantWorkspaces(dormantSaved);
-
-				if (!snapshot) {
-					setStartupMode("ready");
-					return;
-				}
-				if (result.restorePreference === "alwaysStartClean") {
-					setStartupMode("ready");
-					return;
-				}
-				if (result.restorePreference === "alwaysRestore") {
-					void restoreWorkspace(
-						snapshot,
-						result.restorePreference,
-						dormantSaved,
-					);
-					return;
-				}
-
-				// A renderer reload should reconnect immediately when the main process
-				// still owns live terminal sessions for the saved workspace.
-				if (activeSaved?.workspaceId) {
-					try {
-						void logRendererShellEvent({
-							event: "renderer-reconnect-list-start",
-							windowId: null,
-							data: { targetWorkspaceId: activeSaved.workspaceId },
-						});
-						const liveSessions = await terminals.list(activeSaved.workspaceId);
-						if (cancelled) return;
-						void logRendererShellEvent({
-							event: "renderer-reconnect-list-success",
-							windowId: null,
-							data: {
-								targetWorkspaceId: activeSaved.workspaceId,
-								liveBackendSessionIds: liveSessions.map((s) => s.id),
-							},
-						});
-						if (liveSessions.length > 0) {
-							void logRendererShellEvent({
-								event: "renderer-reload-detected",
-								windowId: null,
-								reasonKind: "window_lifecycle",
-								reason: "renderer_reload",
-								data: {
-									targetWorkspaceId: activeSaved.workspaceId,
-									liveSessionCount: liveSessions.length,
-								},
-							});
-							void restoreWorkspace(
-								snapshot,
-								result.restorePreference,
-								dormantSaved,
-							);
-							return;
-						}
-					} catch {
-						// Fall through to the regular prompt path.
-					}
-				}
-
-				setStartupMode("prompt");
-			})
-			.catch((err) => {
-				if (cancelled) return;
-				setStartupError(`Failed to load workspace state: ${String(err)}`);
-				setStartupMode("ready");
-			});
-
-		return () => {
-			cancelled = true;
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- startup-only effect; restoreWorkspace is intentionally excluded to prevent re-runs on re-render
-	}, []);
+	useStartupRestore({
+		setStartupMode,
+		setStartupError,
+		setRestorePreference,
+		setSavedSnapshot,
+		setSavedDormantWorkspaces,
+		restoreWorkspace,
+	});
 
 	useEffect(
 		() =>
