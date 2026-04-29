@@ -58,7 +58,7 @@ import { PresetManager } from "../features/terminals/PresetManager";
 import { NewWorktreeDialog } from "../features/workspace/NewWorktreeDialog";
 import { RemoveWorktreeDialog } from "../features/workspace/RemoveWorktreeDialog";
 import { LoadWorkspaceDialog } from "../features/workspace/LoadWorkspaceDialog";
-import { useTerminalSession } from "../features/terminals/useTerminalSession";
+import { useTerminalSession } from "../features/terminals/use-terminal-session";
 import { deriveAttentionState } from "../features/terminals/process-attention";
 import { consumeOutputPreview } from "../features/terminals/output-preview";
 import { WorktreeTree } from "../features/viewer/WorktreeTree";

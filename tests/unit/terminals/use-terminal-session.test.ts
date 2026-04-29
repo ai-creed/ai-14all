@@ -18,7 +18,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	},
 }));
 
-import { useTerminalSession } from "../../../src/features/terminals/useTerminalSession";
+import { useTerminalSession } from "../../../src/features/terminals/use-terminal-session";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
 
 describe("useTerminalSession.adoptSession", () => {
