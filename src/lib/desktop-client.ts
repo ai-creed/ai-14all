@@ -72,8 +72,8 @@ export const files: Ai14AllDesktopApi["files"] = {
 export const git: Ai14AllDesktopApi["git"] = {
 	listChanges: (workspaceId, worktreeId) =>
 		getDesktopClient().git.listChanges(workspaceId, worktreeId),
-	readDiff: (worktreePath, relativePath) =>
-		getDesktopClient().git.readDiff(worktreePath, relativePath),
+	readDiff: (workspaceId, worktreeId, relativePath) =>
+		getDesktopClient().git.readDiff(workspaceId, worktreeId, relativePath),
 	readSummary: (workspaceId, worktreeId) =>
 		getDesktopClient().git.readSummary(workspaceId, worktreeId),
 	readCommitHistory: (workspaceId, worktreeId) =>

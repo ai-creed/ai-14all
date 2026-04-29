@@ -350,9 +350,12 @@ export function registerIpcHandlers(
 		return gitService.listChangedFiles(worktree.path);
 	});
 
-	ipcMain.handle("git:readDiff", (_event, raw: unknown) => {
-		const { worktreePath, relativePath } = ReadGitDiffSchema.parse(raw);
-		return gitService.readDiff(worktreePath, relativePath);
+	ipcMain.handle("git:readDiff", async (_event, raw: unknown) => {
+		const { workspaceId, worktreeId, relativePath } =
+			ReadGitDiffSchema.parse(raw);
+		const repository = workspaceRegistry.get(workspaceId);
+		const worktree = await worktreeService.findWorktree(repository, worktreeId);
+		return gitService.readDiff(worktree.path, relativePath);
 	});
 
 	ipcMain.handle("git:readSummary", async (_event, raw: unknown) => {

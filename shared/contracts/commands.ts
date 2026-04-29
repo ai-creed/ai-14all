@@ -164,7 +164,8 @@ export const ListGitChangesSchema = z.object({
 });
 
 export const ReadGitDiffSchema = z.object({
-	worktreePath: z.string(),
+	workspaceId: z.string().min(1),
+	worktreeId: z.string().min(1),
 	relativePath: z.string(),
 });
 
@@ -297,7 +298,11 @@ export type Ai14AllDesktopApi = {
 			workspaceId: string,
 			worktreeId: string,
 		): Promise<GitChange[]>;
-		readDiff(worktreePath: string, relativePath: string): Promise<GitDiff>;
+		readDiff(
+			workspaceId: string,
+			worktreeId: string,
+			relativePath: string,
+		): Promise<GitDiff>;
 		readSummary(workspaceId: string, worktreeId: string): Promise<GitSummary>;
 		readCommitHistory(
 			workspaceId: string,
