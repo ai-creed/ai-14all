@@ -2113,7 +2113,12 @@ export function App() {
 		return () => {
 			cancelled = true;
 		};
-	}, [activeWorktree?.path, activeSession?.selectedChangedFilePath, changes]);
+	}, [
+		activeWorkspaceId,
+		activeWorktree?.id,
+		activeSession?.selectedChangedFilePath,
+		changes,
+	]);
 
 	// Fetch commit history when active worktree changes or after refresh
 	useEffect(() => {
@@ -2221,7 +2226,7 @@ export function App() {
 		return () => {
 			cancelled = true;
 		};
-	}, [activeWorktree?.path, activeSession?.selectedCommitSha]);
+	}, [activeWorkspaceId, activeWorktree?.id, activeSession?.selectedCommitSha]);
 
 	// Cmd+; / Ctrl+; keyboard shortcut to toggle note sheet
 	useEffect(() => {
