@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useTheme } from "../../../src/lib/useTheme";
+import { useTheme } from "../../../src/lib/use-theme";
 
 type ChangeListener = (e: Pick<MediaQueryListEvent, "matches">) => void;
 

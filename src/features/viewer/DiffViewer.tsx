@@ -1,7 +1,7 @@
 import { DiffEditor } from "@monaco-editor/react";
 import type { editor as MonacoEditor } from "monaco-editor";
 import { useEffect, useRef } from "react";
-import type { ResolvedTheme } from "../../lib/useTheme";
+import type { ResolvedTheme } from "../../lib/use-theme";
 
 const EXTENSION_TO_LANGUAGE: Record<string, string> = {
 	ts: "typescript",

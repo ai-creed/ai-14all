@@ -4,7 +4,7 @@ import type {
 	GitCommitDetail,
 	GitCommitFileDiff,
 } from "../../../shared/models/git-commit-review.js";
-import type { ResolvedTheme } from "../../lib/useTheme";
+import type { ResolvedTheme } from "../../lib/use-theme";
 
 type Props = {
 	detail: GitCommitDetail;

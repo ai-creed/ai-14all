@@ -114,7 +114,7 @@ import {
 import { countOpenCommentsInFiles } from "../features/git/commit-list-badge";
 import { UpdateBanner } from "../features/updater/UpdateBanner";
 import { logRendererShellEvent } from "../features/terminals/shell-event-logger";
-import { useTheme } from "../lib/useTheme";
+import { useTheme } from "../lib/use-theme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
 import { SHORTCUT_REGISTRY, detectPlatform } from "./shortcut-registry";
 
