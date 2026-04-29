@@ -82,7 +82,6 @@ import { buildWorktreeProcessSummary } from "../features/workspace/logic/sidebar
 import { useNoteBridgeReceiver } from "../features/workspace/hooks/use-note-bridge-receiver";
 import type { GitChangeStatus } from "../../shared/models/git-change";
 import {
-	git,
 	terminals,
 	workspace,
 	repository as repositoryClient,
