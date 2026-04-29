@@ -21,6 +21,16 @@ import {
 	GitCommandRunner,
 	type GitCommandFailure,
 } from "./git-command-runner.js";
+import {
+	MAX_COMMIT_FILE_BYTES,
+	MAX_DIFF_PAYLOAD_BYTES,
+} from "../../shared/files/size-limits.js";
+
+function capContent(content: string, maxBytes: number, label: string): string {
+	if (Buffer.byteLength(content, "utf8") <= maxBytes) return content;
+	const sliced = content.slice(0, maxBytes);
+	return `${sliced}\n\n[ai-14all: ${label} truncated at ${maxBytes.toLocaleString()} bytes]\n`;
+}
 
 const gitBinary = getGitBinaryPath();
 const runner = new GitCommandRunner({ binary: gitBinary });
@@ -318,16 +328,26 @@ export class GitService {
 		const stdout = await readDiffCommand(diffArgs, worktreePath);
 		return {
 			path: relativePath,
-			content: stdout,
+			content: capContent(stdout, MAX_DIFF_PAYLOAD_BYTES, "diff payload"),
 			originalContent:
 				change.status === "A"
 					? ""
-					: await readBlobAtRevision(
-							worktreePath,
-							`HEAD:${change.oldPath ?? relativePath}`,
+					: capContent(
+							await readBlobAtRevision(
+								worktreePath,
+								`HEAD:${change.oldPath ?? relativePath}`,
+							),
+							MAX_COMMIT_FILE_BYTES,
+							"original",
 						),
 			modifiedContent:
-				change.status === "D" ? "" : await readWorkingTreeFile(absolutePath),
+				change.status === "D"
+					? ""
+					: capContent(
+							await readWorkingTreeFile(absolutePath),
+							MAX_COMMIT_FILE_BYTES,
+							"modified",
+						),
 		};
 	}
 
