@@ -60,6 +60,7 @@ import { describeRepositoryLoadError } from "../features/repository/describe-rep
 import { detectPlatform } from "./shortcut-registry";
 import { useWindowFocus } from "./hooks/use-window-focus";
 import { useWorkspacePersistence } from "./hooks/use-workspace-persistence";
+import { useWorkspaceRemoval } from "./hooks/use-workspace-removal";
 import { usePaneResizers } from "./hooks/use-pane-resizers";
 import { useChangesRefreshLoop } from "./hooks/use-changes-refresh-loop";
 import { useTickingNow } from "./hooks/use-ticking-now";
@@ -1798,29 +1799,11 @@ async function handleSelectWorktree(
 		}
 	}
 
-	async function handleRemoveWorkspace(wsId: string) {
-		const ws = appWorkspaces.workspacesById[wsId];
-		if (!ws?.workspaceState) {
-			// Dormant — no live sessions, safe to remove immediately
-			dispatchAppWorkspaces({ type: "workspace/remove", workspaceId: wsId });
-			return;
-		}
-		const liveSessions = Object.values(
-			ws.workspaceState.processSessionsById,
-		).filter((p) => p.status === "running" && p.terminalSessionId !== null);
-		if (liveSessions.length > 0) {
-			const confirmed = window.confirm(
-				`"${ws.repository.name}" has ${liveSessions.length} active terminal(s). Remove it and stop all running terminals?`,
-			);
-			if (!confirmed) return;
-			await Promise.all(
-				liveSessions.flatMap((p) =>
-					p.terminalSessionId ? [stopSession(p.terminalSessionId)] : [],
-				),
-			);
-		}
-		dispatchAppWorkspaces({ type: "workspace/remove", workspaceId: wsId });
-	}
+	const { handleRemoveWorkspace } = useWorkspaceRemoval({
+		appWorkspaces,
+		dispatchAppWorkspaces,
+		stopSession,
+	});
 
 	const sidebarWorkspaces: SessionSidebarWorkspace[] =
 		appWorkspaces.workspaceOrder
