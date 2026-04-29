@@ -153,13 +153,38 @@ export function TerminalPane({
 			onTitleChange?.(title);
 		});
 
-		// Subscribe to output events, filtered to this session.
+		// Subscribe to output events, filtered to this session. Coalesce
+		// per-event writes via requestAnimationFrame so xterm/Monaco aren't
+		// thrashed during high-output bursts. Hard-cap the pending buffer at
+		// 256 KiB to bound memory.
+		let pending = "";
+		let rafId: number | null = null;
+		const HARD_CAP_BYTES = 256 * 1024;
+		const drain = () => {
+			if (rafId !== null) {
+				cancelAnimationFrame(rafId);
+				rafId = null;
+			}
+			if (!pending) return;
+			const out = pending;
+			pending = "";
+			term.write(out);
+		};
 		const unsubOutput = terminals.onOutput((event) => {
-			if (event.sessionId === session.id) {
-				term.write(event.data);
+			if (event.sessionId !== session.id) return;
+			pending += event.data;
+			if (pending.length >= HARD_CAP_BYTES) {
+				drain();
+				return;
+			}
+			if (rafId === null) {
+				rafId = requestAnimationFrame(drain);
 			}
 		});
-		unsubOutputRef.current = unsubOutput;
+		unsubOutputRef.current = () => {
+			drain();
+			unsubOutput();
+		};
 
 		// Send initial resize so the PTY knows the terminal dimensions.
 		if (isLive && term.cols > 0 && term.rows > 0) {
@@ -169,7 +194,7 @@ export function TerminalPane({
 		return () => {
 			onDataDispose.dispose();
 			onTitleChangeDispose.dispose();
-			unsubOutput();
+			unsubOutputRef.current?.();
 			unsubOutputRef.current = null;
 			term.dispose();
 			termRef.current = null;
