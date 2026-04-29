@@ -118,6 +118,7 @@ import { useTheme } from "../lib/use-theme";
 import { describeRepositoryLoadError } from "../features/repository/describe-repository-load-error";
 import { SHORTCUT_REGISTRY, detectPlatform } from "./shortcut-registry";
 import { useWindowFocus } from "./hooks/use-window-focus";
+import { useWorkspacePersistence } from "./hooks/use-workspace-persistence";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -1504,11 +1505,11 @@ export function App() {
 		[persistableStateV2],
 	);
 
-	useEffect(() => {
-		if (startupMode !== "ready") return;
-		void workspace.writeRestoreState(persistableStateV2);
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- persistableStateJson for change detection; persistableStateV2 for the write
-	}, [startupMode, persistableStateJson]);
+	useWorkspacePersistence({
+		startupMode,
+		persistableState: persistableStateV2,
+		persistableStateJson,
+	});
 
 	useEffect(() => {
 		setTreePreviewPath(null);
