@@ -47,7 +47,6 @@ import {
 	ListTrackedFilesSchema,
 } from "../../shared/contracts/commands.js";
 import type { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
-import { WorkspacePersistenceCoordinator } from "../../services/workspace/workspace-persistence-coordinator.js";
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 import type { ShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
 import type { ReviewCommentService } from "../../services/review/review-comment-service.js";
@@ -111,14 +110,10 @@ export function registerIpcHandlers(
 	},
 ): {
 	dispose: () => void;
-	flushPersistence: () => Promise<void>;
 } {
 	const reviewCommentService = review.service;
 	const fileService = new FileService();
 	const gitService = new GitService();
-	const persistenceCoordinator = new WorkspacePersistenceCoordinator(
-		workspacePersistence,
-	);
 
 	const safeSend = <T extends object>(channel: string, payload: T) => {
 		if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
@@ -422,7 +417,7 @@ export function registerIpcHandlers(
 
 	ipcMain.handle("workspace:writeRestoreState", (_event, raw: unknown) => {
 		const { state } = WriteWorkspaceRestoreStateSchema.parse(raw);
-		persistenceCoordinator.enqueueWrite(state);
+		return workspacePersistence.writeState(state);
 	});
 
 	// --- System ---
@@ -557,6 +552,5 @@ export function registerIpcHandlers(
 			offReview();
 			terminalService.dispose();
 		},
-		flushPersistence: () => persistenceCoordinator.flush(),
 	};
 }
