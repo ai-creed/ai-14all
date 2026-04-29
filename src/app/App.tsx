@@ -120,6 +120,7 @@ import { useDiffLoader } from "./hooks/use-diff-loader";
 import { useCommitHistoryLoader } from "./hooks/use-commit-history-loader";
 import { useCommitDetailLoader } from "./hooks/use-commit-detail-loader";
 import { useUpdateInfoListener } from "./hooks/use-update-info-listener";
+import { useKeyboardShortcut } from "./hooks/use-keyboard-shortcut";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -1921,40 +1922,34 @@ async function handleSelectWorktree(
 		refreshKey,
 	});
 
-	// Cmd+; / Ctrl+; keyboard shortcut to toggle note sheet
-	useEffect(() => {
-		const noteShortcut = SHORTCUT_REGISTRY.find((s) => s.id === "note-sheet")!;
-		const handler = (e: KeyboardEvent) => {
-			if (!noteShortcut.predicate(e, appPlatform)) return;
+	// Cmd+; / Ctrl+; — toggle note sheet
+	useKeyboardShortcut(
+		"note-sheet",
+		appPlatform,
+		(e) => {
 			e.preventDefault();
 			setNoteSheetOpen((prev) => !prev);
-		};
-		document.addEventListener("keydown", handler, true);
-		return () => document.removeEventListener("keydown", handler, true);
-	}, [appPlatform]);
+		},
+		[],
+	);
 
-	// Cmd+P / Ctrl+Shift+P shortcut to open Files overlay
-	useEffect(() => {
-		const filesShortcut = SHORTCUT_REGISTRY.find(
-			(s) => s.id === "files-overlay",
-		)!;
-		const handler = (e: KeyboardEvent) => {
-			if (!filesShortcut.predicate(e, appPlatform)) return;
+	// Cmd+P / Ctrl+Shift+P — open Files overlay
+	useKeyboardShortcut(
+		"files-overlay",
+		appPlatform,
+		(e) => {
 			if (!activeWorktree) return;
 			e.preventDefault();
 			setFilesOverlayOpen(true);
-		};
-		document.addEventListener("keydown", handler, true);
-		return () => document.removeEventListener("keydown", handler, true);
-	}, [activeWorktree?.id, appPlatform]);
+		},
+		[activeWorktree?.id],
+	);
 
-	// Cmd+J / Ctrl+J shortcut to toggle review drawer
-	useEffect(() => {
-		const reviewShortcut = SHORTCUT_REGISTRY.find(
-			(s) => s.id === "review-drawer",
-		)!;
-		const handler = (e: KeyboardEvent) => {
-			if (!reviewShortcut.predicate(e, appPlatform)) return;
+	// Cmd+J / Ctrl+J — toggle review drawer
+	useKeyboardShortcut(
+		"review-drawer",
+		appPlatform,
+		(e) => {
 			if (!activeWorktree) return;
 			e.preventDefault();
 			const session =
@@ -1971,24 +1966,15 @@ async function handleSelectWorktree(
 				worktreeId: activeWorktree.id,
 				open: next,
 			});
-		};
-		document.addEventListener("keydown", handler, true);
-		return () => document.removeEventListener("keydown", handler, true);
-	}, [
-		activeWorktree?.id,
-		activeSummary?.isDirty,
-		appPlatform,
-		autoExpand,
-		dispatch,
-	]);
+		},
+		[activeWorktree?.id, activeSummary?.isDirty, autoExpand, dispatch],
+	);
 
-	// Cmd+Shift+J / Ctrl+Shift+J shortcut to toggle review expand mode
-	useEffect(() => {
-		const expandShortcut = SHORTCUT_REGISTRY.find(
-			(s) => s.id === "review.expand",
-		)!;
-		const handler = (e: KeyboardEvent) => {
-			if (!expandShortcut.predicate(e, appPlatform)) return;
+	// Cmd+Shift+J / Ctrl+Shift+J — toggle review expand mode
+	useKeyboardShortcut(
+		"review.expand",
+		appPlatform,
+		(e) => {
 			if (!activeWorktree) return;
 			e.preventDefault();
 			if (reviewExpanded) {
@@ -1996,18 +1982,15 @@ async function handleSelectWorktree(
 			} else {
 				setReviewExpanded(true);
 			}
-		};
-		document.addEventListener("keydown", handler);
-		return () => document.removeEventListener("keydown", handler);
-	}, [activeWorktree?.id, appPlatform, reviewExpanded]);
+		},
+		[activeWorktree?.id, reviewExpanded],
+	);
 
-	// Cmd+Shift+R / Ctrl+Alt+R shortcut to rename active session
-	useEffect(() => {
-		const renameShortcut = SHORTCUT_REGISTRY.find(
-			(s) => s.id === "rename-session",
-		)!;
-		const handler = (e: KeyboardEvent) => {
-			if (!renameShortcut.predicate(e, appPlatform)) return;
+	// Cmd+Shift+R / Ctrl+Alt+R — rename active session
+	useKeyboardShortcut(
+		"rename-session",
+		appPlatform,
+		(e) => {
 			if (!activeWorkspaceId || !activeWorktree) return;
 			e.preventDefault();
 			setSidebarCollapsed(false);
@@ -2015,24 +1998,20 @@ async function handleSelectWorktree(
 				workspaceId: activeWorkspaceId,
 				worktreeId: activeWorktree.id,
 			});
-		};
-		document.addEventListener("keydown", handler, true);
-		return () => document.removeEventListener("keydown", handler, true);
-	}, [activeWorkspaceId, activeWorktree?.id, appPlatform]);
+		},
+		[activeWorkspaceId, activeWorktree?.id],
+	);
 
-	// Cmd+/ or Cmd+? / Ctrl+/ or Ctrl+? shortcut to show shortcuts help
-	useEffect(() => {
-		const helpShortcut = SHORTCUT_REGISTRY.find(
-			(s) => s.id === "shortcuts-help",
-		)!;
-		const handler = (e: KeyboardEvent) => {
-			if (!helpShortcut.predicate(e, appPlatform)) return;
+	// Cmd+/ or Cmd+? / Ctrl+/ or Ctrl+? — show shortcuts help
+	useKeyboardShortcut(
+		"shortcuts-help",
+		appPlatform,
+		(e) => {
 			e.preventDefault();
 			setShortcutsHelpOpen((prev) => !prev);
-		};
-		document.addEventListener("keydown", handler, true);
-		return () => document.removeEventListener("keydown", handler, true);
-	}, [appPlatform]);
+		},
+		[],
+	);
 
 	// Cmd+] / Ctrl+] and Cmd+[ / Ctrl+[ — cycle through worktrees
 	useEffect(() => {
@@ -2064,17 +2043,16 @@ async function handleSelectWorktree(
 	}, [appPlatform, dispatch]);
 
 	// Cmd+N / Ctrl+N — add worktree
-	useEffect(() => {
-		const shortcut = SHORTCUT_REGISTRY.find((s) => s.id === "worktree.add")!;
-		const handler = (e: KeyboardEvent) => {
-			if (!shortcut.predicate(e, appPlatform)) return;
+	useKeyboardShortcut(
+		"worktree.add",
+		appPlatform,
+		(e) => {
 			if (!activeWorkspaceId) return;
 			e.preventDefault();
 			setCreateDialogOpen(true);
-		};
-		document.addEventListener("keydown", handler, true);
-		return () => document.removeEventListener("keydown", handler, true);
-	}, [appPlatform, activeWorkspaceId]);
+		},
+		[activeWorkspaceId],
+	);
 
 	// Cmd+Shift+] / Ctrl+Shift+] and Cmd+Shift+[ / Ctrl+Shift+[ — cycle through workspaces
 	useEffect(() => {
@@ -2107,39 +2085,35 @@ async function handleSelectWorktree(
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [appPlatform]);
 
-	// Cmd+O / Ctrl+O — open workspace picker (menu accelerator already fires this via IPC;
-	// this handler covers the renderer path for completeness)
-	useEffect(() => {
-		const shortcut = SHORTCUT_REGISTRY.find(
-			(s) => s.id === "ui.openWorkspacePicker",
-		)!;
-		const handler = (e: KeyboardEvent) => {
-			if (!shortcut.predicate(e, appPlatform)) return;
+	// Cmd+O / Ctrl+O — open workspace picker (menu accelerator already fires
+	// this via IPC; this handler covers the renderer path for completeness)
+	useKeyboardShortcut(
+		"ui.openWorkspacePicker",
+		appPlatform,
+		(e) => {
 			if (startupMode !== "ready") return;
 			e.preventDefault();
 			setWorkspacePickerOpen(true);
-		};
-		document.addEventListener("keydown", handler, true);
-		return () => document.removeEventListener("keydown", handler, true);
-	}, [appPlatform, startupMode]);
+		},
+		[startupMode],
+	);
 
 	// Cmd+T / Ctrl+T — new terminal
-	useEffect(() => {
-		const shortcut = SHORTCUT_REGISTRY.find((s) => s.id === "terminal.new")!;
-		const handler = (e: KeyboardEvent) => {
-			if (!shortcut.predicate(e, appPlatform)) return;
+	useKeyboardShortcut(
+		"terminal.new",
+		appPlatform,
+		(e) => {
 			e.preventDefault();
 			void handleAddAdHoc();
-		};
-		document.addEventListener("keydown", handler, true);
-		return () => document.removeEventListener("keydown", handler, true);
-	}, [appPlatform, activeWorktree?.id, activeWorkspaceId]); // handleAddAdHoc closes over these
+		},
+		[activeWorktree?.id, activeWorkspaceId],
+	);
 
 	// Cmd+Shift+W / Ctrl+Shift+W — close active terminal
-	useEffect(() => {
-		const shortcut = SHORTCUT_REGISTRY.find((s) => s.id === "terminal.close")!;
-		const handler = (e: KeyboardEvent) => {
-			if (!shortcut.predicate(e, appPlatform)) return;
+	useKeyboardShortcut(
+		"terminal.close",
+		appPlatform,
+		(e) => {
 			const currentState = workspaceStateRef.current;
 			const currentWorktreeId = currentState.selectedWorktreeId;
 			if (!currentWorktreeId) return;
@@ -2149,10 +2123,9 @@ async function handleSelectWorktree(
 			if (!activeProcessId) return;
 			e.preventDefault();
 			void handleCloseProcess(activeProcessId);
-		};
-		document.addEventListener("keydown", handler, true);
-		return () => document.removeEventListener("keydown", handler, true);
-	}, [appPlatform, activeWorktree?.id, activeWorkspaceId]); // handleCloseProcess closes over these
+		},
+		[activeWorktree?.id, activeWorkspaceId],
+	);
 
 	// Cmd+Shift+D / Ctrl+Shift+D and Cmd+Shift+A / Ctrl+Shift+A — cycle through terminals
 	useEffect(() => {
@@ -2200,12 +2173,10 @@ async function handleSelectWorktree(
 	}, [appPlatform, dispatch]);
 
 	// Cmd+D / Ctrl+D — toggle split terminal mode
-	useEffect(() => {
-		const shortcut = SHORTCUT_REGISTRY.find(
-			(s) => s.id === "terminal.toggleSplit",
-		)!;
-		const handler = (e: KeyboardEvent) => {
-			if (!shortcut.predicate(e, appPlatform)) return;
+	useKeyboardShortcut(
+		"terminal.toggleSplit",
+		appPlatform,
+		(e) => {
 			const currentState = workspaceStateRef.current;
 			const currentWorktreeId = currentState.selectedWorktreeId;
 			if (!currentWorktreeId) return;
@@ -2229,24 +2200,20 @@ async function handleSelectWorktree(
 						? processes.map((p) => p.id)
 						: undefined,
 			});
-		};
-		document.addEventListener("keydown", handler, true);
-		return () => document.removeEventListener("keydown", handler, true);
-	}, [appPlatform, dispatch]);
+		},
+		[dispatch],
+	);
 
 	// Cmd+B / Ctrl+B — toggle sidebar
-	useEffect(() => {
-		const shortcut = SHORTCUT_REGISTRY.find(
-			(s) => s.id === "layout.toggleSidebar",
-		)!;
-		const handler = (e: KeyboardEvent) => {
-			if (!shortcut.predicate(e, appPlatform)) return;
+	useKeyboardShortcut(
+		"layout.toggleSidebar",
+		appPlatform,
+		(e) => {
 			e.preventDefault();
 			setSidebarCollapsed((current) => !current);
-		};
-		document.addEventListener("keydown", handler, true);
-		return () => document.removeEventListener("keydown", handler, true);
-	}, [appPlatform]);
+		},
+		[],
+	);
 
 	// Cmd+1/2/3 / Ctrl+1/2/3 — switch review pane tab and open drawer
 	useEffect(() => {
