@@ -147,8 +147,8 @@ const api: Ai14AllDesktopApi = {
 		},
 	},
 	files: {
-		list(worktreePath) {
-			return ipcRenderer.invoke("files:list", { worktreePath });
+		list(workspaceId, worktreeId) {
+			return ipcRenderer.invoke("files:list", { workspaceId, worktreeId });
 		},
 		listScoped(worktreePath, relativeRoots) {
 			return ipcRenderer.invoke("files:listScoped", {

@@ -46,7 +46,8 @@ export const terminals: Ai14AllDesktopApi["terminals"] = {
 };
 
 export const files: Ai14AllDesktopApi["files"] = {
-	list: (worktreePath) => getDesktopClient().files.list(worktreePath),
+	list: (workspaceId, worktreeId) =>
+		getDesktopClient().files.list(workspaceId, worktreeId),
 	listScoped: (worktreePath, relativeRoots) =>
 		getDesktopClient().files.listScoped(worktreePath, relativeRoots),
 	listTracked: (workspaceId, worktreeId) =>

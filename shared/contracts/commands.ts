@@ -87,7 +87,8 @@ export const ListTerminalSessionsSchema = z.object({
 });
 
 export const ListFilesSchema = z.object({
-	worktreePath: z.string(),
+	workspaceId: z.string().min(1),
+	worktreeId: z.string().min(1),
 });
 
 export const ReadFileSchema = z.object({
@@ -267,7 +268,7 @@ export type Ai14AllDesktopApi = {
 		onError(listener: (event: TerminalErrorEvent) => void): () => void;
 	};
 	files: {
-		list(worktreePath: string): Promise<string[]>;
+		list(workspaceId: string, worktreeId: string): Promise<string[]>;
 		listScoped(
 			worktreePath: string,
 			relativeRoots: string[],

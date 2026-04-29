@@ -293,9 +293,11 @@ export function registerIpcHandlers(
 
 	// --- Files ---
 
-	ipcMain.handle("files:list", (_event, raw: unknown) => {
-		const { worktreePath } = ListFilesSchema.parse(raw);
-		return fileService.listFiles(worktreePath);
+	ipcMain.handle("files:list", async (_event, raw: unknown) => {
+		const { workspaceId, worktreeId } = ListFilesSchema.parse(raw);
+		const repository = workspaceRegistry.get(workspaceId);
+		const worktree = await worktreeService.findWorktree(repository, worktreeId);
+		return fileService.listFiles(worktree.path);
 	});
 
 	ipcMain.handle("files:read", (_event, raw: unknown) => {
