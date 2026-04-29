@@ -117,6 +117,7 @@ import { useCommitHistoryLoader } from "./hooks/use-commit-history-loader";
 import { useCommitDetailLoader } from "./hooks/use-commit-detail-loader";
 import { useUpdateInfoListener } from "./hooks/use-update-info-listener";
 import { useKeyboardShortcut } from "./hooks/use-keyboard-shortcut";
+import { useNextPrevShortcut } from "./hooks/use-next-prev-shortcut";
 import { useStartupRestore } from "./hooks/use-startup-restore";
 import { useGitSummaryLoader } from "./hooks/use-git-summary-loader";
 import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-empty-worktree";
@@ -1853,33 +1854,27 @@ async function handleSelectWorktree(
 	);
 
 	// Cmd+] / Ctrl+] and Cmd+[ / Ctrl+[ — cycle through worktrees
-	useEffect(() => {
-		const nextShortcut = SHORTCUT_REGISTRY.find(
-			(s) => s.id === "worktree.selectNext",
-		)!;
-		const prevShortcut = SHORTCUT_REGISTRY.find(
-			(s) => s.id === "worktree.selectPrev",
-		)!;
-		const handler = (e: KeyboardEvent) => {
-			const isNext = nextShortcut.predicate(e, appPlatform);
-			const isPrev = prevShortcut.predicate(e, appPlatform);
-			if (!isNext && !isPrev) return;
+	useNextPrevShortcut(
+		"worktree.selectNext",
+		"worktree.selectPrev",
+		appPlatform,
+		(e, direction) => {
 			const wts = worktreesRef.current;
 			const currentId = workspaceStateRef.current.selectedWorktreeId;
 			if (!wts.length || !currentId) return;
 			const idx = wts.findIndex((w) => w.id === currentId);
 			if (idx === -1) return;
-			const nextIdx = isNext
-				? (idx + 1) % wts.length
-				: (idx - 1 + wts.length) % wts.length;
+			const nextIdx =
+				direction === "next"
+					? (idx + 1) % wts.length
+					: (idx - 1 + wts.length) % wts.length;
 			const nextId = wts[nextIdx]?.id;
 			if (!nextId) return;
 			e.preventDefault();
 			dispatch({ type: "session/selectWorktree", worktreeId: nextId });
-		};
-		document.addEventListener("keydown", handler, true);
-		return () => document.removeEventListener("keydown", handler, true);
-	}, [appPlatform, dispatch]);
+		},
+		[dispatch],
+	);
 
 	// Cmd+N / Ctrl+N — add worktree
 	useKeyboardShortcut(
@@ -1894,35 +1889,28 @@ async function handleSelectWorktree(
 	);
 
 	// Cmd+Shift+] / Ctrl+Shift+] and Cmd+Shift+[ / Ctrl+Shift+[ — cycle through workspaces
-	useEffect(() => {
-		const nextShortcut = SHORTCUT_REGISTRY.find(
-			(s) => s.id === "workspace.selectNext",
-		)!;
-		const prevShortcut = SHORTCUT_REGISTRY.find(
-			(s) => s.id === "workspace.selectPrev",
-		)!;
-		const handler = (e: KeyboardEvent) => {
-			const isNext = nextShortcut.predicate(e, appPlatform);
-			const isPrev = prevShortcut.predicate(e, appPlatform);
-			if (!isNext && !isPrev) return;
+	useNextPrevShortcut(
+		"workspace.selectNext",
+		"workspace.selectPrev",
+		appPlatform,
+		(e, direction) => {
 			const order = appWorkspacesRef.current.workspaceOrder;
 			const currentId = appWorkspacesRef.current.activeWorkspaceId;
 			if (order.length < 2 || !currentId) return;
 			const idx = order.indexOf(currentId);
 			if (idx === -1) return;
-			const nextIdx = isNext
-				? (idx + 1) % order.length
-				: (idx - 1 + order.length) % order.length;
+			const nextIdx =
+				direction === "next"
+					? (idx + 1) % order.length
+					: (idx - 1 + order.length) % order.length;
 			const nextId = order[nextIdx];
 			if (!nextId) return;
 			e.preventDefault();
 			void activateWorkspace(nextId);
-		};
-		document.addEventListener("keydown", handler, true);
-		return () => document.removeEventListener("keydown", handler, true);
+		},
 		// activateWorkspace reads from refs internally — stale closure is safe
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [appPlatform]);
+		[],
+	);
 
 	// Cmd+O / Ctrl+O — open workspace picker (menu accelerator already fires
 	// this via IPC; this handler covers the renderer path for completeness)
@@ -1967,17 +1955,11 @@ async function handleSelectWorktree(
 	);
 
 	// Cmd+Shift+D / Ctrl+Shift+D and Cmd+Shift+A / Ctrl+Shift+A — cycle through terminals
-	useEffect(() => {
-		const nextShortcut = SHORTCUT_REGISTRY.find(
-			(s) => s.id === "terminal.selectNext",
-		)!;
-		const prevShortcut = SHORTCUT_REGISTRY.find(
-			(s) => s.id === "terminal.selectPrev",
-		)!;
-		const handler = (e: KeyboardEvent) => {
-			const isNext = nextShortcut.predicate(e, appPlatform);
-			const isPrev = prevShortcut.predicate(e, appPlatform);
-			if (!isNext && !isPrev) return;
+	useNextPrevShortcut(
+		"terminal.selectNext",
+		"terminal.selectPrev",
+		appPlatform,
+		(e, direction) => {
 			const currentState = workspaceStateRef.current;
 			const currentWorktreeId = currentState.selectedWorktreeId;
 			if (!currentWorktreeId) return;
@@ -1990,9 +1972,10 @@ async function handleSelectWorktree(
 			if (processes.length < 2) return;
 			const currentProcessId = session.activeProcessSessionId;
 			const idx = processes.findIndex((p) => p.id === currentProcessId);
-			const nextIdx = isNext
-				? (idx + 1) % processes.length
-				: (idx - 1 + processes.length) % processes.length;
+			const nextIdx =
+				direction === "next"
+					? (idx + 1) % processes.length
+					: (idx - 1 + processes.length) % processes.length;
 			const nextProcessId = processes[nextIdx]?.id;
 			if (!nextProcessId) return;
 			e.preventDefault();
@@ -2006,10 +1989,9 @@ async function handleSelectWorktree(
 				worktreeId: currentWorktreeId,
 				processId: nextProcessId,
 			});
-		};
-		document.addEventListener("keydown", handler, true);
-		return () => document.removeEventListener("keydown", handler, true);
-	}, [appPlatform, dispatch]);
+		},
+		[dispatch],
+	);
 
 	// Cmd+D / Ctrl+D — toggle split terminal mode
 	useKeyboardShortcut(
