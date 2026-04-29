@@ -93,7 +93,6 @@ import { AgentInstallModal } from "../features/review/components/AgentInstallMod
 import { useAgentInstallStatus } from "../features/review/hooks/use-agent-install-status";
 import { buildWorktreeProcessSummary } from "../features/workspace/logic/sidebar-shell-summary";
 import { useNoteBridgeReceiver } from "../features/workspace/hooks/use-note-bridge-receiver";
-import type { GitCommitDetail } from "../../shared/models/git-commit-review";
 import type { GitChangeStatus } from "../../shared/models/git-change";
 import {
 	git,
@@ -120,7 +119,7 @@ import { useTickingNow } from "./hooks/use-ticking-now";
 import { useRemoteStatusLoader } from "./hooks/use-remote-status-loader";
 import { useDiffLoader } from "./hooks/use-diff-loader";
 import { useCommitHistoryLoader } from "./hooks/use-commit-history-loader";
-import type { ReviewLoadState } from "./hooks/review-load-state";
+import { useCommitDetailLoader } from "./hooks/use-commit-detail-loader";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -294,13 +293,6 @@ export function App() {
 		typeof document !== "undefined" ? document.hasFocus() : true,
 	);
 
-	const [commitDetailState, setCommitDetailState] = useState<
-		ReviewLoadState<GitCommitDetail>
-	>({
-		data: null,
-		stale: false,
-		message: null,
-	});
 	const [error, setError] = useState<string | null>(null);
 	const [presetManagerOpen, setPresetManagerOpen] = useState(false);
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -527,6 +519,12 @@ export function App() {
 		}
 		return counts;
 	}, [reviewState.comments]);
+	const commitDetailState = useCommitDetailLoader({
+		workspaceId: activeWorkspaceId,
+		worktreeId: activeWorktree?.id,
+		selectedCommitSha: activeSession?.selectedCommitSha,
+	});
+
 	const selectedCommitOpenCommentCount = useMemo(() => {
 		if (!activeSession?.selectedCommitSha || !commitDetailState.data) return 0;
 		const filePaths = commitDetailState.data.files.map((f) => f.path);
@@ -1928,50 +1926,6 @@ async function handleSelectWorktree(
 		worktreeId: activeWorktree?.id,
 		refreshKey,
 	});
-
-	// Fetch commit detail when selected commit changes
-	useEffect(() => {
-		if (
-			!activeWorktree?.id ||
-			!activeWorkspaceId ||
-			!activeSession?.selectedCommitSha
-		) {
-			setCommitDetailState({ data: null, stale: false, message: null });
-			return;
-		}
-		let cancelled = false;
-		setCommitDetailState((prev) => ({ ...prev, message: null }));
-		git
-			.readCommitDetail(
-				activeWorkspaceId,
-				activeWorktree.id,
-				activeSession.selectedCommitSha,
-			)
-			.then((detail) => {
-				if (!cancelled) {
-					setCommitDetailState({ data: detail, stale: false, message: null });
-				}
-			})
-			.catch(() => {
-				if (!cancelled) {
-					const requestedSha = activeSession.selectedCommitSha;
-					setCommitDetailState((prev) => {
-						const canPreserve =
-							prev.data !== null && prev.data.sha === requestedSha;
-						return {
-							data: canPreserve ? prev.data : null,
-							stale: canPreserve,
-							message: canPreserve
-								? "Couldn't refresh commit detail. Showing last successful result."
-								: "Couldn't load commit detail.",
-						};
-					});
-				}
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [activeWorkspaceId, activeWorktree?.id, activeSession?.selectedCommitSha]);
 
 	// Cmd+; / Ctrl+; keyboard shortcut to toggle note sheet
 	useEffect(() => {
