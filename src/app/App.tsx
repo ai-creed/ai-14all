@@ -2181,14 +2181,22 @@ export function App() {
 
 	// Fetch commit detail when selected commit changes
 	useEffect(() => {
-		if (!activeWorktree?.path || !activeSession?.selectedCommitSha) {
+		if (
+			!activeWorktree?.id ||
+			!activeWorkspaceId ||
+			!activeSession?.selectedCommitSha
+		) {
 			setCommitDetailState({ data: null, stale: false, message: null });
 			return;
 		}
 		let cancelled = false;
 		setCommitDetailState((prev) => ({ ...prev, message: null }));
 		git
-			.readCommitDetail(activeWorktree.path, activeSession.selectedCommitSha)
+			.readCommitDetail(
+				activeWorkspaceId,
+				activeWorktree.id,
+				activeSession.selectedCommitSha,
+			)
 			.then((detail) => {
 				if (!cancelled) {
 					setCommitDetailState({ data: detail, stale: false, message: null });

@@ -207,8 +207,12 @@ const api: Ai14AllDesktopApi = {
 				worktreeId,
 			});
 		},
-		readCommitDetail(worktreePath, sha) {
-			return ipcRenderer.invoke("git:readCommitDetail", { worktreePath, sha });
+		readCommitDetail(workspaceId, worktreeId, sha) {
+			return ipcRenderer.invoke("git:readCommitDetail", {
+				workspaceId,
+				worktreeId,
+				sha,
+			});
 		},
 		discardChange(worktreePath, relativePath) {
 			return ipcRenderer.invoke("git:discardChange", {

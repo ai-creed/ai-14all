@@ -212,7 +212,8 @@ export const ReadGitCommitHistorySchema = z.object({
 });
 
 export const ReadGitCommitDetailSchema = z.object({
-	worktreePath: z.string(),
+	workspaceId: z.string().min(1),
+	worktreeId: z.string().min(1),
 	sha: z.string().min(4),
 });
 
@@ -314,7 +315,8 @@ export type Ai14AllDesktopApi = {
 			worktreeId: string,
 		): Promise<GitCommitHistory>;
 		readCommitDetail(
-			worktreePath: string,
+			workspaceId: string,
+			worktreeId: string,
 			sha: string,
 		): Promise<GitCommitDetail>;
 		discardChange(worktreePath: string, relativePath: string): Promise<void>;
