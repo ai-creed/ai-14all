@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { EditorModal } from "../../../src/features/viewer/EditorModal";
+import { EditorModal } from "../../../src/features/viewer/components/EditorModal";
 import { files } from "../../../src/lib/desktop-client";
 
 vi.mock("../../../src/lib/desktop-client", () => ({

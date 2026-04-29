@@ -1,7 +1,7 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { files } from "../../lib/desktop-client";
+import { files } from "../../../lib/desktop-client";
 import { ConfirmCloseDialog } from "./ConfirmCloseDialog";
 import { SaveConflictDialog } from "./SaveConflictDialog";
 

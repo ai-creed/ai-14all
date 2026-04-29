@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
 	buildFileTree,
 	WORKTREE_TREE_ROOT_PATH,
-} from "../../../src/features/viewer/build-file-tree";
+} from "../../../src/features/viewer/logic/build-file-tree";
 
 describe("buildFileTree", () => {
 	it("exports the root sentinel as the empty string", () => {

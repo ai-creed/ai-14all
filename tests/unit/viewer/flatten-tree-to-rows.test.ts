@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
 	buildFileTree,
 	WORKTREE_TREE_ROOT_PATH,
-} from "../../../src/features/viewer/build-file-tree";
-import { flattenTreeToRows } from "../../../src/features/viewer/flatten-tree-to-rows";
+} from "../../../src/features/viewer/logic/build-file-tree";
+import { flattenTreeToRows } from "../../../src/features/viewer/logic/flatten-tree-to-rows";
 
 describe("flattenTreeToRows (no search)", () => {
 	it("emits only the root row when only the root is expanded", () => {

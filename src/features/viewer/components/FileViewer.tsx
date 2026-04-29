@@ -2,11 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
 import type { OnMount } from "@monaco-editor/react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
-import type { FileView } from "../../../shared/models/file-view";
-import { files } from "../../lib/desktop-client";
-import type { ResolvedTheme } from "../../lib/use-theme";
+import type { FileView } from "../../../../shared/models/file-view";
+import { files } from "../../../lib/desktop-client";
+import type { ResolvedTheme } from "../../../lib/use-theme";
 import { MarkdownPreviewModal } from "./MarkdownPreviewModal";
-import { isEditable } from "../../../shared/editor/editable-files";
+import { isEditable } from "../../../../shared/editor/editable-files";
 
 interface FileViewerProps {
 	workspaceId: string;

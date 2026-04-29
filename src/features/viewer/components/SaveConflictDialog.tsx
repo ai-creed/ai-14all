@@ -1,4 +1,4 @@
-import { AppDialog } from "../../components/AppDialog";
+import { AppDialog } from "../../../components/AppDialog";
 
 type Props = {
 	open: boolean;

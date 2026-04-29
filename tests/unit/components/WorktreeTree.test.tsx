@@ -21,7 +21,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	},
 }));
 
-import { WorktreeTree } from "../../../src/features/viewer/WorktreeTree";
+import { WorktreeTree } from "../../../src/features/viewer/components/WorktreeTree";
 import { files } from "../../../src/lib/desktop-client";
 
 const mockListTracked = vi.mocked(files.listTracked);

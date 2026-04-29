@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github-dark.css";
-import { files } from "../../lib/desktop-client";
+import { files } from "../../../lib/desktop-client";
 
 interface Props {
 	workspaceId: string;

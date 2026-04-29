@@ -36,7 +36,7 @@ vi.mock("@monaco-editor/react", () => ({
 	},
 }));
 
-import { DiffViewer } from "../../../src/features/viewer/DiffViewer";
+import { DiffViewer } from "../../../src/features/viewer/components/DiffViewer";
 
 describe("DiffViewer", () => {
 	it("renders side-by-side diff content in read-only mode", () => {

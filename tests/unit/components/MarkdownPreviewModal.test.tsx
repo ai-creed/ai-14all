@@ -16,7 +16,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	},
 }));
 
-import { MarkdownPreviewModal } from "../../../src/features/viewer/MarkdownPreviewModal";
+import { MarkdownPreviewModal } from "../../../src/features/viewer/components/MarkdownPreviewModal";
 import { files } from "../../../src/lib/desktop-client";
 
 const mockRead = vi.mocked(files.read);

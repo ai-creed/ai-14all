@@ -35,7 +35,7 @@ vi.mock("@monaco-editor/react", () => ({
 	),
 }));
 
-import { FileViewer } from "../../../src/features/viewer/FileViewer";
+import { FileViewer } from "../../../src/features/viewer/components/FileViewer";
 import { files } from "../../../src/lib/desktop-client";
 
 const mockRead = vi.mocked(files.read);

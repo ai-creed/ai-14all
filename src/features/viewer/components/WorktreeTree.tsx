@@ -4,11 +4,11 @@ import * as ContextMenu from "@radix-ui/react-context-menu";
 import type {
 	GitChange,
 	GitChangeStatus,
-} from "../../../shared/models/git-change";
-import { files } from "../../lib/desktop-client";
-import { isEditable } from "../../../shared/editor/editable-files";
-import { buildFileTree, WORKTREE_TREE_ROOT_PATH } from "./build-file-tree";
-import { flattenTreeToRows, type VisibleRow } from "./flatten-tree-to-rows";
+} from "../../../../shared/models/git-change";
+import { files } from "../../../lib/desktop-client";
+import { isEditable } from "../../../../shared/editor/editable-files";
+import { buildFileTree, WORKTREE_TREE_ROOT_PATH } from "../logic/build-file-tree";
+import { flattenTreeToRows, type VisibleRow } from "../logic/flatten-tree-to-rows";
 
 export type WorktreeTreeProps = {
 	workspaceId: string;

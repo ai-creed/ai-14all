@@ -6,7 +6,7 @@ import type {
 	GitCommitDetail,
 } from "../../../shared/models/git-commit-review.js";
 import type { RemoteStatus } from "../../../shared/models/git-remote-status.js";
-import { MarkdownPreviewModal } from "../viewer/MarkdownPreviewModal";
+import { MarkdownPreviewModal } from "../viewer/components/MarkdownPreviewModal";
 import { ForcePushDialog } from "./ForcePushDialog";
 
 type Props = {

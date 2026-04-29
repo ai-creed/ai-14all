@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import type { GitChange } from "../../../shared/models/git-change";
-import { MarkdownPreviewModal } from "../viewer/MarkdownPreviewModal";
+import { MarkdownPreviewModal } from "../viewer/components/MarkdownPreviewModal";
 
 type Props = {
 	workspaceId: string;
