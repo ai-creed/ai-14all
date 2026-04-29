@@ -64,6 +64,12 @@ Avoid mixing component files and non-component modules in the same feature folde
 
 Do not put renderer implementation types into `shared/`. The `shared/` layer must not import from `src/`; move renderer-only state and view models into the relevant feature folder.
 
+### Privileged IPC Trust Boundary
+
+- IPC handlers in `electron/main/ipc.ts` MUST accept identifiers (`workspaceId`, `worktreeId`) and resolve filesystem paths server-side via `WorkspaceRegistryService.get` + `WorktreeService.findWorktree`.
+- Raw filesystem paths from the renderer are forbidden in `ipc.ts`. Exception: MCP agent-pull tool surfaces in `services/mcp/` and the `WorktreePathResolver`, where the path is part of the tool's external contract.
+- Both resolvers throw on unknown ids — do not add `if (!x)` checks; thrown errors propagate as rejected promises to the renderer.
+
 ### Test File Layout
 
 - New feature-owned tests live under `tests/unit/<domain>/` or `tests/unit/features/<domain>/`, where `<domain>` is the feature folder name (`review`, `workspace`, `terminals`, `viewer`, `git`, `files`, `editor`, `app`).
