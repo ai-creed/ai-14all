@@ -12,7 +12,7 @@ import {
 	PickCliPathRequestSchema,
 	SetCliOverrideRequestSchema,
 } from "../../shared/contracts/agent-install.js";
-import { openExternalUrl } from "./services/openExternal.js";
+import { openExternalUrl } from "./services/open-external.js";
 import { consumeE2eGitFault } from "./e2e-git-faults.js";
 import { consumeE2eTerminalCreateDelay } from "./e2e-terminal-create-delay.js";
 import {

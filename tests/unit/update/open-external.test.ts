@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAllowedExternalUrl } from "../../../electron/main/services/openExternal.js";
+import { isAllowedExternalUrl } from "../../../electron/main/services/open-external.js";
 
 describe("isAllowedExternalUrl", () => {
 	it("accepts URLs on the canonical download host", () => {
