@@ -122,6 +122,7 @@ import { useCommitDetailLoader } from "./hooks/use-commit-detail-loader";
 import { useUpdateInfoListener } from "./hooks/use-update-info-listener";
 import { useKeyboardShortcut } from "./hooks/use-keyboard-shortcut";
 import { useStartupRestore } from "./hooks/use-startup-restore";
+import { useGitSummaryLoader } from "./hooks/use-git-summary-loader";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -1422,39 +1423,12 @@ export function App() {
 		activeSession?.processSessionIds.length,
 	]);
 
-	// Fetch git summary when active worktree changes or user refreshes
-	useEffect(() => {
-		if (!activeWorktree?.id || !activeWorkspaceId) return;
-		let cancelled = false;
-
-		dispatch({
-			type: "session/startGitSummaryRefresh",
-			worktreeId: activeWorktree.id,
-		});
-
-		git
-			.readSummary(activeWorkspaceId, activeWorktree.id)
-			.then((summary) => {
-				if (cancelled) return;
-				dispatch({
-					type: "session/cacheGitSummarySuccess",
-					worktreeId: activeWorktree.id,
-					gitSummary: summary,
-				});
-			})
-			.catch((err) => {
-				if (cancelled) return;
-				dispatch({
-					type: "session/cacheGitSummaryFailure",
-					worktreeId: activeWorktree.id,
-					message: err instanceof Error ? err.message : String(err),
-				});
-			});
-
-		return () => {
-			cancelled = true;
-		};
-	}, [activeWorktree?.id, activeWorktree?.path, refreshKey]);
+	useGitSummaryLoader({
+		workspaceId: activeWorkspaceId,
+		worktreeId: activeWorktree?.id,
+		refreshKey,
+		dispatch,
+	});
 
 	useEffect(() => {
 		if (!createDialogOpen || !createName.trim() || !activeWorkspaceId) {
