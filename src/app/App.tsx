@@ -115,6 +115,7 @@ import { useInstallModalListener } from "./hooks/use-install-modal-listener";
 import { useRendererStartLog } from "./hooks/use-renderer-start-log";
 import { useEditFileShortcut } from "./hooks/use-edit-file-shortcut";
 import { useGitActions } from "./hooks/use-git-actions";
+import { useProcessActions } from "./hooks/use-process-actions";
 import { useStartupRestore } from "./hooks/use-startup-restore";
 import { useGitSummaryLoader } from "./hooks/use-git-summary-loader";
 import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-empty-worktree";
@@ -1164,6 +1165,27 @@ export function App() {
 	}, [activeWorktree?.id]);
 
 	const {
+		handleAddAdHoc,
+		handleCloseProcess,
+		handleLaunchPreset,
+		handleStopProcess,
+		handleRestartProcess,
+	} = useProcessActions({
+		workspaceId: activeWorkspaceId,
+		worktree: activeWorktree,
+		workspaceState,
+		workspaceStateRef,
+		outputPreviewBuffersRef,
+		getWorkspaceStateById,
+		createScopedWorkspaceDispatch,
+		sessions,
+		createSession,
+		sendInput,
+		stopSession,
+		removeSession,
+	});
+
+	const {
 		resetAll: resetDefaultShellEnsured,
 		forgetWorktree: forgetDefaultShellEnsuredForWorktree,
 	} = useDefaultShellOnEmptyWorktree({
@@ -1842,158 +1864,6 @@ async function handleSelectWorktree(
 			worktreeId: activeWorktree.id,
 			relativePath,
 		});
-	}
-
-	async function handleAddAdHoc() {
-		if (!activeWorktree || !activeWorkspaceId) return;
-		const targetWorkspaceId = activeWorkspaceId;
-		const targetWorktree = activeWorktree;
-		try {
-			const termSession = await createSession(
-				targetWorkspaceId,
-				targetWorktree.id,
-				targetWorktree.path,
-			);
-			const targetWorkspaceState = getWorkspaceStateById(targetWorkspaceId);
-			if (!targetWorkspaceState) return;
-			const adHocNumber =
-				targetWorkspaceState.nextAdHocNumberByWorktreeId[targetWorktree.id] ??
-				1;
-			const process: ProcessSession = {
-				id: crypto.randomUUID(),
-				workspaceId: targetWorkspaceId,
-				worktreeId: targetWorktree.id,
-				terminalSessionId: termSession.id,
-				origin: "adHoc",
-				presetId: null,
-				label: `shell ${adHocNumber}`,
-				command: null,
-				status: "running",
-				lastActivityAt: null,
-				lastOutputPreview: null,
-				exitCode: null,
-				pinned: false,
-				attentionState: "idle",
-			};
-			createScopedWorkspaceDispatch(targetWorkspaceId)({
-				type: "session/registerProcess",
-				worktreeId: targetWorktree.id,
-				process,
-			});
-		} catch (err) {
-			console.error("Failed to create terminal session:", err);
-			throw err;
-		}
-	}
-
-	async function handleCloseProcess(processId: string) {
-		if (!activeWorktree || !activeWorkspaceId) return;
-		const targetWorkspaceId = activeWorkspaceId;
-		const targetWorktreeId = activeWorktree.id;
-		const process = workspaceStateRef.current.processSessionsById[processId];
-		if (!process) return;
-		const terminalId = process.terminalSessionId;
-		if (terminalId) {
-			const session = sessions.find((entry) => entry.id === terminalId);
-			try {
-				if (
-					session &&
-					(session.status === "running" || session.status === "idle")
-				) {
-					await stopSession(terminalId);
-				}
-			} catch (err) {
-				console.error("Failed to stop terminal session:", err);
-			} finally {
-				outputPreviewBuffersRef.current.delete(terminalId);
-				removeSession(terminalId);
-			}
-		}
-		createScopedWorkspaceDispatch(targetWorkspaceId)({
-			type: "session/closeProcess",
-			worktreeId: targetWorktreeId,
-			processId,
-		});
-	}
-
-	async function handleLaunchPreset(presetId: string) {
-		if (!activeWorktree || !activeWorkspaceId) return;
-		const targetWorkspaceId = activeWorkspaceId;
-		const targetWorktree = activeWorktree;
-		const preset = workspaceState.commandPresets.find((p) => p.id === presetId);
-		if (!preset) return;
-		const terminal = await createSession(
-			targetWorkspaceId,
-			targetWorktree.id,
-			targetWorktree.path,
-		);
-		createScopedWorkspaceDispatch(targetWorkspaceId)({
-			type: "session/registerProcess",
-			worktreeId: targetWorktree.id,
-			process: {
-				id: crypto.randomUUID(),
-				workspaceId: targetWorkspaceId,
-				worktreeId: targetWorktree.id,
-				terminalSessionId: terminal.id,
-				origin: "preset",
-				presetId: preset.id,
-				label: preset.label,
-				command: preset.command,
-				status: "running",
-				lastActivityAt: null,
-				lastOutputPreview: null,
-				exitCode: null,
-				pinned: true,
-				attentionState: "idle",
-			},
-		});
-		await sendInput(terminal.id, `${preset.command}\n`);
-	}
-
-	async function handleStopProcess(processId: string) {
-		const process = workspaceState.processSessionsById[processId];
-		if (!process?.terminalSessionId) return;
-		await stopSession(process.terminalSessionId);
-	}
-
-	async function handleRestartProcess(processId: string) {
-		const process = workspaceState.processSessionsById[processId];
-		if (!process || !activeWorktree || !activeWorkspaceId) return;
-		const targetWorkspaceId = activeWorkspaceId;
-		const targetWorktree = activeWorktree;
-
-		if (process.terminalSessionId) {
-			try {
-				await stopSession(process.terminalSessionId);
-			} catch {
-				// best effort
-			}
-			outputPreviewBuffersRef.current.delete(process.terminalSessionId);
-			removeSession(process.terminalSessionId);
-		}
-
-		const terminal = await createSession(
-			targetWorkspaceId,
-			targetWorktree.id,
-			targetWorktree.path,
-		);
-		const dispatchToTargetWorkspace =
-			createScopedWorkspaceDispatch(targetWorkspaceId);
-		dispatchToTargetWorkspace({
-			type: "session/replaceProcessTerminal",
-			processId,
-			terminalSessionId: terminal.id,
-		});
-		dispatchToTargetWorkspace({
-			type: "session/updateProcessStatus",
-			processId,
-			status: "running",
-			exitCode: null,
-		});
-
-		if (process.command) {
-			await sendInput(terminal.id, `${process.command}\n`);
-		}
 	}
 
 	async function handleRestoreDecision({
