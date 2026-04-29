@@ -89,7 +89,6 @@ import {
 	files,
 	system,
 	reviewComments,
-	events,
 	noteBridge,
 } from "../lib/desktop-client";
 import { countOpenCommentsInFiles } from "../features/git/logic/commit-list-badge";
@@ -113,6 +112,7 @@ import { useNextPrevShortcut } from "./hooks/use-next-prev-shortcut";
 import { useActiveWorkspace } from "./hooks/use-active-workspace";
 import { useTerminalRuntime } from "./hooks/use-terminal-runtime";
 import { useWorkspacePickerListener } from "./hooks/use-workspace-picker-listener";
+import { useInstallModalListener } from "./hooks/use-install-modal-listener";
 import { useStartupRestore } from "./hooks/use-startup-restore";
 import { useGitSummaryLoader } from "./hooks/use-git-summary-loader";
 import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-empty-worktree";
@@ -353,10 +353,7 @@ export function App() {
 	const [installModalOpen, setInstallModalOpen] = useState(false);
 	const [commentSidebarOpen, setCommentSidebarOpen] = useState(false);
 
-	useEffect(() => {
-		const off = events.onOpenInstallModal(() => setInstallModalOpen(true));
-		return off;
-	}, []);
+	useInstallModalListener(useCallback(() => setInstallModalOpen(true), []));
 
 	useEffect(() => {
 		const currentFilePath =
