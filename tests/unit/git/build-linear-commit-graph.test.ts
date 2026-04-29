@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildLinearCommitGraph } from "../../../src/features/git/build-linear-commit-graph";
+import { buildLinearCommitGraph } from "../../../src/features/git/logic/build-linear-commit-graph";
 
 describe("buildLinearCommitGraph", () => {
 	it("marks the merge-target row and preserves commit order", () => {

@@ -1,16 +1,16 @@
 import { useState } from "react";
-import { AppDialog } from "../../components/AppDialog";
+import { AppDialog } from "../../../components/AppDialog";
 
 type Props = {
 	open: boolean;
-	relativePath: string | null;
+	behind: number;
 	onOpenChange: (open: boolean) => void;
 	onConfirm: () => Promise<void>;
 };
 
-export function DiscardChangeDialog({
+export function ForcePushDialog({
 	open,
-	relativePath,
+	behind,
 	onOpenChange,
 	onConfirm,
 }: Props) {
@@ -32,10 +32,10 @@ export function DiscardChangeDialog({
 
 	return (
 		<AppDialog open={open} onOpenChange={onOpenChange}>
-			<AppDialog.Title>Discard changes</AppDialog.Title>
+			<AppDialog.Title>Force push</AppDialog.Title>
 			<AppDialog.Description>
-				Discard changes to <strong>{relativePath}</strong>? This cannot be
-				undone.
+				Remote has {behind} commit{behind === 1 ? "" : "s"} your branch doesn't
+				have. Push anyway with --force-with-lease?
 			</AppDialog.Description>
 			<AppDialog.Body>
 				{error && <div className="shell-error-banner">{error}</div>}
@@ -57,7 +57,7 @@ export function DiscardChangeDialog({
 					}}
 					disabled={busy}
 				>
-					Discard
+					Force push
 				</button>
 			</AppDialog.Footer>
 		</AppDialog>

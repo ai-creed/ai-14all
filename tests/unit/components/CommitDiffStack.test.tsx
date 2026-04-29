@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { CommitDiffStack } from "../../../src/features/git/CommitDiffStack";
+import { CommitDiffStack } from "../../../src/features/git/components/CommitDiffStack";
 
 // Monaco DiffEditor won't load in jsdom — mock it
 vi.mock("@monaco-editor/react", () => ({

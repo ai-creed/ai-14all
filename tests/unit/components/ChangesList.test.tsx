@@ -10,7 +10,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	},
 }));
 
-import { ChangesList } from "../../../src/features/git/ChangesList";
+import { ChangesList } from "../../../src/features/git/components/ChangesList";
 import { files } from "../../../src/lib/desktop-client";
 
 const mockRead = vi.mocked(files.read);

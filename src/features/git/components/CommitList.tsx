@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
-import { buildLinearCommitGraph } from "./build-linear-commit-graph.js";
+import { buildLinearCommitGraph } from "../logic/build-linear-commit-graph.js";
 import type {
 	GitCommitHistory,
 	GitCommitDetail,
-} from "../../../shared/models/git-commit-review.js";
-import type { RemoteStatus } from "../../../shared/models/git-remote-status.js";
-import { MarkdownPreviewModal } from "../viewer/components/MarkdownPreviewModal";
-import { ForcePushDialog } from "./ForcePushDialog";
+} from "../../../../shared/models/git-commit-review.js";
+import type { RemoteStatus } from "../../../../shared/models/git-remote-status.js";
+import { MarkdownPreviewModal } from "../../viewer/components/MarkdownPreviewModal";
+import { ForcePushDialog } from "../components/ForcePushDialog";
 
 type Props = {
 	workspaceId: string;

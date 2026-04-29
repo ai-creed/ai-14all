@@ -3,8 +3,8 @@ import { DiffEditor } from "@monaco-editor/react";
 import type {
 	GitCommitDetail,
 	GitCommitFileDiff,
-} from "../../../shared/models/git-commit-review.js";
-import type { ResolvedTheme } from "../../lib/use-theme";
+} from "../../../../shared/models/git-commit-review.js";
+import type { ResolvedTheme } from "../../../lib/use-theme";
 
 type Props = {
 	detail: GitCommitDetail;

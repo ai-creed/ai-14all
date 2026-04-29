@@ -1,4 +1,4 @@
-import type { GitCommitListEntry } from "../../../shared/models/git-commit-review.js";
+import type { GitCommitListEntry } from "../../../../shared/models/git-commit-review.js";
 
 export type LinearCommitRow = GitCommitListEntry & {
 	rowKind: "commit" | "mergeTarget";

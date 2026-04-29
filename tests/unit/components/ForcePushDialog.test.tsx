@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { ForcePushDialog } from "../../../src/features/git/ForcePushDialog";
+import { ForcePushDialog } from "../../../src/features/git/components/ForcePushDialog";
 
 describe("ForcePushDialog", () => {
 	it("shows the behind count in the message", () => {

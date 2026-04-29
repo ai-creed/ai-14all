@@ -68,11 +68,11 @@ import { isEditable } from "../../shared/editor/editable-files";
 import { FilesOverlay } from "../features/files/FilesOverlay";
 import { ShortcutsHelp } from "../features/shortcuts/ShortcutsHelp";
 import { FileViewer } from "../features/viewer/components/FileViewer";
-import { ChangesList } from "../features/git/ChangesList";
-import { DiscardChangeDialog } from "../features/git/DiscardChangeDialog";
+import { ChangesList } from "../features/git/components/ChangesList";
+import { DiscardChangeDialog } from "../features/git/components/DiscardChangeDialog";
 import { DiffViewer } from "../features/viewer/components/DiffViewer";
-import { CommitList } from "../features/git/CommitList";
-import { CommitDiffStack } from "../features/git/CommitDiffStack";
+import { CommitList } from "../features/git/components/CommitList";
+import { CommitDiffStack } from "../features/git/components/CommitDiffStack";
 import { ReviewDrawer } from "../features/review/components/ReviewDrawer";
 import {
 	ReviewExpandedPortal,
@@ -111,7 +111,7 @@ import {
 	events,
 	noteBridge,
 } from "../lib/desktop-client";
-import { countOpenCommentsInFiles } from "../features/git/commit-list-badge";
+import { countOpenCommentsInFiles } from "../features/git/logic/commit-list-badge";
 import { UpdateBanner } from "../features/updater/UpdateBanner";
 import { logRendererShellEvent } from "../features/terminals/logic/shell-event-logger";
 import { useTheme } from "../lib/use-theme";

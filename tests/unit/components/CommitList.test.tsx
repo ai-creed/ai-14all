@@ -14,7 +14,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	},
 }));
 
-import { CommitList } from "../../../src/features/git/CommitList";
+import { CommitList } from "../../../src/features/git/components/CommitList";
 import { files } from "../../../src/lib/desktop-client";
 
 const mockRead = vi.mocked(files.read);

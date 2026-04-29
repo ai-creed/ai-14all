@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { countOpenCommentsInFiles } from "../../../src/features/git/commit-list-badge";
+import { countOpenCommentsInFiles } from "../../../src/features/git/logic/commit-list-badge";
 
 describe("countOpenCommentsInFiles", () => {
 	it("sums open counts for the given file paths", () => {
