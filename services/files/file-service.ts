@@ -9,13 +9,15 @@ import {
 	writeFile,
 } from "node:fs/promises";
 import { join, resolve, extname } from "node:path";
-import type { FileView } from "../../shared/models/file-view.js";
+import type { FileReadResult } from "../../shared/models/file-view.js";
 import type {
 	OpenFileForEditResult,
 	SaveFileResult,
 } from "../../shared/contracts/commands.js";
 import { getGitBinaryPath } from "../git/git-binary.js";
 import { isEditable } from "../../shared/editor/editable-files.js";
+import { isLikelyBinary } from "./binary-detect.js";
+import { MAX_FILE_VIEW_BYTES } from "../../shared/files/size-limits.js";
 
 export const MAX_EDITOR_FILE_BYTES = 1_000_000;
 
@@ -270,20 +272,67 @@ export class FileService {
 	async readFile(
 		worktreePath: string,
 		relativePath: string,
-	): Promise<FileView> {
+	): Promise<FileReadResult> {
 		const resolved = this.resolveInsideWorktree(worktreePath, relativePath);
-		if (!resolved.ok) throw new Error(`Path escapes worktree: ${relativePath}`);
+		if (!resolved.ok) {
+			return {
+				ok: false,
+				path: relativePath,
+				reason: { kind: "read-failed" },
+			};
+		}
 		const absolutePath = resolved.absolute;
 
-		// Reject directories
-		const fileStat = await stat(absolutePath);
+		let fileStat: import("node:fs").Stats;
+		try {
+			fileStat = await stat(absolutePath);
+		} catch {
+			return {
+				ok: false,
+				path: relativePath,
+				reason: { kind: "not-found" },
+			};
+		}
 		if (fileStat.isDirectory()) {
-			throw new Error(`Path is a directory: ${relativePath}`);
+			return {
+				ok: false,
+				path: relativePath,
+				reason: { kind: "read-failed" },
+			};
+		}
+		if (fileStat.size > MAX_FILE_VIEW_BYTES) {
+			return {
+				ok: false,
+				path: relativePath,
+				reason: { kind: "too-large", size: fileStat.size },
+			};
 		}
 
-		const content = await fsReadFile(absolutePath, "utf-8");
-		const language = detectLanguage(relativePath);
+		let buffer: Buffer;
+		try {
+			buffer = await fsReadFile(absolutePath);
+		} catch {
+			return {
+				ok: false,
+				path: relativePath,
+				reason: { kind: "read-failed" },
+			};
+		}
+		if (isLikelyBinary(buffer)) {
+			return {
+				ok: false,
+				path: relativePath,
+				reason: { kind: "binary" },
+			};
+		}
 
-		return { path: relativePath, content, language };
+		return {
+			ok: true,
+			view: {
+				path: relativePath,
+				content: buffer.toString("utf8"),
+				language: detectLanguage(relativePath),
+			},
+		};
 	}
 }

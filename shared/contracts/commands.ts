@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Repository } from "../models/repository.js";
 import type { Worktree } from "../models/worktree.js";
 import type { TerminalSession } from "../models/terminal-session.js";
-import type { FileView } from "../models/file-view.js";
+import type { FileReadResult } from "../models/file-view.js";
 import type {
 	TerminalOutputEvent,
 	TerminalExitEvent,
@@ -286,7 +286,7 @@ export type Ai14AllDesktopApi = {
 			workspaceId: string,
 			worktreeId: string,
 			relativePath: string,
-		): Promise<FileView>;
+		): Promise<FileReadResult>;
 		openForEdit(
 			workspaceId: string,
 			worktreeId: string,

@@ -88,9 +88,12 @@ describe("ChangesList", () => {
 
 	it("shows Preview for markdown files and opens the preview modal", async () => {
 		mockRead.mockResolvedValueOnce({
-			path: "NOTES.md",
-			content: "# Preview Test\n",
-			language: "markdown",
+			ok: true,
+			view: {
+				path: "NOTES.md",
+				content: "# Preview Test\n",
+				language: "markdown",
+			},
 		});
 
 		render(

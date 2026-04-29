@@ -49,19 +49,24 @@ describe("FileService", () => {
 	describe("readFile", () => {
 		it("returns content for a valid text file", async () => {
 			const result = await service.readFile(worktreeDir, "src/index.ts");
-			expect(result.content).toBe("console.log('hello');");
-			expect(result.path).toBe("src/index.ts");
-			expect(result.language).toBe("typescript");
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				expect(result.view.content).toBe("console.log('hello');");
+				expect(result.view.path).toBe("src/index.ts");
+				expect(result.view.language).toBe("typescript");
+			}
 		});
 
-		it("rejects when the path is a directory", async () => {
-			await expect(service.readFile(worktreeDir, "src")).rejects.toThrow();
+		it("returns read-failed when the path is a directory", async () => {
+			const result = await service.readFile(worktreeDir, "src");
+			expect(result.ok).toBe(false);
+			if (!result.ok) expect(result.reason.kind).toBe("read-failed");
 		});
 
-		it("rejects when the path escapes the worktree", async () => {
-			await expect(
-				service.readFile(worktreeDir, "../../etc/passwd"),
-			).rejects.toThrow();
+		it("returns read-failed when the path escapes the worktree", async () => {
+			const result = await service.readFile(worktreeDir, "../../etc/passwd");
+			expect(result.ok).toBe(false);
+			if (!result.ok) expect(result.reason.kind).toBe("read-failed");
 		});
 	});
 

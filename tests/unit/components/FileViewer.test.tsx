@@ -40,6 +40,8 @@ import { files } from "../../../src/lib/desktop-client";
 
 const mockRead = vi.mocked(files.read);
 
+const ok = (view: FileView) => ({ ok: true as const, view });
+
 const fakeFileView: FileView = {
 	path: "src/index.ts",
 	content: 'export const hello = "world";',
@@ -52,7 +54,7 @@ describe("FileViewer", () => {
 	});
 
 	it("renders Monaco editor with file content and readOnly", async () => {
-		mockRead.mockResolvedValueOnce(fakeFileView);
+		mockRead.mockResolvedValueOnce({ ok: true, view: fakeFileView });
 
 		render(
 			<FileViewer
@@ -72,7 +74,7 @@ describe("FileViewer", () => {
 	});
 
 	it("shows file path header", async () => {
-		mockRead.mockResolvedValueOnce(fakeFileView);
+		mockRead.mockResolvedValueOnce({ ok: true, view: fakeFileView });
 
 		render(
 			<FileViewer
@@ -117,11 +119,11 @@ describe("FileViewer", () => {
 
 	it("keeps the previous file view for the same target when reread fails", async () => {
 		mockRead
-			.mockResolvedValueOnce({
+			.mockResolvedValueOnce(ok({
 				path: "src/index.ts",
 				language: "typescript",
 				content: "export const hello = 'world';\n",
-			})
+				}))
 			.mockRejectedValueOnce(new Error("read failed"));
 
 		const { rerender } = render(
@@ -155,11 +157,11 @@ describe("FileViewer", () => {
 
 	it("shows Preview context menu item when right-clicking header of a .md file", async () => {
 		mockRead
-			.mockResolvedValueOnce({
+			.mockResolvedValueOnce(ok({
 				path: "README.md",
 				content: "# Hello",
 				language: "markdown",
-			})
+				}))
 			.mockReturnValue(new Promise(() => {})); // preview modal fetch never resolves
 
 		render(
@@ -179,11 +181,11 @@ describe("FileViewer", () => {
 	});
 
 	it("does not show a context menu when right-clicking header of a non-.md file without onEditFile", async () => {
-		mockRead.mockResolvedValueOnce({
+		mockRead.mockResolvedValueOnce(ok({
 			path: "src/index.ts",
 			content: "const x = 1;",
 			language: "typescript",
-		});
+			}));
 
 		render(
 			<FileViewer
@@ -205,11 +207,11 @@ describe("FileViewer", () => {
 	});
 
 	it("shows Edit context menu item for editable files when onEditFile is provided", async () => {
-		mockRead.mockResolvedValueOnce({
+		mockRead.mockResolvedValueOnce(ok({
 			path: "src/index.ts",
 			content: "const x = 1;",
 			language: "typescript",
-		});
+			}));
 
 		render(
 			<FileViewer
@@ -229,11 +231,11 @@ describe("FileViewer", () => {
 	});
 
 	it("calls onEditFile with relativePath when Edit is clicked", async () => {
-		mockRead.mockResolvedValueOnce({
+		mockRead.mockResolvedValueOnce(ok({
 			path: "src/index.ts",
 			content: "const x = 1;",
 			language: "typescript",
-		});
+			}));
 
 		const onEditFile = vi.fn();
 		render(
@@ -254,11 +256,11 @@ describe("FileViewer", () => {
 
 	it("shows both Preview and Edit for .md files when onEditFile is provided", async () => {
 		mockRead
-			.mockResolvedValueOnce({
+			.mockResolvedValueOnce(ok({
 				path: "README.md",
 				content: "# Hello",
 				language: "markdown",
-			})
+				}))
 			.mockReturnValue(new Promise(() => {}));
 
 		render(
@@ -281,11 +283,11 @@ describe("FileViewer", () => {
 
 	it("opens the markdown preview modal when Preview is clicked in FileViewer", async () => {
 		mockRead
-			.mockResolvedValueOnce({
+			.mockResolvedValueOnce(ok({
 				path: "README.md",
 				content: "# Hello",
 				language: "markdown",
-			})
+				}))
 			.mockReturnValue(new Promise(() => {})); // modal fetch never resolves
 
 		render(
@@ -309,11 +311,11 @@ describe("FileViewer", () => {
 
 	it("closes preview modal when relativePath changes", async () => {
 		mockRead
-			.mockResolvedValueOnce({
+			.mockResolvedValueOnce(ok({
 				path: "README.md",
 				content: "# Hello",
 				language: "markdown",
-			})
+				}))
 			.mockReturnValue(new Promise(() => {})); // modal fetch + subsequent viewer fetches never resolve
 
 		const { rerender } = render(

@@ -66,10 +66,27 @@ export function FileViewer({
 		setMessage(null);
 		files
 			.read(workspaceId, worktreeId, relativePath)
-			.then((view) => {
-				setFileView(view);
-				setStale(false);
-				setMessage(null);
+			.then((result) => {
+				if (result.ok) {
+					setFileView(result.view);
+					setStale(false);
+					setMessage(null);
+					setLoading(false);
+					return;
+				}
+				const previous = latestFileViewRef.current;
+				const canPreserve = previous?.path === relativePath;
+				if (!canPreserve) setFileView(null);
+				setStale(canPreserve);
+				const message =
+					result.reason.kind === "too-large"
+						? `File too large to display (${result.reason.size.toLocaleString()} bytes).`
+						: result.reason.kind === "binary"
+							? "Binary file — preview not available."
+							: result.reason.kind === "not-found"
+								? "File not found."
+								: "Couldn't load file contents.";
+				setMessage(message);
 				setLoading(false);
 			})
 			.catch(() => {

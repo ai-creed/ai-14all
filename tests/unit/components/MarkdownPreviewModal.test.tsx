@@ -21,6 +21,8 @@ import { files } from "../../../src/lib/desktop-client";
 
 const mockRead = vi.mocked(files.read);
 
+const ok = (view: FileView) => ({ ok: true as const, view });
+
 const fakeView: FileView = {
 	path: "README.md",
 	content: "# Hello\n\nSome text.\n",
@@ -48,7 +50,7 @@ describe("MarkdownPreviewModal", () => {
 	});
 
 	it("shows file path in header", async () => {
-		mockRead.mockResolvedValueOnce(fakeView);
+		mockRead.mockResolvedValueOnce({ ok: true, view: fakeView });
 
 		render(
 			<MarkdownPreviewModal
@@ -64,7 +66,7 @@ describe("MarkdownPreviewModal", () => {
 	});
 
 	it("renders a markdown heading", async () => {
-		mockRead.mockResolvedValueOnce(fakeView);
+		mockRead.mockResolvedValueOnce({ ok: true, view: fakeView });
 
 		render(
 			<MarkdownPreviewModal
@@ -81,10 +83,10 @@ describe("MarkdownPreviewModal", () => {
 	});
 
 	it("renders a GFM table", async () => {
-		mockRead.mockResolvedValueOnce({
+		mockRead.mockResolvedValueOnce(ok({
 			...fakeView,
 			content: "| A | B |\n|---|---|\n| 1 | 2 |\n",
-		});
+			}));
 
 		render(
 			<MarkdownPreviewModal
@@ -101,10 +103,10 @@ describe("MarkdownPreviewModal", () => {
 	});
 
 	it("renders GFM task list checkboxes", async () => {
-		mockRead.mockResolvedValueOnce({
+		mockRead.mockResolvedValueOnce(ok({
 			...fakeView,
 			content: "- [x] Done\n- [ ] Todo\n",
-		});
+			}));
 
 		render(
 			<MarkdownPreviewModal
@@ -122,10 +124,10 @@ describe("MarkdownPreviewModal", () => {
 	});
 
 	it("renders a fenced code block with a language class", async () => {
-		mockRead.mockResolvedValueOnce({
+		mockRead.mockResolvedValueOnce(ok({
 			...fakeView,
 			content: "```ts\nconst x = 1;\n```\n",
-		});
+			}));
 
 		render(
 			<MarkdownPreviewModal
@@ -163,7 +165,7 @@ describe("MarkdownPreviewModal", () => {
 	it("re-fetches when Retry is clicked", async () => {
 		mockRead
 			.mockRejectedValueOnce(new Error("fail"))
-			.mockResolvedValueOnce(fakeView);
+			.mockResolvedValueOnce({ ok: true, view: fakeView });
 
 		render(
 			<MarkdownPreviewModal
@@ -184,7 +186,7 @@ describe("MarkdownPreviewModal", () => {
 	});
 
 	it("calls onClose when the close button is clicked", async () => {
-		mockRead.mockResolvedValueOnce(fakeView);
+		mockRead.mockResolvedValueOnce({ ok: true, view: fakeView });
 		const onClose = vi.fn();
 
 		render(

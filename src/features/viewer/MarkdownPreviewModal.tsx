@@ -41,8 +41,18 @@ export function MarkdownPreviewModal({
 		setContent(null);
 		files
 			.read(workspaceId, worktreeId, relativePath)
-			.then((view) => {
-				setContent(view.content);
+			.then((result) => {
+				if (result.ok) {
+					setContent(result.view.content);
+				} else {
+					setError(
+						result.reason.kind === "too-large"
+							? "File too large to preview."
+							: result.reason.kind === "binary"
+								? "Binary file — preview not available."
+								: "Couldn't load file contents.",
+					);
+				}
 				setLoading(false);
 			})
 			.catch(() => {
