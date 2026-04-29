@@ -3,14 +3,19 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
 	mkdtempSync,
 	mkdirSync,
+	readdirSync,
 	realpathSync,
 	rmSync,
 	writeFileSync,
 	readFileSync,
 } from "node:fs";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { WorkspacePersistenceService } from "../../../../services/workspace/workspace-persistence-service.js";
+import {
+	WorkspacePersistenceService,
+	type PersistenceFsAdapter,
+} from "../../../../services/workspace/workspace-persistence-service.js";
 
 describe("WorkspacePersistenceService", () => {
 	let tempDir: string;
@@ -149,6 +154,53 @@ describe("WorkspacePersistenceService", () => {
 			version: number;
 		};
 		expect(surviving.version).toBe(99);
+	});
+
+	it("writes via a temp file and renames; no leftover .ai-14all.tmp", async () => {
+		const state = {
+			version: 2 as const,
+			restorePreference: "prompt" as const,
+			activeWorkspaceId: null as string | null,
+			workspaceOrder: [] as string[],
+			workspaces: [] as never[],
+		};
+		await service.writeState(state);
+		const entries = readdirSync(tempDir);
+		expect(entries.some((e) => e.endsWith(".ai-14all.tmp"))).toBe(false);
+	});
+
+	it("leaves the previous file intact if rename fails", async () => {
+		const seed = {
+			version: 2 as const,
+			restorePreference: "prompt" as const,
+			activeWorkspaceId: "workspace:foo",
+			workspaceOrder: ["workspace:foo"],
+			workspaces: [],
+		};
+		await service.writeState(seed);
+
+		const failingFs: PersistenceFsAdapter = {
+			mkdir,
+			writeFile,
+			unlink,
+			rename: async () => {
+				throw new Error("simulated rename failure");
+			},
+		};
+		const failingService = new WorkspacePersistenceService(filePath, failingFs);
+		await expect(
+			failingService.writeState({
+				...seed,
+				activeWorkspaceId: "workspace:bar",
+			}),
+		).rejects.toThrow();
+
+		const stillThere = JSON.parse(readFileSync(filePath, "utf8")) as {
+			activeWorkspaceId: string | null;
+		};
+		expect(stillThere.activeWorkspaceId).toBe("workspace:foo");
+		const entries = readdirSync(tempDir);
+		expect(entries.some((e) => e.endsWith(".ai-14all.tmp"))).toBe(false);
 	});
 
 	it("migrates version 1 restore state into a single v2 workspace entry", async () => {

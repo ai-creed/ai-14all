@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
 	DEFAULT_PERSISTED_WORKSPACE_STATE,
@@ -6,6 +6,15 @@ import {
 	PersistedWorkspaceStateV2Schema,
 	type PersistedWorkspaceStateV2,
 } from "../../shared/models/persisted-workspace-state.js";
+
+export type PersistenceFsAdapter = {
+	mkdir: typeof mkdir;
+	writeFile: typeof writeFile;
+	rename: typeof rename;
+	unlink: typeof unlink;
+};
+
+const DEFAULT_FS: PersistenceFsAdapter = { mkdir, writeFile, rename, unlink };
 
 function migratePersistedWorkspaceState(
 	raw: unknown,
@@ -48,7 +57,10 @@ function migratePersistedWorkspaceState(
 }
 
 export class WorkspacePersistenceService {
-	constructor(private readonly filePath: string) {}
+	constructor(
+		private readonly filePath: string,
+		private readonly fs: PersistenceFsAdapter = DEFAULT_FS,
+	) {}
 
 	async readState(): Promise<PersistedWorkspaceStateV2> {
 		let raw: string;
@@ -82,12 +94,16 @@ export class WorkspacePersistenceService {
 	}
 
 	async writeState(state: PersistedWorkspaceStateV2): Promise<void> {
-		await mkdir(dirname(this.filePath), { recursive: true });
-		await writeFile(
-			this.filePath,
-			`${JSON.stringify(state, null, 2)}\n`,
-			"utf8",
-		);
+		await this.fs.mkdir(dirname(this.filePath), { recursive: true });
+		const tmp = `${this.filePath}.ai-14all.tmp`;
+		const payload = `${JSON.stringify(state, null, 2)}\n`;
+		await this.fs.writeFile(tmp, payload, "utf8");
+		try {
+			await this.fs.rename(tmp, this.filePath);
+		} catch (err) {
+			await this.fs.unlink(tmp).catch(() => {});
+			throw err;
+		}
 	}
 }
 
