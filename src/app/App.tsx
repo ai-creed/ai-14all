@@ -115,6 +115,7 @@ import { useWorkspacePickerListener } from "./hooks/use-workspace-picker-listene
 import { useInstallModalListener } from "./hooks/use-install-modal-listener";
 import { useRendererStartLog } from "./hooks/use-renderer-start-log";
 import { useEditFileShortcut } from "./hooks/use-edit-file-shortcut";
+import { useGitActions } from "./hooks/use-git-actions";
 import { useStartupRestore } from "./hooks/use-startup-restore";
 import { useGitSummaryLoader } from "./hooks/use-git-summary-loader";
 import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-empty-worktree";
@@ -1271,22 +1272,14 @@ export function App() {
 		}
 	}
 
-	async function handleRefreshChanges() {
-		await refreshWorktreeInventory();
-		setRefreshKey((k) => k + 1);
-	}
-
-	async function handleDiscardChange() {
-		if (!activeWorktree?.id || !activeWorkspaceId || !discardPath) return;
-		await git.discardChange(activeWorkspaceId, activeWorktree.id, discardPath);
-		setRefreshKey((k) => k + 1);
-	}
-
-	async function handlePushBranch(force: boolean) {
-		if (!activeWorktree?.id || !activeWorkspaceId) return;
-		await git.pushBranch(activeWorkspaceId, activeWorktree.id, force);
-		setRefreshKey((k) => k + 1);
-	}
+	const { handleRefreshChanges, handleDiscardChange, handlePushBranch } =
+		useGitActions({
+			workspaceId: activeWorkspaceId,
+			worktreeId: activeWorktree?.id,
+			discardPath,
+			refreshWorktreeInventory,
+			bumpRefreshKey: useCallback(() => setRefreshKey((k) => k + 1), []),
+		});
 
 	useWindowFocus({
 		setWindowFocused,
