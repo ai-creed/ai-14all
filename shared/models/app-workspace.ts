@@ -1,6 +1,6 @@
 import type { Repository } from "./repository";
 import type { Worktree } from "./worktree";
-import type { WorkspaceState } from "../../src/features/workspace/workspace-state";
+import type { WorkspaceState } from "./workspace-state";
 import type { PersistedSavedWorkspace } from "./persisted-workspace-state";
 
 export type WorkspaceHydrationState = "dormant" | "active" | "inactiveLive";

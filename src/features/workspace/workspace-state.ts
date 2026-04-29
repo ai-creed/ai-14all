@@ -18,13 +18,8 @@ import type {
 	WorktreeSession,
 } from "../../../shared/models/worktree-session";
 
-export type WorkspaceState = {
-	selectedWorktreeId: string | null;
-	commandPresets: CommandPreset[];
-	processSessionsById: Record<string, ProcessSession>;
-	sessionsByWorktreeId: Record<string, WorktreeSession>;
-	nextAdHocNumberByWorktreeId: Record<string, number>;
-};
+import type { WorkspaceState } from "../../../shared/models/workspace-state";
+export type { WorkspaceState };
 
 export type WorkspaceAction =
 	| { type: "workspace/loadWorktrees"; worktrees: Worktree[] }
