@@ -49,4 +49,53 @@ export default tseslint.config(
 			],
 		},
 	},
+	{
+		files: ["shared/**/*.{ts,tsx}"],
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					patterns: [
+						{
+							group: ["**/src/**", "../**/src/*", "../../src/**", "../../../src/**"],
+							message:
+								"shared/ must not import from src/. Move the contract into shared/ or keep the type in src/.",
+						},
+					],
+				},
+			],
+		},
+	},
+	{
+		files: ["services/**/*.ts"],
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					patterns: [
+						{
+							group: ["**/src/**", "../**/src/*"],
+							message: "services/ must not import from src/.",
+						},
+					],
+				},
+			],
+		},
+	},
+	{
+		files: ["electron/**/*.ts"],
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					patterns: [
+						{
+							group: ["**/src/**", "../**/src/*"],
+							message: "electron/ must not import from src/.",
+						},
+					],
+				},
+			],
+		},
+	},
 );
