@@ -47,9 +47,6 @@ import { PresetManager } from "../features/terminals/components/PresetManager";
 import { NewWorktreeDialog } from "../features/workspace/components/NewWorktreeDialog";
 import { RemoveWorktreeDialog } from "../features/workspace/components/RemoveWorktreeDialog";
 import { LoadWorkspaceDialog } from "../features/workspace/components/LoadWorkspaceDialog";
-import { useTerminalSession } from "../features/terminals/hooks/use-terminal-session";
-import { deriveAttentionState } from "../features/terminals/logic/process-attention";
-import { consumeOutputPreview } from "../features/terminals/logic/output-preview";
 import { WorktreeTree } from "../features/viewer/components/WorktreeTree";
 import { MarkdownPreviewModal } from "../features/viewer/components/MarkdownPreviewModal";
 import { EditorModal } from "../features/viewer/components/EditorModal";
@@ -114,6 +111,7 @@ import { useUpdateInfoListener } from "./hooks/use-update-info-listener";
 import { useKeyboardShortcut } from "./hooks/use-keyboard-shortcut";
 import { useNextPrevShortcut } from "./hooks/use-next-prev-shortcut";
 import { useActiveWorkspace } from "./hooks/use-active-workspace";
+import { useTerminalRuntime } from "./hooks/use-terminal-runtime";
 import { useStartupRestore } from "./hooks/use-startup-restore";
 import { useGitSummaryLoader } from "./hooks/use-git-summary-loader";
 import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-empty-worktree";
@@ -452,21 +450,6 @@ export function App() {
 		return () => window.removeEventListener("keydown", onKey, true);
 	}, [editorTarget, openEditorForFile, activeSession?.selectedFilePath]);
 
-	function findProcessByTerminalSessionId(
-		terminalSessionId: string,
-	): { process: ProcessSession; workspaceId: string } | null {
-		// Search all hydrated workspaces so events from inactive workspaces are
-		// still routed correctly while they run in the background.
-		for (const ws of Object.values(appWorkspacesRef.current.workspacesById)) {
-			if (!ws.workspaceState) continue;
-			const process = Object.values(ws.workspaceState.processSessionsById).find(
-				(p) => p.terminalSessionId === terminalSessionId,
-			);
-			if (process) return { process, workspaceId: ws.workspaceId };
-		}
-		return null;
-	}
-
 	function selectActiveProcess(processId: string) {
 		if (!activeWorktree) return;
 		dispatch({
@@ -519,118 +502,14 @@ export function App() {
 		stopSession,
 		removeSession,
 		adoptSession,
-	} = useTerminalSession({
-		onOutput: (event) => {
-			const found = findProcessByTerminalSessionId(event.sessionId);
-			if (!found) return;
-			const priorBuffer =
-				outputPreviewBuffersRef.current.get(event.sessionId) ?? "";
-			const previewUpdate = consumeOutputPreview(priorBuffer, event.data);
-			if (previewUpdate.nextBuffer) {
-				outputPreviewBuffersRef.current.set(
-					event.sessionId,
-					previewUpdate.nextBuffer,
-				);
-			} else {
-				outputPreviewBuffersRef.current.delete(event.sessionId);
-			}
-			const { process, workspaceId: ownerWsId } = found;
-			const action: WorkspaceAction = {
-				type: "session/recordProcessOutput",
-				worktreeId: process.worktreeId,
-				processId: process.id,
-				attentionState: deriveAttentionState(event.data),
-				at: Date.now(),
-				isViewed:
-					visibleProcessIds.includes(process.id) &&
-					process.worktreeId === activeWorktree?.id,
-				lastOutputPreview: previewUpdate.preview,
-			};
-			if (ownerWsId === appWorkspacesRef.current.activeWorkspaceId) {
-				dispatch(action);
-			} else {
-				// Route to the inactive workspace. Read from the per-workspace shadow
-				// map first so rapid burst events accumulate correctly instead of both
-				// reads seeing the same pre-render snapshot.
-				const baseState =
-					inactiveWorkspaceStatesRef.current.get(ownerWsId) ??
-					appWorkspacesRef.current.workspacesById[ownerWsId]?.workspaceState;
-				if (!baseState) return;
-				const nextState = workspaceReducer(baseState, action);
-				inactiveWorkspaceStatesRef.current.set(ownerWsId, nextState);
-				dispatchAppWorkspaces({
-					type: "workspace/updateWorkspaceState",
-					workspaceId: ownerWsId,
-					workspaceState: nextState,
-				});
-			}
-		},
-		onExit: (event) => {
-			const found = findProcessByTerminalSessionId(event.sessionId);
-			if (!found) return;
-			outputPreviewBuffersRef.current.delete(event.sessionId);
-			const { process, workspaceId: ownerWsId } = found;
-			const action: WorkspaceAction = {
-				type: "session/updateProcessStatus",
-				processId: process.id,
-				status: "exited",
-				exitCode: event.exitCode ?? null,
-			};
-			if (ownerWsId === appWorkspacesRef.current.activeWorkspaceId) {
-				dispatch(action);
-			} else {
-				const baseState =
-					inactiveWorkspaceStatesRef.current.get(ownerWsId) ??
-					appWorkspacesRef.current.workspacesById[ownerWsId]?.workspaceState;
-				if (!baseState) return;
-				const nextState = workspaceReducer(baseState, action);
-				inactiveWorkspaceStatesRef.current.set(ownerWsId, nextState);
-				dispatchAppWorkspaces({
-					type: "workspace/updateWorkspaceState",
-					workspaceId: ownerWsId,
-					workspaceState: nextState,
-				});
-			}
-			void logBindingChange({
-				reasonKind: "process_exit",
-				reason: "pty_exit",
-				isExpected: false,
-				expectedBecause: null,
-				previousBinding: {
-					terminalSessionId: event.sessionId,
-					processId: process.id,
-					workspaceId: ownerWsId,
-				},
-				nextBinding: null,
-			});
-		},
-		onError: (event) => {
-			const found = findProcessByTerminalSessionId(event.sessionId);
-			if (!found) return;
-			outputPreviewBuffersRef.current.delete(event.sessionId);
-			const { process, workspaceId: ownerWsId } = found;
-			const action: WorkspaceAction = {
-				type: "session/updateProcessStatus",
-				processId: process.id,
-				status: "error",
-				exitCode: null,
-			};
-			if (ownerWsId === appWorkspacesRef.current.activeWorkspaceId) {
-				dispatch(action);
-			} else {
-				const baseState =
-					inactiveWorkspaceStatesRef.current.get(ownerWsId) ??
-					appWorkspacesRef.current.workspacesById[ownerWsId]?.workspaceState;
-				if (!baseState) return;
-				const nextState = workspaceReducer(baseState, action);
-				inactiveWorkspaceStatesRef.current.set(ownerWsId, nextState);
-				dispatchAppWorkspaces({
-					type: "workspace/updateWorkspaceState",
-					workspaceId: ownerWsId,
-					workspaceState: nextState,
-				});
-			}
-		},
+		findProcessByTerminalSessionId,
+	} = useTerminalRuntime({
+		appWorkspacesRef,
+		inactiveWorkspaceStatesRef,
+		dispatch,
+		dispatchAppWorkspaces,
+		getVisibleProcessIds: () => visibleProcessIds,
+		getActiveWorktreeId: () => activeWorktree?.id,
 	});
 	const orderedSessions =
 		activeSession?.terminalLayoutMode === "split"
