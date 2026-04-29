@@ -10,7 +10,6 @@ import {
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import * as Tabs from "@radix-ui/react-tabs";
 import type { Worktree } from "../../shared/models/worktree";
-import type { GitDiff } from "../../shared/models/git-diff";
 import type { ProcessSession } from "../../shared/models/process-session";
 import type { TerminalSession } from "../../shared/models/terminal-session";
 import type {
@@ -122,6 +121,8 @@ import { usePaneResizers } from "./hooks/use-pane-resizers";
 import { useChangesRefreshLoop } from "./hooks/use-changes-refresh-loop";
 import { useTickingNow } from "./hooks/use-ticking-now";
 import { useRemoteStatusLoader } from "./hooks/use-remote-status-loader";
+import { useDiffLoader } from "./hooks/use-diff-loader";
+import type { ReviewLoadState } from "./hooks/review-load-state";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -295,12 +296,6 @@ export function App() {
 		typeof document !== "undefined" ? document.hasFocus() : true,
 	);
 
-	type ReviewLoadState<T> = {
-		data: T | null;
-		stale: boolean;
-		message: string | null;
-	};
-
 	const [commitHistoryState, setCommitHistoryState] = useState<
 		ReviewLoadState<GitCommitHistory>
 	>({
@@ -311,11 +306,6 @@ export function App() {
 	const [commitDetailState, setCommitDetailState] = useState<
 		ReviewLoadState<GitCommitDetail>
 	>({
-		data: null,
-		stale: false,
-		message: null,
-	});
-	const [diffState, setDiffState] = useState<ReviewLoadState<GitDiff>>({
 		data: null,
 		stale: false,
 		message: null,
@@ -1920,61 +1910,12 @@ async function handleSelectWorktree(
 		}
 	}
 
-	// Fetch diff when selected changed file changes
-	useEffect(() => {
-		if (
-			!activeWorktree?.id ||
-			!activeWorkspaceId ||
-			!activeSession?.selectedChangedFilePath
-		) {
-			setDiffState({ data: null, stale: false, message: null });
-			return;
-		}
-		if (
-			!changes.some(
-				(change) => change.path === activeSession.selectedChangedFilePath,
-			)
-		) {
-			setDiffState({ data: null, stale: false, message: null });
-			return;
-		}
-		let cancelled = false;
-		setDiffState((prev) => ({ ...prev, message: null }));
-		git
-			.readDiff(
-				activeWorkspaceId,
-				activeWorktree.id,
-				activeSession.selectedChangedFilePath,
-			)
-			.then((result) => {
-				if (!cancelled)
-					setDiffState({ data: result, stale: false, message: null });
-			})
-			.catch(() => {
-				if (!cancelled) {
-					const requestedPath = activeSession.selectedChangedFilePath;
-					setDiffState((prev) => {
-						const canPreserve =
-							prev.data !== null && prev.data.path === requestedPath;
-						return {
-							data: canPreserve ? prev.data : null,
-							stale: canPreserve,
-							message: canPreserve
-								? "Couldn't refresh diff. Showing last successful result."
-								: "Couldn't load diff.",
-						};
-					});
-				}
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [
-		activeWorkspaceId,
-		activeWorktree?.id,
-		activeSession?.selectedChangedFilePath,
+	const diffState = useDiffLoader({
+		workspaceId: activeWorkspaceId,
+		worktreeId: activeWorktree?.id,
+		selectedChangedFilePath: activeSession?.selectedChangedFilePath,
 		changes,
-	]);
+	});
 
 	// Fetch commit history when active worktree changes or after refresh
 	useEffect(() => {
