@@ -1478,6 +1478,122 @@ describe("session/reportAgentAttention", () => {
 	});
 });
 
+describe("session/recordProcessOutput agentReason", () => {
+	function seedWithProcess(processId: string) {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess(processId, "main", "shell rpo"),
+		});
+		return state;
+	}
+
+	it("stores terminal agentReason when provided", () => {
+		const processId = "proc-rpo-1";
+		const seeded = seedWithProcess(processId);
+		const next = workspaceReducer(seeded, {
+			type: "session/recordProcessOutput",
+			worktreeId: "main",
+			processId,
+			attentionState: "actionRequired",
+			at: 10_000,
+			isViewed: false,
+			lastOutputPreview: "Continue? [y/N]",
+			agentReason: {
+				state: "waiting",
+				source: "terminal",
+				summary: "y/n prompt",
+				nextAction: null,
+				reportedAt: 10_000,
+			},
+		});
+		expect(next.processSessionsById[processId]?.agentAttentionReasons.terminal?.state).toBe("waiting");
+	});
+
+	it("leaves agentAttentionReasons unchanged when agentReason is absent", () => {
+		const processId = "proc-rpo-2";
+		const seeded = seedWithProcess(processId);
+		const seededWithReason = workspaceReducer(seeded, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId,
+			reason: {
+				state: "waiting",
+				source: "terminal",
+				summary: "y/n",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		const next = workspaceReducer(seededWithReason, {
+			type: "session/recordProcessOutput",
+			worktreeId: "main",
+			processId,
+			attentionState: "activity",
+			at: 11_000,
+			isViewed: false,
+			lastOutputPreview: "compiling",
+			// no agentReason
+		});
+		expect(next.processSessionsById[processId]?.agentAttentionReasons.terminal?.state).toBe("waiting");
+	});
+
+	it("does not replace existing stronger reason (same-source downgrade guard)", () => {
+		const processId = "proc-rpo-3";
+		const seeded = workspaceReducer(seedWithProcess(processId), {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId,
+			reason: {
+				state: "waiting",
+				source: "terminal",
+				summary: "y/n",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		const next = workspaceReducer(seeded, {
+			type: "session/recordProcessOutput",
+			worktreeId: "main",
+			processId,
+			attentionState: "activity",
+			at: 12_000,
+			isViewed: false,
+			lastOutputPreview: "compiling",
+			agentReason: {
+				state: "active",
+				source: "terminal",
+				summary: "compiling",
+				nextAction: null,
+				reportedAt: 12_000,
+			},
+		});
+		expect(next.processSessionsById[processId]?.agentAttentionReasons.terminal?.state).toBe("waiting");
+	});
+
+	it("silently ignores mcp source in agentReason", () => {
+		const processId = "proc-rpo-4";
+		const seeded = seedWithProcess(processId);
+		const next = workspaceReducer(seeded, {
+			type: "session/recordProcessOutput",
+			worktreeId: "main",
+			processId,
+			attentionState: "activity",
+			at: 13_000,
+			isViewed: false,
+			agentReason: {
+				state: "waiting",
+				source: "mcp",
+				summary: "mcp signal",
+				nextAction: null,
+				reportedAt: 13_000,
+			},
+		});
+		expect(next.processSessionsById[processId]?.agentAttentionReasons).toEqual({});
+	});
+});
+
 describe("agentAttentionReasons defaults", () => {
 	it("new worktree session has agentAttentionReasons: {}", () => {
 		const state = createWorkspaceState(worktrees);

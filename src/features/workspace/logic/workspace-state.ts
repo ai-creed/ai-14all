@@ -82,6 +82,7 @@ export type WorkspaceAction =
 			at: number;
 			isViewed: boolean;
 			lastOutputPreview?: string;
+			agentReason?: AgentAttentionReason | null;
 	  }
 	| {
 			type: "session/markProcessViewed";
@@ -662,12 +663,23 @@ export function workspaceReducer(
 				  attentionRank[process.attentionState]
 				? action.attentionState
 				: process.attentionState;
+		let nextReasons = process.agentAttentionReasons;
+		if (action.agentReason && action.agentReason.source !== "mcp") {
+			const current = process.agentAttentionReasons[action.agentReason.source];
+			if (shouldReplaceAgentAttentionReason(current, action.agentReason)) {
+				nextReasons = {
+					...process.agentAttentionReasons,
+					[action.agentReason.source]: action.agentReason,
+				};
+			}
+		}
 		const nextProcessSessionsById = {
 			...state.processSessionsById,
 			[action.processId]: {
 				...process,
 				attentionState: nextAttention,
 				lastActivityAt: action.at,
+				agentAttentionReasons: nextReasons,
 				...(action.lastOutputPreview !== undefined
 					? { lastOutputPreview: action.lastOutputPreview }
 					: {}),
