@@ -1,4 +1,11 @@
-import type { AgentAttentionState } from "../../../shared/models/agent-attention";
+import {
+	AGENT_ATTENTION_RANK,
+	STALE_THRESHOLD_MS,
+	type AgentAttentionReason,
+	type AgentAttentionReasonsBySource,
+	type AgentAttentionState,
+} from "../../../../shared/models/agent-attention";
+import type { ProcessAttentionState } from "../../../../shared/models/process-session";
 
 const KNOWN_AGENTS = ["codex", "claude", "claude-code"] as const;
 
@@ -72,4 +79,49 @@ export function classifyOutput(chunk: string): AgentAttentionState | null {
 	if (FAILED_PATTERNS.some((p) => p.test(text))) return "failed";
 	if (READY_PATTERNS.some((p) => p.test(text))) return "ready";
 	return "active";
+}
+
+export function deriveStale(
+	now: number,
+	lastActivityAt: number | null,
+	agentAttentionClearedAt: number | null,
+): boolean {
+	if (lastActivityAt === null) return false;
+	if (now - lastActivityAt < STALE_THRESHOLD_MS) return false;
+	if (agentAttentionClearedAt !== null && lastActivityAt <= agentAttentionClearedAt) {
+		return false;
+	}
+	return true;
+}
+
+export function shouldReplaceAgentAttentionReason(
+	current: AgentAttentionReason | undefined,
+	next: AgentAttentionReason,
+): boolean {
+	if (!current) return true;
+	return AGENT_ATTENTION_RANK[next.state] >= AGENT_ATTENTION_RANK[current.state];
+}
+
+export function rankAgentAttention(
+	reasons: AgentAttentionReasonsBySource,
+	derivedStale: boolean,
+): AgentAttentionState {
+	let best: AgentAttentionState = "idle";
+	const candidates: AgentAttentionState[] = [];
+	for (const r of Object.values(reasons)) {
+		if (r) candidates.push(r.state);
+	}
+	if (derivedStale) candidates.push("stale");
+	for (const s of candidates) {
+		if (AGENT_ATTENTION_RANK[s] > AGENT_ATTENTION_RANK[best]) best = s;
+	}
+	return best;
+}
+
+export function mapToProcessAttentionState(
+	state: AgentAttentionState,
+): ProcessAttentionState {
+	if (state === "waiting" || state === "failed") return "actionRequired";
+	if (state === "idle") return "idle";
+	return "activity";
 }

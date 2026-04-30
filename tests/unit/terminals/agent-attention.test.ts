@@ -77,3 +77,131 @@ describe("classifyOutput", () => {
 		expect(classifyOutput("tests pass\nerror: post-step crashed")).toBe("failed");
 	});
 });
+
+import {
+	deriveStale,
+	mapToProcessAttentionState,
+	rankAgentAttention,
+	shouldReplaceAgentAttentionReason,
+} from "../../../src/features/terminals/logic/agent-attention";
+import type {
+	AgentAttentionReason,
+	AgentAttentionReasonsBySource,
+} from "../../../shared/models/agent-attention";
+import { STALE_THRESHOLD_MS } from "../../../shared/models/agent-attention";
+
+const reason = (
+	state: AgentAttentionReason["state"],
+	source: AgentAttentionReason["source"],
+): AgentAttentionReason => ({
+	state,
+	source,
+	summary: state,
+	nextAction: null,
+	reportedAt: 0,
+});
+
+describe("deriveStale", () => {
+	it("returns false when lastActivityAt is null", () => {
+		expect(deriveStale(1_000_000, null, null)).toBe(false);
+	});
+	it("returns false just under threshold", () => {
+		expect(deriveStale(STALE_THRESHOLD_MS - 1, 0, null)).toBe(false);
+	});
+	it("returns true at exactly the threshold", () => {
+		expect(deriveStale(STALE_THRESHOLD_MS, 0, null)).toBe(true);
+	});
+	it("returns true above threshold", () => {
+		expect(deriveStale(STALE_THRESHOLD_MS + 1, 0, null)).toBe(true);
+	});
+	it("returns false when agentAttentionClearedAt >= lastActivityAt (already viewed)", () => {
+		expect(deriveStale(STALE_THRESHOLD_MS + 1_000, 0, 500)).toBe(false);
+	});
+	it("returns true again once new activity happens after clear", () => {
+		expect(deriveStale(2 * STALE_THRESHOLD_MS, STALE_THRESHOLD_MS, 500)).toBe(true);
+	});
+});
+
+describe("shouldReplaceAgentAttentionReason", () => {
+	it("returns true when current is undefined", () => {
+		expect(shouldReplaceAgentAttentionReason(undefined, reason("active", "terminal"))).toBe(true);
+	});
+	it("returns true when next is equal rank to current (refresh)", () => {
+		expect(
+			shouldReplaceAgentAttentionReason(reason("waiting", "terminal"), reason("waiting", "terminal")),
+		).toBe(true);
+	});
+	it("returns true when next is stronger than current", () => {
+		expect(
+			shouldReplaceAgentAttentionReason(reason("active", "terminal"), reason("waiting", "terminal")),
+		).toBe(true);
+	});
+	it("returns false when next is weaker than current (do not downgrade)", () => {
+		expect(
+			shouldReplaceAgentAttentionReason(reason("waiting", "terminal"), reason("active", "terminal")),
+		).toBe(false);
+		expect(
+			shouldReplaceAgentAttentionReason(reason("failed", "lifecycle"), reason("ready", "lifecycle")),
+		).toBe(false);
+	});
+});
+
+describe("rankAgentAttention", () => {
+	it("returns idle when reasons empty and not stale", () => {
+		expect(rankAgentAttention({}, false)).toBe("idle");
+	});
+	it("returns stale when stale and no stronger reason", () => {
+		expect(rankAgentAttention({}, true)).toBe("stale");
+	});
+	it("stale beats active (active rank < stale rank)", () => {
+		expect(rankAgentAttention({ terminal: reason("active", "terminal") }, true)).toBe("stale");
+	});
+	it("ready beats stale", () => {
+		const reasons: AgentAttentionReasonsBySource = {
+			terminal: reason("ready", "terminal"),
+		};
+		expect(rankAgentAttention(reasons, true)).toBe("ready");
+	});
+	it("failed beats ready across sources", () => {
+		const reasons: AgentAttentionReasonsBySource = {
+			lifecycle: reason("failed", "lifecycle"),
+			terminal: reason("ready", "terminal"),
+		};
+		expect(rankAgentAttention(reasons, false)).toBe("failed");
+	});
+	it("waiting beats failed", () => {
+		const reasons: AgentAttentionReasonsBySource = {
+			lifecycle: reason("failed", "lifecycle"),
+			mcp: reason("waiting", "mcp"),
+		};
+		expect(rankAgentAttention(reasons, false)).toBe("waiting");
+	});
+	it("MCP active does not downgrade lifecycle failed", () => {
+		const reasons: AgentAttentionReasonsBySource = {
+			lifecycle: reason("failed", "lifecycle"),
+			mcp: reason("active", "mcp"),
+		};
+		expect(rankAgentAttention(reasons, false)).toBe("failed");
+	});
+});
+
+describe("mapToProcessAttentionState", () => {
+	it("waiting -> actionRequired", () => {
+		expect(mapToProcessAttentionState("waiting")).toBe("actionRequired");
+	});
+	it("failed -> actionRequired", () => {
+		expect(mapToProcessAttentionState("failed")).toBe("actionRequired");
+	});
+	it("ready -> activity", () => {
+		expect(mapToProcessAttentionState("ready")).toBe("activity");
+	});
+	it("active -> activity", () => {
+		expect(mapToProcessAttentionState("active")).toBe("activity");
+	});
+	it("stale -> activity", () => {
+		expect(mapToProcessAttentionState("stale")).toBe("activity");
+	});
+	it("idle -> idle", () => {
+		expect(mapToProcessAttentionState("idle")).toBe("idle");
+	});
+});
