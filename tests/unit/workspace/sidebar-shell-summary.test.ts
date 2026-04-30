@@ -267,6 +267,62 @@ describe("buildWorktreeProcessSummary", () => {
 		);
 		expect(summary.rows[0].context).not.toContain("stale");
 	});
+
+	it("sets hasFailedReason true when lifecycle:failed present", () => {
+		const summary = buildWorktreeProcessSummary(
+			[
+				{
+					id: "p1",
+					label: "tests",
+					status: "error",
+					attentionState: "idle",
+					lastActivityAt: now,
+					lastOutputPreview: null,
+					exitCode: 1,
+					agentAttentionReasons: {
+						lifecycle: {
+							state: "failed",
+							source: "lifecycle",
+							summary: "tests failed",
+							nextAction: null,
+							reportedAt: now,
+						},
+					},
+					agentAttentionClearedAt: null,
+				},
+			],
+			now,
+		);
+		expect(summary.rows[0].hasFailedReason).toBe(true);
+	});
+
+	it("sets hasFailedReason false when no failed reason", () => {
+		const summary = buildWorktreeProcessSummary(
+			[
+				{
+					id: "p1",
+					label: "dev",
+					status: "running",
+					attentionState: "activity",
+					lastActivityAt: now,
+					lastOutputPreview: "compiled",
+					exitCode: null,
+					agentAttentionReasons: {
+						terminal: {
+							state: "waiting",
+							source: "terminal",
+							summary: "y/n prompt",
+							nextAction: null,
+							reportedAt: now,
+						},
+					},
+					agentAttentionClearedAt: null,
+				},
+			],
+			now,
+		);
+		expect(summary.rows[0].hasFailedReason).toBe(false);
+	});
 });
 
 describe("buildWorktreeAttentionDisplay", () => {
@@ -306,6 +362,7 @@ describe("buildWorktreeAttentionDisplay", () => {
 						state: "actionRequired",
 						context: "waiting: y/n prompt",
 						lastActivityAt: now,
+						hasFailedReason: false,
 					},
 				],
 				overflowCount: 0,
@@ -346,6 +403,7 @@ describe("buildWorktreeAttentionDisplay", () => {
 						state: "active",
 						context: "process context",
 						lastActivityAt: now,
+						hasFailedReason: false,
 					},
 				],
 				overflowCount: 0,

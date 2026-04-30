@@ -25,11 +25,16 @@ type Props = {
 		worktreeId: string,
 	) => Promise<void>;
 	handleRemoveWorkspace: (workspaceId: string) => Promise<void>;
-	dispatch: (action: {
-		type: "session/setTitle";
-		worktreeId: string;
-		title: string;
-	}) => void;
+	dispatch: (action:
+		| { type: "session/setTitle"; worktreeId: string; title: string }
+		| {
+				type: "session/clearProcessAgentAttention";
+				worktreeId: string;
+				processId: string;
+				sticky?: boolean;
+				clearedAt: number;
+		  }
+	) => void;
 };
 
 /**
@@ -90,6 +95,16 @@ export function SidebarPanel(props: Props): React.ReactElement {
 					if (workspaceId !== activeWorkspaceId) return;
 					dispatch({ type: "session/setTitle", worktreeId, title });
 					setPendingRename(null);
+				}}
+				onClearFailedReason={(workspaceId, worktreeId, processId) => {
+					if (workspaceId !== activeWorkspaceId) return;
+					dispatch({
+						type: "session/clearProcessAgentAttention",
+						worktreeId,
+						processId,
+						sticky: true,
+						clearedAt: Date.now(),
+					});
 				}}
 				onRequestExpand={(workspaceId, worktreeId) => {
 					if (sidebarCollapsed) setSidebarCollapsed(false);

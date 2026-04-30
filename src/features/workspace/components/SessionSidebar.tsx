@@ -33,6 +33,11 @@ type Props = {
 		title: string,
 	) => void;
 	onRequestExpand?: (workspaceId: string, worktreeId: string) => void;
+	onClearFailedReason?: (
+		workspaceId: string,
+		worktreeId: string,
+		processId: string,
+	) => void;
 	pendingRename?: { workspaceId: string; worktreeId: string } | null;
 };
 
@@ -48,6 +53,7 @@ export function SessionSidebar({
 	onRemoveWorkspace,
 	onRenameSession,
 	onRequestExpand,
+	onClearFailedReason,
 	pendingRename,
 }: Props) {
 	const [renaming, setRenaming] = React.useState<{
@@ -241,6 +247,23 @@ export function SessionSidebar({
 															>
 																{row.context}
 															</span>
+														) : null}
+														{row.hasFailedReason && onClearFailedReason ? (
+															<button
+																type="button"
+																className="shell-button shell-button--compact shell-sidebar__process-clear-failed"
+																aria-label={`Clear failed for ${row.label}`}
+																onClick={(e) => {
+																	e.stopPropagation();
+																	onClearFailedReason(
+																		workspace.workspaceId,
+																		worktree.id,
+																		row.id,
+																	);
+																}}
+															>
+																Clear failed
+															</button>
 														) : null}
 													</div>
 												))}

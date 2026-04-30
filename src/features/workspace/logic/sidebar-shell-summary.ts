@@ -14,6 +14,7 @@ export type SidebarShellRow = {
 	state: SidebarShellState;
 	context: string;
 	lastActivityAt: number | null;
+	hasFailedReason: boolean;
 };
 
 export type WorktreeProcessSummary = {
@@ -132,12 +133,17 @@ export function buildWorktreeProcessSummary(
 	const rows = processes
 		.map((process) => {
 			const state = deriveState(process, now);
+			const reasons = process.agentAttentionReasons ?? {};
+			const hasFailedReason = Object.values(reasons).some(
+				(r) => r != null && r.state === "failed",
+			);
 			return {
 				id: process.id,
 				label: process.label,
 				state,
 				context: deriveContext(process, state, now),
 				lastActivityAt: process.lastActivityAt,
+				hasFailedReason,
 			};
 		})
 		.sort((left, right) => {

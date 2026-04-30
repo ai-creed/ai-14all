@@ -123,6 +123,13 @@ export function useWorktreeSelection(options: Options): UseWorktreeSelection {
 					worktreeId,
 					processId: pending.activeProcessSessionId,
 				});
+				dispatch({
+					type: "session/clearProcessAgentAttention",
+					worktreeId,
+					processId: pending.activeProcessSessionId,
+					sticky: false,
+					clearedAt: Date.now(),
+				});
 			} else {
 				// workspaceState is the pre-dispatch snapshot from this render's
 				// closure; reading activeProcessSessionId from it is correct here
@@ -136,6 +143,22 @@ export function useWorktreeSelection(options: Options): UseWorktreeSelection {
 						type: "session/markProcessViewed",
 						worktreeId,
 						processId: session.activeProcessSessionId,
+					});
+					dispatch({
+						type: "session/clearProcessAgentAttention",
+						worktreeId,
+						processId: session.activeProcessSessionId,
+						sticky: false,
+						clearedAt: Date.now(),
+					});
+				}
+				// clear session-level mcp attention if present
+				const sessionReasons =
+					targetWorkspaceState.sessionsByWorktreeId[worktreeId]?.agentAttentionReasons ?? {};
+				if (sessionReasons.mcp != null) {
+					dispatch({
+						type: "session/clearSessionAgentAttention",
+						worktreeId,
 					});
 				}
 			}
