@@ -664,13 +664,17 @@ export function workspaceReducer(
 				? action.attentionState
 				: process.attentionState;
 		let nextReasons = process.agentAttentionReasons;
-		if (action.agentReason && action.agentReason.source !== "mcp") {
-			const current = process.agentAttentionReasons[action.agentReason.source];
-			if (shouldReplaceAgentAttentionReason(current, action.agentReason)) {
-				nextReasons = {
-					...process.agentAttentionReasons,
-					[action.agentReason.source]: action.agentReason,
-				};
+		if (action.agentReason) {
+			if (action.agentReason.source === "mcp") {
+				// mcp at process-level is invalid; ignore silently
+			} else {
+				const current = process.agentAttentionReasons[action.agentReason.source];
+				if (shouldReplaceAgentAttentionReason(current, action.agentReason)) {
+					nextReasons = {
+						...process.agentAttentionReasons,
+						[action.agentReason.source]: action.agentReason,
+					};
+				}
 			}
 		}
 		const nextProcessSessionsById = {
