@@ -10,6 +10,7 @@ import {
 import type {
 	AgentAttentionReason,
 	AgentAttentionReasonsBySource,
+	AgentAttentionSource,
 } from "../../../../shared/models/agent-attention";
 import type { GitSummary } from "../../../../shared/models/git-summary";
 import type {
@@ -162,7 +163,15 @@ export type WorkspaceAction =
 			processId: string;
 			reason: AgentAttentionReason;
 	  }
-	| { type: "session/reportAgentAttention"; worktreeId: string; reason: AgentAttentionReason };
+	| { type: "session/reportAgentAttention"; worktreeId: string; reason: AgentAttentionReason }
+	| {
+			type: "session/clearProcessAgentAttention";
+			worktreeId: string;
+			processId: string;
+			sticky?: boolean;
+			clearedAt: number;
+	  }
+	| { type: "session/clearSessionAgentAttention"; worktreeId: string };
 
 function createSession(worktree: Worktree): WorktreeSession {
 	return {
@@ -862,6 +871,51 @@ export function workspaceReducer(
 		return {
 			...state,
 			sessionsByWorktreeId: { ...state.sessionsByWorktreeId, [action.worktreeId]: nextSession },
+		};
+	}
+
+	if (action.type === "session/clearProcessAgentAttention") {
+		const process = state.processSessionsById[action.processId];
+		const session = state.sessionsByWorktreeId[action.worktreeId];
+		if (!process || !session) return state;
+		const nextReasons: AgentAttentionReasonsBySource = {};
+		if (!action.sticky) {
+			// keep only failed reasons; sticky=true also clears failed
+			for (const [src, r] of Object.entries(process.agentAttentionReasons)) {
+				if (r && r.state === "failed") nextReasons[src as AgentAttentionSource] = r;
+			}
+		}
+		const mappedAgent = rankAgentAttention(nextReasons, false);
+		const mappedLegacy = mapToProcessAttentionState(mappedAgent);
+		const nextProcessSessionsById = {
+			...state.processSessionsById,
+			[action.processId]: {
+				...process,
+				agentAttentionReasons: nextReasons,
+				agentAttentionClearedAt: action.clearedAt,
+				attentionState: mappedLegacy,
+			},
+		};
+		const nextSession: WorktreeSession = {
+			...session,
+			attentionState: recalculateWorktreeAttention(session, nextProcessSessionsById),
+		};
+		return {
+			...state,
+			processSessionsById: nextProcessSessionsById,
+			sessionsByWorktreeId: { ...state.sessionsByWorktreeId, [action.worktreeId]: nextSession },
+		};
+	}
+
+	if (action.type === "session/clearSessionAgentAttention") {
+		const session = state.sessionsByWorktreeId[action.worktreeId];
+		if (!session) return state;
+		return {
+			...state,
+			sessionsByWorktreeId: {
+				...state.sessionsByWorktreeId,
+				[action.worktreeId]: { ...session, agentAttentionReasons: {} },
+			},
 		};
 	}
 

@@ -1594,6 +1594,163 @@ describe("session/recordProcessOutput agentReason", () => {
 	});
 });
 
+describe("session/clearProcessAgentAttention", () => {
+	function seedWithReasons(processId: string, worktreeId: string) {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId,
+			process: makeProcess(processId, worktreeId, "shell clear"),
+		});
+		// seed lifecycle:failed
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId,
+			processId,
+			reason: {
+				source: "lifecycle",
+				state: "failed",
+				summary: "process crashed",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		// seed terminal:waiting
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId,
+			processId,
+			reason: {
+				source: "terminal",
+				state: "waiting",
+				summary: "awaiting input",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+		});
+		return state;
+	}
+
+	it("without sticky: retains failed reasons, removes others, stamps agentAttentionClearedAt", () => {
+		const processId = "proc-clear-1";
+		const seeded = seedWithReasons(processId, "main");
+		const next = workspaceReducer(seeded, {
+			type: "session/clearProcessAgentAttention",
+			worktreeId: "main",
+			processId,
+			sticky: false,
+			clearedAt: 5_000,
+		});
+		const proc = next.processSessionsById[processId];
+		expect(proc?.agentAttentionReasons.lifecycle?.state).toBe("failed");
+		expect(proc?.agentAttentionReasons.terminal).toBeUndefined();
+		expect(proc?.agentAttentionClearedAt).toBe(5_000);
+	});
+
+	it("with sticky=true: clears all reasons including failed", () => {
+		const processId = "proc-clear-2";
+		const seeded = seedWithReasons(processId, "main");
+		const next = workspaceReducer(seeded, {
+			type: "session/clearProcessAgentAttention",
+			worktreeId: "main",
+			processId,
+			sticky: true,
+			clearedAt: 5_000,
+		});
+		const proc = next.processSessionsById[processId];
+		expect(proc?.agentAttentionReasons).toEqual({});
+		expect(proc?.agentAttentionClearedAt).toBe(5_000);
+	});
+
+	it("updates attentionState to reflect remaining reasons after clear", () => {
+		let state = createWorkspaceState(worktrees);
+		const processId = "proc-clear-3";
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess(processId, "main", "shell clear3"),
+		});
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId,
+			reason: {
+				source: "terminal",
+				state: "waiting",
+				summary: "awaiting input",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		expect(state.processSessionsById[processId]?.attentionState).toBe("actionRequired");
+
+		const next = workspaceReducer(state, {
+			type: "session/clearProcessAgentAttention",
+			worktreeId: "main",
+			processId,
+			sticky: false,
+			clearedAt: 5_000,
+		});
+		expect(next.processSessionsById[processId]?.attentionState).toBe("idle");
+	});
+
+	it("recalculates worktree attentionState after clear", () => {
+		let state = createWorkspaceState(worktrees);
+		const processId = "proc-clear-4";
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess(processId, "main", "shell clear4"),
+		});
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId,
+			reason: {
+				source: "terminal",
+				state: "waiting",
+				summary: "awaiting input",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		expect(state.sessionsByWorktreeId["main"].attentionState).toBe("actionRequired");
+
+		const next = workspaceReducer(state, {
+			type: "session/clearProcessAgentAttention",
+			worktreeId: "main",
+			processId,
+			sticky: false,
+			clearedAt: 5_000,
+		});
+		expect(next.sessionsByWorktreeId["main"].attentionState).toBe("idle");
+	});
+});
+
+describe("session/clearSessionAgentAttention", () => {
+	it("removes session-level mcp reason", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				source: "mcp",
+				state: "waiting",
+				summary: "awaiting input",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		expect(state.sessionsByWorktreeId["main"].agentAttentionReasons.mcp).toBeDefined();
+
+		const next = workspaceReducer(state, {
+			type: "session/clearSessionAgentAttention",
+			worktreeId: "main",
+		});
+		expect(next.sessionsByWorktreeId["main"].agentAttentionReasons).toEqual({});
+	});
+});
+
 describe("agentAttentionReasons defaults", () => {
 	it("new worktree session has agentAttentionReasons: {}", () => {
 		const state = createWorkspaceState(worktrees);
