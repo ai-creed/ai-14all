@@ -1415,20 +1415,11 @@ describe("session/reportProcessAgentAttention", () => {
 });
 
 describe("session/reportAgentAttention", () => {
-	const wtW1: Worktree = {
-		id: "w1",
-		repositoryId: "repo-1",
-		branchName: "main",
-		path: "/tmp/w1",
-		label: "w1",
-		isMain: true,
-	};
-	const initial = createWorkspaceState([wtW1]);
-
-	it("session/reportAgentAttention sets MCP reason on the worktree session", () => {
+	it("sets MCP reason on the worktree session", () => {
+		const initial = createWorkspaceState(worktrees);
 		const next = workspaceReducer(initial, {
 			type: "session/reportAgentAttention",
-			worktreeId: "w1",
+			worktreeId: "main",
 			reason: {
 				state: "ready",
 				source: "mcp",
@@ -1437,13 +1428,17 @@ describe("session/reportAgentAttention", () => {
 				reportedAt: 5_000,
 			},
 		});
-		expect(next.sessionsByWorktreeId["w1"].agentAttentionReasons.mcp?.state).toBe("ready");
+		expect(next.sessionsByWorktreeId["main"].agentAttentionReasons.mcp?.state).toBe("ready");
+		// attentionState is intentionally not updated here — session reasons are
+		// overlayed at render time by buildWorktreeAttentionDisplay (see Task 15)
+		expect(next.sessionsByWorktreeId["main"].attentionState).toBe(initial.sessionsByWorktreeId["main"].attentionState);
 	});
 
 	it("rejects non-mcp source and returns unchanged state", () => {
+		const initial = createWorkspaceState(worktrees);
 		const next = workspaceReducer(initial, {
 			type: "session/reportAgentAttention",
-			worktreeId: "w1",
+			worktreeId: "main",
 			reason: {
 				state: "waiting",
 				source: "terminal",
@@ -1456,9 +1451,10 @@ describe("session/reportAgentAttention", () => {
 	});
 
 	it("does not downgrade same-source reason when later signal is weaker", () => {
+		const initial = createWorkspaceState(worktrees);
 		const withWaiting = workspaceReducer(initial, {
 			type: "session/reportAgentAttention",
-			worktreeId: "w1",
+			worktreeId: "main",
 			reason: {
 				state: "waiting",
 				source: "mcp",
@@ -1469,7 +1465,7 @@ describe("session/reportAgentAttention", () => {
 		});
 		const afterDowngrade = workspaceReducer(withWaiting, {
 			type: "session/reportAgentAttention",
-			worktreeId: "w1",
+			worktreeId: "main",
 			reason: {
 				state: "active",
 				source: "mcp",
@@ -1478,7 +1474,7 @@ describe("session/reportAgentAttention", () => {
 				reportedAt: 2_000,
 			},
 		});
-		expect(afterDowngrade.sessionsByWorktreeId["w1"].agentAttentionReasons.mcp?.state).toBe("waiting");
+		expect(afterDowngrade.sessionsByWorktreeId["main"].agentAttentionReasons.mcp?.state).toBe("waiting");
 	});
 });
 
