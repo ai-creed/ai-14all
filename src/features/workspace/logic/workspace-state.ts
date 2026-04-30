@@ -160,7 +160,8 @@ export type WorkspaceAction =
 			worktreeId: string;
 			processId: string;
 			reason: AgentAttentionReason;
-	  };
+	  }
+	| { type: "session/reportAgentAttention"; worktreeId: string; reason: AgentAttentionReason };
 
 function createSession(worktree: Worktree): WorktreeSession {
 	return {
@@ -825,6 +826,25 @@ export function workspaceReducer(
 		return {
 			...state,
 			processSessionsById: nextProcessSessionsById,
+			sessionsByWorktreeId: { ...state.sessionsByWorktreeId, [action.worktreeId]: nextSession },
+		};
+	}
+
+	if (action.type === "session/reportAgentAttention") {
+		const session = state.sessionsByWorktreeId[action.worktreeId];
+		if (!session) return state;
+		if (action.reason.source !== "mcp") return state; // session-level accepts mcp only
+		const current = session.agentAttentionReasons[action.reason.source];
+		if (!shouldReplaceAgentAttentionReason(current, action.reason)) return state;
+		const nextSession: WorktreeSession = {
+			...session,
+			agentAttentionReasons: {
+				...session.agentAttentionReasons,
+				[action.reason.source]: action.reason,
+			},
+		};
+		return {
+			...state,
 			sessionsByWorktreeId: { ...state.sessionsByWorktreeId, [action.worktreeId]: nextSession },
 		};
 	}

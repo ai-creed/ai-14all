@@ -1414,6 +1414,74 @@ describe("session/reportProcessAgentAttention", () => {
 	});
 });
 
+describe("session/reportAgentAttention", () => {
+	const wtW1: Worktree = {
+		id: "w1",
+		repositoryId: "repo-1",
+		branchName: "main",
+		path: "/tmp/w1",
+		label: "w1",
+		isMain: true,
+	};
+	const initial = createWorkspaceState([wtW1]);
+
+	it("session/reportAgentAttention sets MCP reason on the worktree session", () => {
+		const next = workspaceReducer(initial, {
+			type: "session/reportAgentAttention",
+			worktreeId: "w1",
+			reason: {
+				state: "ready",
+				source: "mcp",
+				summary: "implementation complete",
+				nextAction: null,
+				reportedAt: 5_000,
+			},
+		});
+		expect(next.sessionsByWorktreeId["w1"].agentAttentionReasons.mcp?.state).toBe("ready");
+	});
+
+	it("rejects non-mcp source and returns unchanged state", () => {
+		const next = workspaceReducer(initial, {
+			type: "session/reportAgentAttention",
+			worktreeId: "w1",
+			reason: {
+				state: "waiting",
+				source: "terminal",
+				summary: "awaiting input",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		expect(next).toBe(initial);
+	});
+
+	it("does not downgrade same-source reason when later signal is weaker", () => {
+		const withWaiting = workspaceReducer(initial, {
+			type: "session/reportAgentAttention",
+			worktreeId: "w1",
+			reason: {
+				state: "waiting",
+				source: "mcp",
+				summary: "awaiting input",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		const afterDowngrade = workspaceReducer(withWaiting, {
+			type: "session/reportAgentAttention",
+			worktreeId: "w1",
+			reason: {
+				state: "active",
+				source: "mcp",
+				summary: "running",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+		});
+		expect(afterDowngrade.sessionsByWorktreeId["w1"].agentAttentionReasons.mcp?.state).toBe("waiting");
+	});
+});
+
 describe("agentAttentionReasons defaults", () => {
 	it("new worktree session has agentAttentionReasons: {}", () => {
 		const state = createWorkspaceState(worktrees);
