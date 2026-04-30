@@ -1,3 +1,9 @@
+import {
+	deriveStale,
+	mapToProcessAttentionState,
+	rankAgentAttention,
+} from "../../terminals/logic/agent-attention";
+import type { AgentAttentionReasonsBySource } from "../../../../shared/models/agent-attention";
 import type { ProcessSession } from "../../../../shared/models/process-session";
 
 export type SidebarShellState = "actionRequired" | "active" | "idle" | "exited";
@@ -13,6 +19,11 @@ export type SidebarShellRow = {
 export type WorktreeProcessSummary = {
 	rows: SidebarShellRow[];
 	overflowCount: number;
+};
+
+export type WorktreeAttentionDisplay = {
+	state: SidebarShellState;
+	context: string;
 };
 
 const ACTIVE_WINDOW_MS = 10_000;
@@ -51,15 +62,58 @@ function deriveState(
 	return "idle";
 }
 
+function processAttentionToSidebarShell(
+	state: ReturnType<typeof mapToProcessAttentionState>,
+): SidebarShellState {
+	if (state === "actionRequired") return "actionRequired";
+	if (state === "activity") return "active";
+	return "idle";
+}
+
+type ProcessRowInput = Pick<
+	ProcessSession,
+	| "id"
+	| "label"
+	| "status"
+	| "attentionState"
+	| "lastActivityAt"
+	| "lastOutputPreview"
+	| "exitCode"
+> &
+	Partial<Pick<ProcessSession, "agentAttentionReasons" | "agentAttentionClearedAt">>;
+
+function deriveAgentContext(
+	process: Pick<ProcessSession, "lastActivityAt" | "status"> &
+		Partial<Pick<ProcessSession, "agentAttentionReasons" | "agentAttentionClearedAt">>,
+	now: number,
+): string | null {
+	const reasons = process.agentAttentionReasons ?? {};
+	// stale only for running processes; lifecycle failed/ready still visible after exit
+	const stale =
+		process.status === "running" &&
+		deriveStale(now, process.lastActivityAt, process.agentAttentionClearedAt ?? null);
+	const ranked = rankAgentAttention(reasons, stale);
+	if (ranked === "idle") return null;
+	if (ranked === "stale")
+		return `stale: quiet for ${Math.max(1, Math.floor((now - (process.lastActivityAt ?? now)) / 1000))}s`;
+	const reason = reasons.terminal ?? reasons.lifecycle ?? null;
+	if (!reason) return ranked;
+	return `${reason.state}: ${reason.summary}`;
+}
+
 function deriveContext(
-	process: Pick<
-		ProcessSession,
-		"status" | "exitCode" | "lastActivityAt" | "lastOutputPreview"
-	>,
+	process: Pick<ProcessSession, "status" | "exitCode" | "lastActivityAt" | "lastOutputPreview"> &
+		Partial<Pick<ProcessSession, "agentAttentionReasons" | "agentAttentionClearedAt">>,
 	state: SidebarShellState,
 	now: number,
 ): string {
-	if (state === "exited") return deriveExitedContext(process);
+	const agentContext = deriveAgentContext(process, now);
+
+	if (state === "exited") {
+		// lifecycle:failed/ready reasons visible after exit
+		return agentContext ?? deriveExitedContext(process);
+	}
+	if (agentContext != null) return agentContext;
 	if (state === "idle") {
 		return formatQuietAge(
 			process.lastActivityAt == null
@@ -71,18 +125,7 @@ function deriveContext(
 }
 
 export function buildWorktreeProcessSummary(
-	processes: Array<
-		Pick<
-			ProcessSession,
-			| "id"
-			| "label"
-			| "status"
-			| "attentionState"
-			| "lastActivityAt"
-			| "lastOutputPreview"
-			| "exitCode"
-		>
-	>,
+	processes: Array<ProcessRowInput>,
 	now: number,
 	maxRows = 3,
 ): WorktreeProcessSummary {
@@ -108,4 +151,24 @@ export function buildWorktreeProcessSummary(
 		rows: rows.slice(0, maxRows),
 		overflowCount: Math.max(0, rows.length - maxRows),
 	};
+}
+
+export function buildWorktreeAttentionDisplay(input: {
+	sessionAgentAttentionReasons: AgentAttentionReasonsBySource;
+	processSummary: WorktreeProcessSummary;
+}): WorktreeAttentionDisplay {
+	const mcp = input.sessionAgentAttentionReasons.mcp ?? null;
+	const sessionState: SidebarShellState = mcp
+		? processAttentionToSidebarShell(mapToProcessAttentionState(mcp.state))
+		: "idle";
+	const sessionContext = mcp ? `${mcp.state}: ${mcp.summary}` : "";
+
+	const top = input.processSummary.rows[0] ?? null;
+	const topState: SidebarShellState = top?.state ?? "idle";
+	const topContext = top?.context ?? "";
+
+	if (severityRank[sessionState] > severityRank[topState]) {
+		return { state: sessionState, context: sessionContext };
+	}
+	return { state: topState, context: topContext };
 }

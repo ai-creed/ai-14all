@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+	buildWorktreeAttentionDisplay,
 	buildWorktreeProcessSummary,
 	formatQuietAge,
 } from "../../../src/features/workspace/logic/sidebar-shell-summary";
+import { STALE_THRESHOLD_MS } from "../../../shared/models/agent-attention";
 
 const now = 20_000;
 
@@ -145,5 +147,187 @@ describe("buildWorktreeProcessSummary", () => {
 
 		expect(summary.rows).toHaveLength(3);
 		expect(summary.overflowCount).toBe(1);
+	});
+
+	it("reports stale context when running, quiet past threshold, not yet cleared", () => {
+		const staleNow = STALE_THRESHOLD_MS + 1_000;
+		const summary = buildWorktreeProcessSummary(
+			[
+				{
+					id: "p1",
+					label: "claude",
+					status: "running",
+					attentionState: "idle",
+					lastActivityAt: 0,
+					lastOutputPreview: null,
+					exitCode: null,
+					agentAttentionReasons: {},
+					agentAttentionClearedAt: null,
+				},
+			],
+			staleNow,
+		);
+		expect(summary.rows[0].context).toContain("stale");
+	});
+
+	it("does not report stale when agentAttentionClearedAt >= lastActivityAt", () => {
+		const staleNow = STALE_THRESHOLD_MS + 1_000;
+		const summary = buildWorktreeProcessSummary(
+			[
+				{
+					id: "p1",
+					label: "claude",
+					status: "running",
+					attentionState: "idle",
+					lastActivityAt: 0,
+					lastOutputPreview: null,
+					exitCode: null,
+					agentAttentionReasons: {},
+					agentAttentionClearedAt: 100,
+				},
+			],
+			staleNow,
+		);
+		expect(summary.rows[0].context).not.toContain("stale");
+	});
+
+	it("renders waiting reason text from terminal source", () => {
+		const summary = buildWorktreeProcessSummary(
+			[
+				{
+					id: "p1",
+					label: "claude",
+					status: "running",
+					attentionState: "actionRequired",
+					lastActivityAt: now,
+					lastOutputPreview: null,
+					exitCode: null,
+					agentAttentionReasons: {
+						terminal: {
+							state: "waiting",
+							source: "terminal",
+							summary: "y/n prompt",
+							nextAction: null,
+							reportedAt: now,
+						},
+					},
+					agentAttentionClearedAt: null,
+				},
+			],
+			now,
+		);
+		expect(summary.rows[0].context).toBe("waiting: y/n prompt");
+	});
+
+	it("surfaces lifecycle failed reason after process exit (status: error)", () => {
+		const summary = buildWorktreeProcessSummary(
+			[
+				{
+					id: "p1",
+					label: "tests",
+					status: "error",
+					attentionState: "idle",
+					lastActivityAt: now,
+					lastOutputPreview: null,
+					exitCode: 1,
+					agentAttentionReasons: {
+						lifecycle: {
+							state: "failed",
+							source: "lifecycle",
+							summary: "tests failed",
+							nextAction: null,
+							reportedAt: now,
+						},
+					},
+					agentAttentionClearedAt: null,
+				},
+			],
+			now,
+		);
+		expect(summary.rows[0].context).toBe("failed: tests failed");
+	});
+
+	it("does not derive stale for non-running processes", () => {
+		const staleNow = STALE_THRESHOLD_MS + 5_000;
+		const summary = buildWorktreeProcessSummary(
+			[
+				{
+					id: "p1",
+					label: "lint",
+					status: "exited",
+					attentionState: "idle",
+					lastActivityAt: 0,
+					lastOutputPreview: null,
+					exitCode: 0,
+					agentAttentionReasons: {},
+					agentAttentionClearedAt: null,
+				},
+			],
+			staleNow,
+		);
+		expect(summary.rows[0].context).not.toContain("stale");
+	});
+});
+
+describe("buildWorktreeAttentionDisplay", () => {
+	it("overlays session-level mcp reason on process states", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: {
+				mcp: {
+					state: "ready",
+					source: "mcp",
+					summary: "implementation complete",
+					nextAction: null,
+					reportedAt: now,
+				},
+			},
+			processSummary: { rows: [], overflowCount: 0 },
+		});
+		expect(display.state).toBe("active");
+		expect(display.context).toContain("implementation complete");
+	});
+
+	it("returns the strongest of mcp vs process rows", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: {
+				mcp: {
+					state: "ready",
+					source: "mcp",
+					summary: "implementation complete",
+					nextAction: null,
+					reportedAt: now,
+				},
+			},
+			processSummary: {
+				rows: [
+					{
+						id: "p1",
+						label: "claude",
+						state: "actionRequired",
+						context: "waiting: y/n prompt",
+						lastActivityAt: now,
+					},
+				],
+				overflowCount: 0,
+			},
+		});
+		expect(display.state).toBe("actionRequired");
+	});
+
+	it("maps mcp ready to SidebarShellState 'active', not 'activity'", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: {
+				mcp: {
+					state: "ready",
+					source: "mcp",
+					summary: "done",
+					nextAction: null,
+					reportedAt: now,
+				},
+			},
+			processSummary: { rows: [], overflowCount: 0 },
+		});
+		expect(display.state).toBe("active");
+		expect(display.state).not.toBe("activity");
 	});
 });
