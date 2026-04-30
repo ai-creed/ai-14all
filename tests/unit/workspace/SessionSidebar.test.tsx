@@ -140,7 +140,7 @@ describe("SessionSidebar process rows", () => {
 		expect(onSelect).not.toHaveBeenCalled();
 	});
 
-	it("dispatches non-sticky clear on row click (via onSelect)", () => {
+	it("calls onSelect callback when row is clicked", () => {
 		const onSelect = vi.fn();
 		const workspace = makeWorkspace([
 			{

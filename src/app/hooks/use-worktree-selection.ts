@@ -152,15 +152,14 @@ export function useWorktreeSelection(options: Options): UseWorktreeSelection {
 						clearedAt: Date.now(),
 					});
 				}
-				// clear session-level mcp attention if present
-				const sessionReasons =
-					targetWorkspaceState.sessionsByWorktreeId[worktreeId]?.agentAttentionReasons ?? {};
-				if (sessionReasons.mcp != null) {
-					dispatch({
-						type: "session/clearSessionAgentAttention",
-						worktreeId,
-					});
-				}
+			}
+			// clear session-level mcp attention if present — runs regardless of
+			// whether there was a pending restore
+			if (targetWorkspaceState.sessionsByWorktreeId[worktreeId]?.agentAttentionReasons?.mcp != null) {
+				dispatch({
+					type: "session/clearSessionAgentAttention",
+					worktreeId,
+				});
 			}
 
 			if (pending) {
