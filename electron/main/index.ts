@@ -19,6 +19,7 @@ import {
 } from "../../services/review/mcp-port-config.js";
 import { Ai14allMcpServer } from "../../services/mcp/ai14all-mcp-server.js";
 import { SessionNoteBridge } from "../../services/mcp/session-note-bridge.js";
+import { AgentAttentionBridge } from "../../services/mcp/agent-attention-bridge.js";
 import { createWorktreePathResolver } from "../../services/review/worktree-path-resolver.js";
 
 app.setName("ai-14all");
@@ -93,6 +94,7 @@ app.whenReady().then(async () => {
 		await createWorktreePathResolver(buildResolverEntries);
 
 	const sessionNoteBridge = new SessionNoteBridge(() => mainWindow.webContents);
+	const agentAttentionBridge = new AgentAttentionBridge(() => mainWindow.webContents);
 
 	const offRegistry = workspaceRegistry.onChange(() => {
 		void worktreePathResolver.refresh();
@@ -111,6 +113,7 @@ app.whenReady().then(async () => {
 			reviewCommentService,
 			worktreePathResolver,
 			sessionNoteBridge,
+			agentAttentionBridge,
 			{ port: desiredPort, host: "127.0.0.1" },
 		);
 		mcpPort = await mcpServer.start();
@@ -156,6 +159,7 @@ app.whenReady().then(async () => {
 		void deleteLivenessFile(livenessPath);
 		void mcpServer?.stop().catch(() => {});
 		sessionNoteBridge.dispose();
+		agentAttentionBridge.dispose();
 	});
 
 	registerAppLifecycle({

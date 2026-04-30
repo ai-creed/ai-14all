@@ -12,10 +12,13 @@ import {
 	RendererGoneError,
 	RendererNotReadyError,
 } from "./session-note-bridge.js";
+import type { AgentAttentionBridge } from "./agent-attention-bridge.js";
 
 type Options = { port: number; host: string };
 
 export type SessionNoteBridgeLike = Pick<SessionNoteBridge, "read" | "append">;
+
+export type AgentAttentionBridgeLike = Pick<AgentAttentionBridge, "report">;
 
 export async function resolveWithRefresh(
 	resolver: WorktreePathResolver,
@@ -66,12 +69,14 @@ export class Ai14allMcpServer {
 		private readonly service: ReviewCommentService,
 		private readonly resolver: WorktreePathResolver,
 		private readonly noteBridge: SessionNoteBridgeLike,
+		private readonly attentionBridge: AgentAttentionBridgeLike,
 		private readonly options: Options,
 	) {}
 
 	private registerTools(mcp: McpServer): void {
 		this.registerReviewTools(mcp);
 		this.registerNoteTools(mcp);
+		this.registerAttentionTools(mcp);
 	}
 
 	private registerReviewTools(mcp: McpServer): void {
@@ -181,6 +186,32 @@ export class Ai14allMcpServer {
 						mapBridgeErrorCode(err),
 						(err as Error).message ?? "bridge error",
 					);
+				}
+			},
+		);
+	}
+
+	private registerAttentionTools(mcp: McpServer): void {
+		mcp.tool(
+			"report_session_status",
+			"Report the current state of an agent session for ai-14all.",
+			{
+				worktreePath: z.string().min(1),
+				state: z.enum(["active", "waiting", "ready", "failed"]),
+				summary: z.string().min(1).max(200),
+				nextAction: z.string().max(200).nullable(),
+			},
+			async ({ worktreePath, state, summary, nextAction }) => {
+				const worktreeId = await resolveWithRefresh(this.resolver, worktreePath);
+				if (!worktreeId) {
+					return jsonError("no_worktree", `no worktree at path: ${worktreePath}`);
+				}
+				const reportedAt = Date.now();
+				try {
+					await this.attentionBridge.report({ worktreeId, state, summary, nextAction, reportedAt });
+					return jsonOk({ worktreeId, state, reportedAt });
+				} catch (err) {
+					return jsonError(mapBridgeErrorCode(err), (err as Error).message ?? "bridge error");
 				}
 			},
 		);
