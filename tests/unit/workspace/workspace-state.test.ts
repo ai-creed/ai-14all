@@ -1321,6 +1321,99 @@ describe("restorePersistedSession reviewDrawerOpen hydration", () => {
 	});
 });
 
+describe("session/reportProcessAgentAttention", () => {
+	it("writes per-source terminal reason and remaps legacy attention to actionRequired", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("proc-attn-1", "main", "shell 1"),
+		});
+
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "proc-attn-1",
+			reason: {
+				source: "terminal",
+				state: "waiting",
+				summary: "awaiting input",
+				nextAction: null,
+				reportedAt: 1000,
+			},
+		});
+
+		expect(state.processSessionsById["proc-attn-1"]?.agentAttentionReasons.terminal?.state).toBe("waiting");
+		expect(state.processSessionsById["proc-attn-1"]?.attentionState).toBe("actionRequired");
+		expect(state.sessionsByWorktreeId["main"].attentionState).toBe("actionRequired");
+	});
+
+	it("does not downgrade same-source reason when later signal is weaker", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("proc-attn-2", "main", "shell 2"),
+		});
+
+		// First dispatch: strong signal (waiting)
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "proc-attn-2",
+			reason: {
+				source: "terminal",
+				state: "waiting",
+				summary: "awaiting input",
+				nextAction: null,
+				reportedAt: 1000,
+			},
+		});
+
+		// Second dispatch: weaker signal (active)
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "proc-attn-2",
+			reason: {
+				source: "terminal",
+				state: "active",
+				summary: "running",
+				nextAction: null,
+				reportedAt: 2000,
+			},
+		});
+
+		expect(state.processSessionsById["proc-attn-2"]?.agentAttentionReasons.terminal?.state).toBe("waiting");
+		expect(state.processSessionsById["proc-attn-2"]?.attentionState).toBe("actionRequired");
+	});
+
+	it("rejects mcp source at process-level and returns unchanged state", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("proc-attn-3", "main", "shell 3"),
+		});
+
+		const before = state;
+		const after = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "proc-attn-3",
+			reason: {
+				source: "mcp",
+				state: "waiting",
+				summary: "mcp signal",
+				nextAction: null,
+				reportedAt: 1000,
+			},
+		});
+
+		expect(after).toBe(before);
+	});
+});
+
 describe("agentAttentionReasons defaults", () => {
 	it("new worktree session has agentAttentionReasons: {}", () => {
 		const state = createWorkspaceState(worktrees);

@@ -2,6 +2,15 @@ import {
 	DEFAULT_COMMAND_PRESETS,
 	type CommandPreset,
 } from "../../../../shared/models/command-preset";
+import {
+	rankAgentAttention,
+	mapToProcessAttentionState,
+	shouldReplaceAgentAttentionReason,
+} from "../../terminals/logic/agent-attention";
+import type {
+	AgentAttentionReason,
+	AgentAttentionReasonsBySource,
+} from "../../../../shared/models/agent-attention";
 import type { GitSummary } from "../../../../shared/models/git-summary";
 import type {
 	PersistedWorktreeSession,
@@ -145,7 +154,13 @@ export type WorkspaceAction =
 			paths: string[];
 	  }
 	| { type: "session/setTitle"; worktreeId: string; title: string }
-	| { type: "workspace/reconcileWorktrees"; worktrees: Worktree[] };
+	| { type: "workspace/reconcileWorktrees"; worktrees: Worktree[] }
+	| {
+			type: "session/reportProcessAgentAttention";
+			worktreeId: string;
+			processId: string;
+			reason: AgentAttentionReason;
+	  };
 
 function createSession(worktree: Worktree): WorktreeSession {
 	return {
@@ -776,6 +791,42 @@ export function workspaceReducer(
 					? "Couldn't load changes."
 					: "Couldn't refresh changes. Showing last successful result.",
 		}));
+	}
+
+	if (action.type === "session/reportProcessAgentAttention") {
+		const process = state.processSessionsById[action.processId];
+		const session = state.sessionsByWorktreeId[action.worktreeId];
+		if (!process || !session) return state;
+		if (action.reason.source === "mcp") return state; // process-level rejects mcp
+		const current = process.agentAttentionReasons[action.reason.source];
+		if (!shouldReplaceAgentAttentionReason(current, action.reason)) return state;
+		const nextReasons: AgentAttentionReasonsBySource = {
+			...process.agentAttentionReasons,
+			[action.reason.source]: action.reason,
+		};
+		const nextAgent = rankAgentAttention(nextReasons, false);
+		const mappedLegacy = mapToProcessAttentionState(nextAgent);
+		const nextLegacy =
+			attentionRank[mappedLegacy] >= attentionRank[process.attentionState]
+				? mappedLegacy
+				: process.attentionState;
+		const nextProcessSessionsById = {
+			...state.processSessionsById,
+			[action.processId]: {
+				...process,
+				agentAttentionReasons: nextReasons,
+				attentionState: nextLegacy,
+			},
+		};
+		const nextSession: WorktreeSession = {
+			...session,
+			attentionState: recalculateWorktreeAttention(session, nextProcessSessionsById),
+		};
+		return {
+			...state,
+			processSessionsById: nextProcessSessionsById,
+			sessionsByWorktreeId: { ...state.sessionsByWorktreeId, [action.worktreeId]: nextSession },
+		};
 	}
 
 	// --- Remaining session-level actions ---
