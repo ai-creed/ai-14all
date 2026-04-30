@@ -66,7 +66,7 @@ export function useCommitHistoryLoader(
 		return () => {
 			cancelled = true;
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally
+
 		// not depending on selectedCommitSha or onClearStaleSelectedCommit;
 		// they are read at fetch-time only and should not retrigger the effect.
 	}, [workspaceId, worktreeId, refreshKey]);

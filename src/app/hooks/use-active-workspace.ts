@@ -123,7 +123,7 @@ export function useActiveWorkspace(): UseActiveWorkspace {
 			});
 		},
 		// dispatchAppWorkspaces is stable (from useReducer); no deps needed
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+
 		[],
 	);
 

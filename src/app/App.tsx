@@ -413,7 +413,6 @@ export function App() {
 				]
 			: sessions;
 
-
 	// Derive git data from cached session state
 	const activeSummary = activeSession?.gitSummary ?? null;
 	const gitSummaryError = activeSession?.gitSummaryError ?? false;
@@ -529,7 +528,7 @@ export function App() {
 			workspaceOrder: appWorkspaces.workspaceOrder,
 			workspaces: effectiveWorkspaces,
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- deep equality via JSON for change detection
+
 	}, [appWorkspaces, restorePreference, pendingRestoreSessions, savedSnapshot]);
 
 	const persistableStateJson = useMemo(
@@ -1120,7 +1119,6 @@ export function App() {
 		});
 	}
 
-
 	const { handleRemoveWorkspace } = useWorkspaceRemoval({
 		appWorkspaces,
 		dispatchAppWorkspaces,
@@ -1290,7 +1288,6 @@ export function App() {
 						openPresetManager={() => setPresetManagerOpen(true)}
 						findProcessByTerminalSessionId={findProcessByTerminalSessionId}
 					/>
-
 
 					<ReviewDrawerSection
 						activeWorktree={activeWorktree}

@@ -58,7 +58,7 @@ export function FileViewer({
 			previewActionRef.current?.dispose();
 			previewActionRef.current = null;
 		};
-	}, [relativePath]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [relativePath]);
 
 	useEffect(() => {
 		if (!workspaceId || !worktreeId || !relativePath) return;
