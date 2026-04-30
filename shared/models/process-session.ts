@@ -1,3 +1,5 @@
+import type { AgentAttentionReasonsBySource } from "./agent-attention";
+
 export type ProcessOrigin = "adHoc" | "preset";
 export type ProcessAttentionState = "idle" | "activity" | "actionRequired";
 export type ProcessStatus = "running" | "exited" | "error" | "restarting";
@@ -17,4 +19,6 @@ export type ProcessSession = {
 	exitCode: number | null;
 	pinned: boolean;
 	attentionState: ProcessAttentionState;
+	agentAttentionReasons: AgentAttentionReasonsBySource;
+	agentAttentionClearedAt: number | null;
 };

@@ -37,6 +37,7 @@ function makeSession(worktreeId: string, note: string) {
 		activeProcessSessionId: null,
 		processSessionIds: [],
 		attentionState: "idle" as const,
+		agentAttentionReasons: {},
 		terminalLayoutMode: "single" as const,
 		splitLeftProcessId: null,
 		splitRightProcessId: null,

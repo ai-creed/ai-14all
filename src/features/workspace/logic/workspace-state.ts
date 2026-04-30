@@ -167,6 +167,7 @@ function createSession(worktree: Worktree): WorktreeSession {
 		activeProcessSessionId: null,
 		processSessionIds: [],
 		attentionState: "idle",
+		agentAttentionReasons: {},
 		terminalLayoutMode: "single",
 		splitLeftProcessId: null,
 		splitRightProcessId: null,
@@ -251,6 +252,8 @@ function restorePersistedSession(
 			exitCode: null,
 			pinned: process.pinned,
 			attentionState: "idle",
+			agentAttentionReasons: {},
+			agentAttentionClearedAt: null,
 		};
 	}
 

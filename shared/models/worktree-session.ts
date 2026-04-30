@@ -1,3 +1,4 @@
+import type { AgentAttentionReasonsBySource } from "./agent-attention";
 import type { GitSummary } from "./git-summary";
 import type { ProcessAttentionState } from "./process-session";
 
@@ -25,6 +26,7 @@ export type WorktreeSession = {
 	activeProcessSessionId: string | null;
 	processSessionIds: string[];
 	attentionState: ProcessAttentionState;
+	agentAttentionReasons: AgentAttentionReasonsBySource;
 	terminalLayoutMode: TerminalLayoutMode;
 	splitLeftProcessId: string | null;
 	splitRightProcessId: string | null;

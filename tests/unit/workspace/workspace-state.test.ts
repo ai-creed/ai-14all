@@ -56,6 +56,8 @@ function makeProcess(
 		exitCode: null,
 		pinned: false,
 		attentionState: "idle",
+		agentAttentionReasons: {},
+		agentAttentionClearedAt: null,
 	};
 }
 
@@ -127,6 +129,8 @@ describe("workspaceReducer", () => {
 				exitCode: null,
 				pinned: false,
 				attentionState: "idle",
+				agentAttentionReasons: {},
+				agentAttentionClearedAt: null,
 			},
 		});
 		state = workspaceReducer(state, {
@@ -147,6 +151,8 @@ describe("workspaceReducer", () => {
 				exitCode: null,
 				pinned: false,
 				attentionState: "idle",
+				agentAttentionReasons: {},
+				agentAttentionClearedAt: null,
 			},
 		});
 		state = workspaceReducer(state, {
@@ -183,6 +189,8 @@ describe("workspaceReducer", () => {
 				exitCode: null,
 				pinned: false,
 				attentionState: "idle",
+				agentAttentionReasons: {},
+				agentAttentionClearedAt: null,
 			},
 		});
 
@@ -319,6 +327,8 @@ describe("workspaceReducer — Phase 3 process model", () => {
 				exitCode: null,
 				pinned: true,
 				attentionState: "idle",
+				agentAttentionReasons: {},
+				agentAttentionClearedAt: null,
 			},
 		});
 		expect(state.processSessionsById["process-1"]?.pinned).toBe(true);
@@ -347,6 +357,8 @@ describe("workspaceReducer — Phase 3 process model", () => {
 				exitCode: null,
 				pinned: true,
 				attentionState: "idle",
+				agentAttentionReasons: {},
+				agentAttentionClearedAt: null,
 			},
 		});
 		state = workspaceReducer(state, {
@@ -1306,5 +1318,47 @@ describe("restorePersistedSession reviewDrawerOpen hydration", () => {
 			snapshot,
 		});
 		expect(next.sessionsByWorktreeId["/repo"].reviewDrawerOpen).toBe(false);
+	});
+});
+
+describe("agentAttentionReasons defaults", () => {
+	it("new worktree session has agentAttentionReasons: {}", () => {
+		const state = createWorkspaceState(worktrees);
+		expect(state.sessionsByWorktreeId["main"].agentAttentionReasons).toEqual(
+			{},
+		);
+		expect(
+			state.sessionsByWorktreeId["feature-a"].agentAttentionReasons,
+		).toEqual({});
+	});
+
+	it("newly registered process has agentAttentionReasons: {} and agentAttentionClearedAt: null", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: {
+				id: "proc-1",
+				workspaceId: "ws-test",
+				worktreeId: "main",
+				terminalSessionId: "term-1",
+				origin: "adHoc",
+				presetId: null,
+				label: "shell 1",
+				command: null,
+				status: "running",
+				lastActivityAt: null,
+				lastOutputPreview: null,
+				exitCode: null,
+				pinned: false,
+				attentionState: "idle",
+				agentAttentionReasons: {},
+				agentAttentionClearedAt: null,
+			},
+		});
+		const proc = state.processSessionsById["proc-1"];
+		expect(proc).toBeDefined();
+		expect(proc!.agentAttentionReasons).toEqual({});
+		expect(proc!.agentAttentionClearedAt).toBeNull();
 	});
 });

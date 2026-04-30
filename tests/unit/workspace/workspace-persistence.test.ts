@@ -75,6 +75,8 @@ describe("buildWorkspaceSnapshot", () => {
 				exitCode: null,
 				pinned: false,
 				attentionState: "actionRequired",
+				agentAttentionReasons: {},
+				agentAttentionClearedAt: null,
 			},
 		});
 		state = workspaceReducer(state, {
@@ -363,6 +365,8 @@ it("includes terminalSessionId in buildWorkspaceSnapshot output", () => {
 			exitCode: null,
 			pinned: false,
 			attentionState: "idle",
+			agentAttentionReasons: {},
+			agentAttentionClearedAt: null,
 		},
 	});
 
@@ -402,6 +406,8 @@ it("serializes split-shell layout fields into the workspace snapshot", () => {
 			exitCode: null,
 			pinned: false,
 			attentionState: "idle",
+			agentAttentionReasons: {},
+			agentAttentionClearedAt: null,
 		},
 	});
 	state = workspaceReducer(state, {

@@ -89,6 +89,8 @@ export function useProcessActions(options: Options): UseProcessActions {
 				exitCode: null,
 				pinned: false,
 				attentionState: "idle",
+				agentAttentionReasons: {},
+				agentAttentionClearedAt: null,
 			};
 			createScopedWorkspaceDispatch(targetWorkspaceId)({
 				type: "session/registerProcess",
@@ -181,6 +183,8 @@ export function useProcessActions(options: Options): UseProcessActions {
 					exitCode: null,
 					pinned: true,
 					attentionState: "idle",
+					agentAttentionReasons: {},
+					agentAttentionClearedAt: null,
 				},
 			});
 			await sendInput(terminal.id, `${preset.command}\n`);
