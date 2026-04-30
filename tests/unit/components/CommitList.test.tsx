@@ -25,7 +25,8 @@ describe("CommitList", () => {
 
 		render(
 			<CommitList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
@@ -92,7 +93,8 @@ describe("CommitList", () => {
 
 		render(
 			<CommitList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
@@ -129,7 +131,8 @@ describe("CommitList", () => {
 	it("shows changed files for a selected merge-target commit", () => {
 		render(
 			<CommitList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
@@ -176,7 +179,8 @@ describe("CommitList", () => {
 	it("shows an empty state when no merge target ref exists", () => {
 		render(
 			<CommitList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				history={{ mergeTargetRef: null, entries: [] }}
 				selectedCommitSha={null}
 				selectedCommitFilePath={null}
@@ -191,7 +195,8 @@ describe("CommitList", () => {
 	it("shows Preview for markdown commit files and uses snapshot content", async () => {
 		render(
 			<CommitList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
@@ -240,7 +245,8 @@ describe("CommitList", () => {
 	it("does not show Preview for deleted markdown commit files", () => {
 		render(
 			<CommitList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
@@ -284,7 +290,8 @@ describe("CommitList", () => {
 	it("renders the push strip when remoteStatus is provided", () => {
 		render(
 			<CommitList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
@@ -313,7 +320,8 @@ describe("CommitList", () => {
 	it("disables push button when ahead is 0", () => {
 		render(
 			<CommitList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
@@ -340,7 +348,8 @@ describe("CommitList", () => {
 	it("disables push button when hasRemote is false", () => {
 		render(
 			<CommitList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
@@ -368,7 +377,8 @@ describe("CommitList", () => {
 		const onPush = vi.fn().mockResolvedValue(undefined);
 		render(
 			<CommitList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
@@ -398,7 +408,8 @@ describe("CommitList", () => {
 	it("opens the force push dialog when behind > 0 and Push is clicked", async () => {
 		render(
 			<CommitList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
@@ -431,7 +442,8 @@ describe("CommitList", () => {
 	it("does not render push strip when remoteStatus is not provided", () => {
 		render(
 			<CommitList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [

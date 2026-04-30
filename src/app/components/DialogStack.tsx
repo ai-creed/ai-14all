@@ -99,9 +99,7 @@ export function DialogStack(props: Props): React.ReactElement {
 								props.workspaceState.sessionsByWorktreeId[props.removeTargetId]
 									?.processSessionIds ?? []
 							)
-								.map(
-									(id) => props.workspaceState.processSessionsById[id],
-								)
+								.map((id) => props.workspaceState.processSessionsById[id])
 								.filter(
 									(process): process is ProcessSession =>
 										!!process && process.status === "running",

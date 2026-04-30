@@ -302,10 +302,7 @@ export type Ai14AllDesktopApi = {
 		getPathForFile(file: File): string;
 	};
 	git: {
-		listChanges(
-			workspaceId: string,
-			worktreeId: string,
-		): Promise<GitChange[]>;
+		listChanges(workspaceId: string, worktreeId: string): Promise<GitChange[]>;
 		readDiff(
 			workspaceId: string,
 			worktreeId: string,

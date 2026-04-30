@@ -58,7 +58,8 @@ describe("FileViewer", () => {
 
 		render(
 			<FileViewer
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="src/index.ts"
 				resolvedTheme="dark"
 			/>,
@@ -78,7 +79,8 @@ describe("FileViewer", () => {
 
 		render(
 			<FileViewer
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="src/index.ts"
 				resolvedTheme="dark"
 			/>,
@@ -92,7 +94,8 @@ describe("FileViewer", () => {
 
 		render(
 			<FileViewer
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="src/index.ts"
 				resolvedTheme="dark"
 			/>,
@@ -106,7 +109,8 @@ describe("FileViewer", () => {
 
 		render(
 			<FileViewer
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="missing.ts"
 				resolvedTheme="dark"
 			/>,
@@ -119,16 +123,19 @@ describe("FileViewer", () => {
 
 	it("keeps the previous file view for the same target when reread fails", async () => {
 		mockRead
-			.mockResolvedValueOnce(ok({
-				path: "src/index.ts",
-				language: "typescript",
-				content: "export const hello = 'world';\n",
-				}))
+			.mockResolvedValueOnce(
+				ok({
+					path: "src/index.ts",
+					language: "typescript",
+					content: "export const hello = 'world';\n",
+				}),
+			)
 			.mockRejectedValueOnce(new Error("read failed"));
 
 		const { rerender } = render(
 			<FileViewer
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="src/index.ts"
 				resolvedTheme="dark"
 			/>,
@@ -157,16 +164,19 @@ describe("FileViewer", () => {
 
 	it("shows Preview context menu item when right-clicking header of a .md file", async () => {
 		mockRead
-			.mockResolvedValueOnce(ok({
-				path: "README.md",
-				content: "# Hello",
-				language: "markdown",
-				}))
+			.mockResolvedValueOnce(
+				ok({
+					path: "README.md",
+					content: "# Hello",
+					language: "markdown",
+				}),
+			)
 			.mockReturnValue(new Promise(() => {})); // preview modal fetch never resolves
 
 		render(
 			<FileViewer
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="README.md"
 				resolvedTheme="dark"
 			/>,
@@ -181,15 +191,18 @@ describe("FileViewer", () => {
 	});
 
 	it("does not show a context menu when right-clicking header of a non-.md file without onEditFile", async () => {
-		mockRead.mockResolvedValueOnce(ok({
-			path: "src/index.ts",
-			content: "const x = 1;",
-			language: "typescript",
-			}));
+		mockRead.mockResolvedValueOnce(
+			ok({
+				path: "src/index.ts",
+				content: "const x = 1;",
+				language: "typescript",
+			}),
+		);
 
 		render(
 			<FileViewer
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="src/index.ts"
 				resolvedTheme="dark"
 			/>,
@@ -207,15 +220,18 @@ describe("FileViewer", () => {
 	});
 
 	it("shows Edit context menu item for editable files when onEditFile is provided", async () => {
-		mockRead.mockResolvedValueOnce(ok({
-			path: "src/index.ts",
-			content: "const x = 1;",
-			language: "typescript",
-			}));
+		mockRead.mockResolvedValueOnce(
+			ok({
+				path: "src/index.ts",
+				content: "const x = 1;",
+				language: "typescript",
+			}),
+		);
 
 		render(
 			<FileViewer
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="src/index.ts"
 				resolvedTheme="dark"
 				onEditFile={vi.fn()}
@@ -231,16 +247,19 @@ describe("FileViewer", () => {
 	});
 
 	it("calls onEditFile with relativePath when Edit is clicked", async () => {
-		mockRead.mockResolvedValueOnce(ok({
-			path: "src/index.ts",
-			content: "const x = 1;",
-			language: "typescript",
-			}));
+		mockRead.mockResolvedValueOnce(
+			ok({
+				path: "src/index.ts",
+				content: "const x = 1;",
+				language: "typescript",
+			}),
+		);
 
 		const onEditFile = vi.fn();
 		render(
 			<FileViewer
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="src/index.ts"
 				resolvedTheme="dark"
 				onEditFile={onEditFile}
@@ -256,16 +275,19 @@ describe("FileViewer", () => {
 
 	it("shows both Preview and Edit for .md files when onEditFile is provided", async () => {
 		mockRead
-			.mockResolvedValueOnce(ok({
-				path: "README.md",
-				content: "# Hello",
-				language: "markdown",
-				}))
+			.mockResolvedValueOnce(
+				ok({
+					path: "README.md",
+					content: "# Hello",
+					language: "markdown",
+				}),
+			)
 			.mockReturnValue(new Promise(() => {}));
 
 		render(
 			<FileViewer
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="README.md"
 				resolvedTheme="dark"
 				onEditFile={vi.fn()}
@@ -283,16 +305,19 @@ describe("FileViewer", () => {
 
 	it("opens the markdown preview modal when Preview is clicked in FileViewer", async () => {
 		mockRead
-			.mockResolvedValueOnce(ok({
-				path: "README.md",
-				content: "# Hello",
-				language: "markdown",
-				}))
+			.mockResolvedValueOnce(
+				ok({
+					path: "README.md",
+					content: "# Hello",
+					language: "markdown",
+				}),
+			)
 			.mockReturnValue(new Promise(() => {})); // modal fetch never resolves
 
 		render(
 			<FileViewer
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="README.md"
 				resolvedTheme="dark"
 			/>,
@@ -311,16 +336,19 @@ describe("FileViewer", () => {
 
 	it("closes preview modal when relativePath changes", async () => {
 		mockRead
-			.mockResolvedValueOnce(ok({
-				path: "README.md",
-				content: "# Hello",
-				language: "markdown",
-				}))
+			.mockResolvedValueOnce(
+				ok({
+					path: "README.md",
+					content: "# Hello",
+					language: "markdown",
+				}),
+			)
 			.mockReturnValue(new Promise(() => {})); // modal fetch + subsequent viewer fetches never resolve
 
 		const { rerender } = render(
 			<FileViewer
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="README.md"
 				resolvedTheme="dark"
 			/>,
@@ -335,7 +363,8 @@ describe("FileViewer", () => {
 		// Navigate to a different file — modal should close
 		rerender(
 			<FileViewer
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="src/index.ts"
 				resolvedTheme="dark"
 			/>,

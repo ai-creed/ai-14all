@@ -19,7 +19,8 @@ describe("ChangesList", () => {
 	it("renders changed files with status badges", () => {
 		render(
 			<ChangesList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				changes={[
 					{ path: "src/index.ts", status: "M" },
 					{ path: "src/new-file.ts", status: "??" },
@@ -43,7 +44,8 @@ describe("ChangesList", () => {
 		const onSelect = vi.fn();
 		render(
 			<ChangesList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				changes={[{ path: "src/index.ts", status: "M" }]}
 				selectedPath={null}
 				onSelect={onSelect}
@@ -58,7 +60,8 @@ describe("ChangesList", () => {
 	it("shows error message when gitSummaryError is true", () => {
 		render(
 			<ChangesList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				changes={[]}
 				selectedPath={null}
 				onSelect={() => {}}
@@ -73,7 +76,8 @@ describe("ChangesList", () => {
 	it("wraps the empty state in a padded rail message container", () => {
 		render(
 			<ChangesList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				changes={[]}
 				selectedPath={null}
 				onSelect={() => {}}
@@ -98,7 +102,8 @@ describe("ChangesList", () => {
 
 		render(
 			<ChangesList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				changes={[
 					{ path: "NOTES.md", status: "M" },
 					{ path: "src/index.ts", status: "M" },
@@ -125,7 +130,8 @@ describe("ChangesList", () => {
 	it("does not show Preview for non-markdown changed files", () => {
 		render(
 			<ChangesList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				changes={[{ path: "src/index.ts", status: "M" }]}
 				selectedPath={null}
 				onSelect={vi.fn()}
@@ -144,7 +150,8 @@ describe("ChangesList", () => {
 	it("shows Discard in context menu for all files", () => {
 		render(
 			<ChangesList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				changes={[{ path: "src/index.ts", status: "M" }]}
 				selectedPath={null}
 				onSelect={vi.fn()}
@@ -162,7 +169,8 @@ describe("ChangesList", () => {
 	it("shows both Preview and Discard for markdown files", () => {
 		render(
 			<ChangesList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				changes={[{ path: "NOTES.md", status: "M" }]}
 				selectedPath={null}
 				onSelect={vi.fn()}
@@ -181,7 +189,8 @@ describe("ChangesList", () => {
 	it("renders [N] badge next to file name when openCommentCounts has entries", () => {
 		render(
 			<ChangesList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				changes={[{ path: "src/foo.ts", status: "M" }]}
 				selectedPath={null}
 				onSelect={() => {}}
@@ -196,7 +205,8 @@ describe("ChangesList", () => {
 		const onDiscardChange = vi.fn();
 		render(
 			<ChangesList
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				changes={[{ path: "src/index.ts", status: "M" }]}
 				selectedPath={null}
 				onSelect={vi.fn()}

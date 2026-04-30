@@ -1,10 +1,4 @@
-import {
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
 	PersistedWorktreeSession,
 	PersistedSavedWorkspace,
@@ -19,9 +13,7 @@ import { isEditable } from "../../shared/editor/editable-files";
 import { type SessionSidebarWorkspace } from "../features/workspace/components/SessionSidebar";
 import { workspaceReducer } from "../features/workspace/logic/workspace-state";
 import { PresetManager } from "../features/terminals/components/PresetManager";
-import {
-	type ReviewExpandedPortalHandle,
-} from "../features/review/components/ReviewExpandedPortal";
+import { type ReviewExpandedPortalHandle } from "../features/review/components/ReviewExpandedPortal";
 import { useReviewDrawerAutoExpand } from "../features/review/hooks/use-review-drawer-auto-expand";
 import { useReviewComments } from "../features/review/hooks/use-review-comments";
 import { type NewCommentDraft } from "../features/review/components/ReviewCommentSidebar";
@@ -528,7 +520,6 @@ export function App() {
 			workspaceOrder: appWorkspaces.workspaceOrder,
 			workspaces: effectiveWorkspaces,
 		};
-
 	}, [appWorkspaces, restorePreference, pendingRestoreSessions, savedSnapshot]);
 
 	const persistableStateJson = useMemo(
@@ -743,29 +734,29 @@ export function App() {
 
 	const { handleConfirmCreateWorktree, handleConfirmRemoveWorktree } =
 		useWorktreeActions({
-		workspaceId: activeWorkspaceId,
-		workspaceStateRef,
-		createPreview,
-		createName,
-		createSessionTitle,
-		setCreateBusy,
-		setCreateDialogOpen,
-		setCreateName,
-		setCreateSessionTitle,
-		setCreatePreview,
-		setCreateError,
-		removePreview,
-		setRemoveBusy,
-		setRemoveDialogOpen,
-		setRemoveTargetId,
-		setRemovePreview,
-		setRemoveError,
-		dispatch,
-		stopSession,
-		removeSession,
-		forgetDefaultShellEnsuredForWorktree,
-		refreshWorktreeInventory,
-	});
+			workspaceId: activeWorkspaceId,
+			workspaceStateRef,
+			createPreview,
+			createName,
+			createSessionTitle,
+			setCreateBusy,
+			setCreateDialogOpen,
+			setCreateName,
+			setCreateSessionTitle,
+			setCreatePreview,
+			setCreateError,
+			removePreview,
+			setRemoveBusy,
+			setRemoveDialogOpen,
+			setRemoveTargetId,
+			setRemovePreview,
+			setRemoveError,
+			dispatch,
+			stopSession,
+			removeSession,
+			forgetDefaultShellEnsuredForWorktree,
+			refreshWorktreeInventory,
+		});
 
 	const diffState = useDiffLoader({
 		workspaceId: activeWorkspaceId,
@@ -1071,27 +1062,26 @@ export function App() {
 
 	// Cmd+1/2/3 / Ctrl+1/2/3 — switch review pane tab and open drawer
 	const switchReviewMode = useCallback(
-		(reviewMode: "files" | "changes" | "commits") =>
-			(e: KeyboardEvent) => {
-				const currentState = workspaceStateRef.current;
-				const currentWorktreeId = currentState.selectedWorktreeId;
-				if (!currentWorktreeId) return;
-				e.preventDefault();
-				const session = currentState.sessionsByWorktreeId[currentWorktreeId];
+		(reviewMode: "files" | "changes" | "commits") => (e: KeyboardEvent) => {
+			const currentState = workspaceStateRef.current;
+			const currentWorktreeId = currentState.selectedWorktreeId;
+			if (!currentWorktreeId) return;
+			e.preventDefault();
+			const session = currentState.sessionsByWorktreeId[currentWorktreeId];
+			dispatch({
+				type: "session/setReviewMode",
+				worktreeId: currentWorktreeId,
+				reviewMode,
+			});
+			if (!(session?.reviewDrawerOpen ?? false)) {
+				autoExpand.noteUserExpand(currentWorktreeId);
 				dispatch({
-					type: "session/setReviewMode",
+					type: "session/setReviewDrawerOpen",
 					worktreeId: currentWorktreeId,
-					reviewMode,
+					open: true,
 				});
-				if (!(session?.reviewDrawerOpen ?? false)) {
-					autoExpand.noteUserExpand(currentWorktreeId);
-					dispatch({
-						type: "session/setReviewDrawerOpen",
-						worktreeId: currentWorktreeId,
-						open: true,
-					});
-				}
-			},
+			}
+		},
 		[autoExpand, dispatch, workspaceStateRef],
 	);
 	useKeyboardShortcut("review.files", appPlatform, switchReviewMode("files"), [
@@ -1321,9 +1311,7 @@ export function App() {
 								commitDetailState={commitDetailState}
 								diffState={diffState}
 								remoteStatus={remoteStatus}
-								selectedCommitOpenCommentCount={
-									selectedCommitOpenCommentCount
-								}
+								selectedCommitOpenCommentCount={selectedCommitOpenCommentCount}
 								gitSummaryError={gitSummaryError}
 								gitSummaryMessage={gitSummaryMessage}
 								gitSummaryStale={gitSummaryStale}

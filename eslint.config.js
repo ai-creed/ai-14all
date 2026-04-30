@@ -57,7 +57,12 @@ export default tseslint.config(
 				{
 					patterns: [
 						{
-							group: ["**/src/**", "../**/src/*", "../../src/**", "../../../src/**"],
+							group: [
+								"**/src/**",
+								"../**/src/*",
+								"../../src/**",
+								"../../../src/**",
+							],
 							message:
 								"shared/ must not import from src/. Move the contract into shared/ or keep the type in src/.",
 						},

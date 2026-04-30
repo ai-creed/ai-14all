@@ -430,15 +430,12 @@ export class GitService {
 				label: "show.parents",
 				timeoutMs: 10_000,
 			}),
-			runGit(
-				["show", "--format=", "--name-status", "--find-renames", sha],
-				{
-					cwd: worktreePath,
-					label: "show.name-status",
-					timeoutMs: 15_000,
-					maxBufferBytes: 16 * 1024 * 1024,
-				},
-			),
+			runGit(["show", "--format=", "--name-status", "--find-renames", sha], {
+				cwd: worktreePath,
+				label: "show.name-status",
+				timeoutMs: 15_000,
+				maxBufferBytes: 16 * 1024 * 1024,
+			}),
 		]);
 
 		const [entry] = parseRecentCommits(headerStdout);
@@ -484,10 +481,7 @@ export class GitService {
 								status === "D"
 									? ""
 									: capContent(
-											await readBlobAtRevision(
-												worktreePath,
-												`${sha}:${path}`,
-											),
+											await readBlobAtRevision(worktreePath, `${sha}:${path}`),
 											MAX_COMMIT_FILE_BYTES,
 											"modified",
 										),

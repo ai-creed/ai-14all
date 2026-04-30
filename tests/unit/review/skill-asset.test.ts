@@ -34,14 +34,17 @@ describe("loadBundledSkill (path resolution)", () => {
 	});
 
 	it("recovers via bounded recursive search when packaged in an unexpected subtree", async () => {
-		await writeSkillAt("misc", "bundled", "agent-skills", "ai-14all-fix-review");
+		await writeSkillAt(
+			"misc",
+			"bundled",
+			"agent-skills",
+			"ai-14all-fix-review",
+		);
 		const result = await loadBundledSkill(dir);
 		expect(result.content).toBe("skill body");
 	});
 
 	it("throws a descriptive error when the skill is not packaged anywhere", async () => {
-		await expect(loadBundledSkill(dir)).rejects.toThrow(
-			/ai-14all-fix-review/,
-		);
+		await expect(loadBundledSkill(dir)).rejects.toThrow(/ai-14all-fix-review/);
 	});
 });

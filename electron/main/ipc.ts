@@ -301,8 +301,7 @@ export function registerIpcHandlers(
 	});
 
 	ipcMain.handle("files:read", async (_event, raw: unknown) => {
-		const { workspaceId, worktreeId, relativePath } =
-			ReadFileSchema.parse(raw);
+		const { workspaceId, worktreeId, relativePath } = ReadFileSchema.parse(raw);
 		const repository = workspaceRegistry.get(workspaceId);
 		const worktree = await worktreeService.findWorktree(repository, worktreeId);
 		return fileService.readFile(worktree.path, relativePath);

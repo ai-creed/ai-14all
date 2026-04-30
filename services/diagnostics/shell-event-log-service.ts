@@ -38,8 +38,7 @@ export function createShellEventLogService(input: {
 	const enabled = !input.isPackaged || input.appVersion.includes("-beta.");
 	// Default mode: off when packaged release; sampled for dev / beta builds.
 	// Override via constructor input or AI14ALL_DEBUG=full for verbose diagnostics.
-	const mode: ShellEventLogMode =
-		input.mode ?? (enabled ? "sampled" : "off");
+	const mode: ShellEventLogMode = input.mode ?? (enabled ? "sampled" : "off");
 	const runId = (input.randomId ?? randomUUID)();
 	const dirPath = join(input.userDataPath, "diagnostics", "shell-events");
 	const logPath = enabled

@@ -3,7 +3,10 @@ import type { MutableRefObject } from "react";
 import type { ProcessSession } from "../../../shared/models/process-session";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
 import type { Worktree } from "../../../shared/models/worktree";
-import type { WorkspaceAction, WorkspaceState } from "../../features/workspace/logic/workspace-state";
+import type {
+	WorkspaceAction,
+	WorkspaceState,
+} from "../../features/workspace/logic/workspace-state";
 
 type Options = {
 	workspaceId: string | null;

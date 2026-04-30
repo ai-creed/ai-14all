@@ -22,7 +22,9 @@ describe("perf — file + git operations on a large repo", () => {
 			const start = performance.now();
 			const files = await svc.listTrackedFiles(repo.rootPath);
 			const elapsed = performance.now() - start;
-			console.log(`[perf] listTrackedFiles(2000-file): ${elapsed.toFixed(0)}ms`);
+			console.log(
+				`[perf] listTrackedFiles(2000-file): ${elapsed.toFixed(0)}ms`,
+			);
 			expect(files.length).toBeGreaterThanOrEqual(2000);
 			expect(elapsed).toBeLessThan(1500);
 		} finally {

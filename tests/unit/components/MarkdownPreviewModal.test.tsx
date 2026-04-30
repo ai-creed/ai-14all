@@ -39,7 +39,8 @@ describe("MarkdownPreviewModal", () => {
 
 		render(
 			<MarkdownPreviewModal
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={vi.fn()}
@@ -54,7 +55,8 @@ describe("MarkdownPreviewModal", () => {
 
 		render(
 			<MarkdownPreviewModal
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={vi.fn()}
@@ -70,7 +72,8 @@ describe("MarkdownPreviewModal", () => {
 
 		render(
 			<MarkdownPreviewModal
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={vi.fn()}
@@ -83,14 +86,17 @@ describe("MarkdownPreviewModal", () => {
 	});
 
 	it("renders a GFM table", async () => {
-		mockRead.mockResolvedValueOnce(ok({
-			...fakeView,
-			content: "| A | B |\n|---|---|\n| 1 | 2 |\n",
-			}));
+		mockRead.mockResolvedValueOnce(
+			ok({
+				...fakeView,
+				content: "| A | B |\n|---|---|\n| 1 | 2 |\n",
+			}),
+		);
 
 		render(
 			<MarkdownPreviewModal
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={vi.fn()}
@@ -103,14 +109,17 @@ describe("MarkdownPreviewModal", () => {
 	});
 
 	it("renders GFM task list checkboxes", async () => {
-		mockRead.mockResolvedValueOnce(ok({
-			...fakeView,
-			content: "- [x] Done\n- [ ] Todo\n",
-			}));
+		mockRead.mockResolvedValueOnce(
+			ok({
+				...fakeView,
+				content: "- [x] Done\n- [ ] Todo\n",
+			}),
+		);
 
 		render(
 			<MarkdownPreviewModal
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={vi.fn()}
@@ -124,14 +133,17 @@ describe("MarkdownPreviewModal", () => {
 	});
 
 	it("renders a fenced code block with a language class", async () => {
-		mockRead.mockResolvedValueOnce(ok({
-			...fakeView,
-			content: "```ts\nconst x = 1;\n```\n",
-			}));
+		mockRead.mockResolvedValueOnce(
+			ok({
+				...fakeView,
+				content: "```ts\nconst x = 1;\n```\n",
+			}),
+		);
 
 		render(
 			<MarkdownPreviewModal
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={vi.fn()}
@@ -149,7 +161,8 @@ describe("MarkdownPreviewModal", () => {
 
 		render(
 			<MarkdownPreviewModal
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={vi.fn()}
@@ -169,7 +182,8 @@ describe("MarkdownPreviewModal", () => {
 
 		render(
 			<MarkdownPreviewModal
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={vi.fn()}
@@ -191,7 +205,8 @@ describe("MarkdownPreviewModal", () => {
 
 		render(
 			<MarkdownPreviewModal
-				workspaceId="workspace:test" worktreeId="wt-test"
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
 				relativePath="README.md"
 				open={true}
 				onClose={onClose}

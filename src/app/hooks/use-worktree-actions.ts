@@ -1,8 +1,14 @@
 import { useCallback } from "react";
 import type { MutableRefObject } from "react";
-import type { CreateWorktreePreview, RemoveWorktreePreview } from "../../../shared/models/worktree-lifecycle";
+import type {
+	CreateWorktreePreview,
+	RemoveWorktreePreview,
+} from "../../../shared/models/worktree-lifecycle";
 import { repository as repositoryClient } from "../../lib/desktop-client";
-import type { WorkspaceAction, WorkspaceState } from "../../features/workspace/logic/workspace-state";
+import type {
+	WorkspaceAction,
+	WorkspaceState,
+} from "../../features/workspace/logic/workspace-state";
 
 type Options = {
 	workspaceId: string | null;
@@ -76,7 +82,8 @@ export function useWorktreeActions(options: Options): UseWorktreeActions {
 
 	const closeProcessesForWorktree = useCallback(
 		async (worktreeId: string) => {
-			const session = workspaceStateRef.current.sessionsByWorktreeId[worktreeId];
+			const session =
+				workspaceStateRef.current.sessionsByWorktreeId[worktreeId];
 			if (!session) return;
 			for (const processId of session.processSessionIds) {
 				const process =

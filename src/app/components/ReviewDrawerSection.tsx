@@ -3,9 +3,7 @@ import type { MutableRefObject } from "react";
 import type { GitSummary } from "../../../shared/models/git-summary";
 import type { Worktree } from "../../../shared/models/worktree";
 import type { WorktreeSession } from "../../../shared/models/worktree-session";
-import type {
-	WorkspaceAction,
-} from "../../features/workspace/logic/workspace-state";
+import type { WorkspaceAction } from "../../features/workspace/logic/workspace-state";
 import type { ReviewComment } from "../../../shared/models/review-comment";
 import { ReviewDrawer } from "../../features/review/components/ReviewDrawer";
 import {

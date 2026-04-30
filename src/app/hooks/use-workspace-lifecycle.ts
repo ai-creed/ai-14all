@@ -83,9 +83,7 @@ type Options = {
 };
 
 export type UseWorkspaceLifecycle = {
-	activateWorkspace: (
-		workspaceId: string,
-	) => Promise<ActivationResult | null>;
+	activateWorkspace: (workspaceId: string) => Promise<ActivationResult | null>;
 	handleLoadPath: (path: string) => Promise<void>;
 	restoreWorkspace: (
 		snapshot: WorkspaceSnapshot,
@@ -113,9 +111,7 @@ export type UseWorkspaceLifecycle = {
  * terminal-runtime + default-shell hooks, which is why they are colocated
  * here rather than spread across multiple smaller hooks.
  */
-export function useWorkspaceLifecycle(
-	options: Options,
-): UseWorkspaceLifecycle {
+export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 	const {
 		appWorkspaces,
 		appWorkspacesRef,

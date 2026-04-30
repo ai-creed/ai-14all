@@ -58,9 +58,7 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 		(
 			terminalSessionId: string,
 		): { process: ProcessSession; workspaceId: string } | null => {
-			for (const ws of Object.values(
-				appWorkspacesRef.current.workspacesById,
-			)) {
+			for (const ws of Object.values(appWorkspacesRef.current.workspacesById)) {
 				if (!ws.workspaceState) continue;
 				const process = Object.values(
 					ws.workspaceState.processSessionsById,

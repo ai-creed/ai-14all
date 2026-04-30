@@ -1,5 +1,8 @@
 import type { GitChangeStatus } from "../../../../shared/models/git-change";
-import { type FileTreeNode, WORKTREE_TREE_ROOT_PATH } from "../logic/build-file-tree";
+import {
+	type FileTreeNode,
+	WORKTREE_TREE_ROOT_PATH,
+} from "../logic/build-file-tree";
 
 export type VisibleRow =
 	| {

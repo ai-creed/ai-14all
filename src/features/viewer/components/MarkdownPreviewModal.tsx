@@ -59,7 +59,14 @@ export function MarkdownPreviewModal({
 				setError("Couldn't load file contents.");
 				setLoading(false);
 			});
-	}, [open, workspaceId, worktreeId, relativePath, reloadToken, contentOverride]);
+	}, [
+		open,
+		workspaceId,
+		worktreeId,
+		relativePath,
+		reloadToken,
+		contentOverride,
+	]);
 
 	return (
 		<Dialog.Root

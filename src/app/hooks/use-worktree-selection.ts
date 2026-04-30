@@ -85,7 +85,8 @@ export function useWorktreeSelection(options: Options): UseWorktreeSelection {
 				reason: "worktree_switch",
 				data: {
 					activeWorkspaceId: targetWorkspaceId,
-					previousWorktreeId: activeWorkspaceStateRef.current.selectedWorktreeId,
+					previousWorktreeId:
+						activeWorkspaceStateRef.current.selectedWorktreeId,
 					nextWorktreeId: worktreeId,
 				},
 			});
@@ -140,9 +141,15 @@ export function useWorktreeSelection(options: Options): UseWorktreeSelection {
 			}
 
 			if (pending) {
-				const worktree = targetWorktrees.find((entry) => entry.id === worktreeId);
+				const worktree = targetWorktrees.find(
+					(entry) => entry.id === worktreeId,
+				);
 				if (worktree) {
-					await recreatePersistedProcesses(worktree, pending, targetWorkspaceId);
+					await recreatePersistedProcesses(
+						worktree,
+						pending,
+						targetWorkspaceId,
+					);
 				}
 			}
 		},

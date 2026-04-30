@@ -618,32 +618,34 @@ describe("App — refresh changes button", () => {
 	});
 
 	it("restores per-worktree review selections when switching sessions", async () => {
-		mockReadSummary.mockImplementation(async (_workspaceId: string, worktreeId: string) => {
-			if (worktreeId === "wt2") {
+		mockReadSummary.mockImplementation(
+			async (_workspaceId: string, worktreeId: string) => {
+				if (worktreeId === "wt2") {
+					return {
+						branchName: "feature-a",
+						isDirty: true,
+						changedFileCount: 2,
+						changedFiles: [
+							{ path: "src/index.ts", status: "M" as const },
+							{ path: "src/new-file.ts", status: "??" as const },
+						],
+						recentCommits: [
+							{ sha: "feat1", shortSha: "feat1", subject: "feature commit" },
+						],
+					};
+				}
+
 				return {
-					branchName: "feature-a",
-					isDirty: true,
-					changedFileCount: 2,
-					changedFiles: [
-						{ path: "src/index.ts", status: "M" as const },
-						{ path: "src/new-file.ts", status: "??" as const },
-					],
+					branchName: "main",
+					isDirty: false,
+					changedFileCount: 0,
+					changedFiles: [],
 					recentCommits: [
-						{ sha: "feat1", shortSha: "feat1", subject: "feature commit" },
+						{ sha: "main1", shortSha: "main1", subject: "main commit" },
 					],
 				};
-			}
-
-			return {
-				branchName: "main",
-				isDirty: false,
-				changedFileCount: 0,
-				changedFiles: [],
-				recentCommits: [
-					{ sha: "main1", shortSha: "main1", subject: "main commit" },
-				],
-			};
-		});
+			},
+		);
 
 		await loadRepositoryWithTwoWorktrees();
 

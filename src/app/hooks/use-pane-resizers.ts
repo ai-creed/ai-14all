@@ -22,7 +22,9 @@ type Setters = {
 type ResizeHandlers = {
 	handleReviewRailResizeStart: (event: ReactMouseEvent<HTMLDivElement>) => void;
 	handleSidebarResizeStart: (event: ReactMouseEvent<HTMLDivElement>) => void;
-	handleReviewPanelResizeStart: (event: ReactMouseEvent<HTMLDivElement>) => void;
+	handleReviewPanelResizeStart: (
+		event: ReactMouseEvent<HTMLDivElement>,
+	) => void;
 };
 
 export type UsePaneResizers = Dimensions & Setters & ResizeHandlers;

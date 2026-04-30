@@ -21,9 +21,7 @@ export type LargeRepoHandle = {
  * exercising file list, change list, diff, and commit-detail performance
  * paths without touching real user data.
  */
-export function createLargeRepo(
-	opts: LargeRepoOptions = {},
-): LargeRepoHandle {
+export function createLargeRepo(opts: LargeRepoOptions = {}): LargeRepoHandle {
 	const {
 		fileCount = 2000,
 		changedFileCount = 100,
@@ -33,7 +31,8 @@ export function createLargeRepo(
 	} = opts;
 
 	const rootPath = mkdtempSync(join(tmpdir(), "ai14all-large-repo-"));
-	const run = (cmd: string) => execSync(cmd, { cwd: rootPath, stdio: "ignore" });
+	const run = (cmd: string) =>
+		execSync(cmd, { cwd: rootPath, stdio: "ignore" });
 
 	run("git init -q -b main");
 	run("git config user.email test@example.com");
