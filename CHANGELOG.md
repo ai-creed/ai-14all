@@ -4,6 +4,31 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] – 2026-04-30
+
+### Added
+
+- **File payload caps and binary detection.** `readDiff`, `readCommitDetail`, and the file viewer now share size limits and a binary-detection helper, returning structured too-large/binary/not-found markers instead of raw blobs.
+- **`GitCommandRunner`.** All `GitService` git invocations now run through a single runner with timeout, `maxBuffer`, and cancellation support.
+- **Workspace persistence coordinator.** Persisted workspace state is written through a coordinator with debounced writes, atomic temp + rename, and an explicit flush on quit.
+- **Terminal output batching.** PTY output is aggregated on a 16ms window with a hard cap before IPC dispatch, and the renderer coalesces xterm writes via `requestAnimationFrame`.
+- **Diagnostics terminal-output sampling.** Dev mode samples `terminal-output` events at 1/50 by default to keep the shell-event log usable on noisy sessions.
+- **Performance test gate.** A new perf suite runs file/git operations against a 2k-file fixture repo with thresholds.
+
+### Changed
+
+- **IPC contract migration.** All git and files IPC commands (`readDiff`, `readSummary`, `readCommitHistory`, `readCommitDetail`, `getRemoteStatus`, `listChanges`, `discardChange`, `pushBranch`, `files:list`, `files:listScoped`, `files:read`) now take `workspaceId + worktreeId` instead of paths.
+- **Layered import lint.** ESLint forbids `src/` imports from `shared/`, `services/`, and `electron/` to keep the renderer/main boundary clean.
+- **`App.tsx` decomposition.** Extracted ~25 hooks (workspace lifecycle, worktree selection/actions, git/process actions, loaders for diff/summary/commit-history/commit-detail/remote-status, listeners, shortcuts, persistence, etc.) and 8 components (`DialogStack`, `TerminalPanel`, `ReviewArea`, `ReviewDrawerSection`, `SidebarPanel`, `MainColumnChrome`, `RestoreBanner`, `WorktreeList`).
+- **Feature folder layout.** `workspace`, `viewer`, `review`, `terminals`, and `git-feature` split into `components/`, `hooks/`, and `logic/` subfolders.
+- **Kebab-case file names.** Renamed remaining camelCase TS files (`useTheme`, `useTerminalSession`, `useAgentInstallStatus`, `useReviewComments`, `openExternal`, `updateNotifier`, `rewriteManifest`) to kebab-case.
+- **Privileged IPC trust boundary.** Documented in `AGENTS.md`.
+
+### Fixed
+
+- Bundled review skill resolves via the canonical assets path with fallbacks for packaged and dev runs.
+- Workspace persistence in IPC bypasses the coordinator to preserve synchronous write semantics where required.
+
 ## [0.1.2] – 2026-04-28
 
 ### Added
