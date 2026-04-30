@@ -1663,64 +1663,30 @@ describe("session/clearProcessAgentAttention", () => {
 	});
 
 	it("updates attentionState to reflect remaining reasons after clear", () => {
-		let state = createWorkspaceState(worktrees);
 		const processId = "proc-clear-3";
-		state = workspaceReducer(state, {
-			type: "session/registerProcess",
-			worktreeId: "main",
-			process: makeProcess(processId, "main", "shell clear3"),
-		});
-		state = workspaceReducer(state, {
-			type: "session/reportProcessAgentAttention",
-			worktreeId: "main",
-			processId,
-			reason: {
-				source: "terminal",
-				state: "waiting",
-				summary: "awaiting input",
-				nextAction: null,
-				reportedAt: 1_000,
-			},
-		});
-		expect(state.processSessionsById[processId]?.attentionState).toBe("actionRequired");
+		const seeded = seedWithReasons(processId, "main");
+		expect(seeded.processSessionsById[processId]?.attentionState).toBe("actionRequired");
 
-		const next = workspaceReducer(state, {
+		const next = workspaceReducer(seeded, {
 			type: "session/clearProcessAgentAttention",
 			worktreeId: "main",
 			processId,
-			sticky: false,
+			sticky: true,
 			clearedAt: 5_000,
 		});
 		expect(next.processSessionsById[processId]?.attentionState).toBe("idle");
 	});
 
 	it("recalculates worktree attentionState after clear", () => {
-		let state = createWorkspaceState(worktrees);
 		const processId = "proc-clear-4";
-		state = workspaceReducer(state, {
-			type: "session/registerProcess",
-			worktreeId: "main",
-			process: makeProcess(processId, "main", "shell clear4"),
-		});
-		state = workspaceReducer(state, {
-			type: "session/reportProcessAgentAttention",
-			worktreeId: "main",
-			processId,
-			reason: {
-				source: "terminal",
-				state: "waiting",
-				summary: "awaiting input",
-				nextAction: null,
-				reportedAt: 1_000,
-			},
-		});
-		expect(state.sessionsByWorktreeId["main"].attentionState).toBe("actionRequired");
+		const seeded = seedWithReasons(processId, "main");
+		expect(seeded.sessionsByWorktreeId["main"].attentionState).toBe("actionRequired");
 
-		const next = workspaceReducer(state, {
+		const next = workspaceReducer(seeded, {
 			type: "session/clearProcessAgentAttention",
 			worktreeId: "main",
 			processId,
-			sticky: false,
+			sticky: true,
 			clearedAt: 5_000,
 		});
 		expect(next.sessionsByWorktreeId["main"].attentionState).toBe("idle");
