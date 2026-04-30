@@ -1758,3 +1758,247 @@ describe("agentAttentionReasons defaults", () => {
 		expect(proc!.agentAttentionClearedAt).toBeNull();
 	});
 });
+
+describe("restore resets agentAttentionReasons", () => {
+	it("workspace/restoreSnapshot resets agentAttentionReasons on worktree sessions", () => {
+		// Seed a mcp reason on the main worktree session
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				source: "mcp",
+				state: "waiting",
+				summary: "awaiting input",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		expect(state.sessionsByWorktreeId["main"].agentAttentionReasons.mcp).toBeDefined();
+
+		// Restore from snapshot
+		state = workspaceReducer(state, {
+			type: "workspace/restoreSnapshot",
+			worktrees,
+			workspaceId: "ws-test",
+			snapshot: {
+				repositoryPath: "/repo",
+				repoId: null,
+				selectedWorktreeId: "main",
+				commandPresets: [],
+				worktreeSessions: [
+					{
+						worktreeId: "main",
+						title: "",
+						note: "restored",
+						reviewMode: "files",
+						reviewDrawerOpen: false,
+						viewerMode: "file",
+						selectedFilePath: null,
+						selectedChangedFilePath: null,
+						selectedCommitSha: null,
+						selectedCommitFilePath: null,
+						terminalLayoutMode: "single" as const,
+						splitLeftProcessId: null,
+						splitRightProcessId: null,
+						reviewSidebarWidth: 280,
+						activeProcessSessionId: null,
+						nextAdHocNumber: 1,
+						processSessions: [],
+					},
+				],
+			},
+		});
+
+		expect(state.sessionsByWorktreeId["main"].agentAttentionReasons).toEqual({});
+	});
+
+	it("workspace/restoreSnapshot resets agentAttentionReasons and agentAttentionClearedAt on process sessions", () => {
+		// Seed process with terminal reason and agentAttentionClearedAt
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("proc-restore-1", "main", "shell 1"),
+		});
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "proc-restore-1",
+			reason: {
+				source: "terminal",
+				state: "waiting",
+				summary: "awaiting input",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		state = workspaceReducer(state, {
+			type: "session/clearProcessAgentAttention",
+			worktreeId: "main",
+			processId: "proc-restore-1",
+			sticky: true,
+			clearedAt: 2_000,
+		});
+		expect(state.processSessionsById["proc-restore-1"]?.agentAttentionClearedAt).toBe(2_000);
+
+		// Restore from snapshot (process-1 is in persisted list)
+		state = workspaceReducer(state, {
+			type: "workspace/restoreSnapshot",
+			worktrees,
+			workspaceId: "ws-test",
+			snapshot: {
+				repositoryPath: "/repo",
+				repoId: null,
+				selectedWorktreeId: "main",
+				commandPresets: [],
+				worktreeSessions: [
+					{
+						worktreeId: "main",
+						title: "",
+						note: "",
+						reviewMode: "files",
+						reviewDrawerOpen: false,
+						viewerMode: "file",
+						selectedFilePath: null,
+						selectedChangedFilePath: null,
+						selectedCommitSha: null,
+						selectedCommitFilePath: null,
+						terminalLayoutMode: "single" as const,
+						splitLeftProcessId: null,
+						splitRightProcessId: null,
+						reviewSidebarWidth: 280,
+						activeProcessSessionId: "proc-restore-1",
+						nextAdHocNumber: 2,
+						processSessions: [
+							{
+								id: "proc-restore-1",
+								origin: "adHoc",
+								presetId: null,
+								label: "shell 1",
+								command: null,
+								pinned: false,
+								terminalSessionId: null,
+							},
+						],
+					},
+				],
+			},
+		});
+
+		const proc = state.processSessionsById["proc-restore-1"];
+		expect(proc?.agentAttentionReasons).toEqual({});
+		expect(proc?.agentAttentionClearedAt).toBeNull();
+	});
+
+	it("session/restoreSnapshot resets agentAttentionReasons on worktree sessions", () => {
+		// Seed mcp reason
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "feature-a",
+			reason: {
+				source: "mcp",
+				state: "waiting",
+				summary: "awaiting input",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		expect(state.sessionsByWorktreeId["feature-a"].agentAttentionReasons.mcp).toBeDefined();
+
+		state = workspaceReducer(state, {
+			type: "session/restoreSnapshot",
+			workspaceId: "ws-test",
+			snapshot: {
+				worktreeId: "feature-a",
+				title: "",
+				note: "lazy restore",
+				reviewMode: "files",
+				reviewDrawerOpen: false,
+				viewerMode: "file",
+				selectedFilePath: null,
+				selectedChangedFilePath: null,
+				selectedCommitSha: null,
+				selectedCommitFilePath: null,
+				terminalLayoutMode: "single" as const,
+				splitLeftProcessId: null,
+				splitRightProcessId: null,
+				reviewSidebarWidth: 280,
+				activeProcessSessionId: null,
+				nextAdHocNumber: 1,
+				processSessions: [],
+			},
+		});
+
+		expect(state.sessionsByWorktreeId["feature-a"].agentAttentionReasons).toEqual({});
+	});
+
+	it("session/restoreSnapshot resets agentAttentionReasons and agentAttentionClearedAt on process sessions", () => {
+		// Seed process with terminal reason + cleared timestamp
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "feature-a",
+			process: makeProcess("proc-restore-2", "feature-a", "shell 1"),
+		});
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "feature-a",
+			processId: "proc-restore-2",
+			reason: {
+				source: "terminal",
+				state: "waiting",
+				summary: "awaiting input",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		state = workspaceReducer(state, {
+			type: "session/clearProcessAgentAttention",
+			worktreeId: "feature-a",
+			processId: "proc-restore-2",
+			sticky: true,
+			clearedAt: 3_000,
+		});
+		expect(state.processSessionsById["proc-restore-2"]?.agentAttentionClearedAt).toBe(3_000);
+
+		state = workspaceReducer(state, {
+			type: "session/restoreSnapshot",
+			workspaceId: "ws-test",
+			snapshot: {
+				worktreeId: "feature-a",
+				title: "",
+				note: "",
+				reviewMode: "files",
+				reviewDrawerOpen: false,
+				viewerMode: "file",
+				selectedFilePath: null,
+				selectedChangedFilePath: null,
+				selectedCommitSha: null,
+				selectedCommitFilePath: null,
+				terminalLayoutMode: "single" as const,
+				splitLeftProcessId: null,
+				splitRightProcessId: null,
+				reviewSidebarWidth: 280,
+				activeProcessSessionId: "proc-restore-2",
+				nextAdHocNumber: 2,
+				processSessions: [
+					{
+						id: "proc-restore-2",
+						origin: "adHoc",
+						presetId: null,
+						label: "shell 1",
+						command: null,
+						pinned: false,
+						terminalSessionId: null,
+					},
+				],
+			},
+		});
+
+		const proc = state.processSessionsById["proc-restore-2"];
+		expect(proc?.agentAttentionReasons).toEqual({});
+		expect(proc?.agentAttentionClearedAt).toBeNull();
+	});
+});

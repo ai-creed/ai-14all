@@ -303,6 +303,7 @@ function restorePersistedSession(
 				? snapshot.activeProcessSessionId
 				: (snapshot.processSessions[0]?.id ?? null),
 		attentionState: "idle",
+		agentAttentionReasons: {},
 		terminalLayoutMode: snapshot.terminalLayoutMode,
 		splitLeftProcessId: snapshot.splitLeftProcessId,
 		splitRightProcessId: snapshot.splitRightProcessId,
