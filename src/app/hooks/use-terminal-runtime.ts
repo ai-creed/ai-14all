@@ -17,6 +17,11 @@ import {
 import { deriveAttentionState } from "../../features/terminals/logic/process-attention";
 import { consumeOutputPreview } from "../../features/terminals/logic/output-preview";
 import { logRendererShellEvent } from "../../features/terminals/logic/shell-event-logger";
+import {
+	classifyOutput,
+	isAgentProcess,
+} from "../../features/terminals/logic/agent-attention";
+import type { AgentAttentionReason } from "../../../shared/models/agent-attention";
 
 type Options = {
 	appWorkspacesRef: MutableRefObject<AppWorkspacesState>;
@@ -116,16 +121,31 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 					outputPreviewBuffersRef.current.delete(event.sessionId);
 				}
 				const { process, workspaceId: ownerWsId } = found;
+				const now = Date.now();
+				let agentReason: AgentAttentionReason | null = null;
+				if (isAgentProcess(process.label, process.command ?? null)) {
+					const classified = classifyOutput(event.data);
+					if (classified !== null) {
+						agentReason = {
+							state: classified,
+							source: "terminal",
+							summary: previewUpdate.preview ?? classified,
+							nextAction: null,
+							reportedAt: now,
+						};
+					}
+				}
 				const action: WorkspaceAction = {
 					type: "session/recordProcessOutput",
 					worktreeId: process.worktreeId,
 					processId: process.id,
 					attentionState: deriveAttentionState(event.data),
-					at: Date.now(),
+					at: now,
 					isViewed:
 						getVisibleProcessIds().includes(process.id) &&
 						process.worktreeId === getActiveWorktreeId(),
 					lastOutputPreview: previewUpdate.preview,
+					agentReason,
 				};
 				applyActionForOwner(ownerWsId, action);
 			},
@@ -141,6 +161,25 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 					exitCode: event.exitCode ?? null,
 				};
 				applyActionForOwner(ownerWsId, action);
+				if (
+					event.exitCode != null &&
+					event.exitCode !== 0 &&
+					isAgentProcess(process.label, process.command ?? null)
+				) {
+					const lifecycleAction: WorkspaceAction = {
+						type: "session/reportProcessAgentAttention",
+						worktreeId: process.worktreeId,
+						processId: process.id,
+						reason: {
+							state: "failed",
+							source: "lifecycle",
+							summary: `exited with code ${event.exitCode}`,
+							nextAction: null,
+							reportedAt: Date.now(),
+						},
+					};
+					applyActionForOwner(ownerWsId, lifecycleAction);
+				}
 				void logRendererShellEvent({
 					event: "terminal-binding-changed",
 					windowId: null,
@@ -171,6 +210,21 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 					exitCode: null,
 				};
 				applyActionForOwner(ownerWsId, action);
+				if (isAgentProcess(process.label, process.command ?? null)) {
+					const lifecycleAction: WorkspaceAction = {
+						type: "session/reportProcessAgentAttention",
+						worktreeId: process.worktreeId,
+						processId: process.id,
+						reason: {
+							state: "failed",
+							source: "lifecycle",
+							summary: "terminal error",
+							nextAction: null,
+							reportedAt: Date.now(),
+						},
+					};
+					applyActionForOwner(ownerWsId, lifecycleAction);
+				}
 			},
 		}),
 		[
