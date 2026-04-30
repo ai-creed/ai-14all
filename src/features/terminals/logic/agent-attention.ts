@@ -1,3 +1,5 @@
+import type { AgentAttentionState } from "../../../shared/models/agent-attention";
+
 const KNOWN_AGENTS = ["codex", "claude", "claude-code"] as const;
 
 function tokenize(command: string): string[] {
@@ -46,4 +48,28 @@ export function isAgentProcess(
 ): boolean {
 	if (command !== null) return commandMatches(command);
 	return labelMatches(label);
+}
+
+const WAITING_PATTERNS = [
+	/\b(?:y\/n|yes\/no)\b/i,
+	/\bcontinue\?/i,
+	/\?\s*$/m,
+	/\b(approve|permission|authori[sz]e)\b/i,
+];
+const FAILED_PATTERNS = [/\b(error|failed|exception)\b/i];
+const READY_PATTERNS = [
+	/\b(done|completed|complete)\b/i,
+	/\bimplementation complete\b/i,
+	/\bready for review\b/i,
+	/\btests? (?:pass|passed)\b/i,
+	/\ball checks passed\b/i,
+];
+
+export function classifyOutput(chunk: string): AgentAttentionState | null {
+	const text = chunk.trim();
+	if (text.length === 0) return null;
+	if (WAITING_PATTERNS.some((p) => p.test(text))) return "waiting";
+	if (FAILED_PATTERNS.some((p) => p.test(text))) return "failed";
+	if (READY_PATTERNS.some((p) => p.test(text))) return "ready";
+	return "active";
 }

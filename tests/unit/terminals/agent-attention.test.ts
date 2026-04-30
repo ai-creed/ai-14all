@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAgentProcess } from "../../../src/features/terminals/logic/agent-attention";
+import { isAgentProcess, classifyOutput } from "../../../src/features/terminals/logic/agent-attention";
 
 describe("isAgentProcess", () => {
 	const positives: Array<[string, string | null]> = [
@@ -40,4 +40,40 @@ describe("isAgentProcess", () => {
 			expect(isAgentProcess(label, command)).toBe(false);
 		});
 	}
+});
+
+describe("classifyOutput", () => {
+	it("returns waiting for y/n prompt", () => {
+		expect(classifyOutput("Continue? [y/N]")).toBe("waiting");
+	});
+	it("returns waiting for permission prompt", () => {
+		expect(classifyOutput("Allow this command? (yes/no)")).toBe("waiting");
+	});
+	it("returns waiting for direct question", () => {
+		expect(classifyOutput("What should I do next?")).toBe("waiting");
+	});
+	it("returns failed for error", () => {
+		expect(classifyOutput("Error: build failed")).toBe("failed");
+	});
+	it("returns failed for exception", () => {
+		expect(classifyOutput("uncaught exception in worker")).toBe("failed");
+	});
+	it("returns ready for completion", () => {
+		expect(classifyOutput("implementation complete")).toBe("ready");
+	});
+	it("returns ready for tests pass", () => {
+		expect(classifyOutput("All checks passed")).toBe("ready");
+	});
+	it("returns active for non-empty neutral output", () => {
+		expect(classifyOutput("compiling module foo")).toBe("active");
+	});
+	it("returns null for empty chunk", () => {
+		expect(classifyOutput("   ")).toBeNull();
+	});
+	it("prefers waiting over ready in mixed chunks", () => {
+		expect(classifyOutput("done. Continue? [y/N]")).toBe("waiting");
+	});
+	it("prefers failed over ready in mixed chunks", () => {
+		expect(classifyOutput("tests pass\nerror: post-step crashed")).toBe("failed");
+	});
 });
