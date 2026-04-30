@@ -330,4 +330,28 @@ describe("buildWorktreeAttentionDisplay", () => {
 		expect(display.state).toBe("active");
 		expect(display.state).not.toBe("activity");
 	});
+
+	it("returns process row when mcp and top process row have equal severity rank", () => {
+		// both mcp and top process row are at the "active" SidebarShellState level (ready maps to active)
+		// per the > comparison, process row wins on tie
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: {
+				mcp: { state: "ready", source: "mcp", summary: "mcp done", nextAction: null, reportedAt: 1_000 },
+			},
+			processSummary: {
+				rows: [
+					{
+						id: "p1",
+						label: "claude",
+						state: "active",
+						context: "process context",
+						lastActivityAt: now,
+					},
+				],
+				overflowCount: 0,
+			},
+		});
+		expect(display.state).toBe("active");
+		expect(display.context).toBe("process context");
+	});
 });
