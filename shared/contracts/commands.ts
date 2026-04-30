@@ -32,6 +32,10 @@ import type {
 	ReviewCommentChangedEvent,
 } from "./review-comments.js";
 import type { NoteBridgeReply, NoteBridgeRequest } from "./note-bridge.js";
+import type {
+	AgentAttentionBridgeReply,
+	AgentAttentionBridgeRequest,
+} from "./agent-attention-bridge.js";
 
 // --- Zod schemas for command payloads ---
 
@@ -411,6 +415,12 @@ export type Ai14AllDesktopApi = {
 	noteBridge: {
 		onRequest(handler: (req: NoteBridgeRequest) => void): () => void;
 		sendReply(reply: NoteBridgeReply): void;
+		sendReady(): void;
+		sendGoodbye(): void;
+	};
+	agentAttentionBridge: {
+		onRequest(handler: (req: AgentAttentionBridgeRequest) => void): () => void;
+		sendReply(reply: AgentAttentionBridgeReply): void;
 		sendReady(): void;
 		sendGoodbye(): void;
 	};

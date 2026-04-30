@@ -109,6 +109,12 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		sendReady: vi.fn(),
 		sendGoodbye: vi.fn(),
 	},
+	agentAttentionBridge: {
+		onRequest: vi.fn(() => vi.fn()),
+		sendReply: vi.fn(),
+		sendReady: vi.fn(),
+		sendGoodbye: vi.fn(),
+	},
 	agentInstall: {
 		listProviders: vi.fn().mockResolvedValue({
 			providers: [],

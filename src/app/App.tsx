@@ -21,12 +21,14 @@ import { type SelectionDraft } from "../features/review/logic/diff-editor-decora
 import { useAgentInstallStatus } from "../features/review/hooks/use-agent-install-status";
 import { buildWorktreeProcessSummary } from "../features/workspace/logic/sidebar-shell-summary";
 import { useNoteBridgeReceiver } from "../features/workspace/hooks/use-note-bridge-receiver";
+import { attachAgentAttentionBridge } from "../features/terminals/logic/agent-attention-renderer-bridge";
 import type { GitChangeStatus } from "../../shared/models/git-change";
 import {
 	repository as repositoryClient,
 	files,
 	system,
 	noteBridge,
+	agentAttentionBridge,
 } from "../lib/desktop-client";
 import { countOpenCommentsInFiles } from "../features/git/logic/commit-list-badge";
 import { useTheme } from "../lib/use-theme";
@@ -171,6 +173,25 @@ export function App() {
 		},
 		api: noteBridge,
 	});
+
+	useEffect(() => {
+		if (startupMode !== "ready") return;
+		const dispose = attachAgentAttentionBridge({ dispatch, bridge: agentAttentionBridge });
+		let called = false;
+		const off = () => {
+			if (called) return;
+			called = true;
+			dispose();
+		};
+		const handleBeforeUnload = () => off();
+		window.addEventListener("beforeunload", handleBeforeUnload);
+		return () => {
+			window.removeEventListener("beforeunload", handleBeforeUnload);
+			off();
+		};
+		// dispatch and agentAttentionBridge are stable refs; only startupMode should re-run
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [startupMode]);
 
 	const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
 

@@ -14,6 +14,16 @@ import type {
 	NoteBridgeReply,
 	NoteBridgeRequest,
 } from "../../shared/contracts/note-bridge.js";
+import type {
+	AgentAttentionBridgeReply,
+	AgentAttentionBridgeRequest,
+} from "../../shared/contracts/agent-attention-bridge.js";
+import {
+	AGENT_ATTENTION_BRIDGE_READY,
+	AGENT_ATTENTION_BRIDGE_GOODBYE,
+	AGENT_ATTENTION_BRIDGE_REQUEST,
+	AGENT_ATTENTION_BRIDGE_REPLY,
+} from "../../shared/contracts/agent-attention-bridge.js";
 // Channel name constants duplicated from shared/contracts to avoid pulling Zod
 // into the sandboxed preload context (sandbox:true blocks require("zod")).
 const REVIEW_LIST = "reviewComments:list";
@@ -317,6 +327,20 @@ const api: Ai14AllDesktopApi = {
 		},
 		sendGoodbye() {
 			ipcRenderer.send(NOTE_BRIDGE_GOODBYE);
+		},
+	},
+	agentAttentionBridge: {
+		onRequest(handler: (req: AgentAttentionBridgeRequest) => void) {
+			return onChannel(AGENT_ATTENTION_BRIDGE_REQUEST, handler);
+		},
+		sendReply(reply: AgentAttentionBridgeReply) {
+			ipcRenderer.send(AGENT_ATTENTION_BRIDGE_REPLY, reply);
+		},
+		sendReady() {
+			ipcRenderer.send(AGENT_ATTENTION_BRIDGE_READY);
+		},
+		sendGoodbye() {
+			ipcRenderer.send(AGENT_ATTENTION_BRIDGE_GOODBYE);
 		},
 	},
 	events: {
