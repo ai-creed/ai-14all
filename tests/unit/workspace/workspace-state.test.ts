@@ -1576,9 +1576,16 @@ describe("session/reportProcessAgentAttention", () => {
 			},
 		});
 
-		expect(state.processSessionsById["proc-attn-1"]?.agentAttentionReasons.terminal?.state).toBe("waiting");
-		expect(state.processSessionsById["proc-attn-1"]?.attentionState).toBe("actionRequired");
-		expect(state.sessionsByWorktreeId["main"].attentionState).toBe("actionRequired");
+		expect(
+			state.processSessionsById["proc-attn-1"]?.agentAttentionReasons.terminal
+				?.state,
+		).toBe("waiting");
+		expect(state.processSessionsById["proc-attn-1"]?.attentionState).toBe(
+			"actionRequired",
+		);
+		expect(state.sessionsByWorktreeId["main"].attentionState).toBe(
+			"actionRequired",
+		);
 	});
 
 	it("does not downgrade same-source reason when later signal is weaker", () => {
@@ -1617,8 +1624,13 @@ describe("session/reportProcessAgentAttention", () => {
 			},
 		});
 
-		expect(state.processSessionsById["proc-attn-2"]?.agentAttentionReasons.terminal?.state).toBe("waiting");
-		expect(state.processSessionsById["proc-attn-2"]?.attentionState).toBe("actionRequired");
+		expect(
+			state.processSessionsById["proc-attn-2"]?.agentAttentionReasons.terminal
+				?.state,
+		).toBe("waiting");
+		expect(state.processSessionsById["proc-attn-2"]?.attentionState).toBe(
+			"actionRequired",
+		);
 	});
 
 	it("rejects mcp source at process-level and returns unchanged state", () => {
@@ -1661,10 +1673,14 @@ describe("session/reportAgentAttention", () => {
 				reportedAt: 5_000,
 			},
 		});
-		expect(next.sessionsByWorktreeId["main"].agentAttentionReasons.mcp?.state).toBe("ready");
+		expect(
+			next.sessionsByWorktreeId["main"].agentAttentionReasons.mcp?.state,
+		).toBe("ready");
 		// attentionState is intentionally not updated here — session reasons are
 		// overlayed at render time by buildWorktreeAttentionDisplay (see Task 15)
-		expect(next.sessionsByWorktreeId["main"].attentionState).toBe(initial.sessionsByWorktreeId["main"].attentionState);
+		expect(next.sessionsByWorktreeId["main"].attentionState).toBe(
+			initial.sessionsByWorktreeId["main"].attentionState,
+		);
 	});
 
 	it("rejects non-mcp source and returns unchanged state", () => {
@@ -1707,7 +1723,10 @@ describe("session/reportAgentAttention", () => {
 				reportedAt: 2_000,
 			},
 		});
-		expect(afterDowngrade.sessionsByWorktreeId["main"].agentAttentionReasons.mcp?.state).toBe("waiting");
+		expect(
+			afterDowngrade.sessionsByWorktreeId["main"].agentAttentionReasons.mcp
+				?.state,
+		).toBe("waiting");
 	});
 });
 
@@ -1741,7 +1760,10 @@ describe("session/recordProcessOutput agentReason", () => {
 				reportedAt: 10_000,
 			},
 		});
-		expect(next.processSessionsById[processId]?.agentAttentionReasons.terminal?.state).toBe("waiting");
+		expect(
+			next.processSessionsById[processId]?.agentAttentionReasons.terminal
+				?.state,
+		).toBe("waiting");
 	});
 
 	it("leaves agentAttentionReasons unchanged when agentReason is absent", () => {
@@ -1769,7 +1791,10 @@ describe("session/recordProcessOutput agentReason", () => {
 			lastOutputPreview: "compiling",
 			// no agentReason
 		});
-		expect(next.processSessionsById[processId]?.agentAttentionReasons.terminal?.state).toBe("waiting");
+		expect(
+			next.processSessionsById[processId]?.agentAttentionReasons.terminal
+				?.state,
+		).toBe("waiting");
 	});
 
 	it("does not replace existing stronger reason (same-source downgrade guard)", () => {
@@ -1802,7 +1827,10 @@ describe("session/recordProcessOutput agentReason", () => {
 				reportedAt: 12_000,
 			},
 		});
-		expect(next.processSessionsById[processId]?.agentAttentionReasons.terminal?.state).toBe("waiting");
+		expect(
+			next.processSessionsById[processId]?.agentAttentionReasons.terminal
+				?.state,
+		).toBe("waiting");
 	});
 
 	it("silently ignores mcp source in agentReason", () => {
@@ -1823,7 +1851,9 @@ describe("session/recordProcessOutput agentReason", () => {
 				reportedAt: 13_000,
 			},
 		});
-		expect(next.processSessionsById[processId]?.agentAttentionReasons).toEqual({});
+		expect(next.processSessionsById[processId]?.agentAttentionReasons).toEqual(
+			{},
+		);
 	});
 });
 
@@ -1898,7 +1928,9 @@ describe("session/clearProcessAgentAttention", () => {
 	it("updates attentionState to reflect remaining reasons after clear", () => {
 		const processId = "proc-clear-3";
 		const seeded = seedWithReasons(processId, "main");
-		expect(seeded.processSessionsById[processId]?.attentionState).toBe("actionRequired");
+		expect(seeded.processSessionsById[processId]?.attentionState).toBe(
+			"actionRequired",
+		);
 
 		const next = workspaceReducer(seeded, {
 			type: "session/clearProcessAgentAttention",
@@ -1913,7 +1945,9 @@ describe("session/clearProcessAgentAttention", () => {
 	it("recalculates worktree attentionState after clear", () => {
 		const processId = "proc-clear-4";
 		const seeded = seedWithReasons(processId, "main");
-		expect(seeded.sessionsByWorktreeId["main"].attentionState).toBe("actionRequired");
+		expect(seeded.sessionsByWorktreeId["main"].attentionState).toBe(
+			"actionRequired",
+		);
 
 		const next = workspaceReducer(seeded, {
 			type: "session/clearProcessAgentAttention",
@@ -1940,7 +1974,9 @@ describe("session/clearSessionAgentAttention", () => {
 				reportedAt: 1_000,
 			},
 		});
-		expect(state.sessionsByWorktreeId["main"].agentAttentionReasons.mcp).toBeDefined();
+		expect(
+			state.sessionsByWorktreeId["main"].agentAttentionReasons.mcp,
+		).toBeDefined();
 
 		const next = workspaceReducer(state, {
 			type: "session/clearSessionAgentAttention",
@@ -2008,7 +2044,9 @@ describe("restore resets agentAttentionReasons", () => {
 				reportedAt: 1_000,
 			},
 		});
-		expect(state.sessionsByWorktreeId["main"].agentAttentionReasons.mcp).toBeDefined();
+		expect(
+			state.sessionsByWorktreeId["main"].agentAttentionReasons.mcp,
+		).toBeDefined();
 
 		// Restore from snapshot
 		state = workspaceReducer(state, {
@@ -2044,7 +2082,9 @@ describe("restore resets agentAttentionReasons", () => {
 			},
 		});
 
-		expect(state.sessionsByWorktreeId["main"].agentAttentionReasons).toEqual({});
+		expect(state.sessionsByWorktreeId["main"].agentAttentionReasons).toEqual(
+			{},
+		);
 	});
 
 	it("workspace/restoreSnapshot resets agentAttentionReasons and agentAttentionClearedAt on process sessions", () => {
@@ -2074,7 +2114,9 @@ describe("restore resets agentAttentionReasons", () => {
 			sticky: true,
 			clearedAt: 2_000,
 		});
-		expect(state.processSessionsById["proc-restore-1"]?.agentAttentionClearedAt).toBe(2_000);
+		expect(
+			state.processSessionsById["proc-restore-1"]?.agentAttentionClearedAt,
+		).toBe(2_000);
 
 		// Restore from snapshot (process-1 is in persisted list)
 		state = workspaceReducer(state, {
@@ -2139,7 +2181,9 @@ describe("restore resets agentAttentionReasons", () => {
 				reportedAt: 1_000,
 			},
 		});
-		expect(state.sessionsByWorktreeId["feature-a"].agentAttentionReasons.mcp).toBeDefined();
+		expect(
+			state.sessionsByWorktreeId["feature-a"].agentAttentionReasons.mcp,
+		).toBeDefined();
 
 		state = workspaceReducer(state, {
 			type: "session/restoreSnapshot",
@@ -2165,7 +2209,9 @@ describe("restore resets agentAttentionReasons", () => {
 			},
 		});
 
-		expect(state.sessionsByWorktreeId["feature-a"].agentAttentionReasons).toEqual({});
+		expect(
+			state.sessionsByWorktreeId["feature-a"].agentAttentionReasons,
+		).toEqual({});
 	});
 
 	it("session/restoreSnapshot resets agentAttentionReasons and agentAttentionClearedAt on process sessions", () => {
@@ -2195,7 +2241,9 @@ describe("restore resets agentAttentionReasons", () => {
 			sticky: true,
 			clearedAt: 3_000,
 		});
-		expect(state.processSessionsById["proc-restore-2"]?.agentAttentionClearedAt).toBe(3_000);
+		expect(
+			state.processSessionsById["proc-restore-2"]?.agentAttentionClearedAt,
+		).toBe(3_000);
 
 		state = workspaceReducer(state, {
 			type: "session/restoreSnapshot",

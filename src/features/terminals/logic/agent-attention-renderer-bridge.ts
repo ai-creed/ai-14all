@@ -10,7 +10,10 @@ type Deps = {
 	bridge?: typeof agentAttentionBridge;
 };
 
-export function attachAgentAttentionBridge({ dispatchToWorktree, bridge = agentAttentionBridge }: Deps): () => void {
+export function attachAgentAttentionBridge({
+	dispatchToWorktree,
+	bridge = agentAttentionBridge,
+}: Deps): () => void {
 	const dispose = bridge.onRequest((req: AgentAttentionBridgeRequest) => {
 		const found = dispatchToWorktree(req.worktreeId, {
 			type: "session/reportAgentAttention",
@@ -25,7 +28,12 @@ export function attachAgentAttentionBridge({ dispatchToWorktree, bridge = agentA
 		});
 		const reply: AgentAttentionBridgeReply = found
 			? { id: req.id, ok: true }
-			: { id: req.id, ok: false, error: "renderer_not_ready", message: `no renderer session owns worktree ${req.worktreeId}` };
+			: {
+					id: req.id,
+					ok: false,
+					error: "renderer_not_ready",
+					message: `no renderer session owns worktree ${req.worktreeId}`,
+				};
 		bridge.sendReply(reply);
 	});
 	bridge.sendReady();

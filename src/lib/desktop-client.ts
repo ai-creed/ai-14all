@@ -142,8 +142,10 @@ export const noteBridge: Ai14AllDesktopApi["noteBridge"] = {
 };
 
 export const agentAttentionBridge: Ai14AllDesktopApi["agentAttentionBridge"] = {
-	onRequest: (handler) => getDesktopClient().agentAttentionBridge.onRequest(handler),
-	sendReply: (reply) => getDesktopClient().agentAttentionBridge.sendReply(reply),
+	onRequest: (handler) =>
+		getDesktopClient().agentAttentionBridge.onRequest(handler),
+	sendReply: (reply) =>
+		getDesktopClient().agentAttentionBridge.sendReply(reply),
 	sendReady: () => getDesktopClient().agentAttentionBridge.sendReady(),
 	sendGoodbye: () => getDesktopClient().agentAttentionBridge.sendGoodbye(),
 };

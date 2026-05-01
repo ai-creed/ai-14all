@@ -1188,9 +1188,16 @@ export function App() {
 					ws.persistedSnapshot?.snapshot.selectedWorktreeId ??
 					null,
 				...(() => {
-					if (!ws.workspaceState) return { attentionByWorktreeId: {}, processesByWorktreeId: {}, attentionContextByWorktreeId: {} };
-					const attentionByWorktreeId: Record<string, ProcessAttentionState> = {};
-					const processesByWorktreeId: Record<string, WorktreeProcessSummary> = {};
+					if (!ws.workspaceState)
+						return {
+							attentionByWorktreeId: {},
+							processesByWorktreeId: {},
+							attentionContextByWorktreeId: {},
+						};
+					const attentionByWorktreeId: Record<string, ProcessAttentionState> =
+						{};
+					const processesByWorktreeId: Record<string, WorktreeProcessSummary> =
+						{};
 					const attentionContextByWorktreeId: Record<string, string> = {};
 					for (const [worktreeId, session] of Object.entries(
 						ws.workspaceState.sessionsByWorktreeId,
@@ -1198,21 +1205,31 @@ export function App() {
 						const processes = session.processSessionIds
 							.map((id) => ws.workspaceState!.processSessionsById[id])
 							.filter(Boolean);
-						const processSummary = buildWorktreeProcessSummary(processes, sidebarNow, 3);
+						const processSummary = buildWorktreeProcessSummary(
+							processes,
+							sidebarNow,
+							3,
+						);
 						processesByWorktreeId[worktreeId] = processSummary;
 						const display = buildWorktreeAttentionDisplay({
 							sessionAgentAttentionReasons: session.agentAttentionReasons,
 							processSummary,
 						});
 						attentionByWorktreeId[worktreeId] =
-							display.state === "actionRequired" ? "actionRequired"
-							: display.state === "active" ? "activity"
-							: "idle";
+							display.state === "actionRequired"
+								? "actionRequired"
+								: display.state === "active"
+									? "activity"
+									: "idle";
 						if (display.source === "session" && display.context) {
 							attentionContextByWorktreeId[worktreeId] = display.context;
 						}
 					}
-					return { attentionByWorktreeId, processesByWorktreeId, attentionContextByWorktreeId };
+					return {
+						attentionByWorktreeId,
+						processesByWorktreeId,
+						attentionContextByWorktreeId,
+					};
 				})(),
 				titleByWorktreeId: ws.workspaceState
 					? Object.fromEntries(

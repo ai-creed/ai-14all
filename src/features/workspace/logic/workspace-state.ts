@@ -164,7 +164,11 @@ export type WorkspaceAction =
 			processId: string;
 			reason: AgentAttentionReason;
 	  }
-	| { type: "session/reportAgentAttention"; worktreeId: string; reason: AgentAttentionReason }
+	| {
+			type: "session/reportAgentAttention";
+			worktreeId: string;
+			reason: AgentAttentionReason;
+	  }
 	| {
 			type: "session/clearProcessAgentAttention";
 			worktreeId: string;
@@ -615,8 +619,7 @@ export function workspaceReducer(
 		// (e.g. setting OSC title to the user's prompt) must not flip detection
 		// back off. Only updateProcessStatus resets this on exit/restart.
 		const nextAgentDetected =
-			process.agentDetected ||
-			isAgentProcess(action.label, process.command);
+			process.agentDetected || isAgentProcess(action.label, process.command);
 		return {
 			...state,
 			processSessionsById: {
@@ -710,7 +713,8 @@ export function workspaceReducer(
 			if (action.agentReason.source === "mcp") {
 				// mcp at process-level is invalid; ignore silently
 			} else {
-				const current = process.agentAttentionReasons[action.agentReason.source];
+				const current =
+					process.agentAttentionReasons[action.agentReason.source];
 				if (shouldReplaceAgentAttentionReason(current, action.agentReason)) {
 					nextReasons = {
 						...process.agentAttentionReasons,
@@ -858,7 +862,8 @@ export function workspaceReducer(
 		if (!process || !session) return state;
 		if (action.reason.source === "mcp") return state; // process-level rejects mcp
 		const current = process.agentAttentionReasons[action.reason.source];
-		if (!shouldReplaceAgentAttentionReason(current, action.reason)) return state;
+		if (!shouldReplaceAgentAttentionReason(current, action.reason))
+			return state;
 		const nextReasons: AgentAttentionReasonsBySource = {
 			...process.agentAttentionReasons,
 			[action.reason.source]: action.reason,
@@ -879,12 +884,18 @@ export function workspaceReducer(
 		};
 		const nextSession: WorktreeSession = {
 			...session,
-			attentionState: recalculateWorktreeAttention(session, nextProcessSessionsById),
+			attentionState: recalculateWorktreeAttention(
+				session,
+				nextProcessSessionsById,
+			),
 		};
 		return {
 			...state,
 			processSessionsById: nextProcessSessionsById,
-			sessionsByWorktreeId: { ...state.sessionsByWorktreeId, [action.worktreeId]: nextSession },
+			sessionsByWorktreeId: {
+				...state.sessionsByWorktreeId,
+				[action.worktreeId]: nextSession,
+			},
 		};
 	}
 
@@ -893,7 +904,8 @@ export function workspaceReducer(
 		if (!session) return state;
 		if (action.reason.source !== "mcp") return state; // session-level accepts mcp only
 		const current = session.agentAttentionReasons[action.reason.source];
-		if (!shouldReplaceAgentAttentionReason(current, action.reason)) return state;
+		if (!shouldReplaceAgentAttentionReason(current, action.reason))
+			return state;
 		const nextSession: WorktreeSession = {
 			...session,
 			agentAttentionReasons: {
@@ -903,7 +915,10 @@ export function workspaceReducer(
 		};
 		return {
 			...state,
-			sessionsByWorktreeId: { ...state.sessionsByWorktreeId, [action.worktreeId]: nextSession },
+			sessionsByWorktreeId: {
+				...state.sessionsByWorktreeId,
+				[action.worktreeId]: nextSession,
+			},
 		};
 	}
 
@@ -915,7 +930,8 @@ export function workspaceReducer(
 		if (!action.sticky) {
 			// keep only failed reasons; sticky=true also clears failed
 			for (const [src, r] of Object.entries(process.agentAttentionReasons)) {
-				if (r && r.state === "failed") nextReasons[src as AgentAttentionSource] = r;
+				if (r && r.state === "failed")
+					nextReasons[src as AgentAttentionSource] = r;
 			}
 		}
 		const mappedAgent = rankAgentAttention(nextReasons, false);
@@ -931,12 +947,18 @@ export function workspaceReducer(
 		};
 		const nextSession: WorktreeSession = {
 			...session,
-			attentionState: recalculateWorktreeAttention(session, nextProcessSessionsById),
+			attentionState: recalculateWorktreeAttention(
+				session,
+				nextProcessSessionsById,
+			),
 		};
 		return {
 			...state,
 			processSessionsById: nextProcessSessionsById,
-			sessionsByWorktreeId: { ...state.sessionsByWorktreeId, [action.worktreeId]: nextSession },
+			sessionsByWorktreeId: {
+				...state.sessionsByWorktreeId,
+				[action.worktreeId]: nextSession,
+			},
 		};
 	}
 

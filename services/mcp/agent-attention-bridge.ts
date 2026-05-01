@@ -53,7 +53,10 @@ export class AgentAttentionBridge {
 		}
 		this.pending.clear();
 	};
-	private readonly replyHandler = (_: unknown, reply: AgentAttentionBridgeReply) => {
+	private readonly replyHandler = (
+		_: unknown,
+		reply: AgentAttentionBridgeReply,
+	) => {
 		const p = this.pending.get(reply.id);
 		if (!p) return; // unknown id — drop
 		this.pending.delete(reply.id);
@@ -87,7 +90,9 @@ export class AgentAttentionBridge {
 		}
 		const wc = this.getWebContents();
 		if (!wc) {
-			return Promise.reject(new RendererNotReadyError("webContents unavailable"));
+			return Promise.reject(
+				new RendererNotReadyError("webContents unavailable"),
+			);
 		}
 		const id = randomUUID();
 		const req: AgentAttentionBridgeRequest = { id, ...body };
@@ -105,9 +110,18 @@ export class AgentAttentionBridge {
 	dispose(): void {
 		if (this.disposed) return;
 		this.disposed = true;
-		this.ipcMain.removeListener(AGENT_ATTENTION_BRIDGE_READY, this.readyHandler);
-		this.ipcMain.removeListener(AGENT_ATTENTION_BRIDGE_GOODBYE, this.goodbyeHandler);
-		this.ipcMain.removeListener(AGENT_ATTENTION_BRIDGE_REPLY, this.replyHandler);
+		this.ipcMain.removeListener(
+			AGENT_ATTENTION_BRIDGE_READY,
+			this.readyHandler,
+		);
+		this.ipcMain.removeListener(
+			AGENT_ATTENTION_BRIDGE_GOODBYE,
+			this.goodbyeHandler,
+		);
+		this.ipcMain.removeListener(
+			AGENT_ATTENTION_BRIDGE_REPLY,
+			this.replyHandler,
+		);
 		for (const [, p] of this.pending) {
 			clearTimeout(p.timer);
 			p.reject(new BridgeDisposedError("bridge disposed"));

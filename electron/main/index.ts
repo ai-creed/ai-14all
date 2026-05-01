@@ -94,7 +94,9 @@ app.whenReady().then(async () => {
 		await createWorktreePathResolver(buildResolverEntries);
 
 	const sessionNoteBridge = new SessionNoteBridge(() => mainWindow.webContents);
-	const agentAttentionBridge = new AgentAttentionBridge(() => mainWindow.webContents);
+	const agentAttentionBridge = new AgentAttentionBridge(
+		() => mainWindow.webContents,
+	);
 
 	const offRegistry = workspaceRegistry.onChange(() => {
 		void worktreePathResolver.refresh();

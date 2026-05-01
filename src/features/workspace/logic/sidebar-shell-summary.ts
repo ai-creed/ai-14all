@@ -82,18 +82,26 @@ type ProcessRowInput = Pick<
 	| "lastOutputPreview"
 	| "exitCode"
 > &
-	Partial<Pick<ProcessSession, "agentAttentionReasons" | "agentAttentionClearedAt">>;
+	Partial<
+		Pick<ProcessSession, "agentAttentionReasons" | "agentAttentionClearedAt">
+	>;
 
 function deriveAgentContext(
 	process: Pick<ProcessSession, "lastActivityAt" | "status"> &
-		Partial<Pick<ProcessSession, "agentAttentionReasons" | "agentAttentionClearedAt">>,
+		Partial<
+			Pick<ProcessSession, "agentAttentionReasons" | "agentAttentionClearedAt">
+		>,
 	now: number,
 ): string | null {
 	const reasons = process.agentAttentionReasons ?? {};
 	// stale only for running processes; lifecycle failed/ready still visible after exit
 	const stale =
 		process.status === "running" &&
-		deriveStale(now, process.lastActivityAt, process.agentAttentionClearedAt ?? null);
+		deriveStale(
+			now,
+			process.lastActivityAt,
+			process.agentAttentionClearedAt ?? null,
+		);
 	const ranked = rankAgentAttention(reasons, stale);
 	if (ranked === "idle") return null;
 	if (ranked === "stale")
@@ -108,8 +116,13 @@ function deriveAgentContext(
 }
 
 function deriveContext(
-	process: Pick<ProcessSession, "status" | "exitCode" | "lastActivityAt" | "lastOutputPreview"> &
-		Partial<Pick<ProcessSession, "agentAttentionReasons" | "agentAttentionClearedAt">>,
+	process: Pick<
+		ProcessSession,
+		"status" | "exitCode" | "lastActivityAt" | "lastOutputPreview"
+	> &
+		Partial<
+			Pick<ProcessSession, "agentAttentionReasons" | "agentAttentionClearedAt">
+		>,
 	state: SidebarShellState,
 	now: number,
 ): string {

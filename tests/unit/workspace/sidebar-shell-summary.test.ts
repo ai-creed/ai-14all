@@ -393,7 +393,13 @@ describe("buildWorktreeAttentionDisplay", () => {
 		// per the > comparison, process row wins on tie
 		const display = buildWorktreeAttentionDisplay({
 			sessionAgentAttentionReasons: {
-				mcp: { state: "ready", source: "mcp", summary: "mcp done", nextAction: null, reportedAt: 1_000 },
+				mcp: {
+					state: "ready",
+					source: "mcp",
+					summary: "mcp done",
+					nextAction: null,
+					reportedAt: 1_000,
+				},
 			},
 			processSummary: {
 				rows: [

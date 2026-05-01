@@ -411,10 +411,7 @@ export function TerminalPane({
 							}
 						}}
 					/>
-					<span
-						className="shell-terminal-find__count"
-						aria-live="polite"
-					>
+					<span className="shell-terminal-find__count" aria-live="polite">
 						{findQuery
 							? findResults.resultCount === 0
 								? "No results"

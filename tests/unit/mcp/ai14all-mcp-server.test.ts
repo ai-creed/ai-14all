@@ -37,10 +37,16 @@ async function makeRig(opts: { resolveResult?: string | null } = {}) {
 	const attentionBridge = {
 		report: vi.fn(async () => {}),
 	};
-	const server = new Ai14allMcpServer(service, resolver, bridge, attentionBridge, {
-		port: 0,
-		host: "127.0.0.1",
-	});
+	const server = new Ai14allMcpServer(
+		service,
+		resolver,
+		bridge,
+		attentionBridge,
+		{
+			port: 0,
+			host: "127.0.0.1",
+		},
+	);
 	const port = await server.start();
 	const url = `http://127.0.0.1:${port}/mcp`;
 	const client = new Client({ name: "test-client", version: "1.0.0" });

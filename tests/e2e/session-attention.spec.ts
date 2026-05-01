@@ -182,9 +182,11 @@ test.describe.serial("session attention v2", () => {
 
 		// Step 4: the main worktree nav button should reflect actionRequired
 		// (worktree-level attention rolls up from process attention).
-		await expect(
-			nav.getByRole("button", { name: /main/i }),
-		).toHaveAttribute("data-attention", "actionRequired", { timeout: 10_000 });
+		await expect(nav.getByRole("button", { name: /main/i })).toHaveAttribute(
+			"data-attention",
+			"actionRequired",
+			{ timeout: 10_000 },
+		);
 
 		// Note: we deliberately do NOT click back into main here. The
 		// `session/markProcessViewed` reducer resets attentionState to "idle"
@@ -326,7 +328,10 @@ test.describe.serial("session attention v2", () => {
 					// The worktree path isn't registered yet — not a bridge issue
 					break;
 				}
-				if (parsed.error !== "renderer_not_ready" && parsed.error !== "bridge_timeout") {
+				if (
+					parsed.error !== "renderer_not_ready" &&
+					parsed.error !== "bridge_timeout"
+				) {
 					// Unexpected error — fail immediately
 					throw new Error(`Unexpected MCP error: ${JSON.stringify(parsed)}`);
 				}
@@ -371,9 +376,11 @@ test.describe.serial("session attention v2", () => {
 
 			// Session-level MCP attention maps to actionRequired in the sidebar
 			// (waiting → mapToProcessAttentionState → "actionRequired")
-			await expect(
-				nav.getByRole("button", { name: /main/i }),
-			).toHaveAttribute("data-attention", "actionRequired", { timeout: 10_000 });
+			await expect(nav.getByRole("button", { name: /main/i })).toHaveAttribute(
+				"data-attention",
+				"actionRequired",
+				{ timeout: 10_000 },
+			);
 		} finally {
 			await client.close();
 		}
@@ -415,7 +422,9 @@ test.describe.serial("session attention v2", () => {
 
 		// After stop, look for a Restart button in the terminal area
 		const restartButton = page.getByRole("button", { name: /restart/i });
-		if (!(await restartButton.isVisible({ timeout: 5_000 }).catch(() => false))) {
+		if (
+			!(await restartButton.isVisible({ timeout: 5_000 }).catch(() => false))
+		) {
 			test.skip(
 				// @ts-expect-error — Playwright test.skip(boolean) is not in d.ts but accepted at runtime
 				true,
@@ -428,7 +437,9 @@ test.describe.serial("session attention v2", () => {
 		// After restart, the process row in the sidebar should not show
 		// "actionRequired" from any stale attention state
 		await expect(
-			page.locator('[data-testid="process-state-indicator"][data-state="actionRequired"]'),
+			page.locator(
+				'[data-testid="process-state-indicator"][data-state="actionRequired"]',
+			),
 		).toHaveCount(0, { timeout: 5_000 });
 	});
 
@@ -493,9 +504,7 @@ test.describe.serial("session attention v2", () => {
 
 		// Wait for the "Clear failed" button to appear in the sidebar
 		const clearButton = page.getByRole("button", { name: /clear failed/i });
-		if (
-			!(await clearButton.isVisible({ timeout: 8_000 }).catch(() => false))
-		) {
+		if (!(await clearButton.isVisible({ timeout: 8_000 }).catch(() => false))) {
 			test.skip(
 				// @ts-expect-error — Playwright test.skip(boolean) is not in d.ts but accepted at runtime
 				true,

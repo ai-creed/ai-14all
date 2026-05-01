@@ -301,7 +301,10 @@ describe("TerminalPane", () => {
 		// allowProposedApi is set lazily on the Terminal instance only when
 		// SearchAddon is loaded — keeping idle panes off xterm's proposed-API
 		// init path during startup.
-		const opts = xtermConstructorMock.mock.calls[0][0] as Record<string, unknown>;
+		const opts = xtermConstructorMock.mock.calls[0][0] as Record<
+			string,
+			unknown
+		>;
 		expect(opts.allowProposedApi).toBeUndefined();
 	});
 

@@ -25,15 +25,16 @@ type Props = {
 		worktreeId: string,
 	) => Promise<void>;
 	handleRemoveWorkspace: (workspaceId: string) => Promise<void>;
-	dispatch: (action:
-		| { type: "session/setTitle"; worktreeId: string; title: string }
-		| {
-				type: "session/clearProcessAgentAttention";
-				worktreeId: string;
-				processId: string;
-				sticky?: boolean;
-				clearedAt: number;
-		  }
+	dispatch: (
+		action:
+			| { type: "session/setTitle"; worktreeId: string; title: string }
+			| {
+					type: "session/clearProcessAgentAttention";
+					worktreeId: string;
+					processId: string;
+					sticky?: boolean;
+					clearedAt: number;
+			  },
 	) => void;
 };
 

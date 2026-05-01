@@ -14,7 +14,9 @@ function makeEditor(opts: {
 	const setPosition = vi.fn();
 	const focus = vi.fn();
 	const getPosition = vi.fn(() =>
-		opts.cursorLine === undefined ? null : { lineNumber: opts.cursorLine, column: 1 },
+		opts.cursorLine === undefined
+			? null
+			: { lineNumber: opts.cursorLine, column: 1 },
 	);
 	// scrollAncestorToLine short-circuits on null DOM, so this default is fine
 	// for callers that don't care about outer-scroll behaviour.
@@ -35,7 +37,12 @@ function makeEditor(opts: {
 	return { editor, modified, revealLineInCenter, setPosition, focus };
 }
 
-function ch(modStart: number, modEnd: number, origStart = 1, origEnd = 1): MonacoEditor.ILineChange {
+function ch(
+	modStart: number,
+	modEnd: number,
+	origStart = 1,
+	origEnd = 1,
+): MonacoEditor.ILineChange {
 	return {
 		modifiedStartLineNumber: modStart,
 		modifiedEndLineNumber: modEnd,

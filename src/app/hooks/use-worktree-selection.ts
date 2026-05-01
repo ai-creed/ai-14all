@@ -155,7 +155,10 @@ export function useWorktreeSelection(options: Options): UseWorktreeSelection {
 			}
 			// clear session-level mcp attention if present — runs regardless of
 			// whether there was a pending restore
-			if (targetWorkspaceState.sessionsByWorktreeId[worktreeId]?.agentAttentionReasons?.mcp != null) {
+			if (
+				targetWorkspaceState.sessionsByWorktreeId[worktreeId]
+					?.agentAttentionReasons?.mcp != null
+			) {
 				dispatch({
 					type: "session/clearSessionAgentAttention",
 					worktreeId,

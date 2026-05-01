@@ -22,10 +22,12 @@ function stubResolver(map: Record<string, string>) {
 	};
 }
 
-async function makeRig(opts: {
-	attentionBridge?: { report: ReturnType<typeof vi.fn> };
-	resolver?: ReturnType<typeof stubResolver>;
-} = {}) {
+async function makeRig(
+	opts: {
+		attentionBridge?: { report: ReturnType<typeof vi.fn> };
+		resolver?: ReturnType<typeof stubResolver>;
+	} = {},
+) {
 	const dir = await mkdtemp(join(tmpdir(), "mcp-attention-rig-"));
 	const store = new ReviewCommentStore(join(dir, "review-comments.json"));
 	const service = new ReviewCommentService(store);
@@ -46,10 +48,16 @@ async function makeRig(opts: {
 		report: vi.fn().mockResolvedValue(undefined),
 	};
 
-	const server = new Ai14allMcpServer(service, resolver, noteBridge, attentionBridge as AgentAttentionBridgeLike, {
-		port: 0,
-		host: "127.0.0.1",
-	});
+	const server = new Ai14allMcpServer(
+		service,
+		resolver,
+		noteBridge,
+		attentionBridge as AgentAttentionBridgeLike,
+		{
+			port: 0,
+			host: "127.0.0.1",
+		},
+	);
 	const port = await server.start();
 	const url = `http://127.0.0.1:${port}/mcp`;
 	const client = new Client({ name: "test-client", version: "1.0.0" });
@@ -105,7 +113,10 @@ describe("report_session_status tool", () => {
 		expect(result.state).toBe("ready");
 		expect(typeof result.reportedAt).toBe("number");
 		expect(rig.attentionBridge.report).toHaveBeenCalledOnce();
-		const callArg = rig.attentionBridge.report.mock.calls[0][0] as Record<string, unknown>;
+		const callArg = rig.attentionBridge.report.mock.calls[0][0] as Record<
+			string,
+			unknown
+		>;
 		expect(callArg.worktreeId).toBe("w1");
 		expect(callArg.state).toBe("ready");
 		expect(callArg.summary).toBe("done");
@@ -233,7 +244,9 @@ describe("ai-14all MCP server instructions and discovery", () => {
 		}
 
 		for (const state of ["active", "waiting", "ready", "failed"]) {
-			expect(text, `instructions must mention state "${state}"`).toContain(state);
+			expect(text, `instructions must mention state "${state}"`).toContain(
+				state,
+			);
 		}
 	});
 
@@ -246,7 +259,10 @@ describe("ai-14all MCP server instructions and discovery", () => {
 		const description = tool?.description ?? "";
 
 		for (const state of ["active", "waiting", "ready", "failed"]) {
-			expect(description, `description must mention state "${state}"`).toContain(state);
+			expect(
+				description,
+				`description must mention state "${state}"`,
+			).toContain(state);
 		}
 	});
 });

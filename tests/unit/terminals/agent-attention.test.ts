@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { isAgentProcess, classifyOutput } from "../../../src/features/terminals/logic/agent-attention";
+import {
+	isAgentProcess,
+	classifyOutput,
+} from "../../../src/features/terminals/logic/agent-attention";
 
 describe("isAgentProcess", () => {
 	const positives: Array<[string, string | null]> = [
@@ -80,7 +83,9 @@ describe("classifyOutput", () => {
 		expect(classifyOutput("done. Continue? [y/N]")).toBe("waiting");
 	});
 	it("prefers failed over ready in mixed chunks", () => {
-		expect(classifyOutput("tests pass\nerror: post-step crashed")).toBe("failed");
+		expect(classifyOutput("tests pass\nerror: post-step crashed")).toBe(
+			"failed",
+		);
 	});
 });
 
@@ -124,30 +129,49 @@ describe("deriveStale", () => {
 		expect(deriveStale(STALE_THRESHOLD_MS + 1_000, 0, 500)).toBe(false);
 	});
 	it("returns true again once new activity happens after clear", () => {
-		expect(deriveStale(2 * STALE_THRESHOLD_MS, STALE_THRESHOLD_MS, 500)).toBe(true);
+		expect(deriveStale(2 * STALE_THRESHOLD_MS, STALE_THRESHOLD_MS, 500)).toBe(
+			true,
+		);
 	});
 });
 
 describe("shouldReplaceAgentAttentionReason", () => {
 	it("returns true when current is undefined", () => {
-		expect(shouldReplaceAgentAttentionReason(undefined, reason("active", "terminal"))).toBe(true);
+		expect(
+			shouldReplaceAgentAttentionReason(
+				undefined,
+				reason("active", "terminal"),
+			),
+		).toBe(true);
 	});
 	it("returns true when next is equal rank to current (refresh)", () => {
 		expect(
-			shouldReplaceAgentAttentionReason(reason("waiting", "terminal"), reason("waiting", "terminal")),
+			shouldReplaceAgentAttentionReason(
+				reason("waiting", "terminal"),
+				reason("waiting", "terminal"),
+			),
 		).toBe(true);
 	});
 	it("returns true when next is stronger than current", () => {
 		expect(
-			shouldReplaceAgentAttentionReason(reason("active", "terminal"), reason("waiting", "terminal")),
+			shouldReplaceAgentAttentionReason(
+				reason("active", "terminal"),
+				reason("waiting", "terminal"),
+			),
 		).toBe(true);
 	});
 	it("returns false when next is weaker than current (do not downgrade)", () => {
 		expect(
-			shouldReplaceAgentAttentionReason(reason("waiting", "terminal"), reason("active", "terminal")),
+			shouldReplaceAgentAttentionReason(
+				reason("waiting", "terminal"),
+				reason("active", "terminal"),
+			),
 		).toBe(false);
 		expect(
-			shouldReplaceAgentAttentionReason(reason("failed", "lifecycle"), reason("ready", "lifecycle")),
+			shouldReplaceAgentAttentionReason(
+				reason("failed", "lifecycle"),
+				reason("ready", "lifecycle"),
+			),
 		).toBe(false);
 	});
 });
@@ -160,7 +184,9 @@ describe("rankAgentAttention", () => {
 		expect(rankAgentAttention({}, true)).toBe("stale");
 	});
 	it("stale beats active (active rank < stale rank)", () => {
-		expect(rankAgentAttention({ terminal: reason("active", "terminal") }, true)).toBe("stale");
+		expect(
+			rankAgentAttention({ terminal: reason("active", "terminal") }, true),
+		).toBe("stale");
 	});
 	it("ready beats stale", () => {
 		const reasons: AgentAttentionReasonsBySource = {

@@ -191,7 +191,8 @@ describe("SessionSidebar", () => {
 										label: "claude",
 										state: "actionRequired",
 										context: "Continue? [y/N]",
-										lastActivityAt: 19_000, hasFailedReason: false,
+										lastActivityAt: 19_000,
+										hasFailedReason: false,
 									},
 									{
 										id: "process-2",
@@ -245,7 +246,8 @@ describe("SessionSidebar", () => {
 										label: "claude",
 										state: "active",
 										context: "compiled in 124ms",
-										lastActivityAt: 19_000, hasFailedReason: false,
+										lastActivityAt: 19_000,
+										hasFailedReason: false,
 									},
 								],
 								overflowCount: 3,
@@ -283,7 +285,8 @@ describe("SessionSidebar", () => {
 										label: "claude",
 										state: "active",
 										context: "compiled in 124ms",
-										lastActivityAt: 19_000, hasFailedReason: false,
+										lastActivityAt: 19_000,
+										hasFailedReason: false,
 									},
 								],
 								overflowCount: 0,
@@ -321,7 +324,8 @@ describe("SessionSidebar", () => {
 										label: "claude",
 										state: "active",
 										context: "compiled in 124ms",
-										lastActivityAt: 19_000, hasFailedReason: false,
+										lastActivityAt: 19_000,
+										hasFailedReason: false,
 									},
 								],
 								overflowCount: 2,
@@ -573,10 +577,7 @@ describe("SessionSidebar rename", () => {
 		// Simulate an unrelated workspaces update (new identity, same data) —
 		// e.g. attention/state polling — while pendingRename is still set.
 		rerender(
-			<SessionSidebar
-				{...props}
-				workspaces={[{ ...initialWorkspace }]}
-			/>,
+			<SessionSidebar {...props} workspaces={[{ ...initialWorkspace }]} />,
 		);
 
 		const inputAfter = screen.getByRole("textbox", { name: /rename session/i });

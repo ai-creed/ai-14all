@@ -72,8 +72,7 @@ function revealLine(editor: DiffNavigableEditor, line: number): void {
 export function navigateToNextDiff(editor: DiffNavigableEditor): boolean {
 	const lines = getDiffAnchorLines(editor);
 	if (lines.length === 0) return false;
-	const cursorLine =
-		editor.getModifiedEditor().getPosition()?.lineNumber ?? 0;
+	const cursorLine = editor.getModifiedEditor().getPosition()?.lineNumber ?? 0;
 	const target = lines.find((l) => l > cursorLine) ?? lines[0];
 	revealLine(editor, target);
 	return true;
@@ -83,7 +82,8 @@ export function navigateToPrevDiff(editor: DiffNavigableEditor): boolean {
 	const lines = getDiffAnchorLines(editor);
 	if (lines.length === 0) return false;
 	const cursorLine =
-		editor.getModifiedEditor().getPosition()?.lineNumber ?? Number.MAX_SAFE_INTEGER;
+		editor.getModifiedEditor().getPosition()?.lineNumber ??
+		Number.MAX_SAFE_INTEGER;
 	let target: number | undefined;
 	for (let i = lines.length - 1; i >= 0; i--) {
 		if (lines[i] < cursorLine) {

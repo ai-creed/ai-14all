@@ -214,7 +214,7 @@ export class Ai14allMcpServer {
 	private registerAttentionTools(mcp: McpServer): void {
 		mcp.tool(
 			"report_session_status",
-			"Report the lifecycle state of the current ai-14all agent session for the worktree at `worktreePath`. Call on every transition into \"active\", \"waiting\", \"ready\", or \"failed\". `summary` is a one-line description (≤200 chars); `nextAction` is an optional short imperative for the user, or null.",
+			'Report the lifecycle state of the current ai-14all agent session for the worktree at `worktreePath`. Call on every transition into "active", "waiting", "ready", or "failed". `summary` is a one-line description (≤200 chars); `nextAction` is an optional short imperative for the user, or null.',
 			{
 				worktreePath: z.string().min(1),
 				state: z.enum(["active", "waiting", "ready", "failed"]),
@@ -222,16 +222,31 @@ export class Ai14allMcpServer {
 				nextAction: z.string().max(200).nullable(),
 			},
 			async ({ worktreePath, state, summary, nextAction }) => {
-				const worktreeId = await resolveWithRefresh(this.resolver, worktreePath);
+				const worktreeId = await resolveWithRefresh(
+					this.resolver,
+					worktreePath,
+				);
 				if (!worktreeId) {
-					return jsonError("no_worktree", `no worktree at path: ${worktreePath}`);
+					return jsonError(
+						"no_worktree",
+						`no worktree at path: ${worktreePath}`,
+					);
 				}
 				const reportedAt = Date.now();
 				try {
-					await this.attentionBridge.report({ worktreeId, state, summary, nextAction, reportedAt });
+					await this.attentionBridge.report({
+						worktreeId,
+						state,
+						summary,
+						nextAction,
+						reportedAt,
+					});
 					return jsonOk({ worktreeId, state, reportedAt });
 				} catch (err) {
-					return jsonError(mapBridgeErrorCode(err), (err as Error).message ?? "bridge error");
+					return jsonError(
+						mapBridgeErrorCode(err),
+						(err as Error).message ?? "bridge error",
+					);
 				}
 			},
 		);

@@ -47,10 +47,7 @@ function commandMatches(command: string): boolean {
 // When `command` is null (adHoc shells), the label may itself be a command-shaped
 // string set via OSC title — e.g. "claude --print" or "/usr/local/bin/claude" —
 // so it goes through the same first-token logic as `command`.
-export function isAgentProcess(
-	label: string,
-	command: string | null,
-): boolean {
+export function isAgentProcess(label: string, command: string | null): boolean {
 	return commandMatches(command !== null ? command : label);
 }
 
@@ -85,7 +82,10 @@ export function deriveStale(
 ): boolean {
 	if (lastActivityAt === null) return false;
 	if (now - lastActivityAt < STALE_THRESHOLD_MS) return false;
-	if (agentAttentionClearedAt !== null && lastActivityAt <= agentAttentionClearedAt) {
+	if (
+		agentAttentionClearedAt !== null &&
+		lastActivityAt <= agentAttentionClearedAt
+	) {
 		return false;
 	}
 	return true;
@@ -96,7 +96,9 @@ export function shouldReplaceAgentAttentionReason(
 	next: AgentAttentionReason,
 ): boolean {
 	if (!current) return true;
-	return AGENT_ATTENTION_RANK[next.state] >= AGENT_ATTENTION_RANK[current.state];
+	return (
+		AGENT_ATTENTION_RANK[next.state] >= AGENT_ATTENTION_RANK[current.state]
+	);
 }
 
 export function rankAgentAttention(

@@ -249,11 +249,16 @@ export function SessionSidebar({
 								const sessionAttentionContext =
 									workspace.attentionContextByWorktreeId?.[worktree.id];
 								const processList =
-									!isRenamingThisRow && !collapsed && (summary || sessionAttentionContext) ? (
+									!isRenamingThisRow &&
+									!collapsed &&
+									(summary || sessionAttentionContext) ? (
 										<div className="shell-sidebar__processes">
 											{sessionAttentionContext ? (
 												<div className="shell-sidebar__process shell-sidebar__process--session">
-													<span className="shell-sidebar__process-context" title={sessionAttentionContext}>
+													<span
+														className="shell-sidebar__process-context"
+														title={sessionAttentionContext}
+													>
 														{sessionAttentionContext}
 													</span>
 												</div>
@@ -279,7 +284,9 @@ export function SessionSidebar({
 															{row.context}
 														</span>
 													) : null}
-													{row.hasFailedReason && onClearFailedReason && workspace.active ? (
+													{row.hasFailedReason &&
+													onClearFailedReason &&
+													workspace.active ? (
 														<button
 															type="button"
 															className="shell-button shell-button--compact shell-sidebar__process-clear-failed"

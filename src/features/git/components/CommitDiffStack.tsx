@@ -78,8 +78,9 @@ function DiffEditorSlot({
 	onEditorMount,
 	onEditorUnmount,
 }: DiffEditorSlotProps) {
-	const editorRef =
-		useRef<import("monaco-editor").editor.IStandaloneDiffEditor | null>(null);
+	const editorRef = useRef<
+		import("monaco-editor").editor.IStandaloneDiffEditor | null
+	>(null);
 	// Stash the callback in a ref so its identity does not drive the unmount
 	// effect's deps. Parents typically pass an inline arrow, so a naive dep on
 	// `onEditorUnmount` would re-fire the cleanup on every parent render —

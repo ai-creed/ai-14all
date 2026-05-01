@@ -67,7 +67,9 @@ describe("SessionSidebar process rows", () => {
 				onClearFailedReason={vi.fn()}
 			/>,
 		);
-		expect(screen.getByRole("button", { name: /clear failed for tests/i })).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /clear failed for tests/i }),
+		).toBeInTheDocument();
 	});
 
 	it("does not render Clear failed button when hasFailedReason is false", () => {
@@ -88,7 +90,9 @@ describe("SessionSidebar process rows", () => {
 				onClearFailedReason={vi.fn()}
 			/>,
 		);
-		expect(screen.queryByRole("button", { name: /clear failed/i })).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: /clear failed/i }),
+		).not.toBeInTheDocument();
 	});
 
 	it("dispatches sticky clear when Clear failed is clicked", () => {
@@ -110,7 +114,9 @@ describe("SessionSidebar process rows", () => {
 				onClearFailedReason={onClearFailedReason}
 			/>,
 		);
-		fireEvent.click(screen.getByRole("button", { name: /clear failed for tests/i }));
+		fireEvent.click(
+			screen.getByRole("button", { name: /clear failed for tests/i }),
+		);
 		expect(onClearFailedReason).toHaveBeenCalledWith("ws1", "wt1", "p1");
 	});
 
@@ -135,7 +141,9 @@ describe("SessionSidebar process rows", () => {
 				onClearFailedReason={onClearFailedReason}
 			/>,
 		);
-		fireEvent.click(screen.getByRole("button", { name: /clear failed for tests/i }));
+		fireEvent.click(
+			screen.getByRole("button", { name: /clear failed for tests/i }),
+		);
 		expect(onClearFailedReason).toHaveBeenCalledTimes(1);
 		expect(onSelect).not.toHaveBeenCalled();
 	});
