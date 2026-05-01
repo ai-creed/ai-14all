@@ -14,6 +14,26 @@ import {
 } from "./session-note-bridge.js";
 import type { AgentAttentionBridge } from "./agent-attention-bridge.js";
 
+const AI14ALL_MCP_INSTRUCTIONS = `This MCP server is provided by the ai-14all desktop app. It is connected to a specific git worktree on the user's machine and exposes tools the agent can call while working in that worktree. Every worktree-scoped tool takes a \`worktreePath\` argument — pass the absolute path of the current worktree (the working directory of this session).
+
+The server exposes three tool families:
+
+Reviews — act on review comments authored in the ai-14all UI:
+- \`list_pending_reviews({ worktreePath })\` returns open review comments for the worktree.
+- \`mark_review_addressed({ commentId })\` marks one as addressed; call after the fix has been applied.
+
+Session note — a single user-facing markdown note pinned to the worktree:
+- \`read_session_note({ worktreePath })\` reads the current note. Useful before appending to avoid duplicates.
+- \`append_session_note({ worktreePath, title, body })\` adds a new section. Call ONLY when the user explicitly asks to save / note / remember something. Never call autonomously.
+
+Session status — a lifecycle signal that drives the app's sidebar attention indicator:
+- \`report_session_status({ worktreePath, state, summary, nextAction })\` reports the agent session's current state. Call on every transition into one of:
+  - "active" — starting work or resuming after a pause.
+  - "waiting" — blocked on a question or input from the user.
+  - "ready" — task is complete and awaiting user review.
+  - "failed" — task hit an unrecoverable error.
+  Keep \`summary\` ≤ 200 chars and specific (e.g. "running tsc", "awaiting answer on caching strategy", "3 tests failing in workspace-state.test.ts"). Set \`nextAction\` to a short imperative when the user has a clear next step (e.g. "review diff", "answer question above"), else null. Call once per transition — not on every tool use or every assistant turn.`;
+
 type Options = { port: number; host: string };
 
 export type SessionNoteBridgeLike = Pick<SessionNoteBridge, "read" | "append">;
@@ -230,10 +250,10 @@ export class Ai14allMcpServer {
 					return;
 				}
 				// New session — fresh McpServer + transport
-				const sessionMcp = new McpServer({
-					name: "ai-14all",
-					version: "0.1.0",
-				});
+				const sessionMcp = new McpServer(
+					{ name: "ai-14all", version: "0.1.0" },
+					{ instructions: AI14ALL_MCP_INSTRUCTIONS },
+				);
 				this.registerTools(sessionMcp);
 				const t: StreamableHTTPServerTransport =
 					new StreamableHTTPServerTransport({
