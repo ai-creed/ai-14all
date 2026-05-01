@@ -214,7 +214,7 @@ export class Ai14allMcpServer {
 	private registerAttentionTools(mcp: McpServer): void {
 		mcp.tool(
 			"report_session_status",
-			"Report the current state of an agent session for ai-14all.",
+			"Report the lifecycle state of the current ai-14all agent session for the worktree at `worktreePath`. Call on every transition into \"active\", \"waiting\", \"ready\", or \"failed\". `summary` is a one-line description (≤200 chars); `nextAction` is an optional short imperative for the user, or null.",
 			{
 				worktreePath: z.string().min(1),
 				state: z.enum(["active", "waiting", "ready", "failed"]),
