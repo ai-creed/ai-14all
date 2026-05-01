@@ -34,6 +34,12 @@ import {
 	scrollToLineRange,
 	type SelectionDraft,
 } from "../../features/review/logic/diff-editor-decorations";
+import {
+	navigateToNextDiff,
+	navigateToPrevDiff,
+} from "../../features/review/logic/diff-navigation";
+import { useKeyboardShortcut } from "../hooks/use-keyboard-shortcut";
+import { detectPlatform } from "../shortcut-registry";
 import type { useReviewComments } from "../../features/review/hooks/use-review-comments";
 
 type ReviewState = ReturnType<typeof useReviewComments>;
@@ -158,6 +164,36 @@ export function ReviewArea(props: Props): React.ReactElement {
 			}
 		},
 		[activeWorktree, activeSession, dispatch],
+	);
+
+	const platform = useMemo(() => detectPlatform(), []);
+	const currentDiffFilePath =
+		activeSession?.reviewMode === "commits"
+			? (activeSession?.selectedCommitFilePath ?? null)
+			: activeSession?.reviewMode === "changes"
+				? (activeSession?.selectedChangedFilePath ?? null)
+				: null;
+	useKeyboardShortcut(
+		"review.diffNext",
+		platform,
+		(e) => {
+			if (!currentDiffFilePath) return;
+			const editor = diffEditorRegistry.get(currentDiffFilePath);
+			if (!editor) return;
+			if (navigateToNextDiff(editor)) e.preventDefault();
+		},
+		[currentDiffFilePath, diffEditorRegistry],
+	);
+	useKeyboardShortcut(
+		"review.diffPrev",
+		platform,
+		(e) => {
+			if (!currentDiffFilePath) return;
+			const editor = diffEditorRegistry.get(currentDiffFilePath);
+			if (!editor) return;
+			if (navigateToPrevDiff(editor)) e.preventDefault();
+		},
+		[currentDiffFilePath, diffEditorRegistry],
 	);
 
 	return (

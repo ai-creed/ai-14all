@@ -300,6 +300,33 @@ function isOpenWorkspacePickerShortcut(
 	return e.ctrlKey && !e.metaKey;
 }
 
+function isReviewDiffNextShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
+	if (e.defaultPrevented) return false;
+	// Cmd/Ctrl+Shift+. — `e.key` is ">" on US layouts, "." on layouts that
+	// don't apply Shift to the character. Accept either so non-US users still
+	// get the shortcut.
+	if (e.key !== ">" && e.key !== ".") return false;
+	if (!e.shiftKey || e.altKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
+function isReviewDiffPrevShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "<" && e.key !== ",") return false;
+	if (!e.shiftKey || e.altKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
 export const SHORTCUT_REGISTRY: AppShortcut[] = [
 	{
 		id: "worktree.selectNext",
@@ -405,6 +432,20 @@ export const SHORTCUT_REGISTRY: AppShortcut[] = [
 		mac: "⌘3",
 		other: "Ctrl+3",
 		predicate: isReviewCommitsShortcut,
+	},
+	{
+		id: "review.diffNext",
+		label: "Next diff in file",
+		mac: "⌘⇧.",
+		other: "Ctrl+Shift+.",
+		predicate: isReviewDiffNextShortcut,
+	},
+	{
+		id: "review.diffPrev",
+		label: "Previous diff in file",
+		mac: "⌘⇧,",
+		other: "Ctrl+Shift+,",
+		predicate: isReviewDiffPrevShortcut,
 	},
 	{
 		id: "files-overlay",

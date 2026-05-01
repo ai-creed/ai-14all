@@ -156,6 +156,7 @@ export function CommitDiffStack({
 		<div
 			className="shell-commit-diff-stack"
 			data-single-file={String(singleFile)}
+			data-readonly-editor="true"
 		>
 			<div className="shell-viewer__header">
 				<div className="shell-viewer__title">{detail.subject}</div>
