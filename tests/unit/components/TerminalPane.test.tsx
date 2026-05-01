@@ -284,11 +284,18 @@ describe("TerminalPane", () => {
 		expect(xtermLoadAddonMock).toHaveBeenCalledTimes(2);
 	});
 
-	it("constructs xterm with scrollback 2000", () => {
+	it("constructs xterm with scrollback 2000 and allowProposedApi enabled", () => {
 		const session = makeSession();
 		render(<TerminalPane session={session} visible={true} />);
 		expect(xtermConstructorMock).toHaveBeenCalledWith(
-			expect.objectContaining({ scrollback: 2000 }),
+			expect.objectContaining({
+				scrollback: 2000,
+				// Required by xterm-addon-search@0.13 (uses proposed decorations API).
+				// Without this, findNext throws and leaves the renderer mid-refresh,
+				// surfacing as "Cannot read properties of undefined (reading
+				// 'dimensions')" inside Viewport.
+				allowProposedApi: true,
+			}),
 		);
 	});
 
