@@ -1,10 +1,18 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Terminal } from "xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { SearchAddon } from "xterm-addon-search";
 import "xterm/css/xterm.css";
 import type { TerminalSession } from "../../../../shared/models/terminal-session";
 import { files, terminals } from "../../../lib/desktop-client";
 import { logRendererShellEvent } from "../logic/shell-event-logger";
+
+const FIND_DECORATIONS = {
+	matchBackground: "#5f4400",
+	matchOverviewRuler: "#d7a300",
+	activeMatchBackground: "#a37700",
+	activeMatchColorOverviewRuler: "#ffcc33",
+} as const;
 
 type Props = {
 	session: TerminalSession;
@@ -27,11 +35,21 @@ export function TerminalPane({
 	const containerRef = useRef<HTMLDivElement>(null);
 	const termRef = useRef<Terminal | null>(null);
 	const fitAddonRef = useRef<FitAddon | null>(null);
+	const searchAddonRef = useRef<SearchAddon | null>(null);
+	const findInputRef = useRef<HTMLInputElement | null>(null);
 	const unsubOutputRef = useRef<(() => void) | null>(null);
 	const paneInstanceIdRef = useRef(
 		`pane_${session.id}_${Math.random().toString(36).slice(2, 8)}`,
 	);
 	const isLive = session.status === "running" || session.status === "idle";
+
+	const [findOpen, setFindOpen] = useState(false);
+	const [findQuery, setFindQuery] = useState("");
+	const [findCaseSensitive, setFindCaseSensitive] = useState(false);
+	const [findResults, setFindResults] = useState({
+		resultIndex: -1,
+		resultCount: 0,
+	});
 
 	/**
 	 * Fit the terminal to its container while preserving the scroll anchor.
@@ -100,14 +118,21 @@ export function TerminalPane({
 
 		const term = new Terminal({
 			cursorBlink: true,
-			scrollback: 1000,
+			scrollback: 2000,
 			screenReaderMode: true,
 			fontSize: 12,
 			fontFamily:
 				'"AI14All Terminal Powerline", "Meslo LG M DZ for Powerline", "Meslo LG M for Powerline", "Hack", ui-monospace, Menlo, Monaco, monospace',
 		});
 		const fitAddon = new FitAddon();
+		const searchAddon = new SearchAddon();
 		term.loadAddon(fitAddon);
+		term.loadAddon(searchAddon);
+		const onResultsDispose = searchAddon.onDidChangeResults(
+			({ resultIndex, resultCount }) => {
+				setFindResults({ resultIndex, resultCount });
+			},
+		);
 		term.open(containerRef.current);
 		term.attachCustomKeyEventHandler((event) => {
 			// Shift+Enter: send literal newline so agent TUIs can distinguish it from
@@ -129,6 +154,17 @@ export function TerminalPane({
 			}
 			if (event.type !== "keydown") return true;
 			const key = event.key.toLowerCase();
+			const isFindShortcut =
+				key === "f" &&
+				(event.metaKey || event.ctrlKey) &&
+				!event.altKey &&
+				!event.shiftKey;
+			if (isFindShortcut) {
+				setFindOpen(true);
+				// Defer focus until the input has rendered.
+				queueMicrotask(() => findInputRef.current?.select());
+				return false;
+			}
 			const isClearShortcut =
 				key === "k" &&
 				(event.metaKey || event.ctrlKey) &&
@@ -142,6 +178,7 @@ export function TerminalPane({
 
 		termRef.current = term;
 		fitAddonRef.current = fitAddon;
+		searchAddonRef.current = searchAddon;
 
 		// Forward user keystrokes to the PTY backend.
 		const onDataDispose = term.onData((data) => {
@@ -194,11 +231,13 @@ export function TerminalPane({
 		return () => {
 			onDataDispose.dispose();
 			onTitleChangeDispose.dispose();
+			onResultsDispose.dispose();
 			unsubOutputRef.current?.();
 			unsubOutputRef.current = null;
 			term.dispose();
 			termRef.current = null;
 			fitAddonRef.current = null;
+			searchAddonRef.current = null;
 		};
 		// Tie the xterm instance lifecycle to session.id only. isLive transitions
 		// (running/idle ↔ exited) must not tear down and rebuild the terminal —
@@ -251,6 +290,38 @@ export function TerminalPane({
 		return () => observer.disconnect();
 	}, [isLive, session.id, visible, fitPreservingScroll]);
 
+	const runFind = useCallback(
+		(direction: "next" | "prev", queryOverride?: string) => {
+			const addon = searchAddonRef.current;
+			if (!addon) return;
+			const q = queryOverride ?? findQuery;
+			if (!q) {
+				addon.clearDecorations();
+				setFindResults({ resultIndex: -1, resultCount: 0 });
+				return;
+			}
+			const opts = {
+				caseSensitive: findCaseSensitive,
+				decorations: FIND_DECORATIONS,
+			};
+			if (direction === "next") addon.findNext(q, opts);
+			else addon.findPrevious(q, opts);
+		},
+		[findQuery, findCaseSensitive],
+	);
+
+	const closeFind = useCallback(() => {
+		searchAddonRef.current?.clearDecorations();
+		setFindOpen(false);
+		setFindResults({ resultIndex: -1, resultCount: 0 });
+		termRef.current?.focus();
+	}, []);
+
+	useEffect(() => {
+		if (!findOpen) return;
+		runFind("next");
+	}, [findOpen, findQuery, findCaseSensitive, runFind]);
+
 	const handleDragOver = useCallback((e: React.DragEvent) => {
 		e.preventDefault();
 	}, []);
@@ -284,6 +355,78 @@ export function TerminalPane({
 			style={{ display: visible ? "block" : "none" }}
 		>
 			<div ref={containerRef} className="shell-terminal-pane__viewport" />
+			{findOpen && (
+				<div
+					className="shell-terminal-find"
+					role="search"
+					aria-label="Find in terminal"
+					onMouseDown={(e) => e.stopPropagation()}
+				>
+					<input
+						ref={findInputRef}
+						autoFocus
+						type="text"
+						className="shell-terminal-find__input"
+						aria-label="Find"
+						placeholder="Find"
+						value={findQuery}
+						onChange={(e) => setFindQuery(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === "Escape") {
+								e.preventDefault();
+								closeFind();
+							} else if (e.key === "Enter") {
+								e.preventDefault();
+								runFind(e.shiftKey ? "prev" : "next");
+							}
+						}}
+					/>
+					<span
+						className="shell-terminal-find__count"
+						aria-live="polite"
+					>
+						{findQuery
+							? findResults.resultCount === 0
+								? "No results"
+								: `${findResults.resultIndex + 1} of ${findResults.resultCount}`
+							: ""}
+					</span>
+					<button
+						type="button"
+						className="shell-button shell-button--icon shell-button--compact"
+						aria-label="Match case"
+						aria-pressed={findCaseSensitive}
+						data-active={String(findCaseSensitive)}
+						onClick={() => setFindCaseSensitive((v) => !v)}
+					>
+						Aa
+					</button>
+					<button
+						type="button"
+						className="shell-button shell-button--icon shell-button--compact"
+						aria-label="Previous match"
+						onClick={() => runFind("prev")}
+					>
+						‹
+					</button>
+					<button
+						type="button"
+						className="shell-button shell-button--icon shell-button--compact"
+						aria-label="Next match"
+						onClick={() => runFind("next")}
+					>
+						›
+					</button>
+					<button
+						type="button"
+						className="shell-button shell-button--icon shell-button--compact"
+						aria-label="Close find"
+						onClick={closeFind}
+					>
+						×
+					</button>
+				</div>
+			)}
 		</section>
 	);
 }

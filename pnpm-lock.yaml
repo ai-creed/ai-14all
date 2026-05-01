@@ -71,6 +71,9 @@ importers:
       xterm:
         specifier: ^5.3.0
         version: 5.3.0
+      xterm-addon-search:
+        specifier: ^0.13.0
+        version: 0.13.0(xterm@5.3.0)
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -3937,6 +3940,12 @@ packages:
 
   xmlchars@2.2.0:
     resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
+
+  xterm-addon-search@0.13.0:
+    resolution: {integrity: sha512-sDUwG4CnqxUjSEFh676DlS3gsh3XYCzAvBPSvJ5OPgF3MRL3iHLPfsb06doRicLC2xXNpeG2cWk8x1qpESWJMA==}
+    deprecated: This package is now deprecated. Move to @xterm/addon-search instead.
+    peerDependencies:
+      xterm: ^5.0.0
 
   xterm@5.3.0:
     resolution: {integrity: sha512-8QqjlekLUFTrU6x7xck1MsPzPA571K5zNqWm0M0oroYEWVOptZ0+ubQSkQ3uxIEhcIHRujJy6emDWX4A7qyFzg==}
@@ -8122,6 +8131,10 @@ snapshots:
   xmlbuilder@15.1.1: {}
 
   xmlchars@2.2.0: {}
+
+  xterm-addon-search@0.13.0(xterm@5.3.0):
+    dependencies:
+      xterm: 5.3.0
 
   xterm@5.3.0: {}
 

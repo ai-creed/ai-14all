@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
 
@@ -17,9 +17,14 @@ const {
 	xtermOnTitleChangeMock,
 	xtermAttachCustomKeyEventHandlerMock,
 	xtermClearMock,
+	xtermFocusMock,
 	xtermScrollToBottomMock,
 	xtermScrollLinesMock,
 	xtermBufferMock,
+	searchFindNextMock,
+	searchFindPreviousMock,
+	searchClearDecorationsMock,
+	searchOnDidChangeResultsMock,
 	getPathForFileMock,
 } = vi.hoisted(() => ({
 	resizeMock: vi.fn(() => Promise.resolve()),
@@ -36,9 +41,14 @@ const {
 	xtermOnTitleChangeMock: vi.fn(() => ({ dispose: vi.fn() })),
 	xtermAttachCustomKeyEventHandlerMock: vi.fn(),
 	xtermClearMock: vi.fn(),
+	xtermFocusMock: vi.fn(),
 	xtermScrollToBottomMock: vi.fn(),
 	xtermScrollLinesMock: vi.fn(),
 	xtermBufferMock: { active: { viewportY: 100, baseY: 100, cursorY: 23 } },
+	searchFindNextMock: vi.fn(),
+	searchFindPreviousMock: vi.fn(),
+	searchClearDecorationsMock: vi.fn(),
+	searchOnDidChangeResultsMock: vi.fn(() => ({ dispose: vi.fn() })),
 	getPathForFileMock: vi.fn<(file: unknown) => string>(),
 }));
 
@@ -91,6 +101,15 @@ vi.mock("@xterm/addon-fit", () => ({
 	},
 }));
 
+vi.mock("xterm-addon-search", () => ({
+	SearchAddon: class SearchAddonMock {
+		findNext = searchFindNextMock;
+		findPrevious = searchFindPreviousMock;
+		clearDecorations = searchClearDecorationsMock;
+		onDidChangeResults = searchOnDidChangeResultsMock;
+	},
+}));
+
 vi.mock("xterm", () => ({
 	Terminal: class TerminalMock {
 		cols = 80;
@@ -107,6 +126,7 @@ vi.mock("xterm", () => ({
 		dispose = xtermDisposeMock;
 		attachCustomKeyEventHandler = xtermAttachCustomKeyEventHandlerMock;
 		clear = xtermClearMock;
+		focus = xtermFocusMock;
 		scrollToBottom = xtermScrollToBottomMock;
 		scrollLines = xtermScrollLinesMock;
 	},
@@ -143,8 +163,14 @@ describe("TerminalPane", () => {
 		xtermOnTitleChangeMock.mockReset();
 		xtermAttachCustomKeyEventHandlerMock.mockReset();
 		xtermClearMock.mockReset();
+		xtermFocusMock.mockReset();
 		xtermScrollToBottomMock.mockReset();
 		xtermScrollLinesMock.mockReset();
+		searchFindNextMock.mockReset();
+		searchFindPreviousMock.mockReset();
+		searchClearDecorationsMock.mockReset();
+		searchOnDidChangeResultsMock.mockReset();
+		searchOnDidChangeResultsMock.mockReturnValue({ dispose: vi.fn() });
 		getPathForFileMock.mockReset();
 		xtermBufferMock.active = { viewportY: 100, baseY: 100, cursorY: 23 };
 		resizeMock.mockImplementation(() => Promise.resolve());
@@ -212,6 +238,58 @@ describe("TerminalPane", () => {
 		titleListener?.("codex");
 
 		expect(onTitleChange).toHaveBeenCalledWith("codex");
+	});
+
+	it("opens find bar on Cmd+F, runs findNext on typing, and closes on Escape", async () => {
+		const session = makeSession();
+		const { findByRole, queryByRole } = render(
+			<TerminalPane session={session} visible={true} />,
+		);
+
+		// Cmd+F via the custom key handler
+		const keyHandler = xtermAttachCustomKeyEventHandlerMock.mock
+			.calls[0]?.[0] as ((event: KeyboardEvent) => boolean) | undefined;
+		const accepted = keyHandler?.(
+			new KeyboardEvent("keydown", { key: "f", metaKey: true }),
+		);
+		expect(accepted).toBe(false);
+
+		const input = (await findByRole("textbox", {
+			name: /find/i,
+		})) as HTMLInputElement;
+
+		fireEvent.change(input, { target: { value: "needle" } });
+
+		expect(searchFindNextMock).toHaveBeenCalled();
+		const [term, opts] =
+			searchFindNextMock.mock.calls[searchFindNextMock.mock.calls.length - 1];
+		expect(term).toBe("needle");
+		expect(opts).toMatchObject({ caseSensitive: false });
+
+		// Shift+Enter → previous
+		fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
+		expect(searchFindPreviousMock).toHaveBeenCalled();
+
+		// Esc closes
+		fireEvent.keyDown(input, { key: "Escape" });
+		expect(queryByRole("textbox", { name: /find/i })).toBeNull();
+		expect(searchClearDecorationsMock).toHaveBeenCalled();
+		expect(xtermFocusMock).toHaveBeenCalled();
+	});
+
+	it("loads SearchAddon alongside FitAddon", () => {
+		const session = makeSession();
+		render(<TerminalPane session={session} visible={true} />);
+		// FitAddon + SearchAddon
+		expect(xtermLoadAddonMock).toHaveBeenCalledTimes(2);
+	});
+
+	it("constructs xterm with scrollback 2000", () => {
+		const session = makeSession();
+		render(<TerminalPane session={session} visible={true} />);
+		expect(xtermConstructorMock).toHaveBeenCalledWith(
+			expect.objectContaining({ scrollback: 2000 }),
+		);
 	});
 
 	it("constructs xterm with the bundled powerline font stack and 11px text", () => {
