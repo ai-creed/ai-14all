@@ -3,6 +3,7 @@ import {
 	type CommandPreset,
 } from "../../../../shared/models/command-preset";
 import {
+	isAgentProcess,
 	rankAgentAttention,
 	mapToProcessAttentionState,
 	shouldReplaceAgentAttentionReason,
@@ -280,6 +281,9 @@ function restorePersistedSession(
 			attentionState: "idle",
 			agentAttentionReasons: {},
 			agentAttentionClearedAt: null,
+			// Restored as "restarting" — keep agentDetected false so it re-detects
+			// from the fresh shell's output once the new terminal session starts.
+			agentDetected: false,
 		};
 	}
 
@@ -567,6 +571,13 @@ export function workspaceReducer(
 	if (action.type === "session/updateProcessStatus") {
 		const process = state.processSessionsById[action.processId];
 		if (!process) return state;
+		// Reset agent detection when leaving "running" — the next shell incarnation
+		// will re-detect from its own command/OSC title. Re-set on transition back
+		// to "running" if the (still-known) command still matches an agent CLI.
+		const nextAgentDetected =
+			action.status === "running"
+				? isAgentProcess(process.label, process.command)
+				: false;
 		return {
 			...state,
 			processSessionsById: {
@@ -575,6 +586,7 @@ export function workspaceReducer(
 					...process,
 					status: action.status,
 					exitCode: action.exitCode ?? process.exitCode,
+					agentDetected: nextAgentDetected,
 				},
 			},
 		};
@@ -598,6 +610,13 @@ export function workspaceReducer(
 	if (action.type === "session/updateProcessLabel") {
 		const process = state.processSessionsById[action.processId];
 		if (!process || process.label === action.label) return state;
+		// Sticky upgrade: once a process is recognized as an agent (by either
+		// command or label), subsequent label changes by the agent CLI itself
+		// (e.g. setting OSC title to the user's prompt) must not flip detection
+		// back off. Only updateProcessStatus resets this on exit/restart.
+		const nextAgentDetected =
+			process.agentDetected ||
+			isAgentProcess(action.label, process.command);
 		return {
 			...state,
 			processSessionsById: {
@@ -605,6 +624,7 @@ export function workspaceReducer(
 				[action.processId]: {
 					...process,
 					label: action.label,
+					agentDetected: nextAgentDetected,
 				},
 			},
 		};
@@ -667,11 +687,23 @@ export function workspaceReducer(
 		const process = state.processSessionsById[action.processId];
 		const session = state.sessionsByWorktreeId[action.worktreeId];
 		if (!process || !session) return state;
+		// `action.attentionState` comes from the legacy pattern set in
+		// deriveAttentionState, which doesn't recognize all agent prompts (e.g.
+		// "Do you want to create X?" — no y/n keywords, just a trailing ?).
+		// classifyOutput catches those and packages them as agentReason; map
+		// that into ProcessAttentionState space and take the max so the sidebar
+		// dot reflects the strongest signal in this chunk regardless of source.
+		const fromAgent = action.agentReason
+			? mapToProcessAttentionState(action.agentReason.state)
+			: "idle";
+		const incoming =
+			attentionRank[fromAgent] > attentionRank[action.attentionState]
+				? fromAgent
+				: action.attentionState;
 		const nextAttention = action.isViewed
 			? process.attentionState
-			: attentionRank[action.attentionState] >=
-				  attentionRank[process.attentionState]
-				? action.attentionState
+			: attentionRank[incoming] >= attentionRank[process.attentionState]
+				? incoming
 				: process.attentionState;
 		let nextReasons = process.agentAttentionReasons;
 		if (action.agentReason) {

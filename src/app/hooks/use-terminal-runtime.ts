@@ -17,10 +17,7 @@ import {
 import { deriveAttentionState } from "../../features/terminals/logic/process-attention";
 import { consumeOutputPreview } from "../../features/terminals/logic/output-preview";
 import { logRendererShellEvent } from "../../features/terminals/logic/shell-event-logger";
-import {
-	classifyOutput,
-	isAgentProcess,
-} from "../../features/terminals/logic/agent-attention";
+import { classifyOutput } from "../../features/terminals/logic/agent-attention";
 import type { AgentAttentionReason } from "../../../shared/models/agent-attention";
 
 type Options = {
@@ -126,7 +123,7 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 				const { process, workspaceId: ownerWsId } = found;
 				const now = Date.now();
 				let agentReason: AgentAttentionReason | null = null;
-				if (isAgentProcess(process.label, process.command ?? null)) {
+				if (process.agentDetected) {
 					const classified = classifyOutput(event.data);
 					if (classified !== null) {
 						agentReason = {
@@ -167,7 +164,11 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 					exitCode: event.exitCode ?? null,
 				};
 				applyActionForOwner(ownerWsId, action);
-				if (isAgentProcess(process.label, process.command ?? null)) {
+				// `process` is a snapshot captured before applyActionForOwner ran,
+				// so agentDetected here still reflects the pre-exit state. The
+				// reducer resets agentDetected on the status transition, but the
+				// lifecycle reason emitted below is keyed off pre-exit detection.
+				if (process.agentDetected) {
 					if (event.exitCode != null && event.exitCode !== 0) {
 						const lifecycleAction: WorkspaceAction = {
 							type: "session/reportProcessAgentAttention",
@@ -232,7 +233,7 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 					exitCode: null,
 				};
 				applyActionForOwner(ownerWsId, action);
-				if (isAgentProcess(process.label, process.command ?? null)) {
+				if (process.agentDetected) {
 					const lifecycleAction: WorkspaceAction = {
 						type: "session/reportProcessAgentAttention",
 						worktreeId: process.worktreeId,

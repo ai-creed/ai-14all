@@ -3,6 +3,7 @@ import type { MutableRefObject } from "react";
 import type { ProcessSession } from "../../../shared/models/process-session";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
 import type { Worktree } from "../../../shared/models/worktree";
+import { isAgentProcess } from "../../features/terminals/logic/agent-attention";
 import type {
 	WorkspaceAction,
 	WorkspaceState,
@@ -74,6 +75,7 @@ export function useProcessActions(options: Options): UseProcessActions {
 			const adHocNumber =
 				targetWorkspaceState.nextAdHocNumberByWorktreeId[targetWorktree.id] ??
 				1;
+			const adHocLabel = `shell ${adHocNumber}`;
 			const process: ProcessSession = {
 				id: crypto.randomUUID(),
 				workspaceId: targetWorkspaceId,
@@ -81,7 +83,7 @@ export function useProcessActions(options: Options): UseProcessActions {
 				terminalSessionId: termSession.id,
 				origin: "adHoc",
 				presetId: null,
-				label: `shell ${adHocNumber}`,
+				label: adHocLabel,
 				command: null,
 				status: "running",
 				lastActivityAt: null,
@@ -91,6 +93,7 @@ export function useProcessActions(options: Options): UseProcessActions {
 				attentionState: "idle",
 				agentAttentionReasons: {},
 				agentAttentionClearedAt: null,
+				agentDetected: isAgentProcess(adHocLabel, null),
 			};
 			createScopedWorkspaceDispatch(targetWorkspaceId)({
 				type: "session/registerProcess",
@@ -185,6 +188,7 @@ export function useProcessActions(options: Options): UseProcessActions {
 					attentionState: "idle",
 					agentAttentionReasons: {},
 					agentAttentionClearedAt: null,
+					agentDetected: isAgentProcess(preset.label, preset.command),
 				},
 			});
 			await sendInput(terminal.id, `${preset.command}\n`);

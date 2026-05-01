@@ -634,6 +634,187 @@ select {
 	border-color: var(--accent);
 }
 
+/*
+ * Worktree row attention: rotating conic-gradient ring + subtle bg tint.
+ * Drawn by a ::before pseudo so the row's own border (and selected accent)
+ * stays intact underneath. Mask-composite: exclude carves the inside out
+ * so the conic gradient becomes a thin animated ring that follows the row's
+ * border-radius. --attention-angle rotates; --attention-opacity breathes.
+ * prefers-reduced-motion freezes the gradient into a flat colored ring.
+ */
+@property --attention-angle {
+	syntax: "<angle>";
+	initial-value: 0deg;
+	inherits: false;
+}
+
+@property --attention-opacity {
+	syntax: "<number>";
+	initial-value: 0.55;
+	inherits: false;
+}
+
+@keyframes shell-sidebar-attention-rotate {
+	to {
+		--attention-angle: 360deg;
+	}
+}
+
+@keyframes shell-sidebar-attention-pulse {
+	to {
+		--attention-opacity: 1;
+	}
+}
+
+.shell-sidebar__item[data-attention="activity"],
+.shell-sidebar__item[data-attention="actionRequired"] {
+	position: relative;
+}
+
+/*
+ * Activity: rotating spotlight conic gradient — visual language of
+ * "something is running / cooking" without urgency.
+ */
+.shell-sidebar__item[data-attention="activity"]::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	padding: 2px;
+	background: conic-gradient(
+		from var(--attention-angle),
+		var(--attention-color) 0deg,
+		transparent 140deg,
+		var(--attention-color) 360deg
+	);
+	opacity: var(--attention-opacity);
+	-webkit-mask:
+		linear-gradient(#000 0 0) content-box,
+		linear-gradient(#000 0 0);
+	-webkit-mask-composite: xor;
+	mask-composite: exclude;
+	pointer-events: none;
+	animation:
+		shell-sidebar-attention-rotate 4s linear infinite,
+		shell-sidebar-attention-pulse 2.5s ease-in-out infinite alternate;
+}
+
+/*
+ * ActionRequired: solid ring that pulses opacity + outer glow on the parent.
+ * Steady, not rotating — visual language of "alarm / waiting on you".
+ */
+.shell-sidebar__item[data-attention="actionRequired"]::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	padding: 2px;
+	background: var(--attention-color);
+	-webkit-mask:
+		linear-gradient(#000 0 0) content-box,
+		linear-gradient(#000 0 0);
+	-webkit-mask-composite: xor;
+	mask-composite: exclude;
+	pointer-events: none;
+	animation: shell-sidebar-action-ring 1.4s ease-in-out infinite;
+}
+
+.shell-sidebar__item[data-attention="actionRequired"] {
+	animation: shell-sidebar-action-glow 1.4s ease-in-out infinite;
+}
+
+@keyframes shell-sidebar-action-ring {
+	0%,
+	100% {
+		opacity: 0.45;
+	}
+	50% {
+		opacity: 1;
+	}
+}
+
+@keyframes shell-sidebar-action-glow {
+	0%,
+	100% {
+		box-shadow: 0 0 0 0 transparent;
+	}
+	50% {
+		box-shadow: 0 0 16px
+			color-mix(in srgb, var(--attention-color) 55%, transparent);
+	}
+}
+
+.shell-sidebar__item[data-attention="activity"] {
+	/* matches the green process-row dot for the same underlying state */
+	--attention-color: var(--accent);
+	background: color-mix(in srgb, var(--accent) 4%, var(--panel-bg));
+}
+
+.shell-sidebar__item[data-attention="actionRequired"] {
+	--attention-color: var(--danger);
+	background: color-mix(in srgb, var(--danger) 6%, var(--panel-bg));
+}
+
+.shell-sidebar__item[data-selected="true"][data-attention="activity"] {
+	background: color-mix(in srgb, var(--accent) 4%, var(--panel-bg-elevated));
+}
+
+.shell-sidebar__item[data-selected="true"][data-attention="actionRequired"] {
+	background: color-mix(in srgb, var(--danger) 6%, var(--panel-bg-elevated));
+}
+
+/*
+ * Activity title: shimmering gradient — same "running" language as the ring.
+ * ActionRequired title: solid attention color, slightly bolder — calm but
+ * unmistakable, complementing the pulsing ring rather than competing with it.
+ */
+.shell-sidebar__item[data-attention="activity"] strong {
+	background: linear-gradient(
+		90deg,
+		var(--attention-color) 0%,
+		color-mix(in srgb, var(--attention-color) 55%, white) 50%,
+		var(--attention-color) 100%
+	);
+	background-size: 200% 100%;
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	color: transparent;
+	font-weight: 800;
+	letter-spacing: 0.01em;
+	animation: shell-sidebar-attention-shimmer 3.2s linear infinite;
+}
+
+.shell-sidebar__item[data-attention="actionRequired"] strong {
+	color: var(--attention-color);
+	font-weight: 800;
+	letter-spacing: 0.01em;
+}
+
+@keyframes shell-sidebar-attention-shimmer {
+	to {
+		background-position: 200% 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.shell-sidebar__item[data-attention="activity"]::before,
+	.shell-sidebar__item[data-attention="actionRequired"]::before {
+		animation: none;
+		background: var(--attention-color);
+		opacity: 0.7;
+	}
+	.shell-sidebar__item[data-attention="actionRequired"] {
+		animation: none;
+	}
+	.shell-sidebar__item[data-attention="activity"] strong {
+		animation: none;
+		background: none;
+		color: var(--attention-color);
+		-webkit-text-fill-color: var(--attention-color);
+	}
+}
+
 .shell-sidebar__branch,
 .shell-empty-state {
 	color: var(--text-secondary);

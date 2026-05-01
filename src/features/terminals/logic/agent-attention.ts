@@ -44,17 +44,14 @@ function commandMatches(command: string): boolean {
 	return matchesKnownAgent(head);
 }
 
-function labelMatches(label: string): boolean {
-	const trimmed = label.trim();
-	return KNOWN_AGENTS.includes(trimmed as (typeof KNOWN_AGENTS)[number]);
-}
-
+// When `command` is null (adHoc shells), the label may itself be a command-shaped
+// string set via OSC title — e.g. "claude --print" or "/usr/local/bin/claude" —
+// so it goes through the same first-token logic as `command`.
 export function isAgentProcess(
 	label: string,
 	command: string | null,
 ): boolean {
-	if (command !== null) return commandMatches(command);
-	return labelMatches(label);
+	return commandMatches(command !== null ? command : label);
 }
 
 const WAITING_PATTERNS = [

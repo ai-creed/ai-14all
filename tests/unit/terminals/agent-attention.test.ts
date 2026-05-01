@@ -15,6 +15,12 @@ describe("isAgentProcess", () => {
 		["codex", null],
 		["claude", null],
 		["claude-code", null],
+		// Label-as-command: agent CLIs may set OSC title with flags or argv-style values.
+		// Detection must use first-token logic on the label, mirroring command-side rules.
+		["claude --print", null],
+		["codex chat", null],
+		["claude-1.2.3", null],
+		["/usr/local/bin/claude --print", null],
 	];
 	const negatives: Array<[string, string | null]> = [
 		["echo claude", "echo claude"],

@@ -40,6 +40,7 @@ function makeProcess(
 	id: string,
 	worktreeId: string,
 	label: string,
+	overrides: Partial<ProcessSession> = {},
 ): ProcessSession {
 	return {
 		id,
@@ -58,6 +59,8 @@ function makeProcess(
 		attentionState: "idle",
 		agentAttentionReasons: {},
 		agentAttentionClearedAt: null,
+		agentDetected: false,
+		...overrides,
 	};
 }
 
@@ -131,6 +134,7 @@ describe("workspaceReducer", () => {
 				attentionState: "idle",
 				agentAttentionReasons: {},
 				agentAttentionClearedAt: null,
+				agentDetected: false,
 			},
 		});
 		state = workspaceReducer(state, {
@@ -153,6 +157,7 @@ describe("workspaceReducer", () => {
 				attentionState: "idle",
 				agentAttentionReasons: {},
 				agentAttentionClearedAt: null,
+				agentDetected: false,
 			},
 		});
 		state = workspaceReducer(state, {
@@ -191,6 +196,7 @@ describe("workspaceReducer", () => {
 				attentionState: "idle",
 				agentAttentionReasons: {},
 				agentAttentionClearedAt: null,
+				agentDetected: false,
 			},
 		});
 
@@ -204,6 +210,130 @@ describe("workspaceReducer", () => {
 		expect(state.sessionsByWorktreeId.main.activeProcessSessionId).toBe(
 			"process-1",
 		);
+	});
+});
+
+describe("workspaceReducer — agentDetected lifecycle", () => {
+	it("sets agentDetected when label transitions to a known agent name", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("p1", "main", "shell 1"),
+		});
+		expect(state.processSessionsById["p1"]?.agentDetected).toBe(false);
+
+		state = workspaceReducer(state, {
+			type: "session/updateProcessLabel",
+			processId: "p1",
+			label: "claude",
+		});
+		expect(state.processSessionsById["p1"]?.agentDetected).toBe(true);
+	});
+
+	it("keeps agentDetected sticky when an agent CLI overwrites its OSC title", () => {
+		// Simulates Claude CLI setting the terminal title to the user's prompt
+		// after first declaring itself as "claude" — detection must not flip off.
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("p1", "main", "claude", { agentDetected: true }),
+		});
+
+		state = workspaceReducer(state, {
+			type: "session/updateProcessLabel",
+			processId: "p1",
+			label: "write me a funny joke",
+		});
+		expect(state.processSessionsById["p1"]?.agentDetected).toBe(true);
+	});
+
+	it("detects via label first-token even when label carries flags", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("p1", "main", "shell 1"),
+		});
+
+		state = workspaceReducer(state, {
+			type: "session/updateProcessLabel",
+			processId: "p1",
+			label: "claude --print",
+		});
+		expect(state.processSessionsById["p1"]?.agentDetected).toBe(true);
+	});
+
+	it("resets agentDetected when status leaves running", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("p1", "main", "claude", { agentDetected: true }),
+		});
+
+		for (const status of ["exited", "error", "restarting"] as const) {
+			const next = workspaceReducer(state, {
+				type: "session/updateProcessStatus",
+				processId: "p1",
+				status,
+				exitCode: status === "exited" ? 0 : null,
+			});
+			expect(next.processSessionsById["p1"]?.agentDetected).toBe(false);
+		}
+	});
+
+	it("re-detects on status return to running for a known agent command", () => {
+		// Preset processes carry their command — when restart brings status back
+		// to "running", the command-based detection re-establishes agentDetected.
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("p1", "main", "Claude", {
+				command: "claude",
+				origin: "preset",
+				presetId: "preset-claude",
+				pinned: true,
+				agentDetected: true,
+			}),
+		});
+
+		state = workspaceReducer(state, {
+			type: "session/updateProcessStatus",
+			processId: "p1",
+			status: "exited",
+			exitCode: 0,
+		});
+		expect(state.processSessionsById["p1"]?.agentDetected).toBe(false);
+
+		state = workspaceReducer(state, {
+			type: "session/updateProcessStatus",
+			processId: "p1",
+			status: "running",
+			exitCode: null,
+		});
+		expect(state.processSessionsById["p1"]?.agentDetected).toBe(true);
+	});
+
+	it("does not re-detect on running for an adHoc shell whose label was overwritten", () => {
+		// The OSC title set by the agent CLI is gone once the shell exits; the
+		// adHoc process has command=null and a non-agent fallback label, so
+		// re-detection requires fresh OSC output from the new shell incarnation.
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("p1", "main", "shell 1"),
+		});
+		state = workspaceReducer(state, {
+			type: "session/updateProcessStatus",
+			processId: "p1",
+			status: "running",
+			exitCode: null,
+		});
+		expect(state.processSessionsById["p1"]?.agentDetected).toBe(false);
 	});
 });
 
@@ -329,6 +459,7 @@ describe("workspaceReducer — Phase 3 process model", () => {
 				attentionState: "idle",
 				agentAttentionReasons: {},
 				agentAttentionClearedAt: null,
+				agentDetected: false,
 			},
 		});
 		expect(state.processSessionsById["process-1"]?.pinned).toBe(true);
@@ -359,6 +490,7 @@ describe("workspaceReducer — Phase 3 process model", () => {
 				attentionState: "idle",
 				agentAttentionReasons: {},
 				agentAttentionClearedAt: null,
+				agentDetected: false,
 			},
 		});
 		state = workspaceReducer(state, {
@@ -372,6 +504,107 @@ describe("workspaceReducer — Phase 3 process model", () => {
 		expect(state.sessionsByWorktreeId.main.attentionState).toBe(
 			"actionRequired",
 		);
+	});
+
+	it("escalates attentionState when agentReason indicates waiting/failed even if action.attentionState is lower", () => {
+		// Mirrors the Claude CLI case: "Do you want to create X?" doesn't match
+		// the legacy actionRequiredPatterns (so deriveAttentionState yields
+		// "activity"), but classifyOutput detects the trailing "?" as waiting
+		// and packages it as an agentReason. The dot must escalate to
+		// actionRequired so the sidebar reflects the prompt.
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("p1", "main", "claude", { agentDetected: true }),
+		});
+
+		state = workspaceReducer(state, {
+			type: "session/recordProcessOutput",
+			worktreeId: "main",
+			processId: "p1",
+			attentionState: "activity",
+			at: 1_000,
+			isViewed: false,
+			agentReason: {
+				state: "waiting",
+				source: "terminal",
+				summary: "Do you want to create funny.md?",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+
+		expect(state.processSessionsById["p1"]?.attentionState).toBe(
+			"actionRequired",
+		);
+		expect(state.sessionsByWorktreeId.main.attentionState).toBe(
+			"actionRequired",
+		);
+	});
+
+	it("does not downgrade attentionState when agentReason maps lower than action.attentionState", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("p1", "main", "claude", { agentDetected: true }),
+		});
+
+		// action says actionRequired (legacy pattern matched), agentReason is
+		// only "active" (maps to activity). The max is actionRequired.
+		state = workspaceReducer(state, {
+			type: "session/recordProcessOutput",
+			worktreeId: "main",
+			processId: "p1",
+			attentionState: "actionRequired",
+			at: 1_000,
+			isViewed: false,
+			agentReason: {
+				state: "active",
+				source: "terminal",
+				summary: "compiling",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+
+		expect(state.processSessionsById["p1"]?.attentionState).toBe(
+			"actionRequired",
+		);
+	});
+
+	it("respects isViewed suppression even when agentReason would escalate", () => {
+		// Viewing the process suppresses dot escalation regardless of source —
+		// agent reasons still record (so context text updates), but the dot
+		// stays put so the user isn't pestered about something they're looking at.
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("p1", "main", "claude", { agentDetected: true }),
+		});
+
+		state = workspaceReducer(state, {
+			type: "session/recordProcessOutput",
+			worktreeId: "main",
+			processId: "p1",
+			attentionState: "activity",
+			at: 1_000,
+			isViewed: true,
+			agentReason: {
+				state: "waiting",
+				source: "terminal",
+				summary: "?",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+
+		expect(state.processSessionsById["p1"]?.attentionState).toBe("idle");
+		expect(
+			state.processSessionsById["p1"]?.agentAttentionReasons.terminal?.state,
+		).toBe("waiting");
 	});
 
 	it("stores the latest output preview when a chunk yields a complete line", () => {
@@ -1750,6 +1983,7 @@ describe("agentAttentionReasons defaults", () => {
 				attentionState: "idle",
 				agentAttentionReasons: {},
 				agentAttentionClearedAt: null,
+				agentDetected: false,
 			},
 		});
 		const proc = state.processSessionsById["proc-1"];

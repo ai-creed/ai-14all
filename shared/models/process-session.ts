@@ -21,4 +21,9 @@ export type ProcessSession = {
 	attentionState: ProcessAttentionState;
 	agentAttentionReasons: AgentAttentionReasonsBySource;
 	agentAttentionClearedAt: number | null;
+	// Sticky: flips false→true when label/command first matches isAgentProcess,
+	// resets only when the process exits/errors/restarts. Pinned at detection
+	// time so subsequent OSC title overwrites by the agent CLI itself don't
+	// drop us back into "not an agent" mid-run.
+	agentDetected: boolean;
 };
