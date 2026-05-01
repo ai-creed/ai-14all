@@ -4,6 +4,47 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] – 2026-05-01
+
+### Added
+
+- **Session attention v2.** The sidebar now surfaces a multi-source view of what each shell needs from you — replacing the single legacy attention dot. Signals are merged, ranked, and shown per-process and rolled up to the worktree row.
+  - **Agent process detection** — labels and command lines matching known agent CLIs (`claude`, `codex`, etc.) are flagged as agent processes, sticky once detected so subsequent CLI title overwrites don't drop the flag.
+  - **Terminal output classification** — ad-hoc shell output is classified into `waiting` / `ready` / `failed` / `active` based on prompt patterns and lifecycle markers; reasons attach to the process row with a one-line context.
+  - **MCP `report_session_status` tool** — agents running inside ai-14all can push lifecycle directly: `active`, `waiting`, `ready`, `failed`, with a short summary and optional next-action.
+  - **MCP server-level `instructions`** — the `ai-14all` MCP server now ships a server-level orientation block covering all five tools (reviews, session note, session status) and the lifecycle protocol, so agents know how and when to use the surface.
+  - **Stale detection** — running processes with no activity past the stale threshold get a "quiet for Ns" indicator.
+  - **Per-row "Clear failed" button** — failed lifecycle reasons stick until you dismiss them; a button on the affected row clears the reason in place.
+  - **Session-level MCP overlay** — MCP-reported session status is shown alongside per-process state on the worktree row.
+  - **Cleared on view + on snapshot restore** — opening a row clears its agent attention; restoring from a persisted workspace starts clean rather than replaying stale reasons.
+
+- **Terminal find (Cmd+F).** In-pane find toolbar in xterm panes — query, prev/next, match-case, "n of m" counter, decorations on matches. `Enter` advances, `Shift+Enter` goes back, `Esc` closes and returns focus to the terminal. Mirrors Terminal.app / iTerm.
+
+- **Diff hunk navigation (Cmd+Shift+. / Cmd+Shift+,).** Jump to the next or previous change in the current file from the review surface. Works in both the file diff (`changes` mode) and the multi-file commit stack (`commits` mode), wraps within the file, and scrolls the outer container so the target hunk is centered on screen.
+
+- **Startup splash.** A small "Initializing, ready soon" message with a gradient progress bar replaces the empty viewport during initial bundle parse. Theme-aware via `prefers-color-scheme`. Hides automatically when React's first render commits.
+
+- **Sidebar card frame.** Worktree rows are wrapped in a card-shaped row container with a gradient divider between workspace groups. Attention attributes mirror onto the card so the entire row reads as one click target while the inner button still owns keyboard activation.
+
+### Changed
+
+- **Terminal scrollback raised** from 1000 to 2000 lines, so the new find feature has more history to search.
+- **xterm lifecycle is now tied to `session.id` only.** Process-state transitions (running ↔ idle ↔ exited) no longer dispose and rebuild the xterm instance for that session — output buffer is preserved across exits.
+- **Sidebar rename input** restyled to match the rest of the app (panel-bg, accent focus border, tighter padding for the row).
+
+### Fixed
+
+- **Diff editor blank in commit review.** The cleanup that detaches the Monaco diff model on unmount lived in a `useEffect` whose deps included an inline parent callback, so it fired on every parent re-render and detached the model from a still-mounted editor. The cleanup now runs only on real unmount.
+- **Monaco "TextModel disposed before DiffEditorWidget model got reset"** in `DiffViewer` and `CommitDiffStack` — diff editors now null their models on unmount before `@monaco-editor/react` disposes them.
+- **xterm "Cannot read properties of undefined (reading 'dimensions')" at app startup.** Suppressed the specific known error at the renderer error boundary; narrowed the surface area by lazy-loading the search addon and scoping `allowProposedApi` to first use.
+- **xterm renderer recreated on process exit.** The lifecycle now keys only on `session.id`; output is preserved across exits.
+- **Diff hunk navigation didn't actually scroll into view** in multi-file commit reviews. `revealLineInCenter` only scrolls within the editor; the helper now also walks up to the nearest scrolling ancestor and centers the target line in it.
+- **Sidebar rename input cleared mid-typing.** The seeding effect re-ran on every `workspaces` update, wiping the draft. It now seeds once per `pendingRename` request.
+
+### Notes
+
+- Two e2e tests were updated for the sidebar refactor and the `markProcessViewed` view-reset behavior; one (`Clear failed button dismisses failed reason in sidebar`) is temporarily skipped pending shell-isolation rework — the affordance is straightforward to smoke-test manually.
+
 ## [0.2.0] – 2026-04-30
 
 ### Added
