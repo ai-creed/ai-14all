@@ -1,7 +1,10 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App.js";
+import { installKnownRendererErrorHandler } from "./app/logic/known-renderer-errors.js";
 import "./app/shell.css";
+
+installKnownRendererErrorHandler({ dev: import.meta.env.DEV });
 
 if (import.meta.hot) {
 	import.meta.hot.on("vite:beforeFullReload", () => {
