@@ -16,11 +16,17 @@ function makeEditor(opts: {
 	const getPosition = vi.fn(() =>
 		opts.cursorLine === undefined ? null : { lineNumber: opts.cursorLine, column: 1 },
 	);
+	// scrollAncestorToLine short-circuits on null DOM, so this default is fine
+	// for callers that don't care about outer-scroll behaviour.
+	const getDomNode = vi.fn(() => null);
+	const getScrolledVisiblePosition = vi.fn(() => null);
 	const modified = {
 		revealLineInCenter,
 		setPosition,
 		focus,
 		getPosition,
+		getDomNode,
+		getScrolledVisiblePosition,
 	};
 	const editor = {
 		getLineChanges: () => opts.changes,

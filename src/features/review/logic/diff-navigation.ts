@@ -19,10 +19,53 @@ export function getDiffAnchorLines(editor: DiffNavigableEditor): number[] {
 	return changes.map(anchorLineFor);
 }
 
+function findScrollingAncestor(el: HTMLElement | null): HTMLElement | null {
+	let cur: HTMLElement | null = el?.parentElement ?? null;
+	while (cur) {
+		const cs = window.getComputedStyle(cur);
+		if (
+			(cs.overflowY === "auto" || cs.overflowY === "scroll") &&
+			cur.scrollHeight > cur.clientHeight
+		) {
+			return cur;
+		}
+		cur = cur.parentElement;
+	}
+	return null;
+}
+
+// In a stacked diff (CommitDiffStack with multiple files), each editor's height
+// is set to its full content, so revealLineInCenter is a no-op — there's
+// nothing to scroll within the editor. The user-visible scroll lives on a
+// parent container. Walk up to that ancestor and center the target line in it.
+function scrollAncestorToLine(
+	modified: MonacoEditor.IStandaloneCodeEditor,
+	line: number,
+): void {
+	const dom = modified.getDomNode();
+	if (!dom) return;
+	const pos = modified.getScrolledVisiblePosition({
+		lineNumber: line,
+		column: 1,
+	});
+	if (!pos) return;
+	const ancestor = findScrollingAncestor(dom);
+	if (!ancestor) return;
+	const editorRect = dom.getBoundingClientRect();
+	const ancestorRect = ancestor.getBoundingClientRect();
+	const lineTop = editorRect.top + pos.top;
+	const desiredTop =
+		ancestorRect.top + ancestor.clientHeight / 2 - pos.height / 2;
+	ancestor.scrollTop += lineTop - desiredTop;
+}
+
 function revealLine(editor: DiffNavigableEditor, line: number): void {
 	const modified = editor.getModifiedEditor();
+	// Handles the within-editor scroll case (DiffViewer / single-file commit).
 	modified.revealLineInCenter(line);
 	modified.setPosition({ lineNumber: line, column: 1 });
+	// Handles the outer-scroll case (multi-file commit stack).
+	scrollAncestorToLine(modified, line);
 	modified.focus();
 }
 
