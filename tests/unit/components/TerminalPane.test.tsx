@@ -115,6 +115,7 @@ vi.mock("xterm", () => ({
 		cols = 80;
 		rows = 24;
 		buffer = xtermBufferMock;
+		options: Record<string, unknown> = {};
 		constructor(options?: unknown) {
 			xtermConstructorMock(options);
 		}
@@ -277,26 +278,31 @@ describe("TerminalPane", () => {
 		expect(xtermFocusMock).toHaveBeenCalled();
 	});
 
-	it("loads SearchAddon alongside FitAddon", () => {
+	it("does not load SearchAddon at startup; loads it lazily on first Cmd+F", () => {
 		const session = makeSession();
 		render(<TerminalPane session={session} visible={true} />);
-		// FitAddon + SearchAddon
+		// Only FitAddon at startup.
+		expect(xtermLoadAddonMock).toHaveBeenCalledTimes(1);
+
+		const keyHandler = xtermAttachCustomKeyEventHandlerMock.mock
+			.calls[0]?.[0] as ((event: KeyboardEvent) => boolean) | undefined;
+		keyHandler?.(new KeyboardEvent("keydown", { key: "f", metaKey: true }));
+
+		// FitAddon + lazily-loaded SearchAddon.
 		expect(xtermLoadAddonMock).toHaveBeenCalledTimes(2);
 	});
 
-	it("constructs xterm with scrollback 2000 and allowProposedApi enabled", () => {
+	it("constructs xterm with scrollback 2000 and does not enable allowProposedApi at startup", () => {
 		const session = makeSession();
 		render(<TerminalPane session={session} visible={true} />);
 		expect(xtermConstructorMock).toHaveBeenCalledWith(
-			expect.objectContaining({
-				scrollback: 2000,
-				// Required by xterm-addon-search@0.13 (uses proposed decorations API).
-				// Without this, findNext throws and leaves the renderer mid-refresh,
-				// surfacing as "Cannot read properties of undefined (reading
-				// 'dimensions')" inside Viewport.
-				allowProposedApi: true,
-			}),
+			expect.objectContaining({ scrollback: 2000 }),
 		);
+		// allowProposedApi is set lazily on the Terminal instance only when
+		// SearchAddon is loaded — keeping idle panes off xterm's proposed-API
+		// init path during startup.
+		const opts = xtermConstructorMock.mock.calls[0][0] as Record<string, unknown>;
+		expect(opts.allowProposedApi).toBeUndefined();
 	});
 
 	it("constructs xterm with the bundled powerline font stack and 11px text", () => {

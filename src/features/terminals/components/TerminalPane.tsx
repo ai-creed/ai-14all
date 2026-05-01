@@ -36,6 +36,7 @@ export function TerminalPane({
 	const termRef = useRef<Terminal | null>(null);
 	const fitAddonRef = useRef<FitAddon | null>(null);
 	const searchAddonRef = useRef<SearchAddon | null>(null);
+	const searchResultsDisposeRef = useRef<{ dispose: () => void } | null>(null);
 	const findInputRef = useRef<HTMLInputElement | null>(null);
 	const unsubOutputRef = useRef<(() => void) | null>(null);
 	const paneInstanceIdRef = useRef(
@@ -60,6 +61,25 @@ export function TerminalPane({
 	 *  - Cursor NOT visible → user scrolled away to read history; restore
 	 *    the previous viewportY as closely as possible.
 	 */
+	const ensureSearchAddon = useCallback((): SearchAddon | null => {
+		if (searchAddonRef.current) return searchAddonRef.current;
+		const term = termRef.current;
+		if (!term) return null;
+		// Opt into proposed API only now — needed for SearchAddon's decoration
+		// rendering. Doing it on first use keeps idle panes off the proposed
+		// init path entirely.
+		term.options.allowProposedApi = true;
+		const addon = new SearchAddon();
+		term.loadAddon(addon);
+		searchAddonRef.current = addon;
+		searchResultsDisposeRef.current = addon.onDidChangeResults(
+			({ resultIndex, resultCount }) => {
+				setFindResults({ resultIndex, resultCount });
+			},
+		);
+		return addon;
+	}, []);
+
 	const fitPreservingScroll = useCallback(
 		(term: Terminal, fitAddon: FitAddon) => {
 			const buf = term.buffer.active;
@@ -120,20 +140,17 @@ export function TerminalPane({
 			cursorBlink: true,
 			scrollback: 2000,
 			screenReaderMode: true,
-			allowProposedApi: true,
 			fontSize: 12,
 			fontFamily:
 				'"AI14All Terminal Powerline", "Meslo LG M DZ for Powerline", "Meslo LG M for Powerline", "Hack", ui-monospace, Menlo, Monaco, monospace',
 		});
 		const fitAddon = new FitAddon();
-		const searchAddon = new SearchAddon();
 		term.loadAddon(fitAddon);
-		term.loadAddon(searchAddon);
-		const onResultsDispose = searchAddon.onDidChangeResults(
-			({ resultIndex, resultCount }) => {
-				setFindResults({ resultIndex, resultCount });
-			},
-		);
+		// SearchAddon is lazy-loaded on first Cmd+F. Loading it (and enabling
+		// allowProposedApi for its decoration API) at mount has been observed
+		// to race the renderer init across many panes at app start, surfacing
+		// as uncaught "Cannot read properties of undefined (reading
+		// 'dimensions')" in Viewport. Idle panes never trigger that path now.
 		term.open(containerRef.current);
 		term.attachCustomKeyEventHandler((event) => {
 			// Shift+Enter: send literal newline so agent TUIs can distinguish it from
@@ -161,6 +178,7 @@ export function TerminalPane({
 				!event.altKey &&
 				!event.shiftKey;
 			if (isFindShortcut) {
+				ensureSearchAddon();
 				setFindOpen(true);
 				// Defer focus until the input has rendered.
 				queueMicrotask(() => findInputRef.current?.select());
@@ -194,7 +212,6 @@ export function TerminalPane({
 
 		termRef.current = term;
 		fitAddonRef.current = fitAddon;
-		searchAddonRef.current = searchAddon;
 
 		// Forward user keystrokes to the PTY backend.
 		const onDataDispose = term.onData((data) => {
@@ -243,7 +260,8 @@ export function TerminalPane({
 			cancelAnimationFrame(initialFitRafId);
 			onDataDispose.dispose();
 			onTitleChangeDispose.dispose();
-			onResultsDispose.dispose();
+			searchResultsDisposeRef.current?.dispose();
+			searchResultsDisposeRef.current = null;
 			unsubOutputRef.current?.();
 			unsubOutputRef.current = null;
 			term.dispose();
