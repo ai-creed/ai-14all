@@ -264,10 +264,17 @@ export function TerminalPane({
 			searchResultsDisposeRef.current = null;
 			unsubOutputRef.current?.();
 			unsubOutputRef.current = null;
-			term.dispose();
 			termRef.current = null;
 			fitAddonRef.current = null;
 			searchAddonRef.current = null;
+			// Defer term.dispose() to a macrotask so xterm's internal Viewport
+			// setTimeout/RAF callbacks can run against the still-live renderer
+			// first. xterm 5.3 doesn't cancel those internal timers on dispose;
+			// when they fire on a disposed RenderService, the dimensions getter
+			// throws "Cannot read properties of undefined (reading 'dimensions')".
+			// React StrictMode's dev mount-cleanup-mount cycle reliably hits this
+			// race, but it can also surface from any rapid remount.
+			setTimeout(() => term.dispose(), 0);
 		};
 		// Tie the xterm instance lifecycle to session.id only. isLive transitions
 		// (running/idle ↔ exited) must not tear down and rebuild the terminal —
