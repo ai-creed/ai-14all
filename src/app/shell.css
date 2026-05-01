@@ -434,6 +434,30 @@ select {
 	border-color: var(--accent);
 }
 
+.shell-sidebar__rename-input {
+	-webkit-appearance: none;
+	appearance: none;
+	box-sizing: border-box;
+	width: 100%;
+	margin: 0;
+	padding: var(--space-1) var(--space-2);
+	color: var(--text-primary);
+	background: var(--panel-bg);
+	border: 1px solid var(--panel-border-strong);
+	border-radius: var(--radius-sm);
+	font: inherit;
+	line-height: 1.3;
+}
+
+.shell-sidebar__rename-input:hover:not(:focus) {
+	border-color: var(--text-muted);
+}
+
+.shell-sidebar__rename-input:focus-visible {
+	outline: none;
+	border-color: var(--accent);
+}
+
 .shell-button:focus-visible,
 [role="tab"]:focus-visible {
 	outline: 1px solid var(--accent);

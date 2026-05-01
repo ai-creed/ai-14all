@@ -62,15 +62,25 @@ export function SessionSidebar({
 		worktreeId: string;
 	} | null>(null);
 	const [draft, setDraft] = React.useState("");
+	const seededKeyRef = React.useRef<string | null>(null);
 
 	React.useEffect(() => {
-		if (collapsed || !pendingRename) return;
+		if (collapsed || !pendingRename) {
+			seededKeyRef.current = null;
+			return;
+		}
+		const key = `${pendingRename.workspaceId}:${pendingRename.worktreeId}`;
+		// Seed only once per pendingRename request. Without this, any unrelated
+		// `workspaces` update during editing (status polling, attention reasons,
+		// etc.) would re-run this effect and clobber the user's typed draft.
+		if (seededKeyRef.current === key) return;
 		const target = workspaces.find(
 			(w) => w.workspaceId === pendingRename.workspaceId,
 		);
 		if (!target || !target.active) return;
 		setDraft(target.titleByWorktreeId?.[pendingRename.worktreeId] ?? "");
 		setRenaming(pendingRename);
+		seededKeyRef.current = key;
 	}, [collapsed, pendingRename, workspaces]);
 
 	function startRename(

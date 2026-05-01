@@ -545,6 +545,44 @@ describe("SessionSidebar rename", () => {
 		).toBeNull();
 	});
 
+	it("does not clobber the rename input when workspaces re-renders mid-edit", () => {
+		const initialWorkspace = {
+			...workspaces[0],
+			titleByWorktreeId: { "feature-a": "Auth rewrite", main: "" },
+		};
+		const pendingRename = { workspaceId: "ws-a", worktreeId: "feature-a" };
+		const props = {
+			workspaces: [initialWorkspace],
+			collapsed: false,
+			onToggleCollapsed: vi.fn(),
+			onLoadWorkspace: vi.fn(),
+			onOpenWorkspace: vi.fn(),
+			onSelect: vi.fn(),
+			onCreateWorktree: vi.fn(),
+			onRemoveWorktree: vi.fn(),
+			onRemoveWorkspace: vi.fn(),
+			onRenameSession: vi.fn(),
+			pendingRename,
+		};
+
+		const { rerender } = render(<SessionSidebar {...props} />);
+		const input = screen.getByRole("textbox", { name: /rename session/i });
+		fireEvent.change(input, { target: { value: "User typed" } });
+		expect((input as HTMLInputElement).value).toBe("User typed");
+
+		// Simulate an unrelated workspaces update (new identity, same data) —
+		// e.g. attention/state polling — while pendingRename is still set.
+		rerender(
+			<SessionSidebar
+				{...props}
+				workspaces={[{ ...initialWorkspace }]}
+			/>,
+		);
+
+		const inputAfter = screen.getByRole("textbox", { name: /rename session/i });
+		expect((inputAfter as HTMLInputElement).value).toBe("User typed");
+	});
+
 	it("when collapsed, F2 calls onRequestExpand instead of opening rename locally", () => {
 		const { onRequestExpand, onRenameSession } = renderSidebar({
 			collapsed: true,
