@@ -209,3 +209,46 @@ describe("report_session_status tool", () => {
 		).rejects.toThrow();
 	});
 });
+
+describe("ai-14all MCP server instructions and discovery", () => {
+	let rig: Awaited<ReturnType<typeof makeRig>>;
+
+	afterEach(async () => {
+		await rig.cleanup();
+	});
+
+	it("exposes server-level instructions covering every tool and lifecycle state", async () => {
+		rig = await makeRig();
+
+		const instructions = rig.client.getInstructions();
+		expect(instructions, "server instructions must be set").toBeTruthy();
+		const text = instructions ?? "";
+
+		for (const toolName of [
+			"list_pending_reviews",
+			"mark_review_addressed",
+			"read_session_note",
+			"append_session_note",
+			"report_session_status",
+		]) {
+			expect(text, `instructions must mention ${toolName}`).toContain(toolName);
+		}
+
+		for (const state of ["active", "waiting", "ready", "failed"]) {
+			expect(text, `instructions must mention state "${state}"`).toContain(state);
+		}
+	});
+
+	it("report_session_status tool description names every lifecycle state", async () => {
+		rig = await makeRig();
+
+		const { tools } = await rig.client.listTools();
+		const tool = tools.find((t) => t.name === "report_session_status");
+		expect(tool, "report_session_status must be registered").toBeDefined();
+		const description = tool?.description ?? "";
+
+		for (const state of ["active", "waiting", "ready", "failed"]) {
+			expect(description, `description must mention state "${state}"`).toContain(state);
+		}
+	});
+});
