@@ -1,9 +1,23 @@
 import type { editor as MonacoEditor } from "monaco-editor";
 
-export type DiffNavigableEditor = Pick<
-	MonacoEditor.IStandaloneDiffEditor,
-	"getLineChanges" | "getModifiedEditor"
->;
+// Minimal surface used by this module — exposed as a structural type so the
+// helper can be unit-tested with a small mock instead of a full Monaco editor.
+type DiffNavigableModifiedEditor = {
+	revealLineInCenter(line: number): void;
+	setPosition(position: { lineNumber: number; column: number }): void;
+	getPosition(): { lineNumber: number; column: number } | null;
+	getDomNode(): HTMLElement | null;
+	getScrolledVisiblePosition(position: {
+		lineNumber: number;
+		column: number;
+	}): { top: number; left: number; height: number } | null;
+	focus(): void;
+};
+
+export type DiffNavigableEditor = {
+	getLineChanges(): MonacoEditor.ILineChange[] | null;
+	getModifiedEditor(): DiffNavigableModifiedEditor;
+};
 
 function anchorLineFor(change: MonacoEditor.ILineChange): number {
 	// For pure deletions (modifiedEndLineNumber === 0) Monaco places the marker
@@ -39,7 +53,7 @@ function findScrollingAncestor(el: HTMLElement | null): HTMLElement | null {
 // nothing to scroll within the editor. The user-visible scroll lives on a
 // parent container. Walk up to that ancestor and center the target line in it.
 function scrollAncestorToLine(
-	modified: MonacoEditor.IStandaloneCodeEditor,
+	modified: DiffNavigableModifiedEditor,
 	line: number,
 ): void {
 	const dom = modified.getDomNode();
