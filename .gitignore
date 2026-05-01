@@ -12,3 +12,4 @@ docs/shared/*architecture-hardening*
 .worktrees/
 .superpowers/
 release/
+docs/strategy.md
