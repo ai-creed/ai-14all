@@ -149,13 +149,17 @@ test.describe.serial("session attention v2", () => {
 		}
 
 		// Step 1: rename the adHoc shell to "claude" via OSC title sequence so
-		// that `isAgentProcess("claude", null)` returns true.
-		// This mirrors cumulative-flow.phase-6's pattern.
+		// that `isAgentProcess("claude", null)` returns true. The trailing
+		// `sleep 5` keeps the shell from re-prompting and overwriting the
+		// title with the CWD before downstream assertions run; this mirrors
+		// cumulative-flow.phase-6's `; sleep 1` pattern. Inputs sent later
+		// in this test are queued at the PTY and processed when the sleep
+		// ends, which still falls inside the test's 10s assertion window.
 		await page.evaluate(async (sid: string) => {
 			await window.ai14all.terminals.sendInput(
 				sid,
-				// OSC 0: set window/icon title to "claude"
-				"printf '\\033]0;claude\\007'\n",
+				// OSC 0: set window/icon title to "claude"; hold it
+				"printf '\\033]0;claude\\007'; sleep 5\n",
 			);
 		}, terminalSessionId);
 
@@ -177,16 +181,16 @@ test.describe.serial("session attention v2", () => {
 		}, terminalSessionId);
 
 		// Step 4: the main worktree nav button should reflect actionRequired
+		// (worktree-level attention rolls up from process attention).
 		await expect(
 			nav.getByRole("button", { name: /main/i }),
 		).toHaveAttribute("data-attention", "actionRequired", { timeout: 10_000 });
 
-		// Also verify the process-level indicator in the sidebar row
-		// Navigate back to main to see the process rows rendered
-		await nav.getByRole("button", { name: /main/i }).click();
-		await expect(
-			page.locator('[data-testid="process-state-indicator"][data-state="actionRequired"]'),
-		).toBeVisible({ timeout: 5_000 });
+		// Note: we deliberately do NOT click back into main here. The
+		// `session/markProcessViewed` reducer resets attentionState to "idle"
+		// on view, so any post-click assertion of the per-process indicator's
+		// data-state would race the reset. The worktree button check above is
+		// the durable signal.
 	});
 
 	// -------------------------------------------------------------------------

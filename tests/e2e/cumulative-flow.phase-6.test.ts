@@ -305,6 +305,9 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			name: "Worktree sessions",
 		});
 		const mainItem = worktreeNav.getByRole("button", { name: / main$/i });
+		// Row wrapper holds both the inner button and the process-context list,
+		// which is rendered outside the button to avoid nested <button>s.
+		const mainRow = mainItem.locator("xpath=..");
 		await mainItem.click();
 
 		await page.evaluate(async () => {
@@ -321,14 +324,14 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		});
 
 		await expect(
-			mainItem.locator(".shell-sidebar__process-context"),
+			mainRow.locator(".shell-sidebar__process-context"),
 		).toContainText("compiled in 124ms", {
 			timeout: 10_000,
 		});
 
 		await page.waitForTimeout(11_000);
 		await expect(
-			mainItem.locator(".shell-sidebar__process-context"),
+			mainRow.locator(".shell-sidebar__process-context"),
 		).toContainText(/quiet for 1[01]s/, {
 			timeout: 5_000,
 		});
@@ -357,7 +360,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		});
 
 		await expect(
-			mainItem.locator(".shell-sidebar__process-context"),
+			mainRow.locator(".shell-sidebar__process-context"),
 		).toContainText("Continue? [y/N]", {
 			timeout: 10_000,
 		});
