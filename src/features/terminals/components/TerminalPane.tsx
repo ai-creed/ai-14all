@@ -175,7 +175,22 @@ export function TerminalPane({
 			term.clear();
 			return false;
 		});
-		fitAddon.fit();
+		// Defer fit() to the next animation frame so xterm finishes its async
+		// renderer init before we trigger a Viewport refresh. With
+		// allowProposedApi enabled, xterm wires up extra decoration machinery
+		// during init; calling fit() synchronously can race that and produce
+		// uncaught "Cannot read properties of undefined (reading 'dimensions')"
+		// from Viewport._innerRefresh. The initial PTY resize is moved into
+		// the same frame so the backend sees the actual cols/rows.
+		const initialFitRafId = requestAnimationFrame(() => {
+			if (termRef.current !== term) return;
+			fitAddon.fit();
+			if (isLive && term.cols > 0 && term.rows > 0) {
+				terminals
+					.resize(session.id, term.cols, term.rows)
+					.catch(() => undefined);
+			}
+		});
 
 		termRef.current = term;
 		fitAddonRef.current = fitAddon;
@@ -224,12 +239,8 @@ export function TerminalPane({
 			unsubOutput();
 		};
 
-		// Send initial resize so the PTY knows the terminal dimensions.
-		if (isLive && term.cols > 0 && term.rows > 0) {
-			terminals.resize(session.id, term.cols, term.rows).catch(() => undefined);
-		}
-
 		return () => {
+			cancelAnimationFrame(initialFitRafId);
 			onDataDispose.dispose();
 			onTitleChangeDispose.dispose();
 			onResultsDispose.dispose();
