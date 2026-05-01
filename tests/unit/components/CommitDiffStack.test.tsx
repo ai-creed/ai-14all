@@ -10,30 +10,40 @@ type FakeDiffEditor = {
 
 const mountedEditors: FakeDiffEditor[] = [];
 
-// Monaco DiffEditor won't load in jsdom — mock it
-vi.mock("@monaco-editor/react", () => ({
-	DiffEditor: (props: {
-		theme?: string;
-		height?: string;
-		options?: { fontSize?: number };
-		onMount?: (editor: FakeDiffEditor) => void;
-	}) => {
-		const fakeEditor: FakeDiffEditor = {
-			getModifiedEditor: vi.fn(),
-			setModel: vi.fn(),
-		};
-		mountedEditors.push(fakeEditor);
-		props.onMount?.(fakeEditor);
-		return (
-			<div
-				data-testid="mock-diff-editor"
-				data-theme={props.theme}
-				data-height={props.height}
-				data-font-size={String(props.options?.fontSize ?? "")}
-			/>
-		);
-	},
-}));
+// Monaco DiffEditor won't load in jsdom — mock it. Real @monaco-editor/react
+// fires onMount only once per editor instance, NOT on every render. The mock
+// uses useRef so onMount fires once and the same fake editor sticks across
+// re-renders — required to surface bugs that depend on stable editor identity.
+vi.mock("@monaco-editor/react", async () => {
+	const { useRef } = await import("react");
+	return {
+		DiffEditor: (props: {
+			theme?: string;
+			height?: string;
+			options?: { fontSize?: number };
+			onMount?: (editor: FakeDiffEditor) => void;
+		}) => {
+			const ref = useRef<FakeDiffEditor | null>(null);
+			if (!ref.current) {
+				const fakeEditor: FakeDiffEditor = {
+					getModifiedEditor: vi.fn(),
+					setModel: vi.fn(),
+				};
+				ref.current = fakeEditor;
+				mountedEditors.push(fakeEditor);
+				props.onMount?.(fakeEditor);
+			}
+			return (
+				<div
+					data-testid="mock-diff-editor"
+					data-theme={props.theme}
+					data-height={props.height}
+					data-font-size={String(props.options?.fontSize ?? "")}
+				/>
+			);
+		},
+	};
+});
 
 const detail = {
 	sha: "abc",
@@ -161,6 +171,34 @@ describe("CommitDiffStack", () => {
 		for (const editor of screen.getAllByTestId("mock-diff-editor")) {
 			expect(editor).toHaveAttribute("data-height", "160px");
 		}
+	});
+
+	it("does not detach the diff model when the parent re-renders with a new onEditorUnmount ref", async () => {
+		mountedEditors.length = 0;
+		const { rerender } = render(
+			<CommitDiffStack
+				detail={detail}
+				focusedPath={null}
+				resolvedTheme="dark"
+				onEditorUnmount={() => {}}
+			/>,
+		);
+		expect(mountedEditors).toHaveLength(1);
+		const editor = mountedEditors[0];
+		editor.setModel.mockClear();
+
+		// Simulate a parent re-render with a freshly-allocated callback —
+		// exactly what ReviewArea does on any state change.
+		rerender(
+			<CommitDiffStack
+				detail={detail}
+				focusedPath={null}
+				resolvedTheme="dark"
+				onEditorUnmount={() => {}}
+			/>,
+		);
+
+		expect(editor.setModel).not.toHaveBeenCalled();
 	});
 
 	it("detaches the diff model on unmount before unregister to avoid Monaco lifecycle error", async () => {

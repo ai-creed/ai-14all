@@ -80,6 +80,15 @@ function DiffEditorSlot({
 }: DiffEditorSlotProps) {
 	const editorRef =
 		useRef<import("monaco-editor").editor.IStandaloneDiffEditor | null>(null);
+	// Stash the callback in a ref so its identity does not drive the unmount
+	// effect's deps. Parents typically pass an inline arrow, so a naive dep on
+	// `onEditorUnmount` would re-fire the cleanup on every parent render —
+	// detaching the Monaco model from a still-mounted editor and blanking the
+	// diff. The ref keeps the latest value without triggering re-runs.
+	const onEditorUnmountRef = useRef(onEditorUnmount);
+	useEffect(() => {
+		onEditorUnmountRef.current = onEditorUnmount;
+	});
 
 	useEffect(() => {
 		return () => {
@@ -87,9 +96,12 @@ function DiffEditorSlot({
 			// DiffEditorWidget can reset cleanly — avoids "TextModel disposed before
 			// DiffEditorWidget model got reset" invariant error.
 			editorRef.current?.setModel(null);
-			onEditorUnmount?.(file.path);
+			onEditorUnmountRef.current?.(file.path);
 		};
-	}, [file.path, onEditorUnmount]);
+		// file.path is captured at mount; the parent uses key={file.path} so a
+		// path change remounts the slot. Empty deps keeps cleanup on real unmount.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	return (
 		<DiffEditor
