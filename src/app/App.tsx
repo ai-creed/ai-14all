@@ -417,6 +417,10 @@ export function App() {
 			sticky: false,
 			clearedAt: Date.now(),
 		});
+		dispatch({
+			type: "session/clearSessionAgentAttention",
+			worktreeId: activeWorktree.id,
+		});
 	}
 
 	const {
@@ -1064,6 +1068,10 @@ export function App() {
 				processId: nextProcessId,
 				sticky: false,
 				clearedAt: Date.now(),
+			});
+			dispatch({
+				type: "session/clearSessionAgentAttention",
+				worktreeId: currentWorktreeId,
 			});
 		},
 		[dispatch],

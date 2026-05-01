@@ -58,6 +58,9 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 	} = options;
 
 	const outputPreviewBuffersRef = useRef<Map<string, string>>(new Map());
+	// Tracks the last classified agent reason per terminal session ID synchronously,
+	// so onExit can read it without depending on React dispatch having flushed.
+	const lastAgentReasonBySessionRef = useRef<Map<string, AgentAttentionReason>>(new Map());
 
 	const findProcessByTerminalSessionId = useCallback(
 		(
@@ -133,6 +136,7 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 							nextAction: null,
 							reportedAt: now,
 						};
+						lastAgentReasonBySessionRef.current.set(event.sessionId, agentReason);
 					}
 				}
 				const action: WorkspaceAction = {
@@ -153,6 +157,8 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 				const found = findProcessByTerminalSessionId(event.sessionId);
 				if (!found) return;
 				outputPreviewBuffersRef.current.delete(event.sessionId);
+				const lastAgentReason = lastAgentReasonBySessionRef.current.get(event.sessionId) ?? null;
+				lastAgentReasonBySessionRef.current.delete(event.sessionId);
 				const { process, workspaceId: ownerWsId } = found;
 				const action: WorkspaceAction = {
 					type: "session/updateProcessStatus",
@@ -176,11 +182,10 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 							},
 						};
 						applyActionForOwner(ownerWsId, lifecycleAction);
-					} else if (
-						event.exitCode === 0 &&
-						process.agentAttentionReasons?.terminal?.state === "ready"
-					) {
-						// Promote terminal ready to lifecycle so it persists after exit
+					} else if (event.exitCode === 0 && lastAgentReason?.state === "ready") {
+						// Promote terminal ready to lifecycle so it persists after exit.
+						// Uses lastAgentReasonBySessionRef (set synchronously in onOutput) to
+						// avoid the race where React dispatch hasn't flushed appWorkspacesRef yet.
 						const lifecycleAction: WorkspaceAction = {
 							type: "session/reportProcessAgentAttention",
 							worktreeId: process.worktreeId,
@@ -188,7 +193,7 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 							reason: {
 								state: "ready",
 								source: "lifecycle",
-								summary: process.agentAttentionReasons.terminal.summary,
+								summary: lastAgentReason.summary,
 								nextAction: null,
 								reportedAt: Date.now(),
 							},
@@ -218,6 +223,7 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 				const found = findProcessByTerminalSessionId(event.sessionId);
 				if (!found) return;
 				outputPreviewBuffersRef.current.delete(event.sessionId);
+				lastAgentReasonBySessionRef.current.delete(event.sessionId);
 				const { process, workspaceId: ownerWsId } = found;
 				const action: WorkspaceAction = {
 					type: "session/updateProcessStatus",
