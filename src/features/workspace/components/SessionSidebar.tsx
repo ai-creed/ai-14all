@@ -166,11 +166,17 @@ export function SessionSidebar({
 									renaming?.workspaceId === workspace.workspaceId &&
 									renaming?.worktreeId === worktree.id;
 
-								const rowCommonProps = {
-									className: "shell-sidebar__item",
+								// Mirrored on the wrapper so CSS can frame the title button + process
+								// list as a single card; tests still read the attributes off the button.
+								const rowAttentionProps = {
 									"data-selected": String(selected),
 									"data-attention":
 										workspace.attentionByWorktreeId[worktree.id] ?? "idle",
+								};
+
+								const rowCommonProps = {
+									className: "shell-sidebar__item",
+									...rowAttentionProps,
 									"aria-label":
 										worktree.branchName !== shownTitle
 											? `${shownTitle} ${worktree.branchName}`
@@ -268,7 +274,8 @@ export function SessionSidebar({
 															type="button"
 															className="shell-button shell-button--compact shell-sidebar__process-clear-failed"
 															aria-label={`Clear failed for ${row.label}`}
-															onClick={() => {
+															onClick={(e) => {
+																e.stopPropagation();
 																onClearFailedReason(
 																	workspace.workspaceId,
 																	worktree.id,
@@ -298,7 +305,6 @@ export function SessionSidebar({
 									<button
 										type="button"
 										{...rowCommonProps}
-										onClick={() => onSelect(workspace.workspaceId, worktree.id)}
 										onKeyDown={(e) => {
 											if (e.key === "F2") {
 												e.preventDefault();
@@ -318,9 +324,23 @@ export function SessionSidebar({
 									</button>
 								);
 
+								// onClick on the wrapper makes the entire card (title + process list)
+								// the click target. Keyboard activation still flows through the inner
+								// <button>: pressing Enter/Space fires its native click which bubbles
+								// up to this handler. Inline-clickable children (Clear failed) stop
+								// propagation to keep their action separate from row selection.
+								const handleRowClick = isRenamingThisRow
+									? undefined
+									: () => onSelect(workspace.workspaceId, worktree.id);
+
 								if (collapsed || !workspace.active) {
 									return (
-										<div key={worktree.id}>
+										<div
+											key={worktree.id}
+											className="shell-sidebar__row"
+											{...rowAttentionProps}
+											onClick={handleRowClick}
+										>
 											{item}
 											{processList}
 										</div>
@@ -329,7 +349,11 @@ export function SessionSidebar({
 
 								return (
 									<ContextMenu.Root key={worktree.id}>
-										<div>
+										<div
+											className="shell-sidebar__row"
+											{...rowAttentionProps}
+											onClick={handleRowClick}
+										>
 											<ContextMenu.Trigger asChild>{item}</ContextMenu.Trigger>
 											{processList}
 										</div>

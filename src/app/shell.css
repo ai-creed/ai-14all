@@ -499,6 +499,8 @@ select {
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--space-2);
+	padding-bottom: var(--space-2);
+	border-bottom: 1px solid var(--panel-border);
 }
 
 .shell-sidebar[data-collapsed="true"] {
@@ -535,23 +537,35 @@ select {
 	min-height: 0;
 	overflow-y: auto;
 	margin-top: var(--space-3);
-	gap: 24px;
+	gap: 0;
 	padding-right: 2px;
 }
 
+/*
+ * Workspace group: chromeless. Separation between workspaces comes from a
+ * gradient divider drawn as a ::before on every group after the first.
+ * Active state surfaces in the workspace name color/weight, not in chrome.
+ */
 .shell-sidebar__workspace-group {
 	display: flex;
 	flex-direction: column;
 	gap: var(--space-2);
-	padding: var(--space-2);
-	background: rgba(255, 255, 255, 0.02);
-	border: 1px solid var(--panel-border);
-	border-radius: var(--radius-sm);
+	/* Asymmetric vertical padding: button sits close to the divider below,
+	 * with more breathing room from the worktree cards above. */
+	padding: var(--space-3) 0 var(--space-1);
 }
 
-.shell-sidebar__workspace-group[data-active-workspace="true"] {
-	border-color: rgba(98, 180, 255, 0.35);
-	background: rgba(98, 180, 255, 0.08);
+.shell-sidebar__workspace-group + .shell-sidebar__workspace-group::before {
+	content: "";
+	display: block;
+	height: 1px;
+	margin: 0 var(--space-2) var(--space-3);
+	background: linear-gradient(
+		90deg,
+		transparent 0%,
+		var(--panel-border) 50%,
+		transparent 100%
+	);
 }
 
 .shell-sidebar__workspace-header {
@@ -610,28 +624,44 @@ select {
 
 .shell-sidebar__workspace-empty {
 	padding: 0 var(--space-1) var(--space-1);
-	color: var(--text-secondary);
-	font-size: var(--font-size-label);
+	color: var(--text-muted);
+	font-size: 11px;
+	font-style: italic;
+	line-height: 1.4;
+}
+
+/*
+ * Row wrapper is the visual card. Holds the clickable title button (.item)
+ * and the process list (.processes) so both share one frame and animate as
+ * a single unit. The button keeps data-attention/data-selected for tests
+ * and a11y, but visual styling lives here.
+ */
+.shell-sidebar__row {
+	background: var(--panel-bg);
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	overflow: hidden;
+	cursor: pointer;
+}
+
+.shell-sidebar__row[data-selected="true"] {
+	background: var(--panel-bg-elevated);
+	border-color: var(--accent);
 }
 
 .shell-sidebar__item {
 	width: 100%;
-	min-height: 80px;
 	display: flex;
 	flex-direction: column;
-	justify-content: center;
-	padding: var(--space-3);
+	align-items: flex-start;
+	gap: 2px;
+	padding: var(--space-2) var(--space-3);
 	text-align: left;
 	color: var(--text-primary);
-	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
-	border-radius: var(--radius-sm);
+	background: transparent;
+	border: none;
 	cursor: pointer;
-}
-
-.shell-sidebar__item[data-selected="true"] {
-	background: var(--panel-bg-elevated);
-	border-color: var(--accent);
+	line-height: 1.3;
 }
 
 /*
@@ -666,8 +696,8 @@ select {
 	}
 }
 
-.shell-sidebar__item[data-attention="activity"],
-.shell-sidebar__item[data-attention="actionRequired"] {
+.shell-sidebar__row[data-attention="activity"],
+.shell-sidebar__row[data-attention="actionRequired"] {
 	position: relative;
 }
 
@@ -675,7 +705,7 @@ select {
  * Activity: rotating spotlight conic gradient — visual language of
  * "something is running / cooking" without urgency.
  */
-.shell-sidebar__item[data-attention="activity"]::before {
+.shell-sidebar__row[data-attention="activity"]::before {
 	content: "";
 	position: absolute;
 	inset: 0;
@@ -703,7 +733,7 @@ select {
  * ActionRequired: solid ring that pulses opacity + outer glow on the parent.
  * Steady, not rotating — visual language of "alarm / waiting on you".
  */
-.shell-sidebar__item[data-attention="actionRequired"]::before {
+.shell-sidebar__row[data-attention="actionRequired"]::before {
 	content: "";
 	position: absolute;
 	inset: 0;
@@ -719,7 +749,7 @@ select {
 	animation: shell-sidebar-action-ring 1.4s ease-in-out infinite;
 }
 
-.shell-sidebar__item[data-attention="actionRequired"] {
+.shell-sidebar__row[data-attention="actionRequired"] {
 	animation: shell-sidebar-action-glow 1.4s ease-in-out infinite;
 }
 
@@ -744,22 +774,41 @@ select {
 	}
 }
 
-.shell-sidebar__item[data-attention="activity"] {
-	/* matches the green process-row dot for the same underlying state */
-	--attention-color: var(--accent);
-	background: color-mix(in srgb, var(--accent) 4%, var(--panel-bg));
+.shell-sidebar__row[data-attention="activity"] {
+	/* Distinct from the accent used for "selected" — too many green-ish cards
+	 * on screen otherwise made it hard to tell at a glance which row is in
+	 * focus vs which agent is busy. Warning (amber) carries "in progress"
+	 * semantics and cleanly separates from selected (accent) and action
+	 * required (danger). The process-row dot for "active" matches below. */
+	--attention-color: var(--warning);
+	background: color-mix(in srgb, var(--warning) 4%, var(--panel-bg));
 }
 
-.shell-sidebar__item[data-attention="actionRequired"] {
+.shell-sidebar__row[data-attention="actionRequired"] {
 	--attention-color: var(--danger);
 	background: color-mix(in srgb, var(--danger) 6%, var(--panel-bg));
 }
 
-.shell-sidebar__item[data-selected="true"][data-attention="activity"] {
-	background: color-mix(in srgb, var(--accent) 4%, var(--panel-bg-elevated));
+/*
+ * Selected + activity: suppress the rotating ring and title shimmer. The
+ * selected accent border + elevated bg are enough; doubling up reads as
+ * visual noise. ActionRequired keeps its pulse even when selected — the
+ * prompt still needs an answer regardless of which row has focus.
+ */
+.shell-sidebar__row[data-selected="true"][data-attention="activity"]::before {
+	display: none;
 }
 
-.shell-sidebar__item[data-selected="true"][data-attention="actionRequired"] {
+.shell-sidebar__row[data-selected="true"][data-attention="activity"] strong {
+	background: none;
+	-webkit-text-fill-color: var(--text-primary);
+	color: var(--text-primary);
+	font-weight: 700;
+	letter-spacing: normal;
+	animation: none;
+}
+
+.shell-sidebar__row[data-selected="true"][data-attention="actionRequired"] {
 	background: color-mix(in srgb, var(--danger) 6%, var(--panel-bg-elevated));
 }
 
@@ -768,7 +817,7 @@ select {
  * ActionRequired title: solid attention color, slightly bolder — calm but
  * unmistakable, complementing the pulsing ring rather than competing with it.
  */
-.shell-sidebar__item[data-attention="activity"] strong {
+.shell-sidebar__row[data-attention="activity"] strong {
 	background: linear-gradient(
 		90deg,
 		var(--attention-color) 0%,
@@ -785,7 +834,7 @@ select {
 	animation: shell-sidebar-attention-shimmer 3.2s linear infinite;
 }
 
-.shell-sidebar__item[data-attention="actionRequired"] strong {
+.shell-sidebar__row[data-attention="actionRequired"] strong {
 	color: var(--attention-color);
 	font-weight: 800;
 	letter-spacing: 0.01em;
@@ -798,16 +847,16 @@ select {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.shell-sidebar__item[data-attention="activity"]::before,
-	.shell-sidebar__item[data-attention="actionRequired"]::before {
+	.shell-sidebar__row[data-attention="activity"]::before,
+	.shell-sidebar__row[data-attention="actionRequired"]::before {
 		animation: none;
 		background: var(--attention-color);
 		opacity: 0.7;
 	}
-	.shell-sidebar__item[data-attention="actionRequired"] {
+	.shell-sidebar__row[data-attention="actionRequired"] {
 		animation: none;
 	}
-	.shell-sidebar__item[data-attention="activity"] strong {
+	.shell-sidebar__row[data-attention="activity"] strong {
 		animation: none;
 		background: none;
 		color: var(--attention-color);
@@ -823,8 +872,8 @@ select {
 .shell-sidebar__processes {
 	display: flex;
 	flex-direction: column;
-	gap: 1px;
-	margin-top: 2px;
+	gap: 2px;
+	padding: 0 var(--space-3) var(--space-2);
 }
 
 .shell-sidebar__process {
@@ -835,20 +884,52 @@ select {
 	min-width: 0;
 }
 
+/*
+ * Inline action inside a process row — sized down so it sits proportionally
+ * next to the 12px row text instead of dwarfing it like the default 32px
+ * compact button would.
+ */
+.shell-sidebar__process-clear-failed {
+	height: 20px;
+	padding: 0 6px;
+	font-size: 11px;
+	line-height: 20px;
+}
+
 .shell-sidebar__process-indicator {
 	width: 6px;
 	height: 6px;
 	border-radius: 50%;
-	background: var(--accent);
+	background: var(--text-muted);
 	flex-shrink: 0;
 }
 
 .shell-sidebar__process-indicator[data-state="actionRequired"] {
 	background: var(--danger);
+	/* Same rhythm as the worktree row pulse so the two signals breathe in sync. */
+	animation: shell-sidebar-process-dot-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes shell-sidebar-process-dot-pulse {
+	/* Dot stays fully lit; only the halo around it pulses. */
+	0%,
+	100% {
+		box-shadow: 0 0 0 0 transparent;
+	}
+	50% {
+		box-shadow: 0 0 8px
+			color-mix(in srgb, var(--danger) 80%, transparent);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.shell-sidebar__process-indicator[data-state="actionRequired"] {
+		animation: none;
+	}
 }
 
 .shell-sidebar__process-indicator[data-state="active"] {
-	background: var(--accent);
+	background: var(--warning);
 }
 
 .shell-sidebar__process-indicator[data-state="idle"] {
@@ -2172,7 +2253,6 @@ select {
 .shell-sidebar__footer {
 	margin-top: auto;
 	padding-top: var(--space-3);
-	border-top: 1px solid var(--panel-border);
 }
 
 .shell-sidebar__footer--global {
