@@ -3,15 +3,26 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CommitDiffStack } from "../../../src/features/git/components/CommitDiffStack";
 
+type FakeDiffEditor = {
+	getModifiedEditor: ReturnType<typeof vi.fn>;
+	setModel: ReturnType<typeof vi.fn>;
+};
+
+const mountedEditors: FakeDiffEditor[] = [];
+
 // Monaco DiffEditor won't load in jsdom — mock it
 vi.mock("@monaco-editor/react", () => ({
 	DiffEditor: (props: {
 		theme?: string;
 		height?: string;
 		options?: { fontSize?: number };
-		onMount?: (editor: unknown) => void;
+		onMount?: (editor: FakeDiffEditor) => void;
 	}) => {
-		const fakeEditor = { getModifiedEditor: vi.fn() };
+		const fakeEditor: FakeDiffEditor = {
+			getModifiedEditor: vi.fn(),
+			setModel: vi.fn(),
+		};
+		mountedEditors.push(fakeEditor);
 		props.onMount?.(fakeEditor);
 		return (
 			<div
@@ -150,6 +161,31 @@ describe("CommitDiffStack", () => {
 		for (const editor of screen.getAllByTestId("mock-diff-editor")) {
 			expect(editor).toHaveAttribute("data-height", "160px");
 		}
+	});
+
+	it("detaches the diff model on unmount before unregister to avoid Monaco lifecycle error", async () => {
+		mountedEditors.length = 0;
+		const onUnmount = vi.fn();
+		render(
+			<CommitDiffStack
+				detail={detail}
+				focusedPath={null}
+				resolvedTheme="dark"
+				onEditorUnmount={onUnmount}
+			/>,
+		);
+		expect(mountedEditors).toHaveLength(1);
+		const editor = mountedEditors[0];
+
+		// Collapse the section — unmounts the DiffEditorSlot
+		await userEvent.click(screen.getByText("src/index.ts"));
+
+		expect(editor.setModel).toHaveBeenCalledWith(null);
+		expect(onUnmount).toHaveBeenCalledWith("src/index.ts");
+		// setModel(null) must run before/at-most-with onUnmount so Monaco can reset cleanly
+		const setModelOrder = editor.setModel.mock.invocationCallOrder[0];
+		const unmountOrder = onUnmount.mock.invocationCallOrder[0];
+		expect(setModelOrder).toBeLessThanOrEqual(unmountOrder);
 	});
 
 	it("calls onEditorMount once per file", () => {

@@ -78,8 +78,15 @@ function DiffEditorSlot({
 	onEditorMount,
 	onEditorUnmount,
 }: DiffEditorSlotProps) {
+	const editorRef =
+		useRef<import("monaco-editor").editor.IStandaloneDiffEditor | null>(null);
+
 	useEffect(() => {
 		return () => {
+			// Null out models before @monaco-editor/react disposes the editor so
+			// DiffEditorWidget can reset cleanly — avoids "TextModel disposed before
+			// DiffEditorWidget model got reset" invariant error.
+			editorRef.current?.setModel(null);
 			onEditorUnmount?.(file.path);
 		};
 	}, [file.path, onEditorUnmount]);
@@ -109,6 +116,7 @@ function DiffEditorSlot({
 				},
 			}}
 			onMount={(editor) => {
+				editorRef.current = editor;
 				onEditorMount?.(file.path, editor);
 			}}
 		/>
