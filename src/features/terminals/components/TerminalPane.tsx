@@ -200,8 +200,14 @@ export function TerminalPane({
 			termRef.current = null;
 			fitAddonRef.current = null;
 		};
-		// session.id is stable for the lifetime of this component instance.
-	}, [isLive, session.id]);
+		// Tie the xterm instance lifecycle to session.id only. isLive transitions
+		// (running/idle ↔ exited) must not tear down and rebuild the terminal —
+		// xterm 5.3 schedules Viewport refreshes via setTimeout/RAF that would
+		// then fire against a disposed RenderService. The captured isLive used
+		// for the initial-resize is mount-time; later transitions are handled by
+		// the visibility/ResizeObserver effects below, which runtime-check isLive.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [session.id]);
 
 	// Log pane visibility changes.
 	useEffect(() => {

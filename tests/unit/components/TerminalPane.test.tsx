@@ -176,6 +176,23 @@ describe("TerminalPane", () => {
 		expect(resizeMock).not.toHaveBeenCalled();
 	});
 
+	it("does not recreate the xterm instance when only isLive flips for the same session", () => {
+		const runningSession = makeSession();
+		const exitedSession = makeSession({ status: "exited", exitCode: 0 });
+
+		const { rerender } = render(
+			<TerminalPane session={runningSession} visible={true} />,
+		);
+
+		expect(xtermConstructorMock).toHaveBeenCalledTimes(1);
+		xtermDisposeMock.mockClear();
+
+		rerender(<TerminalPane session={exitedSession} visible={true} />);
+
+		expect(xtermConstructorMock).toHaveBeenCalledTimes(1);
+		expect(xtermDisposeMock).not.toHaveBeenCalled();
+	});
+
 	it("forwards xterm title changes to the callback prop", () => {
 		const session = makeSession();
 		const onTitleChange = vi.fn();
