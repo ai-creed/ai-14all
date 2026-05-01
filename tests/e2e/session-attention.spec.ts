@@ -209,7 +209,7 @@ test.describe.serial("session attention v2", () => {
 		const terminalSessionId = await getVisibleTerminalSessionId();
 		if (!terminalSessionId) {
 			test.skip(
-				// @ts-expect-error
+				// @ts-expect-error — Playwright test.skip(boolean) is not in d.ts but accepted at runtime
 				true,
 				"No visible terminal session — window.ai14all sendInput unavailable",
 			);
@@ -339,7 +339,7 @@ test.describe.serial("session attention v2", () => {
 				// error code; the attention bridge depends on the renderer preload
 				// which may not be fully available under Playwright+Electron.
 				test.skip(
-					// @ts-expect-error
+					// @ts-expect-error — Playwright test.skip(boolean) is not in d.ts but accepted at runtime
 					true,
 					"Agent attention bridge never became ready (renderer_not_ready) " +
 						"— likely the same Playwright+Electron preload compat issue " +
@@ -405,7 +405,7 @@ test.describe.serial("session attention v2", () => {
 			// Context menu didn't open or Stop isn't available
 			await page.keyboard.press("Escape");
 			test.skip(
-				// @ts-expect-error
+				// @ts-expect-error — Playwright test.skip(boolean) is not in d.ts but accepted at runtime
 				true,
 				"Stop menu item not available in this environment — skipping restart test",
 			);
@@ -417,7 +417,7 @@ test.describe.serial("session attention v2", () => {
 		const restartButton = page.getByRole("button", { name: /restart/i });
 		if (!(await restartButton.isVisible({ timeout: 5_000 }).catch(() => false))) {
 			test.skip(
-				// @ts-expect-error
+				// @ts-expect-error — Playwright test.skip(boolean) is not in d.ts but accepted at runtime
 				true,
 				"Restart button not visible after stop — may not be implemented for adHoc shells",
 			);
@@ -466,7 +466,7 @@ test.describe.serial("session attention v2", () => {
 		const terminalSessionId = await getVisibleTerminalSessionId();
 		if (!terminalSessionId) {
 			test.skip(
-				// @ts-expect-error
+				// @ts-expect-error — Playwright test.skip(boolean) is not in d.ts but accepted at runtime
 				true,
 				"No visible terminal session — cannot manufacture failed state",
 			);
@@ -497,7 +497,7 @@ test.describe.serial("session attention v2", () => {
 			!(await clearButton.isVisible({ timeout: 8_000 }).catch(() => false))
 		) {
 			test.skip(
-				// @ts-expect-error
+				// @ts-expect-error — Playwright test.skip(boolean) is not in d.ts but accepted at runtime
 				true,
 				"Clear failed button did not appear — process may not have exited with " +
 					"non-zero code or the agent attention reason was not recorded. " +

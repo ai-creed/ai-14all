@@ -14,12 +14,10 @@ import {
 import type { AgentAttentionBridgeLike } from "../../../services/mcp/ai14all-mcp-server";
 
 function stubResolver(map: Record<string, string>) {
-	let calls = 0;
 	return {
 		resolve: vi.fn(async (p: string) => map[p] ?? null),
 		refresh: vi.fn(async () => {
-			// After refresh, calls to resolve still use map — no dynamic behaviour needed
-			calls++;
+			// no dynamic behaviour needed — resolve still consults the same map
 		}),
 	};
 }
