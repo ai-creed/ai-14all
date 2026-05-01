@@ -12,6 +12,7 @@ export type SessionSidebarWorkspace = {
 	selectedWorktreeId: string | null;
 	attentionByWorktreeId: Record<string, ProcessAttentionState>;
 	processesByWorktreeId?: Record<string, WorktreeProcessSummary>;
+	attentionContextByWorktreeId?: Record<string, string>;
 	titleByWorktreeId?: Record<string, string>;
 	active: boolean;
 	hydrated: boolean;
@@ -229,10 +230,19 @@ export function SessionSidebar({
 								);
 
 								// Process list rendered outside the row button to avoid nested <button> elements.
+								const sessionAttentionContext =
+									workspace.attentionContextByWorktreeId?.[worktree.id];
 								const processList =
-									!isRenamingThisRow && !collapsed && summary ? (
+									!isRenamingThisRow && !collapsed && (summary || sessionAttentionContext) ? (
 										<div className="shell-sidebar__processes">
-											{summary.rows.map((row) => (
+											{sessionAttentionContext ? (
+												<div className="shell-sidebar__process shell-sidebar__process--session">
+													<span className="shell-sidebar__process-context" title={sessionAttentionContext}>
+														{sessionAttentionContext}
+													</span>
+												</div>
+											) : null}
+											{summary?.rows.map((row) => (
 												<div key={row.id} className="shell-sidebar__process">
 													<span
 														data-testid="process-state-indicator"
@@ -253,7 +263,7 @@ export function SessionSidebar({
 															{row.context}
 														</span>
 													) : null}
-													{row.hasFailedReason && onClearFailedReason ? (
+													{row.hasFailedReason && onClearFailedReason && workspace.active ? (
 														<button
 															type="button"
 															className="shell-button shell-button--compact shell-sidebar__process-clear-failed"
@@ -271,7 +281,7 @@ export function SessionSidebar({
 													) : null}
 												</div>
 											))}
-											{summary.overflowCount > 0 && (
+											{summary && summary.overflowCount > 0 && (
 												<div className="shell-sidebar__process shell-sidebar__process--overflow">
 													{summary.overflowCount} more shell
 													{summary.overflowCount === 1 ? "" : "s"}

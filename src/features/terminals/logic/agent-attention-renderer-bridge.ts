@@ -6,13 +6,13 @@ import { agentAttentionBridge } from "../../../lib/desktop-client";
 import type { WorkspaceAction } from "../../workspace/logic/workspace-state";
 
 type Deps = {
-	dispatchToWorktree: (worktreeId: string, action: WorkspaceAction) => void;
+	dispatchToWorktree: (worktreeId: string, action: WorkspaceAction) => boolean;
 	bridge?: typeof agentAttentionBridge;
 };
 
 export function attachAgentAttentionBridge({ dispatchToWorktree, bridge = agentAttentionBridge }: Deps): () => void {
 	const dispose = bridge.onRequest((req: AgentAttentionBridgeRequest) => {
-		dispatchToWorktree(req.worktreeId, {
+		const found = dispatchToWorktree(req.worktreeId, {
 			type: "session/reportAgentAttention",
 			worktreeId: req.worktreeId,
 			reason: {
@@ -23,7 +23,9 @@ export function attachAgentAttentionBridge({ dispatchToWorktree, bridge = agentA
 				reportedAt: req.reportedAt,
 			},
 		});
-		const reply: AgentAttentionBridgeReply = { id: req.id, ok: true };
+		const reply: AgentAttentionBridgeReply = found
+			? { id: req.id, ok: true }
+			: { id: req.id, ok: false, error: "renderer_not_ready", message: `no renderer session owns worktree ${req.worktreeId}` };
 		bridge.sendReply(reply);
 	});
 	bridge.sendReady();

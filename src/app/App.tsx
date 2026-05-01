@@ -187,9 +187,10 @@ export function App() {
 					const ws = appWorkspacesRef.current.workspacesById[wsId];
 					if (ws?.workspaceState?.sessionsByWorktreeId[worktreeId]) {
 						createScopedWorkspaceDispatch(wsId)(action);
-						return;
+						return true;
 					}
 				}
+				return false;
 			},
 			bridge: agentAttentionBridge,
 		});
@@ -408,6 +409,13 @@ export function App() {
 			type: "session/markProcessViewed",
 			worktreeId: activeWorktree.id,
 			processId,
+		});
+		dispatch({
+			type: "session/clearProcessAgentAttention",
+			worktreeId: activeWorktree.id,
+			processId,
+			sticky: false,
+			clearedAt: Date.now(),
 		});
 	}
 
@@ -1050,6 +1058,13 @@ export function App() {
 				worktreeId: currentWorktreeId,
 				processId: nextProcessId,
 			});
+			dispatch({
+				type: "session/clearProcessAgentAttention",
+				worktreeId: currentWorktreeId,
+				processId: nextProcessId,
+				sticky: false,
+				clearedAt: Date.now(),
+			});
 		},
 		[dispatch],
 	);
@@ -1165,9 +1180,10 @@ export function App() {
 					ws.persistedSnapshot?.snapshot.selectedWorktreeId ??
 					null,
 				...(() => {
-					if (!ws.workspaceState) return { attentionByWorktreeId: {}, processesByWorktreeId: {} };
+					if (!ws.workspaceState) return { attentionByWorktreeId: {}, processesByWorktreeId: {}, attentionContextByWorktreeId: {} };
 					const attentionByWorktreeId: Record<string, ProcessAttentionState> = {};
 					const processesByWorktreeId: Record<string, WorktreeProcessSummary> = {};
+					const attentionContextByWorktreeId: Record<string, string> = {};
 					for (const [worktreeId, session] of Object.entries(
 						ws.workspaceState.sessionsByWorktreeId,
 					)) {
@@ -1176,16 +1192,19 @@ export function App() {
 							.filter(Boolean);
 						const processSummary = buildWorktreeProcessSummary(processes, sidebarNow, 3);
 						processesByWorktreeId[worktreeId] = processSummary;
-						const displayState = buildWorktreeAttentionDisplay({
+						const display = buildWorktreeAttentionDisplay({
 							sessionAgentAttentionReasons: session.agentAttentionReasons,
 							processSummary,
-						}).state;
+						});
 						attentionByWorktreeId[worktreeId] =
-							displayState === "actionRequired" ? "actionRequired"
-							: displayState === "active" ? "activity"
+							display.state === "actionRequired" ? "actionRequired"
+							: display.state === "active" ? "activity"
 							: "idle";
+						if (display.source === "session" && display.context) {
+							attentionContextByWorktreeId[worktreeId] = display.context;
+						}
 					}
-					return { attentionByWorktreeId, processesByWorktreeId };
+					return { attentionByWorktreeId, processesByWorktreeId, attentionContextByWorktreeId };
 				})(),
 				titleByWorktreeId: ws.workspaceState
 					? Object.fromEntries(

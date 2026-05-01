@@ -25,6 +25,7 @@ export type WorktreeProcessSummary = {
 export type WorktreeAttentionDisplay = {
 	state: SidebarShellState;
 	context: string;
+	source: "session" | "process";
 };
 
 const ACTIVE_WINDOW_MS = 10_000;
@@ -178,7 +179,7 @@ export function buildWorktreeAttentionDisplay(input: {
 	const topContext = top?.context ?? "";
 
 	if (severityRank[sessionState] > severityRank[topState]) {
-		return { state: sessionState, context: sessionContext };
+		return { state: sessionState, context: sessionContext, source: "session" };
 	}
-	return { state: topState, context: topContext };
+	return { state: topState, context: topContext, source: "process" };
 }

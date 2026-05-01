@@ -161,24 +161,40 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 					exitCode: event.exitCode ?? null,
 				};
 				applyActionForOwner(ownerWsId, action);
-				if (
-					event.exitCode != null &&
-					event.exitCode !== 0 &&
-					isAgentProcess(process.label, process.command ?? null)
-				) {
-					const lifecycleAction: WorkspaceAction = {
-						type: "session/reportProcessAgentAttention",
-						worktreeId: process.worktreeId,
-						processId: process.id,
-						reason: {
-							state: "failed",
-							source: "lifecycle",
-							summary: `exited with code ${event.exitCode}`,
-							nextAction: null,
-							reportedAt: Date.now(),
-						},
-					};
-					applyActionForOwner(ownerWsId, lifecycleAction);
+				if (isAgentProcess(process.label, process.command ?? null)) {
+					if (event.exitCode != null && event.exitCode !== 0) {
+						const lifecycleAction: WorkspaceAction = {
+							type: "session/reportProcessAgentAttention",
+							worktreeId: process.worktreeId,
+							processId: process.id,
+							reason: {
+								state: "failed",
+								source: "lifecycle",
+								summary: `exited with code ${event.exitCode}`,
+								nextAction: null,
+								reportedAt: Date.now(),
+							},
+						};
+						applyActionForOwner(ownerWsId, lifecycleAction);
+					} else if (
+						event.exitCode === 0 &&
+						process.agentAttentionReasons?.terminal?.state === "ready"
+					) {
+						// Promote terminal ready to lifecycle so it persists after exit
+						const lifecycleAction: WorkspaceAction = {
+							type: "session/reportProcessAgentAttention",
+							worktreeId: process.worktreeId,
+							processId: process.id,
+							reason: {
+								state: "ready",
+								source: "lifecycle",
+								summary: process.agentAttentionReasons.terminal.summary,
+								nextAction: null,
+								reportedAt: Date.now(),
+							},
+						};
+						applyActionForOwner(ownerWsId, lifecycleAction);
+					}
 				}
 				void logRendererShellEvent({
 					event: "terminal-binding-changed",
