@@ -225,58 +225,60 @@ export function SessionSidebar({
 												{worktree.branchName}
 											</div>
 										)}
-										{summary && (
-											<div className="shell-sidebar__processes">
-												{summary.rows.map((row) => (
-													<div key={row.id} className="shell-sidebar__process">
-														<span
-															data-testid="process-state-indicator"
-															className="shell-sidebar__process-indicator"
-															data-state={row.state}
-														/>
-														<span
-															className="shell-sidebar__process-label"
-															title={row.label}
-														>
-															{row.label}
-														</span>
-														{row.context ? (
-															<span
-																className="shell-sidebar__process-context"
-																title={row.context}
-															>
-																{row.context}
-															</span>
-														) : null}
-														{row.hasFailedReason && onClearFailedReason ? (
-															<button
-																type="button"
-																className="shell-button shell-button--compact shell-sidebar__process-clear-failed"
-																aria-label={`Clear failed for ${row.label}`}
-																onClick={(e) => {
-																	e.stopPropagation();
-																	onClearFailedReason(
-																		workspace.workspaceId,
-																		worktree.id,
-																		row.id,
-																	);
-																}}
-															>
-																Clear failed
-															</button>
-														) : null}
-													</div>
-												))}
-												{summary.overflowCount > 0 && (
-													<div className="shell-sidebar__process shell-sidebar__process--overflow">
-														{summary.overflowCount} more shell
-														{summary.overflowCount === 1 ? "" : "s"}
-													</div>
-												)}
-											</div>
-										)}
 									</>
 								);
+
+								// Process list rendered outside the row button to avoid nested <button> elements.
+								const processList =
+									!isRenamingThisRow && !collapsed && summary ? (
+										<div className="shell-sidebar__processes">
+											{summary.rows.map((row) => (
+												<div key={row.id} className="shell-sidebar__process">
+													<span
+														data-testid="process-state-indicator"
+														className="shell-sidebar__process-indicator"
+														data-state={row.state}
+													/>
+													<span
+														className="shell-sidebar__process-label"
+														title={row.label}
+													>
+														{row.label}
+													</span>
+													{row.context ? (
+														<span
+															className="shell-sidebar__process-context"
+															title={row.context}
+														>
+															{row.context}
+														</span>
+													) : null}
+													{row.hasFailedReason && onClearFailedReason ? (
+														<button
+															type="button"
+															className="shell-button shell-button--compact shell-sidebar__process-clear-failed"
+															aria-label={`Clear failed for ${row.label}`}
+															onClick={() => {
+																onClearFailedReason(
+																	workspace.workspaceId,
+																	worktree.id,
+																	row.id,
+																);
+															}}
+														>
+															Clear failed
+														</button>
+													) : null}
+												</div>
+											))}
+											{summary.overflowCount > 0 && (
+												<div className="shell-sidebar__process shell-sidebar__process--overflow">
+													{summary.overflowCount} more shell
+													{summary.overflowCount === 1 ? "" : "s"}
+												</div>
+											)}
+										</div>
+									) : null;
 
 								const item = isRenamingThisRow ? (
 									<div role="presentation" {...rowCommonProps}>
@@ -307,12 +309,20 @@ export function SessionSidebar({
 								);
 
 								if (collapsed || !workspace.active) {
-									return <div key={worktree.id}>{item}</div>;
+									return (
+										<div key={worktree.id}>
+											{item}
+											{processList}
+										</div>
+									);
 								}
 
 								return (
 									<ContextMenu.Root key={worktree.id}>
-										<ContextMenu.Trigger asChild>{item}</ContextMenu.Trigger>
+										<div>
+											<ContextMenu.Trigger asChild>{item}</ContextMenu.Trigger>
+											{processList}
+										</div>
 										<ContextMenu.Portal>
 											<ContextMenu.Content className="shell-toolbar-menu">
 												<ContextMenu.Item

@@ -11,6 +11,7 @@ import {
 	BridgeTimeoutError,
 	RendererNotReadyError,
 } from "../../../services/mcp/agent-attention-bridge";
+import type { AgentAttentionBridgeLike } from "../../../services/mcp/ai14all-mcp-server";
 
 function stubResolver(map: Record<string, string>) {
 	let calls = 0;
@@ -47,7 +48,7 @@ async function makeRig(opts: {
 		report: vi.fn().mockResolvedValue(undefined),
 	};
 
-	const server = new Ai14allMcpServer(service, resolver, noteBridge, attentionBridge, {
+	const server = new Ai14allMcpServer(service, resolver, noteBridge, attentionBridge as AgentAttentionBridgeLike, {
 		port: 0,
 		host: "127.0.0.1",
 	});

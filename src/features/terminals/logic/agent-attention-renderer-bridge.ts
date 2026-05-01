@@ -6,13 +6,13 @@ import { agentAttentionBridge } from "../../../lib/desktop-client";
 import type { WorkspaceAction } from "../../workspace/logic/workspace-state";
 
 type Deps = {
-	dispatch: (action: WorkspaceAction) => void;
+	dispatchToWorktree: (worktreeId: string, action: WorkspaceAction) => void;
 	bridge?: typeof agentAttentionBridge;
 };
 
-export function attachAgentAttentionBridge({ dispatch, bridge = agentAttentionBridge }: Deps): () => void {
+export function attachAgentAttentionBridge({ dispatchToWorktree, bridge = agentAttentionBridge }: Deps): () => void {
 	const dispose = bridge.onRequest((req: AgentAttentionBridgeRequest) => {
-		dispatch({
+		dispatchToWorktree(req.worktreeId, {
 			type: "session/reportAgentAttention",
 			worktreeId: req.worktreeId,
 			reason: {

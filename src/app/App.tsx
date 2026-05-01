@@ -19,7 +19,12 @@ import { useReviewComments } from "../features/review/hooks/use-review-comments"
 import { type NewCommentDraft } from "../features/review/components/ReviewCommentSidebar";
 import { type SelectionDraft } from "../features/review/logic/diff-editor-decorations";
 import { useAgentInstallStatus } from "../features/review/hooks/use-agent-install-status";
-import { buildWorktreeProcessSummary } from "../features/workspace/logic/sidebar-shell-summary";
+import {
+	buildWorktreeAttentionDisplay,
+	buildWorktreeProcessSummary,
+	type WorktreeProcessSummary,
+} from "../features/workspace/logic/sidebar-shell-summary";
+import type { ProcessAttentionState } from "../../shared/models/process-session";
 import { useNoteBridgeReceiver } from "../features/workspace/hooks/use-note-bridge-receiver";
 import { attachAgentAttentionBridge } from "../features/terminals/logic/agent-attention-renderer-bridge";
 import type { GitChangeStatus } from "../../shared/models/git-change";
@@ -176,7 +181,18 @@ export function App() {
 
 	useEffect(() => {
 		if (startupMode !== "ready") return;
-		const dispose = attachAgentAttentionBridge({ dispatch, bridge: agentAttentionBridge });
+		const dispose = attachAgentAttentionBridge({
+			dispatchToWorktree: (worktreeId, action) => {
+				for (const wsId of appWorkspacesRef.current.workspaceOrder) {
+					const ws = appWorkspacesRef.current.workspacesById[wsId];
+					if (ws?.workspaceState?.sessionsByWorktreeId[worktreeId]) {
+						createScopedWorkspaceDispatch(wsId)(action);
+						return;
+					}
+				}
+			},
+			bridge: agentAttentionBridge,
+		});
 		let called = false;
 		const off = () => {
 			if (called) return;
@@ -1148,28 +1164,29 @@ export function App() {
 					ws.workspaceState?.selectedWorktreeId ??
 					ws.persistedSnapshot?.snapshot.selectedWorktreeId ??
 					null,
-				attentionByWorktreeId: ws.workspaceState
-					? Object.fromEntries(
-							Object.entries(ws.workspaceState.sessionsByWorktreeId).map(
-								([worktreeId, session]) => [worktreeId, session.attentionState],
-							),
-						)
-					: {},
-				processesByWorktreeId: ws.workspaceState
-					? Object.fromEntries(
-							Object.entries(ws.workspaceState.sessionsByWorktreeId).map(
-								([worktreeId, session]) => {
-									const processes = session.processSessionIds
-										.map((id) => ws.workspaceState!.processSessionsById[id])
-										.filter(Boolean);
-									return [
-										worktreeId,
-										buildWorktreeProcessSummary(processes, sidebarNow, 3),
-									];
-								},
-							),
-						)
-					: {},
+				...(() => {
+					if (!ws.workspaceState) return { attentionByWorktreeId: {}, processesByWorktreeId: {} };
+					const attentionByWorktreeId: Record<string, ProcessAttentionState> = {};
+					const processesByWorktreeId: Record<string, WorktreeProcessSummary> = {};
+					for (const [worktreeId, session] of Object.entries(
+						ws.workspaceState.sessionsByWorktreeId,
+					)) {
+						const processes = session.processSessionIds
+							.map((id) => ws.workspaceState!.processSessionsById[id])
+							.filter(Boolean);
+						const processSummary = buildWorktreeProcessSummary(processes, sidebarNow, 3);
+						processesByWorktreeId[worktreeId] = processSummary;
+						const displayState = buildWorktreeAttentionDisplay({
+							sessionAgentAttentionReasons: session.agentAttentionReasons,
+							processSummary,
+						}).state;
+						attentionByWorktreeId[worktreeId] =
+							displayState === "actionRequired" ? "actionRequired"
+							: displayState === "active" ? "activity"
+							: "idle";
+					}
+					return { attentionByWorktreeId, processesByWorktreeId };
+				})(),
 				titleByWorktreeId: ws.workspaceState
 					? Object.fromEntries(
 							Object.entries(ws.workspaceState.sessionsByWorktreeId).map(

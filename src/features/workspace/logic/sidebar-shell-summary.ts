@@ -97,7 +97,11 @@ function deriveAgentContext(
 	if (ranked === "idle") return null;
 	if (ranked === "stale")
 		return `stale: quiet for ${Math.max(1, Math.floor((now - (process.lastActivityAt ?? now)) / 1000))}s`;
-	const reason = reasons.terminal ?? reasons.lifecycle ?? null;
+	// terminal reasons are only meaningful during active execution; after exit show lifecycle only
+	const reason =
+		process.status === "running"
+			? (reasons.terminal ?? reasons.lifecycle ?? null)
+			: (reasons.lifecycle ?? null);
 	if (!reason) return ranked;
 	return `${reason.state}: ${reason.summary}`;
 }
