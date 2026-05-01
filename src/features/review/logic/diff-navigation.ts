@@ -1,0 +1,54 @@
+import type { editor as MonacoEditor } from "monaco-editor";
+
+export type DiffNavigableEditor = Pick<
+	MonacoEditor.IStandaloneDiffEditor,
+	"getLineChanges" | "getModifiedEditor"
+>;
+
+function anchorLineFor(change: MonacoEditor.ILineChange): number {
+	// For pure deletions (modifiedEndLineNumber === 0) Monaco places the marker
+	// between modified lines; modifiedStartLineNumber points to the line above.
+	// Clamp to 1 so we never produce a non-positive line number.
+	if (change.modifiedEndLineNumber > 0) return change.modifiedStartLineNumber;
+	return Math.max(1, change.modifiedStartLineNumber);
+}
+
+export function getDiffAnchorLines(editor: DiffNavigableEditor): number[] {
+	const changes = editor.getLineChanges();
+	if (!changes || changes.length === 0) return [];
+	return changes.map(anchorLineFor);
+}
+
+function revealLine(editor: DiffNavigableEditor, line: number): void {
+	const modified = editor.getModifiedEditor();
+	modified.revealLineInCenter(line);
+	modified.setPosition({ lineNumber: line, column: 1 });
+	modified.focus();
+}
+
+export function navigateToNextDiff(editor: DiffNavigableEditor): boolean {
+	const lines = getDiffAnchorLines(editor);
+	if (lines.length === 0) return false;
+	const cursorLine =
+		editor.getModifiedEditor().getPosition()?.lineNumber ?? 0;
+	const target = lines.find((l) => l > cursorLine) ?? lines[0];
+	revealLine(editor, target);
+	return true;
+}
+
+export function navigateToPrevDiff(editor: DiffNavigableEditor): boolean {
+	const lines = getDiffAnchorLines(editor);
+	if (lines.length === 0) return false;
+	const cursorLine =
+		editor.getModifiedEditor().getPosition()?.lineNumber ?? Number.MAX_SAFE_INTEGER;
+	let target: number | undefined;
+	for (let i = lines.length - 1; i >= 0; i--) {
+		if (lines[i] < cursorLine) {
+			target = lines[i];
+			break;
+		}
+	}
+	if (target === undefined) target = lines[lines.length - 1];
+	revealLine(editor, target);
+	return true;
+}
