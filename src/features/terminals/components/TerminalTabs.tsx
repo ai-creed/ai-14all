@@ -77,7 +77,6 @@ export function TerminalTabs({
 		<Tooltip.Provider delayDuration={150}>
 			<Tabs.Root
 				value={activeProcessId ?? undefined}
-				onValueChange={onSelect}
 				className="shell-terminal-tabs"
 			>
 				<div className="shell-terminal-tabs__bar">
@@ -93,7 +92,21 @@ export function TerminalTabs({
 								);
 								return (
 									<ContextMenu.Root key={process.id}>
-										<ContextMenu.Trigger className="shell-terminal-tabs__item">
+										<ContextMenu.Trigger
+											className="shell-terminal-tabs__item"
+											onMouseDown={(e) => {
+												// Left-click only: prevent the browser from moving
+												// keyboard focus to the tab button. This keeps
+												// focus in the terminal so typing works immediately.
+												if (e.button === 0) e.preventDefault();
+											}}
+											onClick={(e) => {
+												// Fire onSelect for every left-click, including
+												// re-clicks of the already-active tab (Radix
+												// onValueChange skips those since value doesn't change).
+												if (e.button === 0) onSelect(process.id);
+											}}
+										>
 											<Tabs.Trigger
 												value={process.id}
 												className="shell-terminal-tab"
