@@ -398,8 +398,36 @@ export function App() {
 		onOpen: openEditorForFile,
 	});
 
+	const [terminalFocusSignal, setTerminalFocusSignal] = useState(0);
+
 	function selectActiveProcess(processId: string) {
 		if (!activeWorktree) return;
+
+		// VS Code-style split mode behavior:
+		// - In split mode, clicking a process not in either slot → exit split (show alone)
+		// - In single mode, clicking a process that still has a slot assigned → restore split
+		if (activeSession?.terminalLayoutMode === "split") {
+			if (
+				activeSession.splitLeftProcessId !== processId &&
+				activeSession.splitRightProcessId !== processId
+			) {
+				dispatch({
+					type: "session/setTerminalLayoutMode",
+					worktreeId: activeWorktree.id,
+					layoutMode: "single",
+				});
+			}
+		} else if (
+			activeSession?.splitLeftProcessId === processId ||
+			activeSession?.splitRightProcessId === processId
+		) {
+			dispatch({
+				type: "session/setTerminalLayoutMode",
+				worktreeId: activeWorktree.id,
+				layoutMode: "split",
+			});
+		}
+
 		dispatch({
 			type: "session/selectProcess",
 			worktreeId: activeWorktree.id,
@@ -421,6 +449,25 @@ export function App() {
 			type: "session/clearSessionAgentAttention",
 			worktreeId: activeWorktree.id,
 		});
+		setTerminalFocusSignal((n) => n + 1);
+
+		// Focus the terminal synchronously so keyboard input lands immediately.
+		// useEffect fires after paint (too late when Playwright or fast users
+		// type right after clicking a tab). We look up the xterm textarea via
+		// the data-terminal-session-id attribute set by TerminalPane and the
+		// stable xterm-helper-textarea class used throughout the E2E suite.
+		const terminalSessionId =
+			workspaceStateRef.current.processSessionsById[processId]
+				?.terminalSessionId;
+		if (terminalSessionId) {
+			const pane = document.querySelector(
+				`[data-terminal-session-id="${terminalSessionId}"]`,
+			);
+			const textarea = pane?.querySelector(
+				".xterm-helper-textarea",
+			) as HTMLTextAreaElement | null;
+			textarea?.focus({ preventScroll: true });
+		}
 	}
 
 	const {
@@ -1052,6 +1099,32 @@ export function App() {
 			const nextProcessId = processes[nextIdx]?.id;
 			if (!nextProcessId) return;
 			e.preventDefault();
+
+			// VS Code-style split mode behavior (same as selectActiveProcess):
+			// - In split mode, navigating to a process not in either slot → single view
+			// - In single mode, navigating to a process with a slot assigned → restore split
+			if (session.terminalLayoutMode === "split") {
+				if (
+					session.splitLeftProcessId !== nextProcessId &&
+					session.splitRightProcessId !== nextProcessId
+				) {
+					dispatch({
+						type: "session/setTerminalLayoutMode",
+						worktreeId: currentWorktreeId,
+						layoutMode: "single",
+					});
+				}
+			} else if (
+				session.splitLeftProcessId === nextProcessId ||
+				session.splitRightProcessId === nextProcessId
+			) {
+				dispatch({
+					type: "session/setTerminalLayoutMode",
+					worktreeId: currentWorktreeId,
+					layoutMode: "split",
+				});
+			}
+
 			dispatch({
 				type: "session/selectProcess",
 				worktreeId: currentWorktreeId,
@@ -1073,6 +1146,7 @@ export function App() {
 				type: "session/clearSessionAgentAttention",
 				worktreeId: currentWorktreeId,
 			});
+			setTerminalFocusSignal((n) => n + 1);
 		},
 		[dispatch],
 	);
@@ -1350,6 +1424,7 @@ export function App() {
 						visibleProcessIds={visibleProcessIds}
 						sessions={sessions}
 						orderedSessions={orderedSessions}
+						terminalFocusSignal={terminalFocusSignal}
 						dispatch={dispatch}
 						handleAddAdHoc={handleAddAdHoc}
 						selectActiveProcess={selectActiveProcess}

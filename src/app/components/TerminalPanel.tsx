@@ -18,6 +18,7 @@ type Props = {
 	visibleProcessIds: readonly string[];
 	sessions: TerminalSession[];
 	orderedSessions: TerminalSession[];
+	terminalFocusSignal: number;
 	dispatch: (action: WorkspaceAction) => void;
 	handleAddAdHoc: () => Promise<void>;
 	selectActiveProcess: (processId: string) => void;
@@ -45,6 +46,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 		visibleProcessIds,
 		sessions,
 		orderedSessions,
+		terminalFocusSignal,
 		dispatch,
 		handleAddAdHoc,
 		selectActiveProcess,
@@ -132,18 +134,23 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 				{orderedSessions.map((session) => {
 					const process =
 						findProcessByTerminalSessionId(session.id)?.process ?? null;
+					const visible =
+						session.worktreeId === activeWorktree?.id &&
+						visibleProcessIds.some(
+							(processId) =>
+								workspaceState.processSessionsById[processId]
+									?.terminalSessionId === session.id,
+						);
 					return (
 						<TerminalPane
 							key={session.id}
 							session={session}
-							visible={
-								session.worktreeId === activeWorktree?.id &&
-								visibleProcessIds.some(
-									(processId) =>
-										workspaceState.processSessionsById[processId]
-											?.terminalSessionId === session.id,
-								)
+							visible={visible}
+							focused={
+								visible &&
+								process?.id === activeSession?.activeProcessSessionId
 							}
+							focusSignal={terminalFocusSignal}
 							onTitleChange={(title) => {
 								if (!process || process.origin !== "adHoc") return;
 								const nextLabel = normalizeTerminalTitle(title);

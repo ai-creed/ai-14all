@@ -17,6 +17,15 @@ const FIND_DECORATIONS = {
 type Props = {
 	session: TerminalSession;
 	visible: boolean;
+	/** Boolean: is this the currently active pane? */
+	focused?: boolean;
+	/**
+	 * Monotonically-increasing counter that bumps on every terminal selection
+	 * (tab click or keyboard shortcut). Including it in the effect dep array
+	 * ensures focus is reclaimed even when `focused` doesn't change (e.g.
+	 * clicking the already-active tab after focus moved to the tab bar).
+	 */
+	focusSignal?: number;
 	onTitleChange?: (title: string) => void;
 	onActivate?: () => void;
 };
@@ -29,6 +38,8 @@ type Props = {
 export function TerminalPane({
 	session,
 	visible,
+	focused,
+	focusSignal,
 	onTitleChange,
 	onActivate,
 }: Props) {
@@ -300,6 +311,18 @@ export function TerminalPane({
 		fitPreservingScroll(term, fitAddon);
 		terminals.resize(session.id, term.cols, term.rows).catch(() => undefined);
 	}, [isLive, visible, session.id, fitPreservingScroll]);
+
+	// Auto-focus the xterm instance when this pane becomes the active terminal,
+	// so the user can type immediately without an extra click.
+	// focusSignal is included in deps so the effect re-runs on every selection
+	// event — even when focused stays true (e.g. re-clicking the active tab
+	// after focus drifted to the tab bar button).
+	// Skip if the find bar is open — the find input holds focus in that case.
+	useEffect(() => {
+		if (!focused || !visible || findOpen) return;
+		termRef.current?.focus();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [focusSignal, focused, visible, findOpen]);
 
 	// Resize on container dimension changes via ResizeObserver.
 	useEffect(() => {
