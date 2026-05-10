@@ -54,6 +54,13 @@ export function TerminalPane({
 		`pane_${session.id}_${Math.random().toString(36).slice(2, 8)}`,
 	);
 	const isLive = session.status === "running" || session.status === "idle";
+	/**
+	 * Viewport row offset saved the moment this pane becomes hidden.
+	 * Restored after fit() when the pane becomes visible again, so that
+	 * output arriving while hidden (which auto-scrolls xterm internally)
+	 * does not clobber the user's scroll position.
+	 */
+	const savedScrollRef = useRef<number | null>(null);
 
 	const [findOpen, setFindOpen] = useState(false);
 	const [findQuery, setFindQuery] = useState("");
@@ -149,7 +156,7 @@ export function TerminalPane({
 
 		const term = new Terminal({
 			cursorBlink: true,
-			scrollback: 2000,
+			scrollback: 10_000,
 			screenReaderMode: true,
 			fontSize: 12,
 			fontFamily:
@@ -301,16 +308,39 @@ export function TerminalPane({
 		});
 	}, [visible, session.id]);
 
-	// Fit + resize PTY when the pane becomes visible.
+	// Save scroll position when the pane is hidden, restore it when shown.
+	//
+	// Why not read viewportY at show-time (the old fitPreservingScroll approach)?
+	// While hidden, the PTY keeps running and xterm auto-scrolls its internal
+	// viewportY to keep the cursor visible. By the time the pane is shown again
+	// the buffer position has already moved to the bottom, so reading it there
+	// restores the wrong place. Capturing it on hide (before any new data shifts
+	// it) and replaying it on show gives the correct user-intended position.
 	useEffect(() => {
-		if (!visible || !isLive) return;
+		if (!visible) {
+			// Capture the position the user was at before we hide.
+			savedScrollRef.current =
+				termRef.current?.buffer.active.viewportY ?? null;
+			return;
+		}
+
+		if (!isLive) return;
 		const term = termRef.current;
 		const fitAddon = fitAddonRef.current;
 		if (!term || !fitAddon) return;
 
-		fitPreservingScroll(term, fitAddon);
+		fitAddon.fit();
 		terminals.resize(session.id, term.cols, term.rows).catch(() => undefined);
-	}, [isLive, visible, session.id, fitPreservingScroll]);
+
+		const saved = savedScrollRef.current;
+		if (saved !== null) {
+			// Clamp to the valid range — baseY is the maximum scrollable offset.
+			const target = Math.min(saved, term.buffer.active.baseY);
+			const delta = target - term.buffer.active.viewportY;
+			if (delta !== 0) term.scrollLines(delta);
+		}
+		savedScrollRef.current = null;
+	}, [isLive, visible, session.id]);
 
 	// Auto-focus the xterm instance when this pane becomes the active terminal,
 	// so the user can type immediately without an extra click.
