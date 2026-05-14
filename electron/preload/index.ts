@@ -33,6 +33,8 @@ const REVIEW_REOPEN = "reviewComments:reopen";
 const REVIEW_DELETE = "reviewComments:delete";
 const REVIEW_REBASE = "reviewComments:rebaseWorktreeIds";
 const REVIEW_COMMENT_CHANGED = "reviewComments:changed";
+const REVIEW_UPDATE = "reviewComments:update";
+const REVIEW_BULK_REMOVE_ADDRESSED = "reviewComments:bulkRemoveAddressed";
 const AGENT_INSTALL_LIST = "agentInstall:listProviders";
 const AGENT_INSTALL_DO = "agentInstall:install";
 const AGENT_INSTALL_UNINSTALL = "agentInstall:uninstall";
@@ -287,6 +289,12 @@ const api: Ai14AllDesktopApi = {
 		},
 		delete(commentId) {
 			return ipcRenderer.invoke(REVIEW_DELETE, { commentId });
+		},
+		update(commentId: string, body: string) {
+			return ipcRenderer.invoke(REVIEW_UPDATE, { commentId, body });
+		},
+		bulkRemoveAddressed(worktreeId: string, ids: string[]) {
+			return ipcRenderer.invoke(REVIEW_BULK_REMOVE_ADDRESSED, { worktreeId, ids });
 		},
 		rebaseWorktreeIds(mapping) {
 			return ipcRenderer.invoke(REVIEW_REBASE, { mapping });

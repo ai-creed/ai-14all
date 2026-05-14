@@ -362,6 +362,23 @@ export type Ai14AllDesktopApi = {
 		>;
 		reopen(commentId: string): Promise<{ comment: ReviewComment | null }>;
 		delete(commentId: string): Promise<{ deleted: boolean }>;
+		update(
+			commentId: string,
+			body: string,
+		): Promise<
+			| { ok: true; comment: ReviewComment }
+			| { ok: false; error: "not_found" | "not_open" | "empty_body" }
+		>;
+		bulkRemoveAddressed(
+			worktreeId: string,
+			ids: string[],
+		): Promise<
+			| { ok: true; removed: number }
+			| {
+					ok: false;
+					error: "worktree_mismatch" | "not_found" | "not_addressed";
+				}
+		>;
 		rebaseWorktreeIds(mapping: Record<string, string>): Promise<{ ok: true }>;
 		onChanged(handler: (event: ReviewCommentChangedEvent) => void): () => void;
 	};
