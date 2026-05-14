@@ -118,6 +118,10 @@ export const reviewComments: Ai14AllDesktopApi["reviewComments"] = {
 		getDesktopClient().reviewComments.rebaseWorktreeIds(mapping),
 	onChanged: (handler: (event: ReviewCommentChangedEvent) => void) =>
 		getDesktopClient().reviewComments.onChanged(handler),
+	update: (commentId, body) =>
+		getDesktopClient().reviewComments.update(commentId, body),
+	bulkRemoveAddressed: (worktreeId, ids) =>
+		getDesktopClient().reviewComments.bulkRemoveAddressed(worktreeId, ids),
 };
 
 export const agentInstall: Ai14AllDesktopApi["agentInstall"] = {
