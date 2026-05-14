@@ -4,6 +4,7 @@ import type { ReviewCommentStore } from "./review-comment-store.js";
 
 export type ChangeKind =
 	| "created"
+	| "updated"
 	| "addressed"
 	| "reopened"
 	| "deleted"

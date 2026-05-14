@@ -65,7 +65,14 @@ export const ReviewRebaseResponseSchema = z.object({ ok: z.literal(true) });
 
 export const REVIEW_COMMENT_CHANGED = "reviewComments:changed" as const;
 export const ReviewCommentChangedEventSchema = z.object({
-	kind: z.enum(["created", "addressed", "reopened", "deleted", "rebased"]),
+	kind: z.enum([
+		"created",
+		"updated",
+		"addressed",
+		"reopened",
+		"deleted",
+		"rebased",
+	]),
 });
 export type ReviewCommentChangedEvent = z.infer<
 	typeof ReviewCommentChangedEventSchema
