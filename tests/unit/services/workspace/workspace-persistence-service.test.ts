@@ -66,7 +66,6 @@ describe("WorkspacePersistenceService", () => {
 								title: "",
 								note: "resume here",
 								reviewMode: "changes" as const,
-								reviewDrawerOpen: false,
 								viewerMode: "diff" as const,
 								selectedFilePath: null,
 								selectedChangedFilePath: "src/index.ts",

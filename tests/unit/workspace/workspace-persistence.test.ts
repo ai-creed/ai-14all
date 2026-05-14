@@ -103,7 +103,6 @@ describe("buildWorkspaceSnapshot", () => {
 					title: "",
 					note: "resume here",
 					reviewMode: "files",
-					reviewDrawerOpen: false,
 					viewerMode: "file",
 					selectedFilePath: null,
 					selectedChangedFilePath: null,
@@ -481,7 +480,6 @@ describe("splitPendingRestores", () => {
 					title: "",
 					note: "main note",
 					reviewMode: "files" as const,
-					reviewDrawerOpen: false,
 					viewerMode: "file" as const,
 					selectedFilePath: "README.md",
 					selectedChangedFilePath: null,
@@ -500,7 +498,6 @@ describe("splitPendingRestores", () => {
 					title: "",
 					note: "feature note",
 					reviewMode: "changes" as const,
-					reviewDrawerOpen: false,
 					viewerMode: "diff" as const,
 					selectedFilePath: null,
 					selectedChangedFilePath: "src/index.ts",
@@ -535,7 +532,6 @@ describe("splitPendingRestores", () => {
 					title: "",
 					note: "",
 					reviewMode: "files" as const,
-					reviewDrawerOpen: false,
 					viewerMode: "file" as const,
 					selectedFilePath: null,
 					selectedChangedFilePath: null,
@@ -584,7 +580,6 @@ describe("rebaseSnapshotPaths", () => {
 					title: "",
 					note: "main",
 					reviewMode: "files",
-					reviewDrawerOpen: false,
 					viewerMode: "file",
 					selectedFilePath: null,
 					selectedChangedFilePath: null,
@@ -603,7 +598,6 @@ describe("rebaseSnapshotPaths", () => {
 					title: "",
 					note: "feature",
 					reviewMode: "files",
-					reviewDrawerOpen: false,
 					viewerMode: "file",
 					selectedFilePath: null,
 					selectedChangedFilePath: null,
@@ -643,7 +637,6 @@ describe("rebaseSnapshotPaths", () => {
 					title: "",
 					note: "",
 					reviewMode: "files",
-					reviewDrawerOpen: false,
 					viewerMode: "file",
 					selectedFilePath: null,
 					selectedChangedFilePath: null,
@@ -749,7 +742,6 @@ function makeSession(
 		title: "",
 		note,
 		reviewMode: "files",
-		reviewDrawerOpen: false,
 		viewerMode: "file",
 		selectedFilePath: null,
 		selectedChangedFilePath: null,
@@ -970,6 +962,29 @@ describe("PersistedWorktreeSessionSchema title field", () => {
 			title: "Payments refactor",
 		});
 		expect(parsed.title).toBe("Payments refactor");
+	});
+
+	it("silently strips reviewDrawerOpen from legacy per-session snapshots", () => {
+		const oldSession = {
+			worktreeId: "wt-1",
+			title: "test",
+			note: "",
+			reviewMode: "files" as const,
+			reviewDrawerOpen: true, // legacy field — must be stripped
+			viewerMode: "file" as const,
+			selectedFilePath: null,
+			selectedChangedFilePath: null,
+			selectedCommitSha: null,
+			selectedCommitFilePath: null,
+			activeProcessSessionId: null,
+			reviewSidebarWidth: 280,
+			nextAdHocNumber: 1,
+			processSessions: [],
+		};
+		const parsed = PersistedWorktreeSessionSchema.parse(oldSession);
+		expect("reviewDrawerOpen" in parsed).toBe(false);
+		expect(parsed.worktreeId).toBe("wt-1");
+		expect(parsed.reviewMode).toBe("files");
 	});
 });
 

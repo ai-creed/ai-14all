@@ -91,7 +91,6 @@ export function buildWorkspaceSnapshot(
 				title: session.title,
 				note: session.note,
 				reviewMode: session.reviewMode,
-				reviewDrawerOpen: false,
 				viewerMode: session.viewerMode,
 				selectedFilePath: session.selectedFilePath,
 				selectedChangedFilePath: session.selectedChangedFilePath,
