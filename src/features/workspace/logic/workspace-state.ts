@@ -41,7 +41,6 @@ export type WorkspaceAction =
 			worktreeId: string;
 			reviewMode: ReviewMode;
 	  }
-	| { type: "session/setReviewDrawerOpen"; worktreeId: string; open: boolean }
 	| {
 			type: "session/setReviewSidebarWidth";
 			worktreeId: string;
@@ -185,7 +184,6 @@ function createSession(worktree: Worktree): WorktreeSession {
 		title: "",
 		note: "",
 		reviewMode: "files",
-		reviewDrawerOpen: false,
 		viewerMode: "file",
 		gitSummary: null,
 		gitSummaryStale: false,
@@ -296,7 +294,6 @@ function restorePersistedSession(
 		title: snapshot.title ?? "",
 		note: snapshot.note,
 		reviewMode: snapshot.reviewMode,
-		reviewDrawerOpen: snapshot.reviewDrawerOpen,
 		viewerMode: snapshot.viewerMode,
 		selectedFilePath: snapshot.selectedFilePath,
 		selectedChangedFilePath: snapshot.selectedChangedFilePath,
@@ -985,8 +982,6 @@ export function workspaceReducer(
 		nextSession = { ...session, note: action.note };
 	} else if (action.type === "session/setReviewMode") {
 		nextSession = { ...session, reviewMode: action.reviewMode };
-	} else if (action.type === "session/setReviewDrawerOpen") {
-		nextSession = { ...session, reviewDrawerOpen: action.open };
 	} else if (action.type === "session/setReviewSidebarWidth") {
 		nextSession = { ...session, reviewSidebarWidth: action.width };
 	} else if (action.type === "session/selectFile") {

@@ -24,7 +24,6 @@ function makeSession(worktreeId: string, note: string) {
 		title: "t",
 		note,
 		reviewMode: "files" as const,
-		reviewDrawerOpen: false,
 		viewerMode: "file" as const,
 		gitSummary: null,
 		gitSummaryStale: false,

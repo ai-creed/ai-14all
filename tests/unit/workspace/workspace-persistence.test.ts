@@ -1000,38 +1000,6 @@ describe("buildWorkspaceSnapshot title round-trip", () => {
 	});
 });
 
-describe("reviewDrawerOpen persistence", () => {
-	it("buildWorkspaceSnapshot emits reviewDrawerOpen from session state", () => {
-		const state = createWorkspaceState([
-			{
-				id: "/repo",
-				label: "main",
-				branchName: "main",
-				path: "/repo",
-				isMain: true,
-			},
-		] as unknown as Parameters<typeof createWorkspaceState>[0]);
-		state.sessionsByWorktreeId["/repo"].reviewDrawerOpen = true;
-		const snapshot = buildWorkspaceSnapshot("/repo", null, state);
-		expect(snapshot.worktreeSessions[0].reviewDrawerOpen).toBe(true);
-	});
-
-	it("PersistedWorktreeSessionSchema defaults reviewDrawerOpen to false when absent", () => {
-		const parsed = PersistedWorktreeSessionSchema.parse({
-			worktreeId: "/repo",
-			note: "",
-			reviewMode: "files",
-			viewerMode: "file",
-			selectedFilePath: null,
-			selectedChangedFilePath: null,
-			activeProcessSessionId: null,
-			nextAdHocNumber: 1,
-			processSessions: [],
-		});
-		expect(parsed.reviewDrawerOpen).toBe(false);
-	});
-});
-
 describe("reviewSidebarWidth persistence", () => {
 	const worktrees = [
 		{
