@@ -11,11 +11,8 @@ import { NoteSheet } from "../../features/workspace/components/NoteSheet";
 import { SessionChipBar } from "../../features/workspace/components/SessionChipBar";
 import { displayTitle } from "../../features/workspace/logic/session-display-title";
 import type { WorkspaceAction } from "../../features/workspace/logic/workspace-state";
-import type { useReviewDrawerAutoExpand } from "../../features/review/hooks/use-review-drawer-auto-expand";
 import { isEditable } from "../../../shared/editor/editable-files";
 import type { Platform } from "../shortcut-registry";
-
-type AutoExpand = ReturnType<typeof useReviewDrawerAutoExpand>;
 
 type PendingRename = {
 	workspaceId: string;
@@ -36,7 +33,7 @@ type Props = {
 	activeWorkspaceId: string | null;
 	setSidebarCollapsed: (next: boolean | ((prev: boolean) => boolean)) => void;
 	setPendingRename: (next: PendingRename | null) => void;
-	autoExpand: AutoExpand;
+	openReview: () => void;
 	dispatch: (action: WorkspaceAction) => void;
 
 	noteSheetOpen: boolean;
@@ -72,7 +69,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 		activeWorkspaceId,
 		setSidebarCollapsed,
 		setPendingRename,
-		autoExpand,
+		openReview,
 		dispatch,
 		noteSheetOpen,
 		setNoteSheetOpen,
@@ -113,17 +110,12 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 						}}
 						onDirtyClick={() => {
 							if (!activeWorktree) return;
-							autoExpand.noteUserExpand(activeWorktree.id);
-							dispatch({
-								type: "session/setReviewDrawerOpen",
-								worktreeId: activeWorktree.id,
-								open: true,
-							});
 							dispatch({
 								type: "session/setReviewMode",
 								worktreeId: activeWorktree.id,
 								reviewMode: "changes",
 							});
+							openReview();
 						}}
 						onFilesClick={() => setFilesOverlayOpen(true)}
 						onNoteClick={() => setNoteSheetOpen((prev) => !prev)}
@@ -164,12 +156,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 						worktreeId: activeWorktree.id,
 						reviewMode: "files",
 					});
-					dispatch({
-						type: "session/setReviewDrawerOpen",
-						worktreeId: activeWorktree.id,
-						open: true,
-					});
-					autoExpand.noteUserExpand(activeWorktree.id);
+					openReview();
 					setFilesOverlayOpen(false);
 				}}
 				onEditFile={(path) => {

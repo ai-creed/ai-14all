@@ -13,7 +13,10 @@ import { isEditable } from "../../shared/editor/editable-files";
 import { type SessionSidebarWorkspace } from "../features/workspace/components/SessionSidebar";
 import { workspaceReducer } from "../features/workspace/logic/workspace-state";
 import { PresetManager } from "../features/terminals/components/PresetManager";
-import { type ReviewExpandedPortalHandle } from "../features/review/components/ReviewExpandedPortal";
+import {
+	ReviewExpandedPortal,
+	type ReviewExpandedPortalHandle,
+} from "../features/review/components/ReviewExpandedPortal";
 import { useReviewDrawerAutoExpand } from "../features/review/hooks/use-review-drawer-auto-expand";
 import { useReviewComments } from "../features/review/hooks/use-review-comments";
 import { type NewCommentDraft } from "./components/ReviewArea";
@@ -69,7 +72,7 @@ import { useRemoveWorktreePreview } from "./hooks/use-remove-worktree-preview";
 import { DialogStack } from "./components/DialogStack";
 import { ToastProvider } from "../features/ui/toast/ToastProvider";
 import { TerminalPanel } from "./components/TerminalPanel";
-import { ReviewDrawerSection } from "./components/ReviewDrawerSection";
+import { ReviewChipBar } from "./components/ReviewChipBar";
 import { ReviewArea } from "./components/ReviewArea";
 import { SidebarPanel } from "./components/SidebarPanel";
 import { MainColumnChrome } from "./components/MainColumnChrome";
@@ -82,22 +85,20 @@ export function App() {
 	const appPlatform = useMemo(detectPlatform, []);
 	const {
 		reviewRailWidth,
-		reviewPanelHeight,
 		sidebarWidth,
 		handleReviewRailResizeStart,
 		handleSidebarResizeStart,
-		handleReviewPanelResizeStart,
 	} = usePaneResizers({});
-	const [reviewExpanded, setReviewExpanded] = useState(false);
+	const [reviewOpen, setReviewOpen] = useState(false);
 	const chipBarRef = useRef<HTMLDivElement>(null);
 	const mainColRef = useRef<HTMLElement>(null);
 	const expandedPortalRef = useRef<ReviewExpandedPortalHandle>(null);
 
-	function collapseReviewExpanded() {
+	function collapseReview() {
 		if (expandedPortalRef.current) {
 			expandedPortalRef.current.collapse();
 		} else {
-			setReviewExpanded(false);
+			setReviewOpen(false);
 		}
 	}
 
@@ -519,6 +520,28 @@ export function App() {
 		return map;
 	}, [changes]);
 
+	// Worktree-wide counts (for chipbar)
+	const openCommentCount = reviewState.comments.filter(
+		(c) => c.status === "open",
+	).length;
+	const addressedCommentCount = reviewState.comments.filter(
+		(c) => c.status === "addressed",
+	).length;
+
+	// File-scoped open count (for the overlay header — mirrors prior
+	// ReviewDrawerSection logic)
+	const currentReviewFilePath =
+		activeSession?.reviewMode === "commits"
+			? (activeSession.selectedCommitFilePath ?? null)
+			: activeSession?.reviewMode === "changes"
+				? (activeSession.selectedChangedFilePath ?? null)
+				: null;
+	const currentFileOpenCommentCount = currentReviewFilePath
+		? reviewState.comments.filter(
+				(c) => c.filePath === currentReviewFilePath && c.status === "open",
+			).length
+		: null;
+
 	// ---------------------------------------------------------------------------
 	// Review drawer auto-expand — clean→dirty transitions (spec §4.3)
 	// ---------------------------------------------------------------------------
@@ -939,13 +962,13 @@ export function App() {
 		(e) => {
 			if (!activeWorktree) return;
 			e.preventDefault();
-			if (reviewExpanded) {
-				collapseReviewExpanded();
+			if (reviewOpen) {
+				collapseReview();
 			} else {
-				setReviewExpanded(true);
+				setReviewOpen(true);
 			}
 		},
-		[activeWorktree?.id, reviewExpanded],
+		[activeWorktree?.id, reviewOpen],
 	);
 
 	// Cmd+Shift+R / Ctrl+Alt+R — rename active session
@@ -1405,7 +1428,7 @@ export function App() {
 						activeWorkspaceId={activeWorkspaceId}
 						setSidebarCollapsed={setSidebarCollapsed}
 						setPendingRename={setPendingRename}
-						autoExpand={autoExpand}
+						openReview={() => setReviewOpen(true)}
 						dispatch={dispatch}
 						noteSheetOpen={noteSheetOpen}
 						setNoteSheetOpen={setNoteSheetOpen}
@@ -1439,27 +1462,32 @@ export function App() {
 						findProcessByTerminalSessionId={findProcessByTerminalSessionId}
 					/>
 
-					<ReviewDrawerSection
-						activeWorktree={activeWorktree}
-						activeSession={activeSession ?? null}
-						activeSummary={activeSummary}
-						changedFileCount={changes.length}
-						reviewState={reviewState}
-						reviewPanelHeight={reviewPanelHeight}
-						onResizeStart={handleReviewPanelResizeStart}
-						reviewExpanded={reviewExpanded}
-						setReviewExpanded={setReviewExpanded}
-						collapseReviewExpanded={collapseReviewExpanded}
-						expandedPortalRef={expandedPortalRef}
-						mainColRef={mainColRef}
-						chipBarRef={chipBarRef}
-						commentSidebarOpen={commentSidebarOpen}
-						setCommentSidebarOpen={setCommentSidebarOpen}
-						autoExpand={autoExpand}
-						dispatch={dispatch}
-						handleRefreshChanges={handleRefreshChanges}
-					>
-						{activeWorktree && (
+					{activeWorktree && (
+						<ReviewChipBar
+							isDirty={activeSummary?.isDirty ?? false}
+							changedFileCount={changes.length}
+							reviewMode={activeSession?.reviewMode ?? "files"}
+							openCommentCount={openCommentCount}
+							addressedCommentCount={addressedCommentCount}
+							onRefresh={handleRefreshChanges}
+							onOpen={() => setReviewOpen(true)}
+						/>
+					)}
+					{reviewOpen && activeWorktree && (
+						<ReviewExpandedPortal
+							ref={expandedPortalRef}
+							mainColRef={mainColRef}
+							chipBarRef={chipBarRef}
+							onCollapse={() => setReviewOpen(false)}
+							onRefresh={handleRefreshChanges}
+							isDirty={activeSummary?.isDirty ?? false}
+							changedFileCount={changes.length}
+							commentSidebarOpen={commentSidebarOpen}
+							onToggleCommentSidebar={() =>
+								setCommentSidebarOpen((o) => !o)
+							}
+							openCommentCount={currentFileOpenCommentCount}
+						>
 							<ReviewArea
 								activeWorktree={activeWorktree}
 								activeSession={activeSession ?? null}
@@ -1496,8 +1524,8 @@ export function App() {
 								setAddingDraft={setAddingDraft}
 								updateAddingDraftBody={updateAddingDraftBody}
 							/>
-						)}
-					</ReviewDrawerSection>
+						</ReviewExpandedPortal>
+					)}
 				</section>
 			</div>
 
