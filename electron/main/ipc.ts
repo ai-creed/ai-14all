@@ -58,6 +58,8 @@ import {
 	REVIEW_REOPEN,
 	REVIEW_DELETE,
 	REVIEW_REBASE,
+	REVIEW_UPDATE,
+	REVIEW_BULK_REMOVE_ADDRESSED,
 	REVIEW_COMMENT_CHANGED,
 	ReviewListRequestSchema,
 	ReviewCreateRequestSchema,
@@ -65,6 +67,8 @@ import {
 	ReviewReopenRequestSchema,
 	ReviewDeleteRequestSchema,
 	ReviewRebaseRequestSchema,
+	ReviewUpdateRequestSchema,
+	ReviewBulkRemoveAddressedRequestSchema,
 } from "../../shared/contracts/review-comments.js";
 import { WorktreeService } from "../../services/worktrees/worktree-service.js";
 import { TerminalService } from "../../services/terminals/terminal-service.js";
@@ -476,6 +480,16 @@ export function registerIpcHandlers(
 			new Map(Object.entries(mapping)),
 		);
 		return { ok: true as const };
+	});
+
+	ipcMain.handle(REVIEW_UPDATE, async (_event, raw: unknown) => {
+		const { commentId, body } = ReviewUpdateRequestSchema.parse(raw);
+		return reviewCommentService.update(commentId, { body });
+	});
+
+	ipcMain.handle(REVIEW_BULK_REMOVE_ADDRESSED, async (_event, raw: unknown) => {
+		const input = ReviewBulkRemoveAddressedRequestSchema.parse(raw);
+		return reviewCommentService.bulkRemoveAddressed(input);
 	});
 
 	const offReview = reviewCommentService.onChange((kind) => {
