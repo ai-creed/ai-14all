@@ -90,7 +90,7 @@ function fakeEditorWithHunks(opts: { lineCount?: number; hunkLines?: number[] } 
 		onMouseDown: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 		onDidChangeCursorSelection: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 		onDidChangeModel: vi.fn().mockReturnValue({ dispose: vi.fn() }),
-		deltaDecorations: vi.fn((old: string[], next: Array<{ range: { startLineNumber: number }; options: { glyphMarginClassName: string } }>) => {
+		deltaDecorations: vi.fn((_old: string[], next: Array<{ range: { startLineNumber: number }; options: { glyphMarginClassName: string } }>) => {
 			currentDecorations = next;
 			return next.map((_, i) => String(i));
 		}),
