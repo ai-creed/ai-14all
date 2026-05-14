@@ -33,6 +33,19 @@ export function getDiffAnchorLines(editor: DiffNavigableEditor): number[] {
 	return changes.map(anchorLineFor);
 }
 
+export function getDiffModifiedHunkLines(editor: DiffNavigableEditor): Set<number> {
+	const changes = editor.getLineChanges();
+	const set = new Set<number>();
+	if (!changes) return set;
+	for (const c of changes) {
+		if (c.modifiedEndLineNumber <= 0) continue; // pure deletion
+		for (let l = c.modifiedStartLineNumber; l <= c.modifiedEndLineNumber; l++) {
+			set.add(l);
+		}
+	}
+	return set;
+}
+
 function findScrollingAncestor(el: HTMLElement | null): HTMLElement | null {
 	let cur: HTMLElement | null = el?.parentElement ?? null;
 	while (cur) {

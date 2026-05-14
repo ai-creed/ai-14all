@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import type { editor as MonacoEditor } from "monaco-editor";
 import {
 	getDiffAnchorLines,
+	getDiffModifiedHunkLines,
 	navigateToNextDiff,
 	navigateToPrevDiff,
 } from "../../../src/features/review/logic/diff-navigation";
@@ -132,5 +133,21 @@ describe("navigateToPrevDiff", () => {
 		});
 		expect(navigateToPrevDiff(editor)).toBe(true);
 		expect(revealLineInCenter).toHaveBeenCalledWith(40);
+	});
+});
+
+describe("getDiffModifiedHunkLines", () => {
+	it("returns Set([4,5,6,12,13]) for a fixture with two hunks (lines 4–6 and 12–13)", () => {
+		const { editor } = makeEditor({
+			changes: [ch(4, 6), ch(12, 13)],
+		});
+		expect(getDiffModifiedHunkLines(editor)).toEqual(new Set([4, 5, 6, 12, 13]));
+	});
+
+	it("returns no contribution for a pure-deletion hunk (modifiedEndLineNumber === 0)", () => {
+		const { editor } = makeEditor({
+			changes: [ch(5, 0), ch(20, 22)],
+		});
+		expect(getDiffModifiedHunkLines(editor)).toEqual(new Set([20, 21, 22]));
 	});
 });

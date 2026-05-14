@@ -1,4 +1,5 @@
 import type { editor as MonacoEditor } from "monaco-editor";
+import { getDiffModifiedHunkLines } from "./diff-navigation";
 
 export type SelectionDraft = {
 	filePath: string;
@@ -18,7 +19,7 @@ type Handlers = {
 	onEnsureFileFocused?: (filePath: string) => void;
 };
 
-const PLUS_DECORATION_CLASS = "shell-review-plus-decoration";
+export const PLUS_DECORATION_CLASS = "shell-review-plus-decoration";
 
 export function installAddAffordances(
 	editor: MonacoEditor.IStandaloneDiffEditor,
@@ -27,37 +28,54 @@ export function installAddAffordances(
 	const modified = editor.getModifiedEditor();
 	let plusDecorations: string[] = [];
 	let hoveredLine: number | null = null;
+	let hunkLines: Set<number> = new Set();
 
-	const renderAllPlus = () => {
-		const model = (
-			modified as unknown as MonacoEditor.IStandaloneCodeEditor
-		).getModel();
-		const lineCount = model?.getLineCount() ?? 0;
-		const next = Array.from({ length: lineCount }, (_, i) => ({
-			range: {
-				startLineNumber: i + 1,
-				startColumn: 1,
-				endLineNumber: i + 1,
-				endColumn: 1,
-			},
-			options: {
-				glyphMarginClassName: PLUS_DECORATION_CLASS,
-				glyphMarginHoverMessage: { value: "Add review comment" },
-			},
-		}));
+	const recomputeHunkLines = () => {
+		hunkLines = getDiffModifiedHunkLines(editor);
+		applyGlyph();
+	};
+
+	const applyGlyph = () => {
+		const next =
+			hoveredLine !== null && hunkLines.has(hoveredLine)
+				? [
+						{
+							range: {
+								startLineNumber: hoveredLine,
+								startColumn: 1,
+								endLineNumber: hoveredLine,
+								endColumn: 1,
+							},
+							options: {
+								glyphMarginClassName: PLUS_DECORATION_CLASS,
+								glyphMarginHoverMessage: { value: "Add review comment" },
+							},
+						},
+					]
+				: [];
 		plusDecorations = (
 			modified as unknown as MonacoEditor.IStandaloneCodeEditor
 		).deltaDecorations(plusDecorations, next);
 	};
 
-	renderAllPlus();
+	recomputeHunkLines();
 
+	const diffSub = (editor as unknown as { onDidUpdateDiff?: (cb: () => void) => { dispose(): void } }).onDidUpdateDiff?.(() => recomputeHunkLines()) ?? { dispose: () => {} };
 	const modelSub = (
 		modified as unknown as MonacoEditor.IStandaloneCodeEditor
-	).onDidChangeModel(() => renderAllPlus());
+	).onDidChangeModel(() => recomputeHunkLines());
 
 	const moveSub = modified.onMouseMove((e) => {
-		hoveredLine = e.target?.position?.lineNumber ?? null;
+		const next = e.target?.position?.lineNumber ?? null;
+		if (next === hoveredLine) return;
+		hoveredLine = next;
+		applyGlyph();
+	});
+
+	const leaveSub = modified.onMouseLeave(() => {
+		if (hoveredLine === null) return;
+		hoveredLine = null;
+		applyGlyph();
 	});
 
 	const downSub = modified.onMouseDown((e) => {
@@ -108,8 +126,10 @@ export function installAddAffordances(
 	});
 
 	return () => {
+		diffSub.dispose();
 		modelSub.dispose();
 		moveSub.dispose();
+		leaveSub.dispose();
 		downSub.dispose();
 		selSub.dispose();
 		plusDecorations = (
