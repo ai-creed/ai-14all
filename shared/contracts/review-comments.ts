@@ -63,6 +63,34 @@ export const ReviewRebaseRequestSchema = z.object({
 });
 export const ReviewRebaseResponseSchema = z.object({ ok: z.literal(true) });
 
+export const REVIEW_UPDATE = "reviewComments:update" as const;
+export const REVIEW_BULK_REMOVE_ADDRESSED = "reviewComments:bulkRemoveAddressed" as const;
+
+export const ReviewUpdateRequestSchema = z.object({
+	commentId: z.string().min(1),
+	body: z.string().min(1),
+});
+export type ReviewUpdateRequest = z.infer<typeof ReviewUpdateRequestSchema>;
+export const ReviewUpdateResponseSchema = z.discriminatedUnion("ok", [
+	z.object({ ok: z.literal(true), comment: ReviewCommentSchema }),
+	z.object({
+		ok: z.literal(false),
+		error: z.enum(["not_found", "not_open", "empty_body"]),
+	}),
+]);
+
+export const ReviewBulkRemoveAddressedRequestSchema = z.object({
+	worktreeId: z.string().min(1),
+	ids: z.array(z.string().min(1)),
+});
+export const ReviewBulkRemoveAddressedResponseSchema = z.discriminatedUnion("ok", [
+	z.object({ ok: z.literal(true), removed: z.number().int().min(0) }),
+	z.object({
+		ok: z.literal(false),
+		error: z.enum(["worktree_mismatch", "not_found", "not_addressed"]),
+	}),
+]);
+
 export const REVIEW_COMMENT_CHANGED = "reviewComments:changed" as const;
 export const ReviewCommentChangedEventSchema = z.object({
 	kind: z.enum([
