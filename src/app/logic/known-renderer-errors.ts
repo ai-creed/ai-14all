@@ -14,7 +14,7 @@ export function isKnownXtermViewportDimensionsError(error: unknown): boolean {
 	if (error.message !== XTERM_DIMENSIONS_MESSAGE) return false;
 
 	const stack = error.stack ?? "";
-	return stack.includes("xterm.js") && stack.includes("Viewport._innerRefresh");
+	return stack.includes("xterm.js");
 }
 
 export function installKnownRendererErrorHandler({
