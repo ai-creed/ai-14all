@@ -1,25 +1,42 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 
-const listMock = vi.fn();
-const createMock = vi.fn();
-const markMock = vi.fn();
-const reopenMock = vi.fn();
-const deleteMock = vi.fn();
-const onChangedMock = vi.fn();
+const {
+	listMock,
+	createMock,
+	markMock,
+	reopenMock,
+	deleteMock,
+	onChangedMock,
+	updateMock,
+	bulkRemoveAddressedMock,
+} = vi.hoisted(() => ({
+	listMock: vi.fn(),
+	createMock: vi.fn(),
+	markMock: vi.fn(),
+	reopenMock: vi.fn(),
+	deleteMock: vi.fn(),
+	onChangedMock: vi.fn(),
+	updateMock: vi.fn(),
+	bulkRemoveAddressedMock: vi.fn(),
+}));
 
 vi.mock("../../../src/lib/desktop-client", () => ({
 	reviewComments: {
-		list: (...a: unknown[]) => listMock(...a),
-		create: (...a: unknown[]) => createMock(...a),
-		markAddressed: (...a: unknown[]) => markMock(...a),
-		reopen: (...a: unknown[]) => reopenMock(...a),
-		delete: (...a: unknown[]) => deleteMock(...a),
-		onChanged: (...a: unknown[]) => onChangedMock(...a),
+		list: listMock,
+		create: createMock,
+		markAddressed: markMock,
+		reopen: reopenMock,
+		delete: deleteMock,
+		onChanged: onChangedMock,
+		update: updateMock,
+		bulkRemoveAddressed: bulkRemoveAddressedMock,
 	},
 }));
 
 import { useReviewComments } from "../../../src/features/review/hooks/use-review-comments";
+import { reviewComments } from "../../../src/lib/desktop-client";
+import type { ReviewComment } from "../../../shared/models/review-comment";
 
 const c = {
 	id: "c1",
@@ -41,6 +58,8 @@ describe("useReviewComments", () => {
 		listMock.mockReset();
 		onChangedMock.mockReset();
 		onChangedMock.mockReturnValue(() => {});
+		updateMock.mockReset();
+		bulkRemoveAddressedMock.mockReset();
 	});
 
 	it("loads comments for the given worktree on mount", async () => {
@@ -63,5 +82,57 @@ describe("useReviewComments", () => {
 			trigger({ kind: "created" });
 		});
 		await waitFor(() => expect(listMock).toHaveBeenCalledTimes(2));
+	});
+
+	it("update() calls reviewComments.update and refreshes on 'updated' event", async () => {
+		const handlers: Array<(evt: { kind: string }) => void> = [];
+		(reviewComments.onChanged as ReturnType<typeof vi.fn>).mockImplementation((h: (e: { kind: string }) => void) => {
+			handlers.push(h);
+			return () => {};
+		});
+		(reviewComments.list as ReturnType<typeof vi.fn>)
+			.mockResolvedValueOnce({ comments: [] })
+			.mockResolvedValueOnce({ comments: [{ id: "1", body: "new" } as ReviewComment] });
+		(reviewComments.update as ReturnType<typeof vi.fn>).mockResolvedValue({
+			ok: true,
+			comment: { id: "1", body: "new" },
+		});
+
+		const { result } = renderHook(() => useReviewComments("w1"));
+		await waitFor(() => expect(result.current.comments).toEqual([]));
+
+		await act(async () => {
+			await result.current.update("1", "new");
+		});
+
+		expect(reviewComments.update).toHaveBeenCalledWith("1", "new");
+
+		await act(async () => {
+			handlers[0]?.({ kind: "updated" });
+		});
+		await waitFor(() => expect(result.current.comments).toEqual([{ id: "1", body: "new" }]));
+	});
+
+	it("clearAddressed() forwards to bulkRemoveAddressed with the addressed ids", async () => {
+		(reviewComments.list as ReturnType<typeof vi.fn>).mockResolvedValue({
+			comments: [
+				{ id: "a", status: "addressed" },
+				{ id: "b", status: "open" },
+				{ id: "c", status: "addressed" },
+			] as ReviewComment[],
+		});
+		(reviewComments.bulkRemoveAddressed as ReturnType<typeof vi.fn>).mockResolvedValue({
+			ok: true,
+			removed: 2,
+		});
+
+		const { result } = renderHook(() => useReviewComments("w1"));
+		await waitFor(() => expect(result.current.comments).toHaveLength(3));
+
+		await act(async () => {
+			await result.current.clearAddressed();
+		});
+
+		expect(reviewComments.bulkRemoveAddressed).toHaveBeenCalledWith("w1", ["a", "c"]);
 	});
 });
