@@ -13,7 +13,7 @@ export const DEFAULT_COMMAND_PRESETS: CommandPreset[] = [
 	{
 		id: "preset-start-codex-yolo",
 		label: "start codex (yolo)",
-		command: "codex --full-auto",
+		command: "codex --yolo",
 	},
 	{
 		id: "preset-start-claude",
