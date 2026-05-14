@@ -28,7 +28,7 @@ export function installSelectionPill(
 	const node = document.createElement("button");
 	node.type = "button";
 	node.className = "shell-review-selection-pill";
-	node.textContent = "+ comment";
+	node.textContent = "+";
 	node.addEventListener("click", () => emitStart());
 
 	const widget: MonacoEditor.IContentWidget = {

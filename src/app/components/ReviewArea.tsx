@@ -713,6 +713,23 @@ export function ReviewArea(props: Props): React.ReactElement {
 								}
 							}}
 							onJump={handleJump}
+							onToggleAddressed={async (id) => {
+								const c = reviewState.comments.find((x) => x.id === id);
+								if (!c) return;
+								try {
+									if (c.status === "open") await reviewState.markAddressed(id);
+									else await reviewState.reopen(id);
+								} catch (e) {
+									toast.show(`Failed: ${(e as Error).message}`);
+								}
+							}}
+							onDelete={async (id) => {
+								try {
+									await reviewState.remove(id);
+								} catch (e) {
+									toast.show(`Failed to delete: ${(e as Error).message}`);
+								}
+							}}
 							onClearAddressed={async () => {
 								try {
 									const res = await reviewState.clearAddressed();

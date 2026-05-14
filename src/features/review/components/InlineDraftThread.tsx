@@ -28,6 +28,12 @@ export function InlineDraftThread({ range, body, onChange, onSubmit, onCancel, o
 				value={body}
 				onChange={(e) => onChange(e.target.value)}
 				placeholder="Write a comment…"
+				onKeyDown={(e) => {
+					if (e.key === "Enter" && !e.shiftKey) {
+						e.preventDefault();
+						if (body.trim().length > 0) onSubmit();
+					}
+				}}
 			/>
 			<div className="shell-inline-thread__actions">
 				<button type="button" onClick={onCancel}>Cancel</button>

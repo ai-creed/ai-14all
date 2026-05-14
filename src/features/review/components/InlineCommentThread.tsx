@@ -93,12 +93,17 @@ export function InlineCommentThread({
 		);
 	}
 
+	const isAddressed = comment.status === "addressed";
+
 	return (
-		<div ref={rootRef} className="shell-inline-thread" data-state="open">
+		<div ref={rootRef} className="shell-inline-thread" data-state={isAddressed ? "addressed-expanded" : "open"}>
 			<header className="shell-inline-thread__header">
 				<span>
 					L{comment.startLine}
 					{comment.startLine !== comment.endLine ? `–${comment.endLine}` : ""}
+				</span>
+				<span className="shell-inline-thread__status" data-status={comment.status}>
+					{isAddressed ? "addressed" : "open"}
 				</span>
 				<span className="shell-inline-thread__time">
 					{relativeTime(comment.createdAt)}
@@ -106,8 +111,12 @@ export function InlineCommentThread({
 			</header>
 			<p className="shell-inline-thread__body">{comment.body}</p>
 			<footer className="shell-inline-thread__actions">
-				<button type="button" aria-label="Address comment" onClick={onToggleAddressed}>
-					✓ Address
+				<button
+					type="button"
+					aria-label={isAddressed ? "Reopen comment" : "Address comment"}
+					onClick={onToggleAddressed}
+				>
+					{isAddressed ? "↺ Reopen" : "✓ Address"}
 				</button>
 				<button type="button" aria-label="Edit comment" onClick={() => setEditing(true)}>
 					Edit

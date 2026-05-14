@@ -30,6 +30,12 @@ type Args = {
 
 const DEFAULT_HEIGHT = 96;
 
+// Defer root.unmount() outside the current render cycle to avoid the React 18
+// "Attempted to synchronously unmount a root while React was already rendering" error.
+function safeUnmount(root: Root): void {
+	queueMicrotask(() => root.unmount());
+}
+
 export function useInlineThreadMounts(args: Args): void {
 	const mountRef = useRef<InlineThreadMount | null>(null);
 	const handlesRef = useRef<Map<string, { handle: InlineThreadHandle; root: Root }>>(new Map());
@@ -40,13 +46,13 @@ export function useInlineThreadMounts(args: Args): void {
 		mountRef.current = createInlineThreadMount(args.editor);
 		return () => {
 			for (const { root, handle } of handlesRef.current.values()) {
-				root.unmount();
 				handle.remove();
+				safeUnmount(root);
 			}
 			handlesRef.current.clear();
 			if (draftRef.current) {
-				draftRef.current.root.unmount();
 				draftRef.current.handle.remove();
+				safeUnmount(draftRef.current.root);
 				draftRef.current = null;
 			}
 			mountRef.current?.disposeAll();
@@ -62,8 +68,8 @@ export function useInlineThreadMounts(args: Args): void {
 		const currentIds = new Set(args.comments.map((c) => c.id));
 		for (const [id, { handle, root }] of [...handles.entries()]) {
 			if (!currentIds.has(id)) {
-				root.unmount();
 				handle.remove();
+				safeUnmount(root);
 				handles.delete(id);
 			}
 		}
@@ -83,7 +89,8 @@ export function useInlineThreadMounts(args: Args): void {
 					onToggleAddressed={() => args.onToggleAddressed(c.id)}
 					onDelete={() => args.onDelete(c.id)}
 					onMeasureChange={() => {
-						const px = entrySnapshot.handle.domNode.offsetHeight || DEFAULT_HEIGHT;
+						const el = entrySnapshot.handle.domNode.firstElementChild as HTMLElement | null;
+						const px = (el?.offsetHeight ?? 0) || DEFAULT_HEIGHT;
 						entrySnapshot.handle.setHeight(px);
 					}}
 				/>,
@@ -96,8 +103,8 @@ export function useInlineThreadMounts(args: Args): void {
 		if (!mount) return;
 		if (!args.draft) {
 			if (draftRef.current) {
-				draftRef.current.root.unmount();
 				draftRef.current.handle.remove();
+				safeUnmount(draftRef.current.root);
 				draftRef.current = null;
 			}
 			return;
@@ -106,8 +113,8 @@ export function useInlineThreadMounts(args: Args): void {
 		const needsNewZone = !draftRef.current || draftRef.current.endLine !== spec.endLine;
 		if (needsNewZone) {
 			if (draftRef.current) {
-				draftRef.current.root.unmount();
 				draftRef.current.handle.remove();
+				safeUnmount(draftRef.current.root);
 			}
 			const handle = mount.addThread({ lineNumber: spec.endLine, initialHeight: DEFAULT_HEIGHT });
 			const root = createRoot(handle.domNode);
@@ -123,7 +130,8 @@ export function useInlineThreadMounts(args: Args): void {
 				onSubmit={args.onSubmitDraft}
 				onCancel={args.onCancelDraft}
 				onMeasureChange={() => {
-					const px = entry.handle.domNode.offsetHeight || DEFAULT_HEIGHT;
+					const el = entry.handle.domNode.firstElementChild as HTMLElement | null;
+					const px = (el?.offsetHeight ?? 0) || DEFAULT_HEIGHT;
 					entry.handle.setHeight(px);
 				}}
 			/>,

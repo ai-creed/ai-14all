@@ -48,7 +48,6 @@ export function installAddAffordances(
 							},
 							options: {
 								glyphMarginClassName: PLUS_DECORATION_CLASS,
-								glyphMarginHoverMessage: { value: "Add review comment" },
 							},
 						},
 					]

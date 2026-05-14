@@ -15,6 +15,10 @@ function fakeEditor() {
 	const added: Array<{ id: string; zone: unknown }> = [];
 	const removed: string[] = [];
 	let nextId = 0;
+	const overflowGuard = document.createElement("div");
+	overflowGuard.className = "overflow-guard";
+	const editorDom = document.createElement("div");
+	editorDom.appendChild(overflowGuard);
 	const modified = {
 		changeViewZones: (cb: (accessor: ZoneAccessor) => void) => {
 			cb({
@@ -29,6 +33,12 @@ function fakeEditor() {
 				layoutZone() {},
 			});
 		},
+		getDomNode: () => editorDom,
+		getContainerDomNode: () => editorDom,
+		getScrollTop: () => 0,
+		getLayoutInfo: () => ({ contentLeft: 0, contentWidth: 600 }),
+		onDidScrollChange: () => ({ dispose: () => {} }),
+		onDidLayoutChange: () => ({ dispose: () => {} }),
 	};
 	const editor = {
 		getModifiedEditor: () => modified,

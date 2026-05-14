@@ -7,6 +7,11 @@ import type { ReviewComment } from "../../../shared/models/review-comment";
 function fakeEditor() {
 	const zones = new Map<string, { node: HTMLDivElement; line: number }>();
 	let nextId = 0;
+	const overflowGuard = document.createElement("div");
+	overflowGuard.className = "overflow-guard";
+	const editorDom = document.createElement("div");
+	editorDom.appendChild(overflowGuard);
+	document.body.appendChild(editorDom);
 	const modified = {
 		changeViewZones(cb: (a: {
 			addZone(z: { afterLineNumber: number; domNode: HTMLDivElement; heightInPx: number }): string;
@@ -16,16 +21,19 @@ function fakeEditor() {
 				addZone(z) {
 					const id = `z${++nextId}`;
 					zones.set(id, { node: z.domNode, line: z.afterLineNumber });
-					document.body.appendChild(z.domNode);
 					return id;
 				},
 				removeZone(id) {
-					const z = zones.get(id);
-					z?.node.remove();
 					zones.delete(id);
 				},
 			});
 		},
+		getDomNode: () => editorDom,
+		getContainerDomNode: () => editorDom,
+		getScrollTop: () => 0,
+		getLayoutInfo: () => ({ contentLeft: 0, contentWidth: 600 }),
+		onDidScrollChange: () => ({ dispose: () => {} }),
+		onDidLayoutChange: () => ({ dispose: () => {} }),
 	};
 	const editor = {
 		getModifiedEditor: () => modified,

@@ -22,6 +22,8 @@ const make = (over: Partial<ReviewComment> = {}): ReviewComment => ({
 
 const NOOP = {
 	onJump: () => {},
+	onToggleAddressed: () => {},
+	onDelete: () => {},
 	onClearAddressed: () => {},
 	onToggleHideAddressed: () => {},
 };
@@ -72,7 +74,7 @@ describe("ReviewQueuePanel", () => {
 		expect(onJump).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }));
 	});
 
-	it("Clear all addressed fires when there are addressed comments", async () => {
+	it("Clear addressed fires when there are addressed comments", async () => {
 		const onClearAddressed = vi.fn();
 		const user = userEvent.setup();
 		render(
@@ -84,8 +86,40 @@ describe("ReviewQueuePanel", () => {
 				onClearAddressed={onClearAddressed}
 			/>,
 		);
-		await user.click(screen.getByRole("button", { name: /clear all addressed/i }));
+		await user.click(screen.getByRole("button", { name: /clear addressed/i }));
 		expect(onClearAddressed).toHaveBeenCalled();
+	});
+
+	it("per-row Address button calls onToggleAddressed", async () => {
+		const onToggleAddressed = vi.fn();
+		const user = userEvent.setup();
+		render(
+			<ReviewQueuePanel
+				activeMode={{ kind: "changes" }}
+				comments={[make({ id: "c1" })]}
+				hideAddressed={false}
+				{...NOOP}
+				onToggleAddressed={onToggleAddressed}
+			/>,
+		);
+		await user.click(screen.getByRole("button", { name: "Address" }));
+		expect(onToggleAddressed).toHaveBeenCalledWith("c1");
+	});
+
+	it("per-row Delete button calls onDelete", async () => {
+		const onDelete = vi.fn();
+		const user = userEvent.setup();
+		render(
+			<ReviewQueuePanel
+				activeMode={{ kind: "changes" }}
+				comments={[make({ id: "c1" })]}
+				hideAddressed={false}
+				{...NOOP}
+				onDelete={onDelete}
+			/>,
+		);
+		await user.click(screen.getByRole("button", { name: /delete comment/i }));
+		expect(onDelete).toHaveBeenCalledWith("c1");
 	});
 
 	it("renders AgentInstallCta slot when installCtaVisible", () => {
