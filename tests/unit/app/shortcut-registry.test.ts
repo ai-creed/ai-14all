@@ -37,7 +37,6 @@ describe("SHORTCUT_REGISTRY structure", () => {
 	const requiredIds = [
 		"files-overlay",
 		"note-sheet",
-		"review-drawer",
 		"review.open",
 		"rename-session",
 		"shortcuts-help",
@@ -114,43 +113,6 @@ describe("note-sheet predicate", () => {
 		expect(
 			entry("note-sheet").predicate(
 				evt({ metaKey: true, key: ";", defaultPrevented: true }),
-				"mac",
-			),
-		).toBe(false);
-	});
-});
-
-describe("review-drawer predicate", () => {
-	it("matches Cmd+J on mac", () => {
-		expect(
-			entry("review-drawer").predicate(evt({ metaKey: true, key: "j" }), "mac"),
-		).toBe(true);
-	});
-	it("matches Cmd+J (uppercase) on mac", () => {
-		expect(
-			entry("review-drawer").predicate(evt({ metaKey: true, key: "J" }), "mac"),
-		).toBe(true);
-	});
-	it("matches Ctrl+J on other", () => {
-		expect(
-			entry("review-drawer").predicate(
-				evt({ ctrlKey: true, key: "j" }),
-				"other",
-			),
-		).toBe(true);
-	});
-	it("does not match when shiftKey is held", () => {
-		expect(
-			entry("review-drawer").predicate(
-				evt({ metaKey: true, shiftKey: true, key: "j" }),
-				"mac",
-			),
-		).toBe(false);
-	});
-	it("does not match when defaultPrevented", () => {
-		expect(
-			entry("review-drawer").predicate(
-				evt({ metaKey: true, key: "j", defaultPrevented: true }),
 				"mac",
 			),
 		).toBe(false);
@@ -248,58 +210,6 @@ describe("shortcuts-help predicate", () => {
 	});
 });
 
-describe("review.expand shortcut", () => {
-	it("fires on ⌘⇧J (mac)", () => {
-		const s = entry("review.expand");
-		expect(
-			s.predicate(evt({ key: "J", metaKey: true, shiftKey: true }), "mac"),
-		).toBe(true);
-		expect(
-			s.predicate(evt({ key: "j", metaKey: true, shiftKey: true }), "mac"),
-		).toBe(true);
-	});
-
-	it("fires on Ctrl+Shift+J (other)", () => {
-		const s = entry("review.expand");
-		expect(
-			s.predicate(evt({ key: "J", ctrlKey: true, shiftKey: true }), "other"),
-		).toBe(true);
-	});
-
-	it("does not fire without Shift", () => {
-		const s = entry("review.expand");
-		expect(
-			s.predicate(evt({ key: "j", metaKey: true, shiftKey: false }), "mac"),
-		).toBe(false);
-	});
-
-	it("does not fire when defaultPrevented", () => {
-		const s = entry("review.expand");
-		expect(
-			s.predicate(
-				evt({
-					key: "J",
-					metaKey: true,
-					shiftKey: true,
-					defaultPrevented: true,
-				}),
-				"mac",
-			),
-		).toBe(false);
-	});
-
-	it("does not fire when focus is inside xterm", () => {
-		const s = entry("review.expand");
-		const target = xtermTarget();
-		expect(
-			s.predicate(
-				evt({ key: "J", metaKey: true, shiftKey: true, target }),
-				"mac",
-			),
-		).toBe(false);
-	});
-});
-
 describe("terminal-first ownership — all shortcuts", () => {
 	afterEach(() => {
 		document.body.innerHTML = "";
@@ -309,9 +219,7 @@ describe("terminal-first ownership — all shortcuts", () => {
 	const macTriggers: Record<string, Partial<KeyboardEvent>> = {
 		"files-overlay": { metaKey: true, key: "p" },
 		"note-sheet": { metaKey: true, key: ";" },
-		"review-drawer": { metaKey: true, key: "j" },
 		"review.open": { metaKey: true, key: "j" },
-		"review.expand": { metaKey: true, shiftKey: true, key: "J" },
 		"rename-session": { metaKey: true, shiftKey: true, key: "R" },
 		"shortcuts-help": { metaKey: true, key: "/" },
 	};
