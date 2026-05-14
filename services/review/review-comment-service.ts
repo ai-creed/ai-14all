@@ -114,6 +114,33 @@ export class ReviewCommentService {
 		return false;
 	}
 
+	async bulkRemoveAddressed(input: {
+		worktreeId: string;
+		ids: string[];
+	}): Promise<
+		| { ok: true; removed: number }
+		| { ok: false; error: "worktree_mismatch" | "not_found" | "not_addressed" }
+	> {
+		if (input.ids.length === 0) return { ok: true, removed: 0 };
+		const list = this.byWorktree.get(input.worktreeId) ?? [];
+		const byId = new Map(list.map((c) => [c.id, c]));
+		for (const id of input.ids) {
+			const c = byId.get(id);
+			if (!c) {
+				const exists = this.find(id);
+				return { ok: false, error: exists ? "worktree_mismatch" : "not_found" };
+			}
+			if (c.status !== "addressed") return { ok: false, error: "not_addressed" };
+		}
+		const idSet = new Set(input.ids);
+		const remaining = list.filter((c) => !idSet.has(c.id));
+		if (remaining.length === 0) this.byWorktree.delete(input.worktreeId);
+		else this.byWorktree.set(input.worktreeId, remaining);
+		await this.persist();
+		this.emit("deleted");
+		return { ok: true, removed: input.ids.length };
+	}
+
 	async removeByWorktree(worktreeId: string): Promise<void> {
 		if (!this.byWorktree.has(worktreeId)) return;
 		this.byWorktree.delete(worktreeId);
