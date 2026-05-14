@@ -27,7 +27,10 @@ export const ReviewCreateRequestSchema = z.object({
 	body: z.string().min(1),
 	source: ReviewCommentSourceSchema,
 	commitSha: z.string().nullable(),
-});
+}).refine(
+	(d) => d.source !== "commit" || d.commitSha !== null,
+	{ message: "commitSha is required for commit-source comments", path: ["commitSha"] },
+);
 export type ReviewCreateRequest = z.infer<typeof ReviewCreateRequestSchema>;
 export const ReviewCreateResponseSchema = z.object({
 	comment: ReviewCommentSchema,

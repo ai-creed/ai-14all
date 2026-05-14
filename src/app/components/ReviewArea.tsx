@@ -564,9 +564,16 @@ export function ReviewArea(props: Props): React.ReactElement {
 						draftBody={draftBelongsHere ? (addingDraft?.body ?? "") : ""}
 						onDraftChange={updateAddingDraftBody}
 						onSave={async (id, body) => {
-							const res = await reviewState.update(id, body);
-							if (res && "ok" in res && !res.ok) {
-								toast.show(`Failed to update comment: ${(res as { ok: false; error: string }).error}`);
+							try {
+								const res = await reviewState.update(id, body);
+								if (res && "ok" in res && !res.ok) {
+									toast.show(`Failed to update comment: ${(res as { ok: false; error: string }).error}`);
+									return false;
+								}
+								return true;
+							} catch (e) {
+								toast.show(`Failed to update: ${(e as Error).message}`);
+								return false;
 							}
 						}}
 						onToggleAddressed={async (id) => {

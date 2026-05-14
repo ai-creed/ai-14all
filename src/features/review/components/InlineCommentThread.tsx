@@ -3,7 +3,7 @@ import type { ReviewComment } from "../../../../shared/models/review-comment";
 
 type Props = {
 	comment: ReviewComment;
-	onSave: (body: string) => void;
+	onSave: (body: string) => Promise<boolean>;
 	onToggleAddressed: () => void;
 	onDelete: () => void;
 	onMeasureChange: () => void;
@@ -79,9 +79,11 @@ export function InlineCommentThread({
 					<button
 						type="button"
 						disabled={draft.trim().length === 0}
-						onClick={() => {
-							onSave(draft.trim());
-							setEditing(false);
+						onClick={async () => {
+							const ok = await onSave(draft.trim());
+							if (ok) {
+								setEditing(false);
+							}
 						}}
 					>
 						Save

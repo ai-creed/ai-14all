@@ -18,7 +18,7 @@ type DraftSpec = {
 type Args = {
 	editor: MonacoEditor.IStandaloneDiffEditor | null;
 	comments: ReviewComment[];
-	onSave: (id: string, body: string) => void;
+	onSave: (id: string, body: string) => Promise<boolean>;
 	onToggleAddressed: (id: string) => void;
 	onDelete: (id: string) => void;
 	draft: DraftSpec;
@@ -33,7 +33,7 @@ const DEFAULT_HEIGHT = 96;
 export function useInlineThreadMounts(args: Args): void {
 	const mountRef = useRef<InlineThreadMount | null>(null);
 	const handlesRef = useRef<Map<string, { handle: InlineThreadHandle; root: Root }>>(new Map());
-	const draftRef = useRef<{ handle: InlineThreadHandle; root: Root } | null>(null);
+	const draftRef = useRef<{ handle: InlineThreadHandle; root: Root; endLine: number } | null>(null);
 
 	useEffect(() => {
 		if (!args.editor) return;
@@ -79,7 +79,7 @@ export function useInlineThreadMounts(args: Args): void {
 			entry.root.render(
 				<InlineCommentThread
 					comment={c}
-					onSave={(body) => args.onSave(c.id, body)}
+					onSave={async (body) => args.onSave(c.id, body)}
 					onToggleAddressed={() => args.onToggleAddressed(c.id)}
 					onDelete={() => args.onDelete(c.id)}
 					onMeasureChange={() => {
@@ -103,12 +103,18 @@ export function useInlineThreadMounts(args: Args): void {
 			return;
 		}
 		const spec = args.draft;
-		if (!draftRef.current) {
+		const needsNewZone = !draftRef.current || draftRef.current.endLine !== spec.endLine;
+		if (needsNewZone) {
+			if (draftRef.current) {
+				draftRef.current.root.unmount();
+				draftRef.current.handle.remove();
+			}
 			const handle = mount.addThread({ lineNumber: spec.endLine, initialHeight: DEFAULT_HEIGHT });
 			const root = createRoot(handle.domNode);
-			draftRef.current = { handle, root };
+			draftRef.current = { handle, root, endLine: spec.endLine };
 		}
-		const entry = draftRef.current;
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		const entry = draftRef.current!;
 		entry.root.render(
 			<InlineDraftThread
 				range={spec}

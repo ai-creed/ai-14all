@@ -11,7 +11,7 @@ type Props = {
 	draft: { startLine: number; endLine: number } | null;
 	draftBody: string;
 	onDraftChange: (body: string) => void;
-	onSave: (id: string, body: string) => void;
+	onSave: (id: string, body: string) => Promise<boolean>;
 	onToggleAddressed: (id: string) => void;
 	onDelete: (id: string) => void;
 	onSubmitDraft: () => void;

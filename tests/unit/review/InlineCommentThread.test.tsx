@@ -20,6 +20,7 @@ const c: ReviewComment = {
 };
 
 function noop() {}
+async function noopSave(): Promise<boolean> { return true; }
 
 describe("InlineCommentThread", () => {
 	it("renders open state with body and actions", () => {
@@ -28,7 +29,7 @@ describe("InlineCommentThread", () => {
 				comment={c}
 				onToggleAddressed={noop}
 				onDelete={noop}
-				onSave={noop}
+				onSave={noopSave}
 				onMeasureChange={noop}
 			/>,
 		);
@@ -40,7 +41,7 @@ describe("InlineCommentThread", () => {
 
 	it("Edit → save calls onSave with new body", async () => {
 		const user = userEvent.setup();
-		const onSave = vi.fn();
+		const onSave = vi.fn().mockResolvedValue(true);
 		render(
 			<InlineCommentThread
 				comment={c}
@@ -65,7 +66,7 @@ describe("InlineCommentThread", () => {
 				comment={{ ...c, status: "addressed", addressedAt: c.createdAt }}
 				onToggleAddressed={noop}
 				onDelete={noop}
-				onSave={noop}
+				onSave={noopSave}
 				onMeasureChange={noop}
 			/>,
 		);
@@ -83,7 +84,7 @@ describe("InlineCommentThread", () => {
 				comment={c}
 				onToggleAddressed={noop}
 				onDelete={noop}
-				onSave={noop}
+				onSave={noopSave}
 				onMeasureChange={onMeasureChange}
 			/>,
 		);
