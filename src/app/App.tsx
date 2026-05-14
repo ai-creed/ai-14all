@@ -17,7 +17,6 @@ import {
 	ReviewExpandedPortal,
 	type ReviewExpandedPortalHandle,
 } from "../features/review/components/ReviewExpandedPortal";
-import { useReviewDrawerAutoExpand } from "../features/review/hooks/use-review-drawer-auto-expand";
 import { useReviewComments } from "../features/review/hooks/use-review-comments";
 import { type NewCommentDraft } from "./components/ReviewArea";
 import { useAgentInstallStatus } from "../features/review/hooks/use-agent-install-status";
@@ -543,30 +542,6 @@ export function App() {
 		: null;
 
 	// ---------------------------------------------------------------------------
-	// Review drawer auto-expand — clean→dirty transitions (spec §4.3)
-	// ---------------------------------------------------------------------------
-	const summaryReady =
-		activeSession?.gitSummary !== null &&
-		activeSession?.gitSummary !== undefined;
-	const openReviewDrawer = useCallback(
-		(worktreeId: string) => {
-			dispatch({
-				type: "session/setReviewDrawerOpen",
-				worktreeId,
-				open: true,
-			});
-		},
-		[dispatch],
-	);
-	const autoExpand = useReviewDrawerAutoExpand({
-		activeWorktreeId: activeWorktree?.id ?? null,
-		changedCount: changes.length,
-		summaryReady,
-		currentlyOpen: activeSession?.reviewDrawerOpen ?? false,
-		open: openReviewDrawer,
-	});
-
-	// ---------------------------------------------------------------------------
 	// Persist effect — writes V2 state
 	// ---------------------------------------------------------------------------
 
@@ -930,34 +905,9 @@ export function App() {
 		[activeWorktree?.id],
 	);
 
-	// Cmd+J / Ctrl+J — toggle review drawer
+	// Cmd+J / Ctrl+J — toggle review overlay
 	useKeyboardShortcut(
-		"review-drawer",
-		appPlatform,
-		(e) => {
-			if (!activeWorktree) return;
-			e.preventDefault();
-			const session =
-				workspaceStateRef.current.sessionsByWorktreeId[activeWorktree.id];
-			const currentlyOpen = session?.reviewDrawerOpen ?? false;
-			const next = !currentlyOpen;
-			if (!next && (activeSummary?.isDirty ?? false)) {
-				autoExpand.noteUserCollapse(activeWorktree.id);
-			} else if (next) {
-				autoExpand.noteUserExpand(activeWorktree.id);
-			}
-			dispatch({
-				type: "session/setReviewDrawerOpen",
-				worktreeId: activeWorktree.id,
-				open: next,
-			});
-		},
-		[activeWorktree?.id, activeSummary?.isDirty, autoExpand, dispatch],
-	);
-
-	// Cmd+Shift+J / Ctrl+Shift+J — toggle review expand mode
-	useKeyboardShortcut(
-		"review.expand",
+		"review.open",
 		appPlatform,
 		(e) => {
 			if (!activeWorktree) return;
@@ -1219,29 +1169,21 @@ export function App() {
 		[],
 	);
 
-	// Cmd+1/2/3 / Ctrl+1/2/3 — switch review pane tab and open drawer
+	// Cmd+1/2/3 / Ctrl+1/2/3 — switch review pane tab and open overlay
 	const switchReviewMode = useCallback(
 		(reviewMode: "files" | "changes" | "commits") => (e: KeyboardEvent) => {
 			const currentState = workspaceStateRef.current;
 			const currentWorktreeId = currentState.selectedWorktreeId;
 			if (!currentWorktreeId) return;
 			e.preventDefault();
-			const session = currentState.sessionsByWorktreeId[currentWorktreeId];
 			dispatch({
 				type: "session/setReviewMode",
 				worktreeId: currentWorktreeId,
 				reviewMode,
 			});
-			if (!(session?.reviewDrawerOpen ?? false)) {
-				autoExpand.noteUserExpand(currentWorktreeId);
-				dispatch({
-					type: "session/setReviewDrawerOpen",
-					worktreeId: currentWorktreeId,
-					open: true,
-				});
-			}
+			setReviewOpen(true);
 		},
-		[autoExpand, dispatch, workspaceStateRef],
+		[dispatch, workspaceStateRef],
 	);
 	useKeyboardShortcut("review.files", appPlatform, switchReviewMode("files"), [
 		switchReviewMode,
