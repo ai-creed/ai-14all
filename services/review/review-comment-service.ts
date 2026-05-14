@@ -82,6 +82,24 @@ export class ReviewCommentService {
 		return { ...found };
 	}
 
+	async update(
+		id: string,
+		patch: { body: string },
+	): Promise<
+		| { ok: true; comment: ReviewComment }
+		| { ok: false; error: "not_found" | "not_open" | "empty_body" }
+	> {
+		const trimmed = patch.body.trim();
+		if (trimmed.length === 0) return { ok: false, error: "empty_body" };
+		const found = this.find(id);
+		if (!found) return { ok: false, error: "not_found" };
+		if (found.status !== "open") return { ok: false, error: "not_open" };
+		found.body = trimmed;
+		await this.persist();
+		this.emit("updated");
+		return { ok: true, comment: { ...found } };
+	}
+
 	async delete(id: string): Promise<boolean> {
 		for (const [wid, list] of this.byWorktree.entries()) {
 			const idx = list.findIndex((c) => c.id === id);
