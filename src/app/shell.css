@@ -3049,3 +3049,29 @@ select {
 	visibility: hidden;
 	pointer-events: none;
 }
+
+/* ── Toast stack ──────────────────────────────────────────────────────────── */
+
+.shell-toast-stack {
+	position: fixed;
+	bottom: 12px;
+	right: 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	z-index: 1000;
+}
+
+.shell-toast {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	background: var(--surface-elevated, #1f2228);
+	color: var(--text, #d9d9d9);
+	border: 1px solid var(--border-subtle, #2c3038);
+	border-radius: 8px;
+	padding: 8px 10px;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+	max-width: 320px;
+	font-size: 13px;
+}

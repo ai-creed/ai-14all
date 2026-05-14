@@ -68,6 +68,7 @@ import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-emp
 import { useCreateWorktreePreview } from "./hooks/use-create-worktree-preview";
 import { useRemoveWorktreePreview } from "./hooks/use-remove-worktree-preview";
 import { DialogStack } from "./components/DialogStack";
+import { ToastProvider } from "../features/ui/toast/ToastProvider";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { ReviewDrawerSection } from "./components/ReviewDrawerSection";
 import { ReviewArea } from "./components/ReviewArea";
@@ -1353,6 +1354,7 @@ export function App() {
 	}
 
 	return (
+		<ToastProvider>
 		<main className="shell-app">
 			<RestoreBanner
 				message={restoreWarning}
@@ -1545,5 +1547,6 @@ export function App() {
 				agentInstallStatus={agentInstallStatus}
 			/>
 		</main>
+		</ToastProvider>
 	);
 }
