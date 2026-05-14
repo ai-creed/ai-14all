@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import * as Tabs from "@radix-ui/react-tabs";
 import type { GitChange } from "../../../shared/models/git-change";
@@ -24,16 +24,21 @@ import { FileViewer } from "../../features/viewer/components/FileViewer";
 import { DiffViewer } from "../../features/viewer/components/DiffViewer";
 import { MarkdownPreviewModal } from "../../features/viewer/components/MarkdownPreviewModal";
 import { EditorModal } from "../../features/viewer/components/EditorModal";
+import { ReviewQueuePanel } from "../../features/review/components/ReviewQueuePanel";
+import { InlineMountsBridge } from "../../features/review/components/InlineMountsBridge";
+import { filterForInlineMount } from "../../features/review/logic/inline-mount-filter";
 import {
-	ReviewCommentSidebar,
-	type NewCommentDraft,
-} from "../../features/review/components/ReviewCommentSidebar";
-import { createDiffEditorRegistry } from "../../features/review/logic/diff-editor-registry";
+	dispatchActionsForJump,
+	waitForEditor,
+} from "../../features/review/logic/queue-jump";
 import {
-	installAddAffordances,
 	scrollToLineRange,
-	type SelectionDraft,
+	installAddAffordances,
 } from "../../features/review/logic/diff-editor-decorations";
+import { installSelectionPill } from "../../features/review/logic/inline-comment-widgets";
+import { installCommentKeyBindings } from "../../features/review/logic/comment-key-bindings";
+import { useToast } from "../../features/ui/toast/use-toast";
+import { createDiffEditorRegistry } from "../../features/review/logic/diff-editor-registry";
 import {
 	navigateToNextDiff,
 	navigateToPrevDiff,
@@ -41,6 +46,18 @@ import {
 import { useKeyboardShortcut } from "../hooks/use-keyboard-shortcut";
 import { detectPlatform } from "../shortcut-registry";
 import type { useReviewComments } from "../../features/review/hooks/use-review-comments";
+import type { ReviewCommentSource } from "../../../shared/models/review-comment";
+import type { ReviewComment } from "../../../shared/models/review-comment";
+
+export type NewCommentDraft = {
+	filePath: string;
+	startLine: number;
+	endLine: number;
+	snippet: string;
+	body: string;
+	source: ReviewCommentSource;
+	commitSha: string | null;
+};
 
 type ReviewState = ReturnType<typeof useReviewComments>;
 
@@ -86,13 +103,12 @@ type Props = {
 	bumpRefreshKey: () => void;
 	addingDraft: NewCommentDraft | null;
 	setAddingDraft: (next: NewCommentDraft | null) => void;
-	selectionDraft: SelectionDraft;
-	setSelectionDraft: (next: SelectionDraft) => void;
+	updateAddingDraftBody: (body: string) => void;
 };
 
 /**
  * Three-tab review surface (Files / Changes / Commits) with diff viewer pane
- * and review-comment sidebar. Owns the local UI state for tree preview,
+ * and review-comment queue panel. Owns the local UI state for tree preview,
  * comment drafts, diff-editor registry, and open-editor errors. Heavier
  * shared state (active worktree, loaders, review comments) is provided by
  * the host via props.
@@ -130,18 +146,27 @@ export function ReviewArea(props: Props): React.ReactElement {
 		bumpRefreshKey,
 		addingDraft,
 		setAddingDraft,
-		selectionDraft,
-		setSelectionDraft,
+		updateAddingDraftBody,
 	} = props;
 
 	// Local UI state owned by the review surface
 	const [treePreviewPath, setTreePreviewPath] = useState<string | null>(null);
+	const [hideAddressed, setHideAddressed] = useState(false);
+	const [focusedThreadId, setFocusedThreadId] = useState<string | null>(null);
 	const diffEditorRegistry = useMemo(() => createDiffEditorRegistry(), []);
+	const toast = useToast();
 
 	// Clear tree preview when the active worktree changes
 	useEffect(() => {
 		setTreePreviewPath(null);
 	}, [activeWorktree.id]);
+
+	const currentFilePath =
+		activeSession?.reviewMode === "commits"
+			? (activeSession?.selectedCommitFilePath ?? null)
+			: activeSession?.reviewMode === "changes"
+				? (activeSession?.selectedChangedFilePath ?? null)
+				: null;
 
 	const ensureFileFocused = useCallback(
 		(filePath: string) => {
@@ -166,13 +191,143 @@ export function ReviewArea(props: Props): React.ReactElement {
 		[activeWorktree, activeSession, dispatch],
 	);
 
-	const platform = useMemo(() => detectPlatform(), []);
-	const currentDiffFilePath =
-		activeSession?.reviewMode === "commits"
-			? (activeSession?.selectedCommitFilePath ?? null)
-			: activeSession?.reviewMode === "changes"
-				? (activeSession?.selectedChangedFilePath ?? null)
+	const startDraft = useCallback(
+		(arg: Pick<NewCommentDraft, "filePath" | "startLine" | "endLine" | "snippet">) => {
+			if (
+				addingDraft &&
+				addingDraft.body.trim().length > 0 &&
+				(addingDraft.filePath !== arg.filePath ||
+					addingDraft.startLine !== arg.startLine ||
+					addingDraft.endLine !== arg.endLine)
+			) {
+				const ok = window.confirm(
+					"You have an unsaved comment draft. Discard it and start a new one?",
+				);
+				if (!ok) return;
+			}
+			const source: ReviewCommentSource =
+				activeSession?.reviewMode === "commits" ? "commit" : "working-tree";
+			const commitSha =
+				activeSession?.reviewMode === "commits"
+					? (activeSession?.selectedCommitSha ?? null)
+					: null;
+			setAddingDraft({ ...arg, body: "", source, commitSha });
+		},
+		[addingDraft, setAddingDraft, activeSession],
+	);
+
+	const inlineComments = useMemo(() => {
+		const commitSha =
+			activeSession?.reviewMode === "commits"
+				? (activeSession?.selectedCommitSha ?? null)
 				: null;
+		const { inline } = filterForInlineMount(reviewState.comments, {
+			reviewMode: activeSession?.reviewMode ?? "files",
+			filePath: currentFilePath,
+			commitSha,
+		});
+		return hideAddressed ? inline.filter((c) => c.status !== "addressed") : inline;
+	}, [reviewState.comments, activeSession, currentFilePath, hideAddressed]);
+
+	const navigateThread = useCallback(
+		(filePath: string, dir: 1 | -1) => {
+			const editor = diffEditorRegistry.get(filePath);
+			const threadsForFile = inlineComments;
+			if (!editor || threadsForFile.length === 0) return;
+			const sorted = [...threadsForFile].sort((a, b) => a.startLine - b.startLine);
+			const idx = sorted.findIndex((c) => c.id === focusedThreadId);
+			const nextIdx =
+				idx === -1
+					? dir > 0 ? 0 : sorted.length - 1
+					: (idx + dir + sorted.length) % sorted.length;
+			const target = sorted[nextIdx];
+			setFocusedThreadId(target.id);
+			scrollToLineRange(editor, target);
+		},
+		[inlineComments, focusedThreadId, diffEditorRegistry],
+	);
+
+	const pillsRef = useRef(new Map<string, ReturnType<typeof installSelectionPill>>());
+
+	const handleDiffEditorMount = useCallback(
+		(filePath: string, editor: Parameters<typeof installAddAffordances>[0]) => {
+			diffEditorRegistry.register(filePath, editor);
+
+			const disposeAdd = installAddAffordances(editor, {
+				filePath,
+				onEnsureFileFocused: ensureFileFocused,
+				onAddSingleLine: ({ filePath: fp, line, snippet }) =>
+					startDraft({
+						filePath: fp,
+						startLine: line,
+						endLine: line,
+						snippet,
+					}),
+				onSelectionChange: () => {
+					// selection-pill widget handles its own state
+				},
+			});
+
+			const pill = installSelectionPill(editor, filePath, (arg) => startDraft(arg));
+			pillsRef.current.set(filePath, pill);
+
+			installCommentKeyBindings(editor.getModifiedEditor(), {
+				addAtCaret: () => {
+					const pos = editor.getModifiedEditor().getPosition();
+					if (!pos) return;
+					const snippet =
+						editor.getModifiedEditor().getModel()?.getLineContent(pos.lineNumber) ?? "";
+					startDraft({
+						filePath,
+						startLine: pos.lineNumber,
+						endLine: pos.lineNumber,
+						snippet,
+					});
+				},
+				nextThread: () => navigateThread(filePath, +1),
+				prevThread: () => navigateThread(filePath, -1),
+				editFocused: () => {
+					if (!focusedThreadId) return;
+					const c = reviewState.comments.find((x) => x.id === focusedThreadId);
+					if (c) scrollToLineRange(editor, c);
+				},
+				toggleAddressedFocused: () => {
+					if (!focusedThreadId) return;
+					const c = reviewState.comments.find((x) => x.id === focusedThreadId);
+					if (!c) return;
+					if (c.status === "open") void reviewState.markAddressed(c.id);
+					else void reviewState.reopen(c.id);
+				},
+			});
+
+			editor.onDidDispose(() => {
+				disposeAdd();
+				pill.dispose();
+				pillsRef.current.delete(filePath);
+				diffEditorRegistry.unregister(filePath);
+			});
+		},
+		[ensureFileFocused, startDraft, focusedThreadId, reviewState, navigateThread, diffEditorRegistry],
+	);
+
+	const handleDiffEditorUnmount = useCallback((filePath: string) => {
+		pillsRef.current.get(filePath)?.dispose();
+		pillsRef.current.delete(filePath);
+		diffEditorRegistry.unregister(filePath);
+	}, [diffEditorRegistry]);
+
+	// Suppress selection pill while a draft for that file is active
+	useEffect(() => {
+		if (!currentFilePath) return;
+		const pill = pillsRef.current.get(currentFilePath);
+		if (!pill) return;
+		pill.setSuppressed(
+			addingDraft !== null && addingDraft.filePath === currentFilePath,
+		);
+	}, [currentFilePath, addingDraft]);
+
+	const platform = useMemo(() => detectPlatform(), []);
+	const currentDiffFilePath = currentFilePath;
 	useKeyboardShortcut(
 		"review.diffNext",
 		platform,
@@ -195,6 +350,9 @@ export function ReviewArea(props: Props): React.ReactElement {
 		},
 		[currentDiffFilePath, diffEditorRegistry],
 	);
+
+	const draftBelongsHere =
+		addingDraft !== null && addingDraft.filePath === currentFilePath;
 
 	return (
 		<Tabs.Root
@@ -381,6 +539,59 @@ export function ReviewArea(props: Props): React.ReactElement {
 				/>
 
 				<section className="shell-panel shell-viewer-panel">
+					<InlineMountsBridge
+						registry={diffEditorRegistry}
+						filePath={currentFilePath}
+						comments={inlineComments}
+						draft={
+							draftBelongsHere && addingDraft
+								? { startLine: addingDraft.startLine, endLine: addingDraft.endLine }
+								: null
+						}
+						draftBody={draftBelongsHere ? (addingDraft?.body ?? "") : ""}
+						onDraftChange={updateAddingDraftBody}
+						onSave={async (id, body) => {
+							const res = await reviewState.update(id, body);
+							if (res && "ok" in res && !res.ok) {
+								toast.show(`Failed to update comment: ${(res as { ok: false; error: string }).error}`);
+							}
+						}}
+						onToggleAddressed={async (id) => {
+							const c = reviewState.comments.find((x) => x.id === id);
+							if (!c) return;
+							try {
+								if (c.status === "open") await reviewState.markAddressed(id);
+								else await reviewState.reopen(id);
+							} catch (e) {
+								toast.show(`Failed: ${(e as Error).message}`);
+							}
+						}}
+						onDelete={async (id) => {
+							try {
+								await reviewState.remove(id);
+							} catch (e) {
+								toast.show(`Failed to delete: ${(e as Error).message}`);
+							}
+						}}
+						onSubmitDraft={async () => {
+							if (!addingDraft || addingDraft.body.trim().length === 0) return;
+							try {
+								await reviewState.create({
+									filePath: addingDraft.filePath,
+									startLine: addingDraft.startLine,
+									endLine: addingDraft.endLine,
+									snippet: addingDraft.snippet,
+									body: addingDraft.body.trim(),
+									source: addingDraft.source,
+									commitSha: addingDraft.commitSha,
+								});
+								setAddingDraft(null);
+							} catch (e) {
+								toast.show(`Failed to save: ${(e as Error).message}`);
+							}
+						}}
+						onCancelDraft={() => setAddingDraft(null)}
+					/>
 					{activeSession?.reviewMode === "commits" &&
 					commitDetailState.message !== null &&
 					commitDetailState.data === null ? (
@@ -393,27 +604,9 @@ export function ReviewArea(props: Props): React.ReactElement {
 							focusedPath={activeSession.selectedCommitFilePath}
 							resolvedTheme={resolvedTheme}
 							onEditorMount={(filePath, editor) => {
-								diffEditorRegistry.register(filePath, editor);
-								const dispose = installAddAffordances(editor, {
-									filePath,
-									onEnsureFileFocused: ensureFileFocused,
-									onAddSingleLine: ({ filePath, line, snippet }) =>
-										setAddingDraft({
-											filePath,
-											startLine: line,
-											endLine: line,
-											snippet,
-										}),
-									onSelectionChange: (draft) => setSelectionDraft(draft),
-								});
-								editor.onDidDispose(() => {
-									dispose();
-									diffEditorRegistry.unregister(filePath);
-								});
+								handleDiffEditorMount(filePath, editor);
 							}}
-							onEditorUnmount={(filePath) =>
-								diffEditorRegistry.unregister(filePath)
-							}
+							onEditorUnmount={handleDiffEditorUnmount}
 						/>
 					) : activeSession?.reviewMode === "files" &&
 					  activeSession.selectedFilePath ? (
@@ -433,23 +626,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 							modifiedContent={diffState.data.modifiedContent}
 							resolvedTheme={resolvedTheme}
 							onMount={(filePath, editor) => {
-								diffEditorRegistry.register(filePath, editor);
-								const dispose = installAddAffordances(editor, {
-									filePath,
-									onEnsureFileFocused: ensureFileFocused,
-									onAddSingleLine: ({ filePath, line, snippet }) =>
-										setAddingDraft({
-											filePath,
-											startLine: line,
-											endLine: line,
-											snippet,
-										}),
-									onSelectionChange: (draft) => setSelectionDraft(draft),
-								});
-								editor.onDidDispose(() => {
-									dispose();
-									diffEditorRegistry.unregister(filePath);
-								});
+								handleDiffEditorMount(filePath, editor);
 							}}
 						/>
 					) : (
@@ -457,76 +634,77 @@ export function ReviewArea(props: Props): React.ReactElement {
 							Select a file or changed file to inspect it.
 						</p>
 					)}
-					{selectionDraft && (
-						<button
-							type="button"
-							className="shell-review-floating-add"
-							onClick={() => {
-								ensureFileFocused(selectionDraft.filePath);
-								setAddingDraft({
-									filePath: selectionDraft.filePath,
-									startLine: selectionDraft.startLine,
-									endLine: selectionDraft.endLine,
-									snippet: selectionDraft.snippet,
-								});
-								setSelectionDraft(null);
-							}}
-						>
-							+ Add comment for L{selectionDraft.startLine}–
-							{selectionDraft.endLine}
-						</button>
-					)}
 				</section>
 
-				{commentSidebarOpen &&
-					(() => {
-						const currentFilePath =
-							activeSession?.reviewMode === "commits"
-								? (activeSession.selectedCommitFilePath ?? null)
-								: (activeSession?.selectedChangedFilePath ?? null);
-						return currentFilePath ? (
-							<ReviewCommentSidebar
-								filePath={currentFilePath}
-								comments={reviewState.comments}
-								addingForFile={addingDraft}
-								onScrollTo={(range) => {
-									const editor = diffEditorRegistry.get(currentFilePath);
-									if (editor) scrollToLineRange(editor, range);
-								}}
-								onToggleAddressed={async (commentId) => {
-									const c = reviewState.comments.find(
-										(c) => c.id === commentId,
-									);
-									if (!c) return;
-									if (c.status === "open")
-										await reviewState.markAddressed(commentId);
-									else await reviewState.reopen(commentId);
-								}}
-								onDelete={(commentId) => reviewState.remove(commentId)}
-								onSubmitNew={async (draft, body) => {
-									await reviewState.create({
-										filePath: draft.filePath,
-										startLine: draft.startLine,
-										endLine: draft.endLine,
-										snippet: draft.snippet,
-										body,
-										source:
-											activeSession?.reviewMode === "commits"
-												? "commit"
-												: "working-tree",
-										commitSha:
-											activeSession?.reviewMode === "commits"
-												? (activeSession.selectedCommitSha ?? null)
-												: null,
-									});
-									setAddingDraft(null);
-								}}
-								onCancelNew={() => setAddingDraft(null)}
-								installCtaVisible={installCtaVisible}
-								onOpenInstall={onOpenInstall}
-							/>
-						) : null;
-					})()}
+				{commentSidebarOpen && (() => {
+					const reviewMode = activeSession?.reviewMode ?? "files";
+					const commitSha =
+						reviewMode === "commits"
+							? (activeSession?.selectedCommitSha ?? null)
+							: null;
+
+					const handleJump = async (c: ReviewComment) => {
+						const actions = dispatchActionsForJump(c);
+						for (const a of actions) dispatch(a);
+						const editor = await waitForEditor(() => diffEditorRegistry.get(c.filePath) ?? null);
+						if (editor) {
+							scrollToLineRange(editor, c);
+							setFocusedThreadId(c.id);
+						} else {
+							toast.show("File no longer in this diff");
+						}
+					};
+
+					return (
+						<ReviewQueuePanel
+							activeMode={
+								reviewMode === "commits"
+									? { kind: "commits", commitSha }
+									: reviewMode === "changes"
+										? { kind: "changes" }
+										: { kind: "files" }
+							}
+							comments={reviewState.comments}
+							hideAddressed={hideAddressed}
+							pendingDraft={
+								addingDraft && addingDraft.filePath !== currentFilePath
+									? addingDraft
+									: null
+							}
+							onJumpToPendingDraft={(draft) => {
+								const actions = dispatchActionsForJump({
+									id: "__pending_draft__",
+									worktreeId: activeWorktree.id,
+									filePath: draft.filePath,
+									startLine: draft.startLine,
+									endLine: draft.endLine,
+									snippet: draft.snippet,
+									body: draft.body,
+									status: "open",
+									source: draft.source as ReviewCommentSource,
+									commitSha: draft.commitSha,
+									createdAt: new Date(0).toISOString(),
+									addressedAt: null,
+								});
+								for (const a of actions) dispatch(a);
+							}}
+							onJump={handleJump}
+							onClearAddressed={async () => {
+								try {
+									const res = await reviewState.clearAddressed();
+									if (res && "ok" in res && !res.ok) {
+										toast.show(`Failed to clear: ${(res as { ok: false; error: string }).error}`);
+									}
+								} catch (e) {
+									toast.show(`Failed to clear: ${(e as Error).message}`);
+								}
+							}}
+							onToggleHideAddressed={() => setHideAddressed((v) => !v)}
+							installCtaVisible={installCtaVisible}
+							onOpenInstall={onOpenInstall}
+						/>
+					);
+				})()}
 			</div>
 		</Tabs.Root>
 	);

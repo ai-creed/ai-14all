@@ -101,4 +101,31 @@ describe("ReviewQueuePanel", () => {
 		);
 		expect(screen.getByRole("button", { name: /install/i })).toBeInTheDocument();
 	});
+
+	it("shows pending draft section and calls onJumpToPendingDraft on click", async () => {
+		const draft = {
+			filePath: "b.ts",
+			startLine: 5,
+			endLine: 7,
+			snippet: "",
+			body: "wip",
+			source: "working-tree",
+			commitSha: null,
+		};
+		const handler = vi.fn();
+		const user = userEvent.setup();
+		render(
+			<ReviewQueuePanel
+				activeMode={{ kind: "changes" }}
+				comments={[]}
+				hideAddressed={false}
+				pendingDraft={draft}
+				onJumpToPendingDraft={handler}
+				{...NOOP}
+			/>,
+		);
+		const btn = screen.getByRole("button", { name: /b\.ts/i });
+		await user.click(btn);
+		expect(handler).toHaveBeenCalledWith(draft);
+	});
 });

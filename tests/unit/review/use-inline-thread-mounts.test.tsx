@@ -57,6 +57,24 @@ function Harness({ editor, comments }: { editor: MonacoEditor.IStandaloneDiffEdi
 		onToggleAddressed: vi.fn(),
 		onDelete: vi.fn(),
 		draft: null,
+		draftBody: "",
+		onDraftChange: vi.fn(),
+		onSubmitDraft: vi.fn(),
+		onCancelDraft: vi.fn(),
+	});
+	return null;
+}
+
+function NullHarness({ comments }: { comments: ReviewComment[] }) {
+	useInlineThreadMounts({
+		editor: null,
+		comments,
+		onSave: vi.fn(),
+		onToggleAddressed: vi.fn(),
+		onDelete: vi.fn(),
+		draft: null,
+		draftBody: "",
+		onDraftChange: vi.fn(),
 		onSubmitDraft: vi.fn(),
 		onCancelDraft: vi.fn(),
 	});
@@ -81,5 +99,10 @@ describe("useInlineThreadMounts", () => {
 			/>,
 		);
 		expect(zones.size).toBe(0);
+	});
+
+	it("does nothing when editor is null", () => {
+		render(<NullHarness comments={[c()]} />);
+		expect(document.querySelectorAll('[class*="shell-inline-thread"]').length).toBe(0);
 	});
 });

@@ -7,10 +7,22 @@ type ActiveMode =
 	| { kind: "commits"; commitSha: string | null }
 	| { kind: "files" };
 
+type PendingDraft = {
+	filePath: string;
+	startLine: number;
+	endLine: number;
+	snippet: string;
+	body: string;
+	source: string;
+	commitSha: string | null;
+};
+
 type Props = {
 	activeMode: ActiveMode;
 	comments: ReviewComment[];
 	hideAddressed: boolean;
+	pendingDraft?: PendingDraft | null;
+	onJumpToPendingDraft?: (draft: PendingDraft) => void;
 	onJump: (c: ReviewComment) => void;
 	onClearAddressed: () => void;
 	onToggleHideAddressed: () => void;
@@ -28,6 +40,8 @@ export function ReviewQueuePanel({
 	activeMode,
 	comments,
 	hideAddressed,
+	pendingDraft,
+	onJumpToPendingDraft,
 	onJump,
 	onClearAddressed,
 	onToggleHideAddressed,
@@ -84,6 +98,21 @@ export function ReviewQueuePanel({
 				<section className="shell-review-queue__section">
 					<h4>Other modes</h4>
 					<FileGroups list={other} onJump={onJump} emptyText="" />
+				</section>
+			)}
+
+			{pendingDraft && onJumpToPendingDraft && (
+				<section className="shell-review-queue__section">
+					<h4>Pending draft</h4>
+					<button
+						type="button"
+						className="shell-review-queue__pending-draft"
+						onClick={() => onJumpToPendingDraft(pendingDraft)}
+					>
+						📝 L{pendingDraft.startLine}
+						{pendingDraft.startLine !== pendingDraft.endLine
+							? `–${pendingDraft.endLine}` : ""} in {pendingDraft.filePath}
+					</button>
 				</section>
 			)}
 

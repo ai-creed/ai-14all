@@ -16,13 +16,15 @@ type DraftSpec = {
 } | null;
 
 type Args = {
-	editor: MonacoEditor.IStandaloneDiffEditor;
+	editor: MonacoEditor.IStandaloneDiffEditor | null;
 	comments: ReviewComment[];
 	onSave: (id: string, body: string) => void;
 	onToggleAddressed: (id: string) => void;
 	onDelete: (id: string) => void;
 	draft: DraftSpec;
-	onSubmitDraft: (body: string) => void;
+	draftBody: string;
+	onDraftChange: (body: string) => void;
+	onSubmitDraft: () => void;
 	onCancelDraft: () => void;
 };
 
@@ -34,6 +36,7 @@ export function useInlineThreadMounts(args: Args): void {
 	const draftRef = useRef<{ handle: InlineThreadHandle; root: Root } | null>(null);
 
 	useEffect(() => {
+		if (!args.editor) return;
 		mountRef.current = createInlineThreadMount(args.editor);
 		return () => {
 			for (const { root, handle } of handlesRef.current.values()) {
@@ -109,6 +112,8 @@ export function useInlineThreadMounts(args: Args): void {
 		entry.root.render(
 			<InlineDraftThread
 				range={spec}
+				body={args.draftBody}
+				onChange={args.onDraftChange}
 				onSubmit={args.onSubmitDraft}
 				onCancel={args.onCancelDraft}
 				onMeasureChange={() => {
@@ -117,5 +122,5 @@ export function useInlineThreadMounts(args: Args): void {
 				}}
 			/>,
 		);
-	}, [args.draft, args.onSubmitDraft, args.onCancelDraft]);
+	}, [args.draft, args.draftBody, args.onDraftChange, args.onSubmitDraft, args.onCancelDraft]);
 }

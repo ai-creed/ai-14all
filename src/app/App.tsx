@@ -16,8 +16,7 @@ import { PresetManager } from "../features/terminals/components/PresetManager";
 import { type ReviewExpandedPortalHandle } from "../features/review/components/ReviewExpandedPortal";
 import { useReviewDrawerAutoExpand } from "../features/review/hooks/use-review-drawer-auto-expand";
 import { useReviewComments } from "../features/review/hooks/use-review-comments";
-import { type NewCommentDraft } from "../features/review/components/ReviewCommentSidebar";
-import { type SelectionDraft } from "../features/review/logic/diff-editor-decorations";
+import { type NewCommentDraft } from "./components/ReviewArea";
 import { useAgentInstallStatus } from "../features/review/hooks/use-agent-install-status";
 import {
 	buildWorktreeAttentionDisplay,
@@ -328,7 +327,9 @@ export function App() {
 		openCommentCounts,
 	]);
 	const [addingDraft, setAddingDraft] = useState<NewCommentDraft | null>(null);
-	const [selectionDraft, setSelectionDraft] = useState<SelectionDraft>(null);
+	const updateAddingDraftBody = useCallback((body: string) => {
+		setAddingDraft((prev) => (prev ? { ...prev, body } : prev));
+	}, []);
 	const agentInstallStatus = useAgentInstallStatus();
 	// providers starts as [] before the first refresh resolves. length > 0 guards
 	// against that window, so the CTA is hidden during initial load rather than
@@ -1493,8 +1494,7 @@ export function App() {
 								bumpRefreshKey={() => setRefreshKey((k) => k + 1)}
 								addingDraft={addingDraft}
 								setAddingDraft={setAddingDraft}
-								selectionDraft={selectionDraft}
-								setSelectionDraft={setSelectionDraft}
+								updateAddingDraftBody={updateAddingDraftBody}
 							/>
 						)}
 					</ReviewDrawerSection>

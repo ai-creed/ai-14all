@@ -1,18 +1,18 @@
-import { useLayoutEffect, useState } from "react";
+import { useLayoutEffect } from "react";
 
 type Props = {
 	range: { startLine: number; endLine: number };
-	onSubmit: (body: string) => void;
+	body: string;
+	onChange: (body: string) => void;
+	onSubmit: () => void;
 	onCancel: () => void;
 	onMeasureChange: () => void;
 };
 
-export function InlineDraftThread({ range, onSubmit, onCancel, onMeasureChange }: Props) {
-	const [draft, setDraft] = useState("");
-
+export function InlineDraftThread({ range, body, onChange, onSubmit, onCancel, onMeasureChange }: Props) {
 	useLayoutEffect(() => {
 		onMeasureChange();
-	}, [draft, onMeasureChange]);
+	}, [body, onMeasureChange]);
 
 	return (
 		<div className="shell-inline-thread" data-state="editing" data-draft="true">
@@ -25,18 +25,16 @@ export function InlineDraftThread({ range, onSubmit, onCancel, onMeasureChange }
 			<textarea
 				className="shell-inline-thread__textarea"
 				autoFocus
-				value={draft}
-				onChange={(e) => setDraft(e.target.value)}
+				value={body}
+				onChange={(e) => onChange(e.target.value)}
 				placeholder="Write a comment…"
 			/>
 			<div className="shell-inline-thread__actions">
-				<button type="button" onClick={onCancel}>
-					Cancel
-				</button>
+				<button type="button" onClick={onCancel}>Cancel</button>
 				<button
 					type="button"
-					disabled={draft.trim().length === 0}
-					onClick={() => onSubmit(draft.trim())}
+					disabled={body.trim().length === 0}
+					onClick={onSubmit}
 				>
 					Save
 				</button>
