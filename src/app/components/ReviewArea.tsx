@@ -230,10 +230,9 @@ export function ReviewArea(props: Props): React.ReactElement {
 	}, [reviewState.comments, activeSession, currentFilePath, hideAddressed]);
 
 	const navigateThread = useCallback(
-		(filePath: string, dir: 1 | -1) => {
-			const editor = diffEditorRegistry.get(filePath);
+		(dir: 1 | -1) => {
 			const threadsForFile = inlineComments;
-			if (!editor || threadsForFile.length === 0) return;
+			if (threadsForFile.length === 0) return;
 			const sorted = [...threadsForFile].sort((a, b) => a.startLine - b.startLine);
 			const idx = sorted.findIndex((c) => c.id === focusedThreadId);
 			const nextIdx =
@@ -242,12 +241,25 @@ export function ReviewArea(props: Props): React.ReactElement {
 					: (idx + dir + sorted.length) % sorted.length;
 			const target = sorted[nextIdx];
 			setFocusedThreadId(target.id);
-			scrollToLineRange(editor, target);
+			const editor = diffEditorRegistry.get(target.filePath);
+			if (editor) scrollToLineRange(editor, target);
 		},
 		[inlineComments, focusedThreadId, diffEditorRegistry],
 	);
 
 	const pillsRef = useRef(new Map<string, ReturnType<typeof installSelectionPill>>());
+
+	// Stable refs so key-binding handlers (registered once at editor-mount time)
+	// always delegate to the latest versions without needing re-registration.
+	const startDraftRef = useRef<typeof startDraft>(null!);
+	const navigateThreadRef = useRef<(dir: 1 | -1) => void>(null!);
+	const focusedThreadIdRef = useRef<string | null>(null);
+	const reviewStateRef = useRef<ReviewState>(null!);
+
+	useEffect(() => { startDraftRef.current = startDraft; }, [startDraft]);
+	useEffect(() => { navigateThreadRef.current = navigateThread; }, [navigateThread]);
+	useEffect(() => { focusedThreadIdRef.current = focusedThreadId; }, [focusedThreadId]);
+	useEffect(() => { reviewStateRef.current = reviewState; }, [reviewState]);
 
 	const handleDiffEditorMount = useCallback(
 		(filePath: string, editor: Parameters<typeof installAddAffordances>[0]) => {
@@ -257,7 +269,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 				filePath,
 				onEnsureFileFocused: ensureFileFocused,
 				onAddSingleLine: ({ filePath: fp, line, snippet }) =>
-					startDraft({
+					startDraftRef.current({
 						filePath: fp,
 						startLine: line,
 						endLine: line,
@@ -268,7 +280,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 				},
 			});
 
-			const pill = installSelectionPill(editor, filePath, (arg) => startDraft(arg));
+			const pill = installSelectionPill(editor, filePath, (arg) => startDraftRef.current(arg));
 			pillsRef.current.set(filePath, pill);
 
 			installCommentKeyBindings(editor.getModifiedEditor(), {
@@ -277,26 +289,28 @@ export function ReviewArea(props: Props): React.ReactElement {
 					if (!pos) return;
 					const snippet =
 						editor.getModifiedEditor().getModel()?.getLineContent(pos.lineNumber) ?? "";
-					startDraft({
+					startDraftRef.current({
 						filePath,
 						startLine: pos.lineNumber,
 						endLine: pos.lineNumber,
 						snippet,
 					});
 				},
-				nextThread: () => navigateThread(filePath, +1),
-				prevThread: () => navigateThread(filePath, -1),
+				nextThread: () => navigateThreadRef.current(+1),
+				prevThread: () => navigateThreadRef.current(-1),
 				editFocused: () => {
-					if (!focusedThreadId) return;
-					const c = reviewState.comments.find((x) => x.id === focusedThreadId);
+					const id = focusedThreadIdRef.current;
+					if (!id) return;
+					const c = reviewStateRef.current.comments.find((x) => x.id === id);
 					if (c) scrollToLineRange(editor, c);
 				},
 				toggleAddressedFocused: () => {
-					if (!focusedThreadId) return;
-					const c = reviewState.comments.find((x) => x.id === focusedThreadId);
+					const id = focusedThreadIdRef.current;
+					if (!id) return;
+					const c = reviewStateRef.current.comments.find((x) => x.id === id);
 					if (!c) return;
-					if (c.status === "open") void reviewState.markAddressed(c.id);
-					else void reviewState.reopen(c.id);
+					if (c.status === "open") void reviewStateRef.current.markAddressed(c.id);
+					else void reviewStateRef.current.reopen(c.id);
 				},
 			});
 
@@ -307,7 +321,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 				diffEditorRegistry.unregister(filePath);
 			});
 		},
-		[ensureFileFocused, startDraft, focusedThreadId, reviewState, navigateThread, diffEditorRegistry],
+		[ensureFileFocused, diffEditorRegistry],
 	);
 
 	const handleDiffEditorUnmount = useCallback((filePath: string) => {
@@ -327,28 +341,27 @@ export function ReviewArea(props: Props): React.ReactElement {
 	}, [currentFilePath, addingDraft]);
 
 	const platform = useMemo(() => detectPlatform(), []);
-	const currentDiffFilePath = currentFilePath;
 	useKeyboardShortcut(
 		"review.diffNext",
 		platform,
 		(e) => {
-			if (!currentDiffFilePath) return;
-			const editor = diffEditorRegistry.get(currentDiffFilePath);
+			if (!currentFilePath) return;
+			const editor = diffEditorRegistry.get(currentFilePath);
 			if (!editor) return;
 			if (navigateToNextDiff(editor)) e.preventDefault();
 		},
-		[currentDiffFilePath, diffEditorRegistry],
+		[currentFilePath, diffEditorRegistry],
 	);
 	useKeyboardShortcut(
 		"review.diffPrev",
 		platform,
 		(e) => {
-			if (!currentDiffFilePath) return;
-			const editor = diffEditorRegistry.get(currentDiffFilePath);
+			if (!currentFilePath) return;
+			const editor = diffEditorRegistry.get(currentFilePath);
 			if (!editor) return;
 			if (navigateToPrevDiff(editor)) e.preventDefault();
 		},
-		[currentDiffFilePath, diffEditorRegistry],
+		[currentFilePath, diffEditorRegistry],
 	);
 
 	const draftBelongsHere =
@@ -671,7 +684,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 									? addingDraft
 									: null
 							}
-							onJumpToPendingDraft={(draft) => {
+							onJumpToPendingDraft={async (draft) => {
 								const actions = dispatchActionsForJump({
 									id: "__pending_draft__",
 									worktreeId: activeWorktree.id,
@@ -681,12 +694,16 @@ export function ReviewArea(props: Props): React.ReactElement {
 									snippet: draft.snippet,
 									body: draft.body,
 									status: "open",
-									source: draft.source as ReviewCommentSource,
+									source: draft.source,
 									commitSha: draft.commitSha,
 									createdAt: new Date(0).toISOString(),
 									addressedAt: null,
 								});
 								for (const a of actions) dispatch(a);
+								const editor = await waitForEditor(() => diffEditorRegistry.get(draft.filePath) ?? null);
+								if (editor) {
+									scrollToLineRange(editor, draft);
+								}
 							}}
 							onJump={handleJump}
 							onClearAddressed={async () => {

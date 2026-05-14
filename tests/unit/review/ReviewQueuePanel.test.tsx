@@ -109,7 +109,7 @@ describe("ReviewQueuePanel", () => {
 			endLine: 7,
 			snippet: "",
 			body: "wip",
-			source: "working-tree",
+			source: "working-tree" as const,
 			commitSha: null,
 		};
 		const handler = vi.fn();

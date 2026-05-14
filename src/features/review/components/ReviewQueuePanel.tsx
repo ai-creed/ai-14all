@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { ReviewComment } from "../../../../shared/models/review-comment";
+import type { ReviewComment, ReviewCommentSource } from "../../../../shared/models/review-comment";
 import { AgentInstallCta } from "./AgentInstallCta";
 
 type ActiveMode =
@@ -13,7 +13,7 @@ type PendingDraft = {
 	endLine: number;
 	snippet: string;
 	body: string;
-	source: string;
+	source: ReviewCommentSource;
 	commitSha: string | null;
 };
 
