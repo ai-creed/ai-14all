@@ -920,6 +920,12 @@ export function App() {
 		[activeWorktree?.id, reviewOpen],
 	);
 
+	// Reset the review overlay when the active workspace or worktree changes
+	// so it doesn't silently retarget the new worktree.
+	useEffect(() => {
+		setReviewOpen(false);
+	}, [activeWorkspaceId, activeWorktree?.id]);
+
 	// Cmd+Shift+R / Ctrl+Alt+R — rename active session
 	useKeyboardShortcut(
 		"rename-session",
