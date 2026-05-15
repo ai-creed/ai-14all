@@ -341,6 +341,76 @@ export function ReviewArea(props: Props): React.ReactElement {
 	}, [currentFilePath, addingDraft]);
 
 	const platform = useMemo(() => detectPlatform(), []);
+
+	const stepFile = useCallback(
+		(direction: 1 | -1, e: KeyboardEvent) => {
+			if (activeSession?.reviewMode === "changes") {
+				if (changes.length < 2) return;
+				const currentPath = activeSession.selectedChangedFilePath;
+				const idx = changes.findIndex((c) => c.path === currentPath);
+				const nextIdx =
+					idx === -1
+						? direction > 0
+							? 0
+							: changes.length - 1
+						: (idx + direction + changes.length) % changes.length;
+				const next = changes[nextIdx];
+				if (!next) return;
+				e.preventDefault();
+				dispatch({
+					type: "session/selectChangedFile",
+					worktreeId: activeWorktree.id,
+					relativePath: next.path,
+				});
+			} else if (activeSession?.reviewMode === "commits") {
+				const files = commitDetailState.data?.files ?? [];
+				if (files.length < 2) return;
+				const currentPath = activeSession.selectedCommitFilePath;
+				const idx = files.findIndex((f) => f.path === currentPath);
+				const nextIdx =
+					idx === -1
+						? direction > 0
+							? 0
+							: files.length - 1
+						: (idx + direction + files.length) % files.length;
+				const next = files[nextIdx];
+				if (!next) return;
+				e.preventDefault();
+				dispatch({
+					type: "session/selectCommitFile",
+					worktreeId: activeWorktree.id,
+					relativePath: next.path,
+				});
+			}
+			// reviewMode === "files" → no-op (no ordered list to navigate)
+		},
+		[
+			activeSession?.reviewMode,
+			activeSession?.selectedChangedFilePath,
+			activeSession?.selectedCommitFilePath,
+			changes,
+			commitDetailState.data,
+			activeWorktree.id,
+			dispatch,
+		],
+	);
+
+	useKeyboardShortcut(
+		"review.fileNext",
+		platform,
+		(e) => {
+			stepFile(+1, e);
+		},
+		[stepFile],
+	);
+	useKeyboardShortcut(
+		"review.filePrev",
+		platform,
+		(e) => {
+			stepFile(-1, e);
+		},
+		[stepFile],
+	);
 	useKeyboardShortcut(
 		"review.diffNext",
 		platform,

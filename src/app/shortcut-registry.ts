@@ -290,6 +290,31 @@ function isOpenWorkspacePickerShortcut(
 	return e.ctrlKey && !e.metaKey;
 }
 
+function isReviewFileNextShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
+	if (e.defaultPrevented) return false;
+	// Cmd/Ctrl+. (no Shift) — on US/most layouts e.key === "."
+	if (e.key !== ".") return false;
+	if (e.shiftKey || e.altKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
+function isReviewFilePrevShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== ",") return false;
+	if (e.shiftKey || e.altKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
 function isReviewDiffNextShortcut(
 	e: KeyboardEvent,
 	platform: Platform,
@@ -422,6 +447,20 @@ export const SHORTCUT_REGISTRY: AppShortcut[] = [
 		mac: "⌘3",
 		other: "Ctrl+3",
 		predicate: isReviewCommitsShortcut,
+	},
+	{
+		id: "review.fileNext",
+		label: "Next file",
+		mac: "⌘.",
+		other: "Ctrl+.",
+		predicate: isReviewFileNextShortcut,
+	},
+	{
+		id: "review.filePrev",
+		label: "Previous file",
+		mac: "⌘,",
+		other: "Ctrl+,",
+		predicate: isReviewFilePrevShortcut,
 	},
 	{
 		id: "review.diffNext",

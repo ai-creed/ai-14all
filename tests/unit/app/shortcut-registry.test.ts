@@ -38,11 +38,13 @@ describe("SHORTCUT_REGISTRY structure", () => {
 		"files-overlay",
 		"note-sheet",
 		"review.open",
+		"review.fileNext",
+		"review.filePrev",
 		"rename-session",
 		"shortcuts-help",
 	];
 
-	it("contains all five required entries", () => {
+	it("contains all required entries", () => {
 		const ids = SHORTCUT_REGISTRY.map((s) => s.id);
 		for (const id of requiredIds) {
 			expect(ids).toContain(id);
@@ -220,6 +222,8 @@ describe("terminal-first ownership — all shortcuts", () => {
 		"files-overlay": { metaKey: true, key: "p" },
 		"note-sheet": { metaKey: true, key: ";" },
 		"review.open": { metaKey: true, key: "j" },
+		"review.fileNext": { metaKey: true, key: "." },
+		"review.filePrev": { metaKey: true, key: "," },
 		"rename-session": { metaKey: true, shiftKey: true, key: "R" },
 		"shortcuts-help": { metaKey: true, key: "/" },
 	};
@@ -321,6 +325,102 @@ describe("review.open predicate", () => {
 		expect(
 			entry("review.open").predicate(
 				evt({ metaKey: true, key: "j", target: input }),
+				"mac",
+			),
+		).toBe(false);
+	});
+});
+
+describe("review.fileNext predicate", () => {
+	it("matches Cmd+. on mac", () => {
+		expect(
+			entry("review.fileNext").predicate(
+				evt({ metaKey: true, key: "." }),
+				"mac",
+			),
+		).toBe(true);
+	});
+
+	it("matches Ctrl+. on other", () => {
+		expect(
+			entry("review.fileNext").predicate(
+				evt({ ctrlKey: true, key: "." }),
+				"other",
+			),
+		).toBe(true);
+	});
+
+	it("does not match Cmd+Shift+. on mac (hunk shortcut)", () => {
+		expect(
+			entry("review.fileNext").predicate(
+				evt({ metaKey: true, shiftKey: true, key: "." }),
+				"mac",
+			),
+		).toBe(false);
+	});
+
+	it("does not match Cmd+Alt+. on mac", () => {
+		expect(
+			entry("review.fileNext").predicate(
+				evt({ metaKey: true, altKey: true, key: "." }),
+				"mac",
+			),
+		).toBe(false);
+	});
+
+	it("does not match when typing in an input", () => {
+		const input = document.createElement("input");
+		expect(
+			entry("review.fileNext").predicate(
+				evt({ metaKey: true, key: ".", target: input }),
+				"mac",
+			),
+		).toBe(false);
+	});
+});
+
+describe("review.filePrev predicate", () => {
+	it("matches Cmd+, on mac", () => {
+		expect(
+			entry("review.filePrev").predicate(
+				evt({ metaKey: true, key: "," }),
+				"mac",
+			),
+		).toBe(true);
+	});
+
+	it("matches Ctrl+, on other", () => {
+		expect(
+			entry("review.filePrev").predicate(
+				evt({ ctrlKey: true, key: "," }),
+				"other",
+			),
+		).toBe(true);
+	});
+
+	it("does not match Cmd+Shift+, on mac (hunk shortcut)", () => {
+		expect(
+			entry("review.filePrev").predicate(
+				evt({ metaKey: true, shiftKey: true, key: "," }),
+				"mac",
+			),
+		).toBe(false);
+	});
+
+	it("does not match Cmd+Alt+, on mac", () => {
+		expect(
+			entry("review.filePrev").predicate(
+				evt({ metaKey: true, altKey: true, key: "," }),
+				"mac",
+			),
+		).toBe(false);
+	});
+
+	it("does not match when typing in an input", () => {
+		const input = document.createElement("input");
+		expect(
+			entry("review.filePrev").predicate(
+				evt({ metaKey: true, key: ",", target: input }),
 				"mac",
 			),
 		).toBe(false);
