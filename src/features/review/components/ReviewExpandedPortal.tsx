@@ -163,26 +163,26 @@ export const ReviewExpandedPortal = forwardRef<
 			data-leaving={leaving ? "true" : undefined}
 			style={{ top: rect.top, left: rect.left, right: rect.right }}
 		>
-			<div className="shell-review-drawer__header">
+			<div className="shell-review-expanded-portal__header">
 				<span className="shell-label">Review</span>
-				<div className="shell-review-drawer__status">
+				<div className="shell-review-expanded-portal__status">
 					{isDirty ? (
 						<span
-							className="shell-review-drawer__dirty"
+							className="shell-review-expanded-portal__dirty"
 							aria-label={`${changedFileCount} changed files`}
 						>
 							{changedFileCount} changed
 						</span>
 					) : (
 						<span
-							className="shell-review-drawer__clean"
+							className="shell-review-expanded-portal__clean"
 							aria-label="Clean — no changes"
 						>
 							✓ clean
 						</span>
 					)}
 				</div>
-				<div className="shell-review-drawer__actions">
+				<div className="shell-review-expanded-portal__actions">
 					<button
 						type="button"
 						className="shell-button shell-button--compact shell-button--icon shell-button--round"
@@ -233,7 +233,7 @@ export const ReviewExpandedPortal = forwardRef<
 						)}
 				</div>
 			</div>
-			<div className="shell-review-drawer__body">{children}</div>
+			<div className="shell-review-expanded-portal__body">{children}</div>
 		</div>
 	);
 

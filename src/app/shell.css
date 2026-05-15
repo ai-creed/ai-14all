@@ -180,26 +180,7 @@ select {
 	overflow: hidden;
 }
 
-.shell-review-drawer {
-	display: grid;
-	min-height: 0;
-	/* Keep the drawer out of the flex-shrink loop in .shell-main-column
-	   so the terminal section (flex: 1) cannot compress the drawer below
-	   panelHeight and break the resize handle. Mirrors the previous
-	   .shell-review-stack rule. */
-	flex-shrink: 0;
-	border: 1px solid var(--pane-border-review);
-	border-radius: var(--radius-md);
-	overflow: hidden;
-}
-
-.shell-review-drawer__resize-handle {
-	cursor: ns-resize;
-	height: 4px;
-	background: transparent;
-}
-
-.shell-review-drawer__header {
+.shell-review-expanded-portal__header {
 	display: flex;
 	align-items: center;
 	gap: 12px;
@@ -207,18 +188,18 @@ select {
 	border-bottom: 1px solid var(--pane-border-review);
 }
 
-.shell-review-drawer__status {
+.shell-review-expanded-portal__status {
 	margin-left: auto;
 	font-size: 0.75rem;
 	color: var(--text-secondary);
 }
 
-.shell-review-drawer__actions {
+.shell-review-expanded-portal__actions {
 	display: inline-flex;
 	gap: 4px;
 }
 
-.shell-review-drawer__body {
+.shell-review-expanded-portal__body {
 	min-height: 0;
 	display: grid;
 }
@@ -3071,19 +3052,12 @@ select {
 	transform: translateY(100%);
 }
 
-.shell-review-expanded-portal .shell-review-drawer__body {
+.shell-review-expanded-portal .shell-review-expanded-portal__body {
 	/* Portal is display:flex flex-direction:column; header is fixed height.
 	   Body must stretch to fill remaining portal height. */
 	flex: 1;
 	min-height: 0;
 	display: grid;
-}
-
-.shell-review-drawer__body--placeholder {
-	/* Holds the panelHeight grid row while the portal is active, preventing
-	   the terminal section from resizing */
-	visibility: hidden;
-	pointer-events: none;
 }
 
 /* ── Toast stack ──────────────────────────────────────────────────────────── */

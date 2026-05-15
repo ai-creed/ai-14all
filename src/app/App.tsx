@@ -527,8 +527,7 @@ export function App() {
 		(c) => c.status === "addressed",
 	).length;
 
-	// File-scoped open count (for the overlay header — mirrors prior
-	// ReviewDrawerSection logic)
+	// File-scoped open count rendered in the overlay header.
 	const currentReviewFilePath =
 		activeSession?.reviewMode === "commits"
 			? (activeSession.selectedCommitFilePath ?? null)
