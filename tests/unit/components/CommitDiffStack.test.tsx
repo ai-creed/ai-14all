@@ -3,8 +3,14 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CommitDiffStack } from "../../../src/features/git/components/CommitDiffStack";
 
+type FakeInnerEditor = {
+	getContentHeight: ReturnType<typeof vi.fn>;
+	onDidContentSizeChange: ReturnType<typeof vi.fn>;
+};
+
 type FakeDiffEditor = {
 	getModifiedEditor: ReturnType<typeof vi.fn>;
+	getOriginalEditor: ReturnType<typeof vi.fn>;
 	setModel: ReturnType<typeof vi.fn>;
 };
 
@@ -25,8 +31,19 @@ vi.mock("@monaco-editor/react", async () => {
 		}) => {
 			const ref = useRef<FakeDiffEditor | null>(null);
 			if (!ref.current) {
+				const makeInner = (): FakeInnerEditor => ({
+					// Default to 0 so the dynamic-height code path doesn't shrink the
+					// editor below the initial line-based estimate during tests that
+					// assert on the initial height. Tests that exercise resize can
+					// override these returns.
+					getContentHeight: vi.fn(() => 0),
+					onDidContentSizeChange: vi.fn(() => ({ dispose: vi.fn() })),
+				});
+				const modifiedInner = makeInner();
+				const originalInner = makeInner();
 				const fakeEditor: FakeDiffEditor = {
-					getModifiedEditor: vi.fn(),
+					getModifiedEditor: vi.fn(() => modifiedInner),
+					getOriginalEditor: vi.fn(() => originalInner),
 					setModel: vi.fn(),
 				};
 				ref.current = fakeEditor;

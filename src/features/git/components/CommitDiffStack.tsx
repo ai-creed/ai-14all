@@ -49,15 +49,15 @@ function lineCount(content: string): number {
 	return normalized.split("\n").length;
 }
 
-function editorHeightForFile(
+function initialHeightForFile(
 	originalContent: string,
 	modifiedContent: string,
-): string {
+): number {
 	const lines = Math.max(
 		lineCount(originalContent),
 		lineCount(modifiedContent),
 	);
-	return `${Math.max(lines * 20 + 32, 160)}px`;
+	return Math.max(lines * 20 + 32, 160);
 }
 
 type DiffEditorSlotProps = {
@@ -87,12 +87,18 @@ function DiffEditorSlot({
 	// detaching the Monaco model from a still-mounted editor and blanking the
 	// diff. The ref keeps the latest value without triggering re-runs.
 	const onEditorUnmountRef = useRef(onEditorUnmount);
+	const sizeDisposablesRef = useRef<Array<{ dispose(): void }>>([]);
+	const [height, setHeight] = useState<number>(() =>
+		initialHeightForFile(file.originalContent, file.modifiedContent),
+	);
 	useEffect(() => {
 		onEditorUnmountRef.current = onEditorUnmount;
 	});
 
 	useEffect(() => {
 		return () => {
+			for (const d of sizeDisposablesRef.current) d.dispose();
+			sizeDisposablesRef.current = [];
 			// Null out models before @monaco-editor/react disposes the editor so
 			// DiffEditorWidget can reset cleanly — avoids "TextModel disposed before
 			// DiffEditorWidget model got reset" invariant error.
@@ -106,11 +112,7 @@ function DiffEditorSlot({
 
 	return (
 		<DiffEditor
-			height={
-				singleFile
-					? "100%"
-					: editorHeightForFile(file.originalContent, file.modifiedContent)
-			}
+			height={singleFile ? "100%" : `${height}px`}
 			language={languageFromPath(file.path)}
 			theme={resolvedTheme === "light" ? "vs" : "vs-dark"}
 			original={file.originalContent}
@@ -130,6 +132,23 @@ function DiffEditorSlot({
 			}}
 			onMount={(editor) => {
 				editorRef.current = editor;
+				const modified = editor.getModifiedEditor();
+				const original = editor.getOriginalEditor();
+				const update = () => {
+					const h = Math.max(
+						modified.getContentHeight(),
+						original.getContentHeight(),
+					);
+					// Monaco returns 0 before first layout; ignore so the
+					// initial estimate stays in place until a real measurement
+					// arrives via onDidContentSizeChange.
+					if (h > 0) setHeight(h);
+				};
+				update();
+				sizeDisposablesRef.current.push(
+					modified.onDidContentSizeChange(update),
+					original.onDidContentSizeChange(update),
+				);
 				onEditorMount?.(file.path, editor);
 			}}
 		/>
