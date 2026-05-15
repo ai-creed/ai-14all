@@ -42,6 +42,7 @@ function makeSession(worktreeId: string, note: string) {
 		splitRightProcessId: null,
 		reviewSidebarWidth: 320,
 		treeExpandedPaths: [],
+		task: null,
 	};
 }
 

@@ -1,4 +1,7 @@
-import type { AgentAttentionReasonsBySource } from "./agent-attention";
+import type {
+	AgentAttentionReasonsBySource,
+	AgentProvider,
+} from "./agent-attention";
 
 export type ProcessOrigin = "adHoc" | "preset";
 export type ProcessAttentionState = "idle" | "activity" | "actionRequired";
@@ -26,4 +29,5 @@ export type ProcessSession = {
 	// time so subsequent OSC title overwrites by the agent CLI itself don't
 	// drop us back into "not an agent" mid-run.
 	agentDetected: boolean;
+	provider: AgentProvider | null;
 };

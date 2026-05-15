@@ -37,4 +37,5 @@ export type WorktreeSession = {
 	 * docs/superpowers/specs/2026-04-16-worktree-file-tree-design.md §4.6.
 	 */
 	treeExpandedPaths: string[];
+	task: string | null;
 };

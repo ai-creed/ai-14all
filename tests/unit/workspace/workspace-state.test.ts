@@ -60,6 +60,7 @@ function makeProcess(
 		agentAttentionReasons: {},
 		agentAttentionClearedAt: null,
 		agentDetected: false,
+		provider: null,
 		...overrides,
 	};
 }
@@ -135,6 +136,7 @@ describe("workspaceReducer", () => {
 				agentAttentionReasons: {},
 				agentAttentionClearedAt: null,
 				agentDetected: false,
+				provider: null,
 			},
 		});
 		state = workspaceReducer(state, {
@@ -158,6 +160,7 @@ describe("workspaceReducer", () => {
 				agentAttentionReasons: {},
 				agentAttentionClearedAt: null,
 				agentDetected: false,
+				provider: null,
 			},
 		});
 		state = workspaceReducer(state, {
@@ -197,6 +200,7 @@ describe("workspaceReducer", () => {
 				agentAttentionReasons: {},
 				agentAttentionClearedAt: null,
 				agentDetected: false,
+				provider: null,
 			},
 		});
 
@@ -460,6 +464,7 @@ describe("workspaceReducer — Phase 3 process model", () => {
 				agentAttentionReasons: {},
 				agentAttentionClearedAt: null,
 				agentDetected: false,
+				provider: null,
 			},
 		});
 		expect(state.processSessionsById["process-1"]?.pinned).toBe(true);
@@ -491,6 +496,7 @@ describe("workspaceReducer — Phase 3 process model", () => {
 				agentAttentionReasons: {},
 				agentAttentionClearedAt: null,
 				agentDetected: false,
+				provider: null,
 			},
 		});
 		state = workspaceReducer(state, {
@@ -1885,6 +1891,7 @@ describe("agentAttentionReasons defaults", () => {
 				agentAttentionReasons: {},
 				agentAttentionClearedAt: null,
 				agentDetected: false,
+				provider: null,
 			},
 		});
 		const proc = state.processSessionsById["proc-1"];
@@ -2143,5 +2150,25 @@ describe("restore resets agentAttentionReasons", () => {
 		const proc = state.processSessionsById["proc-restore-2"];
 		expect(proc?.agentAttentionReasons).toEqual({});
 		expect(proc?.agentAttentionClearedAt).toBeNull();
+	});
+});
+
+describe("session and process models — new fields", () => {
+	it("creates worktree session with task = null by default", () => {
+		const state = workspaceReducer(createWorkspaceState([]), {
+			type: "workspace/loadWorktrees",
+			worktrees,
+		});
+		expect(state.sessionsByWorktreeId.main.task).toBeNull();
+	});
+
+	it("registers a process session with provider = null by default", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("p1", "main", "shell 1"),
+		});
+		expect(state.processSessionsById.p1.provider).toBeNull();
 	});
 });

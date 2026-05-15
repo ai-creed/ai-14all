@@ -202,6 +202,7 @@ function createSession(worktree: Worktree): WorktreeSession {
 		splitRightProcessId: null,
 		reviewSidebarWidth: 280,
 		treeExpandedPaths: [],
+		task: null,
 	};
 }
 
@@ -286,6 +287,7 @@ function restorePersistedSession(
 			// Restored as "restarting" — keep agentDetected false so it re-detects
 			// from the fresh shell's output once the new terminal session starts.
 			agentDetected: false,
+			provider: null,
 		};
 	}
 

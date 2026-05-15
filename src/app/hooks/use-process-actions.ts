@@ -94,6 +94,7 @@ export function useProcessActions(options: Options): UseProcessActions {
 				agentAttentionReasons: {},
 				agentAttentionClearedAt: null,
 				agentDetected: isAgentProcess(adHocLabel, null),
+				provider: null,
 			};
 			createScopedWorkspaceDispatch(targetWorkspaceId)({
 				type: "session/registerProcess",
@@ -189,6 +190,7 @@ export function useProcessActions(options: Options): UseProcessActions {
 					agentAttentionReasons: {},
 					agentAttentionClearedAt: null,
 					agentDetected: isAgentProcess(preset.label, preset.command),
+					provider: null,
 				},
 			});
 			await sendInput(terminal.id, `${preset.command}\n`);
