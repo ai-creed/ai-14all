@@ -59,7 +59,11 @@ export function installAddAffordances(
 
 	recomputeHunkLines();
 
-	const diffSub = (editor as unknown as { onDidUpdateDiff?: (cb: () => void) => { dispose(): void } }).onDidUpdateDiff?.(() => recomputeHunkLines()) ?? { dispose: () => {} };
+	const diffSub = (
+		editor as unknown as {
+			onDidUpdateDiff?: (cb: () => void) => { dispose(): void };
+		}
+	).onDidUpdateDiff?.(() => recomputeHunkLines()) ?? { dispose: () => {} };
 	const modelSub = (
 		modified as unknown as MonacoEditor.IStandaloneCodeEditor
 	).onDidChangeModel(() => recomputeHunkLines());
@@ -154,7 +158,10 @@ export function scrollToLineRange(
 	const editorRect = editorDom.getBoundingClientRect();
 	const containerRect = scrollContainer.getBoundingClientRect();
 	const lineRelativeY =
-		editorRect.top - containerRect.top + lineTopInEditor + scrollContainer.scrollTop;
+		editorRect.top -
+		containerRect.top +
+		lineTopInEditor +
+		scrollContainer.scrollTop;
 	const targetScrollTop = lineRelativeY - containerRect.height / 2;
 	scrollContainer.scrollTo({
 		top: Math.max(0, targetScrollTop),

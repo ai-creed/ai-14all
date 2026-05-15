@@ -45,7 +45,9 @@ async function launchRaw(firstWindowTimeout = 60_000) {
 	// Ensure contextBridge has surfaced window.ai14all before any test interaction.
 	// Under Playwright 1.59 + Electron 41 the preload runs but the bridge may not
 	// be visible in the renderer main context immediately after firstWindow().
-	await page.waitForFunction(() => "ai14all" in window, null, { timeout: 30_000 });
+	await page.waitForFunction(() => "ai14all" in window, null, {
+		timeout: 30_000,
+	});
 	page.setDefaultTimeout(60_000);
 }
 
@@ -94,7 +96,8 @@ async function openIndexTsDiff() {
 	await expect(viewLines.first()).toBeVisible({ timeout: 10_000 });
 	const firstLine = viewLines.first();
 	const box = await firstLine.boundingBox();
-	if (!box) throw new Error("Modified editor first view-line has no bounding box");
+	if (!box)
+		throw new Error("Modified editor first view-line has no bounding box");
 	await page.mouse.click(box.x + 60, box.y + box.height / 2);
 	await page.waitForTimeout(200);
 }
@@ -159,7 +162,9 @@ test.describe.serial("Review comments — inline UX", () => {
 
 		// Draft thread should appear (data-draft="true")
 		await page.waitForFunction(
-			() => document.querySelector('.shell-inline-thread[data-draft="true"]') !== null,
+			() =>
+				document.querySelector('.shell-inline-thread[data-draft="true"]') !==
+				null,
 			null,
 			{ timeout: 10_000 },
 		);
@@ -174,7 +179,9 @@ test.describe.serial("Review comments — inline UX", () => {
 		// and even force:true unreliable. Dispatching a click event directly on the
 		// DOM node bypasses the overlay entirely.
 		await page.evaluate(() => {
-			const draft = document.querySelector(".shell-inline-thread[data-draft=\"true\"]");
+			const draft = document.querySelector(
+				'.shell-inline-thread[data-draft="true"]',
+			);
 			if (!draft) throw new Error("draft thread not found");
 			const btns = draft.querySelectorAll("button");
 			for (const btn of btns) {
@@ -203,7 +210,7 @@ test.describe.serial("Review comments — inline UX", () => {
 		// Queue panel has a row containing "rename x". The panel may scroll internally
 		// so we assert on the panel's text content rather than the row element's
 		// visibility (which can be "hidden" when scrolled out of view in the overlay).
-		const queuePanel = page.locator("[data-testid=\"review-queue-panel\"]");
+		const queuePanel = page.locator('[data-testid="review-queue-panel"]');
 		await expect(queuePanel).toBeVisible({ timeout: 10_000 });
 		await expect(queuePanel).toContainText("rename x", { timeout: 10_000 });
 	});
@@ -212,21 +219,27 @@ test.describe.serial("Review comments — inline UX", () => {
 		test.setTimeout(120_000);
 
 		// The previous test left a saved open comment. Find the inline thread.
-		const thread = page.locator(".shell-inline-thread[data-state=\"open\"]").first();
+		const thread = page
+			.locator('.shell-inline-thread[data-state="open"]')
+			.first();
 		await expect(thread).toBeVisible({ timeout: 10_000 });
 
 		// Address button is inside a Monaco view-zone — dispatch via evaluate to
 		// bypass the view-lines pointer-event overlay.
 		await page.evaluate(() => {
-			const open = document.querySelector(".shell-inline-thread[data-state=\"open\"]");
+			const open = document.querySelector(
+				'.shell-inline-thread[data-state="open"]',
+			);
 			if (!open) throw new Error("open thread not found");
-			const btn = open.querySelector("button[aria-label=\"Address comment\"]") as HTMLButtonElement | null;
+			const btn = open.querySelector(
+				'button[aria-label="Address comment"]',
+			) as HTMLButtonElement | null;
 			if (!btn) throw new Error("Address button not found");
 			btn.click();
 		});
 
 		// Queue should now show "0 open" — comment is addressed
-		const queuePanel = page.locator("[data-testid=\"review-queue-panel\"]");
+		const queuePanel = page.locator('[data-testid="review-queue-panel"]');
 		await expect(queuePanel).toContainText("0 open", { timeout: 5_000 });
 
 		// The thread stays visible but the queue row should reflect addressed state.
@@ -235,8 +248,13 @@ test.describe.serial("Review comments — inline UX", () => {
 		await page.evaluate(() => {
 			const threads = document.querySelectorAll(".shell-inline-thread");
 			for (const t of threads) {
-				const btn = t.querySelector("button[aria-label=\"Reopen comment\"]") as HTMLButtonElement | null;
-				if (btn) { btn.click(); return; }
+				const btn = t.querySelector(
+					'button[aria-label="Reopen comment"]',
+				) as HTMLButtonElement | null;
+				if (btn) {
+					btn.click();
+					return;
+				}
 			}
 			throw new Error("Reopen button not found");
 		});
@@ -256,7 +274,7 @@ test.describe.serial("Review comments — inline UX", () => {
 		await openIndexTsDiff();
 
 		// Comment should still be in the queue panel
-		const queuePanel = page.locator("[data-testid=\"review-queue-panel\"]");
+		const queuePanel = page.locator('[data-testid="review-queue-panel"]');
 		await expect(queuePanel).toBeVisible({ timeout: 10_000 });
 		await expect(queuePanel).toContainText("rename x", { timeout: 15_000 });
 

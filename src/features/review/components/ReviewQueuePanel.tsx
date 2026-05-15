@@ -1,5 +1,8 @@
 import { useMemo } from "react";
-import type { ReviewComment, ReviewCommentSource } from "../../../../shared/models/review-comment";
+import type {
+	ReviewComment,
+	ReviewCommentSource,
+} from "../../../../shared/models/review-comment";
 import { AgentInstallCta } from "./AgentInstallCta";
 
 type ActiveMode =
@@ -67,7 +70,9 @@ export function ReviewQueuePanel({
 		return { active, other, openCount };
 	}, [comments, activeMode, hideAddressed]);
 
-	const totalAddressed = comments.filter((c) => c.status === "addressed").length;
+	const totalAddressed = comments.filter(
+		(c) => c.status === "addressed",
+	).length;
 
 	return (
 		<aside className="shell-review-queue" data-testid="review-queue-panel">
@@ -99,13 +104,25 @@ export function ReviewQueuePanel({
 			<div className="shell-review-queue__body">
 				<section className="shell-review-queue__section">
 					<h4>Active</h4>
-					<FileGroups list={active} onJump={onJump} onToggleAddressed={onToggleAddressed} onDelete={onDelete} emptyText="No comments in this view." />
+					<FileGroups
+						list={active}
+						onJump={onJump}
+						onToggleAddressed={onToggleAddressed}
+						onDelete={onDelete}
+						emptyText="No comments in this view."
+					/>
 				</section>
 
 				{other.length > 0 && (
 					<section className="shell-review-queue__section">
 						<h4>Other modes</h4>
-						<FileGroups list={other} onJump={onJump} onToggleAddressed={onToggleAddressed} onDelete={onDelete} emptyText="" />
+						<FileGroups
+							list={other}
+							onJump={onJump}
+							onToggleAddressed={onToggleAddressed}
+							onDelete={onDelete}
+							emptyText=""
+						/>
 					</section>
 				)}
 
@@ -119,7 +136,9 @@ export function ReviewQueuePanel({
 						>
 							L{pendingDraft.startLine}
 							{pendingDraft.startLine !== pendingDraft.endLine
-								? `–${pendingDraft.endLine}` : ""} · {pendingDraft.filePath}
+								? `–${pendingDraft.endLine}`
+								: ""}{" "}
+							· {pendingDraft.filePath}
 						</button>
 					</section>
 				)}
@@ -158,17 +177,26 @@ function FileGroups({
 		<ul className="shell-review-queue__files">
 			{[...byFile.entries()].map(([filePath, items]) => (
 				<li key={filePath}>
-					<div className="shell-review-queue__filepath" title={filePath}>{filePath}</div>
+					<div className="shell-review-queue__filepath" title={filePath}>
+						{filePath}
+					</div>
 					<ul>
 						{items.map((c) => (
-							<li key={c.id} className="shell-review-queue__row" data-status={c.status}>
+							<li
+								key={c.id}
+								className="shell-review-queue__row"
+								data-status={c.status}
+							>
 								<div className="shell-review-queue__row-inner">
 									<button
 										type="button"
 										className="shell-review-queue__row-jump"
 										onClick={() => onJump(c)}
 									>
-										<span>L{c.startLine}{c.startLine !== c.endLine ? `–${c.endLine}` : ""}</span>
+										<span>
+											L{c.startLine}
+											{c.startLine !== c.endLine ? `–${c.endLine}` : ""}
+										</span>
 										<span>{firstLine(c.body)}</span>
 									</button>
 									<div className="shell-review-queue__row-actions">

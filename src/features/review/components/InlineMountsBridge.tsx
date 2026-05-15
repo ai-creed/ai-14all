@@ -20,7 +20,8 @@ type Props = {
 
 export function InlineMountsBridge(props: Props) {
 	const { registry, filePath } = props;
-	const [editor, setEditor] = useState<MonacoEditor.IStandaloneDiffEditor | null>(null);
+	const [editor, setEditor] =
+		useState<MonacoEditor.IStandaloneDiffEditor | null>(null);
 
 	useEffect(() => {
 		if (!filePath) {
@@ -30,7 +31,9 @@ export function InlineMountsBridge(props: Props) {
 		setEditor(registry.get(filePath) ?? null);
 		const off = registry.subscribe((event) => {
 			if (event.filePath !== filePath) return;
-			setEditor(event.kind === "registered" ? (registry.get(filePath) ?? null) : null);
+			setEditor(
+				event.kind === "registered" ? (registry.get(filePath) ?? null) : null,
+			);
 		});
 		return off;
 	}, [registry, filePath]);

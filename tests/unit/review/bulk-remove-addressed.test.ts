@@ -34,7 +34,10 @@ describe("ReviewCommentService.bulkRemoveAddressed", () => {
 		const kinds: string[] = [];
 		svc.onChange((k) => kinds.push(k));
 
-		const res = await svc.bulkRemoveAddressed({ worktreeId: "w1", ids: [a.id, b.id] });
+		const res = await svc.bulkRemoveAddressed({
+			worktreeId: "w1",
+			ids: [a.id, b.id],
+		});
 
 		expect(res).toEqual({ ok: true, removed: 2 });
 		expect(svc.listByWorktree("w1")).toHaveLength(0);
@@ -50,7 +53,10 @@ describe("ReviewCommentService.bulkRemoveAddressed", () => {
 		await svc.markAddressed(a.id);
 		await svc.markAddressed(b.id);
 
-		const res = await svc.bulkRemoveAddressed({ worktreeId: "w1", ids: [a.id, b.id] });
+		const res = await svc.bulkRemoveAddressed({
+			worktreeId: "w1",
+			ids: [a.id, b.id],
+		});
 
 		expect(res).toEqual({ ok: false, error: "worktree_mismatch" });
 		expect(svc.listByWorktree("w1")).toHaveLength(1);
@@ -64,7 +70,10 @@ describe("ReviewCommentService.bulkRemoveAddressed", () => {
 		const b = await seed(svc, "w1");
 		await svc.markAddressed(a.id);
 
-		const res = await svc.bulkRemoveAddressed({ worktreeId: "w1", ids: [a.id, b.id] });
+		const res = await svc.bulkRemoveAddressed({
+			worktreeId: "w1",
+			ids: [a.id, b.id],
+		});
 
 		expect(res).toEqual({ ok: false, error: "not_addressed" });
 		expect(svc.listByWorktree("w1")).toHaveLength(2);
@@ -76,7 +85,10 @@ describe("ReviewCommentService.bulkRemoveAddressed", () => {
 		const a = await seed(svc, "w1");
 		await svc.markAddressed(a.id);
 
-		const res = await svc.bulkRemoveAddressed({ worktreeId: "w1", ids: [a.id, "missing"] });
+		const res = await svc.bulkRemoveAddressed({
+			worktreeId: "w1",
+			ids: [a.id, "missing"],
+		});
 
 		expect(res).toEqual({ ok: false, error: "not_found" });
 		expect(svc.listByWorktree("w1")).toHaveLength(1);

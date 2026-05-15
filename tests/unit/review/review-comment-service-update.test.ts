@@ -33,7 +33,10 @@ describe("ReviewCommentService.update", () => {
 
 		const res = await svc.update(c.id, { body: "new body" });
 
-		expect(res).toEqual({ ok: true, comment: expect.objectContaining({ body: "new body" }) });
+		expect(res).toEqual({
+			ok: true,
+			comment: expect.objectContaining({ body: "new body" }),
+		});
 		expect(svc.listByWorktree("w1")[0]?.body).toBe("new body");
 		expect(kinds).toEqual(["updated"]);
 		expect(store.save).toHaveBeenCalled();

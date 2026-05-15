@@ -8,7 +8,13 @@ describe("ReviewCommentChangedEventSchema", () => {
 	});
 
 	it("still accepts the original kinds", () => {
-		for (const kind of ["created", "addressed", "reopened", "deleted", "rebased"] as const) {
+		for (const kind of [
+			"created",
+			"addressed",
+			"reopened",
+			"deleted",
+			"rebased",
+		] as const) {
 			expect(ReviewCommentChangedEventSchema.parse({ kind }).kind).toBe(kind);
 		}
 	});

@@ -35,7 +35,11 @@ describe("dispatchActionsForJump", () => {
 		const c: ReviewComment = { ...base, source: "commit", commitSha: "abc" };
 		expect(dispatchActionsForJump(c)).toEqual([
 			{ type: "session/selectCommit", worktreeId: "w1", sha: "abc" },
-			{ type: "session/selectCommitFile", worktreeId: "w1", relativePath: "a.ts" },
+			{
+				type: "session/selectCommitFile",
+				worktreeId: "w1",
+				relativePath: "a.ts",
+			},
 		]);
 	});
 

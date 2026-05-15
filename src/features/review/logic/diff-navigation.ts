@@ -33,7 +33,9 @@ export function getDiffAnchorLines(editor: DiffNavigableEditor): number[] {
 	return changes.map(anchorLineFor);
 }
 
-export function getDiffModifiedHunkLines(editor: DiffNavigableEditor): Set<number> {
+export function getDiffModifiedHunkLines(
+	editor: DiffNavigableEditor,
+): Set<number> {
 	const changes = editor.getLineChanges();
 	const set = new Set<number>();
 	if (!changes) return set;

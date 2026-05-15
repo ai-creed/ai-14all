@@ -31,7 +31,11 @@ export function InlineCommentThread({
 
 	if (comment.status === "addressed" && !expanded) {
 		return (
-			<div ref={rootRef} className="shell-inline-thread" data-state="addressed-strip">
+			<div
+				ref={rootRef}
+				className="shell-inline-thread"
+				data-state="addressed-strip"
+			>
 				<button
 					type="button"
 					className="shell-inline-thread__strip"
@@ -43,7 +47,9 @@ export function InlineCommentThread({
 						L{comment.startLine}
 						{comment.startLine !== comment.endLine ? `–${comment.endLine}` : ""}
 					</span>
-					<span className="shell-inline-thread__strip-body">{firstLine(comment.body)}</span>
+					<span className="shell-inline-thread__strip-body">
+						{firstLine(comment.body)}
+					</span>
 				</button>
 				<button
 					type="button"
@@ -96,13 +102,20 @@ export function InlineCommentThread({
 	const isAddressed = comment.status === "addressed";
 
 	return (
-		<div ref={rootRef} className="shell-inline-thread" data-state={isAddressed ? "addressed-expanded" : "open"}>
+		<div
+			ref={rootRef}
+			className="shell-inline-thread"
+			data-state={isAddressed ? "addressed-expanded" : "open"}
+		>
 			<header className="shell-inline-thread__header">
 				<span>
 					L{comment.startLine}
 					{comment.startLine !== comment.endLine ? `–${comment.endLine}` : ""}
 				</span>
-				<span className="shell-inline-thread__status" data-status={comment.status}>
+				<span
+					className="shell-inline-thread__status"
+					data-status={comment.status}
+				>
 					{isAddressed ? "addressed" : "open"}
 				</span>
 				<span className="shell-inline-thread__time">
@@ -118,7 +131,11 @@ export function InlineCommentThread({
 				>
 					{isAddressed ? "↺ Reopen" : "✓ Address"}
 				</button>
-				<button type="button" aria-label="Edit comment" onClick={() => setEditing(true)}>
+				<button
+					type="button"
+					aria-label="Edit comment"
+					onClick={() => setEditing(true)}
+				>
 					Edit
 				</button>
 				<button type="button" aria-label="Delete comment" onClick={onDelete}>

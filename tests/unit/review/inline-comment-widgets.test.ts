@@ -4,15 +4,24 @@ import type { editor as MonacoEditor } from "monaco-editor";
 
 function fakeEditor() {
 	const widgets: Array<{ id: string }> = [];
-	const subs: Array<(e: { selection: { startLineNumber: number; endLineNumber: number } | null }) => void> = [];
+	const subs: Array<
+		(e: {
+			selection: { startLineNumber: number; endLineNumber: number } | null;
+		}) => void
+	> = [];
 	const modified = {
-		addContentWidget: (w: MonacoEditor.IContentWidget) => widgets.push({ id: w.getId() }),
+		addContentWidget: (w: MonacoEditor.IContentWidget) =>
+			widgets.push({ id: w.getId() }),
 		removeContentWidget: (w: MonacoEditor.IContentWidget) => {
 			const i = widgets.findIndex((x) => x.id === w.getId());
 			if (i >= 0) widgets.splice(i, 1);
 		},
 		layoutContentWidget: () => {},
-		onDidChangeCursorSelection: (cb: (e: { selection: { startLineNumber: number; endLineNumber: number } | null }) => void) => {
+		onDidChangeCursorSelection: (
+			cb: (e: {
+				selection: { startLineNumber: number; endLineNumber: number } | null;
+			}) => void,
+		) => {
 			subs.push(cb);
 			return { dispose() {} };
 		},
@@ -22,7 +31,8 @@ function fakeEditor() {
 		getModifiedEditor: () => modified,
 	} as unknown as MonacoEditor.IStandaloneDiffEditor;
 	function emitSelection(start: number, end: number) {
-		for (const s of subs) s({ selection: { startLineNumber: start, endLineNumber: end } });
+		for (const s of subs)
+			s({ selection: { startLineNumber: start, endLineNumber: end } });
 	}
 	function emitNoSelection() {
 		for (const s of subs) s({ selection: null });

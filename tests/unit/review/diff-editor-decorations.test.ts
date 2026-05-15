@@ -49,7 +49,9 @@ function fakeEditor() {
 }
 
 // Extended fake for hover + hunk-gating tests
-function fakeEditorWithHunks(opts: { lineCount?: number; hunkLines?: number[] } = {}) {
+function fakeEditorWithHunks(
+	opts: { lineCount?: number; hunkLines?: number[] } = {},
+) {
 	const lineCount = opts.lineCount ?? 10;
 	const hunkLineSet = new Set(opts.hunkLines ?? []);
 
@@ -70,31 +72,58 @@ function fakeEditorWithHunks(opts: { lineCount?: number; hunkLines?: number[] } 
 		} else if (l === (runEnd as number) + 1) {
 			runEnd = l;
 		} else {
-			lineChanges.push({ modifiedStartLineNumber: runStart, modifiedEndLineNumber: runEnd as number, originalStartLineNumber: runStart, originalEndLineNumber: runEnd as number });
+			lineChanges.push({
+				modifiedStartLineNumber: runStart,
+				modifiedEndLineNumber: runEnd as number,
+				originalStartLineNumber: runStart,
+				originalEndLineNumber: runEnd as number,
+			});
 			runStart = l;
 			runEnd = l;
 		}
 	}
 	if (runStart !== null) {
-		lineChanges.push({ modifiedStartLineNumber: runStart, modifiedEndLineNumber: runEnd as number, originalStartLineNumber: runStart, originalEndLineNumber: runEnd as number });
+		lineChanges.push({
+			modifiedStartLineNumber: runStart,
+			modifiedEndLineNumber: runEnd as number,
+			originalStartLineNumber: runStart,
+			originalEndLineNumber: runEnd as number,
+		});
 	}
 
 	// Live decoration tracking
-	let currentDecorations: Array<{ range: { startLineNumber: number }; options: { glyphMarginClassName: string } }> = [];
+	let currentDecorations: Array<{
+		range: { startLineNumber: number };
+		options: { glyphMarginClassName: string };
+	}> = [];
 
 	const moveHandlers: MouseHandler[] = [];
 	const leaveHandlers: Array<() => void> = [];
 
 	const modified = {
-		onMouseMove: vi.fn((h: MouseHandler) => { moveHandlers.push(h); return { dispose: vi.fn() }; }),
-		onMouseLeave: vi.fn((h: () => void) => { leaveHandlers.push(h); return { dispose: vi.fn() }; }),
+		onMouseMove: vi.fn((h: MouseHandler) => {
+			moveHandlers.push(h);
+			return { dispose: vi.fn() };
+		}),
+		onMouseLeave: vi.fn((h: () => void) => {
+			leaveHandlers.push(h);
+			return { dispose: vi.fn() };
+		}),
 		onMouseDown: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 		onDidChangeCursorSelection: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 		onDidChangeModel: vi.fn().mockReturnValue({ dispose: vi.fn() }),
-		deltaDecorations: vi.fn((_old: string[], next: Array<{ range: { startLineNumber: number }; options: { glyphMarginClassName: string } }>) => {
-			currentDecorations = next;
-			return next.map((_, i) => String(i));
-		}),
+		deltaDecorations: vi.fn(
+			(
+				_old: string[],
+				next: Array<{
+					range: { startLineNumber: number };
+					options: { glyphMarginClassName: string };
+				}>,
+			) => {
+				currentDecorations = next;
+				return next.map((_, i) => String(i));
+			},
+		),
 		revealLineInCenter: vi.fn(),
 		getModel: vi.fn().mockReturnValue({
 			getLineCount: () => lineCount,
@@ -112,7 +141,8 @@ function fakeEditorWithHunks(opts: { lineCount?: number; hunkLines?: number[] } 
 	return {
 		editor: editor as unknown as MonacoEditor.IStandaloneDiffEditor,
 		emitMouseMove: (line: number) => {
-			for (const h of moveHandlers) h({ target: { position: { lineNumber: line } } });
+			for (const h of moveHandlers)
+				h({ target: { position: { lineNumber: line } } });
 		},
 		emitMouseLeave: () => {
 			for (const h of leaveHandlers) h();

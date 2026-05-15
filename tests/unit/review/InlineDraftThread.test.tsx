@@ -4,7 +4,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { InlineDraftThread } from "../../../src/features/review/components/InlineDraftThread";
 
-function Controlled({ onSubmit, onCancel, onMeasureChange }: {
+function Controlled({
+	onSubmit,
+	onCancel,
+	onMeasureChange,
+}: {
 	onSubmit: (body: string) => void;
 	onCancel: () => void;
 	onMeasureChange: () => void;
@@ -27,7 +31,13 @@ describe("InlineDraftThread", () => {
 		const onSubmit = vi.fn();
 		const onMeasureChange = vi.fn();
 		const user = userEvent.setup();
-		render(<Controlled onSubmit={onSubmit} onCancel={() => {}} onMeasureChange={onMeasureChange} />);
+		render(
+			<Controlled
+				onSubmit={onSubmit}
+				onCancel={() => {}}
+				onMeasureChange={onMeasureChange}
+			/>,
+		);
 		expect(onMeasureChange).toHaveBeenCalled();
 		const input = screen.getByRole("textbox");
 		await user.type(input, "  hello  ");

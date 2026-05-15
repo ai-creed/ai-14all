@@ -26,9 +26,11 @@ export function createInlineThreadMount(
 	// Use the overflow-guard as the host parent: it is position:relative + overflow:hidden,
 	// so threads that scroll out of view are clipped, and it sits outside the view-zone
 	// DOM layer that Monaco's event interception overlays cover.
-	const overflowGuard = (
-		modified.getDomNode()?.querySelector(".overflow-guard") as HTMLElement | null
-	) ?? modified.getContainerDomNode();
+	const overflowGuard =
+		(modified
+			.getDomNode()
+			?.querySelector(".overflow-guard") as HTMLElement | null) ??
+		modified.getContainerDomNode();
 
 	function addThread(opts: AddThreadOptions): InlineThreadHandle {
 		// Spacer: inside Monaco's view-zone layer, allocates vertical space only.

@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+	createContext,
+	useCallback,
+	useContext,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 
 type ToastItem = { id: string; message: string };
 const MAX = 3;
@@ -24,20 +32,26 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 		}
 	}, []);
 
-	const show = useCallback((message: string) => {
-		const id = crypto.randomUUID();
-		setItems((prev) => {
-			const trimmed = prev.length >= MAX ? prev.slice(1) : prev;
-			return [...trimmed, { id, message }];
-		});
-		const handle = setTimeout(() => dismiss(id), TTL_MS);
-		timers.current.set(id, handle);
-	}, [dismiss]);
+	const show = useCallback(
+		(message: string) => {
+			const id = crypto.randomUUID();
+			setItems((prev) => {
+				const trimmed = prev.length >= MAX ? prev.slice(1) : prev;
+				return [...trimmed, { id, message }];
+			});
+			const handle = setTimeout(() => dismiss(id), TTL_MS);
+			timers.current.set(id, handle);
+		},
+		[dismiss],
+	);
 
-	useEffect(() => () => {
-		for (const h of timers.current.values()) clearTimeout(h);
-		timers.current.clear();
-	}, []);
+	useEffect(
+		() => () => {
+			for (const h of timers.current.values()) clearTimeout(h);
+			timers.current.clear();
+		},
+		[],
+	);
 
 	const ctx = useMemo<Ctx>(() => ({ show, dismiss }), [show, dismiss]);
 
@@ -48,7 +62,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 				{items.map((t) => (
 					<div key={t.id} className="shell-toast">
 						<span>{t.message}</span>
-						<button type="button" aria-label="dismiss" onClick={() => dismiss(t.id)}>
+						<button
+							type="button"
+							aria-label="dismiss"
+							onClick={() => dismiss(t.id)}
+						>
 							✕
 						</button>
 					</div>

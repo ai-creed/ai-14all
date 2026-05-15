@@ -55,7 +55,9 @@ export function installSelectionPill(
 	}
 	function emitStart() {
 		if (!lastRange) return;
-		const model = (modified as unknown as MonacoEditor.IStandaloneCodeEditor).getModel();
+		const model = (
+			modified as unknown as MonacoEditor.IStandaloneCodeEditor
+		).getModel();
 		const lines: string[] = [];
 		if (model) {
 			for (let l = lastRange.startLine; l <= lastRange.endLine; l++) {

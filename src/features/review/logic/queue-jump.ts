@@ -2,9 +2,17 @@ import type { ReviewComment } from "../../../../shared/models/review-comment";
 import type { editor as MonacoEditor } from "monaco-editor";
 
 export type JumpAction =
-	| { type: "session/selectChangedFile"; worktreeId: string; relativePath: string }
+	| {
+			type: "session/selectChangedFile";
+			worktreeId: string;
+			relativePath: string;
+	  }
 	| { type: "session/selectCommit"; worktreeId: string; sha: string }
-	| { type: "session/selectCommitFile"; worktreeId: string; relativePath: string };
+	| {
+			type: "session/selectCommitFile";
+			worktreeId: string;
+			relativePath: string;
+	  };
 
 export function dispatchActionsForJump(c: ReviewComment): JumpAction[] {
 	if (c.source === "working-tree") {
@@ -20,7 +28,11 @@ export function dispatchActionsForJump(c: ReviewComment): JumpAction[] {
 		throw new Error("commit-source comment is missing commitSha");
 	}
 	return [
-		{ type: "session/selectCommit", worktreeId: c.worktreeId, sha: c.commitSha },
+		{
+			type: "session/selectCommit",
+			worktreeId: c.worktreeId,
+			sha: c.commitSha,
+		},
 		{
 			type: "session/selectCommitFile",
 			worktreeId: c.worktreeId,

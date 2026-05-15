@@ -9,7 +9,14 @@ type Props = {
 	onMeasureChange: () => void;
 };
 
-export function InlineDraftThread({ range, body, onChange, onSubmit, onCancel, onMeasureChange }: Props) {
+export function InlineDraftThread({
+	range,
+	body,
+	onChange,
+	onSubmit,
+	onCancel,
+	onMeasureChange,
+}: Props) {
 	useLayoutEffect(() => {
 		onMeasureChange();
 	}, [body, onMeasureChange]);
@@ -36,7 +43,9 @@ export function InlineDraftThread({ range, body, onChange, onSubmit, onCancel, o
 				}}
 			/>
 			<div className="shell-inline-thread__actions">
-				<button type="button" onClick={onCancel}>Cancel</button>
+				<button type="button" onClick={onCancel}>
+					Cancel
+				</button>
 				<button
 					type="button"
 					disabled={body.trim().length === 0}

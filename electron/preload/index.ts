@@ -294,7 +294,10 @@ const api: Ai14AllDesktopApi = {
 			return ipcRenderer.invoke(REVIEW_UPDATE, { commentId, body });
 		},
 		bulkRemoveAddressed(worktreeId: string, ids: string[]) {
-			return ipcRenderer.invoke(REVIEW_BULK_REMOVE_ADDRESSED, { worktreeId, ids });
+			return ipcRenderer.invoke(REVIEW_BULK_REMOVE_ADDRESSED, {
+				worktreeId,
+				ids,
+			});
 		},
 		rebaseWorktreeIds(mapping) {
 			return ipcRenderer.invoke(REVIEW_REBASE, { mapping });

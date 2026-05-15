@@ -300,7 +300,11 @@ describe("App — degraded commit history read", () => {
 		});
 
 		failHistory = true;
-		fireEvent.click(within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }));
+		fireEvent.click(
+			within(screen.getByTestId("review-chipbar")).getByRole("button", {
+				name: /refresh review/i,
+			}),
+		);
 
 		await waitFor(() => {
 			expect(
@@ -354,7 +358,11 @@ describe("App — degraded commit history read", () => {
 
 		// Refresh with the commit removed
 		currentEntries = [];
-		fireEvent.click(within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }));
+		fireEvent.click(
+			within(screen.getByTestId("review-chipbar")).getByRole("button", {
+				name: /refresh review/i,
+			}),
+		);
 
 		await waitFor(() => {
 			// Commit list is now empty — the selection should have been cleared

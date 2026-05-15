@@ -409,7 +409,9 @@ describe("App — Phase 6 default shell", () => {
 		expect(reviewRail).toContainElement(
 			within(reviewRail).getByRole("tab", { name: "Files" }),
 		);
-		expect(screen.getAllByRole("button", { name: "Refresh review" })[0]).toHaveClass(
+		expect(
+			screen.getAllByRole("button", { name: "Refresh review" })[0],
+		).toHaveClass(
 			"shell-button",
 			"shell-button--compact",
 			"shell-button--icon",
@@ -436,9 +438,9 @@ describe("App — Phase 6 default shell", () => {
 		await userEvent.click(
 			within(reviewRail).getByRole("tab", { name: "Commits" }),
 		);
-		expect(screen.getAllByRole("button", { name: "Refresh review" })[0]).toHaveClass(
-			"shell-button--round",
-		);
+		expect(
+			screen.getAllByRole("button", { name: "Refresh review" })[0],
+		).toHaveClass("shell-button--round");
 	});
 
 	it("keeps the terminal panel body visible when a restored shell has no live terminal yet", async () => {

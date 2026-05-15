@@ -3240,7 +3240,11 @@ select {
 
 .shell-inline-thread[data-state="addressed-expanded"] {
 	opacity: 0.75;
-	border-left-color: color-mix(in srgb, var(--pane-border-review) 45%, transparent);
+	border-left-color: color-mix(
+		in srgb,
+		var(--pane-border-review) 45%,
+		transparent
+	);
 }
 
 .shell-inline-thread[data-state="addressed-expanded"]:hover {
@@ -3252,7 +3256,11 @@ select {
 .shell-inline-thread[data-state="addressed-strip"] {
 	flex-direction: row;
 	align-items: center;
-	border-left-color: color-mix(in srgb, var(--pane-border-review) 45%, transparent);
+	border-left-color: color-mix(
+		in srgb,
+		var(--pane-border-review) 45%,
+		transparent
+	);
 	opacity: 0.7;
 }
 
@@ -3398,7 +3406,11 @@ select {
 
 .shell-review-queue__btn--danger {
 	color: var(--danger) !important;
-	border-color: color-mix(in srgb, var(--danger) 40%, var(--panel-border)) !important;
+	border-color: color-mix(
+		in srgb,
+		var(--danger) 40%,
+		var(--panel-border)
+	) !important;
 }
 
 .shell-review-queue__btn--danger:hover:not(:disabled) {
@@ -3513,7 +3525,8 @@ select {
 	color: var(--text-primary);
 }
 
-.shell-review-queue__row[data-status="addressed"] .shell-review-queue__row-jump {
+.shell-review-queue__row[data-status="addressed"]
+	.shell-review-queue__row-jump {
 	opacity: 0.5;
 }
 

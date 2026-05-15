@@ -290,7 +290,9 @@ describe("App — refresh changes button", () => {
 		await loadRepoAndSwitchToChanges();
 
 		expect(
-			within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }),
+			within(screen.getByTestId("review-chipbar")).getByRole("button", {
+				name: /refresh review/i,
+			}),
 		).toBeInTheDocument();
 	});
 
@@ -301,7 +303,9 @@ describe("App — refresh changes button", () => {
 		fireEvent.click(screen.getByRole("tab", { name: "Files" }));
 
 		expect(
-			within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }),
+			within(screen.getByTestId("review-chipbar")).getByRole("button", {
+				name: /refresh review/i,
+			}),
 		).toBeInTheDocument();
 	});
 
@@ -310,7 +314,11 @@ describe("App — refresh changes button", () => {
 
 		const callCountBefore = mockReadSummary.mock.calls.length;
 
-		fireEvent.click(within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }));
+		fireEvent.click(
+			within(screen.getByTestId("review-chipbar")).getByRole("button", {
+				name: /refresh review/i,
+			}),
+		);
 
 		await waitFor(() => {
 			expect(mockReadSummary.mock.calls.length).toBeGreaterThan(
@@ -378,7 +386,11 @@ describe("App — refresh changes button", () => {
 		await loadRepoAndSwitchToChanges();
 
 		const before = mockReadSummary.mock.calls.length;
-		fireEvent.click(within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }));
+		fireEvent.click(
+			within(screen.getByTestId("review-chipbar")).getByRole("button", {
+				name: /refresh review/i,
+			}),
+		);
 
 		await waitFor(() => {
 			expect(mockReadSummary.mock.calls.length).toBeGreaterThan(before);
@@ -441,7 +453,11 @@ describe("App — refresh changes button", () => {
 			],
 		};
 
-		fireEvent.click(within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }));
+		fireEvent.click(
+			within(screen.getByTestId("review-chipbar")).getByRole("button", {
+				name: /refresh review/i,
+			}),
+		);
 
 		await waitFor(() => {
 			expect(screen.getByText("No changed files.")).toBeInTheDocument();
@@ -528,7 +544,11 @@ describe("App — refresh changes button", () => {
 
 		// Override the mock so subsequent calls (triggered by Refresh) throw
 		mockReadSummary.mockRejectedValue(new Error("git error"));
-		fireEvent.click(within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }));
+		fireEvent.click(
+			within(screen.getByTestId("review-chipbar")).getByRole("button", {
+				name: /refresh review/i,
+			}),
+		);
 
 		await waitFor(() => {
 			expect(
@@ -573,7 +593,11 @@ describe("App — refresh changes button", () => {
 		await screen.findByRole("button", { name: /src\/index\.ts/i });
 
 		mockReadSummary.mockRejectedValueOnce(new Error("git error"));
-		fireEvent.click(within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }));
+		fireEvent.click(
+			within(screen.getByTestId("review-chipbar")).getByRole("button", {
+				name: /refresh review/i,
+			}),
+		);
 
 		await waitFor(() => {
 			expect(
@@ -620,7 +644,11 @@ describe("App — refresh changes button", () => {
 		await loadRepoAndSwitchToChanges();
 		expect(screen.getAllByText("feature-a").length).toBeGreaterThan(0);
 
-		fireEvent.click(within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }));
+		fireEvent.click(
+			within(screen.getByTestId("review-chipbar")).getByRole("button", {
+				name: /refresh review/i,
+			}),
+		);
 
 		await waitFor(() => {
 			expect(screen.getAllByText("feature-b").length).toBeGreaterThan(0);

@@ -86,13 +86,17 @@ describe("useReviewComments", () => {
 
 	it("update() calls reviewComments.update and refreshes on 'updated' event", async () => {
 		const handlers: Array<(evt: { kind: string }) => void> = [];
-		(reviewComments.onChanged as ReturnType<typeof vi.fn>).mockImplementation((h: (e: { kind: string }) => void) => {
-			handlers.push(h);
-			return () => {};
-		});
+		(reviewComments.onChanged as ReturnType<typeof vi.fn>).mockImplementation(
+			(h: (e: { kind: string }) => void) => {
+				handlers.push(h);
+				return () => {};
+			},
+		);
 		(reviewComments.list as ReturnType<typeof vi.fn>)
 			.mockResolvedValueOnce({ comments: [] })
-			.mockResolvedValueOnce({ comments: [{ id: "1", body: "new" } as ReviewComment] });
+			.mockResolvedValueOnce({
+				comments: [{ id: "1", body: "new" } as ReviewComment],
+			});
 		(reviewComments.update as ReturnType<typeof vi.fn>).mockResolvedValue({
 			ok: true,
 			comment: { id: "1", body: "new" },
@@ -110,7 +114,9 @@ describe("useReviewComments", () => {
 		await act(async () => {
 			handlers[0]?.({ kind: "updated" });
 		});
-		await waitFor(() => expect(result.current.comments).toEqual([{ id: "1", body: "new" }]));
+		await waitFor(() =>
+			expect(result.current.comments).toEqual([{ id: "1", body: "new" }]),
+		);
 	});
 
 	it("clearAddressed() forwards to bulkRemoveAddressed with the addressed ids", async () => {
@@ -121,7 +127,9 @@ describe("useReviewComments", () => {
 				{ id: "c", status: "addressed" },
 			] as ReviewComment[],
 		});
-		(reviewComments.bulkRemoveAddressed as ReturnType<typeof vi.fn>).mockResolvedValue({
+		(
+			reviewComments.bulkRemoveAddressed as ReturnType<typeof vi.fn>
+		).mockResolvedValue({
 			ok: true,
 			removed: 2,
 		});
@@ -133,6 +141,9 @@ describe("useReviewComments", () => {
 			await result.current.clearAddressed();
 		});
 
-		expect(reviewComments.bulkRemoveAddressed).toHaveBeenCalledWith("w1", ["a", "c"]);
+		expect(reviewComments.bulkRemoveAddressed).toHaveBeenCalledWith("w1", [
+			"a",
+			"c",
+		]);
 	});
 });

@@ -147,8 +147,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 							session={session}
 							visible={visible}
 							focused={
-								visible &&
-								process?.id === activeSession?.activeProcessSessionId
+								visible && process?.id === activeSession?.activeProcessSessionId
 							}
 							focusSignal={terminalFocusSignal}
 							onTitleChange={(title) => {

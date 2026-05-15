@@ -61,7 +61,9 @@ export function useReviewComments(worktreeId: string | null) {
 
 	const clearAddressed = useCallback(() => {
 		if (!worktreeId) return Promise.resolve({ ok: true as const, removed: 0 });
-		const ids = comments.filter((c) => c.status === "addressed").map((c) => c.id);
+		const ids = comments
+			.filter((c) => c.status === "addressed")
+			.map((c) => c.id);
 		return reviewComments.bulkRemoveAddressed(worktreeId, ids);
 	}, [worktreeId, comments]);
 

@@ -379,9 +379,10 @@ describe("App — Phase 5 restore flow", () => {
 		// Tabs live inside the overlay (mounted only when reviewOpen=true). Open
 		// it so we can verify the restored reviewMode is reflected on the tab.
 		ensureReviewOverlayOpen();
-		expect(
-			await screen.findByRole("tab", { name: "Changes" }),
-		).toHaveAttribute("data-state", "active");
+		expect(await screen.findByRole("tab", { name: "Changes" })).toHaveAttribute(
+			"data-state",
+			"active",
+		);
 	});
 
 	it("restores saved split-shell layout and clears stale split slots", async () => {

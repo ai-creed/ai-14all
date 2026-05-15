@@ -377,7 +377,7 @@ export type Ai14AllDesktopApi = {
 			| {
 					ok: false;
 					error: "worktree_mismatch" | "not_found" | "not_addressed";
-				}
+			  }
 		>;
 		rebaseWorktreeIds(mapping: Record<string, string>): Promise<{ ok: true }>;
 		onChanged(handler: (event: ReviewCommentChangedEvent) => void): () => void;

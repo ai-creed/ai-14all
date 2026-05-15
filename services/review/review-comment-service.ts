@@ -130,7 +130,8 @@ export class ReviewCommentService {
 				const exists = this.find(id);
 				return { ok: false, error: exists ? "worktree_mismatch" : "not_found" };
 			}
-			if (c.status !== "addressed") return { ok: false, error: "not_addressed" };
+			if (c.status !== "addressed")
+				return { ok: false, error: "not_addressed" };
 		}
 		const idSet = new Set(input.ids);
 		const remaining = list.filter((c) => !idSet.has(c.id));

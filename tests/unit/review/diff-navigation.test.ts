@@ -141,7 +141,9 @@ describe("getDiffModifiedHunkLines", () => {
 		const { editor } = makeEditor({
 			changes: [ch(4, 6), ch(12, 13)],
 		});
-		expect(getDiffModifiedHunkLines(editor)).toEqual(new Set([4, 5, 6, 12, 13]));
+		expect(getDiffModifiedHunkLines(editor)).toEqual(
+			new Set([4, 5, 6, 12, 13]),
+		);
 	});
 
 	it("returns no contribution for a pure-deletion hunk (modifiedEndLineNumber === 0)", () => {

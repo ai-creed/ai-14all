@@ -1326,202 +1326,202 @@ export function App() {
 
 	return (
 		<ToastProvider>
-		<main className="shell-app">
-			<RestoreBanner
-				message={restoreWarning}
-				onDismiss={() => setRestoreWarning(null)}
-			/>
-			<div
-				className="shell-layout"
-				data-testid="shell-layout"
-				style={{
-					gridTemplateColumns: `${
-						sidebarCollapsed ? 68 : sidebarWidth
-					}px minmax(0, 1fr)`,
-				}}
-			>
-				<SidebarPanel
-					sidebarWorkspaces={sidebarWorkspaces}
-					sidebarCollapsed={sidebarCollapsed}
-					setSidebarCollapsed={setSidebarCollapsed}
-					handleSidebarResizeStart={handleSidebarResizeStart}
-					activeWorkspaceId={activeWorkspaceId}
-					pendingRename={pendingRename}
-					setPendingRename={setPendingRename}
-					openWorkspacePicker={() => setWorkspacePickerOpen(true)}
-					openCreateWorktreeDialog={() => setCreateDialogOpen(true)}
-					openRemoveWorktreeDialog={(worktreeId) => {
-						setRemoveTargetId(worktreeId);
-						setConfirmedDirtyRemoval(false);
-						setRemoveDialogOpen(true);
-					}}
-					activateWorkspace={activateWorkspace}
-					handleSelectSidebarWorktree={handleSelectSidebarWorktree}
-					handleRemoveWorkspace={handleRemoveWorkspace}
-					dispatch={dispatch}
+			<main className="shell-app">
+				<RestoreBanner
+					message={restoreWarning}
+					onDismiss={() => setRestoreWarning(null)}
 				/>
-
-				<section className="shell-main-column" ref={mainColRef}>
-					<MainColumnChrome
-						bannerInfo={bannerInfo}
-						updateInfoVersion={updateInfo?.version ?? null}
-						setUpdateDismissedFor={setUpdateDismissedFor}
-						onOpenExternal={(url) => void system.openExternal(url)}
-						chipBarRef={chipBarRef}
-						activeWorktree={activeWorktree}
-						activeSession={activeSession ?? null}
-						activeSummary={activeSummary}
-						changedFileCount={changes.length}
-						activeWorkspaceId={activeWorkspaceId}
+				<div
+					className="shell-layout"
+					data-testid="shell-layout"
+					style={{
+						gridTemplateColumns: `${
+							sidebarCollapsed ? 68 : sidebarWidth
+						}px minmax(0, 1fr)`,
+					}}
+				>
+					<SidebarPanel
+						sidebarWorkspaces={sidebarWorkspaces}
+						sidebarCollapsed={sidebarCollapsed}
 						setSidebarCollapsed={setSidebarCollapsed}
+						handleSidebarResizeStart={handleSidebarResizeStart}
+						activeWorkspaceId={activeWorkspaceId}
+						pendingRename={pendingRename}
 						setPendingRename={setPendingRename}
-						openReview={() => setReviewOpen(true)}
+						openWorkspacePicker={() => setWorkspacePickerOpen(true)}
+						openCreateWorktreeDialog={() => setCreateDialogOpen(true)}
+						openRemoveWorktreeDialog={(worktreeId) => {
+							setRemoveTargetId(worktreeId);
+							setConfirmedDirtyRemoval(false);
+							setRemoveDialogOpen(true);
+						}}
+						activateWorkspace={activateWorkspace}
+						handleSelectSidebarWorktree={handleSelectSidebarWorktree}
+						handleRemoveWorkspace={handleRemoveWorkspace}
 						dispatch={dispatch}
-						noteSheetOpen={noteSheetOpen}
-						setNoteSheetOpen={setNoteSheetOpen}
-						filesOverlayOpen={filesOverlayOpen}
-						setFilesOverlayOpen={setFilesOverlayOpen}
-						trackedFilesLoader={trackedFilesLoader}
-						gitStatusMap={gitStatusMap}
-						openEditorForFile={openEditorForFile}
-						shortcutsHelpOpen={shortcutsHelpOpen}
-						setShortcutsHelpOpen={setShortcutsHelpOpen}
-						appPlatform={appPlatform}
 					/>
 
-					<TerminalPanel
-						workspaceState={workspaceState}
-						activeWorktree={activeWorktree}
-						activeSession={activeSession ?? null}
-						activeProcesses={activeProcesses}
-						visibleProcessIds={visibleProcessIds}
-						sessions={sessions}
-						orderedSessions={orderedSessions}
-						terminalFocusSignal={terminalFocusSignal}
-						dispatch={dispatch}
-						handleAddAdHoc={handleAddAdHoc}
-						selectActiveProcess={selectActiveProcess}
-						handleLaunchPreset={handleLaunchPreset}
-						handleCloseProcess={handleCloseProcess}
-						handleStopProcess={handleStopProcess}
-						handleRestartProcess={handleRestartProcess}
-						openPresetManager={() => setPresetManagerOpen(true)}
-						findProcessByTerminalSessionId={findProcessByTerminalSessionId}
-					/>
-
-					{activeWorktree && (
-						<ReviewChipBar
-							isDirty={activeSummary?.isDirty ?? false}
-							changedFileCount={changes.length}
-							reviewMode={activeSession?.reviewMode ?? "files"}
-							openCommentCount={openCommentCount}
-							addressedCommentCount={addressedCommentCount}
-							onRefresh={handleRefreshChanges}
-							onOpen={() => setReviewOpen(true)}
-						/>
-					)}
-					{reviewOpen && activeWorktree && (
-						<ReviewExpandedPortal
-							ref={expandedPortalRef}
-							mainColRef={mainColRef}
+					<section className="shell-main-column" ref={mainColRef}>
+						<MainColumnChrome
+							bannerInfo={bannerInfo}
+							updateInfoVersion={updateInfo?.version ?? null}
+							setUpdateDismissedFor={setUpdateDismissedFor}
+							onOpenExternal={(url) => void system.openExternal(url)}
 							chipBarRef={chipBarRef}
-							onCollapse={() => setReviewOpen(false)}
-							onRefresh={handleRefreshChanges}
-							isDirty={activeSummary?.isDirty ?? false}
+							activeWorktree={activeWorktree}
+							activeSession={activeSession ?? null}
+							activeSummary={activeSummary}
 							changedFileCount={changes.length}
-							commentSidebarOpen={commentSidebarOpen}
-							onToggleCommentSidebar={() =>
-								setCommentSidebarOpen((o) => !o)
-							}
-							openCommentCount={currentFileOpenCommentCount}
-						>
-							<ReviewArea
-								activeWorktree={activeWorktree}
-								activeSession={activeSession ?? null}
-								activeWorkspaceId={activeWorkspaceId}
-								workspaceState={workspaceState}
-								changes={changes}
-								openCommentCounts={openCommentCounts}
-								commitHistoryState={commitHistoryState}
-								commitDetailState={commitDetailState}
-								diffState={diffState}
-								remoteStatus={remoteStatus}
-								selectedCommitOpenCommentCount={selectedCommitOpenCommentCount}
-								gitSummaryError={gitSummaryError}
-								gitSummaryMessage={gitSummaryMessage}
-								gitSummaryStale={gitSummaryStale}
-								reviewState={reviewState}
-								reviewRailWidth={reviewRailWidth}
-								handleReviewRailResizeStart={handleReviewRailResizeStart}
-								commentSidebarOpen={commentSidebarOpen}
-								resolvedTheme={resolvedTheme}
-								editorTarget={editorTarget}
-								setEditorTarget={setEditorTarget}
-								openEditorForFile={openEditorForFile}
-								openEditorError={openEditorError}
-								setOpenEditorError={setOpenEditorError}
-								installCtaVisible={installCtaVisible}
-								onOpenInstall={() => setInstallModalOpen(true)}
-								dispatch={dispatch}
-								handlePushBranch={handlePushBranch}
-								handleSelectChangedFile={handleSelectChangedFile}
-								setDiscardPath={setDiscardPath}
-								bumpRefreshKey={() => setRefreshKey((k) => k + 1)}
-								addingDraft={addingDraft}
-								setAddingDraft={setAddingDraft}
-								updateAddingDraftBody={updateAddingDraftBody}
-							/>
-						</ReviewExpandedPortal>
-					)}
-				</section>
-			</div>
+							activeWorkspaceId={activeWorkspaceId}
+							setSidebarCollapsed={setSidebarCollapsed}
+							setPendingRename={setPendingRename}
+							openReview={() => setReviewOpen(true)}
+							dispatch={dispatch}
+							noteSheetOpen={noteSheetOpen}
+							setNoteSheetOpen={setNoteSheetOpen}
+							filesOverlayOpen={filesOverlayOpen}
+							setFilesOverlayOpen={setFilesOverlayOpen}
+							trackedFilesLoader={trackedFilesLoader}
+							gitStatusMap={gitStatusMap}
+							openEditorForFile={openEditorForFile}
+							shortcutsHelpOpen={shortcutsHelpOpen}
+							setShortcutsHelpOpen={setShortcutsHelpOpen}
+							appPlatform={appPlatform}
+						/>
 
-			<PresetManager
-				open={presetManagerOpen}
-				presets={workspaceState.commandPresets}
-				onOpenChange={setPresetManagerOpen}
-				onSave={(preset) => dispatch({ type: "preset/upsert", preset })}
-				onDelete={(presetId) => dispatch({ type: "preset/remove", presetId })}
-				onLaunch={(presetId) => {
-					setPresetManagerOpen(false);
-					handleLaunchPreset(presetId);
-				}}
-			/>
-			<DialogStack
-				workspacePickerOpen={workspacePickerOpen}
-				setWorkspacePickerOpen={setWorkspacePickerOpen}
-				handleLoadPath={handleLoadPath}
-				createDialogOpen={createDialogOpen}
-				setCreateDialogOpen={setCreateDialogOpen}
-				createName={createName}
-				setCreateName={setCreateName}
-				createSessionTitle={createSessionTitle}
-				setCreateSessionTitle={setCreateSessionTitle}
-				createPreview={createPreview}
-				createLoading={createLoading}
-				createError={createError}
-				setCreateError={setCreateError}
-				createBusy={createBusy}
-				handleConfirmCreateWorktree={handleConfirmCreateWorktree}
-				removeDialogOpen={removeDialogOpen}
-				setRemoveDialogOpen={setRemoveDialogOpen}
-				removePreview={removePreview}
-				removeError={removeError}
-				removeBusy={removeBusy}
-				removeTargetId={removeTargetId}
-				setRemoveTargetId={setRemoveTargetId}
-				confirmedDirtyRemoval={confirmedDirtyRemoval}
-				setConfirmedDirtyRemoval={setConfirmedDirtyRemoval}
-				workspaceState={workspaceState}
-				handleConfirmRemoveWorktree={handleConfirmRemoveWorktree}
-				discardPath={discardPath}
-				setDiscardPath={setDiscardPath}
-				handleDiscardChange={handleDiscardChange}
-				installModalOpen={installModalOpen}
-				setInstallModalOpen={setInstallModalOpen}
-				agentInstallStatus={agentInstallStatus}
-			/>
-		</main>
+						<TerminalPanel
+							workspaceState={workspaceState}
+							activeWorktree={activeWorktree}
+							activeSession={activeSession ?? null}
+							activeProcesses={activeProcesses}
+							visibleProcessIds={visibleProcessIds}
+							sessions={sessions}
+							orderedSessions={orderedSessions}
+							terminalFocusSignal={terminalFocusSignal}
+							dispatch={dispatch}
+							handleAddAdHoc={handleAddAdHoc}
+							selectActiveProcess={selectActiveProcess}
+							handleLaunchPreset={handleLaunchPreset}
+							handleCloseProcess={handleCloseProcess}
+							handleStopProcess={handleStopProcess}
+							handleRestartProcess={handleRestartProcess}
+							openPresetManager={() => setPresetManagerOpen(true)}
+							findProcessByTerminalSessionId={findProcessByTerminalSessionId}
+						/>
+
+						{activeWorktree && (
+							<ReviewChipBar
+								isDirty={activeSummary?.isDirty ?? false}
+								changedFileCount={changes.length}
+								reviewMode={activeSession?.reviewMode ?? "files"}
+								openCommentCount={openCommentCount}
+								addressedCommentCount={addressedCommentCount}
+								onRefresh={handleRefreshChanges}
+								onOpen={() => setReviewOpen(true)}
+							/>
+						)}
+						{reviewOpen && activeWorktree && (
+							<ReviewExpandedPortal
+								ref={expandedPortalRef}
+								mainColRef={mainColRef}
+								chipBarRef={chipBarRef}
+								onCollapse={() => setReviewOpen(false)}
+								onRefresh={handleRefreshChanges}
+								isDirty={activeSummary?.isDirty ?? false}
+								changedFileCount={changes.length}
+								commentSidebarOpen={commentSidebarOpen}
+								onToggleCommentSidebar={() => setCommentSidebarOpen((o) => !o)}
+								openCommentCount={currentFileOpenCommentCount}
+							>
+								<ReviewArea
+									activeWorktree={activeWorktree}
+									activeSession={activeSession ?? null}
+									activeWorkspaceId={activeWorkspaceId}
+									workspaceState={workspaceState}
+									changes={changes}
+									openCommentCounts={openCommentCounts}
+									commitHistoryState={commitHistoryState}
+									commitDetailState={commitDetailState}
+									diffState={diffState}
+									remoteStatus={remoteStatus}
+									selectedCommitOpenCommentCount={
+										selectedCommitOpenCommentCount
+									}
+									gitSummaryError={gitSummaryError}
+									gitSummaryMessage={gitSummaryMessage}
+									gitSummaryStale={gitSummaryStale}
+									reviewState={reviewState}
+									reviewRailWidth={reviewRailWidth}
+									handleReviewRailResizeStart={handleReviewRailResizeStart}
+									commentSidebarOpen={commentSidebarOpen}
+									resolvedTheme={resolvedTheme}
+									editorTarget={editorTarget}
+									setEditorTarget={setEditorTarget}
+									openEditorForFile={openEditorForFile}
+									openEditorError={openEditorError}
+									setOpenEditorError={setOpenEditorError}
+									installCtaVisible={installCtaVisible}
+									onOpenInstall={() => setInstallModalOpen(true)}
+									dispatch={dispatch}
+									handlePushBranch={handlePushBranch}
+									handleSelectChangedFile={handleSelectChangedFile}
+									setDiscardPath={setDiscardPath}
+									bumpRefreshKey={() => setRefreshKey((k) => k + 1)}
+									addingDraft={addingDraft}
+									setAddingDraft={setAddingDraft}
+									updateAddingDraftBody={updateAddingDraftBody}
+								/>
+							</ReviewExpandedPortal>
+						)}
+					</section>
+				</div>
+
+				<PresetManager
+					open={presetManagerOpen}
+					presets={workspaceState.commandPresets}
+					onOpenChange={setPresetManagerOpen}
+					onSave={(preset) => dispatch({ type: "preset/upsert", preset })}
+					onDelete={(presetId) => dispatch({ type: "preset/remove", presetId })}
+					onLaunch={(presetId) => {
+						setPresetManagerOpen(false);
+						handleLaunchPreset(presetId);
+					}}
+				/>
+				<DialogStack
+					workspacePickerOpen={workspacePickerOpen}
+					setWorkspacePickerOpen={setWorkspacePickerOpen}
+					handleLoadPath={handleLoadPath}
+					createDialogOpen={createDialogOpen}
+					setCreateDialogOpen={setCreateDialogOpen}
+					createName={createName}
+					setCreateName={setCreateName}
+					createSessionTitle={createSessionTitle}
+					setCreateSessionTitle={setCreateSessionTitle}
+					createPreview={createPreview}
+					createLoading={createLoading}
+					createError={createError}
+					setCreateError={setCreateError}
+					createBusy={createBusy}
+					handleConfirmCreateWorktree={handleConfirmCreateWorktree}
+					removeDialogOpen={removeDialogOpen}
+					setRemoveDialogOpen={setRemoveDialogOpen}
+					removePreview={removePreview}
+					removeError={removeError}
+					removeBusy={removeBusy}
+					removeTargetId={removeTargetId}
+					setRemoveTargetId={setRemoveTargetId}
+					confirmedDirtyRemoval={confirmedDirtyRemoval}
+					setConfirmedDirtyRemoval={setConfirmedDirtyRemoval}
+					workspaceState={workspaceState}
+					handleConfirmRemoveWorktree={handleConfirmRemoveWorktree}
+					discardPath={discardPath}
+					setDiscardPath={setDiscardPath}
+					handleDiscardChange={handleDiscardChange}
+					installModalOpen={installModalOpen}
+					setInstallModalOpen={setInstallModalOpen}
+					agentInstallStatus={agentInstallStatus}
+				/>
+			</main>
 		</ToastProvider>
 	);
 }

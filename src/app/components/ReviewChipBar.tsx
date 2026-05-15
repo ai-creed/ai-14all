@@ -29,7 +29,9 @@ export function ReviewChipBar({
 	return (
 		<div className="shell-review-chipbar" data-testid="review-chipbar">
 			<span className="shell-review-chipbar__label">REVIEW</span>
-			<span className="shell-review-chipbar__mode">{MODE_LABEL[reviewMode]}</span>
+			<span className="shell-review-chipbar__mode">
+				{MODE_LABEL[reviewMode]}
+			</span>
 			{isDirty ? (
 				<span className="shell-review-chipbar__status" data-state="dirty">
 					{changedFileCount} changed
@@ -42,7 +44,9 @@ export function ReviewChipBar({
 			{hasComments && (
 				<span className="shell-review-chipbar__comments">
 					{openCommentCount > 0 && (
-						<span className="shell-review-chipbar__open">{openCommentCount} open</span>
+						<span className="shell-review-chipbar__open">
+							{openCommentCount} open
+						</span>
 					)}
 					{addressedCommentCount > 0 && (
 						<span className="shell-review-chipbar__addressed">

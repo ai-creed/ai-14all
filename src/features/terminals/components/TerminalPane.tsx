@@ -319,8 +319,7 @@ export function TerminalPane({
 	useEffect(() => {
 		if (!visible) {
 			// Capture the position the user was at before we hide.
-			savedScrollRef.current =
-				termRef.current?.buffer.active.viewportY ?? null;
+			savedScrollRef.current = termRef.current?.buffer.active.viewportY ?? null;
 			return;
 		}
 

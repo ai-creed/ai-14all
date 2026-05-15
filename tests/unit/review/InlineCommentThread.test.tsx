@@ -20,7 +20,9 @@ const c: ReviewComment = {
 };
 
 function noop() {}
-async function noopSave(): Promise<boolean> { return true; }
+async function noopSave(): Promise<boolean> {
+	return true;
+}
 
 describe("InlineCommentThread", () => {
 	it("renders open state with body and actions", () => {
@@ -34,7 +36,9 @@ describe("InlineCommentThread", () => {
 			/>,
 		);
 		expect(screen.getByText("body text")).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /address/i })).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /address/i }),
+		).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /edit/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument();
 	});
@@ -70,7 +74,9 @@ describe("InlineCommentThread", () => {
 				onMeasureChange={noop}
 			/>,
 		);
-		const strip = screen.getByRole("button", { name: /expand addressed comment/i });
+		const strip = screen.getByRole("button", {
+			name: /expand addressed comment/i,
+		});
 		expect(strip).toBeInTheDocument();
 		await user.click(strip);
 		expect(screen.getByText("body text")).toBeVisible();

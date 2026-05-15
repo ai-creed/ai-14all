@@ -83,7 +83,11 @@ async function typeIntoFocusedElement(text: string) {
  * In split mode both panes are visible — this returns the first visible one.
  */
 function visibleTerminalTree() {
-	return page.locator('[aria-hidden="false"].shell-terminal-pane .xterm-accessibility-tree').first();
+	return page
+		.locator(
+			'[aria-hidden="false"].shell-terminal-pane .xterm-accessibility-tree',
+		)
+		.first();
 }
 
 test.describe.serial("Terminal tab auto-focus", () => {
@@ -176,9 +180,7 @@ test.describe.serial("Terminal tab auto-focus", () => {
 		await waitForShellTab(2);
 
 		// Enable split mode via the toggle button.
-		await page
-			.getByRole("button", { name: /enable split shells/i })
-			.click();
+		await page.getByRole("button", { name: /enable split shells/i }).click();
 
 		// Assign shells 2 and 3 to the split slots via context menu.
 		await terminalTablist().getByRole("tab").nth(1).click({ button: "right" });

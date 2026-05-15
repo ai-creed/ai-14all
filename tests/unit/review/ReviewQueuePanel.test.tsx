@@ -48,7 +48,12 @@ describe("ReviewQueuePanel", () => {
 				activeMode={{ kind: "changes" }}
 				comments={[
 					make({ id: "1" }),
-					make({ id: "2", source: "commit", commitSha: "abc", filePath: "b.ts" }),
+					make({
+						id: "2",
+						source: "commit",
+						commitSha: "abc",
+						filePath: "b.ts",
+					}),
 				]}
 				hideAddressed={false}
 				{...NOOP}
@@ -80,7 +85,13 @@ describe("ReviewQueuePanel", () => {
 		render(
 			<ReviewQueuePanel
 				activeMode={{ kind: "changes" }}
-				comments={[make({ id: "1", status: "addressed", addressedAt: "2026-05-14T00:00:00.000Z" })]}
+				comments={[
+					make({
+						id: "1",
+						status: "addressed",
+						addressedAt: "2026-05-14T00:00:00.000Z",
+					}),
+				]}
 				hideAddressed={false}
 				{...NOOP}
 				onClearAddressed={onClearAddressed}
@@ -133,7 +144,9 @@ describe("ReviewQueuePanel", () => {
 				{...NOOP}
 			/>,
 		);
-		expect(screen.getByRole("button", { name: /install/i })).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /install/i }),
+		).toBeInTheDocument();
 	});
 
 	it("shows pending draft section and calls onJumpToPendingDraft on click", async () => {
