@@ -5,9 +5,10 @@ import {
 	screen,
 	fireEvent,
 	waitFor,
+	within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ensureReviewDrawerOpen } from "../helpers/review-drawer";
+import { ensureReviewOverlayOpen } from "../helpers/review-overlay";
 
 // Mock TerminalPane to avoid xterm canvas dependency in jsdom
 vi.mock("../../../src/features/terminals/components/TerminalPane", () => ({
@@ -213,11 +214,11 @@ async function loadRepositoryAndSwitchToCommits() {
 	});
 	fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
-	// Wait for the review drawer, then expand it so the tabs mount.
+	// Wait for the review chipbar, then open the overlay so the tabs mount.
 	await waitFor(() =>
-		expect(screen.getByRole("region", { name: "Review" })).toBeInTheDocument(),
+		expect(screen.getByTestId("review-chipbar")).toBeInTheDocument(),
 	);
-	ensureReviewDrawerOpen();
+	ensureReviewOverlayOpen();
 
 	// Wait for the workspace to appear
 	await waitFor(() => {
@@ -235,10 +236,7 @@ async function loadRepositoryAndSwitchToCommits() {
 	});
 }
 
-// TODO(Task 9): Re-enable and migrate these tests to the new chipbar/overlay UI.
-// They currently probe the deleted review drawer DOM (data-open, resize handles,
-// expanded-by-default ReviewArea on first render).
-describe.skip("App — degraded commit history read", () => {
+describe("App — degraded commit history read", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		// mockReset drains any leftover Once-queue values from previous tests so
@@ -302,7 +300,7 @@ describe.skip("App — degraded commit history read", () => {
 		});
 
 		failHistory = true;
-		fireEvent.click(screen.getByRole("button", { name: "Refresh review" }));
+		fireEvent.click(within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }));
 
 		await waitFor(() => {
 			expect(
@@ -356,7 +354,7 @@ describe.skip("App — degraded commit history read", () => {
 
 		// Refresh with the commit removed
 		currentEntries = [];
-		fireEvent.click(screen.getByRole("button", { name: "Refresh review" }));
+		fireEvent.click(within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }));
 
 		await waitFor(() => {
 			// Commit list is now empty — the selection should have been cleared
@@ -367,10 +365,7 @@ describe.skip("App — degraded commit history read", () => {
 	});
 });
 
-// TODO(Task 9): Re-enable and migrate these tests to the new chipbar/overlay UI.
-// They currently probe the deleted review drawer DOM (data-open, resize handles,
-// expanded-by-default ReviewArea on first render).
-describe.skip("App — degraded commit detail read", () => {
+describe("App — degraded commit detail read", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		// mockReset drains any leftover Once-queue values from previous tests so
@@ -432,10 +427,7 @@ describe.skip("App — degraded commit detail read", () => {
 	});
 });
 
-// TODO(Task 9): Re-enable and migrate these tests to the new chipbar/overlay UI.
-// They currently probe the deleted review drawer DOM (data-open, resize handles,
-// expanded-by-default ReviewArea on first render).
-describe.skip("App — focus-gated auto-refresh", () => {
+describe("App — focus-gated auto-refresh", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		// mockReset drains any leftover Once-queue values from previous tests so

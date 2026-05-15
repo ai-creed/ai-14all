@@ -91,7 +91,7 @@ test.describe.serial("Files overlay", () => {
 		await closeFilesOverlay(page);
 	});
 
-	test("Enter selects a file and opens the review drawer on the Files tab", async () => {
+	test("Enter selects a file and opens the review overlay on the Files tab", async () => {
 		test.setTimeout(30_000);
 		await openFilesOverlayViaChipBar(page);
 		await page.getByTestId("files-overlay-search").fill("index");
@@ -101,8 +101,7 @@ test.describe.serial("Files overlay", () => {
 		).toBeVisible({ timeout: 10_000 });
 		await page.keyboard.press("Enter");
 		await expect(page.getByTestId("files-overlay")).toHaveCount(0);
-		const drawer = page.getByRole("region", { name: "Review" });
-		await expect(drawer).toHaveAttribute("data-open", "true");
+		await expect(page.getByTestId("review-expanded-portal")).toBeVisible();
 		await expect(page.getByRole("tab", { name: /files/i })).toHaveAttribute(
 			"data-state",
 			"active",
@@ -120,10 +119,7 @@ test.describe.serial("Files overlay", () => {
 			)
 			.click();
 		await expect(page.getByTestId("files-overlay")).toHaveCount(0);
-		await expect(page.getByRole("region", { name: "Review" })).toHaveAttribute(
-			"data-open",
-			"true",
-		);
+		await expect(page.getByTestId("review-expanded-portal")).toBeVisible();
 	});
 
 	test("Esc closes the overlay; chip-bar Files button remains accessible", async () => {

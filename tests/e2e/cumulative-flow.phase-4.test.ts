@@ -54,20 +54,18 @@ test.describe.serial("Cumulative flow — Phase 4", () => {
 
 		// Chip bar replaces the top band — verify session context is visible
 		await expect(page.getByRole("region", { name: "Session" })).toBeVisible();
-		// Wait for the git summary to finish loading — dirty chip appears once the
-		// async readSummary call resolves.  This also stabilises the layout so
-		// the xterm resize cycle has completed before we click list items.
+		// Wait for the git summary to finish loading — the dirty "changed" chip
+		// appears in the review chipbar once the async readSummary call resolves.
+		// This also stabilises the layout so the xterm resize cycle has completed
+		// before we click list items.
 		await expect(
-			page.getByRole("button", { name: /\d+ changed/i }),
+			page.getByTestId("review-chipbar").getByText(/\d+ changed/i),
 		).toBeVisible({ timeout: 10_000 });
 
-		// Slice D: review drawer starts collapsed on fresh sessions; click the
-		// dirty chip to expand before interacting with Files/Changes/Commits tabs.
-		await page.getByRole("button", { name: /\d+ changed/i }).click();
-		await expect(page.getByRole("region", { name: "Review" })).toHaveAttribute(
-			"data-open",
-			"true",
-		);
+		// Slice D: the review overlay is closed on fresh sessions; open it via the
+		// chipbar "Open review" button before interacting with Files/Changes/Commits tabs.
+		await page.getByRole("button", { name: "Open review" }).click();
+		await expect(page.getByTestId("review-expanded-portal")).toBeVisible();
 
 		// Phase 6: wait for the default shell tab to appear before interacting
 		// with the review panel. We match any tab in the terminal tablist rather

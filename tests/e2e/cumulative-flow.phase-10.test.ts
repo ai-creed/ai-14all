@@ -84,12 +84,12 @@ test.describe.serial("Cumulative flow — Phase 10", () => {
 		await expect(
 			page.getByRole("dialog", { name: /keyboard shortcuts/i }),
 		).toBeVisible({ timeout: 5_000 });
-		// Verify at least the files-overlay and review-drawer entries are shown.
+		// Verify at least the files-overlay and review.open entries are shown.
 		await expect(
 			page.getByTestId("shortcuts-help-row-files-overlay"),
 		).toBeVisible();
 		await expect(
-			page.getByTestId("shortcuts-help-row-review-drawer"),
+			page.getByTestId("shortcuts-help-row-review.open"),
 		).toBeVisible();
 		await expect(
 			page.getByTestId("shortcuts-help-row-rename-session"),
@@ -101,30 +101,23 @@ test.describe.serial("Cumulative flow — Phase 10", () => {
 		).not.toBeVisible({ timeout: 5_000 });
 	});
 
-	test("review drawer toggles open and closed via keyboard shortcut", async () => {
+	test("review overlay toggles open and closed via keyboard shortcut", async () => {
 		test.setTimeout(30_000);
 		await ensureWorkspaceLoaded();
-		// Ensure the drawer is collapsed first.
-		const drawer = page.getByRole("region", { name: "Review" });
-		const isOpen = await drawer.getAttribute("data-open");
-		if (isOpen === "true") {
-			await page
-				.getByRole("button", { name: "Collapse review drawer" })
-				.click();
-			await expect(drawer).toHaveAttribute("data-open", "false");
-		}
+		const portal = page.getByTestId("review-expanded-portal");
 		// Focus non-terminal area.
 		await page.getByRole("region", { name: "Session" }).click();
+		// Ensure overlay starts closed by toggling if currently open.
+		if (await portal.isVisible({ timeout: 500 }).catch(() => false)) {
+			await page.keyboard.press(`${modKey}+j`);
+			await expect(portal).not.toBeVisible({ timeout: 5_000 });
+		}
 		// Toggle open.
 		await page.keyboard.press(`${modKey}+j`);
-		await expect(drawer).toHaveAttribute("data-open", "true", {
-			timeout: 5_000,
-		});
+		await expect(portal).toBeVisible({ timeout: 5_000 });
 		// Toggle closed.
 		await page.keyboard.press(`${modKey}+j`);
-		await expect(drawer).toHaveAttribute("data-open", "false", {
-			timeout: 5_000,
-		});
+		await expect(portal).not.toBeVisible({ timeout: 5_000 });
 	});
 
 	test("rename shortcut expands sidebar and focuses the rename input", async () => {

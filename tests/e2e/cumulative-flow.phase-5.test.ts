@@ -15,7 +15,7 @@ import {
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
-import { ensureReviewDrawerOpen } from "./helpers/review-drawer";
+import { ensureReviewOverlayOpen } from "./helpers/review-overlay";
 
 let app: ElectronApplication | undefined;
 let page: Page;
@@ -97,7 +97,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		await page.keyboard.press("Escape");
 		// Phase 6: force clicks in the review panel because the xterm pane in
 		// the same column keeps the accessibility tree in flux.
-		await ensureReviewDrawerOpen(page);
+		await ensureReviewOverlayOpen(page);
 		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
 		await page
 			.getByRole("button", { name: /src\/index\.ts/ })
@@ -144,7 +144,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 			page.getByRole("textbox", { name: /session note/i }),
 		).toHaveValue("resume here");
 		await page.keyboard.press("Escape");
-		await ensureReviewDrawerOpen(page);
+		await ensureReviewOverlayOpen(page);
 		await expect(page.getByText("Diff vs HEAD")).toBeVisible();
 		// Match by position — xterm title changes to CWD almost immediately,
 		// so "shell 1" cannot be matched reliably after restore.

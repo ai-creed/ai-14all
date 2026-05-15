@@ -9,7 +9,7 @@
  * with Electron 41's sandboxed-preload execution: the preload runs but
  * `contextBridge.exposeInMainWorld` does not surface `window.ai14all` in the
  * renderer's main execution context. The same failure is reproduced by running
- * `review-drawer.test.ts` and `review-comments.test.ts` on this machine.
+ * `review-comments.test.ts` on this machine.
  *
  * Resolution path: investigate the Playwright+Electron preload timing issue
  * (possibly upgrade Playwright or adjust `sandbox`/`contextIsolation` flags)
@@ -335,7 +335,7 @@ test.describe.serial("AgentSkillInstaller — CLI-absent path", () => {
 		// Harness currently broken — see top-of-file skip reason.
 		// When unblocked:
 		// 1. Launch app fresh (no SKILL.md persisted).
-		// 2. Open a worktree with the review drawer.
+		// 2. Open a worktree with the review overlay.
 		// 3. Assert data-testid="agent-install-cta" is visible in the comment sidebar.
 		// 4. Click the CTA Install… button; assert install modal becomes visible.
 	});

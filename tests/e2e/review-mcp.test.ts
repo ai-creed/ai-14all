@@ -9,7 +9,7 @@
  * with Electron 41's sandboxed-preload execution: the preload runs but
  * `contextBridge.exposeInMainWorld` does not surface `window.ai14all` in the
  * renderer's main execution context. The same failure is reproduced by running
- * `review-drawer.test.ts` and `review-comments.test.ts` on this machine.
+ * `review-comments.test.ts` on this machine.
  *
  * Resolution path: investigate the Playwright+Electron preload timing issue
  * (possibly upgrade Playwright or adjust `sandbox`/`contextIsolation` flags)
@@ -206,7 +206,7 @@ test.describe.serial("Review MCP server", () => {
 			expect(markAgainResponse.error).toBe("already_addressed");
 
 			// --- 8. Assert sidebar card updated to addressed ---
-			// Navigate to feature-a and open the review drawer to verify the
+			// Navigate to feature-a and open the review overlay to verify the
 			// card reflects the addressed status set by the MCP tool.
 			await worktreeNav
 				.getByRole("button", { name: /feature-a/i })

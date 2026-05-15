@@ -5,9 +5,10 @@ import {
 	screen,
 	fireEvent,
 	waitFor,
+	within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ensureReviewDrawerOpen } from "../helpers/review-drawer";
+import { ensureReviewOverlayOpen } from "../helpers/review-overlay";
 
 const mockTerminalOutputListeners: Array<
 	(event: { sessionId: string; data: string }) => void
@@ -175,11 +176,11 @@ async function loadRepoAndSwitchToChanges() {
 	});
 	fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
-	// Wait for the review drawer, then expand it so the tabs mount.
+	// Wait for the review chipbar, then open the overlay so the tabs mount.
 	await waitFor(() =>
-		expect(screen.getByRole("region", { name: "Review" })).toBeInTheDocument(),
+		expect(screen.getByTestId("review-chipbar")).toBeInTheDocument(),
 	);
-	ensureReviewDrawerOpen();
+	ensureReviewOverlayOpen();
 
 	// Wait for the workspace to appear
 	await waitFor(() => {
@@ -241,10 +242,7 @@ async function loadRepositoryWithTwoWorktrees() {
 	});
 }
 
-// TODO(Task 9): Re-enable and migrate these tests to the new chipbar/overlay UI.
-// They currently probe the deleted review drawer DOM (data-open, resize handles,
-// expanded-by-default ReviewArea on first render).
-describe.skip("App — refresh changes button", () => {
+describe("App — refresh changes button", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockTerminalOutputListeners.length = 0;
@@ -292,7 +290,7 @@ describe.skip("App — refresh changes button", () => {
 		await loadRepoAndSwitchToChanges();
 
 		expect(
-			screen.getByRole("button", { name: "Refresh review" }),
+			within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }),
 		).toBeInTheDocument();
 	});
 
@@ -303,7 +301,7 @@ describe.skip("App — refresh changes button", () => {
 		fireEvent.click(screen.getByRole("tab", { name: "Files" }));
 
 		expect(
-			screen.getByRole("button", { name: "Refresh review" }),
+			within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }),
 		).toBeInTheDocument();
 	});
 
@@ -312,7 +310,7 @@ describe.skip("App — refresh changes button", () => {
 
 		const callCountBefore = mockReadSummary.mock.calls.length;
 
-		fireEvent.click(screen.getByRole("button", { name: "Refresh review" }));
+		fireEvent.click(within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }));
 
 		await waitFor(() => {
 			expect(mockReadSummary.mock.calls.length).toBeGreaterThan(
@@ -352,15 +350,18 @@ describe.skip("App — refresh changes button", () => {
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
-		await screen.findByRole("region", { name: "Review" });
-		ensureReviewDrawerOpen();
+		await screen.findByTestId("review-chipbar");
+		ensureReviewOverlayOpen();
 		const filesTab = await screen.findByRole("tab", { name: "Files" });
 		filesTab.focus();
 		fireEvent.keyDown(filesTab, { key: "ArrowRight" });
 
-		expect(
-			await screen.findByRole("button", { name: "Refresh review" }),
-		).toBeInTheDocument();
+		await waitFor(() => {
+			expect(screen.getByRole("tab", { name: "Changes" })).toHaveAttribute(
+				"data-state",
+				"active",
+			);
+		});
 	});
 
 	it("refreshes the cached git summary for the active worktree", async () => {
@@ -377,7 +378,7 @@ describe.skip("App — refresh changes button", () => {
 		await loadRepoAndSwitchToChanges();
 
 		const before = mockReadSummary.mock.calls.length;
-		fireEvent.click(screen.getByRole("button", { name: "Refresh review" }));
+		fireEvent.click(within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }));
 
 		await waitFor(() => {
 			expect(mockReadSummary.mock.calls.length).toBeGreaterThan(before);
@@ -422,8 +423,8 @@ describe.skip("App — refresh changes button", () => {
 			target: { value: "/repo" },
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
-		await screen.findByRole("region", { name: "Review" });
-		ensureReviewDrawerOpen();
+		await screen.findByTestId("review-chipbar");
+		ensureReviewOverlayOpen();
 		await screen.findByRole("tab", { name: "Files" });
 		await user.click(screen.getByRole("tab", { name: "Changes" }));
 		await user.click(
@@ -440,7 +441,7 @@ describe.skip("App — refresh changes button", () => {
 			],
 		};
 
-		fireEvent.click(screen.getByRole("button", { name: "Refresh review" }));
+		fireEvent.click(within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }));
 
 		await waitFor(() => {
 			expect(screen.getByText("No changed files.")).toBeInTheDocument();
@@ -478,8 +479,8 @@ describe.skip("App — refresh changes button", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
 		// Wait for review panel to appear then switch to Changes to verify error state
-		await screen.findByRole("region", { name: "Review" });
-		ensureReviewDrawerOpen();
+		await screen.findByTestId("review-chipbar");
+		ensureReviewOverlayOpen();
 		await screen.findByRole("tab", { name: "Files" });
 		await userEvent.click(screen.getByRole("tab", { name: "Changes" }));
 		await waitFor(
@@ -517,8 +518,8 @@ describe.skip("App — refresh changes button", () => {
 		const repoInput = await screen.findByLabelText("Repository path");
 		fireEvent.change(repoInput, { target: { value: "/repo" } });
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
-		await screen.findByRole("region", { name: "Review" });
-		ensureReviewDrawerOpen();
+		await screen.findByTestId("review-chipbar");
+		ensureReviewOverlayOpen();
 		await screen.findByRole("tab", { name: "Files" });
 		await user.click(screen.getByRole("tab", { name: "Changes" }));
 
@@ -527,7 +528,7 @@ describe.skip("App — refresh changes button", () => {
 
 		// Override the mock so subsequent calls (triggered by Refresh) throw
 		mockReadSummary.mockRejectedValue(new Error("git error"));
-		fireEvent.click(screen.getByRole("button", { name: "Refresh review" }));
+		fireEvent.click(within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }));
 
 		await waitFor(() => {
 			expect(
@@ -564,15 +565,15 @@ describe.skip("App — refresh changes button", () => {
 		const repoInput = await screen.findByLabelText("Repository path");
 		fireEvent.change(repoInput, { target: { value: "/repo" } });
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
-		await screen.findByRole("region", { name: "Review" });
-		ensureReviewDrawerOpen();
+		await screen.findByTestId("review-chipbar");
+		ensureReviewOverlayOpen();
 		await screen.findByRole("tab", { name: "Files" });
 		await user.click(screen.getByRole("tab", { name: "Changes" }));
 
 		await screen.findByRole("button", { name: /src\/index\.ts/i });
 
 		mockReadSummary.mockRejectedValueOnce(new Error("git error"));
-		fireEvent.click(screen.getByRole("button", { name: "Refresh review" }));
+		fireEvent.click(within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }));
 
 		await waitFor(() => {
 			expect(
@@ -619,7 +620,7 @@ describe.skip("App — refresh changes button", () => {
 		await loadRepoAndSwitchToChanges();
 		expect(screen.getAllByText("feature-a").length).toBeGreaterThan(0);
 
-		fireEvent.click(screen.getByRole("button", { name: "Refresh review" }));
+		fireEvent.click(within(screen.getByTestId("review-chipbar")).getByRole("button", { name: /refresh review/i }));
 
 		await waitFor(() => {
 			expect(screen.getAllByText("feature-b").length).toBeGreaterThan(0);
@@ -659,7 +660,7 @@ describe.skip("App — refresh changes button", () => {
 		await loadRepositoryWithTwoWorktrees();
 
 		await user.click(screen.getByRole("button", { name: "feature-a" }));
-		ensureReviewDrawerOpen();
+		ensureReviewOverlayOpen();
 		await user.click(screen.getByRole("tab", { name: "Changes" }));
 
 		const changedFile = await screen.findByRole("button", {
@@ -672,7 +673,7 @@ describe.skip("App — refresh changes button", () => {
 			screen.getByRole("button", { name: /^main(?:\s+main)?$/i }),
 		);
 		await user.click(screen.getByRole("button", { name: "feature-a" }));
-		ensureReviewDrawerOpen();
+		ensureReviewOverlayOpen();
 
 		expect(screen.getByRole("tab", { name: "Changes" })).toHaveAttribute(
 			"data-state",
@@ -718,9 +719,9 @@ async function loadRepository() {
 	fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
 	await waitFor(() =>
-		expect(screen.getByRole("region", { name: "Review" })).toBeInTheDocument(),
+		expect(screen.getByTestId("review-chipbar")).toBeInTheDocument(),
 	);
-	ensureReviewDrawerOpen();
+	ensureReviewOverlayOpen();
 	await waitFor(() => {
 		expect(screen.getByRole("tab", { name: "Files" })).toBeInTheDocument();
 	});
@@ -741,10 +742,7 @@ function emitTerminalOutput(sessionId: string, data: string) {
 	);
 }
 
-// TODO(Task 9): Re-enable and migrate these tests to the new chipbar/overlay UI.
-// They currently probe the deleted review drawer DOM (data-open, resize handles,
-// expanded-by-default ReviewArea on first render).
-describe.skip("App — process lifecycle", () => {
+describe("App — process lifecycle", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		terminalIdCounter = 0;

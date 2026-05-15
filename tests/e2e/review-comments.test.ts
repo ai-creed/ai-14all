@@ -23,7 +23,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 import { closeApp } from "./fixtures/close-app";
-import { ensureReviewDrawerOpen } from "./helpers/review-drawer";
+import { ensureReviewOverlayOpen } from "./helpers/review-overlay";
 
 let app: ElectronApplication | undefined;
 let page: Page;
@@ -67,7 +67,7 @@ async function relaunch() {
  * editor, and return. Callers can then trigger comment shortcuts or hover glyphs.
  */
 async function openIndexTsDiff() {
-	await ensureReviewDrawerOpen(page);
+	await ensureReviewOverlayOpen(page);
 	await page.getByRole("tab", { name: "Changes" }).click({ force: true });
 
 	const changedFileButton = page.getByRole("button", {
@@ -195,7 +195,7 @@ test.describe.serial("Review comments — inline UX", () => {
 
 		// Queue panel has a row containing "rename x". The panel may scroll internally
 		// so we assert on the panel's text content rather than the row element's
-		// visibility (which can be "hidden" when scrolled out of view in a compact drawer).
+		// visibility (which can be "hidden" when scrolled out of view in the overlay).
 		const queuePanel = page.locator("[data-testid=\"review-queue-panel\"]");
 		await expect(queuePanel).toBeVisible({ timeout: 10_000 });
 		await expect(queuePanel).toContainText("rename x", { timeout: 10_000 });

@@ -8,7 +8,7 @@ import {
 	within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ensureReviewDrawerOpen } from "../helpers/review-drawer";
+import { ensureReviewOverlayOpen } from "../helpers/review-overlay";
 
 // Mock TerminalPane to avoid xterm canvas dependency in jsdom
 vi.mock("../../../src/features/terminals/components/TerminalPane", () => ({
@@ -155,10 +155,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 
 import { App } from "../../../src/app/App";
 
-// TODO(Task 9): Re-enable and migrate these tests to the new chipbar/overlay UI.
-// They currently probe the deleted review drawer DOM (data-open, resize handles,
-// expanded-by-default ReviewArea on first render).
-describe.skip("App — Phase 6 default shell", () => {
+describe("App — Phase 6 default shell", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		let terminalCount = 0;
@@ -291,8 +288,8 @@ describe.skip("App — Phase 6 default shell", () => {
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
-		await screen.findByRole("region", { name: "Review" });
-		ensureReviewDrawerOpen();
+		await screen.findByTestId("review-chipbar");
+		ensureReviewOverlayOpen();
 		await userEvent.click(await screen.findByRole("tab", { name: "Commits" }));
 		await userEvent.click(
 			await screen.findByRole("button", { name: /feature commit/i }),
@@ -355,8 +352,8 @@ describe.skip("App — Phase 6 default shell", () => {
 			expect(createMock).toHaveBeenCalledTimes(1);
 		});
 
-		await screen.findByRole("region", { name: "Review" });
-		ensureReviewDrawerOpen();
+		await screen.findByTestId("review-chipbar");
+		ensureReviewOverlayOpen();
 		fireEvent.click(await screen.findByRole("tab", { name: "Changes" }));
 		fireEvent.click(screen.getByRole("tab", { name: "Files" }));
 
@@ -403,8 +400,8 @@ describe.skip("App — Phase 6 default shell", () => {
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
-		await screen.findByRole("region", { name: "Review" });
-		ensureReviewDrawerOpen();
+		await screen.findByTestId("review-chipbar");
+		ensureReviewOverlayOpen();
 		const reviewRail = await screen.findByTestId("review-rail");
 		expect(reviewRail).toContainElement(
 			within(reviewRail).getByRole("tablist", { name: "Review mode" }),
@@ -412,7 +409,7 @@ describe.skip("App — Phase 6 default shell", () => {
 		expect(reviewRail).toContainElement(
 			within(reviewRail).getByRole("tab", { name: "Files" }),
 		);
-		expect(screen.getByRole("button", { name: "Refresh review" })).toHaveClass(
+		expect(screen.getAllByRole("button", { name: "Refresh review" })[0]).toHaveClass(
 			"shell-button",
 			"shell-button--compact",
 			"shell-button--icon",
@@ -439,7 +436,7 @@ describe.skip("App — Phase 6 default shell", () => {
 		await userEvent.click(
 			within(reviewRail).getByRole("tab", { name: "Commits" }),
 		);
-		expect(screen.getByRole("button", { name: "Refresh review" })).toHaveClass(
+		expect(screen.getAllByRole("button", { name: "Refresh review" })[0]).toHaveClass(
 			"shell-button--round",
 		);
 	});
@@ -1332,88 +1329,6 @@ describe.skip("App — Phase 6 default shell", () => {
 		});
 		expect(nav).toHaveAttribute("data-collapsed", "false");
 		expect(within(nav).getByText("feature-a")).toBeInTheDocument();
-	});
-
-	it("resizes, collapses, and reopens the review panel without losing selection", async () => {
-		readRestoreStateMock.mockResolvedValue({
-			version: 1,
-			restorePreference: "prompt",
-			snapshot: null,
-		});
-		readSummaryMock.mockResolvedValue({
-			branchName: "main",
-			isDirty: true,
-			changedFileCount: 1,
-			changedFiles: [{ path: "src/index.ts", status: "M" }],
-			recentCommits: [],
-		});
-		openRepositoryMock.mockResolvedValue({
-			workspaceId: "repo-1",
-			repository: {
-				id: "repo-1",
-				name: "repo",
-				rootPath: "/repo",
-				repoId: null,
-			},
-		});
-		listWorktreesMock.mockResolvedValue([
-			{
-				id: "main",
-				repositoryId: "repo-1",
-				branchName: "main",
-				path: "/repo",
-				label: "main",
-				isMain: true,
-			},
-		]);
-
-		render(<App />);
-		await screen.findByLabelText("Repository path");
-		fireEvent.change(screen.getByLabelText("Repository path"), {
-			target: { value: "/repo" },
-		});
-		fireEvent.click(screen.getByRole("button", { name: "Load" }));
-
-		await screen.findByRole("region", { name: "Review" });
-		ensureReviewDrawerOpen();
-		await userEvent.click(await screen.findByRole("tab", { name: "Changes" }));
-		await userEvent.click(
-			await screen.findByRole("button", { name: /src\/index\.ts/i }),
-		);
-		expect(await screen.findByText("Diff vs HEAD")).toBeInTheDocument();
-
-		const reviewDrawer = screen.getByTestId("review-drawer");
-		expect(reviewDrawer).toHaveStyle({ gridTemplateRows: "auto auto 280px" });
-
-		fireEvent.mouseDown(screen.getByTestId("review-drawer-resize-handle"), {
-			clientY: 500,
-		});
-		fireEvent.mouseMove(window, { clientY: 460 });
-		fireEvent.mouseUp(window);
-
-		await waitFor(() => {
-			expect(reviewDrawer).toHaveStyle({ gridTemplateRows: "auto auto 320px" });
-		});
-
-		await userEvent.click(
-			screen.getByRole("button", { name: "Collapse review drawer" }),
-		);
-		expect(reviewDrawer).toHaveStyle({ gridTemplateRows: "auto" });
-		expect(reviewDrawer).toHaveAttribute("data-open", "false");
-		expect(screen.queryByText("Diff vs HEAD")).not.toBeInTheDocument();
-
-		await userEvent.click(
-			screen.getByRole("button", { name: "Expand review drawer" }),
-		);
-
-		await waitFor(() =>
-			expect(screen.getByRole("tab", { name: "Changes" })).toHaveAttribute(
-				"data-state",
-				"active",
-			),
-		);
-		expect(await screen.findByText("Diff vs HEAD")).toBeInTheDocument();
-		expect(reviewDrawer).toHaveStyle({ gridTemplateRows: "auto auto 320px" });
 	});
 
 	it("resizes the sidebar by dragging the resize handle", async () => {

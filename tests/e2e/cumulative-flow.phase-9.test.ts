@@ -16,7 +16,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 import { closeApp } from "./fixtures/close-app";
-import { ensureReviewDrawerOpen } from "./helpers/review-drawer";
+import { ensureReviewOverlayOpen } from "./helpers/review-overlay";
 
 let app: ElectronApplication | undefined;
 let page: Page;
@@ -65,7 +65,7 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 			.getByRole("navigation", { name: "Worktree sessions" })
 			.getByRole("button", { name: "feature-a", exact: true })
 			.click();
-		await ensureReviewDrawerOpen(page);
+		await ensureReviewOverlayOpen(page);
 		await page.getByRole("tab", { name: "Files" }).click();
 		await expect(
 			page.getByText("feature-a", { exact: true }).first(),
@@ -199,8 +199,8 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 
 	test("mtime conflict: external write between open and save shows SaveConflictDialog", async () => {
 		test.setTimeout(30_000);
-		// Ensure the review drawer is open and on the Files tab before touching the tree
-		await ensureReviewDrawerOpen(page);
+		// Ensure the review overlay is open and on the Files tab before touching the tree
+		await ensureReviewOverlayOpen(page);
 		await page.getByRole("tab", { name: "Files" }).click();
 		// Open src/index.ts (a .ts file — also whitelisted and editable)
 		const srcDir = page.locator(".shell-list__item--dir", { hasText: "src" });

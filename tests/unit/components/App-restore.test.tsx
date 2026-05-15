@@ -7,6 +7,7 @@ import {
 	within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ensureReviewOverlayOpen } from "../helpers/review-overlay";
 
 // Mock TerminalPane to avoid xterm canvas dependency in jsdom
 vi.mock("../../../src/features/terminals/components/TerminalPane", () => ({
@@ -127,10 +128,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 
 import { App } from "../../../src/app/App";
 
-// TODO(Task 9): Re-enable and migrate these tests to the new chipbar/overlay UI.
-// They currently probe the deleted review drawer DOM (data-open, resize handles,
-// expanded-by-default ReviewArea on first render).
-describe.skip("App — Phase 5 restore flow", () => {
+describe("App — Phase 5 restore flow", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		// Reset once-queues so that any unconsumed mockResolvedValueOnce entries
@@ -378,10 +376,12 @@ describe.skip("App — Phase 5 restore flow", () => {
 				screen.queryByRole("textbox", { name: "Session note" }),
 			).not.toBeInTheDocument();
 		});
-		expect(screen.getByRole("tab", { name: "Changes" })).toHaveAttribute(
-			"data-state",
-			"active",
-		);
+		// Tabs live inside the overlay (mounted only when reviewOpen=true). Open
+		// it so we can verify the restored reviewMode is reflected on the tab.
+		ensureReviewOverlayOpen();
+		expect(
+			await screen.findByRole("tab", { name: "Changes" }),
+		).toHaveAttribute("data-state", "active");
 	});
 
 	it("restores saved split-shell layout and clears stale split slots", async () => {
