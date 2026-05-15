@@ -143,4 +143,33 @@ export function scrollToLineRange(
 ): void {
 	const modified = editor.getModifiedEditor();
 	modified.revealLineInCenter(range.startLine);
+
+	const editorDom = editor.getContainerDomNode();
+	if (!editorDom) return;
+
+	const scrollContainer = findScrollableAncestor(editorDom);
+	if (!scrollContainer) return;
+
+	const lineTopInEditor = modified.getTopForLineNumber(range.startLine);
+	const editorRect = editorDom.getBoundingClientRect();
+	const containerRect = scrollContainer.getBoundingClientRect();
+	const lineRelativeY =
+		editorRect.top - containerRect.top + lineTopInEditor + scrollContainer.scrollTop;
+	const targetScrollTop = lineRelativeY - containerRect.height / 2;
+	scrollContainer.scrollTo({
+		top: Math.max(0, targetScrollTop),
+		behavior: "smooth",
+	});
+}
+
+function findScrollableAncestor(el: HTMLElement): HTMLElement | null {
+	let cur: HTMLElement | null = el.parentElement;
+	while (cur) {
+		const style = getComputedStyle(cur);
+		if (style.overflowY === "auto" || style.overflowY === "scroll") {
+			return cur;
+		}
+		cur = cur.parentElement;
+	}
+	return null;
 }

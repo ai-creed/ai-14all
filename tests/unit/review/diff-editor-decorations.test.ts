@@ -36,6 +36,7 @@ function fakeEditor() {
 	const modified = fakeModified();
 	const editor = {
 		getModifiedEditor: () => modified,
+		getContainerDomNode: () => document.createElement("div"),
 		onDidDispose: vi.fn().mockReturnValue({ dispose: vi.fn() }),
 		getLineChanges: vi.fn().mockReturnValue([]),
 		onDidUpdateDiff: vi.fn().mockReturnValue({ dispose: vi.fn() }),

@@ -54,15 +54,13 @@ export function createInlineThreadMount(
 		const disposables: Array<{ dispose(): void }> = [];
 
 		const updatePosition = () => {
-			const scrollTop = modified.getScrollTop();
 			const layout = modified.getLayoutInfo();
-			hostNode.style.top = `${spacerTop - scrollTop}px`;
+			hostNode.style.top = `${spacerTop}px`;
 			hostNode.style.left = `${layout.contentLeft}px`;
 			hostNode.style.width = `${layout.contentWidth}px`;
 			hostNode.style.height = `${height}px`;
 		};
 
-		disposables.push(modified.onDidScrollChange(updatePosition));
 		disposables.push(modified.onDidLayoutChange(updatePosition));
 
 		const makeZoneSpec = (): MonacoEditor.IViewZone => ({
