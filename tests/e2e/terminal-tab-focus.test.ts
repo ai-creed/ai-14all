@@ -45,11 +45,22 @@ test.afterAll(async () => {
 });
 
 /**
- * Wait for a shell tab to be visible and for its xterm pane to be ready
- * (i.e. the textarea exists — xterm creates it on open()).
+ * Locator for the terminal-tablist tab list. Terminal tabs no longer label
+ * themselves "shell N" — xterm relabels them with the working-directory path
+ * almost immediately. Identify tabs positionally instead.
  */
-async function waitForShellTab(name: RegExp, timeout = 15_000) {
-	await expect(page.getByRole("tab", { name })).toBeVisible({ timeout });
+function terminalTablist() {
+	return page.getByRole("tablist", { name: /terminal sessions/i });
+}
+
+/**
+ * Wait for the terminal tab at `index` (0-based) to be visible and for its
+ * xterm pane to be ready (i.e. the textarea exists — xterm creates it on open()).
+ */
+async function waitForShellTab(index: number, timeout = 15_000) {
+	await expect(terminalTablist().getByRole("tab").nth(index)).toBeVisible({
+		timeout,
+	});
 	await page.locator(".xterm-helper-textarea").first().waitFor({
 		state: "attached",
 		timeout,
@@ -82,7 +93,7 @@ test.describe.serial("Terminal tab auto-focus", () => {
 		// ── Setup ──────────────────────────────────────────────────────────────
 		await page.locator("#repo-path").fill(testRepo.repoPath);
 		await page.getByRole("button", { name: "Load" }).click();
-		await waitForShellTab(/shell 1/i);
+		await waitForShellTab(0);
 
 		// Confirm shell 1 is interactive (explicit focus just for baseline).
 		const textarea = page.locator(".xterm-helper-textarea").first();
@@ -96,18 +107,20 @@ test.describe.serial("Terminal tab auto-focus", () => {
 
 		// ── Add shell 2 ────────────────────────────────────────────────────────
 		await page.getByRole("button", { name: "Add shell" }).click();
-		await waitForShellTab(/shell 2/i);
+		await waitForShellTab(1);
 
 		// Shell 2 becomes active after creation — confirm it is visible/active.
-		await expect(
-			page.getByRole("tab", { name: /shell 2/i }),
-		).toHaveAttribute("data-state", "active");
+		await expect(terminalTablist().getByRole("tab").nth(1)).toHaveAttribute(
+			"data-state",
+			"active",
+		);
 
 		// ── Click shell 1 tab (no explicit textarea focus) ─────────────────────
-		await page.getByRole("tab", { name: /shell 1/i }).click();
-		await expect(
-			page.getByRole("tab", { name: /shell 1/i }),
-		).toHaveAttribute("data-state", "active");
+		await terminalTablist().getByRole("tab").nth(0).click();
+		await expect(terminalTablist().getByRole("tab").nth(0)).toHaveAttribute(
+			"data-state",
+			"active",
+		);
 
 		// Type WITHOUT explicitly focusing the textarea.
 		// If auto-focus works, this text goes to shell 1's PTY.
@@ -119,10 +132,11 @@ test.describe.serial("Terminal tab auto-focus", () => {
 		});
 
 		// ── Click shell 2 tab (no explicit focus) ──────────────────────────────
-		await page.getByRole("tab", { name: /shell 2/i }).click();
-		await expect(
-			page.getByRole("tab", { name: /shell 2/i }),
-		).toHaveAttribute("data-state", "active");
+		await terminalTablist().getByRole("tab").nth(1).click();
+		await expect(terminalTablist().getByRole("tab").nth(1)).toHaveAttribute(
+			"data-state",
+			"active",
+		);
 
 		const marker2 = `AUTOFOCUS_TAB2_${Date.now()}`;
 		await typeIntoFocusedElement(`echo ${marker2}`);
@@ -135,9 +149,10 @@ test.describe.serial("Terminal tab auto-focus", () => {
 
 	test("re-clicking the already-active tab restores focus to the terminal", async () => {
 		// Shell 2 should still be active from the previous test.
-		await expect(
-			page.getByRole("tab", { name: /shell 2/i }),
-		).toHaveAttribute("data-state", "active");
+		await expect(terminalTablist().getByRole("tab").nth(1)).toHaveAttribute(
+			"data-state",
+			"active",
+		);
 
 		// Click somewhere outside the terminal to move focus away from it.
 		// Clicking the "Add shell" button moves keyboard focus to that button.
@@ -145,7 +160,7 @@ test.describe.serial("Terminal tab auto-focus", () => {
 
 		// Re-click the already-active tab. focused prop does not change, so only
 		// focusSignal can trigger the re-focus.
-		await page.getByRole("tab", { name: /shell 2/i }).click();
+		await terminalTablist().getByRole("tab").nth(1).click();
 
 		const marker = `REFOCUS_SAME_TAB_${Date.now()}`;
 		await typeIntoFocusedElement(`echo ${marker}`);
@@ -158,7 +173,7 @@ test.describe.serial("Terminal tab auto-focus", () => {
 	test("focuses the correct terminal after split-mode tab switch exits to single", async () => {
 		// Add shell 3 so we have enough terminals for a split.
 		await page.getByRole("button", { name: "Add shell" }).click();
-		await waitForShellTab(/shell 3/i);
+		await waitForShellTab(2);
 
 		// Enable split mode via the toggle button.
 		await page
@@ -166,19 +181,15 @@ test.describe.serial("Terminal tab auto-focus", () => {
 			.click();
 
 		// Assign shells 2 and 3 to the split slots via context menu.
-		await page
-			.getByRole("tab", { name: /shell 2/i })
-			.click({ button: "right" });
+		await terminalTablist().getByRole("tab").nth(1).click({ button: "right" });
 		await page.getByRole("menuitem", { name: /show in split left/i }).click();
 
-		await page
-			.getByRole("tab", { name: /shell 3/i })
-			.click({ button: "right" });
+		await terminalTablist().getByRole("tab").nth(2).click({ button: "right" });
 		await page.getByRole("menuitem", { name: /show in split right/i }).click();
 
 		// Now click shell 1's tab — it is NOT in either split slot, so the app
 		// should exit split mode and show shell 1 alone.
-		await page.getByRole("tab", { name: /shell 1/i }).click();
+		await terminalTablist().getByRole("tab").nth(0).click();
 		await expect(
 			page.getByRole("button", { name: /enable split shells/i }),
 		).toBeVisible({ timeout: 5_000 });

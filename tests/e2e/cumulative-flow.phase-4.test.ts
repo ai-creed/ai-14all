@@ -64,7 +64,10 @@ test.describe.serial("Cumulative flow — Phase 4", () => {
 
 		// Slice D: the review overlay is closed on fresh sessions; open it via the
 		// chipbar "Open review" button before interacting with Files/Changes/Commits tabs.
-		await page.getByRole("button", { name: "Open review" }).click();
+		await page
+			.getByTestId("review-chipbar")
+			.getByRole("button", { name: "Open review" })
+			.click();
 		await expect(page.getByTestId("review-expanded-portal")).toBeVisible();
 
 		// Phase 6: wait for the default shell tab to appear before interacting

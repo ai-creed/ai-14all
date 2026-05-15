@@ -68,6 +68,13 @@ async function relaunch() {
  */
 async function openIndexTsDiff() {
 	await ensureReviewOverlayOpen(page);
+	// Wait for the portal entry animation to finish so the Changes tab is inside
+	// the viewport before clicking.
+	await expect(page.getByTestId("review-expanded-portal")).toBeVisible();
+	await expect(page.getByTestId("review-expanded-portal")).not.toHaveAttribute(
+		"data-leaving",
+		"true",
+	);
 	await page.getByRole("tab", { name: "Changes" }).click({ force: true });
 
 	const changedFileButton = page.getByRole("button", {
@@ -223,16 +230,15 @@ test.describe.serial("Review comments — inline UX", () => {
 		await expect(queuePanel).toContainText("0 open", { timeout: 5_000 });
 
 		// The thread stays visible but the queue row should reflect addressed state.
-		// To test reopen: click the ✓ Address button again (it toggles) via evaluate.
-		// The component renders the same "✓ Address" aria-label button in open state
-		// even when status is addressed (component stays in expanded view).
+		// To test reopen: click the Reopen button (component stays in expanded view).
+		// After addressing, the component flips aria-label from "Address comment" to "Reopen comment".
 		await page.evaluate(() => {
 			const threads = document.querySelectorAll(".shell-inline-thread");
 			for (const t of threads) {
-				const btn = t.querySelector("button[aria-label=\"Address comment\"]") as HTMLButtonElement | null;
+				const btn = t.querySelector("button[aria-label=\"Reopen comment\"]") as HTMLButtonElement | null;
 				if (btn) { btn.click(); return; }
 			}
-			throw new Error("Address/toggle button not found for reopen");
+			throw new Error("Reopen button not found");
 		});
 
 		// Queue should now show "1 open" again

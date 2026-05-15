@@ -82,11 +82,15 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 
-		// Phase 6: a default "shell 1" is auto-created on worktree activation.
+		// Phase 6: a default shell is auto-created on worktree activation.
 		// Wait for it to be stable before interacting with the Changes panel.
-		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible({
-			timeout: 10_000,
-		});
+		// Match by position — xterm title changes to CWD almost immediately.
+		await expect(
+			page
+				.getByRole("tablist", { name: "Terminal sessions" })
+				.getByRole("tab")
+				.first(),
+		).toBeVisible({ timeout: 10_000 });
 		await page.getByRole("button", { name: /open note/i }).click();
 		await expect(
 			page.getByRole("dialog", { name: /session note/i }),
@@ -98,6 +102,12 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		// Phase 6: force clicks in the review panel because the xterm pane in
 		// the same column keeps the accessibility tree in flux.
 		await ensureReviewOverlayOpen(page);
+		// Wait for the portal entry animation to finish so the Changes tab is
+		// inside the viewport when we click it.
+		await expect(page.getByTestId("review-expanded-portal")).toBeVisible();
+		await expect(
+			page.getByTestId("review-expanded-portal"),
+		).not.toHaveAttribute("data-leaving", "true");
 		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
 		await page
 			.getByRole("button", { name: /src\/index\.ts/ })
@@ -310,9 +320,12 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 
-		await expect(page.getByRole("tab", { name: "shell 1" })).toBeVisible({
-			timeout: 10_000,
-		});
+		await expect(
+			page
+				.getByRole("tablist", { name: "Terminal sessions" })
+				.getByRole("tab")
+				.first(),
+		).toBeVisible({ timeout: 10_000 });
 		await page.getByRole("button", { name: /open note/i }).click();
 		await expect(
 			page.getByRole("dialog", { name: /session note/i }),

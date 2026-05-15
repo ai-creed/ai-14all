@@ -133,10 +133,11 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		);
 		await worktreeNav.getByRole("button", { name: "Expand sidebar" }).click();
 
-		// Open the review overlay for feature-a so review tabs are mounted.
 		// Removed in Task 9: the legacy drawer resize-handle drag assertion no
 		// longer applies — the new chipbar/overlay UI has no in-flow resize handle.
-		await ensureReviewOverlayOpen(page);
+		// The review overlay is opened later (before review tabs are needed).
+		// Keep it closed for now so it doesn't intercept clicks on the terminal tabs.
+		await expect(page.getByTestId("review-expanded-portal")).toBeHidden();
 
 		await page.evaluate(async () => {
 			const pane = document.querySelector<HTMLElement>(
@@ -161,6 +162,10 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			.click({ button: "right" });
 		await expect(page.getByRole("menuitem", { name: "Pin" })).toBeVisible();
 		await page.keyboard.press("Escape");
+
+		// Open the review overlay now that terminal interactions are done — the
+		// remaining assertions/clicks operate on review tabs.
+		await ensureReviewOverlayOpen(page);
 
 		await expect(
 			page
@@ -597,6 +602,16 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await expect(terminalTabs.getByRole("tab")).toHaveCount(1, {
 			timeout: 15_000,
 		});
+
+		// Close the review overlay if a previous test left it open — it would
+		// otherwise intercept clicks on the chip bar "Add shell" button.
+		const portal = page.getByTestId("review-expanded-portal");
+		if (await portal.isVisible().catch(() => false)) {
+			await portal
+				.getByRole("button", { name: /collapse full review/i })
+				.click();
+			await expect(portal).toBeHidden();
+		}
 
 		await page.getByRole("button", { name: "Add shell" }).click();
 		await expect(terminalTabs.getByRole("tab")).toHaveCount(2, {
