@@ -292,11 +292,11 @@ describe("TerminalPane", () => {
 		expect(xtermLoadAddonMock).toHaveBeenCalledTimes(2);
 	});
 
-	it("constructs xterm with scrollback 2000 and does not enable allowProposedApi at startup", () => {
+	it("constructs xterm with scrollback 10000 and does not enable allowProposedApi at startup", () => {
 		const session = makeSession();
 		render(<TerminalPane session={session} visible={true} />);
 		expect(xtermConstructorMock).toHaveBeenCalledWith(
-			expect.objectContaining({ scrollback: 2000 }),
+			expect.objectContaining({ scrollback: 10_000 }),
 		);
 		// allowProposedApi is set lazily on the Terminal instance only when
 		// SearchAddon is loaded — keeping idle panes off xterm's proposed-API
@@ -404,10 +404,10 @@ describe("TerminalPane", () => {
 		expect(sendInputMock).not.toHaveBeenCalled();
 	});
 
-	it("preserves cursor-anchored scroll after fit on visibility change", () => {
+	it("restores saved viewportY (clamped to baseY) after fit on visibility change", () => {
 		const session = makeSession();
 
-		// Cursor in view (cursorAbsY = 100+23 = 123, viewport 100..123)
+		// Pre-hide viewport position captured when pane goes hidden.
 		xtermBufferMock.active = { viewportY: 100, baseY: 100, cursorY: 23 };
 
 		const { rerender } = render(
@@ -425,9 +425,9 @@ describe("TerminalPane", () => {
 		rerender(<TerminalPane session={session} visible={true} />);
 
 		expect(fitMock).toHaveBeenCalled();
-		// newCursorAbsY = 110+23 = 133, cursorOffset was 23
-		// targetViewportY = 133 - 23 = 110, delta = 110 - 0 = 110
-		expect(xtermScrollLinesMock).toHaveBeenCalledWith(110);
+		// saved viewportY was 100. After fit, baseY=110 so target=min(100,110)=100.
+		// delta = target - new viewportY (0) = 100.
+		expect(xtermScrollLinesMock).toHaveBeenCalledWith(100);
 	});
 
 	it("restores viewportY after fit when user has scrolled up on visibility change", () => {

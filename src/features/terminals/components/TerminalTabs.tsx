@@ -77,6 +77,7 @@ export function TerminalTabs({
 		<Tooltip.Provider delayDuration={150}>
 			<Tabs.Root
 				value={activeProcessId ?? undefined}
+				onValueChange={onSelect}
 				className="shell-terminal-tabs"
 			>
 				<div className="shell-terminal-tabs__bar">
@@ -101,10 +102,13 @@ export function TerminalTabs({
 												if (e.button === 0) e.preventDefault();
 											}}
 											onClick={(e) => {
-												// Fire onSelect for every left-click, including
-												// re-clicks of the already-active tab (Radix
-												// onValueChange skips those since value doesn't change).
-												if (e.button === 0) onSelect(process.id);
+												// Fire onSelect for re-clicks of the already-active tab.
+												// Radix onValueChange handles different-tab clicks (and
+												// keyboard navigation); it skips re-clicks since the
+												// value doesn't change, so we cover that case here.
+												if (e.button === 0 && process.id === activeProcessId) {
+													onSelect(process.id);
+												}
 											}}
 										>
 											<Tabs.Trigger
