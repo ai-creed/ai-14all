@@ -125,6 +125,12 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 		// in the same column keeps the accessibility tree in flux, causing
 		// Playwright's stability check to time out on the file list buttons.
 		await ensureReviewOverlayOpen(page);
+		// Wait for the portal entry animation to finish so the Changes tab is
+		// inside the viewport when we click it.
+		await expect(page.getByTestId("review-expanded-portal")).toBeVisible();
+		await expect(
+			page.getByTestId("review-expanded-portal"),
+		).not.toHaveAttribute("data-leaving", "true");
 		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
 
 		const changedFileButton = page.getByRole("button", {
