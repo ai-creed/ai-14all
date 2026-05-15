@@ -4,6 +4,45 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] – 2026-05-15
+
+### Added
+
+- **Inline review threads.** Comments render directly in the Monaco diff as view-zone widgets anchored to lines. Authoring, editing, addressed/reopen, delete, status chip, relative timestamp — all inline. Threads survive scroll, switch correctly when the active file changes, and unmount safely (`queueMicrotask`-deferred `root.unmount` avoids the React 18 synchronous-unmount race).
+- **Review queue panel.** Replaces the prior comment sidebar. Per-row jump, Address ✓, Delete ×; header carries "Hide addressed" toggle and a "Clear addressed" danger button. Counts cover the whole worktree.
+- **Chipbar + on-demand overlay.** Replaces the bottom collapsible review drawer. The new `ReviewChipBar` is an always-visible slim status row at the bottom of the main column (mode, dirty/clean status, comment counts, refresh, "⬆ Review" launch). The full review surface opens as a `ReviewExpandedPortal` overlay — same as the prior expand-mode portal, now the only review entry point. The slim chipbar reclaims the vertical space the partial drawer used to waste.
+- **`Cmd+J` / `Ctrl+J`** unified shortcut to toggle the review overlay. Replaces the prior `Cmd+J` (drawer toggle) and `Cmd+Shift+J` (expand) pair.
+- **`Cmd+.` / `Cmd+,`** to jump to next/previous file within the current Changes list or commit's file stack. Cycles with wrap-around. Hunk navigation stays on `Cmd+Shift+.` / `Cmd+Shift+,`.
+- **Comment selection pill.** Selecting text in the diff editor surfaces a 24×24 ⊕ widget — click to start an inline comment scoped to the selection.
+- **Gutter "+" affordance.** Single-line add via gutter glyph on hover.
+- **Inline keyboard flow.** `Meta+Shift+A` opens a draft thread at the caret; `Enter` submits, `Shift+Enter` newline.
+- **Terminal auto-focus.** Clicking a terminal tab or navigating via shortcut now focuses the underlying xterm immediately, no extra click needed.
+- **Toast utility.** Non-blocking error toasts for review-edit/save/delete failures.
+- **Review comment update + bulk-remove-addressed.** New service operations, IPC handlers, preload bindings, and renderer hooks. "Clear addressed" wipes addressed comments for the current worktree in one shot.
+
+### Changed
+
+- **Diff editor sizing in commit review** now auto-syncs to Monaco's `getContentHeight()` via `onDidContentSizeChange` on both modified and original sides. Previously a static `lines × 20 + 32` estimate, which overshoots Monaco's actual ~16-18px line height and leaves several hundred px of blank space below long files.
+- **Queue-jump now scrolls the diff stack.** `revealLineInCenter` only scrolls within Monaco's internal scroll, which is a no-op for the stacked-diff layout (each editor sized to fit all content; outer container scrolls). The helper now also walks to the nearest scrollable ancestor and centers the line in it.
+- **Terminal scrollback raised** from 2000 to 10000 lines.
+- **Drawer-era CSS classes renamed** to `shell-review-expanded-portal__*` to match the surface they actually style.
+
+### Fixed
+
+- **First-file-in-first-commit black-render race.** Inline thread host was positioned at `top: spacerTop − scrollTop`, double-subtracting (Monaco's `onDomNodeTop` returns viewport-relative coords already). Most files had `scrollTop === 0` so the bug was invisible; the first editor in `CommitDiffStack` occasionally has non-zero internal scrollTop and the host landed at `top: -15000+px`, clipped by overflow-guard. Dropped the subtraction; also removed the now-redundant `onDidScrollChange` listener (`onDomNodeTop` fires on every scroll with the latest viewport-relative top).
+- **Stale draft zone** when the comment anchor changes between lines: the draft now reinitializes the view zone on `endLine` change instead of reusing the old one.
+- **Edit-save failure handling.** The inline edit flow now reports save failures via toast and keeps the editor open so users can retry without losing their text.
+- **Review overlay no longer leaks across worktree/workspace switches.** New effect keyed on `activeWorkspaceId + activeWorktree?.id` resets `reviewOpen`.
+- **Keyboard ArrowLeft/Right tab navigation in the terminal tablist regressed** during the auto-focus rework — `onValueChange` was dropped from `Tabs.Root` to give onClick exclusive control, but Radix's automatic activation mode also routes ArrowLeft/Right through `onValueChange`. Restored the handler and narrowed onClick to fire only when re-activating the already-active tab.
+- **xterm "Cannot read properties of undefined (reading 'dimensions')"** at startup now suppresses the error via the renderer error boundary across both the `_innerRefresh` and `syncScrollArea` code paths.
+
+### Removed
+
+- **Bottom review drawer** and its associated state (`reviewDrawerOpen` from `WorktreeSession`, `reviewPanelHeight` from `usePaneResizers`, the `useReviewDrawerAutoExpand` hook, `ReviewDrawer` + `ReviewDrawerSection` components, the drawer resize handle, and the `session/setReviewDrawerOpen` action).
+- **`Cmd+Shift+J` "expand review"** shortcut (folded into the unified `Cmd+J`).
+- **`ReviewCommentSidebar` + `ReviewCommentCard`** (replaced by inline threads + queue panel).
+- **`reviewDrawerOpen` from persisted snapshots.** Schema dropped the field; Zod silently strips it from legacy snapshots written by prior versions (regression-tested).
+
 ## [0.3.0] – 2026-05-01
 
 ### Added
