@@ -168,6 +168,7 @@ export type WorkspaceAction =
 			type: "session/reportAgentAttention";
 			worktreeId: string;
 			reason: AgentAttentionReason;
+			task?: string | null;
 	  }
 	| {
 			type: "session/clearProcessAgentAttention";
@@ -237,6 +238,38 @@ function recalculateWorktreeAttention(
 	if (states.includes("actionRequired")) return "actionRequired";
 	if (states.includes("activity")) return "activity";
 	return "idle";
+}
+
+// When the agent reports a non-failed state via MCP, any lingering terminal
+// `failed` reason on the session's processes is stale heuristic noise (the
+// regex classifier matched the word "error"/"failed" in benign output). Clear
+// it and recompute the affected processes' attention. `lifecycle` failed (the
+// process actually exited non-zero) is authoritative and left untouched.
+function clearStaleTerminalFailedForSessionProcesses(
+	processSessionsById: Record<string, ProcessSession>,
+	processSessionIds: string[],
+): Record<string, ProcessSession> {
+	let mutated = false;
+	const next: Record<string, ProcessSession> = { ...processSessionsById };
+	for (const id of processSessionIds) {
+		const process = next[id];
+		if (!process) continue;
+		if (process.agentAttentionReasons.terminal?.state !== "failed") continue;
+		const { terminal: _removed, ...remainingReasons } =
+			process.agentAttentionReasons;
+		const nextAgent = rankAgentAttention(remainingReasons, false);
+		const nextAttentionState = mapToProcessAttentionState(nextAgent);
+		next[id] = {
+			...process,
+			agentAttentionReasons: remainingReasons,
+			// Deliberate downgrade: clearing a stale `failed` must be allowed to
+			// lower the state, unlike the monotonic-raise path in
+			// session/reportProcessAgentAttention. Do not re-add a clamp here.
+			attentionState: nextAttentionState,
+		};
+		mutated = true;
+	}
+	return mutated ? next : processSessionsById;
 }
 
 function sanitizeSplitAssignments(
@@ -915,14 +948,41 @@ export function workspaceReducer(
 		if (!session) return state;
 		if (action.reason.source !== "mcp") return state; // session-level accepts mcp only
 		const current = session.agentAttentionReasons[action.reason.source];
-		if (!shouldReplaceAgentAttentionReason(current, action.reason))
-			return state;
-		const nextSession: WorktreeSession = {
+		const updatedReasons: AgentAttentionReasonsBySource = {
+			...session.agentAttentionReasons,
+		};
+		const replaced = shouldReplaceAgentAttentionReason(
+			current,
+			action.reason,
+		);
+		if (replaced) {
+			updatedReasons[action.reason.source] = action.reason;
+		}
+		// undefined leaves task alone; null clears it; a string sets it.
+		const nextTask =
+			action.task === undefined ? session.task : action.task;
+		let nextProcessSessionsById = state.processSessionsById;
+		// `source === "mcp"` is guaranteed by the early return above. Only an
+		// *accepted* non-failed MCP push clears stale terminal `failed`; a
+		// rejected (stale / out-of-order) push must have no side effects.
+		if (replaced && action.reason.state !== "failed") {
+			nextProcessSessionsById =
+				clearStaleTerminalFailedForSessionProcesses(
+					state.processSessionsById,
+					session.processSessionIds,
+				);
+		}
+		const base: WorktreeSession = {
 			...session,
-			agentAttentionReasons: {
-				...session.agentAttentionReasons,
-				[action.reason.source]: action.reason,
-			},
+			agentAttentionReasons: updatedReasons,
+			task: nextTask,
+		};
+		const nextSession: WorktreeSession = {
+			...base,
+			attentionState: recalculateWorktreeAttention(
+				base,
+				nextProcessSessionsById,
+			),
 		};
 		return {
 			...state,
@@ -930,6 +990,7 @@ export function workspaceReducer(
 				...state.sessionsByWorktreeId,
 				[action.worktreeId]: nextSession,
 			},
+			processSessionsById: nextProcessSessionsById,
 		};
 	}
 

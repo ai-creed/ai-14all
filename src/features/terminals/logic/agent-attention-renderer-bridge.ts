@@ -25,6 +25,7 @@ export function attachAgentAttentionBridge({
 				nextAction: req.nextAction,
 				reportedAt: req.reportedAt,
 			},
+			task: req.task,
 		});
 		const reply: AgentAttentionBridgeReply = found
 			? { id: req.id, ok: true }

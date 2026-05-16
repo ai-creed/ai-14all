@@ -96,6 +96,15 @@ export function shouldReplaceAgentAttentionReason(
 	next: AgentAttentionReason,
 ): boolean {
 	if (!current) return true;
+	// Same-source MCP pushes overwrite without the rank gate: the agent
+	// explicitly reports its own state via MCP, so its latest report
+	// supersedes its prior one. Ties (equal reportedAt) replace too; an
+	// older report is ignored. The terminal/lifecycle classifiers stay on
+	// the rank gate — their heuristic "active" output must not clobber a
+	// live "waiting" prompt detected earlier.
+	if (current.source === "mcp" && next.source === "mcp") {
+		return next.reportedAt >= current.reportedAt;
+	}
 	return (
 		AGENT_ATTENTION_RANK[next.state] >= AGENT_ATTENTION_RANK[current.state]
 	);

@@ -1570,7 +1570,7 @@ describe("session/reportAgentAttention", () => {
 		expect(next).toBe(initial);
 	});
 
-	it("does not downgrade same-source reason when later signal is weaker", () => {
+	it("lets a newer same-source MCP push overwrite a stronger earlier reason", () => {
 		const initial = createWorkspaceState(worktrees);
 		const withWaiting = workspaceReducer(initial, {
 			type: "session/reportAgentAttention",
@@ -1583,7 +1583,7 @@ describe("session/reportAgentAttention", () => {
 				reportedAt: 1_000,
 			},
 		});
-		const afterDowngrade = workspaceReducer(withWaiting, {
+		const afterOverwrite = workspaceReducer(withWaiting, {
 			type: "session/reportAgentAttention",
 			worktreeId: "main",
 			reason: {
@@ -1595,9 +1595,358 @@ describe("session/reportAgentAttention", () => {
 			},
 		});
 		expect(
-			afterDowngrade.sessionsByWorktreeId["main"].agentAttentionReasons.mcp
+			afterOverwrite.sessionsByWorktreeId["main"].agentAttentionReasons.mcp
 				?.state,
-		).toBe("waiting");
+		).toBe("active");
+	});
+});
+
+describe("session/reportAgentAttention — task field", () => {
+	it("stores task on session when provided", () => {
+		const initial = createWorkspaceState(worktrees);
+		const next = workspaceReducer(initial, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "active",
+				source: "mcp",
+				summary: "working",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+			task: "Review spec X",
+		});
+		expect(next.sessionsByWorktreeId["main"].task).toBe("Review spec X");
+	});
+
+	it("clears task to null when explicit null pushed", () => {
+		const initial = createWorkspaceState(worktrees);
+		const seeded = workspaceReducer(initial, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "active",
+				source: "mcp",
+				summary: "working",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+			task: "Review spec X",
+		});
+		const cleared = workspaceReducer(seeded, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "active",
+				source: "mcp",
+				summary: "still working",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+			task: null,
+		});
+		expect(cleared.sessionsByWorktreeId["main"].task).toBeNull();
+	});
+
+	it("leaves existing task unchanged when task is undefined", () => {
+		const initial = createWorkspaceState(worktrees);
+		const seeded = workspaceReducer(initial, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "active",
+				source: "mcp",
+				summary: "working",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+			task: "Review spec X",
+		});
+		const next = workspaceReducer(seeded, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "active",
+				source: "mcp",
+				summary: "still working",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+		});
+		expect(next.sessionsByWorktreeId["main"].task).toBe("Review spec X");
+	});
+});
+
+describe("session/reportAgentAttention — MCP push clears stale terminal failed", () => {
+	function seedProcess(processId: string) {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess(processId, "main", "claude", {
+				agentDetected: true,
+			}),
+		});
+		return state;
+	}
+
+	it("removes process terminal failed reason when MCP pushes non-failed state", () => {
+		let state = seedProcess("proc-clear-1");
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "proc-clear-1",
+			reason: {
+				source: "terminal",
+				state: "failed",
+				summary: "build error",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		expect(
+			state.processSessionsById["proc-clear-1"]?.agentAttentionReasons.terminal
+				?.state,
+		).toBe("failed");
+		expect(state.processSessionsById["proc-clear-1"]?.attentionState).toBe(
+			"actionRequired",
+		);
+
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "ready",
+				source: "mcp",
+				summary: "implementation complete",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+		});
+
+		expect(
+			state.processSessionsById["proc-clear-1"]?.agentAttentionReasons.terminal,
+		).toBeUndefined();
+		expect(state.processSessionsById["proc-clear-1"]?.attentionState).not.toBe(
+			"actionRequired",
+		);
+	});
+
+	it("preserves lifecycle failed reason when MCP pushes non-failed", () => {
+		let state = seedProcess("proc-clear-2");
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "proc-clear-2",
+			reason: {
+				source: "lifecycle",
+				state: "failed",
+				summary: "process exited 1",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "ready",
+				source: "mcp",
+				summary: "done",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+		});
+
+		expect(
+			state.processSessionsById["proc-clear-2"]?.agentAttentionReasons
+				.lifecycle?.state,
+		).toBe("failed");
+	});
+
+	it("does NOT clear terminal failed when MCP itself pushes failed", () => {
+		let state = seedProcess("proc-clear-3");
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "proc-clear-3",
+			reason: {
+				source: "terminal",
+				state: "failed",
+				summary: "build error",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "failed",
+				source: "mcp",
+				summary: "task failed",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+		});
+
+		expect(
+			state.processSessionsById["proc-clear-3"]?.agentAttentionReasons.terminal
+				?.state,
+		).toBe("failed");
+	});
+
+	it("recomputes worktree-level attention state after clearing", () => {
+		let state = seedProcess("proc-clear-4");
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "proc-clear-4",
+			reason: {
+				source: "terminal",
+				state: "failed",
+				summary: "build error",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		expect(state.sessionsByWorktreeId["main"].attentionState).toBe(
+			"actionRequired",
+		);
+
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "ready",
+				source: "mcp",
+				summary: "done",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+		});
+
+		expect(state.sessionsByWorktreeId["main"].attentionState).not.toBe(
+			"actionRequired",
+		);
+	});
+
+	it("a rejected (older reportedAt) MCP push does NOT clear a fresh terminal failed", () => {
+		let state = seedProcess("proc-clear-5");
+		// Accept an MCP reason at reportedAt: 2000 so the session's mcp reason
+		// has reportedAt 2000.
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "active",
+				source: "mcp",
+				summary: "working",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+		});
+
+		// Set the process's terminal reason to `failed` (fresh).
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "proc-clear-5",
+			reason: {
+				source: "terminal",
+				state: "failed",
+				summary: "build error",
+				nextAction: null,
+				reportedAt: 3_000,
+			},
+		});
+		expect(
+			state.processSessionsById["proc-clear-5"]?.agentAttentionReasons.terminal
+				?.state,
+		).toBe("failed");
+
+		// Dispatch a stale MCP push (reportedAt 1000 < 2000 → rejected by
+		// shouldReplaceAgentAttentionReason).
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "ready",
+				source: "mcp",
+				summary: "stale done",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+
+		// The rejected push must have no clearing side effect.
+		expect(
+			state.processSessionsById["proc-clear-5"]?.agentAttentionReasons.terminal
+				?.state,
+		).toBe("failed");
+	});
+});
+
+describe("session/reportAgentAttention — same-source MCP overwrites without rank gate", () => {
+	it("overwrites previous MCP waiting with later MCP active", () => {
+		const initial = createWorkspaceState(worktrees);
+		const withWaiting = workspaceReducer(initial, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "waiting",
+				source: "mcp",
+				summary: "awaiting input",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		const withActive = workspaceReducer(withWaiting, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "active",
+				source: "mcp",
+				summary: "running",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+		});
+		expect(
+			withActive.sessionsByWorktreeId["main"].agentAttentionReasons.mcp?.state,
+		).toBe("active");
+	});
+
+	it("breaks ties with reportedAt — older push ignored", () => {
+		const initial = createWorkspaceState(worktrees);
+		const withReady = workspaceReducer(initial, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "ready",
+				source: "mcp",
+				summary: "done",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+		});
+		const withStaleActive = workspaceReducer(withReady, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "active",
+				source: "mcp",
+				summary: "running",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		expect(
+			withStaleActive.sessionsByWorktreeId["main"].agentAttentionReasons.mcp
+				?.state,
+		).toBe("ready");
 	});
 });
 
