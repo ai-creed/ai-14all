@@ -177,3 +177,117 @@ describe("SessionSidebar process rows", () => {
 		expect(onSelect).toHaveBeenCalledWith("ws1", "wt1");
 	});
 });
+
+describe("SessionSidebar — task and provider rendering", () => {
+	it("renders task line when taskByWorktreeId[worktreeId] is a non-null string", () => {
+		const workspace: SessionSidebarWorkspace = {
+			...makeWorkspace([
+				{
+					id: "p1",
+					label: "dev",
+					state: "active",
+					context: "compiled",
+					lastActivityAt: 1000,
+					hasFailedReason: false,
+				},
+			]),
+			taskByWorktreeId: { wt1: "Implement the sidebar task line" },
+		};
+		const { container } = render(
+			<SessionSidebar {...baseProps} workspaces={[workspace]} />,
+		);
+		const taskEl = container.querySelector(".shell-sidebar__card-task");
+		expect(taskEl).toBeInTheDocument();
+		expect(taskEl).toHaveTextContent("Implement the sidebar task line");
+		expect(taskEl).toHaveAttribute(
+			"title",
+			"Implement the sidebar task line",
+		);
+	});
+
+	it("does not render task line when taskByWorktreeId[worktreeId] is null", () => {
+		const workspace: SessionSidebarWorkspace = {
+			...makeWorkspace([
+				{
+					id: "p1",
+					label: "dev",
+					state: "active",
+					context: "compiled",
+					lastActivityAt: 1000,
+					hasFailedReason: false,
+				},
+			]),
+			taskByWorktreeId: { wt1: null },
+		};
+		const { container } = render(
+			<SessionSidebar {...baseProps} workspaces={[workspace]} />,
+		);
+		expect(
+			container.querySelector(".shell-sidebar__card-task"),
+		).not.toBeInTheDocument();
+	});
+
+	it("renders a claude provider badge for a row with provider claude", () => {
+		const workspace = makeWorkspace([
+			{
+				id: "p1",
+				label: "dev",
+				state: "active",
+				context: "compiled",
+				lastActivityAt: 1000,
+				hasFailedReason: false,
+				provider: "claude",
+			},
+		]);
+		const { container } = render(
+			<SessionSidebar {...baseProps} workspaces={[workspace]} />,
+		);
+		const badge = container.querySelector(
+			'.shell-sidebar__provider-badge[data-provider="claude"]',
+		);
+		expect(badge).toBeInTheDocument();
+		expect(badge).toHaveTextContent("claude");
+	});
+
+	it("renders a codex provider badge for a row with provider codex", () => {
+		const workspace = makeWorkspace([
+			{
+				id: "p1",
+				label: "dev",
+				state: "active",
+				context: "compiled",
+				lastActivityAt: 1000,
+				hasFailedReason: false,
+				provider: "codex",
+			},
+		]);
+		const { container } = render(
+			<SessionSidebar {...baseProps} workspaces={[workspace]} />,
+		);
+		const badge = container.querySelector(
+			'.shell-sidebar__provider-badge[data-provider="codex"]',
+		);
+		expect(badge).toBeInTheDocument();
+		expect(badge).toHaveTextContent("codex");
+	});
+
+	it("does not render a provider badge when row.provider is null", () => {
+		const workspace = makeWorkspace([
+			{
+				id: "p1",
+				label: "dev",
+				state: "active",
+				context: "compiled",
+				lastActivityAt: 1000,
+				hasFailedReason: false,
+				provider: null,
+			},
+		]);
+		const { container } = render(
+			<SessionSidebar {...baseProps} workspaces={[workspace]} />,
+		);
+		expect(
+			container.querySelector(".shell-sidebar__provider-badge"),
+		).not.toBeInTheDocument();
+	});
+});

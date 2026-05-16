@@ -246,6 +246,17 @@ export function SessionSidebar({
 									</>
 								);
 
+								const task = workspace.taskByWorktreeId?.[worktree.id];
+								const taskLine =
+									!isRenamingThisRow && !collapsed && task ? (
+										<div
+											className="shell-sidebar__card-task"
+											title={task}
+										>
+											{task}
+										</div>
+									) : null;
+
 								// Process list rendered outside the row button to avoid nested <button> elements.
 								const sessionAttentionContext =
 									workspace.attentionContextByWorktreeId?.[worktree.id];
@@ -271,6 +282,14 @@ export function SessionSidebar({
 														className="shell-sidebar__process-indicator"
 														data-state={row.state}
 													/>
+													{row.provider && (
+														<span
+															className="shell-sidebar__provider-badge"
+															data-provider={row.provider}
+														>
+															{row.provider}
+														</span>
+													)}
 													<span
 														className="shell-sidebar__process-label"
 														title={row.label}
@@ -360,6 +379,7 @@ export function SessionSidebar({
 											onClick={handleRowClick}
 										>
 											{item}
+											{taskLine}
 											{processList}
 										</div>
 									);
@@ -373,6 +393,7 @@ export function SessionSidebar({
 											onClick={handleRowClick}
 										>
 											<ContextMenu.Trigger asChild>{item}</ContextMenu.Trigger>
+											{taskLine}
 											{processList}
 										</div>
 										<ContextMenu.Portal>

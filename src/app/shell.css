@@ -25,6 +25,8 @@
 	--warning: #f0c37a;
 	--danger: #d98c8c;
 	--sha-color: #a78bfa;
+	--provider-claude: #d97706;
+	--provider-codex: #2563eb;
 	--font-ui:
 		"SF Mono", "SFMono-Regular", ui-monospace, Menlo, Monaco, monospace;
 	--font-terminal:
@@ -68,6 +70,8 @@
 	--warning: #b07800;
 	--danger: #c0404a;
 	--sha-color: #6d4cbc;
+	--provider-claude: #b45309;
+	--provider-codex: #1d4ed8;
 	color: var(--text-primary);
 	background: var(--app-bg);
 }
@@ -3674,4 +3678,46 @@ select {
 .shell-review-chipbar__open-btn:hover {
 	background: var(--panel-bg-elevated);
 	border-color: var(--accent);
+}
+
+.shell-sidebar__card-task {
+	display: block;
+	color: var(--text-muted);
+	font-size: 0.7rem;
+	margin: 4px 0 6px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.shell-sidebar__card-task::before {
+	content: "↪ ";
+	margin-right: 2px;
+}
+
+.shell-sidebar__provider-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 1px 6px;
+	border-radius: var(--radius-sm);
+	font-size: 0.65rem;
+	font-weight: 600;
+	letter-spacing: 0.3px;
+	text-transform: lowercase;
+	margin-right: 6px;
+}
+
+.shell-sidebar__provider-badge[data-provider="claude"] {
+	background: color-mix(in srgb, var(--provider-claude) 14%, transparent);
+	color: var(--provider-claude);
+}
+
+.shell-sidebar__provider-badge[data-provider="codex"] {
+	background: color-mix(in srgb, var(--provider-codex) 14%, transparent);
+	color: var(--provider-codex);
+}
+
+.shell-sidebar__provider-badge[data-provider="other"] {
+	background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+	color: var(--text-muted);
 }
