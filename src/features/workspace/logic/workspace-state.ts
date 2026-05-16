@@ -8,6 +8,7 @@ import {
 	mapToProcessAttentionState,
 	shouldReplaceAgentAttentionReason,
 } from "../../terminals/logic/agent-attention";
+import { detectAgentProvider } from "./agent-provider-detection";
 import type {
 	AgentAttentionReason,
 	AgentAttentionReasonsBySource,
@@ -581,6 +582,10 @@ export function workspaceReducer(
 			action.status === "running"
 				? isAgentProcess(process.label, process.command)
 				: false;
+		const nextProvider =
+			action.status === "running"
+				? detectAgentProvider(process.command, undefined, null)
+				: null;
 		return {
 			...state,
 			processSessionsById: {
@@ -590,6 +595,7 @@ export function workspaceReducer(
 					status: action.status,
 					exitCode: action.exitCode ?? process.exitCode,
 					agentDetected: nextAgentDetected,
+					provider: nextProvider,
 				},
 			},
 		};
@@ -619,6 +625,11 @@ export function workspaceReducer(
 		// back off. Only updateProcessStatus resets this on exit/restart.
 		const nextAgentDetected =
 			process.agentDetected || isAgentProcess(action.label, process.command);
+		const nextProvider = detectAgentProvider(
+			process.command,
+			action.label,
+			process.provider,
+		);
 		return {
 			...state,
 			processSessionsById: {
@@ -627,6 +638,7 @@ export function workspaceReducer(
 					...process,
 					label: action.label,
 					agentDetected: nextAgentDetected,
+					provider: nextProvider,
 				},
 			},
 		};

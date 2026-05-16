@@ -4,6 +4,7 @@ import type { ProcessSession } from "../../../shared/models/process-session";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
 import type { Worktree } from "../../../shared/models/worktree";
 import { isAgentProcess } from "../../features/terminals/logic/agent-attention";
+import { detectAgentProvider } from "../../features/workspace/logic/agent-provider-detection";
 import type {
 	WorkspaceAction,
 	WorkspaceState,
@@ -190,7 +191,11 @@ export function useProcessActions(options: Options): UseProcessActions {
 					agentAttentionReasons: {},
 					agentAttentionClearedAt: null,
 					agentDetected: isAgentProcess(preset.label, preset.command),
-					provider: null,
+					provider: detectAgentProvider(
+						preset.command,
+						preset.label,
+						null,
+					),
 				},
 			});
 			await sendInput(terminal.id, `${preset.command}\n`);
