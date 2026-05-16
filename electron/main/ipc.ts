@@ -182,7 +182,15 @@ export function registerIpcHandlers(
 		},
 	};
 
-	const terminalService = new TerminalService(terminalEventHandlers);
+	// shellEventLog is intentionally NOT threaded into TerminalService here:
+	// production previously constructed it without one, so passing it now would
+	// silently enable a large new stream of shell-event-log records. Only the
+	// agent-attention logger (Task 10 lifecycle emits) is injected.
+	const terminalService = new TerminalService(
+		terminalEventHandlers,
+		undefined,
+		agentAttentionLogger,
+	);
 
 	// --- Repository ---
 

@@ -25,6 +25,10 @@ import {
 	buildWorktreeProcessSummary,
 	type WorktreeProcessSummary,
 } from "../features/workspace/logic/sidebar-shell-summary";
+import {
+	diffAndAdvanceResolutions,
+	type DisplayedAttentionSnapshot,
+} from "../features/workspace/logic/resolution-emitter";
 import type { ProcessAttentionState } from "../../shared/models/process-session";
 import { useNoteBridgeReceiver } from "../features/workspace/hooks/use-note-bridge-receiver";
 import { attachAgentAttentionBridge } from "../features/terminals/logic/agent-attention-renderer-bridge";
@@ -35,6 +39,7 @@ import {
 	system,
 	noteBridge,
 	agentAttentionBridge,
+	diagnostics,
 } from "../lib/desktop-client";
 import { countOpenCommentsInFiles } from "../features/git/logic/commit-list-badge";
 import { useTheme } from "../lib/use-theme";
@@ -1222,6 +1227,12 @@ export function App() {
 		stopSession,
 	});
 
+	// Accumulates the displayed sidebar attention for every worktree during the
+	// sidebarWorkspaces build below, so a single post-render effect can diff it
+	// against the previous render and emit `resolution` diagnostics for genuine
+	// changes (Task 10). Keyed by worktreeId across all workspaces.
+	const displayedAttentionSnapshot: DisplayedAttentionSnapshot = {};
+
 	const sidebarWorkspaces: SessionSidebarWorkspace[] =
 		appWorkspaces.workspaceOrder
 			.map((id) => appWorkspaces.workspacesById[id])
@@ -1274,6 +1285,20 @@ export function App() {
 						if (display.source === "session" && display.context) {
 							attentionContextByWorktreeId[worktreeId] = display.context;
 						}
+						const topRow =
+							display.source === "process"
+								? (processSummary.rows[0] ?? null)
+								: null;
+						displayedAttentionSnapshot[worktreeId] = {
+							worktreeId,
+							processId: topRow?.id ?? null,
+							provider: topRow?.provider ?? null,
+							state: display.state,
+							source: display.source,
+							...(display.context
+								? { summary: display.context }
+								: {}),
+						};
 					}
 					return {
 						attentionByWorktreeId,
@@ -1292,6 +1317,29 @@ export function App() {
 				active: ws.workspaceId === activeWorkspaceId,
 				hydrated: ws.workspaceState !== null,
 			}));
+
+	// Stable identity for the freshly-rebuilt displayed-attention snapshot so
+	// the resolution effect only runs when the displayed values actually move,
+	// not on every unrelated re-render.
+	const displayedAttentionKey = JSON.stringify(displayedAttentionSnapshot);
+
+	useEffect(() => {
+		// Module-scoped prev-snapshot store (see resolution-emitter.ts): survives
+		// StrictMode's dev/E2E double-mount so first-appearance resolutions emit
+		// exactly once instead of twice.
+		const changes = diffAndAdvanceResolutions(displayedAttentionSnapshot);
+		for (const change of changes) {
+			// Best-effort diagnostics: never let an emit failure break rendering.
+			try {
+				diagnostics.logAttentionEvent({ ...change, ts: Date.now() });
+			} catch {
+				// swallow — diagnostics are non-critical
+			}
+		}
+		// displayedAttentionSnapshot is rebuilt every render; displayedAttentionKey
+		// is its stable content hash and the real trigger for this effect.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [displayedAttentionKey]);
 
 	if (startupMode === "loading") {
 		return (

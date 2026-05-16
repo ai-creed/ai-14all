@@ -2,8 +2,17 @@ import { randomUUID } from "node:crypto";
 import pty from "node-pty";
 import type { IPty } from "node-pty";
 import type { TerminalSession } from "../../shared/models/terminal-session.js";
+import type { AgentAttentionLogger } from "../diagnostics/agent-attention-logger.js";
 import type { ShellEventLogInput } from "../diagnostics/shell-event-log-service.js";
 import { OutputBatcher } from "./output-batcher.js";
+
+/**
+ * Narrow view of the agent-attention logger the terminal service needs — just
+ * `append`. Mirrors `AgentAttentionLoggerLike` in the MCP server so the same
+ * singleton (constructed in electron/main/index.ts, threaded via ipc.ts) can
+ * be injected without coupling this Electron-agnostic service to the class.
+ */
+export type AgentAttentionLoggerLike = Pick<AgentAttentionLogger, "append">;
 
 const OUTPUT_BATCH_WINDOW_MS = Number(
 	process.env.AI14ALL_TERMINAL_BATCH_MS ?? 16,
@@ -36,14 +45,42 @@ export class TerminalService {
 	private readonly sessions = new Map<string, ActiveTerminalSession>();
 	private readonly handlers: TerminalEventHandlers;
 	private readonly shellEventLog?: { log: (event: ShellEventLogInput) => void };
+	private readonly attentionLogger?: AgentAttentionLoggerLike;
 	private disposed = false;
 
 	constructor(
 		handlers: TerminalEventHandlers,
 		shellEventLog?: { log: (event: ShellEventLogInput) => void },
+		attentionLogger?: AgentAttentionLoggerLike,
 	) {
 		this.handlers = handlers;
 		this.shellEventLog = shellEventLog;
+		this.attentionLogger = attentionLogger;
+	}
+
+	/**
+	 * Best-effort lifecycle diagnostic emit. Never blocks or throws into the
+	 * spawn/exit path. `provider` is `null`: this layer spawns a login shell,
+	 * not the agent directly, so the running provider is unknown here (same
+	 * rationale as the MCP-side null-provider emits).
+	 */
+	private emitLifecycle(
+		worktreeId: string,
+		processId: string,
+		state: "active" | "failed",
+		exitCode: number | null,
+	): void {
+		this.attentionLogger
+			?.append({
+				type: "lifecycle",
+				ts: Date.now(),
+				worktreeId,
+				processId,
+				provider: null,
+				state,
+				exitCode,
+			})
+			.catch(() => {});
 	}
 
 	// -----------------------------------------------------------------------
@@ -95,6 +132,7 @@ export class TerminalService {
 				windowId: null,
 				data: { terminalSessionId: id, workspaceId, worktreeId, cwd, message },
 			});
+			this.emitLifecycle(worktreeId, id, "failed", null);
 			this.handlers.onState(id, "error");
 			this.handlers.onError(id, message);
 			return meta;
@@ -110,6 +148,8 @@ export class TerminalService {
 		};
 
 		this.sessions.set(id, { meta, pty: p });
+
+		this.emitLifecycle(worktreeId, id, "active", null);
 
 		this.shellEventLog?.log({
 			source: "main",
@@ -189,6 +229,12 @@ export class TerminalService {
 					signal,
 				},
 			});
+			this.emitLifecycle(
+				worktreeId,
+				id,
+				exitCode && exitCode !== 0 ? "failed" : "active",
+				exitCode ?? null,
+			);
 			this.handlers.onState(id, "exited");
 			this.handlers.onExit(id, exitCode, signal);
 			this.sessions.delete(id);

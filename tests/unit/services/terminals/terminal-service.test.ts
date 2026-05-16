@@ -283,4 +283,114 @@ describe("TerminalService", () => {
 		expect(list).toHaveLength(1);
 		expect(list[0].id).not.toBe(s1.id);
 	});
+
+	describe("agent-attention lifecycle emits", () => {
+		function makeService(appendMock: ReturnType<typeof vi.fn>) {
+			return new TerminalService(
+				{
+					onOutput: vi.fn(),
+					onExit: vi.fn(),
+					onState: vi.fn(),
+					onError: vi.fn(),
+				},
+				undefined,
+				{ append: appendMock } as never,
+			);
+		}
+
+		function createPtyDoubleWithExit(exitCode: number) {
+			const handler: { fn: ExitHandler | null } = { fn: null };
+			const pty = {
+				write: vi.fn(),
+				resize: vi.fn(),
+				kill: vi.fn(() => {
+					handler.fn?.({ exitCode, signal: 15 });
+				}),
+				onData: vi.fn(),
+				onExit: vi.fn((h: ExitHandler) => {
+					handler.fn = h;
+				}),
+			} as unknown as IPty;
+			return pty;
+		}
+
+		it("emits an active lifecycle event on successful spawn", () => {
+			const pty = createPtyDouble();
+			spawnMock.mockReturnValue(pty);
+			const appendMock = vi.fn().mockResolvedValue(undefined);
+			const service = makeService(appendMock);
+
+			const session = service.create("ws-a", "wt-1", "/repo-a");
+
+			expect(appendMock).toHaveBeenCalledWith(
+				expect.objectContaining({
+					type: "lifecycle",
+					worktreeId: "wt-1",
+					processId: session.id,
+					provider: null,
+					state: "active",
+					exitCode: null,
+				}),
+			);
+		});
+
+		it("emits a failed lifecycle event when spawn throws", () => {
+			spawnMock.mockImplementation(() => {
+				throw new Error("spawn EACCES");
+			});
+			const appendMock = vi.fn().mockResolvedValue(undefined);
+			const service = makeService(appendMock);
+
+			service.create("ws-a", "wt-1", "/repo-a");
+
+			expect(appendMock).toHaveBeenCalledWith(
+				expect.objectContaining({
+					type: "lifecycle",
+					worktreeId: "wt-1",
+					provider: null,
+					state: "failed",
+					exitCode: null,
+				}),
+			);
+		});
+
+		it("emits active on a clean exit and failed on a non-zero exit", () => {
+			const cleanPty = createPtyDoubleWithExit(0);
+			const failPty = createPtyDoubleWithExit(1);
+			spawnMock.mockReturnValueOnce(cleanPty).mockReturnValueOnce(failPty);
+			const appendMock = vi.fn().mockResolvedValue(undefined);
+			const service = makeService(appendMock);
+
+			const clean = service.create("ws-a", "wt-1", "/repo-a");
+			service.stop(clean.id); // pty double exits with code 0
+			expect(appendMock).toHaveBeenCalledWith(
+				expect.objectContaining({
+					type: "lifecycle",
+					processId: clean.id,
+					state: "active",
+					exitCode: 0,
+				}),
+			);
+
+			const fail = service.create("ws-a", "wt-2", "/repo-a/wt2");
+			service.stop(fail.id); // pty double exits with code 1
+			expect(appendMock).toHaveBeenCalledWith(
+				expect.objectContaining({
+					type: "lifecycle",
+					processId: fail.id,
+					state: "failed",
+					exitCode: 1,
+				}),
+			);
+		});
+
+		it("never throws into the spawn path when append rejects", () => {
+			const pty = createPtyDouble();
+			spawnMock.mockReturnValue(pty);
+			const appendMock = vi.fn().mockRejectedValue(new Error("disk full"));
+			const service = makeService(appendMock);
+
+			expect(() => service.create("ws-a", "wt-1", "/repo-a")).not.toThrow();
+		});
+	});
 });
