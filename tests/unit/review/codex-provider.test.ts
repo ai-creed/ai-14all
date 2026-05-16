@@ -11,6 +11,11 @@ vi.mock("node:child_process", () => ({
 }));
 
 import { CodexProvider } from "../../../services/review/agent-skill-installer/codex-provider.js";
+import type { BundledSkill } from "../../../services/review/agent-skill-installer/skill-asset.js";
+
+const SKILLS: BundledSkill[] = [
+	{ id: "ai-14all-fix-review", content: "skill body" },
+];
 
 describe("CodexProvider", () => {
 	let dir: string;
@@ -19,7 +24,7 @@ describe("CodexProvider", () => {
 		execMock.mockReset();
 	});
 
-	it("install runs `codex mcp add` with correct args when CLI is available", async () => {
+	it("installSkills runs `codex mcp add` with correct args when CLI is available", async () => {
 		execMock.mockImplementation((_cmd, _args, cb) =>
 			cb(null, { stdout: "ok", stderr: "" }),
 		);
@@ -28,12 +33,12 @@ describe("CodexProvider", () => {
 			cliPath: "codex",
 			isCliAvailable: async () => true,
 		});
-		await provider.install({
+		await provider.installSkills({
 			serverName: "ai-14all",
 			url: "http://127.0.0.1:51234",
-			skill: { content: "skill body" },
+			skills: SKILLS,
 		});
-		// install is idempotent: first call is `mcp remove` (swallowed), then `mcp add`.
+		// installSkills is idempotent: first call is `mcp remove` (swallowed), then `mcp add`.
 		expect(execMock.mock.calls[0]?.[1]).toEqual(["mcp", "remove", "ai-14all"]);
 		expect(execMock.mock.calls[1]?.[1]).toEqual([
 			"mcp",
@@ -42,6 +47,8 @@ describe("CodexProvider", () => {
 			"http://127.0.0.1:51234",
 			"ai-14all",
 		]);
+		// MCP registration is server-level, runs exactly once regardless of skill count.
+		expect(execMock.mock.calls.length).toBe(2);
 		const skill = await readFile(
 			join(dir, ".codex", "skills", "ai-14all-fix-review", "SKILL.md"),
 			"utf-8",
@@ -49,17 +56,17 @@ describe("CodexProvider", () => {
 		expect(skill).toBe("skill body");
 	});
 
-	it("install throws when the CLI is absent and writes nothing", async () => {
+	it("installSkills throws when the CLI is absent and writes nothing", async () => {
 		const provider = new CodexProvider({
 			home: dir,
 			cliPath: "codex",
 			isCliAvailable: async () => false,
 		});
 		await expect(
-			provider.install({
+			provider.installSkills({
 				serverName: "ai-14all",
 				url: "http://127.0.0.1:51234",
-				skill: { content: "skill body" },
+				skills: SKILLS,
 			}),
 		).rejects.toThrow(/codex CLI is not available/);
 		await expect(
@@ -76,14 +83,17 @@ describe("CodexProvider", () => {
 			cliPath: "codex",
 			isCliAvailable: async () => true,
 		});
-		await provider.install({
+		await provider.installSkills({
 			serverName: "ai-14all",
 			url: "http://127.0.0.1:51234",
-			skill: { content: "x" },
+			skills: [{ id: "ai-14all-fix-review", content: "x" }],
 		});
 		await provider.uninstall({ serverName: "ai-14all" });
 		const callArgs = execMock.mock.calls.at(-1)?.[1];
 		expect(callArgs).toEqual(["mcp", "remove", "ai-14all"]);
+		await expect(
+			access(join(dir, ".codex", "skills", "ai-14all-fix-review", "SKILL.md")),
+		).rejects.toBeTruthy();
 	});
 
 	afterEach(async () => {

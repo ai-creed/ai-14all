@@ -10,7 +10,7 @@ import {
 	type CliSource,
 	type Detection,
 } from "./cli-detection.js";
-import { loadBundledSkill } from "./skill-asset.js";
+import { loadBundledSkills, REVIEW_SKILL_ID } from "./skill-asset.js";
 import type { ProviderId } from "../../../shared/contracts/agent-install.js";
 
 const exec = promisify(execFile);
@@ -94,10 +94,10 @@ export class AgentSkillInstaller {
 			(await fileExists(join(home, ".claude.json")));
 		const codexRoot = await fileExists(join(home, ".codex"));
 		const claudeInstalled = await fileExists(
-			join(home, ".claude", "skills", "ai-14all-fix-review", "SKILL.md"),
+			join(home, ".claude", "skills", REVIEW_SKILL_ID, "SKILL.md"),
 		);
 		const codexInstalled = await fileExists(
-			join(home, ".codex", "skills", "ai-14all-fix-review", "SKILL.md"),
+			join(home, ".codex", "skills", REVIEW_SKILL_ID, "SKILL.md"),
 		);
 
 		const row = (
@@ -176,21 +176,21 @@ export class AgentSkillInstaller {
 				}
 				const cliPath = detection.cliPath; // safe: null guard throws above
 				const isCliAvailable = async () => detection !== null;
-				const skill = await loadBundledSkill(this.deps.resourcesPath);
+				const skills = await loadBundledSkills(this.deps.resourcesPath);
 				if (id === "claude-code") {
 					const p = new ClaudeProvider({
 						home: this.deps.home,
 						cliPath,
 						isCliAvailable,
 					});
-					await p.install({ serverName: "ai-14all", url, skill });
+					await p.installSkills({ serverName: "ai-14all", url, skills });
 				} else if (id === "codex") {
 					const p = new CodexProvider({
 						home: this.deps.home,
 						cliPath,
 						isCliAvailable,
 					});
-					await p.install({ serverName: "ai-14all", url, skill });
+					await p.installSkills({ serverName: "ai-14all", url, skills });
 				}
 				results.push({ id, ok: true, message: null });
 			} catch (e) {

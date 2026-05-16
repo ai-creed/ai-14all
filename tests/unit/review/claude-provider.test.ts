@@ -11,6 +11,11 @@ vi.mock("node:child_process", () => ({
 }));
 
 import { ClaudeProvider } from "../../../services/review/agent-skill-installer/claude-provider.js";
+import type { BundledSkill } from "../../../services/review/agent-skill-installer/skill-asset.js";
+
+const SKILLS: BundledSkill[] = [
+	{ id: "ai-14all-fix-review", content: "skill body" },
+];
 
 describe("ClaudeProvider", () => {
 	let dir: string;
@@ -19,7 +24,7 @@ describe("ClaudeProvider", () => {
 		execMock.mockReset();
 	});
 
-	it("install runs `claude mcp add` with correct args when CLI is available", async () => {
+	it("installSkills runs `claude mcp add` with correct args when CLI is available", async () => {
 		execMock.mockImplementation((_cmd, _args, cb) =>
 			cb(null, { stdout: "ok", stderr: "" }),
 		);
@@ -28,12 +33,12 @@ describe("ClaudeProvider", () => {
 			cliPath: "claude",
 			isCliAvailable: async () => true,
 		});
-		await provider.install({
+		await provider.installSkills({
 			serverName: "ai-14all",
 			url: "http://127.0.0.1:51234",
-			skill: { content: "skill body" },
+			skills: SKILLS,
 		});
-		// install is idempotent: first call is `mcp remove` (swallowed), then `mcp add`.
+		// installSkills is idempotent: first call is `mcp remove` (swallowed), then `mcp add`.
 		expect(execMock.mock.calls[0]?.[1]).toEqual(["mcp", "remove", "ai-14all"]);
 		expect(execMock.mock.calls[1]?.[1]).toEqual([
 			"mcp",
@@ -45,6 +50,8 @@ describe("ClaudeProvider", () => {
 			"ai-14all",
 			"http://127.0.0.1:51234",
 		]);
+		// MCP registration is server-level, runs exactly once regardless of skill count.
+		expect(execMock.mock.calls.length).toBe(2);
 		const skill = await readFile(
 			join(dir, ".claude", "skills", "ai-14all-fix-review", "SKILL.md"),
 			"utf-8",
@@ -52,17 +59,17 @@ describe("ClaudeProvider", () => {
 		expect(skill).toBe("skill body");
 	});
 
-	it("install throws when the CLI is absent and writes nothing", async () => {
+	it("installSkills throws when the CLI is absent and writes nothing", async () => {
 		const provider = new ClaudeProvider({
 			home: dir,
 			cliPath: "claude",
 			isCliAvailable: async () => false,
 		});
 		await expect(
-			provider.install({
+			provider.installSkills({
 				serverName: "ai-14all",
 				url: "http://127.0.0.1:51234",
-				skill: { content: "skill body" },
+				skills: SKILLS,
 			}),
 		).rejects.toThrow(/claude CLI is not available/);
 		await expect(
@@ -79,14 +86,17 @@ describe("ClaudeProvider", () => {
 			cliPath: "claude",
 			isCliAvailable: async () => true,
 		});
-		await provider.install({
+		await provider.installSkills({
 			serverName: "ai-14all",
 			url: "http://127.0.0.1:51234",
-			skill: { content: "x" },
+			skills: [{ id: "ai-14all-fix-review", content: "x" }],
 		});
 		await provider.uninstall({ serverName: "ai-14all" });
 		const callArgs = execMock.mock.calls.at(-1)?.[1];
 		expect(callArgs).toEqual(["mcp", "remove", "ai-14all"]);
+		await expect(
+			access(join(dir, ".claude", "skills", "ai-14all-fix-review", "SKILL.md")),
+		).rejects.toBeTruthy();
 	});
 
 	afterEach(async () => {

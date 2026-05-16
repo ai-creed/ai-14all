@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, writeFile, chmod, mkdir } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, chmod, mkdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -20,6 +20,7 @@ vi.mock("node:child_process", () => ({
 }));
 
 import { AgentSkillInstaller } from "../../../services/review/agent-skill-installer/index.js";
+import { BUNDLED_SKILL_IDS } from "../../../services/review/agent-skill-installer/skill-asset.js";
 
 describe("AgentSkillInstaller (detection + override)", () => {
 	let dir: string;
@@ -67,19 +68,26 @@ describe("AgentSkillInstaller (detection + override)", () => {
 		expect(claude.cliSource).toBe("override");
 	});
 
+	// Stub every bundled skill asset under the resources dir so loadBundledSkills
+	// resolves both skills from the canonical assets/agent-skills layout.
+	async function stubBundledSkills() {
+		for (const id of BUNDLED_SKILL_IDS) {
+			await mkdir(join(dir, "resources", "agent-skills", id), {
+				recursive: true,
+			});
+			await writeFile(
+				join(dir, "resources", "agent-skills", id, "SKILL.md"),
+				`body of ${id}`,
+				"utf-8",
+			);
+		}
+	}
+
 	it("install passes the override cliPath to execFile", async () => {
 		const cliBin = join(dir, "claude-bin");
 		await writeFile(cliBin, "#!/bin/sh\n", "utf-8");
 		await chmod(cliBin, 0o755);
-		// stub bundled skill
-		await mkdir(join(dir, "resources", "agent-skills", "ai-14all-fix-review"), {
-			recursive: true,
-		});
-		await writeFile(
-			join(dir, "resources", "agent-skills", "ai-14all-fix-review", "SKILL.md"),
-			"skill body",
-			"utf-8",
-		);
+		await stubBundledSkills();
 		execMock.mockImplementation((_cmd, _args, cb) =>
 			cb(null, { stdout: "", stderr: "" }),
 		);
@@ -89,6 +97,54 @@ describe("AgentSkillInstaller (detection + override)", () => {
 		expect(res[0].ok).toBe(true);
 		const cmds = execMock.mock.calls.map((c) => c[0]);
 		expect(cmds).toContain(cliBin);
+	});
+
+	it("install writes BOTH bundled skills for claude-code", async () => {
+		const cliBin = join(dir, "claude-bin");
+		await writeFile(cliBin, "#!/bin/sh\n", "utf-8");
+		await chmod(cliBin, 0o755);
+		await stubBundledSkills();
+		execMock.mockImplementation((_cmd, _args, cb) =>
+			cb(null, { stdout: "", stderr: "" }),
+		);
+		const installer = newInstaller();
+		await installer.setOverride("claude-code", cliBin);
+		const res = await installer.install(["claude-code"]);
+		expect(res[0].ok).toBe(true);
+		const fixReview = await readFile(
+			join(dir, ".claude", "skills", "ai-14all-fix-review", "SKILL.md"),
+			"utf-8",
+		);
+		const sessionStatus = await readFile(
+			join(dir, ".claude", "skills", "ai-14all-session-status", "SKILL.md"),
+			"utf-8",
+		);
+		expect(fixReview).toBe("body of ai-14all-fix-review");
+		expect(sessionStatus).toBe("body of ai-14all-session-status");
+	});
+
+	it("install writes BOTH bundled skills for codex", async () => {
+		const cliBin = join(dir, "codex-bin");
+		await writeFile(cliBin, "#!/bin/sh\n", "utf-8");
+		await chmod(cliBin, 0o755);
+		await stubBundledSkills();
+		execMock.mockImplementation((_cmd, _args, cb) =>
+			cb(null, { stdout: "", stderr: "" }),
+		);
+		const installer = newInstaller();
+		await installer.setOverride("codex", cliBin);
+		const res = await installer.install(["codex"]);
+		expect(res[0].ok).toBe(true);
+		const fixReview = await readFile(
+			join(dir, ".codex", "skills", "ai-14all-fix-review", "SKILL.md"),
+			"utf-8",
+		);
+		const sessionStatus = await readFile(
+			join(dir, ".codex", "skills", "ai-14all-session-status", "SKILL.md"),
+			"utf-8",
+		);
+		expect(fixReview).toBe("body of ai-14all-fix-review");
+		expect(sessionStatus).toBe("body of ai-14all-session-status");
 	});
 
 	it("install fails for a provider when detection returns null", async () => {
