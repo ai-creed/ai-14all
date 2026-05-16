@@ -89,6 +89,64 @@ describe("classifyOutput", () => {
 	});
 });
 
+describe("classifyOutput — telemetry", () => {
+	it("emits a classifier event when verdict is non-active", () => {
+		const emitted: unknown[] = [];
+		const result = classifyOutput("Error: something exploded", {
+			emit: (e) => emitted.push(e),
+		});
+		expect(result).toBe("failed");
+		expect(emitted).toHaveLength(1);
+		expect(emitted[0]).toMatchObject({
+			type: "classifier",
+			state: "failed",
+			matchedPattern: expect.any(String),
+		});
+	});
+	it("does not emit when verdict is neutral/active", () => {
+		const emitted: unknown[] = [];
+		classifyOutput("Hello there, plain output.", {
+			emit: (e) => emitted.push(e),
+		});
+		expect(emitted).toHaveLength(0);
+	});
+	it("does not emit for empty chunks (null verdict)", () => {
+		const emitted: unknown[] = [];
+		const result = classifyOutput("   ", { emit: (e) => emitted.push(e) });
+		expect(result).toBeNull();
+		expect(emitted).toHaveLength(0);
+	});
+	it("emits the actual matched pattern source and a truncated input sample", () => {
+		const emitted: Array<{
+			matchedPattern: string;
+			state: string;
+			inputSample: string;
+			inputPrev: string;
+		}> = [];
+		const longChunk = `Continue? [y/N] ${"x".repeat(800)}`;
+		classifyOutput(longChunk, {
+			emit: (e) =>
+				emitted.push(
+					e as {
+						matchedPattern: string;
+						state: string;
+						inputSample: string;
+						inputPrev: string;
+					},
+				),
+		});
+		expect(emitted).toHaveLength(1);
+		expect(emitted[0].state).toBe("waiting");
+		expect(emitted[0].matchedPattern.length).toBeGreaterThan(0);
+		expect(new RegExp(emitted[0].matchedPattern, "i").test("y/n")).toBe(true);
+		expect(emitted[0].inputSample.length).toBe(500);
+		expect(emitted[0].inputPrev).toBe("");
+	});
+	it("does not throw and still classifies when no emit is supplied", () => {
+		expect(classifyOutput("Error: boom")).toBe("failed");
+	});
+});
+
 import {
 	deriveStale,
 	mapToProcessAttentionState,

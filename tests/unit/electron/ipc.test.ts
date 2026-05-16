@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { handlers, handleMock } = vi.hoisted(() => {
+const { handlers, handleMock, listeners, onMock } = vi.hoisted(() => {
 	const handlers = new Map<
 		string,
 		(event: unknown, payload: unknown) => unknown
@@ -14,7 +14,19 @@ const { handlers, handleMock } = vi.hoisted(() => {
 			handlers.set(channel, handler);
 		},
 	);
-	return { handlers, handleMock };
+	const listeners = new Map<
+		string,
+		(event: unknown, payload: unknown) => unknown
+	>();
+	const onMock = vi.fn(
+		(
+			channel: string,
+			listener: (event: unknown, payload: unknown) => unknown,
+		) => {
+			listeners.set(channel, listener);
+		},
+	);
+	return { handlers, handleMock, listeners, onMock };
 });
 
 const { worktreeServiceInstance, fileServiceInstance } = vi.hoisted(() => {
@@ -42,7 +54,7 @@ vi.mock("electron", () => ({
 		getAppPath: vi.fn(() => "/tmp/app-resources"),
 	},
 	dialog: { showOpenDialog: vi.fn() },
-	ipcMain: { handle: handleMock },
+	ipcMain: { handle: handleMock, on: onMock },
 }));
 
 vi.mock("../../../services/worktrees/worktree-service.js", () => {
@@ -65,6 +77,86 @@ describe("registerIpcHandlers diagnostics", () => {
 	beforeEach(() => {
 		handlers.clear();
 		handleMock.mockClear();
+		listeners.clear();
+		onMock.mockClear();
+	});
+
+	const registerWith = (overrides: {
+		shellEventLog?: unknown;
+		agentAttentionLogger?: unknown;
+	}) => {
+		registerIpcHandlers(
+			{
+				isDestroyed: () => false,
+				webContents: { isDestroyed: () => false, send: vi.fn() },
+			} as never,
+			{
+				workspacePersistence: {
+					readState: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
+				workspaceRegistry: { register: vi.fn(), get: vi.fn() } as never,
+				worktreeService: worktreeServiceInstance as never,
+				shellEventLog: overrides.shellEventLog as never,
+				agentAttentionLogger: overrides.agentAttentionLogger as never,
+				review: {
+					service: {
+						onChange: vi.fn(() => () => {}),
+						removeByWorktree: vi.fn(),
+						listByWorktree: vi.fn(() => []),
+						create: vi.fn(),
+						markAddressed: vi.fn(),
+						reopen: vi.fn(),
+						delete: vi.fn(),
+						rebaseWorktreeIds: vi.fn(),
+					},
+					mcpStatus: { port: null, bindError: null, getUrl: () => null },
+					worktreePathResolver: { resolve: vi.fn(), refresh: vi.fn() },
+				} as never,
+			},
+		);
+	};
+
+	const validAttentionEvent = {
+		type: "classifier" as const,
+		ts: 1700000000000,
+		worktreeId: "w1",
+		processId: "p1",
+		provider: "claude" as const,
+		state: "failed" as const,
+		matchedPattern: "\\b(error|failed|exception)\\b",
+		inputSample: "Error: boom",
+		inputPrev: "",
+	};
+
+	it("registers diagnostics:attention-event as a one-way listener and forwards valid payloads", () => {
+		const appendMock = vi.fn().mockResolvedValue(undefined);
+		registerWith({ agentAttentionLogger: { append: appendMock } });
+
+		const listener = listeners.get("diagnostics:attention-event");
+		expect(listener).toBeTypeOf("function");
+		listener?.({}, validAttentionEvent);
+
+		expect(appendMock).toHaveBeenCalledWith(
+			expect.objectContaining({ type: "classifier", state: "failed" }),
+		);
+	});
+
+	it("drops malformed attention payloads without calling the logger", () => {
+		const appendMock = vi.fn().mockResolvedValue(undefined);
+		registerWith({ agentAttentionLogger: { append: appendMock } });
+
+		const listener = listeners.get("diagnostics:attention-event");
+		listener?.({}, { type: "classifier", state: "not-a-state" });
+
+		expect(appendMock).not.toHaveBeenCalled();
+	});
+
+	it("does not throw when the attention logger is absent", () => {
+		registerWith({ agentAttentionLogger: undefined });
+
+		const listener = listeners.get("diagnostics:attention-event");
+		expect(() => listener?.({}, validAttentionEvent)).not.toThrow();
 	});
 
 	it("registers diagnostics:logShellEvent and forwards payload to the log service", async () => {

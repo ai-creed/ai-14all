@@ -8,6 +8,7 @@ import {
 	statSync,
 } from "node:fs";
 import { join } from "node:path";
+import { z } from "zod";
 
 /**
  * Diagnostics mode for the agent-attention logger.
@@ -87,6 +88,97 @@ export type AttentionLogEvent =
 	| MCPLogEvent
 	| LifecycleLogEvent
 	| ResolutionLogEvent;
+
+const ProviderSchema = z
+	.enum(["claude", "codex", "other"])
+	.nullable();
+
+const ClassifierLogEventSchema = z.object({
+	type: z.literal("classifier"),
+	ts: z.number(),
+	worktreeId: z.string(),
+	processId: z.string(),
+	provider: ProviderSchema,
+	state: z.enum(["waiting", "ready", "failed", "stale"]),
+	matchedPattern: z.string(),
+	inputSample: z.string(),
+	inputPrev: z.string(),
+});
+
+const MCPLogEventSchema = z.object({
+	type: z.literal("mcp"),
+	ts: z.number(),
+	worktreeId: z.string(),
+	provider: ProviderSchema,
+	state: z.enum(["active", "waiting", "ready", "failed"]),
+	summary: z.string(),
+	// `task` is a required key whose value may be string | null | undefined,
+	// mirroring MCPLogEvent.task exactly (not an optional key).
+	task: z.union([z.string(), z.null(), z.undefined()]),
+	nextAction: z.string().nullable(),
+});
+
+const LifecycleLogEventSchema = z.object({
+	type: z.literal("lifecycle"),
+	ts: z.number(),
+	worktreeId: z.string(),
+	processId: z.string(),
+	provider: ProviderSchema,
+	state: z.enum(["active", "failed"]),
+	exitCode: z.number().nullable(),
+});
+
+const ResolutionSnapshotSchema = z
+	.object({
+		state: z.string(),
+		source: z.string(),
+		summary: z.string().optional(),
+	})
+	.nullable();
+
+const ResolutionLogEventSchema = z.object({
+	type: z.literal("resolution"),
+	ts: z.number(),
+	worktreeId: z.string(),
+	processId: z.string().nullable(),
+	provider: ProviderSchema,
+	before: ResolutionSnapshotSchema,
+	after: ResolutionSnapshotSchema,
+});
+
+/**
+ * Runtime validator for {@link AttentionLogEvent}. The IPC handler Zod-parses
+ * untrusted renderer payloads with this before handing them to the logger.
+ *
+ * The `_AttentionLogEventSchemaInSync` / `_AttentionLogEventTypeInSync`
+ * compile-time assertions below force this schema and the hand-written TS
+ * union to stay structurally identical — if either side drifts, typecheck
+ * fails.
+ */
+export const AttentionLogEventSchema = z.discriminatedUnion("type", [
+	ClassifierLogEventSchema,
+	MCPLogEventSchema,
+	LifecycleLogEventSchema,
+	ResolutionLogEventSchema,
+]);
+
+type AssertEqual<A, B> = [A] extends [B]
+	? [B] extends [A]
+		? true
+		: never
+	: never;
+
+// If these error, the Zod schema and the TS union have drifted apart.
+const _AttentionLogEventSchemaInSync: AssertEqual<
+	z.infer<typeof AttentionLogEventSchema>,
+	AttentionLogEvent
+> = true;
+const _AttentionLogEventTypeInSync: AssertEqual<
+	AttentionLogEvent,
+	z.infer<typeof AttentionLogEventSchema>
+> = true;
+void _AttentionLogEventSchemaInSync;
+void _AttentionLogEventTypeInSync;
 
 const DEFAULT_FILE_CAP_BYTES = 10 * 1024 * 1024;
 const RETENTION_DAYS = 7;

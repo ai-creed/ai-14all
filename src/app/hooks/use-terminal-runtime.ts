@@ -18,6 +18,7 @@ import { deriveAttentionState } from "../../features/terminals/logic/process-att
 import { consumeOutputPreview } from "../../features/terminals/logic/output-preview";
 import { logRendererShellEvent } from "../../features/terminals/logic/shell-event-logger";
 import { classifyOutput } from "../../features/terminals/logic/agent-attention";
+import { diagnostics } from "../../lib/desktop-client";
 import type { AgentAttentionReason } from "../../../shared/models/agent-attention";
 
 type Options = {
@@ -126,7 +127,31 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 				const now = Date.now();
 				let agentReason: AgentAttentionReason | null = null;
 				if (process.agentDetected) {
-					const classified = classifyOutput(event.data);
+					const classified = classifyOutput(event.data, {
+						// Fires only on a non-active actionable verdict (the
+						// classifier throttles); one-way fire-and-forget IPC.
+						emit: (verdict) =>
+							diagnostics.logAttentionEvent({
+								type: "classifier",
+								ts: now,
+								worktreeId: process.worktreeId,
+								processId: process.id,
+								provider: process.provider ?? null,
+								state: verdict.state,
+								matchedPattern: verdict.matchedPattern,
+								inputSample: verdict.inputSample,
+								// `inputPrev` = up to 200 chars of output that
+								// preceded the matched chunk, for post-hoc
+								// analysis of classifier false positives. The
+								// pure classifier has no buffer so it hardcodes
+								// ""; this callsite owns the real preceding
+								// context. `priorBuffer` is the session's
+								// rolling output buffer read BEFORE
+								// `event.data` was incorporated, so it cleanly
+								// excludes the current chunk (no overlap).
+								inputPrev: priorBuffer.slice(-200),
+							}),
+					});
 					if (classified !== null) {
 						agentReason = {
 							state: classified,

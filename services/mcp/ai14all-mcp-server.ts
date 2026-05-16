@@ -13,6 +13,7 @@ import {
 	RendererNotReadyError,
 } from "./session-note-bridge.js";
 import type { AgentAttentionBridge } from "./agent-attention-bridge.js";
+import type { AgentAttentionLogger } from "../diagnostics/agent-attention-logger.js";
 
 const AI14ALL_MCP_INSTRUCTIONS = `This MCP server is provided by the ai-14all desktop app. It is connected to a specific git worktree on the user's machine and exposes tools the agent can call while working in that worktree. Every worktree-scoped tool takes a \`worktreePath\` argument — pass the absolute path of the current worktree (the working directory of this session).
 
@@ -39,6 +40,8 @@ type Options = { port: number; host: string };
 export type SessionNoteBridgeLike = Pick<SessionNoteBridge, "read" | "append">;
 
 export type AgentAttentionBridgeLike = Pick<AgentAttentionBridge, "report">;
+
+export type AgentAttentionLoggerLike = Pick<AgentAttentionLogger, "append">;
 
 export const ReportSessionStatusInputSchema = z.object({
 	worktreePath: z.string().min(1),
@@ -99,6 +102,7 @@ export class Ai14allMcpServer {
 		private readonly noteBridge: SessionNoteBridgeLike,
 		private readonly attentionBridge: AgentAttentionBridgeLike,
 		private readonly options: Options,
+		private readonly attentionLogger?: AgentAttentionLoggerLike,
 	) {}
 
 	private registerTools(mcp: McpServer): void {
@@ -236,6 +240,22 @@ export class Ai14allMcpServer {
 					);
 				}
 				const reportedAt = Date.now();
+				// Diagnostic telemetry: record the MCP push (resolved worktreeId,
+				// provider unknown in the main process — Task 10's resolution
+				// events carry provider from the renderer). Best-effort; never
+				// let logging failures break the tool call.
+				this.attentionLogger
+					?.append({
+						type: "mcp",
+						ts: reportedAt,
+						worktreeId,
+						provider: null,
+						state,
+						summary,
+						task,
+						nextAction,
+					})
+					.catch(() => {});
 				try {
 					await this.attentionBridge.report({
 						worktreeId,

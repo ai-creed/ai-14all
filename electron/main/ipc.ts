@@ -45,7 +45,13 @@ import {
 	RemoveWorktreeSchema,
 	LogShellEventSchema,
 	ListTrackedFilesSchema,
+	DIAGNOSTICS_ATTENTION_EVENT,
 } from "../../shared/contracts/commands.js";
+import type { DiagnosticsAttentionLogEvent } from "../../shared/contracts/commands.js";
+import {
+	AttentionLogEventSchema,
+	type AttentionLogEvent,
+} from "../../services/diagnostics/agent-attention-logger.js";
 import type { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 import type { ShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
@@ -82,6 +88,20 @@ import type {
 	TerminalStateEvent,
 	TerminalErrorEvent,
 } from "../../shared/contracts/events.js";
+
+// `shared/` cannot import from `services/`, so the renderer-facing attention
+// event union is mirrored in shared/contracts/commands.ts. This bidirectional
+// compile-time assertion (this module imports both layers) guarantees the
+// mirror and the canonical union/schema can never drift apart.
+type _AttentionEventMirrorInSync = [DiagnosticsAttentionLogEvent] extends [
+	AttentionLogEvent,
+]
+	? [AttentionLogEvent] extends [DiagnosticsAttentionLogEvent]
+		? true
+		: never
+	: never;
+const _attentionEventMirrorInSync: _AttentionEventMirrorInSync = true;
+void _attentionEventMirrorInSync;
 
 // ---------------------------------------------------------------------------
 // registerIpcHandlers
@@ -445,6 +465,16 @@ export function registerIpcHandlers(
 		const parsed = LogShellEventSchema.safeParse(raw);
 		if (!parsed.success) return;
 		shellEventLog?.log(parsed.data);
+	});
+
+	// One-way (`ipcRenderer.send`): fire-and-forget so the renderer never
+	// blocks on disk. Untrusted payloads are Zod-validated against the
+	// canonical schema; invalid payloads are silently dropped, and the
+	// logger may be absent (mode `off` / not constructed) — guard with `?.`.
+	ipcMain.on(DIAGNOSTICS_ATTENTION_EVENT, (_event, raw: unknown) => {
+		const parsed = AttentionLogEventSchema.safeParse(raw);
+		if (!parsed.success) return;
+		agentAttentionLogger?.append(parsed.data).catch(() => {});
 	});
 
 	ipcMain.handle("diagnostics:getAgentAttentionStatus", () => ({

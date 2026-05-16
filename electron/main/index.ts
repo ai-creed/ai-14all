@@ -136,6 +136,7 @@ app.whenReady().then(async () => {
 			sessionNoteBridge,
 			agentAttentionBridge,
 			{ port: desiredPort, host: "127.0.0.1" },
+			agentAttentionLogger,
 		);
 		mcpPort = await mcpServer.start();
 		await writeLivenessFile(livenessPath, mcpPort);

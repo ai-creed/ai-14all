@@ -44,6 +44,7 @@ const NOTE_BRIDGE_REQUEST = "mcp:note:request";
 const NOTE_BRIDGE_REPLY = "mcp:note:reply";
 const NOTE_BRIDGE_READY = "mcp:note:ready";
 const NOTE_BRIDGE_GOODBYE = "mcp:note:goodbye";
+const DIAGNOSTICS_ATTENTION_EVENT = "diagnostics:attention-event";
 
 // Helper: register a one-way listener on an ipcRenderer channel and return an
 // unsubscribe function (matching the onXxx pattern in the API type).
@@ -264,6 +265,12 @@ const api: Ai14AllDesktopApi = {
 	diagnostics: {
 		logShellEvent(event) {
 			return ipcRenderer.invoke("diagnostics:logShellEvent", event);
+		},
+		logAttentionEvent(event) {
+			// One-way fire-and-forget: never block the renderer hot path on disk.
+			// Channel string duplicated from shared/contracts (DIAGNOSTICS_ATTENTION_EVENT)
+			// to avoid pulling Zod into the sandboxed preload context.
+			ipcRenderer.send(DIAGNOSTICS_ATTENTION_EVENT, event);
 		},
 		getAgentAttentionStatus() {
 			return ipcRenderer.invoke("diagnostics:getAgentAttentionStatus", {});

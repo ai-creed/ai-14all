@@ -15,6 +15,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	},
 	diagnostics: {
 		logShellEvent: vi.fn(() => Promise.resolve()),
+		logAttentionEvent: vi.fn(),
 	},
 }));
 

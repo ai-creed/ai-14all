@@ -14,7 +14,10 @@ import {
 	BridgeTimeoutError,
 	RendererNotReadyError,
 } from "../../../services/mcp/agent-attention-bridge";
-import type { AgentAttentionBridgeLike } from "../../../services/mcp/ai14all-mcp-server";
+import type {
+	AgentAttentionBridgeLike,
+	AgentAttentionLoggerLike,
+} from "../../../services/mcp/ai14all-mcp-server";
 
 function stubResolver(map: Record<string, string>) {
 	return {
@@ -28,6 +31,7 @@ function stubResolver(map: Record<string, string>) {
 async function makeRig(
 	opts: {
 		attentionBridge?: { report: ReturnType<typeof vi.fn> };
+		attentionLogger?: { append: ReturnType<typeof vi.fn> };
 		resolver?: ReturnType<typeof stubResolver>;
 	} = {},
 ) {
@@ -51,6 +55,10 @@ async function makeRig(
 		report: vi.fn().mockResolvedValue(undefined),
 	};
 
+	const attentionLogger = opts.attentionLogger ?? {
+		append: vi.fn().mockResolvedValue(undefined),
+	};
+
 	const server = new Ai14allMcpServer(
 		service,
 		resolver,
@@ -60,6 +68,7 @@ async function makeRig(
 			port: 0,
 			host: "127.0.0.1",
 		},
+		attentionLogger as AgentAttentionLoggerLike,
 	);
 	const port = await server.start();
 	const url = `http://127.0.0.1:${port}/mcp`;
@@ -73,6 +82,7 @@ async function makeRig(
 		client,
 		noteBridge,
 		attentionBridge,
+		attentionLogger,
 		resolver,
 		cleanup: async () => {
 			await client.close();
@@ -147,6 +157,47 @@ describe("report_session_status tool", () => {
 		>;
 		expect(callArg.worktreeId).toBe("w1");
 		expect(callArg.task).toBe("Review the spec at docs/foo.md");
+	});
+
+	it("appends an mcp diagnostic event with resolved worktreeId and null provider", async () => {
+		rig = await makeRig({
+			resolver: stubResolver({ "/abs/wt-1": "w1" }),
+		});
+
+		await callTool(rig.client, "report_session_status", {
+			worktreePath: "/abs/wt-1",
+			state: "waiting",
+			summary: "awaiting answer",
+			nextAction: "answer the question",
+			task: "Implement Task 9",
+		});
+
+		expect(rig.attentionLogger.append).toHaveBeenCalledOnce();
+		const logged = rig.attentionLogger.append.mock.calls[0][0] as Record<
+			string,
+			unknown
+		>;
+		expect(logged.type).toBe("mcp");
+		expect(logged.worktreeId).toBe("w1");
+		expect(logged.provider).toBeNull();
+		expect(logged.state).toBe("waiting");
+		expect(logged.summary).toBe("awaiting answer");
+		expect(logged.task).toBe("Implement Task 9");
+		expect(logged.nextAction).toBe("answer the question");
+		expect(typeof logged.ts).toBe("number");
+	});
+
+	it("does not append a diagnostic event when the worktree path is unknown", async () => {
+		rig = await makeRig({ resolver: stubResolver({}) });
+
+		await callTool(rig.client, "report_session_status", {
+			worktreePath: "/unknown",
+			state: "ready",
+			summary: "done",
+			nextAction: null,
+		});
+
+		expect(rig.attentionLogger.append).not.toHaveBeenCalled();
 	});
 
 	it("returns no_worktree when path not found", async () => {

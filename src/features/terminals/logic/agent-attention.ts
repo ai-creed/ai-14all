@@ -66,13 +66,82 @@ const READY_PATTERNS = [
 	/\ball checks passed\b/i,
 ];
 
-export function classifyOutput(chunk: string): AgentAttentionState | null {
+/**
+ * Telemetry hook for {@link classifyOutput}. Invoked ONLY when the classifier
+ * produces a non-`active` actionable verdict (`waiting` | `failed` | `ready`);
+ * never on neutral/active output or empty chunks. This non-active gate is the
+ * throttle — `classifyOutput` runs per terminal chunk on a hot path, so the
+ * emit must not fire on every chunk.
+ *
+ * The emit is purely additive: it does not change the return value or any
+ * existing caller's behavior.
+ */
+export type ClassifierTelemetryEvent = {
+	type: "classifier";
+	// Only the non-active actionable verdicts are ever emitted. `stale` is part
+	// of the IPC contract's classifier state union but is derived elsewhere
+	// (deriveStale), never produced by classifyOutput — kept here so the emit
+	// payload matches the channel contract without a cast at the callsite.
+	state: Extract<
+		AgentAttentionState,
+		"waiting" | "ready" | "failed" | "stale"
+	>;
+	matchedPattern: string;
+	inputSample: string;
+	inputPrev: string;
+};
+
+export type ClassifyOutputOptions = {
+	emit?: (event: ClassifierTelemetryEvent) => void;
+};
+
+function firstMatch(
+	patterns: readonly RegExp[],
+	text: string,
+): RegExp | null {
+	for (const p of patterns) {
+		if (p.test(text)) return p;
+	}
+	return null;
+}
+
+export function classifyOutput(
+	chunk: string,
+	options?: ClassifyOutputOptions,
+): AgentAttentionState | null {
 	const text = chunk.trim();
 	if (text.length === 0) return null;
-	if (WAITING_PATTERNS.some((p) => p.test(text))) return "waiting";
-	if (FAILED_PATTERNS.some((p) => p.test(text))) return "failed";
-	if (READY_PATTERNS.some((p) => p.test(text))) return "ready";
-	return "active";
+
+	const waiting = firstMatch(WAITING_PATTERNS, text);
+	const failed = waiting ? null : firstMatch(FAILED_PATTERNS, text);
+	const ready =
+		waiting || failed ? null : firstMatch(READY_PATTERNS, text);
+
+	let state: ClassifierTelemetryEvent["state"];
+	let matched: RegExp;
+	if (waiting) {
+		state = "waiting";
+		matched = waiting;
+	} else if (failed) {
+		state = "failed";
+		matched = failed;
+	} else if (ready) {
+		state = "ready";
+		matched = ready;
+	} else {
+		return "active";
+	}
+
+	// Reached only on a non-active actionable verdict — the hot-path throttle.
+	options?.emit?.({
+		type: "classifier",
+		state,
+		matchedPattern: matched.source,
+		inputSample: chunk.slice(0, 500),
+		inputPrev: "",
+	});
+
+	return state;
 }
 
 export function deriveStale(

@@ -204,6 +204,58 @@ export const LogShellEventSchema = z.object({
 	data: z.record(z.string(), z.unknown()),
 });
 
+// One-way channel for diagnostic agent-attention events (fire-and-forget;
+// `ipcRenderer.send`, not `invoke`). The canonical event union and its Zod
+// validator (`AttentionLogEvent` / `AttentionLogEventSchema`) live in
+// `services/diagnostics/agent-attention-logger.ts`; `shared/` must not import
+// from `services/`, so the renderer-facing union is mirrored here (same
+// rationale as the preload duplicating channel-name constants). The main
+// handler re-validates with the canonical schema before persisting.
+export const DIAGNOSTICS_ATTENTION_EVENT = "diagnostics:attention-event";
+
+type AttentionLogProvider = "claude" | "codex" | "other" | null;
+
+export type DiagnosticsAttentionLogEvent =
+	| {
+			type: "classifier";
+			ts: number;
+			worktreeId: string;
+			processId: string;
+			provider: AttentionLogProvider;
+			state: "waiting" | "ready" | "failed" | "stale";
+			matchedPattern: string;
+			inputSample: string;
+			inputPrev: string;
+	  }
+	| {
+			type: "mcp";
+			ts: number;
+			worktreeId: string;
+			provider: AttentionLogProvider;
+			state: "active" | "waiting" | "ready" | "failed";
+			summary: string;
+			task: string | null | undefined;
+			nextAction: string | null;
+	  }
+	| {
+			type: "lifecycle";
+			ts: number;
+			worktreeId: string;
+			processId: string;
+			provider: AttentionLogProvider;
+			state: "active" | "failed";
+			exitCode: number | null;
+	  }
+	| {
+			type: "resolution";
+			ts: number;
+			worktreeId: string;
+			processId: string | null;
+			provider: AttentionLogProvider;
+			before: { state: string; source: string; summary?: string } | null;
+			after: { state: string; source: string; summary?: string } | null;
+	  };
+
 export const ReadWorkspaceRestoreStateSchema = z.object({});
 
 export const WriteWorkspaceRestoreStateSchema = z.object({
@@ -347,6 +399,7 @@ export type Ai14AllDesktopApi = {
 	};
 	diagnostics: {
 		logShellEvent(event: z.infer<typeof LogShellEventSchema>): Promise<void>;
+		logAttentionEvent(event: DiagnosticsAttentionLogEvent): void;
 		getAgentAttentionStatus(): Promise<{
 			mode: "off" | "sampled" | "full";
 			logsDir: string;
