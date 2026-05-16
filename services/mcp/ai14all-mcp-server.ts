@@ -32,13 +32,21 @@ Session status — a lifecycle signal that drives the app's sidebar attention in
   - "waiting" — blocked on a question or input from the user.
   - "ready" — task is complete and awaiting user review.
   - "failed" — task hit an unrecoverable error.
-  Keep \`summary\` ≤ 200 chars and specific (e.g. "running tsc", "awaiting answer on caching strategy", "3 tests failing in workspace-state.test.ts"). Set \`nextAction\` to a short imperative when the user has a clear next step (e.g. "review diff", "answer question above"), else null. Call once per transition — not on every tool use or every assistant turn.`;
+  Keep \`summary\` ≤ 200 chars and specific (e.g. "running tsc", "awaiting answer on caching strategy", "3 tests failing in workspace-state.test.ts"). Set \`nextAction\` to a short imperative when the user has a clear next step (e.g. "review diff", "answer question above"), else null. Set the optional \`task\` (≤ 200 chars) once at mission start to a high-level summary of what the user asked you to do; repeat the same \`task\` in subsequent pushes for that mission, change it only when you pivot to a new mission, and use null when idle. Call once per transition — not on every tool use or every assistant turn.`;
 
 type Options = { port: number; host: string };
 
 export type SessionNoteBridgeLike = Pick<SessionNoteBridge, "read" | "append">;
 
 export type AgentAttentionBridgeLike = Pick<AgentAttentionBridge, "report">;
+
+export const ReportSessionStatusInputSchema = z.object({
+	worktreePath: z.string().min(1),
+	state: z.enum(["active", "waiting", "ready", "failed"]),
+	summary: z.string().min(1).max(200),
+	nextAction: z.string().max(200).nullable(),
+	task: z.string().min(1).max(200).nullable().optional(),
+});
 
 export async function resolveWithRefresh(
 	resolver: WorktreePathResolver,
@@ -214,14 +222,9 @@ export class Ai14allMcpServer {
 	private registerAttentionTools(mcp: McpServer): void {
 		mcp.tool(
 			"report_session_status",
-			'Report the lifecycle state of the current ai-14all agent session for the worktree at `worktreePath`. Call on every transition into "active", "waiting", "ready", or "failed". `summary` is a one-line description (≤200 chars); `nextAction` is an optional short imperative for the user, or null.',
-			{
-				worktreePath: z.string().min(1),
-				state: z.enum(["active", "waiting", "ready", "failed"]),
-				summary: z.string().min(1).max(200),
-				nextAction: z.string().max(200).nullable(),
-			},
-			async ({ worktreePath, state, summary, nextAction }) => {
+			'Report the lifecycle state of the current ai-14all agent session for the worktree at `worktreePath`. Call on every transition into "active", "waiting", "ready", or "failed". `summary` is a one-line description (≤200 chars); `nextAction` is an optional short imperative for the user, or null. Set `task` once at the start of a multi-turn mission (≤200 chars summarizing what the user asked you to do). Continue including the same `task` in subsequent pushes for that mission. Set it again only when you pivot to a new mission. Set to `null` only when idle.',
+			ReportSessionStatusInputSchema.shape,
+			async ({ worktreePath, state, summary, nextAction, task }) => {
 				const worktreeId = await resolveWithRefresh(
 					this.resolver,
 					worktreePath,
@@ -239,6 +242,7 @@ export class Ai14allMcpServer {
 						state,
 						summary,
 						nextAction,
+						task,
 						reportedAt,
 					});
 					return jsonOk({ worktreeId, state, reportedAt });

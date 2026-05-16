@@ -11,6 +11,7 @@ export type AgentAttentionBridgeRequest = {
 	state: Exclude<AgentAttentionState, "stale" | "idle">;
 	summary: string;
 	nextAction: string | null;
+	task?: string | null | undefined;
 	reportedAt: number;
 };
 

@@ -6,7 +6,10 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { ReviewCommentService } from "../../../services/review/review-comment-service";
 import { ReviewCommentStore } from "../../../services/review/review-comment-store";
-import { Ai14allMcpServer } from "../../../services/mcp/ai14all-mcp-server";
+import {
+	Ai14allMcpServer,
+	ReportSessionStatusInputSchema,
+} from "../../../services/mcp/ai14all-mcp-server";
 import {
 	BridgeTimeoutError,
 	RendererNotReadyError,
@@ -121,6 +124,29 @@ describe("report_session_status tool", () => {
 		expect(callArg.state).toBe("ready");
 		expect(callArg.summary).toBe("done");
 		expect(callArg.nextAction).toBeNull();
+	});
+
+	it("forwards resolved worktreeId and task to the bridge", async () => {
+		rig = await makeRig({
+			resolver: stubResolver({ "/abs/wt-1": "w1" }),
+		});
+
+		const result = await callTool(rig.client, "report_session_status", {
+			worktreePath: "/abs/wt-1",
+			state: "active",
+			summary: "working",
+			nextAction: null,
+			task: "Review the spec at docs/foo.md",
+		});
+
+		expect(result.ok).toBe(true);
+		expect(rig.attentionBridge.report).toHaveBeenCalledOnce();
+		const callArg = rig.attentionBridge.report.mock.calls[0][0] as Record<
+			string,
+			unknown
+		>;
+		expect(callArg.worktreeId).toBe("w1");
+		expect(callArg.task).toBe("Review the spec at docs/foo.md");
 	});
 
 	it("returns no_worktree when path not found", async () => {
@@ -264,5 +290,83 @@ describe("ai-14all MCP server instructions and discovery", () => {
 				`description must mention state "${state}"`,
 			).toContain(state);
 		}
+	});
+});
+
+describe("ReportSessionStatusInputSchema with task field", () => {
+	it("accepts task as a string ≤200 chars", () => {
+		const result = ReportSessionStatusInputSchema.safeParse({
+			worktreePath: "/repos/example",
+			state: "active",
+			summary: "Working",
+			nextAction: null,
+			task: "Review the spec at docs/foo.md",
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it("accepts task as null", () => {
+		const result = ReportSessionStatusInputSchema.safeParse({
+			worktreePath: "/repos/example",
+			state: "active",
+			summary: "Working",
+			nextAction: null,
+			task: null,
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it("accepts omitted task (undefined)", () => {
+		const result = ReportSessionStatusInputSchema.safeParse({
+			worktreePath: "/repos/example",
+			state: "active",
+			summary: "Working",
+			nextAction: null,
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it("rejects task longer than 200 chars", () => {
+		const result = ReportSessionStatusInputSchema.safeParse({
+			worktreePath: "/repos/example",
+			state: "active",
+			summary: "Working",
+			nextAction: null,
+			task: "x".repeat(201),
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it("rejects empty string task", () => {
+		const result = ReportSessionStatusInputSchema.safeParse({
+			worktreePath: "/repos/example",
+			state: "active",
+			summary: "Working",
+			nextAction: null,
+			task: "",
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it("accepts task of exactly 200 chars", () => {
+		const result = ReportSessionStatusInputSchema.safeParse({
+			worktreePath: "/repos/example",
+			state: "active",
+			summary: "Working",
+			nextAction: null,
+			task: "x".repeat(200),
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it("accepts task of exactly 1 char", () => {
+		const result = ReportSessionStatusInputSchema.safeParse({
+			worktreePath: "/repos/example",
+			state: "active",
+			summary: "Working",
+			nextAction: null,
+			task: "x",
+		});
+		expect(result.success).toBe(true);
 	});
 });
