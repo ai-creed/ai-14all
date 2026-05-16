@@ -3,7 +3,10 @@ import {
 	mapToProcessAttentionState,
 	rankAgentAttention,
 } from "../../terminals/logic/agent-attention";
-import type { AgentAttentionReasonsBySource } from "../../../../shared/models/agent-attention";
+import type {
+	AgentAttentionReasonsBySource,
+	AgentProvider,
+} from "../../../../shared/models/agent-attention";
 import type { ProcessSession } from "../../../../shared/models/process-session";
 
 export type SidebarShellState = "actionRequired" | "active" | "idle" | "exited";
@@ -15,6 +18,7 @@ export type SidebarShellRow = {
 	context: string;
 	lastActivityAt: number | null;
 	hasFailedReason: boolean;
+	provider: AgentProvider | null;
 };
 
 export type WorktreeProcessSummary = {
@@ -83,7 +87,10 @@ type ProcessRowInput = Pick<
 	| "exitCode"
 > &
 	Partial<
-		Pick<ProcessSession, "agentAttentionReasons" | "agentAttentionClearedAt">
+		Pick<
+			ProcessSession,
+			"agentAttentionReasons" | "agentAttentionClearedAt" | "provider"
+		>
 	>;
 
 function deriveAgentContext(
@@ -162,6 +169,7 @@ export function buildWorktreeProcessSummary(
 				context: deriveContext(process, state, now),
 				lastActivityAt: process.lastActivityAt,
 				hasFailedReason,
+				provider: process.provider ?? null,
 			};
 		})
 		.sort((left, right) => {

@@ -325,6 +325,51 @@ describe("buildWorktreeProcessSummary", () => {
 	});
 });
 
+describe("buildWorktreeProcessSummary — provider", () => {
+	it("includes provider in each SidebarShellRow", () => {
+		const summary = buildWorktreeProcessSummary(
+			[
+				{
+					id: "p1",
+					label: "claude",
+					status: "running",
+					attentionState: "idle",
+					lastActivityAt: now,
+					lastOutputPreview: null,
+					exitCode: null,
+					provider: "claude",
+				},
+				{
+					id: "p2",
+					label: "codex",
+					status: "running",
+					attentionState: "idle",
+					lastActivityAt: now,
+					lastOutputPreview: null,
+					exitCode: null,
+					provider: "codex",
+				},
+				{
+					id: "p3",
+					label: "dev",
+					status: "running",
+					attentionState: "idle",
+					lastActivityAt: now,
+					lastOutputPreview: null,
+					exitCode: null,
+					provider: null,
+				},
+			],
+			Date.now(),
+			3,
+		);
+		const providers = summary.rows.map((r) => r.provider);
+		expect(providers).toEqual(
+			expect.arrayContaining(["claude", "codex", null]),
+		);
+	});
+});
+
 describe("buildWorktreeAttentionDisplay", () => {
 	it("overlays session-level mcp reason on process states", () => {
 		const display = buildWorktreeAttentionDisplay({
@@ -363,6 +408,7 @@ describe("buildWorktreeAttentionDisplay", () => {
 						context: "waiting: y/n prompt",
 						lastActivityAt: now,
 						hasFailedReason: false,
+						provider: null,
 					},
 				],
 				overflowCount: 0,
@@ -410,6 +456,7 @@ describe("buildWorktreeAttentionDisplay", () => {
 						context: "process context",
 						lastActivityAt: now,
 						hasFailedReason: false,
+						provider: null,
 					},
 				],
 				overflowCount: 0,

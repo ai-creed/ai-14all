@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { SessionSidebar } from "../../../src/features/workspace/components/SessionSidebar";
 import type { SessionSidebarWorkspace } from "../../../src/features/workspace/components/SessionSidebar";
+import type { AgentProvider } from "../../../shared/models/agent-attention";
 
 function makeWorkspace(
 	rows: Array<{
@@ -11,6 +12,7 @@ function makeWorkspace(
 		context: string;
 		lastActivityAt: number | null;
 		hasFailedReason: boolean;
+		provider?: AgentProvider | null;
 	}>,
 ): SessionSidebarWorkspace {
 	return {
@@ -29,7 +31,10 @@ function makeWorkspace(
 		selectedWorktreeId: "wt1",
 		attentionByWorktreeId: { wt1: "idle" },
 		processesByWorktreeId: {
-			wt1: { rows, overflowCount: 0 },
+			wt1: {
+				rows: rows.map((row) => ({ provider: null, ...row })),
+				overflowCount: 0,
+			},
 		},
 		titleByWorktreeId: { wt1: "main" },
 		active: true,

@@ -13,6 +13,7 @@ export type SessionSidebarWorkspace = {
 	attentionByWorktreeId: Record<string, ProcessAttentionState>;
 	processesByWorktreeId?: Record<string, WorktreeProcessSummary>;
 	attentionContextByWorktreeId?: Record<string, string>;
+	taskByWorktreeId?: Record<string, string | null>;
 	titleByWorktreeId?: Record<string, string>;
 	active: boolean;
 	hydrated: boolean;

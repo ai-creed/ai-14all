@@ -1239,12 +1239,14 @@ export function App() {
 							attentionByWorktreeId: {},
 							processesByWorktreeId: {},
 							attentionContextByWorktreeId: {},
+							taskByWorktreeId: {},
 						};
 					const attentionByWorktreeId: Record<string, ProcessAttentionState> =
 						{};
 					const processesByWorktreeId: Record<string, WorktreeProcessSummary> =
 						{};
 					const attentionContextByWorktreeId: Record<string, string> = {};
+					const taskByWorktreeId: Record<string, string | null> = {};
 					for (const [worktreeId, session] of Object.entries(
 						ws.workspaceState.sessionsByWorktreeId,
 					)) {
@@ -1257,6 +1259,7 @@ export function App() {
 							3,
 						);
 						processesByWorktreeId[worktreeId] = processSummary;
+						taskByWorktreeId[worktreeId] = session.task ?? null;
 						const display = buildWorktreeAttentionDisplay({
 							sessionAgentAttentionReasons: session.agentAttentionReasons,
 							processSummary,
@@ -1275,6 +1278,7 @@ export function App() {
 						attentionByWorktreeId,
 						processesByWorktreeId,
 						attentionContextByWorktreeId,
+						taskByWorktreeId,
 					};
 				})(),
 				titleByWorktreeId: ws.workspaceState
