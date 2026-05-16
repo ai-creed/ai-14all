@@ -265,6 +265,9 @@ const api: Ai14AllDesktopApi = {
 		logShellEvent(event) {
 			return ipcRenderer.invoke("diagnostics:logShellEvent", event);
 		},
+		getAgentAttentionStatus() {
+			return ipcRenderer.invoke("diagnostics:getAgentAttentionStatus", {});
+		},
 	},
 	system: {
 		onUpdateAvailable(listener) {

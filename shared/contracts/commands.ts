@@ -347,6 +347,10 @@ export type Ai14AllDesktopApi = {
 	};
 	diagnostics: {
 		logShellEvent(event: z.infer<typeof LogShellEventSchema>): Promise<void>;
+		getAgentAttentionStatus(): Promise<{
+			mode: "off" | "sampled" | "full";
+			logsDir: string;
+		}>;
 	};
 	system: {
 		onUpdateAvailable(listener: (info: UpdateInfo) => void): () => void;

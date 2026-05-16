@@ -8,6 +8,10 @@ import { buildApplicationMenu } from "./menu.js";
 import { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 import { createShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
+import {
+	AgentAttentionLogger,
+	type AgentAttentionLogMode,
+} from "../../services/diagnostics/agent-attention-logger.js";
 import { startUpdateNotifier } from "./services/update-notifier.js";
 import { ReviewCommentStore } from "../../services/review/review-comment-store.js";
 import { ReviewCommentService } from "../../services/review/review-comment-service.js";
@@ -41,6 +45,21 @@ app.whenReady().then(async () => {
 		isPackaged: app.isPackaged,
 		appVersion: app.getVersion(),
 		mode: shellEventLogMode,
+	});
+
+	// Agent-attention diagnostics logger. Opt-in only via the
+	// AI14ALL_AGENT_ATTENTION_LOG env var, mirroring the AI14ALL_DEBUG pattern
+	// used for the shell-event log above. Default is `off` (nothing written).
+	const agentAttentionEnv = process.env.AI14ALL_AGENT_ATTENTION_LOG;
+	const agentAttentionLogMode: AgentAttentionLogMode =
+		agentAttentionEnv === "full"
+			? "full"
+			: agentAttentionEnv === "sampled" || agentAttentionEnv === "1"
+				? "sampled"
+				: "off";
+	const agentAttentionLogger = new AgentAttentionLogger({
+		logsDir: app.getPath("logs"),
+		mode: agentAttentionLogMode,
 	});
 	shellEventLog.log({
 		source: "main",
@@ -142,6 +161,7 @@ app.whenReady().then(async () => {
 		workspaceRegistry,
 		worktreeService,
 		shellEventLog,
+		agentAttentionLogger,
 		review: {
 			service: reviewCommentService,
 			mcpStatus: reviewMcpStatus,

@@ -82,6 +82,9 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	},
 	diagnostics: {
 		logShellEvent: vi.fn(() => Promise.resolve()),
+		getAgentAttentionStatus: vi.fn(() =>
+			Promise.resolve({ mode: "off", logsDir: "" }),
+		),
 	},
 	system: {
 		onUpdateAvailable: vi.fn(() => vi.fn()),

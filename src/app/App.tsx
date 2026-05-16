@@ -76,6 +76,7 @@ import { ReviewArea } from "./components/ReviewArea";
 import { SidebarPanel } from "./components/SidebarPanel";
 import { MainColumnChrome } from "./components/MainColumnChrome";
 import { RestoreBanner } from "./components/RestoreBanner";
+import { AgentAttentionBanner } from "./components/AgentAttentionBanner";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -1330,6 +1331,7 @@ export function App() {
 
 	return (
 		<ToastProvider>
+			<AgentAttentionBanner />
 			<main className="shell-app">
 				<RestoreBanner
 					message={restoreWarning}

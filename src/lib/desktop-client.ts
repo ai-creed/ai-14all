@@ -99,6 +99,8 @@ export const workspace: Ai14AllDesktopApi["workspace"] = {
 
 export const diagnostics: Ai14AllDesktopApi["diagnostics"] = {
 	logShellEvent: (event) => getDesktopClient().diagnostics.logShellEvent(event),
+	getAgentAttentionStatus: () =>
+		getDesktopClient().diagnostics.getAgentAttentionStatus(),
 };
 
 export const system: Ai14AllDesktopApi["system"] = {

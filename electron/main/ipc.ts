@@ -49,6 +49,7 @@ import {
 import type { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 import type { ShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
+import type { AgentAttentionLogger } from "../../services/diagnostics/agent-attention-logger.js";
 import type { ReviewCommentService } from "../../services/review/review-comment-service.js";
 import type { WorktreePathResolver } from "../../services/review/worktree-path-resolver.js";
 import {
@@ -96,12 +97,14 @@ export function registerIpcHandlers(
 		workspaceRegistry,
 		worktreeService,
 		shellEventLog,
+		agentAttentionLogger,
 		review,
 	}: {
 		workspacePersistence: WorkspacePersistenceService;
 		workspaceRegistry: WorkspaceRegistryService;
 		worktreeService: WorktreeService;
 		shellEventLog?: ShellEventLogService;
+		agentAttentionLogger?: AgentAttentionLogger;
 		review: {
 			service: ReviewCommentService;
 			mcpStatus: {
@@ -443,6 +446,11 @@ export function registerIpcHandlers(
 		if (!parsed.success) return;
 		shellEventLog?.log(parsed.data);
 	});
+
+	ipcMain.handle("diagnostics:getAgentAttentionStatus", () => ({
+		mode: agentAttentionLogger?.getMode() ?? "off",
+		logsDir: agentAttentionLogger?.getLogsDir() ?? "",
+	}));
 
 	// --- Review Comments ---
 
