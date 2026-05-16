@@ -21,7 +21,8 @@
 		"test:all": "pnpm test && pnpm test:e2e",
 		"package:mac": "pnpm build && electron-builder --mac zip dmg --publish never",
 		"release:beta": "node scripts/release-beta.mjs",
-		"release:stable": "node scripts/release-stable.mjs"
+		"release:stable": "node scripts/release-stable.mjs",
+		"diag:attention": "node scripts/dump-attention-log.mjs"
 	},
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.29.0",
