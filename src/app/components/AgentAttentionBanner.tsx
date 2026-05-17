@@ -24,7 +24,7 @@ export function AgentAttentionBanner(): null {
 				if (status.mode !== "full") return;
 				shown.current = true;
 				toast.show(
-					`Raw terminal output is being captured to ${status.logsDir}/agent-attention-*.jsonl (diagnostics mode = full). Disable in Settings → Diagnostics if you don't want this active.`,
+					`Raw terminal output is being captured to ${status.logsDir}/agent-attention-*.jsonl (diagnostics mode = full). Unset the AI14ALL_AGENT_ATTENTION_LOG environment variable and relaunch to disable.`,
 				);
 			})
 			.catch(() => {
