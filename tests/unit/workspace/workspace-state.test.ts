@@ -1675,6 +1675,76 @@ describe("session/reportAgentAttention — task field", () => {
 		});
 		expect(next.sessionsByWorktreeId["main"].task).toBe("Review spec X");
 	});
+
+	it("does not overwrite task when a stale/rejected MCP push arrives", () => {
+		const initial = createWorkspaceState(worktrees);
+		// Accepted push at reportedAt 2000 sets the visible task "Mission A".
+		const seeded = workspaceReducer(initial, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "active",
+				source: "mcp",
+				summary: "running",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+			task: "Mission A",
+		});
+		expect(seeded.sessionsByWorktreeId["main"].task).toBe("Mission A");
+
+		// Stale push: older reportedAt (1000 < 2000) → rejected by
+		// shouldReplaceAgentAttentionReason. Its task must NOT clobber the
+		// visible task, and the mcp reason must be unchanged — a fully no-op.
+		const stale = workspaceReducer(seeded, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "waiting",
+				source: "mcp",
+				summary: "stale out-of-order report",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+			task: "Stale B",
+		});
+		expect(stale.sessionsByWorktreeId["main"].task).toBe("Mission A");
+		expect(
+			stale.sessionsByWorktreeId["main"].agentAttentionReasons.mcp,
+		).toEqual(seeded.sessionsByWorktreeId["main"].agentAttentionReasons.mcp);
+		expect(stale.sessionsByWorktreeId["main"].agentAttentionReasons.mcp?.state).toBe(
+			"active",
+		);
+	});
+
+	it("updates task on an accepted (newer) MCP push", () => {
+		const initial = createWorkspaceState(worktrees);
+		const seeded = workspaceReducer(initial, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "active",
+				source: "mcp",
+				summary: "running",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+			task: "Mission A",
+		});
+		const next = workspaceReducer(seeded, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "waiting",
+				source: "mcp",
+				summary: "now waiting",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+			task: "Mission B",
+		});
+		expect(next.sessionsByWorktreeId["main"].task).toBe("Mission B");
+	});
 });
 
 describe("session/reportAgentAttention — MCP push clears stale terminal failed", () => {

@@ -958,9 +958,15 @@ export function workspaceReducer(
 		if (replaced) {
 			updatedReasons[action.reason.source] = action.reason;
 		}
+		// Task only updates when the push was accepted (`replaced`). A stale /
+		// out-of-order MCP push (older `reportedAt`) is rejected, so it must NOT
+		// overwrite the visible task — leave `session.task` untouched, making a
+		// fully-rejected push a no-op for this field too. When accepted:
 		// undefined leaves task alone; null clears it; a string sets it.
 		const nextTask =
-			action.task === undefined ? session.task : action.task;
+			replaced && action.task !== undefined
+				? action.task
+				: session.task;
 		let nextProcessSessionsById = state.processSessionsById;
 		// `source === "mcp"` is guaranteed by the early return above. Only an
 		// *accepted* non-failed MCP push clears stale terminal `failed`; a

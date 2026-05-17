@@ -184,6 +184,15 @@ const DEFAULT_FILE_CAP_BYTES = 10 * 1024 * 1024;
 const RETENTION_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Hard upper bound on total bytes across all `agent-attention-*` files. The
+// 7-day date prune is the primary cleanup, but per-day size rollover is
+// otherwise unbounded (one busy full-mode day can spawn many `.N` chunks
+// within the retention window). This budget is the backstop that enforces the
+// spec's ~70 MB worst case. It scales with the (injectable) per-file cap so it
+// stays proportional: default 7 * 10 MB = 70 MB; with a tiny test cap it
+// scales down so the bound is testable.
+const MAX_TOTAL_BYTES_FACTOR = RETENTION_DAYS;
+
 // agent-attention-YYYY-MM-DD.jsonl OR agent-attention-YYYY-MM-DD.N.jsonl
 const FILE_NAME_RE = /^agent-attention-(\d{4})-(\d{2})-(\d{2})(?:\.\d+)?\.jsonl$/;
 
@@ -199,6 +208,7 @@ export class AgentAttentionLogger {
 	private readonly mode: AgentAttentionLogMode;
 	private readonly now: () => Date;
 	private readonly fileCapBytes: number;
+	private readonly maxTotalBytes: number;
 	private disabled = false;
 
 	constructor(options: AgentAttentionLoggerOptions) {
@@ -206,11 +216,13 @@ export class AgentAttentionLogger {
 		this.mode = options.mode;
 		this.now = options.now ?? (() => new Date());
 		this.fileCapBytes = options.fileCapBytes ?? DEFAULT_FILE_CAP_BYTES;
+		this.maxTotalBytes = this.fileCapBytes * MAX_TOTAL_BYTES_FACTOR;
 
 		if (this.mode === "off") return;
 
 		mkdirSync(this.logsDir, { recursive: true });
 		this.pruneOldFiles();
+		this.enforceTotalSizeBudget();
 
 		if (this.mode === "full") {
 			this.writeFullModeHeader();
@@ -264,6 +276,10 @@ export class AgentAttentionLogger {
 			// always present and the freshest data lives in it.
 			if (existsSync(path) && statSync(path).size >= this.fileCapBytes) {
 				this.rolloverCurrent();
+				// A rollover just created another `.N` chunk. Same-day rollover
+				// is unbounded on its own, so enforce the total-size backstop
+				// here too (not just on init) to keep disk hard-bounded.
+				this.enforceTotalSizeBudget();
 			}
 			appendFileSync(path, `${JSON.stringify(record)}\n`, "utf8");
 		} catch (e) {
@@ -283,10 +299,12 @@ export class AgentAttentionLogger {
 	}
 
 	private dateStamp(): string {
+		// Spec requires daily rotation by *local* calendar date, so 00:00-06:59
+		// in timezones west of UTC do not write under the previous day's file.
 		const d = this.now();
-		const y = d.getUTCFullYear();
-		const m = `${d.getUTCMonth() + 1}`.padStart(2, "0");
-		const day = `${d.getUTCDate()}`.padStart(2, "0");
+		const y = d.getFullYear();
+		const m = `${d.getMonth() + 1}`.padStart(2, "0");
+		const day = `${d.getDate()}`.padStart(2, "0");
 		return `${y}-${m}-${day}`;
 	}
 
@@ -308,16 +326,19 @@ export class AgentAttentionLogger {
 	}
 
 	private pruneOldFiles(): void {
-		// Compare by calendar date (UTC midnight) so retention is deterministic
-		// regardless of the wall-clock time-of-day in `now()`. A file is pruned
-		// when its filename date is strictly more than RETENTION_DAYS days
-		// before today's date.
+		// Compare by *local* calendar date so retention boundaries line up with
+		// the user's wall calendar (matching the local-date filename stamp) and
+		// stay deterministic regardless of the time-of-day in `now()`. A file is
+		// pruned when its filename date is strictly more than RETENTION_DAYS
+		// days before today's local date. Both sides use a local-midnight
+		// timestamp (year/month/day via the local-date `Date` constructor), so
+		// the day arithmetic is in local-calendar terms, not UTC ms.
 		const today = this.now();
-		const todayMidnight = Date.UTC(
-			today.getUTCFullYear(),
-			today.getUTCMonth(),
-			today.getUTCDate(),
-		);
+		const todayMidnight = new Date(
+			today.getFullYear(),
+			today.getMonth(),
+			today.getDate(),
+		).getTime();
 		const cutoff = todayMidnight - RETENTION_DAYS * DAY_MS;
 		let entries: string[];
 		try {
@@ -329,13 +350,84 @@ export class AgentAttentionLogger {
 			const match = FILE_NAME_RE.exec(entry);
 			if (!match) continue;
 			const [, y, m, d] = match;
-			const fileTime = Date.UTC(Number(y), Number(m) - 1, Number(d));
+			const fileTime = new Date(
+				Number(y),
+				Number(m) - 1,
+				Number(d),
+			).getTime();
 			if (fileTime < cutoff) {
 				try {
 					rmSync(join(this.logsDir, entry), { force: true });
 				} catch {
 					// Best-effort: skip files we cannot remove.
 				}
+			}
+		}
+	}
+
+	/**
+	 * Hard backstop on total disk: while the combined size of all
+	 * `agent-attention-*` files exceeds {@link maxTotalBytes}, delete the
+	 * genuinely-oldest file first.
+	 *
+	 * Eviction order (oldest-events-first, so the freshest telemetry survives):
+	 *   1. oldest filename date first;
+	 *   2. within a date, lower rollover index first — the logger appends to
+	 *      the base file and, on hitting the per-file cap, renames the base to
+	 *      the lowest free `.N`. So `.1` holds the day's oldest rolled-out
+	 *      events, `.2` newer, ... and the *base* (no `.N`) holds the freshest.
+	 *      Hence within a date we evict `.1`, `.2`, ..., `.N`, and the base
+	 *      LAST (rank: base = +Infinity so it is the last to go).
+	 *
+	 * This complements (does not replace) the 7-day date prune, which remains
+	 * the primary cleanup; this is purely the size hard-bound.
+	 */
+	private enforceTotalSizeBudget(): void {
+		let entries: string[];
+		try {
+			entries = readdirSync(this.logsDir);
+		} catch {
+			return;
+		}
+		const files: {
+			name: string;
+			date: string;
+			roll: number;
+			size: number;
+		}[] = [];
+		let total = 0;
+		for (const entry of entries) {
+			const match = FILE_NAME_RE.exec(entry);
+			if (!match) continue;
+			const [, y, m, d] = match;
+			// Base file (no `.N`) holds the freshest events of the day, so it
+			// must be the LAST evicted within its date → rank it +Infinity.
+			const rollMatch = /\.(\d+)\.jsonl$/.exec(entry);
+			const roll = rollMatch
+				? Number.parseInt(rollMatch[1], 10)
+				: Number.POSITIVE_INFINITY;
+			let size: number;
+			try {
+				size = statSync(join(this.logsDir, entry)).size;
+			} catch {
+				continue;
+			}
+			files.push({ name: entry, date: `${y}-${m}-${d}`, roll, size });
+			total += size;
+		}
+		if (total <= this.maxTotalBytes) return;
+		// Oldest first: older date first, then lower rollover index (base last).
+		files.sort((a, b) => {
+			if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+			return a.roll - b.roll;
+		});
+		for (const f of files) {
+			if (total <= this.maxTotalBytes) break;
+			try {
+				rmSync(join(this.logsDir, f.name), { force: true });
+				total -= f.size;
+			} catch {
+				// Best-effort: skip files we cannot remove.
 			}
 		}
 	}
