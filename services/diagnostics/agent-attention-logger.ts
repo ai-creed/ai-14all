@@ -54,12 +54,25 @@ export type MCPLogEvent = {
 
 /**
  * A process lifecycle event: an agent process started or exited.
+ *
+ * `terminalSessionId` is the backend `TerminalSession.id` (the PTY-backed
+ * session in the terminal service), NOT the renderer `ProcessSession.id` that
+ * `classifier`/`resolution` events carry in their `processId` field. The two
+ * are independent id spaces (the renderer mints `ProcessSession.id` via
+ * `crypto.randomUUID()` only AFTER the terminal session is created, and stores
+ * the terminal id separately as `ProcessSession.terminalSessionId`). The field
+ * was previously named `processId`, which falsely implied it could be joined to
+ * classifier/resolution `processId` directly — it cannot. It is named
+ * `terminalSessionId` here so the join semantics are honest: lifecycle events
+ * correlate to classifier/resolution events by `worktreeId` + time window, and
+ * additionally map to a concrete `ProcessSession` via that session's
+ * `terminalSessionId` field.
  */
 export type LifecycleLogEvent = {
 	type: "lifecycle";
 	ts: number;
 	worktreeId: string;
-	processId: string;
+	terminalSessionId: string;
 	provider: "claude" | "codex" | "other" | null;
 	state: "active" | "failed";
 	exitCode: number | null;
@@ -122,7 +135,7 @@ const LifecycleLogEventSchema = z.object({
 	type: z.literal("lifecycle"),
 	ts: z.number(),
 	worktreeId: z.string(),
-	processId: z.string(),
+	terminalSessionId: z.string(),
 	provider: ProviderSchema,
 	state: z.enum(["active", "failed"]),
 	exitCode: z.number().nullable(),

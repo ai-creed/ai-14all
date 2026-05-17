@@ -63,10 +63,17 @@ export class TerminalService {
 	 * spawn/exit path. `provider` is `null`: this layer spawns a login shell,
 	 * not the agent directly, so the running provider is unknown here (same
 	 * rationale as the MCP-side null-provider emits).
+	 *
+	 * The id carried is this service's backend `TerminalSession.id`, emitted as
+	 * `terminalSessionId` (NOT `processId`). The renderer `ProcessSession.id`
+	 * that classifier/resolution events use is an independent id minted in the
+	 * renderer only after `create()` returns, so it is not available here.
+	 * Analysts join lifecycle to classifier/resolution by `worktreeId` + time,
+	 * and to a concrete `ProcessSession` via its `terminalSessionId` field.
 	 */
 	private emitLifecycle(
 		worktreeId: string,
-		processId: string,
+		terminalSessionId: string,
 		state: "active" | "failed",
 		exitCode: number | null,
 	): void {
@@ -75,7 +82,7 @@ export class TerminalService {
 				type: "lifecycle",
 				ts: Date.now(),
 				worktreeId,
-				processId,
+				terminalSessionId,
 				provider: null,
 				state,
 				exitCode,

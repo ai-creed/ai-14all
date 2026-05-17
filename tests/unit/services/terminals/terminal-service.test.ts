@@ -326,7 +326,7 @@ describe("TerminalService", () => {
 				expect.objectContaining({
 					type: "lifecycle",
 					worktreeId: "wt-1",
-					processId: session.id,
+					terminalSessionId: session.id,
 					provider: null,
 					state: "active",
 					exitCode: null,
@@ -366,7 +366,7 @@ describe("TerminalService", () => {
 			expect(appendMock).toHaveBeenCalledWith(
 				expect.objectContaining({
 					type: "lifecycle",
-					processId: clean.id,
+					terminalSessionId: clean.id,
 					state: "active",
 					exitCode: 0,
 				}),
@@ -377,7 +377,7 @@ describe("TerminalService", () => {
 			expect(appendMock).toHaveBeenCalledWith(
 				expect.objectContaining({
 					type: "lifecycle",
-					processId: fail.id,
+					terminalSessionId: fail.id,
 					state: "failed",
 					exitCode: 1,
 				}),

@@ -241,7 +241,12 @@ export type DiagnosticsAttentionLogEvent =
 			type: "lifecycle";
 			ts: number;
 			worktreeId: string;
-			processId: string;
+			// Backend `TerminalSession.id` — NOT the renderer `ProcessSession.id`
+			// that classifier/resolution carry as `processId`. Joins to those
+			// events by `worktreeId` + time (and to a `ProcessSession` via its
+			// `terminalSessionId`). See `LifecycleLogEvent` in
+			// services/diagnostics/agent-attention-logger.ts for the rationale.
+			terminalSessionId: string;
 			provider: AttentionLogProvider;
 			state: "active" | "failed";
 			exitCode: number | null;
