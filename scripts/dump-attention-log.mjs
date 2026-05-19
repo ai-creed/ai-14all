@@ -61,7 +61,11 @@ const FILE_NAME_RE = /^agent-attention-(\d{4}-\d{2}-\d{2})(?:\.(\d+))?\.jsonl$/;
  * injectable seams so the per-OS branches stay unit-testable without
  * mocking `node:os`; they default to the real runtime values.
  */
-export function logsDir(plat = platform(), home = homedir(), env = process.env) {
+export function logsDir(
+	plat = platform(),
+	home = homedir(),
+	env = process.env,
+) {
 	if (plat === "darwin") {
 		return join(home, "Library/Logs/ai-14all");
 	}

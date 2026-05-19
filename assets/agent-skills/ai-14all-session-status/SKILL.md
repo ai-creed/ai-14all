@@ -12,6 +12,7 @@ indicator. Help the user track what you're doing by pushing your state via the
 ## When to push
 
 ### 1. Task start
+
 Whenever the user gives you a new high-level mission (not a sub-step of an
 existing mission), push immediately:
 
@@ -26,6 +27,7 @@ report_session_status({
 ```
 
 ### 2. Waiting on user input
+
 Whenever you have to stop and ask the user something:
 
 ```
@@ -39,6 +41,7 @@ report_session_status({
 ```
 
 ### 3. Task complete
+
 When the mission is done and you're presenting the result:
 
 ```
@@ -52,6 +55,7 @@ report_session_status({
 ```
 
 ### 4. Task failed or aborted
+
 When you cannot continue without user input or have given up:
 
 ```
@@ -65,6 +69,7 @@ report_session_status({
 ```
 
 ### 5. Task pivot
+
 When the user explicitly redirects you mid-stream to a different mission, push
 the same shape as Task start with the NEW `task` value.
 

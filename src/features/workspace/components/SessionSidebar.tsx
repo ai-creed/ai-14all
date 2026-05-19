@@ -249,10 +249,7 @@ export function SessionSidebar({
 								const task = workspace.taskByWorktreeId?.[worktree.id];
 								const taskLine =
 									!isRenamingThisRow && !collapsed && task ? (
-										<div
-											className="shell-sidebar__card-task"
-											title={task}
-										>
+										<div className="shell-sidebar__card-task" title={task}>
 											{task}
 										</div>
 									) : null;

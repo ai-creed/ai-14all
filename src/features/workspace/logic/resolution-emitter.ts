@@ -22,7 +22,10 @@ export type DisplayedAttentionEntry = {
 };
 
 /** Map keyed by worktreeId — the renderer's per-render displayed-attention. */
-export type DisplayedAttentionSnapshot = Record<string, DisplayedAttentionEntry>;
+export type DisplayedAttentionSnapshot = Record<
+	string,
+	DisplayedAttentionEntry
+>;
 
 /**
  * A resolution event payload minus the `ts` (the caller stamps `Date.now()`
@@ -43,9 +46,11 @@ export type ResolutionChange = Omit<
 	"ts"
 >;
 
-function toSnapshot(
-	entry: DisplayedAttentionEntry,
-): { state: string; source: string; summary?: string } {
+function toSnapshot(entry: DisplayedAttentionEntry): {
+	state: string;
+	source: string;
+	summary?: string;
+} {
 	return entry.summary === undefined
 		? { state: entry.state, source: entry.source }
 		: { state: entry.state, source: entry.source, summary: entry.summary };
@@ -62,9 +67,7 @@ function displayedEqual(
 	b: DisplayedAttentionEntry,
 ): boolean {
 	return (
-		a.state === b.state &&
-		a.source === b.source &&
-		a.summary === b.summary
+		a.state === b.state && a.source === b.source && a.summary === b.summary
 	);
 }
 

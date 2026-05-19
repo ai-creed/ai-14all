@@ -951,10 +951,7 @@ export function workspaceReducer(
 		const updatedReasons: AgentAttentionReasonsBySource = {
 			...session.agentAttentionReasons,
 		};
-		const replaced = shouldReplaceAgentAttentionReason(
-			current,
-			action.reason,
-		);
+		const replaced = shouldReplaceAgentAttentionReason(current, action.reason);
 		if (replaced) {
 			updatedReasons[action.reason.source] = action.reason;
 		}
@@ -964,19 +961,16 @@ export function workspaceReducer(
 		// fully-rejected push a no-op for this field too. When accepted:
 		// undefined leaves task alone; null clears it; a string sets it.
 		const nextTask =
-			replaced && action.task !== undefined
-				? action.task
-				: session.task;
+			replaced && action.task !== undefined ? action.task : session.task;
 		let nextProcessSessionsById = state.processSessionsById;
 		// `source === "mcp"` is guaranteed by the early return above. Only an
 		// *accepted* non-failed MCP push clears stale terminal `failed`; a
 		// rejected (stale / out-of-order) push must have no side effects.
 		if (replaced && action.reason.state !== "failed") {
-			nextProcessSessionsById =
-				clearStaleTerminalFailedForSessionProcesses(
-					state.processSessionsById,
-					session.processSessionIds,
-				);
+			nextProcessSessionsById = clearStaleTerminalFailedForSessionProcesses(
+				state.processSessionsById,
+				session.processSessionIds,
+			);
 		}
 		const base: WorktreeSession = {
 			...session,

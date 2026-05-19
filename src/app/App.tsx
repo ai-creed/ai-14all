@@ -1295,9 +1295,7 @@ export function App() {
 							provider: topRow?.provider ?? null,
 							state: display.state,
 							source: display.source,
-							...(display.context
-								? { summary: display.context }
-								: {}),
+							...(display.context ? { summary: display.context } : {}),
 						};
 					}
 					return {

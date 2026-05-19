@@ -191,11 +191,7 @@ export function useProcessActions(options: Options): UseProcessActions {
 					agentAttentionReasons: {},
 					agentAttentionClearedAt: null,
 					agentDetected: isAgentProcess(preset.label, preset.command),
-					provider: detectAgentProvider(
-						preset.command,
-						preset.label,
-						null,
-					),
+					provider: detectAgentProvider(preset.command, preset.label, null),
 				},
 			});
 			await sendInput(terminal.id, `${preset.command}\n`);

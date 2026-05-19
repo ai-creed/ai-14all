@@ -82,10 +82,7 @@ export type ClassifierTelemetryEvent = {
 	// of the IPC contract's classifier state union but is derived elsewhere
 	// (deriveStale), never produced by classifyOutput — kept here so the emit
 	// payload matches the channel contract without a cast at the callsite.
-	state: Extract<
-		AgentAttentionState,
-		"waiting" | "ready" | "failed" | "stale"
-	>;
+	state: Extract<AgentAttentionState, "waiting" | "ready" | "failed" | "stale">;
 	matchedPattern: string;
 	inputSample: string;
 	inputPrev: string;
@@ -95,10 +92,7 @@ export type ClassifyOutputOptions = {
 	emit?: (event: ClassifierTelemetryEvent) => void;
 };
 
-function firstMatch(
-	patterns: readonly RegExp[],
-	text: string,
-): RegExp | null {
+function firstMatch(patterns: readonly RegExp[], text: string): RegExp | null {
 	for (const p of patterns) {
 		if (p.test(text)) return p;
 	}
@@ -114,8 +108,7 @@ export function classifyOutput(
 
 	const waiting = firstMatch(WAITING_PATTERNS, text);
 	const failed = waiting ? null : firstMatch(FAILED_PATTERNS, text);
-	const ready =
-		waiting || failed ? null : firstMatch(READY_PATTERNS, text);
+	const ready = waiting || failed ? null : firstMatch(READY_PATTERNS, text);
 
 	let state: ClassifierTelemetryEvent["state"];
 	let matched: RegExp;

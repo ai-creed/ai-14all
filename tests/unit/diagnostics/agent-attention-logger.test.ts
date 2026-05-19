@@ -299,10 +299,7 @@ describe("AgentAttentionLogger", () => {
 		// local noon so DST shifts can't flip the calendar day).
 		const now = new Date(2026, 4, 15, 12, 0, 0); // local noon, May 15
 		const dayFile = (daysAgo: number, roll?: number): string =>
-			localFile(
-				new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000),
-				roll,
-			);
+			localFile(new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000), roll);
 		const seeded: { name: string; daysAgo: number }[] = [
 			{ name: dayFile(14), daysAgo: 14 },
 			{ name: dayFile(11), daysAgo: 11 },

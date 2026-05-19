@@ -102,9 +102,7 @@ export type AttentionLogEvent =
 	| LifecycleLogEvent
 	| ResolutionLogEvent;
 
-const ProviderSchema = z
-	.enum(["claude", "codex", "other"])
-	.nullable();
+const ProviderSchema = z.enum(["claude", "codex", "other"]).nullable();
 
 const ClassifierLogEventSchema = z.object({
 	type: z.literal("classifier"),
@@ -207,7 +205,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_TOTAL_BYTES_FACTOR = RETENTION_DAYS;
 
 // agent-attention-YYYY-MM-DD.jsonl OR agent-attention-YYYY-MM-DD.N.jsonl
-const FILE_NAME_RE = /^agent-attention-(\d{4})-(\d{2})-(\d{2})(?:\.\d+)?\.jsonl$/;
+const FILE_NAME_RE =
+	/^agent-attention-(\d{4})-(\d{2})-(\d{2})(?:\.\d+)?\.jsonl$/;
 
 export type AgentAttentionLoggerOptions = {
 	logsDir: string;
@@ -253,8 +252,7 @@ export class AgentAttentionLogger {
 		const meta = {
 			type: "_meta",
 			ts: this.now().getTime(),
-			warning:
-				"full mode: raw terminal output is being captured to this file",
+			warning: "full mode: raw terminal output is being captured to this file",
 		};
 		try {
 			appendFileSync(
@@ -279,8 +277,7 @@ export class AgentAttentionLogger {
 	async append(event: AttentionLogEvent): Promise<void> {
 		if (this.mode === "off" || this.disabled) return;
 
-		const record =
-			this.mode === "sampled" ? this.redact(event) : event;
+		const record = this.mode === "sampled" ? this.redact(event) : event;
 
 		try {
 			const path = this.currentFilePath();
@@ -363,11 +360,7 @@ export class AgentAttentionLogger {
 			const match = FILE_NAME_RE.exec(entry);
 			if (!match) continue;
 			const [, y, m, d] = match;
-			const fileTime = new Date(
-				Number(y),
-				Number(m) - 1,
-				Number(d),
-			).getTime();
+			const fileTime = new Date(Number(y), Number(m) - 1, Number(d)).getTime();
 			if (fileTime < cutoff) {
 				try {
 					rmSync(join(this.logsDir, entry), { force: true });

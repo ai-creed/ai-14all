@@ -1712,9 +1712,9 @@ describe("session/reportAgentAttention — task field", () => {
 		expect(
 			stale.sessionsByWorktreeId["main"].agentAttentionReasons.mcp,
 		).toEqual(seeded.sessionsByWorktreeId["main"].agentAttentionReasons.mcp);
-		expect(stale.sessionsByWorktreeId["main"].agentAttentionReasons.mcp?.state).toBe(
-			"active",
-		);
+		expect(
+			stale.sessionsByWorktreeId["main"].agentAttentionReasons.mcp?.state,
+		).toBe("active");
 	});
 
 	it("updates task on an accepted (newer) MCP push", () => {
@@ -1830,8 +1830,8 @@ describe("session/reportAgentAttention — MCP push clears stale terminal failed
 		});
 
 		expect(
-			state.processSessionsById["proc-clear-2"]?.agentAttentionReasons
-				.lifecycle?.state,
+			state.processSessionsById["proc-clear-2"]?.agentAttentionReasons.lifecycle
+				?.state,
 		).toBe("failed");
 	});
 

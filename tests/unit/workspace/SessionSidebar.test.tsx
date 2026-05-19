@@ -199,10 +199,7 @@ describe("SessionSidebar — task and provider rendering", () => {
 		const taskEl = container.querySelector(".shell-sidebar__card-task");
 		expect(taskEl).toBeInTheDocument();
 		expect(taskEl).toHaveTextContent("Implement the sidebar task line");
-		expect(taskEl).toHaveAttribute(
-			"title",
-			"Implement the sidebar task line",
-		);
+		expect(taskEl).toHaveAttribute("title", "Implement the sidebar task line");
 	});
 
 	it("does not render task line when taskByWorktreeId[worktreeId] is null", () => {

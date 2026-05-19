@@ -123,10 +123,7 @@ async function getVisibleTerminalSessionId(): Promise<string | null> {
  * same documented mismatch behind the originally-skipped "Clear failed"
  * test), so callers that own a fresh shell can poll on this.
  */
-async function trySendInput(
-	sessionId: string,
-	data: string,
-): Promise<boolean> {
+async function trySendInput(sessionId: string, data: string): Promise<boolean> {
 	return page.evaluate<boolean, { sid: string; data: string }>(
 		async ({ sid, data: payload }) => {
 			try {

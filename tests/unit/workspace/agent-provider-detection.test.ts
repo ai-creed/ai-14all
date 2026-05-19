@@ -3,7 +3,9 @@ import { detectAgentProvider } from "../../../src/features/workspace/logic/agent
 
 describe("detectAgentProvider", () => {
 	it("identifies claude from command line", () => {
-		expect(detectAgentProvider("claude --help", undefined, null)).toBe("claude");
+		expect(detectAgentProvider("claude --help", undefined, null)).toBe(
+			"claude",
+		);
 		expect(detectAgentProvider("/usr/local/bin/claude", undefined, null)).toBe(
 			"claude",
 		);
