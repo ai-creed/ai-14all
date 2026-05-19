@@ -4,6 +4,14 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] – 2026-05-19
+
+### Fixed
+
+- **Sidebar card no longer shows a stale "cooking" state for an idle agent.** Two defects let the worktree card stay orange/active after an agent had gone idle:
+  - The terminal classifier treated the persistent agent-CLI mode footer (the `… (shift+tab to cycle)` line, e.g. "bypass permissions on") as ordinary `active` output. Because the TUI repaints that footer continuously, the process was pinned to `activity` forever. Footer-only redraws now produce no attention signal.
+  - An accepted non-`failed` MCP `report_session_status` push now supersedes **any** stale terminal-classifier reason (`waiting`/`active`/`ready`/`failed`), not just `failed`. The agent's own self-report is authoritative; a real non-zero process exit (`lifecycle` failed) is still preserved. This generalizes the v0.5.0 stale-`failed` clear and makes the self-report a reliable backstop.
+
 ## [0.5.0] – 2026-05-19
 
 ### Added
