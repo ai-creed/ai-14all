@@ -240,12 +240,15 @@ function recalculateWorktreeAttention(
 	return "idle";
 }
 
-// When the agent reports a non-failed state via MCP, any lingering terminal
-// `failed` reason on the session's processes is stale heuristic noise (the
-// regex classifier matched the word "error"/"failed" in benign output). Clear
-// it and recompute the affected processes' attention. `lifecycle` failed (the
-// process actually exited non-zero) is authoritative and left untouched.
-function clearStaleTerminalFailedForSessionProcesses(
+// When the agent reports a non-failed state via MCP, its own self-report is
+// authoritative and supersedes ANY lingering terminal-classifier reason on the
+// session's processes — a stale `failed` (benign "error"/"failed" regex match),
+// a stale `waiting` (an answered prompt that never decayed), or a perpetual
+// `active` (TUI footer repaint). All are heuristic noise once the agent has
+// explicitly stated its state. Drop the terminal reason and recompute the
+// affected processes' attention. `lifecycle` failed (the process actually
+// exited non-zero) is authoritative and left untouched.
+function clearStaleTerminalReasonsForSessionProcesses(
 	processSessionsById: Record<string, ProcessSession>,
 	processSessionIds: string[],
 ): Record<string, ProcessSession> {
@@ -254,7 +257,7 @@ function clearStaleTerminalFailedForSessionProcesses(
 	for (const id of processSessionIds) {
 		const process = next[id];
 		if (!process) continue;
-		if (process.agentAttentionReasons.terminal?.state !== "failed") continue;
+		if (!process.agentAttentionReasons.terminal) continue;
 		const { terminal: _removed, ...remainingReasons } =
 			process.agentAttentionReasons;
 		const nextAgent = rankAgentAttention(remainingReasons, false);
@@ -964,10 +967,10 @@ export function workspaceReducer(
 			replaced && action.task !== undefined ? action.task : session.task;
 		let nextProcessSessionsById = state.processSessionsById;
 		// `source === "mcp"` is guaranteed by the early return above. Only an
-		// *accepted* non-failed MCP push clears stale terminal `failed`; a
+		// *accepted* non-failed MCP push clears stale terminal reasons; a
 		// rejected (stale / out-of-order) push must have no side effects.
 		if (replaced && action.reason.state !== "failed") {
-			nextProcessSessionsById = clearStaleTerminalFailedForSessionProcesses(
+			nextProcessSessionsById = clearStaleTerminalReasonsForSessionProcesses(
 				state.processSessionsById,
 				session.processSessionIds,
 			);

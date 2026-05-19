@@ -99,11 +99,28 @@ function firstMatch(patterns: readonly RegExp[], text: string): RegExp | null {
 	return null;
 }
 
+// Claude Code (and similar TUIs) render a persistent mode footer line such as
+// "⏵⏵ bypass permissions on (shift+tab to cycle)" / "⏵⏵ accept edits on (…)" /
+// "⏸ plan mode on (…)". It repaints on every redraw even while the agent sits
+// idle at the prompt. Classifying that chrome as `active` pins the process at
+// "activity" forever (the perpetual-cooking card). The "(shift+tab to cycle)"
+// suffix is the stable signature across all three modes. Strip those lines
+// before classifying so a redraw-only chunk yields no signal (null). RC2
+// (MCP supersede) is the backstop if the footer wording ever drifts.
+const MODE_FOOTER_LINE = /\(\s*shift\s*\+\s*tab to cycle\s*\)/i;
+
+function stripModeFooter(chunk: string): string {
+	return chunk
+		.split("\n")
+		.filter((line) => !MODE_FOOTER_LINE.test(line))
+		.join("\n");
+}
+
 export function classifyOutput(
 	chunk: string,
 	options?: ClassifyOutputOptions,
 ): AgentAttentionState | null {
-	const text = chunk.trim();
+	const text = stripModeFooter(chunk).trim();
 	if (text.length === 0) return null;
 
 	const waiting = firstMatch(WAITING_PATTERNS, text);

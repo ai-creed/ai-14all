@@ -89,6 +89,48 @@ describe("classifyOutput", () => {
 	});
 });
 
+describe("classifyOutput — Claude Code mode footer (RC1)", () => {
+	it("does not classify the persistent bypass-permissions footer as waiting", () => {
+		expect(
+			classifyOutput("⏵⏵ bypass permissions on (shift+tab to cycle)"),
+		).toBeNull();
+	});
+	it("does not classify the accept-edits footer as waiting", () => {
+		expect(
+			classifyOutput("⏵⏵ accept edits on (shift+tab to cycle)"),
+		).toBeNull();
+	});
+	it("does not classify the plan-mode footer as waiting", () => {
+		expect(classifyOutput("⏸ plan mode on (shift+tab to cycle)")).toBeNull();
+	});
+	it("ignores the footer but still detects a real failure in the same chunk", () => {
+		expect(
+			classifyOutput(
+				"error: build failed\n⏵⏵ bypass permissions on (shift+tab to cycle)",
+			),
+		).toBe("failed");
+	});
+	it("ignores the footer but still detects completion in the same chunk", () => {
+		expect(
+			classifyOutput(
+				"implementation complete\n⏵⏵ bypass permissions on (shift+tab to cycle)",
+			),
+		).toBe("ready");
+	});
+	it("strips footer but classifies remaining neutral output as active", () => {
+		expect(
+			classifyOutput(
+				"compiling module foo\n⏵⏵ bypass permissions on (shift+tab to cycle)",
+			),
+		).toBe("active");
+	});
+	it("still classifies a genuine permission prompt (not the footer) as waiting", () => {
+		expect(classifyOutput("Grant write permission to continue? (yes/no)")).toBe(
+			"waiting",
+		);
+	});
+});
+
 describe("classifyOutput — telemetry", () => {
 	it("emits a classifier event when verdict is non-active", () => {
 		const emitted: unknown[] = [];
