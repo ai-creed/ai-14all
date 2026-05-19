@@ -1959,6 +1959,188 @@ describe("session/reportAgentAttention — MCP push clears stale terminal failed
 	});
 });
 
+describe("session/reportAgentAttention — MCP push supersedes stale terminal reason (RC2)", () => {
+	function seedProcess(processId: string) {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess(processId, "main", "claude", {
+				agentDetected: true,
+			}),
+		});
+		return state;
+	}
+
+	it("removes a stale terminal waiting reason when MCP pushes ready (the lying-card bug)", () => {
+		let state = seedProcess("proc-rc2-1");
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "proc-rc2-1",
+			reason: {
+				source: "terminal",
+				state: "waiting",
+				summary: "answered prompt, never cleared",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		expect(state.processSessionsById["proc-rc2-1"]?.attentionState).toBe(
+			"actionRequired",
+		);
+
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "ready",
+				source: "mcp",
+				summary: "task complete",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+		});
+
+		expect(
+			state.processSessionsById["proc-rc2-1"]?.agentAttentionReasons.terminal,
+		).toBeUndefined();
+		expect(state.processSessionsById["proc-rc2-1"]?.attentionState).not.toBe(
+			"actionRequired",
+		);
+		expect(state.sessionsByWorktreeId["main"].attentionState).not.toBe(
+			"actionRequired",
+		);
+	});
+
+	it("removes a stale terminal active reason when MCP pushes ready (perpetual-cooking)", () => {
+		let state = seedProcess("proc-rc2-2");
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "proc-rc2-2",
+			reason: {
+				source: "terminal",
+				state: "active",
+				summary: "tui repaint",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "ready",
+				source: "mcp",
+				summary: "done",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+		});
+
+		expect(
+			state.processSessionsById["proc-rc2-2"]?.agentAttentionReasons.terminal,
+		).toBeUndefined();
+	});
+
+	it("keeps lifecycle failed but clears terminal waiting on MCP non-failed", () => {
+		let state = seedProcess("proc-rc2-3");
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "proc-rc2-3",
+			reason: {
+				source: "terminal",
+				state: "waiting",
+				summary: "stale prompt",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "proc-rc2-3",
+			reason: {
+				source: "lifecycle",
+				state: "failed",
+				summary: "process exited 1",
+				nextAction: null,
+				reportedAt: 1_500,
+			},
+		});
+
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "ready",
+				source: "mcp",
+				summary: "done",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+		});
+
+		expect(
+			state.processSessionsById["proc-rc2-3"]?.agentAttentionReasons.terminal,
+		).toBeUndefined();
+		expect(
+			state.processSessionsById["proc-rc2-3"]?.agentAttentionReasons.lifecycle
+				?.state,
+		).toBe("failed");
+		expect(state.processSessionsById["proc-rc2-3"]?.attentionState).toBe(
+			"actionRequired",
+		);
+	});
+
+	it("a rejected (older reportedAt) MCP push does NOT clear a fresh terminal waiting", () => {
+		let state = seedProcess("proc-rc2-4");
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "active",
+				source: "mcp",
+				summary: "working",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+		});
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "proc-rc2-4",
+			reason: {
+				source: "terminal",
+				state: "waiting",
+				summary: "real prompt",
+				nextAction: null,
+				reportedAt: 3_000,
+			},
+		});
+
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "ready",
+				source: "mcp",
+				summary: "stale done",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+
+		expect(
+			state.processSessionsById["proc-rc2-4"]?.agentAttentionReasons.terminal
+				?.state,
+		).toBe("waiting");
+	});
+});
+
 describe("session/reportAgentAttention — same-source MCP overwrites without rank gate", () => {
 	it("overwrites previous MCP waiting with later MCP active", () => {
 		const initial = createWorkspaceState(worktrees);
