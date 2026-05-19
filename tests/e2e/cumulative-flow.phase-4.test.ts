@@ -3,6 +3,7 @@ import {
 	expect,
 	_electron as electron,
 	type ElectronApplication,
+	type Locator,
 	type Page,
 } from "@playwright/test";
 import { mkdtempSync, realpathSync, rmSync } from "node:fs";
@@ -81,23 +82,34 @@ test.describe.serial("Cumulative flow — Phase 4", () => {
 				.first(),
 		).toBeVisible({ timeout: 10_000 });
 
-		// Phase 6: clicks inside the review panel use force:true because the xterm
-		// pane in the same column keeps the accessibility tree in flux, causing
-		// Playwright's stability check to time out even when the element is at its
-		// correct position.
-		await page.getByRole("tab", { name: "Changes" }).click({ force: true });
-		await page
-			.getByRole("button", { name: /src\/index\.ts/ })
-			.click({ force: true });
+		// Interactions are scoped to the review rail and gated on readiness rather
+		// than forced. `force:true` was previously used on the theory that the
+		// adjacent xterm pane kept the a11y tree in flux — but force DISABLES
+		// Playwright's auto-scroll and clicks transitional UI, which is what
+		// actually flaked here: clicking a changed-file row before the async git
+		// list rendered, or a target pushed below the fold by xterm layout.
+		// Scoping to `review-rail` (a stable panel separate from the xterm) plus
+		// explicit visibility/selection gates lets normal actionability +
+		// auto-retry absorb any residual churn.
+		const rail = page.getByTestId("review-rail");
+		const clickWhenReady = async (locator: Locator) => {
+			await expect(locator).toBeVisible();
+			await locator.click();
+		};
+
+		const changesTab = rail.getByRole("tab", { name: "Changes" });
+		await clickWhenReady(changesTab);
+		await expect(changesTab).toHaveAttribute("aria-selected", "true");
+		await clickWhenReady(rail.getByRole("button", { name: /src\/index\.ts/ }));
 		await expect(page.getByText("Diff vs HEAD")).toBeVisible();
 
-		await page.getByRole("tab", { name: "Files" }).click({ force: true });
-		await page
-			.getByRole("button", { name: "src", exact: true })
-			.click({ force: true });
-		await page
-			.getByRole("button", { name: "new-file.ts" })
-			.click({ force: true });
+		const filesTab = rail.getByRole("tab", { name: "Files" });
+		await clickWhenReady(filesTab);
+		await expect(filesTab).toHaveAttribute("aria-selected", "true");
+		await clickWhenReady(
+			rail.getByRole("button", { name: "src", exact: true }),
+		);
+		await clickWhenReady(rail.getByRole("button", { name: "new-file.ts" }));
 		await expect(
 			page.locator(".shell-viewer__title").getByText("src/new-file.ts", {
 				exact: true,
