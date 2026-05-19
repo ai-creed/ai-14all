@@ -4,6 +4,22 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] – 2026-05-19
+
+### Added
+
+- **Agent task recall on the session card.** The sidebar session card now shows the high-level task each agent was given, so fanning out across sessions (assign A, switch to B, return to A) no longer loses track of what each agent is doing.
+- **Per-process provider badge.** Each process shows a `[claude]` / `[codex]` badge with a color distinction (Claude orange-ish, codex blue-ish). Provider is detected from the command token (sticky; never downgrades).
+- **`report_session_status` `task` field.** The MCP tool gained an optional `task` field (≤200 chars) so agents report their mission, not just transient state.
+- **Bundled `ai-14all-session-status` skill.** An always-on skill installed to both Claude and codex via the multi-skill installer, instructing agents to report status/task transitions.
+- **Opt-in agent-attention diagnostics.** `AI14ALL_AGENT_ATTENTION_LOG=full|sampled|off` env var (off by default) writes JSONL to the Electron logs dir, with local-date daily rotation, 7-day prune, and a ~70 MB total disk budget. An in-app banner shows when full-mode capture is active.
+- **`pnpm diag:attention` CLI** to inspect the diagnostic log (filters: `--type` / `--state` / `--worktree` / `--provider` / `--days`).
+
+### Fixed
+
+- **Session attention card no longer lies.** An MCP non-`failed` status push now clears a stale terminal-classifier `failed` state — fixing the core bug where the card showed `failed` after an agent (e.g. codex) had actually completed a review successfully.
+- **Resolution emitter hardened against React StrictMode** double-invocation (module-scoped prev-snapshot store; first-appearance resolutions no longer double-emit in dev/E2E).
+
 ## [0.4.0] – 2026-05-15
 
 ### Added
