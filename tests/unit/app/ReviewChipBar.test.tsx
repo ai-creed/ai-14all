@@ -39,7 +39,9 @@ describe("ReviewChipBar", () => {
 
 	it("shows changed count when dirty", () => {
 		render(
-			<ReviewChipBar {...defaultProps({ isDirty: true, changedFileCount: 3 })} />,
+			<ReviewChipBar
+				{...defaultProps({ isDirty: true, changedFileCount: 3 })}
+			/>,
 		);
 		expect(screen.getByText(/3 changed/i)).toBeInTheDocument();
 		expect(screen.queryByText(/clean/i)).not.toBeInTheDocument();
@@ -108,7 +110,9 @@ describe("ReviewChipBar", () => {
 				})}
 			/>,
 		);
-		expect(screen.queryByTestId("review-chipbar-files")).not.toBeInTheDocument();
+		expect(
+			screen.queryByTestId("review-chipbar-files"),
+		).not.toBeInTheDocument();
 		expect(screen.getByText(/2 changed/i).tagName).not.toBe("BUTTON");
 	});
 
@@ -133,14 +137,18 @@ describe("ReviewChipBar", () => {
 
 	it("renders 'N open' as a button when openCommentCount > 0", () => {
 		render(<ReviewChipBar {...defaultProps({ openCommentCount: 3 })} />);
-		expect(screen.getByTestId("review-chipbar-comments").tagName).toBe("BUTTON");
+		expect(screen.getByTestId("review-chipbar-comments").tagName).toBe(
+			"BUTTON",
+		);
 	});
 
 	it("calls onOpenComments when the open-comments chip button is clicked", async () => {
 		const user = userEvent.setup();
 		const onOpenComments = vi.fn();
 		render(
-			<ReviewChipBar {...defaultProps({ openCommentCount: 3, onOpenComments })} />,
+			<ReviewChipBar
+				{...defaultProps({ openCommentCount: 3, onOpenComments })}
+			/>,
 		);
 		await user.click(screen.getByTestId("review-chipbar-comments"));
 		expect(onOpenComments).toHaveBeenCalledTimes(1);

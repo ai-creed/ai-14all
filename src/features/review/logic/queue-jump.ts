@@ -86,7 +86,10 @@ export async function runCommentJump(
 ): Promise<void> {
 	const actions = dispatchActionsForJump(comment);
 	for (const a of actions) deps.dispatch(a);
-	const editor = await waitForEditor(deps.getEditor, deps.editorTimeoutMs ?? 500);
+	const editor = await waitForEditor(
+		deps.getEditor,
+		deps.editorTimeoutMs ?? 500,
+	);
 	if (editor) deps.onResolved(editor);
 	else deps.onMissing();
 }

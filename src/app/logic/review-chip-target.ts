@@ -6,6 +6,8 @@ import type { GitChange } from "../../../shared/models/git-change";
  * "x changed" chip opens Files mode — deleted files render as "file not found"
  * in the FileViewer, so they are never chosen as the default target.
  */
-export function firstViewableChangedFile(changes: GitChange[]): GitChange | null {
+export function firstViewableChangedFile(
+	changes: GitChange[],
+): GitChange | null {
 	return changes.find((c) => c.status !== "D") ?? null;
 }
