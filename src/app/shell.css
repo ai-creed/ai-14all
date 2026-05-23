@@ -3658,6 +3658,28 @@ select {
 	color: var(--text-muted);
 }
 
+.shell-review-chipbar__status--action {
+	border: none;
+	font: inherit;
+	cursor: pointer;
+}
+
+.shell-review-chipbar__status--action:hover {
+	text-decoration: underline;
+}
+
+.shell-review-chipbar__open--action {
+	background: none;
+	border: none;
+	padding: 0;
+	font: inherit;
+	cursor: pointer;
+}
+
+.shell-review-chipbar__open--action:hover {
+	text-decoration: underline;
+}
+
 .shell-review-chipbar__spacer {
 	flex: 1;
 }
