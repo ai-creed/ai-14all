@@ -6,8 +6,12 @@ type Props = {
 	reviewMode: ReviewMode;
 	openCommentCount: number;
 	addressedCommentCount: number;
+	/** True only when the worktree is dirty AND a non-deleted change exists. */
+	canOpenFiles: boolean;
 	onRefresh: () => void;
 	onOpen: () => void;
+	onOpenFiles: () => void;
+	onOpenComments: () => void;
 };
 
 const MODE_LABEL: Record<ReviewMode, string> = {
@@ -22,8 +26,11 @@ export function ReviewChipBar({
 	reviewMode,
 	openCommentCount,
 	addressedCommentCount,
+	canOpenFiles,
 	onRefresh,
 	onOpen,
+	onOpenFiles,
+	onOpenComments,
 }: Props): React.ReactElement {
 	const hasComments = openCommentCount > 0 || addressedCommentCount > 0;
 	return (
@@ -33,9 +40,22 @@ export function ReviewChipBar({
 				{MODE_LABEL[reviewMode]}
 			</span>
 			{isDirty ? (
-				<span className="shell-review-chipbar__status" data-state="dirty">
-					{changedFileCount} changed
-				</span>
+				canOpenFiles ? (
+					<button
+						type="button"
+						className="shell-review-chipbar__status shell-review-chipbar__status--action"
+						data-state="dirty"
+						data-testid="review-chipbar-files"
+						title="Open changed files"
+						onClick={onOpenFiles}
+					>
+						{changedFileCount} changed
+					</button>
+				) : (
+					<span className="shell-review-chipbar__status" data-state="dirty">
+						{changedFileCount} changed
+					</span>
+				)
 			) : (
 				<span className="shell-review-chipbar__status" data-state="clean">
 					✓ clean
@@ -44,9 +64,15 @@ export function ReviewChipBar({
 			{hasComments && (
 				<span className="shell-review-chipbar__comments">
 					{openCommentCount > 0 && (
-						<span className="shell-review-chipbar__open">
+						<button
+							type="button"
+							className="shell-review-chipbar__open shell-review-chipbar__open--action"
+							data-testid="review-chipbar-comments"
+							title="Go to first open comment"
+							onClick={onOpenComments}
+						>
 							{openCommentCount} open
-						</span>
+						</button>
 					)}
 					{addressedCommentCount > 0 && (
 						<span className="shell-review-chipbar__addressed">
