@@ -26,7 +26,6 @@ import type {
 import type { Worktree } from "../../../../shared/models/worktree";
 import type {
 	ReviewMode,
-	TerminalLayoutMode,
 	WorktreeSession,
 } from "../../../../shared/models/worktree-session";
 
@@ -156,23 +155,10 @@ export type WorkspaceAction =
 	  }
 	| { type: "session/clearSelectedCommit"; worktreeId: string }
 	| {
-			type: "session/setTerminalLayoutMode";
+			type: "session/setTerminalLayout";
 			worktreeId: string;
-			layoutMode: TerminalLayoutMode;
-			autoAssignProcessIds?: string[];
+			layoutId: LayoutId;
 	  }
-	| {
-			type: "session/assignProcessToSplitSlot";
-			worktreeId: string;
-			processId: string;
-			slot: "left" | "right";
-	  }
-	| {
-			type: "session/removeProcessFromSplit";
-			worktreeId: string;
-			processId: string;
-	  }
-	| { type: "session/setTerminalLayout"; worktreeId: string; layoutId: LayoutId }
 	| {
 			type: "session/setSlotProcess";
 			worktreeId: string;
@@ -186,7 +172,12 @@ export type WorkspaceAction =
 			layoutId: LayoutId;
 			slotIndex: number;
 	  }
-	| { type: "session/swapTerminalSlots"; worktreeId: string; i: number; j: number }
+	| {
+			type: "session/swapTerminalSlots";
+			worktreeId: string;
+			i: number;
+			j: number;
+	  }
 	| {
 			type: "session/setTreeExpandedPaths";
 			worktreeId: string;
@@ -235,9 +226,6 @@ function createSession(worktree: Worktree): WorktreeSession {
 		processSessionIds: [],
 		attentionState: "idle",
 		agentAttentionReasons: {},
-		terminalLayoutMode: "single",
-		splitLeftProcessId: null,
-		splitRightProcessId: null,
 		terminalLayoutId: "1",
 		slotProcessIds: [null],
 		reviewSidebarWidth: 280,
@@ -311,25 +299,6 @@ function clearStaleTerminalReasonsForSessionProcesses(
 		mutated = true;
 	}
 	return mutated ? next : processSessionsById;
-}
-
-function sanitizeSplitAssignments(
-	session: Pick<
-		WorktreeSession,
-		"splitLeftProcessId" | "splitRightProcessId" | "processSessionIds"
-	>,
-): Pick<WorktreeSession, "splitLeftProcessId" | "splitRightProcessId"> {
-	const allowed = new Set(session.processSessionIds);
-	const left =
-		session.splitLeftProcessId && allowed.has(session.splitLeftProcessId)
-			? session.splitLeftProcessId
-			: null;
-	const rightCandidate =
-		session.splitRightProcessId && allowed.has(session.splitRightProcessId)
-			? session.splitRightProcessId
-			: null;
-	const right = rightCandidate === left ? null : rightCandidate;
-	return { splitLeftProcessId: left, splitRightProcessId: right };
 }
 
 function restorePersistedSession(
@@ -419,24 +388,17 @@ function restorePersistedSession(
 				: (restoredSlots.find((s): s is string => s !== null) ?? null),
 		attentionState: "idle",
 		agentAttentionReasons: {},
-		terminalLayoutMode: snapshot.terminalLayoutMode,
-		splitLeftProcessId: snapshot.splitLeftProcessId,
-		splitRightProcessId: snapshot.splitRightProcessId,
 		terminalLayoutId: restoredLayoutId,
 		slotProcessIds: restoredSlots,
 		reviewSidebarWidth: snapshot.reviewSidebarWidth ?? 280,
 	};
-	const sanitizedSplit = sanitizeSplitAssignments(nextSession);
 
 	return {
 		...state,
 		processSessionsById: nextProcessSessionsById,
 		sessionsByWorktreeId: {
 			...state.sessionsByWorktreeId,
-			[snapshot.worktreeId]: {
-				...nextSession,
-				...sanitizedSplit,
-			},
+			[snapshot.worktreeId]: nextSession,
 		},
 		nextAdHocNumberByWorktreeId: {
 			...state.nextAdHocNumberByWorktreeId,
@@ -511,13 +473,7 @@ export function workspaceReducer(
 			action.worktrees.map((worktree) => {
 				const existing =
 					state.sessionsByWorktreeId[worktree.id] ?? createSession(worktree);
-				return [
-					worktree.id,
-					{
-						...existing,
-						...sanitizeSplitAssignments(existing),
-					},
-				];
+				return [worktree.id, existing];
 			}),
 		);
 		const nextProcessSessionsById = Object.fromEntries(
@@ -549,76 +505,6 @@ export function workspaceReducer(
 
 	if (action.type === "session/selectWorktree") {
 		return { ...state, selectedWorktreeId: action.worktreeId };
-	}
-
-	if (action.type === "session/setTerminalLayoutMode") {
-		return updateSession(state, action.worktreeId, (session) => {
-			const shouldAutoAssign =
-				action.layoutMode === "split" &&
-				!session.splitLeftProcessId &&
-				!session.splitRightProcessId &&
-				action.autoAssignProcessIds?.length === 2;
-			const nextSession: WorktreeSession = {
-				...session,
-				terminalLayoutMode: action.layoutMode,
-				splitLeftProcessId: shouldAutoAssign
-					? (action.autoAssignProcessIds?.[0] ?? null)
-					: session.splitLeftProcessId,
-				splitRightProcessId: shouldAutoAssign
-					? (action.autoAssignProcessIds?.[1] ?? null)
-					: session.splitRightProcessId,
-			};
-			return {
-				...nextSession,
-				...sanitizeSplitAssignments(nextSession),
-			};
-		});
-	}
-
-	if (action.type === "session/assignProcessToSplitSlot") {
-		const session = state.sessionsByWorktreeId[action.worktreeId];
-		if (!session || !session.processSessionIds.includes(action.processId))
-			return state;
-		const nextSession: WorktreeSession = {
-			...session,
-			terminalLayoutMode: "split",
-			splitLeftProcessId:
-				action.slot === "left"
-					? action.processId
-					: session.splitLeftProcessId === action.processId
-						? null
-						: session.splitLeftProcessId,
-			splitRightProcessId:
-				action.slot === "right"
-					? action.processId
-					: session.splitRightProcessId === action.processId
-						? null
-						: session.splitRightProcessId,
-		};
-		return {
-			...state,
-			sessionsByWorktreeId: {
-				...state.sessionsByWorktreeId,
-				[action.worktreeId]: {
-					...nextSession,
-					...sanitizeSplitAssignments(nextSession),
-				},
-			},
-		};
-	}
-
-	if (action.type === "session/removeProcessFromSplit") {
-		return updateSession(state, action.worktreeId, (session) => ({
-			...session,
-			splitLeftProcessId:
-				session.splitLeftProcessId === action.processId
-					? null
-					: session.splitLeftProcessId,
-			splitRightProcessId:
-				session.splitRightProcessId === action.processId
-					? null
-					: session.splitRightProcessId,
-		}));
 	}
 
 	if (action.type === "session/setTerminalLayout") {
@@ -656,7 +542,9 @@ export function workspaceReducer(
 			return {
 				...session,
 				slotProcessIds,
-				processSessionIds: slotProcessIds.filter((s): s is string => s !== null),
+				processSessionIds: slotProcessIds.filter(
+					(s): s is string => s !== null,
+				),
 				activeProcessSessionId:
 					action.processId ?? session.activeProcessSessionId,
 			};

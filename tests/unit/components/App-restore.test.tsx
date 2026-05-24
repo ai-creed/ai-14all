@@ -217,9 +217,6 @@ describe("App — Phase 5 restore flow", () => {
 								selectedCommitSha: null,
 								selectedCommitFilePath: null,
 								activeProcessSessionId: "process-1",
-								terminalLayoutMode: "single",
-								splitLeftProcessId: null,
-								splitRightProcessId: null,
 								nextAdHocNumber: 2,
 								processSessions: [
 									{
@@ -417,9 +414,6 @@ describe("App — Phase 5 restore flow", () => {
 								selectedCommitSha: null,
 								selectedCommitFilePath: null,
 								activeProcessSessionId: "process-1",
-								terminalLayoutMode: "single",
-								splitLeftProcessId: null,
-								splitRightProcessId: null,
 								nextAdHocNumber: 2,
 								processSessions: [
 									{
@@ -507,9 +501,6 @@ describe("App — Phase 5 restore flow", () => {
 								selectedCommitSha: null,
 								selectedCommitFilePath: null,
 								activeProcessSessionId: "process-1",
-								terminalLayoutMode: "single",
-								splitLeftProcessId: null,
-								splitRightProcessId: null,
 								nextAdHocNumber: 2,
 								processSessions: [
 									{
