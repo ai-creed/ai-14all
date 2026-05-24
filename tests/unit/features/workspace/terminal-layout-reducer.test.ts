@@ -123,7 +123,10 @@ describe("session/closeProcess (slot model)", () => {
 	});
 	it("resets to single when the last shell closes", () => {
 		let s = seed(["a"], "1");
-		s = { ...s, processSessionsById: { ...s.processSessionsById, a: proc("a") } };
+		s = {
+			...s,
+			processSessionsById: { ...s.processSessionsById, a: proc("a") },
+		};
 		const next = workspaceReducer(s, {
 			type: "session/closeProcess",
 			worktreeId: "wt1",
@@ -192,7 +195,10 @@ describe("session/setSlotProcess bounds", () => {
 			slotIndex: 5,
 			processId: "x",
 		});
-		expect(next.sessionsByWorktreeId["wt1"].slotProcessIds).toEqual(["a", null]);
+		expect(next.sessionsByWorktreeId["wt1"].slotProcessIds).toEqual([
+			"a",
+			null,
+		]);
 	});
 	it("keeps the slot array length equal to the layout slot count after a write", () => {
 		const s = seed(["a", null], "2-v");

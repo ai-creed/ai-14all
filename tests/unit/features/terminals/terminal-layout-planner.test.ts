@@ -18,7 +18,12 @@ describe("compactIntoLayout", () => {
 		expect(compactIntoLayout(["a", null, "b"], "2-v")).toEqual(["a", "b"]);
 	});
 	it("pads with null when target is larger", () => {
-		expect(compactIntoLayout(["a", "b"], "4-grid")).toEqual(["a", "b", null, null]);
+		expect(compactIntoLayout(["a", "b"], "4-grid")).toEqual([
+			"a",
+			"b",
+			null,
+			null,
+		]);
 	});
 });
 
@@ -43,17 +48,26 @@ describe("resolvePromotedLayout", () => {
 describe("planAddPlacement", () => {
 	it("fills the first empty slot without changing the layout", () => {
 		expect(
-			planAddPlacement({ terminalLayoutId: "4-grid", slotProcessIds: ["a", null, "b", null] }),
+			planAddPlacement({
+				terminalLayoutId: "4-grid",
+				slotProcessIds: ["a", null, "b", null],
+			}),
 		).toEqual({ kind: "fill", layoutId: "4-grid", slotIndex: 1 });
 	});
 	it("auto-promotes when all slots are full", () => {
 		expect(
-			planAddPlacement({ terminalLayoutId: "3-vm", slotProcessIds: ["a", "b", "c"] }),
+			planAddPlacement({
+				terminalLayoutId: "3-vm",
+				slotProcessIds: ["a", "b", "c"],
+			}),
 		).toEqual({ kind: "promote", layoutId: "4-vm", slotIndex: 3 });
 	});
 	it("reports full at 6 running", () => {
 		expect(
-			planAddPlacement({ terminalLayoutId: "6-v", slotProcessIds: ["a", "b", "c", "d", "e", "f"] }),
+			planAddPlacement({
+				terminalLayoutId: "6-v",
+				slotProcessIds: ["a", "b", "c", "d", "e", "f"],
+			}),
 		).toEqual({ kind: "full" });
 	});
 });

@@ -1,4 +1,8 @@
-import { TERMINAL_LAYOUTS, LAYOUT_IDS, type LayoutId } from "./terminal-layouts";
+import {
+	TERMINAL_LAYOUTS,
+	LAYOUT_IDS,
+	type LayoutId,
+} from "./terminal-layouts";
 
 export function runningCount(slots: (string | null)[]): number {
 	return slots.filter((s) => s !== null).length;
