@@ -101,6 +101,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 							className="shell-terminal-slot"
 							style={cellStyle}
 							data-testid={`slot-${slotIndex}`}
+							data-process-id={processId}
 						>
 							<header className="shell-terminal-slot__header">
 								<span className="shell-terminal-slot__label">
