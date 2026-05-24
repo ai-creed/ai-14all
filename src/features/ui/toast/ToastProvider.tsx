@@ -19,6 +19,16 @@ type Ctx = {
 
 const ToastCtx = createContext<Ctx | null>(null);
 
+// Imperative bridge: the mounted ToastProvider registers its `show` here so code
+// that runs OUTSIDE the provider subtree (e.g. App-level hooks whose JSX renders
+// the provider below them) can surface a toast without the React context. No-op
+// when no provider is mounted.
+let activeShow: ((message: string) => void) | null = null;
+
+export function notifyToast(message: string): void {
+	activeShow?.(message);
+}
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
 	const [items, setItems] = useState<ToastItem[]>([]);
 	const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -44,6 +54,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 		},
 		[dismiss],
 	);
+
+	// Register this provider's `show` on the imperative bridge while mounted.
+	useEffect(() => {
+		activeShow = show;
+		return () => {
+			if (activeShow === show) activeShow = null;
+		};
+	}, [show]);
 
 	useEffect(
 		() => () => {

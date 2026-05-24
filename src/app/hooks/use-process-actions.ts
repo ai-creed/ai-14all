@@ -5,6 +5,7 @@ import type { TerminalSession } from "../../../shared/models/terminal-session";
 import type { Worktree } from "../../../shared/models/worktree";
 import { isAgentProcess } from "../../features/terminals/logic/agent-attention";
 import { detectAgentProvider } from "../../features/workspace/logic/agent-provider-detection";
+import { notifyToast } from "../../features/ui/toast/ToastProvider";
 import type {
 	WorkspaceAction,
 	WorkspaceState,
@@ -102,9 +103,10 @@ export function useProcessActions(options: Options): UseProcessActions {
 					provider: null,
 				};
 			} catch (err) {
-				// Spawn failed: return null so the caller dispatches nothing — no
-				// orphan slot, layout unchanged.
+				// Spawn failed: toast + return null so the caller dispatches nothing
+				// — no orphan slot, layout unchanged.
 				console.error("Failed to create terminal session:", err);
+				notifyToast("Failed to start shell");
 				return null;
 			}
 		}, [worktree, workspaceId, createSession, getWorkspaceStateById]);
@@ -181,8 +183,9 @@ export function useProcessActions(options: Options): UseProcessActions {
 					targetWorktree.path,
 				);
 			} catch (err) {
-				// Spawn failed: no dispatch -> no orphan slot.
+				// Spawn failed: toast + no dispatch -> no orphan slot.
 				console.error("Failed to launch preset:", err);
+				notifyToast("Failed to launch preset");
 				return;
 			}
 			createScopedWorkspaceDispatch(targetWorkspaceId)({

@@ -1,5 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
+
+const notifyToast = vi.fn();
+vi.mock("../../../src/features/ui/toast/ToastProvider", () => ({
+	notifyToast: (msg: string) => notifyToast(msg),
+}));
+
 import { useProcessActions } from "../../../src/app/hooks/use-process-actions";
 
 function makeOptions(createSession: () => Promise<never>) {
@@ -23,7 +29,9 @@ function makeOptions(createSession: () => Promise<never>) {
 }
 
 describe("useProcessActions spawn failure", () => {
-	it("dispatches nothing (no orphan slot) when the PTY spawn fails", async () => {
+	beforeEach(() => notifyToast.mockClear());
+
+	it("toasts and dispatches nothing (no orphan slot) when the PTY spawn fails", async () => {
 		const { options, dispatch } = makeOptions(() =>
 			Promise.reject(new Error("boom")),
 		);
@@ -31,6 +39,7 @@ describe("useProcessActions spawn failure", () => {
 		await act(async () => {
 			await result.current.handleAddAdHoc();
 		});
+		expect(notifyToast).toHaveBeenCalledWith("Failed to start shell");
 		expect(dispatch).not.toHaveBeenCalledWith(
 			expect.objectContaining({ type: "session/registerProcess" }),
 		);
