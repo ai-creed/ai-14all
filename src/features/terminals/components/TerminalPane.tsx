@@ -27,6 +27,13 @@ type Props = {
 	 */
 	focusSignal?: number;
 	/**
+	 * Monotonically-increasing counter that bumps when the user clicks the slot's
+	 * refit action. On change the pane re-fits to its container and scrolls to
+	 * the bottom — a manual recovery for the occasional "shell text vanished"
+	 * state that otherwise needs a layout switch to force a re-fit.
+	 */
+	fitSignal?: number;
+	/**
 	 * xterm font size in px. Driven by the active layout's slot count so denser
 	 * layouts read more rows/cols (1–2 slots: 12, 3–4: 11, 5–6: 10). Defaults
 	 * to 12 when unspecified.
@@ -48,6 +55,7 @@ export function TerminalPane({
 	visible,
 	focused,
 	focusSignal,
+	fitSignal = 0,
 	fontSize = 12,
 	theme,
 	onTitleChange,
@@ -61,6 +69,9 @@ export function TerminalPane({
 	const fontSizeRef = useRef(fontSize);
 	// Same pattern for the color theme.
 	const themeRef = useRef(theme);
+	// Tracks the last-handled fitSignal so the mount render is skipped (initial
+	// value matches) and only genuine bumps trigger a manual re-fit.
+	const fitSignalRef = useRef(fitSignal);
 	const searchAddonRef = useRef<SearchAddon | null>(null);
 	const searchResultsDisposeRef = useRef<{ dispose: () => void } | null>(null);
 	const findInputRef = useRef<HTMLInputElement | null>(null);
@@ -388,6 +399,21 @@ export function TerminalPane({
 		termRef.current?.focus();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [focusSignal, focused, visible, findOpen]);
+
+	// Manual refit + scroll-to-bottom, triggered by the slot's refit action.
+	// Skips the mount run (initial signal matches the ref) so it only fires on
+	// genuine bumps.
+	useEffect(() => {
+		if (fitSignalRef.current === fitSignal) return;
+		fitSignalRef.current = fitSignal;
+		if (!visible || !isLive) return;
+		const term = termRef.current;
+		const fitAddon = fitAddonRef.current;
+		if (!term || !fitAddon) return;
+		fitAddon.fit();
+		terminals.resize(session.id, term.cols, term.rows).catch(() => undefined);
+		term.scrollToBottom();
+	}, [fitSignal, visible, isLive, session.id]);
 
 	// Resize on container dimension changes via ResizeObserver.
 	useEffect(() => {

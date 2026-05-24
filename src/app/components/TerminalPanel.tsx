@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ProcessSession } from "../../../shared/models/process-session";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
 import type { Worktree } from "../../../shared/models/worktree";
@@ -54,6 +55,15 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 		onPromoteSlot,
 		onStartShellInSlot,
 	} = props;
+
+	// Per-process refit counters; bumping one tells that slot's pane to re-fit
+	// and scroll to the bottom (manual recovery for vanished shell text).
+	const [fitSignals, setFitSignals] = useState<Record<string, number>>({});
+	const requestRefit = (processId: string) =>
+		setFitSignals((prev) => ({
+			...prev,
+			[processId]: (prev[processId] ?? 0) + 1,
+		}));
 
 	if (!workspaceState.selectedWorktreeId) return null;
 
@@ -145,6 +155,17 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 								{process && (
 									<button
 										type="button"
+										aria-label="Refit terminal"
+										title="Refit & scroll to bottom"
+										data-testid={`slot-refit-${slotIndex}`}
+										onClick={() => requestRefit(process.id)}
+									>
+										⤓
+									</button>
+								)}
+								{process && (
+									<button
+										type="button"
 										aria-label="Restart shell"
 										title="Restart"
 										data-testid={`slot-restart-${slotIndex}`}
@@ -169,6 +190,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 								<TerminalPane
 									session={termSession}
 									visible={true}
+									fitSignal={fitSignals[processId] ?? 0}
 									fontSize={terminalFontSize}
 									theme={terminalTheme}
 									focused={

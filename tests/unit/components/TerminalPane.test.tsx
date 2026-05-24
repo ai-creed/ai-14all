@@ -618,4 +618,29 @@ describe("TerminalPane", () => {
 			expect.objectContaining({ event: "renderer-terminal-unmounted" }),
 		);
 	});
+
+	it("re-fits and scrolls to bottom when fitSignal bumps", () => {
+		const session = makeSession();
+		const { rerender } = render(
+			<TerminalPane session={session} visible={true} fitSignal={0} />,
+		);
+		// Ignore the mount-time fit; only assert the manual refit.
+		fitMock.mockClear();
+		resizeMock.mockClear();
+		xtermScrollToBottomMock.mockClear();
+
+		rerender(<TerminalPane session={session} visible={true} fitSignal={1} />);
+
+		expect(fitMock).toHaveBeenCalledTimes(1);
+		expect(resizeMock).toHaveBeenCalled();
+		expect(xtermScrollToBottomMock).toHaveBeenCalledTimes(1);
+	});
+
+	it("does not refit on mount for a non-zero initial fitSignal", () => {
+		const session = makeSession();
+		render(<TerminalPane session={session} visible={true} fitSignal={3} />);
+		// The fit-signal effect must be skipped on mount (signal unchanged): its
+		// scroll-to-bottom is the distinguishing side effect and must not fire.
+		expect(xtermScrollToBottomMock).not.toHaveBeenCalled();
+	});
 });
