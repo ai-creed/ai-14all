@@ -156,12 +156,16 @@ export const ReviewExpandedPortal = forwardRef<
 	]);
 
 	// Esc collapses the overlay (like the collapse button and the Note drawer),
-	// unless a nested dialog (e.g. the editor modal) is open or another handler
-	// already consumed the keypress — those take priority.
+	// but only when the keypress originates from within the overlay — i.e. the
+	// drawer is the active surface. Esc used elsewhere (dismissing a context
+	// menu, closing a nested editor modal portaled to the body, or working in
+	// the terminal/sidebar) must not collapse it. defaultPrevented (e.g. Monaco
+	// swallowing Esc) is also respected.
 	useEffect(() => {
 		const onKeyDown = (event: KeyboardEvent) => {
 			if (event.key !== "Escape" || event.defaultPrevented) return;
-			if (document.querySelector('[role="dialog"][data-state="open"]')) return;
+			const portal = portalRef.current;
+			if (!portal || !portal.contains(event.target as Node)) return;
 			event.preventDefault();
 			handleCollapse();
 		};

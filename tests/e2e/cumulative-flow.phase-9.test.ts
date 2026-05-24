@@ -107,6 +107,11 @@ test.describe.serial("Cumulative flow — Phase 9 (Lightweight Editor)", () => {
 
 	test("Cmd+E on a non-whitelisted file is a no-op", async () => {
 		test.setTimeout(30_000);
+		// The previous test's cleanup Esc collapses the (now Esc-dismissable)
+		// review overlay, so re-open it and reselect the Files tab before
+		// touching the tree.
+		await ensureReviewOverlayOpen(page);
+		await page.getByRole("tab", { name: "Files" }).click();
 		// Click logo.png to select it (triggers session/selectFile)
 		const pngRow = page
 			.locator(".shell-list__item--tree")

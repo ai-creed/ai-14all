@@ -135,12 +135,13 @@ describe("ReviewExpandedPortal", () => {
 		}
 	});
 
-	it("collapses on Escape key", () => {
+	it("collapses on Escape originating from within the overlay", () => {
 		const onCollapse = vi.fn();
 		render(<ReviewExpandedPortal {...makeProps({ onCollapse })} />);
 		const portal = screen.getByTestId("review-expanded-portal");
 		act(() => {
-			fireEvent.keyDown(document, { key: "Escape" });
+			// Escape from a focused element inside the overlay (the drawer is active).
+			fireEvent.keyDown(screen.getByTestId("portal-child"), { key: "Escape" });
 		});
 		expect(onCollapse).not.toHaveBeenCalled();
 		act(() => {
@@ -149,39 +150,32 @@ describe("ReviewExpandedPortal", () => {
 		expect(onCollapse).toHaveBeenCalledTimes(1);
 	});
 
-	it("does not collapse on Escape while a dialog is open", () => {
+	it("does not collapse on Escape originating outside the overlay", () => {
 		const onCollapse = vi.fn();
-		const dialog = document.createElement("div");
-		dialog.setAttribute("role", "dialog");
-		dialog.setAttribute("data-state", "open");
-		document.body.appendChild(dialog);
-		try {
-			render(<ReviewExpandedPortal {...makeProps({ onCollapse })} />);
-			const portal = screen.getByTestId("review-expanded-portal");
-			act(() => {
-				fireEvent.keyDown(document, { key: "Escape" });
-			});
-			// No collapse started, so a transitionend has nothing to flush.
-			act(() => {
-				portal.dispatchEvent(new Event("transitionend"));
-			});
-			expect(onCollapse).not.toHaveBeenCalled();
-		} finally {
-			document.body.removeChild(dialog);
-		}
+		render(<ReviewExpandedPortal {...makeProps({ onCollapse })} />);
+		const portal = screen.getByTestId("review-expanded-portal");
+		act(() => {
+			// e.g. dismissing a context menu / working in the terminal or sidebar.
+			fireEvent.keyDown(document.body, { key: "Escape" });
+		});
+		act(() => {
+			portal.dispatchEvent(new Event("transitionend"));
+		});
+		expect(onCollapse).not.toHaveBeenCalled();
 	});
 
 	it("ignores Escape that another handler already consumed", () => {
 		const onCollapse = vi.fn();
 		render(<ReviewExpandedPortal {...makeProps({ onCollapse })} />);
+		const child = screen.getByTestId("portal-child");
 		const event = new KeyboardEvent("keydown", {
 			key: "Escape",
 			cancelable: true,
 			bubbles: true,
 		});
-		event.preventDefault(); // mark as already handled
+		event.preventDefault(); // mark as already handled (e.g. Monaco)
 		act(() => {
-			document.dispatchEvent(event);
+			child.dispatchEvent(event);
 		});
 		expect(onCollapse).not.toHaveBeenCalled();
 	});
