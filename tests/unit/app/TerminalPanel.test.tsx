@@ -34,6 +34,7 @@ function termSession(id: string) {
 function baseProps(layoutId: string, slots: (string | null)[]) {
 	const present = slots.filter((s): s is string => s !== null);
 	return {
+		terminalTheme: {},
 		workspaceState: {
 			selectedWorktreeId: "wt1",
 			processSessionsById: Object.fromEntries(

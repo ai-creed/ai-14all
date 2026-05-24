@@ -95,4 +95,18 @@ describe("useTheme", () => {
 		const { result } = renderHook(() => useTheme());
 		expect(result.current.resolvedTheme).toBe("light");
 	});
+
+	it("setTheme('warm') applies the warm palette", () => {
+		mockMatchMedia(true); // system is light
+		const { result } = renderHook(() => useTheme());
+		act(() => result.current.setTheme("warm"));
+		expect(document.documentElement.getAttribute("data-theme")).toBe("warm");
+	});
+
+	it("maps the warm palette to a dark resolvedTheme for Monaco", () => {
+		mockMatchMedia(true);
+		const { result } = renderHook(() => useTheme());
+		act(() => result.current.setTheme("warm"));
+		expect(result.current.resolvedTheme).toBe("dark");
+	});
 });

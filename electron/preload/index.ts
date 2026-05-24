@@ -368,6 +368,9 @@ const api: Ai14AllDesktopApi = {
 		onOpenInstallModal(handler: () => void) {
 			return onChannel("review:openInstallModal", handler);
 		},
+		onSetTheme(handler) {
+			return onChannel("theme/set", handler);
+		},
 	},
 };
 

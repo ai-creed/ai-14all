@@ -43,6 +43,7 @@ import {
 } from "../lib/desktop-client";
 import { countOpenCommentsInFiles } from "../features/git/logic/commit-list-badge";
 import { useTheme } from "../lib/use-theme";
+import { terminalThemeFor } from "../features/terminals/logic/terminal-themes";
 import { detectPlatform } from "./shortcut-registry";
 import { useWindowFocus } from "./hooks/use-window-focus";
 import { useWorkspacePersistence } from "./hooks/use-workspace-persistence";
@@ -90,7 +91,8 @@ import { AgentAttentionBanner } from "./components/AgentAttentionBanner";
 type StartupMode = "loading" | "prompt" | "ready";
 
 export function App() {
-	const { resolvedTheme } = useTheme();
+	const { resolvedTheme, palette } = useTheme();
+	const terminalTheme = useMemo(() => terminalThemeFor(palette), [palette]);
 	const appPlatform = useMemo(detectPlatform, []);
 	const {
 		reviewRailWidth,
@@ -1430,6 +1432,7 @@ export function App() {
 						/>
 
 						<TerminalPanel
+							terminalTheme={terminalTheme}
 							workspaceState={workspaceState}
 							activeWorktree={activeWorktree}
 							activeSession={activeSession ?? null}

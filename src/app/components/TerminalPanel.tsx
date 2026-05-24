@@ -4,12 +4,15 @@ import type { Worktree } from "../../../shared/models/worktree";
 import type { WorkspaceAction } from "../../features/workspace/logic/workspace-state";
 import type { WorkspaceState } from "../../../shared/models/workspace-state";
 import type { WorktreeSession } from "../../../shared/models/worktree-session";
+import type { ITheme } from "xterm";
 import type { LayoutId } from "../../../shared/models/terminal-layout";
 import { TERMINAL_LAYOUTS } from "../../features/terminals/logic/terminal-layouts";
 import { TerminalPane } from "../../features/terminals/components/TerminalPane";
 import { normalizeTerminalTitle } from "../normalize-terminal-title";
 
 type Props = {
+	/** xterm color theme matching the active app palette. */
+	terminalTheme: ITheme;
 	workspaceState: WorkspaceState;
 	activeWorktree: Worktree | null;
 	activeSession: WorktreeSession | null;
@@ -36,6 +39,7 @@ type Props = {
  */
 export function TerminalPanel(props: Props): React.ReactElement | null {
 	const {
+		terminalTheme,
 		workspaceState,
 		activeWorktree,
 		activeSession,
@@ -166,6 +170,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 									session={termSession}
 									visible={true}
 									fontSize={terminalFontSize}
+									theme={terminalTheme}
 									focused={
 										process?.id === activeSession?.activeProcessSessionId
 									}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Terminal } from "xterm";
+import { Terminal, type ITheme } from "xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "xterm-addon-search";
 import "xterm/css/xterm.css";
@@ -32,6 +32,8 @@ type Props = {
 	 * to 12 when unspecified.
 	 */
 	fontSize?: number;
+	/** xterm color theme matching the active app palette. */
+	theme?: ITheme;
 	onTitleChange?: (title: string) => void;
 	onActivate?: () => void;
 };
@@ -47,6 +49,7 @@ export function TerminalPane({
 	focused,
 	focusSignal,
 	fontSize = 12,
+	theme,
 	onTitleChange,
 	onActivate,
 }: Props) {
@@ -56,6 +59,8 @@ export function TerminalPane({
 	// Holds the latest fontSize for the mount-time terminal creation, which only
 	// re-runs on session.id. Live changes are applied by the effect below.
 	const fontSizeRef = useRef(fontSize);
+	// Same pattern for the color theme.
+	const themeRef = useRef(theme);
 	const searchAddonRef = useRef<SearchAddon | null>(null);
 	const searchResultsDisposeRef = useRef<{ dispose: () => void } | null>(null);
 	const findInputRef = useRef<HTMLInputElement | null>(null);
@@ -169,6 +174,7 @@ export function TerminalPane({
 			scrollback: 10_000,
 			screenReaderMode: true,
 			fontSize: fontSizeRef.current,
+			theme: themeRef.current,
 			fontFamily:
 				'"AI14All Terminal Powerline", "Meslo LG M DZ for Powerline", "Meslo LG M for Powerline", "Hack", ui-monospace, Menlo, Monaco, monospace',
 		});
@@ -317,6 +323,14 @@ export function TerminalPane({
 		term.options.fontSize = fontSize;
 		if (visible && isLive) fitAddon.fit();
 	}, [fontSize, visible, isLive]);
+
+	// Apply color-theme changes (app palette) without recreating the terminal.
+	useEffect(() => {
+		themeRef.current = theme;
+		const term = termRef.current;
+		if (!term || !theme) return;
+		term.options.theme = theme;
+	}, [theme]);
 
 	// Log pane visibility changes.
 	useEffect(() => {

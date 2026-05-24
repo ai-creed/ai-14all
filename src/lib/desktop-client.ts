@@ -140,6 +140,7 @@ export const agentInstall: Ai14AllDesktopApi["agentInstall"] = {
 export const events: Ai14AllDesktopApi["events"] = {
 	onOpenInstallModal: (handler) =>
 		getDesktopClient().events.onOpenInstallModal(handler),
+	onSetTheme: (handler) => getDesktopClient().events.onSetTheme(handler),
 };
 
 export const noteBridge: Ai14AllDesktopApi["noteBridge"] = {

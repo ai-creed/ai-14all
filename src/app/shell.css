@@ -93,6 +93,43 @@
 	box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.06);
 }
 
+/* Warm theme: a dark espresso/umber take on the terminal surfaces — keeps the
+ * terminal-ish dark feel but trades the cool blue-grey for warm browns, ivory
+ * text, and a terracotta accent. Preview with
+ * document.documentElement.setAttribute("data-theme", "warm"). */
+[data-theme="warm"] {
+	--app-bg: #221c15;
+	--panel-bg: #2a231b;
+	--panel-bg-elevated: #342c22;
+	--panel-border: #4a3f31;
+	--panel-border-strong: #6d5b46;
+	--text-primary: #f6efe4;
+	--text-secondary: #cab999;
+	--text-muted: #9a8366;
+	--accent: #e58a5e;
+	--accent-strong: #3d2817;
+	--pane-border-sessions: rgba(108, 188, 184, 0.6);
+	--pane-border-session-info: rgba(228, 158, 80, 0.6);
+	--pane-border-terminal: rgba(226, 140, 96, 0.6);
+	--pane-border-review: rgba(220, 122, 110, 0.6);
+	--warning: #dda85e;
+	--danger: #d97058;
+	--sha-color: #c4a0db;
+	--provider-claude: #e58a5e;
+	--provider-codex: #5a9bd6;
+	color: var(--text-primary);
+	background: var(--app-bg);
+}
+
+[data-theme="warm"] body {
+	background: radial-gradient(circle at top, #2c2318 0%, var(--app-bg) 60%);
+	color: var(--text-primary);
+}
+
+[data-theme="warm"] .shell-review-tab:hover {
+	background: rgba(232, 133, 92, 0.08);
+}
+
 * {
 	box-sizing: border-box;
 }

@@ -505,5 +505,8 @@ export type Ai14AllDesktopApi = {
 	};
 	events: {
 		onOpenInstallModal(handler: () => void): () => void;
+		onSetTheme(
+			handler: (mode: "system" | "light" | "dark" | "warm") => void,
+		): () => void;
 	};
 };
