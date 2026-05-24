@@ -54,7 +54,7 @@ describe("isFilesOverlayShortcut", () => {
 		).toBe(false);
 	});
 
-	it("does not match when target is inside an xterm terminal element", () => {
+	it("matches when target is inside an xterm terminal element (Cmd+P must open Files even with the terminal focused)", () => {
 		const terminal = document.createElement("div");
 		terminal.className = "xterm";
 		const child = document.createElement("div");
@@ -65,7 +65,7 @@ describe("isFilesOverlayShortcut", () => {
 				evt({ metaKey: true, key: "p", target: child }),
 				"mac",
 			),
-		).toBe(false);
+		).toBe(true);
 		terminal.remove();
 	});
 

@@ -77,6 +77,7 @@ import { DialogStack } from "./components/DialogStack";
 import { ToastProvider } from "../features/ui/toast/ToastProvider";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { ReviewChipBar } from "./components/ReviewChipBar";
+import { firstViewableChangedFile } from "./logic/review-chip-target";
 import { ReviewArea } from "./components/ReviewArea";
 import { SidebarPanel } from "./components/SidebarPanel";
 import { MainColumnChrome } from "./components/MainColumnChrome";
@@ -345,6 +346,7 @@ export function App() {
 		agentInstallStatus.providers.every((p) => !p.installed);
 	const [installModalOpen, setInstallModalOpen] = useState(false);
 	const [commentSidebarOpen, setCommentSidebarOpen] = useState(false);
+	const [pendingCommentJump, setPendingCommentJump] = useState(0);
 
 	useInstallModalListener(useCallback(() => setInstallModalOpen(true), []));
 
@@ -518,6 +520,13 @@ export function App() {
 		() => activeSummary?.changedFiles ?? [],
 		[activeSummary],
 	);
+
+	const filesChipTarget = useMemo(
+		() => firstViewableChangedFile(changes),
+		[changes],
+	);
+	const canOpenFiles =
+		(activeSummary?.isDirty ?? false) && filesChipTarget != null;
 
 	const gitStatusMap = useMemo(() => {
 		const map = new Map<string, GitChangeStatus>();
@@ -1221,6 +1230,23 @@ export function App() {
 		});
 	}
 
+	const handleOpenFilesChip = useCallback(() => {
+		if (filesChipTarget && activeWorktree) {
+			dispatch({
+				type: "session/selectFile",
+				worktreeId: activeWorktree.id,
+				relativePath: filesChipTarget.path,
+			});
+		}
+		setReviewOpen(true);
+	}, [filesChipTarget, activeWorktree, dispatch]);
+
+	const handleOpenCommentsChip = useCallback(() => {
+		setReviewOpen(true);
+		setCommentSidebarOpen(true);
+		setPendingCommentJump((n) => n + 1);
+	}, []);
+
 	const { handleRemoveWorkspace } = useWorkspaceRemoval({
 		appWorkspaces,
 		dispatchAppWorkspaces,
@@ -1468,8 +1494,11 @@ export function App() {
 								reviewMode={activeSession?.reviewMode ?? "files"}
 								openCommentCount={openCommentCount}
 								addressedCommentCount={addressedCommentCount}
+								canOpenFiles={canOpenFiles}
 								onRefresh={handleRefreshChanges}
 								onOpen={() => setReviewOpen(true)}
+								onOpenFiles={handleOpenFilesChip}
+								onOpenComments={handleOpenCommentsChip}
 							/>
 						)}
 						{reviewOpen && activeWorktree && (
@@ -1522,6 +1551,8 @@ export function App() {
 									addingDraft={addingDraft}
 									setAddingDraft={setAddingDraft}
 									updateAddingDraftBody={updateAddingDraftBody}
+									pendingCommentJump={pendingCommentJump}
+									onConsumePendingCommentJump={() => setPendingCommentJump(0)}
 								/>
 							</ReviewExpandedPortal>
 						)}

@@ -30,7 +30,9 @@ import { filterForInlineMount } from "../../features/review/logic/inline-mount-f
 import {
 	dispatchActionsForJump,
 	waitForEditor,
+	runCommentJump,
 } from "../../features/review/logic/queue-jump";
+import { usePendingCommentJump } from "../../features/review/hooks/use-pending-comment-jump";
 import {
 	scrollToLineRange,
 	installAddAffordances,
@@ -104,6 +106,8 @@ type Props = {
 	addingDraft: NewCommentDraft | null;
 	setAddingDraft: (next: NewCommentDraft | null) => void;
 	updateAddingDraftBody: (body: string) => void;
+	pendingCommentJump: number;
+	onConsumePendingCommentJump: () => void;
 };
 
 /**
@@ -147,6 +151,8 @@ export function ReviewArea(props: Props): React.ReactElement {
 		addingDraft,
 		setAddingDraft,
 		updateAddingDraftBody,
+		pendingCommentJump,
+		onConsumePendingCommentJump,
 	} = props;
 
 	// Local UI state owned by the review surface
@@ -155,6 +161,34 @@ export function ReviewArea(props: Props): React.ReactElement {
 	const [focusedThreadId, setFocusedThreadId] = useState<string | null>(null);
 	const diffEditorRegistry = useMemo(() => createDiffEditorRegistry(), []);
 	const toast = useToast();
+
+	// Lifted out of the comment-sidebar IIFE so the chip-initiated hook below can
+	// call it too. Reused for both the sidebar onJump (default 500ms editor
+	// budget) and the chip jump (COLD_JUMP_TIMEOUT_MS, since the overlay may have
+	// just opened and the diff is still loading).
+	const jumpToComment = useCallback(
+		(c: ReviewComment, opts?: { editorTimeoutMs?: number }) =>
+			runCommentJump(c, {
+				dispatch,
+				getEditor: () => diffEditorRegistry.get(c.filePath) ?? null,
+				onResolved: (editor) => {
+					scrollToLineRange(editor, c);
+					setFocusedThreadId(c.id);
+				},
+				onMissing: () => toast.show("File no longer in this diff"),
+				editorTimeoutMs: opts?.editorTimeoutMs,
+			}),
+		[dispatch, diffEditorRegistry, toast],
+	);
+
+	// React to the review-chip "open comments" signal: jump to the first open
+	// comment with the cold-open editor budget, then consume the nonce.
+	usePendingCommentJump({
+		nonce: pendingCommentJump,
+		comments: reviewState.comments,
+		jump: jumpToComment,
+		onConsume: onConsumePendingCommentJump,
+	});
 
 	// Clear tree preview when the active worktree changes
 	useEffect(() => {
@@ -482,6 +516,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 			<div
 				className="shell-review-grid"
 				data-testid="review-grid"
+				data-focused-thread-id={focusedThreadId ?? ""}
 				style={{
 					gridTemplateColumns: commentSidebarOpen
 						? `${reviewRailWidth}px 8px minmax(0, 1fr) 8px ${activeSession?.reviewSidebarWidth ?? 280}px`
@@ -769,20 +804,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 								? (activeSession?.selectedCommitSha ?? null)
 								: null;
 
-						const handleJump = async (c: ReviewComment) => {
-							const actions = dispatchActionsForJump(c);
-							for (const a of actions) dispatch(a);
-							const editor = await waitForEditor(
-								() => diffEditorRegistry.get(c.filePath) ?? null,
-							);
-							if (editor) {
-								scrollToLineRange(editor, c);
-								setFocusedThreadId(c.id);
-							} else {
-								toast.show("File no longer in this diff");
-							}
-						};
-
 						return (
 							<ReviewQueuePanel
 								activeMode={
@@ -822,7 +843,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 										scrollToLineRange(editor, draft);
 									}
 								}}
-								onJump={handleJump}
+								onJump={(c) => void jumpToComment(c)}
 								onToggleAddressed={async (id) => {
 									const c = reviewState.comments.find((x) => x.id === id);
 									if (!c) return;

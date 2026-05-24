@@ -68,7 +68,10 @@ function isReviewOpenShortcut(e: KeyboardEvent, platform: Platform): boolean {
 	const keyIsJ = e.key === "j" || e.key === "J";
 	if (!keyIsJ) return false;
 	if (e.altKey || e.shiftKey) return false;
-	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	// Use the xterm-excluding guard: Cmd+J (Open Review) is global navigation
+	// and must fire even when focus is inside the terminal pane.
+	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null))
+		return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
 	return e.ctrlKey && !e.metaKey;
 }

@@ -55,3 +55,41 @@ export async function waitForEditor(
 	}
 	return null;
 }
+
+/**
+ * Editor-mount budget for jumps initiated from a *closed* overlay (e.g. the
+ * review chip bar). Selecting the comment's file kicks off an async diff load
+ * (git.readDiff IPC) before Monaco registers the editor; the 500ms default used
+ * for already-open sidebar jumps is too short for that cold path. waitForEditor
+ * polls every 16ms and returns the instant the editor registers, so this larger
+ * budget only matters for the genuine "never mounts" case.
+ */
+export const COLD_JUMP_TIMEOUT_MS = 5000;
+
+export interface CommentJumpDeps {
+	dispatch: (action: JumpAction) => void;
+	getEditor: () => MonacoEditor.IStandaloneDiffEditor | null;
+	onResolved: (editor: MonacoEditor.IStandaloneDiffEditor) => void;
+	onMissing: () => void;
+	/** Defaults to 500ms (already-open sidebar jump). */
+	editorTimeoutMs?: number;
+}
+
+/**
+ * Dispatch the file-selection action(s) for a comment, wait for its diff editor
+ * to mount, then either reveal it (onResolved) or report it missing (onMissing).
+ * Pure w.r.t. React so it can be unit-tested with fake timers.
+ */
+export async function runCommentJump(
+	comment: ReviewComment,
+	deps: CommentJumpDeps,
+): Promise<void> {
+	const actions = dispatchActionsForJump(comment);
+	for (const a of actions) deps.dispatch(a);
+	const editor = await waitForEditor(
+		deps.getEditor,
+		deps.editorTimeoutMs ?? 500,
+	);
+	if (editor) deps.onResolved(editor);
+	else deps.onMissing();
+}
