@@ -202,6 +202,8 @@ function createSession(worktree: Worktree): WorktreeSession {
 		terminalLayoutMode: "single",
 		splitLeftProcessId: null,
 		splitRightProcessId: null,
+		terminalLayoutId: "1",
+		slotProcessIds: [null],
 		reviewSidebarWidth: 280,
 		treeExpandedPaths: [],
 		task: null,
@@ -351,6 +353,8 @@ function restorePersistedSession(
 		terminalLayoutMode: snapshot.terminalLayoutMode,
 		splitLeftProcessId: snapshot.splitLeftProcessId,
 		splitRightProcessId: snapshot.splitRightProcessId,
+		terminalLayoutId: "1",
+		slotProcessIds: [null],
 		reviewSidebarWidth: snapshot.reviewSidebarWidth ?? 280,
 	};
 	const sanitizedSplit = sanitizeSplitAssignments(nextSession);
