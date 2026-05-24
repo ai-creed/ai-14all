@@ -178,11 +178,29 @@ describe("session/swapTerminalSlots", () => {
 			i: 1,
 			j: 0,
 		});
-		expect(next.sessionsByWorktreeId["wt1"].slotProcessIds).toEqual([
-			"c1",
-			"m",
-			"c2",
-		]);
+		const sess = next.sessionsByWorktreeId["wt1"];
+		expect(sess.slotProcessIds).toEqual(["c1", "m", "c2"]);
+		// Invariant: processSessionIds === non-null slots, in slot order.
+		expect(sess.processSessionIds).toEqual(
+			sess.slotProcessIds.filter((id) => id !== null),
+		);
+		expect(sess.processSessionIds).toEqual(["c1", "m", "c2"]);
+	});
+
+	it("preserves the invariant when swapping with an empty slot", () => {
+		const s = seed(["m", null, "c2"], "3-vm");
+		const next = workspaceReducer(s, {
+			type: "session/swapTerminalSlots",
+			worktreeId: "wt1",
+			i: 1,
+			j: 0,
+		});
+		const sess = next.sessionsByWorktreeId["wt1"];
+		expect(sess.slotProcessIds).toEqual([null, "m", "c2"]);
+		expect(sess.processSessionIds).toEqual(
+			sess.slotProcessIds.filter((id) => id !== null),
+		);
+		expect(sess.processSessionIds).toEqual(["m", "c2"]);
 	});
 });
 

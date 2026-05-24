@@ -593,7 +593,12 @@ export function workspaceReducer(
 			const tmp = slots[action.i];
 			slots[action.i] = slots[action.j];
 			slots[action.j] = tmp;
-			return { ...session, slotProcessIds: slots };
+			// Keep the invariant: processSessionIds === non-null slots, in slot order.
+			return {
+				...session,
+				slotProcessIds: slots,
+				processSessionIds: slots.filter((s): s is string => s !== null),
+			};
 		});
 	}
 
