@@ -87,8 +87,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		// Match by position — xterm title changes to CWD almost immediately.
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible({ timeout: 10_000 });
 		await page.getByRole("button", { name: /open note/i }).click();
@@ -122,8 +121,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		// Match by position — xterm title changes to CWD almost immediately.
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible({ timeout: 10_000 });
 
@@ -160,8 +158,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		// so "shell 1" cannot be matched reliably after restore.
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible();
 
@@ -172,7 +169,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		// when the worktree was activated above). Count by tablist rather than
 		// by name — xterm title changes to the CWD almost immediately.
 		await expect(
-			page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("tab"),
+			page.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)"),
 		).toHaveCount(1);
 
 		await page
@@ -186,8 +183,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		// have already changed to the shell CWD by the time we check.
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible();
 	});
@@ -322,8 +318,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible({ timeout: 10_000 });
 		await page.getByRole("button", { name: /open note/i }).click();

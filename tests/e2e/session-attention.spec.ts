@@ -87,8 +87,7 @@ test.beforeAll(async () => {
 	// Wait for the default shell to be ready
 	await expect(
 		page
-			.getByRole("tablist", { name: "Terminal sessions" })
-			.getByRole("tab")
+			.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 			.first(),
 	).toBeVisible({ timeout: 15_000 });
 }, 90_000);
@@ -154,11 +153,13 @@ async function trySendInput(sessionId: string, data: string): Promise<boolean> {
  * (`detectAgentProvider` is sticky once a provider is detected).
  */
 async function spawnFreshShellSession(): Promise<string | null> {
-	const tablist = page.getByRole("tablist", { name: "Terminal sessions" });
-	const tabCountBefore = await tablist.getByRole("tab").count();
+	const tablist = page.locator(
+		".shell-terminal-slot:not(.shell-terminal-slot--empty)",
+	);
+	const tabCountBefore = await tablist.count();
 	await page.getByRole("button", { name: "Add shell" }).click();
 	await expect
-		.poll(async () => await tablist.getByRole("tab").count(), {
+		.poll(async () => await tablist.count(), {
 			timeout: 10_000,
 		})
 		.toBeGreaterThan(tabCountBefore);
@@ -306,8 +307,7 @@ test.describe.serial("session attention v2", () => {
 		await nav.getByRole("button", { name: /main/i }).click();
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible({ timeout: 10_000 });
 
@@ -336,7 +336,11 @@ test.describe.serial("session attention v2", () => {
 		}, terminalSessionId);
 
 		// Wait for the tab to reflect the title change
-		await expect(page.getByRole("tab", { name: /^claude$/i })).toBeVisible({
+		await expect(
+			page
+				.locator(".shell-terminal-slot__label", { hasText: /^claude$/i })
+				.first(),
+		).toBeVisible({
 			timeout: 8_000,
 		});
 
@@ -375,8 +379,7 @@ test.describe.serial("session attention v2", () => {
 		await nav.getByRole("button", { name: /main/i }).click();
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible({ timeout: 10_000 });
 
@@ -397,7 +400,11 @@ test.describe.serial("session attention v2", () => {
 			);
 		}, terminalSessionId);
 
-		await expect(page.getByRole("tab", { name: /^claude$/i })).toBeVisible({
+		await expect(
+			page
+				.locator(".shell-terminal-slot__label", { hasText: /^claude$/i })
+				.first(),
+		).toBeVisible({
 			timeout: 8_000,
 		});
 
@@ -529,8 +536,10 @@ test.describe.serial("session attention v2", () => {
 		const nav = page.getByRole("navigation", { name: "Worktree sessions" });
 		await nav.getByRole("button", { name: /main/i }).click();
 
-		const tablist = page.getByRole("tablist", { name: "Terminal sessions" });
-		await expect(tablist.getByRole("tab").first()).toBeVisible({
+		const tablist = page.locator(
+			".shell-terminal-slot:not(.shell-terminal-slot--empty)",
+		);
+		await expect(tablist.first()).toBeVisible({
 			timeout: 10_000,
 		});
 
@@ -541,7 +550,7 @@ test.describe.serial("session attention v2", () => {
 		// check whether the Restart button appears after stopping a shell.
 		//
 		// Find the currently-active tab and get its context menu
-		const firstTab = tablist.getByRole("tab").first();
+		const firstTab = tablist.first();
 		await firstTab.click({ button: "right" });
 		const stopItem = page.getByRole("menuitem", { name: /stop/i });
 		if (!(await stopItem.isVisible({ timeout: 2_000 }).catch(() => false))) {
@@ -602,8 +611,7 @@ test.describe.serial("session attention v2", () => {
 
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible({ timeout: 10_000 });
 
@@ -624,7 +632,11 @@ test.describe.serial("session attention v2", () => {
 			);
 		}, terminalSessionId);
 
-		await expect(page.getByRole("tab", { name: /^claude$/i })).toBeVisible({
+		await expect(
+			page
+				.locator(".shell-terminal-slot__label", { hasText: /^claude$/i })
+				.first(),
+		).toBeVisible({
 			timeout: 8_000,
 		});
 
@@ -713,8 +725,7 @@ test.describe.serial("session attention v2", () => {
 		await nav.getByRole("button", { name: /main/i }).click();
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible({ timeout: 10_000 });
 
@@ -756,8 +767,7 @@ test.describe.serial("session attention v2", () => {
 		await nav.getByRole("button", { name: /main/i }).click();
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible({ timeout: 10_000 });
 
@@ -803,8 +813,7 @@ test.describe.serial("session attention v2", () => {
 		await nav.getByRole("button", { name: /feature-a/i }).click();
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible({ timeout: 10_000 });
 

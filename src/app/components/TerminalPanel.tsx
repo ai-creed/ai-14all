@@ -136,6 +136,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										type="button"
 										aria-label="Restart shell"
 										title="Restart"
+										data-testid={`slot-restart-${slotIndex}`}
 										onClick={() => onRestartSlot(process.id)}
 									>
 										↻

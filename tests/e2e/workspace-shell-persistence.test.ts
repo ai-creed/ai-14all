@@ -73,8 +73,7 @@ async function ensureTwoWorkspacesLoaded() {
 
 	await expect(
 		page
-			.getByRole("tablist", { name: "Terminal sessions" })
-			.getByRole("tab")
+			.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 			.first(),
 	).toBeVisible({ timeout: 15_000 });
 
@@ -92,8 +91,7 @@ async function ensureTwoWorkspacesLoaded() {
 
 	await expect(
 		page
-			.getByRole("tablist", { name: "Terminal sessions" })
-			.getByRole("tab")
+			.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 			.first(),
 	).toBeVisible({ timeout: 15_000 });
 
@@ -147,8 +145,7 @@ test.describe.serial("Workspace shell persistence", () => {
 		await ensureTwoWorkspacesLoaded();
 
 		const terminalTabs = page
-			.getByRole("tablist", { name: "Terminal sessions" })
-			.getByRole("tab");
+			.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)");
 		const countBefore = await terminalTabs.count();
 		const seqBeforeAdd = latestSeq();
 

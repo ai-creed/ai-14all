@@ -68,7 +68,9 @@ test.describe.serial("Terminal session resilience", () => {
 		await page.getByRole("button", { name: "Load" }).click();
 
 		await expect(
-			page.getByRole("tab", { name: /^shell 1(?: \((?:error|exited)\))?$/i }),
+			page
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
+				.first(),
 		).toBeVisible({ timeout: 10_000 });
 
 		const marker = `echo RESILIENCE_MARKER_${Date.now()}`;
@@ -89,8 +91,7 @@ test.describe.serial("Terminal session resilience", () => {
 		).toHaveCount(0);
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible({ timeout: 15_000 });
 

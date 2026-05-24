@@ -60,8 +60,7 @@ test("renames a session via F2 and persists the title after restart", async () =
 	await sessionButton.click();
 	await expect(
 		page
-			.getByRole("tablist", { name: "Terminal sessions" })
-			.getByRole("tab")
+			.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 			.first(),
 	).toBeVisible({ timeout: 15_000 });
 

@@ -77,8 +77,7 @@ test.describe.serial("Cumulative flow — Phase 4", () => {
 		// shell's CWD almost immediately after the shell starts.
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible({ timeout: 10_000 });
 
