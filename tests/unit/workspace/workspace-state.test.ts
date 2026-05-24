@@ -977,33 +977,10 @@ describe("workspaceReducer — split shell mode", () => {
 		);
 	});
 
-	it("clears split slots that reference a closed process", () => {
-		let state = createWorkspaceState(worktrees);
-		state = workspaceReducer(state, {
-			type: "session/registerProcess",
-			worktreeId: "main",
-			process: makeProcess("process-1", "main", "shell 1"),
-		});
-		state = workspaceReducer(state, {
-			type: "session/setTerminalLayoutMode",
-			worktreeId: "main",
-			layoutMode: "split",
-		});
-		state = workspaceReducer(state, {
-			type: "session/assignProcessToSplitSlot",
-			worktreeId: "main",
-			processId: "process-1",
-			slot: "left",
-		});
-		state = workspaceReducer(state, {
-			type: "session/closeProcess",
-			worktreeId: "main",
-			processId: "process-1",
-		});
-
-		expect(state.sessionsByWorktreeId.main.splitLeftProcessId).toBeNull();
-		expect(state.sessionsByWorktreeId.main.terminalLayoutMode).toBe("split");
-	});
+	// NOTE: the legacy "clears split slots on close" test was removed — the
+	// single/split model is replaced by the layout-presets slot model, where
+	// closeProcess empties the slot (no split sanitize). See
+	// tests/unit/features/workspace/terminal-layout-reducer.test.ts.
 });
 
 describe("workspaceReducer — Phase 6 commit review state", () => {

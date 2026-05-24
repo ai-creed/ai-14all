@@ -40,6 +40,8 @@ function makeSession(worktreeId: string, note: string) {
 		terminalLayoutMode: "single" as const,
 		splitLeftProcessId: null,
 		splitRightProcessId: null,
+		terminalLayoutId: "1" as const,
+		slotProcessIds: [null],
 		reviewSidebarWidth: 320,
 		treeExpandedPaths: [],
 		task: null,

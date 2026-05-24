@@ -113,6 +113,8 @@ describe("buildWorkspaceSnapshot", () => {
 					terminalLayoutMode: "single",
 					splitLeftProcessId: null,
 					splitRightProcessId: null,
+					terminalLayoutId: "1",
+					slotProcessIds: ["process-1"],
 					reviewSidebarWidth: 280,
 					nextAdHocNumber: 2,
 					processSessions: [

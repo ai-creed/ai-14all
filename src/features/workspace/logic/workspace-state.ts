@@ -32,6 +32,27 @@ import type {
 
 import type { WorkspaceState } from "../../../../shared/models/workspace-state";
 export type { WorkspaceState };
+import type { LayoutId } from "../../../../shared/models/terminal-layout";
+import { TERMINAL_LAYOUTS } from "../../terminals/logic/terminal-layouts";
+import {
+	compactIntoLayout,
+	runningCount,
+	planAddPlacement,
+} from "../../terminals/logic/terminal-layout-planner";
+
+/** Nearest non-null slot to `fromIndex`, preferring the next slot then previous. */
+function nearestOccupiedSlot(
+	slots: (string | null)[],
+	fromIndex: number,
+): string | null {
+	for (let d = 1; d < slots.length; d++) {
+		const next = slots[fromIndex + d];
+		if (next) return next;
+		const prev = slots[fromIndex - d];
+		if (prev) return prev;
+	}
+	return slots.find((s): s is string => s !== null) ?? null;
+}
 
 export type WorkspaceAction =
 	| { type: "workspace/loadWorktrees"; worktrees: Worktree[] }
@@ -151,6 +172,21 @@ export type WorkspaceAction =
 			worktreeId: string;
 			processId: string;
 	  }
+	| { type: "session/setTerminalLayout"; worktreeId: string; layoutId: LayoutId }
+	| {
+			type: "session/setSlotProcess";
+			worktreeId: string;
+			slotIndex: number;
+			processId: string | null;
+	  }
+	| {
+			type: "session/placeProcessInNewSlot";
+			worktreeId: string;
+			process: ProcessSession;
+			layoutId: LayoutId;
+			slotIndex: number;
+	  }
+	| { type: "session/swapTerminalSlots"; worktreeId: string; i: number; j: number }
 	| {
 			type: "session/setTreeExpandedPaths";
 			worktreeId: string;
@@ -304,8 +340,43 @@ function restorePersistedSession(
 	const session = state.sessionsByWorktreeId[snapshot.worktreeId];
 	if (!session) return state;
 
+	// Determine layout + slots. A snapshot written before this feature has
+	// terminalLayoutId/slotProcessIds === undefined → migrate (reset to single +
+	// one kept shell). A newer snapshot restores its layout, sanitized.
+	const restoredIds = snapshot.processSessions.map((p) => p.id);
+	const isOldSnapshot =
+		snapshot.slotProcessIds === undefined ||
+		snapshot.terminalLayoutId === undefined;
+
+	let restoredLayoutId: LayoutId;
+	let restoredSlots: (string | null)[];
+	if (isOldSnapshot) {
+		restoredLayoutId = "1";
+		if (restoredIds.length === 0) {
+			restoredSlots = [null];
+		} else {
+			const keep =
+				snapshot.activeProcessSessionId &&
+				restoredIds.includes(snapshot.activeProcessSessionId)
+					? snapshot.activeProcessSessionId
+					: restoredIds[0];
+			restoredSlots = [keep];
+		}
+	} else {
+		restoredLayoutId = snapshot.terminalLayoutId as LayoutId;
+		const sanitized = (snapshot.slotProcessIds ?? []).map((id) =>
+			id && restoredIds.includes(id) ? id : null,
+		);
+		// Preserve slot positions (a persisted middle-null is a real post-close
+		// state); only pad/truncate to the layout's slot count. Do NOT compact.
+		const n = TERMINAL_LAYOUTS[restoredLayoutId].slotCount;
+		restoredSlots = Array.from({ length: n }, (_, i) => sanitized[i] ?? null);
+	}
+	const keptIds = new Set(restoredSlots.filter((s): s is string => s !== null));
+
 	const nextProcessSessionsById = { ...state.processSessionsById };
 	for (const process of snapshot.processSessions) {
+		if (!keptIds.has(process.id)) continue;
 		nextProcessSessionsById[process.id] = {
 			id: process.id,
 			workspaceId,
@@ -340,21 +411,19 @@ function restorePersistedSession(
 		selectedChangedFilePath: snapshot.selectedChangedFilePath,
 		selectedCommitSha: snapshot.selectedCommitSha,
 		selectedCommitFilePath: snapshot.selectedCommitFilePath,
-		processSessionIds: snapshot.processSessions.map((process) => process.id),
+		processSessionIds: [...keptIds],
 		activeProcessSessionId:
-			snapshot.activeProcessSessionId !== null &&
-			snapshot.processSessions.some(
-				(p) => p.id === snapshot.activeProcessSessionId,
-			)
+			snapshot.activeProcessSessionId &&
+			keptIds.has(snapshot.activeProcessSessionId)
 				? snapshot.activeProcessSessionId
-				: (snapshot.processSessions[0]?.id ?? null),
+				: (restoredSlots.find((s): s is string => s !== null) ?? null),
 		attentionState: "idle",
 		agentAttentionReasons: {},
 		terminalLayoutMode: snapshot.terminalLayoutMode,
 		splitLeftProcessId: snapshot.splitLeftProcessId,
 		splitRightProcessId: snapshot.splitRightProcessId,
-		terminalLayoutId: "1",
-		slotProcessIds: [null],
+		terminalLayoutId: restoredLayoutId,
+		slotProcessIds: restoredSlots,
 		reviewSidebarWidth: snapshot.reviewSidebarWidth ?? 280,
 	};
 	const sanitizedSplit = sanitizeSplitAssignments(nextSession);
@@ -552,6 +621,94 @@ export function workspaceReducer(
 		}));
 	}
 
+	if (action.type === "session/setTerminalLayout") {
+		return updateSession(state, action.worktreeId, (session) => {
+			const target = TERMINAL_LAYOUTS[action.layoutId];
+			if (target.slotCount < runningCount(session.slotProcessIds))
+				return session; // reject too-small
+			const slotProcessIds = compactIntoLayout(
+				session.slotProcessIds,
+				action.layoutId,
+			);
+			const active =
+				session.activeProcessSessionId &&
+				slotProcessIds.includes(session.activeProcessSessionId)
+					? session.activeProcessSessionId
+					: (slotProcessIds.find((s): s is string => s !== null) ?? null);
+			return {
+				...session,
+				terminalLayoutId: action.layoutId,
+				slotProcessIds,
+				activeProcessSessionId: active,
+			};
+		});
+	}
+
+	if (action.type === "session/setSlotProcess") {
+		return updateSession(state, action.worktreeId, (session) => {
+			if (
+				action.slotIndex < 0 ||
+				action.slotIndex >= session.slotProcessIds.length
+			)
+				return session;
+			const slotProcessIds = session.slotProcessIds.slice();
+			slotProcessIds[action.slotIndex] = action.processId;
+			return {
+				...session,
+				slotProcessIds,
+				processSessionIds: slotProcessIds.filter((s): s is string => s !== null),
+				activeProcessSessionId:
+					action.processId ?? session.activeProcessSessionId,
+			};
+		});
+	}
+
+	if (action.type === "session/placeProcessInNewSlot") {
+		const session = state.sessionsByWorktreeId[action.worktreeId];
+		if (!session) return state;
+		const compacted = compactIntoLayout(
+			session.slotProcessIds,
+			action.layoutId,
+		);
+		compacted[action.slotIndex] = action.process.id;
+		const nextSession: WorktreeSession = {
+			...session,
+			terminalLayoutId: action.layoutId,
+			slotProcessIds: compacted,
+			processSessionIds: compacted.filter((s): s is string => s !== null),
+			activeProcessSessionId: action.process.id,
+		};
+		const nextAdHocNumber =
+			action.process.origin === "adHoc"
+				? (state.nextAdHocNumberByWorktreeId[action.worktreeId] ?? 1) + 1
+				: (state.nextAdHocNumberByWorktreeId[action.worktreeId] ?? 1);
+		return {
+			...state,
+			nextAdHocNumberByWorktreeId: {
+				...state.nextAdHocNumberByWorktreeId,
+				[action.worktreeId]: nextAdHocNumber,
+			},
+			processSessionsById: {
+				...state.processSessionsById,
+				[action.process.id]: action.process,
+			},
+			sessionsByWorktreeId: {
+				...state.sessionsByWorktreeId,
+				[action.worktreeId]: nextSession,
+			},
+		};
+	}
+
+	if (action.type === "session/swapTerminalSlots") {
+		return updateSession(state, action.worktreeId, (session) => {
+			const slots = session.slotProcessIds.slice();
+			const tmp = slots[action.i];
+			slots[action.i] = slots[action.j];
+			slots[action.j] = tmp;
+			return { ...session, slotProcessIds: slots };
+		});
+	}
+
 	if (action.type === "session/setTreeExpandedPaths") {
 		const session = state.sessionsByWorktreeId[action.worktreeId];
 		if (!session) return state;
@@ -689,9 +846,21 @@ export function workspaceReducer(
 	if (action.type === "session/registerProcess") {
 		const session = state.sessionsByWorktreeId[action.worktreeId];
 		if (!session) return state;
+		// Auto-place into the slot model (fill first empty, else promote a bucket)
+		// so registerProcess maintains the invariant processSessionIds === non-null
+		// slots. At capacity (6 running) this is a no-op (the UI disables add).
+		const plan = planAddPlacement({
+			terminalLayoutId: session.terminalLayoutId,
+			slotProcessIds: session.slotProcessIds,
+		});
+		if (plan.kind === "full") return state;
+		const compacted = compactIntoLayout(session.slotProcessIds, plan.layoutId);
+		compacted[plan.slotIndex] = action.process.id;
 		const nextSession: WorktreeSession = {
 			...session,
-			processSessionIds: [...session.processSessionIds, action.process.id],
+			terminalLayoutId: plan.layoutId,
+			slotProcessIds: compacted,
+			processSessionIds: compacted.filter((s): s is string => s !== null),
 			activeProcessSessionId: action.process.id,
 		};
 		const nextProcessSessionsById = {
@@ -834,24 +1003,42 @@ export function workspaceReducer(
 	if (action.type === "session/closeProcess") {
 		const session = state.sessionsByWorktreeId[action.worktreeId];
 		if (!session) return state;
-		const nextProcessIds = session.processSessionIds.filter(
-			(id) => id !== action.processId,
-		);
-		const nextActiveProcessId =
-			session.activeProcessSessionId === action.processId
-				? (nextProcessIds[0] ?? null)
-				: session.activeProcessSessionId;
+		const slotIndex = session.slotProcessIds.indexOf(action.processId);
+		const slots = session.slotProcessIds.slice();
+		if (slotIndex >= 0) slots[slotIndex] = null;
+		const remaining = slots.filter((s): s is string => s !== null);
+
 		const nextProcessSessionsById = Object.fromEntries(
 			Object.entries(state.processSessionsById).filter(
 				([id]) => id !== action.processId,
 			),
 		);
+
+		let terminalLayoutId: LayoutId = session.terminalLayoutId;
+		let slotProcessIds = slots;
+		// Focus the NEAREST remaining slot when the closed slot was active;
+		// otherwise leave focus untouched.
+		let activeProcessSessionId =
+			session.activeProcessSessionId === action.processId
+				? slotIndex >= 0
+					? nearestOccupiedSlot(slots, slotIndex)
+					: (remaining[0] ?? null)
+				: session.activeProcessSessionId;
+
+		if (remaining.length === 0) {
+			// last shell closed -> reset to single empty layout
+			terminalLayoutId = "1";
+			slotProcessIds = [null];
+			activeProcessSessionId = null;
+		}
+
 		const nextSession: WorktreeSession = {
 			...session,
-			processSessionIds: nextProcessIds,
-			activeProcessSessionId: nextActiveProcessId,
+			terminalLayoutId,
+			slotProcessIds,
+			processSessionIds: remaining,
+			activeProcessSessionId,
 		};
-		const sanitizedSplit = sanitizeSplitAssignments(nextSession);
 		return {
 			...state,
 			processSessionsById: nextProcessSessionsById,
@@ -859,9 +1046,8 @@ export function workspaceReducer(
 				...state.sessionsByWorktreeId,
 				[action.worktreeId]: {
 					...nextSession,
-					...sanitizedSplit,
 					attentionState: recalculateWorktreeAttention(
-						{ ...nextSession, ...sanitizedSplit },
+						nextSession,
 						nextProcessSessionsById,
 					),
 				},
