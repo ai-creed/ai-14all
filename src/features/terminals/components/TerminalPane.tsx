@@ -26,6 +26,12 @@ type Props = {
 	 * clicking the already-active tab after focus moved to the tab bar).
 	 */
 	focusSignal?: number;
+	/**
+	 * xterm font size in px. Driven by the active layout's slot count so denser
+	 * layouts read more rows/cols (1–2 slots: 12, 3–4: 11, 5–6: 10). Defaults
+	 * to 12 when unspecified.
+	 */
+	fontSize?: number;
 	onTitleChange?: (title: string) => void;
 	onActivate?: () => void;
 };
@@ -40,12 +46,16 @@ export function TerminalPane({
 	visible,
 	focused,
 	focusSignal,
+	fontSize = 12,
 	onTitleChange,
 	onActivate,
 }: Props) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const termRef = useRef<Terminal | null>(null);
 	const fitAddonRef = useRef<FitAddon | null>(null);
+	// Holds the latest fontSize for the mount-time terminal creation, which only
+	// re-runs on session.id. Live changes are applied by the effect below.
+	const fontSizeRef = useRef(fontSize);
 	const searchAddonRef = useRef<SearchAddon | null>(null);
 	const searchResultsDisposeRef = useRef<{ dispose: () => void } | null>(null);
 	const findInputRef = useRef<HTMLInputElement | null>(null);
@@ -158,7 +168,7 @@ export function TerminalPane({
 			cursorBlink: true,
 			scrollback: 10_000,
 			screenReaderMode: true,
-			fontSize: 12,
+			fontSize: fontSizeRef.current,
 			fontFamily:
 				'"AI14All Terminal Powerline", "Meslo LG M DZ for Powerline", "Meslo LG M for Powerline", "Hack", ui-monospace, Menlo, Monaco, monospace',
 		});
@@ -295,6 +305,18 @@ export function TerminalPane({
 		// the visibility/ResizeObserver effects below, which runtime-check isLive.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [session.id]);
+
+	// Apply font-size changes (layout density) without recreating the terminal.
+	// A hidden pane only updates the option; the visibility effect refits on show.
+	useEffect(() => {
+		fontSizeRef.current = fontSize;
+		const term = termRef.current;
+		const fitAddon = fitAddonRef.current;
+		if (!term || !fitAddon) return;
+		if (term.options.fontSize === fontSize) return;
+		term.options.fontSize = fontSize;
+		if (visible && isLive) fitAddon.fit();
+	}, [fontSize, visible, isLive]);
 
 	// Log pane visibility changes.
 	useEffect(() => {

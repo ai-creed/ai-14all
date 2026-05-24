@@ -333,7 +333,7 @@ select {
 
 .shell-terminal-section {
 	display: grid;
-	grid-template-rows: auto minmax(0, 1fr);
+	grid-template-rows: minmax(0, 1fr);
 	overflow: hidden;
 	flex: 1;
 	min-height: 0;
@@ -1527,41 +1527,6 @@ select {
 	gap: var(--space-2);
 	font-size: 0.85em;
 	color: var(--text-secondary);
-}
-
-.shell-terminal-panel {
-	display: grid;
-	grid-template-rows: auto minmax(0, 1fr);
-}
-
-.shell-terminal-panel__body {
-	min-height: 0;
-	overflow: hidden;
-	background: var(--app-bg);
-	border-top: 1px solid var(--panel-border);
-}
-
-.shell-terminal-panel__body--split {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-	gap: 1px;
-	background: var(--panel-border);
-}
-
-.shell-terminal-panel__empty {
-	height: 100%;
-	min-height: 0;
-	display: grid;
-	place-items: center;
-	padding: var(--space-4);
-}
-
-.shell-terminal-split__empty {
-	min-height: 0;
-	display: grid;
-	place-items: center;
-	padding: var(--space-4);
-	background: var(--app-bg);
 }
 
 .shell-commit-list {
@@ -3698,7 +3663,10 @@ select {
 /* ---- Terminal slot grid ---- */
 .shell-terminal-panel__grid {
 	display: grid;
-	gap: 4px;
+	/* Keep the vertical divider between side-by-side terminals, but no gap
+	 * between stacked terminals — the header's top border separates them. */
+	column-gap: 4px;
+	row-gap: 0;
 	width: 100%;
 	height: 100%;
 	min-height: 0;
@@ -3716,15 +3684,30 @@ select {
 	display: flex;
 	align-items: center;
 	gap: 6px;
-	padding: 2px 6px;
+	padding: 3px 8px;
 	font-size: 11px;
-	background: var(--panel-bg-elevated);
+	line-height: 1;
+	color: var(--text-primary);
+	background: color-mix(
+		in srgb,
+		var(--panel-border-strong) 40%,
+		var(--panel-bg-elevated)
+	);
+	/* A prominent top border doubles as the separator between stacked terminals,
+	 * which have no row gap. Suppressed for top-row slots (nothing above them). */
+	border-top: 2px solid var(--panel-border-strong);
+	border-bottom: 1px solid var(--panel-border-strong);
+}
+.shell-terminal-slot[data-top-row="true"] .shell-terminal-slot__header {
+	border-top: none;
 }
 .shell-terminal-slot__label {
 	flex: 1;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	font-weight: 500;
+	line-height: 1;
 }
 .shell-terminal-slot__badge {
 	width: 8px;
@@ -3733,18 +3716,41 @@ select {
 	flex: 0 0 auto;
 	background: var(--text-muted);
 }
-.shell-terminal-slot__badge[data-attention="needsAttention"] {
-	background: var(--accent);
+.shell-terminal-slot__badge[data-attention="activity"] {
+	background: var(--warning);
+}
+.shell-terminal-slot__badge[data-attention="actionRequired"] {
+	background: var(--danger);
 }
 .shell-terminal-slot__badge[data-status="exited"] {
 	background: var(--danger);
 }
 .shell-terminal-slot__header button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	height: 18px;
 	background: none;
 	border: none;
+	border-radius: var(--radius-sm);
 	color: var(--text-secondary);
 	cursor: pointer;
 	padding: 2px;
+	font-size: inherit;
+	line-height: 1;
+	transition:
+		background-color 120ms ease,
+		color 120ms ease;
+}
+.shell-terminal-slot__header button:hover {
+	background: color-mix(in srgb, var(--text-primary) 14%, transparent);
+	color: var(--text-primary);
+}
+.shell-terminal-slot__header button:focus-visible {
+	outline: 1px solid var(--accent);
+	outline-offset: 1px;
+	color: var(--text-primary);
 }
 .shell-terminal-slot--empty {
 	align-items: center;

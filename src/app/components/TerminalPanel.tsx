@@ -56,6 +56,9 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 	const layout = TERMINAL_LAYOUTS[layoutId];
 	const isMasterFamily =
 		layout.distribution === "master" || layout.distribution === "double-master";
+	// Shrink terminal text by 1px per two slots so denser layouts fit more rows:
+	// 1–2 slots → 12, 3–4 → 11, 5–6 → 10.
+	const terminalFontSize = 12 - Math.floor((layout.slotCount - 1) / 2);
 
 	return (
 		<section className="shell-panel shell-terminal-section">
@@ -95,18 +98,19 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 						? (sessions.find((s) => s.id === process.terminalSessionId) ?? null)
 						: null;
 					const isChild = slotIndex >= layout.masterSlots;
+					// Top-row slots have nothing stacked above them, so their
+					// header skips the bold separator border (see shell.css).
+					const isTopRow = placement.gridRow.split("/")[0].trim() === "1";
 					return (
 						<div
 							key={processId}
 							className="shell-terminal-slot"
 							style={cellStyle}
 							data-testid={`slot-${slotIndex}`}
+							data-top-row={isTopRow ? "true" : "false"}
 							data-process-id={processId}
 						>
 							<header className="shell-terminal-slot__header">
-								<span className="shell-terminal-slot__label">
-									{process?.label ?? "shell"}
-								</span>
 								{process && (
 									<span
 										className="shell-terminal-slot__badge"
@@ -120,6 +124,9 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										}`}
 									/>
 								)}
+								<span className="shell-terminal-slot__label">
+									{process?.label ?? "shell"}
+								</span>
 								{isMasterFamily && isChild && (
 									<button
 										type="button"
@@ -158,6 +165,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 								<TerminalPane
 									session={termSession}
 									visible={true}
+									fontSize={terminalFontSize}
 									focused={
 										process?.id === activeSession?.activeProcessSessionId
 									}
