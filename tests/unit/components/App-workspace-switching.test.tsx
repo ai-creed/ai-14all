@@ -644,7 +644,7 @@ describe("workspace switching", () => {
 		});
 
 		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: "shell 1" })).toBeInTheDocument();
+			expect(screen.getAllByText("shell 1").length).toBeGreaterThan(0);
 		});
 
 		onOpenPickerCallback?.();
@@ -710,7 +710,7 @@ describe("workspace switching", () => {
 
 		await waitFor(() => {
 			expect(repoAGroup).toHaveAttribute("data-active-workspace", "true");
-			expect(screen.getByRole("tab", { name: "shell 2" })).toBeInTheDocument();
+			expect(screen.getAllByText("shell 2").length).toBeGreaterThan(0);
 		});
 	});
 

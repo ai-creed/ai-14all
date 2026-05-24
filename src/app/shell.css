@@ -3760,3 +3760,148 @@ select {
 	background: color-mix(in srgb, var(--text-muted) 14%, transparent);
 	color: var(--text-muted);
 }
+
+/* ---- Terminal layout dialog ---- */
+.shell-layout-dialog__overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.45);
+	z-index: 49;
+}
+.shell-layout-dialog {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	z-index: 50;
+	background: var(--panel-bg);
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-lg);
+	width: 560px;
+	max-width: calc(100vw - 32px);
+	max-height: calc(100vh - 64px);
+	overflow-y: auto;
+	padding: var(--space-4);
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+.shell-layout-dialog__title {
+	font-size: 13px;
+	font-weight: 600;
+	margin: 0 0 var(--space-3);
+	color: var(--text-primary);
+}
+.shell-layout-dialog__bucket {
+	display: flex;
+	gap: var(--space-3);
+	align-items: flex-start;
+	padding: var(--space-2) 0;
+	border-top: 1px solid var(--panel-border);
+}
+.shell-layout-dialog__bucket-label {
+	flex: 0 0 72px;
+	font-size: 11px;
+	color: var(--text-secondary);
+	padding-top: 6px;
+}
+.shell-layout-dialog__tiles {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+.shell-layout-dialog__tile {
+	width: 132px;
+	height: 78px;
+	padding: 6px;
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	background: var(--panel-bg-elevated);
+	cursor: pointer;
+}
+.shell-layout-dialog__tile:hover:not(:disabled) {
+	border-color: var(--accent);
+}
+.shell-layout-dialog__tile[data-current="true"] {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 1px var(--accent);
+}
+.shell-layout-dialog__tile:disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
+}
+.shell-layout-dialog__glyph {
+	display: grid;
+	gap: 3px;
+	width: 100%;
+	height: 100%;
+}
+.shell-layout-dialog__cell {
+	background: #222a3a;
+	border-radius: 2px;
+}
+.shell-layout-dialog__cell[data-master="true"] {
+	background: #3a4f7d;
+}
+
+/* ---- Terminal slot grid ---- */
+.shell-terminal-panel__grid {
+	display: grid;
+	gap: 4px;
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+}
+.shell-terminal-slot {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	overflow: hidden;
+}
+.shell-terminal-slot__header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 2px 6px;
+	font-size: 11px;
+	background: var(--panel-bg-elevated);
+}
+.shell-terminal-slot__label {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.shell-terminal-slot__badge {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex: 0 0 auto;
+	background: var(--text-muted);
+}
+.shell-terminal-slot__badge[data-attention="needsAttention"] {
+	background: var(--accent);
+}
+.shell-terminal-slot__badge[data-status="exited"] {
+	background: var(--danger);
+}
+.shell-terminal-slot__header button {
+	background: none;
+	border: none;
+	color: var(--text-secondary);
+	cursor: pointer;
+	padding: 2px;
+}
+.shell-terminal-slot--empty {
+	align-items: center;
+	justify-content: center;
+}
+.shell-terminal-slot__cta {
+	background: none;
+	border: 1px dashed var(--panel-border);
+	border-radius: var(--radius-sm);
+	color: var(--text-secondary);
+	padding: 8px 14px;
+	cursor: pointer;
+}

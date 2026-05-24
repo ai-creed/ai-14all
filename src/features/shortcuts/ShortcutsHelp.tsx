@@ -27,7 +27,7 @@ const SHORTCUT_GROUPS: { label: string; ids: string[] }[] = [
 			"terminal.close",
 			"terminal.selectNext",
 			"terminal.selectPrev",
-			"terminal.toggleSplit",
+			"terminal.layout",
 		],
 	},
 	{

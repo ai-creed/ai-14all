@@ -67,7 +67,7 @@ test.afterAll(async () => {
 // Note: gitFaultsPath cleanup is handled by rmSync(persistedStateDir) above.
 
 test.describe.serial("Cumulative flow — Phase 6", () => {
-	test("shows a default shell, opens a terminal tab context menu, and reviews a recent commit", async () => {
+	test("shows a default shell, reflects the shell title in its slot, and reviews a recent commit", async () => {
 		test.setTimeout(60_000);
 		await ensureWorkspaceLoaded();
 
@@ -108,13 +108,12 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible({ timeout: 10_000 });
 		// Chip bar dirty chip confirms git summary loaded (replaced ContextPanel "1 ahead" text)
 		await expect(
-			page.getByRole("button", { name: /\d+ changed/i }),
+			page.getByRole("button", { name: /\d+ changed/i }).first(),
 		).toBeVisible({ timeout: 10_000 });
 
 		const shellLayout = page.getByTestId("shell-layout");
@@ -152,16 +151,12 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 				"printf '\\033]0;codex\\007'; sleep 1\n",
 			);
 		});
-		await expect(page.getByRole("tab", { name: /^codex$/i })).toBeVisible();
-
-		// Check the tab context menu while the title is still "codex".
-		// This must happen before the Ctrl+L clear below, which causes the shell
-		// to reprint its prompt and reset the xterm title back to the CWD.
-		await page
-			.getByRole("tab", { name: /^codex$/i })
-			.click({ button: "right" });
-		await expect(page.getByRole("menuitem", { name: "Pin" })).toBeVisible();
-		await page.keyboard.press("Escape");
+		// The slot header label reflects the shell's OSC title ("codex").
+		await expect(
+			page
+				.locator(".shell-terminal-slot__label", { hasText: /^codex$/i })
+				.first(),
+		).toBeVisible();
 
 		// Open the review overlay now that terminal interactions are done — the
 		// remaining assertions/clicks operate on review tabs.
@@ -375,8 +370,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		// test. Check for any terminal tab to verify the session was restored.
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible();
 		await expect(
@@ -588,23 +582,20 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		).not.toBeVisible();
 	});
 
-	test("shows two assigned shells side by side and preserves split mode when switching worktrees", async () => {
+	test("shows two shells in a multi-slot layout and preserves it when switching worktrees", async () => {
 		test.setTimeout(60_000);
 		await ensureWorkspaceLoaded();
 
 		const worktreeNav = page.getByRole("navigation", {
 			name: "Worktree sessions",
 		});
-		const terminalTabs = page.getByRole("tablist", {
-			name: "Terminal sessions",
-		});
+		const occupiedSlots = () =>
+			page.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)");
 		await worktreeNav.getByRole("button", { name: /feature-a/i }).click();
-		await expect(terminalTabs.getByRole("tab")).toHaveCount(1, {
-			timeout: 15_000,
-		});
+		await expect(occupiedSlots()).toHaveCount(1, { timeout: 15_000 });
 
 		// Close the review overlay if a previous test left it open — it would
-		// otherwise intercept clicks on the chip bar "Add shell" button.
+		// otherwise intercept clicks on the terminal toolbar.
 		const portal = page.getByTestId("review-expanded-portal");
 		if (await portal.isVisible().catch(() => false)) {
 			await portal
@@ -613,45 +604,14 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 			await expect(portal).toBeHidden();
 		}
 
-		await page.getByRole("button", { name: "Add shell" }).click();
-		await expect(terminalTabs.getByRole("tab")).toHaveCount(2, {
-			timeout: 15_000,
-		});
+		// Adding a shell auto-promotes the layout to a 2-slot bucket.
+		await page.getByTestId("terminal-add-shell").click();
+		await expect(occupiedSlots()).toHaveCount(2, { timeout: 15_000 });
 
-		await page.getByRole("button", { name: "Enable split shells" }).click();
-		await expect(
-			page.getByRole("button", { name: "Disable split shells" }),
-		).toBeVisible();
-
-		await expect(
-			page.locator('.shell-terminal-pane:not([aria-hidden="true"])'),
-		).toHaveCount(2);
-
-		await terminalTabs.getByRole("tab").nth(0).click({ button: "right" });
-		await page.getByRole("menuitem", { name: "Show in split left" }).click();
-
-		await terminalTabs.getByRole("tab").nth(1).click({ button: "right" });
-		await page.getByRole("menuitem", { name: "Show in split right" }).click();
-
-		await expect(
-			page.getByRole("button", { name: "Disable split shells" }),
-		).toBeVisible();
-		await expect(
-			page.locator('.shell-terminal-pane:not([aria-hidden="true"])'),
-		).toHaveCount(2);
-
+		// The per-worktree layout + shells persist across worktree switches.
 		await worktreeNav.getByRole("button", { name: / main$/i }).click();
-		await expect(
-			page.getByRole("button", { name: "Enable split shells" }),
-		).toBeVisible();
-
 		await worktreeNav.getByRole("button", { name: /feature-a/i }).click();
-		await expect(
-			page.getByRole("button", { name: "Disable split shells" }),
-		).toBeVisible();
-		await expect(
-			page.locator('.shell-terminal-pane:not([aria-hidden="true"])'),
-		).toHaveCount(2);
+		await expect(occupiedSlots()).toHaveCount(2, { timeout: 15_000 });
 	});
 
 	test("chip bar Files button opens the overlay and routes selection to the review overlay", async () => {

@@ -33,9 +33,12 @@ export const PersistedWorktreeSessionSchema = z.object({
 	selectedCommitSha: z.string().nullable().optional().default(null),
 	selectedCommitFilePath: z.string().nullable().optional().default(null),
 	activeProcessSessionId: z.string().nullable(),
-	terminalLayoutMode: z.enum(["single", "split"]).optional().default("single"),
-	splitLeftProcessId: z.string().nullable().optional().default(null),
-	splitRightProcessId: z.string().nullable().optional().default(null),
+	// Optional key with NO default: absence is the migration signal — a snapshot
+	// written before this feature has these undefined, so hydration resets it to
+	// single + one kept shell (see workspace-state restorePersistedSession).
+	// Stored loosely as string; hydration narrows to LayoutId.
+	terminalLayoutId: z.string().optional(),
+	slotProcessIds: z.array(z.string().nullable()).optional(),
 	reviewSidebarWidth: z
 		.number()
 		.int()

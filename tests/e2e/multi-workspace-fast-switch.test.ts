@@ -109,8 +109,7 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 		// Wait for the default shell tab to appear (auto-created on worktree activation)
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible({ timeout: 15_000 });
 		await expect(page.locator(".xterm")).toHaveCount(1, { timeout: 10_000 });
@@ -166,8 +165,7 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 		// changed from "shell 1" to the CWD by the time we switch back.
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible({ timeout: 10_000 });
 

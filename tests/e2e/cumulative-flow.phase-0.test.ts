@@ -72,8 +72,7 @@ test.describe.serial("Cumulative flow — Phase 0", () => {
 		// activated.  Wait for it instead of clicking "+ Shell".
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible({ timeout: 10_000 });
 		await expect(page.locator(".xterm")).toHaveCount(1, { timeout: 10_000 });

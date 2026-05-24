@@ -433,3 +433,44 @@ describe("review.filePrev predicate", () => {
 		).toBe(false);
 	});
 });
+
+describe("terminal.layout predicate", () => {
+	it("matches Cmd+Shift+L on mac", () => {
+		expect(
+			entry("terminal.layout").predicate(
+				evt({ metaKey: true, shiftKey: true, key: "L" }),
+				"mac",
+			),
+		).toBe(true);
+	});
+	it("matches Ctrl+Shift+L on other", () => {
+		expect(
+			entry("terminal.layout").predicate(
+				evt({ ctrlKey: true, shiftKey: true, key: "L" }),
+				"other",
+			),
+		).toBe(true);
+	});
+	it("does not match plain Cmd+L (no shift)", () => {
+		expect(
+			entry("terminal.layout").predicate(
+				evt({ metaKey: true, key: "l" }),
+				"mac",
+			),
+		).toBe(false);
+	});
+	it("fires inside the terminal (xterm)", () => {
+		const target = xtermTarget();
+		expect(
+			entry("terminal.layout").predicate(
+				evt({ metaKey: true, shiftKey: true, key: "L", target }),
+				"mac",
+			),
+		).toBe(true);
+	});
+	it("terminal.toggleSplit is removed from the registry", () => {
+		expect(
+			SHORTCUT_REGISTRY.find((s) => s.id === "terminal.toggleSplit"),
+		).toBeUndefined();
+	});
+});

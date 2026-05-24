@@ -97,9 +97,8 @@ export function buildWorkspaceSnapshot(
 				selectedCommitSha: session.selectedCommitSha,
 				selectedCommitFilePath: session.selectedCommitFilePath,
 				activeProcessSessionId: session.activeProcessSessionId,
-				terminalLayoutMode: session.terminalLayoutMode,
-				splitLeftProcessId: session.splitLeftProcessId,
-				splitRightProcessId: session.splitRightProcessId,
+				terminalLayoutId: session.terminalLayoutId,
+				slotProcessIds: session.slotProcessIds,
 				reviewSidebarWidth: session.reviewSidebarWidth,
 				nextAdHocNumber:
 					state.nextAdHocNumberByWorktreeId[session.worktreeId] ?? 1,

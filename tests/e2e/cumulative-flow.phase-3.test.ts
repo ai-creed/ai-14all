@@ -62,8 +62,7 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 		// The xterm title changes to the CWD quickly, so match any tab.
 		await expect(
 			page
-				.getByRole("tablist", { name: "Terminal sessions" })
-				.getByRole("tab")
+				.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
 				.first(),
 		).toBeVisible({ timeout: 10_000 });
 
@@ -85,46 +84,44 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 		await page.getByRole("button", { name: "Presets" }).click();
 		await page.getByRole("menuitem", { name: "Claude", exact: true }).click();
 
-		// Assert pinned process tab appears
-		const pinnedTab = page.getByRole("tab", { name: /Claude/i });
-		await expect(pinnedTab).toBeVisible({ timeout: 10_000 });
-		await expect(pinnedTab).toHaveAttribute("data-pinned", "true");
+		// The launched preset occupies a terminal slot (label shown in its header).
+		const claudeSlot = page
+			.locator(".shell-terminal-slot__label", { hasText: /Claude/i })
+			.first();
+		await expect(claudeSlot).toBeVisible({ timeout: 10_000 });
 	});
 
-	test("stops, restarts, and closes an ad hoc shell from the tab actions menu", async () => {
-		// Phase 6: a default "shell 1" is auto-created on worktree activation.
-		// Clicking "+ Shell" now creates "shell 2". Tab actions are now accessed
-		// via right-click context menu instead of a dedicated "Actions" button.
-		//
-		// The xterm title changes to the CWD almost immediately after each shell
-		// starts, so tab names are not reliable identifiers. Instead, count tabs
-		// before and after adding, and identify shell 2 by its position (last tab).
-		const termTabs = page
-			.getByRole("tablist", { name: "Terminal sessions" })
-			.getByRole("tab");
+	test("restarts and closes a shell from the slot header actions", async () => {
+		// A default shell occupies slot 0. Adding a shell auto-promotes the layout
+		// and appends the new shell into the next slot.
+		// A previous test opened the review overlay, which covers the terminal slot
+		// grid. Collapse it so slot-header actions are clickable.
+		const portal = page.getByTestId("review-expanded-portal");
+		if (await portal.isVisible().catch(() => false)) {
+			await page.getByRole("button", { name: /collapse full review/i }).click();
+		}
+		await expect(portal).toHaveCount(0, { timeout: 10_000 });
+		// The default shell occupies slot 0 (Claude preset is in slot 1).
+		await expect(page.getByTestId("slot-restart-0")).toBeVisible({
+			timeout: 15_000,
+		});
+
+		// Operate on slot 0 (the default "shell 1"); the launched Claude preset in
+		// slot 1 must survive for the attention tests below.
+		const termTabs = page.locator(
+			".shell-terminal-slot:not(.shell-terminal-slot--empty)",
+		);
 		const countBefore = await termTabs.count();
 
-		await page.getByRole("button", { name: "Add shell" }).click();
-		await expect(termTabs).toHaveCount(countBefore + 1, { timeout: 10_000 });
+		// Restart slot 0 via its slot-header action; the slot stays occupied
+		// (restart replaces the terminal in place — PTY exit status is environment
+		// dependent and covered by unit tests, so we only assert the slot persists).
+		await page.getByTestId("slot-restart-0").click();
+		await expect(page.getByTestId("slot-0")).toBeVisible({ timeout: 10_000 });
 
-		// The newly added shell is always appended last.
-		const shellTab = termTabs.last();
-
-		await shellTab.click({ button: "right" });
-		await page.getByRole("menuitem", { name: "Stop" }).click();
-		await expect(shellTab).toHaveAttribute("data-status", /exited|error/, {
-			timeout: 10_000,
-		});
-
-		await shellTab.click({ button: "right" });
-		await page.getByRole("menuitem", { name: "Restart" }).click();
-		await expect(shellTab).toHaveAttribute("data-status", "running", {
-			timeout: 10_000,
-		});
-
-		await shellTab.click({ button: "right" });
-		await page.getByRole("menuitem", { name: "Close" }).click();
-		await expect(termTabs).toHaveCount(countBefore, { timeout: 10_000 });
+		// Close slot 0 via the slot-header ✕; the occupied-slot count drops by one.
+		await page.getByTestId("slot-close-0").click();
+		await expect(termTabs).toHaveCount(countBefore - 1, { timeout: 10_000 });
 	});
 
 	test("rolls action-required attention up to the sidebar", async () => {
@@ -152,7 +149,10 @@ test.describe.serial("Cumulative flow — Phase 3", () => {
 		await mainSidebarItem.click();
 
 		// Explicitly view the Claude process to clear its actionRequired attention
-		await page.getByRole("tab", { name: /Claude/i }).click();
+		await page
+			.locator(".shell-terminal-slot__label", { hasText: /Claude/i })
+			.first()
+			.click();
 
 		// Phase 6: the default shell (shell 1) may produce background output that
 		// keeps the session at "activity" attention even after Claude is cleared.

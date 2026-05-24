@@ -865,147 +865,6 @@ describe("workspaceReducer — Phase 7 worktree reconciliation", () => {
 	});
 });
 
-describe("workspaceReducer — split shell mode", () => {
-	it("tracks split layout mode and explicit slot assignment per worktree session", () => {
-		let state = createWorkspaceState(worktrees);
-		state = workspaceReducer(state, {
-			type: "session/registerProcess",
-			worktreeId: "main",
-			process: makeProcess("process-1", "main", "shell 1"),
-		});
-		state = workspaceReducer(state, {
-			type: "session/registerProcess",
-			worktreeId: "main",
-			process: makeProcess("process-2", "main", "shell 2"),
-		});
-		state = workspaceReducer(state, {
-			type: "session/setTerminalLayoutMode",
-			worktreeId: "main",
-			layoutMode: "split",
-		});
-		state = workspaceReducer(state, {
-			type: "session/assignProcessToSplitSlot",
-			worktreeId: "main",
-			processId: "process-1",
-			slot: "left",
-		});
-		state = workspaceReducer(state, {
-			type: "session/assignProcessToSplitSlot",
-			worktreeId: "main",
-			processId: "process-2",
-			slot: "right",
-		});
-
-		expect(state.sessionsByWorktreeId.main.terminalLayoutMode).toBe("split");
-		expect(state.sessionsByWorktreeId.main.splitLeftProcessId).toBe(
-			"process-1",
-		);
-		expect(state.sessionsByWorktreeId.main.splitRightProcessId).toBe(
-			"process-2",
-		);
-	});
-
-	it("auto-assigns exactly two processes when enabling split mode with empty slots", () => {
-		let state = createWorkspaceState(worktrees);
-		state = workspaceReducer(state, {
-			type: "session/registerProcess",
-			worktreeId: "main",
-			process: makeProcess("process-1", "main", "shell 1"),
-		});
-		state = workspaceReducer(state, {
-			type: "session/registerProcess",
-			worktreeId: "main",
-			process: makeProcess("process-2", "main", "shell 2"),
-		});
-		state = workspaceReducer(state, {
-			type: "session/setTerminalLayoutMode",
-			worktreeId: "main",
-			layoutMode: "split",
-			autoAssignProcessIds: ["process-1", "process-2"],
-		});
-
-		expect(state.sessionsByWorktreeId.main.terminalLayoutMode).toBe("split");
-		expect(state.sessionsByWorktreeId.main.splitLeftProcessId).toBe(
-			"process-1",
-		);
-		expect(state.sessionsByWorktreeId.main.splitRightProcessId).toBe(
-			"process-2",
-		);
-	});
-
-	it("keeps existing split assignments when enabling split mode again", () => {
-		let state = createWorkspaceState(worktrees);
-		state = workspaceReducer(state, {
-			type: "session/registerProcess",
-			worktreeId: "main",
-			process: makeProcess("process-1", "main", "shell 1"),
-		});
-		state = workspaceReducer(state, {
-			type: "session/registerProcess",
-			worktreeId: "main",
-			process: makeProcess("process-2", "main", "shell 2"),
-		});
-		state = workspaceReducer(state, {
-			type: "session/assignProcessToSplitSlot",
-			worktreeId: "main",
-			processId: "process-2",
-			slot: "left",
-		});
-		state = workspaceReducer(state, {
-			type: "session/assignProcessToSplitSlot",
-			worktreeId: "main",
-			processId: "process-1",
-			slot: "right",
-		});
-		state = workspaceReducer(state, {
-			type: "session/setTerminalLayoutMode",
-			worktreeId: "main",
-			layoutMode: "single",
-		});
-		state = workspaceReducer(state, {
-			type: "session/setTerminalLayoutMode",
-			worktreeId: "main",
-			layoutMode: "split",
-			autoAssignProcessIds: ["process-1", "process-2"],
-		});
-
-		expect(state.sessionsByWorktreeId.main.splitLeftProcessId).toBe(
-			"process-2",
-		);
-		expect(state.sessionsByWorktreeId.main.splitRightProcessId).toBe(
-			"process-1",
-		);
-	});
-
-	it("clears split slots that reference a closed process", () => {
-		let state = createWorkspaceState(worktrees);
-		state = workspaceReducer(state, {
-			type: "session/registerProcess",
-			worktreeId: "main",
-			process: makeProcess("process-1", "main", "shell 1"),
-		});
-		state = workspaceReducer(state, {
-			type: "session/setTerminalLayoutMode",
-			worktreeId: "main",
-			layoutMode: "split",
-		});
-		state = workspaceReducer(state, {
-			type: "session/assignProcessToSplitSlot",
-			worktreeId: "main",
-			processId: "process-1",
-			slot: "left",
-		});
-		state = workspaceReducer(state, {
-			type: "session/closeProcess",
-			worktreeId: "main",
-			processId: "process-1",
-		});
-
-		expect(state.sessionsByWorktreeId.main.splitLeftProcessId).toBeNull();
-		expect(state.sessionsByWorktreeId.main.terminalLayoutMode).toBe("split");
-	});
-});
-
 describe("workspaceReducer — Phase 6 commit review state", () => {
 	it("switches into commit review mode when selecting a commit", () => {
 		let state = createWorkspaceState(worktrees);
@@ -1163,9 +1022,6 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 						selectedChangedFilePath: "src/index.ts",
 						selectedCommitSha: null,
 						selectedCommitFilePath: null,
-						terminalLayoutMode: "single" as const,
-						splitLeftProcessId: null,
-						splitRightProcessId: null,
 						reviewSidebarWidth: 280,
 						activeProcessSessionId: "process-1",
 						nextAdHocNumber: 2,
@@ -1213,9 +1069,6 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 				selectedChangedFilePath: null,
 				selectedCommitSha: null,
 				selectedCommitFilePath: null,
-				terminalLayoutMode: "single" as const,
-				splitLeftProcessId: null,
-				splitRightProcessId: null,
 				reviewSidebarWidth: 280,
 				activeProcessSessionId: "process-2",
 				nextAdHocNumber: 4,
@@ -1254,9 +1107,6 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 				selectedChangedFilePath: null,
 				selectedCommitSha: "abc1234",
 				selectedCommitFilePath: "src/index.ts",
-				terminalLayoutMode: "single" as const,
-				splitLeftProcessId: null,
-				splitRightProcessId: null,
 				reviewSidebarWidth: 280,
 				activeProcessSessionId: null,
 				nextAdHocNumber: 1,
@@ -1286,9 +1136,6 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 				selectedChangedFilePath: null,
 				selectedCommitSha: null,
 				selectedCommitFilePath: null,
-				terminalLayoutMode: "single" as const,
-				splitLeftProcessId: null,
-				splitRightProcessId: null,
 				reviewSidebarWidth: 280,
 				activeProcessSessionId: "orphan-id", // not in processSessions
 				nextAdHocNumber: 2,
@@ -2542,9 +2389,6 @@ describe("restore resets agentAttentionReasons", () => {
 						selectedChangedFilePath: null,
 						selectedCommitSha: null,
 						selectedCommitFilePath: null,
-						terminalLayoutMode: "single" as const,
-						splitLeftProcessId: null,
-						splitRightProcessId: null,
 						reviewSidebarWidth: 280,
 						activeProcessSessionId: null,
 						nextAdHocNumber: 1,
@@ -2611,9 +2455,6 @@ describe("restore resets agentAttentionReasons", () => {
 						selectedChangedFilePath: null,
 						selectedCommitSha: null,
 						selectedCommitFilePath: null,
-						terminalLayoutMode: "single" as const,
-						splitLeftProcessId: null,
-						splitRightProcessId: null,
 						reviewSidebarWidth: 280,
 						activeProcessSessionId: "proc-restore-1",
 						nextAdHocNumber: 2,
@@ -2669,9 +2510,6 @@ describe("restore resets agentAttentionReasons", () => {
 				selectedChangedFilePath: null,
 				selectedCommitSha: null,
 				selectedCommitFilePath: null,
-				terminalLayoutMode: "single" as const,
-				splitLeftProcessId: null,
-				splitRightProcessId: null,
 				reviewSidebarWidth: 280,
 				activeProcessSessionId: null,
 				nextAdHocNumber: 1,
@@ -2728,9 +2566,6 @@ describe("restore resets agentAttentionReasons", () => {
 				selectedChangedFilePath: null,
 				selectedCommitSha: null,
 				selectedCommitFilePath: null,
-				terminalLayoutMode: "single" as const,
-				splitLeftProcessId: null,
-				splitRightProcessId: null,
 				reviewSidebarWidth: 280,
 				activeProcessSessionId: "proc-restore-2",
 				nextAdHocNumber: 2,

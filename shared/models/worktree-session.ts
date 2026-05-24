@@ -1,11 +1,11 @@
 import type { AgentAttentionReasonsBySource } from "./agent-attention";
 import type { GitSummary } from "./git-summary";
 import type { ProcessAttentionState } from "./process-session";
+import type { LayoutId } from "./terminal-layout";
 
 export type ReviewMode = "files" | "changes" | "commits";
 
 export type ViewerMode = "file" | "diff" | "commit";
-export type TerminalLayoutMode = "single" | "split";
 
 export type WorktreeSession = {
 	id: string;
@@ -26,9 +26,8 @@ export type WorktreeSession = {
 	processSessionIds: string[];
 	attentionState: ProcessAttentionState;
 	agentAttentionReasons: AgentAttentionReasonsBySource;
-	terminalLayoutMode: TerminalLayoutMode;
-	splitLeftProcessId: string | null;
-	splitRightProcessId: string | null;
+	terminalLayoutId: LayoutId;
+	slotProcessIds: (string | null)[];
 	reviewSidebarWidth: number;
 	/**
 	 * Per-worktree expand state for the Files tree. Held in memory only and

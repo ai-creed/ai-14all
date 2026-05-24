@@ -110,9 +110,8 @@ describe("buildWorkspaceSnapshot", () => {
 					selectedCommitSha: null,
 					selectedCommitFilePath: null,
 					activeProcessSessionId: "process-1",
-					terminalLayoutMode: "single",
-					splitLeftProcessId: null,
-					splitRightProcessId: null,
+					terminalLayoutId: "1",
+					slotProcessIds: ["process-1"],
 					reviewSidebarWidth: 280,
 					nextAdHocNumber: 2,
 					processSessions: [
@@ -380,96 +379,6 @@ it("includes terminalSessionId in buildWorkspaceSnapshot output", () => {
 	).toBe("terminal-live-123");
 });
 
-it("serializes split-shell layout fields into the workspace snapshot", () => {
-	let state = createWorkspaceState([
-		{
-			id: "main",
-			repositoryId: "repo-1",
-			branchName: "main",
-			path: "/repo",
-			label: "main",
-			isMain: true,
-		},
-	]);
-	state = workspaceReducer(state, {
-		type: "session/registerProcess",
-		worktreeId: "main",
-		process: {
-			id: "process-1",
-			workspaceId: "workspace-1",
-			worktreeId: "main",
-			terminalSessionId: "terminal-1",
-			origin: "adHoc",
-			presetId: null,
-			label: "shell 1",
-			command: null,
-			status: "running",
-			lastActivityAt: null,
-			lastOutputPreview: null,
-			exitCode: null,
-			pinned: false,
-			attentionState: "idle",
-			agentAttentionReasons: {},
-			agentAttentionClearedAt: null,
-			agentDetected: false,
-			provider: null,
-		},
-	});
-	state = workspaceReducer(state, {
-		type: "session/setTerminalLayoutMode",
-		worktreeId: "main",
-		layoutMode: "split",
-	});
-	state = workspaceReducer(state, {
-		type: "session/assignProcessToSplitSlot",
-		worktreeId: "main",
-		processId: "process-1",
-		slot: "left",
-	});
-
-	expect(
-		buildWorkspaceSnapshot("/repo", null, state).worktreeSessions[0],
-	).toMatchObject({
-		terminalLayoutMode: "split",
-		splitLeftProcessId: "process-1",
-		splitRightProcessId: null,
-	});
-});
-
-it("defaults split-shell fields for older snapshots", () => {
-	const parsed = PersistedWorkspaceStateSchema.parse({
-		version: 1,
-		restorePreference: "prompt",
-		snapshot: {
-			repositoryPath: "/repo",
-			selectedWorktreeId: "main",
-			commandPresets: [],
-			worktreeSessions: [
-				{
-					worktreeId: "main",
-					note: "",
-					reviewMode: "files",
-					viewerMode: "file",
-					selectedFilePath: null,
-					selectedChangedFilePath: null,
-					activeProcessSessionId: null,
-					nextAdHocNumber: 1,
-					processSessions: [],
-				},
-			],
-		},
-	});
-
-	if (parsed.version !== 1) {
-		throw new Error("expected v1 persisted state");
-	}
-	expect(parsed.snapshot?.worktreeSessions[0]?.terminalLayoutMode).toBe(
-		"single",
-	);
-	expect(parsed.snapshot?.worktreeSessions[0]?.splitLeftProcessId).toBeNull();
-	expect(parsed.snapshot?.worktreeSessions[0]?.splitRightProcessId).toBeNull();
-});
-
 describe("splitPendingRestores", () => {
 	it("keeps only non-selected worktrees in the pending restore map", () => {
 		const snapshot = {
@@ -488,9 +397,6 @@ describe("splitPendingRestores", () => {
 					selectedChangedFilePath: null,
 					selectedCommitSha: null,
 					selectedCommitFilePath: null,
-					terminalLayoutMode: "single" as const,
-					splitLeftProcessId: null,
-					splitRightProcessId: null,
 					reviewSidebarWidth: 280,
 					activeProcessSessionId: null,
 					nextAdHocNumber: 1,
@@ -506,9 +412,6 @@ describe("splitPendingRestores", () => {
 					selectedChangedFilePath: "src/index.ts",
 					selectedCommitSha: null,
 					selectedCommitFilePath: null,
-					terminalLayoutMode: "single" as const,
-					splitLeftProcessId: null,
-					splitRightProcessId: null,
 					reviewSidebarWidth: 280,
 					activeProcessSessionId: "process-2",
 					nextAdHocNumber: 3,
@@ -540,9 +443,6 @@ describe("splitPendingRestores", () => {
 					selectedChangedFilePath: null,
 					selectedCommitSha: null,
 					selectedCommitFilePath: null,
-					terminalLayoutMode: "single" as const,
-					splitLeftProcessId: null,
-					splitRightProcessId: null,
 					reviewSidebarWidth: 280,
 					activeProcessSessionId: null,
 					nextAdHocNumber: 1,
@@ -588,9 +488,6 @@ describe("rebaseSnapshotPaths", () => {
 					selectedChangedFilePath: null,
 					selectedCommitSha: null,
 					selectedCommitFilePath: null,
-					terminalLayoutMode: "single" as const,
-					splitLeftProcessId: null,
-					splitRightProcessId: null,
 					reviewSidebarWidth: 280,
 					activeProcessSessionId: null,
 					nextAdHocNumber: 1,
@@ -606,9 +503,6 @@ describe("rebaseSnapshotPaths", () => {
 					selectedChangedFilePath: null,
 					selectedCommitSha: null,
 					selectedCommitFilePath: null,
-					terminalLayoutMode: "single" as const,
-					splitLeftProcessId: null,
-					splitRightProcessId: null,
 					reviewSidebarWidth: 280,
 					activeProcessSessionId: null,
 					nextAdHocNumber: 1,
@@ -645,9 +539,6 @@ describe("rebaseSnapshotPaths", () => {
 					selectedChangedFilePath: null,
 					selectedCommitSha: null,
 					selectedCommitFilePath: null,
-					terminalLayoutMode: "single" as const,
-					splitLeftProcessId: null,
-					splitRightProcessId: null,
 					reviewSidebarWidth: 280,
 					activeProcessSessionId: null,
 					nextAdHocNumber: 1,
@@ -750,9 +641,6 @@ function makeSession(
 		selectedChangedFilePath: null,
 		selectedCommitSha: null,
 		selectedCommitFilePath: null,
-		terminalLayoutMode: "single",
-		splitLeftProcessId: null,
-		splitRightProcessId: null,
 		reviewSidebarWidth: 280,
 		activeProcessSessionId: null,
 		nextAdHocNumber: 1,

@@ -1,12 +1,11 @@
 import type { ProcessSession } from "../../../shared/models/process-session";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
 import type { Worktree } from "../../../shared/models/worktree";
-import type {
-	WorkspaceAction,
-	WorkspaceState,
-} from "../../features/workspace/logic/workspace-state";
+import type { WorkspaceAction } from "../../features/workspace/logic/workspace-state";
+import type { WorkspaceState } from "../../../shared/models/workspace-state";
 import type { WorktreeSession } from "../../../shared/models/worktree-session";
-import { TerminalTabs } from "../../features/terminals/components/TerminalTabs";
+import type { LayoutId } from "../../../shared/models/terminal-layout";
+import { TERMINAL_LAYOUTS } from "../../features/terminals/logic/terminal-layouts";
 import { TerminalPane } from "../../features/terminals/components/TerminalPane";
 import { normalizeTerminalTitle } from "../normalize-terminal-title";
 
@@ -14,205 +13,174 @@ type Props = {
 	workspaceState: WorkspaceState;
 	activeWorktree: Worktree | null;
 	activeSession: WorktreeSession | null;
-	activeProcesses: ProcessSession[];
-	visibleProcessIds: readonly string[];
 	sessions: TerminalSession[];
-	orderedSessions: TerminalSession[];
+	layoutId: LayoutId;
+	slotProcessIds: (string | null)[];
 	terminalFocusSignal: number;
 	dispatch: (action: WorkspaceAction) => void;
-	handleAddAdHoc: () => Promise<void>;
 	selectActiveProcess: (processId: string) => void;
-	handleLaunchPreset: (presetId: string) => Promise<void>;
-	handleCloseProcess: (processId: string) => Promise<void>;
-	handleStopProcess: (processId: string) => Promise<void>;
-	handleRestartProcess: (processId: string) => Promise<void>;
-	openPresetManager: () => void;
+	onCloseSlot: (processId: string) => void;
+	onRestartSlot: (processId: string) => void;
+	onPromoteSlot: (slotIndex: number) => void;
+	onStartShellInSlot: (slotIndex: number) => void;
 	findProcessByTerminalSessionId: (
 		terminalSessionId: string,
 	) => { process: ProcessSession; workspaceId: string } | null;
 };
 
 /**
- * Bottom terminal panel: tabs + the active xterm pane(s). Owns no state of
- * its own; tab + layout state lives on the active session and is mutated by
- * dispatched workspace actions passed in via props.
+ * Bottom terminal panel: a CSS-grid of reserved slots driven by the active
+ * layout descriptor. Each non-null slot hosts one xterm pane + a slim header;
+ * empty slots show a "start a shell" CTA. Layout/slot state lives on the active
+ * session and is mutated via dispatched workspace actions.
  */
 export function TerminalPanel(props: Props): React.ReactElement | null {
 	const {
 		workspaceState,
 		activeWorktree,
 		activeSession,
-		activeProcesses,
-		visibleProcessIds,
 		sessions,
-		orderedSessions,
+		layoutId,
+		slotProcessIds,
 		terminalFocusSignal,
 		dispatch,
-		handleAddAdHoc,
 		selectActiveProcess,
-		handleLaunchPreset,
-		handleCloseProcess,
-		handleStopProcess,
-		handleRestartProcess,
-		openPresetManager,
-		findProcessByTerminalSessionId,
+		onCloseSlot,
+		onRestartSlot,
+		onPromoteSlot,
+		onStartShellInSlot,
 	} = props;
 
 	if (!workspaceState.selectedWorktreeId) return null;
 
+	const layout = TERMINAL_LAYOUTS[layoutId];
+	const isMasterFamily =
+		layout.distribution === "master" || layout.distribution === "double-master";
+
 	return (
 		<section className="shell-panel shell-terminal-section">
-			<TerminalTabs
-				processes={activeProcesses.map((p) => ({
-					id: p.id,
-					label: p.label,
-					status: p.status,
-					pinned: p.pinned,
-					attentionState: p.attentionState,
-					exitCode: p.exitCode,
-					lastActivityAt: p.lastActivityAt,
-				}))}
-				activeProcessId={activeSession?.activeProcessSessionId ?? null}
-				presets={workspaceState.commandPresets}
-				layoutMode={activeSession?.terminalLayoutMode ?? "single"}
-				splitLeftProcessId={activeSession?.splitLeftProcessId ?? null}
-				splitRightProcessId={activeSession?.splitRightProcessId ?? null}
-				onAddAdHoc={handleAddAdHoc}
-				onSelect={selectActiveProcess}
-				onLaunchPreset={handleLaunchPreset}
-				onOpenPresetManager={openPresetManager}
-				onClose={handleCloseProcess}
-				onStop={handleStopProcess}
-				onRestart={handleRestartProcess}
-				onTogglePinned={(processId) =>
-					dispatch({
-						type: "session/toggleProcessPinned",
-						processId,
-					})
-				}
-				onToggleSplitMode={() =>
-					dispatch({
-						type: "session/setTerminalLayoutMode",
-						worktreeId: activeWorktree!.id,
-						layoutMode:
-							activeSession?.terminalLayoutMode === "split"
-								? "single"
-								: "split",
-						autoAssignProcessIds:
-							activeSession?.terminalLayoutMode === "single" &&
-							!activeSession.splitLeftProcessId &&
-							!activeSession.splitRightProcessId &&
-							activeProcesses.length === 2
-								? activeProcesses.map((process) => process.id)
-								: undefined,
-					})
-				}
-				onShowInSplit={(processId, slot) =>
-					dispatch({
-						type: "session/assignProcessToSplitSlot",
-						worktreeId: activeWorktree!.id,
-						processId,
-						slot,
-					})
-				}
-				onRemoveFromSplit={(processId) =>
-					dispatch({
-						type: "session/removeProcessFromSplit",
-						worktreeId: activeWorktree!.id,
-						processId,
-					})
-				}
-			/>
-
 			<div
-				className={
-					activeSession?.terminalLayoutMode === "split"
-						? "shell-terminal-panel__body shell-terminal-panel__body--split"
-						: "shell-terminal-panel__body"
-				}
+				className="shell-terminal-panel__grid"
+				style={{
+					gridTemplateColumns: layout.gridTemplateColumns,
+					gridTemplateRows: layout.gridTemplateRows,
+				}}
 			>
-				{orderedSessions.map((session) => {
-					const process =
-						findProcessByTerminalSessionId(session.id)?.process ?? null;
-					const visible =
-						session.worktreeId === activeWorktree?.id &&
-						visibleProcessIds.some(
-							(processId) =>
-								workspaceState.processSessionsById[processId]
-									?.terminalSessionId === session.id,
+				{slotProcessIds.map((processId, slotIndex) => {
+					const placement = layout.slotPlacements[slotIndex];
+					const cellStyle = {
+						gridColumn: placement.gridColumn,
+						gridRow: placement.gridRow,
+					};
+					if (!processId) {
+						return (
+							<div
+								key={`empty-${slotIndex}`}
+								className="shell-terminal-slot shell-terminal-slot--empty"
+								style={cellStyle}
+							>
+								<button
+									type="button"
+									className="shell-terminal-slot__cta"
+									data-testid={`slot-cta-${slotIndex}`}
+									onClick={() => onStartShellInSlot(slotIndex)}
+								>
+									＋ start a shell
+								</button>
+							</div>
 						);
+					}
+					const process = workspaceState.processSessionsById[processId] ?? null;
+					const termSession = process?.terminalSessionId
+						? (sessions.find((s) => s.id === process.terminalSessionId) ?? null)
+						: null;
+					const isChild = slotIndex >= layout.masterSlots;
 					return (
-						<TerminalPane
-							key={session.id}
-							session={session}
-							visible={visible}
-							focused={
-								visible && process?.id === activeSession?.activeProcessSessionId
-							}
-							focusSignal={terminalFocusSignal}
-							onTitleChange={(title) => {
-								if (!process || process.origin !== "adHoc") return;
-								const nextLabel = normalizeTerminalTitle(title);
-								if (!nextLabel) return;
-								dispatch({
-									type: "session/updateProcessLabel",
-									processId: process.id,
-									label: nextLabel,
-								});
-							}}
-							onActivate={() => {
-								if (!process || process.worktreeId !== activeWorktree?.id)
-									return;
-								selectActiveProcess(process.id);
-							}}
-						/>
+						<div
+							key={processId}
+							className="shell-terminal-slot"
+							style={cellStyle}
+							data-testid={`slot-${slotIndex}`}
+							data-process-id={processId}
+						>
+							<header className="shell-terminal-slot__header">
+								<span className="shell-terminal-slot__label">
+									{process?.label ?? "shell"}
+								</span>
+								{process && (
+									<span
+										className="shell-terminal-slot__badge"
+										data-testid={`slot-badge-${slotIndex}`}
+										data-attention={process.attentionState}
+										data-status={process.status}
+										title={`${process.status}${
+											process.exitCode != null
+												? ` (exit ${process.exitCode})`
+												: ""
+										}`}
+									/>
+								)}
+								{isMasterFamily && isChild && (
+									<button
+										type="button"
+										aria-label="Promote to master"
+										title="Promote to master"
+										data-testid={`slot-promote-${slotIndex}`}
+										onClick={() => onPromoteSlot(slotIndex)}
+									>
+										↑
+									</button>
+								)}
+								{process && (
+									<button
+										type="button"
+										aria-label="Restart shell"
+										title="Restart"
+										data-testid={`slot-restart-${slotIndex}`}
+										onClick={() => onRestartSlot(process.id)}
+									>
+										↻
+									</button>
+								)}
+								{process && (
+									<button
+										type="button"
+										aria-label="Close shell"
+										title="Close"
+										data-testid={`slot-close-${slotIndex}`}
+										onClick={() => onCloseSlot(process.id)}
+									>
+										✕
+									</button>
+								)}
+							</header>
+							{termSession && (
+								<TerminalPane
+									session={termSession}
+									visible={true}
+									focused={
+										process?.id === activeSession?.activeProcessSessionId
+									}
+									focusSignal={terminalFocusSignal}
+									onTitleChange={(title) => {
+										if (!process || process.origin !== "adHoc") return;
+										const nextLabel = normalizeTerminalTitle(title);
+										if (!nextLabel) return;
+										dispatch({
+											type: "session/updateProcessLabel",
+											processId: process.id,
+											label: nextLabel,
+										});
+									}}
+									onActivate={() => {
+										if (process && process.worktreeId === activeWorktree?.id)
+											selectActiveProcess(process.id);
+									}}
+								/>
+							)}
+						</div>
 					);
 				})}
-
-				{activeSession?.terminalLayoutMode === "split" ? (
-					<>
-						{!activeSession.splitLeftProcessId && (
-							<div
-								className="shell-terminal-split__empty"
-								data-slot="left"
-								onMouseDown={() => undefined}
-							>
-								<p className="shell-empty-state">
-									No shell assigned to this split pane. Use a tab menu to show
-									one here.
-								</p>
-							</div>
-						)}
-						{!activeSession.splitRightProcessId && (
-							<div
-								className="shell-terminal-split__empty"
-								data-slot="right"
-								onMouseDown={() => undefined}
-							>
-								<p className="shell-empty-state">
-									No shell assigned to this split pane. Use a tab menu to show
-									one here.
-								</p>
-							</div>
-						)}
-					</>
-				) : !sessions.some((session) => {
-						const activeProcess = activeSession?.activeProcessSessionId
-							? workspaceState.processSessionsById[
-									activeSession.activeProcessSessionId
-								]
-							: null;
-						return (
-							session.worktreeId === activeWorktree?.id &&
-							session.id === activeProcess?.terminalSessionId
-						);
-				  }) ? (
-					<div className="shell-terminal-panel__empty">
-						<p className="shell-empty-state">
-							No active shell selected. Open or choose a shell to continue.
-						</p>
-					</div>
-				) : null}
 			</div>
 		</section>
 	);
