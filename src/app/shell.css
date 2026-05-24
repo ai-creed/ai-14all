@@ -1087,6 +1087,7 @@ select {
 	gap: var(--space-2);
 	margin-left: auto;
 	flex-shrink: 0;
+	flex-wrap: wrap;
 }
 
 .shell-chip-bar__action {
@@ -1106,6 +1107,29 @@ select {
 	border-color: var(--text-muted);
 	color: var(--text-primary);
 }
+.shell-chip-bar__action:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.shell-chip-bar__action-icon {
+	display: inline-flex;
+	line-height: 1;
+}
+
+.shell-chip-bar__action-divider {
+	width: 1px;
+	align-self: stretch;
+	min-height: 16px;
+	margin: 0 var(--space-1);
+	background: var(--panel-border);
+}
+
+.shell-chip-bar__terminal-group {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
 
 .shell-chip-bar__note-dot {
 	width: 5px;
@@ -1121,121 +1145,6 @@ select {
 	padding: 0;
 	overflow: hidden;
 	background: transparent;
-}
-
-.shell-terminal-tabs {
-	border: 0;
-	padding: var(--space-3);
-	background: transparent;
-}
-
-.shell-terminal-tabs__bar {
-	display: flex;
-	gap: var(--space-2);
-	align-items: center;
-	min-width: 0;
-	min-height: 32px;
-}
-
-.shell-terminal-tabs__scroller {
-	flex: 1 1 auto;
-	min-width: 0;
-	overflow-x: auto;
-	overflow-y: hidden;
-	scrollbar-width: thin;
-}
-
-.shell-terminal-tabs__list {
-	display: flex;
-	gap: var(--space-2);
-	align-items: center;
-	flex-wrap: nowrap;
-	min-width: 100%;
-}
-
-.shell-terminal-tabs__segments {
-	gap: 0;
-	padding: 0;
-	background: transparent;
-	border: none;
-	border-radius: 0;
-}
-
-.shell-terminal-tabs__item {
-	display: flex;
-	align-items: stretch;
-	flex: 1 0 180px;
-	min-width: 180px;
-	min-height: 32px;
-}
-
-.shell-terminal-tab {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 100%;
-	min-width: 0;
-	height: 32px;
-	padding: 0 12px;
-	color: var(--text-secondary);
-	background: transparent;
-	border: 1px solid transparent;
-	border-radius: 10px;
-	transition:
-		background-color 120ms ease,
-		border-color 120ms ease,
-		color 120ms ease;
-	cursor: pointer;
-	line-height: 32px;
-}
-
-.shell-terminal-tab__label {
-	display: block;
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	line-height: 1;
-}
-
-.shell-terminal-tab[data-state="active"] {
-	color: var(--text-primary);
-	background: var(--panel-bg-elevated);
-	border-color: var(--panel-border-strong);
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.shell-terminal-tab[data-state="inactive"] {
-	color: var(--text-secondary);
-}
-
-.shell-terminal-tab:hover {
-	background: rgba(255, 255, 255, 0.03);
-}
-
-.shell-terminal-tab[data-state="active"]:hover {
-	background: var(--panel-bg-elevated);
-}
-
-.shell-terminal-tabs__segments
-	.shell-terminal-tabs__item
-	+ .shell-terminal-tabs__item {
-	margin-left: var(--space-2);
-}
-
-.shell-terminal-tab[data-status="exited"],
-.shell-terminal-tab[data-status="error"] {
-	opacity: 0.72;
-}
-
-.shell-terminal-tab__close {
-	width: 28px;
-	height: 28px;
-	padding: 0;
-	color: var(--text-secondary);
-	background: transparent;
-	border: 1px solid transparent;
-	border-radius: 999px;
 }
 
 .shell-terminal-pane {
@@ -1438,18 +1347,6 @@ select {
 	gap: var(--space-3);
 }
 
-.shell-terminal-tab[data-attention="activity"] {
-	border-color: var(--warning);
-}
-
-.shell-terminal-tab[data-attention="actionRequired"] {
-	border-color: var(--danger);
-}
-
-.shell-terminal-tab[data-pinned="true"] {
-	border-left: 3px solid var(--accent);
-}
-
 .shell-toolbar-menu {
 	padding: var(--space-2);
 	background: var(--panel-bg);
@@ -1481,50 +1378,6 @@ select {
 
 .shell-toolbar-menu__item--danger {
 	color: var(--danger);
-}
-
-.shell-terminal-tabs__utilities {
-	display: flex;
-	align-items: center;
-	gap: var(--space-2);
-	flex: 0 0 auto;
-}
-
-.shell-terminal-tabs__split-toggle {
-	position: relative;
-	transition:
-		background-color 120ms ease,
-		border-color 120ms ease,
-		color 120ms ease,
-		box-shadow 120ms ease;
-}
-
-.shell-terminal-tabs__split-toggle[data-active="true"] {
-	background: color-mix(in srgb, var(--accent) 18%, #0f171d);
-	border-color: color-mix(in srgb, var(--accent) 65%, var(--panel-border));
-	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
-}
-
-.shell-terminal-tabs__split-toggle::after {
-	content: "";
-	position: absolute;
-	top: 5px;
-	right: 5px;
-	width: 6px;
-	height: 6px;
-	border-radius: 999px;
-	background: transparent;
-	transition: background-color 120ms ease;
-}
-
-.shell-terminal-tabs__split-toggle[data-active="true"]::after {
-	background: var(--accent);
-}
-
-.shell-terminal-tabs__split-toggle-icon {
-	width: 15px;
-	height: 15px;
-	fill: currentColor;
 }
 
 .shell-toolbar-menu__separator {

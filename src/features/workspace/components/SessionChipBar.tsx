@@ -9,6 +9,13 @@ type Props = {
 	onDirtyClick: () => void;
 	onFilesClick: () => void;
 	onNoteClick: () => void;
+	/**
+	 * Optional render slot for a separate right-side action group (e.g. terminal
+	 * controls). Rendered after the Files/Note chips, separated by a divider.
+	 * Kept presentational: SessionChipBar renders the node, it owns no
+	 * terminal-specific logic.
+	 */
+	terminalActions?: React.ReactNode;
 };
 
 export function SessionChipBar({
@@ -22,6 +29,7 @@ export function SessionChipBar({
 	onDirtyClick,
 	onFilesClick,
 	onNoteClick,
+	terminalActions,
 }: Props) {
 	return (
 		<div className="shell-chip-bar" role="region" aria-label="Session">
@@ -77,6 +85,9 @@ export function SessionChipBar({
 					aria-label="Open Files"
 					onClick={onFilesClick}
 				>
+					<span className="shell-chip-bar__action-icon" aria-hidden="true">
+						🗂
+					</span>
 					Files
 				</button>
 				<button
@@ -86,11 +97,23 @@ export function SessionChipBar({
 					aria-label="Open note"
 					onClick={onNoteClick}
 				>
+					<span className="shell-chip-bar__action-icon" aria-hidden="true">
+						📝
+					</span>
 					Note
 					{noteNonEmpty && (
 						<span className="shell-chip-bar__note-dot" aria-hidden="true" />
 					)}
 				</button>
+				{terminalActions && (
+					<>
+						<span
+							className="shell-chip-bar__action-divider"
+							aria-hidden="true"
+						/>
+						{terminalActions}
+					</>
+				)}
 			</div>
 		</div>
 	);

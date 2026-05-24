@@ -76,7 +76,7 @@ import { useRemoveWorktreePreview } from "./hooks/use-remove-worktree-preview";
 import { DialogStack } from "./components/DialogStack";
 import { ToastProvider } from "../features/ui/toast/ToastProvider";
 import { TerminalPanel } from "./components/TerminalPanel";
-import { TerminalToolbar } from "../features/terminals/components/TerminalToolbar";
+import { TerminalActions } from "../features/terminals/components/TerminalActions";
 import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
 import type { LayoutId } from "../../shared/models/terminal-layout";
 import { ReviewChipBar } from "./components/ReviewChipBar";
@@ -1415,18 +1415,20 @@ export function App() {
 							shortcutsHelpOpen={shortcutsHelpOpen}
 							setShortcutsHelpOpen={setShortcutsHelpOpen}
 							appPlatform={appPlatform}
+							terminalActions={
+								activeWorktree ? (
+									<TerminalActions
+										presets={workspaceState.commandPresets}
+										addDisabled={addDisabled}
+										onAddAdHoc={handleAddAdHoc}
+										onLaunchPreset={handleLaunchPreset}
+										onOpenPresetManager={() => setPresetManagerOpen(true)}
+										onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
+									/>
+								) : undefined
+							}
 						/>
 
-						{activeWorktree && (
-							<TerminalToolbar
-								presets={workspaceState.commandPresets}
-								addDisabled={addDisabled}
-								onAddAdHoc={handleAddAdHoc}
-								onLaunchPreset={handleLaunchPreset}
-								onOpenPresetManager={() => setPresetManagerOpen(true)}
-								onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
-							/>
-						)}
 						<TerminalPanel
 							workspaceState={workspaceState}
 							activeWorktree={activeWorktree}

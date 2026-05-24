@@ -48,6 +48,9 @@ type Props = {
 	shortcutsHelpOpen: boolean;
 	setShortcutsHelpOpen: (next: boolean) => void;
 	appPlatform: Platform;
+
+	/** Render slot for the terminal action chips in the session chipbar. */
+	terminalActions?: React.ReactNode;
 };
 
 /**
@@ -81,6 +84,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 		shortcutsHelpOpen,
 		setShortcutsHelpOpen,
 		appPlatform,
+		terminalActions,
 	} = props;
 
 	return (
@@ -119,6 +123,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 						}}
 						onFilesClick={() => setFilesOverlayOpen(true)}
 						onNoteClick={() => setNoteSheetOpen((prev) => !prev)}
+						terminalActions={terminalActions}
 					/>
 				</div>
 			)}
