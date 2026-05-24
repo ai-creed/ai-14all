@@ -1034,15 +1034,27 @@ export function App() {
 		[startupMode],
 	);
 
-	// Cmd+T / Ctrl+T — new terminal
+	// Cmd+T / Ctrl+T — new terminal (disabled when 6 shells are running)
 	useKeyboardShortcut(
 		"terminal.new",
 		appPlatform,
 		(e) => {
 			e.preventDefault();
+			if (addDisabled) return;
 			void handleAddAdHoc();
 		},
-		[activeWorktree?.id, activeWorkspaceId],
+		[activeWorktree?.id, activeWorkspaceId, addDisabled],
+	);
+
+	// Cmd+Shift+L / Ctrl+Shift+L — open the terminal layout dialog
+	useKeyboardShortcut(
+		"terminal.layout",
+		appPlatform,
+		(e) => {
+			e.preventDefault();
+			if (activeWorktree) setLayoutDialogOpen(true);
+		},
+		[activeWorktree?.id],
 	);
 
 	// Cmd+Shift+W / Ctrl+Shift+W — close active terminal
@@ -1089,31 +1101,7 @@ export function App() {
 			if (!nextProcessId) return;
 			e.preventDefault();
 
-			// VS Code-style split mode behavior (same as selectActiveProcess):
-			// - In split mode, navigating to a process not in either slot → single view
-			// - In single mode, navigating to a process with a slot assigned → restore split
-			if (session.terminalLayoutMode === "split") {
-				if (
-					session.splitLeftProcessId !== nextProcessId &&
-					session.splitRightProcessId !== nextProcessId
-				) {
-					dispatch({
-						type: "session/setTerminalLayoutMode",
-						worktreeId: currentWorktreeId,
-						layoutMode: "single",
-					});
-				}
-			} else if (
-				session.splitLeftProcessId === nextProcessId ||
-				session.splitRightProcessId === nextProcessId
-			) {
-				dispatch({
-					type: "session/setTerminalLayoutMode",
-					worktreeId: currentWorktreeId,
-					layoutMode: "split",
-				});
-			}
-
+			// Next/prev only cycles focus across slots — layout is unchanged.
 			dispatch({
 				type: "session/selectProcess",
 				worktreeId: currentWorktreeId,
@@ -1136,38 +1124,6 @@ export function App() {
 				worktreeId: currentWorktreeId,
 			});
 			setTerminalFocusSignal((n) => n + 1);
-		},
-		[dispatch],
-	);
-
-	// Cmd+D / Ctrl+D — toggle split terminal mode
-	useKeyboardShortcut(
-		"terminal.toggleSplit",
-		appPlatform,
-		(e) => {
-			const currentState = workspaceStateRef.current;
-			const currentWorktreeId = currentState.selectedWorktreeId;
-			if (!currentWorktreeId) return;
-			const session = currentState.sessionsByWorktreeId[currentWorktreeId];
-			if (!session) return;
-			e.preventDefault();
-			const isSplit = session.terminalLayoutMode === "split";
-			const processes = (session.processSessionIds ?? [])
-				.map((id) => currentState.processSessionsById[id])
-				.filter(Boolean)
-				.sort((a, b) => Number(b.pinned) - Number(a.pinned));
-			dispatch({
-				type: "session/setTerminalLayoutMode",
-				worktreeId: currentWorktreeId,
-				layoutMode: isSplit ? "single" : "split",
-				autoAssignProcessIds:
-					!isSplit &&
-					!session.splitLeftProcessId &&
-					!session.splitRightProcessId &&
-					processes.length === 2
-						? processes.map((p) => p.id)
-						: undefined,
-			});
 		},
 		[dispatch],
 	);

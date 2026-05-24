@@ -223,13 +223,16 @@ function isTerminalSelectPrevShortcut(
 	return e.ctrlKey && !e.metaKey;
 }
 
-function isTerminalToggleSplitShortcut(
+// ⌘⇧L / Ctrl+Shift+L — opens the terminal layout dialog. Shift is required so
+// the combo is not a control character the shell/PTY would consume; this mirrors
+// the other terminal-management shortcuts and fires from inside the terminal.
+function isTerminalLayoutShortcut(
 	e: KeyboardEvent,
 	platform: Platform,
 ): boolean {
 	if (e.defaultPrevented) return false;
-	if (e.key !== "d" && e.key !== "D") return false;
-	if (e.altKey || e.shiftKey) return false;
+	if (e.key !== "l" && e.key !== "L") return false;
+	if (e.altKey || !e.shiftKey) return false;
 	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null))
 		return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
@@ -417,11 +420,11 @@ export const SHORTCUT_REGISTRY: AppShortcut[] = [
 		predicate: isTerminalSelectPrevShortcut,
 	},
 	{
-		id: "terminal.toggleSplit",
-		label: "Toggle split mode",
-		mac: "⌘D",
-		other: "Ctrl+D",
-		predicate: isTerminalToggleSplitShortcut,
+		id: "terminal.layout",
+		label: "Choose layout",
+		mac: "⌘⇧L",
+		other: "Ctrl+Shift+L",
+		predicate: isTerminalLayoutShortcut,
 	},
 	{
 		id: "layout.toggleSidebar",
