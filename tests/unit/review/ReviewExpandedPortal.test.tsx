@@ -1,5 +1,5 @@
 import { createRef } from "react";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
 	ReviewExpandedPortal,
@@ -133,6 +133,57 @@ describe("ReviewExpandedPortal", () => {
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+
+	it("collapses on Escape key", () => {
+		const onCollapse = vi.fn();
+		render(<ReviewExpandedPortal {...makeProps({ onCollapse })} />);
+		const portal = screen.getByTestId("review-expanded-portal");
+		act(() => {
+			fireEvent.keyDown(document, { key: "Escape" });
+		});
+		expect(onCollapse).not.toHaveBeenCalled();
+		act(() => {
+			portal.dispatchEvent(new Event("transitionend"));
+		});
+		expect(onCollapse).toHaveBeenCalledTimes(1);
+	});
+
+	it("does not collapse on Escape while a dialog is open", () => {
+		const onCollapse = vi.fn();
+		const dialog = document.createElement("div");
+		dialog.setAttribute("role", "dialog");
+		dialog.setAttribute("data-state", "open");
+		document.body.appendChild(dialog);
+		try {
+			render(<ReviewExpandedPortal {...makeProps({ onCollapse })} />);
+			const portal = screen.getByTestId("review-expanded-portal");
+			act(() => {
+				fireEvent.keyDown(document, { key: "Escape" });
+			});
+			// No collapse started, so a transitionend has nothing to flush.
+			act(() => {
+				portal.dispatchEvent(new Event("transitionend"));
+			});
+			expect(onCollapse).not.toHaveBeenCalled();
+		} finally {
+			document.body.removeChild(dialog);
+		}
+	});
+
+	it("ignores Escape that another handler already consumed", () => {
+		const onCollapse = vi.fn();
+		render(<ReviewExpandedPortal {...makeProps({ onCollapse })} />);
+		const event = new KeyboardEvent("keydown", {
+			key: "Escape",
+			cancelable: true,
+			bubbles: true,
+		});
+		event.preventDefault(); // mark as already handled
+		act(() => {
+			document.dispatchEvent(event);
+		});
+		expect(onCollapse).not.toHaveBeenCalled();
 	});
 
 	it("observes both chipBarRef and mainColRef elements", () => {
