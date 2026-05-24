@@ -8,7 +8,10 @@ export function detectPlatform(): Platform {
 function targetOwnsTyping(target: HTMLElement | null): boolean {
 	if (!target || typeof target.closest !== "function") return false;
 
-	if (target.closest(".xterm")) return true;
+	// Intentionally NOT blocked by .xterm: Cmd+P (Files) is global navigation
+	// that must fire even when the terminal pane holds focus. The terminal does
+	// not bind Cmd+P (see TerminalPane attachCustomKeyEventHandler), so there is
+	// no conflict to lose.
 	if (target.closest('[role="dialog"]')) return true;
 	// Monaco's .inputarea is a <textarea>, so check Monaco BEFORE the generic
 	// TEXTAREA guard. Read-only editors (FileViewer, DiffViewer) are wrapped in

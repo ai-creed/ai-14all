@@ -2617,10 +2617,27 @@ select {
 	background: var(--panel-bg);
 	border: 1px solid var(--panel-border);
 	border-radius: var(--radius-lg);
-	width: 400px;
+	width: 800px;
 	max-width: calc(100vw - 32px);
 	outline: none;
 	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/*
+ * Two-column masonry flow. Each group is kept whole via break-inside so a
+ * section never splits across the column boundary. max-height + scroll is a
+ * safety net for very short viewports.
+ */
+.shell-shortcuts-help__body {
+	columns: 2;
+	column-gap: var(--space-4);
+	padding: var(--space-2) var(--space-2);
+	max-height: calc(100vh - 96px);
+	overflow-y: auto;
+}
+
+.shell-shortcuts-help__group {
+	break-inside: avoid;
 }
 
 .shell-shortcuts-help__header {

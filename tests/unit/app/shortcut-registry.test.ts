@@ -228,12 +228,19 @@ describe("terminal-first ownership — all shortcuts", () => {
 		"shortcuts-help": { metaKey: true, key: "/" },
 	};
 
-	it("no shortcut predicate fires when focus is inside .xterm", () => {
+	// Shortcuts that must fire even when focus is inside the terminal pane.
+	// Cmd+P (Files) and Cmd+J (Review) are global navigation, not terminal input.
+	const xtermShouldFire = new Set(["files-overlay", "review.open"]);
+
+	it("only files-overlay and review.open fire when focus is inside .xterm; the rest stay blocked", () => {
 		const target = xtermTarget();
-		for (const s of SHORTCUT_REGISTRY) {
-			const trigger = macTriggers[s.id];
-			// Each predicate uses its own trigger so the guard, not a key mismatch, causes the false.
-			expect(s.predicate(evt({ ...trigger, target }), "mac")).toBe(false);
+		for (const id of Object.keys(macTriggers)) {
+			const s = entry(id);
+			const trigger = macTriggers[id];
+			// Each predicate uses its own trigger so the guard, not a key mismatch, decides.
+			expect(s.predicate(evt({ ...trigger, target }), "mac")).toBe(
+				xtermShouldFire.has(id),
+			);
 		}
 	});
 
