@@ -69,8 +69,9 @@ test.describe.serial("Cumulative flow — Phase 2", () => {
 		// The xterm title changes to the CWD almost immediately, so match by
 		// position rather than by name. Wait for the first tab, then add one
 		// more shell and wait for a second tab to appear.
-		const terminalTabs = page
-			.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)");
+		const terminalTabs = page.locator(
+			".shell-terminal-slot:not(.shell-terminal-slot--empty)",
+		);
 		await expect(terminalTabs.first()).toBeVisible({ timeout: 10_000 });
 		await page.getByRole("button", { name: "Add shell" }).click();
 

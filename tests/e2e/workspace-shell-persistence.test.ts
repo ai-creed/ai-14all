@@ -144,8 +144,9 @@ test.describe.serial("Workspace shell persistence", () => {
 	test("keeps a newly added shell alive and bound to its original workspace after switching away and back", async () => {
 		await ensureTwoWorkspacesLoaded();
 
-		const terminalTabs = page
-			.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)");
+		const terminalTabs = page.locator(
+			".shell-terminal-slot:not(.shell-terminal-slot--empty)",
+		);
 		const countBefore = await terminalTabs.count();
 		const seqBeforeAdd = latestSeq();
 
