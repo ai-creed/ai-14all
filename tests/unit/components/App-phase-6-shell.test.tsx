@@ -513,66 +513,11 @@ describe("App — Phase 6 default shell", () => {
 
 		render(<App />);
 
-		expect(
-			await screen.findByRole("tab", { name: "shell 1" }),
-		).toBeInTheDocument();
-		expect(screen.getByText(/no active shell selected/i)).toBeInTheDocument();
+		// The restored shell occupies slot 0 even with no live terminal session yet
+		// (slot header renders; the xterm pane simply does not mount).
+		expect(await screen.findByTestId("slot-0")).toBeInTheDocument();
+		expect(screen.getAllByText("shell 1").length).toBeGreaterThan(0);
 		expect(document.querySelector(".shell-terminal-section")).not.toBeNull();
-	});
-
-	it("auto-assigns two existing shells when enabling split mode", async () => {
-		readRestoreStateMock.mockResolvedValue({
-			version: 1,
-			restorePreference: "prompt",
-			snapshot: null,
-		});
-		openRepositoryMock.mockResolvedValue({
-			workspaceId: "repo-1",
-			repository: {
-				id: "repo-1",
-				name: "repo",
-				rootPath: "/repo",
-				repoId: null,
-			},
-		});
-		listWorktreesMock.mockResolvedValue([
-			{
-				id: "main",
-				repositoryId: "repo-1",
-				branchName: "main",
-				path: "/repo",
-				label: "main",
-				isMain: true,
-			},
-		]);
-
-		render(<App />);
-		await screen.findByLabelText("Repository path");
-		fireEvent.change(screen.getByLabelText("Repository path"), {
-			target: { value: "/repo" },
-		});
-		fireEvent.click(screen.getByRole("button", { name: "Load" }));
-
-		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: "shell 1" })).toBeInTheDocument();
-		});
-		await userEvent.click(screen.getByRole("button", { name: "Add shell" }));
-		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: "shell 2" })).toBeInTheDocument();
-		});
-
-		await userEvent.click(
-			screen.getByRole("button", { name: "Enable split shells" }),
-		);
-
-		await waitFor(() => {
-			expect(
-				document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]'),
-			).toHaveLength(2);
-		});
-		expect(
-			screen.queryByText(/No shell assigned to this split pane/i),
-		).not.toBeInTheDocument();
 	});
 
 	it("ages a sidebar shell from active preview to idle quiet hint", async () => {
@@ -620,7 +565,7 @@ describe("App — Phase 6 default shell", () => {
 				await Promise.resolve();
 			});
 
-			expect(screen.getByRole("tab", { name: "shell 1" })).toBeInTheDocument();
+			expect(screen.getAllByText("shell 1").length).toBeGreaterThan(0);
 
 			await act(async () => {
 				for (const listener of outputListenersRef.current) {
@@ -641,105 +586,6 @@ describe("App — Phase 6 default shell", () => {
 		} finally {
 			vi.useRealTimers();
 		}
-	});
-
-	it("keeps split layout on one worktree session without affecting another", async () => {
-		readRestoreStateMock.mockResolvedValue({
-			version: 1,
-			restorePreference: "prompt",
-			snapshot: null,
-		});
-		openRepositoryMock.mockResolvedValue({
-			workspaceId: "repo-1",
-			repository: {
-				id: "repo-1",
-				name: "repo",
-				rootPath: "/repo",
-				repoId: null,
-			},
-		});
-		listWorktreesMock.mockResolvedValue([
-			{
-				id: "main",
-				repositoryId: "repo-1",
-				branchName: "main",
-				path: "/repo",
-				label: "main",
-				isMain: true,
-			},
-			{
-				id: "feature-a",
-				repositoryId: "repo-1",
-				branchName: "feature-a",
-				path: "/repo/.worktrees/feature-a",
-				label: "feature-a",
-				isMain: false,
-			},
-		]);
-
-		render(<App />);
-		await screen.findByLabelText("Repository path");
-		fireEvent.change(screen.getByLabelText("Repository path"), {
-			target: { value: "/repo" },
-		});
-		fireEvent.click(screen.getByRole("button", { name: "Load" }));
-
-		await userEvent.click(
-			await screen.findByRole("button", { name: "feature-a" }),
-		);
-		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: "shell 1" })).toBeInTheDocument();
-		});
-		await userEvent.click(screen.getByRole("button", { name: "Add shell" }));
-		await waitFor(() => {
-			expect(screen.getByRole("tab", { name: "shell 2" })).toBeInTheDocument();
-		});
-
-		await userEvent.pointer([
-			{
-				target: screen.getByRole("tab", { name: "shell 1" }),
-				keys: "[MouseRight]",
-			},
-		]);
-		await userEvent.click(
-			screen.getByRole("menuitem", { name: "Show in split left" }),
-		);
-		await userEvent.pointer([
-			{
-				target: screen.getByRole("tab", { name: "shell 2" }),
-				keys: "[MouseRight]",
-			},
-		]);
-		await userEvent.click(
-			screen.getByRole("menuitem", { name: "Show in split right" }),
-		);
-
-		expect(
-			screen.getByRole("button", { name: "Disable split shells" }),
-		).toBeInTheDocument();
-		expect(
-			document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]'),
-		).toHaveLength(2);
-
-		await userEvent.click(screen.getByRole("button", { name: "main" }));
-		await waitFor(() => {
-			expect(
-				screen.getByRole("button", { name: "Enable split shells" }),
-			).toBeInTheDocument();
-		});
-		expect(
-			document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]'),
-		).toHaveLength(1);
-
-		await userEvent.click(screen.getByRole("button", { name: "feature-a" }));
-		await waitFor(() => {
-			expect(
-				screen.getByRole("button", { name: "Disable split shells" }),
-			).toBeInTheDocument();
-		});
-		expect(
-			document.querySelectorAll('.shell-terminal-pane[aria-hidden="false"]'),
-		).toHaveLength(2);
 	});
 
 	it("renders the chip bar and toggles the note sheet", async () => {

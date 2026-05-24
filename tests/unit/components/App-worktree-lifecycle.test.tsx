@@ -291,7 +291,7 @@ it("creates a default shell for a worktree recreated after removal with the same
 	// Select feature-a — default shell is auto-created on first visit
 	await userEvent.click(screen.getByRole("button", { name: "feature-a" }));
 	await waitFor(() => {
-		expect(screen.getByRole("tab", { name: /shell 1/i })).toBeInTheDocument();
+		expect(screen.getByTestId("slot-0")).toBeInTheDocument();
 	});
 
 	const createsBefore = vi
@@ -358,7 +358,7 @@ it("warns about dirty state and running sessions before removing a worktree", as
 	await userEvent.click(screen.getByRole("button", { name: "feature-a" }));
 
 	await waitFor(() => {
-		expect(screen.getByRole("tab", { name: /shell 1/i })).toBeInTheDocument();
+		expect(screen.getByTestId("slot-0")).toBeInTheDocument();
 	});
 
 	// Right-click the worktree to open the context menu, then click "Remove worktree"

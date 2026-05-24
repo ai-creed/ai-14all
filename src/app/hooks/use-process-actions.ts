@@ -33,6 +33,9 @@ type Options = {
 
 export type UseProcessActions = {
 	handleAddAdHoc: () => Promise<void>;
+	/** Spawn an ad-hoc shell PTY + build its ProcessSession, or null on failure
+	 * (a toast is shown). Caller places it into a slot. */
+	spawnAdHocProcess: () => Promise<ProcessSession | null>;
 	handleCloseProcess: (processId: string) => Promise<void>;
 	handleLaunchPreset: (presetId: string) => Promise<void>;
 	handleStopProcess: (processId: string) => Promise<void>;
@@ -61,58 +64,63 @@ export function useProcessActions(options: Options): UseProcessActions {
 		removeSession,
 	} = options;
 
+	const spawnAdHocProcess =
+		useCallback(async (): Promise<ProcessSession | null> => {
+			if (!worktree || !workspaceId) return null;
+			const targetWorkspaceId = workspaceId;
+			const targetWorktree = worktree;
+			try {
+				const termSession = await createSession(
+					targetWorkspaceId,
+					targetWorktree.id,
+					targetWorktree.path,
+				);
+				const targetWorkspaceState = getWorkspaceStateById(targetWorkspaceId);
+				const adHocNumber =
+					targetWorkspaceState?.nextAdHocNumberByWorktreeId[
+						targetWorktree.id
+					] ?? 1;
+				const adHocLabel = `shell ${adHocNumber}`;
+				return {
+					id: crypto.randomUUID(),
+					workspaceId: targetWorkspaceId,
+					worktreeId: targetWorktree.id,
+					terminalSessionId: termSession.id,
+					origin: "adHoc",
+					presetId: null,
+					label: adHocLabel,
+					command: null,
+					status: "running",
+					lastActivityAt: null,
+					lastOutputPreview: null,
+					exitCode: null,
+					pinned: false,
+					attentionState: "idle",
+					agentAttentionReasons: {},
+					agentAttentionClearedAt: null,
+					agentDetected: isAgentProcess(adHocLabel, null),
+					provider: null,
+				};
+			} catch (err) {
+				// Spawn failed: return null so the caller dispatches nothing — no
+				// orphan slot, layout unchanged.
+				console.error("Failed to create terminal session:", err);
+				return null;
+			}
+		}, [worktree, workspaceId, createSession, getWorkspaceStateById]);
+
 	const handleAddAdHoc = useCallback(async () => {
-		if (!worktree || !workspaceId) return;
-		const targetWorkspaceId = workspaceId;
-		const targetWorktree = worktree;
-		try {
-			const termSession = await createSession(
-				targetWorkspaceId,
-				targetWorktree.id,
-				targetWorktree.path,
-			);
-			const targetWorkspaceState = getWorkspaceStateById(targetWorkspaceId);
-			if (!targetWorkspaceState) return;
-			const adHocNumber =
-				targetWorkspaceState.nextAdHocNumberByWorktreeId[targetWorktree.id] ??
-				1;
-			const adHocLabel = `shell ${adHocNumber}`;
-			const process: ProcessSession = {
-				id: crypto.randomUUID(),
-				workspaceId: targetWorkspaceId,
-				worktreeId: targetWorktree.id,
-				terminalSessionId: termSession.id,
-				origin: "adHoc",
-				presetId: null,
-				label: adHocLabel,
-				command: null,
-				status: "running",
-				lastActivityAt: null,
-				lastOutputPreview: null,
-				exitCode: null,
-				pinned: false,
-				attentionState: "idle",
-				agentAttentionReasons: {},
-				agentAttentionClearedAt: null,
-				agentDetected: isAgentProcess(adHocLabel, null),
-				provider: null,
-			};
-			createScopedWorkspaceDispatch(targetWorkspaceId)({
-				type: "session/registerProcess",
-				worktreeId: targetWorktree.id,
-				process,
-			});
-		} catch (err) {
-			console.error("Failed to create terminal session:", err);
-			throw err;
-		}
-	}, [
-		worktree,
-		workspaceId,
-		createSession,
-		getWorkspaceStateById,
-		createScopedWorkspaceDispatch,
-	]);
+		if (!workspaceId) return;
+		const process = await spawnAdHocProcess();
+		if (!process) return;
+		// registerProcess auto-places into the first empty slot, else promotes the
+		// layout bucket (see workspace-state reducer).
+		createScopedWorkspaceDispatch(workspaceId)({
+			type: "session/registerProcess",
+			worktreeId: process.worktreeId,
+			process,
+		});
+	}, [workspaceId, spawnAdHocProcess, createScopedWorkspaceDispatch]);
 
 	const handleCloseProcess = useCallback(
 		async (processId: string) => {
@@ -165,11 +173,18 @@ export function useProcessActions(options: Options): UseProcessActions {
 				(p) => p.id === presetId,
 			);
 			if (!preset) return;
-			const terminal = await createSession(
-				targetWorkspaceId,
-				targetWorktree.id,
-				targetWorktree.path,
-			);
+			let terminal: TerminalSession;
+			try {
+				terminal = await createSession(
+					targetWorkspaceId,
+					targetWorktree.id,
+					targetWorktree.path,
+				);
+			} catch (err) {
+				// Spawn failed: no dispatch -> no orphan slot.
+				console.error("Failed to launch preset:", err);
+				return;
+			}
 			createScopedWorkspaceDispatch(targetWorkspaceId)({
 				type: "session/registerProcess",
 				worktreeId: targetWorktree.id,
@@ -270,6 +285,7 @@ export function useProcessActions(options: Options): UseProcessActions {
 
 	return {
 		handleAddAdHoc,
+		spawnAdHocProcess,
 		handleCloseProcess,
 		handleLaunchPreset,
 		handleStopProcess,

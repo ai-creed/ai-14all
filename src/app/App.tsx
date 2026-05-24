@@ -76,6 +76,9 @@ import { useRemoveWorktreePreview } from "./hooks/use-remove-worktree-preview";
 import { DialogStack } from "./components/DialogStack";
 import { ToastProvider } from "../features/ui/toast/ToastProvider";
 import { TerminalPanel } from "./components/TerminalPanel";
+import { TerminalToolbar } from "../features/terminals/components/TerminalToolbar";
+import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
+import type { LayoutId } from "../../shared/models/terminal-layout";
 import { ReviewChipBar } from "./components/ReviewChipBar";
 import { firstViewableChangedFile } from "./logic/review-chip-target";
 import { ReviewArea } from "./components/ReviewArea";
@@ -282,28 +285,13 @@ export function App() {
 		? (workspaceState.sessionsByWorktreeId[workspaceState.selectedWorktreeId] ??
 			null)
 		: null;
-	const activeProcesses = (activeSession?.processSessionIds ?? [])
-		.map((id) => workspaceState.processSessionsById[id])
-		.filter(Boolean)
-		.sort((a, b) => Number(b.pinned) - Number(a.pinned));
-	const splitVisibleProcessIds =
-		activeSession?.terminalLayoutMode === "split"
-			? [
-					activeSession.splitLeftProcessId,
-					activeSession.splitRightProcessId,
-				].filter((id): id is string => !!id)
-			: [];
-	const visibleProcessIds =
-		activeSession?.terminalLayoutMode === "split"
-			? splitVisibleProcessIds
-			: activeSession?.activeProcessSessionId
-				? [activeSession.activeProcessSessionId]
-				: [];
-	const visibleTerminalSessionIds = visibleProcessIds.flatMap((processId) => {
-		const terminalSessionId =
-			workspaceState.processSessionsById[processId]?.terminalSessionId;
-		return terminalSessionId ? [terminalSessionId] : [];
-	});
+	// All shells occupying layout slots are visible (the slot grid renders each).
+	const slotProcessIds = activeSession?.slotProcessIds ?? [null];
+	const visibleProcessIds = slotProcessIds.filter(
+		(id): id is string => id !== null,
+	);
+	const runningShells = visibleProcessIds.length;
+	const addDisabled = runningShells >= 6;
 
 	// ---------------------------------------------------------------------------
 	// Review comments / diff affordances
@@ -413,31 +401,8 @@ export function App() {
 	function selectActiveProcess(processId: string) {
 		if (!activeWorktree) return;
 
-		// VS Code-style split mode behavior:
-		// - In split mode, clicking a process not in either slot → exit split (show alone)
-		// - In single mode, clicking a process that still has a slot assigned → restore split
-		if (activeSession?.terminalLayoutMode === "split") {
-			if (
-				activeSession.splitLeftProcessId !== processId &&
-				activeSession.splitRightProcessId !== processId
-			) {
-				dispatch({
-					type: "session/setTerminalLayoutMode",
-					worktreeId: activeWorktree.id,
-					layoutMode: "single",
-				});
-			}
-		} else if (
-			activeSession?.splitLeftProcessId === processId ||
-			activeSession?.splitRightProcessId === processId
-		) {
-			dispatch({
-				type: "session/setTerminalLayoutMode",
-				worktreeId: activeWorktree.id,
-				layoutMode: "split",
-			});
-		}
-
+		// Selecting a slot only moves focus — layout is chosen explicitly via the
+		// layout dialog, never as a side effect of selection.
 		dispatch({
 			type: "session/selectProcess",
 			worktreeId: activeWorktree.id,
@@ -496,21 +461,6 @@ export function App() {
 		getVisibleProcessIds: () => visibleProcessIds,
 		getActiveWorktreeId: () => activeWorktree?.id,
 	});
-	const orderedSessions =
-		activeSession?.terminalLayoutMode === "split"
-			? [
-					...visibleTerminalSessionIds.flatMap((sessionId) => {
-						const session = sessions.find(
-							(candidate) => candidate.id === sessionId,
-						);
-						return session ? [session] : [];
-					}),
-					...sessions.filter(
-						(session) => !visibleTerminalSessionIds.includes(session.id),
-					),
-				]
-			: sessions;
-
 	// Derive git data from cached session state
 	const activeSummary = activeSession?.gitSummary ?? null;
 	const gitSummaryError = activeSession?.gitSummaryError ?? false;
@@ -645,9 +595,9 @@ export function App() {
 
 	const {
 		handleAddAdHoc,
+		spawnAdHocProcess,
 		handleCloseProcess,
 		handleLaunchPreset,
-		handleStopProcess,
 		handleRestartProcess,
 	} = useProcessActions({
 		workspaceId: activeWorkspaceId,
@@ -663,6 +613,50 @@ export function App() {
 		stopSession,
 		removeSession,
 	});
+
+	const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
+
+	const handlePromoteSlot = useCallback(
+		(slotIndex: number) => {
+			if (!activeWorktree) return;
+			dispatch({
+				type: "session/swapTerminalSlots",
+				worktreeId: activeWorktree.id,
+				i: slotIndex,
+				j: 0,
+			});
+		},
+		[activeWorktree, dispatch],
+	);
+
+	const handleStartShellInSlot = useCallback(
+		async (slotIndex: number) => {
+			if (!activeWorktree || !activeSession) return;
+			const process = await spawnAdHocProcess();
+			if (!process) return; // spawn failed -> toast shown, no orphan
+			dispatch({
+				type: "session/placeProcessInNewSlot",
+				worktreeId: activeWorktree.id,
+				process,
+				layoutId: activeSession.terminalLayoutId,
+				slotIndex,
+			});
+		},
+		[activeWorktree, activeSession, spawnAdHocProcess, dispatch],
+	);
+
+	const handleSelectLayout = useCallback(
+		(layoutId: LayoutId) => {
+			if (!activeWorktree) return;
+			dispatch({
+				type: "session/setTerminalLayout",
+				worktreeId: activeWorktree.id,
+				layoutId,
+			});
+			setLayoutDialogOpen(false);
+		},
+		[activeWorktree, dispatch],
+	);
 
 	const {
 		resetAll: resetDefaultShellEnsured,
@@ -1467,25 +1461,41 @@ export function App() {
 							appPlatform={appPlatform}
 						/>
 
+						{activeWorktree && (
+							<TerminalToolbar
+								presets={workspaceState.commandPresets}
+								addDisabled={addDisabled}
+								onAddAdHoc={handleAddAdHoc}
+								onLaunchPreset={handleLaunchPreset}
+								onOpenPresetManager={() => setPresetManagerOpen(true)}
+								onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
+							/>
+						)}
 						<TerminalPanel
 							workspaceState={workspaceState}
 							activeWorktree={activeWorktree}
 							activeSession={activeSession ?? null}
-							activeProcesses={activeProcesses}
-							visibleProcessIds={visibleProcessIds}
 							sessions={sessions}
-							orderedSessions={orderedSessions}
+							layoutId={activeSession?.terminalLayoutId ?? "1"}
+							slotProcessIds={slotProcessIds}
 							terminalFocusSignal={terminalFocusSignal}
 							dispatch={dispatch}
-							handleAddAdHoc={handleAddAdHoc}
 							selectActiveProcess={selectActiveProcess}
-							handleLaunchPreset={handleLaunchPreset}
-							handleCloseProcess={handleCloseProcess}
-							handleStopProcess={handleStopProcess}
-							handleRestartProcess={handleRestartProcess}
-							openPresetManager={() => setPresetManagerOpen(true)}
+							onCloseSlot={handleCloseProcess}
+							onRestartSlot={handleRestartProcess}
+							onPromoteSlot={handlePromoteSlot}
+							onStartShellInSlot={handleStartShellInSlot}
 							findProcessByTerminalSessionId={findProcessByTerminalSessionId}
 						/>
+						{activeWorktree && (
+							<TerminalLayoutDialog
+								open={layoutDialogOpen}
+								runningShells={runningShells}
+								currentLayoutId={activeSession?.terminalLayoutId ?? "1"}
+								onSelect={handleSelectLayout}
+								onClose={() => setLayoutDialogOpen(false)}
+							/>
+						)}
 
 						{activeWorktree && (
 							<ReviewChipBar

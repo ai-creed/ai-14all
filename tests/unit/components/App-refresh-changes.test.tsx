@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
-	act,
 	render,
 	screen,
 	fireEvent,
@@ -768,12 +767,6 @@ async function createPreset(label: string, command: string) {
 	await user.click(screen.getByRole("button", { name: "Close" }));
 }
 
-function emitTerminalOutput(sessionId: string, data: string) {
-	mockTerminalOutputListeners.forEach((listener) =>
-		listener({ sessionId, data }),
-	);
-}
-
 describe("App — process lifecycle", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -795,54 +788,16 @@ describe("App — process lifecycle", () => {
 		});
 	});
 
-	it("launches a preset and pins the new process by default", async () => {
+	it("launches a preset into a terminal slot", async () => {
 		render(<App />);
 		await loadRepository();
 		await createPreset("Claude", "claude");
 		await user.click(screen.getByRole("button", { name: "Presets" }));
 		await user.click(screen.getByRole("menuitem", { name: "Claude" }));
 
-		expect(screen.getByRole("tab", { name: /Claude/i })).toHaveAttribute(
-			"data-pinned",
-			"true",
-		);
-	});
-
-	it("renders pinned tabs before unpinned tabs", async () => {
-		render(<App />);
-		await loadRepository();
-		// First add an ad-hoc shell (unpinned) — gets terminal-1
-		await user.click(screen.getByRole("button", { name: "Add shell" }));
-		// Then launch a preset (pinned) — gets terminal-2
-		await createPreset("Claude", "claude");
-		await user.click(screen.getByRole("button", { name: "Presets" }));
-		await user.click(screen.getByRole("menuitem", { name: "Claude" }));
-
-		// Despite being added second, the pinned "Claude" tab should appear first
-		const tabs = screen.getAllByRole("tab");
-		expect(tabs[0]).toHaveTextContent("Claude");
-		expect(tabs[1]).toHaveTextContent("shell 1");
-	});
-
-	it("marks a background process as action-required from output", async () => {
-		render(<App />);
-		await loadRepository();
-		await createPreset("Claude", "claude");
-		// loadRepository auto-creates one default shell (terminal-1)
-		// Launch preset — gets terminal-2, becomes active process
-		await user.click(screen.getByRole("button", { name: "Presets" }));
-		await user.click(screen.getByRole("menuitem", { name: "Claude" }));
-		// Add an ad-hoc shell — gets terminal-3, becomes the active process
-		// so the preset process is now in the background
-		await user.click(screen.getByRole("button", { name: "Add shell" }));
-		// Emit output on preset's terminal while it's in the background
-		act(() => {
-			emitTerminalOutput("terminal-2", "Continue? [y/N]");
-		});
-
-		expect(screen.getByRole("tab", { name: /Claude/i })).toHaveAttribute(
-			"data-attention",
-			"actionRequired",
+		// The preset shell occupies a slot (its label renders in the slot header).
+		await waitFor(() =>
+			expect(screen.getAllByText(/Claude/i).length).toBeGreaterThan(0),
 		);
 	});
 });
