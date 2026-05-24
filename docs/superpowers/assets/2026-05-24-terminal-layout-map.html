@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Layout map</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:24px 30px 60px; background:#0f1115; color:#e6e9ef;
+    font-family: ui-sans-serif,-apple-system,"Segoe UI",sans-serif; }
+  h1 { font-size:19px; margin:0 0 4px; }
+  .subtitle { color:#9aa3b2; font-size:12.5px; max-width:900px; line-height:1.5; margin:0 0 16px; }
+  .total { display:inline-block; background:#21304f; color:#cfe0ff; border:1px solid #3a5488;
+    border-radius:8px; padding:6px 12px; font-weight:700; font-size:14px; margin-bottom:18px; }
+  .bucket { display:flex; align-items:center; gap:18px; padding:12px 0; border-top:1px solid #20262f; }
+  .bhead { width:120px; flex:0 0 120px; }
+  .bhead .n { font-size:15px; font-weight:700; }
+  .bhead .cnt { font-size:11px; color:#7da2d9; }
+  .glyphs { display:flex; flex-wrap:wrap; gap:10px; }
+  .gl { width:52px; }
+  .gl .mini { display:grid; gap:2px; height:36px; border:1px solid #2a3140; border-radius:5px; padding:2px; background:#11151d; }
+  .gl .cap { font:600 8.5px ui-monospace,monospace; color:#7e8aa0; text-align:center; margin-top:3px; line-height:1.1; }
+  .cell { background:#222a3a; border-radius:2px; } .cell.m { background:#3a4f7d; }
+
+  .one{grid-template-columns:1fr;}
+  .c2{grid-template-columns:repeat(2,1fr);}.c3{grid-template-columns:repeat(3,1fr);}.c4{grid-template-columns:repeat(4,1fr);}.c5{grid-template-columns:repeat(5,1fr);}.c6{grid-template-columns:repeat(6,1fr);}
+  .r2{grid-template-rows:repeat(2,1fr);}.r3{grid-template-rows:repeat(3,1fr);}.r4{grid-template-rows:repeat(4,1fr);}.r5{grid-template-rows:repeat(5,1fr);}.r6{grid-template-rows:repeat(6,1fr);}
+  .g22{grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(2,1fr);}
+  .g23{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);}
+  .g32{grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(3,1fr);}
+
+  .ml{grid-template-columns:2fr 1fr;} .ml3{grid-template-rows:repeat(2,1fr);} .ml4{grid-template-rows:repeat(3,1fr);} .ml5{grid-template-rows:repeat(4,1fr);} .ml6{grid-template-rows:repeat(5,1fr);}
+  .ml .a{grid-column:1;grid-row:1/-1;}
+  .mt{grid-template-rows:2fr 1fr;} .mt3{grid-template-columns:repeat(2,1fr);} .mt4{grid-template-columns:repeat(3,1fr);} .mt5{grid-template-columns:repeat(4,1fr);} .mt6{grid-template-columns:repeat(5,1fr);}
+  .mt .a{grid-row:1;grid-column:1/-1;}
+
+  .dml5{grid-template-columns:2fr 1fr;grid-template-rows:repeat(6,1fr);}
+  .dml5 .a{grid-column:1;grid-row:1/4;}.dml5 .b{grid-column:1;grid-row:4/7;}
+  .dml5 .c{grid-column:2;grid-row:1/3;}.dml5 .d{grid-column:2;grid-row:3/5;}.dml5 .e{grid-column:2;grid-row:5/7;}
+  .dml6{grid-template-columns:2fr 1fr;grid-template-rows:repeat(4,1fr);}
+  .dml6 .a{grid-column:1;grid-row:1/3;}.dml6 .b{grid-column:1;grid-row:3/5;}
+  .dml6 .c{grid-column:2;grid-row:1;}.dml6 .d{grid-column:2;grid-row:2;}.dml6 .e{grid-column:2;grid-row:3;}.dml6 .f{grid-column:2;grid-row:4;}
+  .dmt5{grid-template-rows:2fr 1fr;grid-template-columns:repeat(6,1fr);}
+  .dmt5 .a{grid-row:1;grid-column:1/4;}.dmt5 .b{grid-row:1;grid-column:4/7;}
+  .dmt5 .c{grid-row:2;grid-column:1/3;}.dmt5 .d{grid-row:2;grid-column:3/5;}.dmt5 .e{grid-row:2;grid-column:5/7;}
+  .dmt6{grid-template-rows:2fr 1fr;grid-template-columns:repeat(4,1fr);}
+  .dmt6 .a{grid-row:1;grid-column:1/3;}.dmt6 .b{grid-row:1;grid-column:3/5;}
+  .dmt6 .c{grid-row:2;grid-column:1;}.dmt6 .d{grid-row:2;grid-column:2;}.dmt6 .e{grid-row:2;grid-column:3;}.dmt6 .f{grid-row:2;grid-column:4;}
+</style>
+</head>
+<body>
+  <h1>Full layout map — canonical maximal set</h1>
+  <p class="subtitle">Orientation (Vertical = columns, Horizontal = rows) × distribution (Equal / Master / Double-master / Grid). Blue cell = master. This is the maximal set; we can trim cramped ones (e.g. 5–6 equal cols/rows).</p>
+  <div class="total">Total: 26 layouts across 6 buckets</div>
+
+  <div class="bucket"><div class="bhead"><div class="n">1 shell</div><div class="cnt">1 layout</div></div>
+    <div class="glyphs">
+      <div class="gl"><div class="mini one"><div class="cell"></div></div><div class="cap">single</div></div>
+    </div></div>
+
+  <div class="bucket"><div class="bhead"><div class="n">2 shells</div><div class="cnt">2 layouts</div></div>
+    <div class="glyphs">
+      <div class="gl"><div class="mini c2"><div class="cell"></div><div class="cell"></div></div><div class="cap">V cols</div></div>
+      <div class="gl"><div class="mini r2"><div class="cell"></div><div class="cell"></div></div><div class="cap">H rows</div></div>
+    </div></div>
+
+  <div class="bucket"><div class="bhead"><div class="n">3 shells</div><div class="cnt">4 layouts</div></div>
+    <div class="glyphs">
+      <div class="gl"><div class="mini c3"><div class="cell"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">V cols</div></div>
+      <div class="gl"><div class="mini r3"><div class="cell"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">H rows</div></div>
+      <div class="gl"><div class="mini ml ml3"><div class="cell m a"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">V master</div></div>
+      <div class="gl"><div class="mini mt mt3"><div class="cell m a"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">H master</div></div>
+    </div></div>
+
+  <div class="bucket"><div class="bhead"><div class="n">4 shells</div><div class="cnt">5 layouts</div></div>
+    <div class="glyphs">
+      <div class="gl"><div class="mini c4"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">V cols</div></div>
+      <div class="gl"><div class="mini r4"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">H rows</div></div>
+      <div class="gl"><div class="mini ml ml4"><div class="cell m a"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">V master</div></div>
+      <div class="gl"><div class="mini mt mt4"><div class="cell m a"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">H master</div></div>
+      <div class="gl"><div class="mini g22"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">grid 2×2</div></div>
+    </div></div>
+
+  <div class="bucket"><div class="bhead"><div class="n">5 shells</div><div class="cnt">6 layouts</div></div>
+    <div class="glyphs">
+      <div class="gl"><div class="mini c5"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">V cols</div></div>
+      <div class="gl"><div class="mini r5"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">H rows</div></div>
+      <div class="gl"><div class="mini ml ml5"><div class="cell m a"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">V master</div></div>
+      <div class="gl"><div class="mini mt mt5"><div class="cell m a"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">H master</div></div>
+      <div class="gl"><div class="mini dml5"><div class="cell m a"></div><div class="cell m b"></div><div class="cell c"></div><div class="cell d"></div><div class="cell e"></div></div><div class="cap">V 2-master</div></div>
+      <div class="gl"><div class="mini dmt5"><div class="cell m a"></div><div class="cell m b"></div><div class="cell c"></div><div class="cell d"></div><div class="cell e"></div></div><div class="cap">H 2-master</div></div>
+    </div></div>
+
+  <div class="bucket"><div class="bhead"><div class="n">6 shells</div><div class="cnt">8 layouts</div></div>
+    <div class="glyphs">
+      <div class="gl"><div class="mini c6"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">V cols</div></div>
+      <div class="gl"><div class="mini r6"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">H rows</div></div>
+      <div class="gl"><div class="mini ml ml6"><div class="cell m a"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">V master</div></div>
+      <div class="gl"><div class="mini mt mt6"><div class="cell m a"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">H master</div></div>
+      <div class="gl"><div class="mini dml6"><div class="cell m a"></div><div class="cell m b"></div><div class="cell c"></div><div class="cell d"></div><div class="cell e"></div><div class="cell f"></div></div><div class="cap">V 2-master</div></div>
+      <div class="gl"><div class="mini dmt6"><div class="cell m a"></div><div class="cell m b"></div><div class="cell c"></div><div class="cell d"></div><div class="cell e"></div><div class="cell f"></div></div><div class="cap">H 2-master</div></div>
+      <div class="gl"><div class="mini g23"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">grid 2×3</div></div>
+      <div class="gl"><div class="mini g32"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div><div class="cap">grid 3×2</div></div>
+    </div></div>
+
+</body>
+</html>
