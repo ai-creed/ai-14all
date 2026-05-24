@@ -4,6 +4,33 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] – 2026-05-25
+
+### Added
+
+- **Terminal layout presets (slot-based terminal chrome).** Replaces the legacy single/split terminal model with a slot grid driven by a 26-layout catalog (up to 6 shells). A layout selector dialog (`⌘⇧L`) picks the arrangement; empty slots show a "start a shell" CTA; adding when all slots are full auto-promotes to the next layout bucket; a per-slot "promote to master" action swaps a child shell into the master slot. Layout and slot assignments live on the session and persist across restarts.
+- **Terminal actions in the session chipbar.** The standalone terminal toolbar row is gone — add-shell (`＋`), layout (`▦`), and presets (`⚙ ▾`) are now icon+text chips in the session chipbar, grouped to the right of Files/Note by a divider. Files/Note gained leading icons for a consistent row. The terminal grid reclaims the freed vertical height.
+- **Per-slot refit action (`⤓`).** A header button that re-fits the terminal to its container, notifies the PTY of the new size, and scrolls to the bottom — a manual recovery for the occasional "shell text vanished" state that previously needed a layout switch.
+- **Warm theme + a theme selector.** A new **Workspace → Theme** menu (System / Light / Dark / Warm). Warm is a dark espresso/umber palette with ivory text, a terracotta accent, and a cool sidebar border to set the sidebar apart from the warm main chrome.
+- **Theme-aware terminals.** xterm cells now follow the active app palette (light/dark/warm) with a tuned ANSI color set, applied live on theme change without recreating the terminal. The terminal background sits a step darker than the surrounding chrome so the terminal reads as a distinct surface.
+- **Density-aware terminal font.** Terminal text shrinks 1px per two layout slots (1–2 slots: 12px, 3–4: 11px, 5–6: 10px), applied live so denser layouts fit more rows/cols.
+- **Clickable review chips.** The "changed files" and "open comments" chips now navigate the review overlay — opening Files mode with the first changed file selected, or jumping to, revealing, and focusing the first open comment.
+- **`Cmd+P` / `Cmd+J` work inside the terminal pane** (previously swallowed by the focused xterm).
+- **Esc closes the review overlay.** Pressing Escape while interacting with the review overlay collapses it (like the Note drawer). Scoped to keypresses originating within the overlay, so dismissing a context menu, closing a nested editor modal, or working in the terminal/sidebar doesn't close it.
+
+### Changed
+
+- **Terminal slot header restyled** into a clear title bar: brighter background, stronger top/bottom borders, primary-color label, and hover/focus-visible affordance on the `↑`/`↻`/`✕` icon buttons. The status badge dot moved to the left; action buttons sit on the right.
+- **Stacked terminals lose the inter-row gap** — the header's top border is the separator (suppressed on the top-row slot); side-by-side terminals keep their column divider.
+- **`⌘⇧L`** replaces the old split toggle; the legacy single/split terminal model and its reducer paths were removed.
+- **Shell-spawn failures now surface a toast** via an imperative toast bridge.
+- **Wider two-column shortcuts help dialog.**
+
+### Fixed
+
+- **Terminal slot grid now fills the full pane height.** A leftover `auto` grid row left the grid sized to content with dead space below; collapsed to a single `1fr` track.
+- **Slot status badge dot now reflects real attention states** (`activity` → warning, `actionRequired` → danger). The prior rule targeted a `needsAttention` value that the state model never emits, so the attention color never fired.
+
 ## [0.5.1] – 2026-05-19
 
 ### Fixed
