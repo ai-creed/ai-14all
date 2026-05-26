@@ -4,6 +4,18 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] – 2026-05-26
+
+### Fixed
+
+- **Terminals no longer go blank after switching workspaces.** Switching to another workspace and back left the agent/shell terminals empty (the `xterm-accessibility` tree had no text), recoverable only by toggling the layout. The active workspace's terminal panel was unmounted on every switch, disposing the xterm instance and its PTY output subscription with no buffer or replay — so the remounted pane was blank and any output produced while the workspace was inactive was lost. Every hydrated workspace now keeps its terminal panel mounted (hidden via CSS), preserving scrollback and the live output subscription across switches; only the active workspace's panel is visible.
+- **Adding a shell no longer kills a later shell.** With a multi-shell layout, closing a shell that wasn't the last one and then adding a new shell (top Add button, `⌘T`, or the in-grid "start a shell" CTA) overwrote a following shell, orphaning its running process. The slot model was compacted before the new shell was placed, shifting a later shell into the target slot. New shells now fill the empty slot in place; compaction is reserved for genuinely growing into a larger layout.
+- **Sidebar session card shell rows keep a stable order.** Rows were sorted by status and recency, so two agents changing state at once made the summary list shuffle position. Rows now stay in creation order while the card's overall status still reflects the most urgent shell.
+
+### Changed
+
+- **Sidebar session card summary text is one consistent size.** Shell labels, the agent provider badge, and the summary line are unified to match the card task line instead of three different sizes.
+
 ## [0.6.0] – 2026-05-25
 
 ### Added
