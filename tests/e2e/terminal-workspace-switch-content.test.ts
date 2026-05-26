@@ -48,7 +48,9 @@ async function launchApp() {
 test.beforeAll(async () => {
 	repoA = createTestRepo();
 	repoB = createSecondTestRepo();
-	persistedStateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-wsswitch-")));
+	persistedStateDir = realpathSync(
+		mkdtempSync(join(tmpdir(), "ofa-wsswitch-")),
+	);
 	persistedStatePath = join(persistedStateDir, "workspace-state.json");
 	userDataDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-user-data-")));
 	await launchApp();
@@ -68,8 +70,17 @@ test.afterAll(async () => {
 const workspaceSidebar = () =>
 	page.getByRole("navigation", { name: "Worktree sessions" });
 
+// Every hydrated workspace now keeps its terminal panel mounted; only the
+// active workspace's panes are visible (aria-hidden="false"). Scope all
+// terminal queries to the visible pane so we never accidentally read a hidden
+// workspace's xterm.
+const visiblePane = () =>
+	page.locator('.shell-terminal-pane[aria-hidden="false"]').first();
+const visibleAccessibilityTree = () =>
+	visiblePane().locator(".xterm-accessibility-tree");
+
 async function typeInActiveTerminal(line: string) {
-	const ta = page.locator(".xterm-helper-textarea");
+	const ta = visiblePane().locator(".xterm-helper-textarea");
 	await ta.waitFor({ state: "attached" });
 	await ta.focus();
 	await page.keyboard.type(line);
@@ -87,19 +98,23 @@ test("terminal output survives a workspace round-trip", async () => {
 	await expect(
 		workspaceSidebar().getByRole("button", { name: / main$/i }),
 	).toBeVisible({ timeout: 15_000 });
-	await workspaceSidebar().getByRole("button", { name: / main$/i }).click();
+	await workspaceSidebar()
+		.getByRole("button", { name: / main$/i })
+		.click();
 
 	await expect(
 		page
-			.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
+			.locator(
+				'[data-active="true"] .shell-terminal-slot:not(.shell-terminal-slot--empty)',
+			)
 			.first(),
 	).toBeVisible({ timeout: 15_000 });
 	await expect(page.locator(".xterm")).toHaveCount(1, { timeout: 10_000 });
 
 	await typeInActiveTerminal("echo MARKER_AAA");
-	await expect(
-		page.locator(".xterm-accessibility-tree").first(),
-	).toContainText("MARKER_AAA", { timeout: 10_000 });
+	await expect(visibleAccessibilityTree()).toContainText("MARKER_AAA", {
+		timeout: 10_000,
+	});
 
 	// Load repo B as a second workspace and activate it.
 	await page.getByRole("button", { name: "Load workspace" }).click();
@@ -121,13 +136,15 @@ test("terminal output survives a workspace round-trip", async () => {
 
 	await expect(
 		page
-			.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
+			.locator(
+				'[data-active="true"] .shell-terminal-slot:not(.shell-terminal-slot--empty)',
+			)
 			.first(),
 	).toBeVisible({ timeout: 15_000 });
 	await typeInActiveTerminal("echo MARKER_BBB");
-	await expect(
-		page.locator(".xterm-accessibility-tree").first(),
-	).toContainText("MARKER_BBB", { timeout: 10_000 });
+	await expect(visibleAccessibilityTree()).toContainText("MARKER_BBB", {
+		timeout: 10_000,
+	});
 
 	// Round-trip: switch to A, then back to B.
 	await workspaceSidebar()
@@ -148,13 +165,15 @@ test("terminal output survives a workspace round-trip", async () => {
 
 	await expect(
 		page
-			.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)")
+			.locator(
+				'[data-active="true"] .shell-terminal-slot:not(.shell-terminal-slot--empty)',
+			)
 			.first(),
 	).toBeVisible({ timeout: 10_000 });
 
 	// The terminal that previously showed MARKER_BBB must still show it after
 	// the round-trip. Today it renders blank (pane unmounted + no replay).
-	await expect(
-		page.locator(".xterm-accessibility-tree").first(),
-	).toContainText("MARKER_BBB", { timeout: 10_000 });
+	await expect(visibleAccessibilityTree()).toContainText("MARKER_BBB", {
+		timeout: 10_000,
+	});
 });

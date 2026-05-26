@@ -368,6 +368,31 @@ select {
 	min-width: 0;
 }
 
+/*
+ * Holds one terminal panel per hydrated workspace. Only the active workspace's
+ * host is shown; inactive hosts stay mounted (preserving their xterm instances
+ * + PTY subscriptions) but are removed from layout via display:none.
+ */
+.shell-terminal-layer {
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.shell-terminal-host {
+	display: none;
+	min-height: 0;
+	min-width: 0;
+}
+
+.shell-terminal-host[data-active="true"] {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+}
+
 .shell-terminal-section {
 	display: grid;
 	grid-template-rows: minmax(0, 1fr);

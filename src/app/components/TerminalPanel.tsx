@@ -14,6 +14,15 @@ import { normalizeTerminalTitle } from "../normalize-terminal-title";
 type Props = {
 	/** xterm color theme matching the active app palette. */
 	terminalTheme: ITheme;
+	/**
+	 * Whether this panel belongs to the currently-active workspace. Panels for
+	 * inactive workspaces stay mounted (so their xterm instances keep buffering
+	 * PTY output and never lose scrollback across a workspace switch) but are
+	 * hidden via CSS; their panes are rendered with `visible={false}` so the
+	 * pane's hide/show machinery saves scroll on hide and re-fits on show.
+	 * Defaults to true so existing single-workspace callers are unaffected.
+	 */
+	panelVisible?: boolean;
 	workspaceState: WorkspaceState;
 	activeWorktree: Worktree | null;
 	activeSession: WorktreeSession | null;
@@ -41,6 +50,7 @@ type Props = {
 export function TerminalPanel(props: Props): React.ReactElement | null {
 	const {
 		terminalTheme,
+		panelVisible = true,
 		workspaceState,
 		activeWorktree,
 		activeSession,
@@ -189,7 +199,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 							{termSession && (
 								<TerminalPane
 									session={termSession}
-									visible={true}
+									visible={panelVisible}
 									fitSignal={fitSignals[processId] ?? 0}
 									fontSize={terminalFontSize}
 									theme={terminalTheme}
