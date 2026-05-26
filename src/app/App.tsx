@@ -1271,7 +1271,7 @@ export function App() {
 						}
 						const topRow =
 							display.source === "process"
-								? (processSummary.rows[0] ?? null)
+								? (processSummary.topRow ?? null)
 								: null;
 						displayedAttentionSnapshot[worktreeId] = {
 							worktreeId,

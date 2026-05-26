@@ -59,35 +59,69 @@ describe("buildWorktreeProcessSummary", () => {
 			4,
 		);
 
+		// Rows keep their input (creation) order; severity no longer reorders them.
 		expect(
 			summary.rows.map((row) => [row.label, row.state, row.context]),
 		).toEqual([
 			["claude", "actionRequired", "Continue? [y/N]"],
-			["lint", "exited", "exit 1"],
 			["dev", "active", "compiled in 124ms"],
 			["tests", "idle", "quiet for 12s"],
+			["lint", "exited", "exit 1"],
 		]);
 	});
 
-	it("sorts by severity first and recency second", () => {
+	it("keeps rows in input order regardless of state changes", () => {
+		const build = () =>
+			buildWorktreeProcessSummary(
+				[
+					{
+						id: "claude",
+						label: "claude",
+						status: "running",
+						attentionState: "idle",
+						lastActivityAt: 8_000,
+						lastOutputPreview: "idle",
+						exitCode: null,
+					},
+					{
+						id: "codex",
+						label: "codex",
+						status: "running",
+						attentionState: "actionRequired",
+						lastActivityAt: 19_000,
+						lastOutputPreview: "Continue? [y/N]",
+						exitCode: null,
+					},
+				],
+				now,
+				4,
+			);
+
+		// codex is the more severe / more recent process, but the visible rows
+		// must stay in the order the processes were created (claude, codex) so the
+		// sidebar list does not shuffle as agents change state simultaneously.
+		expect(build().rows.map((row) => row.label)).toEqual(["claude", "codex"]);
+	});
+
+	it("exposes the most-severe process as topRow without reordering rows", () => {
 		const summary = buildWorktreeProcessSummary(
 			[
 				{
-					id: "older-active",
-					label: "older active",
-					status: "running",
-					attentionState: "activity",
-					lastActivityAt: 12_000,
-					lastOutputPreview: "working",
-					exitCode: null,
-				},
-				{
-					id: "newer-idle",
-					label: "newer idle",
+					id: "claude",
+					label: "claude",
 					status: "running",
 					attentionState: "idle",
 					lastActivityAt: 8_000,
-					lastOutputPreview: "stale",
+					lastOutputPreview: "idle",
+					exitCode: null,
+				},
+				{
+					id: "codex",
+					label: "codex",
+					status: "running",
+					attentionState: "actionRequired",
+					lastActivityAt: 19_000,
+					lastOutputPreview: "Continue? [y/N]",
 					exitCode: null,
 				},
 			],
@@ -95,10 +129,39 @@ describe("buildWorktreeProcessSummary", () => {
 			4,
 		);
 
-		expect(summary.rows.map((row) => row.label)).toEqual([
-			"older active",
-			"newer idle",
-		]);
+		expect(summary.rows.map((row) => row.label)).toEqual(["claude", "codex"]);
+		expect(summary.topRow?.label).toBe("codex");
+		expect(summary.topRow?.state).toBe("actionRequired");
+	});
+
+	it("topRow tie-breaks on recency within the same severity", () => {
+		const summary = buildWorktreeProcessSummary(
+			[
+				{
+					id: "older",
+					label: "older",
+					status: "running",
+					attentionState: "activity",
+					lastActivityAt: 12_000,
+					lastOutputPreview: "old",
+					exitCode: null,
+				},
+				{
+					id: "newer",
+					label: "newer",
+					status: "running",
+					attentionState: "activity",
+					lastActivityAt: 19_000,
+					lastOutputPreview: "new",
+					exitCode: null,
+				},
+			],
+			now,
+			4,
+		);
+
+		expect(summary.rows.map((row) => row.label)).toEqual(["older", "newer"]);
+		expect(summary.topRow?.label).toBe("newer");
 	});
 
 	it("caps visible rows and reports overflow", () => {
@@ -412,6 +475,15 @@ describe("buildWorktreeAttentionDisplay", () => {
 					},
 				],
 				overflowCount: 0,
+				topRow: {
+					id: "p1",
+					label: "claude",
+					state: "actionRequired",
+					context: "waiting: y/n prompt",
+					lastActivityAt: now,
+					hasFailedReason: false,
+					provider: null,
+				},
 			},
 		});
 		expect(display.state).toBe("actionRequired");
@@ -428,7 +500,7 @@ describe("buildWorktreeAttentionDisplay", () => {
 					reportedAt: now,
 				},
 			},
-			processSummary: { rows: [], overflowCount: 0 },
+			processSummary: { rows: [], overflowCount: 0, topRow: null },
 		});
 		expect(display.state).toBe("active");
 		expect(display.state).not.toBe("activity");
@@ -460,6 +532,15 @@ describe("buildWorktreeAttentionDisplay", () => {
 					},
 				],
 				overflowCount: 0,
+				topRow: {
+					id: "p1",
+					label: "claude",
+					state: "active",
+					context: "process context",
+					lastActivityAt: now,
+					hasFailedReason: false,
+					provider: null,
+				},
 			},
 		});
 		expect(display.state).toBe("active");

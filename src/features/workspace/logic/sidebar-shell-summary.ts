@@ -24,6 +24,16 @@ export type SidebarShellRow = {
 export type WorktreeProcessSummary = {
 	rows: SidebarShellRow[];
 	overflowCount: number;
+	/**
+	 * The most-severe process across ALL processes (severity first, recency as
+	 * tie-break), independent of `rows` ordering. `rows` is kept in stable
+	 * creation order so the sidebar list does not shuffle when shells change
+	 * state simultaneously; consumers that need the single most-important process
+	 * (the worktree's overall dot/context) read this instead of `rows[0]`.
+	 * Always populated by `buildWorktreeProcessSummary`; optional only so test
+	 * fixtures that render rows directly need not restate it.
+	 */
+	topRow?: SidebarShellRow | null;
 };
 
 export type WorktreeAttentionDisplay = {
@@ -155,33 +165,39 @@ export function buildWorktreeProcessSummary(
 	now: number,
 	maxRows = 3,
 ): WorktreeProcessSummary {
-	const rows = processes
-		.map((process) => {
-			const state = deriveState(process, now);
-			const reasons = process.agentAttentionReasons ?? {};
-			const hasFailedReason = Object.values(reasons).some(
-				(r) => r != null && r.state === "failed",
-			);
-			return {
-				id: process.id,
-				label: process.label,
-				state,
-				context: deriveContext(process, state, now),
-				lastActivityAt: process.lastActivityAt,
-				hasFailedReason,
-				provider: process.provider ?? null,
-			};
-		})
-		.sort((left, right) => {
-			const severityDelta =
-				severityRank[right.state] - severityRank[left.state];
-			if (severityDelta !== 0) return severityDelta;
-			return (right.lastActivityAt ?? 0) - (left.lastActivityAt ?? 0);
-		});
+	// Keep rows in input (creation) order — never reorder by state/recency, so the
+	// sidebar list stays put while shells change status simultaneously.
+	const rows = processes.map((process) => {
+		const state = deriveState(process, now);
+		const reasons = process.agentAttentionReasons ?? {};
+		const hasFailedReason = Object.values(reasons).some(
+			(r) => r != null && r.state === "failed",
+		);
+		return {
+			id: process.id,
+			label: process.label,
+			state,
+			context: deriveContext(process, state, now),
+			lastActivityAt: process.lastActivityAt,
+			hasFailedReason,
+			provider: process.provider ?? null,
+		};
+	});
+
+	// Most-severe process (severity first, recency as tie-break) across all rows,
+	// computed without mutating row order.
+	const topRow = rows.reduce<SidebarShellRow | null>((best, row) => {
+		if (best === null) return row;
+		const severityDelta = severityRank[row.state] - severityRank[best.state];
+		if (severityDelta > 0) return row;
+		if (severityDelta < 0) return best;
+		return (row.lastActivityAt ?? 0) > (best.lastActivityAt ?? 0) ? row : best;
+	}, null);
 
 	return {
 		rows: rows.slice(0, maxRows),
 		overflowCount: Math.max(0, rows.length - maxRows),
+		topRow,
 	};
 }
 
@@ -195,7 +211,7 @@ export function buildWorktreeAttentionDisplay(input: {
 		: "idle";
 	const sessionContext = mcp ? `${mcp.state}: ${mcp.summary}` : "";
 
-	const top = input.processSummary.rows[0] ?? null;
+	const top = input.processSummary.topRow ?? null;
 	const topState: SidebarShellState = top?.state ?? "idle";
 	const topContext = top?.context ?? "";
 
