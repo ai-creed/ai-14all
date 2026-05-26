@@ -951,7 +951,9 @@ select {
 	display: flex;
 	align-items: center;
 	gap: var(--space-1);
-	font-size: 0.75rem;
+	/* Match the card task line so all summary text is one size (see
+	 * .shell-sidebar__card-task); labels and context inherit this. */
+	font-size: 0.7rem;
 	min-width: 0;
 }
 
@@ -3619,7 +3621,8 @@ select {
 	align-items: center;
 	padding: 1px 6px;
 	border-radius: var(--radius-sm);
-	font-size: 0.65rem;
+	/* Unified with the rest of the card summary text (.shell-sidebar__card-task). */
+	font-size: 0.7rem;
 	font-weight: 600;
 	letter-spacing: 0.3px;
 	text-transform: lowercase;
