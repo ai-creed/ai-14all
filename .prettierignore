@@ -3,5 +3,6 @@ dist
 test-results
 node_modules
 .worktrees
+.ai-whisper
 docs
 pnpm-lock.yaml
