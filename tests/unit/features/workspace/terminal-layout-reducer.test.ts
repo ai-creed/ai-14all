@@ -101,6 +101,36 @@ describe("session/placeProcessInNewSlot", () => {
 		expect(sess.activeProcessSessionId).toBe("d");
 		expect(next.processSessionsById["d"]).toBeDefined();
 	});
+
+	it("fills a gap slot in the current layout without killing later shells", () => {
+		// Mirrors the in-grid "+ start a shell" CTA path: close a middle shell,
+		// then place a new shell into the resulting empty slot of the SAME layout.
+		let s = seed(["a", "b", "c"], "3-v");
+		s = workspaceReducer(s, {
+			type: "session/closeProcess",
+			worktreeId: "wt1",
+			processId: "b",
+		});
+		expect(s.sessionsByWorktreeId["wt1"].slotProcessIds).toEqual([
+			"a",
+			null,
+			"c",
+		]);
+
+		const next = workspaceReducer(s, {
+			type: "session/placeProcessInNewSlot",
+			worktreeId: "wt1",
+			process: proc("d"),
+			layoutId: "3-v",
+			slotIndex: 1,
+		});
+		const sess = next.sessionsByWorktreeId["wt1"];
+
+		// The new shell fills the gap; "c" must keep its slot, not be overwritten.
+		expect(sess.slotProcessIds).toEqual(["a", "d", "c"]);
+		expect(sess.processSessionIds).toEqual(["a", "d", "c"]);
+		expect(sess.terminalLayoutId).toBe("3-v");
+	});
 });
 
 describe("session/registerProcess (slot model)", () => {

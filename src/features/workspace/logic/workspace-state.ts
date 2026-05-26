@@ -554,10 +554,15 @@ export function workspaceReducer(
 	if (action.type === "session/placeProcessInNewSlot") {
 		const session = state.sessionsByWorktreeId[action.worktreeId];
 		if (!session) return state;
-		const compacted = compactIntoLayout(
-			session.slotProcessIds,
-			action.layoutId,
-		);
+		// Placing into an empty slot of the CURRENT layout (the "+ start a shell"
+		// CTA filling a gap left by a closed shell): write in place. Do NOT compact
+		// — compaction packs survivors forward and would shift a later shell into
+		// action.slotIndex, overwriting and orphaning its running process. Only a
+		// genuine layout change (growing into a larger layout) needs the reflow.
+		const compacted =
+			action.layoutId === session.terminalLayoutId
+				? session.slotProcessIds.slice()
+				: compactIntoLayout(session.slotProcessIds, action.layoutId);
 		compacted[action.slotIndex] = action.process.id;
 		const nextSession: WorktreeSession = {
 			...session,
