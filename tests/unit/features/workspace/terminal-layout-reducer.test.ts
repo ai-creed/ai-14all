@@ -103,6 +103,57 @@ describe("session/placeProcessInNewSlot", () => {
 	});
 });
 
+describe("session/registerProcess (slot model)", () => {
+	it("fills a gap left by a closed middle shell without killing later shells", () => {
+		// Layout 3, all slots full, close the MIDDLE shell -> [a, null, c].
+		let s = seed(["a", "b", "c"], "3-v");
+		s = workspaceReducer(s, {
+			type: "session/closeProcess",
+			worktreeId: "wt1",
+			processId: "b",
+		});
+		expect(s.sessionsByWorktreeId["wt1"].slotProcessIds).toEqual([
+			"a",
+			null,
+			"c",
+		]);
+
+		// Adding a new shell must fill the gap and leave every existing shell
+		// untouched — previously the layout was compacted before placement, which
+		// overwrote "c" and orphaned its running process.
+		const next = workspaceReducer(s, {
+			type: "session/registerProcess",
+			worktreeId: "wt1",
+			process: proc("d"),
+		});
+		const sess = next.sessionsByWorktreeId["wt1"];
+
+		expect(sess.slotProcessIds).toEqual(["a", "d", "c"]);
+		expect(sess.processSessionIds).toEqual(["a", "d", "c"]);
+		// "d" is the freshly registered process; "c" must remain present.
+		expect(next.processSessionsById["d"]).toBeDefined();
+		expect(sess.activeProcessSessionId).toBe("d");
+		expect(sess.terminalLayoutId).toBe("3-v");
+	});
+
+	it("promotes the layout bucket and appends when no slot is empty", () => {
+		const s = seed(["a", "b", "c"], "3-v");
+		const next = workspaceReducer(s, {
+			type: "session/registerProcess",
+			worktreeId: "wt1",
+			process: proc("d"),
+		});
+		const sess = next.sessionsByWorktreeId["wt1"];
+		expect(sess.slotProcessIds.filter((id) => id !== null)).toEqual([
+			"a",
+			"b",
+			"c",
+			"d",
+		]);
+		expect(sess.slotProcessIds[3]).toBe("d");
+	});
+});
+
 describe("session/closeProcess (slot model)", () => {
 	it("empties the slot without changing the layout", () => {
 		let s = seed(["a", "b", "c"], "3-v");

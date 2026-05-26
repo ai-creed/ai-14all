@@ -747,7 +747,15 @@ export function workspaceReducer(
 			slotProcessIds: session.slotProcessIds,
 		});
 		if (plan.kind === "full") return state;
-		const compacted = compactIntoLayout(session.slotProcessIds, plan.layoutId);
+		// "fill" reuses an empty slot in the current layout: write the new process
+		// into that slot in place. Do NOT compact first — compaction packs existing
+		// shells toward the front, which shifts a later shell into plan.slotIndex
+		// and would overwrite (orphan) its running process. "promote" grows into a
+		// larger layout and has no empty slots to preserve, so compaction is safe.
+		const compacted =
+			plan.kind === "fill"
+				? session.slotProcessIds.slice()
+				: compactIntoLayout(session.slotProcessIds, plan.layoutId);
 		compacted[plan.slotIndex] = action.process.id;
 		const nextSession: WorktreeSession = {
 			...session,
