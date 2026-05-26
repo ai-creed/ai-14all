@@ -23,6 +23,9 @@ import { createSecondTestRepo } from "./fixtures/create-second-test-repo";
 // A single shell per workspace reproduces the root cause; the original report's
 // two-agent setup is the same code path with more panes.
 
+// Serial: the second test reuses the two workspaces loaded by the first.
+test.describe.configure({ mode: "serial" });
+
 let app: ElectronApplication | undefined;
 let page: Page;
 let repoA: TestRepo;
@@ -176,4 +179,59 @@ test("terminal output survives a workspace round-trip", async () => {
 	await expect(visibleAccessibilityTree()).toContainText("MARKER_BBB", {
 		timeout: 10_000,
 	});
+});
+
+// Covers the second half of the root-cause contract from the diagnosis:
+// output produced WHILE a workspace is inactive must still be written into its
+// (hidden) xterm, so it appears on return. Before the fix, switching away
+// unmounted the pane and tore down its PTY output subscription, so anything the
+// PTY emitted while hidden was delivered to no subscriber and lost forever —
+// this asserts it is captured instead. Relies on the two workspaces loaded by
+// the previous (serial) test, with B currently active.
+test("output emitted while a workspace is inactive appears after switching back", async () => {
+	test.setTimeout(120_000);
+
+	const nameA = basename(repoA.repoPath);
+	const nameB = basename(repoB.repoPath);
+
+	// B is active from the previous test. Start a command in B that emits its
+	// marker only after a delay, so the output lands after we have switched away.
+	await expect(
+		workspaceSidebar().getByRole("group", { name: nameB }),
+	).toHaveAttribute("data-active-workspace", "true", { timeout: 10_000 });
+	await typeInActiveTerminal("sleep 2 && echo HIDDEN_WHILE_INACTIVE");
+
+	// Switch to A immediately — well before the 2s sleep elapses — so the echo
+	// fires while B's pane is hidden/inactive.
+	await workspaceSidebar()
+		.getByRole("group", { name: nameA })
+		.getByRole("button", { name: / main$/i })
+		.click();
+	await expect(
+		workspaceSidebar().getByRole("group", { name: nameA }),
+	).toHaveAttribute("data-active-workspace", "true", { timeout: 10_000 });
+
+	// The visible (A) terminal must not be the one emitting the marker, and the
+	// marker has not fired yet anyway — guards against the output happening while
+	// B was still visible.
+	await expect(visibleAccessibilityTree()).not.toContainText(
+		"HIDDEN_WHILE_INACTIVE",
+	);
+
+	// Wait on A long enough for B's delayed echo to fire while B is hidden.
+	await page.waitForTimeout(3_000);
+
+	// Back to B: the output produced while it was inactive must now be present.
+	await workspaceSidebar()
+		.getByRole("group", { name: nameB })
+		.getByRole("button", { name: / main$/i })
+		.click();
+	await expect(
+		workspaceSidebar().getByRole("group", { name: nameB }),
+	).toHaveAttribute("data-active-workspace", "true", { timeout: 10_000 });
+
+	await expect(visibleAccessibilityTree()).toContainText(
+		"HIDDEN_WHILE_INACTIVE",
+		{ timeout: 10_000 },
+	);
 });
