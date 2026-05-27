@@ -82,6 +82,37 @@ jobs:
           export APPLE_API_KEY="$KEYFILE"
           pnpm package:mac
 
+      - name: Sign + notarize + staple DMG
+        shell: bash
+        env:
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          # electron-builder signs/notarizes the .app but not the DMG container.
+          # Import the Developer ID cert into a keychain so codesign can find the
+          # identity, then sign + notarize + staple the DMG.
+          KEYCHAIN="$RUNNER_TEMP/dmg-signing.keychain-db"
+          security create-keychain -p "" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "" "$KEYCHAIN"
+          echo "$MAC_CSC_LINK" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" \
+            -P "$MAC_CSC_KEY_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" "$KEYCHAIN"
+          # Put our keychain at the front of the user search list so
+          # `security find-identity` (used by the script) sees the identity.
+          security list-keychains -d user -s "$KEYCHAIN" \
+            $(security list-keychains -d user | sed -e 's/["[:space:]]//g')
+
+          KEYFILE="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s' "$APPLE_API_KEY_P8" > "$KEYFILE"
+          export APPLE_API_KEY="$KEYFILE"
+          node scripts/sign-notarize-dmg.mjs
+
       - name: Verify signature & notarization
         shell: bash
         run: |

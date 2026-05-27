@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { main as signNotarizeDmg } from "./sign-notarize-dmg.mjs";
 
 const ENV_FILE = ".env.local";
 
@@ -97,7 +98,14 @@ export function main() {
 		env: process.env,
 		shell: process.platform === "win32",
 	});
-	process.exit(result.status ?? 1);
+	if ((result.status ?? 1) !== 0) {
+		process.exit(result.status ?? 1);
+	}
+
+	// electron-builder signs/notarizes the .app but not the DMG container.
+	// Close that gap so the DMG is Gatekeeper-clean (codesign + notarize + staple).
+	signNotarizeDmg();
+	process.exit(0);
 }
 
 if (import.meta.url === new URL(process.argv[1], "file:").href) {
