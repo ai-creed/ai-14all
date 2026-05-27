@@ -46,7 +46,7 @@ const STARTUP_DELAY_MS = 3_000;
 export interface UpdaterLike {
 	autoDownload: boolean;
 	autoInstallOnAppQuit: boolean;
-	on(event: string, listener: (arg: never) => void): UpdaterLike;
+	on(event: string, listener: (...args: unknown[]) => void): UpdaterLike;
 	checkForUpdates(): Promise<unknown>;
 	quitAndInstall(): void;
 }
@@ -127,17 +127,21 @@ export function startUpdateService(
 
 	args.updater.autoDownload = true;
 	args.updater.autoInstallOnAppQuit = true;
-	args.updater.on("update-available", (info: never) => {
-		args.send("update:available", toUpdateInfo(info as UpstreamUpdateInfo));
+	args.updater.on("update-available", (...a: unknown[]) => {
+		args.send("update:available", toUpdateInfo(a[0] as UpstreamUpdateInfo));
 	});
-	args.updater.on("update-downloaded", (info: never) => {
-		args.send("update:downloaded", toUpdateInfo(info as UpstreamUpdateInfo));
+	args.updater.on("update-downloaded", (...a: unknown[]) => {
+		args.send("update:downloaded", toUpdateInfo(a[0] as UpstreamUpdateInfo));
 	});
-	args.updater.on("error", (err: never) => {
+	args.updater.on("error", (...a: unknown[]) => {
 		// Spec §2: fire update:error IPC, log, and stay silent to the user
 		// (the renderer does not surface a banner for this channel).
+		const err = a[0];
 		log.warn("updater error", err);
-		const message = err instanceof Error ? err.message : String(err);
+		const message =
+			typeof err === "object" && err !== null && "message" in err
+				? String((err as { message: unknown }).message)
+				: String(err);
 		args.send("update:error", message);
 	});
 	void args.updater
