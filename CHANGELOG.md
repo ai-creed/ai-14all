@@ -4,6 +4,26 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Background auto-update.** Replaces the notify-only update banner with a full `electron-updater` flow: a newer stable release downloads in the background and the app prompts **Restart now / Later** (Later installs on the next quit). Stable channel only — beta builds stay manual. Update errors are logged and stay silent to the user.
+
+### Changed
+
+- **Signed & notarized macOS builds.** Both the `.app` and the `.dmg` are now signed with an Apple Developer ID and notarized, with the hardened runtime enabled — so the app opens normally without the right-click / `xattr` Gatekeeper workaround. node-pty terminals are verified working under the hardened runtime.
+
+### Build
+
+- Release CI signs, notarizes, and staples the app **and** the DMG, gates the publish on `codesign --verify` + `spctl --assess` of both artifacts, and uploads the native `latest-mac.yml` to the GitHub release so `electron-updater` can read it. Local signed builds via `pnpm package:mac:signed`; the process is documented in [`docs/signing-runbook.md`](./docs/signing-runbook.md).
+
+## [0.7.0] – 2026-05-27
+
+### Added
+
+- **Agent token telemetry for Claude and Codex.** A gated background process reads the providers' local session logs (`~/.claude`, `~/.codex`) and surfaces live per-agent token usage in the app. Configurable 5-hour and weekly budgets, weekly reset day/hour, an include-untracked toggle, and an enable/disable switch. Enabled by default.
+
 ## [0.6.1] – 2026-05-26
 
 ### Fixed
