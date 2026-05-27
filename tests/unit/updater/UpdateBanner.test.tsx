@@ -4,45 +4,92 @@ import userEvent from "@testing-library/user-event";
 import { UpdateBanner } from "../../../src/features/updater/UpdateBanner";
 
 const INFO = {
-	version: "0.1.1",
-	url: "https://downloads.ai-creed.dev/ai-14all/0.1.1/ai-14all-0.1.1-arm64.dmg",
-	releaseDate: "2026-05-01T12:00:00.000Z",
+	version: "1.3.0",
+	url: "",
+	releaseDate: "2026-05-27T12:00:00.000Z",
 };
 
 describe("UpdateBanner", () => {
-	it("renders nothing when no update is available", () => {
+	it("renders nothing when idle", () => {
 		render(
-			<UpdateBanner info={null} onDismiss={() => {}} onDownload={() => {}} />,
+			<UpdateBanner
+				downloadingInfo={null}
+				downloadedInfo={null}
+				onRestart={() => {}}
+				onLater={() => {}}
+			/>,
 		);
 		expect(screen.queryByRole("status")).toBeNull();
 	});
 
-	it("renders the version and a download control when info is present", () => {
+	it("shows a downloading indicator while a version is downloading", () => {
 		render(
-			<UpdateBanner info={INFO} onDismiss={() => {}} onDownload={() => {}} />,
+			<UpdateBanner
+				downloadingInfo={INFO}
+				downloadedInfo={null}
+				onRestart={() => {}}
+				onLater={() => {}}
+			/>,
 		);
-		expect(screen.getByRole("status")).toBeInTheDocument();
-		expect(screen.getByText(/0\.1\.1/)).toBeInTheDocument();
+		expect(screen.getByRole("status")).toHaveTextContent(/downloading/i);
+		expect(screen.getByRole("status")).toHaveTextContent(/1\.3\.0/);
+		expect(screen.queryByRole("button", { name: /restart now/i })).toBeNull();
+	});
+
+	it("shows Restart now / Later once a version is downloaded", () => {
+		render(
+			<UpdateBanner
+				downloadingInfo={null}
+				downloadedInfo={INFO}
+				onRestart={() => {}}
+				onLater={() => {}}
+			/>,
+		);
+		expect(screen.getByRole("status")).toHaveTextContent(/ready/i);
 		expect(
-			screen.getByRole("button", { name: /download/i }),
+			screen.getByRole("button", { name: /restart now/i }),
 		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /later/i })).toBeInTheDocument();
 	});
 
-	it("calls onDownload with the info url when the user clicks Download", async () => {
-		const onDownload = vi.fn();
+	it("calls onRestart when Restart now is clicked", async () => {
+		const onRestart = vi.fn();
 		render(
-			<UpdateBanner info={INFO} onDismiss={() => {}} onDownload={onDownload} />,
+			<UpdateBanner
+				downloadingInfo={null}
+				downloadedInfo={INFO}
+				onRestart={onRestart}
+				onLater={() => {}}
+			/>,
 		);
-		await userEvent.click(screen.getByRole("button", { name: /download/i }));
-		expect(onDownload).toHaveBeenCalledWith(INFO.url);
+		await userEvent.click(screen.getByRole("button", { name: /restart now/i }));
+		expect(onRestart).toHaveBeenCalledTimes(1);
 	});
 
-	it("calls onDismiss when the user clicks the close control", async () => {
-		const onDismiss = vi.fn();
+	it("calls onLater when Later is clicked", async () => {
+		const onLater = vi.fn();
 		render(
-			<UpdateBanner info={INFO} onDismiss={onDismiss} onDownload={() => {}} />,
+			<UpdateBanner
+				downloadingInfo={null}
+				downloadedInfo={INFO}
+				onRestart={() => {}}
+				onLater={onLater}
+			/>,
 		);
-		await userEvent.click(screen.getByRole("button", { name: /dismiss/i }));
-		expect(onDismiss).toHaveBeenCalled();
+		await userEvent.click(screen.getByRole("button", { name: /later/i }));
+		expect(onLater).toHaveBeenCalledTimes(1);
+	});
+
+	it("prefers the downloaded prompt over the downloading indicator", () => {
+		render(
+			<UpdateBanner
+				downloadingInfo={{ ...INFO, version: "1.2.0" }}
+				downloadedInfo={INFO}
+				onRestart={() => {}}
+				onLater={() => {}}
+			/>,
+		);
+		expect(screen.getByRole("status")).toHaveTextContent(/ready/i);
+		expect(screen.getByRole("status")).not.toHaveTextContent(/downloading/i);
 	});
 });

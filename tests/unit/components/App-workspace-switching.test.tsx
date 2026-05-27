@@ -84,6 +84,9 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	},
 	system: {
 		onUpdateAvailable: vi.fn(() => vi.fn()),
+		onUpdateDownloaded: vi.fn(() => vi.fn()),
+		onUpdateError: vi.fn(() => vi.fn()),
+		installUpdate: vi.fn(() => Promise.resolve()),
 		openExternal: vi.fn(() => Promise.resolve()),
 	},
 	reviewComments: {
