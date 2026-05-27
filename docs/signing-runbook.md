@@ -20,7 +20,12 @@ How to produce a signed + notarized `ai-14all` build, locally and in CI.
 1. `cp .env.local.example .env.local`
 2. Fill in:
    - `CSC_LINK` = base64 of the `.p12`, `CSC_KEY_PASSWORD` = its password.
-   - `APPLE_API_KEY_P8` = contents of the `.p8` (or `APPLE_API_KEY` = path to it).
+   - `APPLE_API_KEY` = **path** to the `.p8` file, e.g.
+     `APPLE_API_KEY=/path/to/AuthKey_XXXXXXXXXX.p8`. Leave `APPLE_API_KEY_P8`
+     empty locally — `.env.local` is parsed one line per variable, so a pasted
+     multi-line `.p8` is truncated and notarization fails with
+     `invalidPEMDocument`. (`APPLE_API_KEY_P8` is for CI secrets only, where
+     GitHub preserves newlines; the local script rejects an incomplete PEM.)
    - `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`, `APPLE_TEAM_ID`.
 3. `pnpm package:mac:signed`
 4. Verify:
