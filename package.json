@@ -20,6 +20,7 @@
 		"test:e2e": "electron-vite build && playwright test",
 		"test:all": "pnpm test && pnpm test:e2e",
 		"package:mac": "pnpm build && electron-builder --mac zip dmg --publish never",
+		"package:mac:signed": "node scripts/package-mac-signed.mjs",
 		"release:beta": "node scripts/release-beta.mjs",
 		"release:stable": "node scripts/release-stable.mjs",
 		"diag:attention": "node scripts/dump-attention-log.mjs"
