@@ -14,3 +14,4 @@ docs/shared/*architecture-hardening*
 release/
 docs/strategy.md
 Docs/bugreports/
+scripts/usage-smoke.ts
