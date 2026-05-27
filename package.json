@@ -1,6 +1,6 @@
 {
 	"name": "ai-14all",
-	"version": "0.7.0",
+	"version": "0.7.1",
 	"private": true,
 	"description": "Mission-control desktop app for running AI coding agents in parallel across Git worktrees",
 	"author": "Vu Phan <vu.phan.se@gmail.com>",
