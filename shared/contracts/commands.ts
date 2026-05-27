@@ -414,6 +414,21 @@ export type Ai14AllDesktopApi = {
 		onUpdateAvailable(listener: (info: UpdateInfo) => void): () => void;
 		openExternal(url: string): Promise<void>;
 	};
+	usage: {
+		onSnapshot(
+			listener: (snapshot: import("../models/usage.js").UsageSnapshot) => void,
+		): () => void;
+		setEnabled(enabled: boolean): Promise<void>;
+		setBudgets(
+			fiveHourBudget: number | null,
+			weeklyBudget: number | null,
+		): Promise<void>;
+		setWeeklyReset(
+			weeklyResetDay: number,
+			weeklyResetHour: number,
+		): Promise<void>;
+		setIncludeUntracked(includeUntracked: boolean): Promise<void>;
+	};
 	reviewComments: {
 		list(worktreeId: string): Promise<{ comments: ReviewComment[] }>;
 		create(input: ReviewCreateRequest): Promise<{ comment: ReviewComment }>;

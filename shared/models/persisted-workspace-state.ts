@@ -74,12 +74,26 @@ export const PersistedWorkspaceStateV1Schema = z.object({
 	snapshot: WorkspaceSnapshotSchema.nullable(),
 });
 
+export const UsageTelemetrySettingsSchema = z.object({
+	enabled: z.boolean().default(true),
+	// null => seed from rateLimitTier at runtime; number => explicit override.
+	fiveHourBudget: z.number().positive().nullable().default(null),
+	weeklyBudget: z.number().positive().nullable().default(null),
+	includeUntracked: z.boolean().default(false),
+	// Claude weekly limit reset anchor (local time). 0=Sun..6=Sat. Default Mon 07:00.
+	weeklyResetDay: z.number().int().min(0).max(6).default(1),
+	weeklyResetHour: z.number().int().min(0).max(23).default(7),
+});
+
 export const PersistedWorkspaceStateV2Schema = z.object({
 	version: z.literal(2),
 	restorePreference: RestorePreferenceSchema,
 	activeWorkspaceId: z.string().nullable(),
 	workspaceOrder: z.array(z.string()),
 	workspaces: z.array(PersistedSavedWorkspaceSchema),
+	// Optional (no default) so existing snapshots round-trip unchanged; the main
+	// process seeds defaults at read time.
+	usageTelemetry: UsageTelemetrySettingsSchema.optional(),
 });
 
 export const PersistedWorkspaceStateSchema = z.discriminatedUnion("version", [
@@ -87,6 +101,9 @@ export const PersistedWorkspaceStateSchema = z.discriminatedUnion("version", [
 	PersistedWorkspaceStateV2Schema,
 ]);
 
+export type UsageTelemetrySettings = z.infer<
+	typeof UsageTelemetrySettingsSchema
+>;
 export type RestorePreference = z.infer<typeof RestorePreferenceSchema>;
 export type PersistedProcessSession = z.infer<
 	typeof PersistedProcessSessionSchema

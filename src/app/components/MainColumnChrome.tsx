@@ -9,6 +9,8 @@ import { ShortcutsHelp } from "../../features/shortcuts/ShortcutsHelp";
 import { UpdateBanner } from "../../features/updater/UpdateBanner";
 import { NoteSheet } from "../../features/workspace/components/NoteSheet";
 import { SessionChipBar } from "../../features/workspace/components/SessionChipBar";
+import { UsageStrip } from "../../features/telemetry/UsageStrip";
+import { useUsageSnapshot } from "../../features/telemetry/use-usage-snapshot";
 import { displayTitle } from "../../features/workspace/logic/session-display-title";
 import type { WorkspaceAction } from "../../features/workspace/logic/workspace-state";
 import { isEditable } from "../../../shared/editor/editable-files";
@@ -49,6 +51,9 @@ type Props = {
 	setShortcutsHelpOpen: (next: boolean) => void;
 	appPlatform: Platform;
 
+	/** Paths of worktrees currently open in the app (telemetry "Active" scope). */
+	openWorktreePaths: string[];
+
 	/** Render slot for the terminal action chips in the session chipbar. */
 	terminalActions?: React.ReactNode;
 };
@@ -84,8 +89,11 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 		shortcutsHelpOpen,
 		setShortcutsHelpOpen,
 		appPlatform,
+		openWorktreePaths,
 		terminalActions,
 	} = props;
+
+	const usageSnapshot = useUsageSnapshot();
 
 	return (
 		<>
@@ -124,6 +132,13 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 						onFilesClick={() => setFilesOverlayOpen(true)}
 						onNoteClick={() => setNoteSheetOpen((prev) => !prev)}
 						terminalActions={terminalActions}
+						usage={
+							<UsageStrip
+								snapshot={usageSnapshot}
+								currentWorktreePath={activeWorktree.path}
+								openWorktreePaths={openWorktreePaths}
+							/>
+						}
 					/>
 				</div>
 			)}

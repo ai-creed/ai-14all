@@ -13,6 +13,7 @@ import {
 	SetCliOverrideRequestSchema,
 } from "../../shared/contracts/agent-install.js";
 import { openExternalUrl } from "./services/open-external.js";
+import type { UsageHost } from "./services/usage-host.js";
 import { consumeE2eGitFault } from "./e2e-git-faults.js";
 import { consumeE2eTerminalCreateDelay } from "./e2e-terminal-create-delay.js";
 import {
@@ -119,6 +120,7 @@ export function registerIpcHandlers(
 		shellEventLog,
 		agentAttentionLogger,
 		review,
+		usageHost,
 	}: {
 		workspacePersistence: WorkspacePersistenceService;
 		workspaceRegistry: WorkspaceRegistryService;
@@ -134,6 +136,7 @@ export function registerIpcHandlers(
 			};
 			worktreePathResolver: WorktreePathResolver;
 		};
+		usageHost?: UsageHost;
 	},
 ): {
 	dispose: () => void;
@@ -489,6 +492,34 @@ export function registerIpcHandlers(
 		mode: agentAttentionLogger?.getMode() ?? "off",
 		logsDir: agentAttentionLogger?.getLogsDir() ?? "",
 	}));
+
+	// --- Token telemetry ---
+
+	ipcMain.handle("usage:setEnabled", (_event, enabled: unknown) => {
+		usageHost?.setEnabled(Boolean(enabled));
+	});
+	ipcMain.handle("usage:setBudgets", (_event, raw: unknown) => {
+		const r = (raw ?? {}) as {
+			fiveHourBudget?: number | null;
+			weeklyBudget?: number | null;
+		};
+		usageHost?.setBudgets(r.fiveHourBudget ?? null, r.weeklyBudget ?? null);
+	});
+	ipcMain.handle("usage:setWeeklyReset", (_event, raw: unknown) => {
+		const r = (raw ?? {}) as {
+			weeklyResetDay?: number;
+			weeklyResetHour?: number;
+		};
+		if (
+			typeof r.weeklyResetDay === "number" &&
+			typeof r.weeklyResetHour === "number"
+		) {
+			usageHost?.setWeeklyReset(r.weeklyResetDay, r.weeklyResetHour);
+		}
+	});
+	ipcMain.handle("usage:setIncludeUntracked", (_event, v: unknown) => {
+		usageHost?.setIncludeUntracked(Boolean(v));
+	});
 
 	// --- Review Comments ---
 

@@ -13,6 +13,8 @@ import {
 	type AgentAttentionLogMode,
 } from "../../services/diagnostics/agent-attention-logger.js";
 import { startUpdateNotifier } from "./services/update-notifier.js";
+import { UsageHost } from "./services/usage-host.js";
+import type { KnownWorktree } from "../../shared/models/usage.js";
 import { ReviewCommentStore } from "../../services/review/review-comment-store.js";
 import { ReviewCommentService } from "../../services/review/review-comment-service.js";
 import { WorktreeService } from "../../services/worktrees/worktree-service.js";
@@ -74,6 +76,19 @@ app.whenReady().then(async () => {
 		webContents: mainWindow.webContents,
 		isPackaged: app.isPackaged,
 	});
+
+	// Token telemetry: gated utilityProcess that reads ~/.claude and ~/.codex logs
+	// and pushes UsageSnapshots to the renderer. Enabled by default.
+	const usageHost = new UsageHost({
+		userDataDir: app.getPath("userData"),
+		launchMs: Date.now(),
+		send: (channel, payload) => {
+			if (!mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+				mainWindow.webContents.send(channel, payload);
+			}
+		},
+	});
+	usageHost.start();
 	Menu.setApplicationMenu(buildApplicationMenu(mainWindow));
 	const workspacePersistence = new WorkspacePersistenceService(
 		process.env.AI14ALL_WORKSPACE_STATE_PATH ??
@@ -112,6 +127,31 @@ app.whenReady().then(async () => {
 	const worktreePathResolver =
 		await createWorktreePathResolver(buildResolverEntries);
 
+	// Feed the worktree registry to the telemetry host so transcript cwds map to
+	// real worktrees (and the popover's Active scope populates). Refreshed on
+	// registry changes below.
+	const refreshUsageWorktrees = async () => {
+		const known: KnownWorktree[] = [];
+		for (const repo of workspaceRegistry.listRepositories()) {
+			try {
+				const worktrees = await worktreeService.listWorktrees(repo);
+				for (const wt of worktrees) {
+					known.push({
+						worktreeId: wt.id,
+						workspaceId: wt.repositoryId,
+						title: wt.label,
+						path: wt.path,
+					});
+				}
+			} catch {
+				/* repo unreadable — skip */
+			}
+		}
+		usageHost.setKnownWorktrees(known);
+		usageHost.setActiveWorktrees(known.map((w) => w.worktreeId));
+	};
+	void refreshUsageWorktrees();
+
 	const sessionNoteBridge = new SessionNoteBridge(() => mainWindow.webContents);
 	const agentAttentionBridge = new AgentAttentionBridge(
 		() => mainWindow.webContents,
@@ -119,6 +159,7 @@ app.whenReady().then(async () => {
 
 	const offRegistry = workspaceRegistry.onChange(() => {
 		void worktreePathResolver.refresh();
+		void refreshUsageWorktrees();
 	});
 
 	let mcpServer: Ai14allMcpServer | null = null;
@@ -168,6 +209,7 @@ app.whenReady().then(async () => {
 			mcpStatus: reviewMcpStatus,
 			worktreePathResolver,
 		},
+		usageHost,
 	});
 
 	if (process.env.ELECTRON_RENDERER_URL) {
@@ -183,6 +225,7 @@ app.whenReady().then(async () => {
 		void mcpServer?.stop().catch(() => {});
 		sessionNoteBridge.dispose();
 		agentAttentionBridge.dispose();
+		usageHost.stop();
 	});
 
 	registerAppLifecycle({

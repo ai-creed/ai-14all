@@ -1423,6 +1423,9 @@ export function App() {
 							shortcutsHelpOpen={shortcutsHelpOpen}
 							setShortcutsHelpOpen={setShortcutsHelpOpen}
 							appPlatform={appPlatform}
+							openWorktreePaths={worktrees
+								.filter((w) => workspaceState.sessionsByWorktreeId[w.id])
+								.map((w) => w.path)}
 							terminalActions={
 								activeWorktree ? (
 									<TerminalActions

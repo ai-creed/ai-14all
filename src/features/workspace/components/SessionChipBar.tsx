@@ -16,6 +16,8 @@ type Props = {
 	 * terminal-specific logic.
 	 */
 	terminalActions?: React.ReactNode;
+	/** Render slot for the token-telemetry strip, placed in the bar's mid gap. */
+	usage?: React.ReactNode;
 };
 
 export function SessionChipBar({
@@ -30,6 +32,7 @@ export function SessionChipBar({
 	onFilesClick,
 	onNoteClick,
 	terminalActions,
+	usage,
 }: Props) {
 	return (
 		<div className="shell-chip-bar" role="region" aria-label="Session">
@@ -77,6 +80,8 @@ export function SessionChipBar({
 					</span>
 				)}
 			</div>
+
+			{usage && <div className="shell-chip-bar__usage">{usage}</div>}
 
 			<div className="shell-chip-bar__actions">
 				<button

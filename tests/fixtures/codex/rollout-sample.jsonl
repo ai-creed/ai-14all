@@ -1,0 +1,4 @@
+{"type":"session_meta","payload":{"cwd":"/Users/me/Dev/app"}}
+{"type":"turn_context","payload":{"model":"gpt-5.5","cwd":"/Users/me/Dev/app"}}
+{"timestamp":"2026-05-21T20:38:00.000Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":100,"cached_input_tokens":40,"output_tokens":10,"reasoning_output_tokens":0,"total_tokens":110}},"rate_limits":{"plan_type":"plus","primary":{"used_percent":3,"window_minutes":300,"resets_at":1779378867},"secondary":{"used_percent":41,"window_minutes":10080,"resets_at":1779853672}}}}
+{"timestamp":"2026-05-21T20:39:00.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"total_tokens":9999}}}}
