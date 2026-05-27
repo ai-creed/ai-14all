@@ -58,6 +58,7 @@ import { useDiffLoader } from "./hooks/use-diff-loader";
 import { useCommitHistoryLoader } from "./hooks/use-commit-history-loader";
 import { useCommitDetailLoader } from "./hooks/use-commit-detail-loader";
 import { useUpdateInfoListener } from "./hooks/use-update-info-listener";
+import { useUpdateDownloadedListener } from "./hooks/use-update-downloaded-listener";
 import { useKeyboardShortcut } from "./hooks/use-keyboard-shortcut";
 import { useNextPrevShortcut } from "./hooks/use-next-prev-shortcut";
 import { useActiveWorkspace } from "./hooks/use-active-workspace";
@@ -129,12 +130,18 @@ export function App() {
 	const [filesOverlayOpen, setFilesOverlayOpen] = useState(false);
 	const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
 	const updateInfo = useUpdateInfoListener();
+	const updateDownloaded = useUpdateDownloadedListener();
 	const [updateDismissedFor, setUpdateDismissedFor] = useState<string | null>(
 		null,
 	);
 
-	const bannerInfo =
-		updateInfo && updateInfo.version !== updateDismissedFor ? updateInfo : null;
+	const downloadedBannerInfo =
+		updateDownloaded && updateDownloaded.version !== updateDismissedFor
+			? updateDownloaded
+			: null;
+	// While downloading, only show the indicator until the download completes.
+	const downloadingBannerInfo =
+		updateInfo && !downloadedBannerInfo ? updateInfo : null;
 
 	// Multi-workspace registry + shadow state
 	const {
@@ -1399,10 +1406,12 @@ export function App() {
 
 					<section className="shell-main-column" ref={mainColRef}>
 						<MainColumnChrome
-							bannerInfo={bannerInfo}
-							updateInfoVersion={updateInfo?.version ?? null}
-							setUpdateDismissedFor={setUpdateDismissedFor}
-							onOpenExternal={(url) => void system.openExternal(url)}
+							downloadingBannerInfo={downloadingBannerInfo}
+							downloadedBannerInfo={downloadedBannerInfo}
+							onRestartUpdate={() => void system.installUpdate()}
+							onLaterUpdate={() =>
+								setUpdateDismissedFor(downloadedBannerInfo?.version ?? null)
+							}
 							chipBarRef={chipBarRef}
 							activeWorktree={activeWorktree}
 							activeSession={activeSession ?? null}

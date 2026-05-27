@@ -121,6 +121,7 @@ export function registerIpcHandlers(
 		agentAttentionLogger,
 		review,
 		usageHost,
+		installUpdate,
 	}: {
 		workspacePersistence: WorkspacePersistenceService;
 		workspaceRegistry: WorkspaceRegistryService;
@@ -137,6 +138,7 @@ export function registerIpcHandlers(
 			worktreePathResolver: WorktreePathResolver;
 		};
 		usageHost?: UsageHost;
+		installUpdate?: () => void;
 	},
 ): {
 	dispose: () => void;
@@ -468,6 +470,10 @@ export function registerIpcHandlers(
 			throw new Error("system:openExternal expects { url: string }");
 		}
 		await openExternalUrl((raw as { url: string }).url);
+	});
+
+	ipcMain.handle("update:install", () => {
+		installUpdate?.();
 	});
 
 	// --- Diagnostics ---

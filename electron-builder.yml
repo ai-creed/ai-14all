@@ -12,6 +12,11 @@ asarUnpack:
   - node_modules/node-pty/**
 mac:
   icon: assets/ai-14all-icon.icns
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  notarize: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
   target:
     - target: zip
       arch:
@@ -19,3 +24,7 @@ mac:
     - target: dmg
       arch:
         - arm64
+publish:
+  provider: github
+  owner: ai-creed
+  repo: ai-14all

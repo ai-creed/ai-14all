@@ -20,6 +20,7 @@
 		"test:e2e": "electron-vite build && playwright test",
 		"test:all": "pnpm test && pnpm test:e2e",
 		"package:mac": "pnpm build && electron-builder --mac zip dmg --publish never",
+		"package:mac:signed": "node scripts/package-mac-signed.mjs",
 		"release:beta": "node scripts/release-beta.mjs",
 		"release:stable": "node scripts/release-stable.mjs",
 		"diag:attention": "node scripts/dump-attention-log.mjs"
@@ -36,6 +37,7 @@
 		"@radix-ui/react-tooltip": "^1.2.0",
 		"@tanstack/react-virtual": "^3.13.23",
 		"@xterm/addon-fit": "^0.11.0",
+		"electron-updater": "^6.8.3",
 		"highlight.js": "^11.11.1",
 		"js-yaml": "^4.1.1",
 		"monaco-editor": "^0.55.1",

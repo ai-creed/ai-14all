@@ -22,10 +22,10 @@ type PendingRename = {
 };
 
 type Props = {
-	bannerInfo: UpdateInfo | null;
-	updateInfoVersion: string | null;
-	setUpdateDismissedFor: (next: string | null) => void;
-	onOpenExternal: (url: string) => void;
+	downloadingBannerInfo: UpdateInfo | null;
+	downloadedBannerInfo: UpdateInfo | null;
+	onRestartUpdate: () => void;
+	onLaterUpdate: () => void;
 
 	chipBarRef: MutableRefObject<HTMLDivElement | null>;
 	activeWorktree: Worktree | null;
@@ -65,10 +65,10 @@ type Props = {
  */
 export function MainColumnChrome(props: Props): React.ReactElement {
 	const {
-		bannerInfo,
-		updateInfoVersion,
-		setUpdateDismissedFor,
-		onOpenExternal,
+		downloadingBannerInfo,
+		downloadedBannerInfo,
+		onRestartUpdate,
+		onLaterUpdate,
 		chipBarRef,
 		activeWorktree,
 		activeSession,
@@ -98,9 +98,10 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 	return (
 		<>
 			<UpdateBanner
-				info={bannerInfo}
-				onDownload={(url) => onOpenExternal(url)}
-				onDismiss={() => setUpdateDismissedFor(updateInfoVersion)}
+				downloadingInfo={downloadingBannerInfo}
+				downloadedInfo={downloadedBannerInfo}
+				onRestart={onRestartUpdate}
+				onLater={onLaterUpdate}
 			/>
 			{activeWorktree && activeSession && (
 				<div ref={chipBarRef}>

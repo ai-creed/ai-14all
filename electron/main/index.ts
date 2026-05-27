@@ -12,7 +12,8 @@ import {
 	AgentAttentionLogger,
 	type AgentAttentionLogMode,
 } from "../../services/diagnostics/agent-attention-logger.js";
-import { startUpdateNotifier } from "./services/update-notifier.js";
+import electronUpdater from "electron-updater";
+import { startUpdateService } from "./services/update-service.js";
 import { UsageHost } from "./services/usage-host.js";
 import type { KnownWorktree } from "../../shared/models/usage.js";
 import { ReviewCommentStore } from "../../services/review/review-comment-store.js";
@@ -71,10 +72,16 @@ app.whenReady().then(async () => {
 	});
 
 	const mainWindow = createMainWindow(shellEventLog);
-	startUpdateNotifier({
+	const { autoUpdater } = electronUpdater;
+	const updateService = startUpdateService({
+		updater: autoUpdater,
 		currentVersion: app.getVersion(),
-		webContents: mainWindow.webContents,
 		isPackaged: app.isPackaged,
+		send: (channel, payload) => {
+			if (!mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+				mainWindow.webContents.send(channel, payload);
+			}
+		},
 	});
 
 	// Token telemetry: gated utilityProcess that reads ~/.claude and ~/.codex logs
@@ -210,6 +217,7 @@ app.whenReady().then(async () => {
 			worktreePathResolver,
 		},
 		usageHost,
+		installUpdate: () => updateService.installUpdate(),
 	});
 
 	if (process.env.ELECTRON_RENDERER_URL) {
@@ -220,6 +228,7 @@ app.whenReady().then(async () => {
 		);
 	}
 	app.on("before-quit", () => {
+		updateService.dispose();
 		offRegistry();
 		void deleteLivenessFile(livenessPath);
 		void mcpServer?.stop().catch(() => {});

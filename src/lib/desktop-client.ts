@@ -108,6 +108,11 @@ export const diagnostics: Ai14AllDesktopApi["diagnostics"] = {
 export const system: Ai14AllDesktopApi["system"] = {
 	onUpdateAvailable: (listener) =>
 		getDesktopClient().system.onUpdateAvailable(listener),
+	onUpdateDownloaded: (listener) =>
+		getDesktopClient().system.onUpdateDownloaded(listener),
+	onUpdateError: (listener) =>
+		getDesktopClient().system.onUpdateError(listener),
+	installUpdate: () => getDesktopClient().system.installUpdate(),
 	openExternal: (url) => getDesktopClient().system.openExternal(url),
 };
 
