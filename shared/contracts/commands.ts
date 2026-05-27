@@ -412,6 +412,9 @@ export type Ai14AllDesktopApi = {
 	};
 	system: {
 		onUpdateAvailable(listener: (info: UpdateInfo) => void): () => void;
+		onUpdateDownloaded(listener: (info: UpdateInfo) => void): () => void;
+		onUpdateError(listener: (message: string) => void): () => void;
+		installUpdate(): Promise<void>;
 		openExternal(url: string): Promise<void>;
 	};
 	usage: {

@@ -84,7 +84,7 @@ function onChannelBuffered<T>(
 // and any pending entry is drained — preventing a stale buffer leak.
 const pendingEvents: Record<string, unknown> = {};
 const pendingOnceRemovers: Record<string, () => void> = {};
-for (const channel of ["update:available"] as const) {
+for (const channel of ["update:available", "update:downloaded"] as const) {
 	const handler = (_: Electron.IpcRendererEvent, payload: unknown) => {
 		pendingEvents[channel] = payload;
 		delete pendingOnceRemovers[channel];
@@ -280,6 +280,15 @@ const api: Ai14AllDesktopApi = {
 	system: {
 		onUpdateAvailable(listener) {
 			return onChannelBuffered<UpdateInfo>("update:available", listener);
+		},
+		onUpdateDownloaded(listener) {
+			return onChannelBuffered<UpdateInfo>("update:downloaded", listener);
+		},
+		onUpdateError(listener) {
+			return onChannel<string>("update:error", listener);
+		},
+		installUpdate() {
+			return ipcRenderer.invoke("update:install");
 		},
 		openExternal(url) {
 			return ipcRenderer.invoke("system:openExternal", { url });
