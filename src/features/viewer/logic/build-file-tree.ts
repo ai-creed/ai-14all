@@ -1,16 +1,23 @@
 export const WORKTREE_TREE_ROOT_PATH = "" as const;
 
+export type FileTreeEntry = {
+	path: string;
+	ignored: boolean;
+};
+
 export type FileTreeNode =
 	| {
 			type: "directory";
 			name: string;
 			path: string;
+			ignored: boolean;
 			children: FileTreeNode[];
 	  }
 	| {
 			type: "file";
 			name: string;
 			path: string;
+			ignored: boolean;
 	  };
 
 function sortNodes(nodes: FileTreeNode[]): FileTreeNode[] {
@@ -22,10 +29,12 @@ function sortNodes(nodes: FileTreeNode[]): FileTreeNode[] {
 	});
 }
 
-export function buildFileTree(paths: string[]): FileTreeNode[] {
+// Builds a tree from worktree entries. A directory node's `ignored` is true iff
+// every leaf under it is ignored — used only for visual dimming in the tree row.
+export function buildFileTree(entries: FileTreeEntry[]): FileTreeNode[] {
 	const root: FileTreeNode[] = [];
 
-	for (const fullPath of paths) {
+	for (const { path: fullPath, ignored } of entries) {
 		const parts = fullPath.split("/");
 		let current = root;
 		let currentPath = "";
@@ -35,7 +44,12 @@ export function buildFileTree(paths: string[]): FileTreeNode[] {
 			const isFile = index === parts.length - 1;
 
 			if (isFile) {
-				current.push({ type: "file", name: part, path: currentPath });
+				current.push({
+					type: "file",
+					name: part,
+					path: currentPath,
+					ignored,
+				});
 				continue;
 			}
 
@@ -48,10 +62,12 @@ export function buildFileTree(paths: string[]): FileTreeNode[] {
 					type: "directory",
 					name: part,
 					path: currentPath,
+					ignored: true, // optimistic — flipped to false if any non-ignored leaf joins
 					children: [],
 				};
 				current.push(next);
 			}
+			if (!ignored && next.ignored) next.ignored = false;
 			current = next.children;
 		}
 	}

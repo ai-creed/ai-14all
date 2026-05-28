@@ -43,6 +43,8 @@ function renderTree(
 			changedFiles={[]}
 			expandedPaths={[]}
 			onExpandedPathsChange={vi.fn()}
+			showIgnored={false}
+			onToggleShowIgnored={vi.fn()}
 			{...overrides}
 		/>,
 	);
@@ -327,7 +329,8 @@ describe("WorktreeTree stale-request guard", () => {
 				changedFiles={[]}
 				expandedPaths={[""]}
 				onExpandedPathsChange={vi.fn()}
-			/>,
+			showIgnored={false}
+			onToggleShowIgnored={vi.fn()}			/>,
 		);
 		rerender(
 			<WorktreeTree
@@ -339,10 +342,55 @@ describe("WorktreeTree stale-request guard", () => {
 				changedFiles={[]}
 				expandedPaths={[""]}
 				onExpandedPathsChange={vi.fn()}
-			/>,
+			showIgnored={false}
+			onToggleShowIgnored={vi.fn()}			/>,
 		);
 		resolveA(["wt-a-file.ts"]);
 		expect(await screen.findByText("wt-b-file.ts")).toBeInTheDocument();
 		expect(screen.queryByText("wt-a-file.ts")).toBeNull();
+	});
+});
+
+describe("WorktreeTree show-ignored toggle", () => {
+	it("renders ignored rows with data-ignored='true' when entries carry ignored:true", async () => {
+		mockListWorktree.mockResolvedValueOnce([
+			{ path: "a.ts", ignored: false },
+			{ path: ".env", ignored: true },
+		]);
+		renderTree({ expandedPaths: [""], showIgnored: true });
+		const envRow = await screen.findByText(".env");
+		const envItem = envRow.closest(".shell-list__item");
+		expect(envItem?.getAttribute("data-ignored")).toBe("true");
+		const aRow = screen.getByText("a.ts");
+		const aItem = aRow.closest(".shell-list__item");
+		expect(aItem?.getAttribute("data-ignored")).toBeNull();
+	});
+
+	it("calls listWorktree with includeIgnored matching the prop", async () => {
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["a.ts"]));
+		renderTree({ expandedPaths: [""], showIgnored: false });
+		await screen.findByText("a.ts");
+		expect(mockListWorktree).toHaveBeenCalledWith("ws-1", "wt-1", {
+			includeIgnored: false,
+		});
+
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["a.ts"]));
+		const onToggle = vi.fn();
+		// New render simulates parent flipping showIgnored=true after the toggle.
+		renderTree({ expandedPaths: [""], showIgnored: true, onToggleShowIgnored: onToggle });
+		await screen.findAllByText("a.ts");
+		expect(mockListWorktree).toHaveBeenLastCalledWith("ws-1", "wt-1", {
+			includeIgnored: true,
+		});
+	});
+
+	it("dispatches onToggleShowIgnored when the checkbox is clicked", async () => {
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["a.ts"]));
+		const onToggle = vi.fn();
+		renderTree({ expandedPaths: [""], onToggleShowIgnored: onToggle });
+		await screen.findByText("a.ts");
+		const checkbox = screen.getByLabelText("Show ignored files");
+		fireEvent.click(checkbox);
+		expect(onToggle).toHaveBeenCalledTimes(1);
 	});
 });

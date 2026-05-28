@@ -1493,6 +1493,31 @@ select {
 	font-style: italic;
 }
 
+.shell-list__item--ignored {
+	opacity: 0.55;
+}
+
+.shell-tree-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding-right: 8px;
+}
+
+.shell-tree-show-ignored {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	color: var(--text-secondary);
+	font-size: 11px;
+	user-select: none;
+	white-space: nowrap;
+}
+
+.shell-tree-show-ignored input[type="checkbox"] {
+	margin: 0;
+}
+
 .shell-tree-search {
 	width: auto;
 	height: 32px;

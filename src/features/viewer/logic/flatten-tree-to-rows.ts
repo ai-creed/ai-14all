@@ -12,6 +12,7 @@ export type VisibleRow =
 			depth: number;
 			expanded: boolean;
 			hasChildren: boolean;
+			ignored: boolean;
 	  }
 	| {
 			kind: "file";
@@ -19,6 +20,7 @@ export type VisibleRow =
 			name: string;
 			depth: number;
 			gitStatus?: GitChangeStatus;
+			ignored: boolean;
 	  };
 
 export type FlattenTreeInput = {
@@ -81,6 +83,7 @@ export function flattenTreeToRows(input: FlattenTreeInput): VisibleRow[] {
 		depth: 0,
 		expanded: rootExpanded,
 		hasChildren: input.tree.length > 0,
+		ignored: false,
 	});
 	if (!rootExpanded) return rows;
 
@@ -94,6 +97,7 @@ export function flattenTreeToRows(input: FlattenTreeInput): VisibleRow[] {
 					name: node.name,
 					depth,
 					gitStatus: input.changedFiles.get(node.path),
+					ignored: node.ignored,
 				});
 				continue;
 			}
@@ -106,6 +110,7 @@ export function flattenTreeToRows(input: FlattenTreeInput): VisibleRow[] {
 				depth,
 				expanded,
 				hasChildren: node.children.length > 0,
+				ignored: node.ignored,
 			});
 			if (expanded) walk(node.children, depth + 1);
 		}

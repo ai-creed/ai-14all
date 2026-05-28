@@ -630,6 +630,14 @@ export function ReviewArea(props: Props): React.ReactElement {
 												paths,
 											})
 										}
+										showIgnored={activeSession.treeShowIgnored}
+										onToggleShowIgnored={() =>
+											dispatch({
+												type: "session/setTreeShowIgnored",
+												worktreeId: activeWorktree.id,
+												showIgnored: !activeSession.treeShowIgnored,
+											})
+										}
 									/>
 									{treePreviewPath !== null && (
 										<MarkdownPreviewModal
