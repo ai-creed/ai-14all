@@ -155,6 +155,21 @@ export const noteBridge: Ai14AllDesktopApi["noteBridge"] = {
 	sendGoodbye: () => getDesktopClient().noteBridge.sendGoodbye(),
 };
 
+// App-level signals: dirty-state push to main + close-gate handshake.
+// Implemented end-to-end in Phase 6; this stub keeps the call-site contract
+// stable for InlineEditor and other renderer code in earlier phases.
+export const app = {
+	setEditorDirty: (_args: {
+		workspaceId: string;
+		worktreeId: string;
+		relativePath: string;
+		dirty: boolean;
+	}): Promise<void> => Promise.resolve(),
+	confirmClose: (_args: { proceed: boolean }): Promise<void> =>
+		Promise.resolve(),
+	onRequestClose: (_listener: () => void): (() => void) => () => {},
+};
+
 export const agentAttentionBridge: Ai14AllDesktopApi["agentAttentionBridge"] = {
 	onRequest: (handler) =>
 		getDesktopClient().agentAttentionBridge.onRequest(handler),
