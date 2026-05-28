@@ -46,6 +46,8 @@ import {
 	RemoveWorktreeSchema,
 	LogShellEventSchema,
 	ListWorktreeFilesSchema,
+	SetEditorDirtySchema,
+	ConfirmCloseSchema,
 	DIAGNOSTICS_ATTENTION_EVENT,
 } from "../../shared/contracts/commands.js";
 import type { DiagnosticsAttentionLogEvent } from "../../shared/contracts/commands.js";
@@ -122,6 +124,7 @@ export function registerIpcHandlers(
 		review,
 		usageHost,
 		installUpdate,
+		closeGate,
 	}: {
 		workspacePersistence: WorkspacePersistenceService;
 		workspaceRegistry: WorkspaceRegistryService;
@@ -139,6 +142,7 @@ export function registerIpcHandlers(
 		};
 		usageHost?: UsageHost;
 		installUpdate?: () => void;
+		closeGate?: import("./close-gate.js").CloseGate;
 	},
 ): {
 	dispose: () => void;
@@ -382,6 +386,22 @@ export function registerIpcHandlers(
 		const repository = workspaceRegistry.get(workspaceId);
 		const worktree = await worktreeService.findWorktree(repository, worktreeId);
 		return fileService.listWorktreeFiles(worktree.path, { includeIgnored });
+	});
+
+	// --- App-level close-gate ---
+
+	ipcMain.on("app:setEditorDirty", (_event, raw: unknown) => {
+		if (!closeGate) return;
+		const parsed = SetEditorDirtySchema.safeParse(raw);
+		if (!parsed.success) return;
+		closeGate.setDirty(parsed.data);
+	});
+
+	ipcMain.on("app:confirmClose", (_event, raw: unknown) => {
+		if (!closeGate) return;
+		const parsed = ConfirmCloseSchema.safeParse(raw);
+		if (!parsed.success) return;
+		closeGate.confirmClose(parsed.data);
 	});
 
 	// --- Git ---

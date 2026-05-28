@@ -40,7 +40,9 @@ import {
 	noteBridge,
 	agentAttentionBridge,
 	diagnostics,
+	app as appClient,
 } from "../lib/desktop-client";
+import { listInlineEditors } from "../features/viewer/inline-editor-registry";
 import { countOpenCommentsInFiles } from "../features/git/logic/commit-list-badge";
 import { useTheme } from "../lib/use-theme";
 import { terminalThemeFor } from "../features/terminals/logic/terminal-themes";
@@ -203,6 +205,27 @@ export function App() {
 		},
 		api: noteBridge,
 	});
+
+	// App-close gate: main fires `app:requestClose` when one or more InlineEditors
+	// are dirty. We iterate the renderer registry, calling `requestSwitch` on
+	// each. If every switch resolves to "proceed" we tell main to proceed;
+	// otherwise the close is cancelled. requestSwitch itself drives the per-
+	// editor ConfirmCloseDialog (Save / Discard / Cancel).
+	useEffect(() => {
+		return appClient.onRequestClose(() => {
+			void (async () => {
+				const editors = listInlineEditors();
+				for (const e of editors) {
+					const r = await e.requestSwitch();
+					if (r === "cancel") {
+						appClient.confirmClose({ proceed: false });
+						return;
+					}
+				}
+				appClient.confirmClose({ proceed: true });
+			})();
+		});
+	}, []);
 
 	useEffect(() => {
 		if (startupMode !== "ready") return;

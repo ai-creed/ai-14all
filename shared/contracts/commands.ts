@@ -167,6 +167,25 @@ export type WorktreeFileEntry = {
 	ignored: boolean;
 };
 
+export const SetEditorDirtySchema = z.object({
+	workspaceId: z.string().min(1),
+	worktreeId: z.string().min(1),
+	relativePath: z.string().min(1),
+	dirty: z.boolean(),
+});
+
+export const ConfirmCloseSchema = z.object({
+	proceed: z.boolean(),
+});
+
+export const RequestCloseSchema = z.object({
+	keys: z.array(z.string()),
+});
+
+export type SetEditorDirty = z.infer<typeof SetEditorDirtySchema>;
+export type ConfirmClose = z.infer<typeof ConfirmCloseSchema>;
+export type RequestClose = z.infer<typeof RequestCloseSchema>;
+
 export const ListGitChangesSchema = z.object({
 	workspaceId: z.string().min(1),
 	worktreeId: z.string().min(1),
@@ -542,5 +561,15 @@ export type Ai14AllDesktopApi = {
 		onSetTheme(
 			handler: (mode: "system" | "light" | "dark" | "warm") => void,
 		): () => void;
+	};
+	app: {
+		setEditorDirty(args: {
+			workspaceId: string;
+			worktreeId: string;
+			relativePath: string;
+			dirty: boolean;
+		}): void;
+		confirmClose(args: { proceed: boolean }): void;
+		onRequestClose(handler: (req: { keys: string[] }) => void): () => void;
 	};
 };

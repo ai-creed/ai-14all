@@ -1,0 +1,42 @@
+// Renderer-side registry of mounted InlineEditor instances keyed by the same
+// `${workspaceId}|${worktreeId}|${relativePath}` key that main's close-gate
+// uses. Each entry exposes `requestSwitch()` which the App uses to drive its
+// Save/Discard/Cancel flow during the app-close gate.
+
+export type InlineEditorEntry = {
+	requestSwitch: () => Promise<"proceed" | "cancel">;
+};
+
+const entries = new Map<string, InlineEditorEntry>();
+
+function keyOf(args: {
+	workspaceId: string;
+	worktreeId: string;
+	relativePath: string;
+}): string {
+	return `${args.workspaceId}|${args.worktreeId}|${args.relativePath}`;
+}
+
+export function registerInlineEditor(
+	args: {
+		workspaceId: string;
+		worktreeId: string;
+		relativePath: string;
+	},
+	entry: InlineEditorEntry,
+): () => void {
+	const k = keyOf(args);
+	entries.set(k, entry);
+	return () => {
+		if (entries.get(k) === entry) entries.delete(k);
+	};
+}
+
+export function listInlineEditors(): InlineEditorEntry[] {
+	return [...entries.values()];
+}
+
+// Test seam: clear all registered editors.
+export function __resetInlineEditorRegistry(): void {
+	entries.clear();
+}

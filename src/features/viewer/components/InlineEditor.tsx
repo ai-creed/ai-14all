@@ -15,6 +15,7 @@ import { isEditable } from "../../../../shared/editor/editable-files";
 import { ConfirmCloseDialog } from "./ConfirmCloseDialog";
 import { EditorDirtyBar } from "./EditorDirtyBar";
 import { SaveConflictDialog } from "./SaveConflictDialog";
+import { registerInlineEditor } from "../inline-editor-registry";
 
 type MonacoEditorInstance = Parameters<OnMount>[0];
 
@@ -374,21 +375,29 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 			editorRef.current?.setValue?.(pristineContent);
 		}, [pristineContent]);
 
-		useImperativeHandle(
-			ref,
-			() => ({
-				requestSwitch: () =>
-					new Promise<"proceed" | "cancel">((resolve) => {
-						if (!dirty) {
-							resolve("proceed");
-							return;
-						}
-						switchResolverRef.current = resolve;
-						setConfirmSwitch(true);
-					}),
-			}),
+		const requestSwitch = useCallback(
+			() =>
+				new Promise<"proceed" | "cancel">((resolve) => {
+					if (!dirty) {
+						resolve("proceed");
+						return;
+					}
+					switchResolverRef.current = resolve;
+					setConfirmSwitch(true);
+				}),
 			[dirty],
 		);
+
+		useImperativeHandle(ref, () => ({ requestSwitch }), [requestSwitch]);
+
+		// Register in the close-gate-facing registry so App can drive Save/Discard
+		// for every mounted editor when the user tries to close the window.
+		useEffect(() => {
+			return registerInlineEditor(
+				{ workspaceId, worktreeId, relativePath },
+				{ requestSwitch },
+			);
+		}, [workspaceId, worktreeId, relativePath, requestSwitch]);
 
 		const handleSwitchSave = useCallback(async () => {
 			const ok = await handleSave();

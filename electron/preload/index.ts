@@ -406,6 +406,17 @@ const api: Ai14AllDesktopApi = {
 			return onChannel("theme/set", handler);
 		},
 	},
+	app: {
+		setEditorDirty(args) {
+			ipcRenderer.send("app:setEditorDirty", args);
+		},
+		confirmClose(args) {
+			ipcRenderer.send("app:confirmClose", args);
+		},
+		onRequestClose(handler) {
+			return onChannel("app:requestClose", handler);
+		},
+	},
 };
 
 contextBridge.exposeInMainWorld("ai14all", api);
