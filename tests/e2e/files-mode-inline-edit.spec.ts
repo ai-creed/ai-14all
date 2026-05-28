@@ -110,8 +110,11 @@ test.describe.serial("Files-mode inline edit", () => {
 
 	test("typing surfaces the dirty bar", async () => {
 		test.setTimeout(30_000);
-		const monaco = page.locator(".monaco-editor textarea").first();
-		await monaco.click();
+		// Click the editor body (not the IME-proxy textarea). The view-lines
+		// region focuses the real input area without colliding with Monaco's
+		// pointer-intercepting overlays.
+		const editorBody = page.locator(".monaco-editor .view-lines").first();
+		await editorBody.click();
 		await page.keyboard.press("Meta+End");
 		await page.keyboard.type("\nFIRST EDIT\n");
 		await expect(page.getByTestId("editor-dirty-bar")).toBeVisible({
@@ -135,12 +138,15 @@ test.describe.serial("Files-mode inline edit", () => {
 		// NOTES.md. The freshly-mounted editor must reflect the saved value.
 		const srcDir = page
 			.locator(".shell-list__item--dir")
-			.filter({ hasText: /^src/ });
+			.filter({ hasText: "src" })
+			.first();
+		await expect(srcDir).toBeVisible({ timeout: 10_000 });
 		await srcDir.click();
 		const indexRow = page
 			.locator(".shell-list__item--tree")
-			.filter({ hasText: /^index\.ts/ });
-		await expect(indexRow).toBeVisible({ timeout: 5_000 });
+			.filter({ hasText: /index\.ts/ })
+			.first();
+		await expect(indexRow).toBeVisible({ timeout: 10_000 });
 		await indexRow.click();
 		await expect(page.getByTestId("inline-editor")).toBeVisible();
 
@@ -159,8 +165,11 @@ test.describe.serial("Files-mode inline edit", () => {
 
 	test("dirty switch flow: Save in ConfirmCloseDialog advances to the new file", async () => {
 		test.setTimeout(30_000);
-		const monaco = page.locator(".monaco-editor textarea").first();
-		await monaco.click();
+		// Click the editor body (not the IME-proxy textarea). The view-lines
+		// region focuses the real input area without colliding with Monaco's
+		// pointer-intercepting overlays.
+		const editorBody = page.locator(".monaco-editor .view-lines").first();
+		await editorBody.click();
 		await page.keyboard.press("Meta+End");
 		await page.keyboard.type("\nSECOND EDIT\n");
 		await expect(page.getByTestId("editor-dirty-bar")).toBeVisible({
@@ -170,9 +179,14 @@ test.describe.serial("Files-mode inline edit", () => {
 		// Click a different file — should trigger ConfirmCloseDialog.
 		const indexRow = page
 			.locator(".shell-list__item--tree")
-			.filter({ hasText: /^index\.ts/ });
+			.filter({ hasText: /index\.ts/ })
+			.first();
 		await indexRow.click();
-		await expect(page.getByText(/unsaved changes/i)).toBeVisible({
+		// Match the dialog heading specifically — the dirty bar also contains
+		// the phrase, so a bare text match resolves to two elements.
+		await expect(
+			page.getByRole("heading", { name: /unsaved changes/i }),
+		).toBeVisible({
 			timeout: 5_000,
 		});
 

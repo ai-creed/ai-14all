@@ -41,7 +41,10 @@ import {
 	diagnostics,
 	app as appClient,
 } from "../lib/desktop-client";
-import { runInlineEditorDirtyGate } from "../features/viewer/inline-editor-registry";
+import {
+	hasInlineEditorsRegistered,
+	runInlineEditorDirtyGate,
+} from "../features/viewer/inline-editor-registry";
 import { countOpenCommentsInFiles } from "../features/git/logic/commit-list-badge";
 import { useTheme } from "../lib/use-theme";
 import { terminalThemeFor } from "../features/terminals/logic/terminal-themes";
@@ -1006,7 +1009,18 @@ export function App() {
 			const nextId = order[nextIdx];
 			if (!nextId) return;
 			e.preventDefault();
-			void activateWorkspace(nextId);
+			// Dirty-gate before swapping workspaces — otherwise activateWorkspace
+			// unmounts the editor from the outgoing workspace and the user loses
+			// their buffer without Save/Discard/Cancel.
+			if (!hasInlineEditorsRegistered()) {
+				void activateWorkspace(nextId);
+				return;
+			}
+			void (async () => {
+				const gate = await runInlineEditorDirtyGate();
+				if (gate === "cancel") return;
+				void activateWorkspace(nextId);
+			})();
 		},
 		// activateWorkspace reads from refs internally — stale closure is safe
 		[],
