@@ -36,6 +36,7 @@ import {
 	WriteWorkspaceRestoreStateSchema,
 	ReadGitCommitHistorySchema,
 	ReadGitCommitDetailSchema,
+	ReadGitCommitFileDiffSchema,
 	DiscardGitChangeSchema,
 	GetGitRemoteStatusSchema,
 	PushGitBranchSchema,
@@ -444,6 +445,14 @@ export function registerIpcHandlers(
 		const repository = workspaceRegistry.get(workspaceId);
 		const worktree = await worktreeService.findWorktree(repository, worktreeId);
 		return gitService.readCommitDetail(worktree.path, sha);
+	});
+
+	ipcMain.handle("git:readCommitFileDiff", async (_event, raw: unknown) => {
+		const { workspaceId, worktreeId, sha, file } =
+			ReadGitCommitFileDiffSchema.parse(raw);
+		const repository = workspaceRegistry.get(workspaceId);
+		const worktree = await worktreeService.findWorktree(repository, worktreeId);
+		return gitService.readCommitFileDiff(worktree.path, sha, file);
 	});
 
 	ipcMain.handle("git:discardChange", async (_event, raw: unknown) => {

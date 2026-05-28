@@ -108,6 +108,20 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		readSummary: readSummaryMock,
 		readCommitHistory: mockReadCommitHistory,
 		readCommitDetail: mockReadCommitDetail,
+		readCommitFileDiff: vi.fn(
+			async (
+				_w,
+				_wt,
+				_sha,
+				file: { path: string; oldPath: string | null; status: string },
+			) => ({
+				path: file.path,
+				oldPath: file.oldPath,
+				status: file.status,
+				originalContent: "original\n",
+				modifiedContent: "modified\n",
+			}),
+		),
 		getRemoteStatus: vi
 			.fn()
 			.mockResolvedValue({ hasRemote: false, ahead: 0, behind: 0 }),
@@ -257,15 +271,7 @@ describe("App — Phase 6 default shell", () => {
 			sha: "abc",
 			shortSha: "abc",
 			subject: "feature commit",
-			files: [
-				{
-					path: "src/index.ts",
-					oldPath: null,
-					status: "M",
-					originalContent: 'export const hello = "world";\n',
-					modifiedContent: 'export const hello = "phase-2";\n',
-				},
-			],
+			files: [{ path: "src/index.ts", oldPath: null, status: "M" }],
 		});
 
 		readRestoreStateMock.mockResolvedValue({

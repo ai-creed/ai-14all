@@ -13,6 +13,7 @@ import type {
 import type {
 	GitCommitDetail,
 	GitCommitFileDiff,
+	GitCommitFileEntry,
 	GitCommitHistory,
 	GitCommitListEntry,
 } from "../../shared/models/git-commit-review.js";
@@ -431,15 +432,10 @@ export class GitService {
 		worktreePath: string,
 		sha: string,
 	): Promise<GitCommitDetail> {
-		const [headerStdout, parentStdout, filesStdout] = await Promise.all([
+		const [headerStdout, filesStdout] = await Promise.all([
 			runGit(["show", "--format=%H%x09%h%x09%s", "-s", sha], {
 				cwd: worktreePath,
 				label: "show.header",
-				timeoutMs: 10_000,
-			}),
-			runGit(["show", "--format=%P", "-s", sha], {
-				cwd: worktreePath,
-				label: "show.parents",
 				timeoutMs: 10_000,
 			}),
 			runGit(["show", "--format=", "--name-status", "--find-renames", sha], {
@@ -453,60 +449,71 @@ export class GitService {
 		const [entry] = parseRecentCommits(headerStdout);
 		if (!entry) throw new Error(`Commit not found: ${sha}`);
 
-		const parentSha = parentStdout.trim().split(" ")[0] ?? "";
-		const files = (
-			await Promise.all(
-				filesStdout
-					.split("\n")
-					.map((line) => line.trim())
-					.filter(Boolean)
-					.map(async (line): Promise<GitCommitFileDiff | null> => {
-						const [rawStatus, fromPath, toPath] = line.split("\t");
-						const isRename = rawStatus?.startsWith("R") ?? false;
-						const isCopy = rawStatus?.startsWith("C") ?? false;
-						const status: "A" | "M" | "D" | "R" =
-							isRename || isCopy ? "R" : (rawStatus as "A" | "M" | "D");
-						const path =
-							isRename || isCopy
-								? (toPath ?? fromPath ?? "")
-								: (fromPath ?? "");
-						const oldPath = isRename || isCopy ? (fromPath ?? null) : null;
-
-						if (!["A", "M", "D", "R"].includes(status)) return null;
-
-						return {
-							path,
-							oldPath,
-							status,
-							originalContent:
-								status === "A" || parentSha === ""
-									? ""
-									: capContent(
-											await readBlobAtRevision(
-												worktreePath,
-												`${parentSha}:${oldPath ?? path}`,
-											),
-											MAX_COMMIT_FILE_BYTES,
-											"original",
-										),
-							modifiedContent:
-								status === "D"
-									? ""
-									: capContent(
-											await readBlobAtRevision(worktreePath, `${sha}:${path}`),
-											MAX_COMMIT_FILE_BYTES,
-											"modified",
-										),
-						};
-					}),
-			)
-		).filter((f): f is GitCommitFileDiff => f !== null);
+		const files = filesStdout
+			.split("\n")
+			.map((line) => line.trim())
+			.filter(Boolean)
+			.map((line): GitCommitFileEntry | null => {
+				const [rawStatus, fromPath, toPath] = line.split("\t");
+				const isRename = rawStatus?.startsWith("R") ?? false;
+				const isCopy = rawStatus?.startsWith("C") ?? false;
+				const status: "A" | "M" | "D" | "R" =
+					isRename || isCopy ? "R" : (rawStatus as "A" | "M" | "D");
+				const path =
+					isRename || isCopy ? (toPath ?? fromPath ?? "") : (fromPath ?? "");
+				const oldPath = isRename || isCopy ? (fromPath ?? null) : null;
+				if (!["A", "M", "D", "R"].includes(status)) return null;
+				return { path, oldPath, status };
+			})
+			.filter((f): f is GitCommitFileEntry => f !== null);
 
 		return {
 			sha: entry.sha,
 			shortSha: entry.shortSha,
 			subject: entry.subject,
 			files,
+		};
+	}
+
+	// Fetches the per-file diff for one entry of `sha`. Called on demand by the
+	// renderer as the user expands a CommitDiffStack section. The renderer
+	// passes the file metadata it already has from `readCommitDetail` (path /
+	// oldPath / status) so this call avoids a full-commit `--name-status
+	// --find-renames` scan, which would otherwise be O(commit-file-count) per
+	// file and dominate the cost on large commits.
+	async readCommitFileDiff(
+		worktreePath: string,
+		sha: string,
+		file: GitCommitFileEntry,
+	): Promise<GitCommitFileDiff> {
+		const parentStdout = await runGit(["show", "--format=%P", "-s", sha], {
+			cwd: worktreePath,
+			label: "show.parents",
+			timeoutMs: 10_000,
+		});
+		const parentSha = parentStdout.trim().split(" ")[0] ?? "";
+
+		const originalPathRef = file.oldPath ?? file.path;
+		const [originalContent, modifiedContent] = await Promise.all([
+			file.status === "A" || parentSha === ""
+				? Promise.resolve("")
+				: readBlobAtRevision(
+						worktreePath,
+						`${parentSha}:${originalPathRef}`,
+					).then((c) => capContent(c, MAX_COMMIT_FILE_BYTES, "original")),
+			file.status === "D"
+				? Promise.resolve("")
+				: readBlobAtRevision(worktreePath, `${sha}:${file.path}`).then((c) =>
+						capContent(c, MAX_COMMIT_FILE_BYTES, "modified"),
+					),
+		]);
+
+		return {
+			path: file.path,
+			oldPath: file.oldPath,
+			status: file.status,
+			originalContent,
+			modifiedContent,
 		};
 	}
 

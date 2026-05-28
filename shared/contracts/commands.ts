@@ -15,6 +15,8 @@ import type { GitDiff } from "../models/git-diff.js";
 import type { GitSummary } from "../models/git-summary.js";
 import type {
 	GitCommitDetail,
+	GitCommitFileDiff,
+	GitCommitFileEntry,
 	GitCommitHistory,
 } from "../models/git-commit-review.js";
 import type { RemoteStatus } from "../models/git-remote-status.js";
@@ -309,6 +311,17 @@ export const ReadGitCommitDetailSchema = z.object({
 	sha: z.string().min(4),
 });
 
+export const ReadGitCommitFileDiffSchema = z.object({
+	workspaceId: z.string().min(1),
+	worktreeId: z.string().min(1),
+	sha: z.string().min(4),
+	file: z.object({
+		path: z.string().min(1),
+		oldPath: z.string().nullable(),
+		status: z.enum(["A", "M", "D", "R"]),
+	}),
+});
+
 export const DiscardGitChangeSchema = z.object({
 	workspaceId: z.string().min(1),
 	worktreeId: z.string().min(1),
@@ -414,6 +427,12 @@ export type Ai14AllDesktopApi = {
 			worktreeId: string,
 			sha: string,
 		): Promise<GitCommitDetail>;
+		readCommitFileDiff(
+			workspaceId: string,
+			worktreeId: string,
+			sha: string,
+			file: GitCommitFileEntry,
+		): Promise<GitCommitFileDiff>;
 		discardChange(
 			workspaceId: string,
 			worktreeId: string,

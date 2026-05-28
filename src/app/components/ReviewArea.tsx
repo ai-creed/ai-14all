@@ -742,6 +742,8 @@ export function ReviewArea(props: Props): React.ReactElement {
 					  commitDetailState.data ? (
 						<CommitDiffStack
 							key={commitDetailState.data.sha}
+							workspaceId={activeWorkspaceId ?? ""}
+							worktreeId={activeWorktree.id}
 							detail={commitDetailState.data}
 							focusedPath={activeSession.selectedCommitFilePath}
 							resolvedTheme={resolvedTheme}

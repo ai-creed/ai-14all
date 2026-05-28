@@ -4,9 +4,12 @@ import type {
 	GitCommitDetail,
 	GitCommitFileDiff,
 } from "../../../../shared/models/git-commit-review.js";
+import { git } from "../../../lib/desktop-client";
 import type { ResolvedTheme } from "../../../lib/use-theme";
 
 type Props = {
+	workspaceId: string;
+	worktreeId: string;
 	detail: GitCommitDetail;
 	focusedPath: string | null;
 	resolvedTheme: ResolvedTheme;
@@ -155,23 +158,48 @@ function DiffEditorSlot({
 	);
 }
 
+// Per-file diff cache state. Keyed by `${sha}|${path}` so a different commit's
+// fetch can't accidentally hit stale data when the user navigates around.
+type DiffCacheState =
+	| { kind: "idle" }
+	| { kind: "loading" }
+	| { kind: "ready"; diff: GitCommitFileDiff }
+	| { kind: "error"; message: string };
+
 export function CommitDiffStack({
+	workspaceId,
+	worktreeId,
 	detail,
 	focusedPath,
 	resolvedTheme,
 	onEditorMount,
 	onEditorUnmount,
 }: Props) {
-	const [collapsedPaths, setCollapsedPaths] = useState<Set<string>>(new Set());
-	const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 	const singleFile = detail.files.length === 1;
+	// Expanded set is opt-in (collapsed by default). The single-file case and
+	// the focused path are auto-expanded on mount and on focus change.
+	const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => {
+		const next = new Set<string>();
+		if (singleFile) next.add(detail.files[0]!.path);
+		if (focusedPath) next.add(focusedPath);
+		return next;
+	});
+	const [diffByPath, setDiffByPath] = useState<Record<string, DiffCacheState>>(
+		{},
+	);
+	const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+	// Tracks which cache keys we've already kicked an IPC for. Synchronous —
+	// avoids relying on a setState updater running before we read its side
+	// effect (React 18 may defer the updater, which led to double-fired
+	// "loading" writes with no follow-up IPC call).
+	const inFlightRef = useRef<Set<string>>(new Set());
 
 	useEffect(() => {
 		if (focusedPath) {
-			setCollapsedPaths((prev) => {
-				if (!prev.has(focusedPath)) return prev;
+			setExpandedPaths((prev) => {
+				if (prev.has(focusedPath)) return prev;
 				const next = new Set(prev);
-				next.delete(focusedPath);
+				next.add(focusedPath);
 				return next;
 			});
 		}
@@ -183,6 +211,48 @@ export function CommitDiffStack({
 		if (!section || typeof section.scrollIntoView !== "function") return;
 		section.scrollIntoView({ block: "nearest" });
 	}, [detail.sha, focusedPath]);
+
+	// Kick a lazy fetch for each expanded path that hasn't been fetched yet.
+	// Cache key includes the commit sha so revisiting the same path on a
+	// different commit re-fetches. The "have we already started?" check lives
+	// inside a functional `setDiffByPath` so it stays correct even when the
+	// effect re-runs without depending on `diffByPath` in the deps array.
+	// Deliberately no per-effect-run cancellation: under StrictMode (and any
+	// re-render that changes `expandedPaths`) the cleanup would cancel the
+	// in-flight promise we just launched, while the re-run would skip launching
+	// a fresh one because the cache is already at "loading" — leaving the
+	// section stuck on "Loading diff…" forever. Setting state after unmount is
+	// a benign React 18 warning that we accept here.
+	useEffect(() => {
+		for (const path of expandedPaths) {
+			const key = `${detail.sha}|${path}`;
+			const fileEntry = detail.files.find((f) => f.path === path);
+			if (!fileEntry) continue;
+			if (inFlightRef.current.has(key)) continue;
+			inFlightRef.current.add(key);
+			setDiffByPath((prev) =>
+				prev[key] ? prev : { ...prev, [key]: { kind: "loading" } },
+			);
+			void git
+				.readCommitFileDiff(workspaceId, worktreeId, detail.sha, fileEntry)
+				.then((diff) => {
+					setDiffByPath((prev) => ({
+						...prev,
+						[key]: { kind: "ready", diff },
+					}));
+				})
+				.catch((err: unknown) => {
+					setDiffByPath((prev) => ({
+						...prev,
+						[key]: {
+							kind: "error",
+							message:
+								err instanceof Error ? err.message : "Couldn't load diff.",
+						},
+					}));
+				});
+		}
+	}, [expandedPaths, detail.sha, detail.files, workspaceId, worktreeId]);
 
 	return (
 		<div
@@ -196,7 +266,9 @@ export function CommitDiffStack({
 			</div>
 			<div className="shell-commit-diff-stack__body">
 				{detail.files.map((file) => {
-					const collapsed = collapsedPaths.has(file.path);
+					const expanded = expandedPaths.has(file.path);
+					const cacheKey = `${detail.sha}|${file.path}`;
+					const cache = diffByPath[cacheKey] ?? { kind: "idle" };
 					return (
 						<section
 							key={file.path}
@@ -211,7 +283,7 @@ export function CommitDiffStack({
 								type="button"
 								className="shell-commit-diff-section__header"
 								onClick={() =>
-									setCollapsedPaths((prev) => {
+									setExpandedPaths((prev) => {
 										const next = new Set(prev);
 										if (next.has(file.path)) next.delete(file.path);
 										else next.add(file.path);
@@ -222,9 +294,15 @@ export function CommitDiffStack({
 								<span>{file.path}</span>
 								<strong>{file.status}</strong>
 							</button>
-							{!collapsed && (
+							{expanded && cache.kind === "loading" && (
+								<p className="shell-empty-state">Loading diff…</p>
+							)}
+							{expanded && cache.kind === "error" && (
+								<p className="shell-error">{cache.message}</p>
+							)}
+							{expanded && cache.kind === "ready" && (
 								<DiffEditorSlot
-									file={file}
+									file={cache.diff}
 									singleFile={singleFile}
 									resolvedTheme={resolvedTheme}
 									onEditorMount={onEditorMount}
