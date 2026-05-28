@@ -162,6 +162,10 @@ export type OpenFileForEdit = z.infer<typeof OpenFileForEditSchema>;
 export type OpenFileForEditResult = z.infer<typeof OpenFileForEditResultSchema>;
 export type SaveFile = z.infer<typeof SaveFileSchema>;
 export type SaveFileResult = z.infer<typeof SaveFileResultSchema>;
+export type WorktreeFileEntry = {
+	path: string;
+	ignored: boolean;
+};
 
 export const ListGitChangesSchema = z.object({
 	workspaceId: z.string().min(1),
@@ -180,10 +184,18 @@ export const ListScopedFilesSchema = z.object({
 	relativeRoots: z.array(z.string()),
 });
 
-export const ListTrackedFilesSchema = z.object({
+export const ListWorktreeFilesSchema = z.object({
 	workspaceId: z.string().min(1),
 	worktreeId: z.string().min(1),
+	includeIgnored: z.boolean(),
 });
+
+export const WorktreeFileEntrySchema = z.object({
+	path: z.string(),
+	ignored: z.boolean(),
+});
+
+export const ListWorktreeFilesResultSchema = z.array(WorktreeFileEntrySchema);
 
 export const ReadGitSummarySchema = z.object({
 	workspaceId: z.string().min(1),
@@ -342,7 +354,11 @@ export type Ai14AllDesktopApi = {
 			worktreeId: string,
 			relativeRoots: string[],
 		): Promise<string[]>;
-		listTracked(workspaceId: string, worktreeId: string): Promise<string[]>;
+		listWorktree(
+			workspaceId: string,
+			worktreeId: string,
+			opts: { includeIgnored: boolean },
+		): Promise<WorktreeFileEntry[]>;
 		read(
 			workspaceId: string,
 			worktreeId: string,

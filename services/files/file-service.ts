@@ -13,11 +13,13 @@ import type { FileReadResult } from "../../shared/models/file-view.js";
 import type {
 	OpenFileForEditResult,
 	SaveFileResult,
+	WorktreeFileEntry,
 } from "../../shared/contracts/commands.js";
 import { getGitBinaryPath } from "../git/git-binary.js";
 import { isEditable } from "../../shared/editor/editable-files.js";
 import { isLikelyBinary } from "./binary-detect.js";
 import { MAX_FILE_VIEW_BYTES } from "../../shared/files/size-limits.js";
+import { isUnderDenylistedDir } from "../../shared/files/ignored-denylist.js";
 
 export const MAX_EDITOR_FILE_BYTES = 1_000_000;
 
@@ -126,14 +128,41 @@ export class FileService {
 		return [...files].sort((a, b) => a.localeCompare(b));
 	}
 
-	async listTrackedFiles(worktreePath: string): Promise<string[]> {
+	async listWorktreeFiles(
+		worktreePath: string,
+		opts: { includeIgnored: boolean },
+	): Promise<WorktreeFileEntry[]> {
 		const gitBinary = getGitBinaryPath();
-		const { stdout } = await execFileAsync(
+		const { stdout: trackedStdout } = await execFileAsync(
 			gitBinary,
 			["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
 			{ cwd: worktreePath, maxBuffer: 64 * 1024 * 1024 },
 		);
-		return stdout.split("\0").filter((entry) => entry.length > 0);
+		const tracked = trackedStdout
+			.split("\0")
+			.filter((entry) => entry.length > 0 && !isUnderDenylistedDir(entry));
+		const seen = new Set<string>(tracked);
+		const result: WorktreeFileEntry[] = tracked.map((path) => ({
+			path,
+			ignored: false,
+		}));
+
+		if (opts.includeIgnored) {
+			const { stdout: ignoredStdout } = await execFileAsync(
+				gitBinary,
+				["ls-files", "--others", "--ignored", "--exclude-standard", "-z"],
+				{ cwd: worktreePath, maxBuffer: 64 * 1024 * 1024 },
+			);
+			for (const entry of ignoredStdout.split("\0")) {
+				if (!entry.length) continue;
+				if (seen.has(entry)) continue;
+				if (isUnderDenylistedDir(entry)) continue;
+				seen.add(entry);
+				result.push({ path: entry, ignored: true });
+			}
+		}
+
+		return result.sort((a, b) => a.path.localeCompare(b.path));
 	}
 
 	private resolveInsideWorktree(

@@ -42,7 +42,7 @@ const { worktreeServiceInstance, fileServiceInstance } = vi.hoisted(() => {
 	const fileServiceInstance = {
 		listFiles: vi.fn(),
 		listScopedFiles: vi.fn(),
-		listTrackedFiles: vi.fn(),
+		listWorktreeFiles: vi.fn(),
 		readFile: vi.fn(),
 	};
 	return { worktreeServiceInstance, fileServiceInstance };
@@ -249,12 +249,12 @@ describe("registerIpcHandlers diagnostics", () => {
 	});
 });
 
-describe("registerIpcHandlers files:listTracked identity resolution", () => {
+describe("registerIpcHandlers files:listWorktree identity resolution", () => {
 	beforeEach(() => {
 		handlers.clear();
 		handleMock.mockClear();
 		worktreeServiceInstance.findWorktree.mockReset();
-		fileServiceInstance.listTrackedFiles.mockReset();
+		fileServiceInstance.listWorktreeFiles.mockReset();
 	});
 
 	const register = (registryGet: (workspaceId: string) => unknown) => {
@@ -290,7 +290,7 @@ describe("registerIpcHandlers files:listTracked identity resolution", () => {
 				} as never,
 			},
 		);
-		const handler = handlers.get("files:listTracked");
+		const handler = handlers.get("files:listWorktree");
 		expect(handler).toBeTypeOf("function");
 		return handler!;
 	};
@@ -300,10 +300,17 @@ describe("registerIpcHandlers files:listTracked identity resolution", () => {
 			throw new Error("Unknown workspace: wk-nope");
 		});
 		await expect(
-			handler({}, { workspaceId: "wk-nope", worktreeId: "wt-x" }),
+			handler(
+				{},
+				{
+					workspaceId: "wk-nope",
+					worktreeId: "wt-x",
+					includeIgnored: false,
+				},
+			),
 		).rejects.toThrow(/Unknown workspace/);
 		expect(worktreeServiceInstance.findWorktree).not.toHaveBeenCalled();
-		expect(fileServiceInstance.listTrackedFiles).not.toHaveBeenCalled();
+		expect(fileServiceInstance.listWorktreeFiles).not.toHaveBeenCalled();
 	});
 
 	it("rejects when the worktreeId is unknown under a known workspace", async () => {
@@ -313,13 +320,20 @@ describe("registerIpcHandlers files:listTracked identity resolution", () => {
 		);
 		const handler = register(() => repository);
 		await expect(
-			handler({}, { workspaceId: "wk-ok", worktreeId: "wt-nope" }),
+			handler(
+				{},
+				{
+					workspaceId: "wk-ok",
+					worktreeId: "wt-nope",
+					includeIgnored: false,
+				},
+			),
 		).rejects.toThrow(/Unknown worktree/);
 		expect(worktreeServiceInstance.findWorktree).toHaveBeenCalledWith(
 			repository,
 			"wt-nope",
 		);
-		expect(fileServiceInstance.listTrackedFiles).not.toHaveBeenCalled();
+		expect(fileServiceInstance.listWorktreeFiles).not.toHaveBeenCalled();
 	});
 
 	it("resolves identity and returns the tracked file list on the happy path", async () => {
@@ -333,30 +347,42 @@ describe("registerIpcHandlers files:listTracked identity resolution", () => {
 			isMain: true,
 		};
 		worktreeServiceInstance.findWorktree.mockResolvedValueOnce(worktree);
-		fileServiceInstance.listTrackedFiles.mockResolvedValueOnce([
-			"README.md",
-			"src/index.ts",
+		fileServiceInstance.listWorktreeFiles.mockResolvedValueOnce([
+			{ path: "README.md", ignored: false },
+			{ path: "src/index.ts", ignored: false },
 		]);
 		const handler = register(() => repository);
 		const result = await handler(
 			{},
-			{ workspaceId: "wk-ok", worktreeId: "wt-ok" },
+			{ workspaceId: "wk-ok", worktreeId: "wt-ok", includeIgnored: false },
 		);
-		expect(result).toEqual(["README.md", "src/index.ts"]);
+		expect(result).toEqual([
+			{ path: "README.md", ignored: false },
+			{ path: "src/index.ts", ignored: false },
+		]);
 		expect(worktreeServiceInstance.findWorktree).toHaveBeenCalledWith(
 			repository,
 			"wt-ok",
 		);
-		expect(fileServiceInstance.listTrackedFiles).toHaveBeenCalledWith(
+		expect(fileServiceInstance.listWorktreeFiles).toHaveBeenCalledWith(
 			"/tmp/repo/.worktrees/main",
+			{ includeIgnored: false },
 		);
 	});
 
 	it("rejects malformed payloads via schema validation", async () => {
 		const handler = register(() => ({ repoId: "x", rootPath: "/tmp/x" }));
-		await expect(handler({}, { worktreeId: "wt-x" })).rejects.toThrow();
 		await expect(
-			handler({}, { workspaceId: "", worktreeId: "wt-x" }),
+			handler({}, { worktreeId: "wt-x", includeIgnored: false }),
+		).rejects.toThrow();
+		await expect(
+			handler(
+				{},
+				{ workspaceId: "", worktreeId: "wt-x", includeIgnored: false },
+			),
+		).rejects.toThrow();
+		await expect(
+			handler({}, { workspaceId: "wk-ok", worktreeId: "wt-x" }),
 		).rejects.toThrow();
 		expect(worktreeServiceInstance.findWorktree).not.toHaveBeenCalled();
 	});

@@ -402,7 +402,12 @@ export function App() {
 
 	const trackedFilesLoader = useCallback(async () => {
 		if (!activeWorkspaceId || !activeWorktree) return [];
-		return files.listTracked(activeWorkspaceId, activeWorktree.id);
+		const entries = await files.listWorktree(
+			activeWorkspaceId,
+			activeWorktree.id,
+			{ includeIgnored: false },
+		);
+		return entries.map((e) => e.path);
 	}, [activeWorkspaceId, activeWorktree]);
 
 	useEditFileShortcut({

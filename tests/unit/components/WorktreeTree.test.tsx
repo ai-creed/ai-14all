@@ -17,14 +17,18 @@ vi.mock("@tanstack/react-virtual", () => ({
 
 vi.mock("../../../src/lib/desktop-client", () => ({
 	files: {
-		listTracked: vi.fn(),
+		listWorktree: vi.fn(),
 	},
 }));
 
 import { WorktreeTree } from "../../../src/features/viewer/components/WorktreeTree";
 import { files } from "../../../src/lib/desktop-client";
 
-const mockListTracked = vi.mocked(files.listTracked);
+const mockListWorktree = vi.mocked(files.listWorktree);
+
+function wrapEntries(paths: string[]) {
+	return paths.map((p) => ({ path: p, ignored: false }));
+}
 
 function renderTree(
 	overrides: Partial<React.ComponentProps<typeof WorktreeTree>> = {},
@@ -50,13 +54,13 @@ beforeEach(() => {
 
 describe("WorktreeTree basic states", () => {
 	it("shows a loading message while files are being fetched", () => {
-		mockListTracked.mockReturnValue(new Promise(() => {}));
+		mockListWorktree.mockReturnValue(new Promise(() => {}));
 		renderTree();
 		expect(screen.getByText(/Loading files/i)).toBeInTheDocument();
 	});
 
 	it("renders the root row with the worktree label when empty", async () => {
-		mockListTracked.mockResolvedValueOnce([]);
+		mockListWorktree.mockResolvedValueOnce(wrapEntries([]));
 		renderTree({ worktreeLabel: "my-repo" });
 		expect(await screen.findByText("my-repo")).toBeInTheDocument();
 		expect(
@@ -64,8 +68,8 @@ describe("WorktreeTree basic states", () => {
 		).toBeInTheDocument();
 	});
 
-	it("renders an error message when listTracked rejects", async () => {
-		mockListTracked.mockRejectedValueOnce(new Error("boom"));
+	it("renders an error message when listWorktree rejects", async () => {
+		mockListWorktree.mockRejectedValueOnce(new Error("boom"));
 		renderTree({ worktreeLabel: "repo" });
 		expect(
 			await screen.findByText(/Unable to load files/i),
@@ -80,7 +84,7 @@ describe("WorktreeTree basic states", () => {
 	});
 
 	it("renders the root row + top-level entries on successful load", async () => {
-		mockListTracked.mockResolvedValueOnce(["README.md", "src/a.ts"]);
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["README.md", "src/a.ts"]));
 		const onExpandedPathsChange = vi.fn();
 		renderTree({
 			worktreeLabel: "repo",
@@ -94,7 +98,7 @@ describe("WorktreeTree basic states", () => {
 
 describe("WorktreeTree expand/collapse + selection", () => {
 	it("clicking a folder dispatches onExpandedPathsChange", async () => {
-		mockListTracked.mockResolvedValueOnce(["src/a.ts"]);
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["src/a.ts"]));
 		const onExpandedPathsChange = vi.fn();
 		renderTree({ expandedPaths: [""], onExpandedPathsChange });
 		const srcRow = await screen.findByText("src");
@@ -103,7 +107,7 @@ describe("WorktreeTree expand/collapse + selection", () => {
 	});
 
 	it("clicking an already-expanded folder collapses it", async () => {
-		mockListTracked.mockResolvedValueOnce(["src/a.ts"]);
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["src/a.ts"]));
 		const onExpandedPathsChange = vi.fn();
 		renderTree({ expandedPaths: ["", "src"], onExpandedPathsChange });
 		const srcRow = await screen.findByText("src");
@@ -112,7 +116,7 @@ describe("WorktreeTree expand/collapse + selection", () => {
 	});
 
 	it("clicking a file calls onSelect and not onExpandedPathsChange for additional paths", async () => {
-		mockListTracked.mockResolvedValueOnce(["src/a.ts"]);
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["src/a.ts"]));
 		const onSelect = vi.fn();
 		const onExpandedPathsChange = vi.fn();
 		renderTree({ expandedPaths: ["", "src"], onSelect, onExpandedPathsChange });
@@ -131,11 +135,11 @@ describe("WorktreeTree search", () => {
 	});
 
 	it("filters rows after the debounce elapses", async () => {
-		mockListTracked.mockResolvedValueOnce([
+		mockListWorktree.mockResolvedValueOnce(wrapEntries([
 			"src/App.tsx",
 			"src/other.ts",
 			"README.md",
-		]);
+		]));
 		renderTree({ expandedPaths: [""] });
 		// Wait for the async load to complete before switching to fake timers
 		await screen.findByText("README.md");
@@ -151,7 +155,7 @@ describe("WorktreeTree search", () => {
 	});
 
 	it("does not dispatch onExpandedPathsChange when searching", async () => {
-		mockListTracked.mockResolvedValueOnce(["src/deep/App.tsx"]);
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["src/deep/App.tsx"]));
 		const onExpandedPathsChange = vi.fn();
 		renderTree({ expandedPaths: [""], onExpandedPathsChange });
 		// Wait for the async load to complete before switching to fake timers
@@ -171,7 +175,7 @@ describe("WorktreeTree search", () => {
 
 describe("WorktreeTree git status indicators", () => {
 	it("renders the status letter next to a changed file", async () => {
-		mockListTracked.mockResolvedValueOnce(["src/a.ts", "src/b.ts"]);
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["src/a.ts", "src/b.ts"]));
 		renderTree({
 			expandedPaths: ["", "src"],
 			changedFiles: [{ path: "src/a.ts", status: "M" }],
@@ -182,7 +186,7 @@ describe("WorktreeTree git status indicators", () => {
 	});
 
 	it("suppresses badges when gitSummaryError is true", async () => {
-		mockListTracked.mockResolvedValueOnce(["src/a.ts"]);
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["src/a.ts"]));
 		renderTree({
 			expandedPaths: ["", "src"],
 			changedFiles: [{ path: "src/a.ts", status: "M" }],
@@ -195,7 +199,7 @@ describe("WorktreeTree git status indicators", () => {
 	});
 
 	it("still renders the tree when gitSummaryError is true (no hard-block)", async () => {
-		mockListTracked.mockResolvedValueOnce(["src/a.ts"]);
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["src/a.ts"]));
 		renderTree({ expandedPaths: ["", "src"], gitSummaryError: true });
 		expect(await screen.findByText("a.ts")).toBeInTheDocument();
 		expect(screen.queryByText(/Unable to load Git data/i)).toBeNull();
@@ -204,23 +208,23 @@ describe("WorktreeTree git status indicators", () => {
 
 describe("WorktreeTree root refresh", () => {
 	it("re-fetches files when Refresh is picked from the root context menu", async () => {
-		mockListTracked.mockResolvedValue(["src/a.ts"]);
+		mockListWorktree.mockResolvedValue(wrapEntries(["src/a.ts"]));
 		renderTree({ worktreeLabel: "repo", expandedPaths: [""] });
 		await screen.findByText("repo");
-		expect(mockListTracked).toHaveBeenCalledTimes(1);
+		expect(mockListWorktree).toHaveBeenCalledTimes(1);
 		const rootRow = screen.getByText("repo");
 		fireEvent.contextMenu(rootRow);
 		const refreshItem = await screen.findByRole("menuitem", {
 			name: "Refresh",
 		});
 		fireEvent.click(refreshItem);
-		expect(mockListTracked).toHaveBeenCalledTimes(2);
+		expect(mockListWorktree).toHaveBeenCalledTimes(2);
 	});
 });
 
 describe("WorktreeTree markdown preview", () => {
 	it("calls onPreviewMarkdown when Preview is picked on a .md file", async () => {
-		mockListTracked.mockResolvedValueOnce(["README.md", "src/a.ts"]);
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["README.md", "src/a.ts"]));
 		const onPreviewMarkdown = vi.fn();
 		renderTree({ expandedPaths: [""], onPreviewMarkdown });
 		const mdRow = await screen.findByText("README.md");
@@ -231,7 +235,7 @@ describe("WorktreeTree markdown preview", () => {
 	});
 
 	it("does not show a preview menu on non-.md files", async () => {
-		mockListTracked.mockResolvedValueOnce(["src/a.ts"]);
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["src/a.ts"]));
 		renderTree({ expandedPaths: ["", "src"] });
 		const tsRow = await screen.findByText("a.ts");
 		fireEvent.contextMenu(tsRow);
@@ -241,7 +245,7 @@ describe("WorktreeTree markdown preview", () => {
 
 describe("WorktreeTree editor context menu", () => {
 	it("shows both Preview and Edit on a .md row when onEditFile is provided", async () => {
-		mockListTracked.mockResolvedValueOnce(["README.md"]);
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["README.md"]));
 		const onPreviewMarkdown = vi.fn();
 		const onEditFile = vi.fn();
 		renderTree({ expandedPaths: [""], onPreviewMarkdown, onEditFile });
@@ -254,7 +258,7 @@ describe("WorktreeTree editor context menu", () => {
 	});
 
 	it("shows only Edit (no Preview) on a non-markdown whitelisted file", async () => {
-		mockListTracked.mockResolvedValueOnce(["package.json"]);
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["package.json"]));
 		const onEditFile = vi.fn();
 		renderTree({ expandedPaths: [""], onEditFile });
 		const row = await screen.findByText("package.json");
@@ -266,7 +270,7 @@ describe("WorktreeTree editor context menu", () => {
 	});
 
 	it("shows only Edit on a .md row when only onEditFile is provided (no preview handler)", async () => {
-		mockListTracked.mockResolvedValueOnce(["README.md"]);
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["README.md"]));
 		const onEditFile = vi.fn();
 		renderTree({ expandedPaths: [""], onEditFile });
 		const mdRow = await screen.findByText("README.md");
@@ -278,7 +282,7 @@ describe("WorktreeTree editor context menu", () => {
 	});
 
 	it("shows no context menu items on a non-whitelisted file", async () => {
-		mockListTracked.mockResolvedValueOnce(["image.png"]);
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["image.png"]));
 		const onEditFile = vi.fn();
 		renderTree({ expandedPaths: [""], onEditFile });
 		const row = await screen.findByText("image.png");
@@ -294,8 +298,8 @@ describe("WorktreeTree stale-request guard", () => {
 		const firstPromise = new Promise<string[]>((resolve) => {
 			resolveFirst = resolve;
 		});
-		mockListTracked.mockReturnValueOnce(firstPromise);
-		mockListTracked.mockResolvedValueOnce(["from-second.ts"]);
+		mockListWorktree.mockReturnValueOnce(firstPromise);
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["from-second.ts"]));
 		renderTree({ worktreeLabel: "repo", expandedPaths: [""] });
 		const rootRow = await screen.findByText("repo");
 		fireEvent.contextMenu(rootRow);
@@ -311,8 +315,8 @@ describe("WorktreeTree stale-request guard", () => {
 		const pendingA = new Promise<string[]>((resolve) => {
 			resolveA = resolve;
 		});
-		mockListTracked.mockImplementationOnce(() => pendingA);
-		mockListTracked.mockResolvedValueOnce(["wt-b-file.ts"]);
+		mockListWorktree.mockImplementationOnce(() => pendingA);
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["wt-b-file.ts"]));
 		const { rerender } = render(
 			<WorktreeTree
 				workspaceId="ws-1"

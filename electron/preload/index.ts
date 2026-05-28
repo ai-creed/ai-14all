@@ -171,10 +171,11 @@ const api: Ai14AllDesktopApi = {
 				relativeRoots,
 			});
 		},
-		listTracked(workspaceId, worktreeId) {
-			return ipcRenderer.invoke("files:listTracked", {
+		listWorktree(workspaceId, worktreeId, opts) {
+			return ipcRenderer.invoke("files:listWorktree", {
 				workspaceId,
 				worktreeId,
+				includeIgnored: opts.includeIgnored,
 			});
 		},
 		read(workspaceId, worktreeId, relativePath) {

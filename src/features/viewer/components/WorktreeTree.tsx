@@ -70,10 +70,12 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 		setLoading(true);
 		setError(null);
 		try {
-			const list = await files.listTracked(workspaceId, worktreeId);
+			const entries = await files.listWorktree(workspaceId, worktreeId, {
+				includeIgnored: false,
+			});
 			if (requestIdRef.current !== myId) return;
 			if (capturedWorktreeId !== worktreeId) return;
-			setFileList(list);
+			setFileList(entries.map((e) => e.path));
 			if (
 				didInitExpandRef.current !== worktreeId &&
 				!expandedPaths.includes(WORKTREE_TREE_ROOT_PATH)

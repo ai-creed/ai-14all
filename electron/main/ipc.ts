@@ -45,7 +45,7 @@ import {
 	PreviewRemoveWorktreeSchema,
 	RemoveWorktreeSchema,
 	LogShellEventSchema,
-	ListTrackedFilesSchema,
+	ListWorktreeFilesSchema,
 	DIAGNOSTICS_ATTENTION_EVENT,
 } from "../../shared/contracts/commands.js";
 import type { DiagnosticsAttentionLogEvent } from "../../shared/contracts/commands.js";
@@ -376,11 +376,12 @@ export function registerIpcHandlers(
 		return fileService.listScopedFiles(worktree.path, relativeRoots);
 	});
 
-	ipcMain.handle("files:listTracked", async (_event, raw: unknown) => {
-		const { workspaceId, worktreeId } = ListTrackedFilesSchema.parse(raw);
+	ipcMain.handle("files:listWorktree", async (_event, raw: unknown) => {
+		const { workspaceId, worktreeId, includeIgnored } =
+			ListWorktreeFilesSchema.parse(raw);
 		const repository = workspaceRegistry.get(workspaceId);
 		const worktree = await worktreeService.findWorktree(repository, worktreeId);
-		return fileService.listTrackedFiles(worktree.path);
+		return fileService.listWorktreeFiles(worktree.path, { includeIgnored });
 	});
 
 	// --- Git ---
