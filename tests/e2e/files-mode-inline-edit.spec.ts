@@ -211,8 +211,13 @@ test.describe.serial("Files-mode inline edit", () => {
 
 	test("Show ignored reveals .env, hides node_modules via denylist", async () => {
 		test.setTimeout(30_000);
-		const toggle = page.getByLabel(/show ignored/i);
-		await toggle.check();
+		// The toggle is a role="switch" button, not a native checkbox — click
+		// to flip it on instead of `.check()`. The aria-label after the polish
+		// pass is "Show gitignored files".
+		const toggle = page.getByRole("switch", {
+			name: /show gitignored/i,
+		});
+		await toggle.click();
 		const envRow = page
 			.locator(".shell-list__item--tree")
 			.filter({ hasText: /^\.env/ });
