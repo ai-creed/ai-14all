@@ -46,7 +46,7 @@ type Props = {
 
 	filesOverlayOpen: boolean;
 	setFilesOverlayOpen: (next: boolean) => void;
-	trackedFilesLoader: () => Promise<string[]>;
+	trackedFilesLoader: (opts: { includeIgnored: boolean }) => Promise<string[]>;
 	gitStatusMap: Map<string, GitChangeStatus>;
 
 	shortcutsHelpOpen: boolean;
@@ -163,6 +163,15 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 				onClose={() => setFilesOverlayOpen(false)}
 				trackedFilesLoader={trackedFilesLoader}
 				gitStatusMap={gitStatusMap}
+				showGitignored={activeSession?.treeShowIgnored ?? false}
+				onToggleShowGitignored={() => {
+					if (!activeWorktree) return;
+					dispatch({
+						type: "session/setTreeShowIgnored",
+						worktreeId: activeWorktree.id,
+						showIgnored: !(activeSession?.treeShowIgnored ?? false),
+					});
+				}}
 				onOpenFile={(path) => {
 					if (!activeWorktree) {
 						setFilesOverlayOpen(false);

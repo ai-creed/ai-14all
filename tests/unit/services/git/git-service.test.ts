@@ -262,7 +262,7 @@ describe("GitService", () => {
 		expect(history.entries.at(-1)?.isMergeTarget).toBe(true);
 	});
 
-	it("falls back to the last twenty commits when HEAD matches the merge target", async () => {
+	it("falls back to the last fifty commits when HEAD matches the merge target", async () => {
 		execSync("git update-ref refs/remotes/origin/main main", {
 			cwd: repoPath,
 			stdio: "ignore",

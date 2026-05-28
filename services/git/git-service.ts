@@ -26,6 +26,12 @@ import {
 	MAX_DIFF_PAYLOAD_BYTES,
 } from "../../shared/files/size-limits.js";
 
+// Minimum number of commit entries `readCommitHistory` aims to return when
+// the underlying history has at least that many — commits ahead of the merge
+// target are taken in full, then padded with commits from the merge-target
+// side until we reach this floor.
+const COMMIT_HISTORY_MIN = 50;
+
 function capContent(content: string, maxBytes: number, label: string): string {
 	if (Buffer.byteLength(content, "utf8") <= maxBytes) return content;
 	const sliced = content.slice(0, maxBytes);
@@ -380,7 +386,13 @@ export class GitService {
 
 		if (entries.length === 0) {
 			const fallbackStdout = await runGit(
-				["log", "--format=%H%x09%h%x09%s", "-n", "20", "HEAD"],
+				[
+					"log",
+					"--format=%H%x09%h%x09%s",
+					"-n",
+					String(COMMIT_HISTORY_MIN),
+					"HEAD",
+				],
 				{ cwd: worktreePath, label: "log.fallback", timeoutMs: 15_000 },
 			);
 			return {
@@ -394,7 +406,7 @@ export class GitService {
 			};
 		}
 
-		const countFromTarget = Math.max(1, 20 - entries.length);
+		const countFromTarget = Math.max(1, COMMIT_HISTORY_MIN - entries.length);
 		const mergeBaseInfo = await runGit(
 			[
 				"log",

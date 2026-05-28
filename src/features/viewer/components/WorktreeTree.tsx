@@ -6,6 +6,7 @@ import type {
 	GitChangeStatus,
 } from "../../../../shared/models/git-change";
 import { files } from "../../../lib/desktop-client";
+import { ToggleSwitch } from "../../../ui/ToggleSwitch";
 import {
 	buildFileTree,
 	type FileTreeEntry,
@@ -237,6 +238,13 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 			)}
 			{error && <p className="shell-error">Unable to load files: {error}</p>}
 			<div className="shell-tree-header">
+				<ToggleSwitch
+					id="worktree-tree-show-gitignored"
+					checked={showIgnored}
+					onChange={onToggleShowIgnored}
+					label="Show gitignored"
+					ariaLabel="Show gitignored files"
+				/>
 				<input
 					type="text"
 					className="shell-input shell-tree-search"
@@ -246,15 +254,6 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 					aria-label="Search files"
 					disabled={!!error}
 				/>
-				<label className="shell-tree-show-ignored">
-					<input
-						type="checkbox"
-						aria-label="Show ignored files"
-						checked={showIgnored}
-						onChange={onToggleShowIgnored}
-					/>
-					<span>Show ignored</span>
-				</label>
 			</div>
 			{loading && fileCount === 0 && (
 				<p className="shell-empty-state">Loading files…</p>

@@ -379,13 +379,15 @@ describe("WorktreeTree show-ignored toggle", () => {
 		});
 	});
 
-	it("dispatches onToggleShowIgnored when the checkbox is clicked", async () => {
+	it("dispatches onToggleShowIgnored when the toggle switch is clicked", async () => {
 		mockListWorktree.mockResolvedValueOnce(wrapEntries(["a.ts"]));
 		const onToggle = vi.fn();
 		renderTree({ expandedPaths: [""], onToggleShowIgnored: onToggle });
 		await screen.findByText("a.ts");
-		const checkbox = screen.getByLabelText("Show ignored files");
-		fireEvent.click(checkbox);
+		const toggle = screen.getByRole("switch", {
+			name: "Show gitignored files",
+		});
+		fireEvent.click(toggle);
 		expect(onToggle).toHaveBeenCalledTimes(1);
 	});
 });

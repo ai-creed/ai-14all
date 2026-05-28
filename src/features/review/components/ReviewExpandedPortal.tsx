@@ -8,6 +8,8 @@ import {
 	useState,
 } from "react";
 import { createPortal } from "react-dom";
+import type { ReviewMode } from "../../../../shared/models/worktree-session";
+import { ReviewBarButton } from "./ReviewBarButton";
 
 interface PortalRect {
 	top: number;
@@ -19,11 +21,18 @@ export interface ReviewExpandedPortalHandle {
 	collapse(): void;
 }
 
+const MODE_LABEL: Record<ReviewMode, string> = {
+	files: "Files",
+	changes: "Changes",
+	commits: "Commits",
+};
+
 interface ReviewExpandedPortalProps {
 	mainColRef: React.RefObject<HTMLElement | null>;
 	chipBarRef: React.RefObject<HTMLElement | null>;
 	onCollapse: () => void;
 	onRefresh: () => void;
+	reviewMode: ReviewMode;
 	isDirty: boolean;
 	changedFileCount: number;
 	commentSidebarOpen?: boolean;
@@ -41,6 +50,7 @@ export const ReviewExpandedPortal = forwardRef<
 		chipBarRef,
 		onCollapse,
 		onRefresh,
+		reviewMode,
 		isDirty,
 		changedFileCount,
 		commentSidebarOpen,
@@ -181,75 +191,59 @@ export const ReviewExpandedPortal = forwardRef<
 			data-leaving={leaving ? "true" : undefined}
 			style={{ top: rect.top, left: rect.left, right: rect.right }}
 		>
-			<div className="shell-review-expanded-portal__header">
-				<span className="shell-label">Review</span>
-				<div className="shell-review-expanded-portal__status">
-					{isDirty ? (
-						<span
-							className="shell-review-expanded-portal__dirty"
-							aria-label={`${changedFileCount} changed files`}
-						>
-							{changedFileCount} changed
-						</span>
-					) : (
-						<span
-							className="shell-review-expanded-portal__clean"
-							aria-label="Clean — no changes"
-						>
-							✓ clean
-						</span>
+			{/* Header mirrors the collapsed `ReviewChipBar` layout (same class names,
+			    same vertical rhythm) so the two states look identical apart from
+			    the trailing toggle button. */}
+			<div className="shell-review-chipbar shell-review-expanded-portal__header">
+				<span className="shell-review-chipbar__label">REVIEW</span>
+				<span className="shell-review-chipbar__mode">
+					{MODE_LABEL[reviewMode]}
+				</span>
+				{isDirty ? (
+					<span
+						className="shell-review-chipbar__status"
+						data-state="dirty"
+						aria-label={`${changedFileCount} changed files`}
+					>
+						{changedFileCount} changed
+					</span>
+				) : (
+					<span
+						className="shell-review-chipbar__status"
+						data-state="clean"
+						aria-label="Clean — no changes"
+					>
+						✓ clean
+					</span>
+				)}
+				<span className="shell-review-chipbar__spacer" />
+				{onToggleCommentSidebar &&
+					openCommentCount !== null &&
+					openCommentCount !== undefined && (
+						<ReviewBarButton
+							icon="💬"
+							label={commentSidebarOpen ? "Hide comments" : "Comments"}
+							ariaLabel={
+								commentSidebarOpen ? "Hide comments" : "Show comments"
+							}
+							title={commentSidebarOpen ? "Hide comments" : "Show comments"}
+							onClick={onToggleCommentSidebar}
+						/>
 					)}
-				</div>
-				<div className="shell-review-expanded-portal__actions">
-					<button
-						type="button"
-						className="shell-button shell-button--compact shell-button--icon shell-button--round"
-						aria-label="Refresh review"
-						title="Refresh review"
-						onClick={onRefresh}
-					>
-						<span aria-hidden="true">↻</span>
-					</button>
-					<button
-						type="button"
-						className="shell-button shell-button--compact shell-button--icon shell-button--round"
-						aria-label="Collapse full review"
-						title="Collapse full review"
-						data-active="true"
-						onClick={handleCollapse}
-					>
-						<span aria-hidden="true">⬇</span>
-					</button>
-					{onToggleCommentSidebar &&
-						openCommentCount !== null &&
-						openCommentCount !== undefined && (
-							<button
-								type="button"
-								className="shell-review-comments-toggle"
-								aria-label={
-									commentSidebarOpen ? "Hide comments" : "Show comments"
-								}
-								title={commentSidebarOpen ? "Hide comments" : "Show comments"}
-								data-active={commentSidebarOpen ? "true" : "false"}
-								onClick={onToggleCommentSidebar}
-							>
-								<svg
-									width="13"
-									height="13"
-									viewBox="0 0 16 16"
-									fill="none"
-									aria-hidden="true"
-								>
-									<path
-										d="M2 2h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5l-3 2V3a1 1 0 0 1 1-1z"
-										stroke="currentColor"
-										strokeWidth="1.5"
-										strokeLinejoin="round"
-									/>
-								</svg>
-							</button>
-						)}
-				</div>
+				<ReviewBarButton
+					icon="↻"
+					label="Refresh"
+					ariaLabel="Refresh review"
+					title="Refresh review"
+					onClick={onRefresh}
+				/>
+				<ReviewBarButton
+					icon="⬇"
+					label="Collapse"
+					ariaLabel="Collapse full review"
+					title="Collapse full review"
+					onClick={handleCollapse}
+				/>
 			</div>
 			<div className="shell-review-expanded-portal__body">{children}</div>
 		</div>
