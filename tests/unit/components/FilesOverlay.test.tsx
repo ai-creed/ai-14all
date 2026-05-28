@@ -27,6 +27,8 @@ const defaults = {
 	trackedFilesLoader: async () => [] as string[],
 	gitStatusMap: new Map<string, "M" | "A" | "D" | "R" | "??">(),
 	onOpenFile: noop,
+	showGitignored: false,
+	onToggleShowGitignored: noop,
 };
 
 describe("FilesOverlay scaffold", () => {

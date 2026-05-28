@@ -22,6 +22,7 @@ function makeProps(
 		chipBarRef,
 		onCollapse: vi.fn(),
 		onRefresh: vi.fn(),
+		reviewMode: "files" as const,
 		isDirty: false,
 		changedFileCount: 0,
 		children: <span data-testid="portal-child">content</span>,
