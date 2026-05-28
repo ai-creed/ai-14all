@@ -17,6 +17,11 @@ import { readNewLines } from "./incremental-reader.js";
 export interface OffsetEntry {
 	offset: number;
 	mtime: number;
+	// Codex-only: ctx threaded forward across appends. Persisted so a worker
+	// restart resumes mid-rollout without losing cwd/model (token lines do not
+	// carry them — only session_meta/turn_context lines do).
+	cwd?: string;
+	model?: string;
 }
 export type OffsetCache = Map<string, OffsetEntry>;
 
@@ -82,27 +87,43 @@ export function processClaudeFile(
 	return count;
 }
 
-// Per-file Codex context survives incremental reads (cwd/model precede token lines).
-const codexCtx = new Map<
-	string,
-	{ cwd: string; sessionId: string; model: string }
->();
-
 // Process ONE Codex rollout: ingest token events, return the newest rate-limit
-// snapshot seen in this file (or null).
+// snapshot seen in this file (or null). Per-file ctx (cwd/model) is persisted
+// in the OffsetCache entry so a worker restart resuming mid-file still has it.
 export function processCodexFile(
 	file: string,
 	cache: OffsetCache,
 	ingest: (e: UsageEvent) => void,
 ): CodexRateLimits | null {
-	const ctxKey = `${file}::ctx`;
-	const ctx = codexCtx.get(ctxKey) ?? {
-		cwd: "",
-		sessionId: sessionIdFromCodexFile(file.split("/").pop() ?? ""),
-		model: "",
-	};
 	const ch = changed(file, cache);
 	if (!ch) return null;
+	const prev = cache.get(file);
+	const ctx = {
+		cwd: prev?.cwd ?? "",
+		model: prev?.model ?? "",
+		sessionId: sessionIdFromCodexFile(file.split("/").pop() ?? ""),
+	};
+	// Back-compat: cache entry from an older build (or any case where ctx was
+	// never persisted) resumed past byte 0. Re-scan [0, ch.from) with the
+	// meta-only filter to recover cwd/model. Token lines are excluded by the
+	// keep filter so no events are re-ingested.
+	if (ch.from > 0 && !ctx.cwd) {
+		const metaOnly = (l: string): boolean =>
+			l.includes(CODEX_META_MARKER) || l.includes(CODEX_TURN_MARKER);
+		const back = readNewLines(file, 0, metaOnly);
+		for (const line of back.lines) {
+			const meta = parseCodexSessionMeta(line);
+			if (meta) {
+				ctx.cwd = meta.cwd;
+				continue;
+			}
+			const tc = parseCodexTurnContext(line);
+			if (tc) {
+				if (tc.cwd) ctx.cwd = tc.cwd;
+				if (tc.model) ctx.model = tc.model;
+			}
+		}
+	}
 	let limits: CodexRateLimits | null = null;
 	// Marker pre-filter: only token lines (what we aggregate) plus the small
 	// session_meta/turn_context lines (cwd/model). Large unrelated lines never
@@ -130,8 +151,12 @@ export function processCodexFile(
 		const e = parseCodexTokenLine(line, ctx);
 		if (e) ingest(e);
 	}
-	codexCtx.set(ctxKey, ctx);
-	cache.set(file, { offset, mtime: ch.mtime });
+	cache.set(file, {
+		offset,
+		mtime: ch.mtime,
+		cwd: ctx.cwd,
+		model: ctx.model,
+	});
 	return limits;
 }
 
