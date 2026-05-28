@@ -209,6 +209,15 @@ export function useWorktreeSelection(options: Options): UseWorktreeSelection {
 		async (workspaceId: string, worktreeId: string) => {
 			const isCrossWorkspace =
 				workspaceId !== appWorkspacesRef.current.activeWorkspaceId;
+			// Run the dirty gate BEFORE activateWorkspace so a dirty editor in
+			// the outgoing workspace cannot be unmounted (and thus unregistered)
+			// before the user has confirmed Save/Discard/Cancel. Same-workspace
+			// switches still hit handleSelectWorktree's gate below; this is the
+			// extra cross-workspace guard.
+			if (isCrossWorkspace && hasInlineEditorsRegistered()) {
+				const gate = await runInlineEditorDirtyGate();
+				if (gate === "cancel") return;
+			}
 			if (isCrossWorkspace) {
 				void logRendererShellEvent({
 					event: "workspace-select",
