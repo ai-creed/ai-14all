@@ -126,6 +126,11 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		install: vi.fn().mockResolvedValue({ results: [] }),
 		uninstall: vi.fn().mockResolvedValue({ results: [] }),
 	},
+	app: {
+		setEditorDirty: vi.fn(),
+		confirmClose: vi.fn(),
+		onRequestClose: vi.fn(() => () => {}),
+	},
 }));
 
 import { App } from "../../../src/app/App";

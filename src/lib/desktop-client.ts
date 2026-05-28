@@ -50,8 +50,8 @@ export const files: Ai14AllDesktopApi["files"] = {
 		getDesktopClient().files.list(workspaceId, worktreeId),
 	listScoped: (workspaceId, worktreeId, relativeRoots) =>
 		getDesktopClient().files.listScoped(workspaceId, worktreeId, relativeRoots),
-	listTracked: (workspaceId, worktreeId) =>
-		getDesktopClient().files.listTracked(workspaceId, worktreeId),
+	listWorktree: (workspaceId, worktreeId, opts) =>
+		getDesktopClient().files.listWorktree(workspaceId, worktreeId, opts),
 	read: (workspaceId, worktreeId, relativePath) =>
 		getDesktopClient().files.read(workspaceId, worktreeId, relativePath),
 	openForEdit: async (workspaceId, worktreeId, relativePath) => {
@@ -153,6 +153,16 @@ export const noteBridge: Ai14AllDesktopApi["noteBridge"] = {
 	sendReply: (reply) => getDesktopClient().noteBridge.sendReply(reply),
 	sendReady: () => getDesktopClient().noteBridge.sendReady(),
 	sendGoodbye: () => getDesktopClient().noteBridge.sendGoodbye(),
+};
+
+// App-level signals: dirty-state push to main + close-gate handshake.
+// `setEditorDirty` and `confirmClose` are fire-and-forget IPC sends; the
+// dirty bit feeds main's close gate, and confirmClose resolves the renderer
+// reply to the `app:requestClose` event.
+export const app: Ai14AllDesktopApi["app"] = {
+	setEditorDirty: (args) => getDesktopClient().app.setEditorDirty(args),
+	confirmClose: (args) => getDesktopClient().app.confirmClose(args),
+	onRequestClose: (handler) => getDesktopClient().app.onRequestClose(handler),
 };
 
 export const agentAttentionBridge: Ai14AllDesktopApi["agentAttentionBridge"] = {

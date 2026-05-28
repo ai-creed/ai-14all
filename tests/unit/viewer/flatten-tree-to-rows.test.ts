@@ -5,9 +5,13 @@ import {
 } from "../../../src/features/viewer/logic/build-file-tree";
 import { flattenTreeToRows } from "../../../src/features/viewer/logic/flatten-tree-to-rows";
 
+function toEntries(paths: string[]) {
+	return paths.map((p) => ({ path: p, ignored: false }));
+}
+
 describe("flattenTreeToRows (no search)", () => {
 	it("emits only the root row when only the root is expanded", () => {
-		const tree = buildFileTree(["src/a.ts", "README.md"]);
+		const tree = buildFileTree(toEntries(["src/a.ts", "README.md"]));
 		const rows = flattenTreeToRows({
 			tree,
 			rootLabel: "repo",
@@ -23,7 +27,9 @@ describe("flattenTreeToRows (no search)", () => {
 	});
 
 	it("recurses into expanded directories only", () => {
-		const tree = buildFileTree(["src/a.ts", "src/nested/b.ts", "README.md"]);
+		const tree = buildFileTree(
+			toEntries(["src/a.ts", "src/nested/b.ts", "README.md"]),
+		);
 		const rows = flattenTreeToRows({
 			tree,
 			rootLabel: "repo",
@@ -41,7 +47,7 @@ describe("flattenTreeToRows (no search)", () => {
 	});
 
 	it("assigns depths — root 0, top-level 1, nested 2+", () => {
-		const tree = buildFileTree(["src/a.ts"]);
+		const tree = buildFileTree(toEntries(["src/a.ts"]));
 		const rows = flattenTreeToRows({
 			tree,
 			rootLabel: "repo",
@@ -56,8 +62,26 @@ describe("flattenTreeToRows (no search)", () => {
 		]);
 	});
 
+	it("propagates ignored onto rows", () => {
+		const tree = buildFileTree([
+			{ path: "src/a.ts", ignored: false },
+			{ path: ".env", ignored: true },
+		]);
+		const rows = flattenTreeToRows({
+			tree,
+			rootLabel: "repo",
+			expandedPaths: new Set<string>([WORKTREE_TREE_ROOT_PATH, "src"]),
+			changedFiles: new Map(),
+			searchTerm: "",
+		});
+		const env = rows.find((r) => r.kind === "file" && r.path === ".env");
+		expect(env?.ignored).toBe(true);
+		const a = rows.find((r) => r.kind === "file" && r.path === "src/a.ts");
+		expect(a?.ignored).toBe(false);
+	});
+
 	it("attaches gitStatus from changedFiles map", () => {
-		const tree = buildFileTree(["src/a.ts"]);
+		const tree = buildFileTree(toEntries(["src/a.ts"]));
 		const rows = flattenTreeToRows({
 			tree,
 			rootLabel: "repo",
@@ -74,7 +98,9 @@ describe("flattenTreeToRows (no search)", () => {
 
 describe("flattenTreeToRows (search)", () => {
 	it("hides non-matching branches, shows matched files, auto-expands ancestors", () => {
-		const tree = buildFileTree(["src/a.ts", "src/nested/deep.ts", "README.md"]);
+		const tree = buildFileTree(
+			toEntries(["src/a.ts", "src/nested/deep.ts", "README.md"]),
+		);
 		const rows = flattenTreeToRows({
 			tree,
 			rootLabel: "repo",
@@ -91,7 +117,7 @@ describe("flattenTreeToRows (search)", () => {
 	});
 
 	it("is case-insensitive and matches against full relative path", () => {
-		const tree = buildFileTree(["src/App.tsx"]);
+		const tree = buildFileTree(toEntries(["src/App.tsx"]));
 		const rows = flattenTreeToRows({
 			tree,
 			rootLabel: "repo",
@@ -105,7 +131,7 @@ describe("flattenTreeToRows (search)", () => {
 	});
 
 	it("returns only the root row when search has no matches", () => {
-		const tree = buildFileTree(["src/a.ts"]);
+		const tree = buildFileTree(toEntries(["src/a.ts"]));
 		const rows = flattenTreeToRows({
 			tree,
 			rootLabel: "repo",

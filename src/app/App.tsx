@@ -9,7 +9,6 @@ import type {
 import { buildSavedWorkspace } from "../features/workspace/logic/workspace-persistence";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
-import { isEditable } from "../../shared/editor/editable-files";
 import { type SessionSidebarWorkspace } from "../features/workspace/components/SessionSidebar";
 import { workspaceReducer } from "../features/workspace/logic/workspace-state";
 import { PresetManager } from "../features/terminals/components/PresetManager";
@@ -40,7 +39,9 @@ import {
 	noteBridge,
 	agentAttentionBridge,
 	diagnostics,
+	app as appClient,
 } from "../lib/desktop-client";
+import { listInlineEditors } from "../features/viewer/inline-editor-registry";
 import { countOpenCommentsInFiles } from "../features/git/logic/commit-list-badge";
 import { useTheme } from "../lib/use-theme";
 import { terminalThemeFor } from "../features/terminals/logic/terminal-themes";
@@ -66,7 +67,6 @@ import { useTerminalRuntime } from "./hooks/use-terminal-runtime";
 import { useWorkspacePickerListener } from "./hooks/use-workspace-picker-listener";
 import { useInstallModalListener } from "./hooks/use-install-modal-listener";
 import { useRendererStartLog } from "./hooks/use-renderer-start-log";
-import { useEditFileShortcut } from "./hooks/use-edit-file-shortcut";
 import { useGitActions } from "./hooks/use-git-actions";
 import { useProcessActions } from "./hooks/use-process-actions";
 import { useWorktreeActions } from "./hooks/use-worktree-actions";
@@ -174,14 +174,6 @@ export function App() {
 	const [createSessionTitle, setCreateSessionTitle] = useState("");
 	const [createBusy, setCreateBusy] = useState(false);
 	const [discardPath, setDiscardPath] = useState<string | null>(null);
-	const [editorTarget, setEditorTarget] = useState<{
-		workspaceId: string;
-		worktreeId: string;
-		relativePath: string;
-		content: string;
-		mtimeMs: number;
-	} | null>(null);
-	const [openEditorError, setOpenEditorError] = useState<string | null>(null);
 	const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
 	const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
 	const [removeBusy, setRemoveBusy] = useState(false);
@@ -203,6 +195,27 @@ export function App() {
 		},
 		api: noteBridge,
 	});
+
+	// App-close gate: main fires `app:requestClose` when one or more InlineEditors
+	// are dirty. We iterate the renderer registry, calling `requestSwitch` on
+	// each. If every switch resolves to "proceed" we tell main to proceed;
+	// otherwise the close is cancelled. requestSwitch itself drives the per-
+	// editor ConfirmCloseDialog (Save / Discard / Cancel).
+	useEffect(() => {
+		return appClient.onRequestClose(() => {
+			void (async () => {
+				const editors = listInlineEditors();
+				for (const e of editors) {
+					const r = await e.requestSwitch();
+					if (r === "cancel") {
+						appClient.confirmClose({ proceed: false });
+						return;
+					}
+				}
+				appClient.confirmClose({ proceed: true });
+			})();
+		});
+	}, []);
 
 	useEffect(() => {
 		if (startupMode !== "ready") return;
@@ -370,46 +383,15 @@ export function App() {
 		addingDraft,
 	]);
 
-	const openEditorForFile = useCallback(
-		async (relativePath: string) => {
-			if (!activeWorktree || !activeWorkspaceId) return;
-			const basename = relativePath.split("/").pop() ?? "";
-			if (!isEditable(basename)) return;
-			try {
-				const res = await files.openForEdit(
-					activeWorkspaceId,
-					activeWorktree.id,
-					relativePath,
-				);
-				if (!res.ok) {
-					setOpenEditorError(`Cannot open file: ${res.reason}`);
-					return;
-				}
-				setOpenEditorError(null);
-				setEditorTarget({
-					workspaceId: activeWorkspaceId,
-					worktreeId: activeWorktree.id,
-					relativePath,
-					content: res.content,
-					mtimeMs: res.mtimeMs,
-				});
-			} catch {
-				setOpenEditorError("Failed to open file for editing");
-			}
-		},
-		[activeWorktree, activeWorkspaceId],
-	);
-
 	const trackedFilesLoader = useCallback(async () => {
 		if (!activeWorkspaceId || !activeWorktree) return [];
-		return files.listTracked(activeWorkspaceId, activeWorktree.id);
+		const entries = await files.listWorktree(
+			activeWorkspaceId,
+			activeWorktree.id,
+			{ includeIgnored: false },
+		);
+		return entries.map((e) => e.path);
 	}, [activeWorkspaceId, activeWorktree]);
-
-	useEditFileShortcut({
-		editorOpen: editorTarget !== null,
-		selectedFilePath: activeSession?.selectedFilePath ?? null,
-		onOpen: openEditorForFile,
-	});
 
 	const [terminalFocusSignal, setTerminalFocusSignal] = useState(0);
 
@@ -1428,7 +1410,6 @@ export function App() {
 							setFilesOverlayOpen={setFilesOverlayOpen}
 							trackedFilesLoader={trackedFilesLoader}
 							gitStatusMap={gitStatusMap}
-							openEditorForFile={openEditorForFile}
 							shortcutsHelpOpen={shortcutsHelpOpen}
 							setShortcutsHelpOpen={setShortcutsHelpOpen}
 							appPlatform={appPlatform}
@@ -1581,11 +1562,6 @@ export function App() {
 									handleReviewRailResizeStart={handleReviewRailResizeStart}
 									commentSidebarOpen={commentSidebarOpen}
 									resolvedTheme={resolvedTheme}
-									editorTarget={editorTarget}
-									setEditorTarget={setEditorTarget}
-									openEditorForFile={openEditorForFile}
-									openEditorError={openEditorError}
-									setOpenEditorError={setOpenEditorError}
 									installCtaVisible={installCtaVisible}
 									onOpenInstall={() => setInstallModalOpen(true)}
 									dispatch={dispatch}

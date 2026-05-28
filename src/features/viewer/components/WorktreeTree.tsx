@@ -9,6 +9,7 @@ import { files } from "../../../lib/desktop-client";
 import { isEditable } from "../../../../shared/editor/editable-files";
 import {
 	buildFileTree,
+	type FileTreeEntry,
 	WORKTREE_TREE_ROOT_PATH,
 } from "../logic/build-file-tree";
 import {
@@ -29,6 +30,8 @@ export type WorktreeTreeProps = {
 	gitSummaryMessage?: string | null;
 	expandedPaths: string[];
 	onExpandedPathsChange: (worktreeId: string, paths: string[]) => void;
+	showIgnored: boolean;
+	onToggleShowIgnored: () => void;
 };
 
 export function WorktreeTree(props: WorktreeTreeProps) {
@@ -43,9 +46,11 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 		gitSummaryMessage,
 		expandedPaths,
 		onExpandedPathsChange,
+		showIgnored,
+		onToggleShowIgnored,
 	} = props;
 
-	const [fileList, setFileList] = useState<string[]>([]);
+	const [fileList, setFileList] = useState<FileTreeEntry[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [inputTerm, setInputTerm] = useState("");
@@ -57,7 +62,7 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 	useEffect(() => {
 		reload();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [workspaceId, worktreeId]);
+	}, [workspaceId, worktreeId, showIgnored]);
 
 	useEffect(() => {
 		const handle = setTimeout(() => setSearchTerm(inputTerm), 120);
@@ -70,10 +75,12 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 		setLoading(true);
 		setError(null);
 		try {
-			const list = await files.listTracked(workspaceId, worktreeId);
+			const entries = await files.listWorktree(workspaceId, worktreeId, {
+				includeIgnored: showIgnored,
+			});
 			if (requestIdRef.current !== myId) return;
 			if (capturedWorktreeId !== worktreeId) return;
-			setFileList(list);
+			setFileList(entries);
 			if (
 				didInitExpandRef.current !== worktreeId &&
 				!expandedPaths.includes(WORKTREE_TREE_ROOT_PATH)
@@ -93,6 +100,7 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 	}
 
 	const tree = useMemo(() => buildFileTree(fileList), [fileList]);
+	const fileCount = fileList.length;
 	const expandedSet = useMemo(() => new Set(expandedPaths), [expandedPaths]);
 	const changedFilesMap = useMemo(() => {
 		const m = new Map<string, GitChangeStatus>();
@@ -139,11 +147,13 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 				role="button"
 				tabIndex={0}
 				className={
-					isDir
+					(isDir
 						? "shell-list__item shell-list__item--tree shell-list__item--dir"
-						: "shell-list__item shell-list__item--tree"
+						: "shell-list__item shell-list__item--tree") +
+					(row.ignored ? " shell-list__item--ignored" : "")
 				}
 				data-selected={!isDir && row.path === selectedFile}
+				data-ignored={row.ignored ? "true" : undefined}
 				style={{ paddingLeft: `${row.depth * 16}px` }}
 				onClick={handleClick}
 			>
@@ -240,19 +250,30 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 				</p>
 			)}
 			{error && <p className="shell-error">Unable to load files: {error}</p>}
-			<input
-				type="text"
-				className="shell-input shell-tree-search"
-				placeholder="Search files…"
-				value={inputTerm}
-				onChange={(e) => setInputTerm(e.target.value)}
-				aria-label="Search files"
-				disabled={!!error}
-			/>
-			{loading && fileList.length === 0 && (
+			<div className="shell-tree-header">
+				<input
+					type="text"
+					className="shell-input shell-tree-search"
+					placeholder="Search files…"
+					value={inputTerm}
+					onChange={(e) => setInputTerm(e.target.value)}
+					aria-label="Search files"
+					disabled={!!error}
+				/>
+				<label className="shell-tree-show-ignored">
+					<input
+						type="checkbox"
+						aria-label="Show ignored files"
+						checked={showIgnored}
+						onChange={onToggleShowIgnored}
+					/>
+					<span>Show ignored</span>
+				</label>
+			</div>
+			{loading && fileCount === 0 && (
 				<p className="shell-empty-state">Loading files…</p>
 			)}
-			{fileList.length === 0 && !loading && (
+			{fileCount === 0 && !loading && (
 				<p className="shell-empty-state">No files in this worktree.</p>
 			)}
 			<div

@@ -36,5 +36,10 @@ export type WorktreeSession = {
 	 * docs/superpowers/specs/2026-04-16-worktree-file-tree-design.md §4.6.
 	 */
 	treeExpandedPaths: string[];
+	/**
+	 * Per-worktree "Show ignored" toggle for the Files tree. Memory-only,
+	 * matching `treeExpandedPaths`. Default: false.
+	 */
+	treeShowIgnored: boolean;
 	task: string | null;
 };

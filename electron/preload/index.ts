@@ -171,10 +171,11 @@ const api: Ai14AllDesktopApi = {
 				relativeRoots,
 			});
 		},
-		listTracked(workspaceId, worktreeId) {
-			return ipcRenderer.invoke("files:listTracked", {
+		listWorktree(workspaceId, worktreeId, opts) {
+			return ipcRenderer.invoke("files:listWorktree", {
 				workspaceId,
 				worktreeId,
+				includeIgnored: opts.includeIgnored,
 			});
 		},
 		read(workspaceId, worktreeId, relativePath) {
@@ -403,6 +404,17 @@ const api: Ai14AllDesktopApi = {
 		},
 		onSetTheme(handler) {
 			return onChannel("theme/set", handler);
+		},
+	},
+	app: {
+		setEditorDirty(args) {
+			ipcRenderer.send("app:setEditorDirty", args);
+		},
+		confirmClose(args) {
+			ipcRenderer.send("app:confirmClose", args);
+		},
+		onRequestClose(handler) {
+			return onChannel("app:requestClose", handler);
 		},
 	},
 };

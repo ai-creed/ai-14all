@@ -3,16 +3,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { matchFiles } from "../../../shared/files/match-files";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { GitChangeStatus } from "../../../shared/models/git-change";
-import { detectPlatform } from "../../app/files-overlay-shortcut";
 
 export interface FilesOverlayProps {
 	isOpen: boolean;
 	onClose: () => void;
 	trackedFilesLoader: () => Promise<string[]>;
 	gitStatusMap: Map<string, GitChangeStatus>;
-	onViewFile: (path: string) => void;
-	onEditFile: (path: string) => void;
-	isEditable: (basename: string) => boolean;
+	onOpenFile: (path: string) => void;
 }
 
 const ROW_HEIGHT = 28;
@@ -132,25 +129,9 @@ export function FilesOverlay(props: FilesOverlayProps) {
 							return;
 						}
 						if (e.key === "Enter") {
-							const platform = detectPlatform();
-							const modifierHeld =
-								platform === "mac"
-									? e.metaKey && !e.ctrlKey
-									: e.ctrlKey && !e.metaKey;
-							if (modifierHeld) {
-								const path = rows[selectedIndex];
-								if (path && props.isEditable(basenameOf(path))) {
-									e.preventDefault();
-									props.onEditFile(path);
-									return;
-								}
-								// not editable — fall through to plain Enter (view)
-							}
-						}
-						if (e.key === "Enter") {
 							e.preventDefault();
 							const path = rows[selectedIndex];
-							if (path) props.onViewFile(path);
+							if (path) props.onOpenFile(path);
 							return;
 						}
 					}}
@@ -215,7 +196,7 @@ export function FilesOverlay(props: FilesOverlayProps) {
 														? " shell-files-overlay__row--selected"
 														: "")
 												}
-												onClick={() => props.onViewFile(path)}
+												onClick={() => props.onOpenFile(path)}
 												style={{
 													position: "absolute",
 													top: 0,
@@ -251,21 +232,13 @@ export function FilesOverlay(props: FilesOverlayProps) {
 					<div
 						className="shell-files-overlay__footer"
 						data-testid="files-overlay-footer"
-						data-edit-available={(() => {
-							const path = rows[selectedIndex];
-							if (!path) return "false";
-							return props.isEditable(basenameOf(path)) ? "true" : "false";
-						})()}
 					>
 						<span className="shell-files-overlay__footer-path">
 							{rows[selectedIndex] ?? ""}
 						</span>
 						<span className="shell-files-overlay__footer-hints">
 							<span>
-								<kbd>↵</kbd> View
-							</span>
-							<span className="shell-files-overlay__footer-hint-edit">
-								<kbd>⌘↵</kbd> Edit
+								<kbd>↵</kbd> Open
 							</span>
 							<span>
 								<kbd>Esc</kbd> Close

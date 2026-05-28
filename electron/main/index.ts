@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { createMainWindow } from "./windows.js";
 import { registerIpcHandlers } from "./ipc.js";
+import { createCloseGate } from "./close-gate.js";
 import { registerAppLifecycle } from "./lifecycle.js";
 import { buildApplicationMenu } from "./menu.js";
 import { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
@@ -205,6 +206,8 @@ app.whenReady().then(async () => {
 		},
 	};
 
+	const closeGate = createCloseGate();
+	closeGate.attach(mainWindow);
 	const { dispose } = registerIpcHandlers(mainWindow, {
 		workspacePersistence,
 		workspaceRegistry,
@@ -218,6 +221,7 @@ app.whenReady().then(async () => {
 		},
 		usageHost,
 		installUpdate: () => updateService.installUpdate(),
+		closeGate,
 	});
 
 	if (process.env.ELECTRON_RENDERER_URL) {

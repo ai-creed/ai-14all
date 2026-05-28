@@ -1,10 +1,5 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { detectPlatform } from "../../../src/app/files-overlay-shortcut";
-
-vi.mock("../../../src/app/files-overlay-shortcut", () => ({
-	detectPlatform: vi.fn(() => "other"),
-}));
 
 vi.mock("@tanstack/react-virtual", () => ({
 	useVirtualizer: (options: { count: number }) => ({
@@ -21,6 +16,7 @@ vi.mock("@tanstack/react-virtual", () => ({
 	}),
 }));
 
+import { describe, it, expect, vi } from "vitest";
 import { FilesOverlay } from "../../../src/features/files/FilesOverlay";
 
 const noop = () => {};
@@ -30,9 +26,7 @@ const defaults = {
 	onClose: noop,
 	trackedFilesLoader: async () => [] as string[],
 	gitStatusMap: new Map<string, "M" | "A" | "D" | "R" | "??">(),
-	onViewFile: noop,
-	onEditFile: noop,
-	isEditable: () => false,
+	onOpenFile: noop,
 };
 
 describe("FilesOverlay scaffold", () => {
@@ -302,53 +296,80 @@ describe("FilesOverlay — keyboard navigation", () => {
 	});
 });
 
-describe("FilesOverlay — view action", () => {
-	it("invokes onViewFile with the selected path on Enter", async () => {
+describe("FilesOverlay — open action", () => {
+	it("invokes onOpenFile with the selected path on Enter", async () => {
 		const user = userEvent.setup();
 		const loader = vi.fn().mockResolvedValue(["src/a.ts", "src/b.ts"]);
-		const onViewFile = vi.fn();
+		const onOpenFile = vi.fn();
 		render(
 			<FilesOverlay
 				{...defaults}
 				trackedFilesLoader={loader}
-				onViewFile={onViewFile}
+				onOpenFile={onOpenFile}
 			/>,
 		);
 		await screen.findByText("a.ts");
 		await user.keyboard("{ArrowDown}{Enter}");
-		expect(onViewFile).toHaveBeenCalledWith("src/b.ts");
+		expect(onOpenFile).toHaveBeenCalledWith("src/b.ts");
 	});
 
-	it("invokes onViewFile on row click", async () => {
+	it("invokes onOpenFile on row click", async () => {
 		const user = userEvent.setup();
 		const loader = vi.fn().mockResolvedValue(["src/a.ts"]);
-		const onViewFile = vi.fn();
+		const onOpenFile = vi.fn();
 		render(
 			<FilesOverlay
 				{...defaults}
 				trackedFilesLoader={loader}
-				onViewFile={onViewFile}
+				onOpenFile={onOpenFile}
 			/>,
 		);
 		await screen.findByText("a.ts");
 		await user.click(screen.getByTestId("files-overlay-row-src/a.ts"));
-		expect(onViewFile).toHaveBeenCalledWith("src/a.ts");
+		expect(onOpenFile).toHaveBeenCalledWith("src/a.ts");
 	});
 
 	it("does nothing on Enter when the list is empty", async () => {
 		const user = userEvent.setup();
 		const loader = vi.fn().mockResolvedValue([]);
-		const onViewFile = vi.fn();
+		const onOpenFile = vi.fn();
 		render(
 			<FilesOverlay
 				{...defaults}
 				trackedFilesLoader={loader}
-				onViewFile={onViewFile}
+				onOpenFile={onOpenFile}
 			/>,
 		);
 		await screen.findByText(/no files/i);
 		await user.keyboard("{Enter}");
-		expect(onViewFile).not.toHaveBeenCalled();
+		expect(onOpenFile).not.toHaveBeenCalled();
+	});
+
+	it("modifier+Enter no longer has a separate edit branch — opens the file like plain Enter", async () => {
+		const user = userEvent.setup();
+		const loader = vi.fn().mockResolvedValue(["src/a.ts"]);
+		const onOpenFile = vi.fn();
+		render(
+			<FilesOverlay
+				{...defaults}
+				trackedFilesLoader={loader}
+				onOpenFile={onOpenFile}
+			/>,
+		);
+		await screen.findByText("a.ts");
+		await user.keyboard("{Meta>}{Enter}{/Meta}");
+		expect(onOpenFile).toHaveBeenCalledWith("src/a.ts");
+	});
+
+	it("footer renders the new hints (Open + Close) and no data-edit-available attribute", async () => {
+		const loader = vi.fn().mockResolvedValue(["src/a.ts"]);
+		render(<FilesOverlay {...defaults} trackedFilesLoader={loader} />);
+		await screen.findByText("a.ts");
+		const footer = screen.getByTestId("files-overlay-footer");
+		expect(footer).not.toHaveAttribute("data-edit-available");
+		expect(footer.textContent).toMatch(/Open/);
+		expect(footer.textContent).toMatch(/Close/);
+		expect(footer.textContent).not.toMatch(/Edit/);
 	});
 });
 
@@ -381,84 +402,5 @@ describe("FilesOverlay — a11y and focus restoration", () => {
 			expect(active === trigger || active === document.body).toBe(true);
 		});
 		trigger.remove();
-	});
-});
-
-describe("FilesOverlay — edit action", () => {
-	const paths = ["src/a.ts", "src/image.png"];
-
-	it("invokes onEditFile on Cmd+Enter (mac) when the selected file is editable", async () => {
-		vi.mocked(detectPlatform).mockReturnValue("mac");
-		const user = userEvent.setup();
-		const loader = vi.fn().mockResolvedValue(paths);
-		const onEditFile = vi.fn();
-		render(
-			<FilesOverlay
-				{...defaults}
-				trackedFilesLoader={loader}
-				onEditFile={onEditFile}
-				isEditable={(basename) => basename.endsWith(".ts")}
-			/>,
-		);
-		await screen.findByText("a.ts");
-		await user.keyboard("{Meta>}{Enter}{/Meta}");
-		expect(onEditFile).toHaveBeenCalledWith("src/a.ts");
-	});
-
-	it("invokes onEditFile on Ctrl+Enter (other) when the selected file is editable", async () => {
-		vi.mocked(detectPlatform).mockReturnValue("other");
-		const user = userEvent.setup();
-		const loader = vi.fn().mockResolvedValue(paths);
-		const onEditFile = vi.fn();
-		render(
-			<FilesOverlay
-				{...defaults}
-				trackedFilesLoader={loader}
-				onEditFile={onEditFile}
-				isEditable={(basename) => basename.endsWith(".ts")}
-			/>,
-		);
-		await screen.findByText("a.ts");
-		await user.keyboard("{Control>}{Enter}{/Control}");
-		expect(onEditFile).toHaveBeenCalledWith("src/a.ts");
-	});
-
-	it("falls back to onViewFile when modifier+Enter is pressed on a non-editable file", async () => {
-		vi.mocked(detectPlatform).mockReturnValue("other");
-		const user = userEvent.setup();
-		const loader = vi.fn().mockResolvedValue(paths);
-		const onEditFile = vi.fn();
-		const onViewFile = vi.fn();
-		render(
-			<FilesOverlay
-				{...defaults}
-				trackedFilesLoader={loader}
-				onEditFile={onEditFile}
-				onViewFile={onViewFile}
-				isEditable={(basename) => basename.endsWith(".ts")}
-			/>,
-		);
-		await screen.findByText("a.ts");
-		await user.keyboard("{ArrowDown}"); // select image.png (non-editable)
-		await user.keyboard("{Control>}{Enter}{/Control}");
-		expect(onEditFile).not.toHaveBeenCalled();
-		expect(onViewFile).toHaveBeenCalledWith("src/image.png");
-	});
-
-	it("footer hint shows Edit availability for the current selection", async () => {
-		const user = userEvent.setup();
-		const loader = vi.fn().mockResolvedValue(paths);
-		render(
-			<FilesOverlay
-				{...defaults}
-				trackedFilesLoader={loader}
-				isEditable={(basename) => basename.endsWith(".ts")}
-			/>,
-		);
-		await screen.findByText("a.ts");
-		const footer = screen.getByTestId("files-overlay-footer");
-		expect(footer).toHaveAttribute("data-edit-available", "true");
-		await user.keyboard("{ArrowDown}");
-		expect(footer).toHaveAttribute("data-edit-available", "false");
 	});
 });

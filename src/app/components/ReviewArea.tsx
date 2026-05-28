@@ -20,10 +20,12 @@ import { CommitList } from "../../features/git/components/CommitList";
 import { ChangesList } from "../../features/git/components/ChangesList";
 import { WorktreeTree } from "../../features/viewer/components/WorktreeTree";
 import { CommitDiffStack } from "../../features/git/components/CommitDiffStack";
-import { FileViewer } from "../../features/viewer/components/FileViewer";
 import { DiffViewer } from "../../features/viewer/components/DiffViewer";
 import { MarkdownPreviewModal } from "../../features/viewer/components/MarkdownPreviewModal";
-import { EditorModal } from "../../features/viewer/components/EditorModal";
+import {
+	InlineEditor,
+	type InlineEditorHandle,
+} from "../../features/viewer/components/InlineEditor";
 import { ReviewQueuePanel } from "../../features/review/components/ReviewQueuePanel";
 import { InlineMountsBridge } from "../../features/review/components/InlineMountsBridge";
 import { filterForInlineMount } from "../../features/review/logic/inline-mount-filter";
@@ -63,14 +65,6 @@ export type NewCommentDraft = {
 
 type ReviewState = ReturnType<typeof useReviewComments>;
 
-type EditorTarget = {
-	workspaceId: string;
-	worktreeId: string;
-	relativePath: string;
-	content: string;
-	mtimeMs: number;
-};
-
 type Props = {
 	activeWorktree: Worktree;
 	activeSession: WorktreeSession | null;
@@ -91,11 +85,6 @@ type Props = {
 	handleReviewRailResizeStart: (e: React.MouseEvent<HTMLDivElement>) => void;
 	commentSidebarOpen: boolean;
 	resolvedTheme: ResolvedTheme;
-	editorTarget: EditorTarget | null;
-	setEditorTarget: (next: EditorTarget | null) => void;
-	openEditorForFile: (relativePath: string) => Promise<void>;
-	openEditorError: string | null;
-	setOpenEditorError: (next: string | null) => void;
 	installCtaVisible: boolean;
 	onOpenInstall: () => void;
 	dispatch: (action: WorkspaceAction) => void;
@@ -137,10 +126,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 		handleReviewRailResizeStart,
 		commentSidebarOpen,
 		resolvedTheme,
-		editorTarget,
-		setEditorTarget,
-		openEditorForFile,
-		openEditorError,
 		installCtaVisible,
 		onOpenInstall,
 		dispatch,
@@ -161,6 +146,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 	const [focusedThreadId, setFocusedThreadId] = useState<string | null>(null);
 	const diffEditorRegistry = useMemo(() => createDiffEditorRegistry(), []);
 	const toast = useToast();
+	const inlineEditorRef = useRef<InlineEditorHandle | null>(null);
 
 	// Lifted out of the comment-sidebar IIFE so the chip-initiated hook below can
 	// call it too. Reused for both the sidebar onJump (default 500ms editor
@@ -602,23 +588,23 @@ export function ReviewArea(props: Props): React.ReactElement {
 								</>
 							) : activeSession?.reviewMode === "files" ? (
 								<>
-									{openEditorError !== null && (
-										<p className="shell-error">{openEditorError}</p>
-									)}
 									<WorktreeTree
 										workspaceId={activeWorkspaceId ?? ""}
 										worktreeId={activeWorktree.id}
 										worktreeLabel={activeWorktree.label}
 										selectedFile={activeSession.selectedFilePath}
-										onSelect={(relativePath) =>
+										onSelect={async (relativePath) => {
+											const decision =
+												(await inlineEditorRef.current?.requestSwitch?.()) ??
+												"proceed";
+											if (decision === "cancel") return;
 											dispatch({
 												type: "session/selectFile",
 												worktreeId: activeWorktree.id,
 												relativePath,
-											})
-										}
+											});
+										}}
 										onPreviewMarkdown={setTreePreviewPath}
-										onEditFile={openEditorForFile}
 										changedFiles={changes}
 										gitSummaryError={gitSummaryError}
 										gitSummaryMessage={gitSummaryMessage}
@@ -630,6 +616,14 @@ export function ReviewArea(props: Props): React.ReactElement {
 												paths,
 											})
 										}
+										showIgnored={activeSession.treeShowIgnored}
+										onToggleShowIgnored={() =>
+											dispatch({
+												type: "session/setTreeShowIgnored",
+												worktreeId: activeWorktree.id,
+												showIgnored: !activeSession.treeShowIgnored,
+											})
+										}
 									/>
 									{treePreviewPath !== null && (
 										<MarkdownPreviewModal
@@ -638,18 +632,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 											relativePath={treePreviewPath}
 											open={true}
 											onClose={() => setTreePreviewPath(null)}
-										/>
-									)}
-									{editorTarget !== null && (
-										<EditorModal
-											workspaceId={editorTarget.workspaceId}
-											worktreeId={editorTarget.worktreeId}
-											relativePath={editorTarget.relativePath}
-											initialContent={editorTarget.content}
-											initialMtimeMs={editorTarget.mtimeMs}
-											theme={resolvedTheme}
-											onClose={() => setEditorTarget(null)}
-											onFileSaved={bumpRefreshKey}
 										/>
 									)}
 								</>
@@ -770,12 +752,13 @@ export function ReviewArea(props: Props): React.ReactElement {
 						/>
 					) : activeSession?.reviewMode === "files" &&
 					  activeSession.selectedFilePath ? (
-						<FileViewer
+						<InlineEditor
+							ref={inlineEditorRef}
 							workspaceId={activeWorkspaceId ?? ""}
 							worktreeId={activeWorktree.id}
 							relativePath={activeSession.selectedFilePath}
 							resolvedTheme={resolvedTheme}
-							onEditFile={openEditorForFile}
+							onSaved={bumpRefreshKey}
 						/>
 					) : activeSession?.reviewMode === "changes" && diffState.data ? (
 						<DiffViewer
@@ -884,6 +867,3 @@ export function ReviewArea(props: Props): React.ReactElement {
 		</Tabs.Root>
 	);
 }
-
-// Re-export so App.tsx can use this prop type
-export type { EditorTarget };

@@ -183,6 +183,11 @@ export type WorkspaceAction =
 			worktreeId: string;
 			paths: string[];
 	  }
+	| {
+			type: "session/setTreeShowIgnored";
+			worktreeId: string;
+			showIgnored: boolean;
+	  }
 	| { type: "session/setTitle"; worktreeId: string; title: string }
 	| { type: "workspace/reconcileWorktrees"; worktrees: Worktree[] }
 	| {
@@ -230,6 +235,7 @@ function createSession(worktree: Worktree): WorktreeSession {
 		slotProcessIds: [null],
 		reviewSidebarWidth: 280,
 		treeExpandedPaths: [],
+		treeShowIgnored: false,
 		task: null,
 	};
 }
@@ -615,6 +621,21 @@ export function workspaceReducer(
 			sessionsByWorktreeId: {
 				...state.sessionsByWorktreeId,
 				[action.worktreeId]: { ...session, treeExpandedPaths: action.paths },
+			},
+		};
+	}
+
+	if (action.type === "session/setTreeShowIgnored") {
+		const session = state.sessionsByWorktreeId[action.worktreeId];
+		if (!session) return state;
+		return {
+			...state,
+			sessionsByWorktreeId: {
+				...state.sessionsByWorktreeId,
+				[action.worktreeId]: {
+					...session,
+					treeShowIgnored: action.showIgnored,
+				},
 			},
 		};
 	}

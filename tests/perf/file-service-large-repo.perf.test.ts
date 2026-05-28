@@ -9,7 +9,7 @@ import { createLargeRepo } from "../unit/fixtures/create-large-repo.js";
 // Tighten thresholds once nightly perf measurement is wired up.
 
 describe("perf — file + git operations on a large repo", () => {
-	it("listTrackedFiles completes under 1500ms on a 2000-file repo", async () => {
+	it("listWorktreeFiles completes under 1500ms on a 2000-file repo", async () => {
 		const repo = createLargeRepo({
 			fileCount: 2000,
 			changedFileCount: 0,
@@ -20,10 +20,12 @@ describe("perf — file + git operations on a large repo", () => {
 		try {
 			const svc = new FileService();
 			const start = performance.now();
-			const files = await svc.listTrackedFiles(repo.rootPath);
+			const files = await svc.listWorktreeFiles(repo.rootPath, {
+				includeIgnored: false,
+			});
 			const elapsed = performance.now() - start;
 			console.log(
-				`[perf] listTrackedFiles(2000-file): ${elapsed.toFixed(0)}ms`,
+				`[perf] listWorktreeFiles(2000-file): ${elapsed.toFixed(0)}ms`,
 			);
 			expect(files.length).toBeGreaterThanOrEqual(2000);
 			expect(elapsed).toBeLessThan(1500);
