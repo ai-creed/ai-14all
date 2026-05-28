@@ -13,7 +13,6 @@ import { UsageStrip } from "../../features/telemetry/UsageStrip";
 import { useUsageSnapshot } from "../../features/telemetry/use-usage-snapshot";
 import { displayTitle } from "../../features/workspace/logic/session-display-title";
 import type { WorkspaceAction } from "../../features/workspace/logic/workspace-state";
-import { isEditable } from "../../../shared/editor/editable-files";
 import type { Platform } from "../shortcut-registry";
 
 type PendingRename = {
@@ -45,7 +44,6 @@ type Props = {
 	setFilesOverlayOpen: (next: boolean) => void;
 	trackedFilesLoader: () => Promise<string[]>;
 	gitStatusMap: Map<string, GitChangeStatus>;
-	openEditorForFile: (path: string) => Promise<void> | void;
 
 	shortcutsHelpOpen: boolean;
 	setShortcutsHelpOpen: (next: boolean) => void;
@@ -85,7 +83,6 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 		setFilesOverlayOpen,
 		trackedFilesLoader,
 		gitStatusMap,
-		openEditorForFile,
 		shortcutsHelpOpen,
 		setShortcutsHelpOpen,
 		appPlatform,
@@ -162,7 +159,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 				onClose={() => setFilesOverlayOpen(false)}
 				trackedFilesLoader={trackedFilesLoader}
 				gitStatusMap={gitStatusMap}
-				onViewFile={(path) => {
+				onOpenFile={(path) => {
 					if (!activeWorktree) {
 						setFilesOverlayOpen(false);
 						return;
@@ -180,11 +177,6 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 					openReview();
 					setFilesOverlayOpen(false);
 				}}
-				onEditFile={(path) => {
-					setFilesOverlayOpen(false);
-					void openEditorForFile(path);
-				}}
-				isEditable={isEditable}
 			/>
 			<ShortcutsHelp
 				open={shortcutsHelpOpen}

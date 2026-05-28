@@ -1456,7 +1456,6 @@ export function App() {
 							setFilesOverlayOpen={setFilesOverlayOpen}
 							trackedFilesLoader={trackedFilesLoader}
 							gitStatusMap={gitStatusMap}
-							openEditorForFile={openEditorForFile}
 							shortcutsHelpOpen={shortcutsHelpOpen}
 							setShortcutsHelpOpen={setShortcutsHelpOpen}
 							appPlatform={appPlatform}
