@@ -249,48 +249,31 @@ describe("WorktreeTree markdown preview", () => {
 	});
 });
 
-describe("WorktreeTree editor context menu", () => {
-	it("shows both Preview and Edit on a .md row when onEditFile is provided", async () => {
+describe("WorktreeTree file context menu — Edit removed (always-inline)", () => {
+	it("never renders an Edit menu item on whitelisted files (modal flow gone)", async () => {
+		mockListWorktree.mockResolvedValueOnce(wrapEntries(["package.json"]));
+		const onPreviewMarkdown = vi.fn();
+		renderTree({ expandedPaths: [""], onPreviewMarkdown });
+		const row = await screen.findByText("package.json");
+		fireEvent.contextMenu(row);
+		expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull();
+	});
+
+	it("still shows Preview on a .md row when onPreviewMarkdown is provided", async () => {
 		mockListWorktree.mockResolvedValueOnce(wrapEntries(["README.md"]));
 		const onPreviewMarkdown = vi.fn();
-		const onEditFile = vi.fn();
-		renderTree({ expandedPaths: [""], onPreviewMarkdown, onEditFile });
+		renderTree({ expandedPaths: [""], onPreviewMarkdown });
 		const mdRow = await screen.findByText("README.md");
 		fireEvent.contextMenu(mdRow);
 		expect(
 			await screen.findByRole("menuitem", { name: "Preview" }),
 		).toBeInTheDocument();
-		expect(screen.getByRole("menuitem", { name: "Edit" })).toBeInTheDocument();
+		expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull();
 	});
 
-	it("shows only Edit (no Preview) on a non-markdown whitelisted file", async () => {
-		mockListWorktree.mockResolvedValueOnce(wrapEntries(["package.json"]));
-		const onEditFile = vi.fn();
-		renderTree({ expandedPaths: [""], onEditFile });
-		const row = await screen.findByText("package.json");
-		fireEvent.contextMenu(row);
-		expect(
-			await screen.findByRole("menuitem", { name: "Edit" }),
-		).toBeInTheDocument();
-		expect(screen.queryByRole("menuitem", { name: "Preview" })).toBeNull();
-	});
-
-	it("shows only Edit on a .md row when only onEditFile is provided (no preview handler)", async () => {
-		mockListWorktree.mockResolvedValueOnce(wrapEntries(["README.md"]));
-		const onEditFile = vi.fn();
-		renderTree({ expandedPaths: [""], onEditFile });
-		const mdRow = await screen.findByText("README.md");
-		fireEvent.contextMenu(mdRow);
-		expect(
-			await screen.findByRole("menuitem", { name: "Edit" }),
-		).toBeInTheDocument();
-		expect(screen.queryByRole("menuitem", { name: "Preview" })).toBeNull();
-	});
-
-	it("shows no context menu items on a non-whitelisted file", async () => {
+	it("shows no context menu on a non-markdown, non-whitelisted file", async () => {
 		mockListWorktree.mockResolvedValueOnce(wrapEntries(["image.png"]));
-		const onEditFile = vi.fn();
-		renderTree({ expandedPaths: [""], onEditFile });
+		renderTree({ expandedPaths: [""] });
 		const row = await screen.findByText("image.png");
 		fireEvent.contextMenu(row);
 		expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull();
@@ -300,8 +283,9 @@ describe("WorktreeTree editor context menu", () => {
 
 describe("WorktreeTree stale-request guard", () => {
 	it("ignores a superseded response (later refresh wins)", async () => {
-		let resolveFirst: (v: string[]) => void = () => {};
-		const firstPromise = new Promise<string[]>((resolve) => {
+		type Entry = Awaited<ReturnType<typeof files.listWorktree>>[number];
+		let resolveFirst: (v: Entry[]) => void = () => {};
+		const firstPromise = new Promise<Entry[]>((resolve) => {
 			resolveFirst = resolve;
 		});
 		mockListWorktree.mockReturnValueOnce(firstPromise);
@@ -311,14 +295,15 @@ describe("WorktreeTree stale-request guard", () => {
 		fireEvent.contextMenu(rootRow);
 		const refresh = await screen.findByRole("menuitem", { name: "Refresh" });
 		fireEvent.click(refresh);
-		resolveFirst(["from-first.ts"]);
+		resolveFirst(wrapEntries(["from-first.ts"]));
 		expect(await screen.findByText("from-second.ts")).toBeInTheDocument();
 		expect(screen.queryByText("from-first.ts")).toBeNull();
 	});
 
 	it("ignores in-flight responses after a worktree switch", async () => {
-		let resolveA: (v: string[]) => void = () => {};
-		const pendingA = new Promise<string[]>((resolve) => {
+		type Entry = Awaited<ReturnType<typeof files.listWorktree>>[number];
+		let resolveA: (v: Entry[]) => void = () => {};
+		const pendingA = new Promise<Entry[]>((resolve) => {
 			resolveA = resolve;
 		});
 		mockListWorktree.mockImplementationOnce(() => pendingA);
@@ -351,7 +336,7 @@ describe("WorktreeTree stale-request guard", () => {
 				onToggleShowIgnored={vi.fn()}
 			/>,
 		);
-		resolveA(["wt-a-file.ts"]);
+		resolveA(wrapEntries(["wt-a-file.ts"]));
 		expect(await screen.findByText("wt-b-file.ts")).toBeInTheDocument();
 		expect(screen.queryByText("wt-a-file.ts")).toBeNull();
 	});

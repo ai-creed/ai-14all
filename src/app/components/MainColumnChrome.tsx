@@ -5,6 +5,10 @@ import type { GitSummary } from "../../../shared/models/git-summary";
 import type { Worktree } from "../../../shared/models/worktree";
 import type { WorktreeSession } from "../../../shared/models/worktree-session";
 import { FilesOverlay } from "../../features/files/FilesOverlay";
+import {
+	hasInlineEditorsRegistered,
+	runInlineEditorDirtyGate,
+} from "../../features/viewer/inline-editor-registry";
 import { ShortcutsHelp } from "../../features/shortcuts/ShortcutsHelp";
 import { UpdateBanner } from "../../features/updater/UpdateBanner";
 import { NoteSheet } from "../../features/workspace/components/NoteSheet";
@@ -164,18 +168,31 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 						setFilesOverlayOpen(false);
 						return;
 					}
-					dispatch({
-						type: "session/selectFile",
-						worktreeId: activeWorktree.id,
-						relativePath: path,
-					});
-					dispatch({
-						type: "session/setReviewMode",
-						worktreeId: activeWorktree.id,
-						reviewMode: "files",
-					});
-					openReview();
-					setFilesOverlayOpen(false);
+					const proceed = () => {
+						dispatch({
+							type: "session/selectFile",
+							worktreeId: activeWorktree.id,
+							relativePath: path,
+						});
+						dispatch({
+							type: "session/setReviewMode",
+							worktreeId: activeWorktree.id,
+							reviewMode: "files",
+						});
+						openReview();
+						setFilesOverlayOpen(false);
+					};
+					// Skip the async gate when no editor is mounted so React keeps
+					// the dispatches in the synchronous event-handler batch.
+					if (!hasInlineEditorsRegistered()) {
+						proceed();
+						return;
+					}
+					void (async () => {
+						const gate = await runInlineEditorDirtyGate();
+						if (gate === "cancel") return;
+						proceed();
+					})();
 				}}
 			/>
 			<ShortcutsHelp

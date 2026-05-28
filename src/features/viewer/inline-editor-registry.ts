@@ -36,6 +36,26 @@ export function listInlineEditors(): InlineEditorEntry[] {
 	return [...entries.values()];
 }
 
+// Sync check used by callers that want to keep their React event-handler
+// state dispatches in the synchronous batch when no editor is mounted. Only
+// when this returns true do callers need to await `runInlineEditorDirtyGate`.
+export function hasInlineEditorsRegistered(): boolean {
+	return entries.size > 0;
+}
+
+// Shared dirty-switch gate. Iterates every mounted InlineEditor and awaits its
+// requestSwitch(); short-circuits to "cancel" the first time any editor asks
+// to abort. Returns "proceed" when every editor cleared (or none is mounted).
+export async function runInlineEditorDirtyGate(): Promise<
+	"proceed" | "cancel"
+> {
+	for (const editor of entries.values()) {
+		const result = await editor.requestSwitch();
+		if (result === "cancel") return "cancel";
+	}
+	return "proceed";
+}
+
 // Test seam: clear all registered editors.
 export function __resetInlineEditorRegistry(): void {
 	entries.clear();

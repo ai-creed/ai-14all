@@ -41,7 +41,7 @@ import {
 	diagnostics,
 	app as appClient,
 } from "../lib/desktop-client";
-import { listInlineEditors } from "../features/viewer/inline-editor-registry";
+import { runInlineEditorDirtyGate } from "../features/viewer/inline-editor-registry";
 import { countOpenCommentsInFiles } from "../features/git/logic/commit-list-badge";
 import { useTheme } from "../lib/use-theme";
 import { terminalThemeFor } from "../features/terminals/logic/terminal-themes";
@@ -204,15 +204,8 @@ export function App() {
 	useEffect(() => {
 		return appClient.onRequestClose(() => {
 			void (async () => {
-				const editors = listInlineEditors();
-				for (const e of editors) {
-					const r = await e.requestSwitch();
-					if (r === "cancel") {
-						appClient.confirmClose({ proceed: false });
-						return;
-					}
-				}
-				appClient.confirmClose({ proceed: true });
+				const result = await runInlineEditorDirtyGate();
+				appClient.confirmClose({ proceed: result === "proceed" });
 			})();
 		});
 	}, []);
@@ -820,18 +813,19 @@ export function App() {
 		onRefresh: handleRefreshChanges,
 	});
 
-	const { handleSelectSidebarWorktree } = useWorktreeSelection({
-		activeWorkspaceId,
-		worktrees,
-		workspaceState,
-		appWorkspacesRef,
-		activeWorkspaceStateRef,
-		pendingRestoreSessions,
-		setPendingRestoreSessions,
-		dispatch,
-		activateWorkspace,
-		recreatePersistedProcesses,
-	});
+	const { handleSelectSidebarWorktree, handleSelectWorktree } =
+		useWorktreeSelection({
+			activeWorkspaceId,
+			worktrees,
+			workspaceState,
+			appWorkspacesRef,
+			activeWorkspaceStateRef,
+			pendingRestoreSessions,
+			setPendingRestoreSessions,
+			dispatch,
+			activateWorkspace,
+			recreatePersistedProcesses,
+		});
 
 	const { handleConfirmCreateWorktree, handleConfirmRemoveWorktree } =
 		useWorktreeActions({
@@ -977,9 +971,9 @@ export function App() {
 			const nextId = wts[nextIdx]?.id;
 			if (!nextId) return;
 			e.preventDefault();
-			dispatch({ type: "session/selectWorktree", worktreeId: nextId });
+			void handleSelectWorktree(nextId);
 		},
-		[dispatch],
+		[handleSelectWorktree],
 	);
 
 	// Cmd+N / Ctrl+N — add worktree

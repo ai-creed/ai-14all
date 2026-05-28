@@ -8,6 +8,10 @@ import type {
 } from "../../features/workspace/logic/workspace-state";
 import type { AppWorkspacesState } from "../../features/workspace/logic/app-workspaces-state";
 import { logRendererShellEvent } from "../../features/terminals/logic/shell-event-logger";
+import {
+	hasInlineEditorsRegistered,
+	runInlineEditorDirtyGate,
+} from "../../features/viewer/inline-editor-registry";
 import { logBindingChange } from "../logging/log-binding-change";
 
 type TargetContext = {
@@ -77,6 +81,17 @@ export function useWorktreeSelection(options: Options): UseWorktreeSelection {
 			const targetWorktrees = targetContext?.worktrees ?? worktrees;
 			const targetWorkspaceState =
 				targetContext?.workspaceState ?? workspaceState;
+
+			// Dirty inline editors must be resolved before unmounting them. The
+			// gate drives the per-editor Save/Discard/Cancel dialog and short-
+			// circuits the switch when the user cancels. Only await when an
+			// editor is actually mounted — otherwise an unconditional await
+			// would break React's synchronous event-handler batching and cause
+			// dependent effects (poll-on-worktree-change) to fire an extra time.
+			if (hasInlineEditorsRegistered()) {
+				const gate = await runInlineEditorDirtyGate();
+				if (gate === "cancel") return;
+			}
 
 			void logRendererShellEvent({
 				event: "worktree-select",

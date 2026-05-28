@@ -6,7 +6,6 @@ import type {
 	GitChangeStatus,
 } from "../../../../shared/models/git-change";
 import { files } from "../../../lib/desktop-client";
-import { isEditable } from "../../../../shared/editor/editable-files";
 import {
 	buildFileTree,
 	type FileTreeEntry,
@@ -24,7 +23,6 @@ export type WorktreeTreeProps = {
 	selectedFile: string | null;
 	onSelect: (relativePath: string) => void;
 	onPreviewMarkdown?: (relativePath: string) => void;
-	onEditFile?: (relativePath: string) => void;
 	changedFiles: GitChange[];
 	gitSummaryError?: boolean;
 	gitSummaryMessage?: string | null;
@@ -205,11 +203,9 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 		if (row.kind === "file") {
 			const name = row.name;
 			const isMarkdown = name.endsWith(".md");
-			const editFile = props.onEditFile;
 			const previewMarkdown = props.onPreviewMarkdown;
-			const canEdit = isEditable(name) && editFile != null;
 			const canPreview = isMarkdown && previewMarkdown != null;
-			if (!canPreview && !canEdit) {
+			if (!canPreview) {
 				return <div key={`${row.kind}:${row.path}`}>{body}</div>;
 			}
 			return (
@@ -217,22 +213,12 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 					<ContextMenu.Trigger asChild>{body}</ContextMenu.Trigger>
 					<ContextMenu.Portal>
 						<ContextMenu.Content className="shell-toolbar-menu">
-							{canPreview && previewMarkdown ? (
-								<ContextMenu.Item
-									className="shell-toolbar-menu__item"
-									onSelect={() => previewMarkdown(row.path)}
-								>
-									Preview
-								</ContextMenu.Item>
-							) : null}
-							{canEdit && editFile ? (
-								<ContextMenu.Item
-									className="shell-toolbar-menu__item"
-									onSelect={() => editFile(row.path)}
-								>
-									Edit
-								</ContextMenu.Item>
-							) : null}
+							<ContextMenu.Item
+								className="shell-toolbar-menu__item"
+								onSelect={() => previewMarkdown(row.path)}
+							>
+								Preview
+							</ContextMenu.Item>
 						</ContextMenu.Content>
 					</ContextMenu.Portal>
 				</ContextMenu.Root>
