@@ -65,14 +65,6 @@ export type NewCommentDraft = {
 
 type ReviewState = ReturnType<typeof useReviewComments>;
 
-type EditorTarget = {
-	workspaceId: string;
-	worktreeId: string;
-	relativePath: string;
-	content: string;
-	mtimeMs: number;
-};
-
 type Props = {
 	activeWorktree: Worktree;
 	activeSession: WorktreeSession | null;
@@ -93,11 +85,6 @@ type Props = {
 	handleReviewRailResizeStart: (e: React.MouseEvent<HTMLDivElement>) => void;
 	commentSidebarOpen: boolean;
 	resolvedTheme: ResolvedTheme;
-	editorTarget: EditorTarget | null;
-	setEditorTarget: (next: EditorTarget | null) => void;
-	openEditorForFile: (relativePath: string) => Promise<void>;
-	openEditorError: string | null;
-	setOpenEditorError: (next: string | null) => void;
 	installCtaVisible: boolean;
 	onOpenInstall: () => void;
 	dispatch: (action: WorkspaceAction) => void;
@@ -139,10 +126,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 		handleReviewRailResizeStart,
 		commentSidebarOpen,
 		resolvedTheme,
-		// editorTarget and setEditorTarget are kept on the props until phase 9
-		// fully removes the EditorModal plumbing across App.tsx.
-		openEditorForFile,
-		openEditorError,
 		installCtaVisible,
 		onOpenInstall,
 		dispatch,
@@ -605,9 +588,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 								</>
 							) : activeSession?.reviewMode === "files" ? (
 								<>
-									{openEditorError !== null && (
-										<p className="shell-error">{openEditorError}</p>
-									)}
 									<WorktreeTree
 										workspaceId={activeWorkspaceId ?? ""}
 										worktreeId={activeWorktree.id}
@@ -625,7 +605,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 											});
 										}}
 										onPreviewMarkdown={setTreePreviewPath}
-										onEditFile={openEditorForFile}
 										changedFiles={changes}
 										gitSummaryError={gitSummaryError}
 										gitSummaryMessage={gitSummaryMessage}
@@ -889,5 +868,3 @@ export function ReviewArea(props: Props): React.ReactElement {
 	);
 }
 
-// Re-export so App.tsx can use this prop type
-export type { EditorTarget };
