@@ -985,6 +985,79 @@ describe("session/setTreeExpandedPaths", () => {
 	});
 });
 
+describe("session/setTreeShowIgnored", () => {
+	it("flips treeShowIgnored on the target session only", () => {
+		const wtA: Worktree = {
+			id: "wt-a",
+			repositoryId: "repo-1",
+			branchName: "a",
+			path: "/tmp/a",
+			label: "a",
+			isMain: true,
+		};
+		const wtB: Worktree = {
+			id: "wt-b",
+			repositoryId: "repo-1",
+			branchName: "b",
+			path: "/tmp/b",
+			label: "b",
+			isMain: false,
+		};
+		const initial = createWorkspaceState([wtA, wtB]);
+		expect(initial.sessionsByWorktreeId["wt-a"].treeShowIgnored).toBe(false);
+		expect(initial.sessionsByWorktreeId["wt-b"].treeShowIgnored).toBe(false);
+		const next = workspaceReducer(initial, {
+			type: "session/setTreeShowIgnored",
+			worktreeId: "wt-a",
+			showIgnored: true,
+		});
+		expect(next.sessionsByWorktreeId["wt-a"].treeShowIgnored).toBe(true);
+		expect(next.sessionsByWorktreeId["wt-b"].treeShowIgnored).toBe(false);
+	});
+
+	it("is a no-op when the worktreeId is unknown", () => {
+		const wtA: Worktree = {
+			id: "wt-a",
+			repositoryId: "repo-1",
+			branchName: "a",
+			path: "/tmp/a",
+			label: "a",
+			isMain: true,
+		};
+		const initial = createWorkspaceState([wtA]);
+		const next = workspaceReducer(initial, {
+			type: "session/setTreeShowIgnored",
+			worktreeId: "wt-does-not-exist",
+			showIgnored: true,
+		});
+		expect(next).toBe(initial);
+	});
+
+	it("toggles back to false on a second dispatch", () => {
+		const wtA: Worktree = {
+			id: "wt-a",
+			repositoryId: "repo-1",
+			branchName: "a",
+			path: "/tmp/a",
+			label: "a",
+			isMain: true,
+		};
+		let state = createWorkspaceState([wtA]);
+		state = workspaceReducer(state, {
+			type: "session/setTreeShowIgnored",
+			worktreeId: "wt-a",
+			showIgnored: true,
+		});
+		expect(state.sessionsByWorktreeId["wt-a"].treeShowIgnored).toBe(true);
+		state = workspaceReducer(state, {
+			type: "session/setTreeShowIgnored",
+			worktreeId: "wt-a",
+			showIgnored: false,
+		});
+		expect(state.sessionsByWorktreeId["wt-a"].treeShowIgnored).toBe(false);
+	});
+});
+
 describe("treeExpandedPaths defaults", () => {
 	it("initializes treeExpandedPaths to an empty array on a fresh session", () => {
 		const worktree: Worktree = {
