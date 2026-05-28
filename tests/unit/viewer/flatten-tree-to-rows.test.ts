@@ -27,7 +27,9 @@ describe("flattenTreeToRows (no search)", () => {
 	});
 
 	it("recurses into expanded directories only", () => {
-		const tree = buildFileTree(toEntries(["src/a.ts", "src/nested/b.ts", "README.md"]));
+		const tree = buildFileTree(
+			toEntries(["src/a.ts", "src/nested/b.ts", "README.md"]),
+		);
 		const rows = flattenTreeToRows({
 			tree,
 			rootLabel: "repo",
@@ -96,7 +98,9 @@ describe("flattenTreeToRows (no search)", () => {
 
 describe("flattenTreeToRows (search)", () => {
 	it("hides non-matching branches, shows matched files, auto-expands ancestors", () => {
-		const tree = buildFileTree(toEntries(["src/a.ts", "src/nested/deep.ts", "README.md"]));
+		const tree = buildFileTree(
+			toEntries(["src/a.ts", "src/nested/deep.ts", "README.md"]),
+		);
 		const rows = flattenTreeToRows({
 			tree,
 			rootLabel: "repo",

@@ -867,4 +867,3 @@ export function ReviewArea(props: Props): React.ReactElement {
 		</Tabs.Root>
 	);
 }
-

@@ -31,9 +31,12 @@ vi.mock("@monaco-editor/react", () => ({
 	}) => {
 		// Fake editor whose getValue returns the textarea's current value.
 		const handle = {
-			getValue: () => (document.querySelector(
-				"[data-testid=monaco]",
-			) as HTMLTextAreaElement | null)?.value ?? props.value,
+			getValue: () =>
+				(
+					document.querySelector(
+						"[data-testid=monaco]",
+					) as HTMLTextAreaElement | null
+				)?.value ?? props.value,
 			setValue: (v: string) => {
 				const el = document.querySelector(
 					"[data-testid=monaco]",
@@ -61,7 +64,9 @@ import {
 } from "../../../src/features/viewer/components/InlineEditor";
 import { files, app } from "../../../src/lib/desktop-client";
 
-const openForEditMock = files.openForEdit as unknown as ReturnType<typeof vi.fn>;
+const openForEditMock = files.openForEdit as unknown as ReturnType<
+	typeof vi.fn
+>;
 const readMock = files.read as unknown as ReturnType<typeof vi.fn>;
 const saveMock = files.save as unknown as ReturnType<typeof vi.fn>;
 const setEditorDirtyMock = app.setEditorDirty as unknown as ReturnType<
@@ -141,7 +146,10 @@ describe("InlineEditor — editable load (whitelisted)", () => {
 		fireEvent.click(overwriteBtn);
 		await waitFor(() => {
 			expect(saveMock).toHaveBeenLastCalledWith(
-				expect.objectContaining({ expectedMtimeMs: 250, content: "hello world" }),
+				expect.objectContaining({
+					expectedMtimeMs: 250,
+					content: "hello world",
+				}),
 			);
 		});
 	});
@@ -173,7 +181,11 @@ describe("InlineEditor — non-whitelisted (read-only)", () => {
 	it("calls files.read and mounts Monaco read-only", async () => {
 		readMock.mockResolvedValueOnce({
 			ok: true,
-			view: { path: "image.png", content: "binary-stub", language: "plaintext" },
+			view: {
+				path: "image.png",
+				content: "binary-stub",
+				language: "plaintext",
+			},
 		});
 		render(<InlineEditor {...base} relativePath="image.png" />);
 		const ta = (await screen.findByTestId("monaco")) as HTMLTextAreaElement;

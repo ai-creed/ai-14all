@@ -526,4 +526,3 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 		);
 	},
 );
-

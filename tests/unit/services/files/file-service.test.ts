@@ -180,9 +180,9 @@ describe("FileService", () => {
 			expect(byPath.get(".env")).toBe(true);
 			expect(byPath.get("ignored.txt")).toBe(true);
 			// node_modules elided even with includeIgnored=true (denylist)
-			expect([...byPath.keys()].some((p) => p.startsWith("node_modules/"))).toBe(
-				false,
-			);
+			expect(
+				[...byPath.keys()].some((p) => p.startsWith("node_modules/")),
+			).toBe(false);
 		});
 
 		it("returns entries sorted by path", async () => {

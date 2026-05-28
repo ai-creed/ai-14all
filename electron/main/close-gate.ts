@@ -13,7 +13,10 @@
 const REPLY_TIMEOUT_MS = 5_000;
 
 export interface CloseGateWindow {
-	on(event: "close", listener: (event: { preventDefault(): void }) => void): unknown;
+	on(
+		event: "close",
+		listener: (event: { preventDefault(): void }) => void,
+	): unknown;
 	webContents: {
 		send(channel: string, payload?: unknown): void;
 	};

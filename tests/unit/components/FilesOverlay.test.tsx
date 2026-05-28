@@ -404,4 +404,3 @@ describe("FilesOverlay — a11y and focus restoration", () => {
 		trigger.remove();
 	});
 });
-

@@ -86,7 +86,9 @@ describe("WorktreeTree basic states", () => {
 	});
 
 	it("renders the root row + top-level entries on successful load", async () => {
-		mockListWorktree.mockResolvedValueOnce(wrapEntries(["README.md", "src/a.ts"]));
+		mockListWorktree.mockResolvedValueOnce(
+			wrapEntries(["README.md", "src/a.ts"]),
+		);
 		const onExpandedPathsChange = vi.fn();
 		renderTree({
 			worktreeLabel: "repo",
@@ -137,11 +139,9 @@ describe("WorktreeTree search", () => {
 	});
 
 	it("filters rows after the debounce elapses", async () => {
-		mockListWorktree.mockResolvedValueOnce(wrapEntries([
-			"src/App.tsx",
-			"src/other.ts",
-			"README.md",
-		]));
+		mockListWorktree.mockResolvedValueOnce(
+			wrapEntries(["src/App.tsx", "src/other.ts", "README.md"]),
+		);
 		renderTree({ expandedPaths: [""] });
 		// Wait for the async load to complete before switching to fake timers
 		await screen.findByText("README.md");
@@ -177,7 +177,9 @@ describe("WorktreeTree search", () => {
 
 describe("WorktreeTree git status indicators", () => {
 	it("renders the status letter next to a changed file", async () => {
-		mockListWorktree.mockResolvedValueOnce(wrapEntries(["src/a.ts", "src/b.ts"]));
+		mockListWorktree.mockResolvedValueOnce(
+			wrapEntries(["src/a.ts", "src/b.ts"]),
+		);
 		renderTree({
 			expandedPaths: ["", "src"],
 			changedFiles: [{ path: "src/a.ts", status: "M" }],
@@ -226,7 +228,9 @@ describe("WorktreeTree root refresh", () => {
 
 describe("WorktreeTree markdown preview", () => {
 	it("calls onPreviewMarkdown when Preview is picked on a .md file", async () => {
-		mockListWorktree.mockResolvedValueOnce(wrapEntries(["README.md", "src/a.ts"]));
+		mockListWorktree.mockResolvedValueOnce(
+			wrapEntries(["README.md", "src/a.ts"]),
+		);
 		const onPreviewMarkdown = vi.fn();
 		renderTree({ expandedPaths: [""], onPreviewMarkdown });
 		const mdRow = await screen.findByText("README.md");
@@ -329,8 +333,9 @@ describe("WorktreeTree stale-request guard", () => {
 				changedFiles={[]}
 				expandedPaths={[""]}
 				onExpandedPathsChange={vi.fn()}
-			showIgnored={false}
-			onToggleShowIgnored={vi.fn()}			/>,
+				showIgnored={false}
+				onToggleShowIgnored={vi.fn()}
+			/>,
 		);
 		rerender(
 			<WorktreeTree
@@ -342,8 +347,9 @@ describe("WorktreeTree stale-request guard", () => {
 				changedFiles={[]}
 				expandedPaths={[""]}
 				onExpandedPathsChange={vi.fn()}
-			showIgnored={false}
-			onToggleShowIgnored={vi.fn()}			/>,
+				showIgnored={false}
+				onToggleShowIgnored={vi.fn()}
+			/>,
 		);
 		resolveA(["wt-a-file.ts"]);
 		expect(await screen.findByText("wt-b-file.ts")).toBeInTheDocument();
@@ -377,7 +383,11 @@ describe("WorktreeTree show-ignored toggle", () => {
 		mockListWorktree.mockResolvedValueOnce(wrapEntries(["a.ts"]));
 		const onToggle = vi.fn();
 		// New render simulates parent flipping showIgnored=true after the toggle.
-		renderTree({ expandedPaths: [""], showIgnored: true, onToggleShowIgnored: onToggle });
+		renderTree({
+			expandedPaths: [""],
+			showIgnored: true,
+			onToggleShowIgnored: onToggle,
+		});
 		await screen.findAllByText("a.ts");
 		expect(mockListWorktree).toHaveBeenLastCalledWith("ws-1", "wt-1", {
 			includeIgnored: true,

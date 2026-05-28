@@ -48,11 +48,7 @@ export function EditorDirtyBar({
 			>
 				Save
 			</button>
-			<button
-				type="button"
-				className="shell-btn"
-				onClick={handleDiscard}
-			>
+			<button type="button" className="shell-btn" onClick={handleDiscard}>
 				Discard
 			</button>
 		</div>
