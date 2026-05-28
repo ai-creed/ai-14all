@@ -223,9 +223,7 @@ export const ReviewExpandedPortal = forwardRef<
 						<ReviewBarButton
 							icon="💬"
 							label={commentSidebarOpen ? "Hide comments" : "Comments"}
-							ariaLabel={
-								commentSidebarOpen ? "Hide comments" : "Show comments"
-							}
+							ariaLabel={commentSidebarOpen ? "Hide comments" : "Show comments"}
 							title={commentSidebarOpen ? "Hide comments" : "Show comments"}
 							onClick={onToggleCommentSidebar}
 						/>

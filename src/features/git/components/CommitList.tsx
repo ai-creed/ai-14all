@@ -8,6 +8,7 @@ import type {
 import type { RemoteStatus } from "../../../../shared/models/git-remote-status.js";
 import { MarkdownPreviewModal } from "../../viewer/components/MarkdownPreviewModal";
 import { ForcePushDialog } from "../components/ForcePushDialog";
+import { git } from "../../../lib/desktop-client";
 
 type Props = {
 	workspaceId: string;
@@ -162,12 +163,33 @@ export function CommitList({
 												<ContextMenu.Content className="shell-toolbar-menu">
 													<ContextMenu.Item
 														className="shell-toolbar-menu__item"
-														onSelect={() =>
-															setPreviewState({
-																path: file.path,
-																content: file.modifiedContent,
-															})
-														}
+														onSelect={() => {
+															if (!activeDetail) return;
+															// Lazy-fetch the modified blob at the commit
+															// for the preview override. `readCommitFileDiff`
+															// returns the same shape the eager flow used.
+															void git
+																.readCommitFileDiff(
+																	workspaceId,
+																	worktreeId,
+																	activeDetail.sha,
+																	file,
+																)
+																.then((diff) => {
+																	setPreviewState({
+																		path: file.path,
+																		content: diff.modifiedContent,
+																	});
+																})
+																.catch(() => {
+																	// Fall back to opening the modal without an
+																	// override — it'll read the working-tree copy.
+																	setPreviewState({
+																		path: file.path,
+																		content: "",
+																	});
+																});
+														}}
 													>
 														Preview
 													</ContextMenu.Item>

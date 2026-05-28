@@ -301,7 +301,7 @@ describe("GitService", () => {
 		});
 	});
 
-	it("returns per-file side-by-side data for a selected commit", async () => {
+	it("returns per-file summaries for a selected commit (no eager content)", async () => {
 		execSync("git update-ref refs/remotes/origin/main main", {
 			cwd: repoPath,
 			stdio: "ignore",
@@ -323,17 +323,35 @@ describe("GitService", () => {
 			path: "src/index.ts",
 			status: "M",
 		});
-		expect(detail.files[0]?.originalContent).toContain(
-			'export const hello = "world";',
-		);
-		expect(detail.files[0]?.modifiedContent).toContain(
-			'export const hello = "phase-2";',
-		);
+		// Summaries only — no blob content is loaded eagerly anymore.
+		expect(detail.files[0]).not.toHaveProperty("originalContent");
+		expect(detail.files[0]).not.toHaveProperty("modifiedContent");
+	});
 
-		const addedFile = detail.files.find((f) => f.status === "A");
-		if (addedFile) {
-			expect(addedFile.originalContent).toBe("");
-		}
+	it("readCommitFileDiff returns side-by-side content for a single file", async () => {
+		execSync("git update-ref refs/remotes/origin/main main", {
+			cwd: repoPath,
+			stdio: "ignore",
+		});
+		execSync("git add -A", { cwd: worktreePath, stdio: "ignore" });
+		execSync('git commit -m "feature commit"', {
+			cwd: worktreePath,
+			stdio: "ignore",
+		});
+		const sha = execSync("git rev-parse HEAD", {
+			cwd: worktreePath,
+			encoding: "utf8",
+		}).trim();
+
+		const diff = await service.readCommitFileDiff(worktreePath, sha, {
+			path: "src/index.ts",
+			oldPath: null,
+			status: "M",
+		});
+
+		expect(diff).toMatchObject({ path: "src/index.ts", status: "M" });
+		expect(diff.originalContent).toContain('export const hello = "world";');
+		expect(diff.modifiedContent).toContain('export const hello = "phase-2";');
 	});
 
 	describe("discardChange", () => {

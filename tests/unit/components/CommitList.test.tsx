@@ -12,12 +12,16 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	files: {
 		read: vi.fn(),
 	},
+	git: {
+		readCommitFileDiff: vi.fn(),
+	},
 }));
 
 import { CommitList } from "../../../src/features/git/components/CommitList";
-import { files } from "../../../src/lib/desktop-client";
+import { files, git } from "../../../src/lib/desktop-client";
 
 const mockRead = vi.mocked(files.read);
+const mockReadCommitFileDiff = vi.mocked(git.readCommitFileDiff);
 
 describe("CommitList", () => {
 	it("renders commits before files and notifies on commit selection", async () => {
@@ -55,8 +59,6 @@ describe("CommitList", () => {
 							path: "src/index.ts",
 							oldPath: null,
 							status: "M",
-							originalContent: "before\n",
-							modifiedContent: "after\n",
 						},
 					],
 				}}
@@ -155,8 +157,6 @@ describe("CommitList", () => {
 							path: "src/index.ts",
 							oldPath: null,
 							status: "M",
-							originalContent: "before\n",
-							modifiedContent: "after\n",
 						},
 					],
 				}}
@@ -193,6 +193,13 @@ describe("CommitList", () => {
 	});
 
 	it("shows Preview for markdown commit files and uses snapshot content", async () => {
+		mockReadCommitFileDiff.mockResolvedValue({
+			path: "docs/notes.md",
+			oldPath: null,
+			status: "M",
+			originalContent: "# Before\n",
+			modifiedContent: "# Commit Preview\n",
+		});
 		render(
 			<CommitList
 				workspaceId="workspace:test"
@@ -219,8 +226,6 @@ describe("CommitList", () => {
 							path: "docs/notes.md",
 							oldPath: null,
 							status: "M",
-							originalContent: "# Before\n",
-							modifiedContent: "# Commit Preview\n",
 						},
 					],
 				}}
@@ -269,8 +274,6 @@ describe("CommitList", () => {
 							path: "docs/notes.md",
 							oldPath: null,
 							status: "D",
-							originalContent: "# Removed\n",
-							modifiedContent: "",
 						},
 					],
 				}}

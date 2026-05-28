@@ -229,6 +229,14 @@ const api: Ai14AllDesktopApi = {
 				sha,
 			});
 		},
+		readCommitFileDiff(workspaceId, worktreeId, sha, file) {
+			return ipcRenderer.invoke("git:readCommitFileDiff", {
+				workspaceId,
+				worktreeId,
+				sha,
+				file,
+			});
+		},
 		discardChange(workspaceId, worktreeId, relativePath) {
 			return ipcRenderer.invoke("git:discardChange", {
 				workspaceId,
