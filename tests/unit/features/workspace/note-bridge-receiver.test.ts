@@ -41,6 +41,7 @@ function makeSession(worktreeId: string, note: string) {
 		slotProcessIds: [null],
 		reviewSidebarWidth: 320,
 		treeExpandedPaths: [],
+		treeShowIgnored: false,
 		task: null,
 	};
 }

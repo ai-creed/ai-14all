@@ -14,8 +14,8 @@ vi.mock("../../../src/lib/desktop-client", () => {
 import { app } from "../../../src/lib/desktop-client";
 import {
 	__resetInlineEditorRegistry,
-	listInlineEditors,
 	registerInlineEditor,
+	runInlineEditorDirtyGate,
 } from "../../../src/features/viewer/inline-editor-registry";
 
 const onRequestCloseMock = app.onRequestClose as unknown as ReturnType<
@@ -31,15 +31,8 @@ function CloseGateOnly() {
 	useEffect(() => {
 		return app.onRequestClose(() => {
 			void (async () => {
-				const editors = listInlineEditors();
-				for (const e of editors) {
-					const r = await e.requestSwitch();
-					if (r === "cancel") {
-						app.confirmClose({ proceed: false });
-						return;
-					}
-				}
-				app.confirmClose({ proceed: true });
+				const result = await runInlineEditorDirtyGate();
+				app.confirmClose({ proceed: result === "proceed" });
 			})();
 		});
 	}, []);

@@ -7,11 +7,12 @@
 //   1. Selecting a whitelisted file in Files mode mounts InlineEditor; no dirty
 //      bar visible initially.
 //   2. Typing flips the dirty bar visible (Save / Discard).
-//   3. Clicking Save persists the new content; reloading the worktree shows
-//      the saved value.
-//   4. Editing again then clicking another file opens ConfirmCloseDialog;
-//      Save advances the switch.
-//   5. "Show ignored" toggle reveals .env dimmed; node_modules stays elided.
+//   3. Save persists to disk and survives an in-app reload (re-select after
+//      navigating away and back).
+//   4. Editing again then clicking another file opens ConfirmCloseDialog; Save
+//      advances the switch and clears the bar.
+//   5. "Show ignored" toggle reveals .env dimmed; node_modules stays elided by
+//      the denylist.
 
 import {
 	test,
@@ -23,54 +24,32 @@ import {
 import {
 	mkdirSync,
 	mkdtempSync,
+	readFileSync,
 	realpathSync,
 	rmSync,
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { execSync } from "node:child_process";
 import { closeApp } from "./fixtures/close-app";
+import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
+import { ensureReviewOverlayOpen } from "./helpers/review-overlay";
 
 let app: ElectronApplication | undefined;
 let page: Page;
-let repoPath: string;
+let testRepo: TestRepo;
 let stateDir: string;
 
-function execIn(cwd: string, cmd: string): void {
-	execSync(cmd, { cwd, stdio: "ignore" });
-}
-
-async function ensureWorkspaceLoaded(): Promise<void> {
-	const worktreeNav = page.getByRole("navigation", {
-		name: "Worktree sessions",
-	});
-	if (await worktreeNav.isVisible({ timeout: 2_000 }).catch(() => false)) {
-		return;
-	}
-	const repoInput = page.locator("#repo-path");
-	await expect(repoInput).toBeVisible({ timeout: 15_000 });
-	await page.getByRole("button", { name: "Browse" }).click();
-	await expect(repoInput).toHaveValue(repoPath);
-	await repoInput.press("Enter");
-	await expect(worktreeNav).toBeVisible({ timeout: 15_000 });
-}
-
 test.beforeAll(async () => {
-	const raw = mkdtempSync(join(tmpdir(), "ofa-inline-edit-"));
-	repoPath = realpathSync(raw);
-	execIn(repoPath, "git init -b main");
-	execIn(repoPath, "git config user.email 'e2e@test.com'");
-	execIn(repoPath, "git config user.name 'E2E Test'");
-	mkdirSync(join(repoPath, "src"), { recursive: true });
-	writeFileSync(join(repoPath, "README.md"), "# Hello\n");
-	writeFileSync(join(repoPath, "src", "index.ts"), "export {};\n");
-	writeFileSync(join(repoPath, ".gitignore"), "node_modules\n.env\n");
-	writeFileSync(join(repoPath, ".env"), "SECRET=1\n");
-	mkdirSync(join(repoPath, "node_modules"), { recursive: true });
-	writeFileSync(join(repoPath, "node_modules", "pkg.js"), "x\n");
-	execIn(repoPath, "git add -A");
-	execIn(repoPath, "git commit -m initial");
+	testRepo = createTestRepo();
+	// Add an editable .md plus ignored noise to the feature-a worktree so the
+	// Show ignored scenario has both an allowed ignored file and a denylisted
+	// directory to elide.
+	const wt = testRepo.worktreePath;
+	writeFileSync(join(wt, ".gitignore"), "node_modules\n.env\n", { flag: "a" });
+	writeFileSync(join(wt, ".env"), "SECRET=1\n");
+	mkdirSync(join(wt, "node_modules"), { recursive: true });
+	writeFileSync(join(wt, "node_modules", "pkg.js"), "x\n");
 
 	stateDir = realpathSync(
 		mkdtempSync(join(tmpdir(), "ofa-inline-edit-state-")),
@@ -81,12 +60,11 @@ test.beforeAll(async () => {
 		env: {
 			...process.env,
 			AI14ALL_E2E: "1",
-			AI14ALL_E2E_PICK_PATH: repoPath,
+			AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
 			AI14ALL_WORKSPACE_STATE_PATH: workspaceStatePath,
 		},
 	});
 	page = await app.firstWindow({ timeout: 60_000 });
-	await ensureWorkspaceLoaded();
 }, 90_000);
 
 test.afterAll(async () => {
@@ -94,39 +72,143 @@ test.afterAll(async () => {
 		await closeApp(app);
 	} finally {
 		rmSync(stateDir, { recursive: true, force: true });
-		rmSync(repoPath, { recursive: true, force: true });
+		testRepo?.cleanup();
 	}
 });
 
 test.describe.serial("Files-mode inline edit", () => {
+	test("loads the repo and navigates to Files tab on feature-a", async () => {
+		test.setTimeout(60_000);
+		await page.getByRole("button", { name: "Browse" }).click();
+		await expect(page.locator("#repo-path")).toHaveValue(testRepo.repoPath);
+		await page.getByRole("button", { name: "Load" }).click();
+		const featureA = page
+			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("button", { name: "feature-a", exact: true });
+		await expect(featureA).toBeVisible({ timeout: 15_000 });
+		await featureA.click();
+		await ensureReviewOverlayOpen(page);
+		await page.getByRole("tab", { name: "Files" }).click({ force: true });
+		// Files tab is mounted once we can see a tree row for a known file.
+		const notesRow = page
+			.locator(".shell-list__item--tree")
+			.filter({ hasText: /^NOTES\.md/ });
+		await expect(notesRow).toBeVisible({ timeout: 15_000 });
+	});
+
 	test("selecting a .md file mounts InlineEditor with no dirty bar", async () => {
 		test.setTimeout(30_000);
-		await page.getByRole("tab", { name: /files/i }).click();
-		const readme = page.getByText("README.md");
-		await readme.first().click();
-		await expect(page.getByTestId("inline-editor")).toBeVisible();
+		const notesRow = page
+			.locator(".shell-list__item--tree")
+			.filter({ hasText: /^NOTES\.md/ });
+		await notesRow.click();
+		await expect(page.getByTestId("inline-editor")).toBeVisible({
+			timeout: 10_000,
+		});
 		await expect(page.getByTestId("editor-dirty-bar")).toHaveCount(0);
 	});
 
 	test("typing surfaces the dirty bar", async () => {
 		test.setTimeout(30_000);
-		const editor = page.locator(".monaco-editor textarea").first();
-		await editor.click();
-		await page.keyboard.type(" added text");
-		await expect(page.getByTestId("editor-dirty-bar")).toBeVisible();
+		const monaco = page.locator(".monaco-editor textarea").first();
+		await monaco.click();
+		await page.keyboard.press("Meta+End");
+		await page.keyboard.type("\nFIRST EDIT\n");
+		await expect(page.getByTestId("editor-dirty-bar")).toBeVisible({
+			timeout: 5_000,
+		});
 	});
 
-	test("Save persists content; bar disappears", async () => {
+	test("Save persists content to disk and survives a reload", async () => {
 		test.setTimeout(30_000);
-		await page.getByRole("button", { name: "Save" }).first().click();
-		await expect(page.getByTestId("editor-dirty-bar")).toHaveCount(0);
+		const dirtyBar = page.getByTestId("editor-dirty-bar");
+		await dirtyBar.getByRole("button", { name: /save/i }).click();
+		await expect(dirtyBar).toHaveCount(0, { timeout: 5_000 });
+		// Disk content must contain the edit immediately after save.
+		const onDisk = readFileSync(
+			join(testRepo.worktreePath, "NOTES.md"),
+			"utf8",
+		);
+		expect(onDisk).toContain("FIRST EDIT");
+
+		// Reload coverage: navigate away to a different file, then back to
+		// NOTES.md. The freshly-mounted editor must reflect the saved value.
+		const srcDir = page
+			.locator(".shell-list__item--dir")
+			.filter({ hasText: /^src/ });
+		await srcDir.click();
+		const indexRow = page
+			.locator(".shell-list__item--tree")
+			.filter({ hasText: /^index\.ts/ });
+		await expect(indexRow).toBeVisible({ timeout: 5_000 });
+		await indexRow.click();
+		await expect(page.getByTestId("inline-editor")).toBeVisible();
+
+		const notesRow = page
+			.locator(".shell-list__item--tree")
+			.filter({ hasText: /^NOTES\.md/ });
+		await notesRow.click();
+		await expect(page.getByTestId("inline-editor")).toBeVisible();
+		// Monaco renders the textarea content; the editor's visible text should
+		// include the previously-saved marker.
+		await expect(page.locator(".monaco-editor").first()).toContainText(
+			"FIRST EDIT",
+			{ timeout: 10_000 },
+		);
 	});
 
-	test("Show ignored reveals .env, hides node_modules", async () => {
+	test("dirty switch flow: Save in ConfirmCloseDialog advances to the new file", async () => {
 		test.setTimeout(30_000);
-		const toggle = page.getByLabel("Show ignored files");
+		const monaco = page.locator(".monaco-editor textarea").first();
+		await monaco.click();
+		await page.keyboard.press("Meta+End");
+		await page.keyboard.type("\nSECOND EDIT\n");
+		await expect(page.getByTestId("editor-dirty-bar")).toBeVisible({
+			timeout: 5_000,
+		});
+
+		// Click a different file — should trigger ConfirmCloseDialog.
+		const indexRow = page
+			.locator(".shell-list__item--tree")
+			.filter({ hasText: /^index\.ts/ });
+		await indexRow.click();
+		await expect(page.getByText(/unsaved changes/i)).toBeVisible({
+			timeout: 5_000,
+		});
+
+		// Click Save in the dialog (the last matching Save button — first one is
+		// the dirty bar's Save which the dialog supersedes).
+		const saveButtons = page.getByRole("button", { name: /^save$/i });
+		await saveButtons.last().click();
+
+		// After save+switch: dirty bar is gone, current selection is index.ts.
+		await expect(page.getByTestId("editor-dirty-bar")).toHaveCount(0, {
+			timeout: 10_000,
+		});
+		await expect(page.getByTestId("inline-editor")).toBeVisible();
+
+		// Persistence assertion on disk for NOTES.md.
+		const onDisk = readFileSync(
+			join(testRepo.worktreePath, "NOTES.md"),
+			"utf8",
+		);
+		expect(onDisk).toContain("SECOND EDIT");
+	});
+
+	test("Show ignored reveals .env, hides node_modules via denylist", async () => {
+		test.setTimeout(30_000);
+		const toggle = page.getByLabel(/show ignored/i);
 		await toggle.check();
-		await expect(page.getByText(".env")).toBeVisible();
-		await expect(page.getByText("pkg.js")).toHaveCount(0);
+		const envRow = page
+			.locator(".shell-list__item--tree")
+			.filter({ hasText: /^\.env/ });
+		await expect(envRow.first()).toBeVisible({ timeout: 10_000 });
+		await expect(envRow.first()).toHaveAttribute("data-ignored", "true");
+
+		// node_modules is denylisted — it must not appear even when ignored is on.
+		const nodeModulesRow = page
+			.locator(".shell-list__item--tree")
+			.filter({ hasText: /^node_modules/ });
+		await expect(nodeModulesRow).toHaveCount(0);
 	});
 });
