@@ -379,15 +379,18 @@ export function App() {
 		addingDraft,
 	]);
 
-	const trackedFilesLoader = useCallback(async () => {
-		if (!activeWorkspaceId || !activeWorktree) return [];
-		const entries = await files.listWorktree(
-			activeWorkspaceId,
-			activeWorktree.id,
-			{ includeIgnored: false },
-		);
-		return entries.map((e) => e.path);
-	}, [activeWorkspaceId, activeWorktree]);
+	const trackedFilesLoader = useCallback(
+		async (opts: { includeIgnored: boolean }) => {
+			if (!activeWorkspaceId || !activeWorktree) return [];
+			const entries = await files.listWorktree(
+				activeWorkspaceId,
+				activeWorktree.id,
+				{ includeIgnored: opts.includeIgnored },
+			);
+			return entries.map((e) => e.path);
+		},
+		[activeWorkspaceId, activeWorktree],
+	);
 
 	const [terminalFocusSignal, setTerminalFocusSignal] = useState(0);
 
@@ -1542,6 +1545,7 @@ export function App() {
 								chipBarRef={chipBarRef}
 								onCollapse={() => setReviewOpen(false)}
 								onRefresh={handleRefreshChanges}
+								reviewMode={activeSession?.reviewMode ?? "files"}
 								isDirty={activeSummary?.isDirty ?? false}
 								changedFileCount={changes.length}
 								commentSidebarOpen={commentSidebarOpen}

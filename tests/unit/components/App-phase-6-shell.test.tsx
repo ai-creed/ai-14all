@@ -421,14 +421,11 @@ describe("App — Phase 6 default shell", () => {
 		expect(reviewRail).toContainElement(
 			within(reviewRail).getByRole("tab", { name: "Files" }),
 		);
+		// Refresh review uses the shared `ReviewBarButton` (rectangle text)
+		// styling, matching the expanded-portal counterpart.
 		expect(
 			screen.getAllByRole("button", { name: "Refresh review" })[0],
-		).toHaveClass(
-			"shell-button",
-			"shell-button--compact",
-			"shell-button--icon",
-			"shell-button--round",
-		);
+		).toHaveClass("shell-review-chipbar__open-btn");
 
 		const reviewGrid = screen.getByTestId("review-grid");
 		const resizeHandle = screen.getByTestId("review-rail-resize-handle");
@@ -452,7 +449,7 @@ describe("App — Phase 6 default shell", () => {
 		);
 		expect(
 			screen.getAllByRole("button", { name: "Refresh review" })[0],
-		).toHaveClass("shell-button--round");
+		).toHaveClass("shell-review-chipbar__open-btn");
 	});
 
 	it("keeps the terminal panel body visible when a restored shell has no live terminal yet", async () => {

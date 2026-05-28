@@ -75,7 +75,7 @@ export function CommitList({
 					</span>
 					<button
 						type="button"
-						className="shell-button shell-button--compact"
+						className="shell-button shell-button--xs"
 						disabled={pushDisabled}
 						onClick={handlePushClick}
 					>

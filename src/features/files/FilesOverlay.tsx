@@ -3,13 +3,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { matchFiles } from "../../../shared/files/match-files";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { GitChangeStatus } from "../../../shared/models/git-change";
+import { ToggleSwitch } from "../../ui/ToggleSwitch";
 
 export interface FilesOverlayProps {
 	isOpen: boolean;
 	onClose: () => void;
-	trackedFilesLoader: () => Promise<string[]>;
+	trackedFilesLoader: (opts: { includeIgnored: boolean }) => Promise<string[]>;
 	gitStatusMap: Map<string, GitChangeStatus>;
 	onOpenFile: (path: string) => void;
+	/** Shared with the Files-tab tree — same session-state field. */
+	showGitignored: boolean;
+	onToggleShowGitignored: () => void;
 }
 
 const ROW_HEIGHT = 28;
@@ -25,7 +29,14 @@ function dirnameOf(path: string): string {
 }
 
 export function FilesOverlay(props: FilesOverlayProps) {
-	const { isOpen, onClose, trackedFilesLoader, gitStatusMap } = props;
+	const {
+		isOpen,
+		onClose,
+		trackedFilesLoader,
+		gitStatusMap,
+		showGitignored,
+		onToggleShowGitignored,
+	} = props;
 	const [tracked, setTracked] = useState<string[]>([]);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const scrollParentRef = useRef<HTMLDivElement>(null);
@@ -39,7 +50,9 @@ export function FilesOverlay(props: FilesOverlayProps) {
 		let cancelled = false;
 		void (async () => {
 			try {
-				const paths = await trackedFilesLoader();
+				const paths = await trackedFilesLoader({
+					includeIgnored: showGitignored,
+				});
 				if (!cancelled) {
 					setTracked(paths);
 					setLoadError(null);
@@ -54,7 +67,7 @@ export function FilesOverlay(props: FilesOverlayProps) {
 		return () => {
 			cancelled = true;
 		};
-	}, [isOpen, trackedFilesLoader]);
+	}, [isOpen, trackedFilesLoader, showGitignored]);
 
 	const [query, setQuery] = useState("");
 
@@ -143,6 +156,15 @@ export function FilesOverlay(props: FilesOverlayProps) {
 						Search and open files from the active session.
 					</Dialog.Description>
 					<div className="shell-files-overlay__body">
+						<div className="shell-files-overlay__toolbar">
+							<ToggleSwitch
+								id="files-overlay-show-gitignored"
+								checked={showGitignored}
+								onChange={onToggleShowGitignored}
+								label="Show gitignored"
+								ariaLabel="Show gitignored files"
+							/>
+						</div>
 						<input
 							className="shell-files-overlay__search"
 							data-testid="files-overlay-search"

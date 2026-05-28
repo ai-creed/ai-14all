@@ -37,8 +37,12 @@ describe("isEditable", () => {
 		expect(isEditable(".prettierrc")).toBe(true);
 	});
 
-	it("accepts dotfile extensions like .env", () => {
+	it("accepts the full .env* family", () => {
 		expect(isEditable(".env")).toBe(true);
-		expect(isEditable(".env.local")).toBe(false); // .local not in whitelist; use .env.local.example as .env
+		expect(isEditable(".env.local")).toBe(true);
+		expect(isEditable(".env.production")).toBe(true);
+		expect(isEditable(".env.development")).toBe(true);
+		expect(isEditable(".env.test")).toBe(true);
+		expect(isEditable(".envrc")).toBe(false); // different family (direnv) — not whitelisted
 	});
 });

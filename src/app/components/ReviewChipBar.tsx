@@ -1,4 +1,5 @@
 import type { ReviewMode } from "../../../shared/models/worktree-session";
+import { ReviewBarButton } from "../../features/review/components/ReviewBarButton";
 
 type Props = {
 	isDirty: boolean;
@@ -83,25 +84,20 @@ export function ReviewChipBar({
 				</span>
 			)}
 			<span className="shell-review-chipbar__spacer" />
-			<button
-				type="button"
-				className="shell-button shell-button--compact shell-button--icon shell-button--round"
-				aria-label="Refresh review"
+			<ReviewBarButton
+				icon="↻"
+				label="Refresh"
+				ariaLabel="Refresh review"
 				title="Refresh review"
 				onClick={onRefresh}
-			>
-				<span aria-hidden="true">↻</span>
-			</button>
-			<button
-				type="button"
-				className="shell-review-chipbar__open-btn"
-				aria-label="Open review"
+			/>
+			<ReviewBarButton
+				icon="⬆"
+				label="Review"
+				ariaLabel="Open review"
 				title="Open review"
 				onClick={onOpen}
-			>
-				<span aria-hidden="true">⬆</span>
-				<span>Review</span>
-			</button>
+			/>
 		</div>
 	);
 }

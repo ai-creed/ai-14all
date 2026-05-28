@@ -221,23 +221,13 @@ select {
 	overflow: hidden;
 }
 
-.shell-review-expanded-portal__header {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	padding: 6px 12px;
+/* Composed on top of `.shell-review-chipbar`: the chip bar provides the
+   shared row layout / fonts; the portal variant only swaps the divider
+   direction (collapsed bar separates from the body BELOW it, expanded
+   bar separates from the body ABOVE it). */
+.shell-review-expanded-portal__header.shell-review-chipbar {
+	border-top: none;
 	border-bottom: 1px solid var(--pane-border-review);
-}
-
-.shell-review-expanded-portal__status {
-	margin-left: auto;
-	font-size: 0.75rem;
-	color: var(--text-secondary);
-}
-
-.shell-review-expanded-portal__actions {
-	display: inline-flex;
-	gap: 4px;
 }
 
 .shell-review-expanded-portal__body {
@@ -535,6 +525,13 @@ select {
 	padding: 0 10px;
 	font-size: var(--font-size-body);
 	line-height: 32px;
+}
+
+.shell-button--xs {
+	height: 22px;
+	padding: 0 10px;
+	font-size: 0.7rem;
+	line-height: 1;
 }
 
 .shell-button--icon {
@@ -1323,34 +1320,44 @@ select {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: 0;
-	padding: 2px;
+	padding: 0;
 	background: var(--panel-bg);
 	border: 1px solid var(--panel-border);
-	border-radius: 10px;
+	border-radius: var(--radius-md);
+	overflow: hidden;
 }
 
 .shell-review-tab {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	height: 32px;
+	height: 28px;
 	padding: 0 10px;
 	color: var(--text-secondary);
 	background: transparent;
-	border: 1px solid transparent;
-	border-radius: 8px;
+	border: none;
+	border-right: 1px solid var(--panel-border);
+	border-radius: 0;
 	cursor: pointer;
+}
+
+.shell-review-tab:last-child {
+	border-right: none;
 }
 
 .shell-review-tab[data-state="active"] {
 	color: var(--text-primary);
-	background: var(--panel-bg-elevated);
-	border-color: var(--panel-border-strong);
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+	background: color-mix(in srgb, var(--accent) 18%, transparent);
+	box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 .shell-review-tab[data-state="inactive"] {
 	color: var(--text-secondary);
+}
+
+.shell-review-tab[data-state="inactive"]:hover {
+	background: var(--panel-bg-elevated);
+	color: var(--text-primary);
 }
 
 .shell-review-tab:hover {
@@ -1526,6 +1533,50 @@ select {
 	color: var(--danger, #d76b6b);
 }
 
+.shell-inline-editor__preview-btn {
+	margin-left: auto;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 10px;
+	background: var(--panel-bg);
+	color: var(--text-primary);
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-sm);
+	font-size: 0.7rem;
+	line-height: 1;
+	cursor: pointer;
+}
+
+/* Pin the icon glyph's box so swapping color-emoji codepoints can't push
+   the button's line-box (and thus the header) by a pixel or two. */
+.shell-inline-editor__preview-btn > span[aria-hidden="true"] {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 12px;
+	height: 12px;
+	line-height: 1;
+	font-size: 11px;
+}
+
+.shell-inline-editor__preview-btn:hover {
+	background: var(--panel-bg-elevated);
+	border-color: var(--accent);
+}
+
+.shell-inline-editor__preview-btn[aria-pressed="true"] {
+	background: color-mix(in srgb, var(--accent) 14%, transparent);
+	border-color: var(--accent);
+	color: var(--accent);
+}
+
+.shell-inline-editor__preview {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+}
+
 .shell-inline-editor__bar-slot {
 	position: absolute;
 	left: 0;
@@ -1557,29 +1608,71 @@ select {
 
 .shell-tree-header {
 	display: flex;
-	align-items: center;
-	gap: 8px;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 4px;
 	padding-right: 8px;
 }
 
-.shell-tree-show-ignored {
+.shell-tree-header .shell-toggle-switch {
+	align-self: flex-end;
+}
+
+.shell-toggle-switch {
 	display: inline-flex;
 	align-items: center;
-	gap: 4px;
+	gap: 6px;
+	margin-top: 8px;
 	color: var(--text-secondary);
 	font-size: 11px;
 	user-select: none;
 	white-space: nowrap;
+	cursor: pointer;
 }
 
-.shell-tree-show-ignored input[type="checkbox"] {
-	margin: 0;
+.shell-toggle-switch__track {
+	display: inline-flex;
+	align-items: center;
+	width: 26px;
+	height: 14px;
+	padding: 1px;
+	border: 1px solid var(--panel-border);
+	border-radius: 999px;
+	background: var(--panel-bg);
+	cursor: pointer;
+	transition:
+		background 120ms ease,
+		border-color 120ms ease;
+}
+
+.shell-toggle-switch__track[data-checked="true"] {
+	background: color-mix(in srgb, var(--accent) 70%, transparent);
+	border-color: var(--accent);
+}
+
+.shell-toggle-switch__thumb {
+	display: block;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: var(--text-primary);
+	transition: transform 120ms ease;
+	transform: translateX(0);
+}
+
+.shell-toggle-switch__track[data-checked="true"] .shell-toggle-switch__thumb {
+	transform: translateX(12px);
+	background: var(--panel-bg);
+}
+
+.shell-toggle-switch__label {
+	pointer-events: none;
 }
 
 .shell-tree-search {
 	width: auto;
 	height: 32px;
-	margin: 8px 8px 8px 0;
+	margin: 8px 0;
 	padding: 4px;
 	resize: none;
 }
@@ -1610,6 +1703,7 @@ select {
 	justify-content: space-between;
 	gap: var(--space-3);
 	padding: 6px 10px;
+	min-height: 32px;
 	background: var(--panel-bg-elevated);
 	border-bottom: 1px solid var(--panel-border);
 	font-family: var(--font-ui);
@@ -2068,7 +2162,8 @@ select {
 	min-height: 0;
 }
 
-.shell-md-modal__body {
+.shell-md-modal__body,
+.shell-inline-editor__preview-body {
 	padding: var(--space-4) var(--space-6);
 	color: var(--text-primary);
 	line-height: 1.6;
@@ -2079,18 +2174,26 @@ select {
 .shell-md-modal__body h3,
 .shell-md-modal__body h4,
 .shell-md-modal__body h5,
-.shell-md-modal__body h6 {
+.shell-md-modal__body h6,
+.shell-inline-editor__preview-body h1,
+.shell-inline-editor__preview-body h2,
+.shell-inline-editor__preview-body h3,
+.shell-inline-editor__preview-body h4,
+.shell-inline-editor__preview-body h5,
+.shell-inline-editor__preview-body h6 {
 	margin-top: var(--space-4);
 	margin-bottom: var(--space-2);
 	font-weight: 600;
 	color: var(--text-primary);
 }
 
-.shell-md-modal__body p {
+.shell-md-modal__body p,
+.shell-inline-editor__preview-body p {
 	margin-bottom: var(--space-3);
 }
 
-.shell-md-modal__body pre {
+.shell-md-modal__body pre,
+.shell-inline-editor__preview-body pre {
 	background: var(--panel-bg-elevated);
 	padding: var(--space-3);
 	border-radius: var(--radius-sm);
@@ -2098,55 +2201,66 @@ select {
 	margin-bottom: var(--space-3);
 }
 
-.shell-md-modal__body code {
+.shell-md-modal__body code,
+.shell-inline-editor__preview-body code {
 	font-family: var(--font-terminal);
 	font-size: 0.875rem;
 }
 
-.shell-md-modal__body :not(pre) > code {
+.shell-md-modal__body :not(pre) > code,
+.shell-inline-editor__preview-body :not(pre) > code {
 	background: var(--panel-bg-elevated);
 	padding: 2px var(--space-1);
 	border-radius: var(--radius-sm);
 	color: var(--accent);
 }
 
-.shell-md-modal__body table {
+.shell-md-modal__body table,
+.shell-inline-editor__preview-body table {
 	border-collapse: collapse;
 	width: 100%;
 	margin-bottom: var(--space-3);
 }
 
 .shell-md-modal__body th,
-.shell-md-modal__body td {
+.shell-md-modal__body td,
+.shell-inline-editor__preview-body th,
+.shell-inline-editor__preview-body td {
 	border: 1px solid var(--panel-border);
 	padding: var(--space-2) var(--space-3);
 	text-align: left;
 }
 
-.shell-md-modal__body th {
+.shell-md-modal__body th,
+.shell-inline-editor__preview-body th {
 	background: var(--panel-bg-elevated);
 	color: var(--text-secondary);
 }
 
 .shell-md-modal__body ul,
-.shell-md-modal__body ol {
+.shell-md-modal__body ol,
+.shell-inline-editor__preview-body ul,
+.shell-inline-editor__preview-body ol {
 	margin-bottom: var(--space-3);
 	padding-left: var(--space-5);
 }
 
-.shell-md-modal__body blockquote {
+.shell-md-modal__body blockquote,
+.shell-inline-editor__preview-body blockquote {
 	border-left: 3px solid var(--panel-border-strong);
 	margin: 0 0 var(--space-3) 0;
 	padding-left: var(--space-4);
 	color: var(--text-muted);
 }
 
-.shell-md-modal__body a {
+.shell-md-modal__body a,
+.shell-inline-editor__preview-body a {
 	color: var(--accent);
 	text-decoration: underline;
 }
 
-.shell-md-modal__body del {
+.shell-md-modal__body del,
+.shell-inline-editor__preview-body del {
 	color: var(--text-muted);
 }
 
@@ -2449,6 +2563,14 @@ select {
 	min-height: 0;
 }
 
+.shell-files-overlay__toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+	padding: 6px 12px 0;
+}
+
 .shell-files-overlay__list {
 	flex: 1 1 auto;
 	min-height: 0;
@@ -2687,35 +2809,6 @@ select {
 	border-radius: 4px;
 	color: #6ab0f5;
 	cursor: pointer;
-}
-
-.shell-review-comments-toggle {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: 4px;
-	box-sizing: border-box;
-	min-width: 32px;
-	height: 32px;
-	padding: 0 8px;
-	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
-	border-radius: 999px;
-	color: var(--text-primary);
-	font-size: var(--font-size-label);
-	cursor: pointer;
-}
-
-.shell-review-comments-toggle:hover {
-	border-color: var(--panel-border-strong);
-	color: var(--text-primary);
-}
-
-.shell-review-comments-toggle[data-active="true"] {
-	background: color-mix(in srgb, var(--accent) 18%, var(--panel-bg));
-	border-color: color-mix(in srgb, var(--accent) 65%, var(--panel-border));
-	color: var(--accent);
-	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 .shell-review-floating-add {
@@ -3676,7 +3769,21 @@ select {
 	border-radius: var(--radius-sm);
 	padding: 2px 10px;
 	font-size: 0.7rem;
+	line-height: 1;
 	cursor: pointer;
+}
+
+/* Pin the icon glyph's box so different icon codepoints (↻, ⬇, ⬆) don't
+   each ride a different baseline and stretch the button to a different
+   height — otherwise the Refresh and Collapse buttons end up unequal. */
+.shell-review-chipbar__open-btn > span[aria-hidden="true"] {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 12px;
+	height: 12px;
+	line-height: 1;
+	font-size: 11px;
 }
 
 .shell-review-chipbar__open-btn:hover {
