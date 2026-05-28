@@ -20,10 +20,12 @@ import { CommitList } from "../../features/git/components/CommitList";
 import { ChangesList } from "../../features/git/components/ChangesList";
 import { WorktreeTree } from "../../features/viewer/components/WorktreeTree";
 import { CommitDiffStack } from "../../features/git/components/CommitDiffStack";
-import { FileViewer } from "../../features/viewer/components/FileViewer";
 import { DiffViewer } from "../../features/viewer/components/DiffViewer";
 import { MarkdownPreviewModal } from "../../features/viewer/components/MarkdownPreviewModal";
-import { EditorModal } from "../../features/viewer/components/EditorModal";
+import {
+	InlineEditor,
+	type InlineEditorHandle,
+} from "../../features/viewer/components/InlineEditor";
 import { ReviewQueuePanel } from "../../features/review/components/ReviewQueuePanel";
 import { InlineMountsBridge } from "../../features/review/components/InlineMountsBridge";
 import { filterForInlineMount } from "../../features/review/logic/inline-mount-filter";
@@ -137,8 +139,8 @@ export function ReviewArea(props: Props): React.ReactElement {
 		handleReviewRailResizeStart,
 		commentSidebarOpen,
 		resolvedTheme,
-		editorTarget,
-		setEditorTarget,
+		// editorTarget and setEditorTarget are kept on the props until phase 9
+		// fully removes the EditorModal plumbing across App.tsx.
 		openEditorForFile,
 		openEditorError,
 		installCtaVisible,
@@ -161,6 +163,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 	const [focusedThreadId, setFocusedThreadId] = useState<string | null>(null);
 	const diffEditorRegistry = useMemo(() => createDiffEditorRegistry(), []);
 	const toast = useToast();
+	const inlineEditorRef = useRef<InlineEditorHandle | null>(null);
 
 	// Lifted out of the comment-sidebar IIFE so the chip-initiated hook below can
 	// call it too. Reused for both the sidebar onJump (default 500ms editor
@@ -610,13 +613,17 @@ export function ReviewArea(props: Props): React.ReactElement {
 										worktreeId={activeWorktree.id}
 										worktreeLabel={activeWorktree.label}
 										selectedFile={activeSession.selectedFilePath}
-										onSelect={(relativePath) =>
+										onSelect={async (relativePath) => {
+											const decision =
+												(await inlineEditorRef.current?.requestSwitch?.()) ??
+												"proceed";
+											if (decision === "cancel") return;
 											dispatch({
 												type: "session/selectFile",
 												worktreeId: activeWorktree.id,
 												relativePath,
-											})
-										}
+											});
+										}}
 										onPreviewMarkdown={setTreePreviewPath}
 										onEditFile={openEditorForFile}
 										changedFiles={changes}
@@ -646,18 +653,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 											relativePath={treePreviewPath}
 											open={true}
 											onClose={() => setTreePreviewPath(null)}
-										/>
-									)}
-									{editorTarget !== null && (
-										<EditorModal
-											workspaceId={editorTarget.workspaceId}
-											worktreeId={editorTarget.worktreeId}
-											relativePath={editorTarget.relativePath}
-											initialContent={editorTarget.content}
-											initialMtimeMs={editorTarget.mtimeMs}
-											theme={resolvedTheme}
-											onClose={() => setEditorTarget(null)}
-											onFileSaved={bumpRefreshKey}
 										/>
 									)}
 								</>
@@ -778,12 +773,13 @@ export function ReviewArea(props: Props): React.ReactElement {
 						/>
 					) : activeSession?.reviewMode === "files" &&
 					  activeSession.selectedFilePath ? (
-						<FileViewer
+						<InlineEditor
+							ref={inlineEditorRef}
 							workspaceId={activeWorkspaceId ?? ""}
 							worktreeId={activeWorktree.id}
 							relativePath={activeSession.selectedFilePath}
 							resolvedTheme={resolvedTheme}
-							onEditFile={openEditorForFile}
+							onSaved={bumpRefreshKey}
 						/>
 					) : activeSession?.reviewMode === "changes" && diffState.data ? (
 						<DiffViewer
