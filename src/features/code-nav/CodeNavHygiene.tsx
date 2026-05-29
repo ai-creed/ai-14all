@@ -22,6 +22,17 @@ export function CodeNavHygiene({
 }: CodeNavHygieneProps) {
 	useEffect(() => {
 		setActiveWorktreeRef({ workspaceId, worktreeId, worktreeRoot });
+		// E2E hook: expose the active code-nav ref on window so Playwright can
+		// drive IPC + UI flows with the real ids the app sees. Harmless in prod.
+		(
+			window as unknown as {
+				__codeNavTestRef?: {
+					workspaceId: string;
+					worktreeId: string;
+					worktreeRoot: string;
+				};
+			}
+		).__codeNavTestRef = { workspaceId, worktreeId, worktreeRoot };
 		if (!hasBridge()) return () => setActiveWorktreeRef(null);
 		void codeNavClient.watchWorktree({ workspaceId, worktreeId }).catch(() => {});
 		return () => {
@@ -30,6 +41,11 @@ export function CodeNavHygiene({
 					.unwatchWorktree({ workspaceId, worktreeId })
 					.catch(() => {});
 			setActiveWorktreeRef(null);
+			delete (
+				window as unknown as {
+					__codeNavTestRef?: unknown;
+				}
+			).__codeNavTestRef;
 		};
 	}, [workspaceId, worktreeId, worktreeRoot]);
 	return null;

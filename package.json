@@ -20,7 +20,9 @@
 		"typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.test.json",
 		"test": "vitest run --passWithNoTests",
 		"test:perf": "vitest run --config vitest.perf.config.ts",
+		"pretest:e2e": "electron-rebuild -f -w better-sqlite3 || true",
 		"test:e2e": "electron-vite build && playwright test",
+		"posttest:e2e": "node scripts/rebuild-better-sqlite3-host.mjs || true",
 		"test:all": "pnpm test && pnpm test:e2e",
 		"package:mac": "pnpm build && electron-builder --mac zip dmg --publish never",
 		"package:mac:signed": "node scripts/package-mac-signed.mjs",
@@ -40,7 +42,7 @@
 		"@radix-ui/react-tooltip": "^1.2.0",
 		"@tanstack/react-virtual": "^3.13.23",
 		"@xterm/addon-fit": "^0.11.0",
-		"better-sqlite3": "^11.10.0",
+		"better-sqlite3": "^12.10.0",
 		"chokidar": "^3.6.0",
 		"electron-updater": "^6.8.3",
 		"highlight.js": "^11.11.1",
@@ -65,6 +67,7 @@
 		]
 	},
 	"devDependencies": {
+		"@electron/rebuild": "^4.0.4",
 		"@eslint/js": "^9.25.1",
 		"@playwright/test": "^1.59.1",
 		"@stylistic/eslint-plugin": "^2.13.0",

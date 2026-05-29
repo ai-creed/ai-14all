@@ -463,3 +463,13 @@ const api: Ai14AllDesktopApi = {
 };
 
 contextBridge.exposeInMainWorld("ai14all", api);
+
+// E2E-only test helper: invoke the e2e ingest IPC directly. Gated behind env
+// so the channel only exists in test builds; harmless otherwise.
+if (process.env.AI14ALL_E2E) {
+	contextBridge.exposeInMainWorld(
+		"__codeNavE2eIngest",
+		(args: { jsonPath: string; dbPath: string }) =>
+			ipcRenderer.invoke("code-nav:e2eIngest", args),
+	);
+}

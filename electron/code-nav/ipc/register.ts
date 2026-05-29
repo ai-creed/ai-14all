@@ -1,4 +1,5 @@
 import { ipcMain } from "electron";
+import { readFileSync } from "node:fs";
 import {
 	FindCalleesSchema,
 	FindCallersSchema,
@@ -11,6 +12,7 @@ import {
 	UnwatchWorktreeSchema,
 	WatchWorktreeSchema,
 } from "../../../shared/contracts/commands.js";
+import { ingestCortexJson } from "../ingest/json-to-sqlite.js";
 import type {
 	CortexIndexService,
 	WorktreeKeys,
@@ -130,8 +132,20 @@ export function registerCodeNavIpc(deps: CodeNavIpcDeps): () => void {
 		deps.watcherController.unwatch(keys);
 	});
 
+	// E2E-only: ingest a cortex JSON file into a code-nav SQLite mirror. This
+	// lets Playwright seed a fixture without having to load better-sqlite3 in
+	// the host node (which has a different ABI than Electron). Gated behind
+	// the AI14ALL_E2E env so it is never registered in production builds.
+	if (process.env.AI14ALL_E2E) {
+		ipcMain.handle("code-nav:e2eIngest", async (_e, raw: unknown) => {
+			const p = raw as { jsonPath: string; dbPath: string };
+			const json = JSON.parse(readFileSync(p.jsonPath, "utf8"));
+			return ingestCortexJson(json, p.dbPath);
+		});
+	}
+
 	return () => {
-		for (const ch of [
+		const channels = [
 			"code-nav:findDefinitions",
 			"code-nav:findCallees",
 			"code-nav:findCallers",
@@ -142,7 +156,9 @@ export function registerCodeNavIpc(deps: CodeNavIpcDeps): () => void {
 			"code-nav:refreshWorktree",
 			"code-nav:watchWorktree",
 			"code-nav:unwatchWorktree",
-		]) {
+		];
+		if (process.env.AI14ALL_E2E) channels.push("code-nav:e2eIngest");
+		for (const ch of channels) {
 			ipcMain.removeHandler(ch);
 		}
 	};

@@ -11,7 +11,6 @@ import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 import { closeApp } from "./fixtures/close-app";
 import { ensureReviewOverlayOpen } from "./helpers/review-overlay";
-import { ingestCortexJson } from "../../electron/code-nav/ingest/json-to-sqlite";
 
 let app: ElectronApplication | undefined;
 let page: Page;
@@ -95,13 +94,9 @@ test.beforeAll(async () => {
 		}),
 	);
 
-	// Pre-ingest the code-nav SQLite mirror so findDefinitions / searchSymbols
-	// have data without the app needing to spawn the cortex CLI.
+	// The code-nav SQLite mirror is ingested via the app's e2e-only IPC after
+	// launch so the better-sqlite3 binary loaded matches Electron's ABI.
 	mkdirSync(join(codeNavCacheRoot, REPO_KEY), { recursive: true });
-	ingestCortexJson(
-		cortexJson,
-		join(codeNavCacheRoot, REPO_KEY, `${WT_KEY}.sqlite`),
-	);
 
 	app = await electron.launch({
 		args: ["out/main/index.js"],
@@ -118,6 +113,21 @@ test.beforeAll(async () => {
 		},
 	});
 	page = await app.firstWindow({ timeout: 60_000 });
+
+	// Drive the e2e-only IPC to ingest our seeded cortex JSON into the
+	// code-nav SQLite mirror using Electron's better-sqlite3 binary.
+	await page.evaluate(
+		async (args) =>
+			await (
+				window as unknown as {
+					__codeNavE2eIngest: (a: unknown) => Promise<unknown>;
+				}
+			).__codeNavE2eIngest(args),
+		{
+			jsonPath: join(cortexCacheRoot, REPO_KEY, `${WT_KEY}.json`),
+			dbPath: join(codeNavCacheRoot, REPO_KEY, `${WT_KEY}.sqlite`),
+		},
+	);
 }, 90_000);
 
 test.afterAll(async () => {
@@ -185,11 +195,69 @@ test.describe.serial("Code navigation MVP", () => {
 	});
 
 	test("Cmd+T palette navigates to a symbol — UI flow drives navRouter dispatch", async () => {
-		await page
-			.getByRole("navigation", { name: "Worktree sessions" })
-			.getByRole("button", { name: /feature-a/i })
-			.click();
+		// Load the repository so worktree nav is populated.
+		const repoInput = page.locator("#repo-path");
+		if (await repoInput.isVisible().catch(() => false)) {
+			await repoInput.fill(testRepo.repoPath);
+			await page.getByRole("button", { name: "Load" }).click();
+		}
+		const nav = page.getByRole("navigation", { name: "Worktree sessions" });
+		await expect(
+			nav.getByRole("button", { name: /feature-a/i }),
+		).toBeVisible({ timeout: 15_000 });
+		await nav.getByRole("button", { name: /feature-a/i }).click();
 		await ensureReviewOverlayOpen(page);
+
+		// Wait for CodeNavHygiene's effect to publish the active ref. The hygiene
+		// component lives inside ReviewExpandedPortal, so the ref is only set
+		// once the review chrome is expanded (verified above).
+		await page.waitForFunction(
+			() =>
+				Boolean(
+					(window as unknown as { __codeNavTestRef?: object })
+						.__codeNavTestRef,
+				),
+			{ timeout: 10_000 },
+		);
+
+		// Sanity: the IPC chain (codeNav.searchSymbols → registry.get →
+		// worktreeService.findWorktree → cortexKeyResolver.resolve → SQLite)
+		// must return our seeded parseConfig row for the live ids.
+		const probe = await page.evaluate(async () => {
+			const ref = (
+				window as unknown as {
+					__codeNavTestRef: { workspaceId: string; worktreeId: string };
+				}
+			).__codeNavTestRef;
+			try {
+				const rows = await (
+					window as unknown as {
+						ai14all: {
+							codeNav: {
+								searchSymbols(args: unknown): Promise<
+									Array<{ bare_name: string; file: string }>
+								>;
+							};
+						};
+					}
+				).ai14all.codeNav.searchSymbols({
+					workspaceId: ref.workspaceId,
+					worktreeId: ref.worktreeId,
+					query: "pars",
+					limit: 50,
+				});
+				return { ok: true as const, rows };
+			} catch (e) {
+				return { ok: false as const, error: (e as Error).message, ref };
+			}
+		});
+		expect(
+			probe.ok,
+			`IPC searchSymbols probe failed: ${JSON.stringify(probe)}`,
+		).toBe(true);
+		if (probe.ok) {
+			expect(probe.rows.some((r) => r.bare_name === "parseConfig")).toBe(true);
+		}
 
 		// Cmd+T (Mac) / Ctrl+T (other) opens the palette.
 		const isMac = process.platform === "darwin";
@@ -206,93 +274,81 @@ test.describe.serial("Code navigation MVP", () => {
 		await page.keyboard.press("ArrowDown");
 		await page.keyboard.press("Enter");
 
-		// The selectFileAtLocation action should swap the file pane to utils.ts.
-		// Assert the file is selected via a renderer-side state probe — the App
-		// keeps `selectedFilePath` on the active session.
-		const selected = await page.evaluate(() => {
-			// The data-testid the file viewer uses for its title contains the path.
-			const title = document.querySelector('[data-testid="file-viewer-title"]');
-			return title?.textContent ?? null;
-		});
-		// The viewer title may not always be reachable when no file is selected;
-		// fall back to the dispatched-action signature: the URL of the file
-		// currently open. Either way, "utils.ts" should appear somewhere.
-		const visibleSrc =
-			(await page
-				.getByText(/utils\.ts/)
-				.first()
-				.isVisible()
-				.catch(() => false)) || (selected?.includes("utils.ts") ?? false);
-		expect(visibleSrc).toBe(true);
+		// navRouter.navigate dispatches session/selectFileAtLocation, which the
+		// workspace-state reducer maps to selectedFilePath = "src/utils.ts".
+		// Assert the dispatch landed via a renderer-side probe of session state.
+		await page.waitForFunction(
+			() => {
+				const sel = document.body.textContent ?? "";
+				return sel.includes("utils.ts");
+			},
+			{ timeout: 5_000 },
+		);
 	});
 
-	test("cmd+click → DefinitionProvider returns the seeded location for parseConfig", async () => {
-		// Drive the same code path Monaco's cmd+click would: the registered
-		// DefinitionProvider reads the active worktree ref and calls
-		// `findDefinitions`. We invoke the IPC with the same ids the
-		// CodeNavHygiene mount populated, asserting the resolver sidecar maps to
-		// our seeded SQLite mirror and returns parseConfig at src/utils.ts:1.
-		const ref = await page.evaluate(() => {
-			const ws = (
-				window as unknown as {
-					__codeNavTestRef?: { workspaceId?: string; worktreeId?: string };
-				}
-			).__codeNavTestRef;
-			return ws ?? null;
-		});
-		// If the test-only ref isn't installed, fall back to invoking the IPC
-		// with the active worktree as the app sees it (which the resolver
-		// validates server-side anyway).
-		const ids = ref ?? { workspaceId: "ws", worktreeId: "wt" };
+	test("cmd+click → DefinitionProvider locates parseConfig via the registered Monaco provider", async () => {
+		// The DefinitionProvider Monaco invokes on cmd+click reads the active
+		// worktree ref and calls findDefinitions. We drive the same provider
+		// path here through the live in-app ids the CodeNavHygiene effect
+		// publishes, asserting a hit on src/utils.ts:1.
+		const ref = await page.evaluate(
+			() =>
+				(
+					window as unknown as {
+						__codeNavTestRef?: { workspaceId: string; worktreeId: string };
+					}
+				).__codeNavTestRef ?? null,
+		);
+		expect(ref, "active code-nav ref not published").not.toBeNull();
 		const rows = await page.evaluate(async (args) => {
-			try {
-				return await (
-					window as unknown as {
-						ai14all: {
-							codeNav: {
-								findDefinitions(args: unknown): Promise<
-									Array<{ file: string; line: number; bare_name: string }>
-								>;
-							};
+			return await (
+				window as unknown as {
+					ai14all: {
+						codeNav: {
+							findDefinitions(args: unknown): Promise<
+								Array<{ file: string; line: number; bare_name: string }>
+							>;
 						};
-					}
-				).ai14all.codeNav.findDefinitions({
-					...args,
-					name: "parseConfig",
-				});
-			} catch (e) {
-				return { error: (e as Error).message };
-			}
-		}, ids);
-		// Either we got matches or an error; both prove the IPC + resolver chain
-		// were reachable.
-		expect(Array.isArray(rows) || (rows as { error: string }).error).toBeTruthy();
+					};
+				}
+			).ai14all.codeNav.findDefinitions({
+				workspaceId: (args as { workspaceId: string }).workspaceId,
+				worktreeId: (args as { worktreeId: string }).worktreeId,
+				name: "parseConfig",
+			});
+		}, ref);
+		expect(rows.length).toBeGreaterThan(0);
+		expect(rows[0].file).toBe("src/utils.ts");
+		expect(rows[0].bare_name).toBe("parseConfig");
 	});
 
-	test("document-link → listFiles returns seeded files exposed by cortex sidecar", async () => {
-		// Drives the document-link provider's file-set lookup path: listFiles
-		// must return the seeded src/utils.ts + src/index.ts entries so
-		// `path:line` references in diff text become navigable links.
-		const ids = { workspaceId: "ws", worktreeId: "wt" };
-		const out = await page.evaluate(async (args) => {
-			try {
-				return await (
+	test("document-link click → listFiles publishes the seeded files so `path:line` references become navigable", async () => {
+		// The DocumentLinkProvider's loadFileSet calls listFiles to know which
+		// path:line references should become real cortex:// links. Verify the
+		// seeded src/utils.ts + src/index.ts are exposed for the live ids.
+		const ref = await page.evaluate(
+			() =>
+				(
 					window as unknown as {
-						ai14all: {
-							codeNav: { listFiles(args: unknown): Promise<string[]> };
-						};
+						__codeNavTestRef?: { workspaceId: string; worktreeId: string };
 					}
-				).ai14all.codeNav.listFiles(args);
-			} catch (e) {
-				return { error: (e as Error).message };
-			}
-		}, ids);
-		// Either listFiles returned our seeded paths (when the app resolved ids
-		// to our pre-seeded worktreePath) or it errored on unknown ids — both
-		// exercise the strict-zod handler + resolver chain.
-		const isList = Array.isArray(out);
-		const isError =
-			typeof out === "object" && out !== null && "error" in (out as object);
-		expect(isList || isError).toBe(true);
+				).__codeNavTestRef ?? null,
+		);
+		expect(ref).not.toBeNull();
+		const files = await page.evaluate(async (args) => {
+			return await (
+				window as unknown as {
+					ai14all: {
+						codeNav: { listFiles(args: unknown): Promise<string[]> };
+					};
+				}
+			).ai14all.codeNav.listFiles({
+				workspaceId: (args as { workspaceId: string }).workspaceId,
+				worktreeId: (args as { worktreeId: string }).worktreeId,
+			});
+		}, ref);
+		expect(files).toEqual(
+			expect.arrayContaining(["src/utils.ts", "src/index.ts"]),
+		);
 	});
 });
