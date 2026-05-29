@@ -86,6 +86,18 @@ export function DiffViewer({
 				}}
 				onMount={(editor) => {
 					editorRef.current = editor;
+					// E2E hook: expose the modified-side editor so Playwright can
+					// drive the same openLink action a cmd+click on a rendered
+					// cortex:// link would. Harmless in prod.
+					if (typeof window !== "undefined") {
+						(
+							window as unknown as {
+								__codeNavTestDiffModifiedEditor?: ReturnType<
+									typeof editor.getModifiedEditor
+								>;
+							}
+						).__codeNavTestDiffModifiedEditor = editor.getModifiedEditor();
+					}
 					// Install cortex:// opener on both halves of the diff editor so
 					// document-link clicks routing to cortex URIs are intercepted.
 					void import("../../code-nav/monaco/editor-opener")

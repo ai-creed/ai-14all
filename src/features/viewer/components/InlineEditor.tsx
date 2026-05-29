@@ -310,6 +310,18 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 		const handleMount: OnMount = useCallback((editor) => {
 			editorRef.current = editor;
 			setEditorReady(true);
+			// E2E hook: expose the live editor instance so Playwright can drive
+			// the same Monaco actions cmd+click invokes (revealDefinition) —
+			// monaco's module singleton is loaded by @monaco-editor/react and
+			// not the same as code-nav's bundle, so an editor handle is the
+			// only reliable bridge. Harmless in prod.
+			if (typeof window !== "undefined") {
+				(
+					window as unknown as {
+						__codeNavTestInlineEditor?: typeof editor;
+					}
+				).__codeNavTestInlineEditor = editor;
+			}
 			// Lazy-import the cortex opener so jsdom App tests don't pull monaco
 			// internals at import time.
 			void import("../../code-nav/monaco/editor-opener")
