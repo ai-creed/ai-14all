@@ -45,6 +45,25 @@ describe("CortexKeyResolver", () => {
 		expect(await r.resolve("/Users/me/unrelated")).toBeNull();
 	});
 
+	it("derives repoKey/worktreeKey from the on-disk path when the meta body omits them (ai-cortex's actual schema)", async () => {
+		mkdirSync(join(cacheRoot, "17b0417aad28af9d"), { recursive: true });
+		writeFileSync(
+			join(cacheRoot, "17b0417aad28af9d", "869e41f99b2c1df6.meta.json"),
+			JSON.stringify({
+				indexedAt: "2026-05-29T02:02:45.172Z",
+				fingerprint: "cdb53c42b644eb138e2b028877d2f9607a7e5c76",
+				fileCount: 511,
+				name: "ai-14all",
+				worktreePath: "/Users/me/ai-14all",
+			}),
+		);
+		const r = new CortexKeyResolver({ cortexCacheRoot: cacheRoot });
+		expect(await r.resolve("/Users/me/ai-14all")).toEqual({
+			repoKey: "17b0417aad28af9d",
+			worktreeKey: "869e41f99b2c1df6",
+		});
+	});
+
 	it("refreshes its cache when a new sidecar appears", async () => {
 		const r = new CortexKeyResolver({ cortexCacheRoot: cacheRoot });
 		expect(await r.resolve("/Users/me/new")).toBeNull();

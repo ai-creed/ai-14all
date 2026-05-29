@@ -18,10 +18,20 @@ export const definitionProvider: monaco.languages.DefinitionProvider = {
 		const cached = cache.get(key);
 		if (cached && Date.now() - cached.at < TTL_MS) return cached.result;
 
-		const rows = await codeNavClient.findDefinitions(
-			{ workspaceId: ref.workspaceId, worktreeId: ref.worktreeId },
-			{ name: word.word, callerFile },
-		);
+		// IPC errors (e.g., CortexKeysNotFoundError on un-indexed worktrees)
+		// would otherwise surface via Monaco's onUnexpectedExternalError and
+		// re-emit as window 'error' events — every cmd+click and hover spams
+		// the console. Treat all failures as "no result" and let the action's
+		// muteMessage path stay silent.
+		let rows: Awaited<ReturnType<typeof codeNavClient.findDefinitions>>;
+		try {
+			rows = await codeNavClient.findDefinitions(
+				{ workspaceId: ref.workspaceId, worktreeId: ref.worktreeId },
+				{ name: word.word, callerFile },
+			);
+		} catch {
+			return null;
+		}
 		const locs: monaco.languages.Location[] = rows.map((r) => ({
 			uri: monaco.Uri.parse(
 				encodeCortexUri({

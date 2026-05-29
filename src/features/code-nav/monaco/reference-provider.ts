@@ -22,18 +22,31 @@ export const referenceProvider: monaco.languages.ReferenceProvider = {
 		if (!ref) return [];
 
 		const callerFile = relativeFromUri(model.uri.toString());
-		const defs = await codeNavClient.findDefinitions(
-			{ workspaceId: ref.workspaceId, worktreeId: ref.worktreeId },
-			{ name: word.word, callerFile },
-		);
+		// Same rationale as DefinitionProvider — swallow IPC errors so the
+		// reference action stays quiet on un-indexed worktrees instead of
+		// throwing through Monaco's unexpected-error pipe.
+		let defs: Awaited<ReturnType<typeof codeNavClient.findDefinitions>>;
+		try {
+			defs = await codeNavClient.findDefinitions(
+				{ workspaceId: ref.workspaceId, worktreeId: ref.worktreeId },
+				{ name: word.word, callerFile },
+			);
+		} catch {
+			return [];
+		}
 		const here = defs.find(
 			(d) => d.file === callerFile && d.line === position.lineNumber,
 		);
 		if (!here) return [];
-		const callers = await codeNavClient.findCallers(
-			{ workspaceId: ref.workspaceId, worktreeId: ref.worktreeId },
-			{ fnId: here.id },
-		);
+		let callers: Awaited<ReturnType<typeof codeNavClient.findCallers>>;
+		try {
+			callers = await codeNavClient.findCallers(
+				{ workspaceId: ref.workspaceId, worktreeId: ref.worktreeId },
+				{ fnId: here.id },
+			);
+		} catch {
+			return [];
+		}
 		return callers.map((c) => ({
 			uri: monaco.Uri.parse(
 				encodeCortexUri({

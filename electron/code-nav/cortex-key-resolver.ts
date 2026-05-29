@@ -45,17 +45,19 @@ export class CortexKeyResolver {
 						join(this.opts.cortexCacheRoot, repo, entry),
 						"utf8",
 					);
-					const parsed = JSON.parse(raw) as {
-						worktreePath?: string;
-						repoKey?: string;
-						worktreeKey?: string;
-					};
-					if (parsed.worktreePath && parsed.repoKey && parsed.worktreeKey) {
-						this.cache.set(parsed.worktreePath, {
-							repoKey: parsed.repoKey,
-							worktreeKey: parsed.worktreeKey,
-						});
-					}
+					const parsed = JSON.parse(raw) as { worktreePath?: string };
+					if (!parsed.worktreePath) continue;
+					// ai-cortex encodes the repo/worktree identity in the on-disk
+					// path (parent dir = repoKey, file stem = worktreeKey) rather
+					// than in the meta JSON body, so derive them from there. The
+					// previous schema-in-body approach silently dropped every
+					// real index, falling back to CortexKeysNotFoundError on
+					// every cmd+click.
+					const worktreeKey = entry.slice(0, -".meta.json".length);
+					this.cache.set(parsed.worktreePath, {
+						repoKey: repo,
+						worktreeKey,
+					});
 				} catch {
 					// ignore unparseable sidecars
 				}
