@@ -27,6 +27,12 @@ export type InlineEditorHandle = {
 	requestSwitch: () => Promise<"proceed" | "cancel">;
 };
 
+export type InlineEditorPendingReveal = {
+	line: number;
+	column?: number;
+	capturedAt: number;
+};
+
 export type InlineEditorProps = {
 	workspaceId: string;
 	worktreeId: string;
@@ -34,6 +40,8 @@ export type InlineEditorProps = {
 	resolvedTheme: ResolvedTheme;
 	onSaved?: () => void;
 	onDirtyChange?: (dirty: boolean) => void;
+	pendingReveal?: InlineEditorPendingReveal | null;
+	onConsumePendingReveal?: () => void;
 };
 
 const MONACO_OPTIONS = {
@@ -157,6 +165,8 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 			resolvedTheme,
 			onSaved,
 			onDirtyChange,
+			pendingReveal,
+			onConsumePendingReveal,
 		},
 		ref,
 	) {
@@ -295,14 +305,41 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 			};
 		}, [workspaceId, worktreeId, relativePath, basename, canEdit]);
 
+		const [editorReady, setEditorReady] = useState(false);
+
 		const handleMount: OnMount = useCallback((editor) => {
 			editorRef.current = editor;
+			setEditorReady(true);
 			// Lazy-import the cortex opener so jsdom App tests don't pull monaco
 			// internals at import time.
 			void import("../../code-nav/monaco/editor-opener")
 				.then(({ installCortexOpener }) => installCortexOpener(editor))
 				.catch(() => {});
 		}, []);
+
+		// Apply a one-shot pendingReveal once Monaco is ready and the file has
+		// loaded. Mirrors the pendingCommentJump pattern in App.tsx — reveal
+		// then dispatch consume so the same target isn't replayed on remount.
+		const fileLoaded = load.kind === "editable" || load.kind === "readonly";
+		useEffect(() => {
+			if (!editorReady || !fileLoaded || !pendingReveal) return;
+			const editor = editorRef.current;
+			if (!editor) return;
+			editor.revealLineInCenter(pendingReveal.line);
+			if (pendingReveal.column !== undefined) {
+				editor.setPosition({
+					lineNumber: pendingReveal.line,
+					column: pendingReveal.column,
+				});
+				editor.focus();
+			}
+			onConsumePendingReveal?.();
+		}, [
+			editorReady,
+			fileLoaded,
+			pendingReveal,
+			onConsumePendingReveal,
+		]);
 
 		const runSave = useCallback(
 			async (expectedMtimeMs: number, content: string): Promise<boolean> => {

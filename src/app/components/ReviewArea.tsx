@@ -761,6 +761,13 @@ export function ReviewArea(props: Props): React.ReactElement {
 							relativePath={activeSession.selectedFilePath}
 							resolvedTheme={resolvedTheme}
 							onSaved={bumpRefreshKey}
+							pendingReveal={activeSession.pendingReveal}
+							onConsumePendingReveal={() =>
+								dispatch({
+									type: "session/consumePendingReveal",
+									worktreeId: activeWorktree.id,
+								})
+							}
 						/>
 					) : activeSession?.reviewMode === "changes" && diffState.data ? (
 						<DiffViewer
