@@ -425,6 +425,41 @@ const api: Ai14AllDesktopApi = {
 			return onChannel("app:requestClose", handler);
 		},
 	},
+	codeNav: {
+		findDefinitions(args) {
+			return ipcRenderer.invoke("code-nav:findDefinitions", args);
+		},
+		findCallees(args) {
+			return ipcRenderer.invoke("code-nav:findCallees", args);
+		},
+		findCallers(args) {
+			return ipcRenderer.invoke("code-nav:findCallers", args);
+		},
+		searchSymbols(args) {
+			return ipcRenderer.invoke("code-nav:searchSymbols", args);
+		},
+		getFileImports(args) {
+			return ipcRenderer.invoke("code-nav:getFileImports", args);
+		},
+		getWorktreeStatus(args) {
+			return ipcRenderer.invoke("code-nav:getWorktreeStatus", args);
+		},
+		listFiles(args) {
+			return ipcRenderer.invoke("code-nav:listFiles", args);
+		},
+		refreshWorktree(args) {
+			return ipcRenderer.invoke("code-nav:refreshWorktree", args);
+		},
+		watchWorktree(args) {
+			return ipcRenderer.invoke("code-nav:watchWorktree", args);
+		},
+		unwatchWorktree(args) {
+			return ipcRenderer.invoke("code-nav:unwatchWorktree", args);
+		},
+		onWorktreeIndexRefreshed(handler) {
+			return onChannel("code-nav:worktreeIndexRefreshed", handler);
+		},
+	},
 };
 
 contextBridge.exposeInMainWorld("ai14all", api);

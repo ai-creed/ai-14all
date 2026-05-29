@@ -591,4 +591,134 @@ export type Ai14AllDesktopApi = {
 		confirmClose(args: { proceed: boolean }): void;
 		onRequestClose(handler: (req: { keys: string[] }) => void): () => void;
 	};
+	codeNav: {
+		findDefinitions(args: {
+			workspaceId: string;
+			worktreeId: string;
+			name: string;
+			callerFile?: string;
+		}): Promise<DefinitionRowPayload[]>;
+		findCallees(args: {
+			workspaceId: string;
+			worktreeId: string;
+			fnId: number;
+		}): Promise<DefinitionRowPayload[]>;
+		findCallers(args: {
+			workspaceId: string;
+			worktreeId: string;
+			fnId: number;
+		}): Promise<DefinitionRowPayload[]>;
+		searchSymbols(args: {
+			workspaceId: string;
+			worktreeId: string;
+			query: string;
+			limit?: number;
+		}): Promise<DefinitionRowPayload[]>;
+		getFileImports(args: {
+			workspaceId: string;
+			worktreeId: string;
+			file: string;
+		}): Promise<string[]>;
+		getWorktreeStatus(args: {
+			workspaceId: string;
+			worktreeId: string;
+		}): Promise<WorktreeStatusPayload>;
+		listFiles(args: {
+			workspaceId: string;
+			worktreeId: string;
+		}): Promise<string[]>;
+		refreshWorktree(args: {
+			workspaceId: string;
+			worktreeId: string;
+			changedFiles?: string[];
+		}): Promise<void>;
+		watchWorktree(args: {
+			workspaceId: string;
+			worktreeId: string;
+		}): Promise<void>;
+		unwatchWorktree(args: {
+			workspaceId: string;
+			worktreeId: string;
+		}): Promise<void>;
+		onWorktreeIndexRefreshed(
+			handler: (e: { workspaceId: string; worktreeId: string }) => void,
+		): () => void;
+	};
 };
+
+// ---------- code-nav ----------
+
+const worktreeIdentShape = {
+	workspaceId: z.string().min(1),
+	worktreeId: z.string().min(1),
+};
+
+export const FindDefinitionsSchema = z
+	.object({
+		...worktreeIdentShape,
+		name: z.string().min(1).max(256),
+		callerFile: z.string().max(1024).optional(),
+	})
+	.strict();
+
+export const FindCalleesSchema = z
+	.object({ ...worktreeIdentShape, fnId: z.number().int().nonnegative() })
+	.strict();
+export const FindCallersSchema = z
+	.object({ ...worktreeIdentShape, fnId: z.number().int().nonnegative() })
+	.strict();
+
+export const SearchSymbolsSchema = z
+	.object({
+		...worktreeIdentShape,
+		query: z.string().max(256),
+		limit: z.number().int().min(1).max(200).default(50),
+	})
+	.strict();
+
+export const GetFileImportsSchema = z
+	.object({
+		...worktreeIdentShape,
+		file: z.string().min(1).max(1024),
+	})
+	.strict();
+
+export const RefreshWorktreeSchema = z
+	.object({
+		...worktreeIdentShape,
+		changedFiles: z.array(z.string().max(1024)).optional(),
+	})
+	.strict();
+
+export const WatchWorktreeSchema = z
+	.object({ ...worktreeIdentShape })
+	.strict();
+export const UnwatchWorktreeSchema = z
+	.object({ ...worktreeIdentShape })
+	.strict();
+export const ListFilesNavSchema = z
+	.object({ ...worktreeIdentShape })
+	.strict();
+export const GetWorktreeStatusSchema = z
+	.object({ ...worktreeIdentShape })
+	.strict();
+
+export const DefinitionRowSchema = z.object({
+	id: z.number().int(),
+	qualified_name: z.string(),
+	bare_name: z.string(),
+	file: z.string(),
+	line: z.number().int(),
+	exported: z.number().int(),
+	is_default: z.number().int(),
+	is_declaration_only: z.number().int(),
+});
+export type DefinitionRowPayload = z.infer<typeof DefinitionRowSchema>;
+
+export const WorktreeStatusSchema = z.object({
+	ready: z.boolean(),
+	dirtyAtIndex: z.boolean(),
+	sourceFingerprint: z.string().nullable(),
+	sourceIndexedAt: z.string().nullable(),
+});
+export type WorktreeStatusPayload = z.infer<typeof WorktreeStatusSchema>;
