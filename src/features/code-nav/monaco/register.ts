@@ -70,6 +70,15 @@ export function registerCodeNavProviders(deps: {
 	disposers.push(
 		monaco.languages.registerLinkProvider("*", documentLinkProvider),
 	);
+	registeredLanguagesSingletons.add(
+		monaco.languages as unknown as object,
+	);
+	// ALSO register against the editor's live singleton if @monaco-editor/react
+	// resolved a different monaco than the one our chunk imported. Verified
+	// by the spec-§419 e2e diagnostic: registering through `window.monaco`
+	// from inside the page lands on the singleton the gotoDefinition action
+	// queries, while our import-side registration above doesn't.
+	ensureCodeNavProvidersRegisteredForEditor();
 	const unsub = subscribeWorktreeIndexRefreshed(() => invalidateDefinitionCache());
 	return () => {
 		for (const d of disposers) d.dispose();
@@ -90,3 +99,32 @@ export function registerCodeNavProviders(deps: {
 }
 
 export { history as codeNavHistory };
+
+// One entry per unique `monaco.languages` reference we've registered on, so
+// we don't double-register. Covers both our import-time singleton and the
+// editor's runtime singleton when they differ.
+const registeredLanguagesSingletons = new WeakSet<object>();
+
+/**
+ * Per-editor mount hook. Closes the race where @monaco-editor/react's loader
+ * resolves a different monaco-editor module instance than our lazy chunk
+ * imported (CDN fallback if our `window.monaco` assignment hadn't run yet).
+ * If `window.monaco.languages` is a fresh reference we haven't seen, register
+ * the providers there too so the gotoDefinition / openLink actions find them.
+ * Idempotent.
+ */
+export function ensureCodeNavProvidersRegisteredForEditor(): void {
+	if (typeof window === "undefined") return;
+	const w = window as unknown as {
+		monaco?: { languages: typeof monaco.languages };
+	};
+	const langs = w.monaco?.languages;
+	if (!langs) return;
+	if (registeredLanguagesSingletons.has(langs as unknown as object)) return;
+	registeredLanguagesSingletons.add(langs as unknown as object);
+	for (const lang of LANGS) {
+		langs.registerDefinitionProvider(lang, definitionProvider);
+		langs.registerReferenceProvider(lang, referenceProvider);
+	}
+	langs.registerLinkProvider("*", documentLinkProvider);
+}

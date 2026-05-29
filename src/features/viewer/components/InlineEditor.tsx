@@ -323,9 +323,17 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 				).__codeNavTestInlineEditor = editor;
 			}
 			// Lazy-import the cortex opener so jsdom App tests don't pull monaco
-			// internals at import time.
+			// internals at import time. ALSO ensure code-nav providers are
+			// registered against the editor's monaco singleton — closes the
+			// two-monaco race where the loader resolves a different module
+			// instance than register.ts's import did.
 			void import("../../code-nav/monaco/editor-opener")
 				.then(({ installCortexOpener }) => installCortexOpener(editor))
+				.catch(() => {});
+			void import("../../code-nav/monaco/register")
+				.then(({ ensureCodeNavProvidersRegisteredForEditor }) =>
+					ensureCodeNavProvidersRegisteredForEditor(),
+				)
 				.catch(() => {});
 		}, []);
 

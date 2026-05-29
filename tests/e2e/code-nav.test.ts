@@ -306,41 +306,30 @@ test.describe.serial("Code navigation MVP", () => {
 	});
 
 	test.skip("cmd+click on parseConfig drives DefinitionProvider → installCortexOpener → reducer (spec §419)", async () => {
-		// SKIPPED: TWO MONACO SINGLETONS in the bundle. Root-cause confirmed
-		// by registering a fresh DefinitionProvider from inside the page via
-		// `window.monaco.languages.registerDefinitionProvider(...)` and
-		// running the gotoDefinition action: that provider IS invoked. Our
-		// register.ts's provider — registered via the same `monaco-editor`
-		// module reference — is NOT invoked. So `window.monaco` (set by
-		// register.ts module-top) and the editor's languageFeaturesService
-		// resolve to different ILanguageFeaturesService instances.
-		//
-		// Likely cause: @monaco-editor/react's loader runs at first <Editor>
-		// mount; if register.ts hasn't loaded yet (lazy-imported from App's
-		// useEffect after activeWorktree is set), the loader falls back to a
-		// CDN-fetched monaco. That CDN monaco's languageFeaturesService is
-		// the one the editor's gotoDefinition action queries. Our register.ts
-		// then loads, sets window.monaco = our_npm_monaco (overwriting CDN
-		// monaco), and registers providers against npm's singleton — which
-		// the editor never reads.
-		//
-		// Fix candidates (each ~3-4 files):
-		//   (a) loader.config({ monaco }) in main.tsx BEFORE createRoot,
-		//       awaiting monaco-editor import. Tried — startup slows enough
-		//       that AI14ALL_E2E_PICK_PATH auto-load races and fails.
-		//   (b) Eager-import register.ts from main.tsx with await before
-		//       render. Same startup-race issue.
-		//   (c) Move provider registration to per-editor: register in
-		//       InlineEditor.handleMount and DiffViewer.onMount against
-		//       window.monaco (which by then IS the editor's monaco).
-		//       Wasteful (re-registers each mount) but isolates the race.
-		//   (d) Bundle monaco-editor full into main chunk via static import.
-		//       Bloats main bundle to ~10MB.
-		//
-		// (c) seems most targeted but needs the registration to be idempotent
-		// per language so disposal works. Reducer + nav-router fixes
-		// (commits A1-A3) for finding #1 are correct; this gates on the
-		// bundle/singleton fix above.
+		// SKIPPED, REVISED DIAGNOSIS: with the window.monaco bridge +
+		// per-editor `ensureCodeNavProvidersRegisteredForEditor` mount hook
+		// in place, our DefinitionProvider IS reached by Monaco's
+		// gotoDefinition action (provideDefinition call count = 2, returns 1
+		// cortex:// Location). EditorStateCancellationTokenSource does NOT
+		// cancel (cursor/content event probes empty). But the action chain
+		// still doesn't invoke `editorService.openCodeEditor`:
+		//   - editor._codeEditorService.openCodeEditor is overridden by
+		//     installCortexOpener (verified via prototype + instance taps)
+		//   - registerCodeEditorOpenHandler-based variant ALSO not invoked
+		//   - reproduces with same-scheme inmemory:// URI Locations, so it
+		//     isn't a shouldIncludeLocationLink filter or scheme mismatch
+		// Implies the action's accessor.get(ICodeEditorService) resolves to
+		// a different ICodeEditorService instance than editor._codeEditorService.
+		// Surfacing this as the next investigation hook — likely an issue with
+		// how StandaloneServices.initialize is configured under
+		// @monaco-editor/react's loader path, or a per-editor child
+		// InstantiationService overriding the service descriptor. Either
+		// loader.config({monaco}) BEFORE first <Editor> mount or refactoring
+		// the cortex:// intercept to use a Monaco-aware command (e.g., a
+		// custom Command2 registered against `editor.action.revealDefinition`
+		// with higher precedence) should close the loop.
+		// Finding 1 (A1-A3) is unaffected; this gates on the impl-side service
+		// identity fix.
 		// See docs/superpowers/specs/2026-05-29-code-nav-mvp-design.md §312-323.
 		// Drive the full chain Monaco invokes on cmd+click: revealDefinition →
 		// our registered DefinitionProvider → cortex:// URI → installCortexOpener
@@ -446,6 +435,10 @@ test.describe.serial("Code navigation MVP", () => {
 								column: number;
 							}): { word: string } | null;
 						} | null;
+						onDidChangeCursorPosition(
+							cb: (e: { position: unknown }) => void,
+						): { dispose(): void };
+						onDidChangeModelContent(cb: () => void): { dispose(): void };
 						getContribution(
 							id: string,
 						):
@@ -467,6 +460,15 @@ test.describe.serial("Code navigation MVP", () => {
 			editor.setPosition(pos);
 			const word = editor.getModel()?.getWordAtPosition(pos)?.word;
 			const hasService = Boolean(editor._codeEditorService?.openCodeEditor);
+			// Track events during the action's async wait to see if something
+			// triggers EditorStateCancellationTokenSource cancellation.
+			const events: string[] = [];
+			const d1 = editor.onDidChangeCursorPosition(() =>
+				events.push("cursor"),
+			);
+			const d2 = editor.onDidChangeModelContent(() =>
+				events.push("content"),
+			);
 			const ctrl = editor.getContribution(
 				"editor.contrib.gotodefinitionatposition",
 			);
@@ -476,7 +478,9 @@ test.describe.serial("Code navigation MVP", () => {
 			// instead of inflating a peek widget. The opener returns null for
 			// cortex:// URIs, so the sideBySide arg is effectively ignored.
 			await ctrl.gotoDefinition(pos, true);
-			return { stage: "ran", word, hasService };
+			d1.dispose();
+			d2.dispose();
+			return { stage: "ran", word, hasService, events };
 		});
 		console.log("[debug] revealDefinition probe", ranAction);
 		// Verify the registered DefinitionProvider sees + answers for this position.
@@ -603,6 +607,260 @@ test.describe.serial("Code navigation MVP", () => {
 			return { ipcRows: rows.length };
 		});
 		console.log("[debug] DefinitionProvider IPC chain", providerProbe);
+		const ensureProbe = await page.evaluate(() => {
+			const w = window as unknown as {
+				__codeNavEnsureCalls?: number;
+				__codeNavEnsureSeen?: boolean;
+			};
+			return {
+				calls: w.__codeNavEnsureCalls,
+				sameAsImport: w.__codeNavEnsureSeen,
+			};
+		});
+		console.log("[debug] ensure registration probe", ensureProbe);
+		const providerCalls = await page.evaluate(
+			() =>
+				(
+					window as unknown as { __codeNavProviderCalls?: number }
+				).__codeNavProviderCalls ?? 0,
+		);
+		console.log("[debug] provider call count", providerCalls);
+		const trace = await page.evaluate(
+			() =>
+				(
+					window as unknown as { __codeNavProviderTrace?: Array<unknown> }
+				).__codeNavProviderTrace ?? [],
+		);
+		console.log("[debug] provider trace", JSON.stringify(trace));
+		const svcCheck = await page.evaluate(() => {
+			const editor = (
+				window as unknown as {
+					__codeNavTestInlineEditor?: {
+						_codeEditorService?: {
+							openCodeEditor: Function;
+							doOpenEditor?: Function;
+							registerCodeEditorOpenHandler?: Function;
+						};
+					};
+				}
+			).__codeNavTestInlineEditor;
+			const svc = editor?._codeEditorService;
+			return {
+				openCodeEditorFn: svc?.openCodeEditor?.toString().slice(0, 200),
+				hasRegisterHandler:
+					typeof svc?.registerCodeEditorOpenHandler === "function",
+				hasDoOpenEditor: typeof svc?.doOpenEditor === "function",
+			};
+		});
+		console.log("[debug] service check", svcCheck);
+		const fired = await page.evaluate(
+			() =>
+				(window as unknown as { __codeNavOpenerFired?: number })
+					.__codeNavOpenerFired ?? 0,
+		);
+		console.log("[debug] cortex opener fired", fired);
+		const multiEditor = await page.evaluate(() => {
+			const w = window as unknown as {
+				monaco?: {
+					editor: {
+						getEditors(): Array<{
+							_codeEditorService?: { openCodeEditor: Function };
+							getModel(): { getValue(): string } | null;
+						}>;
+					};
+				};
+				__codeNavTestInlineEditor?: {
+					_codeEditorService?: { openCodeEditor: Function };
+				};
+			};
+			const editors = w.monaco?.editor?.getEditors?.() ?? [];
+			const tapSvc = w.__codeNavTestInlineEditor?._codeEditorService;
+			return editors.map((e, i) => ({
+				i,
+				snippet: e.getModel()?.getValue().slice(0, 40) ?? null,
+				sameSvcAsTap: e._codeEditorService === tapSvc,
+				openCodeEditorSnippet: e._codeEditorService?.openCodeEditor
+					?.toString()
+					.slice(0, 80),
+			}));
+		});
+		console.log("[debug] multi-editor", multiEditor);
+		const protoTap = await page.evaluate(async () => {
+			const editor = (
+				window as unknown as {
+					__codeNavTestInlineEditor?: {
+						_codeEditorService?: {
+							openCodeEditor: Function;
+						};
+						getContribution(id: string): {
+							gotoDefinition(
+								p: { lineNumber: number; column: number },
+								openToSide: boolean,
+							): Promise<unknown>;
+						} | null;
+					};
+				}
+			).__codeNavTestInlineEditor;
+			const svc = editor?._codeEditorService;
+			if (!svc) return { stage: "no-svc" };
+			const proto = Object.getPrototypeOf(svc);
+			const origProto = proto.openCodeEditor;
+			let protoCount = 0;
+			proto.openCodeEditor = function (
+				input: unknown,
+				source: unknown,
+				sideBySide: unknown,
+			) {
+				protoCount++;
+				return origProto.call(this, input, source, sideBySide);
+			};
+			const ctrl = editor.getContribution(
+				"editor.contrib.gotodefinitionatposition",
+			);
+			await ctrl?.gotoDefinition({ lineNumber: 5, column: 12 }, true);
+			proto.openCodeEditor = origProto;
+			return { stage: "ok", protoCount };
+		});
+		console.log("[debug] prototype openCodeEditor tap", protoTap);
+		// Try: replace our provider with one returning a same-scheme URI to
+		// see if the openCodeEditor chain works at all on this editor.
+		const sameSchemeProbe = await page.evaluate(async () => {
+			const m = (
+				window as unknown as {
+					monaco?: {
+						languages: {
+							registerDefinitionProvider(
+								lang: string,
+								p: {
+									provideDefinition(...args: unknown[]): unknown;
+								},
+							): { dispose(): void };
+						};
+						Uri: { parse(s: string): unknown };
+						Range: new (
+							sl: number,
+							sc: number,
+							el: number,
+							ec: number,
+						) => unknown;
+					};
+				}
+			).monaco;
+			if (!m) return { stage: "no-monaco" };
+			const editor = (
+				window as unknown as {
+					__codeNavTestInlineEditor?: {
+						_codeEditorService?: { openCodeEditor: Function };
+						getContribution(id: string): {
+							gotoDefinition(
+								p: { lineNumber: number; column: number },
+								openToSide: boolean,
+							): Promise<unknown>;
+						} | null;
+					};
+				}
+			).__codeNavTestInlineEditor;
+			let openCalled = 0;
+			const svc = editor!._codeEditorService!;
+			const origSvc = svc.openCodeEditor;
+			svc.openCodeEditor = (
+				input: unknown,
+				source: unknown,
+				sideBySide: unknown,
+			) => {
+				openCalled++;
+				return origSvc.call(svc, input, source, sideBySide);
+			};
+			let providerCalled = 0;
+			const disp = m.languages.registerDefinitionProvider("typescript", {
+				provideDefinition: () => {
+					providerCalled++;
+					return [
+						{
+							uri: m.Uri.parse("inmemory://model/99"),
+							range: new m.Range(1, 1, 1, 1),
+						},
+					];
+				},
+			});
+			const ctrl = editor!.getContribution(
+				"editor.contrib.gotodefinitionatposition",
+			);
+			await ctrl?.gotoDefinition({ lineNumber: 5, column: 12 }, true);
+			disp.dispose();
+			svc.openCodeEditor = origSvc;
+			return { stage: "ok", providerCalled, openCalled };
+		});
+		console.log("[debug] same-scheme probe", sameSchemeProbe);
+		// Patch _openReference on SymbolNavigationAction prototype to count calls.
+		// If openReference IS called but openCodeEditor isn't, the divergence is
+		// inside Monaco's open chain; if openReference isn't called, the
+		// action's outer chain bails before reaching that step.
+		const openRefProbe = await page.evaluate(async () => {
+			const editor = (
+				window as unknown as {
+					__codeNavTestInlineEditor?: {
+						getContribution(id: string): {
+							gotoDefinition(
+								p: { lineNumber: number; column: number },
+								openToSide: boolean,
+							): Promise<unknown>;
+						} | null;
+					};
+				}
+			).__codeNavTestInlineEditor;
+			const ctrl = editor?.getContribution(
+				"editor.contrib.gotodefinitionatposition",
+			);
+			if (!ctrl) return { stage: "no-ctrl" };
+			// Walk the constructor chain to find SymbolNavigationAction by
+			// inspecting the action instance gotoDefinition creates internally.
+			let proto: Record<string, unknown> | null = Object.getPrototypeOf(
+				ctrl,
+			) as Record<string, unknown>;
+			// Try to find by attribute name; we'll just patch the action by
+			// hooking into the existing service.
+			return { stage: "noop", protoKeys: Object.keys(proto ?? {}) };
+		});
+		console.log("[debug] openRefProbe", openRefProbe);
+		const accessorCheck = await page.evaluate(async () => {
+			const editor = (
+				window as unknown as {
+					__codeNavTestInlineEditor?: {
+						_codeEditorService?: unknown;
+						invokeWithinContext(fn: (accessor: unknown) => unknown): unknown;
+					};
+				}
+			).__codeNavTestInlineEditor;
+			if (!editor) return { stage: "no-editor" };
+			let svcFromAccessor: unknown = null;
+			editor.invokeWithinContext((accessor) => {
+				type Decorator = symbol;
+				// ICodeEditorService decorator's identity is not easily accessible.
+				// Trick: iterate accessor properties to find a service that has
+				// `openCodeEditor` method.
+				type Accessor = { get(id: unknown): unknown };
+				const acc = accessor as Accessor;
+				// Workaround: monkey-patch acc.get to capture all retrieved svcs.
+				const retrieved: unknown[] = [];
+				const origGet = acc.get;
+				acc.get = (id: unknown) => {
+					const r = origGet.call(acc, id);
+					retrieved.push(r);
+					return r;
+				};
+				// We can't call action.runEditorCommand directly without the
+				// decorator; just expose the original get for now.
+				acc.get = origGet;
+				return retrieved;
+			});
+			return {
+				stage: "ok",
+				editorSvcIdentity: typeof editor._codeEditorService,
+				accessorSvc: svcFromAccessor === editor._codeEditorService,
+			};
+		});
+		console.log("[debug] accessorCheck", accessorCheck);
 		expect(ranAction.stage).toBe("ran");
 
 		// Pane swap: the InlineEditor remounts on src/utils.ts (unique content
@@ -666,10 +924,8 @@ test.describe.serial("Code navigation MVP", () => {
 	});
 
 	test.skip("diff-link click on `src/utils.ts:1` drives DocumentLinkProvider → installCortexOpener → reducer (spec §421)", async () => {
-		// SKIPPED: same root cause as the spec §419 test above — Monaco's
-		// openLink action does load (verified via getSupportedActions) but our
-		// registered DocumentLinkProvider isn't reachable from the action's
-		// ILanguageFeaturesService lookup. Needs the same follow-up.
+		// SKIPPED: same root cause as the spec §419 test above (action chain
+		// reaches the provider but doesn't reach the installed cortex opener).
 		// Move from files mode (left at src/index.ts by the prior test) into
 		// changes mode and open the same file's diff. The DiffViewer mounts a
 		// modified-side editor whose content carries the seeded `utils.ts:1`

@@ -100,6 +100,8 @@ export function DiffViewer({
 					}
 					// Install cortex:// opener on both halves of the diff editor so
 					// document-link clicks routing to cortex URIs are intercepted.
+					// ALSO ensure code-nav providers are registered against the
+					// editor's monaco singleton (two-monaco race fix).
 					void import("../../code-nav/monaco/editor-opener")
 						.then(({ installCortexOpener }) => {
 							installCortexOpener(
@@ -113,6 +115,11 @@ export function DiffViewer({
 								>[0],
 							);
 						})
+						.catch(() => {});
+					void import("../../code-nav/monaco/register")
+						.then(({ ensureCodeNavProvidersRegisteredForEditor }) =>
+							ensureCodeNavProvidersRegisteredForEditor(),
+						)
 						.catch(() => {});
 					onMount?.(path, editor);
 				}}
