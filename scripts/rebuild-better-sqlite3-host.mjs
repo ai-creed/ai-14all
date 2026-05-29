@@ -46,12 +46,37 @@ if (!pkgDir) {
 	process.exit(0);
 }
 
+// Target the running host Node ABI explicitly. node-gyp may otherwise re-use
+// the Electron target cached by a prior `electron-rebuild` (it persists
+// headers under ~/.electron-gyp/).
+const target = process.versions.node;
+const dist = "https://nodejs.org/dist";
+
+// Strip env vars that pnpm injects when running scripts after `pnpm install`
+// — npm_config_target and friends pin node-gyp to Electron's headers.
+const cleanEnv = { ...process.env };
+for (const k of Object.keys(cleanEnv)) {
+	if (
+		/^npm_config_(target|dist_url|runtime|build_from_source|arch|disturl)/.test(
+			k,
+		)
+	)
+		delete cleanEnv[k];
+}
+cleanEnv.npm_config_runtime = "node";
+cleanEnv.npm_config_target = target;
+cleanEnv.npm_config_dist_url = dist;
+
 try {
-	execFileSync("npx", ["--yes", "node-gyp", "rebuild"], {
-		cwd: pkgDir,
+	// Use pnpm rebuild which routes through npm's lifecycle scripts; the
+	// package's own install script honours npm_config_runtime/target so
+	// pre-built binaries can be downloaded matching the host Node ABI.
+	execFileSync("pnpm", ["rebuild", "better-sqlite3"], {
+		cwd: repoRoot,
 		stdio: "inherit",
+		env: cleanEnv,
 	});
-	console.log("[rebuild-better-sqlite3-host] ok");
+	console.log(`[rebuild-better-sqlite3-host] ok (node ${target})`);
 } catch (err) {
 	console.warn(
 		`[rebuild-better-sqlite3-host] rebuild failed: ${err.message ?? err}`,
