@@ -85,6 +85,17 @@ import { WorktreeService } from "../../services/worktrees/worktree-service.js";
 import { TerminalService } from "../../services/terminals/terminal-service.js";
 import { FileService } from "../../services/files/file-service.js";
 import { GitService } from "../../services/git/git-service.js";
+import { homedir } from "node:os";
+import chokidar from "chokidar";
+import { CortexIndexService } from "../code-nav/cortex-index-service.js";
+import { CortexKeyResolver } from "../code-nav/cortex-key-resolver.js";
+import { CortexRefreshController } from "../code-nav/refresh/cortex-refresh.js";
+import {
+	WorktreeWatcher,
+	type WatcherKeys,
+} from "../code-nav/watch/worktree-watcher.js";
+import { registerCodeNavIpc } from "../code-nav/ipc/register.js";
+import type { WorktreeKeys } from "../code-nav/cortex-index-service.js";
 import type { TerminalEventHandlers } from "../../services/terminals/terminal-service.js";
 import type {
 	TerminalOutputEvent,
@@ -673,10 +684,61 @@ export function registerIpcHandlers(
 		};
 	});
 
+	// ---------------------------------------------------------------------------
+	// code-nav: IPC + watcher + refresh pipeline
+	// ---------------------------------------------------------------------------
+	const cortexCacheRoot = join(homedir(), ".cache", "ai-cortex", "v1");
+	const cortexIndex = new CortexIndexService({
+		cacheRoot: join(homedir(), ".cache", "ai-14all", "code-nav"),
+	});
+	const cortexKeyResolver = new CortexKeyResolver({ cortexCacheRoot });
+	const refresh = new CortexRefreshController({
+		cortexIndex,
+		cortexCacheRoot,
+		emit: (ev, payload) => mainWindow.webContents.send(ev, payload),
+		toast: (msg) =>
+			mainWindow.webContents.send("app:toast", { kind: "warn", message: msg }),
+	});
+	const watchKeys = new Map<
+		string,
+		{ keys: WorktreeKeys; ids: { workspaceId: string; worktreeId: string } }
+	>();
+	const watcher = new WorktreeWatcher({
+		chokidar: chokidar as unknown as WorktreeWatcher["opts"]["chokidar"],
+		debounceMs: 500,
+		onBatch: ({ keys: { worktreePath }, changedFiles }) => {
+			const entry = watchKeys.get(worktreePath);
+			if (!entry) return;
+			void refresh.refresh(entry.keys, entry.ids, changedFiles);
+		},
+	});
+	const disposeCodeNavIpc = registerCodeNavIpc({
+		workspaceRegistry,
+		worktreeService,
+		cortexIndex,
+		cortexKeyResolver,
+		refreshController: {
+			refresh: async (keys, ids, changed) => refresh.refresh(keys, ids, changed),
+		},
+		watcherController: {
+			watch: (keys, ids) => {
+				watchKeys.set(keys.worktreePath, { keys, ids });
+				watcher.watch({ worktreePath: keys.worktreePath } satisfies WatcherKeys);
+			},
+			unwatch: (keys) => {
+				watchKeys.delete(keys.worktreePath);
+				watcher.unwatch({ worktreePath: keys.worktreePath });
+			},
+		},
+	});
+
 	return {
 		dispose: () => {
 			offReview();
 			terminalService.dispose();
+			disposeCodeNavIpc();
+			watcher.dispose();
+			cortexIndex.dispose();
 		},
 	};
 }

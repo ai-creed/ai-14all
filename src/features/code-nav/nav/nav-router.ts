@@ -1,0 +1,72 @@
+import type { CortexNavLocation } from "./cortex-uri.js";
+import type { NavHistory } from "./nav-history.js";
+
+export interface NavTarget extends CortexNavLocation {
+	source: "definition" | "reference" | "link" | "palette" | "history";
+}
+
+export interface ActiveContext {
+	workspaceId: string;
+	worktreeId: string;
+	sessionId: string;
+	currentLocation: CortexNavLocation | null;
+}
+
+export interface NavRouterDeps {
+	history: NavHistory;
+	dispatch: (action: unknown) => void;
+	toast: (message: string) => void;
+	getActive: () => ActiveContext | null;
+}
+
+export class NavRouter {
+	constructor(private readonly d: NavRouterDeps) {}
+
+	async navigate(
+		target: NavTarget,
+		opts?: { pushHistory?: boolean },
+	): Promise<void> {
+		const active = this.d.getActive();
+		if (!active) return;
+		if (
+			target.workspaceId !== active.workspaceId ||
+			target.worktreeId !== active.worktreeId
+		) {
+			this.d.toast("Cross-worktree navigation is not supported in this MVP.");
+			return;
+		}
+		if (opts?.pushHistory !== false && active.currentLocation) {
+			this.d.history.push(active.worktreeId, active.currentLocation);
+		}
+		this.dispatchSelect(active.sessionId, target, target.source === "definition");
+	}
+
+	async back(worktreeId: string): Promise<void> {
+		const prev = this.d.history.back(worktreeId);
+		const active = this.d.getActive();
+		if (prev && active)
+			this.dispatchSelect(active.sessionId, { ...prev, source: "history" }, false);
+	}
+
+	async forward(worktreeId: string): Promise<void> {
+		const next = this.d.history.forward(worktreeId);
+		const active = this.d.getActive();
+		if (next && active)
+			this.dispatchSelect(active.sessionId, { ...next, source: "history" }, false);
+	}
+
+	private dispatchSelect(
+		sessionId: string,
+		t: NavTarget,
+		transient: boolean,
+	) {
+		this.d.dispatch({
+			type: "session/selectFileAtLocation",
+			sessionId,
+			relativePath: t.file,
+			revealLine: t.line,
+			revealColumn: t.column,
+			transient,
+		});
+	}
+}
