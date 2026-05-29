@@ -10,7 +10,7 @@ const target = {
 	source: "definition" as const,
 };
 
-function setup() {
+function setup(opts: { paneTransient?: boolean } = {}) {
 	const history = new NavHistory({ capacity: 5 });
 	const dispatch = vi.fn();
 	const toast = vi.fn();
@@ -24,6 +24,7 @@ function setup() {
 			file: "src/p.ts",
 			line: 1,
 		},
+		paneTransient: opts.paneTransient ?? false,
 	});
 	const router = new NavRouter({ history, dispatch, toast, getActive });
 	return { router, history, dispatch, toast, getActive };
@@ -49,6 +50,24 @@ describe("NavRouter", () => {
 		await router.navigate({ ...target, worktreeId: "other" });
 		expect(dispatch).not.toHaveBeenCalled();
 		expect(toast).toHaveBeenCalledWith(expect.stringMatching(/cross-worktree/i));
+	});
+
+	it("pushes the current location onto history on a normal jump", async () => {
+		const { router, history } = setup();
+		const pushSpy = vi.spyOn(history, "push");
+		await router.navigate(target);
+		expect(pushSpy).toHaveBeenCalledTimes(1);
+		expect(pushSpy).toHaveBeenCalledWith(
+			"wt1",
+			expect.objectContaining({ file: "src/p.ts", line: 1 }),
+		);
+	});
+
+	it("skips the history push when the current pane is transient (preview replace-in-place)", async () => {
+		const { router, history } = setup({ paneTransient: true });
+		const pushSpy = vi.spyOn(history, "push");
+		await router.navigate(target);
+		expect(pushSpy).not.toHaveBeenCalled();
 	});
 
 	it("back pops history and dispatches", async () => {

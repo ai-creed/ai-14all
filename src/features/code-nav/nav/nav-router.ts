@@ -10,6 +10,12 @@ export interface ActiveContext {
 	worktreeId: string;
 	sessionId: string;
 	currentLocation: CortexNavLocation | null;
+	/**
+	 * True when the current main pane is a transient preview (the prior nav
+	 * was a definition jump). The next navigate() replaces in place rather
+	 * than pushing the current location onto history. Spec §304.
+	 */
+	paneTransient: boolean;
 }
 
 export interface NavRouterDeps {
@@ -35,8 +41,14 @@ export class NavRouter {
 			this.d.toast("Cross-worktree navigation is not supported in this MVP.");
 			return;
 		}
-		if (opts?.pushHistory !== false && active.currentLocation) {
-			this.d.history.push(active.worktreeId, active.currentLocation);
+		// A transient preview pane (prior jump from a definition) is replaced
+		// in place rather than pushed onto history. Spec §299, §304.
+		const shouldPush =
+			opts?.pushHistory !== false &&
+			active.currentLocation !== null &&
+			!active.paneTransient;
+		if (shouldPush) {
+			this.d.history.push(active.worktreeId, active.currentLocation!);
 		}
 		this.dispatchSelect(active.sessionId, target, target.source === "definition");
 	}

@@ -357,11 +357,16 @@ export function App() {
 						console.warn(`[code-nav] ${msg}`),
 					getActive: () => {
 						if (!wsId || !wtId || !sessId) return null;
+						// Read paneTransient off the live ref so a state change
+						// since this effect ran doesn't make the gate stale.
+						const session =
+							workspaceStateRef.current.sessionsByWorktreeId[wtId];
 						return {
 							workspaceId: wsId,
 							worktreeId: wtId,
 							sessionId: sessId,
 							currentLocation: null,
+							paneTransient: session?.paneTransient ?? false,
 						};
 					},
 				});
