@@ -1,0 +1,24 @@
+{
+	"schemaVersion": 3,
+	"fingerprint": "abc123",
+	"worktreePath": "/fixture/wt",
+	"repoKey": "repo1",
+	"worktreeKey": "wt1",
+	"indexedAt": "2026-05-29T00:00:00Z",
+	"files": [
+		{ "path": "src/page.ts", "kind": "file" },
+		{ "path": "src/utils.ts", "kind": "file" }
+	],
+	"functions": [
+		{ "qualifiedName": "src/utils.ts::parseConfig", "file": "src/utils.ts", "line": 10, "exported": true },
+		{ "qualifiedName": "src/page.ts::render", "file": "src/page.ts", "line": 5, "exported": true },
+		{ "qualifiedName": "src/utils.ts::Cli.parse", "file": "src/utils.ts", "line": 40, "isDeclarationOnly": true }
+	],
+	"calls": [
+		{ "from": "src/page.ts::render", "to": "src/utils.ts::parseConfig", "kind": "call" },
+		{ "from": "src/page.ts::render", "to": "::unknownHelper", "kind": "call" }
+	],
+	"imports": [
+		{ "from": "src/page.ts", "to": "src/utils.ts" }
+	]
+}
