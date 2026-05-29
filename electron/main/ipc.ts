@@ -86,6 +86,8 @@ import { TerminalService } from "../../services/terminals/terminal-service.js";
 import { FileService } from "../../services/files/file-service.js";
 import { GitService } from "../../services/git/git-service.js";
 import { homedir } from "node:os";
+import { existsSync, readFileSync } from "node:fs";
+import { ingestCortexJson } from "../code-nav/ingest/json-to-sqlite.js";
 import chokidar from "chokidar";
 import { CortexIndexService } from "../code-nav/cortex-index-service.js";
 import { CortexKeyResolver } from "../code-nav/cortex-key-resolver.js";
@@ -727,6 +729,40 @@ export function registerIpcHandlers(
 		},
 		watcherController: {
 			watch: (keys, ids) => {
+				// First-time bootstrap: if a cortex JSON sidecar exists but our
+				// per-worktree SQLite mirror doesn't, ingest the JSON now.
+				// Otherwise every query throws CortexIndexNotReadyError until the
+				// user happens to save a file (which is what wakes the chokidar
+				// watcher's ingest path). ai-cortex already produced the JSON;
+				// no need to spawn the CLI again.
+				const dbPath = cortexIndex.dbPathForKeys(
+					keys.repoKey,
+					keys.worktreeKey,
+				);
+				const jsonPath = join(
+					cortexCacheRoot,
+					keys.repoKey,
+					`${keys.worktreeKey}.json`,
+				);
+				if (!existsSync(dbPath) && existsSync(jsonPath)) {
+					try {
+						const json = JSON.parse(readFileSync(jsonPath, "utf8"));
+						const r = ingestCortexJson(json, dbPath);
+						if (!r.skipped) {
+							cortexIndex.invalidate(keys);
+							mainWindow.webContents.send(
+								"code-nav:worktreeIndexRefreshed",
+								ids,
+							);
+						}
+					} catch (err) {
+						// eslint-disable-next-line no-console
+						console.warn(
+							"[code-nav] initial cortex ingest failed:",
+							(err as Error).message,
+						);
+					}
+				}
 				watchKeys.set(keys.worktreePath, { keys, ids });
 				watcher.watch({ worktreePath: keys.worktreePath } satisfies WatcherKeys);
 			},
