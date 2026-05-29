@@ -431,6 +431,79 @@ describe("workspaceReducer — Phase 4 review state", () => {
 	});
 });
 
+describe("workspaceReducer — code-nav pendingReveal", () => {
+	it("stamps pendingReveal and paneTransient on selectFileAtLocation", () => {
+		let state = createWorkspaceState(worktrees);
+		expect(state.sessionsByWorktreeId.main.pendingReveal).toBeNull();
+		expect(state.sessionsByWorktreeId.main.paneTransient).toBe(false);
+
+		const before = Date.now();
+		state = workspaceReducer(state, {
+			type: "session/selectFileAtLocation",
+			worktreeId: "main",
+			relativePath: "src/config.ts",
+			revealLine: 42,
+			revealColumn: 7,
+			transient: true,
+		});
+		const after = Date.now();
+
+		const session = state.sessionsByWorktreeId.main;
+		expect(session.reviewMode).toBe("files");
+		expect(session.viewerMode).toBe("file");
+		expect(session.selectedFilePath).toBe("src/config.ts");
+		expect(session.paneTransient).toBe(true);
+		expect(session.pendingReveal).not.toBeNull();
+		expect(session.pendingReveal?.line).toBe(42);
+		expect(session.pendingReveal?.column).toBe(7);
+		expect(session.pendingReveal?.capturedAt).toBeGreaterThanOrEqual(before);
+		expect(session.pendingReveal?.capturedAt).toBeLessThanOrEqual(after);
+	});
+
+	it("treats transient=false as a non-preview jump (no paneTransient)", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/selectFileAtLocation",
+			worktreeId: "main",
+			relativePath: "src/utils.ts",
+			revealLine: 1,
+			transient: false,
+		});
+
+		const session = state.sessionsByWorktreeId.main;
+		expect(session.paneTransient).toBe(false);
+		expect(session.pendingReveal?.column).toBeUndefined();
+	});
+
+	it("clears pendingReveal on consumePendingReveal but preserves paneTransient", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/selectFileAtLocation",
+			worktreeId: "main",
+			relativePath: "src/config.ts",
+			revealLine: 10,
+			transient: true,
+		});
+		state = workspaceReducer(state, {
+			type: "session/consumePendingReveal",
+			worktreeId: "main",
+		});
+
+		const session = state.sessionsByWorktreeId.main;
+		expect(session.pendingReveal).toBeNull();
+		expect(session.paneTransient).toBe(true);
+	});
+
+	it("consumePendingReveal is a no-op when pendingReveal is null", () => {
+		const state = createWorkspaceState(worktrees);
+		const next = workspaceReducer(state, {
+			type: "session/consumePendingReveal",
+			worktreeId: "main",
+		});
+		expect(next).toBe(state);
+	});
+});
+
 describe("workspaceReducer — Phase 3 process model", () => {
 	it("stores repo-level presets", () => {
 		const initial = createWorkspaceState(worktrees);

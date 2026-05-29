@@ -42,4 +42,18 @@ export type WorktreeSession = {
 	 */
 	treeShowIgnored: boolean;
 	task: string | null;
+	/**
+	 * One-shot reveal request stamped by `session/selectFileAtLocation` and
+	 * consumed by `<InlineEditor>` once Monaco has applied it (mirrors the
+	 * `pendingCommentJump` pattern in App.tsx). Memory-only — intentionally
+	 * absent from PersistedWorktreeSessionSchema so reveals never replay on
+	 * restart. See docs/superpowers/specs/2026-05-29-code-nav-mvp-design.md §304.
+	 */
+	pendingReveal: { line: number; column?: number; capturedAt: number } | null;
+	/**
+	 * Marks the main pane as a transient preview when the last nav came from
+	 * `source === "definition"`. The NavRouter uses it to replace in place on
+	 * the next jump instead of pushing history. Memory-only.
+	 */
+	paneTransient: boolean;
 };

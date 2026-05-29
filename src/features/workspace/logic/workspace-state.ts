@@ -76,6 +76,7 @@ export type WorkspaceAction =
 			revealColumn?: number;
 			transient: boolean;
 	  }
+	| { type: "session/consumePendingReveal"; worktreeId: string }
 	| {
 			type: "session/selectChangedFile";
 			worktreeId: string;
@@ -245,6 +246,8 @@ function createSession(worktree: Worktree): WorktreeSession {
 		treeExpandedPaths: [],
 		treeShowIgnored: false,
 		task: null,
+		pendingReveal: null,
+		paneTransient: false,
 	};
 }
 
@@ -1200,7 +1203,16 @@ export function workspaceReducer(
 			reviewMode: "files",
 			viewerMode: "file",
 			selectedFilePath: action.relativePath,
+			pendingReveal: {
+				line: action.revealLine,
+				column: action.revealColumn,
+				capturedAt: Date.now(),
+			},
+			paneTransient: action.transient,
 		};
+	} else if (action.type === "session/consumePendingReveal") {
+		if (!session.pendingReveal) return state;
+		nextSession = { ...session, pendingReveal: null };
 	} else if (action.type === "session/selectChangedFile") {
 		nextSession = {
 			...session,

@@ -43,6 +43,8 @@ function makeSession(worktreeId: string, note: string) {
 		treeExpandedPaths: [],
 		treeShowIgnored: false,
 		task: null,
+		pendingReveal: null,
+		paneTransient: false,
 	};
 }
 
