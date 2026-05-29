@@ -56,13 +56,13 @@ export class NavRouter {
 	}
 
 	private dispatchSelect(
-		sessionId: string,
+		_sessionId: string,
 		t: NavTarget,
 		transient: boolean,
 	) {
 		this.d.dispatch({
 			type: "session/selectFileAtLocation",
-			sessionId,
+			worktreeId: t.worktreeId,
 			relativePath: t.file,
 			revealLine: t.line,
 			revealColumn: t.column,

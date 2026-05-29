@@ -69,6 +69,14 @@ export type WorkspaceAction =
 	  }
 	| { type: "session/selectFile"; worktreeId: string; relativePath: string }
 	| {
+			type: "session/selectFileAtLocation";
+			worktreeId: string;
+			relativePath: string;
+			revealLine: number;
+			revealColumn?: number;
+			transient: boolean;
+	  }
+	| {
 			type: "session/selectChangedFile";
 			worktreeId: string;
 			relativePath: string;
@@ -1180,6 +1188,13 @@ export function workspaceReducer(
 	} else if (action.type === "session/setReviewSidebarWidth") {
 		nextSession = { ...session, reviewSidebarWidth: action.width };
 	} else if (action.type === "session/selectFile") {
+		nextSession = {
+			...session,
+			reviewMode: "files",
+			viewerMode: "file",
+			selectedFilePath: action.relativePath,
+		};
+	} else if (action.type === "session/selectFileAtLocation") {
 		nextSession = {
 			...session,
 			reviewMode: "files",

@@ -86,6 +86,22 @@ export function DiffViewer({
 				}}
 				onMount={(editor) => {
 					editorRef.current = editor;
+					// Install cortex:// opener on both halves of the diff editor so
+					// document-link clicks routing to cortex URIs are intercepted.
+					void import("../../code-nav/monaco/editor-opener")
+						.then(({ installCortexOpener }) => {
+							installCortexOpener(
+								editor.getOriginalEditor() as unknown as Parameters<
+									typeof installCortexOpener
+								>[0],
+							);
+							installCortexOpener(
+								editor.getModifiedEditor() as unknown as Parameters<
+									typeof installCortexOpener
+								>[0],
+							);
+						})
+						.catch(() => {});
 					onMount?.(path, editor);
 				}}
 			/>

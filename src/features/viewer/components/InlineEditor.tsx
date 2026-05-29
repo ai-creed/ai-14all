@@ -297,6 +297,11 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 
 		const handleMount: OnMount = useCallback((editor) => {
 			editorRef.current = editor;
+			// Lazy-import the cortex opener so jsdom App tests don't pull monaco
+			// internals at import time.
+			void import("../../code-nav/monaco/editor-opener")
+				.then(({ installCortexOpener }) => installCortexOpener(editor))
+				.catch(() => {});
 		}, []);
 
 		const runSave = useCallback(

@@ -36,6 +36,7 @@ describe("NavRouter", () => {
 		expect(dispatch).toHaveBeenCalledWith(
 			expect.objectContaining({
 				type: "session/selectFileAtLocation",
+				worktreeId: "wt1",
 				relativePath: "src/u.ts",
 				revealLine: 5,
 				transient: true,

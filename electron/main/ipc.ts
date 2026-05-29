@@ -687,9 +687,14 @@ export function registerIpcHandlers(
 	// ---------------------------------------------------------------------------
 	// code-nav: IPC + watcher + refresh pipeline
 	// ---------------------------------------------------------------------------
-	const cortexCacheRoot = join(homedir(), ".cache", "ai-cortex", "v1");
+	const cortexCacheRoot =
+		process.env.AI14ALL_CORTEX_CACHE_ROOT ??
+		join(homedir(), ".cache", "ai-cortex", "v1");
+	const codeNavCacheRoot =
+		process.env.AI14ALL_CODE_NAV_CACHE_ROOT ??
+		join(homedir(), ".cache", "ai-14all", "code-nav");
 	const cortexIndex = new CortexIndexService({
-		cacheRoot: join(homedir(), ".cache", "ai-14all", "code-nav"),
+		cacheRoot: codeNavCacheRoot,
 	});
 	const cortexKeyResolver = new CortexKeyResolver({ cortexCacheRoot });
 	const refresh = new CortexRefreshController({
