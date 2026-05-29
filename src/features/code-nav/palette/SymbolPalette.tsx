@@ -5,7 +5,7 @@ import {
 	Title as DialogTitle,
 } from "../../../components/AppDialog.js";
 import { codeNavClient } from "../ipc/client.js";
-import { navRouter } from "../monaco/register.js";
+import { getNavRouter } from "../nav/router-singleton.js";
 import { getActiveWorktreeRef } from "../nav/active-worktree-ref.js";
 import { useSymbolSearch } from "./use-symbol-search.js";
 import { useWorktreeStatus } from "./use-worktree-status.js";
@@ -30,7 +30,7 @@ export function SymbolPalette({
 	function pick(i: number) {
 		const row = results[i];
 		if (!row || !ref) return;
-		void navRouter?.navigate({
+		void getNavRouter()?.navigate({
 			workspaceId: ref.workspaceId,
 			worktreeId: ref.worktreeId,
 			file: row.file,

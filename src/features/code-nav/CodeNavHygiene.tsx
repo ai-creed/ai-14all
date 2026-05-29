@@ -8,6 +8,13 @@ export interface CodeNavHygieneProps {
 	worktreeRoot: string;
 }
 
+function hasBridge(): boolean {
+	return Boolean(
+		(window as unknown as { ai14all?: { codeNav?: unknown } }).ai14all
+			?.codeNav,
+	);
+}
+
 export function CodeNavHygiene({
 	workspaceId,
 	worktreeId,
@@ -15,9 +22,13 @@ export function CodeNavHygiene({
 }: CodeNavHygieneProps) {
 	useEffect(() => {
 		setActiveWorktreeRef({ workspaceId, worktreeId, worktreeRoot });
-		void codeNavClient.watchWorktree({ workspaceId, worktreeId });
+		if (!hasBridge()) return () => setActiveWorktreeRef(null);
+		void codeNavClient.watchWorktree({ workspaceId, worktreeId }).catch(() => {});
 		return () => {
-			void codeNavClient.unwatchWorktree({ workspaceId, worktreeId });
+			if (hasBridge())
+				void codeNavClient
+					.unwatchWorktree({ workspaceId, worktreeId })
+					.catch(() => {});
 			setActiveWorktreeRef(null);
 		};
 	}, [workspaceId, worktreeId, worktreeRoot]);

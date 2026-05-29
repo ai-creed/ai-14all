@@ -8,6 +8,10 @@ import { documentLinkProvider } from "./document-link-provider.js";
 import { NavHistory } from "../nav/nav-history.js";
 import { NavRouter, type ActiveContext } from "../nav/nav-router.js";
 import { subscribeWorktreeIndexRefreshed } from "../ipc/events.js";
+import {
+	setCodeNavToast,
+	setNavRouter,
+} from "../nav/router-singleton.js";
 
 const LANGS = ["typescript", "javascript", "python", "c", "cpp"];
 
@@ -21,12 +25,14 @@ export function registerCodeNavProviders(deps: {
 	getActive: () => ActiveContext | null;
 }): () => void {
 	toastFn = deps.toast;
+	setCodeNavToast(deps.toast);
 	navRouter = new NavRouter({
 		history,
 		dispatch: deps.dispatch,
 		toast: deps.toast,
 		getActive: deps.getActive,
 	});
+	setNavRouter(navRouter);
 	const disposers: Array<{ dispose(): void }> = [];
 	for (const lang of LANGS) {
 		disposers.push(
@@ -45,6 +51,8 @@ export function registerCodeNavProviders(deps: {
 		unsub();
 		navRouter = null;
 		toastFn = null;
+		setNavRouter(null);
+		setCodeNavToast(null);
 	};
 }
 

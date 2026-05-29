@@ -14,6 +14,11 @@ export function useWorktreeStatus(
 			return;
 		}
 		let cancelled = false;
+		if (
+			!(window as unknown as { ai14all?: { codeNav?: unknown } }).ai14all
+				?.codeNav
+		)
+			return;
 		const load = async () => {
 			try {
 				const s = await codeNavClient.getWorktreeStatus(ref);

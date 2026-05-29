@@ -13,6 +13,11 @@ export function useSymbolSearch(ref: WorktreeRef | null, query: string) {
 			return;
 		}
 		const id = setTimeout(async () => {
+			if (
+				!(window as unknown as { ai14all?: { codeNav?: unknown } }).ai14all
+					?.codeNav
+			)
+				return;
 			try {
 				setLoading(true);
 				const out = await codeNavClient.searchSymbols(ref, {

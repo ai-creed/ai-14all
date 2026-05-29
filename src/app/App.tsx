@@ -17,6 +17,8 @@ import {
 	type ReviewExpandedPortalHandle,
 } from "../features/review/components/ReviewExpandedPortal";
 import { useReviewComments } from "../features/review/hooks/use-review-comments";
+import { CodeNavHygiene } from "../features/code-nav/CodeNavHygiene";
+import { SymbolPalette } from "../features/code-nav/palette/SymbolPalette";
 import { type NewCommentDraft } from "./components/ReviewArea";
 import { useAgentInstallStatus } from "../features/review/hooks/use-agent-install-status";
 import {
@@ -111,6 +113,7 @@ export function App() {
 		handleSidebarResizeStart,
 	} = usePaneResizers({});
 	const [reviewOpen, setReviewOpen] = useState(false);
+	const [symbolPaletteOpen, setSymbolPaletteOpen] = useState(false);
 	const chipBarRef = useRef<HTMLDivElement>(null);
 	const mainColRef = useRef<HTMLElement>(null);
 	const expandedPortalRef = useRef<ReviewExpandedPortalHandle>(null);
@@ -309,6 +312,73 @@ export function App() {
 		? (workspaceState.sessionsByWorktreeId[workspaceState.selectedWorktreeId] ??
 			null)
 		: null;
+
+	// cmd+T (mac) / ctrl+T opens the code-nav symbol palette.
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			const isMac =
+				typeof navigator !== "undefined" &&
+				navigator.platform.toLowerCase().includes("mac");
+			const mod = isMac ? e.metaKey : e.ctrlKey;
+			if (
+				mod &&
+				!e.shiftKey &&
+				!e.altKey &&
+				e.key.toLowerCase() === "t"
+			) {
+				const target = e.target as HTMLElement | null;
+				const inText =
+					target?.tagName === "INPUT" || target?.tagName === "TEXTAREA";
+				if (inText) return;
+				e.preventDefault();
+				setSymbolPaletteOpen(true);
+			}
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, []);
+
+	// Register Monaco code-nav providers once on mount, lazily importing the
+	// monaco-dependent module so tests/unit/components/App-*.test.tsx (jsdom)
+	// don't pull in monaco-editor's browser-only bootstrap at import time.
+	useEffect(() => {
+		let cancelled = false;
+		let dispose: (() => void) | null = null;
+		const wsId = activeWorkspaceId;
+		const wtId = activeWorktree?.id;
+		const sessId = activeSession?.id;
+		void import("../features/code-nav/monaco/register")
+			.then(({ registerCodeNavProviders }) => {
+				if (cancelled) return;
+				dispose = registerCodeNavProviders({
+					dispatch: dispatch as unknown as (action: unknown) => void,
+					toast: (msg) =>
+						// eslint-disable-next-line no-console
+						console.warn(`[code-nav] ${msg}`),
+					getActive: () => {
+						if (!wsId || !wtId || !sessId) return null;
+						return {
+							workspaceId: wsId,
+							worktreeId: wtId,
+							sessionId: sessId,
+							currentLocation: null,
+						};
+					},
+				});
+			})
+			.catch(() => {
+				// monaco unavailable (e.g. test env) — code-nav UI degrades silently.
+			});
+		return () => {
+			cancelled = true;
+			if (dispose) dispose();
+		};
+	}, [
+		activeWorkspaceId,
+		activeWorktree?.id,
+		activeSession?.id,
+		dispatch,
+	]);
 	// All shells occupying layout slots are visible (the slot grid renders each).
 	const slotProcessIds = activeSession?.slotProcessIds ?? [null];
 	const visibleProcessIds = slotProcessIds.filter(
@@ -1552,6 +1622,11 @@ export function App() {
 								onToggleCommentSidebar={() => setCommentSidebarOpen((o) => !o)}
 								openCommentCount={currentFileOpenCommentCount}
 							>
+								<CodeNavHygiene
+									workspaceId={activeWorkspaceId ?? ""}
+									worktreeId={activeWorktree.id}
+									worktreeRoot={activeWorktree.path}
+								/>
 								<ReviewArea
 									activeWorktree={activeWorktree}
 									activeSession={activeSession ?? null}
@@ -1636,6 +1711,10 @@ export function App() {
 					installModalOpen={installModalOpen}
 					setInstallModalOpen={setInstallModalOpen}
 					agentInstallStatus={agentInstallStatus}
+				/>
+				<SymbolPalette
+					open={symbolPaletteOpen}
+					onClose={() => setSymbolPaletteOpen(false)}
 				/>
 			</main>
 		</ToastProvider>

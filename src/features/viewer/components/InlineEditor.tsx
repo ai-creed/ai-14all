@@ -77,6 +77,14 @@ function languageForBasename(basename: string): string {
 	if (lower.endsWith(".html")) return "html";
 	if (lower.endsWith(".sh")) return "shell";
 	if (lower.endsWith(".py")) return "python";
+	if (lower.endsWith(".c") || lower.endsWith(".h")) return "c";
+	if (
+		lower.endsWith(".cpp") ||
+		lower.endsWith(".cc") ||
+		lower.endsWith(".cxx") ||
+		lower.endsWith(".hpp")
+	)
+		return "cpp";
 	if (
 		lower.endsWith(".toml") ||
 		lower.endsWith(".ini") ||

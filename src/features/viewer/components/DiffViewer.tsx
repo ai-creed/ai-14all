@@ -21,6 +21,12 @@ const EXTENSION_TO_LANGUAGE: Record<string, string> = {
 	yml: "yaml",
 	toml: "ini",
 	sql: "sql",
+	c: "c",
+	h: "c",
+	cpp: "cpp",
+	cc: "cpp",
+	cxx: "cpp",
+	hpp: "cpp",
 };
 
 type Props = {
