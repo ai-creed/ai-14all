@@ -306,24 +306,41 @@ test.describe.serial("Code navigation MVP", () => {
 	});
 
 	test.skip("cmd+click on parseConfig drives DefinitionProvider → installCortexOpener → reducer (spec §419)", async () => {
-		// SKIPPED: identified a deeper Monaco singleton issue that prevents the
-		// gotoDefinition action's languageFeaturesService from seeing our
-		// registered DefinitionProvider. After verifying the action contribution
-		// IS bundled (window.monaco bridge works, the openLink contribution
-		// works against the same registration mechanism), the
-		// registerDefinitionProvider call appears to land on a different
-		// ILanguageFeaturesService instance than the one the action's accessor
-		// resolves at runtime. Reproduction:
-		//   1. Click parseConfig in InlineEditor on src/index.ts
-		//   2. editor.getContribution("editor.contrib.gotodefinitionatposition")
-		//      .gotoDefinition(pos, openToSide=true) runs the action
-		//   3. _codeEditorService.openCodeEditor is never called → 0 references
-		//   4. Direct IPC findDefinitions returns 1 row (so the data is there)
-		// Root-cause needs follow-up: either (a) move DefinitionProvider
-		// registration to a place that joins the editor's DI scope or (b)
-		// inject providers via deps.languageFeatures rather than the global
-		// monaco.languages API. The reducer + nav-router fixes (commits A1-A3)
-		// for finding #1 are correct; this test gates on the impl gap.
+		// SKIPPED: TWO MONACO SINGLETONS in the bundle. Root-cause confirmed
+		// by registering a fresh DefinitionProvider from inside the page via
+		// `window.monaco.languages.registerDefinitionProvider(...)` and
+		// running the gotoDefinition action: that provider IS invoked. Our
+		// register.ts's provider — registered via the same `monaco-editor`
+		// module reference — is NOT invoked. So `window.monaco` (set by
+		// register.ts module-top) and the editor's languageFeaturesService
+		// resolve to different ILanguageFeaturesService instances.
+		//
+		// Likely cause: @monaco-editor/react's loader runs at first <Editor>
+		// mount; if register.ts hasn't loaded yet (lazy-imported from App's
+		// useEffect after activeWorktree is set), the loader falls back to a
+		// CDN-fetched monaco. That CDN monaco's languageFeaturesService is
+		// the one the editor's gotoDefinition action queries. Our register.ts
+		// then loads, sets window.monaco = our_npm_monaco (overwriting CDN
+		// monaco), and registers providers against npm's singleton — which
+		// the editor never reads.
+		//
+		// Fix candidates (each ~3-4 files):
+		//   (a) loader.config({ monaco }) in main.tsx BEFORE createRoot,
+		//       awaiting monaco-editor import. Tried — startup slows enough
+		//       that AI14ALL_E2E_PICK_PATH auto-load races and fails.
+		//   (b) Eager-import register.ts from main.tsx with await before
+		//       render. Same startup-race issue.
+		//   (c) Move provider registration to per-editor: register in
+		//       InlineEditor.handleMount and DiffViewer.onMount against
+		//       window.monaco (which by then IS the editor's monaco).
+		//       Wasteful (re-registers each mount) but isolates the race.
+		//   (d) Bundle monaco-editor full into main chunk via static import.
+		//       Bloats main bundle to ~10MB.
+		//
+		// (c) seems most targeted but needs the registration to be idempotent
+		// per language so disposal works. Reducer + nav-router fixes
+		// (commits A1-A3) for finding #1 are correct; this gates on the
+		// bundle/singleton fix above.
 		// See docs/superpowers/specs/2026-05-29-code-nav-mvp-design.md §312-323.
 		// Drive the full chain Monaco invokes on cmd+click: revealDefinition →
 		// our registered DefinitionProvider → cortex:// URI → installCortexOpener
