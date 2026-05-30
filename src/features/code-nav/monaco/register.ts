@@ -93,6 +93,40 @@ export function ensureCortexNavRegistered(m: MonacoModule): void {
 	m.editor.registerLinkOpener({
 		open: (resource) => handleCortexResource(resource.toString(), "link"),
 	});
+
+	// This is a read-only code viewer with its own (ai-cortex) navigation, not a
+	// TypeScript IDE. The bundled TS worker can't resolve the viewed code's
+	// modules (node:fs, third-party deps, path aliases), so its semantic
+	// diagnostics are pure noise — e.g. "Cannot find module 'node:fs'". Turn off
+	// semantic + suggestion validation; keep syntax validation for genuine parse
+	// errors.
+	// `monaco.languages.typescript` is typed as a deprecated stub, but the full
+	// bundled monaco populates it at runtime (it's the very service emitting
+	// these diagnostics), so reach it through a cast.
+	type TsDefaults = {
+		setDiagnosticsOptions(o: {
+			noSemanticValidation?: boolean;
+			noSyntaxValidation?: boolean;
+			noSuggestionDiagnostics?: boolean;
+		}): void;
+	};
+	const ts = (
+		m.languages as unknown as {
+			typescript?: {
+				typescriptDefaults: TsDefaults;
+				javascriptDefaults: TsDefaults;
+			};
+		}
+	).typescript;
+	if (ts) {
+		const diag = {
+			noSemanticValidation: true,
+			noSyntaxValidation: false,
+			noSuggestionDiagnostics: true,
+		};
+		ts.typescriptDefaults.setDiagnosticsOptions(diag);
+		ts.javascriptDefaults.setDiagnosticsOptions(diag);
+	}
 }
 
 export function registerCodeNavProviders(deps: {
