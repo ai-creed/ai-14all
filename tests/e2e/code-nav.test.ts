@@ -367,10 +367,9 @@ test.describe.serial("Code navigation MVP", () => {
 			{ timeout: 10_000 },
 		);
 
-		// Run the exact command the right-click "Go to Definition" menu item and
-		// ⌘F12 invoke, with the cursor on the parseConfig identifier (line 5,
-		// `return parseConfig("{}")`). This drives our DefinitionProvider, which
-		// resolves the symbol to a cortex:// Location (captured on
+		// Run the real "Go to Definition" command on the parseConfig identifier
+		// (line 5, `return parseConfig("{}")`). This invokes our DefinitionProvider,
+		// which resolves the symbol to a cortex:// Location (captured on
 		// window.__codeNavTestLastDefUri).
 		const word = await page.evaluate(() => {
 			const editor = (
@@ -396,13 +395,12 @@ test.describe.serial("Code navigation MVP", () => {
 		});
 		expect(word).toBe("parseConfig");
 
-		// Wait for the DefinitionProvider's cortex:// result, then open it through
-		// the editor's real ICodeEditorService exactly as Monaco's _openReference
-		// does. This exercises the navigation chain the fix repairs:
-		// registerEditorOpener → NavRouter.navigate → reducer → InlineEditor swap.
-		// (Driving openCodeEditor directly with the provider's real URI is
-		// deterministic; the command's own open step is flaky under headless
-		// focus but is confirmed by monaco source to call this same method.)
+		// Open the provider's cortex:// result through the editor's real
+		// ICodeEditorService exactly as Monaco's _openReference does, exercising
+		// the chain the fix repairs: registerEditorOpener → NavRouter.navigate →
+		// reducer → main-pane swap. (Headless can't reliably complete Monaco's
+		// command past its async definition query; the open step it would take is
+		// confirmed by monaco source to call this same ICodeEditorService method.)
 		await expect
 			.poll(
 				() =>

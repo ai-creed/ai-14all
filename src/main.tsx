@@ -1,3 +1,6 @@
+// Side-effect import: install MonacoEnvironment.getWorker before any editor
+// mounts. Must precede anything that may load monaco-editor.
+import "./lib/monaco-environment.js";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App.js";
