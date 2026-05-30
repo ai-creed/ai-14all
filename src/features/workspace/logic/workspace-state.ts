@@ -248,6 +248,7 @@ function createSession(worktree: Worktree): WorktreeSession {
 		task: null,
 		pendingReveal: null,
 		paneTransient: false,
+		navLocation: null,
 	};
 }
 
@@ -1191,11 +1192,15 @@ export function workspaceReducer(
 	} else if (action.type === "session/setReviewSidebarWidth") {
 		nextSession = { ...session, reviewSidebarWidth: action.width };
 	} else if (action.type === "session/selectFile") {
+		// A deliberate file open (tree click) ends any transient preview and
+		// becomes the current nav location at file top.
 		nextSession = {
 			...session,
 			reviewMode: "files",
 			viewerMode: "file",
 			selectedFilePath: action.relativePath,
+			paneTransient: false,
+			navLocation: { file: action.relativePath, line: 1 },
 		};
 	} else if (action.type === "session/selectFileAtLocation") {
 		nextSession = {
@@ -1209,16 +1214,26 @@ export function workspaceReducer(
 				capturedAt: Date.now(),
 			},
 			paneTransient: action.transient,
+			navLocation: {
+				file: action.relativePath,
+				line: action.revealLine,
+				column: action.revealColumn,
+			},
 		};
 	} else if (action.type === "session/consumePendingReveal") {
 		if (!session.pendingReveal) return state;
 		nextSession = { ...session, pendingReveal: null };
 	} else if (action.type === "session/selectChangedFile") {
+		// Switching to a diff leaves code-nav mode: end any transient preview
+		// and clear the code-pane nav location so the next jump doesn't push a
+		// stale code file onto history.
 		nextSession = {
 			...session,
 			reviewMode: "changes",
 			viewerMode: "diff",
 			selectedChangedFilePath: action.relativePath,
+			paneTransient: false,
+			navLocation: null,
 		};
 	} else if (action.type === "session/selectCommit") {
 		nextSession = {

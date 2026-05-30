@@ -502,6 +502,67 @@ describe("workspaceReducer — code-nav pendingReveal", () => {
 		});
 		expect(next).toBe(state);
 	});
+
+	it("stamps navLocation with line/column on selectFileAtLocation", () => {
+		let state = createWorkspaceState(worktrees);
+		expect(state.sessionsByWorktreeId.main.navLocation).toBeNull();
+		state = workspaceReducer(state, {
+			type: "session/selectFileAtLocation",
+			worktreeId: "main",
+			relativePath: "src/config.ts",
+			revealLine: 42,
+			revealColumn: 7,
+			transient: true,
+		});
+		expect(state.sessionsByWorktreeId.main.navLocation).toEqual({
+			file: "src/config.ts",
+			line: 42,
+			column: 7,
+		});
+	});
+
+	it("selectFile ends a transient preview and sets navLocation at file top", () => {
+		let state = createWorkspaceState(worktrees);
+		// Enter a transient preview via a definition jump.
+		state = workspaceReducer(state, {
+			type: "session/selectFileAtLocation",
+			worktreeId: "main",
+			relativePath: "src/config.ts",
+			revealLine: 42,
+			transient: true,
+		});
+		expect(state.sessionsByWorktreeId.main.paneTransient).toBe(true);
+
+		// A deliberate tree click must clear the transient flag so the next
+		// jump pushes history instead of replacing in place.
+		state = workspaceReducer(state, {
+			type: "session/selectFile",
+			worktreeId: "main",
+			relativePath: "src/other.ts",
+		});
+		const session = state.sessionsByWorktreeId.main;
+		expect(session.paneTransient).toBe(false);
+		expect(session.navLocation).toEqual({ file: "src/other.ts", line: 1 });
+	});
+
+	it("selectChangedFile clears transient flag and code-pane navLocation", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/selectFileAtLocation",
+			worktreeId: "main",
+			relativePath: "src/config.ts",
+			revealLine: 42,
+			transient: true,
+		});
+		state = workspaceReducer(state, {
+			type: "session/selectChangedFile",
+			worktreeId: "main",
+			relativePath: "src/config.ts",
+		});
+		const session = state.sessionsByWorktreeId.main;
+		expect(session.paneTransient).toBe(false);
+		expect(session.navLocation).toBeNull();
+	});
 });
 
 describe("workspaceReducer — Phase 3 process model", () => {

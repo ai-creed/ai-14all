@@ -56,4 +56,12 @@ export type WorktreeSession = {
 	 * the next jump instead of pushing history. Memory-only.
 	 */
 	paneTransient: boolean;
+	/**
+	 * The location the main code pane is currently showing, fed to the
+	 * NavRouter as `ActiveContext.currentLocation` so a subsequent jump can
+	 * push it onto nav history. Stamped by the file-select reducers; null when
+	 * the pane shows a diff/commit/no code file. Memory-only — absent from
+	 * PersistedWorktreeSessionSchema. See spec §299, §304.
+	 */
+	navLocation: { file: string; line: number; column?: number } | null;
 };
