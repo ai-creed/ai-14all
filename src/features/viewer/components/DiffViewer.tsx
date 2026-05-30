@@ -84,7 +84,7 @@ export function DiffViewer({
 					scrollBeyondLastLine: false,
 					glyphMargin: true,
 				}}
-				onMount={(editor) => {
+				onMount={(editor, monacoInstance) => {
 					editorRef.current = editor;
 					// E2E hook: expose the modified-side editor so Playwright can
 					// drive the same openLink action a cmd+click on a rendered
@@ -98,27 +98,13 @@ export function DiffViewer({
 							}
 						).__codeNavTestDiffModifiedEditor = editor.getModifiedEditor();
 					}
-					// Install cortex:// opener on both halves of the diff editor so
-					// document-link clicks routing to cortex URIs are intercepted.
-					// ALSO ensure code-nav providers are registered against the
-					// editor's monaco singleton (two-monaco race fix).
-					void import("../../code-nav/monaco/editor-opener")
-						.then(({ installCortexOpener }) => {
-							installCortexOpener(
-								editor.getOriginalEditor() as unknown as Parameters<
-									typeof installCortexOpener
-								>[0],
-							);
-							installCortexOpener(
-								editor.getModifiedEditor() as unknown as Parameters<
-									typeof installCortexOpener
-								>[0],
-							);
-						})
-						.catch(() => {});
+					// Register code-nav providers + cortex:// link opener on the
+					// EXACT monaco instance this diff editor uses, so document-link
+					// clicks route through IOpenerService where our link opener
+					// lives. Lazy-imported to keep monaco out of jsdom tests.
 					void import("../../code-nav/monaco/register")
-						.then(({ ensureCodeNavProvidersRegisteredForEditor }) =>
-							ensureCodeNavProvidersRegisteredForEditor(),
+						.then(({ ensureCortexNavRegistered }) =>
+							ensureCortexNavRegistered(monacoInstance),
 						)
 						.catch(() => {});
 					onMount?.(path, editor);

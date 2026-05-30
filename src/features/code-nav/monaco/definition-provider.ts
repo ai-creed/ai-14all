@@ -43,6 +43,14 @@ export const definitionProvider: monaco.languages.DefinitionProvider = {
 			),
 			range: new monaco.Range(r.line, 1, r.line, 1),
 		}));
+		// E2E seam: expose the most recent definition target URI so Playwright
+		// can drive the navigation open with the provider's real cortex:// URI.
+		// Harmless in prod.
+		if (typeof window !== "undefined" && locs[0]) {
+			(
+				window as unknown as { __codeNavTestLastDefUri?: string }
+			).__codeNavTestLastDefUri = locs[0].uri.toString();
+		}
 		cache.set(key, { at: Date.now(), result: locs });
 		return locs;
 	},

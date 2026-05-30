@@ -307,7 +307,7 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 
 		const [editorReady, setEditorReady] = useState(false);
 
-		const handleMount: OnMount = useCallback((editor) => {
+		const handleMount: OnMount = useCallback((editor, monacoInstance) => {
 			editorRef.current = editor;
 			setEditorReady(true);
 			// E2E hook: expose the live editor instance so Playwright can drive
@@ -322,17 +322,14 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 					}
 				).__codeNavTestInlineEditor = editor;
 			}
-			// Lazy-import the cortex opener so jsdom App tests don't pull monaco
-			// internals at import time. ALSO ensure code-nav providers are
-			// registered against the editor's monaco singleton — closes the
-			// two-monaco race where the loader resolves a different module
-			// instance than register.ts's import did.
-			void import("../../code-nav/monaco/editor-opener")
-				.then(({ installCortexOpener }) => installCortexOpener(editor))
-				.catch(() => {});
+			// Register code-nav providers + cortex:// openers on the EXACT monaco
+			// instance this editor uses (the second onMount arg). That is the
+			// singleton whose StandaloneServices the gotoDefinition / openLink
+			// actions resolve, so our handlers actually fire. Lazy-imported so
+			// jsdom App tests don't pull monaco internals at import time.
 			void import("../../code-nav/monaco/register")
-				.then(({ ensureCodeNavProvidersRegisteredForEditor }) =>
-					ensureCodeNavProvidersRegisteredForEditor(),
+				.then(({ ensureCortexNavRegistered }) =>
+					ensureCortexNavRegistered(monacoInstance),
 				)
 				.catch(() => {});
 		}, []);
