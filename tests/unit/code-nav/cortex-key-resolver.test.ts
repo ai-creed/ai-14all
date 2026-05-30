@@ -64,6 +64,33 @@ describe("CortexKeyResolver", () => {
 		});
 	});
 
+	it("auto-rescans on a cache miss once the throttle window passes (no manual invalidate)", async () => {
+		let t = 0;
+		const r = new CortexKeyResolver({
+			cortexCacheRoot: cacheRoot,
+			rescanThrottleMs: 1000,
+			now: () => t,
+		});
+		expect(await r.resolve("/Users/me/new")).toBeNull();
+
+		mkdirSync(join(cacheRoot, "repoB"), { recursive: true });
+		writeFileSync(
+			join(cacheRoot, "repoB", "wtC.meta.json"),
+			JSON.stringify({ worktreePath: "/Users/me/new" }),
+		);
+
+		// Within the throttle window: no rescan, still null.
+		t = 500;
+		expect(await r.resolve("/Users/me/new")).toBeNull();
+
+		// Past the throttle window: rescan picks up the new index.
+		t = 1500;
+		expect(await r.resolve("/Users/me/new")).toEqual({
+			repoKey: "repoB",
+			worktreeKey: "wtC",
+		});
+	});
+
 	it("refreshes its cache when a new sidecar appears", async () => {
 		const r = new CortexKeyResolver({ cortexCacheRoot: cacheRoot });
 		expect(await r.resolve("/Users/me/new")).toBeNull();

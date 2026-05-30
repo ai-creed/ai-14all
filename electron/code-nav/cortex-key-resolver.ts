@@ -9,12 +9,36 @@ export interface CortexKeys {
 export class CortexKeyResolver {
 	private cache = new Map<string, CortexKeys>();
 	private loaded = false;
+	private lastScanAt = 0;
+	private readonly rescanThrottleMs: number;
+	private readonly now: () => number;
 
-	constructor(private readonly opts: { cortexCacheRoot: string }) {}
+	constructor(
+		private readonly opts: {
+			cortexCacheRoot: string;
+			rescanThrottleMs?: number;
+			now?: () => number;
+		},
+	) {
+		this.rescanThrottleMs = opts.rescanThrottleMs ?? 2000;
+		this.now = opts.now ?? (() => Date.now());
+	}
 
 	async resolve(worktreePath: string): Promise<CortexKeys | null> {
 		if (!this.loaded) await this.scan();
-		return this.cache.get(worktreePath) ?? null;
+		const hit = this.cache.get(worktreePath);
+		if (hit) return hit;
+		// Cache miss: ai-cortex may have produced an index for this worktree
+		// after our last scan (the user indexed it post-launch). Re-scan,
+		// throttled, so a fresh index gets picked up without an app restart.
+		// Without this the resolver kept a single process-lifetime scan and
+		// every later index stayed invisible — a permanent
+		// CortexKeysNotFoundError on every cmd+click until restart.
+		if (this.now() - this.lastScanAt >= this.rescanThrottleMs) {
+			await this.scan();
+			return this.cache.get(worktreePath) ?? null;
+		}
+		return null;
 	}
 
 	invalidate(): void {
@@ -64,6 +88,7 @@ export class CortexKeyResolver {
 			}
 		}
 		this.loaded = true;
+		this.lastScanAt = this.now();
 	}
 }
 
