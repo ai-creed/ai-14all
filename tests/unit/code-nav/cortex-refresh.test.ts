@@ -94,6 +94,15 @@ describe("refresh pipeline integration: watcher → CLI stub → ingest → emit
 			{ workspaceId: "ws1", worktreeId: "wt1" },
 		);
 
+		// Spawns the real ai-cortex CLI shape for hygiene re-index:
+		// `rehydrate <worktreePath>` (positional path) — not the nonexistent
+		// `index_project --worktree`.
+		expect(spawnMock).toHaveBeenCalledWith(
+			"ai-cortex",
+			["rehydrate", "/fixture/wt"],
+			expect.anything(),
+		);
+
 		const sidecar = JSON.parse(
 			readFileSync(
 				cortexIndex

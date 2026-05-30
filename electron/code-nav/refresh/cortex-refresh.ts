@@ -42,8 +42,11 @@ export class CortexRefreshController {
 		changedFiles?: string[],
 	): Promise<void> {
 		await new Promise<void>((resolve, reject) => {
-			const args = ["index_project", "--worktree", keys.worktreePath];
-			if (changedFiles?.length) args.push("--changed", changedFiles.join(","));
+			// Hygiene re-index via the ai-cortex CLI. `rehydrate <worktreePath>`
+			// re-indexes the worktree and rewrites the cache JSON we ingest. The
+			// CLI has no incremental `--changed` flag, so `changedFiles` only
+			// gates whether a refresh runs (decided by the caller/watcher).
+			const args = ["rehydrate", keys.worktreePath];
 			const child = spawn("ai-cortex", args, {
 				stdio: ["ignore", "pipe", "pipe"],
 			});

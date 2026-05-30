@@ -716,7 +716,12 @@ export function registerIpcHandlers(
 		onBatch: ({ keys: { worktreePath }, changedFiles }) => {
 			const entry = watchKeys.get(worktreePath);
 			if (!entry) return;
-			void refresh.refresh(entry.keys, entry.ids, changedFiles);
+			// The controller already toasts on failure and rejects; swallow here
+				// so a failed background re-index (e.g. ai-cortex CLI error) doesn't
+				// surface as an unhandled promise rejection.
+				void refresh
+					.refresh(entry.keys, entry.ids, changedFiles)
+					.catch(() => {});
 		},
 	});
 	const disposeCodeNavIpc = registerCodeNavIpc({
