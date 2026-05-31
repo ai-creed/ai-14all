@@ -209,13 +209,15 @@ export function OnboardingWizard({ open, onClose, onLoadPath }: Props) {
             ))}
           </div>
           <div className="flex gap-2 items-center min-w-[120px] justify-end">
-            <button
-              type="button"
-              className="bg-transparent border-none text-muted-foreground text-[13px] cursor-pointer px-2 py-1 hover:text-secondary-foreground"
-              onClick={handleSkip}
-            >
-              Skip
-            </button>
+            {!isLastStep && (
+              <button
+                type="button"
+                className="bg-transparent border-none text-muted-foreground text-[13px] cursor-pointer px-2 py-1 hover:text-secondary-foreground"
+                onClick={handleSkip}
+              >
+                Skip
+              </button>
+            )}
             {!isLastStep && (
               <button
                 type="button"
