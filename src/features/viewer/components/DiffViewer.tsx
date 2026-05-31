@@ -59,10 +59,10 @@ export function DiffViewer({
 	}, []);
 
 	return (
-		<div className="shell-viewer" data-readonly-editor="true">
-			<div className="shell-viewer__header">
-				<div className="shell-viewer__title">{path}</div>
-				<div className="shell-viewer__meta">Diff vs HEAD</div>
+		<div className="grid grid-rows-[auto_1fr]" data-readonly-editor="true">
+			<div className="flex items-center gap-2 px-3 py-1 border-b border-border text-xs text-muted-foreground">
+				<div className="text-base">{path}</div>
+				<div className="ml-auto text-muted-foreground">Diff vs HEAD</div>
 			</div>
 			<DiffEditor
 				height="100%"

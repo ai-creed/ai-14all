@@ -451,7 +451,7 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 
 		if (load.kind === "loading") {
 			return (
-				<p className="shell-empty-state" data-testid="inline-editor-loading">
+				<p className="text-sm text-muted-foreground italic p-4" data-testid="inline-editor-loading">
 					Loading {relativePath}…
 				</p>
 			);
@@ -460,14 +460,14 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 		if (load.kind === "error") {
 			return (
 				<div
-					className="shell-viewer"
+					className="grid grid-rows-[auto_1fr]"
 					data-testid="inline-editor-error"
 					data-reason={load.reason}
 				>
-					<div className="shell-viewer__header">
-						<div className="shell-viewer__title">{relativePath}</div>
+					<div className="flex items-center px-3 py-1 border-b border-border text-xs text-muted-foreground">
+						<div className="text-base">{relativePath}</div>
 					</div>
-					<p className="shell-error">{load.message}</p>
+					<p className="text-sm text-destructive p-4">{load.message}</p>
 				</div>
 			);
 		}
@@ -479,22 +479,22 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 
 		return (
 			<div
-				className="shell-viewer shell-inline-editor"
+				className="grid grid-rows-[auto_1fr] flex flex-col h-full"
 				data-testid="inline-editor"
 				data-readonly={readOnly ? "true" : "false"}
 				data-preview={previewing ? "true" : "false"}
 				onKeyDownCapture={onKeyDown}
 			>
-				<div className="shell-viewer__header">
-					<div className="shell-viewer__title">{relativePath}</div>
+				<div className="flex items-center gap-2 px-3 py-1 border-b border-border text-xs text-muted-foreground">
+					<div className="text-base">{relativePath}</div>
 					{readOnly && (
-						<span className="shell-inline-editor__readonly-chip">
+						<span className="text-[10px] px-1 py-0.5 bg-muted rounded text-muted-foreground">
 							read-only
 						</span>
 					)}
 					{status && (
 						<span
-							className={`shell-inline-editor__status shell-inline-editor__status--${status.kind}`}
+							className={`h-1.5 w-1.5 rounded-full inline-block ${status.kind === "saved" ? "bg-green-500" : "bg-destructive"}`}
 							role="status"
 						>
 							{status.message}
@@ -503,7 +503,7 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 					{isMarkdown && (
 						<button
 							type="button"
-							className="shell-inline-editor__preview-btn"
+							className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md hover:bg-accent hover:text-accent-foreground ml-auto"
 							onClick={() => setPreviewing((p) => !p)}
 							title={
 								previewing
@@ -523,8 +523,8 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 					)}
 				</div>
 				{previewing && isMarkdown ? (
-					<div className="shell-inline-editor__preview">
-						<div className="shell-inline-editor__preview-body">
+					<div className="flex-1 overflow-auto">
+						<div className="prose dark:prose-invert max-w-none p-4">
 							<ReactMarkdown
 								remarkPlugins={[remarkGfm]}
 								rehypePlugins={[rehypeHighlight]}
@@ -547,7 +547,7 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 					/>
 				)}
 				{dirty && (
-					<div className="shell-inline-editor__bar-slot">
+					<div className="shrink-0">
 						<EditorDirtyBar
 							onSave={() => void handleSave()}
 							onDiscard={handleDiscard}
