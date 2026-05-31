@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import * as ContextMenu from "@radix-ui/react-context-menu";
+import {
+	ContextMenu,
+	ContextMenuContent,
+	ContextMenuItem,
+	ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { buildLinearCommitGraph } from "../logic/build-linear-commit-graph.js";
 import type {
 	GitCommitHistory,
@@ -155,47 +160,45 @@ export function CommitList({
 									}
 
 									return (
-										<ContextMenu.Root key={file.path}>
-											<ContextMenu.Trigger asChild>
+										<ContextMenu key={file.path}>
+											<ContextMenuTrigger asChild>
 												{button}
-											</ContextMenu.Trigger>
-											<ContextMenu.Portal>
-												<ContextMenu.Content className="shell-toolbar-menu">
-													<ContextMenu.Item
-														className="shell-toolbar-menu__item"
-														onSelect={() => {
-															if (!activeDetail) return;
-															// Lazy-fetch the modified blob at the commit
-															// for the preview override. `readCommitFileDiff`
-															// returns the same shape the eager flow used.
-															void git
-																.readCommitFileDiff(
-																	workspaceId,
-																	worktreeId,
-																	activeDetail.sha,
-																	file,
-																)
-																.then((diff) => {
-																	setPreviewState({
-																		path: file.path,
-																		content: diff.modifiedContent,
-																	});
-																})
-																.catch(() => {
-																	// Fall back to opening the modal without an
-																	// override — it'll read the working-tree copy.
-																	setPreviewState({
-																		path: file.path,
-																		content: "",
-																	});
+											</ContextMenuTrigger>
+											<ContextMenuContent className="min-w-[8rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
+												<ContextMenuItem
+													className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground"
+													onSelect={() => {
+														if (!activeDetail) return;
+														// Lazy-fetch the modified blob at the commit
+														// for the preview override. `readCommitFileDiff`
+														// returns the same shape the eager flow used.
+														void git
+															.readCommitFileDiff(
+																workspaceId,
+																worktreeId,
+																activeDetail.sha,
+																file,
+															)
+															.then((diff) => {
+																setPreviewState({
+																	path: file.path,
+																	content: diff.modifiedContent,
 																});
-														}}
-													>
-														Preview
-													</ContextMenu.Item>
-												</ContextMenu.Content>
-											</ContextMenu.Portal>
-										</ContextMenu.Root>
+															})
+															.catch(() => {
+																// Fall back to opening the modal without an
+																// override — it'll read the working-tree copy.
+																setPreviewState({
+																	path: file.path,
+																	content: "",
+																});
+															});
+													}}
+												>
+													Preview
+												</ContextMenuItem>
+											</ContextMenuContent>
+										</ContextMenu>
 									);
 								})}
 							</div>
