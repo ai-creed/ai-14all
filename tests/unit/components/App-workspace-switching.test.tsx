@@ -187,7 +187,7 @@ describe("workspace switching", () => {
 		await userEvent.click(screen.getByRole("button", { name: "Load" }));
 
 		const sidebar = screen.getByRole("navigation", {
-			name: "Worktree sessions",
+			name: "Sessions",
 		});
 		const group = await within(sidebar).findByRole("group", { name: "repo-a" });
 		expect(group).toHaveAttribute("data-active-workspace", "true");
@@ -260,7 +260,7 @@ describe("workspace switching", () => {
 		await userEvent.click(screen.getByRole("button", { name: "Load" }));
 
 		const sidebar = screen.getByRole("navigation", {
-			name: "Worktree sessions",
+			name: "Sessions",
 		});
 		await waitFor(() => {
 			expect(
@@ -300,7 +300,7 @@ describe("workspace switching", () => {
 		await userEvent.click(screen.getByRole("button", { name: "Load" }));
 
 		const sidebar = screen.getByRole("navigation", {
-			name: "Worktree sessions",
+			name: "Sessions",
 		});
 		const group = await within(sidebar).findByRole("group", { name: "repo-a" });
 		expect(group).toHaveAttribute("data-active-workspace", "true");
@@ -450,7 +450,7 @@ describe("workspace switching", () => {
 		await userEvent.type(input, "/repo-a");
 		await userEvent.click(screen.getByRole("button", { name: "Load" }));
 
-		await screen.findByRole("navigation", { name: "Worktree sessions" });
+		await screen.findByRole("navigation", { name: "Sessions" });
 
 		onOpenPickerCallback?.();
 
@@ -460,7 +460,7 @@ describe("workspace switching", () => {
 
 		await waitFor(() => {
 			const latestSidebar = screen.getByRole("navigation", {
-				name: "Worktree sessions",
+				name: "Sessions",
 			});
 			expect(
 				within(latestSidebar).getByRole("group", { name: "repo-a" }),
@@ -471,7 +471,7 @@ describe("workspace switching", () => {
 		});
 
 		const sidebar = screen.getByRole("navigation", {
-			name: "Worktree sessions",
+			name: "Sessions",
 		});
 		const repoAGroup = within(sidebar).getByRole("group", { name: "repo-a" });
 		const repoBGroup = within(sidebar).getByRole("group", { name: "repo-b" });
@@ -555,7 +555,7 @@ describe("workspace switching", () => {
 		await userEvent.click(screen.getByRole("button", { name: "Load" }));
 
 		const sidebar = screen.getByRole("navigation", {
-			name: "Worktree sessions",
+			name: "Sessions",
 		});
 		const repoBGroup = await within(sidebar).findByRole("group", {
 			name: "repo-b",
@@ -645,7 +645,7 @@ describe("workspace switching", () => {
 		);
 		await userEvent.click(screen.getByRole("button", { name: "Load" }));
 		const sidebar = await screen.findByRole("navigation", {
-			name: "Worktree sessions",
+			name: "Sessions",
 		});
 		const repoAGroup = await within(sidebar).findByRole("group", {
 			name: "repo-a",
@@ -723,9 +723,9 @@ describe("workspace switching", () => {
 	});
 
 	it("unregisters a non-active workspace from the sidebar", async () => {
-		// Workspace removal with live terminals requires confirmation; auto-confirm in this test.
-		vi.spyOn(window, "confirm").mockReturnValue(true);
-
+		// Workspace removal with live terminals opens a ConfirmDialog (replaces the
+		// old window.confirm). The test clicks "Remove workspace" in the dialog
+		// after the X-button click below.
 		let onOpenPickerCallback: (() => void) | undefined;
 
 		const { workspace: workspaceMock } =
@@ -795,7 +795,7 @@ describe("workspace switching", () => {
 		await userEvent.click(screen.getByRole("button", { name: "Load" }));
 
 		const sidebar = screen.getByRole("navigation", {
-			name: "Worktree sessions",
+			name: "Sessions",
 		});
 		await within(sidebar).findByRole("group", { name: "repo-b" });
 		expect(
@@ -805,9 +805,19 @@ describe("workspace switching", () => {
 		await userEvent.click(
 			within(sidebar).getByRole("button", { name: /remove repo-a/i }),
 		);
-		expect(
-			within(sidebar).queryByRole("group", { name: "repo-a" }),
-		).not.toBeInTheDocument();
+
+		// ConfirmDialog opens because repo-a has a live auto-spawned shell. Click
+		// "Remove workspace" to actually unregister.
+		const confirmDialog = await screen.findByRole("dialog");
+		await userEvent.click(
+			within(confirmDialog).getByRole("button", { name: "Remove workspace" }),
+		);
+
+		await waitFor(() => {
+			expect(
+				within(sidebar).queryByRole("group", { name: "repo-a" }),
+			).not.toBeInTheDocument();
+		});
 		expect(
 			within(sidebar).getByRole("group", { name: "repo-b" }),
 		).toBeInTheDocument();

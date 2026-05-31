@@ -45,7 +45,7 @@ test.afterAll(async () => {
 });
 
 const worktreeNav = () =>
-	page.getByRole("navigation", { name: "Worktree sessions" });
+	page.getByRole("navigation", { name: "Sessions" });
 
 test.describe.serial("Cumulative flow — Phase 7", () => {
 	test("loads the repository and shows worktrees in the sidebar", async () => {
@@ -75,7 +75,7 @@ test.describe.serial("Cumulative flow — Phase 7", () => {
 				.getByRole("dialog", { name: "New session" })
 				.getByText("origin/master"),
 		).toBeVisible();
-		await page.getByRole("button", { name: "Create worktree" }).click();
+		await page.getByRole("button", { name: "Create session" }).click();
 		await expect(
 			worktreeNav().getByRole("button", { name: "feature-b", exact: true }),
 		).toBeVisible({
@@ -124,20 +124,20 @@ test.describe.serial("Cumulative flow — Phase 7", () => {
 		await worktreeNav()
 			.getByRole("button", { name: "feature-a", exact: true })
 			.click({ button: "right" });
-		await page.getByRole("menuitem", { name: "Remove worktree" }).click();
+		await page.getByRole("menuitem", { name: "Remove session" }).click();
 		// The fixture intentionally leaves feature-a dirty with uncommitted file changes.
-		await expect(page.getByText("Dirty worktree: yes")).toBeVisible({
+		await expect(page.getByText("Uncommitted changes: yes")).toBeVisible({
 			timeout: 10_000,
 		});
-		await expect(page.getByText(/Running app sessions:/)).toBeVisible({
+		await expect(page.getByText(/Running shells:/)).toBeVisible({
 			timeout: 10_000,
 		});
 		await page
 			.getByRole("checkbox", {
-				name: /I understand this worktree has uncommitted changes/,
+				name: /I understand this session has uncommitted changes/,
 			})
 			.check();
-		await page.getByRole("button", { name: "Remove worktree" }).click();
+		await page.getByRole("button", { name: "Remove session" }).click();
 		// Wait for the dialog to close before checking the sidebar and branch.
 		// While the Radix UI dialog is open it sets aria-hidden on the rest of the
 		// page, so sidebar buttons are not findable via getByRole until it closes.

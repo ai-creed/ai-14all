@@ -66,7 +66,7 @@ describe("WorktreeTree basic states", () => {
 		renderTree({ worktreeLabel: "my-repo" });
 		expect(await screen.findByText("my-repo")).toBeInTheDocument();
 		expect(
-			await screen.findByText(/No files in this worktree/i),
+			await screen.findByText(/No files in this session/i),
 		).toBeInTheDocument();
 	});
 

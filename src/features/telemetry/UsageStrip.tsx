@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import {
+	ArrowDownIcon,
+	ArrowUpIcon,
+	CaretDownIcon,
+} from "@phosphor-icons/react";
 import type {
 	LimitGauge,
 	UsageProvider,
@@ -76,10 +81,24 @@ export function UsageStrip({
 							</span>
 							<span
 								className="usage-tok"
-								title="↑ prompt tokens sent · ↓ tokens generated"
+								title="prompt tokens sent · tokens generated"
 							>
-								<span className="usage-bill">↑{formatTokens(t.input)}</span>{" "}
-								<span className="usage-raw">↓{formatTokens(t.output)}</span>
+								<span className="usage-bill">
+									<ArrowUpIcon
+										size={10}
+										weight="regular"
+										aria-hidden="true"
+									/>
+									{formatTokens(t.input)}
+								</span>{" "}
+								<span className="usage-raw">
+									<ArrowDownIcon
+										size={10}
+										weight="regular"
+										aria-hidden="true"
+									/>
+									{formatTokens(t.output)}
+								</span>
 							</span>
 							<span className="usage-cell">
 								<span className="usage-col-h">5h</span>
@@ -101,7 +120,7 @@ export function UsageStrip({
 				aria-label="Open token breakdown"
 				onClick={() => setOpen((v) => !v)}
 			>
-				▾
+				<CaretDownIcon size={12} weight="regular" aria-hidden="true" />
 			</button>
 			{open &&
 				createPortal(

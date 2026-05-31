@@ -1,3 +1,14 @@
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import {
+	ArrowSquareOutIcon,
+	CheckIcon,
+	FilesIcon,
+	NoteIcon,
+	PencilSimpleIcon,
+	QuestionIcon,
+} from "@phosphor-icons/react";
+import { HelpHint } from "../../../components/HelpHint";
+
 type Props = {
 	sessionTitle: string;
 	worktreeLabel: string;
@@ -9,9 +20,13 @@ type Props = {
 	onDirtyClick: () => void;
 	onFilesClick: () => void;
 	onNoteClick: () => void;
+	onShortcutsClick: () => void;
+	onAboutClick: () => void;
+	onPreferencesClick: () => void;
+	onOpenExternalReadme: () => void;
 	/**
 	 * Optional render slot for a separate right-side action group (e.g. terminal
-	 * controls). Rendered after the Files/Note chips, separated by a divider.
+	 * controls). Rendered after the FilesIcon/NoteIcon chips, separated by a divider.
 	 * Kept presentational: SessionChipBar renders the node, it owns no
 	 * terminal-specific logic.
 	 */
@@ -31,11 +46,20 @@ export function SessionChipBar({
 	onDirtyClick,
 	onFilesClick,
 	onNoteClick,
+	onShortcutsClick,
+	onAboutClick,
+	onPreferencesClick,
+	onOpenExternalReadme,
 	terminalActions,
 	usage,
 }: Props) {
 	return (
-		<div className="shell-chip-bar" role="region" aria-label="Session">
+		<div
+			className="shell-chip-bar"
+			role="region"
+			aria-label="Session"
+			data-tour="chipbar"
+		>
 			<div className="shell-chip-bar__identity">
 				<span className="shell-chip-bar__title">{sessionTitle}</span>
 				<button
@@ -44,12 +68,17 @@ export function SessionChipBar({
 					aria-label="Rename session"
 					onClick={onRenameClick}
 				>
-					✎
+					<PencilSimpleIcon size={14} weight="regular" aria-hidden="true" />
 				</button>
 			</div>
 
 			<div className="shell-chip-bar__meta" aria-label="Worktree and branch">
 				<span className="shell-chip-bar__worktree">{worktreeLabel}</span>
+				<HelpHint term="Worktree" side="bottom">
+					A worktree is a checkout of a git branch in its own directory. Each
+					session has its own worktree so its files and uncommitted changes
+					stay isolated from other sessions.
+				</HelpHint>
 				{branchName && (
 					<>
 						<span className="shell-chip-bar__sep" aria-hidden="true">
@@ -76,7 +105,7 @@ export function SessionChipBar({
 						title="Clean — no changes"
 						aria-label="Clean"
 					>
-						✓ clean
+						<CheckIcon size={12} weight="regular" aria-hidden="true" /> clean
 					</span>
 				)}
 			</div>
@@ -87,13 +116,13 @@ export function SessionChipBar({
 				<button
 					type="button"
 					className="shell-chip-bar__action"
-					aria-label="Open Files"
+					aria-label="Open FilesIcon"
 					onClick={onFilesClick}
 				>
 					<span className="shell-chip-bar__action-icon" aria-hidden="true">
-						🗂
+						<FilesIcon size={14} weight="regular" />
 					</span>
-					Files
+					FilesIcon
 				</button>
 				<button
 					type="button"
@@ -103,9 +132,9 @@ export function SessionChipBar({
 					onClick={onNoteClick}
 				>
 					<span className="shell-chip-bar__action-icon" aria-hidden="true">
-						📝
+						<NoteIcon size={14} weight="regular" />
 					</span>
-					Note
+					NoteIcon
 					{noteNonEmpty && (
 						<span className="shell-chip-bar__note-dot" aria-hidden="true" />
 					)}
@@ -119,6 +148,61 @@ export function SessionChipBar({
 						{terminalActions}
 					</>
 				)}
+				<span
+					className="shell-chip-bar__action-divider"
+					aria-hidden="true"
+				/>
+				<DropdownMenu.Root>
+					<DropdownMenu.Trigger asChild>
+						<button
+							type="button"
+							className="shell-chip-bar__action"
+							aria-label="Help"
+							title="Help"
+						>
+							<span
+								className="shell-chip-bar__action-icon"
+								aria-hidden="true"
+							>
+								<QuestionIcon size={14} weight="regular" />
+							</span>
+						</button>
+					</DropdownMenu.Trigger>
+					<DropdownMenu.Portal>
+						<DropdownMenu.Content className="shell-toolbar-menu" align="end">
+							<DropdownMenu.Item
+								className="shell-toolbar-menu__item"
+								onSelect={onShortcutsClick}
+							>
+								Keyboard shortcuts
+							</DropdownMenu.Item>
+							<DropdownMenu.Item
+								className="shell-toolbar-menu__item"
+								onSelect={onAboutClick}
+							>
+								About ai-14all
+							</DropdownMenu.Item>
+							<DropdownMenu.Item
+								className="shell-toolbar-menu__item"
+								onSelect={onPreferencesClick}
+							>
+								Preferences…
+							</DropdownMenu.Item>
+							<DropdownMenu.Item
+								className="shell-toolbar-menu__item"
+								onSelect={onOpenExternalReadme}
+							>
+								Open README on GitHub
+								<ArrowSquareOutIcon
+									size={12}
+									weight="regular"
+									aria-hidden="true"
+									style={{ marginLeft: 6, verticalAlign: "middle" }}
+								/>
+							</DropdownMenu.Item>
+						</DropdownMenu.Content>
+					</DropdownMenu.Portal>
+				</DropdownMenu.Root>
 			</div>
 		</div>
 	);

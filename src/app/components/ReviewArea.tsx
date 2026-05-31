@@ -42,6 +42,7 @@ import {
 import { installSelectionPill } from "../../features/review/logic/inline-comment-widgets";
 import { installCommentKeyBindings } from "../../features/review/logic/comment-key-bindings";
 import { useToast } from "../../features/ui/toast/use-toast";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { createDiffEditorRegistry } from "../../features/review/logic/diff-editor-registry";
 import {
 	navigateToNextDiff,
@@ -211,25 +212,15 @@ export function ReviewArea(props: Props): React.ReactElement {
 		[activeWorktree, activeSession, dispatch],
 	);
 
-	const startDraft = useCallback(
-		(
-			arg: Pick<
-				NewCommentDraft,
-				"filePath" | "startLine" | "endLine" | "snippet"
-			>,
-		) => {
-			if (
-				addingDraft &&
-				addingDraft.body.trim().length > 0 &&
-				(addingDraft.filePath !== arg.filePath ||
-					addingDraft.startLine !== arg.startLine ||
-					addingDraft.endLine !== arg.endLine)
-			) {
-				const ok = window.confirm(
-					"You have an unsaved comment draft. Discard it and start a new one?",
-				);
-				if (!ok) return;
-			}
+	type PendingDraftArgs = Pick<
+		NewCommentDraft,
+		"filePath" | "startLine" | "endLine" | "snippet"
+	>;
+	const [pendingDraftStart, setPendingDraftStart] =
+		useState<PendingDraftArgs | null>(null);
+
+	const applyDraft = useCallback(
+		(arg: PendingDraftArgs) => {
 			const source: ReviewCommentSource =
 				activeSession?.reviewMode === "commits" ? "commit" : "working-tree";
 			const commitSha =
@@ -238,7 +229,24 @@ export function ReviewArea(props: Props): React.ReactElement {
 					: null;
 			setAddingDraft({ ...arg, body: "", source, commitSha });
 		},
-		[addingDraft, setAddingDraft, activeSession],
+		[setAddingDraft, activeSession],
+	);
+
+	const startDraft = useCallback(
+		(arg: PendingDraftArgs) => {
+			if (
+				addingDraft &&
+				addingDraft.body.trim().length > 0 &&
+				(addingDraft.filePath !== arg.filePath ||
+					addingDraft.startLine !== arg.startLine ||
+					addingDraft.endLine !== arg.endLine)
+			) {
+				setPendingDraftStart(arg);
+				return;
+			}
+			applyDraft(arg);
+		},
+		[addingDraft, applyDraft],
 	);
 
 	const inlineComments = useMemo(() => {
@@ -866,6 +874,19 @@ export function ReviewArea(props: Props): React.ReactElement {
 						);
 					})()}
 			</div>
+			<ConfirmDialog
+				open={pendingDraftStart !== null}
+				title="Discard unsaved comment?"
+				description="You have an unsaved comment draft. Discard it and start a new one?"
+				confirmLabel="Discard"
+				danger
+				onConfirm={() => {
+					const arg = pendingDraftStart;
+					setPendingDraftStart(null);
+					if (arg) applyDraft(arg);
+				}}
+				onCancel={() => setPendingDraftStart(null)}
+			/>
 		</Tabs.Root>
 	);
 }

@@ -1,3 +1,5 @@
+import { XIcon } from "@phosphor-icons/react";
+
 type Props = {
 	message: string | null;
 	onDismiss: () => void;
@@ -19,7 +21,7 @@ export function RestoreBanner(props: Props): React.ReactElement | null {
 				aria-label="Dismiss warning"
 				onClick={onDismiss}
 			>
-				×
+				<XIcon size={12} weight="regular" aria-hidden="true" />
 			</button>
 		</div>
 	);

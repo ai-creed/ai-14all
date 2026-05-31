@@ -43,7 +43,7 @@ test.beforeAll(async () => {
 	await page.getByRole("button", { name: "Load" }).click();
 
 	// Select the main session so a worktree session exists in renderer state
-	const nav = page.getByRole("navigation", { name: "Worktree sessions" });
+	const nav = page.getByRole("navigation", { name: "Sessions" });
 	await expect(nav.getByRole("button", { name: /main/i })).toBeVisible({
 		timeout: 15_000,
 	});

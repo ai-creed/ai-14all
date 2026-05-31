@@ -39,7 +39,7 @@ async function launch(extraEnv: Record<string, string>): Promise<Harness> {
 	const page = await app.firstWindow({ timeout: 60_000 });
 
 	const worktreeNav = page.getByRole("navigation", {
-		name: "Worktree sessions",
+		name: "Sessions",
 	});
 	if (!(await worktreeNav.isVisible({ timeout: 2_000 }).catch(() => false))) {
 		const repoInput = page.locator("#repo-path");

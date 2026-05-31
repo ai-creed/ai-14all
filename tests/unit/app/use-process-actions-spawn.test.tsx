@@ -39,7 +39,7 @@ describe("useProcessActions spawn failure", () => {
 		await act(async () => {
 			await result.current.handleAddAdHoc();
 		});
-		expect(notifyToast).toHaveBeenCalledWith("Failed to start shell");
+		expect(notifyToast).toHaveBeenCalledWith("Failed to start shell: boom");
 		expect(dispatch).not.toHaveBeenCalledWith(
 			expect.objectContaining({ type: "session/registerProcess" }),
 		);

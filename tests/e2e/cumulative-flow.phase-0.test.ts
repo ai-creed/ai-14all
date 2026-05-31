@@ -46,7 +46,7 @@ test.afterAll(async () => {
 
 test.describe.serial("Cumulative flow — Phase 0", () => {
 	const worktreeNav = () =>
-		page.getByRole("navigation", { name: "Worktree sessions" });
+		page.getByRole("navigation", { name: "Sessions" });
 
 	test("loads a repository and shows worktree sessions", async () => {
 		await page.getByRole("button", { name: "Browse" }).click();

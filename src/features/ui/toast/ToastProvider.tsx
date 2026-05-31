@@ -7,6 +7,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { XIcon } from "@phosphor-icons/react";
 
 type ToastItem = { id: string; message: string };
 const MAX = 3;
@@ -85,7 +86,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 							aria-label="dismiss"
 							onClick={() => dismiss(t.id)}
 						>
-							✕
+							<XIcon size={12} weight="regular" aria-hidden="true" />
 						</button>
 					</div>
 				))}

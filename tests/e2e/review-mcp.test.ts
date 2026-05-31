@@ -81,7 +81,7 @@ test.describe.serial("Review MCP server", () => {
 
 		// Wait for the workspace to load: feature-a worktree nav button
 		const worktreeNav = page.getByRole("navigation", {
-			name: "Worktree sessions",
+			name: "Sessions",
 		});
 		await expect(
 			worktreeNav.getByRole("button", { name: /feature-a/i }),

@@ -1,4 +1,9 @@
 import { useMemo } from "react";
+import {
+	ArrowCounterClockwiseIcon,
+	CheckIcon,
+	XIcon,
+} from "@phosphor-icons/react";
 import type {
 	ReviewComment,
 	ReviewCommentSource,
@@ -205,14 +210,30 @@ function FileGroups({
 											aria-label={c.status === "open" ? "Address" : "Reopen"}
 											onClick={() => onToggleAddressed(c.id)}
 										>
-											{c.status === "open" ? "✓" : "↺"}
+											{c.status === "open" ? (
+												<CheckIcon
+													size={12}
+													weight="regular"
+													aria-hidden="true"
+												/>
+											) : (
+												<ArrowCounterClockwiseIcon
+													size={12}
+													weight="regular"
+													aria-hidden="true"
+												/>
+											)}
 										</button>
 										<button
 											type="button"
 											aria-label="Delete comment"
 											onClick={() => onDelete(c.id)}
 										>
-											×
+											<XIcon
+												size={12}
+												weight="regular"
+												aria-hidden="true"
+											/>
 										</button>
 									</div>
 								</div>

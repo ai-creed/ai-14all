@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { CheckIcon } from "@phosphor-icons/react";
 import { AppDialog } from "../../../components/AppDialog";
 import type { AgentInstallStatus } from "../hooks/use-agent-install-status";
 
@@ -112,7 +113,18 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 								{pickMsg && <p className="shell-error">{pickMsg}</p>}
 								{result && (
 									<p className={result.ok ? "shell-info" : "shell-error"}>
-										{result.ok ? "Installed ✓" : `Failed: ${result.message}`}
+										{result.ok ? (
+											<>
+												Installed{" "}
+												<CheckIcon
+													size={12}
+													weight="regular"
+													aria-hidden="true"
+												/>
+											</>
+										) : (
+											`Failed: ${result.message}`
+										)}
 									</p>
 								)}
 							</li>

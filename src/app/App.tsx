@@ -7,8 +7,10 @@ import type {
 	WorkspaceSnapshot,
 } from "../../shared/models/persisted-workspace-state";
 import { buildSavedWorkspace } from "../features/workspace/logic/workspace-persistence";
-import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
+import { WelcomeScreen } from "../features/repository/WelcomeScreen";
+import { AboutDialog } from "../components/AboutDialog";
+import { PreferencesDialog } from "../components/PreferencesDialog";
 import { type SessionSidebarWorkspace } from "../features/workspace/components/SessionSidebar";
 import { workspaceReducer } from "../features/workspace/logic/workspace-state";
 import { PresetManager } from "../features/terminals/components/PresetManager";
@@ -19,6 +21,7 @@ import {
 import { useReviewComments } from "../features/review/hooks/use-review-comments";
 import { type NewCommentDraft } from "./components/ReviewArea";
 import { useAgentInstallStatus } from "../features/review/hooks/use-agent-install-status";
+import { AgentInstallModal } from "../features/review/components/AgentInstallModal";
 import {
 	buildWorktreeAttentionDisplay,
 	buildWorktreeProcessSummary,
@@ -90,6 +93,11 @@ import { ReviewArea } from "./components/ReviewArea";
 import { SidebarPanel } from "./components/SidebarPanel";
 import { MainColumnChrome } from "./components/MainColumnChrome";
 import { RestoreBanner } from "./components/RestoreBanner";
+import { FirstRunHint } from "../features/onboarding/FirstRunHint";
+import { GuidedTour } from "../features/onboarding/GuidedTour";
+import { SystemCheckStrip } from "../features/onboarding/SystemCheckStrip";
+import { useOnboardingState } from "../features/onboarding/use-onboarding-state";
+import { notifyToast } from "../features/ui/toast/ToastProvider";
 import { AgentAttentionBanner } from "./components/AgentAttentionBanner";
 
 type StartupMode = "loading" | "prompt" | "ready";
@@ -101,7 +109,7 @@ type StartupMode = "loading" | "prompt" | "ready";
 const NOOP = () => {};
 
 export function App() {
-	const { resolvedTheme, palette } = useTheme();
+	const { resolvedTheme, palette, themeMode, setTheme } = useTheme();
 	const terminalTheme = useMemo(() => terminalThemeFor(palette), [palette]);
 	const appPlatform = useMemo(detectPlatform, []);
 	const {
@@ -357,10 +365,45 @@ export function App() {
 		agentInstallStatus.providers.length > 0 &&
 		agentInstallStatus.providers.every((p) => !p.installed);
 	const [installModalOpen, setInstallModalOpen] = useState(false);
+	const [aboutOpen, setAboutOpen] = useState(false);
+	const [preferencesOpen, setPreferencesOpen] = useState(false);
+	const onboarding = useOnboardingState();
 	const [commentSidebarOpen, setCommentSidebarOpen] = useState(false);
 	const [pendingCommentJump, setPendingCommentJump] = useState(0);
 
 	useInstallModalListener(useCallback(() => setInstallModalOpen(true), []));
+
+	// Onboarding state machine: each transition marks a one-way latch. The hooks
+	// fire toasts and gate guided-tour visibility off these flags.
+	const onboardingMark = onboarding.markStep;
+	const onboardingState = onboarding.state;
+	useEffect(() => {
+		if (!repository) return;
+		if (onboardingState.repositoryLoaded) return;
+		onboardingMark("repositoryLoaded");
+		// Welcome splash on first repo load only.
+		notifyToast(
+			`Welcome to ${repository.name}. Press ⌘N to create your first session.`,
+		);
+	}, [repository, onboardingState.repositoryLoaded, onboardingMark]);
+	useEffect(() => {
+		if (Object.keys(workspaceState.sessionsByWorktreeId).length === 0) return;
+		if (onboardingState.firstSessionCreated) return;
+		onboardingMark("firstSessionCreated");
+	}, [
+		workspaceState.sessionsByWorktreeId,
+		onboardingState.firstSessionCreated,
+		onboardingMark,
+	]);
+	useEffect(() => {
+		if (Object.keys(workspaceState.processSessionsById).length === 0) return;
+		if (onboardingState.firstShellSpawned) return;
+		onboardingMark("firstShellSpawned");
+	}, [
+		workspaceState.processSessionsById,
+		onboardingState.firstShellSpawned,
+		onboardingMark,
+	]);
 
 	useEffect(() => {
 		const currentFilePath =
@@ -609,6 +652,38 @@ export function App() {
 		stopSession,
 		removeSession,
 	});
+
+	// Preflight: if the user launches a preset whose command starts with an
+	// agent name we know about (claude, codex) AND that provider's CLI isn't
+	// available, surface a contextual toast before the spawn. We still spawn —
+	// the shell will print "command not found" in the terminal, but at least
+	// the user has context for why.
+	const handleLaunchPresetWithCheck = useCallback(
+		(presetId: string) => {
+			const preset = workspaceState.commandPresets.find(
+				(p) => p.id === presetId,
+			);
+			if (preset) {
+				const firstWord = preset.command.trim().split(/\s+/)[0];
+				const knownProvider = agentInstallStatus.providers.find((p) => {
+					if (firstWord === "claude") return p.id === "claude-code";
+					if (firstWord === "codex") return p.id === "codex";
+					return false;
+				});
+				if (knownProvider && !knownProvider.cliAvailable) {
+					notifyToast(
+						`${knownProvider.displayName} CLI not detected on PATH — the shell will print "command not found". Open Help → About → Install to set it up.`,
+					);
+				}
+			}
+			void handleLaunchPreset(presetId);
+		},
+		[
+			workspaceState.commandPresets,
+			agentInstallStatus.providers,
+			handleLaunchPreset,
+		],
+	);
 
 	const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
 
@@ -1205,7 +1280,12 @@ export function App() {
 		setPendingCommentJump((n) => n + 1);
 	}, []);
 
-	const { handleRemoveWorkspace } = useWorkspaceRemoval({
+	const {
+		handleRemoveWorkspace,
+		pendingRemoval: pendingWorkspaceRemoval,
+		confirmRemoval: confirmWorkspaceRemoval,
+		cancelRemoval: cancelWorkspaceRemoval,
+	} = useWorkspaceRemoval({
 		appWorkspaces,
 		dispatchAppWorkspaces,
 		stopSession,
@@ -1347,15 +1427,22 @@ export function App() {
 
 	if (!repository) {
 		return (
-			<main className="shell-app shell-app--setup">
-				<section className="shell-panel shell-setup-panel">
-					<h1 className="shell-setup-title">ai-14all</h1>
-					<h2>Repository</h2>
-					<RepositoryInput onLoadPath={(path) => handleLoadPath(path)} />
-					{startupError && <p className="shell-error">{startupError}</p>}
-					{error && <p className="shell-error">Error: {error}</p>}
-				</section>
-			</main>
+			<>
+				<WelcomeScreen
+					onLoadPath={(path) => handleLoadPath(path)}
+					providers={agentInstallStatus.providers}
+					onOpenAgentInstall={() => setInstallModalOpen(true)}
+					onOpenAbout={() => setAboutOpen(true)}
+					startupError={startupError}
+					error={error}
+				/>
+				<AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
+				<AgentInstallModal
+					open={installModalOpen}
+					onClose={() => setInstallModalOpen(false)}
+					status={agentInstallStatus}
+				/>
+			</>
 		);
 	}
 
@@ -1366,6 +1453,16 @@ export function App() {
 				<RestoreBanner
 					message={restoreWarning}
 					onDismiss={() => setRestoreWarning(null)}
+				/>
+				<SystemCheckStrip
+					providers={agentInstallStatus.providers}
+					mcpBindError={agentInstallStatus.bindError}
+					onOpenAgentInstall={() => setInstallModalOpen(true)}
+				/>
+				<FirstRunHint
+					hasActiveSession={activeSession !== null}
+					dismissed={onboardingState.firstRunHintDismissed}
+					onDismiss={() => onboardingMark("firstRunHintDismissed")}
 				/>
 				<div
 					className="shell-layout"
@@ -1433,11 +1530,18 @@ export function App() {
 										presets={workspaceState.commandPresets}
 										addDisabled={addDisabled}
 										onAddAdHoc={handleAddAdHoc}
-										onLaunchPreset={handleLaunchPreset}
+										onLaunchPreset={handleLaunchPresetWithCheck}
 										onOpenPresetManager={() => setPresetManagerOpen(true)}
 										onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
 									/>
 								) : undefined
+							}
+							onOpenAbout={() => setAboutOpen(true)}
+							onOpenPreferences={() => setPreferencesOpen(true)}
+							onOpenExternalReadme={() =>
+								void system.openExternal(
+									"https://github.com/ai-creed/ai-14all/blob/master/README.md",
+								)
 							}
 						/>
 
@@ -1636,6 +1740,35 @@ export function App() {
 					installModalOpen={installModalOpen}
 					setInstallModalOpen={setInstallModalOpen}
 					agentInstallStatus={agentInstallStatus}
+					pendingWorkspaceRemoval={pendingWorkspaceRemoval}
+					confirmWorkspaceRemoval={confirmWorkspaceRemoval}
+					cancelWorkspaceRemoval={cancelWorkspaceRemoval}
+				/>
+				<AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
+				<PreferencesDialog
+					open={preferencesOpen}
+					onClose={() => setPreferencesOpen(false)}
+					currentTheme={themeMode}
+					onChangeTheme={setTheme}
+					onResetOnboarding={() => {
+						onboarding.reset();
+						// Also wipe the legacy FirstRunHint key — it predates the
+						// onboarding state machine and its dismissal lives separately.
+						try {
+							localStorage.removeItem(
+								"ai14all.firstRunHint.dismissed.v1",
+							);
+						} catch {
+							// best-effort
+						}
+						notifyToast("Onboarding reset — refresh to see the welcome again.");
+					}}
+				/>
+				<GuidedTour
+					active={
+						onboardingState.firstSessionCreated && !onboardingState.tourCompleted
+					}
+					onComplete={() => onboardingMark("tourCompleted")}
 				/>
 			</main>
 		</ToastProvider>

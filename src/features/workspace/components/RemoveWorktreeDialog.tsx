@@ -29,8 +29,8 @@ export function RemoveWorktreeDialog({
 			<AppDialog.Title>Remove session</AppDialog.Title>
 			<AppDialog.Description>
 				{preview
-					? `Remove ${preview.label}'s worktree from disk?`
-					: "Remove this worktree from disk?"}
+					? `Remove "${preview.label}"? This deletes the worktree from disk. This cannot be undone.`
+					: "Remove this session? This deletes the worktree from disk. This cannot be undone."}
 			</AppDialog.Description>
 			<AppDialog.Body>
 				{preview && (
@@ -40,9 +40,11 @@ export function RemoveWorktreeDialog({
 						<div>
 							Path: <code>{preview.path}</code>
 						</div>
-						<div>Dirty worktree: {preview.isDirty ? "yes" : "no"}</div>
 						<div>
-							Running app sessions:{" "}
+							Uncommitted changes: {preview.isDirty ? "yes" : "no"}
+						</div>
+						<div>
+							Running shells:{" "}
 							{runningProcessLabels.length === 0
 								? "none"
 								: runningProcessLabels.join(", ")}
@@ -56,7 +58,7 @@ export function RemoveWorktreeDialog({
 							checked={confirmedDirty}
 							onChange={(e) => onConfirmedDirtyChange(e.target.checked)}
 						/>{" "}
-						I understand this worktree has uncommitted changes
+						I understand this session has uncommitted changes
 					</label>
 				)}
 				{error && <div className="shell-error-banner">{error}</div>}
@@ -75,7 +77,7 @@ export function RemoveWorktreeDialog({
 					onClick={onConfirm}
 					disabled={!preview || busy || (preview.isDirty && !confirmedDirty)}
 				>
-					{busy ? "Removing…" : "Remove worktree"}
+					{busy ? "Removing…" : "Remove session"}
 				</button>
 			</AppDialog.Footer>
 		</AppDialog>

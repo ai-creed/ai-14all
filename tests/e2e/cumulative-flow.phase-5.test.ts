@@ -78,7 +78,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		await page.getByRole("button", { name: "Load" }).click();
 
 		await page
-			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("navigation", { name: "Sessions" })
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 
@@ -113,7 +113,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 			.click({ force: true });
 
 		await page
-			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("navigation", { name: "Sessions" })
 			.getByRole("button", { name: /main/i }) // partial match, accessible name is "main main"
 			.click();
 		// Phase 6: the default shell is auto-created when main is selected.
@@ -126,7 +126,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		).toBeVisible({ timeout: 10_000 });
 
 		await page
-			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("navigation", { name: "Sessions" })
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 
@@ -139,7 +139,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 
 		await expect(
 			page
-				.getByRole("navigation", { name: "Worktree sessions" })
+				.getByRole("navigation", { name: "Sessions" })
 				.getByRole("button", {
 					name: /feature-a/i,
 				}),
@@ -173,7 +173,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		).toHaveCount(1);
 
 		await page
-			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("navigation", { name: "Sessions" })
 			.getByRole("button", { name: /main/i }) // partial match
 			.click();
 
@@ -258,7 +258,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 
 		await expect(
 			page
-				.getByRole("navigation", { name: "Worktree sessions" })
+				.getByRole("navigation", { name: "Sessions" })
 				.getByRole("button", { name: /feature-a/i }),
 		).toHaveAttribute("data-selected", "true");
 		await page.getByRole("button", { name: /open note/i }).click();
@@ -280,7 +280,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 
 		await expect(
 			page
-				.getByRole("navigation", { name: "Worktree sessions" })
+				.getByRole("navigation", { name: "Sessions" })
 				.getByRole("button", { name: /feature-a/i }),
 		).toHaveAttribute("data-selected", "true");
 		await page.getByRole("button", { name: /open note/i }).click();
@@ -312,7 +312,7 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		await page.getByRole("button", { name: "Load" }).click();
 
 		await page
-			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("navigation", { name: "Sessions" })
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 

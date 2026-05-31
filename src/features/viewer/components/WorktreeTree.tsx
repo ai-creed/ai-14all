@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CaretDownIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import type {
@@ -158,7 +159,11 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 			>
 				{isDir && (
 					<span className="shell-tree-chevron" aria-hidden="true">
-						{row.expanded ? "▾" : "▸"}
+						{row.expanded ? (
+							<CaretDownIcon size={10} weight="regular" />
+						) : (
+							<CaretRightIcon size={10} weight="regular" />
+						)}
 					</span>
 				)}
 				<span
@@ -259,7 +264,13 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 				<p className="shell-empty-state">Loading files…</p>
 			)}
 			{fileCount === 0 && !loading && (
-				<p className="shell-empty-state">No files in this worktree.</p>
+				<>
+					<p className="shell-empty-state">No files in this session.</p>
+					<p className="shell-empty-state__hint">
+						The session was just created. Switch to the terminal and start
+						working — files will appear here as soon as they're tracked.
+					</p>
+				</>
 			)}
 			<div
 				ref={scrollParentRef}

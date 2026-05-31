@@ -78,7 +78,7 @@ test.beforeAll(async () => {
 	await expect(page.locator("#repo-path")).toHaveValue(testRepo.repoPath);
 	await page.getByRole("button", { name: "Load" }).click();
 
-	const nav = page.getByRole("navigation", { name: "Worktree sessions" });
+	const nav = page.getByRole("navigation", { name: "Sessions" });
 	await expect(nav.getByRole("button", { name: /main/i })).toBeVisible({
 		timeout: 15_000,
 	});
@@ -303,7 +303,7 @@ test.describe.serial("session attention v2", () => {
 	// -------------------------------------------------------------------------
 	test("y/n prompt surfaces actionRequired in sidebar process indicator", async () => {
 		// Make sure main is selected and the shell is visible
-		const nav = page.getByRole("navigation", { name: "Worktree sessions" });
+		const nav = page.getByRole("navigation", { name: "Sessions" });
 		await nav.getByRole("button", { name: /main/i }).click();
 		await expect(
 			page
@@ -375,7 +375,7 @@ test.describe.serial("session attention v2", () => {
 	// Test 2: ready output surfaces activity (not actionRequired) in sidebar
 	// -------------------------------------------------------------------------
 	test("ready output surfaces activity state in process indicator", async () => {
-		const nav = page.getByRole("navigation", { name: "Worktree sessions" });
+		const nav = page.getByRole("navigation", { name: "Sessions" });
 		await nav.getByRole("button", { name: /main/i }).click();
 		await expect(
 			page
@@ -429,7 +429,7 @@ test.describe.serial("session attention v2", () => {
 			.poll(
 				async () =>
 					await page
-						.getByRole("navigation", { name: "Worktree sessions" })
+						.getByRole("navigation", { name: "Sessions" })
 						.getByRole("button", { name: /main/i })
 						.getAttribute("data-attention"),
 				{ timeout: 10_000 },
@@ -502,7 +502,7 @@ test.describe.serial("session attention v2", () => {
 			// Bridge is ready: the MCP call returned ok=true.
 			// Now verify the renderer state: navigate to main worktree and check
 			// that the worktree-level attention reflects the reported state.
-			const nav = page.getByRole("navigation", { name: "Worktree sessions" });
+			const nav = page.getByRole("navigation", { name: "Sessions" });
 
 			// Navigate away first so the main session is not "active selected"
 			// then verify the attention on the nav button
@@ -533,7 +533,7 @@ test.describe.serial("session attention v2", () => {
 	// Test 6: restart clears agent attention
 	// -------------------------------------------------------------------------
 	test("restart button re-runs the process command and resets attention", async () => {
-		const nav = page.getByRole("navigation", { name: "Worktree sessions" });
+		const nav = page.getByRole("navigation", { name: "Sessions" });
 		await nav.getByRole("button", { name: /main/i }).click();
 
 		const tablist = page.locator(
@@ -606,7 +606,7 @@ test.describe.serial("session attention v2", () => {
 		// then exit it with a non-zero code. The process must be an agent process
 		// (label="claude") for the lifecycle failed reason to be recorded.
 
-		const nav = page.getByRole("navigation", { name: "Worktree sessions" });
+		const nav = page.getByRole("navigation", { name: "Sessions" });
 		await nav.getByRole("button", { name: /main/i }).click();
 
 		await expect(
@@ -721,7 +721,7 @@ test.describe.serial("session attention v2", () => {
 	// Test 10: provider badge renders for a claude-labelled process
 	// -------------------------------------------------------------------------
 	test("renders [claude] badge for claude process", async () => {
-		const nav = page.getByRole("navigation", { name: "Worktree sessions" });
+		const nav = page.getByRole("navigation", { name: "Sessions" });
 		await nav.getByRole("button", { name: /main/i }).click();
 		await expect(
 			page
@@ -763,7 +763,7 @@ test.describe.serial("session attention v2", () => {
 	// Test 11: provider badge renders for a codex-labelled process
 	// -------------------------------------------------------------------------
 	test("renders [codex] badge for codex process", async () => {
-		const nav = page.getByRole("navigation", { name: "Worktree sessions" });
+		const nav = page.getByRole("navigation", { name: "Sessions" });
 		await nav.getByRole("button", { name: /main/i }).click();
 		await expect(
 			page
@@ -805,7 +805,7 @@ test.describe.serial("session attention v2", () => {
 	test("MCP ready clears stale terminal failed in sidebar", async () => {
 		test.setTimeout(120_000);
 
-		const nav = page.getByRole("navigation", { name: "Worktree sessions" });
+		const nav = page.getByRole("navigation", { name: "Sessions" });
 		// Drive this in the feature-a worktree using its PRISTINE default shell
 		// (no other test spawns or drives shells there, so its prompt is ready
 		// and its session is low-noise — the only agent process is the one we

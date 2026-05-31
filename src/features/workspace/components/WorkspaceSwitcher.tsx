@@ -1,3 +1,5 @@
+import { XIcon } from "@phosphor-icons/react";
+
 type WorkspaceSwitcherProps = {
 	workspaces: { workspaceId: string; name: string }[];
 	activeWorkspaceId: string | null;
@@ -30,7 +32,7 @@ export function WorkspaceSwitcher({
 							aria-label={`Remove ${ws.name}`}
 							onClick={() => onRemove(ws.workspaceId)}
 						>
-							×
+							<XIcon size={12} weight="regular" aria-hidden="true" />
 						</button>
 					)}
 				</div>

@@ -71,7 +71,7 @@ test.afterAll(async () => {
 }, 90_000);
 
 const workspaceSidebar = () =>
-	page.getByRole("navigation", { name: "Worktree sessions" });
+	page.getByRole("navigation", { name: "Sessions" });
 
 // Every hydrated workspace now keeps its terminal panel mounted; only the
 // active workspace's panes are visible (aria-hidden="false"). Scope all

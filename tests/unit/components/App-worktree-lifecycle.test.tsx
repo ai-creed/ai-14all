@@ -236,7 +236,7 @@ it("previews and creates a new worktree from the sidebar modal", async () => {
 
 	expect(
 		await screen.findByText(
-			"This will create a new branch and linked worktree.",
+			"This will create a new branch and a session for it.",
 		),
 	).toBeInTheDocument();
 	expect(
@@ -246,7 +246,7 @@ it("previews and creates a new worktree from the sidebar modal", async () => {
 	expect(screen.getByText("abc1234 initial commit")).toBeInTheDocument();
 
 	await userEvent.click(
-		screen.getByRole("button", { name: "Create worktree" }),
+		screen.getByRole("button", { name: "Create session" }),
 	);
 
 	expect(mockCreateWorktree).toHaveBeenCalledWith("r1", "Feature B");
@@ -310,11 +310,11 @@ it("creates a default shell for a worktree recreated after removal with the same
 	// Remove feature-a (isDirty:false — no confirmation checkbox required)
 	fireEvent.contextMenu(screen.getByRole("button", { name: "feature-a" }));
 	await userEvent.click(
-		await screen.findByRole("menuitem", { name: "Remove worktree" }),
+		await screen.findByRole("menuitem", { name: "Remove session" }),
 	);
-	await screen.findByText("Dirty worktree: no");
+	await screen.findByText("Uncommitted changes: no");
 	await userEvent.click(
-		screen.getByRole("button", { name: "Remove worktree" }),
+		screen.getByRole("button", { name: "Remove session" }),
 	);
 	await waitFor(() => {
 		expect(
@@ -331,7 +331,7 @@ it("creates a default shell for a worktree recreated after removal with the same
 	// Wait for preview to load (350ms debounce + async mock) before clicking
 	await screen.findByText("origin/master");
 	await userEvent.click(
-		screen.getByRole("button", { name: "Create worktree" }),
+		screen.getByRole("button", { name: "Create session" }),
 	);
 	await waitFor(() => {
 		expect(
@@ -369,18 +369,18 @@ it("warns about dirty state and running sessions before removing a worktree", as
 		expect(screen.getByTestId("slot-0")).toBeInTheDocument();
 	});
 
-	// Right-click the worktree to open the context menu, then click "Remove worktree"
+	// Right-click the worktree to open the context menu, then click "Remove session"
 	fireEvent.contextMenu(screen.getByRole("button", { name: "feature-a" }));
 	await userEvent.click(
-		await screen.findByRole("menuitem", { name: "Remove worktree" }),
+		await screen.findByRole("menuitem", { name: "Remove session" }),
 	);
 
-	expect(await screen.findByText("Dirty worktree: yes")).toBeInTheDocument();
-	expect(screen.getByText("Running app sessions: shell 1")).toBeInTheDocument();
+	expect(await screen.findByText("Uncommitted changes: yes")).toBeInTheDocument();
+	expect(screen.getByText("Running shells: shell 1")).toBeInTheDocument();
 
 	await userEvent.click(screen.getByRole("checkbox", { name: /I understand/ }));
 	await userEvent.click(
-		screen.getByRole("button", { name: "Remove worktree" }),
+		screen.getByRole("button", { name: "Remove session" }),
 	);
 
 	await waitFor(() => {

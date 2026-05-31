@@ -55,7 +55,7 @@ function latestSeq() {
 
 function groupForRepo(repoPath: string) {
 	return page
-		.getByRole("navigation", { name: "Worktree sessions" })
+		.getByRole("navigation", { name: "Sessions" })
 		.getByRole("group", { name: basename(repoPath) });
 }
 

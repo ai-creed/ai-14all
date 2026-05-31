@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
+import { ArrowDownIcon, ArrowUpIcon } from "@phosphor-icons/react";
 import { buildLinearCommitGraph } from "../logic/build-linear-commit-graph.js";
 import type {
 	GitCommitHistory,
@@ -50,7 +51,15 @@ export function CommitList({
 	}, [workspaceId, worktreeId, activeDetail?.sha]);
 
 	if (!history.mergeTargetRef || history.entries.length === 0) {
-		return <p className="shell-empty-state">No recent commits to review.</p>;
+		return (
+			<div className="shell-rail__message">
+				<p className="shell-empty-state">No recent commits to review.</p>
+				<p className="shell-empty-state__hint">
+					Make a commit in the terminal or via your agent — commits show up
+					here for review.
+				</p>
+			</div>
+		);
 	}
 
 	const rows = buildLinearCommitGraph(history.entries);
@@ -71,8 +80,14 @@ export function CommitList({
 			{remoteStatus && (
 				<div className="shell-commit-push-strip">
 					<span className="shell-commit-push-strip__counts">
-						<span>↑{remoteStatus.ahead}</span>
-						<span>↓{remoteStatus.behind}</span>
+						<span>
+							<ArrowUpIcon size={11} weight="regular" aria-hidden="true" />
+							{remoteStatus.ahead}
+						</span>
+						<span>
+							<ArrowDownIcon size={11} weight="regular" aria-hidden="true" />
+							{remoteStatus.behind}
+						</span>
 					</span>
 					<button
 						type="button"

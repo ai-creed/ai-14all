@@ -79,7 +79,7 @@ describe("RepositoryInput", () => {
 
 		await waitFor(() => {
 			expect(
-				screen.getByText("Error: Path is not a Git repository."),
+				screen.getByText("Path is not a Git repository."),
 			).toBeInTheDocument();
 		});
 	});
@@ -99,7 +99,7 @@ describe("RepositoryInput", () => {
 
 		await waitFor(() => {
 			expect(
-				screen.getByText("Error: Path does not exist."),
+				screen.getByText("Path does not exist."),
 			).toBeInTheDocument();
 			expect(screen.getByLabelText("Repository path")).toHaveValue("/missing");
 		});

@@ -32,7 +32,7 @@ export function NewWorktreeDialog({
 		<AppDialog open={open} onOpenChange={onOpenChange}>
 			<AppDialog.Title>New session</AppDialog.Title>
 			<AppDialog.Description>
-				This will create a new branch and linked worktree.
+				This will create a new branch and a session for it.
 			</AppDialog.Description>
 			<AppDialog.Body>
 				<label className="shell-app-dialog__field">
@@ -92,7 +92,7 @@ export function NewWorktreeDialog({
 					onClick={onConfirm}
 					disabled={!preview || loading || busy}
 				>
-					Create worktree
+					Create session
 				</button>
 			</AppDialog.Footer>
 		</AppDialog>

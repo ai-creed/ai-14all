@@ -86,7 +86,7 @@ test.afterAll(async () => {
 }, 90_000);
 
 const workspaceSidebar = () =>
-	page.getByRole("navigation", { name: "Worktree sessions" });
+	page.getByRole("navigation", { name: "Sessions" });
 
 test.describe.serial("Multi-workspace fast-switch", () => {
 	test.describe.configure({ timeout: 120_000 });
@@ -99,7 +99,7 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 
 		// Wait for worktree nav to appear and select main
 		const worktreeNav = page.getByRole("navigation", {
-			name: "Worktree sessions",
+			name: "Sessions",
 		});
 		await expect(
 			worktreeNav.getByRole("button", { name: / main$/i }),

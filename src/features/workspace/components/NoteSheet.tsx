@@ -1,5 +1,6 @@
 import { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { XIcon } from "@phosphor-icons/react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
@@ -60,7 +61,7 @@ export function NoteSheet({ open, note, onNoteChange, onClose }: Props) {
 									className="shell-note-sheet__close"
 									aria-label="Close note sheet"
 								>
-									✕
+									<XIcon size={14} weight="regular" aria-hidden="true" />
 								</button>
 							</Dialog.Close>
 						</div>

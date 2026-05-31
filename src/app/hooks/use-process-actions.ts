@@ -106,7 +106,9 @@ export function useProcessActions(options: Options): UseProcessActions {
 				// Spawn failed: toast + return null so the caller dispatches nothing
 				// — no orphan slot, layout unchanged.
 				console.error("Failed to create terminal session:", err);
-				notifyToast("Failed to start shell");
+				notifyToast(
+					`Failed to start shell: ${err instanceof Error ? err.message : String(err)}`,
+				);
 				return null;
 			}
 		}, [worktree, workspaceId, createSession, getWorkspaceStateById]);
@@ -185,7 +187,9 @@ export function useProcessActions(options: Options): UseProcessActions {
 			} catch (err) {
 				// Spawn failed: toast + no dispatch -> no orphan slot.
 				console.error("Failed to launch preset:", err);
-				notifyToast("Failed to launch preset");
+				notifyToast(
+					`Failed to launch preset: ${err instanceof Error ? err.message : String(err)}`,
+				);
 				return;
 			}
 			createScopedWorkspaceDispatch(targetWorkspaceId)({

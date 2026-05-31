@@ -22,7 +22,7 @@ let gitFaultsPath: string;
 
 async function ensureWorkspaceLoaded() {
 	const worktreeNav = page.getByRole("navigation", {
-		name: "Worktree sessions",
+		name: "Sessions",
 	});
 	if (await worktreeNav.isVisible({ timeout: 2_000 }).catch(() => false)) {
 		return;
@@ -102,7 +102,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		).toBeVisible();
 
 		await page
-			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("navigation", { name: "Sessions" })
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 
@@ -123,7 +123,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		);
 
 		const worktreeNav = page.getByRole("navigation", {
-			name: "Worktree sessions",
+			name: "Sessions",
 		});
 		await worktreeNav.getByRole("button", { name: "Collapse sidebar" }).click();
 		await expect(shellLayout).toHaveAttribute(
@@ -278,7 +278,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await ensureWorkspaceLoaded();
 
 		const worktreeNav = page.getByRole("navigation", {
-			name: "Worktree sessions",
+			name: "Sessions",
 		});
 		const mainItem = worktreeNav.getByRole("button", { name: / main$/i });
 		// Row wrapper holds both the inner button and the process-context list,
@@ -375,7 +375,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		).toBeVisible();
 		await expect(
 			page
-				.getByRole("navigation", { name: "Worktree sessions" })
+				.getByRole("navigation", { name: "Sessions" })
 				.getByRole("button", { name: /feature-a/i }),
 		).toHaveAttribute("data-selected", "true");
 	});
@@ -384,7 +384,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		test.setTimeout(60_000);
 		await ensureWorkspaceLoaded();
 		await page
-			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("navigation", { name: "Sessions" })
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 		await ensureReviewOverlayOpen(page);
@@ -419,7 +419,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 	test("shows stale review data when a focused refresh read fails once", async () => {
 		await ensureWorkspaceLoaded();
 		await page
-			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("navigation", { name: "Sessions" })
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 		await ensureReviewOverlayOpen(page);
@@ -450,7 +450,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 
 		// Navigate to feature-a — it has a dirty NOTES.md so scopeRoots is non-empty
 		await page
-			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("navigation", { name: "Sessions" })
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 
@@ -485,7 +485,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await ensureWorkspaceLoaded();
 
 		await page
-			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("navigation", { name: "Sessions" })
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 
@@ -513,7 +513,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await ensureWorkspaceLoaded();
 
 		await page
-			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("navigation", { name: "Sessions" })
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 
@@ -548,7 +548,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await ensureWorkspaceLoaded();
 
 		const worktreeNav = page.getByRole("navigation", {
-			name: "Worktree sessions",
+			name: "Sessions",
 		});
 		const occupiedSlots = () =>
 			page.locator(".shell-terminal-slot:not(.shell-terminal-slot--empty)");

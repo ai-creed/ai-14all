@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import type {
 	AppWorkspacesAction,
 	AppWorkspacesState,
@@ -10,19 +10,33 @@ type Options = {
 	stopSession: (terminalSessionId: string) => Promise<void>;
 };
 
+export type PendingWorkspaceRemoval = {
+	workspaceId: string;
+	repositoryName: string;
+	liveSessionCount: number;
+	/** Terminal session ids that must be stopped before removing. */
+	terminalSessionIds: string[];
+};
+
 /**
- * Removes a workspace from the registry. If the workspace has live terminal
- * sessions, asks the user to confirm and stops them before unregistering.
- * Dormant workspaces (no `workspaceState`) are removed without confirmation
- * because they own no live processes.
+ * Removes a workspace from the registry. Dormant workspaces (no
+ * `workspaceState`) or workspaces with no live terminals are removed inline.
+ * When there are live terminals, surfaces `pendingRemoval` so the caller can
+ * render a confirmation dialog; `confirmRemoval` then stops the terminals and
+ * unregisters the workspace.
  */
 export function useWorkspaceRemoval(options: Options): {
-	handleRemoveWorkspace: (workspaceId: string) => Promise<void>;
+	handleRemoveWorkspace: (workspaceId: string) => void;
+	pendingRemoval: PendingWorkspaceRemoval | null;
+	confirmRemoval: () => Promise<void>;
+	cancelRemoval: () => void;
 } {
 	const { appWorkspaces, dispatchAppWorkspaces, stopSession } = options;
+	const [pendingRemoval, setPendingRemoval] =
+		useState<PendingWorkspaceRemoval | null>(null);
 
 	const handleRemoveWorkspace = useCallback(
-		async (workspaceId: string) => {
+		(workspaceId: string) => {
 			const ws = appWorkspaces.workspacesById[workspaceId];
 			if (!ws?.workspaceState) {
 				dispatchAppWorkspaces({ type: "workspace/remove", workspaceId });
@@ -31,21 +45,41 @@ export function useWorkspaceRemoval(options: Options): {
 			const liveSessions = Object.values(
 				ws.workspaceState.processSessionsById,
 			).filter((p) => p.status === "running" && p.terminalSessionId !== null);
-			if (liveSessions.length > 0) {
-				const confirmed = window.confirm(
-					`"${ws.repository.name}" has ${liveSessions.length} active terminal(s). Remove it and stop all running terminals?`,
-				);
-				if (!confirmed) return;
-				await Promise.all(
-					liveSessions.flatMap((p) =>
-						p.terminalSessionId ? [stopSession(p.terminalSessionId)] : [],
-					),
-				);
+			if (liveSessions.length === 0) {
+				dispatchAppWorkspaces({ type: "workspace/remove", workspaceId });
+				return;
 			}
-			dispatchAppWorkspaces({ type: "workspace/remove", workspaceId });
+			setPendingRemoval({
+				workspaceId,
+				repositoryName: ws.repository.name,
+				liveSessionCount: liveSessions.length,
+				terminalSessionIds: liveSessions
+					.map((p) => p.terminalSessionId)
+					.filter((id): id is string => id !== null),
+			});
 		},
-		[appWorkspaces, dispatchAppWorkspaces, stopSession],
+		[appWorkspaces, dispatchAppWorkspaces],
 	);
 
-	return { handleRemoveWorkspace };
+	const confirmRemoval = useCallback(async () => {
+		const pending = pendingRemoval;
+		if (!pending) return;
+		await Promise.all(pending.terminalSessionIds.map((id) => stopSession(id)));
+		dispatchAppWorkspaces({
+			type: "workspace/remove",
+			workspaceId: pending.workspaceId,
+		});
+		setPendingRemoval(null);
+	}, [pendingRemoval, stopSession, dispatchAppWorkspaces]);
+
+	const cancelRemoval = useCallback(() => {
+		setPendingRemoval(null);
+	}, []);
+
+	return {
+		handleRemoveWorkspace,
+		pendingRemoval,
+		confirmRemoval,
+		cancelRemoval,
+	};
 }

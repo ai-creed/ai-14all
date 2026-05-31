@@ -57,7 +57,7 @@ async function relaunch() {
 		.getByRole("button", { name: "Restore previous workspace" })
 		.click();
 	const worktreeNav = page.getByRole("navigation", {
-		name: "Worktree sessions",
+		name: "Sessions",
 	});
 	await expect(
 		worktreeNav.getByRole("button", { name: /feature-a/i }),
@@ -113,7 +113,7 @@ test.beforeAll(async () => {
 	await page.getByRole("button", { name: "Browse" }).click();
 	await page.getByRole("button", { name: "Load" }).click();
 	const worktreeNav = page.getByRole("navigation", {
-		name: "Worktree sessions",
+		name: "Sessions",
 	});
 	await expect(
 		worktreeNav.getByRole("button", { name: /feature-a/i }),

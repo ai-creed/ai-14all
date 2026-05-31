@@ -10,11 +10,15 @@ export function RepositoryInput({ onLoadPath }: Props) {
 	const [path, setPath] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [errorKind, setErrorKind] = useState<"not-found" | "not-git" | null>(
+		null,
+	);
 
 	async function handleBrowse() {
 		if (loading) return;
 
 		setError(null);
+		setErrorKind(null);
 		try {
 			const selectedPath = await repository.pickRoot();
 			if (selectedPath) {
@@ -22,6 +26,7 @@ export function RepositoryInput({ onLoadPath }: Props) {
 			}
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err));
+			setErrorKind(null);
 		}
 	}
 
@@ -31,11 +36,17 @@ export function RepositoryInput({ onLoadPath }: Props) {
 
 		setLoading(true);
 		setError(null);
+		setErrorKind(null);
 
 		try {
 			await onLoadPath(path.trim());
 		} catch (err) {
-			setError(describeRepositoryLoadError(err));
+			const message = describeRepositoryLoadError(err);
+			setError(message);
+			if (message === "Path does not exist.") setErrorKind("not-found");
+			else if (message === "Path is not a Git repository.")
+				setErrorKind("not-git");
+			else setErrorKind(null);
 		} finally {
 			setLoading(false);
 		}
@@ -72,7 +83,25 @@ export function RepositoryInput({ onLoadPath }: Props) {
 					{loading ? "Loading…" : "Load"}
 				</button>
 			</div>
-			{error && <div className="shell-error">Error: {error}</div>}
+			{error && (
+				<div className="shell-error shell-input-row__error" role="alert">
+					<span>{error}</span>
+					{errorKind === "not-found" && (
+						<button
+							type="button"
+							className="shell-link-button"
+							onClick={handleBrowse}
+						>
+							Browse for a folder…
+						</button>
+					)}
+					{errorKind === "not-git" && (
+						<span className="shell-input-row__hint">
+							Run <code>git init</code> in the folder, or browse another.
+						</span>
+					)}
+				</div>
+			)}
 		</form>
 	);
 }

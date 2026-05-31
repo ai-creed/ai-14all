@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { XIcon } from "@phosphor-icons/react";
 import { Terminal, type ITheme } from "xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "xterm-addon-search";
@@ -564,7 +565,7 @@ export function TerminalPane({
 						aria-label="Close find"
 						onClick={closeFind}
 					>
-						×
+						<XIcon size={12} weight="regular" aria-hidden="true" />
 					</button>
 				</div>
 			)}

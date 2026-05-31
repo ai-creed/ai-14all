@@ -1,4 +1,11 @@
 import { Fragment, useState, type CSSProperties, type Ref } from "react";
+import {
+	ArrowUpIcon,
+	ArrowDownIcon,
+	GearIcon,
+	InfoIcon,
+	XIcon,
+} from "@phosphor-icons/react";
 import type {
 	UsageConfig,
 	UsageRow,
@@ -177,7 +184,7 @@ export function UsagePopover({
 				<div className="usage-pop-h">
 					<span>Account limits</span>
 					<button className="usage-gear" aria-label="close" onClick={onClose}>
-						✕
+						<XIcon size={12} weight="regular" aria-hidden="true" />
 					</button>
 				</div>
 				<div className="usage-limits">
@@ -243,8 +250,22 @@ export function UsagePopover({
 					<thead>
 						<tr>
 							<th className="l">workspace / worktree · agent</th>
-							<th>↑ in</th>
-							<th>↓ out</th>
+							<th>
+								<ArrowUpIcon
+									size={10}
+									weight="regular"
+									aria-hidden="true"
+								/>{" "}
+								in
+							</th>
+							<th>
+								<ArrowDownIcon
+									size={10}
+									weight="regular"
+									aria-hidden="true"
+								/>{" "}
+								out
+							</th>
 							<th>this week</th>
 						</tr>
 					</thead>
@@ -285,8 +306,10 @@ export function UsagePopover({
 			</div>
 			<div className="usage-pop-sec usage-foot">
 				<span className="usage-dim" data-testid="usage-total">
-					session ↑
-					<span className="usage-bill">{formatTokens(total.input)}</span> ↓
+					session{" "}
+					<ArrowUpIcon size={10} weight="regular" aria-hidden="true" />
+					<span className="usage-bill">{formatTokens(total.input)}</span>{" "}
+					<ArrowDownIcon size={10} weight="regular" aria-hidden="true" />
 					<span className="usage-bill">{formatTokens(total.output)}</span>
 					{" · week "}
 					<span className="usage-bill">{formatTokens(weekTotal)}</span>
@@ -298,14 +321,16 @@ export function UsagePopover({
 						aria-expanded={showHelp}
 						onClick={() => setShowHelp((v) => !v)}
 					>
-						ⓘ how to read
+						<InfoIcon size={12} weight="regular" aria-hidden="true" /> how to
+						read
 					</button>
 					<button
 						className="usage-gear"
 						aria-label="budget settings"
 						onClick={() => setEditingBudget((v) => !v)}
 					>
-						⚙ budget settings
+						<GearIcon size={12} weight="regular" aria-hidden="true" /> budget
+						settings
 					</button>
 				</span>
 			</div>
@@ -313,8 +338,23 @@ export function UsagePopover({
 				<div className="usage-pop-sec usage-help">
 					<dl>
 						<dt>
-							<span className="usage-bill">↑ in</span> /{" "}
-							<span className="usage-bill">↓ out</span>
+							<span className="usage-bill">
+								<ArrowUpIcon
+									size={10}
+									weight="regular"
+									aria-hidden="true"
+								/>{" "}
+								in
+							</span>{" "}
+							/{" "}
+							<span className="usage-bill">
+								<ArrowDownIcon
+									size={10}
+									weight="regular"
+									aria-hidden="true"
+								/>{" "}
+								out
+							</span>
 						</dt>
 						<dd>
 							<b>in</b> = prompt tokens you send (your input + first-time cached
@@ -339,7 +379,9 @@ export function UsagePopover({
 							<span className="usage-prov usage-prov--codex">codex</span> is the
 							real % the provider reports (with reset countdown).{" "}
 							<span className="usage-prov usage-prov--claude">claude</span> is
-							an estimate vs your budget (⚙) — the API doesn&apos;t expose the
+							an estimate vs your budget (
+							<GearIcon size={10} weight="regular" aria-hidden="true" />) — the
+							API doesn&apos;t expose the
 							real number.
 						</dd>
 					</dl>

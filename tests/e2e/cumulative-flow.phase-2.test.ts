@@ -45,7 +45,7 @@ test.afterAll(async () => {
 
 test.describe.serial("Cumulative flow — Phase 2", () => {
 	const worktreeNav = () =>
-		page.getByRole("navigation", { name: "Worktree sessions" });
+		page.getByRole("navigation", { name: "Sessions" });
 
 	test("loads the repository and shows the session shell", async () => {
 		await page.locator("#repo-path").fill(testRepo.repoPath);

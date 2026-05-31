@@ -1,4 +1,11 @@
 import { useState } from "react";
+import {
+	ArrowClockwiseIcon,
+	ArrowLineDownIcon,
+	ArrowUpIcon,
+	PlusIcon,
+	XIcon,
+} from "@phosphor-icons/react";
 import type { ProcessSession } from "../../../shared/models/process-session";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
 import type { Worktree } from "../../../shared/models/worktree";
@@ -85,7 +92,10 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 	const terminalFontSize = 12 - Math.floor((layout.slotCount - 1) / 2);
 
 	return (
-		<section className="shell-panel shell-terminal-section">
+		<section
+			className="shell-panel shell-terminal-section"
+			data-tour="terminal"
+		>
 			<div
 				className="shell-terminal-panel__grid"
 				style={{
@@ -112,7 +122,8 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 									data-testid={`slot-cta-${slotIndex}`}
 									onClick={() => onStartShellInSlot(slotIndex)}
 								>
-									＋ start a shell
+									<PlusIcon size={14} weight="regular" aria-hidden="true" />
+									start a shell
 								</button>
 							</div>
 						);
@@ -159,7 +170,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										data-testid={`slot-promote-${slotIndex}`}
 										onClick={() => onPromoteSlot(slotIndex)}
 									>
-										↑
+										<ArrowUpIcon size={14} weight="regular" aria-hidden="true" />
 									</button>
 								)}
 								{process && (
@@ -170,7 +181,11 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										data-testid={`slot-refit-${slotIndex}`}
 										onClick={() => requestRefit(process.id)}
 									>
-										⤓
+										<ArrowLineDownIcon
+											size={14}
+											weight="regular"
+											aria-hidden="true"
+										/>
 									</button>
 								)}
 								{process && (
@@ -181,7 +196,11 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										data-testid={`slot-restart-${slotIndex}`}
 										onClick={() => onRestartSlot(process.id)}
 									>
-										↻
+										<ArrowClockwiseIcon
+											size={14}
+											weight="regular"
+											aria-hidden="true"
+										/>
 									</button>
 								)}
 								{process && (
@@ -192,7 +211,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										data-testid={`slot-close-${slotIndex}`}
 										onClick={() => onCloseSlot(process.id)}
 									>
-										✕
+										<XIcon size={14} weight="regular" aria-hidden="true" />
 									</button>
 								)}
 							</header>

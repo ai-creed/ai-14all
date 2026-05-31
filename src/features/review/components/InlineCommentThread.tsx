@@ -1,4 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+	ArrowCounterClockwiseIcon,
+	CheckIcon,
+} from "@phosphor-icons/react";
 import type { ReviewComment } from "../../../../shared/models/review-comment";
 
 type Props = {
@@ -42,7 +46,7 @@ export function InlineCommentThread({
 					aria-label="Expand addressed comment"
 					onClick={() => setExpanded(true)}
 				>
-					<span aria-hidden="true">✓</span>
+					<CheckIcon size={12} weight="regular" aria-hidden="true" />
 					<span>
 						L{comment.startLine}
 						{comment.startLine !== comment.endLine ? `–${comment.endLine}` : ""}
@@ -57,7 +61,11 @@ export function InlineCommentThread({
 					className="shell-inline-thread__icon-btn"
 					onClick={onToggleAddressed}
 				>
-					↺
+					<ArrowCounterClockwiseIcon
+						size={12}
+						weight="regular"
+						aria-hidden="true"
+					/>
 				</button>
 			</div>
 		);
@@ -129,7 +137,21 @@ export function InlineCommentThread({
 					aria-label={isAddressed ? "Reopen comment" : "Address comment"}
 					onClick={onToggleAddressed}
 				>
-					{isAddressed ? "↺ Reopen" : "✓ Address"}
+					{isAddressed ? (
+						<>
+							<ArrowCounterClockwiseIcon
+								size={12}
+								weight="regular"
+								aria-hidden="true"
+							/>{" "}
+							Reopen
+						</>
+					) : (
+						<>
+							<CheckIcon size={12} weight="regular" aria-hidden="true" />{" "}
+							Address
+						</>
+					)}
 				</button>
 				<button
 					type="button"

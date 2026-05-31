@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ProcessSession } from "../../../shared/models/process-session";
 import type {
 	CreateWorktreePreview,
@@ -10,6 +11,8 @@ import { RemoveWorktreeDialog } from "../../features/workspace/components/Remove
 import { DiscardChangeDialog } from "../../features/git/components/DiscardChangeDialog";
 import { AgentInstallModal } from "../../features/review/components/AgentInstallModal";
 import type { AgentInstallStatus } from "../../features/review/hooks/use-agent-install-status";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
+import type { PendingWorkspaceRemoval } from "../hooks/use-workspace-removal";
 
 type Props = {
 	// Load workspace
@@ -53,6 +56,11 @@ type Props = {
 	installModalOpen: boolean;
 	setInstallModalOpen: (open: boolean) => void;
 	agentInstallStatus: AgentInstallStatus;
+
+	// Remove workspace (when there are live terminals)
+	pendingWorkspaceRemoval: PendingWorkspaceRemoval | null;
+	confirmWorkspaceRemoval: () => Promise<void>;
+	cancelWorkspaceRemoval: () => void;
 };
 
 /**
@@ -135,6 +143,45 @@ export function DialogStack(props: Props): React.ReactElement {
 				onClose={() => props.setInstallModalOpen(false)}
 				status={props.agentInstallStatus}
 			/>
+			<WorkspaceRemovalConfirm
+				pending={props.pendingWorkspaceRemoval}
+				onConfirm={props.confirmWorkspaceRemoval}
+				onCancel={props.cancelWorkspaceRemoval}
+			/>
 		</>
+	);
+}
+
+function WorkspaceRemovalConfirm({
+	pending,
+	onConfirm,
+	onCancel,
+}: {
+	pending: PendingWorkspaceRemoval | null;
+	onConfirm: () => Promise<void>;
+	onCancel: () => void;
+}) {
+	const [busy, setBusy] = useState(false);
+	const count = pending?.liveSessionCount ?? 0;
+	return (
+		<ConfirmDialog
+			open={pending !== null}
+			title="Remove workspace"
+			description={
+				pending
+					? `"${pending.repositoryName}" has ${count} active terminal${
+							count === 1 ? "" : "s"
+						}. Remove the workspace and stop all running terminals?`
+					: ""
+			}
+			confirmLabel={busy ? "Removing…" : "Remove workspace"}
+			danger
+			busy={busy}
+			onConfirm={() => {
+				setBusy(true);
+				void onConfirm().finally(() => setBusy(false));
+			}}
+			onCancel={onCancel}
+		/>
 	);
 }

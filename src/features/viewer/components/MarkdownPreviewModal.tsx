@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { XIcon } from "@phosphor-icons/react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -83,7 +84,7 @@ export function MarkdownPreviewModal({
 							{relativePath}
 						</Dialog.Title>
 						<Dialog.Close className="shell-md-modal__close" aria-label="Close">
-							✕
+							<XIcon size={14} weight="regular" aria-hidden="true" />
 						</Dialog.Close>
 					</div>
 					{loading && (

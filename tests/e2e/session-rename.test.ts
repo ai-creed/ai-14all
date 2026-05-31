@@ -17,7 +17,7 @@ let testRepo: TestRepo;
 let persistedStatePath: string;
 
 function worktreeNav() {
-	return page.getByRole("navigation", { name: "Worktree sessions" });
+	return page.getByRole("navigation", { name: "Sessions" });
 }
 
 test.beforeAll(async () => {

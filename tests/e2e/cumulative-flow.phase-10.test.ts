@@ -18,7 +18,7 @@ let persistedStateDir: string;
 
 async function ensureWorkspaceLoaded() {
 	const worktreeNav = page.getByRole("navigation", {
-		name: "Worktree sessions",
+		name: "Sessions",
 	});
 	if (await worktreeNav.isVisible({ timeout: 2_000 }).catch(() => false))
 		return;
@@ -68,7 +68,7 @@ test.describe.serial("Cumulative flow — Phase 10", () => {
 		modKey = isMac ? "Meta" : "Control";
 		// Select the main worktree session so the chip bar is rendered.
 		await page
-			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("navigation", { name: "Sessions" })
 			.getByRole("button", { name: / main$/i })
 			.click();
 		await expect(page.getByRole("region", { name: "Session" })).toBeVisible({

@@ -1,4 +1,10 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import {
+	CaretDownIcon,
+	GearIcon,
+	PlusIcon,
+	SquaresFourIcon,
+} from "@phosphor-icons/react";
 import type { CommandPreset } from "../../../../shared/models/command-preset";
 
 type Props = {
@@ -35,7 +41,7 @@ export function TerminalActions({
 				onClick={onAddAdHoc}
 			>
 				<span className="shell-chip-bar__action-icon" aria-hidden="true">
-					＋
+					<PlusIcon size={14} weight="regular" />
 				</span>
 				Shell
 			</button>
@@ -43,12 +49,13 @@ export function TerminalActions({
 				type="button"
 				className="shell-chip-bar__action"
 				data-testid="terminal-layout-button"
+				data-tour="layout"
 				aria-label="Choose layout"
 				title="Choose layout (⌘⇧L)"
 				onClick={onOpenLayoutDialog}
 			>
 				<span className="shell-chip-bar__action-icon" aria-hidden="true">
-					▦
+					<SquaresFourIcon size={14} weight="regular" />
 				</span>
 				Layout
 			</button>
@@ -57,10 +64,10 @@ export function TerminalActions({
 				<DropdownMenu.Trigger asChild>
 					<button type="button" className="shell-chip-bar__action">
 						<span className="shell-chip-bar__action-icon" aria-hidden="true">
-							⚙
+							<GearIcon size={14} weight="regular" />
 						</span>
 						Presets
-						<span aria-hidden="true">▾</span>
+						<CaretDownIcon size={12} weight="regular" aria-hidden="true" />
 					</button>
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Portal>

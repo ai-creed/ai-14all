@@ -58,6 +58,13 @@ type Props = {
 
 	/** Render slot for the terminal action chips in the session chipbar. */
 	terminalActions?: React.ReactNode;
+
+	/** Opens the About dialog (rendered at App.tsx level). */
+	onOpenAbout: () => void;
+	/** Opens the Preferences dialog (rendered at App.tsx level). */
+	onOpenPreferences: () => void;
+	/** Opens the project README on github.com via the OS browser. */
+	onOpenExternalReadme: () => void;
 };
 
 /**
@@ -92,6 +99,9 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 		appPlatform,
 		openWorktreePaths,
 		terminalActions,
+		onOpenAbout,
+		onOpenPreferences,
+		onOpenExternalReadme,
 	} = props;
 
 	const usageSnapshot = useUsageSnapshot();
@@ -133,6 +143,10 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 						}}
 						onFilesClick={() => setFilesOverlayOpen(true)}
 						onNoteClick={() => setNoteSheetOpen((prev) => !prev)}
+						onShortcutsClick={() => setShortcutsHelpOpen(true)}
+						onAboutClick={onOpenAbout}
+						onPreferencesClick={onOpenPreferences}
+						onOpenExternalReadme={onOpenExternalReadme}
 						terminalActions={terminalActions}
 						usage={
 							<UsageStrip

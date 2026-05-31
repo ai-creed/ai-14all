@@ -44,7 +44,7 @@ test.afterAll(async () => {
 
 test.describe.serial("Cumulative flow — Phase 3", () => {
 	const worktreeNav = () =>
-		page.getByRole("navigation", { name: "Worktree sessions" });
+		page.getByRole("navigation", { name: "Sessions" });
 
 	test("creates a preset and launches it in the selected worktree", async () => {
 		await page.locator("#repo-path").fill(testRepo.repoPath);

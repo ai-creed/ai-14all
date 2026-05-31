@@ -1,5 +1,7 @@
 import * as React from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
+import { CaretLeftIcon, CaretRightIcon, XIcon } from "@phosphor-icons/react";
+import { HelpHint } from "../../../components/HelpHint";
 import type { Worktree } from "../../../../shared/models/worktree";
 import type { ProcessAttentionState } from "../../../../shared/models/process-session";
 import type { WorktreeProcessSummary } from "../logic/sidebar-shell-summary";
@@ -104,19 +106,35 @@ export function SessionSidebar({
 
 	return (
 		<nav
-			aria-label="Worktree sessions"
+			aria-label="Sessions"
 			className="shell-panel shell-sidebar"
 			data-collapsed={String(collapsed)}
 		>
 			<div className="shell-sidebar__header">
-				{!collapsed && <div className="shell-label">Sessions</div>}
+				{!collapsed && (
+					<div className="shell-label">
+						Sessions
+						<HelpHint term="Session" side="bottom">
+							A session is one agent's slice of work. Each session pins to
+							its own <strong>git branch</strong> and{" "}
+							<strong>worktree directory</strong>, so multiple agents can
+							work in parallel without touching each other's files.
+						</HelpHint>
+					</div>
+				)}
 				<button
 					type="button"
 					className="shell-button shell-button--icon shell-button--compact shell-button--round"
 					aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 					onClick={onToggleCollapsed}
 				>
-					<span aria-hidden="true">{collapsed ? "▸" : "◂"}</span>
+					<span aria-hidden="true">
+						{collapsed ? (
+							<CaretRightIcon size={14} weight="regular" />
+						) : (
+							<CaretLeftIcon size={14} weight="regular" />
+						)}
+					</span>
 				</button>
 			</div>
 
@@ -157,7 +175,7 @@ export function SessionSidebar({
 										aria-label={`Remove ${workspace.name}`}
 										onClick={() => onRemoveWorkspace(workspace.workspaceId)}
 									>
-										×
+										<XIcon size={12} weight="regular" aria-hidden="true" />
 									</button>
 								</>
 							)}
@@ -424,7 +442,7 @@ export function SessionSidebar({
 															)
 														}
 													>
-														Remove worktree
+														Remove session
 													</ContextMenu.Item>
 												)}
 											</ContextMenu.Content>
@@ -436,8 +454,8 @@ export function SessionSidebar({
 							{workspace.worktrees.length === 0 && !collapsed && (
 								<div className="shell-sidebar__workspace-empty">
 									{workspace.hydrated
-										? "No worktree sessions yet."
-										: "Open this workspace to load its worktree sessions."}
+										? "No sessions yet."
+										: "Open this workspace to load its sessions."}
 								</div>
 							)}
 						</div>

@@ -13,6 +13,10 @@ const defaults = {
 	onDirtyClick: vi.fn(),
 	onFilesClick: vi.fn(),
 	onNoteClick: vi.fn(),
+	onShortcutsClick: vi.fn(),
+	onAboutClick: vi.fn(),
+	onPreferencesClick: vi.fn(),
+	onOpenExternalReadme: vi.fn(),
 };
 
 describe("SessionChipBar", () => {

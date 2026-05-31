@@ -1,5 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { Children, isValidElement, type ReactNode } from "react";
+import { XIcon } from "@phosphor-icons/react";
 
 type AppDialogProps = {
 	open: boolean;
@@ -64,7 +65,7 @@ export function AppDialog({
 							className="shell-button shell-button--icon shell-app-dialog__close"
 							aria-label="Close"
 						>
-							×
+							<XIcon size={14} weight="regular" aria-hidden="true" />
 						</button>
 					</Dialog.Close>
 					{children}

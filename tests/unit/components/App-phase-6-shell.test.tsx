@@ -735,7 +735,7 @@ describe("App — Phase 6 default shell", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
 		const shellLayout = await screen.findByTestId("shell-layout");
-		const nav = screen.getByRole("navigation", { name: "Worktree sessions" });
+		const nav = screen.getByRole("navigation", { name: "Sessions" });
 		expect(shellLayout).toHaveStyle({
 			gridTemplateColumns: "240px minmax(0, 1fr)",
 		});

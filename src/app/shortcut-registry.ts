@@ -351,21 +351,21 @@ function isReviewDiffPrevShortcut(
 export const SHORTCUT_REGISTRY: AppShortcut[] = [
 	{
 		id: "worktree.selectNext",
-		label: "Next worktree",
+		label: "Next session",
 		mac: "⌘]",
 		other: "Ctrl+]",
 		predicate: isWorktreeSelectNextShortcut,
 	},
 	{
 		id: "worktree.selectPrev",
-		label: "Previous worktree",
+		label: "Previous session",
 		mac: "⌘[",
 		other: "Ctrl+[",
 		predicate: isWorktreeSelectPrevShortcut,
 	},
 	{
 		id: "worktree.add",
-		label: "Add worktree",
+		label: "New session",
 		mac: "⌘N",
 		other: "Ctrl+N",
 		predicate: isWorktreeAddShortcut,

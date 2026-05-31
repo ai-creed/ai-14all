@@ -38,6 +38,9 @@ export function ChangesList({
 		return (
 			<div className="shell-rail__message">
 				<p className="shell-empty-state">Unable to load Git data.</p>
+				<p className="shell-empty-state__hint">
+					Make sure the worktree still exists and the branch isn't corrupt.
+				</p>
 			</div>
 		);
 	}
@@ -46,6 +49,9 @@ export function ChangesList({
 		return (
 			<div className="shell-rail__message">
 				<p className="shell-empty-state">No changed files.</p>
+				<p className="shell-empty-state__hint">
+					Once your agent edits files in this session, they'll show up here.
+				</p>
 			</div>
 		);
 	}

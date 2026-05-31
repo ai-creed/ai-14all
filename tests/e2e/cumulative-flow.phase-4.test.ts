@@ -49,7 +49,7 @@ test.describe.serial("Cumulative flow — Phase 4", () => {
 		await page.getByRole("button", { name: "Load" }).click();
 
 		await page
-			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("navigation", { name: "Sessions" })
 			.getByRole("button", { name: /feature-a/i })
 			.click();
 

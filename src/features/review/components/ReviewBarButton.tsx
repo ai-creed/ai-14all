@@ -3,7 +3,7 @@
 // visually consistent — same shape, same padding, same icon+label rhythm.
 
 type Props = {
-	icon: string;
+	icon: React.ReactNode;
 	label: string;
 	ariaLabel?: string;
 	title?: string;

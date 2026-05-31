@@ -53,13 +53,13 @@ test.describe.serial("Cumulative flow — Phase 8", () => {
 		// Wait for the worktree sidebar to show feature-a
 		await expect(
 			page
-				.getByRole("navigation", { name: "Worktree sessions" })
+				.getByRole("navigation", { name: "Sessions" })
 				.getByRole("button", { name: "feature-a", exact: true }),
 		).toBeVisible({ timeout: 15_000 });
 
 		// Click on the feature-a worktree so it becomes active
 		await page
-			.getByRole("navigation", { name: "Worktree sessions" })
+			.getByRole("navigation", { name: "Sessions" })
 			.getByRole("button", { name: "feature-a", exact: true })
 			.click();
 

@@ -112,7 +112,7 @@ test.describe.serial("AgentSkillInstaller — CLI-present path", () => {
 		await page.getByRole("button", { name: "Browse" }).click();
 		await page.getByRole("button", { name: "Load" }).click();
 		const worktreeNav = page.getByRole("navigation", {
-			name: "Worktree sessions",
+			name: "Sessions",
 		});
 		await expect(
 			worktreeNav.getByRole("button", { name: /feature-a/i }),
@@ -250,7 +250,7 @@ test.describe.serial("AgentSkillInstaller — CLI-absent path", () => {
 		await page.getByRole("button", { name: "Browse" }).click();
 		await page.getByRole("button", { name: "Load" }).click();
 		const worktreeNav = page.getByRole("navigation", {
-			name: "Worktree sessions",
+			name: "Sessions",
 		});
 		await expect(
 			worktreeNav.getByRole("button", { name: /feature-a/i }),

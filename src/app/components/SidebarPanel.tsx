@@ -24,7 +24,7 @@ type Props = {
 		workspaceId: string,
 		worktreeId: string,
 	) => Promise<void>;
-	handleRemoveWorkspace: (workspaceId: string) => Promise<void>;
+	handleRemoveWorkspace: (workspaceId: string) => void;
 	dispatch: (
 		action:
 			| { type: "session/setTitle"; worktreeId: string; title: string }
@@ -62,7 +62,7 @@ export function SidebarPanel(props: Props): React.ReactElement {
 	} = props;
 
 	return (
-		<div className="shell-sidebar-column">
+		<div className="shell-sidebar-column" data-tour="sidebar">
 			{!sidebarCollapsed && (
 				<div
 					className="shell-sidebar-column__resize-handle"

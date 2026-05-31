@@ -8,6 +8,7 @@ import {
 	useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { ArrowClockwiseIcon, CheckIcon } from "@phosphor-icons/react";
 import type { ReviewMode } from "../../../../shared/models/worktree-session";
 import { ReviewBarButton } from "./ReviewBarButton";
 
@@ -213,7 +214,7 @@ export const ReviewExpandedPortal = forwardRef<
 						data-state="clean"
 						aria-label="Clean — no changes"
 					>
-						✓ clean
+						<CheckIcon size={12} weight="regular" aria-hidden="true" /> clean
 					</span>
 				)}
 				<span className="shell-review-chipbar__spacer" />
@@ -229,7 +230,13 @@ export const ReviewExpandedPortal = forwardRef<
 						/>
 					)}
 				<ReviewBarButton
-					icon="↻"
+					icon={
+						<ArrowClockwiseIcon
+							size={12}
+							weight="regular"
+							aria-hidden="true"
+						/>
+					}
 					label="Refresh"
 					ariaLabel="Refresh review"
 					title="Refresh review"

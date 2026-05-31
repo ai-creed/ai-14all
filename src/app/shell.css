@@ -4323,3 +4323,426 @@ select {
 	padding: 0 4px;
 	border-radius: 3px;
 }
+
+/* ─── Onboarding: Welcome screen, About, FirstRunHint ─── */
+
+.shell-setup-tagline {
+	margin: 0 0 var(--space-4);
+	font-size: var(--font-size-body);
+	color: var(--text-secondary);
+	line-height: 1.5;
+}
+
+.shell-setup-hint {
+	margin: 0 0 var(--space-3);
+	font-size: 13px;
+	color: var(--text-secondary);
+	line-height: 1.5;
+}
+
+.shell-setup-path {
+	margin: 0 0 var(--space-3);
+	font-family: var(--font-family-mono, monospace);
+	font-size: 12px;
+	color: var(--text-secondary);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.shell-setup-card {
+	margin: 0 0 var(--space-4);
+	padding: var(--space-3) var(--space-4);
+	border-radius: var(--border-radius);
+	border: 1px solid var(--border-color);
+	background: var(--panel-bg);
+}
+
+.shell-setup-card--warn {
+	border-color: var(--warning, #d97706);
+	background: color-mix(in srgb, var(--warning, #d97706) 8%, transparent);
+}
+
+.shell-setup-card--ok {
+	border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+	background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.shell-setup-card__title {
+	font-weight: 600;
+	margin-bottom: var(--space-1);
+	font-size: 13px;
+}
+
+.shell-setup-card__body {
+	margin: 0 0 var(--space-2);
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--text-secondary);
+}
+
+.shell-setup-card__actions {
+	display: flex;
+	gap: var(--space-2);
+}
+
+.shell-setup-footer {
+	margin-top: var(--space-5);
+	padding-top: var(--space-4);
+	border-top: 1px solid var(--border-color);
+	display: flex;
+	justify-content: center;
+}
+
+/* Plain text-link-styled button */
+.shell-link-button {
+	background: none;
+	border: none;
+	color: var(--accent);
+	cursor: pointer;
+	padding: 0;
+	font: inherit;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+.shell-link-button:hover {
+	color: var(--accent-strong, var(--accent));
+}
+
+.shell-link {
+	color: var(--accent);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+/* RepositoryInput error recovery row */
+.shell-input-row__error {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-2);
+	margin-top: var(--space-2);
+}
+.shell-input-row__hint {
+	color: var(--text-secondary);
+	font-size: 12px;
+}
+
+/* Empty-state hint sub-text under the primary empty-state line */
+.shell-empty-state__hint {
+	margin: var(--space-1) 0 0;
+	font-size: 11px;
+	color: var(--text-secondary);
+	line-height: 1.5;
+}
+
+/* About dialog body */
+.shell-about__heading {
+	margin: var(--space-4) 0 var(--space-2);
+	font-size: 13px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--text-secondary);
+}
+.shell-about__list {
+	margin: 0 0 var(--space-2);
+	padding-left: var(--space-4);
+	font-size: 13px;
+	line-height: 1.5;
+}
+.shell-about__list li {
+	margin-bottom: var(--space-1);
+}
+
+/* First-run hint banner shown above the layout */
+.shell-first-run-hint {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--space-3);
+	padding: var(--space-3) var(--space-4);
+	background: color-mix(in srgb, var(--accent) 10%, var(--panel-bg));
+	border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+	font-size: 13px;
+	line-height: 1.5;
+}
+.shell-first-run-hint__icon {
+	display: inline-flex;
+	align-items: center;
+	line-height: 1;
+	color: var(--accent);
+}
+.shell-first-run-hint__body {
+	flex: 1;
+}
+.shell-first-run-hint__body code {
+	background: var(--panel-bg);
+	padding: 0 4px;
+	border-radius: 3px;
+	font-size: 12px;
+}
+.shell-first-run-hint__dismiss {
+	background: none;
+	border: none;
+	color: var(--text-secondary);
+	cursor: pointer;
+	font-size: 18px;
+	line-height: 1;
+	padding: 0 var(--space-2);
+}
+.shell-first-run-hint__dismiss:hover {
+	color: var(--text-primary);
+}
+
+/* ─── Phosphor icon defaults ─── */
+
+/* SVG icons inherit color from `currentColor` and stay aligned with adjacent
+ * text. Apply to every button that contains an icon, plus inline runs. */
+button svg,
+.shell-button svg {
+	display: inline-block;
+	vertical-align: -2px;
+	flex-shrink: 0;
+}
+
+.shell-chip-bar__action svg {
+	flex-shrink: 0;
+}
+
+.shell-chip-bar__clean svg,
+.shell-review-chipbar__status svg,
+.shell-review-expanded-portal__clean svg {
+	vertical-align: middle;
+}
+
+.shell-tree-chevron {
+	font-size: inherit;
+}
+.shell-tree-chevron svg {
+	display: block;
+}
+
+.shell-commit-push-strip__counts span {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+}
+
+.usage-tok svg,
+.usage-tbl svg,
+.usage-foot svg,
+.usage-help svg {
+	vertical-align: -1px;
+}
+
+/* ─── Onboarding wave 2: HelpHint, SystemCheck, GuidedTour, Preferences ─── */
+
+/* HelpHint inline (?) affordance */
+.shell-help-hint {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 14px;
+	height: 14px;
+	margin-left: 4px;
+	padding: 0;
+	border-radius: 999px;
+	border: 1px solid var(--border-color);
+	background: transparent;
+	color: var(--text-secondary);
+	cursor: pointer;
+	vertical-align: middle;
+	transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.shell-help-hint:hover,
+.shell-help-hint:focus-visible {
+	color: var(--accent);
+	border-color: var(--accent);
+	background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.shell-help-hint__popover {
+	max-width: 280px;
+	padding: var(--space-3) var(--space-4);
+	background: var(--panel-bg);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius);
+	box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.4);
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--text-primary);
+	z-index: 1000;
+}
+.shell-help-hint__term {
+	font-weight: 700;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--text-secondary);
+	margin-bottom: 4px;
+}
+.shell-help-hint__body strong {
+	color: var(--accent);
+}
+.shell-help-hint__arrow {
+	fill: var(--panel-bg);
+	stroke: var(--border-color);
+}
+
+/* SystemCheckStrip */
+.shell-system-check {
+	display: flex;
+	align-items: stretch;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-4);
+	background: color-mix(in srgb, var(--warning, #d97706) 8%, var(--panel-bg));
+	border-bottom: 1px solid color-mix(in srgb, var(--warning, #d97706) 30%, transparent);
+	font-size: 12px;
+	flex-wrap: wrap;
+}
+.shell-system-check__row {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	flex: 1 1 auto;
+	min-width: 0;
+}
+.shell-system-check__row--warn {
+	color: var(--warning, #d97706);
+}
+.shell-system-check__row--error {
+	color: var(--danger);
+}
+.shell-system-check__body {
+	color: var(--text-primary);
+}
+.shell-system-check__dismiss {
+	margin-left: auto;
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: var(--text-secondary);
+	padding: 0 var(--space-2);
+}
+.shell-system-check__dismiss:hover {
+	color: var(--text-primary);
+}
+
+/* GuidedTour */
+.shell-tour__backdrop {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.35);
+	z-index: 9998;
+}
+.shell-tour__highlight {
+	position: fixed;
+	z-index: 9999;
+	border: 2px solid var(--accent);
+	border-radius: 8px;
+	box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);
+	pointer-events: none;
+}
+.shell-tour__card {
+	position: fixed;
+	width: 280px;
+	z-index: 10000;
+	background: var(--panel-bg);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius);
+	box-shadow: 0 12px 40px -8px rgba(0, 0, 0, 0.5);
+	padding: var(--space-4);
+	font-size: 13px;
+	line-height: 1.5;
+	color: var(--text-primary);
+}
+.shell-tour__close {
+	position: absolute;
+	top: var(--space-2);
+	right: var(--space-2);
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: var(--text-secondary);
+	padding: 4px;
+}
+.shell-tour__close:hover {
+	color: var(--text-primary);
+}
+.shell-tour__title {
+	font-weight: 700;
+	font-size: 14px;
+	margin-bottom: var(--space-2);
+	padding-right: var(--space-4);
+}
+.shell-tour__body {
+	color: var(--text-secondary);
+	margin-bottom: var(--space-4);
+}
+.shell-tour__footer {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+.shell-tour__progress {
+	flex: 1;
+	font-size: 11px;
+	color: var(--text-secondary);
+}
+
+/* Preferences dialog */
+.shell-prefs__section {
+	margin-bottom: var(--space-5);
+}
+.shell-prefs__section:last-child {
+	margin-bottom: 0;
+}
+.shell-prefs__section-title {
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--text-secondary);
+	margin-bottom: var(--space-2);
+}
+.shell-prefs__section-body {
+	margin: 0 0 var(--space-2);
+	font-size: 13px;
+	color: var(--text-secondary);
+	line-height: 1.5;
+}
+.shell-prefs__theme-options {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+}
+.shell-prefs__theme-option {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-2);
+	border-radius: var(--border-radius);
+	cursor: pointer;
+}
+.shell-prefs__theme-option:hover {
+	background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.shell-prefs__theme-label {
+	font-size: 13px;
+}
+.shell-prefs__theme-hint {
+	color: var(--text-secondary);
+	font-size: 12px;
+}
+
+/* FirstRunHint pulse animation */
+@keyframes shell-pulse {
+	0%, 100% {
+		box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent);
+	}
+	50% {
+		box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent);
+	}
+}
+.shell-first-run-hint--pulse {
+	animation: shell-pulse 1.6s ease-in-out 2;
+}

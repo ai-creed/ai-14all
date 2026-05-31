@@ -762,7 +762,7 @@ describe("App — Phase 5 restore flow", () => {
 		render(<App />);
 
 		// Workspace should load — the repo was found even though the worktree wasn't
-		await screen.findByRole("navigation", { name: "Worktree sessions" });
+		await screen.findByRole("navigation", { name: "Sessions" });
 
 		// A non-blocking status banner must explain what happened
 		expect(screen.getByRole("status")).toHaveTextContent(
@@ -1161,7 +1161,7 @@ describe("App — Phase 5 restore flow", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
 		// Should NOT recover the old note — this is a fresh load
-		await screen.findByRole("navigation", { name: "Worktree sessions" });
+		await screen.findByRole("navigation", { name: "Sessions" });
 		expect(
 			screen.queryByDisplayValue("should not appear"),
 		).not.toBeInTheDocument();
@@ -1322,7 +1322,7 @@ describe("App — Phase 5 restore flow", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
 
 		// App should load (main worktree is available)
-		await screen.findByRole("navigation", { name: "Worktree sessions" });
+		await screen.findByRole("navigation", { name: "Sessions" });
 
 		// The missing worktree session must survive in the next persist write
 		await waitFor(() => {
@@ -1510,7 +1510,7 @@ describe("App — Phase 5 restore flow", () => {
 		render(<App />);
 
 		const sidebar = await screen.findByRole("navigation", {
-			name: "Worktree sessions",
+			name: "Sessions",
 		});
 		await waitFor(() => {
 			expect(
@@ -1684,7 +1684,7 @@ describe("App — Phase 5 restore flow", () => {
 		);
 
 		const sidebar = screen.getByRole("navigation", {
-			name: "Worktree sessions",
+			name: "Sessions",
 		});
 		await waitFor(() => {
 			expect(

@@ -183,10 +183,12 @@ export function FilesOverlay(props: FilesOverlayProps) {
 							</div>
 						) : tracked.length === 0 ? (
 							<div className="shell-files-overlay__empty">
-								No files in this worktree.
+								No files in this session yet.
 							</div>
 						) : rows.length === 0 ? (
-							<div className="shell-files-overlay__empty">No files match.</div>
+							<div className="shell-files-overlay__empty">
+								No files match your search.
+							</div>
 						) : (
 							<div
 								ref={scrollParentRef}

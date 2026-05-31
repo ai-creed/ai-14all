@@ -18,7 +18,7 @@ let persistedStateDir: string;
 
 async function ensureWorkspaceLoaded(): Promise<void> {
 	const worktreeNav = page.getByRole("navigation", {
-		name: "Worktree sessions",
+		name: "Sessions",
 	});
 	if (await worktreeNav.isVisible({ timeout: 2_000 }).catch(() => false)) {
 		return;

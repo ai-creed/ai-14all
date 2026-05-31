@@ -1,4 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { XIcon } from "@phosphor-icons/react";
 import { SHORTCUT_REGISTRY, type Platform } from "../../app/shortcut-registry";
 
 interface Props {
@@ -9,7 +10,7 @@ interface Props {
 
 const SHORTCUT_GROUPS: { label: string; ids: string[] }[] = [
 	{
-		label: "Worktree",
+		label: "Session",
 		ids: ["worktree.selectNext", "worktree.selectPrev", "worktree.add"],
 	},
 	{
@@ -85,7 +86,7 @@ export function ShortcutsHelp({ open, platform, onClose }: Props) {
 								aria-label="Close shortcuts"
 								data-testid="shortcuts-help-close"
 							>
-								✕
+								<XIcon size={14} weight="regular" aria-hidden="true" />
 							</button>
 						</Dialog.Close>
 					</div>

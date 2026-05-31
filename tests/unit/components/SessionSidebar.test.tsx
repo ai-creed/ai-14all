@@ -51,7 +51,7 @@ describe("SessionSidebar", () => {
 		);
 
 		const sidebar = screen.getByRole("navigation", {
-			name: "Worktree sessions",
+			name: "Sessions",
 		});
 		const group = within(sidebar).getByRole("group", { name: "repo-a" });
 		// When branchName equals label (e.g. the "main" worktree), the branch <div>
@@ -132,7 +132,7 @@ describe("SessionSidebar", () => {
 		);
 
 		expect(
-			screen.getByRole("navigation", { name: "Worktree sessions" }),
+			screen.getByRole("navigation", { name: "Sessions" }),
 		).toHaveAttribute("data-collapsed", "true");
 
 		// Full worktree labels must NOT be rendered as <strong> elements
@@ -172,7 +172,7 @@ describe("SessionSidebar", () => {
 			screen.getByRole("button", { name: "Remove repo-a" }),
 		).toBeInTheDocument();
 		expect(
-			screen.queryByRole("button", { name: "Remove worktree" }),
+			screen.queryByRole("button", { name: "Remove session" }),
 		).not.toBeInTheDocument();
 	});
 
@@ -527,7 +527,7 @@ describe("SessionSidebar rename", () => {
 		);
 	});
 
-	it("context menu rename item exists on a non-main row and not Remove worktree alongside it", async () => {
+	it("context menu rename item exists on a non-main row and not Remove session alongside it", async () => {
 		renderSidebar();
 		const row = screen.getByRole("button", { name: /feature worktree/ });
 		fireEvent.contextMenu(row);
@@ -536,12 +536,12 @@ describe("SessionSidebar rename", () => {
 		});
 		expect(rename).toBeInTheDocument();
 		const remove = await screen.findByRole("menuitem", {
-			name: /remove worktree/i,
+			name: /remove session/i,
 		});
 		expect(remove).toBeInTheDocument();
 	});
 
-	it("context menu on the main row shows Rename session but NOT Remove worktree", async () => {
+	it("context menu on the main row shows Rename session but NOT Remove session", async () => {
 		renderSidebar();
 		const row = screen.getByRole("button", { name: "main" });
 		fireEvent.contextMenu(row);
@@ -550,7 +550,7 @@ describe("SessionSidebar rename", () => {
 		});
 		expect(rename).toBeInTheDocument();
 		expect(
-			screen.queryByRole("menuitem", { name: /remove worktree/i }),
+			screen.queryByRole("menuitem", { name: /remove session/i }),
 		).toBeNull();
 	});
 

@@ -1,3 +1,8 @@
+import {
+	ArrowClockwiseIcon,
+	ArrowUpIcon,
+	CheckIcon,
+} from "@phosphor-icons/react";
 import type { ReviewMode } from "../../../shared/models/worktree-session";
 import { ReviewBarButton } from "../../features/review/components/ReviewBarButton";
 
@@ -59,7 +64,7 @@ export function ReviewChipBar({
 				)
 			) : (
 				<span className="shell-review-chipbar__status" data-state="clean">
-					✓ clean
+					<CheckIcon size={12} weight="regular" aria-hidden="true" /> clean
 				</span>
 			)}
 			{hasComments && (
@@ -85,14 +90,20 @@ export function ReviewChipBar({
 			)}
 			<span className="shell-review-chipbar__spacer" />
 			<ReviewBarButton
-				icon="↻"
+				icon={
+					<ArrowClockwiseIcon
+						size={12}
+						weight="regular"
+						aria-hidden="true"
+					/>
+				}
 				label="Refresh"
 				ariaLabel="Refresh review"
 				title="Refresh review"
 				onClick={onRefresh}
 			/>
 			<ReviewBarButton
-				icon="⬆"
+				icon={<ArrowUpIcon size={12} weight="regular" aria-hidden="true" />}
 				label="Review"
 				ariaLabel="Open review"
 				title="Open review"
