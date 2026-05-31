@@ -13,6 +13,23 @@ function renderWizard(overrides: Partial<Parameters<typeof OnboardingWizard>[0]>
   return { ...render(<OnboardingWizard {...props} />), ...props };
 }
 
+describe("OnboardingWizard localStorage gating", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("should be shown when onboarding-completed flag is absent", () => {
+    expect(localStorage.getItem("ai14all:onboarding-completed")).toBeNull();
+  });
+
+  it("sets the completed flag when Skip is clicked", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await user.click(screen.getByRole("button", { name: /skip/i }));
+    expect(localStorage.getItem("ai14all:onboarding-completed")).toBe("true");
+  });
+});
+
 describe("OnboardingWizard", () => {
   it("renders step 1 (Welcome) by default", () => {
     renderWizard();
