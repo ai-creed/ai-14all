@@ -1,4 +1,3 @@
-import "./UpdateBanner.css";
 import type { UpdateInfo } from "../../../shared/contracts/commands";
 
 interface Props {
@@ -10,6 +9,9 @@ interface Props {
 	onLater: () => void;
 }
 
+const btnBase =
+	"bg-transparent text-inherit border border-[var(--accent)] rounded-[var(--radius-sm)] cursor-pointer font-[inherit] hover:bg-[var(--accent)] hover:text-[var(--panel-bg)]";
+
 export function UpdateBanner({
 	downloadingInfo,
 	downloadedInfo,
@@ -18,20 +20,24 @@ export function UpdateBanner({
 }: Props) {
 	if (downloadedInfo) {
 		return (
-			<div className="update-banner" role="status" aria-live="polite">
-				<span className="update-banner__text">
+			<div
+				className="flex items-center gap-[var(--space-3)] px-[var(--space-3)] py-[var(--space-2)] bg-[var(--panel-bg-elevated)] border-b border-[var(--accent)] text-[var(--text-primary)] text-[13px]"
+				role="status"
+				aria-live="polite"
+			>
+				<span className="flex-1">
 					Update <strong>{downloadedInfo.version}</strong> ready.
 				</span>
 				<button
 					type="button"
-					className="update-banner__download"
+					className={`${btnBase} px-[10px] py-[2px]`}
 					onClick={onRestart}
 				>
 					Restart now
 				</button>
 				<button
 					type="button"
-					className="update-banner__close"
+					className={`${btnBase} border-transparent px-[8px] py-[2px] leading-none`}
 					onClick={onLater}
 				>
 					Later
@@ -41,8 +47,12 @@ export function UpdateBanner({
 	}
 	if (downloadingInfo) {
 		return (
-			<div className="update-banner" role="status" aria-live="polite">
-				<span className="update-banner__text">
+			<div
+				className="flex items-center gap-[var(--space-3)] px-[var(--space-3)] py-[var(--space-2)] bg-[var(--panel-bg-elevated)] border-b border-[var(--accent)] text-[var(--text-primary)] text-[13px]"
+				role="status"
+				aria-live="polite"
+			>
+				<span className="flex-1">
 					Downloading update <strong>{downloadingInfo.version}</strong>…
 				</span>
 			</div>
