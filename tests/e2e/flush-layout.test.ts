@@ -35,6 +35,15 @@ test.beforeAll(async () => {
 		},
 	});
 	page = await app.firstWindow({ timeout: 60_000 });
+	// On a clean E2E profile the onboarding wizard renders (its
+	// "ai14all:onboarding-completed" localStorage flag is unset) and hides the
+	// repository picker. Dismiss it via Skip when present so the picker shows.
+	const skip = page.getByRole("button", { name: "Skip" });
+	try {
+		await skip.click({ timeout: 5_000 });
+	} catch {
+		// Wizard not shown (flag already set) — proceed to the picker.
+	}
 	await page.getByRole("button", { name: "Browse" }).click();
 	await expect(page.locator("#repo-path")).toHaveValue(testRepo.repoPath);
 	await page.getByRole("button", { name: "Load" }).click();
