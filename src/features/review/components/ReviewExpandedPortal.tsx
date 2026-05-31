@@ -91,8 +91,9 @@ export const ReviewExpandedPortal = forwardRef<
 		setRect(next);
 	}
 
-	// Runs on every render — catches position-only shifts (e.g. UpdateBanner
-	// pushing chip bar down) that ResizeObserver misses. The equality guard in
+	// Runs on every render — catches position-only shifts (e.g. a sidebar
+	// width change moving the main column, since the chip bar now lives in the
+	// full-width app bar) that ResizeObserver misses. The equality guard in
 	// recomputePosition prevents an infinite re-render loop.
 	useLayoutEffect(() => {
 		recomputePosition();

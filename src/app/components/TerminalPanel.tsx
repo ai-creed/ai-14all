@@ -85,7 +85,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 	const terminalFontSize = 12 - Math.floor((layout.slotCount - 1) / 2);
 
 	return (
-		<section className="bg-transparent border border-[var(--pane-border-terminal)] grid grid-rows-[minmax(0,1fr)] flex-1 overflow-hidden min-w-0 min-h-0">
+		<section className="bg-transparent border-t border-r border-b border-[var(--pane-border-terminal)] grid grid-rows-[minmax(0,1fr)] flex-1 overflow-hidden min-w-0 min-h-0">
 			<div
 				data-testid="terminal-grid"
 				className="grid gap-x-0 w-full h-full min-h-0"
