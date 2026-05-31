@@ -1,1 +1,488 @@
 @import "tailwindcss";
+
+/* ── Custom font ────────────────────────────────────────────── */
+
+@font-face {
+	font-family: "AI14All Terminal Powerline";
+	src: url("./assets/fonts/meslo-lg-m-dz-powerline-regular.ttf")
+		format("truetype");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+
+/* ── Theme variables (Dark — default) ───────────────────────── */
+
+:root {
+	--background: #0b1116;
+	--foreground: #eef7fa;
+	--card: #111a21;
+	--card-foreground: #eef7fa;
+	--popover: #16232c;
+	--popover-foreground: #eef7fa;
+	--primary: #67d4b0;
+	--primary-foreground: #0b1116;
+	--secondary: #16232c;
+	--secondary-foreground: #8fa4b1;
+	--muted: #16232c;
+	--muted-foreground: #6f8593;
+	--accent: #15383d;
+	--accent-foreground: #67d4b0;
+	--destructive: #d98c8c;
+	--border: #24313d;
+	--input: #24313d;
+	--ring: #67d4b0;
+	--radius: 0.25rem;
+
+	/* App-specific extensions */
+	--panel-border-strong: #345767;
+	--warning: #f0c37a;
+	--sha: #a78bfa;
+	--provider-claude: #d97706;
+	--provider-codex: #2563eb;
+	--pane-border-sessions: rgba(79, 179, 255, 0.5);
+	--pane-border-session-info: rgba(246, 169, 74, 0.5);
+	--pane-border-terminal: rgba(67, 211, 158, 0.5);
+	--pane-border-review: rgba(243, 107, 138, 0.5);
+
+	--font-ui: "SF Mono", "SFMono-Regular", ui-monospace, Menlo, Monaco, monospace;
+	--font-terminal: "AI14All Terminal Powerline", "Meslo LG M DZ for Powerline",
+		"Meslo LG M for Powerline", "Meslo LG M DZ Regular for Powerline", "Hack",
+		ui-monospace, Menlo, Monaco, monospace;
+
+	font-family: var(--font-ui);
+	font-size: 13px;
+	color: var(--foreground);
+	background: var(--background);
+}
+
+/* ── Light theme ────────────────────────────────────────────── */
+
+[data-theme="light"] {
+	--background: #f0f2f5;
+	--foreground: #1e2530;
+	--card: #ffffff;
+	--card-foreground: #1e2530;
+	--popover: #f5f7f9;
+	--popover-foreground: #1e2530;
+	--primary: #1a7fc1;
+	--primary-foreground: #ffffff;
+	--secondary: #f5f7f9;
+	--secondary-foreground: #4a5a70;
+	--muted: #f5f7f9;
+	--muted-foreground: #7a8a9a;
+	--accent: #ddeeff;
+	--accent-foreground: #1a7fc1;
+	--destructive: #c0404a;
+	--border: #d0d7e0;
+	--input: #d0d7e0;
+	--ring: #1a7fc1;
+	--panel-border-strong: #a8b8cc;
+	--warning: #b07800;
+	--sha: #6d4cbc;
+	--provider-claude: #b45309;
+	--provider-codex: #1d4ed8;
+	--pane-border-sessions: rgba(30, 120, 220, 0.4);
+	--pane-border-session-info: rgba(180, 120, 30, 0.4);
+	--pane-border-terminal: rgba(30, 160, 100, 0.4);
+	--pane-border-review: rgba(200, 60, 80, 0.4);
+	color: var(--foreground);
+	background: var(--background);
+}
+
+/* ── Warm theme ─────────────────────────────────────────────── */
+
+[data-theme="warm"] {
+	--background: #221c15;
+	--foreground: #f6efe4;
+	--card: #2a231b;
+	--card-foreground: #f6efe4;
+	--popover: #342c22;
+	--popover-foreground: #f6efe4;
+	--primary: #e58a5e;
+	--primary-foreground: #221c15;
+	--secondary: #342c22;
+	--secondary-foreground: #cab999;
+	--muted: #342c22;
+	--muted-foreground: #9a8366;
+	--accent: #3d2817;
+	--accent-foreground: #e58a5e;
+	--destructive: #d97058;
+	--border: #4a3f31;
+	--input: #4a3f31;
+	--ring: #e58a5e;
+	--panel-border-strong: #6d5b46;
+	--warning: #dda85e;
+	--sha: #c4a0db;
+	--provider-claude: #e58a5e;
+	--provider-codex: #5a9bd6;
+	--pane-border-sessions: rgba(108, 188, 184, 0.6);
+	--pane-border-session-info: rgba(228, 158, 80, 0.6);
+	--pane-border-terminal: rgba(226, 140, 96, 0.6);
+	--pane-border-review: rgba(220, 122, 110, 0.6);
+	color: var(--foreground);
+	background: var(--background);
+}
+
+/* ── Global resets ──────────────────────────────────────────── */
+
+* { box-sizing: border-box; }
+body {
+	margin: 0;
+	background: radial-gradient(circle at top, #10181f 0%, var(--background) 55%);
+	color: var(--foreground);
+	font-size: 13px;
+}
+[data-theme="light"] body {
+	background: radial-gradient(circle at top, #e8edf4 0%, var(--background) 55%);
+}
+[data-theme="warm"] body {
+	background: radial-gradient(circle at top, #2c2318 0%, var(--background) 60%);
+}
+button, input, textarea, select {
+	font: inherit;
+	font-size: 13px;
+}
+
+/* ── Theme-specific tab hover overrides ─────────────────────── */
+
+[data-theme="light"] .shell-terminal-tab:hover,
+[data-theme="light"] .shell-review-tab:hover {
+	background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .shell-terminal-tab[data-state="active"],
+[data-theme="light"] .shell-terminal-tab[data-state="active"]:hover,
+[data-theme="light"] .shell-review-tab[data-state="active"],
+[data-theme="light"] .shell-review-tab[data-state="active"]:hover {
+	box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="warm"] .shell-review-tab:hover {
+	background: rgba(232, 133, 92, 0.08);
+}
+
+/* ── xterm overrides ────────────────────────────────────────── */
+
+.shell-terminal-pane__viewport .xterm,
+.shell-terminal-pane__viewport .xterm-screen {
+	height: 100%;
+}
+
+.shell-terminal-pane__viewport .xterm .xterm-viewport {
+	overflow-anchor: none;
+}
+
+/* ── Sidebar attention animations ───────────────────────────── */
+/*
+ * Animated border ring around sidebar rows that need the user's attention.
+ * Uses @property so the CSS custom properties can be animated. A conic
+ * gradient fills the padding area of a ::before pseudo-element; a mask
+ * stays intact underneath. Mask-composite: exclude carves the inside out
+ * so the conic gradient becomes a thin animated ring that follows the row's
+ * border-radius. --attention-angle rotates; --attention-opacity breathes.
+ * prefers-reduced-motion freezes the gradient into a flat colored ring.
+ */
+@property --attention-angle {
+	syntax: "<angle>";
+	initial-value: 0deg;
+	inherits: false;
+}
+
+@property --attention-opacity {
+	syntax: "<number>";
+	initial-value: 0.55;
+	inherits: false;
+}
+
+@keyframes shell-sidebar-attention-rotate {
+	to {
+		--attention-angle: 360deg;
+	}
+}
+
+@keyframes shell-sidebar-attention-pulse {
+	to {
+		--attention-opacity: 1;
+	}
+}
+
+.shell-sidebar__row[data-attention="activity"],
+.shell-sidebar__row[data-attention="actionRequired"] {
+	position: relative;
+}
+
+/*
+ * Activity: rotating spotlight conic gradient — visual language of
+ * "something is running / cooking" without urgency.
+ */
+.shell-sidebar__row[data-attention="activity"]::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	padding: 2px;
+	background: conic-gradient(
+		from var(--attention-angle),
+		var(--attention-color) 0deg,
+		transparent 140deg,
+		var(--attention-color) 360deg
+	);
+	opacity: var(--attention-opacity);
+	-webkit-mask:
+		linear-gradient(#000 0 0) content-box,
+		linear-gradient(#000 0 0);
+	-webkit-mask-composite: xor;
+	mask-composite: exclude;
+	pointer-events: none;
+	animation:
+		shell-sidebar-attention-rotate 4s linear infinite,
+		shell-sidebar-attention-pulse 2.5s ease-in-out infinite alternate;
+}
+
+/*
+ * ActionRequired: solid ring that pulses opacity + outer glow on the parent.
+ * Steady, not rotating — visual language of "alarm / waiting on you".
+ */
+.shell-sidebar__row[data-attention="actionRequired"]::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	padding: 2px;
+	background: var(--attention-color);
+	-webkit-mask:
+		linear-gradient(#000 0 0) content-box,
+		linear-gradient(#000 0 0);
+	-webkit-mask-composite: xor;
+	mask-composite: exclude;
+	pointer-events: none;
+	animation: shell-sidebar-action-ring 1.4s ease-in-out infinite;
+}
+
+.shell-sidebar__row[data-attention="actionRequired"] {
+	animation: shell-sidebar-action-glow 1.4s ease-in-out infinite;
+}
+
+@keyframes shell-sidebar-action-ring {
+	0%,
+	100% {
+		opacity: 0.45;
+	}
+	50% {
+		opacity: 1;
+	}
+}
+
+@keyframes shell-sidebar-action-glow {
+	0%,
+	100% {
+		box-shadow: 0 0 0 0 transparent;
+	}
+	50% {
+		box-shadow: 0 0 16px
+			color-mix(in srgb, var(--attention-color) 55%, transparent);
+	}
+}
+
+.shell-sidebar__row[data-attention="activity"] {
+	--attention-color: var(--warning);
+	background: color-mix(in srgb, var(--warning) 4%, var(--panel-bg));
+}
+
+.shell-sidebar__row[data-attention="actionRequired"] {
+	--attention-color: var(--danger);
+	background: color-mix(in srgb, var(--danger) 6%, var(--panel-bg));
+}
+
+/*
+ * Selected + activity: suppress the rotating ring and title shimmer. The
+ * selected accent border + elevated bg are enough; doubling up reads as
+ * visual noise. ActionRequired keeps its pulse even when selected — the
+ * prompt still needs an answer regardless of which row has focus.
+ */
+.shell-sidebar__row[data-selected="true"][data-attention="activity"]::before {
+	display: none;
+}
+
+.shell-sidebar__row[data-selected="true"][data-attention="activity"] strong {
+	background: none;
+	-webkit-text-fill-color: var(--text-primary);
+	color: var(--text-primary);
+	font-weight: 700;
+	letter-spacing: normal;
+	animation: none;
+}
+
+.shell-sidebar__row[data-selected="true"][data-attention="actionRequired"] {
+	background: color-mix(in srgb, var(--danger) 6%, var(--panel-bg-elevated));
+}
+
+/*
+ * Activity title: shimmering gradient — same "running" language as the ring.
+ * ActionRequired title: solid attention color, slightly bolder — calm but
+ * unmistakable, complementing the pulsing ring rather than competing with it.
+ */
+.shell-sidebar__row[data-attention="activity"] strong {
+	background: linear-gradient(
+		90deg,
+		var(--attention-color) 0%,
+		color-mix(in srgb, var(--attention-color) 55%, white) 50%,
+		var(--attention-color) 100%
+	);
+	background-size: 200% 100%;
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	color: transparent;
+	font-weight: 800;
+	letter-spacing: 0.01em;
+	animation: shell-sidebar-attention-shimmer 3.2s linear infinite;
+}
+
+.shell-sidebar__row[data-attention="actionRequired"] strong {
+	color: var(--attention-color);
+	font-weight: 800;
+	letter-spacing: 0.01em;
+}
+
+@keyframes shell-sidebar-attention-shimmer {
+	to {
+		background-position: 200% 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.shell-sidebar__row[data-attention="activity"]::before,
+	.shell-sidebar__row[data-attention="actionRequired"]::before {
+		animation: none;
+		background: var(--attention-color);
+		opacity: 0.7;
+	}
+	.shell-sidebar__row[data-attention="actionRequired"] {
+		animation: none;
+	}
+	.shell-sidebar__row[data-attention="activity"] strong {
+		animation: none;
+		background: none;
+		color: var(--attention-color);
+		-webkit-text-fill-color: var(--attention-color);
+	}
+}
+
+/* ── Sidebar process indicator ──────────────────────────────── */
+
+.shell-sidebar__process-indicator {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--text-muted);
+	flex-shrink: 0;
+}
+
+.shell-sidebar__process-indicator[data-state="actionRequired"] {
+	background: var(--danger);
+	/* Same rhythm as the worktree row pulse so the two signals breathe in sync. */
+	animation: shell-sidebar-process-dot-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes shell-sidebar-process-dot-pulse {
+	/* Dot stays fully lit; only the halo around it pulses. */
+	0%,
+	100% {
+		box-shadow: 0 0 0 0 transparent;
+	}
+	50% {
+		box-shadow: 0 0 8px color-mix(in srgb, var(--danger) 80%, transparent);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.shell-sidebar__process-indicator[data-state="actionRequired"] {
+		animation: none;
+	}
+}
+
+.shell-sidebar__process-indicator[data-state="active"] {
+	background: var(--warning);
+}
+
+.shell-sidebar__process-indicator[data-state="idle"] {
+	background: var(--text-muted);
+}
+
+.shell-sidebar__process-indicator[data-state="exited"] {
+	background: transparent;
+	border: 1px solid var(--text-muted);
+}
+
+/* ── Review imperative CSS classes (used by Monaco widget code) ── */
+
+.shell-review-plus-decoration {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.shell-review-plus-decoration::before {
+	content: "+";
+	display: block;
+	width: 18px;
+	height: 18px;
+	line-height: 16px;
+	text-align: center;
+	font-size: 15px;
+	font-weight: 500;
+	background: rgba(74, 144, 226, 0.22);
+	border: 1px solid rgba(74, 144, 226, 0.55);
+	border-radius: 4px;
+	color: #6ab0f5;
+	cursor: pointer;
+}
+
+.shell-review-selection-pill {
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	background: rgba(74, 144, 226, 0.85);
+	border: none;
+	border-radius: 4px;
+	color: #fff;
+	font-size: 18px;
+	font-weight: 400;
+	line-height: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.shell-review-selection-pill:hover {
+	background: rgba(74, 144, 226, 1);
+}
+
+.shell-inline-thread-host {
+	/* Host container for inline comment threads mounted by imperative code */
+}
+
+/* ── Reduced-motion: overlays ───────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+	.shell-shortcuts-help__overlay,
+	.shell-shortcuts-help,
+	.shell-note-sheet__overlay,
+	.shell-note-sheet,
+	.shell-files-overlay__backdrop,
+	.shell-files-overlay {
+		animation: none !important;
+		transition: none !important;
+	}
+}
+
+/* ── Utilities ──────────────────────────────────────────────── */
+
+.sr-only {
+	position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+	overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
+}
