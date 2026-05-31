@@ -214,7 +214,8 @@ describe("MarkdownPreviewModal", () => {
 		);
 
 		await screen.findByRole("heading", { name: "Hello" });
-		fireEvent.click(screen.getByRole("button", { name: "Close" }));
+		const closeButtons = screen.getAllByRole("button", { name: "Close" });
+		fireEvent.click(closeButtons[0]);
 		expect(onClose).toHaveBeenCalled();
 	});
 });

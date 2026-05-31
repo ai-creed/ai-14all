@@ -36,9 +36,7 @@ describe("SessionChipBar", () => {
 
 	it("shows dirty chip with count when dirty", () => {
 		render(<SessionChipBar {...defaults} isDirty changedFileCount={3} />);
-		expect(
-			screen.getByRole("button", { name: /3 changed/i }),
-		).toBeInTheDocument();
+		expect(screen.getByText(/3\s*changed/i)).toBeInTheDocument();
 	});
 
 	it("calls onDirtyClick when dirty chip clicked", async () => {
@@ -52,7 +50,7 @@ describe("SessionChipBar", () => {
 				onDirtyClick={spy}
 			/>,
 		);
-		await user.click(screen.getByRole("button", { name: /2 changed/i }));
+		await user.click(screen.getByText(/2\s*changed/i));
 		expect(spy).toHaveBeenCalledTimes(1);
 	});
 

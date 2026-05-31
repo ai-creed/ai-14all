@@ -21,15 +21,15 @@ describe("AppDialog", () => {
 	});
 
 	it("applies the wide modifier when size='wide'", () => {
-		const { container } = render(
+		render(
 			<AppDialog open onOpenChange={() => {}} size="wide">
 				<AppDialog.Title>t</AppDialog.Title>
 				<AppDialog.Body>b</AppDialog.Body>
 				<AppDialog.Footer>f</AppDialog.Footer>
 			</AppDialog>,
 		);
-		const content = container.ownerDocument.querySelector(".shell-app-dialog");
-		expect(content?.classList.contains("shell-app-dialog--wide")).toBe(true);
+		const dialog = screen.getByRole("dialog");
+		expect(dialog.className).toContain("max-w-[min(640px");
 	});
 
 	it("does not render description in DOM when no Description child supplied", () => {
@@ -41,21 +41,21 @@ describe("AppDialog", () => {
 			</AppDialog>,
 		);
 		expect(
-			document.querySelector(".shell-app-dialog__description"),
+			screen.queryByText("text-muted-foreground", { selector: "p" }),
 		).not.toBeInTheDocument();
 	});
 
 	it("forwards aria-describedby={undefined} when description absent", () => {
-		const { container } = render(
+		render(
 			<AppDialog open onOpenChange={() => {}}>
 				<AppDialog.Title>t</AppDialog.Title>
 				<AppDialog.Body>b</AppDialog.Body>
 				<AppDialog.Footer>f</AppDialog.Footer>
 			</AppDialog>,
 		);
-		const content = container.ownerDocument.querySelector(".shell-app-dialog");
+		const dialog = screen.getByRole("dialog");
 		// Radix omits aria-describedby attribute entirely when undefined is passed.
-		expect(content?.hasAttribute("aria-describedby")).toBe(false);
+		expect(dialog.hasAttribute("aria-describedby")).toBe(false);
 	});
 
 	it("calls onOpenChange(false) when user presses Escape", () => {

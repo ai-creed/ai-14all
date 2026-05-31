@@ -378,7 +378,7 @@ describe("App — Phase 5 restore flow", () => {
 		);
 		expect(await screen.findByDisplayValue("resume here")).toBeInTheDocument();
 		await userEvent.click(
-			screen.getByRole("button", { name: "Close note sheet" }),
+			within(screen.getByRole("dialog", { name: "Session note" })).getByRole("button", { name: "Close" }),
 		);
 		await waitFor(() => {
 			expect(
@@ -953,7 +953,7 @@ describe("App — Phase 5 restore flow", () => {
 		);
 		expect(await screen.findByDisplayValue("resume here")).toBeInTheDocument();
 		await userEvent.click(
-			screen.getByRole("button", { name: "Close note sheet" }),
+			within(screen.getByRole("dialog", { name: "Session note" })).getByRole("button", { name: "Close" }),
 		);
 		await waitFor(() => {
 			expect(
@@ -1243,7 +1243,7 @@ describe("App — Phase 5 restore flow", () => {
 			await screen.findByDisplayValue("degraded note"),
 		).toBeInTheDocument();
 		await userEvent.click(
-			screen.getByRole("button", { name: "Close note sheet" }),
+			within(screen.getByRole("dialog", { name: "Session note" })).getByRole("button", { name: "Close" }),
 		);
 		await waitFor(() => {
 			expect(

@@ -1078,7 +1078,7 @@ describe("App — Phase 6 default shell", () => {
 
 		// Close note sheet before navigating away
 		await userEvent.click(
-			screen.getByRole("button", { name: "Close note sheet" }),
+			within(screen.getByRole("dialog", { name: "Session note" })).getByRole("button", { name: "Close" }),
 		);
 		await waitFor(() => {
 			expect(
