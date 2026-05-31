@@ -3,7 +3,7 @@ import {
 	type SessionSidebarWorkspace,
 } from "../../features/workspace/components/SessionSidebar";
 
-type PendingRename = {
+export type PendingRename = {
 	workspaceId: string;
 	worktreeId: string;
 };

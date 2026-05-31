@@ -8,8 +8,12 @@ import { useUsageSnapshot } from "../../features/telemetry/use-usage-snapshot";
 import { displayTitle } from "../../features/workspace/logic/session-display-title";
 import type { WorkspaceAction } from "../../features/workspace/logic/workspace-state";
 import type { Platform } from "../shortcut-registry";
+import type { PendingRename } from "./SidebarPanel";
 
-type PendingRename = { workspaceId: string; worktreeId: string };
+// Clears the macOS traffic-light cluster (see electron/main/windows.ts
+// trafficLightPosition). Non-mac keeps the default 8px (px-2) left padding.
+const MACOS_TRAFFIC_LIGHT_INSET_PX = 78;
+const DEFAULT_BAR_PADDING_LEFT_PX = 8;
 
 type Props = {
 	chipBarRef: MutableRefObject<HTMLDivElement | null>;
@@ -54,8 +58,10 @@ export function AppBar(props: Props): React.ReactElement {
 	} = props;
 
 	const usageSnapshot = useUsageSnapshot();
-	// Clear the macOS traffic-light cluster; other platforms need no inset.
-	const leftInset = appPlatform === "mac" ? 78 : 0;
+	const leftInset =
+		appPlatform === "mac"
+			? MACOS_TRAFFIC_LIGHT_INSET_PX
+			: DEFAULT_BAR_PADDING_LEFT_PX;
 
 	return (
 		<header

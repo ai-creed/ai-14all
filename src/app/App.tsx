@@ -90,6 +90,7 @@ import { ReviewChipBar } from "./components/ReviewChipBar";
 import { firstViewableChangedFile } from "./logic/review-chip-target";
 import { ReviewArea } from "./components/ReviewArea";
 import { SidebarPanel } from "./components/SidebarPanel";
+import type { PendingRename } from "./components/SidebarPanel";
 import { MainColumnChrome } from "./components/MainColumnChrome";
 import { AppBar } from "./components/AppBar";
 import { RestoreBanner } from "./components/RestoreBanner";
@@ -127,10 +128,9 @@ export function App() {
 	}
 
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-	const [pendingRename, setPendingRename] = useState<{
-		workspaceId: string;
-		worktreeId: string;
-	} | null>(null);
+	const [pendingRename, setPendingRename] = useState<PendingRename | null>(
+		null,
+	);
 	const sidebarNow = useTickingNow(1_000);
 	const [noteSheetOpen, setNoteSheetOpen] = useState(false);
 	const [filesOverlayOpen, setFilesOverlayOpen] = useState(false);
