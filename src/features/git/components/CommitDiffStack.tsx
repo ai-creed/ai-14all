@@ -4,8 +4,14 @@ import type {
 	GitCommitDetail,
 	GitCommitFileDiff,
 } from "../../../../shared/models/git-commit-review.js";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "../../../components/ui/collapsible";
 import { git } from "../../../lib/desktop-client";
 import type { ResolvedTheme } from "../../../lib/use-theme";
+import { cn } from "../../../lib/utils";
 
 type Props = {
 	workspaceId: string;
@@ -256,60 +262,85 @@ export function CommitDiffStack({
 
 	return (
 		<div
-			className="shell-commit-diff-stack"
+			className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden"
 			data-single-file={String(singleFile)}
 			data-readonly-editor="true"
 		>
-			<div className="shell-viewer__header">
-				<div className="shell-viewer__title">{detail.subject}</div>
-				<div className="shell-viewer__meta">{detail.shortSha}</div>
+			<div className="flex items-center justify-between gap-3 border-b border-border bg-muted/50 px-2.5 py-1.5 font-sans text-[0.8em]"
+				style={{ minHeight: 32 }}
+			>
+				<div className="text-muted-foreground">{detail.subject}</div>
+				<div className="text-[0.9em] text-muted-foreground/70">{detail.shortSha}</div>
 			</div>
-			<div className="shell-commit-diff-stack__body">
+			<div
+				className={cn(
+					"min-h-0 overflow-x-hidden",
+					singleFile ? "overflow-hidden" : "overflow-y-auto",
+				)}
+			>
 				{detail.files.map((file) => {
 					const expanded = expandedPaths.has(file.path);
 					const cacheKey = `${detail.sha}|${file.path}`;
 					const cache = diffByPath[cacheKey] ?? { kind: "idle" };
+					const isFocused = focusedPath === file.path;
 					return (
-						<section
+						<Collapsible
 							key={file.path}
-							ref={(node) => {
-								sectionRefs.current[file.path] = node;
-							}}
-							data-testid={`commit-diff-section-${file.path}`}
-							data-focused={String(focusedPath === file.path)}
-							className="shell-commit-diff-section"
+							open={expanded}
+							onOpenChange={(open) =>
+								setExpandedPaths((prev) => {
+									const next = new Set(prev);
+									if (open) next.add(file.path);
+									else next.delete(file.path);
+									return next;
+								})
+							}
+							asChild
 						>
-							<button
-								type="button"
-								className="shell-commit-diff-section__header"
-								onClick={() =>
-									setExpandedPaths((prev) => {
-										const next = new Set(prev);
-										if (next.has(file.path)) next.delete(file.path);
-										else next.add(file.path);
-										return next;
-									})
-								}
+							<section
+								ref={(node) => {
+									sectionRefs.current[file.path] = node;
+								}}
+								data-testid={`commit-diff-section-${file.path}`}
+								data-focused={String(isFocused)}
+								className={cn(
+									"border-b border-border",
+									singleFile &&
+										"grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]",
+								)}
 							>
-								<span>{file.path}</span>
-								<strong>{file.status}</strong>
-							</button>
-							{expanded && cache.kind === "loading" && (
-								<p className="shell-empty-state">Loading diff…</p>
-							)}
-							{expanded && cache.kind === "error" && (
-								<p className="shell-error">{cache.message}</p>
-							)}
-							{expanded && cache.kind === "ready" && (
-								<DiffEditorSlot
-									file={cache.diff}
-									singleFile={singleFile}
-									resolvedTheme={resolvedTheme}
-									onEditorMount={onEditorMount}
-									onEditorUnmount={onEditorUnmount}
-								/>
-							)}
-						</section>
+								<CollapsibleTrigger
+									className={cn(
+										"flex w-full cursor-pointer items-center justify-between border-none bg-muted/50 px-2.5 py-1.5 text-left font-sans text-[0.85em] text-foreground",
+										isFocused && "border-l-[3px] border-l-primary",
+									)}
+								>
+									<span>{file.path}</span>
+									<strong>{file.status}</strong>
+								</CollapsibleTrigger>
+								<CollapsibleContent>
+									{cache.kind === "loading" && (
+										<p className="p-4 text-sm italic text-muted-foreground">
+											Loading diff…
+										</p>
+									)}
+									{cache.kind === "error" && (
+										<p className="p-4 text-sm text-destructive">
+											{cache.message}
+										</p>
+									)}
+									{cache.kind === "ready" && (
+										<DiffEditorSlot
+											file={cache.diff}
+											singleFile={singleFile}
+											resolvedTheme={resolvedTheme}
+											onEditorMount={onEditorMount}
+											onEditorUnmount={onEditorUnmount}
+										/>
+									)}
+								</CollapsibleContent>
+							</section>
+						</Collapsible>
 					);
 				})}
 			</div>
