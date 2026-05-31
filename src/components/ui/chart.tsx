@@ -177,12 +177,12 @@ const ChartTooltipContent = React.forwardRef<
       <div
         ref={ref}
         className={cn(
-          "grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl",
+          "grid min-w-[8rem] items-start gap-2 rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl",
           className,
         )}
       >
         {!nestLabel ? tooltipLabel : null}
-        <div className="grid gap-1.5">
+        <div className="grid gap-2">
           {payload
             .filter((item) => item.type !== "none")
             .map((item, index) => {
@@ -214,7 +214,7 @@ const ChartTooltipContent = React.forwardRef<
                                 "w-1": indicator === "line",
                                 "w-0 border-[1.5px] border-dashed bg-transparent":
                                   indicator === "dashed",
-                                "my-0.5": nestLabel && indicator === "dashed",
+                                "my-1": nestLabel && indicator === "dashed",
                               },
                             )}
                             style={
@@ -232,7 +232,7 @@ const ChartTooltipContent = React.forwardRef<
                           nestLabel ? "items-end" : "items-center",
                         )}
                       >
-                        <div className="grid gap-1.5">
+                        <div className="grid gap-2">
                           {nestLabel ? tooltipLabel : null}
                           <span className="text-muted-foreground">
                             {itemConfig?.label || item.name}
@@ -295,7 +295,7 @@ const ChartLegendContent = React.forwardRef<
               <div
                 key={item.value}
                 className={cn(
-                  "flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground",
+                  "flex items-center gap-2 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground",
                 )}
               >
                 {itemConfig?.icon && !hideIcon ? (

@@ -56,13 +56,13 @@ export function SessionHeader({
 					{!collapsed && <Label>Session info</Label>}
 					<h2 className="text-base mt-1 leading-tight tracking-[0.01em]">{title}</h2>
 					{branchDescription && (
-						<div className="mt-1.5 text-secondary-foreground text-[13px] leading-snug">
+						<div className="mt-2 text-secondary-foreground text-sm leading-snug">
 							{branchDescription}
 						</div>
 					)}
 				</div>
 				{collapsed && (
-					<div className="flex gap-3 items-center text-secondary-foreground text-[13px] flex-1 min-w-0">
+					<div className="flex gap-3 items-center text-secondary-foreground text-sm flex-1 min-w-0">
 						<span>{branchName}</span>
 						<span>{statusLabel}</span>
 						<span>{changedFileCount}</span>
@@ -74,10 +74,10 @@ export function SessionHeader({
 				<>
 					<div className="mt-3">
 						<Label>Worktree path</Label>
-						<code className="block mt-2 text-secondary-foreground whitespace-pre-wrap break-words p-1.5 bg-muted border border-border rounded-sm text-[13px]">{worktreePath}</code>
+						<code className="block mt-2 text-secondary-foreground whitespace-pre-wrap break-words p-2 bg-muted border border-border rounded-sm text-sm">{worktreePath}</code>
 					</div>
 
-					<div className="flex flex-wrap gap-3 mt-3 text-secondary-foreground text-[13px]">
+					<div className="flex flex-wrap gap-3 mt-3 text-secondary-foreground text-sm">
 						<span>
 							<span>Branch:</span> <strong>{branchName}</strong>
 						</span>

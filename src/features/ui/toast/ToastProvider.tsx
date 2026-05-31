@@ -12,7 +12,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 				position="bottom-right"
 				toastOptions={{
 					className:
-						"bg-popover text-popover-foreground border border-border shadow-md font-[var(--font-ui)] text-[13px]",
+						"bg-popover text-popover-foreground border border-border shadow-md font-[var(--font-ui)] text-sm",
 				}}
 			/>
 		</>

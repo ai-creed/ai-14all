@@ -64,8 +64,8 @@ export function UsageStrip({
 	const gaugeFor = (p: UsageProvider): LimitGauge | undefined =>
 		snapshot.limits.find((l) => l.provider === p);
 	return (
-		<div className="relative flex items-center gap-2.5 font-mono">
-			<div className="grid grid-cols-[auto_auto_auto_auto] gap-x-3 gap-y-0.5 items-center text-[11px]">
+		<div className="relative flex items-center gap-3 font-mono">
+			<div className="grid grid-cols-[auto_auto_auto_auto] gap-x-3 gap-y-1 items-center text-xs">
 				{ORDER.map((provider) => {
 					const t = rowTotals(snapshot, provider, currentWorktreePath);
 					const g = gaugeFor(provider);
@@ -87,15 +87,15 @@ export function UsageStrip({
 									↓{formatTokens(t.output)}
 								</span>
 							</span>
-							<span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-								<span className="text-[9px] tracking-wide uppercase text-muted-foreground">
+							<span className="inline-flex items-center gap-2 whitespace-nowrap">
+								<span className="text-[10px] tracking-wide uppercase text-muted-foreground">
 									5h
 								</span>
 								<Gauge percent={g?.fiveHour.percent ?? 0} />{" "}
 								{g?.fiveHour.percent ?? 0}%
 							</span>
-							<span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-								<span className="text-[9px] tracking-wide uppercase text-muted-foreground">
+							<span className="inline-flex items-center gap-2 whitespace-nowrap">
+								<span className="text-[10px] tracking-wide uppercase text-muted-foreground">
 									wk
 								</span>
 								<Gauge percent={g?.weekly.percent ?? 0} />{" "}
@@ -107,7 +107,7 @@ export function UsageStrip({
 			</div>
 			<button
 				ref={caretRef}
-				className="bg-transparent border-none text-muted-foreground cursor-pointer text-[13px]"
+				className="bg-transparent border-none text-muted-foreground cursor-pointer text-sm"
 				aria-label="Open token breakdown"
 				onClick={() => setOpen((v) => !v)}
 			>

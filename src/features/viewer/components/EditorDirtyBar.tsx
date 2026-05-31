@@ -31,7 +31,7 @@ export function EditorDirtyBar({
 
 	return (
 		<div
-			className="flex items-center gap-2 px-3 py-1.5 border-t border-border bg-muted/50"
+			className="flex items-center gap-2 px-4 py-2 border-t border-border bg-muted/50"
 			data-testid="editor-dirty-bar"
 			role="region"
 			aria-label="Unsaved changes"

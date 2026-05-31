@@ -266,11 +266,11 @@ export function CommitDiffStack({
 			data-single-file={String(singleFile)}
 			data-readonly-editor="true"
 		>
-			<div className="flex items-center justify-between gap-3 border-b border-border bg-muted/50 px-2.5 py-1.5 font-sans text-[0.8em]"
+			<div className="flex items-center justify-between gap-3 border-b border-border bg-muted/50 px-3 py-2 font-sans text-xs"
 				style={{ minHeight: 32 }}
 			>
 				<div className="text-muted-foreground">{detail.subject}</div>
-				<div className="text-[0.9em] text-muted-foreground/70">{detail.shortSha}</div>
+				<div className="text-xs text-muted-foreground/70">{detail.shortSha}</div>
 			</div>
 			<div
 				className={cn(
@@ -311,7 +311,7 @@ export function CommitDiffStack({
 							>
 								<CollapsibleTrigger
 									className={cn(
-										"flex w-full cursor-pointer items-center justify-between border-none bg-muted/50 px-2.5 py-1.5 text-left font-sans text-[0.85em] text-foreground",
+										"flex w-full cursor-pointer items-center justify-between border-none bg-muted/50 px-3 py-2 text-left font-sans text-xs text-foreground",
 										isFocused && "border-l-[3px] border-l-primary",
 									)}
 								>

@@ -72,16 +72,16 @@ export function CommitList({
 	}
 
 	return (
-		<div className="grid gap-0.5 p-2">
+		<div className="grid gap-2 p-3">
 			{remoteStatus && (
-				<div className="flex items-center gap-3 px-3 py-2 border-b border-border text-[0.75rem]">
+				<div className="flex items-center gap-3 px-3 py-2 border-b border-border text-xs">
 					<span className="flex gap-2 text-muted-foreground flex-1">
 						<span>&uarr;{remoteStatus.ahead}</span>
 						<span>&darr;{remoteStatus.behind}</span>
 					</span>
 					<button
 						type="button"
-						className="h-[22px] px-2.5 text-[0.7rem] leading-none text-foreground bg-card border border-border rounded-sm cursor-pointer hover:border-muted-foreground disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-1"
+						className="h-6 px-3 text-xs leading-none text-foreground bg-card border border-border rounded-sm cursor-pointer hover:border-muted-foreground disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-1"
 						disabled={pushDisabled}
 						onClick={handlePushClick}
 					>
@@ -95,7 +95,7 @@ export function CommitList({
 					/>
 				</div>
 			)}
-			<div className="px-2 py-1 text-[0.8em] text-muted-foreground font-[var(--font-ui)]">{history.mergeTargetRef}</div>
+			<div className="px-2 py-1 text-xs text-muted-foreground font-[var(--font-ui)]">{history.mergeTargetRef}</div>
 			{rows.map((row, index) => {
 				const isSelected = selectedCommitSha === row.sha;
 				const showFiles = isSelected && activeDetail?.sha === row.sha;
@@ -103,7 +103,7 @@ export function CommitList({
 				return (
 					<div
 						key={row.sha}
-						className="relative grid gap-0.5 before:content-[''] before:absolute before:left-4 before:top-0 before:bottom-0 before:w-px before:bg-[color-mix(in_srgb,var(--ring)_40%,transparent)] data-[row-kind=mergeTarget]:before:bg-[color-mix(in_srgb,var(--muted-foreground)_45%,transparent)] data-[first=true]:before:top-1/2 data-[last=true]:before:bottom-[calc(100%-18px)]"
+						className="relative grid gap-1 before:content-[''] before:absolute before:left-4 before:top-0 before:bottom-0 before:w-px before:bg-[color-mix(in_srgb,var(--ring)_40%,transparent)] data-[row-kind=mergeTarget]:before:bg-[color-mix(in_srgb,var(--muted-foreground)_45%,transparent)] data-[first=true]:before:top-1/2 data-[last=true]:before:bottom-[calc(100%-18px)]"
 						data-selected={String(isSelected)}
 						data-row-kind={row.rowKind}
 						data-first={String(index === 0)}
@@ -111,25 +111,25 @@ export function CommitList({
 					>
 						<button
 							type="button"
-							className={`grid grid-cols-[16px_auto_1fr] gap-2 items-center w-full px-2 py-1.5 text-left text-foreground bg-transparent border border-transparent rounded-sm text-[0.82rem] leading-[1.25] cursor-pointer data-[selected=true]:bg-secondary data-[selected=true]:border-[var(--panel-border-strong)] ${row.rowKind === "mergeTarget" ? "text-muted-foreground" : ""}`}
+							className={`grid grid-cols-[16px_auto_1fr] gap-2 items-center w-full px-2 py-2 text-left text-foreground bg-transparent border border-transparent rounded-sm text-xs leading-[1.25] cursor-pointer data-[selected=true]:bg-secondary data-[selected=true]:border-[var(--panel-border-strong)] ${row.rowKind === "mergeTarget" ? "text-muted-foreground" : ""}`}
 							data-selected={String(isSelected)}
 							onClick={() =>
 								isSelected ? onDeselectCommit?.() : onSelectCommit(row.sha)
 							}
 						>
 							<span
-								className="flex items-center justify-center min-h-[22px] relative z-[1]"
+								className="flex items-center justify-center min-h-6 relative z-[1]"
 								aria-hidden="true"
 							>
 								<span className={`block w-2 h-2 rounded-full ${row.rowKind === "mergeTarget" ? "bg-muted-foreground" : "bg-ring"}`} />
 							</span>
-							<code className="block text-[0.82rem] leading-[1.2] self-center min-w-[5.75ch] text-[var(--sha)]">{row.shortSha}</code>
-							<span className={`block text-[0.82rem] leading-[1.2] self-center overflow-hidden text-ellipsis whitespace-nowrap ${isSelected ? "text-foreground" : "text-secondary-foreground"}`}>{row.subject}</span>
+							<code className="block text-xs leading-[1.2] self-center min-w-[5.75ch] text-[var(--sha)]">{row.shortSha}</code>
+							<span className={`block text-xs leading-[1.2] self-center overflow-hidden text-ellipsis whitespace-nowrap ${isSelected ? "text-foreground" : "text-secondary-foreground"}`}>{row.subject}</span>
 							{isSelected &&
 							selectedCommitOpenCommentCount &&
 							selectedCommitOpenCommentCount > 0 ? (
 								<span
-									className="text-muted-foreground text-[0.75rem] shrink-0"
+									className="text-muted-foreground text-xs shrink-0"
 									aria-label={`${selectedCommitOpenCommentCount} open review comments on files in this commit`}
 								>
 									[{selectedCommitOpenCommentCount}]
@@ -137,13 +137,13 @@ export function CommitList({
 							) : null}
 						</button>
 						{showFiles && (
-							<div className="grid gap-0.5 pl-9 mt-0">
+							<div className="grid gap-1 pl-9 mt-0">
 								{activeDetail.files.map((file) => {
 									const button = (
 										<button
 											key={file.path}
 											type="button"
-											className="w-full flex justify-between items-center gap-3 px-2.5 py-2 text-left text-foreground bg-transparent border border-transparent rounded-sm cursor-pointer text-[0.8rem] leading-[1.35] data-[selected=true]:bg-secondary data-[selected=true]:border-[var(--panel-border-strong)]"
+											className="w-full flex justify-between items-center gap-3 px-3 py-2 text-left text-foreground bg-transparent border border-transparent rounded-sm cursor-pointer text-xs leading-[1.35] data-[selected=true]:bg-secondary data-[selected=true]:border-[var(--panel-border-strong)]"
 											data-selected={String(
 												selectedCommitFilePath === file.path,
 											)}
@@ -165,7 +165,7 @@ export function CommitList({
 											</ContextMenuTrigger>
 											<ContextMenuContent className="min-w-[8rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
 												<ContextMenuItem
-													className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground"
+													className="relative flex cursor-default select-none items-center rounded-sm px-2 py-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground"
 													onSelect={() => {
 														if (!activeDetail) return;
 														// Lazy-fetch the modified blob at the commit

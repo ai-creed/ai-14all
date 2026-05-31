@@ -21,7 +21,7 @@ export function UpdateBanner({
 	if (downloadedInfo) {
 		return (
 			<div
-				className="flex items-center gap-[var(--space-3)] px-[var(--space-3)] py-[var(--space-2)] bg-[var(--panel-bg-elevated)] border-b border-[var(--accent)] text-[var(--text-primary)] text-[13px]"
+				className="flex items-center gap-[var(--space-3)] px-[var(--space-3)] py-[var(--space-2)] bg-[var(--panel-bg-elevated)] border-b border-[var(--accent)] text-[var(--text-primary)] text-sm"
 				role="status"
 				aria-live="polite"
 			>
@@ -30,14 +30,14 @@ export function UpdateBanner({
 				</span>
 				<button
 					type="button"
-					className={`${btnBase} px-[10px] py-[2px]`}
+					className={`${btnBase} px-3 py-1`}
 					onClick={onRestart}
 				>
 					Restart now
 				</button>
 				<button
 					type="button"
-					className={`${btnBase} border-transparent px-[8px] py-[2px] leading-none`}
+					className={`${btnBase} border-transparent px-2 py-1 leading-none`}
 					onClick={onLater}
 				>
 					Later
@@ -48,7 +48,7 @@ export function UpdateBanner({
 	if (downloadingInfo) {
 		return (
 			<div
-				className="flex items-center gap-[var(--space-3)] px-[var(--space-3)] py-[var(--space-2)] bg-[var(--panel-bg-elevated)] border-b border-[var(--accent)] text-[var(--text-primary)] text-[13px]"
+				className="flex items-center gap-[var(--space-3)] px-[var(--space-3)] py-[var(--space-2)] bg-[var(--panel-bg-elevated)] border-b border-[var(--accent)] text-[var(--text-primary)] text-sm"
 				role="status"
 				aria-live="polite"
 			>

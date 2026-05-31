@@ -117,7 +117,7 @@ export function InlineCommentThread({
 					{comment.startLine !== comment.endLine ? `–${comment.endLine}` : ""}
 				</span>
 				<span
-					className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium data-[status=open]:bg-yellow-500/20 data-[status=open]:text-yellow-700 dark:data-[status=open]:text-yellow-400 data-[status=addressed]:bg-green-500/20 data-[status=addressed]:text-green-700 dark:data-[status=addressed]:text-green-400"
+					className="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-medium data-[status=open]:bg-yellow-500/20 data-[status=open]:text-yellow-700 dark:data-[status=open]:text-yellow-400 data-[status=addressed]:bg-green-500/20 data-[status=addressed]:text-green-700 dark:data-[status=addressed]:text-green-400"
 					data-status={comment.status}
 				>
 					{isAddressed ? "addressed" : "open"}

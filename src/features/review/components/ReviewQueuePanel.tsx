@@ -185,7 +185,7 @@ function FileGroups({
 						{items.map((c) => (
 							<li
 								key={c.id}
-								className="flex items-center gap-1 rounded px-1 py-0.5 hover:bg-muted/50 text-xs data-[status=addressed]:opacity-60"
+								className="flex items-center gap-1 rounded px-1 py-1 hover:bg-muted/50 text-xs data-[status=addressed]:opacity-60"
 								data-status={c.status}
 							>
 								<div className="flex items-center gap-1 flex-1 min-w-0">
@@ -200,7 +200,7 @@ function FileGroups({
 										</span>
 										<span className="truncate">{firstLine(c.body)}</span>
 									</button>
-									<div className="flex items-center gap-0.5 shrink-0">
+									<div className="flex items-center gap-1 shrink-0">
 										<button
 											type="button"
 											className="w-5 h-5 flex items-center justify-center rounded hover:bg-muted"

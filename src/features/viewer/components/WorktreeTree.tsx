@@ -150,14 +150,14 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 			<div
 				role="button"
 				tabIndex={0}
-				className={`flex items-center py-[5px] px-2 w-[calc(100%-8px)] text-[0.8rem] leading-none bg-transparent overflow-hidden cursor-pointer ${isDir ? "text-secondary-foreground font-semibold italic" : ""} ${row.ignored ? "opacity-55" : ""}`}
+				className={`flex items-center py-1 px-2 w-[calc(100%-8px)] text-xs leading-none bg-transparent overflow-hidden cursor-pointer ${isDir ? "text-secondary-foreground font-semibold italic" : ""} ${row.ignored ? "opacity-55" : ""}`}
 				data-selected={!isDir && row.path === selectedFile}
 				data-ignored={row.ignored ? "true" : undefined}
 				style={{ paddingLeft: `${row.depth * 16}px` }}
 				onClick={handleClick}
 			>
 				{isDir && (
-					<span className="inline-block w-[1em] text-center text-[1.3em] text-muted-foreground mr-[3px] shrink-0" aria-hidden="true">
+					<span className="inline-block w-[1em] text-center text-[1.3em] text-muted-foreground mr-1 shrink-0" aria-hidden="true">
 						{row.expanded ? "\u25BE" : "\u25B8"}
 					</span>
 				)}
@@ -175,7 +175,7 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 				</span>
 				{row.kind === "file" && row.gitStatus && (
 					<span
-						className="ml-1 text-[0.7rem] font-semibold shrink-0"
+						className="ml-1 text-xs font-semibold shrink-0"
 						data-git-status={row.gitStatus}
 						aria-label={`Git status ${row.gitStatus}`}
 					>
@@ -190,7 +190,7 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 					<ContextMenuTrigger asChild>{body}</ContextMenuTrigger>
 					<ContextMenuContent className="min-w-[8rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
 						<ContextMenuItem
-							className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground"
+							className="relative flex cursor-default select-none items-center rounded-sm px-2 py-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground"
 							onSelect={() => reload()}
 						>
 							Refresh
@@ -212,7 +212,7 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 					<ContextMenuTrigger asChild>{body}</ContextMenuTrigger>
 					<ContextMenuContent className="min-w-[8rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
 						<ContextMenuItem
-							className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground"
+							className="relative flex cursor-default select-none items-center rounded-sm px-2 py-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground"
 							onSelect={() => previewMarkdown(row.path)}
 						>
 							Preview
@@ -225,7 +225,7 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 	}
 
 	return (
-		<div className="grid gap-[3px]" style={{ marginLeft: "8px" }}>
+		<div className="grid gap-1" style={{ marginLeft: "8px" }}>
 			{gitSummaryError && (
 				<p className="text-[var(--warning)] text-sm">
 					{gitSummaryMessage ??

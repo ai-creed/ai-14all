@@ -21,7 +21,7 @@ export interface FilesOverlayProps {
 	onToggleShowGitignored: () => void;
 }
 
-const ROW_HEIGHT = 28;
+const ROW_HEIGHT = 32;
 
 function basenameOf(path: string): string {
 	const slash = path.lastIndexOf("/");
@@ -152,14 +152,14 @@ export function FilesOverlay(props: FilesOverlayProps) {
 					}
 				}}
 			>
-				<DialogTitle className="px-3.5 py-2.5 text-xs font-semibold text-muted-foreground border-b border-border">
+				<DialogTitle className="px-4 py-3 text-xs font-semibold text-muted-foreground border-b border-border">
 					Files
 				</DialogTitle>
 				<DialogDescription className="sr-only">
 					Search and open files from the active session.
 				</DialogDescription>
 				<div className="flex-1 flex flex-col min-h-0">
-					<div className="flex items-center justify-end gap-2 px-3 pt-1.5">
+					<div className="flex items-center justify-end gap-2 px-3 pt-2">
 						<ToggleSwitch
 							id="files-overlay-show-gitignored"
 							checked={showGitignored}
@@ -169,7 +169,7 @@ export function FilesOverlay(props: FilesOverlayProps) {
 						/>
 					</div>
 					<input
-						className="flex-none mx-3.5 my-2.5 px-2.5 py-2 text-sm bg-white/[0.04] border border-border rounded-md outline-none text-foreground"
+						className="flex-none mx-4 my-3 px-3 py-2 text-sm bg-white/[0.04] border border-border rounded-md outline-none text-foreground"
 						data-testid="files-overlay-search"
 						placeholder="Search files"
 						value={query}
@@ -178,18 +178,18 @@ export function FilesOverlay(props: FilesOverlayProps) {
 					/>
 					{loadError ? (
 						<div
-							className="p-6 text-center text-[13px] text-muted-foreground"
+							className="p-6 text-center text-sm text-muted-foreground"
 							data-testid="files-overlay-error"
 							role="alert"
 						>
 							Couldn't load files. {loadError}
 						</div>
 					) : tracked.length === 0 ? (
-						<div className="p-6 text-center text-[13px] text-muted-foreground">
+						<div className="p-6 text-center text-sm text-muted-foreground">
 							No files in this worktree.
 						</div>
 					) : rows.length === 0 ? (
-						<div className="p-6 text-center text-[13px] text-muted-foreground">
+						<div className="p-6 text-center text-sm text-muted-foreground">
 							No files match.
 						</div>
 					) : (
@@ -217,7 +217,7 @@ export function FilesOverlay(props: FilesOverlayProps) {
 											data-selected={
 												virtualRow.index === selectedIndex ? "true" : "false"
 											}
-											className={`flex items-center gap-2 px-3.5 text-[13px] cursor-pointer hover:bg-white/[0.04] ${
+											className={`flex items-center gap-2 px-4 text-sm cursor-pointer hover:bg-white/[0.04] ${
 												virtualRow.index === selectedIndex
 													? "bg-[rgba(77,163,255,0.16)]"
 													: ""
@@ -242,7 +242,7 @@ export function FilesOverlay(props: FilesOverlayProps) {
 											)}
 											{status && (
 												<span
-													className="ml-auto text-[11px] font-semibold min-w-[16px] text-right"
+													className="ml-auto text-xs font-semibold min-w-[16px] text-right"
 													data-testid={`files-overlay-row-status-${path}`}
 												>
 													{status}
@@ -256,21 +256,21 @@ export function FilesOverlay(props: FilesOverlayProps) {
 					)}
 				</div>
 				<div
-					className="flex-none flex items-center gap-3 px-3.5 py-2 border-t border-border text-xs"
+					className="flex-none flex items-center gap-3 px-4 py-2 border-t border-border text-xs"
 					data-testid="files-overlay-footer"
 				>
 					<span className="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">
 						{rows[selectedIndex] ?? ""}
 					</span>
-					<span className="flex gap-2.5 items-center">
+					<span className="flex gap-3 items-center">
 						<span>
-							<kbd className="px-1.5 py-0.5 border border-border rounded bg-white/[0.04] text-[11px]">
+							<kbd className="px-2 py-1 border border-border rounded bg-white/[0.04] text-xs">
 								↵
 							</kbd>{" "}
 							Open
 						</span>
 						<span>
-							<kbd className="px-1.5 py-0.5 border border-border rounded bg-white/[0.04] text-[11px]">
+							<kbd className="px-2 py-1 border border-border rounded bg-white/[0.04] text-xs">
 								Esc
 							</kbd>{" "}
 							Close

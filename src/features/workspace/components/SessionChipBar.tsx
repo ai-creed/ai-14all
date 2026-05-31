@@ -38,8 +38,9 @@ export function SessionChipBar({
 	usage,
 }: Props) {
 	return (
-		<div className="flex items-center h-9" role="region" aria-label="Session">
-			<div className="flex items-center gap-1.5">
+		<div className="relative flex items-center h-10" role="region" aria-label="Session">
+			{/* Left: session info */}
+			<div className="flex items-center gap-2">
 				<span className="font-semibold truncate">{sessionTitle}</span>
 				<button
 					type="button"
@@ -51,7 +52,7 @@ export function SessionChipBar({
 				</button>
 			</div>
 
-			<div className="flex items-center gap-1.5 ml-3 text-[13px]" aria-label="Worktree and branch">
+			<div className="flex items-center gap-2 ml-3 text-sm" aria-label="Worktree and branch">
 				<span className="text-muted-foreground">{worktreeLabel}</span>
 				{branchName && (
 					<>
@@ -82,13 +83,19 @@ export function SessionChipBar({
 				)}
 			</div>
 
-			{usage && <div className="ml-3">{usage}</div>}
+			{/* Center: token telemetry */}
+			{usage && (
+				<div className="absolute left-1/2 -translate-x-1/2 pointer-events-auto">
+					{usage}
+				</div>
+			)}
 
+			{/* Right: actions */}
 			<div className="ml-auto flex items-center gap-1">
 				<Button
 					variant="ghost"
 					size="icon"
-					className="h-7 w-7"
+					className="h-8 w-8"
 					aria-label="Open Files"
 					onClick={onFilesClick}
 				>
@@ -97,14 +104,14 @@ export function SessionChipBar({
 				<Button
 					variant="ghost"
 					size="icon"
-					className="h-7 w-7 relative"
+					className="h-8 w-8 relative"
 					data-indicator={noteNonEmpty ? "true" : "false"}
 					aria-label="Open note"
 					onClick={onNoteClick}
 				>
 					<span aria-hidden="true">📝</span>
 					{noteNonEmpty && (
-						<span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-primary" aria-hidden="true" />
+						<span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary" aria-hidden="true" />
 					)}
 				</Button>
 				{terminalActions && (

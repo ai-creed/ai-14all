@@ -125,7 +125,7 @@ export function SessionSidebar({
 				</button>
 			</div>
 
-			<div className={`flex flex-col min-h-0 overflow-y-auto mt-3 gap-0 pr-0.5 ${collapsed ? "items-center" : ""}`}>
+			<div className={`flex flex-col min-h-0 overflow-y-auto mt-3 gap-0 pr-1 ${collapsed ? "items-center" : ""}`}>
 				{workspaces.map((workspace) => (
 					<section
 						key={workspace.workspaceId}
@@ -192,7 +192,7 @@ export function SessionSidebar({
 
 								const itemClassName = collapsed
 									? "w-10 h-10 min-h-0 p-0 justify-center flex flex-col items-start text-left text-foreground bg-transparent border-none cursor-pointer leading-[1.3]"
-									: "w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left text-foreground bg-transparent border-none cursor-pointer leading-[1.3]";
+									: "w-full flex flex-col items-start gap-1 px-3 py-2 text-left text-foreground bg-transparent border-none cursor-pointer leading-[1.3]";
 
 								const rowCommonProps = {
 									className: itemClassName,
@@ -243,7 +243,7 @@ export function SessionSidebar({
 											{shownTitle}
 										</strong>
 										{hasCustomTitle && (
-											<div className="text-secondary-foreground text-[0.7rem]">
+											<div className="text-secondary-foreground text-xs">
 												{worktree.label}
 											</div>
 										)}
@@ -258,7 +258,7 @@ export function SessionSidebar({
 								const task = workspace.taskByWorktreeId?.[worktree.id];
 								const taskLine =
 									!isRenamingThisRow && !collapsed && task ? (
-										<div className="block text-muted-foreground text-[0.7rem] my-1 whitespace-nowrap overflow-hidden text-ellipsis px-3 before:content-['\21AA\0020'] before:mr-0.5" title={task}>
+										<div className="block text-muted-foreground text-xs my-1 whitespace-nowrap overflow-hidden text-ellipsis px-3 before:content-['\21AA\0020'] before:mr-1" title={task}>
 											{task}
 										</div>
 									) : null;
@@ -270,9 +270,9 @@ export function SessionSidebar({
 									!isRenamingThisRow &&
 									!collapsed &&
 									(summary || sessionAttentionContext) ? (
-										<div className="flex flex-col gap-0.5 px-3 pb-2">
+										<div className="flex flex-col gap-2 px-3 pb-3">
 											{sessionAttentionContext ? (
-												<div className="flex items-center gap-1 text-[0.7rem] min-w-0">
+												<div className="flex items-center gap-1 text-xs min-w-0">
 													<span
 														className="text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap min-w-0"
 														title={sessionAttentionContext}
@@ -282,7 +282,7 @@ export function SessionSidebar({
 												</div>
 											) : null}
 											{summary?.rows.map((row) => (
-												<div key={row.id} className="flex items-center gap-1 text-[0.7rem] min-w-0">
+												<div key={row.id} className="flex items-center gap-1 text-xs min-w-0">
 													<span
 														data-testid="process-state-indicator"
 														className="shell-sidebar__process-indicator inline-block w-1.5 h-1.5 rounded-full shrink-0"
@@ -290,7 +290,7 @@ export function SessionSidebar({
 													/>
 													{row.provider && (
 														<span
-															className="inline-flex items-center px-1.5 py-px rounded-sm text-[0.7rem] font-semibold tracking-[0.3px] lowercase mr-1.5 data-[provider=claude]:bg-[color-mix(in_srgb,var(--provider-claude)_14%,transparent)] data-[provider=claude]:text-[var(--provider-claude)] data-[provider=codex]:bg-[color-mix(in_srgb,var(--provider-codex)_14%,transparent)] data-[provider=codex]:text-[var(--provider-codex)] data-[provider=other]:bg-[color-mix(in_srgb,var(--muted-foreground)_14%,transparent)] data-[provider=other]:text-muted-foreground"
+															className="inline-flex items-center px-2 py-px rounded-sm text-xs font-semibold tracking-[0.3px] lowercase mr-2 data-[provider=claude]:bg-[color-mix(in_srgb,var(--provider-claude)_14%,transparent)] data-[provider=claude]:text-[var(--provider-claude)] data-[provider=codex]:bg-[color-mix(in_srgb,var(--provider-codex)_14%,transparent)] data-[provider=codex]:text-[var(--provider-codex)] data-[provider=other]:bg-[color-mix(in_srgb,var(--muted-foreground)_14%,transparent)] data-[provider=other]:text-muted-foreground"
 															data-provider={row.provider}
 														>
 															{row.provider}
@@ -315,7 +315,7 @@ export function SessionSidebar({
 													workspace.active ? (
 														<button
 															type="button"
-															className="h-5 px-1.5 text-[11px] leading-5 text-foreground bg-card border border-border rounded-sm cursor-pointer hover:border-muted-foreground focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-1"
+															className="h-6 px-2 text-xs leading-6 text-foreground bg-card border border-border rounded-sm cursor-pointer hover:border-muted-foreground focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-1"
 															aria-label={`Clear failed for ${row.label}`}
 															onClick={(e) => {
 																e.stopPropagation();
@@ -332,7 +332,7 @@ export function SessionSidebar({
 												</div>
 											))}
 											{summary && summary.overflowCount > 0 && (
-												<div className="flex items-center gap-1 text-[0.7rem] min-w-0 text-muted-foreground">
+												<div className="flex items-center gap-1 text-xs min-w-0 text-muted-foreground">
 													{summary.overflowCount} more shell
 													{summary.overflowCount === 1 ? "" : "s"}
 												</div>
@@ -404,7 +404,7 @@ export function SessionSidebar({
 										</div>
 										<ContextMenuContent className="min-w-[8rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
 											<ContextMenuItem
-												className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground"
+												className="relative flex cursor-default select-none items-center rounded-sm px-2 py-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground"
 												onSelect={() => {
 													if (collapsed || !workspace.active) {
 														onRequestExpand?.(
@@ -424,7 +424,7 @@ export function SessionSidebar({
 											</ContextMenuItem>
 											{!worktree.isMain && (
 												<ContextMenuItem
-													className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none text-destructive focus:bg-accent focus:text-destructive"
+													className="relative flex cursor-default select-none items-center rounded-sm px-2 py-2 text-sm outline-none text-destructive focus:bg-accent focus:text-destructive"
 													onSelect={() =>
 														onRemoveWorktree(
 															workspace.workspaceId,
@@ -441,7 +441,7 @@ export function SessionSidebar({
 							})}
 
 							{workspace.worktrees.length === 0 && !collapsed && (
-								<div className="px-1 pb-1 text-muted-foreground text-[11px] italic leading-[1.4]">
+								<div className="px-1 pb-1 text-muted-foreground text-xs italic leading-[1.4]">
 									{workspace.hydrated
 										? "No worktree sessions yet."
 										: "Open this workspace to load its worktree sessions."}
@@ -453,7 +453,7 @@ export function SessionSidebar({
 							<div className="mt-auto pt-3">
 								<button
 									type="button"
-									className="h-8 px-2.5 text-[13px] leading-8 text-foreground bg-card border border-border rounded-sm cursor-pointer hover:border-muted-foreground focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-1"
+									className="h-8 px-3 text-sm leading-8 text-foreground bg-card border border-border rounded-sm cursor-pointer hover:border-muted-foreground focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-1"
 									onClick={() => onCreateWorktree(workspace.workspaceId)}
 									aria-label="New session"
 								>
@@ -467,7 +467,7 @@ export function SessionSidebar({
 			<div className="mt-3">
 				<button
 					type="button"
-					className="h-8 px-2.5 text-[13px] leading-8 text-foreground bg-card border border-border rounded-sm cursor-pointer hover:border-muted-foreground focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-1"
+					className="h-8 px-3 text-sm leading-8 text-foreground bg-card border border-border rounded-sm cursor-pointer hover:border-muted-foreground focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-1"
 					onClick={onLoadWorkspace}
 					aria-label="Load workspace"
 				>

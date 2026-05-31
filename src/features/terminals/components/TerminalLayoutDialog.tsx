@@ -37,7 +37,7 @@ export function TerminalLayoutDialog({
 				className="w-[560px] max-w-[calc(100vw-32px)] max-h-[calc(100vh-64px)] overflow-y-auto p-4 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
 				data-testid="terminal-layout-dialog"
 			>
-				<DialogTitle className="text-[13px] font-semibold mb-3 text-foreground">
+				<DialogTitle className="text-sm font-semibold mb-3 text-foreground">
 					Choose terminal layout
 				</DialogTitle>
 				{BUCKETS.map((count) => {
@@ -49,10 +49,10 @@ export function TerminalLayoutDialog({
 							key={count}
 							className="flex gap-3 items-start py-2 border-t border-border"
 						>
-							<div className="flex-[0_0_72px] text-[11px] text-muted-foreground pt-1.5">
+							<div className="flex-[0_0_72px] text-xs text-muted-foreground pt-2">
 								{count} shell{count > 1 ? "s" : ""}
 							</div>
-							<div className="flex flex-wrap gap-2.5">
+							<div className="flex flex-wrap gap-3">
 								{ids.map((id) => {
 									const d = TERMINAL_LAYOUTS[id];
 									const disabled = d.slotCount < runningShells;
@@ -61,7 +61,7 @@ export function TerminalLayoutDialog({
 											key={id}
 											type="button"
 											data-testid={`layout-tile-${id}`}
-											className="w-[132px] h-[78px] p-1.5 border border-border rounded-sm bg-muted cursor-pointer hover:enabled:border-accent-foreground aria-pressed:border-accent-foreground aria-pressed:shadow-[0_0_0_1px_hsl(var(--ring))] disabled:opacity-35 disabled:cursor-not-allowed"
+											className="w-[132px] h-[78px] p-2 border border-border rounded-sm bg-muted cursor-pointer hover:enabled:border-accent-foreground aria-pressed:border-accent-foreground aria-pressed:shadow-[0_0_0_1px_hsl(var(--ring))] disabled:opacity-35 disabled:cursor-not-allowed"
 											aria-pressed={id === currentLayoutId}
 											data-current={id === currentLayoutId ? "true" : "false"}
 											disabled={disabled}
@@ -69,7 +69,7 @@ export function TerminalLayoutDialog({
 											onClick={() => onSelect(id)}
 										>
 											<span
-												className="grid gap-[3px] w-full h-full"
+												className="grid gap-1 w-full h-full"
 												style={{
 													gridTemplateColumns: d.gridTemplateColumns,
 													gridTemplateRows: d.gridTemplateRows,

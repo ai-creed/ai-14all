@@ -488,7 +488,7 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 				<div className="flex items-center gap-2 px-3 py-1 border-b border-border text-xs text-muted-foreground">
 					<div className="text-base">{relativePath}</div>
 					{readOnly && (
-						<span className="text-[10px] px-1 py-0.5 bg-muted rounded text-muted-foreground">
+						<span className="text-[10px] px-1 py-1 bg-muted rounded text-muted-foreground">
 							read-only
 						</span>
 					)}

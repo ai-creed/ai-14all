@@ -40,17 +40,17 @@ function StepWorktrees() {
       </p>
       <div className="rounded border border-border bg-background p-4 my-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="inline-block px-2 py-0.5 rounded-sm text-[11px] uppercase tracking-wider font-semibold bg-primary/15 text-primary">
+          <span className="inline-block px-2 py-1 rounded-sm text-xs uppercase tracking-wider font-semibold bg-primary/15 text-primary">
             Workspace
           </span>
           <span className="text-muted-foreground text-base">→</span>
-          <span className="inline-block px-2 py-0.5 rounded-sm text-[11px] uppercase tracking-wider font-semibold bg-[color:var(--warning)]/15 text-[color:var(--warning)]">
+          <span className="inline-block px-2 py-1 rounded-sm text-xs uppercase tracking-wider font-semibold bg-[color:var(--warning)]/15 text-[color:var(--warning)]">
             Worktree
           </span>
-          <span className="inline-block px-2 py-0.5 rounded-sm text-[11px] uppercase tracking-wider font-semibold bg-[color:var(--warning)]/15 text-[color:var(--warning)]">
+          <span className="inline-block px-2 py-1 rounded-sm text-xs uppercase tracking-wider font-semibold bg-[color:var(--warning)]/15 text-[color:var(--warning)]">
             Worktree
           </span>
-          <span className="inline-block px-2 py-0.5 rounded-sm text-[11px] uppercase tracking-wider font-semibold bg-[color:var(--warning)]/15 text-[color:var(--warning)]">
+          <span className="inline-block px-2 py-1 rounded-sm text-xs uppercase tracking-wider font-semibold bg-[color:var(--warning)]/15 text-[color:var(--warning)]">
             Worktree
           </span>
         </div>
@@ -73,13 +73,13 @@ function StepTerminals() {
       </p>
       <div className="rounded border border-border bg-background p-4 my-2">
         <div className="grid grid-cols-2 gap-1">
-          <div className="border border-border rounded-sm px-2 py-1.5 font-[family-name:var(--font-terminal)] text-[10px] text-primary">
+          <div className="border border-border rounded-sm px-2 py-2 font-[family-name:var(--font-terminal)] text-[10px] text-primary">
             $ npm run dev
           </div>
-          <div className="border border-border rounded-sm px-2 py-1.5 font-[family-name:var(--font-terminal)] text-[10px] text-[color:var(--warning)]">
+          <div className="border border-border rounded-sm px-2 py-2 font-[family-name:var(--font-terminal)] text-[10px] text-[color:var(--warning)]">
             $ npm test
           </div>
-          <div className="col-span-2 border border-border rounded-sm px-2 py-1.5 font-[family-name:var(--font-terminal)] text-[10px] text-muted-foreground">
+          <div className="col-span-2 border border-border rounded-sm px-2 py-2 font-[family-name:var(--font-terminal)] text-[10px] text-muted-foreground">
             $ git log --oneline
           </div>
         </div>
@@ -98,11 +98,11 @@ function StepReview() {
       </p>
       <div className="rounded border border-border bg-background p-4 my-2">
         <div className="flex gap-2 mb-2">
-          <span className="px-2 py-0.5 rounded-sm bg-secondary text-[10px] uppercase tracking-wider font-semibold text-primary">Files</span>
-          <span className="px-2 py-0.5 rounded-sm bg-secondary text-[10px] uppercase tracking-wider font-semibold text-[color:var(--warning)]">Changes</span>
-          <span className="px-2 py-0.5 rounded-sm bg-secondary text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Commits</span>
+          <span className="px-2 py-1 rounded-sm bg-secondary text-[10px] uppercase tracking-wider font-semibold text-primary">Files</span>
+          <span className="px-2 py-1 rounded-sm bg-secondary text-[10px] uppercase tracking-wider font-semibold text-[color:var(--warning)]">Changes</span>
+          <span className="px-2 py-1 rounded-sm bg-secondary text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Commits</span>
         </div>
-        <div className="flex gap-0.5 border border-border rounded-sm p-2">
+        <div className="flex gap-1 border border-border rounded-sm p-2">
           <div className="flex-1 font-[family-name:var(--font-terminal)] text-[10px]">
             <div className="text-destructive">- old code</div>
           </div>
@@ -189,14 +189,14 @@ export function OnboardingWizard({ open, onClose, onLoadPath }: Props) {
             {stepIndex > 0 && (
               <button
                 type="button"
-                className="h-8 px-2.5 text-[13px] leading-8 text-foreground bg-card border border-border rounded-sm cursor-pointer hover:border-muted-foreground"
+                className="h-8 px-3 text-sm leading-8 text-foreground bg-card border border-border rounded-sm cursor-pointer hover:border-muted-foreground"
                 onClick={goBack}
               >
                 Back
               </button>
             )}
           </div>
-          <div className="flex gap-1.5" data-testid="onboarding-dots">
+          <div className="flex gap-2" data-testid="onboarding-dots">
             {Array.from({ length: TOTAL_STEPS }, (_, i) => (
               <div
                 key={i}
@@ -212,7 +212,7 @@ export function OnboardingWizard({ open, onClose, onLoadPath }: Props) {
             {!isLastStep && (
               <button
                 type="button"
-                className="bg-transparent border-none text-muted-foreground text-[13px] cursor-pointer px-2 py-1 hover:text-secondary-foreground"
+                className="bg-transparent border-none text-muted-foreground text-sm cursor-pointer px-2 py-1 hover:text-secondary-foreground"
                 onClick={handleSkip}
               >
                 Skip
@@ -221,7 +221,7 @@ export function OnboardingWizard({ open, onClose, onLoadPath }: Props) {
             {!isLastStep && (
               <button
                 type="button"
-                className="h-8 px-2.5 text-[13px] leading-8 text-primary bg-card border border-primary rounded-sm cursor-pointer hover:bg-accent"
+                className="h-8 px-3 text-sm leading-8 text-primary bg-card border border-primary rounded-sm cursor-pointer hover:bg-accent"
                 onClick={goNext}
               >
                 Next

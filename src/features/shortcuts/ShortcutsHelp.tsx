@@ -79,7 +79,7 @@ export function ShortcutsHelp({ open, platform, onClose, onRestartOnboarding }: 
 				data-testid="shortcuts-help"
 			>
 				<div className="flex items-center justify-between px-4 py-3 border-b border-border">
-					<DialogTitle className="text-foreground text-[13px] font-semibold m-0">
+					<DialogTitle className="text-foreground text-sm font-semibold m-0">
 						Keyboard shortcuts
 					</DialogTitle>
 					<DialogClose asChild>
@@ -115,7 +115,7 @@ export function ShortcutsHelp({ open, platform, onClose, onRestartOnboarding }: 
 											<span className="text-foreground text-xs">
 												{shortcut.label}
 											</span>
-											<kbd className="text-muted-foreground text-[11px] font-sans bg-muted border border-border rounded-sm px-1.5 py-0.5">
+											<kbd className="text-muted-foreground text-xs font-sans bg-muted border border-border rounded-sm px-2 py-1">
 												{platform === "mac" ? shortcut.mac : shortcut.other}
 											</kbd>
 										</li>
@@ -129,7 +129,7 @@ export function ShortcutsHelp({ open, platform, onClose, onRestartOnboarding }: 
 						<div className="px-4 py-3 border-t border-border">
 							<button
 								type="button"
-								className="h-8 px-2.5 text-[13px] leading-8 text-foreground bg-card border border-border rounded-sm cursor-pointer hover:border-muted-foreground"
+								className="h-8 px-3 text-sm leading-8 text-foreground bg-card border border-border rounded-sm cursor-pointer hover:border-muted-foreground"
 								onClick={() => {
 									onRestartOnboarding();
 									onClose();

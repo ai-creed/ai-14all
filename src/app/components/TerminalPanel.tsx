@@ -87,7 +87,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 	return (
 		<section className="bg-transparent border border-border rounded-md grid grid-rows-[minmax(0,1fr)] flex-1 overflow-hidden min-w-0 min-h-0">
 			<div
-				className="grid gap-x-1 w-full h-full min-h-0"
+				className="grid gap-x-2 w-full h-full min-h-0"
 				style={{
 					gridTemplateColumns: layout.gridTemplateColumns,
 					gridTemplateRows: layout.gridTemplateRows,
@@ -108,7 +108,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 							>
 								<button
 									type="button"
-									className="bg-transparent border border-dashed border-border rounded-sm text-muted-foreground py-2 px-3.5 cursor-pointer"
+									className="bg-transparent border border-dashed border-border rounded-sm text-muted-foreground py-2 px-4 cursor-pointer"
 									data-testid={`slot-cta-${slotIndex}`}
 									onClick={() => onStartShellInSlot(slotIndex)}
 								>
@@ -134,7 +134,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 							data-top-row={isTopRow ? "true" : "false"}
 							data-process-id={processId}
 						>
-							<header className={`flex items-center gap-1.5 px-2 py-[3px] text-[11px] leading-none text-foreground bg-[color-mix(in_srgb,var(--panel-border-strong)_40%,var(--panel-bg-elevated))] border-b border-b-[var(--panel-border-strong)] ${isTopRow ? "" : "border-t-2 border-t-[var(--panel-border-strong)]"}`}>
+							<header className={`flex items-center gap-2 px-2 py-1 text-xs leading-none text-foreground bg-[color-mix(in_srgb,var(--panel-border-strong)_40%,var(--panel-bg-elevated))] border-b border-b-[var(--panel-border-strong)] ${isTopRow ? "" : "border-t-2 border-t-[var(--panel-border-strong)]"}`}>
 								{process && (
 									<span
 										className="w-2 h-2 rounded-full shrink-0 bg-muted-foreground data-[attention=activity]:bg-warning data-[attention=actionRequired]:bg-destructive data-[status=exited]:bg-destructive"
