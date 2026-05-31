@@ -87,7 +87,8 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 	return (
 		<section className="bg-transparent border border-border rounded-md grid grid-rows-[minmax(0,1fr)] flex-1 overflow-hidden min-w-0 min-h-0">
 			<div
-				className="grid gap-x-2 w-full h-full min-h-0"
+				data-testid="terminal-grid"
+				className="grid gap-x-0 w-full h-full min-h-0"
 				style={{
 					gridTemplateColumns: layout.gridTemplateColumns,
 					gridTemplateRows: layout.gridTemplateRows,
