@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AppDialog } from "../../../components/AppDialog";
+import { Button } from "@/components/ui/button";
 
 type Props = {
 	open: boolean;
@@ -38,27 +39,29 @@ export function ForcePushDialog({
 				have. Push anyway with --force-with-lease?
 			</AppDialog.Description>
 			<AppDialog.Body>
-				{error && <div className="shell-error-banner">{error}</div>}
+				{error && <div className="text-sm text-destructive p-2 bg-destructive/10 rounded">{error}</div>}
 			</AppDialog.Body>
 			<AppDialog.Footer>
-				<button
+				<Button
 					type="button"
-					className="shell-button shell-button--compact"
+					variant="outline"
+					size="sm"
 					onClick={() => onOpenChange(false)}
 					disabled={busy}
 				>
 					Cancel
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button shell-button--compact shell-button--danger"
+					variant="destructive"
+					size="sm"
 					onClick={() => {
 						void handleConfirm();
 					}}
 					disabled={busy}
 				>
 					Force push
-				</button>
+				</Button>
 			</AppDialog.Footer>
 		</AppDialog>
 	);

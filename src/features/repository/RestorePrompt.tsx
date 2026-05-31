@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 type Props = {
 	repositoryPath: string;
@@ -12,11 +13,11 @@ export function RestorePrompt({ repositoryPath, onDecide }: Props) {
 	const [rememberChoice, setRememberChoice] = useState(false);
 
 	return (
-		<section className="shell-panel shell-setup-panel">
-			<h1 className="shell-setup-title">ai-14all</h1>
+		<section className="flex flex-col items-center justify-center gap-4 p-8">
+			<h1 className="text-2xl font-bold">ai-14all</h1>
 			<h2>Restore previous workspace?</h2>
-			<p className="shell-empty-state">{repositoryPath}</p>
-			<label className="shell-restore-checkbox">
+			<p className="text-sm text-muted-foreground italic">{repositoryPath}</p>
+			<label className="flex items-center gap-2">
 				<input
 					type="checkbox"
 					checked={rememberChoice}
@@ -24,21 +25,21 @@ export function RestorePrompt({ repositoryPath, onDecide }: Props) {
 				/>
 				Remember my choice
 			</label>
-			<div className="shell-restore-actions">
-				<button
+			<div className="flex gap-2">
+				<Button
 					type="button"
-					className="shell-button"
+					variant="outline"
 					onClick={() => onDecide({ shouldRestore: true, rememberChoice })}
 				>
 					Restore previous workspace
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button"
+					variant="outline"
 					onClick={() => onDecide({ shouldRestore: false, rememberChoice })}
 				>
 					Start clean
-				</button>
+				</Button>
 			</div>
 		</section>
 	);

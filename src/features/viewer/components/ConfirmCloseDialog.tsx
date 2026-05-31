@@ -1,4 +1,5 @@
 import { AppDialog } from "../../../components/AppDialog";
+import { Button } from "@/components/ui/button";
 
 type Props = {
 	open: boolean;
@@ -25,27 +26,29 @@ export function ConfirmCloseDialog({
 				Save your changes before closing the editor?
 			</AppDialog.Description>
 			<AppDialog.Footer>
-				<button
+				<Button
 					type="button"
-					className="shell-button shell-button--compact"
+					variant="outline"
+					size="sm"
 					onClick={onCancel}
 				>
 					Cancel
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button shell-button--compact shell-button--danger"
+					variant="destructive"
+					size="sm"
 					onClick={onDiscard}
 				>
 					Discard
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button shell-button--compact shell-button--primary"
+					size="sm"
 					onClick={onSave}
 				>
 					Save
-				</button>
+				</Button>
 			</AppDialog.Footer>
 		</AppDialog>
 	);

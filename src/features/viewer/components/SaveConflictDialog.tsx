@@ -1,4 +1,5 @@
 import { AppDialog } from "../../../components/AppDialog";
+import { Button } from "@/components/ui/button";
 
 type Props = {
 	open: boolean;
@@ -25,27 +26,29 @@ export function SaveConflictDialog({
 				This file was modified outside the editor. Pick how to resolve.
 			</AppDialog.Description>
 			<AppDialog.Footer>
-				<button
+				<Button
 					type="button"
-					className="shell-button shell-button--compact"
+					variant="outline"
+					size="sm"
 					onClick={onCancel}
 				>
 					Cancel
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button shell-button--compact shell-button--danger"
+					variant="destructive"
+					size="sm"
 					onClick={onOverwrite}
 				>
 					Overwrite
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button shell-button--compact shell-button--primary"
+					size="sm"
 					onClick={onReload}
 				>
 					Reload
-				</button>
+				</Button>
 			</AppDialog.Footer>
 		</AppDialog>
 	);

@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+
 type Props = {
 	onOpenInstall: () => void;
 };
@@ -5,20 +7,20 @@ type Props = {
 export function AgentInstallCta({ onOpenInstall }: Props) {
 	return (
 		<div
-			className="shell-review-comment-sidebar__cta"
+			className="flex items-center gap-3 rounded-md border border-border bg-muted/50 p-3"
 			data-testid="agent-install-cta"
 		>
-			<p className="shell-review-comment-sidebar__cta-copy">
+			<p className="flex-1 text-sm text-muted-foreground">
 				<strong>Install fix-review skill</strong> — let your Claude Code or
 				Codex agent address these comments.
 			</p>
-			<button
+			<Button
 				type="button"
-				className="shell-button shell-button--compact shell-button--primary"
+				size="sm"
 				onClick={onOpenInstall}
 			>
 				Install…
-			</button>
+			</Button>
 		</div>
 	);
 }

@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { Button } from "@/components/ui/button";
 
 export type EditorDirtyBarProps = {
 	currentLength: number;
@@ -30,27 +31,27 @@ export function EditorDirtyBar({
 
 	return (
 		<div
-			className="shell-editor-dirty-bar"
+			className="flex items-center gap-2 px-3 py-1.5 border-t border-border bg-muted/50"
 			data-testid="editor-dirty-bar"
 			role="region"
 			aria-label="Unsaved changes"
 		>
-			<span className="shell-editor-dirty-bar__label">
+			<span className="text-sm font-medium">
 				<span aria-hidden="true">●</span> Unsaved changes
 			</span>
-			<span className="shell-editor-dirty-bar__hint">
+			<span className="text-xs text-muted-foreground">
 				<kbd>⌘S</kbd>
 			</span>
-			<button
+			<Button
 				type="button"
-				className="shell-btn shell-btn--primary"
+				size="sm"
 				onClick={onSave}
 			>
 				Save
-			</button>
-			<button type="button" className="shell-btn" onClick={handleDiscard}>
+			</Button>
+			<Button type="button" variant="outline" size="sm" onClick={handleDiscard}>
 				Discard
-			</button>
+			</Button>
 		</div>
 	);
 }

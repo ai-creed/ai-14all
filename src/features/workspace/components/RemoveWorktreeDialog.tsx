@@ -1,4 +1,5 @@
 import { AppDialog } from "../../../components/AppDialog";
+import { Button } from "@/components/ui/button";
 import type { RemoveWorktreePreview } from "../../../../shared/models/worktree-lifecycle";
 
 type Props = {
@@ -34,7 +35,7 @@ export function RemoveWorktreeDialog({
 			</AppDialog.Description>
 			<AppDialog.Body>
 				{preview && (
-					<div className="shell-app-dialog__preview">
+					<div className="rounded-md border border-border bg-muted/50 p-3 text-sm space-y-1">
 						<div>Name: {preview.label}</div>
 						<div>Branch: {preview.branchName}</div>
 						<div>
@@ -50,7 +51,7 @@ export function RemoveWorktreeDialog({
 					</div>
 				)}
 				{preview?.isDirty && (
-					<label className="shell-app-dialog__confirm-dirty">
+					<label className="flex items-center gap-2 mt-2">
 						<input
 							type="checkbox"
 							checked={confirmedDirty}
@@ -59,24 +60,26 @@ export function RemoveWorktreeDialog({
 						I understand this worktree has uncommitted changes
 					</label>
 				)}
-				{error && <div className="shell-error-banner">{error}</div>}
+				{error && <div className="text-sm text-destructive p-2 bg-destructive/10 rounded">{error}</div>}
 			</AppDialog.Body>
 			<AppDialog.Footer>
-				<button
+				<Button
 					type="button"
-					className="shell-button shell-button--compact"
+					variant="outline"
+					size="sm"
 					onClick={() => onOpenChange(false)}
 				>
 					Cancel
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button shell-button--compact shell-button--danger"
+					variant="destructive"
+					size="sm"
 					onClick={onConfirm}
 					disabled={!preview || busy || (preview.isDirty && !confirmedDirty)}
 				>
 					{busy ? "Removing…" : "Remove worktree"}
-				</button>
+				</Button>
 			</AppDialog.Footer>
 		</AppDialog>
 	);

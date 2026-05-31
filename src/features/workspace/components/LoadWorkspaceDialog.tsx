@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { AppDialog } from "../../../components/AppDialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { repository } from "../../../lib/desktop-client";
 import { describeRepositoryLoadError } from "../../repository/describe-repository-load-error";
 
@@ -45,11 +48,10 @@ export function LoadWorkspaceDialog({ open, onOpenChange, onLoadPath }: Props) {
 				Open a workspace by entering its path or browsing for it.
 			</AppDialog.Description>
 			<AppDialog.Body>
-				<label htmlFor="load-workspace-path">Repository path</label>
-				<input
+				<Label htmlFor="load-workspace-path">Repository path</Label>
+				<Input
 					id="load-workspace-path"
 					type="text"
-					className="shell-input"
 					value={path}
 					onChange={(e) => setPath(e.target.value)}
 					onKeyDown={(e) => {
@@ -59,25 +61,26 @@ export function LoadWorkspaceDialog({ open, onOpenChange, onLoadPath }: Props) {
 					disabled={loading}
 					autoFocus
 				/>
-				{error && <div className="shell-error">{error}</div>}
+				{error && <div className="text-sm text-destructive">{error}</div>}
 			</AppDialog.Body>
 			<AppDialog.Footer>
-				<button
+				<Button
 					type="button"
-					className="shell-button shell-button--compact"
+					variant="outline"
+					size="sm"
 					disabled={loading}
 					onClick={handleBrowse}
 				>
 					Browse
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button shell-button--compact shell-button--primary"
+					size="sm"
 					disabled={loading || !path.trim()}
 					onClick={() => void handleLoad()}
 				>
 					{loading ? "Loading…" : "Load"}
-				</button>
+				</Button>
 			</AppDialog.Footer>
 		</AppDialog>
 	);

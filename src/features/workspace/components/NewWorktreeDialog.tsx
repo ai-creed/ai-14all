@@ -1,4 +1,6 @@
 import { AppDialog } from "../../../components/AppDialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { CreateWorktreePreview } from "../../../../shared/models/worktree-lifecycle";
 
 type Props = {
@@ -35,26 +37,24 @@ export function NewWorktreeDialog({
 				This will create a new branch and linked worktree.
 			</AppDialog.Description>
 			<AppDialog.Body>
-				<label className="shell-app-dialog__field">
+				<label className="space-y-2">
 					<span>Name</span>
-					<input
+					<Input
 						autoFocus
 						value={name}
 						onChange={(event) => onNameChange(event.target.value)}
-						className="shell-input"
 					/>
 				</label>
-				<label className="shell-app-dialog__field">
+				<label className="space-y-2">
 					<span>Session title (optional)</span>
-					<input
+					<Input
 						value={sessionTitle}
 						onChange={(event) => onSessionTitleChange(event.target.value)}
 						placeholder={preview?.branchName ?? ""}
-						className="shell-input"
 					/>
 				</label>
 				{preview && (
-					<div className="shell-app-dialog__preview">
+					<div className="rounded-md border border-border bg-muted/50 p-3 text-sm space-y-1">
 						<div>
 							<span>Name:</span> <strong>{preview.name}</strong>
 						</div>
@@ -75,25 +75,26 @@ export function NewWorktreeDialog({
 						</div>
 					</div>
 				)}
-				{error && <div className="shell-error-banner">{error}</div>}
+				{error && <div className="text-sm text-destructive p-2 bg-destructive/10 rounded">{error}</div>}
 			</AppDialog.Body>
 			<AppDialog.Footer>
-				<button
+				<Button
 					type="button"
-					className="shell-button shell-button--compact"
+					variant="outline"
+					size="sm"
 					onClick={() => onOpenChange(false)}
 					disabled={busy}
 				>
 					Cancel
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button shell-button--compact shell-button--primary"
+					size="sm"
 					onClick={onConfirm}
 					disabled={!preview || loading || busy}
 				>
 					Create worktree
-				</button>
+				</Button>
 			</AppDialog.Footer>
 		</AppDialog>
 	);

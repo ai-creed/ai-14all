@@ -3,6 +3,8 @@ import { Terminal, type ITheme } from "xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "xterm-addon-search";
 import "xterm/css/xterm.css";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { TerminalSession } from "../../../../shared/models/terminal-session";
 import { files, terminals } from "../../../lib/desktop-client";
 import { logRendererShellEvent } from "../logic/shell-event-logger";
@@ -491,26 +493,26 @@ export function TerminalPane({
 	return (
 		<section
 			aria-hidden={visible ? "false" : "true"}
-			className="shell-panel shell-terminal-pane"
+			className="relative flex-1 overflow-hidden"
 			data-terminal-session-id={session.id}
 			onMouseDown={onActivate}
 			onDragOver={handleDragOver}
 			onDrop={handleDrop}
 			style={{ display: visible ? "block" : "none" }}
 		>
-			<div ref={containerRef} className="shell-terminal-pane__viewport" />
+			<div ref={containerRef} className="h-full w-full" />
 			{findOpen && (
 				<div
-					className="shell-terminal-find"
+					className="absolute top-0 right-0 z-10 flex items-center gap-1 rounded-bl-md border border-border bg-background p-1 shadow-md"
 					role="search"
 					aria-label="Find in terminal"
 					onMouseDown={(e) => e.stopPropagation()}
 				>
-					<input
+					<Input
 						ref={findInputRef}
 						autoFocus
 						type="text"
-						className="shell-terminal-find__input"
+						className="h-7 w-48 text-xs"
 						aria-label="Find"
 						placeholder="Find"
 						value={findQuery}
@@ -525,47 +527,55 @@ export function TerminalPane({
 							}
 						}}
 					/>
-					<span className="shell-terminal-find__count" aria-live="polite">
+					<span className="text-xs text-muted-foreground whitespace-nowrap px-1" aria-live="polite">
 						{findQuery
 							? findResults.resultCount === 0
 								? "No results"
 								: `${findResults.resultIndex + 1} of ${findResults.resultCount}`
 							: ""}
 					</span>
-					<button
+					<Button
 						type="button"
-						className="shell-button shell-button--icon shell-button--compact"
+						variant="outline"
+						size="icon"
+						className="h-7 w-7"
 						aria-label="Match case"
 						aria-pressed={findCaseSensitive}
 						data-active={String(findCaseSensitive)}
 						onClick={() => setFindCaseSensitive((v) => !v)}
 					>
 						Aa
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
-						className="shell-button shell-button--icon shell-button--compact"
+						variant="outline"
+						size="icon"
+						className="h-7 w-7"
 						aria-label="Previous match"
 						onClick={() => runFind("prev")}
 					>
-						‹
-					</button>
-					<button
+						&#8249;
+					</Button>
+					<Button
 						type="button"
-						className="shell-button shell-button--icon shell-button--compact"
+						variant="outline"
+						size="icon"
+						className="h-7 w-7"
 						aria-label="Next match"
 						onClick={() => runFind("next")}
 					>
-						›
-					</button>
-					<button
+						&#8250;
+					</Button>
+					<Button
 						type="button"
-						className="shell-button shell-button--icon shell-button--compact"
+						variant="outline"
+						size="icon"
+						className="h-7 w-7"
 						aria-label="Close find"
 						onClick={closeFind}
 					>
-						×
-					</button>
+						&times;
+					</Button>
 				</div>
 			)}
 		</section>

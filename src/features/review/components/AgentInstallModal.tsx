@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AppDialog } from "../../../components/AppDialog";
+import { Button } from "@/components/ui/button";
 import type { AgentInstallStatus } from "../hooks/use-agent-install-status";
 
 type Props = {
@@ -36,19 +37,19 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 			</AppDialog.Title>
 			<AppDialog.Body>
 				{status.bindError && (
-					<p className="shell-error">
+					<p className="text-sm text-destructive">
 						MCP server could not bind. {status.bindError}. Resolve and restart
 						ai-14all.
 					</p>
 				)}
-				<ul className="shell-install-list">
+				<ul className="list-none p-0 space-y-2">
 					{status.providers.map((p) => {
 						const enabled = p.cliAvailable;
 						const result = results[p.id];
 						const pickMsg = pickError[p.id];
 						return (
 							<li key={p.id}>
-								<label>
+								<label className="flex items-center gap-2">
 									<input
 										type="checkbox"
 										disabled={!enabled || busy}
@@ -72,9 +73,11 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 									{p.installed && <span> · installed</span>}
 								</label>
 								{!p.cliAvailable && (
-									<button
+									<Button
 										type="button"
-										className="shell-button shell-button--compact"
+										variant="outline"
+										size="sm"
+										className="mt-1"
 										disabled={busy}
 										onClick={async () => {
 											setPickError((m) => ({ ...m, [p.id]: null }));
@@ -107,11 +110,11 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 										}}
 									>
 										Locate {p.displayName} CLI…
-									</button>
+									</Button>
 								)}
-								{pickMsg && <p className="shell-error">{pickMsg}</p>}
+								{pickMsg && <p className="text-sm text-destructive">{pickMsg}</p>}
 								{result && (
-									<p className={result.ok ? "shell-info" : "shell-error"}>
+									<p className={result.ok ? "text-sm text-muted-foreground" : "text-sm text-destructive"}>
 										{result.ok ? "Installed ✓" : `Failed: ${result.message}`}
 									</p>
 								)}
@@ -121,17 +124,18 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 				</ul>
 			</AppDialog.Body>
 			<AppDialog.Footer>
-				<button
+				<Button
 					type="button"
-					className="shell-button shell-button--compact"
+					variant="outline"
+					size="sm"
 					onClick={onClose}
 					disabled={busy}
 				>
 					Close
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button shell-button--compact shell-button--primary"
+					size="sm"
 					disabled={selected.size === 0 || busy}
 					onClick={async () => {
 						setBusy(true);
@@ -147,7 +151,7 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 					}}
 				>
 					Install
-				</button>
+				</Button>
 			</AppDialog.Footer>
 		</AppDialog>
 	);

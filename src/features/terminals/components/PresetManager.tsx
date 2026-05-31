@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { AppDialog } from "../../../components/AppDialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { CommandPreset } from "../../../../shared/models/command-preset";
 
 type Props = {
@@ -46,82 +49,71 @@ export function PresetManager({
 			<AppDialog.Title>Command presets</AppDialog.Title>
 			<AppDialog.Body>
 				{presets.length > 0 && (
-					<ul style={{ listStyle: "none", padding: 0 }}>
+					<ul className="list-none p-0">
 						{presets.map((preset) => (
 							<li
 								key={preset.id}
-								style={{
-									display: "flex",
-									alignItems: "center",
-									gap: "var(--space-2)",
-									marginBottom: "var(--space-2)",
-								}}
+								className="flex items-center gap-2 mb-2"
 							>
-								<span style={{ flex: 1 }}>
+								<span className="flex-1">
 									{preset.label} — <code>{preset.command}</code>
 								</span>
-								<button
+								<Button
 									type="button"
-									className="shell-button shell-button--compact"
+									variant="outline"
+									size="sm"
 									onClick={() => handleEdit(preset)}
 								>
 									Edit
-								</button>
-								<button
+								</Button>
+								<Button
 									type="button"
-									className="shell-button shell-button--compact"
+									variant="outline"
+									size="sm"
 									onClick={() => onDelete(preset.id)}
 								>
 									Delete
-								</button>
-								<button
+								</Button>
+								<Button
 									type="button"
-									className="shell-button shell-button--compact"
+									variant="outline"
+									size="sm"
 									onClick={() => onLaunch(preset.id)}
 								>
 									Launch
-								</button>
+								</Button>
 							</li>
 						))}
 					</ul>
 				)}
 
-				<div style={{ marginTop: "var(--space-4)" }}>
-					<div style={{ marginBottom: "var(--space-2)" }}>
-						<label htmlFor="preset-label">Preset label</label>
-						<input
+				<div className="mt-4">
+					<div className="space-y-2 mb-2">
+						<Label htmlFor="preset-label">Preset label</Label>
+						<Input
 							id="preset-label"
 							type="text"
 							value={label}
 							onChange={(e) => setLabel(e.target.value)}
-							className="shell-input"
 						/>
 					</div>
-					<div style={{ marginBottom: "var(--space-2)" }}>
-						<label htmlFor="preset-command">Preset command</label>
-						<input
+					<div className="space-y-2 mb-2">
+						<Label htmlFor="preset-command">Preset command</Label>
+						<Input
 							id="preset-command"
 							type="text"
 							value={command}
 							onChange={(e) => setCommand(e.target.value)}
-							className="shell-input"
 						/>
 					</div>
-					<div
-						style={{
-							display: "flex",
-							justifyContent: "flex-end",
-							gap: "var(--space-2)",
-							marginTop: "var(--space-3)",
-						}}
-					>
-						<button
+					<div className="flex justify-end gap-2 mt-3">
+						<Button
 							type="button"
-							className="shell-button shell-button--compact shell-button--primary"
+							size="sm"
 							onClick={handleSave}
 						>
 							Save preset
-						</button>
+						</Button>
 					</div>
 				</div>
 			</AppDialog.Body>
