@@ -1,7 +1,5 @@
-// Minimal accessible toggle switch — `role="switch"` + `aria-checked` so
-// screen readers announce it as a toggle, not a generic button. Used by the
-// gitignored-files toggle in both `WorktreeTree` (Files tab) and
-// `FilesOverlay` (Cmd+P).
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 type Props = {
 	checked: boolean;
@@ -19,20 +17,16 @@ export function ToggleSwitch({
 	id,
 }: Props): React.ReactElement {
 	return (
-		<label className="shell-toggle-switch" htmlFor={id}>
-			<span className="shell-toggle-switch__label">{label}</span>
-			<button
+		<div className="flex items-center gap-2">
+			<Label htmlFor={id} className="text-xs text-muted-foreground uppercase tracking-wider cursor-pointer">
+				{label}
+			</Label>
+			<Switch
 				id={id}
-				type="button"
-				role="switch"
-				aria-checked={checked}
+				checked={checked}
+				onCheckedChange={() => onChange()}
 				aria-label={ariaLabel ?? label}
-				className="shell-toggle-switch__track"
-				data-checked={checked ? "true" : "false"}
-				onClick={onChange}
-			>
-				<span className="shell-toggle-switch__thumb" aria-hidden="true" />
-			</button>
-		</label>
+			/>
+		</div>
 	);
 }
