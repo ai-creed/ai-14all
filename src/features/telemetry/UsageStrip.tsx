@@ -64,30 +64,40 @@ export function UsageStrip({
 	const gaugeFor = (p: UsageProvider): LimitGauge | undefined =>
 		snapshot.limits.find((l) => l.provider === p);
 	return (
-		<div className="usage-strip">
-			<div className="usage-tele">
+		<div className="relative flex items-center gap-2.5 font-mono">
+			<div className="grid grid-cols-[auto_auto_auto_auto] gap-x-3 gap-y-0.5 items-center text-[11px]">
 				{ORDER.map((provider) => {
 					const t = rowTotals(snapshot, provider, currentWorktreePath);
 					const g = gaugeFor(provider);
 					return (
-						<div className="usage-trow" key={provider}>
-							<span className={`usage-prov usage-prov--${provider}`}>
+						<div className="contents" key={provider}>
+							<span
+								className={`font-semibold ${provider === "claude" ? "text-[var(--provider-claude)]" : "text-[var(--provider-codex)]"}`}
+							>
 								{provider}
 							</span>
 							<span
-								className="usage-tok"
+								className="text-foreground"
 								title="↑ prompt tokens sent · ↓ tokens generated"
 							>
-								<span className="usage-bill">↑{formatTokens(t.input)}</span>{" "}
-								<span className="usage-raw">↓{formatTokens(t.output)}</span>
+								<span className="text-foreground font-semibold">
+									↑{formatTokens(t.input)}
+								</span>{" "}
+								<span className="text-muted-foreground">
+									↓{formatTokens(t.output)}
+								</span>
 							</span>
-							<span className="usage-cell">
-								<span className="usage-col-h">5h</span>
+							<span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+								<span className="text-[9px] tracking-wide uppercase text-muted-foreground">
+									5h
+								</span>
 								<Gauge percent={g?.fiveHour.percent ?? 0} />{" "}
 								{g?.fiveHour.percent ?? 0}%
 							</span>
-							<span className="usage-cell">
-								<span className="usage-col-h">wk</span>
+							<span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+								<span className="text-[9px] tracking-wide uppercase text-muted-foreground">
+									wk
+								</span>
 								<Gauge percent={g?.weekly.percent ?? 0} />{" "}
 								{g?.weekly.percent ?? 0}%
 							</span>
@@ -97,7 +107,7 @@ export function UsageStrip({
 			</div>
 			<button
 				ref={caretRef}
-				className="usage-caret"
+				className="bg-transparent border-none text-muted-foreground cursor-pointer text-[13px]"
 				aria-label="Open token breakdown"
 				onClick={() => setOpen((v) => !v)}
 			>

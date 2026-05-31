@@ -50,45 +50,52 @@ function BudgetEditor({
 	const [resetHour, setResetHour] = useState(config.weeklyResetHour);
 	return (
 		<form
-			className="usage-budget-editor"
+			className="flex flex-col gap-3.5"
 			onSubmit={(e) => {
 				e.preventDefault();
 				onSave(fromM(fiveHour), fromM(weekly), resetDay, resetHour);
 			}}
 		>
-			<p className="usage-budget-note">
-				These settings are for <b>Claude only</b> — Codex uses its own reported
-				limits automatically. Budgets are <b>billable tokens</b> (input + output
-				+ cache-creation; cache reads excluded). The <b>weekly reset</b> is when
-				your Claude limit rolls over — find it in Claude Code&apos;s{" "}
-				<code>/usage</code> (the &ldquo;resets…&rdquo; line) and set the
-				matching day/time.
+			<p className="m-0 text-[10px] leading-relaxed text-secondary-foreground">
+				These settings are for <b className="text-foreground">Claude only</b> —
+				Codex uses its own reported limits automatically. Budgets are{" "}
+				<b className="text-foreground">billable tokens</b> (input + output +
+				cache-creation; cache reads excluded). The{" "}
+				<b className="text-foreground">weekly reset</b> is when your Claude limit
+				rolls over — find it in Claude Code&apos;s{" "}
+				<code className="text-foreground bg-background px-1 rounded-sm">
+					/usage
+				</code>{" "}
+				(the &ldquo;resets…&rdquo; line) and set the matching day/time.
 			</p>
-			<div className="usage-budget-row">
-				<label>
+			<div className="flex gap-2 items-end flex-nowrap">
+				<label className="flex flex-col gap-1 text-[10px] text-secondary-foreground whitespace-nowrap">
 					5h budget (M tokens)
 					<input
 						aria-label="5h budget in millions"
 						value={fiveHour}
 						onChange={(e) => setFiveHour(e.target.value)}
 						inputMode="decimal"
+						className="w-[72px] h-[26px] box-border bg-background border border-border rounded-[5px] text-foreground px-1.5 py-0.5"
 					/>
 				</label>
-				<label>
+				<label className="flex flex-col gap-1 text-[10px] text-secondary-foreground whitespace-nowrap">
 					weekly budget (M tokens)
 					<input
 						aria-label="weekly budget in millions"
 						value={weekly}
 						onChange={(e) => setWeekly(e.target.value)}
 						inputMode="decimal"
+						className="w-[72px] h-[26px] box-border bg-background border border-border rounded-[5px] text-foreground px-1.5 py-0.5"
 					/>
 				</label>
-				<label>
+				<label className="flex flex-col gap-1 text-[10px] text-secondary-foreground whitespace-nowrap">
 					weekly reset day
 					<select
 						aria-label="weekly reset day"
 						value={resetDay}
 						onChange={(e) => setResetDay(Number(e.target.value))}
+						className="w-[72px] h-[26px] box-border bg-background border border-border rounded-[5px] text-foreground px-1.5 py-0.5"
 					>
 						{DAYS.map((d, i) => (
 							<option key={d} value={i}>
@@ -97,7 +104,7 @@ function BudgetEditor({
 						))}
 					</select>
 				</label>
-				<label>
+				<label className="flex flex-col gap-1 text-[10px] text-secondary-foreground whitespace-nowrap">
 					reset hour (0–23)
 					<input
 						aria-label="weekly reset hour"
@@ -106,9 +113,15 @@ function BudgetEditor({
 						max={23}
 						value={resetHour}
 						onChange={(e) => setResetHour(Number(e.target.value))}
+						className="w-[72px] h-[26px] box-border bg-background border border-border rounded-[5px] text-foreground px-1.5 py-0.5"
 					/>
 				</label>
-				<button type="submit">Save</button>
+				<button
+					type="submit"
+					className="h-[26px] bg-popover border border-border rounded-[5px] text-foreground px-3 cursor-pointer whitespace-nowrap"
+				>
+					Save
+				</button>
 			</div>
 		</form>
 	);
@@ -172,15 +185,25 @@ export function UsagePopover({
 	}
 
 	return (
-		<div className="usage-pop" role="dialog" style={style} ref={rootRef}>
-			<div className="usage-pop-sec">
-				<div className="usage-pop-h">
+		<div
+			className="absolute z-50 top-full right-0 mt-1.5 max-h-[70vh] overflow-y-auto bg-popover border border-[var(--panel-border-strong)] rounded-[10px] shadow-[0_12px_40px_rgba(0,0,0,0.4)] w-[760px] text-secondary-foreground text-[11px] font-mono tabular-nums"
+			role="dialog"
+			style={style}
+			ref={rootRef}
+		>
+			{/* ── Account limits section ── */}
+			<div className="px-3.5 py-3 border-b border-border">
+				<div className="text-muted-foreground text-[9px] tracking-[0.06em] uppercase mb-2 flex justify-between items-center">
 					<span>Account limits</span>
-					<button className="usage-gear" aria-label="close" onClick={onClose}>
+					<button
+						className="bg-transparent border-none text-muted-foreground text-[11px] cursor-pointer"
+						aria-label="close"
+						onClick={onClose}
+					>
 						✕
 					</button>
 				</div>
-				<div className="usage-limits">
+				<div className="grid grid-cols-[auto_auto_auto_auto_auto_auto_auto_auto_1fr] gap-x-2.5 gap-y-[7px] items-center">
 					{snapshot.limits.map((l) => {
 						const fhReset = formatReset(l.fiveHour.resetsAtMs, now);
 						const wkReset = formatReset(l.weekly.resetsAtMs, now);
@@ -194,43 +217,55 @@ export function UsagePopover({
 							.join(" · ");
 						return (
 							<Fragment key={l.provider}>
-								<span className={`usage-prov usage-prov--${l.provider}`}>
+								<span
+									className={`font-semibold ${l.provider === "claude" ? "text-[var(--provider-claude)]" : "text-[var(--provider-codex)]"}`}
+								>
 									{l.provider}
 								</span>
-								<span className="usage-lim-lbl">5h</span>
+								<span className="text-muted-foreground">5h</span>
 								<Gauge percent={l.fiveHour.percent} />
-								<span className="usage-lim-pct">{l.fiveHour.percent}%</span>
-								<span className="usage-reset">
+								<span className="text-right text-foreground">
+									{l.fiveHour.percent}%
+								</span>
+								<span className="text-muted-foreground">
 									{fhReset ? `resets ${fhReset}` : ""}
 								</span>
-								<span className="usage-lim-lbl">week</span>
+								<span className="text-muted-foreground">week</span>
 								<Gauge percent={l.weekly.percent} />
-								<span className="usage-lim-pct">{l.weekly.percent}%</span>
-								<span className="usage-reset">{wkDetail}</span>
+								<span className="text-right text-foreground">
+									{l.weekly.percent}%
+								</span>
+								<span className="text-muted-foreground">{wkDetail}</span>
 							</Fragment>
 						);
 					})}
 				</div>
 			</div>
-			<div className="usage-pop-sec">
-				<div className="usage-pop-h">
-					<span className="usage-seg" role="group" aria-label="scope">
+
+			{/* ── Breakdown table section ── */}
+			<div className="px-3.5 py-3 border-b border-border">
+				<div className="text-muted-foreground text-[9px] tracking-[0.06em] uppercase mb-2 flex justify-between items-center">
+					<span
+						className="inline-flex bg-background border border-border rounded-md overflow-hidden"
+						role="group"
+						aria-label="scope"
+					>
 						<button
-							className={scope === "active" ? "on" : ""}
+							className={`px-2.5 py-0.5 text-[10px] border-none cursor-pointer ${scope === "active" ? "bg-popover text-foreground" : "bg-transparent text-muted-foreground"}`}
 							aria-pressed={scope === "active"}
 							onClick={() => setScope("active")}
 						>
 							active
 						</button>
 						<button
-							className={scope === "all" ? "on" : ""}
+							className={`px-2.5 py-0.5 text-[10px] border-none cursor-pointer ${scope === "all" ? "bg-popover text-foreground" : "bg-transparent text-muted-foreground"}`}
 							aria-pressed={scope === "all"}
 							onClick={() => setScope("all")}
 						>
 							all tracked
 						</button>
 					</span>
-					<label className="usage-toggle">
+					<label className="inline-flex items-center gap-1.5 normal-case tracking-normal text-secondary-foreground">
 						include untracked
 						<input
 							type="checkbox"
@@ -239,41 +274,57 @@ export function UsagePopover({
 						/>
 					</label>
 				</div>
-				<table className="usage-tbl">
+				<table className="w-full border-collapse">
 					<thead>
 						<tr>
-							<th className="l">workspace / worktree · agent</th>
-							<th>↑ in</th>
-							<th>↓ out</th>
-							<th>this week</th>
+							<th className="text-left text-muted-foreground text-[9px] uppercase font-medium pb-1.5">
+								workspace / worktree · agent
+							</th>
+							<th className="text-right text-muted-foreground text-[9px] uppercase font-medium pb-1.5 w-16 pl-2.5">
+								↑ in
+							</th>
+							<th className="text-right text-muted-foreground text-[9px] uppercase font-medium pb-1.5 w-16 pl-2.5">
+								↓ out
+							</th>
+							<th className="text-right text-muted-foreground text-[9px] uppercase font-medium pb-1.5 w-16 pl-2.5">
+								this week
+							</th>
 						</tr>
 					</thead>
 					<tbody>
 						{groups.map((g) => (
 							<Fragment key={g.workspaceId ?? "untracked"}>
-								<tr className="usage-ws">
-									<td className="l">{g.label}</td>
-									<td>{formatTokens(g.subtotal.input)}</td>
-									<td className="usage-raw">
+								<tr>
+									<td className="text-left pt-2 border-t border-border font-bold text-foreground py-0.5 whitespace-nowrap">
+										{g.label}
+									</td>
+									<td className="text-right pt-2 border-t border-border font-bold text-foreground py-0.5 whitespace-nowrap w-16 pl-2.5">
+										{formatTokens(g.subtotal.input)}
+									</td>
+									<td className="text-right pt-2 border-t border-border text-muted-foreground py-0.5 whitespace-nowrap w-16 pl-2.5">
 										{formatTokens(g.subtotal.output)}
 									</td>
-									<td />
+									<td className="w-16 pl-2.5" />
 								</tr>
 								{g.rows.map((r, i) => (
 									<tr
 										key={`${g.workspaceId}-${r.worktreeId}-${r.provider}-${i}`}
 									>
-										<td className="l usage-wt">
+										<td className="text-left pl-3.5 text-secondary-foreground py-0.5 whitespace-nowrap">
 											{r.worktreeTitle} ·{" "}
-											<span className={`usage-prov usage-prov--${r.provider}`}>
+											<span
+												className={`font-semibold ${r.provider === "claude" ? "text-[var(--provider-claude)]" : "text-[var(--provider-codex)]"}`}
+											>
 												{r.provider}
 											</span>
 										</td>
-										<td>{formatTokens(r.sinceLaunch.input)}</td>
-										<td className="usage-raw">
+										<td className="text-right py-0.5 whitespace-nowrap w-16 pl-2.5">
+											{formatTokens(r.sinceLaunch.input)}
+										</td>
+										<td className="text-right text-muted-foreground py-0.5 whitespace-nowrap w-16 pl-2.5">
 											{formatTokens(r.sinceLaunch.output)}
 										</td>
-										<td className="usage-dim">
+										<td className="text-right text-muted-foreground py-0.5 whitespace-nowrap w-16 pl-2.5">
 											{formatTokens(r.thisWeek.billable)}
 										</td>
 									</tr>
@@ -283,17 +334,26 @@ export function UsagePopover({
 					</tbody>
 				</table>
 			</div>
-			<div className="usage-pop-sec usage-foot">
-				<span className="usage-dim" data-testid="usage-total">
+
+			{/* ── Footer ── */}
+			<div className="px-3.5 py-3 bg-background flex items-center justify-between">
+				<span className="text-muted-foreground" data-testid="usage-total">
 					session ↑
-					<span className="usage-bill">{formatTokens(total.input)}</span> ↓
-					<span className="usage-bill">{formatTokens(total.output)}</span>
+					<span className="text-foreground font-semibold">
+						{formatTokens(total.input)}
+					</span>{" "}
+					↓
+					<span className="text-foreground font-semibold">
+						{formatTokens(total.output)}
+					</span>
 					{" · week "}
-					<span className="usage-bill">{formatTokens(weekTotal)}</span>
+					<span className="text-foreground font-semibold">
+						{formatTokens(weekTotal)}
+					</span>
 				</span>
-				<span className="usage-foot-actions">
+				<span className="inline-flex gap-3 items-center">
 					<button
-						className="usage-gear"
+						className="bg-transparent border-none text-muted-foreground text-[11px] cursor-pointer"
 						aria-label="how to read these numbers"
 						aria-expanded={showHelp}
 						onClick={() => setShowHelp((v) => !v)}
@@ -301,7 +361,7 @@ export function UsagePopover({
 						ⓘ how to read
 					</button>
 					<button
-						className="usage-gear"
+						className="bg-transparent border-none text-muted-foreground text-[11px] cursor-pointer"
 						aria-label="budget settings"
 						onClick={() => setEditingBudget((v) => !v)}
 					>
@@ -309,44 +369,66 @@ export function UsagePopover({
 					</button>
 				</span>
 			</div>
+
+			{/* ── Help section ── */}
 			{showHelp && (
-				<div className="usage-pop-sec usage-help">
-					<dl>
-						<dt>
-							<span className="usage-bill">↑ in</span> /{" "}
-							<span className="usage-bill">↓ out</span>
+				<div className="px-3.5 py-3 border-b border-border">
+					<dl className="m-0 grid grid-cols-[max-content_1fr] gap-x-3.5 gap-y-1.5 text-[11px]">
+						<dt className="text-foreground font-semibold whitespace-nowrap">
+							<span className="text-foreground font-semibold">↑ in</span> /{" "}
+							<span className="text-foreground font-semibold">↓ out</span>
 						</dt>
-						<dd>
-							<b>in</b> = prompt tokens you send (your input + first-time cached
-							context). <b>out</b> = tokens the agent generates in reply. Cache
-							re-reads of context are excluded — they&apos;re nearly free.
+						<dd className="m-0 text-secondary-foreground leading-relaxed">
+							<b className="text-foreground">in</b> = prompt tokens you send
+							(your input + first-time cached context).{" "}
+							<b className="text-foreground">out</b> = tokens the agent generates
+							in reply. Cache re-reads of context are excluded — they&apos;re
+							nearly free.
 						</dd>
-						<dt>session</dt>
-						<dd>
-							Usage since you launched the app — <b>resets every restart</b>.
+						<dt className="text-foreground font-semibold whitespace-nowrap">
+							session
+						</dt>
+						<dd className="m-0 text-secondary-foreground leading-relaxed">
+							Usage since you launched the app —{" "}
+							<b className="text-foreground">resets every restart</b>.
 							That&apos;s why the number differs run to run; it&apos;s
 							&ldquo;your work this sitting&rdquo;, not all-time.
 						</dd>
-						<dt>this week</dt>
-						<dd>Rolling total tied to your weekly limit window.</dd>
-						<dt>Active / All tracked</dt>
-						<dd>
-							<b>active</b> = worktrees open in the app now. <b>all tracked</b>{" "}
-							= every worktree with recent activity.
+						<dt className="text-foreground font-semibold whitespace-nowrap">
+							this week
+						</dt>
+						<dd className="m-0 text-secondary-foreground leading-relaxed">
+							Rolling total tied to your weekly limit window.
 						</dd>
-						<dt>account limits</dt>
-						<dd>
-							<span className="usage-prov usage-prov--codex">codex</span> is the
-							real % the provider reports (with reset countdown).{" "}
-							<span className="usage-prov usage-prov--claude">claude</span> is
-							an estimate vs your budget (⚙) — the API doesn&apos;t expose the
-							real number.
+						<dt className="text-foreground font-semibold whitespace-nowrap">
+							Active / All tracked
+						</dt>
+						<dd className="m-0 text-secondary-foreground leading-relaxed">
+							<b className="text-foreground">active</b> = worktrees open in the
+							app now. <b className="text-foreground">all tracked</b> = every
+							worktree with recent activity.
+						</dd>
+						<dt className="text-foreground font-semibold whitespace-nowrap">
+							account limits
+						</dt>
+						<dd className="m-0 text-secondary-foreground leading-relaxed">
+							<span className="font-semibold text-[var(--provider-codex)]">
+								codex
+							</span>{" "}
+							is the real % the provider reports (with reset countdown).{" "}
+							<span className="font-semibold text-[var(--provider-claude)]">
+								claude
+							</span>{" "}
+							is an estimate vs your budget (⚙) — the API doesn&apos;t expose
+							the real number.
 						</dd>
 					</dl>
 				</div>
 			)}
+
+			{/* ── Budget editor ── */}
 			{editingBudget && (
-				<div className="usage-pop-sec">
+				<div className="px-3.5 py-3">
 					<BudgetEditor config={snapshot.config} onSave={saveBudgets} />
 				</div>
 			)}
