@@ -10,10 +10,47 @@ type Props = {
 
 const TOTAL_STEPS = 5;
 
+const LOGO = String.raw`        _         _   _  _           _  _
+  __ _ (_)       / | | || |    __ _ | || |
+ / _ \ | | _____ | | | || |_  / _ \ | || |
+| (_| || |       | | |__   _|| (_| || || |
+ \__,_||_|       |_|    |_|   \__,_||_||_|`;
+
+const TREE = `my-project/             <- workspace (one git repo)
+|
++-- * main              <- worktree
++-- * feature/auth      <- worktree
+'-- * bugfix/login      <- worktree`;
+
+const TERMINALS = `+- shell 1 ----------+- shell 2 ----------+
+| $ npm run dev      | $ npm test         |
+| > ready :5173      | > 12 passed        |
++--------------------+--------------------+
+  up to 6 shells - flexible layouts - presets`;
+
+const REPO_ART = `   .--------------------------------.
+   |  ~/path/to/your-repo           |
+   '---------------+----------------'
+                   v
+   point me to a git repository below`;
+
+function AsciiArt({ art, label }: { art: string; label: string }) {
+  return (
+    <pre
+      role="img"
+      aria-label={label}
+      className="rounded border border-border bg-background p-3 my-2 overflow-x-auto font-[family-name:var(--font-terminal)] text-[10px] leading-[1.3] text-muted-foreground whitespace-pre"
+    >
+      {art}
+    </pre>
+  );
+}
+
 function StepWelcome() {
   return (
     <>
       <h2 className="text-base font-semibold text-foreground">Welcome to ai-14all</h2>
+      <AsciiArt art={LOGO} label="ai-14all logo" />
       <p className="text-sm text-muted-foreground leading-relaxed">
         Your multi-worktree development environment. Manage multiple branches,
         terminals, and code reviews — all in one place.
@@ -38,27 +75,11 @@ function StepWorktrees() {
         multiple <strong className="text-foreground">worktrees</strong> — independent branch checkouts you can
         switch between instantly.
       </p>
-      <div className="rounded border border-border bg-background p-4 my-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="inline-block px-2 py-1 rounded-sm text-xs uppercase tracking-wider font-semibold bg-primary/15 text-primary">
-            Workspace
-          </span>
-          <span className="text-muted-foreground text-base">→</span>
-          <span className="inline-block px-2 py-1 rounded-sm text-xs uppercase tracking-wider font-semibold bg-[color:var(--warning)]/15 text-[color:var(--warning)]">
-            Worktree
-          </span>
-          <span className="inline-block px-2 py-1 rounded-sm text-xs uppercase tracking-wider font-semibold bg-[color:var(--warning)]/15 text-[color:var(--warning)]">
-            Worktree
-          </span>
-          <span className="inline-block px-2 py-1 rounded-sm text-xs uppercase tracking-wider font-semibold bg-[color:var(--warning)]/15 text-[color:var(--warning)]">
-            Worktree
-          </span>
-        </div>
-        <p className="text-sm text-muted-foreground mt-3">
-          The sidebar lets you switch between worktrees. Each worktree has its own
-          terminals, files, and review state.
-        </p>
-      </div>
+      <AsciiArt art={TREE} label="A workspace containing multiple worktree branch checkouts" />
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        The sidebar lets you switch between worktrees. Each worktree has its own
+        terminals, files, and review state.
+      </p>
     </>
   );
 }
@@ -71,19 +92,7 @@ function StepTerminals() {
         Each worktree has its own terminal grid — up to 6 shells in flexible
         layouts. Save frequently used commands as presets.
       </p>
-      <div className="rounded border border-border bg-background p-4 my-2">
-        <div className="grid grid-cols-2 gap-1">
-          <div className="border border-border rounded-sm px-2 py-2 font-[family-name:var(--font-terminal)] text-[10px] text-primary">
-            $ npm run dev
-          </div>
-          <div className="border border-border rounded-sm px-2 py-2 font-[family-name:var(--font-terminal)] text-[10px] text-[color:var(--warning)]">
-            $ npm test
-          </div>
-          <div className="col-span-2 border border-border rounded-sm px-2 py-2 font-[family-name:var(--font-terminal)] text-[10px] text-muted-foreground">
-            $ git log --oneline
-          </div>
-        </div>
-      </div>
+      <AsciiArt art={TERMINALS} label="A terminal grid with two shells running commands side by side" />
     </>
   );
 }
@@ -96,21 +105,18 @@ function StepReview() {
         Review changes without leaving the app. Browse files, view diffs, and
         leave inline comments.
       </p>
-      <div className="rounded border border-border bg-background p-4 my-2">
-        <div className="flex gap-2 mb-2">
-          <span className="px-2 py-1 rounded-sm bg-secondary text-[10px] uppercase tracking-wider font-semibold text-primary">Files</span>
-          <span className="px-2 py-1 rounded-sm bg-secondary text-[10px] uppercase tracking-wider font-semibold text-[color:var(--warning)]">Changes</span>
-          <span className="px-2 py-1 rounded-sm bg-secondary text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Commits</span>
-        </div>
-        <div className="flex gap-1 border border-border rounded-sm p-2">
-          <div className="flex-1 font-[family-name:var(--font-terminal)] text-[10px]">
-            <div className="text-destructive">- old code</div>
-          </div>
-          <div className="flex-1 font-[family-name:var(--font-terminal)] text-[10px]">
-            <div className="text-primary">+ new code</div>
-          </div>
-        </div>
-      </div>
+      <pre
+        role="img"
+        aria-label="A diff viewer with Files, Changes, and Commits tabs showing a code change"
+        className="rounded border border-border bg-background p-3 my-2 overflow-x-auto font-[family-name:var(--font-terminal)] text-[10px] leading-[1.3] text-muted-foreground whitespace-pre"
+      >
+{`+- Files -+- Changes -+- Commits ----------+
+| src/app.tsx                              |
+| `}<span className="text-destructive">- const greeting = "hi"</span>{`                  |
+| `}<span className="text-primary">+ const greeting = "hello"</span>{`               |
+|   return <App msg={greeting} />          |
++------------------------------------------+`}
+      </pre>
     </>
   );
 }
@@ -122,6 +128,7 @@ function StepRepository({ onLoadPath }: { onLoadPath: (path: string) => Promise<
       <p className="text-sm text-muted-foreground leading-relaxed">
         Point to a git repository to get started.
       </p>
+      <AsciiArt art={REPO_ART} label="A folder path pointing down to the repository input" />
       <div className="mt-3">
         <RepositoryInput onLoadPath={onLoadPath} />
       </div>
