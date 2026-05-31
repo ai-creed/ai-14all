@@ -1,5 +1,11 @@
-import * as Dialog from "@radix-ui/react-dialog";
 import { Children, isValidElement, type ReactNode } from "react";
+import {
+	Dialog,
+	DialogContent,
+	DialogTitle,
+	DialogDescription,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 type AppDialogProps = {
 	open: boolean;
@@ -10,27 +16,27 @@ type AppDialogProps = {
 
 export function Title({ children }: { children: ReactNode }) {
 	return (
-		<Dialog.Title className="shell-app-dialog__title">{children}</Dialog.Title>
+		<DialogTitle className="text-base font-semibold">{children}</DialogTitle>
 	);
 }
 Title.displayName = "AppDialog.Title";
 
 export function Description({ children }: { children: ReactNode }) {
 	return (
-		<Dialog.Description className="shell-app-dialog__description">
+		<DialogDescription className="text-sm text-muted-foreground mt-1">
 			{children}
-		</Dialog.Description>
+		</DialogDescription>
 	);
 }
 Description.displayName = "AppDialog.Description";
 
 export function Body({ children }: { children: ReactNode }) {
-	return <div className="shell-app-dialog__body">{children}</div>;
+	return <div className="mt-3 space-y-3">{children}</div>;
 }
 Body.displayName = "AppDialog.Body";
 
 export function Footer({ children }: { children: ReactNode }) {
-	return <div className="shell-app-dialog__footer">{children}</div>;
+	return <div className="mt-4 flex justify-end gap-2">{children}</div>;
 }
 Footer.displayName = "AppDialog.Footer";
 
@@ -46,31 +52,22 @@ export function AppDialog({
 	size = "default",
 	children,
 }: AppDialogProps) {
-	const className =
-		size === "wide"
-			? "shell-app-dialog shell-app-dialog--wide"
-			: "shell-app-dialog";
 	const contentProps = hasDescriptionChild(children)
 		? {}
 		: { "aria-describedby": undefined };
 	return (
-		<Dialog.Root open={open} onOpenChange={onOpenChange}>
-			<Dialog.Portal>
-				<Dialog.Overlay className="shell-app-dialog__overlay" />
-				<Dialog.Content className={className} {...contentProps}>
-					<Dialog.Close asChild>
-						<button
-							type="button"
-							className="shell-button shell-button--icon shell-app-dialog__close"
-							aria-label="Close"
-						>
-							×
-						</button>
-					</Dialog.Close>
-					{children}
-				</Dialog.Content>
-			</Dialog.Portal>
-		</Dialog.Root>
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent
+				className={cn(
+					size === "wide"
+						? "max-w-[min(640px,calc(100vw-32px))]"
+						: "max-w-[min(460px,calc(100vw-32px))]",
+				)}
+				{...contentProps}
+			>
+				{children}
+			</DialogContent>
+		</Dialog>
 	);
 }
 
