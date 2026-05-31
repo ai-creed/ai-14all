@@ -4,8 +4,13 @@ import { vi, beforeEach } from "vitest";
 // By default, mark onboarding as completed so existing tests that rely on
 // the repository picker being visible are not affected by the OnboardingWizard.
 // Tests that specifically test onboarding should clear this in their own beforeEach.
-beforeEach(() => {
+if (typeof localStorage !== "undefined") {
 	localStorage.setItem("ai14all:onboarding-completed", "true");
+}
+beforeEach(() => {
+	if (typeof localStorage !== "undefined") {
+		localStorage.setItem("ai14all:onboarding-completed", "true");
+	}
 });
 
 // Stub ResizeObserver for jsdom (not available in the test environment)
