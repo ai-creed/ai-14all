@@ -11,11 +11,11 @@ export function RestoreBanner(props: Props): React.ReactElement | null {
 	const { message, onDismiss } = props;
 	if (!message) return null;
 	return (
-		<div className="shell-restore-warning" role="status">
+		<div className="bg-warning/10 text-warning border border-warning/30 rounded p-3 text-sm flex items-center justify-between gap-2" role="status">
 			<span>{message}</span>
 			<button
 				type="button"
-				className="shell-restore-warning__dismiss"
+				className="bg-transparent border-none text-warning cursor-pointer px-1 text-base leading-none shrink-0"
 				aria-label="Dismiss warning"
 				onClick={onDismiss}
 			>

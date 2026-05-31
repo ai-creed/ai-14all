@@ -8,6 +8,7 @@ import type {
 } from "../../shared/models/persisted-workspace-state";
 import { buildSavedWorkspace } from "../features/workspace/logic/workspace-persistence";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
+import { OnboardingWizard } from "../features/onboarding/components/OnboardingWizard";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
 import { type SessionSidebarWorkspace } from "../features/workspace/components/SessionSidebar";
 import { workspaceReducer } from "../features/workspace/logic/workspace-state";
@@ -182,6 +183,9 @@ export function App() {
 	const [removeBusy, setRemoveBusy] = useState(false);
 	const [confirmedDirtyRemoval, setConfirmedDirtyRemoval] = useState(false);
 	const [startupMode, setStartupMode] = useState<StartupMode>("loading");
+	const [showOnboarding, setShowOnboarding] = useState(
+		() => !localStorage.getItem("ai14all:onboarding-completed"),
+	);
 
 	useNoteBridgeReceiver({
 		startupMode,
@@ -1325,10 +1329,10 @@ export function App() {
 
 	if (startupMode === "loading") {
 		return (
-			<main className="shell-app shell-app--setup">
-				<section className="shell-panel shell-setup-panel">
-					<h1 className="shell-setup-title">ai-14all</h1>
-					<p className="shell-empty-state">Loading workspace…</p>
+			<main className="grid place-items-center p-6 h-screen overflow-hidden bg-transparent">
+				<section className="bg-transparent border border-border rounded-md w-[min(640px,100%)] p-6">
+					<h1 className="m-0 mb-4">ai-14all</h1>
+					<p className="text-sm text-muted-foreground italic">Loading workspace…</p>
 				</section>
 			</main>
 		);
@@ -1336,7 +1340,7 @@ export function App() {
 
 	if (startupMode === "prompt" && savedSnapshot) {
 		return (
-			<main className="shell-app shell-app--setup">
+			<main className="grid place-items-center p-6 h-screen overflow-hidden bg-transparent">
 				<RestorePrompt
 					repositoryPath={savedSnapshot.repositoryPath}
 					onDecide={handleRestoreDecision}
@@ -1347,14 +1351,21 @@ export function App() {
 
 	if (!repository) {
 		return (
-			<main className="shell-app shell-app--setup">
-				<section className="shell-panel shell-setup-panel">
-					<h1 className="shell-setup-title">ai-14all</h1>
-					<h2>Repository</h2>
-					<RepositoryInput onLoadPath={(path) => handleLoadPath(path)} />
-					{startupError && <p className="shell-error">{startupError}</p>}
-					{error && <p className="shell-error">Error: {error}</p>}
-				</section>
+			<main className="grid place-items-center p-6 h-screen overflow-hidden bg-transparent">
+				<OnboardingWizard
+					open={showOnboarding}
+					onClose={() => setShowOnboarding(false)}
+					onLoadPath={handleLoadPath}
+				/>
+				{!showOnboarding && (
+					<section className="bg-transparent border border-border rounded-md w-[min(640px,100%)] p-6">
+						<h1 className="m-0 mb-4">ai-14all</h1>
+						<h2>Repository</h2>
+						<RepositoryInput onLoadPath={(path) => handleLoadPath(path)} />
+						{startupError && <p className="text-sm text-destructive">{startupError}</p>}
+						{error && <p className="text-sm text-destructive">Error: {error}</p>}
+					</section>
+				)}
 			</main>
 		);
 	}
@@ -1362,13 +1373,13 @@ export function App() {
 	return (
 		<ToastProvider>
 			<AgentAttentionBanner />
-			<main className="shell-app">
+			<main className="h-screen overflow-hidden bg-transparent">
 				<RestoreBanner
 					message={restoreWarning}
 					onDismiss={() => setRestoreWarning(null)}
 				/>
 				<div
-					className="shell-layout"
+					className="grid h-screen gap-4 p-4"
 					data-testid="shell-layout"
 					style={{
 						gridTemplateColumns: `${
@@ -1397,7 +1408,7 @@ export function App() {
 						dispatch={dispatch}
 					/>
 
-					<section className="shell-main-column" ref={mainColRef}>
+					<section className="flex flex-col gap-4 min-w-0 min-h-0 overflow-hidden" ref={mainColRef}>
 						<MainColumnChrome
 							downloadingBannerInfo={downloadingBannerInfo}
 							downloadedBannerInfo={downloadedBannerInfo}
@@ -1452,7 +1463,7 @@ export function App() {
 						 * panel and panels by workspaceId, so switching only flips visibility —
 						 * no unmount/remount of the xterm instances.
 						 */}
-						<div className="shell-terminal-layer">
+						<div className="flex-1 min-h-0 min-w-0 flex flex-col">
 							{appWorkspaces.workspaceOrder.map((id) => {
 								const ws = appWorkspaces.workspacesById[id];
 								if (!ws || ws.workspaceState === null) return null;
@@ -1475,7 +1486,7 @@ export function App() {
 								return (
 									<div
 										key={ws.workspaceId}
-										className="shell-terminal-host"
+										className="min-h-0 min-w-0 data-[active=false]:hidden data-[active=true]:flex data-[active=true]:flex-1 data-[active=true]:flex-col"
 										data-active={isActive ? "true" : "false"}
 										data-workspace-id={ws.workspaceId}
 									>

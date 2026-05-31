@@ -62,10 +62,10 @@ export function SidebarPanel(props: Props): React.ReactElement {
 	} = props;
 
 	return (
-		<div className="shell-sidebar-column">
+		<div className="relative flex min-h-0">
 			{!sidebarCollapsed && (
 				<div
-					className="shell-sidebar-column__resize-handle"
+					className="absolute top-0 -right-2 w-4 h-full cursor-col-resize z-10 before:content-[''] before:absolute before:top-0 before:bottom-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-transparent before:transition-colors hover:before:bg-primary"
 					data-testid="sidebar-resize-handle"
 					onMouseDown={handleSidebarResizeStart}
 				/>

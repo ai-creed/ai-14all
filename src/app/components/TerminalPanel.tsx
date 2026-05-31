@@ -85,9 +85,9 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 	const terminalFontSize = 12 - Math.floor((layout.slotCount - 1) / 2);
 
 	return (
-		<section className="shell-panel shell-terminal-section">
+		<section className="bg-transparent border border-border rounded-md grid grid-rows-[minmax(0,1fr)] flex-1 overflow-hidden min-w-0 min-h-0">
 			<div
-				className="shell-terminal-panel__grid"
+				className="grid gap-x-1 w-full h-full min-h-0"
 				style={{
 					gridTemplateColumns: layout.gridTemplateColumns,
 					gridTemplateRows: layout.gridTemplateRows,
@@ -103,12 +103,12 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 						return (
 							<div
 								key={`empty-${slotIndex}`}
-								className="shell-terminal-slot shell-terminal-slot--empty"
+								className="flex flex-col min-h-0 min-w-0 border border-border rounded-sm overflow-hidden items-center justify-center"
 								style={cellStyle}
 							>
 								<button
 									type="button"
-									className="shell-terminal-slot__cta"
+									className="bg-transparent border border-dashed border-border rounded-sm text-muted-foreground py-2 px-3.5 cursor-pointer"
 									data-testid={`slot-cta-${slotIndex}`}
 									onClick={() => onStartShellInSlot(slotIndex)}
 								>
@@ -128,16 +128,16 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 					return (
 						<div
 							key={processId}
-							className="shell-terminal-slot"
+							className="flex flex-col min-h-0 min-w-0 border border-border rounded-sm overflow-hidden"
 							style={cellStyle}
 							data-testid={`slot-${slotIndex}`}
 							data-top-row={isTopRow ? "true" : "false"}
 							data-process-id={processId}
 						>
-							<header className="shell-terminal-slot__header">
+							<header className={`shell-terminal-slot__header flex items-center gap-1.5 px-2 py-[3px] text-[11px] leading-none text-foreground bg-[color-mix(in_srgb,var(--panel-border-strong)_40%,var(--panel-bg-elevated))] border-b border-b-[var(--panel-border-strong)] ${isTopRow ? "" : "border-t-2 border-t-[var(--panel-border-strong)]"}`}>
 								{process && (
 									<span
-										className="shell-terminal-slot__badge"
+										className="w-2 h-2 rounded-full shrink-0 bg-muted-foreground data-[attention=activity]:bg-warning data-[attention=actionRequired]:bg-destructive data-[status=exited]:bg-destructive"
 										data-testid={`slot-badge-${slotIndex}`}
 										data-attention={process.attentionState}
 										data-status={process.status}
@@ -148,7 +148,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										}`}
 									/>
 								)}
-								<span className="shell-terminal-slot__label">
+								<span className="flex-1 truncate font-medium leading-none">
 									{process?.label ?? "shell"}
 								</span>
 								{isMasterFamily && isChild && (
