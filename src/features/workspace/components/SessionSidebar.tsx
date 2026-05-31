@@ -285,7 +285,7 @@ export function SessionSidebar({
 												<div key={row.id} className="flex items-center gap-1 text-[0.7rem] min-w-0">
 													<span
 														data-testid="process-state-indicator"
-														className="shell-sidebar__process-indicator"
+														className="shell-sidebar__process-indicator inline-block w-1.5 h-1.5 rounded-full shrink-0"
 														data-state={row.state}
 													/>
 													{row.provider && (
@@ -380,7 +380,7 @@ export function SessionSidebar({
 									return (
 										<div
 											key={worktree.id}
-											className="shell-sidebar__row bg-card border border-border rounded-sm overflow-hidden cursor-pointer data-[selected=true]:bg-secondary data-[selected=true]:border-ring"
+											className="shell-sidebar__row bg-card border border-border rounded-sm overflow-hidden cursor-pointer transition-colors hover:bg-accent data-[selected=true]:bg-secondary data-[selected=true]:border-ring"
 											{...rowAttentionProps}
 											onClick={handleRowClick}
 										>
@@ -394,7 +394,7 @@ export function SessionSidebar({
 								return (
 									<ContextMenu key={worktree.id}>
 										<div
-											className="shell-sidebar__row bg-card border border-border rounded-sm overflow-hidden cursor-pointer data-[selected=true]:bg-secondary data-[selected=true]:border-ring"
+											className="shell-sidebar__row bg-card border border-border rounded-sm overflow-hidden cursor-pointer transition-colors hover:bg-accent data-[selected=true]:bg-secondary data-[selected=true]:border-ring"
 											{...rowAttentionProps}
 											onClick={handleRowClick}
 										>
