@@ -1,4 +1,9 @@
-import * as Dialog from "@radix-ui/react-dialog";
+import {
+	Dialog,
+	DialogContent,
+	DialogTitle,
+	DialogClose,
+} from "@/components/ui/dialog";
 import { SHORTCUT_REGISTRY, type Platform } from "../../app/shortcut-registry";
 
 interface Props {
@@ -62,67 +67,64 @@ export function ShortcutsHelp({ open, platform, onClose }: Props) {
 	const byId = Object.fromEntries(SHORTCUT_REGISTRY.map((s) => [s.id, s]));
 
 	return (
-		<Dialog.Root
+		<Dialog
 			open={open}
 			onOpenChange={(v) => {
 				if (!v) onClose();
 			}}
 		>
-			<Dialog.Portal>
-				<Dialog.Overlay className="shell-shortcuts-help__overlay" />
-				<Dialog.Content
-					className="shell-shortcuts-help"
-					data-testid="shortcuts-help"
-				>
-					<div className="shell-shortcuts-help__header">
-						<Dialog.Title className="shell-shortcuts-help__title">
-							Keyboard shortcuts
-						</Dialog.Title>
-						<Dialog.Close asChild>
-							<button
-								type="button"
-								className="shell-shortcuts-help__close"
-								aria-label="Close shortcuts"
-								data-testid="shortcuts-help-close"
+			<DialogContent
+				className="w-[800px] max-w-[calc(100vw-32px)] p-0 shadow-[0_8px_32px_rgba(0,0,0,0.4)] outline-none"
+				data-testid="shortcuts-help"
+			>
+				<div className="flex items-center justify-between px-4 py-3 border-b border-border">
+					<DialogTitle className="text-foreground text-[13px] font-semibold m-0">
+						Keyboard shortcuts
+					</DialogTitle>
+					<DialogClose asChild>
+						<button
+							type="button"
+							className="bg-transparent border-none text-muted-foreground cursor-pointer p-1 text-xs leading-none rounded-sm hover:text-foreground"
+							aria-label="Close shortcuts"
+							data-testid="shortcuts-help-close"
+						>
+							✕
+						</button>
+					</DialogClose>
+				</div>
+				<div className="columns-2 gap-4 px-2 py-2 max-h-[calc(100vh-96px)] overflow-y-auto">
+					{SHORTCUT_GROUPS.map((group) => {
+						const shortcuts = group.ids.map((id) => byId[id]).filter(Boolean);
+						if (!shortcuts.length) return null;
+						return (
+							<section
+								key={group.label}
+								className="break-inside-avoid"
 							>
-								✕
-							</button>
-						</Dialog.Close>
-					</div>
-					<div className="shell-shortcuts-help__body">
-						{SHORTCUT_GROUPS.map((group) => {
-							const shortcuts = group.ids.map((id) => byId[id]).filter(Boolean);
-							if (!shortcuts.length) return null;
-							return (
-								<section
-									key={group.label}
-									className="shell-shortcuts-help__group"
-								>
-									<h3 className="shell-shortcuts-help__group-label">
-										{group.label}
-									</h3>
-									<ul className="shell-shortcuts-help__list" role="list">
-										{shortcuts.map((shortcut) => (
-											<li
-												key={shortcut.id}
-												className="shell-shortcuts-help__row"
-												data-testid={`shortcuts-help-row-${shortcut.id}`}
-											>
-												<span className="shell-shortcuts-help__label">
-													{shortcut.label}
-												</span>
-												<kbd className="shell-shortcuts-help__keys">
-													{platform === "mac" ? shortcut.mac : shortcut.other}
-												</kbd>
-											</li>
-										))}
-									</ul>
-								</section>
-							);
-						})}
-					</div>
-				</Dialog.Content>
-			</Dialog.Portal>
-		</Dialog.Root>
+								<h3 className="ml-4">
+									{group.label}
+								</h3>
+								<ul className="list-none m-0 py-2" role="list">
+									{shortcuts.map((shortcut) => (
+										<li
+											key={shortcut.id}
+											className="flex items-center justify-between px-4 py-2"
+											data-testid={`shortcuts-help-row-${shortcut.id}`}
+										>
+											<span className="text-foreground text-xs">
+												{shortcut.label}
+											</span>
+											<kbd className="text-muted-foreground text-[11px] font-sans bg-muted border border-border rounded-sm px-1.5 py-0.5">
+												{platform === "mac" ? shortcut.mac : shortcut.other}
+											</kbd>
+										</li>
+									))}
+								</ul>
+							</section>
+						);
+					})}
+				</div>
+			</DialogContent>
+		</Dialog>
 	);
 }

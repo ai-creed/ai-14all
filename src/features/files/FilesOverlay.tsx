@@ -1,4 +1,9 @@
-import * as Dialog from "@radix-ui/react-dialog";
+import {
+	Dialog,
+	DialogContent,
+	DialogTitle,
+	DialogDescription,
+} from "@/components/ui/dialog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { matchFiles } from "../../../shared/files/match-files";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -107,168 +112,172 @@ export function FilesOverlay(props: FilesOverlayProps) {
 	}, [selectedIndex, rows.length, virtualizer]);
 
 	return (
-		<Dialog.Root
+		<Dialog
 			open={isOpen}
 			onOpenChange={(next) => {
 				if (!next) onClose();
 			}}
 		>
-			<Dialog.Portal>
-				<Dialog.Overlay className="shell-files-overlay__backdrop" />
-				<Dialog.Content
-					className="shell-files-overlay"
-					data-testid="files-overlay"
-					aria-label="Files"
-					onKeyDown={(e) => {
-						if (rows.length === 0) return;
-						if (e.key === "ArrowDown") {
-							e.preventDefault();
-							setSelectedIndex((i) => Math.min(rows.length - 1, i + 1));
-							return;
-						}
-						if (e.key === "ArrowUp") {
-							e.preventDefault();
-							setSelectedIndex((i) => Math.max(0, i - 1));
-							return;
-						}
-						if (e.key === "Home") {
-							e.preventDefault();
-							setSelectedIndex(0);
-							return;
-						}
-						if (e.key === "End") {
-							e.preventDefault();
-							setSelectedIndex(rows.length - 1);
-							return;
-						}
-						if (e.key === "Enter") {
-							e.preventDefault();
-							const path = rows[selectedIndex];
-							if (path) props.onOpenFile(path);
-							return;
-						}
-					}}
-				>
-					<Dialog.Title className="shell-files-overlay__title">
-						Files
-					</Dialog.Title>
-					<Dialog.Description className="sr-only">
-						Search and open files from the active session.
-					</Dialog.Description>
-					<div className="shell-files-overlay__body">
-						<div className="shell-files-overlay__toolbar">
-							<ToggleSwitch
-								id="files-overlay-show-gitignored"
-								checked={showGitignored}
-								onChange={onToggleShowGitignored}
-								label="Show gitignored"
-								ariaLabel="Show gitignored files"
-							/>
-						</div>
-						<input
-							className="shell-files-overlay__search"
-							data-testid="files-overlay-search"
-							placeholder="Search files"
-							value={query}
-							onChange={(e) => setQuery(e.target.value)}
-							autoFocus
+			<DialogContent
+				className="fixed top-[10vh] left-1/2 -translate-x-1/2 translate-y-0 w-[min(680px,92vw)] max-h-[70vh] flex flex-col bg-background text-foreground border border-border rounded-lg shadow-[0_24px_48px_rgba(0,0,0,0.35)] overflow-hidden p-0"
+				data-testid="files-overlay"
+				aria-label="Files"
+				onKeyDown={(e) => {
+					if (rows.length === 0) return;
+					if (e.key === "ArrowDown") {
+						e.preventDefault();
+						setSelectedIndex((i) => Math.min(rows.length - 1, i + 1));
+						return;
+					}
+					if (e.key === "ArrowUp") {
+						e.preventDefault();
+						setSelectedIndex((i) => Math.max(0, i - 1));
+						return;
+					}
+					if (e.key === "Home") {
+						e.preventDefault();
+						setSelectedIndex(0);
+						return;
+					}
+					if (e.key === "End") {
+						e.preventDefault();
+						setSelectedIndex(rows.length - 1);
+						return;
+					}
+					if (e.key === "Enter") {
+						e.preventDefault();
+						const path = rows[selectedIndex];
+						if (path) props.onOpenFile(path);
+						return;
+					}
+				}}
+			>
+				<DialogTitle className="px-3.5 py-2.5 text-xs font-semibold text-muted-foreground border-b border-border">
+					Files
+				</DialogTitle>
+				<DialogDescription className="sr-only">
+					Search and open files from the active session.
+				</DialogDescription>
+				<div className="flex-1 flex flex-col min-h-0">
+					<div className="flex items-center justify-end gap-2 px-3 pt-1.5">
+						<ToggleSwitch
+							id="files-overlay-show-gitignored"
+							checked={showGitignored}
+							onChange={onToggleShowGitignored}
+							label="Show gitignored"
+							ariaLabel="Show gitignored files"
 						/>
-						{loadError ? (
+					</div>
+					<input
+						className="flex-none mx-3.5 my-2.5 px-2.5 py-2 text-sm bg-white/[0.04] border border-border rounded-md outline-none text-foreground"
+						data-testid="files-overlay-search"
+						placeholder="Search files"
+						value={query}
+						onChange={(e) => setQuery(e.target.value)}
+						autoFocus
+					/>
+					{loadError ? (
+						<div
+							className="p-6 text-center text-[13px] text-muted-foreground"
+							data-testid="files-overlay-error"
+							role="alert"
+						>
+							Couldn't load files. {loadError}
+						</div>
+					) : tracked.length === 0 ? (
+						<div className="p-6 text-center text-[13px] text-muted-foreground">
+							No files in this worktree.
+						</div>
+					) : rows.length === 0 ? (
+						<div className="p-6 text-center text-[13px] text-muted-foreground">
+							No files match.
+						</div>
+					) : (
+						<div
+							ref={scrollParentRef}
+							className="flex-1 min-h-0 overflow-auto"
+							data-testid="files-overlay-list"
+						>
 							<div
-								className="shell-files-overlay__empty"
-								data-testid="files-overlay-error"
-								role="alert"
+								style={{
+									position: "relative",
+									height: virtualizer.getTotalSize(),
+									width: "100%",
+								}}
 							>
-								Couldn't load files. {loadError}
-							</div>
-						) : tracked.length === 0 ? (
-							<div className="shell-files-overlay__empty">
-								No files in this worktree.
-							</div>
-						) : rows.length === 0 ? (
-							<div className="shell-files-overlay__empty">No files match.</div>
-						) : (
-							<div
-								ref={scrollParentRef}
-								className="shell-files-overlay__list"
-								data-testid="files-overlay-list"
-							>
-								<div
-									style={{
-										position: "relative",
-										height: virtualizer.getTotalSize(),
-										width: "100%",
-									}}
-								>
-									{virtualizer.getVirtualItems().map((virtualRow) => {
-										const path = rows[virtualRow.index];
-										const base = basenameOf(path);
-										const dir = dirnameOf(path);
-										const status = gitStatusMap.get(path);
-										return (
-											<div
-												key={path}
-												data-testid={`files-overlay-row-${path}`}
-												data-selected={
-													virtualRow.index === selectedIndex ? "true" : "false"
-												}
-												className={
-													"shell-files-overlay__row" +
-													(virtualRow.index === selectedIndex
-														? " shell-files-overlay__row--selected"
-														: "")
-												}
-												onClick={() => props.onOpenFile(path)}
-												style={{
-													position: "absolute",
-													top: 0,
-													left: 0,
-													width: "100%",
-													height: ROW_HEIGHT,
-													transform: `translateY(${virtualRow.start}px)`,
-												}}
-											>
-												<span className="shell-files-overlay__row-basename">
-													{base}
+								{virtualizer.getVirtualItems().map((virtualRow) => {
+									const path = rows[virtualRow.index];
+									const base = basenameOf(path);
+									const dir = dirnameOf(path);
+									const status = gitStatusMap.get(path);
+									return (
+										<div
+											key={path}
+											data-testid={`files-overlay-row-${path}`}
+											data-selected={
+												virtualRow.index === selectedIndex ? "true" : "false"
+											}
+											className={`flex items-center gap-2 px-3.5 text-[13px] cursor-pointer hover:bg-white/[0.04] ${
+												virtualRow.index === selectedIndex
+													? "bg-[rgba(77,163,255,0.16)]"
+													: ""
+											}`}
+											onClick={() => props.onOpenFile(path)}
+											style={{
+												position: "absolute",
+												top: 0,
+												left: 0,
+												width: "100%",
+												height: ROW_HEIGHT,
+												transform: `translateY(${virtualRow.start}px)`,
+											}}
+										>
+											<span className="font-medium whitespace-nowrap overflow-hidden text-ellipsis">
+												{base}
+											</span>
+											{dir && (
+												<span className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis flex-1 min-w-0">
+													{dir}
 												</span>
-												{dir && (
-													<span className="shell-files-overlay__row-dir">
-														{dir}
-													</span>
-												)}
-												{status && (
-													<span
-														className="shell-files-overlay__row-status"
-														data-testid={`files-overlay-row-status-${path}`}
-													>
-														{status}
-													</span>
-												)}
-											</div>
-										);
-									})}
-								</div>
+											)}
+											{status && (
+												<span
+													className="ml-auto text-[11px] font-semibold min-w-[16px] text-right"
+													data-testid={`files-overlay-row-status-${path}`}
+												>
+													{status}
+												</span>
+											)}
+										</div>
+									);
+								})}
 							</div>
-						)}
-					</div>
-					<div
-						className="shell-files-overlay__footer"
-						data-testid="files-overlay-footer"
-					>
-						<span className="shell-files-overlay__footer-path">
-							{rows[selectedIndex] ?? ""}
+						</div>
+					)}
+				</div>
+				<div
+					className="flex-none flex items-center gap-3 px-3.5 py-2 border-t border-border text-xs"
+					data-testid="files-overlay-footer"
+				>
+					<span className="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">
+						{rows[selectedIndex] ?? ""}
+					</span>
+					<span className="flex gap-2.5 items-center">
+						<span>
+							<kbd className="px-1.5 py-0.5 border border-border rounded bg-white/[0.04] text-[11px]">
+								↵
+							</kbd>{" "}
+							Open
 						</span>
-						<span className="shell-files-overlay__footer-hints">
-							<span>
-								<kbd>↵</kbd> Open
-							</span>
-							<span>
-								<kbd>Esc</kbd> Close
-							</span>
+						<span>
+							<kbd className="px-1.5 py-0.5 border border-border rounded bg-white/[0.04] text-[11px]">
+								Esc
+							</kbd>{" "}
+							Close
 						</span>
-					</div>
-				</Dialog.Content>
-			</Dialog.Portal>
-		</Dialog.Root>
+					</span>
+				</div>
+			</DialogContent>
+		</Dialog>
 	);
 }

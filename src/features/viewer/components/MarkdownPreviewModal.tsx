@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
+import {
+	Dialog,
+	DialogContent,
+	DialogTitle,
+	DialogClose,
+} from "@/components/ui/dialog";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -69,52 +74,55 @@ export function MarkdownPreviewModal({
 	]);
 
 	return (
-		<Dialog.Root
+		<Dialog
 			open={open}
 			onOpenChange={(isOpen) => {
 				if (!isOpen) onClose();
 			}}
 		>
-			<Dialog.Portal>
-				<Dialog.Overlay className="shell-md-overlay" />
-				<Dialog.Content className="shell-md-modal" aria-describedby={undefined}>
-					<div className="shell-md-modal__header">
-						<Dialog.Title className="shell-md-modal__title">
-							{relativePath}
-						</Dialog.Title>
-						<Dialog.Close className="shell-md-modal__close" aria-label="Close">
-							✕
-						</Dialog.Close>
-					</div>
-					{loading && (
-						<p className="shell-empty-state">Loading {relativePath}…</p>
-					)}
-					{error && (
-						<>
-							<p className="shell-error">{error}</p>
-							<button
-								className="shell-md-modal__retry"
-								type="button"
-								onClick={() => setReloadToken((x) => x + 1)}
+			<DialogContent
+				className="w-[min(80vw,1200px)] max-w-none max-h-[80vh] flex flex-col overflow-hidden p-0"
+				aria-describedby={undefined}
+			>
+				<div className="flex justify-between items-center px-4 py-3 border-b border-border shrink-0">
+					<DialogTitle className="text-sm text-foreground font-mono m-0">
+						{relativePath}
+					</DialogTitle>
+					<DialogClose
+						className="bg-transparent border-none text-muted-foreground cursor-pointer p-1 leading-none rounded-sm hover:text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+						aria-label="Close"
+					>
+						✕
+					</DialogClose>
+				</div>
+				{loading && (
+					<p className="shell-empty-state">Loading {relativePath}…</p>
+				)}
+				{error && (
+					<>
+						<p className="shell-error">{error}</p>
+						<button
+							className="mt-2 px-3 py-1 bg-transparent border border-border rounded-sm text-muted-foreground cursor-pointer text-sm hover:border-border hover:text-foreground focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+							type="button"
+							onClick={() => setReloadToken((x) => x + 1)}
+						>
+							Retry
+						</button>
+					</>
+				)}
+				{content !== null && (
+					<div className="flex-1 overflow-y-auto min-h-0">
+						<div className="prose prose-sm dark:prose-invert px-6 py-4 max-w-none">
+							<ReactMarkdown
+								remarkPlugins={[remarkGfm]}
+								rehypePlugins={[rehypeHighlight]}
 							>
-								Retry
-							</button>
-						</>
-					)}
-					{content !== null && (
-						<div className="shell-md-modal__scroll">
-							<div className="shell-md-modal__body">
-								<ReactMarkdown
-									remarkPlugins={[remarkGfm]}
-									rehypePlugins={[rehypeHighlight]}
-								>
-									{content}
-								</ReactMarkdown>
-							</div>
+								{content}
+							</ReactMarkdown>
 						</div>
-					)}
-				</Dialog.Content>
-			</Dialog.Portal>
-		</Dialog.Root>
+					</div>
+				)}
+			</DialogContent>
+		</Dialog>
 	);
 }
