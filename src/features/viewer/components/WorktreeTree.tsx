@@ -150,20 +150,15 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 			<div
 				role="button"
 				tabIndex={0}
-				className={
-					(isDir
-						? "shell-list__item shell-list__item--tree shell-list__item--dir"
-						: "shell-list__item shell-list__item--tree") +
-					(row.ignored ? " shell-list__item--ignored" : "")
-				}
+				className={`flex items-center py-[5px] px-2 w-[calc(100%-8px)] text-[0.8rem] leading-none bg-transparent overflow-hidden cursor-pointer ${isDir ? "text-secondary-foreground font-semibold italic" : ""} ${row.ignored ? "opacity-55" : ""}`}
 				data-selected={!isDir && row.path === selectedFile}
 				data-ignored={row.ignored ? "true" : undefined}
 				style={{ paddingLeft: `${row.depth * 16}px` }}
 				onClick={handleClick}
 			>
 				{isDir && (
-					<span className="shell-tree-chevron" aria-hidden="true">
-						{row.expanded ? "▾" : "▸"}
+					<span className="inline-block w-[1em] text-center text-[1.3em] text-muted-foreground mr-[3px] shrink-0" aria-hidden="true">
+						{row.expanded ? "\u25BE" : "\u25B8"}
 					</span>
 				)}
 				<span
@@ -180,7 +175,7 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 				</span>
 				{row.kind === "file" && row.gitStatus && (
 					<span
-						className={`shell-tree-badge shell-tree-badge--${row.gitStatus === "??" ? "untracked" : row.gitStatus.toLowerCase()}`}
+						className="ml-1 text-[0.7rem] font-semibold shrink-0"
 						data-git-status={row.gitStatus}
 						aria-label={`Git status ${row.gitStatus}`}
 					>
@@ -230,15 +225,15 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 	}
 
 	return (
-		<div className="shell-list" style={{ marginLeft: "8px" }}>
+		<div className="grid gap-[3px]" style={{ marginLeft: "8px" }}>
 			{gitSummaryError && (
-				<p className="shell-inline-warning">
+				<p className="text-[var(--warning)] text-sm">
 					{gitSummaryMessage ??
-						"Git summary unavailable — file badges are hidden."}
+						"Git summary unavailable \u2014 file badges are hidden."}
 				</p>
 			)}
-			{error && <p className="shell-error">Unable to load files: {error}</p>}
-			<div className="shell-tree-header">
+			{error && <p className="text-destructive">Unable to load files: {error}</p>}
+			<div className="flex flex-col items-stretch gap-1 pr-2">
 				<ToggleSwitch
 					id="worktree-tree-show-gitignored"
 					checked={showIgnored}
@@ -248,8 +243,8 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 				/>
 				<input
 					type="text"
-					className="shell-input shell-tree-search"
-					placeholder="Search files…"
+					className="w-auto h-8 my-2 p-1 appearance-none text-foreground bg-card border border-[var(--panel-border-strong)] rounded-sm font-[inherit] hover:not(:disabled):not(:focus):border-muted-foreground focus-visible:outline-none focus-visible:border-ring"
+					placeholder="Search files\u2026"
 					value={inputTerm}
 					onChange={(e) => setInputTerm(e.target.value)}
 					aria-label="Search files"
@@ -257,14 +252,13 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 				/>
 			</div>
 			{loading && fileCount === 0 && (
-				<p className="shell-empty-state">Loading files…</p>
+				<p className="text-secondary-foreground">Loading files\u2026</p>
 			)}
 			{fileCount === 0 && !loading && (
-				<p className="shell-empty-state">No files in this worktree.</p>
+				<p className="text-secondary-foreground">No files in this worktree.</p>
 			)}
 			<div
 				ref={scrollParentRef}
-				className="shell-tree-scroll"
 				style={{ overflow: "auto" }}
 			>
 				<div
@@ -293,7 +287,7 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 				</div>
 			</div>
 			{searchTerm.trim().length > 0 && rows.length === 1 && (
-				<p className="shell-empty-state">No files match "{searchTerm}".</p>
+				<p className="text-secondary-foreground">No files match &quot;{searchTerm}&quot;.</p>
 			)}
 		</div>
 	);

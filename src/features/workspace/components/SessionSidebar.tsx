@@ -110,14 +110,14 @@ export function SessionSidebar({
 	return (
 		<nav
 			aria-label="Worktree sessions"
-			className="shell-panel shell-sidebar"
+			className={`grid grid-rows-[auto_minmax(0,1fr)_auto] w-full h-full min-h-0 min-w-0 bg-transparent border border-[var(--pane-border-sessions)] rounded-[var(--radius,0.25rem)] ${collapsed ? "px-2 py-3" : "p-3"}`}
 			data-collapsed={String(collapsed)}
 		>
-			<div className="shell-sidebar__header">
-				{!collapsed && <div className="shell-label">Sessions</div>}
+			<div className={`flex items-center gap-2 pb-2 border-b border-border ${collapsed ? "justify-center" : "justify-between"}`}>
+				{!collapsed && <div className="text-base leading-tight tracking-[0.08em] uppercase text-muted-foreground">Sessions</div>}
 				<button
 					type="button"
-					className="shell-button shell-button--icon shell-button--compact shell-button--round"
+					className="w-8 h-8 p-0 grid place-items-center text-base leading-8 text-foreground bg-card border border-border rounded-full cursor-pointer hover:border-muted-foreground focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-1"
 					aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 					onClick={onToggleCollapsed}
 				>
@@ -125,20 +125,20 @@ export function SessionSidebar({
 				</button>
 			</div>
 
-			<div className="shell-sidebar__list">
+			<div className={`flex flex-col min-h-0 overflow-y-auto mt-3 gap-0 pr-0.5 ${collapsed ? "items-center" : ""}`}>
 				{workspaces.map((workspace) => (
 					<section
 						key={workspace.workspaceId}
 						role="group"
 						aria-label={workspace.name}
-						className="shell-sidebar__workspace-group"
+						className={`flex flex-col gap-2 py-3 pb-1 [&+&]:before:content-[''] [&+&]:before:block [&+&]:before:h-px [&+&]:before:mx-2 [&+&]:before:mb-3 [&+&]:before:bg-gradient-to-r [&+&]:before:from-transparent [&+&]:before:via-border [&+&]:before:to-transparent ${collapsed ? "items-center p-0" : ""}`}
 						data-active-workspace={String(workspace.active)}
 					>
-						<div className="shell-sidebar__workspace-header">
+						<div className={`flex items-center gap-2 ${collapsed ? "justify-center" : "justify-between"}`}>
 							{collapsed ? (
 								<button
 									type="button"
-									className="shell-sidebar__workspace-badge"
+									className="inline-grid place-items-center w-6 h-6 p-0 text-base font-bold text-secondary-foreground bg-white/[0.06] border-none rounded-full cursor-pointer data-[selected=true]:text-foreground data-[selected=true]:bg-[rgba(98,180,255,0.22)] hover:bg-white/10 hover:text-foreground"
 									title={workspace.name}
 									aria-label={workspace.name}
 									data-selected={String(workspace.active)}
@@ -150,7 +150,7 @@ export function SessionSidebar({
 								<>
 									<button
 										type="button"
-										className="shell-sidebar__workspace-name"
+										className="min-w-0 p-0 text-base tracking-[0.04em] uppercase text-secondary-foreground bg-transparent border-none cursor-pointer data-[selected=true]:text-foreground"
 										data-selected={String(workspace.active)}
 										onClick={() => onOpenWorkspace(workspace.workspaceId)}
 									>
@@ -158,17 +158,17 @@ export function SessionSidebar({
 									</button>
 									<button
 										type="button"
-										className="shell-button shell-button--icon shell-button--compact shell-button--round"
+										className="w-8 h-8 p-0 grid place-items-center text-base leading-8 text-foreground bg-card border border-border rounded-full cursor-pointer hover:border-muted-foreground focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-1"
 										aria-label={`Remove ${workspace.name}`}
 										onClick={() => onRemoveWorkspace(workspace.workspaceId)}
 									>
-										×
+										&times;
 									</button>
 								</>
 							)}
 						</div>
 
-						<div className="shell-sidebar__workspace-items">
+						<div className="flex flex-col gap-2">
 							{workspace.worktrees.map((worktree) => {
 								const selected =
 									workspace.active &&
@@ -190,8 +190,12 @@ export function SessionSidebar({
 										workspace.attentionByWorktreeId[worktree.id] ?? "idle",
 								};
 
+								const itemClassName = collapsed
+									? "w-10 h-10 min-h-0 p-0 justify-center flex flex-col items-start text-left text-foreground bg-transparent border-none cursor-pointer leading-[1.3]"
+									: "w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left text-foreground bg-transparent border-none cursor-pointer leading-[1.3]";
+
 								const rowCommonProps = {
-									className: "shell-sidebar__item",
+									className: itemClassName,
 									...rowAttentionProps,
 									"aria-label":
 										worktree.branchName !== shownTitle
@@ -203,7 +207,7 @@ export function SessionSidebar({
 									<input
 										autoFocus
 										aria-label="Rename session"
-										className="shell-sidebar__rename-input"
+										className="appearance-none w-full m-0 px-2 py-1 text-foreground bg-card border border-[var(--panel-border-strong)] rounded-sm font-[inherit] leading-[1.3] hover:not(:focus):border-muted-foreground focus-visible:outline-none focus-visible:border-ring"
 										value={draft}
 										onChange={(e) => setDraft(e.target.value)}
 										onKeyDown={(e) => {
@@ -220,7 +224,7 @@ export function SessionSidebar({
 										}
 									/>
 								) : collapsed ? (
-									<span className="shell-sidebar__marker">
+									<span className="inline-grid place-items-center w-full h-full font-semibold">
 										{shownTitle.slice(0, 1).toUpperCase()}
 									</span>
 								) : (
@@ -239,12 +243,12 @@ export function SessionSidebar({
 											{shownTitle}
 										</strong>
 										{hasCustomTitle && (
-											<div className="shell-sidebar__worktree-label">
+											<div className="text-secondary-foreground text-[0.7rem]">
 												{worktree.label}
 											</div>
 										)}
 										{worktree.branchName !== worktree.label && (
-											<div className="shell-sidebar__branch">
+											<div className="text-secondary-foreground">
 												{worktree.branchName}
 											</div>
 										)}
@@ -254,7 +258,7 @@ export function SessionSidebar({
 								const task = workspace.taskByWorktreeId?.[worktree.id];
 								const taskLine =
 									!isRenamingThisRow && !collapsed && task ? (
-										<div className="shell-sidebar__card-task" title={task}>
+										<div className="block text-muted-foreground text-[0.7rem] my-1 whitespace-nowrap overflow-hidden text-ellipsis px-3 before:content-['\21AA\0020'] before:mr-0.5" title={task}>
 											{task}
 										</div>
 									) : null;
@@ -266,11 +270,11 @@ export function SessionSidebar({
 									!isRenamingThisRow &&
 									!collapsed &&
 									(summary || sessionAttentionContext) ? (
-										<div className="shell-sidebar__processes">
+										<div className="flex flex-col gap-0.5 px-3 pb-2">
 											{sessionAttentionContext ? (
-												<div className="shell-sidebar__process shell-sidebar__process--session">
+												<div className="flex items-center gap-1 text-[0.7rem] min-w-0">
 													<span
-														className="shell-sidebar__process-context"
+														className="text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap min-w-0"
 														title={sessionAttentionContext}
 													>
 														{sessionAttentionContext}
@@ -278,7 +282,7 @@ export function SessionSidebar({
 												</div>
 											) : null}
 											{summary?.rows.map((row) => (
-												<div key={row.id} className="shell-sidebar__process">
+												<div key={row.id} className="flex items-center gap-1 text-[0.7rem] min-w-0">
 													<span
 														data-testid="process-state-indicator"
 														className="shell-sidebar__process-indicator"
@@ -286,21 +290,21 @@ export function SessionSidebar({
 													/>
 													{row.provider && (
 														<span
-															className="shell-sidebar__provider-badge"
+															className="inline-flex items-center px-1.5 py-px rounded-sm text-[0.7rem] font-semibold tracking-[0.3px] lowercase mr-1.5 data-[provider=claude]:bg-[color-mix(in_srgb,var(--provider-claude)_14%,transparent)] data-[provider=claude]:text-[var(--provider-claude)] data-[provider=codex]:bg-[color-mix(in_srgb,var(--provider-codex)_14%,transparent)] data-[provider=codex]:text-[var(--provider-codex)] data-[provider=other]:bg-[color-mix(in_srgb,var(--muted-foreground)_14%,transparent)] data-[provider=other]:text-muted-foreground"
 															data-provider={row.provider}
 														>
 															{row.provider}
 														</span>
 													)}
 													<span
-														className="shell-sidebar__process-label"
+														className="text-foreground min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
 														title={row.label}
 													>
 														{row.label}
 													</span>
 													{row.context ? (
 														<span
-															className="shell-sidebar__process-context"
+															className="text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap min-w-0"
 															title={row.context}
 														>
 															{row.context}
@@ -311,7 +315,7 @@ export function SessionSidebar({
 													workspace.active ? (
 														<button
 															type="button"
-															className="shell-button shell-button--compact shell-sidebar__process-clear-failed"
+															className="h-5 px-1.5 text-[11px] leading-5 text-foreground bg-card border border-border rounded-sm cursor-pointer hover:border-muted-foreground focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-1"
 															aria-label={`Clear failed for ${row.label}`}
 															onClick={(e) => {
 																e.stopPropagation();
@@ -328,7 +332,7 @@ export function SessionSidebar({
 												</div>
 											))}
 											{summary && summary.overflowCount > 0 && (
-												<div className="shell-sidebar__process shell-sidebar__process--overflow">
+												<div className="flex items-center gap-1 text-[0.7rem] min-w-0 text-muted-foreground">
 													{summary.overflowCount} more shell
 													{summary.overflowCount === 1 ? "" : "s"}
 												</div>
@@ -376,7 +380,7 @@ export function SessionSidebar({
 									return (
 										<div
 											key={worktree.id}
-											className="shell-sidebar__row"
+											className="shell-sidebar__row bg-card border border-border rounded-sm overflow-hidden cursor-pointer data-[selected=true]:bg-secondary data-[selected=true]:border-ring"
 											{...rowAttentionProps}
 											onClick={handleRowClick}
 										>
@@ -390,7 +394,7 @@ export function SessionSidebar({
 								return (
 									<ContextMenu key={worktree.id}>
 										<div
-											className="shell-sidebar__row"
+											className="shell-sidebar__row bg-card border border-border rounded-sm overflow-hidden cursor-pointer data-[selected=true]:bg-secondary data-[selected=true]:border-ring"
 											{...rowAttentionProps}
 											onClick={handleRowClick}
 										>
@@ -437,7 +441,7 @@ export function SessionSidebar({
 							})}
 
 							{workspace.worktrees.length === 0 && !collapsed && (
-								<div className="shell-sidebar__workspace-empty">
+								<div className="px-1 pb-1 text-muted-foreground text-[11px] italic leading-[1.4]">
 									{workspace.hydrated
 										? "No worktree sessions yet."
 										: "Open this workspace to load its worktree sessions."}
@@ -446,10 +450,10 @@ export function SessionSidebar({
 						</div>
 
 						{workspace.active && (
-							<div className="shell-sidebar__footer">
+							<div className="mt-auto pt-3">
 								<button
 									type="button"
-									className="shell-button shell-button--compact"
+									className="h-8 px-2.5 text-[13px] leading-8 text-foreground bg-card border border-border rounded-sm cursor-pointer hover:border-muted-foreground focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-1"
 									onClick={() => onCreateWorktree(workspace.workspaceId)}
 									aria-label="New session"
 								>
@@ -460,10 +464,10 @@ export function SessionSidebar({
 					</section>
 				))}
 			</div>
-			<div className="shell-sidebar__footer shell-sidebar__footer--global">
+			<div className="mt-3">
 				<button
 					type="button"
-					className="shell-button shell-button--compact"
+					className="h-8 px-2.5 text-[13px] leading-8 text-foreground bg-card border border-border rounded-sm cursor-pointer hover:border-muted-foreground focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-1"
 					onClick={onLoadWorkspace}
 					aria-label="Load workspace"
 				>

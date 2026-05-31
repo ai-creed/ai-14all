@@ -196,10 +196,9 @@ describe("SessionSidebar — task and provider rendering", () => {
 		const { container } = render(
 			<SessionSidebar {...baseProps} workspaces={[workspace]} />,
 		);
-		const taskEl = container.querySelector(".shell-sidebar__card-task");
+		const taskEl = container.querySelector("[title='Implement the sidebar task line']");
 		expect(taskEl).toBeInTheDocument();
 		expect(taskEl).toHaveTextContent("Implement the sidebar task line");
-		expect(taskEl).toHaveAttribute("title", "Implement the sidebar task line");
 	});
 
 	it("does not render task line when taskByWorktreeId[worktreeId] is null", () => {
@@ -219,9 +218,14 @@ describe("SessionSidebar — task and provider rendering", () => {
 		const { container } = render(
 			<SessionSidebar {...baseProps} workspaces={[workspace]} />,
 		);
-		expect(
-			container.querySelector(".shell-sidebar__card-task"),
-		).not.toBeInTheDocument();
+		// No task line rendered when taskByWorktreeId value is null.
+		// The task line renders the task text as its textContent; with null
+		// there should be no element bearing a before:content arrow marker.
+		const allEls = container.querySelectorAll("div");
+		const taskLike = Array.from(allEls).filter((el) =>
+			el.className.includes("before:content-"),
+		);
+		expect(taskLike).toHaveLength(0);
 	});
 
 	it("renders a claude provider badge for a row with provider claude", () => {
@@ -240,7 +244,7 @@ describe("SessionSidebar — task and provider rendering", () => {
 			<SessionSidebar {...baseProps} workspaces={[workspace]} />,
 		);
 		const badge = container.querySelector(
-			'.shell-sidebar__provider-badge[data-provider="claude"]',
+			'[data-provider="claude"]',
 		);
 		expect(badge).toBeInTheDocument();
 		expect(badge).toHaveTextContent("claude");
@@ -262,7 +266,7 @@ describe("SessionSidebar — task and provider rendering", () => {
 			<SessionSidebar {...baseProps} workspaces={[workspace]} />,
 		);
 		const badge = container.querySelector(
-			'.shell-sidebar__provider-badge[data-provider="codex"]',
+			'[data-provider="codex"]',
 		);
 		expect(badge).toBeInTheDocument();
 		expect(badge).toHaveTextContent("codex");
@@ -284,7 +288,7 @@ describe("SessionSidebar — task and provider rendering", () => {
 			<SessionSidebar {...baseProps} workspaces={[workspace]} />,
 		);
 		expect(
-			container.querySelector(".shell-sidebar__provider-badge"),
+			container.querySelector("[data-provider]"),
 		).not.toBeInTheDocument();
 	});
 });

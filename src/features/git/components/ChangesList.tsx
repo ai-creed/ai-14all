@@ -41,16 +41,16 @@ export function ChangesList({
 
 	if (gitSummaryError) {
 		return (
-			<div className="shell-rail__message">
-				<p className="shell-empty-state">Unable to load Git data.</p>
+			<div className="p-4">
+				<p className="text-secondary-foreground">Unable to load Git data.</p>
 			</div>
 		);
 	}
 
 	if (changes.length === 0 && !gitSummaryMessage) {
 		return (
-			<div className="shell-rail__message">
-				<p className="shell-empty-state">No changed files.</p>
+			<div className="p-4">
+				<p className="text-secondary-foreground">No changed files.</p>
 			</div>
 		);
 	}
@@ -58,29 +58,29 @@ export function ChangesList({
 	return (
 		<>
 			{gitSummaryMessage && (
-				<p className={gitSummaryStale ? "shell-inline-warning" : "shell-error"}>
+				<p className={gitSummaryStale ? "text-[var(--warning)]" : "text-destructive"}>
 					{gitSummaryMessage}
 				</p>
 			)}
 			{changes.length === 0 ? (
-				<div className="shell-rail__message">
-					<p className="shell-empty-state">No changed files.</p>
+				<div className="p-4">
+					<p className="text-secondary-foreground">No changed files.</p>
 				</div>
 			) : (
-				<div className="shell-list">
+				<div className="grid gap-[3px]">
 					{changes.map((change) => {
 						const button = (
 							<button
 								key={change.path}
 								type="button"
-								className="shell-list__item shell-list__item--split"
+								className="w-full flex justify-between items-center gap-3 px-2.5 py-2 text-left text-foreground bg-card border border-transparent rounded-sm cursor-pointer text-[0.82rem] leading-[1.35] data-[selected=true]:bg-secondary data-[selected=true]:border-[var(--panel-border-strong)]"
 								data-selected={String(selectedPath === change.path)}
 								onClick={() => onSelect(change.path)}
 							>
 								<span>{change.path}</span>
 								{openCommentCounts?.[change.path] ? (
 									<span
-										className="shell-review-comment-badge"
+										className="text-muted-foreground text-[0.75rem] shrink-0"
 										aria-label={`${openCommentCounts[change.path]} open review comments`}
 									>
 										[{openCommentCounts[change.path]}]

@@ -350,10 +350,10 @@ describe("WorktreeTree show-ignored toggle", () => {
 		]);
 		renderTree({ expandedPaths: [""], showIgnored: true });
 		const envRow = await screen.findByText(".env");
-		const envItem = envRow.closest(".shell-list__item");
+		const envItem = envRow.closest("[role='button']");
 		expect(envItem?.getAttribute("data-ignored")).toBe("true");
 		const aRow = screen.getByText("a.ts");
-		const aItem = aRow.closest(".shell-list__item");
+		const aItem = aRow.closest("[role='button']");
 		expect(aItem?.getAttribute("data-ignored")).toBeNull();
 	});
 

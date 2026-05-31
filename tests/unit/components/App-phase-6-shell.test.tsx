@@ -322,7 +322,7 @@ describe("App — Phase 6 default shell", () => {
 		});
 		const selectedRow = screen
 			.getByRole("button", { name: /feature commit/i })
-			.closest(".shell-commit-list__row");
+			.closest("[data-row-kind]");
 		expect(selectedRow).not.toBeNull();
 		await waitFor(() => {
 			expect(
@@ -431,7 +431,7 @@ describe("App — Phase 6 default shell", () => {
 		// styling, matching the expanded-portal counterpart.
 		expect(
 			screen.getAllByRole("button", { name: "Refresh review" })[0],
-		).toHaveClass("shell-review-chipbar__open-btn");
+		).toHaveClass("inline-flex");
 
 		const reviewGrid = screen.getByTestId("review-grid");
 		const resizeHandle = screen.getByTestId("review-rail-resize-handle");
@@ -455,7 +455,7 @@ describe("App — Phase 6 default shell", () => {
 		);
 		expect(
 			screen.getAllByRole("button", { name: "Refresh review" })[0],
-		).toHaveClass("shell-review-chipbar__open-btn");
+		).toHaveClass("inline-flex");
 	});
 
 	it("keeps the terminal panel body visible when a restored shell has no live terminal yet", async () => {
@@ -528,7 +528,7 @@ describe("App — Phase 6 default shell", () => {
 		// (slot header renders; the xterm pane simply does not mount).
 		expect(await screen.findByTestId("slot-0")).toBeInTheDocument();
 		expect(screen.getAllByText("shell 1").length).toBeGreaterThan(0);
-		expect(document.querySelector(".shell-terminal-section")).not.toBeNull();
+		expect(screen.getByTestId("slot-0").closest("section")).not.toBeNull();
 	});
 
 	it("ages a sidebar shell from active preview to idle quiet hint", async () => {
@@ -634,7 +634,7 @@ describe("App — Phase 6 default shell", () => {
 
 		await screen.findByRole("region", { name: "Session" });
 		expect(screen.queryByText("Active session")).not.toBeInTheDocument();
-		expect(document.querySelectorAll(".shell-chip-bar")).toHaveLength(1);
+		expect(screen.getAllByRole("region", { name: "Session" })).toHaveLength(1);
 		expect(
 			screen.getByRole("button", { name: "Open note" }),
 		).toBeInTheDocument();

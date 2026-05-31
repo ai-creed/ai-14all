@@ -86,7 +86,7 @@ describe("ChangesList", () => {
 		);
 
 		expect(screen.getByText("No changed files.").parentElement).toHaveClass(
-			"shell-rail__message",
+			"p-4",
 		);
 	});
 

@@ -64,7 +64,7 @@ export function useInlineThreadMounts(args: Args): void {
 			mountRef.current?.disposeAll();
 			mountRef.current = null;
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+
 	}, [args.editor]);
 
 	useEffect(() => {
@@ -134,7 +134,7 @@ export function useInlineThreadMounts(args: Args): void {
 			const root = createRoot(handle.domNode);
 			draftRef.current = { handle, root, endLine: spec.endLine };
 		}
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
 		const entry = draftRef.current!;
 		entry.root.render(
 			<InlineDraftThread

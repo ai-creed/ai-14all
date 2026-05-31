@@ -75,7 +75,7 @@ describe("CommitList", () => {
 		expect(screen.getByText("base")).toBeInTheDocument();
 		const selectedRow = screen
 			.getByRole("button", { name: /feature commit/i })
-			.closest(".shell-commit-list__row");
+			.closest("[data-row-kind]");
 		expect(selectedRow).not.toBeNull();
 		expect(
 			within(selectedRow as HTMLElement).getByRole("button", {
@@ -167,7 +167,7 @@ describe("CommitList", () => {
 
 		const selectedRow = screen
 			.getByRole("button", { name: /origin\/main/i })
-			.closest(".shell-commit-list__row");
+			.closest("[data-row-kind]");
 		expect(selectedRow).not.toBeNull();
 		expect(
 			within(selectedRow as HTMLElement).getByRole("button", {

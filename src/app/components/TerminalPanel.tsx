@@ -123,7 +123,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 						: null;
 					const isChild = slotIndex >= layout.masterSlots;
 					// Top-row slots have nothing stacked above them, so their
-					// header skips the bold separator border (see shell.css).
+					// header skips the bold separator border.
 					const isTopRow = placement.gridRow.split("/")[0].trim() === "1";
 					return (
 						<div
@@ -134,7 +134,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 							data-top-row={isTopRow ? "true" : "false"}
 							data-process-id={processId}
 						>
-							<header className={`shell-terminal-slot__header flex items-center gap-1.5 px-2 py-[3px] text-[11px] leading-none text-foreground bg-[color-mix(in_srgb,var(--panel-border-strong)_40%,var(--panel-bg-elevated))] border-b border-b-[var(--panel-border-strong)] ${isTopRow ? "" : "border-t-2 border-t-[var(--panel-border-strong)]"}`}>
+							<header className={`flex items-center gap-1.5 px-2 py-[3px] text-[11px] leading-none text-foreground bg-[color-mix(in_srgb,var(--panel-border-strong)_40%,var(--panel-bg-elevated))] border-b border-b-[var(--panel-border-strong)] ${isTopRow ? "" : "border-t-2 border-t-[var(--panel-border-strong)]"}`}>
 								{process && (
 									<span
 										className="w-2 h-2 rounded-full shrink-0 bg-muted-foreground data-[attention=activity]:bg-warning data-[attention=actionRequired]:bg-destructive data-[status=exited]:bg-destructive"

@@ -96,11 +96,11 @@ export function MarkdownPreviewModal({
 					</DialogClose>
 				</div>
 				{loading && (
-					<p className="shell-empty-state">Loading {relativePath}…</p>
+					<p className="text-secondary-foreground px-6 py-4">Loading {relativePath}…</p>
 				)}
 				{error && (
 					<>
-						<p className="shell-error">{error}</p>
+						<p className="text-destructive px-6 py-4">{error}</p>
 						<button
 							className="mt-2 px-3 py-1 bg-transparent border border-border rounded-sm text-muted-foreground cursor-pointer text-sm hover:border-border hover:text-foreground focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
 							type="button"

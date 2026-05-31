@@ -55,7 +55,7 @@ export function CommitList({
 	}, [workspaceId, worktreeId, activeDetail?.sha]);
 
 	if (!history.mergeTargetRef || history.entries.length === 0) {
-		return <p className="shell-empty-state">No recent commits to review.</p>;
+		return <p className="text-secondary-foreground">No recent commits to review.</p>;
 	}
 
 	const rows = buildLinearCommitGraph(history.entries);
@@ -72,16 +72,16 @@ export function CommitList({
 	}
 
 	return (
-		<div className="shell-commit-list">
+		<div className="grid gap-0.5 p-2">
 			{remoteStatus && (
-				<div className="shell-commit-push-strip">
-					<span className="shell-commit-push-strip__counts">
-						<span>↑{remoteStatus.ahead}</span>
-						<span>↓{remoteStatus.behind}</span>
+				<div className="flex items-center gap-3 px-3 py-2 border-b border-border text-[0.75rem]">
+					<span className="flex gap-2 text-muted-foreground flex-1">
+						<span>&uarr;{remoteStatus.ahead}</span>
+						<span>&darr;{remoteStatus.behind}</span>
 					</span>
 					<button
 						type="button"
-						className="shell-button shell-button--xs"
+						className="h-[22px] px-2.5 text-[0.7rem] leading-none text-foreground bg-card border border-border rounded-sm cursor-pointer hover:border-muted-foreground disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-offset-1"
 						disabled={pushDisabled}
 						onClick={handlePushClick}
 					>
@@ -95,7 +95,7 @@ export function CommitList({
 					/>
 				</div>
 			)}
-			<div className="shell-commit-list__target">{history.mergeTargetRef}</div>
+			<div className="px-2 py-1 text-[0.8em] text-muted-foreground font-[var(--font-ui)]">{history.mergeTargetRef}</div>
 			{rows.map((row, index) => {
 				const isSelected = selectedCommitSha === row.sha;
 				const showFiles = isSelected && activeDetail?.sha === row.sha;
@@ -103,7 +103,7 @@ export function CommitList({
 				return (
 					<div
 						key={row.sha}
-						className="shell-commit-list__row"
+						className="relative grid gap-0.5 before:content-[''] before:absolute before:left-4 before:top-0 before:bottom-0 before:w-px before:bg-[color-mix(in_srgb,var(--ring)_40%,transparent)] data-[row-kind=mergeTarget]:before:bg-[color-mix(in_srgb,var(--muted-foreground)_45%,transparent)] data-[first=true]:before:top-1/2 data-[last=true]:before:bottom-[calc(100%-18px)]"
 						data-selected={String(isSelected)}
 						data-row-kind={row.rowKind}
 						data-first={String(index === 0)}
@@ -111,26 +111,25 @@ export function CommitList({
 					>
 						<button
 							type="button"
-							className="shell-commit-list__item"
+							className={`grid grid-cols-[16px_auto_1fr] gap-2 items-center w-full px-2 py-1.5 text-left text-foreground bg-transparent border border-transparent rounded-sm text-[0.82rem] leading-[1.25] cursor-pointer data-[selected=true]:bg-secondary data-[selected=true]:border-[var(--panel-border-strong)] ${row.rowKind === "mergeTarget" ? "text-muted-foreground" : ""}`}
 							data-selected={String(isSelected)}
-							data-row-kind={row.rowKind}
 							onClick={() =>
 								isSelected ? onDeselectCommit?.() : onSelectCommit(row.sha)
 							}
 						>
 							<span
-								className="shell-commit-list__graph-column"
+								className="flex items-center justify-center min-h-[22px] relative z-[1]"
 								aria-hidden="true"
 							>
-								<span className="shell-commit-list__graph" />
+								<span className={`block w-2 h-2 rounded-full ${row.rowKind === "mergeTarget" ? "bg-muted-foreground" : "bg-ring"}`} />
 							</span>
-							<code className="shell-commit-list__sha">{row.shortSha}</code>
-							<span className="shell-commit-list__subject">{row.subject}</span>
+							<code className="block text-[0.82rem] leading-[1.2] self-center min-w-[5.75ch] text-[var(--sha)]">{row.shortSha}</code>
+							<span className={`block text-[0.82rem] leading-[1.2] self-center overflow-hidden text-ellipsis whitespace-nowrap ${isSelected ? "text-foreground" : "text-secondary-foreground"}`}>{row.subject}</span>
 							{isSelected &&
 							selectedCommitOpenCommentCount &&
 							selectedCommitOpenCommentCount > 0 ? (
 								<span
-									className="shell-review-comment-badge"
+									className="text-muted-foreground text-[0.75rem] shrink-0"
 									aria-label={`${selectedCommitOpenCommentCount} open review comments on files in this commit`}
 								>
 									[{selectedCommitOpenCommentCount}]
@@ -138,13 +137,13 @@ export function CommitList({
 							) : null}
 						</button>
 						{showFiles && (
-							<div className="shell-commit-list__files">
+							<div className="grid gap-0.5 pl-9 mt-0">
 								{activeDetail.files.map((file) => {
 									const button = (
 										<button
 											key={file.path}
 											type="button"
-											className="shell-list__item shell-list__item--split"
+											className="w-full flex justify-between items-center gap-3 px-2.5 py-2 text-left text-foreground bg-transparent border border-transparent rounded-sm cursor-pointer text-[0.8rem] leading-[1.35] data-[selected=true]:bg-secondary data-[selected=true]:border-[var(--panel-border-strong)]"
 											data-selected={String(
 												selectedCommitFilePath === file.path,
 											)}
@@ -187,7 +186,7 @@ export function CommitList({
 															})
 															.catch(() => {
 																// Fall back to opening the modal without an
-																// override — it'll read the working-tree copy.
+																// override -- it'll read the working-tree copy.
 																setPreviewState({
 																	path: file.path,
 																	content: "",

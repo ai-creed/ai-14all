@@ -595,7 +595,7 @@ describe("SessionSidebar rename", () => {
 		});
 		const marker = screen
 			.getAllByRole("button")
-			.find((el) => el.classList.contains("shell-sidebar__item"));
+			.find((el) => el.getAttribute("data-attention") !== null && el.getAttribute("aria-label"));
 		expect(marker).toBeTruthy();
 		marker!.focus();
 		fireEvent.keyDown(marker!, { key: "F2" });
