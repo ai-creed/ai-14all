@@ -1,3 +1,6 @@
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+
 type Props = {
 	sessionTitle: string;
 	worktreeLabel: string;
@@ -35,12 +38,12 @@ export function SessionChipBar({
 	usage,
 }: Props) {
 	return (
-		<div className="shell-chip-bar" role="region" aria-label="Session">
-			<div className="shell-chip-bar__identity">
-				<span className="shell-chip-bar__title">{sessionTitle}</span>
+		<div className="flex items-center h-9" role="region" aria-label="Session">
+			<div className="flex items-center gap-1.5">
+				<span className="font-semibold truncate">{sessionTitle}</span>
 				<button
 					type="button"
-					className="shell-chip-bar__rename"
+					className="opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity"
 					aria-label="Rename session"
 					onClick={onRenameClick}
 				>
@@ -48,31 +51,29 @@ export function SessionChipBar({
 				</button>
 			</div>
 
-			<div className="shell-chip-bar__meta" aria-label="Worktree and branch">
-				<span className="shell-chip-bar__worktree">{worktreeLabel}</span>
+			<div className="flex items-center gap-1.5 ml-3 text-[13px]" aria-label="Worktree and branch">
+				<span className="text-muted-foreground">{worktreeLabel}</span>
 				{branchName && (
 					<>
-						<span className="shell-chip-bar__sep" aria-hidden="true">
-							·
-						</span>
-						<span className="shell-chip-bar__branch">{branchName}</span>
+						<span className="w-px h-4 bg-border" aria-hidden="true" />
+						<span className="text-muted-foreground">{branchName}</span>
 					</>
 				)}
 			</div>
 
-			<div className="shell-chip-bar__status">
+			<div className="ml-3">
 				{isDirty ? (
-					<button
-						type="button"
-						className="shell-chip-bar__dirty-chip"
+					<Badge
+						variant="outline"
+						className="cursor-pointer bg-warning/20 text-warning border-warning/30 hover:bg-warning/30"
 						aria-label={`${changedFileCount} changed files — open review`}
 						onClick={onDirtyClick}
 					>
 						{changedFileCount} changed
-					</button>
+					</Badge>
 				) : (
 					<span
-						className="shell-chip-bar__clean"
+						className="text-xs text-muted-foreground"
 						title="Clean — no changes"
 						aria-label="Clean"
 					>
@@ -81,39 +82,35 @@ export function SessionChipBar({
 				)}
 			</div>
 
-			{usage && <div className="shell-chip-bar__usage">{usage}</div>}
+			{usage && <div className="ml-3">{usage}</div>}
 
-			<div className="shell-chip-bar__actions">
-				<button
-					type="button"
-					className="shell-chip-bar__action"
+			<div className="ml-auto flex items-center gap-1">
+				<Button
+					variant="ghost"
+					size="icon"
+					className="h-7 w-7"
 					aria-label="Open Files"
 					onClick={onFilesClick}
 				>
-					<span className="shell-chip-bar__action-icon" aria-hidden="true">
-						🗂
-					</span>
-					Files
-				</button>
-				<button
-					type="button"
-					className="shell-chip-bar__action"
+					<span aria-hidden="true">🗂</span>
+				</Button>
+				<Button
+					variant="ghost"
+					size="icon"
+					className="h-7 w-7 relative"
 					data-indicator={noteNonEmpty ? "true" : "false"}
 					aria-label="Open note"
 					onClick={onNoteClick}
 				>
-					<span className="shell-chip-bar__action-icon" aria-hidden="true">
-						📝
-					</span>
-					Note
+					<span aria-hidden="true">📝</span>
 					{noteNonEmpty && (
-						<span className="shell-chip-bar__note-dot" aria-hidden="true" />
+						<span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-primary" aria-hidden="true" />
 					)}
-				</button>
+				</Button>
 				{terminalActions && (
 					<>
 						<span
-							className="shell-chip-bar__action-divider"
+							className="w-px h-4 bg-border"
 							aria-hidden="true"
 						/>
 						{terminalActions}

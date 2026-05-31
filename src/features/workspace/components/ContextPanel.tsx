@@ -1,3 +1,6 @@
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+
 type Props = {
 	note: string;
 	onNoteChange: (note: string) => void;
@@ -5,13 +8,12 @@ type Props = {
 
 export function ContextPanel({ note, onNoteChange }: Props) {
 	return (
-		<aside aria-label="Session note panel" className="shell-session-note">
-			<label htmlFor="session-note" className="shell-label">
+		<aside aria-label="Session note panel" className="min-w-0 pl-4 border-l border-border">
+			<Label htmlFor="session-note">
 				Session note
-			</label>
-			<textarea
+			</Label>
+			<Textarea
 				id="session-note"
-				className="shell-input"
 				value={note}
 				onChange={(event) => onNoteChange(event.target.value)}
 				rows={6}

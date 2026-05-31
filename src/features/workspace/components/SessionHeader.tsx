@@ -1,3 +1,5 @@
+import { Label } from "@/components/ui/label";
+
 type Props = {
 	title: string;
 	worktreePath: string;
@@ -48,19 +50,19 @@ export function SessionHeader({
 			: null;
 
 	return (
-		<section aria-label="Session info" className="shell-session-info">
-			<div className="shell-session-info__header">
+		<section aria-label="Session info" className="min-w-0 pr-4">
+			<div className="flex items-center justify-start gap-3">
 				<div>
-					{!collapsed && <div className="shell-label">Session info</div>}
-					<h2 className="shell-session-info__title">{title}</h2>
+					{!collapsed && <Label>Session info</Label>}
+					<h2 className="text-base mt-1 leading-tight tracking-[0.01em]">{title}</h2>
 					{branchDescription && (
-						<div className="shell-session-info__description">
+						<div className="mt-1.5 text-secondary-foreground text-[13px] leading-snug">
 							{branchDescription}
 						</div>
 					)}
 				</div>
 				{collapsed && (
-					<div className="shell-session-info__strip">
+					<div className="flex gap-3 items-center text-secondary-foreground text-[13px] flex-1 min-w-0">
 						<span>{branchName}</span>
 						<span>{statusLabel}</span>
 						<span>{changedFileCount}</span>
@@ -70,12 +72,12 @@ export function SessionHeader({
 
 			{!collapsed && (
 				<>
-					<div className="shell-session-info__path-group">
-						<div className="shell-label">Worktree path</div>
-						<code className="shell-session-info__path">{worktreePath}</code>
+					<div className="mt-3">
+						<Label>Worktree path</Label>
+						<code className="block mt-2 text-secondary-foreground whitespace-pre-wrap break-words p-1.5 bg-muted border border-border rounded-sm text-[13px]">{worktreePath}</code>
 					</div>
 
-					<div className="shell-session-info__meta">
+					<div className="flex flex-wrap gap-3 mt-3 text-secondary-foreground text-[13px]">
 						<span>
 							<span>Branch:</span> <strong>{branchName}</strong>
 						</span>
