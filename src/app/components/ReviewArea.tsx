@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import * as ScrollArea from "@radix-ui/react-scroll-area";
-import * as Tabs from "@radix-ui/react-tabs";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { GitChange } from "../../../shared/models/git-change";
 import type { GitDiff } from "../../../shared/models/git-diff";
 import type {
@@ -488,7 +488,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 		addingDraft !== null && addingDraft.filePath === currentFilePath;
 
 	return (
-		<Tabs.Root
+		<Tabs
 			value={activeSession?.reviewMode ?? "files"}
 			onValueChange={(value) =>
 				dispatch({
@@ -497,10 +497,10 @@ export function ReviewArea(props: Props): React.ReactElement {
 					reviewMode: value as "files" | "changes" | "commits",
 				})
 			}
-			className="shell-review-shell"
+			className="grid min-h-0 overflow-hidden"
 		>
 			<div
-				className="shell-review-grid"
+				className="grid gap-0 min-w-0 min-h-0"
 				data-testid="review-grid"
 				data-focused-thread-id={focusedThreadId ?? ""}
 				style={{
@@ -510,36 +510,35 @@ export function ReviewArea(props: Props): React.ReactElement {
 				}}
 			>
 				<section
-					className="shell-panel shell-review-rail"
+					className="grid grid-rows-[auto_minmax(0,1fr)]"
 					data-testid="review-rail"
 				>
-					<div className="shell-review-rail__header">
-						<Tabs.List
+					<div className="flex items-center gap-2 p-1">
+						<TabsList
 							aria-label="Review mode"
-							className="shell-review-tabs__list shell-review-tabs__segments"
+							className="flex-1 grid grid-cols-3 h-8"
 						>
-							<Tabs.Trigger value="files" className="shell-review-tab">
+							<TabsTrigger value="files">
 								Files
-							</Tabs.Trigger>
-							<Tabs.Trigger value="changes" className="shell-review-tab">
+							</TabsTrigger>
+							<TabsTrigger value="changes">
 								Changes
-							</Tabs.Trigger>
-							<Tabs.Trigger value="commits" className="shell-review-tab">
+							</TabsTrigger>
+							<TabsTrigger value="commits">
 								Commits
-							</Tabs.Trigger>
-						</Tabs.List>
+							</TabsTrigger>
+						</TabsList>
 					</div>
 
-					<ScrollArea.Root className="shell-review-rail__scroll">
-						<ScrollArea.Viewport className="shell-rail__viewport">
+					<ScrollArea className="h-full min-h-0 overflow-hidden">
 							{activeSession?.reviewMode === "commits" ? (
 								<>
 									{commitHistoryState.message && (
 										<p
 											className={
 												commitHistoryState.stale
-													? "shell-inline-warning"
-													: "shell-error"
+													? "text-sm text-yellow-600 dark:text-yellow-400 p-3"
+													: "text-sm text-destructive p-3"
 											}
 										>
 											{commitHistoryState.message}
@@ -651,12 +650,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 									openCommentCounts={openCommentCounts}
 								/>
 							)}
-						</ScrollArea.Viewport>
-						<ScrollArea.Scrollbar
-							orientation="vertical"
-							className="shell-scrollbar"
-						/>
-					</ScrollArea.Root>
+					</ScrollArea>
 				</section>
 
 				<div
@@ -664,11 +658,11 @@ export function ReviewArea(props: Props): React.ReactElement {
 					aria-orientation="vertical"
 					aria-label="Resize review rail"
 					data-testid="review-rail-resize-handle"
-					className="shell-review-grid__resize-handle"
+					className="relative min-h-0 cursor-col-resize before:content-[''] before:absolute before:top-0 before:bottom-0 before:left-1/2 before:-translate-x-1/2 before:w-px before:bg-border"
 					onMouseDown={handleReviewRailResizeStart}
 				/>
 
-				<section className="shell-panel shell-viewer-panel">
+				<section className="min-w-0 min-h-0 p-0 overflow-hidden relative">
 					<InlineMountsBridge
 						registry={diffEditorRegistry}
 						filePath={currentFilePath}
@@ -737,7 +731,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 					{activeSession?.reviewMode === "commits" &&
 					commitDetailState.message !== null &&
 					commitDetailState.data === null ? (
-						<p className="shell-error">{commitDetailState.message}</p>
+						<p className="text-sm text-destructive p-4">{commitDetailState.message}</p>
 					) : activeSession?.reviewMode === "commits" &&
 					  commitDetailState.data ? (
 						<CommitDiffStack
@@ -775,7 +769,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 							}}
 						/>
 					) : (
-						<p className="shell-empty-state">
+						<p className="text-sm text-muted-foreground italic p-4">
 							Select a file or changed file to inspect it.
 						</p>
 					)}
@@ -866,6 +860,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 						);
 					})()}
 			</div>
-		</Tabs.Root>
+		</Tabs>
 	);
 }
