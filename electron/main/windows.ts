@@ -20,6 +20,15 @@ export function createMainWindow(
 		show: !process.env.AI14ALL_E2E,
 		title: "ai-14all",
 		icon: appIcon.isEmpty() ? undefined : appIcon,
+		// Hand the title-bar region to the renderer so the app bar (SessionChipBar +
+		// telemetry) can occupy it, VS Code–style. macOS keeps the traffic lights via
+		// hiddenInset; they are vertically centered against the 40px app bar.
+		...(process.platform === "darwin"
+			? {
+					titleBarStyle: "hiddenInset" as const,
+					trafficLightPosition: { x: 14, y: 13 },
+				}
+			: { titleBarStyle: "hidden" as const }),
 		webPreferences: {
 			preload: fileURLToPath(new URL("../preload/index.cjs", import.meta.url)),
 			contextIsolation: true,
