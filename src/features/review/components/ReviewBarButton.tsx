@@ -20,7 +20,7 @@ export function ReviewBarButton({
 	return (
 		<button
 			type="button"
-			className="shell-review-chipbar__open-btn"
+			className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded border border-border bg-muted/50 hover:bg-muted text-foreground"
 			aria-label={ariaLabel ?? label}
 			title={title ?? label}
 			onClick={onClick}

@@ -75,15 +75,16 @@ export function ReviewQueuePanel({
 	).length;
 
 	return (
-		<aside className="shell-review-queue" data-testid="review-queue-panel">
-			<header className="shell-review-queue__header">
-				<div className="shell-review-queue__header-row">
-					<span className="shell-review-queue__title">Comments</span>
-					<span className="shell-review-queue__count">{openCount} open</span>
+		<aside className="grid grid-rows-[auto_minmax(0,1fr)] h-full" data-testid="review-queue-panel">
+			<header className="flex flex-col gap-1 px-3 py-2 border-b border-border">
+				<div className="flex items-center justify-between">
+					<span className="text-sm font-semibold">Comments</span>
+					<span className="text-xs text-muted-foreground">{openCount} open</span>
 				</div>
-				<div className="shell-review-queue__actions">
+				<div className="flex items-center gap-2">
 					<button
 						type="button"
+						className="text-xs text-muted-foreground hover:text-foreground"
 						onClick={onToggleHideAddressed}
 						aria-pressed={hideAddressed}
 					>
@@ -91,7 +92,7 @@ export function ReviewQueuePanel({
 					</button>
 					<button
 						type="button"
-						className="shell-review-queue__btn--danger"
+						className="text-xs text-destructive hover:text-destructive/80 disabled:opacity-50"
 						aria-label="Clear addressed"
 						onClick={onClearAddressed}
 						disabled={totalAddressed === 0}
@@ -101,9 +102,9 @@ export function ReviewQueuePanel({
 				</div>
 			</header>
 
-			<div className="shell-review-queue__body">
-				<section className="shell-review-queue__section">
-					<h4>Active</h4>
+			<div className="overflow-y-auto">
+				<section className="px-3 py-2">
+					<h4 className="text-xs font-semibold text-muted-foreground mb-1">Active</h4>
 					<FileGroups
 						list={active}
 						onJump={onJump}
@@ -114,8 +115,8 @@ export function ReviewQueuePanel({
 				</section>
 
 				{other.length > 0 && (
-					<section className="shell-review-queue__section">
-						<h4>Other modes</h4>
+					<section className="px-3 py-2">
+						<h4 className="text-xs font-semibold text-muted-foreground mb-1">Other modes</h4>
 						<FileGroups
 							list={other}
 							onJump={onJump}
@@ -127,11 +128,11 @@ export function ReviewQueuePanel({
 				)}
 
 				{pendingDraft && onJumpToPendingDraft && (
-					<section className="shell-review-queue__section">
-						<h4>Pending draft</h4>
+					<section className="px-3 py-2">
+						<h4 className="text-xs font-semibold text-muted-foreground mb-1">Pending draft</h4>
 						<button
 							type="button"
-							className="shell-review-queue__pending-draft"
+							className="text-xs text-accent-foreground hover:underline"
 							onClick={() => onJumpToPendingDraft(pendingDraft)}
 						>
 							L{pendingDraft.startLine}
@@ -165,7 +166,7 @@ function FileGroups({
 	emptyText: string;
 }) {
 	if (list.length === 0) {
-		return emptyText ? <p className="shell-empty-state">{emptyText}</p> : null;
+		return emptyText ? <p className="text-sm text-muted-foreground italic p-4">{emptyText}</p> : null;
 	}
 	const byFile = new Map<string, ReviewComment[]>();
 	for (const c of list) {
@@ -174,34 +175,35 @@ function FileGroups({
 		byFile.set(c.filePath, arr);
 	}
 	return (
-		<ul className="shell-review-queue__files">
+		<ul className="space-y-2">
 			{[...byFile.entries()].map(([filePath, items]) => (
 				<li key={filePath}>
-					<div className="shell-review-queue__filepath" title={filePath}>
+					<div className="text-xs text-muted-foreground truncate px-1" title={filePath}>
 						{filePath}
 					</div>
 					<ul>
 						{items.map((c) => (
 							<li
 								key={c.id}
-								className="shell-review-queue__row"
+								className="flex items-center gap-1 rounded px-1 py-0.5 hover:bg-muted/50 text-xs data-[status=addressed]:opacity-60"
 								data-status={c.status}
 							>
-								<div className="shell-review-queue__row-inner">
+								<div className="flex items-center gap-1 flex-1 min-w-0">
 									<button
 										type="button"
-										className="shell-review-queue__row-jump"
+										className="flex items-center gap-1 min-w-0 flex-1 text-left hover:underline"
 										onClick={() => onJump(c)}
 									>
-										<span>
+										<span className="shrink-0 text-muted-foreground">
 											L{c.startLine}
 											{c.startLine !== c.endLine ? `–${c.endLine}` : ""}
 										</span>
-										<span>{firstLine(c.body)}</span>
+										<span className="truncate">{firstLine(c.body)}</span>
 									</button>
-									<div className="shell-review-queue__row-actions">
+									<div className="flex items-center gap-0.5 shrink-0">
 										<button
 											type="button"
+											className="w-5 h-5 flex items-center justify-center rounded hover:bg-muted"
 											aria-label={c.status === "open" ? "Address" : "Reopen"}
 											onClick={() => onToggleAddressed(c.id)}
 										>
@@ -209,6 +211,7 @@ function FileGroups({
 										</button>
 										<button
 											type="button"
+											className="w-5 h-5 flex items-center justify-center rounded hover:bg-muted"
 											aria-label="Delete comment"
 											onClick={() => onDelete(c.id)}
 										>

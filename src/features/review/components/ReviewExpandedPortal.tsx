@@ -186,7 +186,7 @@ export const ReviewExpandedPortal = forwardRef<
 	const content = (
 		<div
 			ref={portalRef}
-			className="shell-review-expanded-portal"
+			className="fixed inset-x-0 bottom-0 z-[49] flex flex-col bg-background border-t border-[var(--pane-border-review)] transition-transform duration-200"
 			data-testid="review-expanded-portal"
 			data-leaving={leaving ? "true" : undefined}
 			style={{ top: rect.top, left: rect.left, right: rect.right }}
@@ -194,14 +194,14 @@ export const ReviewExpandedPortal = forwardRef<
 			{/* Header mirrors the collapsed `ReviewChipBar` layout (same class names,
 			    same vertical rhythm) so the two states look identical apart from
 			    the trailing toggle button. */}
-			<div className="shell-review-chipbar shell-review-expanded-portal__header">
-				<span className="shell-review-chipbar__label">REVIEW</span>
-				<span className="shell-review-chipbar__mode">
+			<div className="flex items-center h-9 px-3 gap-2 border-b border-[var(--pane-border-review)]">
+				<span className="text-[10px] uppercase tracking-wider text-muted-foreground">REVIEW</span>
+				<span className="text-xs font-medium text-foreground">
 					{MODE_LABEL[reviewMode]}
 				</span>
 				{isDirty ? (
 					<span
-						className="shell-review-chipbar__status"
+						className="text-xs text-muted-foreground"
 						data-state="dirty"
 						aria-label={`${changedFileCount} changed files`}
 					>
@@ -209,14 +209,14 @@ export const ReviewExpandedPortal = forwardRef<
 					</span>
 				) : (
 					<span
-						className="shell-review-chipbar__status"
+						className="text-xs text-muted-foreground"
 						data-state="clean"
 						aria-label="Clean — no changes"
 					>
 						✓ clean
 					</span>
 				)}
-				<span className="shell-review-chipbar__spacer" />
+				<span className="flex-1" />
 				{onToggleCommentSidebar &&
 					openCommentCount !== null &&
 					openCommentCount !== undefined && (
@@ -243,7 +243,7 @@ export const ReviewExpandedPortal = forwardRef<
 					onClick={handleCollapse}
 				/>
 			</div>
-			<div className="shell-review-expanded-portal__body">{children}</div>
+			<div className="min-h-0 grid flex-1">{children}</div>
 		</div>
 	);
 

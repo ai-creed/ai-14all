@@ -1,4 +1,6 @@
 import { useLayoutEffect } from "react";
+import { Button } from "../../../components/ui/button";
+import { Textarea } from "../../../components/ui/textarea";
 
 type Props = {
 	range: { startLine: number; endLine: number };
@@ -22,15 +24,14 @@ export function InlineDraftThread({
 	}, [body, onMeasureChange]);
 
 	return (
-		<div className="shell-inline-thread" data-state="editing" data-draft="true">
-			<header className="shell-inline-thread__header">
+		<div className="border-l-2 border-[var(--pane-border-review)] bg-card p-3" data-state="editing" data-draft="true">
+			<header className="flex items-center gap-2 text-xs text-muted-foreground">
 				<span>
 					New comment · L{range.startLine}
 					{range.startLine !== range.endLine ? `–${range.endLine}` : ""}
 				</span>
 			</header>
-			<textarea
-				className="shell-inline-thread__textarea"
+			<Textarea
 				autoFocus
 				value={body}
 				onChange={(e) => onChange(e.target.value)}
@@ -42,17 +43,18 @@ export function InlineDraftThread({
 					}
 				}}
 			/>
-			<div className="shell-inline-thread__actions">
-				<button type="button" onClick={onCancel}>
+			<div className="flex gap-2 mt-2">
+				<Button type="button" variant="ghost" size="sm" onClick={onCancel}>
 					Cancel
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
+					size="sm"
 					disabled={body.trim().length === 0}
 					onClick={onSubmit}
 				>
 					Save
-				</button>
+				</Button>
 			</div>
 		</div>
 	);

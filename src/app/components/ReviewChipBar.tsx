@@ -35,16 +35,16 @@ export function ReviewChipBar({
 }: Props): React.ReactElement {
 	const hasComments = openCommentCount > 0 || addressedCommentCount > 0;
 	return (
-		<div className="shell-review-chipbar" data-testid="review-chipbar">
-			<span className="shell-review-chipbar__label">REVIEW</span>
-			<span className="shell-review-chipbar__mode">
+		<div className="flex items-center h-9 px-3 gap-2 border-t border-[var(--pane-border-review)]" data-testid="review-chipbar">
+			<span className="text-[10px] uppercase tracking-wider text-muted-foreground">REVIEW</span>
+			<span className="text-xs font-medium text-foreground">
 				{MODE_LABEL[reviewMode]}
 			</span>
 			{isDirty ? (
 				canOpenFiles ? (
 					<button
 						type="button"
-						className="shell-review-chipbar__status shell-review-chipbar__status--action"
+						className="text-xs text-destructive hover:underline"
 						data-state="dirty"
 						data-testid="review-chipbar-files"
 						title="Open changed files"
@@ -53,21 +53,21 @@ export function ReviewChipBar({
 						{changedFileCount} changed
 					</button>
 				) : (
-					<span className="shell-review-chipbar__status" data-state="dirty">
+					<span className="text-xs text-muted-foreground" data-state="dirty">
 						{changedFileCount} changed
 					</span>
 				)
 			) : (
-				<span className="shell-review-chipbar__status" data-state="clean">
+				<span className="text-xs text-muted-foreground" data-state="clean">
 					✓ clean
 				</span>
 			)}
 			{hasComments && (
-				<span className="shell-review-chipbar__comments">
+				<span className="flex items-center gap-1 text-xs">
 					{openCommentCount > 0 && (
 						<button
 							type="button"
-							className="shell-review-chipbar__open shell-review-chipbar__open--action"
+							className="text-xs text-destructive font-medium hover:underline"
 							data-testid="review-chipbar-comments"
 							title="Go to first open comment"
 							onClick={onOpenComments}
@@ -76,14 +76,14 @@ export function ReviewChipBar({
 						</button>
 					)}
 					{addressedCommentCount > 0 && (
-						<span className="shell-review-chipbar__addressed">
+						<span className="text-xs text-muted-foreground">
 							{openCommentCount > 0 ? " · " : ""}
 							{addressedCommentCount} addressed
 						</span>
 					)}
 				</span>
 			)}
-			<span className="shell-review-chipbar__spacer" />
+			<span className="flex-1" />
 			<ReviewBarButton
 				icon="↻"
 				label="Refresh"

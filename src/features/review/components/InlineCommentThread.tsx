@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReviewComment } from "../../../../shared/models/review-comment";
+import { Button } from "../../../components/ui/button";
+import { Textarea } from "../../../components/ui/textarea";
 
 type Props = {
 	comment: ReviewComment;
@@ -33,12 +35,12 @@ export function InlineCommentThread({
 		return (
 			<div
 				ref={rootRef}
-				className="shell-inline-thread"
+				className="border-l-2 border-[var(--pane-border-review)] bg-card p-3"
 				data-state="addressed-strip"
 			>
 				<button
 					type="button"
-					className="shell-inline-thread__strip"
+					className="flex items-center gap-2 text-xs text-muted-foreground w-full text-left hover:text-foreground"
 					aria-label="Expand addressed comment"
 					onClick={() => setExpanded(true)}
 				>
@@ -47,14 +49,14 @@ export function InlineCommentThread({
 						L{comment.startLine}
 						{comment.startLine !== comment.endLine ? `–${comment.endLine}` : ""}
 					</span>
-					<span className="shell-inline-thread__strip-body">
+					<span className="truncate flex-1">
 						{firstLine(comment.body)}
 					</span>
 				</button>
 				<button
 					type="button"
 					aria-label="Reopen comment"
-					className="shell-inline-thread__icon-btn"
+					className="w-5 h-5 inline-flex items-center justify-center rounded hover:bg-muted text-xs"
 					onClick={onToggleAddressed}
 				>
 					↺
@@ -65,25 +67,27 @@ export function InlineCommentThread({
 
 	if (editing) {
 		return (
-			<div ref={rootRef} className="shell-inline-thread" data-state="editing">
-				<textarea
-					className="shell-inline-thread__textarea"
+			<div ref={rootRef} className="border-l-2 border-[var(--pane-border-review)] bg-card p-3" data-state="editing">
+				<Textarea
 					value={draft}
 					autoFocus
 					onChange={(e) => setDraft(e.target.value)}
 				/>
-				<div className="shell-inline-thread__actions">
-					<button
+				<div className="flex gap-2 mt-2">
+					<Button
 						type="button"
+						variant="ghost"
+						size="sm"
 						onClick={() => {
 							setEditing(false);
 							setDraft(comment.body);
 						}}
 					>
 						Cancel
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
+						size="sm"
 						disabled={draft.trim().length === 0}
 						onClick={async () => {
 							const ok = await onSave(draft.trim());
@@ -93,7 +97,7 @@ export function InlineCommentThread({
 						}}
 					>
 						Save
-					</button>
+					</Button>
 				</div>
 			</div>
 		);
@@ -104,43 +108,47 @@ export function InlineCommentThread({
 	return (
 		<div
 			ref={rootRef}
-			className="shell-inline-thread"
+			className="border-l-2 border-[var(--pane-border-review)] bg-card p-3"
 			data-state={isAddressed ? "addressed-expanded" : "open"}
 		>
-			<header className="shell-inline-thread__header">
+			<header className="flex items-center gap-2 text-xs text-muted-foreground">
 				<span>
 					L{comment.startLine}
 					{comment.startLine !== comment.endLine ? `–${comment.endLine}` : ""}
 				</span>
 				<span
-					className="shell-inline-thread__status"
+					className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium data-[status=open]:bg-yellow-500/20 data-[status=open]:text-yellow-700 dark:data-[status=open]:text-yellow-400 data-[status=addressed]:bg-green-500/20 data-[status=addressed]:text-green-700 dark:data-[status=addressed]:text-green-400"
 					data-status={comment.status}
 				>
 					{isAddressed ? "addressed" : "open"}
 				</span>
-				<span className="shell-inline-thread__time">
+				<span className="text-xs text-muted-foreground">
 					{relativeTime(comment.createdAt)}
 				</span>
 			</header>
-			<p className="shell-inline-thread__body">{comment.body}</p>
-			<footer className="shell-inline-thread__actions">
-				<button
+			<p className="text-sm whitespace-pre-wrap break-words mt-2">{comment.body}</p>
+			<footer className="flex gap-2 mt-2">
+				<Button
 					type="button"
+					variant="ghost"
+					size="sm"
 					aria-label={isAddressed ? "Reopen comment" : "Address comment"}
 					onClick={onToggleAddressed}
 				>
 					{isAddressed ? "↺ Reopen" : "✓ Address"}
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
+					variant="ghost"
+					size="sm"
 					aria-label="Edit comment"
 					onClick={() => setEditing(true)}
 				>
 					Edit
-				</button>
-				<button type="button" aria-label="Delete comment" onClick={onDelete}>
+				</Button>
+				<Button type="button" variant="ghost" size="sm" aria-label="Delete comment" onClick={onDelete}>
 					Delete
-				</button>
+				</Button>
 			</footer>
 		</div>
 	);
