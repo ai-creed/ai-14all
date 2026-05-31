@@ -10,6 +10,7 @@ interface Props {
 	open: boolean;
 	platform: Platform;
 	onClose: () => void;
+	onRestartOnboarding?: () => void;
 }
 
 const SHORTCUT_GROUPS: { label: string; ids: string[] }[] = [
@@ -63,7 +64,7 @@ const SHORTCUT_GROUPS: { label: string; ids: string[] }[] = [
 	},
 ];
 
-export function ShortcutsHelp({ open, platform, onClose }: Props) {
+export function ShortcutsHelp({ open, platform, onClose, onRestartOnboarding }: Props) {
 	const byId = Object.fromEntries(SHORTCUT_REGISTRY.map((s) => [s.id, s]));
 
 	return (
@@ -124,6 +125,20 @@ export function ShortcutsHelp({ open, platform, onClose }: Props) {
 						);
 					})}
 				</div>
+					{onRestartOnboarding && (
+						<div className="px-4 py-3 border-t border-border">
+							<button
+								type="button"
+								className="h-8 px-2.5 text-[13px] leading-8 text-foreground bg-card border border-border rounded-sm cursor-pointer hover:border-muted-foreground"
+								onClick={() => {
+									onRestartOnboarding();
+									onClose();
+								}}
+							>
+								Restart Onboarding
+							</button>
+						</div>
+					)}
 			</DialogContent>
 		</Dialog>
 	);

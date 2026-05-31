@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OnboardingWizard } from "../../../src/features/onboarding/components/OnboardingWizard";
+import { ShortcutsHelp } from "../../../src/features/shortcuts/ShortcutsHelp";
 
 function renderWizard(overrides: Partial<Parameters<typeof OnboardingWizard>[0]> = {}) {
   const defaults = {
@@ -90,5 +91,43 @@ describe("OnboardingWizard", () => {
       await user.click(screen.getByRole("button", { name: /next/i }));
       expect(screen.getByText(titles[i])).toBeInTheDocument();
     }
+  });
+});
+
+describe("ShortcutsHelp onboarding restart", () => {
+  it("renders a Restart Onboarding button when onRestartOnboarding is provided", () => {
+    render(
+      <ShortcutsHelp
+        open={true}
+        platform="mac"
+        onClose={vi.fn()}
+        onRestartOnboarding={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /restart onboarding/i })).toBeInTheDocument();
+  });
+
+  it("does not render the button when onRestartOnboarding is omitted", () => {
+    render(
+      <ShortcutsHelp open={true} platform="mac" onClose={vi.fn()} />,
+    );
+    expect(screen.queryByRole("button", { name: /restart onboarding/i })).not.toBeInTheDocument();
+  });
+
+  it("calls onRestartOnboarding and onClose when clicked", async () => {
+    const user = userEvent.setup();
+    const onRestart = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <ShortcutsHelp
+        open={true}
+        platform="mac"
+        onClose={onClose}
+        onRestartOnboarding={onRestart}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /restart onboarding/i }));
+    expect(onRestart).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

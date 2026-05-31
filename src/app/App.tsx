@@ -9,6 +9,7 @@ import type {
 import { buildSavedWorkspace } from "../features/workspace/logic/workspace-persistence";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { OnboardingWizard } from "../features/onboarding/components/OnboardingWizard";
+import { ShortcutsHelp } from "../features/shortcuts/ShortcutsHelp";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
 import { type SessionSidebarWorkspace } from "../features/workspace/components/SessionSidebar";
 import { workspaceReducer } from "../features/workspace/logic/workspace-state";
@@ -1356,6 +1357,15 @@ export function App() {
 					open={showOnboarding}
 					onClose={() => setShowOnboarding(false)}
 					onLoadPath={handleLoadPath}
+				/>
+				<ShortcutsHelp
+					open={shortcutsHelpOpen}
+					platform={appPlatform}
+					onClose={() => setShortcutsHelpOpen(false)}
+					onRestartOnboarding={() => {
+						localStorage.removeItem("ai14all:onboarding-completed");
+						setShowOnboarding(true);
+					}}
 				/>
 				{!showOnboarding && (
 					<section className="bg-transparent border border-border rounded-md w-[min(640px,100%)] p-6">
