@@ -91,6 +91,7 @@ import { firstViewableChangedFile } from "./logic/review-chip-target";
 import { ReviewArea } from "./components/ReviewArea";
 import { SidebarPanel } from "./components/SidebarPanel";
 import { MainColumnChrome } from "./components/MainColumnChrome";
+import { AppBar } from "./components/AppBar";
 import { RestoreBanner } from "./components/RestoreBanner";
 import { AgentAttentionBanner } from "./components/AgentAttentionBanner";
 
@@ -1333,7 +1334,9 @@ export function App() {
 			<main className="grid place-items-center p-6 h-screen overflow-hidden bg-transparent">
 				<section className="bg-transparent border border-border rounded-md w-[min(640px,100%)] p-6">
 					<h1 className="m-0 mb-4">ai-14all</h1>
-					<p className="text-sm text-muted-foreground italic">Loading workspace…</p>
+					<p className="text-sm text-muted-foreground italic">
+						Loading workspace…
+					</p>
 				</section>
 			</main>
 		);
@@ -1372,8 +1375,12 @@ export function App() {
 						<h1 className="m-0 mb-4">ai-14all</h1>
 						<h2>Repository</h2>
 						<RepositoryInput onLoadPath={(path) => handleLoadPath(path)} />
-						{startupError && <p className="text-sm text-destructive">{startupError}</p>}
-						{error && <p className="text-sm text-destructive">Error: {error}</p>}
+						{startupError && (
+							<p className="text-sm text-destructive">{startupError}</p>
+						)}
+						{error && (
+							<p className="text-sm text-destructive">Error: {error}</p>
+						)}
 					</section>
 				)}
 			</main>
@@ -1388,229 +1395,247 @@ export function App() {
 					message={restoreWarning}
 					onDismiss={() => setRestoreWarning(null)}
 				/>
-				<div
-					className="grid h-screen gap-4 p-4"
-					data-testid="shell-layout"
-					style={{
-						gridTemplateColumns: `${
-							sidebarCollapsed ? 68 : sidebarWidth
-						}px minmax(0, 1fr)`,
-					}}
-				>
-					<SidebarPanel
-						sidebarWorkspaces={sidebarWorkspaces}
-						sidebarCollapsed={sidebarCollapsed}
-						setSidebarCollapsed={setSidebarCollapsed}
-						handleSidebarResizeStart={handleSidebarResizeStart}
+				<div className="flex flex-col h-screen" data-testid="shell-root">
+					<AppBar
+						chipBarRef={chipBarRef}
+						activeWorktree={activeWorktree}
+						activeSession={activeSession ?? null}
+						activeSummary={activeSummary}
+						changedFileCount={changes.length}
 						activeWorkspaceId={activeWorkspaceId}
-						pendingRename={pendingRename}
+						appPlatform={appPlatform}
+						openWorktreePaths={worktrees
+							.filter((w) => workspaceState.sessionsByWorktreeId[w.id])
+							.map((w) => w.path)}
+						setSidebarCollapsed={setSidebarCollapsed}
 						setPendingRename={setPendingRename}
-						openWorkspacePicker={() => setWorkspacePickerOpen(true)}
-						openCreateWorktreeDialog={() => setCreateDialogOpen(true)}
-						openRemoveWorktreeDialog={(worktreeId) => {
-							setRemoveTargetId(worktreeId);
-							setConfirmedDirtyRemoval(false);
-							setRemoveDialogOpen(true);
-						}}
-						activateWorkspace={activateWorkspace}
-						handleSelectSidebarWorktree={handleSelectSidebarWorktree}
-						handleRemoveWorkspace={handleRemoveWorkspace}
+						setFilesOverlayOpen={setFilesOverlayOpen}
+						setNoteSheetOpen={setNoteSheetOpen}
+						openReview={() => setReviewOpen(true)}
 						dispatch={dispatch}
+						terminalActions={
+							activeWorktree ? (
+								<TerminalActions
+									presets={workspaceState.commandPresets}
+									addDisabled={addDisabled}
+									onAddAdHoc={handleAddAdHoc}
+									onLaunchPreset={handleLaunchPreset}
+									onOpenPresetManager={() => setPresetManagerOpen(true)}
+									onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
+								/>
+							) : undefined
+						}
 					/>
-
-					<section className="flex flex-col gap-4 min-w-0 min-h-0 overflow-hidden" ref={mainColRef}>
-						<MainColumnChrome
-							downloadingBannerInfo={downloadingBannerInfo}
-							downloadedBannerInfo={downloadedBannerInfo}
-							onRestartUpdate={() => void system.installUpdate()}
-							onLaterUpdate={() =>
-								setUpdateDismissedFor(downloadedBannerInfo?.version ?? null)
-							}
-							chipBarRef={chipBarRef}
-							activeWorktree={activeWorktree}
-							activeSession={activeSession ?? null}
-							activeSummary={activeSummary}
-							changedFileCount={changes.length}
-							activeWorkspaceId={activeWorkspaceId}
+					<div
+						className="grid flex-1 min-h-0 gap-0"
+						data-testid="shell-layout"
+						style={{
+							gridTemplateColumns: `${
+								sidebarCollapsed ? 68 : sidebarWidth
+							}px minmax(0, 1fr)`,
+						}}
+					>
+						<SidebarPanel
+							sidebarWorkspaces={sidebarWorkspaces}
+							sidebarCollapsed={sidebarCollapsed}
 							setSidebarCollapsed={setSidebarCollapsed}
+							handleSidebarResizeStart={handleSidebarResizeStart}
+							activeWorkspaceId={activeWorkspaceId}
+							pendingRename={pendingRename}
 							setPendingRename={setPendingRename}
-							openReview={() => setReviewOpen(true)}
+							openWorkspacePicker={() => setWorkspacePickerOpen(true)}
+							openCreateWorktreeDialog={() => setCreateDialogOpen(true)}
+							openRemoveWorktreeDialog={(worktreeId) => {
+								setRemoveTargetId(worktreeId);
+								setConfirmedDirtyRemoval(false);
+								setRemoveDialogOpen(true);
+							}}
+							activateWorkspace={activateWorkspace}
+							handleSelectSidebarWorktree={handleSelectSidebarWorktree}
+							handleRemoveWorkspace={handleRemoveWorkspace}
 							dispatch={dispatch}
-							noteSheetOpen={noteSheetOpen}
-							setNoteSheetOpen={setNoteSheetOpen}
-							filesOverlayOpen={filesOverlayOpen}
-							setFilesOverlayOpen={setFilesOverlayOpen}
-							trackedFilesLoader={trackedFilesLoader}
-							gitStatusMap={gitStatusMap}
-							shortcutsHelpOpen={shortcutsHelpOpen}
-							setShortcutsHelpOpen={setShortcutsHelpOpen}
-							appPlatform={appPlatform}
-							openWorktreePaths={worktrees
-								.filter((w) => workspaceState.sessionsByWorktreeId[w.id])
-								.map((w) => w.path)}
-							terminalActions={
-								activeWorktree ? (
-									<TerminalActions
-										presets={workspaceState.commandPresets}
-										addDisabled={addDisabled}
-										onAddAdHoc={handleAddAdHoc}
-										onLaunchPreset={handleLaunchPreset}
-										onOpenPresetManager={() => setPresetManagerOpen(true)}
-										onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
-									/>
-								) : undefined
-							}
 						/>
 
-						{/*
-						 * Render a terminal panel for every hydrated workspace, not just the
-						 * active one. Only the active workspace's panel is visible; the rest
-						 * stay mounted but hidden via CSS. Keeping inactive panels mounted
-						 * means their xterm instances keep their PTY output subscription alive
-						 * and never lose scrollback when the user switches workspaces and back
-						 * (previously the panel was unmounted on switch, disposing the xterm and
-						 * rendering blank on return). Panes are keyed by processId within each
-						 * panel and panels by workspaceId, so switching only flips visibility —
-						 * no unmount/remount of the xterm instances.
-						 */}
-						<div className="flex-1 min-h-0 min-w-0 flex flex-col">
-							{appWorkspaces.workspaceOrder.map((id) => {
-								const ws = appWorkspaces.workspacesById[id];
-								if (!ws || ws.workspaceState === null) return null;
-								const isActive = ws.workspaceId === activeWorkspaceId;
-								const wsState = isActive ? workspaceState : ws.workspaceState;
-								const wsSelectedWorktreeId = wsState.selectedWorktreeId;
-								const wsActiveWorktree = isActive
-									? activeWorktree
-									: (ws.worktrees.find((w) => w.id === wsSelectedWorktreeId) ??
-										null);
-								const wsActiveSession = isActive
-									? (activeSession ?? null)
-									: wsSelectedWorktreeId
-										? (wsState.sessionsByWorktreeId[wsSelectedWorktreeId] ??
-											null)
-										: null;
-								const wsSlotProcessIds = wsActiveSession?.slotProcessIds ?? [
-									null,
-								];
-								return (
-									<div
-										key={ws.workspaceId}
-										className="min-h-0 min-w-0 data-[active=false]:hidden data-[active=true]:flex data-[active=true]:flex-1 data-[active=true]:flex-col"
-										data-active={isActive ? "true" : "false"}
-										data-workspace-id={ws.workspaceId}
-									>
-										<TerminalPanel
-											panelVisible={isActive}
-											terminalTheme={terminalTheme}
-											workspaceState={wsState}
-											activeWorktree={wsActiveWorktree}
-											activeSession={wsActiveSession}
-											sessions={sessions}
-											layoutId={wsActiveSession?.terminalLayoutId ?? "1"}
-											slotProcessIds={wsSlotProcessIds}
-											terminalFocusSignal={terminalFocusSignal}
-											// Workspace-pinned dispatch so terminal title (OSC) updates
-											// emitted by a hidden workspace's PTY always route to THAT
-											// workspace, not whichever one is currently active. A fresh
-											// scoped dispatch is created per event to avoid stale base
-											// state.
-											dispatch={(action) =>
-												createScopedWorkspaceDispatch(ws.workspaceId)(action)
-											}
-											selectActiveProcess={
-												isActive ? selectActiveProcess : NOOP
-											}
-											onCloseSlot={isActive ? handleCloseProcess : NOOP}
-											onRestartSlot={isActive ? handleRestartProcess : NOOP}
-											onPromoteSlot={isActive ? handlePromoteSlot : NOOP}
-											onStartShellInSlot={
-												isActive ? handleStartShellInSlot : NOOP
-											}
-											findProcessByTerminalSessionId={
-												findProcessByTerminalSessionId
-											}
-										/>
-									</div>
-								);
-							})}
-						</div>
-						{activeWorktree && (
-							<TerminalLayoutDialog
-								open={layoutDialogOpen}
-								runningShells={runningShells}
-								currentLayoutId={activeSession?.terminalLayoutId ?? "1"}
-								onSelect={handleSelectLayout}
-								onClose={() => setLayoutDialogOpen(false)}
+						<section
+							className="flex flex-col gap-0 min-w-0 min-h-0 overflow-hidden border-l border-[var(--pane-border-terminal)]"
+							data-testid="main-column"
+							ref={mainColRef}
+						>
+							<MainColumnChrome
+								downloadingBannerInfo={downloadingBannerInfo}
+								downloadedBannerInfo={downloadedBannerInfo}
+								onRestartUpdate={() => void system.installUpdate()}
+								onLaterUpdate={() =>
+									setUpdateDismissedFor(downloadedBannerInfo?.version ?? null)
+								}
+								activeWorktree={activeWorktree}
+								activeSession={activeSession ?? null}
+								openReview={() => setReviewOpen(true)}
+								dispatch={dispatch}
+								noteSheetOpen={noteSheetOpen}
+								setNoteSheetOpen={setNoteSheetOpen}
+								filesOverlayOpen={filesOverlayOpen}
+								setFilesOverlayOpen={setFilesOverlayOpen}
+								trackedFilesLoader={trackedFilesLoader}
+								gitStatusMap={gitStatusMap}
+								shortcutsHelpOpen={shortcutsHelpOpen}
+								setShortcutsHelpOpen={setShortcutsHelpOpen}
+								appPlatform={appPlatform}
 							/>
-						)}
 
-						{activeWorktree && (
-							<ReviewChipBar
-								isDirty={activeSummary?.isDirty ?? false}
-								changedFileCount={changes.length}
-								reviewMode={activeSession?.reviewMode ?? "files"}
-								openCommentCount={openCommentCount}
-								addressedCommentCount={addressedCommentCount}
-								canOpenFiles={canOpenFiles}
-								onRefresh={handleRefreshChanges}
-								onOpen={() => setReviewOpen(true)}
-								onOpenFiles={handleOpenFilesChip}
-								onOpenComments={handleOpenCommentsChip}
-							/>
-						)}
-						{reviewOpen && activeWorktree && (
-							<ReviewExpandedPortal
-								ref={expandedPortalRef}
-								mainColRef={mainColRef}
-								chipBarRef={chipBarRef}
-								onCollapse={() => setReviewOpen(false)}
-								onRefresh={handleRefreshChanges}
-								reviewMode={activeSession?.reviewMode ?? "files"}
-								isDirty={activeSummary?.isDirty ?? false}
-								changedFileCount={changes.length}
-								commentSidebarOpen={commentSidebarOpen}
-								onToggleCommentSidebar={() => setCommentSidebarOpen((o) => !o)}
-								openCommentCount={currentFileOpenCommentCount}
-							>
-								<ReviewArea
-									activeWorktree={activeWorktree}
-									activeSession={activeSession ?? null}
-									activeWorkspaceId={activeWorkspaceId}
-									workspaceState={workspaceState}
-									changes={changes}
-									openCommentCounts={openCommentCounts}
-									commitHistoryState={commitHistoryState}
-									commitDetailState={commitDetailState}
-									diffState={diffState}
-									remoteStatus={remoteStatus}
-									selectedCommitOpenCommentCount={
-										selectedCommitOpenCommentCount
-									}
-									gitSummaryError={gitSummaryError}
-									gitSummaryMessage={gitSummaryMessage}
-									gitSummaryStale={gitSummaryStale}
-									reviewState={reviewState}
-									reviewRailWidth={reviewRailWidth}
-									handleReviewRailResizeStart={handleReviewRailResizeStart}
-									commentSidebarOpen={commentSidebarOpen}
-									resolvedTheme={resolvedTheme}
-									installCtaVisible={installCtaVisible}
-									onOpenInstall={() => setInstallModalOpen(true)}
-									dispatch={dispatch}
-									handlePushBranch={handlePushBranch}
-									handleSelectChangedFile={handleSelectChangedFile}
-									setDiscardPath={setDiscardPath}
-									bumpRefreshKey={() => setRefreshKey((k) => k + 1)}
-									addingDraft={addingDraft}
-									setAddingDraft={setAddingDraft}
-									updateAddingDraftBody={updateAddingDraftBody}
-									pendingCommentJump={pendingCommentJump}
-									onConsumePendingCommentJump={() => setPendingCommentJump(0)}
+							{/*
+							 * Render a terminal panel for every hydrated workspace, not just the
+							 * active one. Only the active workspace's panel is visible; the rest
+							 * stay mounted but hidden via CSS. Keeping inactive panels mounted
+							 * means their xterm instances keep their PTY output subscription alive
+							 * and never lose scrollback when the user switches workspaces and back
+							 * (previously the panel was unmounted on switch, disposing the xterm and
+							 * rendering blank on return). Panes are keyed by processId within each
+							 * panel and panels by workspaceId, so switching only flips visibility —
+							 * no unmount/remount of the xterm instances.
+							 */}
+							<div className="flex-1 min-h-0 min-w-0 flex flex-col">
+								{appWorkspaces.workspaceOrder.map((id) => {
+									const ws = appWorkspaces.workspacesById[id];
+									if (!ws || ws.workspaceState === null) return null;
+									const isActive = ws.workspaceId === activeWorkspaceId;
+									const wsState = isActive ? workspaceState : ws.workspaceState;
+									const wsSelectedWorktreeId = wsState.selectedWorktreeId;
+									const wsActiveWorktree = isActive
+										? activeWorktree
+										: (ws.worktrees.find(
+												(w) => w.id === wsSelectedWorktreeId,
+											) ?? null);
+									const wsActiveSession = isActive
+										? (activeSession ?? null)
+										: wsSelectedWorktreeId
+											? (wsState.sessionsByWorktreeId[wsSelectedWorktreeId] ??
+												null)
+											: null;
+									const wsSlotProcessIds = wsActiveSession?.slotProcessIds ?? [
+										null,
+									];
+									return (
+										<div
+											key={ws.workspaceId}
+											className="min-h-0 min-w-0 data-[active=false]:hidden data-[active=true]:flex data-[active=true]:flex-1 data-[active=true]:flex-col"
+											data-active={isActive ? "true" : "false"}
+											data-workspace-id={ws.workspaceId}
+										>
+											<TerminalPanel
+												panelVisible={isActive}
+												terminalTheme={terminalTheme}
+												workspaceState={wsState}
+												activeWorktree={wsActiveWorktree}
+												activeSession={wsActiveSession}
+												sessions={sessions}
+												layoutId={wsActiveSession?.terminalLayoutId ?? "1"}
+												slotProcessIds={wsSlotProcessIds}
+												terminalFocusSignal={terminalFocusSignal}
+												// Workspace-pinned dispatch so terminal title (OSC) updates
+												// emitted by a hidden workspace's PTY always route to THAT
+												// workspace, not whichever one is currently active. A fresh
+												// scoped dispatch is created per event to avoid stale base
+												// state.
+												dispatch={(action) =>
+													createScopedWorkspaceDispatch(ws.workspaceId)(action)
+												}
+												selectActiveProcess={
+													isActive ? selectActiveProcess : NOOP
+												}
+												onCloseSlot={isActive ? handleCloseProcess : NOOP}
+												onRestartSlot={isActive ? handleRestartProcess : NOOP}
+												onPromoteSlot={isActive ? handlePromoteSlot : NOOP}
+												onStartShellInSlot={
+													isActive ? handleStartShellInSlot : NOOP
+												}
+												findProcessByTerminalSessionId={
+													findProcessByTerminalSessionId
+												}
+											/>
+										</div>
+									);
+								})}
+							</div>
+							{activeWorktree && (
+								<TerminalLayoutDialog
+									open={layoutDialogOpen}
+									runningShells={runningShells}
+									currentLayoutId={activeSession?.terminalLayoutId ?? "1"}
+									onSelect={handleSelectLayout}
+									onClose={() => setLayoutDialogOpen(false)}
 								/>
-							</ReviewExpandedPortal>
-						)}
-					</section>
+							)}
+
+							{activeWorktree && (
+								<ReviewChipBar
+									isDirty={activeSummary?.isDirty ?? false}
+									changedFileCount={changes.length}
+									reviewMode={activeSession?.reviewMode ?? "files"}
+									openCommentCount={openCommentCount}
+									addressedCommentCount={addressedCommentCount}
+									canOpenFiles={canOpenFiles}
+									onRefresh={handleRefreshChanges}
+									onOpen={() => setReviewOpen(true)}
+									onOpenFiles={handleOpenFilesChip}
+									onOpenComments={handleOpenCommentsChip}
+								/>
+							)}
+							{reviewOpen && activeWorktree && (
+								<ReviewExpandedPortal
+									ref={expandedPortalRef}
+									mainColRef={mainColRef}
+									chipBarRef={chipBarRef}
+									onCollapse={() => setReviewOpen(false)}
+									onRefresh={handleRefreshChanges}
+									reviewMode={activeSession?.reviewMode ?? "files"}
+									isDirty={activeSummary?.isDirty ?? false}
+									changedFileCount={changes.length}
+									commentSidebarOpen={commentSidebarOpen}
+									onToggleCommentSidebar={() =>
+										setCommentSidebarOpen((o) => !o)
+									}
+									openCommentCount={currentFileOpenCommentCount}
+								>
+									<ReviewArea
+										activeWorktree={activeWorktree}
+										activeSession={activeSession ?? null}
+										activeWorkspaceId={activeWorkspaceId}
+										workspaceState={workspaceState}
+										changes={changes}
+										openCommentCounts={openCommentCounts}
+										commitHistoryState={commitHistoryState}
+										commitDetailState={commitDetailState}
+										diffState={diffState}
+										remoteStatus={remoteStatus}
+										selectedCommitOpenCommentCount={
+											selectedCommitOpenCommentCount
+										}
+										gitSummaryError={gitSummaryError}
+										gitSummaryMessage={gitSummaryMessage}
+										gitSummaryStale={gitSummaryStale}
+										reviewState={reviewState}
+										reviewRailWidth={reviewRailWidth}
+										handleReviewRailResizeStart={handleReviewRailResizeStart}
+										commentSidebarOpen={commentSidebarOpen}
+										resolvedTheme={resolvedTheme}
+										installCtaVisible={installCtaVisible}
+										onOpenInstall={() => setInstallModalOpen(true)}
+										dispatch={dispatch}
+										handlePushBranch={handlePushBranch}
+										handleSelectChangedFile={handleSelectChangedFile}
+										setDiscardPath={setDiscardPath}
+										bumpRefreshKey={() => setRefreshKey((k) => k + 1)}
+										addingDraft={addingDraft}
+										setAddingDraft={setAddingDraft}
+										updateAddingDraftBody={updateAddingDraftBody}
+										pendingCommentJump={pendingCommentJump}
+										onConsumePendingCommentJump={() => setPendingCommentJump(0)}
+									/>
+								</ReviewExpandedPortal>
+							)}
+						</section>
+					</div>
 				</div>
 
 				<PresetManager

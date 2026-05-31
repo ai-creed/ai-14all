@@ -1,7 +1,5 @@
-import type { MutableRefObject } from "react";
 import type { UpdateInfo } from "../../../shared/contracts/commands";
 import type { GitChangeStatus } from "../../../shared/models/git-change";
-import type { GitSummary } from "../../../shared/models/git-summary";
 import type { Worktree } from "../../../shared/models/worktree";
 import type { WorktreeSession } from "../../../shared/models/worktree-session";
 import { FilesOverlay } from "../../features/files/FilesOverlay";
@@ -12,17 +10,8 @@ import {
 import { ShortcutsHelp } from "../../features/shortcuts/ShortcutsHelp";
 import { UpdateBanner } from "../../features/updater/UpdateBanner";
 import { NoteSheet } from "../../features/workspace/components/NoteSheet";
-import { SessionChipBar } from "../../features/workspace/components/SessionChipBar";
-import { UsageStrip } from "../../features/telemetry/UsageStrip";
-import { useUsageSnapshot } from "../../features/telemetry/use-usage-snapshot";
-import { displayTitle } from "../../features/workspace/logic/session-display-title";
 import type { WorkspaceAction } from "../../features/workspace/logic/workspace-state";
 import type { Platform } from "../shortcut-registry";
-
-type PendingRename = {
-	workspaceId: string;
-	worktreeId: string;
-};
 
 type Props = {
 	downloadingBannerInfo: UpdateInfo | null;
@@ -30,14 +19,8 @@ type Props = {
 	onRestartUpdate: () => void;
 	onLaterUpdate: () => void;
 
-	chipBarRef: MutableRefObject<HTMLDivElement | null>;
 	activeWorktree: Worktree | null;
 	activeSession: WorktreeSession | null;
-	activeSummary: GitSummary | null;
-	changedFileCount: number;
-	activeWorkspaceId: string | null;
-	setSidebarCollapsed: (next: boolean | ((prev: boolean) => boolean)) => void;
-	setPendingRename: (next: PendingRename | null) => void;
 	openReview: () => void;
 	dispatch: (action: WorkspaceAction) => void;
 
@@ -52,16 +35,10 @@ type Props = {
 	shortcutsHelpOpen: boolean;
 	setShortcutsHelpOpen: (next: boolean) => void;
 	appPlatform: Platform;
-
-	/** Paths of worktrees currently open in the app (telemetry "Active" scope). */
-	openWorktreePaths: string[];
-
-	/** Render slot for the terminal action chips in the session chipbar. */
-	terminalActions?: React.ReactNode;
 };
 
 /**
- * UpdateBanner + SessionChipBar + NoteSheet + FilesOverlay + ShortcutsHelp.
+ * UpdateBanner + NoteSheet + FilesOverlay + ShortcutsHelp.
  * The "chrome" widgets at the top of the main column. Owns no state of its
  * own; visibility/setters are passed down from App.tsx.
  */
@@ -71,14 +48,8 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 		downloadedBannerInfo,
 		onRestartUpdate,
 		onLaterUpdate,
-		chipBarRef,
 		activeWorktree,
 		activeSession,
-		activeSummary,
-		changedFileCount,
-		activeWorkspaceId,
-		setSidebarCollapsed,
-		setPendingRename,
 		openReview,
 		dispatch,
 		noteSheetOpen,
@@ -90,11 +61,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 		shortcutsHelpOpen,
 		setShortcutsHelpOpen,
 		appPlatform,
-		openWorktreePaths,
-		terminalActions,
 	} = props;
-
-	const usageSnapshot = useUsageSnapshot();
 
 	return (
 		<>
@@ -104,46 +71,6 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 				onRestart={onRestartUpdate}
 				onLater={onLaterUpdate}
 			/>
-			{activeWorktree && activeSession && (
-				<div ref={chipBarRef}>
-					<SessionChipBar
-						sessionTitle={displayTitle(activeSession.title, activeWorktree)}
-						worktreeLabel={activeWorktree.label}
-						branchName={activeWorktree.branchName}
-						isDirty={activeSummary?.isDirty ?? false}
-						changedFileCount={changedFileCount}
-						noteNonEmpty={activeSession.note.trim() !== ""}
-						onRenameClick={() => {
-							if (activeWorkspaceId !== null && activeWorktree !== null) {
-								setSidebarCollapsed(false);
-								setPendingRename({
-									workspaceId: activeWorkspaceId,
-									worktreeId: activeWorktree.id,
-								});
-							}
-						}}
-						onDirtyClick={() => {
-							if (!activeWorktree) return;
-							dispatch({
-								type: "session/setReviewMode",
-								worktreeId: activeWorktree.id,
-								reviewMode: "changes",
-							});
-							openReview();
-						}}
-						onFilesClick={() => setFilesOverlayOpen(true)}
-						onNoteClick={() => setNoteSheetOpen((prev) => !prev)}
-						terminalActions={terminalActions}
-						usage={
-							<UsageStrip
-								snapshot={usageSnapshot}
-								currentWorktreePath={activeWorktree.path}
-								openWorktreePaths={openWorktreePaths}
-							/>
-						}
-					/>
-				</div>
-			)}
 			<NoteSheet
 				open={noteSheetOpen}
 				note={activeSession?.note ?? ""}
