@@ -1,3 +1,4 @@
+import { RefreshCw } from "lucide-react";
 import type { ReviewMode } from "../../../shared/models/worktree-session";
 import { ReviewBarButton } from "../../features/review/components/ReviewBarButton";
 
@@ -85,7 +86,7 @@ export function ReviewChipBar({
 			)}
 			<span className="flex-1" />
 			<ReviewBarButton
-				icon="↻"
+				icon={<RefreshCw className="h-3.5 w-3.5" />}
 				label="Refresh"
 				ariaLabel="Refresh review"
 				title="Refresh review"

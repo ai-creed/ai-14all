@@ -8,6 +8,7 @@ import {
 	useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { RefreshCw } from "lucide-react";
 import type { ReviewMode } from "../../../../shared/models/worktree-session";
 import { ReviewBarButton } from "./ReviewBarButton";
 
@@ -230,7 +231,7 @@ export const ReviewExpandedPortal = forwardRef<
 						/>
 					)}
 				<ReviewBarButton
-					icon="↻"
+					icon={<RefreshCw className="h-3.5 w-3.5" />}
 					label="Refresh"
 					ariaLabel="Refresh review"
 					title="Refresh review"

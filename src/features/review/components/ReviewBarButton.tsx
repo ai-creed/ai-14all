@@ -3,7 +3,7 @@
 // visually consistent — same shape, same padding, same icon+label rhythm.
 
 type Props = {
-	icon: string;
+	icon: React.ReactNode;
 	label: string;
 	ariaLabel?: string;
 	title?: string;
@@ -25,7 +25,7 @@ export function ReviewBarButton({
 			title={title ?? label}
 			onClick={onClick}
 		>
-			<span aria-hidden="true">{icon}</span>
+			<span aria-hidden="true" className="inline-flex">{icon}</span>
 			<span>{label}</span>
 		</button>
 	);
