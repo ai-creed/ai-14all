@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import type { CommandPreset } from "../../../../shared/models/command-preset";
+import { Plus, LayoutGrid, Settings2, ChevronDown } from "lucide-react";
 
 type Props = {
 	presets: CommandPreset[];
@@ -42,7 +43,7 @@ export function TerminalActions({
 				disabled={addDisabled}
 				onClick={onAddAdHoc}
 			>
-				<span aria-hidden="true">＋</span>
+				<Plus className="h-3.5 w-3.5" aria-hidden="true" />
 				Shell
 			</Button>
 			<Button
@@ -54,16 +55,16 @@ export function TerminalActions({
 				title="Choose layout (⌘⇧L)"
 				onClick={onOpenLayoutDialog}
 			>
-				<span aria-hidden="true">▦</span>
+				<LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
 				Layout
 			</Button>
 
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
-						<span aria-hidden="true">⚙</span>
+						<Settings2 className="h-3.5 w-3.5" aria-hidden="true" />
 						Presets
-						<span aria-hidden="true">▾</span>
+						<ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent>
