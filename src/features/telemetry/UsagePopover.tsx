@@ -186,7 +186,7 @@ export function UsagePopover({
 
 	return (
 		<div
-			className="absolute z-50 top-full right-0 mt-2 max-h-[70vh] overflow-y-auto bg-popover border border-[var(--panel-border-strong)] rounded-[10px] shadow-[0_12px_40px_rgba(0,0,0,0.4)] w-[760px] text-secondary-foreground text-xs font-mono tabular-nums"
+			className="absolute z-50 top-full right-0 mt-2 max-h-[70vh] overflow-y-auto bg-popover border border-[var(--panel-border-strong)] rounded-lg shadow-[0_12px_40px_rgba(0,0,0,0.4)] w-[760px] text-secondary-foreground text-xs font-mono tabular-nums"
 			role="dialog"
 			style={style}
 			ref={rootRef}
