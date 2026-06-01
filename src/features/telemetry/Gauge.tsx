@@ -1,11 +1,13 @@
 import { gaugeColor } from "./format.js";
 
-// Gauge level → Tailwind classes for the "on" cells.
-// Each level gets a gradient background + glow shadow matching the old CSS.
+// Gauge level → Tailwind classes for the "on" cells. Theme-aware: each level is
+// driven by a theme token (nominal=--gauge-ok teal, warn=--warning, hot=
+// --destructive) so the gauge adapts across the light/dark/warm palettes. The
+// glow is a low-opacity mix of the same token.
 const levelClasses = {
-	ok: "bg-gradient-to-b from-[#b7faff] to-[#7fced2] shadow-[0_0_4px_rgba(127,206,210,0.6)]",
-	warn: "bg-gradient-to-b from-[#ffd98a] to-[#d29922] shadow-[0_0_4px_rgba(210,153,34,0.55)]",
-	hot: "bg-gradient-to-b from-[#ff9a90] to-[#f85149] shadow-[0_0_5px_rgba(248,81,73,0.6)]",
+	ok: "bg-[var(--gauge-ok)] shadow-[0_0_4px_color-mix(in_oklab,var(--gauge-ok)_60%,transparent)]",
+	warn: "bg-warning shadow-[0_0_4px_color-mix(in_oklab,var(--warning)_55%,transparent)]",
+	hot: "bg-destructive shadow-[0_0_5px_color-mix(in_oklab,var(--destructive)_60%,transparent)]",
 } as const;
 
 // Retro-terminal segmented progress bar: discrete cells, dark→glow gradient on
