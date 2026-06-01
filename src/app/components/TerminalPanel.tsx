@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Plus, ArrowUp, ArrowDownToLine, RefreshCw, X } from "lucide-react";
 import type { ProcessSession } from "../../../shared/models/process-session";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
 import type { Worktree } from "../../../shared/models/worktree";
@@ -113,7 +114,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 									data-testid={`slot-cta-${slotIndex}`}
 									onClick={() => onStartShellInSlot(slotIndex)}
 								>
-									＋ start a shell
+									<Plus className="h-3.5 w-3.5 inline-block align-text-bottom" aria-hidden="true" /> start a shell
 								</button>
 							</div>
 						);
@@ -160,7 +161,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										data-testid={`slot-promote-${slotIndex}`}
 										onClick={() => onPromoteSlot(slotIndex)}
 									>
-										↑
+										<ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
 									</button>
 								)}
 								{process && (
@@ -171,7 +172,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										data-testid={`slot-refit-${slotIndex}`}
 										onClick={() => requestRefit(process.id)}
 									>
-										⤓
+										<ArrowDownToLine className="h-3.5 w-3.5" aria-hidden="true" />
 									</button>
 								)}
 								{process && (
@@ -182,7 +183,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										data-testid={`slot-restart-${slotIndex}`}
 										onClick={() => onRestartSlot(process.id)}
 									>
-										↻
+										<RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
 									</button>
 								)}
 								{process && (
@@ -193,7 +194,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										data-testid={`slot-close-${slotIndex}`}
 										onClick={() => onCloseSlot(process.id)}
 									>
-										✕
+										<X className="h-3.5 w-3.5" aria-hidden="true" />
 									</button>
 								)}
 							</header>

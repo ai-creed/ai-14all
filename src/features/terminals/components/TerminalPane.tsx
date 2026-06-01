@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Terminal, type ITheme } from "xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "xterm-addon-search";
@@ -500,7 +501,11 @@ export function TerminalPane({
 			onDrop={handleDrop}
 			style={{ display: visible ? "block" : "none" }}
 		>
-			<div ref={containerRef} className="h-full w-full" />
+			<div
+				ref={containerRef}
+				className="h-full w-full p-3"
+				style={theme?.background ? { backgroundColor: theme.background } : undefined}
+			/>
 			{findOpen && (
 				<div
 					className="absolute top-0 right-0 z-10 flex items-center gap-1 rounded-bl-md border border-border bg-background p-1 shadow-md"
@@ -554,7 +559,7 @@ export function TerminalPane({
 						aria-label="Previous match"
 						onClick={() => runFind("prev")}
 					>
-						&#8249;
+						<ChevronLeft className="h-4 w-4" aria-hidden="true" />
 					</Button>
 					<Button
 						type="button"
@@ -564,7 +569,7 @@ export function TerminalPane({
 						aria-label="Next match"
 						onClick={() => runFind("next")}
 					>
-						&#8250;
+						<ChevronRight className="h-4 w-4" aria-hidden="true" />
 					</Button>
 					<Button
 						type="button"
@@ -574,7 +579,7 @@ export function TerminalPane({
 						aria-label="Close find"
 						onClick={closeFind}
 					>
-						&times;
+						<X className="h-4 w-4" aria-hidden="true" />
 					</Button>
 				</div>
 			)}
