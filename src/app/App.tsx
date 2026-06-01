@@ -357,13 +357,16 @@ export function App() {
 		setAddingDraft((prev) => (prev ? { ...prev, body } : prev));
 	}, []);
 	const agentInstallStatus = useAgentInstallStatus();
-	// Telemetry providers whose CLI is installed; null until the async status
-	// loads (so the strip shows all providers rather than flashing empty).
+	// Telemetry providers whose CLI is present on the system; null until the
+	// async status loads (so the strip shows all providers rather than flashing
+	// empty). Keyed on cliAvailable (the CLI binary is resolvable) — NOT
+	// `installed`, which means the app's skill/MCP integration is set up and is
+	// false even for a CLI the user actively runs from PATH.
 	const installedProviders: UsageProvider[] | null =
 		agentInstallStatus.providers.length === 0
 			? null
 			: agentInstallStatus.providers
-					.filter((p) => p.installed)
+					.filter((p) => p.cliAvailable)
 					.map((p) => (p.id === "claude-code" ? "claude" : "codex"));
 	// providers starts as [] before the first refresh resolves. length > 0 guards
 	// against that window, so the CTA is hidden during initial load rather than

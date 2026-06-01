@@ -15,9 +15,17 @@ strip for users who only run one agent. Scope: **strip only** — the dropdown
 
 `App.tsx` already instantiates `agentInstallStatus = useAgentInstallStatus()`
 (`App.tsx:358`). Its `providers: Provider[]` each carry
-`{ id: "claude-code" | "codex", installed: boolean, ... }`. The backend
-`agentInstall.listProviders()` always returns both providers (with their
-`installed` flags) once it resolves; before that, `providers` is `[]`.
+`{ id: "claude-code" | "codex", cliAvailable: boolean, installed: boolean, cliPath, ... }`.
+The backend `agentInstall.listProviders()` always returns both providers once
+it resolves; before that, `providers` is `[]`.
+
+**Use `cliAvailable`, not `installed`.** "Tool is installed" means the agent's
+CLI binary is present/resolvable — that is `cliAvailable` (e.g. claude with
+`cliPath: ~/.local/bin/claude` → `cliAvailable: true`). The `installed` flag
+means the app's *skill/MCP integration* is set up for that provider and is
+`false` even for a CLI the user actively runs from PATH (verified on this
+machine: claude `installed:false` / `cliAvailable:true`). Keying on `installed`
+would wrongly hide an in-use agent.
 
 Telemetry providers (`UsageProvider = "claude" | "codex"`, in
 `shared/models/usage.ts`) map to install ids: `claude` ↔ `claude-code`,
@@ -31,7 +39,7 @@ const installedProviders: UsageProvider[] | null =
   agentInstallStatus.providers.length === 0
     ? null // not loaded yet → show all (avoids a blank flash)
     : agentInstallStatus.providers
-        .filter((p) => p.installed)
+        .filter((p) => p.cliAvailable)
         .map((p) => (p.id === "claude-code" ? "claude" : "codex"));
 ```
 `null` is the explicit "unknown / not yet loaded" sentinel (distinct from `[]`
