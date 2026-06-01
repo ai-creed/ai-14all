@@ -390,8 +390,8 @@ export function UsagePopover({
 							<span className="font-semibold text-[var(--provider-claude)]">
 								claude
 							</span>{" "}
-							is an estimate vs your budget (⚙) — the API doesn&apos;t expose
-							the real number.
+							is an estimate vs your budget (see budget settings) — the API
+							doesn&apos;t expose the real number.
 						</dd>
 					</dl>
 				</div>
