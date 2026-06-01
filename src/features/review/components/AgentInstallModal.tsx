@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Check } from "lucide-react";
 import { AppDialog } from "../../../components/AppDialog";
 import { Button } from "@/components/ui/button";
 import type { AgentInstallStatus } from "../hooks/use-agent-install-status";
@@ -115,7 +116,11 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 								{pickMsg && <p className="text-sm text-destructive">{pickMsg}</p>}
 								{result && (
 									<p className={result.ok ? "text-sm text-muted-foreground" : "text-sm text-destructive"}>
-										{result.ok ? "Installed ✓" : `Failed: ${result.message}`}
+										{result.ok ? (
+											<span className="inline-flex items-center gap-1">Installed <Check className="h-3.5 w-3.5" aria-hidden="true" /></span>
+										) : (
+											`Failed: ${result.message}`
+										)}
 									</p>
 								)}
 							</li>

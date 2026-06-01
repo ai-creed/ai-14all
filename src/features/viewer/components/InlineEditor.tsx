@@ -9,6 +9,7 @@ import {
 	useState,
 } from "react";
 import ReactMarkdown from "react-markdown";
+import { Eye, Pencil } from "lucide-react";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github-dark.css";
@@ -517,7 +518,11 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 							}
 							aria-pressed={previewing}
 						>
-							<span aria-hidden="true">{previewing ? "✏" : "👁"}</span>
+							{previewing ? (
+								<Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+							) : (
+								<Eye className="h-3.5 w-3.5" aria-hidden="true" />
+							)}
 							<span>{previewing ? "Edit" : "Preview"}</span>
 						</button>
 					)}

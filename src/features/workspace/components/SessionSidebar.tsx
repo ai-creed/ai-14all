@@ -1,5 +1,5 @@
 import * as React from "react";
-import { PanelLeftOpen, PanelLeftClose } from "lucide-react";
+import { PanelLeftOpen, PanelLeftClose, X } from "lucide-react";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -167,7 +167,7 @@ export function SessionSidebar({
 										aria-label={`Remove ${workspace.name}`}
 										onClick={() => onRemoveWorkspace(workspace.workspaceId)}
 									>
-										&times;
+										<X className="h-4 w-4" aria-hidden="true" />
 									</button>
 								</>
 							)}

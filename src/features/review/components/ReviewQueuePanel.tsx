@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Check, RotateCcw, X } from "lucide-react";
 import type {
 	ReviewComment,
 	ReviewCommentSource,
@@ -207,7 +208,11 @@ function FileGroups({
 											aria-label={c.status === "open" ? "Address" : "Reopen"}
 											onClick={() => onToggleAddressed(c.id)}
 										>
-											{c.status === "open" ? "✓" : "↺"}
+											{c.status === "open" ? (
+												<Check className="h-3.5 w-3.5" aria-hidden="true" />
+											) : (
+												<RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+											)}
 										</button>
 										<button
 											type="button"
@@ -215,7 +220,7 @@ function FileGroups({
 											aria-label="Delete comment"
 											onClick={() => onDelete(c.id)}
 										>
-											×
+											<X className="h-3.5 w-3.5" aria-hidden="true" />
 										</button>
 									</div>
 								</div>

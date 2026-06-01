@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { X } from "lucide-react";
 import {
 	Dialog,
 	DialogContent,
@@ -92,7 +93,7 @@ export function MarkdownPreviewModal({
 						className="bg-transparent border-none text-muted-foreground cursor-pointer p-1 leading-none rounded-sm hover:text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
 						aria-label="Close"
 					>
-						✕
+						<X className="h-4 w-4" aria-hidden="true" />
 					</DialogClose>
 				</div>
 				{loading && (

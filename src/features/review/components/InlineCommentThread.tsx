@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Check, RotateCcw } from "lucide-react";
 import type { ReviewComment } from "../../../../shared/models/review-comment";
 import { Button } from "../../../components/ui/button";
 import { Textarea } from "../../../components/ui/textarea";
@@ -44,7 +45,7 @@ export function InlineCommentThread({
 					aria-label="Expand addressed comment"
 					onClick={() => setExpanded(true)}
 				>
-					<span aria-hidden="true">✓</span>
+					<Check className="h-3.5 w-3.5" aria-hidden="true" />
 					<span>
 						L{comment.startLine}
 						{comment.startLine !== comment.endLine ? `–${comment.endLine}` : ""}
@@ -59,7 +60,7 @@ export function InlineCommentThread({
 					className="w-5 h-5 inline-flex items-center justify-center rounded hover:bg-muted text-xs"
 					onClick={onToggleAddressed}
 				>
-					↺
+					<RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
 				</button>
 			</div>
 		);
@@ -135,7 +136,11 @@ export function InlineCommentThread({
 					aria-label={isAddressed ? "Reopen comment" : "Address comment"}
 					onClick={onToggleAddressed}
 				>
-					{isAddressed ? "↺ Reopen" : "✓ Address"}
+					{isAddressed ? (
+						<><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> Reopen</>
+					) : (
+						<><Check className="h-3.5 w-3.5" aria-hidden="true" /> Address</>
+					)}
 				</Button>
 				<Button
 					type="button"

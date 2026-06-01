@@ -1,3 +1,5 @@
+import { X } from "lucide-react";
+
 type WorkspaceSwitcherProps = {
 	workspaces: { workspaceId: string; name: string }[];
 	activeWorkspaceId: string | null;
@@ -30,7 +32,7 @@ export function WorkspaceSwitcher({
 							aria-label={`Remove ${ws.name}`}
 							onClick={() => onRemove(ws.workspaceId)}
 						>
-							×
+							<X className="h-4 w-4" aria-hidden="true" />
 						</button>
 					)}
 				</div>

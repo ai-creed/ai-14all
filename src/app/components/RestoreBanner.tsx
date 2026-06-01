@@ -1,3 +1,5 @@
+import { X } from "lucide-react";
+
 type Props = {
 	message: string | null;
 	onDismiss: () => void;
@@ -19,7 +21,7 @@ export function RestoreBanner(props: Props): React.ReactElement | null {
 				aria-label="Dismiss warning"
 				onClick={onDismiss}
 			>
-				×
+				<X className="h-4 w-4" aria-hidden="true" />
 			</button>
 		</div>
 	);

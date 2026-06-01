@@ -8,7 +8,7 @@ import {
 	useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, MessageSquare, ChevronDown, Check } from "lucide-react";
 import type { ReviewMode } from "../../../../shared/models/worktree-session";
 import { ReviewBarButton } from "./ReviewBarButton";
 
@@ -215,7 +215,7 @@ export const ReviewExpandedPortal = forwardRef<
 						data-state="clean"
 						aria-label="Clean — no changes"
 					>
-						✓ clean
+						<Check className="h-3 w-3 inline" aria-hidden="true" /> clean
 					</span>
 				)}
 				<span className="flex-1" />
@@ -223,7 +223,7 @@ export const ReviewExpandedPortal = forwardRef<
 					openCommentCount !== null &&
 					openCommentCount !== undefined && (
 						<ReviewBarButton
-							icon="💬"
+							icon={<MessageSquare className="h-3.5 w-3.5" />}
 							label={commentSidebarOpen ? "Hide comments" : "Comments"}
 							ariaLabel={commentSidebarOpen ? "Hide comments" : "Show comments"}
 							title={commentSidebarOpen ? "Hide comments" : "Show comments"}
@@ -238,7 +238,7 @@ export const ReviewExpandedPortal = forwardRef<
 					onClick={onRefresh}
 				/>
 				<ReviewBarButton
-					icon="⬇"
+					icon={<ChevronDown className="h-3.5 w-3.5" />}
 					label="Collapse"
 					ariaLabel="Collapse full review"
 					title="Collapse full review"

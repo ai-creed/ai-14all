@@ -1,4 +1,4 @@
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, ChevronUp, Check } from "lucide-react";
 import type { ReviewMode } from "../../../shared/models/worktree-session";
 import { ReviewBarButton } from "../../features/review/components/ReviewBarButton";
 
@@ -60,7 +60,7 @@ export function ReviewChipBar({
 				)
 			) : (
 				<span className="text-xs text-muted-foreground" data-state="clean">
-					✓ clean
+					<Check className="h-3 w-3 inline" aria-hidden="true" /> clean
 				</span>
 			)}
 			{hasComments && (
@@ -93,7 +93,7 @@ export function ReviewChipBar({
 				onClick={onRefresh}
 			/>
 			<ReviewBarButton
-				icon="⬆"
+				icon={<ChevronUp className="h-3.5 w-3.5" />}
 				label="Review"
 				ariaLabel="Open review"
 				title="Open review"

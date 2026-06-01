@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ArrowUp, ArrowDown } from "lucide-react";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -76,8 +77,8 @@ export function CommitList({
 			{remoteStatus && (
 				<div className="flex items-center gap-3 px-3 py-2 border-b border-border text-xs">
 					<span className="flex gap-2 text-muted-foreground flex-1">
-						<span>&uarr;{remoteStatus.ahead}</span>
-						<span>&darr;{remoteStatus.behind}</span>
+						<span className="inline-flex items-center"><ArrowUp className="h-3 w-3" aria-hidden="true" />{remoteStatus.ahead}</span>
+						<span className="inline-flex items-center"><ArrowDown className="h-3 w-3" aria-hidden="true" />{remoteStatus.behind}</span>
 					</span>
 					<button
 						type="button"

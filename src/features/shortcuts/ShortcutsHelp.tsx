@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import {
 	Dialog,
 	DialogContent,
@@ -89,7 +90,7 @@ export function ShortcutsHelp({ open, platform, onClose, onRestartOnboarding }: 
 							aria-label="Close shortcuts"
 							data-testid="shortcuts-help-close"
 						>
-							✕
+							<X className="h-4 w-4" aria-hidden="true" />
 						</button>
 					</DialogClose>
 				</div>
