@@ -32,10 +32,13 @@ export function UsageStrip({
 	snapshot,
 	currentWorktreePath,
 	openWorktreePaths,
+	installedProviders,
 }: {
 	snapshot: UsageSnapshot | null;
 	currentWorktreePath: string | null;
 	openWorktreePaths?: string[];
+	/** Telemetry providers whose CLI is installed; null = not yet known (show all). */
+	installedProviders?: UsageProvider[] | null;
 }) {
 	const [open, setOpen] = useState(false);
 	const caretRef = useRef<HTMLButtonElement>(null);
@@ -64,10 +67,14 @@ export function UsageStrip({
 	if (!snapshot) return null;
 	const gaugeFor = (p: UsageProvider): LimitGauge | undefined =>
 		snapshot.limits.find((l) => l.provider === p);
+	const visible =
+		installedProviders == null
+			? ORDER
+			: ORDER.filter((p) => installedProviders.includes(p));
 	return (
-		<div className="relative flex items-center gap-3 font-mono">
-			<div className="grid grid-cols-[auto_auto_auto_auto] gap-x-3 gap-y-1 items-center text-xs">
-				{ORDER.map((provider) => {
+		<div className="relative flex items-center gap-2 font-mono">
+			<div className="grid grid-cols-[auto_auto_auto_auto] gap-x-2.5 gap-y-0.5 items-center text-xs tabular-nums">
+				{visible.map((provider) => {
 					const t = rowTotals(snapshot, provider, currentWorktreePath);
 					const g = gaugeFor(provider);
 					return (
@@ -78,31 +85,35 @@ export function UsageStrip({
 								{provider}
 							</span>
 							<span
-								className="text-foreground"
+								className="inline-flex items-center gap-1.5"
 								title="↑ prompt tokens sent · ↓ tokens generated"
 							>
-								<span className="inline-flex items-center text-foreground font-semibold">
+								<span className="inline-flex items-center gap-0.5 text-foreground font-semibold">
 									<ArrowUp className="h-3 w-3" aria-hidden="true" />
 									{formatTokens(t.input)}
-								</span>{" "}
-								<span className="inline-flex items-center text-muted-foreground">
+								</span>
+								<span className="inline-flex items-center gap-0.5 text-muted-foreground">
 									<ArrowDown className="h-3 w-3" aria-hidden="true" />
 									{formatTokens(t.output)}
 								</span>
 							</span>
-							<span className="inline-flex items-center gap-2 whitespace-nowrap">
+							<span className="inline-flex items-center gap-1.5 whitespace-nowrap">
 								<span className="text-[10px] tracking-wide uppercase text-muted-foreground">
 									5h
 								</span>
-								<Gauge percent={g?.fiveHour.percent ?? 0} />{" "}
-								{g?.fiveHour.percent ?? 0}%
+								<Gauge percent={g?.fiveHour.percent ?? 0} cells={12} />
+								<span className="min-w-[3ch] text-right">
+									{g?.fiveHour.percent ?? 0}%
+								</span>
 							</span>
-							<span className="inline-flex items-center gap-2 whitespace-nowrap">
+							<span className="inline-flex items-center gap-1.5 whitespace-nowrap">
 								<span className="text-[10px] tracking-wide uppercase text-muted-foreground">
 									wk
 								</span>
-								<Gauge percent={g?.weekly.percent ?? 0} />{" "}
-								{g?.weekly.percent ?? 0}%
+								<Gauge percent={g?.weekly.percent ?? 0} cells={12} />
+								<span className="min-w-[3ch] text-right">
+									{g?.weekly.percent ?? 0}%
+								</span>
 							</span>
 						</div>
 					);
