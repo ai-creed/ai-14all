@@ -10,7 +10,7 @@ interface Props {
 }
 
 const btnBase =
-	"bg-transparent text-inherit border border-[var(--accent)] rounded-[var(--radius-sm)] cursor-pointer font-[inherit] hover:bg-[var(--accent)] hover:text-[var(--panel-bg)]";
+	"bg-transparent text-inherit border border-[var(--accent)] rounded-sm cursor-pointer font-[inherit] hover:bg-[var(--accent)] hover:text-[var(--panel-bg)]";
 
 export function UpdateBanner({
 	downloadingInfo,

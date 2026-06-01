@@ -110,7 +110,7 @@ export function SessionSidebar({
 	return (
 		<nav
 			aria-label="Worktree sessions"
-			className={`grid grid-rows-[auto_minmax(0,1fr)_auto] w-full h-full min-h-0 min-w-0 bg-transparent border border-[var(--pane-border-sessions)] rounded-[var(--radius,0.25rem)] ${collapsed ? "px-2 py-3" : "p-3"}`}
+			className={`grid grid-rows-[auto_minmax(0,1fr)_auto] w-full h-full min-h-0 min-w-0 bg-transparent border border-[var(--pane-border-sessions)] rounded-sm ${collapsed ? "px-2 py-3" : "p-3"}`}
 			data-collapsed={String(collapsed)}
 		>
 			<div className={`flex items-center gap-2 pb-2 border-b border-border ${collapsed ? "justify-center" : "justify-between"}`}>
