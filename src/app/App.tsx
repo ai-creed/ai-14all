@@ -31,6 +31,7 @@ import {
 	type DisplayedAttentionSnapshot,
 } from "../features/workspace/logic/resolution-emitter";
 import type { ProcessAttentionState } from "../../shared/models/process-session";
+import type { UsageProvider } from "../../shared/models/usage";
 import { useNoteBridgeReceiver } from "../features/workspace/hooks/use-note-bridge-receiver";
 import { attachAgentAttentionBridge } from "../features/terminals/logic/agent-attention-renderer-bridge";
 import type { GitChangeStatus } from "../../shared/models/git-change";
@@ -356,6 +357,14 @@ export function App() {
 		setAddingDraft((prev) => (prev ? { ...prev, body } : prev));
 	}, []);
 	const agentInstallStatus = useAgentInstallStatus();
+	// Telemetry providers whose CLI is installed; null until the async status
+	// loads (so the strip shows all providers rather than flashing empty).
+	const installedProviders: UsageProvider[] | null =
+		agentInstallStatus.providers.length === 0
+			? null
+			: agentInstallStatus.providers
+					.filter((p) => p.installed)
+					.map((p) => (p.id === "claude-code" ? "claude" : "codex"));
 	// providers starts as [] before the first refresh resolves. length > 0 guards
 	// against that window, so the CTA is hidden during initial load rather than
 	// flickering visible before providers are known.
@@ -1404,6 +1413,7 @@ export function App() {
 						changedFileCount={changes.length}
 						activeWorkspaceId={activeWorkspaceId}
 						appPlatform={appPlatform}
+						installedProviders={installedProviders}
 						openWorktreePaths={worktrees
 							.filter((w) => workspaceState.sessionsByWorktreeId[w.id])
 							.map((w) => w.path)}

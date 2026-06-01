@@ -1,5 +1,6 @@
 import type { MutableRefObject } from "react";
 import type { GitSummary } from "../../../shared/models/git-summary";
+import type { UsageProvider } from "../../../shared/models/usage";
 import type { Worktree } from "../../../shared/models/worktree";
 import type { WorktreeSession } from "../../../shared/models/worktree-session";
 import { SessionChipBar } from "../../features/workspace/components/SessionChipBar";
@@ -24,6 +25,7 @@ type Props = {
 	activeWorkspaceId: string | null;
 	appPlatform: Platform;
 	openWorktreePaths: string[];
+	installedProviders?: UsageProvider[] | null;
 	setSidebarCollapsed: (next: boolean | ((prev: boolean) => boolean)) => void;
 	setPendingRename: (next: PendingRename | null) => void;
 	setFilesOverlayOpen: (next: boolean) => void;
@@ -48,6 +50,7 @@ export function AppBar(props: Props): React.ReactElement {
 		activeWorkspaceId,
 		appPlatform,
 		openWorktreePaths,
+		installedProviders,
 		setSidebarCollapsed,
 		setPendingRename,
 		setFilesOverlayOpen,
@@ -104,6 +107,7 @@ export function AppBar(props: Props): React.ReactElement {
 								snapshot={usageSnapshot}
 								currentWorktreePath={activeWorktree.path}
 								openWorktreePaths={openWorktreePaths}
+								installedProviders={installedProviders}
 							/>
 						}
 					/>
