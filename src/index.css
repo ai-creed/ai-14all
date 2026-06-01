@@ -29,8 +29,9 @@
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
-	/* App-specific semantic colour — registered so bg/text/border-warning emit. */
+	/* App-specific semantic colours — registered so bg/text/border-* emit. */
 	--color-warning: var(--warning);
+	--color-success: var(--success);
 }
 
 /* ── Custom font ────────────────────────────────────────────── */
@@ -71,6 +72,7 @@
 	--panel-border-strong: oklch(0.4369 0.0483 228.83);
 	--warning: oklch(0.8412 0.1046 78.71);
 	--gauge-ok: oklch(0.802 0.078 199.86); /* telemetry gauge "nominal" level (teal) */
+	--success: oklch(0.7522 0.1516 150.28); /* positive/saved/addressed states */
 	--sha: oklch(0.709 0.1592 293.54);
 	--provider-claude: oklch(0.6658 0.1574 58.32);
 	--provider-codex: oklch(0.5461 0.2152 262.88);
@@ -115,6 +117,7 @@
 	--panel-border-strong: oklch(0.7767 0.0337 254.04);
 	--warning: oklch(0.6148 0.129 76.24);
 	--gauge-ok: oklch(0.6299 0.0941 200.53); /* telemetry gauge "nominal" level (teal) */
+	--success: oklch(0.5224 0.1214 152.79); /* positive/saved/addressed states */
 	--sha: oklch(0.5108 0.1685 293.06);
 	--provider-claude: oklch(0.5553 0.1455 49);
 	--provider-codex: oklch(0.4882 0.2172 264.38);
@@ -151,6 +154,7 @@
 	--panel-border-strong: oklch(0.4832 0.0396 70.98);
 	--warning: oklch(0.7659 0.1109 74.02);
 	--gauge-ok: oklch(0.7259 0.0863 189.67); /* telemetry gauge "nominal" level (teal) */
+	--success: oklch(0.6907 0.1012 135.85); /* positive/saved/addressed states */
 	--sha: oklch(0.7582 0.0914 311.89);
 	--provider-claude: oklch(0.7205 0.1261 45.95);
 	--provider-codex: oklch(0.6709 0.1106 247.59);
@@ -500,10 +504,10 @@ button, input, textarea, select {
 	text-align: center;
 	font-size: 15px;
 	font-weight: 500;
-	background: rgba(74, 144, 226, 0.22);
-	border: 1px solid rgba(74, 144, 226, 0.55);
+	background: color-mix(in oklab, var(--primary) 22%, transparent);
+	border: 1px solid color-mix(in oklab, var(--primary) 55%, transparent);
 	border-radius: 4px;
-	color: #6ab0f5;
+	color: var(--primary);
 	cursor: pointer;
 }
 
@@ -511,10 +515,10 @@ button, input, textarea, select {
 	width: 24px;
 	height: 24px;
 	padding: 0;
-	background: rgba(74, 144, 226, 0.85);
+	background: color-mix(in oklab, var(--primary) 85%, transparent);
 	border: none;
 	border-radius: 4px;
-	color: #fff;
+	color: var(--primary-foreground);
 	font-size: 18px;
 	font-weight: 400;
 	line-height: 1;
@@ -526,7 +530,7 @@ button, input, textarea, select {
 }
 
 .shell-review-selection-pill:hover {
-	background: rgba(74, 144, 226, 1);
+	background: var(--primary);
 }
 
 .shell-inline-thread-host {

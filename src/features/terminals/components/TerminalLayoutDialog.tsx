@@ -78,7 +78,7 @@ export function TerminalLayoutDialog({
 												{d.slotPlacements.map((p, i) => (
 													<span
 														key={i}
-														className={`rounded-[2px] ${i < d.masterSlots ? "bg-[#3a4f7d]" : "bg-[#222a3a]"}`}
+														className={`rounded-[2px] ${i < d.masterSlots ? "bg-primary" : "bg-muted"}`}
 														data-master={i < d.masterSlots ? "true" : "false"}
 														style={{
 															gridColumn: p.gridColumn,

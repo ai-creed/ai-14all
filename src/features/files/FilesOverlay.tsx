@@ -169,7 +169,7 @@ export function FilesOverlay(props: FilesOverlayProps) {
 						/>
 					</div>
 					<input
-						className="flex-none mx-4 my-3 px-3 py-2 text-sm bg-white/[0.04] border border-border rounded-md outline-none text-foreground"
+						className="flex-none mx-4 my-3 px-3 py-2 text-sm bg-foreground/[0.04] border border-border rounded-md outline-none text-foreground"
 						data-testid="files-overlay-search"
 						placeholder="Search files"
 						value={query}
@@ -217,9 +217,9 @@ export function FilesOverlay(props: FilesOverlayProps) {
 											data-selected={
 												virtualRow.index === selectedIndex ? "true" : "false"
 											}
-											className={`flex items-center gap-2 px-4 text-sm cursor-pointer hover:bg-white/[0.04] ${
+											className={`flex items-center gap-2 px-4 text-sm cursor-pointer hover:bg-foreground/[0.04] ${
 												virtualRow.index === selectedIndex
-													? "bg-[rgba(77,163,255,0.16)]"
+													? "bg-accent"
 													: ""
 											}`}
 											onClick={() => props.onOpenFile(path)}
@@ -264,13 +264,13 @@ export function FilesOverlay(props: FilesOverlayProps) {
 					</span>
 					<span className="flex gap-3 items-center">
 						<span>
-							<kbd className="px-2 py-1 border border-border rounded bg-white/[0.04] text-xs">
+							<kbd className="px-2 py-1 border border-border rounded bg-foreground/[0.04] text-xs">
 								↵
 							</kbd>{" "}
 							Open
 						</span>
 						<span>
-							<kbd className="px-2 py-1 border border-border rounded bg-white/[0.04] text-xs">
+							<kbd className="px-2 py-1 border border-border rounded bg-foreground/[0.04] text-xs">
 								Esc
 							</kbd>{" "}
 							Close

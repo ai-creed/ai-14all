@@ -537,7 +537,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 										<p
 											className={
 												commitHistoryState.stale
-													? "text-sm text-yellow-600 dark:text-yellow-400 p-3"
+													? "text-sm text-warning p-3"
 													: "text-sm text-destructive p-3"
 											}
 										>

@@ -494,7 +494,7 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 					)}
 					{status && (
 						<span
-							className={`h-1.5 w-1.5 rounded-full inline-block ${status.kind === "saved" ? "bg-green-500" : "bg-destructive"}`}
+							className={`h-1.5 w-1.5 rounded-full inline-block ${status.kind === "saved" ? "bg-success" : "bg-destructive"}`}
 							role="status"
 						>
 							{status.message}

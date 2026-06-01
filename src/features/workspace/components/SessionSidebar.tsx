@@ -138,7 +138,7 @@ export function SessionSidebar({
 							{collapsed ? (
 								<button
 									type="button"
-									className="inline-grid place-items-center w-6 h-6 p-0 text-base font-bold text-secondary-foreground bg-white/[0.06] border-none rounded-full cursor-pointer data-[selected=true]:text-foreground data-[selected=true]:bg-[rgba(98,180,255,0.22)] hover:bg-white/10 hover:text-foreground"
+									className="inline-grid place-items-center w-6 h-6 p-0 text-base font-bold text-secondary-foreground bg-foreground/[0.06] border-none rounded-full cursor-pointer data-[selected=true]:text-foreground data-[selected=true]:bg-accent hover:bg-foreground/10 hover:text-foreground"
 									title={workspace.name}
 									aria-label={workspace.name}
 									data-selected={String(workspace.active)}
