@@ -71,7 +71,7 @@ export function NoteSheet({ open, note, onNoteChange, onClose }: Props) {
 						role="region"
 						aria-label="Session note preview"
 					>
-						<div className="prose prose-sm dark:prose-invert max-w-none">
+						<div className="prose prose-sm max-w-none">
 							<ReactMarkdown
 								remarkPlugins={[remarkGfm]}
 								rehypePlugins={[rehypeHighlight]}

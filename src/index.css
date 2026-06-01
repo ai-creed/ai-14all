@@ -1,5 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 /* ── Register CSS-variable colours with Tailwind v4 ──────────
  * Without this @theme block, utilities like bg-background, bg-popover,
@@ -171,6 +172,35 @@ body {
 button, input, textarea, select {
 	font: inherit;
 	font-size: 0.75rem; /* 12px */
+}
+
+/* ── Markdown prose (react-markdown + @tailwindcss/typography) ──
+ * The `prose` utilities ship light-mode greys and rely on Tailwind's
+ * media-based `dark:` variant for inversion. This app themes via the
+ * [data-theme] attribute (light/dark/warm) independently of the OS, so
+ * `dark:prose-invert` would mismatch the active theme. Instead, map the
+ * prose colour variables to our own theme tokens — these rules are
+ * unlayered, so they win over the plugin's layered defaults, and because
+ * the tokens themselves switch per [data-theme], prose stays correct in
+ * every palette without depending on `dark:`.
+ */
+.prose {
+	--tw-prose-body: var(--foreground);
+	--tw-prose-headings: var(--foreground);
+	--tw-prose-lead: var(--muted-foreground);
+	--tw-prose-links: var(--primary);
+	--tw-prose-bold: var(--foreground);
+	--tw-prose-counters: var(--muted-foreground);
+	--tw-prose-bullets: var(--muted-foreground);
+	--tw-prose-hr: var(--border);
+	--tw-prose-quotes: var(--foreground);
+	--tw-prose-quote-borders: var(--border);
+	--tw-prose-captions: var(--muted-foreground);
+	--tw-prose-code: var(--foreground);
+	--tw-prose-pre-code: var(--foreground);
+	--tw-prose-pre-bg: var(--muted);
+	--tw-prose-th-borders: var(--border);
+	--tw-prose-td-borders: var(--border);
 }
 
 /* ── Theme-specific tab hover overrides ─────────────────────── */

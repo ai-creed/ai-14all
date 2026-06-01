@@ -524,7 +524,7 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 				</div>
 				{previewing && isMarkdown ? (
 					<div className="flex-1 overflow-auto">
-						<div className="prose dark:prose-invert max-w-none p-4">
+						<div className="prose max-w-none p-4">
 							<ReactMarkdown
 								remarkPlugins={[remarkGfm]}
 								rehypePlugins={[rehypeHighlight]}
