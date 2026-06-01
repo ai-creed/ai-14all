@@ -1,4 +1,5 @@
 import * as React from "react";
+import { PanelLeftOpen, PanelLeftClose } from "lucide-react";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -121,7 +122,11 @@ export function SessionSidebar({
 					aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 					onClick={onToggleCollapsed}
 				>
-					<span aria-hidden="true">{collapsed ? "▸" : "◂"}</span>
+					{collapsed ? (
+						<PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
+					) : (
+						<PanelLeftClose className="h-4 w-4" aria-hidden="true" />
+					)}
 				</button>
 			</div>
 

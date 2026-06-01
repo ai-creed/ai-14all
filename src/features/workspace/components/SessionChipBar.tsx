@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Files, StickyNote, Pencil, Check } from "lucide-react";
 
 type Props = {
 	sessionTitle: string;
@@ -48,7 +49,7 @@ export function SessionChipBar({
 					aria-label="Rename session"
 					onClick={onRenameClick}
 				>
-					✎
+					<Pencil className="h-3.5 w-3.5" aria-hidden="true" />
 				</button>
 			</div>
 
@@ -78,7 +79,7 @@ export function SessionChipBar({
 						title="Clean — no changes"
 						aria-label="Clean"
 					>
-						✓ clean
+						<Check className="h-3 w-3 inline" aria-hidden="true" /> clean
 					</span>
 				)}
 			</div>
@@ -99,7 +100,7 @@ export function SessionChipBar({
 					aria-label="Open Files"
 					onClick={onFilesClick}
 				>
-					<span aria-hidden="true">🗂</span>
+					<Files className="h-4 w-4" aria-hidden="true" />
 				</Button>
 				<Button
 					variant="ghost"
@@ -109,7 +110,7 @@ export function SessionChipBar({
 					aria-label="Open note"
 					onClick={onNoteClick}
 				>
-					<span aria-hidden="true">📝</span>
+					<StickyNote className="h-4 w-4" aria-hidden="true" />
 					{noteNonEmpty && (
 						<span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary" aria-hidden="true" />
 					)}
