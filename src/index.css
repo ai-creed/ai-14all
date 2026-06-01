@@ -61,7 +61,7 @@
 	--muted-foreground: #6f8593;
 	--accent: #15383d;
 	--accent-foreground: #67d4b0;
-	--destructive: #d98c8c;
+	--destructive: #e26565; /* saturated red — stronger danger signal than the old pale salmon */
 	--destructive-foreground: #1b1114;
 	--border: #24313d;
 	--input: #24313d;
@@ -104,7 +104,7 @@
 	--secondary: #f5f7f9;
 	--secondary-foreground: #4a5a70;
 	--muted: #f5f7f9;
-	--muted-foreground: #7a8a9a;
+	--muted-foreground: #5f6f80; /* darkened for WCAG AA (>=4.5:1 on light surfaces) */
 	--accent: #ddeeff;
 	--accent-foreground: #1a7fc1;
 	--destructive: #c0404a;
