@@ -25,9 +25,12 @@
 	--color-accent: var(--accent);
 	--color-accent-foreground: var(--accent-foreground);
 	--color-destructive: var(--destructive);
+	--color-destructive-foreground: var(--destructive-foreground);
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
+	/* App-specific semantic colour — registered so bg/text/border-warning emit. */
+	--color-warning: var(--warning);
 }
 
 /* ── Custom font ────────────────────────────────────────────── */
@@ -59,6 +62,7 @@
 	--accent: #15383d;
 	--accent-foreground: #67d4b0;
 	--destructive: #d98c8c;
+	--destructive-foreground: #1b1114;
 	--border: #24313d;
 	--input: #24313d;
 	--ring: #67d4b0;
@@ -104,6 +108,7 @@
 	--accent: #ddeeff;
 	--accent-foreground: #1a7fc1;
 	--destructive: #c0404a;
+	--destructive-foreground: #ffffff;
 	--border: #d0d7e0;
 	--input: #d0d7e0;
 	--ring: #1a7fc1;
@@ -138,6 +143,7 @@
 	--accent: #3d2817;
 	--accent-foreground: #e58a5e;
 	--destructive: #d97058;
+	--destructive-foreground: #221c15;
 	--border: #4a3f31;
 	--input: #4a3f31;
 	--ring: #e58a5e;
