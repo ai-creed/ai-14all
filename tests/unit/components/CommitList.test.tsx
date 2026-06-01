@@ -315,8 +315,8 @@ describe("CommitList", () => {
 				onPush={vi.fn()}
 			/>,
 		);
-		expect(screen.getByText(/↑2/)).toBeInTheDocument();
-		expect(screen.getByText(/↓0/)).toBeInTheDocument();
+		expect(screen.getByLabelText("2 ahead")).toBeInTheDocument();
+		expect(screen.getByLabelText("0 behind")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Push" })).toBeInTheDocument();
 	});
 
