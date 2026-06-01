@@ -1,3 +1,4 @@
+import { ChevronDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import type {
@@ -80,11 +81,13 @@ export function UsageStrip({
 								className="text-foreground"
 								title="↑ prompt tokens sent · ↓ tokens generated"
 							>
-								<span className="text-foreground font-semibold">
-									↑{formatTokens(t.input)}
+								<span className="inline-flex items-center text-foreground font-semibold">
+									<ArrowUp className="h-3 w-3" aria-hidden="true" />
+									{formatTokens(t.input)}
 								</span>{" "}
-								<span className="text-muted-foreground">
-									↓{formatTokens(t.output)}
+								<span className="inline-flex items-center text-muted-foreground">
+									<ArrowDown className="h-3 w-3" aria-hidden="true" />
+									{formatTokens(t.output)}
 								</span>
 							</span>
 							<span className="inline-flex items-center gap-2 whitespace-nowrap">
@@ -111,7 +114,7 @@ export function UsageStrip({
 				aria-label="Open token breakdown"
 				onClick={() => setOpen((v) => !v)}
 			>
-				▾
+				<ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
 			</button>
 			{open &&
 				createPortal(
