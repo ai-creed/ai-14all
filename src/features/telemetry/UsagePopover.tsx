@@ -4,8 +4,9 @@ import type {
 	UsageRow,
 	UsageSnapshot,
 } from "../../../shared/models/usage.js";
-import { formatReset, formatTokens } from "./format.js";
-import { Gauge } from "./Gauge.js";
+import { X, Info, Settings2, ArrowUp, ArrowDown } from "lucide-react";
+import { formatTokens } from "./format.js";
+import { LimitCard } from "./LimitCard.js";
 import { groupByWorkspace } from "./group.js";
 
 type Scope = "active" | "all";
@@ -186,59 +187,27 @@ export function UsagePopover({
 
 	return (
 		<div
-			className="absolute z-50 top-full right-0 mt-2 max-h-[70vh] overflow-y-auto bg-popover border border-[var(--panel-border-strong)] rounded-lg shadow-[0_12px_40px_rgba(0,0,0,0.4)] w-[760px] text-secondary-foreground text-xs font-mono tabular-nums"
+			className="absolute z-50 top-full right-0 mt-2 max-h-[70vh] overflow-y-auto bg-popover border border-[var(--panel-border-strong)] rounded-lg shadow-[0_12px_40px_rgba(0,0,0,0.4)] w-[760px] text-secondary-foreground text-xs tabular-nums"
 			role="dialog"
 			style={style}
 			ref={rootRef}
 		>
 			{/* ── Account limits section ── */}
 			<div className="px-4 py-3 border-b border-border">
-				<div className="text-muted-foreground text-[10px] tracking-[0.06em] uppercase mb-2 flex justify-between items-center">
+				<div className="text-muted-foreground text-[10px] tracking-[0.06em] uppercase mb-3 flex justify-between items-center">
 					<span>Account limits</span>
 					<button
-						className="bg-transparent border-none text-muted-foreground text-xs cursor-pointer"
+						className="bg-transparent border-none text-muted-foreground cursor-pointer inline-flex"
 						aria-label="close"
 						onClick={onClose}
 					>
-						✕
+						<X className="h-3.5 w-3.5" aria-hidden="true" />
 					</button>
 				</div>
-				<div className="grid grid-cols-[auto_auto_auto_auto_auto_auto_auto_auto_1fr] gap-x-3 gap-y-2 items-center">
-					{snapshot.limits.map((l) => {
-						const fhReset = formatReset(l.fiveHour.resetsAtMs, now);
-						const wkReset = formatReset(l.weekly.resetsAtMs, now);
-						const wkDetail = [
-							l.weekly.budget
-								? `${formatTokens(l.weekly.used ?? 0)} / ${formatTokens(l.weekly.budget)}`
-								: "",
-							wkReset ? `resets ${wkReset}` : "",
-						]
-							.filter(Boolean)
-							.join(" · ");
-						return (
-							<Fragment key={l.provider}>
-								<span
-									className={`font-semibold ${l.provider === "claude" ? "text-[var(--provider-claude)]" : "text-[var(--provider-codex)]"}`}
-								>
-									{l.provider}
-								</span>
-								<span className="text-muted-foreground">5h</span>
-								<Gauge percent={l.fiveHour.percent} />
-								<span className="text-right text-foreground">
-									{l.fiveHour.percent}%
-								</span>
-								<span className="text-muted-foreground">
-									{fhReset ? `resets ${fhReset}` : ""}
-								</span>
-								<span className="text-muted-foreground">week</span>
-								<Gauge percent={l.weekly.percent} />
-								<span className="text-right text-foreground">
-									{l.weekly.percent}%
-								</span>
-								<span className="text-muted-foreground">{wkDetail}</span>
-							</Fragment>
-						);
-					})}
+				<div className="flex flex-col gap-3">
+					{snapshot.limits.map((l) => (
+						<LimitCard key={l.provider} limit={l} now={now} />
+					))}
 				</div>
 			</div>
 
@@ -281,10 +250,10 @@ export function UsagePopover({
 								workspace / worktree · agent
 							</th>
 							<th className="text-right text-muted-foreground text-[10px] uppercase font-medium pb-2 w-16 pl-3">
-								↑ in
+								<ArrowUp className="h-3 w-3 inline" aria-hidden="true" /> in
 							</th>
 							<th className="text-right text-muted-foreground text-[10px] uppercase font-medium pb-2 w-16 pl-3">
-								↓ out
+								<ArrowDown className="h-3 w-3 inline" aria-hidden="true" /> out
 							</th>
 							<th className="text-right text-muted-foreground text-[10px] uppercase font-medium pb-2 w-16 pl-3">
 								this week
@@ -295,13 +264,13 @@ export function UsagePopover({
 						{groups.map((g) => (
 							<Fragment key={g.workspaceId ?? "untracked"}>
 								<tr>
-									<td className="text-left pt-2 border-t border-border font-bold text-foreground py-1 whitespace-nowrap">
+									<td className="text-left pt-2 border-t border-border font-bold text-foreground py-1.5 whitespace-nowrap">
 										{g.label}
 									</td>
-									<td className="text-right pt-2 border-t border-border font-bold text-foreground py-1 whitespace-nowrap w-16 pl-3">
+									<td className="text-right pt-2 border-t border-border font-bold text-foreground py-1.5 whitespace-nowrap w-16 pl-3">
 										{formatTokens(g.subtotal.input)}
 									</td>
-									<td className="text-right pt-2 border-t border-border text-muted-foreground py-1 whitespace-nowrap w-16 pl-3">
+									<td className="text-right pt-2 border-t border-border text-muted-foreground py-1.5 whitespace-nowrap w-16 pl-3">
 										{formatTokens(g.subtotal.output)}
 									</td>
 									<td className="w-16 pl-3" />
@@ -310,7 +279,7 @@ export function UsagePopover({
 									<tr
 										key={`${g.workspaceId}-${r.worktreeId}-${r.provider}-${i}`}
 									>
-										<td className="text-left pl-4 text-secondary-foreground py-1 whitespace-nowrap">
+										<td className="text-left pl-4 text-secondary-foreground py-1.5 whitespace-nowrap">
 											{r.worktreeTitle} ·{" "}
 											<span
 												className={`font-semibold ${r.provider === "claude" ? "text-[var(--provider-claude)]" : "text-[var(--provider-codex)]"}`}
@@ -318,13 +287,13 @@ export function UsagePopover({
 												{r.provider}
 											</span>
 										</td>
-										<td className="text-right py-1 whitespace-nowrap w-16 pl-3">
+										<td className="text-right py-1.5 whitespace-nowrap w-16 pl-3">
 											{formatTokens(r.sinceLaunch.input)}
 										</td>
-										<td className="text-right text-muted-foreground py-1 whitespace-nowrap w-16 pl-3">
+										<td className="text-right text-muted-foreground py-1.5 whitespace-nowrap w-16 pl-3">
 											{formatTokens(r.sinceLaunch.output)}
 										</td>
-										<td className="text-right text-muted-foreground py-1 whitespace-nowrap w-16 pl-3">
+										<td className="text-right text-muted-foreground py-1.5 whitespace-nowrap w-16 pl-3">
 											{formatTokens(r.thisWeek.billable)}
 										</td>
 									</tr>
@@ -338,11 +307,11 @@ export function UsagePopover({
 			{/* ── Footer ── */}
 			<div className="px-4 py-3 bg-background flex items-center justify-between">
 				<span className="text-muted-foreground" data-testid="usage-total">
-					session ↑
+					session <ArrowUp className="h-3 w-3 inline" aria-hidden="true" />
 					<span className="text-foreground font-semibold">
 						{formatTokens(total.input)}
 					</span>{" "}
-					↓
+					<ArrowDown className="h-3 w-3 inline" aria-hidden="true" />
 					<span className="text-foreground font-semibold">
 						{formatTokens(total.output)}
 					</span>
@@ -358,14 +327,16 @@ export function UsagePopover({
 						aria-expanded={showHelp}
 						onClick={() => setShowHelp((v) => !v)}
 					>
-						ⓘ how to read
+						<Info className="h-3.5 w-3.5 inline mr-1" aria-hidden="true" />how to
+						read
 					</button>
 					<button
 						className="bg-transparent border-none text-muted-foreground text-xs cursor-pointer"
 						aria-label="budget settings"
 						onClick={() => setEditingBudget((v) => !v)}
 					>
-						⚙ budget settings
+						<Settings2 className="h-3.5 w-3.5 inline mr-1" aria-hidden="true" />
+						budget settings
 					</button>
 				</span>
 			</div>
@@ -375,8 +346,8 @@ export function UsagePopover({
 				<div className="px-4 py-3 border-b border-border">
 					<dl className="m-0 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-xs">
 						<dt className="text-foreground font-semibold whitespace-nowrap">
-							<span className="text-foreground font-semibold">↑ in</span> /{" "}
-							<span className="text-foreground font-semibold">↓ out</span>
+							<ArrowUp className="h-3 w-3 inline" aria-hidden="true" /> in /{" "}
+							<ArrowDown className="h-3 w-3 inline" aria-hidden="true" /> out
 						</dt>
 						<dd className="m-0 text-secondary-foreground leading-relaxed">
 							<b className="text-foreground">in</b> = prompt tokens you send
