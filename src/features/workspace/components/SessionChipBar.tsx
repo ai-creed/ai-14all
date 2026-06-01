@@ -38,7 +38,7 @@ export function SessionChipBar({
 	usage,
 }: Props) {
 	return (
-		<div className="relative flex items-center h-10" role="region" aria-label="Session">
+		<div className="relative flex items-center gap-3 h-10" role="region" aria-label="Session">
 			{/* Left: session info */}
 			<div className="flex items-center gap-2">
 				<span className="font-semibold truncate">{sessionTitle}</span>
@@ -52,7 +52,7 @@ export function SessionChipBar({
 				</button>
 			</div>
 
-			<div className="flex items-center gap-2 ml-3 text-sm" aria-label="Worktree and branch">
+			<div className="flex items-center gap-2 text-sm" aria-label="Worktree and branch">
 				<span className="text-muted-foreground">{worktreeLabel}</span>
 				{branchName && (
 					<>
@@ -62,7 +62,7 @@ export function SessionChipBar({
 				)}
 			</div>
 
-			<div className="ml-3">
+			<div>
 				{isDirty ? (
 					<Badge
 						variant="outline"
@@ -91,7 +91,7 @@ export function SessionChipBar({
 			)}
 
 			{/* Right: actions */}
-			<div className="ml-auto flex items-center gap-1">
+			<div className="ml-auto flex items-center gap-2">
 				<Button
 					variant="ghost"
 					size="icon"
