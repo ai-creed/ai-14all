@@ -1,3 +1,5 @@
+import { Textarea } from "@/components/ui/textarea";
+
 type Props = {
 	note: string;
 	onNoteChange: (note: string) => void;
@@ -9,9 +11,8 @@ export function ContextPanel({ note, onNoteChange }: Props) {
 			<label htmlFor="session-note" className="shell-label">
 				Session note
 			</label>
-			<textarea
+			<Textarea
 				id="session-note"
-				className="shell-input"
 				value={note}
 				onChange={(event) => onNoteChange(event.target.value)}
 				rows={6}
