@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Input } from "@/components/ui/input";
 import { AppDialog } from "../../../components/AppDialog";
 import { repository } from "../../../lib/desktop-client";
 import { describeRepositoryLoadError } from "../../repository/describe-repository-load-error";
@@ -46,10 +47,9 @@ export function LoadWorkspaceDialog({ open, onOpenChange, onLoadPath }: Props) {
 			</AppDialog.Description>
 			<AppDialog.Body>
 				<label htmlFor="load-workspace-path">Repository path</label>
-				<input
+				<Input
 					id="load-workspace-path"
 					type="text"
-					className="shell-input"
 					value={path}
 					onChange={(e) => setPath(e.target.value)}
 					onKeyDown={(e) => {

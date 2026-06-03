@@ -6,6 +6,7 @@ import {
 	ContextMenuItem,
 	ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { Input } from "@/components/ui/input";
 import type {
 	GitChange,
 	GitChangeStatus,
@@ -246,9 +247,9 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 					label="Show gitignored"
 					ariaLabel="Show gitignored files"
 				/>
-				<input
+				<Input
 					type="text"
-					className="shell-input shell-tree-search"
+					className="shell-tree-search"
 					placeholder="Search files…"
 					value={inputTerm}
 					onChange={(e) => setInputTerm(e.target.value)}

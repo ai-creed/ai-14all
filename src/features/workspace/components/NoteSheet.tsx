@@ -5,6 +5,7 @@ import {
 	DialogContent,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
@@ -66,9 +67,9 @@ export function NoteSheet({ open, note, onNoteChange, onClose }: Props) {
 					</div>
 				</div>
 				{mode === "edit" ? (
-					<textarea
+					<Textarea
 						aria-label="Session note"
-						className="shell-input shell-note-sheet__textarea"
+						className="shell-note-sheet__textarea"
 						value={note}
 						onChange={(e) => onNoteChange(e.target.value)}
 						placeholder="Write a note for this session…"

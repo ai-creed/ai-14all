@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Input } from "@/components/ui/input";
 import { repository } from "../../lib/desktop-client";
 import { describeRepositoryLoadError } from "./describe-repository-load-error";
 
@@ -47,10 +48,9 @@ export function RepositoryInput({ onLoadPath }: Props) {
 				<label htmlFor="repo-path">Repository path</label>
 			</div>
 			<div className="shell-input-row">
-				<input
+				<Input
 					id="repo-path"
 					type="text"
-					className="shell-input"
 					value={path}
 					onChange={(e) => setPath(e.target.value)}
 					placeholder="/path/to/repo"
