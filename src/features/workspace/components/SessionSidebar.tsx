@@ -1,5 +1,10 @@
 import * as React from "react";
-import * as ContextMenu from "@radix-ui/react-context-menu";
+import {
+	ContextMenu,
+	ContextMenuContent,
+	ContextMenuItem,
+	ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import type { Worktree } from "../../../../shared/models/worktree";
 import type { ProcessAttentionState } from "../../../../shared/models/process-session";
 import type { WorktreeProcessSummary } from "../logic/sidebar-shell-summary";
@@ -412,54 +417,49 @@ export function SessionSidebar({
 								}
 
 								return (
-									<ContextMenu.Root key={worktree.id}>
+									<ContextMenu key={worktree.id}>
 										<div
 											className="shell-sidebar__row"
 											{...rowAttentionProps}
 											onClick={handleRowClick}
 										>
-											<ContextMenu.Trigger asChild>{item}</ContextMenu.Trigger>
+											<ContextMenuTrigger asChild>{item}</ContextMenuTrigger>
 											{taskLine}
 											{processList}
 											{workflowRow}
 										</div>
-										<ContextMenu.Portal>
-											<ContextMenu.Content className="shell-toolbar-menu">
-												<ContextMenu.Item
-													className="shell-toolbar-menu__item"
-													onSelect={() => {
-														if (collapsed || !workspace.active) {
-															onRequestExpand?.(
-																workspace.workspaceId,
-																worktree.id,
-															);
-															return;
-														}
-														startRename(
+										<ContextMenuContent className="shell-toolbar-menu">
+											<ContextMenuItem
+												className="shell-toolbar-menu__item"
+												onSelect={() => {
+													if (collapsed || !workspace.active) {
+														onRequestExpand?.(
 															workspace.workspaceId,
 															worktree.id,
-															rawTitle,
 														);
-													}}
+														return;
+													}
+													startRename(
+														workspace.workspaceId,
+														worktree.id,
+														rawTitle,
+													);
+												}}
+											>
+												Rename session
+											</ContextMenuItem>
+											{!worktree.isMain && (
+												<ContextMenuItem
+													className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
+													onSelect={() =>
+														onRemoveWorktree(workspace.workspaceId, worktree.id)
+													}
 												>
-													Rename session
-												</ContextMenu.Item>
-												{!worktree.isMain && (
-													<ContextMenu.Item
-														className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
-														onSelect={() =>
-															onRemoveWorktree(
-																workspace.workspaceId,
-																worktree.id,
-															)
-														}
-													>
-														Remove worktree
-													</ContextMenu.Item>
-												)}
-											</ContextMenu.Content>
-										</ContextMenu.Portal>
-									</ContextMenu.Root>
+													Remove worktree
+												</ContextMenuItem>
+											)}
+										</ContextMenuContent>
+									</ContextMenu>
 								);
 							})}
 
