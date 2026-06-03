@@ -10,6 +10,7 @@ import { buildSavedWorkspace } from "../features/workspace/logic/workspace-persi
 import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
 import { type SessionSidebarWorkspace } from "../features/workspace/components/SessionSidebar";
+import { sortSidebarWorkspaces } from "../features/workspace/logic/sort-sidebar-workspaces";
 import { workspaceReducer } from "../features/workspace/logic/workspace-state";
 import { PresetManager } from "../features/terminals/components/PresetManager";
 import {
@@ -1217,7 +1218,7 @@ export function App() {
 	// changes (Task 10). Keyed by worktreeId across all workspaces.
 	const displayedAttentionSnapshot: DisplayedAttentionSnapshot = {};
 
-	const sidebarWorkspaces: SessionSidebarWorkspace[] =
+	const sidebarWorkspaces: SessionSidebarWorkspace[] = sortSidebarWorkspaces(
 		appWorkspaces.workspaceOrder
 			.map((id) => appWorkspaces.workspacesById[id])
 			.filter((ws): ws is NonNullable<typeof ws> => ws != null)
@@ -1298,7 +1299,8 @@ export function App() {
 					: {},
 				active: ws.workspaceId === activeWorkspaceId,
 				hydrated: ws.workspaceState !== null,
-			}));
+			})),
+	);
 
 	// Stable identity for the freshly-rebuilt displayed-attention snapshot so
 	// the resolution effect only runs when the displayed values actually move,
