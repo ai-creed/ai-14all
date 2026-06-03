@@ -625,15 +625,16 @@ export function ReviewArea(props: Props): React.ReactElement {
 											})
 										}
 									/>
-									{treePreviewPath !== null && (
-										<MarkdownPreviewModal
-											workspaceId={activeWorkspaceId ?? ""}
-											worktreeId={activeWorktree.id}
-											relativePath={treePreviewPath}
-											open={true}
-											onClose={() => setTreePreviewPath(null)}
-										/>
-									)}
+									{/* Always mounted, visibility driven by `open`: unmounting
+									    a Radix Dialog while it is still open skips its body
+									    pointer-events/aria cleanup and freezes the app. */}
+									<MarkdownPreviewModal
+										workspaceId={activeWorkspaceId ?? ""}
+										worktreeId={activeWorktree.id}
+										relativePath={treePreviewPath ?? ""}
+										open={treePreviewPath !== null}
+										onClose={() => setTreePreviewPath(null)}
+									/>
 								</>
 							) : (
 								<ChangesList
