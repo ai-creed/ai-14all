@@ -71,3 +71,17 @@ Creating a new session/worktree has three issues:
 
 ## Scope
 4 files, 3 independent commits (A, B, C). TDD for each.
+
+## Addendum — Concern D: friendly inline hint
+Follow-up to Concern A. When the dialog preview fails because origin/HEAD is
+unset, the dialog showed the raw red error banner. Instead, map known
+recoverable errors to a calm, actionable hint.
+- `src/features/workspace/logic/create-worktree-error-hint.ts`:
+  `getCreateWorktreeErrorHint(message)` → `{ title, detail, command }` or null.
+  Substring match (survives Electron IPC message wrapping). Returns null for
+  unrecognized errors so the raw banner remains the fallback.
+- `NewWorktreeDialog.tsx`: render `.shell-app-dialog__hint` (with the fix
+  command in a `<code>`) for recognized errors; red banner otherwise.
+- `shell.css`: `.shell-app-dialog__hint` info styling.
+- Tests: helper unit test (origin/HEAD → hint, others → null) + dialog tests
+  (hint shown for origin/HEAD, raw banner for unrecognized).
