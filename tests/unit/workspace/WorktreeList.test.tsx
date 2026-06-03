@@ -51,8 +51,8 @@ describe("WorktreeList", () => {
 		);
 
 		const items = container.querySelectorAll("li");
-		// Selected item has a visible border (1px solid #666)
-		expect(items[0].style.border).toBe("1px solid rgb(102, 102, 102)");
+		// Selected item has a visible border (tokenized: var(--border))
+		expect(items[0].style.border).toBe("1px solid var(--border)");
 		// Non-selected item has transparent border
 		expect(items[1].style.border).toBe("1px solid transparent");
 	});
