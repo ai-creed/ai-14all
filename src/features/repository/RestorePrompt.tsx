@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 type Props = {
 	repositoryPath: string;
@@ -25,20 +26,20 @@ export function RestorePrompt({ repositoryPath, onDecide }: Props) {
 				Remember my choice
 			</label>
 			<div className="shell-restore-actions">
-				<button
+				<Button
 					type="button"
-					className="shell-button"
+					variant="secondary"
 					onClick={() => onDecide({ shouldRestore: true, rememberChoice })}
 				>
 					Restore previous workspace
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button"
+					variant="secondary"
 					onClick={() => onDecide({ shouldRestore: false, rememberChoice })}
 				>
 					Start clean
-				</button>
+				</Button>
 			</div>
 		</section>
 	);

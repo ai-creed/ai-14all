@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { AppDialog } from "../../../components/AppDialog";
 import type { AgentInstallStatus } from "../hooks/use-agent-install-status";
 
@@ -72,9 +73,10 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 									{p.installed && <span> · installed</span>}
 								</label>
 								{!p.cliAvailable && (
-									<button
+									<Button
 										type="button"
-										className="shell-button shell-button--compact"
+										variant="secondary"
+										size="sm"
 										disabled={busy}
 										onClick={async () => {
 											setPickError((m) => ({ ...m, [p.id]: null }));
@@ -107,7 +109,7 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 										}}
 									>
 										Locate {p.displayName} CLI…
-									</button>
+									</Button>
 								)}
 								{pickMsg && <p className="shell-error">{pickMsg}</p>}
 								{result && (
@@ -121,17 +123,19 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 				</ul>
 			</AppDialog.Body>
 			<AppDialog.Footer>
-				<button
+				<Button
 					type="button"
-					className="shell-button shell-button--compact"
+					variant="secondary"
+					size="sm"
 					onClick={onClose}
 					disabled={busy}
 				>
 					Close
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button shell-button--compact shell-button--primary"
+					variant="default"
+					size="sm"
 					disabled={selected.size === 0 || busy}
 					onClick={async () => {
 						setBusy(true);
@@ -147,7 +151,7 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 					}}
 				>
 					Install
-				</button>
+				</Button>
 			</AppDialog.Footer>
 		</AppDialog>
 	);
