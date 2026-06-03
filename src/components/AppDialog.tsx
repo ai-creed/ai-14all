@@ -1,5 +1,11 @@
-import * as Dialog from "@radix-ui/react-dialog";
 import { Children, isValidElement, type ReactNode } from "react";
+
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogTitle,
+} from "@/components/ui/dialog";
 
 type AppDialogProps = {
 	open: boolean;
@@ -10,16 +16,16 @@ type AppDialogProps = {
 
 export function Title({ children }: { children: ReactNode }) {
 	return (
-		<Dialog.Title className="shell-app-dialog__title">{children}</Dialog.Title>
+		<DialogTitle className="shell-app-dialog__title">{children}</DialogTitle>
 	);
 }
 Title.displayName = "AppDialog.Title";
 
 export function Description({ children }: { children: ReactNode }) {
 	return (
-		<Dialog.Description className="shell-app-dialog__description">
+		<DialogDescription className="shell-app-dialog__description">
 			{children}
-		</Dialog.Description>
+		</DialogDescription>
 	);
 }
 Description.displayName = "AppDialog.Description";
@@ -46,31 +52,16 @@ export function AppDialog({
 	size = "default",
 	children,
 }: AppDialogProps) {
-	const className =
-		size === "wide"
-			? "shell-app-dialog shell-app-dialog--wide"
-			: "shell-app-dialog";
+	const className = size === "wide" ? "shell-app-dialog--wide" : undefined;
 	const contentProps = hasDescriptionChild(children)
 		? {}
 		: { "aria-describedby": undefined };
 	return (
-		<Dialog.Root open={open} onOpenChange={onOpenChange}>
-			<Dialog.Portal>
-				<Dialog.Overlay className="shell-app-dialog__overlay" />
-				<Dialog.Content className={className} {...contentProps}>
-					<Dialog.Close asChild>
-						<button
-							type="button"
-							className="shell-button shell-button--icon shell-app-dialog__close"
-							aria-label="Close"
-						>
-							×
-						</button>
-					</Dialog.Close>
-					{children}
-				</Dialog.Content>
-			</Dialog.Portal>
-		</Dialog.Root>
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent className={className} {...contentProps}>
+				{children}
+			</DialogContent>
+		</Dialog>
 	);
 }
 
