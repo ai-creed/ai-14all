@@ -299,7 +299,7 @@ select {
 	border-left: 1px solid var(--panel-border);
 }
 
-.shell-session-note .shell-input {
+.shell-session-note textarea {
 	margin-top: var(--space-2);
 	min-height: 112px;
 	resize: none;
@@ -415,30 +415,6 @@ select {
 	color: var(--text-muted);
 }
 
-.shell-input {
-	-webkit-appearance: none;
-	appearance: none;
-	box-sizing: border-box;
-	width: 100%;
-	margin-top: var(--space-2);
-	padding: var(--space-3);
-	color: var(--text-primary);
-	background: var(--panel-bg);
-	border: 1px solid var(--panel-border-strong);
-	border-radius: var(--radius-sm);
-	resize: vertical;
-	font: inherit;
-}
-
-.shell-input:hover:not(:disabled):not(:focus) {
-	border-color: var(--text-muted);
-}
-
-.shell-input:focus-visible {
-	outline: none;
-	border-color: var(--accent);
-}
-
 .shell-sidebar__rename-input {
 	-webkit-appearance: none;
 	appearance: none;
@@ -463,56 +439,9 @@ select {
 	border-color: var(--accent);
 }
 
-.shell-button:focus-visible,
 [role="tab"]:focus-visible {
 	outline: 1px solid var(--accent);
 	outline-offset: 1px;
-}
-
-.shell-button {
-	padding: 8px 12px;
-	color: var(--text-primary);
-	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
-	border-radius: var(--radius-sm);
-	cursor: pointer;
-}
-
-.shell-button:hover:not(:disabled) {
-	border-color: var(--text-muted);
-	color: var(--text-primary);
-}
-
-.shell-button:disabled {
-	opacity: 0.45;
-	cursor: not-allowed;
-}
-
-.shell-button--compact {
-	height: 32px;
-	padding: 0 10px;
-	font-size: var(--font-size-body);
-	line-height: 32px;
-}
-
-.shell-button--xs {
-	height: 22px;
-	padding: 0 10px;
-	font-size: 0.7rem;
-	line-height: 1;
-}
-
-.shell-button--icon {
-	width: 32px;
-	padding: 0;
-	display: grid;
-	place-items: center;
-	font-size: var(--font-size-label);
-	line-height: 32px;
-}
-
-.shell-button--round {
-	border-radius: 999px;
 }
 
 .shell-sidebar {
@@ -1252,7 +1181,7 @@ select {
 	white-space: nowrap;
 }
 
-.shell-terminal-find .shell-button[data-active="true"] {
+.shell-terminal-find button[data-active="true"] {
 	color: var(--accent);
 	border-color: var(--accent);
 }
@@ -1443,12 +1372,6 @@ select {
 	color: var(--danger);
 }
 
-.shell-toolbar-menu__separator {
-	height: 1px;
-	background: var(--panel-border);
-	margin: var(--space-1) 0;
-}
-
 /* Scoped file tree */
 
 .shell-tree-group {
@@ -1620,41 +1543,6 @@ select {
 	user-select: none;
 	white-space: nowrap;
 	cursor: pointer;
-}
-
-.shell-toggle-switch__track {
-	display: inline-flex;
-	align-items: center;
-	width: 26px;
-	height: 14px;
-	padding: 1px;
-	border: 1px solid var(--panel-border);
-	border-radius: 999px;
-	background: var(--panel-bg);
-	cursor: pointer;
-	transition:
-		background 120ms ease,
-		border-color 120ms ease;
-}
-
-.shell-toggle-switch__track[data-checked="true"] {
-	background: color-mix(in srgb, var(--accent) 70%, transparent);
-	border-color: var(--accent);
-}
-
-.shell-toggle-switch__thumb {
-	display: block;
-	width: 10px;
-	height: 10px;
-	border-radius: 50%;
-	background: var(--text-primary);
-	transition: transform 120ms ease;
-	transform: translateX(0);
-}
-
-.shell-toggle-switch__track[data-checked="true"] .shell-toggle-switch__thumb {
-	transform: translateX(12px);
-	background: var(--panel-bg);
 }
 
 .shell-toggle-switch__label {
@@ -2396,24 +2284,6 @@ select {
 	margin-top: var(--space-2);
 }
 
-.shell-button--danger {
-	background: transparent;
-	border-color: rgba(217, 140, 140, 0.5);
-	color: var(--danger);
-}
-
-.shell-button--danger:hover:not(:disabled) {
-	background: rgba(217, 140, 140, 0.12);
-}
-
-.shell-button--primary {
-	border-color: var(--accent);
-	color: var(--accent);
-}
-.shell-button--primary:hover:not(:disabled) {
-	background: var(--accent-strong);
-}
-
 /* Reusable inline input + button row. Not dialog-scoped. */
 .shell-input-row {
 	display: flex;
@@ -2421,7 +2291,7 @@ select {
 	align-items: center;
 	flex-wrap: wrap;
 }
-.shell-input-row > .shell-input {
+.shell-input-row > input {
 	flex: 1 1 0;
 	min-width: 240px;
 	margin-top: 0;
@@ -2438,27 +2308,6 @@ select {
 }
 
 /* ---- App Dialog (replaces .shell-modal*) ---- */
-.shell-app-dialog__overlay {
-	position: fixed;
-	inset: 0;
-	background: rgba(3, 8, 12, 0.7);
-	z-index: 51;
-}
-.shell-app-dialog {
-	position: fixed;
-	top: 50%;
-	left: 50%;
-	transform: translate(-50%, -50%);
-	width: min(460px, calc(100vw - 32px));
-	max-height: calc(100vh - 64px);
-	display: flex;
-	flex-direction: column;
-	padding: var(--space-4);
-	background: var(--panel-bg-elevated);
-	border: 1px solid var(--panel-border-strong);
-	border-radius: var(--radius-md);
-	z-index: 52;
-}
 .shell-app-dialog--wide {
 	width: min(640px, calc(100vw - 32px));
 }
@@ -2467,11 +2316,6 @@ select {
 	font-weight: 600;
 	margin: 0 0 var(--space-3);
 	padding-right: calc(32px + var(--space-2));
-}
-.shell-app-dialog__close {
-	position: absolute;
-	top: var(--space-3);
-	right: var(--space-3);
 }
 .shell-app-dialog__description {
 	color: var(--text-secondary);
