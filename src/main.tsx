@@ -5,6 +5,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App.js";
 import { installKnownRendererErrorHandler } from "./app/logic/known-renderer-errors.js";
+import "./styles/tokens.css";
 import "./app/shell.css";
 
 installKnownRendererErrorHandler({ dev: import.meta.env.DEV });
