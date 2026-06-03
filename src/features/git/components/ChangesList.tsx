@@ -116,15 +116,16 @@ export function ChangesList({
 					})}
 				</div>
 			)}
-			{previewPath !== null && (
-				<MarkdownPreviewModal
-					workspaceId={workspaceId}
-					worktreeId={worktreeId}
-					relativePath={previewPath}
-					open={true}
-					onClose={() => setPreviewPath(null)}
-				/>
-			)}
+			{/* Always mounted, visibility driven by `open`: unmounting a Radix
+			    Dialog while it is still open skips its body pointer-events/aria
+			    cleanup and freezes the app. */}
+			<MarkdownPreviewModal
+				workspaceId={workspaceId}
+				worktreeId={worktreeId}
+				relativePath={previewPath ?? ""}
+				open={previewPath !== null}
+				onClose={() => setPreviewPath(null)}
+			/>
 		</>
 	);
 }
