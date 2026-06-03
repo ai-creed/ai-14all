@@ -1,7 +1,9 @@
-// Minimal accessible toggle switch — `role="switch"` + `aria-checked` so
-// screen readers announce it as a toggle, not a generic button. Used by the
-// gitignored-files toggle in both `WorktreeTree` (Files tab) and
-// `FilesOverlay` (Cmd+P).
+// Accessible toggle switch built on the shadcn `Switch` (Radix) primitive so
+// screen readers announce it as a toggle (role="switch" + aria-checked are
+// provided by Radix). Used by the gitignored-files toggle in both
+// `WorktreeTree` (Files tab) and `FilesOverlay` (Cmd+P).
+
+import { Switch } from "@/components/ui/switch";
 
 type Props = {
 	checked: boolean;
@@ -21,18 +23,12 @@ export function ToggleSwitch({
 	return (
 		<label className="shell-toggle-switch" htmlFor={id}>
 			<span className="shell-toggle-switch__label">{label}</span>
-			<button
+			<Switch
 				id={id}
-				type="button"
-				role="switch"
-				aria-checked={checked}
+				checked={checked}
+				onCheckedChange={onChange}
 				aria-label={ariaLabel ?? label}
-				className="shell-toggle-switch__track"
-				data-checked={checked ? "true" : "false"}
-				onClick={onChange}
-			>
-				<span className="shell-toggle-switch__thumb" aria-hidden="true" />
-			</button>
+			/>
 		</label>
 	);
 }
