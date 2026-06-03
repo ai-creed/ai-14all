@@ -206,16 +206,17 @@ export function CommitList({
 					</div>
 				);
 			})}
-			{previewState !== null && (
-				<MarkdownPreviewModal
-					workspaceId={workspaceId}
-					worktreeId={worktreeId}
-					relativePath={previewState.path}
-					contentOverride={previewState.content}
-					open={true}
-					onClose={() => setPreviewState(null)}
-				/>
-			)}
+			{/* Always mounted, visibility driven by `open`: unmounting a Radix
+			    Dialog while it is still open skips its body pointer-events/aria
+			    cleanup and freezes the app. */}
+			<MarkdownPreviewModal
+				workspaceId={workspaceId}
+				worktreeId={worktreeId}
+				relativePath={previewState?.path ?? ""}
+				contentOverride={previewState?.content}
+				open={previewState !== null}
+				onClose={() => setPreviewState(null)}
+			/>
 		</div>
 	);
 }
