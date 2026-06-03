@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { repository } from "../../lib/desktop-client";
 import { describeRepositoryLoadError } from "./describe-repository-load-error";
@@ -56,21 +57,23 @@ export function RepositoryInput({ onLoadPath }: Props) {
 					placeholder="/path/to/repo"
 					disabled={loading}
 				/>
-				<button
+				<Button
 					type="button"
-					className="shell-button shell-button--compact"
+					variant="secondary"
+					size="sm"
 					disabled={loading}
 					onClick={handleBrowse}
 				>
 					Browse
-				</button>
-				<button
+				</Button>
+				<Button
 					type="submit"
-					className="shell-button shell-button--compact shell-button--primary"
+					variant="default"
+					size="sm"
 					disabled={loading || !path.trim()}
 				>
 					{loading ? "Loading…" : "Load"}
-				</button>
+				</Button>
 			</div>
 			{error && <div className="shell-error">Error: {error}</div>}
 		</form>

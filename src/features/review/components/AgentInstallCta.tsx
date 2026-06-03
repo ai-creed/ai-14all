@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+
 type Props = {
 	onOpenInstall: () => void;
 };
@@ -12,13 +14,9 @@ export function AgentInstallCta({ onOpenInstall }: Props) {
 				<strong>Install fix-review skill</strong> — let your Claude Code or
 				Codex agent address these comments.
 			</p>
-			<button
-				type="button"
-				className="shell-button shell-button--compact shell-button--primary"
-				onClick={onOpenInstall}
-			>
+			<Button type="button" variant="default" size="sm" onClick={onOpenInstall}>
 				Install…
-			</button>
+			</Button>
 		</div>
 	);
 }
