@@ -36,7 +36,9 @@ export function WorktreeList({
 						<div>
 							<strong>{wt.label}</strong>
 						</div>
-						<div style={{ fontSize: "0.9em", color: "var(--muted-foreground)" }}>
+						<div
+							style={{ fontSize: "0.9em", color: "var(--muted-foreground)" }}
+						>
 							Branch: {wt.branchName}
 						</div>
 						<div
