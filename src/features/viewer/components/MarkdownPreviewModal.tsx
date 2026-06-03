@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -69,52 +74,49 @@ export function MarkdownPreviewModal({
 	]);
 
 	return (
-		<Dialog.Root
+		<Dialog
 			open={open}
 			onOpenChange={(isOpen) => {
 				if (!isOpen) onClose();
 			}}
 		>
-			<Dialog.Portal>
-				<Dialog.Overlay className="shell-md-overlay" />
-				<Dialog.Content className="shell-md-modal" aria-describedby={undefined}>
-					<div className="shell-md-modal__header">
-						<Dialog.Title className="shell-md-modal__title">
-							{relativePath}
-						</Dialog.Title>
-						<Dialog.Close className="shell-md-modal__close" aria-label="Close">
-							✕
-						</Dialog.Close>
-					</div>
-					{loading && (
-						<p className="shell-empty-state">Loading {relativePath}…</p>
-					)}
-					{error && (
-						<>
-							<p className="shell-error">{error}</p>
-							<button
-								className="shell-md-modal__retry"
-								type="button"
-								onClick={() => setReloadToken((x) => x + 1)}
+			<DialogContent className="shell-md-modal" aria-describedby={undefined}>
+				<div className="shell-md-modal__header">
+					<DialogTitle className="shell-md-modal__title">
+						{relativePath}
+					</DialogTitle>
+					<DialogClose className="shell-md-modal__close" aria-label="Close">
+						✕
+					</DialogClose>
+				</div>
+				{loading && (
+					<p className="shell-empty-state">Loading {relativePath}…</p>
+				)}
+				{error && (
+					<>
+						<p className="shell-error">{error}</p>
+						<button
+							className="shell-md-modal__retry"
+							type="button"
+							onClick={() => setReloadToken((x) => x + 1)}
+						>
+							Retry
+						</button>
+					</>
+				)}
+				{content !== null && (
+					<div className="shell-md-modal__scroll">
+						<div className="shell-md-modal__body">
+							<ReactMarkdown
+								remarkPlugins={[remarkGfm]}
+								rehypePlugins={[rehypeHighlight]}
 							>
-								Retry
-							</button>
-						</>
-					)}
-					{content !== null && (
-						<div className="shell-md-modal__scroll">
-							<div className="shell-md-modal__body">
-								<ReactMarkdown
-									remarkPlugins={[remarkGfm]}
-									rehypePlugins={[rehypeHighlight]}
-								>
-									{content}
-								</ReactMarkdown>
-							</div>
+								{content}
+							</ReactMarkdown>
 						</div>
-					)}
-				</Dialog.Content>
-			</Dialog.Portal>
-		</Dialog.Root>
+					</div>
+				)}
+			</DialogContent>
+		</Dialog>
 	);
 }
