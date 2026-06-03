@@ -132,6 +132,33 @@ select {
 	padding: var(--space-4);
 }
 
+/* shadcn DialogContent compatibility for pre-existing fully-custom dialogs.
+ * shadcn's <DialogContent> ships a styled frame (centering, max-width, grid,
+ * gap, padding, border, radius, shadow) via Tailwind utilities. These five
+ * dialogs predate the migration and define their own frame in the rules
+ * further below, so the injected utilities compose with — and fight — that
+ * custom layout. Most critically, shadcn centers via the CSS `translate`
+ * property, which is additive to these dialogs' own `transform`/edge
+ * positioning and pushed them off-screen. This reset is placed BEFORE those
+ * dialogs' own rules so each re-asserts what it sets; it only governs the
+ * shadcn-injected frame props the dialogs do NOT set themselves, restoring
+ * the exact pre-migration rendering. */
+.shell-layout-dialog,
+.shell-md-modal,
+.shell-shortcuts-help,
+.shell-note-sheet,
+.shell-files-overlay {
+	translate: none;
+	display: block;
+	gap: normal;
+	max-width: none;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	box-shadow: none;
+	background: none;
+}
+
 .shell-sidebar-column {
 	position: relative;
 	display: flex;
