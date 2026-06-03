@@ -12,7 +12,8 @@
 		"skipLibCheck": true,
 		"allowArbitraryExtensions": true,
 		"composite": true,
-		"outDir": "dist/renderer"
+		"outDir": "dist/renderer",
+		"paths": { "@/*": ["./src/*"] }
 	},
 	"include": ["src", "shared"]
 }
