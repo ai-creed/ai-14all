@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import * as ContextMenu from "@radix-ui/react-context-menu";
+import {
+	ContextMenu,
+	ContextMenuContent,
+	ContextMenuItem,
+	ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import type {
 	GitChange,
 	GitChangeStatus,
@@ -186,19 +191,17 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 		);
 		if (isRoot) {
 			return (
-				<ContextMenu.Root key={`${row.kind}:${row.path}`}>
-					<ContextMenu.Trigger asChild>{body}</ContextMenu.Trigger>
-					<ContextMenu.Portal>
-						<ContextMenu.Content className="shell-toolbar-menu">
-							<ContextMenu.Item
-								className="shell-toolbar-menu__item"
-								onSelect={() => reload()}
-							>
-								Refresh
-							</ContextMenu.Item>
-						</ContextMenu.Content>
-					</ContextMenu.Portal>
-				</ContextMenu.Root>
+				<ContextMenu key={`${row.kind}:${row.path}`}>
+					<ContextMenuTrigger asChild>{body}</ContextMenuTrigger>
+					<ContextMenuContent className="shell-toolbar-menu">
+						<ContextMenuItem
+							className="shell-toolbar-menu__item"
+							onSelect={() => reload()}
+						>
+							Refresh
+						</ContextMenuItem>
+					</ContextMenuContent>
+				</ContextMenu>
 			);
 		}
 		if (row.kind === "file") {
@@ -210,19 +213,17 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 				return <div key={`${row.kind}:${row.path}`}>{body}</div>;
 			}
 			return (
-				<ContextMenu.Root key={`${row.kind}:${row.path}`}>
-					<ContextMenu.Trigger asChild>{body}</ContextMenu.Trigger>
-					<ContextMenu.Portal>
-						<ContextMenu.Content className="shell-toolbar-menu">
-							<ContextMenu.Item
-								className="shell-toolbar-menu__item"
-								onSelect={() => previewMarkdown(row.path)}
-							>
-								Preview
-							</ContextMenu.Item>
-						</ContextMenu.Content>
-					</ContextMenu.Portal>
-				</ContextMenu.Root>
+				<ContextMenu key={`${row.kind}:${row.path}`}>
+					<ContextMenuTrigger asChild>{body}</ContextMenuTrigger>
+					<ContextMenuContent className="shell-toolbar-menu">
+						<ContextMenuItem
+							className="shell-toolbar-menu__item"
+							onSelect={() => previewMarkdown(row.path)}
+						>
+							Preview
+						</ContextMenuItem>
+					</ContextMenuContent>
+				</ContextMenu>
 			);
 		}
 		return <div key={`${row.kind}:${row.path}`}>{body}</div>;
