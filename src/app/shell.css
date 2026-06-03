@@ -2858,6 +2858,42 @@ select {
 	}
 }
 
+/* ── Busy/creating pulse (dialog actions) ────────────────────── */
+
+.shell-button__busy {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5em;
+}
+
+.shell-button__pulse-dot {
+	width: 0.5em;
+	height: 0.5em;
+	border-radius: 50%;
+	background: currentColor;
+	/* Same rhythm as the sidebar process-dot pulse so signals breathe in sync. */
+	animation: shell-button-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes shell-button-pulse {
+	0%,
+	100% {
+		opacity: 0.35;
+		box-shadow: 0 0 0 0 transparent;
+	}
+	50% {
+		opacity: 1;
+		box-shadow: 0 0 6px color-mix(in srgb, currentColor 70%, transparent);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.shell-button__pulse-dot {
+		animation: none;
+		opacity: 1;
+	}
+}
+
 /* ── Review comment sidebar ──────────────────────────────────── */
 
 .shell-review-comment-sidebar {

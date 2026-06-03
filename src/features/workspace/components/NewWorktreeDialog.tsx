@@ -92,7 +92,14 @@ export function NewWorktreeDialog({
 					onClick={onConfirm}
 					disabled={!preview || loading || busy}
 				>
-					Create worktree
+					{busy ? (
+						<span className="shell-button__busy">
+							<span className="shell-button__pulse-dot" aria-hidden="true" />
+							Creating session…
+						</span>
+					) : (
+						"Create worktree"
+					)}
 				</button>
 			</AppDialog.Footer>
 		</AppDialog>
