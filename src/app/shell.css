@@ -8,22 +8,13 @@
 }
 
 :root {
-	--app-bg: #0b1116;
-	--panel-bg: #111a21;
-	--panel-bg-elevated: #16232c;
-	--panel-border: #24313d;
-	--panel-border-strong: #345767;
-	--text-primary: #eef7fa;
-	--text-secondary: #8fa4b1;
-	--text-muted: #6f8593;
-	--accent: #67d4b0;
-	--accent-strong: #15383d;
+	/* Surviving non-token shell vars: fonts, pane-accent borders, sha and
+	 * provider colors. shadcn design tokens now live in src/styles/tokens.css
+	 * and are bridged to the legacy app-bg, panel and text names there. */
 	--pane-border-sessions: rgba(79, 179, 255, 0.5);
 	--pane-border-session-info: rgba(246, 169, 74, 0.5);
 	--pane-border-terminal: rgba(67, 211, 158, 0.5);
 	--pane-border-review: rgba(243, 107, 138, 0.5);
-	--warning: #f0c37a;
-	--danger: #d98c8c;
 	--sha-color: #a78bfa;
 	--provider-claude: #d97706;
 	--provider-codex: #2563eb;
@@ -33,47 +24,19 @@
 		"AI14All Terminal Powerline", "Meslo LG M DZ for Powerline",
 		"Meslo LG M for Powerline", "Meslo LG M DZ Regular for Powerline", "Hack",
 		ui-monospace, Menlo, Monaco, monospace;
-	--radius-sm: 2px;
-	--radius-md: 3px;
-	--radius-lg: 4px;
-	--space-1: 4px;
-	--space-2: 8px;
-	--space-3: 12px;
-	--space-4: 16px;
-	--space-5: 20px;
-	--space-6: 24px;
-	font-family: var(--font-ui);
-	color: var(--text-primary);
-	background: var(--app-bg);
-}
-
-:root {
 	--font-size-body: 13px;
 	--font-size-label: 16px;
+	font-family: var(--font-ui);
 }
 
 [data-theme="light"] {
-	--app-bg: #f0f2f5;
-	--panel-bg: #ffffff;
-	--panel-bg-elevated: #f5f7f9;
-	--panel-border: #d0d7e0;
-	--panel-border-strong: #a8b8cc;
-	--text-primary: #1e2530;
-	--text-secondary: #4a5a70;
-	--text-muted: #7a8a9a;
-	--accent: #1a7fc1;
-	--accent-strong: #ddeeff;
 	--pane-border-sessions: rgba(30, 120, 220, 0.4);
 	--pane-border-session-info: rgba(180, 120, 30, 0.4);
 	--pane-border-terminal: rgba(30, 160, 100, 0.4);
 	--pane-border-review: rgba(200, 60, 80, 0.4);
-	--warning: #b07800;
-	--danger: #c0404a;
 	--sha-color: #6d4cbc;
 	--provider-claude: #b45309;
 	--provider-codex: #1d4ed8;
-	color: var(--text-primary);
-	background: var(--app-bg);
 }
 
 [data-theme="light"] body {
@@ -98,27 +61,13 @@
  * text, and a terracotta accent. Preview with
  * document.documentElement.setAttribute("data-theme", "warm"). */
 [data-theme="warm"] {
-	--app-bg: #221c15;
-	--panel-bg: #2a231b;
-	--panel-bg-elevated: #342c22;
-	--panel-border: #4a3f31;
-	--panel-border-strong: #6d5b46;
-	--text-primary: #f6efe4;
-	--text-secondary: #cab999;
-	--text-muted: #9a8366;
-	--accent: #e58a5e;
-	--accent-strong: #3d2817;
 	--pane-border-sessions: rgba(108, 188, 184, 0.6);
 	--pane-border-session-info: rgba(228, 158, 80, 0.6);
 	--pane-border-terminal: rgba(226, 140, 96, 0.6);
 	--pane-border-review: rgba(220, 122, 110, 0.6);
-	--warning: #dda85e;
-	--danger: #d97058;
 	--sha-color: #c4a0db;
 	--provider-claude: #e58a5e;
 	--provider-codex: #5a9bd6;
-	color: var(--text-primary);
-	background: var(--app-bg);
 }
 
 [data-theme="warm"] body {
