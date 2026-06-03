@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -79,14 +80,15 @@ export function CommitList({
 						<span>↑{remoteStatus.ahead}</span>
 						<span>↓{remoteStatus.behind}</span>
 					</span>
-					<button
+					<Button
 						type="button"
-						className="shell-button shell-button--xs"
+						variant="secondary"
+						size="sm"
 						disabled={pushDisabled}
 						onClick={handlePushClick}
 					>
 						Push
-					</button>
+					</Button>
 					<ForcePushDialog
 						open={forcePushOpen}
 						behind={remoteStatus.behind}
