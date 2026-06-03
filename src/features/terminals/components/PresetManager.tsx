@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AppDialog } from "../../../components/AppDialog";
 import type { CommandPreset } from "../../../../shared/models/command-preset";
@@ -61,27 +62,30 @@ export function PresetManager({
 								<span style={{ flex: 1 }}>
 									{preset.label} — <code>{preset.command}</code>
 								</span>
-								<button
+								<Button
 									type="button"
-									className="shell-button shell-button--compact"
+									variant="secondary"
+									size="sm"
 									onClick={() => handleEdit(preset)}
 								>
 									Edit
-								</button>
-								<button
+								</Button>
+								<Button
 									type="button"
-									className="shell-button shell-button--compact"
+									variant="secondary"
+									size="sm"
 									onClick={() => onDelete(preset.id)}
 								>
 									Delete
-								</button>
-								<button
+								</Button>
+								<Button
 									type="button"
-									className="shell-button shell-button--compact"
+									variant="secondary"
+									size="sm"
 									onClick={() => onLaunch(preset.id)}
 								>
 									Launch
-								</button>
+								</Button>
 							</li>
 						))}
 					</ul>
@@ -114,13 +118,14 @@ export function PresetManager({
 							marginTop: "var(--space-3)",
 						}}
 					>
-						<button
+						<Button
 							type="button"
-							className="shell-button shell-button--compact shell-button--primary"
+							variant="default"
+							size="sm"
 							onClick={handleSave}
 						>
 							Save preset
-						</button>
+						</Button>
 					</div>
 				</div>
 			</AppDialog.Body>
