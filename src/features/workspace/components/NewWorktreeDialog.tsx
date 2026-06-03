@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AppDialog } from "../../../components/AppDialog";
 import type { CreateWorktreePreview } from "../../../../shared/models/worktree-lifecycle";
@@ -87,17 +88,19 @@ export function NewWorktreeDialog({
 				)}
 			</AppDialog.Body>
 			<AppDialog.Footer>
-				<button
+				<Button
 					type="button"
-					className="shell-button shell-button--compact"
+					variant="secondary"
+					size="sm"
 					onClick={() => onOpenChange(false)}
 					disabled={busy}
 				>
 					Cancel
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button shell-button--compact shell-button--primary"
+					variant="default"
+					size="sm"
 					onClick={onConfirm}
 					disabled={!preview || loading || busy}
 				>
@@ -109,7 +112,7 @@ export function NewWorktreeDialog({
 					) : (
 						"Create worktree"
 					)}
-				</button>
+				</Button>
 			</AppDialog.Footer>
 		</AppDialog>
 	);
