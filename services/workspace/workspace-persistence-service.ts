@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
@@ -57,6 +58,13 @@ function migratePersistedWorkspaceState(
 }
 
 export class WorkspacePersistenceService {
+	// Serializes overlapping writeState() calls: each write waits for the
+	// previous one to settle before running, so concurrent callers never race
+	// on the temp file and last-submitted-wins ordering is preserved.
+	private writeChain: Promise<void> = Promise.resolve();
+	// Monotonic counter contributing to unique temp file names.
+	private writeCounter = 0;
+
 	constructor(
 		private readonly filePath: string,
 		private readonly fs: PersistenceFsAdapter = DEFAULT_FS,
@@ -94,8 +102,30 @@ export class WorkspacePersistenceService {
 	}
 
 	async writeState(state: PersistedWorkspaceStateV2): Promise<void> {
+		const previous = this.writeChain;
+		const run = (async () => {
+			// Wait for the prior write to finish, but don't inherit its failure —
+			// this write must still run (and report its own outcome).
+			try {
+				await previous;
+			} catch {
+				/* prior write failed; proceed with ours */
+			}
+			return this.doWriteState(state);
+		})();
+		// Keep the chain alive regardless of this write's outcome so a failed
+		// write never wedges subsequent ones.
+		this.writeChain = run.catch(() => {});
+		return run;
+	}
+
+	private async doWriteState(state: PersistedWorkspaceStateV2): Promise<void> {
 		await this.fs.mkdir(dirname(this.filePath), { recursive: true });
-		const tmp = `${this.filePath}.ai-14all.tmp`;
+		// Unique per write so overlapping writers (or a crashed prior run) never
+		// collide on a shared temp file — the original cause of intermittent
+		// "ENOENT … rename …ai-14all.tmp" errors in production.
+		this.writeCounter += 1;
+		const tmp = `${this.filePath}.${process.pid}.${this.writeCounter}.${randomUUID()}.ai-14all.tmp`;
 		const payload = `${JSON.stringify(state, null, 2)}\n`;
 		await this.fs.writeFile(tmp, payload, "utf8");
 		try {

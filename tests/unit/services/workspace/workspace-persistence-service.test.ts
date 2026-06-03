@@ -9,7 +9,7 @@ import {
 	writeFileSync,
 	readFileSync,
 } from "node:fs";
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { mkdir, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -195,6 +195,75 @@ describe("WorkspacePersistenceService", () => {
 			activeWorkspaceId: string | null;
 		};
 		expect(stillThere.activeWorkspaceId).toBe("workspace:foo");
+		const entries = readdirSync(tempDir);
+		expect(entries.some((e) => e.endsWith(".ai-14all.tmp"))).toBe(false);
+	});
+
+	it("uses a unique temp path for each write (no shared-temp collision)", async () => {
+		const tmpPaths: string[] = [];
+		const spyFs: PersistenceFsAdapter = {
+			mkdir,
+			rename,
+			unlink,
+			writeFile: (async (path: Parameters<typeof writeFile>[0], ...rest) => {
+				tmpPaths.push(String(path));
+				return writeFile(
+					path,
+					...(rest as [Parameters<typeof writeFile>[1]]),
+				);
+			}) as typeof writeFile,
+		};
+		const spyService = new WorkspacePersistenceService(filePath, spyFs);
+
+		const base = {
+			version: 2 as const,
+			restorePreference: "prompt" as const,
+			activeWorkspaceId: null as string | null,
+			workspaceOrder: [] as string[],
+			workspaces: [] as never[],
+		};
+		await spyService.writeState({ ...base, activeWorkspaceId: "a" });
+		await spyService.writeState({ ...base, activeWorkspaceId: "b" });
+
+		expect(tmpPaths).toHaveLength(2);
+		expect(new Set(tmpPaths).size).toBe(2);
+		expect(tmpPaths.every((p) => p.endsWith(".ai-14all.tmp"))).toBe(true);
+	});
+
+	it("handles concurrent writes without ENOENT and last submitted write wins", async () => {
+		// Slow the rename to force the interleaving that exposed the original
+		// shared-temp race: both writes finish before either rename runs.
+		const slowFs: PersistenceFsAdapter = {
+			mkdir,
+			writeFile,
+			unlink,
+			rename: (async (...args: Parameters<typeof rename>) => {
+				await new Promise((resolve) => setTimeout(resolve, 10));
+				return rename(...args);
+			}) as typeof rename,
+		};
+		const racingService = new WorkspacePersistenceService(filePath, slowFs);
+
+		const base = {
+			version: 2 as const,
+			restorePreference: "prompt" as const,
+			activeWorkspaceId: null as string | null,
+			workspaceOrder: [] as string[],
+			workspaces: [] as never[],
+		};
+
+		await expect(
+			Promise.all([
+				racingService.writeState({ ...base, activeWorkspaceId: "workspace:a" }),
+				racingService.writeState({ ...base, activeWorkspaceId: "workspace:b" }),
+			]),
+		).resolves.toBeDefined();
+
+		const final = JSON.parse(readFileSync(filePath, "utf8")) as {
+			activeWorkspaceId: string | null;
+		};
+		expect(final.activeWorkspaceId).toBe("workspace:b");
+
 		const entries = readdirSync(tempDir);
 		expect(entries.some((e) => e.endsWith(".ai-14all.tmp"))).toBe(false);
 	});
