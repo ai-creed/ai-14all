@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { AppDialog } from "../../../components/AppDialog";
 import type { RemoveWorktreePreview } from "../../../../shared/models/worktree-lifecycle";
 
@@ -62,21 +63,23 @@ export function RemoveWorktreeDialog({
 				{error && <div className="shell-error-banner">{error}</div>}
 			</AppDialog.Body>
 			<AppDialog.Footer>
-				<button
+				<Button
 					type="button"
-					className="shell-button shell-button--compact"
+					variant="secondary"
+					size="sm"
 					onClick={() => onOpenChange(false)}
 				>
 					Cancel
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button shell-button--compact shell-button--danger"
+					variant="destructive"
+					size="sm"
 					onClick={onConfirm}
 					disabled={!preview || busy || (preview.isDirty && !confirmedDirty)}
 				>
 					{busy ? "Removing…" : "Remove worktree"}
-				</button>
+				</Button>
 			</AppDialog.Footer>
 		</AppDialog>
 	);

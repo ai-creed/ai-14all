@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Button } from "@/components/ui/button";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -115,14 +116,15 @@ export function SessionSidebar({
 		>
 			<div className="shell-sidebar__header">
 				{!collapsed && <div className="shell-label">Sessions</div>}
-				<button
+				<Button
 					type="button"
-					className="shell-button shell-button--icon shell-button--compact shell-button--round"
+					variant="ghost"
+					size="icon"
 					aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 					onClick={onToggleCollapsed}
 				>
 					<span aria-hidden="true">{collapsed ? "▸" : "◂"}</span>
-				</button>
+				</Button>
 			</div>
 
 			<div className="shell-sidebar__list">
@@ -156,14 +158,15 @@ export function SessionSidebar({
 									>
 										{workspace.name}
 									</button>
-									<button
+									<Button
 										type="button"
-										className="shell-button shell-button--icon shell-button--compact shell-button--round"
+										variant="ghost"
+										size="icon"
 										aria-label={`Remove ${workspace.name}`}
 										onClick={() => onRemoveWorkspace(workspace.workspaceId)}
 									>
 										×
-									</button>
+									</Button>
 								</>
 							)}
 						</div>
@@ -309,9 +312,11 @@ export function SessionSidebar({
 													{row.hasFailedReason &&
 													onClearFailedReason &&
 													workspace.active ? (
-														<button
+														<Button
 															type="button"
-															className="shell-button shell-button--compact shell-sidebar__process-clear-failed"
+															variant="secondary"
+															size="sm"
+															className="shell-sidebar__process-clear-failed"
 															aria-label={`Clear failed for ${row.label}`}
 															onClick={(e) => {
 																e.stopPropagation();
@@ -323,7 +328,7 @@ export function SessionSidebar({
 															}}
 														>
 															Clear failed
-														</button>
+														</Button>
 													) : null}
 												</div>
 											))}
@@ -444,28 +449,30 @@ export function SessionSidebar({
 
 						{workspace.active && (
 							<div className="shell-sidebar__footer">
-								<button
+								<Button
 									type="button"
-									className="shell-button shell-button--compact"
+									variant="secondary"
+									size="sm"
 									onClick={() => onCreateWorktree(workspace.workspaceId)}
 									aria-label="New session"
 								>
 									{collapsed ? "+" : "+ New session"}
-								</button>
+								</Button>
 							</div>
 						)}
 					</section>
 				))}
 			</div>
 			<div className="shell-sidebar__footer shell-sidebar__footer--global">
-				<button
+				<Button
 					type="button"
-					className="shell-button shell-button--compact"
+					variant="secondary"
+					size="sm"
 					onClick={onLoadWorkspace}
 					aria-label="Load workspace"
 				>
 					{collapsed ? "Load" : "Load workspace"}
-				</button>
+				</Button>
 			</div>
 		</nav>
 	);
