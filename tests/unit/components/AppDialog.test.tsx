@@ -28,7 +28,7 @@ describe("AppDialog", () => {
 				<AppDialog.Footer>f</AppDialog.Footer>
 			</AppDialog>,
 		);
-		const content = container.ownerDocument.querySelector(".shell-app-dialog");
+		const content = container.ownerDocument.querySelector('[role="dialog"]');
 		expect(content?.classList.contains("shell-app-dialog--wide")).toBe(true);
 	});
 
@@ -53,7 +53,7 @@ describe("AppDialog", () => {
 				<AppDialog.Footer>f</AppDialog.Footer>
 			</AppDialog>,
 		);
-		const content = container.ownerDocument.querySelector(".shell-app-dialog");
+		const content = container.ownerDocument.querySelector('[role="dialog"]');
 		// Radix omits aria-describedby attribute entirely when undefined is passed.
 		expect(content?.hasAttribute("aria-describedby")).toBe(false);
 	});
