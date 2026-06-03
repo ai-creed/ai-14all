@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Input } from "@/components/ui/input";
 import { AppDialog } from "../../../components/AppDialog";
 import type { CommandPreset } from "../../../../shared/models/command-preset";
 
@@ -89,22 +90,20 @@ export function PresetManager({
 				<div style={{ marginTop: "var(--space-4)" }}>
 					<div style={{ marginBottom: "var(--space-2)" }}>
 						<label htmlFor="preset-label">Preset label</label>
-						<input
+						<Input
 							id="preset-label"
 							type="text"
 							value={label}
 							onChange={(e) => setLabel(e.target.value)}
-							className="shell-input"
 						/>
 					</div>
 					<div style={{ marginBottom: "var(--space-2)" }}>
 						<label htmlFor="preset-command">Preset command</label>
-						<input
+						<Input
 							id="preset-command"
 							type="text"
 							value={command}
 							onChange={(e) => setCommand(e.target.value)}
-							className="shell-input"
 						/>
 					</div>
 					<div

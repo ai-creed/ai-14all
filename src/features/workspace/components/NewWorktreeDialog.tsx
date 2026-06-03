@@ -1,3 +1,4 @@
+import { Input } from "@/components/ui/input";
 import { AppDialog } from "../../../components/AppDialog";
 import type { CreateWorktreePreview } from "../../../../shared/models/worktree-lifecycle";
 import { getCreateWorktreeErrorHint } from "../logic/create-worktree-error-hint";
@@ -50,20 +51,18 @@ export function NewWorktreeDialog({
 			<AppDialog.Body>
 				<label className="shell-app-dialog__field">
 					<span>Name</span>
-					<input
+					<Input
 						autoFocus
 						value={name}
 						onChange={(event) => onNameChange(event.target.value)}
-						className="shell-input"
 					/>
 				</label>
 				<label className="shell-app-dialog__field">
 					<span>Session title (optional)</span>
-					<input
+					<Input
 						value={sessionTitle}
 						onChange={(event) => onSessionTitleChange(event.target.value)}
 						placeholder={preview?.branchName ?? ""}
-						className="shell-input"
 					/>
 				</label>
 				<div className="shell-app-dialog__field">
