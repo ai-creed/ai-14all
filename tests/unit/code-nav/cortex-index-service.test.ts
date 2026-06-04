@@ -79,6 +79,7 @@ describe("CortexIndexService", () => {
 
 	it("getWorktreeStatus returns dirtyAtIndex from meta", () => {
 		const out = svc.getWorktreeStatus(wt);
+		expect(out.available).toBe(true);
 		expect(out.ready).toBe(true);
 		expect(out.dirtyAtIndex).toBe(false);
 	});

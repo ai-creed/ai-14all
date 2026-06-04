@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import { rankDefinitions, type DefinitionRow } from "./ranking.js";
+import { readAvailabilityMarker } from "./source/availability-marker.js";
 
 export interface WorktreeKeys {
 	worktreePath: string;
@@ -15,10 +16,12 @@ export interface CortexIndexServiceOptions {
 }
 
 export interface WorktreeStatus {
+	available: boolean;
 	ready: boolean;
 	dirtyAtIndex: boolean;
 	sourceFingerprint: string | null;
 	sourceIndexedAt: string | null;
+	reason: "no-cortex" | "unsupported-schema" | "not-indexed" | null;
 }
 
 interface Handle {
@@ -174,18 +177,32 @@ export class CortexIndexService {
 	}
 
 	getWorktreeStatus(keys: WorktreeKeys): WorktreeStatus {
-		const db = this.open(keys);
-		const get = (k: string): string | undefined =>
-			(
-				db.prepare("SELECT value FROM meta WHERE key = ?").get(k) as
-					| { value: string }
-					| undefined
-			)?.value;
+		const path = this.dbPathForKeys(keys.repoKey, keys.worktreeKey);
+		if (existsSync(path)) {
+			const db = this.open(keys);
+			const get = (k: string): string | undefined =>
+				(
+					db.prepare("SELECT value FROM meta WHERE key = ?").get(k) as
+						| { value: string }
+						| undefined
+				)?.value;
+			return {
+				available: true,
+				ready: true,
+				dirtyAtIndex: get("dirty_at_index") === "1",
+				sourceFingerprint: get("source_fingerprint") ?? null,
+				sourceIndexedAt: get("source_indexed_at") ?? null,
+				reason: null,
+			};
+		}
+		const marker = readAvailabilityMarker(this.opts.cacheRoot, keys);
 		return {
-			ready: true,
-			dirtyAtIndex: get("dirty_at_index") === "1",
-			sourceFingerprint: get("source_fingerprint") ?? null,
-			sourceIndexedAt: get("source_indexed_at") ?? null,
+			available: false,
+			ready: false,
+			dirtyAtIndex: false,
+			sourceFingerprint: null,
+			sourceIndexedAt: null,
+			reason: marker ? marker.reason : "not-indexed",
 		};
 	}
 

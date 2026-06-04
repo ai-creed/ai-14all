@@ -719,9 +719,11 @@ export const DefinitionRowSchema = z.object({
 export type DefinitionRowPayload = z.infer<typeof DefinitionRowSchema>;
 
 export const WorktreeStatusSchema = z.object({
+	available: z.boolean(),
 	ready: z.boolean(),
 	dirtyAtIndex: z.boolean(),
 	sourceFingerprint: z.string().nullable(),
 	sourceIndexedAt: z.string().nullable(),
+	reason: z.enum(["no-cortex", "unsupported-schema", "not-indexed"]).nullable(),
 });
 export type WorktreeStatusPayload = z.infer<typeof WorktreeStatusSchema>;
