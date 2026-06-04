@@ -93,6 +93,32 @@ describe("ingestCortexStore", () => {
 		makeCortexFixtureDb(cortexDb, { meta: { fingerprint: "fp2" }, functions: [{ qualified_name: "x", file: "x.ts", line: 1 }] });
 		expect(ingestCortexStore(cortexDb, mirror)).toMatchObject({ skipped: false });
 	});
+
+	it("returns no-store when the cortex .db is missing", () => {
+		const result = ingestCortexStore(join(dir, "missing.db"), join(dir, "m.sqlite"));
+		expect(result).toEqual({ unavailable: true, reason: "no-store" });
+	});
+
+	it("rejects schemaVersion 3.0 and 4.0; accepts 3.1", () => {
+		const lo = join(dir, "lo.db");
+		makeCortexFixtureDb(lo, { meta: { schemaVersion: "3.0" }, functions: [{ qualified_name: "a", file: "a.ts", line: 1 }] });
+		expect(ingestCortexStore(lo, join(dir, "lo.sqlite"))).toEqual({
+			unavailable: true,
+			reason: "unsupported-schema",
+			schemaVersion: "3.0",
+		});
+
+		const hi = join(dir, "hi.db");
+		makeCortexFixtureDb(hi, { meta: { schemaVersion: "4.0" }, functions: [{ qualified_name: "a", file: "a.ts", line: 1 }] });
+		expect(ingestCortexStore(hi, join(dir, "hi.sqlite"))).toMatchObject({
+			unavailable: true,
+			reason: "unsupported-schema",
+		});
+
+		const ok = join(dir, "ok.db");
+		makeCortexFixtureDb(ok, { meta: { schemaVersion: "3.1" }, functions: [{ qualified_name: "a", file: "a.ts", line: 1 }] });
+		expect(ingestCortexStore(ok, join(dir, "ok.sqlite"))).toMatchObject({ skipped: false });
+	});
 });
 
 // Helper: ingest the given cortex db into a fresh mirror path and return it.
