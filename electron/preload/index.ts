@@ -459,6 +459,9 @@ const api: Ai14AllDesktopApi = {
 		onWorktreeIndexRefreshed(handler) {
 			return onChannel("code-nav:worktreeIndexRefreshed", handler);
 		},
+		onWorktreeUnavailable(handler) {
+			return onChannel("code-nav:worktreeUnavailable", handler);
+		},
 	},
 };
 

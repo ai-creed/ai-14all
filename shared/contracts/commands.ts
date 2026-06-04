@@ -643,6 +643,13 @@ export type Ai14AllDesktopApi = {
 		onWorktreeIndexRefreshed(
 			handler: (e: { workspaceId: string; worktreeId: string }) => void,
 		): () => void;
+		onWorktreeUnavailable(
+			handler: (e: {
+				workspaceId: string;
+				worktreeId: string;
+				reason: "no-cortex" | "unsupported-schema";
+			}) => void,
+		): () => void;
 	};
 };
 

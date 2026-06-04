@@ -9,6 +9,7 @@ import { getNavRouter } from "../nav/router-singleton.js";
 import { getActiveWorktreeRef } from "../nav/active-worktree-ref.js";
 import { useSymbolSearch } from "./use-symbol-search.js";
 import { useWorktreeStatus } from "./use-worktree-status.js";
+import { unavailableMessage } from "./unavailable-message.js";
 
 export function SymbolPalette({
 	open,
@@ -54,64 +55,77 @@ export function SymbolPalette({
 		<AppDialog open={open} onOpenChange={(v) => !v && onClose()}>
 			<DialogTitle>Go to symbol</DialogTitle>
 			<DialogBody>
-				{status?.dirtyAtIndex && (
+				{status && status.available === false ? (
 					<div
 						role="status"
-						data-testid="stale-index-banner"
-						className="code-nav-stale-banner"
+						data-testid="code-nav-unavailable-banner"
+						className="code-nav-unavailable-banner"
 					>
-						<span>Index reflects HEAD, not working tree.</span>
-						<button
-							type="button"
-							onClick={handleRefresh}
-							disabled={refreshing}
-						>
-							{refreshing ? "Refreshing…" : "Refresh index"}
-						</button>
+						{unavailableMessage(status.reason)}
 					</div>
-				)}
-				<input
-					autoFocus
-					value={query}
-					onChange={(e) => {
-						setQuery(e.target.value);
-						setCursor(0);
-					}}
-					onKeyDown={(e) => {
-						if (e.key === "ArrowDown")
-							setCursor((c) => Math.min(c + 1, results.length - 1));
-						else if (e.key === "ArrowUp")
-							setCursor((c) => Math.max(c - 1, 0));
-						else if (e.key === "Enter") pick(cursor);
-						else if (e.key === "Escape") onClose();
-					}}
-				/>
-				{loading && <p>Searching…</p>}
-				{error && <p role="alert">{error}</p>}
-				<ul role="listbox">
-					{results.map((r, i) => (
-						<li
-							key={r.id}
-							role="option"
-							aria-selected={i === cursor}
-							onClick={() => pick(i)}
-						>
-							<span
-								aria-label={
-									r.qualified_name.includes(".") ? "method" : "function"
-								}
+				) : (
+					<>
+						{status?.dirtyAtIndex && (
+							<div
+								role="status"
+								data-testid="stale-index-banner"
+								className="code-nav-stale-banner"
 							>
-								{r.qualified_name.includes(".") ? "⊕" : "ƒ"}
-							</span>
-							<span>{r.qualified_name}</span>
-							<span>
-								{r.file}:{r.line}
-							</span>
-							{r.exported ? <span>exported</span> : null}
-							{r.is_default ? <span>default</span> : null}
-						</li>
-					))}
-				</ul>
+								<span>Index reflects HEAD, not working tree.</span>
+								<button
+									type="button"
+									onClick={handleRefresh}
+									disabled={refreshing}
+								>
+									{refreshing ? "Refreshing…" : "Refresh index"}
+								</button>
+							</div>
+						)}
+						<input
+							data-testid="symbol-search-input"
+							autoFocus
+							value={query}
+							onChange={(e) => {
+								setQuery(e.target.value);
+								setCursor(0);
+							}}
+							onKeyDown={(e) => {
+								if (e.key === "ArrowDown")
+									setCursor((c) => Math.min(c + 1, results.length - 1));
+								else if (e.key === "ArrowUp")
+									setCursor((c) => Math.max(c - 1, 0));
+								else if (e.key === "Enter") pick(cursor);
+								else if (e.key === "Escape") onClose();
+							}}
+						/>
+						{loading && <p>Searching…</p>}
+						{error && <p role="alert">{error}</p>}
+						<ul role="listbox">
+							{results.map((r, i) => (
+								<li
+									key={r.id}
+									role="option"
+									aria-selected={i === cursor}
+									onClick={() => pick(i)}
+								>
+									<span
+										aria-label={
+											r.qualified_name.includes(".") ? "method" : "function"
+										}
+									>
+										{r.qualified_name.includes(".") ? "⊕" : "ƒ"}
+									</span>
+									<span>{r.qualified_name}</span>
+									<span>
+										{r.file}:{r.line}
+									</span>
+									{r.exported ? <span>exported</span> : null}
+									{r.is_default ? <span>default</span> : null}
+								</li>
+							))}
+						</ul>
+					</>
+				)}
 			</DialogBody>
 		</AppDialog>
 	);

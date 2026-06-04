@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { codeNavClient, type WorktreeRef } from "../ipc/client.js";
-import { subscribeWorktreeIndexRefreshed } from "../ipc/events.js";
+import {
+	subscribeWorktreeIndexRefreshed,
+	subscribeWorktreeUnavailable,
+} from "../ipc/events.js";
 import type { WorktreeStatusPayload } from "../../../../shared/contracts/commands.js";
 
 export function useWorktreeStatus(
@@ -35,9 +38,17 @@ export function useWorktreeStatus(
 			)
 				void load();
 		});
+		const unsubUnavailable = subscribeWorktreeUnavailable((e) => {
+			if (
+				e.workspaceId === ref.workspaceId &&
+				e.worktreeId === ref.worktreeId
+			)
+				void load();
+		});
 		return () => {
 			cancelled = true;
 			unsub();
+			unsubUnavailable();
 		};
 	}, [ref?.workspaceId, ref?.worktreeId]);
 
