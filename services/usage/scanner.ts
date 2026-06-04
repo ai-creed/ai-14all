@@ -63,6 +63,32 @@ export function listJsonlFiles(root: string): string[] {
 	return out.sort();
 }
 
+// Drop cached offsets for files modified within `windowMs` of `nowMs` so the
+// next scan re-reads them from the start. Called once per launch: the worker's
+// aggregator is rebuilt empty each run, so resuming at the persisted offset
+// would lose this-week usage that was already consumed in a prior session.
+// Files older than the window can't contribute to the rolling window, so their
+// offsets are preserved (no needless re-parsing).
+export function resetRecentOffsets(
+	roots: string[],
+	cache: OffsetCache,
+	nowMs: number,
+	windowMs: number,
+): void {
+	const cutoff = nowMs - windowMs;
+	for (const root of roots) {
+		for (const file of listJsonlFiles(root)) {
+			let mtime: number;
+			try {
+				mtime = statSync(file).mtimeMs;
+			} catch {
+				continue;
+			}
+			if (mtime >= cutoff) cache.delete(file);
+		}
+	}
+}
+
 // Process ONE Claude file: ingest events parsed from newly-appended lines, then
 // advance the offset cache. Returns the number of events ingested.
 export function processClaudeFile(
