@@ -211,9 +211,7 @@ export class WorktreeService {
 	 * any default branch work. If `origin/HEAD` is unset we fail with an
 	 * actionable error instead of guessing.
 	 */
-	private async resolveDefaultBaseRef(
-		repository: Repository,
-	): Promise<string> {
+	private async resolveDefaultBaseRef(repository: Repository): Promise<string> {
 		let symbolicRef = "";
 		try {
 			symbolicRef = await git(

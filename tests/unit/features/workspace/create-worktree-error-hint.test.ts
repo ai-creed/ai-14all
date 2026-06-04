@@ -22,7 +22,9 @@ describe("getCreateWorktreeErrorHint", () => {
 
 	it("returns null for unrelated errors so the raw banner is used", () => {
 		expect(
-			getCreateWorktreeErrorHint("Worktree path already exists: /repo/.worktrees/x"),
+			getCreateWorktreeErrorHint(
+				"Worktree path already exists: /repo/.worktrees/x",
+			),
 		).toBeNull();
 	});
 });

@@ -207,10 +207,7 @@ describe("WorkspacePersistenceService", () => {
 			unlink,
 			writeFile: (async (path: Parameters<typeof writeFile>[0], ...rest) => {
 				tmpPaths.push(String(path));
-				return writeFile(
-					path,
-					...(rest as [Parameters<typeof writeFile>[1]]),
-				);
+				return writeFile(path, ...(rest as [Parameters<typeof writeFile>[1]]));
 			}) as typeof writeFile,
 		};
 		const spyService = new WorkspacePersistenceService(filePath, spyFs);
