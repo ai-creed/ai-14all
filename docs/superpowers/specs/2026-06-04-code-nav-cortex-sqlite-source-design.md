@@ -143,7 +143,10 @@ the one written against." We were written against `3.1`, so:
 ```ts
 // SUPPORTED_SCHEMA = { major: 3, minMinor: 1 }   // written against 3.1
 function isSupportedSchemaVersion(v: string): boolean {
-  const [major, minor] = v.split('.').map(Number); // "3.1" -> [3, 1]
+  const parts = v.split('.');                      // cortex uses exactly major.minor
+  if (parts.length !== 2) return false;            // "3", "3.1.0" → malformed → reject
+  const major = Number(parts[0]);
+  const minor = Number(parts[1]);
   if (!Number.isInteger(major) || !Number.isInteger(minor)) return false;
   return major === SUPPORTED_SCHEMA.major && minor >= SUPPORTED_SCHEMA.minMinor;
 }
@@ -158,7 +161,8 @@ Exact semantics this enforces (and that tests MUST cover):
 | `3.2` (any higher minor) | accept | minor at/above written-against |
 | `2.9` (any lower major) | reject | wrong major |
 | `4.0` (any higher major) | reject | wrong major — requires a code update; disable until then |
-| malformed / non-numeric | reject | treated as unsupported |
+| `3.1.0` / `3.1.2` (extra segments) | reject | not the canonical `major.minor` form |
+| malformed / non-numeric (`""`, `"3"`, `"3.x"`) | reject | treated as unsupported |
 
 This predicate is the *only* place the version gate is decided; all callers
 delegate to it rather than re-checking `major`.
