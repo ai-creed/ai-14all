@@ -62,6 +62,12 @@ export function createTestRepo(): TestRepo {
 		cwd: repoPath,
 		stdio: "ignore",
 	});
+	// New-worktree creation resolves the base from origin/HEAD (like a cloned
+	// repo), so point it at origin/master to match the Phase 7 expectations.
+	execSync(
+		"git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/master",
+		{ cwd: repoPath, stdio: "ignore" },
+	);
 
 	// Create linked worktree on feature-a branch
 	execSync("git branch feature-a", { cwd: repoPath, stdio: "ignore" });

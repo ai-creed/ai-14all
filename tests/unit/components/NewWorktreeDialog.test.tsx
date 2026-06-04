@@ -20,9 +20,7 @@ function renderDialog(overrides?: {
 			open={true}
 			name="feature-x"
 			sessionTitle=""
-			preview={
-				overrides && "preview" in overrides ? overrides.preview : PREVIEW
-			}
+			preview={overrides?.preview === undefined ? PREVIEW : overrides.preview}
 			loading={false}
 			error={overrides?.error ?? null}
 			busy={overrides?.busy ?? false}
@@ -58,7 +56,9 @@ describe("NewWorktreeDialog", () => {
 				"Run: git remote set-head origin -a",
 		});
 		expect(screen.getByText(/no default branch detected/i)).toBeInTheDocument();
-		expect(screen.getByText("git remote set-head origin -a")).toBeInTheDocument();
+		expect(
+			screen.getByText("git remote set-head origin -a"),
+		).toBeInTheDocument();
 		// The raw red banner should NOT also be shown for a recognized error.
 		expect(document.querySelector(".shell-error-banner")).toBeNull();
 	});

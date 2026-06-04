@@ -4,7 +4,7 @@ export type CreateWorktreePreview = {
 	name: string;
 	branchName: string;
 	path: string;
-	baseRef: "origin/master";
+	baseRef: string;
 	baseCommit: GitCommitSummary;
 };
 
