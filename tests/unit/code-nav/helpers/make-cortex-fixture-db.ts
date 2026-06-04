@@ -1,6 +1,6 @@
 import { mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
-import Database from "better-sqlite3";
+import { DatabaseSync } from "node:sqlite";
 
 export interface CortexFixture {
 	meta?: Record<string, string>;
@@ -28,7 +28,14 @@ export interface CortexFixture {
 	files?: Array<{ path: string; kind: string; content_hash?: string | null }>;
 }
 
-/** Builds a cortex-shaped v3.1 `.db` at dbPath (mirrors cortex's table layout). */
+/**
+ * Builds a cortex-shaped v3.1 `.db` at dbPath (mirrors cortex's table layout).
+ *
+ * Uses node's built-in `node:sqlite` rather than better-sqlite3 so the helper is
+ * ABI-independent: the unit tests read the file with host-ABI better-sqlite3 and
+ * the e2e test process (which runs while the app's better-sqlite3 is built for
+ * Electron's ABI) can still create fixtures without a native ABI mismatch.
+ */
 export function makeCortexFixtureDb(
 	dbPath: string,
 	fx: CortexFixture = {},
@@ -40,8 +47,7 @@ export function makeCortexFixtureDb(
 	// "table already exists" on the second call.
 	for (const suffix of ["", "-wal", "-shm"])
 		rmSync(`${dbPath}${suffix}`, { force: true });
-	const db = new Database(dbPath);
-	db.pragma("journal_mode = WAL");
+	const db = new DatabaseSync(dbPath);
 	db.exec(`
 		CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 		CREATE TABLE files (path TEXT PRIMARY KEY, kind TEXT NOT NULL, content_hash TEXT);
@@ -67,7 +73,7 @@ export function makeCortexFixtureDb(
 		dirtyAtIndex: "0",
 		...(fx.meta ?? {}),
 	};
-	const im = db.prepare("INSERT INTO meta (key, value) VALUES (?,?)");
+	const im = db.prepare("INSERT INTO meta (key, value) VALUES (?, ?)");
 	for (const [k, v] of Object.entries(meta)) im.run(k, String(v));
 	const inf = db.prepare(
 		"INSERT INTO functions (qualified_name, file, exported, is_default_export, line, is_declaration_only, col, end_line, end_col, id) VALUES (?,?,?,?,?,?,?,?,?,?)",
@@ -99,11 +105,11 @@ export function makeCortexFixtureDb(
 			c.site_end_col ?? null,
 		);
 	const ii = db.prepare(
-		"INSERT INTO imports (from_path, to_path) VALUES (?,?)",
+		"INSERT INTO imports (from_path, to_path) VALUES (?, ?)",
 	);
 	for (const i of fx.imports ?? []) ii.run(i.from_path, i.to_path);
 	const iff = db.prepare(
-		"INSERT INTO files (path, kind, content_hash) VALUES (?,?,?)",
+		"INSERT INTO files (path, kind, content_hash) VALUES (?, ?, ?)",
 	);
 	for (const f of fx.files ?? [])
 		iff.run(f.path, f.kind, f.content_hash ?? null);
