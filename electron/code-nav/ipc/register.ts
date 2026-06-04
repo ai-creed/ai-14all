@@ -1,5 +1,4 @@
 import { ipcMain } from "electron";
-import { readFileSync } from "node:fs";
 import {
 	FindCalleesSchema,
 	FindCallersSchema,
@@ -12,7 +11,7 @@ import {
 	UnwatchWorktreeSchema,
 	WatchWorktreeSchema,
 } from "../../../shared/contracts/commands.js";
-import { ingestCortexJson } from "../ingest/json-to-sqlite.js";
+import { ingestCortexStore } from "../ingest/cortex-store-to-mirror.js";
 import type {
 	CortexIndexService,
 	WorktreeKeys,
@@ -138,9 +137,8 @@ export function registerCodeNavIpc(deps: CodeNavIpcDeps): () => void {
 	// the AI14ALL_E2E env so it is never registered in production builds.
 	if (process.env.AI14ALL_E2E) {
 		ipcMain.handle("code-nav:e2eIngest", async (_e, raw: unknown) => {
-			const p = raw as { jsonPath: string; dbPath: string };
-			const json = JSON.parse(readFileSync(p.jsonPath, "utf8"));
-			return ingestCortexJson(json, p.dbPath);
+			const p = raw as { cortexDbPath: string; dbPath: string };
+			return ingestCortexStore(p.cortexDbPath, p.dbPath);
 		});
 	}
 

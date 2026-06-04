@@ -1,14 +1,10 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CortexIndexService } from "../../../electron/code-nav/cortex-index-service.js";
-import { ingestCortexJson } from "../../../electron/code-nav/ingest/json-to-sqlite.js";
-
-const FIXTURE = resolve(
-	process.cwd(),
-	"electron/code-nav/ingest/__fixtures__/cortex-tiny.json",
-);
+import { ingestCortexStore } from "../../../electron/code-nav/ingest/cortex-store-to-mirror.js";
+import { makeCortexFixtureDb } from "./helpers/make-cortex-fixture-db.js";
 
 describe("CortexIndexService", () => {
 	let cacheDir: string;
@@ -17,9 +13,25 @@ describe("CortexIndexService", () => {
 	beforeEach(() => {
 		cacheDir = mkdtempSync(join(tmpdir(), "code-nav-svc-"));
 		svc = new CortexIndexService({ cacheRoot: cacheDir });
-		const json = JSON.parse(readFileSync(FIXTURE, "utf8"));
-		const dbPath = svc.dbPathForKeys(json.repoKey, json.worktreeKey);
-		ingestCortexJson(json, dbPath);
+		const cortexDb = join(cacheDir, "src.db");
+		makeCortexFixtureDb(cortexDb, {
+			meta: { repoKey: "repo1", worktreeKey: "wt1", worktreePath: "/fixture/wt" },
+			functions: [
+				{ qualified_name: "parseConfig", file: "src/utils.ts", line: 10, exported: 1 },
+				{ qualified_name: "render", file: "src/page.ts", line: 5, exported: 1 },
+				{ qualified_name: "Cli.parse", file: "src/utils.ts", line: 40, is_declaration_only: 1 },
+			],
+			calls: [
+				{ from_key: "src/page.ts::render", to_key: "src/utils.ts::parseConfig", kind: "call" },
+				{ from_key: "src/page.ts::render", to_key: "::unknownHelper", kind: "call" },
+			],
+			imports: [{ from_path: "src/page.ts", to_path: "src/utils.ts" }],
+			files: [
+				{ path: "src/page.ts", kind: "file" },
+				{ path: "src/utils.ts", kind: "file" },
+			],
+		});
+		ingestCortexStore(cortexDb, svc.dbPathForKeys("repo1", "wt1"));
 	});
 
 	afterEach(() => {
@@ -67,9 +79,7 @@ describe("CortexIndexService", () => {
 		const def = svc.findDefinitions(wt, { name: "parseConfig" })[0];
 		const callers = svc.findCallers(wt, { fnId: def.id });
 		expect(callers.length).toBeGreaterThanOrEqual(1);
-		expect(callers.some((c) => c.qualified_name === "src/page.ts::render")).toBe(
-			true,
-		);
+		expect(callers.some((c) => c.qualified_name === "render")).toBe(true);
 	});
 
 	it("getFileImports returns imported files", () => {

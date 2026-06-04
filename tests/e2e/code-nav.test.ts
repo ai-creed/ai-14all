@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 import { closeApp } from "./fixtures/close-app";
 import { ensureReviewOverlayOpen } from "./helpers/review-overlay";
+import { makeCortexFixtureDb } from "../unit/code-nav/helpers/make-cortex-fixture-db";
 
 let app: ElectronApplication | undefined;
 let page: Page;
@@ -62,47 +63,32 @@ test.beforeAll(async () => {
 
 	// Build a cortex JSON describing parseConfig in src/utils.ts and a render
 	// caller in src/index.ts (the file already present in the fixture).
-	const cortexJson = {
-		schemaVersion: 3,
-		fingerprint: "e2e-fp",
-		worktreePath: testRepo.worktreePath,
-		repoKey: REPO_KEY,
-		worktreeKey: WT_KEY,
-		indexedAt: new Date().toISOString(),
-		files: [
-			{ path: "src/utils.ts", kind: "file" as const },
-			{ path: "src/index.ts", kind: "file" as const },
-		],
-		functions: [
-			{
-				qualifiedName: "src/utils.ts::parseConfig",
-				file: "src/utils.ts",
-				line: 1,
-				exported: true,
-			},
-			{
-				qualifiedName: "src/index.ts::render",
-				file: "src/index.ts",
-				line: 1,
-				exported: true,
-			},
-		],
-		calls: [
-			{
-				from: "src/index.ts::render",
-				to: "src/utils.ts::parseConfig",
-				kind: "call" as const,
-			},
-		],
-		imports: [{ from: "src/index.ts", to: "src/utils.ts" }],
-	};
+	const cortexDbPath = join(cortexCacheRoot, REPO_KEY, `${WT_KEY}.db`);
 
 	// Pre-seed cortex sidecar so CortexKeyResolver maps worktreePath → keys.
 	mkdirSync(join(cortexCacheRoot, REPO_KEY), { recursive: true });
-	writeFileSync(
-		join(cortexCacheRoot, REPO_KEY, `${WT_KEY}.json`),
-		JSON.stringify(cortexJson),
-	);
+	// Build a cortex v3.1 `.db` (the new source) the app's e2e ingest reads.
+	makeCortexFixtureDb(cortexDbPath, {
+		meta: {
+			schemaVersion: "3.1",
+			fingerprint: "e2e-fp",
+			worktreePath: testRepo.worktreePath,
+			repoKey: REPO_KEY,
+			worktreeKey: WT_KEY,
+		},
+		functions: [
+			{ qualified_name: "parseConfig", file: "src/utils.ts", line: 1, exported: 1 },
+			{ qualified_name: "render", file: "src/index.ts", line: 1, exported: 1 },
+		],
+		calls: [
+			{ from_key: "src/index.ts::render", to_key: "src/utils.ts::parseConfig", kind: "call", site_line: 1, site_col: 1 },
+		],
+		imports: [{ from_path: "src/index.ts", to_path: "src/utils.ts" }],
+		files: [
+			{ path: "src/utils.ts", kind: "file" },
+			{ path: "src/index.ts", kind: "file" },
+		],
+	});
 	writeFileSync(
 		join(cortexCacheRoot, REPO_KEY, `${WT_KEY}.meta.json`),
 		JSON.stringify({
@@ -143,7 +129,7 @@ test.beforeAll(async () => {
 				}
 			).__codeNavE2eIngest(args),
 		{
-			jsonPath: join(cortexCacheRoot, REPO_KEY, `${WT_KEY}.json`),
+			cortexDbPath: join(cortexCacheRoot, REPO_KEY, `${WT_KEY}.db`),
 			dbPath: join(codeNavCacheRoot, REPO_KEY, `${WT_KEY}.sqlite`),
 		},
 	);

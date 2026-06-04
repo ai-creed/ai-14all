@@ -1,6 +1,10 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ipcMain } from "electron";
 import { registerCodeNavIpc } from "../../../electron/code-nav/ipc/register.js";
+import { makeCortexFixtureDb } from "./helpers/make-cortex-fixture-db.js";
 
 vi.mock("electron", () => {
 	const handlers = new Map<
@@ -166,5 +170,37 @@ describe("code-nav IPC trust boundary", () => {
 			name: "foo",
 			callerFile: undefined,
 		});
+	});
+});
+
+describe("code-nav:e2eIngest seam", () => {
+	let teardown: () => void;
+	let dir: string;
+	let prevE2e: string | undefined;
+	beforeEach(() => {
+		prevE2e = process.env.AI14ALL_E2E;
+		process.env.AI14ALL_E2E = "1";
+		dir = mkdtempSync(join(tmpdir(), "e2e-seam-"));
+	});
+	afterEach(() => {
+		teardown?.();
+		rmSync(dir, { recursive: true, force: true });
+		if (prevE2e === undefined) delete process.env.AI14ALL_E2E;
+		else process.env.AI14ALL_E2E = prevE2e;
+	});
+
+	it("registers e2eIngest and ingests a cortex .db given cortexDbPath", async () => {
+		const cortexDbPath = join(dir, "wtA.db");
+		makeCortexFixtureDb(cortexDbPath, {
+			functions: [{ qualified_name: "foo", file: "a.ts", line: 1 }],
+			files: [{ path: "a.ts", kind: "file" }],
+		});
+		const dbPath = join(dir, "mirror.sqlite");
+		const { dispose } = setup();
+		teardown = dispose;
+		const res = await (
+			ipcMain as unknown as { __invoke: Function }
+		).__invoke("code-nav:e2eIngest", { cortexDbPath, dbPath });
+		expect(res).toMatchObject({ skipped: false, functionsCount: 1 });
 	});
 });
