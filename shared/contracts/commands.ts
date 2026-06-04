@@ -697,15 +697,11 @@ export const RefreshWorktreeSchema = z
 	})
 	.strict();
 
-export const WatchWorktreeSchema = z
-	.object({ ...worktreeIdentShape })
-	.strict();
+export const WatchWorktreeSchema = z.object({ ...worktreeIdentShape }).strict();
 export const UnwatchWorktreeSchema = z
 	.object({ ...worktreeIdentShape })
 	.strict();
-export const ListFilesNavSchema = z
-	.object({ ...worktreeIdentShape })
-	.strict();
+export const ListFilesNavSchema = z.object({ ...worktreeIdentShape }).strict();
 export const GetWorktreeStatusSchema = z
 	.object({ ...worktreeIdentShape })
 	.strict();

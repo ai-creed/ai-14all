@@ -23,7 +23,10 @@ async function loadFileSet(ref: {
 	return set;
 }
 
-function isUnderWorktree(absPath: string, worktreeRoot: string | null): boolean {
+function isUnderWorktree(
+	absPath: string,
+	worktreeRoot: string | null,
+): boolean {
 	if (!worktreeRoot) return false;
 	const root = worktreeRoot.endsWith("/") ? worktreeRoot : `${worktreeRoot}/`;
 	return absPath === worktreeRoot || absPath.startsWith(root);

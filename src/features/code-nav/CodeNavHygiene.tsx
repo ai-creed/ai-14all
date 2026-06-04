@@ -10,8 +10,7 @@ export interface CodeNavHygieneProps {
 
 function hasBridge(): boolean {
 	return Boolean(
-		(window as unknown as { ai14all?: { codeNav?: unknown } }).ai14all
-			?.codeNav,
+		(window as unknown as { ai14all?: { codeNav?: unknown } }).ai14all?.codeNav,
 	);
 }
 
@@ -34,7 +33,9 @@ export function CodeNavHygiene({
 			}
 		).__codeNavTestRef = { workspaceId, worktreeId, worktreeRoot };
 		if (!hasBridge()) return () => setActiveWorktreeRef(null);
-		void codeNavClient.watchWorktree({ workspaceId, worktreeId }).catch(() => {});
+		void codeNavClient
+			.watchWorktree({ workspaceId, worktreeId })
+			.catch(() => {});
 		return () => {
 			if (hasBridge())
 				void codeNavClient

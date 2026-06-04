@@ -29,7 +29,10 @@ export interface CortexFixture {
 }
 
 /** Builds a cortex-shaped v3.1 `.db` at dbPath (mirrors cortex's table layout). */
-export function makeCortexFixtureDb(dbPath: string, fx: CortexFixture = {}): void {
+export function makeCortexFixtureDb(
+	dbPath: string,
+	fx: CortexFixture = {},
+): void {
 	mkdirSync(dirname(dbPath), { recursive: true }); // tests pass nested <repoKey>/<key>.db paths
 	// Start from a clean file so the helper is idempotent on the same path
 	// (the skip/re-ingest test rewrites the cortex db with a new fingerprint,
@@ -95,11 +98,14 @@ export function makeCortexFixtureDb(dbPath: string, fx: CortexFixture = {}): voi
 			c.site_end_line ?? null,
 			c.site_end_col ?? null,
 		);
-	const ii = db.prepare("INSERT INTO imports (from_path, to_path) VALUES (?,?)");
+	const ii = db.prepare(
+		"INSERT INTO imports (from_path, to_path) VALUES (?,?)",
+	);
 	for (const i of fx.imports ?? []) ii.run(i.from_path, i.to_path);
 	const iff = db.prepare(
 		"INSERT INTO files (path, kind, content_hash) VALUES (?,?,?)",
 	);
-	for (const f of fx.files ?? []) iff.run(f.path, f.kind, f.content_hash ?? null);
+	for (const f of fx.files ?? [])
+		iff.run(f.path, f.kind, f.content_hash ?? null);
 	db.close();
 }

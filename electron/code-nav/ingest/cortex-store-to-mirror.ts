@@ -91,7 +91,10 @@ export function ingestCortexStore(
 					f.end_line,
 					f.end_col,
 				);
-				idByKey.set(`${f.file}::${f.qualified_name}`, Number(info.lastInsertRowid));
+				idByKey.set(
+					`${f.file}::${f.qualified_name}`,
+					Number(info.lastInsertRowid),
+				);
 			}
 
 			const insertCall = db.prepare(

@@ -15,15 +15,37 @@ describe("CortexIndexService", () => {
 		svc = new CortexIndexService({ cacheRoot: cacheDir });
 		const cortexDb = join(cacheDir, "src.db");
 		makeCortexFixtureDb(cortexDb, {
-			meta: { repoKey: "repo1", worktreeKey: "wt1", worktreePath: "/fixture/wt" },
+			meta: {
+				repoKey: "repo1",
+				worktreeKey: "wt1",
+				worktreePath: "/fixture/wt",
+			},
 			functions: [
-				{ qualified_name: "parseConfig", file: "src/utils.ts", line: 10, exported: 1 },
+				{
+					qualified_name: "parseConfig",
+					file: "src/utils.ts",
+					line: 10,
+					exported: 1,
+				},
 				{ qualified_name: "render", file: "src/page.ts", line: 5, exported: 1 },
-				{ qualified_name: "Cli.parse", file: "src/utils.ts", line: 40, is_declaration_only: 1 },
+				{
+					qualified_name: "Cli.parse",
+					file: "src/utils.ts",
+					line: 40,
+					is_declaration_only: 1,
+				},
 			],
 			calls: [
-				{ from_key: "src/page.ts::render", to_key: "src/utils.ts::parseConfig", kind: "call" },
-				{ from_key: "src/page.ts::render", to_key: "::unknownHelper", kind: "call" },
+				{
+					from_key: "src/page.ts::render",
+					to_key: "src/utils.ts::parseConfig",
+					kind: "call",
+				},
+				{
+					from_key: "src/page.ts::render",
+					to_key: "::unknownHelper",
+					kind: "call",
+				},
 			],
 			imports: [{ from_path: "src/page.ts", to_path: "src/utils.ts" }],
 			files: [

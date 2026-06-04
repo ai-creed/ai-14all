@@ -3,7 +3,10 @@ import { codeNavClient } from "../ipc/client.js";
 import { encodeCortexUri } from "../nav/cortex-uri.js";
 import { getActiveWorktreeRef } from "../nav/active-worktree-ref.js";
 
-const cache = new Map<string, { at: number; result: monaco.languages.Location[] }>();
+const cache = new Map<
+	string,
+	{ at: number; result: monaco.languages.Location[] }
+>();
 const TTL_MS = 30_000;
 
 export const definitionProvider: monaco.languages.DefinitionProvider = {

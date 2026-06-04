@@ -154,7 +154,9 @@ export function registerCodeNavProviders(deps: {
 		w.__codeNavTestRouter = navRouter;
 		w.__codeNavTestDispatch = deps.dispatch;
 	}
-	const unsub = subscribeWorktreeIndexRefreshed(() => invalidateDefinitionCache());
+	const unsub = subscribeWorktreeIndexRefreshed(() =>
+		invalidateDefinitionCache(),
+	);
 	return () => {
 		unsub();
 		navRouter = null;

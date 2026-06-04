@@ -2,16 +2,21 @@ import { describe, expect, it } from "vitest";
 import { findPathReferences } from "../../../../src/features/code-nav/monaco/document-link-parser.js";
 
 describe("findPathReferences", () => {
-	const cases: Array<[
-		string,
-		Array<{
-			path: string;
-			line?: number;
-			column?: number;
-			isAbsolute: boolean;
-		}>,
-	]> = [
-		["see src/utils.ts:42", [{ path: "src/utils.ts", line: 42, isAbsolute: false }]],
+	const cases: Array<
+		[
+			string,
+			Array<{
+				path: string;
+				line?: number;
+				column?: number;
+				isAbsolute: boolean;
+			}>,
+		]
+	> = [
+		[
+			"see src/utils.ts:42",
+			[{ path: "src/utils.ts", line: 42, isAbsolute: false }],
+		],
 		[
 			"ref src/utils.ts:42:7",
 			[{ path: "src/utils.ts", line: 42, column: 7, isAbsolute: false }],

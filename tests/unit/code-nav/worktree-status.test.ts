@@ -7,7 +7,11 @@ import { ingestCortexStore } from "../../../electron/code-nav/ingest/cortex-stor
 import { writeAvailabilityMarker } from "../../../electron/code-nav/source/availability-marker.js";
 import { makeCortexFixtureDb } from "./helpers/make-cortex-fixture-db.js";
 
-const keys = { worktreePath: "/fixture/wt", repoKey: "repoA", worktreeKey: "wtA" };
+const keys = {
+	worktreePath: "/fixture/wt",
+	repoKey: "repoA",
+	worktreeKey: "wtA",
+};
 
 describe("getWorktreeStatus availability resolution", () => {
 	let cacheDir: string;
@@ -23,7 +27,9 @@ describe("getWorktreeStatus availability resolution", () => {
 
 	it("mirror present → available:true, ready:true, reason null", () => {
 		const cortexDb = join(cacheDir, "src.db");
-		makeCortexFixtureDb(cortexDb, { functions: [{ qualified_name: "a", file: "a.ts", line: 1 }] });
+		makeCortexFixtureDb(cortexDb, {
+			functions: [{ qualified_name: "a", file: "a.ts", line: 1 }],
+		});
 		ingestCortexStore(cortexDb, svc.dbPathForKeys("repoA", "wtA"));
 		const s = svc.getWorktreeStatus(keys);
 		expect(s).toMatchObject({ available: true, ready: true, reason: null });

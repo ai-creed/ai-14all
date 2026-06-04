@@ -34,7 +34,9 @@ function ensureUnavailableInstalled() {
 	});
 }
 
-export function subscribeWorktreeUnavailable(cb: UnavailableListener): () => void {
+export function subscribeWorktreeUnavailable(
+	cb: UnavailableListener,
+): () => void {
 	ensureUnavailableInstalled();
 	unavailableListeners.add(cb);
 	return () => unavailableListeners.delete(cb);

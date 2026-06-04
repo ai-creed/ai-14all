@@ -14,7 +14,11 @@ vi.mock("node:child_process", () => ({
 }));
 
 type Listener = (arg?: unknown) => void;
-function makeChild(opts: { exitCode?: number; errorCode?: string; stderr?: string }) {
+function makeChild(opts: {
+	exitCode?: number;
+	errorCode?: string;
+	stderr?: string;
+}) {
 	const listeners = new Map<string, Listener[]>();
 	const ee = {
 		stderr: {
@@ -38,7 +42,11 @@ function makeChild(opts: { exitCode?: number; errorCode?: string; stderr?: strin
 	return ee;
 }
 
-const keys = { worktreePath: "/fixture/wt", repoKey: "repoA", worktreeKey: "wtA" };
+const keys = {
+	worktreePath: "/fixture/wt",
+	repoKey: "repoA",
+	worktreeKey: "wtA",
+};
 const ids = { workspaceId: "ws1", worktreeId: "wt1" };
 
 describe("CortexRefreshController", () => {
@@ -102,7 +110,9 @@ describe("CortexRefreshController", () => {
 		spawnMock.mockImplementation(() => makeChild({ errorCode: "ENOENT" }));
 		const { refresh, emit, toast } = controller();
 		await expect(refresh.refresh(keys, ids)).resolves.toBeUndefined();
-		expect(readAvailabilityMarker(codeNavCacheRoot, keys)?.reason).toBe("no-cortex");
+		expect(readAvailabilityMarker(codeNavCacheRoot, keys)?.reason).toBe(
+			"no-cortex",
+		);
 		expect(emit).toHaveBeenCalledWith("code-nav:worktreeUnavailable", {
 			...ids,
 			reason: "no-cortex",
@@ -114,12 +124,16 @@ describe("CortexRefreshController", () => {
 		spawnMock.mockImplementation(() => makeChild({ exitCode: 0 })); // writes no .db
 		const { refresh, toast } = controller();
 		await refresh.refresh(keys, ids);
-		expect(readAvailabilityMarker(codeNavCacheRoot, keys)?.reason).toBe("no-cortex");
+		expect(readAvailabilityMarker(codeNavCacheRoot, keys)?.reason).toBe(
+			"no-cortex",
+		);
 		expect(toast).not.toHaveBeenCalled();
 	});
 
 	it("transient CLI failure (exit non-zero) → toast + reject, no marker", async () => {
-		spawnMock.mockImplementation(() => makeChild({ exitCode: 2, stderr: "boom" }));
+		spawnMock.mockImplementation(() =>
+			makeChild({ exitCode: 2, stderr: "boom" }),
+		);
 		const { refresh, emit, toast } = controller();
 		await expect(refresh.refresh(keys, ids)).rejects.toThrow(/boom/);
 		expect(toast).toHaveBeenCalled();

@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getWorktreeStatus = vi.fn();
 vi.mock("../../../src/features/code-nav/ipc/client.js", () => ({
-	codeNavClient: { getWorktreeStatus: (ref: unknown) => getWorktreeStatus(ref) },
+	codeNavClient: {
+		getWorktreeStatus: (ref: unknown) => getWorktreeStatus(ref),
+	},
 }));
 
 let unavailableCb: ((e: unknown) => void) | undefined;
@@ -43,7 +45,10 @@ describe("useWorktreeStatus", () => {
 	});
 
 	it("returns the disable-path status fetched from the client", async () => {
-		getWorktreeStatus.mockResolvedValue({ ...unavailable, reason: "no-cortex" });
+		getWorktreeStatus.mockResolvedValue({
+			...unavailable,
+			reason: "no-cortex",
+		});
 		const { result } = renderHook(() => useWorktreeStatus(ref));
 		await waitFor(() => expect(result.current?.reason).toBe("no-cortex"));
 		expect(result.current?.available).toBe(false);
@@ -58,7 +63,9 @@ describe("useWorktreeStatus", () => {
 		await act(async () => {
 			unavailableCb?.({ ...ref, reason: "unsupported-schema" });
 		});
-		await waitFor(() => expect(result.current?.reason).toBe("unsupported-schema"));
+		await waitFor(() =>
+			expect(result.current?.reason).toBe("unsupported-schema"),
+		);
 		expect(getWorktreeStatus).toHaveBeenCalledTimes(2);
 	});
 });

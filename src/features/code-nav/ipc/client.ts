@@ -12,10 +12,8 @@ export const codeNavClient = {
 		window.ai14all.codeNav.findCallers({ ...ref, ...args }),
 	findCallees: (ref: WorktreeRef, args: { fnId: number }) =>
 		window.ai14all.codeNav.findCallees({ ...ref, ...args }),
-	searchSymbols: (
-		ref: WorktreeRef,
-		args: { query: string; limit?: number },
-	) => window.ai14all.codeNav.searchSymbols({ ...ref, ...args }),
+	searchSymbols: (ref: WorktreeRef, args: { query: string; limit?: number }) =>
+		window.ai14all.codeNav.searchSymbols({ ...ref, ...args }),
 	getFileImports: (ref: WorktreeRef, args: { file: string }) =>
 		window.ai14all.codeNav.getFileImports({ ...ref, ...args }),
 	getWorktreeStatus: (ref: WorktreeRef) =>

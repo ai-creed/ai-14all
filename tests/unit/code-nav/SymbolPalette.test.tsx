@@ -36,9 +36,9 @@ describe("SymbolPalette disable path", () => {
 			reason: "no-cortex",
 		});
 		render(<SymbolPalette open onClose={() => {}} />);
-		expect(
-			screen.getByTestId("code-nav-unavailable-banner"),
-		).toHaveTextContent(/install ai-cortex/i);
+		expect(screen.getByTestId("code-nav-unavailable-banner")).toHaveTextContent(
+			/install ai-cortex/i,
+		);
 		expect(screen.queryByTestId("symbol-search-input")).toBeNull();
 	});
 
@@ -49,9 +49,9 @@ describe("SymbolPalette disable path", () => {
 			reason: "unsupported-schema",
 		});
 		render(<SymbolPalette open onClose={() => {}} />);
-		expect(
-			screen.getByTestId("code-nav-unavailable-banner"),
-		).toHaveTextContent(/update ai-cortex/i);
+		expect(screen.getByTestId("code-nav-unavailable-banner")).toHaveTextContent(
+			/update ai-cortex/i,
+		);
 	});
 
 	it("renders the search input when available", () => {

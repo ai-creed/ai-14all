@@ -49,7 +49,9 @@ describe("NavRouter", () => {
 		const { router, dispatch, toast } = setup();
 		await router.navigate({ ...target, worktreeId: "other" });
 		expect(dispatch).not.toHaveBeenCalled();
-		expect(toast).toHaveBeenCalledWith(expect.stringMatching(/cross-worktree/i));
+		expect(toast).toHaveBeenCalledWith(
+			expect.stringMatching(/cross-worktree/i),
+		);
 	});
 
 	it("pushes the current location onto history on a normal jump", async () => {

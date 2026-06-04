@@ -32,17 +32,11 @@ export function useWorktreeStatus(
 		};
 		void load();
 		const unsub = subscribeWorktreeIndexRefreshed((e) => {
-			if (
-				e.workspaceId === ref.workspaceId &&
-				e.worktreeId === ref.worktreeId
-			)
+			if (e.workspaceId === ref.workspaceId && e.worktreeId === ref.worktreeId)
 				void load();
 		});
 		const unsubUnavailable = subscribeWorktreeUnavailable((e) => {
-			if (
-				e.workspaceId === ref.workspaceId &&
-				e.worktreeId === ref.worktreeId
-			)
+			if (e.workspaceId === ref.workspaceId && e.worktreeId === ref.worktreeId)
 				void load();
 		});
 		return () => {

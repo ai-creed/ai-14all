@@ -25,7 +25,10 @@ describe("reconcileAvailability", () => {
 
 	it("unavailable no-store → writes marker no-cortex + emits worktreeUnavailable", () => {
 		const d = deps();
-		reconcileAvailability(d, keys, ids, { unavailable: true, reason: "no-store" });
+		reconcileAvailability(d, keys, ids, {
+			unavailable: true,
+			reason: "no-store",
+		});
 		expect(readAvailabilityMarker(root, keys)?.reason).toBe("no-cortex");
 		expect(d.emit).toHaveBeenCalledWith("code-nav:worktreeUnavailable", {
 			...ids,
@@ -49,7 +52,10 @@ describe("reconcileAvailability", () => {
 
 	it("success (not skipped) → clears marker, invalidates, emits refreshed", () => {
 		const d = deps();
-		reconcileAvailability(d, keys, ids, { unavailable: true, reason: "no-store" });
+		reconcileAvailability(d, keys, ids, {
+			unavailable: true,
+			reason: "no-store",
+		});
 		reconcileAvailability(d, keys, ids, { skipped: false, functionsCount: 2 });
 		expect(readAvailabilityMarker(root, keys)).toBeNull();
 		expect(d.cortexIndex.invalidate).toHaveBeenCalledWith(keys);

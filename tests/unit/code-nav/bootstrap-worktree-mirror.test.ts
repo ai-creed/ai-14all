@@ -33,7 +33,9 @@ describe("bootstrapWorktreeMirror", () => {
 
 	it("no cortex .db → writes marker no-cortex (no spawn)", () => {
 		bootstrapWorktreeMirror(deps(), keys, ids);
-		expect(readAvailabilityMarker(codeNavCacheRoot, keys)?.reason).toBe("no-cortex");
+		expect(readAvailabilityMarker(codeNavCacheRoot, keys)?.reason).toBe(
+			"no-cortex",
+		);
 	});
 
 	it("unsupported-schema .db → writes marker unsupported-schema", () => {
@@ -42,7 +44,9 @@ describe("bootstrapWorktreeMirror", () => {
 			functions: [{ qualified_name: "a", file: "a.ts", line: 1 }],
 		});
 		bootstrapWorktreeMirror(deps(), keys, ids);
-		expect(readAvailabilityMarker(codeNavCacheRoot, keys)?.reason).toBe("unsupported-schema");
+		expect(readAvailabilityMarker(codeNavCacheRoot, keys)?.reason).toBe(
+			"unsupported-schema",
+		);
 	});
 
 	it("supported .db → seeds mirror and clears marker", () => {

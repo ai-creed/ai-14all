@@ -50,28 +50,36 @@ export class NavRouter {
 		if (shouldPush) {
 			this.d.history.push(active.worktreeId, active.currentLocation!);
 		}
-		this.dispatchSelect(active.sessionId, target, target.source === "definition");
+		this.dispatchSelect(
+			active.sessionId,
+			target,
+			target.source === "definition",
+		);
 	}
 
 	async back(worktreeId: string): Promise<void> {
 		const prev = this.d.history.back(worktreeId);
 		const active = this.d.getActive();
 		if (prev && active)
-			this.dispatchSelect(active.sessionId, { ...prev, source: "history" }, false);
+			this.dispatchSelect(
+				active.sessionId,
+				{ ...prev, source: "history" },
+				false,
+			);
 	}
 
 	async forward(worktreeId: string): Promise<void> {
 		const next = this.d.history.forward(worktreeId);
 		const active = this.d.getActive();
 		if (next && active)
-			this.dispatchSelect(active.sessionId, { ...next, source: "history" }, false);
+			this.dispatchSelect(
+				active.sessionId,
+				{ ...next, source: "history" },
+				false,
+			);
 	}
 
-	private dispatchSelect(
-		_sessionId: string,
-		t: NavTarget,
-		transient: boolean,
-	) {
+	private dispatchSelect(_sessionId: string, t: NavTarget, transient: boolean) {
 		this.d.dispatch({
 			type: "session/selectFileAtLocation",
 			worktreeId: t.worktreeId,

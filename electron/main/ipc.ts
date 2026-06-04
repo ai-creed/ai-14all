@@ -717,11 +717,9 @@ export function registerIpcHandlers(
 			const entry = watchKeys.get(worktreePath);
 			if (!entry) return;
 			// The controller already toasts on failure and rejects; swallow here
-				// so a failed background re-index (e.g. ai-cortex CLI error) doesn't
-				// surface as an unhandled promise rejection.
-				void refresh
-					.refresh(entry.keys, entry.ids, changedFiles)
-					.catch(() => {});
+			// so a failed background re-index (e.g. ai-cortex CLI error) doesn't
+			// surface as an unhandled promise rejection.
+			void refresh.refresh(entry.keys, entry.ids, changedFiles).catch(() => {});
 		},
 	});
 	const disposeCodeNavIpc = registerCodeNavIpc({
@@ -730,7 +728,8 @@ export function registerIpcHandlers(
 		cortexIndex,
 		cortexKeyResolver,
 		refreshController: {
-			refresh: async (keys, ids, changed) => refresh.refresh(keys, ids, changed),
+			refresh: async (keys, ids, changed) =>
+				refresh.refresh(keys, ids, changed),
 		},
 		watcherController: {
 			watch: (keys, ids) => {
@@ -749,7 +748,9 @@ export function registerIpcHandlers(
 					ids,
 				);
 				watchKeys.set(keys.worktreePath, { keys, ids });
-				watcher.watch({ worktreePath: keys.worktreePath } satisfies WatcherKeys);
+				watcher.watch({
+					worktreePath: keys.worktreePath,
+				} satisfies WatcherKeys);
 			},
 			unwatch: (keys) => {
 				watchKeys.delete(keys.worktreePath);

@@ -3,7 +3,9 @@ import { unavailableMessage } from "../../../src/features/code-nav/palette/unava
 
 describe("unavailableMessage", () => {
 	it("prompts to update for an unsupported schema", () => {
-		expect(unavailableMessage("unsupported-schema")).toMatch(/update ai-cortex/i);
+		expect(unavailableMessage("unsupported-schema")).toMatch(
+			/update ai-cortex/i,
+		);
 	});
 	it("prompts to install for no-cortex and not-indexed", () => {
 		expect(unavailableMessage("no-cortex")).toMatch(/install ai-cortex/i);

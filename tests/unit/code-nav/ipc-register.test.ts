@@ -18,7 +18,8 @@ vi.mock("electron", () => {
 				h: (e: unknown, raw: unknown) => unknown | Promise<unknown>,
 			) => handlers.set(ch, h),
 			removeHandler: (ch: string) => handlers.delete(ch),
-			__invoke: (ch: string, raw: unknown) => handlers.get(ch)?.(undefined, raw),
+			__invoke: (ch: string, raw: unknown) =>
+				handlers.get(ch)?.(undefined, raw),
 		},
 	};
 });
@@ -42,10 +43,12 @@ function setup() {
 		}),
 	};
 	const worktreeService = {
-		findWorktree: vi.fn().mockImplementation(async (_r: unknown, id: string) => {
-			if (id !== "wt1") throw new Error("unknown worktree");
-			return { id, path: fakeKeys.worktreePath };
-		}),
+		findWorktree: vi
+			.fn()
+			.mockImplementation(async (_r: unknown, id: string) => {
+				if (id !== "wt1") throw new Error("unknown worktree");
+				return { id, path: fakeKeys.worktreePath };
+			}),
 	};
 	const cortexKeyResolver = {
 		resolve: vi.fn().mockImplementation(async (p: string) => {
@@ -58,7 +61,6 @@ function setup() {
 		refresh: vi.fn().mockResolvedValue(undefined),
 	};
 	const watcherController = { watch: vi.fn(), unwatch: vi.fn() };
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const dispose = registerCodeNavIpc({
 		workspaceRegistry,
 		worktreeService,
@@ -66,7 +68,7 @@ function setup() {
 		cortexKeyResolver,
 		refreshController,
 		watcherController,
-	} as any);
+	} as unknown as Parameters<typeof registerCodeNavIpc>[0]);
 	return {
 		dispose,
 		cortexIndex,
@@ -84,10 +86,11 @@ describe("code-nav IPC trust boundary", () => {
 		const { dispose } = setup();
 		teardown = dispose;
 		await expect(
-			(ipcMain as unknown as { __invoke: Function }).__invoke(
-				"code-nav:findDefinitions",
-				{ name: "foo" },
-			),
+			(
+				ipcMain as unknown as {
+					__invoke: (ch: string, raw: unknown) => Promise<unknown>;
+				}
+			).__invoke("code-nav:findDefinitions", { name: "foo" }),
 		).rejects.toThrow();
 	});
 
@@ -95,15 +98,16 @@ describe("code-nav IPC trust boundary", () => {
 		const { dispose, cortexKeyResolver } = setup();
 		teardown = dispose;
 		await expect(
-			(ipcMain as unknown as { __invoke: Function }).__invoke(
-				"code-nav:findDefinitions",
-				{
-					workspaceId: "ws1",
-					worktreeId: "wt1",
-					worktreePath: "/etc",
-					name: "foo",
-				},
-			),
+			(
+				ipcMain as unknown as {
+					__invoke: (ch: string, raw: unknown) => Promise<unknown>;
+				}
+			).__invoke("code-nav:findDefinitions", {
+				workspaceId: "ws1",
+				worktreeId: "wt1",
+				worktreePath: "/etc",
+				name: "foo",
+			}),
 		).rejects.toThrow();
 		expect(cortexKeyResolver.resolve).not.toHaveBeenCalled();
 	});
@@ -112,15 +116,16 @@ describe("code-nav IPC trust boundary", () => {
 		const { dispose } = setup();
 		teardown = dispose;
 		await expect(
-			(ipcMain as unknown as { __invoke: Function }).__invoke(
-				"code-nav:searchSymbols",
-				{
-					workspaceId: "ws1",
-					worktreeId: "wt1",
-					query: "foo",
-					cwd: "/Users/attacker",
-				},
-			),
+			(
+				ipcMain as unknown as {
+					__invoke: (ch: string, raw: unknown) => Promise<unknown>;
+				}
+			).__invoke("code-nav:searchSymbols", {
+				workspaceId: "ws1",
+				worktreeId: "wt1",
+				query: "foo",
+				cwd: "/Users/attacker",
+			}),
 		).rejects.toThrow();
 	});
 
@@ -128,10 +133,15 @@ describe("code-nav IPC trust boundary", () => {
 		const { dispose } = setup();
 		teardown = dispose;
 		await expect(
-			(ipcMain as unknown as { __invoke: Function }).__invoke(
-				"code-nav:findDefinitions",
-				{ workspaceId: "nope", worktreeId: "wt1", name: "foo" },
-			),
+			(
+				ipcMain as unknown as {
+					__invoke: (ch: string, raw: unknown) => Promise<unknown>;
+				}
+			).__invoke("code-nav:findDefinitions", {
+				workspaceId: "nope",
+				worktreeId: "wt1",
+				name: "foo",
+			}),
 		).rejects.toThrow(/unknown workspace/);
 	});
 
@@ -140,10 +150,15 @@ describe("code-nav IPC trust boundary", () => {
 		teardown = dispose;
 		cortexKeyResolver.resolve.mockResolvedValueOnce(null);
 		await expect(
-			(ipcMain as unknown as { __invoke: Function }).__invoke(
-				"code-nav:findDefinitions",
-				{ workspaceId: "ws1", worktreeId: "wt1", name: "foo" },
-			),
+			(
+				ipcMain as unknown as {
+					__invoke: (ch: string, raw: unknown) => Promise<unknown>;
+				}
+			).__invoke("code-nav:findDefinitions", {
+				workspaceId: "ws1",
+				worktreeId: "wt1",
+				name: "foo",
+			}),
 		).rejects.toThrow(/No cortex index|CortexKeysNotFoundError/);
 	});
 
@@ -156,16 +171,23 @@ describe("code-nav IPC trust boundary", () => {
 			cortexKeyResolver,
 		} = setup();
 		teardown = dispose;
-		await (ipcMain as unknown as { __invoke: Function }).__invoke(
-			"code-nav:findDefinitions",
-			{ workspaceId: "ws1", worktreeId: "wt1", name: "foo" },
-		);
+		await (
+			ipcMain as unknown as {
+				__invoke: (ch: string, raw: unknown) => Promise<unknown>;
+			}
+		).__invoke("code-nav:findDefinitions", {
+			workspaceId: "ws1",
+			worktreeId: "wt1",
+			name: "foo",
+		});
 		expect(workspaceRegistry.get).toHaveBeenCalledWith("ws1");
 		expect(worktreeService.findWorktree).toHaveBeenCalledWith(
 			expect.anything(),
 			"wt1",
 		);
-		expect(cortexKeyResolver.resolve).toHaveBeenCalledWith(fakeKeys.worktreePath);
+		expect(cortexKeyResolver.resolve).toHaveBeenCalledWith(
+			fakeKeys.worktreePath,
+		);
 		expect(cortexIndex.findDefinitions).toHaveBeenCalledWith(fakeKeys, {
 			name: "foo",
 			callerFile: undefined,
@@ -199,7 +221,9 @@ describe("code-nav:e2eIngest seam", () => {
 		const { dispose } = setup();
 		teardown = dispose;
 		const res = await (
-			ipcMain as unknown as { __invoke: Function }
+			ipcMain as unknown as {
+				__invoke: (ch: string, raw: unknown) => Promise<unknown>;
+			}
 		).__invoke("code-nav:e2eIngest", { cortexDbPath, dbPath });
 		expect(res).toMatchObject({ skipped: false, functionsCount: 1 });
 	});

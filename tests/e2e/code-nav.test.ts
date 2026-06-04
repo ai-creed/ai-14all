@@ -5,7 +5,13 @@ import {
 	type ElectronApplication,
 	type Page,
 } from "@playwright/test";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+	mkdirSync,
+	mkdtempSync,
+	realpathSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
@@ -52,10 +58,10 @@ test.beforeAll(async () => {
 		join(testRepo.worktreePath, "src", "index.ts"),
 		[
 			"// helper at src/utils.ts:1",
-			"import { parseConfig } from \"./utils\";",
+			'import { parseConfig } from "./utils";',
 			"",
 			"export function render() {",
-			"  return parseConfig(\"{}\");",
+			'  return parseConfig("{}");',
 			"}",
 			"",
 		].join("\n"),
@@ -77,11 +83,22 @@ test.beforeAll(async () => {
 			worktreeKey: WT_KEY,
 		},
 		functions: [
-			{ qualified_name: "parseConfig", file: "src/utils.ts", line: 1, exported: 1 },
+			{
+				qualified_name: "parseConfig",
+				file: "src/utils.ts",
+				line: 1,
+				exported: 1,
+			},
 			{ qualified_name: "render", file: "src/index.ts", line: 1, exported: 1 },
 		],
 		calls: [
-			{ from_key: "src/index.ts::render", to_key: "src/utils.ts::parseConfig", kind: "call", site_line: 1, site_col: 1 },
+			{
+				from_key: "src/index.ts::render",
+				to_key: "src/utils.ts::parseConfig",
+				kind: "call",
+				site_line: 1,
+				site_col: 1,
+			},
 		],
 		imports: [{ from_path: "src/index.ts", to_path: "src/utils.ts" }],
 		files: [
@@ -207,9 +224,9 @@ test.describe.serial("Code navigation MVP", () => {
 			await page.getByRole("button", { name: "Load" }).click();
 		}
 		const nav = page.getByRole("navigation", { name: "Worktree sessions" });
-		await expect(
-			nav.getByRole("button", { name: /feature-a/i }),
-		).toBeVisible({ timeout: 15_000 });
+		await expect(nav.getByRole("button", { name: /feature-a/i })).toBeVisible({
+			timeout: 15_000,
+		});
 		await nav.getByRole("button", { name: /feature-a/i }).click();
 		await ensureReviewOverlayOpen(page);
 
@@ -219,8 +236,7 @@ test.describe.serial("Code navigation MVP", () => {
 		await page.waitForFunction(
 			() =>
 				Boolean(
-					(window as unknown as { __codeNavTestRef?: object })
-						.__codeNavTestRef,
+					(window as unknown as { __codeNavTestRef?: object }).__codeNavTestRef,
 				),
 			{ timeout: 10_000 },
 		);
@@ -239,9 +255,9 @@ test.describe.serial("Code navigation MVP", () => {
 					window as unknown as {
 						ai14all: {
 							codeNav: {
-								searchSymbols(args: unknown): Promise<
-									Array<{ bare_name: string; file: string }>
-								>;
+								searchSymbols(
+									args: unknown,
+								): Promise<Array<{ bare_name: string; file: string }>>;
 							};
 						};
 					}
@@ -411,7 +427,8 @@ test.describe.serial("Code navigation MVP", () => {
 			const editor = w.__codeNavTestInlineEditor;
 			const uri = w.__codeNavTestLastDefUri;
 			const svc = editor?._codeEditorService;
-			if (!editor || !uri || !w.monaco || !svc?.openCodeEditor) return "missing";
+			if (!editor || !uri || !w.monaco || !svc?.openCodeEditor)
+				return "missing";
 			void svc.openCodeEditor(
 				{ resource: w.monaco.Uri.parse(uri) },
 				editor,
@@ -472,10 +489,7 @@ test.describe.serial("Code navigation MVP", () => {
 					}
 				).__codeNavTestDiffModifiedEditor;
 				return Boolean(
-					editor
-						?.getModel()
-						?.getValue()
-						.includes("helper at src/utils.ts:1"),
+					editor?.getModel()?.getValue().includes("helper at src/utils.ts:1"),
 				);
 			},
 			{ timeout: 10_000 },
@@ -492,9 +506,7 @@ test.describe.serial("Code navigation MVP", () => {
 					__codeNavTestDiffModifiedEditor?: {
 						focus(): void;
 						setPosition(p: { lineNumber: number; column: number }): void;
-						getAction(
-							id: string,
-						): { run(): Promise<unknown> } | null;
+						getAction(id: string): { run(): Promise<unknown> } | null;
 					};
 				}
 			).__codeNavTestDiffModifiedEditor;
