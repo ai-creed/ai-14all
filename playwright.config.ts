@@ -2,6 +2,12 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
 	testDir: "./tests/e2e",
+	// Ensure the Electron-ABI better-sqlite3 the app needs is built before any
+	// `playwright test` run (direct or via `pnpm test:e2e`), and restore the
+	// host ABI afterwards so `pnpm test` keeps working. Mirrors the
+	// pre/posttest:e2e npm hooks so the suite is self-sufficient.
+	globalSetup: "./tests/e2e/global-setup.ts",
+	globalTeardown: "./tests/e2e/global-teardown.ts",
 	timeout: 60_000,
 	expect: {
 		timeout: 10_000,

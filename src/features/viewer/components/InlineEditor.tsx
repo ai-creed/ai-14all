@@ -351,12 +351,7 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 				editor.focus();
 			}
 			onConsumePendingReveal?.();
-		}, [
-			editorReady,
-			fileLoaded,
-			pendingReveal,
-			onConsumePendingReveal,
-		]);
+		}, [editorReady, fileLoaded, pendingReveal, onConsumePendingReveal]);
 
 		const runSave = useCallback(
 			async (expectedMtimeMs: number, content: string): Promise<boolean> => {

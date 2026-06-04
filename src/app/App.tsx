@@ -320,12 +320,7 @@ export function App() {
 				typeof navigator !== "undefined" &&
 				navigator.platform.toLowerCase().includes("mac");
 			const mod = isMac ? e.metaKey : e.ctrlKey;
-			if (
-				mod &&
-				!e.shiftKey &&
-				!e.altKey &&
-				e.key.toLowerCase() === "t"
-			) {
+			if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "t") {
 				const target = e.target as HTMLElement | null;
 				const inText =
 					target?.tagName === "INPUT" || target?.tagName === "TEXTAREA";
@@ -387,12 +382,7 @@ export function App() {
 			cancelled = true;
 			if (dispose) dispose();
 		};
-	}, [
-		activeWorkspaceId,
-		activeWorktree?.id,
-		activeSession?.id,
-		dispatch,
-	]);
+	}, [activeWorkspaceId, activeWorktree?.id, activeSession?.id, dispatch]);
 	// All shells occupying layout slots are visible (the slot grid renders each).
 	const slotProcessIds = activeSession?.slotProcessIds ?? [null];
 	const visibleProcessIds = slotProcessIds.filter(

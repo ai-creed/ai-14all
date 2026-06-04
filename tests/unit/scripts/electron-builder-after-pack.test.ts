@@ -13,7 +13,9 @@ import afterPack, {
 } from "../../../scripts/electron-builder-after-pack.mjs";
 
 // Minimal fake fs over a {dirPath: [{name, dir}]} tree for the binary walker.
-function makeFakeFs(tree: Record<string, Array<{ name: string; dir?: boolean }>>) {
+function makeFakeFs(
+	tree: Record<string, Array<{ name: string; dir?: boolean }>>,
+) {
 	return {
 		existsSync: (p: string) => p in tree,
 		readdirSync: (p: string) =>
@@ -103,7 +105,9 @@ describe("better-sqlite3 ABI guard", () => {
 		const fs = makeFakeFs({
 			[UNPACKED]: [{ name: "node_modules", dir: true }],
 			[`${UNPACKED}/node_modules`]: [{ name: ".pnpm", dir: true }],
-			[`${UNPACKED}/node_modules/.pnpm`]: [{ name: "better-sqlite3", dir: true }],
+			[`${UNPACKED}/node_modules/.pnpm`]: [
+				{ name: "better-sqlite3", dir: true },
+			],
 			[`${UNPACKED}/node_modules/.pnpm/better-sqlite3`]: [
 				{ name: "better_sqlite3.node" },
 			],

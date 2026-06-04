@@ -142,7 +142,10 @@ export function assertPackagedBetterSqliteAbi({
 	readFileSync = defaultReadFileSync,
 	getAbi = defaultGetAbi,
 }) {
-	const unpackedDir = getPackagedAsarUnpackedDir({ appOutDir, productFilename });
+	const unpackedDir = getPackagedAsarUnpackedDir({
+		appOutDir,
+		productFilename,
+	});
 	const binary = findBetterSqliteBinary(unpackedDir, {
 		existsSync,
 		readdirSync,
