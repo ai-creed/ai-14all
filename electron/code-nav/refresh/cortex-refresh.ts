@@ -1,7 +1,10 @@
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ingestCortexJson } from "../ingest/json-to-sqlite.js";
+import { ingestCortexStore } from "../ingest/cortex-store-to-mirror.js";
+import {
+	reconcileAvailability,
+	type CodeNavEvent,
+} from "./reconcile-availability.js";
 import type {
 	CortexIndexService,
 	WorktreeKeys,
@@ -10,10 +13,8 @@ import type {
 export interface CortexRefreshDeps {
 	cortexIndex: CortexIndexService;
 	cortexCacheRoot: string;
-	emit(
-		event: "code-nav:worktreeIndexRefreshed",
-		payload: { workspaceId: string; worktreeId: string },
-	): void;
+	codeNavCacheRoot: string;
+	emit(event: CodeNavEvent, payload: Record<string, unknown>): void;
 	toast(msg: string): void;
 }
 
@@ -36,50 +37,70 @@ export class CortexRefreshController {
 		return run;
 	}
 
+	private reconcileDeps() {
+		return {
+			codeNavCacheRoot: this.d.codeNavCacheRoot,
+			cortexIndex: this.d.cortexIndex,
+			emit: this.d.emit,
+		};
+	}
+
 	private async doRefresh(
 		keys: WorktreeKeys,
 		ids: { workspaceId: string; worktreeId: string },
 		_changedFiles?: string[],
 	): Promise<void> {
-		await new Promise<void>((resolve, reject) => {
-			// Hygiene re-index via the ai-cortex CLI. `rehydrate <worktreePath>`
-			// re-indexes the worktree and rewrites the cache JSON we ingest. The
-			// CLI has no incremental `--changed` flag, so `changedFiles` only
-			// gates whether a refresh runs (decided by the caller/watcher).
-			const args = ["rehydrate", keys.worktreePath];
-			const child = spawn("ai-cortex", args, {
-				stdio: ["ignore", "pipe", "pipe"],
+		let notInstalled = false;
+		try {
+			await new Promise<void>((resolve, reject) => {
+				// Hygiene re-index: `rehydrate <worktreePath>`. On ai-cortex >= 0.13
+				// this (re)writes the per-worktree `.db` we ingest.
+				const child = spawn("ai-cortex", ["rehydrate", keys.worktreePath], {
+					stdio: ["ignore", "pipe", "pipe"],
+				});
+				let stderr = "";
+				child.stderr.on("data", (chunk: Buffer) => {
+					stderr += chunk.toString();
+				});
+				child.on("error", (err: NodeJS.ErrnoException) => {
+					if (err.code === "ENOENT") {
+						// ai-cortex not installed / not on PATH: a capability the user
+						// does not have, not a hard error. Route to the disable path.
+						notInstalled = true;
+						resolve();
+					} else {
+						reject(err);
+					}
+				});
+				child.on("exit", (code) =>
+					code === 0
+						? resolve()
+						: reject(new Error(stderr || `exit ${code ?? "?"}`)),
+				);
 			});
-			let stderr = "";
-			child.stderr.on("data", (chunk: Buffer) => {
-				stderr += chunk.toString();
-			});
-			child.on("exit", (code) =>
-				code === 0
-					? resolve()
-					: reject(new Error(stderr || `exit ${code ?? "?"}`)),
-			);
-			child.on("error", reject);
-		}).catch((err) => {
+		} catch (err) {
 			this.d.toast(`Code-nav index refresh failed: ${(err as Error).message}`);
 			throw err;
-		});
+		}
 
-		const jsonPath = join(
+		if (notInstalled) {
+			reconcileAvailability(this.reconcileDeps(), keys, ids, {
+				unavailable: true,
+				reason: "no-store",
+			});
+			return;
+		}
+
+		const cortexDbPath = join(
 			this.d.cortexCacheRoot,
 			keys.repoKey,
-			`${keys.worktreeKey}.json`,
+			`${keys.worktreeKey}.db`,
 		);
-		if (!existsSync(jsonPath)) return;
-		const json = JSON.parse(readFileSync(jsonPath, "utf8"));
-		const dbPath = this.d.cortexIndex.dbPathForKeys(
+		const mirrorPath = this.d.cortexIndex.dbPathForKeys(
 			keys.repoKey,
 			keys.worktreeKey,
 		);
-		const r = ingestCortexJson(json, dbPath);
-		if (!r.skipped) {
-			this.d.cortexIndex.invalidate(keys);
-			this.d.emit("code-nav:worktreeIndexRefreshed", ids);
-		}
+		const result = ingestCortexStore(cortexDbPath, mirrorPath);
+		reconcileAvailability(this.reconcileDeps(), keys, ids, result);
 	}
 }

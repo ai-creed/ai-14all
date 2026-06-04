@@ -1,15 +1,11 @@
-import {
-	mkdirSync,
-	mkdtempSync,
-	readFileSync,
-	writeFileSync,
-} from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CortexIndexService } from "../../../electron/code-nav/cortex-index-service.js";
-import { ingestCortexJson } from "../../../electron/code-nav/ingest/json-to-sqlite.js";
 import { CortexRefreshController } from "../../../electron/code-nav/refresh/cortex-refresh.js";
+import { readAvailabilityMarker } from "../../../electron/code-nav/source/availability-marker.js";
+import { makeCortexFixtureDb } from "./helpers/make-cortex-fixture-db.js";
 
 const spawnMock = vi.hoisted(() => vi.fn());
 vi.mock("node:child_process", () => ({
@@ -17,125 +13,117 @@ vi.mock("node:child_process", () => ({
 	default: { spawn: spawnMock },
 }));
 
-function makeChild(exitCode: number, stderr = "") {
-	type Listener = (code?: number) => void;
-	const onListeners = new Map<string, Listener[]>();
+type Listener = (arg?: unknown) => void;
+function makeChild(opts: { exitCode?: number; errorCode?: string; stderr?: string }) {
+	const listeners = new Map<string, Listener[]>();
 	const ee = {
 		stderr: {
 			on: (_ev: string, cb: (b: Buffer) => void) => {
-				if (stderr) cb(Buffer.from(stderr));
+				if (opts.stderr) cb(Buffer.from(opts.stderr));
 			},
 		},
 		on(ev: string, cb: Listener) {
-			const arr = onListeners.get(ev) ?? [];
+			const arr = listeners.get(ev) ?? [];
 			arr.push(cb);
-			onListeners.set(ev, arr);
-			if (ev === "exit") queueMicrotask(() => cb(exitCode));
+			listeners.set(ev, arr);
+			if (ev === "error" && opts.errorCode)
+				queueMicrotask(() =>
+					cb(Object.assign(new Error("spawn"), { code: opts.errorCode })),
+				);
+			if (ev === "exit" && opts.exitCode !== undefined)
+				queueMicrotask(() => cb(opts.exitCode));
 			return ee;
 		},
 	};
 	return ee;
 }
 
-describe("refresh pipeline integration: watcher → CLI stub → ingest → emit", () => {
-	let cacheRoot: string;
+const keys = { worktreePath: "/fixture/wt", repoKey: "repoA", worktreeKey: "wtA" };
+const ids = { workspaceId: "ws1", worktreeId: "wt1" };
+
+describe("CortexRefreshController", () => {
+	let root: string;
+	let codeNavCacheRoot: string;
 	let cortexCacheRoot: string;
 	let cortexIndex: CortexIndexService;
 
 	beforeEach(() => {
-		const root = mkdtempSync(join(tmpdir(), "refresh-int-"));
-		cacheRoot = join(root, "svc");
+		root = mkdtempSync(join(tmpdir(), "refresh-"));
+		codeNavCacheRoot = join(root, "code-nav");
 		cortexCacheRoot = join(root, "cortex");
-		mkdirSync(join(cortexCacheRoot, "repoA"), { recursive: true });
-		cortexIndex = new CortexIndexService({ cacheRoot });
+		cortexIndex = new CortexIndexService({ cacheRoot: codeNavCacheRoot });
 		spawnMock.mockReset();
 	});
 	afterEach(() => {
 		cortexIndex.dispose();
+		rmSync(root, { recursive: true, force: true });
 	});
 
-	const baseJson = (fingerprint: string) => ({
-		schemaVersion: 3,
-		fingerprint,
-		worktreePath: "/fixture/wt",
-		repoKey: "repoA",
-		worktreeKey: "wtA",
-		indexedAt: new Date().toISOString(),
-		files: [{ path: "a.ts", kind: "file" as const }],
-		functions: [{ qualifiedName: "a.ts::foo", file: "a.ts", line: 1 }],
-		calls: [],
-		imports: [],
-	});
-
-	it("CLI exit zero → re-ingest → invalidate → emit", async () => {
-		const cortexJsonPath = join(cortexCacheRoot, "repoA", "wtA.json");
-		writeFileSync(cortexJsonPath, JSON.stringify(baseJson("v1")));
-		ingestCortexJson(
-			baseJson("v1"),
-			cortexIndex.dbPathForKeys("repoA", "wtA"),
-		);
-
-		spawnMock.mockImplementation(() => {
-			writeFileSync(cortexJsonPath, JSON.stringify(baseJson("v2")));
-			return makeChild(0);
-		});
-
-		const emit = vi.fn();
-		const toast = vi.fn();
-		const refresh = new CortexRefreshController({
-			cortexIndex,
-			cortexCacheRoot,
+	function controller(emit = vi.fn(), toast = vi.fn()) {
+		return {
+			refresh: new CortexRefreshController({
+				cortexIndex,
+				cortexCacheRoot,
+				codeNavCacheRoot,
+				emit,
+				toast,
+			}),
 			emit,
 			toast,
+		};
+	}
+
+	function writeCortexDb(fingerprint: string) {
+		makeCortexFixtureDb(join(cortexCacheRoot, "repoA", "wtA.db"), {
+			meta: { fingerprint },
+			functions: [{ qualified_name: "foo", file: "a.ts", line: 1 }],
+			files: [{ path: "a.ts", kind: "file" }],
 		});
+	}
 
-		await refresh.refresh(
-			{ worktreePath: "/fixture/wt", repoKey: "repoA", worktreeKey: "wtA" },
-			{ workspaceId: "ws1", worktreeId: "wt1" },
-		);
-
-		// Spawns the real ai-cortex CLI shape for hygiene re-index:
-		// `rehydrate <worktreePath>` (positional path) — not the nonexistent
-		// `index_project --worktree`.
+	it("CLI exit zero → ingest → invalidate → emit refreshed, marker cleared", async () => {
+		spawnMock.mockImplementation(() => {
+			writeCortexDb("v2");
+			return makeChild({ exitCode: 0 });
+		});
+		const { refresh, emit, toast } = controller();
+		await refresh.refresh(keys, ids);
 		expect(spawnMock).toHaveBeenCalledWith(
 			"ai-cortex",
 			["rehydrate", "/fixture/wt"],
 			expect.anything(),
 		);
+		expect(emit).toHaveBeenCalledWith("code-nav:worktreeIndexRefreshed", ids);
+		expect(toast).not.toHaveBeenCalled();
+		expect(readAvailabilityMarker(codeNavCacheRoot, keys)).toBeNull();
+	});
 
-		const sidecar = JSON.parse(
-			readFileSync(
-				cortexIndex
-					.dbPathForKeys("repoA", "wtA")
-					.replace(/\.sqlite$/, ".meta.json"),
-				"utf8",
-			),
-		);
-		expect(sidecar.source_fingerprint).toBe("v2");
-		expect(emit).toHaveBeenCalledWith("code-nav:worktreeIndexRefreshed", {
-			workspaceId: "ws1",
-			worktreeId: "wt1",
+	it("ai-cortex not installed (ENOENT) → marker no-cortex, no toast, no reject", async () => {
+		spawnMock.mockImplementation(() => makeChild({ errorCode: "ENOENT" }));
+		const { refresh, emit, toast } = controller();
+		await expect(refresh.refresh(keys, ids)).resolves.toBeUndefined();
+		expect(readAvailabilityMarker(codeNavCacheRoot, keys)?.reason).toBe("no-cortex");
+		expect(emit).toHaveBeenCalledWith("code-nav:worktreeUnavailable", {
+			...ids,
+			reason: "no-cortex",
 		});
 		expect(toast).not.toHaveBeenCalled();
 	});
 
-	it("CLI exit non-zero → toast, no emit", async () => {
-		spawnMock.mockImplementationOnce(() => makeChild(2, "boom"));
-		const emit = vi.fn();
-		const toast = vi.fn();
-		const refresh = new CortexRefreshController({
-			cortexIndex,
-			cortexCacheRoot,
-			emit,
-			toast,
-		});
-		await expect(
-			refresh.refresh(
-				{ worktreePath: "/fixture/wt", repoKey: "repoA", worktreeKey: "wtA" },
-				{ workspaceId: "ws1", worktreeId: "wt1" },
-			),
-		).rejects.toThrow(/boom/);
+	it("old cortex (exit 0, no .db produced) → marker no-cortex, no toast", async () => {
+		spawnMock.mockImplementation(() => makeChild({ exitCode: 0 })); // writes no .db
+		const { refresh, toast } = controller();
+		await refresh.refresh(keys, ids);
+		expect(readAvailabilityMarker(codeNavCacheRoot, keys)?.reason).toBe("no-cortex");
+		expect(toast).not.toHaveBeenCalled();
+	});
+
+	it("transient CLI failure (exit non-zero) → toast + reject, no marker", async () => {
+		spawnMock.mockImplementation(() => makeChild({ exitCode: 2, stderr: "boom" }));
+		const { refresh, emit, toast } = controller();
+		await expect(refresh.refresh(keys, ids)).rejects.toThrow(/boom/);
 		expect(toast).toHaveBeenCalled();
 		expect(emit).not.toHaveBeenCalled();
+		expect(readAvailabilityMarker(codeNavCacheRoot, keys)).toBeNull();
 	});
 });

@@ -702,6 +702,7 @@ export function registerIpcHandlers(
 	const refresh = new CortexRefreshController({
 		cortexIndex,
 		cortexCacheRoot,
+		codeNavCacheRoot,
 		emit: (ev, payload) => mainWindow.webContents.send(ev, payload),
 		toast: (msg) =>
 			mainWindow.webContents.send("app:toast", { kind: "warn", message: msg }),
