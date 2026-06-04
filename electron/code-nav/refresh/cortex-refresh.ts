@@ -39,7 +39,7 @@ export class CortexRefreshController {
 	private async doRefresh(
 		keys: WorktreeKeys,
 		ids: { workspaceId: string; worktreeId: string },
-		changedFiles?: string[],
+		_changedFiles?: string[],
 	): Promise<void> {
 		await new Promise<void>((resolve, reject) => {
 			// Hygiene re-index via the ai-cortex CLI. `rehydrate <worktreePath>`
