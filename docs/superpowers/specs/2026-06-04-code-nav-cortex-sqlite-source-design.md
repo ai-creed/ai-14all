@@ -60,15 +60,17 @@ Extend the mirror schema to carry cortex's new ranges and call sites.
   already built and green. Direct-query would mean rewriting every query, solving
   the FTS gap, and handling the recovery edge — strictly *more* work.
 - **Version gate, not mirror, handles drift.** The feature hard-gates on a
-  readable cortex `.db` with `schemaVersion` major 3; older/missing cortex simply
+  readable cortex `.db` whose `schemaVersion` satisfies `isSupportedSchemaVersion`
+  (major 3, minor ≥ 1 — i.e. ≥ 3.1); older/missing cortex simply
   disables code-nav (it is a complementary power-user feature). So the mirror's
   job is isolation from cortex's write lifecycle, not drift insulation.
 
 ### Coupling model (decided)
 
 ai-cortex stays an **external PATH binary** (no bundling). Code-nav is enabled
-only when a readable cortex `.db` with `schemaVersion` major 3 exists for the
-worktree; otherwise the feature is disabled gracefully (data not available).
+only when a readable cortex `.db` exists for the worktree and its
+`schemaVersion` satisfies `isSupportedSchemaVersion` (major 3, minor ≥ 1, i.e.
+≥ 3.1); otherwise the feature is disabled gracefully (data not available).
 
 ## 3. Architecture
 
@@ -133,6 +135,34 @@ Opens cortex's `.db` readonly with `busy_timeout` set (belt-and-suspenders;
 reads happen post-CLI-exit so contention is near-zero). Row types live in a new
 `ingest/cortex-store.ts` (replaces `ingest/cortex-json.ts`).
 
+### Version compatibility — `isSupportedSchemaVersion` (single source of truth)
+
+The binding v3.1 reader rule is "pin to **major**, accept any minor **at or above**
+the one written against." We were written against `3.1`, so:
+
+```ts
+// SUPPORTED_SCHEMA = { major: 3, minMinor: 1 }   // written against 3.1
+function isSupportedSchemaVersion(v: string): boolean {
+  const [major, minor] = v.split('.').map(Number); // "3.1" -> [3, 1]
+  if (!Number.isInteger(major) || !Number.isInteger(minor)) return false;
+  return major === SUPPORTED_SCHEMA.major && minor >= SUPPORTED_SCHEMA.minMinor;
+}
+```
+
+Exact semantics this enforces (and that tests MUST cover):
+
+| `schemaVersion` | Result | Why |
+|---|---|---|
+| `3.0` | **reject** | below the written-against minor `3.1` |
+| `3.1` | accept | equals written-against |
+| `3.2` (any higher minor) | accept | minor at/above written-against |
+| `2.9` (any lower major) | reject | wrong major |
+| `4.0` (any higher major) | reject | wrong major — requires a code update; disable until then |
+| malformed / non-numeric | reject | treated as unsupported |
+
+This predicate is the *only* place the version gate is decided; all callers
+delegate to it rather than re-checking `major`.
+
 ### `ingestCortexStore(cortexDbPath, mirrorDbPath): IngestResult` (replaces `ingestCortexJson`)
 
 ```ts
@@ -141,11 +171,51 @@ type IngestResult =
   | { unavailable?: false; skipped: boolean; functionsCount: number };
 ```
 
+### Availability marker (NEW — `electron/code-nav/source/availability-marker.ts`)
+
+A small persisted file is the **single source of truth** the status-query layer
+reads to report *why* code-nav is disabled, surviving process restarts without
+any in-memory `CortexIndexService` state. It lives in the app-owned root next to
+the mirror it shadows:
+
+```
+codeNavCacheRoot/<repoKey>/<worktreeKey>.unavailable.json
+  { reason: 'no-cortex' | 'unsupported-schema', schemaVersion?: string, checkedAt: string }
+```
+
+```ts
+type AvailabilityReason = 'no-cortex' | 'unsupported-schema';
+function writeAvailabilityMarker(codeNavCacheRoot, keys, reason: AvailabilityReason, schemaVersion?: string): void;
+function clearAvailabilityMarker(codeNavCacheRoot, keys): void;            // unlink if present, no-op otherwise
+function readAvailabilityMarker(codeNavCacheRoot, keys): { reason: AvailabilityReason; schemaVersion?: string; checkedAt: string } | null;
+```
+
+Writers: the ingest callers (refresh + first-watch bootstrap) write the marker on
+an `unavailable` result and clear it on any successful ingest. Reader:
+`getWorktreeStatus`. The ingest→marker reason mapping is applied at the write
+point: `no-store → no-cortex`, `unsupported-schema → unsupported-schema`.
+
 ### `CortexIndexService` (query surface UNCHANGED)
 
 `DefinitionRow` widened with `col`, `end_line`, `end_col` (nullable);
 `WorktreeStatus` widened with `available: boolean` and
 `reason?: 'no-cortex' | 'unsupported-schema' | 'not-indexed'`.
+
+`getWorktreeStatus(keys)` resolves availability in this exact order (it already
+has `codeNavCacheRoot` via `opts.cacheRoot`, so it reads both the mirror and the
+marker):
+
+1. Mirror `<key>.sqlite` exists and is readable → `{ available: true, ready: true,
+   dirtyAtIndex, sourceFingerprint, sourceIndexedAt }` (reads mirror `meta`, as
+   today). On a successful ingest the marker has been cleared, so this case never
+   coexists with a marker.
+2. Else `readAvailabilityMarker(...)` returns a marker → `{ available: false,
+   ready: false, reason: marker.reason }` (`no-cortex` or `unsupported-schema`).
+3. Else (no mirror, no marker — never attempted) → `{ available: false,
+   ready: false, reason: 'not-indexed' }`.
+
+This replaces the prior behavior of throwing `CortexIndexNotReadyError` when the
+mirror is absent; absence now resolves to a concrete `available: false` status.
 
 ### Unchanged
 
@@ -173,8 +243,11 @@ Keep `schema.ts` (inlined string) and `schema.sql` in sync, as today.
 
 1. `reader = new CortexStoreReader(cortexDbPath)`; `meta = reader.readMeta()`.
    - `meta === null` → `{ unavailable: true, reason: 'no-store' }`.
-   - `major(meta.schemaVersion) !== 3` →
+   - `!isSupportedSchemaVersion(meta.schemaVersion)` →
      `{ unavailable: true, reason: 'unsupported-schema', schemaVersion }`.
+     Per §4 this accepts iff `major === 3 && minor >= 1`, so `3.0` is rejected
+     (below the written-against `3.1`), `3.1`/`3.2`/… accepted, and `2.x`/`4.x`
+     rejected. The gate is decided solely by `isSupportedSchemaVersion`.
 2. **Skip check:** read mirror sidecar; if
    `source_fingerprint === meta.fingerprint && schema_version === 2` →
    `{ skipped: true, functionsCount }`.
@@ -211,20 +284,29 @@ SQL `ATTACH … INSERT … SELECT` for clarity and testability; index sizes
    `running` map; await exit.
 2. `cortexDbPath = join(cortexCacheRoot, repoKey, \`${worktreeKey}.db\`)`.
 3. `result = ingestCortexStore(cortexDbPath, mirrorPath)`.
-   - `result.unavailable` → emit a `code-nav:worktreeUnavailable` signal with
-     `reason` (no scary toast — this is the expected "no/old cortex" path).
-   - else if `!result.skipped` → `cortexIndex.invalidate(keys)` + emit
+   - `result.unavailable` → `writeAvailabilityMarker(codeNavCacheRoot, keys,
+     map(result.reason), result.schemaVersion)` (mapping `no-store → no-cortex`,
+     `unsupported-schema → unsupported-schema`), then emit
+     `code-nav:worktreeUnavailable` with the mapped status reason (no scary toast
+     — this is the expected "no/old cortex" path). The persisted marker is what
+     lets a later `getWorktreeStatus` report the same reason.
+   - else → `clearAvailabilityMarker(codeNavCacheRoot, keys)`, then if
+     `!result.skipped` → `cortexIndex.invalidate(keys)` + emit
      `code-nav:worktreeIndexRefreshed`.
 - A genuine CLI failure (non-zero exit that is not "old cortex") still toasts and
-  rejects, as today.
+  rejects, as today; it does not write a marker (the failure is transient, not a
+  capability gap).
 
 ### First-watch bootstrap (`electron/main/ipc.ts:737-757`)
 
 Reads existing cortex output to seed the mirror without spawning the CLI. Switch
-from reading `<key>.json` to `<key>.db` via `ingestCortexStore`. If no `.db`
-exists (cortex old/absent), leave the worktree unavailable; the first refresh
-(file save → watcher → rehydrate) either produces a `.db` (cortex ≥ 0.13) or the
-worktree stays disabled.
+from reading `<key>.json` to `<key>.db` via `ingestCortexStore`, applying the
+same marker discipline as refresh: on an `unavailable` result write the
+availability marker (so `getWorktreeStatus` can report the reason); on success
+clear it. If no `.db` exists (cortex old/absent → `no-store` → `no-cortex`), the
+worktree is left unavailable with the marker written; the first refresh (file
+save → watcher → rehydrate) either produces a supported `.db` (cortex ≥ 0.13) and
+clears the marker, or the worktree stays disabled.
 
 ### E2E ingest seam (`electron/code-nav/ipc/register.ts:140-144`)
 
@@ -233,27 +315,53 @@ worktree stays disabled.
 
 ### Feature-availability surfacing
 
-`getWorktreeStatus` returns `available: false` + `reason` when the mirror is
-missing or was marked unavailable (data-driven; no separate `ai-cortex --version`
-probe). The renderer's `use-worktree-status` hides nav affordances when
-`!available`. A friendlier "install ai-cortex ≥ 0.13 to enable code-nav" prompt
-is optional follow-up.
+State flow end to end:
 
-The two `reason` vocabularies are intentionally distinct and the refresh layer
-maps between them: `IngestResult.reason` describes the *ingest* outcome
-(`'no-store'` = no readable cortex `.db`; `'unsupported-schema'` = wrong major)
-and is translated to the *status* `reason` the renderer consumes
-(`'no-cortex'`, `'unsupported-schema'`, `'not-indexed'`). Mapping:
-`no-store → no-cortex`, `unsupported-schema → unsupported-schema`; a mirror that
-is simply absent with no ingest attempt yet → `not-indexed`.
+```
+ingestCortexStore → IngestResult.reason ('no-store' | 'unsupported-schema')
+        │  (refresh / bootstrap map + persist)
+        ▼
+availability marker  <key>.unavailable.json  { reason: 'no-cortex' | 'unsupported-schema', schemaVersion?, checkedAt }
+        │  (pull)                                   │  (push)
+        ▼                                           ▼
+getWorktreeStatus → { available, reason }     code-nav:worktreeUnavailable event
+        │
+        ▼
+renderer use-worktree-status hides nav affordances when !available
+```
+
+- **Pull (query):** `getWorktreeStatus` resolves `{ available, reason }` via the
+  three-step order in §4 — mirror present → available; else marker → its reason;
+  else `not-indexed`. This is data-driven (no `ai-cortex --version` probe) and
+  the authoritative state, including across restarts.
+- **Push (event):** `code-nav:worktreeUnavailable` is fired on the unavailable
+  transition so the UI updates without re-polling; it carries the same mapped
+  reason the marker stored. The event and the marker never disagree because the
+  refresh/bootstrap writes the marker *before* emitting.
+- **Reason vocabularies:** `IngestResult.reason` (`'no-store'`,
+  `'unsupported-schema'`) is the ingest-layer outcome; it is mapped at the write
+  point to the status/marker reason the renderer consumes (`'no-cortex'`,
+  `'unsupported-schema'`, plus `'not-indexed'` for the never-attempted case that
+  only `getWorktreeStatus` produces). Mapping: `no-store → no-cortex`,
+  `unsupported-schema → unsupported-schema`.
+- The renderer keys its message off `reason` (e.g. `no-cortex`/`not-indexed` →
+  "install ai-cortex ≥ 0.13 to enable code-nav"; `unsupported-schema` →
+  "update ai-cortex to enable code-nav"). The exact copy is follow-up; the
+  reason contract is fixed here.
 
 ## 8. Error handling
 
 - Missing/unreadable cortex `.db` → `readMeta()` returns `null` → ingest
-  `unavailable: 'no-store'` → feature disabled for the worktree.
-- `schemaVersion` major ≠ 3 → `unavailable: 'unsupported-schema'` → disabled.
+  `unavailable: 'no-store'` → marker `no-cortex` written → feature disabled for
+  the worktree.
+- `schemaVersion` fails `isSupportedSchemaVersion` (e.g. `3.0`, `2.x`, `4.x`,
+  malformed) → `unavailable: 'unsupported-schema'` → marker `unsupported-schema`
+  written → disabled.
 - Cortex CLI not on PATH / unknown command (old cortex) → spawn error; treated as
-  the disable path, not a hard error toast.
+  the disable path (marker `no-cortex`), not a hard error toast.
+- A successful ingest always clears any prior marker, so recovery (user installs
+  / upgrades cortex, re-indexes) flips the worktree back to available with no
+  stale disable state.
 - Reads occur only after the CLI exits, so WAL recovery / checkpoint contention
   is not expected; `busy_timeout` covers transient locks defensively.
 
@@ -261,20 +369,35 @@ is simply absent with no ingest attempt yet → `not-indexed`.
 
 - **NEW `cortex-store-reader.test.ts`** — build a cortex-shaped fixture `.db`
   programmatically (text-SQL helper `makeCortexFixtureDb`, no binary check-in);
-  assert `readMeta` (including unsupported-schema and missing-file → null) and
-  `readGraph` shapes.
+  assert `readMeta` (including missing-file → null) and `readGraph` shapes.
+- **NEW `version-compat.test.ts`** (or a `describe` block alongside the reader) —
+  `isSupportedSchemaVersion` truth table, asserting the **exact** boundary:
+  `3.0` → false, `3.1` → true, `3.2` / `3.10` → true, `2.9` → false, `4.0` →
+  false, and malformed/non-numeric (`""`, `"3"`, `"3.x"`) → false. This is the
+  required lower-minor-rejection coverage.
 - **REWRITE `json-to-sqlite.test.ts` → `cortex-store-to-mirror.test.ts`** —
   bare_name derivation; key resolution for resolved / nested (`A::b`) /
   unresolved (`::x`) calls; sites carried; imports/files/meta mapped; skip on
-  unchanged fingerprint; `schema_version` bump forces rebuild;
-  `unavailable` paths.
-- **UPDATE `cortex-refresh.test.ts`** — `.db` path, `ingestCortexStore`, the
-  `worktreeUnavailable` path (old/absent cortex → no scary toast).
+  unchanged fingerprint; `schema_version` bump forces rebuild; and the
+  `unavailable` results: `readMeta() === null` → `no-store`; `schemaVersion`
+  `3.0` and `4.0` → `unsupported-schema` (asserting `3.1` is accepted at the same
+  call site).
+- **NEW `availability-marker.test.ts`** — `write` then `read` round-trips the
+  reason + `schemaVersion`; `clear` removes it; `read` on absent → `null`; marker
+  path is under `codeNavCacheRoot` (never `cortexCacheRoot`).
+- **UPDATE `cortex-refresh.test.ts`** — `.db` path, `ingestCortexStore`; the
+  unavailable path **writes the marker with the mapped reason** and emits
+  `worktreeUnavailable` (no scary toast); a successful ingest **clears the
+  marker**; a transient CLI failure does **not** write a marker.
 - **UPDATE `ipc-register.test.ts`** — `e2eIngest` seam takes `cortexDbPath`;
   replace `__fixtures__/cortex-tiny.json` with the db-builder helper.
-- **WIDEN `cortex-index-service.test.ts`** — new `DefinitionRow` /
-  `WorktreeStatus` fields present.
-- **Renderer** — `use-worktree-status` test for the disable path.
+- **WIDEN `cortex-index-service.test.ts`** — new `DefinitionRow` fields present;
+  and `getWorktreeStatus` resolution: mirror present → `available: true`; marker
+  `no-cortex` present (no mirror) → `available: false, reason: 'no-cortex'`;
+  marker `unsupported-schema` → `available: false, reason: 'unsupported-schema'`;
+  neither mirror nor marker → `available: false, reason: 'not-indexed'`.
+- **Renderer** — `use-worktree-status` test for the disable path (hides nav when
+  `!available`; reason drives the message).
 
 ## 10. Scope
 
@@ -300,11 +423,13 @@ types; the provider UX changes are deferred.
 
 ## 11. Affected files
 
-New: `source/cortex-store-reader.ts`, `ingest/cortex-store.ts`,
+New: `source/cortex-store-reader.ts` (incl. `isSupportedSchemaVersion`),
+`source/availability-marker.ts`, `ingest/cortex-store.ts`,
 `ingest/cortex-store-to-mirror.ts`.
-Edit: `ingest/schema.ts`, `ingest/schema.sql`, `refresh/cortex-refresh.ts`,
-`cortex-index-service.ts`, `electron/main/ipc.ts` (bootstrap + cortex-db path),
-`ipc/register.ts` (e2e seam).
+Edit: `ingest/schema.ts`, `ingest/schema.sql`, `refresh/cortex-refresh.ts`
+(marker write/clear), `cortex-index-service.ts` (widen `DefinitionRow` /
+`WorktreeStatus`; marker-aware `getWorktreeStatus`), `electron/main/ipc.ts`
+(bootstrap + cortex-db path + marker), `ipc/register.ts` (e2e seam).
 Remove/replace: `ingest/cortex-json.ts`, `ingest/json-to-sqlite.ts`,
 `__fixtures__/cortex-tiny.json`.
 Tests: as in §9.
