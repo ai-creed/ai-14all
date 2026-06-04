@@ -7,6 +7,9 @@ export interface DefinitionRow {
 	exported: number;
 	is_default: number;
 	is_declaration_only: number;
+	col: number | null;
+	end_line: number | null;
+	end_col: number | null;
 }
 
 export interface RankInput {

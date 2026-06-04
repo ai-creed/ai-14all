@@ -712,6 +712,9 @@ export const DefinitionRowSchema = z.object({
 	exported: z.number().int(),
 	is_default: z.number().int(),
 	is_declaration_only: z.number().int(),
+	col: z.number().int().nullable(),
+	end_line: z.number().int().nullable(),
+	end_col: z.number().int().nullable(),
 });
 export type DefinitionRowPayload = z.infer<typeof DefinitionRowSchema>;
 

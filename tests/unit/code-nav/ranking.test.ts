@@ -14,6 +14,9 @@ function row(o: Partial<DefinitionRow>): DefinitionRow {
 		exported: 0,
 		is_default: 0,
 		is_declaration_only: 0,
+		col: null,
+		end_line: null,
+		end_col: null,
 		...o,
 	};
 }

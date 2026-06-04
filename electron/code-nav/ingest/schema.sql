@@ -13,7 +13,10 @@ CREATE TABLE functions (
   line INTEGER NOT NULL,
   exported INTEGER NOT NULL,
   is_default INTEGER NOT NULL,
-  is_declaration_only INTEGER NOT NULL DEFAULT 0
+  is_declaration_only INTEGER NOT NULL DEFAULT 0,
+  col INTEGER,
+  end_line INTEGER,
+  end_col INTEGER
 );
 CREATE INDEX idx_functions_bare_name ON functions(bare_name);
 CREATE INDEX idx_functions_qualified_name ON functions(qualified_name);
@@ -25,6 +28,10 @@ CREATE TABLE calls (
   to_id INTEGER,
   to_bare_name TEXT NOT NULL,
   kind TEXT NOT NULL,
+  site_line INTEGER,
+  site_col INTEGER,
+  site_end_line INTEGER,
+  site_end_col INTEGER,
   FOREIGN KEY (from_id) REFERENCES functions(id),
   FOREIGN KEY (to_id)   REFERENCES functions(id)
 );
