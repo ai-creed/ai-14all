@@ -281,32 +281,55 @@ SQL `ATTACH … INSERT … SELECT` for clarity and testability; index sizes
 ### `CortexRefreshController.doRefresh`
 
 1. Spawn `ai-cortex rehydrate <worktreePath>` (unchanged); single-flight via the
-   `running` map; await exit.
+   `running` map; await exit. **Classify the spawn outcome:**
+   - `child` `error` event with `ENOENT` (ai-cortex not on PATH / not installed)
+     → the **disable path**: `reconcileAvailability(... , { unavailable: true,
+     reason: 'no-store' })` (→ marker `no-cortex`, emit `worktreeUnavailable`, no
+     toast), then return. Not a capability the user has → not a hard error.
+   - Non-zero exit code (cortex ran but failed, e.g. transient I/O) → the
+     **transient path**: toast + reject as today; **no marker written** (do not
+     flip the worktree to a persistent disabled state for a transient failure).
+   - Exit 0 → continue to step 2.
 2. `cortexDbPath = join(cortexCacheRoot, repoKey, \`${worktreeKey}.db\`)`.
-3. `result = ingestCortexStore(cortexDbPath, mirrorPath)`.
+3. `result = ingestCortexStore(cortexDbPath, mirrorPath)` →
+   `reconcileAvailability(codeNavCacheRoot, keys, result)`. Note an **installed
+   but old** cortex (CLI exits 0 but writes only `.json`, no `.db`) lands here as
+   `result.unavailable.reason === 'no-store'` → marker `no-cortex` — the same
+   disabled outcome as not-installed, reached through the ingest rather than the
+   spawn classification.
+
+**Shared helper — `reconcileAvailability(codeNavCacheRoot, keys, result)`** (used
+by BOTH refresh and the first-watch bootstrap, so the marker discipline lives in
+one tested place):
    - `result.unavailable` → `writeAvailabilityMarker(codeNavCacheRoot, keys,
      map(result.reason), result.schemaVersion)` (mapping `no-store → no-cortex`,
      `unsupported-schema → unsupported-schema`), then emit
-     `code-nav:worktreeUnavailable` with the mapped status reason (no scary toast
-     — this is the expected "no/old cortex" path). The persisted marker is what
-     lets a later `getWorktreeStatus` report the same reason.
+     `code-nav:worktreeUnavailable` with the mapped status reason (no scary
+     toast). The persisted marker is what lets a later `getWorktreeStatus` report
+     the same reason.
    - else → `clearAvailabilityMarker(codeNavCacheRoot, keys)`, then if
      `!result.skipped` → `cortexIndex.invalidate(keys)` + emit
      `code-nav:worktreeIndexRefreshed`.
-- A genuine CLI failure (non-zero exit that is not "old cortex") still toasts and
-  rejects, as today; it does not write a marker (the failure is transient, not a
-  capability gap).
 
 ### First-watch bootstrap (`electron/main/ipc.ts:737-757`)
 
 Reads existing cortex output to seed the mirror without spawning the CLI. Switch
-from reading `<key>.json` to `<key>.db` via `ingestCortexStore`, applying the
-same marker discipline as refresh: on an `unavailable` result write the
-availability marker (so `getWorktreeStatus` can report the reason); on success
-clear it. If no `.db` exists (cortex old/absent → `no-store` → `no-cortex`), the
-worktree is left unavailable with the marker written; the first refresh (file
-save → watcher → rehydrate) either produces a supported `.db` (cortex ≥ 0.13) and
-clears the marker, or the worktree stays disabled.
+from reading `<key>.json` to `<key>.db` via `ingestCortexStore`, then route the
+result through the **same `reconcileAvailability` helper** as refresh — so the
+bootstrap cannot silently skip marker persistence (it shares the one tested code
+path): on `unavailable` the marker is written (so `getWorktreeStatus` reports the
+reason); on success it is cleared. If no `.db` exists (cortex old/absent →
+`no-store` → marker `no-cortex`), the worktree is left unavailable with the
+marker written; the first refresh (file save → watcher → rehydrate) either
+produces a supported `.db` (cortex ≥ 0.13) and clears the marker, or the worktree
+stays disabled.
+
+To make this unit-testable (the current bootstrap is inline in the large
+`electron/main/ipc.ts`), **extract the bootstrap ingest into a small pure helper**
+`bootstrapWorktreeMirror({ cortexCacheRoot, codeNavCacheRoot, keys, cortexIndex,
+emit })` that computes `cortexDbPath`, calls `ingestCortexStore`, and delegates to
+`reconcileAvailability`. `electron/main/ipc.ts` calls this helper; tests exercise
+the helper directly.
 
 ### E2E ingest seam (`electron/code-nav/ipc/register.ts:140-144`)
 
@@ -357,8 +380,14 @@ renderer use-worktree-status hides nav affordances when !available
 - `schemaVersion` fails `isSupportedSchemaVersion` (e.g. `3.0`, `2.x`, `4.x`,
   malformed) → `unavailable: 'unsupported-schema'` → marker `unsupported-schema`
   written → disabled.
-- Cortex CLI not on PATH / unknown command (old cortex) → spawn error; treated as
-  the disable path (marker `no-cortex`), not a hard error toast.
+- Cortex CLI **not installed / not on PATH** (spawn `ENOENT`) → disable path:
+  marker `no-cortex`, no hard error toast, no reject.
+- Cortex installed but **old** (CLI exits 0, writes no `.db`) → ingest `no-store`
+  → marker `no-cortex` — same disabled outcome, reached via ingest.
+- A **transient** CLI failure (non-zero exit; cortex ran but failed) → toast +
+  reject, **no marker** (not a persistent capability gap). This is the one CLI
+  failure that is *not* a disable path, and tests must keep it distinct from the
+  not-installed case above.
 - A successful ingest always clears any prior marker, so recovery (user installs
   / upgrades cortex, re-indexes) flips the worktree back to available with no
   stale disable state.
@@ -385,10 +414,26 @@ renderer use-worktree-status hides nav affordances when !available
 - **NEW `availability-marker.test.ts`** — `write` then `read` round-trips the
   reason + `schemaVersion`; `clear` removes it; `read` on absent → `null`; marker
   path is under `codeNavCacheRoot` (never `cortexCacheRoot`).
-- **UPDATE `cortex-refresh.test.ts`** — `.db` path, `ingestCortexStore`; the
-  unavailable path **writes the marker with the mapped reason** and emits
-  `worktreeUnavailable` (no scary toast); a successful ingest **clears the
-  marker**; a transient CLI failure does **not** write a marker.
+- **NEW `reconcile-availability.test.ts`** — the shared helper: `unavailable`
+  (`no-store`/`unsupported-schema`) → writes the mapped marker + emits
+  `worktreeUnavailable`, no toast; success → clears the marker + (when
+  `!skipped`) invalidates + emits `worktreeIndexRefreshed`. Both refresh and
+  bootstrap reuse this, so its coverage is the source of truth for marker
+  discipline.
+- **UPDATE `cortex-refresh.test.ts`** — `.db` path, `ingestCortexStore`, and the
+  **spawn-outcome classification** explicitly:
+  - cortex **not installed** (spawn `error`/`ENOENT`) → marker `no-cortex`,
+    emits `worktreeUnavailable`, **no toast**, does not reject.
+  - cortex **installed but old** (CLI exits 0, no `.db` produced) → ingest
+    `no-store` → marker `no-cortex`, no toast.
+  - **transient** non-zero exit (cortex ran, failed) → toast + reject,
+    **no marker written**.
+  - supported `.db` ingest → marker cleared, `worktreeIndexRefreshed` emitted.
+- **NEW `bootstrap-worktree-mirror.test.ts`** — the extracted
+  `bootstrapWorktreeMirror` helper: no `.db` present → writes marker `no-cortex`
+  (no CLI spawned); unsupported-schema `.db` → writes marker `unsupported-schema`;
+  supported `.db` → seeds the mirror **and clears any marker**. This is the
+  first-watch bootstrap disable coverage the prior review flagged as missing.
 - **UPDATE `ipc-register.test.ts`** — `e2eIngest` seam takes `cortexDbPath`;
   replace `__fixtures__/cortex-tiny.json` with the db-builder helper.
 - **WIDEN `cortex-index-service.test.ts`** — new `DefinitionRow` fields present;
@@ -424,12 +469,14 @@ types; the provider UX changes are deferred.
 ## 11. Affected files
 
 New: `source/cortex-store-reader.ts` (incl. `isSupportedSchemaVersion`),
-`source/availability-marker.ts`, `ingest/cortex-store.ts`,
-`ingest/cortex-store-to-mirror.ts`.
+`source/availability-marker.ts`, `refresh/reconcile-availability.ts` (shared
+marker-reconciliation helper), `refresh/bootstrap-worktree-mirror.ts` (extracted
+testable bootstrap), `ingest/cortex-store.ts`, `ingest/cortex-store-to-mirror.ts`.
 Edit: `ingest/schema.ts`, `ingest/schema.sql`, `refresh/cortex-refresh.ts`
-(marker write/clear), `cortex-index-service.ts` (widen `DefinitionRow` /
-`WorktreeStatus`; marker-aware `getWorktreeStatus`), `electron/main/ipc.ts`
-(bootstrap + cortex-db path + marker), `ipc/register.ts` (e2e seam).
+(spawn-outcome classification; delegates marker work to `reconcileAvailability`),
+`cortex-index-service.ts` (widen `DefinitionRow` / `WorktreeStatus`; marker-aware
+`getWorktreeStatus`), `electron/main/ipc.ts` (calls `bootstrapWorktreeMirror`;
+cortex-db path), `ipc/register.ts` (e2e seam).
 Remove/replace: `ingest/cortex-json.ts`, `ingest/json-to-sqlite.ts`,
 `__fixtures__/cortex-tiny.json`.
 Tests: as in §9.
