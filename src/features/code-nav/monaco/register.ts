@@ -107,12 +107,18 @@ export function ensureCortexNavRegistered(m: MonacoModule): void {
 	// `monaco.languages.typescript` is typed as a deprecated stub, but the full
 	// bundled monaco populates it at runtime (it's the very service emitting
 	// these diagnostics), so reach it through a cast.
+	type ModeConfig = Record<string, boolean | undefined> & {
+		definitions?: boolean;
+		references?: boolean;
+	};
 	type TsDefaults = {
 		setDiagnosticsOptions(o: {
 			noSemanticValidation?: boolean;
 			noSyntaxValidation?: boolean;
 			noSuggestionDiagnostics?: boolean;
 		}): void;
+		modeConfiguration: ModeConfig;
+		setModeConfiguration(config: ModeConfig): void;
 	};
 	const ts = (
 		m.languages as unknown as {
@@ -130,6 +136,24 @@ export function ensureCortexNavRegistered(m: MonacoModule): void {
 		};
 		ts.typescriptDefaults.setDiagnosticsOptions(diag);
 		ts.javascriptDefaults.setDiagnosticsOptions(diag);
+
+		// Code navigation is powered solely by ai-cortex. Monaco's bundled TS/JS
+		// language service ALSO answers Go to Definition / Find References (e.g.
+		// it resolves an imported symbol to its import statement). That extra
+		// result makes Monaco open its multi-result *peek* widget — which can't
+		// materialize a text model for our virtual cortex:// locations and
+		// crashes with "Model not found" (rendering the opaque URI as the file
+		// name). Disable the built-in definitions + references providers so our
+		// cortex provider is the sole source and Go to Definition stays a clean
+		// single-result jump. (References peek is deferred; see mem-2026-06-05.)
+		const navOnly = (d: TsDefaults): void =>
+			d.setModeConfiguration({
+				...d.modeConfiguration,
+				definitions: false,
+				references: false,
+			});
+		navOnly(ts.typescriptDefaults);
+		navOnly(ts.javascriptDefaults);
 	}
 }
 
