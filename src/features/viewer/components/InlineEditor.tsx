@@ -278,7 +278,7 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 			// Code nav returns all ranked definitions; jump to the top one on
 			// cmd+click/F12 instead of opening the multi-result peek (⌥F12 still
 			// peeks the full list). Monaco peeks on >1 result by default.
-			editor.updateOptions({
+			editor.updateOptions?.({
 				gotoLocation: {
 					multipleDefinitions: "goto",
 					multipleDeclarations: "goto",

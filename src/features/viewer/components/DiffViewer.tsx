@@ -89,7 +89,7 @@ export function DiffViewer({
 					// Jump to the top-ranked definition on cmd+click instead of the
 					// multi-result peek (⌥F12 still peeks). Applies to the editable
 					// (modified) side where navigation happens.
-					editor.getModifiedEditor().updateOptions({
+					editor.getModifiedEditor?.()?.updateOptions?.({
 						gotoLocation: {
 							multipleDefinitions: "goto",
 							multipleDeclarations: "goto",
