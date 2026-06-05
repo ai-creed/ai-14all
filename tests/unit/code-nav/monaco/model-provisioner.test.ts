@@ -36,13 +36,12 @@ const language = (basename: string) =>
 	basename.endsWith(".ts") ? "typescript" : "plaintext";
 
 describe("ModelProvisioner", () => {
-	let read: ReturnType<typeof vi.fn>;
+	let read: ReturnType<
+		typeof vi.fn<(ref: ProvisionRef, relFile: string) => Promise<ReadResult>>
+	>;
 	beforeEach(() => {
-		read = vi.fn(
-			async (_ref: ProvisionRef, _rel: string): Promise<ReadResult> => ({
-				kind: "text",
-				content: "x",
-			}),
+		read = vi.fn<(ref: ProvisionRef, relFile: string) => Promise<ReadResult>>(
+			async () => ({ kind: "text", content: "x" }),
 		);
 	});
 
