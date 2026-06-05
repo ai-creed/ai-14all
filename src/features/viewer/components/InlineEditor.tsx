@@ -275,6 +275,17 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 		const handleMount: OnMount = useCallback((editor, monacoInstance) => {
 			editorRef.current = editor;
 			setEditorReady(true);
+			// Code nav returns all ranked definitions; jump to the top one on
+			// cmd+click/F12 instead of opening the multi-result peek (⌥F12 still
+			// peeks the full list). Monaco peeks on >1 result by default.
+			editor.updateOptions({
+				gotoLocation: {
+					multipleDefinitions: "goto",
+					multipleDeclarations: "goto",
+					multipleTypeDefinitions: "goto",
+					multipleImplementations: "goto",
+				},
+			});
 			// E2E hook: expose the live editor instance so Playwright can drive
 			// the same Monaco actions cmd+click invokes (revealDefinition) —
 			// monaco's module singleton is loaded by @monaco-editor/react and

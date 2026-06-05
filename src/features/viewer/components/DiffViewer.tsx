@@ -86,6 +86,17 @@ export function DiffViewer({
 				}}
 				onMount={(editor, monacoInstance) => {
 					editorRef.current = editor;
+					// Jump to the top-ranked definition on cmd+click instead of the
+					// multi-result peek (⌥F12 still peeks). Applies to the editable
+					// (modified) side where navigation happens.
+					editor.getModifiedEditor().updateOptions({
+						gotoLocation: {
+							multipleDefinitions: "goto",
+							multipleDeclarations: "goto",
+							multipleTypeDefinitions: "goto",
+							multipleImplementations: "goto",
+						},
+					});
 					// E2E hook: expose the modified-side editor so Playwright can
 					// drive the same openLink action a cmd+click on a rendered
 					// cortex:// link would. Harmless in prod.
