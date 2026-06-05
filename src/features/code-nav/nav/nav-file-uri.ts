@@ -4,7 +4,23 @@
 // real filename, so Monaco's peek shows a readable name.
 
 function normalizeRoot(worktreeRoot: string): string {
-	return worktreeRoot.replace(/\/+$/, "");
+	return normalizeAbsPosix(worktreeRoot).replace(/\/+$/, "");
+}
+
+/**
+ * Collapses `.`/`..` segments in an absolute POSIX path so an inside-worktree
+ * check cannot be fooled by traversal (e.g. `/wt/../outside.ts` → `/outside.ts`).
+ * `..` never climbs above the filesystem root. Always returns a path starting
+ * with "/". Pure string work — no node:path so the module stays renderer-safe.
+ */
+function normalizeAbsPosix(path: string): string {
+	const out: string[] = [];
+	for (const seg of path.split("/")) {
+		if (seg === "" || seg === ".") continue;
+		if (seg === "..") out.pop();
+		else out.push(seg);
+	}
+	return `/${out.join("/")}`;
 }
 
 /** file:// URI string for a worktree-relative file under an absolute worktree root. */
@@ -25,7 +41,7 @@ export function fromFileUri(
 ): string | null {
 	if (!uriString.startsWith("file://")) return null;
 	const rawPath = uriString.slice("file://".length);
-	const path = rawPath
+	const decoded = rawPath
 		.split("/")
 		.map((seg) => {
 			try {
@@ -35,6 +51,10 @@ export function fromFileUri(
 			}
 		})
 		.join("/");
+	// Normalize `.`/`..` (decoded first, so `%2e%2e` traversal is also caught)
+	// before the prefix check, per spec §4.2 — a raw startsWith() would let
+	// `/wt/../outside.ts` slip through as a worktree-relative path.
+	const path = normalizeAbsPosix(decoded);
 	const root = normalizeRoot(worktreeRoot);
 	if (path === root) return "";
 	const prefix = `${root}/`;

@@ -31,4 +31,20 @@ describe("nav-file-uri", () => {
 		expect(fromFileUri("/wt", "cortex://nav/abc")).toBeNull();
 		expect(fromFileUri("/wt", "inmemory://model/1")).toBeNull();
 	});
+
+	it("fromFileUri rejects `..` traversal that escapes the worktree", () => {
+		expect(
+			fromFileUri("/Users/me/wt", "file:///Users/me/wt/../outside.ts"),
+		).toBeNull();
+		// percent-encoded `..` (%2e%2e) must be normalized after decoding too
+		expect(fromFileUri("/wt", "file:///wt/%2e%2e/outside.ts")).toBeNull();
+		// traversal into a sibling directory must not be treated as inside
+		expect(fromFileUri("/wt", "file:///wt/../wt-evil/x.ts")).toBeNull();
+	});
+
+	it("fromFileUri normalizes `.`/`..` segments that stay inside the worktree", () => {
+		expect(fromFileUri("/wt", "file:///wt/src/../a.ts")).toBe("a.ts");
+		expect(fromFileUri("/wt", "file:///wt/./src/a.ts")).toBe("src/a.ts");
+		expect(fromFileUri("/wt", "file:///wt/src/./b/../a.ts")).toBe("src/a.ts");
+	});
 });
