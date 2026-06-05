@@ -36,6 +36,7 @@ export function SymbolPalette({
 			worktreeId: ref.worktreeId,
 			file: row.file,
 			line: row.line,
+			column: row.col ?? undefined,
 			source: "palette",
 		});
 		onClose();
