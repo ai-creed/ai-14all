@@ -49,7 +49,10 @@ export class ModelProvisioner {
 		this.cap = opts?.cap ?? 50;
 	}
 
-	async ensureModel(ref: ProvisionRef, relFile: string): Promise<string | null> {
+	async ensureModel(
+		ref: ProvisionRef,
+		relFile: string,
+	): Promise<string | null> {
 		if (!ref.worktreeRoot) return null;
 		if (
 			this.lastWorktreeId !== null &&

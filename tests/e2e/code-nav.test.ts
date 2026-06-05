@@ -605,7 +605,9 @@ test.describe.serial("Code navigation MVP", () => {
 
 		// No multi-result peek widget opened (gotoLocation:"goto" jumps), and no
 		// "Model not found" surfaced.
-		expect(await page.locator(".monaco-editor .peekview-widget").count()).toBe(0);
+		expect(await page.locator(".monaco-editor .peekview-widget").count()).toBe(
+			0,
+		);
 		expect(
 			await page.evaluate(
 				() => (window as unknown as { __mnf?: boolean }).__mnf ?? false,
