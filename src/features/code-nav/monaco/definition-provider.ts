@@ -1,12 +1,17 @@
 import * as monaco from "monaco-editor";
 import { codeNavClient } from "../ipc/client.js";
-import { encodeCortexUri } from "../nav/cortex-uri.js";
 import { getActiveWorktreeRef } from "../nav/active-worktree-ref.js";
+import { getModelProvisioner } from "../nav/router-singleton.js";
+import type { ProvisionRef } from "./model-provisioner.js";
+import {
+	buildDefinitionLocations,
+	type DefRow,
+} from "./build-definition-locations.js";
 
-const cache = new Map<
-	string,
-	{ at: number; result: monaco.languages.Location[] }
->();
+// Cache the cortex rows (cheap structural data), not Monaco Locations: we
+// re-provision models on every call so a peek never references a model the LRU
+// evicted since the last lookup (ensureModel reuses, so the rebuild is cheap).
+const cache = new Map<string, { at: number; rows: DefRow[] }>();
 const TTL_MS = 30_000;
 
 export const definitionProvider: monaco.languages.DefinitionProvider = {
@@ -15,54 +20,46 @@ export const definitionProvider: monaco.languages.DefinitionProvider = {
 		if (!word) return null;
 		const ref = getActiveWorktreeRef();
 		if (!ref) return null;
+		const provisioner = getModelProvisioner();
+		if (!provisioner) return null;
 
 		const callerFile = relativeFromCortexUri(model.uri.toString());
 		const key = `${ref.worktreeId}:${(model as { id?: string }).id ?? model.uri.toString()}:${position.lineNumber}:${position.column}`;
 		const cached = cache.get(key);
-		if (cached && Date.now() - cached.at < TTL_MS) return cached.result;
+		let rows: DefRow[] | undefined = cached?.rows;
+		if (!cached || Date.now() - cached.at >= TTL_MS) {
+			try {
+				rows = await codeNavClient.findDefinitions(
+					{ workspaceId: ref.workspaceId, worktreeId: ref.worktreeId },
+					{ name: word.word, callerFile },
+				);
+			} catch {
+				return null;
+			}
+			cache.set(key, { at: Date.now(), rows });
+		}
+		if (!rows) return null;
 
-		// IPC errors (e.g., CortexKeysNotFoundError on un-indexed worktrees)
-		// would otherwise surface via Monaco's onUnexpectedExternalError and
-		// re-emit as window 'error' events — every cmd+click and hover spams
-		// the console. Treat all failures as "no result" and let the action's
-		// muteMessage path stay silent.
-		let rows: Awaited<ReturnType<typeof codeNavClient.findDefinitions>>;
-		try {
-			rows = await codeNavClient.findDefinitions(
-				{ workspaceId: ref.workspaceId, worktreeId: ref.worktreeId },
-				{ name: word.word, callerFile },
-			);
-		} catch {
-			return null;
-		}
-		const locs: monaco.languages.Location[] = rows.map((r) => ({
-			uri: monaco.Uri.parse(
-				encodeCortexUri({
-					workspaceId: ref.workspaceId,
-					worktreeId: ref.worktreeId,
-					file: r.file,
-					line: r.line,
-				}),
+		const provRef: ProvisionRef = {
+			workspaceId: ref.workspaceId,
+			worktreeId: ref.worktreeId,
+			worktreeRoot: ref.worktreeRoot,
+		};
+		const built = await buildDefinitionLocations(rows, provRef, (r, rel) =>
+			provisioner.ensureModel(r, rel),
+		);
+		const result: monaco.languages.Location[] = built.map((b) => ({
+			uri: monaco.Uri.parse(b.uriString),
+			range: new monaco.Range(
+				b.range.startLine,
+				b.range.startCol,
+				b.range.endLine,
+				b.range.endCol,
 			),
-			range: new monaco.Range(r.line, 1, r.line, 1),
 		}));
-		// E2E seam: expose the most recent definition target URI so Playwright
-		// can drive the navigation open with the provider's real cortex:// URI.
-		// Harmless in prod.
-		if (typeof window !== "undefined" && locs[0]) {
-			(
-				window as unknown as { __codeNavTestLastDefUri?: string }
-			).__codeNavTestLastDefUri = locs[0].uri.toString();
-		}
-		// Return only the top-ranked definition. Go to Definition jumps directly
-		// to a single result (through our registerEditorOpener handler), but two
-		// or more results make Monaco open its multi-result *peek* widget, which
-		// cannot materialize a text model for our virtual cortex:// locations and
-		// throws "Model not found" (and renders the opaque URI as the filename).
-		// Until the peek-preview UX is built (see mem-2026-06-05 peek deferral),
-		// collapsing to the best-ranked match keeps navigation a clean jump.
-		const result = locs.slice(0, 1);
-		cache.set(key, { at: Date.now(), result });
+
+		// (The __codeNavTestLastDefUri e2e seam is set inside
+		// buildDefinitionLocations so the unit test covers it.)
 		return result;
 	},
 };
