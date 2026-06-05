@@ -54,8 +54,16 @@ export const definitionProvider: monaco.languages.DefinitionProvider = {
 				window as unknown as { __codeNavTestLastDefUri?: string }
 			).__codeNavTestLastDefUri = locs[0].uri.toString();
 		}
-		cache.set(key, { at: Date.now(), result: locs });
-		return locs;
+		// Return only the top-ranked definition. Go to Definition jumps directly
+		// to a single result (through our registerEditorOpener handler), but two
+		// or more results make Monaco open its multi-result *peek* widget, which
+		// cannot materialize a text model for our virtual cortex:// locations and
+		// throws "Model not found" (and renders the opaque URI as the filename).
+		// Until the peek-preview UX is built (see mem-2026-06-05 peek deferral),
+		// collapsing to the best-ranked match keeps navigation a clean jump.
+		const result = locs.slice(0, 1);
+		cache.set(key, { at: Date.now(), result });
+		return result;
 	},
 };
 

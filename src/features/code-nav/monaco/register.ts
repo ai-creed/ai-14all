@@ -3,7 +3,6 @@ import {
 	definitionProvider,
 	invalidateDefinitionCache,
 } from "./definition-provider.js";
-import { referenceProvider } from "./reference-provider.js";
 import {
 	documentLinkProvider,
 	OUTSIDE_WORKTREE_URI,
@@ -79,7 +78,12 @@ export function ensureCortexNavRegistered(m: MonacoModule): void {
 
 	for (const lang of LANGS) {
 		m.languages.registerDefinitionProvider(lang, definitionProvider);
-		m.languages.registerReferenceProvider(lang, referenceProvider);
+		// Find-references / peek-references is intentionally NOT registered yet.
+		// Standalone Monaco's references peek can't materialize a text-model
+		// preview for our virtual cortex:// locations and crashes/renders the
+		// opaque URI as the filename. Re-enable together with the peek-preview
+		// model resolution (see mem-2026-06-05 peek deferral; reference-provider.ts
+		// is kept for that work).
 	}
 	m.languages.registerLinkProvider("*", documentLinkProvider);
 
