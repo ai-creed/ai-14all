@@ -642,6 +642,100 @@ test.describe.serial("Code navigation MVP", () => {
 		).toHaveText("src/utils.ts", { timeout: 15_000 });
 	});
 
+	test("Peek Definition (⌥F12) renders a real preview and selecting an entry navigates (spec §7)", async () => {
+		await ensureReviewOverlayOpen(page);
+		// Close any open Cmd+T palette / overlay so the editor can take focus
+		// (an open modal steals focus and the peek action becomes a no-op).
+		await page.keyboard.press("Escape");
+		// Park the main pane back on src/index.ts (the caller).
+		await page.evaluate(async () => {
+			const ref = (
+				window as unknown as {
+					__codeNavTestRef?: { workspaceId: string; worktreeId: string };
+				}
+			).__codeNavTestRef;
+			const router = (
+				window as unknown as {
+					__codeNavTestRouter?: {
+						navigate(t: {
+							source: string;
+							workspaceId: string;
+							worktreeId: string;
+							file: string;
+							line: number;
+						}): Promise<void>;
+					};
+				}
+			).__codeNavTestRouter;
+			if (ref && router)
+				await router.navigate({
+					source: "palette",
+					workspaceId: ref.workspaceId,
+					worktreeId: ref.worktreeId,
+					file: "src/index.ts",
+					line: 1,
+				});
+		});
+		await expect(page.getByTestId("inline-editor")).toBeVisible({
+			timeout: 10_000,
+		});
+
+		// Drive the real Peek Definition command on parseConfig (line 5). With our
+		// ModelProvisioner, Monaco's peek can now materialize the target models and
+		// render previews (previously it threw "Model not found").
+		const peekDriven = await page.evaluate(async () => {
+			const editor = (
+				window as unknown as {
+					__codeNavTestInlineEditor?: {
+						focus?(): void;
+						setPosition(p: { lineNumber: number; column: number }): void;
+						getAction(id: string): { run(): Promise<void> } | null | undefined;
+						trigger(s: string, h: string, p: unknown): void;
+					};
+				}
+			).__codeNavTestInlineEditor;
+			if (!editor) return { ok: false, reason: "no-editor" };
+			editor.focus?.();
+			editor.setPosition({ lineNumber: 5, column: 12 });
+			const action = editor.getAction("editor.action.peekDefinition");
+			try {
+				if (action) await action.run();
+				else editor.trigger("keyboard", "editor.action.peekDefinition", {});
+			} catch {
+				/* render is asserted on the DOM below */
+			}
+			return { ok: true, hadAction: Boolean(action) };
+		});
+		expect(peekDriven.ok).toBe(true);
+
+		// The peek widget renders with the real filename + real preview content.
+		const peek = page.locator(".monaco-editor .peekview-widget");
+		await expect(peek).toBeVisible({ timeout: 10_000 });
+		await expect(peek).toContainText("utils", { timeout: 10_000 });
+		await expect(peek).toContainText("function parseConfig", {
+			timeout: 10_000,
+		});
+
+		// Open a real peek entry. The tree's top level is file groups; expand the
+		// first group (ArrowRight) so its reference leaf renders, then double-click
+		// the leaf (its row shows the source line). Double-click opens the entry
+		// (single click / Enter only preview it), routing through ICodeEditorService
+		// → our file:// opener → NavRouter, so the main viewer switches files.
+		await peek.locator(".monaco-list-row").first().click();
+		await page.keyboard.press("ArrowRight");
+		await peek
+			.locator(".monaco-list-row")
+			.filter({ hasText: "export function parseConfig" })
+			.first()
+			.dblclick();
+		await expect(
+			page.getByTestId("inline-editor").locator(".shell-viewer__title"),
+		).toHaveText(/utils/, { timeout: 15_000 });
+
+		// Leave the editor without an open peek for the next test.
+		await page.keyboard.press("Escape");
+	});
+
 	test("diff-link click on `src/utils.ts:1` drives DocumentLinkProvider → registerLinkOpener → reducer (spec §421)", async () => {
 		// Move from files mode (left at src/index.ts by the prior test) into
 		// changes mode and open the same file's diff. The DiffViewer mounts a
