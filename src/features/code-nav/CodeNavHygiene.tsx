@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { codeNavClient } from "./ipc/client.js";
 import { setActiveWorktreeRef } from "./nav/active-worktree-ref.js";
+import { getModelProvisioner } from "./nav/router-singleton.js";
 
 export interface CodeNavHygieneProps {
 	workspaceId: string;
@@ -32,15 +33,18 @@ export function CodeNavHygiene({
 				};
 			}
 		).__codeNavTestRef = { workspaceId, worktreeId, worktreeRoot };
-		if (!hasBridge()) return () => setActiveWorktreeRef(null);
-		void codeNavClient
-			.watchWorktree({ workspaceId, worktreeId })
-			.catch(() => {});
+		if (hasBridge())
+			void codeNavClient
+				.watchWorktree({ workspaceId, worktreeId })
+				.catch(() => {});
+		// Cleanup runs on a worktree switch (deps change) or unmount — dispose the
+		// provisioner's preview models so they don't leak across worktrees.
 		return () => {
 			if (hasBridge())
 				void codeNavClient
 					.unwatchWorktree({ workspaceId, worktreeId })
 					.catch(() => {});
+			getModelProvisioner()?.disposeAll();
 			setActiveWorktreeRef(null);
 			delete (
 				window as unknown as {

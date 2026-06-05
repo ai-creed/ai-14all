@@ -7,16 +7,23 @@ import {
 	documentLinkProvider,
 	OUTSIDE_WORKTREE_URI,
 } from "./document-link-provider.js";
-import { decodeCortexUri } from "../nav/cortex-uri.js";
 import { NavHistory } from "../nav/nav-history.js";
 import { NavRouter, type ActiveContext } from "../nav/nav-router.js";
 import { subscribeWorktreeIndexRefreshed } from "../ipc/events.js";
 import {
 	getCodeNavToast,
+	getModelProvisioner,
 	getNavRouter,
 	setCodeNavToast,
+	setModelProvisioner,
 	setNavRouter,
 } from "../nav/router-singleton.js";
+import { files } from "../../../lib/desktop-client.js";
+import { languageForBasename } from "../../viewer/logic/language-for-basename.js";
+import { ModelProvisioner, type ReadResult } from "./model-provisioner.js";
+import { handleNavResource } from "./handle-nav-resource.js";
+import { toFileUri } from "../nav/nav-file-uri.js";
+import { getActiveWorktreeRef } from "../nav/active-worktree-ref.js";
 
 type MonacoModule = typeof monaco;
 
@@ -32,22 +39,6 @@ export let toastFn: ((msg: string) => void) | null = null;
 // monaco being fetched.
 if (typeof window !== "undefined") {
 	(window as unknown as { monaco?: MonacoModule }).monaco = monaco;
-}
-
-// Decode a cortex:// resource and route it through the live NavRouter. Returns
-// true when handled, so Monaco's editor/link openers stop walking handlers.
-async function handleCortexResource(
-	uri: string,
-	source: "definition" | "link",
-): Promise<boolean> {
-	if (uri === OUTSIDE_WORKTREE_URI) {
-		getCodeNavToast()?.("Path outside this worktree");
-		return true;
-	}
-	const loc = decodeCortexUri(uri);
-	if (!loc) return false;
-	await getNavRouter()?.navigate({ ...loc, source });
-	return true;
 }
 
 // One entry per monaco module instance we've registered on, so re-mounts and
@@ -87,15 +78,27 @@ export function ensureCortexNavRegistered(m: MonacoModule): void {
 	}
 	m.languages.registerLinkProvider("*", documentLinkProvider);
 
-	// "Go to Definition" / cmd+click on a symbol whose definition is in another
-	// file → ICodeEditorService open handler.
+	const navDeps = {
+		getRouter: getNavRouter,
+		getActiveRef: getActiveWorktreeRef,
+		getToast: getCodeNavToast,
+		outsideWorktreeUri: OUTSIDE_WORKTREE_URI,
+	};
+	// "Go to Definition" / cmd+click / Peek selection → ICodeEditorService open.
+	// Monaco passes the target selection as the 3rd arg; we use it for line/col.
 	m.editor.registerEditorOpener({
-		openCodeEditor: (_source, resource) =>
-			handleCortexResource(resource.toString(), "definition"),
+		openCodeEditor: (_source, resource, selection) =>
+			handleNavResource(
+				resource.toString(),
+				selection ?? undefined,
+				"definition",
+				navDeps,
+			),
 	});
-	// Document/diff link click (a `path:line` reference) → IOpenerService.
+	// Diff/document link click → IOpenerService.
 	m.editor.registerLinkOpener({
-		open: (resource) => handleCortexResource(resource.toString(), "link"),
+		open: (resource) =>
+			handleNavResource(resource.toString(), undefined, "link", navDeps),
 	});
 
 	// This is a read-only code viewer with its own (ai-cortex) navigation, not a
@@ -171,6 +174,29 @@ export function registerCodeNavProviders(deps: {
 		getActive: deps.getActive,
 	});
 	setNavRouter(navRouter);
+	const provisioner = new ModelProvisioner(
+		{
+			has: (k) => monaco.editor.getModel(monaco.Uri.parse(k)) !== null,
+			create: (content, language, k) => {
+				monaco.editor.createModel(content, language, monaco.Uri.parse(k));
+			},
+			dispose: (k) => {
+				monaco.editor.getModel(monaco.Uri.parse(k))?.dispose();
+			},
+		},
+		toFileUri,
+		async (ref, relFile): Promise<ReadResult> => {
+			try {
+				const r = await files.read(ref.workspaceId, ref.worktreeId, relFile);
+				if (r.ok) return { kind: "text", content: r.view.content };
+				return { kind: r.reason.kind === "binary" ? "binary" : "error" };
+			} catch {
+				return { kind: "error" };
+			}
+		},
+		languageForBasename,
+	);
+	setModelProvisioner(provisioner);
 	// E2E hook: expose the live NavRouter + dispatch so Playwright can drive
 	// nav-back / nav-forward (no keybinding wire-up in MVP) and seed reducer
 	// state for the diff-link test. Harmless in prod.
@@ -182,11 +208,14 @@ export function registerCodeNavProviders(deps: {
 		w.__codeNavTestRouter = navRouter;
 		w.__codeNavTestDispatch = deps.dispatch;
 	}
-	const unsub = subscribeWorktreeIndexRefreshed(() =>
-		invalidateDefinitionCache(),
-	);
+	const unsub = subscribeWorktreeIndexRefreshed(() => {
+		invalidateDefinitionCache();
+		getModelProvisioner()?.disposeAll();
+	});
 	return () => {
 		unsub();
+		getModelProvisioner()?.disposeAll();
+		setModelProvisioner(null);
 		navRouter = null;
 		toastFn = null;
 		setNavRouter(null);
