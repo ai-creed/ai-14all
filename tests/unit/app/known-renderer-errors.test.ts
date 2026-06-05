@@ -1,8 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	installKnownRendererErrorHandler,
+	isKnownMonacoPeekModelError,
 	isKnownXtermViewportDimensionsError,
 } from "../../../src/app/logic/known-renderer-errors";
+
+function monacoPeekModelError(): Error {
+	const error = new Error("Model not found");
+	error.stack =
+		"Error: Model not found\n" +
+		"    at StandaloneTextModelService2.createModelReference (chunk-NUX3MOT7.js:185196:29)\n" +
+		"    at FileReferences.resolve (chunk-NUX3MOT7.js:115373:52)\n" +
+		"    at ReferencesTree.doGetChildren (chunk-NUX3MOT7.js:113941:38)";
+	return error;
+}
 
 describe("known renderer errors", () => {
 	afterEach(() => {
@@ -81,5 +92,48 @@ describe("known renderer errors", () => {
 		expect(dispatched).toBe(true);
 		expect(event.defaultPrevented).toBe(false);
 		expect(warn).not.toHaveBeenCalled();
+	});
+
+	it("matches the Monaco peek 'Model not found' error", () => {
+		expect(isKnownMonacoPeekModelError(monacoPeekModelError())).toBe(true);
+	});
+
+	it("does not match an unrelated 'Model not found' error", () => {
+		const error = new Error("Model not found");
+		error.stack = "Error: Model not found\n    at someOtherThing (app.ts:1:1)";
+		expect(isKnownMonacoPeekModelError(error)).toBe(false);
+	});
+
+	it("prevents the Monaco peek error from the error event and logs in dev", () => {
+		const warn = vi.fn();
+		const restore = installKnownRendererErrorHandler({
+			dev: true,
+			logger: { warn },
+		});
+		const error = monacoPeekModelError();
+		const event = new ErrorEvent("error", {
+			cancelable: true,
+			error,
+			message: error.message,
+		});
+		const dispatched = window.dispatchEvent(event);
+		restore();
+		expect(dispatched).toBe(false);
+		expect(event.defaultPrevented).toBe(true);
+		expect(warn).toHaveBeenCalled();
+	});
+
+	it("prevents the Monaco peek error from an unhandledrejection event", () => {
+		const restore = installKnownRendererErrorHandler({ dev: false });
+		const error = monacoPeekModelError();
+		const event = new PromiseRejectionEvent("unhandledrejection", {
+			cancelable: true,
+			promise: Promise.reject(error).catch(() => undefined) as Promise<never>,
+			reason: error,
+		});
+		const dispatched = window.dispatchEvent(event);
+		restore();
+		expect(dispatched).toBe(false);
+		expect(event.defaultPrevented).toBe(true);
 	});
 });
