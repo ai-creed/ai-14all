@@ -214,7 +214,7 @@ singleton (mirroring `router-singleton`). Call `disposeAll()`:
 ## 5. Data flow (peek)
 
 1. ⌥F12 → Monaco calls `definitionProvider.provideDefinition`.
-2. Provider fetches ranked cortex rows; for each, `provisioner.ensureModel(relFile)`:
+2. Provider fetches ranked cortex rows; for each, `provisioner.ensureModel(ref, relFile)`:
    `files.read` → `createModel(content, language, file://abs)` (or reuse / `null`).
 3. Provider returns `file://` locations with precise ranges (unresolvable omitted).
 4. Monaco's peek calls `createModelReference(file://abs)` → finds the provisioned model
