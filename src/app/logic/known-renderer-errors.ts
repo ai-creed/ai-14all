@@ -41,6 +41,28 @@ export function isKnownMonacoPeekModelError(error: unknown): boolean {
 	return stack.includes("createModelReference");
 }
 
+const MONACO_CANCELED_NAME = "Canceled";
+
+/**
+ * Monaco rejects in-flight debounced work (its `Delayer`) with a
+ * `CancellationError` when it disposes that work mid-flight — e.g. tearing down
+ * the goto-definition hover contribution right after a cmd+click jump resolves.
+ * Those rejections have no `.catch` on Monaco's internal path, so they surface
+ * as "Uncaught (in promise) Canceled". Navigation is unaffected; this is purely
+ * cosmetic console noise.
+ *
+ * Matched exactly as Monaco's own `isCancellationError` does (an `Error` whose
+ * `name` AND `message` are both "Canceled") so a genuine error that merely
+ * mentions "Canceled" in its message is never swallowed.
+ */
+export function isKnownMonacoCancellation(error: unknown): boolean {
+	return (
+		error instanceof Error &&
+		error.name === MONACO_CANCELED_NAME &&
+		error.message === MONACO_CANCELED_NAME
+	);
+}
+
 export function installKnownRendererErrorHandler({
 	dev,
 	logger = console,
@@ -51,6 +73,8 @@ export function installKnownRendererErrorHandler({
 			return "[xterm] Suppressed known viewport dimensions error";
 		if (isKnownMonacoPeekModelError(error))
 			return "[code-nav] Suppressed Monaco peek 'Model not found' (peek preview UX is WIP)";
+		if (isKnownMonacoCancellation(error))
+			return "[monaco] Suppressed benign cancellation (Delayer disposed mid-flight)";
 		return null;
 	};
 
@@ -64,20 +88,17 @@ export function installKnownRendererErrorHandler({
 		if (dev) logger.warn(message, event.error);
 	};
 
-	// Monaco's peek model resolution runs in a cancelable promise, so the failure
-	// can surface as an unhandled rejection rather than an error event.
+	// Monaco's peek model resolution and its debounced Delayers run in cancelable
+	// promises, so a known failure can surface as an unhandled rejection rather
+	// than an error event. Same suppression set as handleError, via messageFor.
 	const handleRejection = (event: PromiseRejectionEvent) => {
-		if (!isKnownMonacoPeekModelError(event.reason)) return;
+		const message = messageFor(event.reason);
+		if (!message) return;
 
 		event.preventDefault();
 		event.stopImmediatePropagation();
 
-		if (dev) {
-			logger.warn(
-				"[code-nav] Suppressed Monaco peek 'Model not found' (peek preview UX is WIP)",
-				event.reason,
-			);
-		}
+		if (dev) logger.warn(message, event.reason);
 	};
 
 	target.addEventListener("error", handleError, { capture: true });

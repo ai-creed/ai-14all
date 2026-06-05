@@ -1,9 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	installKnownRendererErrorHandler,
+	isKnownMonacoCancellation,
 	isKnownMonacoPeekModelError,
 	isKnownXtermViewportDimensionsError,
 } from "../../../src/app/logic/known-renderer-errors";
+
+function monacoCancellationError(): Error {
+	// Monaco's CancellationError: name and message are both "Canceled".
+	return Object.assign(new Error("Canceled"), { name: "Canceled" });
+}
 
 function monacoPeekModelError(): Error {
 	const error = new Error("Model not found");
@@ -135,5 +141,40 @@ describe("known renderer errors", () => {
 		restore();
 		expect(dispatched).toBe(false);
 		expect(event.defaultPrevented).toBe(true);
+	});
+
+	it("matches Monaco's CancellationError (name + message 'Canceled')", () => {
+		expect(isKnownMonacoCancellation(monacoCancellationError())).toBe(true);
+	});
+
+	it("does not match a real error that merely says 'Canceled'", () => {
+		// name stays "Error" — only Monaco's CancellationError sets name to
+		// "Canceled", so a genuine bug with that message still surfaces.
+		expect(isKnownMonacoCancellation(new Error("Canceled"))).toBe(false);
+	});
+
+	it("does not match unrelated rejections", () => {
+		expect(isKnownMonacoCancellation(new Error("Model not found"))).toBe(false);
+		expect(isKnownMonacoCancellation("Canceled")).toBe(false);
+		expect(isKnownMonacoCancellation(null)).toBe(false);
+	});
+
+	it("prevents the benign Monaco cancellation from an unhandledrejection event", () => {
+		const warn = vi.fn();
+		const restore = installKnownRendererErrorHandler({
+			dev: true,
+			logger: { warn },
+		});
+		const error = monacoCancellationError();
+		const event = new PromiseRejectionEvent("unhandledrejection", {
+			cancelable: true,
+			promise: Promise.reject(error).catch(() => undefined) as Promise<never>,
+			reason: error,
+		});
+		const dispatched = window.dispatchEvent(event);
+		restore();
+		expect(dispatched).toBe(false);
+		expect(event.defaultPrevented).toBe(true);
+		expect(warn).toHaveBeenCalled();
 	});
 });
