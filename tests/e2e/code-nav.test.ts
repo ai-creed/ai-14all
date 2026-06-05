@@ -47,6 +47,12 @@ test.beforeAll(async () => {
 		join(testRepo.worktreePath, "src", "utils.ts"),
 		"export function parseConfig(input) {\n  return JSON.parse(input);\n}\n",
 	);
+	// A second definition of parseConfig so Go to Definition has MULTIPLE ranked
+	// results (exercises gotoLocation:"goto" jump-to-best + ⌥F12 peek-the-list).
+	writeFileSync(
+		join(testRepo.worktreePath, "src", "utils2.ts"),
+		"export function parseConfig() {\n  return { v: 2 };\n}\n",
+	);
 
 	// Overwrite src/index.ts with a parseConfig caller plus a `path:line`
 	// comment so the spec's acceptance flows have real UI to exercise:
@@ -89,6 +95,12 @@ test.beforeAll(async () => {
 				line: 1,
 				exported: 1,
 			},
+			{
+				qualified_name: "parseConfig",
+				file: "src/utils2.ts",
+				line: 1,
+				exported: 1,
+			},
 			{ qualified_name: "render", file: "src/index.ts", line: 1, exported: 1 },
 		],
 		calls: [
@@ -103,6 +115,7 @@ test.beforeAll(async () => {
 		imports: [{ from_path: "src/index.ts", to_path: "src/utils.ts" }],
 		files: [
 			{ path: "src/utils.ts", kind: "file" },
+			{ path: "src/utils2.ts", kind: "file" },
 			{ path: "src/index.ts", kind: "file" },
 		],
 	});
@@ -287,21 +300,23 @@ test.describe.serial("Code navigation MVP", () => {
 		const palette = page.getByRole("dialog", { name: /go to symbol/i });
 		await expect(palette).toBeVisible({ timeout: 5_000 });
 
-		// Type a fuzzy prefix that matches our seeded parseConfig.
+		// Type a fuzzy prefix that matches our seeded parseConfig. (parseConfig has
+		// two definitions, so scope the visibility check to the first match.)
 		await page.keyboard.type("pars");
-		await expect(palette.getByText(/parseConfig/)).toBeVisible({
+		await expect(palette.getByText(/parseConfig/).first()).toBeVisible({
 			timeout: 5_000,
 		});
 		await page.keyboard.press("ArrowDown");
 		await page.keyboard.press("Enter");
 
 		// navRouter.navigate dispatches session/selectFileAtLocation, which the
-		// workspace-state reducer maps to selectedFilePath = "src/utils.ts".
-		// Assert the dispatch landed via a renderer-side probe of session state.
+		// workspace-state reducer maps to a parseConfig definition file
+		// (src/utils.ts or src/utils2.ts). Assert the dispatch landed via a
+		// renderer-side probe of session state.
 		await page.waitForFunction(
 			() => {
 				const sel = document.body.textContent ?? "";
-				return sel.includes("utils.ts");
+				return sel.includes("utils");
 			},
 			{ timeout: 5_000 },
 		);
@@ -436,7 +451,8 @@ test.describe.serial("Code navigation MVP", () => {
 			);
 			return uri;
 		});
-		expect(opened).toContain("cortex://nav/");
+		expect(opened).toContain("file://");
+		expect(opened).toContain("src/utils.ts");
 
 		// registerEditorOpener → NavRouter.navigate → reducer swapped the main
 		// pane to the definition file, src/utils.ts.
@@ -444,6 +460,186 @@ test.describe.serial("Code navigation MVP", () => {
 			page.getByTestId("inline-editor").locator(".shell-viewer__title"),
 		).toHaveText("src/utils.ts", { timeout: 15_000 });
 	});
+
+	test("Peek/multi-def: provisions a real preview model, no peek crash, jump-to-best (spec §7)", async () => {
+		// parseConfig has TWO ranked definitions (src/utils.ts + src/utils2.ts), so
+		// this exercises the multi-result path: gotoLocation:"goto" jumps (no peek),
+		// and the ModelProvisioner materializes a resolvable file:// preview model
+		// with the real file's content (the fix for "Model not found").
+		await ensureReviewOverlayOpen(page);
+
+		// Park the main pane on src/index.ts (the caller).
+		const setupOk = await page.evaluate(async () => {
+			const ref = (
+				window as unknown as {
+					__codeNavTestRef?: { workspaceId: string; worktreeId: string };
+				}
+			).__codeNavTestRef;
+			const router = (
+				window as unknown as {
+					__codeNavTestRouter?: {
+						navigate(t: {
+							source: string;
+							workspaceId: string;
+							worktreeId: string;
+							file: string;
+							line: number;
+						}): Promise<void>;
+					};
+				}
+			).__codeNavTestRouter;
+			if (!ref || !router) return false;
+			await router.navigate({
+				source: "palette",
+				workspaceId: ref.workspaceId,
+				worktreeId: ref.worktreeId,
+				file: "src/index.ts",
+				line: 1,
+			});
+			return true;
+		});
+		expect(setupOk).toBe(true);
+		await expect(page.getByTestId("inline-editor")).toBeVisible({
+			timeout: 10_000,
+		});
+
+		// The symbol genuinely has multiple ranked definitions.
+		const defCount = await page.evaluate(async () => {
+			const ref = (
+				window as unknown as {
+					__codeNavTestRef?: { workspaceId: string; worktreeId: string };
+				}
+			).__codeNavTestRef;
+			const api = (
+				window as unknown as {
+					ai14all?: {
+						codeNav?: { findDefinitions(a: unknown): Promise<unknown[]> };
+					};
+				}
+			).ai14all?.codeNav;
+			if (!ref || !api) return 0;
+			const defs = await api.findDefinitions({
+				workspaceId: ref.workspaceId,
+				worktreeId: ref.worktreeId,
+				name: "parseConfig",
+			});
+			return defs.length;
+		});
+		expect(defCount).toBeGreaterThanOrEqual(2);
+
+		// Watch for the peek "Model not found" error while we drive the provider.
+		await page.evaluate(() => {
+			(window as unknown as { __mnf?: boolean }).__mnf = false;
+			window.addEventListener(
+				"error",
+				(e) => {
+					if (
+						String((e as ErrorEvent).error?.message).includes("Model not found")
+					)
+						(window as unknown as { __mnf?: boolean }).__mnf = true;
+				},
+				true,
+			);
+		});
+
+		// Drive the real Go-to-Definition command on parseConfig (line 5). This
+		// runs our DefinitionProvider, which provisions file:// preview models and
+		// records the top target on __codeNavTestLastDefUri.
+		await page.evaluate(() => {
+			const editor = (
+				window as unknown as {
+					__codeNavTestInlineEditor?: {
+						setPosition(p: { lineNumber: number; column: number }): void;
+						trigger(s: string, h: string, p: unknown): void;
+					};
+				}
+			).__codeNavTestInlineEditor;
+			editor?.setPosition({ lineNumber: 5, column: 12 });
+			editor?.trigger("menu", "editor.action.revealDefinition", {});
+		});
+
+		// The provider ran and produced a file:// target.
+		await expect
+			.poll(
+				() =>
+					page.evaluate(
+						() =>
+							(window as unknown as { __codeNavTestLastDefUri?: string })
+								.__codeNavTestLastDefUri ?? null,
+					),
+				{ timeout: 10_000 },
+			)
+			.not.toBeNull();
+		const seam = await page.evaluate(
+			() =>
+				(window as unknown as { __codeNavTestLastDefUri?: string })
+					.__codeNavTestLastDefUri ?? "",
+		);
+		expect(seam.startsWith("file://")).toBe(true);
+
+		// The ModelProvisioner created a resolvable model with the real file text
+		// (this is what lets Peek render a preview instead of "Model not found").
+		const provisioned = await page.evaluate(() => {
+			const monaco = (
+				window as unknown as {
+					monaco?: {
+						editor: {
+							getModels(): {
+								uri: { scheme: string; toString(): string };
+								getValue(): string;
+							}[];
+						};
+					};
+				}
+			).monaco;
+			const models = monaco?.editor.getModels() ?? [];
+			const m = models.find(
+				(x) =>
+					x.uri.scheme === "file" &&
+					x.uri.toString().includes("utils") &&
+					x.getValue().includes("function parseConfig"),
+			);
+			return Boolean(m);
+		});
+		expect(provisioned).toBe(true);
+
+		// No multi-result peek widget opened (gotoLocation:"goto" jumps), and no
+		// "Model not found" surfaced.
+		expect(await page.locator(".monaco-editor .peekview-widget").count()).toBe(0);
+		expect(
+			await page.evaluate(
+				() => (window as unknown as { __mnf?: boolean }).__mnf ?? false,
+			),
+		).toBe(false);
+
+		// Selecting that target opens it in our viewer via NavRouter (the open
+		// step Monaco takes on jump/peek-select). Drive it through the editor's
+		// real ICodeEditorService, exactly as §419 does.
+		await page.evaluate(() => {
+			const w = window as unknown as {
+				__codeNavTestInlineEditor?: {
+					_codeEditorService?: {
+						openCodeEditor: (i: unknown, s: unknown, b: unknown) => unknown;
+					};
+				};
+				__codeNavTestLastDefUri?: string;
+				monaco?: { Uri: { parse(s: string): unknown } };
+			};
+			const editor = w.__codeNavTestInlineEditor;
+			const uri = w.__codeNavTestLastDefUri;
+			const svc = editor?._codeEditorService;
+			if (editor && uri && w.monaco && svc?.openCodeEditor)
+				void svc.openCodeEditor(
+					{ resource: w.monaco.Uri.parse(uri) },
+					editor,
+					false,
+				);
+		});
+		await expect(
+			page.getByTestId("inline-editor").locator(".shell-viewer__title"),
+		).toHaveText("src/utils.ts", { timeout: 15_000 });
+	});
+
 	test("diff-link click on `src/utils.ts:1` drives DocumentLinkProvider → registerLinkOpener → reducer (spec §421)", async () => {
 		// Move from files mode (left at src/index.ts by the prior test) into
 		// changes mode and open the same file's diff. The DiffViewer mounts a
