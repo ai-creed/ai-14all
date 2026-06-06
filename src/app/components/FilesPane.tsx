@@ -45,6 +45,9 @@ export function FilesPane(props: FilesPaneProps) {
 	const { results, loading, error } = useSymbolSearch(activeRef, query);
 	const status = useWorktreeStatus(activeRef);
 
+	// Focus the search input when entering Symbols mode (e.g. via Cmd+T). The
+	// terminal's auto-focus is suppressed while the review overlay is open (see
+	// TerminalPane `suppressAutoFocus`), so this focus is not clobbered.
 	useEffect(() => {
 		if (symbolsActive) inputRef.current?.focus();
 	}, [symbolsActive]);

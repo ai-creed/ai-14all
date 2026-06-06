@@ -23,6 +23,11 @@ type Props = {
 	 * Defaults to true so existing single-workspace callers are unaffected.
 	 */
 	panelVisible?: boolean;
+	/**
+	 * When true, terminal panes do not auto-grab focus (the review overlay's
+	 * symbol search owns focus while it is open). Threaded to TerminalPane.
+	 */
+	suppressAutoFocus?: boolean;
 	workspaceState: WorkspaceState;
 	activeWorktree: Worktree | null;
 	activeSession: WorktreeSession | null;
@@ -51,6 +56,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 	const {
 		terminalTheme,
 		panelVisible = true,
+		suppressAutoFocus = false,
 		workspaceState,
 		activeWorktree,
 		activeSession,
@@ -206,6 +212,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 									focused={
 										process?.id === activeSession?.activeProcessSessionId
 									}
+									suppressAutoFocus={suppressAutoFocus}
 									focusSignal={terminalFocusSignal}
 									onTitleChange={(title) => {
 										if (!process || process.origin !== "adHoc") return;

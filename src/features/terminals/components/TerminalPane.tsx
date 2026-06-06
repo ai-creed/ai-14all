@@ -27,6 +27,13 @@ type Props = {
 	 */
 	focusSignal?: number;
 	/**
+	 * When true, the pane does NOT auto-grab keyboard focus even if it is the
+	 * active/visible terminal. Set while a foreground surface that owns focus is
+	 * open (e.g. the review overlay's symbol search), so the terminal does not
+	 * yank focus back from that surface's input.
+	 */
+	suppressAutoFocus?: boolean;
+	/**
 	 * Monotonically-increasing counter that bumps when the user clicks the slot's
 	 * refit action. On change the pane re-fits to its container and scrolls to
 	 * the bottom — a manual recovery for the occasional "shell text vanished"
@@ -55,6 +62,7 @@ export function TerminalPane({
 	visible,
 	focused,
 	focusSignal,
+	suppressAutoFocus = false,
 	fitSignal = 0,
 	fontSize = 12,
 	theme,
@@ -395,10 +403,10 @@ export function TerminalPane({
 	// after focus drifted to the tab bar button).
 	// Skip if the find bar is open — the find input holds focus in that case.
 	useEffect(() => {
-		if (!focused || !visible || findOpen) return;
+		if (!focused || !visible || findOpen || suppressAutoFocus) return;
 		termRef.current?.focus();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [focusSignal, focused, visible, findOpen]);
+	}, [focusSignal, focused, visible, findOpen, suppressAutoFocus]);
 
 	// Manual refit + scroll-to-bottom, triggered by the slot's refit action.
 	// Skips the mount run (initial signal matches the ref) so it only fires on

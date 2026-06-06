@@ -1567,6 +1567,7 @@ export function App() {
 									>
 										<TerminalPanel
 											panelVisible={isActive}
+											suppressAutoFocus={isActive && reviewOpen}
 											terminalTheme={terminalTheme}
 											workspaceState={wsState}
 											activeWorktree={wsActiveWorktree}
