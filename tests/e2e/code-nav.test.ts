@@ -229,7 +229,7 @@ test.describe.serial("Code navigation MVP", () => {
 		expect(rejected).toBe(true);
 	});
 
-	test("Cmd+T palette navigates to a symbol — UI flow drives navRouter dispatch", async () => {
+	test("Cmd+T opens Files tab in Symbols mode and navigates to a symbol", async () => {
 		// Load the repository so worktree nav is populated.
 		const repoInput = page.locator("#repo-path");
 		if (await repoInput.isVisible().catch(() => false)) {
@@ -243,9 +243,8 @@ test.describe.serial("Code navigation MVP", () => {
 		await nav.getByRole("button", { name: /feature-a/i }).click();
 		await ensureReviewOverlayOpen(page);
 
-		// Wait for CodeNavHygiene's effect to publish the active ref. The hygiene
-		// component lives inside ReviewExpandedPortal, so the ref is only set
-		// once the review chrome is expanded (verified above).
+		// CodeNavHygiene publishes the active ref only once the review chrome is
+		// expanded (verified above).
 		await page.waitForFunction(
 			() =>
 				Boolean(
@@ -254,71 +253,79 @@ test.describe.serial("Code navigation MVP", () => {
 			{ timeout: 10_000 },
 		);
 
-		// Sanity: the IPC chain (codeNav.searchSymbols → registry.get →
-		// worktreeService.findWorktree → cortexKeyResolver.resolve → SQLite)
-		// must return our seeded parseConfig row for the live ids.
+		// Sanity: the IPC chain returns our seeded parseConfig row for live ids.
 		const probe = await page.evaluate(async () => {
 			const ref = (
 				window as unknown as {
 					__codeNavTestRef: { workspaceId: string; worktreeId: string };
 				}
 			).__codeNavTestRef;
-			try {
-				const rows = await (
-					window as unknown as {
-						ai14all: {
-							codeNav: {
-								searchSymbols(
-									args: unknown,
-								): Promise<Array<{ bare_name: string; file: string }>>;
-							};
+			const rows = await (
+				window as unknown as {
+					ai14all: {
+						codeNav: {
+							searchSymbols(
+								args: unknown,
+							): Promise<Array<{ bare_name: string }>>;
 						};
-					}
-				).ai14all.codeNav.searchSymbols({
-					workspaceId: ref.workspaceId,
-					worktreeId: ref.worktreeId,
-					query: "pars",
-					limit: 50,
-				});
-				return { ok: true as const, rows };
-			} catch (e) {
-				return { ok: false as const, error: (e as Error).message, ref };
-			}
+					};
+				}
+			).ai14all.codeNav.searchSymbols({
+				workspaceId: ref.workspaceId,
+				worktreeId: ref.worktreeId,
+				query: "pars",
+				limit: 50,
+			});
+			return rows.some((r) => r.bare_name === "parseConfig");
 		});
-		expect(
-			probe.ok,
-			`IPC searchSymbols probe failed: ${JSON.stringify(probe)}`,
-		).toBe(true);
-		if (probe.ok) {
-			expect(probe.rows.some((r) => r.bare_name === "parseConfig")).toBe(true);
-		}
+		expect(probe).toBe(true);
 
-		// Cmd+T (Mac) / Ctrl+T (other) opens the palette.
+		// Put the rail in Changes mode first — Cmd+T must switch BACK to Files and
+		// into Symbols sub-mode from any tab (spec edge case 5).
+		await page.getByRole("tab", { name: "Changes" }).click();
+
+		// Cmd+T (Mac) / Ctrl+T (other).
 		const isMac = process.platform === "darwin";
 		await page.keyboard.press(isMac ? "Meta+t" : "Control+t");
 
-		const palette = page.getByRole("dialog", { name: /go to symbol/i });
-		await expect(palette).toBeVisible({ timeout: 5_000 });
-
-		// Type a fuzzy prefix that matches our seeded parseConfig. (parseConfig has
-		// two definitions, so scope the visibility check to the first match.)
-		await page.keyboard.type("pars");
-		await expect(palette.getByText(/parseConfig/).first()).toBeVisible({
+		// Files tab is now selected and the symbol search input is focused.
+		await expect(page.getByRole("tab", { name: "Files" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+			{ timeout: 5_000 },
+		);
+		await expect(page.getByTestId("symbol-search-input")).toBeFocused({
 			timeout: 5_000,
 		});
+
+		// Type a fuzzy prefix matching the seeded parseConfig symbols.
+		await page.keyboard.type("pars");
+		await expect(
+			page.getByRole("option").filter({ hasText: "parseConfig" }).first(),
+		).toBeVisible({ timeout: 5_000 });
+
+		// ArrowDown + Enter routes through NavRouter (source "palette") into the
+		// overlay's editor; the overlay stays OPEN (navigation target is inside it).
 		await page.keyboard.press("ArrowDown");
 		await page.keyboard.press("Enter");
 
-		// navRouter.navigate dispatches session/selectFileAtLocation, which the
-		// workspace-state reducer maps to a parseConfig definition file
-		// (src/utils.ts or src/utils2.ts). Assert the dispatch landed via a
-		// renderer-side probe of session state.
+		await expect(page.getByTestId("review-expanded-portal")).toBeVisible();
 		await page.waitForFunction(
-			() => {
-				const sel = document.body.textContent ?? "";
-				return sel.includes("utils");
-			},
+			() => (document.body.textContent ?? "").includes("utils"),
 			{ timeout: 5_000 },
+		);
+
+		// Return the rail to Files browse mode so later serial tests start clean.
+		// Assert via real Files-mode signals: the body wrapper becomes visible
+		// (it carries `hidden` in Symbols mode) and the shared input's placeholder
+		// flips back to "Search files…".
+		await page.getByTestId("files-pane-mode-files").click();
+		await expect(page.getByTestId("files-pane-body")).toBeVisible({
+			timeout: 5_000,
+		});
+		await expect(page.getByTestId("symbol-search-input")).toHaveAttribute(
+			"placeholder",
+			"Search files…",
 		);
 	});
 
