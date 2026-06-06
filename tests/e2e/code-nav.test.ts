@@ -689,35 +689,41 @@ test.describe.serial("Code navigation MVP", () => {
 
 		// Drive the real Peek Definition command on parseConfig (line 5). With our
 		// ModelProvisioner, Monaco's peek can now materialize the target models and
-		// render previews (previously it threw "Model not found").
-		const peekDriven = await page.evaluate(async () => {
-			const editor = (
-				window as unknown as {
-					__codeNavTestInlineEditor?: {
-						focus?(): void;
-						setPosition(p: { lineNumber: number; column: number }): void;
-						getAction(id: string): { run(): Promise<void> } | null | undefined;
-						trigger(s: string, h: string, p: unknown): void;
-					};
+		// render previews (previously it threw "Model not found"). The action
+		// resolves its definition asynchronously and the widget mounts a beat
+		// later; on a slow run the first trigger can land before the editor has
+		// settled and become a no-op. Re-drive it until the widget appears — the
+		// content assertions below still require the real preview to render.
+		const peek = page.locator(".monaco-editor .peekview-widget");
+		await expect(async () => {
+			await page.evaluate(async () => {
+				const editor = (
+					window as unknown as {
+						__codeNavTestInlineEditor?: {
+							focus?(): void;
+							setPosition(p: { lineNumber: number; column: number }): void;
+							getAction(
+								id: string,
+							): { run(): Promise<void> } | null | undefined;
+							trigger(s: string, h: string, p: unknown): void;
+						};
+					}
+				).__codeNavTestInlineEditor;
+				if (!editor) return;
+				editor.focus?.();
+				editor.setPosition({ lineNumber: 5, column: 12 });
+				const action = editor.getAction("editor.action.peekDefinition");
+				try {
+					if (action) await action.run();
+					else editor.trigger("keyboard", "editor.action.peekDefinition", {});
+				} catch {
+					/* render is asserted on the DOM below */
 				}
-			).__codeNavTestInlineEditor;
-			if (!editor) return { ok: false, reason: "no-editor" };
-			editor.focus?.();
-			editor.setPosition({ lineNumber: 5, column: 12 });
-			const action = editor.getAction("editor.action.peekDefinition");
-			try {
-				if (action) await action.run();
-				else editor.trigger("keyboard", "editor.action.peekDefinition", {});
-			} catch {
-				/* render is asserted on the DOM below */
-			}
-			return { ok: true, hadAction: Boolean(action) };
-		});
-		expect(peekDriven.ok).toBe(true);
+			});
+			await expect(peek).toBeVisible({ timeout: 2_000 });
+		}).toPass({ timeout: 20_000 });
 
 		// The peek widget renders with the real filename + real preview content.
-		const peek = page.locator(".monaco-editor .peekview-widget");
-		await expect(peek).toBeVisible({ timeout: 10_000 });
 		await expect(peek).toContainText("utils", { timeout: 10_000 });
 		await expect(peek).toContainText("function parseConfig", {
 			timeout: 10_000,
