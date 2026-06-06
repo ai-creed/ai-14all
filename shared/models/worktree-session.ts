@@ -5,6 +5,8 @@ import type { LayoutId } from "./terminal-layout";
 
 export type ReviewMode = "files" | "changes" | "commits";
 
+export type FilesPaneMode = "files" | "symbols";
+
 export type ViewerMode = "file" | "diff" | "commit";
 
 export type WorktreeSession = {
@@ -13,6 +15,11 @@ export type WorktreeSession = {
 	title: string;
 	note: string;
 	reviewMode: ReviewMode;
+	/**
+	 * Files-tab sub-mode: browse files (tree) vs search symbols. Persisted in
+	 * the session snapshot, mirroring `reviewMode`. Default `"files"`.
+	 */
+	filesPaneMode: FilesPaneMode;
 	viewerMode: ViewerMode;
 	gitSummary: GitSummary | null;
 	gitSummaryStale: boolean;

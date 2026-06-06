@@ -25,6 +25,7 @@ import type {
 } from "../../../../shared/models/process-session";
 import type { Worktree } from "../../../../shared/models/worktree";
 import type {
+	FilesPaneMode,
 	ReviewMode,
 	WorktreeSession,
 } from "../../../../shared/models/worktree-session";
@@ -61,6 +62,11 @@ export type WorkspaceAction =
 			type: "session/setReviewMode";
 			worktreeId: string;
 			reviewMode: ReviewMode;
+	  }
+	| {
+			type: "session/setFilesPaneMode";
+			worktreeId: string;
+			filesPaneMode: FilesPaneMode;
 	  }
 	| {
 			type: "session/setReviewSidebarWidth";
@@ -227,6 +233,7 @@ function createSession(worktree: Worktree): WorktreeSession {
 		title: "",
 		note: "",
 		reviewMode: "files",
+		filesPaneMode: "files",
 		viewerMode: "file",
 		gitSummary: null,
 		gitSummaryStale: false,
@@ -393,6 +400,7 @@ function restorePersistedSession(
 		title: snapshot.title ?? "",
 		note: snapshot.note,
 		reviewMode: snapshot.reviewMode,
+		filesPaneMode: snapshot.filesPaneMode ?? "files",
 		viewerMode: snapshot.viewerMode,
 		selectedFilePath: snapshot.selectedFilePath,
 		selectedChangedFilePath: snapshot.selectedChangedFilePath,
@@ -1189,6 +1197,8 @@ export function workspaceReducer(
 		nextSession = { ...session, note: action.note };
 	} else if (action.type === "session/setReviewMode") {
 		nextSession = { ...session, reviewMode: action.reviewMode };
+	} else if (action.type === "session/setFilesPaneMode") {
+		nextSession = { ...session, filesPaneMode: action.filesPaneMode };
 	} else if (action.type === "session/setReviewSidebarWidth") {
 		nextSession = { ...session, reviewSidebarWidth: action.width };
 	} else if (action.type === "session/selectFile") {
