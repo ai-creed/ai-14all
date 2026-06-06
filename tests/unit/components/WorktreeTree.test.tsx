@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 
 vi.mock("@tanstack/react-virtual", () => ({
 	useVirtualizer: (options: { count: number }) => ({
@@ -38,6 +38,7 @@ function renderTree(
 			workspaceId="ws-1"
 			worktreeId="wt-1"
 			worktreeLabel="repo"
+			searchTerm=""
 			selectedFile={null}
 			onSelect={vi.fn()}
 			changedFiles={[]}
@@ -134,39 +135,22 @@ describe("WorktreeTree expand/collapse + selection", () => {
 });
 
 describe("WorktreeTree search", () => {
-	afterEach(() => {
-		vi.useRealTimers();
-	});
-
-	it("filters rows after the debounce elapses", async () => {
+	// The search input + debounce moved up to FilesPane; WorktreeTree now filters
+	// purely from the `searchTerm` prop (see FilesPane.test.tsx for the input).
+	it("filters rows by the searchTerm prop", async () => {
 		mockListWorktree.mockResolvedValueOnce(
 			wrapEntries(["src/App.tsx", "src/other.ts", "README.md"]),
 		);
-		renderTree({ expandedPaths: [""] });
-		// Wait for the async load to complete before switching to fake timers
-		await screen.findByText("README.md");
-		vi.useFakeTimers();
-		const input = screen.getByLabelText("Search files");
-		fireEvent.change(input, { target: { value: "app" } });
-		expect(screen.queryByText("README.md")).toBeInTheDocument();
-		await act(async () => {
-			vi.advanceTimersByTime(130);
-		});
+		renderTree({ expandedPaths: [""], searchTerm: "app" });
+		expect(await screen.findByText("App.tsx")).toBeInTheDocument();
 		expect(screen.queryByText("README.md")).not.toBeInTheDocument();
-		expect(screen.getByText("App.tsx")).toBeInTheDocument();
 	});
 
-	it("does not dispatch onExpandedPathsChange when searching", async () => {
+	it("does not dispatch onExpandedPathsChange when a searchTerm is set", async () => {
 		mockListWorktree.mockResolvedValueOnce(wrapEntries(["src/deep/App.tsx"]));
 		const onExpandedPathsChange = vi.fn();
-		renderTree({ expandedPaths: [""], onExpandedPathsChange });
-		// Wait for the async load to complete before switching to fake timers
-		const input = await screen.findByLabelText("Search files");
-		vi.useFakeTimers();
-		fireEvent.change(input, { target: { value: "App" } });
-		await act(async () => {
-			vi.advanceTimersByTime(130);
-		});
+		renderTree({ expandedPaths: [""], onExpandedPathsChange, searchTerm: "App" });
+		await screen.findByText("App.tsx");
 		expect(
 			onExpandedPathsChange.mock.calls.filter(([, paths]) =>
 				paths.includes("src"),
@@ -313,6 +297,7 @@ describe("WorktreeTree stale-request guard", () => {
 				workspaceId="ws-1"
 				worktreeId="wt-a"
 				worktreeLabel="A"
+				searchTerm=""
 				selectedFile={null}
 				onSelect={vi.fn()}
 				changedFiles={[]}
@@ -327,6 +312,7 @@ describe("WorktreeTree stale-request guard", () => {
 				workspaceId="ws-1"
 				worktreeId="wt-b"
 				worktreeLabel="B"
+				searchTerm=""
 				selectedFile={null}
 				onSelect={vi.fn()}
 				changedFiles={[]}

@@ -592,6 +592,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 										workspaceId={activeWorkspaceId ?? ""}
 										worktreeId={activeWorktree.id}
 										worktreeLabel={activeWorktree.label}
+										searchTerm=""
 										selectedFile={activeSession.selectedFilePath}
 										onSelect={async (relativePath) => {
 											const decision =

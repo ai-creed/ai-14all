@@ -21,6 +21,7 @@ export type WorktreeTreeProps = {
 	workspaceId: string;
 	worktreeId: string;
 	worktreeLabel: string;
+	searchTerm: string;
 	selectedFile: string | null;
 	onSelect: (relativePath: string) => void;
 	onPreviewMarkdown?: (relativePath: string) => void;
@@ -38,6 +39,7 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 		workspaceId,
 		worktreeId,
 		worktreeLabel,
+		searchTerm,
 		selectedFile,
 		onSelect,
 		changedFiles,
@@ -52,8 +54,6 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 	const [fileList, setFileList] = useState<FileTreeEntry[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const [inputTerm, setInputTerm] = useState("");
-	const [searchTerm, setSearchTerm] = useState("");
 	const requestIdRef = useRef(0);
 	const didInitExpandRef = useRef<string | null>(null);
 	const scrollParentRef = useRef<HTMLDivElement | null>(null);
@@ -62,11 +62,6 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 		reload();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [workspaceId, worktreeId, showIgnored]);
-
-	useEffect(() => {
-		const handle = setTimeout(() => setSearchTerm(inputTerm), 120);
-		return () => clearTimeout(handle);
-	}, [inputTerm]);
 
 	async function reload() {
 		const myId = ++requestIdRef.current;
@@ -244,15 +239,6 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 					onChange={onToggleShowIgnored}
 					label="Show gitignored"
 					ariaLabel="Show gitignored files"
-				/>
-				<input
-					type="text"
-					className="shell-input shell-tree-search"
-					placeholder="Search files…"
-					value={inputTerm}
-					onChange={(e) => setInputTerm(e.target.value)}
-					aria-label="Search files"
-					disabled={!!error}
 				/>
 			</div>
 			{loading && fileCount === 0 && (
