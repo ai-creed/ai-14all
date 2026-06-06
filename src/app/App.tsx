@@ -18,7 +18,6 @@ import {
 } from "../features/review/components/ReviewExpandedPortal";
 import { useReviewComments } from "../features/review/hooks/use-review-comments";
 import { CodeNavHygiene } from "../features/code-nav/CodeNavHygiene";
-import { SymbolPalette } from "../features/code-nav/palette/SymbolPalette";
 import { type NewCommentDraft } from "./components/ReviewArea";
 import { useAgentInstallStatus } from "../features/review/hooks/use-agent-install-status";
 import {
@@ -113,7 +112,6 @@ export function App() {
 		handleSidebarResizeStart,
 	} = usePaneResizers({});
 	const [reviewOpen, setReviewOpen] = useState(false);
-	const [symbolPaletteOpen, setSymbolPaletteOpen] = useState(false);
 	const chipBarRef = useRef<HTMLDivElement>(null);
 	const mainColRef = useRef<HTMLElement>(null);
 	const expandedPortalRef = useRef<ReviewExpandedPortalHandle>(null);
@@ -326,12 +324,26 @@ export function App() {
 					target?.tagName === "INPUT" || target?.tagName === "TEXTAREA";
 				if (inText) return;
 				e.preventDefault();
-				setSymbolPaletteOpen(true);
+				const wid = workspaceStateRef.current.selectedWorktreeId;
+				if (!wid) return;
+				// Open the review overlay's Files tab in Symbols sub-mode and focus
+				// the search input (FilesPane focuses on entering symbols mode).
+				dispatch({
+					type: "session/setReviewMode",
+					worktreeId: wid,
+					reviewMode: "files",
+				});
+				dispatch({
+					type: "session/setFilesPaneMode",
+					worktreeId: wid,
+					filesPaneMode: "symbols",
+				});
+				setReviewOpen(true);
 			}
 		};
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
-	}, []);
+	}, [dispatch]);
 
 	// Register Monaco code-nav providers once on mount, lazily importing the
 	// monaco-dependent module so tests/unit/components/App-*.test.tsx (jsdom)
@@ -1665,6 +1677,7 @@ export function App() {
 									updateAddingDraftBody={updateAddingDraftBody}
 									pendingCommentJump={pendingCommentJump}
 									onConsumePendingCommentJump={() => setPendingCommentJump(0)}
+									onCloseReview={() => setReviewOpen(false)}
 								/>
 							</ReviewExpandedPortal>
 						)}
@@ -1715,10 +1728,6 @@ export function App() {
 					installModalOpen={installModalOpen}
 					setInstallModalOpen={setInstallModalOpen}
 					agentInstallStatus={agentInstallStatus}
-				/>
-				<SymbolPalette
-					open={symbolPaletteOpen}
-					onClose={() => setSymbolPaletteOpen(false)}
 				/>
 			</main>
 		</ToastProvider>

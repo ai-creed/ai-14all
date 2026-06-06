@@ -18,7 +18,7 @@ import type {
 import type { ResolvedTheme } from "../../lib/use-theme";
 import { CommitList } from "../../features/git/components/CommitList";
 import { ChangesList } from "../../features/git/components/ChangesList";
-import { WorktreeTree } from "../../features/viewer/components/WorktreeTree";
+import { FilesPane } from "./FilesPane";
 import { CommitDiffStack } from "../../features/git/components/CommitDiffStack";
 import { DiffViewer } from "../../features/viewer/components/DiffViewer";
 import { MarkdownPreviewModal } from "../../features/viewer/components/MarkdownPreviewModal";
@@ -97,6 +97,7 @@ type Props = {
 	updateAddingDraftBody: (body: string) => void;
 	pendingCommentJump: number;
 	onConsumePendingCommentJump: () => void;
+	onCloseReview: () => void;
 };
 
 /**
@@ -588,11 +589,10 @@ export function ReviewArea(props: Props): React.ReactElement {
 								</>
 							) : activeSession?.reviewMode === "files" ? (
 								<>
-									<WorktreeTree
+									<FilesPane
 										workspaceId={activeWorkspaceId ?? ""}
 										worktreeId={activeWorktree.id}
 										worktreeLabel={activeWorktree.label}
-										searchTerm=""
 										selectedFile={activeSession.selectedFilePath}
 										onSelect={async (relativePath) => {
 											const decision =
@@ -625,6 +625,15 @@ export function ReviewArea(props: Props): React.ReactElement {
 												showIgnored: !activeSession.treeShowIgnored,
 											})
 										}
+										mode={activeSession.filesPaneMode}
+										onModeChange={(filesPaneMode) =>
+											dispatch({
+												type: "session/setFilesPaneMode",
+												worktreeId: activeWorktree.id,
+												filesPaneMode,
+											})
+										}
+										onRequestClose={props.onCloseReview}
 									/>
 									{treePreviewPath !== null && (
 										<MarkdownPreviewModal
