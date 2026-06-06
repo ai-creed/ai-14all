@@ -27,6 +27,7 @@ export const PersistedWorktreeSessionSchema = z.object({
 	title: z.string().optional().default(""),
 	note: z.string(),
 	reviewMode: z.enum(["files", "changes", "commits"]),
+	filesPaneMode: z.enum(["files", "symbols"]).optional().default("files"),
 	viewerMode: z.enum(["file", "diff", "commit"]),
 	selectedFilePath: z.string().nullable(),
 	selectedChangedFilePath: z.string().nullable(),
