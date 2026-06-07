@@ -4348,7 +4348,10 @@ select {
 .files-pane__modes {
 	position: absolute;
 	right: 4px;
+	top: 50%;
+	transform: translateY(-50%);
 	display: flex;
+	align-items: center;
 	gap: 2px;
 }
 

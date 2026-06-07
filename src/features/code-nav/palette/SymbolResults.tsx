@@ -70,7 +70,12 @@ export function SymbolResults({
 					className="code-nav-stale-banner"
 				>
 					<span>Index reflects HEAD, not working tree.</span>
-					<button type="button" onClick={onRefresh} disabled={refreshing}>
+					<button
+						type="button"
+						className="shell-button shell-button--xs"
+						onClick={onRefresh}
+						disabled={refreshing}
+					>
 						{refreshing ? "Refreshing…" : "Refresh index"}
 					</button>
 				</div>
@@ -96,7 +101,10 @@ export function SymbolResults({
 				style={{ overflow: "auto" }}
 			>
 				<div
-					style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}
+					style={{
+						height: rowVirtualizer.getTotalSize(),
+						position: "relative",
+					}}
 				>
 					{rowVirtualizer.getVirtualItems().map((virtualRow) => {
 						const i = virtualRow.index;
