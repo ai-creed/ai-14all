@@ -4348,14 +4348,11 @@ select {
 .files-pane__modes {
 	position: absolute;
 	right: 4px;
-	/* Span the full input height so the buttons match it and the icons sit on
-	   the input's vertical center. */
-	top: 0;
-	bottom: 0;
+	top: 6px;
+	height: 36px;
 	display: flex;
 	align-items: stretch;
 	gap: 2px;
-	padding: 3px 0;
 }
 
 .files-pane__mode-btn {
