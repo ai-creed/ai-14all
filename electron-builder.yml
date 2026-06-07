@@ -1,6 +1,11 @@
 appId: dev.ai14all.desktop
 productName: ai-14all
 afterPack: ./scripts/electron-builder-after-pack.mjs
+# Compile native deps (better-sqlite3, node-pty) from source against Electron's
+# headers. Under Node 24, electron-builder's prebuilt-based rebuild fetches a
+# host-ABI (137) better-sqlite3 instead of Electron's 145, which the afterPack
+# guard rejects. Building from source guarantees the correct Electron ABI.
+buildDependenciesFromSource: true
 directories:
   output: release
 files:
