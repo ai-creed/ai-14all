@@ -4353,6 +4353,7 @@ select {
 	display: flex;
 	align-items: stretch;
 	gap: 2px;
+	padding: 3px 0;
 }
 
 .files-pane__mode-btn {
