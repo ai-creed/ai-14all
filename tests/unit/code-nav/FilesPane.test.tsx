@@ -186,6 +186,32 @@ describe("FilesPane", () => {
 		expect(onRequestClose).toHaveBeenCalled();
 	});
 
+	it("skips the symbol search and shows the unavailable banner when the worktree has no index", () => {
+		worktreeStatus.mockReturnValue({
+			available: false,
+			ready: false,
+			reason: "not-indexed",
+			dirtyAtIndex: false,
+			sourceFingerprint: null,
+			sourceIndexedAt: null,
+		});
+		symbolResults.mockClear();
+		render(<FilesPane {...baseProps} mode="symbols" onModeChange={() => {}} />);
+		expect(screen.getByTestId("code-nav-unavailable-banner")).toBeTruthy();
+		// No searchSymbols IPC is attempted for an unindexed worktree — otherwise
+		// every keystroke throws CortexIndexNotReadyError in the main process.
+		expect(symbolResults).not.toHaveBeenCalled();
+		// Restore the default available status for any later tests.
+		worktreeStatus.mockReturnValue({
+			available: true,
+			ready: true,
+			reason: null,
+			dirtyAtIndex: false,
+			sourceFingerprint: null,
+			sourceIndexedAt: null,
+		});
+	});
+
 	it("keeps WorktreeTree mounted across Files→Symbols→Files (no refetch)", () => {
 		treeMounts.n = 0;
 		const { rerender } = render(

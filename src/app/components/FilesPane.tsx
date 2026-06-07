@@ -42,8 +42,13 @@ export function FilesPane(props: FilesPaneProps) {
 	const [refreshing, setRefreshing] = useState(false);
 	const inputRef = useRef<HTMLInputElement | null>(null);
 
-	const { results, loading, error } = useSymbolSearch(activeRef, query);
 	const status = useWorktreeStatus(activeRef);
+	// Only hit the symbol-search IPC once the worktree is confirmed available.
+	// For a worktree with no cortex mirror, status resolves to available:false and
+	// every searchSymbols call would throw CortexIndexNotReadyError in the main
+	// process; SymbolResults renders the unavailable banner from `status` instead.
+	const searchRef = status?.available === true ? activeRef : null;
+	const { results, loading, error } = useSymbolSearch(searchRef, query);
 
 	// Focus the search input when entering Symbols mode (e.g. via Cmd+T). The
 	// terminal's auto-focus is suppressed while the review overlay is open (see
