@@ -149,7 +149,11 @@ describe("WorktreeTree search", () => {
 	it("does not dispatch onExpandedPathsChange when a searchTerm is set", async () => {
 		mockListWorktree.mockResolvedValueOnce(wrapEntries(["src/deep/App.tsx"]));
 		const onExpandedPathsChange = vi.fn();
-		renderTree({ expandedPaths: [""], onExpandedPathsChange, searchTerm: "App" });
+		renderTree({
+			expandedPaths: [""],
+			onExpandedPathsChange,
+			searchTerm: "App",
+		});
 		await screen.findByText("App.tsx");
 		expect(
 			onExpandedPathsChange.mock.calls.filter(([, paths]) =>

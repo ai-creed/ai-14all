@@ -7,7 +7,7 @@ const symbolResults = vi.fn(() => [] as unknown[]);
 const worktreeStatus = vi.fn(() => ({
 	available: true,
 	ready: true,
-	reason: null,
+	reason: null as string | null,
 	dirtyAtIndex: false,
 	sourceFingerprint: null,
 	sourceIndexedAt: null,
@@ -16,24 +16,21 @@ const worktreeStatus = vi.fn(() => ({
 // Mount counter lets us prove FilesPane keeps WorktreeTree mounted across a
 // mode toggle (so files.listWorktree is not refired) — spec edge case 4.
 const treeMounts = vi.hoisted(() => ({ n: 0 }));
-vi.mock(
-	"../../../src/features/viewer/components/WorktreeTree.js",
-	async () => {
-		const react = await vi.importActual<typeof import("react")>("react");
-		return {
-			WorktreeTree: ({ searchTerm }: { searchTerm: string }) => {
-				react.useEffect(() => {
-					treeMounts.n += 1;
-				}, []);
-				return react.createElement(
-					"div",
-					{ "data-testid": "worktree-tree" },
-					"tree:" + searchTerm,
-				);
-			},
-		};
-	},
-);
+vi.mock("../../../src/features/viewer/components/WorktreeTree.js", async () => {
+	const react = await vi.importActual<typeof import("react")>("react");
+	return {
+		WorktreeTree: ({ searchTerm }: { searchTerm: string }) => {
+			react.useEffect(() => {
+				treeMounts.n += 1;
+			}, []);
+			return react.createElement(
+				"div",
+				{ "data-testid": "worktree-tree" },
+				"tree:" + searchTerm,
+			);
+		},
+	};
+});
 vi.mock("../../../src/features/code-nav/palette/use-symbol-search.js", () => ({
 	useSymbolSearch: (ref: unknown) => ({
 		results: ref ? symbolResults() : [],
@@ -41,9 +38,12 @@ vi.mock("../../../src/features/code-nav/palette/use-symbol-search.js", () => ({
 		error: null,
 	}),
 }));
-vi.mock("../../../src/features/code-nav/palette/use-worktree-status.js", () => ({
-	useWorktreeStatus: (ref: unknown) => (ref ? worktreeStatus() : null),
-}));
+vi.mock(
+	"../../../src/features/code-nav/palette/use-worktree-status.js",
+	() => ({
+		useWorktreeStatus: (ref: unknown) => (ref ? worktreeStatus() : null),
+	}),
+);
 vi.mock("../../../src/features/code-nav/nav/active-worktree-ref.js", () => ({
 	getActiveWorktreeRef: () => ({ workspaceId: "ws1", worktreeId: "wt1" }),
 }));
@@ -79,7 +79,9 @@ describe("FilesPane", () => {
 
 	it("switches the input placeholder when toggling to symbols mode", async () => {
 		const onModeChange = vi.fn();
-		render(<FilesPane {...baseProps} mode="files" onModeChange={onModeChange} />);
+		render(
+			<FilesPane {...baseProps} mode="files" onModeChange={onModeChange} />,
+		);
 		await userEvent.click(screen.getByRole("button", { name: /symbols/i }));
 		expect(onModeChange).toHaveBeenCalledWith("symbols");
 	});

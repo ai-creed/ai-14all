@@ -6,7 +6,10 @@ export type HighlightSegment = { text: string; hit: boolean };
  * empty or absent. Used to render the matched substring of a symbol name in the
  * accent color.
  */
-export function highlightMatch(text: string, query: string): HighlightSegment[] {
+export function highlightMatch(
+	text: string,
+	query: string,
+): HighlightSegment[] {
 	const q = query.trim();
 	if (q.length === 0) return [{ text, hit: false }];
 	const idx = text.toLowerCase().indexOf(q.toLowerCase());

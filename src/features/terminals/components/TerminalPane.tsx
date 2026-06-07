@@ -405,7 +405,6 @@ export function TerminalPane({
 	useEffect(() => {
 		if (!focused || !visible || findOpen || suppressAutoFocus) return;
 		termRef.current?.focus();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [focusSignal, focused, visible, findOpen, suppressAutoFocus]);
 
 	// Manual refit + scroll-to-bottom, triggered by the slot's refit action.

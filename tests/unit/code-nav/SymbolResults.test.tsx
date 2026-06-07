@@ -61,9 +61,9 @@ describe("SymbolResults", () => {
 				onRefresh={() => {}}
 			/>,
 		);
-		expect(
-			screen.getByTestId("code-nav-unavailable-banner"),
-		).toHaveTextContent(/install ai-cortex/i);
+		expect(screen.getByTestId("code-nav-unavailable-banner")).toHaveTextContent(
+			/install ai-cortex/i,
+		);
 		expect(screen.queryByRole("option")).toBeNull();
 	});
 
@@ -104,9 +104,7 @@ describe("SymbolResults", () => {
 				onRefresh={() => {}}
 			/>,
 		);
-		expect(
-			screen.getByRole("button", { name: /refreshing/i }),
-		).toBeDisabled();
+		expect(screen.getByRole("button", { name: /refreshing/i })).toBeDisabled();
 	});
 
 	it("shows the empty-QUERY prompt (distinct from no-match) when query is blank", () => {
