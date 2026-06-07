@@ -66,6 +66,15 @@ jobs:
       - name: E2E tests
         run: pnpm test:e2e
 
+      # The E2E step's posttest rebuilds better-sqlite3 for host Node (so unit
+      # tests keep working), leaving it at the host ABI. electron-builder's
+      # internal @electron/rebuild then sees a cache hit and SKIPS rebuilding, so
+      # it would package the host-ABI binary — which the afterPack guard rejects
+      # (NODE_MODULE_VERSION 137 vs Electron's 145). Force the Electron rebuild
+      # here so the packaged better-sqlite3 matches Electron's ABI.
+      - name: Rebuild better-sqlite3 for Electron before packaging
+        run: pnpm exec electron-rebuild -f -w better-sqlite3
+
       - name: Align package.json version with target
         shell: bash
         run: |
