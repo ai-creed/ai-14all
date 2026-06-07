@@ -14,10 +14,18 @@ import { WorktreeService } from "../../../../services/worktrees/worktree-service
 import { GitService } from "../../../../services/git/git-service.js";
 
 /**
- * Creates a temporary git repo with a real commit and origin/master set up.
+ * Creates a temporary git repo with a real commit and a remote tracking branch.
+ * By default the remote branch is `master` and `origin/HEAD` points at it,
+ * mirroring a freshly-cloned repo. Override via options to exercise non-master
+ * defaults or a repo whose `origin/HEAD` is unset.
  * The caller is responsible for cleanup via `rmSync(tmpDir, { recursive: true, force: true })`.
  */
-function makeTestRepo(): string {
+function makeRepo(opts?: {
+	remoteBranch?: string;
+	setOriginHead?: boolean;
+}): string {
+	const remoteBranch = opts?.remoteBranch ?? "master";
+	const setOriginHead = opts?.setOriginHead ?? true;
 	const tmpDir = mkdtempSync(join(tmpdir(), "ofa-test-"));
 	execSync("git init", { cwd: tmpDir, stdio: "ignore" });
 	execSync("git config user.email 'phase7@example.com'", {
@@ -31,11 +39,21 @@ function makeTestRepo(): string {
 	writeFileSync(join(tmpDir, "README.md"), "# repo\n");
 	execSync("git add README.md", { cwd: tmpDir, stdio: "ignore" });
 	execSync('git commit -m "initial commit"', { cwd: tmpDir, stdio: "ignore" });
-	execSync("git update-ref refs/remotes/origin/master HEAD", {
+	execSync(`git update-ref refs/remotes/origin/${remoteBranch} HEAD`, {
 		cwd: tmpDir,
 		stdio: "ignore",
 	});
+	if (setOriginHead) {
+		execSync(
+			`git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/${remoteBranch}`,
+			{ cwd: tmpDir, stdio: "ignore" },
+		);
+	}
 	return tmpDir;
+}
+
+function makeTestRepo(): string {
+	return makeRepo();
 }
 
 describe("WorktreeService", () => {
@@ -240,6 +258,31 @@ describe("WorktreeService", () => {
 				expect(preview.path).toBe(join(tmpDir, ".worktrees", "feature-a"));
 				expect(preview.baseRef).toBe("origin/master");
 				expect(preview.baseCommit.subject).toBe("initial commit");
+			} finally {
+				rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+
+		it("resolves the base ref from origin/HEAD for a non-master default branch", async () => {
+			const tmpDir = makeRepo({ remoteBranch: "main" });
+			try {
+				const repo = await service.setRepositoryRoot(tmpDir);
+				const preview = await service.previewCreateWorktree(repo, "Feature A");
+
+				expect(preview.baseRef).toBe("origin/main");
+				expect(preview.baseCommit.subject).toBe("initial commit");
+			} finally {
+				rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+
+		it("throws a clear, actionable error when origin/HEAD is not set", async () => {
+			const tmpDir = makeRepo({ setOriginHead: false });
+			try {
+				const repo = await service.setRepositoryRoot(tmpDir);
+				await expect(
+					service.previewCreateWorktree(repo, "Feature A"),
+				).rejects.toThrow(/origin\/HEAD.*git remote set-head/s);
 			} finally {
 				rmSync(tmpDir, { recursive: true, force: true });
 			}

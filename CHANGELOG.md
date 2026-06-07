@@ -4,6 +4,25 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] – 2026-06-04
+
+### Added
+
+- **"Creating session…" progress indicator.** Creating a worktree runs several Git commands and can take a few seconds. The New session dialog now shows a pulsing indicator while it works (buttons disabled, dialog stays open) instead of looking frozen. Respects `prefers-reduced-motion`.
+- **Actionable hint when a repository has no default branch.** If `origin/HEAD` isn't set, the New session dialog shows a calm explanation with the one-line fix (`git remote set-head origin -a`) instead of a raw error banner.
+
+### Changed
+
+- **Sidebar workspaces are sorted.** Loaded workspaces are listed first, then unloaded ones, each group ordered alphabetically (case-insensitive) — no more interleaving of loaded and unloaded entries.
+- **Wider note pane.** The note pane is 140px wider for more comfortable reading and editing.
+
+### Fixed
+
+- **Token telemetry now counts every tracked workspace, not just the active one.** The usage worker rebuilt an empty aggregator each launch but resumed transcripts at their persisted byte offset, so only workspaces with new activity in the current session appeared under "all tracked" (and weekly totals reset on every restart). On launch it now re-reads transcripts modified within the rolling week, rebuilding the full week for every tracked worktree.
+- **New worktrees branch from the repository's actual default branch.** Creation was hard-coded to `origin/master` and failed in repos whose default branch is `main` (or that lack `origin/master`). It now resolves the default from `origin/HEAD`, and fails with an actionable message when that isn't set.
+- **Session titles entered at creation are no longer dropped.** The title was applied before the session existed (a no-op); it's now applied after the session is created.
+- **No more restore-state write crash under rapid workspace switching.** Concurrent state writes shared a single temp file, causing intermittent `ENOENT … rename … workspace-state.json.ai-14all.tmp` errors; each write now uses a unique temp file and writes are serialized.
+
 ## [0.7.1] – 2026-05-27
 
 ### Added

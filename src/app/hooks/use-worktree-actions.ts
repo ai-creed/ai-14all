@@ -120,6 +120,12 @@ export function useWorktreeActions(options: Options): UseWorktreeActions {
 				workspaceId,
 				createName,
 			);
+			// Reconcile first so the session for `created.id` exists; setting the
+			// title before this no-ops (updateSession ignores missing sessions) and
+			// silently drops the user's typed title.
+			await refreshWorktreeInventory({
+				preferredSelectedWorktreeId: created.id,
+			});
 			if (createSessionTitle.trim()) {
 				dispatch({
 					type: "session/setTitle",
@@ -127,9 +133,6 @@ export function useWorktreeActions(options: Options): UseWorktreeActions {
 					title: createSessionTitle,
 				});
 			}
-			await refreshWorktreeInventory({
-				preferredSelectedWorktreeId: created.id,
-			});
 			setCreateDialogOpen(false);
 			setCreateName("");
 			setCreateSessionTitle("");

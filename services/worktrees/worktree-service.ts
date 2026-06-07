@@ -183,23 +183,53 @@ export class WorktreeService {
 			throw new Error(`Worktree path already exists: ${path}`);
 		}
 
+		const baseRef = await this.resolveDefaultBaseRef(repository);
+
 		const { stdout } = await execFileAsync(
 			gitBinary,
-			["log", "--format=%H%x09%h%x09%s", "-n", "1", "origin/master"],
+			["log", "--format=%H%x09%h%x09%s", "-n", "1", baseRef],
 			{ cwd: repository.rootPath },
 		);
 		const [sha, shortSha, subject] = stdout.trim().split("\t");
 		if (!sha || !shortSha) {
-			throw new Error("Could not resolve origin/master.");
+			throw new Error(`Could not resolve ${baseRef}.`);
 		}
 
 		return {
 			name: name.trim(),
 			branchName: normalizedName,
 			path,
-			baseRef: "origin/master",
+			baseRef,
 			baseCommit: { sha, shortSha, subject: subject ?? "" },
 		};
+	}
+
+	/**
+	 * Resolves the repository's default base branch from the remote's symbolic
+	 * HEAD (e.g. `origin/main`), set when a repo is cloned. We branch new
+	 * worktrees off this rather than a hardcoded `origin/master` so repos using
+	 * any default branch work. If `origin/HEAD` is unset we fail with an
+	 * actionable error instead of guessing.
+	 */
+	private async resolveDefaultBaseRef(repository: Repository): Promise<string> {
+		let symbolicRef = "";
+		try {
+			symbolicRef = await git(
+				["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"],
+				repository.rootPath,
+			);
+		} catch {
+			// --quiet exits non-zero when origin/HEAD is not a symbolic ref.
+			symbolicRef = "";
+		}
+		const baseRef = symbolicRef.replace(/^refs\/remotes\//, "");
+		if (!baseRef) {
+			throw new Error(
+				"Could not resolve a base branch — origin/HEAD is not set. " +
+					"Run: git remote set-head origin -a",
+			);
+		}
+		return baseRef;
 	}
 
 	async createWorktree(

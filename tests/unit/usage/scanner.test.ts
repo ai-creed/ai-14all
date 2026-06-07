@@ -1,14 +1,38 @@
-import { appendFileSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import {
+	appendFileSync,
+	mkdirSync,
+	mkdtempSync,
+	utimesSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { UsageEvent } from "../../../shared/models/usage.js";
+import { WEEK_MS } from "../../../services/usage/aggregator.js";
 import {
 	processCodexFile,
+	resetRecentOffsets,
 	scanClaude,
 	scanCodex,
 	type OffsetCache,
 } from "../../../services/usage/scanner.js";
+
+function writeClaudeEvent(dir: string, file: string, isoTs: string): string {
+	mkdirSync(dir, { recursive: true });
+	const path = join(dir, file);
+	writeFileSync(
+		path,
+		JSON.stringify({
+			type: "assistant",
+			timestamp: isoTs,
+			cwd: "/Users/me/Dev/app",
+			sessionId: "s1",
+			message: { model: "m", usage: { output_tokens: 10 } },
+		}) + "\n",
+	);
+	return path;
+}
 
 describe("scanners", () => {
 	it("scanClaude parses assistant usage lines under project dirs", () => {
@@ -31,6 +55,48 @@ describe("scanners", () => {
 		expect(events[0].billable).toBe(10);
 		expect(scanClaude(root, offsets)).toHaveLength(0);
 	});
+	it("resetRecentOffsets makes a relaunch re-read recently-active files (rebuilds the week window)", () => {
+		// Simulates: app run 1 ingests a file, persists offsets at EOF; on relaunch
+		// the aggregator is empty, so resuming at the persisted offset would lose
+		// this week's pre-launch usage. resetRecentOffsets forces a re-read.
+		const root = mkdtempSync(join(tmpdir(), "claude-relaunch-"));
+		writeClaudeEvent(
+			join(root, "-Users-me-Dev-app"),
+			"s1.jsonl",
+			new Date().toISOString(),
+		);
+
+		const offsets: OffsetCache = new Map();
+		expect(scanClaude(root, offsets)).toHaveLength(1);
+		// Same cache (as if persisted + reloaded): resume at EOF => nothing.
+		expect(scanClaude(root, offsets)).toHaveLength(0);
+
+		// The fix: drop offsets for files active within the window so the next
+		// scan re-ingests them into the fresh aggregator.
+		resetRecentOffsets([root], offsets, Date.now(), WEEK_MS);
+		expect(scanClaude(root, offsets)).toHaveLength(1);
+	});
+
+	it("resetRecentOffsets leaves files older than the window untouched", () => {
+		const root = mkdtempSync(join(tmpdir(), "claude-stale-"));
+		const file = writeClaudeEvent(
+			join(root, "-Users-me-Dev-app"),
+			"old.jsonl",
+			"2026-01-01T00:00:00.000Z",
+		);
+		const offsets: OffsetCache = new Map();
+		scanClaude(root, offsets);
+		expect(offsets.has(file)).toBe(true);
+
+		// Mark the file as last-modified 8 days ago.
+		const eightDaysAgoSec = (Date.now() - 8 * 24 * 3_600_000) / 1000;
+		utimesSync(file, eightDaysAgoSec, eightDaysAgoSec);
+
+		resetRecentOffsets([root], offsets, Date.now(), WEEK_MS);
+		// Outside the window => offset preserved (not re-read on relaunch).
+		expect(offsets.has(file)).toBe(true);
+	});
+
 	it("scanCodex parses token_count and captures rate limits", () => {
 		const root = mkdtempSync(join(tmpdir(), "codex-"));
 		const day = join(root, "2026", "05", "21");

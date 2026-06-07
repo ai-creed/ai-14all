@@ -5,8 +5,10 @@ import {
 	listJsonlFiles,
 	processClaudeFile,
 	processCodexFile,
+	resetRecentOffsets,
 	type OffsetCache,
 } from "../../../services/usage/scanner.js";
+import { WEEK_MS } from "../../../services/usage/aggregator.js";
 import { processInBatches } from "../../../services/usage/batch.js";
 import { buildSnapshot } from "../../../services/usage/snapshot.js";
 import {
@@ -149,6 +151,16 @@ parentPort.on("message", (e) => {
 		cfg = msg.config;
 		agg = new UsageAggregator(cfg.launchMs);
 		loadOffsets(cfg.offsetCachePath);
+		// The aggregator starts empty each launch, so persisted offsets would skip
+		// this week's pre-launch usage (only workspaces active *this* session would
+		// ever get rows). Drop offsets for files touched within the rolling window
+		// so the backfill rebuilds the full week for every tracked worktree.
+		resetRecentOffsets(
+			[cfg.claudeRoot, cfg.codexRoot],
+			offsets,
+			Date.now(),
+			WEEK_MS,
+		);
 		void sweep(); // chunked backfill; emits progressively, never blocks
 		watchDir(cfg.claudeRoot);
 		watchDir(cfg.codexRoot);

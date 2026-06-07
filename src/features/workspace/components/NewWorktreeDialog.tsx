@@ -1,5 +1,6 @@
 import { AppDialog } from "../../../components/AppDialog";
 import type { CreateWorktreePreview } from "../../../../shared/models/worktree-lifecycle";
+import { getCreateWorktreeErrorHint } from "../logic/create-worktree-error-hint";
 
 type Props = {
 	open: boolean;
@@ -28,6 +29,7 @@ export function NewWorktreeDialog({
 	onSessionTitleChange,
 	onConfirm,
 }: Props) {
+	const errorHint = getCreateWorktreeErrorHint(error);
 	return (
 		<AppDialog open={open} onOpenChange={onOpenChange}>
 			<AppDialog.Title>New session</AppDialog.Title>
@@ -75,7 +77,15 @@ export function NewWorktreeDialog({
 						</div>
 					</div>
 				)}
-				{error && <div className="shell-error-banner">{error}</div>}
+				{errorHint ? (
+					<div className="shell-app-dialog__hint" role="status">
+						<strong>{errorHint.title}</strong>
+						<p>{errorHint.detail}</p>
+						{errorHint.command && <code>{errorHint.command}</code>}
+					</div>
+				) : (
+					error && <div className="shell-error-banner">{error}</div>
+				)}
 			</AppDialog.Body>
 			<AppDialog.Footer>
 				<button
@@ -92,7 +102,14 @@ export function NewWorktreeDialog({
 					onClick={onConfirm}
 					disabled={!preview || loading || busy}
 				>
-					Create worktree
+					{busy ? (
+						<span className="shell-button__busy">
+							<span className="shell-button__pulse-dot" aria-hidden="true" />
+							Creating session…
+						</span>
+					) : (
+						"Create worktree"
+					)}
 				</button>
 			</AppDialog.Footer>
 		</AppDialog>
