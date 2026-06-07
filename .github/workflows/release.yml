@@ -47,6 +47,15 @@ jobs:
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
 
+      # electron@41's install.js under Node 24 extracts the binary but fails to
+      # write `path.txt`, so `require("electron")` (e.g. playwright's
+      # _electron.launch in the E2E step) throws "Electron failed to install
+      # correctly". Repair it: ensure the binary exists (re-run install.js if
+      # not), then write the missing path.txt, then verify it resolves.
+      - name: Ensure Electron binary is fully installed
+        run: |
+          node -e "const fs=require('fs'),path=require('path'),cp=require('child_process');const dir=path.dirname(require.resolve('electron/package.json'));const pp=process.platform==='darwin'?'Electron.app/Contents/MacOS/Electron':process.platform==='win32'?'electron.exe':'electron';const bin=path.join(dir,'dist',pp),pt=path.join(dir,'path.txt');if(!fs.existsSync(bin)){console.log('electron binary missing — running install.js');cp.execSync('node '+path.join(dir,'install.js'),{stdio:'inherit'});}if(fs.existsSync(bin)&&!fs.existsSync(pt)){fs.writeFileSync(pt,pp);console.log('wrote missing electron path.txt ->',pp);}require('electron');console.log('electron resolves OK');"
+
       - name: Lint + format + typecheck
         run: |
           pnpm lint
