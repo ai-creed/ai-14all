@@ -40,7 +40,10 @@ jobs:
       - name: Setup Node + pnpm
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          # Node 24 to match Electron 41's bundled Node (24.x) and to provide a
+          # stable `node:sqlite` — the cortex fixture helper imports DatabaseSync,
+          # which is experimental/flagged on Node 22 and breaks Vite's externalize.
+          node-version: "24"
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
 
