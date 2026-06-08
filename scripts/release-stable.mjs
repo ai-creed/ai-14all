@@ -69,6 +69,14 @@ export function main(argv = process.argv.slice(2)) {
 	run("pnpm", ["format"], { stdio: "inherit" });
 	run("pnpm", ["typecheck"], { stdio: "inherit" });
 	run("pnpm", ["test"], { stdio: "inherit" });
+	// `pnpm test` (vitest) needs/leaves better-sqlite3 at the host-Node ABI. The
+	// packaged app needs Electron's ABI, but electron-builder's internal rebuild
+	// sees the existing host-ABI binary as a cache hit and SKIPS rebuilding, so
+	// package:mac would ship a host-ABI binary and the afterPack guard aborts.
+	// Force the Electron rebuild here, exactly as CI does before packaging.
+	run("pnpm", ["exec", "electron-rebuild", "-f", "-w", "better-sqlite3"], {
+		stdio: "inherit",
+	});
 	run("pnpm", ["package:mac"], { stdio: "inherit" });
 
 	writeFileSync("package.json", rewriteVersionInPackageJson(pkgText, target));
