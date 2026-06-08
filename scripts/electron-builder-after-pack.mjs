@@ -5,7 +5,7 @@ import {
 	readFileSync as defaultReadFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
-import { join } from "node:path";
+import { join, posix, relative, sep } from "node:path";
 import { Arch } from "builder-util";
 
 const localRequire = createRequire(import.meta.url);
@@ -173,6 +173,199 @@ export function assertPackagedBetterSqliteAbi({
 	return { binary, actual, expected };
 }
 
+// --- dependency-closure guard ----------------------------------------------
+//
+// electron-builder builds app.asar's node_modules from a production dependency
+// graph it derives by parsing `pnpm ls --json --depth Infinity`. pnpm 10.29.3+
+// emits truncated "deduped" nodes for packages that appear more than once in the
+// tree; collector versions before electron-builder 26.8.2 assumed full expansion
+// and silently dropped any transitive leaf reachable only through a deduped node
+// (e.g. is-extglob via chokidar → glob-parent → is-glob). The resulting app
+// packages cleanly and then crashes for EVERY user at startup with "Cannot find
+// module ...". This guard re-derives the present module set from the packaged
+// app itself and asserts every declared dependency resolves — aborting packaging
+// if any are missing, so this class of bug can never reach users again.
+
+export function getPackagedAsarPath({ appOutDir, productFilename }) {
+	return join(
+		appOutDir,
+		`${productFilename}.app`,
+		"Contents",
+		"Resources",
+		"app.asar",
+	);
+}
+
+// A package.json is a *package root* only when its parent directory is the
+// package itself sitting directly under a node_modules (optionally inside a
+// @scope dir). This excludes package.json files nested in a package's own
+// subfolders (e.g. node_modules/foo/lib/package.json), which are not packages.
+export function isPackageRootPackageJson(relPath) {
+	if (!relPath.endsWith("/package.json")) return false;
+	const parts = relPath.split("/");
+	parts.pop(); // drop "package.json"
+	if (parts.length < 2) return false; // need at least node_modules/<name>
+	const before = parts[parts.length - 2];
+	if (before === "node_modules") return true; // node_modules/<name>
+	// node_modules/@scope/<name>
+	return before.startsWith("@") && parts[parts.length - 3] === "node_modules";
+}
+
+// Resolve each package's declared deps the way Node does: from the requiring
+// package's dir, look for <dir>/node_modules/<dep>, then ascend. Paths are
+// POSIX-relative to Contents/Resources so asar and asar.unpacked share one tree.
+export function findUnresolvedDependencies(packages) {
+	const present = new Set(packages.map((p) => p.dir));
+	const resolves = (dep, fromDir) => {
+		let dir = fromDir;
+		while (true) {
+			if (present.has(posix.join(dir, "node_modules", dep))) return true;
+			const parent = posix.dirname(dir);
+			if (parent === dir) return false;
+			dir = parent;
+		}
+	};
+	const missing = [];
+	for (const pkg of packages) {
+		for (const dep of pkg.dependencies) {
+			if (!resolves(dep, pkg.dir)) {
+				missing.push({ from: pkg.name, dependency: dep });
+			}
+		}
+	}
+	return missing;
+}
+
+function normalizeAsarPath(p) {
+	return p
+		.replace(/^[/\\]+/, "")
+		.split("\\")
+		.join("/");
+}
+
+function toPackage(dir, jsonText) {
+	let pj;
+	try {
+		pj = JSON.parse(jsonText);
+	} catch {
+		return null;
+	}
+	return {
+		dir,
+		name: pj.name ?? dir,
+		dependencies: Object.keys(pj.dependencies ?? {}),
+	};
+}
+
+function loadAsar() {
+	// @electron/asar is a transitive dep of app-builder-lib (a direct devDep via
+	// electron-builder). Resolve it through that chain rather than relying on
+	// hoisting, mirroring how node-abi is resolved through @electron/rebuild.
+	const ebRequire = createRequire(localRequire.resolve("electron-builder"));
+	const ablRequire = createRequire(ebRequire.resolve("app-builder-lib"));
+	return ablRequire("@electron/asar");
+}
+
+export function collectPackagedPackages({
+	asarPath,
+	unpackedDir,
+	listPackage = (p) => loadAsar().listPackage(p),
+	extractFile = (p, f) => loadAsar().extractFile(p, f),
+	existsSync = defaultExistsSync,
+	readdirSync = defaultReaddirSync,
+	readFileSync = defaultReadFileSync,
+}) {
+	const packages = [];
+	const seen = new Set();
+	const add = (dir, jsonText) => {
+		if (seen.has(dir)) return; // unpacked wins over the asar stub if both exist
+		const pkg = toPackage(dir, jsonText);
+		if (!pkg) return;
+		seen.add(dir);
+		packages.push(pkg);
+	};
+
+	// 1. asar.unpacked first (real files on disk for asarUnpack'd modules)
+	if (existsSync(unpackedDir)) {
+		const stack = [unpackedDir];
+		while (stack.length > 0) {
+			const dir = stack.pop();
+			let entries;
+			try {
+				entries = readdirSync(dir, { withFileTypes: true });
+			} catch {
+				continue;
+			}
+			for (const entry of entries) {
+				const full = join(dir, entry.name);
+				if (entry.isDirectory()) stack.push(full);
+				else if (entry.name === "package.json") {
+					const rel = relative(unpackedDir, full).split(sep).join("/");
+					if (!isPackageRootPackageJson(rel)) continue;
+					add(
+						rel.slice(0, -"/package.json".length),
+						readFileSync(full, "utf8"),
+					);
+				}
+			}
+		}
+	}
+
+	// 2. everything inside the asar
+	for (const entry of listPackage(asarPath)) {
+		const rel = normalizeAsarPath(entry);
+		if (!isPackageRootPackageJson(rel)) continue;
+		add(
+			rel.slice(0, -"/package.json".length),
+			extractFile(asarPath, rel).toString("utf8"),
+		);
+	}
+
+	return packages;
+}
+
+export function assertPackagedDependencyClosure({
+	appOutDir,
+	productFilename,
+	listPackage,
+	extractFile,
+	existsSync = defaultExistsSync,
+	readdirSync = defaultReaddirSync,
+	readFileSync = defaultReadFileSync,
+}) {
+	const packages = collectPackagedPackages({
+		asarPath: getPackagedAsarPath({ appOutDir, productFilename }),
+		unpackedDir: getPackagedAsarUnpackedDir({ appOutDir, productFilename }),
+		listPackage,
+		extractFile,
+		existsSync,
+		readdirSync,
+		readFileSync,
+	});
+	if (packages.length === 0) {
+		throw new Error(
+			"afterPack: no packages found in app.asar — dependency collection produced an empty tree. Aborting packaging.",
+		);
+	}
+	const missing = findUnresolvedDependencies(packages);
+	if (missing.length > 0) {
+		const detail = missing
+			.slice(0, 40)
+			.map((m) => `  - ${m.dependency} (required by ${m.from})`)
+			.join("\n");
+		const more =
+			missing.length > 40 ? `\n  …and ${missing.length - 40} more` : "";
+		throw new Error(
+			`afterPack: ${missing.length} declared dependency(ies) missing from the packaged app.asar — ` +
+				'the app would crash at runtime with "Cannot find module". This is the pnpm/electron-builder ' +
+				"deduped-subtree collector bug; ensure electron-builder >= 26.8.2. Missing:\n" +
+				detail +
+				more,
+		);
+	}
+	return { checked: packages.length };
+}
+
 export default async function afterPack(context) {
 	const changed = ensurePackagedNodePtySpawnHelperExecutable({
 		appOutDir: context.appOutDir,
@@ -189,5 +382,10 @@ export default async function afterPack(context) {
 		appOutDir: context.appOutDir,
 		productFilename: context.packager.appInfo.productFilename,
 		electronVersion: resolveElectronVersion(context),
+	});
+
+	assertPackagedDependencyClosure({
+		appOutDir: context.appOutDir,
+		productFilename: context.packager.appInfo.productFilename,
 	});
 }

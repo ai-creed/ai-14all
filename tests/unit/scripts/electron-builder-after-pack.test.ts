@@ -2,10 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 import { Arch } from "builder-util";
 import afterPack, {
 	assertPackagedBetterSqliteAbi,
+	assertPackagedDependencyClosure,
+	collectPackagedPackages,
 	ensurePackagedNodePtySpawnHelperExecutable,
 	findBetterSqliteBinary,
+	findUnresolvedDependencies,
+	getPackagedAsarPath,
 	getPackagedAsarUnpackedDir,
 	getPackagedNodePtySpawnHelperPath,
+	isPackageRootPackageJson,
 	readNativeModuleAbi,
 	resolveElectronAbi,
 	resolveElectronVersion,
@@ -207,5 +212,206 @@ describe("better-sqlite3 ABI guard", () => {
 				getAbi: () => 145,
 			}),
 		).toThrow(/native binary not found/);
+	});
+});
+
+describe("dependency-closure guard", () => {
+	const ASAR =
+		"/tmp/release/mac-arm64/ai-14all.app/Contents/Resources/app.asar";
+
+	it("builds the app.asar path inside a packaged app", () => {
+		expect(
+			getPackagedAsarPath({
+				appOutDir: "/tmp/release/mac-arm64",
+				productFilename: "ai-14all",
+			}),
+		).toBe(ASAR);
+	});
+
+	describe("isPackageRootPackageJson", () => {
+		it("accepts a top-level package root", () => {
+			expect(
+				isPackageRootPackageJson("node_modules/is-glob/package.json"),
+			).toBe(true);
+		});
+		it("accepts a scoped package root", () => {
+			expect(
+				isPackageRootPackageJson(
+					"node_modules/@radix-ui/react-separator/package.json",
+				),
+			).toBe(true);
+		});
+		it("accepts a nested (conflict-resolution) package root", () => {
+			expect(
+				isPackageRootPackageJson(
+					"node_modules/parse-entities/node_modules/character-entities/package.json",
+				),
+			).toBe(true);
+		});
+		it("rejects a package.json nested inside a package's own subfolders", () => {
+			expect(
+				isPackageRootPackageJson("node_modules/foo/lib/package.json"),
+			).toBe(false);
+		});
+		it("rejects non-node_modules and the app's own package.json", () => {
+			expect(isPackageRootPackageJson("package.json")).toBe(false);
+			expect(isPackageRootPackageJson("out/main/package.json")).toBe(false);
+		});
+	});
+
+	describe("findUnresolvedDependencies", () => {
+		const chain = [
+			{
+				dir: "node_modules/chokidar",
+				name: "chokidar",
+				dependencies: ["glob-parent", "is-glob"],
+			},
+			{
+				dir: "node_modules/glob-parent",
+				name: "glob-parent",
+				dependencies: ["is-glob"],
+			},
+			{
+				dir: "node_modules/is-glob",
+				name: "is-glob",
+				dependencies: ["is-extglob"],
+			},
+			{ dir: "node_modules/is-extglob", name: "is-extglob", dependencies: [] },
+		];
+
+		it("reports nothing when the full closure is present", () => {
+			expect(findUnresolvedDependencies(chain)).toEqual([]);
+		});
+
+		it("flags the leaf dropped by the deduped-subtree bug (is-extglob)", () => {
+			const broken = chain.filter((p) => p.name !== "is-extglob");
+			expect(findUnresolvedDependencies(broken)).toEqual([
+				{ from: "is-glob", dependency: "is-extglob" },
+			]);
+		});
+
+		it("resolves a dep nested inside the requiring package's own node_modules", () => {
+			expect(
+				findUnresolvedDependencies([
+					{ dir: "node_modules/a", name: "a", dependencies: ["b"] },
+					{
+						dir: "node_modules/a/node_modules/b",
+						name: "b",
+						dependencies: [],
+					},
+				]),
+			).toEqual([]);
+		});
+
+		it("resolves a dep hoisted to the top level from a nested package", () => {
+			expect(
+				findUnresolvedDependencies([
+					{
+						dir: "node_modules/a/node_modules/x",
+						name: "x",
+						dependencies: ["c"],
+					},
+					{ dir: "node_modules/c", name: "c", dependencies: [] },
+				]),
+			).toEqual([]);
+		});
+	});
+
+	describe("collectPackagedPackages", () => {
+		it("reads package roots from the asar and skips inner package.json files", () => {
+			const tree: Record<string, unknown> = {
+				"node_modules/a/package.json": { name: "a", dependencies: { b: "1" } },
+				"node_modules/a/lib/package.json": { name: "a-inner" },
+				"node_modules/b/package.json": { name: "b" },
+			};
+			const packages = collectPackagedPackages({
+				asarPath: ASAR,
+				unpackedDir: "/tmp/unpacked",
+				listPackage: () => Object.keys(tree).map((p) => `/${p}`),
+				extractFile: (_asar: string, p: string) =>
+					Buffer.from(JSON.stringify(tree[p.replace(/^[/\\]+/, "")])),
+				existsSync: () => false,
+			});
+			expect(packages).toEqual([
+				{ dir: "node_modules/a", name: "a", dependencies: ["b"] },
+				{ dir: "node_modules/b", name: "b", dependencies: [] },
+			]);
+		});
+
+		it("merges asar.unpacked packages (e.g. node-pty) into the tree", () => {
+			const UNP = "/tmp/unpacked";
+			const fakeFs = makeFakeFs({
+				[UNP]: [{ name: "node_modules", dir: true }],
+				[`${UNP}/node_modules`]: [{ name: "node-pty", dir: true }],
+				[`${UNP}/node_modules/node-pty`]: [{ name: "package.json" }],
+			});
+			const packages = collectPackagedPackages({
+				asarPath: ASAR,
+				unpackedDir: UNP,
+				listPackage: () => [],
+				extractFile: () => Buffer.from("{}"),
+				existsSync: fakeFs.existsSync,
+				readdirSync: fakeFs.readdirSync,
+				readFileSync: () =>
+					JSON.stringify({ name: "node-pty", dependencies: {} }),
+			});
+			expect(packages).toEqual([
+				{ dir: "node_modules/node-pty", name: "node-pty", dependencies: [] },
+			]);
+		});
+	});
+
+	describe("assertPackagedDependencyClosure", () => {
+		const completeTree: Record<string, unknown> = {
+			"node_modules/chokidar/package.json": {
+				name: "chokidar",
+				dependencies: { "is-glob": "1" },
+			},
+			"node_modules/is-glob/package.json": {
+				name: "is-glob",
+				dependencies: { "is-extglob": "1" },
+			},
+			"node_modules/is-extglob/package.json": { name: "is-extglob" },
+		};
+		const asarFrom = (tree: Record<string, unknown>) => ({
+			listPackage: () => Object.keys(tree).map((p) => `/${p}`),
+			extractFile: (_asar: string, p: string) =>
+				Buffer.from(JSON.stringify(tree[p.replace(/^[/\\]+/, "")])),
+			existsSync: () => false,
+		});
+
+		it("passes when every declared dependency resolves", () => {
+			expect(
+				assertPackagedDependencyClosure({
+					appOutDir: "/tmp/release/mac-arm64",
+					productFilename: "ai-14all",
+					...asarFrom(completeTree),
+				}),
+			).toEqual({ checked: 3 });
+		});
+
+		it("throws and names the missing module(s) when a leaf was dropped", () => {
+			const broken = { ...completeTree };
+			delete broken["node_modules/is-extglob/package.json"];
+			expect(() =>
+				assertPackagedDependencyClosure({
+					appOutDir: "/tmp/release/mac-arm64",
+					productFilename: "ai-14all",
+					...asarFrom(broken),
+				}),
+			).toThrow(/is-extglob.*required by chokidar→is-glob|is-extglob/s);
+		});
+
+		it("throws when no packages were collected at all", () => {
+			expect(() =>
+				assertPackagedDependencyClosure({
+					appOutDir: "/tmp/release/mac-arm64",
+					productFilename: "ai-14all",
+					listPackage: () => [],
+					extractFile: () => Buffer.from("{}"),
+					existsSync: () => false,
+				}),
+			).toThrow(/no packages found/);
+		});
 	});
 });
