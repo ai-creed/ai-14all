@@ -7,3 +7,15 @@
  *
  * Deleted at flatten (spec §10.3 PR G), when the TUI look becomes the
  * default and these overrides are folded into tokens.css / shell.css. */
+
+/* Motion kill (spec D7): terminals don't tween. Zero out tw-animate-css
+ * enter/exit animations on Radix overlays (dialog, dropdown, context menu —
+ * they all toggle data-state between exactly "open"/"closed"; shell.css uses
+ * other data-state values, so those are untouched). Durations are zeroed
+ * rather than `animation: none` so Radix's animation-end unmount logic still
+ * fires. Done here instead of `tui:` classes because the data-[state]
+ * animation utilities tie on specificity — unlayered CSS wins regardless. */
+[data-theme="tui"] :is([data-state="open"], [data-state="closed"]) {
+	animation-duration: 0s;
+	transition-duration: 0s;
+}
