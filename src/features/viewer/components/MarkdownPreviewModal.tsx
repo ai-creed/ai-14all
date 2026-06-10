@@ -80,7 +80,7 @@ export function MarkdownPreviewModal({
 				if (!isOpen) onClose();
 			}}
 		>
-			<DialogContent className="shell-md-modal" aria-describedby={undefined}>
+			<DialogContent className="shell-md-modal" aria-describedby={undefined} hideClose>
 				<div className="shell-md-modal__header">
 					<DialogTitle className="shell-md-modal__title">
 						{relativePath}

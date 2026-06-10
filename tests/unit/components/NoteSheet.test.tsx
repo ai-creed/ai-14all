@@ -84,4 +84,9 @@ describe("NoteSheet", () => {
 			"## Finding\n\n- First item",
 		);
 	});
+
+	it("renders exactly one close button", () => {
+		render(<NoteSheet open note="" onNoteChange={() => {}} onClose={() => {}} />);
+		expect(screen.getAllByRole("button", { name: /close/i })).toHaveLength(1);
+	});
 });
