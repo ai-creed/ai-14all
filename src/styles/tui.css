@@ -1,0 +1,9 @@
+/* Terminal UI theme overrides — docs/tui-css-spec.md §10 dark launch.
+ *
+ * Every rule in this file is scoped under [data-theme="tui"]; the other
+ * themes are unaffected. This file is intentionally UNLAYERED so its rules
+ * beat Tailwind's @layer utilities and shell.css regardless of specificity
+ * (unlayered CSS wins over layered CSS in the cascade).
+ *
+ * Deleted at flatten (spec §10.3 PR G), when the TUI look becomes the
+ * default and these overrides are folded into tokens.css / shell.css. */

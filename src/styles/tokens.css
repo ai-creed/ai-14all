@@ -2,6 +2,9 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
+/* Terminal UI dark-launch variant: additive `tui:` utilities apply only under
+ * data-theme="tui" so the other themes stay byte-identical (docs/tui-css-spec.md §10). */
+@custom-variant tui (&:is([data-theme="tui"] *));
 
 /* ---- shadcn default tokens: DARK (app default, no data-theme) ---- */
 :root {
