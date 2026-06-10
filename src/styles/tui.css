@@ -19,3 +19,133 @@
 	animation-duration: 0s;
 	transition-duration: 0s;
 }
+
+/* ---- Shell chrome (spec §6) ------------------------------------------- */
+
+/* Flat background: no radial wash — elevation comes from ladder steps and
+ * 1px borders, never gradients (spec D2). */
+[data-theme="tui"] body {
+	background: var(--background);
+}
+
+/* Pane accent borders become solid full-opacity lines instead of rgba
+ * washes — crisp 1px lines read as box-drawing (spec D3). */
+[data-theme="tui"] {
+	--pane-border-sessions: #4fb3ff;
+	--pane-border-session-info: #f6a94a;
+	--pane-border-terminal: #43d39e;
+	--pane-border-review: #f36b8a;
+}
+
+/* Elevation shadows off. Targeted per selector — a blanket `box-shadow:
+ * none` would also kill Tailwind ring-* focus indicators (they are
+ * box-shadows), regressing keyboard a11y (spec D6). Crisp 0-0-0-1px
+ * "border" shadows and the active-tab inset underline are kept: those are
+ * discrete lines, not glows. Remaining rgba() hover washes in shell.css
+ * are swept at flatten (spec §10.3 PR G). */
+[data-theme="tui"]
+	:is(
+		.shell-files-overlay,
+		.shell-terminal-find,
+		.shell-editor-dirty-bar,
+		.shell-shortcuts-help,
+		.shell-review-selection-pill,
+		.shell-review-expanded-portal,
+		.shell-toast,
+		.shell-layout-dialog,
+		.usage-pop,
+		.usage-gcell.is-on
+	) {
+	box-shadow: none;
+}
+
+/* Attention states: discrete blink instead of rotating conic spotlight and
+ * breathing glows — terminal motion is stepped, never tweened (spec D7).
+ * The ring mask from shell.css is kept; only fill + animation change. */
+@keyframes tui-attention-blink {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.25;
+	}
+}
+
+[data-theme="tui"] .shell-sidebar__row[data-attention="activity"]::before {
+	background: var(--attention-color);
+	animation: tui-attention-blink 1.2s steps(1, end) infinite;
+}
+
+[data-theme="tui"]
+	.shell-sidebar__row[data-attention="actionRequired"]::before {
+	animation: tui-attention-blink 0.7s steps(1, end) infinite;
+}
+
+[data-theme="tui"] .shell-sidebar__row[data-attention="actionRequired"] {
+	/* glow keyframes animated box-shadow on the row itself */
+	animation: none;
+	box-shadow: none;
+}
+
+[data-theme="tui"]
+	.shell-sidebar__process-indicator[data-state="actionRequired"] {
+	box-shadow: none;
+	animation: tui-attention-blink 0.7s steps(1, end) infinite;
+}
+
+[data-theme="tui"] .shell-button__pulse-dot {
+	box-shadow: none;
+	animation: tui-attention-blink 1.2s steps(1, end) infinite;
+}
+
+/* tui.css loads after shell.css, so its blink would otherwise override the
+ * reduced-motion freezes shell.css declares in its own media block. */
+@media (prefers-reduced-motion: reduce) {
+	[data-theme="tui"] .shell-sidebar__row[data-attention]::before,
+	[data-theme="tui"] .shell-sidebar__row[data-attention],
+	[data-theme="tui"] .shell-sidebar__process-indicator,
+	[data-theme="tui"] .shell-button__pulse-dot {
+		animation: none;
+	}
+}
+
+/* ---- Box-drawing utility (spec §7, WebTUI box technique) --------------- */
+
+/* Pads the element by one character cell and draws the border on a
+ * pseudo-element inset by half a cell — where a ┌─┐ box-drawing glyph
+ * would render. A .tui-box-title child sits ON the border line, punching
+ * a gap like `┌─ TITLE ────┐`. Accent via --box-border-color; surface
+ * behind the title via --tui-box-bg. Inert unless the class is used, so
+ * it is safe to define for all themes (the gallery renders it everywhere). */
+.tui-box {
+	--box-border-width: 1px;
+	position: relative;
+	isolation: isolate;
+	padding: 1lh 1ch;
+}
+
+.tui-box::before {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	translate: -50% -50%;
+	width: calc(100% - 1ch - var(--box-border-width));
+	height: calc(100% - 1lh - var(--box-border-width));
+	border: var(--box-border-width) solid var(--box-border-color, var(--border));
+	z-index: -1;
+}
+
+.tui-box > .tui-box-title {
+	position: absolute;
+	top: 0;
+	left: 2ch;
+	height: 1lh;
+	line-height: 1lh;
+	padding-inline: 1ch;
+	background: var(--tui-box-bg, var(--background));
+	color: var(--muted-foreground);
+	font-size: 0.85em;
+	letter-spacing: 0.08em;
+}
