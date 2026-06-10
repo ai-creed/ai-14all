@@ -44,7 +44,7 @@ Cherry-pick the four existing fix commits from `fix/smoke-test-ui-fixes` onto
 | 1 | `5c29804` | `tokens.css`: restore `cursor: pointer` on enabled buttons (7 lines). |
 | 2 | `216023e` | `shell.css`: `left: auto;` on `.shell-note-sheet` so the drawer re-docks right. |
 | 3 | `5e76bef` | `EditorDirtyBar.tsx`: migrate Save/Discard to shadcn `Button` (default + secondary variants). |
-| 4 | `b18b802` | `dialog.tsx`: add `showCloseButton` prop (default `true`); opt out `NoteSheet`, `MarkdownPreviewModal`, `ShortcutsHelp`; update their unit tests. |
+| 4 | `b18b802` | `dialog.tsx`: add `hideClose` prop (default `false`, built-in close shown); opt out `NoteSheet`, `MarkdownPreviewModal`, `ShortcutsHelp`; update their unit tests. |
 | 5 | new | `shell.css`: `animation: none;` in the `.shell-note-sheet` rule, killing the center-anchored open animation. |
 
 Explicitly **not** cherry-picked: `7cf05be` (`bea1850` on
