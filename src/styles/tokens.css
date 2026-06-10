@@ -127,4 +127,11 @@
 	* {
 		border-color: var(--border);
 	}
+
+	/* Tailwind v4 preflight sets cursor: default on buttons; this app's
+	   buttons are all clickable controls, so restore the v3 behavior. */
+	button:not(:disabled),
+	[role="button"]:not(:disabled) {
+		cursor: pointer;
+	}
 }
