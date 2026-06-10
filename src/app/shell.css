@@ -1866,6 +1866,7 @@ select {
 	top: 0;
 	right: 0;
 	bottom: 0;
+	left: auto; /* beat shadcn DialogContent's left-[50%] utility */
 	width: calc(clamp(280px, 28vw, 420px) + 140px);
 	background: var(--panel-bg);
 	border-left: 1px solid var(--panel-border);
