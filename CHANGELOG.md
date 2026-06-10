@@ -4,6 +4,59 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] – 2026-06-08
+
+### Build
+
+- **Restored the full dependency closure in `app.asar`.** Bumped `electron-builder` to 26.15.2 so the packaged `app.asar` again contains its complete dependency closure.
+- **`afterPack` asar-closure guard.** The build now aborts if the packaged `app.asar` is missing part of its dependency closure, catching incomplete-bundle regressions at package time.
+- **Force `electron-rebuild` of `better-sqlite3` in the release pre-flight**, because the E2E posttest leaves the native module at the host ABI and electron-builder otherwise skips the rebuild.
+
+## [0.8.0] – 2026-06-08
+
+### Added
+
+- **Code navigation in the Files pane (Cmd+T symbol search + go-to-definition / peek).** The Review overlay now hosts a `FilesPane` with an inline Files / Symbols toggle. `Cmd+T` focuses a fuzzy symbol search (two-line virtualized result rows with match highlighting) that navigates to a symbol's precise line and column. In the Monaco editor, go-to-definition jumps to the best-ranked definition, and peek resolves definitions across files via on-demand `file://` models (LRU-cached, disposed on reindex / worktree switch). Built on an ai-cortex SQLite index (cortex v3.1 schema, version-gated) ingested into a per-worktree mirror and kept fresh by a file watcher.
+- **Graceful disable when the worktree has no cortex index.** Symbol-search IPC is skipped and the pane surfaces a disabled state (with a push event) when the worktree has no ai-cortex index or the ai-cortex CLI isn't installed, rather than erroring.
+
+### Changed
+
+- **`Cmd+T` rewired to the Files-pane Symbols mode**, replacing the standalone `SymbolPalette` modal (now removed along with its test). Terminal auto-focus is suppressed while the review overlay is open so `Cmd+T` reliably focuses the symbol search. Monaco's built-in TS/JS definition + reference providers are disabled in favor of the cortex-backed providers, and the read-only viewer's TS semantic diagnostics are silenced.
+
+### Fixed
+
+- **Monaco peek / model-resolution crashes.** Suppressed the "Model not found" peek crash, made `cortex://` URIs survive Monaco URI normalization, normalized `..` traversal in `fromFileUri` before the inside-worktree check, and silenced benign Monaco cancellation console noise.
+
+### Build
+
+- **Release CI bumped to Node 24** to match Electron 41's bundled Node (24.x) and to provide a stable `node:sqlite` — the cortex fixture helper imports `DatabaseSync`, which is experimental/flagged on Node 22 and broke Vite's externalize.
+- **Native deps compiled from source against Electron's headers** (`buildDependenciesFromSource`), because under Node 24 electron-builder's prebuilt-based rebuild fetched a host-ABI `better-sqlite3` (137) instead of Electron's (145), which the `afterPack` ABI check rejected. `afterPack` now asserts the `better-sqlite3` ABI matches the bundled Electron.
+- **CI repairs for Node 24 / Electron 41 packaging:** re-extract the Electron app with `ditto` (extract-zip dropped Frameworks), repair `electron`'s `path.txt` after install, force an `electron-rebuild` of `better-sqlite3` before packaging, and alias `electron` to a stub in unit tests so they don't depend on the installed binary.
+- Added `better-sqlite3` and `chokidar` dependencies (upgraded `better-sqlite3` to 12.10.0 for Electron 41 V8 compatibility).
+
+## [0.7.2] – 2026-05-28
+
+### Added
+
+- **Files-mode inline editing.** The Files review mode now edits files in place via a new `InlineEditor` + `EditorDirtyBar`, replacing the old editor modal. Clicking a file in the tree runs a dirty-gate so unsaved edits aren't silently lost; the gate also covers `Cmd+P`, worktree switches, cross-workspace navigation, and the workspace cycle, backed by a main-process dirty map and a renderer close handshake.
+- **Show-ignored toggle in the file tree.** `WorktreeTree` gained a toggle (off by default) that lists git-ignored files as dimmed rows. File listing accepts an `includeIgnored` flag and shares an `IGNORED_DENYLIST` with segment-equality matching.
+
+### Changed
+
+- **Review chrome UX polish.** Chrome parity across modes, an in-pane file preview, and smaller controls.
+
+### Fixed
+
+- **Codex per-file context persists across usage-worker restarts.** The Codex per-file context (cwd) is now persisted so a worker restart keeps the right working directory.
+
+### Performance
+
+- **Commit diffs are fetched lazily per file** on expand instead of all up front.
+
+### Removed
+
+- **`EditorModal` and `FileViewer`** (and their dead `App` plumbing), superseded by the Files-mode inline editor.
+
 ## [0.7.3] – 2026-06-04
 
 ### Added

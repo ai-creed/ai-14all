@@ -69,7 +69,7 @@ This produces the same base64-encoded digest that appears in `latest-mac.yml` un
 
 ## Build from source
 
-Node.js 22+ and pnpm.
+Node.js 24+ and pnpm.
 
 ```sh
 pnpm install
