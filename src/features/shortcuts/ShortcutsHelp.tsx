@@ -76,6 +76,7 @@ export function ShortcutsHelp({ open, platform, onClose }: Props) {
 			<DialogContent
 				className="shell-shortcuts-help"
 				data-testid="shortcuts-help"
+				hideClose
 			>
 				<div className="shell-shortcuts-help__header">
 					<DialogTitle className="shell-shortcuts-help__title">

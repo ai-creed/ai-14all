@@ -214,14 +214,7 @@ describe("MarkdownPreviewModal", () => {
 		);
 
 		await screen.findByRole("heading", { name: "Hello" });
-		// The shadcn DialogContent renders its own built-in close button in
-		// addition to the modal's custom "shell-md-modal__close" button, so both
-		// share the accessible name "Close". Target the custom one explicitly.
-		const closeButtons = screen.getAllByRole("button", { name: "Close" });
-		const customClose = closeButtons.find((el) =>
-			el.classList.contains("shell-md-modal__close"),
-		);
-		fireEvent.click(customClose ?? closeButtons[0]);
+		fireEvent.click(screen.getByRole("button", { name: "Close" }));
 		expect(onClose).toHaveBeenCalled();
 	});
 });
