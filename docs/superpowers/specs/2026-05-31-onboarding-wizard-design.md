@@ -1,5 +1,9 @@
 # Onboarding Wizard Design
 
+> **Superseded** by [2026-06-10-onboarding-flow-design.md](./2026-06-10-onboarding-flow-design.md).
+> This dialog-based feature tour was implemented on the unmerged `UI-overhaul` branch
+> and is replaced by a full-screen narrative stepper.
+
 ## Summary
 
 A 5-step guided walkthrough dialog shown on first run, introducing intermediate developers to ai-14all's core concepts (workspaces, worktrees, terminals, code review) before they load a repository. Re-accessible from the Shortcuts Help modal.
