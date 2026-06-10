@@ -42,9 +42,9 @@
 	--danger: var(--destructive);
 	--accent: var(--primary);
 
-	--radius-sm: calc(var(--radius) - 4px);
-	--radius-md: calc(var(--radius) - 3px);
-	--radius-lg: calc(var(--radius) - 2px);
+	--radius-sm: max(0px, calc(var(--radius) - 4px));
+	--radius-md: max(0px, calc(var(--radius) - 3px));
+	--radius-lg: max(0px, calc(var(--radius) - 2px));
 	--space-1: 4px;
 	--space-2: 8px;
 	--space-3: 12px;
@@ -101,6 +101,41 @@
 	--danger: #d97058;
 }
 
+/* ---- Terminal UI theme: WebTUI-style stepped ladder on shadcn token names
+ * (docs/tui-css-spec.md §4). Dark-launch palette — opt-in via the Theme menu;
+ * preview with document.documentElement.setAttribute("data-theme", "tui").
+ * Ladder mapping: background=bg0, card/popover=bg1, muted/secondary/accent=bg2,
+ * border=bg3 (solid, never alpha), foreground=fg0, muted-foreground=fg2.
+ * --primary is the xterm dark cursor teal so chrome matches the terminal. ---- */
+[data-theme="tui"] {
+	--radius: 0rem;
+	--background: oklch(0.16 0.015 240);
+	--foreground: oklch(0.96 0.01 200);
+	--card: oklch(0.2 0.015 240);
+	--card-foreground: var(--foreground);
+	--popover: oklch(0.2 0.015 240);
+	--popover-foreground: var(--foreground);
+	--primary: oklch(0.78 0.13 175);
+	--primary-foreground: oklch(0.16 0.015 240);
+	--secondary: oklch(0.26 0.015 240);
+	--secondary-foreground: var(--foreground);
+	--muted: oklch(0.26 0.015 240);
+	--muted-foreground: oklch(0.68 0.02 230);
+	--accent: oklch(0.26 0.015 240);
+	--accent-foreground: var(--foreground);
+	--destructive: oklch(0.704 0.191 22.216);
+	--border: oklch(0.34 0.015 240);
+	--input: oklch(0.26 0.015 240);
+	--ring: var(--primary);
+
+	/* Character-grid tokens (spec §4.6): pin line-height so 1lh is
+	 * deterministic for cell-sized layout and box-drawing borders. */
+	line-height: 1.4;
+	--cell-w: 1ch;
+	--cell-h: 1lh;
+	--box-border-width: 1px;
+}
+
 @theme inline {
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
@@ -120,10 +155,13 @@
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
-	--radius-sm: calc(var(--radius) - 4px);
-	--radius-md: calc(var(--radius) - 2px);
+	/* max() clamp: with the TUI theme's --radius: 0rem the subtractions go
+	 * negative, which is invalid border-radius (spec §4.5). No-op for the
+	 * other themes (radius 10px keeps every value positive). */
+	--radius-sm: max(0px, calc(var(--radius) - 4px));
+	--radius-md: max(0px, calc(var(--radius) - 2px));
 	--radius-lg: var(--radius);
-	--radius-xl: calc(var(--radius) + 4px);
+	--radius-xl: max(0px, calc(var(--radius) + 4px));
 }
 
 @layer base {
