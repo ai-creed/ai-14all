@@ -6,9 +6,10 @@ import {
 	type Page,
 } from "@playwright/test";
 import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 import { closeApp } from "./fixtures/close-app";
 
@@ -21,7 +22,11 @@ import { closeApp } from "./fixtures/close-app";
  *   pnpm build && pnpm exec playwright test ui-gallery
  */
 const PALETTES = ["dark", "light", "warm", "tui"] as const;
-const OUT_DIR = join(__dirname, "..", "__screenshots__");
+const OUT_DIR = join(
+	dirname(fileURLToPath(import.meta.url)),
+	"..",
+	"__screenshots__",
+);
 
 let app: ElectronApplication;
 let page: Page;
