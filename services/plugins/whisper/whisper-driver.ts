@@ -94,6 +94,9 @@ export function createWhisperDriver(
 				if (stopped) return;
 				let anySocket = false;
 				const annotated = states.map((state) => {
+					// Fire-and-forget: a freshly-seen collab reports "polling" in
+					// this batch and upgrades to "socket" on the next publish once
+					// the attach completes — intended eventual consistency.
 					if (state.daemonAlive) void attachSocket(state.collabId, refresh);
 					const hasSocket = sockets.has(state.collabId);
 					anySocket = anySocket || hasSocket;
@@ -102,7 +105,7 @@ export function createWhisperDriver(
 						liveFeed: hasSocket ? ("socket" as const) : ("polling" as const),
 					};
 				});
-				// "limited" = some collab is stuck on polling (chip shows
+				// "limited" = EVERY collab is stuck on polling (chip shows
 				// "limited (upgrade for live events)").
 				ctx.reportLimited(states.length > 0 && !anySocket);
 				options.pushState(annotated);
