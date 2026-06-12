@@ -1,16 +1,19 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createPluginConfigStore } from "../../../services/plugins/plugin-config";
 
 let dir: string;
 
-function makeStore(initial?: string) {
+function makeStore(
+	initial?: string,
+	watch?: (path: string, onEvent: () => void) => () => void,
+) {
 	dir = mkdtempSync(join(tmpdir(), "ofa-plugin-config-"));
 	const configPath = join(dir, "config.toml");
 	if (initial !== undefined) writeFileSync(configPath, initial, "utf8");
-	return { store: createPluginConfigStore({ configPath }), configPath };
+	return { store: createPluginConfigStore({ configPath, watch }), configPath };
 }
 
 afterEach(() => {
@@ -41,7 +44,7 @@ describe("createPluginConfigStore", () => {
 
 	it("setEnabled rewrites only the enabled line, preserving comments", () => {
 		const initial =
-			"# my notes\n[plugins.whisper]\nenabled = false\n# dev override:\n# install_path = \"~/Dev/ai-whisper\"\n";
+			'# my notes\n[plugins.whisper]\nenabled = false\n# dev override:\n# install_path = "~/Dev/ai-whisper"\n';
 		const { store, configPath } = makeStore(initial);
 		store.setEnabled("whisper", true);
 		const text = readFileSync(configPath, "utf8");
@@ -71,5 +74,72 @@ describe("createPluginConfigStore", () => {
 		expect(store.get("whisper").installPath).toBe(
 			join(process.env.HOME ?? "", "Dev/ai-whisper"),
 		);
+	});
+
+	it("does not edit a header that only appears inside a comment", () => {
+		const initial =
+			"# see [plugins.whisper] docs\n[plugins.whisper]\nenabled = false\n";
+		const { store, configPath } = makeStore(initial);
+		store.setEnabled("whisper", true);
+		const text = readFileSync(configPath, "utf8");
+		// Comment line must be byte-identical.
+		expect(text.split("\n")[0]).toBe("# see [plugins.whisper] docs");
+		expect(text).toContain("enabled = true");
+		expect(store.get("whisper").enabled).toBe(true);
+		expect(store.lastError).toBeNull();
+	});
+
+	it("rewrites inline-table form via TOML round-trip instead of corrupting", () => {
+		const initial = "[plugins]\nwhisper = { enabled = false }\n";
+		const { store } = makeStore(initial);
+		store.setEnabled("whisper", true);
+		expect(store.get("whisper").enabled).toBe(true);
+		expect(store.lastError).toBeNull();
+	});
+
+	it("notifies exactly once per setEnabled when a watcher echoes the write", () => {
+		let capturedOnEvent: (() => void) | undefined;
+		const fakeWatch = (_path: string, onEvent: () => void) => {
+			capturedOnEvent = onEvent;
+			return () => {};
+		};
+		const { store } = makeStore(
+			"[plugins.whisper]\nenabled = false\n",
+			fakeWatch,
+		);
+		let count = 0;
+		store.onChange(() => {
+			count++;
+		});
+
+		store.setEnabled("whisper", true);
+		// Simulate the chokidar echo — should be suppressed.
+		capturedOnEvent!();
+		expect(count).toBe(1);
+
+		// Simulate an external edit — should fire normally.
+		capturedOnEvent!();
+		expect(count).toBe(2);
+	});
+
+	it("dispose stops the watcher and clears listeners", () => {
+		const stopFn = vi.fn();
+		const fakeWatch = (_path: string, _onEvent: () => void) => stopFn;
+		const { store } = makeStore(
+			"[plugins.whisper]\nenabled = false\n",
+			fakeWatch,
+		);
+
+		let notified = false;
+		store.onChange(() => {
+			notified = true;
+		});
+
+		store.dispose();
+		expect(stopFn).toHaveBeenCalledOnce();
+
+		// After dispose, listeners are cleared — setEnabled should not notify.
+		store.setEnabled("whisper", true);
+		expect(notified).toBe(false);
 	});
 });
