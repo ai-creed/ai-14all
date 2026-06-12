@@ -235,6 +235,36 @@ Terminal attention should distinguish ordinary activity from action-required pro
 - normal new output: temporary pulse
 - action-required output: persistent stronger state until checked
 
+## AD-012 — Ecosystem Plug-in Framework
+
+**Decision**
+
+Integrate peer apps through a static in-process driver registry, not a dynamic plugin loader or inter-process bus.
+
+**Shape**
+
+- `TOML` config at `userData/config.toml` is the canonical switchboard (enabled flags, optional paths).
+- Probes run via a single cached capability-probe service; probing never blocks the main process boot.
+- Peer state is read-only under provisional read contracts; a driver may not write to the peer's data.
+- Commands route through the peer's own CLI with argv arrays and a JSONL audit log.
+- Renderer surfaces are exposed via typed IPC (no raw Node access in the renderer).
+- A driver may only ever degrade itself — its failure must not affect any other part of the app.
+
+**Why**
+
+- keeps the boundary between ai-14all and peer tools explicit and auditable
+- avoids dynamic-loading complexity and supply-chain risk
+- preserves the existing security boundary (AD-002) in the renderer
+- ensures the feature is strictly opt-in: users without a peer app configured see no change
+
+**Spec**
+
+`docs/superpowers/specs/2026-06-12-ecosystem-plugin-framework-whisper-driver-design.md`
+
+**First driver**
+
+ai-whisper (live workflow lens, audit-logged commands, start-collab). Cortex driver formalization is deferred.
+
 ## Review Rule
 
 If future implementation work appears to conflict with these decisions, update this file deliberately instead of letting the code drift silently.

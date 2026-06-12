@@ -45,7 +45,9 @@ export type PluginIpcDeps = {
 	getWebContents: () => WebContents | null;
 };
 
-export function registerPluginIpc(deps: PluginIpcDeps): { dispose: () => void } {
+export function registerPluginIpc(deps: PluginIpcDeps): {
+	dispose: () => void;
+} {
 	const { ipcMain, registry } = deps;
 
 	ipcMain.handle(PLUGINS_LIST, () => registry.snapshots());

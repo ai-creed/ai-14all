@@ -4,6 +4,12 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Ecosystem plug-in framework: opt-in drivers for peer apps.** A static in-process driver registry wires peer tools into ai-14all without affecting any user who has not opted in. The first driver targets ai-whisper and surfaces a live workflow lens in the sidebar (pause/resume/cancel + tell-agent actions with an audit log) plus a start-collab button. Configuration lives at `userData/config.toml`; probing is cached via a single capability-probe service; peer state is read-only under provisional read contracts; commands route through the peer's own CLI with JSONL audit; renderer surfaces use typed IPC. A Plugins panel (probe / enable / guided install) makes the feature discoverable. Without ai-whisper installed and enabled, nothing changes.
+
 ## [0.8.1] – 2026-06-08
 
 ### Build

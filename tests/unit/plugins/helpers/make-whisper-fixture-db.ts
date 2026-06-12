@@ -150,7 +150,12 @@ export function makeWhisperFixtureDb(
 	for (const p of fx.phases ?? [])
 		insert("workflow_phases", { started_at: "2026-06-12T00:00:00Z", ...p });
 	for (const ch of fx.chains ?? [])
-		insert("relay_chains", { status: "active", current_round: 1, max_rounds: 3, ...ch });
+		insert("relay_chains", {
+			status: "active",
+			current_round: 1,
+			max_rounds: 3,
+			...ch,
+		});
 	for (const h of fx.handoffs ?? [])
 		insert("relay_handoff", {
 			request_text: "",

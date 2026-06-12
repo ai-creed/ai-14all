@@ -183,12 +183,14 @@ export const agentAttentionBridge: Ai14AllDesktopApi["agentAttentionBridge"] = {
 
 export const plugins: Ai14AllDesktopApi["plugins"] = {
 	list: () => getDesktopClient().plugins.list(),
-	setEnabled: (id, enabled) => getDesktopClient().plugins.setEnabled(id, enabled),
+	setEnabled: (id, enabled) =>
+		getDesktopClient().plugins.setEnabled(id, enabled),
 	reprobe: () => getDesktopClient().plugins.reprobe(),
 	agentClis: () => getDesktopClient().plugins.agentClis(),
 	runWhisperCommand: (command) =>
 		getDesktopClient().plugins.runWhisperCommand(command),
-	onStateChanged: (handler) => getDesktopClient().plugins.onStateChanged(handler),
+	onStateChanged: (handler) =>
+		getDesktopClient().plugins.onStateChanged(handler),
 	onWhisperStateChanged: (handler) =>
 		getDesktopClient().plugins.onWhisperStateChanged(handler),
 };

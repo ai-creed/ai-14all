@@ -181,7 +181,8 @@ export function shouldReplaceAgentAttentionReason(
 	// Ties (equal reportedAt) replace too; an older report is ignored. The
 	// terminal/lifecycle classifiers stay on the rank gate — their
 	// heuristic "active" output must not clobber a live "waiting" prompt.
-	const authoritative = current.source === "mcp" || current.source === "workflow";
+	const authoritative =
+		current.source === "mcp" || current.source === "workflow";
 	if (authoritative && next.source === current.source) {
 		return next.reportedAt >= current.reportedAt;
 	}

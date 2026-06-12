@@ -1,4 +1,10 @@
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+	chmodSync,
+	mkdirSync,
+	mkdtempSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -31,17 +37,23 @@ describe("resolveBinary", () => {
 
 	it("returns null when the shell finds nothing", async () => {
 		const shell = writeFakeShell("exit 1");
-		expect(await resolveBinary("whisper", { shell, timeoutMs: 2000 })).toBeNull();
+		expect(
+			await resolveBinary("whisper", { shell, timeoutMs: 2000 }),
+		).toBeNull();
 	});
 
 	it("returns null on garbage output instead of throwing", async () => {
 		const shell = writeFakeShell('echo "zsh: command not found: whisper"');
-		expect(await resolveBinary("whisper", { shell, timeoutMs: 2000 })).toBeNull();
+		expect(
+			await resolveBinary("whisper", { shell, timeoutMs: 2000 }),
+		).toBeNull();
 	});
 
 	it("returns null on timeout", async () => {
 		const shell = writeFakeShell("sleep 30");
-		expect(await resolveBinary("whisper", { shell, timeoutMs: 100 })).toBeNull();
+		expect(
+			await resolveBinary("whisper", { shell, timeoutMs: 100 }),
+		).toBeNull();
 	});
 
 	it("override: executable file is used directly", async () => {

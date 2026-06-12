@@ -12,7 +12,10 @@ import { registerPluginIpc } from "../../../services/plugins/plugin-ipc";
 function makeFakeIpcMain() {
 	const handlers = new Map<string, (event: unknown, raw: unknown) => unknown>();
 	return {
-		handle: (channel: string, fn: (event: unknown, raw: unknown) => unknown) => {
+		handle: (
+			channel: string,
+			fn: (event: unknown, raw: unknown) => unknown,
+		) => {
 			handlers.set(channel, fn);
 		},
 		removeHandler: (channel: string) => handlers.delete(channel),
@@ -24,7 +27,14 @@ function makeFakeIpcMain() {
 function makeFakeRegistry() {
 	let snapshotListener: ((s: unknown[]) => void) | null = null;
 	return {
-		snapshots: vi.fn(() => [{ id: "whisper", enabled: false, installPath: null, status: { state: "not-installed" } }]),
+		snapshots: vi.fn(() => [
+			{
+				id: "whisper",
+				enabled: false,
+				installPath: null,
+				status: { state: "not-installed" },
+			},
+		]),
 		onSnapshots: vi.fn((cb: (s: unknown[]) => void) => {
 			snapshotListener = cb;
 			return () => {};
@@ -47,7 +57,10 @@ describe("registerPluginIpc", () => {
 			config: config as never,
 			resolveWorktreeCwd: vi.fn(async () => "/resolved"),
 			runWhisperCommand: vi.fn(),
-			probes: { agentClis: vi.fn(async () => ({}) as never), invalidate: vi.fn() },
+			probes: {
+				agentClis: vi.fn(async () => ({}) as never),
+				invalidate: vi.fn(),
+			},
 			getWebContents: () => webContents as never,
 		});
 		const result = await ipcMain.invoke(PLUGINS_LIST);
@@ -64,7 +77,10 @@ describe("registerPluginIpc", () => {
 			config: config as never,
 			resolveWorktreeCwd: vi.fn(async () => "/resolved"),
 			runWhisperCommand: vi.fn(),
-			probes: { agentClis: vi.fn(async () => ({}) as never), invalidate: vi.fn() },
+			probes: {
+				agentClis: vi.fn(async () => ({}) as never),
+				invalidate: vi.fn(),
+			},
 			getWebContents: () => null,
 		});
 		await ipcMain.invoke(PLUGINS_SET_ENABLED, { id: "whisper", enabled: true });
@@ -90,7 +106,10 @@ describe("registerPluginIpc", () => {
 			config: { setEnabled: vi.fn(), get: vi.fn() } as never,
 			resolveWorktreeCwd,
 			runWhisperCommand,
-			probes: { agentClis: vi.fn(async () => ({}) as never), invalidate: vi.fn() },
+			probes: {
+				agentClis: vi.fn(async () => ({}) as never),
+				invalidate: vi.fn(),
+			},
 			getWebContents: () => null,
 		});
 		const command = {
@@ -117,7 +136,10 @@ describe("registerPluginIpc", () => {
 				throw new Error("unknown workspace");
 			}),
 			runWhisperCommand: vi.fn(),
-			probes: { agentClis: vi.fn(async () => ({}) as never), invalidate: vi.fn() },
+			probes: {
+				agentClis: vi.fn(async () => ({}) as never),
+				invalidate: vi.fn(),
+			},
 			getWebContents: () => null,
 		});
 		await expect(
@@ -164,7 +186,10 @@ describe("registerPluginIpc", () => {
 			config: { setEnabled: vi.fn(), get: vi.fn() } as never,
 			resolveWorktreeCwd: vi.fn(async () => "/resolved"),
 			runWhisperCommand: vi.fn(),
-			probes: { agentClis: vi.fn(async () => ({}) as never), invalidate: vi.fn() },
+			probes: {
+				agentClis: vi.fn(async () => ({}) as never),
+				invalidate: vi.fn(),
+			},
 			getWebContents: () => webContents as never,
 		});
 		registry.emit([{ id: "whisper" }]);

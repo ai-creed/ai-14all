@@ -6,7 +6,11 @@ export type AgentAttentionState =
 	| "active"
 	| "idle";
 
-export type AgentAttentionSource = "mcp" | "terminal" | "lifecycle" | "workflow";
+export type AgentAttentionSource =
+	| "mcp"
+	| "terminal"
+	| "lifecycle"
+	| "workflow";
 
 export type AgentAttentionReason = {
 	state: AgentAttentionState;
