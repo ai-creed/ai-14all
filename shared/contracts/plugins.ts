@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ECOSYSTEM_PLUGIN_IDS } from "../models/ecosystem-plugin.js";
 import type {
 	AgentCliProbes,
 	EcosystemPluginId,
@@ -18,7 +19,7 @@ export const PLUGINS_STATE_CHANGED = "plugins:stateChanged";
 export const PLUGINS_WHISPER_STATE_CHANGED = "plugins:whisperStateChanged";
 
 export const SetPluginEnabledSchema = z.object({
-	id: z.enum(["whisper", "cortex"]),
+	id: z.enum(ECOSYSTEM_PLUGIN_IDS),
 	enabled: z.boolean(),
 });
 

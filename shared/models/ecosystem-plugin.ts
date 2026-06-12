@@ -1,4 +1,6 @@
-export type EcosystemPluginId = "whisper" | "cortex";
+export const ECOSYSTEM_PLUGIN_IDS = ["whisper", "cortex"] as const;
+
+export type EcosystemPluginId = (typeof ECOSYSTEM_PLUGIN_IDS)[number];
 
 export type ProbeResult =
 	| { kind: "not-installed" }
@@ -36,8 +38,12 @@ export type WhisperAgentBinding = {
 
 export type WhisperWorkflowSnapshot = {
 	workflowId: string;
+	// Provisional pass-throughs of whisper's workflows.workflow_type/status
+	// columns. Deliberately `string`, not unions: the value sets belong to
+	// whisper's read contract and are not pinned until that doc ships.
+	// Known statuses today: running | paused | halted | done | canceled.
 	workflowType: string;
-	status: string; // running | paused | halted | done | canceled
+	status: string;
 	currentPhaseIndex: number;
 	phaseName: string | null;
 	round: { current: number; max: number } | null;
