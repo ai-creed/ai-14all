@@ -1,6 +1,8 @@
-import { app, Menu } from "electron";
+import { app, ipcMain, Menu } from "electron";
 import { fileURLToPath } from "node:url";
+import { homedir } from "node:os";
 import { join } from "node:path";
+import { watch } from "chokidar";
 import { createMainWindow } from "./windows.js";
 import { registerIpcHandlers } from "./ipc.js";
 import { createCloseGate } from "./close-gate.js";
@@ -29,6 +31,18 @@ import { Ai14allMcpServer } from "../../services/mcp/ai14all-mcp-server.js";
 import { SessionNoteBridge } from "../../services/mcp/session-note-bridge.js";
 import { AgentAttentionBridge } from "../../services/mcp/agent-attention-bridge.js";
 import { createWorktreePathResolver } from "../../services/review/worktree-path-resolver.js";
+import { createPluginConfigStore } from "../../services/plugins/plugin-config.js";
+import { createCapabilityProbeService } from "../../services/plugins/capability-probe-service.js";
+import { createPluginRegistry } from "../../services/plugins/plugin-registry.js";
+import {
+	registerPluginIpc,
+	pushWhisperState,
+} from "../../services/plugins/plugin-ipc.js";
+import { resolveBinary } from "../../services/plugins/binary-resolver.js";
+import { probeWhisper } from "../../services/plugins/whisper/whisper-env-probe.js";
+import { createWhisperDriver } from "../../services/plugins/whisper/whisper-driver.js";
+import { createWhisperCommandRunner } from "../../services/plugins/whisper/whisper-command-runner.js";
+import { PluginCommandLogger } from "../../services/diagnostics/plugin-command-logger.js";
 
 app.setName("ai-14all");
 
@@ -135,6 +149,95 @@ app.whenReady().then(async () => {
 	const worktreePathResolver =
 		await createWorktreePathResolver(buildResolverEntries);
 
+	// --- Ecosystem plugin subsystem (registry, config, whisper driver) ---
+	const pluginConfig = createPluginConfigStore({
+		configPath: join(app.getPath("userData"), "config.toml"),
+		watch: (path, onEvent) => {
+			const watcher = watch(path, { ignoreInitial: true });
+			watcher.on("all", onEvent);
+			return () => void watcher.close();
+		},
+	});
+
+	const whisperStateRoot =
+		process.env.AI14ALL_WHISPER_STATE_ROOT ?? join(homedir(), ".ai-whisper");
+
+	// Spec §3.4: the single probe owner — agent CLIs + cached plugin probes.
+	const capabilityProbes = createCapabilityProbeService();
+
+	const getWhisperBinary = () =>
+		resolveBinary("whisper", {
+			installPath: pluginConfig.get("whisper").installPath,
+		});
+
+	const pluginCommandLogger = new PluginCommandLogger({
+		logsDir: join(app.getPath("userData"), "logs"),
+	});
+
+	const whisperCommandRunner = createWhisperCommandRunner({
+		getBinary: getWhisperBinary,
+		audit: pluginCommandLogger,
+	});
+
+	const whisperDriver = createWhisperDriver({
+		getStateRoot: () => whisperStateRoot,
+		getBinary: getWhisperBinary,
+		probeImpl: () =>
+			// Routed through the capability probe service so registry re-probes hit
+			// the cache instead of spawning a fresh child process every time.
+			capabilityProbes.probePlugin("whisper", async () => {
+				const binary = await getWhisperBinary();
+				if (binary === null) return { kind: "not-installed" };
+				return probeWhisper(binary);
+			}),
+		resolveWorktreeId: (workspaceRoot) =>
+			worktreePathResolver.resolve(workspaceRoot),
+		pushState: (states) =>
+			pushWhisperState(() => mainWindow.webContents, states),
+		// E2e seam: the live-socket scenario sets this to 60s so a fast UI update
+		// can only have come from the event-socket path, not from polling.
+		pollIntervalMs: process.env.AI14ALL_WHISPER_POLL_MS
+			? Number(process.env.AI14ALL_WHISPER_POLL_MS)
+			: undefined,
+	});
+
+	const pluginRegistry = createPluginRegistry([whisperDriver], pluginConfig);
+	void pluginRegistry.boot();
+	const pluginIpc = registerPluginIpc({
+		ipcMain,
+		registry: pluginRegistry,
+		config: pluginConfig,
+		// Privileged IPC Trust Boundary: ids in, path resolved here. Both
+		// resolvers throw on unknown ids; the rejection propagates to the
+		// renderer (no `if (!x)` checks, per AGENTS.md).
+		resolveWorktreeCwd: async (workspaceId, worktreeId) => {
+			const repository = workspaceRegistry.get(workspaceId);
+			const worktree = await worktreeService.findWorktree(
+				repository,
+				worktreeId,
+			);
+			return worktree.path;
+		},
+		runWhisperCommand: (cmd, cwd) => whisperCommandRunner.run(cmd, cwd),
+		probes: {
+			agentClis: () => capabilityProbes.probeAgentClis(),
+			invalidate: () => capabilityProbes.invalidate(),
+		},
+		getWebContents: () => mainWindow.webContents,
+	});
+
+	// Re-probe triggers (spec §3.4) funnel through capabilityProbes.invalidate():
+	// app start (boot() above, cold cache) and window focus. Panel open and
+	// toggle flip already invalidate inside the IPC handlers.
+	let lastFocusReprobe = 0;
+	mainWindow.on("focus", () => {
+		const now = Date.now();
+		if (now - lastFocusReprobe < 30_000) return;
+		lastFocusReprobe = now;
+		capabilityProbes.invalidate();
+		void pluginRegistry.reprobe();
+	});
+
 	// Feed the worktree registry to the telemetry host so transcript cwds map to
 	// real worktrees (and the popover's Active scope populates). Refreshed on
 	// registry changes below.
@@ -239,6 +342,9 @@ app.whenReady().then(async () => {
 		sessionNoteBridge.dispose();
 		agentAttentionBridge.dispose();
 		usageHost.stop();
+		pluginIpc.dispose();
+		void pluginRegistry.stopAll();
+		pluginConfig.dispose();
 	});
 
 	registerAppLifecycle({
