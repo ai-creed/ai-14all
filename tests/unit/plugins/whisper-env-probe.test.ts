@@ -71,6 +71,23 @@ describe("probeWhisper", () => {
 		});
 	});
 
+	it("maps an older db schema to incompatible (upgrade whisper)", async () => {
+		const report = JSON.stringify({
+			...JSON.parse(GOOD_ENV),
+			dbSchemaVersion: 5,
+		});
+		const bin = fakeWhisper(`echo '${report}'`);
+		const result = await probeWhisper(
+			{ command: bin, prefixArgs: [] },
+			{ timeoutMs: 2000 },
+		);
+		expect(result).toEqual({
+			kind: "incompatible",
+			found: "db schema 5",
+			required: "db schema 6 (upgrade whisper)",
+		});
+	});
+
 	it("maps garbage stdout to not-installed", async () => {
 		const bin = fakeWhisper('echo "not json at all"');
 		expect(
