@@ -42,6 +42,8 @@ import {
 	agentAttentionBridge,
 	diagnostics,
 	app as appClient,
+	plugins as pluginsClient,
+	terminals as terminalsClient,
 } from "../lib/desktop-client";
 import {
 	hasInlineEditorsRegistered,
@@ -81,11 +83,13 @@ import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-emp
 import { useCreateWorktreePreview } from "./hooks/use-create-worktree-preview";
 import { useRemoveWorktreePreview } from "./hooks/use-remove-worktree-preview";
 import { DialogStack } from "./components/DialogStack";
-import { ToastProvider } from "../features/ui/toast/ToastProvider";
+import { ToastProvider, notifyToast } from "../features/ui/toast/ToastProvider";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { TerminalActions } from "../features/terminals/components/TerminalActions";
 import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
+import { PluginsPanelDialog } from "../features/plugins/components/PluginsPanelDialog";
 import type { LayoutId } from "../../shared/models/terminal-layout";
+import type { TerminalSession } from "../../shared/models/terminal-session";
 import { ReviewChipBar } from "./components/ReviewChipBar";
 import { firstViewableChangedFile } from "./logic/review-chip-target";
 import { ReviewArea } from "./components/ReviewArea";
@@ -698,6 +702,72 @@ export function App() {
 	});
 
 	const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
+	const [pluginsDialogOpen, setPluginsDialogOpen] = useState(false);
+
+	// Guided plugin install: run the install command in a fresh, visible shell on
+	// the active worktree (same create-session + register-process + sendInput path
+	// as launching a preset), then re-probe when that shell exits so the panel
+	// reflects the newly-installed peer. If the install shell never exits cleanly,
+	// the panel also re-probes every time it is re-opened (PluginsPanelDialog
+	// effect), so a stale "not installed" chip self-heals on the next open.
+	const handlePluginInstall = useCallback(
+		async (command: string) => {
+			if (!activeWorktree || !activeWorkspaceId) return;
+			const targetWorkspaceId = activeWorkspaceId;
+			const targetWorktree = activeWorktree;
+			let terminal: TerminalSession;
+			try {
+				terminal = await createSession(
+					targetWorkspaceId,
+					targetWorktree.id,
+					targetWorktree.path,
+				);
+			} catch (err) {
+				console.error("Failed to start plugin install shell:", err);
+				notifyToast("Failed to start install shell");
+				return;
+			}
+			createScopedWorkspaceDispatch(targetWorkspaceId)({
+				type: "session/registerProcess",
+				worktreeId: targetWorktree.id,
+				process: {
+					id: crypto.randomUUID(),
+					workspaceId: targetWorkspaceId,
+					worktreeId: targetWorktree.id,
+					terminalSessionId: terminal.id,
+					origin: "adHoc",
+					presetId: null,
+					label: "plugin install",
+					command,
+					status: "running",
+					lastActivityAt: null,
+					lastOutputPreview: null,
+					exitCode: null,
+					pinned: true,
+					attentionState: "idle",
+					agentAttentionReasons: {},
+					agentAttentionClearedAt: null,
+					agentDetected: false,
+					provider: null,
+				},
+			});
+			// Re-probe once the install shell exits, so a newly-installed peer flips
+			// from "not installed" to "installed, off" without re-opening the panel.
+			const off = terminalsClient.onExit((event) => {
+				if (event.sessionId !== terminal.id) return;
+				off();
+				void pluginsClient.reprobe();
+			});
+			await sendInput(terminal.id, `${command}\n`);
+		},
+		[
+			activeWorktree,
+			activeWorkspaceId,
+			createSession,
+			sendInput,
+			createScopedWorkspaceDispatch,
+		],
+	);
 
 	const handlePromoteSlot = useCallback(
 		(slotIndex: number) => {
@@ -1515,6 +1585,7 @@ export function App() {
 							openWorktreePaths={worktrees
 								.filter((w) => workspaceState.sessionsByWorktreeId[w.id])
 								.map((w) => w.path)}
+							onOpenPlugins={() => setPluginsDialogOpen(true)}
 							terminalActions={
 								activeWorktree ? (
 									<TerminalActions
@@ -1612,6 +1683,12 @@ export function App() {
 								onClose={() => setLayoutDialogOpen(false)}
 							/>
 						)}
+
+						<PluginsPanelDialog
+							open={pluginsDialogOpen}
+							onOpenChange={setPluginsDialogOpen}
+							onInstall={(command) => void handlePluginInstall(command)}
+						/>
 
 						{activeWorktree && (
 							<ReviewChipBar

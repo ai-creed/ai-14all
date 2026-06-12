@@ -18,6 +18,12 @@ type Props = {
 	terminalActions?: React.ReactNode;
 	/** Render slot for the token-telemetry strip, placed in the bar's mid gap. */
 	usage?: React.ReactNode;
+	/**
+	 * Render slot for the global "Plugins" entry point, placed beside the usage
+	 * strip. Lives in the global app chrome (not the worktree sidebar) and is
+	 * rendered unconditionally — it is an ai-14all feature, not a peer trace.
+	 */
+	plugins?: React.ReactNode;
 };
 
 export function SessionChipBar({
@@ -33,6 +39,7 @@ export function SessionChipBar({
 	onNoteClick,
 	terminalActions,
 	usage,
+	plugins,
 }: Props) {
 	return (
 		<div className="shell-chip-bar" role="region" aria-label="Session">
@@ -82,6 +89,8 @@ export function SessionChipBar({
 			</div>
 
 			{usage && <div className="shell-chip-bar__usage">{usage}</div>}
+
+			{plugins && <div className="shell-chip-bar__plugins">{plugins}</div>}
 
 			<div className="shell-chip-bar__actions">
 				<button

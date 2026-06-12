@@ -58,6 +58,9 @@ type Props = {
 
 	/** Render slot for the terminal action chips in the session chipbar. */
 	terminalActions?: React.ReactNode;
+
+	/** Opens the global Plugins panel. Wired to a button beside the usage strip. */
+	onOpenPlugins: () => void;
 };
 
 /**
@@ -92,6 +95,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 		appPlatform,
 		openWorktreePaths,
 		terminalActions,
+		onOpenPlugins,
 	} = props;
 
 	const usageSnapshot = useUsageSnapshot();
@@ -140,6 +144,22 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 								currentWorktreePath={activeWorktree.path}
 								openWorktreePaths={openWorktreePaths}
 							/>
+						}
+						plugins={
+							<button
+								type="button"
+								className="shell-chip-bar__action plugins-entry-button"
+								aria-label="Open Plugins panel"
+								onClick={onOpenPlugins}
+							>
+								<span
+									className="shell-chip-bar__action-icon"
+									aria-hidden="true"
+								>
+									🧩
+								</span>
+								Plugins
+							</button>
 						}
 					/>
 				</div>

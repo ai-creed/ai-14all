@@ -131,6 +131,18 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		confirmClose: vi.fn(),
 		onRequestClose: vi.fn(() => () => {}),
 	},
+	plugins: {
+		list: vi.fn().mockResolvedValue([]),
+		setEnabled: vi.fn().mockResolvedValue([]),
+		reprobe: vi.fn().mockResolvedValue([]),
+		agentClis: vi.fn().mockResolvedValue({
+			claude: { kind: "not-found" },
+			codex: { kind: "not-found" },
+		}),
+		runWhisperCommand: vi.fn(),
+		onStateChanged: vi.fn(() => vi.fn()),
+		onWhisperStateChanged: vi.fn(() => vi.fn()),
+	},
 }));
 
 import { App } from "../../../src/app/App";
