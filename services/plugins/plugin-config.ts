@@ -70,7 +70,10 @@ export function createPluginConfigStore(options: {
 
 	load();
 	stopWatchFn = options.watch?.(options.configPath, () => {
-		// Suppress the echo from our own writeFileSync in setEnabled.
+		// Suppress the echo from our own writeFileSync in setEnabled. Known
+		// v1 limitation: an external edit racing into the self-write window
+		// consumes the flag and is dropped (the later self-echo reloads, so
+		// state still converges on the next event).
 		if (suppressNextWatchEvent) {
 			suppressNextWatchEvent = false;
 			return;
