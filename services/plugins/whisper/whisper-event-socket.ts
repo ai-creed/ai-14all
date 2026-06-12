@@ -49,17 +49,22 @@ export function connectWhisperEventSocket(
 			handlers.onClose();
 		};
 
+		let helloTimer: ReturnType<typeof setTimeout> | undefined;
+
 		const fail = () => {
+			clearTimeout(helloTimer);
 			socket.destroy();
 			if (!settled) {
 				settled = true;
+				closedFired = true; // resolved null — suppress all future onClose calls
 				resolve(null);
-			} else {
+			} else if (helloSeen) {
 				fireClose();
 			}
+			// settled && !helloSeen: already resolved null, nothing more to do
 		};
 
-		const helloTimer = setTimeout(fail, HELLO_TIMEOUT_MS);
+		helloTimer = setTimeout(fail, HELLO_TIMEOUT_MS);
 
 		socket.on("error", fail);
 		socket.on("close", () => {
@@ -96,6 +101,7 @@ export function connectWhisperEventSocket(
 					settled = true;
 					resolve({
 						close() {
+							clearTimeout(helloTimer);
 							closedFired = true; // intentional close is not a fallback signal
 							socket.destroy();
 						},

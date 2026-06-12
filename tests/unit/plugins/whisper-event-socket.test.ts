@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { createServer, type Server, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { connectWhisperEventSocket } from "../../../services/plugins/whisper/whisper-event-socket";
 
 let dir: string;
@@ -98,5 +98,42 @@ describe("connectWhisperEventSocket", () => {
 		});
 		await new Promise((r) => setTimeout(r, 80));
 		expect(closed).toBe(true);
+	});
+
+	it("does not fire onClose after resolving null (no spurious timer)", async () => {
+		vi.useFakeTimers();
+		try {
+			let closeCount = 0;
+			const clientPromise = connectWhisperEventSocket(join(dir, "nope.sock"), {
+				onEvent: () => {},
+				onClose: () => {
+					closeCount += 1;
+				},
+			});
+			await vi.runAllTimersAsync();
+			expect(await clientPromise).toBeNull();
+			await vi.runAllTimersAsync();
+			expect(closeCount).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("fires onClose exactly once when garbage is followed by socket close", async () => {
+		await serve((socket) => {
+			socket.write(HELLO);
+			socket.write("garbage\n");
+			setTimeout(() => socket.destroy(), 10);
+		});
+		let closeCount = 0;
+		const client = await connectWhisperEventSocket(socketPath, {
+			onEvent: () => {},
+			onClose: () => {
+				closeCount += 1;
+			},
+		});
+		expect(client).not.toBeNull();
+		await new Promise((r) => setTimeout(r, 80));
+		expect(closeCount).toBe(1);
 	});
 });
