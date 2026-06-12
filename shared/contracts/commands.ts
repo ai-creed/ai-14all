@@ -38,6 +38,7 @@ import type {
 	AgentAttentionBridgeReply,
 	AgentAttentionBridgeRequest,
 } from "./agent-attention-bridge.js";
+import type { PluginsApi } from "./plugins.js";
 
 // --- Zod schemas for command payloads ---
 
@@ -575,6 +576,7 @@ export type Ai14AllDesktopApi = {
 		sendReady(): void;
 		sendGoodbye(): void;
 	};
+	plugins: PluginsApi;
 	events: {
 		onOpenInstallModal(handler: () => void): () => void;
 		onSetTheme(

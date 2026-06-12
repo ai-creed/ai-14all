@@ -46,6 +46,14 @@ const NOTE_BRIDGE_REPLY = "mcp:note:reply";
 const NOTE_BRIDGE_READY = "mcp:note:ready";
 const NOTE_BRIDGE_GOODBYE = "mcp:note:goodbye";
 const DIAGNOSTICS_ATTENTION_EVENT = "diagnostics:attention-event";
+// plugins channel constants (duplicated to keep Zod out of the sandboxed preload)
+const PLUGINS_LIST = "plugins:list";
+const PLUGINS_SET_ENABLED = "plugins:setEnabled";
+const PLUGINS_REPROBE = "plugins:reprobe";
+const PLUGINS_AGENT_CLIS = "plugins:agentClis";
+const PLUGINS_WHISPER_COMMAND = "plugins:whisperCommand";
+const PLUGINS_STATE_CHANGED = "plugins:stateChanged";
+const PLUGINS_WHISPER_STATE_CHANGED = "plugins:whisperStateChanged";
 
 // Helper: register a one-way listener on an ipcRenderer channel and return an
 // unsubscribe function (matching the onXxx pattern in the API type).
@@ -405,6 +413,18 @@ const api: Ai14AllDesktopApi = {
 		sendGoodbye() {
 			ipcRenderer.send(AGENT_ATTENTION_BRIDGE_GOODBYE);
 		},
+	},
+	plugins: {
+		list: () => ipcRenderer.invoke(PLUGINS_LIST),
+		setEnabled: (id, enabled) =>
+			ipcRenderer.invoke(PLUGINS_SET_ENABLED, { id, enabled }),
+		reprobe: () => ipcRenderer.invoke(PLUGINS_REPROBE),
+		agentClis: () => ipcRenderer.invoke(PLUGINS_AGENT_CLIS),
+		runWhisperCommand: (command) =>
+			ipcRenderer.invoke(PLUGINS_WHISPER_COMMAND, command),
+		onStateChanged: (handler) => onChannel(PLUGINS_STATE_CHANGED, handler),
+		onWhisperStateChanged: (handler) =>
+			onChannel(PLUGINS_WHISPER_STATE_CHANGED, handler),
 	},
 	events: {
 		onOpenInstallModal(handler: () => void) {
