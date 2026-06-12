@@ -92,8 +92,10 @@ import {
 	useWhisperState,
 	type WhisperAttentionDispatch,
 } from "../features/workflows/hooks/use-whisper-state";
+import { useStartCollab } from "../features/workflows/hooks/use-start-collab";
 import { WorkflowDetail } from "../features/workflows/components/WorkflowDetail";
 import { toWorkflowRow } from "../features/workflows/logic/workflow-lens";
+import { usePluginsState } from "../features/plugins/hooks/use-plugins-state";
 import type { LayoutId } from "../../shared/models/terminal-layout";
 import type { TerminalSession } from "../../shared/models/terminal-session";
 import { ReviewChipBar } from "./components/ReviewChipBar";
@@ -276,6 +278,13 @@ export function App() {
 		onWhisperStateChanged: pluginsClient.onWhisperStateChanged,
 		dispatch: dispatchWhisperAttention,
 	});
+
+	// Plugin snapshots — used to gate the Start-collab button on whisper on-healthy.
+	const pluginSnapshots = usePluginsState();
+	const whisperOnHealthy = pluginSnapshots.some(
+		(p) => p.id === "whisper" && p.status.state === "on-healthy",
+	);
+
 	const [workflowDetailTarget, setWorkflowDetailTarget] = useState<{
 		workspaceId: string;
 		worktreeId: string;
@@ -799,6 +808,75 @@ export function App() {
 			createScopedWorkspaceDispatch,
 		],
 	);
+
+	// Launches a single command in a new pinned terminal for the collab flow.
+	// Mirrors handlePluginInstall but without the reprobe-on-exit side effect and
+	// with a "collab: <agent>" label so the terminals are identifiable.
+	const launchCollabTerminal = useCallback(
+		async (command: string) => {
+			if (!activeWorktree || !activeWorkspaceId) return;
+			const targetWorkspaceId = activeWorkspaceId;
+			const targetWorktree = activeWorktree;
+			const agentLabel = command.split(" ").pop() ?? "agent";
+			let terminal: TerminalSession;
+			try {
+				terminal = await createSession(
+					targetWorkspaceId,
+					targetWorktree.id,
+					targetWorktree.path,
+				);
+			} catch (err) {
+				console.error("Failed to start collab terminal:", err);
+				notifyToast("Failed to start collab terminal");
+				return;
+			}
+			createScopedWorkspaceDispatch(targetWorkspaceId)({
+				type: "session/registerProcess",
+				worktreeId: targetWorktree.id,
+				process: {
+					id: crypto.randomUUID(),
+					workspaceId: targetWorkspaceId,
+					worktreeId: targetWorktree.id,
+					terminalSessionId: terminal.id,
+					origin: "adHoc",
+					presetId: null,
+					label: `collab: ${agentLabel}`,
+					command,
+					status: "running",
+					lastActivityAt: null,
+					lastOutputPreview: null,
+					exitCode: null,
+					pinned: true,
+					attentionState: "idle",
+					agentAttentionReasons: {},
+					agentAttentionClearedAt: null,
+					agentDetected: false,
+					provider: null,
+				},
+			});
+			await sendInput(terminal.id, `${command}\n`);
+		},
+		[
+			activeWorktree,
+			activeWorkspaceId,
+			createSession,
+			sendInput,
+			createScopedWorkspaceDispatch,
+		],
+	);
+
+	const activeWhisperState = activeWorktree
+		? whisperStates.get(activeWorktree.id)
+		: undefined;
+	const {
+		phase: collabPhase,
+		start: startCollab,
+		reset: resetCollab,
+	} = useStartCollab({
+		worktreeId: activeWorktree?.id ?? "",
+		whisperState: activeWhisperState,
+		launchInTerminal: launchCollabTerminal,
+	});
 
 	const handlePromoteSlot = useCallback(
 		(slotIndex: number) => {
@@ -1635,6 +1713,41 @@ export function App() {
 								.filter((w) => workspaceState.sessionsByWorktreeId[w.id])
 								.map((w) => w.path)}
 							onOpenPlugins={() => setPluginsDialogOpen(true)}
+							startCollabButton={
+								whisperOnHealthy ? (
+									<button
+										type="button"
+										className="shell-chip-bar__action start-collab-button"
+										aria-label={
+											collabPhase.kind === "idle"
+												? "Start collab"
+												: collabPhase.kind === "waiting"
+													? "Mounting agents…"
+													: collabPhase.kind === "ready"
+														? "Collab ready"
+														: "Check terminal output"
+										}
+										disabled={
+											collabPhase.kind === "waiting" ||
+											collabPhase.kind === "ready"
+										}
+										data-collab-phase={collabPhase.kind}
+										onClick={() => {
+											if (collabPhase.kind === "timed-out") {
+												resetCollab();
+											} else {
+												void startCollab();
+											}
+										}}
+									>
+										{collabPhase.kind === "idle" && "Start collab"}
+										{collabPhase.kind === "waiting" && "mounting agents…"}
+										{collabPhase.kind === "ready" && "collab ready ✓"}
+										{collabPhase.kind === "timed-out" &&
+											"check terminal output"}
+									</button>
+								) : undefined
+							}
 							terminalActions={
 								activeWorktree ? (
 									<TerminalActions

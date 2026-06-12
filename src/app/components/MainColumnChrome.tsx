@@ -61,6 +61,13 @@ type Props = {
 
 	/** Opens the global Plugins panel. Wired to a button beside the usage strip. */
 	onOpenPlugins: () => void;
+
+	/**
+	 * Optional render slot for the Start-collab button. Rendered alongside the
+	 * Plugins button in the chip bar's plugins area. Only present when whisper
+	 * is on-healthy for the active worktree (visibility gated in App.tsx).
+	 */
+	startCollabButton?: React.ReactNode;
 };
 
 /**
@@ -96,6 +103,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 		openWorktreePaths,
 		terminalActions,
 		onOpenPlugins,
+		startCollabButton,
 	} = props;
 
 	const usageSnapshot = useUsageSnapshot();
@@ -146,20 +154,23 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 							/>
 						}
 						plugins={
-							<button
-								type="button"
-								className="shell-chip-bar__action plugins-entry-button"
-								aria-label="Open Plugins panel"
-								onClick={onOpenPlugins}
-							>
-								<span
-									className="shell-chip-bar__action-icon"
-									aria-hidden="true"
+							<>
+								<button
+									type="button"
+									className="shell-chip-bar__action plugins-entry-button"
+									aria-label="Open Plugins panel"
+									onClick={onOpenPlugins}
 								>
-									🧩
-								</span>
-								Plugins
-							</button>
+									<span
+										className="shell-chip-bar__action-icon"
+										aria-hidden="true"
+									>
+										🧩
+									</span>
+									Plugins
+								</button>
+								{startCollabButton}
+							</>
 						}
 					/>
 				</div>
