@@ -337,3 +337,38 @@ describe("mapToProcessAttentionState", () => {
 		expect(mapToProcessAttentionState("idle")).toBe("idle");
 	});
 });
+
+describe("shouldReplaceAgentAttentionReason — workflow source", () => {
+	const reason = (
+		source: "mcp" | "terminal" | "lifecycle" | "workflow",
+		state: "waiting" | "ready" | "failed" | "active",
+		reportedAt: number,
+	) => ({ state, source, summary: "s", nextAction: null, reportedAt });
+
+	it("same-source workflow: newer report wins regardless of rank", () => {
+		expect(
+			shouldReplaceAgentAttentionReason(
+				reason("workflow", "waiting", 100),
+				reason("workflow", "ready", 200),
+			),
+		).toBe(true);
+	});
+
+	it("same-source workflow: older report is ignored", () => {
+		expect(
+			shouldReplaceAgentAttentionReason(
+				reason("workflow", "ready", 200),
+				reason("workflow", "waiting", 100),
+			),
+		).toBe(false);
+	});
+
+	it("workflow vs other sources stays on the rank gate", () => {
+		expect(
+			shouldReplaceAgentAttentionReason(
+				reason("terminal", "waiting", 100),
+				reason("workflow", "active", 200),
+			),
+		).toBe(false);
+	});
+});

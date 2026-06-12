@@ -175,13 +175,14 @@ export function shouldReplaceAgentAttentionReason(
 	next: AgentAttentionReason,
 ): boolean {
 	if (!current) return true;
-	// Same-source MCP pushes overwrite without the rank gate: the agent
-	// explicitly reports its own state via MCP, so its latest report
-	// supersedes its prior one. Ties (equal reportedAt) replace too; an
-	// older report is ignored. The terminal/lifecycle classifiers stay on
-	// the rank gate — their heuristic "active" output must not clobber a
-	// live "waiting" prompt detected earlier.
-	if (current.source === "mcp" && next.source === "mcp") {
+	// Same-source pushes from authoritative reporters (the agent's own MCP
+	// report, the whisper broker's workflow events) overwrite without the
+	// rank gate: the latest authoritative report supersedes its prior one.
+	// Ties (equal reportedAt) replace too; an older report is ignored. The
+	// terminal/lifecycle classifiers stay on the rank gate — their
+	// heuristic "active" output must not clobber a live "waiting" prompt.
+	const authoritative = current.source === "mcp" || current.source === "workflow";
+	if (authoritative && next.source === current.source) {
 		return next.reportedAt >= current.reportedAt;
 	}
 	return (
