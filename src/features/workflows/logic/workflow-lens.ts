@@ -85,7 +85,11 @@ export function diffWorkflowAttention(
 	if (
 		prevReason !== null &&
 		prevReason.state === nextReason.state &&
-		prevReason.summary === nextReason.summary
+		prevReason.summary === nextReason.summary &&
+		// A NEW escalation chain must re-report even when its reason text
+		// matches the previous chain's — chainId is part of the identity.
+		(previous?.escalation?.chainId ?? null) ===
+			(next.escalation?.chainId ?? null)
 	) {
 		return null;
 	}

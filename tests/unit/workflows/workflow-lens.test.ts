@@ -47,7 +47,11 @@ describe("diffWorkflowAttention", () => {
 	it("running → halted emits waiting with the halt reason", () => {
 		const next = {
 			...base,
-			workflow: { ...base.workflow!, status: "halted", haltReason: "round limit" },
+			workflow: {
+				...base.workflow!,
+				status: "halted",
+				haltReason: "round limit",
+			},
 		};
 		expect(diffWorkflowAttention(base, next, 123)).toEqual({
 			kind: "report",
@@ -75,6 +79,27 @@ describe("diffWorkflowAttention", () => {
 	it("unchanged escalation does not re-emit", () => {
 		const withEsc = { ...base, escalation: { chainId: "ch9", reason: "r" } };
 		expect(diffWorkflowAttention(withEsc, withEsc, 5)).toBeNull();
+	});
+
+	it("a new escalation chain with identical reason text re-reports", () => {
+		const prev = { ...base, escalation: { chainId: "ch9", reason: "r" } };
+		const next = { ...base, escalation: { chainId: "ch10", reason: "r" } };
+		expect(diffWorkflowAttention(prev, next, 7)).toMatchObject({
+			kind: "report",
+			reason: { state: "waiting", summary: "r" },
+		});
+	});
+
+	it("escalation wins over a simultaneous halt (one effect max)", () => {
+		const next = {
+			...base,
+			workflow: { ...base.workflow!, status: "halted", haltReason: "halt!" },
+			escalation: { chainId: "ch9", reason: "escalated!" },
+		};
+		expect(diffWorkflowAttention(base, next, 7)).toMatchObject({
+			kind: "report",
+			reason: { state: "waiting", summary: "escalated!" },
+		});
 	});
 
 	it("running → done emits ready", () => {
