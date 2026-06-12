@@ -36,7 +36,6 @@ export function createPluginConfigStore(options: {
 	// One-shot flag: when setEnabled writes the file itself, suppress the
 	// chokidar echo that would trigger a redundant load()+notify().
 	let suppressNextWatchEvent = false;
-	let stopWatchFn: (() => void) | undefined;
 
 	function load(): void {
 		entries = new Map();
@@ -69,7 +68,7 @@ export function createPluginConfigStore(options: {
 	}
 
 	load();
-	stopWatchFn = options.watch?.(options.configPath, () => {
+	const stopWatchFn = options.watch?.(options.configPath, () => {
 		// Suppress the echo from our own writeFileSync in setEnabled. Known
 		// v1 limitation: an external edit racing into the self-write window
 		// consumes the flag and is dropped (the later self-echo reloads, so

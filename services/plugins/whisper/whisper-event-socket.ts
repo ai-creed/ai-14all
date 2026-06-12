@@ -49,8 +49,6 @@ export function connectWhisperEventSocket(
 			handlers.onClose();
 		};
 
-		let helloTimer: ReturnType<typeof setTimeout> | undefined;
-
 		const fail = () => {
 			clearTimeout(helloTimer);
 			socket.destroy();
@@ -64,7 +62,9 @@ export function connectWhisperEventSocket(
 			// settled && !helloSeen: already resolved null, nothing more to do
 		};
 
-		helloTimer = setTimeout(fail, HELLO_TIMEOUT_MS);
+		// Safe to reference from `fail`: events/timeouts can only fire after
+		// this synchronous block completes, by which point it is assigned.
+		const helloTimer = setTimeout(fail, HELLO_TIMEOUT_MS);
 
 		socket.on("error", fail);
 		socket.on("close", () => {
