@@ -120,7 +120,19 @@ export function createPluginRegistry(
 
 	async function reconcile(entry: Entry): Promise<void> {
 		const cfg = config.get(entry.driver.id);
-		entry.probe = await entry.driver.probe();
+		let probe: ProbeResult;
+		try {
+			probe = await entry.driver.probe();
+		} catch (e) {
+			// A rejecting probe must degrade this plugin only — never reject
+			// reconcile, which would poison the serialized pending chain.
+			await stopEntry(entry);
+			entry.probe = null;
+			entry.degradedReason = e instanceof Error ? e.message : String(e);
+			notify();
+			return;
+		}
+		entry.probe = probe;
 		const compatible = entry.probe.kind === "installed";
 		if (cfg.enabled && compatible && !entry.running) {
 			entry.degradedReason = null;

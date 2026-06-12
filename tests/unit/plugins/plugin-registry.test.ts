@@ -174,6 +174,33 @@ describe("createPluginRegistry", () => {
 		expect(driver.start).toHaveBeenCalledTimes(1);
 	});
 
+	it("a rejecting probe degrades the plugin and the chain self-heals", async () => {
+		let failProbe = true;
+		const driver = fakeDriver({
+			probe: vi.fn(async (): Promise<ProbeResult> => {
+				if (failProbe) throw new Error("probe exploded");
+				return {
+					kind: "installed",
+					version: "0.6.0",
+					installPath: "/x",
+					protocolVersion: "1",
+				};
+			}),
+		});
+		const registry = createPluginRegistry(
+			[driver],
+			fakeConfig({ enabled: true }),
+		);
+		await expect(registry.boot()).resolves.toBeUndefined();
+		expect(registry.snapshots()[0].status).toEqual({
+			state: "degraded",
+			reason: "probe exploded",
+		});
+		failProbe = false;
+		await registry.reprobe(); // chain not poisoned — this must run and recover
+		expect(registry.snapshots()[0].status.state).toBe("on-healthy");
+	});
+
 	it("notifies snapshot listeners on every state change", async () => {
 		const driver = fakeDriver();
 		const registry = createPluginRegistry(
