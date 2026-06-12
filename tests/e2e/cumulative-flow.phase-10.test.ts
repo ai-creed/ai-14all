@@ -78,8 +78,13 @@ test.describe.serial("Cumulative flow — Phase 10", () => {
 
 	test("shortcuts help opens via keyboard shortcut and lists all actions", async () => {
 		test.setTimeout(30_000);
-		// Focus a non-terminal area so the shortcut fires.
-		await page.getByRole("region", { name: "Session" }).click();
+		// Focus a non-terminal area so the shortcut fires. Click a fixed inert
+		// corner of the region rather than its geometric center — the center
+		// shifts as chip-bar buttons are added (the Plugins button landed there
+		// and its dialog swallowed the shortcut).
+		await page
+			.getByRole("region", { name: "Session" })
+			.click({ position: { x: 8, y: 8 } });
 		await page.keyboard.press(`${modKey}+Slash`);
 		await expect(
 			page.getByRole("dialog", { name: /keyboard shortcuts/i }),
@@ -106,7 +111,9 @@ test.describe.serial("Cumulative flow — Phase 10", () => {
 		await ensureWorkspaceLoaded();
 		const portal = page.getByTestId("review-expanded-portal");
 		// Focus non-terminal area.
-		await page.getByRole("region", { name: "Session" }).click();
+		await page
+			.getByRole("region", { name: "Session" })
+			.click({ position: { x: 8, y: 8 } });
 		// Ensure overlay starts closed by toggling if currently open.
 		if (await portal.isVisible({ timeout: 500 }).catch(() => false)) {
 			await page.keyboard.press(`${modKey}+j`);
@@ -124,7 +131,9 @@ test.describe.serial("Cumulative flow — Phase 10", () => {
 		test.setTimeout(30_000);
 		await ensureWorkspaceLoaded();
 		// Focus non-terminal area.
-		await page.getByRole("region", { name: "Session" }).click();
+		await page
+			.getByRole("region", { name: "Session" })
+			.click({ position: { x: 8, y: 8 } });
 		await page.keyboard.press(
 			modKey === "Meta" ? "Meta+Shift+r" : "Control+Alt+r",
 		);
