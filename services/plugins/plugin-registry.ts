@@ -160,13 +160,18 @@ export function createPluginRegistry(
 		notify();
 	}
 
-	config.onChange(() => {
+	function queueReconcileAll(): Promise<void> {
 		pending = pending.then(reconcileAll);
+		return pending;
+	}
+
+	config.onChange(() => {
+		void queueReconcileAll();
 	});
 
 	return {
-		boot: reconcileAll,
-		reprobe: reconcileAll,
+		boot: queueReconcileAll,
+		reprobe: queueReconcileAll,
 		async stopAll() {
 			for (const entry of entries.values()) await stopEntry(entry);
 		},

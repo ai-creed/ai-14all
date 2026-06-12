@@ -151,6 +151,29 @@ describe("createPluginRegistry", () => {
 		});
 	});
 
+	it("a config flip racing an in-flight boot does not double-start the driver", async () => {
+		let releaseStart: () => void = () => {};
+		const startGate = new Promise<void>((r) => {
+			releaseStart = r;
+		});
+		const driver = fakeDriver({
+			start: vi.fn(async () => {
+				await startGate;
+			}),
+		});
+		const config = fakeConfig({ enabled: true });
+		const registry = createPluginRegistry([driver], config);
+		const bootPromise = registry.boot();
+		// Wait until boot's reconcile is inside driver.start (probe + start are async).
+		await vi.waitFor(() => expect(driver.start).toHaveBeenCalledOnce());
+		// Config change while start is still pending — must queue, not interleave.
+		config.setEnabled("whisper", true);
+		releaseStart();
+		await bootPromise;
+		await registry.idle();
+		expect(driver.start).toHaveBeenCalledTimes(1);
+	});
+
 	it("notifies snapshot listeners on every state change", async () => {
 		const driver = fakeDriver();
 		const registry = createPluginRegistry(
