@@ -45,7 +45,10 @@ export class WhisperStoreReader {
 		if (!db) return null;
 		try {
 			const version = db.pragma("user_version", { simple: true }) as number;
-			if (version < SUPPORTED_DB_SCHEMA.min || version > SUPPORTED_DB_SCHEMA.max) {
+			if (
+				version < SUPPORTED_DB_SCHEMA.min ||
+				version > SUPPORTED_DB_SCHEMA.max
+			) {
 				db.close();
 				return null;
 			}
@@ -177,6 +180,31 @@ export class WhisperStoreReader {
 				round,
 				haltReason: (wf.halt_reason as string | null) ?? null,
 				updatedAt: wf.updated_at as string,
+			};
+		} catch {
+			return null;
+		} finally {
+			db.close();
+		}
+	}
+
+	readEscalatedChain(
+		collabId: string,
+	): { chainId: string; reason: string } | null {
+		const db = this.openChecked();
+		if (!db) return null;
+		try {
+			const r = db
+				.prepare(
+					`SELECT chain_id, terminal_reason FROM relay_chains
+					 WHERE collab_id = ? AND status = 'escalated'
+					 ORDER BY updated_at DESC LIMIT 1`,
+				)
+				.get(collabId) as Record<string, unknown> | undefined;
+			if (!r) return null;
+			return {
+				chainId: r.chain_id as string,
+				reason: (r.terminal_reason as string | null) ?? "escalated",
 			};
 		} catch {
 			return null;
