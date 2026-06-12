@@ -45,6 +45,11 @@ export function createCapabilityProbeService(
 		if (hit && now() - hit.at < ttlMs) return hit.value as Promise<T>;
 		const value = produce();
 		cache.set(key, { at: now(), value });
+		// Current probe sources are total, but the generic helper must not pin
+		// a rejection for the full TTL if a future plugin probe ever rejects.
+		value.catch(() => {
+			if (cache.get(key)?.value === value) cache.delete(key);
+		});
 		return value;
 	}
 
