@@ -196,9 +196,14 @@ app.whenReady().then(async () => {
 			pushWhisperState(() => mainWindow.webContents, states),
 		// E2e seam: the live-socket scenario sets this to 60s so a fast UI update
 		// can only have come from the event-socket path, not from polling.
-		pollIntervalMs: process.env.AI14ALL_WHISPER_POLL_MS
-			? Number(process.env.AI14ALL_WHISPER_POLL_MS)
-			: undefined,
+		// NaN/empty guard: a malformed value must fall back to the driver
+		// default, not become setInterval(NaN) or setInterval(0).
+		pollIntervalMs:
+			process.env.AI14ALL_WHISPER_POLL_MS &&
+			Number.isFinite(Number(process.env.AI14ALL_WHISPER_POLL_MS)) &&
+			Number(process.env.AI14ALL_WHISPER_POLL_MS) > 0
+				? Number(process.env.AI14ALL_WHISPER_POLL_MS)
+				: undefined,
 	});
 
 	const pluginRegistry = createPluginRegistry([whisperDriver], pluginConfig);
