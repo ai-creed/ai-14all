@@ -16,15 +16,15 @@ describe("advanceStartCollab", () => {
 	});
 
 	it("flips to ready when both mounts are bound", () => {
-		expect(
-			advanceStartCollab(started, bound("claude", "codex"), 2000),
-		).toEqual({ kind: "ready" });
+		expect(advanceStartCollab(started, bound("claude", "codex"), 2000)).toEqual(
+			{ kind: "ready" },
+		);
 	});
 
 	it("ezio standing in for codex also counts", () => {
-		expect(
-			advanceStartCollab(started, bound("claude", "ezio"), 2000),
-		).toEqual({ kind: "ready" });
+		expect(advanceStartCollab(started, bound("claude", "ezio"), 2000)).toEqual({
+			kind: "ready",
+		});
 	});
 
 	it("times out after the claim-expiry window", () => {
