@@ -37,6 +37,11 @@ function resolveOverride(installPath: string): ResolvedBinary | null {
 	return null;
 }
 
+/**
+ * @param name trusted, compile-time-constant binary name ("whisper",
+ * "claude", "codex") — it is interpolated into a shell line below, so it
+ * must never be a user- or config-derived value.
+ */
 export function resolveBinary(
 	name: string,
 	options: ResolveBinaryOptions = {},
@@ -72,7 +77,10 @@ export function resolveBinary(
 		child.on("close", (code) => {
 			if (code !== 0) return finish(null);
 			// rc-file noise can precede the real line; take the last absolute path.
-			const lines = out.trim().split("\n").map((l) => l.trim());
+			const lines = out
+				.trim()
+				.split("\n")
+				.map((l) => l.trim());
 			const hit = lines.reverse().find((l) => l.startsWith("/"));
 			finish(hit ? { command: hit, prefixArgs: [] } : null);
 		});
