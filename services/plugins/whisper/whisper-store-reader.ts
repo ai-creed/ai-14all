@@ -177,6 +177,7 @@ export class WhisperStoreReader {
 				status: wf.status as string,
 				currentPhaseIndex: wf.current_phase_index as number,
 				phaseName: (phase?.phase_name as string | undefined) ?? null,
+				currentChainId: (phase?.chain_id as string | undefined) ?? null,
 				round,
 				haltReason: (wf.halt_reason as string | null) ?? null,
 				updatedAt: wf.updated_at as string,

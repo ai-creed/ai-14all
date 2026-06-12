@@ -45,12 +45,21 @@ describe("WhisperStoreReader", () => {
 			daemons: [{ collab_id: "c1", last_heartbeat_at: "2026-06-12T03:00:00Z" }],
 			bindings: [
 				{ collab_id: "c1", agent_type: "claude", binding_state: "bound" },
-				{ collab_id: "c1", agent_type: "ezio", binding_state: "pending_attach" },
+				{
+					collab_id: "c1",
+					agent_type: "ezio",
+					binding_state: "pending_attach",
+				},
 			],
 		});
 		const reader = new WhisperStoreReader(dbPath);
 		expect(reader.readCollabs()).toEqual([
-			{ collabId: "c1", workspaceRoot: "/w1", displayName: "fixture", status: "active" },
+			{
+				collabId: "c1",
+				workspaceRoot: "/w1",
+				displayName: "fixture",
+				status: "active",
+			},
 		]);
 		expect(reader.readDaemon("c1")).toEqual({
 			host: "127.0.0.1",
@@ -76,10 +85,26 @@ describe("WhisperStoreReader", () => {
 				},
 			],
 			phases: [
-				{ phase_run_id: "p0", workflow_id: "wf1", phase_index: 0, phase_name: "planning", chain_id: "ch0", ended_at: "2026-06-12T01:00:00Z", outcome: "done" },
-				{ phase_run_id: "p1", workflow_id: "wf1", phase_index: 1, phase_name: "implementation", chain_id: "ch1" },
+				{
+					phase_run_id: "p0",
+					workflow_id: "wf1",
+					phase_index: 0,
+					phase_name: "planning",
+					chain_id: "ch0",
+					ended_at: "2026-06-12T01:00:00Z",
+					outcome: "done",
+				},
+				{
+					phase_run_id: "p1",
+					workflow_id: "wf1",
+					phase_index: 1,
+					phase_name: "implementation",
+					chain_id: "ch1",
+				},
 			],
-			chains: [{ chain_id: "ch1", collab_id: "c1", current_round: 2, max_rounds: 3 }],
+			chains: [
+				{ chain_id: "ch1", collab_id: "c1", current_round: 2, max_rounds: 3 },
+			],
 		});
 		const reader = new WhisperStoreReader(dbPath);
 		const wf = reader.readActiveWorkflow("c1");
@@ -88,6 +113,7 @@ describe("WhisperStoreReader", () => {
 			status: "running",
 			currentPhaseIndex: 1,
 			phaseName: "implementation",
+			currentChainId: "ch1",
 			round: { current: 2, max: 3 },
 			haltReason: null,
 		});

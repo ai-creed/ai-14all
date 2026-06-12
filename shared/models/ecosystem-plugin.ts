@@ -46,6 +46,9 @@ export type WhisperWorkflowSnapshot = {
 	status: string;
 	currentPhaseIndex: number;
 	phaseName: string | null;
+	// chain_id of the current phase's relay chain, when one exists. Surfaced so
+	// the watcher can read the phase's handback history without re-querying.
+	currentChainId: string | null;
 	round: { current: number; max: number } | null;
 	haltReason: string | null;
 	updatedAt: string;
@@ -75,6 +78,9 @@ export type WhisperWorktreeState = {
 	bindings: WhisperAgentBinding[];
 	workflow: WhisperWorkflowSnapshot | null;
 	escalation: WhisperEscalation | null;
+	// Handback history for the active workflow's current phase chain, capped at
+	// the last 20 entries. Empty when there is no active chain.
+	handoffs: WhisperHandoffEntry[];
 };
 
 // Provisional `whisper env --json` shape (whisper-side deliverable mirrors this).

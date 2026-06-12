@@ -25,6 +25,7 @@ type Props = {
 		worktreeId: string,
 	) => Promise<void>;
 	handleRemoveWorkspace: (workspaceId: string) => Promise<void>;
+	onOpenWorkflowDetail: (workspaceId: string, worktreeId: string) => void;
 	dispatch: (
 		action:
 			| { type: "session/setTitle"; worktreeId: string; title: string }
@@ -58,6 +59,7 @@ export function SidebarPanel(props: Props): React.ReactElement {
 		activateWorkspace,
 		handleSelectSidebarWorktree,
 		handleRemoveWorkspace,
+		onOpenWorkflowDetail,
 		dispatch,
 	} = props;
 
@@ -114,6 +116,7 @@ export function SidebarPanel(props: Props): React.ReactElement {
 					}
 					setPendingRename({ workspaceId, worktreeId });
 				}}
+				onOpenWorkflowDetail={onOpenWorkflowDetail}
 				pendingRename={pendingRename}
 			/>
 		</div>

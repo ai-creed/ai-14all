@@ -103,6 +103,50 @@ describe("createWhisperCollabWatcher", () => {
 		});
 	});
 
+	it("includes handback history for the active workflow's chain (capped at 20)", async () => {
+		makeWhisperFixtureDb(dbPath, {
+			collabs: [{ collab_id: "c1", workspace_root: "/known" }],
+			workflows: [
+				{
+					workflow_id: "wf1",
+					collab_id: "c1",
+					status: "running",
+					current_phase_index: 0,
+				},
+			],
+			phases: [
+				{
+					phase_run_id: "p0",
+					workflow_id: "wf1",
+					phase_index: 0,
+					phase_name: "implementation",
+					chain_id: "ch1",
+				},
+			],
+			handoffs: Array.from({ length: 25 }, (_, i) => ({
+				handoff_id: `h${i}`,
+				chain_id: "ch1",
+				sender_agent: "claude",
+				target_agent: "ezio",
+				request_text: `req ${i}`,
+				created_at: `2026-06-12T00:00:${String(i).padStart(2, "0")}Z`,
+			})),
+		});
+		const watcher = makeWatcher(async () => "wt-1");
+		const [state] = await watcher.snapshot();
+		expect(state.handoffs).toHaveLength(20); // last 20 retained
+		expect(state.handoffs[0].handoffId).toBe("h5"); // dropped the oldest 5
+		expect(state.handoffs.at(-1)?.handoffId).toBe("h24");
+	});
+
+	it("reports an empty handoff list when there is no active chain", async () => {
+		makeWhisperFixtureDb(dbPath, {
+			collabs: [{ collab_id: "c1", workspace_root: "/known" }],
+		});
+		const watcher = makeWatcher(async () => "wt-1");
+		expect((await watcher.snapshot())[0].handoffs).toEqual([]);
+	});
+
 	it("surfaces an escalated chain as escalation", async () => {
 		makeWhisperFixtureDb(dbPath, {
 			collabs: [{ collab_id: "c1", workspace_root: "/known" }],

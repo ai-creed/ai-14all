@@ -29,14 +29,21 @@ export function createWhisperCollabWatcher(options: {
 			const daemon = options.reader.readDaemon(collab.collabId);
 			const daemonAlive =
 				daemon !== null && now() - Date.parse(daemon.lastHeartbeatAt) < staleMs;
+			const workflow = options.reader.readActiveWorkflow(collab.collabId);
+			// Handback history hangs off the current phase's relay chain. Capped at
+			// the last 20 entries (readHandoffs returns ascending by created_at).
+			const handoffs = workflow?.currentChainId
+				? options.reader.readHandoffs(workflow.currentChainId).slice(-20)
+				: [];
 			states.push({
 				worktreeId,
 				collabId: collab.collabId,
 				daemonAlive,
 				liveFeed: "polling", // driver overwrites when a socket is attached
 				bindings: options.reader.readBindings(collab.collabId),
-				workflow: options.reader.readActiveWorkflow(collab.collabId),
+				workflow,
 				escalation: options.reader.readEscalatedChain(collab.collabId),
+				handoffs,
 			});
 		}
 		return states;

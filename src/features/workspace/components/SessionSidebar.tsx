@@ -4,6 +4,8 @@ import type { Worktree } from "../../../../shared/models/worktree";
 import type { ProcessAttentionState } from "../../../../shared/models/process-session";
 import type { WorktreeProcessSummary } from "../logic/sidebar-shell-summary";
 import { displayTitle } from "../logic/session-display-title";
+import type { WorkflowRow as WorkflowRowModel } from "../../workflows/logic/workflow-lens";
+import { WorkflowRow } from "../../workflows/components/WorkflowRow";
 
 export type SessionSidebarWorkspace = {
 	workspaceId: string;
@@ -15,6 +17,13 @@ export type SessionSidebarWorkspace = {
 	attentionContextByWorktreeId?: Record<string, string>;
 	taskByWorktreeId?: Record<string, string | null>;
 	titleByWorktreeId?: Record<string, string>;
+	// Pre-derived workflow lens rows keyed by worktreeId. Present ONLY for
+	// worktrees that have whisper state — the row never renders otherwise, so the
+	// sidebar stays unchanged in the no-plugin world.
+	workflowRowByWorktreeId?: Record<
+		string,
+		WorkflowRowModel & { stale?: boolean }
+	>;
 	active: boolean;
 	hydrated: boolean;
 };
@@ -40,6 +49,7 @@ type Props = {
 		worktreeId: string,
 		processId: string,
 	) => void;
+	onOpenWorkflowDetail?: (workspaceId: string, worktreeId: string) => void;
 	pendingRename?: { workspaceId: string; worktreeId: string } | null;
 };
 
@@ -56,6 +66,7 @@ export function SessionSidebar({
 	onRenameSession,
 	onRequestExpand,
 	onClearFailedReason,
+	onOpenWorkflowDetail,
 	pendingRename,
 }: Props) {
 	const [renaming, setRenaming] = React.useState<{
@@ -331,6 +342,23 @@ export function SessionSidebar({
 										</div>
 									) : null;
 
+								// Workflow lens row: only present when whisper state exists for
+								// this worktree, and never while renaming or collapsed.
+								const workflowRowModel =
+									workspace.workflowRowByWorktreeId?.[worktree.id];
+								const workflowRow =
+									!isRenamingThisRow && !collapsed && workflowRowModel ? (
+										<WorkflowRow
+											row={workflowRowModel}
+											onOpenDetail={() =>
+												onOpenWorkflowDetail?.(
+													workspace.workspaceId,
+													worktree.id,
+												)
+											}
+										/>
+									) : null;
+
 								const item = isRenamingThisRow ? (
 									<div role="presentation" {...rowCommonProps}>
 										{rowContents}
@@ -378,6 +406,7 @@ export function SessionSidebar({
 											{item}
 											{taskLine}
 											{processList}
+											{workflowRow}
 										</div>
 									);
 								}
@@ -392,6 +421,7 @@ export function SessionSidebar({
 											<ContextMenu.Trigger asChild>{item}</ContextMenu.Trigger>
 											{taskLine}
 											{processList}
+											{workflowRow}
 										</div>
 										<ContextMenu.Portal>
 											<ContextMenu.Content className="shell-toolbar-menu">

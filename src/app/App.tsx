@@ -88,6 +88,12 @@ import { TerminalPanel } from "./components/TerminalPanel";
 import { TerminalActions } from "../features/terminals/components/TerminalActions";
 import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
 import { PluginsPanelDialog } from "../features/plugins/components/PluginsPanelDialog";
+import {
+	useWhisperState,
+	type WhisperAttentionDispatch,
+} from "../features/workflows/hooks/use-whisper-state";
+import { WorkflowDetail } from "../features/workflows/components/WorkflowDetail";
+import { toWorkflowRow } from "../features/workflows/logic/workflow-lens";
 import type { LayoutId } from "../../shared/models/terminal-layout";
 import type { TerminalSession } from "../../shared/models/terminal-session";
 import { ReviewChipBar } from "./components/ReviewChipBar";
@@ -249,6 +255,31 @@ export function App() {
 		// dispatch and agentAttentionBridge are stable refs; only startupMode should re-run
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [startupMode]);
+
+	// Whisper workflow lens: the driver pushes per-worktree state keyed by
+	// worktreeId across ALL workspaces, so its attention dispatch must route to
+	// the workspace that owns the worktree — the same routing the agent-attention
+	// bridge uses above. Worktrees we don't own (no matching session) are dropped.
+	const dispatchWhisperAttention = useCallback<WhisperAttentionDispatch>(
+		(action) => {
+			for (const wsId of appWorkspacesRef.current.workspaceOrder) {
+				const ws = appWorkspacesRef.current.workspacesById[wsId];
+				if (ws?.workspaceState?.sessionsByWorktreeId[action.worktreeId]) {
+					createScopedWorkspaceDispatch(wsId)(action);
+					return;
+				}
+			}
+		},
+		[appWorkspacesRef, createScopedWorkspaceDispatch],
+	);
+	const whisperStates = useWhisperState({
+		onWhisperStateChanged: pluginsClient.onWhisperStateChanged,
+		dispatch: dispatchWhisperAttention,
+	});
+	const [workflowDetailTarget, setWorkflowDetailTarget] = useState<{
+		workspaceId: string;
+		worktreeId: string;
+	} | null>(null);
 
 	const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
 
@@ -1453,6 +1484,21 @@ export function App() {
 							),
 						)
 					: {},
+				// Derive the workflow lens row only for this workspace's worktrees
+				// that have whisper state. Absent (no key) ⇒ no row rendered.
+				workflowRowByWorktreeId: (() => {
+					const rows: Record<
+						string,
+						NonNullable<ReturnType<typeof toWorkflowRow>> & { stale?: boolean }
+					> = {};
+					for (const worktree of ws.worktrees) {
+						const state = whisperStates.get(worktree.id);
+						if (!state) continue;
+						const row = toWorkflowRow(state);
+						if (row) rows[worktree.id] = { ...row, stale: state.stale };
+					}
+					return rows;
+				})(),
 				active: ws.workspaceId === activeWorkspaceId,
 				hydrated: ws.workspaceState !== null,
 			})),
@@ -1552,6 +1598,9 @@ export function App() {
 						activateWorkspace={activateWorkspace}
 						handleSelectSidebarWorktree={handleSelectSidebarWorktree}
 						handleRemoveWorkspace={handleRemoveWorkspace}
+						onOpenWorkflowDetail={(workspaceId, worktreeId) =>
+							setWorkflowDetailTarget({ workspaceId, worktreeId })
+						}
 						dispatch={dispatch}
 					/>
 
@@ -1689,6 +1738,22 @@ export function App() {
 							onOpenChange={setPluginsDialogOpen}
 							onInstall={(command) => void handlePluginInstall(command)}
 						/>
+
+						{workflowDetailTarget && (
+							<WorkflowDetail
+								open
+								onOpenChange={(next) => {
+									if (!next) setWorkflowDetailTarget(null);
+								}}
+								state={
+									whisperStates.get(workflowDetailTarget.worktreeId) ?? null
+								}
+								workspaceId={workflowDetailTarget.workspaceId}
+								worktreeId={workflowDetailTarget.worktreeId}
+								onCommandError={(message) => notifyToast(message)}
+								onCommandReply={(message) => notifyToast(message)}
+							/>
+						)}
 
 						{activeWorktree && (
 							<ReviewChipBar

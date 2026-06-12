@@ -224,7 +224,11 @@ export type WorkspaceAction =
 			sticky?: boolean;
 			clearedAt: number;
 	  }
-	| { type: "session/clearSessionAgentAttention"; worktreeId: string };
+	| {
+			type: "session/clearSessionAgentAttention";
+			worktreeId: string;
+			source?: AgentAttentionSource;
+	  };
 
 function createSession(worktree: Worktree): WorktreeSession {
 	return {
@@ -1086,7 +1090,8 @@ export function workspaceReducer(
 	if (action.type === "session/reportAgentAttention") {
 		const session = state.sessionsByWorktreeId[action.worktreeId];
 		if (!session) return state;
-		if (action.reason.source !== "mcp") return state; // session-level accepts mcp only
+		if (action.reason.source !== "mcp" && action.reason.source !== "workflow")
+			return state; // session-level accepts authoritative sources only
 		const current = session.agentAttentionReasons[action.reason.source];
 		const updatedReasons: AgentAttentionReasonsBySource = {
 			...session.agentAttentionReasons,
@@ -1103,10 +1108,17 @@ export function workspaceReducer(
 		const nextTask =
 			replaced && action.task !== undefined ? action.task : session.task;
 		let nextProcessSessionsById = state.processSessionsById;
-		// `source === "mcp"` is guaranteed by the early return above. Only an
-		// *accepted* non-failed MCP push clears stale terminal reasons; a
-		// rejected (stale / out-of-order) push must have no side effects.
-		if (replaced && action.reason.state !== "failed") {
+		// Clearing stale terminal heuristics is an MCP-specific side effect: only
+		// the agent's own self-report supersedes the terminal classifier. A
+		// `workflow` report carries no such authority over per-process terminal
+		// state, so it must NOT clear those reasons. Additionally, only an
+		// *accepted* non-failed push clears them; a rejected (stale / out-of-order)
+		// push must have no side effects.
+		if (
+			action.reason.source === "mcp" &&
+			replaced &&
+			action.reason.state !== "failed"
+		) {
 			nextProcessSessionsById = clearStaleTerminalReasonsForSessionProcesses(
 				state.processSessionsById,
 				session.processSessionIds,
@@ -1177,6 +1189,24 @@ export function workspaceReducer(
 	if (action.type === "session/clearSessionAgentAttention") {
 		const session = state.sessionsByWorktreeId[action.worktreeId];
 		if (!session) return state;
+		// With a source: drop only that key (no-op identity when it is absent, so
+		// polling clears don't churn state). Without a source: clear all reasons.
+		if (action.source !== undefined) {
+			if (session.agentAttentionReasons[action.source] === undefined)
+				return state;
+			const { [action.source]: _removed, ...remainingReasons } =
+				session.agentAttentionReasons;
+			return {
+				...state,
+				sessionsByWorktreeId: {
+					...state.sessionsByWorktreeId,
+					[action.worktreeId]: {
+						...session,
+						agentAttentionReasons: remainingReasons,
+					},
+				},
+			};
+		}
 		return {
 			...state,
 			sessionsByWorktreeId: {

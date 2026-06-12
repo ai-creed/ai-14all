@@ -1662,6 +1662,95 @@ describe("session/reportAgentAttention", () => {
 	});
 });
 
+describe("session/reportAgentAttention — workflow source", () => {
+	it("accepts the workflow source at session level and stores the reason", () => {
+		const initial = createWorkspaceState(worktrees);
+		const next = workspaceReducer(initial, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "waiting",
+				source: "workflow",
+				summary: "workflow halted",
+				nextAction: "open workflow details",
+				reportedAt: 5_000,
+			},
+		});
+		expect(
+			next.sessionsByWorktreeId["main"].agentAttentionReasons.workflow,
+		).toMatchObject({ state: "waiting", summary: "workflow halted" });
+	});
+
+	it("keeps an mcp reason alongside a workflow reason (ranked into the session)", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "active",
+				source: "mcp",
+				summary: "running",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "waiting",
+				source: "workflow",
+				summary: "workflow halted",
+				nextAction: "open workflow details",
+				reportedAt: 2_000,
+			},
+		});
+		const reasons = state.sessionsByWorktreeId["main"].agentAttentionReasons;
+		expect(reasons.mcp?.state).toBe("active");
+		expect(reasons.workflow?.state).toBe("waiting");
+	});
+
+	it("a workflow report does NOT clear stale terminal reasons (mcp-only side effect)", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("proc-wf", "main", "claude", {
+				agentDetected: true,
+			}),
+		});
+		state = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "proc-wf",
+			reason: {
+				source: "terminal",
+				state: "failed",
+				summary: "build error",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				state: "ready",
+				source: "workflow",
+				summary: "workflow done",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+		});
+		// The terminal failed reason must survive — only an mcp self-report
+		// supersedes terminal heuristics, not a workflow report.
+		expect(
+			state.processSessionsById["proc-wf"]?.agentAttentionReasons.terminal
+				?.state,
+		).toBe("failed");
+	});
+});
+
 describe("session/reportAgentAttention — task field", () => {
 	it("stores task on session when provided", () => {
 		const initial = createWorkspaceState(worktrees);
@@ -2516,6 +2605,65 @@ describe("session/clearSessionAgentAttention", () => {
 			worktreeId: "main",
 		});
 		expect(next.sessionsByWorktreeId["main"].agentAttentionReasons).toEqual({});
+	});
+
+	it("removes only the requested source, leaving other reasons intact", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				source: "mcp",
+				state: "active",
+				summary: "running",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				source: "workflow",
+				state: "waiting",
+				summary: "halted",
+				nextAction: null,
+				reportedAt: 2_000,
+			},
+		});
+
+		const next = workspaceReducer(state, {
+			type: "session/clearSessionAgentAttention",
+			worktreeId: "main",
+			source: "workflow",
+		});
+		expect(
+			next.sessionsByWorktreeId["main"].agentAttentionReasons.workflow,
+		).toBeUndefined();
+		expect(
+			next.sessionsByWorktreeId["main"].agentAttentionReasons.mcp?.state,
+		).toBe("active");
+	});
+
+	it("is a no-op state identity when clearing a source that is not present", () => {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: {
+				source: "mcp",
+				state: "active",
+				summary: "running",
+				nextAction: null,
+				reportedAt: 1_000,
+			},
+		});
+		const next = workspaceReducer(state, {
+			type: "session/clearSessionAgentAttention",
+			worktreeId: "main",
+			source: "workflow",
+		});
+		expect(next).toBe(state);
 	});
 });
 
