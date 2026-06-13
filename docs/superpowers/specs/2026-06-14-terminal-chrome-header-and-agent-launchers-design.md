@@ -42,7 +42,8 @@ whisper disabled or absent.
   controls (`+ Shell`, `Layout`, `Presets`) into it, separating terminal/shell
   chrome from session-identity chrome.
 - Detect `ezio` as a first-class agent CLI alongside claude and codex.
-- Eliminate the mount race as a structural consequence (one click = one launch).
+- Eliminate the mount race structurally: one click = one launch, plus a required
+  `pendingMount` guard that serializes mount-capable launches during collab creation.
 
 **Non-goals**
 
@@ -81,7 +82,10 @@ border, matching the session chip-bar. No new visual language.
 - One chip per **detected** provider, labelled with the provider name
   (`Claude`, `Codex`, `Ezio`) and a small leading launch glyph.
 - The chips are **launchers, not toggles** — no per-chip binding state. Clicking
-  always spawns a terminal; clicking the same provider twice spawns two.
+  always spawns a terminal; clicking the same provider twice spawns two. This holds
+  even while a mount is in flight: a chip is **never disabled**, so the second click
+  still spawns a terminal — it simply resolves to a plain provider spawn rather than
+  a second `whisper collab mount` (the `pendingMount` guard, §4).
 - If **zero** providers are detected, the agent group is omitted entirely; the
   header still shows the relocated terminal actions.
 
@@ -105,7 +109,7 @@ shown.
 Each click resolves to exactly one command via a single pure rule:
 
 ```
-canMount = whisperHealthy && boundCount < 2
+canMount = whisperHealthy && boundCount < 2 && !mountPending
 command  = canMount ? `whisper collab mount <provider>`
                     : `<provider>`            // bare claude / codex / ezio
 ```
@@ -116,6 +120,12 @@ command  = canMount ? `whisper collab mount <provider>`
   worktree-specific part is `boundCount`, read from that worktree's lens snapshot.
 - `boundCount` — number of `bindingState === "bound"` entries in the worktree's
   lens snapshot (`WhisperWorktreeState.bindings`); `0` when there is no collab.
+- `mountPending` — `true` while a mount-capable launch is in flight and the lens
+  has not yet confirmed it (the creating mount's `daemonAlive` has not flipped true,
+  or `boundCount` has not yet advanced). This is the **required serialization guard**
+  (§7): it makes the rule race-free even on a rapid double-click, because the second
+  click reads `mountPending === true`, so `canMount` is false and it falls through
+  to a plain spawn instead of issuing a second concurrent `whisper collab mount`.
 
 This one rule covers every case:
 
@@ -132,8 +142,14 @@ worktree terminal; the mount runs `whisper collab mount <provider>` in the workt
 (cwd = worktree root) so it creates/joins that workspace's collab. Both go through
 the existing `launchInTerminal` path — no new path-carrying IPC.
 
-The original race cannot recur: a click maps to one launch, so there is never an
-auto-fired pair of concurrent mounts.
+The original race cannot recur. Two mechanisms prevent it: a click maps to exactly
+one launch (no auto-fired pair), and the `mountPending` guard serializes
+mount-capable launches so a second click before the lens advances cannot issue a
+concurrent collab-creating mount. The guard is enforced **only** through the pure
+rule — chips are never disabled — so the launcher invariant (§3.3) is preserved:
+the second click is still accepted and still spawns a terminal, it just resolves to
+a plain provider spawn (`canMount` is false while `mountPending`) instead of a second
+`whisper collab mount` (§6, §7).
 
 ## 5. Detection (ezio as a first-class agent CLI)
 
@@ -165,14 +181,20 @@ Approach: a new dedicated header component owning terminal/shell chrome.
   future terminal/shell chrome.
 - **`AgentLauncherBar`** (new, `src/features/terminals/components/`) — renders one
   launcher chip per detected provider and, when whisper-on, the aggregate status
-  pill. On click it asks `agent-launch.ts` for the command and calls the provided
-  `launchInTerminal`. Inputs: `agentClis` (probes), `whisperHealthy`,
-  `whisperState` (the lens snapshot for the active worktree). One output: a launch
-  command string.
+  pill. Owns one piece of local state: **`pendingMount`** (the §4/§7 serialization
+  guard). On click it asks `agent-launch.ts` for the command and calls the provided
+  `launchInTerminal`; if the resolved command is a mount it sets `pendingMount`,
+  which it clears when the lens snapshot advances (`boundCount` increments or
+  `daemonAlive` flips) or a mount timeout elapses. Chips stay **enabled** throughout
+  — `pendingMount` changes only what a click *resolves to* (a plain spawn, via the
+  rule), never whether the click is accepted — preserving the §3.3 launcher invariant.
+  Inputs: `agentClis` (probes), `whisperHealthy`, `whisperState` (the lens snapshot
+  for the active worktree). Output: a launch command string.
 - **`agent-launch.ts`** (new pure logic, `src/features/terminals/logic/`) — the
   testable core:
   - `visibleProviders(probes)` → ordered providers with `kind === "found"`.
-  - `launchCommandFor(provider, { whisperHealthy, boundCount })` → the §4 rule.
+  - `launchCommandFor(provider, { whisperHealthy, boundCount, mountPending })` →
+    the §4 rule (a pending mount forces a plain spawn — this is the race-free core).
   - `collabStatus(whisperState | undefined, whisperHealthy)` → the §3.4 pill state
     (or `null`).
 - **`TerminalActions`** (existing) — moved as-is into the header (its markup and
@@ -203,10 +225,16 @@ App.tsx
   `Presets`.
 - **Whisper on, collab full (2 bound)** → further clicks spawn plain agents; pill
   reads `ready for workflows`.
-- **Rapid double-click of the same provider while creating a collab** → two mount
-  terminals; whisper resolves/serializes this itself (not the auto-fired pair the
-  old code produced). A light optional guard (briefly disabling other mount-capable
-  chips until `daemonAlive`) may be added but is not required for correctness.
+- **Rapid double-click of the same provider while creating a collab** → the
+  **`pendingMount` guard (required)** prevents a second concurrent collab-creating
+  mount. From the moment the first mount-capable launch fires until the lens
+  confirms it (`daemonAlive` true / `boundCount` advanced) — or a mount timeout
+  elapses — `launchCommandFor` is gated on `mountPending`, so the second click is
+  **still accepted and still spawns a terminal** (preserving §3.3), but resolves to
+  a plain provider spawn rather than a second `whisper collab mount`. The chip is
+  never disabled and the click is never dropped; the second click simply cannot
+  issue a concurrent mount, so the half-created-collab race the old auto-fired pair
+  produced cannot recur.
 - **ezio present but `ezio doctor` fails** → `found` with `version: null`; chip
   still shows.
 - **Provider binary disappears between probes** → the cached probe TTL
@@ -229,16 +257,20 @@ App.tsx
 
 - **Unit (TDD) — `agent-launch.ts`:** `visibleProviders` (filters by `found`,
   stable order); `launchCommandFor` across every §4 branch (whisper off → plain;
-  no collab → mount; 1 bound → mount; 2 bound → plain; unhealthy → plain);
-  `collabStatus` for each pill state and the whisper-off `null`.
+  no collab → mount; 1 bound → mount; 2 bound → plain; unhealthy → plain;
+  **`mountPending` → plain**, the rapid-double-click guard branch); `collabStatus`
+  for each pill state and the whisper-off `null`.
 - **Unit — capability probe:** ezio reports `found` via a stubbed `resolveBinary`
   and a version parsed from a stubbed `ezio doctor`; `found` with `null` version
   when `ezio doctor` fails; claude/codex still use `--version`.
 - **Component / e2e:** header renders between chip-bar and terminals; agent chips
   appear only for detected providers; clicking issues the correct command per mode
-  (assert against a stubbed `launchInTerminal`); the relocated `+ Shell` / `Presets`
-  still function; the aggregate pill reflects bound count; shortcut non-regression
-  holds.
+  (assert against a stubbed `launchInTerminal`); **while a mount is pending the chip
+  stays enabled and a rapid second click still spawns a terminal — asserting it
+  issues a plain provider launch on the stubbed `launchInTerminal`, not a second
+  `whisper collab mount`, and that exactly two `launchInTerminal` calls occur**; the
+  relocated `+ Shell` / `Presets` still function; the aggregate pill reflects bound
+  count; shortcut non-regression holds.
 
 ## 10. Acceptance criteria
 
@@ -251,12 +283,17 @@ App.tsx
 4. `ezio` is detected and shown whenever the `ezio` binary is on PATH.
 5. `+ Shell`, `Layout`, and `Presets` now live in the terminal-chrome header and
    still work; `🧩 Plugins` remains in the session chip-bar.
-6. The mount race (`no live daemon for collab`) no longer occurs.
+6. The mount race (`no live daemon for collab`) no longer occurs: during collab
+   creation a rapid second click still spawns a terminal (a plain provider launch)
+   but issues no second concurrent `whisper collab mount`, because the required
+   `pendingMount` guard (§4/§7) serializes mount-capable launches without ever
+   disabling the chip.
 7. Cmd+P / Cmd+J still fire from terminal focus; the shortcut e2e remains green.
 8. Repo gates green: typecheck, lint, unit, e2e.
 
 ## 11. Out of scope / deferred
 
-- A light "disable other mount chips until `daemonAlive`" guard (optional polish).
+- Richer in-flight affordance (spinner/progress on the pending chip) beyond the
+  required `pendingMount` command-resolution guard now specified in §4/§7.
 - Surfacing per-agent health (`ezio doctor` richer output) beyond found/version.
 - Any workflow-control affordances in the header (those stay in the lens/CLI).
