@@ -4,6 +4,7 @@
 	"private": true,
 	"description": "Mission-control desktop app for running AI coding agents in parallel across Git worktrees",
 	"author": "Vu Phan <vu.phan.se@gmail.com>",
+	"license": "FSL-1.1-ALv2",
 	"homepage": "https://ai-creed.dev/projects/ai-14all/",
 	"packageManager": "pnpm@10.33.0",
 	"type": "module",

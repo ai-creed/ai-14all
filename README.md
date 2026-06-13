@@ -1,6 +1,6 @@
 # ai-14all
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![License: FSL-1.1-ALv2](https://img.shields.io/badge/license-FSL--1.1--ALv2-blue.svg)](./LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/ai-creed/ai-14all?display_name=tag)](https://github.com/ai-creed/ai-14all/releases)
 [![macOS arm64](https://img.shields.io/badge/macOS-arm64-informational)](#install)
 
@@ -104,6 +104,24 @@ pnpm format
 pnpm package:mac  # local unsigned macOS build
 ```
 
+## Contributing
+
+Contributions are welcome. Because ai-14all may offer commercial editions, every
+contributor must agree to the [Contributor License Agreement](./CLA.md) before
+their first contribution is merged — it lets the project relicense your work
+(including under future commercial terms) while you retain copyright to it.
+
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+[Functional Source License 1.1, Apache 2.0 Future License](./LICENSE)
+(`FSL-1.1-ALv2`).
+
+You may use, copy, modify, and redistribute ai-14all for any purpose **except a
+Competing Use** — broadly, making it (or substantially similar functionality)
+available to others in a commercial product or service that competes with
+ai-14all. Internal use, non-commercial education, and non-commercial research
+are always permitted. Two years after each version is released, that version
+automatically converts to the Apache License 2.0.
+
+FSL is **source-available**, not an OSI-approved "open source" license. See
+[fsl.software](https://fsl.software) for the rationale and FAQ.
