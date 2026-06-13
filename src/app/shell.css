@@ -4709,3 +4709,46 @@ select {
 	border-color: var(--accent);
 	color: var(--accent);
 }
+.terminal-chrome-header {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	padding: 0 var(--space-4);
+	height: 36px;
+	flex-shrink: 0;
+	background: var(--panel-bg);
+	border-bottom: 1px solid var(--panel-border);
+	overflow: hidden;
+}
+.terminal-chrome-header__actions {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	margin-left: auto;
+	flex-shrink: 0;
+}
+.agent-launcher-bar__label {
+	font-size: 0.6rem;
+	text-transform: uppercase;
+	letter-spacing: 0.07em;
+	color: var(--text-muted);
+}
+.agent-launcher-bar__status {
+	font-size: 0.68rem;
+	border-radius: var(--radius-md);
+	padding: 2px var(--space-2);
+	white-space: nowrap;
+}
+.agent-launcher-bar__status[data-tone="muted"] {
+	color: var(--text-muted);
+}
+.agent-launcher-bar__status[data-tone="amber"] {
+	color: #e58a5e;
+	border: 1px solid color-mix(in srgb, #e58a5e 35%, transparent);
+	background: color-mix(in srgb, #e58a5e 8%, transparent);
+}
+.agent-launcher-bar__status[data-tone="accent"] {
+	color: var(--accent);
+	border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+	background: color-mix(in srgb, var(--accent) 10%, transparent);
+}

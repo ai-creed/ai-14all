@@ -86,13 +86,15 @@ import { DialogStack } from "./components/DialogStack";
 import { ToastProvider, notifyToast } from "../features/ui/toast/ToastProvider";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { TerminalActions } from "../features/terminals/components/TerminalActions";
+import { AgentLauncherBar } from "../features/terminals/components/AgentLauncherBar";
+import { TerminalChromeHeader } from "../features/terminals/components/TerminalChromeHeader";
 import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
 import { PluginsPanelDialog } from "../features/plugins/components/PluginsPanelDialog";
 import {
 	useWhisperState,
 	type WhisperAttentionDispatch,
 } from "../features/workflows/hooks/use-whisper-state";
-import { useStartCollab } from "../features/workflows/hooks/use-start-collab";
+import type { AgentCliProbes } from "../../shared/models/ecosystem-plugin";
 import { WorkflowDetail } from "../features/workflows/components/WorkflowDetail";
 import { toWorkflowRow } from "../features/workflows/logic/workflow-lens";
 import { usePluginsState } from "../features/plugins/hooks/use-plugins-state";
@@ -284,6 +286,19 @@ export function App() {
 	const whisperOnHealthy = pluginSnapshots.some(
 		(p) => p.id === "whisper" && p.status.state === "on-healthy",
 	);
+
+	// Agent-CLI probes drive the launcher chips. Re-fetch when plugin snapshots
+	// change (a reprobe updates them); the probe service caches for 60s.
+	const [agentClis, setAgentClis] = useState<AgentCliProbes | null>(null);
+	useEffect(() => {
+		let cancelled = false;
+		void pluginsClient.agentClis().then((probes) => {
+			if (!cancelled) setAgentClis(probes);
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [pluginSnapshots]);
 
 	const [workflowDetailTarget, setWorkflowDetailTarget] = useState<{
 		workspaceId: string;
@@ -868,15 +883,6 @@ export function App() {
 	const activeWhisperState = activeWorktree
 		? whisperStates.get(activeWorktree.id)
 		: undefined;
-	const {
-		phase: collabPhase,
-		start: startCollab,
-		reset: resetCollab,
-	} = useStartCollab({
-		worktreeId: activeWorktree?.id ?? "",
-		whisperState: activeWhisperState,
-		launchInTerminal: launchCollabTerminal,
-	});
 
 	const handlePromoteSlot = useCallback(
 		(slotIndex: number) => {
@@ -1713,43 +1719,21 @@ export function App() {
 								.filter((w) => workspaceState.sessionsByWorktreeId[w.id])
 								.map((w) => w.path)}
 							onOpenPlugins={() => setPluginsDialogOpen(true)}
-							startCollabButton={
-								whisperOnHealthy ? (
-									<button
-										type="button"
-										className="shell-chip-bar__action start-collab-button"
-										aria-label={
-											collabPhase.kind === "idle"
-												? "Start collab"
-												: collabPhase.kind === "waiting"
-													? "Mounting agents…"
-													: collabPhase.kind === "ready"
-														? "Collab ready"
-														: "Check terminal output"
+						/>
+
+						{activeWorktree && (
+							<TerminalChromeHeader
+								agentLauncher={
+									<AgentLauncherBar
+										probes={agentClis}
+										whisperHealthy={whisperOnHealthy}
+										whisperState={activeWhisperState}
+										launchInTerminal={(command) =>
+											void launchCollabTerminal(command)
 										}
-										disabled={
-											collabPhase.kind === "waiting" ||
-											collabPhase.kind === "ready"
-										}
-										data-collab-phase={collabPhase.kind}
-										onClick={() => {
-											if (collabPhase.kind === "timed-out") {
-												resetCollab();
-											} else {
-												void startCollab();
-											}
-										}}
-									>
-										{collabPhase.kind === "idle" && "Start collab"}
-										{collabPhase.kind === "waiting" && "mounting agents…"}
-										{collabPhase.kind === "ready" && "collab ready ✓"}
-										{collabPhase.kind === "timed-out" &&
-											"check terminal output"}
-									</button>
-								) : undefined
-							}
-							terminalActions={
-								activeWorktree ? (
+									/>
+								}
+								terminalActions={
 									<TerminalActions
 										presets={workspaceState.commandPresets}
 										addDisabled={addDisabled}
@@ -1758,9 +1742,9 @@ export function App() {
 										onOpenPresetManager={() => setPresetManagerOpen(true)}
 										onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
 									/>
-								) : undefined
-							}
-						/>
+								}
+							/>
+						)}
 
 						{/*
 						 * Render a terminal panel for every hydrated workspace, not just the

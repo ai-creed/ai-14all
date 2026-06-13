@@ -101,6 +101,4 @@ describe("SessionChipBar", () => {
 		await user.click(screen.getByRole("button", { name: /open files/i }));
 		expect(spy).toHaveBeenCalledTimes(1);
 	});
-
-
 });
