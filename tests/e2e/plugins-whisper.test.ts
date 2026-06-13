@@ -5,7 +5,15 @@ import {
 	type ElectronApplication,
 	type Page,
 } from "@playwright/test";
-import { readFileSync, rmSync } from "node:fs";
+import {
+	chmodSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 import { closeApp } from "./fixtures/close-app";
@@ -16,14 +24,37 @@ import {
 	type WhisperStubEnv,
 } from "./fixtures/whisper-stub";
 
+function setUpAgentCliStubs(): { binDir: string; env: Record<string, string> } {
+	const binDir = mkdtempSync(join(tmpdir(), "ofa-agent-bin-"));
+	mkdirSync(binDir, { recursive: true });
+	const write = (name: string, body: string) => {
+		const p = join(binDir, name);
+		writeFileSync(p, body, "utf8");
+		chmodSync(p, 0o755);
+	};
+	write("claude", "#!/bin/sh\necho 'claude 9.9.9'\n");
+	write("codex", "#!/bin/sh\necho 'codex 9.9.9'\n");
+	write(
+		"ezio",
+		"#!/bin/sh\nif [ \"$1\" = doctor ]; then echo 'ezio version : 0.2.0-beta.3'; exit 0; fi\necho hax\n",
+	);
+	return {
+		binDir,
+		env: { PATH: `${binDir}:${process.env.PATH ?? ""}` },
+	};
+}
+
 /**
  * E2E for the whisper ecosystem plugin against a stub `whisper` binary and a
  * fixture state.db. Three scenarios, each launching its own app instance:
  *   1. chips render + toggle persists (comment-preserving config write)
  *   2. a LIVE event-socket `workflow.halted` flips the row with polling pinned
  *      to 60s, proving the refresh came from the socket, not a poll
- *   3. Start-collab injects the two mount commands and flips to "ready" once
- *      both agent bindings land
+ *   3. agent launchers mount when whisper is healthy: clicking a chip injects a
+ *      mount command, the collab-status pill tracks bindings ("need 1 more" →
+ *      "ready for workflows"), and the relocated "+ Shell" button still spawns a
+ *      pane; plus a whisper-off variant where a chip spawns the bare provider
+ *      with no mount command and no status pill
  *
  * The fourth spec scenario (no-stub independence) lives in
  * tests/e2e/plugins-independence.test.ts and is intentionally untouched.
@@ -222,44 +253,46 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 		);
 	});
 
-	test("start-collab injects two mount commands and flips to ready", async () => {
+	test("agent launchers mount when whisper is healthy and the relocated + Shell still works", async () => {
 		repo = createTestRepo();
 		stub = setUpWhisperStub({ enabled: true });
-		// Empty DB (schema 6, no collabs): the start-collab button needs whisper
-		// on-healthy (probe OK + enabled), and the driver pushes zero states.
-		stub.writeFixture({ schemaVersion: 6 });
-		await launch();
+		stub.writeFixture({ schemaVersion: 6 }); // empty: whisper on-healthy, no collab
+		const agentStubs = setUpAgentCliStubs();
+		await launch(agentStubs.env);
 		await loadRepoAndSelectWorktree();
 
-		const startCollab = page.getByRole("button", { name: "Start collab" });
-		await expect(startCollab).toBeVisible({ timeout: 15_000 });
-		await startCollab.click();
+		const header = page.getByRole("region", { name: "Terminal controls" });
+		await expect(header).toBeVisible({ timeout: 15_000 });
+		await expect(page.getByTestId("agent-launch-claude")).toBeVisible();
+		await expect(page.getByTestId("agent-launch-codex")).toBeVisible();
+		await expect(page.getByTestId("agent-launch-ezio")).toBeVisible();
 
-		await expect(
-			page.getByRole("button", { name: "Mounting agents…" }),
-		).toBeVisible({ timeout: 15_000 });
-
-		// The terminals echo the injected input back to the xterm DOM.
+		await page.getByTestId("agent-launch-claude").click();
 		await expect(
 			page.getByText("whisper collab mount claude").first(),
 		).toBeVisible({ timeout: 20_000 });
-		await expect(
-			page.getByText("whisper collab mount codex").first(),
-		).toBeVisible({ timeout: 20_000 });
 
-		// Whisper completes the ceremony: a collab bound to both agents lands.
-		// The collab MUST sit on the *active* worktree (the main worktree at
-		// repoPath, which loadRepoAndSelectWorktree selects) because the
-		// start-collab phase machine watches `whisperStates.get(activeWorktree.id)`
-		// — bindings on any other worktree would never reach the button.
 		stub.writeFixture({
 			schemaVersion: 6,
 			collabs: [
-				{
-					collab_id: "c1",
-					workspace_root: repo.repoPath,
-					status: "active",
-				},
+				{ collab_id: "c1", workspace_root: repo.repoPath, status: "active" },
+			],
+			daemons: [
+				{ collab_id: "c1", last_heartbeat_at: new Date().toISOString() },
+			],
+			bindings: [
+				{ collab_id: "c1", agent_type: "claude", binding_state: "bound" },
+			],
+		});
+		await expect(page.getByTestId("collab-status-pill")).toHaveText(
+			/need 1 more/,
+			{ timeout: 15_000 },
+		);
+
+		stub.writeFixture({
+			schemaVersion: 6,
+			collabs: [
+				{ collab_id: "c1", workspace_root: repo.repoPath, status: "active" },
 			],
 			daemons: [
 				{ collab_id: "c1", last_heartbeat_at: new Date().toISOString() },
@@ -269,10 +302,38 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 				{ collab_id: "c1", agent_type: "codex", binding_state: "bound" },
 			],
 		});
+		await expect(page.getByTestId("collab-status-pill")).toHaveText(
+			/ready for workflows/,
+			{ timeout: 15_000 },
+		);
 
-		// Next poll picks up the two bound bindings and flips to ready.
-		await expect(
-			page.getByRole("button", { name: "Collab ready" }),
-		).toBeVisible({ timeout: 15_000 });
+		const before = await page.locator(".shell-terminal-pane").count();
+		await page.getByTestId("terminal-add-shell").click();
+		await expect(page.locator(".shell-terminal-pane")).toHaveCount(before + 1, {
+			timeout: 15_000,
+		});
+
+		rmSync(agentStubs.binDir, { recursive: true, force: true });
+	});
+
+	test("with whisper off, an agent chip spawns the bare provider", async () => {
+		repo = createTestRepo();
+		stub = setUpWhisperStub({ enabled: false }); // whisper installed but off
+		const agentStubs = setUpAgentCliStubs();
+		await launch(agentStubs.env);
+		await loadRepoAndSelectWorktree();
+
+		await expect(page.getByTestId("agent-launch-codex")).toBeVisible({
+			timeout: 15_000,
+		});
+		await expect(page.getByTestId("collab-status-pill")).toHaveCount(0);
+		await page.getByTestId("agent-launch-codex").click();
+		const pane = page.locator('.shell-terminal-pane[aria-hidden="false"]');
+		await expect(pane.getByText("codex").first()).toBeVisible({
+			timeout: 20_000,
+		});
+		await expect(page.getByText("whisper collab mount")).toHaveCount(0);
+
+		rmSync(agentStubs.binDir, { recursive: true, force: true });
 	});
 });
