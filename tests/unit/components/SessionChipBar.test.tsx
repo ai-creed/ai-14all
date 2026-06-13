@@ -102,18 +102,5 @@ describe("SessionChipBar", () => {
 		expect(spy).toHaveBeenCalledTimes(1);
 	});
 
-	it("renders the terminalActions slot node when provided", () => {
-		render(
-			<SessionChipBar
-				{...defaults}
-				terminalActions={<button data-testid="term-slot">slot</button>}
-			/>,
-		);
-		expect(screen.getByTestId("term-slot")).toBeInTheDocument();
-	});
 
-	it("omits the slot when terminalActions is not provided", () => {
-		render(<SessionChipBar {...defaults} />);
-		expect(screen.queryByTestId("term-slot")).not.toBeInTheDocument();
-	});
 });

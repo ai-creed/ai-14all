@@ -9,13 +9,6 @@ type Props = {
 	onDirtyClick: () => void;
 	onFilesClick: () => void;
 	onNoteClick: () => void;
-	/**
-	 * Optional render slot for a separate right-side action group (e.g. terminal
-	 * controls). Rendered after the Files/Note chips, separated by a divider.
-	 * Kept presentational: SessionChipBar renders the node, it owns no
-	 * terminal-specific logic.
-	 */
-	terminalActions?: React.ReactNode;
 	/** Render slot for the token-telemetry strip, placed in the bar's mid gap. */
 	usage?: React.ReactNode;
 	/**
@@ -37,7 +30,6 @@ export function SessionChipBar({
 	onDirtyClick,
 	onFilesClick,
 	onNoteClick,
-	terminalActions,
 	usage,
 	plugins,
 }: Props) {
@@ -119,15 +111,6 @@ export function SessionChipBar({
 						<span className="shell-chip-bar__note-dot" aria-hidden="true" />
 					)}
 				</button>
-				{terminalActions && (
-					<>
-						<span
-							className="shell-chip-bar__action-divider"
-							aria-hidden="true"
-						/>
-						{terminalActions}
-					</>
-				)}
 			</div>
 		</div>
 	);

@@ -56,18 +56,9 @@ type Props = {
 	/** Paths of worktrees currently open in the app (telemetry "Active" scope). */
 	openWorktreePaths: string[];
 
-	/** Render slot for the terminal action chips in the session chipbar. */
-	terminalActions?: React.ReactNode;
-
 	/** Opens the global Plugins panel. Wired to a button beside the usage strip. */
 	onOpenPlugins: () => void;
 
-	/**
-	 * Optional render slot for the Start-collab button. Rendered alongside the
-	 * Plugins button in the chip bar's plugins area. Only present when whisper
-	 * is on-healthy for the active worktree (visibility gated in App.tsx).
-	 */
-	startCollabButton?: React.ReactNode;
 };
 
 /**
@@ -101,9 +92,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 		setShortcutsHelpOpen,
 		appPlatform,
 		openWorktreePaths,
-		terminalActions,
 		onOpenPlugins,
-		startCollabButton,
 	} = props;
 
 	const usageSnapshot = useUsageSnapshot();
@@ -145,7 +134,6 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 						}}
 						onFilesClick={() => setFilesOverlayOpen(true)}
 						onNoteClick={() => setNoteSheetOpen((prev) => !prev)}
-						terminalActions={terminalActions}
 						usage={
 							<UsageStrip
 								snapshot={usageSnapshot}
@@ -154,23 +142,20 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 							/>
 						}
 						plugins={
-							<>
-								<button
-									type="button"
-									className="shell-chip-bar__action plugins-entry-button"
-									aria-label="Open Plugins panel"
-									onClick={onOpenPlugins}
+							<button
+								type="button"
+								className="shell-chip-bar__action plugins-entry-button"
+								aria-label="Open Plugins panel"
+								onClick={onOpenPlugins}
+							>
+								<span
+									className="shell-chip-bar__action-icon"
+									aria-hidden="true"
 								>
-									<span
-										className="shell-chip-bar__action-icon"
-										aria-hidden="true"
-									>
-										🧩
-									</span>
-									Plugins
-								</button>
-								{startCollabButton}
-							</>
+									🧩
+								</span>
+								Plugins
+							</button>
 						}
 					/>
 				</div>
