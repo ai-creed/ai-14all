@@ -46,10 +46,10 @@ describe("createCapabilityProbeService", () => {
 		const { service, resolveBinaryImpl, advance } = makeService();
 		await service.probeAgentClis();
 		await service.probeAgentClis();
-		expect(resolveBinaryImpl).toHaveBeenCalledTimes(2); // claude + codex, once
+		expect(resolveBinaryImpl).toHaveBeenCalledTimes(3); // claude + codex + ezio, once
 		advance(61_000);
 		await service.probeAgentClis();
-		expect(resolveBinaryImpl).toHaveBeenCalledTimes(4);
+		expect(resolveBinaryImpl).toHaveBeenCalledTimes(6);
 	});
 
 	it("invalidate() forces a fresh probe", async () => {
@@ -57,13 +57,13 @@ describe("createCapabilityProbeService", () => {
 		await service.probeAgentClis();
 		service.invalidate();
 		await service.probeAgentClis();
-		expect(resolveBinaryImpl).toHaveBeenCalledTimes(4);
+		expect(resolveBinaryImpl).toHaveBeenCalledTimes(6);
 	});
 
 	it("concurrent callers share one in-flight probe", async () => {
 		const { service, resolveBinaryImpl } = makeService();
 		await Promise.all([service.probeAgentClis(), service.probeAgentClis()]);
-		expect(resolveBinaryImpl).toHaveBeenCalledTimes(2);
+		expect(resolveBinaryImpl).toHaveBeenCalledTimes(3);
 	});
 
 	it("version failure degrades to version null, never a throw", async () => {
@@ -92,5 +92,62 @@ describe("createCapabilityProbeService", () => {
 		service.invalidate();
 		await service.probePlugin("whisper", raw);
 		expect(raw).toHaveBeenCalledTimes(2);
+	});
+
+	it("probes ezio: found via resolveBinary, version parsed from `ezio doctor`", async () => {
+		const resolveBinaryImpl = vi.fn(async (name: string) =>
+			name === "ezio" ? { command: "/bin/ezio", prefixArgs: [] } : null,
+		);
+		const execFileImpl = vi.fn(
+			(
+				_cmd: string,
+				args: string[],
+				_opts: unknown,
+				cb: (e: Error | null, stdout: string, stderr: string) => void,
+			) => {
+				if (args.includes("doctor"))
+					return cb(null, "checks ok\nezio version : 0.2.0-beta.3\n", "");
+				return cb(null, "should-not-be-used\n", "");
+			},
+		);
+		const service = createCapabilityProbeService({
+			resolveBinaryImpl: resolveBinaryImpl as never,
+			execFileImpl: execFileImpl as never,
+		});
+		const result = await service.probeAgentClis();
+		expect(result.ezio).toEqual({
+			kind: "found",
+			path: "/bin/ezio",
+			version: "0.2.0-beta.3",
+		});
+		expect(
+			execFileImpl.mock.calls.some(
+				(c) => c[0] === "/bin/ezio" && (c[1] as string[]).includes("--version"),
+			),
+		).toBe(false);
+	});
+
+	it("ezio doctor failure degrades to version null, still found", async () => {
+		const resolveBinaryImpl = vi.fn(async (name: string) =>
+			name === "ezio" ? { command: "/bin/ezio", prefixArgs: [] } : null,
+		);
+		const execFileImpl = vi.fn(
+			(
+				_cmd: string,
+				_args: string[],
+				_opts: unknown,
+				cb: (e: Error | null, stdout: string, stderr: string) => void,
+			) => cb(new Error("boom"), "", ""),
+		);
+		const service = createCapabilityProbeService({
+			resolveBinaryImpl: resolveBinaryImpl as never,
+			execFileImpl: execFileImpl as never,
+		});
+		const result = await service.probeAgentClis();
+		expect(result.ezio).toEqual({
+			kind: "found",
+			path: "/bin/ezio",
+			version: null,
+		});
 	});
 });

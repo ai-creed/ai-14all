@@ -28,9 +28,10 @@ const DESCRIPTORS: Record<EcosystemPluginId, PluginDescriptor> = {
 const CLI_INSTALL_HINTS: Record<keyof AgentCliProbes, string> = {
 	claude: "npm i -g @anthropic-ai/claude-code",
 	codex: "npm i -g @openai/codex",
+	ezio: "see your ezio distribution",
 };
 
-const CLI_ORDER: Array<keyof AgentCliProbes> = ["claude", "codex"];
+const CLI_ORDER: Array<keyof AgentCliProbes> = ["claude", "codex", "ezio"];
 
 function AgentClisSection({
 	probes,

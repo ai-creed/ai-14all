@@ -7,7 +7,7 @@ import type {
 import { resolveBinary, type ResolvedBinary } from "./binary-resolver.js";
 
 export type CapabilityProbeService = {
-	/** Cached probe of the agent CLIs (claude, codex) — prerequisite notice. */
+	/** Cached probe of the agent CLIs (claude, codex, ezio) — prerequisite notice. */
 	probeAgentClis(): Promise<AgentCliProbes>;
 	/** Cached wrapper around a plugin driver's own probe. */
 	probePlugin(
@@ -18,7 +18,7 @@ export type CapabilityProbeService = {
 	invalidate(): void;
 };
 
-const AGENT_CLIS = ["claude", "codex"] as const;
+const AGENT_CLIS = ["claude", "codex", "ezio"] as const;
 
 export function createCapabilityProbeService(
 	options: {
@@ -68,13 +68,33 @@ export function createCapabilityProbeService(
 		});
 	}
 
+	function readEzioVersion(binary: ResolvedBinary): Promise<string | null> {
+		// The ezio binary errors on `--version`; `ezio doctor` exits 0 and prints a
+		// `ezio version : <x>` line among its health output. Parse best-effort: a
+		// missing line (or a non-zero exit) degrades to null, never a throw.
+		return new Promise((resolveVersion) => {
+			execFile(
+				binary.command,
+				[...binary.prefixArgs, "doctor"],
+				{ timeout: timeoutMs },
+				(_error: Error | null, stdout: string) => {
+					const match = String(stdout).match(/ezio version\s*:\s*(\S+)/i);
+					resolveVersion(match?.[1] ?? null);
+				},
+			);
+		});
+	}
+
 	async function probeAgentCli(name: string): Promise<AgentCliProbe> {
 		const binary = await resolve(name, { timeoutMs });
 		if (binary === null) return { kind: "not-found" };
 		return {
 			kind: "found",
 			path: binary.command,
-			version: await readVersion(binary),
+			version:
+				name === "ezio"
+					? await readEzioVersion(binary)
+					: await readVersion(binary),
 		};
 	}
 

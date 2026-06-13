@@ -143,6 +143,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		agentClis: vi.fn().mockResolvedValue({
 			claude: { kind: "not-found" },
 			codex: { kind: "not-found" },
+			ezio: { kind: "not-found" },
 		}),
 		runWhisperCommand: vi.fn(),
 		onStateChanged: vi.fn(() => vi.fn()),
