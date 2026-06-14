@@ -92,6 +92,7 @@ export function AgentLauncherBar({
 					key={provider}
 					type="button"
 					className="shell-chip-bar__action"
+					data-provider={provider}
 					data-testid={`agent-launch-${provider}`}
 					aria-label={`Launch ${PROVIDER_LABEL[provider]} agent`}
 					onClick={() => onLaunch(provider)}

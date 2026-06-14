@@ -27,6 +27,7 @@
 	--sha-color: #a78bfa;
 	--provider-claude: #d97706;
 	--provider-codex: #2563eb;
+	--provider-ezio: #d6519e;
 	--font-ui:
 		"SF Mono", "SFMono-Regular", ui-monospace, Menlo, Monaco, monospace;
 	--font-terminal:
@@ -72,6 +73,7 @@
 	--sha-color: #6d4cbc;
 	--provider-claude: #b45309;
 	--provider-codex: #1d4ed8;
+	--provider-ezio: #b3247e;
 	color: var(--text-primary);
 	background: var(--app-bg);
 }
@@ -117,6 +119,7 @@
 	--sha-color: #c4a0db;
 	--provider-claude: #e58a5e;
 	--provider-codex: #5a9bd6;
+	--provider-ezio: #d97aae;
 	color: var(--text-primary);
 	background: var(--app-bg);
 }
@@ -1171,6 +1174,30 @@ select {
 .shell-chip-bar__action:disabled {
 	opacity: 0.5;
 	cursor: default;
+}
+
+/* Agent launcher chips: provider-colored, bold label (matches the sidebar
+   provider badge palette). Only launcher buttons set data-provider, so the
+   shared chip class stays neutral for the terminal-action chips. Each provider
+   feeds one `--chip-provider` token that drives both the resting color and the
+   hover fill. */
+.shell-chip-bar__action[data-provider="claude"] {
+	--chip-provider: var(--provider-claude);
+}
+.shell-chip-bar__action[data-provider="codex"] {
+	--chip-provider: var(--provider-codex);
+}
+.shell-chip-bar__action[data-provider="ezio"] {
+	--chip-provider: var(--provider-ezio);
+}
+.shell-chip-bar__action[data-provider] {
+	color: var(--chip-provider);
+	font-weight: 600;
+}
+.shell-chip-bar__action[data-provider]:hover {
+	color: var(--chip-provider);
+	border-color: color-mix(in srgb, var(--chip-provider) 45%, transparent);
+	background: color-mix(in srgb, var(--chip-provider) 14%, transparent);
 }
 
 .shell-chip-bar__action-icon {

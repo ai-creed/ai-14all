@@ -42,6 +42,31 @@ it("renders a chip only for detected providers", () => {
 	expect(screen.queryByTestId("agent-launch-ezio")).not.toBeInTheDocument();
 });
 
+it("tags each chip with its provider so the CSS can color it per agent", () => {
+	render(
+		<AgentLauncherBar
+			probes={probes({
+				ezio: { kind: "found", path: "/bin/ezio", version: null },
+			})}
+			whisperHealthy={false}
+			whisperState={undefined}
+			launchInTerminal={vi.fn()}
+		/>,
+	);
+	expect(screen.getByTestId("agent-launch-claude")).toHaveAttribute(
+		"data-provider",
+		"claude",
+	);
+	expect(screen.getByTestId("agent-launch-codex")).toHaveAttribute(
+		"data-provider",
+		"codex",
+	);
+	expect(screen.getByTestId("agent-launch-ezio")).toHaveAttribute(
+		"data-provider",
+		"ezio",
+	);
+});
+
 it("renders nothing when no providers are detected", () => {
 	const { container } = render(
 		<AgentLauncherBar
