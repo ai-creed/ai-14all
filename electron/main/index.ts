@@ -39,6 +39,7 @@ import {
 	pushWhisperState,
 } from "../../services/plugins/plugin-ipc.js";
 import { resolveBinary } from "../../services/plugins/binary-resolver.js";
+import { augmentGuiLaunchPath } from "../../services/plugins/shell-path.js";
 import { probeWhisper } from "../../services/plugins/whisper/whisper-env-probe.js";
 import { createWhisperDriver } from "../../services/plugins/whisper/whisper-driver.js";
 import { createWhisperCommandRunner } from "../../services/plugins/whisper/whisper-command-runner.js";
@@ -51,6 +52,17 @@ if (process.env.AI14ALL_USER_DATA_PATH) {
 }
 
 app.whenReady().then(async () => {
+	// macOS apps launched from Finder/Dock inherit only the bare GUI PATH
+	// (/usr/bin:/bin:...), so Homebrew/npm CLIs — and the `node` that their
+	// `#!/usr/bin/env node` shebangs need — are unreachable to execFile. That
+	// makes plugin probes (e.g. `whisper env --json`) fail to spawn and report
+	// "not installed" even when the tool is installed. Repair PATH from a login
+	// shell once, before any probe spawns a child.
+	await augmentGuiLaunchPath({
+		platform: process.platform,
+		isPackaged: app.isPackaged,
+	});
+
 	const debugMode = process.env.AI14ALL_DEBUG;
 	const shellEventLogMode =
 		debugMode === "full"
