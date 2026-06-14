@@ -56,7 +56,12 @@ describe("visibleProviders", () => {
 });
 
 describe("launchCommandFor", () => {
-	const base = { whisperHealthy: false, boundCount: 0, mountPending: false };
+	const base = {
+		whisperHealthy: false,
+		boundCount: 0,
+		mountPending: false,
+		daemonAlive: false,
+	};
 	it("whisper off → plain provider spawn", () => {
 		expect(launchCommandFor("claude", base)).toBe("claude");
 	});
@@ -70,15 +75,37 @@ describe("launchCommandFor", () => {
 			launchCommandFor("claude", { ...base, whisperHealthy: true, boundCount: 0 }),
 		).toBe("whisper collab mount claude");
 	});
-	it("whisper healthy, 1 bound → mount (fills 2nd slot)", () => {
+	it("whisper healthy, live collab 1 bound → mount (fills 2nd slot)", () => {
 		expect(
-			launchCommandFor("ezio", { ...base, whisperHealthy: true, boundCount: 1 }),
+			launchCommandFor("ezio", {
+				...base,
+				whisperHealthy: true,
+				boundCount: 1,
+				daemonAlive: true,
+			}),
 		).toBe("whisper collab mount ezio");
 	});
-	it("whisper healthy, 2 bound (full) → plain provider spawn", () => {
+	it("whisper healthy, live collab 2 bound (full) → plain provider spawn", () => {
 		expect(
-			launchCommandFor("claude", { ...base, whisperHealthy: true, boundCount: 2 }),
+			launchCommandFor("claude", {
+				...base,
+				whisperHealthy: true,
+				boundCount: 2,
+				daemonAlive: true,
+			}),
 		).toBe("claude");
+	});
+	it("whisper healthy, STOPPED collab with stale bindings (daemonAlive false) → mount, not plain", () => {
+		// Bug repro: `whisper collab stop` leaves bindingState="bound" in the store
+		// but the daemon is dead. A dead collab must NOT count as a full live collab.
+		expect(
+			launchCommandFor("claude", {
+				...base,
+				whisperHealthy: true,
+				boundCount: 2,
+				daemonAlive: false,
+			}),
+		).toBe("whisper collab mount claude");
 	});
 	it("mountPending → plain provider spawn (rapid-double-click guard)", () => {
 		expect(
@@ -86,6 +113,7 @@ describe("launchCommandFor", () => {
 				whisperHealthy: true,
 				boundCount: 0,
 				mountPending: true,
+				daemonAlive: false,
 			}),
 		).toBe("claude");
 	});
@@ -102,16 +130,33 @@ describe("collabStatus", () => {
 			label: "mount an agent to start a collab",
 		});
 	});
-	it("amber at 1 bound", () => {
-		expect(collabStatus(state({ bindings: bound("claude") }), true)).toEqual({
+	it("amber at 1 bound (live collab)", () => {
+		expect(
+			collabStatus(
+				state({ daemonAlive: true, bindings: bound("claude") }),
+				true,
+			),
+		).toEqual({
 			tone: "amber",
 			label: "collab · 1 agent · need 1 more",
 		});
 	});
-	it("accent at 2 bound", () => {
+	it("accent at 2 bound (live collab)", () => {
 		expect(
-			collabStatus(state({ bindings: bound("claude", "ezio") }), true),
+			collabStatus(
+				state({ daemonAlive: true, bindings: bound("claude", "ezio") }),
+				true,
+			),
 		).toEqual({ tone: "accent", label: "collab · ready for workflows" });
+	});
+	it("muted for a STOPPED collab with stale bindings (daemonAlive false)", () => {
+		// A dead collab is not "ready for workflows" — the pill must prompt to mount.
+		expect(
+			collabStatus(
+				state({ daemonAlive: false, bindings: bound("claude", "codex") }),
+				true,
+			),
+		).toEqual({ tone: "muted", label: "mount an agent to start a collab" });
 	});
 });
 

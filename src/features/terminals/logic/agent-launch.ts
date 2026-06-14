@@ -41,13 +41,24 @@ export function visibleProviders(
 /**
  * The single launch rule (spec §4). A pending mount forces a plain spawn, so a
  * rapid second click never issues a second concurrent `whisper collab mount`.
+ *
+ * `boundCount` only counts toward "full" when the collab is live (`daemonAlive`).
+ * A stopped/dead collab keeps stale `bound` bindings in the store, but those
+ * occupy no real slots — mounting into one creates/recovers a fresh collab — so
+ * a dead collab must never block a mount.
  */
 export function launchCommandFor(
 	provider: AgentProvider,
-	ctx: { whisperHealthy: boolean; boundCount: number; mountPending: boolean },
+	ctx: {
+		whisperHealthy: boolean;
+		boundCount: number;
+		mountPending: boolean;
+		daemonAlive: boolean;
+	},
 ): string {
+	const liveBoundCount = ctx.daemonAlive ? ctx.boundCount : 0;
 	const canMount =
-		ctx.whisperHealthy && ctx.boundCount < 2 && !ctx.mountPending;
+		ctx.whisperHealthy && liveBoundCount < 2 && !ctx.mountPending;
 	return canMount ? `whisper collab mount ${provider}` : provider;
 }
 
@@ -62,7 +73,9 @@ export function collabStatus(
 	whisperHealthy: boolean,
 ): CollabStatus | null {
 	if (!whisperHealthy) return null;
-	const bound = boundCount(state);
+	// Only a live collab occupies slots; a stopped one (stale bindings, dead
+	// daemon) reads as "no collab" so the pill prompts to mount, not "ready".
+	const bound = state?.daemonAlive ? boundCount(state) : 0;
 	if (bound >= 2)
 		return { tone: "accent", label: "collab · ready for workflows" };
 	if (bound === 1)

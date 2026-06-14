@@ -70,6 +70,7 @@ export function AgentLauncherBar({
 		const command = launchCommandFor(provider, {
 			whisperHealthy,
 			boundCount: boundCount(whisperState),
+			daemonAlive: whisperState?.daemonAlive ?? false,
 			mountPending: pending.kind === "pending",
 		});
 		launchInTerminal(command);

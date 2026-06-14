@@ -117,12 +117,13 @@ it("whisper on, full collab (2 bound): a click spawns a plain provider and the p
 	);
 });
 
-it("renders the aggregate pill from bound count when whisper is healthy", () => {
+it("renders the aggregate pill from bound count of a live collab", () => {
 	render(
 		<AgentLauncherBar
 			probes={probes()}
 			whisperHealthy={true}
 			whisperState={state({
+				daemonAlive: true,
 				bindings: [{ agentType: "claude", bindingState: "bound" }],
 			})}
 			launchInTerminal={vi.fn()}
@@ -130,6 +131,33 @@ it("renders the aggregate pill from bound count when whisper is healthy", () => 
 	);
 	expect(screen.getByTestId("collab-status-pill")).toHaveTextContent(
 		"collab · 1 agent · need 1 more",
+	);
+});
+
+it("STOPPED collab (daemonAlive false) with stale bindings: a click mounts (not plain) and the pill prompts to mount", async () => {
+	// Bug repro: after `whisper collab stop` the bindings remain "bound" in the
+	// store but the daemon is dead. A dead collab must not block a fresh mount.
+	const launch = vi.fn();
+	const user = userEvent.setup();
+	render(
+		<AgentLauncherBar
+			probes={probes()}
+			whisperHealthy={true}
+			whisperState={state({
+				daemonAlive: false,
+				bindings: [
+					{ agentType: "claude", bindingState: "bound" },
+					{ agentType: "codex", bindingState: "bound" },
+				],
+			})}
+			launchInTerminal={launch}
+		/>,
+	);
+	await user.click(screen.getByTestId("agent-launch-claude"));
+	expect(launch).toHaveBeenCalledWith("whisper collab mount claude");
+	expect(launch).not.toHaveBeenCalledWith("claude");
+	expect(screen.getByTestId("collab-status-pill")).toHaveTextContent(
+		"mount an agent to start a collab",
 	);
 });
 
