@@ -7,6 +7,13 @@ import type {
 export const PROVIDER_ORDER = ["claude", "codex", "ezio"] as const;
 export type AgentProvider = (typeof PROVIDER_ORDER)[number];
 
+/** Display label per provider, shared by every launch surface. */
+export const PROVIDER_LABEL: Record<AgentProvider, string> = {
+	claude: "Claude",
+	codex: "Codex",
+	ezio: "Ezio",
+};
+
 /**
  * Generous window after which a stuck pending-mount self-clears, so the chips
  * never wedge into plain-spawn-only mode if the lens never advances (e.g. the

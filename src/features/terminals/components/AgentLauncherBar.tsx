@@ -7,14 +7,9 @@ import {
 	collabStatus,
 	launchCommandFor,
 	type AgentProvider,
+	PROVIDER_LABEL,
 	visibleProviders,
 } from "../logic/agent-launch";
-
-const PROVIDER_LABEL: Record<AgentProvider, string> = {
-	claude: "Claude",
-	codex: "Codex",
-	ezio: "Ezio",
-};
 
 type Props = {
 	probes: AgentCliProbes | null;

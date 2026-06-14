@@ -53,6 +53,8 @@ function baseProps(layoutId: string, slots: (string | null)[]) {
 		onRestartSlot: vi.fn(),
 		onPromoteSlot: vi.fn(),
 		onStartShellInSlot: vi.fn(),
+		agentProviders: [],
+		onLaunchAgentInSlot: vi.fn(),
 		findProcessByTerminalSessionId: () => null,
 	};
 }
@@ -62,6 +64,18 @@ describe("TerminalPanel", () => {
 		render(<TerminalPanel {...baseProps("3-vm", ["m", "c1", null])} />);
 		expect(screen.getByTestId("slot-cta-2")).toBeInTheDocument();
 		expect(screen.queryByTestId("slot-cta-0")).not.toBeInTheDocument();
+	});
+	it("surfaces agent chips in empty slots when providers are detected", () => {
+		render(
+			<TerminalPanel
+				{...baseProps("3-vm", ["m", "c1", null])}
+				agentProviders={["claude", "codex"]}
+			/>,
+		);
+		expect(screen.getByTestId("slot-agent-2-claude")).toBeInTheDocument();
+		expect(screen.getByTestId("slot-agent-2-codex")).toBeInTheDocument();
+		// Occupied slots get no launcher.
+		expect(screen.queryByTestId("slot-agent-0-claude")).not.toBeInTheDocument();
 	});
 	it("shows the promote action only on CHILD slots in a master family", () => {
 		render(<TerminalPanel {...baseProps("3-vm", ["m", "c1", "c2"])} />);

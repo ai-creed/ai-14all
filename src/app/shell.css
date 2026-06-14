@@ -4128,6 +4128,28 @@ select {
 	cursor: pointer;
 }
 
+/* Empty-slot launchpad: colored agent chips (primary) above a quiet
+   start-a-shell link (secondary). Chips reuse .shell-chip-bar__action so they
+   carry the per-provider colors. */
+.shell-terminal-slot__launcher {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--space-3);
+}
+.shell-terminal-slot__agents {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--space-2);
+}
+.shell-terminal-slot__cta[data-secondary="true"] {
+	border: none;
+	padding: 2px 6px;
+	font-size: 0.85em;
+	color: var(--text-muted);
+}
+
 /* token telemetry strip */
 .shell-chip-bar__usage {
 	margin-left: auto;

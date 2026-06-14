@@ -9,6 +9,8 @@ import type { ITheme } from "xterm";
 import type { LayoutId } from "../../../shared/models/terminal-layout";
 import { TERMINAL_LAYOUTS } from "../../features/terminals/logic/terminal-layouts";
 import { TerminalPane } from "../../features/terminals/components/TerminalPane";
+import { EmptySlotLauncher } from "../../features/terminals/components/EmptySlotLauncher";
+import type { AgentProvider } from "../../features/terminals/logic/agent-launch";
 import { normalizeTerminalTitle } from "../normalize-terminal-title";
 
 type Props = {
@@ -41,6 +43,10 @@ type Props = {
 	onRestartSlot: (processId: string) => void;
 	onPromoteSlot: (slotIndex: number) => void;
 	onStartShellInSlot: (slotIndex: number) => void;
+	/** Detected agent providers to surface in empty slots (empty → shell only). */
+	agentProviders: AgentProvider[];
+	/** Launch an agent into a specific empty slot. */
+	onLaunchAgentInSlot: (provider: AgentProvider, slotIndex: number) => void;
 	findProcessByTerminalSessionId: (
 		terminalSessionId: string,
 	) => { process: ProcessSession; workspaceId: string } | null;
@@ -70,6 +76,8 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 		onRestartSlot,
 		onPromoteSlot,
 		onStartShellInSlot,
+		agentProviders,
+		onLaunchAgentInSlot,
 	} = props;
 
 	// Per-process refit counters; bumping one tells that slot's pane to re-fit
@@ -112,14 +120,12 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 								className="shell-terminal-slot shell-terminal-slot--empty"
 								style={cellStyle}
 							>
-								<button
-									type="button"
-									className="shell-terminal-slot__cta"
-									data-testid={`slot-cta-${slotIndex}`}
-									onClick={() => onStartShellInSlot(slotIndex)}
-								>
-									＋ start a shell
-								</button>
+								<EmptySlotLauncher
+									slotIndex={slotIndex}
+									providers={agentProviders}
+									onLaunchAgent={onLaunchAgentInSlot}
+									onStartShell={onStartShellInSlot}
+								/>
 							</div>
 						);
 					}

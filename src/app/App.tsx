@@ -30,7 +30,10 @@ import {
 	diffAndAdvanceResolutions,
 	type DisplayedAttentionSnapshot,
 } from "../features/workspace/logic/resolution-emitter";
-import type { ProcessAttentionState } from "../../shared/models/process-session";
+import type {
+	ProcessAttentionState,
+	ProcessSession,
+} from "../../shared/models/process-session";
 import { useNoteBridgeReceiver } from "../features/workspace/hooks/use-note-bridge-receiver";
 import { attachAgentAttentionBridge } from "../features/terminals/logic/agent-attention-renderer-bridge";
 import type { GitChangeStatus } from "../../shared/models/git-change";
@@ -87,7 +90,12 @@ import { ToastProvider, notifyToast } from "../features/ui/toast/ToastProvider";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { TerminalActions } from "../features/terminals/components/TerminalActions";
 import { AgentLauncherBar } from "../features/terminals/components/AgentLauncherBar";
-import { visibleProviders } from "../features/terminals/logic/agent-launch";
+import {
+	type AgentProvider,
+	boundCount,
+	launchCommandFor,
+	visibleProviders,
+} from "../features/terminals/logic/agent-launch";
 import { useMountPendingGuard } from "../features/terminals/logic/use-mount-pending-guard";
 import { TerminalChromeHeader } from "../features/terminals/components/TerminalChromeHeader";
 import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
@@ -830,7 +838,7 @@ export function App() {
 	// Mirrors handlePluginInstall but without the reprobe-on-exit side effect and
 	// with a "collab: <agent>" label so the terminals are identifiable.
 	const launchCollabTerminal = useCallback(
-		async (command: string) => {
+		async (command: string, slotIndex?: number) => {
 			if (!activeWorktree || !activeWorkspaceId) return;
 			const targetWorkspaceId = activeWorkspaceId;
 			const targetWorktree = activeWorktree;
@@ -847,35 +855,49 @@ export function App() {
 				notifyToast("Failed to start collab terminal");
 				return;
 			}
-			createScopedWorkspaceDispatch(targetWorkspaceId)({
-				type: "session/registerProcess",
+			const process: ProcessSession = {
+				id: crypto.randomUUID(),
+				workspaceId: targetWorkspaceId,
 				worktreeId: targetWorktree.id,
-				process: {
-					id: crypto.randomUUID(),
-					workspaceId: targetWorkspaceId,
-					worktreeId: targetWorktree.id,
-					terminalSessionId: terminal.id,
-					origin: "adHoc",
-					presetId: null,
-					label: `collab: ${agentLabel}`,
-					command,
-					status: "running",
-					lastActivityAt: null,
-					lastOutputPreview: null,
-					exitCode: null,
-					pinned: true,
-					attentionState: "idle",
-					agentAttentionReasons: {},
-					agentAttentionClearedAt: null,
-					agentDetected: false,
-					provider: null,
-				},
-			});
+				terminalSessionId: terminal.id,
+				origin: "adHoc",
+				presetId: null,
+				label: `collab: ${agentLabel}`,
+				command,
+				status: "running",
+				lastActivityAt: null,
+				lastOutputPreview: null,
+				exitCode: null,
+				pinned: true,
+				attentionState: "idle",
+				agentAttentionReasons: {},
+				agentAttentionClearedAt: null,
+				agentDetected: false,
+				provider: null,
+			};
+			// An empty-slot launcher passes a slotIndex to land in THAT slot; the
+			// chrome bar omits it and auto-places (fill first empty, else promote).
+			createScopedWorkspaceDispatch(targetWorkspaceId)(
+				slotIndex === undefined
+					? {
+							type: "session/registerProcess",
+							worktreeId: targetWorktree.id,
+							process,
+						}
+					: {
+							type: "session/placeProcessInNewSlot",
+							worktreeId: targetWorktree.id,
+							process,
+							layoutId: activeSession?.terminalLayoutId ?? "1",
+							slotIndex,
+						},
+			);
 			await sendInput(terminal.id, `${command}\n`);
 		},
 		[
 			activeWorktree,
 			activeWorkspaceId,
+			activeSession,
 			createSession,
 			sendInput,
 			createScopedWorkspaceDispatch,
@@ -890,6 +912,22 @@ export function App() {
 	// bar and each empty-slot launcher) so a rapid second click anywhere cannot
 	// fire a second concurrent `whisper collab mount`.
 	const mountGuard = useMountPendingGuard(activeWhisperState);
+
+	// Empty-slot agent launch: same whisper-aware command resolution and shared
+	// guard as the chrome bar, but lands the agent in the clicked slot.
+	const handleLaunchAgentInSlot = useCallback(
+		(provider: AgentProvider, slotIndex: number) => {
+			const command = launchCommandFor(provider, {
+				whisperHealthy: whisperOnHealthy,
+				boundCount: boundCount(activeWhisperState),
+				daemonAlive: activeWhisperState?.daemonAlive ?? false,
+				mountPending: mountGuard.mountPending,
+			});
+			void launchCollabTerminal(command, slotIndex);
+			if (command.startsWith("whisper collab mount")) mountGuard.beginMount();
+		},
+		[whisperOnHealthy, activeWhisperState, mountGuard, launchCollabTerminal],
+	);
 
 	const handlePromoteSlot = useCallback(
 		(slotIndex: number) => {
@@ -1826,6 +1864,10 @@ export function App() {
 												onPromoteSlot={isActive ? handlePromoteSlot : NOOP}
 												onStartShellInSlot={
 													isActive ? handleStartShellInSlot : NOOP
+												}
+												agentProviders={visibleProviders(agentClis)}
+												onLaunchAgentInSlot={
+													isActive ? handleLaunchAgentInSlot : NOOP
 												}
 												findProcessByTerminalSessionId={
 													findProcessByTerminalSessionId
