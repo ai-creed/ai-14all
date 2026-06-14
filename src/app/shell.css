@@ -392,7 +392,23 @@ select {
 	overflow: hidden;
 	flex: 1;
 	min-height: 0;
-	border-color: var(--pane-border-terminal);
+	/* Borderless: the surrounding .shell-terminal-frame now draws the green
+	   terminal-area border, so the panel must not add a second one. */
+	border: none;
+}
+
+/* One green frame around the whole terminal area — the agent chip bar/header
+   AND the shells — so they read as a single region: chip bar on top, the
+   header's own border-bottom as the internal divider, shells below. */
+.shell-terminal-frame {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+	border: 1px solid var(--pane-border-terminal);
+	border-radius: var(--radius-md);
 }
 
 .shell-review-grid {

@@ -1721,104 +1721,107 @@ export function App() {
 							onOpenPlugins={() => setPluginsDialogOpen(true)}
 						/>
 
-						{activeWorktree && (
-							<TerminalChromeHeader
-								agentLauncher={
-									<AgentLauncherBar
-										probes={agentClis}
-										whisperHealthy={whisperOnHealthy}
-										whisperState={activeWhisperState}
-										launchInTerminal={(command) =>
-											void launchCollabTerminal(command)
-										}
-									/>
-								}
-								terminalActions={
-									<TerminalActions
-										presets={workspaceState.commandPresets}
-										addDisabled={addDisabled}
-										onAddAdHoc={handleAddAdHoc}
-										onLaunchPreset={handleLaunchPreset}
-										onOpenPresetManager={() => setPresetManagerOpen(true)}
-										onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
-									/>
-								}
-							/>
-						)}
-
-						{/*
-						 * Render a terminal panel for every hydrated workspace, not just the
-						 * active one. Only the active workspace's panel is visible; the rest
-						 * stay mounted but hidden via CSS. Keeping inactive panels mounted
-						 * means their xterm instances keep their PTY output subscription alive
-						 * and never lose scrollback when the user switches workspaces and back
-						 * (previously the panel was unmounted on switch, disposing the xterm and
-						 * rendering blank on return). Panes are keyed by processId within each
-						 * panel and panels by workspaceId, so switching only flips visibility —
-						 * no unmount/remount of the xterm instances.
-						 */}
-						<div className="shell-terminal-layer">
-							{appWorkspaces.workspaceOrder.map((id) => {
-								const ws = appWorkspaces.workspacesById[id];
-								if (!ws || ws.workspaceState === null) return null;
-								const isActive = ws.workspaceId === activeWorkspaceId;
-								const wsState = isActive ? workspaceState : ws.workspaceState;
-								const wsSelectedWorktreeId = wsState.selectedWorktreeId;
-								const wsActiveWorktree = isActive
-									? activeWorktree
-									: (ws.worktrees.find((w) => w.id === wsSelectedWorktreeId) ??
-										null);
-								const wsActiveSession = isActive
-									? (activeSession ?? null)
-									: wsSelectedWorktreeId
-										? (wsState.sessionsByWorktreeId[wsSelectedWorktreeId] ??
-											null)
-										: null;
-								const wsSlotProcessIds = wsActiveSession?.slotProcessIds ?? [
-									null,
-								];
-								return (
-									<div
-										key={ws.workspaceId}
-										className="shell-terminal-host"
-										data-active={isActive ? "true" : "false"}
-										data-workspace-id={ws.workspaceId}
-									>
-										<TerminalPanel
-											panelVisible={isActive}
-											suppressAutoFocus={isActive && reviewOpen}
-											terminalTheme={terminalTheme}
-											workspaceState={wsState}
-											activeWorktree={wsActiveWorktree}
-											activeSession={wsActiveSession}
-											sessions={sessions}
-											layoutId={wsActiveSession?.terminalLayoutId ?? "1"}
-											slotProcessIds={wsSlotProcessIds}
-											terminalFocusSignal={terminalFocusSignal}
-											// Workspace-pinned dispatch so terminal title (OSC) updates
-											// emitted by a hidden workspace's PTY always route to THAT
-											// workspace, not whichever one is currently active. A fresh
-											// scoped dispatch is created per event to avoid stale base
-											// state.
-											dispatch={(action) =>
-												createScopedWorkspaceDispatch(ws.workspaceId)(action)
-											}
-											selectActiveProcess={
-												isActive ? selectActiveProcess : NOOP
-											}
-											onCloseSlot={isActive ? handleCloseProcess : NOOP}
-											onRestartSlot={isActive ? handleRestartProcess : NOOP}
-											onPromoteSlot={isActive ? handlePromoteSlot : NOOP}
-											onStartShellInSlot={
-												isActive ? handleStartShellInSlot : NOOP
-											}
-											findProcessByTerminalSessionId={
-												findProcessByTerminalSessionId
+						<div className="shell-terminal-frame">
+							{activeWorktree && (
+								<TerminalChromeHeader
+									agentLauncher={
+										<AgentLauncherBar
+											probes={agentClis}
+											whisperHealthy={whisperOnHealthy}
+											whisperState={activeWhisperState}
+											launchInTerminal={(command) =>
+												void launchCollabTerminal(command)
 											}
 										/>
-									</div>
-								);
-							})}
+									}
+									terminalActions={
+										<TerminalActions
+											presets={workspaceState.commandPresets}
+											addDisabled={addDisabled}
+											onAddAdHoc={handleAddAdHoc}
+											onLaunchPreset={handleLaunchPreset}
+											onOpenPresetManager={() => setPresetManagerOpen(true)}
+											onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
+										/>
+									}
+								/>
+							)}
+
+							{/*
+							 * Render a terminal panel for every hydrated workspace, not just the
+							 * active one. Only the active workspace's panel is visible; the rest
+							 * stay mounted but hidden via CSS. Keeping inactive panels mounted
+							 * means their xterm instances keep their PTY output subscription alive
+							 * and never lose scrollback when the user switches workspaces and back
+							 * (previously the panel was unmounted on switch, disposing the xterm and
+							 * rendering blank on return). Panes are keyed by processId within each
+							 * panel and panels by workspaceId, so switching only flips visibility —
+							 * no unmount/remount of the xterm instances.
+							 */}
+							<div className="shell-terminal-layer">
+								{appWorkspaces.workspaceOrder.map((id) => {
+									const ws = appWorkspaces.workspacesById[id];
+									if (!ws || ws.workspaceState === null) return null;
+									const isActive = ws.workspaceId === activeWorkspaceId;
+									const wsState = isActive ? workspaceState : ws.workspaceState;
+									const wsSelectedWorktreeId = wsState.selectedWorktreeId;
+									const wsActiveWorktree = isActive
+										? activeWorktree
+										: (ws.worktrees.find(
+												(w) => w.id === wsSelectedWorktreeId,
+											) ?? null);
+									const wsActiveSession = isActive
+										? (activeSession ?? null)
+										: wsSelectedWorktreeId
+											? (wsState.sessionsByWorktreeId[wsSelectedWorktreeId] ??
+												null)
+											: null;
+									const wsSlotProcessIds = wsActiveSession?.slotProcessIds ?? [
+										null,
+									];
+									return (
+										<div
+											key={ws.workspaceId}
+											className="shell-terminal-host"
+											data-active={isActive ? "true" : "false"}
+											data-workspace-id={ws.workspaceId}
+										>
+											<TerminalPanel
+												panelVisible={isActive}
+												suppressAutoFocus={isActive && reviewOpen}
+												terminalTheme={terminalTheme}
+												workspaceState={wsState}
+												activeWorktree={wsActiveWorktree}
+												activeSession={wsActiveSession}
+												sessions={sessions}
+												layoutId={wsActiveSession?.terminalLayoutId ?? "1"}
+												slotProcessIds={wsSlotProcessIds}
+												terminalFocusSignal={terminalFocusSignal}
+												// Workspace-pinned dispatch so terminal title (OSC) updates
+												// emitted by a hidden workspace's PTY always route to THAT
+												// workspace, not whichever one is currently active. A fresh
+												// scoped dispatch is created per event to avoid stale base
+												// state.
+												dispatch={(action) =>
+													createScopedWorkspaceDispatch(ws.workspaceId)(action)
+												}
+												selectActiveProcess={
+													isActive ? selectActiveProcess : NOOP
+												}
+												onCloseSlot={isActive ? handleCloseProcess : NOOP}
+												onRestartSlot={isActive ? handleRestartProcess : NOOP}
+												onPromoteSlot={isActive ? handlePromoteSlot : NOOP}
+												onStartShellInSlot={
+													isActive ? handleStartShellInSlot : NOOP
+												}
+												findProcessByTerminalSessionId={
+													findProcessByTerminalSessionId
+												}
+											/>
+										</div>
+									);
+								})}
+							</div>
 						</div>
 						{activeWorktree && (
 							<TerminalLayoutDialog
