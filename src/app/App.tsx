@@ -776,7 +776,10 @@ export function App() {
 	// the panel also re-probes every time it is re-opened (PluginsPanelDialog
 	// effect), so a stale "not installed" chip self-heals on the next open.
 	const handlePluginInstall = useCallback(
-		async (command: string) => {
+		async (command: string, label = "plugin install") => {
+			(
+				window as unknown as { __lastPluginCommand?: string }
+			).__lastPluginCommand = command;
 			if (!activeWorktree || !activeWorkspaceId) return;
 			const targetWorkspaceId = activeWorkspaceId;
 			const targetWorktree = activeWorktree;
@@ -802,7 +805,7 @@ export function App() {
 					terminalSessionId: terminal.id,
 					origin: "adHoc",
 					presetId: null,
-					label: "plugin install",
+					label,
 					command,
 					status: "running",
 					lastActivityAt: null,
@@ -1892,6 +1895,9 @@ export function App() {
 							open={pluginsDialogOpen}
 							onOpenChange={setPluginsDialogOpen}
 							onInstall={(command) => void handlePluginInstall(command)}
+							onConfigure={(command) =>
+								void handlePluginInstall(command, "plugin configure")
+							}
 						/>
 
 						{workflowDetailTarget && (

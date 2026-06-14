@@ -42,6 +42,8 @@ import { resolveBinary } from "../../services/plugins/binary-resolver.js";
 import { augmentGuiLaunchPath } from "../../services/plugins/shell-path.js";
 import { probeWhisper } from "../../services/plugins/whisper/whisper-env-probe.js";
 import { createWhisperDriver } from "../../services/plugins/whisper/whisper-driver.js";
+import { createCortexDriver } from "../../services/plugins/cortex/cortex-driver.js";
+import { probeCortex } from "../../services/plugins/cortex/cortex-probe.js";
 import { createWhisperCommandRunner } from "../../services/plugins/whisper/whisper-command-runner.js";
 import { PluginCommandLogger } from "../../services/diagnostics/plugin-command-logger.js";
 
@@ -218,7 +220,31 @@ app.whenReady().then(async () => {
 				: undefined,
 	});
 
-	const pluginRegistry = createPluginRegistry([whisperDriver], pluginConfig);
+	const getCortexBinary = () =>
+		resolveBinary("ai-cortex", {
+			installPath: pluginConfig.get("cortex").installPath,
+		});
+
+	const cortexDriver = createCortexDriver({
+		probeImpl: () =>
+			// Routed through the capability probe service so registry re-probes hit
+			// the cache instead of spawning a fresh child every time (like whisper).
+			// probeCortex handles the null binary -> not-installed.
+			capabilityProbes.probePlugin("cortex", async () =>
+				probeCortex(await getCortexBinary()),
+			),
+		// Toggle on -> registry start(); toggle off -> registry stop(). Either way,
+		// broadcast so the renderer re-queries code-nav status and the gate flips.
+		onAvailabilityChanged: () => {
+			if (!mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed())
+				mainWindow.webContents.send("code-nav:availabilityChanged", {});
+		},
+	});
+
+	const pluginRegistry = createPluginRegistry(
+		[whisperDriver, cortexDriver],
+		pluginConfig,
+	);
 	void pluginRegistry.boot();
 	const pluginIpc = registerPluginIpc({
 		ipcMain,
@@ -342,6 +368,7 @@ app.whenReady().then(async () => {
 		usageHost,
 		installUpdate: () => updateService.installUpdate(),
 		closeGate,
+		getCortexEnabled: () => pluginConfig.get("cortex").enabled,
 	});
 
 	if (process.env.ELECTRON_RENDERER_URL) {

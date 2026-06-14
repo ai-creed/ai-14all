@@ -15,6 +15,7 @@ import { ingestCortexStore } from "../ingest/cortex-store-to-mirror.js";
 import type {
 	CortexIndexService,
 	WorktreeKeys,
+	WorktreeStatus,
 } from "../cortex-index-service.js";
 import {
 	type CortexKeyResolver,
@@ -25,11 +26,22 @@ import type { WorktreeService } from "../../../services/worktrees/worktree-servi
 
 type IdPair = { workspaceId: string; worktreeId: string };
 
+const CORTEX_DISABLED_STATUS: WorktreeStatus = {
+	available: false,
+	ready: false,
+	dirtyAtIndex: false,
+	sourceFingerprint: null,
+	sourceIndexedAt: null,
+	reason: "cortex-disabled",
+};
+
 export interface CodeNavIpcDeps {
 	workspaceRegistry: WorkspaceRegistryService;
 	worktreeService: WorktreeService;
 	cortexIndex: CortexIndexService;
 	cortexKeyResolver: CortexKeyResolver;
+	/** Source of truth: pluginConfig.get("cortex").enabled. False -> code-nav off. */
+	isCortexEnabled: () => boolean;
 	refreshController: {
 		refresh(keys: WorktreeKeys, ids: IdPair, changed?: string[]): Promise<void>;
 	};
@@ -59,6 +71,7 @@ async function resolveKeys(
 
 export function registerCodeNavIpc(deps: CodeNavIpcDeps): () => void {
 	ipcMain.handle("code-nav:findDefinitions", async (_e, raw: unknown) => {
+		if (!deps.isCortexEnabled()) return [];
 		const p = FindDefinitionsSchema.parse(raw);
 		const keys = await resolveKeys(deps, p);
 		return deps.cortexIndex.findDefinitions(keys, {
@@ -68,18 +81,21 @@ export function registerCodeNavIpc(deps: CodeNavIpcDeps): () => void {
 	});
 
 	ipcMain.handle("code-nav:findCallees", async (_e, raw: unknown) => {
+		if (!deps.isCortexEnabled()) return [];
 		const p = FindCalleesSchema.parse(raw);
 		const keys = await resolveKeys(deps, p);
 		return deps.cortexIndex.findCallees(keys, { fnId: p.fnId });
 	});
 
 	ipcMain.handle("code-nav:findCallers", async (_e, raw: unknown) => {
+		if (!deps.isCortexEnabled()) return [];
 		const p = FindCallersSchema.parse(raw);
 		const keys = await resolveKeys(deps, p);
 		return deps.cortexIndex.findCallers(keys, { fnId: p.fnId });
 	});
 
 	ipcMain.handle("code-nav:searchSymbols", async (_e, raw: unknown) => {
+		if (!deps.isCortexEnabled()) return [];
 		const p = SearchSymbolsSchema.parse(raw);
 		const keys = await resolveKeys(deps, p);
 		return deps.cortexIndex.searchSymbols(keys, {
@@ -89,23 +105,27 @@ export function registerCodeNavIpc(deps: CodeNavIpcDeps): () => void {
 	});
 
 	ipcMain.handle("code-nav:getFileImports", async (_e, raw: unknown) => {
+		if (!deps.isCortexEnabled()) return [];
 		const p = GetFileImportsSchema.parse(raw);
 		const keys = await resolveKeys(deps, p);
 		return deps.cortexIndex.getFileImports(keys, { file: p.file });
 	});
 
 	ipcMain.handle("code-nav:getWorktreeStatus", async (_e, raw: unknown) => {
+		if (!deps.isCortexEnabled()) return CORTEX_DISABLED_STATUS;
 		const p = GetWorktreeStatusSchema.parse(raw);
 		const keys = await resolveKeys(deps, p);
 		return deps.cortexIndex.getWorktreeStatus(keys);
 	});
 
 	ipcMain.handle("code-nav:listFiles", async (_e, raw: unknown) => {
+		if (!deps.isCortexEnabled()) return [];
 		const p = ListFilesNavSchema.parse(raw);
 		const keys = await resolveKeys(deps, p);
 		return deps.cortexIndex.listFiles(keys);
 	});
 
+	// NOT gated — watcher lifecycle must stay correct; the refresh no-op lives in CortexRefreshController.
 	ipcMain.handle("code-nav:refreshWorktree", async (_e, raw: unknown) => {
 		const p = RefreshWorktreeSchema.parse(raw);
 		const keys = await resolveKeys(deps, p);

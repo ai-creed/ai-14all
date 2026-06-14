@@ -41,3 +41,20 @@ export function subscribeWorktreeUnavailable(
 	unavailableListeners.add(cb);
 	return () => unavailableListeners.delete(cb);
 }
+
+const availabilityListeners = new Set<() => void>();
+let availabilityInstalled = false;
+
+function ensureAvailabilityInstalled() {
+	if (availabilityInstalled) return;
+	availabilityInstalled = true;
+	window.ai14all.codeNav.onAvailabilityChanged(() => {
+		for (const l of availabilityListeners) l();
+	});
+}
+
+export function subscribeAvailabilityChanged(cb: () => void): () => void {
+	ensureAvailabilityInstalled();
+	availabilityListeners.add(cb);
+	return () => availabilityListeners.delete(cb);
+}

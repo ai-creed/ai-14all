@@ -16,6 +16,8 @@ export interface CortexRefreshDeps {
 	codeNavCacheRoot: string;
 	emit(event: CodeNavEvent, payload: Record<string, unknown>): void;
 	toast(msg: string): void;
+	/** Source of truth: pluginConfig.get("cortex").enabled. False -> no re-index. */
+	isCortexEnabled: () => boolean;
 }
 
 export class CortexRefreshController {
@@ -27,6 +29,9 @@ export class CortexRefreshController {
 		ids: { workspaceId: string; worktreeId: string },
 		changedFiles?: string[],
 	): Promise<void> {
+		// Disabled cortex does no background re-index — gates both the IPC refresh
+		// handler and the watcher's onBatch (which calls refresh.refresh).
+		if (!this.d.isCortexEnabled()) return;
 		const k = `${keys.repoKey}/${keys.worktreeKey}`;
 		const existing = this.running.get(k);
 		if (existing) return existing;

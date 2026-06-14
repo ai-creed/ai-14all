@@ -8,6 +8,12 @@ const descriptor = {
 	installCommand: "npm i -g ai-whisper",
 };
 
+const cortexDescriptor = {
+	title: "ai-cortex",
+	pitch: "Substrate knowledge for your agents + code navigation.",
+	installCommand: "npm i -g ai-cortex",
+};
+
 describe("PluginCard", () => {
 	it("not-installed: shows chip + install action, no toggle", () => {
 		const onInstall = vi.fn();
@@ -98,5 +104,67 @@ describe("PluginCard", () => {
 		).toBeInTheDocument();
 		fireEvent.click(screen.getByRole("button", { name: /re-probe/i }));
 		expect(onReprobe).toHaveBeenCalled();
+	});
+
+	it("installed cortex: Configure button calls onConfigure", () => {
+		const onConfigure = vi.fn();
+		render(
+			<PluginCard
+				descriptor={cortexDescriptor}
+				snapshot={{
+					id: "cortex",
+					enabled: true,
+					installPath: "/x",
+					status: { state: "on-healthy", version: "0.15.1", limited: false },
+				}}
+				onToggle={vi.fn()}
+				onInstall={vi.fn()}
+				onReprobe={vi.fn()}
+				onConfigure={onConfigure}
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: /configure/i }));
+		expect(onConfigure).toHaveBeenCalledTimes(1);
+	});
+
+	it("not-installed: no Configure button even when onConfigure is provided", () => {
+		render(
+			<PluginCard
+				descriptor={cortexDescriptor}
+				snapshot={{
+					id: "cortex",
+					enabled: false,
+					installPath: null,
+					status: { state: "not-installed" },
+				}}
+				onToggle={vi.fn()}
+				onInstall={vi.fn()}
+				onReprobe={vi.fn()}
+				onConfigure={vi.fn()}
+			/>,
+		);
+		expect(
+			screen.queryByRole("button", { name: /configure/i }),
+		).not.toBeInTheDocument();
+	});
+
+	it("whisper (no onConfigure): renders no Configure button", () => {
+		render(
+			<PluginCard
+				descriptor={descriptor}
+				snapshot={{
+					id: "whisper",
+					enabled: true,
+					installPath: "/x",
+					status: { state: "on-healthy", version: "0.6.0", limited: false },
+				}}
+				onToggle={vi.fn()}
+				onInstall={vi.fn()}
+				onReprobe={vi.fn()}
+			/>,
+		);
+		expect(
+			screen.queryByRole("button", { name: /configure/i }),
+		).not.toBeInTheDocument();
 	});
 });

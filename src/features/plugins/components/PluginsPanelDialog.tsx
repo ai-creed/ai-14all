@@ -8,6 +8,30 @@ import { plugins } from "../../../lib/desktop-client";
 import { usePluginsState } from "../hooks/use-plugins-state";
 import { PluginCard, type PluginDescriptor } from "./PluginCard";
 
+/**
+ * Compose the ai-cortex "Configure" command from the agent-CLI probes.
+ * - One guarded `mcp add` per INSTALLED agent (claude/codex); ezio excluded.
+ *   The `mcp get … ||` guard makes a re-run safe when the server already exists.
+ * - The two ai-cortex setup commands always run (idempotent).
+ * - Steps joined with `;` so one failure does not abort the rest.
+ */
+export function composeCortexConfigureCommand(
+	probes: AgentCliProbes | null,
+): string {
+	const steps: string[] = [];
+	if (probes?.claude.kind === "found")
+		steps.push(
+			"claude mcp get ai-cortex >/dev/null 2>&1 || claude mcp add -s user ai-cortex -- ai-cortex mcp",
+		);
+	if (probes?.codex.kind === "found")
+		steps.push(
+			"codex mcp get ai-cortex >/dev/null 2>&1 || codex mcp add ai-cortex -- ai-cortex mcp",
+		);
+	steps.push("ai-cortex history install-hooks");
+	steps.push("ai-cortex memory install-prompt-guide");
+	return steps.join("; ");
+}
+
 const DESCRIPTORS: Record<EcosystemPluginId, PluginDescriptor> = {
 	whisper: {
 		title: "ai-whisper",
@@ -18,7 +42,7 @@ const DESCRIPTORS: Record<EcosystemPluginId, PluginDescriptor> = {
 	cortex: {
 		title: "ai-cortex",
 		pitch:
-			"Code-intelligence index that powers code navigation. Already consumed by the viewer when an index exists; formal driver coming later.",
+			"Substrate knowledge for your agents — a memory layer they recall from and record to across sessions — and its index unlocks code navigation inside ai-14all (go-to-definition, references, symbol search) as a power feature. Enable it, then Configure to register the MCP server and install the capture hooks + memory prompt guide.",
 		installCommand: "npm i -g ai-cortex",
 	},
 };
@@ -89,6 +113,7 @@ export function PluginsPanelDialog(props: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	onInstall: (command: string) => void;
+	onConfigure: (command: string) => void;
 }): React.ReactElement {
 	const snapshots = usePluginsState();
 	const [agentClis, setAgentClis] = useState<AgentCliProbes | null>(null);
@@ -126,6 +151,14 @@ export function PluginsPanelDialog(props: {
 									void plugins.setEnabled(id, enabled);
 								}}
 								onInstall={props.onInstall}
+								onConfigure={
+									snapshot.id === "cortex"
+										? () =>
+												props.onConfigure(
+													composeCortexConfigureCommand(agentClis),
+												)
+										: undefined
+								}
 								onReprobe={() => {
 									void plugins.reprobe();
 								}}

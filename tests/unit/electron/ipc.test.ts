@@ -113,6 +113,7 @@ describe("registerIpcHandlers diagnostics", () => {
 					mcpStatus: { port: null, bindError: null, getUrl: () => null },
 					worktreePathResolver: { resolve: vi.fn(), refresh: vi.fn() },
 				} as never,
+				getCortexEnabled: () => false,
 			},
 		);
 	};
@@ -188,6 +189,7 @@ describe("registerIpcHandlers diagnostics", () => {
 					mcpStatus: { port: null, bindError: null, getUrl: () => null },
 					worktreePathResolver: { resolve: vi.fn(), refresh: vi.fn() },
 				} as never,
+				getCortexEnabled: () => false,
 			},
 		);
 
@@ -239,6 +241,7 @@ describe("registerIpcHandlers diagnostics", () => {
 					mcpStatus: { port: null, bindError: null, getUrl: () => null },
 					worktreePathResolver: { resolve: vi.fn(), refresh: vi.fn() },
 				} as never,
+				getCortexEnabled: () => false,
 			},
 		);
 
@@ -288,6 +291,7 @@ describe("registerIpcHandlers files:listWorktree identity resolution", () => {
 					mcpStatus: { port: null, bindError: null, getUrl: () => null },
 					worktreePathResolver: { resolve: vi.fn(), refresh: vi.fn() },
 				} as never,
+				getCortexEnabled: () => false,
 			},
 		);
 		const handler = handlers.get("files:listWorktree");

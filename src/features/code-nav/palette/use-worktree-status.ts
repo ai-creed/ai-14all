@@ -3,6 +3,7 @@ import { codeNavClient, type WorktreeRef } from "../ipc/client.js";
 import {
 	subscribeWorktreeIndexRefreshed,
 	subscribeWorktreeUnavailable,
+	subscribeAvailabilityChanged,
 } from "../ipc/events.js";
 import type { WorktreeStatusPayload } from "../../../../shared/contracts/commands.js";
 
@@ -39,10 +40,14 @@ export function useWorktreeStatus(
 			if (e.workspaceId === ref.workspaceId && e.worktreeId === ref.worktreeId)
 				void load();
 		});
+		const unsubAvail = subscribeAvailabilityChanged(() => {
+			void load();
+		});
 		return () => {
 			cancelled = true;
 			unsub();
 			unsubUnavailable();
+			unsubAvail();
 		};
 	}, [ref?.workspaceId, ref?.worktreeId]);
 

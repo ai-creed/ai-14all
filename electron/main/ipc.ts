@@ -138,6 +138,7 @@ export function registerIpcHandlers(
 		usageHost,
 		installUpdate,
 		closeGate,
+		getCortexEnabled,
 	}: {
 		workspacePersistence: WorkspacePersistenceService;
 		workspaceRegistry: WorkspaceRegistryService;
@@ -156,6 +157,7 @@ export function registerIpcHandlers(
 		usageHost?: UsageHost;
 		installUpdate?: () => void;
 		closeGate?: import("./close-gate.js").CloseGate;
+		getCortexEnabled: () => boolean;
 	},
 ): {
 	dispose: () => void;
@@ -705,6 +707,7 @@ export function registerIpcHandlers(
 		emit: (ev, payload) => mainWindow.webContents.send(ev, payload),
 		toast: (msg) =>
 			mainWindow.webContents.send("app:toast", { kind: "warn", message: msg }),
+		isCortexEnabled: getCortexEnabled,
 	});
 	const watchKeys = new Map<
 		string,
@@ -727,6 +730,7 @@ export function registerIpcHandlers(
 		worktreeService,
 		cortexIndex,
 		cortexKeyResolver,
+		isCortexEnabled: getCortexEnabled,
 		refreshController: {
 			refresh: async (keys, ids, changed) =>
 				refresh.refresh(keys, ids, changed),

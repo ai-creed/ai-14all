@@ -21,7 +21,12 @@ export interface WorktreeStatus {
 	dirtyAtIndex: boolean;
 	sourceFingerprint: string | null;
 	sourceIndexedAt: string | null;
-	reason: "no-cortex" | "unsupported-schema" | "not-indexed" | null;
+	reason:
+		| "no-cortex"
+		| "unsupported-schema"
+		| "not-indexed"
+		| "cortex-disabled"
+		| null;
 }
 
 interface Handle {

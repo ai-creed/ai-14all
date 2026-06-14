@@ -3,7 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CortexIndexService } from "../../../electron/code-nav/cortex-index-service.js";
-import { CortexRefreshController } from "../../../electron/code-nav/refresh/cortex-refresh.js";
+import {
+	CortexRefreshController,
+	type CortexRefreshDeps,
+} from "../../../electron/code-nav/refresh/cortex-refresh.js";
 import { readAvailabilityMarker } from "../../../electron/code-nav/source/availability-marker.js";
 import { makeCortexFixtureDb } from "./helpers/make-cortex-fixture-db.js";
 
@@ -67,7 +70,17 @@ describe("CortexRefreshController", () => {
 		rmSync(root, { recursive: true, force: true });
 	});
 
-	function controller(emit = vi.fn(), toast = vi.fn()) {
+	function controller(
+		overrides: {
+			emit?: (...args: never[]) => void;
+			toast?: (...args: never[]) => void;
+			isCortexEnabled?: () => boolean;
+		} = {},
+	) {
+		const emit =
+			(overrides.emit as CortexRefreshDeps["emit"] | undefined) ?? vi.fn();
+		const toast =
+			(overrides.toast as CortexRefreshDeps["toast"] | undefined) ?? vi.fn();
 		return {
 			refresh: new CortexRefreshController({
 				cortexIndex,
@@ -75,6 +88,7 @@ describe("CortexRefreshController", () => {
 				codeNavCacheRoot,
 				emit,
 				toast,
+				isCortexEnabled: overrides.isCortexEnabled ?? (() => true),
 			}),
 			emit,
 			toast,
@@ -139,5 +153,11 @@ describe("CortexRefreshController", () => {
 		expect(toast).toHaveBeenCalled();
 		expect(emit).not.toHaveBeenCalled();
 		expect(readAvailabilityMarker(codeNavCacheRoot, keys)).toBeNull();
+	});
+
+	it("refresh no-ops when cortex is disabled (no spawn, resolves)", async () => {
+		const { refresh } = controller({ isCortexEnabled: () => false });
+		await expect(refresh.refresh(keys, ids)).resolves.toBeUndefined();
+		expect(spawnMock).not.toHaveBeenCalled();
 	});
 });

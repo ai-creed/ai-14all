@@ -66,6 +66,7 @@ function setup() {
 		worktreeService,
 		cortexIndex,
 		cortexKeyResolver,
+		isCortexEnabled: () => true,
 		refreshController,
 		watcherController,
 	} as unknown as Parameters<typeof registerCodeNavIpc>[0]);

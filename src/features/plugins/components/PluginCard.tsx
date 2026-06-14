@@ -31,6 +31,8 @@ export function PluginCard(props: {
 	onToggle: (id: EcosystemPluginId, enabled: boolean) => void;
 	onInstall: (command: string) => void;
 	onReprobe: () => void;
+	/** Optional one-shot setup action (cortex only). Shown when installed. */
+	onConfigure?: () => void;
 }) {
 	const { descriptor, snapshot } = props;
 	const status = snapshot.status;
@@ -38,6 +40,8 @@ export function PluginCard(props: {
 	const showInstall = status.state === "not-installed";
 	const showReprobe =
 		status.state === "degraded" || status.state === "incompatible";
+	const showConfigure =
+		props.onConfigure !== undefined && status.state !== "not-installed";
 	return (
 		<div className="plugin-card" data-plugin-id={snapshot.id}>
 			<div className="plugin-card-header">
@@ -62,6 +66,9 @@ export function PluginCard(props: {
 					>
 						{snapshot.enabled ? "Enabled" : "Disabled"}
 					</button>
+				)}
+				{showConfigure && (
+					<button onClick={() => props.onConfigure?.()}>Configure</button>
 				)}
 				{showInstall && (
 					<button onClick={() => props.onInstall(descriptor.installCommand)}>

@@ -5,6 +5,8 @@ type Reason = WorktreeStatusPayload["reason"];
 /** Maps an unavailable status reason to user-facing copy (null = available). */
 export function unavailableMessage(reason: Reason): string | null {
 	switch (reason) {
+		case "cortex-disabled":
+			return "Enable ai-cortex to use code navigation.";
 		case "unsupported-schema":
 			return "Update ai-cortex to enable code navigation.";
 		case "no-cortex":

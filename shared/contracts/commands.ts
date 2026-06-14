@@ -652,6 +652,7 @@ export type Ai14AllDesktopApi = {
 				reason: "no-cortex" | "unsupported-schema";
 			}) => void,
 		): () => void;
+		onAvailabilityChanged(handler: () => void): () => void;
 	};
 };
 
@@ -729,6 +730,8 @@ export const WorktreeStatusSchema = z.object({
 	dirtyAtIndex: z.boolean(),
 	sourceFingerprint: z.string().nullable(),
 	sourceIndexedAt: z.string().nullable(),
-	reason: z.enum(["no-cortex", "unsupported-schema", "not-indexed"]).nullable(),
+	reason: z
+		.enum(["no-cortex", "unsupported-schema", "not-indexed", "cortex-disabled"])
+		.nullable(),
 });
 export type WorktreeStatusPayload = z.infer<typeof WorktreeStatusSchema>;

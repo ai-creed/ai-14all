@@ -15,6 +15,7 @@ vi.mock("../../../src/features/code-nav/ipc/events.js", () => ({
 		unavailableCb = cb;
 		return () => {};
 	},
+	subscribeAvailabilityChanged: () => () => {},
 }));
 
 import { useWorktreeStatus } from "../../../src/features/code-nav/palette/use-worktree-status.js";
