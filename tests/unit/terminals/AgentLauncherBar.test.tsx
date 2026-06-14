@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type {
 	AgentCliProbes,
+	WhisperAgentBinding,
 	WhisperWorktreeState,
 } from "../../../shared/models/ecosystem-plugin";
 import { AgentLauncherBar } from "../../../src/features/terminals/components/AgentLauncherBar";
@@ -28,31 +29,45 @@ const state = (
 	...over,
 });
 
-it("renders a chip only for detected providers", () => {
-	render(
+const bound = (...agents: string[]): WhisperAgentBinding[] =>
+	agents.map((agentType) => ({ agentType, bindingState: "bound" as const }));
+
+type Over = {
+	probes?: AgentCliProbes | null;
+	whisperHealthy?: boolean;
+	whisperState?: WhisperWorktreeState;
+	mountPending?: boolean;
+};
+
+function renderBar(over: Over = {}) {
+	const launchInTerminal = vi.fn();
+	const beginMount = vi.fn();
+	const result = render(
 		<AgentLauncherBar
-			probes={probes()}
-			whisperHealthy={false}
-			whisperState={undefined}
-			launchInTerminal={vi.fn()}
+			probes={over.probes === undefined ? probes() : over.probes}
+			whisperHealthy={over.whisperHealthy ?? false}
+			whisperState={over.whisperState}
+			mountPending={over.mountPending ?? false}
+			beginMount={beginMount}
+			launchInTerminal={launchInTerminal}
 		/>,
 	);
+	return { ...result, launchInTerminal, beginMount };
+}
+
+it("renders a chip only for detected providers", () => {
+	renderBar();
 	expect(screen.getByTestId("agent-launch-claude")).toBeInTheDocument();
 	expect(screen.getByTestId("agent-launch-codex")).toBeInTheDocument();
 	expect(screen.queryByTestId("agent-launch-ezio")).not.toBeInTheDocument();
 });
 
 it("tags each chip with its provider so the CSS can color it per agent", () => {
-	render(
-		<AgentLauncherBar
-			probes={probes({
-				ezio: { kind: "found", path: "/bin/ezio", version: null },
-			})}
-			whisperHealthy={false}
-			whisperState={undefined}
-			launchInTerminal={vi.fn()}
-		/>,
-	);
+	renderBar({
+		probes: probes({
+			ezio: { kind: "found", path: "/bin/ezio", version: null },
+		}),
+	});
 	expect(screen.getByTestId("agent-launch-claude")).toHaveAttribute(
 		"data-provider",
 		"claude",
@@ -68,132 +83,96 @@ it("tags each chip with its provider so the CSS can color it per agent", () => {
 });
 
 it("renders nothing when no providers are detected", () => {
-	const { container } = render(
-		<AgentLauncherBar
-			probes={probes({
-				claude: { kind: "not-found" },
-				codex: { kind: "not-found" },
-			})}
-			whisperHealthy={false}
-			whisperState={undefined}
-			launchInTerminal={vi.fn()}
-		/>,
-	);
+	const { container } = renderBar({
+		probes: probes({
+			claude: { kind: "not-found" },
+			codex: { kind: "not-found" },
+		}),
+	});
 	expect(container).toBeEmptyDOMElement();
 });
 
 it("whisper off: a click launches the bare provider", async () => {
-	const launch = vi.fn();
 	const user = userEvent.setup();
-	render(
-		<AgentLauncherBar
-			probes={probes()}
-			whisperHealthy={false}
-			whisperState={undefined}
-			launchInTerminal={launch}
-		/>,
-	);
+	const { launchInTerminal } = renderBar({ whisperHealthy: false });
 	await user.click(screen.getByTestId("agent-launch-claude"));
-	expect(launch).toHaveBeenCalledWith("claude");
+	expect(launchInTerminal).toHaveBeenCalledWith("claude");
 });
 
-it("whisper on, no collab: a click mounts; rapid second click stays enabled and spawns a plain provider (no second mount)", async () => {
-	const launch = vi.fn();
+it("whisper on, no collab: a click mounts and opens the shared guard", async () => {
 	const user = userEvent.setup();
-	render(
-		<AgentLauncherBar
-			probes={probes()}
-			whisperHealthy={true}
-			whisperState={state({ daemonAlive: false, bindings: [] })}
-			launchInTerminal={launch}
-		/>,
-	);
-	const claude = screen.getByTestId("agent-launch-claude");
-	await user.click(claude);
-	expect(claude).not.toBeDisabled();
-	await user.click(claude);
-	expect(launch).toHaveBeenNthCalledWith(1, "whisper collab mount claude");
-	expect(launch).toHaveBeenNthCalledWith(2, "claude");
-	expect(launch).toHaveBeenCalledTimes(2);
+	const { launchInTerminal, beginMount } = renderBar({
+		whisperHealthy: true,
+		whisperState: state({ daemonAlive: false, bindings: [] }),
+	});
+	await user.click(screen.getByTestId("agent-launch-claude"));
+	expect(launchInTerminal).toHaveBeenCalledWith("whisper collab mount claude");
+	expect(beginMount).toHaveBeenCalledTimes(1);
 });
 
-it("whisper on, full collab (2 bound): a click spawns a plain provider and the pill reads ready (AC3)", async () => {
-	const launch = vi.fn();
+it("with the shared guard already pending, a click spawns plain (no second mount)", async () => {
+	// mountPending is owned one level up; when it is set, a click must resolve to
+	// a plain spawn and must NOT open another window.
 	const user = userEvent.setup();
-	render(
-		<AgentLauncherBar
-			probes={probes()}
-			whisperHealthy={true}
-			whisperState={state({
-				daemonAlive: true,
-				bindings: [
-					{ agentType: "claude", bindingState: "bound" },
-					{ agentType: "codex", bindingState: "bound" },
-				],
-			})}
-			launchInTerminal={launch}
-		/>,
-	);
+	const { launchInTerminal, beginMount } = renderBar({
+		whisperHealthy: true,
+		whisperState: state({ daemonAlive: false, bindings: [] }),
+		mountPending: true,
+	});
 	await user.click(screen.getByTestId("agent-launch-claude"));
-	expect(launch).toHaveBeenCalledWith("claude");
-	expect(launch).not.toHaveBeenCalledWith("whisper collab mount claude");
+	expect(launchInTerminal).toHaveBeenCalledWith("claude");
+	expect(beginMount).not.toHaveBeenCalled();
+});
+
+it("whisper on, full collab (2 bound): a click spawns plain and the pill reads ready (AC3)", async () => {
+	const user = userEvent.setup();
+	const { launchInTerminal } = renderBar({
+		whisperHealthy: true,
+		whisperState: state({
+			daemonAlive: true,
+			bindings: bound("claude", "codex"),
+		}),
+	});
+	await user.click(screen.getByTestId("agent-launch-claude"));
+	expect(launchInTerminal).toHaveBeenCalledWith("claude");
+	expect(launchInTerminal).not.toHaveBeenCalledWith(
+		"whisper collab mount claude",
+	);
 	expect(screen.getByTestId("collab-status-pill")).toHaveTextContent(
 		"collab · ready for workflows",
 	);
 });
 
 it("renders the aggregate pill from bound count of a live collab", () => {
-	render(
-		<AgentLauncherBar
-			probes={probes()}
-			whisperHealthy={true}
-			whisperState={state({
-				daemonAlive: true,
-				bindings: [{ agentType: "claude", bindingState: "bound" }],
-			})}
-			launchInTerminal={vi.fn()}
-		/>,
-	);
+	renderBar({
+		whisperHealthy: true,
+		whisperState: state({ daemonAlive: true, bindings: bound("claude") }),
+	});
 	expect(screen.getByTestId("collab-status-pill")).toHaveTextContent(
 		"collab · 1 agent · need 1 more",
 	);
 });
 
 it("STOPPED collab (daemonAlive false) with stale bindings: a click mounts (not plain) and the pill prompts to mount", async () => {
-	// Bug repro: after `whisper collab stop` the bindings remain "bound" in the
-	// store but the daemon is dead. A dead collab must not block a fresh mount.
-	const launch = vi.fn();
+	// After `whisper collab stop` the bindings remain "bound" but the daemon is
+	// dead; a dead collab must not block a fresh mount.
 	const user = userEvent.setup();
-	render(
-		<AgentLauncherBar
-			probes={probes()}
-			whisperHealthy={true}
-			whisperState={state({
-				daemonAlive: false,
-				bindings: [
-					{ agentType: "claude", bindingState: "bound" },
-					{ agentType: "codex", bindingState: "bound" },
-				],
-			})}
-			launchInTerminal={launch}
-		/>,
-	);
+	const { launchInTerminal } = renderBar({
+		whisperHealthy: true,
+		whisperState: state({
+			daemonAlive: false,
+			bindings: bound("claude", "codex"),
+		}),
+	});
 	await user.click(screen.getByTestId("agent-launch-claude"));
-	expect(launch).toHaveBeenCalledWith("whisper collab mount claude");
-	expect(launch).not.toHaveBeenCalledWith("claude");
+	expect(launchInTerminal).toHaveBeenCalledWith("whisper collab mount claude");
+	expect(launchInTerminal).not.toHaveBeenCalledWith("claude");
 	expect(screen.getByTestId("collab-status-pill")).toHaveTextContent(
 		"mount an agent to start a collab",
 	);
 });
 
 it("shows no pill when whisper is off", () => {
-	render(
-		<AgentLauncherBar
-			probes={probes()}
-			whisperHealthy={false}
-			whisperState={undefined}
-			launchInTerminal={vi.fn()}
-		/>,
-	);
+	renderBar({ whisperHealthy: false });
 	expect(screen.queryByTestId("collab-status-pill")).not.toBeInTheDocument();
 });

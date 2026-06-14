@@ -88,6 +88,7 @@ import { TerminalPanel } from "./components/TerminalPanel";
 import { TerminalActions } from "../features/terminals/components/TerminalActions";
 import { AgentLauncherBar } from "../features/terminals/components/AgentLauncherBar";
 import { visibleProviders } from "../features/terminals/logic/agent-launch";
+import { useMountPendingGuard } from "../features/terminals/logic/use-mount-pending-guard";
 import { TerminalChromeHeader } from "../features/terminals/components/TerminalChromeHeader";
 import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
 import { PluginsPanelDialog } from "../features/plugins/components/PluginsPanelDialog";
@@ -884,6 +885,11 @@ export function App() {
 	const activeWhisperState = activeWorktree
 		? whisperStates.get(activeWorktree.id)
 		: undefined;
+
+	// One shared mount-pending guard for every agent-launch surface (the chrome
+	// bar and each empty-slot launcher) so a rapid second click anywhere cannot
+	// fire a second concurrent `whisper collab mount`.
+	const mountGuard = useMountPendingGuard(activeWhisperState);
 
 	const handlePromoteSlot = useCallback(
 		(slotIndex: number) => {
@@ -1734,6 +1740,8 @@ export function App() {
 											probes={agentClis}
 											whisperHealthy={whisperOnHealthy}
 											whisperState={activeWhisperState}
+											mountPending={mountGuard.mountPending}
+											beginMount={mountGuard.beginMount}
 											launchInTerminal={(command) =>
 												void launchCollabTerminal(command)
 											}

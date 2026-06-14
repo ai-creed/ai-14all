@@ -1,17 +1,12 @@
-import { useEffect, useState } from "react";
 import type {
 	AgentCliProbes,
 	WhisperWorktreeState,
 } from "../../../../shared/models/ecosystem-plugin";
 import {
-	advanceMountPending,
-	beginMountPending,
 	boundCount,
 	collabStatus,
 	launchCommandFor,
-	MOUNT_PENDING_TIMEOUT_MS,
 	type AgentProvider,
-	type MountPendingState,
 	visibleProviders,
 } from "../logic/agent-launch";
 
@@ -25,42 +20,33 @@ type Props = {
 	probes: AgentCliProbes | null;
 	whisperHealthy: boolean;
 	whisperState: WhisperWorktreeState | undefined;
+	/**
+	 * Shared mount-pending flag (from useMountPendingGuard, owned one level up so
+	 * every launch surface shares one window). True → a collab mount is in flight,
+	 * so a click resolves to a plain spawn instead of a second concurrent mount.
+	 */
+	mountPending: boolean;
+	/** Open the shared mount-pending window after issuing a mount command. */
+	beginMount: () => void;
 	/** The same id-based terminal launch the collab/preset paths use. */
 	launchInTerminal: (command: string) => void;
 };
 
 /**
  * Stateless agent launchers (spec §3.3). Chips are never disabled: every click
- * spawns a terminal. `pendingMount` only changes what a click *resolves to* —
- * during a collab-creating mount, a rapid second click resolves to a plain
- * spawn rather than a second concurrent `whisper collab mount` (spec §4/§7).
+ * spawns a terminal. `mountPending` only changes what a click *resolves to* —
+ * during a collab-creating mount, a rapid second click (here OR in an empty-slot
+ * launcher, since the guard is shared) resolves to a plain spawn rather than a
+ * second concurrent `whisper collab mount` (spec §4/§7).
  */
 export function AgentLauncherBar({
 	probes,
 	whisperHealthy,
 	whisperState,
+	mountPending,
+	beginMount,
 	launchInTerminal,
 }: Props) {
-	const [pending, setPending] = useState<MountPendingState>({ kind: "idle" });
-
-	// Clear the pending window when the lens snapshot advances.
-	useEffect(() => {
-		setPending((current) =>
-			advanceMountPending(current, whisperState, Date.now()),
-		);
-	}, [whisperState]);
-
-	// Timeout fallback so a never-binding mount cannot wedge the chips.
-	useEffect(() => {
-		if (pending.kind !== "pending") return;
-		const timer = setTimeout(() => {
-			setPending((current) =>
-				advanceMountPending(current, whisperState, Date.now()),
-			);
-		}, MOUNT_PENDING_TIMEOUT_MS + 50);
-		return () => clearTimeout(timer);
-	}, [pending, whisperState]);
-
 	const providers = visibleProviders(probes);
 	if (providers.length === 0) return null;
 
@@ -71,11 +57,11 @@ export function AgentLauncherBar({
 			whisperHealthy,
 			boundCount: boundCount(whisperState),
 			daemonAlive: whisperState?.daemonAlive ?? false,
-			mountPending: pending.kind === "pending",
+			mountPending,
 		});
 		launchInTerminal(command);
 		if (command.startsWith("whisper collab mount")) {
-			setPending(beginMountPending(whisperState, Date.now()));
+			beginMount();
 		}
 	};
 
