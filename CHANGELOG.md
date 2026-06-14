@@ -6,9 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.0] – 2026-06-14
+
 ### Added
 
-- **Ecosystem plug-in framework: opt-in drivers for peer apps.** A static in-process driver registry wires peer tools into ai-14all without affecting any user who has not opted in. The first driver targets ai-whisper and surfaces a live workflow lens in the sidebar (pause/resume/cancel + tell-agent actions with an audit log) plus a start-collab button. Configuration lives at `userData/config.toml`; probing is cached via a single capability-probe service; peer state is read-only under provisional read contracts; commands route through the peer's own CLI with JSONL audit; renderer surfaces use typed IPC. A Plugins panel (probe / enable / guided install) makes the feature discoverable. Without ai-whisper installed and enabled, nothing changes.
+- **Ecosystem plug-in framework: opt-in drivers for peer apps.** A static in-process driver registry wires peer tools into ai-14all without affecting any user who has not opted in. The first driver targets ai-whisper and surfaces a live workflow lens in the sidebar (pause/resume/cancel + tell-agent actions with an audit log). Configuration lives at `userData/config.toml`; probing is cached via a single capability-probe service; peer state is read-only under provisional read contracts; commands route through the peer's own CLI with JSONL audit; renderer surfaces use typed IPC. A Plugins panel (probe / enable / guided install) makes the feature discoverable. Without ai-whisper installed and enabled, nothing changes.
+- **Agent launchers in the terminal-chrome header.** A relocated header hosts per-agent launch chips (Claude, Codex, Ezio) in per-provider colors. With ai-whisper healthy, a chip mounts the agent into a collab (an aggregate status pill steps 0 → 1 agent → ready for workflows); otherwise it spawns the agent plainly. A shared pending-mount guard prevents a rapid second click — in the header or an empty slot — from creating a second concurrent collab.
+- **Launch agents directly into an empty terminal slot.** Each empty slot offers the agent chips (primary) plus a quieter start-a-shell action, landing the chosen agent in that specific slot.
+- **Ezio is a first-class agent.** Detected via `ezio doctor`, surfaced as a launch chip and, in the sidebar, as a magenta provider badge — recognizing both `ezio` and the `ai-ezio` alias.
+- **Sidebar workflow lens styled as a mini inspector.** The lens reads as a compact card set apart from the shells: a "Last workflow:" caption + short type label (SDD/Ralph/Bugfix), the artifact, the current phase and iteration, and a semantically-colored status (running / done / halted / escalated / paused).
+
+### Changed
+
+- **Replaced the Start-collab button with the always-available agent launchers** and an aggregate collab status pill; the agent chip bar and the terminal shells now share one bordered terminal frame so they read as a single region.
+- **Fresh worktrees skip the auto default shell when an agent CLI is detected**, opening to an empty slot the user fills intentionally (an agent, or a plain shell) rather than a redundant default shell the first agent spawn would push aside.
+- **Relicensed from MIT to FSL-1.1-ALv2** with a contributor CLA.
+
+### Build
+
+- **`predev` / `pretest` hooks rebuild `better-sqlite3` for the right ABI** — Electron for `pnpm dev`, host Node for `pnpm test` — so neither workflow leaves the native module in the other's ABI (which silently broke the whisper lens by making every store read fail).
+- **Deterministic agent-CLI detection under E2E.** The probe ignores the host PATH and honors an explicit opt-in, so terminal tests no longer depend on which agent CLIs are installed on the runner.
 
 ## [0.8.1] – 2026-06-08
 
