@@ -3942,6 +3942,109 @@ select {
 	color: var(--text-muted);
 }
 
+/* ---- Sidebar workflow lens: a mini dashboard inspector, set apart from the
+   shells above it by a top divider. ---- */
+.workflow-row {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	width: 100%;
+	text-align: left;
+	margin-top: var(--space-2);
+	padding: var(--space-2);
+	border: 1px solid var(--panel-border);
+	border-radius: var(--radius-md);
+	background: var(--panel-bg-elevated);
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+.workflow-row:hover {
+	border-color: var(--panel-border-strong);
+}
+.workflow-row__header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+.workflow-row__caption {
+	color: var(--text-muted);
+	font-size: 0.66rem;
+}
+.workflow-row__type {
+	display: inline-flex;
+	align-items: center;
+	padding: 0 6px;
+	height: 16px;
+	border-radius: var(--radius-sm);
+	font-size: 0.66rem;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	background: color-mix(in srgb, var(--sha-color) 16%, transparent);
+	color: var(--sha-color);
+}
+.workflow-row__artifact {
+	color: var(--text-secondary);
+	font-size: 0.68rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.workflow-row__phase {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 5px;
+	color: var(--text-muted);
+	font-size: 0.68rem;
+}
+.workflow-row__round::before {
+	content: "· ";
+}
+.workflow-row__status {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	margin-left: auto;
+	padding: 1px 7px;
+	border-radius: 999px;
+	font-size: 0.66rem;
+	font-weight: 600;
+	flex-shrink: 0;
+}
+.workflow-row__status-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: currentColor;
+}
+/* Semantic status colors: live / complete / idle / needs-attention / urgent. */
+.workflow-row__status[data-status="running"] {
+	color: var(--accent);
+	background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.workflow-row__status[data-status="done"] {
+	color: #69c06a;
+	background: color-mix(in srgb, #69c06a 12%, transparent);
+}
+.workflow-row__status[data-status="paused"],
+.workflow-row__status[data-status="canceled"] {
+	color: var(--text-muted);
+	background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+}
+.workflow-row__status[data-status="halted"] {
+	color: var(--warning);
+	background: color-mix(in srgb, var(--warning) 14%, transparent);
+}
+.workflow-row__status[data-status="escalated"] {
+	color: var(--danger);
+	background: color-mix(in srgb, var(--danger) 16%, transparent);
+}
+.workflow-row__daemon-down,
+.workflow-row__stale {
+	font-size: 0.68rem;
+	color: var(--warning);
+}
+
 /* ---- Terminal layout dialog ---- */
 .shell-layout-dialog__overlay {
 	position: fixed;

@@ -144,7 +144,7 @@ export class WhisperStoreReader {
 		try {
 			const wf = db
 				.prepare(
-					`SELECT workflow_id, workflow_type, status, current_phase_index, halt_reason, updated_at
+					`SELECT workflow_id, workflow_type, spec_path, status, current_phase_index, halt_reason, updated_at
 					 FROM workflows WHERE collab_id = ?
 					 ORDER BY updated_at DESC LIMIT 1`,
 				)
@@ -174,6 +174,7 @@ export class WhisperStoreReader {
 			return {
 				workflowId: wf.workflow_id as string,
 				workflowType: wf.workflow_type as string,
+				specPath: (wf.spec_path as string | null) ?? "",
 				status: wf.status as string,
 				currentPhaseIndex: wf.current_phase_index as number,
 				phaseName: (phase?.phase_name as string | undefined) ?? null,

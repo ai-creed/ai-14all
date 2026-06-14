@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { WhisperWorktreeState } from "../../../shared/models/ecosystem-plugin";
 import {
+	artifactLabel,
 	diffWorkflowAttention,
 	toWorkflowRow,
 } from "../../../src/features/workflows/logic/workflow-lens";
@@ -15,6 +16,7 @@ const base: WhisperWorktreeState = {
 	workflow: {
 		workflowId: "wf1",
 		workflowType: "spec-driven-development",
+		specPath: "docs/superpowers/specs/terminal-chrome.md",
 		status: "running",
 		currentPhaseIndex: 1,
 		phaseName: "implementation",
@@ -32,16 +34,61 @@ describe("toWorkflowRow", () => {
 			worktreeId: "wt-1",
 			workflowId: "wf1",
 			workflowType: "spec-driven-development",
+			typeLabel: "SDD",
+			artifact: "terminal-chrome.md",
 			phaseName: "implementation",
 			roundLabel: "2/3",
 			status: "running",
+			escalated: false,
 			daemonAlive: true,
 			liveFeed: "socket",
 		});
 	});
 
+	it("labels the known workflow types and passes unknown ones through", () => {
+		const typeLabel = (workflowType: string) =>
+			toWorkflowRow({ ...base, workflow: { ...base.workflow!, workflowType } })
+				?.typeLabel;
+		expect(typeLabel("spec-driven-development")).toBe("SDD");
+		expect(typeLabel("ralph-loop")).toBe("Ralph");
+		expect(typeLabel("complex-bug-fixing")).toBe("Bugfix");
+		expect(typeLabel("something-new")).toBe("something-new");
+	});
+
+	it("derives the artifact basename, or null when no spec path", () => {
+		const artifact = (specPath: string) =>
+			toWorkflowRow({ ...base, workflow: { ...base.workflow!, specPath } })
+				?.artifact;
+		expect(artifact("a/b/payments-api.md")).toBe("payments-api.md");
+		expect(artifact("refactor-auth")).toBe("refactor-auth");
+		expect(artifact("")).toBeNull();
+	});
+
+	it("flags escalation from the worktree state", () => {
+		expect(
+			toWorkflowRow({
+				...base,
+				escalation: { chainId: "ch9", reason: "agents disagree" },
+			})?.escalated,
+		).toBe(true);
+		expect(toWorkflowRow(base)?.escalated).toBe(false);
+	});
+
 	it("returns null when there is no workflow", () => {
 		expect(toWorkflowRow({ ...base, workflow: null })).toBeNull();
+	});
+});
+
+describe("artifactLabel", () => {
+	it("returns the basename for a real path", () => {
+		expect(artifactLabel("a/b/payments-api.md")).toBe("payments-api.md");
+	});
+	it("does not throw on missing data (IPC skew / older snapshot)", () => {
+		// A main process pushing pre-specPath snapshots sends `undefined`; the
+		// renderer must degrade to "no artifact", never crash the app render.
+		expect(artifactLabel(undefined)).toBeNull();
+		expect(artifactLabel(null)).toBeNull();
+		expect(artifactLabel("")).toBeNull();
 	});
 });
 

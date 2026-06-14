@@ -5,12 +5,43 @@ export type WorkflowRow = {
 	worktreeId: string;
 	workflowId: string;
 	workflowType: string;
+	/** Friendly short label for the workflow type (SDD/Ralph/Bugfix). */
+	typeLabel: string;
+	/** Basename of the workflow's spec/artifact, or null when none is set. */
+	artifact: string | null;
 	phaseName: string | null;
 	roundLabel: string | null;
 	status: string;
+	/** The collab's relay chain has escalated to a human (separate from status). */
+	escalated: boolean;
 	daemonAlive: boolean;
 	liveFeed: "socket" | "polling";
 };
+
+/** Friendly short labels for whisper's known workflow_type values. */
+const WORKFLOW_TYPE_LABELS: Record<string, string> = {
+	"spec-driven-development": "SDD",
+	"ralph-loop": "Ralph",
+	"complex-bug-fixing": "Bugfix",
+};
+
+/** Map a raw workflow_type to a short label; unknown types pass through. */
+export function workflowTypeLabel(type: string): string {
+	return WORKFLOW_TYPE_LABELS[type] ?? type;
+}
+
+/**
+ * The artifact's display name: the spec path's basename, or null when empty.
+ * Tolerates missing data (null/undefined) — IPC snapshots are untyped at
+ * runtime, so a version skew or older snapshot must degrade to "no artifact"
+ * rather than crash the render.
+ */
+export function artifactLabel(
+	specPath: string | null | undefined,
+): string | null {
+	const base = (specPath ?? "").trim().split("/").filter(Boolean).pop();
+	return base ?? null;
+}
 
 export function toWorkflowRow(state: WhisperWorktreeState): WorkflowRow | null {
 	if (state.workflow === null) return null;
@@ -19,9 +50,12 @@ export function toWorkflowRow(state: WhisperWorktreeState): WorkflowRow | null {
 		worktreeId: state.worktreeId,
 		workflowId: wf.workflowId,
 		workflowType: wf.workflowType,
+		typeLabel: workflowTypeLabel(wf.workflowType),
+		artifact: artifactLabel(wf.specPath),
 		phaseName: wf.phaseName,
 		roundLabel: wf.round ? `${wf.round.current}/${wf.round.max}` : null,
 		status: wf.status,
+		escalated: state.escalation !== null,
 		daemonAlive: state.daemonAlive,
 		liveFeed: state.liveFeed,
 	};

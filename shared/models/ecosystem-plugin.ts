@@ -43,6 +43,8 @@ export type WhisperWorkflowSnapshot = {
 	// whisper's read contract and are not pinned until that doc ships.
 	// Known statuses today: running | paused | halted | done | canceled.
 	workflowType: string;
+	/** whisper's workflows.spec_path — the artifact the workflow runs against. */
+	specPath: string;
 	status: string;
 	currentPhaseIndex: number;
 	phaseName: string | null;

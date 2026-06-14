@@ -38,6 +38,7 @@ function makeState(
 		workflow: {
 			workflowId: "wf1",
 			workflowType: "spec-driven-development",
+			specPath: "docs/specs/payments-api.md",
 			status: statusOverride ?? "running",
 			currentPhaseIndex: 0,
 			phaseName: "implementation",

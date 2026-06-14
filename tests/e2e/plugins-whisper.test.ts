@@ -252,7 +252,7 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 		// a path with its own timing. The lens flipping `.workflow-row` to
 		// "halted" inside the 10s window is itself the unambiguous socket proof.
 		await expect(row).toContainText("halted", { timeout: 10_000 });
-		await expect(row.locator(".workflow-status")).toHaveAttribute(
+		await expect(row.locator(".workflow-row__status")).toHaveAttribute(
 			"data-status",
 			"halted",
 			{ timeout: 10_000 },

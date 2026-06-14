@@ -13,6 +13,7 @@ const state = (status: string): WhisperWorktreeState => ({
 	workflow: {
 		workflowId: "wf1",
 		workflowType: "sdd",
+		specPath: "",
 		status,
 		currentPhaseIndex: 0,
 		phaseName: "implementation",

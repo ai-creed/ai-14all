@@ -26,6 +26,7 @@ export interface WhisperFixture {
 		workflow_id: string;
 		collab_id: string;
 		workflow_type?: string;
+		spec_path?: string;
 		status?: string;
 		current_phase_index?: number;
 		halt_reason?: string | null;

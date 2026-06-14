@@ -80,6 +80,7 @@ describe("WhisperStoreReader", () => {
 				{
 					workflow_id: "wf1",
 					collab_id: "c1",
+					spec_path: "docs/specs/payments.md",
 					status: "running",
 					current_phase_index: 1,
 				},
@@ -110,6 +111,7 @@ describe("WhisperStoreReader", () => {
 		const wf = reader.readActiveWorkflow("c1");
 		expect(wf).toMatchObject({
 			workflowId: "wf1",
+			specPath: "docs/specs/payments.md",
 			status: "running",
 			currentPhaseIndex: 1,
 			phaseName: "implementation",
