@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { AgentCliProbes } from "../../../shared/models/ecosystem-plugin";
-import { composeCortexConfigureCommand } from "../../../src/features/plugins/components/PluginsPanelDialog";
+import {
+	composeCortexConfigureCommand,
+	cortexConfigureHandler,
+} from "../../../src/features/plugins/components/PluginsPanelDialog";
 
 const found = (path: string) => ({
 	kind: "found" as const,
@@ -48,5 +51,29 @@ describe("composeCortexConfigureCommand", () => {
 
 	it("handles null probes (not yet loaded) → just the setup commands", () => {
 		expect(composeCortexConfigureCommand(null)).toBe(SETUP);
+	});
+});
+
+describe("cortexConfigureHandler", () => {
+	it("returns undefined while probes are loading (null) so Configure is hidden", () => {
+		// Guards spec D5: never offer Configure before probes resolve, or a click
+		// would compose a subset command that omits the MCP registrations.
+		expect(cortexConfigureHandler(null, () => {})).toBeUndefined();
+	});
+
+	it("returns a handler that composes the FULL command once probes resolve", () => {
+		const probes: AgentCliProbes = {
+			claude: found("/c"),
+			codex: found("/x"),
+			ezio: notFound,
+		};
+		const calls: string[] = [];
+		const handler = cortexConfigureHandler(probes, (cmd) => calls.push(cmd));
+		expect(handler).toBeTypeOf("function");
+		handler?.();
+		expect(calls).toEqual([composeCortexConfigureCommand(probes)]);
+		// The full command includes both MCP registrations (not a subset).
+		expect(calls[0]).toContain("claude mcp add");
+		expect(calls[0]).toContain("codex mcp add");
 	});
 });

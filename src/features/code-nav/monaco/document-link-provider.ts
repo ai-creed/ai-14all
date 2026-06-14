@@ -8,6 +8,10 @@ export const OUTSIDE_WORKTREE_URI = "cortex://outside-worktree";
 const fileSetCache = new Map<string, { at: number; files: Set<string> }>();
 const TTL_MS = 30_000;
 
+export function invalidateDocumentLinkCache(): void {
+	fileSetCache.clear();
+}
+
 async function loadFileSet(ref: {
 	workspaceId: string;
 	worktreeId: string;

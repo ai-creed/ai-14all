@@ -32,6 +32,21 @@ export function composeCortexConfigureCommand(
 	return steps.join("; ");
 }
 
+/**
+ * Build the cortex "Configure" click handler — or `undefined` while the agent-CLI
+ * probes are still loading (`probes === null`). Returning `undefined` hides the
+ * Configure button until probes resolve, so a click can never compose a command
+ * that omits the per-agent MCP registrations (composing from null probes would
+ * drop them — a subset wiring that violates spec D5).
+ */
+export function cortexConfigureHandler(
+	probes: AgentCliProbes | null,
+	onConfigure: (command: string) => void,
+): (() => void) | undefined {
+	if (!probes) return undefined;
+	return () => onConfigure(composeCortexConfigureCommand(probes));
+}
+
 const DESCRIPTORS: Record<EcosystemPluginId, PluginDescriptor> = {
 	whisper: {
 		title: "ai-whisper",
@@ -153,10 +168,7 @@ export function PluginsPanelDialog(props: {
 								onInstall={props.onInstall}
 								onConfigure={
 									snapshot.id === "cortex"
-										? () =>
-												props.onConfigure(
-													composeCortexConfigureCommand(agentClis),
-												)
+										? cortexConfigureHandler(agentClis, props.onConfigure)
 										: undefined
 								}
 								onReprobe={() => {

@@ -5,11 +5,15 @@ import {
 } from "./definition-provider.js";
 import {
 	documentLinkProvider,
+	invalidateDocumentLinkCache,
 	OUTSIDE_WORKTREE_URI,
 } from "./document-link-provider.js";
 import { NavHistory } from "../nav/nav-history.js";
 import { NavRouter, type ActiveContext } from "../nav/nav-router.js";
-import { subscribeWorktreeIndexRefreshed } from "../ipc/events.js";
+import {
+	subscribeAvailabilityChanged,
+	subscribeWorktreeIndexRefreshed,
+} from "../ipc/events.js";
 import {
 	getCodeNavToast,
 	getModelProvisioner,
@@ -208,12 +212,21 @@ export function registerCodeNavProviders(deps: {
 		w.__codeNavTestRouter = navRouter;
 		w.__codeNavTestDispatch = deps.dispatch;
 	}
-	const unsub = subscribeWorktreeIndexRefreshed(() => {
+	// Both a worktree re-index AND a cortex enable/disable toggle must clear the
+	// renderer-side code-nav caches — otherwise a disabled cortex would keep
+	// serving stale definitions / document links from the 30s provider caches,
+	// bypassing the main-process IPC gate (spec D1). availabilityChanged fires on
+	// every cortex toggle (emitted by the cortex driver's start/stop).
+	const invalidateCaches = () => {
 		invalidateDefinitionCache();
+		invalidateDocumentLinkCache();
 		getModelProvisioner()?.disposeAll();
-	});
+	};
+	const unsubRefreshed = subscribeWorktreeIndexRefreshed(invalidateCaches);
+	const unsubAvailability = subscribeAvailabilityChanged(invalidateCaches);
 	return () => {
-		unsub();
+		unsubRefreshed();
+		unsubAvailability();
 		getModelProvisioner()?.disposeAll();
 		setModelProvisioner(null);
 		navRouter = null;
