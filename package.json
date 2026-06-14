@@ -10,6 +10,7 @@
 	"type": "module",
 	"main": "out/main/index.js",
 	"scripts": {
+		"predev": "electron-rebuild -f -w better-sqlite3 || true",
 		"dev": "electron-vite dev",
 		"build": "electron-vite build",
 		"preview": "electron-vite preview",
@@ -19,6 +20,7 @@
 		"format:write": "prettier --write .",
 		"postinstall": "node scripts/ensure-node-pty-spawn-helper.mjs",
 		"typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.test.json",
+		"pretest": "node scripts/rebuild-better-sqlite3-host.mjs || true",
 		"test": "vitest run --passWithNoTests",
 		"test:perf": "vitest run --config vitest.perf.config.ts",
 		"pretest:e2e": "electron-rebuild -f -w better-sqlite3 || true",
