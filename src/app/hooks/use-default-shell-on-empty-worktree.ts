@@ -5,6 +5,16 @@ type Options = {
 	activeWorktreeId: string | null | undefined;
 	activeSessionProcessCount: number;
 	hasActiveSession: boolean;
+	/**
+	 * Tri-state agent-CLI detection:
+	 * - `null`  → detection still pending; defer (don't create a shell yet, so we
+	 *   never race a default shell in before we know whether agents exist).
+	 * - `true`  → an agent CLI is detected; skip the auto default shell and leave
+	 *   the first slot empty for the user to fill intentionally (an agent via the
+	 *   launcher, or a plain shell via the slot's start-a-shell CTA).
+	 * - `false` → no agent CLI; create the default shell as before.
+	 */
+	agentsAvailable: boolean | null;
 	createDefaultShell: () => Promise<unknown>;
 };
 
@@ -31,6 +41,7 @@ export function useDefaultShellOnEmptyWorktree(
 		activeWorktreeId,
 		activeSessionProcessCount,
 		hasActiveSession,
+		agentsAvailable,
 		createDefaultShell,
 	} = options;
 	const ensuredRef = useRef<Set<string>>(new Set());
@@ -39,6 +50,12 @@ export function useDefaultShellOnEmptyWorktree(
 		if (startupMode !== "ready") return;
 		if (!activeWorktreeId || !hasActiveSession) return;
 		if (activeSessionProcessCount > 0) return;
+		// Detection still pending: defer rather than create a shell we might have
+		// skipped. Neither branch marks the worktree ensured, so a later resolution
+		// (or a flip back to no-agents) still gets its correct outcome.
+		if (agentsAvailable === null) return;
+		// Agents present: leave the slot empty for an intentional choice.
+		if (agentsAvailable) return;
 		if (ensuredRef.current.has(activeWorktreeId)) return;
 
 		ensuredRef.current.add(activeWorktreeId);
@@ -46,7 +63,12 @@ export function useDefaultShellOnEmptyWorktree(
 			ensuredRef.current.delete(activeWorktreeId);
 		});
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- guarded one-time default shell creation per worktree
-	}, [startupMode, activeWorktreeId, activeSessionProcessCount]);
+	}, [
+		startupMode,
+		activeWorktreeId,
+		activeSessionProcessCount,
+		agentsAvailable,
+	]);
 
 	const resetAll = useCallback(() => {
 		ensuredRef.current.clear();

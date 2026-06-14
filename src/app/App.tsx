@@ -87,6 +87,7 @@ import { ToastProvider, notifyToast } from "../features/ui/toast/ToastProvider";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { TerminalActions } from "../features/terminals/components/TerminalActions";
 import { AgentLauncherBar } from "../features/terminals/components/AgentLauncherBar";
+import { visibleProviders } from "../features/terminals/logic/agent-launch";
 import { TerminalChromeHeader } from "../features/terminals/components/TerminalChromeHeader";
 import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
 import { PluginsPanelDialog } from "../features/plugins/components/PluginsPanelDialog";
@@ -934,6 +935,10 @@ export function App() {
 		activeWorktreeId: activeWorktree?.id,
 		activeSessionProcessCount: activeSession?.processSessionIds.length ?? 0,
 		hasActiveSession: !!activeSession,
+		// null while the agent-CLI probe is still loading, so the hook defers
+		// rather than racing a default shell in before detection resolves.
+		agentsAvailable:
+			agentClis === null ? null : visibleProviders(agentClis).length > 0,
 		createDefaultShell: handleAddAdHoc,
 	});
 
