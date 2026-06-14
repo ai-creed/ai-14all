@@ -13,7 +13,10 @@ type Props = {
  * right. A sibling of the Session region (NOT aria-label="Session"), so the
  * global shortcuts and the Session-region geometry are unaffected (spec §8).
  */
-export function TerminalChromeHeader({ agentLauncher, terminalActions }: Props) {
+export function TerminalChromeHeader({
+	agentLauncher,
+	terminalActions,
+}: Props) {
 	return (
 		<div
 			className="terminal-chrome-header"

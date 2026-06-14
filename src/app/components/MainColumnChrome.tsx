@@ -58,7 +58,6 @@ type Props = {
 
 	/** Opens the global Plugins panel. Wired to a button beside the usage strip. */
 	onOpenPlugins: () => void;
-
 };
 
 /**

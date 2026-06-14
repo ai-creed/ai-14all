@@ -39,11 +39,11 @@ const bound = (...agents: string[]) =>
 
 describe("visibleProviders", () => {
 	it("returns only found providers, in stable order", () => {
-		expect(visibleProviders(probes({ ezio: { kind: "found", path: "/bin/ezio", version: null } }))).toEqual([
-			"claude",
-			"codex",
-			"ezio",
-		]);
+		expect(
+			visibleProviders(
+				probes({ ezio: { kind: "found", path: "/bin/ezio", version: null } }),
+			),
+		).toEqual(["claude", "codex", "ezio"]);
 	});
 	it("filters out not-found providers", () => {
 		expect(visibleProviders(probes({ codex: { kind: "not-found" } }))).toEqual([
@@ -67,12 +67,20 @@ describe("launchCommandFor", () => {
 	});
 	it("whisper unhealthy → plain provider spawn", () => {
 		expect(
-			launchCommandFor("codex", { ...base, whisperHealthy: false, boundCount: 0 }),
+			launchCommandFor("codex", {
+				...base,
+				whisperHealthy: false,
+				boundCount: 0,
+			}),
 		).toBe("codex");
 	});
 	it("whisper healthy, no collab → mount (creates collab)", () => {
 		expect(
-			launchCommandFor("claude", { ...base, whisperHealthy: true, boundCount: 0 }),
+			launchCommandFor("claude", {
+				...base,
+				whisperHealthy: true,
+				boundCount: 0,
+			}),
 		).toBe("whisper collab mount claude");
 	});
 	it("whisper healthy, live collab 1 bound → mount (fills 2nd slot)", () => {
@@ -122,7 +130,9 @@ describe("launchCommandFor", () => {
 describe("collabStatus", () => {
 	it("null when whisper not healthy", () => {
 		expect(collabStatus(undefined, false)).toBeNull();
-		expect(collabStatus(state({ bindings: bound("claude") }), false)).toBeNull();
+		expect(
+			collabStatus(state({ bindings: bound("claude") }), false),
+		).toBeNull();
 	});
 	it("muted when no collab yet (0 bound)", () => {
 		expect(collabStatus(undefined, true)).toEqual({
@@ -192,7 +202,10 @@ describe("mount-pending state machine", () => {
 		).toEqual({ kind: "idle" });
 	});
 	it("clears once a new binding lands", () => {
-		const pending = beginMountPending(state({ bindings: bound("claude") }), 1000);
+		const pending = beginMountPending(
+			state({ bindings: bound("claude") }),
+			1000,
+		);
 		expect(
 			advanceMountPending(
 				pending,
