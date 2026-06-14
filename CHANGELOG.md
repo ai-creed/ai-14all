@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.1] – 2026-06-14
+
+### Fixed
+
+- **Plugins panel no longer mislabels an installed ai-whisper as "not installed" when ai-14all is launched from Finder/Dock.** Such launches inherit only the bare macOS GUI PATH (without `/opt/homebrew/bin`), so the probe (`whisper env --json`) could not find the `node` interpreter its shebang needs and failed — leaving an Install button that reinstalling could never clear. ai-14all now repairs its PATH from a login shell at startup (packaged macOS builds) before probing. As a safety net, a tool whose binary resolves but cannot be probed is now reported as "degraded" with a Re-probe action rather than "not installed", so a present-but-unusable peer never shows a misleading Install button.
+
 ## [0.9.0] – 2026-06-14
 
 ### Added
