@@ -40,7 +40,13 @@ function setUpAgentCliStubs(): { binDir: string; env: Record<string, string> } {
 	);
 	return {
 		binDir,
-		env: { PATH: `${binDir}:${process.env.PATH ?? ""}` },
+		// PATH stubs make the spawned `claude`/`codex`/`ezio` commands runnable;
+		// AI14ALL_FAKE_AGENT_CLIS makes the (PATH-ignoring) e2e probe report them
+		// as found so the launcher chips render.
+		env: {
+			PATH: `${binDir}:${process.env.PATH ?? ""}`,
+			AI14ALL_FAKE_AGENT_CLIS: "claude,codex,ezio",
+		},
 	};
 }
 

@@ -101,6 +101,27 @@ export function createCapabilityProbeService(
 	return {
 		probeAgentClis() {
 			return cached("agents", async () => {
+				// E2e seam: agent detection must be deterministic, not depend on the
+				// host's installed CLIs (ambient `claude`/`codex`/`ezio` on PATH would,
+				// e.g., suppress the default shell). Under AI14ALL_E2E we ignore PATH
+				// and report only the agents a test opts in via AI14ALL_FAKE_AGENT_CLIS
+				// (comma-separated; unset/empty → none found).
+				if (process.env.AI14ALL_E2E === "1") {
+					const found = new Set(
+						(process.env.AI14ALL_FAKE_AGENT_CLIS ?? "")
+							.split(",")
+							.map((s) => s.trim())
+							.filter(Boolean),
+					);
+					return Object.fromEntries(
+						AGENT_CLIS.map((name) => [
+							name,
+							found.has(name)
+								? { kind: "found", path: `/fake/${name}`, version: null }
+								: { kind: "not-found" },
+						]),
+					) as AgentCliProbes;
+				}
 				const entries = await Promise.all(
 					AGENT_CLIS.map(
 						async (name) => [name, await probeAgentCli(name)] as const,
