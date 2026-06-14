@@ -7,6 +7,10 @@ import type { AgentProvider } from "../../../../shared/models/agent-attention";
 // or EOS, so `claude-helper`, `myclaude`, `claudette` all fail.
 const CLAUDE_COMMAND = /(?:^|[\s/\\])claude(?=\s|$)/i;
 const CODEX_COMMAND = /(?:^|[\s/\\])codex(?=\s|$)/i;
+// `ezio` ships under two binary names — `ezio` and the `ai-ezio` alias — so the
+// optional `ai-` prefix matches both, while the boundary/lookahead still reject
+// `myezio`, `ezio-helper`, and `ai-ezio-helper`.
+const EZIO_COMMAND = /(?:^|[\s/\\])(?:ai-)?ezio(?=\s|$)/i;
 
 function matchCommand(
 	command: string | null | undefined,
@@ -14,6 +18,7 @@ function matchCommand(
 	if (!command) return null;
 	if (CLAUDE_COMMAND.test(command)) return "claude";
 	if (CODEX_COMMAND.test(command)) return "codex";
+	if (EZIO_COMMAND.test(command)) return "ezio";
 	return null;
 }
 
@@ -23,10 +28,13 @@ function matchLabel(label: string | undefined): AgentProvider | null {
 	if (!label) return null;
 	if (/\bclaude\b/i.test(label)) return "claude";
 	if (/\bcodex\b/i.test(label)) return "codex";
+	// `\bezio\b` already matches the `ai-ezio` alias: the hyphen is a word
+	// boundary, so "ai-ezio" contains the standalone token "ezio".
+	if (/\bezio\b/i.test(label)) return "ezio";
 	return null;
 }
 
-// Returns "claude" | "codex" | null. Never emits "other" — that bucket is set by other code paths, not command/label sniffing.
+// Returns "claude" | "codex" | "ezio" | null. Never emits "other" — that bucket is set by other code paths, not command/label sniffing.
 /**
  * Detect the agent provider for a process. Sticky behavior:
  *

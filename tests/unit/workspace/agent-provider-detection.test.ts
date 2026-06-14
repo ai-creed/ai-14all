@@ -15,6 +15,25 @@ describe("detectAgentProvider", () => {
 		expect(detectAgentProvider("codex --yolo", undefined, null)).toBe("codex");
 	});
 
+	it("identifies ezio and its ai-ezio alias from command line", () => {
+		expect(detectAgentProvider("ezio", undefined, null)).toBe("ezio");
+		expect(detectAgentProvider("ai-ezio --flag", undefined, null)).toBe("ezio");
+		expect(detectAgentProvider("/usr/local/bin/ai-ezio", undefined, null)).toBe(
+			"ezio",
+		);
+		expect(
+			detectAgentProvider("whisper collab mount ezio", undefined, null),
+		).toBe("ezio");
+		expect(
+			detectAgentProvider("whisper collab mount ai-ezio", undefined, null),
+		).toBe("ezio");
+	});
+
+	it("identifies ezio (and the alias) from CLI title", () => {
+		expect(detectAgentProvider("bash", "ezio", null)).toBe("ezio");
+		expect(detectAgentProvider("bash", "ai-ezio session", null)).toBe("ezio");
+	});
+
 	it("returns null for unknown commands", () => {
 		expect(detectAgentProvider("bash", undefined, null)).toBeNull();
 		expect(detectAgentProvider("git status", undefined, null)).toBeNull();
@@ -49,6 +68,9 @@ describe("detectAgentProvider", () => {
 			detectAgentProvider("/opt/claudette/bin/x", undefined, null),
 		).toBeNull();
 		expect(detectAgentProvider("codex-wrapper", undefined, null)).toBeNull();
+		expect(detectAgentProvider("ezio-helper", undefined, null)).toBeNull();
+		expect(detectAgentProvider("myezio", undefined, null)).toBeNull();
+		expect(detectAgentProvider("ai-ezio-helper", undefined, null)).toBeNull();
 	});
 
 	it("matches binary at a path basename", () => {

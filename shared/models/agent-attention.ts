@@ -35,4 +35,4 @@ export const AGENT_ATTENTION_RANK: Record<AgentAttentionState, number> = {
 	waiting: 5,
 };
 
-export type AgentProvider = "claude" | "codex" | "other";
+export type AgentProvider = "claude" | "codex" | "ezio" | "other";

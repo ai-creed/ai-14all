@@ -3916,6 +3916,11 @@ select {
 	color: var(--provider-codex);
 }
 
+.shell-sidebar__provider-badge[data-provider="ezio"] {
+	background: color-mix(in srgb, var(--provider-ezio) 14%, transparent);
+	color: var(--provider-ezio);
+}
+
 .shell-sidebar__provider-badge[data-provider="other"] {
 	background: color-mix(in srgb, var(--text-muted) 14%, transparent);
 	color: var(--text-muted);

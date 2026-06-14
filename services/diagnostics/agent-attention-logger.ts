@@ -22,6 +22,14 @@ import { z } from "zod";
 export type AgentAttentionLogMode = "off" | "sampled" | "full";
 
 /**
+ * Providers the attention logger records. Mirrors `AgentProvider` (and the
+ * `AttentionLogProvider` mirror in shared/contracts/commands.ts, enforced by the
+ * bidirectional assertion in electron/main/ipc.ts). Kept as one alias so all
+ * four event shapes and the Zod schema share a single source of truth.
+ */
+type AttentionLogProvider = "claude" | "codex" | "ezio" | "other" | null;
+
+/**
  * A classifier decision event: the attention classifier evaluated terminal
  * output for a process and produced a state.
  */
@@ -30,7 +38,7 @@ export type ClassifierLogEvent = {
 	ts: number;
 	worktreeId: string;
 	processId: string;
-	provider: "claude" | "codex" | "other" | null;
+	provider: AttentionLogProvider;
 	state: "waiting" | "ready" | "failed" | "stale";
 	matchedPattern: string;
 	inputSample: string;
@@ -45,7 +53,7 @@ export type MCPLogEvent = {
 	type: "mcp";
 	ts: number;
 	worktreeId: string;
-	provider: "claude" | "codex" | "other" | null;
+	provider: AttentionLogProvider;
 	state: "active" | "waiting" | "ready" | "failed";
 	summary: string;
 	task: string | null | undefined;
@@ -73,7 +81,7 @@ export type LifecycleLogEvent = {
 	ts: number;
 	worktreeId: string;
 	terminalSessionId: string;
-	provider: "claude" | "codex" | "other" | null;
+	provider: AttentionLogProvider;
 	state: "active" | "failed";
 	exitCode: number | null;
 };
@@ -87,7 +95,7 @@ export type ResolutionLogEvent = {
 	ts: number;
 	worktreeId: string;
 	processId: string | null;
-	provider: "claude" | "codex" | "other" | null;
+	provider: AttentionLogProvider;
 	before: { state: string; source: string; summary?: string } | null;
 	after: { state: string; source: string; summary?: string } | null;
 };
@@ -102,7 +110,7 @@ export type AttentionLogEvent =
 	| LifecycleLogEvent
 	| ResolutionLogEvent;
 
-const ProviderSchema = z.enum(["claude", "codex", "other"]).nullable();
+const ProviderSchema = z.enum(["claude", "codex", "ezio", "other"]).nullable();
 
 const ClassifierLogEventSchema = z.object({
 	type: z.literal("classifier"),

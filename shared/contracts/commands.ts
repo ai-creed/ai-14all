@@ -247,7 +247,7 @@ export const LogShellEventSchema = z.object({
 // handler re-validates with the canonical schema before persisting.
 export const DIAGNOSTICS_ATTENTION_EVENT = "diagnostics:attention-event";
 
-type AttentionLogProvider = "claude" | "codex" | "other" | null;
+type AttentionLogProvider = "claude" | "codex" | "ezio" | "other" | null;
 
 export type DiagnosticsAttentionLogEvent =
 	| {
