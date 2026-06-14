@@ -10,7 +10,12 @@ export type ProbeResult =
 			installPath: string;
 			protocolVersion: string;
 	  }
-	| { kind: "incompatible"; found: string; required: string };
+	| { kind: "incompatible"; found: string; required: string }
+	// Binary resolved but the probe could not get a usable env report (failed to
+	// exec, timed out, or returned unreadable output). "Present but unusable" —
+	// distinct from not-installed, which is owned by the driver's null-binary
+	// check, so the panel shows a Re-probe affordance, never a misleading Install.
+	| { kind: "degraded"; reason: string };
 
 // Maps 1:1 to the Plugins-panel chip.
 export type PluginRuntimeStatus =

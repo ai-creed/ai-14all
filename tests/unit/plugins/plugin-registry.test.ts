@@ -105,6 +105,27 @@ describe("createPluginRegistry", () => {
 		expect(registry.snapshots()[0].status.state).toBe("incompatible");
 	});
 
+	it("boot: degraded probe → status degraded with reason, does not start", async () => {
+		const driver = fakeDriver({
+			probe: vi.fn(
+				async (): Promise<ProbeResult> => ({
+					kind: "degraded",
+					reason: "could not run `whisper env --json`",
+				}),
+			),
+		});
+		const registry = createPluginRegistry(
+			[driver],
+			fakeConfig({ enabled: true }),
+		);
+		await registry.boot();
+		expect(driver.start).not.toHaveBeenCalled();
+		expect(registry.snapshots()[0].status).toEqual({
+			state: "degraded",
+			reason: "could not run `whisper env --json`",
+		});
+	});
+
 	it("config flip on → re-probes and starts; flip off → stops", async () => {
 		const driver = fakeDriver();
 		const config = fakeConfig({ enabled: false });

@@ -61,6 +61,8 @@ function statusOf(entry: Entry, enabled: boolean): PluginRuntimeStatus {
 			found: probe.found,
 			required: probe.required,
 		};
+	if (probe.kind === "degraded")
+		return { state: "degraded", reason: probe.reason };
 	if (!enabled) return { state: "installed-off", version: probe.version };
 	if (entry.running)
 		return {

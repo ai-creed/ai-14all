@@ -88,26 +88,42 @@ describe("probeWhisper", () => {
 		});
 	});
 
-	it("maps garbage stdout to not-installed", async () => {
+	// `not-installed` is owned solely by the driver's `binary === null` check.
+	// By the time probeWhisper runs, the binary was resolved (it exists), so
+	// every failure is "present but unusable" → degraded, never not-installed.
+	// Otherwise a transient probe hiccup shows a misleading Install button.
+
+	it("maps garbage stdout to degraded", async () => {
 		const bin = fakeWhisper('echo "not json at all"');
 		expect(
 			await probeWhisper({ command: bin, prefixArgs: [] }, { timeoutMs: 2000 }),
-		).toEqual({ kind: "not-installed" });
+		).toEqual({
+			kind: "degraded",
+			reason: "`whisper env --json` returned unreadable output",
+		});
 	});
 
-	it("maps timeout to not-installed", async () => {
+	it("maps timeout to degraded", async () => {
 		const bin = fakeWhisper("sleep 30");
 		expect(
 			await probeWhisper({ command: bin, prefixArgs: [] }, { timeoutMs: 100 }),
-		).toEqual({ kind: "not-installed" });
+		).toEqual({
+			kind: "degraded",
+			reason: "could not run `whisper env --json`",
+		});
 	});
 
-	it("maps spawn failure (missing binary) to not-installed", async () => {
+	it("maps an un-runnable binary (e.g. missing node interpreter) to degraded", async () => {
+		// Mirrors the real bug: the binary resolves but its `#!/usr/bin/env node`
+		// shebang can't find node, so the exec fails — present, not absent.
 		expect(
 			await probeWhisper(
 				{ command: "/nope/whisper", prefixArgs: [] },
 				{ timeoutMs: 2000 },
 			),
-		).toEqual({ kind: "not-installed" });
+		).toEqual({
+			kind: "degraded",
+			reason: "could not run `whisper env --json`",
+		});
 	});
 });

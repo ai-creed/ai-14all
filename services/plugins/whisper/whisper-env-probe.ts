@@ -35,19 +35,31 @@ export function probeWhisper(
 						});
 						return;
 					}
-					resolve({ kind: "not-installed" });
+					// The binary resolved but would not run (failed to exec — e.g. a
+					// missing `node` interpreter for the shebang — or timed out). It is
+					// present, just unusable: degraded, not absent.
+					resolve({
+						kind: "degraded",
+						reason: "could not run `whisper env --json`",
+					});
 					return;
 				}
 				let parsed: unknown;
 				try {
 					parsed = JSON.parse(stdout);
 				} catch {
-					resolve({ kind: "not-installed" });
+					resolve({
+						kind: "degraded",
+						reason: "`whisper env --json` returned unreadable output",
+					});
 					return;
 				}
 				const report = WhisperEnvReportSchema.safeParse(parsed);
 				if (!report.success) {
-					resolve({ kind: "not-installed" });
+					resolve({
+						kind: "degraded",
+						reason: "`whisper env --json` returned unreadable output",
+					});
 					return;
 				}
 				const schema = report.data.dbSchemaVersion;
