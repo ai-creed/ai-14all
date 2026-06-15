@@ -4,7 +4,7 @@ import type {
 	AgentCliProbes,
 	EcosystemPluginId,
 } from "../../../../shared/models/ecosystem-plugin";
-import { plugins } from "../../../lib/desktop-client";
+import { plugins, system } from "../../../lib/desktop-client";
 import { usePluginsState } from "../hooks/use-plugins-state";
 import { PluginCard, type PluginDescriptor } from "./PluginCard";
 
@@ -53,12 +53,14 @@ const DESCRIPTORS: Record<EcosystemPluginId, PluginDescriptor> = {
 		pitch:
 			"Pair two coding agents on a worktree with autonomous review workflows. ai-14all shows live workflow status and escalations once enabled.",
 		installCommand: "npm i -g ai-whisper",
+		repoUrl: "https://github.com/ai-creed/ai-whisper",
 	},
 	cortex: {
 		title: "ai-cortex",
 		pitch:
 			"Substrate knowledge for your agents — a memory layer they recall from and record to across sessions — and its index unlocks code navigation inside ai-14all (go-to-definition, references, symbol search) as a power feature. Enable it, then Configure to register the MCP server and install the capture hooks + memory prompt guide.",
 		installCommand: "npm i -g ai-cortex",
+		repoUrl: "https://github.com/ai-creed/ai-cortex",
 	},
 };
 
@@ -173,6 +175,9 @@ export function PluginsPanelDialog(props: {
 								}
 								onReprobe={() => {
 									void plugins.reprobe();
+								}}
+								onReadMore={(url) => {
+									void system.openExternal(url).catch(() => undefined);
 								}}
 							/>
 						))}

@@ -6,12 +6,14 @@ const descriptor = {
 	title: "ai-whisper",
 	pitch: "Autonomous pair-agent workflows for your worktrees.",
 	installCommand: "npm i -g ai-whisper",
+	repoUrl: "https://github.com/ai-creed/ai-whisper",
 };
 
 const cortexDescriptor = {
 	title: "ai-cortex",
 	pitch: "Substrate knowledge for your agents + code navigation.",
 	installCommand: "npm i -g ai-cortex",
+	repoUrl: "https://github.com/ai-creed/ai-cortex",
 };
 
 describe("PluginCard", () => {
@@ -146,6 +148,56 @@ describe("PluginCard", () => {
 		expect(
 			screen.queryByRole("button", { name: /configure/i }),
 		).not.toBeInTheDocument();
+	});
+
+	it("renders a Read more link that routes the repo URL through onReadMore", () => {
+		const onReadMore = vi.fn();
+		render(
+			<PluginCard
+				descriptor={cortexDescriptor}
+				snapshot={{
+					id: "cortex",
+					enabled: true,
+					installPath: "/x",
+					status: { state: "on-healthy", version: "0.15.1", limited: false },
+				}}
+				onToggle={vi.fn()}
+				onInstall={vi.fn()}
+				onReprobe={vi.fn()}
+				onReadMore={onReadMore}
+			/>,
+		);
+		const link = screen.getByRole("link", { name: /read more/i });
+		expect(link).toHaveAttribute(
+			"href",
+			"https://github.com/ai-creed/ai-cortex",
+		);
+		fireEvent.click(link);
+		expect(onReadMore).toHaveBeenCalledWith(
+			"https://github.com/ai-creed/ai-cortex",
+		);
+	});
+
+	it("shows Read more even when the plugin is not installed", () => {
+		render(
+			<PluginCard
+				descriptor={descriptor}
+				snapshot={{
+					id: "whisper",
+					enabled: false,
+					installPath: null,
+					status: { state: "not-installed" },
+				}}
+				onToggle={vi.fn()}
+				onInstall={vi.fn()}
+				onReprobe={vi.fn()}
+				onReadMore={vi.fn()}
+			/>,
+		);
+		expect(screen.getByRole("link", { name: /read more/i })).toHaveAttribute(
+			"href",
+			"https://github.com/ai-creed/ai-whisper",
+		);
 	});
 
 	it("whisper (no onConfigure): renders no Configure button", () => {

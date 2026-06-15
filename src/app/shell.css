@@ -4882,6 +4882,21 @@ select {
 	border-color: var(--accent);
 	color: var(--accent);
 }
+.plugin-readmore {
+	margin-top: var(--space-3);
+	padding-top: var(--space-2);
+	border-top: 1px solid var(--panel-border);
+}
+.plugin-readmore a {
+	font-size: 0.7rem;
+	color: var(--text-muted);
+	text-decoration: none;
+	cursor: pointer;
+}
+.plugin-readmore a:hover {
+	color: var(--accent);
+	text-decoration: underline;
+}
 .terminal-chrome-header {
 	display: flex;
 	align-items: center;

@@ -7,6 +7,8 @@ export type PluginDescriptor = {
 	title: string;
 	pitch: string;
 	installCommand: string;
+	/** Project homepage, shown as the card's "Read more" link. */
+	repoUrl: string;
 };
 
 function chipLabel(snapshot: PluginSnapshot): string {
@@ -33,6 +35,8 @@ export function PluginCard(props: {
 	onReprobe: () => void;
 	/** Optional one-shot setup action (cortex only). Shown when installed. */
 	onConfigure?: () => void;
+	/** Opens the plugin's repo in the user's default browser. */
+	onReadMore?: (url: string) => void;
 }) {
 	const { descriptor, snapshot } = props;
 	const status = snapshot.status;
@@ -76,6 +80,19 @@ export function PluginCard(props: {
 					</button>
 				)}
 				{showReprobe && <button onClick={props.onReprobe}>Re-probe</button>}
+			</div>
+			<div className="plugin-readmore">
+				<a
+					href={descriptor.repoUrl}
+					onClick={(e) => {
+						// Route through onReadMore (shell.openExternal) so the repo opens in
+						// the user's default browser, never inside this Electron window.
+						e.preventDefault();
+						props.onReadMore?.(descriptor.repoUrl);
+					}}
+				>
+					Read more on GitHub ↗
+				</a>
 			</div>
 		</div>
 	);
