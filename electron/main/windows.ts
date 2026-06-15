@@ -1,6 +1,7 @@
 import { app, BrowserWindow, nativeImage } from "electron";
 import { fileURLToPath } from "node:url";
 import type { ShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
+import { installNavigationGuard } from "./services/navigation-guard.js";
 
 export function createMainWindow(
 	shellEventLog?: ShellEventLogService,
@@ -29,6 +30,11 @@ export function createMainWindow(
 	});
 
 	const windowId = mainWindow.id;
+
+	// Keep every link inside rendered content (markdown preview, code files) from
+	// hijacking the app shell: web links open in the user's default browser,
+	// window.open never spawns an embedded window. See navigation-guard.ts.
+	installNavigationGuard(mainWindow.webContents);
 
 	shellEventLog?.log({
 		source: "main",
