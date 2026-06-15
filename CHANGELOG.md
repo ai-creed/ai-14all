@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.2] – 2026-06-15
+
+### Added
+
+- **A "Read more on GitHub" link on each plugin card.** Every ecosystem plugin (ai-whisper, ai-cortex) now links to its project repository, so you can learn what a plugin does — including before installing it. The link opens in your default browser.
+
+### Fixed
+
+- **Links in rendered content now open in your default browser instead of hijacking the app.** Clicking a link in the Markdown preview or a code file used to navigate the app window itself to that page, leaving you stuck on a web page with no way back. All web links (and `mailto:`) now open externally and the app shell can no longer be replaced.
+- **`Cmd+P` (Open Files) now works while the terminal pane is focused.** The terminal parks focus in a hidden text input that was swallowing the shortcut; it now fires from the terminal just like `Cmd+J`. No terminal keybinding is affected — the terminal binds no `Cmd+P`.
+- **Agent CLIs installed in `~/.local/bin` are now detected.** ai-14all probes binaries with an interactive login shell, so a tool whose `PATH` entry lives in `.zshrc` (for example the Claude native installer's `~/.local/bin`) is found — previously only login-file locations such as Homebrew's were. A well-known-path fallback (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`) covers anything the shell probe misses.
+
 ## [0.9.1] – 2026-06-14
 
 ### Fixed
