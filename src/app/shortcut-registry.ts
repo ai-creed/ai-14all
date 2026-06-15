@@ -3,6 +3,7 @@ import {
 	isFilesOverlayShortcut,
 	detectPlatform,
 } from "./files-overlay-shortcut";
+import { targetOwnsTyping } from "./target-owns-typing";
 
 export type { Platform };
 export { detectPlatform };
@@ -14,44 +15,6 @@ export interface AppShortcut {
 	mac: string;
 	other: string;
 	predicate(event: KeyboardEvent, platform: Platform): boolean;
-}
-
-function targetOwnsTyping(target: HTMLElement | null): boolean {
-	if (!target || typeof target.closest !== "function") return false;
-	if (target.closest(".xterm")) return true;
-	if (target.closest('[role="dialog"]')) return true;
-	// Monaco's .inputarea is a <textarea>, so check Monaco BEFORE the generic
-	// TEXTAREA guard. Read-only editors (FileViewer, DiffViewer) are wrapped in
-	// [data-readonly-editor] — shortcuts should still fire from inside them.
-	const monacoEl = target.closest(".monaco-editor");
-	if (monacoEl) return !monacoEl.closest("[data-readonly-editor]");
-	if (target.closest('[contenteditable="true"]')) return true;
-	if (target.closest('[role="textbox"]')) return true;
-	const tag = target.tagName;
-	if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
-	return false;
-}
-
-/**
- * Like targetOwnsTyping but allows firing from inside the terminal (xterm).
- * Used for terminal management shortcuts that must work regardless of whether
- * the user's focus is inside the terminal pane or outside it.
- */
-function targetOwnsTypingExcludingXterm(target: HTMLElement | null): boolean {
-	if (!target || typeof target.closest !== "function") return false;
-	// Explicitly allow xterm — skip it and fall through to other checks.
-	if (target.closest(".xterm")) return false;
-	if (target.closest('[role="dialog"]')) return true;
-	// Monaco's .inputarea is a <textarea>, so check Monaco BEFORE the generic
-	// TEXTAREA guard. Read-only editors (FileViewer, DiffViewer) are wrapped in
-	// [data-readonly-editor] — shortcuts should still fire from inside them.
-	const monacoEl = target.closest(".monaco-editor");
-	if (monacoEl) return !monacoEl.closest("[data-readonly-editor]");
-	if (target.closest('[contenteditable="true"]')) return true;
-	if (target.closest('[role="textbox"]')) return true;
-	const tag = target.tagName;
-	if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
-	return false;
 }
 
 function isNoteSheetShortcut(e: KeyboardEvent, platform: Platform): boolean {
@@ -68,9 +31,9 @@ function isReviewOpenShortcut(e: KeyboardEvent, platform: Platform): boolean {
 	const keyIsJ = e.key === "j" || e.key === "J";
 	if (!keyIsJ) return false;
 	if (e.altKey || e.shiftKey) return false;
-	// Use the xterm-excluding guard: Cmd+J (Open Review) is global navigation
-	// and must fire even when focus is inside the terminal pane.
-	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null))
+	// allowXterm: Cmd+J (Open Review) is global navigation and must fire even when
+	// focus is inside the terminal pane.
+	if (targetOwnsTyping(e.target as HTMLElement | null, { allowXterm: true }))
 		return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
 	return e.ctrlKey && !e.metaKey;
@@ -177,7 +140,7 @@ function isTerminalNewShortcut(e: KeyboardEvent, platform: Platform): boolean {
 	if (e.defaultPrevented) return false;
 	if (e.key !== "t" && e.key !== "T") return false;
 	if (e.altKey || e.shiftKey) return false;
-	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null))
+	if (targetOwnsTyping(e.target as HTMLElement | null, { allowXterm: true }))
 		return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
 	return e.ctrlKey && !e.metaKey;
@@ -191,7 +154,7 @@ function isTerminalCloseShortcut(
 	if (e.defaultPrevented) return false;
 	if (e.key !== "x" && e.key !== "X") return false;
 	if (e.altKey || !e.shiftKey) return false;
-	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null))
+	if (targetOwnsTyping(e.target as HTMLElement | null, { allowXterm: true }))
 		return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
 	return e.ctrlKey && !e.metaKey;
@@ -204,7 +167,7 @@ function isTerminalSelectNextShortcut(
 	if (e.defaultPrevented) return false;
 	if (e.key !== "d" && e.key !== "D") return false;
 	if (e.altKey || !e.shiftKey) return false;
-	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null))
+	if (targetOwnsTyping(e.target as HTMLElement | null, { allowXterm: true }))
 		return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
 	return e.ctrlKey && !e.metaKey;
@@ -217,7 +180,7 @@ function isTerminalSelectPrevShortcut(
 	if (e.defaultPrevented) return false;
 	if (e.key !== "a" && e.key !== "A") return false;
 	if (e.altKey || !e.shiftKey) return false;
-	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null))
+	if (targetOwnsTyping(e.target as HTMLElement | null, { allowXterm: true }))
 		return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
 	return e.ctrlKey && !e.metaKey;
@@ -233,7 +196,7 @@ function isTerminalLayoutShortcut(
 	if (e.defaultPrevented) return false;
 	if (e.key !== "l" && e.key !== "L") return false;
 	if (e.altKey || !e.shiftKey) return false;
-	if (targetOwnsTypingExcludingXterm(e.target as HTMLElement | null))
+	if (targetOwnsTyping(e.target as HTMLElement | null, { allowXterm: true }))
 		return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey;
 	return e.ctrlKey && !e.metaKey;
