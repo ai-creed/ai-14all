@@ -8,10 +8,15 @@ export function detectPlatform(): Platform {
 function targetOwnsTyping(target: HTMLElement | null): boolean {
 	if (!target || typeof target.closest !== "function") return false;
 
-	// Intentionally NOT blocked by .xterm: Cmd+P (Files) is global navigation
-	// that must fire even when the terminal pane holds focus. The terminal does
-	// not bind Cmd+P (see TerminalPane attachCustomKeyEventHandler), so there is
-	// no conflict to lose.
+	// Skip .xterm BEFORE the generic TEXTAREA guard below: Cmd+P (Files) is global
+	// navigation that must fire even when the terminal pane holds focus. xterm
+	// parks focus in a hidden <textarea class="xterm-helper-textarea">, which the
+	// TEXTAREA guard would otherwise swallow. The terminal binds no Cmd+P (see
+	// TerminalPane attachCustomKeyEventHandler: only Shift+Enter, Cmd/Ctrl+F,
+	// Cmd/Ctrl+K), so there is no terminal shortcut to lose. Mirrors the registry's
+	// targetOwnsTypingExcludingXterm, which already lets Cmd+J through.
+	if (target.closest(".xterm")) return false;
+
 	if (target.closest('[role="dialog"]')) return true;
 	// Monaco's .inputarea is a <textarea>, so check Monaco BEFORE the generic
 	// TEXTAREA guard. Read-only editors (FileViewer, DiffViewer) are wrapped in

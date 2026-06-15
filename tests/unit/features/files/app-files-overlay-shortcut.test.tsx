@@ -69,6 +69,27 @@ describe("isFilesOverlayShortcut", () => {
 		terminal.remove();
 	});
 
+	it("matches when xterm's hidden helper <textarea> has focus (the real terminal focus sink)", () => {
+		// xterm parks focus in a hidden <textarea class="xterm-helper-textarea">,
+		// so a focused terminal makes that textarea the keydown target. The generic
+		// TEXTAREA guard would otherwise swallow Cmd+P; it must be skipped for any
+		// element inside .xterm. (A plain <div> inside .xterm — the case above —
+		// never hit the guard, so it never reproduced this regression.)
+		const terminal = document.createElement("div");
+		terminal.className = "xterm";
+		const textarea = document.createElement("textarea");
+		textarea.className = "xterm-helper-textarea";
+		terminal.appendChild(textarea);
+		document.body.appendChild(terminal);
+		expect(
+			isFilesOverlayShortcut(
+				evt({ metaKey: true, key: "p", target: textarea }),
+				"mac",
+			),
+		).toBe(true);
+		terminal.remove();
+	});
+
 	it("does not match when target is inside an open dialog", () => {
 		const dialog = document.createElement("div");
 		dialog.setAttribute("role", "dialog");
