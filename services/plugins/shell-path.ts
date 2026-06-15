@@ -12,14 +12,17 @@ export type ResolveShellPathOptions = {
 const MARKER = "__AI14ALL_PATH__";
 
 /**
- * Capture the PATH a *login* shell exposes.
+ * Capture the PATH an *interactive login* shell exposes.
  *
  * Finder/Dock-launched macOS apps inherit only the bare GUI PATH
  * (`/usr/bin:/bin:/usr/sbin:/sbin`), so Homebrew/npm binaries — and the `node`
  * their `#!/usr/bin/env node` shebangs need — are unreachable to `execFile`.
- * Mirrors binary-resolver's login-shell mechanism. Returns null on any failure
- * (non-zero exit, timeout, spawn error, empty PATH) so callers keep their
- * existing PATH untouched.
+ * Mirrors binary-resolver's login-shell mechanism. The shell is interactive
+ * (`-ilc`) so it sources `.zshrc`/`.bashrc` too — a bare login shell (`-lc`)
+ * skips them, missing PATH entries like `~/.local/bin` (the Claude native
+ * installer exports it there). Returns null on any failure (non-zero exit,
+ * timeout, spawn error, empty PATH) so callers keep their existing PATH
+ * untouched.
  */
 export function resolveLoginShellPath(
 	options: ResolveShellPathOptions = {},
@@ -29,7 +32,7 @@ export function resolveLoginShellPath(
 	return new Promise((resolve) => {
 		const child = spawn(
 			shell,
-			["-lc", `printf '%s%s%s' '${MARKER}' "$PATH" '${MARKER}'`],
+			["-ilc", `printf '%s%s%s' '${MARKER}' "$PATH" '${MARKER}'`],
 			{
 				stdio: ["ignore", "pipe", "ignore"],
 				env: options.env ?? process.env,

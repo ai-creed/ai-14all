@@ -41,9 +41,9 @@ describe("mergePath", () => {
 
 let dir: string;
 
-// A faithful login-shell stand-in: it honours `-lc <command>` by eval-ing the
-// command (so the production marker-printf actually runs), optionally emitting
-// rc-file noise first.
+// A faithful login-shell stand-in: it honours `-ilc <command>` by eval-ing the
+// command in `$2` (so the production marker-printf actually runs), optionally
+// emitting rc-file noise first.
 function writeFakeShell(body: string): string {
 	dir = mkdtempSync(join(tmpdir(), "ofa-shellpath-"));
 	const shell = join(dir, "fake-shell.sh");
@@ -65,6 +65,22 @@ describe("resolveLoginShellPath", () => {
 			env: { PATH: "/opt/homebrew/bin:/usr/bin:/bin" },
 		});
 		expect(result).toBe("/opt/homebrew/bin:/usr/bin:/bin");
+	});
+
+	it("uses an interactive login shell so PATH set in .zshrc is captured", async () => {
+		// `.zshrc` (and `.bashrc`) is sourced only by INTERACTIVE shells; a bare
+		// `-lc` login shell skips it, so `~/.local/bin` exported there is missing
+		// from the repaired PATH. The fake shell exposes its PATH only when -i is
+		// passed, reproducing that gap.
+		const shell = writeFakeShell(
+			'case "$1" in *i*) eval "$2";; *) exit 1;; esac',
+		);
+		const result = await resolveLoginShellPath({
+			shell,
+			timeoutMs: 2000,
+			env: { PATH: "/Users/vu/.local/bin:/usr/bin:/bin" },
+		});
+		expect(result).toBe("/Users/vu/.local/bin:/usr/bin:/bin");
 	});
 
 	it("ignores rc-file noise printed around the PATH", async () => {

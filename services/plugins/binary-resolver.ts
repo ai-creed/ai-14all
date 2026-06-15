@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { statSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 
 export type ResolvedBinary = {
@@ -13,6 +14,13 @@ export type ResolveBinaryOptions = {
 	timeoutMs?: number;
 	/** Config override: executable file, or a whisper dev-checkout root dir. */
 	installPath?: string | null;
+	/**
+	 * Directories searched in order when the login-shell probe finds nothing — a
+	 * safety net for GUI launches whose interactive shell config the probe can't
+	 * fully reproduce. Defaults to the common per-user / Homebrew bin dirs.
+	 * Override in tests; pass `[]` to disable the fallback.
+	 */
+	searchPaths?: string[];
 };
 
 const DEV_CHECKOUT_ENTRY = "packages/cli/dist/bin/whisper.js";
@@ -38,6 +46,37 @@ function resolveOverride(installPath: string): ResolvedBinary | null {
 }
 
 /**
+ * Bin dirs probed directly when the login-shell lookup finds nothing. These
+ * commonly hold the agent CLIs but are added to PATH only by an *interactive* rc
+ * file — e.g. the Claude native installer drops `claude` in `~/.local/bin` and
+ * exports that dir in `.zshrc`. A last-resort safety net for the rare GUI launch
+ * whose shell config even an interactive login shell can't reproduce.
+ */
+function defaultSearchPaths(): string[] {
+	return [
+		join(homedir(), ".local", "bin"),
+		"/opt/homebrew/bin",
+		"/usr/local/bin",
+	];
+}
+
+function findInSearchPaths(
+	name: string,
+	dirs: string[],
+): ResolvedBinary | null {
+	for (const dir of dirs) {
+		const candidate = join(dir, name);
+		try {
+			if (statSync(candidate).isFile())
+				return { command: candidate, prefixArgs: [] };
+		} catch {
+			// Not in this dir — keep looking.
+		}
+	}
+	return null;
+}
+
+/**
  * @param name trusted, compile-time-constant binary name ("whisper",
  * "claude", "codex") — it is interpolated into a shell line below, so it
  * must never be a user- or config-derived value.
@@ -53,9 +92,16 @@ export function resolveBinary(
 	}
 	const shell = options.shell ?? process.env.SHELL ?? "/bin/zsh";
 	const timeoutMs = options.timeoutMs ?? 5000;
+	const searchPaths = options.searchPaths ?? defaultSearchPaths();
+	const fallback = () => findInSearchPaths(name, searchPaths);
 	return new Promise((resolve) => {
-		// Login shell ONLY to locate the binary; never to run commands with args.
-		const child = spawn(shell, ["-lc", `command -v ${name}`], {
+		// Interactive login shell ("-ilc"), ONLY to locate the binary — never to
+		// run commands with args. The probe must source the same rc files the
+		// user's terminal does: a bare login shell ("-lc") skips `.zshrc`/`.bashrc`,
+		// so a binary whose PATH entry lives there (e.g. `~/.local/bin` from the
+		// Claude native installer) is invisible even though the user's terminal
+		// `command -v` finds it.
+		const child = spawn(shell, ["-ilc", `command -v ${name}`], {
 			stdio: ["ignore", "pipe", "ignore"],
 		});
 		let out = "";
@@ -68,21 +114,21 @@ export function resolveBinary(
 		};
 		const timer = setTimeout(() => {
 			child.kill("SIGKILL");
-			finish(null);
+			finish(fallback());
 		}, timeoutMs);
 		child.stdout.on("data", (chunk: Buffer) => {
 			out += chunk.toString("utf8");
 		});
-		child.on("error", () => finish(null));
+		child.on("error", () => finish(fallback()));
 		child.on("close", (code) => {
-			if (code !== 0) return finish(null);
+			if (code !== 0) return finish(fallback());
 			// rc-file noise can precede the real line; take the last absolute path.
 			const lines = out
 				.trim()
 				.split("\n")
 				.map((l) => l.trim());
 			const hit = lines.reverse().find((l) => l.startsWith("/"));
-			finish(hit ? { command: hit, prefixArgs: [] } : null);
+			finish(hit ? { command: hit, prefixArgs: [] } : fallback());
 		});
 	});
 }
