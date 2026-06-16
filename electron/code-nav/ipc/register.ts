@@ -71,8 +71,8 @@ async function resolveKeys(
 
 export function registerCodeNavIpc(deps: CodeNavIpcDeps): () => void {
 	ipcMain.handle("code-nav:findDefinitions", async (_e, raw: unknown) => {
-		if (!deps.isCortexEnabled()) return [];
 		const p = FindDefinitionsSchema.parse(raw);
+		if (!deps.isCortexEnabled()) return [];
 		const keys = await resolveKeys(deps, p);
 		return deps.cortexIndex.findDefinitions(keys, {
 			name: p.name,
@@ -81,22 +81,22 @@ export function registerCodeNavIpc(deps: CodeNavIpcDeps): () => void {
 	});
 
 	ipcMain.handle("code-nav:findCallees", async (_e, raw: unknown) => {
-		if (!deps.isCortexEnabled()) return [];
 		const p = FindCalleesSchema.parse(raw);
+		if (!deps.isCortexEnabled()) return [];
 		const keys = await resolveKeys(deps, p);
 		return deps.cortexIndex.findCallees(keys, { fnId: p.fnId });
 	});
 
 	ipcMain.handle("code-nav:findCallers", async (_e, raw: unknown) => {
-		if (!deps.isCortexEnabled()) return [];
 		const p = FindCallersSchema.parse(raw);
+		if (!deps.isCortexEnabled()) return [];
 		const keys = await resolveKeys(deps, p);
 		return deps.cortexIndex.findCallers(keys, { fnId: p.fnId });
 	});
 
 	ipcMain.handle("code-nav:searchSymbols", async (_e, raw: unknown) => {
-		if (!deps.isCortexEnabled()) return [];
 		const p = SearchSymbolsSchema.parse(raw);
+		if (!deps.isCortexEnabled()) return [];
 		const keys = await resolveKeys(deps, p);
 		return deps.cortexIndex.searchSymbols(keys, {
 			query: p.query,
@@ -105,22 +105,22 @@ export function registerCodeNavIpc(deps: CodeNavIpcDeps): () => void {
 	});
 
 	ipcMain.handle("code-nav:getFileImports", async (_e, raw: unknown) => {
-		if (!deps.isCortexEnabled()) return [];
 		const p = GetFileImportsSchema.parse(raw);
+		if (!deps.isCortexEnabled()) return [];
 		const keys = await resolveKeys(deps, p);
 		return deps.cortexIndex.getFileImports(keys, { file: p.file });
 	});
 
 	ipcMain.handle("code-nav:getWorktreeStatus", async (_e, raw: unknown) => {
-		if (!deps.isCortexEnabled()) return CORTEX_DISABLED_STATUS;
 		const p = GetWorktreeStatusSchema.parse(raw);
+		if (!deps.isCortexEnabled()) return CORTEX_DISABLED_STATUS;
 		const keys = await resolveKeys(deps, p);
 		return deps.cortexIndex.getWorktreeStatus(keys);
 	});
 
 	ipcMain.handle("code-nav:listFiles", async (_e, raw: unknown) => {
-		if (!deps.isCortexEnabled()) return [];
 		const p = ListFilesNavSchema.parse(raw);
+		if (!deps.isCortexEnabled()) return [];
 		const keys = await resolveKeys(deps, p);
 		return deps.cortexIndex.listFiles(keys);
 	});

@@ -53,27 +53,25 @@ describe("registerCodeNavIpc cortex gating — disabled", () => {
 		expect(deps.cortexIndex.getWorktreeStatus).not.toHaveBeenCalled();
 	});
 
+	// Each payload is valid for its own strict schema — validation runs before the
+	// gate (the trust boundary holds regardless of plugin state, see
+	// ipc-register.test.ts), so the gate's short-circuit is only reached for
+	// well-formed input.
 	it.each([
-		"code-nav:findDefinitions",
-		"code-nav:findCallees",
-		"code-nav:findCallers",
-		"code-nav:searchSymbols",
-		"code-nav:getFileImports",
-		"code-nav:listFiles",
-	])("%s short-circuits to [] when disabled", async (channel) => {
-		const deps = makeDeps(false);
-		registerCodeNavIpc(deps as never);
-		expect(
-			await handlers.get(channel)!(null, {
-				...IDS,
-				name: "x",
-				fnId: 1,
-				query: "x",
-				file: "a",
-				limit: 5,
-			}),
-		).toEqual([]);
-	});
+		["code-nav:findDefinitions", { ...IDS, name: "x" }],
+		["code-nav:findCallees", { ...IDS, fnId: 1 }],
+		["code-nav:findCallers", { ...IDS, fnId: 1 }],
+		["code-nav:searchSymbols", { ...IDS, query: "x" }],
+		["code-nav:getFileImports", { ...IDS, file: "a" }],
+		["code-nav:listFiles", { ...IDS }],
+	] as const)(
+		"%s short-circuits to [] when disabled",
+		async (channel, payload) => {
+			const deps = makeDeps(false);
+			registerCodeNavIpc(deps as never);
+			expect(await handlers.get(channel)!(null, payload)).toEqual([]);
+		},
+	);
 
 	it("watch/unwatch/refresh handlers stay functional when disabled (lifecycle preserved)", async () => {
 		const deps = makeDeps(false);

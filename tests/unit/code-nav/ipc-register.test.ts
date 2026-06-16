@@ -26,7 +26,7 @@ vi.mock("electron", () => {
 
 const fakeKeys = { worktreePath: "/wt", repoKey: "r", worktreeKey: "w" };
 
-function setup() {
+function setup(opts: { cortexEnabled?: boolean } = {}) {
 	const cortexIndex = {
 		findDefinitions: vi.fn().mockReturnValue([]),
 		searchSymbols: vi.fn(),
@@ -66,7 +66,7 @@ function setup() {
 		worktreeService,
 		cortexIndex,
 		cortexKeyResolver,
-		isCortexEnabled: () => true,
+		isCortexEnabled: () => opts.cortexEnabled ?? true,
 		refreshController,
 		watcherController,
 	} as unknown as Parameters<typeof registerCodeNavIpc>[0]);
@@ -111,6 +111,47 @@ describe("code-nav IPC trust boundary", () => {
 			}),
 		).rejects.toThrow();
 		expect(cortexKeyResolver.resolve).not.toHaveBeenCalled();
+	});
+
+	it("rejects a smuggled key even when cortex is disabled (validate before the gate)", async () => {
+		// The cortex-disabled gate must NOT bypass schema validation: the trust
+		// boundary has to hold regardless of plugin state, or a disabled cortex
+		// silently accepts smuggled keys at the IPC boundary.
+		const { dispose, cortexKeyResolver } = setup({ cortexEnabled: false });
+		teardown = dispose;
+		await expect(
+			(
+				ipcMain as unknown as {
+					__invoke: (ch: string, raw: unknown) => Promise<unknown>;
+				}
+			).__invoke("code-nav:findDefinitions", {
+				workspaceId: "ws1",
+				worktreeId: "wt1",
+				worktreePath: "/etc",
+				name: "foo",
+			}),
+		).rejects.toThrow();
+		// Validation happens before the gate, so no key resolution is attempted.
+		expect(cortexKeyResolver.resolve).not.toHaveBeenCalled();
+	});
+
+	it("short-circuits a valid payload to [] when cortex is disabled, without resolving keys", async () => {
+		const { dispose, cortexKeyResolver, cortexIndex } = setup({
+			cortexEnabled: false,
+		});
+		teardown = dispose;
+		const res = await (
+			ipcMain as unknown as {
+				__invoke: (ch: string, raw: unknown) => Promise<unknown>;
+			}
+		).__invoke("code-nav:findDefinitions", {
+			workspaceId: "ws1",
+			worktreeId: "wt1",
+			name: "foo",
+		});
+		expect(res).toEqual([]);
+		expect(cortexKeyResolver.resolve).not.toHaveBeenCalled();
+		expect(cortexIndex.findDefinitions).not.toHaveBeenCalled();
 	});
 
 	it("rejects payloads smuggling any unknown key (e.g. arbitrary cwd)", async () => {
