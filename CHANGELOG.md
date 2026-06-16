@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **ai-cortex ecosystem plugin: substrate memory for your agents, plus code navigation inside ai-14all.** A second opt-in driver (after ai-whisper) wires ai-cortex as a peer: it gives your agents a memory layer they recall from and record to across sessions, and its index unlocks code navigation in ai-14all's viewers — go-to-definition, find-references, and symbol search — as a power feature gated on enabling the plugin. A "Configure ai-cortex" shortcut registers the MCP server for your installed agent CLIs (claude, codex) and installs ai-cortex's capture hooks and memory prompt guide. Nothing changes for users who don't opt in.
 - **A "Read more on GitHub" link on each plugin card.** Every ecosystem plugin (ai-whisper, ai-cortex) now links to its project repository, so you can learn what a plugin does — including before installing it. The link opens in your default browser.
 
 ### Fixed
