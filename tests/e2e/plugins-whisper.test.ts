@@ -200,7 +200,11 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 		await page.keyboard.press("Escape"); // dismiss the panel
 
 		const row = worktreeNav().locator(".workflow-row");
-		await expect(row).toContainText("running", { timeout: 15_000 });
+		// Establishing the initial "running" row depends on the off→on toggle
+		// restarting the driver and its fresh snapshot landing — slower under CI
+		// load. Give it room: this is setup, not the socket-speed assertion below
+		// (the halted flip stays pinned to 10s « the 60s poll to prove the socket).
+		await expect(row).toContainText("running", { timeout: 30_000 });
 
 		await socket.waitForClient();
 

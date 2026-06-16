@@ -254,31 +254,42 @@ test.describe.serial("Code navigation MVP", () => {
 		);
 
 		// Sanity: the IPC chain returns our seeded parseConfig row for live ids.
-		const probe = await page.evaluate(async () => {
-			const ref = (
-				window as unknown as {
-					__codeNavTestRef: { workspaceId: string; worktreeId: string };
-				}
-			).__codeNavTestRef;
-			const rows = await (
-				window as unknown as {
-					ai14all: {
-						codeNav: {
-							searchSymbols(
-								args: unknown,
-							): Promise<Array<{ bare_name: string }>>;
-						};
-					};
-				}
-			).ai14all.codeNav.searchSymbols({
-				workspaceId: ref.workspaceId,
-				worktreeId: ref.worktreeId,
-				query: "pars",
-				limit: 50,
-			});
-			return rows.some((r) => r.bare_name === "parseConfig");
-		});
-		expect(probe).toBe(true);
+		// Poll rather than read once: the active ref publish and the cortex-store
+		// ingest both settle asynchronously after the overlay opens, so the first
+		// searchSymbols can momentarily return [] before the mirror is queryable.
+		await expect
+			.poll(
+				async () =>
+					page.evaluate(async () => {
+						const ref = (
+							window as unknown as {
+								__codeNavTestRef: { workspaceId: string; worktreeId: string };
+							}
+						).__codeNavTestRef;
+						const rows = await (
+							window as unknown as {
+								ai14all: {
+									codeNav: {
+										searchSymbols(
+											args: unknown,
+										): Promise<Array<{ bare_name: string }>>;
+									};
+								};
+							}
+						).ai14all.codeNav.searchSymbols({
+							workspaceId: ref.workspaceId,
+							worktreeId: ref.worktreeId,
+							query: "pars",
+							limit: 50,
+						});
+						return rows.some((r) => r.bare_name === "parseConfig");
+					}),
+				{
+					timeout: 15_000,
+					message: "searchSymbols should return the seeded parseConfig row",
+				},
+			)
+			.toBe(true);
 
 		// Put the rail in Changes mode first — Cmd+T must switch BACK to Files and
 		// into Symbols sub-mode from any tab (spec edge case 5).

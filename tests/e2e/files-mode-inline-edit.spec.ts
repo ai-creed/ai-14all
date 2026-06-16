@@ -127,12 +127,18 @@ test.describe.serial("Files-mode inline edit", () => {
 		const dirtyBar = page.getByTestId("editor-dirty-bar");
 		await dirtyBar.getByRole("button", { name: /save/i }).click();
 		await expect(dirtyBar).toHaveCount(0, { timeout: 5_000 });
-		// Disk content must contain the edit immediately after save.
-		const onDisk = readFileSync(
-			join(testRepo.worktreePath, "NOTES.md"),
-			"utf8",
-		);
-		expect(onDisk).toContain("FIRST EDIT");
+		// Disk content must contain the edit after save. The write flushes
+		// asynchronously, so poll rather than reading once right after the dirty
+		// bar clears.
+		await expect
+			.poll(
+				() => readFileSync(join(testRepo.worktreePath, "NOTES.md"), "utf8"),
+				{
+					timeout: 10_000,
+					message: "NOTES.md should contain the saved edit",
+				},
+			)
+			.toContain("FIRST EDIT");
 
 		// Reload coverage: navigate away to a different file, then back to
 		// NOTES.md. The freshly-mounted editor must reflect the saved value.
@@ -201,12 +207,19 @@ test.describe.serial("Files-mode inline edit", () => {
 		});
 		await expect(page.getByTestId("inline-editor")).toBeVisible();
 
-		// Persistence assertion on disk for NOTES.md.
-		const onDisk = readFileSync(
-			join(testRepo.worktreePath, "NOTES.md"),
-			"utf8",
-		);
-		expect(onDisk).toContain("SECOND EDIT");
+		// Persistence assertion on disk for NOTES.md. The save flushes to disk
+		// asynchronously after the dialog resolves and the dirty bar clears, so
+		// poll the file rather than reading it once (the dirty bar can clear from
+		// the in-memory state before the write lands).
+		await expect
+			.poll(
+				() => readFileSync(join(testRepo.worktreePath, "NOTES.md"), "utf8"),
+				{
+					timeout: 10_000,
+					message: "NOTES.md should contain the saved edit",
+				},
+			)
+			.toContain("SECOND EDIT");
 	});
 
 	test("Show ignored reveals .env, hides node_modules via denylist", async () => {

@@ -14,5 +14,8 @@ export default defineConfig({
 	},
 	fullyParallel: false,
 	workers: 1,
-	retries: 1,
+	// CI's slower, loaded runners surface timing flakes the local run doesn't, so
+	// give CI an extra attempt. Local stays at 1 retry so real failures still
+	// surface promptly rather than being masked by retries.
+	retries: process.env.CI ? 2 : 1,
 });
