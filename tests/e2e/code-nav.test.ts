@@ -25,6 +25,7 @@ let testRepo: TestRepo;
 let persistedStateDir: string;
 let cortexCacheRoot: string;
 let codeNavCacheRoot: string;
+let userDataDir: string;
 
 const REPO_KEY = "e2e-cn-repo";
 const WT_KEY = "e2e-cn-wt";
@@ -133,12 +134,26 @@ test.beforeAll(async () => {
 	// launch so the better-sqlite3 binary loaded matches Electron's ABI.
 	mkdirSync(join(codeNavCacheRoot, REPO_KEY), { recursive: true });
 
+	// Isolate userData AND enable the cortex plugin. Code-nav IPC is gated on
+	// pluginConfig cortex.enabled (default false), so in a clean environment (CI)
+	// the handlers return [] and every code-nav assertion fails. Previously this
+	// test relied on the dev's default-userData config happening to have cortex
+	// enabled, which passed locally but failed in CI.
+	userDataDir = realpathSync(
+		mkdtempSync(join(tmpdir(), "code-nav-e2e-userdata-")),
+	);
+	writeFileSync(
+		join(userDataDir, "config.toml"),
+		["[plugins.cortex]", "enabled = true", ""].join("\n"),
+	);
+
 	app = await electron.launch({
 		args: ["out/main/index.js"],
 		env: {
 			...process.env,
 			AI14ALL_E2E: "1",
 			AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
+			AI14ALL_USER_DATA_PATH: userDataDir,
 			AI14ALL_WORKSPACE_STATE_PATH: join(
 				persistedStateDir,
 				"workspace-state.json",
@@ -172,6 +187,7 @@ test.afterAll(async () => {
 		rmSync(persistedStateDir, { recursive: true, force: true });
 		rmSync(cortexCacheRoot, { recursive: true, force: true });
 		rmSync(codeNavCacheRoot, { recursive: true, force: true });
+		rmSync(userDataDir, { recursive: true, force: true });
 		testRepo?.cleanup();
 	}
 });
