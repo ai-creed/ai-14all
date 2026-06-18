@@ -16,6 +16,10 @@ import {
 } from "../../features/terminals/hooks/use-terminal-session";
 import { deriveAttentionState } from "../../features/terminals/logic/process-attention";
 import { consumeOutputPreview } from "../../features/terminals/logic/output-preview";
+import {
+	recordReplayOutput,
+	clearReplayOutput,
+} from "../../features/terminals/logic/replay-buffer";
 import { logRendererShellEvent } from "../../features/terminals/logic/shell-event-logger";
 import { classifyOutput } from "../../features/terminals/logic/agent-attention";
 import { diagnostics } from "../../lib/desktop-client";
@@ -112,6 +116,10 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 			onOutput: (event: { sessionId: string; data: string }) => {
 				const found = findProcessByTerminalSessionId(event.sessionId);
 				if (!found) return;
+				// Buffer raw output so a pane remounted later (e.g. after switching
+				// the selected worktree-session away and back) can replay it into
+				// its fresh xterm instead of rendering blank.
+				recordReplayOutput(event.sessionId, event.data);
 				const priorBuffer =
 					outputPreviewBuffersRef.current.get(event.sessionId) ?? "";
 				const previewUpdate = consumeOutputPreview(priorBuffer, event.data);
@@ -184,6 +192,7 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 				const found = findProcessByTerminalSessionId(event.sessionId);
 				if (!found) return;
 				outputPreviewBuffersRef.current.delete(event.sessionId);
+				clearReplayOutput(event.sessionId);
 				const lastAgentReason =
 					lastAgentReasonBySessionRef.current.get(event.sessionId) ?? null;
 				lastAgentReasonBySessionRef.current.delete(event.sessionId);
@@ -258,6 +267,7 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 				const found = findProcessByTerminalSessionId(event.sessionId);
 				if (!found) return;
 				outputPreviewBuffersRef.current.delete(event.sessionId);
+				clearReplayOutput(event.sessionId);
 				lastAgentReasonBySessionRef.current.delete(event.sessionId);
 				const { process, workspaceId: ownerWsId } = found;
 				const action: WorkspaceAction = {

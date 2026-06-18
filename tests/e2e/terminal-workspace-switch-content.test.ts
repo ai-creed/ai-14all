@@ -235,3 +235,65 @@ test("output emitted while a workspace is inactive appears after switching back"
 		{ timeout: 10_000 },
 	);
 });
+
+// Regression test for: "terminal renders empty after switching IN-WORKSPACE
+// sessions" (docs/bugreports/bug-terminal-empty-on-workspace-switch.md).
+//
+// Distinct from the cross-workspace case above. Switching the SELECTED WORKTREE
+// within a single workspace changes the panel's active session, so the panel
+// renders a different set of slots — the leaving session's panes are removed
+// from the tree and the returning session's panes are mounted fresh. A
+// cross-workspace switch (the negative control in the report) only toggles
+// panel visibility and keeps every pane mounted, which is why text survives
+// there but is lost here.
+//
+// Reuses repo A (loaded by the first test); the test repo ships two worktrees,
+// main and feature-a, i.e. two in-workspace sessions. B is active coming in.
+test("terminal output survives an in-workspace session round-trip", async () => {
+	test.setTimeout(120_000);
+
+	const nameA = basename(repoA.repoPath);
+	const groupA = () => workspaceSidebar().getByRole("group", { name: nameA });
+	const mainBtn = () => groupA().getByRole("button", { name: / main$/i });
+	const featureBtn = () =>
+		groupA().getByRole("button", { name: /feature-a/i });
+	const activeNonEmptySlot = () =>
+		page
+			.locator(
+				'[data-active="true"] .shell-terminal-slot:not(.shell-terminal-slot--empty)',
+			)
+			.first();
+
+	// Activate A's main worktree session and print a marker into its shell.
+	await mainBtn().click();
+	await expect(mainBtn()).toHaveAttribute("data-selected", "true", {
+		timeout: 10_000,
+	});
+	await expect(activeNonEmptySlot()).toBeVisible({ timeout: 15_000 });
+	await typeInActiveTerminal("echo MARKER_INWS");
+	await expect(visibleAccessibilityTree()).toContainText("MARKER_INWS", {
+		timeout: 10_000,
+	});
+
+	// Switch to the sibling feature-a session in the SAME workspace.
+	await featureBtn().click();
+	await expect(featureBtn()).toHaveAttribute("data-selected", "true", {
+		timeout: 10_000,
+	});
+	await expect(activeNonEmptySlot()).toBeVisible({ timeout: 15_000 });
+
+	// Switch back to the main session.
+	await mainBtn().click();
+	await expect(mainBtn()).toHaveAttribute("data-selected", "true", {
+		timeout: 10_000,
+	});
+	await expect(activeNonEmptySlot()).toBeVisible({ timeout: 10_000 });
+
+	// The main session's terminal must still show the marker it printed before
+	// the round-trip. Today it renders blank: switching away removed the pane
+	// and switching back mounted a fresh, empty xterm, and terminal output has
+	// no durable buffer to replay.
+	await expect(visibleAccessibilityTree()).toContainText("MARKER_INWS", {
+		timeout: 10_000,
+	});
+});

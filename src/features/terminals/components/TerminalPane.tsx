@@ -6,6 +6,7 @@ import "xterm/css/xterm.css";
 import type { TerminalSession } from "../../../../shared/models/terminal-session";
 import { files, terminals } from "../../../lib/desktop-client";
 import { logRendererShellEvent } from "../logic/shell-event-logger";
+import { getReplayOutput } from "../logic/replay-buffer";
 
 const FIND_DECORATIONS = {
 	matchBackground: "#5f4400",
@@ -205,6 +206,17 @@ export function TerminalPane({
 		// as uncaught "Cannot read properties of undefined (reading
 		// 'dimensions')" in Viewport. Idle panes never trigger that path now.
 		term.open(containerRef.current);
+		// Repopulate the fresh xterm from the renderer-side replay buffer. This
+		// pane may be a remount — e.g. the user switched the selected worktree-
+		// session away and back, which disposed the previous xterm and its
+		// scrollback — and the PTY output stream has no backend replay. The
+		// app-wide output subscription keeps a per-session buffer so we can
+		// restore what was shown. Written synchronously here, before the live
+		// output subscription below is wired, so there is neither overlap (the
+		// buffer covers output up to now) nor a gap (the subscription covers
+		// output after now).
+		const replayOutput = getReplayOutput(session.id);
+		if (replayOutput) term.write(replayOutput);
 		term.attachCustomKeyEventHandler((event) => {
 			// Shift+Enter: send literal newline so agent TUIs can distinguish it from
 			// plain Enter. xterm maps keyCode 13 to '\r' regardless of shiftKey; we
