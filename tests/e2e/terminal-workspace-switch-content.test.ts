@@ -255,8 +255,7 @@ test("terminal output survives an in-workspace session round-trip", async () => 
 	const nameA = basename(repoA.repoPath);
 	const groupA = () => workspaceSidebar().getByRole("group", { name: nameA });
 	const mainBtn = () => groupA().getByRole("button", { name: / main$/i });
-	const featureBtn = () =>
-		groupA().getByRole("button", { name: /feature-a/i });
+	const featureBtn = () => groupA().getByRole("button", { name: /feature-a/i });
 	const activeNonEmptySlot = () =>
 		page
 			.locator(

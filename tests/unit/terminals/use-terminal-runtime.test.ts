@@ -71,7 +71,10 @@ function makeOptions(): Options {
 
 // Render the hook and return the PTY event handlers it subscribed, so a test can
 // drive output/exit events directly through the real onOutput/onExit logic.
-async function captureHandlers(): Promise<{ onOutput: OutputCb; onExit: ExitCb }> {
+async function captureHandlers(): Promise<{
+	onOutput: OutputCb;
+	onExit: ExitCb;
+}> {
 	const { terminals } = await import("../../../src/lib/desktop-client");
 	const captured: { onOutput?: OutputCb; onExit?: ExitCb } = {};
 	vi.mocked(terminals.onOutput).mockImplementation((cb) => {
