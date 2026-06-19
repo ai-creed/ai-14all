@@ -17,7 +17,7 @@ function tokenize(command: string): string[] {
 }
 
 function basenameLast(token: string): string {
-	const slash = token.lastIndexOf("/");
+	const slash = Math.max(token.lastIndexOf("/"), token.lastIndexOf("\\"));
 	return slash === -1 ? token : token.slice(slash + 1);
 }
 

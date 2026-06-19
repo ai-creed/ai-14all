@@ -49,6 +49,11 @@ describe("isAgentProcess", () => {
 			expect(isAgentProcess(label, command)).toBe(false);
 		});
 	}
+
+	it("detects an agent invoked via a Windows backslash path", () => {
+		expect(isAgentProcess("", "C:\\tools\\bin\\claude --print")).toBe(true);
+		expect(isAgentProcess("", "C:\\tools\\bin\\codex")).toBe(true);
+	});
 });
 
 describe("classifyOutput", () => {

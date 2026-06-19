@@ -22,6 +22,11 @@ const IGNORED = [
 	".ai-cortex",
 ];
 
+function isIgnoredPath(p: string): boolean {
+	const norm = p.split("\\").join("/");
+	return IGNORED.some((seg) => norm.includes(`/${seg}/`));
+}
+
 export interface WatcherKeys {
 	worktreePath: string;
 }
@@ -53,7 +58,7 @@ export class WorktreeWatcher {
 	watch(keys: WatcherKeys): void {
 		if (this.watchers.has(keys.worktreePath)) return;
 		const w = this.opts.chokidar.watch(keys.worktreePath, {
-			ignored: (p: string) => IGNORED.some((seg) => p.includes(`/${seg}/`)),
+			ignored: (p: string) => isIgnoredPath(p),
 			ignoreInitial: true,
 			persistent: true,
 		});
@@ -66,7 +71,7 @@ export class WorktreeWatcher {
 		const onEvent = (p: string) => {
 			const ext = p.slice(p.lastIndexOf("."));
 			if (!EXT_ALLOW.has(ext)) return;
-			if (IGNORED.some((seg) => p.includes(`/${seg}/`))) return;
+			if (isIgnoredPath(p)) return;
 			state.pending.add(p);
 			if (state.timer) clearTimeout(state.timer);
 			state.timer = setTimeout(() => {

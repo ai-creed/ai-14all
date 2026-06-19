@@ -44,6 +44,22 @@ describe("WorktreeWatcher", () => {
 		vi.useRealTimers();
 	});
 
+	it("ignores ignored dirs given Windows backslash paths", async () => {
+		const onBatch = vi.fn();
+		const fakeChokidar = makeFakeChokidar();
+		const w = new WorktreeWatcher({
+			chokidar: fakeChokidar as never,
+			debounceMs: 1,
+			onBatch,
+		});
+		w.watch({ worktreePath: "C:\\wt" });
+		fakeChokidar.emit("change", "C:\\wt\\node_modules\\x.ts");
+		fakeChokidar.emit("change", "C:\\wt\\keep.ts");
+		await new Promise((r) => setTimeout(r, 5));
+		expect(onBatch).toHaveBeenCalledTimes(1);
+		expect(onBatch.mock.calls[0][0].changedFiles).toEqual(["C:\\wt\\keep.ts"]);
+	});
+
 	it("filters by extension and ignored dirs", async () => {
 		const onBatch = vi.fn();
 		const fakeChokidar = makeFakeChokidar();
