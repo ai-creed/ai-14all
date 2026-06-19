@@ -40,8 +40,8 @@ Feasibility verdict: **yes.** It is an Electron app and every dependency is cros
 "Done" for Phase 1, verified manually in the VM:
 
 **Must:**
-- `pnpm install` in the VM compiles `node-pty` and `better-sqlite3` for win-arm64 against Electron's ABI.
-- `pnpm build` then `electron-builder --win --dir` (or `zip`) succeeds; all `afterPack` guards pass.
+- `pnpm install` in the VM succeeds; the ARM64 MSVC + Python toolchain compiles `node-pty` and `better-sqlite3` from source for win-arm64. (These build against the **host-Node** ABI at this step — `pnpm install` only runs `postinstall`; it does **not** target Electron's ABI.)
+- `pnpm build` then `electron-builder --win --dir` (or `zip`) succeeds. **Electron-ABI alignment is owned by this packaging/rebuild step, not by `pnpm install`:** `buildDependenciesFromSource: true` recompiles the native modules against Electron's headers when packaging (and `predev`/`electron-rebuild` does the same for run-from-source). The afterPack `assertPackagedBetterSqliteAbi` guard then passes — the packaged `NODE_MODULE_VERSION` equals Electron's ABI — and that passing assertion is the ABI evidence.
 - The app launches — window opens, no "Cannot find module" / native-module crash.
 - A Git worktree can be opened/added.
 - A terminal pane spawns **pwsh.exe** (or **powershell.exe** fallback) and is interactive.
@@ -117,7 +117,7 @@ In the Windows 11 ARM VM:
 - Python 3.
 - **Visual Studio Build Tools 2022** with "Desktop development with C++" and the **ARM64** build components.
 
-Then `pnpm install` builds `node-pty` and `better-sqlite3` from source (`onlyBuiltDependencies` already lists both); `predev` / `electron-rebuild` aligns `better-sqlite3` to Electron's ABI.
+Then `pnpm install` builds `node-pty` and `better-sqlite3` from source against the **host-Node** ABI (`onlyBuiltDependencies` lists both; `pnpm install` itself only runs `postinstall` and does not target Electron's ABI). **Electron-ABI alignment is a separate packaging/rebuild step:** `electron-builder --win` with `buildDependenciesFromSource: true` recompiles the native modules against Electron's headers when packaging, and `predev` / `electron-rebuild` does the same for run-from-source (`pnpm dev`). The afterPack `assertPackagedBetterSqliteAbi` guard validates that the packaged binary's `NODE_MODULE_VERSION` matches Electron's ABI and aborts the build on mismatch — this is the ABI verification evidence required in §6.
 
 ## 6. Testing Strategy (TDD)
 
