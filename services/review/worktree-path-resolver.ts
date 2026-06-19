@@ -29,13 +29,25 @@ export async function createWorktreePathResolver(
 		canonicalToId = next;
 	};
 
-	const resolve = async (input: string) => {
-		let canonical: string;
+	const canonicalize = async (input: string) => {
 		try {
-			canonical = await realpath(input);
+			return await realpath(input);
 		} catch {
-			canonical = input;
+			return input;
 		}
+	};
+
+	const resolve = async (input: string) => {
+		const canonical = await canonicalize(input);
+		const hit = canonicalToId.get(canonical);
+		if (hit !== undefined) return hit;
+		// Cache miss. The worktree set may have changed since the last refresh:
+		// a repo can be registered just after an eager consumer (the whisper lens
+		// poll) resolves its collab path, so the map is momentarily stale. Re-list
+		// once and retry before reporting the path as unknown. A path we genuinely
+		// don't manage still returns null — only at the cost of one extra re-list,
+		// which is cheap (an in-process registry walk / `git worktree list`).
+		await refresh();
 		return canonicalToId.get(canonical) ?? null;
 	};
 

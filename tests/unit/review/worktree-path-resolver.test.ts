@@ -50,4 +50,31 @@ describe("worktree-path-resolver", () => {
 		await resolver.refresh();
 		expect(await resolver.resolve(repoB)).toBe(repoB);
 	});
+
+	it("self-heals: resolves a worktree added since the last refresh without an explicit refresh()", async () => {
+		// Reproduces the whisper-lens race: a repo is registered (its worktrees
+		// list now includes the path) but the resolver's cache predates it because
+		// the eager consumer (whisper poll) resolved before refresh() landed. The
+		// resolver must re-list on a miss and find it, rather than report null.
+		const repoA = join(dir, "a");
+		const repoB = join(dir, "b");
+		await mkdir(repoA);
+		await mkdir(repoB);
+		let registry = [{ id: repoA, path: repoA }];
+		const resolver = await createWorktreePathResolver(() => registry);
+		registry = [...registry, { id: repoB, path: repoB }];
+		expect(await resolver.resolve(repoB)).toBe(repoB);
+	});
+
+	it("re-lists exactly once on a miss, then returns null for a genuinely unknown path", async () => {
+		let calls = 0;
+		const resolver = await createWorktreePathResolver(() => {
+			calls++;
+			return [];
+		});
+		const afterConstruct = calls; // construction performs one initial refresh
+		expect(await resolver.resolve("/no/such/path")).toBeNull();
+		// The self-heal re-lists once before giving up — bounded, not a loop.
+		expect(calls).toBe(afterConstruct + 1);
+	});
 });
