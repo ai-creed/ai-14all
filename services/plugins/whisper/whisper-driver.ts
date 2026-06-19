@@ -21,6 +21,13 @@ export type WhisperDriverOptions = {
 	pushState: (states: WhisperWorktreeState[]) => void;
 	pollIntervalMs?: number;
 	now?: () => number;
+	/**
+	 * Subscribe to changes in the set of known worktrees. The driver re-snapshots
+	 * on each signal so a collab in a just-registered worktree appears in the lens
+	 * immediately instead of waiting for the next poll. Returns an unsubscribe fn,
+	 * called on stop(). Optional: when absent, the driver relies on polling alone.
+	 */
+	subscribeWorktreeChanges?: (onChange: () => void) => () => void;
 };
 
 export function createWhisperDriver(
@@ -31,6 +38,7 @@ export function createWhisperDriver(
 	const sockets = new Map<string, WhisperEventSocketClient>();
 	const socketDead = new Set<string>(); // collabs whose socket attach failed
 	const retryTimers = new Set<ReturnType<typeof setTimeout>>();
+	let unsubscribeWorktrees: (() => void) | null = null;
 	let stopped = true;
 
 	async function attachSocket(
@@ -112,9 +120,16 @@ export function createWhisperDriver(
 			};
 			watcher.onSnapshot(publish);
 			watcher.start(pollIntervalMs);
+			// A newly-registered worktree changes which collabs resolve to a known
+			// worktree; re-snapshot on that signal so the lens reflects it now
+			// rather than at the next poll tick.
+			unsubscribeWorktrees =
+				options.subscribeWorktreeChanges?.(() => refresh()) ?? null;
 		},
 		async stop() {
 			stopped = true;
+			unsubscribeWorktrees?.();
+			unsubscribeWorktrees = null;
 			watcher?.stop();
 			watcher = null;
 			for (const client of sockets.values()) client.close();

@@ -106,4 +106,54 @@ describe("createWhisperDriver", () => {
 		await new Promise((r) => setTimeout(r, 50));
 		expect(pushed.length).toBe(count);
 	});
+
+	it("re-snapshots when a worktree change is signaled, and unsubscribes on stop", async () => {
+		makeWhisperFixtureDb(join(stateRoot, "state.db"), {
+			collabs: [{ collab_id: "c1", workspace_root: "/w1" }],
+			daemons: [{ collab_id: "c1", last_heartbeat_at: FRESH }],
+		});
+		const pushed: WhisperWorktreeState[][] = [];
+		const listeners = new Set<() => void>();
+		const emitWorktreeChange = () => {
+			for (const cb of listeners) cb();
+		};
+		const driver = createWhisperDriver({
+			getStateRoot: () => stateRoot,
+			getBinary: async () => ({ command: "/bin/whisper", prefixArgs: [] }),
+			probeImpl: async () => ({
+				kind: "installed",
+				version: "0.6.0",
+				installPath: "/x",
+				protocolVersion: "1",
+			}),
+			resolveWorktreeId: async () => "wt-1",
+			pushState: (states) => pushed.push(states),
+			// Long poll so the only refresh trigger under test is the change signal.
+			pollIntervalMs: 60_000,
+			now: () => Date.parse("2026-06-12T03:00:00Z"),
+			subscribeWorktreeChanges: (cb) => {
+				listeners.add(cb);
+				return () => listeners.delete(cb);
+			},
+		});
+		const ctx = { reportDegraded: vi.fn(), reportLimited: vi.fn() };
+		await driver.start(ctx);
+		await new Promise((r) => setTimeout(r, 30));
+		const afterBoot = pushed.length;
+		expect(afterBoot).toBeGreaterThan(0);
+
+		// A worktree-registry change must force a fresh snapshot even though the
+		// 60s poll has not fired — this is what makes a freshly-loaded worktree's
+		// collab appear in the lens immediately.
+		emitWorktreeChange();
+		await new Promise((r) => setTimeout(r, 30));
+		expect(pushed.length).toBeGreaterThan(afterBoot);
+
+		// stop() must tear the subscription down so later signals do nothing.
+		await driver.stop();
+		const afterStop = pushed.length;
+		emitWorktreeChange();
+		await new Promise((r) => setTimeout(r, 30));
+		expect(pushed.length).toBe(afterStop);
+	});
 });

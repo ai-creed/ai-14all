@@ -218,6 +218,12 @@ app.whenReady().then(async () => {
 			Number(process.env.AI14ALL_WHISPER_POLL_MS) > 0
 				? Number(process.env.AI14ALL_WHISPER_POLL_MS)
 				: undefined,
+		// Re-snapshot the lens when the known-worktree set changes so a collab in
+		// a just-loaded worktree appears immediately. The resolver self-heals on a
+		// miss, so this stays correct regardless of listener order vs the resolver
+		// refresh wired below.
+		subscribeWorktreeChanges: (onChange) =>
+			workspaceRegistry.onChange(onChange),
 	});
 
 	const getCortexBinary = () =>
