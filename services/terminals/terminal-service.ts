@@ -4,6 +4,7 @@ import type { IPty } from "node-pty";
 import type { TerminalSession } from "../../shared/models/terminal-session.js";
 import type { AgentAttentionLogger } from "../diagnostics/agent-attention-logger.js";
 import type { ShellEventLogInput } from "../diagnostics/shell-event-log-service.js";
+import { resolveDefaultShell } from "../platform/default-shell.js";
 import { OutputBatcher } from "./output-batcher.js";
 
 /**
@@ -111,11 +112,11 @@ export class TerminalService {
 			data: { workspaceId, worktreeId, cwd },
 		});
 
-		const shell = process.env.SHELL ?? "/bin/zsh";
+		const { shell, args } = resolveDefaultShell();
 
 		let p: IPty;
 		try {
-			p = pty.spawn(shell, ["-l"], {
+			p = pty.spawn(shell, args, {
 				name: "xterm-256color",
 				cols: 80,
 				rows: 24,

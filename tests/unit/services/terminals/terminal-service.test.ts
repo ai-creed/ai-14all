@@ -13,6 +13,7 @@ vi.mock("node-pty", () => ({
 }));
 
 import { TerminalService } from "../../../../services/terminals/terminal-service.js";
+import { resolveDefaultShell } from "../../../../services/platform/default-shell.js";
 
 type ExitHandler = (event: { exitCode: number; signal?: number }) => void;
 
@@ -160,6 +161,27 @@ describe("TerminalService", () => {
 		service.dispose();
 
 		expect(service.listSessions()).toEqual([]);
+	});
+
+	it("spawns the platform default shell with its args", () => {
+		const pty = createPtyDouble();
+		spawnMock.mockReturnValue(pty);
+		const handlers = {
+			onOutput: vi.fn(),
+			onExit: vi.fn(),
+			onState: vi.fn(),
+			onError: vi.fn(),
+		};
+		const service = new TerminalService(handlers);
+
+		service.create("ws-a", "worktree-a", "/repo-a");
+
+		const expected = resolveDefaultShell();
+		expect(spawnMock).toHaveBeenCalledWith(
+			expected.shell,
+			expected.args,
+			expect.objectContaining({ cwd: "/repo-a" }),
+		);
 	});
 
 	it("spawns a login shell so profile PATH is available", () => {
