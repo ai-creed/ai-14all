@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { resolveDefaultShell } from "../platform/default-shell.js";
 
 export type ResolvedBinary = {
 	command: string;
@@ -21,6 +22,10 @@ export type ResolveBinaryOptions = {
 	 * Override in tests; pass `[]` to disable the fallback.
 	 */
 	searchPaths?: string[];
+	/** Defaults to process.platform; inject to exercise the win32 branch. */
+	platform?: NodeJS.Platform;
+	/** win32 PATH probe (`where`); injectable for tests. */
+	whichOnPath?: (name: string) => Promise<string | null>;
 };
 
 const DEV_CHECKOUT_ENTRY = "packages/cli/dist/bin/whisper.js";
@@ -60,6 +65,58 @@ function defaultSearchPaths(): string[] {
 	];
 }
 
+const WINDOWS_EXES = ["", ".exe", ".cmd", ".bat", ".ps1"];
+
+function defaultWindowsSearchPaths(env: NodeJS.ProcessEnv): string[] {
+	const out: string[] = [];
+	if (env.LOCALAPPDATA) {
+		out.push(join(env.LOCALAPPDATA, "Programs"));
+		out.push(join(env.LOCALAPPDATA, "Microsoft", "WindowsApps"));
+	}
+	if (env.APPDATA) out.push(join(env.APPDATA, "npm")); // npm global prefix
+	if (env.USERPROFILE) out.push(join(env.USERPROFILE, ".local", "bin"));
+	return out;
+}
+
+function findInWindowsSearchPaths(
+	name: string,
+	dirs: string[],
+): ResolvedBinary | null {
+	for (const dir of dirs) {
+		for (const ext of WINDOWS_EXES) {
+			const candidate = join(dir, `${name}${ext}`);
+			try {
+				if (statSync(candidate).isFile())
+					return { command: candidate, prefixArgs: [] };
+			} catch {
+				// keep looking
+			}
+		}
+	}
+	return null;
+}
+
+function whichOnPathWindows(name: string): Promise<string | null> {
+	return new Promise((resolve) => {
+		const child = spawn("where", [name], {
+			stdio: ["ignore", "pipe", "ignore"],
+		});
+		let out = "";
+		child.stdout.on("data", (chunk: Buffer) => {
+			out += chunk.toString("utf8");
+		});
+		child.on("error", () => resolve(null));
+		child.on("close", (code) => {
+			if (code !== 0) return resolve(null);
+			const first = out
+				.split(/\r?\n/)
+				.map((l) => l.trim())
+				.find((l) => l.length > 0);
+			resolve(first ?? null);
+		});
+	});
+}
+
 function findInSearchPaths(
 	name: string,
 	dirs: string[],
@@ -81,16 +138,27 @@ function findInSearchPaths(
  * "claude", "codex") — it is interpolated into a shell line below, so it
  * must never be a user- or config-derived value.
  */
-export function resolveBinary(
+export async function resolveBinary(
 	name: string,
 	options: ResolveBinaryOptions = {},
 ): Promise<ResolvedBinary | null> {
 	// An explicit override never falls back to PATH: the user pointed at a
 	// specific install, and silently using another one would be confusing.
 	if (options.installPath != null) {
-		return Promise.resolve(resolveOverride(options.installPath));
+		return resolveOverride(options.installPath);
 	}
-	const shell = options.shell ?? process.env.SHELL ?? "/bin/zsh";
+
+	const platform = options.platform ?? process.platform;
+	if (platform === "win32") {
+		const which = options.whichOnPath ?? whichOnPathWindows;
+		const searchPaths =
+			options.searchPaths ?? defaultWindowsSearchPaths(process.env);
+		const hit = await which(name);
+		if (hit) return { command: hit, prefixArgs: [] };
+		return findInWindowsSearchPaths(name, searchPaths);
+	}
+
+	const shell = options.shell ?? resolveDefaultShell({ platform }).shell;
 	const timeoutMs = options.timeoutMs ?? 5000;
 	const searchPaths = options.searchPaths ?? defaultSearchPaths();
 	const fallback = () => findInSearchPaths(name, searchPaths);

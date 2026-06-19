@@ -169,3 +169,62 @@ describe("resolveBinary", () => {
 		expect(result).toBeNull();
 	});
 });
+
+describe("resolveBinary on win32", () => {
+	it("returns the `where` hit when found on PATH", async () => {
+		const result = await resolveBinary("claude", {
+			platform: "win32",
+			whichOnPath: async () => "C:\\tools\\claude.exe",
+			searchPaths: [],
+		});
+		expect(result).toEqual({
+			command: "C:\\tools\\claude.exe",
+			prefixArgs: [],
+		});
+	});
+
+	it("falls back to a search path and finds a .exe by extension", async () => {
+		const binDir = join(makeDir(), "bin");
+		mkdirSync(binDir);
+		const bin = join(binDir, "claude.exe");
+		writeFileSync(bin, "", "utf8");
+		const result = await resolveBinary("claude", {
+			platform: "win32",
+			whichOnPath: async () => null,
+			searchPaths: [binDir],
+		});
+		expect(result).toEqual({ command: bin, prefixArgs: [] });
+	});
+
+	it("finds a .cmd shim by extension in a search path", async () => {
+		const binDir = join(makeDir(), "bin");
+		mkdirSync(binDir);
+		const bin = join(binDir, "claude.cmd");
+		writeFileSync(bin, "", "utf8");
+		const result = await resolveBinary("claude", {
+			platform: "win32",
+			whichOnPath: async () => null,
+			searchPaths: [binDir],
+		});
+		expect(result).toEqual({ command: bin, prefixArgs: [] });
+	});
+
+	it("returns null when neither PATH nor the search paths have it", async () => {
+		const result = await resolveBinary("claude", {
+			platform: "win32",
+			whichOnPath: async () => null,
+			searchPaths: [join(makeDir(), "empty")],
+		});
+		expect(result).toBeNull();
+	});
+
+	it("an explicit installPath override still wins on win32", async () => {
+		const file = join(makeDir(), "claude.exe");
+		writeFileSync(file, "", "utf8");
+		const result = await resolveBinary("claude", {
+			platform: "win32",
+			installPath: file,
+		});
+		expect(result).toEqual({ command: file, prefixArgs: [] });
+	});
+});
