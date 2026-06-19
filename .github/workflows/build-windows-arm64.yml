@@ -1,0 +1,60 @@
+name: build-windows-arm64
+
+# Phase 1 Windows bring-up helper: builds an UNSIGNED win-arm64 zip on a native
+# Windows-on-ARM runner and uploads it as an artifact. No signing, no publish,
+# no auto-update manifest. This exists so the win-arm64 build (which requires a
+# Windows MSVC/ARM64 toolchain to compile better-sqlite3 + node-pty from source)
+# can be produced without setting up a local toolchain in the test VM — download
+# the artifact and run/smoke it in the Windows 11 ARM VM.
+#
+# Separate from release.yml; does not touch the macOS release pipeline.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/windows-build-phase1
+
+jobs:
+  build:
+    runs-on: windows-11-arm
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node (24, matches Electron 41's bundled Node)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Enable corepack (pnpm)
+        run: corepack enable
+
+      - name: Setup Python (node-gyp)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # buildDependenciesFromSource (electron-builder.yml) rebuilds native deps
+      # against Electron's headers during packaging, but force the better-sqlite3
+      # Electron-ABI rebuild here too — mirrors release.yml so the afterPack ABI
+      # guard cannot reject a stale host-Node binary.
+      - name: Rebuild better-sqlite3 for Electron before packaging
+        run: pnpm exec electron-rebuild -f -w better-sqlite3
+
+      - name: Package win-arm64 zip (unsigned, no publish)
+        run: pnpm package:win
+
+      - name: Upload win-arm64 zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-14all-win-arm64-zip
+          path: release/*.zip
+          if-no-files-found: error
