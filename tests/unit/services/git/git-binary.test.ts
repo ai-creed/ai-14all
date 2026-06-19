@@ -61,3 +61,51 @@ describe("getGitBinaryPath", () => {
 		expect(getGitBinaryPath()).toBe("git");
 	});
 });
+
+describe("getGitBinaryPath on win32", () => {
+	it("returns the Program Files Git path when it exists", async () => {
+		const getGitBinaryPath = await freshGetGitBinaryPath();
+		const gitExe = "C:\\Program Files\\Git\\cmd\\git.exe";
+		expect(
+			getGitBinaryPath({
+				platform: "win32",
+				env: {},
+				existsSync: (p) => p === gitExe,
+			}),
+		).toBe(gitExe);
+	});
+
+	it("returns the LOCALAPPDATA Git path when Program Files is absent", async () => {
+		const getGitBinaryPath = await freshGetGitBinaryPath();
+		const gitExe = "C:\\Users\\me\\AppData\\Local\\Programs\\Git\\cmd\\git.exe";
+		expect(
+			getGitBinaryPath({
+				platform: "win32",
+				env: { LOCALAPPDATA: "C:\\Users\\me\\AppData\\Local" },
+				existsSync: (p) => p === gitExe,
+			}),
+		).toBe(gitExe);
+	});
+
+	it("falls back to git.exe (PATH lookup) when no candidate exists", async () => {
+		const getGitBinaryPath = await freshGetGitBinaryPath();
+		expect(
+			getGitBinaryPath({
+				platform: "win32",
+				env: {},
+				existsSync: () => false,
+			}),
+		).toBe("git.exe");
+	});
+
+	it("honors AI14ALL_GIT_PATH on win32 too", async () => {
+		const getGitBinaryPath = await freshGetGitBinaryPath();
+		expect(
+			getGitBinaryPath({
+				platform: "win32",
+				env: { AI14ALL_GIT_PATH: "D:\\git\\git.exe" },
+				existsSync: () => false,
+			}),
+		).toBe("D:\\git\\git.exe");
+	});
+});
