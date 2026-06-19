@@ -30,11 +30,12 @@ mac:
       arch:
         - arm64
 win:
-  # Phase 1: portable zip only (no NSIS installer, no signing). arm64-only.
+  # Phase 1: portable zip only (no NSIS installer, no signing).
+  # No explicit arch — defaults to the host arch and is overridden per build by
+  # the CLI flag (--arm64 / --x64). CI builds each arch on its native runner; a
+  # local `package:win` builds for whatever Windows machine runs it.
   target:
     - target: zip
-      arch:
-        - arm64
   # icon omitted in Phase 1 — Electron's default icon is used.
 publish:
   provider: github

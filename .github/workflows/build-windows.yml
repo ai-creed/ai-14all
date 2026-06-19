@@ -1,0 +1,70 @@
+name: build-windows
+
+# Builds an UNSIGNED Windows zip for both arches and uploads each as an
+# artifact. No signing, no publish, no auto-update manifest. Each arch is built
+# on its own native runner because better-sqlite3 + node-pty are compiled from
+# source (buildDependenciesFromSource) and cross-arch native builds are flaky.
+#
+# Local equivalent: on a Windows machine, `pnpm install` then `pnpm package:win`
+# builds the zip for that machine's arch (the win target has no pinned arch).
+#
+# Separate from release.yml; does not touch the macOS release pipeline.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/windows-build-phase1
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-11-arm
+            arch: arm64
+          - runner: windows-latest
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node (24, matches Electron 41's bundled Node)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Enable corepack (pnpm)
+        run: corepack enable
+
+      - name: Setup Python (node-gyp)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # buildDependenciesFromSource rebuilds native deps against Electron's
+      # headers during packaging, but force the better-sqlite3 Electron-ABI
+      # rebuild here too so the afterPack ABI guard cannot reject a stale binary.
+      - name: Rebuild better-sqlite3 for Electron (${{ matrix.arch }})
+        run: pnpm exec electron-rebuild -f -w better-sqlite3 --arch ${{ matrix.arch }}
+
+      - name: Build + package win-${{ matrix.arch }} zip (unsigned, no publish)
+        run: |
+          pnpm build
+          pnpm exec electron-builder --win zip --${{ matrix.arch }} --publish never
+
+      - name: Upload win-${{ matrix.arch }} zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-14all-win-${{ matrix.arch }}-zip
+          path: release/*.zip
+          if-no-files-found: error

@@ -15,34 +15,39 @@
 
 Phase 1's acceptance bar (spec §4) is verified *manually in the Windows 11 ARM VM*. The autonomous workflow that produced the code runs on macOS (`darwin`) and has no access to that VM. The native modules (`better-sqlite3`, `node-pty`) cannot be compiled for win-arm64 from macOS, and the packaged `.exe` cannot be launched or interactively smoke-tested from a macOS shell. These steps require the VM and human visual confirmation (e.g. "the terminal spawns pwsh and is interactive"). No agent in a macOS session can produce this evidence, and fabricating it is not acceptable — hence this checklist for the operator.
 
-## Prerequisites (in the Windows 11 ARM VM)
+## Prerequisites (on the target Windows machine or VM)
 
-Two paths. **Route A is the one in use** — CI builds the artifact, you only run it.
+Two first-class paths:
 
-### Route A — run the prebuilt artifact (recommended; only Git needed)
+- **Route A** — download a CI-built artifact and run it (fastest to smoke-test).
+- **Route B** — build locally on the Windows machine (use this to fix Windows-specific bugs and rebuild on the spot).
 
-The packaged app is self-contained: it bundles its own Node (Electron's runtime) and all `node_modules` in `app.asar`. You do **not** need Node, pnpm, Python, or Visual Studio Build Tools in the VM.
+Match the arch to the machine: **x64** for a typical Intel/AMD PC, **arm64** for a Windows-on-ARM device or the Apple-Silicon VM.
+
+### Route A — run the prebuilt artifact (only Git needed)
+
+The packaged app is self-contained: it bundles its own Node (Electron's runtime) and all `node_modules` in `app.asar`. You do **not** need Node, pnpm, Python, or Visual Studio Build Tools to _run_ it.
 
 - [ ] **Git for Windows** — required at runtime: the app shells out to `git` for worktree/status (`getGitBinaryPath` → Program Files Git path, else `git.exe` on PATH). Without it, the worktree/git smoke steps fail.
 - [ ] (optional) An agent CLI such as `claude` — only to exercise the "Should" criterion below.
 
-### Route B — build inside the VM instead (only if not using CI)
+### Route B — build locally on the Windows machine (for fixing Windows bugs)
 
 - [ ] Node 24 (matches Electron 41's bundled Node); `corepack enable`.
 - [ ] Python 3 (for node-gyp).
-- [ ] Visual Studio Build Tools 2022 — "Desktop development with C++" workload **+ ARM64** build components.
-- [ ] Git for Windows (also a runtime dependency, as in Route A).
+- [ ] Visual Studio Build Tools 2022 — "Desktop development with C++" workload. The default install covers **x64**; add the **ARM64** build components only if the machine/target is arm64.
+- [ ] Git for Windows (also the runtime dependency from Route A).
 - [ ] Verify: `node -v` (24.x), `pnpm -v`, `python --version`.
 
 ## Steps & Must-criteria (record the result of each)
 
 ### Get the build
 
-**Route A (CI — in use):** the `build-windows-arm64` workflow (`.github/workflows/build-windows-arm64.yml`) builds the unsigned win-arm64 zip on a `windows-11-arm` runner and uploads it as the `ai-14all-win-arm64-zip` artifact. The afterPack guards (better-sqlite3 Electron-ABI, spawn-helper-skip on win32, dependency-closure) all pass there, so packaging is already validated.
+**Route A (CI):** the `build-windows` workflow (`.github/workflows/build-windows.yml`) builds an unsigned zip for **both** arches — `arm64` on a `windows-11-arm` runner and `x64` on `windows-latest` — uploaded as the `ai-14all-win-arm64-zip` and `ai-14all-win-x64-zip` artifacts. The afterPack guards (better-sqlite3 Electron-ABI, spawn-helper-skip on win32, dependency-closure) pass for each, so packaging is already validated.
 
-- [ ] `gh run download <run-id> -n ai-14all-win-arm64-zip` (on a machine with `gh`), transfer the zip into the VM, unzip. _Result:_ ____
+- [ ] `gh run download <run-id> -n ai-14all-win-<arch>-zip` (on a machine with `gh`), copy the zip to the target machine, unzip. _Result:_ ____
 
-**Route B (build in VM):** instead run `git checkout feat/windows-build-phase1` → `pnpm install --frozen-lockfile` (compiles `node-pty` + `better-sqlite3` for win-arm64) → `pnpm package:win` (afterPack guards must pass; zip lands under `release/`). _Result:_ ____
+**Route B (build locally):** `git checkout feat/windows-build-phase1` → `pnpm install --frozen-lockfile` (compiles `node-pty` + `better-sqlite3` for the host arch) → `pnpm package:win` (the win target has no pinned arch, so it builds for the host machine's arch; afterPack guards must pass; zip lands under `release/`). _Result:_ ____
 
 ### Launch / smoke (spec §4 "Must")
 
