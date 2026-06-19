@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.3] – 2026-06-19
+
+### Fixed
+
+- **Terminal panes no longer go blank when you switch sessions within a workspace.** Selecting a different session re-rendered the panel with that session's panes, so the leaving session's terminals were torn down and the returning ones mounted empty — and because terminal output is a live stream with no replay, a remounted pane stayed blank until new output happened to arrive. ai-14all now keeps a per-session buffer of recent terminal output and replays it the moment a pane remounts, so switching back to a session shows its content immediately.
+- **The ai-whisper workflow lens now refreshes the moment a worktree is loaded.** An active collab in a freshly-loaded worktree could be missing from the sidebar lens until the next poll, because the lens only re-read its state on a timer. The lens now re-reads as soon as the set of known worktrees changes, so a loaded worktree's workflow appears right away.
+
 ## [0.9.2] – 2026-06-15
 
 ### Added
