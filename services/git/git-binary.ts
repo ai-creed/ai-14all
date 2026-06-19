@@ -31,9 +31,7 @@ export function getGitBinaryPath(options: GetGitBinaryOptions = {}): string {
 		const candidates = [
 			"C:\\Program Files\\Git\\cmd\\git.exe",
 			"C:\\Program Files (x86)\\Git\\cmd\\git.exe",
-			...(localAppData
-				? [`${localAppData}\\Programs\\Git\\cmd\\git.exe`]
-				: []),
+			...(localAppData ? [`${localAppData}\\Programs\\Git\\cmd\\git.exe`] : []),
 		];
 		const found = candidates.find((p) => existsSync(p));
 		if (found) return found;

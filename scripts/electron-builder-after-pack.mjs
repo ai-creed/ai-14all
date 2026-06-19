@@ -387,7 +387,10 @@ export function assertPackagedDependencyClosure({
 	return { checked: packages.length };
 }
 
-export default async function afterPack(context, { platform = process.platform } = {}) {
+export default async function afterPack(
+	context,
+	{ platform = process.platform } = {},
+) {
 	const appOutDir = context.appOutDir;
 	const productFilename = context.packager.appInfo.productFilename;
 	const arch = resolvePackagedArch(context.arch);

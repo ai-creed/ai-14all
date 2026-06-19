@@ -68,8 +68,7 @@ describe("resolveDefaultShell", () => {
 					"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
 			}),
 		).toEqual({
-			shell:
-				"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+			shell: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
 			args: ["-NoLogo"],
 		});
 	});
