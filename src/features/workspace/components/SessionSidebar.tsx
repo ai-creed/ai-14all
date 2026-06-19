@@ -126,7 +126,7 @@ export function SessionSidebar({
 			data-collapsed={String(collapsed)}
 		>
 			<div className="shell-sidebar__header">
-				{!collapsed && <div className="shell-label">Sessions</div>}
+				{!collapsed && <div className="shell-label">Workspace</div>}
 				<Button
 					type="button"
 					variant="ghost"
@@ -483,6 +483,7 @@ export function SessionSidebar({
 									type="button"
 									variant="secondary"
 									size="sm"
+									className="w-full"
 									onClick={() => onCreateWorktree(workspace.workspaceId)}
 									aria-label="New session"
 								>
@@ -496,8 +497,9 @@ export function SessionSidebar({
 			<div className="shell-sidebar__footer shell-sidebar__footer--global">
 				<Button
 					type="button"
-					variant="secondary"
+					variant="outline"
 					size="sm"
+					className="w-full"
 					onClick={onLoadWorkspace}
 					aria-label="Load workspace"
 				>

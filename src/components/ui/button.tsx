@@ -13,13 +13,13 @@ const buttonVariants = cva(
 		variants: {
 			variant: {
 				default:
-					"bg-primary text-primary-foreground shadow hover:bg-primary/90 tui:hover:bg-primary tui:hover:underline tui:active:bg-foreground tui:active:text-background",
+					"bg-primary text-primary-foreground hover:bg-primary/90 tui:hover:bg-primary tui:hover:underline tui:active:bg-foreground tui:active:text-background",
 				destructive:
-					"bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 tui:hover:bg-destructive tui:hover:underline tui:active:bg-foreground tui:active:text-background",
+					"bg-destructive text-destructive-foreground hover:bg-destructive/90 tui:hover:bg-destructive tui:hover:underline tui:active:bg-foreground tui:active:text-background",
 				outline:
-					"border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground tui:border-border tui:active:bg-foreground tui:active:text-background",
+					"border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground tui:border-border tui:active:bg-foreground tui:active:text-background",
 				secondary:
-					"bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 tui:hover:bg-secondary tui:hover:underline tui:active:bg-foreground tui:active:text-background",
+					"bg-secondary text-secondary-foreground hover:bg-secondary/80 tui:hover:bg-secondary tui:hover:underline tui:active:bg-foreground tui:active:text-background",
 				ghost:
 					"hover:bg-accent hover:text-accent-foreground tui:active:bg-foreground tui:active:text-background",
 				link: "text-primary underline-offset-4 hover:underline",

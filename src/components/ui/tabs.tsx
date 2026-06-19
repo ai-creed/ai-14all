@@ -32,7 +32,7 @@ const TabsTrigger = React.forwardRef<
 		ref={ref}
 		className={cn(
 			// tui: reverse-video active tab — the signature TUI selection cue
-			"inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow tui:rounded-none tui:px-[1ch] tui:py-0 tui:transition-none tui:data-[state=active]:bg-foreground tui:data-[state=active]:text-background tui:data-[state=active]:shadow-none",
+			"inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground tui:rounded-none tui:px-[1ch] tui:py-0 tui:transition-none tui:data-[state=active]:bg-foreground tui:data-[state=active]:text-background tui:data-[state=active]:shadow-none",
 			className,
 		)}
 		{...props}

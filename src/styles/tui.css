@@ -31,10 +31,10 @@
 /* Pane accent borders become solid full-opacity lines instead of rgba
  * washes — crisp 1px lines read as box-drawing (spec D3). */
 [data-theme="tui"] {
-	--pane-border-sessions: #4fb3ff;
-	--pane-border-session-info: #f6a94a;
-	--pane-border-terminal: #43d39e;
-	--pane-border-review: #f36b8a;
+	--pane-border-sessions: var(--panel-border);
+	--pane-border-session-info: var(--panel-border);
+	--pane-border-terminal: var(--panel-border);
+	--pane-border-review: var(--panel-border);
 }
 
 /* Elevation shadows off. Targeted per selector — a blanket `box-shadow:
@@ -61,7 +61,7 @@
 
 /* Attention states: discrete blink instead of rotating conic spotlight and
  * breathing glows — terminal motion is stepped, never tweened (spec D7).
- * The ring mask from shell.css is kept; only fill + animation change. */
+ * tui-attention-blink still drives the process dots + button pulse below. */
 @keyframes tui-attention-blink {
 	0%,
 	100% {
@@ -72,20 +72,74 @@
 	}
 }
 
-[data-theme="tui"] .shell-sidebar__row[data-attention="activity"]::before {
-	background: var(--attention-color);
-	animation: tui-attention-blink 1.2s steps(1, end) infinite;
+/* Single blinking border (smoke-test feedback): the base theme paints the
+ * attention ring on a ::before inset INSIDE the row's own 2px border, so an
+ * active row showed two stacked borders. The flat TUI box wants ONE border —
+ * drop the ring and blink the row's own border-color instead. */
+[data-theme="tui"] .shell-sidebar__row[data-attention="activity"]::before,
+[data-theme="tui"] .shell-sidebar__row[data-attention="actionRequired"]::before {
+	display: none;
 }
 
-[data-theme="tui"]
-	.shell-sidebar__row[data-attention="actionRequired"]::before {
-	animation: tui-attention-blink 0.7s steps(1, end) infinite;
+/* Activity: muted amber, slow — a SECOND-tier "agent running" cue that never
+ * out-shouts the selected card. ActionRequired: full attention color, fast.
+ * Each blinks the row's single border between its accent and the neutral
+ * panel border, so only the outermost line ever animates. */
+@keyframes tui-attention-border-activity {
+	0%,
+	100% {
+		border-color: color-mix(
+			in srgb,
+			var(--attention-color) 45%,
+			var(--panel-border)
+		);
+	}
+	50% {
+		border-color: var(--panel-border);
+	}
+}
+
+@keyframes tui-attention-border-action {
+	0%,
+	100% {
+		border-color: var(--attention-color);
+	}
+	50% {
+		border-color: var(--panel-border);
+	}
+}
+
+[data-theme="tui"] .shell-sidebar__row[data-attention="activity"] {
+	animation: tui-attention-border-activity 2s steps(1, end) infinite;
 }
 
 [data-theme="tui"] .shell-sidebar__row[data-attention="actionRequired"] {
-	/* glow keyframes animated box-shadow on the row itself */
-	animation: none;
+	animation: tui-attention-border-action 0.7s steps(1, end) infinite;
 	box-shadow: none;
+}
+
+/* Selection leads (first in the hierarchy): a selected row holds a static,
+ * neutral near-white border and never blinks — even with an active agent. The
+ * [data-attention] variant outranks the blink rules above, so selection wins
+ * on a combined row regardless of source order. */
+[data-theme="tui"] .shell-sidebar__row[data-selected="true"],
+[data-theme="tui"] .shell-sidebar__row[data-selected="true"][data-attention] {
+	border-color: var(--foreground);
+	animation: none;
+}
+
+/* Non-selected rows recede: dim their text/content so the selected card's
+ * full-strength text leads the hierarchy. Targets the content containers (not
+ * the row) so the blinking border is left untouched. */
+[data-theme="tui"]
+	.shell-sidebar__row[data-selected="false"]
+	:is(
+		.shell-sidebar__item,
+		.shell-sidebar__card-task,
+		.shell-sidebar__processes,
+		.workflow-row
+	) {
+	opacity: 0.6;
 }
 
 [data-theme="tui"]
@@ -108,6 +162,12 @@
 	[data-theme="tui"] .shell-button__pulse-dot {
 		animation: none;
 	}
+	/* Blink frozen — surface attention as a static single border instead.
+	 * Selection still wins via its higher-specificity rule above. */
+	[data-theme="tui"] .shell-sidebar__row[data-attention="activity"],
+	[data-theme="tui"] .shell-sidebar__row[data-attention="actionRequired"] {
+		border-color: var(--attention-color);
+	}
 }
 
 /* ---- Box-drawing utility (spec §7, WebTUI box technique) --------------- */
@@ -119,7 +179,7 @@
  * behind the title via --tui-box-bg. Inert unless the class is used, so
  * it is safe to define for all themes (the gallery renders it everywhere). */
 .tui-box {
-	--box-border-width: 1px;
+	--box-border-width: 2px;
 	position: relative;
 	isolation: isolate;
 	padding: 1lh 1ch;

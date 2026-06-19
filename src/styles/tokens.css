@@ -39,6 +39,7 @@
 	--text-muted: var(--muted-foreground);
 	--accent-strong: var(--secondary);
 	--warning: oklch(0.828 0.122 75);
+	--info: oklch(0.72 0.13 235);
 	--danger: var(--destructive);
 	--accent: var(--primary);
 
@@ -76,6 +77,7 @@
 	--input: oklch(0.929 0.013 255.508);
 	--ring: oklch(0.704 0.04 256.788);
 	--accent: var(--primary);
+	--info: oklch(0.52 0.17 250);
 }
 
 /* ---- warm theme: existing palette via shadcn token names ---- */
