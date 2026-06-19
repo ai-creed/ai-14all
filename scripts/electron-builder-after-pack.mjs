@@ -290,6 +290,7 @@ export function collectPackagedPackages({
 	existsSync = defaultExistsSync,
 	readdirSync = defaultReaddirSync,
 	readFileSync = defaultReadFileSync,
+	archiveSep = sep,
 }) {
 	const packages = [];
 	const seen = new Set();
@@ -331,9 +332,15 @@ export function collectPackagedPackages({
 	for (const entry of listPackage(asarPath)) {
 		const rel = normalizeAsarPath(entry);
 		if (!isPackageRootPackageJson(rel)) continue;
+		// @electron/asar's getFile() splits the lookup path on path.sep, so the
+		// path handed to extractFile must use the OS separator. `rel` is
+		// POSIX-normalized for our matching/storage; convert it back to path.sep
+		// here — otherwise on Windows (sep === "\\") the forward-slash path
+		// collapses to one bogus segment and asar throws "not found in archive".
+		const archivePath = rel.split("/").join(archiveSep);
 		add(
 			rel.slice(0, -"/package.json".length),
-			extractFile(asarPath, rel).toString("utf8"),
+			extractFile(asarPath, archivePath).toString("utf8"),
 		);
 	}
 

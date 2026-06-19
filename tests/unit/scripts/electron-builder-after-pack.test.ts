@@ -410,6 +410,39 @@ describe("dependency-closure guard", () => {
 				{ dir: "node_modules/node-pty", name: "node-pty", dependencies: [] },
 			]);
 		});
+
+		it("hands extractFile a path.sep-separated archive path (Windows backslash)", () => {
+			const pkgJson = JSON.stringify({
+				name: "@floating-ui/core",
+				dependencies: {},
+			});
+			const seen: string[] = [];
+			const packages = collectPackagedPackages({
+				asarPath: "C:\\app\\resources\\app.asar",
+				unpackedDir: "C:\\app\\resources\\app.asar.unpacked",
+				listPackage: () => ["\\node_modules\\@floating-ui\\core\\package.json"],
+				// Mimic @electron/asar on Windows: getFile() splits the lookup on
+				// path.sep, so only a backslash-separated, leading-stripped path
+				// resolves; a POSIX path throws "not found in this archive".
+				extractFile: (_asar: string, p: string) => {
+					seen.push(p);
+					if (p !== "node_modules\\@floating-ui\\core\\package.json") {
+						throw new Error(`"${p}" was not found in this archive`);
+					}
+					return Buffer.from(pkgJson);
+				},
+				existsSync: () => false,
+				archiveSep: "\\",
+			});
+			expect(seen).toEqual(["node_modules\\@floating-ui\\core\\package.json"]);
+			expect(packages).toEqual([
+				{
+					dir: "node_modules/@floating-ui/core",
+					name: "@floating-ui/core",
+					dependencies: [],
+				},
+			]);
+		});
 	});
 
 	describe("assertPackagedDependencyClosure", () => {
