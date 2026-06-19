@@ -10,6 +10,7 @@ import afterPack, {
 	getPackagedAsarPath,
 	getPackagedAsarUnpackedDir,
 	getPackagedNodePtySpawnHelperPath,
+	getPackagedResourcesDir,
 	isPackageRootPackageJson,
 	readNativeModuleAbi,
 	resolveElectronAbi,
@@ -77,6 +78,56 @@ describe("electron-builder-after-pack", () => {
 		});
 		expect(changed).toBe(false);
 		expect(chmodSync).not.toHaveBeenCalled();
+	});
+
+	it("resolves the mac resources dir on darwin", () => {
+		expect(
+			getPackagedResourcesDir({
+				appOutDir: "/tmp/release/mac-arm64",
+				productFilename: "ai-14all",
+				platform: "darwin",
+			}),
+		).toBe("/tmp/release/mac-arm64/ai-14all.app/Contents/Resources");
+	});
+
+	it("resolves the flat resources dir on win32", () => {
+		expect(
+			getPackagedResourcesDir({
+				appOutDir: "/tmp/release/win-arm64",
+				productFilename: "ai-14all",
+				platform: "win32",
+			}),
+		).toBe("/tmp/release/win-arm64/resources");
+	});
+
+	it("builds the asar + unpacked dirs under the win32 resources layout", () => {
+		expect(
+			getPackagedAsarUnpackedDir({
+				appOutDir: "/tmp/release/win-arm64",
+				productFilename: "ai-14all",
+				platform: "win32",
+			}),
+		).toBe("/tmp/release/win-arm64/resources/app.asar.unpacked");
+		expect(
+			getPackagedAsarPath({
+				appOutDir: "/tmp/release/win-arm64",
+				productFilename: "ai-14all",
+				platform: "win32",
+			}),
+		).toBe("/tmp/release/win-arm64/resources/app.asar");
+	});
+
+	it("skips the node-pty spawn-helper assertion on win32 (fails later at the sqlite guard instead)", async () => {
+		const context = {
+			appOutDir: "/nonexistent/win",
+			packager: { appInfo: { productFilename: "ai-14all" } },
+			arch: Arch.arm64,
+		};
+		// On win32 the spawn-helper branch is skipped, so the first failure is the
+		// better-sqlite3 binary guard, NOT "node-pty spawn-helper not found".
+		await expect(afterPack(context, { platform: "win32" })).rejects.toThrow(
+			/native binary not found/,
+		);
 	});
 });
 

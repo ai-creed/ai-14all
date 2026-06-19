@@ -29,6 +29,13 @@ mac:
     - target: dmg
       arch:
         - arm64
+win:
+  # Phase 1: portable zip only (no NSIS installer, no signing). arm64-only.
+  target:
+    - target: zip
+      arch:
+        - arm64
+  # icon omitted in Phase 1 — Electron's default icon is used.
 publish:
   provider: github
   owner: ai-creed

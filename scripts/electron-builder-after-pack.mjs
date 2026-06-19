@@ -14,16 +14,26 @@ export function resolvePackagedArch(arch) {
 	return arch === Arch.arm64 ? "arm64" : "x64";
 }
 
+export function getPackagedResourcesDir({
+	appOutDir,
+	productFilename,
+	platform = process.platform,
+}) {
+	if (platform === "darwin") {
+		return join(appOutDir, `${productFilename}.app`, "Contents", "Resources");
+	}
+	// Windows + Linux: electron-builder emits a flat `resources/` dir.
+	return join(appOutDir, "resources");
+}
+
 export function getPackagedNodePtySpawnHelperPath({
 	appOutDir,
 	productFilename,
 	arch,
+	platform = process.platform,
 }) {
 	return join(
-		appOutDir,
-		`${productFilename}.app`,
-		"Contents",
-		"Resources",
+		getPackagedResourcesDir({ appOutDir, productFilename, platform }),
 		"app.asar.unpacked",
 		"node_modules",
 		"node-pty",
@@ -37,6 +47,7 @@ export function ensurePackagedNodePtySpawnHelperExecutable({
 	appOutDir,
 	productFilename,
 	arch,
+	platform = process.platform,
 	existsSync = defaultExistsSync,
 	chmodSync = defaultChmodSync,
 }) {
@@ -44,6 +55,7 @@ export function ensurePackagedNodePtySpawnHelperExecutable({
 		appOutDir,
 		productFilename,
 		arch,
+		platform,
 	});
 	if (!existsSync(helperPath)) return false;
 	chmodSync(helperPath, 0o755);
@@ -60,12 +72,13 @@ export function ensurePackagedNodePtySpawnHelperExecutable({
 // search). node-pty already has an afterPack assertion; this gives
 // better-sqlite3 the same protection — abort packaging on any mismatch.
 
-export function getPackagedAsarUnpackedDir({ appOutDir, productFilename }) {
+export function getPackagedAsarUnpackedDir({
+	appOutDir,
+	productFilename,
+	platform = process.platform,
+}) {
 	return join(
-		appOutDir,
-		`${productFilename}.app`,
-		"Contents",
-		"Resources",
+		getPackagedResourcesDir({ appOutDir, productFilename, platform }),
 		"app.asar.unpacked",
 	);
 }
@@ -137,6 +150,7 @@ export function assertPackagedBetterSqliteAbi({
 	appOutDir,
 	productFilename,
 	electronVersion,
+	platform = process.platform,
 	existsSync = defaultExistsSync,
 	readdirSync = defaultReaddirSync,
 	readFileSync = defaultReadFileSync,
@@ -145,6 +159,7 @@ export function assertPackagedBetterSqliteAbi({
 	const unpackedDir = getPackagedAsarUnpackedDir({
 		appOutDir,
 		productFilename,
+		platform,
 	});
 	const binary = findBetterSqliteBinary(unpackedDir, {
 		existsSync,
@@ -186,12 +201,13 @@ export function assertPackagedBetterSqliteAbi({
 // app itself and asserts every declared dependency resolves — aborting packaging
 // if any are missing, so this class of bug can never reach users again.
 
-export function getPackagedAsarPath({ appOutDir, productFilename }) {
+export function getPackagedAsarPath({
+	appOutDir,
+	productFilename,
+	platform = process.platform,
+}) {
 	return join(
-		appOutDir,
-		`${productFilename}.app`,
-		"Contents",
-		"Resources",
+		getPackagedResourcesDir({ appOutDir, productFilename, platform }),
 		"app.asar",
 	);
 }
@@ -327,6 +343,7 @@ export function collectPackagedPackages({
 export function assertPackagedDependencyClosure({
 	appOutDir,
 	productFilename,
+	platform = process.platform,
 	listPackage,
 	extractFile,
 	existsSync = defaultExistsSync,
@@ -334,8 +351,12 @@ export function assertPackagedDependencyClosure({
 	readFileSync = defaultReadFileSync,
 }) {
 	const packages = collectPackagedPackages({
-		asarPath: getPackagedAsarPath({ appOutDir, productFilename }),
-		unpackedDir: getPackagedAsarUnpackedDir({ appOutDir, productFilename }),
+		asarPath: getPackagedAsarPath({ appOutDir, productFilename, platform }),
+		unpackedDir: getPackagedAsarUnpackedDir({
+			appOutDir,
+			productFilename,
+			platform,
+		}),
 		listPackage,
 		extractFile,
 		existsSync,
@@ -366,26 +387,37 @@ export function assertPackagedDependencyClosure({
 	return { checked: packages.length };
 }
 
-export default async function afterPack(context) {
-	const changed = ensurePackagedNodePtySpawnHelperExecutable({
-		appOutDir: context.appOutDir,
-		productFilename: context.packager.appInfo.productFilename,
-		arch: resolvePackagedArch(context.arch),
-	});
-	if (!changed) {
-		throw new Error(
-			"afterPack: node-pty spawn-helper not found — aborting packaging to prevent broken terminal",
-		);
+export default async function afterPack(context, { platform = process.platform } = {}) {
+	const appOutDir = context.appOutDir;
+	const productFilename = context.packager.appInfo.productFilename;
+	const arch = resolvePackagedArch(context.arch);
+
+	// node-pty ships a `spawn-helper` only on darwin/linux; on Windows it uses
+	// conpty.node and there is no helper to chmod, so skip this assertion there.
+	if (platform !== "win32") {
+		const changed = ensurePackagedNodePtySpawnHelperExecutable({
+			appOutDir,
+			productFilename,
+			arch,
+			platform,
+		});
+		if (!changed) {
+			throw new Error(
+				"afterPack: node-pty spawn-helper not found — aborting packaging to prevent broken terminal",
+			);
+		}
 	}
 
 	assertPackagedBetterSqliteAbi({
-		appOutDir: context.appOutDir,
-		productFilename: context.packager.appInfo.productFilename,
+		appOutDir,
+		productFilename,
 		electronVersion: resolveElectronVersion(context),
+		platform,
 	});
 
 	assertPackagedDependencyClosure({
-		appOutDir: context.appOutDir,
-		productFilename: context.packager.appInfo.productFilename,
+		appOutDir,
+		productFilename,
+		platform,
 	});
 }
