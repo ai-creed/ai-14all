@@ -84,7 +84,20 @@ nsis:
 
 ### 6.2 `.github/workflows/release-windows.yml` (new, separate)
 
-- Trigger: `push: tags: ['v*.*.*']` (+ `workflow_dispatch` with a version input for smoke runs), matching `release.yml`'s tag shape.
+- Trigger: mirror `release.yml`'s tag shape **exactly** — `push.tags: ["v*.*.*", "!v*-*"]` (the `!v*-*` negation excludes prerelease tags like `v1.2.3-beta.1`, so the Windows job fires on the same stable tags as mac and never on a tag where mac does not — keeping both pipelines on the same Release). Plus `workflow_dispatch` with a version input for smoke runs.
+
+  ```yaml
+  on:
+    push:
+      tags:
+        - "v*.*.*"
+        - "!v*-*"
+    workflow_dispatch:
+      inputs:
+        version:
+          description: "Version tag to build for smoke runs (e.g. v0.9.3)"
+          required: true
+  ```
 - Matrix: `windows-latest` (x64), `windows-11-arm` (arm64) — same runners as `build-windows.yml`.
 - Steps mirror `build-windows.yml` (Node 24, corepack, Python, `pnpm install --frozen-lockfile`, `electron-rebuild` better-sqlite3 for the arch), then:
   - x64 job: `pnpm build` → `electron-builder --win nsis zip --x64 --publish never` → uploads `*-Setup.exe`, `*.exe.blockmap`, `latest.yml`, `*.zip`.
