@@ -8,6 +8,21 @@ import { targetOwnsTyping } from "./target-owns-typing";
 export type { Platform };
 export { detectPlatform };
 
+/**
+ * Pick the platform-appropriate label for an inline shortcut hint — UI
+ * affordances NOT driven by SHORTCUT_REGISTRY (e.g. the editor save bar, the
+ * layout-button tooltip). `⌘`-style on mac, `Ctrl`-style elsewhere, so Windows
+ * never shows a Cmd hint for a Ctrl binding. Defaults to the detected platform;
+ * pass `platform` explicitly in tests.
+ */
+export function shortcutHint(
+	mac: string,
+	other: string,
+	platform: Platform = detectPlatform(),
+): string {
+	return platform === "mac" ? mac : other;
+}
+
 export interface AppShortcut {
 	id: string;
 	label: string;

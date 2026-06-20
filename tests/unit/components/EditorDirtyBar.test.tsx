@@ -14,12 +14,27 @@ describe("EditorDirtyBar", () => {
 				pristineLength={10}
 				onSave={vi.fn()}
 				onDiscard={vi.fn()}
+				platform="mac"
 			/>,
 		);
 		expect(screen.getByText(/Unsaved changes/i)).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Discard" })).toBeInTheDocument();
 		expect(screen.getByText("⌘S")).toBeInTheDocument();
+	});
+
+	it("shows the Ctrl hint on non-mac platforms (Windows/Linux)", () => {
+		render(
+			<EditorDirtyBar
+				currentLength={10}
+				pristineLength={10}
+				onSave={vi.fn()}
+				onDiscard={vi.fn()}
+				platform="other"
+			/>,
+		);
+		expect(screen.getByText("Ctrl+S")).toBeInTheDocument();
+		expect(screen.queryByText("⌘S")).not.toBeInTheDocument();
 	});
 
 	it("invokes onSave when Save is clicked", () => {

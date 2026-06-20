@@ -1,5 +1,10 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import type { CommandPreset } from "../../../../shared/models/command-preset";
+import {
+	type Platform,
+	shortcutHint,
+	detectPlatform,
+} from "../../../app/shortcut-registry";
 
 type Props = {
 	presets: CommandPreset[];
@@ -9,6 +14,8 @@ type Props = {
 	onLaunchPreset: (presetId: string) => void;
 	onOpenPresetManager: () => void;
 	onOpenLayoutDialog: () => void;
+	/** Defaults to the detected platform; injected in tests. */
+	platform?: Platform;
 };
 
 /**
@@ -23,6 +30,7 @@ export function TerminalActions({
 	onLaunchPreset,
 	onOpenPresetManager,
 	onOpenLayoutDialog,
+	platform = detectPlatform(),
 }: Props) {
 	return (
 		<div className="shell-chip-bar__terminal-group">
@@ -44,7 +52,7 @@ export function TerminalActions({
 				className="shell-chip-bar__action"
 				data-testid="terminal-layout-button"
 				aria-label="Choose layout"
-				title="Choose layout (⌘⇧L)"
+				title={`Choose layout (${shortcutHint("⌘⇧L", "Ctrl+Shift+L", platform)})`}
 				onClick={onOpenLayoutDialog}
 			>
 				<span className="shell-chip-bar__action-icon" aria-hidden="true">

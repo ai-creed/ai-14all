@@ -1,10 +1,17 @@
 import { useCallback } from "react";
+import {
+	type Platform,
+	shortcutHint,
+	detectPlatform,
+} from "../../../app/shortcut-registry";
 
 export type EditorDirtyBarProps = {
 	currentLength: number;
 	pristineLength: number;
 	onSave: () => void;
 	onDiscard: () => void;
+	/** Defaults to the detected platform; injected in tests. */
+	platform?: Platform;
 };
 
 const DISCARD_CONFIRM_THRESHOLD = 50;
@@ -19,6 +26,7 @@ export function EditorDirtyBar({
 	pristineLength,
 	onSave,
 	onDiscard,
+	platform = detectPlatform(),
 }: EditorDirtyBarProps) {
 	const handleDiscard = useCallback(() => {
 		const delta = Math.abs(currentLength - pristineLength);
@@ -39,7 +47,7 @@ export function EditorDirtyBar({
 				<span aria-hidden="true">●</span> Unsaved changes
 			</span>
 			<span className="shell-editor-dirty-bar__hint">
-				<kbd>⌘S</kbd>
+				<kbd>{shortcutHint("⌘S", "Ctrl+S", platform)}</kbd>
 			</span>
 			<button
 				type="button"

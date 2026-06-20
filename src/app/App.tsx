@@ -1798,6 +1798,7 @@ export function App() {
 											onLaunchPreset={handleLaunchPreset}
 											onOpenPresetManager={() => setPresetManagerOpen(true)}
 											onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
+											platform={appPlatform}
 										/>
 									}
 								/>

@@ -1,8 +1,19 @@
 import { describe, it, expect } from "vitest";
 import {
 	SHORTCUT_REGISTRY,
+	shortcutHint,
 	type AppShortcut,
 } from "../../../src/app/shortcut-registry";
+
+describe("shortcutHint", () => {
+	it("returns the mac label on mac", () => {
+		expect(shortcutHint("⌘S", "Ctrl+S", "mac")).toBe("⌘S");
+	});
+	it("returns the Ctrl label on non-mac (Windows/Linux)", () => {
+		expect(shortcutHint("⌘S", "Ctrl+S", "other")).toBe("Ctrl+S");
+		expect(shortcutHint("⌘⇧L", "Ctrl+Shift+L", "other")).toBe("Ctrl+Shift+L");
+	});
+});
 
 // Minimal KeyboardEvent factory — only sets the fields the predicates inspect.
 function evt(partial: Partial<KeyboardEvent>): KeyboardEvent {

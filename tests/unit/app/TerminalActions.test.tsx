@@ -40,6 +40,21 @@ describe("TerminalActions add control", () => {
 		await user.click(screen.getByTestId("terminal-layout-button"));
 		expect(onOpenLayoutDialog).toHaveBeenCalledTimes(1);
 	});
+
+	it("shows a Cmd layout hint on mac and a Ctrl hint on Windows/Linux", () => {
+		const { rerender } = render(
+			<TerminalActions {...props({ platform: "mac" })} />,
+		);
+		expect(screen.getByTestId("terminal-layout-button")).toHaveAttribute(
+			"title",
+			"Choose layout (⌘⇧L)",
+		);
+		rerender(<TerminalActions {...props({ platform: "other" })} />);
+		expect(screen.getByTestId("terminal-layout-button")).toHaveAttribute(
+			"title",
+			"Choose layout (Ctrl+Shift+L)",
+		);
+	});
 });
 
 describe("TerminalActions presets menu", () => {
