@@ -8,7 +8,10 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveBinary } from "../../../services/plugins/binary-resolver";
+import {
+	pickWindowsExecutable,
+	resolveBinary,
+} from "../../../services/plugins/binary-resolver";
 
 let dir: string;
 
@@ -209,6 +212,23 @@ describe("resolveBinary on win32", () => {
 		expect(result).toEqual({ command: bin, prefixArgs: [] });
 	});
 
+	it("prefers a runnable .cmd over the extensionless POSIX shim in a search path", async () => {
+		// npm drops `ai-cortex` (a #!/bin/sh shim) AND `ai-cortex.cmd` side by side.
+		// The bare shim must NOT win — Windows can't exec it, which is what made the
+		// plugin show "degraded".
+		const binDir = join(makeDir(), "bin");
+		mkdirSync(binDir);
+		writeFileSync(join(binDir, "ai-cortex"), "#!/bin/sh\n", "utf8");
+		const cmd = join(binDir, "ai-cortex.cmd");
+		writeFileSync(cmd, "", "utf8");
+		const result = await resolveBinary("ai-cortex", {
+			platform: "win32",
+			whichOnPath: async () => null,
+			searchPaths: [binDir],
+		});
+		expect(result).toEqual({ command: cmd, prefixArgs: [] });
+	});
+
 	it("returns null when neither PATH nor the search paths have it", async () => {
 		const result = await resolveBinary("claude", {
 			platform: "win32",
@@ -226,5 +246,46 @@ describe("resolveBinary on win32", () => {
 			installPath: file,
 		});
 		expect(result).toEqual({ command: file, prefixArgs: [] });
+	});
+});
+
+describe("pickWindowsExecutable", () => {
+	it("picks the .cmd over the extensionless shim `where` lists first", () => {
+		// Exactly what `where ai-cortex` prints for an npm global install.
+		expect(
+			pickWindowsExecutable([
+				"C:\\Users\\u\\AppData\\Roaming\\npm\\ai-cortex",
+				"C:\\Users\\u\\AppData\\Roaming\\npm\\ai-cortex.cmd",
+			]),
+		).toBe("C:\\Users\\u\\AppData\\Roaming\\npm\\ai-cortex.cmd");
+	});
+
+	it("prefers a native .exe over a .cmd", () => {
+		expect(pickWindowsExecutable(["C:\\t\\foo.cmd", "C:\\t\\foo.exe"])).toBe(
+			"C:\\t\\foo.exe",
+		);
+	});
+
+	it("falls back to .ps1 when that's the only runnable match", () => {
+		expect(pickWindowsExecutable(["C:\\t\\foo", "C:\\t\\foo.ps1"])).toBe(
+			"C:\\t\\foo.ps1",
+		);
+	});
+
+	it("ignores blank lines and trims CRLF whitespace", () => {
+		expect(pickWindowsExecutable(["", "  C:\\t\\foo.cmd  ", "\r"])).toBe(
+			"C:\\t\\foo.cmd",
+		);
+	});
+
+	it("returns the first line when nothing has a runnable extension", () => {
+		expect(pickWindowsExecutable(["C:\\t\\foo", "C:\\t\\bar"])).toBe(
+			"C:\\t\\foo",
+		);
+	});
+
+	it("returns null for empty output", () => {
+		expect(pickWindowsExecutable([])).toBeNull();
+		expect(pickWindowsExecutable(["", "   "])).toBeNull();
 	});
 });

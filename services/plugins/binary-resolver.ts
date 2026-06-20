@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { extname, join } from "node:path";
 import { resolveDefaultShell } from "../platform/default-shell.js";
 
 export type ResolvedBinary = {
@@ -65,7 +65,38 @@ function defaultSearchPaths(): string[] {
 	];
 }
 
-const WINDOWS_EXES = ["", ".exe", ".cmd", ".bat", ".ps1"];
+// Preference order when a single name resolves to several files. An npm global
+// install drops THREE siblings next to each other — an extensionless POSIX shim
+// (`ai-cortex`), a `ai-cortex.cmd`, and a `ai-cortex.ps1`. Windows cannot exec
+// the bare shim (it is a `#!/bin/sh` script), so a runnable extension must win.
+// `.exe`/`.com` are native; `.cmd`/`.bat`/`.ps1` run via their interpreter (see
+// adaptResolvedExec). The empty extension is last — only used when nothing else
+// matches, preserving the old behaviour for genuinely extensionless tools.
+const WINDOWS_EXEC_EXTS = [".exe", ".com", ".cmd", ".bat", ".ps1"];
+const WINDOWS_EXES = [...WINDOWS_EXEC_EXTS, ""];
+
+/**
+ * Choose the best runnable match from `where`'s output (one path per line).
+ * `where name` lists the extensionless POSIX shim FIRST, so taking line 1 — as
+ * this code used to — hands `execFile` a shell script Windows can't launch,
+ * which the callers then mis-report as "degraded". Pick the highest-priority
+ * executable extension instead; fall back to the first line when none carry a
+ * recognised extension. Exported for testing.
+ */
+export function pickWindowsExecutable(lines: string[]): string | null {
+	const candidates = lines.map((l) => l.trim()).filter((l) => l.length > 0);
+	if (candidates.length === 0) return null;
+	let best: string | null = null;
+	let bestRank = Number.POSITIVE_INFINITY;
+	for (const candidate of candidates) {
+		const rank = WINDOWS_EXEC_EXTS.indexOf(extname(candidate).toLowerCase());
+		if (rank !== -1 && rank < bestRank) {
+			best = candidate;
+			bestRank = rank;
+		}
+	}
+	return best ?? candidates[0];
+}
 
 function defaultWindowsSearchPaths(env: NodeJS.ProcessEnv): string[] {
 	const out: string[] = [];
@@ -108,11 +139,7 @@ function whichOnPathWindows(name: string): Promise<string | null> {
 		child.on("error", () => resolve(null));
 		child.on("close", (code) => {
 			if (code !== 0) return resolve(null);
-			const first = out
-				.split(/\r?\n/)
-				.map((l) => l.trim())
-				.find((l) => l.length > 0);
-			resolve(first ?? null);
+			resolve(pickWindowsExecutable(out.split(/\r?\n/)));
 		});
 	});
 }
