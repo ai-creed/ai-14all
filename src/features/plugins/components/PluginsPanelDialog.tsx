@@ -9,23 +9,55 @@ import { usePluginsState } from "../hooks/use-plugins-state";
 import { PluginCard, type PluginDescriptor } from "./PluginCard";
 
 /**
+ * Which shell the Configure command must be valid in. The command runs in the
+ * terminal's default shell: PowerShell on Windows, a POSIX shell elsewhere.
+ * They need different conditional syntax (POSIX `||` is a parse error in Windows
+ * PowerShell, and `>/dev/null` is meaningless there), so we emit per-shell.
+ */
+export type ConfigureShell = "posix" | "powershell";
+
+export function detectConfigureShell(): ConfigureShell {
+	return typeof navigator !== "undefined" &&
+		/win/i.test(navigator.platform ?? "")
+		? "powershell"
+		: "posix";
+}
+
+/**
  * Compose the ai-cortex "Configure" command from the agent-CLI probes.
  * - One guarded `mcp add` per INSTALLED agent (claude/codex); ezio excluded.
- *   The `mcp get … ||` guard makes a re-run safe when the server already exists.
+ *   The guard makes a re-run safe when the server already exists — `mcp get`
+ *   succeeds, so `mcp add` is skipped.
  * - The two ai-cortex setup commands always run (idempotent).
- * - Steps joined with `;` so one failure does not abort the rest.
+ * - Steps joined with `;` (a valid separator in both shells) so one failure
+ *   does not abort the rest.
+ *
+ * POSIX uses `<get> >/dev/null 2>&1 || <add>`. Windows PowerShell has no `||`,
+ * so it uses `<get> 2>$null | Out-Null; if ($LASTEXITCODE -ne 0) { <add> }`,
+ * which also works in pwsh 7 — so we never need to distinguish the two.
  */
 export function composeCortexConfigureCommand(
 	probes: AgentCliProbes | null,
+	shell: ConfigureShell = detectConfigureShell(),
 ): string {
+	const guarded = (check: string, add: string) =>
+		shell === "powershell"
+			? `${check} 2>$null | Out-Null; if ($LASTEXITCODE -ne 0) { ${add} }`
+			: `${check} >/dev/null 2>&1 || ${add}`;
 	const steps: string[] = [];
 	if (probes?.claude.kind === "found")
 		steps.push(
-			"claude mcp get ai-cortex >/dev/null 2>&1 || claude mcp add -s user ai-cortex -- ai-cortex mcp",
+			guarded(
+				"claude mcp get ai-cortex",
+				"claude mcp add -s user ai-cortex -- ai-cortex mcp",
+			),
 		);
 	if (probes?.codex.kind === "found")
 		steps.push(
-			"codex mcp get ai-cortex >/dev/null 2>&1 || codex mcp add ai-cortex -- ai-cortex mcp",
+			guarded(
+				"codex mcp get ai-cortex",
+				"codex mcp add ai-cortex -- ai-cortex mcp",
+			),
 		);
 	steps.push("ai-cortex history install-hooks");
 	steps.push("ai-cortex memory install-prompt-guide");
@@ -42,9 +74,10 @@ export function composeCortexConfigureCommand(
 export function cortexConfigureHandler(
 	probes: AgentCliProbes | null,
 	onConfigure: (command: string) => void,
+	shell: ConfigureShell = detectConfigureShell(),
 ): (() => void) | undefined {
 	if (!probes) return undefined;
-	return () => onConfigure(composeCortexConfigureCommand(probes));
+	return () => onConfigure(composeCortexConfigureCommand(probes, shell));
 }
 
 const DESCRIPTORS: Record<EcosystemPluginId, PluginDescriptor> = {

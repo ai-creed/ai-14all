@@ -124,3 +124,13 @@ These were Windows-specific runtime bugs already fixed on
   (`git-service` readDiff / discardChange). Centralised into
   `resolveWithinWorktree` (uses `path.sep`, injectable `path.win32`/`path.posix`
   so a POSIX CI guards the regression).
+- 🟢 **ai-cortex "Configure" threw a PowerShell parse error.** The composed
+  command used POSIX shell syntax — `<get> >/dev/null 2>&1 || <add>` — but it
+  runs in the terminal's default shell, which is Windows PowerShell. PowerShell
+  5.1 has no `||` (`The token '||' is not a valid statement separator`) and no
+  `/dev/null`. `composeCortexConfigureCommand` now emits per-shell:
+  `<get> 2>$null | Out-Null; if ($LASTEXITCODE -ne 0) { <add> }` on Windows
+  (valid in 5.1 and pwsh 7), POSIX unchanged. Shell chosen by
+  `detectConfigureShell()` (Windows → PowerShell). Plain commands
+  (`npm i -g …`, agent launch) were already cross-shell; this was the only
+  composed command using POSIX redirection.
