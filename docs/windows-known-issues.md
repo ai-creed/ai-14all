@@ -90,6 +90,18 @@ Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, li
 
 ---
 
+### 3. ⚪ Usage attribution may not match a cwd to its worktree on Windows (needs triage)
+
+**Symptom (suspected).** `matchCwd` in `services/usage/worktree-map.ts:16` tests
+`cwd.startsWith(base + "/")` with a hardcoded "/". If `cwd` / `worktree.path`
+carry native backslashes on Windows, the match fails and usage is attributed to
+no worktree (or the wrong one). Same class as the resolved path-escape bug, but
+in the usage subsystem and on string inputs whose separator wasn't confirmed —
+left unfixed pending a check of how those paths are stored. Likely wants the
+same `path.sep` treatment (or normalising both sides) once confirmed.
+
+---
+
 ## Resolved
 
 These were Windows-specific runtime bugs already fixed on
@@ -103,3 +115,12 @@ These were Windows-specific runtime bugs already fixed on
 - 🟢 **Launch buttons typed a command but did not run it.** ConPTY/PowerShell
   only submits a line on CR; the app sent `\n`. `commandSubmitKey()` sends `\r`
   on Windows and keeps `\n` elsewhere — commit `8cdcb60`.
+- 🟢 **Every file in the review/editor chrome refused to open — "Refused: path
+  escapes the worktree".** The worktree-boundary guards compared a resolved
+  absolute path against `worktreePath + "/"`, but `resolve()` returns backslashes
+  on Windows, so the prefix never matched and every in-worktree file was rejected
+  as an escape. Affected the Monaco view/edit path (`file-service` read /
+  openForEdit / saveFile / listScopedFiles) and the diff/discard path
+  (`git-service` readDiff / discardChange). Centralised into
+  `resolveWithinWorktree` (uses `path.sep`, injectable `path.win32`/`path.posix`
+  so a POSIX CI guards the regression).

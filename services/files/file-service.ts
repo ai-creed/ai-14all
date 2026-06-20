@@ -8,7 +8,7 @@ import {
 	realpath,
 	writeFile,
 } from "node:fs/promises";
-import { join, resolve, extname } from "node:path";
+import { join, extname, sep } from "node:path";
 import type { FileReadResult } from "../../shared/models/file-view.js";
 import type {
 	OpenFileForEditResult,
@@ -20,6 +20,7 @@ import { isEditable } from "../../shared/editor/editable-files.js";
 import { isLikelyBinary } from "./binary-detect.js";
 import { MAX_FILE_VIEW_BYTES } from "../../shared/files/size-limits.js";
 import { isUnderDenylistedDir } from "../../shared/files/ignored-denylist.js";
+import { resolveWithinWorktree } from "./worktree-path.js";
 
 export const MAX_EDITOR_FILE_BYTES = 1_000_000;
 
@@ -90,12 +91,12 @@ export class FileService {
 
 		const files = new Set<string>();
 		for (const relativeRoot of uniqueRoots) {
-			const absoluteRoot = resolve(worktreePath, relativeRoot);
-			const normalizedWorktree = resolve(worktreePath);
-			if (
-				!absoluteRoot.startsWith(normalizedWorktree + "/") &&
-				absoluteRoot !== normalizedWorktree
-			) {
+			const {
+				absolute: absoluteRoot,
+				root: normalizedWorktree,
+				inside,
+			} = resolveWithinWorktree(worktreePath, relativeRoot);
+			if (!inside) {
 				throw new Error(`Path escapes worktree: ${relativeRoot}`);
 			}
 
@@ -169,13 +170,12 @@ export class FileService {
 		worktreePath: string,
 		relativePath: string,
 	): { ok: true; absolute: string } | { ok: false; reason: "path-escape" } {
-		const absolutePath = resolve(worktreePath, relativePath);
-		const normalizedWorktree = resolve(worktreePath);
-		const inside =
-			absolutePath === normalizedWorktree ||
-			absolutePath.startsWith(normalizedWorktree + "/");
+		const { absolute, inside } = resolveWithinWorktree(
+			worktreePath,
+			relativePath,
+		);
 		return inside
-			? { ok: true, absolute: absolutePath }
+			? { ok: true, absolute }
 			: { ok: false, reason: "path-escape" };
 	}
 
@@ -196,7 +196,7 @@ export class FileService {
 				]);
 				if (
 					realFile !== realWorktree &&
-					!realFile.startsWith(realWorktree + "/")
+					!realFile.startsWith(realWorktree + sep)
 				)
 					return { ok: false, reason: "path-escape" };
 			}
@@ -253,7 +253,7 @@ export class FileService {
 				]);
 				if (
 					realFile !== realWorktree &&
-					!realFile.startsWith(realWorktree + "/")
+					!realFile.startsWith(realWorktree + sep)
 				)
 					return { ok: false, reason: "path-escape" };
 			}

@@ -1,5 +1,5 @@
 import { readFile, stat, unlink } from "node:fs/promises";
-import { resolve } from "node:path";
+import { resolveWithinWorktree } from "../files/worktree-path.js";
 import type {
 	GitChange,
 	GitChangeStatus,
@@ -285,12 +285,11 @@ export class GitService {
 	}
 
 	async readDiff(worktreePath: string, relativePath: string): Promise<GitDiff> {
-		const absolutePath = resolve(worktreePath, relativePath);
-		const normalizedWorktree = resolve(worktreePath);
-		if (
-			!absolutePath.startsWith(normalizedWorktree + "/") &&
-			absolutePath !== normalizedWorktree
-		) {
+		const { absolute: absolutePath, inside } = resolveWithinWorktree(
+			worktreePath,
+			relativePath,
+		);
+		if (!inside) {
 			throw new Error(`Path escapes worktree: ${relativePath}`);
 		}
 
@@ -521,12 +520,11 @@ export class GitService {
 		worktreePath: string,
 		relativePath: string,
 	): Promise<void> {
-		const absolutePath = resolve(worktreePath, relativePath);
-		const normalizedWorktree = resolve(worktreePath);
-		if (
-			!absolutePath.startsWith(normalizedWorktree + "/") &&
-			absolutePath !== normalizedWorktree
-		) {
+		const { absolute: absolutePath, inside } = resolveWithinWorktree(
+			worktreePath,
+			relativePath,
+		);
+		if (!inside) {
 			throw new Error(`Path escapes worktree: ${relativePath}`);
 		}
 
