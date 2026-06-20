@@ -87,6 +87,31 @@ describe("createPluginRegistry", () => {
 		expect(registry.snapshots()[0].status).toEqual({ state: "not-installed" });
 	});
 
+	it("unsupported: enabled + installed → never probes or starts, status unsupported", async () => {
+		const probe = vi.fn(
+			async (): Promise<ProbeResult> => ({
+				kind: "installed",
+				version: "0.6.0",
+				installPath: "/x",
+				protocolVersion: "1",
+			}),
+		);
+		const driver = fakeDriver({ probe });
+		const registry = createPluginRegistry(
+			[driver],
+			fakeConfig({ enabled: true }),
+			{ unsupported: { whisper: "not supported on Windows yet" } },
+		);
+		await registry.boot();
+		// Gated off: the platform check wins before any probe/start.
+		expect(probe).not.toHaveBeenCalled();
+		expect(driver.start).not.toHaveBeenCalled();
+		expect(registry.snapshots()[0].status).toEqual({
+			state: "unsupported",
+			reason: "not supported on Windows yet",
+		});
+	});
+
 	it("boot: incompatible → status incompatible with reason", async () => {
 		const driver = fakeDriver({
 			probe: vi.fn(

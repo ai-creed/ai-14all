@@ -24,6 +24,8 @@ function chipLabel(snapshot: PluginSnapshot): string {
 			return `degraded — ${s.reason}`;
 		case "incompatible":
 			return `incompatible — found ${s.found}, requires ${s.required}`;
+		case "unsupported":
+			return s.reason;
 	}
 }
 
@@ -40,12 +42,17 @@ export function PluginCard(props: {
 }) {
 	const { descriptor, snapshot } = props;
 	const status = snapshot.status;
-	const showToggle = status.state !== "not-installed";
+	// `unsupported` is gated off for this platform: no enable, install, configure,
+	// or re-probe — only the reason chip. `not-installed` hides the toggle too.
+	const showToggle =
+		status.state !== "not-installed" && status.state !== "unsupported";
 	const showInstall = status.state === "not-installed";
 	const showReprobe =
 		status.state === "degraded" || status.state === "incompatible";
 	const showConfigure =
-		props.onConfigure !== undefined && status.state !== "not-installed";
+		props.onConfigure !== undefined &&
+		status.state !== "not-installed" &&
+		status.state !== "unsupported";
 	return (
 		<div className="plugin-card" data-plugin-id={snapshot.id}>
 			<div className="plugin-card-header">

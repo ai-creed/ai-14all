@@ -12,7 +12,7 @@ Status legend: 🔴 open · 🟡 in progress · ⚪ needs triage / unconfirmed �
 
 ## Open
 
-### 1. 🔴 `whisper collab mount <provider>` crashes — `spawnSync tty ENOENT`
+### 1. 🟡 `whisper collab mount <provider>` crashes — `spawnSync tty ENOENT` (mitigated: whisper gated off on Windows)
 
 **Symptom.** Launching a mounted agent (e.g. clicking *mount claude* in the
 agent launcher) runs `whisper collab mount claude` in a terminal, which prints
@@ -51,6 +51,14 @@ the unhandled error kills the mount. This is **upstream ai-whisper** code
 
 **Layer / ownership.** Upstream **ai-whisper**. Not directly fixable in this
 repo.
+
+**Mitigation in place.** The whole ai-whisper plugin is now gated off on Windows
+(`createPluginRegistry({ unsupported: { whisper: … } })` from `electron/main`
+when `process.platform === "win32"`). The plugin reports an `unsupported` status
+("not supported on Windows yet"), can't be enabled, is never probed/started, and
+`whisperOnHealthy` stays false — so `launchCommandFor` never issues
+`whisper collab mount` and the crash path is closed. **Remove the gate to
+re-enable once the upstream `tty` fix ships.**
 
 **Proposed direction.**
 - *Upstream (preferred):* guard `resolveCurrentTty` on `win32` — fall back to a

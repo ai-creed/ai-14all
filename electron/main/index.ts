@@ -250,6 +250,17 @@ app.whenReady().then(async () => {
 	const pluginRegistry = createPluginRegistry(
 		[whisperDriver, cortexDriver],
 		pluginConfig,
+		{
+			// ai-whisper's `collab mount` (and other flows) shell out to the POSIX
+			// `tty` binary, which doesn't exist on Windows — it hard-crashes there.
+			// Gate the whole plugin off on win32 until that's fixed upstream so it
+			// can't be enabled and the launcher never issues `whisper collab mount`.
+			// See docs/windows-known-issues.md #1.
+			unsupported:
+				process.platform === "win32"
+					? { whisper: "not supported on Windows yet" }
+					: undefined,
+		},
 	);
 	void pluginRegistry.boot();
 	const pluginIpc = registerPluginIpc({

@@ -23,7 +23,11 @@ export type PluginRuntimeStatus =
 	| { state: "installed-off"; version: string }
 	| { state: "on-healthy"; version: string; limited: boolean }
 	| { state: "degraded"; reason: string }
-	| { state: "incompatible"; found: string; required: string };
+	| { state: "incompatible"; found: string; required: string }
+	// Gated off for the current platform (e.g. ai-whisper on Windows until the
+	// upstream `tty` issue is fixed). Cannot be enabled or started; the panel
+	// shows the reason and no toggle. Takes priority over any probe result.
+	| { state: "unsupported"; reason: string };
 
 export type PluginSnapshot = {
 	id: EcosystemPluginId;

@@ -49,7 +49,15 @@ export type PluginRegistry = {
 	idle(): Promise<void>;
 };
 
-function statusOf(entry: Entry, enabled: boolean): PluginRuntimeStatus {
+function statusOf(
+	entry: Entry,
+	enabled: boolean,
+	unsupportedReason: string | undefined,
+): PluginRuntimeStatus {
+	// Platform gate wins over everything: an unsupported plugin is never probed,
+	// enabled, or started, so its probe/degraded fields are irrelevant.
+	if (unsupportedReason !== undefined)
+		return { state: "unsupported", reason: unsupportedReason };
 	if (entry.degradedReason !== null)
 		return { state: "degraded", reason: entry.degradedReason };
 	const probe = entry.probe;
@@ -73,10 +81,21 @@ function statusOf(entry: Entry, enabled: boolean): PluginRuntimeStatus {
 	return { state: "installed-off", version: probe.version };
 }
 
+export type PluginRegistryOptions = {
+	/**
+	 * Plugins gated off for the current platform, by id → user-facing reason.
+	 * The caller (main) owns this policy; the registry just enforces it — gated
+	 * plugins report `unsupported`, are never probed, and never start.
+	 */
+	unsupported?: Partial<Record<EcosystemPluginId, string>>;
+};
+
 export function createPluginRegistry(
 	drivers: EcosystemPlugin[],
 	config: ConfigLike,
+	options: PluginRegistryOptions = {},
 ): PluginRegistry {
+	const unsupported = options.unsupported ?? {};
 	const entries = new Map<EcosystemPluginId, Entry>(
 		drivers.map((driver) => [
 			driver.id,
@@ -99,7 +118,7 @@ export function createPluginRegistry(
 				id: entry.driver.id,
 				enabled: cfg.enabled,
 				installPath: cfg.installPath,
-				status: statusOf(entry, cfg.enabled),
+				status: statusOf(entry, cfg.enabled, unsupported[entry.driver.id]),
 			};
 		});
 	}
@@ -121,6 +140,13 @@ export function createPluginRegistry(
 	}
 
 	async function reconcile(entry: Entry): Promise<void> {
+		// Platform-gated: never probe or start. Ensure it is stopped if a prior
+		// run had it going (e.g. config carried over from another OS), then bail.
+		if (unsupported[entry.driver.id] !== undefined) {
+			await stopEntry(entry);
+			notify();
+			return;
+		}
 		const cfg = config.get(entry.driver.id);
 		let probe: ProbeResult;
 		try {

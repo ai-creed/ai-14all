@@ -61,6 +61,36 @@ describe("PluginCard", () => {
 		expect(onToggle).toHaveBeenCalledWith("whisper", true);
 	});
 
+	it("unsupported: shows the reason chip and no toggle/install/reprobe", () => {
+		render(
+			<PluginCard
+				descriptor={descriptor}
+				snapshot={{
+					id: "whisper",
+					enabled: false,
+					installPath: null,
+					status: {
+						state: "unsupported",
+						reason: "not supported on Windows yet",
+					},
+				}}
+				onToggle={vi.fn()}
+				onInstall={vi.fn()}
+				onReprobe={vi.fn()}
+			/>,
+		);
+		expect(
+			screen.getByText("not supported on Windows yet"),
+		).toBeInTheDocument();
+		expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: /install/i }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: /re-probe/i }),
+		).not.toBeInTheDocument();
+	});
+
 	it("on-healthy limited: shows the limited hint", () => {
 		render(
 			<PluginCard
