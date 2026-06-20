@@ -57,6 +57,17 @@ export interface UpdateServiceArgs {
 	isPackaged: boolean;
 	send: (channel: string, payload?: unknown) => void;
 	logger?: { warn(msg: string, err?: unknown): void; info(msg: string): void };
+	/**
+	 * Host platform/arch, injectable for tests; default to the live process.
+	 * The updater does not start on Windows non-x64 builds: arm64 is
+	 * manual-download-only in Phase 2 because x64 owns the single Windows
+	 * `latest.yml` auto-update channel, and electron-updater would otherwise
+	 * fall back to the x64 installer for an arm64 build. macOS (incl.
+	 * Apple-Silicon arm64) and Windows x64 are unaffected — the guard is
+	 * win32-scoped.
+	 */
+	platform?: NodeJS.Platform;
+	arch?: string;
 }
 
 export interface UpdateServiceHandle {
@@ -114,6 +125,16 @@ export function startUpdateService(
 					(g.__AI14ALL_E2E_INSTALL_CALLS__ ?? 0) + 1;
 			},
 		};
+	}
+
+	const platform = args.platform ?? process.platform;
+	const arch = args.arch ?? process.arch;
+	if (platform === "win32" && arch !== "x64") {
+		// Phase 2: x64 owns the single Windows latest.yml channel; arm64 is
+		// manual-download-only. Without this gate an arm64 build would read the
+		// x64 manifest and try to install the x64 NSIS installer (emulated).
+		log.info(`updater skipped: no auto-update channel for win32/${arch}`);
+		return { dispose: () => {}, installUpdate: () => {} };
 	}
 
 	if (!args.isPackaged) {

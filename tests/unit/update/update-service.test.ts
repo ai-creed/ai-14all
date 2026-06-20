@@ -166,4 +166,46 @@ describe("startUpdateService", () => {
 		handle.installUpdate();
 		expect(updater.quitAndInstall).toHaveBeenCalledTimes(1);
 	});
+
+	it("does not initialize the updater on Windows arm64 (manual-only)", () => {
+		const { updater } = makeFakeUpdater();
+		startUpdateService({
+			updater,
+			currentVersion: "1.2.3",
+			isPackaged: true,
+			send: vi.fn(),
+			logger: silentLogger,
+			platform: "win32",
+			arch: "arm64",
+		});
+		expect(updater.checkForUpdates).not.toHaveBeenCalled();
+	});
+
+	it("initializes the updater on Windows x64 (auto-update channel)", () => {
+		const { updater } = makeFakeUpdater();
+		startUpdateService({
+			updater,
+			currentVersion: "1.2.3",
+			isPackaged: true,
+			send: vi.fn(),
+			logger: silentLogger,
+			platform: "win32",
+			arch: "x64",
+		});
+		expect(updater.checkForUpdates).toHaveBeenCalledTimes(1);
+	});
+
+	it("initializes the updater on macOS arm64 (Apple Silicon unaffected)", () => {
+		const { updater } = makeFakeUpdater();
+		startUpdateService({
+			updater,
+			currentVersion: "1.2.3",
+			isPackaged: true,
+			send: vi.fn(),
+			logger: silentLogger,
+			platform: "darwin",
+			arch: "arm64",
+		});
+		expect(updater.checkForUpdates).toHaveBeenCalledTimes(1);
+	});
 });

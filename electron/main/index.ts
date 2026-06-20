@@ -106,6 +106,8 @@ app.whenReady().then(async () => {
 		updater: autoUpdater,
 		currentVersion: app.getVersion(),
 		isPackaged: app.isPackaged,
+		platform: process.platform,
+		arch: process.arch,
 		send: (channel, payload) => {
 			if (!mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
 				mainWindow.webContents.send(channel, payload);
