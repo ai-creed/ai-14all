@@ -1,0 +1,172 @@
+name: release-windows
+
+# Builds UNSIGNED Windows artifacts on a stable release tag and uploads them to
+# the SAME GitHub Release that mac release.yml creates. x64 ships the NSIS
+# installer + zip + auto-update manifest (latest.yml + .blockmap); arm64 ships a
+# zip only (manual download — x64 owns the single Windows latest.yml channel).
+# Additive + idempotent: only the named Windows files are uploaded (--clobber),
+# never the mac assets or latest-mac.yml. Separate from release.yml; does not
+# touch the macOS pipeline.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+      - "!v*-*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag to build for smoke runs (e.g. v0.9.3)"
+        required: true
+
+jobs:
+  release-windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            arch: x64
+            ebTargets: nsis zip
+            uploadGlob: "release/*-Setup.exe release/*-Setup.exe.blockmap release/latest.yml release/*.zip"
+          - runner: windows-11-arm
+            arch: arm64
+            ebTargets: zip
+            uploadGlob: "release/*.zip"
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version + tag
+        id: resolve
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ inputs.version }}"
+          else
+            tag="${GITHUB_REF_NAME}"
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node (24, matches Electron 41's bundled Node)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Enable corepack (pnpm)
+        run: corepack enable
+
+      - name: Setup Python (node-gyp)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Align package.json version with tag
+        shell: bash
+        run: |
+          target="${{ steps.resolve.outputs.version }}"
+          current=$(node -p "require('./package.json').version")
+          if [ "${{ github.event_name }}" = "push" ] && [ "$current" != "$target" ]; then
+            echo "tag points at commit whose package.json is $current, expected $target"
+            exit 1
+          fi
+          node -e "const fs=require('fs');const p=require('./package.json');p.version='${target}';fs.writeFileSync('package.json', JSON.stringify(p, null, '\t')+'\n');"
+
+      # buildDependenciesFromSource rebuilds native deps against Electron's
+      # headers during packaging, but force the better-sqlite3 Electron-ABI
+      # rebuild here too so the afterPack ABI guard cannot reject a stale binary.
+      - name: Rebuild better-sqlite3 for Electron (${{ matrix.arch }})
+        run: pnpm exec electron-rebuild -f -w better-sqlite3 --arch ${{ matrix.arch }}
+
+      - name: Build + package win-${{ matrix.arch }} (unsigned, no publish)
+        run: |
+          pnpm build
+          pnpm exec electron-builder --win ${{ matrix.ebTargets }} --${{ matrix.arch }} --publish never
+
+      # Autonomous acceptance gate (runs on the native Windows runner, no human).
+      # Reaching this step means electron-builder + the afterPack guards already
+      # passed. Asserts the exact accepted x64 asset set and that latest.yml
+      # references the installer electron-updater will fetch.
+      - name: Verify x64 artifacts (installer, blockmap, latest.yml, zip)
+        if: matrix.arch == 'x64'
+        run: |
+          $ErrorActionPreference = "Stop"
+          $ver = "${{ steps.resolve.outputs.version }}"
+          $setup = "release/ai-14all-$ver-x64-Setup.exe"
+          foreach ($f in @($setup, "$setup.blockmap", "release/latest.yml")) {
+            if (-not (Test-Path $f)) { throw "missing expected artifact: $f" }
+          }
+          if (-not (Get-ChildItem release/*.zip)) { throw "missing x64 zip" }
+          $y = Get-Content release/latest.yml -Raw
+          if ($y -notmatch [regex]::Escape("ai-14all-$ver-x64-Setup.exe")) {
+            throw "latest.yml does not reference ai-14all-$ver-x64-Setup.exe"
+          }
+          Write-Host "x64 artifacts verified: installer + blockmap + latest.yml + zip"
+
+      # Autonomous proxy for the "user installs and the app launches" acceptance.
+      # Silently runs the NSIS installer, asserts the installed exe exists, then
+      # launches it and confirms it survives (catches crash-on-launch, e.g. a bad
+      # native-module ABI the afterPack guard cannot see). The SmartScreen
+      # click-through is NOT automatable here — it is a Mark-of-the-Web reputation
+      # prompt shown only to end users downloading the unsigned file from the
+      # internet; CI-built local files never trigger it (documented in
+      # docs/windows-distribution.md).
+      - name: Smoke — silent install + launch (x64)
+        if: matrix.arch == 'x64'
+        run: |
+          $ErrorActionPreference = "Stop"
+          $ver = "${{ steps.resolve.outputs.version }}"
+          $setup = (Resolve-Path "release/ai-14all-$ver-x64-Setup.exe").Path
+          Write-Host "Silent-installing $setup"
+          Start-Process -FilePath $setup -ArgumentList "/S" -Wait
+          $exe = Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA "Programs") -Recurse -Filter "ai-14all.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { throw "installed ai-14all.exe not found under %LOCALAPPDATA%\Programs" }
+          Write-Host "Installed: $($exe.FullName)"
+          $p = Start-Process -FilePath $exe.FullName -PassThru
+          Start-Sleep -Seconds 12
+          if ($p.HasExited) { throw "app exited within 12s (exit code $($p.ExitCode)) — crash on launch" }
+          Write-Host "App launched and stayed alive; stopping it"
+          Stop-Process -Id $p.Id -Force
+
+      - name: Verify arm64 zip
+        if: matrix.arch == 'arm64'
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (-not (Get-ChildItem release/*.zip)) { throw "missing arm64 zip" }
+          Write-Host "arm64 zip verified"
+
+      - name: Upload build artifact (inspectable; smoke-run dry-run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-14all-win-${{ matrix.arch }}
+          path: |
+            release/*-Setup.exe
+            release/*-Setup.exe.blockmap
+            release/latest.yml
+            release/*.zip
+          if-no-files-found: warn
+
+      - name: Upload to GitHub Release (tag push only)
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.resolve.outputs.tag }}"
+          # Idempotent + concurrency-safe across the two Windows matrix jobs and
+          # the mac release job: create the Release if absent (|| true swallows
+          # "already exists"), then upload only this arch's named files with
+          # --clobber. The globs never match mac assets or latest-mac.yml.
+          gh release create "$tag" --title "$tag" --notes "See CHANGELOG.md for release notes." || true
+          gh release upload "$tag" ${{ matrix.uploadGlob }} --clobber
