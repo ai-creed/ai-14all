@@ -30,13 +30,25 @@ mac:
       arch:
         - arm64
 win:
-  # Phase 1: portable zip only (no NSIS installer, no signing).
-  # No explicit arch — defaults to the host arch and is overridden per build by
-  # the CLI flag (--arm64 / --x64). CI builds each arch on its native runner; a
-  # local `package:win` builds for whatever Windows machine runs it.
+  # Phase 2: NSIS installer (per-user, one-click) + portable zip fallback, both
+  # unsigned. No explicit arch — overridden per build by the CLI flag
+  # (--arm64 / --x64); CI builds each arch on its native runner.
   target:
+    - target: nsis
     - target: zip
-  # icon omitted in Phase 1 — Electron's default icon is used.
+  # icon still omitted — Electron's default icon is used (signing + icon deferred).
+nsis:
+  oneClick: true
+  perMachine: false
+  # Explicit artifactName so the x64 installer is `ai-14all-<ver>-x64-Setup.exe`
+  # (matches the uploaded release asset name). electron-builder's NSIS default is
+  # `${productName} Setup ${version}.${ext}` -> `ai-14all Setup 0.9.3.exe`, whose
+  # space and missing arch segment are URL-awkward and collide across arches in a
+  # single Release. A custom name is safe for electron-updater: the client
+  # resolves the installer + `.blockmap` names from `latest.yml`, which
+  # electron-builder writes to match whatever artifactName produced (it also
+  # auto-names the blockmap `<installer>.blockmap`).
+  artifactName: ${name}-${version}-${arch}-Setup.${ext}
 publish:
   provider: github
   owner: ai-creed
