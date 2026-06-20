@@ -3,7 +3,7 @@
 - **Date:** 2026-06-20
 - **Project:** ai-14all (Electron, v0.9.3)
 - **Branch:** `feat/windows-build-phase1`
-- **Status:** Design approved (decisions captured below); pending implementation plan
+- **Status:** Design revised per design-gate review (NSIS artifact name + win32-arm64 update gate); pending re-review, then implementation plan
 - **Author:** Vu Phan (with Claude)
 - **Predecessor:** `2026-06-19-windows-build-phase1-design.md` (got a working win-arm64/x64 build + runtime fixes). This phase turns that build into a distributable channel.
 
@@ -17,7 +17,7 @@ Phase 1 produced working, unsigned Windows builds (x64 + arm64 zips via the `bui
 
 - **Format:** NSIS installer (per-user, one-click, no admin) **+** keep the portable zip as a no-install fallback.
 - **Channel:** GitHub Releases is the source of truth. A download page on ai-creed.dev links to it with a SmartScreen "More info → Run anyway" note. **winget deferred** (prefers signed installers). **Microsoft Store / MSIX skipped** — its sandbox is hostile to a tool that spawns PTYs and shells out to `git`/agent CLIs.
-- **Auto-update:** reuse the app's existing `electron-updater`. **It works unsigned on Windows** (verifies the download via the `sha512` in `latest.yml`, not an Authenticode signature — unlike mac, where auto-update requires signing). The updater (`electron/main/index.ts` → `startUpdateService`) is already platform-agnostic, stable-channel only, and disabled in dev, so **Windows auto-update needs zero app-code change**.
+- **Auto-update:** reuse the app's existing `electron-updater`. **It works unsigned on Windows** (verifies the download via the `sha512` in `latest.yml`, not an Authenticode signature — unlike mac, where auto-update requires signing). The updater (`electron/main/index.ts` → `startUpdateService`) is already platform-agnostic, stable-channel only, and disabled in dev, so **the x64 auto-update path needs no app-code change**. The **one** required app change is a small **win32-arm64 updater gate**: `startUpdateService` currently starts for every packaged stable build with no arch check, and electron-updater serves a single Windows `latest.yml` to all arches, so an arm64 build would otherwise read the x64 manifest and try to install the x64 installer. The gate keeps arm64 manual-download-only (see §6.3). macOS (including Apple-Silicon arm64) and Windows x64 are unaffected.
 - **Signing:** **deferred.** Users click through SmartScreen initially. When added, prefer **Azure Trusted Signing** (~$10/mo, CI-native, no hardware token, builds SmartScreen reputation) over a traditional EV/OV cert; it is additive to this pipeline, so nothing built here is throwaway.
 - **Pipeline structure:** a **separate** `release-windows.yml`, NOT changes to `release.yml`. The mac `release.yml` is the authoritative signed/notarized pipeline and must not break; a separate workflow uploading to the same GitHub Release keeps the blast radius minimal.
 - **Arch:** **x64 is the auto-update channel** (typical PCs). arm64 ships as a manual download in the same Release; arm64 silent auto-update is a future item (see §7).
@@ -54,13 +54,14 @@ These shape the design and were checked rather than assumed:
 - On a tag push, `release-windows.yml` uploads those x64 assets (+ the arm64 zip) to the **same** GitHub Release as the mac artifacts, without disturbing the mac assets or `latest-mac.yml`.
 - A user can download and run the NSIS installer on a clean Windows x64 machine (clicking through SmartScreen), and the app launches.
 - **Auto-update round-trip (the core acceptance):** an installed older stable build, pointed at a Release containing a newer `latest.yml`, silently downloads and prompts to restart into the new version — unsigned. (Verify with two stable test tags, or the existing `AI14ALL_E2E_UPDATE_DOWNLOADED` harness for the UI path.)
+- **arm64 stays manual-only:** a packaged Windows **arm64** stable build does not start the updater — the win32-arm64 gate short-circuits `startUpdateService` before any `checkForUpdates`, so it never consumes the x64 `latest.yml`. A Windows **x64** stable build and a macOS **arm64** build both still start the updater. Covered by unit tests that inject `platform`/`arch`.
 - **macOS regression gate stays green** and the mac `release.yml` is unchanged: `pnpm lint && pnpm format && pnpm typecheck && pnpm test`.
 
 ## 6. Design
 
 ### 6.1 `electron-builder.yml` — NSIS target (additive)
 
-Add `nsis` alongside the existing `zip` in the `win:` target; do not pin arch (CI passes `--x64` / `--arm64`). NSIS config: `oneClick: true`, `perMachine: false` (per-user, no admin prompt). The `mac:` block is untouched.
+Add `nsis` alongside the existing `zip` in the `win:` target; do not pin arch (CI passes `--x64` / `--arm64`). NSIS config: `oneClick: true`, `perMachine: false` (per-user, no admin prompt). Set an explicit `artifactName` with the `${arch}` macro so each build self-labels and the x64 installer matches the accepted asset name in §5. The `mac:` block is untouched.
 
 ```yaml
 win:
@@ -70,8 +71,15 @@ win:
 nsis:
   oneClick: true
   perMachine: false
-  # artifactName left at electron-builder default so latest.yml + .blockmap
-  # naming stays consistent with what electron-updater expects.
+  # Explicit artifactName so the emitted installer is `ai-14all-<ver>-x64-Setup.exe`
+  # (the accepted asset name in §5). electron-builder's NSIS default is
+  # `${productName} Setup ${version}.${ext}` -> `ai-14all Setup 0.9.3.exe`, whose
+  # space and missing arch segment are awkward in a URL and would collide across
+  # arches in one Release. A custom name is safe for electron-updater: the client
+  # resolves the installer + `.blockmap` names from `latest.yml`, which
+  # electron-builder generates to match whatever artifactName produced (it also
+  # auto-names the blockmap `<installer>.blockmap`).
+  artifactName: ${name}-${version}-${arch}-Setup.${ext}
 ```
 
 ### 6.2 `.github/workflows/release-windows.yml` (new, separate)
@@ -84,9 +92,13 @@ nsis:
 - Upload to the Release with `gh release upload "v<ver>" <files> --clobber`. Idempotent and additive — touches only the named Windows files, never the mac assets or `latest-mac.yml`.
 - **Coordination with the mac job:** the mac `release.yml` runs `gh release create` (or upload `--clobber` if it exists). To avoid a race where Windows uploads before the Release exists, the Windows job will `gh release create "$tag" --notes ... || true` first (idempotent no-op if the mac job already created it), then upload. Both pipelines converge on one Release.
 
-### 6.3 Auto-update — no app change
+### 6.3 Auto-update — x64 needs no app change; arm64 needs a small gate
 
-electron-updater (`provider: github`) on the installed app polls the latest GitHub Release for `latest.yml`, compares versions, and (stable-only, per `startUpdateService`) background-downloads + prompts to restart. Because the x64 `latest.yml` + `*-Setup.exe` + `.blockmap` are in the Release, this works with **no code change** and **without signing**. arm64 users update by re-downloading the zip until §7 lands.
+electron-updater (`provider: github`) on the installed app polls the latest GitHub Release for `latest.yml`, compares versions, and (stable-only, per `startUpdateService`) background-downloads + prompts to restart. Because the x64 `latest.yml` + `*-Setup.exe` + `.blockmap` are in the Release, the **x64** path works with **no code change** and **without signing**.
+
+**arm64 must be gated, not left as-is.** `startUpdateService` (`electron/main/services/update-service.ts`) today short-circuits to a no-op handle only for dev and non-stable versions — it has **no arch check** — and is called unconditionally from `electron/main/index.ts`. electron-updater serves the single Windows `latest.yml` to every Windows arch, falling back to the first (x64) file when no arch-matching file is present. So an arm64 stable build would read the x64 manifest and try to install the x64 NSIS installer (silently emulated under Windows-on-ARM x64 emulation) instead of staying manual-download-only. To honor "x64 owns the auto-update channel; arm64 is manual," the updater must not start on Windows arm64.
+
+**The gate.** Add `platform` and `arch` to `UpdateServiceArgs` (defaulting to `process.platform` / `process.arch`, injectable for tests like the repo's other platform-aware services), and return the existing no-op handle when `platform === "win32" && arch !== "x64"`, alongside the current dev / non-stable early returns. This is the only app-code change in Phase 2. macOS — including Apple-Silicon **arm64**, which must keep auto-updating — is untouched because the guard is `win32`-scoped; Windows x64 is untouched. arm64 Windows users update by re-downloading the zip until §7's merged-manifest work lands.
 
 ### 6.4 Download page (ai-creed.dev) — documented, automation deferred
 
@@ -94,18 +106,19 @@ The download page gets Windows links (the NSIS `*-Setup.exe` for x64, zips for b
 
 ## 7. Risks & Open Items
 
-- **Multi-arch `latest.yml`.** x64 and arm64 build on separate runners, each emitting its own `latest.yml`; a single GitHub Release can hold only one `latest.yml` for the `github` provider. **Resolution:** x64 owns `latest.yml` (auto-update channel); arm64 is manual download. A future merged-manifest or per-arch channel enables arm64 auto-update — flagged, not built.
-- **NSIS artifact naming vs electron-updater.** Keep electron-builder's default `artifactName` so `latest.yml`'s referenced installer + `.blockmap` names match what the client resolves; verify the emitted `latest.yml` against the uploaded asset names before relying on a tag.
+- **Multi-arch `latest.yml`.** x64 and arm64 build on separate runners, each emitting its own `latest.yml`; a single GitHub Release can hold only one `latest.yml` for the `github` provider. **Resolution:** x64 owns `latest.yml` (auto-update channel); arm64 is manual download, and the win32-arm64 updater gate (§6.3) stops an arm64 build from consuming the x64 manifest via electron-updater's first-file fallback. A future merged-manifest or per-arch channel enables arm64 auto-update — flagged, not built.
+- **NSIS artifact naming vs electron-updater.** A custom `artifactName` (§6.1) is safe because electron-builder writes the actual installer + `.blockmap` names into `latest.yml` and the client resolves from there. Still verify the emitted `latest.yml` against the uploaded asset names before relying on a tag.
 - **Unsigned SmartScreen friction.** Expected and accepted for the soft launch; the download-page note mitigates. Azure Trusted Signing removes it later.
 - **Release-job race.** Mitigated by the idempotent `gh release create || true` then `--clobber` upload (§6.2).
 - **Cross-check before first real tag.** Per project rule, dry-run `release-windows.yml` via `workflow_dispatch` against a test version and confirm the emitted/ uploaded asset set + `latest.yml` contents before cutting a real release tag.
 
 ## 8. Task Breakdown (phased; >3 files so decomposed)
 
-1. **NSIS target** — add `nsis` + `nsis:` config to `electron-builder.yml` (keep zip; mac untouched). Verify locally/CI that a win build emits the installer + `latest.yml` + `.blockmap`.
-2. **Release workflow** — add `release-windows.yml` (tag-triggered matrix; x64 NSIS+zip+manifest, arm64 zip; idempotent upload to the shared Release). Dry-run via `workflow_dispatch`.
-3. **Docs** — record the strategy + SmartScreen download-page copy (here and/or `docs/windows-distribution.md`); note the deferred site-automation + signing follow-ups.
-4. **Verification** — macOS regression gate green; auto-update round-trip validated (two test tags or the E2E hook); confirm `release.yml`/mac assets untouched.
+1. **NSIS target** — add `nsis` + `nsis:` config (incl. `artifactName: ${name}-${version}-${arch}-Setup.${ext}`) to `electron-builder.yml` (keep zip; mac untouched). Verify locally/CI that a win x64 build emits `ai-14all-<ver>-x64-Setup.exe` + its `.blockmap` + `latest.yml`.
+2. **win32-arm64 updater gate** — add injected `platform`/`arch` (defaulting to `process.platform`/`process.arch`) to `UpdateServiceArgs` and short-circuit `startUpdateService` to the no-op handle when `platform === "win32" && arch !== "x64"`; thread them through the `electron/main/index.ts` call site. TDD: unit tests assert the updater is skipped on win32/arm64 and started on win32/x64 and darwin/arm64. macOS regression green.
+3. **Release workflow** — add `release-windows.yml` (tag-triggered matrix; x64 NSIS+zip+manifest, arm64 zip; idempotent upload to the shared Release). Dry-run via `workflow_dispatch`.
+4. **Docs** — record the strategy + SmartScreen download-page copy (here and/or `docs/windows-distribution.md`); note the deferred site-automation + signing follow-ups.
+5. **Verification** — macOS regression gate green; auto-update round-trip validated (two test tags or the E2E hook); confirm `release.yml`/mac assets untouched.
 
 ## 9. Future Phases (not now)
 
