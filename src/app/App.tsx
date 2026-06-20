@@ -53,6 +53,7 @@ import {
 	runInlineEditorDirtyGate,
 } from "../features/viewer/inline-editor-registry";
 import { countOpenCommentsInFiles } from "../features/git/logic/commit-list-badge";
+import { commandSubmitKey } from "../lib/command-submit-key";
 import { useTheme } from "../lib/use-theme";
 import { terminalThemeFor } from "../features/terminals/logic/terminal-themes";
 import { detectPlatform } from "./shortcut-registry";
@@ -826,7 +827,8 @@ export function App() {
 				off();
 				void pluginsClient.reprobe();
 			});
-			await sendInput(terminal.id, `${command}\n`);
+			// `\r` on Windows (ConPTY only runs a line on CR), `\n` elsewhere.
+			await sendInput(terminal.id, `${command}${commandSubmitKey()}`);
 		},
 		[
 			activeWorktree,
@@ -895,7 +897,7 @@ export function App() {
 							slotIndex,
 						},
 			);
-			await sendInput(terminal.id, `${command}\n`);
+			await sendInput(terminal.id, `${command}${commandSubmitKey()}`);
 		},
 		[
 			activeWorktree,

@@ -32,6 +32,7 @@ import type {
 	AppWorkspacesAction,
 	AppWorkspacesState,
 } from "../../features/workspace/logic/app-workspaces-state";
+import { commandSubmitKey } from "../../lib/command-submit-key";
 import { describeRepositoryLoadError } from "../../features/repository/describe-repository-load-error";
 import { logRendererShellEvent } from "../../features/terminals/logic/shell-event-logger";
 import { logBindingChange } from "../logging/log-binding-change";
@@ -236,7 +237,11 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 						});
 
 						if (process.command) {
-							await sendInput(terminal.id, `${process.command}\n`);
+							// `\r` on Windows, `\n` elsewhere — see commandSubmitKey.
+							await sendInput(
+								terminal.id,
+								`${process.command}${commandSubmitKey()}`,
+							);
 						}
 					}
 				} catch {

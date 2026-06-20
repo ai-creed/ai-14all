@@ -5,6 +5,7 @@ import type {
 } from "../../../shared/contracts/plugins.js";
 import type { PluginCommandLogger } from "../../diagnostics/plugin-command-logger.js";
 import type { ResolvedBinary } from "../binary-resolver.js";
+import { adaptResolvedExec } from "../exec-resolved-binary.js";
 
 export function commandToArgv(command: WhisperCommand): string[] {
 	switch (command.kind) {
@@ -82,9 +83,13 @@ export function createWhisperCommandRunner(options: {
 						});
 						return;
 					}
+					const exec = adaptResolvedExec(binary.command, [
+						...binary.prefixArgs,
+						...argv,
+					]);
 					execFile(
-						binary.command,
-						[...binary.prefixArgs, ...argv],
+						exec.command,
+						exec.args,
 						{ cwd, timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024 },
 						(error, stdout, stderr) => {
 							const exitCode = error

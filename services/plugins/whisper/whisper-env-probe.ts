@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { z } from "zod";
 import type { ProbeResult } from "../../../shared/models/ecosystem-plugin.js";
 import type { ResolvedBinary } from "../binary-resolver.js";
+import { adaptResolvedExec } from "../exec-resolved-binary.js";
 
 export const SUPPORTED_DB_SCHEMA = { min: 6, max: 6 };
 
@@ -18,9 +19,14 @@ export function probeWhisper(
 	options: { timeoutMs?: number } = {},
 ): Promise<ProbeResult> {
 	return new Promise((resolve) => {
+		const exec = adaptResolvedExec(binary.command, [
+			...binary.prefixArgs,
+			"env",
+			"--json",
+		]);
 		execFile(
-			binary.command,
-			[...binary.prefixArgs, "env", "--json"],
+			exec.command,
+			exec.args,
 			{ timeout: options.timeoutMs ?? 5000, maxBuffer: 1024 * 1024 },
 			(error, stdout, stderr) => {
 				if (error) {

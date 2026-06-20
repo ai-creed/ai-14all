@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import type { ProbeResult } from "../../../shared/models/ecosystem-plugin.js";
 import type { ResolvedBinary } from "../binary-resolver.js";
+import { adaptResolvedExec } from "../exec-resolved-binary.js";
 
 // `ai-cortex --version` prints e.g. "ai-cortex 0.15.1". Extract the first
 // semver-looking token so a leading name, a `v` prefix, or trailing build
@@ -22,9 +23,13 @@ export function probeCortex(
 			resolve({ kind: "not-installed" });
 			return;
 		}
+		const exec = adaptResolvedExec(binary.command, [
+			...binary.prefixArgs,
+			"--version",
+		]);
 		execFile(
-			binary.command,
-			[...binary.prefixArgs, "--version"],
+			exec.command,
+			exec.args,
 			{ timeout: options.timeoutMs ?? 5000, maxBuffer: 1024 * 1024 },
 			(error, stdout) => {
 				if (error) {

@@ -5,6 +5,7 @@ import type {
 	ProbeResult,
 } from "../../shared/models/ecosystem-plugin.js";
 import { resolveBinary, type ResolvedBinary } from "./binary-resolver.js";
+import { adaptResolvedExec } from "./exec-resolved-binary.js";
 
 export type CapabilityProbeService = {
 	/** Cached probe of the agent CLIs (claude, codex, ezio) — prerequisite notice. */
@@ -54,10 +55,14 @@ export function createCapabilityProbeService(
 	}
 
 	function readVersion(binary: ResolvedBinary): Promise<string | null> {
+		const exec = adaptResolvedExec(binary.command, [
+			...binary.prefixArgs,
+			"--version",
+		]);
 		return new Promise((resolveVersion) => {
 			execFile(
-				binary.command,
-				[...binary.prefixArgs, "--version"],
+				exec.command,
+				exec.args,
 				{ timeout: timeoutMs },
 				(error: Error | null, stdout: string) => {
 					if (error) return resolveVersion(null);
@@ -72,10 +77,14 @@ export function createCapabilityProbeService(
 		// The ezio binary errors on `--version`; `ezio doctor` exits 0 and prints a
 		// `ezio version : <x>` line among its health output. Parse best-effort: a
 		// missing line (or a non-zero exit) degrades to null, never a throw.
+		const exec = adaptResolvedExec(binary.command, [
+			...binary.prefixArgs,
+			"doctor",
+		]);
 		return new Promise((resolveVersion) => {
 			execFile(
-				binary.command,
-				[...binary.prefixArgs, "doctor"],
+				exec.command,
+				exec.args,
 				{ timeout: timeoutMs },
 				(_error: Error | null, stdout: string) => {
 					const match = String(stdout).match(/ezio version\s*:\s*(\S+)/i);

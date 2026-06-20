@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import type { MutableRefObject } from "react";
+import { commandSubmitKey } from "../../lib/command-submit-key";
 import type { ProcessSession } from "../../../shared/models/process-session";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
 import type { Worktree } from "../../../shared/models/worktree";
@@ -212,7 +213,9 @@ export function useProcessActions(options: Options): UseProcessActions {
 					provider: detectAgentProvider(preset.command, preset.label, null),
 				},
 			});
-			await sendInput(terminal.id, `${preset.command}\n`);
+			// Submit with the platform's Enter byte: `\r` on Windows (ConPTY only
+			// runs a line on CR), `\n` elsewhere — see commandSubmitKey.
+			await sendInput(terminal.id, `${preset.command}${commandSubmitKey()}`);
 		},
 		[
 			worktree,
@@ -270,7 +273,7 @@ export function useProcessActions(options: Options): UseProcessActions {
 			});
 
 			if (process.command) {
-				await sendInput(terminal.id, `${process.command}\n`);
+				await sendInput(terminal.id, `${process.command}${commandSubmitKey()}`);
 			}
 		},
 		[
