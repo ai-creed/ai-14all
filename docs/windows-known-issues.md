@@ -98,15 +98,7 @@ Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, li
 
 ---
 
-### 3. ⚪ Usage attribution may not match a cwd to its worktree on Windows (needs triage)
-
-**Symptom (suspected).** `matchCwd` in `services/usage/worktree-map.ts:16` tests
-`cwd.startsWith(base + "/")` with a hardcoded "/". If `cwd` / `worktree.path`
-carry native backslashes on Windows, the match fails and usage is attributed to
-no worktree (or the wrong one). Same class as the resolved path-escape bug, but
-in the usage subsystem and on string inputs whose separator wasn't confirmed —
-left unfixed pending a check of how those paths are stored. Likely wants the
-same `path.sep` treatment (or normalising both sides) once confirmed.
+_(No open issues in the app layer. The two remaining open items above are upstream ai-whisper / Node concerns.)_
 
 ---
 
@@ -115,6 +107,15 @@ same `path.sep` treatment (or normalising both sides) once confirmed.
 These were Windows-specific runtime bugs already fixed on
 `feat/windows-build-phase1`; kept here for context.
 
+- 🟢 **Usage attribution didn't match a cwd to its worktree on Windows.**
+  `matchCwd` (`services/usage/worktree-map.ts`) prefix-tested
+  `cwd.startsWith(base + "/")` with a hardcoded "/". `cwd` comes from external
+  usage logs and `worktree.path` from the registry, so on Windows the two could
+  carry — and disagree on — backslashes, and the match failed (usage attributed
+  to no worktree). Unlike `resolveWithinWorktree` (two `resolve()`-produced,
+  consistently OS-native paths → `path.sep`), these are independently-sourced
+  strings, so `norm()` now folds both sides' backslashes to "/" before the
+  prefix test, making the match separator-agnostic. mac unchanged.
 - 🟢 **Plugins showed "degraded" though the CLIs work.** Two-part fix: probes
   could not exec the npm `.cmd` shim (`adaptResolvedExec` routes `.cmd`/`.bat`
   via `cmd.exe`, `.ps1` via PowerShell — commit `8cdcb60`); and `where` resolved
