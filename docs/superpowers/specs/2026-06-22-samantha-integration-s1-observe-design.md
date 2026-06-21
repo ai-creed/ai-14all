@@ -70,18 +70,38 @@ explicit, not silent.
 
 1. **Observe encoding (plan §2.5, §4.1).** The plan locks a *rich* observe
    contract: "a structured, per-worktree / per-task state document including recent
-   history, not a flattened summary string." S1 honors the **richness** in
-   full — every field of the plan's document, including the `recent[]` history, is
-   carried — but **defers the structured/typed encoding**. In S1 that content
-   rides as dense readable lines inside the existing `Record<string,string>`
-   `details`. Verified rationale: Samantha's formatter
+   history, not a flattened summary string." S1 honors that richness by carrying
+   the document's **decision-relevant content — including the full `recent[]`
+   history with each transition's `summary` and `source`** — as dense readable text
+   inside the existing `Record<string,string>` `details`. What S1 defers is (a) the
+   **structured/typed encoding** and (b) a few **structural / command-targeting-only
+   fields** (internal `worktree.id` / `path`, raw per-item epoch timestamps) that a
+   voice supervisor does not reason over but command targeting will — both land in
+   S2 with the typed `worktrees[]` / `recent[]` schema. The exact field-by-field
+   disposition (so this is verifiable, not a blanket claim):
+
+   | Plan document field | S1 carriage |
+   |---|---|
+   | `app.focusedWorktreeId` | readable — focused worktree marked `★` on its line |
+   | `app.mode` | readable — leads the derived `summary` headline |
+   | `worktree.branch`, `worktree.repo` | readable — `details` key (`"<repo>/<branch>"`, unique) + line |
+   | `worktree.id`, `worktree.path` | **deferred → S2 typed** — command-targeting identifiers, not voice content |
+   | `session.agent`/provider, `attention`, `summary`, `task`, `nextAction` | readable — line |
+   | `session.updatedAt` | readable — snapshot top-level `updatedAt`; per-session recency via ordering (raw epoch → S2 typed) |
+   | `reviews.pending` | readable — line (`<N> reviews`) |
+   | `workflow.kind`, `phase`, `escalation` | readable — line |
+   | `recent[].from`, `.to`, `.summary`, `.source` | readable — `recent:` fragment |
+   | `recent[].at` | ordering preserved (chronological); raw epoch → S2 typed |
+
+   Verified rationale for the readable (not typed) encoding: Samantha's formatter
    (`assistant-service.ts:234-238`) renders `details` entries verbatim into the LLM
    prompt but does not parse a nested/typed object, so a structured JSON document
    would either be opaque to her reasoning or force a Samantha-side schema +
    formatter change — breaking the locked "S1 is 14all-only" property. The typed
-   `worktrees[]` / `recent[]` schema is therefore the **S2** carriage upgrade,
-   shipped alongside the Samantha-side change that command targeting needs anyway.
-   Net: same information, deferred encoding — not a lossier contract.
+   schema and the targeting-only identifiers are therefore the **S2** carriage
+   upgrade, shipped alongside the Samantha-side change that command targeting needs
+   anyway. Net: the information a voice supervisor reasons over is fully present in
+   S1 — same content, deferred encoding, not a lossier contract.
 
 2. **Probe / absence detection (plan §3).** The plan says the plugin shell should
    "detect Samantha's server on `:7841`; if absent, stay silent." S1 satisfies that
@@ -128,11 +148,15 @@ whisper/cortex driver layout:
 reducer change, the renderer sends, per worktree,
 `{ provider, attention, summary, task, nextAction, updatedAt, recent }` plus
 app-level `{ focusedWorktreeId, mode }` to main over a new `samantha:sessionState`
-IPC channel. `recent` is a bounded ring (last ≤ 5) of resolved transitions
-`{ at, from, to }` — the renderer already holds this history, and it is the only
-source of "what happened" (the main process is stateless about sessions). The
-renderer does not know Samantha exists; it publishes its resolved session state
-and the driver consumes it. Source fields:
+IPC channel. `recent` is a bounded ring (last ≤ 5) of resolved transitions, each
+the **full plan item** `{ at, from, to, summary, source }` — `at` epoch ms,
+`from`/`to` attention states, `summary` the transition headline, `source` the
+attention source that drove it (`mcp | terminal | lifecycle | workflow`). The
+renderer already holds this history — it resolves both the transition and the
+winning `source` via `rankAgentAttention` — and it is the only source of "what
+happened" (the main process is stateless about sessions). The renderer does not
+know Samantha exists; it publishes its resolved session state and the driver
+consumes it. Source fields:
 `provider` from `agent-provider-detection.ts:46`; resolved `attention` from
 `rankAgentAttention` (`workspace-state.ts:1090-1147`); `task` from
 `worktree-session.ts:51`; attention enum `shared/models/agent-attention.ts:1-7`.
@@ -220,17 +244,21 @@ nothing; active→waiting emits one event).
   capabilities in S1. `409` (duplicate) → treat as already-registered and proceed.
 - **snapshot**: `PATCH /connectors/ai-14all/snapshot`
   `{ summary, status, details, updatedAt }`
-  - `summary` (derived TTS headline): e.g.
-    `"3 sessions — feature/auth blocked (needs review), bugfix/tts working, main idle"`.
+  - `summary` (derived TTS headline) — leads with the app `mode` and the focused
+    worktree, then the per-session digest: e.g.
+    `"[<mode>] focus feature/auth — 3 sessions: feature/auth blocked (needs review), bugfix/tts working, main idle"`.
   - `status` worst-of: any `failed` → `error`; else any `waiting`/`ready` →
     `warning`; else `ok`; none → `unknown`.
-  - `details`: one key per worktree (branch name), value = dense line:
-    `"<provider> · <attention> · <summary> · task: <task> · next: <next> · <N> reviews · <workflow phase/escalation> · recent: <from>→<to>→<to>"`,
+  - `details`: one key per worktree — its `"<repo>/<branch>"` label (unique across
+    repos; falls back to branch when unambiguous); the focused worktree's line is
+    prefixed `★`. Value = dense line:
+    `"<provider> · <attention> · <summary> · task: <task> · next: <next> · <N> reviews · <workflow kind/phase/escalation> · recent: <from>→<to> (<summary>; <source>), <from>→<to> (<summary>; <source>)"`,
     omitting empty fields and dropping the `recent:` fragment when no history
     exists. The `recent:` tail is the readable carriage of the plan's `recent[]`
-    ring ("what happened"), capped to the last few transitions. Full-state every
-    PATCH (her shallow-merge replaces `details` wholesale, so closed worktrees drop
-    cleanly).
+    ring — each entry renders `from→to` plus that transition's `summary` and
+    `source` ("what happened"), most-recent last, capped to the last few. Full-state
+    every PATCH (her shallow-merge replaces `details` wholesale, so closed worktrees
+    drop cleanly).
   - `updatedAt`: epoch ms.
 - **event**: `POST /connectors/ai-14all/events` `{ signal, summary, details? }`,
   with `summary` like
@@ -268,8 +296,9 @@ nothing; active→waiting emits one event).
 - **Unit — the payoff.** `observe-assembler` is pure: feed fixture inputs
   (worktrees, review counts, whisper snapshot, session slice) and assert the exact
   `{ summary, status, details, signal }`. Covers signal mapping, worst-of status,
-  detail-line format (including the recent-history fragment), and the per-worktree
-  dedup logic. No mocks, no network.
+  detail-line format (including the recent-history fragment with each transition's
+  `summary` and `source`, the `★` focus marker, and the `<repo>/<branch>` key), and
+  the per-worktree dedup logic. No mocks, no network.
 - **Client unit.** Mock HTTP server (or stub) → assert register/patch/event
   payloads and re-register behavior on `404`/`ECONNREFUSED`.
 - **Driver integration (main).** Fake taps + mock client → assert debounce
@@ -289,9 +318,13 @@ nothing; active→waiting emits one event).
   (verified missing; a substantial Samantha-side build).
 - Approval gate, audit log, registration token (S3 — only "act" needs them).
 - Machine-structured / nested `details` *encoding* — the typed `worktrees[]` /
-  `recent[]` schema (add in S2 when command targeting needs queryable fields and
-  Samantha's formatter changes to consume them). S1 carries the same information,
-  including recent history, as readable text; only the typed encoding is deferred.
+  `recent[]` schema, plus the command-targeting-only identifiers it carries
+  (`worktree.id` / `path`, raw per-item epoch timestamps). Add in S2 when command
+  targeting needs queryable fields and Samantha's formatter changes to consume them.
+  S1 already carries the decision-relevant content — including full recent history
+  with each transition's `summary` and `source` — as readable text (see the field
+  inventory in "Reconciliation with the high-level plan"); only the typed encoding
+  and those targeting-only identifiers are deferred.
 
 ## Files to add / touch
 

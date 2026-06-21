@@ -166,11 +166,15 @@ contract. Sketch — exact fields are deferred to the S1 spec (§9):
 - The `recent[]` ring gives Samantha "what happened," not just current state, so
   she has history even on a fresh or late connect.
 
-> **S1 vs S2 encoding.** S1 carries this whole document's content — every field
-> above, including the `recent[]` history — but as dense readable lines inside the
-> existing `Record<string,string>` `details`, to stay 14all-only. The
-> **structured/typed** object sketched here is the S2 carriage upgrade, landing
-> with the Samantha-side schema/formatter change. See the S1 spec.
+> **S1 vs S2 encoding.** S1 carries this document's decision-relevant content —
+> including the full `recent[]` history with each transition's `summary` and
+> `source` — as dense readable lines inside the existing `Record<string,string>`
+> `details`, to stay 14all-only. The **structured/typed** object sketched here,
+> plus the command-targeting-only identifiers it carries (`id` / `path`, raw epoch
+> timestamps that a voice supervisor does not reason over), is the S2 carriage
+> upgrade, landing with the Samantha-side schema/formatter change. The S1 spec
+> pins the exact field-by-field disposition in its "Reconciliation with the
+> high-level plan" inventory.
 
 ### 4.2 Act (commands in)
 
