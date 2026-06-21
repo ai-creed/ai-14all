@@ -8,11 +8,11 @@ name: build-windows
 # publish on tag push via release-windows.yml).
 #
 # x64 additionally builds the NSIS installer and runs the shared Windows-native
-# acceptance gate (verify asset set + silent install/launch smoke). This makes
-# the spec §5 Windows acceptance criteria verifiable on every push to this
-# branch, because release-windows.yml only triggers on a release tag /
-# workflow_dispatch — and workflow_dispatch cannot target a workflow that is not
-# yet on the default branch. arm64 builds the zip only.
+# acceptance gate (verify asset set + silent install/launch smoke), and uploads
+# the installer as a downloadable artifact. This makes the spec §5 Windows
+# acceptance criteria verifiable on every push to master (and via manual
+# dispatch), separate from release-windows.yml, which only triggers on a release
+# tag to publish to a GitHub Release. arm64 builds the zip only.
 #
 # Local equivalent: on a Windows machine, `pnpm install` then `pnpm package:win`.
 #
@@ -22,7 +22,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feat/windows-build-phase1
+      - master
 
 jobs:
   build:
