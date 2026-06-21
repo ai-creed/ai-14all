@@ -70,9 +70,13 @@ test.describe.serial("Cumulative flow — Phase 7", () => {
 		await expect(page.getByText("/.worktrees/feature-b")).toBeVisible({
 			timeout: 15_000,
 		});
+		// Scope to the preview panel: the base-branch picker now also renders an
+		// "origin/master" option, so an unscoped dialog query matches twice (strict
+		// mode). The preview's Base line is the assertion this test intends.
 		await expect(
 			page
 				.getByRole("dialog", { name: "New session" })
+				.locator(".shell-app-dialog__preview")
 				.getByText("origin/master"),
 		).toBeVisible();
 		await page.getByRole("button", { name: "Create worktree" }).click();
