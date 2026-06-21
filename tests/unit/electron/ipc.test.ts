@@ -38,6 +38,8 @@ const { worktreeServiceInstance, fileServiceInstance } = vi.hoisted(() => {
 		createWorktree: vi.fn(),
 		previewRemoveWorktree: vi.fn(),
 		removeWorktree: vi.fn(),
+		listRemoteBranches: vi.fn(),
+		refreshRemote: vi.fn(),
 	};
 	const fileServiceInstance = {
 		listFiles: vi.fn(),
@@ -389,5 +391,94 @@ describe("registerIpcHandlers files:listWorktree identity resolution", () => {
 			handler({}, { workspaceId: "wk-ok", worktreeId: "wt-x" }),
 		).rejects.toThrow();
 		expect(worktreeServiceInstance.findWorktree).not.toHaveBeenCalled();
+	});
+});
+
+describe("registerIpcHandlers repository remote branches", () => {
+	beforeEach(() => {
+		handlers.clear();
+		handleMock.mockClear();
+		worktreeServiceInstance.listRemoteBranches.mockReset();
+		worktreeServiceInstance.refreshRemote.mockReset();
+	});
+
+	it("listRemoteBranches parses the payload and delegates to the service", async () => {
+		const repo = { id: "r1" };
+		const registry = { register: vi.fn(), get: vi.fn(() => repo) };
+		worktreeServiceInstance.listRemoteBranches.mockResolvedValue({
+			branches: ["origin/main"],
+			defaultBranch: "origin/main",
+		});
+		registerIpcHandlers(
+			{
+				isDestroyed: () => false,
+				webContents: { isDestroyed: () => false, send: vi.fn() },
+			} as never,
+			{
+				workspacePersistence: {
+					readState: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
+				workspaceRegistry: registry as never,
+				worktreeService: worktreeServiceInstance as never,
+				shellEventLog: undefined as never,
+				agentAttentionLogger: undefined as never,
+				review: {
+					service: { onChange: vi.fn(() => () => {}) },
+					mcpStatus: { port: null, bindError: null, getUrl: () => null },
+					worktreePathResolver: { resolve: vi.fn(), refresh: vi.fn() },
+				} as never,
+				getCortexEnabled: () => false,
+			},
+		);
+
+		const handler = handlers.get("repository:listRemoteBranches")!;
+		const result = await handler({}, { workspaceId: "ws1" });
+
+		expect(registry.get).toHaveBeenCalledWith("ws1");
+		expect(worktreeServiceInstance.listRemoteBranches).toHaveBeenCalledWith(
+			repo,
+		);
+		expect(result).toEqual({
+			branches: ["origin/main"],
+			defaultBranch: "origin/main",
+		});
+	});
+
+	it("refreshRemote delegates and returns the service result verbatim", async () => {
+		const repo = { id: "r1" };
+		const registry = { register: vi.fn(), get: vi.fn(() => repo) };
+		worktreeServiceInstance.refreshRemote.mockResolvedValue({
+			ok: false,
+			error: "boom",
+		});
+		registerIpcHandlers(
+			{
+				isDestroyed: () => false,
+				webContents: { isDestroyed: () => false, send: vi.fn() },
+			} as never,
+			{
+				workspacePersistence: {
+					readState: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
+				workspaceRegistry: registry as never,
+				worktreeService: worktreeServiceInstance as never,
+				shellEventLog: undefined as never,
+				agentAttentionLogger: undefined as never,
+				review: {
+					service: { onChange: vi.fn(() => () => {}) },
+					mcpStatus: { port: null, bindError: null, getUrl: () => null },
+					worktreePathResolver: { resolve: vi.fn(), refresh: vi.fn() },
+				} as never,
+				getCortexEnabled: () => false,
+			},
+		);
+
+		const handler = handlers.get("repository:refreshRemote")!;
+		const result = await handler({}, { workspaceId: "ws1" });
+
+		expect(worktreeServiceInstance.refreshRemote).toHaveBeenCalledWith(repo);
+		expect(result).toEqual({ ok: false, error: "boom" });
 	});
 });

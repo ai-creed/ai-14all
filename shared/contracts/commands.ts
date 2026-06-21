@@ -68,6 +68,20 @@ export const PreviewRemoveWorktreeSchema = z.object({
 	worktreeId: z.string(),
 });
 
+export const ListRemoteBranchesSchema = z.object({ workspaceId: z.string() });
+
+export const RefreshRemoteSchema = z.object({ workspaceId: z.string() });
+
+export type RemoteBranchList = {
+	branches: string[];
+	defaultBranch: string;
+};
+
+export type RefreshRemoteResult = {
+	ok: boolean;
+	error?: string;
+};
+
 export const CreateTerminalSessionSchema = z.object({
 	workspaceId: z.string(),
 	worktreeId: z.string(),
@@ -364,6 +378,8 @@ export type Ai14AllDesktopApi = {
 			worktreeId: string,
 		): Promise<RemoveWorktreePreview>;
 		removeWorktree(workspaceId: string, worktreeId: string): Promise<void>;
+		listRemoteBranches(workspaceId: string): Promise<RemoteBranchList>;
+		refreshRemote(workspaceId: string): Promise<RefreshRemoteResult>;
 	};
 	terminals: {
 		create(

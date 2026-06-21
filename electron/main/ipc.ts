@@ -45,6 +45,8 @@ import {
 	CreateWorktreeSchema,
 	PreviewRemoveWorktreeSchema,
 	RemoveWorktreeSchema,
+	ListRemoteBranchesSchema,
+	RefreshRemoteSchema,
 	LogShellEventSchema,
 	ListWorktreeFilesSchema,
 	SetEditorDirtySchema,
@@ -294,6 +296,21 @@ export function registerIpcHandlers(
 		);
 		await reviewCommentService.removeByWorktree(worktreeId);
 		await review.worktreePathResolver.refresh();
+	});
+
+	ipcMain.handle(
+		"repository:listRemoteBranches",
+		async (_event, raw: unknown) => {
+			const { workspaceId } = ListRemoteBranchesSchema.parse(raw);
+			return worktreeService.listRemoteBranches(
+				workspaceRegistry.get(workspaceId),
+			);
+		},
+	);
+
+	ipcMain.handle("repository:refreshRemote", async (_event, raw: unknown) => {
+		const { workspaceId } = RefreshRemoteSchema.parse(raw);
+		return worktreeService.refreshRemote(workspaceRegistry.get(workspaceId));
 	});
 
 	// --- Terminals ---

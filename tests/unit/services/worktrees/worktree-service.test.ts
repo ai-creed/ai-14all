@@ -445,6 +445,49 @@ describe("WorktreeService", () => {
 		});
 	});
 
+	describe("listRemoteBranches", () => {
+		it("lists origin/* branches and excludes the origin/HEAD alias", async () => {
+			const tmpDir = makeTestRepo();
+			try {
+				execSync("git update-ref refs/remotes/origin/devel HEAD", {
+					cwd: tmpDir,
+					stdio: "ignore",
+				});
+				const repo = await service.setRepositoryRoot(tmpDir);
+				const { branches, defaultBranch } =
+					await service.listRemoteBranches(repo);
+
+				expect(branches).toContain("origin/master");
+				expect(branches).toContain("origin/devel");
+				// `%(refname:short)` renders the HEAD symref as the bare `origin`.
+				expect(branches).not.toContain("origin");
+				expect(branches.every((b) => b.startsWith("origin/"))).toBe(true);
+				expect(defaultBranch).toBe("origin/master");
+			} finally {
+				rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+	});
+
+	describe("refreshRemote", () => {
+		it("returns ok:false with an error message when origin is unreachable", async () => {
+			const tmpDir = makeTestRepo();
+			try {
+				execSync("git remote add origin file:///nonexistent/repo-abc123.git", {
+					cwd: tmpDir,
+					stdio: "ignore",
+				});
+				const repo = await service.setRepositoryRoot(tmpDir);
+				const result = await service.refreshRemote(repo);
+
+				expect(result.ok).toBe(false);
+				expect(result.error).toBeTruthy();
+			} finally {
+				rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+	});
+
 	describe("removeWorktree", () => {
 		it("previews dirty non-main worktrees and removes both worktree and branch", async () => {
 			const tmpDir = makeTestRepo();

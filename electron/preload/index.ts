@@ -134,6 +134,14 @@ const api: Ai14AllDesktopApi = {
 				worktreeId,
 			});
 		},
+		listRemoteBranches(workspaceId) {
+			return ipcRenderer.invoke("repository:listRemoteBranches", {
+				workspaceId,
+			});
+		},
+		refreshRemote(workspaceId) {
+			return ipcRenderer.invoke("repository:refreshRemote", { workspaceId });
+		},
 	},
 	terminals: {
 		create(workspaceId, worktreeId, cwd) {

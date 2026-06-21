@@ -28,6 +28,10 @@ export const repository: Ai14AllDesktopApi["repository"] = {
 		),
 	removeWorktree: (workspaceId, worktreeId) =>
 		getDesktopClient().repository.removeWorktree(workspaceId, worktreeId),
+	listRemoteBranches: (workspaceId) =>
+		getDesktopClient().repository.listRemoteBranches(workspaceId),
+	refreshRemote: (workspaceId) =>
+		getDesktopClient().repository.refreshRemote(workspaceId),
 };
 
 export const terminals: Ai14AllDesktopApi["terminals"] = {

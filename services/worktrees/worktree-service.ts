@@ -155,6 +155,59 @@ export class WorktreeService {
 		return match;
 	}
 
+	/**
+	 * Lists the repository's remote-tracking branches as `origin/<branch>` refs.
+	 *
+	 * `%(refname:short)` renders the `refs/remotes/origin/HEAD` symref as the
+	 * bare token `origin`; keeping only entries beginning with `origin/` drops
+	 * that alias and returns the real branches in git's refname order.
+	 */
+	private async getOriginBranches(repository: Repository): Promise<string[]> {
+		const stdout = await git(
+			["for-each-ref", "--format=%(refname:short)", "refs/remotes/origin"],
+			repository.rootPath,
+		);
+		return stdout
+			.split("\n")
+			.map((line) => line.trim())
+			.filter((ref) => ref.startsWith("origin/"));
+	}
+
+	/**
+	 * Returns the selectable `origin/*` base branches plus the resolved default
+	 * (the concrete ref `origin/HEAD` points to, with fallbacks). One round-trip
+	 * so the picker can both populate options and pre-select the default.
+	 */
+	async listRemoteBranches(
+		repository: Repository,
+	): Promise<{ branches: string[]; defaultBranch: string }> {
+		const branches = await this.getOriginBranches(repository);
+		const defaultBranch = await this.resolveDefaultBaseRef(repository);
+		return { branches, defaultBranch };
+	}
+
+	/**
+	 * Fetches from origin so the branch list and base tips are current. Network
+	 * failures resolve to `{ ok: false, error }` rather than throwing, so the UI
+	 * can warn without blocking session creation.
+	 */
+	async refreshRemote(
+		repository: Repository,
+	): Promise<{ ok: boolean; error?: string }> {
+		try {
+			await execFileAsync(gitBinary, ["fetch", "origin", "--prune"], {
+				cwd: repository.rootPath,
+				timeout: 20_000,
+			});
+			return { ok: true };
+		} catch (error) {
+			return {
+				ok: false,
+				error: error instanceof Error ? error.message : String(error),
+			};
+		}
+	}
+
 	async previewCreateWorktree(
 		repository: Repository,
 		name: string,
