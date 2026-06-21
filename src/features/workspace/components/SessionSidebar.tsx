@@ -71,7 +71,7 @@ export function SessionSidebar({
 	onClearFailedReason,
 	onOpenWorkflowDetail,
 	pendingRename,
-	themeMode = "system" as ThemeMode,
+	themeMode = "system",
 	onThemeToggle,
 }: Props) {
 	const [renaming, setRenaming] = React.useState<{
