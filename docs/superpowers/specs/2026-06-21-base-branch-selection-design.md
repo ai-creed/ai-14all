@@ -28,8 +28,8 @@ The create-session flow, UI → IPC → service → git:
 
 - **Branch source = remote (`origin/*`), default `origin/HEAD`.** The picker lists remote-tracking branches; the new branch is always based off a canonical pushed tip, matching today's semantics (`base off devel` = `origin/devel`). Local-only branches are not offered. (Rejected: local-only — changes today's remote semantics and risks stale local refs; local+remote — bigger picker and a "local vs origin devel" ambiguity, deferred.)
 - **Freshness = auto-fetch on dialog open, non-blocking.** `git fetch origin` runs when the dialog opens so the list and base tips are current. **If the fetch fails, surface a clear non-blocking error/warning and fall back to the already-fetched (`origin/*`) refs; never block session creation.** (Rejected: no-fetch — risks branching off a stale `origin/devel`; manual-only refresh — weaker default for the contributor case.)
-- **Picker style = searchable select**, pre-selected `origin/HEAD`. Filterable so repos with many remotes stay usable; degrades to a short list for small repos.
-- **No "remember last base" persistence.** The default pre-selection is `origin/HEAD` every time (faithful to "default still be master/main"). Per-repo memory of the last-used base is a future enhancement (§9).
+- **Picker style = searchable select**, pre-selected the concrete ref `origin/HEAD` resolves to (e.g. `origin/main`) — see §5.1 for the alias-vs-concrete distinction. Filterable so repos with many remotes stay usable; degrades to a short list for small repos.
+- **No "remember last base" persistence.** The default pre-selection is the resolved default (the concrete ref `origin/HEAD` points to) every time (faithful to "default still be master/main"). Per-repo memory of the last-used base is a future enhancement (§9).
 - **Robust default resolution.** Replace today's hard throw with a fallback chain (see §5.4) so the dialog still opens usefully when `origin/HEAD` is unset.
 
 ## 4. Scope
@@ -52,7 +52,7 @@ The create-session flow, UI → IPC → service → git:
 
 ### 5.1 UX — `NewWorktreeDialog`
 
-- Add a **"Base branch"** searchable select below the Name field. Options are the repo's `origin/*` branches (excluding `origin/HEAD` itself); the pre-selected value is the resolved default (`origin/HEAD`, with §5.4 fallbacks).
+- Add a **"Base branch"** searchable select below the Name field. Options are the repo's concrete `origin/*` branches (e.g. `origin/main`, `origin/devel`), **excluding the `origin/HEAD` symref pseudo-entry** that `git for-each-ref` lists (it is an alias pointing at the default branch, not a branch of its own). The pre-selected value is the **concrete ref the default resolves to**: `origin/HEAD` is resolved to its target via §5.4 (e.g. `origin/main`), and that concrete ref — which is itself one of the listed options — is the selected value. The literal `origin/HEAD` alias is never a selectable option or the stored selection value.
 - On dialog open, trigger a **refresh** (fetch origin) with a small inline "refreshing branches…" indicator. On success, the list and base commit reflect the latest remote. On failure, show an **inline non-blocking warning** ("Couldn't refresh from origin — showing last-fetched branches.") and keep the dialog fully usable with cached refs. Creation is never gated on fetch success.
 - The existing read-only preview (branch name, path, `baseRef`, base commit) **recomputes for the selected base** — selecting `origin/devel` updates the preview's `baseRef`/`baseCommit`.
 
@@ -68,7 +68,7 @@ The create-session flow, UI → IPC → service → git:
 
 - Fetch on open is the only new git side-effect (non-blocking).
 - The create path keeps its shape: `git branch <branchName> <chosenBaseRef>` then `git worktree add <path> <branchName>`. `<chosenBaseRef>` is a full `origin/<branch>` ref (same form as today's `origin/main`), so branch-tracking behavior is unchanged.
-- Omitting `baseBranch` (old callers / back-compat) yields exactly today's behavior.
+- Omitting `baseBranch` (old callers / back-compat) yields exactly today's behavior **when `origin/HEAD` is set** (the common case): the base resolves to the same concrete ref as today (e.g. `origin/main`). The **only** intentional departure from today is when `origin/HEAD` is unset — today's hard error becomes the §5.4 fallback chain.
 
 ### 5.4 Default base resolution (replaces the hard throw)
 
@@ -92,10 +92,10 @@ This is strictly more robust than today and preserves the `origin/HEAD` default 
 
 ## 7. Acceptance Criteria
 
-- The new-session dialog shows a "Base branch" searchable select defaulting to `origin/HEAD`; selecting `origin/devel` makes the new session branch off `origin/devel` (verified: `git branch <name> origin/devel` is the command issued).
+- The new-session dialog shows a "Base branch" searchable select defaulting to the **concrete ref `origin/HEAD` resolves to** (e.g. `origin/main`), not the literal `origin/HEAD` alias; selecting `origin/devel` makes the new session branch off `origin/devel` (verified: `git branch <name> origin/devel` is the command issued).
 - Opening the dialog triggers a fetch; on fetch failure a non-blocking warning appears and creation still succeeds off cached refs.
-- Omitting a base selection (or an old caller not supplying `baseBranch`) reproduces today's behavior exactly (base = `origin/HEAD`).
-- `resolveDefaultBaseRef` returns `origin/HEAD` when set, and the §5.4 fallbacks otherwise (covered by unit tests).
+- **When `origin/HEAD` is set:** omitting a base selection (or an old caller not supplying `baseBranch`) reproduces today's behavior exactly — base = the resolved `origin/HEAD` (e.g. `origin/main`). **When `origin/HEAD` is unset:** the §5.4 fallback chain applies instead of today's hard error; this is the one intentional departure from today's behavior (covered by unit tests).
+- `resolveDefaultBaseRef` returns the concrete ref `origin/HEAD` resolves to (e.g. `origin/main`) when set, and walks the §5.4 fallback chain otherwise (covered by unit tests).
 - The preview's `baseRef`/`baseCommit` reflect the selected base.
 - Full suite green: `pnpm lint && pnpm format && pnpm typecheck && pnpm test`.
 
