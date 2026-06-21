@@ -1,12 +1,20 @@
 name: build-windows
 
-# Builds an UNSIGNED Windows zip for both arches and uploads each as an
-# artifact. No signing, no publish, no auto-update manifest. Each arch is built
-# on its own native runner because better-sqlite3 + node-pty are compiled from
-# source (buildDependenciesFromSource) and cross-arch native builds are flaky.
+# Branch CI for the UNSIGNED Windows build. Each arch builds on its own native
+# runner because better-sqlite3 + node-pty are compiled from source
+# (buildDependenciesFromSource) and cross-arch native builds are flaky. No
+# signing, no publish (electron-builder runs with --publish never; artifacts are
+# uploaded only as workflow artifacts, never to a GitHub Release — CI/CD owns
+# publish on tag push via release-windows.yml).
 #
-# Local equivalent: on a Windows machine, `pnpm install` then `pnpm package:win`
-# builds the zip for that machine's arch (the win target has no pinned arch).
+# x64 additionally builds the NSIS installer and runs the shared Windows-native
+# acceptance gate (verify asset set + silent install/launch smoke). This makes
+# the spec §5 Windows acceptance criteria verifiable on every push to this
+# branch, because release-windows.yml only triggers on a release tag /
+# workflow_dispatch — and workflow_dispatch cannot target a workflow that is not
+# yet on the default branch. arm64 builds the zip only.
+#
+# Local equivalent: on a Windows machine, `pnpm install` then `pnpm package:win`.
 #
 # Separate from release.yml; does not touch the macOS release pipeline.
 
@@ -24,8 +32,10 @@ jobs:
         include:
           - runner: windows-11-arm
             arch: arm64
+            ebTargets: zip
           - runner: windows-latest
             arch: x64
+            ebTargets: nsis zip
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     defaults:
@@ -57,14 +67,28 @@ jobs:
       - name: Rebuild better-sqlite3 for Electron (${{ matrix.arch }})
         run: pnpm exec electron-rebuild -f -w better-sqlite3 --arch ${{ matrix.arch }}
 
-      - name: Build + package win-${{ matrix.arch }} zip (unsigned, no publish)
+      - name: Build + package win-${{ matrix.arch }} (unsigned, no publish)
         run: |
           pnpm build
-          pnpm exec electron-builder --win zip --${{ matrix.arch }} --publish never
+          pnpm exec electron-builder --win ${{ matrix.ebTargets }} --${{ matrix.arch }} --publish never
 
-      - name: Upload win-${{ matrix.arch }} zip artifact
+      # x64 Windows-native acceptance gate (verify the NSIS asset set + latest.yml
+      # reference, then silent install + launch smoke). Shared verbatim with
+      # release-windows.yml. Version comes from package.json (artifactName uses
+      # ${version}).
+      - name: Acceptance gate — verify x64 artifacts + silent install/launch smoke
+        if: matrix.arch == 'x64'
+        run: |
+          $ver = node -p "require('./package.json').version"
+          pwsh -File scripts/ci/windows-x64-acceptance.ps1 -Version $ver
+
+      - name: Upload win-${{ matrix.arch }} artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ai-14all-win-${{ matrix.arch }}-zip
-          path: release/*.zip
-          if-no-files-found: error
+          name: ai-14all-win-${{ matrix.arch }}
+          path: |
+            release/*-Setup.exe
+            release/*-Setup.exe.blockmap
+            release/latest.yml
+            release/*.zip
+          if-no-files-found: warn

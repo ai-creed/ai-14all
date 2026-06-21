@@ -94,50 +94,16 @@ jobs:
           pnpm build
           pnpm exec electron-builder --win ${{ matrix.ebTargets }} --${{ matrix.arch }} --publish never
 
-      # Autonomous acceptance gate (runs on the native Windows runner, no human).
-      # Reaching this step means electron-builder + the afterPack guards already
-      # passed. Asserts the exact accepted x64 asset set and that latest.yml
-      # references the installer electron-updater will fetch.
-      - name: Verify x64 artifacts (installer, blockmap, latest.yml, zip)
+      # Windows-native acceptance gate (runs on the native runner, no human):
+      # verifies the exact x64 NSIS asset set + that latest.yml references the
+      # installer, then silent-installs and launch-smoke-tests the build. Shared
+      # verbatim with build-windows.yml via the script, so the branch CI and the
+      # release pipeline apply the identical gate. The SmartScreen click-through
+      # is not automatable (it only appears for end-user internet downloads, not
+      # CI-built files; see docs/windows-distribution.md).
+      - name: Acceptance gate — verify x64 artifacts + silent install/launch smoke
         if: matrix.arch == 'x64'
-        run: |
-          $ErrorActionPreference = "Stop"
-          $ver = "${{ steps.resolve.outputs.version }}"
-          $setup = "release/ai-14all-$ver-x64-Setup.exe"
-          foreach ($f in @($setup, "$setup.blockmap", "release/latest.yml")) {
-            if (-not (Test-Path $f)) { throw "missing expected artifact: $f" }
-          }
-          if (-not (Get-ChildItem release/*.zip)) { throw "missing x64 zip" }
-          $y = Get-Content release/latest.yml -Raw
-          if ($y -notmatch [regex]::Escape("ai-14all-$ver-x64-Setup.exe")) {
-            throw "latest.yml does not reference ai-14all-$ver-x64-Setup.exe"
-          }
-          Write-Host "x64 artifacts verified: installer + blockmap + latest.yml + zip"
-
-      # Autonomous proxy for the "user installs and the app launches" acceptance.
-      # Silently runs the NSIS installer, asserts the installed exe exists, then
-      # launches it and confirms it survives (catches crash-on-launch, e.g. a bad
-      # native-module ABI the afterPack guard cannot see). The SmartScreen
-      # click-through is NOT automatable here — it is a Mark-of-the-Web reputation
-      # prompt shown only to end users downloading the unsigned file from the
-      # internet; CI-built local files never trigger it (documented in
-      # docs/windows-distribution.md).
-      - name: Smoke — silent install + launch (x64)
-        if: matrix.arch == 'x64'
-        run: |
-          $ErrorActionPreference = "Stop"
-          $ver = "${{ steps.resolve.outputs.version }}"
-          $setup = (Resolve-Path "release/ai-14all-$ver-x64-Setup.exe").Path
-          Write-Host "Silent-installing $setup"
-          Start-Process -FilePath $setup -ArgumentList "/S" -Wait
-          $exe = Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA "Programs") -Recurse -Filter "ai-14all.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $exe) { throw "installed ai-14all.exe not found under %LOCALAPPDATA%\Programs" }
-          Write-Host "Installed: $($exe.FullName)"
-          $p = Start-Process -FilePath $exe.FullName -PassThru
-          Start-Sleep -Seconds 12
-          if ($p.HasExited) { throw "app exited within 12s (exit code $($p.ExitCode)) — crash on launch" }
-          Write-Host "App launched and stayed alive; stopping it"
-          Stop-Process -Id $p.Id -Force
+        run: pwsh -File scripts/ci/windows-x64-acceptance.ps1 -Version "${{ steps.resolve.outputs.version }}"
 
       - name: Verify arm64 zip
         if: matrix.arch == 'arm64'
