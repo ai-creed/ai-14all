@@ -635,7 +635,7 @@ describe("SessionSidebar theme toggle", () => {
 		expect(btn.textContent).toBe("🌙");
 	});
 
-	it("renders ⊙ and 'Switch to light theme' when themeMode is system", () => {
+	it("renders ⚙️ and 'Switch to light theme' when themeMode is system", () => {
 		render(
 			<SessionSidebar
 				workspaces={workspaces}
@@ -653,7 +653,7 @@ describe("SessionSidebar theme toggle", () => {
 		);
 		const btn = screen.getByRole("button", { name: "Switch to light theme" });
 		expect(btn).toBeInTheDocument();
-		expect(btn.textContent).toBe("⊙");
+		expect(btn.textContent).toBe("⚙️");
 	});
 
 	it("renders ☀️ and 'Switch to dark theme' when themeMode is light", () => {

@@ -123,7 +123,7 @@ export function SessionSidebar({
 			? "☀️"
 			: themeMode === "dark" || themeMode === "warm"
 				? "🌙"
-				: "⊙";
+				: "⚙️";
 	const themeLabel =
 		themeMode === "light"
 			? "Switch to dark theme"
@@ -526,6 +526,7 @@ export function SessionSidebar({
 					<button
 						type="button"
 						className="shell-button shell-button--icon shell-button--compact"
+						style={collapsed ? { width: "100%" } : undefined}
 						aria-label={themeLabel}
 						title={themeLabel}
 						onClick={onThemeToggle}
