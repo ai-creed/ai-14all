@@ -6,6 +6,7 @@ import type { WorktreeProcessSummary } from "../logic/sidebar-shell-summary";
 import { displayTitle } from "../logic/session-display-title";
 import type { WorkflowRow as WorkflowRowModel } from "../../workflows/logic/workflow-lens";
 import { WorkflowRow } from "../../workflows/components/WorkflowRow";
+import type { ThemeMode } from "../../../lib/use-theme";
 
 export type SessionSidebarWorkspace = {
 	workspaceId: string;
@@ -51,6 +52,8 @@ type Props = {
 	) => void;
 	onOpenWorkflowDetail?: (workspaceId: string, worktreeId: string) => void;
 	pendingRename?: { workspaceId: string; worktreeId: string } | null;
+	themeMode?: ThemeMode;
+	onThemeToggle?: () => void;
 };
 
 export function SessionSidebar({
@@ -68,6 +71,8 @@ export function SessionSidebar({
 	onClearFailedReason,
 	onOpenWorkflowDetail,
 	pendingRename,
+	themeMode = "system" as ThemeMode,
+	onThemeToggle,
 }: Props) {
 	const [renaming, setRenaming] = React.useState<{
 		workspaceId: string;
@@ -112,6 +117,19 @@ export function SessionSidebar({
 	function cancelRename() {
 		setRenaming(null);
 	}
+
+	const themeIcon =
+		themeMode === "light"
+			? "☀️"
+			: themeMode === "dark" || themeMode === "warm"
+				? "🌙"
+				: "⊙";
+	const themeLabel =
+		themeMode === "light"
+			? "Switch to dark theme"
+			: themeMode === "dark" || themeMode === "warm"
+				? "Switch to system theme"
+				: "Switch to light theme";
 
 	return (
 		<nav
@@ -488,14 +506,33 @@ export function SessionSidebar({
 				))}
 			</div>
 			<div className="shell-sidebar__footer shell-sidebar__footer--global">
-				<button
-					type="button"
-					className="shell-button shell-button--compact"
-					onClick={onLoadWorkspace}
-					aria-label="Load workspace"
+				<div
+					style={{
+						display: "flex",
+						flexDirection: collapsed ? "column-reverse" : "row",
+						alignItems: "center",
+						gap: 6,
+					}}
 				>
-					{collapsed ? "Load" : "Load workspace"}
-				</button>
+					<button
+						type="button"
+						className="shell-button shell-button--compact"
+						style={collapsed ? undefined : { flex: 1 }}
+						onClick={onLoadWorkspace}
+						aria-label="Load workspace"
+					>
+						{collapsed ? "Load" : "Load workspace"}
+					</button>
+					<button
+						type="button"
+						className="shell-button shell-button--icon shell-button--compact"
+						aria-label={themeLabel}
+						title={themeLabel}
+						onClick={onThemeToggle}
+					>
+						{themeIcon}
+					</button>
+				</div>
 			</div>
 		</nav>
 	);

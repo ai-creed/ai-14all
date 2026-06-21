@@ -612,3 +612,134 @@ describe("SessionSidebar footer label", () => {
 		expect(btn.textContent).toBe("+ New session");
 	});
 });
+
+describe("SessionSidebar theme toggle", () => {
+  it("renders 🌙 and 'Switch to system theme' when themeMode is dark", () => {
+    render(
+      <SessionSidebar
+        workspaces={workspaces}
+        collapsed={false}
+        onToggleCollapsed={vi.fn()}
+        onLoadWorkspace={vi.fn()}
+        onOpenWorkspace={vi.fn()}
+        onSelect={vi.fn()}
+        onCreateWorktree={vi.fn()}
+        onRemoveWorktree={vi.fn()}
+        onRemoveWorkspace={vi.fn()}
+        themeMode="dark"
+        onThemeToggle={vi.fn()}
+      />,
+    );
+    const btn = screen.getByRole("button", { name: "Switch to system theme" });
+    expect(btn).toBeInTheDocument();
+    expect(btn.textContent).toBe("🌙");
+  });
+
+  it("renders ⊙ and 'Switch to light theme' when themeMode is system", () => {
+    render(
+      <SessionSidebar
+        workspaces={workspaces}
+        collapsed={false}
+        onToggleCollapsed={vi.fn()}
+        onLoadWorkspace={vi.fn()}
+        onOpenWorkspace={vi.fn()}
+        onSelect={vi.fn()}
+        onCreateWorktree={vi.fn()}
+        onRemoveWorktree={vi.fn()}
+        onRemoveWorkspace={vi.fn()}
+        themeMode="system"
+        onThemeToggle={vi.fn()}
+      />,
+    );
+    const btn = screen.getByRole("button", { name: "Switch to light theme" });
+    expect(btn).toBeInTheDocument();
+    expect(btn.textContent).toBe("⊙");
+  });
+
+  it("renders ☀️ and 'Switch to dark theme' when themeMode is light", () => {
+    render(
+      <SessionSidebar
+        workspaces={workspaces}
+        collapsed={false}
+        onToggleCollapsed={vi.fn()}
+        onLoadWorkspace={vi.fn()}
+        onOpenWorkspace={vi.fn()}
+        onSelect={vi.fn()}
+        onCreateWorktree={vi.fn()}
+        onRemoveWorktree={vi.fn()}
+        onRemoveWorkspace={vi.fn()}
+        themeMode="light"
+        onThemeToggle={vi.fn()}
+      />,
+    );
+    const btn = screen.getByRole("button", { name: "Switch to dark theme" });
+    expect(btn).toBeInTheDocument();
+    expect(btn.textContent).toBe("☀️");
+  });
+
+  it("renders 🌙 and 'Switch to system theme' when themeMode is warm (warm escapes cycle)", () => {
+    render(
+      <SessionSidebar
+        workspaces={workspaces}
+        collapsed={false}
+        onToggleCollapsed={vi.fn()}
+        onLoadWorkspace={vi.fn()}
+        onOpenWorkspace={vi.fn()}
+        onSelect={vi.fn()}
+        onCreateWorktree={vi.fn()}
+        onRemoveWorktree={vi.fn()}
+        onRemoveWorkspace={vi.fn()}
+        themeMode="warm"
+        onThemeToggle={vi.fn()}
+      />,
+    );
+    const btn = screen.getByRole("button", { name: "Switch to system theme" });
+    expect(btn).toBeInTheDocument();
+    expect(btn.textContent).toBe("🌙");
+  });
+
+  it("calls onThemeToggle when the toggle button is clicked", () => {
+    const onThemeToggle = vi.fn();
+    render(
+      <SessionSidebar
+        workspaces={workspaces}
+        collapsed={false}
+        onToggleCollapsed={vi.fn()}
+        onLoadWorkspace={vi.fn()}
+        onOpenWorkspace={vi.fn()}
+        onSelect={vi.fn()}
+        onCreateWorktree={vi.fn()}
+        onRemoveWorktree={vi.fn()}
+        onRemoveWorkspace={vi.fn()}
+        themeMode="dark"
+        onThemeToggle={onThemeToggle}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Switch to system theme" }));
+    expect(onThemeToggle).toHaveBeenCalledOnce();
+  });
+
+  it("renders toggle button and Load button in collapsed mode", () => {
+    render(
+      <SessionSidebar
+        workspaces={workspaces}
+        collapsed={true}
+        onToggleCollapsed={vi.fn()}
+        onLoadWorkspace={vi.fn()}
+        onOpenWorkspace={vi.fn()}
+        onSelect={vi.fn()}
+        onCreateWorktree={vi.fn()}
+        onRemoveWorktree={vi.fn()}
+        onRemoveWorkspace={vi.fn()}
+        themeMode="dark"
+        onThemeToggle={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Switch to system theme" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Load workspace" }),
+    ).toBeInTheDocument();
+  });
+});
