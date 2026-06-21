@@ -1,0 +1,312 @@
+// tests/unit/plugins/samantha/samantha-driver.test.ts
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createSamanthaDriver } from "../../../../services/plugins/samantha/samantha-driver";
+import type {
+	SamanthaClientResult,
+	SamanthaConnectorClient,
+	SnapshotBody,
+} from "../../../../services/plugins/samantha/samantha-connector-client";
+import type { SamanthaSessionSlice } from "../../../../shared/contracts/plugins";
+
+function okClient(overrides: Partial<SamanthaConnectorClient> = {}) {
+	const calls = {
+		register: [] as unknown[],
+		snapshot: [] as SnapshotBody[],
+		event: [] as unknown[],
+		unregister: 0,
+	};
+	const ok: SamanthaClientResult = { ok: true };
+	const client: SamanthaConnectorClient = {
+		register: async (b) => {
+			calls.register.push(b);
+			return ok;
+		},
+		patchSnapshot: async (b) => {
+			calls.snapshot.push(b);
+			return ok;
+		},
+		postEvent: async (b) => {
+			calls.event.push(b);
+			return ok;
+		},
+		unregister: async () => {
+			calls.unregister += 1;
+			return ok;
+		},
+		...overrides,
+	};
+	return { client, calls };
+}
+
+function slice(attention: SamanthaSessionSlice["worktrees"][number]["attention"]): SamanthaSessionSlice {
+	return {
+		worktrees: [
+			{
+				worktreeId: "wt1",
+				provider: "claude",
+				attention,
+				summary: "x",
+				task: null,
+				nextAction: null,
+				updatedAt: 1,
+				recent: [],
+			},
+		],
+		app: { focusedWorktreeId: "wt1", mode: "ready" },
+	};
+}
+
+function makeDriver(client: SamanthaConnectorClient) {
+	const reviewCbs: (() => void)[] = [];
+	const health: { link: string }[] = [];
+	const driver = createSamanthaDriver({
+		client,
+		getIdentities: async () => ({
+			wt1: { repo: "ai-14all", branch: "main", path: "/w" },
+		}),
+		getReviewCount: () => 0,
+		getWhisperStates: async () => [],
+		subscribeReviews: (cb) => {
+			reviewCbs.push(cb);
+			return () => {};
+		},
+		subscribeWorktrees: () => () => {},
+		pushHealth: (h) => health.push(h),
+		now: () => 1000,
+		debounceMs: 10,
+		keepAliveMs: 100000,
+		reconnectMs: 50,
+	});
+	return { driver, health };
+}
+
+beforeEach(() => vi.useFakeTimers());
+afterEach(() => vi.useRealTimers());
+
+const ctx = { reportDegraded: vi.fn(), reportLimited: vi.fn() };
+
+describe("samantha-driver", () => {
+	it("registers on start and pushes connected health", async () => {
+		const { client, calls } = okClient();
+		const { driver, health } = makeDriver(client);
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(30);
+		expect(calls.register).toHaveLength(1);
+		expect(health.at(-1)?.link).toBe("connected");
+	});
+
+	it("PATCHes a full snapshot then POSTs an attentionRequired event on a waiting transition", async () => {
+		const { client, calls } = okClient();
+		const { driver } = makeDriver(client);
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(30);
+		driver.ingestSessionSlice(slice("active"));
+		await vi.advanceTimersByTimeAsync(30);
+		const snapshotsBefore = calls.snapshot.length;
+		driver.ingestSessionSlice(slice("waiting"));
+		await vi.advanceTimersByTimeAsync(30);
+		expect(calls.snapshot.length).toBeGreaterThan(snapshotsBefore);
+		expect(calls.event).toHaveLength(1);
+		expect((calls.event[0] as { signal: string }).signal).toBe(
+			"attentionRequired",
+		);
+	});
+
+	it("skips a byte-identical snapshot (idempotent)", async () => {
+		const { client, calls } = okClient();
+		const { driver } = makeDriver(client);
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(30);
+		driver.ingestSessionSlice(slice("active"));
+		await vi.advanceTimersByTimeAsync(30);
+		const after = calls.snapshot.length;
+		driver.ingestSessionSlice(slice("active")); // identical
+		await vi.advanceTimersByTimeAsync(30);
+		expect(calls.snapshot.length).toBe(after);
+	});
+
+	it("does not emit an event for an active->stale (silent update) transition", async () => {
+		const { client, calls } = okClient();
+		const { driver } = makeDriver(client);
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(30);
+		driver.ingestSessionSlice(slice("active"));
+		await vi.advanceTimersByTimeAsync(30);
+		driver.ingestSessionSlice(slice("stale"));
+		await vi.advanceTimersByTimeAsync(30);
+		expect(calls.event).toHaveLength(0);
+	});
+
+	it("re-registers after a 404 and reports reconnecting on a refused connection", async () => {
+		let refuse = true;
+		const { calls } = okClient();
+		const client: SamanthaConnectorClient = {
+			register: async (b) => {
+				calls.register.push(b);
+				return refuse ? { ok: false, reason: "refused" } : { ok: true };
+			},
+			patchSnapshot: async () => ({ ok: false, reason: "not-found" }),
+			postEvent: async () => ({ ok: true }),
+			unregister: async () => ({ ok: true }),
+		};
+		const { driver, health } = makeDriver(client);
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(30);
+		expect(health.some((h) => h.link === "reconnecting" || h.link === "samantha-not-running")).toBe(true);
+		refuse = false;
+		await vi.advanceTimersByTimeAsync(120);
+		expect(calls.register.length).toBeGreaterThan(1);
+	});
+
+	it("never calls reportDegraded for a transient disconnect", async () => {
+		const client: SamanthaConnectorClient = {
+			register: async () => ({ ok: false, reason: "refused" }),
+			patchSnapshot: async () => ({ ok: false, reason: "refused" }),
+			postEvent: async () => ({ ok: false, reason: "refused" }),
+			unregister: async () => ({ ok: true }),
+		};
+		const localCtx = { reportDegraded: vi.fn(), reportLimited: vi.fn() };
+		const { driver } = makeDriver(client);
+		await driver.start(localCtx);
+		await vi.advanceTimersByTimeAsync(120);
+		expect(localCtx.reportDegraded).not.toHaveBeenCalled();
+	});
+
+	it("unregisters and pushes samantha-not-running on stop", async () => {
+		const { client, calls } = okClient();
+		const { driver, health } = makeDriver(client);
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(30);
+		await driver.stop();
+		expect(calls.unregister).toBe(1);
+		expect(health.at(-1)?.link).toBe("samantha-not-running");
+	});
+
+	it("re-registers and re-PATCHes a fresh snapshot before posting an event after a 404", async () => {
+		const order: string[] = [];
+		let patchCalls = 0;
+		const client: SamanthaConnectorClient = {
+			register: async () => {
+				order.push("register");
+				return { ok: true };
+			},
+			patchSnapshot: async () => {
+				patchCalls += 1;
+				order.push("patch");
+				// The waiting rebuild's first PATCH 404s (Samantha restarted);
+				// the retry after re-registration succeeds.
+				return patchCalls === 2
+					? { ok: false, reason: "not-found" }
+					: { ok: true };
+			},
+			postEvent: async () => {
+				order.push("event");
+				return { ok: true };
+			},
+			unregister: async () => ({ ok: true }),
+		};
+		const { driver } = makeDriver(client);
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(30);
+		driver.ingestSessionSlice(slice("waiting"));
+		await vi.advanceTimersByTimeAsync(30);
+		// On the waiting rebuild: patch(404) -> register -> patch(ok) -> event.
+		expect(order.slice(-4)).toEqual(["patch", "register", "patch", "event"]);
+	});
+
+	it("reconnects when an event POST is refused and re-emits on the next rebuild", async () => {
+		const calls = { snapshot: 0, event: 0, register: 0 };
+		let eventOk = false;
+		const client: SamanthaConnectorClient = {
+			register: async () => {
+				calls.register += 1;
+				return { ok: true };
+			},
+			patchSnapshot: async () => {
+				calls.snapshot += 1;
+				return { ok: true };
+			},
+			postEvent: async () => {
+				calls.event += 1;
+				return eventOk ? { ok: true } : { ok: false, reason: "refused" };
+			},
+			unregister: async () => ({ ok: true }),
+		};
+		const { driver, health } = makeDriver(client);
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(30);
+		driver.ingestSessionSlice(slice("waiting"));
+		await vi.advanceTimersByTimeAsync(30);
+		expect(calls.event).toBe(1);
+		expect(
+			health.some(
+				(h) => h.link === "reconnecting" || h.link === "samantha-not-running",
+			),
+		).toBe(true);
+		// Link restored; the same transition is retried because lastSignals was
+		// not advanced after the failed POST.
+		eventOk = true;
+		driver.ingestSessionSlice(slice("waiting"));
+		await vi.advanceTimersByTimeAsync(80);
+		expect(calls.event).toBeGreaterThan(1);
+	});
+
+	it("re-registers and re-PATCHes a fresh snapshot when an event POST 404s", async () => {
+		const order: string[] = [];
+		let eventCalls = 0;
+		const client: SamanthaConnectorClient = {
+			register: async () => {
+				order.push("register");
+				return { ok: true };
+			},
+			patchSnapshot: async () => {
+				order.push("patch");
+				return { ok: true };
+			},
+			postEvent: async () => {
+				eventCalls += 1;
+				order.push("event");
+				// First event POST 404s (Samantha restarted); the retry succeeds.
+				return eventCalls === 1
+					? { ok: false, reason: "not-found" }
+					: { ok: true };
+			},
+			unregister: async () => ({ ok: true }),
+		};
+		const { driver } = makeDriver(client);
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(30);
+		driver.ingestSessionSlice(slice("waiting"));
+		await vi.advanceTimersByTimeAsync(60);
+		// The 404 event POST triggers re-register + an immediate fresh re-PATCH...
+		const i = order.indexOf("event");
+		expect(order.slice(i, i + 3)).toEqual(["event", "register", "patch"]);
+		// ...and the transition is re-emitted on the scheduled follow-up rebuild.
+		expect(eventCalls).toBeGreaterThan(1);
+	});
+
+	it("sends a keep-alive PATCH even when content is unchanged", async () => {
+		const { client, calls } = okClient();
+		const driver = createSamanthaDriver({
+			client,
+			getIdentities: async () => ({
+				wt1: { repo: "ai-14all", branch: "main", path: "/w" },
+			}),
+			getReviewCount: () => 0,
+			getWhisperStates: async () => [],
+			subscribeReviews: () => () => {},
+			subscribeWorktrees: () => () => {},
+			pushHealth: () => {},
+			now: () => 1000,
+			debounceMs: 10,
+			keepAliveMs: 50,
+			reconnectMs: 50,
+		});
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(30);
+		const after = calls.snapshot.length;
+		// No content change; only the keep-alive timer fires (forced PATCH).
+		await vi.advanceTimersByTimeAsync(80);
+		expect(calls.snapshot.length).toBeGreaterThan(after);
+	});
+});
