@@ -17,6 +17,7 @@ type Options = {
 	// Create-worktree state + setters
 	createPreview: CreateWorktreePreview | null;
 	createName: string;
+	createBaseBranch: string | null;
 	createSessionTitle: string;
 	setCreateBusy: (busy: boolean) => void;
 	setCreateDialogOpen: (open: boolean) => void;
@@ -60,6 +61,7 @@ export function useWorktreeActions(options: Options): UseWorktreeActions {
 		workspaceStateRef,
 		createPreview,
 		createName,
+		createBaseBranch,
 		createSessionTitle,
 		setCreateBusy,
 		setCreateDialogOpen,
@@ -119,6 +121,7 @@ export function useWorktreeActions(options: Options): UseWorktreeActions {
 			const created = await repositoryClient.createWorktree(
 				workspaceId,
 				createName,
+				createBaseBranch ?? undefined,
 			);
 			// Reconcile first so the session for `created.id` exists; setting the
 			// title before this no-ops (updateSession ignores missing sessions) and
@@ -147,6 +150,7 @@ export function useWorktreeActions(options: Options): UseWorktreeActions {
 		createPreview,
 		workspaceId,
 		createName,
+		createBaseBranch,
 		createSessionTitle,
 		dispatch,
 		refreshWorktreeInventory,

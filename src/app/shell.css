@@ -2588,6 +2588,44 @@ select {
 	margin-top: var(--space-2);
 	cursor: pointer;
 }
+.base-branch-select__list {
+	margin: var(--s-1, 4px) 0 0;
+	padding: 0;
+	list-style: none;
+	max-height: 160px;
+	overflow-y: auto;
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+}
+.base-branch-select__option {
+	display: block;
+	width: 100%;
+	text-align: left;
+	padding: 4px 8px;
+	background: transparent;
+	border: none;
+	color: inherit;
+	cursor: pointer;
+	font: inherit;
+}
+.base-branch-select__option--selected,
+.base-branch-select__option:hover {
+	background: var(--accent);
+	color: var(--bg);
+}
+.base-branch-select__empty {
+	padding: 4px 8px;
+	color: var(--fg-dim);
+	font-size: var(--fs-sm);
+}
+.shell-app-dialog__warning {
+	color: var(--warn, #b8860b);
+	font-size: var(--fs-sm);
+}
+.shell-app-dialog__note {
+	color: var(--fg-dim);
+	font-size: var(--fs-sm);
+}
 
 /* ---- Files Overlay ---- */
 .shell-files-overlay__backdrop {

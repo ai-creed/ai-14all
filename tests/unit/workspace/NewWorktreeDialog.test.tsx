@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { NewWorktreeDialog } from "../../../src/features/workspace/components/NewWorktreeDialog";
+import type { CreateWorktreePreview } from "../../../shared/models/worktree-lifecycle";
 
-const PREVIEW = {
+const PREVIEW: CreateWorktreePreview = {
 	name: "feature-x",
 	branchName: "feature-x",
 	path: "/repo/.worktrees/feature-x",
@@ -24,6 +25,11 @@ function renderDialog(overrides?: {
 			loading={false}
 			error={overrides?.error ?? null}
 			busy={overrides?.busy ?? false}
+			branches={["origin/master", "origin/devel"]}
+			baseBranch="origin/master"
+			onBaseBranchChange={vi.fn()}
+			baseLoading={false}
+			baseWarning={null}
 			onOpenChange={vi.fn()}
 			onNameChange={vi.fn()}
 			onSessionTitleChange={vi.fn()}
@@ -80,5 +86,57 @@ describe("NewWorktreeDialog", () => {
 		expect(
 			screen.getByRole("button", { name: /creating session/i }),
 		).toBeDisabled();
+	});
+
+	it("renders the base-branch picker with the default selected", () => {
+		renderDialog();
+		expect(
+			screen.getByRole("option", { name: "origin/master" }),
+		).toHaveAttribute("aria-selected", "true");
+		expect(
+			screen.getByRole("option", { name: "origin/devel" }),
+		).toBeInTheDocument();
+	});
+
+	it("shows a non-blocking refresh warning but keeps Create enabled", () => {
+		render(
+			<NewWorktreeDialog
+				open={true}
+				name="feature-x"
+				sessionTitle=""
+				preview={PREVIEW}
+				loading={false}
+				error={null}
+				busy={false}
+				branches={["origin/master"]}
+				baseBranch="origin/master"
+				onBaseBranchChange={vi.fn()}
+				baseLoading={false}
+				baseWarning="Couldn't refresh from origin — showing last-fetched branches."
+				onOpenChange={vi.fn()}
+				onNameChange={vi.fn()}
+				onSessionTitleChange={vi.fn()}
+				onConfirm={vi.fn()}
+			/>,
+		);
+		expect(
+			screen.getByText(/couldn't refresh from origin/i),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Create worktree" }),
+		).toBeEnabled();
+	});
+
+	it("renders the preview note when present", () => {
+		renderDialog({
+			preview: {
+				...PREVIEW,
+				baseRef: "HEAD",
+				note: "origin has no branches — basing this session off the local HEAD.",
+			},
+		});
+		expect(
+			screen.getByText(/basing this session off the local HEAD/i),
+		).toBeInTheDocument();
 	});
 });

@@ -1,6 +1,7 @@
 import { AppDialog } from "../../../components/AppDialog";
 import type { CreateWorktreePreview } from "../../../../shared/models/worktree-lifecycle";
 import { getCreateWorktreeErrorHint } from "../logic/create-worktree-error-hint";
+import { BaseBranchSelect } from "./BaseBranchSelect";
 
 type Props = {
 	open: boolean;
@@ -10,6 +11,11 @@ type Props = {
 	loading: boolean;
 	error: string | null;
 	busy: boolean;
+	branches: string[];
+	baseBranch: string | null;
+	onBaseBranchChange: (branch: string) => void;
+	baseLoading: boolean;
+	baseWarning: string | null;
 	onOpenChange: (open: boolean) => void;
 	onNameChange: (name: string) => void;
 	onSessionTitleChange: (title: string) => void;
@@ -24,6 +30,11 @@ export function NewWorktreeDialog({
 	loading,
 	error,
 	busy,
+	branches,
+	baseBranch,
+	onBaseBranchChange,
+	baseLoading,
+	baseWarning,
 	onOpenChange,
 	onNameChange,
 	onSessionTitleChange,
@@ -55,6 +66,25 @@ export function NewWorktreeDialog({
 						className="shell-input"
 					/>
 				</label>
+				<div className="shell-app-dialog__field">
+					<span>Base branch</span>
+					<BaseBranchSelect
+						branches={branches}
+						value={baseBranch}
+						onChange={onBaseBranchChange}
+						disabled={busy}
+					/>
+					{baseLoading && (
+						<span className="shell-app-dialog__hint" role="status">
+							Refreshing branches…
+						</span>
+					)}
+					{baseWarning && (
+						<span className="shell-app-dialog__warning" role="status">
+							{baseWarning}
+						</span>
+					)}
+				</div>
 				{preview && (
 					<div className="shell-app-dialog__preview">
 						<div>
@@ -75,6 +105,9 @@ export function NewWorktreeDialog({
 								{preview.baseCommit.shortSha} {preview.baseCommit.subject}
 							</strong>
 						</div>
+						{preview.note && (
+							<div className="shell-app-dialog__note">{preview.note}</div>
+						)}
 					</div>
 				)}
 				{errorHint ? (

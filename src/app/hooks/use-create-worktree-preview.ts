@@ -8,6 +8,7 @@ type Options = {
 	open: boolean;
 	name: string;
 	workspaceId: string | null;
+	baseBranch: string | null;
 };
 
 export type CreateWorktreePreviewState = {
@@ -25,7 +26,7 @@ export type CreateWorktreePreviewState = {
 export function useCreateWorktreePreview(
 	options: Options,
 ): CreateWorktreePreviewState {
-	const { open, name, workspaceId } = options;
+	const { open, name, workspaceId, baseBranch } = options;
 	const [preview, setPreview] = useState<CreateWorktreePreview | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -40,7 +41,7 @@ export function useCreateWorktreePreview(
 		const timeoutId = window.setTimeout(() => {
 			setLoading(true);
 			repositoryClient
-				.previewCreateWorktree(workspaceId, name)
+				.previewCreateWorktree(workspaceId, name, baseBranch ?? undefined)
 				.then((next) => {
 					if (cancelled) return;
 					setPreview(next);
@@ -59,7 +60,7 @@ export function useCreateWorktreePreview(
 			cancelled = true;
 			window.clearTimeout(timeoutId);
 		};
-	}, [open, name, workspaceId]);
+	}, [open, name, workspaceId, baseBranch]);
 
 	return { preview, loading, error, setPreview, setError };
 }

@@ -30,6 +30,11 @@ type Props = {
 	setCreateError: (next: string | null) => void;
 	createBusy: boolean;
 	handleConfirmCreateWorktree: () => Promise<void>;
+	baseBranches: string[];
+	selectedBaseBranch: string | null;
+	setSelectedBaseBranch: (branch: string) => void;
+	baseBranchLoading: boolean;
+	baseBranchWarning: string | null;
 
 	// Remove worktree
 	removeDialogOpen: boolean;
@@ -86,6 +91,11 @@ export function DialogStack(props: Props): React.ReactElement {
 				}}
 				onNameChange={props.setCreateName}
 				onSessionTitleChange={props.setCreateSessionTitle}
+				branches={props.baseBranches}
+				baseBranch={props.selectedBaseBranch}
+				onBaseBranchChange={props.setSelectedBaseBranch}
+				baseLoading={props.baseBranchLoading}
+				baseWarning={props.baseBranchWarning}
 				onConfirm={() => {
 					void props.handleConfirmCreateWorktree();
 				}}

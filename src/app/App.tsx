@@ -85,6 +85,7 @@ import { useStartupRestore } from "./hooks/use-startup-restore";
 import { useGitSummaryLoader } from "./hooks/use-git-summary-loader";
 import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-empty-worktree";
 import { useCreateWorktreePreview } from "./hooks/use-create-worktree-preview";
+import { useBaseBranchOptions } from "./hooks/use-base-branch-options";
 import { useRemoveWorktreePreview } from "./hooks/use-remove-worktree-preview";
 import { DialogStack } from "./components/DialogStack";
 import { ToastProvider, notifyToast } from "../features/ui/toast/ToastProvider";
@@ -1033,6 +1034,17 @@ export function App() {
 	});
 
 	const {
+		branches: baseBranches,
+		selected: selectedBaseBranch,
+		setSelected: setSelectedBaseBranch,
+		loading: baseBranchLoading,
+		warning: baseBranchWarning,
+	} = useBaseBranchOptions({
+		open: createDialogOpen,
+		workspaceId: activeWorkspaceId,
+	});
+
+	const {
 		preview: createPreview,
 		loading: createLoading,
 		error: createError,
@@ -1042,6 +1054,7 @@ export function App() {
 		open: createDialogOpen,
 		name: createName,
 		workspaceId: activeWorkspaceId,
+		baseBranch: selectedBaseBranch,
 	});
 
 	const {
@@ -1165,6 +1178,7 @@ export function App() {
 			workspaceStateRef,
 			createPreview,
 			createName,
+			createBaseBranch: selectedBaseBranch,
 			createSessionTitle,
 			setCreateBusy,
 			setCreateDialogOpen,
@@ -2020,6 +2034,11 @@ export function App() {
 					setCreateError={setCreateError}
 					createBusy={createBusy}
 					handleConfirmCreateWorktree={handleConfirmCreateWorktree}
+					baseBranches={baseBranches}
+					selectedBaseBranch={selectedBaseBranch}
+					setSelectedBaseBranch={setSelectedBaseBranch}
+					baseBranchLoading={baseBranchLoading}
+					baseBranchWarning={baseBranchWarning}
 					removeDialogOpen={removeDialogOpen}
 					setRemoveDialogOpen={setRemoveDialogOpen}
 					removePreview={removePreview}

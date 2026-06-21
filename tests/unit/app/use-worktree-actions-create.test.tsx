@@ -43,6 +43,7 @@ function makeOptions(overrides?: { createSessionTitle?: string }) {
 		workspaceStateRef: { current: { sessionsByWorktreeId: {} } } as never,
 		createPreview: CREATE_PREVIEW as never,
 		createName: "feature-x",
+		createBaseBranch: "origin/devel",
 		createSessionTitle: overrides?.createSessionTitle ?? "My title",
 		setCreateBusy: vi.fn(),
 		setCreateDialogOpen: vi.fn(),
@@ -100,6 +101,21 @@ describe("useWorktreeActions create", () => {
 
 		expect(dispatch).not.toHaveBeenCalledWith(
 			expect.objectContaining({ type: "session/setTitle" }),
+		);
+	});
+
+	it("passes the selected base branch to createWorktree", async () => {
+		const { options } = makeOptions();
+		const { result } = renderHook(() => useWorktreeActions(options));
+
+		await act(async () => {
+			await result.current.handleConfirmCreateWorktree();
+		});
+
+		expect(createWorktree).toHaveBeenCalledWith(
+			"ws1",
+			"feature-x",
+			"origin/devel",
 		);
 	});
 });
