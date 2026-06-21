@@ -133,9 +133,9 @@ const NOOP = () => {};
 // value) so that "system" is a reachable state in the cycle.
 // "warm" is not part of the cycle — clicking the toggle escapes it to "system".
 function nextThemeMode(current: ThemeMode): ThemeMode {
-  if (current === "dark" || current === "warm") return "system";
-  if (current === "system") return "light";
-  return "dark"; // light → dark
+	if (current === "dark" || current === "warm") return "system";
+	if (current === "system") return "light";
+	return "dark"; // light → dark
 }
 
 export function App() {
