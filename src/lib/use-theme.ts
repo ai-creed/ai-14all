@@ -29,6 +29,7 @@ export function useTheme(): {
 	resolvedTheme: ResolvedTheme;
 	/** The palette applied to data-theme — includes "warm" (unlike resolvedTheme). */
 	palette: Palette;
+	mode: ThemeMode;
 	setTheme: (mode: ThemeMode) => void;
 } {
 	const [mode, setMode] = useState<ThemeMode>("system");
@@ -66,5 +67,5 @@ export function useTheme(): {
 		return bridge?.onSetTheme?.((next) => setMode(next));
 	}, []);
 
-	return { resolvedTheme: monacoThemeFor(palette), palette, setTheme: setMode };
+	return { resolvedTheme: monacoThemeFor(palette), palette, mode, setTheme: setMode };
 }
