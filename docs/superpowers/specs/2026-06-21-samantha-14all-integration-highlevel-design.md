@@ -73,8 +73,20 @@ These were settled during the brainstorm and are the load-bearing decisions:
    flattened summary string (§4). Rationale: richer data lets Samantha reason
    better and issue better commands later. The rich observe contract is a
    deliberate investment in the act/triage side.
-6. **First build unit = S1 + S2** — observe (rich state out) plus benign action
-   (read-only commands), shipped together as the minimal dogfoodable duplex loop.
+   - *S1 carriage refinement.* The S1 spec delivers this contract's **full
+     information content — including recent history** — but encodes it as dense
+     readable lines inside Samantha's existing `Record<string,string>` `details`,
+     so S1 stays 14all-only (her formatter renders those lines verbatim into the
+     LLM prompt but does not parse a typed object). The **structured/typed**
+     `worktrees[]` / `recent[]` encoding in §4.1 is the **S2** carriage upgrade,
+     shipped with the Samantha-side formatter change. Same richness, deferred
+     encoding. See the S1 spec's "Reconciliation with the high-level plan."
+6. **First dogfood unit = S1 + S2, built as two sequential specs** — observe (rich
+   state out) then benign action (read-only commands). *Refined after grounding:*
+   S1 and S2 are **separate specs built sequentially** (S2 carries a substantial
+   Samantha-side build — see §5), but the **dogfood gate is unchanged**: the
+   companion is only proven once both ship, so neither is dogfooded alone. The
+   roadmap below still pairs them for the dogfood milestone.
 
 ## 3. Architecture — Samantha as ai-14all's one exclusive supervisor plugin
 
@@ -83,7 +95,13 @@ Samantha is a **hardcoded plugin** in ai-14all's registry
 and `cortex` already use:
 
 - **TOML opt-in** — `~/.ai-14all/config.toml` → `[plugins.samantha] enabled`.
-- **Probe** — detect Samantha's server on `:7841`; if absent, stay silent.
+- **Probe / absence detection** — detect Samantha's server on `:7841`; if absent,
+  stay silent. *Realized (S1 spec) at the driver's connect/health layer*
+  (`connecting | connected | reconnecting | samantha-not-running`, non-terminal +
+  self-healing), **not** the framework `probe()` hook — whose only "unreachable"
+  result is the terminal `degraded`, wrong for a peer that legitimately boots after
+  14all. The `probe()` hook stays lenient (installed-when-enabled). Same intent
+  (detect server; silent when absent), correct layer.
 - **Plugins-panel presence** — status chip + value pitch, like the other plugins.
 - **Graceful absence** — ai-14all works identically when Samantha is off or not
   running. The integration is opt-in; absence is silent.
@@ -148,6 +166,12 @@ contract. Sketch — exact fields are deferred to the S1 spec (§9):
 - The `recent[]` ring gives Samantha "what happened," not just current state, so
   she has history even on a fresh or late connect.
 
+> **S1 vs S2 encoding.** S1 carries this whole document's content — every field
+> above, including the `recent[]` history — but as dense readable lines inside the
+> existing `Record<string,string>` `details`, to stay 14all-only. The
+> **structured/typed** object sketched here is the S2 carriage upgrade, landing
+> with the Samantha-side schema/formatter change. See the S1 spec.
+
 ### 4.2 Act (commands in)
 
 WebSocket, against the same server path. Samantha's current command frame is
@@ -192,11 +216,13 @@ speech changes.
 | **S4 — Harden** | reconnect, dedup verification, cross-repo integration tests, GUI smoke. | both | low |
 | **S5 — Triage** | escalation autonomy envelope (the ultimate rung). **Gated on real S1–S3 usage data** — not designed from speculation. | both | highest |
 
-**Why S1 and S2 ship together.** Observe alone proves Samantha can *see*, but the
-supervising-companion value only becomes real once you can also ask her to *act*
-("focus the auth session," "check on the agents"). Benign action has zero blast
-radius (it touches no agent), so it is safe to bundle into the first dogfood unit
-while still exercising the whole command round-trip.
+**Why S1 and S2 dogfood together.** Observe alone proves Samantha can *see*, but
+the supervising-companion value only becomes real once you can also ask her to
+*act* ("focus the auth session," "check on the agents"). Benign action has zero
+blast radius (it touches no agent), so it joins the first dogfood milestone while
+still exercising the whole command round-trip. *Build order (refined):* S1 and S2
+are separate specs built sequentially — S1 (this slice) is 14all-only; S2 adds the
+Samantha-side command / LLM-tool work — and the dogfood happens once both land.
 
 **Cross-repo from day one.** Because S2 is in the first unit, the first milestone
 spans both repos: ai-14all builds the inverted plugin, and Samantha gets two

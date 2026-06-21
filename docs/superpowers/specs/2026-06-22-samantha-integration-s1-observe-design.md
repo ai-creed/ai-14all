@@ -44,13 +44,59 @@ Key verified facts that shaped it:
    wire shape out of the React layer (renderer stays ignorant of Samantha), and
    makes assemble→upload one isolated, testable main-process unit.
 3. **Carriage = rich readable per-worktree lines in the existing `Record<string,string>`.**
-   One `details` key per worktree; value is a dense human-readable line. This
-   keeps S1 fully 14all-only. Machine-structured fields are deferred to S2, where
-   command targeting actually needs them.
+   One `details` key per worktree; value is a dense human-readable line that
+   carries the *full information content* of the high-level plan's rich state
+   document — identity, resolved session state, review counts, workflow phase,
+   **and recent history ("what happened")** — encoded as readable text rather than
+   a machine-structured object. This is the richest representation Samantha
+   consumes today with **zero Samantha-side change**, because her prompt formatter
+   renders each `Record<string,string>` entry verbatim into the LLM context
+   (`assistant-service.ts:234-238`) but does not parse nested/typed fields. Only
+   the *encoding* is deferred: the structured/typed `worktrees[]` / `recent[]`
+   schema from the plan (§4.1) lands in S2, when command targeting needs queryable
+   fields and Samantha's snapshot schema/formatter change to consume them. See
+   "Reconciliation with the high-level plan" below.
 4. **Inverted driver fits the existing `EcosystemPlugin` interface via the
    whisper "own-channel" precedent** — a lenient probe, a fast-returning
    `start()`, and connection health pushed on the driver's own IPC channel rather
    than through registry status. No framework surgery.
+
+## Reconciliation with the high-level plan
+
+Two S1 decisions refine — and must be read together with — the high-level plan
+(`2026-06-21-samantha-14all-integration-highlevel-design.md`). The plan has been
+annotated to match; the reconciliations are recorded here so the divergence is
+explicit, not silent.
+
+1. **Observe encoding (plan §2.5, §4.1).** The plan locks a *rich* observe
+   contract: "a structured, per-worktree / per-task state document including recent
+   history, not a flattened summary string." S1 honors the **richness** in
+   full — every field of the plan's document, including the `recent[]` history, is
+   carried — but **defers the structured/typed encoding**. In S1 that content
+   rides as dense readable lines inside the existing `Record<string,string>`
+   `details`. Verified rationale: Samantha's formatter
+   (`assistant-service.ts:234-238`) renders `details` entries verbatim into the LLM
+   prompt but does not parse a nested/typed object, so a structured JSON document
+   would either be opaque to her reasoning or force a Samantha-side schema +
+   formatter change — breaking the locked "S1 is 14all-only" property. The typed
+   `worktrees[]` / `recent[]` schema is therefore the **S2** carriage upgrade,
+   shipped alongside the Samantha-side change that command targeting needs anyway.
+   Net: same information, deferred encoding — not a lossier contract.
+
+2. **Probe / absence detection (plan §3).** The plan says the plugin shell should
+   "detect Samantha's server on `:7841`; if absent, stay silent." S1 satisfies that
+   requirement, but realizes it at the **driver's connect/health layer** rather
+   than the framework `probe()` hook. Reason (grounded in `ecosystem-plugin.ts:5-30`):
+   `probe()` models *install* state and its only "unreachable" result is
+   `degraded`, which is **terminal** (`reportDegraded`, `plugin-registry.ts:198`)
+   until a reprobe — the wrong semantics for a peer that legitimately boots after
+   14all. Live reachability instead lives in the driver's own health channel
+   (`connecting | connected | reconnecting | samantha-not-running`), which is
+   **non-terminal and self-healing**: absent → silent + background reconnect →
+   connects the moment she appears. This meets the plan's "detect server; silent
+   when absent" intent and improves on it (auto-link on her late start). The
+   `probe()` hook stays lenient (installed-when-enabled) precisely so absence never
+   latches a degraded chip.
 
 ## Architecture — components & boundaries
 
@@ -80,10 +126,13 @@ whisper/cortex driver layout:
 
 **The one new renderer surface — a session-slice publisher.** On each meaningful
 reducer change, the renderer sends, per worktree,
-`{ provider, attention, summary, task, nextAction, updatedAt }` plus app-level
-`{ focusedWorktreeId, mode }` to main over a new `samantha:sessionState` IPC
-channel. The renderer does not know Samantha exists; it publishes its resolved
-session state and the driver consumes it. Source fields:
+`{ provider, attention, summary, task, nextAction, updatedAt, recent }` plus
+app-level `{ focusedWorktreeId, mode }` to main over a new `samantha:sessionState`
+IPC channel. `recent` is a bounded ring (last ≤ 5) of resolved transitions
+`{ at, from, to }` — the renderer already holds this history, and it is the only
+source of "what happened" (the main process is stateless about sessions). The
+renderer does not know Samantha exists; it publishes its resolved session state
+and the driver consumes it. Source fields:
 `provider` from `agent-provider-detection.ts:46`; resolved `attention` from
 `rankAgentAttention` (`workspace-state.ts:1090-1147`); `task` from
 `worktree-session.ts:51`; attention enum `shared/models/agent-attention.ts:1-7`.
@@ -113,7 +162,12 @@ read from. The Samantha driver inverts that; it fits without framework changes:
   whenever the plugin is enabled (the cortex no-op probe shape, `cortex-probe.ts:55`).
   We deliberately do **not** gate `start()` on live reachability — Samantha may
   boot after 14all, and we want the driver running and retrying so it connects the
-  moment she appears.
+  moment she appears. The plan's "detect Samantha's server on `:7841`; if absent,
+  stay silent" requirement (high-level §3) is met by the connection-health layer
+  below, **not** by `probe()`: the framework's only "unreachable" probe result is
+  `degraded`, which is terminal (`reportDegraded`, `plugin-registry.ts:198`) and
+  would wrongly latch for a peer that simply hasn't booted yet. See "Reconciliation
+  with the high-level plan."
 - **`start()` returns immediately** and kicks off register+connect in the
   background. It must never block the serialized reconcile chain
   (`plugin-registry.ts:203-206`). No WebSocket in S1.
@@ -171,9 +225,12 @@ nothing; active→waiting emits one event).
   - `status` worst-of: any `failed` → `error`; else any `waiting`/`ready` →
     `warning`; else `ok`; none → `unknown`.
   - `details`: one key per worktree (branch name), value = dense line:
-    `"<provider> · <attention> · <summary> · task: <task> · next: <next> · <N> reviews · <workflow phase/escalation>"`,
-    omitting empty fields. Full-state every PATCH (her shallow-merge replaces
-    `details` wholesale, so closed worktrees drop cleanly).
+    `"<provider> · <attention> · <summary> · task: <task> · next: <next> · <N> reviews · <workflow phase/escalation> · recent: <from>→<to>→<to>"`,
+    omitting empty fields and dropping the `recent:` fragment when no history
+    exists. The `recent:` tail is the readable carriage of the plan's `recent[]`
+    ring ("what happened"), capped to the last few transitions. Full-state every
+    PATCH (her shallow-merge replaces `details` wholesale, so closed worktrees drop
+    cleanly).
   - `updatedAt`: epoch ms.
 - **event**: `POST /connectors/ai-14all/events` `{ signal, summary, details? }`,
   with `summary` like
@@ -211,7 +268,8 @@ nothing; active→waiting emits one event).
 - **Unit — the payoff.** `observe-assembler` is pure: feed fixture inputs
   (worktrees, review counts, whisper snapshot, session slice) and assert the exact
   `{ summary, status, details, signal }`. Covers signal mapping, worst-of status,
-  detail-line format, and the per-worktree dedup logic. No mocks, no network.
+  detail-line format (including the recent-history fragment), and the per-worktree
+  dedup logic. No mocks, no network.
 - **Client unit.** Mock HTTP server (or stub) → assert register/patch/event
   payloads and re-register behavior on `404`/`ECONNREFUSED`.
 - **Driver integration (main).** Fake taps + mock client → assert debounce
@@ -230,8 +288,10 @@ nothing; active→waiting emits one event).
 - Wiring Samantha's assistant LLM to invoke connector capabilities as tool calls
   (verified missing; a substantial Samantha-side build).
 - Approval gate, audit log, registration token (S3 — only "act" needs them).
-- Machine-structured / nested `details` schema (add in S2 when command targeting
-  needs queryable fields).
+- Machine-structured / nested `details` *encoding* — the typed `worktrees[]` /
+  `recent[]` schema (add in S2 when command targeting needs queryable fields and
+  Samantha's formatter changes to consume them). S1 carries the same information,
+  including recent history, as readable text; only the typed encoding is deferred.
 
 ## Files to add / touch
 
