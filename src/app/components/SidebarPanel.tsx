@@ -2,6 +2,7 @@ import {
 	SessionSidebar,
 	type SessionSidebarWorkspace,
 } from "../../features/workspace/components/SessionSidebar";
+import type { ThemeMode } from "../../lib/use-theme";
 
 type PendingRename = {
 	workspaceId: string;
@@ -37,6 +38,8 @@ type Props = {
 					clearedAt: number;
 			  },
 	) => void;
+	themeMode: ThemeMode;
+	onThemeToggle: () => void;
 };
 
 /**
@@ -61,6 +64,8 @@ export function SidebarPanel(props: Props): React.ReactElement {
 		handleRemoveWorkspace,
 		onOpenWorkflowDetail,
 		dispatch,
+		themeMode,
+		onThemeToggle,
 	} = props;
 
 	return (
@@ -118,6 +123,8 @@ export function SidebarPanel(props: Props): React.ReactElement {
 				}}
 				onOpenWorkflowDetail={onOpenWorkflowDetail}
 				pendingRename={pendingRename}
+				themeMode={themeMode}
+				onThemeToggle={onThemeToggle}
 			/>
 		</div>
 	);
