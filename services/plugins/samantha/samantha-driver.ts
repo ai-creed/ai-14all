@@ -54,6 +54,8 @@ export function createSamanthaDriver(
 	let lastBody: string | null = null;
 	let lastSignals: Record<string, SamanthaSignal> = {};
 	let pendingForce = false; // a keep-alive trigger forces a PATCH even if unchanged
+	let inFlight = false; // a rebuild is currently running
+	let rerun = false; // a trigger arrived mid-flight; coalesce into one more pass
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
 	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -66,12 +68,12 @@ export function createSamanthaDriver(
 	function scheduleReconnect(): void {
 		if (stopped || reconnectTimer !== null) return;
 		health("reconnecting");
+		// Route the retry through the scheduler so reconnect attempts serialize with
+		// any in-flight rebuild and respect a pending force. rebuild() re-registers
+		// itself at the top when !registered, so we don't ensureRegistered() here.
 		reconnectTimer = setTimeout(() => {
 			reconnectTimer = null;
-			void ensureRegistered().then((ok) => {
-				if (ok) void rebuild();
-				else scheduleReconnect();
-			});
+			scheduleRebuild();
 		}, reconnectMs);
 	}
 
@@ -95,13 +97,16 @@ export function createSamanthaDriver(
 		return false;
 	}
 
-	async function rebuild(force = false): Promise<void> {
-		if (stopped) return;
+	// Returns false ONLY when a PATCH could not be sent this cycle (so a forced
+	// keep-alive obligation must be carried over); true on every other completion,
+	// including event-POST bails where a PATCH already succeeded this cycle.
+	async function rebuild(force = false): Promise<boolean> {
+		if (stopped) return true;
 		if (!registered) {
 			const ok = await ensureRegistered();
 			if (!ok) {
 				scheduleReconnect();
-				return;
+				return false;
 			}
 		}
 		// Review counts over ALL worktrees main owns (not just session ones), so
@@ -141,10 +146,11 @@ export function createSamanthaDriver(
 			}
 			if (!r.ok) {
 				// PATCH still failing: reconnect and bail. Never POST an event
-				// without a successful preceding PATCH.
+				// without a successful preceding PATCH. No PATCH landed this cycle,
+				// so a forced keep-alive obligation must survive (return false).
 				registered = false;
 				scheduleReconnect();
-				return;
+				return false;
 			}
 			lastBody = fingerprint;
 			health("connected");
@@ -157,13 +163,22 @@ export function createSamanthaDriver(
 			if (signal === prev || !SPEECH_WORTHY.has(signal)) continue;
 			const wt = session?.worktrees.find((w) => w.worktreeId === worktreeId);
 			const branch = identities[worktreeId]?.branch ?? worktreeId;
+			// Build the summary from non-empty parts: a whisper-only worktree has no
+			// session slice (wt undefined), so avoid a dangling "branch:  —".
+			const summary = wt
+				? `${branch}: ${[wt.attention, wt.summary]
+						.filter((p) => p.length > 0)
+						.join(" — ")}`.trim()
+				: `${branch} (${signal})`;
 			const r = await options.client.postEvent({
 				signal,
-				summary: `${branch}: ${wt?.attention ?? ""} — ${wt?.summary ?? ""}`.trim(),
+				summary,
 			});
 			if (!r.ok) {
 				// Samantha went away mid-cycle. Do NOT advance lastSignals, so this
-				// transition is re-emitted once the link is restored.
+				// transition is re-emitted once the link is restored. In both bails
+				// below a PATCH already succeeded this cycle, so a forced keep-alive
+				// obligation is already met (return true).
 				registered = false;
 				if (r.reason === "not-found") {
 					// Restart: re-register AND immediately re-PATCH a fresh full
@@ -180,10 +195,34 @@ export function createSamanthaDriver(
 				} else {
 					scheduleReconnect();
 				}
-				return;
+				return true;
 			}
 		}
 		lastSignals = out.signals;
+		return true;
+	}
+
+	// Serialize rebuilds: only one runs at a time. A trigger that arrives while a
+	// rebuild is in flight coalesces into exactly one more pass afterward.
+	async function runRebuild(): Promise<void> {
+		if (inFlight) {
+			rerun = true;
+			return;
+		}
+		inFlight = true;
+		try {
+			do {
+				rerun = false;
+				const force = pendingForce;
+				pendingForce = false;
+				const patched = await rebuild(force);
+				// A forced keep-alive PATCH that bailed before sending must survive
+				// the bail, or the keep-alive is lost until the next ~30s tick.
+				if (force && !patched) pendingForce = true;
+			} while (rerun && !stopped);
+		} finally {
+			inFlight = false;
+		}
 	}
 
 	function scheduleRebuild(force = false): void {
@@ -192,9 +231,7 @@ export function createSamanthaDriver(
 		if (debounceTimer !== null) clearTimeout(debounceTimer);
 		debounceTimer = setTimeout(() => {
 			debounceTimer = null;
-			const f = pendingForce;
-			pendingForce = false;
-			void rebuild(f);
+			void runRebuild();
 		}, debounceMs);
 	}
 

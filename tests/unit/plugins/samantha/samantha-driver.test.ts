@@ -285,6 +285,121 @@ describe("samantha-driver", () => {
 		expect(eventCalls).toBeGreaterThan(1);
 	});
 
+	it("does not lose a forced keep-alive that fires during an in-flight rebuild (finding 1)", async () => {
+		// The forced keep-alive can land while a rebuild is already in flight (mid
+		// non-forced PATCH). The connection never drops, content never changes, and
+		// lastBody stays seeded — so the ONLY thing that can produce a second PATCH is
+		// the carried-over forced obligation. On the unfixed driver the force is lost
+		// (cleared by scheduleRebuild's timer before the in-flight rebuild reads it),
+		// so no keep-alive PATCH goes out until the next ~30s tick.
+		const gate: { release: () => void } = { release: () => {} };
+		const calls = { snapshot: 0 };
+		const client: SamanthaConnectorClient = {
+			register: async () => ({ ok: true }),
+			patchSnapshot: async () => {
+				calls.snapshot += 1;
+				if (calls.snapshot === 1) {
+					await new Promise<void>((resolve) => {
+						gate.release = resolve;
+					});
+				}
+				return { ok: true };
+			},
+			postEvent: async () => ({ ok: true }),
+			unregister: async () => ({ ok: true }),
+		};
+		const driver = createSamanthaDriver({
+			client,
+			// Content is fixed: after the first PATCH seeds lastBody, only a FORCED
+			// rebuild can produce another PATCH (content is byte-identical otherwise).
+			getIdentities: async () => ({
+				wt1: { repo: "ai-14all", branch: "main", path: "/w" },
+			}),
+			getReviewCount: () => 0,
+			getWhisperStates: async () => [],
+			subscribeReviews: () => () => {},
+			subscribeWorktrees: () => () => {},
+			pushHealth: () => {},
+			now: () => 1000,
+			debounceMs: 10,
+			keepAliveMs: 25,
+			reconnectMs: 50,
+		});
+		await driver.start(ctx);
+		// The start rebuild reaches its (hanging) first PATCH and seeds lastBody.
+		// (cumulative ~15ms; the start debounce fired at 10ms.)
+		await vi.advanceTimersByTimeAsync(15);
+		expect(calls.snapshot).toBe(1);
+		// While that first rebuild is still mid-PATCH, ONE keep-alive tick (25ms)
+		// fires a FORCED rebuild (its debounce fires ~35ms). It must coalesce — not
+		// start a second overlapping PATCH — and its forced obligation must persist.
+		// (cumulative ~40ms, still before the next keep-alive tick at 50ms.)
+		await vi.advanceTimersByTimeAsync(25);
+		expect(calls.snapshot).toBe(1); // no overlap; first PATCH still hung
+		// Release the hung PATCH; the coalesced pass runs as a FORCED rebuild and
+		// emits a second PATCH even though content is unchanged. Stop before the next
+		// keep-alive tick (50ms) so no extra forced PATCH is counted.
+		gate.release();
+		await vi.advanceTimersByTimeAsync(8);
+		expect(calls.snapshot).toBe(2);
+		await driver.stop();
+	});
+
+	it("serializes overlapping rebuilds and runs exactly one coalesced pass (finding 2)", async () => {
+		// A controllable PATCH: the first call hangs on a deferred promise so a
+		// second trigger arrives while the first rebuild is mid-PATCH.
+		const gate: { release: () => void } = { release: () => {} };
+		const calls = { snapshot: 0, event: 0 };
+		const client: SamanthaConnectorClient = {
+			register: async () => ({ ok: true }),
+			patchSnapshot: async () => {
+				calls.snapshot += 1;
+				if (calls.snapshot === 1) {
+					await new Promise<void>((resolve) => {
+						gate.release = resolve;
+					});
+				}
+				return { ok: true };
+			},
+			postEvent: async () => {
+				calls.event += 1;
+				return { ok: true };
+			},
+			unregister: async () => ({ ok: true }),
+		};
+		const driver = createSamanthaDriver({
+			client,
+			getIdentities: async () => ({
+				wt1: { repo: "ai-14all", branch: "main", path: "/w" },
+			}),
+			getReviewCount: () => 0,
+			getWhisperStates: async () => [],
+			subscribeReviews: () => () => {},
+			subscribeWorktrees: () => () => {},
+			pushHealth: () => {},
+			now: () => 1000,
+			debounceMs: 10,
+			keepAliveMs: 100000,
+			reconnectMs: 50,
+		});
+		await driver.start(ctx);
+		// Let the start rebuild reach its (hanging) first PATCH.
+		await vi.advanceTimersByTimeAsync(15);
+		expect(calls.snapshot).toBe(1); // exactly one rebuild in flight, mid-PATCH
+		// Fire a second trigger while the first is still mid-PATCH. It must NOT start
+		// a second overlapping rebuild — it coalesces into one follow-up pass.
+		driver.ingestSessionSlice(slice("waiting"));
+		await vi.advanceTimersByTimeAsync(15);
+		expect(calls.snapshot).toBe(1); // still no overlap; second rebuild not started
+		// Release the hung first PATCH; exactly one coalesced pass runs afterward.
+		gate.release();
+		await vi.advanceTimersByTimeAsync(15);
+		expect(calls.snapshot).toBe(2); // one extra pass, not two
+		// The coalesced pass saw the waiting slice and emitted exactly one event.
+		expect(calls.event).toBe(1);
+		await driver.stop();
+	});
+
 	it("sends a keep-alive PATCH even when content is unchanged", async () => {
 		const { client, calls } = okClient();
 		const driver = createSamanthaDriver({
