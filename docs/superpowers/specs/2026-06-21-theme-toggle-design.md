@@ -1,7 +1,7 @@
 # Theme Toggle Button — Design Spec
 
 **Date:** 2026-06-21
-**Status:** Approved
+**Status:** Approved (revised after spec review)
 
 ---
 
@@ -19,21 +19,24 @@ Add a theme toggle button to the sidebar footer so users can switch between ligh
 dark → system → light → dark → …
 ```
 
-Each click advances to the next mode. The icon reflects the **current** mode; the tooltip describes what the next click will do.
+Each click advances to the next mode. The icon reflects the **selected mode** (`ThemeMode`), not the resolved palette. The tooltip describes what the next click will do.
 
-| Current mode | Icon | Tooltip |
+| Selected mode (`ThemeMode`) | Icon | Tooltip |
 |---|---|---|
 | `dark` | 🌙 | "Switch to system theme" |
 | `system` | ⊙ | "Switch to light theme" |
 | `light` | ☀️ | "Switch to dark theme" |
+| `warm` (set via app menu only) | 🌙 | "Switch to system theme" |
+
+> **Why `ThemeMode`, not `Palette`?** `Palette` is always a resolved display value (`"light"`, `"dark"`, or `"warm"`). When the user selects `system` mode, `palette` resolves to the OS value — it never holds `"system"`. To show the ⊙ icon correctly, we must track the *selected* `ThemeMode`.
 
 ### Persistence
 
 No persistence across restarts. The app defaults to `system` on every launch (existing behaviour). The toggle is session-only.
 
-### Modes excluded
+### Modes excluded from the cycle
 
-`warm` is not part of the toggle cycle. It remains accessible via the OS app menu only.
+`warm` is not part of the toggle cycle — it remains accessible via the OS app menu only. If the user arrives in `warm` mode (set via app menu), clicking the toggle moves them to `system`.
 
 ---
 
@@ -41,7 +44,7 @@ No persistence across restarts. The app defaults to `system` on every launch (ex
 
 ### Expanded sidebar
 
-Footer row uses `display: flex; gap: 6px`. "Load workspace" takes `flex: 1` (remaining space); the icon button is `width: 30px`, pinned to the right.
+Footer uses a flex row. "Load workspace" takes `flex: 1`; the icon button is fixed-width, pinned to the right.
 
 ```
 [ Load workspace          ] [🌙]
@@ -49,7 +52,7 @@ Footer row uses `display: flex; gap: 6px`. "Load workspace" takes `flex: 1` (rem
 
 ### Collapsed sidebar
 
-Footer uses `display: flex; flex-direction: column; align-items: center; gap: 6px`. Icon button renders above the "Load" dot.
+Footer switches to a column layout. Icon button renders above the "Load" dot.
 
 ```
 [🌙]
@@ -62,29 +65,41 @@ Footer uses `display: flex; flex-direction: column; align-items: center; gap: 6p
 
 ### `useTheme()` — `src/lib/use-theme.ts`
 
-No changes. Already exposes `palette: Palette` and `setTheme: (mode: ThemeMode) => void`. Called once in `App.tsx`.
+Expose `mode: ThemeMode` in the return value (currently it stores `mode` internally but does not export it):
+
+```ts
+// Before
+return { resolvedTheme: monacoThemeFor(palette), palette, setTheme: setMode };
+
+// After
+return { resolvedTheme: monacoThemeFor(palette), palette, mode, setTheme: setMode };
+```
 
 ### `App.tsx` — `src/app/App.tsx`
 
-Pass two new props to `SidebarPanel`:
-- `themePalette: Palette` — current palette value from `useTheme()`
+Destructure `mode` from `useTheme()` alongside the existing `palette` and `resolvedTheme`. Pass two new props to `SidebarPanel`:
+
+- `themeMode: ThemeMode` — the selected mode (not the resolved palette)
 - `onThemeToggle: () => void` — calls `setTheme` with the next mode in the cycle
 
-The cycle logic lives here as a small helper (or inline arrow):
+Cycle helper (place near the `App` function or as a module-level const):
 
 ```ts
-function nextThemeMode(palette: Palette): ThemeMode {
-  if (palette === "dark") return "system";
-  if (palette === "light") return "dark";
-  return "light"; // system (or warm) → light
+// Takes ThemeMode (selected mode). "warm" is treated the same as "dark" —
+// the cycle doesn't include warm, so this moves the user out of it to "system".
+function nextThemeMode(current: ThemeMode): ThemeMode {
+  if (current === "dark" || current === "warm") return "system";
+  if (current === "system") return "light";
+  return "dark"; // light → dark
 }
 ```
 
 ### `SidebarPanel` — `src/app/components/SidebarPanel.tsx`
 
-Add to `Props`:
+Add to `Props` (import `ThemeMode` from `src/lib/use-theme.ts`):
+
 ```ts
-themePalette: Palette;
+themeMode: ThemeMode;
 onThemeToggle: () => void;
 ```
 
@@ -92,31 +107,42 @@ Thread both straight through to `<SessionSidebar>`.
 
 ### `SessionSidebar` — `src/features/workspace/components/SessionSidebar.tsx`
 
-Add to `Props`:
+Add to `Props` (import `ThemeMode` from `src/lib/use-theme.ts`):
+
 ```ts
-themePalette: "light" | "dark" | "warm";
+themeMode: ThemeMode;
 onThemeToggle: () => void;
 ```
 
-Add the toggle button in `shell-sidebar__footer--global`. Button uses existing classes:
-`shell-button shell-button--icon shell-button--compact`
+Derive icon and label from `themeMode`:
 
-Icon and aria-label derived from `themePalette`:
 ```ts
-const themeIcon = palette === "light" ? "☀️" : palette === "dark" ? "🌙" : "⊙";
-const themeLabel = palette === "light" ? "Switch to dark theme"
-                 : palette === "dark"  ? "Switch to system theme"
-                 :                       "Switch to light theme";
+const themeIcon =
+  themeMode === "light" ? "☀️" :
+  themeMode === "dark"  ? "🌙" : "⊙"; // system or warm → ⊙
+
+const themeLabel =
+  themeMode === "light"   ? "Switch to dark theme" :
+  (themeMode === "dark" || themeMode === "warm") ? "Switch to system theme" :
+  "Switch to light theme";
 ```
 
-Footer markup (expanded — flex row):
+Replace the existing `shell-sidebar__footer--global` block (currently a single button). The "Load workspace" button text `{collapsed ? "Load" : "Load workspace"}` is unchanged — only the wrapping layout and the new icon button are added:
+
 ```tsx
 <div className="shell-sidebar__footer shell-sidebar__footer--global">
-  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+  <div
+    style={{
+      display: "flex",
+      flexDirection: collapsed ? "column" : "row",
+      alignItems: "center",
+      gap: 6,
+    }}
+  >
     <button
       type="button"
       className="shell-button shell-button--compact"
-      style={{ flex: 1 }}
+      style={collapsed ? undefined : { flex: 1 }}
       onClick={onLoadWorkspace}
       aria-label="Load workspace"
     >
@@ -135,7 +161,13 @@ Footer markup (expanded — flex row):
 </div>
 ```
 
-When collapsed, the outer `div` switches to `flex-direction: column; align-items: center`.
+> **Note on collapsed order:** In column layout, the Load button renders first in DOM order (top), and the theme icon renders second (bottom) — matching the mockup. Wait, the approved mockup shows theme icon *above* Load when collapsed. Reverse the render order when collapsed, or use `flexDirection: "column-reverse"` — **use `column-reverse`** to keep a single JSX order and let CSS handle the visual flip.
+
+Correction to the markup — use `column-reverse` so the icon appears above Load in collapsed state without reordering JSX:
+
+```tsx
+flexDirection: collapsed ? "column-reverse" : "row",
+```
 
 ---
 
@@ -143,26 +175,29 @@ When collapsed, the outer `div` switches to `flex-direction: column; align-items
 
 | File | Change |
 |---|---|
-| `src/app/App.tsx` | Pass `themePalette` and `onThemeToggle` to `SidebarPanel` |
-| `src/app/components/SidebarPanel.tsx` | Add two props, thread to `SessionSidebar` |
-| `src/features/workspace/components/SessionSidebar.tsx` | Add two props + toggle button in footer |
+| `src/lib/use-theme.ts` | Export `mode: ThemeMode` from `useTheme()` return value |
+| `src/app/App.tsx` | Destructure `mode`, pass `themeMode={mode}` and `onThemeToggle` to `SidebarPanel` |
+| `src/app/components/SidebarPanel.tsx` | Add `themeMode` + `onThemeToggle` props, thread to `SessionSidebar` |
+| `src/features/workspace/components/SessionSidebar.tsx` | Add props + toggle button + flex layout wrapper in footer |
 
-No new files. No CSS additions (reuses existing button classes).
+4 files total (one additional from original spec: `use-theme.ts` needs to expose `mode`).
 
 ---
 
 ## Edge Cases & Test Suggestions
 
-- **Warm palette**: `nextThemeMode("warm")` falls through to `"light"` — warm palette is set only via app menu and the button correctly escapes it to light.
-- **System theme resolution**: When mode is `system`, the displayed icon is ⊙ regardless of whether the OS is currently light or dark — the toggle reflects the *selected mode*, not the resolved palette.
-- **Collapsed state visual**: Both buttons must be centered and equally sized (30×30) so the footer doesn't look misaligned.
-- **Tooltip consistency**: `aria-label` and `title` should always match the next mode (not current mode).
+- **⊙ icon reachable**: `themeMode === "system"` correctly shows ⊙ because we track `ThemeMode`, not `Palette`.
+- **Warm palette escape**: `nextThemeMode("warm")` returns `"system"` — the button correctly exits warm mode without including it in the cycle.
+- **Collapsed visual order**: `column-reverse` ensures the theme icon is visually above the Load button without reordering JSX.
+- **Tooltip accuracy**: `aria-label` and `title` always describe the *next* mode, not the current one.
+- **System resolution**: When mode is `system`, the OS may be light or dark — the icon always shows ⊙ (selected mode), never ☀️ or 🌙.
 
 ### Suggested test cases
 
-1. Clicking the toggle from dark mode switches palette to system (⊙ icon appears).
-2. Clicking the toggle from system mode switches palette to light (☀️ icon appears).
-3. Clicking the toggle from light mode switches palette to dark (🌙 icon appears).
-4. In collapsed state, theme button renders above Load button.
-5. `aria-label` on the button describes the *next* mode, not the current one.
-6. Starting in warm mode (set via app menu) and clicking toggle moves to light.
+1. Clicking toggle from `dark` sets mode to `system` (⊙ icon appears).
+2. Clicking toggle from `system` sets mode to `light` (☀️ icon appears).
+3. Clicking toggle from `light` sets mode to `dark` (🌙 icon appears).
+4. Starting in `warm` (set via app menu) and clicking toggle moves to `system` (⊙ icon appears).
+5. In collapsed state, theme icon is visually above the Load button.
+6. `aria-label` on the button describes the *next* mode, not the current one.
+7. `useTheme()` return value includes `mode: ThemeMode` with correct value after `setTheme` is called.
