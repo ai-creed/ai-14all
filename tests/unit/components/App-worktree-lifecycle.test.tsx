@@ -26,6 +26,10 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		createWorktree: vi.fn(),
 		previewRemoveWorktree: vi.fn(),
 		removeWorktree: vi.fn(),
+		refreshRemote: vi.fn().mockResolvedValue({ ok: true }),
+		listRemoteBranches: vi
+			.fn()
+			.mockResolvedValue({ branches: [], defaultBranch: "origin/main" }),
 	},
 	terminals: {
 		create: vi.fn((workspaceId: string, worktreeId: string, cwd: string) =>
@@ -262,7 +266,9 @@ it("previews and creates a new worktree from the sidebar modal", async () => {
 		screen.getByRole("button", { name: "Create worktree" }),
 	);
 
-	expect(mockCreateWorktree).toHaveBeenCalledWith("r1", "Feature B");
+	// No base branch selected in this flow → the optional baseBranch arg is
+	// undefined (default path), which the service resolves to origin/HEAD.
+	expect(mockCreateWorktree).toHaveBeenCalledWith("r1", "Feature B", undefined);
 	expect(
 		await screen.findByRole("button", { name: "feature-b" }),
 	).toBeInTheDocument();
