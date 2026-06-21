@@ -54,7 +54,7 @@ import {
 } from "../features/viewer/inline-editor-registry";
 import { countOpenCommentsInFiles } from "../features/git/logic/commit-list-badge";
 import { commandSubmitKey } from "../lib/command-submit-key";
-import { useTheme } from "../lib/use-theme";
+import { useTheme, type ThemeMode } from "../lib/use-theme";
 import { terminalThemeFor } from "../features/terminals/logic/terminal-themes";
 import { detectPlatform } from "./shortcut-registry";
 import { useWindowFocus } from "./hooks/use-window-focus";
@@ -128,8 +128,18 @@ type StartupMode = "loading" | "prompt" | "ready";
  */
 const NOOP = () => {};
 
+// Advances the toggle cycle: dark → system → light → dark.
+// Takes ThemeMode (the selected setting) not Palette (the resolved display
+// value) so that "system" is a reachable state in the cycle.
+// "warm" is not part of the cycle — clicking the toggle escapes it to "system".
+function nextThemeMode(current: ThemeMode): ThemeMode {
+  if (current === "dark" || current === "warm") return "system";
+  if (current === "system") return "light";
+  return "dark"; // light → dark
+}
+
 export function App() {
-	const { resolvedTheme, palette } = useTheme();
+	const { resolvedTheme, palette, mode, setTheme } = useTheme();
 	const terminalTheme = useMemo(() => terminalThemeFor(palette), [palette]);
 	const appPlatform = useMemo(detectPlatform, []);
 	const {
@@ -1754,6 +1764,8 @@ export function App() {
 							setWorkflowDetailTarget({ workspaceId, worktreeId })
 						}
 						dispatch={dispatch}
+						themeMode={mode}
+						onThemeToggle={() => setTheme(nextThemeMode(mode))}
 					/>
 
 					<section className="shell-main-column" ref={mainColRef}>
