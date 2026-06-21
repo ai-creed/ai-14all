@@ -211,6 +211,7 @@ export class WorktreeService {
 	async previewCreateWorktree(
 		repository: Repository,
 		name: string,
+		baseBranch?: string,
 	): Promise<CreateWorktreePreview> {
 		const normalizedName = normalizeWorktreeName(name);
 		if (!normalizedName) {
@@ -236,7 +237,11 @@ export class WorktreeService {
 			throw new Error(`Worktree path already exists: ${path}`);
 		}
 
-		const baseRef = await this.resolveDefaultBaseRef(repository);
+		const baseRef = await this.resolveBaseRef(repository, baseBranch);
+		const note =
+			baseRef === "HEAD"
+				? "origin has no branches — basing this session off the local HEAD."
+				: undefined;
 
 		const { stdout } = await execFileAsync(
 			gitBinary,
@@ -254,15 +259,19 @@ export class WorktreeService {
 			path,
 			baseRef,
 			baseCommit: { sha, shortSha, subject: subject ?? "" },
+			...(note ? { note } : {}),
 		};
 	}
 
 	/**
-	 * Resolves the repository's default base branch from the remote's symbolic
-	 * HEAD (e.g. `origin/main`), set when a repo is cloned. We branch new
-	 * worktrees off this rather than a hardcoded `origin/master` so repos using
-	 * any default branch work. If `origin/HEAD` is unset we fail with an
-	 * actionable error instead of guessing.
+	 * Resolves the repository's default base ref, in order:
+	 *   1. the remote's symbolic HEAD (e.g. `origin/main`) — today's behavior,
+	 *   2. `origin/main`, then `origin/master`, if present,
+	 *   3. the first `origin/*` branch in git's deterministic refname order,
+	 *   4. the local `HEAD` (the preview carries a note in this case),
+	 *   5. otherwise an actionable error.
+	 * This preserves today's `origin/HEAD` default when set, and is strictly more
+	 * robust than the previous hard throw when it is unset.
 	 */
 	private async resolveDefaultBaseRef(repository: Repository): Promise<string> {
 		let symbolicRef = "";
@@ -275,21 +284,59 @@ export class WorktreeService {
 			// --quiet exits non-zero when origin/HEAD is not a symbolic ref.
 			symbolicRef = "";
 		}
-		const baseRef = symbolicRef.replace(/^refs\/remotes\//, "");
-		if (!baseRef) {
+		const fromHead = symbolicRef.replace(/^refs\/remotes\//, "");
+		if (fromHead) return fromHead;
+
+		const branches = await this.getOriginBranches(repository);
+		for (const candidate of ["origin/main", "origin/master"]) {
+			if (branches.includes(candidate)) return candidate;
+		}
+		if (branches.length > 0) return branches[0];
+
+		try {
+			await git(["rev-parse", "--verify", "HEAD"], repository.rootPath);
+			return "HEAD";
+		} catch {
 			throw new Error(
 				"Could not resolve a base branch — origin/HEAD is not set. " +
 					"Run: git remote set-head origin -a",
 			);
 		}
-		return baseRef;
+	}
+
+	/**
+	 * Resolves the base ref to branch from. An explicit `baseBranch` is validated
+	 * against the live `origin/*` set (so a branch deleted upstream after the
+	 * picker loaded surfaces a clear error before any git mutation); otherwise the
+	 * default is resolved via `resolveDefaultBaseRef`.
+	 */
+	private async resolveBaseRef(
+		repository: Repository,
+		baseBranch?: string,
+	): Promise<string> {
+		if (baseBranch) {
+			const branches = await this.getOriginBranches(repository);
+			if (!branches.includes(baseBranch)) {
+				throw new Error(
+					`Base branch "${baseBranch}" was not found on origin. ` +
+						"It may have been deleted — refresh and pick another.",
+				);
+			}
+			return baseBranch;
+		}
+		return this.resolveDefaultBaseRef(repository);
 	}
 
 	async createWorktree(
 		repository: Repository,
 		name: string,
+		baseBranch?: string,
 	): Promise<Worktree> {
-		const preview = await this.previewCreateWorktree(repository, name);
+		const preview = await this.previewCreateWorktree(
+			repository,
+			name,
+			baseBranch,
+		);
 		await mkdir(join(repository.rootPath, ".worktrees"), { recursive: true });
 		const branchExists = await localBranchExists(
 			repository,

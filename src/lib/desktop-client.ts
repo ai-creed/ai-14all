@@ -17,10 +17,14 @@ export const repository: Ai14AllDesktopApi["repository"] = {
 	pickRoot: () => getDesktopClient().repository.pickRoot(),
 	listWorktrees: (workspaceId) =>
 		getDesktopClient().repository.listWorktrees(workspaceId),
-	previewCreateWorktree: (workspaceId, name) =>
-		getDesktopClient().repository.previewCreateWorktree(workspaceId, name),
-	createWorktree: (workspaceId, name) =>
-		getDesktopClient().repository.createWorktree(workspaceId, name),
+	previewCreateWorktree: (workspaceId, name, baseBranch) =>
+		getDesktopClient().repository.previewCreateWorktree(
+			workspaceId,
+			name,
+			baseBranch,
+		),
+	createWorktree: (workspaceId, name, baseBranch) =>
+		getDesktopClient().repository.createWorktree(workspaceId, name, baseBranch),
 	previewRemoveWorktree: (workspaceId, worktreeId) =>
 		getDesktopClient().repository.previewRemoveWorktree(
 			workspaceId,

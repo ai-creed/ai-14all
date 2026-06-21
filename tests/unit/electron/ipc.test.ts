@@ -445,6 +445,46 @@ describe("registerIpcHandlers repository remote branches", () => {
 		});
 	});
 
+	it("createWorktree forwards an optional baseBranch to the service", async () => {
+		const repo = { id: "r1" };
+		const registry = { register: vi.fn(), get: vi.fn(() => repo) };
+		worktreeServiceInstance.createWorktree.mockResolvedValue({ id: "wt1" });
+		registerIpcHandlers(
+			{
+				isDestroyed: () => false,
+				webContents: { isDestroyed: () => false, send: vi.fn() },
+			} as never,
+			{
+				workspacePersistence: {
+					readState: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
+				workspaceRegistry: registry as never,
+				worktreeService: worktreeServiceInstance as never,
+				shellEventLog: undefined as never,
+				agentAttentionLogger: undefined as never,
+				review: {
+					service: { onChange: vi.fn(() => () => {}) },
+					mcpStatus: { port: null, bindError: null, getUrl: () => null },
+					worktreePathResolver: { resolve: vi.fn(), refresh: vi.fn() },
+				} as never,
+				getCortexEnabled: () => false,
+			},
+		);
+
+		const handler = handlers.get("repository:createWorktree")!;
+		await handler(
+			{},
+			{ workspaceId: "ws1", name: "x", baseBranch: "origin/devel" },
+		);
+
+		expect(worktreeServiceInstance.createWorktree).toHaveBeenCalledWith(
+			repo,
+			"x",
+			"origin/devel",
+		);
+	});
+
 	it("refreshRemote delegates and returns the service result verbatim", async () => {
 		const repo = { id: "r1" };
 		const registry = { register: vi.fn(), get: vi.fn(() => repo) };

@@ -276,13 +276,126 @@ describe("WorktreeService", () => {
 			}
 		});
 
-		it("throws a clear, actionable error when origin/HEAD is not set", async () => {
+		it("falls back to origin/master when origin/HEAD is unset", async () => {
+			// makeRepo always creates refs/remotes/origin/<branch>; with the HEAD
+			// symref unset, resolution falls through to the origin/master candidate.
 			const tmpDir = makeRepo({ setOriginHead: false });
 			try {
 				const repo = await service.setRepositoryRoot(tmpDir);
+				const preview = await service.previewCreateWorktree(repo, "Feature A");
+				expect(preview.baseRef).toBe("origin/master");
+				expect(preview.note).toBeUndefined();
+			} finally {
+				rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+
+		it("falls back to origin/main when origin/HEAD is unset and main exists", async () => {
+			// Covers §5.4 step 2 (origin/main preferred over the first-branch fallback).
+			const tmpDir = makeRepo({ remoteBranch: "main", setOriginHead: false });
+			try {
+				const repo = await service.setRepositoryRoot(tmpDir);
+				const preview = await service.previewCreateWorktree(repo, "Feature A");
+				expect(preview.baseRef).toBe("origin/main");
+				expect(preview.note).toBeUndefined();
+			} finally {
+				rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+
+		it("falls back to the first origin/* (deterministic refname order) when neither main nor master exists", async () => {
+			// Covers §5.4 step 3. makeRepo gives origin/zzz; add origin/aaa out of
+			// alphabetical order. `git for-each-ref` returns refs sorted by refname,
+			// so origin/aaa must win deterministically — not insertion order.
+			const tmpDir = makeRepo({ remoteBranch: "zzz", setOriginHead: false });
+			try {
+				execSync("git update-ref refs/remotes/origin/aaa HEAD", {
+					cwd: tmpDir,
+					stdio: "ignore",
+				});
+				const repo = await service.setRepositoryRoot(tmpDir);
+				const preview = await service.previewCreateWorktree(repo, "Feature A");
+				expect(preview.baseRef).toBe("origin/aaa");
+				expect(preview.note).toBeUndefined();
+			} finally {
+				rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+
+		it("falls back to the local HEAD with a note when there are no origin branches", async () => {
+			const tmpDir = mkdtempSync(join(tmpdir(), "ofa-test-"));
+			try {
+				execSync("git init", { cwd: tmpDir, stdio: "ignore" });
+				execSync("git config user.email 'base@example.com'", {
+					cwd: tmpDir,
+					stdio: "ignore",
+				});
+				execSync("git config user.name 'Base Test'", {
+					cwd: tmpDir,
+					stdio: "ignore",
+				});
+				writeFileSync(join(tmpDir, "README.md"), "# repo\n");
+				execSync("git add README.md", { cwd: tmpDir, stdio: "ignore" });
+				execSync('git commit -m "initial commit"', {
+					cwd: tmpDir,
+					stdio: "ignore",
+				});
+				const repo = await service.setRepositoryRoot(tmpDir);
+				const preview = await service.previewCreateWorktree(repo, "Feature A");
+				expect(preview.baseRef).toBe("HEAD");
+				expect(preview.note).toMatch(/local HEAD/i);
+			} finally {
+				rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+
+		it("previews the explicit baseBranch's tip AND commit (not the default's)", async () => {
+			const tmpDir = makeTestRepo();
+			try {
+				// origin/devel must be a DISTINCT commit from the default so this proves
+				// baseRef AND baseCommit reflect the selected base, not origin/master.
+				// `git commit-tree` builds a new commit object without moving any branch.
+				const develSha = execSync(
+					'git commit-tree HEAD^{tree} -p HEAD -m "devel-only commit"',
+					{ cwd: tmpDir },
+				)
+					.toString()
+					.trim();
+				execSync(`git update-ref refs/remotes/origin/devel ${develSha}`, {
+					cwd: tmpDir,
+					stdio: "ignore",
+				});
+				const repo = await service.setRepositoryRoot(tmpDir);
+
+				const defaultPreview = await service.previewCreateWorktree(
+					repo,
+					"Feature A",
+				);
+				const develPreview = await service.previewCreateWorktree(
+					repo,
+					"Feature A",
+					"origin/devel",
+				);
+
+				// Default still resolves to origin/master's "initial commit".
+				expect(defaultPreview.baseRef).toBe("origin/master");
+				expect(defaultPreview.baseCommit.subject).toBe("initial commit");
+				// The explicit base reflects origin/devel in BOTH baseRef and baseCommit.
+				expect(develPreview.baseRef).toBe("origin/devel");
+				expect(develPreview.baseCommit.sha).toBe(develSha);
+				expect(develPreview.baseCommit.subject).toBe("devel-only commit");
+			} finally {
+				rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+
+		it("throws a clear error when the chosen baseBranch is not on origin", async () => {
+			const tmpDir = makeTestRepo();
+			try {
+				const repo = await service.setRepositoryRoot(tmpDir);
 				await expect(
-					service.previewCreateWorktree(repo, "Feature A"),
-				).rejects.toThrow(/origin\/HEAD.*git remote set-head/s);
+					service.previewCreateWorktree(repo, "Feature A", "origin/ghost"),
+				).rejects.toThrow(/origin\/ghost.*not.*found|deleted/is);
 			} finally {
 				rmSync(tmpDir, { recursive: true, force: true });
 			}
@@ -399,6 +512,52 @@ describe("WorktreeService", () => {
 				expect(branches).toBe("");
 			} finally {
 				vi.restoreAllMocks();
+				rmSync(tmpDir, { recursive: true, force: true });
+			}
+		});
+
+		it("creates the branch via `git branch <name> origin/devel` (command + tip verified)", async () => {
+			const tmpDir = makeTestRepo();
+			try {
+				// Distinct origin/devel commit so the assertions prove the base ref used.
+				const develSha = execSync(
+					'git commit-tree HEAD^{tree} -p HEAD -m "devel-only commit"',
+					{ cwd: tmpDir },
+				)
+					.toString()
+					.trim();
+				execSync(`git update-ref refs/remotes/origin/devel ${develSha}`, {
+					cwd: tmpDir,
+					stdio: "ignore",
+				});
+				const repo = await service.setRepositoryRoot(tmpDir);
+				const created = await service.createWorktree(
+					repo,
+					"Feature D",
+					"origin/devel",
+				);
+				expect(created.branchName).toBe("feature-d");
+
+				// Command-shape proof: `git branch feature-d origin/devel` records the
+				// start-point verbatim in the branch reflog as "Created from origin/devel",
+				// so this fails if the implementation issues a different command shape.
+				const reflog = execSync("git reflog show feature-d", {
+					cwd: tmpDir,
+				}).toString();
+				expect(reflog).toContain("branch: Created from origin/devel");
+
+				// Behavioral proof: the branch points at origin/devel's tip, NOT the default.
+				const branchSha = execSync("git rev-parse feature-d", { cwd: tmpDir })
+					.toString()
+					.trim();
+				const masterSha = execSync("git rev-parse origin/master", {
+					cwd: tmpDir,
+				})
+					.toString()
+					.trim();
+				expect(branchSha).toBe(develSha);
+				expect(branchSha).not.toBe(masterSha);
+			} finally {
 				rmSync(tmpDir, { recursive: true, force: true });
 			}
 		});

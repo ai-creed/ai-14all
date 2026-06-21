@@ -6,6 +6,7 @@ export type CreateWorktreePreview = {
 	path: string;
 	baseRef: string;
 	baseCommit: GitCommitSummary;
+	note?: string;
 };
 
 export type RemoveWorktreePreview = {

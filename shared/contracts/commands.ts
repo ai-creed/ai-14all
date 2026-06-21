@@ -51,6 +51,7 @@ export const ListWorktreesSchema = z.object({ workspaceId: z.string() });
 export const CreateWorktreeSchema = z.object({
 	workspaceId: z.string(),
 	name: z.string(),
+	baseBranch: z.string().optional(),
 });
 
 export const RemoveWorktreeSchema = z.object({
@@ -61,6 +62,7 @@ export const RemoveWorktreeSchema = z.object({
 export const PreviewCreateWorktreeSchema = z.object({
 	workspaceId: z.string(),
 	name: z.string(),
+	baseBranch: z.string().optional(),
 });
 
 export const PreviewRemoveWorktreeSchema = z.object({
@@ -371,8 +373,13 @@ export type Ai14AllDesktopApi = {
 		previewCreateWorktree(
 			workspaceId: string,
 			name: string,
+			baseBranch?: string,
 		): Promise<CreateWorktreePreview>;
-		createWorktree(workspaceId: string, name: string): Promise<Worktree>;
+		createWorktree(
+			workspaceId: string,
+			name: string,
+			baseBranch?: string,
+		): Promise<Worktree>;
 		previewRemoveWorktree(
 			workspaceId: string,
 			worktreeId: string,

@@ -258,19 +258,22 @@ export function registerIpcHandlers(
 	ipcMain.handle(
 		"repository:previewCreateWorktree",
 		async (_event, raw: unknown) => {
-			const { workspaceId, name } = PreviewCreateWorktreeSchema.parse(raw);
+			const { workspaceId, name, baseBranch } =
+				PreviewCreateWorktreeSchema.parse(raw);
 			return worktreeService.previewCreateWorktree(
 				workspaceRegistry.get(workspaceId),
 				name,
+				baseBranch,
 			);
 		},
 	);
 
 	ipcMain.handle("repository:createWorktree", async (_event, raw: unknown) => {
-		const { workspaceId, name } = CreateWorktreeSchema.parse(raw);
+		const { workspaceId, name, baseBranch } = CreateWorktreeSchema.parse(raw);
 		const result = await worktreeService.createWorktree(
 			workspaceRegistry.get(workspaceId),
 			name,
+			baseBranch,
 		);
 		await review.worktreePathResolver.refresh();
 		return result;
