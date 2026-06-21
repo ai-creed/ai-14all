@@ -121,6 +121,142 @@ describe("WhisperStoreReader", () => {
 		});
 	});
 
+	describe("readEscalatedChain", () => {
+		it("does NOT report an escalation when a newer chain superseded the escalated one (resumed workflow)", () => {
+			// Repro: a halted phase's chain stays status='escalated' in whisper's
+			// history; resuming spawns a newer chain that completes. The stale
+			// escalation must not leak (it would mask the resumed workflow's status).
+			makeWhisperFixtureDb(dbPath, {
+				collabs: [{ collab_id: "c1", workspace_root: "/w1" }],
+				chains: [
+					{
+						chain_id: "old",
+						collab_id: "c1",
+						status: "escalated",
+						terminal_reason: "halted: deferred work",
+						updated_at: "2026-06-21T10:52:00Z",
+					},
+					{
+						chain_id: "new",
+						collab_id: "c1",
+						status: "done",
+						updated_at: "2026-06-21T11:44:00Z",
+					},
+				],
+			});
+			expect(
+				new WhisperStoreReader(dbPath).readEscalatedChain("c1"),
+			).toBeNull();
+		});
+
+		it("reports the escalation when the latest chain is escalated (still halted)", () => {
+			makeWhisperFixtureDb(dbPath, {
+				collabs: [{ collab_id: "c1", workspace_root: "/w1" }],
+				chains: [
+					{
+						chain_id: "older",
+						collab_id: "c1",
+						status: "done",
+						updated_at: "2026-06-21T10:00:00Z",
+					},
+					{
+						chain_id: "cur",
+						collab_id: "c1",
+						status: "escalated",
+						terminal_reason: "needs human",
+						updated_at: "2026-06-21T11:00:00Z",
+					},
+				],
+			});
+			expect(new WhisperStoreReader(dbPath).readEscalatedChain("c1")).toEqual({
+				chainId: "cur",
+				reason: "needs human",
+			});
+		});
+
+		it("returns null when there are no chains", () => {
+			makeWhisperFixtureDb(dbPath, {
+				collabs: [{ collab_id: "c1", workspace_root: "/w1" }],
+			});
+			expect(
+				new WhisperStoreReader(dbPath).readEscalatedChain("c1"),
+			).toBeNull();
+		});
+
+		it("returns null when the latest chain is running (older escalation is stale)", () => {
+			makeWhisperFixtureDb(dbPath, {
+				collabs: [{ collab_id: "c1", workspace_root: "/w1" }],
+				chains: [
+					{
+						chain_id: "esc",
+						collab_id: "c1",
+						status: "escalated",
+						terminal_reason: "old",
+						updated_at: "2026-06-21T10:00:00Z",
+					},
+					{
+						chain_id: "run",
+						collab_id: "c1",
+						status: "active",
+						updated_at: "2026-06-21T12:00:00Z",
+					},
+				],
+			});
+			expect(
+				new WhisperStoreReader(dbPath).readEscalatedChain("c1"),
+			).toBeNull();
+		});
+
+		it("scopes to the given collab", () => {
+			makeWhisperFixtureDb(dbPath, {
+				collabs: [
+					{ collab_id: "c1", workspace_root: "/w1" },
+					{ collab_id: "c2", workspace_root: "/w2" },
+				],
+				chains: [
+					{
+						chain_id: "c1cur",
+						collab_id: "c1",
+						status: "done",
+						updated_at: "2026-06-21T10:00:00Z",
+					},
+					{
+						chain_id: "c2esc",
+						collab_id: "c2",
+						status: "escalated",
+						terminal_reason: "other",
+						updated_at: "2026-06-21T12:00:00Z",
+					},
+				],
+			});
+			const reader = new WhisperStoreReader(dbPath);
+			expect(reader.readEscalatedChain("c1")).toBeNull();
+			expect(reader.readEscalatedChain("c2")).toEqual({
+				chainId: "c2esc",
+				reason: "other",
+			});
+		});
+
+		it("falls back to 'escalated' when terminal_reason is null", () => {
+			makeWhisperFixtureDb(dbPath, {
+				collabs: [{ collab_id: "c1", workspace_root: "/w1" }],
+				chains: [
+					{
+						chain_id: "esc",
+						collab_id: "c1",
+						status: "escalated",
+						terminal_reason: null,
+						updated_at: "2026-06-21T11:00:00Z",
+					},
+				],
+			});
+			expect(new WhisperStoreReader(dbPath).readEscalatedChain("c1")).toEqual({
+				chainId: "esc",
+				reason: "escalated",
+			});
+		});
+	});
+
 	it("reads handoff history for a chain", () => {
 		makeWhisperFixtureDb(dbPath, {
 			handoffs: [

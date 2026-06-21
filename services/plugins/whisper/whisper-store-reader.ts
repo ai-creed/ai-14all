@@ -196,14 +196,19 @@ export class WhisperStoreReader {
 		const db = this.openChecked();
 		if (!db) return null;
 		try {
+			// Report an escalation ONLY when the collab's most-recent relay chain is
+			// itself escalated. Resuming a halted workflow spawns a newer chain for the
+			// same phase; the older chain keeps status='escalated' in whisper's history
+			// (read-only contract), but it must NOT leak as a live escalation — that
+			// would mask the resumed workflow's real status in the session card.
 			const r = db
 				.prepare(
-					`SELECT chain_id, terminal_reason FROM relay_chains
-					 WHERE collab_id = ? AND status = 'escalated'
+					`SELECT chain_id, status, terminal_reason FROM relay_chains
+					 WHERE collab_id = ?
 					 ORDER BY updated_at DESC LIMIT 1`,
 				)
 				.get(collabId) as Record<string, unknown> | undefined;
-			if (!r) return null;
+			if (!r || r.status !== "escalated") return null;
 			return {
 				chainId: r.chain_id as string,
 				reason: (r.terminal_reason as string | null) ?? "escalated",

@@ -49,6 +49,8 @@ export interface WhisperFixture {
 		current_round?: number;
 		max_rounds?: number;
 		terminal_reason?: string | null;
+		created_at?: string;
+		updated_at?: string;
 	}>;
 	handoffs?: Array<{
 		handoff_id: string;
