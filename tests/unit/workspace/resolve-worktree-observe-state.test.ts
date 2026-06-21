@@ -92,6 +92,39 @@ describe("resolveWorktreeObserveState", () => {
 		expect(out.updatedAt).toBe(1234);
 	});
 
+	it("session reason wins on equal-rank tie (terminal active vs mcp active)", () => {
+		const out = resolveWorktreeObserveState(
+			session({
+				activeProcessSessionId: "p1",
+				agentAttentionReasons: {
+					mcp: {
+						state: "active",
+						source: "mcp",
+						summary: "session-mcp-summary",
+						nextAction: null,
+						reportedAt: 20,
+					},
+				},
+			}),
+			{
+				p1: proc({
+					agentAttentionReasons: {
+						terminal: {
+							state: "active",
+							source: "terminal",
+							summary: "process-terminal-summary",
+							nextAction: null,
+							reportedAt: 10,
+						},
+					},
+				}),
+			},
+		);
+		expect(out.source).toBe("mcp");
+		expect(out.summary).toBe("session-mcp-summary");
+		expect(out.attention).toBe("active");
+	});
+
 	it("merges the active process reasons and ranks across both", () => {
 		const out = resolveWorktreeObserveState(
 			session({

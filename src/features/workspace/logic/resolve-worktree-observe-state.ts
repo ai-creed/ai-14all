@@ -27,7 +27,7 @@ function pickTopReason(
 		if (!reason) continue;
 		if (
 			best === null ||
-			AGENT_ATTENTION_RANK[reason.state] > AGENT_ATTENTION_RANK[best.state]
+			AGENT_ATTENTION_RANK[reason.state] >= AGENT_ATTENTION_RANK[best.state]
 		)
 			best = reason;
 	}
