@@ -95,6 +95,13 @@ const DESCRIPTORS: Record<EcosystemPluginId, PluginDescriptor> = {
 		installCommand: "npm i -g ai-cortex",
 		repoUrl: "https://github.com/ai-creed/ai-cortex",
 	},
+	samantha: {
+		title: "ai-samantha",
+		pitch:
+			"Your voice-first supervising companion. Once enabled, ai-14all streams a rich, per-worktree view of what your agents are doing — and what just happened — to Samantha so she can keep you oriented and speak up when something needs you.",
+		installCommand: "",
+		repoUrl: "https://github.com/ai-creed/ai-samantha",
+	},
 };
 
 // Quiet, inline install hints for the agent-CLI prerequisites. Never surfaced

@@ -1,4 +1,4 @@
-export const ECOSYSTEM_PLUGIN_IDS = ["whisper", "cortex"] as const;
+export const ECOSYSTEM_PLUGIN_IDS = ["whisper", "cortex", "samantha"] as const;
 
 export type EcosystemPluginId = (typeof ECOSYSTEM_PLUGIN_IDS)[number];
 
