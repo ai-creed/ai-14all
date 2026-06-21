@@ -741,5 +741,8 @@ describe("SessionSidebar theme toggle", () => {
     expect(
       screen.getByRole("button", { name: "Load workspace" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Load workspace" }).textContent,
+    ).toBe("Load");
   });
 });
