@@ -236,7 +236,7 @@ export const ReviewExpandedPortal = forwardRef<
 					onClick={onRefresh}
 				/>
 				<ReviewBarButton
-					icon="download"
+					icon="arrow-down"
 					label="Collapse"
 					ariaLabel="Collapse full review"
 					title="Collapse full review"

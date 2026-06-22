@@ -231,3 +231,19 @@
 [data-theme="tui"] .shell-chip-bar__note-dot {
 	background: var(--primary);
 }
+
+/* Clean session status (✓ clean): text-muted is too dim to read on bg0. */
+[data-theme="tui"] .shell-chip-bar__clean {
+	color: var(--primary);
+}
+
+/* Review file viewer — the markdown Edit/Preview toggle colors its pressed
+ * state with --accent (the dark bg2 step in TUI), leaving the "Edit" label
+ * dark-on-dark after switching from Preview. Pin only the pressed state to the
+ * cursor accent; hover is left to the shared base rule so it matches the
+ * Refresh / Collapse / Review buttons (which use the same hover). */
+[data-theme="tui"] .shell-inline-editor__preview-btn[aria-pressed="true"] {
+	color: var(--primary);
+	border-color: var(--primary);
+	background: var(--panel-bg);
+}

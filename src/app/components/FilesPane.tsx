@@ -138,8 +138,7 @@ export function FilesPane(props: FilesPaneProps) {
 						title="Search symbols"
 						onClick={() => onModeChange("symbols")}
 					>
-						<Icon name="chevron-left" />
-						<Icon name="chevron-right" />
+						<Icon name="code" />
 					</button>
 				</div>
 			</div>

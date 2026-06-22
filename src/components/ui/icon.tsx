@@ -40,6 +40,7 @@ export const ICON_GLYPHS = {
 	"chevron-right": { fallback: "›", nf: "" }, // angle-right
 	"chevron-left": { fallback: "‹", nf: "" }, // angle-left
 	dot: { fallback: "●", nf: "" }, // circle
+	code: { fallback: "❮❯", nf: "" }, // code </>
 	comment: { fallback: "💬", nf: "" }, // comment
 	info: { fallback: "ⓘ", nf: "" }, // info-circle
 } as const;

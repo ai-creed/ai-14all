@@ -1,13 +1,16 @@
 import {
 	Dialog,
+	DialogClose,
 	DialogContent,
 	DialogDescription,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { matchFiles } from "../../../shared/files/match-files";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { GitChangeStatus } from "../../../shared/models/git-change";
+import { Icon } from "@/components/ui/icon";
 import { ToggleSwitch } from "../../ui/ToggleSwitch";
 
 export interface FilesOverlayProps {
@@ -122,6 +125,7 @@ export function FilesOverlay(props: FilesOverlayProps) {
 				className="shell-files-overlay"
 				data-testid="files-overlay"
 				aria-label="Files"
+				hideClose
 				onKeyDown={(e) => {
 					if (rows.length === 0) return;
 					if (e.key === "ArrowDown") {
@@ -152,7 +156,15 @@ export function FilesOverlay(props: FilesOverlayProps) {
 					}
 				}}
 			>
-				<DialogTitle className="shell-files-overlay__title">Files</DialogTitle>
+				<div className="shell-files-overlay__titlebar">
+					<DialogTitle className="shell-files-overlay__title">Files</DialogTitle>
+					<DialogClose
+						className="shell-files-overlay__close"
+						aria-label="Close files"
+					>
+						<Icon name="close" lucide={X} className="h-4 w-4" />
+					</DialogClose>
+				</div>
 				<DialogDescription className="sr-only">
 					Search and open files from the active session.
 				</DialogDescription>
@@ -229,6 +241,12 @@ export function FilesOverlay(props: FilesOverlayProps) {
 												transform: `translateY(${virtualRow.start}px)`,
 											}}
 										>
+											<span
+												className="shell-files-overlay__row-icon hidden tui:inline-flex"
+												aria-hidden="true"
+											>
+												<Icon name="file" />
+											</span>
 											<span className="shell-files-overlay__row-basename">
 												{base}
 											</span>

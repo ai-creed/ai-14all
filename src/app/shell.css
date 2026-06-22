@@ -2503,12 +2503,47 @@ select {
 	overflow: hidden;
 }
 
+.shell-files-overlay__titlebar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 8px 12px 8px 14px;
+	border-bottom: 2px solid var(--panel-border);
+}
+
 .shell-files-overlay__title {
-	padding: 10px 14px;
 	font-size: 12px;
 	font-weight: 600;
 	color: var(--text-secondary);
-	border-bottom: 2px solid var(--panel-border);
+}
+
+.shell-files-overlay__close {
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	color: var(--text-secondary);
+	background: transparent;
+	border: none;
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	opacity: 0.7;
+}
+
+.shell-files-overlay__close:hover {
+	opacity: 1;
+	color: var(--text-primary);
+	background: rgba(255, 255, 255, 0.06);
+}
+
+.shell-files-overlay__close:focus-visible {
+	opacity: 1;
+	outline: 2px solid var(--ring);
+	outline-offset: 2px;
 }
 
 .shell-files-overlay__body {
@@ -2555,6 +2590,20 @@ select {
 .shell-files-overlay__row--selected,
 .shell-files-overlay__row[data-selected="true"] {
 	background: rgba(77, 163, 255, 0.16);
+}
+
+/* Per-row file glyph. Visibility is left to the `hidden` / `tui:inline-flex`
+ * utilities on the element (TUI-only) — so this rule must NOT set `display`,
+ * or it would override them and leak the emoji fallback into the other themes.
+ * align-items / justify-content stay inert until the utility flips it to flex. */
+.shell-files-overlay__row-icon {
+	flex: 0 0 auto;
+	width: 1.2em;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-muted);
+	font-size: 14px;
+	line-height: 1;
 }
 
 .shell-files-overlay__row-basename {
