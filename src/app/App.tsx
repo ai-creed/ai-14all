@@ -36,6 +36,7 @@ import type {
 } from "../../shared/models/process-session";
 import type { WorktreeSession } from "../../shared/models/worktree-session";
 import { createSamanthaSliceBuilder } from "../features/workspace/logic/samantha-slice-builder";
+import { findWorkspaceForWorktree } from "../features/workspace/logic/focus-target";
 import { useNoteBridgeReceiver } from "../features/workspace/hooks/use-note-bridge-receiver";
 import { attachAgentAttentionBridge } from "../features/terminals/logic/agent-attention-renderer-bridge";
 import type { GitChangeStatus } from "../../shared/models/git-change";
@@ -1734,6 +1735,25 @@ export function App() {
 		// worktree even when no attention value moved.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [displayedAttentionKey, startupMode, focusedWorktreeId]);
+
+	useEffect(() => {
+		return pluginsClient.onSamanthaFocusWorktree(({ worktreeId }) => {
+			const wsId = findWorkspaceForWorktree(
+				appWorkspacesRef.current,
+				worktreeId,
+			);
+			if (!wsId) return; // not a worktree we own — best-effort no-op
+			if (wsId !== appWorkspacesRef.current.activeWorkspaceId) {
+				dispatchAppWorkspaces({ type: "workspace/select", workspaceId: wsId });
+			}
+			createScopedWorkspaceDispatch(wsId)({
+				type: "session/selectWorktree",
+				worktreeId,
+			});
+		});
+		// Stable refs; subscribe once.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	if (startupMode === "loading") {
 		return (
