@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSamanthaCommandClient } from "../../../../services/plugins/samantha/samantha-command-client";
 import type { WebSocketLike } from "../../../../services/plugins/samantha/samantha-command-client";
-import type { CommandFrame } from "../../../../services/plugins/samantha/command-types";
+import type {
+	CommandFrame,
+	CommandResult,
+} from "../../../../services/plugins/samantha/command-types";
 
 class FakeSocket implements WebSocketLike {
 	static instances: FakeSocket[] = [];
@@ -121,5 +124,48 @@ describe("samantha-command-client", () => {
 		client.connect();
 		client.connect();
 		expect(FakeSocket.instances).toHaveLength(1);
+	});
+
+	it("does not replay a dispatcher result across a reconnect (drops if the receiving socket closed)", async () => {
+		let resolveDispatch!: (r: CommandResult) => void;
+		const pending = new Promise<CommandResult>((res) => {
+			resolveDispatch = res;
+		});
+		const slowDispatcher = { dispatch: vi.fn(() => pending) };
+		const client = createSamanthaCommandClient({
+			url: "ws://127.0.0.1:7841/connectors/ai-14all/events",
+			dispatcher: slowDispatcher,
+			WebSocketImpl: FakeSocket as unknown as new (
+				url: string,
+			) => WebSocketLike,
+			reconnectMs: 50,
+		});
+		client.connect();
+		const sockA = FakeSocket.instances[0];
+		// Command arrives on socket A; dispatch is still pending.
+		sockA.onmessage?.({
+			data: JSON.stringify({
+				type: "command",
+				capabilityId: "session-report",
+				requestId: "r1",
+			}),
+		});
+		// Socket A drops before the result is ready; reconnect opens socket B.
+		sockA.onclose?.();
+		vi.advanceTimersByTime(50);
+		const sockB = FakeSocket.instances[1];
+		expect(sockB).toBeDefined();
+		// The original command's dispatch now resolves — its result must NOT be sent
+		// on the new socket B (no replay across reconnect), nor on the dead socket A.
+		resolveDispatch({
+			type: "commandResult",
+			requestId: "r1",
+			status: "ok",
+			result: { report: "late" },
+		});
+		await pending;
+		await Promise.resolve();
+		expect(sockB.sent).toHaveLength(0);
+		expect(sockA.sent).toHaveLength(0);
 	});
 });

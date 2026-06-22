@@ -54,7 +54,24 @@ export function createSamanthaCommandClient(
 		}, reconnectMs);
 	}
 
-	function handleMessage(raw: unknown): void {
+	function replyOn(
+		receivingSocket: WebSocketLike,
+		result: CommandResult,
+	): void {
+		// Reply ONLY on the connection that received the command. If that socket has
+		// been replaced by a reconnect (or closed), drop + log — a command result must
+		// never be replayed across reconnects (spec edge case: a command is best-effort;
+		// Samantha re-issues on the new connection).
+		if (receivingSocket !== socket) {
+			opts.log?.(
+				`samantha: dropped command result for ${result.requestId} — receiving socket closed before reply`,
+			);
+			return;
+		}
+		receivingSocket.send(serializeCommandResult(result));
+	}
+
+	function handleMessage(raw: unknown, receivingSocket: WebSocketLike): void {
 		// The receive handler must NEVER throw out — a bad frame must not kill the
 		// socket. Parsing, dispatch, and the reply are each guarded.
 		let text: string;
@@ -64,13 +81,12 @@ export function createSamanthaCommandClient(
 			const parsed = parseCommandFrame(json);
 			if (!parsed.ok) {
 				if (parsed.requestId !== null)
-					socket?.send(
-						serializeCommandResult(
-							errorResult(
-								parsed.requestId,
-								"invalid-args",
-								"malformed command frame",
-							),
+					replyOn(
+						receivingSocket,
+						errorResult(
+							parsed.requestId,
+							"invalid-args",
+							"malformed command frame",
 						),
 					);
 				else opts.log?.("samantha: dropped uncorrelatable command frame");
@@ -78,7 +94,7 @@ export function createSamanthaCommandClient(
 			}
 			void opts.dispatcher
 				.dispatch(parsed.frame)
-				.then((result) => socket?.send(serializeCommandResult(result)))
+				.then((result) => replyOn(receivingSocket, result))
 				.catch((error) => opts.log?.("samantha: dispatch rejected", error));
 		} catch (error) {
 			opts.log?.("samantha: dropped unparseable command frame", error);
@@ -91,7 +107,7 @@ export function createSamanthaCommandClient(
 		try {
 			const ws = new opts.WebSocketImpl(opts.url);
 			socket = ws;
-			ws.onmessage = (ev) => handleMessage(ev.data);
+			ws.onmessage = (ev) => handleMessage(ev.data, ws);
 			ws.onclose = () => {
 				socket = null;
 				scheduleReconnect();
