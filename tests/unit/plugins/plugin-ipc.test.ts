@@ -11,6 +11,7 @@ import { registerPluginIpc } from "../../../services/plugins/plugin-ipc";
 
 function makeFakeIpcMain() {
 	const handlers = new Map<string, (event: unknown, raw: unknown) => unknown>();
+	const listeners = new Map<string, (event: unknown, raw: unknown) => void>();
 	return {
 		handle: (
 			channel: string,
@@ -19,6 +20,10 @@ function makeFakeIpcMain() {
 			handlers.set(channel, fn);
 		},
 		removeHandler: (channel: string) => handlers.delete(channel),
+		on: (channel: string, fn: (event: unknown, raw: unknown) => void) => {
+			listeners.set(channel, fn);
+		},
+		removeListener: (channel: string, _fn: unknown) => listeners.delete(channel),
 		invoke: (channel: string, raw?: unknown) =>
 			handlers.get(channel)?.({}, raw),
 	};
@@ -62,6 +67,7 @@ describe("registerPluginIpc", () => {
 				invalidate: vi.fn(),
 			},
 			getWebContents: () => webContents as never,
+			ingestSamanthaSessionSlice: vi.fn(),
 		});
 		const result = await ipcMain.invoke(PLUGINS_LIST);
 		expect(result).toEqual(registry.snapshots());
@@ -82,6 +88,7 @@ describe("registerPluginIpc", () => {
 				invalidate: vi.fn(),
 			},
 			getWebContents: () => null,
+			ingestSamanthaSessionSlice: vi.fn(),
 		});
 		await ipcMain.invoke(PLUGINS_SET_ENABLED, { id: "whisper", enabled: true });
 		expect(config.setEnabled).toHaveBeenCalledWith("whisper", true);
@@ -111,6 +118,7 @@ describe("registerPluginIpc", () => {
 				invalidate: vi.fn(),
 			},
 			getWebContents: () => null,
+			ingestSamanthaSessionSlice: vi.fn(),
 		});
 		const command = {
 			kind: "workflow-pause",
@@ -141,6 +149,7 @@ describe("registerPluginIpc", () => {
 				invalidate: vi.fn(),
 			},
 			getWebContents: () => null,
+			ingestSamanthaSessionSlice: vi.fn(),
 		});
 		await expect(
 			ipcMain.invoke(PLUGINS_WHISPER_COMMAND, {
@@ -167,6 +176,7 @@ describe("registerPluginIpc", () => {
 			runWhisperCommand: vi.fn(),
 			probes: { agentClis: agentClis as never, invalidate },
 			getWebContents: () => null,
+			ingestSamanthaSessionSlice: vi.fn(),
 		});
 		const result = await ipcMain.invoke(PLUGINS_AGENT_CLIS);
 		expect(result).toEqual(await agentClis());
@@ -191,6 +201,7 @@ describe("registerPluginIpc", () => {
 				invalidate: vi.fn(),
 			},
 			getWebContents: () => webContents as never,
+			ingestSamanthaSessionSlice: vi.fn(),
 		});
 		registry.emit([{ id: "whisper" }]);
 		expect(webContents.send).toHaveBeenCalledWith(PLUGINS_STATE_CHANGED, [

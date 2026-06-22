@@ -34,6 +34,8 @@ import type {
 	ProcessAttentionState,
 	ProcessSession,
 } from "../../shared/models/process-session";
+import type { WorktreeSession } from "../../shared/models/worktree-session";
+import { createSamanthaSliceBuilder } from "../features/workspace/logic/samantha-slice-builder";
 import { useNoteBridgeReceiver } from "../features/workspace/hooks/use-note-bridge-receiver";
 import { attachAgentAttentionBridge } from "../features/terminals/logic/agent-attention-renderer-bridge";
 import type { GitChangeStatus } from "../../shared/models/git-change";
@@ -202,6 +204,7 @@ export function App() {
 		worktreesRef,
 		workspaceStateRef,
 	} = useActiveWorkspace();
+	const samanthaSliceBuilder = useRef(createSamanthaSliceBuilder());
 	const outputPreviewBuffersRef = useRef<Map<string, string>>(new Map());
 	const [refreshKey, setRefreshKey] = useState(0);
 	const [windowFocused, setWindowFocused] = useState(
@@ -1688,6 +1691,44 @@ export function App() {
 		// is its stable content hash and the real trigger for this effect.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [displayedAttentionKey]);
+
+	// Component scope (reactive): the selected worktree drives the focus marker /
+	// summary, so it must be a dependency of the publisher effect below — a
+	// focus change alone must republish even when no attention value moved.
+	const focusedWorktreeId = workspaceState?.selectedWorktreeId ?? null;
+
+	useEffect(() => {
+		if (startupMode !== "ready") return;
+		const inputs: {
+			worktreeId: string;
+			session: WorktreeSession;
+			processSessionsById: Record<string, ProcessSession>;
+		}[] = [];
+		for (const wsId of appWorkspacesRef.current.workspaceOrder) {
+			const state = appWorkspacesRef.current.workspacesById[wsId]?.workspaceState;
+			if (!state) continue;
+			for (const [worktreeId, session] of Object.entries(
+				state.sessionsByWorktreeId,
+			)) {
+				inputs.push({
+					worktreeId,
+					session,
+					processSessionsById: state.processSessionsById,
+				});
+			}
+		}
+		const slice = samanthaSliceBuilder.current.build(
+			inputs,
+			focusedWorktreeId,
+			startupMode,
+		);
+		pluginsClient.publishSamanthaSessionState(slice);
+		// Republish on: real attention movement (the existing `displayedAttentionKey`
+		// content hash), app readiness (`startupMode`), AND focus change
+		// (`focusedWorktreeId`) — the focus marker / summary must follow the selected
+		// worktree even when no attention value moved.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [displayedAttentionKey, startupMode, focusedWorktreeId]);
 
 	if (startupMode === "loading") {
 		return (

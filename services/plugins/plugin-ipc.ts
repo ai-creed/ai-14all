@@ -7,11 +7,16 @@ import {
 	PLUGINS_STATE_CHANGED,
 	PLUGINS_WHISPER_COMMAND,
 	PLUGINS_WHISPER_STATE_CHANGED,
+	PLUGINS_SAMANTHA_HEALTH,
+	PLUGINS_SAMANTHA_SESSION_STATE,
+	SamanthaSessionSliceSchema,
 	SetPluginEnabledSchema,
 	WhisperCommandSchema,
 	type WhisperCommand,
 	type WhisperCommandResult,
+	type SamanthaHealth,
 } from "../../shared/contracts/plugins.js";
+import type { SamanthaSessionSlice } from "../../shared/contracts/plugins.js";
 import type {
 	AgentCliProbes,
 	WhisperWorktreeState,
@@ -43,6 +48,8 @@ export type PluginIpcDeps = {
 		invalidate: () => void;
 	};
 	getWebContents: () => WebContents | null;
+	/** Forwards the renderer's resolved session slice to the samantha driver. */
+	ingestSamanthaSessionSlice: (slice: SamanthaSessionSlice) => void;
 };
 
 export function registerPluginIpc(deps: PluginIpcDeps): {
@@ -81,9 +88,17 @@ export function registerPluginIpc(deps: PluginIpcDeps): {
 		deps.getWebContents()?.send(PLUGINS_STATE_CHANGED, snapshots);
 	});
 
+	const onSessionState = (_event: unknown, raw: unknown) => {
+		const parsed = SamanthaSessionSliceSchema.safeParse(raw);
+		if (!parsed.success) return; // trust boundary: drop malformed payloads
+		deps.ingestSamanthaSessionSlice(parsed.data);
+	};
+	ipcMain.on(PLUGINS_SAMANTHA_SESSION_STATE, onSessionState);
+
 	return {
 		dispose() {
 			unsubscribe();
+			ipcMain.removeListener(PLUGINS_SAMANTHA_SESSION_STATE, onSessionState);
 			for (const channel of [
 				PLUGINS_LIST,
 				PLUGINS_SET_ENABLED,
@@ -102,4 +117,12 @@ export function pushWhisperState(
 	states: WhisperWorktreeState[],
 ): void {
 	getWebContents()?.send(PLUGINS_WHISPER_STATE_CHANGED, states);
+}
+
+/** Called by the samantha driver to push its connection-health to the renderer. */
+export function pushSamanthaHealth(
+	getWebContents: () => WebContents | null,
+	health: SamanthaHealth,
+): void {
+	getWebContents()?.send(PLUGINS_SAMANTHA_HEALTH, health);
 }

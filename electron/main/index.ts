@@ -37,6 +37,7 @@ import { createPluginRegistry } from "../../services/plugins/plugin-registry.js"
 import {
 	registerPluginIpc,
 	pushWhisperState,
+	pushSamanthaHealth,
 } from "../../services/plugins/plugin-ipc.js";
 import { resolveBinary } from "../../services/plugins/binary-resolver.js";
 import { augmentGuiLaunchPath } from "../../services/plugins/shell-path.js";
@@ -44,6 +45,11 @@ import { probeWhisper } from "../../services/plugins/whisper/whisper-env-probe.j
 import { createWhisperDriver } from "../../services/plugins/whisper/whisper-driver.js";
 import { createCortexDriver } from "../../services/plugins/cortex/cortex-driver.js";
 import { probeCortex } from "../../services/plugins/cortex/cortex-probe.js";
+import { createSamanthaDriver } from "../../services/plugins/samantha/samantha-driver.js";
+import { createSamanthaConnectorClient } from "../../services/plugins/samantha/samantha-connector-client.js";
+import { WhisperStoreReader } from "../../services/plugins/whisper/whisper-store-reader.js";
+import { createWhisperCollabWatcher } from "../../services/plugins/whisper/whisper-collab-watcher.js";
+import type { WorktreeIdentity } from "../../services/plugins/samantha/observe-types.js";
 import { createWhisperCommandRunner } from "../../services/plugins/whisper/whisper-command-runner.js";
 import { PluginCommandLogger } from "../../services/diagnostics/plugin-command-logger.js";
 
@@ -249,8 +255,45 @@ app.whenReady().then(async () => {
 		},
 	});
 
+	// Read-only whisper snapshot reader for the observe document (separate from
+	// the whisper driver's own watcher; we never write to state.db).
+	const samanthaWhisperWatcher = createWhisperCollabWatcher({
+		reader: new WhisperStoreReader(join(whisperStateRoot, "state.db")),
+		resolveWorktreeId: (workspaceRoot) =>
+			worktreePathResolver.resolve(workspaceRoot),
+	});
+
+	// Build worktreeId -> identity (repo/branch/path) across all registered repos.
+	const getSamanthaIdentities = async (): Promise<
+		Record<string, WorktreeIdentity>
+	> => {
+		const out: Record<string, WorktreeIdentity> = {};
+		for (const repository of workspaceRegistry.listRepositories()) {
+			for (const wt of await worktreeService.listWorktrees(repository)) {
+				out[wt.id] = {
+					repo: repository.name,
+					branch: wt.branchName,
+					path: wt.path,
+				};
+			}
+		}
+		return out;
+	};
+
+	const samanthaDriver = createSamanthaDriver({
+		client: createSamanthaConnectorClient({}),
+		getIdentities: getSamanthaIdentities,
+		getReviewCount: (worktreeId) =>
+			reviewCommentService.listOpenByWorktree(worktreeId).length,
+		getWhisperStates: () => samanthaWhisperWatcher.snapshot(),
+		subscribeReviews: (cb) => reviewCommentService.onChange(() => cb()),
+		subscribeWorktrees: (cb) => workspaceRegistry.onChange(cb),
+		pushHealth: (health) =>
+			pushSamanthaHealth(() => mainWindow.webContents, health),
+	});
+
 	const pluginRegistry = createPluginRegistry(
-		[whisperDriver, cortexDriver],
+		[whisperDriver, cortexDriver, samanthaDriver],
 		pluginConfig,
 		{
 			// ai-whisper's `collab mount` (and other flows) shell out to the POSIX
@@ -286,6 +329,8 @@ app.whenReady().then(async () => {
 			invalidate: () => capabilityProbes.invalidate(),
 		},
 		getWebContents: () => mainWindow.webContents,
+		ingestSamanthaSessionSlice: (slice) =>
+			samanthaDriver.ingestSessionSlice(slice),
 	});
 
 	// Re-probe triggers (spec §3.4) funnel through capabilityProbes.invalidate():
