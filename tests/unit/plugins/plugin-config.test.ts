@@ -20,6 +20,29 @@ afterEach(() => {
 	rmSync(dir, { recursive: true, force: true });
 });
 
+describe("plugin-config samantha behavior", () => {
+	it("parses focus_raises_window = false into behavior.focusRaisesWindow", () => {
+		const { store } = makeStore(
+			"[plugins.samantha]\nenabled = true\n\n[plugins.samantha.behavior]\nfocus_raises_window = false\n",
+		);
+		expect(store.get("samantha").behavior).toEqual({
+			focusRaisesWindow: false,
+		});
+	});
+
+	it("parses focus_raises_window = true into behavior.focusRaisesWindow", () => {
+		const { store } = makeStore(
+			"[plugins.samantha]\nenabled = true\n\n[plugins.samantha.behavior]\nfocus_raises_window = true\n",
+		);
+		expect(store.get("samantha").behavior).toEqual({ focusRaisesWindow: true });
+	});
+
+	it("leaves behavior undefined when the sub-table is absent", () => {
+		const { store } = makeStore("[plugins.samantha]\nenabled = true\n");
+		expect(store.get("samantha").behavior).toBeUndefined();
+	});
+});
+
 describe("createPluginConfigStore", () => {
 	it("returns defaults when the file is missing", () => {
 		const { store } = makeStore();
