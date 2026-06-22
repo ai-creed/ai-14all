@@ -1,7 +1,7 @@
 # ai-14all — Business Value Mapping
 
 > **What this document is.** A reverse-engineered business/market context for ai-14all,
-> built backward from `product_document/product_brief.md`. It answers the Business Value
+> built backward from `docs/product_document/product_brief.md`. It answers the Business Value
 > Mapping questions across two areas: **Market Attractiveness** and **Business Model**.
 >
 > **Sources & method (no fabrication):**

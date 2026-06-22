@@ -1,7 +1,7 @@
 # ai-14all — Go-to-Market Narrative & Theme
 
 > **What this document is.** A go-to-market narrative, brand theme, and launch plan for
-> ai-14all, built on `product_document/product_brief.md` and `product_document/product-prd.md`.
+> ai-14all, built on `docs/product_document/product_brief.md` and `docs/product_document/product-prd.md`.
 > It defines the positioning spine, the chosen creative theme (and an explicit critical
 > rationale for it), and three ready-to-use artifacts: a narrative one-pager, landing-page
 > copy, and a 4-week content calendar.
