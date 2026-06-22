@@ -21,6 +21,7 @@ import {
 	flattenTreeToRows,
 	type VisibleRow,
 } from "../logic/flatten-tree-to-rows";
+import { Icon } from "@/components/ui/icon";
 
 export type WorktreeTreeProps = {
 	workspaceId: string;
@@ -158,7 +159,11 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 			>
 				{isDir && (
 					<span className="shell-tree-chevron" aria-hidden="true">
-						{row.expanded ? "▾" : "▸"}
+						{row.expanded ? (
+							<Icon name="caret-down" />
+						) : (
+							<Icon name="caret-right" />
+						)}
 					</span>
 				)}
 				<span

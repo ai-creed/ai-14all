@@ -1,4 +1,5 @@
 import type { MutableRefObject } from "react";
+import { Icon } from "@/components/ui/icon";
 import type { UpdateInfo } from "../../../shared/contracts/commands";
 import type { GitChangeStatus } from "../../../shared/models/git-change";
 import type { GitSummary } from "../../../shared/models/git-summary";
@@ -151,7 +152,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 									className="shell-chip-bar__action-icon"
 									aria-hidden="true"
 								>
-									🧩
+									<Icon name="plugins" />
 								</span>
 								Plugins
 							</button>

@@ -1,0 +1,340 @@
+/* Terminal UI theme overrides — docs/tui-css-spec.md §10 dark launch.
+ *
+ * Every rule in this file is scoped under [data-theme="tui"]; the other
+ * themes are unaffected. This file is intentionally UNLAYERED so its rules
+ * beat Tailwind's @layer utilities and shell.css regardless of specificity
+ * (unlayered CSS wins over layered CSS in the cascade).
+ *
+ * Deleted at flatten (spec §10.3 PR G), when the TUI look becomes the
+ * default and these overrides are folded into tokens.css / shell.css. */
+
+/* Motion kill (spec D7): terminals don't tween. Zero out tw-animate-css
+ * enter/exit animations on Radix overlays (dialog, dropdown, context menu —
+ * they all toggle data-state between exactly "open"/"closed"; shell.css uses
+ * other data-state values, so those are untouched). Durations are zeroed
+ * rather than `animation: none` so Radix's animation-end unmount logic still
+ * fires. Done here instead of `tui:` classes because the data-[state]
+ * animation utilities tie on specificity — unlayered CSS wins regardless. */
+[data-theme="tui"] :is([data-state="open"], [data-state="closed"]) {
+	animation-duration: 0s;
+	transition-duration: 0s;
+}
+
+/* ---- Shell chrome (spec §6) ------------------------------------------- */
+
+/* Flat background: no radial wash — elevation comes from ladder steps and
+ * 1px borders, never gradients (spec D2). */
+[data-theme="tui"] body {
+	background: var(--background);
+}
+
+/* Pane accent borders become solid full-opacity lines instead of rgba
+ * washes — crisp 1px lines read as box-drawing (spec D3). */
+[data-theme="tui"] {
+	--pane-border-sessions: var(--panel-border);
+	--pane-border-session-info: var(--panel-border);
+	--pane-border-terminal: var(--panel-border);
+	--pane-border-review: var(--panel-border);
+	/* Heavier chrome borders read as box-drawing rules. shell.css declares
+	 * `--shell-border-width: 1px` for the other palettes and draws every chrome
+	 * border with `var(--shell-border-width) solid …`; here it widens to 2px. */
+	--shell-border-width: 2px;
+}
+
+/* Elevation shadows off. Targeted per selector — a blanket `box-shadow:
+ * none` would also kill Tailwind ring-* focus indicators (they are
+ * box-shadows), regressing keyboard a11y (spec D6). Crisp 0-0-0-1px
+ * "border" shadows and the active-tab inset underline are kept: those are
+ * discrete lines, not glows. Remaining rgba() hover washes in shell.css
+ * are swept at flatten (spec §10.3 PR G). */
+[data-theme="tui"]
+	:is(
+		.shell-files-overlay,
+		.shell-terminal-find,
+		.shell-editor-dirty-bar,
+		.shell-shortcuts-help,
+		.shell-review-selection-pill,
+		.shell-review-expanded-portal,
+		.shell-toast,
+		.shell-layout-dialog,
+		.usage-pop,
+		.usage-gcell.is-on
+	) {
+	box-shadow: none;
+}
+
+/* Attention states: discrete blink instead of rotating conic spotlight and
+ * breathing glows — terminal motion is stepped, never tweened (spec D7).
+ * tui-attention-blink still drives the process dots + button pulse below. */
+@keyframes tui-attention-blink {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.25;
+	}
+}
+
+/* Single blinking border (smoke-test feedback): the base theme paints the
+ * attention ring on a ::before inset INSIDE the row's own 2px border, so an
+ * active row showed two stacked borders. The flat TUI box wants ONE border —
+ * drop the ring and blink the row's own border-color instead. */
+[data-theme="tui"] .shell-sidebar__row[data-attention="activity"]::before,
+[data-theme="tui"]
+	.shell-sidebar__row[data-attention="actionRequired"]::before {
+	display: none;
+}
+
+/* Activity: muted amber, slow — a SECOND-tier "agent running" cue that never
+ * out-shouts the selected card. ActionRequired: full attention color, fast.
+ * Each blinks the row's single border between its accent and the neutral
+ * panel border, so only the outermost line ever animates. */
+@keyframes tui-attention-border-activity {
+	0%,
+	100% {
+		border-color: color-mix(
+			in srgb,
+			var(--attention-color) 45%,
+			var(--panel-border)
+		);
+	}
+	50% {
+		border-color: var(--panel-border);
+	}
+}
+
+@keyframes tui-attention-border-action {
+	0%,
+	100% {
+		border-color: var(--attention-color);
+	}
+	50% {
+		border-color: var(--panel-border);
+	}
+}
+
+[data-theme="tui"] .shell-sidebar__row[data-attention="activity"] {
+	animation: tui-attention-border-activity 2s steps(1, end) infinite;
+}
+
+[data-theme="tui"] .shell-sidebar__row[data-attention="actionRequired"] {
+	animation: tui-attention-border-action 0.7s steps(1, end) infinite;
+	box-shadow: none;
+}
+
+/* Selection leads (first in the hierarchy): a selected row holds a static,
+ * neutral near-white border and never blinks — even with an active agent. The
+ * [data-attention] variant outranks the blink rules above, so selection wins
+ * on a combined row regardless of source order. */
+[data-theme="tui"] .shell-sidebar__row[data-selected="true"],
+[data-theme="tui"] .shell-sidebar__row[data-selected="true"][data-attention] {
+	border-color: var(--foreground);
+	animation: none;
+}
+
+/* Non-selected rows recede: dim their text/content so the selected card's
+ * full-strength text leads the hierarchy. Targets the content containers (not
+ * the row) so the blinking border is left untouched. */
+[data-theme="tui"]
+	.shell-sidebar__row[data-selected="false"]
+	:is(
+		.shell-sidebar__item,
+		.shell-sidebar__card-task,
+		.shell-sidebar__processes,
+		.workflow-row
+	) {
+	opacity: 0.6;
+}
+
+[data-theme="tui"]
+	.shell-sidebar__process-indicator[data-state="actionRequired"] {
+	box-shadow: none;
+	animation: tui-attention-blink 0.7s steps(1, end) infinite;
+}
+
+[data-theme="tui"] .shell-button__pulse-dot {
+	box-shadow: none;
+	animation: tui-attention-blink 1.2s steps(1, end) infinite;
+}
+
+/* tui.css loads after shell.css, so its blink would otherwise override the
+ * reduced-motion freezes shell.css declares in its own media block. */
+@media (prefers-reduced-motion: reduce) {
+	[data-theme="tui"] .shell-sidebar__row[data-attention]::before,
+	[data-theme="tui"] .shell-sidebar__row[data-attention],
+	[data-theme="tui"] .shell-sidebar__process-indicator,
+	[data-theme="tui"] .shell-button__pulse-dot {
+		animation: none;
+	}
+	/* Blink frozen — surface attention as a static single border instead.
+	 * Selection still wins via its higher-specificity rule above. */
+	[data-theme="tui"] .shell-sidebar__row[data-attention="activity"],
+	[data-theme="tui"] .shell-sidebar__row[data-attention="actionRequired"] {
+		border-color: var(--attention-color);
+	}
+}
+
+/* ---- Box-drawing utility (spec §7, WebTUI box technique) --------------- */
+
+/* Pads the element by one character cell and draws the border on a
+ * pseudo-element inset by half a cell — where a ┌─┐ box-drawing glyph
+ * would render. A .tui-box-title child sits ON the border line, punching
+ * a gap like `┌─ TITLE ────┐`. Accent via --box-border-color; surface
+ * behind the title via --tui-box-bg. Inert unless the class is used, so
+ * it is safe to define for all themes (the gallery renders it everywhere). */
+.tui-box {
+	--box-border-width: 2px;
+	position: relative;
+	isolation: isolate;
+	padding: 1lh 1ch;
+}
+
+.tui-box::before {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	translate: -50% -50%;
+	width: calc(100% - 1ch - var(--box-border-width));
+	height: calc(100% - 1lh - var(--box-border-width));
+	border: var(--box-border-width) solid var(--box-border-color, var(--border));
+	z-index: -1;
+}
+
+.tui-box > .tui-box-title {
+	position: absolute;
+	top: 0;
+	left: 2ch;
+	height: 1lh;
+	line-height: 1lh;
+	padding-inline: 1ch;
+	background: var(--tui-box-bg, var(--background));
+	color: var(--muted-foreground);
+	font-size: 0.85em;
+	letter-spacing: 0.08em;
+}
+
+/* ---- Markdown / indicator legibility (TUI only) ---------------------- */
+
+/* The legacy `--accent` bridges to `--primary` in every palette except this
+ * one, where it resolves to a dark ladder step (bg2) — so markdown inline
+ * code, links and the note indicator dot rendered dark-on-dark. Pin them to
+ * the cursor accent so they read clearly. Other palettes are untouched
+ * because there `--accent` already equals `--primary`. */
+[data-theme="tui"]
+	:is(.shell-md-modal__body, .shell-inline-editor__preview-body)
+	:not(pre)
+	> code,
+[data-theme="tui"]
+	:is(.shell-md-modal__body, .shell-inline-editor__preview-body)
+	a {
+	color: var(--primary);
+}
+
+[data-theme="tui"] .shell-chip-bar__note-dot {
+	background: var(--primary);
+}
+
+/* Clean session status (✓ clean): text-muted is too dim to read on bg0. */
+[data-theme="tui"] .shell-chip-bar__clean {
+	color: var(--primary);
+}
+
+/* Review file viewer — the markdown Edit/Preview toggle colors its pressed
+ * state with --accent (the dark bg2 step in TUI), leaving the "Edit" label
+ * dark-on-dark after switching from Preview. Pin only the pressed state to the
+ * cursor accent; hover is left to the shared base rule so it matches the
+ * Refresh / Collapse / Review buttons (which use the same hover). */
+[data-theme="tui"] .shell-inline-editor__preview-btn[aria-pressed="true"] {
+	color: var(--primary);
+	border-color: var(--primary);
+	background: var(--panel-bg);
+}
+
+/* ---- Re-scoped shell chrome (kept TUI look; base restored to devel) -------
+ *
+ * The rules below carry restyling that originally leaked into shell.css's base
+ * selectors (affecting light/dark/warm). shell.css is now byte-identical to
+ * devel for those selectors; the TUI-only look lives here instead. Borders are
+ * already widened via --shell-border-width (above); these cover the rest. */
+
+/* Tighter shell gutters — the flat TUI grid hugs its panes (spec D2). */
+[data-theme="tui"] .shell-layout {
+	gap: var(--space-2);
+	padding: var(--space-2);
+}
+
+[data-theme="tui"] .shell-main-column {
+	gap: var(--space-2);
+}
+
+/* Sidebar title hierarchy: workspace name is the largest/heaviest tier. */
+[data-theme="tui"] .shell-sidebar__workspace-name {
+	font-size: 17px;
+	font-weight: 700;
+	line-height: 1.2;
+	text-align: left;
+}
+
+/* Selected list / commit rows lead with the cursor accent (base uses the
+ * neutral panel-border-strong). Sidebar rows are handled by the selection
+ * rules higher in this file. */
+[data-theme="tui"] .shell-list__item[data-selected="true"],
+[data-theme="tui"] .shell-commit-list__item[data-selected="true"],
+[data-theme="tui"] .shell-commit-list__files .shell-list__item[data-selected="true"] {
+	border-color: var(--primary);
+}
+
+/* Terminals don't italicize. Base keeps italic for the other palettes. */
+[data-theme="tui"] .shell-sidebar__workspace-empty,
+[data-theme="tui"] .shell-list__item--dir,
+[data-theme="tui"] .plugins-panel__agent-cli-line--pending {
+	font-style: normal;
+}
+
+/* Markdown lists get visible markers in the modal/preview bodies (base leaves
+ * them list-style:none as on devel). */
+[data-theme="tui"] .shell-md-modal__body ul,
+[data-theme="tui"] .shell-inline-editor__preview-body ul {
+	list-style: disc;
+}
+[data-theme="tui"] .shell-md-modal__body ol,
+[data-theme="tui"] .shell-inline-editor__preview-body ol {
+	list-style: decimal;
+}
+
+/* Sharp corners on the file-jump overlay (base restored to devel's rounded
+ * px radii; under TUI --radius is 0 so these resolve to square edges). */
+[data-theme="tui"] .shell-files-overlay {
+	border-radius: var(--radius-md);
+}
+[data-theme="tui"] .shell-files-overlay__search {
+	border-radius: var(--radius-sm);
+}
+[data-theme="tui"] .shell-files-overlay__footer-hints kbd {
+	border-radius: var(--radius-sm);
+}
+
+/* Terminal slot header: neutral separator borders instead of the prominent
+ * panel-border-strong washes the other palettes keep. */
+[data-theme="tui"] .shell-terminal-slot__header {
+	background: color-mix(in srgb, var(--panel-border) 40%, var(--panel-bg-elevated));
+	border-top-color: var(--panel-border);
+	border-bottom-color: var(--panel-border);
+}
+
+/* Vertically centered, shorter mode switch (base restored to devel's
+ * top-anchored 36px control). */
+[data-theme="tui"] .files-pane__modes {
+	top: 50%;
+	transform: translateY(-50%);
+	height: 26px;
+	padding: 0;
+}
+
+/* Plugins panel drops its drop-shadow too (missing from the box-shadow:none
+ * group above because it isn't an overlay/popover). */
+[data-theme="tui"] .plugins-panel {
+	box-shadow: none;
+}

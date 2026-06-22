@@ -5,6 +5,7 @@ import {
 	DialogContent,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { Icon } from "@/components/ui/icon";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -90,7 +91,7 @@ export function MarkdownPreviewModal({
 						{relativePath}
 					</DialogTitle>
 					<DialogClose className="shell-md-modal__close" aria-label="Close">
-						✕
+						<Icon name="close" />
 					</DialogClose>
 				</div>
 				{loading && (

@@ -5,6 +5,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Icon } from "@/components/ui/icon";
 import type { CommandPreset } from "../../../../shared/models/command-preset";
 import {
 	type Platform,
@@ -49,7 +50,7 @@ export function TerminalActions({
 				onClick={onAddAdHoc}
 			>
 				<span className="shell-chip-bar__action-icon" aria-hidden="true">
-					＋
+					<Icon name="plus" />
 				</span>
 				Shell
 			</button>
@@ -62,7 +63,7 @@ export function TerminalActions({
 				onClick={onOpenLayoutDialog}
 			>
 				<span className="shell-chip-bar__action-icon" aria-hidden="true">
-					▦
+					<Icon name="grid" />
 				</span>
 				Layout
 			</button>
@@ -71,10 +72,12 @@ export function TerminalActions({
 				<DropdownMenuTrigger asChild>
 					<button type="button" className="shell-chip-bar__action">
 						<span className="shell-chip-bar__action-icon" aria-hidden="true">
-							⚙
+							<Icon name="gear" />
 						</span>
 						Presets
-						<span aria-hidden="true">▾</span>
+						<span aria-hidden="true">
+							<Icon name="caret-down" />
+						</span>
 					</button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent>

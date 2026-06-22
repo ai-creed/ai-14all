@@ -6,6 +6,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Icon } from "@/components/ui/icon";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
@@ -65,7 +66,7 @@ export function NoteSheet({ open, note, onNoteChange, onClose }: Props) {
 								className="shell-note-sheet__close"
 								aria-label="Close note sheet"
 							>
-								✕
+								<Icon name="close" />
 							</button>
 						</DialogClose>
 					</div>

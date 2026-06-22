@@ -5,6 +5,7 @@ import {
 	detectPlatform,
 } from "../../../app/shortcut-registry";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 
 export type EditorDirtyBarProps = {
 	currentLength: number;
@@ -45,7 +46,10 @@ export function EditorDirtyBar({
 			aria-label="Unsaved changes"
 		>
 			<span className="shell-editor-dirty-bar__label">
-				<span aria-hidden="true">●</span> Unsaved changes
+				<span aria-hidden="true">
+					<Icon name="dot" />
+				</span>{" "}
+				Unsaved changes
 			</span>
 			<span className="shell-editor-dirty-bar__hint">
 				<kbd>{shortcutHint("⌘S", "Ctrl+S", platform)}</kbd>

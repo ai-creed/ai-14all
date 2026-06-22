@@ -4,7 +4,7 @@
 	gap: var(--space-3);
 	padding: var(--space-2) var(--space-3);
 	background: var(--panel-bg-elevated);
-	border-bottom: 1px solid var(--accent);
+	border-bottom: var(--shell-border-width) solid var(--accent);
 	color: var(--text-primary);
 	font-size: 13px;
 }
@@ -15,7 +15,7 @@
 .update-banner__close {
 	background: transparent;
 	color: inherit;
-	border: 1px solid var(--accent);
+	border: var(--shell-border-width) solid var(--accent);
 	border-radius: var(--radius-sm);
 	padding: 2px 10px;
 	cursor: pointer;
