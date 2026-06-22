@@ -112,6 +112,48 @@ describe("createPluginRegistry", () => {
 		});
 	});
 
+	it("hidden: filters listed ids out of snapshots but keeps the rest", async () => {
+		// Release gate: main hides unreleased plugins (e.g. samantha in packaged
+		// builds) so they never reach the panel and cannot be enabled via the UI.
+		const whisper = fakeDriver({ id: "whisper" });
+		const samantha = fakeDriver({ id: "samantha" });
+		const registry = createPluginRegistry(
+			[whisper, samantha],
+			fakeConfig({ enabled: false }),
+			{ hidden: ["samantha"] },
+		);
+		await registry.boot();
+		expect(registry.snapshots().map((s) => s.id)).toEqual(["whisper"]);
+	});
+
+	it("hidden: a hidden plugin is also withheld from snapshot listeners", async () => {
+		const samantha = fakeDriver({ id: "samantha" });
+		const registry = createPluginRegistry(
+			[samantha],
+			fakeConfig({ enabled: false }),
+			{ hidden: ["samantha"] },
+		);
+		const seen: string[][] = [];
+		registry.onSnapshots((snaps) => seen.push(snaps.map((s) => s.id)));
+		await registry.boot();
+		expect(seen.every((ids) => !ids.includes("samantha"))).toBe(true);
+	});
+
+	it("hidden: still starts the driver when the config enables it directly", async () => {
+		// Visibility, not capability: hiding removes the card (and the UI enable
+		// path), but a config that enables the plugin directly still starts it —
+		// it just never appears in snapshots.
+		const samantha = fakeDriver({ id: "samantha" });
+		const registry = createPluginRegistry(
+			[samantha],
+			fakeConfig({ enabled: true }),
+			{ hidden: ["samantha"] },
+		);
+		await registry.boot();
+		expect(samantha.start).toHaveBeenCalledOnce();
+		expect(registry.snapshots()).toHaveLength(0);
+	});
+
 	it("boot: incompatible → status incompatible with reason", async () => {
 		const driver = fakeDriver({
 			probe: vi.fn(

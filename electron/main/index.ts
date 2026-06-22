@@ -305,6 +305,11 @@ app.whenReady().then(async () => {
 				process.platform === "win32"
 					? { whisper: "not supported on Windows yet" }
 					: undefined,
+			// Samantha is an unreleased integration. Keep it out of the Plugins
+			// panel in packaged/release builds so it can't be seen or enabled,
+			// while staying visible in dev/unpackaged builds so we can build and
+			// test it. Remove this gate when Samantha ships.
+			hidden: app.isPackaged ? ["samantha"] : [],
 		},
 	);
 	void pluginRegistry.boot();
