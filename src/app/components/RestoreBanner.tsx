@@ -1,3 +1,5 @@
+import { Icon } from "@/components/ui/icon";
+
 type Props = {
 	message: string | null;
 	onDismiss: () => void;
@@ -19,7 +21,7 @@ export function RestoreBanner(props: Props): React.ReactElement | null {
 				aria-label="Dismiss warning"
 				onClick={onDismiss}
 			>
-				×
+				<Icon name="close" />
 			</button>
 		</div>
 	);

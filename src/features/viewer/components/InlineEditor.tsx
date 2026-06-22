@@ -15,6 +15,7 @@ import "highlight.js/styles/github-dark.css";
 import { files } from "../../../lib/desktop-client";
 import { app } from "../../../lib/desktop-client";
 import type { ResolvedTheme } from "../../../lib/use-theme";
+import { Icon } from "@/components/ui/icon";
 import { isEditable } from "../../../../shared/editor/editable-files";
 import { languageForBasename } from "../logic/language-for-basename.js";
 import { ConfirmCloseDialog } from "./ConfirmCloseDialog";
@@ -555,7 +556,9 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 							}
 							aria-pressed={previewing}
 						>
-							<span aria-hidden="true">{previewing ? "✏" : "👁"}</span>
+							<span aria-hidden="true">
+								{previewing ? <Icon name="edit" /> : <Icon name="eye" />}
+							</span>
 							<span>{previewing ? "Edit" : "Preview"}</span>
 						</button>
 					)}

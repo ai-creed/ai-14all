@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { AppDialog } from "../../../components/AppDialog";
 import type { AgentInstallStatus } from "../hooks/use-agent-install-status";
 
@@ -114,7 +115,13 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 								{pickMsg && <p className="shell-error">{pickMsg}</p>}
 								{result && (
 									<p className={result.ok ? "shell-info" : "shell-error"}>
-										{result.ok ? "Installed ✓" : `Failed: ${result.message}`}
+										{result.ok ? (
+											<>
+												Installed <Icon name="check" />
+											</>
+										) : (
+											`Failed: ${result.message}`
+										)}
 									</p>
 								)}
 							</li>

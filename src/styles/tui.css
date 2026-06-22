@@ -77,7 +77,8 @@
  * active row showed two stacked borders. The flat TUI box wants ONE border —
  * drop the ring and blink the row's own border-color instead. */
 [data-theme="tui"] .shell-sidebar__row[data-attention="activity"]::before,
-[data-theme="tui"] .shell-sidebar__row[data-attention="actionRequired"]::before {
+[data-theme="tui"]
+	.shell-sidebar__row[data-attention="actionRequired"]::before {
 	display: none;
 }
 
@@ -208,4 +209,25 @@
 	color: var(--muted-foreground);
 	font-size: 0.85em;
 	letter-spacing: 0.08em;
+}
+
+/* ---- Markdown / indicator legibility (TUI only) ---------------------- */
+
+/* The legacy `--accent` bridges to `--primary` in every palette except this
+ * one, where it resolves to a dark ladder step (bg2) — so markdown inline
+ * code, links and the note indicator dot rendered dark-on-dark. Pin them to
+ * the cursor accent so they read clearly. Other palettes are untouched
+ * because there `--accent` already equals `--primary`. */
+[data-theme="tui"]
+	:is(.shell-md-modal__body, .shell-inline-editor__preview-body)
+	:not(pre)
+	> code,
+[data-theme="tui"]
+	:is(.shell-md-modal__body, .shell-inline-editor__preview-body)
+	a {
+	color: var(--primary);
+}
+
+[data-theme="tui"] .shell-chip-bar__note-dot {
+	background: var(--primary);
 }

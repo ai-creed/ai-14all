@@ -5,6 +5,7 @@ import * as ContextMenuPrimitive from "@radix-ui/react-context-menu";
 import { Check, ChevronRight, Circle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { Icon } from "@/components/ui/icon";
 
 const ContextMenu = ContextMenuPrimitive.Root;
 
@@ -34,7 +35,11 @@ const ContextMenuSubTrigger = React.forwardRef<
 		{...props}
 	>
 		{children}
-		<ChevronRight className="ml-auto h-4 w-4" />
+		<Icon
+			name="chevron-right"
+			lucide={ChevronRight}
+			className="ml-auto h-4 w-4"
+		/>
 	</ContextMenuPrimitive.SubTrigger>
 ));
 ContextMenuSubTrigger.displayName = ContextMenuPrimitive.SubTrigger.displayName;
@@ -106,7 +111,7 @@ const ContextMenuCheckboxItem = React.forwardRef<
 	>
 		<span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
 			<ContextMenuPrimitive.ItemIndicator>
-				<Check className="h-4 w-4" />
+				<Icon name="check" lucide={Check} className="h-4 w-4" />
 			</ContextMenuPrimitive.ItemIndicator>
 		</span>
 		{children}
@@ -129,7 +134,7 @@ const ContextMenuRadioItem = React.forwardRef<
 	>
 		<span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
 			<ContextMenuPrimitive.ItemIndicator>
-				<Circle className="h-4 w-4 fill-current" />
+				<Icon name="dot" lucide={Circle} className="h-4 w-4 fill-current" />
 			</ContextMenuPrimitive.ItemIndicator>
 		</span>
 		{children}

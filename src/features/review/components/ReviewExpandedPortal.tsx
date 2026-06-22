@@ -221,7 +221,7 @@ export const ReviewExpandedPortal = forwardRef<
 					openCommentCount !== null &&
 					openCommentCount !== undefined && (
 						<ReviewBarButton
-							icon="💬"
+							icon="comment"
 							label={commentSidebarOpen ? "Hide comments" : "Comments"}
 							ariaLabel={commentSidebarOpen ? "Hide comments" : "Show comments"}
 							title={commentSidebarOpen ? "Hide comments" : "Show comments"}
@@ -229,14 +229,14 @@ export const ReviewExpandedPortal = forwardRef<
 						/>
 					)}
 				<ReviewBarButton
-					icon="↻"
+					icon="refresh"
 					label="Refresh"
 					ariaLabel="Refresh review"
 					title="Refresh review"
 					onClick={onRefresh}
 				/>
 				<ReviewBarButton
-					icon="⬇"
+					icon="download"
 					label="Collapse"
 					ariaLabel="Collapse full review"
 					title="Collapse full review"

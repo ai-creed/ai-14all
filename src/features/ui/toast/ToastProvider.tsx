@@ -7,6 +7,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { Icon } from "@/components/ui/icon";
 
 type ToastItem = { id: string; message: string };
 const MAX = 3;
@@ -85,7 +86,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 							aria-label="dismiss"
 							onClick={() => dismiss(t.id)}
 						>
-							✕
+							<Icon name="close" />
 						</button>
 					</div>
 				))}

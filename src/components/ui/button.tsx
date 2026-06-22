@@ -6,9 +6,10 @@ import { cn } from "@/lib/utils";
 
 /* `tui:` classes restyle for the Terminal UI theme only (docs/tui-css-spec.md
  * §5.1): no shadows or transitions, discrete ladder-step hovers instead of
- * alpha blends, reverse-video on :active, line-through when disabled. */
+ * alpha blends, reverse-video on :active. Disabled buttons dim via opacity
+ * (no strikethrough — it read as "deleted" on filled CTAs like Load). */
 const buttonVariants = cva(
-	"inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 tui:shadow-none tui:transition-none tui:disabled:line-through",
+	"inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 tui:shadow-none tui:transition-none",
 	{
 		variants: {
 			variant: {

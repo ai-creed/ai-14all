@@ -2,8 +2,10 @@
 // `ReviewExpandedPortal` (expanded). Keeps the two review-header rows
 // visually consistent — same shape, same padding, same icon+label rhythm.
 
+import { Icon, type IconName } from "@/components/ui/icon";
+
 type Props = {
-	icon: string;
+	icon: IconName;
 	label: string;
 	ariaLabel?: string;
 	title?: string;
@@ -25,7 +27,9 @@ export function ReviewBarButton({
 			title={title ?? label}
 			onClick={onClick}
 		>
-			<span aria-hidden="true">{icon}</span>
+			<span aria-hidden="true">
+				<Icon name={icon} />
+			</span>
 			<span>{label}</span>
 		</button>
 	);

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { Terminal, type ITheme } from "xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "xterm-addon-search";
@@ -570,7 +571,7 @@ export function TerminalPane({
 						aria-label="Previous match"
 						onClick={() => runFind("prev")}
 					>
-						‹
+						<Icon name="chevron-left" />
 					</Button>
 					<Button
 						type="button"
@@ -579,7 +580,7 @@ export function TerminalPane({
 						aria-label="Next match"
 						onClick={() => runFind("next")}
 					>
-						›
+						<Icon name="chevron-right" />
 					</Button>
 					<Button
 						type="button"
@@ -588,7 +589,7 @@ export function TerminalPane({
 						aria-label="Close find"
 						onClick={closeFind}
 					>
-						×
+						<Icon name="close" />
 					</Button>
 				</div>
 			)}

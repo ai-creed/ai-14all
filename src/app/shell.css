@@ -7,6 +7,37 @@
 	font-display: swap;
 }
 
+/* Icons-only Nerd Font. Drives every chrome icon under the Terminal UI theme
+ * (data-theme="tui") via the <Icon> component; unused by the other palettes.
+ * Glyphs live in the Private Use Area, so this never shadows real text. */
+@font-face {
+	font-family: "Symbols Nerd Font";
+	src: url("../assets/fonts/SymbolsNerdFontMono-Regular.ttf") format("truetype");
+	font-weight: 400;
+	font-style: normal;
+	font-display: block;
+}
+
+/* Nerd Font glyph span emitted by <Icon>. Only ever visible under
+ * data-theme="tui" (Tailwind `tui:inline-block`); elsewhere the component
+ * keeps the original glyph/SVG and this stays display:none. */
+.app-nf {
+	font-family: "Symbols Nerd Font", var(--font-ui);
+	font-style: normal;
+	font-weight: 400;
+	font-variant: normal;
+	line-height: 1;
+	text-rendering: auto;
+	-webkit-font-smoothing: antialiased;
+}
+
+/* The glyph is drawn from the data-nf attribute via generated content so the
+ * Private-Use codepoint never enters the DOM text (keeps textContent, copy and
+ * screen readers clean). Only painted under the TUI palette. */
+[data-theme="tui"] .app-nf::before {
+	content: attr(data-nf);
+}
+
 :root {
 	/* Surviving non-token shell vars: fonts, pane-accent borders, sha and
 	 * provider colors. shadcn design tokens now live in src/styles/tokens.css
@@ -2172,6 +2203,16 @@ select {
 }
 
 .shell-md-modal__body ul,
+.shell-inline-editor__preview-body ul {
+	list-style: disc;
+}
+
+.shell-md-modal__body ol,
+.shell-inline-editor__preview-body ol {
+	list-style: decimal;
+}
+
+.shell-md-modal__body ul,
 .shell-md-modal__body ol,
 .shell-inline-editor__preview-body ul,
 .shell-inline-editor__preview-body ol {
@@ -2456,7 +2497,7 @@ select {
 	background: var(--panel-bg);
 	color: var(--text-primary);
 	border: 2px solid var(--panel-border);
-	border-radius: 8px;
+	border-radius: var(--radius-md);
 	box-shadow: none;
 	z-index: 50;
 	overflow: hidden;
@@ -2482,7 +2523,7 @@ select {
 	align-items: center;
 	justify-content: flex-end;
 	gap: 8px;
-	padding: 6px 12px 0;
+	padding: 6px 14px 0;
 }
 
 .shell-files-overlay__list {
@@ -2548,7 +2589,7 @@ select {
 	font-size: 14px;
 	background: rgba(255, 255, 255, 0.04);
 	border: 2px solid var(--panel-border);
-	border-radius: 6px;
+	border-radius: var(--radius-sm);
 	outline: none;
 }
 
@@ -2578,7 +2619,7 @@ select {
 .shell-files-overlay__footer-hints kbd {
 	padding: 2px 6px;
 	border: 2px solid var(--panel-border);
-	border-radius: 4px;
+	border-radius: var(--radius-sm);
 	background: rgba(255, 255, 255, 0.04);
 	font-size: 11px;
 }
@@ -4428,12 +4469,12 @@ select {
 .files-pane__modes {
 	position: absolute;
 	right: 4px;
-	top: 6px;
-	height: 36px;
+	top: 50%;
+	transform: translateY(-50%);
+	height: 26px;
 	display: flex;
 	align-items: stretch;
 	gap: 2px;
-	padding: 3px 0;
 }
 
 .files-pane__mode-btn {

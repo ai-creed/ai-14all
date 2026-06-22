@@ -2,6 +2,7 @@ import type {
 	EcosystemPluginId,
 	PluginSnapshot,
 } from "../../../../shared/models/ecosystem-plugin";
+import { Icon } from "@/components/ui/icon";
 
 export type PluginDescriptor = {
 	title: string;
@@ -91,7 +92,7 @@ export function PluginCard(props: {
 						props.onReadMore?.(descriptor.repoUrl);
 					}}
 				>
-					Read more on GitHub ↗
+					Read more on GitHub <Icon name="external-link" />
 				</a>
 			</div>
 		</div>

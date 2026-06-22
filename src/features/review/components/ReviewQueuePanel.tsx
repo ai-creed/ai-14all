@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Icon } from "@/components/ui/icon";
 import type {
 	ReviewComment,
 	ReviewCommentSource,
@@ -205,14 +206,18 @@ function FileGroups({
 											aria-label={c.status === "open" ? "Address" : "Reopen"}
 											onClick={() => onToggleAddressed(c.id)}
 										>
-											{c.status === "open" ? "✓" : "↺"}
+											{c.status === "open" ? (
+												<Icon name="check" />
+											) : (
+												<Icon name="refresh" />
+											)}
 										</button>
 										<button
 											type="button"
 											aria-label="Delete comment"
 											onClick={() => onDelete(c.id)}
 										>
-											×
+											<Icon name="close" />
 										</button>
 									</div>
 								</div>

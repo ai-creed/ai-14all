@@ -1,3 +1,5 @@
+import { Icon } from "@/components/ui/icon";
+
 type Props = {
 	sessionTitle: string;
 	worktreeLabel: string;
@@ -43,7 +45,7 @@ export function SessionChipBar({
 					aria-label="Rename session"
 					onClick={onRenameClick}
 				>
-					✎
+					<Icon name="edit" />
 				</button>
 			</div>
 
@@ -75,14 +77,12 @@ export function SessionChipBar({
 						title="Clean — no changes"
 						aria-label="Clean"
 					>
-						✓ clean
+						<Icon name="check" /> clean
 					</span>
 				)}
 			</div>
 
 			{usage && <div className="shell-chip-bar__usage">{usage}</div>}
-
-			{plugins && <div className="shell-chip-bar__plugins">{plugins}</div>}
 
 			<div className="shell-chip-bar__actions">
 				<button
@@ -92,10 +92,11 @@ export function SessionChipBar({
 					onClick={onFilesClick}
 				>
 					<span className="shell-chip-bar__action-icon" aria-hidden="true">
-						🗂
+						<Icon name="folder" />
 					</span>
 					Files
 				</button>
+				{plugins}
 				<button
 					type="button"
 					className="shell-chip-bar__action"
@@ -104,7 +105,7 @@ export function SessionChipBar({
 					onClick={onNoteClick}
 				>
 					<span className="shell-chip-bar__action-icon" aria-hidden="true">
-						📝
+						<Icon name="note" />
 					</span>
 					Note
 					{noteNonEmpty && (
