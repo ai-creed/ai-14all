@@ -73,7 +73,8 @@ export function parseCommandFrame(
 	const requestId =
 		raw !== null &&
 		typeof raw === "object" &&
-		typeof (raw as { requestId?: unknown }).requestId === "string"
+		typeof (raw as { requestId?: unknown }).requestId === "string" &&
+		(raw as { requestId: string }).requestId.length > 0
 			? (raw as { requestId: string }).requestId
 			: null;
 	return { ok: false, requestId };

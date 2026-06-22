@@ -44,6 +44,13 @@ describe("command-types", () => {
 		expect(r).toEqual({ ok: false, requestId: "req_3" });
 	});
 
+	it("treats an empty-string requestId as unrecoverable (null)", () => {
+		expect(parseCommandFrame({ type: "event", requestId: "" })).toEqual({
+			ok: false,
+			requestId: null,
+		});
+	});
+
 	it("serializes ok and error results", () => {
 		expect(
 			JSON.parse(serializeCommandResult(okResult("req_1", { focused: "a/b" }))),
