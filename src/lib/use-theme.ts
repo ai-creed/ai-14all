@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import type { Ai14AllDesktopApi } from "../../shared/contracts/commands";
 
-export type ThemeMode = "light" | "dark" | "system" | "warm";
+export type ThemeMode = "light" | "dark" | "system" | "warm" | "tui";
 export type ResolvedTheme = "light" | "dark";
 /** The value applied to the document's data-theme attribute. */
-type Palette = "light" | "dark" | "warm";
+type Palette = "light" | "dark" | "warm" | "tui";
 
 function getSystemTheme(): ResolvedTheme {
 	return window.matchMedia("(prefers-color-scheme: light)").matches

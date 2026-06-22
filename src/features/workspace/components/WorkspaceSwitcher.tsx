@@ -1,3 +1,5 @@
+import { Icon } from "@/components/ui/icon";
+
 type WorkspaceSwitcherProps = {
 	workspaces: { workspaceId: string; name: string }[];
 	activeWorkspaceId: string | null;
@@ -30,7 +32,7 @@ export function WorkspaceSwitcher({
 							aria-label={`Remove ${ws.name}`}
 							onClick={() => onRemove(ws.workspaceId)}
 						>
-							×
+							<Icon name="close" fallback="×" />
 						</button>
 					)}
 				</div>

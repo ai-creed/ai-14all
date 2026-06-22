@@ -12,6 +12,7 @@ import type { WorktreeProcessSummary } from "../logic/sidebar-shell-summary";
 import { displayTitle } from "../logic/session-display-title";
 import type { WorkflowRow as WorkflowRowModel } from "../../workflows/logic/workflow-lens";
 import { WorkflowRow } from "../../workflows/components/WorkflowRow";
+import { Icon } from "@/components/ui/icon";
 
 export type SessionSidebarWorkspace = {
 	workspaceId: string;
@@ -126,7 +127,7 @@ export function SessionSidebar({
 			data-collapsed={String(collapsed)}
 		>
 			<div className="shell-sidebar__header">
-				{!collapsed && <div className="shell-label">Sessions</div>}
+				{!collapsed && <div className="shell-label">Workspace</div>}
 				<Button
 					type="button"
 					variant="ghost"
@@ -134,7 +135,13 @@ export function SessionSidebar({
 					aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 					onClick={onToggleCollapsed}
 				>
-					<span aria-hidden="true">{collapsed ? "▸" : "◂"}</span>
+					<span aria-hidden="true">
+						{collapsed ? (
+							<Icon name="caret-right" />
+						) : (
+							<Icon name="caret-left" />
+						)}
+					</span>
 				</Button>
 			</div>
 
@@ -176,7 +183,7 @@ export function SessionSidebar({
 										aria-label={`Remove ${workspace.name}`}
 										onClick={() => onRemoveWorkspace(workspace.workspaceId)}
 									>
-										×
+										<Icon name="close" fallback="×" />
 									</Button>
 								</>
 							)}
@@ -483,6 +490,7 @@ export function SessionSidebar({
 									type="button"
 									variant="secondary"
 									size="sm"
+									className="w-full"
 									onClick={() => onCreateWorktree(workspace.workspaceId)}
 									aria-label="New session"
 								>
@@ -496,8 +504,9 @@ export function SessionSidebar({
 			<div className="shell-sidebar__footer shell-sidebar__footer--global">
 				<Button
 					type="button"
-					variant="secondary"
+					variant="outline"
 					size="sm"
+					className="w-full"
 					onClick={onLoadWorkspace}
 					aria-label="Load workspace"
 				>

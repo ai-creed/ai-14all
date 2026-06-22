@@ -8,6 +8,7 @@ dist/
 .claude/
 test-results/
 playwright-report/
+tests/__screenshots__/
 docs/superpowers/plans/
 docs/shared/*architecture-hardening*
 .worktrees/

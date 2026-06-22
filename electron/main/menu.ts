@@ -10,15 +10,18 @@ export function buildApplicationMenu(mainWindow: BrowserWindow): Menu {
 
 	const themeMenu: MenuItemConstructorOptions = {
 		label: "Theme",
-		submenu: (["system", "light", "dark", "warm"] as const).map((mode) => ({
-			label: {
-				system: "System",
-				light: "Light",
-				dark: "Dark",
-				warm: "Warm",
-			}[mode],
-			click: () => sendToRenderer("theme/set", mode),
-		})),
+		submenu: (["system", "light", "dark", "warm", "tui"] as const).map(
+			(mode) => ({
+				label: {
+					system: "System",
+					light: "Light",
+					dark: "Dark",
+					warm: "Warm",
+					tui: "Terminal UI",
+				}[mode],
+				click: () => sendToRenderer("theme/set", mode),
+			}),
+		),
 	};
 
 	const workspaceMenu: MenuItemConstructorOptions = {

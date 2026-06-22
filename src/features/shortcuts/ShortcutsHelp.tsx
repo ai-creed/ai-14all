@@ -4,6 +4,7 @@ import {
 	DialogContent,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { Icon } from "@/components/ui/icon";
 import { SHORTCUT_REGISTRY, type Platform } from "../../app/shortcut-registry";
 
 interface Props {
@@ -89,7 +90,7 @@ export function ShortcutsHelp({ open, platform, onClose }: Props) {
 							aria-label="Close shortcuts"
 							data-testid="shortcuts-help-close"
 						>
-							✕
+							<Icon name="close" />
 						</button>
 					</DialogClose>
 				</div>
