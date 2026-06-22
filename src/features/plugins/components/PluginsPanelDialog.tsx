@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import type {
 	AgentCliProbes,
 	EcosystemPluginId,
@@ -174,6 +174,7 @@ export function PluginsPanelDialog(props: {
 }): React.ReactElement {
 	const snapshots = usePluginsState();
 	const [agentClis, setAgentClis] = useState<AgentCliProbes | null>(null);
+	const [samanthaLink, setSamanthaLink] = useState<string>("connecting");
 
 	useEffect(() => {
 		if (!props.open) return;
@@ -181,6 +182,11 @@ export function PluginsPanelDialog(props: {
 		void plugins.reprobe();
 		void plugins.agentClis().then(setAgentClis);
 	}, [props.open]);
+
+	useEffect(
+		() => plugins.onSamanthaHealth((h) => setSamanthaLink(h.link)),
+		[],
+	);
 
 	return (
 		<Dialog.Root open={props.open} onOpenChange={props.onOpenChange}>
@@ -200,26 +206,36 @@ export function PluginsPanelDialog(props: {
 
 					<div className="plugins-panel__cards">
 						{snapshots.map((snapshot) => (
-							<PluginCard
-								key={snapshot.id}
-								descriptor={DESCRIPTORS[snapshot.id]}
-								snapshot={snapshot}
-								onToggle={(id, enabled) => {
-									void plugins.setEnabled(id, enabled);
-								}}
-								onInstall={props.onInstall}
-								onConfigure={
-									snapshot.id === "cortex"
-										? cortexConfigureHandler(agentClis, props.onConfigure)
-										: undefined
-								}
-								onReprobe={() => {
-									void plugins.reprobe();
-								}}
-								onReadMore={(url) => {
-									void system.openExternal(url).catch(() => undefined);
-								}}
-							/>
+							<React.Fragment key={snapshot.id}>
+								<PluginCard
+									descriptor={DESCRIPTORS[snapshot.id]}
+									snapshot={snapshot}
+									onToggle={(id, enabled) => {
+										void plugins.setEnabled(id, enabled);
+									}}
+									onInstall={props.onInstall}
+									onConfigure={
+										snapshot.id === "cortex"
+											? cortexConfigureHandler(agentClis, props.onConfigure)
+											: undefined
+									}
+									onReprobe={() => {
+										void plugins.reprobe();
+									}}
+									onReadMore={(url) => {
+										void system.openExternal(url).catch(() => undefined);
+									}}
+								/>
+								{snapshot.id === "samantha" &&
+									snapshot.status.state === "on-healthy" ? (
+									<p
+										className="plugin-substatus"
+										data-samantha-link={samanthaLink}
+									>
+										Samantha link: {samanthaLink.replace(/-/g, " ")}
+									</p>
+								) : null}
+							</React.Fragment>
 						))}
 					</div>
 
