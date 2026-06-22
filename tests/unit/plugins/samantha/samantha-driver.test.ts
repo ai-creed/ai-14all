@@ -400,6 +400,45 @@ describe("samantha-driver", () => {
 		await driver.stop();
 	});
 
+	it("swallows a throw from getWhisperStates without crashing and recovers", async () => {
+		// The first rebuild's getWhisperStates throws (e.g. a Whisper state.db read
+		// error). The driver must swallow it as a failed transient cycle — never let
+		// it become an unhandled rejection in main (this test passing proves no
+		// unhandled rejection failed the suite) — and recover on a later rebuild.
+		let whisperThrew = false;
+		const { client, calls } = okClient();
+		const driver = createSamanthaDriver({
+			client,
+			getIdentities: async () => ({
+				wt1: { repo: "ai-14all", branch: "main", path: "/w" },
+			}),
+			getReviewCount: () => 0,
+			getWhisperStates: async () => {
+				if (!whisperThrew) {
+					whisperThrew = true;
+					throw new Error("state.db read failed");
+				}
+				return [];
+			},
+			subscribeReviews: () => () => {},
+			subscribeWorktrees: () => () => {},
+			pushHealth: () => {},
+			now: () => 1000,
+			debounceMs: 10,
+			keepAliveMs: 100000,
+			reconnectMs: 50,
+		});
+		await driver.start(ctx);
+		// The first rebuild throws inside getWhisperStates; it must be swallowed.
+		await vi.advanceTimersByTimeAsync(30);
+		// Now feed a waiting slice and advance: getWhisperStates returns [] this time,
+		// so the driver recovers and PATCHes at least one snapshot.
+		driver.ingestSessionSlice(slice("waiting"));
+		await vi.advanceTimersByTimeAsync(30);
+		expect(calls.snapshot.length).toBeGreaterThan(0);
+		await driver.stop();
+	});
+
 	it("sends a keep-alive PATCH even when content is unchanged", async () => {
 		const { client, calls } = okClient();
 		const driver = createSamanthaDriver({

@@ -1699,30 +1699,35 @@ export function App() {
 
 	useEffect(() => {
 		if (startupMode !== "ready") return;
-		const inputs: {
-			worktreeId: string;
-			session: WorktreeSession;
-			processSessionsById: Record<string, ProcessSession>;
-		}[] = [];
-		for (const wsId of appWorkspacesRef.current.workspaceOrder) {
-			const state = appWorkspacesRef.current.workspacesById[wsId]?.workspaceState;
-			if (!state) continue;
-			for (const [worktreeId, session] of Object.entries(
-				state.sessionsByWorktreeId,
-			)) {
-				inputs.push({
-					worktreeId,
-					session,
-					processSessionsById: state.processSessionsById,
-				});
+		try {
+			const inputs: {
+				worktreeId: string;
+				session: WorktreeSession;
+				processSessionsById: Record<string, ProcessSession>;
+			}[] = [];
+			for (const wsId of appWorkspacesRef.current.workspaceOrder) {
+				const state =
+					appWorkspacesRef.current.workspacesById[wsId]?.workspaceState;
+				if (!state) continue;
+				for (const [worktreeId, session] of Object.entries(
+					state.sessionsByWorktreeId,
+				)) {
+					inputs.push({
+						worktreeId,
+						session,
+						processSessionsById: state.processSessionsById,
+					});
+				}
 			}
+			const slice = samanthaSliceBuilder.current.build(
+				inputs,
+				focusedWorktreeId,
+				startupMode,
+			);
+			pluginsClient.publishSamanthaSessionState(slice);
+		} catch {
+			// swallow — Samantha publish is best-effort, never break rendering
 		}
-		const slice = samanthaSliceBuilder.current.build(
-			inputs,
-			focusedWorktreeId,
-			startupMode,
-		);
-		pluginsClient.publishSamanthaSessionState(slice);
 		// Republish on: real attention movement (the existing `displayedAttentionKey`
 		// content hash), app readiness (`startupMode`), AND focus change
 		// (`focusedWorktreeId`) — the focus marker / summary must follow the selected

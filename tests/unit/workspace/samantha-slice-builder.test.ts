@@ -40,7 +40,7 @@ function sessionWith(state: "active" | "waiting", summary: string): WorktreeSess
 
 describe("createSamanthaSliceBuilder", () => {
 	it("emits a worktree slice with no history on the first build", () => {
-		let t = 100;
+		const t = 100;
 		const builder = createSamanthaSliceBuilder({ now: () => t });
 		const slice = builder.build(
 			[{ worktreeId: "wt1", session: sessionWith("active", "working"), processSessionsById: {} }],

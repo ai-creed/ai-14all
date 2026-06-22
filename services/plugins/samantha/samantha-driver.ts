@@ -215,7 +215,15 @@ export function createSamanthaDriver(
 				rerun = false;
 				const force = pendingForce;
 				pendingForce = false;
-				const patched = await rebuild(force);
+				let patched = false;
+				try {
+					patched = await rebuild(force);
+				} catch {
+					// A read tap (getIdentities/getWhisperStates) or client call threw: treat as a
+					// failed transient cycle — never let it become an unhandled rejection in main
+					// (graceful absence). The next scheduled/keep-alive rebuild retries.
+					patched = false;
+				}
 				// A forced keep-alive PATCH that bailed before sending must survive
 				// the bail, or the keep-alive is lost until the next ~30s tick.
 				if (force && !patched) pendingForce = true;

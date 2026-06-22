@@ -148,6 +148,8 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		runWhisperCommand: vi.fn(),
 		onStateChanged: vi.fn(() => vi.fn()),
 		onWhisperStateChanged: vi.fn(() => vi.fn()),
+		publishSamanthaSessionState: vi.fn(),
+		onSamanthaHealth: vi.fn(() => vi.fn()),
 	},
 }));
 
