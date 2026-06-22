@@ -183,10 +183,7 @@ export function PluginsPanelDialog(props: {
 		void plugins.agentClis().then(setAgentClis);
 	}, [props.open]);
 
-	useEffect(
-		() => plugins.onSamanthaHealth((h) => setSamanthaLink(h.link)),
-		[],
-	);
+	useEffect(() => plugins.onSamanthaHealth((h) => setSamanthaLink(h.link)), []);
 
 	return (
 		<Dialog.Root open={props.open} onOpenChange={props.onOpenChange}>
@@ -227,7 +224,7 @@ export function PluginsPanelDialog(props: {
 									}}
 								/>
 								{snapshot.id === "samantha" &&
-									snapshot.status.state === "on-healthy" ? (
+								snapshot.status.state === "on-healthy" ? (
 									<p
 										className="plugin-substatus"
 										data-samantha-link={samanthaLink}

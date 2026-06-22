@@ -1,6 +1,4 @@
-import type {
-	SamanthaSessionSlice,
-} from "../../../shared/contracts/plugins";
+import type { SamanthaSessionSlice } from "../../../shared/contracts/plugins";
 import type { WhisperWorktreeState } from "../../../shared/models/ecosystem-plugin";
 
 /** Identity main owns for a worktree. Keyed by worktreeId in ObserveInput. */

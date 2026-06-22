@@ -67,5 +67,10 @@ export function useTheme(): {
 		return bridge?.onSetTheme?.((next) => setMode(next));
 	}, []);
 
-	return { resolvedTheme: monacoThemeFor(palette), palette, mode, setTheme: setMode };
+	return {
+		resolvedTheme: monacoThemeFor(palette),
+		palette,
+		mode,
+		setTheme: setMode,
+	};
 }

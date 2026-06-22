@@ -38,7 +38,9 @@ function okClient(overrides: Partial<SamanthaConnectorClient> = {}) {
 	return { client, calls };
 }
 
-function slice(attention: SamanthaSessionSlice["worktrees"][number]["attention"]): SamanthaSessionSlice {
+function slice(
+	attention: SamanthaSessionSlice["worktrees"][number]["attention"],
+): SamanthaSessionSlice {
 	return {
 		worktrees: [
 			{
@@ -152,7 +154,11 @@ describe("samantha-driver", () => {
 		const { driver, health } = makeDriver(client);
 		await driver.start(ctx);
 		await vi.advanceTimersByTimeAsync(30);
-		expect(health.some((h) => h.link === "reconnecting" || h.link === "samantha-not-running")).toBe(true);
+		expect(
+			health.some(
+				(h) => h.link === "reconnecting" || h.link === "samantha-not-running",
+			),
+		).toBe(true);
 		refuse = false;
 		await vi.advanceTimersByTimeAsync(120);
 		expect(calls.register.length).toBeGreaterThan(1);

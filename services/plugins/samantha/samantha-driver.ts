@@ -1,8 +1,5 @@
 // services/plugins/samantha/samantha-driver.ts
-import type {
-	EcosystemPlugin,
-	PluginContext,
-} from "../plugin-registry";
+import type { EcosystemPlugin, PluginContext } from "../plugin-registry";
 import type {
 	SamanthaHealth,
 	SamanthaSessionSlice,

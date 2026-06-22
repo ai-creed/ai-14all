@@ -70,7 +70,8 @@ export function createSamanthaSliceBuilder(opts?: {
 				};
 			});
 			// Forget worktrees that closed so the ring map does not leak.
-			for (const id of [...tracked.keys()]) if (!seen.has(id)) tracked.delete(id);
+			for (const id of [...tracked.keys()])
+				if (!seen.has(id)) tracked.delete(id);
 			return { worktrees: slices, app: { focusedWorktreeId, mode } };
 		},
 	};

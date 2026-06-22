@@ -23,7 +23,8 @@ function makeFakeIpcMain() {
 		on: (channel: string, fn: (event: unknown, raw: unknown) => void) => {
 			listeners.set(channel, fn);
 		},
-		removeListener: (channel: string, _fn: unknown) => listeners.delete(channel),
+		removeListener: (channel: string, _fn: unknown) =>
+			listeners.delete(channel),
 		invoke: (channel: string, raw?: unknown) =>
 			handlers.get(channel)?.({}, raw),
 	};

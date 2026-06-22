@@ -21,7 +21,9 @@ function sessionSignal(attention: AgentAttentionState): SamanthaSignal {
 	return "update"; // active | stale | idle
 }
 
-function whisperSignal(state: WhisperWorktreeState | undefined): SamanthaSignal {
+function whisperSignal(
+	state: WhisperWorktreeState | undefined,
+): SamanthaSignal {
 	if (!state) return "update";
 	if (state.escalation !== null) return "attentionRequired";
 	if (state.workflow?.status === "halted") return "attentionRequired";
@@ -105,7 +107,8 @@ export function assembleObserve(input: ObserveInput): ObserveOutput {
 		].filter((f) => f.length > 0);
 
 		const prefix = worktreeId === focusedId ? "★ " : "";
-		details[`${identity.repo}/${identity.branch}`] = prefix + fields.join(" · ");
+		details[`${identity.repo}/${identity.branch}`] =
+			prefix + fields.join(" · ");
 		digest.push(`${identity.branch} ${attention}`);
 	}
 

@@ -7,7 +7,12 @@ let server: Server | null = null;
 let port = 0;
 const received: { method: string; url: string; body: string }[] = [];
 
-function listen(handler: (req: import("node:http").IncomingMessage, body: string) => { status: number }): Promise<void> {
+function listen(
+	handler: (
+		req: import("node:http").IncomingMessage,
+		body: string,
+	) => { status: number },
+): Promise<void> {
 	return new Promise((resolve) => {
 		server = createServer((req, res) => {
 			let body = "";
@@ -82,17 +87,32 @@ describe("samantha-connector-client", () => {
 		await listen((req) => ({ status: req.method === "PATCH" ? 404 : 409 }));
 		const client = createSamanthaConnectorClient({ port });
 		expect(
-			await client.patchSnapshot({ summary: "", status: "ok", details: {}, updatedAt: 0 }),
+			await client.patchSnapshot({
+				summary: "",
+				status: "ok",
+				details: {},
+				updatedAt: 0,
+			}),
 		).toEqual({ ok: false, reason: "not-found" });
 		expect(
-			await client.register({ id: "ai-14all", label: "ai-14all", description: "", capabilities: [] }),
+			await client.register({
+				id: "ai-14all",
+				label: "ai-14all",
+				description: "",
+				capabilities: [],
+			}),
 		).toEqual({ ok: false, reason: "conflict" });
 	});
 
 	it("maps a refused connection to refused", async () => {
 		// No server on this port.
 		const client = createSamanthaConnectorClient({ port: 1 });
-		const r = await client.patchSnapshot({ summary: "", status: "ok", details: {}, updatedAt: 0 });
+		const r = await client.patchSnapshot({
+			summary: "",
+			status: "ok",
+			details: {},
+			updatedAt: 0,
+		});
 		expect(r).toEqual({ ok: false, reason: "refused" });
 	});
 

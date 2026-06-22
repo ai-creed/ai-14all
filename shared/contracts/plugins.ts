@@ -123,7 +123,10 @@ export type SamanthaWorktreeSlice = {
 
 export type SamanthaSessionSlice = {
 	worktrees: SamanthaWorktreeSlice[];
-	app: { focusedWorktreeId: string | null; mode: "loading" | "prompt" | "ready" };
+	app: {
+		focusedWorktreeId: string | null;
+		mode: "loading" | "prompt" | "ready";
+	};
 };
 
 export type SamanthaHealth = {

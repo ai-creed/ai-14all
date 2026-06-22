@@ -715,7 +715,9 @@ describe("SessionSidebar theme toggle", () => {
 				onThemeToggle={onThemeToggle}
 			/>,
 		);
-		fireEvent.click(screen.getByRole("button", { name: "Switch to system theme" }));
+		fireEvent.click(
+			screen.getByRole("button", { name: "Switch to system theme" }),
+		);
 		expect(onThemeToggle).toHaveBeenCalledOnce();
 	});
 
