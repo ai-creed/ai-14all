@@ -11,7 +11,21 @@ import type {
 	SamanthaConnectorClient,
 	SnapshotBody,
 } from "./samantha-connector-client";
-import type { SamanthaSignal, WorktreeIdentity } from "./observe-types";
+import type {
+	ObserveInput,
+	SamanthaSignal,
+	WorktreeIdentity,
+} from "./observe-types";
+import {
+	renderReport,
+	resolveWorktreeKey,
+} from "./samantha-command-capabilities";
+import { createSamanthaCommandDispatcher } from "./samantha-command-dispatcher";
+import {
+	createSamanthaCommandClient,
+	type SamanthaCommandClient,
+	type WebSocketCtor,
+} from "./samantha-command-client";
 
 export type SamanthaDriverOptions = {
 	client: SamanthaConnectorClient;
@@ -21,10 +35,15 @@ export type SamanthaDriverOptions = {
 	subscribeReviews: (cb: () => void) => () => void;
 	subscribeWorktrees: (cb: () => void) => () => void;
 	pushHealth: (h: SamanthaHealth) => void;
+	focusWorktree: (worktreeId: string) => void;
 	now?: () => number;
 	debounceMs?: number;
 	keepAliveMs?: number;
 	reconnectMs?: number;
+	webSocketImpl?: WebSocketCtor;
+	commandPort?: number;
+	commandReconnectMs?: number;
+	log?: (message: string, error?: unknown) => void;
 };
 
 const SPEECH_WORTHY = new Set<SamanthaSignal>([
@@ -34,6 +53,11 @@ const SPEECH_WORTHY = new Set<SamanthaSignal>([
 ]);
 
 const DESCRIPTION = "ai-14all coding sessions across your worktrees";
+
+const CAPABILITIES = [
+	{ id: "focus-worktree", title: "Focus a worktree" },
+	{ id: "session-report", title: "Report session status" },
+];
 
 export function createSamanthaDriver(
 	options: SamanthaDriverOptions,
@@ -62,6 +86,47 @@ export function createSamanthaDriver(
 		options.pushHealth({ link });
 	}
 
+	async function gather(): Promise<ObserveInput> {
+		const [identities, whisper] = await Promise.all([
+			options.getIdentities(),
+			options.getWhisperStates(),
+		]);
+		const reviewCounts: Record<string, number> = {};
+		for (const id of Object.keys(identities))
+			reviewCounts[id] = options.getReviewCount(id);
+		return { identities, reviewCounts, whisper, session };
+	}
+
+	const dispatcher = createSamanthaCommandDispatcher(
+		{
+			buildReport: async () => renderReport(assembleObserve(await gather())),
+			resolveWorktree: async (key) =>
+				resolveWorktreeKey(await options.getIdentities(), key),
+			focusWorktree: options.focusWorktree,
+		},
+		{ log: options.log },
+	);
+
+	const commandPort =
+		options.commandPort ??
+		(Number(process.env.AI_SAMANTHA_CONNECTOR_PORT) || 7841);
+	const commandClient: SamanthaCommandClient | null = options.webSocketImpl
+		? createSamanthaCommandClient({
+				url: `ws://127.0.0.1:${commandPort}/connectors/ai-14all/events`,
+				dispatcher,
+				WebSocketImpl: options.webSocketImpl,
+				reconnectMs: options.commandReconnectMs,
+				log: options.log,
+			})
+		: null;
+
+	function setRegistered(value: boolean): void {
+		if (value === registered) return;
+		registered = value;
+		if (value) commandClient?.connect();
+		else commandClient?.close();
+	}
+
 	function scheduleReconnect(): void {
 		if (stopped || reconnectTimer !== null) return;
 		health("reconnecting");
@@ -80,16 +145,16 @@ export function createSamanthaDriver(
 			id: "ai-14all",
 			label: "ai-14all",
 			description: DESCRIPTION,
-			capabilities: [],
+			capabilities: CAPABILITIES,
 		});
 		// conflict => already registered; treat as success.
 		if (r.ok || (!r.ok && r.reason === "conflict")) {
-			registered = true;
+			setRegistered(true);
 			lastBody = null; // force a fresh full snapshot after (re)connect
 			health("connected");
 			return true;
 		}
-		registered = false;
+		setRegistered(false);
 		health(r.reason === "refused" ? "samantha-not-running" : "reconnecting");
 		return false;
 	}
@@ -108,15 +173,9 @@ export function createSamanthaDriver(
 		}
 		// Review counts over ALL worktrees main owns (not just session ones), so
 		// reviews show even before the renderer's first slice.
-		const [identities, whisper] = await Promise.all([
-			options.getIdentities(),
-			options.getWhisperStates(),
-		]);
-		const reviewCounts: Record<string, number> = {};
-		for (const id of Object.keys(identities))
-			reviewCounts[id] = options.getReviewCount(id);
-
-		const out = assembleObserve({ identities, reviewCounts, whisper, session });
+		const input = await gather();
+		const identities = input.identities;
+		const out = assembleObserve(input);
 
 		const body: SnapshotBody = {
 			summary: out.summary,
@@ -136,7 +195,7 @@ export function createSamanthaDriver(
 			// Samantha restarted and dropped our registration: re-register, then
 			// re-PATCH a fresh full snapshot BEFORE any event can be posted.
 			if (!r.ok && r.reason === "not-found") {
-				registered = false;
+				setRegistered(false);
 				if (await ensureRegistered()) {
 					r = await options.client.patchSnapshot(body);
 				}
@@ -145,7 +204,7 @@ export function createSamanthaDriver(
 				// PATCH still failing: reconnect and bail. Never POST an event
 				// without a successful preceding PATCH. No PATCH landed this cycle,
 				// so a forced keep-alive obligation must survive (return false).
-				registered = false;
+				setRegistered(false);
 				scheduleReconnect();
 				return false;
 			}
@@ -176,7 +235,7 @@ export function createSamanthaDriver(
 				// transition is re-emitted once the link is restored. In both bails
 				// below a PATCH already succeeded this cycle, so a forced keep-alive
 				// obligation is already met (return true).
-				registered = false;
+				setRegistered(false);
 				if (r.reason === "not-found") {
 					// Restart: re-register AND immediately re-PATCH a fresh full
 					// snapshot so Samantha is current before the retried event POST
@@ -246,7 +305,7 @@ export function createSamanthaDriver(
 		probe: () => probeSamantha(),
 		async start(_ctx: PluginContext) {
 			stopped = false;
-			registered = false;
+			setRegistered(false);
 			lastBody = null;
 			lastSignals = {};
 			pendingForce = false;
@@ -266,7 +325,7 @@ export function createSamanthaDriver(
 			debounceTimer = keepAliveTimer = reconnectTimer = null;
 			for (const u of unsubscribers.splice(0)) u();
 			if (registered) await options.client.unregister();
-			registered = false;
+			setRegistered(false);
 			health("samantha-not-running");
 		},
 		ingestSessionSlice(slice: SamanthaSessionSlice) {

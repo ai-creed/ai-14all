@@ -290,6 +290,8 @@ app.whenReady().then(async () => {
 		subscribeWorktrees: (cb) => workspaceRegistry.onChange(cb),
 		pushHealth: (health) =>
 			pushSamanthaHealth(() => mainWindow.webContents, health),
+		// TODO: wire to the renderer IPC focus handler in a follow-up task.
+		focusWorktree: (_worktreeId) => {},
 	});
 
 	const pluginRegistry = createPluginRegistry(
