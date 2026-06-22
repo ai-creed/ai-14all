@@ -8,6 +8,7 @@ import {
 	PLUGINS_WHISPER_COMMAND,
 	PLUGINS_WHISPER_STATE_CHANGED,
 	PLUGINS_SAMANTHA_HEALTH,
+	PLUGINS_SAMANTHA_FOCUS_WORKTREE,
 	PLUGINS_SAMANTHA_SESSION_STATE,
 	SamanthaSessionSliceSchema,
 	SetPluginEnabledSchema,
@@ -15,6 +16,7 @@ import {
 	type WhisperCommand,
 	type WhisperCommandResult,
 	type SamanthaHealth,
+	type SamanthaFocusWorktree,
 } from "../../shared/contracts/plugins.js";
 import type { SamanthaSessionSlice } from "../../shared/contracts/plugins.js";
 import type {
@@ -125,4 +127,12 @@ export function pushSamanthaHealth(
 	health: SamanthaHealth,
 ): void {
 	getWebContents()?.send(PLUGINS_SAMANTHA_HEALTH, health);
+}
+
+/** Called by the samantha driver to push a focus-worktree request to the renderer. */
+export function pushSamanthaFocusWorktree(
+	getWebContents: () => WebContents | null,
+	payload: SamanthaFocusWorktree,
+): void {
+	getWebContents()?.send(PLUGINS_SAMANTHA_FOCUS_WORKTREE, payload);
 }
