@@ -394,7 +394,17 @@ app.whenReady().then(async () => {
 		sendUnmanagedInput: (sessionId, data) => {
 			if (actingSendInput === null)
 				return { ok: false, detail: "terminal service not ready" };
-			actingSendInput(sessionId, data.endsWith("\n") ? data : `${data}\n`);
+			try {
+				// The session in the slice snapshot may have closed before dispatch;
+				// TerminalService.sendInput throws on an unknown session. Honor the
+				// {ok,detail} contract so ActGuard records a result audit, not a throw.
+				actingSendInput(sessionId, data.endsWith("\n") ? data : `${data}\n`);
+			} catch (error) {
+				return {
+					ok: false,
+					detail: error instanceof Error ? error.message : "send failed",
+				};
+			}
 			return { ok: true, detail: "sent" };
 		},
 	});

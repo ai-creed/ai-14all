@@ -99,4 +99,33 @@ describe("act-guard", () => {
 		expect(r).toEqual({ ok: false, code: "internal", message: "exit 1" });
 		expect(audit).toHaveBeenCalledTimes(2);
 	});
+
+	it("execute THROWS (e.g. stale PTY session) → internal; STILL audits start + result", async () => {
+		const { guard, audit } = make({
+			execute: async () => {
+				throw new Error("Terminal session not found: sess_1");
+			},
+		});
+		const r = await guard.run({ token: "tok", prepare: okPrep });
+		expect(r).toEqual({
+			ok: false,
+			code: "internal",
+			message: "Terminal session not found: sess_1",
+		});
+		// The result audit MUST still fire — a thrown execute cannot leave a start
+		// entry with no matching result entry.
+		expect(audit).toHaveBeenCalledTimes(2);
+		expect(audit).toHaveBeenNthCalledWith(
+			1,
+			expect.objectContaining({ phase: "start", route: "send-input", result: null }),
+		);
+		expect(audit).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({
+				phase: "result",
+				route: "send-input",
+				result: { ok: false, detail: "Terminal session not found: sess_1" },
+			}),
+		);
+	});
 });

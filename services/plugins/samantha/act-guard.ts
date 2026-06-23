@@ -119,7 +119,12 @@ export function createActGuard(deps: ActGuardDeps): {
 				};
 			}
 
-			// Executing path: audit start, execute, audit result.
+			// Executing path: audit start, execute, audit result. The result audit
+			// MUST fire for every outcome, so a thrown/rejected execute is converted
+			// into an ok:false result here rather than propagating past the chokepoint
+			// — otherwise the result audit is skipped and the "every outcome recorded"
+			// guarantee breaks (e.g. a stale unmanaged sessionId makes the PTY
+			// sendInput throw).
 			deps.audit({
 				phase: "start",
 				ts,
@@ -130,7 +135,15 @@ export function createActGuard(deps: ActGuardDeps): {
 				rejectCode: null,
 				result: null,
 			});
-			const result = await deps.execute(prep.worktreeId, prep.decision);
+			let result: { ok: boolean; detail: string };
+			try {
+				result = await deps.execute(prep.worktreeId, prep.decision);
+			} catch (error) {
+				result = {
+					ok: false,
+					detail: error instanceof Error ? error.message : String(error),
+				};
+			}
 			deps.audit({
 				phase: "result",
 				ts: now(),
