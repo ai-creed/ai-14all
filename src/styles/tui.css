@@ -236,8 +236,11 @@
 	background: var(--primary);
 }
 
-/* Clean session status (✓ clean): text-muted is too dim to read on bg0. */
+/* Clean session status (✓ clean): --accent resolves to the dark bg2 step in
+ * TUI, so the base pill reads dark-on-dark. Pin to the cursor accent and tint
+ * the background to match — mirrors the review chipbar's clean pill below. */
 [data-theme="tui"] .shell-chip-bar__clean {
+	background: color-mix(in srgb, var(--primary) 14%, transparent);
 	color: var(--primary);
 }
 
