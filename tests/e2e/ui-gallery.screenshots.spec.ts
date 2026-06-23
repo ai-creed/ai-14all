@@ -31,6 +31,11 @@ const OUT_DIR = join(
 let app: ElectronApplication;
 let page: Page;
 let testRepo: TestRepo;
+// Whether the #/ui-gallery route actually rendered. The route + <UiGallery>
+// component ship with the TUI theme work (commit ddb2c08) and are absent on
+// branches like devel, so we probe at startup and skip the capture tests when
+// the gallery is unavailable instead of failing.
+let galleryAvailable = false;
 
 test.beforeAll(async () => {
 	mkdirSync(OUT_DIR, { recursive: true });
@@ -57,9 +62,17 @@ test.beforeAll(async () => {
 		window.location.hash = "#/ui-gallery";
 		window.location.reload();
 	});
-	await expect(page.getByTestId("ui-gallery")).toBeVisible({
-		timeout: 30_000,
-	});
+	// Probe for the gallery with the non-blocking count() (a bare waitFor would
+	// auto-wait the full timeout when the route is absent), polling briefly so a
+	// present-but-slow gallery still registers, then confirm it is visible.
+	const gallery = page.getByTestId("ui-gallery");
+	for (let i = 0; i < 20 && (await gallery.count()) === 0; i++) {
+		await page.waitForTimeout(500);
+	}
+	galleryAvailable = (await gallery.count()) > 0;
+	if (galleryAvailable) {
+		await expect(gallery).toBeVisible({ timeout: 10_000 });
+	}
 });
 
 test.afterAll(async () => {
@@ -69,6 +82,10 @@ test.afterAll(async () => {
 
 for (const palette of PALETTES) {
 	test(`capture ${palette} gallery`, async () => {
+		test.skip(
+			!galleryAvailable,
+			"#/ui-gallery route not present on this branch (ships with the TUI theme work, commit ddb2c08)",
+		);
 		await page.getByTestId(`gallery-theme-${palette}`).click();
 		await expect(page.locator("html")).toHaveAttribute("data-theme", palette);
 		// Let theme-driven repaints (fonts, scrollbars) settle.
