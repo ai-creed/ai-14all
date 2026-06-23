@@ -72,6 +72,39 @@ describe("createPluginRegistry", () => {
 		});
 	});
 
+	it("surfaces the probe's evaluator readiness onto the snapshot", async () => {
+		const driver = fakeDriver({
+			probe: vi.fn(
+				async (): Promise<ProbeResult> => ({
+					kind: "installed",
+					version: "0.6.0",
+					installPath: "/x",
+					protocolVersion: "1",
+					evaluator: { status: "missing_anthropic_key", ready: false },
+				}),
+			),
+		});
+		const registry = createPluginRegistry(
+			[driver],
+			fakeConfig({ enabled: true }),
+		);
+		await registry.boot();
+		expect(registry.snapshots()[0].evaluator).toEqual({
+			status: "missing_anthropic_key",
+			ready: false,
+		});
+	});
+
+	it("leaves evaluator undefined when the probe does not report it", async () => {
+		const driver = fakeDriver(); // probe returns installed with no evaluator
+		const registry = createPluginRegistry(
+			[driver],
+			fakeConfig({ enabled: true }),
+		);
+		await registry.boot();
+		expect(registry.snapshots()[0].evaluator).toBeUndefined();
+	});
+
 	it("boot: not-installed + enabled → does not start, status not-installed", async () => {
 		const driver = fakeDriver({
 			probe: vi.fn(

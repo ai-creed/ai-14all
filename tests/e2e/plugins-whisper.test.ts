@@ -346,4 +346,66 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 
 		rmSync(agentStubs.binDir, { recursive: true, force: true });
 	});
+
+	test("evaluator-not-configured warning shows on the whisper card when reported", async () => {
+		repo = createTestRepo();
+		stub = setUpWhisperStub({ enabled: false });
+		// Stub `whisper env --json` to report a missing evaluator key. The probe
+		// runs even while the plugin is off, so the warning surfaces regardless.
+		await launch({
+			WHISPER_STUB_EVALUATOR: JSON.stringify({
+				status: "missing_anthropic_key",
+				ready: false,
+			}),
+		});
+		await loadRepoAndSelectWorktree();
+
+		await page.getByRole("button", { name: "Open Plugins panel" }).click();
+		await expect(page.locator('[data-plugin-id="whisper"]')).toBeVisible({
+			timeout: 15_000,
+		});
+
+		const warning = page.locator(
+			'[data-evaluator-status="missing_anthropic_key"]',
+		);
+		await expect(warning).toBeVisible({ timeout: 15_000 });
+		await expect(warning).toContainText(/evaluator/i);
+		// Hedges about a shell-exported key rather than crying wolf.
+		await expect(warning).toContainText(/ANTHROPIC_API_KEY/);
+	});
+
+	test("Configure injects `whisper skill install --force`", async () => {
+		repo = createTestRepo();
+		stub = setUpWhisperStub({ enabled: false });
+		// A no-op shell so the injected Configure command launches a terminal (the
+		// injection is what we assert) without actually running `whisper skill
+		// install` on the host.
+		const noopShell = join(stub.stateRoot, "noop-shell");
+		writeFileSync(noopShell, "#!/bin/sh\nexec cat >/dev/null\n", "utf8");
+		chmodSync(noopShell, 0o755);
+		await launch({ SHELL: noopShell });
+		await loadRepoAndSelectWorktree();
+
+		await page.getByRole("button", { name: "Open Plugins panel" }).click();
+		const card = page.locator('[data-plugin-id="whisper"]');
+		await expect(card).toBeVisible({ timeout: 15_000 });
+
+		// The button shows on an installed (even disabled) whisper because
+		// PluginsPanelDialog passes a static onConfigure for whisper.
+		await card.getByRole("button", { name: "Configure" }).click();
+
+		// handlePluginInstall sets window.__lastPluginCommand synchronously, but the
+		// React onClick is async, so poll briefly.
+		await expect
+			.poll(
+				() =>
+					page.evaluate(
+						() =>
+							(window as unknown as { __lastPluginCommand?: string })
+								.__lastPluginCommand ?? null,
+					),
+				{ timeout: 10_000 },
+			)
+			.toBe("whisper skill install --force");
+	});
 });

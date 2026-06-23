@@ -127,11 +127,18 @@ export function createPluginRegistry(
 			.filter((entry) => !hidden.has(entry.driver.id))
 			.map((entry) => {
 				const cfg = config.get(entry.driver.id);
+				const probe = entry.probe;
 				return {
 					id: entry.driver.id,
 					enabled: cfg.enabled,
 					installPath: cfg.installPath,
 					status: statusOf(entry, cfg.enabled, unsupported[entry.driver.id]),
+					// Pass the probe's evaluator readiness straight through (orthogonal to
+					// `status`). Only "installed" probes carry it, and only for whisper —
+					// so absence means "no warning to show".
+					...(probe?.kind === "installed" && probe.evaluator
+						? { evaluator: probe.evaluator }
+						: {}),
 				};
 			});
 	}

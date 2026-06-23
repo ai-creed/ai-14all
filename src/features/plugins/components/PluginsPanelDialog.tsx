@@ -80,6 +80,43 @@ export function cortexConfigureHandler(
 	return () => onConfigure(composeCortexConfigureCommand(probes, shell));
 }
 
+/**
+ * The ai-whisper "Configure" command. Per the ai-whisper README Quickstart, this
+ * installs the bundled agent skills the workflows rely on (verify / kickoff /
+ * report, plus `ai-whisper-code-review` and `ai-whisper-plan-execution`).
+ *
+ * Unlike cortex's Configure, this is a single static command: it does not depend
+ * on the agent-CLI probes — `whisper skill install` defaults to `--target all`
+ * and installs into each agent's skills dir itself. `--force` overwrites the
+ * bundled skills in place rather than erroring when a skill directory already
+ * exists, so the Configure button is safe to re-click (idempotent), matching
+ * cortex's re-runnable Configure.
+ */
+export function whisperConfigureCommand(): string {
+	return "whisper skill install --force";
+}
+
+/**
+ * Human-readable warning for a whisper evaluator that isn't ready, keyed on the
+ * EvaluatorStatus reason from `whisper env --json`. The workflows refuse to start
+ * without a configured evaluator, so this is a heads-up before the user tries one.
+ *
+ * The missing-key case hedges deliberately: a Finder/Dock-launched ai-14all has a
+ * bare GUI environment, so a shell-exported `ANTHROPIC_API_KEY` is invisible to
+ * the probe and would read as "missing" even when the daemon (started from a real
+ * shell) can see it. We say so rather than crying wolf.
+ */
+export function evaluatorWarning(status: string): string {
+	switch (status) {
+		case "missing_anthropic_key":
+			return "LLM evaluator not configured — workflows won't start without credentials. Add an Anthropic API key to ~/.ai-whisper/auth.json. (If you export ANTHROPIC_API_KEY in your shell instead, you can ignore this.)";
+		case "invalid_config":
+			return "LLM evaluator config is invalid — workflows won't start. Check ~/.ai-whisper/config.json and auth.json.";
+		default:
+			return "LLM evaluator isn't ready — workflows may refuse to start. See ai-whisper's evaluator setup.";
+	}
+}
+
 const DESCRIPTORS: Record<EcosystemPluginId, PluginDescriptor> = {
 	whisper: {
 		title: "ai-whisper",
@@ -214,7 +251,9 @@ export function PluginsPanelDialog(props: {
 									onConfigure={
 										snapshot.id === "cortex"
 											? cortexConfigureHandler(agentClis, props.onConfigure)
-											: undefined
+											: snapshot.id === "whisper"
+												? () => props.onConfigure(whisperConfigureCommand())
+												: undefined
 									}
 									onReprobe={() => {
 										void plugins.reprobe();
@@ -230,6 +269,16 @@ export function PluginsPanelDialog(props: {
 										data-samantha-link={samanthaLink}
 									>
 										Samantha link: {samanthaLink.replace(/-/g, " ")}
+									</p>
+								) : null}
+								{snapshot.id === "whisper" &&
+								snapshot.evaluator &&
+								!snapshot.evaluator.ready ? (
+									<p
+										className="plugin-substatus plugin-substatus--warning"
+										data-evaluator-status={snapshot.evaluator.status}
+									>
+										{evaluatorWarning(snapshot.evaluator.status)}
 									</p>
 								) : null}
 							</React.Fragment>

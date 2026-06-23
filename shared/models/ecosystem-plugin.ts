@@ -2,6 +2,15 @@ export const ECOSYSTEM_PLUGIN_IDS = ["whisper", "cortex", "samantha"] as const;
 
 export type EcosystemPluginId = (typeof ECOSYSTEM_PLUGIN_IDS)[number];
 
+/**
+ * LLM-evaluator credential readiness as reported by `whisper env --json`.
+ * `status` is whisper's EvaluatorStatus reason string (e.g. "ready",
+ * "missing_anthropic_key", "invalid_config"); `ready` is its boolean rollup.
+ * Kept as a plain `string` — like the other whisper read-contract pass-throughs —
+ * since the status value set is owned by whisper, not pinned here.
+ */
+export type EvaluatorReadiness = { ready: boolean; status: string };
+
 export type ProbeResult =
 	| { kind: "not-installed" }
 	| {
@@ -9,6 +18,13 @@ export type ProbeResult =
 			version: string;
 			installPath: string;
 			protocolVersion: string;
+			/**
+			 * whisper-only: LLM-evaluator credential readiness, lifted from
+			 * `whisper env --json`. Absent for plugins that don't report it
+			 * (cortex/samantha) and for whisper builds predating the field, so the
+			 * consumer treats absence as "no warning to show".
+			 */
+			evaluator?: EvaluatorReadiness;
 	  }
 	| { kind: "incompatible"; found: string; required: string }
 	// Binary resolved but the probe could not get a usable env report (failed to
@@ -34,6 +50,12 @@ export type PluginSnapshot = {
 	enabled: boolean;
 	installPath: string | null;
 	status: PluginRuntimeStatus;
+	/**
+	 * Present only when the probe reported it (whisper, new enough). Drives a
+	 * non-blocking "configure your LLM evaluator" warning on the card; orthogonal
+	 * to `status`, which stays a clean 1:1 map to the chip.
+	 */
+	evaluator?: EvaluatorReadiness;
 };
 
 // --- whisper driver renderer-facing state ---
@@ -101,6 +123,9 @@ export type WhisperEnvReport = {
 	stateRoot: string;
 	dbSchemaVersion: number;
 	protocolVersion: string;
+	// Optional: only whisper builds that ship the evaluator-readiness field emit
+	// it, so older engines parse fine and simply surface no warning.
+	evaluator?: EvaluatorReadiness;
 };
 
 // --- agent CLI probes (capability-probe-service, spec §3.4) ---

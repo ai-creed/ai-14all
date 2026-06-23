@@ -4826,6 +4826,11 @@ select {
 	border-color: var(--danger, #c4554d);
 	color: var(--danger, #c4554d);
 }
+.plugin-substatus--warning {
+	font-size: 0.7rem;
+	color: var(--danger, #c4554d);
+	margin: 0 0 var(--space-2);
+}
 .plugin-pitch {
 	font-size: 0.75rem;
 	color: var(--text-secondary);
