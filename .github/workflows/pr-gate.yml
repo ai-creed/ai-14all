@@ -1,0 +1,28 @@
+name: pr-gate
+on:
+  pull_request:
+    branches: [devel]
+concurrency:
+  group: pr-gate-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  gate:
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/ensure-electron.mjs
+      - name: Lint + format + typecheck
+        run: |
+          pnpm lint
+          pnpm format
+          pnpm typecheck
+      - name: Unit tests
+        run: pnpm test
+      - name: E2E tests
+        run: pnpm test:e2e

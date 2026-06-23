@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/icon";
 import { type AgentProvider, PROVIDER_LABEL } from "../logic/agent-launch";
 
 type Props = {
@@ -42,7 +43,7 @@ export function EmptySlotLauncher({
 							onClick={() => onLaunchAgent(provider, slotIndex)}
 						>
 							<span className="shell-chip-bar__action-icon" aria-hidden="true">
-								▸
+								<Icon name="caret-right" />
 							</span>
 							{PROVIDER_LABEL[provider]}
 						</button>
@@ -56,7 +57,13 @@ export function EmptySlotLauncher({
 				data-testid={`slot-cta-${slotIndex}`}
 				onClick={() => onStartShell(slotIndex)}
 			>
-				{hasAgents ? "or start a shell" : "＋ start a shell"}
+				{hasAgents ? (
+					"or start a shell"
+				) : (
+					<>
+						<Icon name="plus" /> start a shell
+					</>
+				)}
 			</button>
 		</div>
 	);

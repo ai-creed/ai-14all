@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import * as ContextMenu from "@radix-ui/react-context-menu";
+import {
+	ContextMenu,
+	ContextMenuContent,
+	ContextMenuItem,
+	ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import type { GitChange } from "../../../../shared/models/git-change";
 import { MarkdownPreviewModal } from "../../viewer/components/MarkdownPreviewModal";
 
@@ -88,40 +93,39 @@ export function ChangesList({
 						const isMd = change.path.endsWith(".md");
 
 						return (
-							<ContextMenu.Root key={change.path}>
-								<ContextMenu.Trigger asChild>{button}</ContextMenu.Trigger>
-								<ContextMenu.Portal>
-									<ContextMenu.Content className="shell-toolbar-menu">
-										{isMd && (
-											<ContextMenu.Item
-												className="shell-toolbar-menu__item"
-												onSelect={() => setPreviewPath(change.path)}
-											>
-												Preview
-											</ContextMenu.Item>
-										)}
-										<ContextMenu.Item
-											className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
-											onSelect={() => onDiscardChange(change.path)}
+							<ContextMenu key={change.path}>
+								<ContextMenuTrigger asChild>{button}</ContextMenuTrigger>
+								<ContextMenuContent className="shell-toolbar-menu">
+									{isMd && (
+										<ContextMenuItem
+											className="shell-toolbar-menu__item"
+											onSelect={() => setPreviewPath(change.path)}
 										>
-											Discard changes
-										</ContextMenu.Item>
-									</ContextMenu.Content>
-								</ContextMenu.Portal>
-							</ContextMenu.Root>
+											Preview
+										</ContextMenuItem>
+									)}
+									<ContextMenuItem
+										className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
+										onSelect={() => onDiscardChange(change.path)}
+									>
+										Discard changes
+									</ContextMenuItem>
+								</ContextMenuContent>
+							</ContextMenu>
 						);
 					})}
 				</div>
 			)}
-			{previewPath !== null && (
-				<MarkdownPreviewModal
-					workspaceId={workspaceId}
-					worktreeId={worktreeId}
-					relativePath={previewPath}
-					open={true}
-					onClose={() => setPreviewPath(null)}
-				/>
-			)}
+			{/* Always mounted, visibility driven by `open`: unmounting a Radix
+			    Dialog while it is still open skips its body pointer-events/aria
+			    cleanup and freezes the app. */}
+			<MarkdownPreviewModal
+				workspaceId={workspaceId}
+				worktreeId={worktreeId}
+				relativePath={previewPath ?? ""}
+				open={previewPath !== null}
+				onClose={() => setPreviewPath(null)}
+			/>
 		</>
 	);
 }

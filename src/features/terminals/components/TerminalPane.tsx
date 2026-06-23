@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { Terminal, type ITheme } from "xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "xterm-addon-search";
@@ -551,40 +553,44 @@ export function TerminalPane({
 								: `${findResults.resultIndex + 1} of ${findResults.resultCount}`
 							: ""}
 					</span>
-					<button
+					<Button
 						type="button"
-						className="shell-button shell-button--icon shell-button--compact"
+						variant="ghost"
+						size="icon"
 						aria-label="Match case"
 						aria-pressed={findCaseSensitive}
 						data-active={String(findCaseSensitive)}
 						onClick={() => setFindCaseSensitive((v) => !v)}
 					>
 						Aa
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
-						className="shell-button shell-button--icon shell-button--compact"
+						variant="ghost"
+						size="icon"
 						aria-label="Previous match"
 						onClick={() => runFind("prev")}
 					>
-						‹
-					</button>
-					<button
+						<Icon name="chevron-left" />
+					</Button>
+					<Button
 						type="button"
-						className="shell-button shell-button--icon shell-button--compact"
+						variant="ghost"
+						size="icon"
 						aria-label="Next match"
 						onClick={() => runFind("next")}
 					>
-						›
-					</button>
-					<button
+						<Icon name="chevron-right" />
+					</Button>
+					<Button
 						type="button"
-						className="shell-button shell-button--icon shell-button--compact"
+						variant="ghost"
+						size="icon"
 						aria-label="Close find"
 						onClick={closeFind}
 					>
-						×
-					</button>
+						<Icon name="close" fallback="×" />
+					</Button>
 				</div>
 			)}
 		</section>

@@ -7,23 +7,48 @@
 	font-display: swap;
 }
 
+/* Icons-only Nerd Font. Drives every chrome icon under the Terminal UI theme
+ * (data-theme="tui") via the <Icon> component; unused by the other palettes.
+ * Glyphs live in the Private Use Area, so this never shadows real text. */
+@font-face {
+	font-family: "Symbols Nerd Font";
+	src: url("../assets/fonts/SymbolsNerdFontMono-Regular.ttf") format("truetype");
+	font-weight: 400;
+	font-style: normal;
+	font-display: block;
+}
+
+/* Nerd Font glyph span emitted by <Icon>. Only ever visible under
+ * data-theme="tui" (Tailwind `tui:inline-block`); elsewhere the component
+ * keeps the original glyph/SVG and this stays display:none. */
+.app-nf {
+	font-family: "Symbols Nerd Font", var(--font-ui);
+	font-style: normal;
+	font-weight: 400;
+	font-variant: normal;
+	line-height: 1;
+	text-rendering: auto;
+	-webkit-font-smoothing: antialiased;
+}
+
+/* The glyph is drawn from the data-nf attribute via generated content so the
+ * Private-Use codepoint never enters the DOM text (keeps textContent, copy and
+ * screen readers clean). Only painted under the TUI palette. */
+[data-theme="tui"] .app-nf::before {
+	content: attr(data-nf);
+}
+
 :root {
-	--app-bg: #0b1116;
-	--panel-bg: #111a21;
-	--panel-bg-elevated: #16232c;
-	--panel-border: #24313d;
-	--panel-border-strong: #345767;
-	--text-primary: #eef7fa;
-	--text-secondary: #8fa4b1;
-	--text-muted: #6f8593;
-	--accent: #67d4b0;
-	--accent-strong: #15383d;
+	/* Surviving non-token shell vars: fonts, pane-accent borders, sha and
+	 * provider colors. shadcn design tokens now live in src/styles/tokens.css
+	 * and are bridged to the legacy app-bg, panel and text names there. */
+	/* Chrome border width. Themes that draw heavier box-drawing rules (TUI)
+	 * override this; light/dark/warm keep the original hairline. */
+	--shell-border-width: 1px;
 	--pane-border-sessions: rgba(79, 179, 255, 0.5);
 	--pane-border-session-info: rgba(246, 169, 74, 0.5);
 	--pane-border-terminal: rgba(67, 211, 158, 0.5);
 	--pane-border-review: rgba(243, 107, 138, 0.5);
-	--warning: #f0c37a;
-	--danger: #d98c8c;
 	--sha-color: #a78bfa;
 	--provider-claude: #d97706;
 	--provider-codex: #2563eb;
@@ -34,48 +59,20 @@
 		"AI14All Terminal Powerline", "Meslo LG M DZ for Powerline",
 		"Meslo LG M for Powerline", "Meslo LG M DZ Regular for Powerline", "Hack",
 		ui-monospace, Menlo, Monaco, monospace;
-	--radius-sm: 2px;
-	--radius-md: 3px;
-	--radius-lg: 4px;
-	--space-1: 4px;
-	--space-2: 8px;
-	--space-3: 12px;
-	--space-4: 16px;
-	--space-5: 20px;
-	--space-6: 24px;
-	font-family: var(--font-ui);
-	color: var(--text-primary);
-	background: var(--app-bg);
-}
-
-:root {
 	--font-size-body: 13px;
 	--font-size-label: 16px;
+	font-family: var(--font-ui);
 }
 
 [data-theme="light"] {
-	--app-bg: #f0f2f5;
-	--panel-bg: #ffffff;
-	--panel-bg-elevated: #f5f7f9;
-	--panel-border: #d0d7e0;
-	--panel-border-strong: #a8b8cc;
-	--text-primary: #1e2530;
-	--text-secondary: #4a5a70;
-	--text-muted: #7a8a9a;
-	--accent: #1a7fc1;
-	--accent-strong: #ddeeff;
 	--pane-border-sessions: rgba(30, 120, 220, 0.4);
 	--pane-border-session-info: rgba(180, 120, 30, 0.4);
 	--pane-border-terminal: rgba(30, 160, 100, 0.4);
 	--pane-border-review: rgba(200, 60, 80, 0.4);
-	--warning: #b07800;
-	--danger: #c0404a;
 	--sha-color: #6d4cbc;
 	--provider-claude: #b45309;
 	--provider-codex: #1d4ed8;
 	--provider-ezio: #b3247e;
-	color: var(--text-primary);
-	background: var(--app-bg);
 }
 
 [data-theme="light"] body {
@@ -100,28 +97,14 @@
  * text, and a terracotta accent. Preview with
  * document.documentElement.setAttribute("data-theme", "warm"). */
 [data-theme="warm"] {
-	--app-bg: #221c15;
-	--panel-bg: #2a231b;
-	--panel-bg-elevated: #342c22;
-	--panel-border: #4a3f31;
-	--panel-border-strong: #6d5b46;
-	--text-primary: #f6efe4;
-	--text-secondary: #cab999;
-	--text-muted: #9a8366;
-	--accent: #e58a5e;
-	--accent-strong: #3d2817;
 	--pane-border-sessions: rgba(108, 188, 184, 0.6);
 	--pane-border-session-info: rgba(228, 158, 80, 0.6);
 	--pane-border-terminal: rgba(226, 140, 96, 0.6);
 	--pane-border-review: rgba(220, 122, 110, 0.6);
-	--warning: #dda85e;
-	--danger: #d97058;
 	--sha-color: #c4a0db;
 	--provider-claude: #e58a5e;
 	--provider-codex: #5a9bd6;
 	--provider-ezio: #d97aae;
-	color: var(--text-primary);
-	background: var(--app-bg);
 }
 
 [data-theme="warm"] body {
@@ -172,7 +155,7 @@ select {
 
 .shell-panel {
 	background: transparent;
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-md);
 }
 
@@ -181,6 +164,33 @@ select {
 	height: 100vh;
 	gap: var(--space-4);
 	padding: var(--space-4);
+}
+
+/* shadcn DialogContent compatibility for pre-existing fully-custom dialogs.
+ * shadcn's <DialogContent> ships a styled frame (centering, max-width, grid,
+ * gap, padding, border, radius, shadow) via Tailwind utilities. These five
+ * dialogs predate the migration and define their own frame in the rules
+ * further below, so the injected utilities compose with — and fight — that
+ * custom layout. Most critically, shadcn centers via the CSS `translate`
+ * property, which is additive to these dialogs' own `transform`/edge
+ * positioning and pushed them off-screen. This reset is placed BEFORE those
+ * dialogs' own rules so each re-asserts what it sets; it only governs the
+ * shadcn-injected frame props the dialogs do NOT set themselves, restoring
+ * the exact pre-migration rendering. */
+.shell-layout-dialog,
+.shell-md-modal,
+.shell-shortcuts-help,
+.shell-note-sheet,
+.shell-files-overlay {
+	translate: none;
+	display: block;
+	gap: normal;
+	max-width: none;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	box-shadow: none;
+	background: none;
 }
 
 .shell-sidebar-column {
@@ -230,7 +240,7 @@ select {
    bar separates from the body ABOVE it). */
 .shell-review-expanded-portal__header.shell-review-chipbar {
 	border-top: none;
-	border-bottom: 1px solid var(--pane-border-review);
+	border-bottom: var(--shell-border-width) solid var(--pane-border-review);
 }
 
 .shell-review-expanded-portal__body {
@@ -264,7 +274,7 @@ select {
 	padding: 0;
 	color: var(--text-secondary);
 	background: transparent;
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: 999px;
 	cursor: pointer;
 	line-height: 1;
@@ -330,7 +340,7 @@ select {
 	word-break: break-word;
 	padding: 6px 8px;
 	background: var(--panel-bg-elevated);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	font-size: var(--font-size-body);
 }
@@ -347,10 +357,10 @@ select {
 .shell-session-note {
 	min-width: 0;
 	padding-left: var(--space-4);
-	border-left: 1px solid var(--panel-border);
+	border-left: var(--shell-border-width) solid var(--panel-border);
 }
 
-.shell-session-note .shell-input {
+.shell-session-note textarea {
 	margin-top: var(--space-2);
 	min-height: 112px;
 	resize: none;
@@ -407,7 +417,7 @@ select {
 	min-width: 0;
 	min-height: 0;
 	overflow: hidden;
-	border: 1px solid var(--pane-border-terminal);
+	border: var(--shell-border-width) solid var(--pane-border-terminal);
 	border-radius: var(--radius-md);
 }
 
@@ -466,28 +476,14 @@ select {
 	color: var(--text-muted);
 }
 
-.shell-input {
-	-webkit-appearance: none;
-	appearance: none;
-	box-sizing: border-box;
-	width: 100%;
-	margin-top: var(--space-2);
-	padding: var(--space-3);
-	color: var(--text-primary);
-	background: var(--panel-bg);
-	border: 1px solid var(--panel-border-strong);
-	border-radius: var(--radius-sm);
-	resize: vertical;
-	font: inherit;
-}
-
-.shell-input:hover:not(:disabled):not(:focus) {
-	border-color: var(--text-muted);
-}
-
-.shell-input:focus-visible {
-	outline: none;
-	border-color: var(--accent);
+/* Sidebar global title ("Workspace"): BOTTOM tier of the hierarchy — a small,
+ * muted, left-aligned section eyebrow. Scoped to the sidebar header so the
+ * session-info pane's .shell-label eyebrows are unaffected. */
+.shell-sidebar__header .shell-label {
+	font-size: 11px;
+	font-weight: 500;
+	letter-spacing: 0.12em;
+	text-align: left;
 }
 
 .shell-sidebar__rename-input {
@@ -499,7 +495,7 @@ select {
 	padding: var(--space-1) var(--space-2);
 	color: var(--text-primary);
 	background: var(--panel-bg);
-	border: 1px solid var(--panel-border-strong);
+	border: var(--shell-border-width) solid var(--panel-border-strong);
 	border-radius: var(--radius-sm);
 	font: inherit;
 	line-height: 1.3;
@@ -514,56 +510,9 @@ select {
 	border-color: var(--accent);
 }
 
-.shell-button:focus-visible,
 [role="tab"]:focus-visible {
-	outline: 1px solid var(--accent);
+	outline: var(--shell-border-width) solid var(--accent);
 	outline-offset: 1px;
-}
-
-.shell-button {
-	padding: 8px 12px;
-	color: var(--text-primary);
-	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
-	border-radius: var(--radius-sm);
-	cursor: pointer;
-}
-
-.shell-button:hover:not(:disabled) {
-	border-color: var(--text-muted);
-	color: var(--text-primary);
-}
-
-.shell-button:disabled {
-	opacity: 0.45;
-	cursor: not-allowed;
-}
-
-.shell-button--compact {
-	height: 32px;
-	padding: 0 10px;
-	font-size: var(--font-size-body);
-	line-height: 32px;
-}
-
-.shell-button--xs {
-	height: 22px;
-	padding: 0 10px;
-	font-size: 0.7rem;
-	line-height: 1;
-}
-
-.shell-button--icon {
-	width: 32px;
-	padding: 0;
-	display: grid;
-	place-items: center;
-	font-size: var(--font-size-label);
-	line-height: 32px;
-}
-
-.shell-button--round {
-	border-radius: 999px;
 }
 
 .shell-sidebar {
@@ -587,7 +536,7 @@ select {
 	justify-content: space-between;
 	gap: var(--space-2);
 	padding-bottom: var(--space-2);
-	border-bottom: 1px solid var(--panel-border);
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
 }
 
 .shell-sidebar[data-collapsed="true"] {
@@ -725,7 +674,7 @@ select {
  */
 .shell-sidebar__row {
 	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	overflow: hidden;
 	cursor: pointer;
@@ -749,6 +698,13 @@ select {
 	border: none;
 	cursor: pointer;
 	line-height: 1.3;
+}
+
+/* Session title: MIDDLE tier of the hierarchy — below the workspace name
+ * (17px/700), above the global eyebrow (11px/500). */
+.shell-sidebar__item strong {
+	font-size: 14px;
+	font-weight: 600;
 }
 
 /*
@@ -1026,7 +982,7 @@ select {
 
 .shell-sidebar__process-indicator[data-state="exited"] {
 	background: transparent;
-	border: 1px solid var(--text-muted);
+	border: var(--shell-border-width) solid var(--text-muted);
 }
 
 .shell-sidebar__process-label {
@@ -1071,7 +1027,7 @@ select {
 	height: 36px;
 	flex-shrink: 0;
 	background: var(--panel-bg);
-	border-bottom: 1px solid var(--panel-border);
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
 	overflow: hidden;
 }
 
@@ -1149,7 +1105,7 @@ select {
 
 .shell-chip-bar__dirty-chip {
 	background: none;
-	border: 1px solid var(--accent);
+	border: var(--shell-border-width) solid var(--accent);
 	color: var(--accent);
 	border-radius: var(--radius-md);
 	padding: 1px var(--space-2);
@@ -1172,7 +1128,7 @@ select {
 
 .shell-chip-bar__action {
 	background: none;
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	color: var(--text-secondary);
 	border-radius: var(--radius-md);
 	padding: 2px var(--space-2);
@@ -1270,7 +1226,7 @@ select {
 	gap: var(--space-1);
 	padding: var(--space-1) var(--space-2);
 	background: var(--panel-bg);
-	border: 1px solid var(--panel-border-strong);
+	border: var(--shell-border-width) solid var(--panel-border-strong);
 	border-radius: var(--radius-sm);
 	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 	z-index: 10;
@@ -1285,7 +1241,7 @@ select {
 	padding: var(--space-1) var(--space-2);
 	color: var(--text-primary);
 	background: var(--app-bg);
-	border: 1px solid var(--panel-border-strong);
+	border: var(--shell-border-width) solid var(--panel-border-strong);
 	border-radius: var(--radius-sm);
 	font: inherit;
 	line-height: 1.3;
@@ -1303,7 +1259,7 @@ select {
 	white-space: nowrap;
 }
 
-.shell-terminal-find .shell-button[data-active="true"] {
+.shell-terminal-find button[data-active="true"] {
 	color: var(--accent);
 	border-color: var(--accent);
 }
@@ -1328,7 +1284,7 @@ select {
 	padding: 6px 10px;
 	color: var(--text-primary);
 	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 }
 
@@ -1365,7 +1321,7 @@ select {
 	gap: 0;
 	padding: 0;
 	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-md);
 	overflow: hidden;
 }
@@ -1379,7 +1335,7 @@ select {
 	color: var(--text-secondary);
 	background: transparent;
 	border: none;
-	border-right: 1px solid var(--panel-border);
+	border-right: var(--shell-border-width) solid var(--panel-border);
 	border-radius: 0;
 	cursor: pointer;
 }
@@ -1442,7 +1398,7 @@ select {
 	text-align: left;
 	color: var(--text-primary);
 	background: var(--panel-bg);
-	border: 1px solid transparent;
+	border: var(--shell-border-width) solid transparent;
 	border-radius: var(--radius-sm);
 	cursor: pointer;
 	font-size: 0.82rem;
@@ -1464,7 +1420,7 @@ select {
 .shell-toolbar-menu {
 	padding: var(--space-2);
 	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	z-index: 50;
 }
@@ -1492,12 +1448,6 @@ select {
 
 .shell-toolbar-menu__item--danger {
 	color: var(--danger);
-}
-
-.shell-toolbar-menu__separator {
-	height: 1px;
-	background: var(--panel-border);
-	margin: var(--space-1) 0;
 }
 
 /* Scoped file tree */
@@ -1584,7 +1534,7 @@ select {
 	padding: 2px 10px;
 	background: var(--panel-bg);
 	color: var(--text-primary);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	font-size: 0.7rem;
 	line-height: 1;
@@ -1633,7 +1583,7 @@ select {
 	gap: 8px;
 	padding: 6px 10px;
 	background: var(--panel-bg-elevated);
-	border-top: 1px solid var(--panel-border);
+	border-top: var(--shell-border-width) solid var(--panel-border);
 	box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.18);
 }
 
@@ -1671,41 +1621,6 @@ select {
 	user-select: none;
 	white-space: nowrap;
 	cursor: pointer;
-}
-
-.shell-toggle-switch__track {
-	display: inline-flex;
-	align-items: center;
-	width: 26px;
-	height: 14px;
-	padding: 1px;
-	border: 1px solid var(--panel-border);
-	border-radius: 999px;
-	background: var(--panel-bg);
-	cursor: pointer;
-	transition:
-		background 120ms ease,
-		border-color 120ms ease;
-}
-
-.shell-toggle-switch__track[data-checked="true"] {
-	background: color-mix(in srgb, var(--accent) 70%, transparent);
-	border-color: var(--accent);
-}
-
-.shell-toggle-switch__thumb {
-	display: block;
-	width: 10px;
-	height: 10px;
-	border-radius: 50%;
-	background: var(--text-primary);
-	transition: transform 120ms ease;
-	transform: translateX(0);
-}
-
-.shell-toggle-switch__track[data-checked="true"] .shell-toggle-switch__thumb {
-	transform: translateX(12px);
-	background: var(--panel-bg);
 }
 
 .shell-toggle-switch__label {
@@ -1748,7 +1663,7 @@ select {
 	padding: 6px 10px;
 	min-height: 32px;
 	background: var(--panel-bg-elevated);
-	border-bottom: 1px solid var(--panel-border);
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
 	font-family: var(--font-ui);
 	font-size: 0.8em;
 }
@@ -1824,7 +1739,7 @@ select {
 	align-items: center;
 	gap: var(--space-3);
 	padding: var(--space-2) var(--space-3);
-	border-bottom: 1px solid var(--panel-border);
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
 	font-size: 0.75rem;
 }
 
@@ -1880,7 +1795,7 @@ select {
 	text-align: left;
 	color: var(--text-primary);
 	background: transparent;
-	border: 1px solid transparent;
+	border: var(--shell-border-width) solid transparent;
 	border-radius: var(--radius-sm);
 	font-size: 0.82rem;
 	line-height: 1.25;
@@ -1994,7 +1909,7 @@ select {
 }
 
 .shell-commit-diff-section {
-	border-bottom: 1px solid var(--panel-border);
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
 }
 
 .shell-commit-diff-section__header {
@@ -2045,15 +1960,19 @@ select {
 	top: 0;
 	right: 0;
 	bottom: 0;
+	left: auto; /* beat shadcn DialogContent's left-[50%] utility */
 	width: calc(clamp(280px, 28vw, 420px) + 140px);
 	background: var(--panel-bg);
-	border-left: 1px solid var(--panel-border);
+	border-left: var(--shell-border-width) solid var(--panel-border);
 	display: flex;
 	flex-direction: column;
 	gap: var(--space-3);
 	padding: var(--space-4);
 	z-index: 50;
 	outline: none;
+	/* drawer appears instantly: suppress shadcn DialogContent's
+	   center-anchored zoom/fade open animation */
+	animation: none;
 }
 
 .shell-note-sheet__header {
@@ -2095,7 +2014,7 @@ select {
 	display: inline-flex;
 	align-items: center;
 	padding: 2px;
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	background: var(--panel-bg-elevated);
 }
@@ -2134,7 +2053,7 @@ select {
 	flex: 1;
 	min-height: 0;
 	overflow-y: auto;
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	background: var(--panel-bg-elevated);
 }
@@ -2162,7 +2081,7 @@ select {
 	display: flex;
 	flex-direction: column;
 	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-md);
 	z-index: 50;
 	overflow: hidden;
@@ -2173,7 +2092,7 @@ select {
 	justify-content: space-between;
 	align-items: center;
 	padding: var(--space-3) var(--space-4);
-	border-bottom: 1px solid var(--panel-border);
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
 	flex-shrink: 0;
 }
 
@@ -2269,7 +2188,7 @@ select {
 .shell-md-modal__body td,
 .shell-inline-editor__preview-body th,
 .shell-inline-editor__preview-body td {
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	padding: var(--space-2) var(--space-3);
 	text-align: left;
 }
@@ -2311,7 +2230,7 @@ select {
 	margin-top: var(--space-2);
 	padding: var(--space-1) var(--space-3);
 	background: transparent;
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	color: var(--text-secondary);
 	cursor: pointer;
@@ -2349,7 +2268,7 @@ select {
 	display: flex;
 	flex-direction: column;
 	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-md);
 	z-index: 50;
 	overflow: hidden;
@@ -2360,7 +2279,7 @@ select {
 	justify-content: space-between;
 	align-items: center;
 	padding: var(--space-3) var(--space-4);
-	border-bottom: 1px solid var(--panel-border);
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
 	flex-shrink: 0;
 }
 
@@ -2406,7 +2325,7 @@ select {
 	justify-content: flex-end;
 	gap: var(--space-3);
 	padding: var(--space-2) var(--space-4);
-	border-top: 1px solid var(--panel-border);
+	border-top: var(--shell-border-width) solid var(--panel-border);
 	flex-shrink: 0;
 }
 
@@ -2440,29 +2359,11 @@ select {
 .shell-error-banner {
 	padding: var(--space-2) var(--space-3);
 	background: rgba(217, 140, 140, 0.12);
-	border: 1px solid rgba(217, 140, 140, 0.3);
+	border: var(--shell-border-width) solid rgba(217, 140, 140, 0.3);
 	border-radius: var(--radius-sm);
 	color: var(--danger);
 	font-size: var(--font-size-body);
 	margin-top: var(--space-2);
-}
-
-.shell-button--danger {
-	background: transparent;
-	border-color: rgba(217, 140, 140, 0.5);
-	color: var(--danger);
-}
-
-.shell-button--danger:hover:not(:disabled) {
-	background: rgba(217, 140, 140, 0.12);
-}
-
-.shell-button--primary {
-	border-color: var(--accent);
-	color: var(--accent);
-}
-.shell-button--primary:hover:not(:disabled) {
-	background: var(--accent-strong);
 }
 
 /* Reusable inline input + button row. Not dialog-scoped. */
@@ -2472,7 +2373,7 @@ select {
 	align-items: center;
 	flex-wrap: wrap;
 }
-.shell-input-row > .shell-input {
+.shell-input-row > input {
 	flex: 1 1 0;
 	min-width: 240px;
 	margin-top: 0;
@@ -2489,27 +2390,6 @@ select {
 }
 
 /* ---- App Dialog (replaces .shell-modal*) ---- */
-.shell-app-dialog__overlay {
-	position: fixed;
-	inset: 0;
-	background: rgba(3, 8, 12, 0.7);
-	z-index: 51;
-}
-.shell-app-dialog {
-	position: fixed;
-	top: 50%;
-	left: 50%;
-	transform: translate(-50%, -50%);
-	width: min(460px, calc(100vw - 32px));
-	max-height: calc(100vh - 64px);
-	display: flex;
-	flex-direction: column;
-	padding: var(--space-4);
-	background: var(--panel-bg-elevated);
-	border: 1px solid var(--panel-border-strong);
-	border-radius: var(--radius-md);
-	z-index: 52;
-}
 .shell-app-dialog--wide {
 	width: min(640px, calc(100vw - 32px));
 }
@@ -2518,11 +2398,6 @@ select {
 	font-weight: 600;
 	margin: 0 0 var(--space-3);
 	padding-right: calc(32px + var(--space-2));
-}
-.shell-app-dialog__close {
-	position: absolute;
-	top: var(--space-3);
-	right: var(--space-3);
 }
 .shell-app-dialog__description {
 	color: var(--text-secondary);
@@ -2540,7 +2415,7 @@ select {
 	gap: 8px;
 	margin-top: var(--space-4);
 	padding-top: var(--space-3);
-	border-top: 1px solid var(--panel-border);
+	border-top: var(--shell-border-width) solid var(--panel-border);
 }
 
 /* Body-layout helpers (renamed from .shell-modal__*; rules copied verbatim) */
@@ -2563,7 +2438,7 @@ select {
 	gap: var(--space-2);
 	padding: var(--space-3);
 	background: rgba(120, 160, 210, 0.1);
-	border: 1px solid rgba(120, 160, 210, 0.3);
+	border: var(--shell-border-width) solid rgba(120, 160, 210, 0.3);
 	border-radius: var(--radius-sm);
 	font-size: var(--font-size-body);
 	margin-top: var(--space-2);
@@ -2646,19 +2521,54 @@ select {
 	flex-direction: column;
 	background: var(--panel-bg);
 	color: var(--text-primary);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: 8px;
 	box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
 	z-index: 50;
 	overflow: hidden;
 }
 
+.shell-files-overlay__titlebar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 8px 12px 8px 14px;
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
+}
+
 .shell-files-overlay__title {
-	padding: 10px 14px;
 	font-size: 12px;
 	font-weight: 600;
 	color: var(--text-secondary);
-	border-bottom: 1px solid var(--panel-border);
+}
+
+.shell-files-overlay__close {
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	color: var(--text-secondary);
+	background: transparent;
+	border: none;
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	opacity: 0.7;
+}
+
+.shell-files-overlay__close:hover {
+	opacity: 1;
+	color: var(--text-primary);
+	background: rgba(255, 255, 255, 0.06);
+}
+
+.shell-files-overlay__close:focus-visible {
+	opacity: 1;
+	outline: 2px solid var(--ring);
+	outline-offset: 2px;
 }
 
 .shell-files-overlay__body {
@@ -2707,6 +2617,20 @@ select {
 	background: rgba(77, 163, 255, 0.16);
 }
 
+/* Per-row file glyph. Visibility is left to the `hidden` / `tui:inline-flex`
+ * utilities on the element (TUI-only) — so this rule must NOT set `display`,
+ * or it would override them and leak the emoji fallback into the other themes.
+ * align-items / justify-content stay inert until the utility flips it to flex. */
+.shell-files-overlay__row-icon {
+	flex: 0 0 auto;
+	width: 1.2em;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-muted);
+	font-size: 14px;
+	line-height: 1;
+}
+
 .shell-files-overlay__row-basename {
 	font-weight: 500;
 	white-space: nowrap;
@@ -2738,7 +2662,7 @@ select {
 	padding: 8px 10px;
 	font-size: 14px;
 	background: rgba(255, 255, 255, 0.04);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: 6px;
 	outline: none;
 }
@@ -2749,7 +2673,7 @@ select {
 	align-items: center;
 	gap: 12px;
 	padding: 8px 14px;
-	border-top: 1px solid var(--panel-border);
+	border-top: var(--shell-border-width) solid var(--panel-border);
 	font-size: 12px;
 }
 
@@ -2768,7 +2692,7 @@ select {
 
 .shell-files-overlay__footer-hints kbd {
 	padding: 2px 6px;
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: 4px;
 	background: rgba(255, 255, 255, 0.04);
 	font-size: 11px;
@@ -2807,7 +2731,7 @@ select {
 	transform: translate(-50%, -50%);
 	z-index: 50;
 	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-lg);
 	width: 800px;
 	max-width: calc(100vw - 32px);
@@ -2837,7 +2761,7 @@ select {
 	align-items: center;
 	justify-content: space-between;
 	padding: var(--space-3) var(--space-4);
-	border-bottom: 1px solid var(--panel-border);
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
 }
 
 .shell-shortcuts-help__title {
@@ -2889,7 +2813,7 @@ select {
 	font-size: 11px;
 	font-family: var(--font-ui);
 	background: var(--panel-bg-elevated);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	padding: 2px 6px;
 }
@@ -2910,7 +2834,7 @@ select {
 	font-size: 15px;
 	font-weight: 500;
 	background: rgba(74, 144, 226, 0.22);
-	border: 1px solid rgba(74, 144, 226, 0.55);
+	border: var(--shell-border-width) solid rgba(74, 144, 226, 0.55);
 	border-radius: 4px;
 	color: #6ab0f5;
 	cursor: pointer;
@@ -3007,12 +2931,12 @@ select {
 	grid-template-rows: auto minmax(0, 1fr);
 	min-height: 0;
 	overflow: hidden;
-	border-left: 1px solid var(--panel-border);
+	border-left: var(--shell-border-width) solid var(--panel-border);
 }
 
 .shell-review-comment-sidebar__header {
 	padding: var(--space-2) var(--space-3);
-	border-bottom: 1px solid var(--panel-border);
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
@@ -3072,7 +2996,7 @@ select {
 /* ── Review install CTA ─────────────────────────────────────── */
 
 .shell-review-comment-sidebar__cta {
-	border-top: 1px solid var(--panel-border);
+	border-top: var(--shell-border-width) solid var(--panel-border);
 	padding: var(--space-2) var(--space-3);
 	display: flex;
 	flex-direction: column;
@@ -3095,7 +3019,7 @@ select {
 
 .shell-review-comment-card {
 	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-md);
 	padding: var(--space-1) var(--space-2);
 	display: flex;
@@ -3116,7 +3040,7 @@ select {
 
 .shell-review-comment-card__range {
 	background: var(--panel-bg-elevated);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	color: var(--accent);
 	font-size: 11px;
@@ -3136,7 +3060,7 @@ select {
 	text-transform: uppercase;
 	color: var(--text-muted);
 	background: var(--panel-bg-elevated);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	padding: 1px var(--space-1);
 }
@@ -3164,7 +3088,7 @@ select {
 
 .shell-review-comment-card__action {
 	background: none;
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	color: var(--text-secondary);
 	font-size: 11px;
@@ -3187,7 +3111,7 @@ select {
 
 .shell-review-comment-form {
 	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-md);
 	padding: var(--space-2) var(--space-3);
 	display: flex;
@@ -3201,7 +3125,7 @@ select {
 	box-sizing: border-box;
 	padding: var(--space-2) var(--space-3);
 	background: var(--app-bg);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	color: var(--text-primary);
 	font-size: 11px;
@@ -3211,7 +3135,7 @@ select {
 }
 
 .shell-review-comment-form > textarea:focus-visible {
-	outline: 1px solid var(--accent);
+	outline: var(--shell-border-width) solid var(--accent);
 	border-color: var(--accent);
 }
 
@@ -3223,7 +3147,7 @@ select {
 
 .shell-review-comment-form__actions > button {
 	background: none;
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	color: var(--text-secondary);
 	font-size: 11px;
@@ -3259,7 +3183,7 @@ select {
 	display: flex;
 	flex-direction: column;
 	background: var(--panel-bg);
-	border: 1px solid var(--pane-border-review);
+	border: var(--shell-border-width) solid var(--pane-border-review);
 	border-bottom: 0;
 	border-radius: var(--radius-md) var(--radius-md) 0 0;
 	box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
@@ -3298,7 +3222,7 @@ select {
 	gap: 8px;
 	background: var(--surface-elevated, #1f2228);
 	color: var(--text, #d9d9d9);
-	border: 1px solid var(--border-subtle, #2c3038);
+	border: var(--shell-border-width) solid var(--border-subtle, #2c3038);
 	border-radius: 8px;
 	padding: 8px 10px;
 	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
@@ -3310,7 +3234,7 @@ select {
 
 .shell-inline-thread {
 	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-left: 2px solid var(--pane-border-review);
 	border-radius: 0 var(--radius-md) var(--radius-md) 0;
 	font-family: var(--font-ui);
@@ -3337,7 +3261,8 @@ select {
 	font-size: 11px;
 	color: var(--accent);
 	background: color-mix(in srgb, var(--accent) 12%, transparent);
-	border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+	border: var(--shell-border-width) solid
+		color-mix(in srgb, var(--accent) 35%, transparent);
 	border-radius: var(--radius-sm);
 	padding: 0 var(--space-1);
 	line-height: 1.6;
@@ -3358,13 +3283,14 @@ select {
 .shell-inline-thread__status[data-status="open"] {
 	color: var(--accent);
 	background: color-mix(in srgb, var(--accent) 12%, transparent);
-	border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+	border: var(--shell-border-width) solid
+		color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .shell-inline-thread__status[data-status="addressed"] {
 	color: var(--text-muted);
 	background: var(--panel-bg-elevated);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 }
 
 .shell-inline-thread__time {
@@ -3396,7 +3322,7 @@ select {
 
 .shell-inline-thread__actions > button {
 	background: none;
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	color: var(--text-secondary);
 	font-family: var(--font-ui);
@@ -3524,7 +3450,7 @@ select {
 
 .shell-inline-thread__icon-btn {
 	background: none;
-	border: 1px solid transparent;
+	border: var(--shell-border-width) solid transparent;
 	border-radius: var(--radius-sm);
 	color: var(--text-muted);
 	font-size: 12px;
@@ -3563,13 +3489,13 @@ select {
 	grid-template-rows: auto minmax(0, 1fr);
 	min-height: 0;
 	overflow: hidden;
-	border-left: 1px solid var(--panel-border);
+	border-left: var(--shell-border-width) solid var(--panel-border);
 	background: var(--panel-bg);
 }
 
 .shell-review-queue__header {
 	padding: var(--space-2) var(--space-3);
-	border-bottom: 1px solid var(--panel-border);
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
 	display: flex;
 	flex-direction: column;
 	gap: var(--space-1);
@@ -3604,7 +3530,7 @@ select {
 
 .shell-review-queue__actions > button {
 	background: none;
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	color: var(--text-secondary);
 	font-family: var(--font-ui);
@@ -3661,7 +3587,7 @@ select {
 	text-transform: uppercase;
 	color: var(--text-muted);
 	padding: 2px 0;
-	border-bottom: 1px solid var(--panel-border);
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
 }
 
 .shell-review-queue__files {
@@ -3703,7 +3629,7 @@ select {
 	display: flex;
 	align-items: center;
 	border-radius: var(--radius-sm);
-	border: 1px solid transparent;
+	border: var(--shell-border-width) solid transparent;
 	min-width: 0;
 }
 
@@ -3760,7 +3686,7 @@ select {
 
 .shell-review-queue__row-actions > button {
 	background: none;
-	border: 1px solid transparent;
+	border: var(--shell-border-width) solid transparent;
 	border-radius: var(--radius-sm);
 	color: var(--text-muted);
 	font-family: var(--font-ui);
@@ -3801,7 +3727,8 @@ select {
 	gap: var(--space-1);
 	width: 100%;
 	background: color-mix(in srgb, var(--accent) 8%, transparent);
-	border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--panel-border));
+	border: var(--shell-border-width) solid
+		color-mix(in srgb, var(--accent) 30%, var(--panel-border));
 	border-radius: var(--radius-sm);
 	color: var(--text-secondary);
 	font-family: var(--font-ui);
@@ -3822,7 +3749,7 @@ select {
 	align-items: center;
 	gap: 10px;
 	padding: 6px 12px;
-	border-top: 1px solid var(--pane-border-review);
+	border-top: var(--shell-border-width) solid var(--pane-border-review);
 	background: var(--panel-bg-elevated);
 	flex-shrink: 0;
 	font-family: var(--font-ui);
@@ -3906,7 +3833,7 @@ select {
 	gap: 4px;
 	background: var(--panel-bg);
 	color: var(--text-primary);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	padding: 2px 10px;
 	font-size: 0.7rem;
@@ -3990,7 +3917,7 @@ select {
 	text-align: left;
 	margin-top: var(--space-2);
 	padding: var(--space-2);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-md);
 	background: var(--panel-bg-elevated);
 	color: inherit;
@@ -4097,7 +4024,7 @@ select {
 	transform: translate(-50%, -50%);
 	z-index: 50;
 	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-lg);
 	width: 560px;
 	max-width: calc(100vw - 32px);
@@ -4117,7 +4044,7 @@ select {
 	gap: var(--space-3);
 	align-items: flex-start;
 	padding: var(--space-2) 0;
-	border-top: 1px solid var(--panel-border);
+	border-top: var(--shell-border-width) solid var(--panel-border);
 }
 .shell-layout-dialog__bucket-label {
 	flex: 0 0 72px;
@@ -4134,7 +4061,7 @@ select {
 	width: 132px;
 	height: 78px;
 	padding: 6px;
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	background: var(--panel-bg-elevated);
 	cursor: pointer;
@@ -4180,7 +4107,7 @@ select {
 	flex-direction: column;
 	min-width: 0;
 	min-height: 0;
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-sm);
 	overflow: hidden;
 }
@@ -4200,7 +4127,7 @@ select {
 	/* A prominent top border doubles as the separator between stacked terminals,
 	 * which have no row gap. Suppressed for top-row slots (nothing above them). */
 	border-top: 2px solid var(--panel-border-strong);
-	border-bottom: 1px solid var(--panel-border-strong);
+	border-bottom: var(--shell-border-width) solid var(--panel-border-strong);
 }
 .shell-terminal-slot[data-top-row="true"] .shell-terminal-slot__header {
 	border-top: none;
@@ -4252,7 +4179,7 @@ select {
 	color: var(--text-primary);
 }
 .shell-terminal-slot__header button:focus-visible {
-	outline: 1px solid var(--accent);
+	outline: var(--shell-border-width) solid var(--accent);
 	outline-offset: 1px;
 	color: var(--text-primary);
 }
@@ -4391,7 +4318,7 @@ select {
 	max-height: 70vh;
 	overflow-y: auto;
 	background: var(--panel-bg-elevated);
-	border: 1px solid var(--panel-border-strong);
+	border: var(--shell-border-width) solid var(--panel-border-strong);
 	border-radius: 10px;
 	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
 	width: 760px;
@@ -4402,7 +4329,7 @@ select {
 }
 .usage-pop-sec {
 	padding: 12px 14px;
-	border-bottom: 1px solid var(--panel-border);
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
 }
 .usage-pop-sec:last-child {
 	border-bottom: none;
@@ -4460,7 +4387,7 @@ select {
 }
 .usage-ws td {
 	padding-top: 9px;
-	border-top: 1px solid var(--panel-border);
+	border-top: var(--shell-border-width) solid var(--panel-border);
 	font-weight: 700;
 	color: var(--text-primary);
 }
@@ -4491,7 +4418,7 @@ select {
 .usage-seg {
 	display: inline-flex;
 	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: 6px;
 	overflow: hidden;
 }
@@ -4568,14 +4495,14 @@ select {
 .usage-budget-editor select {
 	width: 72px;
 	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: 5px;
 	color: var(--text-primary);
 	padding: 3px 6px;
 }
 .usage-budget-row button {
 	background: var(--panel-bg-elevated);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: 5px;
 	color: var(--text-primary);
 	padding: 0 12px;
@@ -4730,7 +4657,7 @@ select {
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
 	color: var(--text-secondary);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: 2px;
 	padding: 0 4px;
 	flex: none;
@@ -4752,7 +4679,7 @@ select {
 	gap: 8px;
 	margin: 8px;
 	padding: 6px 8px;
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-md, 3px);
 	background: var(--panel-bg-elevated);
 	color: var(--text-secondary);
@@ -4782,7 +4709,7 @@ select {
 	transform: translate(-50%, -50%);
 	z-index: 50;
 	background: var(--panel-bg);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-lg);
 	width: 560px;
 	max-width: calc(100vw - 32px);
@@ -4811,7 +4738,7 @@ select {
 	margin: 0 0 var(--space-2);
 }
 .plugins-panel__agent-clis {
-	border-top: 1px solid var(--panel-border);
+	border-top: var(--shell-border-width) solid var(--panel-border);
 	padding: var(--space-3) 0;
 }
 .plugins-panel__agent-cli-line {
@@ -4841,7 +4768,7 @@ select {
 .plugins-panel__close {
 	margin-top: var(--space-3);
 	background: none;
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	color: var(--text-secondary);
 	border-radius: var(--radius-md);
 	padding: 4px var(--space-3);
@@ -4854,7 +4781,7 @@ select {
 }
 
 .plugin-card {
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-md);
 	background: var(--panel-bg-elevated);
 	padding: var(--space-3);
@@ -4875,7 +4802,7 @@ select {
 	font-size: 0.7rem;
 	padding: 2px var(--space-2);
 	border-radius: var(--radius-md);
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	color: var(--text-secondary);
 	white-space: nowrap;
 }
@@ -4905,7 +4832,7 @@ select {
 }
 .plugin-actions button {
 	background: none;
-	border: 1px solid var(--panel-border);
+	border: var(--shell-border-width) solid var(--panel-border);
 	color: var(--text-secondary);
 	border-radius: var(--radius-md);
 	padding: 2px var(--space-2);
@@ -4923,7 +4850,7 @@ select {
 .plugin-readmore {
 	margin-top: var(--space-3);
 	padding-top: var(--space-2);
-	border-top: 1px solid var(--panel-border);
+	border-top: var(--shell-border-width) solid var(--panel-border);
 }
 .plugin-readmore a {
 	font-size: 0.7rem;
@@ -4943,7 +4870,7 @@ select {
 	height: 36px;
 	flex-shrink: 0;
 	background: var(--panel-bg);
-	border-bottom: 1px solid var(--panel-border);
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
 	overflow: hidden;
 }
 .terminal-chrome-header__actions {
@@ -4970,11 +4897,13 @@ select {
 }
 .agent-launcher-bar__status[data-tone="amber"] {
 	color: #e58a5e;
-	border: 1px solid color-mix(in srgb, #e58a5e 35%, transparent);
+	border: var(--shell-border-width) solid
+		color-mix(in srgb, #e58a5e 35%, transparent);
 	background: color-mix(in srgb, #e58a5e 8%, transparent);
 }
 .agent-launcher-bar__status[data-tone="accent"] {
 	color: var(--accent);
-	border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+	border: var(--shell-border-width) solid
+		color-mix(in srgb, var(--accent) 35%, transparent);
 	background: color-mix(in srgb, var(--accent) 10%, transparent);
 }

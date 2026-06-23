@@ -1,4 +1,10 @@
-import * as Dialog from "@radix-ui/react-dialog";
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import { Icon } from "@/components/ui/icon";
 import { SHORTCUT_REGISTRY, type Platform } from "../../app/shortcut-registry";
 
 interface Props {
@@ -62,67 +68,65 @@ export function ShortcutsHelp({ open, platform, onClose }: Props) {
 	const byId = Object.fromEntries(SHORTCUT_REGISTRY.map((s) => [s.id, s]));
 
 	return (
-		<Dialog.Root
+		<Dialog
 			open={open}
 			onOpenChange={(v) => {
 				if (!v) onClose();
 			}}
 		>
-			<Dialog.Portal>
-				<Dialog.Overlay className="shell-shortcuts-help__overlay" />
-				<Dialog.Content
-					className="shell-shortcuts-help"
-					data-testid="shortcuts-help"
-				>
-					<div className="shell-shortcuts-help__header">
-						<Dialog.Title className="shell-shortcuts-help__title">
-							Keyboard shortcuts
-						</Dialog.Title>
-						<Dialog.Close asChild>
-							<button
-								type="button"
-								className="shell-shortcuts-help__close"
-								aria-label="Close shortcuts"
-								data-testid="shortcuts-help-close"
+			<DialogContent
+				className="shell-shortcuts-help"
+				data-testid="shortcuts-help"
+				hideClose
+			>
+				<div className="shell-shortcuts-help__header">
+					<DialogTitle className="shell-shortcuts-help__title">
+						Keyboard shortcuts
+					</DialogTitle>
+					<DialogClose asChild>
+						<button
+							type="button"
+							className="shell-shortcuts-help__close"
+							aria-label="Close shortcuts"
+							data-testid="shortcuts-help-close"
+						>
+							<Icon name="close" />
+						</button>
+					</DialogClose>
+				</div>
+				<div className="shell-shortcuts-help__body">
+					{SHORTCUT_GROUPS.map((group) => {
+						const shortcuts = group.ids.map((id) => byId[id]).filter(Boolean);
+						if (!shortcuts.length) return null;
+						return (
+							<section
+								key={group.label}
+								className="shell-shortcuts-help__group"
 							>
-								✕
-							</button>
-						</Dialog.Close>
-					</div>
-					<div className="shell-shortcuts-help__body">
-						{SHORTCUT_GROUPS.map((group) => {
-							const shortcuts = group.ids.map((id) => byId[id]).filter(Boolean);
-							if (!shortcuts.length) return null;
-							return (
-								<section
-									key={group.label}
-									className="shell-shortcuts-help__group"
-								>
-									<h3 className="shell-shortcuts-help__group-label">
-										{group.label}
-									</h3>
-									<ul className="shell-shortcuts-help__list" role="list">
-										{shortcuts.map((shortcut) => (
-											<li
-												key={shortcut.id}
-												className="shell-shortcuts-help__row"
-												data-testid={`shortcuts-help-row-${shortcut.id}`}
-											>
-												<span className="shell-shortcuts-help__label">
-													{shortcut.label}
-												</span>
-												<kbd className="shell-shortcuts-help__keys">
-													{platform === "mac" ? shortcut.mac : shortcut.other}
-												</kbd>
-											</li>
-										))}
-									</ul>
-								</section>
-							);
-						})}
-					</div>
-				</Dialog.Content>
-			</Dialog.Portal>
-		</Dialog.Root>
+								<h3 className="shell-shortcuts-help__group-label">
+									{group.label}
+								</h3>
+								<ul className="shell-shortcuts-help__list" role="list">
+									{shortcuts.map((shortcut) => (
+										<li
+											key={shortcut.id}
+											className="shell-shortcuts-help__row"
+											data-testid={`shortcuts-help-row-${shortcut.id}`}
+										>
+											<span className="shell-shortcuts-help__label">
+												{shortcut.label}
+											</span>
+											<kbd className="shell-shortcuts-help__keys">
+												{platform === "mac" ? shortcut.mac : shortcut.other}
+											</kbd>
+										</li>
+									))}
+								</ul>
+							</section>
+						);
+					})}
+				</div>
+			</DialogContent>
+		</Dialog>
 	);
 }

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { AppDialog } from "../../../components/AppDialog";
 import { repository } from "../../../lib/desktop-client";
 import { describeRepositoryLoadError } from "../../repository/describe-repository-load-error";
@@ -46,10 +48,9 @@ export function LoadWorkspaceDialog({ open, onOpenChange, onLoadPath }: Props) {
 			</AppDialog.Description>
 			<AppDialog.Body>
 				<label htmlFor="load-workspace-path">Repository path</label>
-				<input
+				<Input
 					id="load-workspace-path"
 					type="text"
-					className="shell-input"
 					value={path}
 					onChange={(e) => setPath(e.target.value)}
 					onKeyDown={(e) => {
@@ -62,22 +63,24 @@ export function LoadWorkspaceDialog({ open, onOpenChange, onLoadPath }: Props) {
 				{error && <div className="shell-error">{error}</div>}
 			</AppDialog.Body>
 			<AppDialog.Footer>
-				<button
+				<Button
 					type="button"
-					className="shell-button shell-button--compact"
+					variant="secondary"
+					size="sm"
 					disabled={loading}
 					onClick={handleBrowse}
 				>
 					Browse
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button shell-button--compact shell-button--primary"
+					variant="default"
+					size="sm"
 					disabled={loading || !path.trim()}
 					onClick={() => void handleLoad()}
 				>
 					{loading ? "Loading…" : "Load"}
-				</button>
+				</Button>
 			</AppDialog.Footer>
 		</AppDialog>
 	);

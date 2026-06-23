@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { AppDialog } from "../../../components/AppDialog";
 
 type Props = {
@@ -41,24 +42,26 @@ export function DiscardChangeDialog({
 				{error && <div className="shell-error-banner">{error}</div>}
 			</AppDialog.Body>
 			<AppDialog.Footer>
-				<button
+				<Button
 					type="button"
-					className="shell-button shell-button--compact"
+					variant="secondary"
+					size="sm"
 					onClick={() => onOpenChange(false)}
 					disabled={busy}
 				>
 					Cancel
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button shell-button--compact shell-button--danger"
+					variant="destructive"
+					size="sm"
 					onClick={() => {
 						void handleConfirm();
 					}}
 					disabled={busy}
 				>
 					Discard
-				</button>
+				</Button>
 			</AppDialog.Footer>
 		</AppDialog>
 	);

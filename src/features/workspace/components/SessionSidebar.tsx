@@ -1,11 +1,18 @@
 import * as React from "react";
-import * as ContextMenu from "@radix-ui/react-context-menu";
+import { Button } from "@/components/ui/button";
+import {
+	ContextMenu,
+	ContextMenuContent,
+	ContextMenuItem,
+	ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import type { Worktree } from "../../../../shared/models/worktree";
 import type { ProcessAttentionState } from "../../../../shared/models/process-session";
 import type { WorktreeProcessSummary } from "../logic/sidebar-shell-summary";
 import { displayTitle } from "../logic/session-display-title";
 import type { WorkflowRow as WorkflowRowModel } from "../../workflows/logic/workflow-lens";
 import { WorkflowRow } from "../../workflows/components/WorkflowRow";
+import { Icon } from "@/components/ui/icon";
 import type { ThemeMode } from "../../../lib/use-theme";
 
 export type SessionSidebarWorkspace = {
@@ -138,15 +145,22 @@ export function SessionSidebar({
 			data-collapsed={String(collapsed)}
 		>
 			<div className="shell-sidebar__header">
-				{!collapsed && <div className="shell-label">Sessions</div>}
-				<button
+				{!collapsed && <div className="shell-label">Workspace</div>}
+				<Button
 					type="button"
-					className="shell-button shell-button--icon shell-button--compact shell-button--round"
+					variant="ghost"
+					size="icon"
 					aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 					onClick={onToggleCollapsed}
 				>
-					<span aria-hidden="true">{collapsed ? "▸" : "◂"}</span>
-				</button>
+					<span aria-hidden="true">
+						{collapsed ? (
+							<Icon name="caret-right" />
+						) : (
+							<Icon name="caret-left" />
+						)}
+					</span>
+				</Button>
 			</div>
 
 			<div className="shell-sidebar__list">
@@ -180,14 +194,15 @@ export function SessionSidebar({
 									>
 										{workspace.name}
 									</button>
-									<button
+									<Button
 										type="button"
-										className="shell-button shell-button--icon shell-button--compact shell-button--round"
+										variant="ghost"
+										size="icon"
 										aria-label={`Remove ${workspace.name}`}
 										onClick={() => onRemoveWorkspace(workspace.workspaceId)}
 									>
-										×
-									</button>
+										<Icon name="close" fallback="×" />
+									</Button>
 								</>
 							)}
 						</div>
@@ -333,9 +348,11 @@ export function SessionSidebar({
 													{row.hasFailedReason &&
 													onClearFailedReason &&
 													workspace.active ? (
-														<button
+														<Button
 															type="button"
-															className="shell-button shell-button--compact shell-sidebar__process-clear-failed"
+															variant="secondary"
+															size="sm"
+															className="shell-sidebar__process-clear-failed"
 															aria-label={`Clear failed for ${row.label}`}
 															onClick={(e) => {
 																e.stopPropagation();
@@ -347,7 +364,7 @@ export function SessionSidebar({
 															}}
 														>
 															Clear failed
-														</button>
+														</Button>
 													) : null}
 												</div>
 											))}
@@ -430,54 +447,49 @@ export function SessionSidebar({
 								}
 
 								return (
-									<ContextMenu.Root key={worktree.id}>
+									<ContextMenu key={worktree.id}>
 										<div
 											className="shell-sidebar__row"
 											{...rowAttentionProps}
 											onClick={handleRowClick}
 										>
-											<ContextMenu.Trigger asChild>{item}</ContextMenu.Trigger>
+											<ContextMenuTrigger asChild>{item}</ContextMenuTrigger>
 											{taskLine}
 											{processList}
 											{workflowRow}
 										</div>
-										<ContextMenu.Portal>
-											<ContextMenu.Content className="shell-toolbar-menu">
-												<ContextMenu.Item
-													className="shell-toolbar-menu__item"
-													onSelect={() => {
-														if (collapsed || !workspace.active) {
-															onRequestExpand?.(
-																workspace.workspaceId,
-																worktree.id,
-															);
-															return;
-														}
-														startRename(
+										<ContextMenuContent className="shell-toolbar-menu">
+											<ContextMenuItem
+												className="shell-toolbar-menu__item"
+												onSelect={() => {
+													if (collapsed || !workspace.active) {
+														onRequestExpand?.(
 															workspace.workspaceId,
 															worktree.id,
-															rawTitle,
 														);
-													}}
+														return;
+													}
+													startRename(
+														workspace.workspaceId,
+														worktree.id,
+														rawTitle,
+													);
+												}}
+											>
+												Rename session
+											</ContextMenuItem>
+											{!worktree.isMain && (
+												<ContextMenuItem
+													className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
+													onSelect={() =>
+														onRemoveWorktree(workspace.workspaceId, worktree.id)
+													}
 												>
-													Rename session
-												</ContextMenu.Item>
-												{!worktree.isMain && (
-													<ContextMenu.Item
-														className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
-														onSelect={() =>
-															onRemoveWorktree(
-																workspace.workspaceId,
-																worktree.id,
-															)
-														}
-													>
-														Remove worktree
-													</ContextMenu.Item>
-												)}
-											</ContextMenu.Content>
-										</ContextMenu.Portal>
-									</ContextMenu.Root>
+													Remove worktree
+												</ContextMenuItem>
+											)}
+										</ContextMenuContent>
+									</ContextMenu>
 								);
 							})}
 
@@ -492,14 +504,16 @@ export function SessionSidebar({
 
 						{workspace.active && (
 							<div className="shell-sidebar__footer">
-								<button
+								<Button
 									type="button"
-									className="shell-button shell-button--compact"
+									variant="secondary"
+									size="sm"
+									className="w-full"
 									onClick={() => onCreateWorktree(workspace.workspaceId)}
 									aria-label="New session"
 								>
 									{collapsed ? "+" : "+ New session"}
-								</button>
+								</Button>
 							</div>
 						)}
 					</section>
@@ -514,25 +528,27 @@ export function SessionSidebar({
 						gap: 6,
 					}}
 				>
-					<button
+					<Button
 						type="button"
-						className="shell-button shell-button--compact"
-						style={collapsed ? undefined : { flex: 1 }}
+						variant="outline"
+						size="sm"
+						style={collapsed ? { width: "100%" } : { flex: 1 }}
 						onClick={onLoadWorkspace}
 						aria-label="Load workspace"
 					>
 						{collapsed ? "Load" : "Load workspace"}
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
-						className="shell-button shell-button--icon shell-button--compact"
+						variant="outline"
+						size="icon"
 						style={collapsed ? { width: "100%" } : undefined}
 						aria-label={themeLabel}
 						title={themeLabel}
 						onClick={onThemeToggle}
 					>
 						{themeIcon}
-					</button>
+					</Button>
 				</div>
 			</div>
 		</nav>

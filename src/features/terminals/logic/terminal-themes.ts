@@ -1,7 +1,7 @@
 import type { ITheme } from "xterm";
 
 /** The app palettes that the terminal cells follow (mirrors data-theme). */
-export type TerminalPalette = "light" | "dark" | "warm";
+export type TerminalPalette = "light" | "dark" | "warm" | "tui";
 
 /**
  * xterm color themes per app palette so the terminal cells match the rest of
@@ -87,6 +87,9 @@ const THEMES: Record<TerminalPalette, ITheme> = {
 	light: LIGHT,
 	dark: DARK,
 	warm: WARM,
+	// Terminal UI theme reuses the dark xterm palette until a dedicated one
+	// lands; its chrome accent (--primary) already matches DARK's cursor teal.
+	tui: DARK,
 };
 
 export function terminalThemeFor(palette: TerminalPalette): ITheme {

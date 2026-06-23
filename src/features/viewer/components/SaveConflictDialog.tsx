@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { AppDialog } from "../../../components/AppDialog";
 
 type Props = {
@@ -25,27 +26,20 @@ export function SaveConflictDialog({
 				This file was modified outside the editor. Pick how to resolve.
 			</AppDialog.Description>
 			<AppDialog.Footer>
-				<button
-					type="button"
-					className="shell-button shell-button--compact"
-					onClick={onCancel}
-				>
+				<Button type="button" variant="secondary" size="sm" onClick={onCancel}>
 					Cancel
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button shell-button--compact shell-button--danger"
+					variant="destructive"
+					size="sm"
 					onClick={onOverwrite}
 				>
 					Overwrite
-				</button>
-				<button
-					type="button"
-					className="shell-button shell-button--compact shell-button--primary"
-					onClick={onReload}
-				>
+				</Button>
+				<Button type="button" variant="default" size="sm" onClick={onReload}>
 					Reload
-				</button>
+				</Button>
 			</AppDialog.Footer>
 		</AppDialog>
 	);
