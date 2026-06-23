@@ -54,9 +54,30 @@ const SPEECH_WORTHY = new Set<SamanthaSignal>([
 
 const DESCRIPTION = "ai-14all coding sessions across your worktrees";
 
-const CAPABILITIES = [
-	{ id: "focus-worktree", title: "Focus a worktree" },
-	{ id: "session-report", title: "Report session status" },
+export const CAPABILITIES = [
+	{
+		id: "focus-worktree",
+		title: "Focus a worktree",
+		description: "Bring a worktree's window to the front in ai-14all.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				worktree: {
+					type: "string",
+					description:
+						"A '<repo>/<branch>' key exactly as shown in the latest ai-14all snapshot.",
+				},
+			},
+			required: ["worktree"],
+		},
+	},
+	{
+		id: "session-report",
+		title: "Report session status",
+		description:
+			"Return a status roll-up of every active ai-14all worktree/session.",
+		inputSchema: { type: "object", properties: {} },
+	},
 ];
 
 export function createSamanthaDriver(
