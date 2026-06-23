@@ -39,3 +39,12 @@ describe("WorkspaceRegistryService", () => {
 		expect(listener).toHaveBeenCalled();
 	});
 });
+
+describe("WorkspaceRegistryService.listEntries", () => {
+	it("returns workspaceId paired with each repository", () => {
+		const svc = new WorkspaceRegistryService();
+		const repository = repo("ai-14all", "/repo");
+		svc.register({ workspaceId: "ws1", repository });
+		expect(svc.listEntries()).toEqual([{ workspaceId: "ws1", repository }]);
+	});
+});
