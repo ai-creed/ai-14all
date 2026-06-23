@@ -70,14 +70,29 @@
 	--secondary: oklch(0.968 0.007 247.896);
 	--secondary-foreground: oklch(0.208 0.042 265.755);
 	--muted: oklch(0.968 0.007 247.896);
-	--muted-foreground: oklch(0.554 0.046 257.417);
+	/* WCAG AAA (docs/theme-wcag-aaa-spec.md): secondary text — labels,
+	 * placeholders, timestamps, metadata. 0.5 was 5.99:1 (AA only); 0.42 ->
+	 * 8.46:1 on the flat-white surface, clearing AAA's 7:1. Most pervasive muted
+	 * text, so the highest-impact legibility fix; also lifts placeholders,
+	 * blockquotes and table headers (which bridge to it). */
+	--muted-foreground: oklch(0.42 0.046 257.417);
 	--accent-foreground: oklch(0.208 0.042 265.755);
-	--destructive: oklch(0.577 0.245 27.325);
+	/* AAA: 0.52 was ~6.26:1 (AA); 0.45 -> 8.48:1. --danger bridges to this. */
+	--destructive: oklch(0.45 0.24 27.325);
 	--border: oklch(0.929 0.013 255.508);
-	--input: oklch(0.929 0.013 255.508);
-	--ring: oklch(0.704 0.04 256.788);
+	/* control border (inputs/textareas via border-input): 0.929 was 1.23:1.
+	 * 0.6 -> ~3.9:1 (WCAG 1.4.11). --border (decorative pane dividers) is left
+	 * lighter on purpose so the UI does not turn boxy. */
+	--input: oklch(0.6 0.04 257);
+	/* focus ring: 0.704 was 2.63:1; 0.55 -> 4.85:1 (WCAG 2.4.11). */
+	--ring: oklch(0.55 0.04 256.788);
 	--accent: var(--primary);
-	--info: oklch(0.52 0.17 250);
+	/* AAA: 0.52 was ~5.54:1 (AA); 0.42 -> 8.58:1. */
+	--info: oklch(0.42 0.17 250);
+	/* light did NOT define --warning, so it inherited dark's gold (0.828) =
+	 * 1.73:1. AAA accessible amber: 0.55 was ~5.07:1 on white but only 4.31:1 on
+	 * the old gradient top (sub-AA); 0.43 -> 8.51:1 on the flat-white surface. */
+	--warning: oklch(0.43 0.14 60);
 }
 
 /* ---- warm theme: existing palette via shadcn token names ---- */
@@ -89,7 +104,9 @@
 	--popover: #342c22;
 	--popover-foreground: #f6efe4;
 	--border: #4a3f31;
-	--ring: #6d5b46;
+	/* focus ring: #6d5b46 was 2.60:1; #9a8266 -> 4.63:1 (WCAG 2.4.11). Control
+	 * borders (--input) are inherited white/15% = 3.38:1, already AA. */
+	--ring: #9a8266;
 	--primary: #e58a5e;
 	--primary-foreground: #221c15;
 	--secondary: #3d2817;
@@ -101,6 +118,9 @@
 	--destructive: #d97058;
 	--warning: #dda85e;
 	--danger: #d97058;
+	/* warm did not define --info -> inherited dark's blue. Pinned explicitly so
+	 * a future :root edit cannot silently change it (passes at 6.95:1). */
+	--info: oklch(0.72 0.13 235);
 }
 
 /* ---- Terminal UI theme: WebTUI-style stepped ladder on shadcn token names
@@ -126,6 +146,10 @@
 	--accent: oklch(0.26 0.015 240);
 	--accent-foreground: var(--foreground);
 	--destructive: oklch(0.704 0.191 22.216);
+	/* tui did not define these -> inherited dark's values (both pass on the tui
+	 * dark surface). Pinned explicitly so a future :root edit can't break tui. */
+	--warning: oklch(0.828 0.122 75);
+	--info: oklch(0.72 0.13 235);
 	--border: oklch(0.34 0.015 240);
 	--input: oklch(0.26 0.015 240);
 	--ring: var(--primary);
