@@ -75,8 +75,12 @@
 	--provider-ezio: #b3247e;
 }
 
+/* Light theme uses a flat, token-driven surface (docs/theme-wcag-aaa-spec.md
+ * §5 P0): the page, the shadcn bg-background/bg-card overlays, and the UI
+ * gallery all render on --background, so they match and text contrast is
+ * measured on the real surface. (Dark/warm keep their radial gradients.) */
 [data-theme="light"] body {
-	background: radial-gradient(circle at top, #e8edf4 0%, #f0f2f5 55%);
+	background: var(--app-bg);
 	color: var(--text-primary);
 }
 

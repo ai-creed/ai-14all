@@ -9,6 +9,11 @@ import { installKnownRendererErrorHandler } from "./app/logic/known-renderer-err
 import "./styles/tokens.css";
 import "./app/shell.css";
 import "./styles/tui.css";
+// Light-theme syntax highlighting override (see styles/hljs-light.css). The
+// markdown renderers import github-dark unconditionally; this re-colors code
+// blocks for the light theme. Scoped by [data-theme="light"], so it is inert
+// under the dark palettes.
+import "./styles/hljs-light.css";
 
 installKnownRendererErrorHandler({ dev: import.meta.env.DEV });
 
