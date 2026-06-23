@@ -1102,9 +1102,15 @@ select {
 	margin-left: var(--space-1);
 }
 
+/* Mirrors the review chipbar's ✓ clean pill (.shell-review-chipbar__status
+ * [data-state="clean"]): tinted accent background, accent text, same padding
+ * and radius — so the two clean indicators read identically. */
 .shell-chip-bar__clean {
+	background: color-mix(in srgb, var(--accent) 14%, transparent);
+	color: var(--accent);
+	border-radius: var(--radius-sm);
+	padding: 2px 7px;
 	font-size: 0.7rem;
-	color: var(--text-muted);
 	white-space: nowrap;
 }
 
