@@ -1,4 +1,5 @@
 import {
+	type CommandErrorCode,
 	type CommandFrame,
 	type CommandResult,
 	errorResult,
@@ -6,10 +7,18 @@ import {
 } from "./command-types";
 import type { ResolveResult } from "./samantha-command-capabilities";
 
+export type InstructOutcome =
+	| { ok: true; routed: "collab-tell" | "workflow-resume" | "send-input" }
+	| { ok: false; code: CommandErrorCode; message: string };
+
 export type DispatcherCallbacks = {
 	buildReport: () => Promise<string>;
 	resolveWorktree: (key: string) => Promise<ResolveResult>;
 	focusWorktree: (worktreeId: string) => void;
+	instructSession: (
+		args: Record<string, unknown> | undefined,
+		token: string | undefined,
+	) => Promise<InstructOutcome>;
 };
 
 export type CommandDispatcher = {
@@ -48,6 +57,14 @@ export function createSamanthaCommandDispatcher(
 					);
 				cb.focusWorktree(resolved.worktreeId);
 				return okResult(frame.requestId, { focused: key });
+			}
+			if (frame.capabilityId === "instruct-session") {
+				// Forward raw args + token. Validation happens in the driver's prepare
+				// thunk, AFTER ActGuard's token + acting-enabled gates (token-first).
+				const outcome = await cb.instructSession(frame.args, frame.token);
+				return outcome.ok
+					? okResult(frame.requestId, { routed: outcome.routed })
+					: errorResult(frame.requestId, outcome.code, outcome.message);
 			}
 			return errorResult(
 				frame.requestId,
