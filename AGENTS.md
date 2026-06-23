@@ -112,6 +112,7 @@ Avoid pulling deferred scope into current work unless explicitly requested:
 
 - High-level project planning lives under `docs/shared/`.
 - Tracked design specs live under `docs/superpowers/specs/`.
+- Non-superpowers design specs live under `docs/design-specs`.
 - Local agent execution plans live under `docs/superpowers/plans/` and are intentionally gitignored.
 - When adding or changing project direction, update the relevant design or planning doc rather than relying on conversational context only.
 
