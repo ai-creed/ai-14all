@@ -71,3 +71,32 @@ for (const palette of ["light", "dark", "warm"] as const) {
 		expect(radius).toBe("0px");
 	});
 }
+
+for (const palette of ["light", "dark", "warm"] as const) {
+	test(`${palette}: <Icon> renders the Nerd Font glyph, hides the fallback`, async () => {
+		test.skip(!galleryAvailable, "#/ui-gallery route not present");
+		await switchTheme(palette);
+		// The dialog close button is <Icon name="close" lucide={X}> (dialog.tsx).
+		await page.getByTestId("gallery-open-dialog").click();
+		const dialog = page.getByTestId("gallery-dialog-content");
+		await expect(dialog).toBeVisible();
+
+		const glyph = await dialog.locator(".app-nf").first().evaluate((el) => ({
+			display: getComputedStyle(el).display,
+			before: getComputedStyle(el, "::before").content,
+		}));
+		expect(glyph.display).toBe("inline-block");
+		expect(glyph.before).not.toBe("none");
+		expect(glyph.before).not.toBe('""');
+
+		// The Lucide SVG fallback for the same icon is hidden.
+		const svgDisplay = await dialog
+			.locator("svg")
+			.first()
+			.evaluate((el) => getComputedStyle(el).display);
+		expect(svgDisplay).toBe("none");
+
+		await page.keyboard.press("Escape");
+		await expect(dialog).toHaveCount(0);
+	});
+}
