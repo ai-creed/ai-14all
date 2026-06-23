@@ -7,9 +7,9 @@
 	font-display: swap;
 }
 
-/* Icons-only Nerd Font. Drives every chrome icon under the Terminal UI theme
- * (data-theme="tui") via the <Icon> component; unused by the other palettes.
- * Glyphs live in the Private Use Area, so this never shadows real text. */
+/* Icons-only Nerd Font. Drives every chrome icon in every theme via the <Icon>
+ * component. Glyphs live in the Private Use Area, so this never shadows real
+ * text. */
 @font-face {
 	font-family: "Symbols Nerd Font";
 	src: url("../assets/fonts/SymbolsNerdFontMono-Regular.ttf") format("truetype");
@@ -18,9 +18,8 @@
 	font-display: block;
 }
 
-/* Nerd Font glyph span emitted by <Icon>. Only ever visible under
- * data-theme="tui" (Tailwind `tui:inline-block`); elsewhere the component
- * keeps the original glyph/SVG and this stays display:none. */
+/* Nerd Font glyph span emitted by <Icon>. Visible in every theme; the
+ * component hides the original glyph/SVG fallback. */
 .app-nf {
 	font-family: "Symbols Nerd Font", var(--font-ui);
 	font-style: normal;
@@ -33,8 +32,8 @@
 
 /* The glyph is drawn from the data-nf attribute via generated content so the
  * Private-Use codepoint never enters the DOM text (keeps textContent, copy and
- * screen readers clean). Only painted under the TUI palette. */
-[data-theme="tui"] .app-nf::before {
+ * screen readers clean). Painted in all palettes. */
+.app-nf::before {
 	content: attr(data-nf);
 }
 
@@ -45,10 +44,13 @@
 	/* Chrome border width. Themes that draw heavier box-drawing rules (TUI)
 	 * override this; light/dark/warm keep the original hairline. */
 	--shell-border-width: 1px;
-	--pane-border-sessions: rgba(79, 179, 255, 0.5);
-	--pane-border-session-info: rgba(246, 169, 74, 0.5);
-	--pane-border-terminal: rgba(67, 211, 158, 0.5);
-	--pane-border-review: rgba(243, 107, 138, 0.5);
+	/* Neutral pane separators — each matches --panel-border (like the tui
+	 * theme): one uniform line, no per-pane accent colors. Selected/active/
+	 * focus states keep their accent border (handled elsewhere). */
+	--pane-border-sessions: var(--panel-border);
+	--pane-border-session-info: var(--panel-border);
+	--pane-border-terminal: var(--panel-border);
+	--pane-border-review: var(--panel-border);
 	--sha-color: #a78bfa;
 	--provider-claude: #d97706;
 	--provider-codex: #2563eb;
@@ -65,18 +67,23 @@
 }
 
 [data-theme="light"] {
-	--pane-border-sessions: rgba(30, 120, 220, 0.4);
-	--pane-border-session-info: rgba(180, 120, 30, 0.4);
-	--pane-border-terminal: rgba(30, 160, 100, 0.4);
-	--pane-border-review: rgba(200, 60, 80, 0.4);
+	/* Neutral pane separators — match --panel-border (like the tui theme). */
+	--pane-border-sessions: var(--panel-border);
+	--pane-border-session-info: var(--panel-border);
+	--pane-border-terminal: var(--panel-border);
+	--pane-border-review: var(--panel-border);
 	--sha-color: #6d4cbc;
 	--provider-claude: #b45309;
 	--provider-codex: #1d4ed8;
 	--provider-ezio: #b3247e;
 }
 
+/* Light theme uses a flat, token-driven surface (docs/theme-wcag-aaa-spec.md
+ * §5 P0): the page, the shadcn bg-background/bg-card overlays, and the UI
+ * gallery all render on --background, so they match and text contrast is
+ * measured on the real surface. (Dark/warm keep their radial gradients.) */
 [data-theme="light"] body {
-	background: radial-gradient(circle at top, #e8edf4 0%, #f0f2f5 55%);
+	background: var(--app-bg);
 	color: var(--text-primary);
 }
 
@@ -97,10 +104,11 @@
  * text, and a terracotta accent. Preview with
  * document.documentElement.setAttribute("data-theme", "warm"). */
 [data-theme="warm"] {
-	--pane-border-sessions: rgba(108, 188, 184, 0.6);
-	--pane-border-session-info: rgba(228, 158, 80, 0.6);
-	--pane-border-terminal: rgba(226, 140, 96, 0.6);
-	--pane-border-review: rgba(220, 122, 110, 0.6);
+	/* Neutral pane separators — match --panel-border (like the tui theme). */
+	--pane-border-sessions: var(--panel-border);
+	--pane-border-session-info: var(--panel-border);
+	--pane-border-terminal: var(--panel-border);
+	--pane-border-review: var(--panel-border);
 	--sha-color: #c4a0db;
 	--provider-claude: #e58a5e;
 	--provider-codex: #5a9bd6;
@@ -596,12 +604,9 @@ select {
 	display: block;
 	height: 1px;
 	margin: 0 var(--space-2) var(--space-3);
-	background: linear-gradient(
-		90deg,
-		transparent 0%,
-		var(--panel-border) 50%,
-		transparent 100%
-	);
+	/* A single uniform stroke — same thickness/presence from start to end.
+	 * (Was a center-weighted gradient that faded to transparent at both ends.) */
+	background: var(--panel-border);
 }
 
 .shell-sidebar__workspace-header {
@@ -1097,9 +1102,15 @@ select {
 	margin-left: var(--space-1);
 }
 
+/* Mirrors the review chipbar's ✓ clean pill (.shell-review-chipbar__status
+ * [data-state="clean"]): tinted accent background, accent text, same padding
+ * and radius — so the two clean indicators read identically. */
 .shell-chip-bar__clean {
+	background: color-mix(in srgb, var(--accent) 14%, transparent);
+	color: var(--accent);
+	border-radius: var(--radius-sm);
+	padding: 2px 7px;
 	font-size: 0.7rem;
-	color: var(--text-muted);
 	white-space: nowrap;
 }
 
@@ -1508,7 +1519,7 @@ select {
 .shell-inline-editor__readonly-chip {
 	margin-left: 8px;
 	padding: 1px 6px;
-	border-radius: 3px;
+	border-radius: 0;
 	background: var(--panel-bg-elevated);
 	color: var(--text-secondary);
 	font-size: 10px;
@@ -2522,7 +2533,7 @@ select {
 	background: var(--panel-bg);
 	color: var(--text-primary);
 	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: 8px;
+	border-radius: 0;
 	box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
 	z-index: 50;
 	overflow: hidden;
@@ -2663,7 +2674,7 @@ select {
 	font-size: 14px;
 	background: rgba(255, 255, 255, 0.04);
 	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: 6px;
+	border-radius: 0;
 	outline: none;
 }
 
@@ -2693,7 +2704,7 @@ select {
 .shell-files-overlay__footer-hints kbd {
 	padding: 2px 6px;
 	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: 4px;
+	border-radius: 0;
 	background: rgba(255, 255, 255, 0.04);
 	font-size: 11px;
 }
@@ -2835,7 +2846,7 @@ select {
 	font-weight: 500;
 	background: rgba(74, 144, 226, 0.22);
 	border: var(--shell-border-width) solid rgba(74, 144, 226, 0.55);
-	border-radius: 4px;
+	border-radius: 0;
 	color: #6ab0f5;
 	cursor: pointer;
 }
@@ -2848,7 +2859,7 @@ select {
 	background: var(--shell-accent, #4a90e2);
 	color: white;
 	border: none;
-	border-radius: 4px;
+	border-radius: 0;
 	cursor: pointer;
 	z-index: 10;
 }
@@ -2859,7 +2870,7 @@ select {
 	padding: 0;
 	background: rgba(74, 144, 226, 0.85);
 	border: none;
-	border-radius: 4px;
+	border-radius: 0;
 	color: #fff;
 	font-size: 18px;
 	font-weight: 400;
@@ -3223,7 +3234,7 @@ select {
 	background: var(--surface-elevated, #1f2228);
 	color: var(--text, #d9d9d9);
 	border: var(--shell-border-width) solid var(--border-subtle, #2c3038);
-	border-radius: 8px;
+	border-radius: 0;
 	padding: 8px 10px;
 	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 	max-width: 320px;
@@ -4085,7 +4096,7 @@ select {
 }
 .shell-layout-dialog__cell {
 	background: #222a3a;
-	border-radius: 2px;
+	border-radius: 0;
 }
 .shell-layout-dialog__cell[data-master="true"] {
 	background: #3a4f7d;
@@ -4282,7 +4293,7 @@ select {
 .usage-gcell {
 	width: 4px;
 	height: 5px;
-	border-radius: 1px;
+	border-radius: 0;
 	background: var(--panel-border);
 	opacity: 0.6;
 }
@@ -4319,7 +4330,7 @@ select {
 	overflow-y: auto;
 	background: var(--panel-bg-elevated);
 	border: var(--shell-border-width) solid var(--panel-border-strong);
-	border-radius: 10px;
+	border-radius: 0;
 	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
 	width: 760px;
 	color: var(--text-secondary);
@@ -4419,7 +4430,7 @@ select {
 	display: inline-flex;
 	background: var(--panel-bg);
 	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: 6px;
+	border-radius: 0;
 	overflow: hidden;
 }
 .usage-seg button {
@@ -4496,14 +4507,14 @@ select {
 	width: 72px;
 	background: var(--panel-bg);
 	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: 5px;
+	border-radius: 0;
 	color: var(--text-primary);
 	padding: 3px 6px;
 }
 .usage-budget-row button {
 	background: var(--panel-bg-elevated);
 	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: 5px;
+	border-radius: 0;
 	color: var(--text-primary);
 	padding: 0 12px;
 	cursor: pointer;
@@ -4519,7 +4530,7 @@ select {
 	color: var(--text-primary);
 	background: var(--panel-bg);
 	padding: 0 4px;
-	border-radius: 3px;
+	border-radius: 0;
 }
 
 /* Files pane / symbol search */
@@ -4561,7 +4572,7 @@ select {
 	width: 24px;
 	height: auto;
 	border: 0;
-	border-radius: 2px;
+	border-radius: 0;
 	background: transparent;
 	color: var(--text-secondary);
 	font-size: 13px;
@@ -4658,7 +4669,7 @@ select {
 	letter-spacing: 0.04em;
 	color: var(--text-secondary);
 	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: 2px;
+	border-radius: 0;
 	padding: 0 4px;
 	flex: none;
 }

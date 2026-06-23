@@ -1,0 +1,133 @@
+import {
+	_electron as electron,
+	expect,
+	test,
+	type ElectronApplication,
+	type Page,
+} from "@playwright/test";
+import { mkdtempSync, realpathSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
+import { closeApp } from "./fixtures/close-app";
+
+/**
+ * Asserts the three TUI traits ported to light/dark/warm
+ * (docs/superpowers/specs/2026-06-23-tui-traits-to-all-themes-design.md):
+ * square corners, Nerd Font icons, neutral pane separators. Runs against the
+ * #/ui-gallery route. Unlike ui-gallery.screenshots.spec.ts this IS an
+ * assertion suite. Skips when the gallery route is absent.
+ */
+type Palette = "dark" | "light" | "warm" | "tui";
+
+let app: ElectronApplication;
+let page: Page;
+let testRepo: TestRepo;
+let galleryAvailable = false;
+
+test.beforeAll(async () => {
+	testRepo = createTestRepo();
+	const stateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-traits-")));
+	app = await electron.launch({
+		args: ["out/main/index.js"],
+		env: {
+			...process.env,
+			AI14ALL_E2E: "1",
+			AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
+			AI14ALL_WORKSPACE_STATE_PATH: join(stateDir, "workspace-state.json"),
+		},
+	});
+	page = await app.firstWindow({ timeout: 60_000 });
+	await page.evaluate(() => {
+		window.location.hash = "#/ui-gallery";
+		window.location.reload();
+	});
+	const gallery = page.getByTestId("ui-gallery");
+	for (let i = 0; i < 20 && (await gallery.count()) === 0; i++) {
+		await page.waitForTimeout(500);
+	}
+	galleryAvailable = (await gallery.count()) > 0;
+	if (galleryAvailable) await expect(gallery).toBeVisible({ timeout: 10_000 });
+});
+
+test.afterAll(async () => {
+	await closeApp(app);
+	testRepo?.cleanup();
+});
+
+async function switchTheme(palette: Palette) {
+	await page.getByTestId(`gallery-theme-${palette}`).click();
+	await expect(page.locator("html")).toHaveAttribute("data-theme", palette);
+	await page.waitForTimeout(150);
+}
+
+for (const palette of ["light", "dark", "warm"] as const) {
+	test(`${palette}: rounded-md primitives have 0px radius`, async () => {
+		test.skip(!galleryAvailable, "#/ui-gallery route not present");
+		await switchTheme(palette);
+		const radius = await page
+			.getByRole("button", { name: "Default", exact: true })
+			.evaluate((el) => getComputedStyle(el).borderTopLeftRadius);
+		expect(radius).toBe("0px");
+	});
+}
+
+for (const palette of ["light", "dark", "warm"] as const) {
+	test(`${palette}: <Icon> renders the Nerd Font glyph, hides the fallback`, async () => {
+		test.skip(!galleryAvailable, "#/ui-gallery route not present");
+		await switchTheme(palette);
+		// The dialog close button is <Icon name="close" lucide={X}> (dialog.tsx).
+		await page.getByTestId("gallery-open-dialog").click();
+		const dialog = page.getByTestId("gallery-dialog-content");
+		await expect(dialog).toBeVisible();
+
+		const glyph = await dialog
+			.locator(".app-nf")
+			.first()
+			.evaluate((el) => ({
+				display: getComputedStyle(el).display,
+				before: getComputedStyle(el, "::before").content,
+			}));
+		expect(glyph.display).toBe("inline-block");
+		expect(glyph.before).not.toBe("none");
+		expect(glyph.before).not.toBe('""');
+
+		// The Lucide SVG fallback for the same icon is hidden.
+		const svgDisplay = await dialog
+			.locator("svg")
+			.first()
+			.evaluate((el) => getComputedStyle(el).display);
+		expect(svgDisplay).toBe("none");
+
+		await page.keyboard.press("Escape");
+		await expect(dialog).toHaveCount(0);
+	});
+}
+
+const PANE_BORDER_TOKENS = [
+	"--pane-border-sessions",
+	"--pane-border-session-info",
+	"--pane-border-terminal",
+	"--pane-border-review",
+];
+
+// Pane separators are neutral — each resolves to the theme's --panel-border
+// (matching the tui theme), not a per-pane accent color.
+for (const palette of ["light", "dark", "warm"] as const) {
+	test(`${palette}: pane-border tokens are neutral (match --panel-border)`, async () => {
+		test.skip(!galleryAvailable, "#/ui-gallery route not present");
+		await switchTheme(palette);
+		const { panel, panes } = await page.evaluate((tokens) => {
+			const cs = getComputedStyle(document.documentElement);
+			return {
+				panel: cs.getPropertyValue("--panel-border").trim(),
+				panes: Object.fromEntries(
+					tokens.map((n) => [n, cs.getPropertyValue(n).trim()]),
+				),
+			};
+		}, PANE_BORDER_TOKENS);
+		for (const name of PANE_BORDER_TOKENS) {
+			expect(panes[name]).toBe(panel);
+		}
+	});
+}

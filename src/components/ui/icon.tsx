@@ -3,14 +3,14 @@ import type { ComponentType } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Terminal UI icon registry.
+ * Icon registry.
  *
  * Each entry pairs the glyph the non-TUI palettes already use (`fallback`)
- * with the Nerd Font codepoint shown under `data-theme="tui"` (`nf`). Nerd
- * Font codepoints live in the Private Use Area and are supplied by the
- * "Symbols Nerd Font" face (see src/app/shell.css). The fallback keeps
- * dark / light / warm pixel-identical to today -- only the TUI palette swaps
- * to the Nerd Font glyph, making it the sole icon set there.
+ * with the Nerd Font codepoint shown in every theme (`nf`). Nerd Font
+ * codepoints live in the Private Use Area and are supplied by the "Symbols
+ * Nerd Font" face (see src/app/shell.css). Every theme renders the Nerd Font
+ * glyph; `fallback` is retained as the source-of-truth character and for
+ * copy/accessibility tooling.
  *
  * Glyphs are written as \u escapes so codepoints survive editing
  * unambiguously; the trailing comment names each one.
@@ -50,27 +50,28 @@ export type IconName = keyof typeof ICON_GLYPHS;
 type IconProps = {
 	name: IconName;
 	/**
-	 * Lucide component to render in the non-TUI palettes instead of the text
-	 * fallback (used by the shadcn primitives that ship SVG icons today).
+	 * Lucide component carried as the SVG fallback (used by the shadcn
+	 * primitives that ship SVG icons today). Hidden in every theme now that the
+	 * Nerd Font glyph renders everywhere; retained for the registry contract.
 	 */
 	lucide?: ComponentType<{ className?: string }>;
 	/** Applied to whichever icon element is visible (svg, fallback or glyph). */
 	className?: string;
 	/**
-	 * Overrides the registry fallback glyph for the non-TUI palettes. Use when a
-	 * call site's original character differs from the shared registry glyph (the
-	 * same `name` is reused across sites that historically used different chars),
-	 * so dark / light / warm stay pixel-identical. The TUI Nerd Font glyph is
-	 * unaffected.
+	 * Overrides the registry fallback glyph. Use when a call site's original
+	 * character differs from the shared registry glyph (the same `name` is
+	 * reused across sites that historically used different chars). The fallback
+	 * is hidden in every theme now that the Nerd Font glyph renders everywhere;
+	 * it is kept as the source-of-truth character for the registry.
 	 */
 	fallback?: string;
 };
 
 /**
  * Renders an icon as a Fragment so it drops into existing markup exactly where
- * the old glyph / SVG sat. Exactly one child is ever visible: the non-TUI
- * representation (Lucide SVG or text glyph) outside the TUI palette, and the
- * Nerd Font glyph inside it.
+ * the old glyph / SVG sat. Exactly one child is ever visible: the Nerd Font
+ * glyph (shown in every theme). The Lucide SVG / text fallback is always
+ * hidden and kept only so the codepoint registry and call sites stay legible.
  */
 export function Icon({
 	name,
@@ -83,14 +84,14 @@ export function Icon({
 	return (
 		<>
 			{Lucide ? (
-				<Lucide className={cn("tui:hidden", className)} />
+				<Lucide className={cn("hidden", className)} />
 			) : (
-				<span className={cn("tui:hidden", className)}>{glyph}</span>
+				<span className={cn("hidden", className)}>{glyph}</span>
 			)}
 			<span
 				aria-hidden
 				data-nf={nf}
-				className={cn("app-nf hidden tui:inline-block", className)}
+				className={cn("app-nf inline-block", className)}
 			/>
 		</>
 	);
