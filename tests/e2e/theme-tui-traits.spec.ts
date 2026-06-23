@@ -14,7 +14,7 @@ import { closeApp } from "./fixtures/close-app";
 /**
  * Asserts the three TUI traits ported to light/dark/warm
  * (docs/superpowers/specs/2026-06-23-tui-traits-to-all-themes-design.md):
- * square corners, Nerd Font icons, solid pane separators. Runs against the
+ * square corners, Nerd Font icons, neutral pane separators. Runs against the
  * #/ui-gallery route. Unlike ui-gallery.screenshots.spec.ts this IS an
  * assertion suite. Skips when the gallery route is absent.
  */
@@ -81,10 +81,13 @@ for (const palette of ["light", "dark", "warm"] as const) {
 		const dialog = page.getByTestId("gallery-dialog-content");
 		await expect(dialog).toBeVisible();
 
-		const glyph = await dialog.locator(".app-nf").first().evaluate((el) => ({
-			display: getComputedStyle(el).display,
-			before: getComputedStyle(el, "::before").content,
-		}));
+		const glyph = await dialog
+			.locator(".app-nf")
+			.first()
+			.evaluate((el) => ({
+				display: getComputedStyle(el).display,
+				before: getComputedStyle(el, "::before").content,
+			}));
 		expect(glyph.display).toBe("inline-block");
 		expect(glyph.before).not.toBe("none");
 		expect(glyph.before).not.toBe('""');
@@ -101,40 +104,30 @@ for (const palette of ["light", "dark", "warm"] as const) {
 	});
 }
 
-const SOLID_PANE_BORDERS = {
-	light: {
-		"--pane-border-sessions": "#1e78dc",
-		"--pane-border-session-info": "#b4781e",
-		"--pane-border-terminal": "#1ea064",
-		"--pane-border-review": "#c83c50",
-	},
-	dark: {
-		"--pane-border-sessions": "#4fb3ff",
-		"--pane-border-session-info": "#f6a94a",
-		"--pane-border-terminal": "#43d39e",
-		"--pane-border-review": "#f36b8a",
-	},
-	warm: {
-		"--pane-border-sessions": "#6cbcb8",
-		"--pane-border-session-info": "#e49e50",
-		"--pane-border-terminal": "#e28c60",
-		"--pane-border-review": "#dc7a6e",
-	},
-} as const;
+const PANE_BORDER_TOKENS = [
+	"--pane-border-sessions",
+	"--pane-border-session-info",
+	"--pane-border-terminal",
+	"--pane-border-review",
+];
 
+// Pane separators are neutral — each resolves to the theme's --panel-border
+// (matching the tui theme), not a per-pane accent color.
 for (const palette of ["light", "dark", "warm"] as const) {
-	test(`${palette}: pane-border tokens are solid (no alpha)`, async () => {
+	test(`${palette}: pane-border tokens are neutral (match --panel-border)`, async () => {
 		test.skip(!galleryAvailable, "#/ui-gallery route not present");
 		await switchTheme(palette);
-		const tokens = await page.evaluate((names) => {
+		const { panel, panes } = await page.evaluate((tokens) => {
 			const cs = getComputedStyle(document.documentElement);
-			return Object.fromEntries(
-				names.map((n) => [n, cs.getPropertyValue(n).trim()]),
-			);
-		}, Object.keys(SOLID_PANE_BORDERS[palette]));
-		for (const [name, expected] of Object.entries(SOLID_PANE_BORDERS[palette])) {
-			expect(tokens[name]).toBe(expected);
-			expect(tokens[name]).not.toContain("rgba");
+			return {
+				panel: cs.getPropertyValue("--panel-border").trim(),
+				panes: Object.fromEntries(
+					tokens.map((n) => [n, cs.getPropertyValue(n).trim()]),
+				),
+			};
+		}, PANE_BORDER_TOKENS);
+		for (const name of PANE_BORDER_TOKENS) {
+			expect(panes[name]).toBe(panel);
 		}
 	});
 }
