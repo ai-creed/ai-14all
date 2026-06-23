@@ -186,9 +186,10 @@
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
-	/* max() clamp: with the TUI theme's --radius: 0rem the subtractions go
-	 * negative, which is invalid border-radius (spec §4.5). No-op for the
-	 * other themes (radius 10px keeps every value positive). */
+	/* max() clamp: every theme now runs --radius: 0rem (square corners —
+	 * docs/superpowers/specs/2026-06-23-tui-traits-to-all-themes-design.md), so
+	 * the subtractions go negative, which is invalid border-radius (spec §4.5).
+	 * The clamp floors them at 0 for ALL themes, not just TUI. */
 	--radius-sm: max(0px, calc(var(--radius) - 4px));
 	--radius-md: max(0px, calc(var(--radius) - 2px));
 	--radius-lg: var(--radius);

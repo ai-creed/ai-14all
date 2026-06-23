@@ -50,18 +50,19 @@ export type IconName = keyof typeof ICON_GLYPHS;
 type IconProps = {
 	name: IconName;
 	/**
-	 * Lucide component to render in the non-TUI palettes instead of the text
-	 * fallback (used by the shadcn primitives that ship SVG icons today).
+	 * Lucide component carried as the SVG fallback (used by the shadcn
+	 * primitives that ship SVG icons today). Hidden in every theme now that the
+	 * Nerd Font glyph renders everywhere; retained for the registry contract.
 	 */
 	lucide?: ComponentType<{ className?: string }>;
 	/** Applied to whichever icon element is visible (svg, fallback or glyph). */
 	className?: string;
 	/**
-	 * Overrides the registry fallback glyph for the non-TUI palettes. Use when a
-	 * call site's original character differs from the shared registry glyph (the
-	 * same `name` is reused across sites that historically used different chars),
-	 * so dark / light / warm stay pixel-identical. The TUI Nerd Font glyph is
-	 * unaffected.
+	 * Overrides the registry fallback glyph. Use when a call site's original
+	 * character differs from the shared registry glyph (the same `name` is
+	 * reused across sites that historically used different chars). The fallback
+	 * is hidden in every theme now that the Nerd Font glyph renders everywhere;
+	 * it is kept as the source-of-truth character for the registry.
 	 */
 	fallback?: string;
 };
