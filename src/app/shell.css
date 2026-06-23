@@ -1512,7 +1512,7 @@ select {
 .shell-inline-editor__readonly-chip {
 	margin-left: 8px;
 	padding: 1px 6px;
-	border-radius: 3px;
+	border-radius: 0;
 	background: var(--panel-bg-elevated);
 	color: var(--text-secondary);
 	font-size: 10px;
@@ -2526,7 +2526,7 @@ select {
 	background: var(--panel-bg);
 	color: var(--text-primary);
 	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: 8px;
+	border-radius: 0;
 	box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
 	z-index: 50;
 	overflow: hidden;
@@ -2667,7 +2667,7 @@ select {
 	font-size: 14px;
 	background: rgba(255, 255, 255, 0.04);
 	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: 6px;
+	border-radius: 0;
 	outline: none;
 }
 
@@ -2697,7 +2697,7 @@ select {
 .shell-files-overlay__footer-hints kbd {
 	padding: 2px 6px;
 	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: 4px;
+	border-radius: 0;
 	background: rgba(255, 255, 255, 0.04);
 	font-size: 11px;
 }
@@ -2839,7 +2839,7 @@ select {
 	font-weight: 500;
 	background: rgba(74, 144, 226, 0.22);
 	border: var(--shell-border-width) solid rgba(74, 144, 226, 0.55);
-	border-radius: 4px;
+	border-radius: 0;
 	color: #6ab0f5;
 	cursor: pointer;
 }
@@ -2852,7 +2852,7 @@ select {
 	background: var(--shell-accent, #4a90e2);
 	color: white;
 	border: none;
-	border-radius: 4px;
+	border-radius: 0;
 	cursor: pointer;
 	z-index: 10;
 }
@@ -2863,7 +2863,7 @@ select {
 	padding: 0;
 	background: rgba(74, 144, 226, 0.85);
 	border: none;
-	border-radius: 4px;
+	border-radius: 0;
 	color: #fff;
 	font-size: 18px;
 	font-weight: 400;
@@ -3227,7 +3227,7 @@ select {
 	background: var(--surface-elevated, #1f2228);
 	color: var(--text, #d9d9d9);
 	border: var(--shell-border-width) solid var(--border-subtle, #2c3038);
-	border-radius: 8px;
+	border-radius: 0;
 	padding: 8px 10px;
 	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 	max-width: 320px;
@@ -4089,7 +4089,7 @@ select {
 }
 .shell-layout-dialog__cell {
 	background: #222a3a;
-	border-radius: 2px;
+	border-radius: 0;
 }
 .shell-layout-dialog__cell[data-master="true"] {
 	background: #3a4f7d;
@@ -4286,7 +4286,7 @@ select {
 .usage-gcell {
 	width: 4px;
 	height: 5px;
-	border-radius: 1px;
+	border-radius: 0;
 	background: var(--panel-border);
 	opacity: 0.6;
 }
@@ -4323,7 +4323,7 @@ select {
 	overflow-y: auto;
 	background: var(--panel-bg-elevated);
 	border: var(--shell-border-width) solid var(--panel-border-strong);
-	border-radius: 10px;
+	border-radius: 0;
 	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
 	width: 760px;
 	color: var(--text-secondary);
@@ -4423,7 +4423,7 @@ select {
 	display: inline-flex;
 	background: var(--panel-bg);
 	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: 6px;
+	border-radius: 0;
 	overflow: hidden;
 }
 .usage-seg button {
@@ -4500,14 +4500,14 @@ select {
 	width: 72px;
 	background: var(--panel-bg);
 	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: 5px;
+	border-radius: 0;
 	color: var(--text-primary);
 	padding: 3px 6px;
 }
 .usage-budget-row button {
 	background: var(--panel-bg-elevated);
 	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: 5px;
+	border-radius: 0;
 	color: var(--text-primary);
 	padding: 0 12px;
 	cursor: pointer;
@@ -4523,7 +4523,7 @@ select {
 	color: var(--text-primary);
 	background: var(--panel-bg);
 	padding: 0 4px;
-	border-radius: 3px;
+	border-radius: 0;
 }
 
 /* Files pane / symbol search */
@@ -4565,7 +4565,7 @@ select {
 	width: 24px;
 	height: auto;
 	border: 0;
-	border-radius: 2px;
+	border-radius: 0;
 	background: transparent;
 	color: var(--text-secondary);
 	font-size: 13px;
@@ -4662,7 +4662,7 @@ select {
 	letter-spacing: 0.04em;
 	color: var(--text-secondary);
 	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: 2px;
+	border-radius: 0;
 	padding: 0 4px;
 	flex: none;
 }
