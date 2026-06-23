@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import * as ContextMenu from "@radix-ui/react-context-menu";
+import { Button } from "@/components/ui/button";
+import {
+	ContextMenu,
+	ContextMenuContent,
+	ContextMenuItem,
+	ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { buildLinearCommitGraph } from "../logic/build-linear-commit-graph.js";
 import type {
 	GitCommitHistory,
@@ -74,14 +80,15 @@ export function CommitList({
 						<span>↑{remoteStatus.ahead}</span>
 						<span>↓{remoteStatus.behind}</span>
 					</span>
-					<button
+					<Button
 						type="button"
-						className="shell-button shell-button--xs"
+						variant="secondary"
+						size="sm"
 						disabled={pushDisabled}
 						onClick={handlePushClick}
 					>
 						Push
-					</button>
+					</Button>
 					<ForcePushDialog
 						open={forcePushOpen}
 						behind={remoteStatus.behind}
@@ -155,47 +162,43 @@ export function CommitList({
 									}
 
 									return (
-										<ContextMenu.Root key={file.path}>
-											<ContextMenu.Trigger asChild>
-												{button}
-											</ContextMenu.Trigger>
-											<ContextMenu.Portal>
-												<ContextMenu.Content className="shell-toolbar-menu">
-													<ContextMenu.Item
-														className="shell-toolbar-menu__item"
-														onSelect={() => {
-															if (!activeDetail) return;
-															// Lazy-fetch the modified blob at the commit
-															// for the preview override. `readCommitFileDiff`
-															// returns the same shape the eager flow used.
-															void git
-																.readCommitFileDiff(
-																	workspaceId,
-																	worktreeId,
-																	activeDetail.sha,
-																	file,
-																)
-																.then((diff) => {
-																	setPreviewState({
-																		path: file.path,
-																		content: diff.modifiedContent,
-																	});
-																})
-																.catch(() => {
-																	// Fall back to opening the modal without an
-																	// override — it'll read the working-tree copy.
-																	setPreviewState({
-																		path: file.path,
-																		content: "",
-																	});
+										<ContextMenu key={file.path}>
+											<ContextMenuTrigger asChild>{button}</ContextMenuTrigger>
+											<ContextMenuContent className="shell-toolbar-menu">
+												<ContextMenuItem
+													className="shell-toolbar-menu__item"
+													onSelect={() => {
+														if (!activeDetail) return;
+														// Lazy-fetch the modified blob at the commit
+														// for the preview override. `readCommitFileDiff`
+														// returns the same shape the eager flow used.
+														void git
+															.readCommitFileDiff(
+																workspaceId,
+																worktreeId,
+																activeDetail.sha,
+																file,
+															)
+															.then((diff) => {
+																setPreviewState({
+																	path: file.path,
+																	content: diff.modifiedContent,
 																});
-														}}
-													>
-														Preview
-													</ContextMenu.Item>
-												</ContextMenu.Content>
-											</ContextMenu.Portal>
-										</ContextMenu.Root>
+															})
+															.catch(() => {
+																// Fall back to opening the modal without an
+																// override — it'll read the working-tree copy.
+																setPreviewState({
+																	path: file.path,
+																	content: "",
+																});
+															});
+													}}
+												>
+													Preview
+												</ContextMenuItem>
+											</ContextMenuContent>
+										</ContextMenu>
 									);
 								})}
 							</div>
@@ -203,16 +206,17 @@ export function CommitList({
 					</div>
 				);
 			})}
-			{previewState !== null && (
-				<MarkdownPreviewModal
-					workspaceId={workspaceId}
-					worktreeId={worktreeId}
-					relativePath={previewState.path}
-					contentOverride={previewState.content}
-					open={true}
-					onClose={() => setPreviewState(null)}
-				/>
-			)}
+			{/* Always mounted, visibility driven by `open`: unmounting a Radix
+			    Dialog while it is still open skips its body pointer-events/aria
+			    cleanup and freezes the app. */}
+			<MarkdownPreviewModal
+				workspaceId={workspaceId}
+				worktreeId={worktreeId}
+				relativePath={previewState?.path ?? ""}
+				contentOverride={previewState?.content}
+				open={previewState !== null}
+				onClose={() => setPreviewState(null)}
+			/>
 		</div>
 	);
 }

@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/icon";
 import type {
 	AgentCliProbes,
 	WhisperWorktreeState,
@@ -79,7 +80,7 @@ export function AgentLauncherBar({
 					onClick={() => onLaunch(provider)}
 				>
 					<span className="shell-chip-bar__action-icon" aria-hidden="true">
-						▸
+						<Icon name="caret-right" />
 					</span>
 					{PROVIDER_LABEL[provider]}
 				</button>

@@ -4,6 +4,7 @@ import type {
 	UsageRow,
 	UsageSnapshot,
 } from "../../../shared/models/usage.js";
+import { Icon } from "@/components/ui/icon";
 import { formatReset, formatTokens } from "./format.js";
 import { Gauge } from "./Gauge.js";
 import { groupByWorkspace } from "./group.js";
@@ -177,7 +178,7 @@ export function UsagePopover({
 				<div className="usage-pop-h">
 					<span>Account limits</span>
 					<button className="usage-gear" aria-label="close" onClick={onClose}>
-						✕
+						<Icon name="close" />
 					</button>
 				</div>
 				<div className="usage-limits">
@@ -243,8 +244,12 @@ export function UsagePopover({
 					<thead>
 						<tr>
 							<th className="l">workspace / worktree · agent</th>
-							<th>↑ in</th>
-							<th>↓ out</th>
+							<th>
+								<Icon name="arrow-up" /> in
+							</th>
+							<th>
+								<Icon name="arrow-down" /> out
+							</th>
 							<th>this week</th>
 						</tr>
 					</thead>
@@ -285,8 +290,9 @@ export function UsagePopover({
 			</div>
 			<div className="usage-pop-sec usage-foot">
 				<span className="usage-dim" data-testid="usage-total">
-					session ↑
-					<span className="usage-bill">{formatTokens(total.input)}</span> ↓
+					session <Icon name="arrow-up" />
+					<span className="usage-bill">{formatTokens(total.input)}</span>{" "}
+					<Icon name="arrow-down" />
 					<span className="usage-bill">{formatTokens(total.output)}</span>
 					{" · week "}
 					<span className="usage-bill">{formatTokens(weekTotal)}</span>
@@ -298,14 +304,14 @@ export function UsagePopover({
 						aria-expanded={showHelp}
 						onClick={() => setShowHelp((v) => !v)}
 					>
-						ⓘ how to read
+						<Icon name="info" /> how to read
 					</button>
 					<button
 						className="usage-gear"
 						aria-label="budget settings"
 						onClick={() => setEditingBudget((v) => !v)}
 					>
-						⚙ budget settings
+						<Icon name="gear" /> budget settings
 					</button>
 				</span>
 			</div>
@@ -313,8 +319,13 @@ export function UsagePopover({
 				<div className="usage-pop-sec usage-help">
 					<dl>
 						<dt>
-							<span className="usage-bill">↑ in</span> /{" "}
-							<span className="usage-bill">↓ out</span>
+							<span className="usage-bill">
+								<Icon name="arrow-up" /> in
+							</span>{" "}
+							/{" "}
+							<span className="usage-bill">
+								<Icon name="arrow-down" /> out
+							</span>
 						</dt>
 						<dd>
 							<b>in</b> = prompt tokens you send (your input + first-time cached

@@ -148,14 +148,16 @@ describe("RepositoryInput", () => {
 		});
 	});
 
-	it("uses shell-input on the path field and shell-button on actions", () => {
+	it("renders the path field and Button styling on actions", () => {
 		const { container } = render(<RepositoryInput onLoadPath={vi.fn()} />);
 		const input = container.querySelector("input#repo-path");
-		expect(input?.className).toContain("shell-input");
+		expect(input).not.toBeNull();
 		const browse = screen.getByRole("button", { name: "Browse" });
-		expect(browse.className).toContain("shell-button");
-		expect(browse.className).toContain("shell-button--compact");
+		// secondary variant + sm size
+		expect(browse.className).toContain("bg-secondary");
+		expect(browse.className).toContain("h-8");
 		const submit = screen.getByRole("button", { name: /load/i });
-		expect(submit.className).toContain("shell-button--primary");
+		// default (primary) variant
+		expect(submit.className).toContain("bg-primary");
 	});
 });

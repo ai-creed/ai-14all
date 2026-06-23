@@ -1782,7 +1782,6 @@ export function App() {
 			<main className="shell-app shell-app--setup">
 				<section className="shell-panel shell-setup-panel">
 					<h1 className="shell-setup-title">ai-14all</h1>
-					<h2>Repository</h2>
 					<RepositoryInput onLoadPath={(path) => handleLoadPath(path)} />
 					{startupError && <p className="shell-error">{startupError}</p>}
 					{error && <p className="shell-error">Error: {error}</p>}

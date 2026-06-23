@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import * as ScrollArea from "@radix-ui/react-scroll-area";
-import * as Tabs from "@radix-ui/react-tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { GitChange } from "../../../shared/models/git-change";
 import type { GitDiff } from "../../../shared/models/git-diff";
 import type {
@@ -489,7 +489,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 		addingDraft !== null && addingDraft.filePath === currentFilePath;
 
 	return (
-		<Tabs.Root
+		<Tabs
 			value={activeSession?.reviewMode ?? "files"}
 			onValueChange={(value) =>
 				dispatch({
@@ -515,24 +515,24 @@ export function ReviewArea(props: Props): React.ReactElement {
 					data-testid="review-rail"
 				>
 					<div className="shell-review-rail__header">
-						<Tabs.List
+						<TabsList
 							aria-label="Review mode"
 							className="shell-review-tabs__list shell-review-tabs__segments"
 						>
-							<Tabs.Trigger value="files" className="shell-review-tab">
+							<TabsTrigger value="files" className="shell-review-tab">
 								Files
-							</Tabs.Trigger>
-							<Tabs.Trigger value="changes" className="shell-review-tab">
+							</TabsTrigger>
+							<TabsTrigger value="changes" className="shell-review-tab">
 								Changes
-							</Tabs.Trigger>
-							<Tabs.Trigger value="commits" className="shell-review-tab">
+							</TabsTrigger>
+							<TabsTrigger value="commits" className="shell-review-tab">
 								Commits
-							</Tabs.Trigger>
-						</Tabs.List>
+							</TabsTrigger>
+						</TabsList>
 					</div>
 
-					<ScrollArea.Root className="shell-review-rail__scroll">
-						<ScrollArea.Viewport className="shell-rail__viewport">
+					<ScrollArea className="shell-review-rail__scroll">
+						<div className="shell-rail__viewport">
 							{activeSession?.reviewMode === "commits" ? (
 								<>
 									{commitHistoryState.message && (
@@ -635,15 +635,16 @@ export function ReviewArea(props: Props): React.ReactElement {
 										}
 										onRequestClose={props.onCloseReview}
 									/>
-									{treePreviewPath !== null && (
-										<MarkdownPreviewModal
-											workspaceId={activeWorkspaceId ?? ""}
-											worktreeId={activeWorktree.id}
-											relativePath={treePreviewPath}
-											open={true}
-											onClose={() => setTreePreviewPath(null)}
-										/>
-									)}
+									{/* Always mounted, visibility driven by `open`: unmounting
+									    a Radix Dialog while it is still open skips its body
+									    pointer-events/aria cleanup and freezes the app. */}
+									<MarkdownPreviewModal
+										workspaceId={activeWorkspaceId ?? ""}
+										worktreeId={activeWorktree.id}
+										relativePath={treePreviewPath ?? ""}
+										open={treePreviewPath !== null}
+										onClose={() => setTreePreviewPath(null)}
+									/>
 								</>
 							) : (
 								<ChangesList
@@ -661,12 +662,8 @@ export function ReviewArea(props: Props): React.ReactElement {
 									openCommentCounts={openCommentCounts}
 								/>
 							)}
-						</ScrollArea.Viewport>
-						<ScrollArea.Scrollbar
-							orientation="vertical"
-							className="shell-scrollbar"
-						/>
-					</ScrollArea.Root>
+						</div>
+					</ScrollArea>
 				</section>
 
 				<div
@@ -883,6 +880,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 						);
 					})()}
 			</div>
-		</Tabs.Root>
+		</Tabs>
 	);
 }

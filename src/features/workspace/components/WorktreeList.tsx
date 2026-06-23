@@ -27,20 +27,24 @@ export function WorktreeList({
 							padding: "8px 12px",
 							marginBottom: 4,
 							cursor: "pointer",
-							border: isSelected ? "1px solid #666" : "1px solid transparent",
-							background: isSelected ? "#f0f0f0" : "transparent",
+							border: isSelected
+								? "1px solid var(--border)"
+								: "1px solid transparent",
+							background: isSelected ? "var(--accent)" : "transparent",
 						}}
 					>
 						<div>
 							<strong>{wt.label}</strong>
 						</div>
-						<div style={{ fontSize: "0.9em", color: "#555" }}>
+						<div
+							style={{ fontSize: "0.9em", color: "var(--muted-foreground)" }}
+						>
 							Branch: {wt.branchName}
 						</div>
 						<div
 							style={{
 								fontSize: "0.85em",
-								color: "#777",
+								color: "var(--muted-foreground)",
 								fontFamily: "monospace",
 							}}
 						>

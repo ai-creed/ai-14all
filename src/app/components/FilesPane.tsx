@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Icon } from "@/components/ui/icon";
 import type { GitChange } from "../../../shared/models/git-change";
 import type { FilesPaneMode } from "../../../shared/models/worktree-session";
 import { WorktreeTree } from "../../features/viewer/components/WorktreeTree.js";
@@ -124,7 +125,7 @@ export function FilesPane(props: FilesPaneProps) {
 						title="Search files"
 						onClick={() => onModeChange("files")}
 					>
-						🗎
+						<Icon name="file" />
 					</button>
 					<button
 						type="button"
@@ -137,7 +138,7 @@ export function FilesPane(props: FilesPaneProps) {
 						title="Search symbols"
 						onClick={() => onModeChange("symbols")}
 					>
-						❮❯
+						<Icon name="code" />
 					</button>
 				</div>
 			</div>

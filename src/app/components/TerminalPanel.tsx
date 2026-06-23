@@ -7,6 +7,7 @@ import type { WorkspaceState } from "../../../shared/models/workspace-state";
 import type { WorktreeSession } from "../../../shared/models/worktree-session";
 import type { ITheme } from "xterm";
 import type { LayoutId } from "../../../shared/models/terminal-layout";
+import { Icon } from "@/components/ui/icon";
 import { TERMINAL_LAYOUTS } from "../../features/terminals/logic/terminal-layouts";
 import { TerminalPane } from "../../features/terminals/components/TerminalPane";
 import { EmptySlotLauncher } from "../../features/terminals/components/EmptySlotLauncher";
@@ -171,7 +172,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										data-testid={`slot-promote-${slotIndex}`}
 										onClick={() => onPromoteSlot(slotIndex)}
 									>
-										↑
+										<Icon name="arrow-up" />
 									</button>
 								)}
 								{process && (
@@ -182,7 +183,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										data-testid={`slot-refit-${slotIndex}`}
 										onClick={() => requestRefit(process.id)}
 									>
-										⤓
+										<Icon name="download" />
 									</button>
 								)}
 								{process && (
@@ -193,7 +194,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										data-testid={`slot-restart-${slotIndex}`}
 										onClick={() => onRestartSlot(process.id)}
 									>
-										↻
+										<Icon name="refresh" />
 									</button>
 								)}
 								{process && (
@@ -204,7 +205,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										data-testid={`slot-close-${slotIndex}`}
 										onClick={() => onCloseSlot(process.id)}
 									>
-										✕
+										<Icon name="close" />
 									</button>
 								)}
 							</header>

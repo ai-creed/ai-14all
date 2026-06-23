@@ -1,4 +1,11 @@
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Icon } from "@/components/ui/icon";
 import type { CommandPreset } from "../../../../shared/models/command-preset";
 import {
 	type Platform,
@@ -43,7 +50,7 @@ export function TerminalActions({
 				onClick={onAddAdHoc}
 			>
 				<span className="shell-chip-bar__action-icon" aria-hidden="true">
-					＋
+					<Icon name="plus" />
 				</span>
 				Shell
 			</button>
@@ -56,51 +63,42 @@ export function TerminalActions({
 				onClick={onOpenLayoutDialog}
 			>
 				<span className="shell-chip-bar__action-icon" aria-hidden="true">
-					▦
+					<Icon name="grid" />
 				</span>
 				Layout
 			</button>
 
-			<DropdownMenu.Root>
-				<DropdownMenu.Trigger asChild>
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
 					<button type="button" className="shell-chip-bar__action">
 						<span className="shell-chip-bar__action-icon" aria-hidden="true">
-							⚙
+							<Icon name="gear" />
 						</span>
 						Presets
-						<span aria-hidden="true">▾</span>
+						<span aria-hidden="true">
+							<Icon name="caret-down" />
+						</span>
 					</button>
-				</DropdownMenu.Trigger>
-				<DropdownMenu.Portal>
-					<DropdownMenu.Content className="shell-toolbar-menu">
-						{presets.length === 0 ? (
-							<DropdownMenu.Item
-								disabled
-								className="shell-toolbar-menu__item shell-toolbar-menu__item--disabled"
+				</DropdownMenuTrigger>
+				<DropdownMenuContent>
+					{presets.length === 0 ? (
+						<DropdownMenuItem disabled>No presets yet</DropdownMenuItem>
+					) : (
+						presets.map((preset) => (
+							<DropdownMenuItem
+								key={preset.id}
+								onSelect={() => onLaunchPreset(preset.id)}
 							>
-								No presets yet
-							</DropdownMenu.Item>
-						) : (
-							presets.map((preset) => (
-								<DropdownMenu.Item
-									key={preset.id}
-									className="shell-toolbar-menu__item"
-									onSelect={() => onLaunchPreset(preset.id)}
-								>
-									{preset.label}
-								</DropdownMenu.Item>
-							))
-						)}
-						<DropdownMenu.Separator className="shell-toolbar-menu__separator" />
-						<DropdownMenu.Item
-							className="shell-toolbar-menu__item"
-							onSelect={onOpenPresetManager}
-						>
-							Manage presets
-						</DropdownMenu.Item>
-					</DropdownMenu.Content>
-				</DropdownMenu.Portal>
-			</DropdownMenu.Root>
+								{preset.label}
+							</DropdownMenuItem>
+						))
+					)}
+					<DropdownMenuSeparator />
+					<DropdownMenuItem onSelect={onOpenPresetManager}>
+						Manage presets
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
 		</div>
 	);
 }

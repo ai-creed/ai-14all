@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { AppDialog } from "../../../components/AppDialog";
 import type { CreateWorktreePreview } from "../../../../shared/models/worktree-lifecycle";
 import { getCreateWorktreeErrorHint } from "../logic/create-worktree-error-hint";
@@ -50,20 +52,18 @@ export function NewWorktreeDialog({
 			<AppDialog.Body>
 				<label className="shell-app-dialog__field">
 					<span>Name</span>
-					<input
+					<Input
 						autoFocus
 						value={name}
 						onChange={(event) => onNameChange(event.target.value)}
-						className="shell-input"
 					/>
 				</label>
 				<label className="shell-app-dialog__field">
 					<span>Session title (optional)</span>
-					<input
+					<Input
 						value={sessionTitle}
 						onChange={(event) => onSessionTitleChange(event.target.value)}
 						placeholder={preview?.branchName ?? ""}
-						className="shell-input"
 					/>
 				</label>
 				<div className="shell-app-dialog__field">
@@ -121,17 +121,19 @@ export function NewWorktreeDialog({
 				)}
 			</AppDialog.Body>
 			<AppDialog.Footer>
-				<button
+				<Button
 					type="button"
-					className="shell-button shell-button--compact"
+					variant="secondary"
+					size="sm"
 					onClick={() => onOpenChange(false)}
 					disabled={busy}
 				>
 					Cancel
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					className="shell-button shell-button--compact shell-button--primary"
+					variant="default"
+					size="sm"
 					onClick={onConfirm}
 					disabled={!preview || loading || busy}
 				>
@@ -143,7 +145,7 @@ export function NewWorktreeDialog({
 					) : (
 						"Create worktree"
 					)}
-				</button>
+				</Button>
 			</AppDialog.Footer>
 		</AppDialog>
 	);
