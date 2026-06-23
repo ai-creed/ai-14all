@@ -27,7 +27,11 @@ export function NoteSheet({ open, note, onNoteChange, onClose }: Props) {
 				if (!v) onClose();
 			}}
 		>
-			<DialogContent className="shell-note-sheet" aria-describedby={undefined} hideClose>
+			<DialogContent
+				className="shell-note-sheet"
+				aria-describedby={undefined}
+				hideClose
+			>
 				<div className="shell-note-sheet__header">
 					<DialogTitle className="shell-note-sheet__title">
 						Session note
