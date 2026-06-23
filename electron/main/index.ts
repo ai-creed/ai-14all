@@ -1,5 +1,6 @@
 import { app, ipcMain, Menu } from "electron";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { watch } from "chokidar";
@@ -56,6 +57,8 @@ import type { WorktreeIdentity } from "../../services/plugins/samantha/observe-t
 import { createWhisperCommandRunner } from "../../services/plugins/whisper/whisper-command-runner.js";
 import { PluginCommandLogger } from "../../services/diagnostics/plugin-command-logger.js";
 import { ActingAuditLogger } from "../../services/diagnostics/acting-audit-logger.js";
+import { createActingTokenVerifier } from "../../services/plugins/samantha/acting-token-verifier.js";
+import type { WhisperCommand } from "../../shared/contracts/plugins.js";
 
 app.setName("ai-14all");
 
@@ -309,6 +312,41 @@ app.whenReady().then(async () => {
 		logsDir: join(app.getPath("userData"), "logs"),
 	});
 
+	// Late-bound terminal sendInput: TerminalService is created later inside
+	// registerIpcHandlers; the driver only calls this at command-dispatch time,
+	// long after startup wiring completes.
+	let actingSendInput: ((sessionId: string, data: string) => void) | null = null;
+
+	const actingTokenPath =
+		process.env.SAMANTHA_ACTING_TOKEN_PATH ??
+		join(homedir(), ".ai-samantha", "connector-token");
+	const actingTokenVerifier = createActingTokenVerifier({
+		readSecret: () => {
+			try {
+				return readFileSync(actingTokenPath, "utf8").trim() || null;
+			} catch {
+				return null;
+			}
+		},
+	});
+
+	const resolveWorktreeRef = async (
+		worktreeId: string,
+	): Promise<{ workspaceId: string; cwd: string } | null> => {
+		for (const { workspaceId, repository } of workspaceRegistry.listEntries()) {
+			try {
+				const worktree = await worktreeService.findWorktree(
+					repository,
+					worktreeId,
+				);
+				return { workspaceId, cwd: worktree.path };
+			} catch {
+				// not in this repository; keep scanning.
+			}
+		}
+		return null;
+	};
+
 	const samanthaDriver = createSamanthaDriver({
 		client: createSamanthaConnectorClient({}),
 		getIdentities: getSamanthaIdentities,
@@ -322,36 +360,43 @@ app.whenReady().then(async () => {
 		focusWorktree: samanthaFocusWorktree,
 		webSocketImpl: globalThis.WebSocket as unknown as WebSocketCtor,
 		log: (message, error) => console.error(message, error),
-		// Acting gate: token (shared secret vs AI_SAMANTHA_TOKEN), toggle, audit.
 		isActingEnabled: () =>
 			pluginConfig.get("samantha").behavior?.actingEnabled ?? false,
-		verifyActingToken: (token) => {
-			const expected = process.env.AI_SAMANTHA_TOKEN;
-			return typeof expected === "string" && expected.length > 0 && token === expected;
-		},
+		verifyActingToken: (token) => actingTokenVerifier.verify(token),
 		auditAct: (entry) => actingAuditLogger.append(entry),
-		// Managed delivery: whisper CLI (collab-tell / workflow-resume --message).
-		// workspaceId/worktreeId are required by WhisperCommand's type but ignored
-		// by commandToArgv — the runner resolves cwd from the worktree path instead.
 		runManagedInstruction: async (worktreeId, decision) => {
-			const identities = await getSamanthaIdentities();
-			const cwd = identities[worktreeId]?.path;
-			if (!cwd) return { ok: false, detail: `no path for worktree "${worktreeId}"` };
-			const base = { workspaceId: "", worktreeId };
-			const result = await whisperCommandRunner.run(
-				decision.kind === "workflow-resume"
-					? { ...base, kind: "workflow-resume", workflowId: decision.workflowId, message: decision.message }
-					: { ...base, kind: "collab-tell", target: decision.target, instruction: decision.instruction },
-				cwd,
-			);
-			return { ok: result.ok, detail: result.stderr.slice(0, 200) || result.stdout.slice(0, 200) };
+			const ref = await resolveWorktreeRef(worktreeId);
+			if (ref === null) return { ok: false, detail: "worktree not resolved" };
+			const command: WhisperCommand =
+				decision.kind === "collab-tell"
+					? {
+							kind: "collab-tell",
+							workspaceId: ref.workspaceId,
+							worktreeId,
+							target: decision.target,
+							instruction: decision.instruction,
+						}
+					: {
+							kind: "workflow-resume",
+							workspaceId: ref.workspaceId,
+							worktreeId,
+							workflowId: decision.workflowId,
+							message: decision.message,
+						};
+			const r = await whisperCommandRunner.run(command, ref.cwd);
+			return {
+				ok: r.ok,
+				detail: r.ok
+					? "delivered"
+					: r.stderr.slice(0, 200) || `exit ${r.exitCode}`,
+			};
 		},
-		// Unmanaged delivery: terminal sendInput is not yet wired into index.ts;
-		// sessions in managed workflows (paused/escalated) are the primary S3 target.
-		sendUnmanagedInput: (_sessionId, _data) => ({
-			ok: false,
-			detail: "unmanaged terminal input not yet wired",
-		}),
+		sendUnmanagedInput: (sessionId, data) => {
+			if (actingSendInput === null)
+				return { ok: false, detail: "terminal service not ready" };
+			actingSendInput(sessionId, data.endsWith("\n") ? data : `${data}\n`);
+			return { ok: true, detail: "sent" };
+		},
 	});
 
 	const pluginRegistry = createPluginRegistry(
@@ -485,7 +530,7 @@ app.whenReady().then(async () => {
 
 	const closeGate = createCloseGate();
 	closeGate.attach(mainWindow);
-	const { dispose } = registerIpcHandlers(mainWindow, {
+	const { dispose, terminalService } = registerIpcHandlers(mainWindow, {
 		workspacePersistence,
 		workspaceRegistry,
 		worktreeService,
@@ -501,6 +546,8 @@ app.whenReady().then(async () => {
 		closeGate,
 		getCortexEnabled: () => pluginConfig.get("cortex").enabled,
 	});
+	actingSendInput = (sessionId, data) =>
+		terminalService.sendInput(sessionId, data);
 
 	if (process.env.ELECTRON_RENDERER_URL) {
 		mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
