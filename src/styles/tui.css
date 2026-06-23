@@ -301,8 +301,12 @@
 [data-theme="tui"] .shell-inline-thread__status[data-status="open"],
 [data-theme="tui"] .shell-inline-thread__strip > span:first-child,
 [data-theme="tui"] .shell-review-queue__row-jump > span:first-child,
-[data-theme="tui"] .shell-review-queue__row-actions > button[aria-label="Address"],
-[data-theme="tui"] .shell-review-queue__row-actions > button[aria-label="Reopen"],
+[data-theme="tui"]
+	.shell-review-queue__row-actions
+	> button[aria-label="Address"],
+[data-theme="tui"]
+	.shell-review-queue__row-actions
+	> button[aria-label="Reopen"],
 [data-theme="tui"] .workflow-row__status[data-status="running"],
 [data-theme="tui"] .symbol-row__hit,
 [data-theme="tui"] .plugin-readmore a:hover,
