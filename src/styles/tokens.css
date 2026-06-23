@@ -8,7 +8,12 @@
 
 /* ---- shadcn default tokens: DARK (app default, no data-theme) ---- */
 :root {
-	--radius: 0.625rem;
+	/* Sharp, square corners across all themes (docs/superpowers/specs/
+	 * 2026-06-23-tui-traits-to-all-themes-design.md §3.1). light/warm inherit
+	 * this; tui already declares 0. Zeros every border-radius: var(--radius*)
+	 * and rounded-sm/md/lg utility. Pills (rounded-full/999px) and dots (50%)
+	 * are deliberate shapes and keep their radius. */
+	--radius: 0rem;
 	--background: oklch(0.129 0.042 264.695);
 	--foreground: oklch(0.984 0.003 247.858);
 	--card: oklch(0.208 0.042 265.755);
