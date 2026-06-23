@@ -22,6 +22,13 @@ import {
 } from "./samantha-command-capabilities";
 import { createSamanthaCommandDispatcher } from "./samantha-command-dispatcher";
 import {
+	buildTargetSessionState,
+	routeInstruction,
+	type AgentTarget,
+} from "./session-instruction-router";
+import { createActGuard, type PrepResult } from "./act-guard";
+import type { ActingAuditEntry } from "../../diagnostics/acting-audit-logger";
+import {
 	createSamanthaCommandClient,
 	type SamanthaCommandClient,
 	type WebSocketCtor,
@@ -44,6 +51,16 @@ export type SamanthaDriverOptions = {
 	commandPort?: number;
 	commandReconnectMs?: number;
 	log?: (message: string, error?: unknown) => void;
+	isActingEnabled: () => boolean;
+	verifyActingToken: (token: string | undefined) => boolean;
+	auditAct: (entry: ActingAuditEntry) => void;
+	runManagedInstruction: (
+		worktreeId: string,
+		decision:
+			| { kind: "collab-tell"; target: AgentTarget; instruction: string }
+			| { kind: "workflow-resume"; workflowId: string; message: string },
+	) => Promise<{ ok: boolean; detail: string }>;
+	sendUnmanagedInput: (sessionId: string, data: string) => { ok: boolean; detail: string };
 };
 
 const SPEECH_WORTHY = new Set<SamanthaSignal>([
@@ -107,6 +124,10 @@ export function createSamanthaDriver(
 	options: SamanthaDriverOptions,
 ): EcosystemPlugin & {
 	ingestSessionSlice(slice: SamanthaSessionSlice): void;
+	instructSession: (
+		args: Record<string, unknown> | undefined,
+		token: string | undefined,
+	) => Promise<import("./act-guard").ActOutcome>;
 } {
 	const now = options.now ?? Date.now;
 	const debounceMs = options.debounceMs ?? 1000;
@@ -141,12 +162,70 @@ export function createSamanthaDriver(
 		return { identities, reviewCounts, whisper, session };
 	}
 
+	const execute: import("./act-guard").ExecuteFn = async (worktreeId, decision) => {
+		if (decision.kind === "send-input")
+			return options.sendUnmanagedInput(decision.sessionId, decision.data);
+		if (decision.kind === "collab-tell" || decision.kind === "workflow-resume")
+			return options.runManagedInstruction(worktreeId, decision);
+		// "reject" never reaches execute (ActGuard short-circuits it).
+		return { ok: false, detail: "unroutable decision" };
+	};
+
+	const actGuard = createActGuard({
+		verifyToken: options.verifyActingToken,
+		isActingEnabled: options.isActingEnabled,
+		execute,
+		audit: options.auditAct,
+		now,
+	});
+
+	const instructSession = async (
+		args: Record<string, unknown> | undefined,
+		token: string | undefined,
+	) => {
+		// prepare runs ONLY after ActGuard's token + acting-enabled gates pass.
+		const prepare = async (): Promise<PrepResult> => {
+			const key = args?.worktree;
+			const instruction = args?.instruction;
+			if (typeof key !== "string" || key.length === 0)
+				return {
+					ok: false,
+					code: "invalid-args",
+					message: "instruct-session requires args.worktree (non-empty string)",
+				};
+			if (typeof instruction !== "string" || instruction.length === 0)
+				return {
+					ok: false,
+					code: "invalid-args",
+					message: "instruct-session requires args.instruction (non-empty string)",
+				};
+			const resolved = resolveWorktreeKey(await options.getIdentities(), key);
+			if (resolved.kind === "none")
+				return { ok: false, code: "unknown-worktree", message: `no worktree for "${key}"` };
+			if (resolved.kind === "ambiguous")
+				return {
+					ok: false,
+					code: "ambiguous-worktree",
+					message: `"${key}" matches ${resolved.candidates.length} worktrees`,
+				};
+			const state = buildTargetSessionState(
+				resolved.worktreeId,
+				await options.getWhisperStates(),
+				session,
+			);
+			const decision = routeInstruction({ instruction, state });
+			return { ok: true, worktreeId: resolved.worktreeId, instruction, decision };
+		};
+		return actGuard.run({ token, prepare });
+	};
+
 	const dispatcher = createSamanthaCommandDispatcher(
 		{
 			buildReport: async () => renderReport(assembleObserve(await gather())),
 			resolveWorktree: async (key) =>
 				resolveWorktreeKey(await options.getIdentities(), key),
 			focusWorktree: options.focusWorktree,
+			instructSession,
 		},
 		{ log: options.log },
 	);
@@ -376,5 +455,6 @@ export function createSamanthaDriver(
 			session = slice;
 			scheduleRebuild();
 		},
+		instructSession,
 	};
 }

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createSamanthaCommandDispatcher } from "../../../../services/plugins/samantha/samantha-command-dispatcher";
 import type { CommandFrame } from "../../../../services/plugins/samantha/command-types";
 import type { ResolveResult } from "../../../../services/plugins/samantha/samantha-command-capabilities";
+import type { InstructOutcome } from "../../../../services/plugins/samantha/samantha-command-dispatcher";
 
 function frame(over: Partial<CommandFrame> = {}): CommandFrame {
 	return {
@@ -25,7 +26,7 @@ function make(
 			}),
 		),
 		focusWorktree,
-		instructSession: vi.fn(async () => ({ ok: true, routed: "send-input" as const })),
+		instructSession: vi.fn(async (): Promise<InstructOutcome> => ({ ok: true, routed: "send-input" })),
 		...over,
 	};
 	return { dispatcher: createSamanthaCommandDispatcher(cb), cb, focusWorktree };

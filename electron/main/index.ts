@@ -55,6 +55,7 @@ import { createWhisperCollabWatcher } from "../../services/plugins/whisper/whisp
 import type { WorktreeIdentity } from "../../services/plugins/samantha/observe-types.js";
 import { createWhisperCommandRunner } from "../../services/plugins/whisper/whisper-command-runner.js";
 import { PluginCommandLogger } from "../../services/diagnostics/plugin-command-logger.js";
+import { ActingAuditLogger } from "../../services/diagnostics/acting-audit-logger.js";
 
 app.setName("ai-14all");
 
@@ -304,6 +305,10 @@ app.whenReady().then(async () => {
 			pluginConfig.get("samantha").behavior?.focusRaisesWindow ?? true,
 	});
 
+	const actingAuditLogger = new ActingAuditLogger({
+		logsDir: join(app.getPath("userData"), "logs"),
+	});
+
 	const samanthaDriver = createSamanthaDriver({
 		client: createSamanthaConnectorClient({}),
 		getIdentities: getSamanthaIdentities,
@@ -317,6 +322,36 @@ app.whenReady().then(async () => {
 		focusWorktree: samanthaFocusWorktree,
 		webSocketImpl: globalThis.WebSocket as unknown as WebSocketCtor,
 		log: (message, error) => console.error(message, error),
+		// Acting gate: token (shared secret vs AI_SAMANTHA_TOKEN), toggle, audit.
+		isActingEnabled: () =>
+			pluginConfig.get("samantha").behavior?.actingEnabled ?? false,
+		verifyActingToken: (token) => {
+			const expected = process.env.AI_SAMANTHA_TOKEN;
+			return typeof expected === "string" && expected.length > 0 && token === expected;
+		},
+		auditAct: (entry) => actingAuditLogger.append(entry),
+		// Managed delivery: whisper CLI (collab-tell / workflow-resume --message).
+		// workspaceId/worktreeId are required by WhisperCommand's type but ignored
+		// by commandToArgv — the runner resolves cwd from the worktree path instead.
+		runManagedInstruction: async (worktreeId, decision) => {
+			const identities = await getSamanthaIdentities();
+			const cwd = identities[worktreeId]?.path;
+			if (!cwd) return { ok: false, detail: `no path for worktree "${worktreeId}"` };
+			const base = { workspaceId: "", worktreeId };
+			const result = await whisperCommandRunner.run(
+				decision.kind === "workflow-resume"
+					? { ...base, kind: "workflow-resume", workflowId: decision.workflowId, message: decision.message }
+					: { ...base, kind: "collab-tell", target: decision.target, instruction: decision.instruction },
+				cwd,
+			);
+			return { ok: result.ok, detail: result.stderr.slice(0, 200) || result.stdout.slice(0, 200) };
+		},
+		// Unmanaged delivery: terminal sendInput is not yet wired into index.ts;
+		// sessions in managed workflows (paused/escalated) are the primary S3 target.
+		sendUnmanagedInput: (_sessionId, _data) => ({
+			ok: false,
+			detail: "unmanaged terminal input not yet wired",
+		}),
 	});
 
 	const pluginRegistry = createPluginRegistry(

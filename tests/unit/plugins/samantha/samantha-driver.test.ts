@@ -77,12 +77,39 @@ function slice(
 	};
 }
 
-function makeDriver(client: SamanthaConnectorClient) {
+type MakeDriverOverrides = Parameters<typeof createSamanthaDriver>[0] extends infer O
+	? Partial<O> & { client?: SamanthaConnectorClient }
+	: never;
+
+// Safe acting defaults for tests that don't exercise the acting path.
+const actingDefaults = {
+	isActingEnabled: () => false,
+	verifyActingToken: () => false,
+	auditAct: () => {},
+	runManagedInstruction: async () => ({ ok: true as const, detail: "" }),
+	sendUnmanagedInput: () => ({ ok: true as const, detail: "" }),
+} as const;
+
+function makeDriver(
+	overridesOrClient: SamanthaConnectorClient | MakeDriverOverrides = {},
+) {
+	// Allow passing a raw SamanthaConnectorClient (legacy callers) or a full overrides object.
+	const isClient =
+		overridesOrClient !== null &&
+		typeof overridesOrClient === "object" &&
+		"register" in overridesOrClient &&
+		"patchSnapshot" in overridesOrClient;
+	const overrides: MakeDriverOverrides = isClient
+		? { client: overridesOrClient as SamanthaConnectorClient }
+		: (overridesOrClient as MakeDriverOverrides);
+
+	const { client: clientOverride, ...rest } = overrides;
 	const reviewCbs: (() => void)[] = [];
 	const health: { link: string }[] = [];
 	const focusWorktree = vi.fn();
+	const { client: defaultClient } = okClient();
 	const driver = createSamanthaDriver({
-		client,
+		client: clientOverride ?? defaultClient,
 		getIdentities: async () => ({
 			wt1: { repo: "ai-14all", branch: "main", path: "/w" },
 		}),
@@ -102,6 +129,13 @@ function makeDriver(client: SamanthaConnectorClient) {
 		webSocketImpl: FakeSocket as unknown as new (url: string) => WebSocketLike,
 		commandPort: 7841,
 		commandReconnectMs: 50,
+		// New acting fields — safe defaults so pre-existing tests keep passing.
+		isActingEnabled: () => false,
+		verifyActingToken: () => false,
+		auditAct: () => {},
+		runManagedInstruction: async () => ({ ok: true, detail: "" }),
+		sendUnmanagedInput: () => ({ ok: true, detail: "" }),
+		...rest,
 	});
 	return { driver, health, focusWorktree };
 }
@@ -358,6 +392,7 @@ describe("samantha-driver", () => {
 			keepAliveMs: 25,
 			reconnectMs: 50,
 			focusWorktree: () => {},
+			...actingDefaults,
 		});
 		await driver.start(ctx);
 		// The start rebuild reaches its (hanging) first PATCH and seeds lastBody.
@@ -416,6 +451,7 @@ describe("samantha-driver", () => {
 			keepAliveMs: 100000,
 			reconnectMs: 50,
 			focusWorktree: () => {},
+			...actingDefaults,
 		});
 		await driver.start(ctx);
 		// Let the start rebuild reach its (hanging) first PATCH.
@@ -463,6 +499,7 @@ describe("samantha-driver", () => {
 			keepAliveMs: 100000,
 			reconnectMs: 50,
 			focusWorktree: () => {},
+			...actingDefaults,
 		});
 		await driver.start(ctx);
 		// The first rebuild throws inside getWhisperStates; it must be swallowed.
@@ -492,6 +529,7 @@ describe("samantha-driver", () => {
 			keepAliveMs: 50,
 			reconnectMs: 50,
 			focusWorktree: () => {},
+			...actingDefaults,
 		});
 		await driver.start(ctx);
 		await vi.advanceTimersByTimeAsync(30);
@@ -501,7 +539,7 @@ describe("samantha-driver", () => {
 		expect(calls.snapshot.length).toBeGreaterThan(after);
 	});
 
-	it("advertises the two capabilities in the register body", async () => {
+	it("advertises the three capabilities in the register body", async () => {
 		const { client, calls } = okClient();
 		const { driver } = makeDriver(client);
 		await driver.start(ctx);
@@ -510,6 +548,7 @@ describe("samantha-driver", () => {
 			capabilities: [
 				{ id: "focus-worktree", title: expect.any(String) },
 				{ id: "session-report", title: expect.any(String) },
+				{ id: "instruct-session", title: expect.any(String) },
 			],
 		});
 	});
@@ -568,4 +607,87 @@ describe("samantha-driver", () => {
 			result: { focused: "ai-14all/main" },
 		});
 	});
+});
+
+// ---------------------------------------------------------------------------
+// instructSession tests (token-first prepare thunk + ActGuard wiring)
+// ---------------------------------------------------------------------------
+
+function pausedWorkflowState(worktreeId: string) {
+	return {
+		worktreeId,
+		collabId: "c1",
+		daemonAlive: true,
+		liveFeed: "polling" as const,
+		bindings: [{ agentType: "claude", bindingState: "bound" as const }],
+		workflow: {
+			workflowId: "wf1",
+			workflowType: "spec-driven-development",
+			specPath: "/s.md",
+			status: "paused",
+			currentPhaseIndex: 0,
+			phaseName: null,
+			currentChainId: null,
+			round: null,
+			haltReason: null,
+			updatedAt: "2026-06-24T00:00:00.000Z",
+		},
+		escalation: null,
+		handoffs: [],
+	};
+}
+
+it("instruct-session on a paused workflow resumes it with the instruction", async () => {
+	const runManagedInstruction = vi.fn(async () => ({ ok: true, detail: "resumed" }));
+	const { driver } = makeDriver({
+		isActingEnabled: () => true,
+		verifyActingToken: () => true,
+		auditAct: vi.fn(),
+		runManagedInstruction,
+		sendUnmanagedInput: vi.fn(() => ({ ok: true, detail: "sent" })),
+		getWhisperStates: async () => [pausedWorkflowState("wt1")],
+		getIdentities: async () => ({
+			wt1: { repo: "ai-14all", branch: "main", path: "/wt1" },
+		}),
+	});
+	const outcome = await driver.instructSession(
+		{ worktree: "ai-14all/main", instruction: "add tests" },
+		"tok",
+	);
+	expect(runManagedInstruction).toHaveBeenCalledWith("wt1", {
+		kind: "workflow-resume",
+		workflowId: "wf1",
+		message: "add tests",
+	});
+	expect(outcome).toEqual({ ok: true, routed: "workflow-resume" });
+});
+
+it("token-first: a bad token returns unauthorized WITHOUT resolving the worktree", async () => {
+	const getIdentities = vi.fn(async () => ({}));
+	const { driver } = makeDriver({
+		isActingEnabled: () => true,
+		verifyActingToken: () => false,
+		getIdentities,
+	});
+	const outcome = await driver.instructSession({ worktree: "x/y", instruction: "go" }, "bad");
+	expect(outcome).toEqual({ ok: false, code: "unauthorized", message: expect.any(String) });
+	expect(getIdentities).not.toHaveBeenCalled();
+});
+
+it("acting disabled → acting-disabled, managed effect never called", async () => {
+	const runManagedInstruction = vi.fn();
+	const { driver } = makeDriver({
+		isActingEnabled: () => false,
+		verifyActingToken: () => true,
+		runManagedInstruction,
+	});
+	const outcome = await driver.instructSession({ worktree: "ai-14all/main", instruction: "go" }, "tok");
+	expect(runManagedInstruction).not.toHaveBeenCalled();
+	expect(outcome.ok === false && outcome.code).toBe("acting-disabled");
+});
+
+it("invalid args (after token gate) → invalid-args", async () => {
+	const { driver } = makeDriver({ isActingEnabled: () => true, verifyActingToken: () => true });
+	const outcome = await driver.instructSession({ worktree: "ai-14all/main" }, "tok");
+	expect(outcome.ok === false && outcome.code).toBe("invalid-args");
 });
