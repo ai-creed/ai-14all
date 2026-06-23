@@ -100,3 +100,41 @@ for (const palette of ["light", "dark", "warm"] as const) {
 		await expect(dialog).toHaveCount(0);
 	});
 }
+
+const SOLID_PANE_BORDERS = {
+	light: {
+		"--pane-border-sessions": "#1e78dc",
+		"--pane-border-session-info": "#b4781e",
+		"--pane-border-terminal": "#1ea064",
+		"--pane-border-review": "#c83c50",
+	},
+	dark: {
+		"--pane-border-sessions": "#4fb3ff",
+		"--pane-border-session-info": "#f6a94a",
+		"--pane-border-terminal": "#43d39e",
+		"--pane-border-review": "#f36b8a",
+	},
+	warm: {
+		"--pane-border-sessions": "#6cbcb8",
+		"--pane-border-session-info": "#e49e50",
+		"--pane-border-terminal": "#e28c60",
+		"--pane-border-review": "#dc7a6e",
+	},
+} as const;
+
+for (const palette of ["light", "dark", "warm"] as const) {
+	test(`${palette}: pane-border tokens are solid (no alpha)`, async () => {
+		test.skip(!galleryAvailable, "#/ui-gallery route not present");
+		await switchTheme(palette);
+		const tokens = await page.evaluate((names) => {
+			const cs = getComputedStyle(document.documentElement);
+			return Object.fromEntries(
+				names.map((n) => [n, cs.getPropertyValue(n).trim()]),
+			);
+		}, Object.keys(SOLID_PANE_BORDERS[palette]));
+		for (const [name, expected] of Object.entries(SOLID_PANE_BORDERS[palette])) {
+			expect(tokens[name]).toBe(expected);
+			expect(tokens[name]).not.toContain("rgba");
+		}
+	});
+}
