@@ -4,9 +4,11 @@ import { promisify } from "node:util";
 import { join } from "node:path";
 import { ClaudeProvider } from "./claude-provider.js";
 import { CodexProvider } from "./codex-provider.js";
+import { EzioProvider } from "./ezio-provider.js";
 import { CliOverrideStore } from "./cli-override-store.js";
 import {
 	detectCliPath,
+	type CliCmd,
 	type CliSource,
 	type Detection,
 } from "./cli-detection.js";
@@ -43,15 +45,27 @@ type Deps = {
 	_access?: (path: string) => Promise<void>;
 };
 
-const PROVIDER_CMD: Record<ProviderId, "claude" | "codex"> = {
+const PROVIDER_CMD: Record<ProviderId, CliCmd> = {
 	"claude-code": "claude",
 	codex: "codex",
+	ezio: "ai-ezio",
 };
 
 const DISPLAY_NAME: Record<ProviderId, string> = {
 	"claude-code": "Claude Code",
 	codex: "Codex",
+	ezio: "ezio",
 };
+
+/**
+ * ezio's config root: `${XDG_CONFIG_HOME:-<home>/.config}/ai-ezio`. This is
+ * where its skills (`skills/`) and MCP registry (`mcp.json`) live, mirroring
+ * the README's `Configuring MCP servers` location.
+ */
+function ezioConfigDir(home: string): string {
+	const base = process.env.XDG_CONFIG_HOME ?? join(home, ".config");
+	return join(base, "ai-ezio");
+}
 
 export class AgentSkillInstaller {
 	private readonly overrideStore: CliOverrideStore;
@@ -86,18 +100,25 @@ export class AgentSkillInstaller {
 
 		const claudeOverride = overrides["claude-code"] ?? null;
 		const codexOverride = overrides.codex ?? null;
+		const ezioOverride = overrides.ezio ?? null;
 		const claudeDetection = await this.detect("claude-code", claudeOverride);
 		const codexDetection = await this.detect("codex", codexOverride);
+		const ezioDetection = await this.detect("ezio", ezioOverride);
 
+		const ezioCfg = ezioConfigDir(home);
 		const claudeRoot =
 			(await fileExists(join(home, ".claude"))) ||
 			(await fileExists(join(home, ".claude.json")));
 		const codexRoot = await fileExists(join(home, ".codex"));
+		const ezioRoot = await fileExists(ezioCfg);
 		const claudeInstalled = await fileExists(
 			join(home, ".claude", "skills", REVIEW_SKILL_ID, "SKILL.md"),
 		);
 		const codexInstalled = await fileExists(
 			join(home, ".codex", "skills", REVIEW_SKILL_ID, "SKILL.md"),
+		);
+		const ezioInstalled = await fileExists(
+			join(ezioCfg, "skills", REVIEW_SKILL_ID, "SKILL.md"),
 		);
 
 		const row = (
@@ -119,6 +140,7 @@ export class AgentSkillInstaller {
 			providers: [
 				row("claude-code", claudeDetection, claudeRoot, claudeInstalled),
 				row("codex", codexDetection, codexRoot, codexInstalled),
+				row("ezio", ezioDetection, ezioRoot, ezioInstalled),
 			] as ProviderRow[],
 		};
 	}
@@ -191,6 +213,12 @@ export class AgentSkillInstaller {
 						isCliAvailable,
 					});
 					await p.installSkills({ serverName: "ai-14all", url, skills });
+				} else if (id === "ezio") {
+					const p = new EzioProvider({
+						configDir: ezioConfigDir(this.deps.home),
+						isCliAvailable,
+					});
+					await p.installSkills({ serverName: "ai-14all", url, skills });
 				}
 				results.push({ id, ok: true, message: null });
 			} catch (e) {
@@ -229,6 +257,12 @@ export class AgentSkillInstaller {
 					const p = new CodexProvider({
 						home: this.deps.home,
 						cliPath,
+						isCliAvailable,
+					});
+					await p.uninstall({ serverName: "ai-14all" });
+				} else if (id === "ezio") {
+					const p = new EzioProvider({
+						configDir: ezioConfigDir(this.deps.home),
 						isCliAvailable,
 					});
 					await p.uninstall({ serverName: "ai-14all" });

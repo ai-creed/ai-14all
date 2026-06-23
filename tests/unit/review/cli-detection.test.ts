@@ -121,6 +121,23 @@ describe("detectCliPath", () => {
 		expect(result).toEqual({ cliPath: probed, source: "shell" });
 	});
 
+	it("detects the ai-ezio binary from a fixed candidate when PATH misses", async () => {
+		// ezio's CLI is `ai-ezio`; detection must know its fixed install locations
+		// so the "Locate ezio CLI…" / auto-detect path works like claude/codex.
+		const path = join(home, ".local", "bin", "ai-ezio");
+		const deps = defaultDeps(home);
+		deps.exec = vi.fn(async (file: string) => {
+			if (file === "which") throw new Error("not found");
+			return { stdout: "" }; // shell probe yields nothing
+		});
+		deps.access = async (p: string) => {
+			if (p === path) return;
+			throw new Error("ENOENT");
+		};
+		const result = await detectCliPath("ai-ezio", deps);
+		expect(result).toEqual({ cliPath: path, source: "fixed" });
+	});
+
 	it("skips fixed and shell tiers on win32", async () => {
 		const deps = defaultDeps(home);
 		deps.platform = "win32";

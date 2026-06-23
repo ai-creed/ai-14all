@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ProviderId } from "./agent-install.js";
 import type { Repository } from "../models/repository.js";
 import type { Worktree } from "../models/worktree.js";
 import type { TerminalSession } from "../models/terminal-session.js";
@@ -543,7 +544,7 @@ export type Ai14AllDesktopApi = {
 	agentInstall: {
 		listProviders(): Promise<{
 			providers: Array<{
-				id: "claude-code" | "codex";
+				id: ProviderId;
 				displayName: string;
 				cliAvailable: boolean;
 				configRootDetected: boolean;
@@ -553,30 +554,30 @@ export type Ai14AllDesktopApi = {
 			}>;
 			mcp: { port: number | null; bindError: string | null };
 		}>;
-		install(ids: ("claude-code" | "codex")[]): Promise<{
+		install(ids: ProviderId[]): Promise<{
 			results: Array<{
-				id: "claude-code" | "codex";
+				id: ProviderId;
 				ok: boolean;
 				message: string | null;
 			}>;
 		}>;
-		uninstall(ids: ("claude-code" | "codex")[]): Promise<{
+		uninstall(ids: ProviderId[]): Promise<{
 			results: Array<{
-				id: "claude-code" | "codex";
+				id: ProviderId;
 				ok: boolean;
 				message: string | null;
 			}>;
 		}>;
-		pickCliPath(id: "claude-code" | "codex"): Promise<{
+		pickCliPath(id: ProviderId): Promise<{
 			canceled: boolean;
 			path: string | null;
 		}>;
 		setCliOverride(
-			id: "claude-code" | "codex",
+			id: ProviderId,
 			path: string | null,
 		): Promise<{
 			providers: Array<{
-				id: "claude-code" | "codex";
+				id: ProviderId;
 				displayName: string;
 				cliAvailable: boolean;
 				configRootDetected: boolean;

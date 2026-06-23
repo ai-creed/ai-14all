@@ -16,28 +16,38 @@ export type DetectDeps = {
 	access: (path: string) => Promise<void>;
 };
 
-const FIXED_CANDIDATES: Record<"claude" | "codex", (home: string) => string[]> =
-	{
-		claude: (home) => [
-			join(home, ".claude", "local", "claude"),
-			"/opt/homebrew/bin/claude",
-			"/usr/local/bin/claude",
-			join(home, ".local", "bin", "claude"),
-			join(home, ".bun", "bin", "claude"),
-			join(home, ".npm-global", "bin", "claude"),
-			join(home, ".volta", "bin", "claude"),
-			join(home, ".cargo", "bin", "claude"),
-		],
-		codex: (home) => [
-			"/opt/homebrew/bin/codex",
-			"/usr/local/bin/codex",
-			join(home, ".local", "bin", "codex"),
-			join(home, ".bun", "bin", "codex"),
-			join(home, ".npm-global", "bin", "codex"),
-			join(home, ".volta", "bin", "codex"),
-			join(home, ".cargo", "bin", "codex"),
-		],
-	};
+export type CliCmd = "claude" | "codex" | "ai-ezio";
+
+const FIXED_CANDIDATES: Record<CliCmd, (home: string) => string[]> = {
+	claude: (home) => [
+		join(home, ".claude", "local", "claude"),
+		"/opt/homebrew/bin/claude",
+		"/usr/local/bin/claude",
+		join(home, ".local", "bin", "claude"),
+		join(home, ".bun", "bin", "claude"),
+		join(home, ".npm-global", "bin", "claude"),
+		join(home, ".volta", "bin", "claude"),
+		join(home, ".cargo", "bin", "claude"),
+	],
+	codex: (home) => [
+		"/opt/homebrew/bin/codex",
+		"/usr/local/bin/codex",
+		join(home, ".local", "bin", "codex"),
+		join(home, ".bun", "bin", "codex"),
+		join(home, ".npm-global", "bin", "codex"),
+		join(home, ".volta", "bin", "codex"),
+		join(home, ".cargo", "bin", "codex"),
+	],
+	"ai-ezio": (home) => [
+		"/opt/homebrew/bin/ai-ezio",
+		"/usr/local/bin/ai-ezio",
+		join(home, ".local", "bin", "ai-ezio"),
+		join(home, ".bun", "bin", "ai-ezio"),
+		join(home, ".npm-global", "bin", "ai-ezio"),
+		join(home, ".volta", "bin", "ai-ezio"),
+		join(home, ".cargo", "bin", "ai-ezio"),
+	],
+};
 
 async function fileExists(
 	access: DetectDeps["access"],
@@ -52,7 +62,7 @@ async function fileExists(
 }
 
 export async function detectCliPath(
-	cmd: "claude" | "codex",
+	cmd: CliCmd,
 	deps: DetectDeps,
 ): Promise<Detection> {
 	// Tier 1: override
