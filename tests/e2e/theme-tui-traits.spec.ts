@@ -18,7 +18,7 @@ import { closeApp } from "./fixtures/close-app";
  * #/ui-gallery route. Unlike ui-gallery.screenshots.spec.ts this IS an
  * assertion suite. Skips when the gallery route is absent.
  */
-const PALETTES = ["dark", "light", "warm", "tui"] as const;
+type Palette = "dark" | "light" | "warm" | "tui";
 
 let app: ElectronApplication;
 let page: Page;
@@ -55,7 +55,7 @@ test.afterAll(async () => {
 	testRepo?.cleanup();
 });
 
-async function switchTheme(palette: (typeof PALETTES)[number]) {
+async function switchTheme(palette: Palette) {
 	await page.getByTestId(`gallery-theme-${palette}`).click();
 	await expect(page.locator("html")).toHaveAttribute("data-theme", palette);
 	await page.waitForTimeout(150);
