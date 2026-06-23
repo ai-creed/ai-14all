@@ -25,3 +25,19 @@ describe("CAPABILITIES metadata", () => {
 		expect(report?.inputSchema).toEqual({ type: "object", properties: {} });
 	});
 });
+
+describe("CAPABILITIES instruct-session", () => {
+	it("advertises instruct-session with confirmation + risk + input schema", () => {
+		const cap = CAPABILITIES.find((c) => c.id === "instruct-session");
+		expect(cap).toBeDefined();
+		expect(cap).toMatchObject({
+			id: "instruct-session",
+			requiresConfirmation: true,
+			risk: "drives-agent",
+		});
+		const schema = (cap as { inputSchema: { properties: Record<string, unknown>; required: string[] } }).inputSchema;
+		expect(schema.properties).toHaveProperty("worktree");
+		expect(schema.properties).toHaveProperty("instruction");
+		expect(schema.required).toEqual(expect.arrayContaining(["worktree", "instruction"]));
+	});
+});

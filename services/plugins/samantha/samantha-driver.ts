@@ -78,6 +78,29 @@ export const CAPABILITIES = [
 			"Return a status roll-up of every active ai-14all worktree/session.",
 		inputSchema: { type: "object", properties: {} },
 	},
+	{
+		id: "instruct-session",
+		title: "Instruct a session",
+		description:
+			"Deliver an instruction to the agent in a worktree's session. Requires spoken confirmation before it is forwarded.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				worktree: {
+					type: "string",
+					description:
+						"A '<repo>/<branch>' key exactly as shown in the latest ai-14all snapshot.",
+				},
+				instruction: {
+					type: "string",
+					description: "What to tell the agent in that session.",
+				},
+			},
+			required: ["worktree", "instruction"],
+		},
+		requiresConfirmation: true,
+		risk: "drives-agent",
+	},
 ];
 
 export function createSamanthaDriver(
