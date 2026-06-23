@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	COMMAND_ERROR_CODES,
 	errorResult,
 	okResult,
 	parseCommandFrame,
@@ -72,5 +73,40 @@ describe("command-types", () => {
 			status: "error",
 			error: { code: "ambiguous-worktree", message: "two" },
 		});
+	});
+});
+
+describe("command-types S3 extensions", () => {
+	it("includes the four S3 acting error codes", () => {
+		for (const code of [
+			"no-live-agent",
+			"session-busy",
+			"acting-disabled",
+			"unauthorized",
+		]) {
+			expect(COMMAND_ERROR_CODES).toContain(code);
+		}
+	});
+
+	it("parses a command frame carrying an optional token", () => {
+		const r = parseCommandFrame({
+			type: "command",
+			capabilityId: "instruct-session",
+			requestId: "req_1",
+			args: { worktree: "ai-14all/main", instruction: "add tests" },
+			token: "secret-123",
+		});
+		expect(r.ok).toBe(true);
+		if (r.ok) expect(r.frame.token).toBe("secret-123");
+	});
+
+	it("still parses a frame with no token (token is optional)", () => {
+		const r = parseCommandFrame({
+			type: "command",
+			capabilityId: "session-report",
+			requestId: "req_2",
+		});
+		expect(r.ok).toBe(true);
+		if (r.ok) expect(r.frame.token).toBeUndefined();
 	});
 });
