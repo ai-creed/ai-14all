@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.1] – 2026-06-24
+
+### Added
+
+- **The "Install agent integration" dialog now supports ezio.** Alongside Claude Code and Codex, you can install ai-14all's review skill and register its MCP server for ezio in one step. ezio's MCP host speaks stdio while ai-14all's server speaks HTTP, so the integration registers a small `mcp-remote` bridge in ezio's `mcp.json` — merged in next to any servers you already have, never replacing them — and writes the bundled skills into ezio's skills directory. Nothing changes if you don't use ezio.
+- **A "Configure" button on the ai-whisper plugin card.** Configuring ai-whisper installs the bundled agent skills its workflows rely on in one click, matching the one-click Configure already offered for ai-cortex. Re-running it is safe — it refreshes the installed skills in place.
+- **The Plugins panel now warns when ai-whisper's LLM evaluator isn't configured.** ai-whisper's review workflows refuse to start without a configured evaluator, so the panel surfaces a clear heads-up — distinguishing a missing API key from an invalid config — instead of letting you discover the problem only when a workflow fails to start.
+
 ## [0.9.3] – 2026-06-19
 
 ### Fixed
