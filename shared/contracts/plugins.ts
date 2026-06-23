@@ -94,6 +94,9 @@ export const SamanthaWorktreeSliceSchema = z.object({
 	nextAction: z.string().nullable(),
 	updatedAt: z.number(),
 	recent: z.array(SamanthaSessionTransitionSchema),
+	// S3: active PTY/process session id for the worktree (null when no live
+	// session). Lets the instruct-session router target an unmanaged shell.
+	sessionId: z.string().nullable().optional(),
 });
 
 export const SamanthaSessionSliceSchema = z.object({
@@ -121,6 +124,7 @@ export type SamanthaWorktreeSlice = {
 	nextAction: string | null;
 	updatedAt: number;
 	recent: SamanthaSessionTransition[];
+	sessionId?: string | null;
 };
 
 export type SamanthaSessionSlice = {

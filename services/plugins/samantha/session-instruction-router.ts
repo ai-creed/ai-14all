@@ -62,8 +62,7 @@ export function buildTargetSessionState(
 		};
 	}
 	const slice = session?.worktrees.find((w) => w.worktreeId === worktreeId);
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const sessionId: string | null = (slice as any)?.sessionId ?? null;
+	const sessionId: string | null = slice?.sessionId ?? null;
 	if (slice && sessionId !== null)
 		return { kind: "unmanaged", attention: slice.attention, sessionId };
 	return { kind: "absent" };
