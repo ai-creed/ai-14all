@@ -3261,7 +3261,8 @@ select {
 	font-size: 11px;
 	color: var(--accent);
 	background: color-mix(in srgb, var(--accent) 12%, transparent);
-	border: var(--shell-border-width) solid color-mix(in srgb, var(--accent) 35%, transparent);
+	border: var(--shell-border-width) solid
+		color-mix(in srgb, var(--accent) 35%, transparent);
 	border-radius: var(--radius-sm);
 	padding: 0 var(--space-1);
 	line-height: 1.6;
@@ -3282,7 +3283,8 @@ select {
 .shell-inline-thread__status[data-status="open"] {
 	color: var(--accent);
 	background: color-mix(in srgb, var(--accent) 12%, transparent);
-	border: var(--shell-border-width) solid color-mix(in srgb, var(--accent) 35%, transparent);
+	border: var(--shell-border-width) solid
+		color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .shell-inline-thread__status[data-status="addressed"] {
@@ -3725,7 +3727,8 @@ select {
 	gap: var(--space-1);
 	width: 100%;
 	background: color-mix(in srgb, var(--accent) 8%, transparent);
-	border: var(--shell-border-width) solid color-mix(in srgb, var(--accent) 30%, var(--panel-border));
+	border: var(--shell-border-width) solid
+		color-mix(in srgb, var(--accent) 30%, var(--panel-border));
 	border-radius: var(--radius-sm);
 	color: var(--text-secondary);
 	font-family: var(--font-ui);
@@ -4894,11 +4897,13 @@ select {
 }
 .agent-launcher-bar__status[data-tone="amber"] {
 	color: #e58a5e;
-	border: var(--shell-border-width) solid color-mix(in srgb, #e58a5e 35%, transparent);
+	border: var(--shell-border-width) solid
+		color-mix(in srgb, #e58a5e 35%, transparent);
 	background: color-mix(in srgb, #e58a5e 8%, transparent);
 }
 .agent-launcher-bar__status[data-tone="accent"] {
 	color: var(--accent);
-	border: var(--shell-border-width) solid color-mix(in srgb, var(--accent) 35%, transparent);
+	border: var(--shell-border-width) solid
+		color-mix(in srgb, var(--accent) 35%, transparent);
 	background: color-mix(in srgb, var(--accent) 10%, transparent);
 }

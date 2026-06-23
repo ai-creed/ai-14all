@@ -557,7 +557,11 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 							aria-pressed={previewing}
 						>
 							<span aria-hidden="true">
-								{previewing ? <Icon name="edit" fallback="✏" /> : <Icon name="eye" />}
+								{previewing ? (
+									<Icon name="edit" fallback="✏" />
+								) : (
+									<Icon name="eye" />
+								)}
 							</span>
 							<span>{previewing ? "Edit" : "Preview"}</span>
 						</button>
