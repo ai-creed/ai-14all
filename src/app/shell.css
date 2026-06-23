@@ -44,10 +44,13 @@
 	/* Chrome border width. Themes that draw heavier box-drawing rules (TUI)
 	 * override this; light/dark/warm keep the original hairline. */
 	--shell-border-width: 1px;
-	--pane-border-sessions: #4fb3ff;
-	--pane-border-session-info: #f6a94a;
-	--pane-border-terminal: #43d39e;
-	--pane-border-review: #f36b8a;
+	/* Neutral pane separators — each matches --panel-border (like the tui
+	 * theme): one uniform line, no per-pane accent colors. Selected/active/
+	 * focus states keep their accent border (handled elsewhere). */
+	--pane-border-sessions: var(--panel-border);
+	--pane-border-session-info: var(--panel-border);
+	--pane-border-terminal: var(--panel-border);
+	--pane-border-review: var(--panel-border);
 	--sha-color: #a78bfa;
 	--provider-claude: #d97706;
 	--provider-codex: #2563eb;
@@ -64,10 +67,11 @@
 }
 
 [data-theme="light"] {
-	--pane-border-sessions: #1e78dc;
-	--pane-border-session-info: #b4781e;
-	--pane-border-terminal: #1ea064;
-	--pane-border-review: #c83c50;
+	/* Neutral pane separators — match --panel-border (like the tui theme). */
+	--pane-border-sessions: var(--panel-border);
+	--pane-border-session-info: var(--panel-border);
+	--pane-border-terminal: var(--panel-border);
+	--pane-border-review: var(--panel-border);
 	--sha-color: #6d4cbc;
 	--provider-claude: #b45309;
 	--provider-codex: #1d4ed8;
@@ -100,10 +104,11 @@
  * text, and a terracotta accent. Preview with
  * document.documentElement.setAttribute("data-theme", "warm"). */
 [data-theme="warm"] {
-	--pane-border-sessions: #6cbcb8;
-	--pane-border-session-info: #e49e50;
-	--pane-border-terminal: #e28c60;
-	--pane-border-review: #dc7a6e;
+	/* Neutral pane separators — match --panel-border (like the tui theme). */
+	--pane-border-sessions: var(--panel-border);
+	--pane-border-session-info: var(--panel-border);
+	--pane-border-terminal: var(--panel-border);
+	--pane-border-review: var(--panel-border);
 	--sha-color: #c4a0db;
 	--provider-claude: #e58a5e;
 	--provider-codex: #5a9bd6;
@@ -599,12 +604,9 @@ select {
 	display: block;
 	height: 1px;
 	margin: 0 var(--space-2) var(--space-3);
-	background: linear-gradient(
-		90deg,
-		transparent 0%,
-		var(--panel-border) 50%,
-		transparent 100%
-	);
+	/* A single uniform stroke — same thickness/presence from start to end.
+	 * (Was a center-weighted gradient that faded to transparent at both ends.) */
+	background: var(--panel-border);
 }
 
 .shell-sidebar__workspace-header {
