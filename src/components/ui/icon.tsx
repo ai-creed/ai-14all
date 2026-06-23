@@ -3,14 +3,14 @@ import type { ComponentType } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Terminal UI icon registry.
+ * Icon registry.
  *
  * Each entry pairs the glyph the non-TUI palettes already use (`fallback`)
- * with the Nerd Font codepoint shown under `data-theme="tui"` (`nf`). Nerd
- * Font codepoints live in the Private Use Area and are supplied by the
- * "Symbols Nerd Font" face (see src/app/shell.css). The fallback keeps
- * dark / light / warm pixel-identical to today -- only the TUI palette swaps
- * to the Nerd Font glyph, making it the sole icon set there.
+ * with the Nerd Font codepoint shown in every theme (`nf`). Nerd Font
+ * codepoints live in the Private Use Area and are supplied by the "Symbols
+ * Nerd Font" face (see src/app/shell.css). Every theme renders the Nerd Font
+ * glyph; `fallback` is retained as the source-of-truth character and for
+ * copy/accessibility tooling.
  *
  * Glyphs are written as \u escapes so codepoints survive editing
  * unambiguously; the trailing comment names each one.
@@ -68,9 +68,9 @@ type IconProps = {
 
 /**
  * Renders an icon as a Fragment so it drops into existing markup exactly where
- * the old glyph / SVG sat. Exactly one child is ever visible: the non-TUI
- * representation (Lucide SVG or text glyph) outside the TUI palette, and the
- * Nerd Font glyph inside it.
+ * the old glyph / SVG sat. Exactly one child is ever visible: the Nerd Font
+ * glyph (shown in every theme). The Lucide SVG / text fallback is always
+ * hidden and kept only so the codepoint registry and call sites stay legible.
  */
 export function Icon({
 	name,
@@ -83,14 +83,14 @@ export function Icon({
 	return (
 		<>
 			{Lucide ? (
-				<Lucide className={cn("tui:hidden", className)} />
+				<Lucide className={cn("hidden", className)} />
 			) : (
-				<span className={cn("tui:hidden", className)}>{glyph}</span>
+				<span className={cn("hidden", className)}>{glyph}</span>
 			)}
 			<span
 				aria-hidden
 				data-nf={nf}
-				className={cn("app-nf hidden tui:inline-block", className)}
+				className={cn("app-nf inline-block", className)}
 			/>
 		</>
 	);

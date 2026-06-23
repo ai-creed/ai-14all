@@ -7,9 +7,9 @@
 	font-display: swap;
 }
 
-/* Icons-only Nerd Font. Drives every chrome icon under the Terminal UI theme
- * (data-theme="tui") via the <Icon> component; unused by the other palettes.
- * Glyphs live in the Private Use Area, so this never shadows real text. */
+/* Icons-only Nerd Font. Drives every chrome icon in every theme via the <Icon>
+ * component. Glyphs live in the Private Use Area, so this never shadows real
+ * text. */
 @font-face {
 	font-family: "Symbols Nerd Font";
 	src: url("../assets/fonts/SymbolsNerdFontMono-Regular.ttf") format("truetype");
@@ -18,9 +18,8 @@
 	font-display: block;
 }
 
-/* Nerd Font glyph span emitted by <Icon>. Only ever visible under
- * data-theme="tui" (Tailwind `tui:inline-block`); elsewhere the component
- * keeps the original glyph/SVG and this stays display:none. */
+/* Nerd Font glyph span emitted by <Icon>. Visible in every theme; the
+ * component hides the original glyph/SVG fallback. */
 .app-nf {
 	font-family: "Symbols Nerd Font", var(--font-ui);
 	font-style: normal;
@@ -33,8 +32,8 @@
 
 /* The glyph is drawn from the data-nf attribute via generated content so the
  * Private-Use codepoint never enters the DOM text (keeps textContent, copy and
- * screen readers clean). Only painted under the TUI palette. */
-[data-theme="tui"] .app-nf::before {
+ * screen readers clean). Painted in all palettes. */
+.app-nf::before {
 	content: attr(data-nf);
 }
 
