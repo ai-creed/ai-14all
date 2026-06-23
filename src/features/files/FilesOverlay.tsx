@@ -157,7 +157,9 @@ export function FilesOverlay(props: FilesOverlayProps) {
 				}}
 			>
 				<div className="shell-files-overlay__titlebar">
-					<DialogTitle className="shell-files-overlay__title">Files</DialogTitle>
+					<DialogTitle className="shell-files-overlay__title">
+						Files
+					</DialogTitle>
 					<DialogClose
 						className="shell-files-overlay__close"
 						aria-label="Close files"

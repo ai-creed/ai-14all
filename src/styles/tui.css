@@ -282,7 +282,9 @@
  * rules higher in this file. */
 [data-theme="tui"] .shell-list__item[data-selected="true"],
 [data-theme="tui"] .shell-commit-list__item[data-selected="true"],
-[data-theme="tui"] .shell-commit-list__files .shell-list__item[data-selected="true"] {
+[data-theme="tui"]
+	.shell-commit-list__files
+	.shell-list__item[data-selected="true"] {
 	border-color: var(--primary);
 }
 
@@ -319,7 +321,11 @@
 /* Terminal slot header: neutral separator borders instead of the prominent
  * panel-border-strong washes the other palettes keep. */
 [data-theme="tui"] .shell-terminal-slot__header {
-	background: color-mix(in srgb, var(--panel-border) 40%, var(--panel-bg-elevated));
+	background: color-mix(
+		in srgb,
+		var(--panel-border) 40%,
+		var(--panel-bg-elevated)
+	);
 	border-top-color: var(--panel-border);
 	border-bottom-color: var(--panel-border);
 }
