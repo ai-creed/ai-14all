@@ -114,8 +114,15 @@ orchestrator and connector identity owner. S2a adds to it:
   - `buildReport(): Promise<string>` — runs the same input gathering as
     `rebuild()` (identities + whisper + review counts + the latest session slice),
     calls `assembleObserve`, and renders the roll-up string (below).
-  - `resolveWorktree(key: string): string | null` — maps a `"<repo>/<branch>"` key
-    to the internal `worktreeId` via the current identities; `null` if unknown.
+  - `resolveWorktree(key: string): ResolveResult` — maps a `"<repo>/<branch>"` key
+    to the internal `worktreeId` via the current identities. The result is a
+    discriminated union so ambiguity is a first-class outcome rather than something
+    silently collapsed: `{ kind: "found"; worktreeId }` when exactly one worktree
+    carries the key, `{ kind: "none" }` when none does, and
+    `{ kind: "ambiguous"; candidates: string[] }` when two or more do (`candidates`
+    are the colliding worktrees' paths, surfaced in the error message). See
+    "Worktree targeting & key uniqueness" below for why the key is not globally
+    unique.
   - `focusWorktree(worktreeId: string): void` — sends
     `PLUGINS_SAMANTHA_FOCUS_WORKTREE` to the renderer and, when
     `getFocusRaisesWindow()` is true, raises the window (guarded against a destroyed
@@ -127,11 +134,49 @@ session slices): rejected because `session-report`'s roll-up needs main-owned da
 cleanly. Main is the right home for dispatch; only the `focus-worktree` UI select is
 delegated to the renderer.
 
+## Worktree targeting & key uniqueness
+
+The `"<repo>/<branch>"` observe key is the only handle Samantha can name in
+`focus-worktree` — it is what she sees in the observe document, and S1 exposes
+nothing else. `repo` is `basename(toplevel)` (`worktree-service.ts:116-120`) and
+`branch` is the worktree's branch. Within a single repository the branch is unique
+(git forbids two worktrees checked out on the same branch), so the key uniquely
+identifies a worktree for the common single-repo case and for multi-repo setups
+whose top-level directory basenames differ.
+
+The key is **not globally unique**, however. Two distinct repositories whose
+top-level directories share a basename (e.g. `~/a/ai-14all` and `~/b/ai-14all`),
+each with a worktree on the same branch, both produce `"ai-14all/<branch>"`. This is
+a pre-existing S1 property, not something S2a introduces: `assembleObserve` already
+overwrites one such worktree's `details`/`signals` entry with the other
+(`observe-assembler.ts:109-111`), and S1 deferred the unique `worktree.id` / `path`
+precisely *because* they are command-targeting identifiers a voice supervisor does
+not reason over (S1 spec field inventory: `worktree.id` / `path` → "deferred → S2
+typed"). The earlier "unique across repos" characterization of the key was an
+over-claim that this slice corrects.
+
+S2a's targeting contract follows from that reality:
+
+- **Unambiguous key (the common case)** → resolve to the one worktree and focus it.
+- **Colliding key** → the dispatcher **refuses safely** with `ambiguous-worktree`
+  rather than guess. `focus-worktree` therefore never focuses the *wrong* worktree;
+  at worst it declines an ambiguous one with an error that names the colliding paths.
+
+Eliminating collisions entirely — exposing a stable, unique target identifier
+(`worktree.id`) to Samantha so every worktree is addressable — requires the **typed
+observe schema** that S1 deferred to S2. That is a separate S2 observe slice and is
+out of S2a's command-channel scope (see Out of scope). S2a makes targeting *safe and
+defined*; the typed-observe slice later makes it *unambiguous*.
+
 ## Capability data flow
 
 **`focus-worktree`:** command-client receives + validates → dispatcher resolves
-`args.worktree` via `resolveWorktree`. Unknown key → `commandResult` error
-`unknown-worktree`. Known → `focusWorktree(worktreeId)` (renderer select +
+`args.worktree` via `resolveWorktree`, which yields one of three outcomes:
+`{ kind: "none" }` → `commandResult` error `unknown-worktree`;
+`{ kind: "ambiguous" }` (the key matches more than one worktree) → `commandResult`
+error `ambiguous-worktree` whose `message` names the colliding paths — the dispatcher
+never focuses on an ambiguous key, because refusing safely beats guessing wrong;
+`{ kind: "found"; worktreeId }` → `focusWorktree(worktreeId)` (renderer select +
 conditional window-raise) → `commandResult` ok `{ focused: "<repo>/<branch>" }`. Main
 owns the ok/error verdict (it can resolve worktree existence itself), so no renderer
 round-trip is needed for the result; the renderer select is best-effort UI.
@@ -184,7 +229,7 @@ today carries `{ summary, signal?, details? }` events):**
 - `result` present on `ok`: `focus-worktree` → `{ "focused": "<repo>/<branch>" }`;
   `session-report` → `{ "report": "<string>" }`.
 - `error` present on `error`: `code` ∈ `unknown-capability | unknown-worktree |
-  invalid-args | internal`, plus a human-readable `message`.
+  ambiguous-worktree | invalid-args | internal`, plus a human-readable `message`.
 
 **What Samantha must change:**
 
@@ -230,6 +275,11 @@ session slices).
   frame must not kill the socket.
 - **Unknown `capabilityId`** → `unknown-capability`.
 - **`focus-worktree` missing `worktree: string`** → `invalid-args`.
+- **`focus-worktree` worktree key resolves to none** → `unknown-worktree`; **resolves
+  to more than one** (a colliding `"<repo>/<branch>"`) → `ambiguous-worktree`, message
+  naming the colliding worktree paths. The dispatcher never focuses a worktree on an
+  ambiguous key — refusing safely beats guessing wrong (see "Worktree targeting &
+  key uniqueness").
 - **A capability callback throws** → caught → `commandResult` error `internal`
   (logged main-side; no stack leaked over the wire).
 - **Invariant: exactly one `commandResult` per inbound `command`** — every path,
@@ -284,11 +334,12 @@ that ever changes, raise the main window.
 | 3 | Garbage WS frame, no `requestId` | dropped + logged; socket survives; handler never throws |
 | 4 | Unknown `capabilityId` | `commandResult` error `unknown-capability` |
 | 5 | `focus-worktree` unknown `worktree` | `commandResult` error `unknown-worktree` |
-| 6 | `focus-worktree` worktree known to main but renderer not yet mounted | main still returns ok; renderer select is best-effort (logged no-op if it can't apply) |
-| 7 | Capability callback throws | caught → `commandResult` error `internal` |
-| 8 | `session-report` with zero worktrees | ok with the defined headline-only roll-up string |
-| 9 | WS drops *before* the result is sent | logged; **no** replay/queue across reconnects (a command is best-effort; Samantha re-issues) |
-| 10 | `focusRaisesWindow = false` | select only; window stays where it is |
+| 6 | `focus-worktree` key matches >1 worktree (two repos, same basename + branch) | `commandResult` error `ambiguous-worktree` naming the colliding paths; never focuses the wrong one |
+| 7 | `focus-worktree` worktree known to main but renderer not yet mounted | main still returns ok; renderer select is best-effort (logged no-op if it can't apply) |
+| 8 | Capability callback throws | caught → `commandResult` error `internal` |
+| 9 | `session-report` with zero worktrees | ok with the defined headline-only roll-up string |
+| 10 | WS drops *before* the result is sent | logged; **no** replay/queue across reconnects (a command is best-effort; Samantha re-issues) |
+| 11 | `focusRaisesWindow = false` | select only; window stays where it is |
 
 ## Testing strategy
 
@@ -299,10 +350,13 @@ that ever changes, raise the main window.
   anything unadvertised; the **exactly-one-result** invariant on every path
   (including injected-callback throw → `internal`).
 - **Unit — `focus-worktree` path.** `resolveWorktree` maps `"<repo>/<branch>"` →
-  `worktreeId` against an identities fixture; unknown key → `unknown-worktree`; known
-  → emits the focus IPC and returns ok `{ focused }`. Knob: `focusRaisesWindow` true
-  → window raise called (mocked window); false → not called; both still send the
-  focus IPC and return ok.
+  `worktreeId` against an identities fixture: unknown key → `unknown-worktree`; a key
+  carried by two identities (same `repo` basename + branch) → `ambiguous-worktree`
+  with the focus IPC **not** emitted; a uniquely-matched key → emits the focus IPC and
+  returns ok `{ focused }`. Knob: `focusRaisesWindow` true → window raise called
+  (mocked window); false → not called; both still send the focus IPC and return ok.
+  The ambiguous case is unit-only (it needs two same-basename repos, impractical to
+  stage in e2e), mirroring how window-raise is asserted only in unit.
 - **Unit — `session-report` path.** Given an `assembleObserve` input fixture (reuse
   S1's), `buildReport` renders the headline + one line per worktree; the
   **zero-worktree** case returns the defined headline-only string.
@@ -348,6 +402,13 @@ that ever changes, raise the main window.
   agent need them; S2a's two are read-only / UI-only).
 - Targeted per-worktree `session-report(worktreeId)` and a structured (non-string)
   result — add in S2b if voice phrasing / the LLM needs them.
+- **Globally unique worktree targeting.** Eliminating `"<repo>/<branch>"` collisions
+  by exposing a stable, unique `worktree.id` to Samantha in the observe document (the
+  typed-observe S2 schema S1 deferred). Until it lands, `focus-worktree` targets by
+  the human key, resolves it whenever it is unambiguous, and refuses colliding keys
+  with `ambiguous-worktree`; it never focuses the wrong worktree. Changing the S1
+  observe key format to disambiguate is explicitly *not* done here — it would disturb
+  the shipped S1 observe path this slice leaves unchanged.
 - Multi-window focus semantics; OS-window-raise assertions in e2e.
 
 ## Files to add / touch
@@ -383,7 +444,15 @@ map, not a single change set.)
 ## References (verified 2026-06-22)
 
 - `services/plugins/samantha/observe-assembler.ts:58-135` — `assembleObserve`,
-  `"<repo>/<branch>"` keys, `★ ` focus prefix on the value, `signals` map.
+  `"<repo>/<branch>"` keys, `★ ` focus prefix on the value, `signals` map; the
+  `details[key] = …` assignment (`:109-111`) that overwrites on a colliding key.
+- `services/worktrees/worktree-service.ts:116-120` — `Repository.name =
+  basename(toplevel)`, the source of `"<repo>/<branch>"` collisions across distinct
+  repositories whose top-level directories share a basename.
+- `electron/main/index.ts:266-281` — `getSamanthaIdentities` builds
+  `worktreeId → { repo, branch, path }`, keyed by the unique internal `wt.id`; the
+  many-to-one `wt.id → "<repo>/<branch>"` mapping is what makes the inverse lookup
+  ambiguous.
 - `services/plugins/samantha/samantha-connector-client.ts:8-13,79-85` — `RegisterBody`
   (`capabilities: []`), HTTP wire, `127.0.0.1` + `AI_SAMANTHA_CONNECTOR_PORT`.
 - `services/plugins/samantha/samantha-driver.ts:77-95,100-200,243-277` —

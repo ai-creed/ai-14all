@@ -7,6 +7,25 @@ import type {
 	SnapshotBody,
 } from "../../../../services/plugins/samantha/samantha-connector-client";
 import type { SamanthaSessionSlice } from "../../../../shared/contracts/plugins";
+import type { WebSocketLike } from "../../../../services/plugins/samantha/samantha-command-client";
+
+class FakeSocket implements WebSocketLike {
+	static instances: FakeSocket[] = [];
+	onopen: ((ev?: unknown) => void) | null = null;
+	onmessage: ((ev: { data: unknown }) => void) | null = null;
+	onclose: ((ev?: unknown) => void) | null = null;
+	onerror: ((ev?: unknown) => void) | null = null;
+	sent: string[] = [];
+	constructor(public url: string) {
+		FakeSocket.instances.push(this);
+	}
+	send(d: string) {
+		this.sent.push(d);
+	}
+	close() {
+		this.onclose?.();
+	}
+}
 
 function okClient(overrides: Partial<SamanthaConnectorClient> = {}) {
 	const calls = {
@@ -61,6 +80,7 @@ function slice(
 function makeDriver(client: SamanthaConnectorClient) {
 	const reviewCbs: (() => void)[] = [];
 	const health: { link: string }[] = [];
+	const focusWorktree = vi.fn();
 	const driver = createSamanthaDriver({
 		client,
 		getIdentities: async () => ({
@@ -78,11 +98,18 @@ function makeDriver(client: SamanthaConnectorClient) {
 		debounceMs: 10,
 		keepAliveMs: 100000,
 		reconnectMs: 50,
+		focusWorktree,
+		webSocketImpl: FakeSocket as unknown as new (url: string) => WebSocketLike,
+		commandPort: 7841,
+		commandReconnectMs: 50,
 	});
-	return { driver, health };
+	return { driver, health, focusWorktree };
 }
 
-beforeEach(() => vi.useFakeTimers());
+beforeEach(() => {
+	vi.useFakeTimers();
+	FakeSocket.instances = [];
+});
 afterEach(() => vi.useRealTimers());
 
 const ctx = { reportDegraded: vi.fn(), reportLimited: vi.fn() };
@@ -330,6 +357,7 @@ describe("samantha-driver", () => {
 			debounceMs: 10,
 			keepAliveMs: 25,
 			reconnectMs: 50,
+			focusWorktree: () => {},
 		});
 		await driver.start(ctx);
 		// The start rebuild reaches its (hanging) first PATCH and seeds lastBody.
@@ -387,6 +415,7 @@ describe("samantha-driver", () => {
 			debounceMs: 10,
 			keepAliveMs: 100000,
 			reconnectMs: 50,
+			focusWorktree: () => {},
 		});
 		await driver.start(ctx);
 		// Let the start rebuild reach its (hanging) first PATCH.
@@ -433,6 +462,7 @@ describe("samantha-driver", () => {
 			debounceMs: 10,
 			keepAliveMs: 100000,
 			reconnectMs: 50,
+			focusWorktree: () => {},
 		});
 		await driver.start(ctx);
 		// The first rebuild throws inside getWhisperStates; it must be swallowed.
@@ -461,6 +491,7 @@ describe("samantha-driver", () => {
 			debounceMs: 10,
 			keepAliveMs: 50,
 			reconnectMs: 50,
+			focusWorktree: () => {},
 		});
 		await driver.start(ctx);
 		await vi.advanceTimersByTimeAsync(30);
@@ -468,5 +499,73 @@ describe("samantha-driver", () => {
 		// No content change; only the keep-alive timer fires (forced PATCH).
 		await vi.advanceTimersByTimeAsync(80);
 		expect(calls.snapshot.length).toBeGreaterThan(after);
+	});
+
+	it("advertises the two capabilities in the register body", async () => {
+		const { client, calls } = okClient();
+		const { driver } = makeDriver(client);
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(20);
+		expect(calls.register[0]).toMatchObject({
+			capabilities: [
+				{ id: "focus-worktree", title: expect.any(String) },
+				{ id: "session-report", title: expect.any(String) },
+			],
+		});
+	});
+
+	it("opens the command socket after a successful register and closes it on stop", async () => {
+		const { client } = okClient();
+		const { driver } = makeDriver(client);
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(20);
+		expect(FakeSocket.instances).toHaveLength(1);
+		const sock = FakeSocket.instances[0];
+		expect(sock.url).toBe("ws://127.0.0.1:7841/connectors/ai-14all/events");
+		await driver.stop();
+		// close() fired onclose; the driver does not reopen after stop.
+		await vi.advanceTimersByTimeAsync(200);
+		expect(FakeSocket.instances).toHaveLength(1);
+	});
+
+	it("a session-report command over the socket is answered with the rendered report", async () => {
+		const { client } = okClient();
+		const { driver } = makeDriver(client);
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(20);
+		const sock = FakeSocket.instances[0];
+		sock.onmessage?.({
+			data: JSON.stringify({
+				type: "command",
+				capabilityId: "session-report",
+				requestId: "r1",
+			}),
+		});
+		await vi.waitFor(() => expect(sock.sent).toHaveLength(1));
+		const reply = JSON.parse(sock.sent[0]);
+		expect(reply).toMatchObject({ requestId: "r1", status: "ok" });
+		expect(typeof reply.result.report).toBe("string");
+	});
+
+	it("a focus-worktree command resolves the key and invokes focusWorktree", async () => {
+		const { client } = okClient();
+		const { driver, focusWorktree } = makeDriver(client);
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(20);
+		const sock = FakeSocket.instances[0];
+		sock.onmessage?.({
+			data: JSON.stringify({
+				type: "command",
+				capabilityId: "focus-worktree",
+				requestId: "r2",
+				args: { worktree: "ai-14all/main" },
+			}),
+		});
+		await vi.waitFor(() => expect(focusWorktree).toHaveBeenCalledWith("wt1"));
+		expect(JSON.parse(sock.sent[0])).toMatchObject({
+			requestId: "r2",
+			status: "ok",
+			result: { focused: "ai-14all/main" },
+		});
 	});
 });

@@ -5,11 +5,13 @@ export type SamanthaClientResult =
 	| { ok: true }
 	| { ok: false; reason: "not-found" | "conflict" | "refused" | "error" };
 
+export type SourceCapability = { id: string; title: string };
+
 export type RegisterBody = {
 	id: "ai-14all";
 	label: "ai-14all";
 	description: string;
-	capabilities: [];
+	capabilities: SourceCapability[];
 };
 
 export type SnapshotBody = {

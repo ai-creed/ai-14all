@@ -27,6 +27,8 @@ export const PLUGINS_WHISPER_STATE_CHANGED = "plugins:whisperStateChanged";
 export const PLUGINS_SAMANTHA_SESSION_STATE = "plugins:samanthaSessionState";
 // main → renderer (push of the Samantha connection-health state)
 export const PLUGINS_SAMANTHA_HEALTH = "plugins:samanthaHealth";
+// main → renderer (push of a Samantha-requested worktree focus)
+export const PLUGINS_SAMANTHA_FOCUS_WORKTREE = "plugins:samanthaFocusWorktree";
 
 export const SetPluginEnabledSchema = z.object({
 	id: z.enum(ECOSYSTEM_PLUGIN_IDS),
@@ -133,6 +135,10 @@ export type SamanthaHealth = {
 	link: "connecting" | "connected" | "reconnecting" | "samantha-not-running";
 };
 
+export type SamanthaFocusWorktree = {
+	worktreeId: string;
+};
+
 export type PluginsApi = {
 	list(): Promise<PluginSnapshot[]>;
 	setEnabled(
@@ -148,4 +154,7 @@ export type PluginsApi = {
 	): () => void;
 	publishSamanthaSessionState(slice: SamanthaSessionSlice): void;
 	onSamanthaHealth(handler: (health: SamanthaHealth) => void): () => void;
+	onSamanthaFocusWorktree(
+		handler: (payload: SamanthaFocusWorktree) => void,
+	): () => void;
 };

@@ -34,7 +34,7 @@ test.beforeEach(async () => {
 	userDataDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-sam-ud-")));
 	writeFileSync(
 		join(userDataDir, "config.toml"),
-		"[plugins.samantha]\nenabled = true\n",
+		"[plugins.samantha]\nenabled = true\n\n[plugins.samantha.behavior]\nfocus_raises_window = false\n",
 		"utf8",
 	);
 	repo = createTestRepo();
@@ -125,4 +125,132 @@ test("registers, snapshots, and emits an attentionRequired event when a session 
 		.toContain("attentionRequired");
 
 	await client.close();
+});
+
+test("focus-worktree selects the worktree and returns ok { focused }", async () => {
+	test.setTimeout(60_000);
+
+	// Wait for the connector to register and push a snapshot so the WS connects.
+	await expect
+		.poll(() => mock.requests.some((r) => r.url === "/connectors/register"), {
+			timeout: 20_000,
+		})
+		.toBe(true);
+	await expect
+		.poll(
+			() =>
+				mock.requests.some(
+					(r) =>
+						r.method === "PATCH" &&
+						r.url === "/connectors/ai-14all/snapshot" &&
+						r.body !== null &&
+						typeof (r.body as { details?: unknown }).details === "object" &&
+						Object.keys(
+							(r.body as { details: Record<string, unknown> }).details,
+						).length > 0,
+				),
+			{ timeout: 20_000 },
+		)
+		.toBe(true);
+
+	// Derive the worktree key at runtime from the most recent PATCH snapshot body.
+	const snapshotReq = [...mock.requests]
+		.reverse()
+		.find(
+			(r) => r.method === "PATCH" && r.url === "/connectors/ai-14all/snapshot",
+		);
+	const details = (snapshotReq?.body as { details?: Record<string, unknown> })
+		?.details;
+	const key = Object.keys(details ?? {})[0];
+	expect(key).toBeTruthy();
+
+	mock.sendCommand({
+		type: "command",
+		capabilityId: "focus-worktree",
+		requestId: "e1",
+		args: { worktree: key },
+	});
+	await expect
+		.poll(() => mock.commandResults.length, { timeout: 15_000 })
+		.toBeGreaterThan(0);
+	const result = mock.commandResults.find(
+		(r: unknown) => (r as { requestId?: string }).requestId === "e1",
+	) as {
+		status: string;
+		result: { focused: string };
+	};
+	expect(result.status).toBe("ok");
+	expect(result.result.focused).toBe(key);
+
+	// Assert the renderer selected that worktree (the deterministic UI change).
+	// The worktree branch name is the second segment of the "<repo>/<branch>" key.
+	const branch = key.split("/").slice(1).join("/");
+	const nav = page.getByRole("navigation", { name: "Worktree sessions" });
+	await expect(
+		nav.getByRole("button", { name: new RegExp(branch, "i") }),
+	).toHaveAttribute("data-selected", "true", { timeout: 10_000 });
+});
+
+test("session-report returns ok with a report naming the worktree(s)", async () => {
+	test.setTimeout(60_000);
+
+	// Wait for register so the WS command channel is connected.
+	await expect
+		.poll(() => mock.requests.some((r) => r.url === "/connectors/register"), {
+			timeout: 20_000,
+		})
+		.toBe(true);
+
+	mock.sendCommand({
+		type: "command",
+		capabilityId: "session-report",
+		requestId: "e2",
+	});
+	await expect
+		.poll(
+			() =>
+				mock.commandResults.some(
+					(r: unknown) => (r as { requestId?: string }).requestId === "e2",
+				),
+			{ timeout: 15_000 },
+		)
+		.toBe(true);
+	const result = mock.commandResults.find(
+		(r: unknown) => (r as { requestId?: string }).requestId === "e2",
+	) as { status: string; result: { report: string } };
+	expect(result.status).toBe("ok");
+	expect(typeof result.result.report).toBe("string");
+	expect(result.result.report.length).toBeGreaterThan(0);
+});
+
+test("focus-worktree with a bogus key returns error unknown-worktree", async () => {
+	test.setTimeout(60_000);
+
+	// Wait for register so the WS command channel is connected.
+	await expect
+		.poll(() => mock.requests.some((r) => r.url === "/connectors/register"), {
+			timeout: 20_000,
+		})
+		.toBe(true);
+
+	mock.sendCommand({
+		type: "command",
+		capabilityId: "focus-worktree",
+		requestId: "e3",
+		args: { worktree: "nope/nope" },
+	});
+	await expect
+		.poll(
+			() =>
+				mock.commandResults.some(
+					(r: unknown) => (r as { requestId?: string }).requestId === "e3",
+				),
+			{ timeout: 15_000 },
+		)
+		.toBe(true);
+	const result = mock.commandResults.find(
+		(r: unknown) => (r as { requestId?: string }).requestId === "e3",
+	) as { status: string; error: { code: string } };
+	expect(result.status).toBe("error");
+	expect(result.error.code).toBe("unknown-worktree");
 });

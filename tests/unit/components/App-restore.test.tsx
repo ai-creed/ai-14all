@@ -150,6 +150,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		onWhisperStateChanged: vi.fn(() => vi.fn()),
 		publishSamanthaSessionState: vi.fn(),
 		onSamanthaHealth: vi.fn(() => vi.fn()),
+		onSamanthaFocusWorktree: vi.fn(() => vi.fn()),
 	},
 }));
 

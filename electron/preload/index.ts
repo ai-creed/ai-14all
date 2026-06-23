@@ -56,6 +56,7 @@ const PLUGINS_STATE_CHANGED = "plugins:stateChanged";
 const PLUGINS_WHISPER_STATE_CHANGED = "plugins:whisperStateChanged";
 const PLUGINS_SAMANTHA_SESSION_STATE = "plugins:samanthaSessionState";
 const PLUGINS_SAMANTHA_HEALTH = "plugins:samanthaHealth";
+const PLUGINS_SAMANTHA_FOCUS_WORKTREE = "plugins:samanthaFocusWorktree";
 
 // Helper: register a one-way listener on an ipcRenderer channel and return an
 // unsubscribe function (matching the onXxx pattern in the API type).
@@ -440,6 +441,8 @@ const api: Ai14AllDesktopApi = {
 		publishSamanthaSessionState: (slice) =>
 			ipcRenderer.send(PLUGINS_SAMANTHA_SESSION_STATE, slice),
 		onSamanthaHealth: (handler) => onChannel(PLUGINS_SAMANTHA_HEALTH, handler),
+		onSamanthaFocusWorktree: (handler) =>
+			onChannel(PLUGINS_SAMANTHA_FOCUS_WORKTREE, handler),
 	},
 	events: {
 		onOpenInstallModal(handler: () => void) {

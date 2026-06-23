@@ -38,6 +38,7 @@ import {
 	registerPluginIpc,
 	pushWhisperState,
 	pushSamanthaHealth,
+	pushSamanthaFocusWorktree,
 } from "../../services/plugins/plugin-ipc.js";
 import { resolveBinary } from "../../services/plugins/binary-resolver.js";
 import { augmentGuiLaunchPath } from "../../services/plugins/shell-path.js";
@@ -46,6 +47,8 @@ import { createWhisperDriver } from "../../services/plugins/whisper/whisper-driv
 import { createCortexDriver } from "../../services/plugins/cortex/cortex-driver.js";
 import { probeCortex } from "../../services/plugins/cortex/cortex-probe.js";
 import { createSamanthaDriver } from "../../services/plugins/samantha/samantha-driver.js";
+import { createFocusWorktreeEffect } from "../../services/plugins/samantha/samantha-focus-effect.js";
+import type { WebSocketCtor } from "../../services/plugins/samantha/samantha-command-client.js";
 import { createSamanthaConnectorClient } from "../../services/plugins/samantha/samantha-connector-client.js";
 import { WhisperStoreReader } from "../../services/plugins/whisper/whisper-store-reader.js";
 import { createWhisperCollabWatcher } from "../../services/plugins/whisper/whisper-collab-watcher.js";
@@ -280,6 +283,27 @@ app.whenReady().then(async () => {
 		return out;
 	};
 
+	if (typeof globalThis.WebSocket !== "function") {
+		// Planned fallback per the spec's Dependencies section: if this ever fires,
+		// add `ws` as a PRODUCTION dependency and pass its client as webSocketImpl.
+		throw new Error(
+			"globalThis.WebSocket is unavailable in the Electron main runtime",
+		);
+	}
+
+	const samanthaFocusWorktree = createFocusWorktreeEffect({
+		send: (payload) =>
+			pushSamanthaFocusWorktree(() => mainWindow.webContents, payload),
+		raiseWindow: () => {
+			if (!mainWindow.isDestroyed()) {
+				mainWindow.show();
+				mainWindow.focus();
+			}
+		},
+		getFocusRaisesWindow: () =>
+			pluginConfig.get("samantha").behavior?.focusRaisesWindow ?? true,
+	});
+
 	const samanthaDriver = createSamanthaDriver({
 		client: createSamanthaConnectorClient({}),
 		getIdentities: getSamanthaIdentities,
@@ -290,6 +314,9 @@ app.whenReady().then(async () => {
 		subscribeWorktrees: (cb) => workspaceRegistry.onChange(cb),
 		pushHealth: (health) =>
 			pushSamanthaHealth(() => mainWindow.webContents, health),
+		focusWorktree: samanthaFocusWorktree,
+		webSocketImpl: globalThis.WebSocket as unknown as WebSocketCtor,
+		log: (message, error) => console.error(message, error),
 	});
 
 	const pluginRegistry = createPluginRegistry(
