@@ -5,6 +5,7 @@ import {
 	parseCommandFrame,
 	serializeCommandResult,
 } from "./command-types";
+import { createReconnectBackoff } from "./reconnect-backoff";
 
 export type WebSocketLike = {
 	send(data: string): void;
@@ -21,7 +22,11 @@ export type SamanthaCommandClientOptions = {
 	url: string;
 	dispatcher: { dispatch: (frame: CommandFrame) => Promise<CommandResult> };
 	WebSocketImpl: WebSocketCtor;
-	reconnectMs?: number;
+	reconnectMs?: number; // base reconnect delay (ms); default 3000
+	reconnectCapMs?: number; // backoff cap (ms); default 30000
+	reconnectFactor?: number; // backoff multiplier; default 2
+	random?: () => number; // injected for deterministic tests; defaults Math.random
+	onStatus?: (status: "connected" | "reconnecting") => void; // plane up/down -> driver health
 	log?: (message: string, error?: unknown) => void;
 };
 
@@ -29,12 +34,18 @@ export type SamanthaCommandClient = {
 	connect(): void;
 	close(): void;
 	isOpen(): boolean;
+	reconnectNow(): void;
 };
 
 export function createSamanthaCommandClient(
 	opts: SamanthaCommandClientOptions,
 ): SamanthaCommandClient {
-	const reconnectMs = opts.reconnectMs ?? 3000;
+	const backoff = createReconnectBackoff({
+		baseMs: opts.reconnectMs ?? 3000,
+		factor: opts.reconnectFactor ?? 2,
+		capMs: opts.reconnectCapMs ?? 30000,
+		random: opts.random,
+	});
 	let socket: WebSocketLike | null = null;
 	let closedByUs = false;
 	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -51,7 +62,7 @@ export function createSamanthaCommandClient(
 		reconnectTimer = setTimeout(() => {
 			reconnectTimer = null;
 			open();
-		}, reconnectMs);
+		}, backoff.next());
 	}
 
 	function replyOn(
@@ -108,8 +119,13 @@ export function createSamanthaCommandClient(
 			const ws = new opts.WebSocketImpl(opts.url);
 			socket = ws;
 			ws.onmessage = (ev) => handleMessage(ev.data, ws);
+			ws.onopen = () => {
+				backoff.reset();
+				opts.onStatus?.("connected");
+			};
 			ws.onclose = () => {
 				socket = null;
+				if (!closedByUs) opts.onStatus?.("reconnecting");
 				scheduleReconnect();
 			};
 			ws.onerror = (error) =>
@@ -137,6 +153,12 @@ export function createSamanthaCommandClient(
 		},
 		isOpen() {
 			return socket !== null;
+		},
+		reconnectNow() {
+			if (closedByUs) return; // a deliberately-closed client stays closed
+			clearReconnect();
+			backoff.reset();
+			open(); // idempotent: a no-op if a socket already exists
 		},
 	};
 }
