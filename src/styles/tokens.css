@@ -58,6 +58,14 @@
 	--space-5: 20px;
 	--space-6: 24px;
 
+	/* Workspace panel type ladder (docs/design-specs/2026-06-24-workspace-panel-rework-design.md §5) */
+	--ws-fs-header: 11px;
+	--ws-fs-repo: 15px;
+	--ws-fs-branch: 13px;
+	--ws-fs-path: 12px;
+	--ws-fs-chip: 11px;
+	--rail: oklch(0.42 0.02 256); /* solid tree-rail (dark default) */
+
 	color: var(--foreground);
 	background: var(--background);
 }
@@ -91,6 +99,7 @@
 	--input: oklch(0.6 0.04 257);
 	/* focus ring: 0.704 was 2.63:1; 0.55 -> 4.85:1 (WCAG 2.4.11). */
 	--ring: oklch(0.55 0.04 256.788);
+	--rail: oklch(0.80 0.012 256);
 	--accent: var(--primary);
 	/* AAA: 0.52 was ~5.54:1 (AA); 0.42 -> 8.58:1. */
 	--info: oklch(0.42 0.17 250);
@@ -112,6 +121,7 @@
 	/* focus ring: #6d5b46 was 2.60:1; #9a8266 -> 4.63:1 (WCAG 2.4.11). Control
 	 * borders (--input) are inherited white/15% = 3.38:1, already AA. */
 	--ring: #9a8266;
+	--rail: #6b5d48;
 	--primary: #e58a5e;
 	--primary-foreground: #221c15;
 	--secondary: #3d2817;
@@ -158,6 +168,7 @@
 	--border: oklch(0.34 0.015 240);
 	--input: oklch(0.26 0.015 240);
 	--ring: var(--primary);
+	--rail: oklch(0.44 0.015 240);
 
 	/* Character-grid tokens (spec §4.6): pin line-height so 1lh is
 	 * deterministic for cell-sized layout and box-drawing borders. */
