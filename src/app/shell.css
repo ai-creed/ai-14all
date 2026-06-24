@@ -1094,9 +1094,17 @@ select {
 }
 
 /* CTAs (+ New session / Load workspace) match the branch title size (spec D9) */
-.shell-sidebar__node--new .w-full,
-.shell-sidebar__footer--global .w-full {
+.shell-sidebar__node--new .w-full {
 	font-size: var(--ws-fs-branch);
+}
+.shell-sidebar__footer--global .w-full {
+	/* Load button shares the row with the theme trigger instead of forcing 100% */
+	flex: 1 1 auto;
+	width: auto;
+	font-size: var(--ws-fs-branch);
+}
+.shell-sidebar__theme-trigger {
+	flex: 0 0 auto;
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-group {
@@ -1126,8 +1134,11 @@ select {
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__footer--global {
-	display: flex;
-	justify-content: center;
+	flex-direction: column;
+	align-items: center;
+}
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__footer--global .w-full {
+	flex: 0 0 auto;
 }
 
 /* ── Session chip bar ────────────────────────────────── */
@@ -2473,6 +2484,9 @@ select {
 
 .shell-sidebar__footer--global {
 	margin-top: var(--space-3);
+	display: flex;
+	gap: var(--space-2);
+	align-items: stretch;
 }
 
 .shell-error-banner {
