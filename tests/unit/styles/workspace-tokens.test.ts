@@ -18,9 +18,9 @@ describe("workspace tokens", () => {
 	it("defines a solid --rail in every theme (no alpha)", () => {
 		// one in :root (dark) + light + warm + tui = 4 declarations
 		const decls = css.match(/--rail:\s*[^;]+;/g) ?? [];
-		expect(decls.length).toBeGreaterThanOrEqual(4);
+		expect(decls.length).toBe(4);
 		for (const d of decls) {
-			expect(d).not.toMatch(/color-mix|transparent|\/\s*\d/); // no alpha
+			expect(d).not.toMatch(/color-mix|transparent|\/\s*[\d.%]/); // no alpha
 		}
 	});
 });
