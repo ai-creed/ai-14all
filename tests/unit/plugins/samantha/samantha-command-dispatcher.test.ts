@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createSamanthaCommandDispatcher } from "../../../../services/plugins/samantha/samantha-command-dispatcher";
 import type { CommandFrame } from "../../../../services/plugins/samantha/command-types";
 import type { ResolveResult } from "../../../../services/plugins/samantha/samantha-command-capabilities";
+import type { InstructOutcome } from "../../../../services/plugins/samantha/samantha-command-dispatcher";
 
 function frame(over: Partial<CommandFrame> = {}): CommandFrame {
 	return {
@@ -25,6 +26,7 @@ function make(
 			}),
 		),
 		focusWorktree,
+		instructSession: vi.fn(async (): Promise<InstructOutcome> => ({ ok: true, routed: "send-input" })),
 		...over,
 	};
 	return { dispatcher: createSamanthaCommandDispatcher(cb), cb, focusWorktree };
@@ -116,6 +118,58 @@ describe("samantha-command-dispatcher", () => {
 			requestId: "req_1",
 			status: "error",
 			error: { code: "internal", message: expect.any(String) },
+		});
+	});
+
+	describe("instruct-session", () => {
+		it("forwards raw args + token and returns ok { routed }", async () => {
+			const instructSession = vi.fn(async () => ({
+				ok: true as const,
+				routed: "collab-tell" as const,
+			}));
+			const { dispatcher } = make({ instructSession });
+			const r = await dispatcher.dispatch(
+				frame({
+					capabilityId: "instruct-session",
+					args: { worktree: "ai-14all/main", instruction: "add tests" },
+					token: "tok",
+				}),
+			);
+			expect(instructSession).toHaveBeenCalledWith(
+				{ worktree: "ai-14all/main", instruction: "add tests" },
+				"tok",
+			);
+			expect(r).toEqual({
+				type: "commandResult",
+				requestId: "req_1",
+				status: "ok",
+				result: { routed: "collab-tell" },
+			});
+		});
+
+		it("maps an outcome error (any code) to a correlated error result", async () => {
+			const instructSession = vi.fn(async () => ({
+				ok: false as const,
+				code: "unauthorized" as const,
+				message: "invalid token",
+			}));
+			const { dispatcher } = make({ instructSession });
+			const r = await dispatcher.dispatch(
+				frame({ capabilityId: "instruct-session", args: { worktree: "a/b", instruction: "go" } }),
+			);
+			expect(r.status === "error" && r.error.code).toBe("unauthorized");
+			expect(r.status === "error" && r.error.message).toBe("invalid token");
+		});
+
+		it("does NOT pre-validate args (forwards even an empty args object)", async () => {
+			const instructSession = vi.fn(async () => ({
+				ok: false as const,
+				code: "invalid-args" as const,
+				message: "bad",
+			}));
+			const { dispatcher } = make({ instructSession });
+			await dispatcher.dispatch(frame({ capabilityId: "instruct-session", args: {} }));
+			expect(instructSession).toHaveBeenCalledWith({}, undefined);
 		});
 	});
 });

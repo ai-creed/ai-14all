@@ -163,6 +163,7 @@ export function registerIpcHandlers(
 	},
 ): {
 	dispose: () => void;
+	terminalService: TerminalService;
 } {
 	const reviewCommentService = review.service;
 	const fileService = new FileService();
@@ -791,5 +792,6 @@ export function registerIpcHandlers(
 			watcher.dispose();
 			cortexIndex.dispose();
 		},
+		terminalService,
 	};
 }

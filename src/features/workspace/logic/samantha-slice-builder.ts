@@ -67,6 +67,7 @@ export function createSamanthaSliceBuilder(opts?: {
 					nextAction: resolved.nextAction,
 					updatedAt: resolved.updatedAt,
 					recent: ring,
+					sessionId: wt.session.activeProcessSessionId ?? null,
 				};
 			});
 			// Forget worktrees that closed so the ring map does not leak.

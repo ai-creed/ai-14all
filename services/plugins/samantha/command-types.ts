@@ -8,6 +8,9 @@ export const CommandFrameSchema = z.object({
 	// single-arg z.record(z.unknown()) form throws at runtime. Mirror the existing
 	// repo usage (shared/contracts/commands.ts:254): z.record(z.string(), z.unknown()).
 	args: z.record(z.string(), z.unknown()).optional(),
+	// S3: optional registration token presented on acting commands. Verified by
+	// ActGuard FIRST; absent/invalid → unauthorized when acting is enabled.
+	token: z.string().optional(),
 });
 
 export type CommandFrame = z.infer<typeof CommandFrameSchema>;
@@ -17,6 +20,10 @@ export const COMMAND_ERROR_CODES = [
 	"unknown-worktree",
 	"ambiguous-worktree",
 	"invalid-args",
+	"no-live-agent",
+	"session-busy",
+	"acting-disabled",
+	"unauthorized",
 	"internal",
 ] as const;
 

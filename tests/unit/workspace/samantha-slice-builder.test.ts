@@ -41,6 +41,39 @@ function sessionWith(
 	} as WorktreeSession;
 }
 
+function makeWorktreeSession(over: { activeProcessSessionId: string | null }): WorktreeSession {
+	return {
+		id: "s",
+		worktreeId: "wt1",
+		title: "t",
+		note: "",
+		reviewMode: "files",
+		filesPaneMode: "files",
+		viewerMode: "diff",
+		gitSummary: null,
+		gitSummaryStale: false,
+		gitSummaryMessage: null,
+		gitSummaryError: false,
+		selectedFilePath: null,
+		selectedChangedFilePath: null,
+		selectedCommitSha: null,
+		selectedCommitFilePath: null,
+		activeProcessSessionId: over.activeProcessSessionId,
+		processSessionIds: [],
+		attentionState: "idle",
+		agentAttentionReasons: {},
+		terminalLayoutId: "1",
+		slotProcessIds: [null],
+		reviewSidebarWidth: 320,
+		treeExpandedPaths: [],
+		treeShowIgnored: false,
+		task: null,
+		pendingReveal: null,
+		paneTransient: false,
+		navLocation: null,
+	} as WorktreeSession;
+}
+
 describe("createSamanthaSliceBuilder", () => {
 	it("emits a worktree slice with no history on the first build", () => {
 		const t = 100;
@@ -161,5 +194,37 @@ describe("createSamanthaSliceBuilder", () => {
 			);
 		}
 		expect(slice.worktrees[0].recent.length).toBeLessThanOrEqual(2);
+	});
+
+	it("carries the active process session id as sessionId on the slice", () => {
+		const builder = createSamanthaSliceBuilder({ now: () => 0 });
+		const slice = builder.build(
+			[
+				{
+					worktreeId: "wt1",
+					session: makeWorktreeSession({ activeProcessSessionId: "sess_42" }),
+					processSessionsById: {},
+				},
+			],
+			null,
+			"ready",
+		);
+		expect(slice.worktrees[0].sessionId).toBe("sess_42");
+	});
+
+	it("sessionId is null when there is no active process session", () => {
+		const builder = createSamanthaSliceBuilder({ now: () => 0 });
+		const slice = builder.build(
+			[
+				{
+					worktreeId: "wt1",
+					session: makeWorktreeSession({ activeProcessSessionId: null }),
+					processSessionsById: {},
+				},
+			],
+			null,
+			"ready",
+		);
+		expect(slice.worktrees[0].sessionId).toBeNull();
 	});
 });

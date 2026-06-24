@@ -6,6 +6,35 @@ import { createPluginConfigStore } from "../../../services/plugins/plugin-config
 
 let dir: string;
 
+function storeFrom(toml: string) {
+	dir = mkdtempSync(join(tmpdir(), "plugin-config-"));
+	const configPath = join(dir, "config.toml");
+	writeFileSync(configPath, toml, "utf8");
+	return createPluginConfigStore({ configPath });
+}
+
+describe("plugin-config acting_enabled", () => {
+	it("parses acting_enabled = true under behavior", () => {
+		const store = storeFrom(
+			`[plugins.samantha]\nenabled = true\n[plugins.samantha.behavior]\nacting_enabled = true\n`,
+		);
+		expect(store.get("samantha").behavior?.actingEnabled).toBe(true);
+	});
+
+	it("defaults acting_enabled to false when behavior has only focus_raises_window", () => {
+		const store = storeFrom(
+			`[plugins.samantha]\nenabled = true\n[plugins.samantha.behavior]\nfocus_raises_window = true\n`,
+		);
+		expect(store.get("samantha").behavior?.actingEnabled).toBe(false);
+		expect(store.get("samantha").behavior?.focusRaisesWindow).toBe(true);
+	});
+
+	it("defaults acting_enabled to false when no behavior section exists", () => {
+		const store = storeFrom(`[plugins.samantha]\nenabled = true\n`);
+		expect(store.get("samantha").behavior?.actingEnabled ?? false).toBe(false);
+	});
+});
+
 function makeStore(
 	initial?: string,
 	watch?: (path: string, onEvent: () => void) => () => void,
@@ -27,6 +56,7 @@ describe("plugin-config samantha behavior", () => {
 		);
 		expect(store.get("samantha").behavior).toEqual({
 			focusRaisesWindow: false,
+			actingEnabled: false,
 		});
 	});
 
@@ -34,7 +64,10 @@ describe("plugin-config samantha behavior", () => {
 		const { store } = makeStore(
 			"[plugins.samantha]\nenabled = true\n\n[plugins.samantha.behavior]\nfocus_raises_window = true\n",
 		);
-		expect(store.get("samantha").behavior).toEqual({ focusRaisesWindow: true });
+		expect(store.get("samantha").behavior).toEqual({
+			focusRaisesWindow: true,
+			actingEnabled: false,
+		});
 	});
 
 	it("leaves behavior undefined when the sub-table is absent", () => {
