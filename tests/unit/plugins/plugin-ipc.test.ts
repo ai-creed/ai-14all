@@ -69,6 +69,7 @@ describe("registerPluginIpc", () => {
 			},
 			getWebContents: () => webContents as never,
 			ingestSamanthaSessionSlice: vi.fn(),
+			reconnectSamantha: vi.fn(),
 		});
 		const result = await ipcMain.invoke(PLUGINS_LIST);
 		expect(result).toEqual(registry.snapshots());
@@ -90,6 +91,7 @@ describe("registerPluginIpc", () => {
 			},
 			getWebContents: () => null,
 			ingestSamanthaSessionSlice: vi.fn(),
+			reconnectSamantha: vi.fn(),
 		});
 		await ipcMain.invoke(PLUGINS_SET_ENABLED, { id: "whisper", enabled: true });
 		expect(config.setEnabled).toHaveBeenCalledWith("whisper", true);
@@ -120,6 +122,7 @@ describe("registerPluginIpc", () => {
 			},
 			getWebContents: () => null,
 			ingestSamanthaSessionSlice: vi.fn(),
+			reconnectSamantha: vi.fn(),
 		});
 		const command = {
 			kind: "workflow-pause",
@@ -151,6 +154,7 @@ describe("registerPluginIpc", () => {
 			},
 			getWebContents: () => null,
 			ingestSamanthaSessionSlice: vi.fn(),
+			reconnectSamantha: vi.fn(),
 		});
 		await expect(
 			ipcMain.invoke(PLUGINS_WHISPER_COMMAND, {
@@ -178,6 +182,7 @@ describe("registerPluginIpc", () => {
 			probes: { agentClis: agentClis as never, invalidate },
 			getWebContents: () => null,
 			ingestSamanthaSessionSlice: vi.fn(),
+			reconnectSamantha: vi.fn(),
 		});
 		const result = await ipcMain.invoke(PLUGINS_AGENT_CLIS);
 		expect(result).toEqual(await agentClis());
@@ -203,6 +208,7 @@ describe("registerPluginIpc", () => {
 			},
 			getWebContents: () => webContents as never,
 			ingestSamanthaSessionSlice: vi.fn(),
+			reconnectSamantha: vi.fn(),
 		});
 		registry.emit([{ id: "whisper" }]);
 		expect(webContents.send).toHaveBeenCalledWith(PLUGINS_STATE_CHANGED, [

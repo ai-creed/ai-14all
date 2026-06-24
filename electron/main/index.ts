@@ -453,6 +453,7 @@ app.whenReady().then(async () => {
 		getWebContents: () => mainWindow.webContents,
 		ingestSamanthaSessionSlice: (slice) =>
 			samanthaDriver.ingestSessionSlice(slice),
+		reconnectSamantha: () => samanthaDriver.reconnectNow(),
 	});
 
 	// Re-probe triggers (spec §3.4) funnel through capabilityProbes.invalidate():
