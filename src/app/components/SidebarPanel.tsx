@@ -2,6 +2,7 @@ import {
 	SessionSidebar,
 	type SessionSidebarWorkspace,
 } from "../../features/workspace/components/SessionSidebar";
+import type { Palette } from "../../lib/use-theme";
 
 type PendingRename = {
 	workspaceId: string;
@@ -39,8 +40,8 @@ type Props = {
 	) => void;
 	collapsedWorkspaceIds: string[];
 	onToggleWorkspaceCollapsed: (workspaceId: string) => void;
-	palette: "light" | "dark" | "warm" | "tui";
-	onSetTheme: (mode: "light" | "dark" | "warm" | "tui") => void;
+	palette: Palette;
+	onSetTheme: (mode: Palette) => void;
 };
 
 /**

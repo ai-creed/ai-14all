@@ -630,7 +630,7 @@ select {
 .shell-sidebar__chevron {
 	width: 12px;
 	text-align: center;
-	font-size: 11px;
+	font-size: var(--ws-fs-header);
 }
 
 .shell-sidebar__workspace-icon {
@@ -1130,7 +1130,7 @@ select {
 
 .shell-sidebar__workspace-badge-initial {
 	font-weight: 700;
-	font-size: 12px;
+	font-size: var(--ws-fs-path);
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__footer--global {
