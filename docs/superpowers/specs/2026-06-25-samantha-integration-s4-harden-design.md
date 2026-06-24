@@ -10,7 +10,10 @@
 S4 is the fourth slice of the ai-14all ↔ ai-samantha integration. The high-level
 roadmap (`docs/superpowers/specs/2026-06-21-samantha-14all-integration-highlevel-design.md`,
 §5/§8) names S4 "Harden" and scopes it to four things: **reconnect**, **dedup
-verification**, **cross-repo integration tests**, and **GUI smoke**.
+verification**, **integration tests**, and **GUI smoke**. (The roadmap's original
+"cross-repo integration tests / both repos" wording for S4 is **deliberately amended by this
+spec** — see §1 scope and §9 — to ai-14all-side hermetic integration tests now, with the
+two-process cross-repo counterpart deferred. The roadmap doc is updated to match.)
 
 S1 delivered rich observe; S2 added the benign command channel (`focus-worktree`,
 `session-report`); S3 ("Real act") added the one capability with real blast radius
@@ -47,7 +50,9 @@ Harden the duplex link and the S3 act path to production quality. S4 is a single
 delivering all four pieces:
 
 1. **Inbound command dedup** — make every command idempotent by `requestId` so a re-sent
-   frame never double-executes (and `instruct-session` never double-delivers).
+   frame never double-executes within the dedup (TTL) window (and `instruct-session` never
+   double-delivers). The cache never evicts a still-live entry, so the guarantee holds for the
+   full window with no overflow loophole — see §4.
 2. **Reconnect hardening** — replace flat-delay reconnect with capped exponential backoff
    plus jitter, retrying forever, and add a manual "Reconnect now" UI fast-path.
 3. **Integration tests** — extend the in-repo mock server and the e2e suite to cover the
@@ -60,7 +65,11 @@ delivering all four pieces:
 backoff, the manual reconnect path, the IPC, the button, and the tests are all our side;
 the integration tests run against the in-repo mock. The Samantha-side counterpart (a real
 two-process harness, and the S3-deferred token *wire*) is explicitly deferred. S4 ships
-without a cross-repo change.
+without a cross-repo change. The roadmap (§5/§8) originally listed S4 as touching *both*
+repos with an ai-samantha "integration test counterpart"; that entry is **deliberately
+amended** to match this scoping — ai-14all-side hardening with hermetic in-repo integration
+tests now, the two-process counterpart deferred — and the roadmap doc is updated accordingly
+(see §9).
 
 The security surface is low: S3 froze the trust boundary, the gates, and the routing.
 S4 adds no new capability, no new acting policy, and no new external surface.
@@ -128,9 +137,12 @@ type Entry =
 1. Prune expired `done` entries (`ts + ttlMs < now()`) — lazy, no background timer.
 2. If an entry exists: **in-flight → return the same promise** (coalesce, no second
    execute); **done → replay `result`** (no execute).
-3. No entry → record the **in-flight entry synchronously before awaiting `inner`**, then
-   call `inner.dispatch(frame)`; on settle, overwrite to `done`, stamp `ts = now()`, and
-   enforce `max` (evict oldest).
+3. No entry → first reclaim capacity by pruning expired entries; if the Map is still at `max`
+   with **every** resident entry live (within TTL), refuse with a retryable `internal` result
+   **without** calling `inner` or recording an entry (back-pressure — never evict a live entry;
+   see *Bounds & lifetime*). Otherwise record the **in-flight entry synchronously before
+   awaiting `inner`**, then call `inner.dispatch(frame)`; on settle, overwrite to `done`, stamp
+   `ts = now()`.
 
 ### Two correctness properties this buys
 
@@ -154,20 +166,34 @@ expires and that `requestId` is treated as fresh again.
 ### Bounds & lifetime
 
 - In-memory only. `requestId`s are per-session; nothing should survive an app restart.
-- `ttlMs` default ≈ 60s (covers a reconnect cycle plus voice latency).
-- `max` default ≈ 256 (ample for a single-user voice loop), oldest-first eviction on
-  overflow.
+- `ttlMs` default ≈ 60s (covers a reconnect cycle plus voice latency). **TTL is the primary
+  lifetime, and exactly-once holds for the full TTL window** — see *Eviction never touches a
+  live entry* below.
+- `max` default ≈ 256 — a memory safety valve, not the dedup horizon. Eviction is
+  **TTL-driven**: only expired entries are reclaimed (oldest-expired-first). A still-live
+  (within-TTL) entry is **never** evicted to make room.
+- **Eviction never touches a live entry → exactly-once is preserved under overflow.** If the
+  cache ever reaches `max` with *every* resident entry still live — pathological at single-user
+  voice scale (>256 distinct in-flight/recent requestIds inside a 60s window is not physically
+  reachable), but defended anyway — a **new** (never-seen) command is refused with a typed
+  retryable `internal` result rather than evicting a live entry. Refusing a brand-new command
+  cannot double-execute anything; a re-sent frame for an already-processed command always finds
+  its live entry and replays. This is the one case the decorator synthesizes a result, and only
+  because it means `inner` was never called and nothing executed.
 - `now` injected for tests; wall-clock is fine for TTL.
 - Relies on `inner` always settling to a `CommandResult` — which the S3 ActGuard already
-  guarantees by converting thrown executes to `ok: false`. The decorator stays transparent:
-  it never manufactures a result, and if `inner` ever rejects (a bug), it deletes the
-  in-flight entry so the `requestId` stays retryable rather than caching a poisoned promise.
+  guarantees by converting thrown executes to `ok: false`. The decorator stays transparent: it
+  never fabricates an agent outcome or a success result (its sole synthesized result is the
+  back-pressure refusal above, where nothing ran), and if `inner` ever rejects (a bug), it
+  deletes the in-flight entry so the `requestId` stays retryable rather than caching a poisoned
+  promise.
 
 ### Audit invariant (cross-cutting)
 
-One logical `instruct-session` produces exactly one ActGuard audit start/result pair, no
-matter how many duplicate frames arrive — replays never re-enter the guard. This is both a
-property of the design and the assertion the dedup e2e checks.
+One logical `instruct-session` produces exactly one ActGuard audit start/result pair for every
+duplicate frame arriving within the TTL window — replays never re-enter the guard, and because
+eviction never removes a live entry, no in-window duplicate can slip past the cache and
+re-execute. This is both a property of the design and the assertion the dedup e2e checks.
 
 ## 5. Unit: Reconnect backoff + manual reconnect
 
@@ -241,10 +267,13 @@ Three layers, all hermetic in ai-14all. The real two-process harness stays defer
 ### Unit (pure units, TDD-first)
 
 - `idempotent-dispatcher.test.ts` — fresh `requestId` calls `inner` once; duplicate replays
-  without re-calling `inner`; concurrent duplicate coalesces (inner once, both get the
-  result); error result is cached + replayed; entry expires after `ttlMs` (re-executes);
-  `max` overflow evicts oldest (evicted `requestId` re-executes); inner-rejection clears the
-  entry.
+  without re-calling `inner`; concurrent duplicate coalesces (inner once, both get the result);
+  error result is cached + replayed; entry expires after `ttlMs` (re-executes); an expired entry
+  is reclaimed to admit a new command once the cache is full; **exactly-once under overflow** —
+  fill the cache to `max` with live entries, then (a) a re-sent live `requestId` still replays
+  without re-calling `inner`, and (b) a *new* `requestId` is refused with a retryable `internal`
+  result rather than evicting a live entry (no live entry is ever re-executed); inner-rejection
+  clears the entry.
 - `reconnect-backoff.test.ts` — capped exponential curve (random pinned); jitter within
   `[raw/2, raw]`; `reset()` returns to base; cap respected at high attempt counts.
 - `samantha-driver.test.ts` (extend) — `reconnectNow()` cancels pending timers, resets both
@@ -310,13 +339,17 @@ instead of fixed sleeps. Scenarios:
   discipline; the frame already requires it).
 - **`inner` rejection** (a bug — the dispatcher/ActGuard are settle-only by the S3 contract):
   the decorator deletes the in-flight entry (keeps the `requestId` retryable) and propagates.
-  It never manufactures a result; the "every command settles to a `CommandResult`" guarantee
-  lives in the dispatcher/ActGuard, not in the decorator.
-- **`max` eviction vs TTL window:** eviction is oldest-first by insertion; under a pathological
-  burst beyond `max` an entry still inside its TTL could be evicted, and a re-send would then
-  re-execute (for `instruct-session`, a re-delivery). Mitigation: size `max` generously (≈256)
-  so the window is effectively TTL-bounded, not size-bounded, at single-user scale. A known,
-  astronomically-unlikely degradation.
+  On an `inner` rejection it never manufactures a result; the "every command settles to a
+  `CommandResult`" guarantee lives in the dispatcher/ActGuard, not in the decorator. (The one
+  result the decorator *does* synthesize — the pathological full-of-live-entries back-pressure
+  refusal in §4 — is a distinct path where `inner` is never called.)
+- **`max` eviction preserves exactly-once:** eviction is **TTL-driven** — only expired entries
+  are reclaimed, so a still-live entry is never evicted and a re-send within TTL always replays
+  (never re-executes / re-delivers). If the cache is ever full of *live* entries (pathological:
+  >256 distinct requestIds inside a 60s window, not reachable at single-user scale), a **new**
+  command is refused with a retryable `internal` result rather than evicting a live entry —
+  back-pressure that cannot double-execute, because nothing ran. The only degradation under
+  overflow is a refused *new* command (caller retries), never a double-executed *resend*.
 - **Lazy TTL prune** (on dispatch, no timer): stale entries linger during idle but are bounded
   by `max`; memory is trivial. Wall-clock `now()` is fine (a backward clock jump only
   over-extends an entry slightly).
@@ -372,6 +405,14 @@ instead of fixed sleeps. Scenarios:
 | Slice | ai-14all | ai-samantha (proprietary) |
 | --- | --- | --- |
 | S4 | idempotent dispatcher (dedup), reconnect backoff, manual reconnect (`reconnectNow` + IPC + button), mock-server extensions, unit + e2e + GUI tests | none in this slice — real two-process harness and token wire deferred |
+
+The high-level roadmap (§5 build table and §8 cross-repo footprint) originally listed S4 as
+touching **both** repos, with an ai-samantha *"integration test counterpart."* This spec
+**deliberately amends** that contract: S4's integration tests are hermetic in-repo tests against
+the extended mock server (the "1 for now" decision), and the real two-process cross-repo harness
+plus the Samantha-side counterpart move to a follow-up slice ("2 later"). The roadmap doc is
+updated to match — its S4 rows now read ai-14all-side hardening + hermetic integration tests now,
+counterpart deferred — so the two specs no longer disagree.
 
 ## References
 
