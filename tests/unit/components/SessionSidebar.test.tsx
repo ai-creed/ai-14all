@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { SessionSidebar } from "../../../src/features/workspace/components/SessionSidebar";
 import type { Worktree } from "../../../shared/models/worktree";
 
@@ -395,6 +396,32 @@ describe("SessionSidebar", () => {
 				name: "feature worktree feature-a",
 			}),
 		).toHaveAttribute("data-selected", "false");
+	});
+});
+
+describe("SessionSidebar theme switcher", () => {
+	it("invokes onSetTheme from the palette menu", async () => {
+		const onSetTheme = vi.fn();
+		const user = userEvent.setup();
+		render(
+			<SessionSidebar
+				workspaces={[{ ...workspaces[0], selectedWorktreeId: "main" }]}
+				collapsed={false}
+				onToggleCollapsed={vi.fn()}
+				onLoadWorkspace={vi.fn()}
+				onOpenWorkspace={vi.fn()}
+				onSelect={vi.fn()}
+				onCreateWorktree={vi.fn()}
+				onRemoveWorktree={vi.fn()}
+				onRemoveWorkspace={vi.fn()}
+				palette="dark"
+				onSetTheme={onSetTheme}
+			/>,
+		);
+		await user.click(screen.getByRole("button", { name: /switch theme/i }));
+		const warm = await screen.findByRole("menuitem", { name: /warm/i });
+		await user.click(warm);
+		expect(onSetTheme).toHaveBeenCalledWith("warm");
 	});
 });
 

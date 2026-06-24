@@ -6,6 +6,12 @@ import {
 	ContextMenuItem,
 	ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { Worktree } from "../../../../shared/models/worktree";
 import type { ProcessAttentionState } from "../../../../shared/models/process-session";
 import type { WorktreeProcessSummary } from "../logic/sidebar-shell-summary";
@@ -60,6 +66,8 @@ type Props = {
 	) => void;
 	onOpenWorkflowDetail?: (workspaceId: string, worktreeId: string) => void;
 	pendingRename?: { workspaceId: string; worktreeId: string } | null;
+	palette?: "light" | "dark" | "warm" | "tui";
+	onSetTheme?: (mode: "light" | "dark" | "warm" | "tui") => void;
 };
 
 export function SessionSidebar({
@@ -79,6 +87,8 @@ export function SessionSidebar({
 	onClearFailedReason,
 	onOpenWorkflowDetail,
 	pendingRename,
+	palette,
+	onSetTheme,
 }: Props) {
 	const [renaming, setRenaming] = React.useState<{
 		workspaceId: string;
@@ -123,6 +133,13 @@ export function SessionSidebar({
 	function cancelRename() {
 		setRenaming(null);
 	}
+
+	const THEMES: { mode: "light" | "dark" | "warm" | "tui"; label: string }[] = [
+		{ mode: "dark", label: "Dark" },
+		{ mode: "light", label: "Light" },
+		{ mode: "warm", label: "Warm" },
+		{ mode: "tui", label: "TUI" },
+	];
 
 	return (
 		<nav
@@ -567,6 +584,33 @@ export function SessionSidebar({
 				>
 					{collapsed ? "Load" : "Load workspace"}
 				</Button>
+				{onSetTheme && (
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="shell-sidebar__theme-trigger"
+								aria-label="Switch theme"
+							>
+								<Icon name="palette" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end" className="shell-toolbar-menu">
+							{THEMES.map((t) => (
+								<DropdownMenuItem
+									key={t.mode}
+									className="shell-toolbar-menu__item"
+									data-active={String(palette === t.mode)}
+									onSelect={() => onSetTheme(t.mode)}
+								>
+									{t.label}
+								</DropdownMenuItem>
+							))}
+						</DropdownMenuContent>
+					</DropdownMenu>
+				)}
 			</div>
 		</nav>
 	);
