@@ -19,6 +19,7 @@ import { displayTitle } from "../logic/session-display-title";
 import type { WorkflowRow as WorkflowRowModel } from "../../workflows/logic/workflow-lens";
 import { WorkflowRow } from "../../workflows/components/WorkflowRow";
 import { Icon } from "@/components/ui/icon";
+import type { Palette } from "../../../lib/use-theme";
 
 export type SessionSidebarWorkspace = {
 	workspaceId: string;
@@ -66,9 +67,16 @@ type Props = {
 	) => void;
 	onOpenWorkflowDetail?: (workspaceId: string, worktreeId: string) => void;
 	pendingRename?: { workspaceId: string; worktreeId: string } | null;
-	palette?: "light" | "dark" | "warm" | "tui";
-	onSetTheme?: (mode: "light" | "dark" | "warm" | "tui") => void;
+	palette?: Palette;
+	onSetTheme?: (mode: Palette) => void;
 };
+
+const THEMES: { mode: Palette; label: string }[] = [
+	{ mode: "dark", label: "Dark" },
+	{ mode: "light", label: "Light" },
+	{ mode: "warm", label: "Warm" },
+	{ mode: "tui", label: "TUI" },
+];
 
 export function SessionSidebar({
 	workspaces,
@@ -133,13 +141,6 @@ export function SessionSidebar({
 	function cancelRename() {
 		setRenaming(null);
 	}
-
-	const THEMES: { mode: "light" | "dark" | "warm" | "tui"; label: string }[] = [
-		{ mode: "dark", label: "Dark" },
-		{ mode: "light", label: "Light" },
-		{ mode: "warm", label: "Warm" },
-		{ mode: "tui", label: "TUI" },
-	];
 
 	return (
 		<nav
@@ -606,6 +607,9 @@ export function SessionSidebar({
 									onSelect={() => onSetTheme(t.mode)}
 								>
 									{t.label}
+									{palette === t.mode && (
+										<Icon name="check" className="ml-auto" />
+									)}
 								</DropdownMenuItem>
 							))}
 						</DropdownMenuContent>

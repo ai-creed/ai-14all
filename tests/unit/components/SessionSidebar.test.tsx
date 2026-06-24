@@ -423,6 +423,30 @@ describe("SessionSidebar theme switcher", () => {
 		await user.click(warm);
 		expect(onSetTheme).toHaveBeenCalledWith("warm");
 	});
+
+	it("shows a check mark on the active theme and not on inactive themes", async () => {
+		const user = userEvent.setup();
+		render(
+			<SessionSidebar
+				workspaces={[{ ...workspaces[0], selectedWorktreeId: "main" }]}
+				collapsed={false}
+				onToggleCollapsed={vi.fn()}
+				onLoadWorkspace={vi.fn()}
+				onOpenWorkspace={vi.fn()}
+				onSelect={vi.fn()}
+				onCreateWorktree={vi.fn()}
+				onRemoveWorktree={vi.fn()}
+				onRemoveWorkspace={vi.fn()}
+				palette="dark"
+				onSetTheme={vi.fn()}
+			/>,
+		);
+		await user.click(screen.getByRole("button", { name: /switch theme/i }));
+		const activeItem = await screen.findByRole("menuitem", { name: /dark/i });
+		const warmItem = await screen.findByRole("menuitem", { name: /warm/i });
+		expect(within(activeItem).queryByText("✓")).toBeInTheDocument();
+		expect(within(warmItem).queryByText("✓")).toBeNull();
+	});
 });
 
 import React from "react";
@@ -680,6 +704,10 @@ describe("SessionSidebar repo collapse", () => {
 		expect(screen.queryByText("feature worktree")).not.toBeInTheDocument();
 		// repo title still present
 		expect(screen.getByRole("button", { name: "repo-a" })).toBeInTheDocument();
+		// toggle button stays reachable when collapsed
+		expect(
+			screen.getByRole("button", { name: /expand repo-a/i }),
+		).toBeInTheDocument();
 	});
 });
 
