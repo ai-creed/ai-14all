@@ -47,6 +47,7 @@ export function createSamanthaCommandClient(
 		random: opts.random,
 	});
 	let socket: WebSocketLike | null = null;
+	let opened = false; // true only between onopen and onclose (the actual OPEN state)
 	let closedByUs = false;
 	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -118,13 +119,18 @@ export function createSamanthaCommandClient(
 		try {
 			const ws = new opts.WebSocketImpl(opts.url);
 			socket = ws;
+			opened = false; // a freshly constructed socket is CONNECTING, not OPEN
 			ws.onmessage = (ev) => handleMessage(ev.data, ws);
 			ws.onopen = () => {
+				if (socket !== ws) return; // a discarded/stale socket opening late
+				opened = true;
 				backoff.reset();
 				opts.onStatus?.("connected");
 			};
 			ws.onclose = () => {
+				if (socket !== ws) return; // a discarded/stale socket closing; ignore
 				socket = null;
+				opened = false;
 				if (!closedByUs) opts.onStatus?.("reconnecting");
 				scheduleReconnect();
 			};
@@ -133,6 +139,7 @@ export function createSamanthaCommandClient(
 		} catch (error) {
 			// Samantha absent / connect threw synchronously: stay inert, retry later.
 			socket = null;
+			opened = false;
 			opts.log?.("samantha: command socket connect failed", error);
 			scheduleReconnect();
 		}
@@ -145,6 +152,7 @@ export function createSamanthaCommandClient(
 			clearReconnect();
 			const ws = socket;
 			socket = null;
+			opened = false;
 			try {
 				ws?.close();
 			} catch {
@@ -152,13 +160,29 @@ export function createSamanthaCommandClient(
 			}
 		},
 		isOpen() {
-			return socket !== null;
+			// The actual OPEN state — true only after onopen fired, NOT merely because a
+			// socket object was constructed (a CONNECTING socket is not yet usable).
+			return opened;
 		},
 		reconnectNow() {
 			if (closedByUs) return; // a deliberately-closed client stays closed
 			clearReconnect();
 			backoff.reset();
-			open(); // idempotent: a no-op if a socket already exists
+			if (opened) return; // already truly connected — nothing to force
+			// A socket object may exist but be CONNECTING/stale (e.g. mid-reconnect
+			// against a server that was down). Discard it so open() establishes a
+			// genuinely fresh connection rather than no-opping on socket !== null.
+			if (socket !== null) {
+				const stale = socket;
+				socket = null;
+				opened = false;
+				try {
+					stale.close();
+				} catch {
+					// closing a dead socket must not throw out of the manual fast-path.
+				}
+			}
+			open(); // socket is null now -> constructs a fresh connection
 		},
 	};
 }

@@ -237,8 +237,41 @@ describe("samantha-command-client", () => {
 			random: () => 0,
 		});
 		client.connect();
+		FakeSocket.instances[0].onopen?.(); // genuinely OPEN
 		client.reconnectNow();
 		expect(FakeSocket.instances).toHaveLength(1);
+	});
+
+	it("isOpen() is false while connecting and true only after the socket opens", () => {
+		const client = createSamanthaCommandClient({
+			url: "ws://127.0.0.1:7841/connectors/ai-14all/events",
+			dispatcher: okDispatcher,
+			WebSocketImpl: FakeSocket as unknown as new (url: string) => WebSocketLike,
+			reconnectMs: 1000,
+			random: () => 0,
+		});
+		expect(client.isOpen()).toBe(false); // no socket yet
+		client.connect();
+		expect(client.isOpen()).toBe(false); // constructed but CONNECTING, not OPEN
+		FakeSocket.instances[0].onopen?.();
+		expect(client.isOpen()).toBe(true); // now OPEN
+		FakeSocket.instances[0].onclose?.();
+		expect(client.isOpen()).toBe(false); // closed
+	});
+
+	it("reconnectNow() on a connecting (not-yet-open) socket discards it and opens fresh", () => {
+		const client = createSamanthaCommandClient({
+			url: "ws://127.0.0.1:7841/connectors/ai-14all/events",
+			dispatcher: okDispatcher,
+			WebSocketImpl: FakeSocket as unknown as new (url: string) => WebSocketLike,
+			reconnectMs: 1000,
+			random: () => 0,
+		});
+		client.connect(); // socket[0] constructed, onopen NOT fired (still connecting)
+		expect(client.isOpen()).toBe(false);
+		client.reconnectNow(); // must NOT no-op — force a genuinely fresh connection
+		expect(FakeSocket.instances).toHaveLength(2); // stale discarded + reopened
+		expect(FakeSocket.instances[0].closed).toBe(true); // the connecting socket was closed
 	});
 
 	it("reports onStatus 'connected' on open and 'reconnecting' on an unexpected close", () => {

@@ -633,12 +633,34 @@ describe("samantha-driver", () => {
 		const { driver, health } = makeDriver(client);
 		await driver.start(ctx);
 		await vi.advanceTimersByTimeAsync(30);
+		// The real ws fires onopen once connected; simulate that so the command
+		// socket is genuinely OPEN (isOpen() === true), i.e. the healthy state.
+		FakeSocket.instances[0].onopen?.();
 		const snapsBefore = calls.snapshot.length;
 		const healthLenBefore = health.length;
-		driver.reconnectNow(); // registered AND socket open -> no-op (don't churn)
+		driver.reconnectNow(); // registered AND socket truly open -> no-op (don't churn)
 		await vi.advanceTimersByTimeAsync(30);
 		expect(calls.snapshot.length).toBe(snapsBefore); // no forced PATCH
 		expect(health.length).toBe(healthLenBefore); // no health churn
+		await driver.stop();
+	});
+
+	it("reconnectNow() proceeds when the command socket is only connecting (not yet open) even though registered", async () => {
+		// The bug this guards: isOpen() must reflect the ACTUAL open state, not just
+		// "a socket object exists". After start the socket is constructed but onopen
+		// has not fired (still connecting / a failing reconnect attempt), so the link
+		// is NOT truly up — clicking reconnect must force a fresh attempt, not no-op.
+		const { client, calls } = okClient();
+		const { driver, health } = makeDriver(client);
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(30);
+		expect(FakeSocket.instances).toHaveLength(1); // constructed, onopen NOT fired
+		const snapsBefore = calls.snapshot.length;
+		driver.reconnectNow();
+		expect(health.at(-1)?.link).toBe("connecting"); // proceeded, not a no-op
+		expect(FakeSocket.instances).toHaveLength(2); // discarded the connecting socket, opened fresh
+		await vi.advanceTimersByTimeAsync(30);
+		expect(calls.snapshot.length).toBeGreaterThan(snapsBefore); // forced rebuild PATCH went out
 		await driver.stop();
 	});
 
