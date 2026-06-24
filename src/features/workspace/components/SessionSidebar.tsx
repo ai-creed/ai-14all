@@ -45,6 +45,8 @@ type Props = {
 	onCreateWorktree: (workspaceId: string) => void;
 	onRemoveWorktree: (workspaceId: string, worktreeId: string) => void;
 	onRemoveWorkspace: (workspaceId: string) => void;
+	collapsedWorkspaceIds?: string[];
+	onToggleWorkspaceCollapsed?: (workspaceId: string) => void;
 	onRenameSession?: (
 		workspaceId: string,
 		worktreeId: string,
@@ -70,6 +72,8 @@ export function SessionSidebar({
 	onCreateWorktree,
 	onRemoveWorktree,
 	onRemoveWorkspace,
+	collapsedWorkspaceIds,
+	onToggleWorkspaceCollapsed,
 	onRenameSession,
 	onRequestExpand,
 	onClearFailedReason,
@@ -146,7 +150,11 @@ export function SessionSidebar({
 			</div>
 
 			<div className="shell-sidebar__list">
-				{workspaces.map((workspace) => (
+				{workspaces.map((workspace) => {
+					const repoCollapsed =
+						!collapsed &&
+						(collapsedWorkspaceIds?.includes(workspace.workspaceId) ?? false);
+					return (
 					<section
 						key={workspace.workspaceId}
 						role="group"
@@ -170,6 +178,27 @@ export function SessionSidebar({
 								<>
 									<button
 										type="button"
+										className="shell-sidebar__workspace-toggle"
+										aria-label={`${repoCollapsed ? "Expand" : "Collapse"} ${workspace.name}`}
+										aria-expanded={!repoCollapsed}
+										onClick={() =>
+											onToggleWorkspaceCollapsed?.(workspace.workspaceId)
+										}
+									>
+										<span className="shell-sidebar__chevron" aria-hidden="true">
+											<Icon
+												name={repoCollapsed ? "caret-right" : "caret-down"}
+											/>
+										</span>
+										<span
+											className="shell-sidebar__workspace-icon"
+											aria-hidden="true"
+										>
+											<Icon name="git-branch" />
+										</span>
+									</button>
+									<button
+										type="button"
 										className="shell-sidebar__workspace-name"
 										data-selected={String(workspace.active)}
 										onClick={() => onOpenWorkspace(workspace.workspaceId)}
@@ -180,6 +209,7 @@ export function SessionSidebar({
 										type="button"
 										variant="ghost"
 										size="icon"
+										className="shell-sidebar__workspace-remove"
 										aria-label={`Remove ${workspace.name}`}
 										onClick={() => onRemoveWorkspace(workspace.workspaceId)}
 									>
@@ -189,6 +219,7 @@ export function SessionSidebar({
 							)}
 						</div>
 
+						{!repoCollapsed && (
 						<div className="shell-sidebar__workspace-items">
 							{workspace.worktrees.map((worktree) => {
 								const selected =
@@ -483,6 +514,7 @@ export function SessionSidebar({
 								</div>
 							)}
 						</div>
+						)}
 
 						{workspace.active && (
 							<div className="shell-sidebar__footer">
@@ -499,7 +531,8 @@ export function SessionSidebar({
 							</div>
 						)}
 					</section>
-				))}
+				);
+				})}
 			</div>
 			<div className="shell-sidebar__footer shell-sidebar__footer--global">
 				<Button
