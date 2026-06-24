@@ -655,3 +655,50 @@ describe("SessionSidebar repo collapse", () => {
 		expect(screen.getByRole("button", { name: "repo-a" })).toBeInTheDocument();
 	});
 });
+
+describe("SessionSidebar tree rail + new button placement", () => {
+	it("wraps the New session button as the last node inside the items list", () => {
+		const { container } = render(
+			<SessionSidebar
+				workspaces={[{ ...workspaces[0], selectedWorktreeId: "main" }]}
+				collapsed={false}
+				onToggleCollapsed={vi.fn()}
+				onLoadWorkspace={vi.fn()}
+				onOpenWorkspace={vi.fn()}
+				onSelect={vi.fn()}
+				onCreateWorktree={vi.fn()}
+				onRemoveWorktree={vi.fn()}
+				onRemoveWorkspace={vi.fn()}
+			/>,
+		);
+		const items = container.querySelector(".shell-sidebar__workspace-items")!;
+		const last = items.lastElementChild!;
+		expect(last).toHaveClass("shell-sidebar__node");
+		expect(
+			within(last as HTMLElement).getByRole("button", { name: "New session" }),
+		).toBeInTheDocument();
+		// every worktree row is wrapped in a node
+		expect(items.querySelectorAll(".shell-sidebar__node").length).toBe(
+			workspaces[0].worktrees.length + 1,
+		);
+	});
+
+	it("collapsed badge keeps the workspace accessible name", () => {
+		render(
+			<SessionSidebar
+				workspaces={[{ ...workspaces[0], selectedWorktreeId: "main" }]}
+				collapsed={true}
+				onToggleCollapsed={vi.fn()}
+				onLoadWorkspace={vi.fn()}
+				onOpenWorkspace={vi.fn()}
+				onSelect={vi.fn()}
+				onCreateWorktree={vi.fn()}
+				onRemoveWorktree={vi.fn()}
+				onRemoveWorkspace={vi.fn()}
+			/>,
+		);
+		const badge = screen.getByRole("button", { name: "repo-a" });
+		expect(badge).toHaveClass("shell-sidebar__workspace-badge");
+		expect(badge.textContent).toContain("R"); // initial preserved beside the icon
+	});
+});

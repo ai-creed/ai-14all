@@ -172,7 +172,12 @@ export function SessionSidebar({
 										data-selected={String(workspace.active)}
 										onClick={() => onOpenWorkspace(workspace.workspaceId)}
 									>
-										{workspace.name.slice(0, 1).toUpperCase()}
+										<span aria-hidden="true">
+											<Icon name="git-branch" />
+										</span>
+										<span className="shell-sidebar__workspace-badge-initial">
+											{workspace.name.slice(0, 1).toUpperCase()}
+										</span>
 									</button>
 								) : (
 									<>
@@ -455,69 +460,72 @@ export function SessionSidebar({
 
 										if (collapsed || !workspace.active) {
 											return (
-												<div
-													key={worktree.id}
-													className="shell-sidebar__row"
-													{...rowAttentionProps}
-													onClick={handleRowClick}
-												>
-													{item}
-													{taskLine}
-													{processList}
-													{workflowRow}
+												<div className="shell-sidebar__node" key={worktree.id}>
+													<div
+														className="shell-sidebar__row"
+														{...rowAttentionProps}
+														onClick={handleRowClick}
+													>
+														{item}
+														{taskLine}
+														{processList}
+														{workflowRow}
+													</div>
 												</div>
 											);
 										}
 
 										return (
-											<ContextMenu key={worktree.id}>
-												<div
-													className="shell-sidebar__row"
-													{...rowAttentionProps}
-													onClick={handleRowClick}
-												>
-													<ContextMenuTrigger asChild>
-														{item}
-													</ContextMenuTrigger>
-													{taskLine}
-													{processList}
-													{workflowRow}
-												</div>
-												<ContextMenuContent className="shell-toolbar-menu">
-													<ContextMenuItem
-														className="shell-toolbar-menu__item"
-														onSelect={() => {
-															if (collapsed || !workspace.active) {
-																onRequestExpand?.(
-																	workspace.workspaceId,
-																	worktree.id,
-																);
-																return;
-															}
-															startRename(
-																workspace.workspaceId,
-																worktree.id,
-																rawTitle,
-															);
-														}}
+											<div className="shell-sidebar__node" key={worktree.id}>
+												<ContextMenu>
+													<div
+														className="shell-sidebar__row"
+														{...rowAttentionProps}
+														onClick={handleRowClick}
 													>
-														Rename session
-													</ContextMenuItem>
-													{!worktree.isMain && (
+														<ContextMenuTrigger asChild>
+															{item}
+														</ContextMenuTrigger>
+														{taskLine}
+														{processList}
+														{workflowRow}
+													</div>
+													<ContextMenuContent className="shell-toolbar-menu">
 														<ContextMenuItem
-															className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
-															onSelect={() =>
-																onRemoveWorktree(
+															className="shell-toolbar-menu__item"
+															onSelect={() => {
+																if (collapsed || !workspace.active) {
+																	onRequestExpand?.(
+																		workspace.workspaceId,
+																		worktree.id,
+																	);
+																	return;
+																}
+																startRename(
 																	workspace.workspaceId,
 																	worktree.id,
-																)
-															}
+																	rawTitle,
+																);
+															}}
 														>
-															Remove worktree
+															Rename session
 														</ContextMenuItem>
-													)}
-												</ContextMenuContent>
-											</ContextMenu>
+														{!worktree.isMain && (
+															<ContextMenuItem
+																className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
+																onSelect={() =>
+																	onRemoveWorktree(
+																		workspace.workspaceId,
+																		worktree.id,
+																	)
+																}
+															>
+																Remove worktree
+															</ContextMenuItem>
+														)}
+													</ContextMenuContent>
+												</ContextMenu>
+											</div>
 										);
 									})}
 
@@ -528,21 +536,20 @@ export function SessionSidebar({
 												: "Open this workspace to load its worktree sessions."}
 										</div>
 									)}
-								</div>
-							)}
-
-							{workspace.active && (
-								<div className="shell-sidebar__footer">
-									<Button
-										type="button"
-										variant="secondary"
-										size="sm"
-										className="w-full"
-										onClick={() => onCreateWorktree(workspace.workspaceId)}
-										aria-label="New session"
-									>
-										{collapsed ? "+" : "+ New session"}
-									</Button>
+									{workspace.active && (
+										<div className="shell-sidebar__node shell-sidebar__node--new">
+											<Button
+												type="button"
+												variant="secondary"
+												size="sm"
+												className="w-full"
+												onClick={() => onCreateWorktree(workspace.workspaceId)}
+												aria-label="New session"
+											>
+												{collapsed ? "+" : "+ New session"}
+											</Button>
+										</div>
+									)}
 								</div>
 							)}
 						</section>
