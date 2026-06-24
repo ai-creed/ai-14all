@@ -53,6 +53,12 @@ async function launchApp(actingEnabled: boolean): Promise<void> {
 			AI14ALL_USER_DATA_PATH: userDataDir,
 			AI_SAMANTHA_CONNECTOR_PORT: String(mock.port),
 			SAMANTHA_ACTING_TOKEN_PATH: tokenPath,
+			// Suppress the auto default-shell that fires when agentsAvailable===false.
+			// With agents "present", the slot stays empty -> sessionId remains null
+			// -> buildTargetSessionState returns "absent" -> routeInstruction returns
+			// no-live-agent (never send-input). This is the determinism the brief
+			// describes: "no terminal is spawned, sessionId null -> absent".
+			AI14ALL_FAKE_AGENT_CLIS: "claude",
 		},
 	});
 	page = await app.firstWindow({ timeout: 60_000 });
@@ -104,13 +110,46 @@ async function waitForRegister(): Promise<void> {
 		.toBe(true);
 }
 
+// Wait for a PATCH snapshot with at least one worktree key and return the first
+// key ("<repo>/<branch>"). The repo name is the basename of the tmp dir (not
+// "ai-14all"), so we cannot hardcode it — derive it from the live snapshot.
+async function waitForWorktreeKey(): Promise<string> {
+	let key: string | undefined;
+	await expect
+		.poll(
+			() => {
+				const patch = [...mock.requests]
+					.reverse()
+					.find(
+						(r) =>
+							r.method === "PATCH" &&
+							r.url === "/connectors/ai-14all/snapshot" &&
+							r.body !== null &&
+							typeof (r.body as { details?: unknown }).details === "object" &&
+							Object.keys(
+								(r.body as { details: Record<string, unknown> }).details,
+							).length > 0,
+					);
+				if (!patch) return undefined;
+				key = Object.keys(
+					(patch.body as { details: Record<string, unknown> }).details,
+				)[0];
+				return key;
+			},
+			{ timeout: 20_000 },
+		)
+		.toBeTruthy();
+	return key as string;
+}
+
 test.describe("acting disabled (toggle off)", () => {
 	test.beforeEach(() => launchApp(false));
 
 	test("instruct-session with a valid token returns acting-disabled", async () => {
 		test.setTimeout(60_000);
 		await waitForRegister();
-		// Valid token (token gate passes) + acting OFF -> the acting gate rejects.
+		// Valid token (token gate passes) + acting OFF -> the acting gate rejects
+		// before worktree resolution, so the key value does not matter here.
 		mock.sendCommand({
 			type: "command",
 			capabilityId: "instruct-session",
@@ -129,14 +168,15 @@ test.describe("acting enabled (toggle on, no live agent)", () => {
 
 	test("instruct-session with a valid token and no live agent returns no-live-agent", async () => {
 		test.setTimeout(60_000);
-		await waitForRegister();
+		// Derive the real worktree key from the live snapshot (repo name = tmp basename).
+		const worktreeKey = await waitForWorktreeKey();
 		// Valid token + acting ON -> BOTH gates pass; prepare/router run. The main
 		// worktree has no spawned terminal (sessionId null) -> absent -> no-live-agent.
 		mock.sendCommand({
 			type: "command",
 			capabilityId: "instruct-session",
 			requestId: "act-on",
-			args: { worktree: "ai-14all/main", instruction: "do it" },
+			args: { worktree: worktreeKey, instruction: "do it" },
 			token: ACTING_TOKEN,
 		});
 		await expect
@@ -146,13 +186,14 @@ test.describe("acting enabled (toggle on, no live agent)", () => {
 
 	test("a duplicate instruct-session frame replays no-live-agent without re-entering the guard", async () => {
 		test.setTimeout(60_000);
-		await waitForRegister();
+		// Derive the real worktree key from the live snapshot (repo name = tmp basename).
+		const worktreeKey = await waitForWorktreeKey();
 
 		const frame = {
 			type: "command" as const,
 			capabilityId: "instruct-session" as const,
 			requestId: "dup-act",
-			args: { worktree: "ai-14all/main", instruction: "go" },
+			args: { worktree: worktreeKey, instruction: "go" },
 			token: ACTING_TOKEN,
 		};
 		// First send: passes both gates; router returns no-live-agent; ActGuard writes
