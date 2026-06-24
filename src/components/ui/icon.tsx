@@ -26,8 +26,8 @@ export const ICON_GLYPHS = {
 	"arrow-right": { fallback: "→", nf: "" }, // arrow-right
 	plus: { fallback: "＋", nf: "" }, // plus
 	gear: { fallback: "⚙", nf: "" }, // cog
-	"git-branch": { fallback: "⎇", nf: "" }, // nf-dev-git_branch
-	palette: { fallback: "🎨", nf: "" }, // nf-fa-paint_brush
+	"git-branch": { fallback: "⎇", nf: "" }, // nf-dev-git_branch (powerline branch U+E0A0)
+	palette: { fallback: "🎨", nf: "" }, // nf-fa-paint_brush (FontAwesome paint-brush U+F1FC)
 	grid: { fallback: "▦", nf: "" }, // grid (th)
 	"external-link": { fallback: "↗", nf: "" }, // external-link
 	edit: { fallback: "✎", nf: "" }, // pencil
