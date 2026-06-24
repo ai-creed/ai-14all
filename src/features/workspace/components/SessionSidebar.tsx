@@ -155,383 +155,398 @@ export function SessionSidebar({
 						!collapsed &&
 						(collapsedWorkspaceIds?.includes(workspace.workspaceId) ?? false);
 					return (
-					<section
-						key={workspace.workspaceId}
-						role="group"
-						aria-label={workspace.name}
-						className="shell-sidebar__workspace-group"
-						data-active-workspace={String(workspace.active)}
-					>
-						<div className="shell-sidebar__workspace-header">
-							{collapsed ? (
-								<button
-									type="button"
-									className="shell-sidebar__workspace-badge"
-									title={workspace.name}
-									aria-label={workspace.name}
-									data-selected={String(workspace.active)}
-									onClick={() => onOpenWorkspace(workspace.workspaceId)}
-								>
-									{workspace.name.slice(0, 1).toUpperCase()}
-								</button>
-							) : (
-								<>
+						<section
+							key={workspace.workspaceId}
+							role="group"
+							aria-label={workspace.name}
+							className="shell-sidebar__workspace-group"
+							data-active-workspace={String(workspace.active)}
+						>
+							<div className="shell-sidebar__workspace-header">
+								{collapsed ? (
 									<button
 										type="button"
-										className="shell-sidebar__workspace-toggle"
-										aria-label={`${repoCollapsed ? "Expand" : "Collapse"} ${workspace.name}`}
-										aria-expanded={!repoCollapsed}
-										onClick={() =>
-											onToggleWorkspaceCollapsed?.(workspace.workspaceId)
-										}
-									>
-										<span className="shell-sidebar__chevron" aria-hidden="true">
-											<Icon
-												name={repoCollapsed ? "caret-right" : "caret-down"}
-											/>
-										</span>
-										<span
-											className="shell-sidebar__workspace-icon"
-											aria-hidden="true"
-										>
-											<Icon name="git-branch" />
-										</span>
-									</button>
-									<button
-										type="button"
-										className="shell-sidebar__workspace-name"
+										className="shell-sidebar__workspace-badge"
+										title={workspace.name}
+										aria-label={workspace.name}
 										data-selected={String(workspace.active)}
 										onClick={() => onOpenWorkspace(workspace.workspaceId)}
 									>
-										{workspace.name}
+										{workspace.name.slice(0, 1).toUpperCase()}
 									</button>
-									<Button
-										type="button"
-										variant="ghost"
-										size="icon"
-										className="shell-sidebar__workspace-remove"
-										aria-label={`Remove ${workspace.name}`}
-										onClick={() => onRemoveWorkspace(workspace.workspaceId)}
-									>
-										<Icon name="close" fallback="×" />
-									</Button>
-								</>
-							)}
-						</div>
-
-						{!repoCollapsed && (
-						<div className="shell-sidebar__workspace-items">
-							{workspace.worktrees.map((worktree) => {
-								const selected =
-									workspace.active &&
-									worktree.id === workspace.selectedWorktreeId;
-								const summary = workspace.processesByWorktreeId?.[worktree.id];
-								const rawTitle =
-									workspace.titleByWorktreeId?.[worktree.id] ?? "";
-								const shownTitle = displayTitle(rawTitle, worktree);
-								const hasCustomTitle = rawTitle.trim().length > 0;
-								const isRenamingThisRow =
-									renaming?.workspaceId === workspace.workspaceId &&
-									renaming?.worktreeId === worktree.id;
-
-								// Mirrored on the wrapper so CSS can frame the title button + process
-								// list as a single card; tests still read the attributes off the button.
-								const rowAttentionProps = {
-									"data-selected": String(selected),
-									"data-attention":
-										workspace.attentionByWorktreeId[worktree.id] ?? "idle",
-								};
-
-								const rowCommonProps = {
-									className: "shell-sidebar__item",
-									...rowAttentionProps,
-									"aria-label":
-										worktree.branchName !== shownTitle
-											? `${shownTitle} ${worktree.branchName}`
-											: shownTitle,
-								};
-
-								const rowContents = isRenamingThisRow ? (
-									<input
-										autoFocus
-										aria-label="Rename session"
-										className="shell-sidebar__rename-input"
-										value={draft}
-										onChange={(e) => setDraft(e.target.value)}
-										onKeyDown={(e) => {
-											if (e.key === "Enter") {
-												e.preventDefault();
-												commitRename(workspace.workspaceId, worktree.id);
-											} else if (e.key === "Escape") {
-												e.preventDefault();
-												cancelRename();
-											}
-										}}
-										onBlur={() =>
-											commitRename(workspace.workspaceId, worktree.id)
-										}
-									/>
-								) : collapsed ? (
-									<span className="shell-sidebar__marker">
-										{shownTitle.slice(0, 1).toUpperCase()}
-									</span>
 								) : (
 									<>
-										<strong
-											onDoubleClick={(e) => {
-												if (!workspace.active) return;
-												e.stopPropagation();
-												startRename(
-													workspace.workspaceId,
-													worktree.id,
-													rawTitle,
-												);
-											}}
+										<button
+											type="button"
+											className="shell-sidebar__workspace-toggle"
+											aria-label={`${repoCollapsed ? "Expand" : "Collapse"} ${workspace.name}`}
+											aria-expanded={!repoCollapsed}
+											onClick={() =>
+												onToggleWorkspaceCollapsed?.(workspace.workspaceId)
+											}
 										>
-											{shownTitle}
-										</strong>
-										{hasCustomTitle && (
-											<div className="shell-sidebar__worktree-label">
-												{worktree.label}
-											</div>
-										)}
-										{worktree.branchName !== worktree.label && (
-											<div className="shell-sidebar__branch">
-												{worktree.branchName}
-											</div>
-										)}
+											<span
+												className="shell-sidebar__chevron"
+												aria-hidden="true"
+											>
+												<Icon
+													name={repoCollapsed ? "caret-right" : "caret-down"}
+												/>
+											</span>
+											<span
+												className="shell-sidebar__workspace-icon"
+												aria-hidden="true"
+											>
+												<Icon name="git-branch" />
+											</span>
+										</button>
+										<button
+											type="button"
+											className="shell-sidebar__workspace-name"
+											data-selected={String(workspace.active)}
+											onClick={() => onOpenWorkspace(workspace.workspaceId)}
+										>
+											{workspace.name}
+										</button>
+										<Button
+											type="button"
+											variant="ghost"
+											size="icon"
+											className="shell-sidebar__workspace-remove"
+											aria-label={`Remove ${workspace.name}`}
+											onClick={() => onRemoveWorkspace(workspace.workspaceId)}
+										>
+											<Icon name="close" fallback="×" />
+										</Button>
 									</>
-								);
+								)}
+							</div>
 
-								const task = workspace.taskByWorktreeId?.[worktree.id];
-								const taskLine =
-									!isRenamingThisRow && !collapsed && task ? (
-										<div className="shell-sidebar__card-task" title={task}>
-											{task}
-										</div>
-									) : null;
+							{!repoCollapsed && (
+								<div className="shell-sidebar__workspace-items">
+									{workspace.worktrees.map((worktree) => {
+										const selected =
+											workspace.active &&
+											worktree.id === workspace.selectedWorktreeId;
+										const summary =
+											workspace.processesByWorktreeId?.[worktree.id];
+										const rawTitle =
+											workspace.titleByWorktreeId?.[worktree.id] ?? "";
+										const shownTitle = displayTitle(rawTitle, worktree);
+										const hasCustomTitle = rawTitle.trim().length > 0;
+										const isRenamingThisRow =
+											renaming?.workspaceId === workspace.workspaceId &&
+											renaming?.worktreeId === worktree.id;
 
-								// Process list rendered outside the row button to avoid nested <button> elements.
-								const sessionAttentionContext =
-									workspace.attentionContextByWorktreeId?.[worktree.id];
-								const processList =
-									!isRenamingThisRow &&
-									!collapsed &&
-									(summary || sessionAttentionContext) ? (
-										<div className="shell-sidebar__processes">
-											{sessionAttentionContext ? (
-												<div className="shell-sidebar__process shell-sidebar__process--session">
-													<span
-														className="shell-sidebar__process-context"
-														title={sessionAttentionContext}
-													>
-														{sessionAttentionContext}
-													</span>
-												</div>
-											) : null}
-											{summary?.rows.map((row) => (
-												<div key={row.id} className="shell-sidebar__process">
-													<span
-														data-testid="process-state-indicator"
-														className="shell-sidebar__process-indicator"
-														data-state={row.state}
-													/>
-													{row.provider && (
-														<span
-															className="shell-sidebar__provider-badge"
-															data-provider={row.provider}
-														>
-															{row.provider}
-														</span>
-													)}
-													<span
-														className="shell-sidebar__process-label"
-														title={row.label}
-													>
-														{row.label}
-													</span>
-													{row.context ? (
-														<span
-															className="shell-sidebar__process-context"
-															title={row.context}
-														>
-															{row.context}
-														</span>
-													) : null}
-													{row.hasFailedReason &&
-													onClearFailedReason &&
-													workspace.active ? (
-														<Button
-															type="button"
-															variant="secondary"
-															size="sm"
-															className="shell-sidebar__process-clear-failed"
-															aria-label={`Clear failed for ${row.label}`}
-															onClick={(e) => {
-																e.stopPropagation();
-																onClearFailedReason(
-																	workspace.workspaceId,
-																	worktree.id,
-																	row.id,
-																);
-															}}
-														>
-															Clear failed
-														</Button>
-													) : null}
-												</div>
-											))}
-											{summary && summary.overflowCount > 0 && (
-												<div className="shell-sidebar__process shell-sidebar__process--overflow">
-													{summary.overflowCount} more shell
-													{summary.overflowCount === 1 ? "" : "s"}
-												</div>
-											)}
-										</div>
-									) : null;
+										// Mirrored on the wrapper so CSS can frame the title button + process
+										// list as a single card; tests still read the attributes off the button.
+										const rowAttentionProps = {
+											"data-selected": String(selected),
+											"data-attention":
+												workspace.attentionByWorktreeId[worktree.id] ?? "idle",
+										};
 
-								// Workflow lens row: only present when whisper state exists for
-								// this worktree, and never while renaming or collapsed.
-								const workflowRowModel =
-									workspace.workflowRowByWorktreeId?.[worktree.id];
-								const workflowRow =
-									!isRenamingThisRow && !collapsed && workflowRowModel ? (
-										<WorkflowRow
-											row={workflowRowModel}
-											onOpenDetail={() =>
-												onOpenWorkflowDetail?.(
-													workspace.workspaceId,
-													worktree.id,
-												)
-											}
-										/>
-									) : null;
+										const rowCommonProps = {
+											className: "shell-sidebar__item",
+											...rowAttentionProps,
+											"aria-label":
+												worktree.branchName !== shownTitle
+													? `${shownTitle} ${worktree.branchName}`
+													: shownTitle,
+										};
 
-								const item = isRenamingThisRow ? (
-									<div role="presentation" {...rowCommonProps}>
-										{rowContents}
-									</div>
-								) : (
-									<button
-										type="button"
-										{...rowCommonProps}
-										onKeyDown={(e) => {
-											if (e.key === "F2") {
-												e.preventDefault();
-												if (collapsed || !workspace.active) {
-													onRequestExpand?.(workspace.workspaceId, worktree.id);
-													return;
+										const rowContents = isRenamingThisRow ? (
+											<input
+												autoFocus
+												aria-label="Rename session"
+												className="shell-sidebar__rename-input"
+												value={draft}
+												onChange={(e) => setDraft(e.target.value)}
+												onKeyDown={(e) => {
+													if (e.key === "Enter") {
+														e.preventDefault();
+														commitRename(workspace.workspaceId, worktree.id);
+													} else if (e.key === "Escape") {
+														e.preventDefault();
+														cancelRename();
+													}
+												}}
+												onBlur={() =>
+													commitRename(workspace.workspaceId, worktree.id)
 												}
-												startRename(
-													workspace.workspaceId,
-													worktree.id,
-													rawTitle,
-												);
-											}
-										}}
-									>
-										{rowContents}
-									</button>
-								);
-
-								// onClick on the wrapper makes the entire card (title + process list)
-								// the click target. Keyboard activation still flows through the inner
-								// <button>: pressing Enter/Space fires its native click which bubbles
-								// up to this handler. Inline-clickable children (Clear failed) stop
-								// propagation to keep their action separate from row selection.
-								const handleRowClick = isRenamingThisRow
-									? undefined
-									: () => onSelect(workspace.workspaceId, worktree.id);
-
-								if (collapsed || !workspace.active) {
-									return (
-										<div
-											key={worktree.id}
-											className="shell-sidebar__row"
-											{...rowAttentionProps}
-											onClick={handleRowClick}
-										>
-											{item}
-											{taskLine}
-											{processList}
-											{workflowRow}
-										</div>
-									);
-								}
-
-								return (
-									<ContextMenu key={worktree.id}>
-										<div
-											className="shell-sidebar__row"
-											{...rowAttentionProps}
-											onClick={handleRowClick}
-										>
-											<ContextMenuTrigger asChild>{item}</ContextMenuTrigger>
-											{taskLine}
-											{processList}
-											{workflowRow}
-										</div>
-										<ContextMenuContent className="shell-toolbar-menu">
-											<ContextMenuItem
-												className="shell-toolbar-menu__item"
-												onSelect={() => {
-													if (collapsed || !workspace.active) {
-														onRequestExpand?.(
+											/>
+										) : collapsed ? (
+											<span className="shell-sidebar__marker">
+												{shownTitle.slice(0, 1).toUpperCase()}
+											</span>
+										) : (
+											<>
+												<strong
+													onDoubleClick={(e) => {
+														if (!workspace.active) return;
+														e.stopPropagation();
+														startRename(
 															workspace.workspaceId,
 															worktree.id,
+															rawTitle,
 														);
-														return;
+													}}
+												>
+													{shownTitle}
+												</strong>
+												{hasCustomTitle && (
+													<div className="shell-sidebar__worktree-label">
+														{worktree.label}
+													</div>
+												)}
+												{worktree.branchName !== worktree.label && (
+													<div className="shell-sidebar__branch">
+														{worktree.branchName}
+													</div>
+												)}
+											</>
+										);
+
+										const task = workspace.taskByWorktreeId?.[worktree.id];
+										const taskLine =
+											!isRenamingThisRow && !collapsed && task ? (
+												<div className="shell-sidebar__card-task" title={task}>
+													{task}
+												</div>
+											) : null;
+
+										// Process list rendered outside the row button to avoid nested <button> elements.
+										const sessionAttentionContext =
+											workspace.attentionContextByWorktreeId?.[worktree.id];
+										const processList =
+											!isRenamingThisRow &&
+											!collapsed &&
+											(summary || sessionAttentionContext) ? (
+												<div className="shell-sidebar__processes">
+													{sessionAttentionContext ? (
+														<div className="shell-sidebar__process shell-sidebar__process--session">
+															<span
+																className="shell-sidebar__process-context"
+																title={sessionAttentionContext}
+															>
+																{sessionAttentionContext}
+															</span>
+														</div>
+													) : null}
+													{summary?.rows.map((row) => (
+														<div
+															key={row.id}
+															className="shell-sidebar__process"
+														>
+															<span
+																data-testid="process-state-indicator"
+																className="shell-sidebar__process-indicator"
+																data-state={row.state}
+															/>
+															{row.provider && (
+																<span
+																	className="shell-sidebar__provider-badge"
+																	data-provider={row.provider}
+																>
+																	{row.provider}
+																</span>
+															)}
+															<span
+																className="shell-sidebar__process-label"
+																title={row.label}
+															>
+																{row.label}
+															</span>
+															{row.context ? (
+																<span
+																	className="shell-sidebar__process-context"
+																	title={row.context}
+																>
+																	{row.context}
+																</span>
+															) : null}
+															{row.hasFailedReason &&
+															onClearFailedReason &&
+															workspace.active ? (
+																<Button
+																	type="button"
+																	variant="secondary"
+																	size="sm"
+																	className="shell-sidebar__process-clear-failed"
+																	aria-label={`Clear failed for ${row.label}`}
+																	onClick={(e) => {
+																		e.stopPropagation();
+																		onClearFailedReason(
+																			workspace.workspaceId,
+																			worktree.id,
+																			row.id,
+																		);
+																	}}
+																>
+																	Clear failed
+																</Button>
+															) : null}
+														</div>
+													))}
+													{summary && summary.overflowCount > 0 && (
+														<div className="shell-sidebar__process shell-sidebar__process--overflow">
+															{summary.overflowCount} more shell
+															{summary.overflowCount === 1 ? "" : "s"}
+														</div>
+													)}
+												</div>
+											) : null;
+
+										// Workflow lens row: only present when whisper state exists for
+										// this worktree, and never while renaming or collapsed.
+										const workflowRowModel =
+											workspace.workflowRowByWorktreeId?.[worktree.id];
+										const workflowRow =
+											!isRenamingThisRow && !collapsed && workflowRowModel ? (
+												<WorkflowRow
+													row={workflowRowModel}
+													onOpenDetail={() =>
+														onOpenWorkflowDetail?.(
+															workspace.workspaceId,
+															worktree.id,
+														)
 													}
-													startRename(
-														workspace.workspaceId,
-														worktree.id,
-														rawTitle,
-													);
+												/>
+											) : null;
+
+										const item = isRenamingThisRow ? (
+											<div role="presentation" {...rowCommonProps}>
+												{rowContents}
+											</div>
+										) : (
+											<button
+												type="button"
+												{...rowCommonProps}
+												onKeyDown={(e) => {
+													if (e.key === "F2") {
+														e.preventDefault();
+														if (collapsed || !workspace.active) {
+															onRequestExpand?.(
+																workspace.workspaceId,
+																worktree.id,
+															);
+															return;
+														}
+														startRename(
+															workspace.workspaceId,
+															worktree.id,
+															rawTitle,
+														);
+													}
 												}}
 											>
-												Rename session
-											</ContextMenuItem>
-											{!worktree.isMain && (
-												<ContextMenuItem
-													className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
-													onSelect={() =>
-														onRemoveWorktree(workspace.workspaceId, worktree.id)
-													}
-												>
-													Remove worktree
-												</ContextMenuItem>
-											)}
-										</ContextMenuContent>
-									</ContextMenu>
-								);
-							})}
+												{rowContents}
+											</button>
+										);
 
-							{workspace.worktrees.length === 0 && !collapsed && (
-								<div className="shell-sidebar__workspace-empty">
-									{workspace.hydrated
-										? "No worktree sessions yet."
-										: "Open this workspace to load its worktree sessions."}
+										// onClick on the wrapper makes the entire card (title + process list)
+										// the click target. Keyboard activation still flows through the inner
+										// <button>: pressing Enter/Space fires its native click which bubbles
+										// up to this handler. Inline-clickable children (Clear failed) stop
+										// propagation to keep their action separate from row selection.
+										const handleRowClick = isRenamingThisRow
+											? undefined
+											: () => onSelect(workspace.workspaceId, worktree.id);
+
+										if (collapsed || !workspace.active) {
+											return (
+												<div
+													key={worktree.id}
+													className="shell-sidebar__row"
+													{...rowAttentionProps}
+													onClick={handleRowClick}
+												>
+													{item}
+													{taskLine}
+													{processList}
+													{workflowRow}
+												</div>
+											);
+										}
+
+										return (
+											<ContextMenu key={worktree.id}>
+												<div
+													className="shell-sidebar__row"
+													{...rowAttentionProps}
+													onClick={handleRowClick}
+												>
+													<ContextMenuTrigger asChild>
+														{item}
+													</ContextMenuTrigger>
+													{taskLine}
+													{processList}
+													{workflowRow}
+												</div>
+												<ContextMenuContent className="shell-toolbar-menu">
+													<ContextMenuItem
+														className="shell-toolbar-menu__item"
+														onSelect={() => {
+															if (collapsed || !workspace.active) {
+																onRequestExpand?.(
+																	workspace.workspaceId,
+																	worktree.id,
+																);
+																return;
+															}
+															startRename(
+																workspace.workspaceId,
+																worktree.id,
+																rawTitle,
+															);
+														}}
+													>
+														Rename session
+													</ContextMenuItem>
+													{!worktree.isMain && (
+														<ContextMenuItem
+															className="shell-toolbar-menu__item shell-toolbar-menu__item--danger"
+															onSelect={() =>
+																onRemoveWorktree(
+																	workspace.workspaceId,
+																	worktree.id,
+																)
+															}
+														>
+															Remove worktree
+														</ContextMenuItem>
+													)}
+												</ContextMenuContent>
+											</ContextMenu>
+										);
+									})}
+
+									{workspace.worktrees.length === 0 && !collapsed && (
+										<div className="shell-sidebar__workspace-empty">
+											{workspace.hydrated
+												? "No worktree sessions yet."
+												: "Open this workspace to load its worktree sessions."}
+										</div>
+									)}
 								</div>
 							)}
-						</div>
-						)}
 
-						{workspace.active && (
-							<div className="shell-sidebar__footer">
-								<Button
-									type="button"
-									variant="secondary"
-									size="sm"
-									className="w-full"
-									onClick={() => onCreateWorktree(workspace.workspaceId)}
-									aria-label="New session"
-								>
-									{collapsed ? "+" : "+ New session"}
-								</Button>
-							</div>
-						)}
-					</section>
-				);
+							{workspace.active && (
+								<div className="shell-sidebar__footer">
+									<Button
+										type="button"
+										variant="secondary"
+										size="sm"
+										className="w-full"
+										onClick={() => onCreateWorktree(workspace.workspaceId)}
+										aria-label="New session"
+									>
+										{collapsed ? "+" : "+ New session"}
+									</Button>
+								</div>
+							)}
+						</section>
+					);
 				})}
 			</div>
 			<div className="shell-sidebar__footer shell-sidebar__footer--global">
