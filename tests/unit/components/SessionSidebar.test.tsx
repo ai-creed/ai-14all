@@ -612,3 +612,46 @@ describe("SessionSidebar footer label", () => {
 		expect(btn.textContent).toBe("+ New session");
 	});
 });
+
+describe("SessionSidebar repo collapse", () => {
+	it("toggles a repo via the chevron", () => {
+		const onToggleWorkspaceCollapsed = vi.fn();
+		render(
+			<SessionSidebar
+				workspaces={[{ ...workspaces[0], selectedWorktreeId: "main" }]}
+				collapsed={false}
+				onToggleCollapsed={vi.fn()}
+				onLoadWorkspace={vi.fn()}
+				onOpenWorkspace={vi.fn()}
+				onSelect={vi.fn()}
+				onCreateWorktree={vi.fn()}
+				onRemoveWorktree={vi.fn()}
+				onRemoveWorkspace={vi.fn()}
+				onToggleWorkspaceCollapsed={onToggleWorkspaceCollapsed}
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: /collapse repo-a/i }));
+		expect(onToggleWorkspaceCollapsed).toHaveBeenCalledWith("ws-a");
+	});
+
+	it("hides worktree items when the repo id is collapsed", () => {
+		render(
+			<SessionSidebar
+				workspaces={[{ ...workspaces[0], selectedWorktreeId: "main" }]}
+				collapsed={false}
+				onToggleCollapsed={vi.fn()}
+				onLoadWorkspace={vi.fn()}
+				onOpenWorkspace={vi.fn()}
+				onSelect={vi.fn()}
+				onCreateWorktree={vi.fn()}
+				onRemoveWorktree={vi.fn()}
+				onRemoveWorkspace={vi.fn()}
+				collapsedWorkspaceIds={["ws-a"]}
+				onToggleWorkspaceCollapsed={vi.fn()}
+			/>,
+		);
+		expect(screen.queryByText("feature worktree")).not.toBeInTheDocument();
+		// repo title still present
+		expect(screen.getByRole("button", { name: "repo-a" })).toBeInTheDocument();
+	});
+});
