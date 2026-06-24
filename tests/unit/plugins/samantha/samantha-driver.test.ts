@@ -607,6 +607,58 @@ describe("samantha-driver", () => {
 			result: { focused: "ai-14all/main" },
 		});
 	});
+
+	it("dedup: a duplicate command frame (same requestId) is replayed, the inner effect runs once", async () => {
+		const { client } = okClient();
+		const { driver, focusWorktree } = makeDriver(client);
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(20);
+		const sock = FakeSocket.instances[0];
+		const dup = JSON.stringify({
+			type: "command",
+			capabilityId: "focus-worktree",
+			requestId: "dup1",
+			args: { worktree: "ai-14all/main" },
+		});
+		sock.onmessage?.({ data: dup });
+		await vi.waitFor(() => expect(focusWorktree).toHaveBeenCalledTimes(1));
+		sock.onmessage?.({ data: dup }); // exact duplicate
+		await vi.waitFor(() => expect(sock.sent).toHaveLength(2)); // both answered
+		expect(focusWorktree).toHaveBeenCalledTimes(1); // but the effect ran once
+		await driver.stop();
+	});
+
+	it("reconnectNow() is a guarded no-op when the link is already healthy", async () => {
+		const { client, calls } = okClient();
+		const { driver, health } = makeDriver(client);
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(30);
+		const snapsBefore = calls.snapshot.length;
+		const healthLenBefore = health.length;
+		driver.reconnectNow(); // registered AND socket open -> no-op (don't churn)
+		await vi.advanceTimersByTimeAsync(30);
+		expect(calls.snapshot.length).toBe(snapsBefore); // no forced PATCH
+		expect(health.length).toBe(healthLenBefore); // no health churn
+		await driver.stop();
+	});
+
+	it("reconnectNow() after a WS drop reopens immediately, reflects connecting, and recovers", async () => {
+		const { client, calls } = okClient();
+		const { driver, health } = makeDriver(client); // commandReconnectMs: 50
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(20);
+		expect(FakeSocket.instances).toHaveLength(1);
+		FakeSocket.instances[0].onclose?.(); // socket dropped (registered still true)
+		expect(FakeSocket.instances).toHaveLength(1);
+		const snapsBefore = calls.snapshot.length;
+		driver.reconnectNow(); // not healthy (socket down) -> proceeds
+		expect(health.at(-1)?.link).toBe("connecting");
+		expect(FakeSocket.instances).toHaveLength(2); // immediate reopen, no backoff wait
+		await vi.advanceTimersByTimeAsync(30);
+		expect(calls.snapshot.length).toBeGreaterThan(snapsBefore); // forced PATCH went out
+		expect(health.at(-1)?.link).toBe("connected"); // recovered
+		await driver.stop();
+	});
 });
 
 // ---------------------------------------------------------------------------
