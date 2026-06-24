@@ -488,7 +488,7 @@ select {
  * muted, left-aligned section eyebrow. Scoped to the sidebar header so the
  * session-info pane's .shell-label eyebrows are unaffected. */
 .shell-sidebar__header .shell-label {
-	font-size: 11px;
+	font-size: var(--ws-fs-header);
 	font-weight: 500;
 	letter-spacing: 0.12em;
 	text-align: left;
@@ -612,14 +612,49 @@ select {
 .shell-sidebar__workspace-header {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
 	gap: var(--space-2);
+	padding-left: 4px; /* chevron box (12px, centered) -> center at x=10 = rail x */
+}
+
+.shell-sidebar__workspace-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0;
+	background: transparent;
+	border: none;
+	color: var(--text-secondary);
+	cursor: pointer;
+}
+
+.shell-sidebar__chevron {
+	width: 12px;
+	text-align: center;
+	font-size: 11px;
+}
+
+.shell-sidebar__workspace-icon {
+	display: inline-flex;
+	align-items: center;
+	font-size: 13px;
+}
+
+.shell-sidebar__workspace-remove {
+	margin-left: auto;
+	opacity: 0;
+	transition: opacity 0.12s ease;
+}
+
+.shell-sidebar__workspace-header:hover .shell-sidebar__workspace-remove,
+.shell-sidebar__workspace-header:focus-within .shell-sidebar__workspace-remove {
+	opacity: 1;
 }
 
 .shell-sidebar__workspace-name {
 	min-width: 0;
 	padding: 0;
-	font-size: var(--font-size-label);
+	font-size: var(--ws-fs-repo);
+	font-weight: 700;
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
 	color: var(--text-secondary);
@@ -660,7 +695,44 @@ select {
 .shell-sidebar__workspace-items {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: 0; /* spacing moves into node padding so the trunk stays continuous */
+}
+
+.shell-sidebar__node {
+	position: relative;
+	padding-left: 24px;
+	padding-bottom: 8px;
+}
+
+.shell-sidebar__node:last-child {
+	padding-bottom: 0;
+}
+
+.shell-sidebar__node::before {
+	/* vertical trunk: 2px solid, centered on chevron (x=10) */
+	content: "";
+	position: absolute;
+	left: 9px;
+	top: 0;
+	bottom: 0;
+	border-left: 2px solid var(--rail);
+}
+
+.shell-sidebar__node:last-child::before {
+	/* stop at the elbow -> └─ */
+	bottom: auto;
+	height: 18px;
+}
+
+.shell-sidebar__node::after {
+	/* horizontal elbow aligned to the title line */
+	content: "";
+	position: absolute;
+	left: 9px;
+	top: 17px;
+	width: 13px;
+	height: 2px;
+	background: var(--rail);
 }
 
 .shell-sidebar__workspace-empty {
@@ -678,8 +750,8 @@ select {
  * and a11y, but visual styling lives here.
  */
 .shell-sidebar__row {
-	background: var(--panel-bg);
-	border: var(--shell-border-width) solid var(--panel-border);
+	background: transparent;
+	border: var(--shell-border-width) solid transparent; /* reserve space; invisible until selected */
 	border-radius: var(--radius-sm);
 	overflow: hidden;
 	cursor: pointer;
@@ -706,9 +778,9 @@ select {
 }
 
 /* Session title: MIDDLE tier of the hierarchy — below the workspace name
- * (17px/700), above the global eyebrow (11px/500). */
+ * (repo/700), above the global eyebrow (header/500). */
 .shell-sidebar__item strong {
-	font-size: 14px;
+	font-size: var(--ws-fs-branch);
 	font-weight: 600;
 }
 
@@ -917,6 +989,10 @@ select {
 	color: var(--text-secondary);
 }
 
+.shell-sidebar__branch {
+	font-size: var(--ws-fs-path);
+}
+
 .shell-sidebar__processes {
 	display: flex;
 	flex-direction: column;
@@ -930,7 +1006,7 @@ select {
 	gap: var(--space-1);
 	/* Match the card task line so all summary text is one size (see
 	 * .shell-sidebar__card-task); labels and context inherit this. */
-	font-size: 0.7rem;
+	font-size: var(--ws-fs-chip);
 	min-width: 0;
 }
 
@@ -1008,7 +1084,19 @@ select {
 
 .shell-sidebar__process--overflow {
 	color: var(--text-muted);
-	font-size: 0.7rem;
+	font-size: var(--ws-fs-chip);
+}
+
+/* Type ladder: explicit chip size on process sub-elements and CTAs (spec §5) */
+.shell-sidebar__process-context,
+.shell-sidebar__process-label {
+	font-size: var(--ws-fs-chip);
+}
+
+/* CTAs (+ New session / Load workspace) match the branch title size (spec D9) */
+.shell-sidebar__node--new .w-full,
+.shell-sidebar__footer--global .w-full {
+	font-size: var(--ws-fs-branch);
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-group {
@@ -1019,6 +1107,26 @@ select {
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-header {
+	justify-content: center;
+}
+
+/* collapsed badge: git icon + initial side-by-side, no pill background */
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-badge {
+	flex-direction: row;
+	gap: 5px;
+	width: auto;
+	height: auto;
+	background: transparent;
+	border-radius: 0;
+}
+
+.shell-sidebar__workspace-badge-initial {
+	font-weight: 700;
+	font-size: 12px;
+}
+
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__footer--global {
+	display: flex;
 	justify-content: center;
 }
 
@@ -3890,8 +3998,7 @@ select {
 	align-items: center;
 	padding: 1px 6px;
 	border-radius: var(--radius-sm);
-	/* Unified with the rest of the card summary text (.shell-sidebar__card-task). */
-	font-size: 0.7rem;
+	font-size: var(--ws-fs-chip);
 	font-weight: 600;
 	letter-spacing: 0.3px;
 	text-transform: lowercase;
