@@ -11,6 +11,7 @@ import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
 import { type SessionSidebarWorkspace } from "../features/workspace/components/SessionSidebar";
 import { sortSidebarWorkspaces } from "../features/workspace/logic/sort-sidebar-workspaces";
+import { useCollapsedWorkspaces } from "../features/workspace/logic/use-collapsed-workspaces";
 import { workspaceReducer } from "../features/workspace/logic/workspace-state";
 import { PresetManager } from "../features/terminals/components/PresetManager";
 import {
@@ -129,7 +130,7 @@ type StartupMode = "loading" | "prompt" | "ready";
 const NOOP = () => {};
 
 export function App() {
-	const { resolvedTheme, palette } = useTheme();
+	const { resolvedTheme, palette, setTheme } = useTheme();
 	const terminalTheme = useMemo(() => terminalThemeFor(palette), [palette]);
 	const appPlatform = useMemo(detectPlatform, []);
 	const {
@@ -152,6 +153,10 @@ export function App() {
 	}
 
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+	const {
+		collapsedIds: collapsedWorkspaceIds,
+		toggle: toggleWorkspaceCollapsed,
+	} = useCollapsedWorkspaces();
 	const [pendingRename, setPendingRename] = useState<{
 		workspaceId: string;
 		worktreeId: string;
@@ -1753,6 +1758,10 @@ export function App() {
 							setWorkflowDetailTarget({ workspaceId, worktreeId })
 						}
 						dispatch={dispatch}
+						collapsedWorkspaceIds={collapsedWorkspaceIds}
+						onToggleWorkspaceCollapsed={toggleWorkspaceCollapsed}
+						palette={palette}
+						onSetTheme={setTheme}
 					/>
 
 					<section className="shell-main-column" ref={mainColRef}>

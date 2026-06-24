@@ -37,6 +37,10 @@ type Props = {
 					clearedAt: number;
 			  },
 	) => void;
+	collapsedWorkspaceIds: string[];
+	onToggleWorkspaceCollapsed: (workspaceId: string) => void;
+	palette: "light" | "dark" | "warm" | "tui";
+	onSetTheme: (mode: "light" | "dark" | "warm" | "tui") => void;
 };
 
 /**
@@ -61,6 +65,10 @@ export function SidebarPanel(props: Props): React.ReactElement {
 		handleRemoveWorkspace,
 		onOpenWorkflowDetail,
 		dispatch,
+		collapsedWorkspaceIds,
+		onToggleWorkspaceCollapsed,
+		palette,
+		onSetTheme,
 	} = props;
 
 	return (
@@ -118,6 +126,10 @@ export function SidebarPanel(props: Props): React.ReactElement {
 				}}
 				onOpenWorkflowDetail={onOpenWorkflowDetail}
 				pendingRename={pendingRename}
+				collapsedWorkspaceIds={collapsedWorkspaceIds}
+				onToggleWorkspaceCollapsed={onToggleWorkspaceCollapsed}
+				palette={palette}
+				onSetTheme={onSetTheme}
 			/>
 		</div>
 	);
