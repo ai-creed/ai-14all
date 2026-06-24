@@ -82,12 +82,17 @@ function isShortcutsHelpShortcut(
 		!e.ctrlKey &&
 		!e.altKey;
 	if (keyIsShiftP) {
-		return !targetOwnsTyping(e.target as HTMLElement | null);
+		// allowXterm: global navigation shortcut — terminal binds no Cmd+Shift+P.
+		return !targetOwnsTyping(e.target as HTMLElement | null, {
+			allowXterm: true,
+		});
 	}
 	// ⌘/ or ⌘? / Ctrl+/ or Ctrl+?
 	const keyIsHelp = e.key === "?" || e.key === "/";
 	if (!keyIsHelp) return false;
-	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	// allowXterm: global navigation shortcut — terminal binds no Cmd+/ or Cmd+?.
+	if (targetOwnsTyping(e.target as HTMLElement | null, { allowXterm: true }))
+		return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey && !e.altKey;
 	return e.ctrlKey && !e.metaKey && !e.altKey;
 }

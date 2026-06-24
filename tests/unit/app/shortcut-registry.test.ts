@@ -240,10 +240,15 @@ describe("terminal-first ownership — all shortcuts", () => {
 	};
 
 	// Shortcuts that must fire even when focus is inside the terminal pane.
-	// Cmd+P (Files) and Cmd+J (Review) are global navigation, not terminal input.
-	const xtermShouldFire = new Set(["files-overlay", "review.open"]);
+	// Cmd+P (Files), Cmd+J (Review), and Cmd+/ (Shortcuts help) are global
+	// navigation — the terminal binds none of these keys.
+	const xtermShouldFire = new Set([
+		"files-overlay",
+		"review.open",
+		"shortcuts-help",
+	]);
 
-	it("only files-overlay and review.open fire when focus is inside .xterm; the rest stay blocked", () => {
+	it("only files-overlay, review.open and shortcuts-help fire when focus is inside .xterm; the rest stay blocked", () => {
 		const target = xtermTarget();
 		for (const id of Object.keys(macTriggers)) {
 			const s = entry(id);
