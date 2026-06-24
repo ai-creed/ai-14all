@@ -33,6 +33,7 @@ export async function startMockSamantha(): Promise<MockSamantha> {
 	let server: Server;
 	let wss: WebSocketServer;
 	let boundPort = 0;
+	let live = false;
 
 	function build(): void {
 		server = createServer((req, res) => {
@@ -97,10 +98,14 @@ export async function startMockSamantha(): Promise<MockSamantha> {
 			}
 		}
 		boundPort = (server.address() as { port: number }).port;
+		live = true;
 	}
 
 	async function teardown(): Promise<void> {
+		if (!live) return;
+		live = false;
 		await new Promise<void>((resolve) => {
+			for (const client of wss.clients) client.terminate();
 			wss.close();
 			server.close(() => resolve());
 		});
@@ -140,6 +145,7 @@ export async function startMockSamantha(): Promise<MockSamantha> {
 			await teardown();
 		},
 		async restart() {
+			if (live) await teardown();
 			await listen(boundPort);
 		},
 		async close() {
