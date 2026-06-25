@@ -254,3 +254,154 @@ test("focus-worktree with a bogus key returns error unknown-worktree", async () 
 	expect(result.status).toBe("error");
 	expect(result.error.code).toBe("unknown-worktree");
 });
+
+test("a dropped command socket: health reconnecting, a new WS appears, health back to connected", async () => {
+	test.setTimeout(60_000);
+
+	// Wait until the command WS is connected (register happened + socket opened).
+	await expect
+		.poll(() => mock.connectionCount, { timeout: 20_000 })
+		.toBeGreaterThanOrEqual(1);
+
+	// Open the Plugins panel so link health is rendered (data-samantha-link).
+	await page.getByRole("button", { name: "Open Plugins panel" }).click();
+	await expect(page.locator("[data-samantha-link='connected']")).toBeVisible({
+		timeout: 20_000,
+	});
+	const before = mock.connectionCount;
+
+	mock.dropSocket();
+	// The WS-plane drop pushes health -> reconnecting (onStatus -> driver health)...
+	await expect(page.locator("[data-samantha-link='reconnecting']")).toBeVisible({
+		timeout: 20_000,
+	});
+	// ...a new WS connection appears automatically (no manual action)...
+	await mock.waitForConnection(before + 1, 20_000);
+	// ...and health returns to connected.
+	await expect(page.locator("[data-samantha-link='connected']")).toBeVisible({
+		timeout: 20_000,
+	});
+});
+
+test("a forgotten registration: fresh register, the next PATCH succeeds, health recovers", async () => {
+	test.setTimeout(60_000);
+
+	await expect
+		.poll(() => mock.requests.some((r) => r.url === "/connectors/register"), {
+			timeout: 20_000,
+		})
+		.toBe(true);
+
+	// Open the panel to observe health recovery.
+	await page.getByRole("button", { name: "Open Plugins panel" }).click();
+	await expect(page.locator("[data-samantha-link='connected']")).toBeVisible({
+		timeout: 20_000,
+	});
+	const registersBefore = mock.requests.filter(
+		(r) => r.url === "/connectors/register",
+	).length;
+
+	// Samantha "restarts" and drops our registration: the next snapshot PATCH 404s.
+	mock.forgetRegistration();
+
+	// Force a rebuild now (instead of waiting for the 30s keep-alive) by driving a
+	// session-state change through the real MCP tool — the same mechanism a coding
+	// agent uses. The forced PATCH 404s, so the driver re-registers and re-PATCHes.
+	const port = readFileSync(
+		join(userDataDir, "ai-14all", "mcp-port"),
+		"utf8",
+	).trim();
+	const client = new Client({ name: "e2e-samantha-404", version: "1.0.0" });
+	await client.connect(
+		new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`)),
+	);
+	for (let i = 0; i < 40; i++) {
+		const res = await client.callTool({
+			name: "report_session_status",
+			arguments: {
+				worktreePath: repo.repoPath,
+				state: i % 2 === 0 ? "active" : "waiting",
+				summary: `tick ${i}`,
+				nextAction: null,
+				task: "reconnect probe",
+			},
+		});
+		const parsed = JSON.parse((res.content as Array<{ text: string }>)[0].text);
+		if (parsed.ok) break;
+		await page.waitForTimeout(250);
+	}
+
+	// A fresh register was issued...
+	await expect
+		.poll(
+			() =>
+				mock.requests.filter((r) => r.url === "/connectors/register").length,
+			{ timeout: 30_000 },
+		)
+		.toBeGreaterThan(registersBefore);
+	// ...and a snapshot PATCH lands AFTER that register — the re-PATCH the mock now
+	// answers 200, because a fresh register cleared the forgotten flag (proof the
+	// next PATCH succeeded, not another 404).
+	await expect
+		.poll(
+			() => {
+				const lastRegisterIdx = mock.requests.reduce(
+					(acc, r, i) => (r.url === "/connectors/register" ? i : acc),
+					-1,
+				);
+				return mock.requests.some(
+					(r, i) =>
+						i > lastRegisterIdx &&
+						r.method === "PATCH" &&
+						r.url === "/connectors/ai-14all/snapshot",
+				);
+			},
+			{ timeout: 20_000 },
+		)
+		.toBe(true);
+	// ...and the link is healthy again (health connected is only set after a
+	// successful PATCH).
+	await expect(page.locator("[data-samantha-link='connected']")).toBeVisible({
+		timeout: 20_000,
+	});
+
+	await client.close();
+});
+
+test("manual Reconnect now recovers the link after the mock restarts", async () => {
+	test.setTimeout(120_000);
+
+	await expect
+		.poll(() => mock.connectionCount, { timeout: 20_000 })
+		.toBeGreaterThanOrEqual(1);
+	await page.getByRole("button", { name: "Open Plugins panel" }).click();
+	await expect(page.locator("[data-samantha-link='connected']")).toBeVisible({
+		timeout: 20_000,
+	});
+	const before = mock.connectionCount;
+
+	// Take Samantha fully down; the link drops and the Reconnect-now button appears.
+	await mock.stop();
+	const reconnectBtn = page.getByTestId("samantha-reconnect");
+	await expect(reconnectBtn).toBeVisible({ timeout: 40_000 });
+
+	// Deterministic negative check: WHILE Samantha is down the link provably cannot
+	// recover on its own (there is no server to connect to), so it must stay
+	// disconnected across this window. This proves the link genuinely needs help —
+	// without depending on background-backoff timing (a post-restart window would be
+	// racy: a scheduled retry could land in it). The fast-path-beats-backoff timing
+	// itself is proven deterministically in the unit tests (driver/client
+	// reconnectNow: it cancels the pending wait and opens immediately).
+	await page.waitForTimeout(3_000);
+	await expect(page.locator("[data-samantha-link='connected']")).toHaveCount(0);
+
+	// Bring Samantha back and immediately click Reconnect now. The manual fast-path
+	// resets the backoff and forces an immediate reconnect, so the link recovers
+	// right after the click rather than waiting out the (grown) background backoff.
+	await mock.restart();
+	await reconnectBtn.click();
+	await mock.waitForConnection(before + 1, 20_000);
+	await expect(page.locator("[data-samantha-link='connected']")).toBeVisible({
+		timeout: 20_000,
+	});
+});

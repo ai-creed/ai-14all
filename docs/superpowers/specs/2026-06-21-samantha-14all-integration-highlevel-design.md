@@ -217,7 +217,7 @@ speech changes.
 | --- | --- | --- | --- |
 | **S1 + S2 — first unit (dogfood)** | Inverted Samantha plugin + rich observe, **and** benign act (`focus-worktree`, `session-report`). Proves the full duplex round-trip and the daily companion value. | **ai-14all** (the plugin) + **samantha** (extend command frame; wire LLM tool-calls) | none — loopback only, no agent is touched |
 | **S3 — Real act** | `instruct-session` / `start-session`. Workflow-aware routing. **Approval gate + audit log + registration token.** | ai-14all + samantha | real — all guards land here |
-| **S4 — Harden** | reconnect, dedup verification, cross-repo integration tests, GUI smoke. | both | low |
+| **S4 — Harden** | reconnect, dedup verification, hermetic in-repo integration tests, GUI smoke. *(Cross-repo two-process harness deferred — see S4 spec.)* | **ai-14all** now; Samantha-side integration counterpart deferred to a follow-up | low |
 | **S5 — Triage** | escalation autonomy envelope (the ultimate rung). **Gated on real S1–S3 usage data** — not designed from speculation. | both | highest |
 
 **Why S1 and S2 dogfood together.** Observe alone proves Samantha can *see*, but
@@ -268,8 +268,14 @@ S3's danger.
 | S1 | inverted plugin: register/probe/snapshot/events, rich state document, signal mapping | none (server already accepts register/snapshot/events) |
 | S2 | WS command receive + dispatch for benign caps | extend command frame (args/requestId/ack); wire LLM tool-calls |
 | S3 | instruct/start-session, workflow-aware routing, approval gate, audit log, token | token issuance; richer command args; result handling |
-| S4 | reconnect/dedup/tests | integration test counterpart |
+| S4 | reconnect/dedup, hermetic in-repo integration tests, GUI smoke | none this slice — two-process integration counterpart deferred to a follow-up |
 | S5 | escalation context surfacing | autonomy envelope reasoning |
+
+**S4 amendment (2026-06-25):** the S4 design spec
+(`docs/superpowers/specs/2026-06-25-samantha-integration-s4-harden-design.md`) deliberately
+narrows S4 to ai-14all-side hardening with hermetic in-repo integration tests, deferring the
+real two-process cross-repo harness and the Samantha-side integration counterpart to a follow-up
+slice. The S4 rows in §5 and §8 above reflect that decision.
 
 ## 9. Deferred to per-slice specs
 

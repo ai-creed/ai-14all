@@ -212,6 +212,15 @@ export function PluginsPanelDialog(props: {
 	const snapshots = usePluginsState();
 	const [agentClis, setAgentClis] = useState<AgentCliProbes | null>(null);
 	const [samanthaLink, setSamanthaLink] = useState<string>("connecting");
+	const [reconnecting, setReconnecting] = useState(false);
+	const onReconnectSamantha = async () => {
+		setReconnecting(true);
+		try {
+			await plugins.reconnectSamantha();
+		} finally {
+			setReconnecting(false);
+		}
+	};
 
 	useEffect(() => {
 		if (!props.open) return;
@@ -269,6 +278,18 @@ export function PluginsPanelDialog(props: {
 										data-samantha-link={samanthaLink}
 									>
 										Samantha link: {samanthaLink.replace(/-/g, " ")}
+										{samanthaLink === "reconnecting" ||
+										samanthaLink === "samantha-not-running" ? (
+											<button
+												type="button"
+												className="plugin-substatus__reconnect"
+												data-testid="samantha-reconnect"
+												disabled={reconnecting}
+												onClick={() => void onReconnectSamantha()}
+											>
+												{reconnecting ? "connecting…" : "Reconnect now"}
+											</button>
+										) : null}
 									</p>
 								) : null}
 								{snapshot.id === "whisper" &&

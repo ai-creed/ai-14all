@@ -10,6 +10,7 @@ import {
 	PLUGINS_SAMANTHA_HEALTH,
 	PLUGINS_SAMANTHA_FOCUS_WORKTREE,
 	PLUGINS_SAMANTHA_SESSION_STATE,
+	PLUGINS_SAMANTHA_RECONNECT,
 	SamanthaSessionSliceSchema,
 	SetPluginEnabledSchema,
 	WhisperCommandSchema,
@@ -52,6 +53,8 @@ export type PluginIpcDeps = {
 	getWebContents: () => WebContents | null;
 	/** Forwards the renderer's resolved session slice to the samantha driver. */
 	ingestSamanthaSessionSlice: (slice: SamanthaSessionSlice) => void;
+	/** Forwards a renderer "Reconnect now" click to the samantha driver. */
+	reconnectSamantha: () => void;
 };
 
 export function registerPluginIpc(deps: PluginIpcDeps): {
@@ -97,6 +100,11 @@ export function registerPluginIpc(deps: PluginIpcDeps): {
 	};
 	ipcMain.on(PLUGINS_SAMANTHA_SESSION_STATE, onSessionState);
 
+	ipcMain.handle(PLUGINS_SAMANTHA_RECONNECT, () => {
+		deps.reconnectSamantha();
+		return { ok: true };
+	});
+
 	return {
 		dispose() {
 			unsubscribe();
@@ -107,6 +115,7 @@ export function registerPluginIpc(deps: PluginIpcDeps): {
 				PLUGINS_REPROBE,
 				PLUGINS_AGENT_CLIS,
 				PLUGINS_WHISPER_COMMAND,
+				PLUGINS_SAMANTHA_RECONNECT,
 			])
 				ipcMain.removeHandler(channel);
 		},

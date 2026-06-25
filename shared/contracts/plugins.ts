@@ -29,6 +29,7 @@ export const PLUGINS_SAMANTHA_SESSION_STATE = "plugins:samanthaSessionState";
 export const PLUGINS_SAMANTHA_HEALTH = "plugins:samanthaHealth";
 // main → renderer (push of a Samantha-requested worktree focus)
 export const PLUGINS_SAMANTHA_FOCUS_WORKTREE = "plugins:samanthaFocusWorktree";
+export const PLUGINS_SAMANTHA_RECONNECT = "plugins:samanthaReconnect";
 
 export const SetPluginEnabledSchema = z.object({
 	id: z.enum(ECOSYSTEM_PLUGIN_IDS),
@@ -161,4 +162,5 @@ export type PluginsApi = {
 	onSamanthaFocusWorktree(
 		handler: (payload: SamanthaFocusWorktree) => void,
 	): () => void;
+	reconnectSamantha(): Promise<{ ok: boolean }>;
 };

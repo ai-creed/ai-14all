@@ -33,6 +33,8 @@ import {
 	type SamanthaCommandClient,
 	type WebSocketCtor,
 } from "./samantha-command-client";
+import { createReconnectBackoff } from "./reconnect-backoff";
+import { createIdempotentDispatcher } from "./idempotent-dispatcher";
 
 export type SamanthaDriverOptions = {
 	client: SamanthaConnectorClient;
@@ -50,6 +52,11 @@ export type SamanthaDriverOptions = {
 	webSocketImpl?: WebSocketCtor;
 	commandPort?: number;
 	commandReconnectMs?: number;
+	reconnectCapMs?: number;
+	reconnectFactor?: number;
+	random?: () => number;
+	dedupTtlMs?: number;
+	dedupMax?: number;
 	log?: (message: string, error?: unknown) => void;
 	isActingEnabled: () => boolean;
 	verifyActingToken: (token: string | undefined) => boolean;
@@ -128,11 +135,18 @@ export function createSamanthaDriver(
 		args: Record<string, unknown> | undefined,
 		token: string | undefined,
 	) => Promise<import("./act-guard").ActOutcome>;
+	reconnectNow(): void;
 } {
 	const now = options.now ?? Date.now;
 	const debounceMs = options.debounceMs ?? 1000;
 	const keepAliveMs = options.keepAliveMs ?? 30000;
 	const reconnectMs = options.reconnectMs ?? 3000;
+	const httpBackoff = createReconnectBackoff({
+		baseMs: reconnectMs,
+		factor: options.reconnectFactor ?? 2,
+		capMs: options.reconnectCapMs ?? 30000,
+		random: options.random,
+	});
 
 	let stopped = true;
 	let registered = false;
@@ -219,15 +233,22 @@ export function createSamanthaDriver(
 		return actGuard.run({ token, prepare });
 	};
 
-	const dispatcher = createSamanthaCommandDispatcher(
+	const dispatcher = createIdempotentDispatcher(
+		createSamanthaCommandDispatcher(
+			{
+				buildReport: async () => renderReport(assembleObserve(await gather())),
+				resolveWorktree: async (key) =>
+					resolveWorktreeKey(await options.getIdentities(), key),
+				focusWorktree: options.focusWorktree,
+				instructSession,
+			},
+			{ log: options.log },
+		),
 		{
-			buildReport: async () => renderReport(assembleObserve(await gather())),
-			resolveWorktree: async (key) =>
-				resolveWorktreeKey(await options.getIdentities(), key),
-			focusWorktree: options.focusWorktree,
-			instructSession,
+			ttlMs: options.dedupTtlMs ?? 60000,
+			max: options.dedupMax ?? 256,
+			now,
 		},
-		{ log: options.log },
 	);
 
 	const commandPort =
@@ -239,6 +260,14 @@ export function createSamanthaDriver(
 				dispatcher,
 				WebSocketImpl: options.webSocketImpl,
 				reconnectMs: options.commandReconnectMs,
+				reconnectCapMs: options.reconnectCapMs,
+				reconnectFactor: options.reconnectFactor,
+				random: options.random,
+				onStatus: (status) => {
+					// A WS-plane open/close maps straight to driver health, so a pure
+					// socket drop is observable as reconnecting -> connected.
+					if (!stopped) health(status);
+				},
 				log: options.log,
 			})
 		: null;
@@ -259,7 +288,7 @@ export function createSamanthaDriver(
 		reconnectTimer = setTimeout(() => {
 			reconnectTimer = null;
 			scheduleRebuild();
-		}, reconnectMs);
+		}, httpBackoff.next());
 	}
 
 	async function ensureRegistered(): Promise<boolean> {
@@ -275,6 +304,7 @@ export function createSamanthaDriver(
 			setRegistered(true);
 			lastBody = null; // force a fresh full snapshot after (re)connect
 			health("connected");
+			httpBackoff.reset();
 			return true;
 		}
 		setRegistered(false);
@@ -333,6 +363,7 @@ export function createSamanthaDriver(
 			}
 			lastBody = fingerprint;
 			health("connected");
+			httpBackoff.reset();
 		}
 
 		// Events only for transitions INTO a speech-worthy signal. The PATCH above
@@ -422,6 +453,30 @@ export function createSamanthaDriver(
 		}, debounceMs);
 	}
 
+	function reconnectNow(): void {
+		if (stopped) return;
+		// Guarded no-op when the link is already healthy (HTTP registered AND the WS
+		// socket open): don't churn a healthy connection. The button is only shown
+		// when disconnected, so this is a belt-and-suspenders guard at the driver
+		// layer. When commandClient is null (no WS plane configured) the WS check is
+		// vacuously true, so the guard keys on `registered` alone.
+		if (registered && (commandClient?.isOpen() ?? true)) return;
+		// Otherwise: cancel any pending HTTP reconnect wait and reset both backoffs so
+		// the retry starts from base; force an immediate command-socket reopen and a
+		// forced rebuild (force => a PATCH always goes out, so health returns to
+		// connected even when content is unchanged). open()/ensureRegistered() are
+		// idempotent, so a manual trigger during an in-flight attempt collapses into
+		// it rather than double-opening.
+		if (reconnectTimer !== null) {
+			clearTimeout(reconnectTimer);
+			reconnectTimer = null;
+		}
+		httpBackoff.reset();
+		health("connecting");
+		commandClient?.reconnectNow();
+		scheduleRebuild(true);
+	}
+
 	return {
 		id: "samantha",
 		capabilities: [],
@@ -456,5 +511,6 @@ export function createSamanthaDriver(
 			scheduleRebuild();
 		},
 		instructSession,
+		reconnectNow,
 	};
 }
