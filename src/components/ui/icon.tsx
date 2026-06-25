@@ -27,7 +27,7 @@ export const ICON_GLYPHS = {
 	plus: { fallback: "＋", nf: "" }, // plus
 	gear: { fallback: "⚙", nf: "" }, // cog
 	"git-branch": { fallback: "⎇", nf: "" }, // octicon git-branch U+F418
-	palette: { fallback: "🎨", nf: "" }, // nf-fa-paint_brush (FontAwesome paint-brush U+F1FC)
+	palette: { fallback: "🎨", nf: "" }, // fa-palette U+EFCC
 	grid: { fallback: "▦", nf: "" }, // grid (th)
 	"external-link": { fallback: "↗", nf: "" }, // external-link
 	edit: { fallback: "✎", nf: "" }, // pencil
