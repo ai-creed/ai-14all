@@ -612,11 +612,12 @@ select {
    (was the wide row card). Box uses --primary (high-contrast in every theme;
    --accent is a near-invisible dark step in tui); the initial stays foreground
    so it's always legible and centered in the 24px cell. */
-/* Kill the wide row card border on the selected row in collapsed — needs the
-   [data-selected] qualifier to outrank tui.css's selected-row border (else tui
-   shows a double box: the wide row border + the tight item box). */
+/* Kill the wide row card border on the selected row in collapsed so only the
+   tight item box shows. The [data-attention] qualifier is required to outrank
+   tui.css's `[data-selected][data-attention]` selected-row border (0,4,0) — the
+   row always has data-attention, so this (0,5,0) rule wins without !important. */
 .shell-sidebar[data-collapsed="true"]
-	.shell-sidebar__row[data-selected="true"] {
+	.shell-sidebar__row[data-selected="true"][data-attention] {
 	border-color: transparent;
 	background: transparent;
 }
