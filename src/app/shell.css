@@ -1199,9 +1199,13 @@ select {
 	padding-left: 4px;
 }
 
-/* collapsed badge: git icon + initial, left-aligned (the rail descends under it) */
+/* collapsed badge: git icon + initial in a ROW (base badge is inline-grid, which
+   ignored flex-direction and stacked them — switch to flex so the initial sits to
+   the right of the git icon). Left-aligned so the rail descends under the icon. */
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-badge {
+	display: flex;
 	flex-direction: row;
+	align-items: center;
 	gap: var(--space-1);
 	width: auto;
 	height: auto;
