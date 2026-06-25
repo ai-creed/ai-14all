@@ -797,6 +797,7 @@ export function App() {
 		worktree: activeWorktree,
 		workspaceStateRef,
 		outputPreviewBuffersRef,
+		getWorkspaceStateById,
 		createScopedWorkspaceDispatch,
 		sessions,
 		spawnAdHocProcess,

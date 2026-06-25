@@ -4,6 +4,7 @@ import type { ProcessSession } from "../../../shared/models/process-session";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
 import type { Worktree } from "../../../shared/models/worktree";
 import { clearReplayOutput } from "../../features/terminals/logic/replay-buffer";
+import { notifyToast } from "../../features/ui/toast/ToastProvider";
 import {
 	MAX_FLOATING_SHELLS,
 	type WorkspaceAction,
@@ -15,6 +16,13 @@ type Options = {
 	worktree: Worktree | null;
 	workspaceStateRef: MutableRefObject<WorkspaceState>;
 	outputPreviewBuffersRef: MutableRefObject<Map<string, string>>;
+	/**
+	 * Synchronous shadow lookup — returns the state the reducer will actually
+	 * see (and, after a scoped dispatch, the state the reducer produced). Used
+	 * to read the cap and to verify a registration was accepted, since
+	 * workspaceStateRef lags dispatches (assigned during render).
+	 */
+	getWorkspaceStateById: (workspaceId: string) => WorkspaceState | null;
 	createScopedWorkspaceDispatch: (
 		workspaceId: string,
 	) => (action: WorkspaceAction) => void;
@@ -47,6 +55,7 @@ export function useFloatingShellActions(
 		worktree,
 		workspaceStateRef,
 		outputPreviewBuffersRef,
+		getWorkspaceStateById,
 		createScopedWorkspaceDispatch,
 		sessions,
 		spawnAdHocProcess,
@@ -56,9 +65,11 @@ export function useFloatingShellActions(
 
 	const floatingCount = useCallback(
 		(worktreeId: string): number =>
-			workspaceStateRef.current.sessionsByWorktreeId[worktreeId]
-				?.floatingShellIds.length ?? 0,
-		[workspaceStateRef],
+			workspaceId
+				? (getWorkspaceStateById(workspaceId)?.sessionsByWorktreeId[worktreeId]
+						?.floatingShellIds.length ?? 0)
+				: 0,
+		[getWorkspaceStateById, workspaceId],
 	);
 
 	const teardownOrphan = useCallback(
@@ -79,7 +90,12 @@ export function useFloatingShellActions(
 	const handleAddFloatingShell = useCallback(async () => {
 		if (!workspaceId || !worktree) return;
 		const worktreeId = worktree.id;
-		if (floatingCount(worktreeId) >= MAX_FLOATING_SHELLS) return; // pre-spawn cap
+		// Pre-spawn cap: no-op with a brief hint so the user knows why nothing
+		// happened, and so we never create a backend PTY at the cap (spec §5.7).
+		if (floatingCount(worktreeId) >= MAX_FLOATING_SHELLS) {
+			notifyToast(`Maximum ${MAX_FLOATING_SHELLS} floating shells`);
+			return;
+		}
 		const process = await spawnAdHocProcess();
 		if (!process) return;
 		// Re-check after the async spawn: if a concurrent launch filled the last
@@ -93,12 +109,26 @@ export function useFloatingShellActions(
 			worktreeId,
 			process,
 		});
+		// Defensive post-dispatch verify: the reducer enforces the cap against the
+		// synchronous shadow, which can reject after a race even when the recheck
+		// above passed (the recheck reads a possibly-lagged view). If the new
+		// process did not land in floatingShellIds, the reducer rejected it — tear
+		// the PTY down so it is not orphaned.
+		const after = getWorkspaceStateById(workspaceId);
+		const accepted =
+			after?.sessionsByWorktreeId[worktreeId]?.floatingShellIds.includes(
+				process.id,
+			) ?? false;
+		if (!accepted) {
+			await teardownOrphan(process.terminalSessionId);
+		}
 	}, [
 		workspaceId,
 		worktree,
 		floatingCount,
 		spawnAdHocProcess,
 		teardownOrphan,
+		getWorkspaceStateById,
 		createScopedWorkspaceDispatch,
 	]);
 

@@ -3,6 +3,7 @@ import { renderHook, act } from "@testing-library/react";
 import { useFloatingShellActions } from "../../../src/app/hooks/use-floating-shell-actions";
 import { createWorkspaceState } from "../../../src/features/workspace/logic/workspace-state";
 import { clearReplayOutput } from "../../../src/features/terminals/logic/replay-buffer";
+import { notifyToast } from "../../../src/features/ui/toast/ToastProvider";
 import type { Worktree } from "../../../shared/models/worktree";
 import type { ProcessSession } from "../../../shared/models/process-session";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
@@ -12,6 +13,11 @@ vi.mock("../../../src/features/terminals/logic/replay-buffer", () => ({
 	clearReplayOutput: vi.fn(),
 	recordReplayOutput: vi.fn(),
 	getReplayOutput: vi.fn(() => ""),
+}));
+
+// Mock the toast module so we can assert the cap hint precisely.
+vi.mock("../../../src/features/ui/toast/ToastProvider", () => ({
+	notifyToast: vi.fn(),
 }));
 
 const worktree = { id: "a", path: "/repo/a", branch: "a", isPrimary: false } as unknown as Worktree;
@@ -39,6 +45,7 @@ function makeCloseOptions(termStatus: TerminalSession["status"]) {
 			worktree,
 			workspaceStateRef: { current: state },
 			outputPreviewBuffersRef: { current: new Map<string, string>() },
+			getWorkspaceStateById: (id: string) => (id === "ws" ? state : null),
 			createScopedWorkspaceDispatch: () => dispatch,
 			sessions: [term("t-x", termStatus)],
 			spawnAdHocProcess: vi.fn(),
@@ -57,7 +64,14 @@ function makeOptions(floatingCount: number) {
 		{ length: floatingCount },
 		(_, i) => `existing-${i}`,
 	);
-	const dispatch = vi.fn();
+	// Default dispatch SIMULATES the reducer accepting the registration: it pushes
+	// the new process id into floatingShellIds so the hook's post-dispatch verify
+	// (which reads getWorkspaceStateById) sees the process and skips teardown.
+	const dispatch = vi.fn((action: { type: string; process?: ProcessSession }) => {
+		if (action.type === "session/registerFloatingShell" && action.process) {
+			state.sessionsByWorktreeId.a.floatingShellIds.push(action.process.id);
+		}
+	});
 	const spawnAdHocProcess = vi.fn(
 		async (): Promise<ProcessSession> =>
 			({ id: "new", terminalSessionId: "t-new", origin: "adHoc", worktreeId: "a" }) as ProcessSession,
@@ -65,11 +79,13 @@ function makeOptions(floatingCount: number) {
 	const stopSession = vi.fn(async () => {});
 	const removeSession = vi.fn();
 	return {
+		state,
 		options: {
 			workspaceId: "ws",
 			worktree,
 			workspaceStateRef: { current: state },
 			outputPreviewBuffersRef: { current: new Map<string, string>() },
+			getWorkspaceStateById: (id: string) => (id === "ws" ? state : null),
 			createScopedWorkspaceDispatch: () => dispatch,
 			sessions: [],
 			spawnAdHocProcess,
@@ -79,6 +95,7 @@ function makeOptions(floatingCount: number) {
 		dispatch,
 		spawnAdHocProcess,
 		stopSession,
+		removeSession,
 	};
 }
 
@@ -86,7 +103,7 @@ describe("useFloatingShellActions.handleAddFloatingShell", () => {
 	beforeEach(() => vi.clearAllMocks());
 
 	it("spawns and dispatches registerFloatingShell under the cap", async () => {
-		const { options, dispatch, spawnAdHocProcess } = makeOptions(0);
+		const { options, dispatch, spawnAdHocProcess, stopSession } = makeOptions(0);
 		const { result } = renderHook(() => useFloatingShellActions(options));
 		await act(async () => {
 			await result.current.handleAddFloatingShell();
@@ -95,6 +112,9 @@ describe("useFloatingShellActions.handleAddFloatingShell", () => {
 		expect(dispatch).toHaveBeenCalledWith(
 			expect.objectContaining({ type: "session/registerFloatingShell", worktreeId: "a" }),
 		);
+		// The reducer accepted (dispatch mock pushed the id) → no teardown.
+		expect(stopSession).not.toHaveBeenCalled();
+		expect(clearReplayOutput).not.toHaveBeenCalled();
 	});
 
 	it("does NOT spawn when already at the cap (no orphan PTY)", async () => {
@@ -120,6 +140,39 @@ describe("useFloatingShellActions.handleAddFloatingShell", () => {
 		});
 		expect(stopSession).toHaveBeenCalledWith("t-new");
 		expect(dispatch).not.toHaveBeenCalled();
+	});
+
+	it("shows a hint and does not spawn at the cap", async () => {
+		const { options, spawnAdHocProcess } = makeOptions(6);
+		const { result } = renderHook(() => useFloatingShellActions(options));
+		await act(async () => {
+			await result.current.handleAddFloatingShell();
+		});
+		expect(notifyToast).toHaveBeenCalledWith("Maximum 6 floating shells");
+		expect(spawnAdHocProcess).not.toHaveBeenCalled();
+	});
+
+	it("tears down the PTY when the reducer rejects registration", async () => {
+		// Under the cap at the recheck, so spawn + dispatch happen, but the reducer
+		// rejects (e.g. it lost a race at the cap). The default dispatch mock pushes
+		// the id on accept; override it to a no-op so the process never lands in
+		// floatingShellIds and the post-dispatch verify detects the rejection.
+		const { options, dispatch, stopSession, removeSession } = makeOptions(5);
+		dispatch.mockImplementation(() => {
+			// reducer rejected: do NOT add the process to floatingShellIds
+		});
+		const { result } = renderHook(() => useFloatingShellActions(options));
+		await act(async () => {
+			await result.current.handleAddFloatingShell();
+		});
+		// Registration WAS dispatched...
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({ type: "session/registerFloatingShell", worktreeId: "a" }),
+		);
+		// ...but the verify saw the process absent → tear the orphan PTY down.
+		expect(stopSession).toHaveBeenCalledWith("t-new");
+		expect(removeSession).toHaveBeenCalledWith("t-new");
+		expect(clearReplayOutput).toHaveBeenCalledWith("t-new");
 	});
 });
 
