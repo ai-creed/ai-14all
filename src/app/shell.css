@@ -546,12 +546,8 @@ select {
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--space-2);
-	/* Full-bleed separator (matches prototype): cancel the sidebar's --space-3
-	   inset so the border-bottom spans edge to edge, keep content in place. */
-	margin-inline: calc(-1 * var(--space-3));
-	padding-inline: var(--space-3);
-	padding-bottom: var(--space-2);
-	border-bottom: var(--shell-border-width) solid var(--panel-border);
+	/* No separator line — components are separated by whitespace (the list's
+	   top margin gives the gap below this header). */
 }
 
 .shell-sidebar[data-collapsed="true"] {
@@ -560,11 +556,8 @@ select {
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__header {
-	/* Center the collapse toggle in the narrow rail (flex-end pinned it to the
-	   right wall, 13px off-center). */
+	/* Center the collapse toggle in the narrow rail. */
 	justify-content: center;
-	margin-inline: calc(-1 * var(--space-3));
-	padding-inline: var(--space-3);
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__list {
@@ -646,10 +639,10 @@ select {
 	flex-direction: column;
 	min-height: 0;
 	overflow-y: auto;
-	/* No top margin: the first group's padding-top already gives the 12px below
-	   the WORKSPACE separator (prototype tightness — was doubling to 24px). */
-	margin-top: 0;
-	gap: 0;
+	/* Even whitespace separates components (no lines): same gap below the header
+	   and between workspace groups. */
+	margin-top: var(--space-4);
+	gap: var(--space-4);
 	padding-right: 2px;
 }
 
@@ -661,22 +654,15 @@ select {
 .shell-sidebar__workspace-group {
 	display: flex;
 	flex-direction: column;
-	/* Header -> first card gap; tightened to the prototype (~10px). */
+	/* Header -> first card gap (internal to the group). */
 	gap: var(--space-1);
-	/* Asymmetric vertical padding: button sits close to the divider below,
-	 * with more breathing room from the worktree cards above. */
-	padding: var(--space-3) 0 var(--space-1);
+	/* No own vertical padding — the list's row gap handles even spacing between
+	   groups now that the divider is gone. */
+	padding: 0;
 }
 
-.shell-sidebar__workspace-group + .shell-sidebar__workspace-group::before {
-	content: "";
-	display: block;
-	height: 1px;
-	margin: 0 var(--space-2) var(--space-2);
-	/* A single uniform stroke — same thickness/presence from start to end.
-	 * (Was a center-weighted gradient that faded to transparent at both ends.) */
-	background: var(--panel-border);
-}
+/* No divider line between workspaces — the list's row gap separates them with
+   even whitespace instead. */
 
 .shell-sidebar__workspace-header {
 	display: flex;
@@ -1211,7 +1197,7 @@ select {
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-group {
 	align-items: stretch;
-	padding: var(--space-3) 0 var(--space-1);
+	padding: 0;
 	background: transparent;
 	border: none;
 }
