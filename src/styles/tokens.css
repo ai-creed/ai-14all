@@ -99,7 +99,7 @@
 	--input: oklch(0.6 0.04 257);
 	/* focus ring: 0.704 was 2.63:1; 0.55 -> 4.85:1 (WCAG 2.4.11). */
 	--ring: oklch(0.55 0.04 256.788);
-	--rail: oklch(0.80 0.012 256);
+	--rail: oklch(0.8 0.012 256);
 	--accent: var(--primary);
 	/* AAA: 0.52 was ~5.54:1 (AA); 0.42 -> 8.58:1. */
 	--info: oklch(0.42 0.17 250);
