@@ -54,6 +54,8 @@ function nearestOccupiedSlot(
 	return slots.find((s): s is string => s !== null) ?? null;
 }
 
+export const MAX_FLOATING_SHELLS = 6;
+
 export type WorkspaceAction =
 	| { type: "workspace/loadWorktrees"; worktrees: Worktree[] }
 	| { type: "session/selectWorktree"; worktreeId: string }
@@ -228,6 +230,23 @@ export type WorkspaceAction =
 			type: "session/clearSessionAgentAttention";
 			worktreeId: string;
 			source?: AgentAttentionSource;
+	  }
+	| {
+			type: "session/registerFloatingShell";
+			worktreeId: string;
+			process: ProcessSession;
+	  }
+	| { type: "session/expandFloatingShell"; worktreeId: string; processId: string }
+	| {
+			type: "session/minimizeFloatingShell";
+			worktreeId: string;
+			processId: string;
+	  }
+	| { type: "session/closeFloatingShell"; worktreeId: string; processId: string }
+	| {
+			type: "session/pinFloatingShellToSlot";
+			worktreeId: string;
+			processId: string;
 	  };
 
 function createSession(worktree: Worktree): WorktreeSession {
@@ -1214,6 +1233,80 @@ export function workspaceReducer(
 			sessionsByWorktreeId: {
 				...state.sessionsByWorktreeId,
 				[action.worktreeId]: { ...session, agentAttentionReasons: {} },
+			},
+		};
+	}
+
+	if (action.type === "session/registerFloatingShell") {
+		const session = state.sessionsByWorktreeId[action.worktreeId];
+		if (!session) return state;
+		// Defensive backstop only — the cap is enforced pre-spawn in the launch
+		// handler so no backend PTY is created at the cap (spec §5.7).
+		if (session.floatingShellIds.length >= MAX_FLOATING_SHELLS) return state;
+		const nextAdHocNumber =
+			action.process.origin === "adHoc"
+				? (state.nextAdHocNumberByWorktreeId[action.worktreeId] ?? 1) + 1
+				: (state.nextAdHocNumberByWorktreeId[action.worktreeId] ?? 1);
+		return {
+			...state,
+			nextAdHocNumberByWorktreeId: {
+				...state.nextAdHocNumberByWorktreeId,
+				[action.worktreeId]: nextAdHocNumber,
+			},
+			processSessionsById: {
+				...state.processSessionsById,
+				[action.process.id]: action.process,
+			},
+			sessionsByWorktreeId: {
+				...state.sessionsByWorktreeId,
+				[action.worktreeId]: {
+					...session,
+					floatingShellIds: [...session.floatingShellIds, action.process.id],
+					expandedFloatingShellId: action.process.id,
+				},
+			},
+		};
+	}
+
+	if (action.type === "session/expandFloatingShell") {
+		return updateSession(state, action.worktreeId, (session) =>
+			session.floatingShellIds.includes(action.processId)
+				? { ...session, expandedFloatingShellId: action.processId }
+				: session,
+		);
+	}
+
+	if (action.type === "session/minimizeFloatingShell") {
+		return updateSession(state, action.worktreeId, (session) =>
+			session.expandedFloatingShellId === action.processId
+				? { ...session, expandedFloatingShellId: null }
+				: session,
+		);
+	}
+
+	if (action.type === "session/closeFloatingShell") {
+		const session = state.sessionsByWorktreeId[action.worktreeId];
+		if (!session) return state;
+		const nextProcessSessionsById = Object.fromEntries(
+			Object.entries(state.processSessionsById).filter(
+				([id]) => id !== action.processId,
+			),
+		);
+		return {
+			...state,
+			processSessionsById: nextProcessSessionsById,
+			sessionsByWorktreeId: {
+				...state.sessionsByWorktreeId,
+				[action.worktreeId]: {
+					...session,
+					floatingShellIds: session.floatingShellIds.filter(
+						(id) => id !== action.processId,
+					),
+					expandedFloatingShellId:
+						session.expandedFloatingShellId === action.processId
+							? null
+							: session.expandedFloatingShellId,
+				},
 			},
 		};
 	}
