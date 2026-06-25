@@ -1,0 +1,203 @@
+import { useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
+import type { ITheme } from "xterm";
+import { Icon } from "@/components/ui/icon";
+import type { ProcessSession } from "../../../../shared/models/process-session";
+import type { TerminalSession } from "../../../../shared/models/terminal-session";
+import { TerminalPane } from "./TerminalPane";
+
+export type FloatingShellPosition = { left: number; top: number };
+
+type Props = {
+	process: ProcessSession;
+	session: TerminalSession | null;
+	theme: ITheme;
+	/** True when the grid is full (6 slots) — pin has no room to promote. */
+	pinDisabled: boolean;
+	onMinimize: (processId: string) => void;
+	onPin: (processId: string) => void;
+	onClose: (processId: string) => void;
+	onTitleChange: (title: string) => void;
+	/**
+	 * Restored drag position for this shell (memory-only), or null to use the
+	 * default header-anchored position. The popover starts here on mount.
+	 */
+	initialPosition?: FloatingShellPosition | null;
+	/** Persist the dragged position (null when reset back to the anchor). */
+	onPositionChange?: (pos: FloatingShellPosition | null) => void;
+};
+
+// While dragging, keep at least this much of the popover within the viewport so
+// it can always be grabbed again; the header row stays fully reachable.
+const KEEP_ON_SCREEN_PX = 120;
+const HEADER_KEEP_PX = 28;
+
+/**
+ * The expanded throwaway shell, a header-anchored drop-down popover over the
+ * grid. Reuses TerminalPane for the body so it inherits replay-on-mount and the
+ * existing xterm key handling. After the shell exits it lingers (the retained
+ * replay buffer repopulates the pane) until the user dismisses it.
+ *
+ * Draggable by its header: the first drag switches it from the CSS anchor to a
+ * fixed viewport position; double-clicking the header snaps it back. The owner
+ * persists the position per shell so it survives minimize/restore.
+ */
+export function FloatingShellPopover({
+	process,
+	session,
+	theme,
+	pinDisabled,
+	onMinimize,
+	onPin,
+	onClose,
+	onTitleChange,
+	initialPosition = null,
+	onPositionChange,
+}: Props) {
+	const exited = process.status === "exited" || process.status === "error";
+	const rootRef = useRef<HTMLDivElement>(null);
+	const dragRef = useRef<{
+		pointerId: number;
+		startX: number;
+		startY: number;
+		baseLeft: number;
+		baseTop: number;
+	} | null>(null);
+	// Latest position held in a ref so the pointer-up handler persists the exact
+	// final value regardless of React render/batch timing.
+	const latestPosRef = useRef<FloatingShellPosition | null>(initialPosition);
+	const [pos, setPos] = useState<FloatingShellPosition | null>(initialPosition);
+
+	const applyPos = (next: FloatingShellPosition | null) => {
+		latestPosRef.current = next;
+		setPos(next);
+	};
+
+	const clamp = (left: number, top: number): FloatingShellPosition => {
+		const width = rootRef.current?.offsetWidth ?? 0;
+		const minLeft = KEEP_ON_SCREEN_PX - width;
+		const maxLeft = window.innerWidth - KEEP_ON_SCREEN_PX;
+		const maxTop = window.innerHeight - HEADER_KEEP_PX;
+		return {
+			left: Math.min(Math.max(left, minLeft), maxLeft),
+			top: Math.min(Math.max(top, 0), maxTop),
+		};
+	};
+
+	const onHeaderPointerDown = (e: ReactPointerEvent<HTMLElement>) => {
+		// Never start a drag from a header control (pin / minimize / close).
+		if ((e.target as HTMLElement).closest("button")) return;
+		const rect = rootRef.current?.getBoundingClientRect();
+		if (!rect) return;
+		dragRef.current = {
+			pointerId: e.pointerId,
+			startX: e.clientX,
+			startY: e.clientY,
+			baseLeft: rect.left,
+			baseTop: rect.top,
+		};
+		// Switch to a fixed position at the current spot so there is no jump.
+		applyPos({ left: rect.left, top: rect.top });
+		e.currentTarget.setPointerCapture?.(e.pointerId);
+		e.preventDefault();
+	};
+
+	const onHeaderPointerMove = (e: ReactPointerEvent<HTMLElement>) => {
+		const drag = dragRef.current;
+		if (!drag || drag.pointerId !== e.pointerId) return;
+		applyPos(
+			clamp(
+				drag.baseLeft + (e.clientX - drag.startX),
+				drag.baseTop + (e.clientY - drag.startY),
+			),
+		);
+	};
+
+	const endDrag = (e: ReactPointerEvent<HTMLElement>) => {
+		const drag = dragRef.current;
+		if (!drag || drag.pointerId !== e.pointerId) return;
+		dragRef.current = null;
+		e.currentTarget.releasePointerCapture?.(e.pointerId);
+		onPositionChange?.(latestPosRef.current);
+	};
+
+	const resetPosition = () => {
+		applyPos(null);
+		onPositionChange?.(null);
+	};
+
+	const dragged = pos !== null;
+
+	return (
+		<div
+			ref={rootRef}
+			className="floating-shell-popover"
+			data-testid="floating-shell-popover"
+			data-dragged={dragged ? "true" : "false"}
+			role="dialog"
+			aria-label={`Throwaway shell ${process.label}`}
+			style={
+				dragged
+					? { position: "fixed", left: pos.left, top: pos.top, right: "auto" }
+					: undefined
+			}
+		>
+			<header
+				className="floating-shell-popover__header"
+				onPointerDown={onHeaderPointerDown}
+				onPointerMove={onHeaderPointerMove}
+				onPointerUp={endDrag}
+				onPointerCancel={endDrag}
+				onDoubleClick={resetPosition}
+			>
+				<span
+					className="floating-shell-popover__dot"
+					data-exited={exited ? "true" : "false"}
+					aria-hidden="true"
+				/>
+				<span className="floating-shell-popover__title">{process.label}</span>
+				<button
+					type="button"
+					aria-label="Pin into layout"
+					title={
+						pinDisabled ? "Layout full — free a slot first" : "Pin into layout"
+					}
+					data-testid="floating-shell-pin"
+					disabled={pinDisabled || exited}
+					onClick={() => onPin(process.id)}
+				>
+					<Icon name="pin" />
+				</button>
+				<button
+					type="button"
+					aria-label="Minimize floating shell"
+					title="Minimize"
+					data-testid="floating-shell-minimize"
+					onClick={() => onMinimize(process.id)}
+				>
+					<Icon name="minimize" />
+				</button>
+				<button
+					type="button"
+					aria-label="Kill floating shell"
+					title="Kill"
+					data-testid="floating-shell-close"
+					onClick={() => onClose(process.id)}
+				>
+					<Icon name="close" />
+				</button>
+			</header>
+			<div className="floating-shell-popover__body">
+				{session && (
+					<TerminalPane
+						session={session}
+						visible={true}
+						focused
+						theme={theme}
+						onTitleChange={onTitleChange}
+					/>
+				)}
+			</div>
+		</div>
+	);
+}

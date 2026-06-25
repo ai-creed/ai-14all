@@ -35,6 +35,9 @@ import type {
 	ProcessAttentionState,
 	ProcessSession,
 } from "../../shared/models/process-session";
+import type { WorktreeSession } from "../../shared/models/worktree-session";
+import { createSamanthaSliceBuilder } from "../features/workspace/logic/samantha-slice-builder";
+import { findWorkspaceForWorktree } from "../features/workspace/logic/focus-target";
 import { useNoteBridgeReceiver } from "../features/workspace/hooks/use-note-bridge-receiver";
 import { attachAgentAttentionBridge } from "../features/terminals/logic/agent-attention-renderer-bridge";
 import type { GitChangeStatus } from "../../shared/models/git-change";
@@ -92,6 +95,9 @@ import { DialogStack } from "./components/DialogStack";
 import { ToastProvider, notifyToast } from "../features/ui/toast/ToastProvider";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { TerminalActions } from "../features/terminals/components/TerminalActions";
+import { FloatingShellPills } from "../features/terminals/components/FloatingShellPills";
+import { FloatingShellPopover } from "../features/terminals/components/FloatingShellPopover";
+import { useFloatingShellActions } from "./hooks/use-floating-shell-actions";
 import { AgentLauncherBar } from "../features/terminals/components/AgentLauncherBar";
 import {
 	type AgentProvider,
@@ -120,6 +126,7 @@ import { SidebarPanel } from "./components/SidebarPanel";
 import { MainColumnChrome } from "./components/MainColumnChrome";
 import { RestoreBanner } from "./components/RestoreBanner";
 import { AgentAttentionBanner } from "./components/AgentAttentionBanner";
+import { normalizeTerminalTitle } from "./normalize-terminal-title";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -197,7 +204,14 @@ export function App() {
 		worktreesRef,
 		workspaceStateRef,
 	} = useActiveWorkspace();
+	const samanthaSliceBuilder = useRef(createSamanthaSliceBuilder());
 	const outputPreviewBuffersRef = useRef<Map<string, string>>(new Map());
+	// Memory-only per-shell dragged positions for floating popovers, keyed by
+	// process id. Survives minimize/restore + worktree switch within the session;
+	// not persisted across app restart (floating shells are memory-only).
+	const floatingPositionsRef = useRef<
+		Map<string, { left: number; top: number }>
+	>(new Map());
 	const [refreshKey, setRefreshKey] = useState(0);
 	const [windowFocused, setWindowFocused] = useState(
 		typeof document !== "undefined" ? document.hasFocus() : true,
@@ -436,9 +450,7 @@ export function App() {
 				if (cancelled) return;
 				dispose = registerCodeNavProviders({
 					dispatch: dispatch as unknown as (action: unknown) => void,
-					toast: (msg) =>
-						// eslint-disable-next-line no-console
-						console.warn(`[code-nav] ${msg}`),
+					toast: (msg) => console.warn(`[code-nav] ${msg}`),
 					getActive: () => {
 						if (!wsId || !wtId || !sessId) return null;
 						// Read nav state off the live ref so a state change since
@@ -772,6 +784,39 @@ export function App() {
 		stopSession,
 		removeSession,
 	});
+
+	const {
+		handleAddFloatingShell,
+		handleCloseFloatingShell,
+		handlePinFloatingShell,
+		handleExpandFloatingShell,
+		handleMinimizeFloatingShell,
+	} = useFloatingShellActions({
+		workspaceId: activeWorkspaceId,
+		worktree: activeWorktree,
+		workspaceStateRef,
+		outputPreviewBuffersRef,
+		getWorkspaceStateById,
+		createScopedWorkspaceDispatch,
+		sessions,
+		spawnAdHocProcess,
+		stopSession,
+		removeSession,
+	});
+
+	// Floating throwaway shells live outside the layout slot grid; surface the
+	// current set and the expanded one (if any) so the pills + popover can render.
+	const floatingShellIds = activeSession?.floatingShellIds ?? [];
+	const expandedFloatingShellId =
+		activeSession?.expandedFloatingShellId ?? null;
+	const expandedFloatingProcess = expandedFloatingShellId
+		? (workspaceState.processSessionsById[expandedFloatingShellId] ?? null)
+		: null;
+	const expandedFloatingSession = expandedFloatingProcess?.terminalSessionId
+		? (sessions.find(
+				(s) => s.id === expandedFloatingProcess.terminalSessionId,
+			) ?? null)
+		: null;
 
 	const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
 	const [pluginsDialogOpen, setPluginsDialogOpen] = useState(false);
@@ -1399,6 +1444,17 @@ export function App() {
 		[activeWorktree?.id, activeWorkspaceId, addDisabled],
 	);
 
+	// Cmd+Shift+T / Ctrl+Shift+T — new floating throwaway shell (own cap check)
+	useKeyboardShortcut(
+		"terminal.newFloating",
+		appPlatform,
+		(e) => {
+			e.preventDefault();
+			void handleAddFloatingShell();
+		},
+		[activeWorktree?.id, activeWorkspaceId],
+	);
+
 	// Cmd+Shift+L / Ctrl+Shift+L — open the terminal layout dialog
 	useKeyboardShortcut(
 		"terminal.layout",
@@ -1684,6 +1740,68 @@ export function App() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [displayedAttentionKey]);
 
+	// Component scope (reactive): the selected worktree drives the focus marker /
+	// summary, so it must be a dependency of the publisher effect below — a
+	// focus change alone must republish even when no attention value moved.
+	const focusedWorktreeId = workspaceState?.selectedWorktreeId ?? null;
+
+	useEffect(() => {
+		if (startupMode !== "ready") return;
+		try {
+			const inputs: {
+				worktreeId: string;
+				session: WorktreeSession;
+				processSessionsById: Record<string, ProcessSession>;
+			}[] = [];
+			for (const wsId of appWorkspacesRef.current.workspaceOrder) {
+				const state =
+					appWorkspacesRef.current.workspacesById[wsId]?.workspaceState;
+				if (!state) continue;
+				for (const [worktreeId, session] of Object.entries(
+					state.sessionsByWorktreeId,
+				)) {
+					inputs.push({
+						worktreeId,
+						session,
+						processSessionsById: state.processSessionsById,
+					});
+				}
+			}
+			const slice = samanthaSliceBuilder.current.build(
+				inputs,
+				focusedWorktreeId,
+				startupMode,
+			);
+			pluginsClient.publishSamanthaSessionState(slice);
+		} catch {
+			// swallow — Samantha publish is best-effort, never break rendering
+		}
+		// Republish on: real attention movement (the existing `displayedAttentionKey`
+		// content hash), app readiness (`startupMode`), AND focus change
+		// (`focusedWorktreeId`) — the focus marker / summary must follow the selected
+		// worktree even when no attention value moved.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [displayedAttentionKey, startupMode, focusedWorktreeId]);
+
+	useEffect(() => {
+		return pluginsClient.onSamanthaFocusWorktree(({ worktreeId }) => {
+			const wsId = findWorkspaceForWorktree(
+				appWorkspacesRef.current,
+				worktreeId,
+			);
+			if (!wsId) return; // not a worktree we own — best-effort no-op
+			if (wsId !== appWorkspacesRef.current.activeWorkspaceId) {
+				dispatchAppWorkspaces({ type: "workspace/select", workspaceId: wsId });
+			}
+			createScopedWorkspaceDispatch(wsId)({
+				type: "session/selectWorktree",
+				worktreeId,
+			});
+		});
+		// Stable refs; subscribe once.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
 	if (startupMode === "loading") {
 		return (
 			<main className="shell-app shell-app--setup">
@@ -1799,31 +1917,75 @@ export function App() {
 
 						<div className="shell-terminal-frame">
 							{activeWorktree && (
-								<TerminalChromeHeader
-									agentLauncher={
-										<AgentLauncherBar
-											probes={agentClis}
-											whisperHealthy={whisperOnHealthy}
-											whisperState={activeWhisperState}
-											mountPending={mountGuard.mountPending}
-											beginMount={mountGuard.beginMount}
-											launchInTerminal={(command) =>
-												void launchCollabTerminal(command)
+								<div className="terminal-chrome-header-anchor">
+									<TerminalChromeHeader
+										agentLauncher={
+											<AgentLauncherBar
+												probes={agentClis}
+												whisperHealthy={whisperOnHealthy}
+												whisperState={activeWhisperState}
+												mountPending={mountGuard.mountPending}
+												beginMount={mountGuard.beginMount}
+												launchInTerminal={(command) =>
+													void launchCollabTerminal(command)
+												}
+											/>
+										}
+										terminalActions={
+											<>
+												<FloatingShellPills
+													floatingShellIds={floatingShellIds}
+													processSessionsById={
+														workspaceState.processSessionsById
+													}
+													expandedId={expandedFloatingShellId}
+													onExpand={handleExpandFloatingShell}
+													onClose={handleCloseFloatingShell}
+												/>
+												<TerminalActions
+													presets={workspaceState.commandPresets}
+													addDisabled={addDisabled}
+													onAddAdHoc={handleAddAdHoc}
+													onLaunchPreset={handleLaunchPreset}
+													onOpenPresetManager={() => setPresetManagerOpen(true)}
+													onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
+													platform={appPlatform}
+												/>
+											</>
+										}
+									/>
+									{expandedFloatingProcess && (
+										<FloatingShellPopover
+											key={expandedFloatingProcess.id}
+											process={expandedFloatingProcess}
+											session={expandedFloatingSession}
+											theme={terminalTheme}
+											initialPosition={
+												floatingPositionsRef.current.get(
+													expandedFloatingProcess.id,
+												) ?? null
 											}
+											onPositionChange={(p) => {
+												const id = expandedFloatingProcess.id;
+												if (p) floatingPositionsRef.current.set(id, p);
+												else floatingPositionsRef.current.delete(id);
+											}}
+											pinDisabled={addDisabled}
+											onMinimize={handleMinimizeFloatingShell}
+											onPin={handlePinFloatingShell}
+											onClose={handleCloseFloatingShell}
+											onTitleChange={(title) => {
+												const nextLabel = normalizeTerminalTitle(title);
+												if (!nextLabel) return;
+												createScopedWorkspaceDispatch(activeWorkspaceId ?? "")({
+													type: "session/updateProcessLabel",
+													processId: expandedFloatingProcess.id,
+													label: nextLabel,
+												});
+											}}
 										/>
-									}
-									terminalActions={
-										<TerminalActions
-											presets={workspaceState.commandPresets}
-											addDisabled={addDisabled}
-											onAddAdHoc={handleAddAdHoc}
-											onLaunchPreset={handleLaunchPreset}
-											onOpenPresetManager={() => setPresetManagerOpen(true)}
-											onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
-											platform={appPlatform}
-										/>
-									}
-								/>
+									)}
+								</div>
 							)}
 
 							{/*

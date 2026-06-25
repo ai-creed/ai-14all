@@ -31,11 +31,18 @@ import { BUNDLED_SKILL_IDS } from "../../../services/review/agent-skill-installe
 
 describe("AgentSkillInstaller (detection + override)", () => {
 	let dir: string;
+	let prevXdg: string | undefined;
 	beforeEach(async () => {
 		dir = await mkdtemp(join(tmpdir(), "installer-"));
+		// Pin ezio's config root inside the temp dir so the XDG-based resolution is
+		// deterministic regardless of the dev machine's environment.
+		prevXdg = process.env.XDG_CONFIG_HOME;
+		process.env.XDG_CONFIG_HOME = join(dir, "xdg");
 		execMock.mockReset();
 	});
 	afterEach(async () => {
+		if (prevXdg === undefined) delete process.env.XDG_CONFIG_HOME;
+		else process.env.XDG_CONFIG_HOME = prevXdg;
 		await rm(dir, { recursive: true, force: true });
 	});
 
@@ -152,6 +159,50 @@ describe("AgentSkillInstaller (detection + override)", () => {
 		);
 		expect(fixReview).toBe("body of ai-14all-fix-review");
 		expect(sessionStatus).toBe("body of ai-14all-session-status");
+	});
+
+	it("listProviders includes an ezio row reflecting CLI availability", async () => {
+		const cliBin = join(dir, "ai-ezio-bin");
+		await writeFile(cliBin, "#!/bin/sh\n", "utf-8");
+		await chmod(cliBin, 0o755);
+		execMock.mockImplementation((_cmd, _args, cb) =>
+			cb(null, { stdout: "", stderr: "" }),
+		);
+		const installer = newInstaller();
+		await installer.setOverride("ezio", cliBin);
+		const result = await installer.listProviders();
+		const ezio = result.providers.find((p) => p.id === "ezio");
+		expect(ezio).toBeDefined();
+		expect(ezio!.displayName).toBe("ezio");
+		expect(ezio!.cliAvailable).toBe(true);
+		expect(ezio!.cliPath).toBe(cliBin);
+	});
+
+	it("install registers the mcp-remote bridge + writes skills for ezio", async () => {
+		const cliBin = join(dir, "ai-ezio-bin");
+		await writeFile(cliBin, "#!/bin/sh\n", "utf-8");
+		await chmod(cliBin, 0o755);
+		await stubBundledSkills();
+		execMock.mockImplementation((_cmd, _args, cb) =>
+			cb(null, { stdout: "", stderr: "" }),
+		);
+		const installer = newInstaller();
+		await installer.setOverride("ezio", cliBin);
+		const res = await installer.install(["ezio"]);
+		expect(res[0].ok).toBe(true);
+		// ezio registration is a direct file write (no CLI), so getMcpUrl()'s URL
+		// is wrapped in the mcp-remote stdio bridge inside ezio's mcp.json.
+		const ezioCfg = join(process.env.XDG_CONFIG_HOME!, "ai-ezio");
+		const mcp = JSON.parse(await readFile(join(ezioCfg, "mcp.json"), "utf-8"));
+		expect(mcp.mcpServers["ai-14all"]).toEqual({
+			command: "npx",
+			args: ["-y", "mcp-remote", "http://127.0.0.1:9999"],
+		});
+		const skill = await readFile(
+			join(ezioCfg, "skills", "ai-14all-fix-review", "SKILL.md"),
+			"utf-8",
+		);
+		expect(skill).toBe("body of ai-14all-fix-review");
 	});
 
 	it("install fails for a provider when detection returns null", async () => {

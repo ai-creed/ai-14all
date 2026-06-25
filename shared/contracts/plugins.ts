@@ -6,6 +6,11 @@ import type {
 	PluginSnapshot,
 	WhisperWorktreeState,
 } from "../models/ecosystem-plugin.js";
+import {
+	type AgentAttentionSource,
+	type AgentAttentionState,
+} from "../models/agent-attention.js";
+import type { AgentProvider } from "../models/agent-attention.js";
 
 // renderer → main (invoke)
 export const PLUGINS_LIST = "plugins:list";
@@ -17,6 +22,14 @@ export const PLUGINS_WHISPER_COMMAND = "plugins:whisperCommand";
 // main → renderer (push)
 export const PLUGINS_STATE_CHANGED = "plugins:stateChanged";
 export const PLUGINS_WHISPER_STATE_CHANGED = "plugins:whisperStateChanged";
+
+// renderer → main (fire-and-forget push of the resolved session slice)
+export const PLUGINS_SAMANTHA_SESSION_STATE = "plugins:samanthaSessionState";
+// main → renderer (push of the Samantha connection-health state)
+export const PLUGINS_SAMANTHA_HEALTH = "plugins:samanthaHealth";
+// main → renderer (push of a Samantha-requested worktree focus)
+export const PLUGINS_SAMANTHA_FOCUS_WORKTREE = "plugins:samanthaFocusWorktree";
+export const PLUGINS_SAMANTHA_RECONNECT = "plugins:samanthaReconnect";
 
 export const SetPluginEnabledSchema = z.object({
 	id: z.enum(ECOSYSTEM_PLUGIN_IDS),
@@ -65,6 +78,72 @@ export type WhisperCommandResult = {
 	stderr: string;
 };
 
+export const SamanthaSessionTransitionSchema = z.object({
+	at: z.number(),
+	from: z.enum(["waiting", "failed", "ready", "stale", "active", "idle"]),
+	to: z.enum(["waiting", "failed", "ready", "stale", "active", "idle"]),
+	summary: z.string(),
+	source: z.enum(["mcp", "terminal", "lifecycle", "workflow"]),
+});
+
+export const SamanthaWorktreeSliceSchema = z.object({
+	worktreeId: z.string(),
+	provider: z.enum(["claude", "codex", "ezio", "other"]).nullable(),
+	attention: z.enum(["waiting", "failed", "ready", "stale", "active", "idle"]),
+	summary: z.string(),
+	task: z.string().nullable(),
+	nextAction: z.string().nullable(),
+	updatedAt: z.number(),
+	recent: z.array(SamanthaSessionTransitionSchema),
+	// S3: active PTY/process session id for the worktree (null when no live
+	// session). Lets the instruct-session router target an unmanaged shell.
+	sessionId: z.string().nullable().optional(),
+});
+
+export const SamanthaSessionSliceSchema = z.object({
+	worktrees: z.array(SamanthaWorktreeSliceSchema),
+	app: z.object({
+		focusedWorktreeId: z.string().nullable(),
+		mode: z.enum(["loading", "prompt", "ready"]),
+	}),
+});
+
+export type SamanthaSessionTransition = {
+	at: number;
+	from: AgentAttentionState;
+	to: AgentAttentionState;
+	summary: string;
+	source: AgentAttentionSource;
+};
+
+export type SamanthaWorktreeSlice = {
+	worktreeId: string;
+	provider: AgentProvider | null;
+	attention: AgentAttentionState;
+	summary: string;
+	task: string | null;
+	nextAction: string | null;
+	updatedAt: number;
+	recent: SamanthaSessionTransition[];
+	sessionId?: string | null;
+};
+
+export type SamanthaSessionSlice = {
+	worktrees: SamanthaWorktreeSlice[];
+	app: {
+		focusedWorktreeId: string | null;
+		mode: "loading" | "prompt" | "ready";
+	};
+};
+
+export type SamanthaHealth = {
+	link: "connecting" | "connected" | "reconnecting" | "samantha-not-running";
+};
+
+export type SamanthaFocusWorktree = {
+	worktreeId: string;
+};
+
 export type PluginsApi = {
 	list(): Promise<PluginSnapshot[]>;
 	setEnabled(
@@ -78,4 +157,10 @@ export type PluginsApi = {
 	onWhisperStateChanged(
 		handler: (states: WhisperWorktreeState[]) => void,
 	): () => void;
+	publishSamanthaSessionState(slice: SamanthaSessionSlice): void;
+	onSamanthaHealth(handler: (health: SamanthaHealth) => void): () => void;
+	onSamanthaFocusWorktree(
+		handler: (payload: SamanthaFocusWorktree) => void,
+	): () => void;
+	reconnectSamantha(): Promise<{ ok: boolean }>;
 };

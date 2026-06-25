@@ -88,6 +88,16 @@ export type PluginRegistryOptions = {
 	 * plugins report `unsupported`, are never probed, and never start.
 	 */
 	unsupported?: Partial<Record<EcosystemPluginId, string>>;
+	/**
+	 * Plugins hidden from the panel entirely (e.g. an unreleased integration in
+	 * packaged builds). The caller (main) owns this policy; the registry just
+	 * enforces it by withholding hidden ids from `snapshots()` — and therefore
+	 * from both `PLUGINS_LIST` and every push to snapshot listeners. A hidden
+	 * plugin has no card and so cannot be enabled via the UI. It still runs if
+	 * the config enables it directly; visibility, not capability, is what this
+	 * gate removes.
+	 */
+	hidden?: EcosystemPluginId[];
 };
 
 export function createPluginRegistry(
@@ -96,6 +106,7 @@ export function createPluginRegistry(
 	options: PluginRegistryOptions = {},
 ): PluginRegistry {
 	const unsupported = options.unsupported ?? {};
+	const hidden = new Set<EcosystemPluginId>(options.hidden ?? []);
 	const entries = new Map<EcosystemPluginId, Entry>(
 		drivers.map((driver) => [
 			driver.id,
@@ -112,15 +123,24 @@ export function createPluginRegistry(
 	let pending: Promise<void> = Promise.resolve();
 
 	function snapshots(): PluginSnapshot[] {
-		return [...entries.values()].map((entry) => {
-			const cfg = config.get(entry.driver.id);
-			return {
-				id: entry.driver.id,
-				enabled: cfg.enabled,
-				installPath: cfg.installPath,
-				status: statusOf(entry, cfg.enabled, unsupported[entry.driver.id]),
-			};
-		});
+		return [...entries.values()]
+			.filter((entry) => !hidden.has(entry.driver.id))
+			.map((entry) => {
+				const cfg = config.get(entry.driver.id);
+				const probe = entry.probe;
+				return {
+					id: entry.driver.id,
+					enabled: cfg.enabled,
+					installPath: cfg.installPath,
+					status: statusOf(entry, cfg.enabled, unsupported[entry.driver.id]),
+					// Pass the probe's evaluator readiness straight through (orthogonal to
+					// `status`). Only "installed" probes carry it, and only for whisper —
+					// so absence means "no warning to show".
+					...(probe?.kind === "installed" && probe.evaluator
+						? { evaluator: probe.evaluator }
+						: {}),
+				};
+			});
 	}
 
 	function notify(): void {

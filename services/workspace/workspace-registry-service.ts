@@ -31,6 +31,13 @@ export class WorkspaceRegistryService {
 		return [...this.byWorkspaceId.values()];
 	}
 
+	listEntries(): { workspaceId: string; repository: Repository }[] {
+		return Array.from(this.byWorkspaceId, ([workspaceId, repository]) => ({
+			workspaceId,
+			repository,
+		}));
+	}
+
 	onChange(listener: () => void): () => void {
 		this.listeners.add(listener);
 		return () => {

@@ -30,6 +30,7 @@ const SHORTCUT_GROUPS: { label: string; ids: string[] }[] = [
 		label: "Terminal",
 		ids: [
 			"terminal.new",
+			"terminal.newFloating",
 			"terminal.close",
 			"terminal.selectNext",
 			"terminal.selectPrev",

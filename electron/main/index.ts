@@ -1,5 +1,6 @@
 import { app, ipcMain, Menu } from "electron";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { watch } from "chokidar";
@@ -37,6 +38,8 @@ import { createPluginRegistry } from "../../services/plugins/plugin-registry.js"
 import {
 	registerPluginIpc,
 	pushWhisperState,
+	pushSamanthaHealth,
+	pushSamanthaFocusWorktree,
 } from "../../services/plugins/plugin-ipc.js";
 import { resolveBinary } from "../../services/plugins/binary-resolver.js";
 import { augmentGuiLaunchPath } from "../../services/plugins/shell-path.js";
@@ -44,8 +47,18 @@ import { probeWhisper } from "../../services/plugins/whisper/whisper-env-probe.j
 import { createWhisperDriver } from "../../services/plugins/whisper/whisper-driver.js";
 import { createCortexDriver } from "../../services/plugins/cortex/cortex-driver.js";
 import { probeCortex } from "../../services/plugins/cortex/cortex-probe.js";
+import { createSamanthaDriver } from "../../services/plugins/samantha/samantha-driver.js";
+import { createFocusWorktreeEffect } from "../../services/plugins/samantha/samantha-focus-effect.js";
+import type { WebSocketCtor } from "../../services/plugins/samantha/samantha-command-client.js";
+import { createSamanthaConnectorClient } from "../../services/plugins/samantha/samantha-connector-client.js";
+import { WhisperStoreReader } from "../../services/plugins/whisper/whisper-store-reader.js";
+import { createWhisperCollabWatcher } from "../../services/plugins/whisper/whisper-collab-watcher.js";
+import type { WorktreeIdentity } from "../../services/plugins/samantha/observe-types.js";
 import { createWhisperCommandRunner } from "../../services/plugins/whisper/whisper-command-runner.js";
 import { PluginCommandLogger } from "../../services/diagnostics/plugin-command-logger.js";
+import { ActingAuditLogger } from "../../services/diagnostics/acting-audit-logger.js";
+import { createActingTokenVerifier } from "../../services/plugins/samantha/acting-token-verifier.js";
+import type { WhisperCommand } from "../../shared/contracts/plugins.js";
 
 app.setName("ai-14all");
 
@@ -249,8 +262,156 @@ app.whenReady().then(async () => {
 		},
 	});
 
+	// Read-only whisper snapshot reader for the observe document (separate from
+	// the whisper driver's own watcher; we never write to state.db).
+	const samanthaWhisperWatcher = createWhisperCollabWatcher({
+		reader: new WhisperStoreReader(join(whisperStateRoot, "state.db")),
+		resolveWorktreeId: (workspaceRoot) =>
+			worktreePathResolver.resolve(workspaceRoot),
+	});
+
+	// Build worktreeId -> identity (repo/branch/path) across all registered repos.
+	const getSamanthaIdentities = async (): Promise<
+		Record<string, WorktreeIdentity>
+	> => {
+		const out: Record<string, WorktreeIdentity> = {};
+		for (const repository of workspaceRegistry.listRepositories()) {
+			for (const wt of await worktreeService.listWorktrees(repository)) {
+				out[wt.id] = {
+					repo: repository.name,
+					branch: wt.branchName,
+					path: wt.path,
+				};
+			}
+		}
+		return out;
+	};
+
+	if (typeof globalThis.WebSocket !== "function") {
+		// Planned fallback per the spec's Dependencies section: if this ever fires,
+		// add `ws` as a PRODUCTION dependency and pass its client as webSocketImpl.
+		throw new Error(
+			"globalThis.WebSocket is unavailable in the Electron main runtime",
+		);
+	}
+
+	const samanthaFocusWorktree = createFocusWorktreeEffect({
+		send: (payload) =>
+			pushSamanthaFocusWorktree(() => mainWindow.webContents, payload),
+		raiseWindow: () => {
+			if (!mainWindow.isDestroyed()) {
+				mainWindow.show();
+				mainWindow.focus();
+			}
+		},
+		getFocusRaisesWindow: () =>
+			pluginConfig.get("samantha").behavior?.focusRaisesWindow ?? true,
+	});
+
+	const actingAuditLogger = new ActingAuditLogger({
+		logsDir: join(app.getPath("userData"), "logs"),
+	});
+
+	// Late-bound terminal sendInput: TerminalService is created later inside
+	// registerIpcHandlers; the driver only calls this at command-dispatch time,
+	// long after startup wiring completes.
+	let actingSendInput: ((sessionId: string, data: string) => void) | null =
+		null;
+
+	const actingTokenPath =
+		process.env.SAMANTHA_ACTING_TOKEN_PATH ??
+		join(homedir(), ".ai-samantha", "connector-token");
+	const actingTokenVerifier = createActingTokenVerifier({
+		readSecret: () => {
+			try {
+				return readFileSync(actingTokenPath, "utf8").trim() || null;
+			} catch {
+				return null;
+			}
+		},
+	});
+
+	const resolveWorktreeRef = async (
+		worktreeId: string,
+	): Promise<{ workspaceId: string; cwd: string } | null> => {
+		for (const { workspaceId, repository } of workspaceRegistry.listEntries()) {
+			try {
+				const worktree = await worktreeService.findWorktree(
+					repository,
+					worktreeId,
+				);
+				return { workspaceId, cwd: worktree.path };
+			} catch {
+				// not in this repository; keep scanning.
+			}
+		}
+		return null;
+	};
+
+	const samanthaDriver = createSamanthaDriver({
+		client: createSamanthaConnectorClient({}),
+		getIdentities: getSamanthaIdentities,
+		getReviewCount: (worktreeId) =>
+			reviewCommentService.listOpenByWorktree(worktreeId).length,
+		getWhisperStates: () => samanthaWhisperWatcher.snapshot(),
+		subscribeReviews: (cb) => reviewCommentService.onChange(() => cb()),
+		subscribeWorktrees: (cb) => workspaceRegistry.onChange(cb),
+		pushHealth: (health) =>
+			pushSamanthaHealth(() => mainWindow.webContents, health),
+		focusWorktree: samanthaFocusWorktree,
+		webSocketImpl: globalThis.WebSocket as unknown as WebSocketCtor,
+		log: (message, error) => console.error(message, error),
+		isActingEnabled: () =>
+			pluginConfig.get("samantha").behavior?.actingEnabled ?? false,
+		verifyActingToken: (token) => actingTokenVerifier.verify(token),
+		auditAct: (entry) => actingAuditLogger.append(entry),
+		runManagedInstruction: async (worktreeId, decision) => {
+			const ref = await resolveWorktreeRef(worktreeId);
+			if (ref === null) return { ok: false, detail: "worktree not resolved" };
+			const command: WhisperCommand =
+				decision.kind === "collab-tell"
+					? {
+							kind: "collab-tell",
+							workspaceId: ref.workspaceId,
+							worktreeId,
+							target: decision.target,
+							instruction: decision.instruction,
+						}
+					: {
+							kind: "workflow-resume",
+							workspaceId: ref.workspaceId,
+							worktreeId,
+							workflowId: decision.workflowId,
+							message: decision.message,
+						};
+			const r = await whisperCommandRunner.run(command, ref.cwd);
+			return {
+				ok: r.ok,
+				detail: r.ok
+					? "delivered"
+					: r.stderr.slice(0, 200) || `exit ${r.exitCode}`,
+			};
+		},
+		sendUnmanagedInput: (sessionId, data) => {
+			if (actingSendInput === null)
+				return { ok: false, detail: "terminal service not ready" };
+			try {
+				// The session in the slice snapshot may have closed before dispatch;
+				// TerminalService.sendInput throws on an unknown session. Honor the
+				// {ok,detail} contract so ActGuard records a result audit, not a throw.
+				actingSendInput(sessionId, data.endsWith("\n") ? data : `${data}\n`);
+			} catch (error) {
+				return {
+					ok: false,
+					detail: error instanceof Error ? error.message : "send failed",
+				};
+			}
+			return { ok: true, detail: "sent" };
+		},
+	});
+
 	const pluginRegistry = createPluginRegistry(
-		[whisperDriver, cortexDriver],
+		[whisperDriver, cortexDriver, samanthaDriver],
 		pluginConfig,
 		{
 			// ai-whisper's `collab mount` (and other flows) shell out to the POSIX
@@ -262,6 +423,11 @@ app.whenReady().then(async () => {
 				process.platform === "win32"
 					? { whisper: "not supported on Windows yet" }
 					: undefined,
+			// Samantha is an unreleased integration. Keep it out of the Plugins
+			// panel in packaged/release builds so it can't be seen or enabled,
+			// while staying visible in dev/unpackaged builds so we can build and
+			// test it. Remove this gate when Samantha ships.
+			hidden: app.isPackaged ? ["samantha"] : [],
 		},
 	);
 	void pluginRegistry.boot();
@@ -286,6 +452,9 @@ app.whenReady().then(async () => {
 			invalidate: () => capabilityProbes.invalidate(),
 		},
 		getWebContents: () => mainWindow.webContents,
+		ingestSamanthaSessionSlice: (slice) =>
+			samanthaDriver.ingestSessionSlice(slice),
+		reconnectSamantha: () => samanthaDriver.reconnectNow(),
 	});
 
 	// Re-probe triggers (spec §3.4) funnel through capabilityProbes.invalidate():
@@ -373,7 +542,7 @@ app.whenReady().then(async () => {
 
 	const closeGate = createCloseGate();
 	closeGate.attach(mainWindow);
-	const { dispose } = registerIpcHandlers(mainWindow, {
+	const { dispose, terminalService } = registerIpcHandlers(mainWindow, {
 		workspacePersistence,
 		workspaceRegistry,
 		worktreeService,
@@ -389,6 +558,8 @@ app.whenReady().then(async () => {
 		closeGate,
 		getCortexEnabled: () => pluginConfig.get("cortex").enabled,
 	});
+	actingSendInput = (sessionId, data) =>
+		terminalService.sendInput(sessionId, data);
 
 	if (process.env.ELECTRON_RENDERER_URL) {
 		mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);

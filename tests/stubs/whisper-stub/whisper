@@ -16,6 +16,10 @@ if (process.env.WHISPER_STUB_LOG) {
 }
 
 if (argv[0] === "env" && argv.includes("--json")) {
+	// Opt-in evaluator block: a test that sets WHISPER_STUB_EVALUATOR to a JSON
+	// string gets it echoed through as `evaluator`; everyone else emits no field,
+	// matching an older whisper (so the panel shows no warning).
+	const evaluatorRaw = process.env.WHISPER_STUB_EVALUATOR;
 	process.stdout.write(
 		JSON.stringify({
 			engineVersion: "0.6.0-stub",
@@ -23,6 +27,7 @@ if (argv[0] === "env" && argv.includes("--json")) {
 			stateRoot: process.env.WHISPER_STUB_STATE_ROOT ?? "/tmp",
 			dbSchemaVersion: 6,
 			protocolVersion: "1",
+			...(evaluatorRaw ? { evaluator: JSON.parse(evaluatorRaw) } : {}),
 		}),
 	);
 	process.exit(0);

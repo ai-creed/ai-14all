@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import type {
 	AgentCliProbes,
 	EcosystemPluginId,
@@ -80,6 +80,43 @@ export function cortexConfigureHandler(
 	return () => onConfigure(composeCortexConfigureCommand(probes, shell));
 }
 
+/**
+ * The ai-whisper "Configure" command. Per the ai-whisper README Quickstart, this
+ * installs the bundled agent skills the workflows rely on (verify / kickoff /
+ * report, plus `ai-whisper-code-review` and `ai-whisper-plan-execution`).
+ *
+ * Unlike cortex's Configure, this is a single static command: it does not depend
+ * on the agent-CLI probes — `whisper skill install` defaults to `--target all`
+ * and installs into each agent's skills dir itself. `--force` overwrites the
+ * bundled skills in place rather than erroring when a skill directory already
+ * exists, so the Configure button is safe to re-click (idempotent), matching
+ * cortex's re-runnable Configure.
+ */
+export function whisperConfigureCommand(): string {
+	return "whisper skill install --force";
+}
+
+/**
+ * Human-readable warning for a whisper evaluator that isn't ready, keyed on the
+ * EvaluatorStatus reason from `whisper env --json`. The workflows refuse to start
+ * without a configured evaluator, so this is a heads-up before the user tries one.
+ *
+ * The missing-key case hedges deliberately: a Finder/Dock-launched ai-14all has a
+ * bare GUI environment, so a shell-exported `ANTHROPIC_API_KEY` is invisible to
+ * the probe and would read as "missing" even when the daemon (started from a real
+ * shell) can see it. We say so rather than crying wolf.
+ */
+export function evaluatorWarning(status: string): string {
+	switch (status) {
+		case "missing_anthropic_key":
+			return "LLM evaluator not configured — workflows won't start without credentials. Add an Anthropic API key to ~/.ai-whisper/auth.json. (If you export ANTHROPIC_API_KEY in your shell instead, you can ignore this.)";
+		case "invalid_config":
+			return "LLM evaluator config is invalid — workflows won't start. Check ~/.ai-whisper/config.json and auth.json.";
+		default:
+			return "LLM evaluator isn't ready — workflows may refuse to start. See ai-whisper's evaluator setup.";
+	}
+}
+
 const DESCRIPTORS: Record<EcosystemPluginId, PluginDescriptor> = {
 	whisper: {
 		title: "ai-whisper",
@@ -94,6 +131,13 @@ const DESCRIPTORS: Record<EcosystemPluginId, PluginDescriptor> = {
 			"Substrate knowledge for your agents — a memory layer they recall from and record to across sessions — and its index unlocks code navigation inside ai-14all (go-to-definition, references, symbol search) as a power feature. Enable it, then Configure to register the MCP server and install the capture hooks + memory prompt guide.",
 		installCommand: "npm i -g ai-cortex",
 		repoUrl: "https://github.com/ai-creed/ai-cortex",
+	},
+	samantha: {
+		title: "ai-samantha",
+		pitch:
+			"Your voice-first supervising companion. Once enabled, ai-14all streams a rich, per-worktree view of what your agents are doing — and what just happened — to Samantha so she can keep you oriented and speak up when something needs you.",
+		installCommand: "",
+		repoUrl: "https://github.com/ai-creed/ai-samantha",
 	},
 };
 
@@ -167,6 +211,16 @@ export function PluginsPanelDialog(props: {
 }): React.ReactElement {
 	const snapshots = usePluginsState();
 	const [agentClis, setAgentClis] = useState<AgentCliProbes | null>(null);
+	const [samanthaLink, setSamanthaLink] = useState<string>("connecting");
+	const [reconnecting, setReconnecting] = useState(false);
+	const onReconnectSamantha = async () => {
+		setReconnecting(true);
+		try {
+			await plugins.reconnectSamantha();
+		} finally {
+			setReconnecting(false);
+		}
+	};
 
 	useEffect(() => {
 		if (!props.open) return;
@@ -174,6 +228,8 @@ export function PluginsPanelDialog(props: {
 		void plugins.reprobe();
 		void plugins.agentClis().then(setAgentClis);
 	}, [props.open]);
+
+	useEffect(() => plugins.onSamanthaHealth((h) => setSamanthaLink(h.link)), []);
 
 	return (
 		<Dialog.Root open={props.open} onOpenChange={props.onOpenChange}>
@@ -193,26 +249,60 @@ export function PluginsPanelDialog(props: {
 
 					<div className="plugins-panel__cards">
 						{snapshots.map((snapshot) => (
-							<PluginCard
-								key={snapshot.id}
-								descriptor={DESCRIPTORS[snapshot.id]}
-								snapshot={snapshot}
-								onToggle={(id, enabled) => {
-									void plugins.setEnabled(id, enabled);
-								}}
-								onInstall={props.onInstall}
-								onConfigure={
-									snapshot.id === "cortex"
-										? cortexConfigureHandler(agentClis, props.onConfigure)
-										: undefined
-								}
-								onReprobe={() => {
-									void plugins.reprobe();
-								}}
-								onReadMore={(url) => {
-									void system.openExternal(url).catch(() => undefined);
-								}}
-							/>
+							<React.Fragment key={snapshot.id}>
+								<PluginCard
+									descriptor={DESCRIPTORS[snapshot.id]}
+									snapshot={snapshot}
+									onToggle={(id, enabled) => {
+										void plugins.setEnabled(id, enabled);
+									}}
+									onInstall={props.onInstall}
+									onConfigure={
+										snapshot.id === "cortex"
+											? cortexConfigureHandler(agentClis, props.onConfigure)
+											: snapshot.id === "whisper"
+												? () => props.onConfigure(whisperConfigureCommand())
+												: undefined
+									}
+									onReprobe={() => {
+										void plugins.reprobe();
+									}}
+									onReadMore={(url) => {
+										void system.openExternal(url).catch(() => undefined);
+									}}
+								/>
+								{snapshot.id === "samantha" &&
+								snapshot.status.state === "on-healthy" ? (
+									<p
+										className="plugin-substatus"
+										data-samantha-link={samanthaLink}
+									>
+										Samantha link: {samanthaLink.replace(/-/g, " ")}
+										{samanthaLink === "reconnecting" ||
+										samanthaLink === "samantha-not-running" ? (
+											<button
+												type="button"
+												className="plugin-substatus__reconnect"
+												data-testid="samantha-reconnect"
+												disabled={reconnecting}
+												onClick={() => void onReconnectSamantha()}
+											>
+												{reconnecting ? "connecting…" : "Reconnect now"}
+											</button>
+										) : null}
+									</p>
+								) : null}
+								{snapshot.id === "whisper" &&
+								snapshot.evaluator &&
+								!snapshot.evaluator.ready ? (
+									<p
+										className="plugin-substatus plugin-substatus--warning"
+										data-evaluator-status={snapshot.evaluator.status}
+									>
+										{evaluatorWarning(snapshot.evaluator.status)}
+									</p>
+								) : null}
+							</React.Fragment>
 						))}
 					</div>
 

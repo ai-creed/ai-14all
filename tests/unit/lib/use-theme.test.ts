@@ -109,4 +109,17 @@ describe("useTheme", () => {
 		act(() => result.current.setTheme("warm"));
 		expect(result.current.resolvedTheme).toBe("dark");
 	});
+
+	it("returns the selected mode in the mode field", () => {
+		mockMatchMedia(false); // system is dark
+		const { result } = renderHook(() => useTheme());
+		// initial mode is "system"
+		expect(result.current.mode).toBe("system");
+		act(() => result.current.setTheme("dark"));
+		expect(result.current.mode).toBe("dark");
+		act(() => result.current.setTheme("light"));
+		expect(result.current.mode).toBe("light");
+		act(() => result.current.setTheme("system"));
+		expect(result.current.mode).toBe("system");
+	});
 });
