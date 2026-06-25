@@ -619,7 +619,9 @@ select {
 .shell-sidebar__workspace-header {
 	display: flex;
 	align-items: center;
-	gap: var(--space-2);
+	/* Tighter icon↔name gap so the repo title lines up with the worktree titles
+	   below it (was --space-2, which pushed the title ~6px past the row titles). */
+	gap: var(--space-1);
 	padding-left: 4px; /* chevron box (12px, centered) -> center at x=10 = rail x */
 }
 
