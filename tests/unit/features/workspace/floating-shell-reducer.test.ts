@@ -113,3 +113,76 @@ describe("floating shell reducer actions", () => {
 		expect(state.processSessionsById.p1).toBeUndefined();
 	});
 });
+
+describe("pinFloatingShellToSlot", () => {
+	it("moves a floating shell into the first empty slot, same id, no respawn", () => {
+		let state = workspaceReducer(base(), {
+			type: "session/registerFloatingShell",
+			worktreeId: "a",
+			process: proc("p1"),
+		});
+		state = workspaceReducer(state, {
+			type: "session/pinFloatingShellToSlot",
+			worktreeId: "a",
+			processId: "p1",
+		});
+		const s = state.sessionsByWorktreeId.a;
+		expect(s.slotProcessIds).toEqual(["p1"]); // layout "1", slot 0
+		expect(s.floatingShellIds).toEqual([]);
+		expect(s.expandedFloatingShellId).toBeNull();
+		expect(s.activeProcessSessionId).toBe("p1");
+		// same ProcessSession object id retained (terminalSessionId unchanged)
+		expect(state.processSessionsById.p1.terminalSessionId).toBe("term-p1");
+	});
+
+	it("promotes the layout when the current layout has no empty slot", () => {
+		// Seed a slotted shell occupying the single slot, then add a floating one.
+		let state = workspaceReducer(base(), {
+			type: "session/registerProcess",
+			worktreeId: "a",
+			process: proc("slot1"),
+		});
+		state = workspaceReducer(state, {
+			type: "session/registerFloatingShell",
+			worktreeId: "a",
+			process: proc("f1"),
+		});
+		state = workspaceReducer(state, {
+			type: "session/pinFloatingShellToSlot",
+			worktreeId: "a",
+			processId: "f1",
+		});
+		const s = state.sessionsByWorktreeId.a;
+		expect(s.slotProcessIds).toContain("f1");
+		expect(s.slotProcessIds.filter((x) => x !== null)).toHaveLength(2);
+		expect(s.terminalLayoutId).not.toBe("1"); // grew into a 2-slot layout
+		expect(s.floatingShellIds).toEqual([]);
+	});
+
+	it("is a no-op when the grid is full (6 slots)", () => {
+		let state = base();
+		for (let i = 0; i < 6; i++) {
+			state = workspaceReducer(state, {
+				type: "session/registerProcess",
+				worktreeId: "a",
+				process: proc(`slot${i}`),
+			});
+		}
+		state = workspaceReducer(state, {
+			type: "session/registerFloatingShell",
+			worktreeId: "a",
+			process: proc("f1"),
+		});
+		const before = state.sessionsByWorktreeId.a;
+		const after = workspaceReducer(state, {
+			type: "session/pinFloatingShellToSlot",
+			worktreeId: "a",
+			processId: "f1",
+		});
+		// floating shell stays floating; slots unchanged
+		expect(after.sessionsByWorktreeId.a.floatingShellIds).toEqual(["f1"]);
+		expect(after.sessionsByWorktreeId.a.slotProcessIds).toEqual(
+			before.slotProcessIds,
+		);
+	});
+});

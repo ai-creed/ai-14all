@@ -1311,6 +1311,52 @@ export function workspaceReducer(
 		};
 	}
 
+	if (action.type === "session/pinFloatingShellToSlot") {
+		const session = state.sessionsByWorktreeId[action.worktreeId];
+		if (!session) return state;
+		if (!session.floatingShellIds.includes(action.processId)) return state;
+		if (!state.processSessionsById[action.processId]) return state;
+		const plan = planAddPlacement({
+			terminalLayoutId: session.terminalLayoutId,
+			slotProcessIds: session.slotProcessIds,
+		});
+		if (plan.kind === "full") return state; // grid full: keep it floating
+		// "fill" writes into an existing empty slot in place (no compaction, which
+		// would shift a later shell over the target). "promote" grows the layout.
+		const compacted =
+			plan.kind === "fill"
+				? session.slotProcessIds.slice()
+				: compactIntoLayout(session.slotProcessIds, plan.layoutId);
+		compacted[plan.slotIndex] = action.processId;
+		const nextSession: WorktreeSession = {
+			...session,
+			terminalLayoutId: plan.layoutId,
+			slotProcessIds: compacted,
+			processSessionIds: compacted.filter((s): s is string => s !== null),
+			activeProcessSessionId: action.processId,
+			floatingShellIds: session.floatingShellIds.filter(
+				(id) => id !== action.processId,
+			),
+			expandedFloatingShellId:
+				session.expandedFloatingShellId === action.processId
+					? null
+					: session.expandedFloatingShellId,
+		};
+		return {
+			...state,
+			sessionsByWorktreeId: {
+				...state.sessionsByWorktreeId,
+				[action.worktreeId]: {
+					...nextSession,
+					attentionState: recalculateWorktreeAttention(
+						nextSession,
+						state.processSessionsById,
+					),
+				},
+			},
+		};
+	}
+
 	// --- Remaining session-level actions ---
 
 	const session = state.sessionsByWorktreeId[action.worktreeId];
