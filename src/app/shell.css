@@ -1197,6 +1197,15 @@ select {
 	flex: 0 0 auto;
 }
 
+/* Chrome icon buttons recede at rest so the hover highlight reads in every
+   theme (a dim->accent shift; in dark --primary is a near-white that wouldn't
+   pop against full-foreground icons). */
+.shell-sidebar__header button,
+.shell-sidebar__theme-trigger,
+.shell-sidebar__workspace-remove {
+	color: var(--muted-foreground);
+}
+
 /* Sidebar button hover: highlight the icon/label itself (accent colour) with NO
    background fill. (Overrides shadcn's `hover:bg-accent` + text wash.) */
 .shell-sidebar__header button:hover,
