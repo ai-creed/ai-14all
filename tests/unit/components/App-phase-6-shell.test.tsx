@@ -759,7 +759,7 @@ describe("App — Phase 6 default shell", () => {
 		);
 
 		expect(shellLayout).toHaveStyle({
-			gridTemplateColumns: "68px minmax(0, 1fr)",
+			gridTemplateColumns: "88px minmax(0, 1fr)",
 		});
 		expect(nav).toHaveAttribute("data-collapsed", "true");
 		expect(within(nav).queryByText("feature-a")).not.toBeInTheDocument();
@@ -827,7 +827,7 @@ describe("App — Phase 6 default shell", () => {
 		});
 	});
 
-	it("clamps sidebar width to minimum 180px", async () => {
+	it("clamps sidebar width to minimum 200px", async () => {
 		readRestoreStateMock.mockResolvedValue({
 			version: 1,
 			restorePreference: "prompt",
@@ -869,7 +869,7 @@ describe("App — Phase 6 default shell", () => {
 
 		await waitFor(() => {
 			expect(layout).toHaveStyle({
-				gridTemplateColumns: "180px minmax(0, 1fr)",
+				gridTemplateColumns: "200px minmax(0, 1fr)",
 			});
 		});
 	});
@@ -970,7 +970,7 @@ describe("App — Phase 6 default shell", () => {
 		});
 
 		const layout = screen.getByTestId("shell-layout");
-		expect(layout).toHaveStyle({ gridTemplateColumns: "68px minmax(0, 1fr)" });
+		expect(layout).toHaveStyle({ gridTemplateColumns: "88px minmax(0, 1fr)" });
 	});
 
 	it("preserves sidebar width after collapse and expand", async () => {
@@ -1027,7 +1027,7 @@ describe("App — Phase 6 default shell", () => {
 		await userEvent.click(collapseButton);
 		await waitFor(() => {
 			expect(layout).toHaveStyle({
-				gridTemplateColumns: "68px minmax(0, 1fr)",
+				gridTemplateColumns: "88px minmax(0, 1fr)",
 			});
 		});
 

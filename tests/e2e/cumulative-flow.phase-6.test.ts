@@ -128,7 +128,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await worktreeNav.getByRole("button", { name: "Collapse sidebar" }).click();
 		await expect(shellLayout).toHaveAttribute(
 			"style",
-			/grid-template-columns:\s*68px minmax\(0px?,\s*1fr\)/,
+			/grid-template-columns:\s*88px minmax\(0px?,\s*1fr\)/,
 		);
 		await worktreeNav.getByRole("button", { name: "Expand sidebar" }).click();
 
