@@ -222,6 +222,22 @@ function isTerminalLayoutShortcut(
 	return e.ctrlKey && !e.metaKey;
 }
 
+// ⌘⇧T / Ctrl+Shift+T — spawn a floating throwaway shell. Mirrors the other
+// ⌘⇧-letter terminal-management shortcuts; Shift distinguishes it from ⌘T
+// (terminal.new). allowXterm so it fires from inside a focused terminal.
+function isTerminalNewFloatingShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "t" && e.key !== "T") return false;
+	if (e.altKey || !e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null, { allowXterm: true }))
+		return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
 function isLayoutToggleSidebarShortcut(
 	e: KeyboardEvent,
 	platform: Platform,
@@ -380,6 +396,13 @@ export const SHORTCUT_REGISTRY: AppShortcut[] = [
 		mac: "⌘T",
 		other: "Ctrl+T",
 		predicate: isTerminalNewShortcut,
+	},
+	{
+		id: "terminal.newFloating",
+		label: "New throwaway shell",
+		mac: "⌘⇧T",
+		other: "Ctrl+Shift+T",
+		predicate: isTerminalNewFloatingShortcut,
 	},
 	{
 		id: "terminal.close",
