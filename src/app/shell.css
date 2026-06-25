@@ -722,8 +722,8 @@ select {
 .shell-sidebar__node {
 	position: relative;
 	padding-left: 24px;
-	/* Gap between cards — matches the prototype's ~4px card spacing (was 8px). */
-	padding-bottom: var(--space-1);
+	/* Gap between cards — matches the prototype's 2px card spacing. */
+	padding-bottom: 2px;
 }
 
 .shell-sidebar__node:last-child {
