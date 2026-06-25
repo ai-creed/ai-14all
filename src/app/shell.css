@@ -489,7 +489,7 @@ select {
  * session-info pane's .shell-label eyebrows are unaffected. */
 .shell-sidebar__header .shell-label {
 	font-size: var(--ws-fs-header);
-	font-weight: 500;
+	font-weight: 700;
 	letter-spacing: 0.12em;
 	text-align: left;
 }
@@ -531,6 +531,9 @@ select {
 	height: 100%;
 	min-height: 0;
 	min-width: 0;
+	/* Clip the full-bleed header's negative-margin so the top separator can't
+	   protrude past the panel edge when the sidebar is shrunk. */
+	overflow-x: clip;
 	border-color: var(--pane-border-sessions);
 }
 
@@ -669,6 +672,10 @@ select {
 	/* Left-aligned like the prototype (a raw <button> defaults to center, which
 	   centered wrapped titles when the panel is narrow). */
 	text-align: left;
+	/* Truncate (not wrap) when the panel is shrunk down. */
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 	color: var(--text-secondary);
 	background: transparent;
 	border: none;
@@ -751,7 +758,6 @@ select {
 	padding: 0 var(--space-1) var(--space-1);
 	color: var(--text-muted);
 	font-size: 11px;
-	font-style: italic;
 	line-height: 1.4;
 }
 
