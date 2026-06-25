@@ -1355,6 +1355,93 @@ export function App() {
 	const refreshChanges = useCallback(() => {
 		if (activeWorktree) setRefreshKey((k) => k + 1);
 	}, [activeWorktree?.id]);
+	// handleSelectWorktree's identity churns each render while no workspace is
+	// active (worktrees defaults to a fresh []), so read it from a ref to keep
+	// selectAdjacentWorktree — and thus the cycle command memo — referentially
+	// stable. Otherwise useRegisterCommands' setVersion would re-fire every
+	// render and spin into an infinite update loop.
+	const handleSelectWorktreeRef = useRef(handleSelectWorktree);
+	handleSelectWorktreeRef.current = handleSelectWorktree;
+	const selectAdjacentWorktree = useCallback(
+		(direction: "next" | "prev"): boolean => {
+			const wts = worktreesRef.current;
+			const currentId = workspaceStateRef.current.selectedWorktreeId;
+			if (!wts.length || !currentId) return false;
+			const idx = wts.findIndex((w) => w.id === currentId);
+			if (idx === -1) return false;
+			const nextIdx =
+				direction === "next"
+					? (idx + 1) % wts.length
+					: (idx - 1 + wts.length) % wts.length;
+			const nextId = wts[nextIdx]?.id;
+			if (!nextId) return false;
+			void handleSelectWorktreeRef.current(nextId);
+			return true;
+		},
+		[],
+	);
+	const selectAdjacentWorkspace = useCallback(
+		(direction: "next" | "prev"): boolean => {
+			const order = appWorkspacesRef.current.workspaceOrder;
+			const currentId = appWorkspacesRef.current.activeWorkspaceId;
+			if (order.length < 2 || !currentId) return false;
+			const idx = order.indexOf(currentId);
+			if (idx === -1) return false;
+			const nextIdx =
+				direction === "next"
+					? (idx + 1) % order.length
+					: (idx - 1 + order.length) % order.length;
+			const nextId = order[nextIdx];
+			if (!nextId) return false;
+			if (!hasInlineEditorsRegistered()) {
+				void activateWorkspace(nextId);
+				return true;
+			}
+			void (async () => {
+				const gate = await runInlineEditorDirtyGate();
+				if (gate === "cancel") return;
+				void activateWorkspace(nextId);
+			})();
+			return true;
+		},
+		[],
+	);
+	const selectAdjacentTerminal = useCallback(
+		(direction: "next" | "prev"): boolean => {
+			const currentState = workspaceStateRef.current;
+			const currentWorktreeId = currentState.selectedWorktreeId;
+			if (!currentWorktreeId) return false;
+			const session = currentState.sessionsByWorktreeId[currentWorktreeId];
+			if (!session) return false;
+			const processes = (session.processSessionIds ?? [])
+				.map((id) => currentState.processSessionsById[id])
+				.filter(Boolean)
+				.sort((a, b) => Number(b.pinned) - Number(a.pinned));
+			if (processes.length < 2) return false;
+			const currentProcessId = session.activeProcessSessionId;
+			const idx = processes.findIndex((p) => p.id === currentProcessId);
+			const nextIdx =
+				direction === "next"
+					? (idx + 1) % processes.length
+					: (idx - 1 + processes.length) % processes.length;
+			const nextProcessId = processes[nextIdx]?.id;
+			if (!nextProcessId) return false;
+			dispatch({ type: "session/selectProcess", worktreeId: currentWorktreeId, processId: nextProcessId });
+			dispatch({ type: "session/markProcessViewed", worktreeId: currentWorktreeId, processId: nextProcessId });
+			dispatch({ type: "session/clearProcessAgentAttention", worktreeId: currentWorktreeId, processId: nextProcessId, sticky: false, clearedAt: Date.now() });
+			dispatch({ type: "session/clearSessionAgentAttention", worktreeId: currentWorktreeId });
+			setTerminalFocusSignal((n) => n + 1);
+			return true;
+		},
+		[dispatch],
+	);
+	const countTerminals = useCallback((): number => {
+		const currentState = workspaceStateRef.current;
+		const currentWorktreeId = currentState.selectedWorktreeId;
+		if (!currentWorktreeId) return 0;
+		const session = currentState.sessionsByWorktreeId[currentWorktreeId];
+		return session?.processSessionIds?.length ?? 0;
+	}, []);
 
 	const simpleCommands = useMemo<Command[]>(
 		() => [
@@ -1385,6 +1472,19 @@ export function App() {
 		],
 	);
 	useRegisterCommands(simpleCommands, [simpleCommands]);
+
+	const cycleCommands = useMemo<Command[]>(
+		() => [
+			{ id: "worktree.selectNext", title: "Next worktree", group: "Worktree", keybindingId: "worktree.selectNext", run: () => selectAdjacentWorktree("next"), isAvailable: () => worktreesRef.current.length > 1 },
+			{ id: "worktree.selectPrev", title: "Previous worktree", group: "Worktree", keybindingId: "worktree.selectPrev", run: () => selectAdjacentWorktree("prev"), isAvailable: () => worktreesRef.current.length > 1 },
+			{ id: "workspace.selectNext", title: "Next workspace", group: "Workspace", keybindingId: "workspace.selectNext", run: () => selectAdjacentWorkspace("next"), isAvailable: () => appWorkspacesRef.current.workspaceOrder.length > 1 },
+			{ id: "workspace.selectPrev", title: "Previous workspace", group: "Workspace", keybindingId: "workspace.selectPrev", run: () => selectAdjacentWorkspace("prev"), isAvailable: () => appWorkspacesRef.current.workspaceOrder.length > 1 },
+			{ id: "terminal.selectNext", title: "Next terminal", group: "Terminal", keybindingId: "terminal.selectNext", run: () => selectAdjacentTerminal("next"), isAvailable: () => countTerminals() > 1 },
+			{ id: "terminal.selectPrev", title: "Previous terminal", group: "Terminal", keybindingId: "terminal.selectPrev", run: () => selectAdjacentTerminal("prev"), isAvailable: () => countTerminals() > 1 },
+		],
+		[selectAdjacentWorktree, selectAdjacentWorkspace, selectAdjacentTerminal, countTerminals],
+	);
+	useRegisterCommands(cycleCommands, [cycleCommands]);
 
 	// Cmd+; / Ctrl+; — toggle note sheet
 	useKeyboardShortcut(
@@ -1464,21 +1564,9 @@ export function App() {
 		"worktree.selectPrev",
 		appPlatform,
 		(e, direction) => {
-			const wts = worktreesRef.current;
-			const currentId = workspaceStateRef.current.selectedWorktreeId;
-			if (!wts.length || !currentId) return;
-			const idx = wts.findIndex((w) => w.id === currentId);
-			if (idx === -1) return;
-			const nextIdx =
-				direction === "next"
-					? (idx + 1) % wts.length
-					: (idx - 1 + wts.length) % wts.length;
-			const nextId = wts[nextIdx]?.id;
-			if (!nextId) return;
-			e.preventDefault();
-			void handleSelectWorktree(nextId);
+			if (selectAdjacentWorktree(direction)) e.preventDefault();
 		},
-		[handleSelectWorktree],
+		[selectAdjacentWorktree],
 	);
 
 	// Cmd+N / Ctrl+N — add worktree
@@ -1498,33 +1586,9 @@ export function App() {
 		"workspace.selectPrev",
 		appPlatform,
 		(e, direction) => {
-			const order = appWorkspacesRef.current.workspaceOrder;
-			const currentId = appWorkspacesRef.current.activeWorkspaceId;
-			if (order.length < 2 || !currentId) return;
-			const idx = order.indexOf(currentId);
-			if (idx === -1) return;
-			const nextIdx =
-				direction === "next"
-					? (idx + 1) % order.length
-					: (idx - 1 + order.length) % order.length;
-			const nextId = order[nextIdx];
-			if (!nextId) return;
-			e.preventDefault();
-			// Dirty-gate before swapping workspaces — otherwise activateWorkspace
-			// unmounts the editor from the outgoing workspace and the user loses
-			// their buffer without Save/Discard/Cancel.
-			if (!hasInlineEditorsRegistered()) {
-				void activateWorkspace(nextId);
-				return;
-			}
-			void (async () => {
-				const gate = await runInlineEditorDirtyGate();
-				if (gate === "cancel") return;
-				void activateWorkspace(nextId);
-			})();
+			if (selectAdjacentWorkspace(direction)) e.preventDefault();
 		},
-		// activateWorkspace reads from refs internally — stale closure is safe
-		[],
+		[selectAdjacentWorkspace],
 	);
 
 	// Cmd+O / Ctrl+O — open workspace picker (menu accelerator already fires
@@ -1589,51 +1653,9 @@ export function App() {
 		"terminal.selectPrev",
 		appPlatform,
 		(e, direction) => {
-			const currentState = workspaceStateRef.current;
-			const currentWorktreeId = currentState.selectedWorktreeId;
-			if (!currentWorktreeId) return;
-			const session = currentState.sessionsByWorktreeId[currentWorktreeId];
-			if (!session) return;
-			const processes = (session.processSessionIds ?? [])
-				.map((id) => currentState.processSessionsById[id])
-				.filter(Boolean)
-				.sort((a, b) => Number(b.pinned) - Number(a.pinned));
-			if (processes.length < 2) return;
-			const currentProcessId = session.activeProcessSessionId;
-			const idx = processes.findIndex((p) => p.id === currentProcessId);
-			const nextIdx =
-				direction === "next"
-					? (idx + 1) % processes.length
-					: (idx - 1 + processes.length) % processes.length;
-			const nextProcessId = processes[nextIdx]?.id;
-			if (!nextProcessId) return;
-			e.preventDefault();
-
-			// Next/prev only cycles focus across slots — layout is unchanged.
-			dispatch({
-				type: "session/selectProcess",
-				worktreeId: currentWorktreeId,
-				processId: nextProcessId,
-			});
-			dispatch({
-				type: "session/markProcessViewed",
-				worktreeId: currentWorktreeId,
-				processId: nextProcessId,
-			});
-			dispatch({
-				type: "session/clearProcessAgentAttention",
-				worktreeId: currentWorktreeId,
-				processId: nextProcessId,
-				sticky: false,
-				clearedAt: Date.now(),
-			});
-			dispatch({
-				type: "session/clearSessionAgentAttention",
-				worktreeId: currentWorktreeId,
-			});
-			setTerminalFocusSignal((n) => n + 1);
+			if (selectAdjacentTerminal(direction)) e.preventDefault();
 		},
-		[dispatch],
+		[selectAdjacentTerminal],
 	);
 
 	// Cmd+B / Ctrl+B — toggle sidebar
