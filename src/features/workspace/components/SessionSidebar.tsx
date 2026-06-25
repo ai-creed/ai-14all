@@ -159,9 +159,9 @@ export function SessionSidebar({
 				>
 					<span aria-hidden="true">
 						{collapsed ? (
-							<Icon name="sidebar-expand" />
-						) : (
 							<Icon name="sidebar-collapse" />
+						) : (
+							<Icon name="sidebar-expand" />
 						)}
 					</span>
 				</Button>
@@ -558,9 +558,9 @@ export function SessionSidebar({
 										<div className="shell-sidebar__node shell-sidebar__node--new">
 											<Button
 												type="button"
-												variant="secondary"
+												variant="outline"
 												size="sm"
-												className="w-full"
+												className="w-full shadow-none"
 												onClick={() => onCreateWorktree(workspace.workspaceId)}
 												aria-label="New session"
 											>
@@ -579,7 +579,7 @@ export function SessionSidebar({
 					type="button"
 					variant="outline"
 					size="sm"
-					className="w-full"
+					className="w-full shadow-none"
 					onClick={onLoadWorkspace}
 					aria-label="Load workspace"
 				>
