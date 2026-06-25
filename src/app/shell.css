@@ -1129,6 +1129,18 @@ select {
 	flex: 0 0 auto;
 }
 
+/* Legible hover for the sidebar's shadcn ghost/outline buttons. The legacy
+   bridge maps --accent -> --primary, so the default `hover:bg-accent` +
+   `hover:text-accent-foreground` washes text out. Use a muted step + primary
+   text instead (good contrast in every theme; selected-row accent untouched). */
+.shell-sidebar__header button:hover,
+.shell-sidebar__workspace-remove:hover,
+.shell-sidebar__node--new button:hover,
+.shell-sidebar__footer--global button:hover {
+	background-color: var(--muted);
+	color: var(--text-primary);
+}
+
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-group {
 	align-items: center;
 	padding: 0;
