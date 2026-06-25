@@ -43,6 +43,8 @@ export const ICON_GLYPHS = {
 	code: { fallback: "❮❯", nf: "" }, // code </>
 	comment: { fallback: "💬", nf: "" }, // comment
 	info: { fallback: "ⓘ", nf: "" }, // info-circle
+	pin: { fallback: "📌", nf: "" }, // pin
+	minimize: { fallback: "—", nf: "" }, // minimize / collapse
 } as const;
 
 export type IconName = keyof typeof ICON_GLYPHS;

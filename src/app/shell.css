@@ -4969,3 +4969,49 @@ select {
 	cursor: pointer;
 	padding: 2px 8px 2px 2px;
 }
+
+/* ── Floating shell popover ─────────────────────────────────────────────── */
+
+.floating-shell-popover {
+	position: absolute;
+	top: 100%;
+	right: 8px;
+	z-index: 40;
+	width: 460px;
+	max-width: calc(100vw - 24px);
+	height: 320px;
+	display: flex;
+	flex-direction: column;
+	background: var(--bg-secondary, #1a1f29);
+	border: 1px solid var(--border, #3a4356);
+	border-radius: 9px;
+	box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+	overflow: hidden;
+}
+.floating-shell-popover__header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 8px;
+	background: var(--bg-tertiary, #232b39);
+	border-bottom: 1px solid var(--border, #3a4356);
+}
+.floating-shell-popover__title {
+	flex: 1;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+.floating-shell-popover__dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: #3ad07a;
+}
+.floating-shell-popover__dot[data-exited="true"] {
+	background: #e0a13a;
+}
+.floating-shell-popover__body {
+	flex: 1;
+	min-height: 0;
+}
