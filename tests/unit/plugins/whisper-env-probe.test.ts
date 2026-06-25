@@ -41,6 +41,36 @@ describe("probeWhisper", () => {
 		});
 	});
 
+	it("carries the evaluator readiness block when the env report includes it", async () => {
+		const report = JSON.stringify({
+			...JSON.parse(GOOD_ENV),
+			evaluator: { status: "missing_anthropic_key", ready: false },
+		});
+		const bin = fakeWhisper(`echo '${report}'`);
+		const result = await probeWhisper(
+			{ command: bin, prefixArgs: [] },
+			{ timeoutMs: 2000 },
+		);
+		expect(result).toEqual({
+			kind: "installed",
+			version: "0.6.0",
+			installPath: "/opt/homebrew/lib/node_modules/ai-whisper",
+			protocolVersion: "1",
+			evaluator: { status: "missing_anthropic_key", ready: false },
+		});
+	});
+
+	it("omits evaluator (no warning) when an older whisper does not report it", async () => {
+		// GOOD_ENV has no evaluator field — the optional schema must parse fine and
+		// leave evaluator off the result so the panel shows no false warning.
+		const bin = fakeWhisper(`echo '${GOOD_ENV}'`);
+		const result = await probeWhisper(
+			{ command: bin, prefixArgs: [] },
+			{ timeoutMs: 2000 },
+		);
+		expect(result).not.toHaveProperty("evaluator");
+	});
+
 	it("maps unknown-command failure to incompatible (old whisper)", async () => {
 		const bin = fakeWhisper('echo "error: unknown command env" >&2; exit 1');
 		const result = await probeWhisper(

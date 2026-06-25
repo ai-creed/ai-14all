@@ -147,7 +147,7 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 					onClick={async () => {
 						setBusy(true);
 						const r = await status.install(
-							Array.from(selected) as ("claude-code" | "codex")[],
+							Array.from(selected) as ("claude-code" | "codex" | "ezio")[],
 						);
 						const map: Record<string, { ok: boolean; message: string | null }> =
 							{};

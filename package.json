@@ -1,6 +1,6 @@
 {
 	"name": "ai-14all",
-	"version": "0.10.0",
+	"version": "0.10.2",
 	"private": true,
 	"description": "Mission-control desktop app for running AI coding agents in parallel across Git worktrees",
 	"author": "Vu Phan <vu.phan.se@gmail.com>",
@@ -23,6 +23,7 @@
 		"pretest": "node scripts/rebuild-better-sqlite3-host.mjs || true",
 		"test": "vitest run --passWithNoTests",
 		"test:perf": "vitest run --config vitest.perf.config.ts",
+		"test:integration": "vitest run --config vitest.integration.config.ts",
 		"pretest:e2e": "electron-rebuild -f -w better-sqlite3 || true",
 		"test:e2e": "electron-vite build && playwright test",
 		"posttest:e2e": "node scripts/rebuild-better-sqlite3-host.mjs || true",
@@ -91,6 +92,7 @@
 		"@types/node": "^25.5.0",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.2.3",
+		"@types/ws": "^8.18.1",
 		"@vitejs/plugin-react": "^4.7.0",
 		"builder-util": "^26.15.0",
 		"electron": "^41.1.1",
@@ -107,6 +109,7 @@
 		"typescript": "^6.0.2",
 		"typescript-eslint": "^8.30.1",
 		"vite": "^6.4.1",
-		"vitest": "^4.1.2"
+		"vitest": "^4.1.2",
+		"ws": "^8.21.0"
 	}
 }

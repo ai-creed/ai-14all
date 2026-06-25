@@ -148,25 +148,27 @@ test.describe.serial("Cumulative flow — Phase 10", () => {
 		).not.toBeVisible({ timeout: 3_000 });
 	});
 
-	test("keyboard shortcuts do not fire when terminal input has focus", async () => {
+	test("global help shortcut still opens when terminal input has focus (allowXterm)", async () => {
 		test.setTimeout(30_000);
 		await ensureWorkspaceLoaded();
-		// Close the shortcuts help if it is open.
 		const helpDialog = page.getByRole("dialog", {
 			name: /keyboard shortcuts/i,
 		});
+		// Ensure it starts closed.
 		if (await helpDialog.isVisible({ timeout: 500 }).catch(() => false)) {
 			await page.keyboard.press("Escape");
+			await expect(helpDialog).not.toBeVisible({ timeout: 2_000 });
 		}
 		// Focus the xterm textarea.
 		const terminalTextarea = page.locator(
 			'.shell-terminal-pane[aria-hidden="false"] .xterm-helper-textarea',
 		);
 		await terminalTextarea.focus();
-		// Pressing the help shortcut key combo in the terminal should NOT open shortcuts help.
+		// Cmd+/ is a global-navigation shortcut gated with allowXterm:true, so it
+		// fires even when the terminal owns keyboard focus (see shortcut-registry
+		// isShortcutsHelpShortcut, alongside Cmd+P / Cmd+J). It must still open the
+		// shortcuts help overlay.
 		await page.keyboard.press(`${modKey}+Slash`);
-		await expect(
-			page.getByRole("dialog", { name: /keyboard shortcuts/i }),
-		).not.toBeVisible({ timeout: 2_000 });
+		await expect(helpDialog).toBeVisible({ timeout: 2_000 });
 	});
 });

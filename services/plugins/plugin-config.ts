@@ -6,6 +6,7 @@ import { parse, stringify } from "smol-toml";
 export type PluginConfigEntry = {
 	enabled: boolean;
 	installPath: string | null;
+	behavior?: { focusRaisesWindow: boolean; actingEnabled: boolean };
 };
 
 export type PluginConfigStore = {
@@ -52,13 +53,36 @@ export function createPluginConfigStore(options: {
 		if (typeof plugins !== "object" || plugins === null) return;
 		for (const [id, raw] of Object.entries(plugins)) {
 			if (typeof raw !== "object" || raw === null) continue;
-			const section = raw as { enabled?: unknown; install_path?: unknown };
+			const section = raw as {
+				enabled?: unknown;
+				install_path?: unknown;
+				behavior?: unknown;
+			};
+			const behaviorRaw = section.behavior;
+			const behaviorObj =
+				typeof behaviorRaw === "object" && behaviorRaw !== null
+					? (behaviorRaw as {
+							focus_raises_window?: unknown;
+							acting_enabled?: unknown;
+						})
+					: null;
+			const behavior =
+				behaviorObj === null
+					? undefined
+					: {
+							focusRaisesWindow:
+								typeof behaviorObj.focus_raises_window === "boolean"
+									? behaviorObj.focus_raises_window
+									: true,
+							actingEnabled: behaviorObj.acting_enabled === true,
+						};
 			entries.set(id, {
 				enabled: section.enabled === true,
 				installPath:
 					typeof section.install_path === "string"
 						? expandTilde(section.install_path)
 						: null,
+				...(behavior ? { behavior } : {}),
 			});
 		}
 	}

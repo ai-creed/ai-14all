@@ -93,7 +93,19 @@ test.describe.serial("AgentSkillInstaller — CLI-present path", () => {
 			{ mode: 0o755 },
 		);
 
-		// Launch app with custom HOME and PATH
+		// ai-ezio shim: detection looks for the `ai-ezio` binary on PATH. ezio
+		// registration is a direct mcp.json file write (no CLI call), so this only
+		// needs to exist for detection — it records args for completeness.
+		const ezioShim = join(shimDir, "ai-ezio");
+		writeFileSync(
+			ezioShim,
+			`#!/bin/sh\necho "ai-ezio $*" >> "${shimLogFile}"\nexit 0\n`,
+			{ mode: 0o755 },
+		);
+
+		// Launch app with custom HOME and PATH. XDG_CONFIG_HOME is pinned inside the
+		// temp HOME so ezio's config root (`$XDG_CONFIG_HOME/ai-ezio`) is contained
+		// and deterministic regardless of the runner's environment.
 		app = await electron.launch({
 			args: ["out/main/index.js"],
 			env: {
@@ -102,6 +114,7 @@ test.describe.serial("AgentSkillInstaller — CLI-present path", () => {
 				AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
 				AI14ALL_WORKSPACE_STATE_PATH: persistedStatePath,
 				HOME: tempHomeDir,
+				XDG_CONFIG_HOME: join(tempHomeDir, ".config"),
 				PATH: `${shimDir}:${process.env.PATH ?? ""}`,
 			},
 		});
@@ -137,18 +150,22 @@ test.describe.serial("AgentSkillInstaller — CLI-present path", () => {
 		const results = await page.evaluate(async () => {
 			const ai = (window as unknown as { ai14all: typeof window.ai14all })
 				.ai14all;
-			return ai.agentInstall.install(["claude-code", "codex"]);
+			return ai.agentInstall.install(["claude-code", "codex", "ezio"]);
 		});
 
-		// Both providers should report ok: true
+		// All three providers should report ok: true
 		const claudeResult = results.find(
 			(r: { id: string; ok: boolean }) => r.id === "claude-code",
 		);
 		const codexResult = results.find(
 			(r: { id: string; ok: boolean }) => r.id === "codex",
 		);
+		const ezioResult = results.find(
+			(r: { id: string; ok: boolean }) => r.id === "ezio",
+		);
 		expect(claudeResult?.ok).toBe(true);
 		expect(codexResult?.ok).toBe(true);
+		expect(ezioResult?.ok).toBe(true);
 
 		// SKILL.md written for claude
 		const claudeSkillPath = join(
@@ -182,6 +199,32 @@ test.describe.serial("AgentSkillInstaller — CLI-present path", () => {
 
 		// Shim log: verify codex CLI was called with --url
 		expect(shimLog).toMatch(/codex mcp add --url .+ ai-14all/);
+
+		// ezio: registration is a direct file write into its config root, not a CLI
+		// call. SKILL.md is written under `$XDG_CONFIG_HOME/ai-ezio/skills/...`.
+		const ezioConfigDir = join(tempHomeDir, ".config", "ai-ezio");
+		const ezioSkillPath = join(
+			ezioConfigDir,
+			"skills",
+			"ai-14all-fix-review",
+			"SKILL.md",
+		);
+		expect(existsSync(ezioSkillPath)).toBe(true);
+		expect(readFileSync(ezioSkillPath, "utf-8")).toMatch(
+			/^---\nname: ai-14all-fix-review/,
+		);
+
+		// ezio mcp.json gains the stdio->HTTP mcp-remote bridge entry pointing at
+		// ai-14all's MCP URL, since ezio's host can't consume the HTTP URL directly.
+		const ezioMcp = JSON.parse(
+			readFileSync(join(ezioConfigDir, "mcp.json"), "utf-8"),
+		);
+		expect(ezioMcp.mcpServers["ai-14all"].command).toBe("npx");
+		expect(ezioMcp.mcpServers["ai-14all"].args).toEqual([
+			"-y",
+			"mcp-remote",
+			expect.stringMatching(/^http:\/\/127\.0\.0\.1:\d+\/mcp$/),
+		]);
 	});
 });
 
@@ -225,10 +268,16 @@ test.describe.serial("AgentSkillInstaller — CLI-absent path", () => {
 		// ~/.codex/ — configRootDetected for CodexProvider
 		mkdirSync(join(tempHomeDir, ".codex"), { recursive: true });
 
-		// Strip claude + codex from PATH (keep only system dirs that won't have them)
+		// $XDG_CONFIG_HOME/ai-ezio/ — configRootDetected for EzioProvider
+		mkdirSync(join(tempHomeDir, ".config", "ai-ezio"), { recursive: true });
+
+		// Strip claude + codex + ezio from PATH (keep only system dirs without them)
 		strippedPath = (process.env.PATH ?? "")
 			.split(":")
-			.filter((p) => !p.includes("claude") && !p.includes("codex"))
+			.filter(
+				(p) =>
+					!p.includes("claude") && !p.includes("codex") && !p.includes("ezio"),
+			)
 			.join(":");
 
 		// Launch app
@@ -240,6 +289,7 @@ test.describe.serial("AgentSkillInstaller — CLI-absent path", () => {
 				AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
 				AI14ALL_WORKSPACE_STATE_PATH: persistedStatePath,
 				HOME: tempHomeDir,
+				XDG_CONFIG_HOME: join(tempHomeDir, ".config"),
 				PATH: strippedPath,
 			},
 		});
@@ -280,14 +330,17 @@ test.describe.serial("AgentSkillInstaller — CLI-absent path", () => {
 			(p: { id: string }) => p.id === "claude-code",
 		);
 		const codex = providers.find((p: { id: string }) => p.id === "codex");
+		const ezio = providers.find((p: { id: string }) => p.id === "ezio");
 
-		// CLI not on PATH — both unavailable
+		// CLI not on PATH — all unavailable
 		expect(claude?.cliAvailable).toBe(false);
 		expect(codex?.cliAvailable).toBe(false);
+		expect(ezio?.cliAvailable).toBe(false);
 
 		// Config roots exist via seeded files/dirs
 		expect(claude?.configRootDetected).toBe(true);
 		expect(codex?.configRootDetected).toBe(true);
+		expect(ezio?.configRootDetected).toBe(true);
 	});
 
 	test("install fails with 'not available' and writes nothing", async () => {

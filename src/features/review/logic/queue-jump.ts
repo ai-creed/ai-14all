@@ -44,7 +44,7 @@ export function dispatchActionsForJump(c: ReviewComment): JumpAction[] {
 export async function waitForEditor(
 	get: () => MonacoEditor.IStandaloneDiffEditor | null,
 	timeoutMs = 500,
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 	_now: () => number = () => Date.now(),
 ): Promise<MonacoEditor.IStandaloneDiffEditor | null> {
 	const deadline = Date.now() + timeoutMs;

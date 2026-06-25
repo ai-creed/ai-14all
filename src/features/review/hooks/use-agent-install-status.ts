@@ -4,7 +4,7 @@ import { agentInstall } from "../../../lib/desktop-client";
 export type CliSource = "override" | "path" | "fixed" | "shell" | "none";
 
 export type Provider = {
-	id: "claude-code" | "codex";
+	id: "claude-code" | "codex" | "ezio";
 	displayName: string;
 	cliAvailable: boolean;
 	configRootDetected: boolean;

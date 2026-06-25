@@ -201,4 +201,11 @@ export const plugins: Ai14AllDesktopApi["plugins"] = {
 		getDesktopClient().plugins.onStateChanged(handler),
 	onWhisperStateChanged: (handler) =>
 		getDesktopClient().plugins.onWhisperStateChanged(handler),
+	publishSamanthaSessionState: (slice) =>
+		getDesktopClient().plugins.publishSamanthaSessionState(slice),
+	onSamanthaHealth: (handler) =>
+		getDesktopClient().plugins.onSamanthaHealth(handler),
+	onSamanthaFocusWorktree: (handler) =>
+		getDesktopClient().plugins.onSamanthaFocusWorktree(handler),
+	reconnectSamantha: () => getDesktopClient().plugins.reconnectSamantha(),
 };

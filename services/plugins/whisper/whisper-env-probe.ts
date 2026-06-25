@@ -12,6 +12,9 @@ const WhisperEnvReportSchema = z.object({
 	stateRoot: z.string(),
 	dbSchemaVersion: z.number(),
 	protocolVersion: z.string(),
+	// Optional: only whisper builds shipping the evaluator-readiness field emit
+	// it. Older engines parse fine and we simply surface no warning.
+	evaluator: z.object({ ready: z.boolean(), status: z.string() }).optional(),
 });
 
 export function probeWhisper(
@@ -90,6 +93,11 @@ export function probeWhisper(
 					version: report.data.engineVersion,
 					installPath: report.data.installPath,
 					protocolVersion: report.data.protocolVersion,
+					// Spread only when present so the result has no `evaluator` key for
+					// older whisper builds (the panel then shows no warning).
+					...(report.data.evaluator
+						? { evaluator: report.data.evaluator }
+						: {}),
 				});
 			},
 		);

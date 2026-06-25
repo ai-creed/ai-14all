@@ -82,12 +82,17 @@ function isShortcutsHelpShortcut(
 		!e.ctrlKey &&
 		!e.altKey;
 	if (keyIsShiftP) {
-		return !targetOwnsTyping(e.target as HTMLElement | null);
+		// allowXterm: global navigation shortcut — terminal binds no Cmd+Shift+P.
+		return !targetOwnsTyping(e.target as HTMLElement | null, {
+			allowXterm: true,
+		});
 	}
 	// ⌘/ or ⌘? / Ctrl+/ or Ctrl+?
 	const keyIsHelp = e.key === "?" || e.key === "/";
 	if (!keyIsHelp) return false;
-	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	// allowXterm: global navigation shortcut — terminal binds no Cmd+/ or Cmd+?.
+	if (targetOwnsTyping(e.target as HTMLElement | null, { allowXterm: true }))
+		return false;
 	if (platform === "mac") return e.metaKey && !e.ctrlKey && !e.altKey;
 	return e.ctrlKey && !e.metaKey && !e.altKey;
 }
@@ -210,6 +215,22 @@ function isTerminalLayoutShortcut(
 ): boolean {
 	if (e.defaultPrevented) return false;
 	if (e.key !== "l" && e.key !== "L") return false;
+	if (e.altKey || !e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null, { allowXterm: true }))
+		return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
+// ⌘⇧T / Ctrl+Shift+T — spawn a floating throwaway shell. Mirrors the other
+// ⌘⇧-letter terminal-management shortcuts; Shift distinguishes it from ⌘T
+// (terminal.new). allowXterm so it fires from inside a focused terminal.
+function isTerminalNewFloatingShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "t" && e.key !== "T") return false;
 	if (e.altKey || !e.shiftKey) return false;
 	if (targetOwnsTyping(e.target as HTMLElement | null, { allowXterm: true }))
 		return false;
@@ -375,6 +396,13 @@ export const SHORTCUT_REGISTRY: AppShortcut[] = [
 		mac: "⌘T",
 		other: "Ctrl+T",
 		predicate: isTerminalNewShortcut,
+	},
+	{
+		id: "terminal.newFloating",
+		label: "New throwaway shell",
+		mac: "⌘⇧T",
+		other: "Ctrl+Shift+T",
+		predicate: isTerminalNewFloatingShortcut,
 	},
 	{
 		id: "terminal.close",
