@@ -131,12 +131,17 @@ app restart (§8).
 ### 5.3 New reducer actions
 - `session/registerFloatingShell` — register the `ProcessSession` in
   `processSessionsById` and append its id to `floatingShellIds`; set
-  `expandedFloatingShellId` to it. (Enforces the cap-6 guard; no-op at cap.)
+  `expandedFloatingShellId` to it. Includes a **defensive** cap-6 guard (no-op at
+  cap), but this is a backstop only — the cap is enforced **before spawning** in
+  the launch flow (§5.7) so no backend PTY is ever created at the cap.
 - `session/expandFloatingShell` — set `expandedFloatingShellId` (collapse others).
 - `session/minimizeFloatingShell` — clear `expandedFloatingShellId` if it matches.
 - `session/closeFloatingShell` — remove the id from `floatingShellIds` and
   `processSessionsById` (the actual PTY kill is dispatched via the existing
-  terminal client, mirroring `session/closeProcess`).
+  terminal client, mirroring `session/closeProcess`). The dismissal path must
+  **also call `clearReplayOutput(terminalSessionId)`** — because a floating
+  shell's replay buffer is now retained past exit (§5.4), dismissal is the point
+  where it is freed.
 - `session/pinFloatingShellToSlot` — see §5.6.
 
 ### 5.4 Replay buffer reuse (avoids the blanking bug)
@@ -147,12 +152,37 @@ session's raw PTY output into the renderer-side ring buffer
 `getReplayOutput(id)` synchronously on mount before wiring its live subscription.
 
 This means the popover can freely **unmount its xterm on minimize** and on
-worktree switch, and **re-mount with full scrollback** on expand/restore — no
-special handling needed. This directly avoids the known failure mode where an
-unmount/remount drops xterm scrollback and renders the terminal blank
-(gotcha `mem-2026-06-18-terminal-blanks-on-in-workspace-session`). The buffer is
-cleared only on session exit/error/removal, so an "exited-and-lingering" popover
-still shows its output.
+worktree switch, and **re-mount with full scrollback** on expand/restore while
+the shell is still running — no special handling needed. This directly avoids the
+known failure mode where an unmount/remount drops xterm scrollback and renders
+the terminal blank (gotcha `mem-2026-06-18-terminal-blanks-on-in-workspace-session`).
+
+**Exit-time lifecycle change (required for "exited-and-lingering").** Today
+`use-terminal-runtime`'s `onExit` handler clears the replay buffer the instant a
+PTY exits (`clearReplayOutput(event.sessionId)`,
+`src/app/hooks/use-terminal-runtime.ts:191-195`; deletion in
+`replay-buffer.ts:62-64`). Under that behavior a floating popover that is
+minimized — or whose worktree was switched away — and then remounted **after** the
+shell exited would replay nothing and render blank, violating §3.4 and the
+"shell exits while minimized" edge case (§7). So replay reuse alone is **not**
+sufficient; an explicit lifecycle change is required:
+
+- Make the exit clear **floating-aware.** When the exiting session belongs to a
+  floating shell (its `ProcessSession.id` is in that worktree-session's
+  `floatingShellIds`), `onExit` **skips** `clearReplayOutput` and retains the
+  buffer. `onExit` already resolves the owning process via
+  `findProcessByTerminalSessionId`, so the floating check is a cheap membership
+  test on the resolved worktree-session.
+- The retained buffer is freed only when the user dismisses the shell
+  (`session/closeFloatingShell`, §5.3).
+- Slotted shells — including a shell that was **pinned** and is therefore no
+  longer floating — keep the existing clear-on-exit behavior unchanged.
+
+Retained scrollback is bounded by `REPLAY_LIMIT` (256 KiB, `replay-buffer.ts:27`),
+sufficient for a one-off command's final output. (Rejected alternative:
+snapshotting a separate frozen copy of the final output at exit time — it
+duplicates state and adds a second render path; deferring the existing buffer's
+clear is the smaller change.)
 
 ### 5.5 Components
 - **`FloatingShellPills`** — renders the pills inside `TerminalActions`'
@@ -184,6 +214,33 @@ there is no room to promote (equivalently, `resolvePromotedLayout` returns
 floating shells never disables `+ Shell` or pinning — the floating cap (6) is a
 **separate** count over `floatingShellIds`.
 
+### 5.7 Launch flow & cap enforcement (no orphan PTYs)
+Floating launch mirrors the ad-hoc spawn helper (`spawnAdHocProcess` /
+`handleAddAdHoc` in `src/app/hooks/use-process-actions.ts`), which creates the
+**backend** terminal first
+(`createSession(workspaceId, worktree.id, worktree.path)`, `:75-79`) and only then
+dispatches the reducer registration (`:115-125`). Because the PTY exists before
+registration, a reducer-only cap check would **leak an orphaned PTY** — created in
+the backend but absent from `processSessionsById` and the UI, never killed.
+
+Therefore the cap is enforced **pre-spawn**:
+
+1. The `⌘⇧T` handler reads the active worktree-session's
+   `floatingShellIds.length`. If it is already `6`, it returns early with a
+   transient hint and **does not call `createSession`** — no backend PTY is
+   created. (Mirrors how the `⌘T` slotted handler returns early on `addDisabled`,
+   `App.tsx:1405`.)
+2. Otherwise it spawns (reusing `spawnAdHocProcess`'s `try/catch`, which already
+   returns `null` and toasts on failure so the caller dispatches nothing — no
+   orphan slot), then dispatches `session/registerFloatingShell`.
+3. **Defensive backstop:** if `registerFloatingShell`'s guard ever rejects (a race
+   where two launches pass the pre-check concurrently), the handler must kill the
+   just-created terminal (`stopSession` + `removeSession`) so no PTY is orphaned.
+
+Net invariant: **at the cap, no backend or runtime terminal session is ever
+created**, and any session that *is* created is always either registered or torn
+down.
+
 ## 6. Launch & shortcuts
 Add one entry to `SHORTCUT_REGISTRY` (`src/app/shortcut-registry.ts`):
 
@@ -196,6 +253,8 @@ Add one entry to `SHORTCUT_REGISTRY` (`src/app/shortcut-registry.ts`):
   focused — xterm parks focus in a hidden `<textarea>`, and the default gate
   would otherwise swallow it (gotcha
   `mem-2026-06-15-xterm-s-focus-sink-is-a-hidden-textarea`).
+- The handler enforces the floating cap **before** spawning (§5.7), so a no-op at
+  the cap never creates a backend PTY.
 
 `⌘T` (`terminal.new`) is the existing slotted-shell shortcut and explicitly
 excludes Shift, so `⌘⇧T` does not collide. The binding fits the existing
@@ -203,8 +262,8 @@ excludes Shift, so `⌘⇧T` does not collide. The binding fits the existing
 layout). Being in the registry, it auto-appears in the `⌘⇧P` shortcuts overlay.
 
 ## 7. Edge cases
-- **Spawn at cap (6 floating):** `⌘⇧T` no-ops with a transient hint; no shell is
-  created.
+- **Spawn at cap (6 floating):** `⌘⇧T` no-ops with a transient hint; the cap is
+  checked **before** spawning, so no backend PTY is created (§5.7) — no orphan.
 - **Pin into a full grid (6 slots):** 📌 disabled with tooltip; shell stays
   floating.
 - **Pin after exit:** 📌 disabled (nothing useful to promote).
@@ -212,8 +271,9 @@ layout). Being in the registry, it auto-appears in the `⌘⇧P` shortcuts overl
   replays scrollback.
 - **Worktree switch with a popover open:** pills + popover hide; PTYs alive; the
   previously-expanded one re-expands on return.
-- **Shell exits while minimized:** pill flips to "exited" badge; expanding shows
-  final output.
+- **Shell exits while minimized (or after a worktree switch):** the retained
+  replay buffer (§5.4) is **not** cleared on exit, so expanding/returning to the
+  pill replays the final scrollback; the pill shows the "exited" badge.
 - **Kill the expanded popover:** removes it; no popover is expanded afterward.
 - **Pin promotes layout for a returning worktree:** standard planner behavior; no
   special case.
@@ -228,10 +288,12 @@ layout). Being in the registry, it auto-appears in the `⌘⇧P` shortcuts overl
 ## 9. Testing plan
 **Unit (`workspace-state` reducer + planner):**
 - `registerFloatingShell` adds to `floatingShellIds`, not `slotProcessIds`; sets
-  expanded; enforces cap-6 (no-op at cap).
+  expanded; the defensive cap-6 backstop no-ops at cap (primary enforcement is
+  pre-spawn, §5.7).
 - `expand`/`minimize` enforce single-expanded invariant.
 - `closeFloatingShell` removes from both `floatingShellIds` and
-  `processSessionsById`.
+  `processSessionsById`; the dismissal handler frees the retained replay buffer
+  (`clearReplayOutput` called for the shell's `terminalSessionId`).
 - `pinFloatingShellToSlot` moves the id out of `floatingShellIds` and into a slot,
   promotes the layout, reuses the same `ProcessSession` id, sets it active.
 - Pin disabled selector returns true at 6 slots.
@@ -245,9 +307,16 @@ disabled rendering.
   unchanged.
 - Minimize ↔ re-expand preserves scrollback.
 - Worktree switch hides then restores the floating shell with scrollback.
-- Natural exit lingers with exit indicator until dismissed.
+- Natural exit lingers with final output + exit indicator until dismissed.
+- **Exit while minimized**, then re-expand → final scrollback still shown (replay
+  retained past exit, §5.4).
+- **Exit, switch worktree away and back**, then expand → final scrollback still
+  shown; after dismissal the buffer is freed.
 - Pin moves the shell into the grid (layout grows) reusing the PTY.
-- Pin disabled at 6 slots; spawn no-ops at 6 floating shells.
+- Pin disabled at 6 slots.
+- **Spawn at the 6-floating cap is a no-op AND creates no backend terminal
+  session** — assert the backend/runtime session count is unchanged (guards
+  against orphan PTYs, §5.7).
 - `⌘⇧T` fires while a terminal pane is focused (xterm-focus gate).
 
 ## 10. Key files & references
@@ -257,7 +326,10 @@ disabled rendering.
   `TerminalActions.tsx` — header + action group (`addDisabled`).
 - `src/features/terminals/components/TerminalPane.tsx` — reused popover body.
 - `src/features/terminals/logic/replay-buffer.ts`,
-  `src/app/hooks/use-terminal-runtime.ts` — replay feed.
+  `src/app/hooks/use-terminal-runtime.ts` — replay feed; `onExit` clear
+  (`:191-195`) must become floating-aware (§5.4).
+- `src/app/hooks/use-process-actions.ts` — `spawnAdHocProcess` / `handleAddAdHoc`;
+  the spawn-before-register order that mandates pre-spawn cap gating (§5.7).
 - `src/features/workspace/logic/workspace-state.ts` — reducer, slot model,
   `placeProcessInNewSlot`.
 - `src/features/terminals/logic/terminal-layout-planner.ts` —
@@ -273,6 +345,10 @@ disabled rendering.
 - Pin when full: disable with hint (no swap, one-way float → slot).
 - Launch: `⌘⇧T` + auto-listing in shortcuts overlay; no toolbar button; command
   palette deferred.
-- On natural exit: linger with final output + exit code.
+- On natural exit: linger with final output + exit code. **Requires** deferring
+  the replay-buffer clear for floating shells from exit-time to dismissal-time
+  (§5.4) — replay reuse alone is insufficient (reviewer finding).
+- Cap enforcement is **pre-spawn**, not reducer-only, so a no-op at the cap never
+  creates an orphan backend PTY (§5.7) (reviewer finding).
 - Placement: header pills left of `+ Shell`; expanded = drop-down popover.
 - Window controls: minimize + pin + kill.
