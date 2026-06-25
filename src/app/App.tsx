@@ -125,6 +125,7 @@ import { SidebarPanel } from "./components/SidebarPanel";
 import { MainColumnChrome } from "./components/MainColumnChrome";
 import { RestoreBanner } from "./components/RestoreBanner";
 import { AgentAttentionBanner } from "./components/AgentAttentionBanner";
+import { normalizeTerminalTitle } from "./normalize-terminal-title";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -1961,15 +1962,17 @@ export function App() {
 											onMinimize={handleMinimizeFloatingShell}
 											onPin={handlePinFloatingShell}
 											onClose={handleCloseFloatingShell}
-											onTitleChange={(title) =>
+											onTitleChange={(title) => {
+												const nextLabel = normalizeTerminalTitle(title);
+												if (!nextLabel) return;
 												createScopedWorkspaceDispatch(
 													activeWorkspaceId ?? "",
 												)({
 													type: "session/updateProcessLabel",
 													processId: expandedFloatingProcess.id,
-													label: title,
-												})
-											}
+													label: nextLabel,
+												});
+											}}
 										/>
 									)}
 								</div>
