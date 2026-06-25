@@ -566,7 +566,32 @@ select {
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__list {
-	justify-items: center;
+	align-items: center;
+}
+
+/* Collapsed: flatten the worktree tree — no rail gutter, no connector pseudos,
+   no card boxes; just centered marker glyphs. (The collapsed CSS predated the
+   .shell-sidebar__node tree restructure, which is why the rail leaked through.) */
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-items {
+	align-items: center;
+}
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__node {
+	padding-left: 0;
+	padding-bottom: var(--space-1);
+}
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__node::before,
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__node::after {
+	display: none;
+}
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__row {
+	background: transparent;
+	border-color: transparent;
+	padding: 0;
+}
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__node--new button {
+	width: 40px;
+	min-width: 0;
+	padding: 0;
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__item {
