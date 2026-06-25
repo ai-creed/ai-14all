@@ -1732,7 +1732,7 @@ export function App() {
 					data-testid="shell-layout"
 					style={{
 						gridTemplateColumns: `${
-							sidebarCollapsed ? 68 : sidebarWidth
+							sidebarCollapsed ? 100 : sidebarWidth
 						}px minmax(0, 1fr)`,
 					}}
 				>
