@@ -1300,6 +1300,7 @@ export function workspaceReducer(
 	if (action.type === "session/closeFloatingShell") {
 		const session = state.sessionsByWorktreeId[action.worktreeId];
 		if (!session) return state;
+		if (!session.floatingShellIds.includes(action.processId)) return state;
 		const nextProcessSessionsById = Object.fromEntries(
 			Object.entries(state.processSessionsById).filter(
 				([id]) => id !== action.processId,

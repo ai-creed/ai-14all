@@ -113,6 +113,32 @@ describe("floating shell reducer actions", () => {
 		expect(state.sessionsByWorktreeId.a.expandedFloatingShellId).toBeNull();
 		expect(state.processSessionsById.p1).toBeUndefined();
 	});
+
+	it("closeFloatingShell is a no-op when processId is not in floatingShellIds", () => {
+		// Register a slotted process and a floating one, then dispatch
+		// closeFloatingShell with the SLOTTED id — must leave state unchanged.
+		let state = workspaceReducer(base(), {
+			type: "session/registerProcess",
+			worktreeId: "a",
+			process: proc("slot1"),
+		});
+		state = workspaceReducer(state, {
+			type: "session/registerFloatingShell",
+			worktreeId: "a",
+			process: proc("f1"),
+		});
+		const before = state;
+		const after = workspaceReducer(state, {
+			type: "session/closeFloatingShell",
+			worktreeId: "a",
+			processId: "slot1",
+		});
+		expect(after).toBe(before);
+		expect(after.processSessionsById).toEqual(before.processSessionsById);
+		expect(after.sessionsByWorktreeId.a).toEqual(
+			before.sessionsByWorktreeId.a,
+		);
+	});
 });
 
 describe("pinFloatingShellToSlot", () => {

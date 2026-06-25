@@ -283,7 +283,19 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 				const found = findProcessByTerminalSessionId(event.sessionId);
 				if (!found) return;
 				outputPreviewBuffersRef.current.delete(event.sessionId);
-				clearReplayOutput(event.sessionId);
+				// Mirror onExit: floating shells retain the replay buffer so a
+				// minimized/switched popover can still show final output after error.
+				const ownerState =
+					appWorkspacesRef.current.workspacesById[found.workspaceId]
+						?.workspaceState ?? null;
+				const isFloating =
+					ownerState !== null &&
+					isFloatingShell(
+						ownerState,
+						found.process.worktreeId,
+						found.process.id,
+					);
+				if (!isFloating) clearReplayOutput(event.sessionId);
 				lastAgentReasonBySessionRef.current.delete(event.sessionId);
 				const { process, workspaceId: ownerWsId } = found;
 				const action: WorkspaceAction = {
@@ -311,6 +323,7 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 			},
 		}),
 		[
+			appWorkspacesRef,
 			findProcessByTerminalSessionId,
 			applyActionForOwner,
 			getVisibleProcessIds,
