@@ -126,6 +126,7 @@ import { MainColumnChrome } from "./components/MainColumnChrome";
 import { RestoreBanner } from "./components/RestoreBanner";
 import { AgentAttentionBanner } from "./components/AgentAttentionBanner";
 import { normalizeTerminalTitle } from "./normalize-terminal-title";
+import { CommandPalette } from "../features/command-palette/components/CommandPalette";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -177,6 +178,7 @@ export function App() {
 	const [noteSheetOpen, setNoteSheetOpen] = useState(false);
 	const [filesOverlayOpen, setFilesOverlayOpen] = useState(false);
 	const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 	const updateInfo = useUpdateInfoListener();
 	const updateDownloaded = useUpdateDownloadedListener();
 	const [updateDismissedFor, setUpdateDismissedFor] = useState<string | null>(
@@ -1354,6 +1356,17 @@ export function App() {
 		[],
 	);
 
+	// Cmd+Shift+K / Ctrl+Shift+K — open the command palette
+	useKeyboardShortcut(
+		"command-palette",
+		appPlatform,
+		(e) => {
+			e.preventDefault();
+			setCommandPaletteOpen(true);
+		},
+		[],
+	);
+
 	// Cmd+] / Ctrl+] and Cmd+[ / Ctrl+[ — cycle through worktrees
 	useNextPrevShortcut(
 		"worktree.selectNext",
@@ -2231,6 +2244,11 @@ export function App() {
 					agentInstallStatus={agentInstallStatus}
 				/>
 			</main>
+			<CommandPalette
+				open={commandPaletteOpen}
+				onOpenChange={setCommandPaletteOpen}
+				platform={appPlatform}
+			/>
 		</ToastProvider>
 	);
 }

@@ -155,6 +155,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 }));
 
 import { App } from "../../../src/app/App";
+import { CommandRegistryProvider } from "../../../src/features/command-palette/components/CommandRegistryProvider";
 
 describe("App — Phase 5 restore flow", () => {
 	beforeEach(() => {
@@ -208,7 +209,7 @@ describe("App — Phase 5 restore flow", () => {
 			],
 		});
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		expect(
 			await screen.findByRole("button", { name: "Restore previous workspace" }),
@@ -289,7 +290,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		await waitFor(() => {
 			expect(openRepositoryMock).toHaveBeenCalledWith("/repo");
@@ -371,7 +372,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		await userEvent.click(
 			await screen.findByRole("button", { name: "Restore previous workspace" }),
 		);
@@ -486,7 +487,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		await waitFor(() => {
 			expect(createMock).not.toHaveBeenCalled();
@@ -564,7 +565,7 @@ describe("App — Phase 5 restore flow", () => {
 		]);
 		listMock.mockResolvedValue([]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		await waitFor(() => {
 			expect(createMock).toHaveBeenCalledWith(
@@ -659,7 +660,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		await waitFor(() => {
 			expect(createMock).not.toHaveBeenCalledWith("repo-1", "main", "/repo");
@@ -699,7 +700,7 @@ describe("App — Phase 5 restore flow", () => {
 			],
 		});
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		await userEvent.click(
 			await screen.findByRole("button", { name: "Start clean" }),
@@ -775,7 +776,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		// Workspace should load — the repo was found even though the worktree wasn't
 		await screen.findByRole("navigation", { name: "Worktree sessions" });
@@ -835,7 +836,7 @@ describe("App — Phase 5 restore flow", () => {
 			new Error("No such file or directory"),
 		);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		await screen.findByRole("button", { name: "Load" });
 
@@ -880,7 +881,7 @@ describe("App — Phase 5 restore flow", () => {
 			new Error("No such file or directory"),
 		);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		await screen.findByRole("button", { name: "Load" });
 
@@ -949,7 +950,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		// With restorePreference "prompt" the app shows the RestorePrompt.
 		// The user clicks "Start clean" to reach the RepositoryInput while
@@ -1080,7 +1081,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		// Wait for the app to finish auto-restoring (feature-a has no processes so createMock isn't called for it)
 		const mainButton = await screen.findByRole("button", { name: /main/i });
@@ -1167,7 +1168,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		await userEvent.click(
 			await screen.findByRole("button", { name: "Start clean" }),
 		);
@@ -1242,7 +1243,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		await userEvent.click(
 			await screen.findByRole("button", { name: "Start clean" }),
 		);
@@ -1327,7 +1328,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		// Navigate past RestorePrompt (restorePreference: "prompt")
 		await userEvent.click(
 			await screen.findByRole("button", { name: "Start clean" }),
@@ -1386,7 +1387,7 @@ describe("App — Phase 5 restore flow", () => {
 			new Error("ENOENT: no such file or directory, realpath '/missing'"),
 		);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		expect(
 			await screen.findByText(/could not reopen the previous workspace/i),
@@ -1448,7 +1449,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		// Chip bar renders; note sheet is closed by default
 		await screen.findByRole("region", { name: "Session" });
@@ -1523,7 +1524,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		const sidebar = await screen.findByRole("navigation", {
 			name: "Worktree sessions",
@@ -1599,7 +1600,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		// Wait for initial restore to complete
 		await screen.findByRole("group", { name: "repo-b" });
@@ -1692,7 +1693,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		// Confirm restore via the prompt
 		await userEvent.click(

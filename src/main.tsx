@@ -5,6 +5,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App.js";
 import { UiGallery } from "./app/UiGallery.js";
+import { CommandRegistryProvider } from "./features/command-palette/components/CommandRegistryProvider.js";
 import { installKnownRendererErrorHandler } from "./app/logic/known-renderer-errors.js";
 import "./styles/tokens.css";
 import "./app/shell.css";
@@ -35,5 +36,13 @@ const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Root element not found");
 
 createRoot(rootEl).render(
-	<StrictMode>{showGallery ? <UiGallery /> : <App />}</StrictMode>,
+	<StrictMode>
+		{showGallery ? (
+			<UiGallery />
+		) : (
+			<CommandRegistryProvider>
+				<App />
+			</CommandRegistryProvider>
+		)}
+	</StrictMode>,
 );
