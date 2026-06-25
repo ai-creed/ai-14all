@@ -56,6 +56,19 @@ function nearestOccupiedSlot(
 
 export const MAX_FLOATING_SHELLS = 6;
 
+/** True when `processId` is a floating (throwaway) shell in `worktreeId`. */
+export function isFloatingShell(
+	state: WorkspaceState,
+	worktreeId: string,
+	processId: string,
+): boolean {
+	return (
+		state.sessionsByWorktreeId[worktreeId]?.floatingShellIds.includes(
+			processId,
+		) ?? false
+	);
+}
+
 export type WorkspaceAction =
 	| { type: "workspace/loadWorktrees"; worktrees: Worktree[] }
 	| { type: "session/selectWorktree"; worktreeId: string }

@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef } from "react";
 import type { Dispatch, MutableRefObject } from "react";
 import {
 	workspaceReducer,
+	isFloatingShell,
 	type WorkspaceAction,
 	type WorkspaceState,
 } from "../../features/workspace/logic/workspace-state";
@@ -192,7 +193,22 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 				const found = findProcessByTerminalSessionId(event.sessionId);
 				if (!found) return;
 				outputPreviewBuffersRef.current.delete(event.sessionId);
-				clearReplayOutput(event.sessionId);
+				// Floating throwaway shells linger after exit (spec §5.4): retain the
+				// replay buffer so a minimized or worktree-switched popover remounted
+				// after exit still shows final output. Freed on dismissal
+				// (handleCloseFloatingShell → clearReplayOutput). Slotted shells keep
+				// the existing clear-on-exit behavior.
+				const ownerState =
+					appWorkspacesRef.current.workspacesById[found.workspaceId]
+						?.workspaceState ?? null;
+				const isFloating =
+					ownerState !== null &&
+					isFloatingShell(
+						ownerState,
+						found.process.worktreeId,
+						found.process.id,
+					);
+				if (!isFloating) clearReplayOutput(event.sessionId);
 				const lastAgentReason =
 					lastAgentReasonBySessionRef.current.get(event.sessionId) ?? null;
 				lastAgentReasonBySessionRef.current.delete(event.sessionId);

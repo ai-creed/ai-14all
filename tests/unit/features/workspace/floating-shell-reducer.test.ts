@@ -3,6 +3,7 @@ import {
 	createWorkspaceState,
 	workspaceReducer,
 	MAX_FLOATING_SHELLS,
+	isFloatingShell,
 	type WorkspaceState,
 } from "../../../../src/features/workspace/logic/workspace-state";
 import type { Worktree } from "../../../../shared/models/worktree";
@@ -184,5 +185,18 @@ describe("pinFloatingShellToSlot", () => {
 		expect(after.sessionsByWorktreeId.a.slotProcessIds).toEqual(
 			before.slotProcessIds,
 		);
+	});
+});
+
+describe("isFloatingShell selector", () => {
+	it("is true only for ids in the worktree's floatingShellIds", () => {
+		const state = workspaceReducer(base(), {
+			type: "session/registerFloatingShell",
+			worktreeId: "a",
+			process: proc("p1"),
+		});
+		expect(isFloatingShell(state, "a", "p1")).toBe(true);
+		expect(isFloatingShell(state, "a", "nope")).toBe(false);
+		expect(isFloatingShell(state, "missing-wt", "p1")).toBe(false);
 	});
 });
