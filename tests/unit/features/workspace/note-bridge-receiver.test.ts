@@ -47,6 +47,8 @@ function makeSession(worktreeId: string, note: string) {
 		pendingReveal: null,
 		paneTransient: false,
 		navLocation: null,
+		floatingShellIds: [],
+		expandedFloatingShellId: null,
 	};
 }
 

@@ -38,6 +38,8 @@ function sessionWith(
 		pendingReveal: null,
 		paneTransient: false,
 		navLocation: null,
+		floatingShellIds: [],
+		expandedFloatingShellId: null,
 	} as WorktreeSession;
 }
 
@@ -71,6 +73,8 @@ function makeWorktreeSession(over: { activeProcessSessionId: string | null }): W
 		pendingReveal: null,
 		paneTransient: false,
 		navLocation: null,
+		floatingShellIds: [],
+		expandedFloatingShellId: null,
 	} as WorktreeSession;
 }
 

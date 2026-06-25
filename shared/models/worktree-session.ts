@@ -71,4 +71,15 @@ export type WorktreeSession = {
 	 * PersistedWorktreeSessionSchema. See spec §299, §304.
 	 */
 	navLocation: { file: string; line: number; column?: number } | null;
+	/**
+	 * Throwaway (floating) shell process ids for this worktree, in pill order.
+	 * Never overlaps `slotProcessIds`. Memory-only — intentionally absent from
+	 * PersistedWorktreeSessionSchema so floating shells do not survive restart.
+	 */
+	floatingShellIds: string[];
+	/**
+	 * Which floating shell is expanded as a popover, or null when all are
+	 * minimized. Enforces "one expanded at a time". Memory-only.
+	 */
+	expandedFloatingShellId: string | null;
 };

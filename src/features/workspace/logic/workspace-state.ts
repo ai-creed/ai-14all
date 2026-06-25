@@ -260,6 +260,8 @@ function createSession(worktree: Worktree): WorktreeSession {
 		pendingReveal: null,
 		paneTransient: false,
 		navLocation: null,
+		floatingShellIds: [],
+		expandedFloatingShellId: null,
 	};
 }
 
