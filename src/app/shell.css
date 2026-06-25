@@ -606,11 +606,14 @@ select {
 	width: auto;
 	height: auto;
 }
-/* highlight the active worktree's marker (no card box in collapsed) */
+/* highlight the active worktree's marker (no card box in collapsed). Use
+   --primary (the cursor/accent colour, high-contrast in every theme) — the
+   --accent token is a low-contrast dark step in tui, so the initial vanished. */
 .shell-sidebar[data-collapsed="true"]
 	.shell-sidebar__row[data-selected="true"]
 	.shell-sidebar__marker {
-	color: var(--accent);
+	color: var(--primary);
+	font-weight: 700;
 }
 
 .shell-sidebar__marker {
