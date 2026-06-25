@@ -557,6 +557,9 @@ select {
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__header {
 	justify-content: center;
+	/* collapsed sidebar uses 8px inset, so match the full-bleed cancel to 8px */
+	margin-inline: -8px;
+	padding-inline: 8px;
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__list {
@@ -789,6 +792,13 @@ select {
 .shell-sidebar__item strong {
 	font-size: var(--ws-fs-branch);
 	font-weight: 600;
+	/* Truncate long titles cleanly at narrow widths (no spill) — same recipe
+	   as the process rows. align-self:stretch gives ellipsis a box to clip. */
+	align-self: stretch;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 /*
@@ -998,6 +1008,11 @@ select {
 
 .shell-sidebar__branch {
 	font-size: var(--ws-fs-path);
+	align-self: stretch;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .shell-sidebar__processes {
