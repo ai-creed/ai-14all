@@ -127,6 +127,8 @@ import { RestoreBanner } from "./components/RestoreBanner";
 import { AgentAttentionBanner } from "./components/AgentAttentionBanner";
 import { normalizeTerminalTitle } from "./normalize-terminal-title";
 import { CommandPalette } from "../features/command-palette/components/CommandPalette";
+import { useRegisterCommands } from "../features/command-palette/hooks/use-command-registry";
+import type { Command } from "../features/command-palette/logic/command";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -1284,15 +1286,115 @@ export function App() {
 		refreshKey,
 	});
 
+	// ── Command actions: shared by keyboard shortcuts and the command palette ──
+	const toggleNoteSheet = useCallback(() => setNoteSheetOpen((p) => !p), []);
+	const openFilesOverlay = useCallback(() => {
+		if (activeWorktree) setFilesOverlayOpen(true);
+	}, [activeWorktree?.id]);
+	const toggleReview = useCallback(() => {
+		if (!activeWorktree) return;
+		if (reviewOpen) collapseReview();
+		else setReviewOpen(true);
+	}, [activeWorktree?.id, reviewOpen]);
+	const startRenameSession = useCallback(() => {
+		if (!activeWorkspaceId || !activeWorktree) return;
+		setSidebarCollapsed(false);
+		setPendingRename({
+			workspaceId: activeWorkspaceId,
+			worktreeId: activeWorktree.id,
+		});
+	}, [activeWorkspaceId, activeWorktree?.id]);
+	const toggleShortcutsHelp = useCallback(
+		() => setShortcutsHelpOpen((p) => !p),
+		[],
+	);
+	const openAddWorktree = useCallback(() => {
+		if (activeWorkspaceId) setCreateDialogOpen(true);
+	}, [activeWorkspaceId]);
+	const openWorkspacePicker = useCallback(() => {
+		if (startupMode === "ready") setWorkspacePickerOpen(true);
+	}, [startupMode]);
+	const newTerminal = useCallback(() => {
+		if (!addDisabled) void handleAddAdHoc();
+	}, [activeWorktree?.id, activeWorkspaceId, addDisabled]);
+	const newFloatingShell = useCallback(() => {
+		void handleAddFloatingShell();
+	}, [activeWorktree?.id, activeWorkspaceId]);
+	const openTerminalLayout = useCallback(() => {
+		if (activeWorktree) setLayoutDialogOpen(true);
+	}, [activeWorktree?.id]);
+	const closeActiveTerminal = useCallback(() => {
+		const currentState = workspaceStateRef.current;
+		const currentWorktreeId = currentState.selectedWorktreeId;
+		if (!currentWorktreeId) return;
+		const activeProcessId =
+			currentState.sessionsByWorktreeId[currentWorktreeId]
+				?.activeProcessSessionId;
+		if (!activeProcessId) return;
+		void handleCloseProcess(activeProcessId);
+	}, [activeWorktree?.id, activeWorkspaceId]);
+	const toggleSidebar = useCallback(
+		() => setSidebarCollapsed((c) => !c),
+		[],
+	);
+	const applyReviewMode = useCallback(
+		(reviewMode: "files" | "changes" | "commits") => {
+			const currentState = workspaceStateRef.current;
+			const currentWorktreeId = currentState.selectedWorktreeId;
+			if (!currentWorktreeId) return;
+			dispatch({
+				type: "session/setReviewMode",
+				worktreeId: currentWorktreeId,
+				reviewMode,
+			});
+			setReviewOpen(true);
+		},
+		[dispatch],
+	);
+	const openPlugins = useCallback(() => setPluginsDialogOpen(true), []);
+	const refreshChanges = useCallback(() => {
+		if (activeWorktree) setRefreshKey((k) => k + 1);
+	}, [activeWorktree?.id]);
+
+	const simpleCommands = useMemo<Command[]>(
+		() => [
+			{ id: "files-overlay", title: "Open Files", group: "Review", keybindingId: "files-overlay", run: openFilesOverlay, isAvailable: () => !!activeWorktree },
+			{ id: "review.open", title: "Open Review", group: "Review", keybindingId: "review.open", run: toggleReview, isAvailable: () => !!activeWorktree },
+			{ id: "review.files", title: "Review: Files", group: "Review", keybindingId: "review.files", run: () => applyReviewMode("files"), isAvailable: () => !!activeWorktree },
+			{ id: "review.changes", title: "Review: Changes", group: "Review", keybindingId: "review.changes", run: () => applyReviewMode("changes"), isAvailable: () => !!activeWorktree },
+			{ id: "review.commits", title: "Review: Commits", group: "Review", keybindingId: "review.commits", run: () => applyReviewMode("commits"), isAvailable: () => !!activeWorktree },
+			{ id: "changes.refresh", title: "Refresh changes", group: "Review", run: refreshChanges, isAvailable: () => !!activeWorktree },
+			{ id: "terminal.new", title: "New terminal", group: "Terminal", keybindingId: "terminal.new", run: newTerminal, isAvailable: () => !addDisabled },
+			{ id: "terminal.newFloating", title: "New throwaway shell", group: "Terminal", keybindingId: "terminal.newFloating", run: newFloatingShell },
+			{ id: "terminal.close", title: "Close terminal", group: "Terminal", keybindingId: "terminal.close", run: closeActiveTerminal },
+			{ id: "terminal.layout", title: "Choose layout", group: "Terminal", keybindingId: "terminal.layout", run: openTerminalLayout, isAvailable: () => !!activeWorktree },
+			{ id: "worktree.add", title: "Add worktree", group: "Worktree", keybindingId: "worktree.add", run: openAddWorktree, isAvailable: () => !!activeWorkspaceId },
+			{ id: "ui.openWorkspacePicker", title: "Open workspace", group: "Workspace", keybindingId: "ui.openWorkspacePicker", run: openWorkspacePicker, isAvailable: () => startupMode === "ready" },
+			{ id: "layout.toggleSidebar", title: "Toggle sidebar", group: "Layout", keybindingId: "layout.toggleSidebar", run: toggleSidebar },
+			{ id: "note-sheet", title: "Open Note", group: "Session", keybindingId: "note-sheet", run: toggleNoteSheet },
+			{ id: "rename-session", title: "Rename session", group: "Session", keybindingId: "rename-session", run: startRenameSession, isAvailable: () => !!activeWorkspaceId && !!activeWorktree },
+			{ id: "shortcuts-help", title: "Show shortcuts", group: "App", keybindingId: "shortcuts-help", run: toggleShortcutsHelp },
+			{ id: "plugins.open", title: "Open Plugins", group: "App", run: openPlugins },
+		],
+		[
+			openFilesOverlay, toggleReview, applyReviewMode, refreshChanges, newTerminal,
+			newFloatingShell, closeActiveTerminal, openTerminalLayout, openAddWorktree,
+			openWorkspacePicker, toggleSidebar, toggleNoteSheet, startRenameSession,
+			toggleShortcutsHelp, openPlugins,
+			activeWorktree, activeWorkspaceId, addDisabled, startupMode,
+		],
+	);
+	useRegisterCommands(simpleCommands, [simpleCommands]);
+
 	// Cmd+; / Ctrl+; — toggle note sheet
 	useKeyboardShortcut(
 		"note-sheet",
 		appPlatform,
 		(e) => {
 			e.preventDefault();
-			setNoteSheetOpen((prev) => !prev);
+			toggleNoteSheet();
 		},
-		[],
+		[toggleNoteSheet],
 	);
 
 	// Cmd+P / Ctrl+Shift+P — open Files overlay
@@ -1300,11 +1402,10 @@ export function App() {
 		"files-overlay",
 		appPlatform,
 		(e) => {
-			if (!activeWorktree) return;
 			e.preventDefault();
-			setFilesOverlayOpen(true);
+			openFilesOverlay();
 		},
-		[activeWorktree?.id],
+		[openFilesOverlay],
 	);
 
 	// Cmd+J / Ctrl+J — toggle review overlay
@@ -1312,15 +1413,10 @@ export function App() {
 		"review.open",
 		appPlatform,
 		(e) => {
-			if (!activeWorktree) return;
 			e.preventDefault();
-			if (reviewOpen) {
-				collapseReview();
-			} else {
-				setReviewOpen(true);
-			}
+			toggleReview();
 		},
-		[activeWorktree?.id, reviewOpen],
+		[toggleReview],
 	);
 
 	// Reset the review overlay when the active workspace or worktree changes
@@ -1334,15 +1430,10 @@ export function App() {
 		"rename-session",
 		appPlatform,
 		(e) => {
-			if (!activeWorkspaceId || !activeWorktree) return;
 			e.preventDefault();
-			setSidebarCollapsed(false);
-			setPendingRename({
-				workspaceId: activeWorkspaceId,
-				worktreeId: activeWorktree.id,
-			});
+			startRenameSession();
 		},
-		[activeWorkspaceId, activeWorktree?.id],
+		[startRenameSession],
 	);
 
 	// Cmd+/ or Cmd+? / Ctrl+/ or Ctrl+? — show shortcuts help
@@ -1351,9 +1442,9 @@ export function App() {
 		appPlatform,
 		(e) => {
 			e.preventDefault();
-			setShortcutsHelpOpen((prev) => !prev);
+			toggleShortcutsHelp();
 		},
-		[],
+		[toggleShortcutsHelp],
 	);
 
 	// Cmd+Shift+K / Ctrl+Shift+K — open the command palette
@@ -1395,11 +1486,10 @@ export function App() {
 		"worktree.add",
 		appPlatform,
 		(e) => {
-			if (!activeWorkspaceId) return;
 			e.preventDefault();
-			setCreateDialogOpen(true);
+			openAddWorktree();
 		},
-		[activeWorkspaceId],
+		[openAddWorktree],
 	);
 
 	// Cmd+Shift+] / Ctrl+Shift+] and Cmd+Shift+[ / Ctrl+Shift+[ — cycle through workspaces
@@ -1443,11 +1533,10 @@ export function App() {
 		"ui.openWorkspacePicker",
 		appPlatform,
 		(e) => {
-			if (startupMode !== "ready") return;
 			e.preventDefault();
-			setWorkspacePickerOpen(true);
+			openWorkspacePicker();
 		},
-		[startupMode],
+		[openWorkspacePicker],
 	);
 
 	// Cmd+T / Ctrl+T — new terminal (disabled when 6 shells are running)
@@ -1456,10 +1545,9 @@ export function App() {
 		appPlatform,
 		(e) => {
 			e.preventDefault();
-			if (addDisabled) return;
-			void handleAddAdHoc();
+			newTerminal();
 		},
-		[activeWorktree?.id, activeWorkspaceId, addDisabled],
+		[newTerminal],
 	);
 
 	// Cmd+Shift+T / Ctrl+Shift+T — new floating throwaway shell (own cap check)
@@ -1468,9 +1556,9 @@ export function App() {
 		appPlatform,
 		(e) => {
 			e.preventDefault();
-			void handleAddFloatingShell();
+			newFloatingShell();
 		},
-		[activeWorktree?.id, activeWorkspaceId],
+		[newFloatingShell],
 	);
 
 	// Cmd+Shift+L / Ctrl+Shift+L — open the terminal layout dialog
@@ -1479,9 +1567,9 @@ export function App() {
 		appPlatform,
 		(e) => {
 			e.preventDefault();
-			if (activeWorktree) setLayoutDialogOpen(true);
+			openTerminalLayout();
 		},
-		[activeWorktree?.id],
+		[openTerminalLayout],
 	);
 
 	// Cmd+Shift+W / Ctrl+Shift+W — close active terminal
@@ -1489,17 +1577,10 @@ export function App() {
 		"terminal.close",
 		appPlatform,
 		(e) => {
-			const currentState = workspaceStateRef.current;
-			const currentWorktreeId = currentState.selectedWorktreeId;
-			if (!currentWorktreeId) return;
-			const activeProcessId =
-				currentState.sessionsByWorktreeId[currentWorktreeId]
-					?.activeProcessSessionId;
-			if (!activeProcessId) return;
 			e.preventDefault();
-			void handleCloseProcess(activeProcessId);
+			closeActiveTerminal();
 		},
-		[activeWorktree?.id, activeWorkspaceId],
+		[closeActiveTerminal],
 	);
 
 	// Cmd+Shift+D / Ctrl+Shift+D and Cmd+Shift+A / Ctrl+Shift+A — cycle through terminals
@@ -1561,26 +1642,18 @@ export function App() {
 		appPlatform,
 		(e) => {
 			e.preventDefault();
-			setSidebarCollapsed((current) => !current);
+			toggleSidebar();
 		},
-		[],
+		[toggleSidebar],
 	);
 
 	// Cmd+1/2/3 / Ctrl+1/2/3 — switch review pane tab and open overlay
 	const switchReviewMode = useCallback(
 		(reviewMode: "files" | "changes" | "commits") => (e: KeyboardEvent) => {
-			const currentState = workspaceStateRef.current;
-			const currentWorktreeId = currentState.selectedWorktreeId;
-			if (!currentWorktreeId) return;
 			e.preventDefault();
-			dispatch({
-				type: "session/setReviewMode",
-				worktreeId: currentWorktreeId,
-				reviewMode,
-			});
-			setReviewOpen(true);
+			applyReviewMode(reviewMode);
 		},
-		[dispatch, workspaceStateRef],
+		[applyReviewMode],
 	);
 	useKeyboardShortcut("review.files", appPlatform, switchReviewMode("files"), [
 		switchReviewMode,
