@@ -4951,18 +4951,33 @@ select {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	padding: 5px 4px 5px 10px;
+	/* Height matches the header action chips (.shell-chip-bar__action). */
+	padding: 2px 2px 2px 8px;
 	background: none;
 	border: none;
 	color: inherit;
 	font: inherit;
+	font-size: 0.7rem;
+	line-height: 1.2;
 	cursor: pointer;
+	min-width: 0;
+}
+.floating-shell-pill__label {
+	display: inline-block;
+	max-width: 150px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	/* Ellipsize from the START so the tail (child directory) stays visible. */
+	direction: rtl;
+	text-align: left;
 }
 .floating-shell-pill__dot {
-	width: 7px;
-	height: 7px;
+	width: 6px;
+	height: 6px;
 	border-radius: 50%;
 	background: #3ad07a;
+	flex: none;
 }
 .floating-shell-pill__dot[data-exited="true"] {
 	background: #e0a13a;
@@ -4972,14 +4987,18 @@ select {
 	align-items: center;
 	justify-content: center;
 	/* Intrinsic hit area so the ✕ stays clickable before the symbols font loads
-	   (the Nerd Font glyph has no width until then). */
-	min-width: 22px;
-	height: 22px;
+	   (the Nerd Font glyph has no width until then). Sized to keep the pill the
+	   same height as the header action chips. */
+	min-width: 18px;
+	height: 18px;
+	/* Glyph 4px smaller than the chip font; the 18px box keeps the hit area. */
+	font-size: calc(0.7rem - 4px);
 	background: none;
 	border: none;
 	color: var(--text-secondary, #6b7689);
 	cursor: pointer;
-	padding: 2px 8px 2px 2px;
+	padding: 0 4px;
+	flex: none;
 }
 
 /* ── Floating shell popover ─────────────────────────────────────────────── */
@@ -4989,24 +5008,40 @@ select {
 	top: 100%;
 	right: 8px;
 	z-index: 40;
-	width: 460px;
+	width: 920px;
 	max-width: calc(100vw - 24px);
-	height: 320px;
+	height: 448px;
 	display: flex;
 	flex-direction: column;
-	background: var(--bg-secondary, #1a1f29);
-	border: 1px solid var(--border, #3a4356);
-	border-radius: 9px;
-	box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+	/* Sharp, theme-driven terminal aesthetic — mirrors the token-telemetry
+	   popover (.usage-pop): elevated panel bg, strong hairline border, no radius. */
+	background: var(--panel-bg-elevated);
+	border: var(--shell-border-width) solid var(--panel-border-strong);
+	border-radius: 0;
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+	color: var(--text-secondary);
 	overflow: hidden;
 }
 .floating-shell-popover__header {
+	/* Styled to match the layout-slot terminal header
+	   (.shell-terminal-slot__header), plus drag-handle affordances. */
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	padding: 6px 8px;
-	background: var(--bg-tertiary, #232b39);
-	border-bottom: 1px solid var(--border, #3a4356);
+	gap: 6px;
+	padding: 3px 8px;
+	font-size: 11px;
+	line-height: 1;
+	color: var(--text-primary);
+	background: color-mix(
+		in srgb,
+		var(--panel-border-strong) 40%,
+		var(--panel-bg-elevated)
+	);
+	border-bottom: var(--shell-border-width) solid var(--panel-border-strong);
+	/* The header is the drag handle (double-click snaps back to the anchor). */
+	cursor: move;
+	user-select: none;
+	touch-action: none;
 }
 /*
  * Give the icon-only header actions an intrinsic hit area, mirroring
@@ -5016,17 +5051,18 @@ select {
  * accessibility tree) whenever that font is absent.
  */
 .floating-shell-popover__header button {
+	/* Matches .shell-terminal-slot__header button. */
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	min-width: 20px;
-	height: 20px;
+	min-width: 18px;
+	height: 18px;
 	background: none;
 	border: none;
 	border-radius: var(--radius-sm);
 	color: var(--text-secondary);
 	cursor: pointer;
-	padding: 2px;
+	padding: 0;
 	font-size: inherit;
 	line-height: 1;
 }
@@ -5038,11 +5074,19 @@ select {
 	background: color-mix(in srgb, var(--text-primary) 14%, transparent);
 	color: var(--text-primary);
 }
+.floating-shell-popover__header button:focus-visible {
+	outline: var(--shell-border-width) solid var(--accent);
+	outline-offset: 1px;
+	color: var(--text-primary);
+}
 .floating-shell-popover__title {
+	/* Matches .shell-terminal-slot__label. */
 	flex: 1;
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
+	font-weight: 500;
+	line-height: 1;
 }
 .floating-shell-popover__dot {
 	width: 8px;

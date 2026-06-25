@@ -211,6 +211,12 @@ export function App() {
 	} = useActiveWorkspace();
 	const samanthaSliceBuilder = useRef(createSamanthaSliceBuilder());
 	const outputPreviewBuffersRef = useRef<Map<string, string>>(new Map());
+	// Memory-only per-shell dragged positions for floating popovers, keyed by
+	// process id. Survives minimize/restore + worktree switch within the session;
+	// not persisted across app restart (floating shells are memory-only).
+	const floatingPositionsRef = useRef<Map<string, { left: number; top: number }>>(
+		new Map(),
+	);
 	const [refreshKey, setRefreshKey] = useState(0);
 	const [windowFocused, setWindowFocused] = useState(
 		typeof document !== "undefined" ? document.hasFocus() : true,
@@ -1956,9 +1962,20 @@ export function App() {
 									/>
 									{expandedFloatingProcess && (
 										<FloatingShellPopover
+											key={expandedFloatingProcess.id}
 											process={expandedFloatingProcess}
 											session={expandedFloatingSession}
 											theme={terminalTheme}
+											initialPosition={
+												floatingPositionsRef.current.get(
+													expandedFloatingProcess.id,
+												) ?? null
+											}
+											onPositionChange={(p) => {
+												const id = expandedFloatingProcess.id;
+												if (p) floatingPositionsRef.current.set(id, p);
+												else floatingPositionsRef.current.delete(id);
+											}}
 											pinDisabled={addDisabled}
 											onMinimize={handleMinimizeFloatingShell}
 											onPin={handlePinFloatingShell}

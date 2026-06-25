@@ -87,3 +87,68 @@ describe("FloatingShellPopover", () => {
 		expect(screen.getByTestId("floating-shell-pin")).toBeDisabled();
 	});
 });
+
+describe("FloatingShellPopover dragging", () => {
+	const base = {
+		process: proc("running"),
+		session,
+		theme: {} as never,
+		pinDisabled: false,
+		onMinimize: () => {},
+		onPin: () => {},
+		onClose: () => {},
+		onTitleChange: () => {},
+	};
+
+	it("dragging the header switches to a fixed position and persists it", () => {
+		const onPositionChange = vi.fn();
+		render(
+			<FloatingShellPopover {...base} onPositionChange={onPositionChange} />,
+		);
+		const popover = screen.getByTestId("floating-shell-popover");
+		expect(popover).toHaveAttribute("data-dragged", "false");
+		const header = popover.querySelector("header") as HTMLElement;
+		fireEvent.pointerDown(header, { pointerId: 1, clientX: 10, clientY: 10 });
+		fireEvent.pointerMove(header, { pointerId: 1, clientX: 60, clientY: 50 });
+		fireEvent.pointerUp(header, { pointerId: 1, clientX: 60, clientY: 50 });
+		expect(popover).toHaveAttribute("data-dragged", "true");
+		expect(popover.style.position).toBe("fixed");
+		expect(onPositionChange).toHaveBeenCalledWith(
+			expect.objectContaining({
+				left: expect.any(Number),
+				top: expect.any(Number),
+			}),
+		);
+	});
+
+	it("does not start a drag when pressing a header control", () => {
+		const onPositionChange = vi.fn();
+		render(
+			<FloatingShellPopover {...base} onPositionChange={onPositionChange} />,
+		);
+		const popover = screen.getByTestId("floating-shell-popover");
+		const pin = screen.getByTestId("floating-shell-pin");
+		fireEvent.pointerDown(pin, { pointerId: 1, clientX: 10, clientY: 10 });
+		fireEvent.pointerMove(pin, { pointerId: 1, clientX: 60, clientY: 50 });
+		fireEvent.pointerUp(pin, { pointerId: 1, clientX: 60, clientY: 50 });
+		expect(popover).toHaveAttribute("data-dragged", "false");
+		expect(onPositionChange).not.toHaveBeenCalled();
+	});
+
+	it("seeds from initialPosition and resets on header double-click", () => {
+		const onPositionChange = vi.fn();
+		render(
+			<FloatingShellPopover
+				{...base}
+				initialPosition={{ left: 200, top: 150 }}
+				onPositionChange={onPositionChange}
+			/>,
+		);
+		const popover = screen.getByTestId("floating-shell-popover");
+		expect(popover).toHaveAttribute("data-dragged", "true");
+		expect(popover.style.position).toBe("fixed");
+		fireEvent.doubleClick(popover.querySelector("header") as HTMLElement);
+		expect(popover).toHaveAttribute("data-dragged", "false");
+		expect(onPositionChange).toHaveBeenCalledWith(null);
+	});
+});
