@@ -543,6 +543,10 @@ select {
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--space-2);
+	/* Full-bleed separator (matches prototype): cancel the sidebar's --space-3
+	   inset so the border-bottom spans edge to edge, keep content in place. */
+	margin-inline: calc(-1 * var(--space-3));
+	padding-inline: var(--space-3);
 	padding-bottom: var(--space-2);
 	border-bottom: var(--shell-border-width) solid var(--panel-border);
 }
@@ -657,6 +661,9 @@ select {
 	font-weight: 700;
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
+	/* Left-aligned like the prototype (a raw <button> defaults to center, which
+	   centered wrapped titles when the panel is narrow). */
+	text-align: left;
 	color: var(--text-secondary);
 	background: transparent;
 	border: none;
