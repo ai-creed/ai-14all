@@ -1,0 +1,32 @@
+name: master-gate
+# Fast verification gate for master. Runs on every push to master (and PRs
+# targeting it) so a broken lint/format/typecheck/unit state can't slip onto the
+# release branch unnoticed. Mirrors pr-gate's fast checks; e2e + packaging are
+# intentionally omitted here (they run in pr-gate on devel and in release.yml on
+# tags) to keep this gate quick.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+concurrency:
+  group: master-gate-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  gate:
+    runs-on: macos-14
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Lint + format + typecheck
+        run: |
+          pnpm lint
+          pnpm format
+          pnpm typecheck
+      - name: Unit tests
+        run: pnpm test
