@@ -35,6 +35,7 @@ import {
 } from "./samantha-command-client";
 import { createReconnectBackoff } from "./reconnect-backoff";
 import { createIdempotentDispatcher } from "./idempotent-dispatcher";
+import { SAMANTHA_CONTRACT_VERSION } from "./command-types";
 
 export type SamanthaDriverOptions = {
 	client: SamanthaConnectorClient;
@@ -314,6 +315,7 @@ export function createSamanthaDriver(
 			label: "ai-14all",
 			description: DESCRIPTION,
 			capabilities: CAPABILITIES,
+			contractVersion: SAMANTHA_CONTRACT_VERSION,
 		});
 		// conflict => already registered; treat as success.
 		if (r.ok || (!r.ok && r.reason === "conflict")) {

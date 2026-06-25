@@ -12,6 +12,9 @@ export type RegisterBody = {
 	label: "ai-14all";
 	description: string;
 	capabilities: SourceCapability[];
+	// Canonical contract version (additive). Samantha checks compatibility on
+	// register and disables commanding on a mismatch.
+	contractVersion: number;
 };
 
 export type SnapshotBody = {
