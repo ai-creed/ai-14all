@@ -16,21 +16,21 @@ function storeFrom(toml: string) {
 describe("plugin-config acting_enabled", () => {
 	it("parses acting_enabled = true under behavior", () => {
 		const store = storeFrom(
-			`[plugins.samantha]\nenabled = true\n[plugins.samantha.behavior]\nacting_enabled = true\n`,
+			"[plugins.samantha]\nenabled = true\n[plugins.samantha.behavior]\nacting_enabled = true\n",
 		);
 		expect(store.get("samantha").behavior?.actingEnabled).toBe(true);
 	});
 
 	it("defaults acting_enabled to false when behavior has only focus_raises_window", () => {
 		const store = storeFrom(
-			`[plugins.samantha]\nenabled = true\n[plugins.samantha.behavior]\nfocus_raises_window = true\n`,
+			"[plugins.samantha]\nenabled = true\n[plugins.samantha.behavior]\nfocus_raises_window = true\n",
 		);
 		expect(store.get("samantha").behavior?.actingEnabled).toBe(false);
 		expect(store.get("samantha").behavior?.focusRaisesWindow).toBe(true);
 	});
 
 	it("defaults acting_enabled to false when no behavior section exists", () => {
-		const store = storeFrom(`[plugins.samantha]\nenabled = true\n`);
+		const store = storeFrom("[plugins.samantha]\nenabled = true\n");
 		expect(store.get("samantha").behavior?.actingEnabled ?? false).toBe(false);
 	});
 });

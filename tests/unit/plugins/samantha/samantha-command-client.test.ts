@@ -173,7 +173,9 @@ describe("samantha-command-client", () => {
 		const client = createSamanthaCommandClient({
 			url: "ws://127.0.0.1:7841/connectors/ai-14all/events",
 			dispatcher: okDispatcher,
-			WebSocketImpl: FakeSocket as unknown as new (url: string) => WebSocketLike,
+			WebSocketImpl: FakeSocket as unknown as new (
+				url: string,
+			) => WebSocketLike,
 			reconnectMs: 1000,
 			reconnectCapMs: 30000,
 			reconnectFactor: 2,
@@ -196,7 +198,9 @@ describe("samantha-command-client", () => {
 		const client = createSamanthaCommandClient({
 			url: "ws://127.0.0.1:7841/connectors/ai-14all/events",
 			dispatcher: okDispatcher,
-			WebSocketImpl: FakeSocket as unknown as new (url: string) => WebSocketLike,
+			WebSocketImpl: FakeSocket as unknown as new (
+				url: string,
+			) => WebSocketLike,
 			reconnectMs: 1000,
 			random: () => 0,
 		});
@@ -216,7 +220,9 @@ describe("samantha-command-client", () => {
 		const client = createSamanthaCommandClient({
 			url: "ws://127.0.0.1:7841/connectors/ai-14all/events",
 			dispatcher: okDispatcher,
-			WebSocketImpl: FakeSocket as unknown as new (url: string) => WebSocketLike,
+			WebSocketImpl: FakeSocket as unknown as new (
+				url: string,
+			) => WebSocketLike,
 			reconnectMs: 1000,
 			random: () => 0,
 		});
@@ -232,7 +238,9 @@ describe("samantha-command-client", () => {
 		const client = createSamanthaCommandClient({
 			url: "ws://127.0.0.1:7841/connectors/ai-14all/events",
 			dispatcher: okDispatcher,
-			WebSocketImpl: FakeSocket as unknown as new (url: string) => WebSocketLike,
+			WebSocketImpl: FakeSocket as unknown as new (
+				url: string,
+			) => WebSocketLike,
 			reconnectMs: 1000,
 			random: () => 0,
 		});
@@ -246,7 +254,9 @@ describe("samantha-command-client", () => {
 		const client = createSamanthaCommandClient({
 			url: "ws://127.0.0.1:7841/connectors/ai-14all/events",
 			dispatcher: okDispatcher,
-			WebSocketImpl: FakeSocket as unknown as new (url: string) => WebSocketLike,
+			WebSocketImpl: FakeSocket as unknown as new (
+				url: string,
+			) => WebSocketLike,
 			reconnectMs: 1000,
 			random: () => 0,
 		});
@@ -263,7 +273,9 @@ describe("samantha-command-client", () => {
 		const client = createSamanthaCommandClient({
 			url: "ws://127.0.0.1:7841/connectors/ai-14all/events",
 			dispatcher: okDispatcher,
-			WebSocketImpl: FakeSocket as unknown as new (url: string) => WebSocketLike,
+			WebSocketImpl: FakeSocket as unknown as new (
+				url: string,
+			) => WebSocketLike,
 			reconnectMs: 1000,
 			random: () => 0,
 		});
@@ -279,7 +291,9 @@ describe("samantha-command-client", () => {
 		const client = createSamanthaCommandClient({
 			url: "ws://127.0.0.1:7841/connectors/ai-14all/events",
 			dispatcher: okDispatcher,
-			WebSocketImpl: FakeSocket as unknown as new (url: string) => WebSocketLike,
+			WebSocketImpl: FakeSocket as unknown as new (
+				url: string,
+			) => WebSocketLike,
 			reconnectMs: 1000,
 			random: () => 0,
 			onStatus: (s) => statuses.push(s),
@@ -296,7 +310,9 @@ describe("samantha-command-client", () => {
 		const client = createSamanthaCommandClient({
 			url: "ws://127.0.0.1:7841/connectors/ai-14all/events",
 			dispatcher: okDispatcher,
-			WebSocketImpl: FakeSocket as unknown as new (url: string) => WebSocketLike,
+			WebSocketImpl: FakeSocket as unknown as new (
+				url: string,
+			) => WebSocketLike,
 			reconnectMs: 1000,
 			random: () => 0,
 			onStatus: (s) => statuses.push(s),

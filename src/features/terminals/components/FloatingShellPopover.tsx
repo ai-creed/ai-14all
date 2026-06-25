@@ -160,9 +160,7 @@ export function FloatingShellPopover({
 					type="button"
 					aria-label="Pin into layout"
 					title={
-						pinDisabled
-							? "Layout full — free a slot first"
-							: "Pin into layout"
+						pinDisabled ? "Layout full — free a slot first" : "Pin into layout"
 					}
 					data-testid="floating-shell-pin"
 					disabled={pinDisabled || exited}

@@ -249,13 +249,21 @@ export type WorkspaceAction =
 			worktreeId: string;
 			process: ProcessSession;
 	  }
-	| { type: "session/expandFloatingShell"; worktreeId: string; processId: string }
+	| {
+			type: "session/expandFloatingShell";
+			worktreeId: string;
+			processId: string;
+	  }
 	| {
 			type: "session/minimizeFloatingShell";
 			worktreeId: string;
 			processId: string;
 	  }
-	| { type: "session/closeFloatingShell"; worktreeId: string; processId: string }
+	| {
+			type: "session/closeFloatingShell";
+			worktreeId: string;
+			processId: string;
+	  }
 	| {
 			type: "session/pinFloatingShellToSlot";
 			worktreeId: string;

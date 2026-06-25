@@ -214,9 +214,9 @@ export function App() {
 	// Memory-only per-shell dragged positions for floating popovers, keyed by
 	// process id. Survives minimize/restore + worktree switch within the session;
 	// not persisted across app restart (floating shells are memory-only).
-	const floatingPositionsRef = useRef<Map<string, { left: number; top: number }>>(
-		new Map(),
-	);
+	const floatingPositionsRef = useRef<
+		Map<string, { left: number; top: number }>
+	>(new Map());
 	const [refreshKey, setRefreshKey] = useState(0);
 	const [windowFocused, setWindowFocused] = useState(
 		typeof document !== "undefined" ? document.hasFocus() : true,
@@ -455,9 +455,7 @@ export function App() {
 				if (cancelled) return;
 				dispose = registerCodeNavProviders({
 					dispatch: dispatch as unknown as (action: unknown) => void,
-					toast: (msg) =>
-						// eslint-disable-next-line no-console
-						console.warn(`[code-nav] ${msg}`),
+					toast: (msg) => console.warn(`[code-nav] ${msg}`),
 					getActive: () => {
 						if (!wsId || !wtId || !sessId) return null;
 						// Read nav state off the live ref so a state change since
@@ -814,7 +812,8 @@ export function App() {
 	// Floating throwaway shells live outside the layout slot grid; surface the
 	// current set and the expanded one (if any) so the pills + popover can render.
 	const floatingShellIds = activeSession?.floatingShellIds ?? [];
-	const expandedFloatingShellId = activeSession?.expandedFloatingShellId ?? null;
+	const expandedFloatingShellId =
+		activeSession?.expandedFloatingShellId ?? null;
 	const expandedFloatingProcess = expandedFloatingShellId
 		? (workspaceState.processSessionsById[expandedFloatingShellId] ?? null)
 		: null;
@@ -1951,9 +1950,7 @@ export function App() {
 													addDisabled={addDisabled}
 													onAddAdHoc={handleAddAdHoc}
 													onLaunchPreset={handleLaunchPreset}
-													onOpenPresetManager={() =>
-														setPresetManagerOpen(true)
-													}
+													onOpenPresetManager={() => setPresetManagerOpen(true)}
 													onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
 													platform={appPlatform}
 												/>
@@ -1983,9 +1980,7 @@ export function App() {
 											onTitleChange={(title) => {
 												const nextLabel = normalizeTerminalTitle(title);
 												if (!nextLabel) return;
-												createScopedWorkspaceDispatch(
-													activeWorkspaceId ?? "",
-												)({
+												createScopedWorkspaceDispatch(activeWorkspaceId ?? "")({
 													type: "session/updateProcessLabel",
 													processId: expandedFloatingProcess.id,
 													label: nextLabel,

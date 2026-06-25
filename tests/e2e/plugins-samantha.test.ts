@@ -272,9 +272,11 @@ test("a dropped command socket: health reconnecting, a new WS appears, health ba
 
 	mock.dropSocket();
 	// The WS-plane drop pushes health -> reconnecting (onStatus -> driver health)...
-	await expect(page.locator("[data-samantha-link='reconnecting']")).toBeVisible({
-		timeout: 20_000,
-	});
+	await expect(page.locator("[data-samantha-link='reconnecting']")).toBeVisible(
+		{
+			timeout: 20_000,
+		},
+	);
 	// ...a new WS connection appears automatically (no manual action)...
 	await mock.waitForConnection(before + 1, 20_000);
 	// ...and health returns to connected.

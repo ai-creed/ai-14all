@@ -50,7 +50,8 @@ async function ensureWorkspaceLoaded(): Promise<void> {
 
 const worktreeNav = () =>
 	page.getByRole("navigation", { name: "Worktree sessions" });
-const featureBtn = () => worktreeNav().getByRole("button", { name: /feature-a/i });
+const featureBtn = () =>
+	worktreeNav().getByRole("button", { name: /feature-a/i });
 const mainBtn = () => worktreeNav().getByRole("button", { name: / main$/i });
 
 const pills = () => page.getByTestId("floating-shell-pills");
@@ -112,7 +113,11 @@ async function liveBackendSessionCount(workspaceId: string): Promise<number> {
  */
 async function clearAllFloatingShells(): Promise<void> {
 	// Dismiss an open popover first so its pill is removed too.
-	if (await popover().isVisible().catch(() => false)) {
+	if (
+		await popover()
+			.isVisible()
+			.catch(() => false)
+	) {
 		await page.getByTestId("floating-shell-close").click();
 		await expect(popover()).toHaveCount(0, { timeout: 10_000 });
 	}

@@ -67,7 +67,10 @@ export type SamanthaDriverOptions = {
 			| { kind: "collab-tell"; target: AgentTarget; instruction: string }
 			| { kind: "workflow-resume"; workflowId: string; message: string },
 	) => Promise<{ ok: boolean; detail: string }>;
-	sendUnmanagedInput: (sessionId: string, data: string) => { ok: boolean; detail: string };
+	sendUnmanagedInput: (
+		sessionId: string,
+		data: string,
+	) => { ok: boolean; detail: string };
 };
 
 const SPEECH_WORTHY = new Set<SamanthaSignal>([
@@ -176,7 +179,10 @@ export function createSamanthaDriver(
 		return { identities, reviewCounts, whisper, session };
 	}
 
-	const execute: import("./act-guard").ExecuteFn = async (worktreeId, decision) => {
+	const execute: import("./act-guard").ExecuteFn = async (
+		worktreeId,
+		decision,
+	) => {
 		if (decision.kind === "send-input")
 			return options.sendUnmanagedInput(decision.sessionId, decision.data);
 		if (decision.kind === "collab-tell" || decision.kind === "workflow-resume")
@@ -211,11 +217,16 @@ export function createSamanthaDriver(
 				return {
 					ok: false,
 					code: "invalid-args",
-					message: "instruct-session requires args.instruction (non-empty string)",
+					message:
+						"instruct-session requires args.instruction (non-empty string)",
 				};
 			const resolved = resolveWorktreeKey(await options.getIdentities(), key);
 			if (resolved.kind === "none")
-				return { ok: false, code: "unknown-worktree", message: `no worktree for "${key}"` };
+				return {
+					ok: false,
+					code: "unknown-worktree",
+					message: `no worktree for "${key}"`,
+				};
 			if (resolved.kind === "ambiguous")
 				return {
 					ok: false,
@@ -228,7 +239,12 @@ export function createSamanthaDriver(
 				session,
 			);
 			const decision = routeInstruction({ instruction, state });
-			return { ok: true, worktreeId: resolved.worktreeId, instruction, decision };
+			return {
+				ok: true,
+				worktreeId: resolved.worktreeId,
+				instruction,
+				decision,
+			};
 		};
 		return actGuard.run({ token, prepare });
 	};

@@ -43,7 +43,9 @@ function sessionWith(
 	} as WorktreeSession;
 }
 
-function makeWorktreeSession(over: { activeProcessSessionId: string | null }): WorktreeSession {
+function makeWorktreeSession(over: {
+	activeProcessSessionId: string | null;
+}): WorktreeSession {
 	return {
 		id: "s",
 		worktreeId: "wt1",

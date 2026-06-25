@@ -54,7 +54,9 @@ describe("samantha-mock-server (S4 extensions)", () => {
 		const ws = new WebSocket(
 			`ws://127.0.0.1:${mock.port}/connectors/ai-14all/events`,
 		);
-		const closed = new Promise<void>((resolve) => ws.on("close", () => resolve()));
+		const closed = new Promise<void>((resolve) =>
+			ws.on("close", () => resolve()),
+		);
 		await mock.waitForConnection(1);
 		mock.dropSocket();
 		await closed; // resolves only if the server closed the socket
@@ -62,12 +64,22 @@ describe("samantha-mock-server (S4 extensions)", () => {
 
 	it("forgetRegistration makes snapshot/event 404 until a fresh register", async () => {
 		mock = await startMockSamantha();
-		expect(await httpStatus(mock.port, "PATCH", "/connectors/ai-14all/snapshot")).toBe(200);
+		expect(
+			await httpStatus(mock.port, "PATCH", "/connectors/ai-14all/snapshot"),
+		).toBe(200);
 		mock.forgetRegistration();
-		expect(await httpStatus(mock.port, "PATCH", "/connectors/ai-14all/snapshot")).toBe(404);
-		expect(await httpStatus(mock.port, "POST", "/connectors/ai-14all/events")).toBe(404);
-		expect(await httpStatus(mock.port, "POST", "/connectors/register")).toBe(200);
-		expect(await httpStatus(mock.port, "PATCH", "/connectors/ai-14all/snapshot")).toBe(200);
+		expect(
+			await httpStatus(mock.port, "PATCH", "/connectors/ai-14all/snapshot"),
+		).toBe(404);
+		expect(
+			await httpStatus(mock.port, "POST", "/connectors/ai-14all/events"),
+		).toBe(404);
+		expect(await httpStatus(mock.port, "POST", "/connectors/register")).toBe(
+			200,
+		);
+		expect(
+			await httpStatus(mock.port, "PATCH", "/connectors/ai-14all/snapshot"),
+		).toBe(200);
 	});
 
 	it("restart() re-listens on the same port", async () => {
@@ -76,6 +88,8 @@ describe("samantha-mock-server (S4 extensions)", () => {
 		await mock.stop();
 		await mock.restart();
 		expect(mock.port).toBe(port);
-		expect(await httpStatus(mock.port, "POST", "/connectors/register")).toBe(200);
+		expect(await httpStatus(mock.port, "POST", "/connectors/register")).toBe(
+			200,
+		);
 	});
 });

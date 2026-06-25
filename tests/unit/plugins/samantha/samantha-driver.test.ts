@@ -77,7 +77,9 @@ function slice(
 	};
 }
 
-type MakeDriverOverrides = Parameters<typeof createSamanthaDriver>[0] extends infer O
+type MakeDriverOverrides = Parameters<
+	typeof createSamanthaDriver
+>[0] extends infer O
 	? Partial<O> & { client?: SamanthaConnectorClient }
 	: never;
 
@@ -712,7 +714,10 @@ function pausedWorkflowState(worktreeId: string) {
 }
 
 it("instruct-session on a paused workflow resumes it with the instruction", async () => {
-	const runManagedInstruction = vi.fn(async () => ({ ok: true, detail: "resumed" }));
+	const runManagedInstruction = vi.fn(async () => ({
+		ok: true,
+		detail: "resumed",
+	}));
 	const { driver } = makeDriver({
 		isActingEnabled: () => true,
 		verifyActingToken: () => true,
@@ -743,8 +748,15 @@ it("token-first: a bad token returns unauthorized WITHOUT resolving the worktree
 		verifyActingToken: () => false,
 		getIdentities,
 	});
-	const outcome = await driver.instructSession({ worktree: "x/y", instruction: "go" }, "bad");
-	expect(outcome).toEqual({ ok: false, code: "unauthorized", message: expect.any(String) });
+	const outcome = await driver.instructSession(
+		{ worktree: "x/y", instruction: "go" },
+		"bad",
+	);
+	expect(outcome).toEqual({
+		ok: false,
+		code: "unauthorized",
+		message: expect.any(String),
+	});
 	expect(getIdentities).not.toHaveBeenCalled();
 });
 
@@ -755,13 +767,22 @@ it("acting disabled → acting-disabled, managed effect never called", async () 
 		verifyActingToken: () => true,
 		runManagedInstruction,
 	});
-	const outcome = await driver.instructSession({ worktree: "ai-14all/main", instruction: "go" }, "tok");
+	const outcome = await driver.instructSession(
+		{ worktree: "ai-14all/main", instruction: "go" },
+		"tok",
+	);
 	expect(runManagedInstruction).not.toHaveBeenCalled();
 	expect(outcome.ok === false && outcome.code).toBe("acting-disabled");
 });
 
 it("invalid args (after token gate) → invalid-args", async () => {
-	const { driver } = makeDriver({ isActingEnabled: () => true, verifyActingToken: () => true });
-	const outcome = await driver.instructSession({ worktree: "ai-14all/main" }, "tok");
+	const { driver } = makeDriver({
+		isActingEnabled: () => true,
+		verifyActingToken: () => true,
+	});
+	const outcome = await driver.instructSession(
+		{ worktree: "ai-14all/main" },
+		"tok",
+	);
 	expect(outcome.ok === false && outcome.code).toBe("invalid-args");
 });

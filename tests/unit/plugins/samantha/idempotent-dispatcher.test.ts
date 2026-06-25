@@ -7,7 +7,10 @@ import {
 	okResult,
 } from "../../../../services/plugins/samantha/command-types";
 
-function frame(requestId: string, over: Partial<CommandFrame> = {}): CommandFrame {
+function frame(
+	requestId: string,
+	over: Partial<CommandFrame> = {},
+): CommandFrame {
 	return {
 		type: "command",
 		capabilityId: "session-report",
@@ -19,9 +22,15 @@ function frame(requestId: string, over: Partial<CommandFrame> = {}): CommandFram
 describe("idempotent-dispatcher", () => {
 	it("a fresh requestId calls inner once; a duplicate replays without re-calling inner", async () => {
 		const inner = {
-			dispatch: vi.fn(async (f: CommandFrame) => okResult(f.requestId, { v: 1 })),
+			dispatch: vi.fn(async (f: CommandFrame) =>
+				okResult(f.requestId, { v: 1 }),
+			),
 		};
-		const d = createIdempotentDispatcher(inner, { ttlMs: 1000, max: 10, now: () => 0 });
+		const d = createIdempotentDispatcher(inner, {
+			ttlMs: 1000,
+			max: 10,
+			now: () => 0,
+		});
 		const r1 = await d.dispatch(frame("A"));
 		const r2 = await d.dispatch(frame("A"));
 		expect(r1).toEqual(r2);
@@ -32,10 +41,17 @@ describe("idempotent-dispatcher", () => {
 		let resolve!: (r: CommandResult) => void;
 		const inner = {
 			dispatch: vi.fn(
-				() => new Promise<CommandResult>((res) => { resolve = res; }),
+				() =>
+					new Promise<CommandResult>((res) => {
+						resolve = res;
+					}),
 			),
 		};
-		const d = createIdempotentDispatcher(inner, { ttlMs: 1000, max: 10, now: () => 0 });
+		const d = createIdempotentDispatcher(inner, {
+			ttlMs: 1000,
+			max: 10,
+			now: () => 0,
+		});
 		const p1 = d.dispatch(frame("A"));
 		const p2 = d.dispatch(frame("A"));
 		expect(inner.dispatch).toHaveBeenCalledTimes(1);
@@ -50,7 +66,11 @@ describe("idempotent-dispatcher", () => {
 				errorResult(f.requestId, "no-live-agent", "none"),
 			),
 		};
-		const d = createIdempotentDispatcher(inner, { ttlMs: 1000, max: 10, now: () => 0 });
+		const d = createIdempotentDispatcher(inner, {
+			ttlMs: 1000,
+			max: 10,
+			now: () => 0,
+		});
 		const r1 = await d.dispatch(frame("A"));
 		const r2 = await d.dispatch(frame("A"));
 		expect(r1).toEqual(r2);
@@ -63,7 +83,11 @@ describe("idempotent-dispatcher", () => {
 		const inner = {
 			dispatch: vi.fn(async (f: CommandFrame) => okResult(f.requestId, {})),
 		};
-		const d = createIdempotentDispatcher(inner, { ttlMs: 100, max: 10, now: () => t });
+		const d = createIdempotentDispatcher(inner, {
+			ttlMs: 100,
+			max: 10,
+			now: () => t,
+		});
 		await d.dispatch(frame("A")); // ts = 0
 		t = 101; // 0 + 100 < 101 -> expired
 		await d.dispatch(frame("A"));
@@ -75,7 +99,11 @@ describe("idempotent-dispatcher", () => {
 		const inner = {
 			dispatch: vi.fn(async (f: CommandFrame) => okResult(f.requestId, {})),
 		};
-		const d = createIdempotentDispatcher(inner, { ttlMs: 100, max: 1, now: () => t });
+		const d = createIdempotentDispatcher(inner, {
+			ttlMs: 100,
+			max: 1,
+			now: () => t,
+		});
 		await d.dispatch(frame("A")); // ts = 0, cache full (max 1)
 		t = 50; // A still live -> cache full of live entries
 		const refused = await d.dispatch(frame("B"));
@@ -89,9 +117,15 @@ describe("idempotent-dispatcher", () => {
 	it("exactly-once under overflow: a full-of-live cache refuses a NEW id but still replays a live id", async () => {
 		const t = 0;
 		const inner = {
-			dispatch: vi.fn(async (f: CommandFrame) => okResult(f.requestId, { id: f.requestId })),
+			dispatch: vi.fn(async (f: CommandFrame) =>
+				okResult(f.requestId, { id: f.requestId }),
+			),
 		};
-		const d = createIdempotentDispatcher(inner, { ttlMs: 1000, max: 2, now: () => t });
+		const d = createIdempotentDispatcher(inner, {
+			ttlMs: 1000,
+			max: 2,
+			now: () => t,
+		});
 		await d.dispatch(frame("A"));
 		await d.dispatch(frame("B"));
 		expect(inner.dispatch).toHaveBeenCalledTimes(2);
@@ -118,7 +152,11 @@ describe("idempotent-dispatcher", () => {
 				return okResult(f.requestId, {});
 			}),
 		};
-		const d = createIdempotentDispatcher(inner, { ttlMs: 1000, max: 10, now: () => 0 });
+		const d = createIdempotentDispatcher(inner, {
+			ttlMs: 1000,
+			max: 10,
+			now: () => 0,
+		});
 		await expect(d.dispatch(frame("A"))).rejects.toThrow("boom");
 		// entry was cleared -> a retry of the SAME id calls inner again and succeeds
 		const r = await d.dispatch(frame("A"));

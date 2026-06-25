@@ -35,9 +35,18 @@ describe("CAPABILITIES instruct-session", () => {
 			requiresConfirmation: true,
 			risk: "drives-agent",
 		});
-		const schema = (cap as { inputSchema: { properties: Record<string, unknown>; required: string[] } }).inputSchema;
+		const schema = (
+			cap as {
+				inputSchema: {
+					properties: Record<string, unknown>;
+					required: string[];
+				};
+			}
+		).inputSchema;
 		expect(schema.properties).toHaveProperty("worktree");
 		expect(schema.properties).toHaveProperty("instruction");
-		expect(schema.required).toEqual(expect.arrayContaining(["worktree", "instruction"]));
+		expect(schema.required).toEqual(
+			expect.arrayContaining(["worktree", "instruction"]),
+		);
 	});
 });

@@ -3,10 +3,9 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { FloatingShellPopover } from "../../../src/features/terminals/components/FloatingShellPopover";
 import type { ProcessSession } from "../../../shared/models/process-session";
 
-vi.mock(
-	"../../../src/features/terminals/components/TerminalPane",
-	() => ({ TerminalPane: () => <div data-testid="terminal-pane" /> }),
-);
+vi.mock("../../../src/features/terminals/components/TerminalPane", () => ({
+	TerminalPane: () => <div data-testid="terminal-pane" />,
+}));
 
 const proc = (status: ProcessSession["status"]): ProcessSession =>
 	({
@@ -30,7 +29,14 @@ const proc = (status: ProcessSession["status"]): ProcessSession =>
 		provider: null,
 	}) as ProcessSession;
 
-const session = { id: "t-p1", workspaceId: "ws", worktreeId: "a", cwd: "/repo", status: "running", exitCode: null } as const;
+const session = {
+	id: "t-p1",
+	workspaceId: "ws",
+	worktreeId: "a",
+	cwd: "/repo",
+	status: "running",
+	exitCode: null,
+} as const;
 
 describe("FloatingShellPopover", () => {
 	it("renders the terminal body and wires controls", () => {

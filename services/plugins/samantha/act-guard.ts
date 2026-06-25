@@ -82,7 +82,11 @@ export function createActGuard(deps: ActGuardDeps): {
 					rejectCode: "acting-disabled",
 					result: { ok: false, detail: "acting disabled" },
 				});
-				return { ok: false, code: "acting-disabled", message: "acting is disabled" };
+				return {
+					ok: false,
+					code: "acting-disabled",
+					message: "acting is disabled",
+				};
 			}
 
 			const guard = { tokenValid: true, actingEnabled: true };

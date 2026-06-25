@@ -88,7 +88,11 @@ export function routeInstruction(input: {
 
 	if (state.kind === "unmanaged") {
 		if (SAFE_UNMANAGED.has(state.attention))
-			return { kind: "send-input", sessionId: state.sessionId, data: instruction };
+			return {
+				kind: "send-input",
+				sessionId: state.sessionId,
+				data: instruction,
+			};
 		return {
 			kind: "reject",
 			code: "session-busy",

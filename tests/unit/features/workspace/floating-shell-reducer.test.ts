@@ -10,7 +10,12 @@ import type { Worktree } from "../../../../shared/models/worktree";
 import type { ProcessSession } from "../../../../shared/models/process-session";
 
 const wt = (id: string): Worktree =>
-	({ id, path: `/repo/${id}`, branch: id, isPrimary: false }) as unknown as Worktree;
+	({
+		id,
+		path: `/repo/${id}`,
+		branch: id,
+		isPrimary: false,
+	}) as unknown as Worktree;
 
 const proc = (id: string): ProcessSession => ({
 	id,
@@ -135,9 +140,7 @@ describe("floating shell reducer actions", () => {
 		});
 		expect(after).toBe(before);
 		expect(after.processSessionsById).toEqual(before.processSessionsById);
-		expect(after.sessionsByWorktreeId.a).toEqual(
-			before.sessionsByWorktreeId.a,
-		);
+		expect(after.sessionsByWorktreeId.a).toEqual(before.sessionsByWorktreeId.a);
 	});
 });
 

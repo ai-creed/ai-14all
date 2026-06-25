@@ -136,8 +136,7 @@ export function useFloatingShellActions(
 		async (processId: string) => {
 			if (!workspaceId || !worktree) return;
 			const worktreeId = worktree.id;
-			const process =
-				workspaceStateRef.current.processSessionsById[processId];
+			const process = workspaceStateRef.current.processSessionsById[processId];
 			const terminalId = process?.terminalSessionId ?? null;
 			if (terminalId) {
 				const session = sessions.find((s) => s.id === terminalId);

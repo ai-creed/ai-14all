@@ -7,7 +7,9 @@ import {
 import type { WhisperWorktreeState } from "../../../../shared/models/ecosystem-plugin";
 import type { SamanthaSessionSlice } from "../../../../shared/contracts/plugins";
 
-function managed(over: Partial<WhisperWorktreeState> = {}): WhisperWorktreeState {
+function managed(
+	over: Partial<WhisperWorktreeState> = {},
+): WhisperWorktreeState {
 	return {
 		worktreeId: "wt1",
 		collabId: "c1",
@@ -35,7 +37,10 @@ function managed(over: Partial<WhisperWorktreeState> = {}): WhisperWorktreeState
 function sessionWith(
 	worktreeId: string,
 	attention: SamanthaSessionSlice["worktrees"][number]["attention"],
-	over: { provider?: SamanthaSessionSlice["worktrees"][number]["provider"]; sessionId?: string | null } = {},
+	over: {
+		provider?: SamanthaSessionSlice["worktrees"][number]["provider"];
+		sessionId?: string | null;
+	} = {},
 ): SamanthaSessionSlice {
 	return {
 		worktrees: [
@@ -57,7 +62,11 @@ function sessionWith(
 
 describe("buildTargetSessionState", () => {
 	it("managed: live daemon + workflow → managed with derived fields", () => {
-		const s = buildTargetSessionState("wt1", [managed()], sessionWith("wt1", "active"));
+		const s = buildTargetSessionState(
+			"wt1",
+			[managed()],
+			sessionWith("wt1", "active"),
+		);
 		expect(s).toEqual({
 			kind: "managed",
 			workflowStatus: "running",
@@ -82,20 +91,34 @@ describe("buildTargetSessionState", () => {
 			[managed({ daemonAlive: false })],
 			sessionWith("wt1", "waiting"),
 		);
-		expect(s).toEqual({ kind: "unmanaged", attention: "waiting", sessionId: "sess_1" });
+		expect(s).toEqual({
+			kind: "unmanaged",
+			attention: "waiting",
+			sessionId: "sess_1",
+		});
 	});
 
 	it("unmanaged: session slice with sessionId, no managed workflow → unmanaged", () => {
 		const s = buildTargetSessionState("wt1", [], sessionWith("wt1", "idle"));
-		expect(s).toEqual({ kind: "unmanaged", attention: "idle", sessionId: "sess_1" });
+		expect(s).toEqual({
+			kind: "unmanaged",
+			attention: "idle",
+			sessionId: "sess_1",
+		});
 	});
 
 	it("absent: no workflow and no session slice → absent", () => {
-		expect(buildTargetSessionState("wt1", [], null)).toEqual({ kind: "absent" });
+		expect(buildTargetSessionState("wt1", [], null)).toEqual({
+			kind: "absent",
+		});
 	});
 
 	it("absent: session slice exists but sessionId is null (no live PTY) → absent", () => {
-		const s = buildTargetSessionState("wt1", [], sessionWith("wt1", "idle", { sessionId: null }));
+		const s = buildTargetSessionState(
+			"wt1",
+			[],
+			sessionWith("wt1", "idle", { sessionId: null }),
+		);
 		expect(s).toEqual({ kind: "absent" });
 	});
 
@@ -185,7 +208,11 @@ describe("routeInstruction", () => {
 				instruction,
 				state: { kind: "unmanaged", attention, sessionId: "sess_9" },
 			});
-			expect(r).toEqual({ kind: "send-input", sessionId: "sess_9", data: "add tests" });
+			expect(r).toEqual({
+				kind: "send-input",
+				sessionId: "sess_9",
+				data: "add tests",
+			});
 		},
 	);
 

@@ -36,7 +36,9 @@ describe("terminal.newFloating shortcut", () => {
 
 	it("does NOT fire on plain Cmd+T (that is terminal.new)", () => {
 		const { predicate } = findPredicate("terminal.newFloating");
-		expect(predicate(key({ metaKey: true, shiftKey: false }), "mac")).toBe(false);
+		expect(predicate(key({ metaKey: true, shiftKey: false }), "mac")).toBe(
+			false,
+		);
 	});
 
 	it("fires even when an xterm textarea is focused", () => {
@@ -48,7 +50,10 @@ describe("terminal.newFloating shortcut", () => {
 		document.body.appendChild(xterm);
 		const { predicate } = findPredicate("terminal.newFloating");
 		expect(
-			predicate(key({ metaKey: true, shiftKey: true, target: textarea }), "mac"),
+			predicate(
+				key({ metaKey: true, shiftKey: true, target: textarea }),
+				"mac",
+			),
 		).toBe(true);
 		document.body.removeChild(xterm);
 	});

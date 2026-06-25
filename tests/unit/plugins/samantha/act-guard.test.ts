@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { createActGuard, type PrepResult } from "../../../../services/plugins/samantha/act-guard";
+import {
+	createActGuard,
+	type PrepResult,
+} from "../../../../services/plugins/samantha/act-guard";
 
 function make(over: Partial<Parameters<typeof createActGuard>[0]> = {}) {
 	const audit = vi.fn();
@@ -27,7 +30,11 @@ describe("act-guard", () => {
 		const prepare = vi.fn(okPrep);
 		const { guard, execute, audit } = make({ verifyToken: () => false });
 		const r = await guard.run({ token: "x", prepare });
-		expect(r).toEqual({ ok: false, code: "unauthorized", message: expect.any(String) });
+		expect(r).toEqual({
+			ok: false,
+			code: "unauthorized",
+			message: expect.any(String),
+		});
 		expect(prepare).not.toHaveBeenCalled();
 		expect(execute).not.toHaveBeenCalled();
 		expect(audit).toHaveBeenCalledTimes(1);
@@ -40,7 +47,11 @@ describe("act-guard", () => {
 		const prepare = vi.fn(okPrep);
 		const { guard, execute } = make({ isActingEnabled: () => false });
 		const r = await guard.run({ token: "tok", prepare });
-		expect(r).toEqual({ ok: false, code: "acting-disabled", message: expect.any(String) });
+		expect(r).toEqual({
+			ok: false,
+			code: "acting-disabled",
+			message: expect.any(String),
+		});
 		expect(prepare).not.toHaveBeenCalled();
 		expect(execute).not.toHaveBeenCalled();
 	});
@@ -49,9 +60,17 @@ describe("act-guard", () => {
 		const { guard, execute } = make();
 		const r = await guard.run({
 			token: "tok",
-			prepare: async () => ({ ok: false, code: "unknown-worktree", message: "no wt" }),
+			prepare: async () => ({
+				ok: false,
+				code: "unknown-worktree",
+				message: "no wt",
+			}),
 		});
-		expect(r).toEqual({ ok: false, code: "unknown-worktree", message: "no wt" });
+		expect(r).toEqual({
+			ok: false,
+			code: "unknown-worktree",
+			message: "no wt",
+		});
 		expect(execute).not.toHaveBeenCalled();
 	});
 
@@ -69,7 +88,11 @@ describe("act-guard", () => {
 		expect(r).toEqual({ ok: false, code: "session-busy", message: "busy" });
 		expect(execute).not.toHaveBeenCalled();
 		expect(audit).toHaveBeenCalledWith(
-			expect.objectContaining({ phase: "result", route: "reject", rejectCode: "session-busy" }),
+			expect.objectContaining({
+				phase: "result",
+				route: "reject",
+				rejectCode: "session-busy",
+			}),
 		);
 	});
 
@@ -85,16 +108,26 @@ describe("act-guard", () => {
 		expect(audit).toHaveBeenCalledTimes(2);
 		expect(audit).toHaveBeenNthCalledWith(
 			1,
-			expect.objectContaining({ phase: "start", route: "send-input", result: null }),
+			expect.objectContaining({
+				phase: "start",
+				route: "send-input",
+				result: null,
+			}),
 		);
 		expect(audit).toHaveBeenNthCalledWith(
 			2,
-			expect.objectContaining({ phase: "result", route: "send-input", result: { ok: true, detail: "delivered" } }),
+			expect.objectContaining({
+				phase: "result",
+				route: "send-input",
+				result: { ok: true, detail: "delivered" },
+			}),
 		);
 	});
 
 	it("execute fails → internal with the detail; still audits start + result", async () => {
-		const { guard, audit } = make({ execute: async () => ({ ok: false, detail: "exit 1" }) });
+		const { guard, audit } = make({
+			execute: async () => ({ ok: false, detail: "exit 1" }),
+		});
 		const r = await guard.run({ token: "tok", prepare: okPrep });
 		expect(r).toEqual({ ok: false, code: "internal", message: "exit 1" });
 		expect(audit).toHaveBeenCalledTimes(2);
@@ -117,7 +150,11 @@ describe("act-guard", () => {
 		expect(audit).toHaveBeenCalledTimes(2);
 		expect(audit).toHaveBeenNthCalledWith(
 			1,
-			expect.objectContaining({ phase: "start", route: "send-input", result: null }),
+			expect.objectContaining({
+				phase: "start",
+				route: "send-input",
+				result: null,
+			}),
 		);
 		expect(audit).toHaveBeenNthCalledWith(
 			2,

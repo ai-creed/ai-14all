@@ -315,7 +315,8 @@ app.whenReady().then(async () => {
 	// Late-bound terminal sendInput: TerminalService is created later inside
 	// registerIpcHandlers; the driver only calls this at command-dispatch time,
 	// long after startup wiring completes.
-	let actingSendInput: ((sessionId: string, data: string) => void) | null = null;
+	let actingSendInput: ((sessionId: string, data: string) => void) | null =
+		null;
 
 	const actingTokenPath =
 		process.env.SAMANTHA_ACTING_TOKEN_PATH ??

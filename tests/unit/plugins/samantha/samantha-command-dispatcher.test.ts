@@ -26,7 +26,12 @@ function make(
 			}),
 		),
 		focusWorktree,
-		instructSession: vi.fn(async (): Promise<InstructOutcome> => ({ ok: true, routed: "send-input" })),
+		instructSession: vi.fn(
+			async (): Promise<InstructOutcome> => ({
+				ok: true,
+				routed: "send-input",
+			}),
+		),
 		...over,
 	};
 	return { dispatcher: createSamanthaCommandDispatcher(cb), cb, focusWorktree };
@@ -155,7 +160,10 @@ describe("samantha-command-dispatcher", () => {
 			}));
 			const { dispatcher } = make({ instructSession });
 			const r = await dispatcher.dispatch(
-				frame({ capabilityId: "instruct-session", args: { worktree: "a/b", instruction: "go" } }),
+				frame({
+					capabilityId: "instruct-session",
+					args: { worktree: "a/b", instruction: "go" },
+				}),
 			);
 			expect(r.status === "error" && r.error.code).toBe("unauthorized");
 			expect(r.status === "error" && r.error.message).toBe("invalid token");
@@ -168,7 +176,9 @@ describe("samantha-command-dispatcher", () => {
 				message: "bad",
 			}));
 			const { dispatcher } = make({ instructSession });
-			await dispatcher.dispatch(frame({ capabilityId: "instruct-session", args: {} }));
+			await dispatcher.dispatch(
+				frame({ capabilityId: "instruct-session", args: {} }),
+			);
 			expect(instructSession).toHaveBeenCalledWith({}, undefined);
 		});
 	});

@@ -1,4 +1,10 @@
-import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
+import {
+	render,
+	screen,
+	fireEvent,
+	act,
+	waitFor,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Capture the health handler so the test can drive link states, and spy on the
@@ -91,7 +97,9 @@ describe("PluginsPanelDialog — Samantha reconnect", () => {
 		});
 		expect(reconnectSamantha).toHaveBeenCalledTimes(1);
 		expect(screen.getByTestId("samantha-reconnect")).toBeDisabled();
-		expect(screen.getByTestId("samantha-reconnect")).toHaveTextContent(/connecting/i);
+		expect(screen.getByTestId("samantha-reconnect")).toHaveTextContent(
+			/connecting/i,
+		);
 		await act(async () => resolveReconnect());
 		await waitFor(() =>
 			expect(screen.getByTestId("samantha-reconnect")).not.toBeDisabled(),

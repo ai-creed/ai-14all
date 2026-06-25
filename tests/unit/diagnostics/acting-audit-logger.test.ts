@@ -27,7 +27,10 @@ describe("acting-audit-logger", () => {
 		const logger = new ActingAuditLogger({ logsDir: dir });
 		logger.append(startEntry());
 		logger.append(
-			startEntry({ phase: "result", result: { ok: true, detail: "delivered" } }),
+			startEntry({
+				phase: "result",
+				result: { ok: true, detail: "delivered" },
+			}),
 		);
 		const lines = readFileSync(join(dir, "acting-audit.jsonl"), "utf8")
 			.trim()
@@ -36,7 +39,10 @@ describe("acting-audit-logger", () => {
 		expect(JSON.parse(lines[0]).phase).toBe("start");
 		expect(JSON.parse(lines[0]).result).toBeNull();
 		expect(JSON.parse(lines[1]).phase).toBe("result");
-		expect(JSON.parse(lines[1]).result).toEqual({ ok: true, detail: "delivered" });
+		expect(JSON.parse(lines[1]).result).toEqual({
+			ok: true,
+			detail: "delivered",
+		});
 	});
 
 	it("never throws when the directory is unwritable", () => {
