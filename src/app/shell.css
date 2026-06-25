@@ -4878,6 +4878,11 @@ select {
 	color: var(--accent);
 	text-decoration: underline;
 }
+/* Positioning context so the floating-shell popover (position: absolute;
+   top: 100%) anchors directly beneath the terminal chrome header. */
+.terminal-chrome-header-anchor {
+	position: relative;
+}
 .terminal-chrome-header {
 	display: flex;
 	align-items: center;

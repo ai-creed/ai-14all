@@ -94,6 +94,9 @@ import { DialogStack } from "./components/DialogStack";
 import { ToastProvider, notifyToast } from "../features/ui/toast/ToastProvider";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { TerminalActions } from "../features/terminals/components/TerminalActions";
+import { FloatingShellPills } from "../features/terminals/components/FloatingShellPills";
+import { FloatingShellPopover } from "../features/terminals/components/FloatingShellPopover";
+import { useFloatingShellActions } from "./hooks/use-floating-shell-actions";
 import { AgentLauncherBar } from "../features/terminals/components/AgentLauncherBar";
 import {
 	type AgentProvider,
@@ -782,6 +785,37 @@ export function App() {
 		removeSession,
 	});
 
+	const {
+		handleAddFloatingShell,
+		handleCloseFloatingShell,
+		handlePinFloatingShell,
+		handleExpandFloatingShell,
+		handleMinimizeFloatingShell,
+	} = useFloatingShellActions({
+		workspaceId: activeWorkspaceId,
+		worktree: activeWorktree,
+		workspaceStateRef,
+		outputPreviewBuffersRef,
+		createScopedWorkspaceDispatch,
+		sessions,
+		spawnAdHocProcess,
+		stopSession,
+		removeSession,
+	});
+
+	// Floating throwaway shells live outside the layout slot grid; surface the
+	// current set and the expanded one (if any) so the pills + popover can render.
+	const floatingShellIds = activeSession?.floatingShellIds ?? [];
+	const expandedFloatingShellId = activeSession?.expandedFloatingShellId ?? null;
+	const expandedFloatingProcess = expandedFloatingShellId
+		? (workspaceState.processSessionsById[expandedFloatingShellId] ?? null)
+		: null;
+	const expandedFloatingSession = expandedFloatingProcess?.terminalSessionId
+		? (sessions.find(
+				(s) => s.id === expandedFloatingProcess.terminalSessionId,
+			) ?? null)
+		: null;
+
 	const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
 	const [pluginsDialogOpen, setPluginsDialogOpen] = useState(false);
 
@@ -1408,6 +1442,17 @@ export function App() {
 		[activeWorktree?.id, activeWorkspaceId, addDisabled],
 	);
 
+	// Cmd+Shift+T / Ctrl+Shift+T — new floating throwaway shell (own cap check)
+	useKeyboardShortcut(
+		"terminal.newFloating",
+		appPlatform,
+		(e) => {
+			e.preventDefault();
+			void handleAddFloatingShell();
+		},
+		[activeWorktree?.id, activeWorkspaceId],
+	);
+
 	// Cmd+Shift+L / Ctrl+Shift+L — open the terminal layout dialog
 	useKeyboardShortcut(
 		"terminal.layout",
@@ -1868,31 +1913,66 @@ export function App() {
 
 						<div className="shell-terminal-frame">
 							{activeWorktree && (
-								<TerminalChromeHeader
-									agentLauncher={
-										<AgentLauncherBar
-											probes={agentClis}
-											whisperHealthy={whisperOnHealthy}
-											whisperState={activeWhisperState}
-											mountPending={mountGuard.mountPending}
-											beginMount={mountGuard.beginMount}
-											launchInTerminal={(command) =>
-												void launchCollabTerminal(command)
+								<div className="terminal-chrome-header-anchor">
+									<TerminalChromeHeader
+										agentLauncher={
+											<AgentLauncherBar
+												probes={agentClis}
+												whisperHealthy={whisperOnHealthy}
+												whisperState={activeWhisperState}
+												mountPending={mountGuard.mountPending}
+												beginMount={mountGuard.beginMount}
+												launchInTerminal={(command) =>
+													void launchCollabTerminal(command)
+												}
+											/>
+										}
+										terminalActions={
+											<>
+												<FloatingShellPills
+													floatingShellIds={floatingShellIds}
+													processSessionsById={
+														workspaceState.processSessionsById
+													}
+													expandedId={expandedFloatingShellId}
+													onExpand={handleExpandFloatingShell}
+													onClose={handleCloseFloatingShell}
+												/>
+												<TerminalActions
+													presets={workspaceState.commandPresets}
+													addDisabled={addDisabled}
+													onAddAdHoc={handleAddAdHoc}
+													onLaunchPreset={handleLaunchPreset}
+													onOpenPresetManager={() =>
+														setPresetManagerOpen(true)
+													}
+													onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
+													platform={appPlatform}
+												/>
+											</>
+										}
+									/>
+									{expandedFloatingProcess && (
+										<FloatingShellPopover
+											process={expandedFloatingProcess}
+											session={expandedFloatingSession}
+											theme={terminalTheme}
+											pinDisabled={addDisabled}
+											onMinimize={handleMinimizeFloatingShell}
+											onPin={handlePinFloatingShell}
+											onClose={handleCloseFloatingShell}
+											onTitleChange={(title) =>
+												createScopedWorkspaceDispatch(
+													activeWorkspaceId ?? "",
+												)({
+													type: "session/updateProcessLabel",
+													processId: expandedFloatingProcess.id,
+													label: title,
+												})
 											}
 										/>
-									}
-									terminalActions={
-										<TerminalActions
-											presets={workspaceState.commandPresets}
-											addDisabled={addDisabled}
-											onAddAdHoc={handleAddAdHoc}
-											onLaunchPreset={handleLaunchPreset}
-											onOpenPresetManager={() => setPresetManagerOpen(true)}
-											onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
-											platform={appPlatform}
-										/>
-									}
-								/>
+									)}
+								</div>
 							)}
 
 							{/*
