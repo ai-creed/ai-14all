@@ -4968,6 +4968,13 @@ select {
 	background: #e0a13a;
 }
 .floating-shell-pill__close {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	/* Intrinsic hit area so the ✕ stays clickable before the symbols font loads
+	   (the Nerd Font glyph has no width until then). */
+	min-width: 22px;
+	height: 22px;
 	background: none;
 	border: none;
 	color: var(--text-secondary, #6b7689);
@@ -5000,6 +5007,36 @@ select {
 	padding: 6px 8px;
 	background: var(--bg-tertiary, #232b39);
 	border-bottom: 1px solid var(--border, #3a4356);
+}
+/*
+ * Give the icon-only header actions an intrinsic hit area, mirroring
+ * .shell-terminal-slot__header button. The Icon renders a Nerd Font glyph that
+ * has no width until the symbols font loads, so without an explicit min-size the
+ * button collapses to zero area and becomes unclickable (and invisible to the
+ * accessibility tree) whenever that font is absent.
+ */
+.floating-shell-popover__header button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 20px;
+	height: 20px;
+	background: none;
+	border: none;
+	border-radius: var(--radius-sm);
+	color: var(--text-secondary);
+	cursor: pointer;
+	padding: 2px;
+	font-size: inherit;
+	line-height: 1;
+}
+.floating-shell-popover__header button:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+.floating-shell-popover__header button:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--text-primary) 14%, transparent);
+	color: var(--text-primary);
 }
 .floating-shell-popover__title {
 	flex: 1;
