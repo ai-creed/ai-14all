@@ -3,7 +3,9 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 
 const REVIEW_RAIL_MIN = 240;
 const REVIEW_RAIL_MAX = 520;
-const SIDEBAR_MIN = 180;
+// Below ~200px the worktree list overhangs and footer icons (palette/close/
+// collapse) clip — QA-measured clean floor (docs/design-specs workspace rework).
+const SIDEBAR_MIN = 200;
 const SIDEBAR_MAX = 480;
 
 type Dimensions = {
