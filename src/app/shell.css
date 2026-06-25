@@ -2726,6 +2726,55 @@ select {
 	border: 0;
 }
 
+/* ── Command palette overlay ─────────────────────────────── */
+
+.shell-command-palette {
+	width: 100%;
+	max-width: 40rem;
+	padding: 0;
+	gap: 0;
+}
+.shell-command-palette__titlebar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.5rem 0.75rem;
+	border-bottom: 1px solid var(--border);
+}
+.shell-command-palette__search {
+	width: 100%;
+	border: 0;
+	background: transparent;
+	padding: 0.625rem 0.75rem;
+	font-size: 0.95rem;
+	outline: none;
+}
+.shell-command-palette__list {
+	max-height: 24rem;
+	overflow-y: auto;
+}
+.shell-command-palette__group-label {
+	padding: 0.25rem 0.75rem;
+	font-size: 0.7rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--muted-foreground);
+}
+.shell-command-palette__row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.375rem 0.75rem;
+	cursor: pointer;
+}
+.shell-command-palette__row--selected {
+	background: var(--accent);
+}
+.shell-command-palette__empty {
+	padding: 1rem 0.75rem;
+	color: var(--muted-foreground);
+}
+
 /* ── Shortcuts help overlay ──────────────────────────────── */
 
 .shell-shortcuts-help__overlay {
