@@ -596,23 +596,31 @@ select {
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__item {
-	/* Leaf marker (single initial) sitting on the rail, not a 40px box. */
-	width: auto;
+	/* Small centered cell for the single-initial marker on the rail (so the
+	   selected box is tight and the initial sits centered inside it). */
+	width: 24px;
+	height: 24px;
 	min-height: unset;
-	padding: 2px 0;
-	justify-content: flex-start;
+	padding: 0;
+	justify-content: center;
 }
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__marker {
-	width: auto;
-	height: auto;
+	width: 100%;
+	height: 100%;
 }
-/* highlight the active worktree's marker (no card box in collapsed). Use
-   --primary (the cursor/accent colour, high-contrast in every theme) — the
-   --accent token is a low-contrast dark step in tui, so the initial vanished. */
+/* Selected worktree in collapsed: a TIGHT centered box around the initial cell
+   (was the wide row card). Box uses --primary (high-contrast in every theme;
+   --accent is a near-invisible dark step in tui); the initial stays foreground
+   so it's always legible and centered in the 24px cell. */
+.shell-sidebar[data-collapsed="true"]
+	.shell-sidebar__row[data-selected="true"]
+	.shell-sidebar__item {
+	border: var(--shell-border-width) solid var(--primary);
+}
 .shell-sidebar[data-collapsed="true"]
 	.shell-sidebar__row[data-selected="true"]
 	.shell-sidebar__marker {
-	color: var(--primary);
+	color: var(--text-primary);
 	font-weight: 700;
 }
 
