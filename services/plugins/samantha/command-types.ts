@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+// Canonical integer version of the command/result + register contract. ai-14all
+// owns this number; Samantha mirrors it and refuses to act on a version it does
+// not support. Bump on ANY breaking change to the frame shape or error-code set.
+export const SAMANTHA_CONTRACT_VERSION = 1;
+
 export const CommandFrameSchema = z.object({
 	type: z.literal("command"),
 	capabilityId: z.string(),

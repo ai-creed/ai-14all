@@ -49,6 +49,7 @@ describe("samantha-connector-client", () => {
 			label: "ai-14all",
 			description: "ai-14all sessions",
 			capabilities: [],
+			contractVersion: 1,
 		});
 		expect(r).toEqual({ ok: true });
 		expect(received[0]).toMatchObject({
@@ -100,6 +101,7 @@ describe("samantha-connector-client", () => {
 				label: "ai-14all",
 				description: "",
 				capabilities: [],
+				contractVersion: 1,
 			}),
 		).toEqual({ ok: false, reason: "conflict" });
 	});
