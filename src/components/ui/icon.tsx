@@ -27,6 +27,8 @@ export const ICON_GLYPHS = {
 	plus: { fallback: "＋", nf: "" }, // plus
 	gear: { fallback: "⚙", nf: "" }, // cog
 	"git-branch": { fallback: "⎇", nf: "" }, // octicon git-branch U+F418
+	"sidebar-collapse": { fallback: "◧", nf: "" }, // octicon sidebar-collapse U+F514
+	"sidebar-expand": { fallback: "◨", nf: "" }, // octicon sidebar-expand U+F515
 	palette: { fallback: "🎨", nf: "" }, // fa-palette U+EFCC
 	grid: { fallback: "▦", nf: "" }, // grid (th)
 	"external-link": { fallback: "↗", nf: "" }, // external-link

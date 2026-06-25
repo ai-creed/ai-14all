@@ -159,9 +159,9 @@ export function SessionSidebar({
 				>
 					<span aria-hidden="true">
 						{collapsed ? (
-							<Icon name="caret-right" />
+							<Icon name="sidebar-expand" />
 						) : (
-							<Icon name="caret-left" />
+							<Icon name="sidebar-collapse" />
 						)}
 					</span>
 				</Button>
