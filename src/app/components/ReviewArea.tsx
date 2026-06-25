@@ -49,6 +49,8 @@ import {
 } from "../../features/review/logic/diff-navigation";
 import { useKeyboardShortcut } from "../hooks/use-keyboard-shortcut";
 import { detectPlatform } from "../shortcut-registry";
+import { useRegisterCommands } from "../../features/command-palette/hooks/use-command-registry";
+import type { Command } from "../../features/command-palette/logic/command";
 import type { useReviewComments } from "../../features/review/hooks/use-review-comments";
 import type { ReviewCommentSource } from "../../../shared/models/review-comment";
 import type { ReviewComment } from "../../../shared/models/review-comment";
@@ -394,7 +396,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 	const platform = useMemo(() => detectPlatform(), []);
 
 	const stepFile = useCallback(
-		(direction: 1 | -1, e: KeyboardEvent) => {
+		(direction: 1 | -1, e?: KeyboardEvent) => {
 			if (activeSession?.reviewMode === "changes") {
 				if (changes.length < 2) return;
 				const currentPath = activeSession.selectedChangedFilePath;
@@ -407,7 +409,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 						: (idx + direction + changes.length) % changes.length;
 				const next = changes[nextIdx];
 				if (!next) return;
-				e.preventDefault();
+				e?.preventDefault();
 				dispatch({
 					type: "session/selectChangedFile",
 					worktreeId: activeWorktree.id,
@@ -426,7 +428,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 						: (idx + direction + files.length) % files.length;
 				const next = files[nextIdx];
 				if (!next) return;
-				e.preventDefault();
+				e?.preventDefault();
 				dispatch({
 					type: "session/selectCommitFile",
 					worktreeId: activeWorktree.id,
@@ -484,6 +486,72 @@ export function ReviewArea(props: Props): React.ReactElement {
 		},
 		[currentFilePath, diffEditorRegistry],
 	);
+
+	// Event-free diff-navigation callbacks for the command palette
+	const goNextDiff = useCallback(() => {
+		if (!currentFilePath) return;
+		const editor = diffEditorRegistry.get(currentFilePath);
+		if (!editor) return;
+		navigateToNextDiff(editor);
+	}, [currentFilePath, diffEditorRegistry]);
+	const goPrevDiff = useCallback(() => {
+		if (!currentFilePath) return;
+		const editor = diffEditorRegistry.get(currentFilePath);
+		if (!editor) return;
+		navigateToPrevDiff(editor);
+	}, [currentFilePath, diffEditorRegistry]);
+
+	// Render-synced ref so reviewNavCommands can reference the latest stepFile
+	// without listing it (or its churning deps) in the useMemo dependency array.
+	// This prevents an infinite render loop: stepFile's deps include `changes`
+	// and `commitDetailState.data` which may produce new references every render;
+	// putting stepFile directly in useMemo deps would cause reviewNavCommands to
+	// churn → useRegisterCommands re-fires → version bump → re-render → loop.
+	const stepFileRef = useRef(stepFile);
+	stepFileRef.current = stepFile;
+
+	const reviewNavCommands = useMemo<Command[]>(
+		() => [
+			{
+				id: "review.fileNext",
+				title: "Next file",
+				group: "Review",
+				keybindingId: "review.fileNext",
+				run: () => stepFileRef.current(+1),
+				isAvailable: () =>
+					(activeSession?.reviewMode === "changes" && changes.length > 1) ||
+					activeSession?.reviewMode === "commits",
+			},
+			{
+				id: "review.filePrev",
+				title: "Previous file",
+				group: "Review",
+				keybindingId: "review.filePrev",
+				run: () => stepFileRef.current(-1),
+				isAvailable: () =>
+					(activeSession?.reviewMode === "changes" && changes.length > 1) ||
+					activeSession?.reviewMode === "commits",
+			},
+			{
+				id: "review.diffNext",
+				title: "Next diff in file",
+				group: "Review",
+				keybindingId: "review.diffNext",
+				run: goNextDiff,
+				isAvailable: () => !!currentFilePath,
+			},
+			{
+				id: "review.diffPrev",
+				title: "Previous diff in file",
+				group: "Review",
+				keybindingId: "review.diffPrev",
+				run: goPrevDiff,
+				isAvailable: () => !!currentFilePath,
+			},
+		],
+		[goNextDiff, goPrevDiff, currentFilePath, activeSession?.reviewMode, changes.length],
+	);
+	useRegisterCommands(reviewNavCommands, [reviewNavCommands]);
 
 	const draftBelongsHere =
 		addingDraft !== null && addingDraft.filePath === currentFilePath;
