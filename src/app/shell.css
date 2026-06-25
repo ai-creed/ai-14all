@@ -555,51 +555,60 @@ select {
 }
 
 .shell-sidebar[data-collapsed="true"] {
-	padding-inline: 8px;
+	/* Even padding on all four sides (was padding-inline: 8px only). */
+	padding: var(--space-3);
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__header {
-	justify-content: center;
-	/* collapsed sidebar uses 8px inset, so match the full-bleed cancel to 8px */
-	margin-inline: -8px;
-	padding-inline: 8px;
+	justify-content: flex-end;
+	margin-inline: calc(-1 * var(--space-3));
+	padding-inline: var(--space-3);
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__list {
-	align-items: center;
+	align-items: stretch;
 }
 
-/* Collapsed: flatten the worktree tree — no rail gutter, no connector pseudos,
-   no card boxes; just centered marker glyphs. (The collapsed CSS predated the
-   .shell-sidebar__node tree restructure, which is why the rail leaked through.) */
+/* Collapsed = compact git tree (~100px): KEEP the rail + connectors, but show
+   single-letter leaf markers instead of full cards, left-aligned. */
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-items {
-	align-items: center;
-}
-.shell-sidebar[data-collapsed="true"] .shell-sidebar__node {
-	padding-left: 0;
-	padding-bottom: var(--space-1);
-}
-.shell-sidebar[data-collapsed="true"] .shell-sidebar__node::before,
-.shell-sidebar[data-collapsed="true"] .shell-sidebar__node::after {
-	display: none;
+	align-items: stretch;
 }
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__row {
 	background: transparent;
 	border-color: transparent;
 	padding: 0;
 }
+/* The marker is a single line, so pull the elbow / trunk-stop up to its center
+   (vs the taller multi-line card the default 17px targets). */
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__node::after {
+	top: 10px;
+}
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__node:last-child::before {
+	height: 10px;
+}
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__node--new button {
-	width: 40px;
+	width: auto;
 	min-width: 0;
-	padding: 0;
+	padding: 2px 6px;
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__item {
-	width: 40px;
-	height: 40px;
+	/* Leaf marker (single initial) sitting on the rail, not a 40px box. */
+	width: auto;
 	min-height: unset;
-	padding: 0;
-	justify-content: center;
+	padding: 2px 0;
+	justify-content: flex-start;
+}
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__marker {
+	width: auto;
+	height: auto;
+}
+/* highlight the active worktree's marker (no card box in collapsed) */
+.shell-sidebar[data-collapsed="true"]
+	.shell-sidebar__row[data-selected="true"]
+	.shell-sidebar__marker {
+	color: var(--accent);
 }
 
 .shell-sidebar__marker {
@@ -1179,24 +1188,26 @@ select {
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-group {
-	align-items: center;
-	padding: 0;
+	align-items: stretch;
+	padding: var(--space-3) 0 var(--space-1);
 	background: transparent;
 	border: none;
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-header {
-	justify-content: center;
+	justify-content: flex-start;
+	padding-left: 4px;
 }
 
-/* collapsed badge: git icon + initial side-by-side, no pill background */
+/* collapsed badge: git icon + initial, left-aligned (the rail descends under it) */
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-badge {
 	flex-direction: row;
-	gap: 5px;
+	gap: var(--space-1);
 	width: auto;
 	height: auto;
 	background: transparent;
 	border-radius: 0;
+	justify-content: flex-start;
 }
 
 .shell-sidebar__workspace-badge-initial {
