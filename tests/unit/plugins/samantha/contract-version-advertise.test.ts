@@ -7,7 +7,9 @@ import type {
 	SamanthaClientResult,
 } from "../../../../services/plugins/samantha/samantha-connector-client";
 
-function stubClient(onRegister: (body: RegisterBody) => void): SamanthaConnectorClient {
+function stubClient(
+	onRegister: (body: RegisterBody) => void,
+): SamanthaConnectorClient {
 	const ok: SamanthaClientResult = { ok: true };
 	return {
 		register: async (body) => {

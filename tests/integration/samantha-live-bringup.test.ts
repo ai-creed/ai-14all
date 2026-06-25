@@ -34,9 +34,7 @@ let tokenPath: string;
 let auditLines: string[];
 let actingEnabled: boolean;
 let sentInputs: Array<{ sessionId: string; data: string }>;
-let driver:
-	| ReturnType<typeof createSamanthaDriver>
-	| undefined;
+let driver: ReturnType<typeof createSamanthaDriver> | undefined;
 let stopDriver: (() => Promise<void>) | undefined;
 
 // The single live worktree the harness exposes: its observe key is "a/b" (repo
@@ -135,7 +133,8 @@ async function startDriver(): Promise<void> {
 		// ---- Real S3 chain (NOT stubbed): token verifier, ActGuard, dispatcher ----
 		isActingEnabled: () => actingEnabled,
 		verifyActingToken: (token) => actingTokenVerifier.verify(token),
-		auditAct: (entry: ActingAuditEntry) => auditLines.push(JSON.stringify(entry)),
+		auditAct: (entry: ActingAuditEntry) =>
+			auditLines.push(JSON.stringify(entry)),
 		// Managed instructions resolve the worktree then "deliver" (captured).
 		runManagedInstruction: async (worktreeId, decision) => {
 			const ref = await resolveWorktreeRef(worktreeId);
@@ -168,20 +167,20 @@ async function startDriver(): Promise<void> {
 	// Poll until ai-14all has registered (HTTP) AND the command socket is bound,
 	// so a tool call won't race the WS upgrade.
 	await expect
-		.poll(async () => (await getConnectors()).some((c) => c.id === "ai-14all"), {
-			timeout: 10000,
-			interval: 100,
-		})
+		.poll(
+			async () => (await getConnectors()).some((c) => c.id === "ai-14all"),
+			{
+				timeout: 10000,
+				interval: 100,
+			},
+		)
 		.toBe(true);
 	// The first tool call exercises the WS command plane; give the socket a moment
 	// to finish its upgrade after registration so the bridge has a bound socket.
 	await expect
 		.poll(
 			async () => {
-				const r = await child!.callTool(
-					"conn__ai-14all__session-report",
-					{},
-				);
+				const r = await child!.callTool("conn__ai-14all__session-report", {});
 				return r.isError === false;
 			},
 			{ timeout: 10000, interval: 150 },
@@ -230,7 +229,8 @@ describe("live two-process bring-up", () => {
 		// Snapshot half: GET /connectors summary moves off the placeholder.
 		await expect
 			.poll(
-				async () => (await getConnectors()).find((c) => c.id === "ai-14all")?.summary,
+				async () =>
+					(await getConnectors()).find((c) => c.id === "ai-14all")?.summary,
 				{ timeout: 10000 },
 			)
 			.not.toBe("Connected. Awaiting first snapshot.");
@@ -268,7 +268,10 @@ describe("live two-process bring-up", () => {
 	it("error forward-compat: acting-disabled (toggle off) surfaces through the bridge, not a timeout", async () => {
 		actingEnabled = false;
 		await startDriver();
-		const r = await tool("instruct-session", { worktree: "a/b", instruction: "go" });
+		const r = await tool("instruct-session", {
+			worktree: "a/b",
+			instruction: "go",
+		});
 		expect(r.isError).toBe(true);
 		expect(r.text).toMatch(/^acting-disabled:/);
 	});
@@ -278,7 +281,10 @@ describe("live two-process bring-up", () => {
 		// (Samantha stamped her in-memory secret on the frame; ai-14all reads this file.)
 		await startDriver();
 		writeFileSync(tokenPath, "not-the-real-secret", { mode: 0o600 });
-		const r = await tool("instruct-session", { worktree: "a/b", instruction: "go" });
+		const r = await tool("instruct-session", {
+			worktree: "a/b",
+			instruction: "go",
+		});
 		expect(r.isError).toBe(true);
 		expect(r.text).toMatch(/^unauthorized:/);
 	});

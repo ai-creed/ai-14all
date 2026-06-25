@@ -10,7 +10,10 @@ export type SamanthaChild = {
 	callTool: (
 		name: string,
 		args?: Record<string, unknown>,
-	) => Promise<{ isError: boolean; content: Array<{ type: string; text: string }> }>;
+	) => Promise<{
+		isError: boolean;
+		content: Array<{ type: string; text: string }>;
+	}>;
 	events: HarnessEvent[]; // observe events the child forwarded
 	stop: () => Promise<void>;
 };
@@ -24,7 +27,11 @@ export type SamanthaChild = {
 // the tsx loader and `ws` resolve from ai-samantha's node_modules.
 function spawnArgs(entry: string): { args: string[]; cwd: string } {
 	const cwd = dirname(entry);
-	if (entry.endsWith(".ts") || entry.endsWith(".mts") || entry.endsWith(".cts")) {
+	if (
+		entry.endsWith(".ts") ||
+		entry.endsWith(".mts") ||
+		entry.endsWith(".cts")
+	) {
 		return { args: ["--import", "tsx", entry], cwd };
 	}
 	return { args: [entry], cwd };
@@ -68,7 +75,8 @@ export async function spawnSamanthaHeadless(opts: {
 			buf = buf.slice(nl + 1);
 			if (!line) continue;
 			if (line.startsWith("READY ")) onReady?.(Number(line.slice(6)));
-			else if (line.startsWith("EVENT ")) events.push(JSON.parse(line.slice(6)));
+			else if (line.startsWith("EVENT "))
+				events.push(JSON.parse(line.slice(6)));
 			else if (line.startsWith("RESULT ")) {
 				const parsed = JSON.parse(line.slice(7)) as {
 					id: number;
@@ -114,8 +122,13 @@ export async function spawnSamanthaHeadless(opts: {
 					if (pending.delete(id)) reject(err);
 				};
 				protocolFault = failAll;
-				child.stdin?.write(`${JSON.stringify({ id, name, args: args ?? {} })}\n`);
-				setTimeout(() => failAll(new Error(`callTool(${name}) timed out`)), 10000);
+				child.stdin?.write(
+					`${JSON.stringify({ id, name, args: args ?? {} })}\n`,
+				);
+				setTimeout(
+					() => failAll(new Error(`callTool(${name}) timed out`)),
+					10000,
+				);
 			}) as Promise<{
 				isError: boolean;
 				content: Array<{ type: string; text: string }>;
