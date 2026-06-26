@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
+let terminalIdCounter = 0;
+
 // Mock TerminalPane to avoid xterm canvas dependency in jsdom.
 vi.mock("../../../src/features/terminals/components/TerminalPane", () => ({
 	TerminalPane: () => null,
@@ -17,7 +19,16 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		removeWorktree: vi.fn(),
 	},
 	terminals: {
-		create: vi.fn(),
+		create: vi.fn(() =>
+			Promise.resolve({
+				id: `term-${++terminalIdCounter}`,
+				workspaceId: "r1",
+				worktreeId: "wt1",
+				cwd: "/repo",
+				status: "running",
+				exitCode: null,
+			}),
+		),
 		sendInput: vi.fn(),
 		resize: vi.fn(),
 		stop: vi.fn(),
@@ -137,6 +148,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 import { App } from "../../../src/app/App";
 import { CommandRegistryProvider } from "../../../src/features/command-palette/components/CommandRegistryProvider";
 import { detectPlatform } from "../../../src/app/shortcut-registry";
+import { MAX_FLOATING_SHELLS } from "../../../src/features/workspace/logic/workspace-state";
 import { workspace, repository } from "../../../src/lib/desktop-client";
 
 const mockOpenRepository = vi.mocked(workspace.openRepository);
@@ -190,10 +202,23 @@ function openCommandPalette() {
 	});
 }
 
+// ⌘⇧T / Ctrl+Shift+T — spawn a floating throwaway shell.
+function pressThrowawayShell() {
+	const platform = detectPlatform();
+	fireEvent.keyDown(document.body, {
+		key: "T",
+		code: "KeyT",
+		shiftKey: true,
+		metaKey: platform === "mac",
+		ctrlKey: platform !== "mac",
+	});
+}
+
 describe("App — command palette availability gating", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockListWorktrees.mockReset();
+		terminalIdCounter = 0;
 	});
 
 	it("hides terminal commands that would no-op while still showing worktree-available ones", async () => {
@@ -211,5 +236,28 @@ describe("App — command palette availability gating", () => {
 
 		// Sanity: an always-available command is present (the palette is open).
 		expect(screen.getByText("Show shortcuts")).toBeInTheDocument();
+	});
+
+	it("hides New throwaway shell once the floating-shell cap is reached", async () => {
+		await loadRepository();
+
+		// Spawn floating shells up to the hard cap; each adds a pill.
+		for (let i = 1; i <= MAX_FLOATING_SHELLS; i++) {
+			pressThrowawayShell();
+			await waitFor(() =>
+				expect(
+					screen.getAllByTestId(/^floating-shell-pill-close-/),
+				).toHaveLength(i),
+			);
+		}
+
+		openCommandPalette();
+		expect(await screen.findByTestId("command-palette")).toBeInTheDocument();
+
+		// At the cap the throwaway-shell action would no-op, so it is hidden.
+		expect(screen.queryByText("New throwaway shell")).not.toBeInTheDocument();
+		// Other worktree-available commands remain (palette is open and gating is
+		// per-command, not all-or-nothing).
+		expect(screen.getByText("New terminal")).toBeInTheDocument();
 	});
 });

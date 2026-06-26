@@ -11,7 +11,10 @@ import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
 import { type SessionSidebarWorkspace } from "../features/workspace/components/SessionSidebar";
 import { sortSidebarWorkspaces } from "../features/workspace/logic/sort-sidebar-workspaces";
-import { workspaceReducer } from "../features/workspace/logic/workspace-state";
+import {
+	workspaceReducer,
+	MAX_FLOATING_SHELLS,
+} from "../features/workspace/logic/workspace-state";
 import { PresetManager } from "../features/terminals/components/PresetManager";
 import {
 	ReviewExpandedPortal,
@@ -1452,7 +1455,7 @@ export function App() {
 			{ id: "review.commits", title: "Review: Commits", group: "Review", keybindingId: "review.commits", run: () => applyReviewMode("commits"), isAvailable: () => !!activeWorktree },
 			{ id: "changes.refresh", title: "Refresh changes", group: "Review", run: refreshChanges, isAvailable: () => !!activeWorktree },
 			{ id: "terminal.new", title: "New terminal", group: "Terminal", keybindingId: "terminal.new", run: newTerminal, isAvailable: () => !!activeWorktree && !addDisabled },
-			{ id: "terminal.newFloating", title: "New throwaway shell", group: "Terminal", keybindingId: "terminal.newFloating", run: newFloatingShell, isAvailable: () => !!activeWorktree },
+			{ id: "terminal.newFloating", title: "New throwaway shell", group: "Terminal", keybindingId: "terminal.newFloating", run: newFloatingShell, isAvailable: () => !!activeWorktree && floatingShellIds.length < MAX_FLOATING_SHELLS },
 			{ id: "terminal.close", title: "Close terminal", group: "Terminal", keybindingId: "terminal.close", run: closeActiveTerminal, isAvailable: () => { const s = workspaceStateRef.current; const wt = s.selectedWorktreeId; return !!wt && !!s.sessionsByWorktreeId[wt]?.activeProcessSessionId; } },
 			{ id: "terminal.layout", title: "Choose layout", group: "Terminal", keybindingId: "terminal.layout", run: openTerminalLayout, isAvailable: () => !!activeWorktree },
 			{ id: "worktree.add", title: "Add worktree", group: "Worktree", keybindingId: "worktree.add", run: openAddWorktree, isAvailable: () => !!activeWorkspaceId },
@@ -1469,6 +1472,7 @@ export function App() {
 			openWorkspacePicker, toggleSidebar, toggleNoteSheet, startRenameSession,
 			toggleShortcutsHelp, openPlugins,
 			activeWorktree, activeWorkspaceId, addDisabled, startupMode,
+			floatingShellIds.length,
 		],
 	);
 	useRegisterCommands(simpleCommands, [simpleCommands]);
