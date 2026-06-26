@@ -58,7 +58,12 @@ describe("WorkspacePersistenceService", () => {
 						repoId: null,
 						selectedWorktreeId: "feature-a",
 						commandPresets: [
-							{ id: "preset-1", label: "Claude", command: "claude" },
+							{
+								id: "preset-1",
+								label: "Claude",
+								command: "claude",
+								target: "pinned" as const,
+							},
 						],
 						worktreeSessions: [
 							{

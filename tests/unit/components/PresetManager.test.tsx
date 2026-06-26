@@ -33,7 +33,12 @@ describe("PresetManager", () => {
 	it("edits an existing preset", async () => {
 		const user = userEvent.setup();
 		const onSave = vi.fn();
-		const existing = { id: "preset-1", label: "Claude", command: "claude" };
+		const existing = {
+			id: "preset-1",
+			label: "Claude",
+			command: "claude",
+			target: "pinned" as const,
+		};
 
 		render(
 			<PresetManager

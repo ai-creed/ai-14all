@@ -24,11 +24,14 @@ export function PresetManager({
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [label, setLabel] = useState("");
 	const [command, setCommand] = useState("");
+	const [editingTarget, setEditingTarget] =
+		useState<CommandPreset["target"]>("pinned");
 
 	function handleEdit(preset: CommandPreset) {
 		setEditingId(preset.id);
 		setLabel(preset.label);
 		setCommand(preset.command);
+		setEditingTarget(preset.target);
 	}
 
 	function handleSave() {
@@ -37,6 +40,7 @@ export function PresetManager({
 			id: editingId ?? crypto.randomUUID(),
 			label: label.trim(),
 			command: command.trim(),
+			target: editingTarget,
 		});
 		setEditingId(null);
 		setLabel("");

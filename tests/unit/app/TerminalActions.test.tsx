@@ -65,8 +65,18 @@ describe("TerminalActions presets menu", () => {
 			<TerminalActions
 				{...props({
 					presets: [
-						{ id: "p1", label: "Dev server", command: "npm run dev" },
-						{ id: "p2", label: "Tests", command: "npm test" },
+						{
+							id: "p1",
+							label: "Dev server",
+							command: "npm run dev",
+							target: "pinned" as const,
+						},
+						{
+							id: "p2",
+							label: "Tests",
+							command: "npm test",
+							target: "pinned" as const,
+						},
 					],
 					onLaunchPreset,
 				})}

@@ -1,5 +1,6 @@
 import {
 	DEFAULT_COMMAND_PRESETS,
+	pruneRetiredDefaults,
 	type CommandPreset,
 } from "../../../../shared/models/command-preset";
 import {
@@ -510,7 +511,7 @@ export function workspaceReducer(
 		let nextState: WorkspaceState = {
 			...base,
 			selectedWorktreeId,
-			commandPresets: action.snapshot.commandPresets,
+			commandPresets: pruneRetiredDefaults(action.snapshot.commandPresets),
 		};
 
 		const selectedSession = action.snapshot.worktreeSessions.find(
