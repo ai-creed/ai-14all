@@ -7,6 +7,7 @@ import type {
 	WhisperWorktreeState,
 } from "../../../shared/models/ecosystem-plugin";
 import { AgentLauncherBar } from "../../../src/features/terminals/components/AgentLauncherBar";
+import type { AgentProvider } from "../../../src/features/terminals/logic/agent-launch";
 
 const probes = (over: Partial<AgentCliProbes> = {}): AgentCliProbes => ({
 	claude: { kind: "found", path: "/bin/claude", version: "1" },
@@ -38,23 +39,22 @@ type Over = {
 	probes?: AgentCliProbes | null;
 	whisperHealthy?: boolean;
 	whisperState?: WhisperWorktreeState;
-	mountPending?: boolean;
+	deferredProvider?: AgentProvider | null;
+	onLaunch?: (provider: AgentProvider) => void;
 };
 
 function renderBar(over: Over = {}) {
-	const launchInTerminal = vi.fn();
-	const beginMount = vi.fn();
+	const onLaunch = over.onLaunch ?? vi.fn();
 	const result = render(
 		<AgentLauncherBar
 			probes={over.probes === undefined ? probes() : over.probes}
 			whisperHealthy={over.whisperHealthy ?? false}
 			whisperState={over.whisperState}
-			mountPending={over.mountPending ?? false}
-			beginMount={beginMount}
-			launchInTerminal={launchInTerminal}
+			deferredProvider={over.deferredProvider ?? null}
+			onLaunch={onLaunch}
 		/>,
 	);
-	return { ...result, launchInTerminal, beginMount };
+	return { ...result, onLaunch };
 }
 
 it("renders a chip only for detected providers", () => {
@@ -94,54 +94,23 @@ it("renders nothing when no providers are detected", () => {
 	expect(container).toBeEmptyDOMElement();
 });
 
-it("whisper off: a click launches the bare provider", async () => {
+it("calls onLaunch with the clicked provider", async () => {
 	const user = userEvent.setup();
-	const { launchInTerminal } = renderBar({ whisperHealthy: false });
+	const { onLaunch } = renderBar({ whisperHealthy: true });
 	await user.click(screen.getByTestId("agent-launch-claude"));
-	expect(launchInTerminal).toHaveBeenCalledWith("claude");
+	expect(onLaunch).toHaveBeenCalledWith("claude");
 });
 
-it("whisper on, no collab: a click mounts and opens the shared guard", async () => {
-	const user = userEvent.setup();
-	const { launchInTerminal, beginMount } = renderBar({
+it("shows a queued badge on the deferred provider", () => {
+	renderBar({
 		whisperHealthy: true,
-		whisperState: state({ daemonAlive: false, bindings: [] }),
+		deferredProvider: "codex",
 	});
-	await user.click(screen.getByTestId("agent-launch-claude"));
-	expect(launchInTerminal).toHaveBeenCalledWith("whisper collab mount claude");
-	expect(beginMount).toHaveBeenCalledTimes(1);
-});
-
-it("with the shared guard already pending, a click spawns plain (no second mount)", async () => {
-	// mountPending is owned one level up; when it is set, a click must resolve to
-	// a plain spawn and must NOT open another window.
-	const user = userEvent.setup();
-	const { launchInTerminal, beginMount } = renderBar({
-		whisperHealthy: true,
-		whisperState: state({ daemonAlive: false, bindings: [] }),
-		mountPending: true,
-	});
-	await user.click(screen.getByTestId("agent-launch-claude"));
-	expect(launchInTerminal).toHaveBeenCalledWith("claude");
-	expect(beginMount).not.toHaveBeenCalled();
-});
-
-it("whisper on, full collab (2 bound): a click spawns plain and the pill reads ready (AC3)", async () => {
-	const user = userEvent.setup();
-	const { launchInTerminal } = renderBar({
-		whisperHealthy: true,
-		whisperState: state({
-			daemonAlive: true,
-			bindings: bound("claude", "codex"),
-		}),
-	});
-	await user.click(screen.getByTestId("agent-launch-claude"));
-	expect(launchInTerminal).toHaveBeenCalledWith("claude");
-	expect(launchInTerminal).not.toHaveBeenCalledWith(
-		"whisper collab mount claude",
-	);
-	expect(screen.getByTestId("collab-status-pill")).toHaveTextContent(
-		"collab · ready for workflows",
+	expect(screen.getByTestId("agent-queued-codex")).toBeInTheDocument();
+	expect(screen.queryByTestId("agent-queued-claude")).toBeNull();
+	expect(screen.getByTestId("agent-launch-codex")).toHaveAttribute(
+		"data-queued",
+		"true",
 	);
 });
 
@@ -155,22 +124,16 @@ it("renders the aggregate pill from bound count of a live collab", () => {
 	);
 });
 
-it("STOPPED collab (daemonAlive false) with stale bindings: a click mounts (not plain) and the pill prompts to mount", async () => {
-	// After `whisper collab stop` the bindings remain "bound" but the daemon is
-	// dead; a dead collab must not block a fresh mount.
-	const user = userEvent.setup();
-	const { launchInTerminal } = renderBar({
+it("reads ready when a live collab is full (2 bound)", () => {
+	renderBar({
 		whisperHealthy: true,
 		whisperState: state({
-			daemonAlive: false,
+			daemonAlive: true,
 			bindings: bound("claude", "codex"),
 		}),
 	});
-	await user.click(screen.getByTestId("agent-launch-claude"));
-	expect(launchInTerminal).toHaveBeenCalledWith("whisper collab mount claude");
-	expect(launchInTerminal).not.toHaveBeenCalledWith("claude");
 	expect(screen.getByTestId("collab-status-pill")).toHaveTextContent(
-		"mount an agent to start a collab",
+		"collab · ready for workflows",
 	);
 });
 

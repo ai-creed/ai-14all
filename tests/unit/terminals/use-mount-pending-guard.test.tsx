@@ -18,6 +18,15 @@ const state = (
 	...over,
 });
 
+const bound = (...agents: string[]) =>
+	agents.map((agentType) => ({ agentType, bindingState: "bound" as const }));
+
+const makeState = (opts: { daemonAlive: boolean; bound: number }) =>
+	state({
+		daemonAlive: opts.daemonAlive,
+		bindings: bound(...Array.from({ length: opts.bound }, (_, i) => `a${i}`)),
+	});
+
 afterEach(() => {
 	vi.useRealTimers();
 });
@@ -36,14 +45,23 @@ describe("useMountPendingGuard", () => {
 		expect(result.current.mountPending).toBe(true);
 	});
 
-	it("clears the window when the lens advances (daemon comes alive)", () => {
+	it("stays pending when only the daemon comes alive (no binding yet)", () => {
 		const { result, rerender } = renderHook(
 			({ s }) => useMountPendingGuard(s),
-			{ initialProps: { s: state({ daemonAlive: false }) } },
+			{ initialProps: { s: makeState({ daemonAlive: false, bound: 0 }) } },
 		);
 		act(() => result.current.beginMount());
+		rerender({ s: makeState({ daemonAlive: true, bound: 0 }) });
 		expect(result.current.mountPending).toBe(true);
-		rerender({ s: state({ daemonAlive: true }) });
+	});
+
+	it("clears once a new binding lands", () => {
+		const { result, rerender } = renderHook(
+			({ s }) => useMountPendingGuard(s),
+			{ initialProps: { s: makeState({ daemonAlive: true, bound: 0 }) } },
+		);
+		act(() => result.current.beginMount());
+		rerender({ s: makeState({ daemonAlive: true, bound: 1 }) });
 		expect(result.current.mountPending).toBe(false);
 	});
 

@@ -101,10 +101,12 @@ import { AgentLauncherBar } from "../features/terminals/components/AgentLauncher
 import {
 	type AgentProvider,
 	boundCount,
-	launchCommandFor,
+	decideLaunch,
 	visibleProviders,
 } from "../features/terminals/logic/agent-launch";
+import { providerDef } from "../../shared/models/agent-provider";
 import { useMountPendingGuard } from "../features/terminals/logic/use-mount-pending-guard";
+import { useDeferredMount } from "../features/terminals/logic/use-deferred-mount";
 import { TerminalChromeHeader } from "../features/terminals/components/TerminalChromeHeader";
 import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
 import { PluginsPanelDialog } from "../features/plugins/components/PluginsPanelDialog";
@@ -919,20 +921,60 @@ export function App() {
 	// fire a second concurrent `whisper collab mount`.
 	const mountGuard = useMountPendingGuard(activeWhisperState);
 
-	// Empty-slot agent launch: same whisper-aware command resolution and shared
-	// guard as the chrome bar, but lands the agent in the clicked slot.
-	const handleLaunchAgentInSlot = useCallback(
-		(provider: AgentProvider, slotIndex: number) => {
-			const command = launchCommandFor(provider, {
+	// Single-slot deferred-mount queue: a rapid second click on an empty collab is
+	// parked here while the first mount settles, then auto-mounted once a real slot
+	// frees up — or vendor-launched if the collab never becomes ready in time.
+	const deferredMount = useDeferredMount({
+		whisperState: activeWhisperState,
+		mountInFlight: mountGuard.mountPending,
+		onReady: (provider, slot) => {
+			void launchCollabTerminal(`whisper collab mount ${provider}`, slot);
+			mountGuard.beginMount();
+		},
+		onTimeout: (provider, slot) => {
+			void launchCollabTerminal(providerDef(provider).binary, slot);
+			notifyToast("Collab init timed out — launched without collab");
+		},
+	});
+
+	// The single launch entry point shared by every surface (chrome bar and each
+	// empty-slot launcher): decide mount / defer / vendor against the 2-agent cap.
+	const launchAgent = useCallback(
+		(provider: AgentProvider, slot: number | undefined) => {
+			// Re-clicking the queued chip cancels the deferral.
+			if (deferredMount.deferredProvider === provider) {
+				deferredMount.cancel();
+				return;
+			}
+			const decision = decideLaunch(provider, {
 				whisperHealthy: whisperOnHealthy,
 				boundCount: boundCount(activeWhisperState),
 				daemonAlive: activeWhisperState?.daemonAlive ?? false,
-				mountPending: mountGuard.mountPending,
+				mountInFlight: mountGuard.mountPending,
+				deferredOccupied: deferredMount.deferredOccupied,
 			});
-			void launchCollabTerminal(command, slotIndex);
-			if (command.startsWith("whisper collab mount")) mountGuard.beginMount();
+			if (decision.kind === "defer") {
+				deferredMount.enqueue(provider, slot);
+				return;
+			}
+			void launchCollabTerminal(decision.command, slot);
+			if (decision.kind === "mount") mountGuard.beginMount();
 		},
-		[whisperOnHealthy, activeWhisperState, mountGuard, launchCollabTerminal],
+		[
+			whisperOnHealthy,
+			activeWhisperState,
+			mountGuard,
+			deferredMount,
+			launchCollabTerminal,
+		],
+	);
+
+	// Empty-slot agent launch: lands the agent in the clicked slot via the shared
+	// launch rule above.
+	const handleLaunchAgentInSlot = useCallback(
+		(provider: AgentProvider, slotIndex: number) =>
+			launchAgent(provider, slotIndex),
+		[launchAgent],
 	);
 
 	const handlePromoteSlot = useCallback(
@@ -1872,10 +1914,9 @@ export function App() {
 												probes={agentClis}
 												whisperHealthy={whisperOnHealthy}
 												whisperState={activeWhisperState}
-												mountPending={mountGuard.mountPending}
-												beginMount={mountGuard.beginMount}
-												launchInTerminal={(command) =>
-													void launchCollabTerminal(command)
+												deferredProvider={deferredMount.deferredProvider}
+												onLaunch={(provider) =>
+													launchAgent(provider, undefined)
 												}
 											/>
 										}
