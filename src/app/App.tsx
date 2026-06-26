@@ -110,6 +110,7 @@ import {
 import { providerDef } from "../../shared/models/agent-provider";
 import { useMountPendingGuard } from "../features/terminals/logic/use-mount-pending-guard";
 import { useDeferredMount } from "../features/terminals/logic/use-deferred-mount";
+import { resolvePresetLaunch } from "../features/terminals/logic/preset-launch";
 import { TerminalChromeHeader } from "../features/terminals/components/TerminalChromeHeader";
 import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
 import { PluginsPanelDialog } from "../features/plugins/components/PluginsPanelDialog";
@@ -832,6 +833,29 @@ export function App() {
 		subscribeSessionExit,
 		sendInput,
 	});
+
+	// Route a preset Launch to the pinned grid path or a throwaway floating
+	// shell based on the preset's stored target. Lives here (not in
+	// useProcessActions) because the throwaway runner comes from a later hook.
+	const launchPreset = useCallback(
+		(presetId: string) => {
+			const preset = workspaceState.commandPresets.find(
+				(p) => p.id === presetId,
+			);
+			if (!preset) return;
+			const plan = resolvePresetLaunch(preset);
+			if (plan.kind === "throwaway") {
+				void runCommandInFloatingShell(plan.command, { label: plan.label });
+			} else {
+				void handleLaunchPreset(presetId);
+			}
+		},
+		[
+			workspaceState.commandPresets,
+			runCommandInFloatingShell,
+			handleLaunchPreset,
+		],
+	);
 
 	// Floating throwaway shells live outside the layout slot grid; surface the
 	// current set and the expanded one (if any) so the pills + popover can render.
@@ -2242,7 +2266,7 @@ export function App() {
 														presets={workspaceState.commandPresets}
 														addDisabled={addDisabled}
 														onAddAdHoc={handleAddAdHoc}
-														onLaunchPreset={handleLaunchPreset}
+														onLaunchPreset={launchPreset}
 														onOpenPresetManager={() =>
 															setPresetManagerOpen(true)
 														}
@@ -2512,7 +2536,7 @@ export function App() {
 						}
 						onLaunch={(presetId) => {
 							setPresetManagerOpen(false);
-							handleLaunchPreset(presetId);
+							launchPreset(presetId);
 						}}
 					/>
 					<DialogStack
