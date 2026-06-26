@@ -790,12 +790,24 @@ export function App() {
 		removeSession,
 	});
 
+	const subscribeSessionExit = useCallback(
+		(sessionId: string, cb: (exitCode: number | null) => void) => {
+			const off = terminalsClient.onExit((event) => {
+				if (event.sessionId !== sessionId) return;
+				cb(event.exitCode);
+			});
+			return off;
+		},
+		[],
+	);
+
 	const {
 		handleAddFloatingShell,
 		handleCloseFloatingShell,
 		handlePinFloatingShell,
 		handleExpandFloatingShell,
 		handleMinimizeFloatingShell,
+		runCommandInFloatingShell,
 	} = useFloatingShellActions({
 		workspaceId: activeWorkspaceId,
 		worktree: activeWorktree,
@@ -807,6 +819,8 @@ export function App() {
 		spawnAdHocProcess,
 		stopSession,
 		removeSession,
+		subscribeSessionExit,
+		sendInput,
 	});
 
 	// Floating throwaway shells live outside the layout slot grid; surface the
@@ -826,78 +840,9 @@ export function App() {
 	const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
 	const [pluginsDialogOpen, setPluginsDialogOpen] = useState(false);
 
-	// Guided plugin install: run the install command in a fresh, visible shell on
-	// the active worktree (same create-session + register-process + sendInput path
-	// as launching a preset), then re-probe when that shell exits so the panel
-	// reflects the newly-installed peer. If the install shell never exits cleanly,
-	// the panel also re-probes every time it is re-opened (PluginsPanelDialog
-	// effect), so a stale "not installed" chip self-heals on the next open.
-	const handlePluginInstall = useCallback(
-		async (command: string, label = "plugin install") => {
-			(
-				window as unknown as { __lastPluginCommand?: string }
-			).__lastPluginCommand = command;
-			if (!activeWorktree || !activeWorkspaceId) return;
-			const targetWorkspaceId = activeWorkspaceId;
-			const targetWorktree = activeWorktree;
-			let terminal: TerminalSession;
-			try {
-				terminal = await createSession(
-					targetWorkspaceId,
-					targetWorktree.id,
-					targetWorktree.path,
-				);
-			} catch (err) {
-				console.error("Failed to start plugin install shell:", err);
-				notifyToast("Failed to start install shell");
-				return;
-			}
-			createScopedWorkspaceDispatch(targetWorkspaceId)({
-				type: "session/registerProcess",
-				worktreeId: targetWorktree.id,
-				process: {
-					id: crypto.randomUUID(),
-					workspaceId: targetWorkspaceId,
-					worktreeId: targetWorktree.id,
-					terminalSessionId: terminal.id,
-					origin: "adHoc",
-					presetId: null,
-					label,
-					command,
-					status: "running",
-					lastActivityAt: null,
-					lastOutputPreview: null,
-					exitCode: null,
-					pinned: true,
-					attentionState: "idle",
-					agentAttentionReasons: {},
-					agentAttentionClearedAt: null,
-					agentDetected: false,
-					provider: null,
-				},
-			});
-			// Re-probe once the install shell exits, so a newly-installed peer flips
-			// from "not installed" to "installed, off" without re-opening the panel.
-			const off = terminalsClient.onExit((event) => {
-				if (event.sessionId !== terminal.id) return;
-				off();
-				void pluginsClient.reprobe();
-			});
-			// `\r` on Windows (ConPTY only runs a line on CR), `\n` elsewhere.
-			await sendInput(terminal.id, `${command}${commandSubmitKey()}`);
-		},
-		[
-			activeWorktree,
-			activeWorkspaceId,
-			createSession,
-			sendInput,
-			createScopedWorkspaceDispatch,
-		],
-	);
-
 	// Launches a single command in a new pinned terminal for the collab flow.
-	// Mirrors handlePluginInstall but without the reprobe-on-exit side effect and
-	// with a "collab: <agent>" label so the terminals are identifiable.
+	// Spawns a session, registers it as a process, and sends the command; uses a
+	// "collab: <agent>" label so the terminals are identifiable.
 	const launchCollabTerminal = useCallback(
 		async (command: string, slotIndex?: number) => {
 			if (!activeWorktree || !activeWorkspaceId) return;
@@ -2084,9 +2029,19 @@ export function App() {
 						<PluginsPanelDialog
 							open={pluginsDialogOpen}
 							onOpenChange={setPluginsDialogOpen}
-							onInstall={(command) => void handlePluginInstall(command)}
+							onInstall={(command) =>
+								void runCommandInFloatingShell(command, {
+									label: "plugin install",
+									autoCloseOnZero: true,
+									onExit: () => void pluginsClient.reprobe(),
+								})
+							}
 							onConfigure={(command) =>
-								void handlePluginInstall(command, "plugin configure")
+								void runCommandInFloatingShell(command, {
+									label: "plugin configure",
+									autoCloseOnZero: true,
+									onExit: () => void pluginsClient.reprobe(),
+								})
 							}
 						/>
 

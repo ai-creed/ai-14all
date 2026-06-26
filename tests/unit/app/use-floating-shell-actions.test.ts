@@ -62,9 +62,11 @@ function makeCloseOptions(termStatus: TerminalSession["status"]) {
 			getWorkspaceStateById: (id: string) => (id === "ws" ? state : null),
 			createScopedWorkspaceDispatch: () => dispatch,
 			sessions: [term("t-x", termStatus)],
-			spawnAdHocProcess: vi.fn(),
+			spawnAdHocProcess: vi.fn() as never,
 			stopSession,
 			removeSession,
+			subscribeSessionExit: vi.fn(() => () => {}) as never,
+			sendInput: vi.fn().mockResolvedValue(undefined) as never,
 		},
 		dispatch,
 		stopSession,
@@ -109,15 +111,91 @@ function makeOptions(floatingCount: number) {
 			getWorkspaceStateById: (id: string) => (id === "ws" ? state : null),
 			createScopedWorkspaceDispatch: () => dispatch,
 			sessions: [],
-			spawnAdHocProcess,
+			spawnAdHocProcess: spawnAdHocProcess as never,
 			stopSession,
 			removeSession,
+			subscribeSessionExit: vi.fn(() => () => {}) as never,
+			sendInput: vi.fn().mockResolvedValue(undefined) as never,
 		},
 		dispatch,
 		spawnAdHocProcess,
 		stopSession,
 		removeSession,
 	};
+}
+
+type SpawnFn = (opts?: {
+	command?: string;
+	label?: string;
+}) => Promise<ProcessSession | null>;
+
+/**
+ * Thin helper for runCommandInFloatingShell tests. Accepts per-test overrides
+ * and handles the registerFloatingShell → floatingShellIds book-keeping so the
+ * hook's post-dispatch verify sees the process and does not tear it down.
+ */
+function renderFloatingShellActions(opts: {
+	subscribeSessionExit?: (
+		sessionId: string,
+		cb: (exitCode: number | null) => void,
+	) => () => void;
+	sendInput?: (sessionId: string, data: string) => Promise<void>;
+	spawnAdHocProcess?: SpawnFn | ReturnType<typeof vi.fn>;
+	dispatch?:
+		| ((action: { type: string; [key: string]: unknown }) => void)
+		| ReturnType<typeof vi.fn>;
+	floatingShellIds?: string[];
+}) {
+	const state = createWorkspaceState([worktree]);
+	state.sessionsByWorktreeId.a.floatingShellIds = [
+		...(opts.floatingShellIds ?? []),
+	];
+
+	// Internal dispatch that keeps state in sync (accepts registrations) AND
+	// forwards to the caller's spy so assertions on opts.dispatch work.
+	const externalDispatch = opts.dispatch as
+		| ((action: { type: string; [key: string]: unknown }) => void)
+		| undefined;
+	const internalDispatch = vi.fn(
+		(action: { type: string; process?: ProcessSession }) => {
+			if (action.type === "session/registerFloatingShell" && action.process) {
+				state.sessionsByWorktreeId.a.floatingShellIds.push(action.process.id);
+			}
+			externalDispatch?.(action);
+		},
+	);
+
+	const defaultSpawn: SpawnFn = async () =>
+		({
+			id: "new",
+			terminalSessionId: "t-new",
+			origin: "adHoc",
+			worktreeId: "a",
+		}) as ProcessSession;
+
+	const spawnAdHocProcess = (opts.spawnAdHocProcess ?? defaultSpawn) as SpawnFn;
+
+	const getWorkspaceStateById = (id: string) => (id === "ws" ? state : null);
+
+	const options = {
+		workspaceId: "ws",
+		worktree,
+		workspaceStateRef: { current: state },
+		outputPreviewBuffersRef: { current: new Map<string, string>() },
+		getWorkspaceStateById,
+		createScopedWorkspaceDispatch: () => internalDispatch,
+		sessions: [],
+		spawnAdHocProcess,
+		stopSession: vi.fn(async () => {}),
+		removeSession: vi.fn(),
+		subscribeSessionExit:
+			opts.subscribeSessionExit ?? (vi.fn(() => () => {}) as never),
+		sendInput:
+			opts.sendInput ?? (vi.fn().mockResolvedValue(undefined) as never),
+	};
+
+	const rendered = renderHook(() => useFloatingShellActions(options));
+	return { ...rendered, getWorkspaceStateById };
 }
 
 describe("useFloatingShellActions.handleAddFloatingShell", () => {
@@ -246,5 +324,119 @@ describe("useFloatingShellActions.handleCloseFloatingShell", () => {
 		expect(stopSession).not.toHaveBeenCalled(); // already exited
 		expect(removeSession).toHaveBeenCalledWith("t-x");
 		expect(clearReplayOutput).toHaveBeenCalledWith("t-x");
+	});
+});
+
+describe("useFloatingShellActions.runCommandInFloatingShell", () => {
+	beforeEach(() => vi.clearAllMocks());
+
+	it("spawns a floating shell with the command, auto-expands, and auto-closes on exit 0", async () => {
+		let fireExit: ((code: number | null) => void) | null = null;
+		const subscribeSessionExit = vi.fn(
+			(_sessionId: string, cb: (exitCode: number | null) => void) => {
+				fireExit = cb;
+				return () => {};
+			},
+		);
+		const spawnAdHocProcess = vi.fn().mockResolvedValue({
+			id: "proc-1",
+			terminalSessionId: "term-1",
+		});
+		const dispatch = vi.fn();
+		const sendInput = vi.fn().mockResolvedValue(undefined);
+		const { result } = renderFloatingShellActions({
+			subscribeSessionExit,
+			sendInput,
+			spawnAdHocProcess,
+			dispatch,
+			floatingShellIds: [], // under cap
+		});
+		const onExit = vi.fn();
+
+		await act(async () => {
+			await result.current.runCommandInFloatingShell("whisper skill install", {
+				label: "plugin install",
+				autoCloseOnZero: true,
+				onExit,
+			});
+		});
+
+		expect(spawnAdHocProcess).toHaveBeenCalledWith({
+			command: "whisper skill install",
+			label: "plugin install",
+		});
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({ type: "session/registerFloatingShell" }),
+		);
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({ type: "session/expandFloatingShell" }),
+		);
+		// The command is sent only AFTER the exit listener is installed (no race).
+		expect(sendInput).toHaveBeenCalledWith(
+			"term-1",
+			expect.stringContaining("whisper skill install"),
+		);
+		expect(subscribeSessionExit.mock.invocationCallOrder[0]).toBeLessThan(
+			sendInput.mock.invocationCallOrder[0],
+		);
+
+		act(() => fireExit?.(0));
+		expect(onExit).toHaveBeenCalledWith(0);
+		// auto-close dispatched for exit 0
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({ type: "session/closeFloatingShell" }),
+		);
+	});
+
+	it("lingers (does NOT auto-close) when the command exits non-zero", async () => {
+		let fireExit: ((code: number | null) => void) | null = null;
+		const subscribeSessionExit = vi.fn(
+			(_sessionId: string, cb: (exitCode: number | null) => void) => {
+				fireExit = cb;
+				return () => {};
+			},
+		);
+		const spawnAdHocProcess = vi.fn().mockResolvedValue({
+			id: "proc-1",
+			terminalSessionId: "term-1",
+		});
+		const dispatch = vi.fn();
+		const sendInput = vi.fn().mockResolvedValue(undefined);
+		const onExit = vi.fn();
+		const { result } = renderFloatingShellActions({
+			subscribeSessionExit,
+			sendInput,
+			spawnAdHocProcess,
+			dispatch,
+			floatingShellIds: [],
+		});
+
+		await act(async () => {
+			await result.current.runCommandInFloatingShell("boom", {
+				label: "plugin install",
+				autoCloseOnZero: true,
+				onExit,
+			});
+		});
+
+		act(() => fireExit?.(1));
+		// Non-zero exit still fires onExit (re-probe), but the shell is NOT closed, so
+		// the error stays readable.
+		expect(onExit).toHaveBeenCalledWith(1);
+		expect(dispatch).not.toHaveBeenCalledWith(
+			expect.objectContaining({ type: "session/closeFloatingShell" }),
+		);
+	});
+
+	it("aborts at the floating-shell cap without spawning", async () => {
+		const spawnAdHocProcess = vi.fn();
+		const { result } = renderFloatingShellActions({
+			spawnAdHocProcess,
+			floatingShellIds: ["a", "b", "c", "d", "e", "f"], // at MAX (6)
+		});
+		await act(async () => {
+			await result.current.runCommandInFloatingShell("x", { label: "y" });
+		});
+		expect(spawnAdHocProcess).not.toHaveBeenCalled();
 	});
 });
