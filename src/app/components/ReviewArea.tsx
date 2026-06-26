@@ -549,7 +549,13 @@ export function ReviewArea(props: Props): React.ReactElement {
 				isAvailable: () => !!currentFilePath,
 			},
 		],
-		[goNextDiff, goPrevDiff, currentFilePath, activeSession?.reviewMode, changes.length],
+		[
+			goNextDiff,
+			goPrevDiff,
+			currentFilePath,
+			activeSession?.reviewMode,
+			changes.length,
+		],
 	);
 	useRegisterCommands(reviewNavCommands, [reviewNavCommands]);
 

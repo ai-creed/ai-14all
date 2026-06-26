@@ -7,7 +7,9 @@ import {
 } from "../../../../src/features/command-palette/hooks/use-command-registry";
 import type { Command } from "../../../../src/features/command-palette/logic/command";
 
-const cmd = (over: Partial<Command> & { id: string; title: string }): Command => ({
+const cmd = (
+	over: Partial<Command> & { id: string; title: string },
+): Command => ({
 	group: "Test",
 	run: () => {},
 	...over,

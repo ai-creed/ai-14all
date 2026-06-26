@@ -43,7 +43,9 @@ async function pressCommandPalette(page: Page): Promise<void> {
 
 test.beforeAll(async () => {
 	testRepo = createTestRepo();
-	stateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-cmd-palette-state-")));
+	stateDir = realpathSync(
+		mkdtempSync(join(tmpdir(), "ofa-cmd-palette-state-")),
+	);
 	app = await electron.launch({
 		args: ["out/main/index.js"],
 		env: {

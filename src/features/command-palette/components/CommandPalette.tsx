@@ -8,7 +8,10 @@ import {
 } from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/icon";
 import { X } from "lucide-react";
-import { SHORTCUT_REGISTRY, type Platform } from "../../../app/shortcut-registry";
+import {
+	SHORTCUT_REGISTRY,
+	type Platform,
+} from "../../../app/shortcut-registry";
 import { useCommands } from "../hooks/use-command-registry";
 import { matchCommands } from "../logic/command-match";
 import type { Command } from "../logic/command";
@@ -67,8 +70,10 @@ export function CommandPalette({ open, onOpenChange, platform }: Props) {
 	};
 
 	// Group rows in display order (rows are pre-sorted by group→title).
-	const groups: { label: string; commands: { command: Command; index: number }[] }[] =
-		[];
+	const groups: {
+		label: string;
+		commands: { command: Command; index: number }[];
+	}[] = [];
 	rows.forEach((command, index) => {
 		const last = groups[groups.length - 1];
 		if (last && last.label === command.group) {
@@ -155,9 +160,7 @@ export function CommandPalette({ open, onOpenChange, platform }: Props) {
 									return (
 										<div
 											key={command.id}
-											ref={
-												index === selectedIndex ? selectedRowRef : undefined
-											}
+											ref={index === selectedIndex ? selectedRowRef : undefined}
 											role="button"
 											tabIndex={-1}
 											data-testid={`command-palette-row-${command.id}`}
