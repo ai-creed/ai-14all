@@ -4148,6 +4148,10 @@ select {
 	background: var(--panel-bg-elevated);
 	cursor: pointer;
 }
+.shell-layout-dialog__tile:focus-visible {
+	outline: var(--shell-border-width) solid var(--accent);
+	outline-offset: 2px;
+}
 .shell-layout-dialog__tile:hover:not(:disabled) {
 	border-color: var(--accent);
 }

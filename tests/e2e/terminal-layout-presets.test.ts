@@ -66,6 +66,40 @@ test.afterAll(async () => {
 });
 
 test.describe.serial("Terminal layout presets", () => {
+	test("selects a layout by keyboard (arrow + Enter), no mouse on tiles", async () => {
+		test.setTimeout(60_000);
+		const dialog = page.getByTestId("terminal-layout-dialog");
+		// Open via the toolbar button (not a tile).
+		await page.getByTestId("terminal-layout-button").click();
+		await expect(dialog).toBeVisible();
+		// On open, the current layout's tile holds focus.
+		const currentTile = dialog.locator(
+			'[data-testid^="layout-tile-"][data-current="true"]',
+		);
+		await expect(currentTile).toBeFocused();
+		const currentId = await currentTile.getAttribute("data-testid");
+		// Arrow keys move focus to a DIFFERENT tile (proving keyboard navigation),
+		// with no mouse touching a tile. One shell is running here, so all tiles
+		// are enabled and ArrowDown always finds a neighbor below.
+		await page.keyboard.press("ArrowDown");
+		const landedId = await dialog.locator(":focus").getAttribute("data-testid");
+		expect(landedId).toBeTruthy();
+		expect(landedId).not.toBe(currentId);
+		// Enter selects the focused tile and closes the dialog.
+		await page.keyboard.press("Enter");
+		await expect(dialog).toBeHidden();
+		// Reopen (toolbar button) and confirm the keyboard-selected layout applied.
+		await page.getByTestId("terminal-layout-button").click();
+		await expect(dialog).toBeVisible();
+		await expect(page.getByTestId(landedId!)).toHaveAttribute(
+			"data-current",
+			"true",
+		);
+		// Close via Escape (not a tile) to leave the dialog shut for the next test.
+		await page.keyboard.press("Escape");
+		await expect(dialog).toBeHidden();
+	});
+
 	test("opens the layout dialog and applies a 3-column layout", async () => {
 		test.setTimeout(60_000);
 		await page.getByTestId("terminal-layout-button").click();
