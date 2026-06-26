@@ -92,4 +92,20 @@ describe("detectAgentProvider", () => {
 		expect(detectAgentProvider(null, "claude", null)).toBe("claude");
 		expect(detectAgentProvider(null, undefined, null)).toBeNull();
 	});
+
+	it("detects cursor from its `agent` launch command", () => {
+		expect(detectAgentProvider("agent", undefined, null)).toBe("cursor");
+		expect(
+			detectAgentProvider("/Users/me/.local/bin/agent", undefined, null),
+		).toBe("cursor");
+	});
+
+	it("detects antigravity from its `agy` launch command", () => {
+		expect(detectAgentProvider("agy", undefined, null)).toBe("antigravity");
+	});
+
+	it("does not misfire `agent` on unrelated commands", () => {
+		expect(detectAgentProvider("agentic-tool run", undefined, null)).toBeNull();
+		expect(detectAgentProvider("my-agent", undefined, null)).toBeNull();
+	});
 });

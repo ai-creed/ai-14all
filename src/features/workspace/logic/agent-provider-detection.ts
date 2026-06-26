@@ -11,6 +11,10 @@ const CODEX_COMMAND = /(?:^|[\s/\\])codex(?=\s|$)/i;
 // optional `ai-` prefix matches both, while the boundary/lookahead still reject
 // `myezio`, `ezio-helper`, and `ai-ezio-helper`.
 const EZIO_COMMAND = /(?:^|[\s/\\])(?:ai-)?ezio(?=\s|$)/i;
+// `agent` is the Cursor binary name. The same strict boundary anchors that guard
+// the other entries prevent `agentic-tool`, `my-agent`, etc. from matching.
+const CURSOR_COMMAND = /(?:^|[\s/\\])agent(?=\s|$)/i;
+const ANTIGRAVITY_COMMAND = /(?:^|[\s/\\])agy(?=\s|$)/i;
 
 function matchCommand(
 	command: string | null | undefined,
@@ -19,6 +23,8 @@ function matchCommand(
 	if (CLAUDE_COMMAND.test(command)) return "claude";
 	if (CODEX_COMMAND.test(command)) return "codex";
 	if (EZIO_COMMAND.test(command)) return "ezio";
+	if (CURSOR_COMMAND.test(command)) return "cursor";
+	if (ANTIGRAVITY_COMMAND.test(command)) return "antigravity";
 	return null;
 }
 
@@ -31,6 +37,8 @@ function matchLabel(label: string | undefined): AgentProvider | null {
 	// `\bezio\b` already matches the `ai-ezio` alias: the hyphen is a word
 	// boundary, so "ai-ezio" contains the standalone token "ezio".
 	if (/\bezio\b/i.test(label)) return "ezio";
+	if (/\bcursor\b/i.test(label)) return "cursor";
+	if (/\bantigravity\b/i.test(label)) return "antigravity";
 	return null;
 }
 
