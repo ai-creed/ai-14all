@@ -27,6 +27,7 @@ describe("PresetManager", () => {
 			id: expect.any(String),
 			label: "Claude",
 			command: "claude",
+			target: "pinned",
 		});
 	});
 
@@ -71,6 +72,7 @@ describe("PresetManager", () => {
 			id: "preset-1",
 			label: "Claude",
 			command: "claude --model opus",
+			target: "pinned",
 		});
 	});
 });

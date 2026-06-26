@@ -45,6 +45,7 @@ export function PresetManager({
 		setEditingId(null);
 		setLabel("");
 		setCommand("");
+		setEditingTarget("pinned");
 	}
 
 	return (
