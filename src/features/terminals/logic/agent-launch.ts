@@ -2,17 +2,18 @@ import type {
 	AgentCliProbes,
 	WhisperWorktreeState,
 } from "../../../../shared/models/ecosystem-plugin";
+import {
+	AGENT_PROVIDER_IDS,
+	PROVIDER_LABEL,
+	type AgentProviderId,
+} from "../../../../shared/models/agent-provider";
 
 /** Stable left-to-right order of the launcher chips. */
-export const PROVIDER_ORDER = ["claude", "codex", "ezio"] as const;
-export type AgentProvider = (typeof PROVIDER_ORDER)[number];
+export const PROVIDER_ORDER = AGENT_PROVIDER_IDS;
+export type AgentProvider = AgentProviderId;
 
 /** Display label per provider, shared by every launch surface. */
-export const PROVIDER_LABEL: Record<AgentProvider, string> = {
-	claude: "Claude",
-	codex: "Codex",
-	ezio: "Ezio",
-};
+export { PROVIDER_LABEL };
 
 /**
  * Generous window after which a stuck pending-mount self-clears, so the chips

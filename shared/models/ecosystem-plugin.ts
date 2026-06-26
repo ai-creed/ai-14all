@@ -134,4 +134,6 @@ export type AgentCliProbe =
 	| { kind: "found"; path: string; version: string | null }
 	| { kind: "not-found" };
 
-export type AgentCliProbes = Record<"claude" | "codex" | "ezio", AgentCliProbe>;
+import type { AgentProviderId } from "./agent-provider";
+
+export type AgentCliProbes = Record<AgentProviderId, AgentCliProbe>;
