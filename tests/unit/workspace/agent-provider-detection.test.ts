@@ -108,4 +108,22 @@ describe("detectAgentProvider", () => {
 		expect(detectAgentProvider("agentic-tool run", undefined, null)).toBeNull();
 		expect(detectAgentProvider("my-agent", undefined, null)).toBeNull();
 	});
+
+	it("matches `agent`/`agy` only in program position, never as an argument", () => {
+		// `agent`/`agy` are generic words. Unlike the whisper-capable agents (which
+		// appear as the trailing token of `whisper collab mount <id>`), cursor and
+		// antigravity are never mounted — they always run as the bare program. A
+		// subcommand/argument named `agent`/`agy` must NOT be detected.
+		expect(detectAgentProvider("npm run agent", undefined, null)).toBeNull();
+		expect(detectAgentProvider("python -m agent", undefined, null)).toBeNull();
+		expect(detectAgentProvider("pnpm agy", undefined, null)).toBeNull();
+		expect(detectAgentProvider("make agy", undefined, null)).toBeNull();
+		// The real launch — bare binary, optionally path-qualified, with args — still detects.
+		expect(detectAgentProvider("agent --resume", undefined, null)).toBe(
+			"cursor",
+		);
+		expect(
+			detectAgentProvider("/Users/me/.local/bin/agy", undefined, null),
+		).toBe("antigravity");
+	});
 });

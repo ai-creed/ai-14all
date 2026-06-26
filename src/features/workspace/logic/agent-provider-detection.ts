@@ -11,10 +11,16 @@ const CODEX_COMMAND = /(?:^|[\s/\\])codex(?=\s|$)/i;
 // optional `ai-` prefix matches both, while the boundary/lookahead still reject
 // `myezio`, `ezio-helper`, and `ai-ezio-helper`.
 const EZIO_COMMAND = /(?:^|[\s/\\])(?:ai-)?ezio(?=\s|$)/i;
-// `agent` is the Cursor binary name. The same strict boundary anchors that guard
-// the other entries prevent `agentic-tool`, `my-agent`, etc. from matching.
-const CURSOR_COMMAND = /(?:^|[\s/\\])agent(?=\s|$)/i;
-const ANTIGRAVITY_COMMAND = /(?:^|[\s/\\])agy(?=\s|$)/i;
+// `agent` (Cursor) and `agy` (Antigravity) are generic binary names. Unlike the
+// whisper-capable agents above — which legitimately appear as the trailing token
+// of `whisper collab mount <id>` and so need the whitespace-boundary anchor —
+// cursor/antigravity are never mounted; they always run as the bare PROGRAM. So
+// match only in command position: start-of-string, optionally preceded by a path,
+// terminated by whitespace or EOS. This still detects `agent`, `agent --resume`,
+// and `/path/to/agent`, while rejecting argument-position uses like
+// `npm run agent` or `python -m agent`.
+const CURSOR_COMMAND = /^(?:\S*[/\\])?agent(?=\s|$)/i;
+const ANTIGRAVITY_COMMAND = /^(?:\S*[/\\])?agy(?=\s|$)/i;
 
 function matchCommand(
 	command: string | null | undefined,
