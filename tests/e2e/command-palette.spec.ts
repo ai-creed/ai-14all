@@ -104,13 +104,13 @@ test.describe.serial("command palette", () => {
 	test("opens from a focused terminal without clearing it", async () => {
 		// xterm renders via canvas — text is not accessible on `.xterm` directly.
 		// Use the a11y tree for assertions (pattern from cumulative-flow.phase-0 and
-		// session-attention.spec.ts) and the helper-textarea for focus/input.
-		const textarea = page.locator(
-			'.shell-terminal-pane[aria-hidden="false"] .xterm-helper-textarea',
-		);
-		const a11yTree = page.locator(
-			'.shell-terminal-pane[aria-hidden="false"] .xterm-accessibility-tree',
-		);
+		// session-attention.spec.ts) and the helper-textarea for focus/input. A prior
+		// test may have added a second terminal, so scope to a single visible pane.
+		const pane = page
+			.locator('.shell-terminal-pane[aria-hidden="false"]')
+			.first();
+		const textarea = pane.locator(".xterm-helper-textarea");
+		const a11yTree = pane.locator(".xterm-accessibility-tree");
 
 		await textarea.focus(); // focus the terminal pane
 
