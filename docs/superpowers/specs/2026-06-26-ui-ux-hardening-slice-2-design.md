@@ -43,6 +43,13 @@ These bind every task in the implementation plan:
   React components are thin consumers.
 - **Verification gate.** `typecheck`, `eslint`, `prettier`, and the unit suite
   must all be green before handback.
+- **E2E acceptance coverage.** Per `AGENTS.md:128-129`, new user-visible behavior
+  is not done until the e2e suite covers it, and e2e coverage must accumulate —
+  extend existing specs, never replace older flow coverage. Each of the three
+  user-visible behaviors in this slice (keyboard layout selection, throwaway-vs-
+  pinned preset launch, floating-shell resize) adds at least one Playwright
+  acceptance flow by **extending** an existing e2e spec (`test:e2e`). Exact files
+  and flows are named per issue below.
 - **Formatting.** Prettier with tabs, matching the existing codebase.
 
 ---
@@ -142,12 +149,22 @@ Unit-test the pure `nextLayoutTile` with hand-built rects that mirror the
 - Disabled tiles are skipped as candidates (the result jumps over them).
 - A single-tile bucket: vertical moves cross into it at the nearest column.
 
+### E2E acceptance
+
+Extend `tests/e2e/terminal-layout-presets.test.ts` (do not replace its existing
+assertions) with a keyboard-only flow: open the layout dialog (Cmd/Ctrl+Shift+L
+or the Command Palette "Choose layout" entry), confirm the current layout's tile
+is focused, press arrow keys to move the focus ring to a different layout, press
+Enter, and assert the workspace adopted the newly-selected layout — performed
+without any mouse interaction with the tiles.
+
 ### Files
 
 - Create: `src/features/terminals/logic/layout-grid-nav.ts`
 - Test: `tests/unit/terminals/layout-grid-nav.test.ts`
 - Modify: `src/features/terminals/components/TerminalLayoutDialog.tsx`
 - Modify: `src/app/shell.css` (tile `:focus-visible` ring)
+- Extend (e2e): `tests/e2e/terminal-layout-presets.test.ts`
 
 ---
 
@@ -263,6 +280,23 @@ presets are kept — quick-launch does not offer the `--dangerously-skip-permiss
 - Launch routing: `handleLaunchPreset` invokes the floating-shell path for a
   `throwaway` preset and the pinned-slot path for a `pinned` preset.
 
+### E2E acceptance
+
+Extend `tests/e2e/terminal-layout-presets.test.ts` (do not replace its existing
+assertions) with the redesigned preset behavior:
+
+- A preset row renders the redesigned shape — a title line plus the command in a
+  codeblock, with the Edit/Delete/Launch icon buttons present (assert by
+  accessible name / tooltip label rather than text).
+- Launching a preset whose `target` is `throwaway` produces a floating-shell
+  header pill / popover (reusing the slice-1 throwaway surface), **not** a new
+  pinned grid slot; launching a `target: "pinned"` preset fills a grid slot. The
+  flow creates one preset of each target (via the edit form's toggle) and asserts
+  the launch lands on the expected surface.
+
+This e2e flow also exercises the kept-yolo defaults so the dropped plain
+claude/codex defaults are observably absent from a fresh workspace's preset list.
+
 ### Files
 
 - Modify: `src/features/terminals/components/PresetManager.tsx`
@@ -277,6 +311,7 @@ presets are kept — quick-launch does not offer the `--dangerously-skip-permiss
 - Test: `tests/unit/models/command-preset.test.ts`,
   `tests/unit/workspace/persisted-workspace-state.test.ts` (or nearest existing),
   `tests/unit/app/use-process-actions.test.ts` (or nearest existing)
+- Extend (e2e): `tests/e2e/terminal-layout-presets.test.ts`
 
 ---
 
@@ -375,6 +410,16 @@ consistent with the new size so a resized popover can never be dragged off-scree
   and moves top; `se` grows both; results are clamped to the same bounds as
   `clampSize`.
 
+### E2E acceptance
+
+Extend `tests/e2e/throwaway-shell.test.ts` (do not replace its existing
+assertions) with a resize flow: spawn a floating shell (Cmd/Ctrl+Shift+T) and
+expand its popover, record the popover's bounding box, drag a resize handle (e.g.
+the SE corner) by a fixed delta via pointer events, and assert the popover's
+width and height changed accordingly and stayed within the clamp ceiling (≤ 75%
+of window width, ≤ 80% of window height). Then double-click the header and assert
+the popover returns to its default size.
+
 ### Files
 
 - Create: `src/features/terminals/logic/floating-shell-resize.ts`
@@ -382,6 +427,7 @@ consistent with the new size so a resized popover can never be dragged off-scree
 - Modify: `src/features/terminals/components/FloatingShellPopover.tsx`
 - Modify: `src/app/App.tsx` (shared size ref + wiring)
 - Modify: `src/app/shell.css` (state-driven size, handle styles/cursors)
+- Extend (e2e): `tests/e2e/throwaway-shell.test.ts`
 
 ---
 
@@ -401,14 +447,22 @@ one shared component, so it is executed via subagent-driven development (as in
 slice 1), decomposed into TDD tasks approximately as:
 
 1. `layout-grid-nav` pure helper + tests.
-2. `TerminalLayoutDialog` keyboard wiring + focus CSS.
+2. `TerminalLayoutDialog` keyboard wiring + focus CSS, plus the e2e
+   keyboard-selection flow extending `terminal-layout-presets.test.ts`.
 3. Shared `tooltip.tsx` + `TooltipProvider` mount + icon glyphs.
 4. Preset row redesign (title/subtitle/codeblock + icon buttons + tooltips).
 5. Preset defaults trim + `pruneRetiredDefaults` migration + tests.
-6. Preset `target` field (model + schema + form toggle + launch routing) + tests.
+6. Preset `target` field (model + schema + form toggle + launch routing) + tests,
+   plus the e2e throwaway-vs-pinned launch flow extending
+   `terminal-layout-presets.test.ts`.
 7. `floating-shell-resize` pure helper + tests.
-8. `FloatingShellPopover` resize handles + shared-size wiring + CSS.
-9. Verification gate (typecheck / eslint / prettier / unit suite green).
+8. `FloatingShellPopover` resize handles + shared-size wiring + CSS, plus the e2e
+   resize/reset flow extending `throwaway-shell.test.ts`.
+9. Verification gate: `typecheck`, `eslint`, `prettier`, the unit suite, and the
+   `test:e2e` suite (including the three extended flows) all green. E2E coverage
+   is extended, never replaced (`AGENTS.md:129`).
 
 The plan may merge or split these; each task ends with an independently testable
-deliverable.
+deliverable. Each e2e extension lives in the same task as the behavior it
+verifies (tasks 2, 6, 8), so no user-visible behavior is marked done without its
+accumulated e2e coverage.
