@@ -150,63 +150,113 @@ callers (kept only if another caller still needs it; otherwise removed).
 
 ### Decisions
 
-- When a second agent is launched while the first mount is initializing,
-  **defer it** and **auto-mount** once the collab is ready. Show a **queued
-  badge** on the chip while it waits.
-- Honor the collab's 2-agent cap (`liveBoundCount < 2`).
-- If the collab does not become ready within ~60s, **fall back to launching that
-  provider as the plain vendor binary and toast** that collab init timed out (the
-  agent still starts).
+- When a second whisper-capable agent is launched while the first mount is still
+  settling, **defer it** and **auto-mount** it once a collab slot is genuinely
+  free. Show a **queued badge** on the chip while it waits.
+- **Honor the 2-agent cap through explicit capacity accounting** (below): a slot
+  is occupied by a bound agent, an in-flight mount, *or* the single queued
+  deferral. A launch that cannot fit the cap runs as the plain vendor binary
+  instead — it is never deferred.
+- **Tighten the mount-pending guard** so it clears only on an actual binding
+  landing or the ~60s timeout — never on the daemon merely coming alive. The
+  daemon-alive early-clear is the original race; an "in-flight mount" must mean a
+  mount that is genuinely still settling, otherwise both the primary fallback and
+  the deferral can fire too early.
+- If a queued deferral is not fired within ~60s, drop it, launch that provider as
+  the plain vendor binary, clear the badge, and toast that collab init timed out
+  (the agent still starts).
 
 ### Design
 
-Introduce a **single-slot deferred-mount queue** alongside the existing mount
-guard.
+**Capacity model (cap = 2).** Define, per workspace collab:
 
-- **State:** `deferredMount: { provider, slot } | null`.
-- **On launch click:** compute the launch decision. If the provider is
-  whisper-capable, a mount is already pending (`mountPending`), and the cap still
-  allows another agent, then **do not spawn anything yet** — set
-  `deferredMount = { provider, slot }` and render the queued badge on that chip.
-  (Today this case spawns a vendor terminal; that is the behavior being changed.)
-- **Readiness watcher:** on each whisper-state poll, when `deferredMount` is set,
-  fire it once the collab is **ready**:
-  `daemonAlive && boundCount >= 1 && liveBoundCount < 2`.
-  Requiring `boundCount >= 1` (the first agent actually bound, not merely the
-  daemon heartbeat) also closes the existing "daemon flips alive before the
-  binding lands" gap. On firing: issue `whisper collab mount <provider>` in the
-  stored slot, begin a fresh mount-pending for it, and clear the badge.
-- **Bounding:** the queue holds at most one entry (the collab cap is 2: one
-  mounting + one queued). A click while a deferred mount already exists replaces
-  it (latest provider wins). A third quick click while the collab is full
-  legitimately resolves to the vendor binary.
-- **Timeout:** if `deferredMount` is not fired within ~60s
-  (`MOUNT_PENDING_TIMEOUT_MS`), drop it, launch the provider as the plain vendor
-  binary, clear the badge, and toast "collab init timed out".
+- `liveBound` — count of agents whose `bindingState === "bound"` (0 when the
+  daemon is not alive).
+- `mountInFlight` — `1` while the mount-pending guard is active for an issued
+  mount, else `0`. Serialized to at most one at a time.
+- `deferred` — `0` or `1` (the single queued slot).
+- `committed = liveBound + mountInFlight + deferred`.
+
+**State:** `deferredMount: { provider, slot } | null`.
+
+**Launch-click decision** for a whisper-capable provider `P`:
+
+1. `mountInFlight === 0 && liveBound < 2` → **mount now**
+   (`whisper collab mount P`); the guard sets `mountInFlight = 1`.
+2. `mountInFlight === 1 && deferred === 0 && liveBound + mountInFlight < 2` →
+   **defer `P`**: set `deferredMount` and render the queued badge. No terminal is
+   spawned yet.
+3. otherwise (`committed >= 2`, or the deferred slot is already taken) → **plain
+   vendor binary** `P`.
+
+A non-whisper-capable provider always takes the plain-vendor path (branch 3).
+
+**Readiness watcher** (on each whisper-state poll): when `deferredMount` is set,
+fire it once `daemonAlive && mountInFlight === 0 && liveBound < 2` — i.e., the
+previous mount has actually bound (the guard cleared on a binding, not a
+heartbeat) and a real slot is free. On firing: issue
+`whisper collab mount <deferredProvider>` in the stored slot, set
+`mountInFlight = 1`, and clear `deferredMount` + the badge.
+
+**Bounding — no replacement.** The deferred slot holds exactly one provider: the
+first click that is deferred (FIFO). Later clicks do **not** replace it; a later
+click that cannot fit the cap launches as the plain vendor binary (branch 3). To
+change a queued provider, re-click that chip to cancel the deferral (clears the
+badge), then launch the desired one.
+
+**Worked examples (cap = 2):**
+
+- *Empty collab, three rapid clicks A, B, C.* A → branch 1 (mounts,
+  `mountInFlight = 1`); B → branch 2 (deferred, badge); C → branch 3
+  (`committed === 2` → vendor). When A binds, the guard clears (on the binding)
+  and the watcher fires B. End state: A + B mounted, C vendor.
+- *One agent already bound (`liveBound = 1`), rapid clicks B then C.* B → branch 1
+  (`mountInFlight = 1`, `committed === 2`); C → branch 3
+  (`liveBound + mountInFlight === 2`, not `< 2` → vendor). No deferral is created,
+  so the watcher can never issue a second mount into the final slot — the cap
+  cannot be overbooked.
+
+**Timeout:** if `deferredMount` is not fired within ~60s
+(`MOUNT_PENDING_TIMEOUT_MS` of being queued), drop it, launch that provider as the
+plain vendor binary, clear the badge, and toast "collab init timed out".
 
 ### Files touched
 
 - `src/features/terminals/logic/agent-launch.ts` — deferred-mount decision +
   readiness predicate.
 - `src/features/terminals/logic/use-mount-pending-guard.ts` (or a sibling
-  `use-deferred-mount.ts`) — own `deferredMount` state and the readiness watcher.
+  `use-deferred-mount.ts`) — own `deferredMount` state and the readiness watcher,
+  and tighten the guard's clear condition to fire only on a binding landing or the
+  timeout (not on daemon-alive).
 - `src/features/terminals/components/AgentLauncherBar.tsx` — queued badge on the
   chip; route a deferred click to the new path.
 - `src/app/App.tsx` — wire the watcher's fire callback to `launchCollabTerminal`.
 
 ### Edge cases & tests
 
-- Two quick clicks, collab healthy → first mounts, second shows queued badge,
-  then auto-mounts when bound. Both end up in the collab.
-- Three quick clicks → first mounts, second queued+mounts, third is vendor (cap).
-- Collab init times out → queued provider launches as vendor + toast.
-- Daemon heartbeats but first binding has not landed → deferred mount waits
-  (does not fire early).
-- User picks a different provider while one is queued → queue replaced.
-- First mount fails entirely → guard times out → deferred falls back to vendor.
-- Tests: unit-test the readiness predicate and the deferred-queue reducer (fires
-  on ready, respects cap, replaces, times out to vendor); component test for the
-  queued badge.
+- Empty collab, two rapid clicks → first mounts; second shows the queued badge,
+  then auto-mounts once the first binds. Both end up in the collab.
+- Empty collab, three rapid clicks → first mounts, second queued→mounts, third is
+  plain vendor (cap).
+- One agent already bound **and a mount in flight for the final slot** → a further
+  click is plain vendor, never deferred; the watcher never issues a second mount
+  into the last slot (no cap overbooking). This is the exact state the deferred
+  queue must not overbook.
+- Daemon heartbeats but the in-flight mount's binding has not landed →
+  `mountInFlight` stays `1` (the guard no longer clears on daemon-alive) → the
+  deferral does not fire early.
+- Queued deferral times out (~60s) → that provider launches as plain vendor + toast.
+- Re-click the queued chip → deferral cancelled, badge cleared; a later click can
+  then queue a different provider.
+- First mount fails entirely → guard times out → `mountInFlight` clears → the
+  deferral fires if a slot is free, else its own timeout falls back to vendor.
+- Tests (must pin the exact cap state): unit-test (a) the capacity-accounting
+  decision across all three branches — including `liveBound === 1 && mountInFlight === 1`
+  resolving to vendor, **not** deferred; (b) the readiness predicate fires only
+  when `mountInFlight === 0 && liveBound < 2`, never on bare daemon-alive; (c) the
+  tightened guard clears on a binding or the timeout but not on daemon-alive; (d)
+  timeout → vendor fallback; (e) re-click cancels the deferral. Component test for
+  the queued badge.
 
 ---
 
@@ -342,9 +392,12 @@ Each task gets its own TDD cycle and review.
 
 ## Risks
 
-- **Issue B is the subtlest.** Readiness must require the first binding, not just
-  the daemon heartbeat, and the timeout fallback must be reliable so a queued
-  agent never silently never-launches.
+- **Issue B is the subtlest.** The 2-agent cap is enforced by capacity accounting
+  (`committed = liveBound + mountInFlight + deferred`), not a bare live count, so
+  an in-flight mount and the single deferral each reserve a slot; readiness must
+  require the prior mount's binding (the guard cleared on a binding, not a
+  heartbeat); and the ~60s timeout fallback must be reliable so a queued agent
+  never silently never-launches.
 - **`agent` is a generic binary name.** Detection and any future matching must be
   exact to avoid mislabeling unrelated sessions.
 - **Floating-shell exit subscription.** The auto-close path depends on the
