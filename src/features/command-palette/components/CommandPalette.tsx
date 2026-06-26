@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
 	Dialog,
 	DialogClose,
@@ -32,6 +32,7 @@ export function CommandPalette({ open, onOpenChange, platform }: Props) {
 	const allCommands = useCommands();
 	const [query, setQuery] = useState("");
 	const [selectedIndex, setSelectedIndex] = useState(0);
+	const selectedRowRef = useRef<HTMLDivElement | null>(null);
 
 	useEffect(() => {
 		if (!open) setQuery("");
@@ -51,6 +52,12 @@ export function CommandPalette({ open, onOpenChange, platform }: Props) {
 			setSelectedIndex(rows.length - 1);
 		}
 	}, [rows.length, selectedIndex]);
+
+	// Keep the active row visible as ↑/↓ moves the selection past the fold — the
+	// list overflows (many commands) but does not otherwise follow the selection.
+	useEffect(() => {
+		selectedRowRef.current?.scrollIntoView?.({ block: "nearest" });
+	}, [selectedIndex, rows.length]);
 
 	const runAt = (index: number) => {
 		const command = rows[index];
@@ -148,6 +155,9 @@ export function CommandPalette({ open, onOpenChange, platform }: Props) {
 									return (
 										<div
 											key={command.id}
+											ref={
+												index === selectedIndex ? selectedRowRef : undefined
+											}
 											role="button"
 											tabIndex={-1}
 											data-testid={`command-palette-row-${command.id}`}

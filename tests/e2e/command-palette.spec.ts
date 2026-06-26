@@ -134,4 +134,37 @@ test.describe.serial("command palette", () => {
 		// The marker is still on screen — the shortcut did not clear the terminal.
 		await expect(a11yTree).toContainText("PALETTE_MARKER_123");
 	});
+
+	test("scrolls the selected row into view during keyboard navigation", async () => {
+		await pressCommandPalette(page);
+		await expect(page.getByTestId("command-palette")).toBeVisible();
+		const list = page.getByTestId("command-palette-list");
+
+		// The list overflows its viewport (more commands than fit) and starts at the top.
+		expect(await list.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(
+			true,
+		);
+		expect(await list.evaluate((el) => el.scrollTop)).toBe(0);
+
+		// Arrow down well past the visible fold (commands like the Terminal group
+		// sort below it). Without scroll-into-view the list stays pinned at the top.
+		for (let i = 0; i < 18; i++) {
+			await page.keyboard.press("ArrowDown");
+		}
+
+		// The list scrolled to keep the selected row in view, and the selected row
+		// is within the list's visible viewport.
+		expect(await list.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+		const selectedVisible = await page.evaluate(() => {
+			const listEl = document.querySelector(".shell-command-palette__list");
+			const sel = document.querySelector(
+				'.shell-command-palette__row[data-selected="true"]',
+			);
+			if (!listEl || !sel) return false;
+			const lr = listEl.getBoundingClientRect();
+			const sr = sel.getBoundingClientRect();
+			return sr.top >= lr.top - 1 && sr.bottom <= lr.bottom + 1;
+		});
+		expect(selectedVisible).toBe(true);
+	});
 });

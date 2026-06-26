@@ -114,4 +114,22 @@ describe("CommandPalette", () => {
 		await user.keyboard("{Escape}");
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 	});
+
+	it("scrolls the selected row into view on keyboard navigation", async () => {
+		const user = userEvent.setup();
+		const scrollSpy = vi.fn();
+		const original = Element.prototype.scrollIntoView;
+		Element.prototype.scrollIntoView = scrollSpy;
+		try {
+			renderPalette([
+				{ id: "a", title: "Aaa", group: "G", run: () => {} },
+				{ id: "b", title: "Bbb", group: "G", run: () => {} },
+			]);
+			scrollSpy.mockClear(); // ignore the initial mount/selection scroll
+			await user.keyboard("{ArrowDown}");
+			expect(scrollSpy).toHaveBeenCalled();
+		} finally {
+			Element.prototype.scrollIntoView = original;
+		}
+	});
 });
