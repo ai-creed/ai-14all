@@ -2,17 +2,19 @@ import type {
 	AgentCliProbes,
 	WhisperWorktreeState,
 } from "../../../../shared/models/ecosystem-plugin";
+import {
+	AGENT_PROVIDER_IDS,
+	PROVIDER_LABEL,
+	providerDef,
+	type AgentProviderId,
+} from "../../../../shared/models/agent-provider";
 
 /** Stable left-to-right order of the launcher chips. */
-export const PROVIDER_ORDER = ["claude", "codex", "ezio"] as const;
-export type AgentProvider = (typeof PROVIDER_ORDER)[number];
+export const PROVIDER_ORDER = AGENT_PROVIDER_IDS;
+export type AgentProvider = AgentProviderId;
 
 /** Display label per provider, shared by every launch surface. */
-export const PROVIDER_LABEL: Record<AgentProvider, string> = {
-	claude: "Claude",
-	codex: "Codex",
-	ezio: "Ezio",
-};
+export { PROVIDER_LABEL };
 
 /**
  * Generous window after which a stuck pending-mount self-clears, so the chips
@@ -24,12 +26,7 @@ export const MOUNT_PENDING_TIMEOUT_MS = 60_000;
 
 export type MountPendingState =
 	| { kind: "idle" }
-	| {
-			kind: "pending";
-			startedAt: number;
-			baselineBound: number;
-			baselineDaemonAlive: boolean;
-	  };
+	| { kind: "pending"; startedAt: number; baselineBound: number };
 
 /** Number of agents currently bound in the worktree's lens snapshot. */
 export function boundCount(state: WhisperWorktreeState | undefined): number {
@@ -45,28 +42,51 @@ export function visibleProviders(
 	return PROVIDER_ORDER.filter((p) => probes[p]?.kind === "found");
 }
 
+export type LaunchDecision =
+	| { kind: "mount"; command: string }
+	| { kind: "vendor"; command: string }
+	| { kind: "defer" };
+
 /**
- * The single launch rule (spec §4). A pending mount forces a plain spawn, so a
- * rapid second click never issues a second concurrent `whisper collab mount`.
+ * The single launch rule (spec §B). Capacity is accounted as
+ * `committed = liveBound + mountInFlight + deferred` against the 2-agent cap:
+ * an in-flight mount and the single deferral each reserve a slot. A launch that
+ * cannot fit runs as the plain vendor binary; it is never deferred. The deferred
+ * slot is FIFO (one entry) — see useDeferredMount.
  *
  * `boundCount` only counts toward "full" when the collab is live (`daemonAlive`).
  * A stopped/dead collab keeps stale `bound` bindings in the store, but those
  * occupy no real slots — mounting into one creates/recovers a fresh collab — so
  * a dead collab must never block a mount.
  */
-export function launchCommandFor(
+export function decideLaunch(
 	provider: AgentProvider,
 	ctx: {
 		whisperHealthy: boolean;
 		boundCount: number;
-		mountPending: boolean;
 		daemonAlive: boolean;
+		mountInFlight: boolean;
+		deferredOccupied: boolean;
 	},
-): string {
-	const liveBoundCount = ctx.daemonAlive ? ctx.boundCount : 0;
-	const canMount =
-		ctx.whisperHealthy && liveBoundCount < 2 && !ctx.mountPending;
-	return canMount ? `whisper collab mount ${provider}` : provider;
+): LaunchDecision {
+	const def = providerDef(provider);
+	const vendor: LaunchDecision = { kind: "vendor", command: def.binary };
+	if (!def.whisperCapable || !ctx.whisperHealthy) return vendor;
+	const liveBound = ctx.daemonAlive ? ctx.boundCount : 0;
+	// Branch 1: a slot is free now, no mount is settling, and no deferred mount is
+	// pending → mount immediately. The `!deferredOccupied` guard closes the
+	// sub-tick window where mountInFlight has cleared but the deferred mount
+	// hasn't fired yet, which would otherwise allow a third agent to overbook.
+	if (!ctx.mountInFlight && !ctx.deferredOccupied && liveBound < 2) {
+		return { kind: "mount", command: `whisper collab mount ${provider}` };
+	}
+	// Branch 2: a mount is settling, nothing is queued, and the in-flight mount
+	// plus this one still fit (i.e. the collab is empty) → defer.
+	if (ctx.mountInFlight && !ctx.deferredOccupied && liveBound + 1 < 2) {
+		return { kind: "defer" };
+	}
+	// Branch 3: no room → plain vendor binary.
+	return vendor;
 }
 
 export type CollabStatus = {
@@ -99,14 +119,14 @@ export function beginMountPending(
 		kind: "pending",
 		startedAt: now,
 		baselineBound: boundCount(state),
-		baselineDaemonAlive: state?.daemonAlive ?? false,
 	};
 }
 
 /**
- * Clear the pending window once the lens confirms the mount (a new binding
- * landed, or the daemon came alive for a collab-creating mount) or the timeout
- * elapsed. Mirrors the advanceStartCollab idiom this feature replaces.
+ * Clear the pending window once a NEW binding lands (the mount actually settled)
+ * or the timeout elapses. It must NOT clear merely because the daemon came alive
+ * — that heartbeat precedes the binding and would let a rapid second click slip
+ * through before the slot is real.
  */
 export function advanceMountPending(
 	state: MountPendingState,
@@ -114,10 +134,7 @@ export function advanceMountPending(
 	now: number,
 ): MountPendingState {
 	if (state.kind !== "pending") return state;
-	const bound = boundCount(whisperState);
-	const daemonAlive = whisperState?.daemonAlive ?? false;
-	if (bound > state.baselineBound) return { kind: "idle" };
-	if (!state.baselineDaemonAlive && daemonAlive) return { kind: "idle" };
+	if (boundCount(whisperState) > state.baselineBound) return { kind: "idle" };
 	if (now - state.startedAt > MOUNT_PENDING_TIMEOUT_MS) return { kind: "idle" };
 	return state;
 }

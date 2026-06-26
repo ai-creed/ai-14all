@@ -5,6 +5,7 @@ import type { TerminalSession } from "../../../shared/models/terminal-session";
 import type { Worktree } from "../../../shared/models/worktree";
 import { clearReplayOutput } from "../../features/terminals/logic/replay-buffer";
 import { notifyToast } from "../../features/ui/toast/ToastProvider";
+import { commandSubmitKey } from "../../lib/command-submit-key";
 import {
 	MAX_FLOATING_SHELLS,
 	type WorkspaceAction,
@@ -27,10 +28,21 @@ type Options = {
 		workspaceId: string,
 	) => (action: WorkspaceAction) => void;
 	sessions: TerminalSession[];
-	/** From useProcessActions — spawns the PTY + builds the ProcessSession. */
-	spawnAdHocProcess: () => Promise<ProcessSession | null>;
+	/** From useProcessActions — spawns the PTY + builds the ProcessSession.
+	 * When `command` is given it is recorded but NOT sent here. */
+	spawnAdHocProcess: (opts?: {
+		command?: string;
+		label?: string;
+	}) => Promise<ProcessSession | null>;
 	stopSession: (sessionId: string) => Promise<void>;
 	removeSession: (sessionId: string) => void;
+	/** Subscribe to a terminal session's exit; returns an unsubscribe fn. */
+	subscribeSessionExit: (
+		sessionId: string,
+		cb: (exitCode: number | null) => void,
+	) => () => void;
+	/** Submit a command to a session's PTY (called AFTER subscribing to exit). */
+	sendInput: (sessionId: string, data: string) => Promise<void>;
 };
 
 export type UseFloatingShellActions = {
@@ -39,6 +51,14 @@ export type UseFloatingShellActions = {
 	handlePinFloatingShell: (processId: string) => void;
 	handleExpandFloatingShell: (processId: string) => void;
 	handleMinimizeFloatingShell: (processId: string) => void;
+	runCommandInFloatingShell: (
+		command: string,
+		opts: {
+			label: string;
+			onExit?: (exitCode: number | null) => void;
+			autoCloseOnZero?: boolean;
+		},
+	) => Promise<void>;
 };
 
 /**
@@ -61,6 +81,8 @@ export function useFloatingShellActions(
 		spawnAdHocProcess,
 		stopSession,
 		removeSession,
+		subscribeSessionExit,
+		sendInput,
 	} = options;
 
 	const floatingCount = useCallback(
@@ -173,6 +195,85 @@ export function useFloatingShellActions(
 		],
 	);
 
+	const runCommandInFloatingShell = useCallback(
+		async (
+			command: string,
+			opts: {
+				label: string;
+				onExit?: (exitCode: number | null) => void;
+				autoCloseOnZero?: boolean;
+			},
+		) => {
+			if (!workspaceId || !worktree) return;
+			const worktreeId = worktree.id;
+			// Same pre-spawn cap as handleAddFloatingShell: no backend PTY at the cap.
+			if (floatingCount(worktreeId) >= MAX_FLOATING_SHELLS) {
+				notifyToast(`Maximum ${MAX_FLOATING_SHELLS} floating shells`);
+				return;
+			}
+			const process = await spawnAdHocProcess({
+				command,
+				label: opts.label,
+			});
+			if (!process) return;
+			if (floatingCount(worktreeId) >= MAX_FLOATING_SHELLS) {
+				await teardownOrphan(process.terminalSessionId);
+				return;
+			}
+			// spawnAdHocProcess always produces a terminalSessionId; guard for TS
+			// before registering so an absent id aborts cleanly with nothing registered.
+			const terminalSessionId = process.terminalSessionId;
+			if (!terminalSessionId) return;
+			const dispatch = createScopedWorkspaceDispatch(workspaceId);
+			dispatch({
+				type: "session/registerFloatingShell",
+				worktreeId,
+				process,
+			});
+			const after = getWorkspaceStateById(workspaceId);
+			const accepted =
+				after?.sessionsByWorktreeId[worktreeId]?.floatingShellIds.includes(
+					process.id,
+				) ?? false;
+			if (!accepted) {
+				await teardownOrphan(process.terminalSessionId);
+				return;
+			}
+			// Auto-expand so the user watches the command run.
+			dispatch({
+				type: "session/expandFloatingShell",
+				worktreeId,
+				processId: process.id,
+			});
+			// Subscribe to exit BEFORE sending the command, so a command that exits
+			// immediately cannot beat the listener (the old grid path subscribed then
+			// sent, too). On exit: run the caller's hook (e.g. re-probe), then
+			// auto-close on a clean exit, leaving a failed command lingering so the
+			// error is readable.
+			const off = subscribeSessionExit(terminalSessionId, (exitCode) => {
+				off();
+				opts.onExit?.(exitCode);
+				if (opts.autoCloseOnZero && exitCode === 0) {
+					void handleCloseFloatingShell(process.id);
+				}
+			});
+			// Now run the command — the exit listener is already installed.
+			await sendInput(terminalSessionId, `${command}${commandSubmitKey()}`);
+		},
+		[
+			workspaceId,
+			worktree,
+			floatingCount,
+			spawnAdHocProcess,
+			teardownOrphan,
+			getWorkspaceStateById,
+			createScopedWorkspaceDispatch,
+			subscribeSessionExit,
+			sendInput,
+			handleCloseFloatingShell,
+		],
+	);
+
 	const dispatchForWorktree = useCallback(
 		(action: WorkspaceAction) => {
 			if (!workspaceId) return;
@@ -223,5 +324,6 @@ export function useFloatingShellActions(
 		handlePinFloatingShell,
 		handleExpandFloatingShell,
 		handleMinimizeFloatingShell,
+		runCommandInFloatingShell,
 	};
 }

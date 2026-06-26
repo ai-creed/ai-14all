@@ -88,7 +88,11 @@ export const SamanthaSessionTransitionSchema = z.object({
 
 export const SamanthaWorktreeSliceSchema = z.object({
 	worktreeId: z.string(),
-	provider: z.enum(["claude", "codex", "ezio", "other"]).nullable(),
+	// Mirrors AgentProvider (shared/models/agent-attention.ts); keep in sync when
+	// new providers are added.
+	provider: z
+		.enum(["claude", "codex", "ezio", "cursor", "antigravity", "other"])
+		.nullable(),
 	attention: z.enum(["waiting", "failed", "ready", "stale", "active", "idle"]),
 	summary: z.string(),
 	task: z.string().nullable(),

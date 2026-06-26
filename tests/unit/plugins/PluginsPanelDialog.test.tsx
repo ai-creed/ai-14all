@@ -24,6 +24,8 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 			claude: { kind: "missing" },
 			codex: { kind: "missing" },
 			ezio: { kind: "missing" },
+			cursor: { kind: "missing" },
+			antigravity: { kind: "missing" },
 		})),
 		setEnabled: vi.fn(async () => undefined),
 		reconnectSamantha,

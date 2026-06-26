@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ProviderId } from "./agent-install.js";
+import type { AgentProviderId } from "../models/agent-provider.js";
 import type { Repository } from "../models/repository.js";
 import type { Worktree } from "../models/worktree.js";
 import type { TerminalSession } from "../models/terminal-session.js";
@@ -264,7 +265,7 @@ export const LogShellEventSchema = z.object({
 // handler re-validates with the canonical schema before persisting.
 export const DIAGNOSTICS_ATTENTION_EVENT = "diagnostics:attention-event";
 
-type AttentionLogProvider = "claude" | "codex" | "ezio" | "other" | null;
+type AttentionLogProvider = AgentProviderId | "other" | null;
 
 export type DiagnosticsAttentionLogEvent =
 	| {

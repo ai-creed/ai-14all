@@ -6,9 +6,10 @@ import type {
 } from "../../shared/models/ecosystem-plugin.js";
 import { resolveBinary, type ResolvedBinary } from "./binary-resolver.js";
 import { adaptResolvedExec } from "./exec-resolved-binary.js";
+import { AGENT_PROVIDERS } from "../../shared/models/agent-provider.js";
 
 export type CapabilityProbeService = {
-	/** Cached probe of the agent CLIs (claude, codex, ezio) — prerequisite notice. */
+	/** Cached probe of the agent CLIs — prerequisite notice. */
 	probeAgentClis(): Promise<AgentCliProbes>;
 	/** Cached wrapper around a plugin driver's own probe. */
 	probePlugin(
@@ -18,8 +19,6 @@ export type CapabilityProbeService = {
 	/** Drop every cached result — the re-probe triggers all land here. */
 	invalidate(): void;
 };
-
-const AGENT_CLIS = ["claude", "codex", "ezio"] as const;
 
 export function createCapabilityProbeService(
 	options: {
@@ -94,16 +93,17 @@ export function createCapabilityProbeService(
 		});
 	}
 
-	async function probeAgentCli(name: string): Promise<AgentCliProbe> {
-		const binary = await resolve(name, { timeoutMs });
-		if (binary === null) return { kind: "not-found" };
+	async function probeAgentCli(
+		binary: string,
+		id: string,
+	): Promise<AgentCliProbe> {
+		const found = await resolve(binary, { timeoutMs });
+		if (found === null) return { kind: "not-found" };
 		return {
 			kind: "found",
-			path: binary.command,
+			path: found.command,
 			version:
-				name === "ezio"
-					? await readEzioVersion(binary)
-					: await readVersion(binary),
+				id === "ezio" ? await readEzioVersion(found) : await readVersion(found),
 		};
 	}
 
@@ -123,17 +123,18 @@ export function createCapabilityProbeService(
 							.filter(Boolean),
 					);
 					return Object.fromEntries(
-						AGENT_CLIS.map((name) => [
-							name,
-							found.has(name)
-								? { kind: "found", path: `/fake/${name}`, version: null }
+						AGENT_PROVIDERS.map((def) => [
+							def.id,
+							found.has(def.id)
+								? { kind: "found", path: `/fake/${def.binary}`, version: null }
 								: { kind: "not-found" },
 						]),
 					) as AgentCliProbes;
 				}
 				const entries = await Promise.all(
-					AGENT_CLIS.map(
-						async (name) => [name, await probeAgentCli(name)] as const,
+					AGENT_PROVIDERS.map(
+						async (def) =>
+							[def.id, await probeAgentCli(def.binary, def.id)] as const,
 					),
 				);
 				return Object.fromEntries(entries) as AgentCliProbes;

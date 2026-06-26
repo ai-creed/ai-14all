@@ -147,9 +147,17 @@ const CLI_INSTALL_HINTS: Record<keyof AgentCliProbes, string> = {
 	claude: "npm i -g @anthropic-ai/claude-code",
 	codex: "npm i -g @openai/codex",
 	ezio: "see your ezio distribution",
+	cursor: "see cursor.sh for installation",
+	antigravity: "see your antigravity distribution",
 };
 
-const CLI_ORDER: Array<keyof AgentCliProbes> = ["claude", "codex", "ezio"];
+const CLI_ORDER: Array<keyof AgentCliProbes> = [
+	"claude",
+	"codex",
+	"ezio",
+	"cursor",
+	"antigravity",
+];
 
 function AgentClisSection({
 	probes,

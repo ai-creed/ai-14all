@@ -104,10 +104,12 @@ import { AgentLauncherBar } from "../features/terminals/components/AgentLauncher
 import {
 	type AgentProvider,
 	boundCount,
-	launchCommandFor,
+	decideLaunch,
 	visibleProviders,
 } from "../features/terminals/logic/agent-launch";
+import { providerDef } from "../../shared/models/agent-provider";
 import { useMountPendingGuard } from "../features/terminals/logic/use-mount-pending-guard";
+import { useDeferredMount } from "../features/terminals/logic/use-deferred-mount";
 import { TerminalChromeHeader } from "../features/terminals/components/TerminalChromeHeader";
 import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
 import { PluginsPanelDialog } from "../features/plugins/components/PluginsPanelDialog";
@@ -797,12 +799,24 @@ export function App() {
 		removeSession,
 	});
 
+	const subscribeSessionExit = useCallback(
+		(sessionId: string, cb: (exitCode: number | null) => void) => {
+			const off = terminalsClient.onExit((event) => {
+				if (event.sessionId !== sessionId) return;
+				cb(event.exitCode);
+			});
+			return off;
+		},
+		[],
+	);
+
 	const {
 		handleAddFloatingShell,
 		handleCloseFloatingShell,
 		handlePinFloatingShell,
 		handleExpandFloatingShell,
 		handleMinimizeFloatingShell,
+		runCommandInFloatingShell,
 	} = useFloatingShellActions({
 		workspaceId: activeWorkspaceId,
 		worktree: activeWorktree,
@@ -814,6 +828,8 @@ export function App() {
 		spawnAdHocProcess,
 		stopSession,
 		removeSession,
+		subscribeSessionExit,
+		sendInput,
 	});
 
 	// Floating throwaway shells live outside the layout slot grid; surface the
@@ -833,78 +849,9 @@ export function App() {
 	const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
 	const [pluginsDialogOpen, setPluginsDialogOpen] = useState(false);
 
-	// Guided plugin install: run the install command in a fresh, visible shell on
-	// the active worktree (same create-session + register-process + sendInput path
-	// as launching a preset), then re-probe when that shell exits so the panel
-	// reflects the newly-installed peer. If the install shell never exits cleanly,
-	// the panel also re-probes every time it is re-opened (PluginsPanelDialog
-	// effect), so a stale "not installed" chip self-heals on the next open.
-	const handlePluginInstall = useCallback(
-		async (command: string, label = "plugin install") => {
-			(
-				window as unknown as { __lastPluginCommand?: string }
-			).__lastPluginCommand = command;
-			if (!activeWorktree || !activeWorkspaceId) return;
-			const targetWorkspaceId = activeWorkspaceId;
-			const targetWorktree = activeWorktree;
-			let terminal: TerminalSession;
-			try {
-				terminal = await createSession(
-					targetWorkspaceId,
-					targetWorktree.id,
-					targetWorktree.path,
-				);
-			} catch (err) {
-				console.error("Failed to start plugin install shell:", err);
-				notifyToast("Failed to start install shell");
-				return;
-			}
-			createScopedWorkspaceDispatch(targetWorkspaceId)({
-				type: "session/registerProcess",
-				worktreeId: targetWorktree.id,
-				process: {
-					id: crypto.randomUUID(),
-					workspaceId: targetWorkspaceId,
-					worktreeId: targetWorktree.id,
-					terminalSessionId: terminal.id,
-					origin: "adHoc",
-					presetId: null,
-					label,
-					command,
-					status: "running",
-					lastActivityAt: null,
-					lastOutputPreview: null,
-					exitCode: null,
-					pinned: true,
-					attentionState: "idle",
-					agentAttentionReasons: {},
-					agentAttentionClearedAt: null,
-					agentDetected: false,
-					provider: null,
-				},
-			});
-			// Re-probe once the install shell exits, so a newly-installed peer flips
-			// from "not installed" to "installed, off" without re-opening the panel.
-			const off = terminalsClient.onExit((event) => {
-				if (event.sessionId !== terminal.id) return;
-				off();
-				void pluginsClient.reprobe();
-			});
-			// `\r` on Windows (ConPTY only runs a line on CR), `\n` elsewhere.
-			await sendInput(terminal.id, `${command}${commandSubmitKey()}`);
-		},
-		[
-			activeWorktree,
-			activeWorkspaceId,
-			createSession,
-			sendInput,
-			createScopedWorkspaceDispatch,
-		],
-	);
-
 	// Launches a single command in a new pinned terminal for the collab flow.
-	// Mirrors handlePluginInstall but without the reprobe-on-exit side effect and
-	// with a "collab: <agent>" label so the terminals are identifiable.
+	// Spawns a session, registers it as a process, and sends the command; uses a
+	// "collab: <agent>" label so the terminals are identifiable.
 	const launchCollabTerminal = useCallback(
 		async (command: string, slotIndex?: number) => {
 			if (!activeWorktree || !activeWorkspaceId) return;
@@ -981,20 +928,60 @@ export function App() {
 	// fire a second concurrent `whisper collab mount`.
 	const mountGuard = useMountPendingGuard(activeWhisperState);
 
-	// Empty-slot agent launch: same whisper-aware command resolution and shared
-	// guard as the chrome bar, but lands the agent in the clicked slot.
-	const handleLaunchAgentInSlot = useCallback(
-		(provider: AgentProvider, slotIndex: number) => {
-			const command = launchCommandFor(provider, {
+	// Single-slot deferred-mount queue: a rapid second click on an empty collab is
+	// parked here while the first mount settles, then auto-mounted once a real slot
+	// frees up — or vendor-launched if the collab never becomes ready in time.
+	const deferredMount = useDeferredMount({
+		whisperState: activeWhisperState,
+		mountInFlight: mountGuard.mountPending,
+		onReady: (provider, slot) => {
+			void launchCollabTerminal(`whisper collab mount ${provider}`, slot);
+			mountGuard.beginMount();
+		},
+		onTimeout: (provider, slot) => {
+			void launchCollabTerminal(providerDef(provider).binary, slot);
+			notifyToast("Collab init timed out — launched without collab");
+		},
+	});
+
+	// The single launch entry point shared by every surface (chrome bar and each
+	// empty-slot launcher): decide mount / defer / vendor against the 2-agent cap.
+	const launchAgent = useCallback(
+		(provider: AgentProvider, slot: number | undefined) => {
+			// Re-clicking the queued chip cancels the deferral.
+			if (deferredMount.deferredProvider === provider) {
+				deferredMount.cancel();
+				return;
+			}
+			const decision = decideLaunch(provider, {
 				whisperHealthy: whisperOnHealthy,
 				boundCount: boundCount(activeWhisperState),
 				daemonAlive: activeWhisperState?.daemonAlive ?? false,
-				mountPending: mountGuard.mountPending,
+				mountInFlight: mountGuard.mountPending,
+				deferredOccupied: deferredMount.deferredOccupied,
 			});
-			void launchCollabTerminal(command, slotIndex);
-			if (command.startsWith("whisper collab mount")) mountGuard.beginMount();
+			if (decision.kind === "defer") {
+				deferredMount.enqueue(provider, slot);
+				return;
+			}
+			void launchCollabTerminal(decision.command, slot);
+			if (decision.kind === "mount") mountGuard.beginMount();
 		},
-		[whisperOnHealthy, activeWhisperState, mountGuard, launchCollabTerminal],
+		[
+			whisperOnHealthy,
+			activeWhisperState,
+			mountGuard,
+			deferredMount,
+			launchCollabTerminal,
+		],
+	);
+
+	// Empty-slot agent launch: lands the agent in the clicked slot via the shared
+	// launch rule above.
+	const handleLaunchAgentInSlot = useCallback(
+		(provider: AgentProvider, slotIndex: number) =>
+			launchAgent(provider, slotIndex),
+		[launchAgent],
 	);
 
 	const handlePromoteSlot = useCallback(
@@ -2039,10 +2026,9 @@ export function App() {
 												probes={agentClis}
 												whisperHealthy={whisperOnHealthy}
 												whisperState={activeWhisperState}
-												mountPending={mountGuard.mountPending}
-												beginMount={mountGuard.beginMount}
-												launchInTerminal={(command) =>
-													void launchCollabTerminal(command)
+												deferredProvider={deferredMount.deferredProvider}
+												onLaunch={(provider) =>
+													launchAgent(provider, undefined)
 												}
 											/>
 										}
@@ -2196,10 +2182,30 @@ export function App() {
 						<PluginsPanelDialog
 							open={pluginsDialogOpen}
 							onOpenChange={setPluginsDialogOpen}
-							onInstall={(command) => void handlePluginInstall(command)}
-							onConfigure={(command) =>
-								void handlePluginInstall(command, "plugin configure")
-							}
+							onInstall={(command) => {
+								(
+									window as unknown as {
+										__lastPluginCommand?: string;
+									}
+								).__lastPluginCommand = command;
+								void runCommandInFloatingShell(command, {
+									label: "plugin install",
+									autoCloseOnZero: true,
+									onExit: () => void pluginsClient.reprobe(),
+								});
+							}}
+							onConfigure={(command) => {
+								(
+									window as unknown as {
+										__lastPluginCommand?: string;
+									}
+								).__lastPluginCommand = command;
+								void runCommandInFloatingShell(command, {
+									label: "plugin configure",
+									autoCloseOnZero: true,
+									onExit: () => void pluginsClient.reprobe(),
+								});
+							}}
 						/>
 
 						{workflowDetailTarget && (

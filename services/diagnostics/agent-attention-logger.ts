@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
+import type { AgentProviderId } from "../../shared/models/agent-provider.js";
 
 /**
  * Diagnostics mode for the agent-attention logger.
@@ -27,7 +28,7 @@ export type AgentAttentionLogMode = "off" | "sampled" | "full";
  * bidirectional assertion in electron/main/ipc.ts). Kept as one alias so all
  * four event shapes and the Zod schema share a single source of truth.
  */
-type AttentionLogProvider = "claude" | "codex" | "ezio" | "other" | null;
+type AttentionLogProvider = AgentProviderId | "other" | null;
 
 /**
  * A classifier decision event: the attention classifier evaluated terminal
@@ -110,7 +111,9 @@ export type AttentionLogEvent =
 	| LifecycleLogEvent
 	| ResolutionLogEvent;
 
-const ProviderSchema = z.enum(["claude", "codex", "ezio", "other"]).nullable();
+const ProviderSchema = z
+	.enum(["claude", "codex", "ezio", "cursor", "antigravity", "other"])
+	.nullable();
 
 const ClassifierLogEventSchema = z.object({
 	type: z.literal("classifier"),
