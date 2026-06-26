@@ -133,6 +133,7 @@ import { AgentAttentionBanner } from "./components/AgentAttentionBanner";
 import { normalizeTerminalTitle } from "./normalize-terminal-title";
 import { CommandPalette } from "../features/command-palette/components/CommandPalette";
 import { useRegisterCommands } from "../features/command-palette/hooks/use-command-registry";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import type { Command } from "../features/command-palette/logic/command";
 
 type StartupMode = "loading" | "prompt" | "ready";
@@ -1323,10 +1324,7 @@ export function App() {
 		if (!activeProcessId) return;
 		void handleCloseProcess(activeProcessId);
 	}, [activeWorktree?.id, activeWorkspaceId]);
-	const toggleSidebar = useCallback(
-		() => setSidebarCollapsed((c) => !c),
-		[],
-	);
+	const toggleSidebar = useCallback(() => setSidebarCollapsed((c) => !c), []);
 	const applyReviewMode = useCallback(
 		(reviewMode: "files" | "changes" | "commits") => {
 			const currentState = workspaceStateRef.current;
@@ -1416,10 +1414,27 @@ export function App() {
 					: (idx - 1 + processes.length) % processes.length;
 			const nextProcessId = processes[nextIdx]?.id;
 			if (!nextProcessId) return false;
-			dispatch({ type: "session/selectProcess", worktreeId: currentWorktreeId, processId: nextProcessId });
-			dispatch({ type: "session/markProcessViewed", worktreeId: currentWorktreeId, processId: nextProcessId });
-			dispatch({ type: "session/clearProcessAgentAttention", worktreeId: currentWorktreeId, processId: nextProcessId, sticky: false, clearedAt: Date.now() });
-			dispatch({ type: "session/clearSessionAgentAttention", worktreeId: currentWorktreeId });
+			dispatch({
+				type: "session/selectProcess",
+				worktreeId: currentWorktreeId,
+				processId: nextProcessId,
+			});
+			dispatch({
+				type: "session/markProcessViewed",
+				worktreeId: currentWorktreeId,
+				processId: nextProcessId,
+			});
+			dispatch({
+				type: "session/clearProcessAgentAttention",
+				worktreeId: currentWorktreeId,
+				processId: nextProcessId,
+				sticky: false,
+				clearedAt: Date.now(),
+			});
+			dispatch({
+				type: "session/clearSessionAgentAttention",
+				worktreeId: currentWorktreeId,
+			});
 			setTerminalFocusSignal((n) => n + 1);
 			return true;
 		},
@@ -1435,30 +1450,162 @@ export function App() {
 
 	const simpleCommands = useMemo<Command[]>(
 		() => [
-			{ id: "files-overlay", title: "Open Files", group: "Review", keybindingId: "files-overlay", run: openFilesOverlay, isAvailable: () => !!activeWorktree },
-			{ id: "review.open", title: "Open Review", group: "Review", keybindingId: "review.open", run: toggleReview, isAvailable: () => !!activeWorktree },
-			{ id: "review.files", title: "Review: Files", group: "Review", keybindingId: "review.files", run: () => applyReviewMode("files"), isAvailable: () => !!activeWorktree },
-			{ id: "review.changes", title: "Review: Changes", group: "Review", keybindingId: "review.changes", run: () => applyReviewMode("changes"), isAvailable: () => !!activeWorktree },
-			{ id: "review.commits", title: "Review: Commits", group: "Review", keybindingId: "review.commits", run: () => applyReviewMode("commits"), isAvailable: () => !!activeWorktree },
-			{ id: "changes.refresh", title: "Refresh changes", group: "Review", run: refreshChanges, isAvailable: () => !!activeWorktree },
-			{ id: "terminal.new", title: "New terminal", group: "Terminal", keybindingId: "terminal.new", run: newTerminal, isAvailable: () => !!activeWorktree && !addDisabled },
-			{ id: "terminal.newFloating", title: "New throwaway shell", group: "Terminal", keybindingId: "terminal.newFloating", run: newFloatingShell, isAvailable: () => !!activeWorktree && floatingShellIds.length < MAX_FLOATING_SHELLS },
-			{ id: "terminal.close", title: "Close terminal", group: "Terminal", keybindingId: "terminal.close", run: closeActiveTerminal, isAvailable: () => { const s = workspaceStateRef.current; const wt = s.selectedWorktreeId; return !!wt && !!s.sessionsByWorktreeId[wt]?.activeProcessSessionId; } },
-			{ id: "terminal.layout", title: "Choose layout", group: "Terminal", keybindingId: "terminal.layout", run: openTerminalLayout, isAvailable: () => !!activeWorktree },
-			{ id: "worktree.add", title: "Add worktree", group: "Worktree", keybindingId: "worktree.add", run: openAddWorktree, isAvailable: () => !!activeWorkspaceId },
-			{ id: "ui.openWorkspacePicker", title: "Open workspace", group: "Workspace", keybindingId: "ui.openWorkspacePicker", run: openWorkspacePicker, isAvailable: () => startupMode === "ready" },
-			{ id: "layout.toggleSidebar", title: "Toggle sidebar", group: "Layout", keybindingId: "layout.toggleSidebar", run: toggleSidebar },
-			{ id: "note-sheet", title: "Open Note", group: "Session", keybindingId: "note-sheet", run: toggleNoteSheet },
-			{ id: "rename-session", title: "Rename session", group: "Session", keybindingId: "rename-session", run: startRenameSession, isAvailable: () => !!activeWorkspaceId && !!activeWorktree },
-			{ id: "shortcuts-help", title: "Show shortcuts", group: "App", keybindingId: "shortcuts-help", run: toggleShortcutsHelp },
-			{ id: "plugins.open", title: "Open Plugins", group: "App", run: openPlugins },
+			{
+				id: "files-overlay",
+				title: "Open Files",
+				group: "Review",
+				keybindingId: "files-overlay",
+				run: openFilesOverlay,
+				isAvailable: () => !!activeWorktree,
+			},
+			{
+				id: "review.open",
+				title: "Open Review",
+				group: "Review",
+				keybindingId: "review.open",
+				run: toggleReview,
+				isAvailable: () => !!activeWorktree,
+			},
+			{
+				id: "review.files",
+				title: "Review: Files",
+				group: "Review",
+				keybindingId: "review.files",
+				run: () => applyReviewMode("files"),
+				isAvailable: () => !!activeWorktree,
+			},
+			{
+				id: "review.changes",
+				title: "Review: Changes",
+				group: "Review",
+				keybindingId: "review.changes",
+				run: () => applyReviewMode("changes"),
+				isAvailable: () => !!activeWorktree,
+			},
+			{
+				id: "review.commits",
+				title: "Review: Commits",
+				group: "Review",
+				keybindingId: "review.commits",
+				run: () => applyReviewMode("commits"),
+				isAvailable: () => !!activeWorktree,
+			},
+			{
+				id: "changes.refresh",
+				title: "Refresh changes",
+				group: "Review",
+				run: refreshChanges,
+				isAvailable: () => !!activeWorktree,
+			},
+			{
+				id: "terminal.new",
+				title: "New terminal",
+				group: "Terminal",
+				keybindingId: "terminal.new",
+				run: newTerminal,
+				isAvailable: () => !!activeWorktree && !addDisabled,
+			},
+			{
+				id: "terminal.newFloating",
+				title: "New throwaway shell",
+				group: "Terminal",
+				keybindingId: "terminal.newFloating",
+				run: newFloatingShell,
+				isAvailable: () =>
+					!!activeWorktree && floatingShellIds.length < MAX_FLOATING_SHELLS,
+			},
+			{
+				id: "terminal.close",
+				title: "Close terminal",
+				group: "Terminal",
+				keybindingId: "terminal.close",
+				run: closeActiveTerminal,
+				isAvailable: () => {
+					const s = workspaceStateRef.current;
+					const wt = s.selectedWorktreeId;
+					return !!wt && !!s.sessionsByWorktreeId[wt]?.activeProcessSessionId;
+				},
+			},
+			{
+				id: "terminal.layout",
+				title: "Choose layout",
+				group: "Terminal",
+				keybindingId: "terminal.layout",
+				run: openTerminalLayout,
+				isAvailable: () => !!activeWorktree,
+			},
+			{
+				id: "worktree.add",
+				title: "Add worktree",
+				group: "Worktree",
+				keybindingId: "worktree.add",
+				run: openAddWorktree,
+				isAvailable: () => !!activeWorkspaceId,
+			},
+			{
+				id: "ui.openWorkspacePicker",
+				title: "Open workspace",
+				group: "Workspace",
+				keybindingId: "ui.openWorkspacePicker",
+				run: openWorkspacePicker,
+				isAvailable: () => startupMode === "ready",
+			},
+			{
+				id: "layout.toggleSidebar",
+				title: "Toggle sidebar",
+				group: "Layout",
+				keybindingId: "layout.toggleSidebar",
+				run: toggleSidebar,
+			},
+			{
+				id: "note-sheet",
+				title: "Open Note",
+				group: "Session",
+				keybindingId: "note-sheet",
+				run: toggleNoteSheet,
+			},
+			{
+				id: "rename-session",
+				title: "Rename session",
+				group: "Session",
+				keybindingId: "rename-session",
+				run: startRenameSession,
+				isAvailable: () => !!activeWorkspaceId && !!activeWorktree,
+			},
+			{
+				id: "shortcuts-help",
+				title: "Show shortcuts",
+				group: "App",
+				keybindingId: "shortcuts-help",
+				run: toggleShortcutsHelp,
+			},
+			{
+				id: "plugins.open",
+				title: "Open Plugins",
+				group: "App",
+				run: openPlugins,
+			},
 		],
 		[
-			openFilesOverlay, toggleReview, applyReviewMode, refreshChanges, newTerminal,
-			newFloatingShell, closeActiveTerminal, openTerminalLayout, openAddWorktree,
-			openWorkspacePicker, toggleSidebar, toggleNoteSheet, startRenameSession,
-			toggleShortcutsHelp, openPlugins,
-			activeWorktree, activeWorkspaceId, addDisabled, startupMode,
+			openFilesOverlay,
+			toggleReview,
+			applyReviewMode,
+			refreshChanges,
+			newTerminal,
+			newFloatingShell,
+			closeActiveTerminal,
+			openTerminalLayout,
+			openAddWorktree,
+			openWorkspacePicker,
+			toggleSidebar,
+			toggleNoteSheet,
+			startRenameSession,
+			toggleShortcutsHelp,
+			openPlugins,
+			activeWorktree,
+			activeWorkspaceId,
+			addDisabled,
+			startupMode,
 			floatingShellIds.length,
 		],
 	);
@@ -1466,14 +1613,61 @@ export function App() {
 
 	const cycleCommands = useMemo<Command[]>(
 		() => [
-			{ id: "worktree.selectNext", title: "Next worktree", group: "Worktree", keybindingId: "worktree.selectNext", run: () => selectAdjacentWorktree("next"), isAvailable: () => worktreesRef.current.length > 1 },
-			{ id: "worktree.selectPrev", title: "Previous worktree", group: "Worktree", keybindingId: "worktree.selectPrev", run: () => selectAdjacentWorktree("prev"), isAvailable: () => worktreesRef.current.length > 1 },
-			{ id: "workspace.selectNext", title: "Next workspace", group: "Workspace", keybindingId: "workspace.selectNext", run: () => selectAdjacentWorkspace("next"), isAvailable: () => appWorkspacesRef.current.workspaceOrder.length > 1 },
-			{ id: "workspace.selectPrev", title: "Previous workspace", group: "Workspace", keybindingId: "workspace.selectPrev", run: () => selectAdjacentWorkspace("prev"), isAvailable: () => appWorkspacesRef.current.workspaceOrder.length > 1 },
-			{ id: "terminal.selectNext", title: "Next terminal", group: "Terminal", keybindingId: "terminal.selectNext", run: () => selectAdjacentTerminal("next"), isAvailable: () => countTerminals() > 1 },
-			{ id: "terminal.selectPrev", title: "Previous terminal", group: "Terminal", keybindingId: "terminal.selectPrev", run: () => selectAdjacentTerminal("prev"), isAvailable: () => countTerminals() > 1 },
+			{
+				id: "worktree.selectNext",
+				title: "Next worktree",
+				group: "Worktree",
+				keybindingId: "worktree.selectNext",
+				run: () => selectAdjacentWorktree("next"),
+				isAvailable: () => worktreesRef.current.length > 1,
+			},
+			{
+				id: "worktree.selectPrev",
+				title: "Previous worktree",
+				group: "Worktree",
+				keybindingId: "worktree.selectPrev",
+				run: () => selectAdjacentWorktree("prev"),
+				isAvailable: () => worktreesRef.current.length > 1,
+			},
+			{
+				id: "workspace.selectNext",
+				title: "Next workspace",
+				group: "Workspace",
+				keybindingId: "workspace.selectNext",
+				run: () => selectAdjacentWorkspace("next"),
+				isAvailable: () => appWorkspacesRef.current.workspaceOrder.length > 1,
+			},
+			{
+				id: "workspace.selectPrev",
+				title: "Previous workspace",
+				group: "Workspace",
+				keybindingId: "workspace.selectPrev",
+				run: () => selectAdjacentWorkspace("prev"),
+				isAvailable: () => appWorkspacesRef.current.workspaceOrder.length > 1,
+			},
+			{
+				id: "terminal.selectNext",
+				title: "Next terminal",
+				group: "Terminal",
+				keybindingId: "terminal.selectNext",
+				run: () => selectAdjacentTerminal("next"),
+				isAvailable: () => countTerminals() > 1,
+			},
+			{
+				id: "terminal.selectPrev",
+				title: "Previous terminal",
+				group: "Terminal",
+				keybindingId: "terminal.selectPrev",
+				run: () => selectAdjacentTerminal("prev"),
+				isAvailable: () => countTerminals() > 1,
+			},
 		],
-		[selectAdjacentWorktree, selectAdjacentWorkspace, selectAdjacentTerminal, countTerminals],
+		[
+			selectAdjacentWorktree,
+			selectAdjacentWorkspace,
+			selectAdjacentTerminal,
+			countTerminals,
+		],
 	);
 	useRegisterCommands(cycleCommands, [cycleCommands]);
 
@@ -1943,417 +2137,430 @@ export function App() {
 
 	return (
 		<ToastProvider>
-			<AgentAttentionBanner />
-			<main className="shell-app">
-				<RestoreBanner
-					message={restoreWarning}
-					onDismiss={() => setRestoreWarning(null)}
-				/>
-				<div
-					className="shell-layout"
-					data-testid="shell-layout"
-					style={{
-						gridTemplateColumns: `${
-							sidebarCollapsed ? 68 : sidebarWidth
-						}px minmax(0, 1fr)`,
-					}}
-				>
-					<SidebarPanel
-						sidebarWorkspaces={sidebarWorkspaces}
-						sidebarCollapsed={sidebarCollapsed}
-						setSidebarCollapsed={setSidebarCollapsed}
-						handleSidebarResizeStart={handleSidebarResizeStart}
-						activeWorkspaceId={activeWorkspaceId}
-						pendingRename={pendingRename}
-						setPendingRename={setPendingRename}
-						openWorkspacePicker={() => setWorkspacePickerOpen(true)}
-						openCreateWorktreeDialog={() => setCreateDialogOpen(true)}
-						openRemoveWorktreeDialog={(worktreeId) => {
-							setRemoveTargetId(worktreeId);
-							setConfirmedDirtyRemoval(false);
-							setRemoveDialogOpen(true);
-						}}
-						activateWorkspace={activateWorkspace}
-						handleSelectSidebarWorktree={handleSelectSidebarWorktree}
-						handleRemoveWorkspace={handleRemoveWorkspace}
-						onOpenWorkflowDetail={(workspaceId, worktreeId) =>
-							setWorkflowDetailTarget({ workspaceId, worktreeId })
-						}
-						dispatch={dispatch}
-						themeMode={mode}
-						onThemeToggle={() => setTheme(nextThemeMode(mode))}
+			<TooltipProvider delayDuration={300}>
+				<AgentAttentionBanner />
+				<main className="shell-app">
+					<RestoreBanner
+						message={restoreWarning}
+						onDismiss={() => setRestoreWarning(null)}
 					/>
-
-					<section className="shell-main-column" ref={mainColRef}>
-						<MainColumnChrome
-							downloadingBannerInfo={downloadingBannerInfo}
-							downloadedBannerInfo={downloadedBannerInfo}
-							onRestartUpdate={() => void system.installUpdate()}
-							onLaterUpdate={() =>
-								setUpdateDismissedFor(downloadedBannerInfo?.version ?? null)
-							}
-							chipBarRef={chipBarRef}
-							activeWorktree={activeWorktree}
-							activeSession={activeSession ?? null}
-							activeSummary={activeSummary}
-							changedFileCount={changes.length}
-							activeWorkspaceId={activeWorkspaceId}
+					<div
+						className="shell-layout"
+						data-testid="shell-layout"
+						style={{
+							gridTemplateColumns: `${
+								sidebarCollapsed ? 68 : sidebarWidth
+							}px minmax(0, 1fr)`,
+						}}
+					>
+						<SidebarPanel
+							sidebarWorkspaces={sidebarWorkspaces}
+							sidebarCollapsed={sidebarCollapsed}
 							setSidebarCollapsed={setSidebarCollapsed}
+							handleSidebarResizeStart={handleSidebarResizeStart}
+							activeWorkspaceId={activeWorkspaceId}
+							pendingRename={pendingRename}
 							setPendingRename={setPendingRename}
-							openReview={() => setReviewOpen(true)}
+							openWorkspacePicker={() => setWorkspacePickerOpen(true)}
+							openCreateWorktreeDialog={() => setCreateDialogOpen(true)}
+							openRemoveWorktreeDialog={(worktreeId) => {
+								setRemoveTargetId(worktreeId);
+								setConfirmedDirtyRemoval(false);
+								setRemoveDialogOpen(true);
+							}}
+							activateWorkspace={activateWorkspace}
+							handleSelectSidebarWorktree={handleSelectSidebarWorktree}
+							handleRemoveWorkspace={handleRemoveWorkspace}
+							onOpenWorkflowDetail={(workspaceId, worktreeId) =>
+								setWorkflowDetailTarget({ workspaceId, worktreeId })
+							}
 							dispatch={dispatch}
-							noteSheetOpen={noteSheetOpen}
-							setNoteSheetOpen={setNoteSheetOpen}
-							filesOverlayOpen={filesOverlayOpen}
-							setFilesOverlayOpen={setFilesOverlayOpen}
-							trackedFilesLoader={trackedFilesLoader}
-							gitStatusMap={gitStatusMap}
-							shortcutsHelpOpen={shortcutsHelpOpen}
-							setShortcutsHelpOpen={setShortcutsHelpOpen}
-							appPlatform={appPlatform}
-							openWorktreePaths={worktrees
-								.filter((w) => workspaceState.sessionsByWorktreeId[w.id])
-								.map((w) => w.path)}
-							onOpenPlugins={() => setPluginsDialogOpen(true)}
+							themeMode={mode}
+							onThemeToggle={() => setTheme(nextThemeMode(mode))}
 						/>
 
-						<div className="shell-terminal-frame">
-							{activeWorktree && (
-								<div className="terminal-chrome-header-anchor">
-									<TerminalChromeHeader
-										agentLauncher={
-											<AgentLauncherBar
-												probes={agentClis}
-												whisperHealthy={whisperOnHealthy}
-												whisperState={activeWhisperState}
-												deferredProvider={deferredMount.deferredProvider}
-												onLaunch={(provider) =>
-													launchAgent(provider, undefined)
-												}
-											/>
-										}
-										terminalActions={
-											<>
-												<FloatingShellPills
-													floatingShellIds={floatingShellIds}
-													processSessionsById={
-														workspaceState.processSessionsById
+						<section className="shell-main-column" ref={mainColRef}>
+							<MainColumnChrome
+								downloadingBannerInfo={downloadingBannerInfo}
+								downloadedBannerInfo={downloadedBannerInfo}
+								onRestartUpdate={() => void system.installUpdate()}
+								onLaterUpdate={() =>
+									setUpdateDismissedFor(downloadedBannerInfo?.version ?? null)
+								}
+								chipBarRef={chipBarRef}
+								activeWorktree={activeWorktree}
+								activeSession={activeSession ?? null}
+								activeSummary={activeSummary}
+								changedFileCount={changes.length}
+								activeWorkspaceId={activeWorkspaceId}
+								setSidebarCollapsed={setSidebarCollapsed}
+								setPendingRename={setPendingRename}
+								openReview={() => setReviewOpen(true)}
+								dispatch={dispatch}
+								noteSheetOpen={noteSheetOpen}
+								setNoteSheetOpen={setNoteSheetOpen}
+								filesOverlayOpen={filesOverlayOpen}
+								setFilesOverlayOpen={setFilesOverlayOpen}
+								trackedFilesLoader={trackedFilesLoader}
+								gitStatusMap={gitStatusMap}
+								shortcutsHelpOpen={shortcutsHelpOpen}
+								setShortcutsHelpOpen={setShortcutsHelpOpen}
+								appPlatform={appPlatform}
+								openWorktreePaths={worktrees
+									.filter((w) => workspaceState.sessionsByWorktreeId[w.id])
+									.map((w) => w.path)}
+								onOpenPlugins={() => setPluginsDialogOpen(true)}
+							/>
+
+							<div className="shell-terminal-frame">
+								{activeWorktree && (
+									<div className="terminal-chrome-header-anchor">
+										<TerminalChromeHeader
+											agentLauncher={
+												<AgentLauncherBar
+													probes={agentClis}
+													whisperHealthy={whisperOnHealthy}
+													whisperState={activeWhisperState}
+													deferredProvider={deferredMount.deferredProvider}
+													onLaunch={(provider) =>
+														launchAgent(provider, undefined)
 													}
-													expandedId={expandedFloatingShellId}
-													onExpand={handleExpandFloatingShell}
-													onClose={handleCloseFloatingShell}
 												/>
-												<TerminalActions
-													presets={workspaceState.commandPresets}
-													addDisabled={addDisabled}
-													onAddAdHoc={handleAddAdHoc}
-													onLaunchPreset={handleLaunchPreset}
-													onOpenPresetManager={() => setPresetManagerOpen(true)}
-													onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
-													platform={appPlatform}
-												/>
-											</>
-										}
-									/>
-									{expandedFloatingProcess && (
-										<FloatingShellPopover
-											key={expandedFloatingProcess.id}
-											process={expandedFloatingProcess}
-											session={expandedFloatingSession}
-											theme={terminalTheme}
-											initialPosition={
-												floatingPositionsRef.current.get(
-													expandedFloatingProcess.id,
-												) ?? null
 											}
-											onPositionChange={(p) => {
-												const id = expandedFloatingProcess.id;
-												if (p) floatingPositionsRef.current.set(id, p);
-												else floatingPositionsRef.current.delete(id);
-											}}
-											pinDisabled={addDisabled}
-											onMinimize={handleMinimizeFloatingShell}
-											onPin={handlePinFloatingShell}
-											onClose={handleCloseFloatingShell}
-											onTitleChange={(title) => {
-												const nextLabel = normalizeTerminalTitle(title);
-												if (!nextLabel) return;
-												createScopedWorkspaceDispatch(activeWorkspaceId ?? "")({
-													type: "session/updateProcessLabel",
-													processId: expandedFloatingProcess.id,
-													label: nextLabel,
-												});
-											}}
+											terminalActions={
+												<>
+													<FloatingShellPills
+														floatingShellIds={floatingShellIds}
+														processSessionsById={
+															workspaceState.processSessionsById
+														}
+														expandedId={expandedFloatingShellId}
+														onExpand={handleExpandFloatingShell}
+														onClose={handleCloseFloatingShell}
+													/>
+													<TerminalActions
+														presets={workspaceState.commandPresets}
+														addDisabled={addDisabled}
+														onAddAdHoc={handleAddAdHoc}
+														onLaunchPreset={handleLaunchPreset}
+														onOpenPresetManager={() =>
+															setPresetManagerOpen(true)
+														}
+														onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
+														platform={appPlatform}
+													/>
+												</>
+											}
 										/>
-									)}
+										{expandedFloatingProcess && (
+											<FloatingShellPopover
+												key={expandedFloatingProcess.id}
+												process={expandedFloatingProcess}
+												session={expandedFloatingSession}
+												theme={terminalTheme}
+												initialPosition={
+													floatingPositionsRef.current.get(
+														expandedFloatingProcess.id,
+													) ?? null
+												}
+												onPositionChange={(p) => {
+													const id = expandedFloatingProcess.id;
+													if (p) floatingPositionsRef.current.set(id, p);
+													else floatingPositionsRef.current.delete(id);
+												}}
+												pinDisabled={addDisabled}
+												onMinimize={handleMinimizeFloatingShell}
+												onPin={handlePinFloatingShell}
+												onClose={handleCloseFloatingShell}
+												onTitleChange={(title) => {
+													const nextLabel = normalizeTerminalTitle(title);
+													if (!nextLabel) return;
+													createScopedWorkspaceDispatch(
+														activeWorkspaceId ?? "",
+													)({
+														type: "session/updateProcessLabel",
+														processId: expandedFloatingProcess.id,
+														label: nextLabel,
+													});
+												}}
+											/>
+										)}
+									</div>
+								)}
+
+								{/*
+								 * Render a terminal panel for every hydrated workspace, not just the
+								 * active one. Only the active workspace's panel is visible; the rest
+								 * stay mounted but hidden via CSS. Keeping inactive panels mounted
+								 * means their xterm instances keep their PTY output subscription alive
+								 * and never lose scrollback when the user switches workspaces and back
+								 * (previously the panel was unmounted on switch, disposing the xterm and
+								 * rendering blank on return). Panes are keyed by processId within each
+								 * panel and panels by workspaceId, so switching only flips visibility —
+								 * no unmount/remount of the xterm instances.
+								 */}
+								<div className="shell-terminal-layer">
+									{appWorkspaces.workspaceOrder.map((id) => {
+										const ws = appWorkspaces.workspacesById[id];
+										if (!ws || ws.workspaceState === null) return null;
+										const isActive = ws.workspaceId === activeWorkspaceId;
+										const wsState = isActive
+											? workspaceState
+											: ws.workspaceState;
+										const wsSelectedWorktreeId = wsState.selectedWorktreeId;
+										const wsActiveWorktree = isActive
+											? activeWorktree
+											: (ws.worktrees.find(
+													(w) => w.id === wsSelectedWorktreeId,
+												) ?? null);
+										const wsActiveSession = isActive
+											? (activeSession ?? null)
+											: wsSelectedWorktreeId
+												? (wsState.sessionsByWorktreeId[wsSelectedWorktreeId] ??
+													null)
+												: null;
+										const wsSlotProcessIds =
+											wsActiveSession?.slotProcessIds ?? [null];
+										return (
+											<div
+												key={ws.workspaceId}
+												className="shell-terminal-host"
+												data-active={isActive ? "true" : "false"}
+												data-workspace-id={ws.workspaceId}
+											>
+												<TerminalPanel
+													panelVisible={isActive}
+													suppressAutoFocus={isActive && reviewOpen}
+													terminalTheme={terminalTheme}
+													workspaceState={wsState}
+													activeWorktree={wsActiveWorktree}
+													activeSession={wsActiveSession}
+													sessions={sessions}
+													layoutId={wsActiveSession?.terminalLayoutId ?? "1"}
+													slotProcessIds={wsSlotProcessIds}
+													terminalFocusSignal={terminalFocusSignal}
+													// Workspace-pinned dispatch so terminal title (OSC) updates
+													// emitted by a hidden workspace's PTY always route to THAT
+													// workspace, not whichever one is currently active. A fresh
+													// scoped dispatch is created per event to avoid stale base
+													// state.
+													dispatch={(action) =>
+														createScopedWorkspaceDispatch(ws.workspaceId)(
+															action,
+														)
+													}
+													selectActiveProcess={
+														isActive ? selectActiveProcess : NOOP
+													}
+													onCloseSlot={isActive ? handleCloseProcess : NOOP}
+													onRestartSlot={isActive ? handleRestartProcess : NOOP}
+													onPromoteSlot={isActive ? handlePromoteSlot : NOOP}
+													onStartShellInSlot={
+														isActive ? handleStartShellInSlot : NOOP
+													}
+													agentProviders={visibleProviders(agentClis)}
+													onLaunchAgentInSlot={
+														isActive ? handleLaunchAgentInSlot : NOOP
+													}
+													findProcessByTerminalSessionId={
+														findProcessByTerminalSessionId
+													}
+												/>
+											</div>
+										);
+									})}
 								</div>
+							</div>
+							{activeWorktree && (
+								<TerminalLayoutDialog
+									open={layoutDialogOpen}
+									runningShells={runningShells}
+									currentLayoutId={activeSession?.terminalLayoutId ?? "1"}
+									onSelect={handleSelectLayout}
+									onClose={() => setLayoutDialogOpen(false)}
+								/>
 							)}
 
-							{/*
-							 * Render a terminal panel for every hydrated workspace, not just the
-							 * active one. Only the active workspace's panel is visible; the rest
-							 * stay mounted but hidden via CSS. Keeping inactive panels mounted
-							 * means their xterm instances keep their PTY output subscription alive
-							 * and never lose scrollback when the user switches workspaces and back
-							 * (previously the panel was unmounted on switch, disposing the xterm and
-							 * rendering blank on return). Panes are keyed by processId within each
-							 * panel and panels by workspaceId, so switching only flips visibility —
-							 * no unmount/remount of the xterm instances.
-							 */}
-							<div className="shell-terminal-layer">
-								{appWorkspaces.workspaceOrder.map((id) => {
-									const ws = appWorkspaces.workspacesById[id];
-									if (!ws || ws.workspaceState === null) return null;
-									const isActive = ws.workspaceId === activeWorkspaceId;
-									const wsState = isActive ? workspaceState : ws.workspaceState;
-									const wsSelectedWorktreeId = wsState.selectedWorktreeId;
-									const wsActiveWorktree = isActive
-										? activeWorktree
-										: (ws.worktrees.find(
-												(w) => w.id === wsSelectedWorktreeId,
-											) ?? null);
-									const wsActiveSession = isActive
-										? (activeSession ?? null)
-										: wsSelectedWorktreeId
-											? (wsState.sessionsByWorktreeId[wsSelectedWorktreeId] ??
-												null)
-											: null;
-									const wsSlotProcessIds = wsActiveSession?.slotProcessIds ?? [
-										null,
-									];
-									return (
-										<div
-											key={ws.workspaceId}
-											className="shell-terminal-host"
-											data-active={isActive ? "true" : "false"}
-											data-workspace-id={ws.workspaceId}
-										>
-											<TerminalPanel
-												panelVisible={isActive}
-												suppressAutoFocus={isActive && reviewOpen}
-												terminalTheme={terminalTheme}
-												workspaceState={wsState}
-												activeWorktree={wsActiveWorktree}
-												activeSession={wsActiveSession}
-												sessions={sessions}
-												layoutId={wsActiveSession?.terminalLayoutId ?? "1"}
-												slotProcessIds={wsSlotProcessIds}
-												terminalFocusSignal={terminalFocusSignal}
-												// Workspace-pinned dispatch so terminal title (OSC) updates
-												// emitted by a hidden workspace's PTY always route to THAT
-												// workspace, not whichever one is currently active. A fresh
-												// scoped dispatch is created per event to avoid stale base
-												// state.
-												dispatch={(action) =>
-													createScopedWorkspaceDispatch(ws.workspaceId)(action)
-												}
-												selectActiveProcess={
-													isActive ? selectActiveProcess : NOOP
-												}
-												onCloseSlot={isActive ? handleCloseProcess : NOOP}
-												onRestartSlot={isActive ? handleRestartProcess : NOOP}
-												onPromoteSlot={isActive ? handlePromoteSlot : NOOP}
-												onStartShellInSlot={
-													isActive ? handleStartShellInSlot : NOOP
-												}
-												agentProviders={visibleProviders(agentClis)}
-												onLaunchAgentInSlot={
-													isActive ? handleLaunchAgentInSlot : NOOP
-												}
-												findProcessByTerminalSessionId={
-													findProcessByTerminalSessionId
-												}
-											/>
-										</div>
-									);
-								})}
-							</div>
-						</div>
-						{activeWorktree && (
-							<TerminalLayoutDialog
-								open={layoutDialogOpen}
-								runningShells={runningShells}
-								currentLayoutId={activeSession?.terminalLayoutId ?? "1"}
-								onSelect={handleSelectLayout}
-								onClose={() => setLayoutDialogOpen(false)}
-							/>
-						)}
-
-						<PluginsPanelDialog
-							open={pluginsDialogOpen}
-							onOpenChange={setPluginsDialogOpen}
-							onInstall={(command) => {
-								(
-									window as unknown as {
-										__lastPluginCommand?: string;
-									}
-								).__lastPluginCommand = command;
-								void runCommandInFloatingShell(command, {
-									label: "plugin install",
-									autoCloseOnZero: true,
-									onExit: () => void pluginsClient.reprobe(),
-								});
-							}}
-							onConfigure={(command) => {
-								(
-									window as unknown as {
-										__lastPluginCommand?: string;
-									}
-								).__lastPluginCommand = command;
-								void runCommandInFloatingShell(command, {
-									label: "plugin configure",
-									autoCloseOnZero: true,
-									onExit: () => void pluginsClient.reprobe(),
-								});
-							}}
-						/>
-
-						{workflowDetailTarget && (
-							<WorkflowDetail
-								open
-								onOpenChange={(next) => {
-									if (!next) setWorkflowDetailTarget(null);
+							<PluginsPanelDialog
+								open={pluginsDialogOpen}
+								onOpenChange={setPluginsDialogOpen}
+								onInstall={(command) => {
+									(
+										window as unknown as {
+											__lastPluginCommand?: string;
+										}
+									).__lastPluginCommand = command;
+									void runCommandInFloatingShell(command, {
+										label: "plugin install",
+										autoCloseOnZero: true,
+										onExit: () => void pluginsClient.reprobe(),
+									});
 								}}
-								state={
-									whisperStates.get(workflowDetailTarget.worktreeId) ?? null
-								}
-								workspaceId={workflowDetailTarget.workspaceId}
-								worktreeId={workflowDetailTarget.worktreeId}
-								onCommandError={(message) => notifyToast(message)}
-								onCommandReply={(message) => notifyToast(message)}
+								onConfigure={(command) => {
+									(
+										window as unknown as {
+											__lastPluginCommand?: string;
+										}
+									).__lastPluginCommand = command;
+									void runCommandInFloatingShell(command, {
+										label: "plugin configure",
+										autoCloseOnZero: true,
+										onExit: () => void pluginsClient.reprobe(),
+									});
+								}}
 							/>
-						)}
 
-						{activeWorktree && (
-							<ReviewChipBar
-								isDirty={activeSummary?.isDirty ?? false}
-								changedFileCount={changes.length}
-								reviewMode={activeSession?.reviewMode ?? "files"}
-								openCommentCount={openCommentCount}
-								addressedCommentCount={addressedCommentCount}
-								canOpenFiles={canOpenFiles}
-								onRefresh={handleRefreshChanges}
-								onOpen={() => setReviewOpen(true)}
-								onOpenFiles={handleOpenFilesChip}
-								onOpenComments={handleOpenCommentsChip}
-							/>
-						)}
-						{reviewOpen && activeWorktree && (
-							<ReviewExpandedPortal
-								ref={expandedPortalRef}
-								mainColRef={mainColRef}
-								chipBarRef={chipBarRef}
-								onCollapse={() => setReviewOpen(false)}
-								onRefresh={handleRefreshChanges}
-								reviewMode={activeSession?.reviewMode ?? "files"}
-								isDirty={activeSummary?.isDirty ?? false}
-								changedFileCount={changes.length}
-								commentSidebarOpen={commentSidebarOpen}
-								onToggleCommentSidebar={() => setCommentSidebarOpen((o) => !o)}
-								openCommentCount={currentFileOpenCommentCount}
-							>
-								<CodeNavHygiene
-									workspaceId={activeWorkspaceId ?? ""}
-									worktreeId={activeWorktree.id}
-									worktreeRoot={activeWorktree.path}
-								/>
-								<ReviewArea
-									activeWorktree={activeWorktree}
-									activeSession={activeSession ?? null}
-									activeWorkspaceId={activeWorkspaceId}
-									workspaceState={workspaceState}
-									changes={changes}
-									openCommentCounts={openCommentCounts}
-									commitHistoryState={commitHistoryState}
-									commitDetailState={commitDetailState}
-									diffState={diffState}
-									remoteStatus={remoteStatus}
-									selectedCommitOpenCommentCount={
-										selectedCommitOpenCommentCount
+							{workflowDetailTarget && (
+								<WorkflowDetail
+									open
+									onOpenChange={(next) => {
+										if (!next) setWorkflowDetailTarget(null);
+									}}
+									state={
+										whisperStates.get(workflowDetailTarget.worktreeId) ?? null
 									}
-									gitSummaryError={gitSummaryError}
-									gitSummaryMessage={gitSummaryMessage}
-									gitSummaryStale={gitSummaryStale}
-									reviewState={reviewState}
-									reviewRailWidth={reviewRailWidth}
-									handleReviewRailResizeStart={handleReviewRailResizeStart}
-									commentSidebarOpen={commentSidebarOpen}
-									resolvedTheme={resolvedTheme}
-									installCtaVisible={installCtaVisible}
-									onOpenInstall={() => setInstallModalOpen(true)}
-									dispatch={dispatch}
-									handlePushBranch={handlePushBranch}
-									handleSelectChangedFile={handleSelectChangedFile}
-									setDiscardPath={setDiscardPath}
-									bumpRefreshKey={() => setRefreshKey((k) => k + 1)}
-									addingDraft={addingDraft}
-									setAddingDraft={setAddingDraft}
-									updateAddingDraftBody={updateAddingDraftBody}
-									pendingCommentJump={pendingCommentJump}
-									onConsumePendingCommentJump={() => setPendingCommentJump(0)}
-									onCloseReview={() => setReviewOpen(false)}
+									workspaceId={workflowDetailTarget.workspaceId}
+									worktreeId={workflowDetailTarget.worktreeId}
+									onCommandError={(message) => notifyToast(message)}
+									onCommandReply={(message) => notifyToast(message)}
 								/>
-							</ReviewExpandedPortal>
-						)}
-					</section>
-				</div>
+							)}
 
-				<PresetManager
-					open={presetManagerOpen}
-					presets={workspaceState.commandPresets}
-					onOpenChange={setPresetManagerOpen}
-					onSave={(preset) => dispatch({ type: "preset/upsert", preset })}
-					onDelete={(presetId) => dispatch({ type: "preset/remove", presetId })}
-					onLaunch={(presetId) => {
-						setPresetManagerOpen(false);
-						handleLaunchPreset(presetId);
-					}}
+							{activeWorktree && (
+								<ReviewChipBar
+									isDirty={activeSummary?.isDirty ?? false}
+									changedFileCount={changes.length}
+									reviewMode={activeSession?.reviewMode ?? "files"}
+									openCommentCount={openCommentCount}
+									addressedCommentCount={addressedCommentCount}
+									canOpenFiles={canOpenFiles}
+									onRefresh={handleRefreshChanges}
+									onOpen={() => setReviewOpen(true)}
+									onOpenFiles={handleOpenFilesChip}
+									onOpenComments={handleOpenCommentsChip}
+								/>
+							)}
+							{reviewOpen && activeWorktree && (
+								<ReviewExpandedPortal
+									ref={expandedPortalRef}
+									mainColRef={mainColRef}
+									chipBarRef={chipBarRef}
+									onCollapse={() => setReviewOpen(false)}
+									onRefresh={handleRefreshChanges}
+									reviewMode={activeSession?.reviewMode ?? "files"}
+									isDirty={activeSummary?.isDirty ?? false}
+									changedFileCount={changes.length}
+									commentSidebarOpen={commentSidebarOpen}
+									onToggleCommentSidebar={() =>
+										setCommentSidebarOpen((o) => !o)
+									}
+									openCommentCount={currentFileOpenCommentCount}
+								>
+									<CodeNavHygiene
+										workspaceId={activeWorkspaceId ?? ""}
+										worktreeId={activeWorktree.id}
+										worktreeRoot={activeWorktree.path}
+									/>
+									<ReviewArea
+										activeWorktree={activeWorktree}
+										activeSession={activeSession ?? null}
+										activeWorkspaceId={activeWorkspaceId}
+										workspaceState={workspaceState}
+										changes={changes}
+										openCommentCounts={openCommentCounts}
+										commitHistoryState={commitHistoryState}
+										commitDetailState={commitDetailState}
+										diffState={diffState}
+										remoteStatus={remoteStatus}
+										selectedCommitOpenCommentCount={
+											selectedCommitOpenCommentCount
+										}
+										gitSummaryError={gitSummaryError}
+										gitSummaryMessage={gitSummaryMessage}
+										gitSummaryStale={gitSummaryStale}
+										reviewState={reviewState}
+										reviewRailWidth={reviewRailWidth}
+										handleReviewRailResizeStart={handleReviewRailResizeStart}
+										commentSidebarOpen={commentSidebarOpen}
+										resolvedTheme={resolvedTheme}
+										installCtaVisible={installCtaVisible}
+										onOpenInstall={() => setInstallModalOpen(true)}
+										dispatch={dispatch}
+										handlePushBranch={handlePushBranch}
+										handleSelectChangedFile={handleSelectChangedFile}
+										setDiscardPath={setDiscardPath}
+										bumpRefreshKey={() => setRefreshKey((k) => k + 1)}
+										addingDraft={addingDraft}
+										setAddingDraft={setAddingDraft}
+										updateAddingDraftBody={updateAddingDraftBody}
+										pendingCommentJump={pendingCommentJump}
+										onConsumePendingCommentJump={() => setPendingCommentJump(0)}
+										onCloseReview={() => setReviewOpen(false)}
+									/>
+								</ReviewExpandedPortal>
+							)}
+						</section>
+					</div>
+
+					<PresetManager
+						open={presetManagerOpen}
+						presets={workspaceState.commandPresets}
+						onOpenChange={setPresetManagerOpen}
+						onSave={(preset) => dispatch({ type: "preset/upsert", preset })}
+						onDelete={(presetId) =>
+							dispatch({ type: "preset/remove", presetId })
+						}
+						onLaunch={(presetId) => {
+							setPresetManagerOpen(false);
+							handleLaunchPreset(presetId);
+						}}
+					/>
+					<DialogStack
+						workspacePickerOpen={workspacePickerOpen}
+						setWorkspacePickerOpen={setWorkspacePickerOpen}
+						handleLoadPath={handleLoadPath}
+						createDialogOpen={createDialogOpen}
+						setCreateDialogOpen={setCreateDialogOpen}
+						createName={createName}
+						setCreateName={setCreateName}
+						createSessionTitle={createSessionTitle}
+						setCreateSessionTitle={setCreateSessionTitle}
+						createPreview={createPreview}
+						createLoading={createLoading}
+						createError={createError}
+						setCreateError={setCreateError}
+						createBusy={createBusy}
+						handleConfirmCreateWorktree={handleConfirmCreateWorktree}
+						baseBranches={baseBranches}
+						selectedBaseBranch={selectedBaseBranch}
+						setSelectedBaseBranch={setSelectedBaseBranch}
+						baseBranchLoading={baseBranchLoading}
+						baseBranchWarning={baseBranchWarning}
+						removeDialogOpen={removeDialogOpen}
+						setRemoveDialogOpen={setRemoveDialogOpen}
+						removePreview={removePreview}
+						removeError={removeError}
+						removeBusy={removeBusy}
+						removeTargetId={removeTargetId}
+						setRemoveTargetId={setRemoveTargetId}
+						confirmedDirtyRemoval={confirmedDirtyRemoval}
+						setConfirmedDirtyRemoval={setConfirmedDirtyRemoval}
+						workspaceState={workspaceState}
+						handleConfirmRemoveWorktree={handleConfirmRemoveWorktree}
+						discardPath={discardPath}
+						setDiscardPath={setDiscardPath}
+						handleDiscardChange={handleDiscardChange}
+						installModalOpen={installModalOpen}
+						setInstallModalOpen={setInstallModalOpen}
+						agentInstallStatus={agentInstallStatus}
+					/>
+				</main>
+				<CommandPalette
+					open={commandPaletteOpen}
+					onOpenChange={setCommandPaletteOpen}
+					platform={appPlatform}
 				/>
-				<DialogStack
-					workspacePickerOpen={workspacePickerOpen}
-					setWorkspacePickerOpen={setWorkspacePickerOpen}
-					handleLoadPath={handleLoadPath}
-					createDialogOpen={createDialogOpen}
-					setCreateDialogOpen={setCreateDialogOpen}
-					createName={createName}
-					setCreateName={setCreateName}
-					createSessionTitle={createSessionTitle}
-					setCreateSessionTitle={setCreateSessionTitle}
-					createPreview={createPreview}
-					createLoading={createLoading}
-					createError={createError}
-					setCreateError={setCreateError}
-					createBusy={createBusy}
-					handleConfirmCreateWorktree={handleConfirmCreateWorktree}
-					baseBranches={baseBranches}
-					selectedBaseBranch={selectedBaseBranch}
-					setSelectedBaseBranch={setSelectedBaseBranch}
-					baseBranchLoading={baseBranchLoading}
-					baseBranchWarning={baseBranchWarning}
-					removeDialogOpen={removeDialogOpen}
-					setRemoveDialogOpen={setRemoveDialogOpen}
-					removePreview={removePreview}
-					removeError={removeError}
-					removeBusy={removeBusy}
-					removeTargetId={removeTargetId}
-					setRemoveTargetId={setRemoveTargetId}
-					confirmedDirtyRemoval={confirmedDirtyRemoval}
-					setConfirmedDirtyRemoval={setConfirmedDirtyRemoval}
-					workspaceState={workspaceState}
-					handleConfirmRemoveWorktree={handleConfirmRemoveWorktree}
-					discardPath={discardPath}
-					setDiscardPath={setDiscardPath}
-					handleDiscardChange={handleDiscardChange}
-					installModalOpen={installModalOpen}
-					setInstallModalOpen={setInstallModalOpen}
-					agentInstallStatus={agentInstallStatus}
-				/>
-			</main>
-			<CommandPalette
-				open={commandPaletteOpen}
-				onOpenChange={setCommandPaletteOpen}
-				platform={appPlatform}
-			/>
+			</TooltipProvider>
 		</ToastProvider>
 	);
 }
