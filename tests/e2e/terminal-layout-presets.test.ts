@@ -175,3 +175,94 @@ test.describe.serial("Terminal layout presets", () => {
 		await expect(add).toBeDisabled();
 	});
 });
+
+test.describe.serial("Command presets redesign", () => {
+	async function openPresetManager(): Promise<void> {
+		await page.getByRole("button", { name: "Presets" }).click();
+		await page.getByRole("menuitem", { name: "Manage presets" }).click();
+		await expect(page.getByText("Command presets")).toBeVisible();
+	}
+
+	test("preset rows render the redesigned shape with accessible icon actions", async () => {
+		test.setTimeout(60_000);
+		await openPresetManager();
+		// Scope to the kept yolo default's row and assert the icon-only actions by
+		// ACCESSIBLE NAME (aria-label / tooltip label), not visible text or testid —
+		// so a regression that drops or mislabels an icon button fails this test.
+		const row = page.locator(".preset-row", {
+			hasText: "start claude (yolo)",
+		});
+		await expect(row).toBeVisible();
+		await expect(
+			row.getByRole("button", { name: "Edit preset" }),
+		).toBeVisible();
+		await expect(
+			row.getByRole("button", { name: "Delete preset" }),
+		).toBeVisible();
+		// The kept yolo defaults target a pinned terminal, so the Launch action's
+		// accessible name reflects that.
+		await expect(
+			row.getByRole("button", { name: "Launch in pinned terminal" }),
+		).toBeVisible();
+		// The command renders in a codeblock.
+		await expect(row.locator("code")).toHaveText(
+			"claude --dangerously-skip-permissions",
+		);
+		// Retired plain default is gone from a fresh workspace.
+		await expect(
+			page.getByTestId("preset-launch-preset-start-claude"),
+		).toHaveCount(0);
+		// Close the dialog via the X button and wait for full dismissal before the
+		// next test. (Escape is unreliable when no in-dialog click has taken focus.)
+		await page.getByRole("button", { name: "Close" }).click();
+		await expect(page.getByText("Command presets")).toBeHidden();
+	});
+
+	test("throwaway preset opens a floating shell; pinned preset fills a grid slot", async () => {
+		test.setTimeout(120_000);
+		// Free one grid slot (the layout suite above leaves all six occupied).
+		await page.getByTestId("slot-close-5").click();
+		await expect(page.getByTestId("slot-cta-5")).toBeVisible();
+
+		// Create one preset of each target via the manager form's toggle.
+		await openPresetManager();
+		await page.getByLabel("Preset label").fill("tw echo");
+		await page.getByLabel("Preset command").fill("echo tw");
+		await page.getByTestId("preset-target-throwaway").click();
+		await expect(page.getByTestId("preset-target-throwaway")).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
+		await page.getByRole("button", { name: "Save preset" }).click();
+		// The form resets to the default ("pinned") target after a save.
+		await expect(page.getByTestId("preset-target-pinned")).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
+		await page.getByLabel("Preset label").fill("pin echo");
+		await page.getByLabel("Preset command").fill("echo pin");
+		await page.getByRole("button", { name: "Save preset" }).click();
+		await page.keyboard.press("Escape");
+		await expect(page.getByText("Command presets")).toBeHidden();
+
+		// Throwaway launch (via the Presets dropdown) -> floating-shell popover;
+		// the grid is untouched, so the freed slot 5 stays an empty CTA.
+		await page.getByRole("button", { name: "Presets" }).click();
+		await page.getByRole("menuitem", { name: "tw echo" }).click();
+		await expect(page.getByTestId("floating-shell-popover")).toBeVisible({
+			timeout: 10_000,
+		});
+		await expect(page.getByTestId("slot-cta-5")).toBeVisible();
+		await page.getByTestId("floating-shell-close").click();
+		await expect(page.getByTestId("floating-shell-popover")).toHaveCount(0, {
+			timeout: 10_000,
+		});
+
+		// Pinned launch -> fills the freed grid slot, with no floating shell.
+		await page.getByRole("button", { name: "Presets" }).click();
+		await page.getByRole("menuitem", { name: "pin echo" }).click();
+		await expect(page.getByTestId("slot-5")).toBeVisible({ timeout: 10_000 });
+		await expect(page.getByTestId("slot-cta-5")).toHaveCount(0);
+		await expect(page.getByTestId("floating-shell-popover")).toHaveCount(0);
+	});
+});

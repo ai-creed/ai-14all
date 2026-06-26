@@ -5182,3 +5182,99 @@ select {
 	flex: 1;
 	min-height: 0;
 }
+
+/* --- Command presets dialog (slice 2 redesign) --- */
+.preset-list {
+	list-style: none;
+	padding: 0;
+	margin: 0 0 var(--space-4);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+.preset-row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+}
+.preset-row__text {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+.preset-row__title {
+	font-weight: 500;
+	color: var(--text-primary);
+}
+.preset-row__command {
+	font-family: var(--font-mono, ui-monospace, monospace);
+	font-size: 11px;
+	color: var(--text-secondary);
+	background: var(--panel-bg-elevated);
+	border: var(--shell-border-width) solid var(--panel-border-strong);
+	border-radius: var(--radius-sm);
+	padding: 2px 6px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.preset-row__actions {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+.preset-row__action {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 24px;
+	height: 24px;
+	background: none;
+	border: none;
+	border-radius: var(--radius-sm);
+	color: var(--text-secondary);
+	cursor: pointer;
+	padding: 0;
+}
+.preset-row__action:hover {
+	background: color-mix(in srgb, var(--text-primary) 14%, transparent);
+	color: var(--text-primary);
+}
+.preset-row__action:focus-visible {
+	outline: var(--shell-border-width) solid var(--accent);
+	outline-offset: 1px;
+}
+.preset-form__field {
+	margin-bottom: var(--space-2);
+}
+.preset-form__label {
+	display: block;
+	margin-bottom: var(--space-1);
+}
+.preset-target-toggle {
+	display: inline-flex;
+	gap: 0;
+	border: var(--shell-border-width) solid var(--panel-border-strong);
+	border-radius: var(--radius-sm);
+	overflow: hidden;
+}
+.preset-target-toggle__option {
+	background: none;
+	border: none;
+	color: var(--text-secondary);
+	cursor: pointer;
+	padding: 4px 12px;
+	font-size: 12px;
+}
+.preset-target-toggle__option[aria-pressed="true"] {
+	background: var(--accent);
+	color: var(--accent-foreground, #000);
+}
+.preset-form__actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--space-2);
+	margin-top: var(--space-3);
+}
