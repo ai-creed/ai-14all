@@ -5253,7 +5253,7 @@ select {
 }
 .preset-row {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	gap: var(--space-3);
 }
 .preset-row__text {
@@ -5265,6 +5265,7 @@ select {
 }
 .preset-row__title {
 	font-weight: 500;
+	line-height: 24px;
 	color: var(--text-primary);
 }
 .preset-row__command {
@@ -5272,7 +5273,6 @@ select {
 	font-size: 11px;
 	color: var(--text-secondary);
 	background: var(--panel-bg-elevated);
-	border: var(--shell-border-width) solid var(--panel-border-strong);
 	border-radius: var(--radius-sm);
 	padding: 2px 6px;
 	overflow: hidden;
