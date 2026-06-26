@@ -37,9 +37,9 @@ describe("command-palette shortcut", () => {
 		).toBe(true);
 	});
 	it("does NOT fire without Shift (that combo is terminal-clear)", () => {
-		expect(
-			entry().predicate(ev({ key: "k", metaKey: true }), "mac"),
-		).toBe(false);
+		expect(entry().predicate(ev({ key: "k", metaKey: true }), "mac")).toBe(
+			false,
+		);
 	});
 	it("does NOT fire when typing into an input", () => {
 		const input = document.createElement("input");

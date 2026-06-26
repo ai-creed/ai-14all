@@ -17,7 +17,10 @@ function Harness({
 	return <CommandPalette open onOpenChange={onOpenChange} platform="mac" />;
 }
 
-const renderPalette = (commands: Command[], onOpenChange?: (o: boolean) => void) =>
+const renderPalette = (
+	commands: Command[],
+	onOpenChange?: (o: boolean) => void,
+) =>
 	render(
 		<CommandRegistryProvider>
 			<Harness commands={commands} onOpenChange={onOpenChange} />

@@ -12,6 +12,5 @@ export interface CommandRegistryValue {
 	version: number;
 }
 
-export const CommandRegistryContext = createContext<CommandRegistryValue | null>(
-	null,
-);
+export const CommandRegistryContext =
+	createContext<CommandRegistryValue | null>(null);

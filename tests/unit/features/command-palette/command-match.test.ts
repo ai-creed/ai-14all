@@ -5,7 +5,9 @@ import {
 } from "../../../../src/features/command-palette/logic/command-match";
 import type { Command } from "../../../../src/features/command-palette/logic/command";
 
-const cmd = (over: Partial<Command> & { id: string; title: string }): Command => ({
+const cmd = (
+	over: Partial<Command> & { id: string; title: string },
+): Command => ({
 	group: "Test",
 	run: () => {},
 	...over,
@@ -42,7 +44,9 @@ describe("matchCommands", () => {
 		expect(matchCommands("   ", fixtures)).toHaveLength(3);
 	});
 	it("filters by title subsequence", () => {
-		expect(matchCommands("term", fixtures).map((c) => c.id)).toEqual(["term.new"]);
+		expect(matchCommands("term", fixtures).map((c) => c.id)).toEqual([
+			"term.new",
+		]);
 	});
 	it("matches against keywords too", () => {
 		expect(matchCommands("panel", fixtures).map((c) => c.id)).toEqual([
