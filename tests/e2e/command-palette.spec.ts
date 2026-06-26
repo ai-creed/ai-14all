@@ -26,28 +26,19 @@ let stateDir: string;
 
 const IS_MAC = process.platform === "darwin";
 
-// Dispatch the command-palette shortcut via a synthetic DOM event fired directly
-// inside the renderer. page.keyboard.press("Meta+Shift+KeyK") does not reach the
-// document capture listener when the xterm-helper-textarea has focus, because
-// macOS / Electron / CDP handles Cmd+Shift+Letter events differently for that
-// element (observed: Meta+Slash without Shift works, Meta+Shift+Letter does not).
-// Dispatching directly on the document bypasses that layer and exercises the same
-// capture-phase listener that a real user keystroke would trigger.
+// Press the REAL ⌘⇧K / Ctrl+Shift+K chord through the input pipeline so it
+// travels the same path a user keystroke does — dispatched to whatever element
+// currently holds focus (incl. the xterm helper-textarea) and reaching the
+// document capture-phase listener, which is exactly the allowXterm behavior under
+// test. Explicit modifier down/up (rather than the "Meta+Shift+KeyK" combo
+// string) is the reliable way to deliver a modified key event via Electron/CDP.
 async function pressCommandPalette(page: Page): Promise<void> {
-	await page.evaluate((isMac: boolean) => {
-		document.dispatchEvent(
-			new KeyboardEvent("keydown", {
-				key: "K",
-				code: "KeyK",
-				metaKey: isMac,
-				ctrlKey: !isMac,
-				shiftKey: true,
-				bubbles: true,
-				cancelable: true,
-				composed: true,
-			}),
-		);
-	}, IS_MAC);
+	const mod = IS_MAC ? "Meta" : "Control";
+	await page.keyboard.down(mod);
+	await page.keyboard.down("Shift");
+	await page.keyboard.press("KeyK");
+	await page.keyboard.up("Shift");
+	await page.keyboard.up(mod);
 }
 
 test.beforeAll(async () => {
@@ -132,8 +123,9 @@ test.describe.serial("command palette", () => {
 			timeout: 10_000,
 		});
 
-		// Dispatch via evaluate so the event reaches the document capture listener
-		// regardless of which element holds OS-level focus (see pressCommandPalette).
+		// Press the REAL chord while the terminal textarea holds focus — this is the
+		// allowXterm path: the keystroke must reach the document capture listener and
+		// open the palette without xterm swallowing it or clearing the terminal.
 		await pressCommandPalette(page);
 		await expect(page.getByTestId("command-palette")).toBeVisible();
 		await page.keyboard.press("Escape");
