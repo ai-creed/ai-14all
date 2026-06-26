@@ -2029,20 +2029,30 @@ export function App() {
 						<PluginsPanelDialog
 							open={pluginsDialogOpen}
 							onOpenChange={setPluginsDialogOpen}
-							onInstall={(command) =>
+							onInstall={(command) => {
+								(
+									window as unknown as {
+										__lastPluginCommand?: string;
+									}
+								).__lastPluginCommand = command;
 								void runCommandInFloatingShell(command, {
 									label: "plugin install",
 									autoCloseOnZero: true,
 									onExit: () => void pluginsClient.reprobe(),
-								})
-							}
-							onConfigure={(command) =>
+								});
+							}}
+							onConfigure={(command) => {
+								(
+									window as unknown as {
+										__lastPluginCommand?: string;
+									}
+								).__lastPluginCommand = command;
 								void runCommandInFloatingShell(command, {
 									label: "plugin configure",
 									autoCloseOnZero: true,
 									onExit: () => void pluginsClient.reprobe(),
-								})
-							}
+								});
+							}}
 						/>
 
 						{workflowDetailTarget && (

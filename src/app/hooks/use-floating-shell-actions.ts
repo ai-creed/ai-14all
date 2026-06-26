@@ -220,6 +220,10 @@ export function useFloatingShellActions(
 				await teardownOrphan(process.terminalSessionId);
 				return;
 			}
+			// spawnAdHocProcess always produces a terminalSessionId; guard for TS
+			// before registering so an absent id aborts cleanly with nothing registered.
+			const terminalSessionId = process.terminalSessionId;
+			if (!terminalSessionId) return;
 			const dispatch = createScopedWorkspaceDispatch(workspaceId);
 			dispatch({
 				type: "session/registerFloatingShell",
@@ -241,9 +245,6 @@ export function useFloatingShellActions(
 				worktreeId,
 				processId: process.id,
 			});
-			// spawnAdHocProcess always produces a terminalSessionId; guard for TS.
-			const terminalSessionId = process.terminalSessionId;
-			if (!terminalSessionId) return;
 			// Subscribe to exit BEFORE sending the command, so a command that exits
 			// immediately cannot beat the listener (the old grid path subscribed then
 			// sent, too). On exit: run the caller's hook (e.g. re-probe), then
