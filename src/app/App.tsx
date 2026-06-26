@@ -99,6 +99,7 @@ import { TerminalPanel } from "./components/TerminalPanel";
 import { TerminalActions } from "../features/terminals/components/TerminalActions";
 import { FloatingShellPills } from "../features/terminals/components/FloatingShellPills";
 import { FloatingShellPopover } from "../features/terminals/components/FloatingShellPopover";
+import type { Size } from "../features/terminals/logic/floating-shell-resize";
 import { useFloatingShellActions } from "./hooks/use-floating-shell-actions";
 import { AgentLauncherBar } from "../features/terminals/components/AgentLauncherBar";
 import {
@@ -228,6 +229,10 @@ export function App() {
 	const floatingPositionsRef = useRef<
 		Map<string, { left: number; top: number }>
 	>(new Map());
+	// One shared throwaway-popover size for the session (memory-only, like
+	// floatingPositionsRef). Resizing any popover updates it; the next popover
+	// opens at it.
+	const floatingSharedSizeRef = useRef<Size | null>(null);
 	const [refreshKey, setRefreshKey] = useState(0);
 	const [windowFocused, setWindowFocused] = useState(
 		typeof document !== "undefined" ? document.hasFocus() : true,
@@ -2291,6 +2296,10 @@ export function App() {
 													const id = expandedFloatingProcess.id;
 													if (p) floatingPositionsRef.current.set(id, p);
 													else floatingPositionsRef.current.delete(id);
+												}}
+												initialSize={floatingSharedSizeRef.current}
+												onSizeChange={(s) => {
+													floatingSharedSizeRef.current = s;
 												}}
 												pinDisabled={addDisabled}
 												onMinimize={handleMinimizeFloatingShell}
