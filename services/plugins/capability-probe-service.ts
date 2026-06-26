@@ -93,16 +93,17 @@ export function createCapabilityProbeService(
 		});
 	}
 
-	async function probeAgentCli(name: string): Promise<AgentCliProbe> {
-		const binary = await resolve(name, { timeoutMs });
-		if (binary === null) return { kind: "not-found" };
+	async function probeAgentCli(
+		binary: string,
+		id: string,
+	): Promise<AgentCliProbe> {
+		const found = await resolve(binary, { timeoutMs });
+		if (found === null) return { kind: "not-found" };
 		return {
 			kind: "found",
-			path: binary.command,
+			path: found.command,
 			version:
-				name === "ezio"
-					? await readEzioVersion(binary)
-					: await readVersion(binary),
+				id === "ezio" ? await readEzioVersion(found) : await readVersion(found),
 		};
 	}
 
@@ -125,14 +126,15 @@ export function createCapabilityProbeService(
 						AGENT_PROVIDERS.map((def) => [
 							def.id,
 							found.has(def.id)
-								? { kind: "found", path: `/fake/${def.id}`, version: null }
+								? { kind: "found", path: `/fake/${def.binary}`, version: null }
 								: { kind: "not-found" },
 						]),
 					) as AgentCliProbes;
 				}
 				const entries = await Promise.all(
 					AGENT_PROVIDERS.map(
-						async (def) => [def.id, await probeAgentCli(def.id)] as const,
+						async (def) =>
+							[def.id, await probeAgentCli(def.binary, def.id)] as const,
 					),
 				);
 				return Object.fromEntries(entries) as AgentCliProbes;

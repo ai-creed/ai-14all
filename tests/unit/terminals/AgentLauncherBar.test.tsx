@@ -12,6 +12,8 @@ const probes = (over: Partial<AgentCliProbes> = {}): AgentCliProbes => ({
 	claude: { kind: "found", path: "/bin/claude", version: "1" },
 	codex: { kind: "found", path: "/bin/codex", version: "1" },
 	ezio: { kind: "not-found" },
+	cursor: { kind: "not-found" },
+	antigravity: { kind: "not-found" },
 	...over,
 });
 

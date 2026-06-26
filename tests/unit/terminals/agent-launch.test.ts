@@ -17,6 +17,8 @@ const probes = (over: Partial<AgentCliProbes> = {}): AgentCliProbes => ({
 	claude: { kind: "found", path: "/bin/claude", version: "1" },
 	codex: { kind: "found", path: "/bin/codex", version: "1" },
 	ezio: { kind: "not-found" },
+	cursor: { kind: "not-found" },
+	antigravity: { kind: "not-found" },
 	...over,
 });
 
@@ -261,5 +263,39 @@ describe("mount-pending state machine", () => {
 		expect(advanceMountPending({ kind: "idle" }, state(), 1)).toEqual({
 			kind: "idle",
 		});
+	});
+});
+
+describe("non-whisper provider capability gate", () => {
+	it("never mounts a non-whisper agent and launches it by its binary", () => {
+		const cmd = launchCommandFor("cursor", {
+			whisperHealthy: true,
+			boundCount: 0,
+			daemonAlive: true,
+			mountPending: false,
+		});
+		expect(cmd).toBe("agent"); // cursor's CLI binary
+	});
+
+	it("launches antigravity by its binary, never mounting", () => {
+		expect(
+			launchCommandFor("antigravity", {
+				whisperHealthy: true,
+				boundCount: 0,
+				daemonAlive: true,
+				mountPending: false,
+			}),
+		).toBe("agy");
+	});
+
+	it("still mounts a whisper-capable agent when a slot is free", () => {
+		expect(
+			launchCommandFor("claude", {
+				whisperHealthy: true,
+				boundCount: 0,
+				daemonAlive: true,
+				mountPending: false,
+			}),
+		).toBe("whisper collab mount claude");
 	});
 });

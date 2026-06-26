@@ -7,8 +7,14 @@ import {
 } from "../../../shared/models/agent-provider";
 
 describe("agent-provider registry", () => {
-	it("lists the three whisper-capable agents in order", () => {
-		expect(AGENT_PROVIDER_IDS).toEqual(["claude", "codex", "ezio"]);
+	it("lists all five agents in stable order", () => {
+		expect(AGENT_PROVIDER_IDS).toEqual([
+			"claude",
+			"codex",
+			"ezio",
+			"cursor",
+			"antigravity",
+		]);
 	});
 
 	it("derives labels from the registry", () => {
@@ -16,6 +22,8 @@ describe("agent-provider registry", () => {
 			claude: "Claude",
 			codex: "Codex",
 			ezio: "Ezio",
+			cursor: "Cursor",
+			antigravity: "Antigravity",
 		});
 	});
 

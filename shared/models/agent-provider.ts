@@ -3,7 +3,12 @@
 // new agent is added in exactly one place. `binary` is the CLI used to probe and
 // to launch (it may differ from `id`); `whisperCapable` gates whether the agent
 // can be mounted into a whisper collab.
-export type AgentProviderId = "claude" | "codex" | "ezio";
+export type AgentProviderId =
+	| "claude"
+	| "codex"
+	| "ezio"
+	| "cursor"
+	| "antigravity";
 
 export type AgentProviderDef = {
 	id: AgentProviderId;
@@ -36,6 +41,20 @@ export const AGENT_PROVIDERS: readonly AgentProviderDef[] = [
 		binary: "ezio",
 		whisperCapable: true,
 		brand: "var(--provider-ezio)",
+	},
+	{
+		id: "cursor",
+		label: "Cursor",
+		binary: "agent",
+		whisperCapable: false,
+		brand: "var(--provider-cursor)",
+	},
+	{
+		id: "antigravity",
+		label: "Antigravity",
+		binary: "agy",
+		whisperCapable: false,
+		brand: "var(--provider-antigravity)",
 	},
 ] as const;
 

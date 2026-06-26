@@ -5,6 +5,7 @@ import type {
 import {
 	AGENT_PROVIDER_IDS,
 	PROVIDER_LABEL,
+	providerDef,
 	type AgentProviderId,
 } from "../../../../shared/models/agent-provider";
 
@@ -64,10 +65,14 @@ export function launchCommandFor(
 		daemonAlive: boolean;
 	},
 ): string {
+	const def = providerDef(provider);
 	const liveBoundCount = ctx.daemonAlive ? ctx.boundCount : 0;
 	const canMount =
-		ctx.whisperHealthy && liveBoundCount < 2 && !ctx.mountPending;
-	return canMount ? `whisper collab mount ${provider}` : provider;
+		def.whisperCapable &&
+		ctx.whisperHealthy &&
+		liveBoundCount < 2 &&
+		!ctx.mountPending;
+	return canMount ? `whisper collab mount ${provider}` : def.binary;
 }
 
 export type CollabStatus = {

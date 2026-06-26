@@ -13,17 +13,23 @@ const found = (path: string) => ({
 });
 const notFound = { kind: "not-found" as const };
 
+/** Build a full AgentCliProbes with sane defaults; override per-test. */
+const probes = (over: Partial<AgentCliProbes> = {}): AgentCliProbes => ({
+	claude: notFound,
+	codex: notFound,
+	ezio: notFound,
+	cursor: notFound,
+	antigravity: notFound,
+	...over,
+});
+
 const SETUP =
 	"ai-cortex history install-hooks; ai-cortex memory install-prompt-guide";
 
 describe("composeCortexConfigureCommand (posix)", () => {
 	it("includes guarded mcp add for claude + codex, then the ai-cortex setup", () => {
-		const probes: AgentCliProbes = {
-			claude: found("/c"),
-			codex: found("/x"),
-			ezio: notFound,
-		};
-		expect(composeCortexConfigureCommand(probes, "posix")).toBe(
+		const p = probes({ claude: found("/c"), codex: found("/x") });
+		expect(composeCortexConfigureCommand(p, "posix")).toBe(
 			"claude mcp get ai-cortex >/dev/null 2>&1 || claude mcp add -s user ai-cortex -- ai-cortex mcp; " +
 				"codex mcp get ai-cortex >/dev/null 2>&1 || codex mcp add ai-cortex -- ai-cortex mcp; " +
 				SETUP,
@@ -31,23 +37,15 @@ describe("composeCortexConfigureCommand (posix)", () => {
 	});
 
 	it("omits an agent's mcp add when that CLI is absent", () => {
-		const probes: AgentCliProbes = {
-			claude: found("/c"),
-			codex: notFound,
-			ezio: notFound,
-		};
-		const cmd = composeCortexConfigureCommand(probes, "posix");
+		const p = probes({ claude: found("/c") });
+		const cmd = composeCortexConfigureCommand(p, "posix");
 		expect(cmd).toContain("claude mcp add");
 		expect(cmd).not.toContain("codex mcp add");
 	});
 
 	it("never registers ezio; setup commands always run even with no agents", () => {
-		const probes: AgentCliProbes = {
-			claude: notFound,
-			codex: notFound,
-			ezio: found("/e"),
-		};
-		expect(composeCortexConfigureCommand(probes, "posix")).toBe(SETUP);
+		const p = probes({ ezio: found("/e") });
+		expect(composeCortexConfigureCommand(p, "posix")).toBe(SETUP);
 	});
 
 	it("handles null probes (not yet loaded) → just the setup commands", () => {
@@ -57,12 +55,8 @@ describe("composeCortexConfigureCommand (posix)", () => {
 
 describe("composeCortexConfigureCommand (powershell)", () => {
 	it("emits PowerShell-valid guards — no `||`, no `>/dev/null`", () => {
-		const probes: AgentCliProbes = {
-			claude: found("/c"),
-			codex: found("/x"),
-			ezio: notFound,
-		};
-		const cmd = composeCortexConfigureCommand(probes, "powershell");
+		const p = probes({ claude: found("/c"), codex: found("/x") });
+		const cmd = composeCortexConfigureCommand(p, "powershell");
 		// PowerShell 5.1 has no `||` (parse error) and no `/dev/null`.
 		expect(cmd).not.toContain("||");
 		expect(cmd).not.toContain("/dev/null");
@@ -74,12 +68,8 @@ describe("composeCortexConfigureCommand (powershell)", () => {
 	});
 
 	it("still skips absent agents and always runs the setup", () => {
-		const probes: AgentCliProbes = {
-			claude: found("/c"),
-			codex: notFound,
-			ezio: notFound,
-		};
-		const cmd = composeCortexConfigureCommand(probes, "powershell");
+		const p = probes({ claude: found("/c") });
+		const cmd = composeCortexConfigureCommand(p, "powershell");
 		expect(cmd).toContain("if ($LASTEXITCODE -ne 0) { claude mcp add");
 		expect(cmd).not.toContain("codex mcp add");
 		expect(cmd.endsWith(SETUP)).toBe(true);
@@ -102,16 +92,12 @@ describe("cortexConfigureHandler", () => {
 	});
 
 	it("returns a handler that composes the FULL command once probes resolve", () => {
-		const probes: AgentCliProbes = {
-			claude: found("/c"),
-			codex: found("/x"),
-			ezio: notFound,
-		};
+		const p = probes({ claude: found("/c"), codex: found("/x") });
 		const calls: string[] = [];
-		const handler = cortexConfigureHandler(probes, (cmd) => calls.push(cmd));
+		const handler = cortexConfigureHandler(p, (cmd) => calls.push(cmd));
 		expect(handler).toBeTypeOf("function");
 		handler?.();
-		expect(calls).toEqual([composeCortexConfigureCommand(probes)]);
+		expect(calls).toEqual([composeCortexConfigureCommand(p)]);
 		// The full command includes both MCP registrations (not a subset).
 		expect(calls[0]).toContain("claude mcp add");
 		expect(calls[0]).toContain("codex mcp add");
