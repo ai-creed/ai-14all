@@ -408,4 +408,48 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 			)
 			.toBe("whisper skill install --force");
 	});
+
+	test("Configure opens a floating-shell popover and does not add a grid session", async () => {
+		repo = createTestRepo();
+		stub = setUpWhisperStub({ enabled: false });
+		// A no-op shell so the spawned PTY stays alive (cat blocks on PTY stdin)
+		// while the injected configure command is discarded to /dev/null.
+		// This prevents autoCloseOnZero from firing (the process never exits).
+		const noopShell = join(stub.stateRoot, "noop-shell");
+		writeFileSync(noopShell, "#!/bin/sh\nexec cat >/dev/null\n", "utf8");
+		chmodSync(noopShell, 0o755);
+		await launch({ SHELL: noopShell });
+		await loadRepoAndSelectWorktree();
+
+		// Snapshot the terminal-GRID session count before clicking Configure.
+		// Use the grid-specific ancestor (.shell-terminal-panel__grid) so floating
+		// shell panes (which also bear .shell-terminal-pane) are not counted.
+		const gridBefore = await page
+			.locator(".shell-terminal-panel__grid .shell-terminal-pane")
+			.count();
+
+		await page.getByRole("button", { name: "Open Plugins panel" }).click();
+		const card = page.locator('[data-plugin-id="whisper"]');
+		await expect(card).toBeVisible({ timeout: 15_000 });
+
+		await card.getByRole("button", { name: "Configure" }).click();
+
+		// runCommandInFloatingShell always dispatches expandFloatingShell, so the
+		// popover must appear. Assert it via the data-testid on FloatingShellPopover.
+		await expect(page.getByTestId("floating-shell-popover")).toBeVisible({
+			timeout: 15_000,
+		});
+
+		// The pills container must also be rendered.
+		await expect(page.getByTestId("floating-shell-pills")).toBeVisible({
+			timeout: 5_000,
+		});
+
+		// No new terminal-GRID session must have been created — Configure routes to
+		// the floating shell, not the terminal grid.
+		const gridAfter = await page
+			.locator(".shell-terminal-panel__grid .shell-terminal-pane")
+			.count();
+		expect(gridAfter).toBe(gridBefore);
+	});
 });
