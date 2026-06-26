@@ -394,8 +394,8 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 		// PluginsPanelDialog passes a static onConfigure for whisper.
 		await card.getByRole("button", { name: "Configure" }).click();
 
-		// handlePluginInstall sets window.__lastPluginCommand synchronously, but the
-		// React onClick is async, so poll briefly.
+		// App.tsx's onConfigure/onInstall inline handlers set window.__lastPluginCommand
+		// synchronously, but the React onClick is async, so poll briefly.
 		await expect
 			.poll(
 				() =>

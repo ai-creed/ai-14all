@@ -99,6 +99,18 @@ describe("decideLaunch", () => {
 		).toEqual({ kind: "vendor", command: "ezio" });
 	});
 
+	it("vendors (not mount) when deferredOccupied is true even with a free slot (cap-belt guard)", () => {
+		// Sub-tick window: mountInFlight just cleared but the deferred mount hasn't
+		// fired yet. A click here must not overbook the 2-agent cap.
+		expect(
+			decideLaunch("claude", {
+				...base,
+				mountInFlight: false,
+				deferredOccupied: true,
+			}),
+		).toEqual({ kind: "vendor", command: "claude" });
+	});
+
 	it("always vendors a non-whisper agent", () => {
 		expect(decideLaunch("cursor", base)).toEqual({
 			kind: "vendor",

@@ -42,7 +42,7 @@ function matchLabel(label: string | undefined): AgentProvider | null {
 	return null;
 }
 
-// Returns "claude" | "codex" | "ezio" | null. Never emits "other" — that bucket is set by other code paths, not command/label sniffing.
+// Returns "claude" | "codex" | "ezio" | "cursor" | "antigravity" | null. Never emits "other" — that bucket is set by other code paths, not command/label sniffing.
 /**
  * Detect the agent provider for a process. Sticky behavior:
  *

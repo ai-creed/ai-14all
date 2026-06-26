@@ -73,8 +73,11 @@ export function decideLaunch(
 	const vendor: LaunchDecision = { kind: "vendor", command: def.binary };
 	if (!def.whisperCapable || !ctx.whisperHealthy) return vendor;
 	const liveBound = ctx.daemonAlive ? ctx.boundCount : 0;
-	// Branch 1: a slot is free now and no mount is settling → mount immediately.
-	if (!ctx.mountInFlight && liveBound < 2) {
+	// Branch 1: a slot is free now, no mount is settling, and no deferred mount is
+	// pending → mount immediately. The `!deferredOccupied` guard closes the
+	// sub-tick window where mountInFlight has cleared but the deferred mount
+	// hasn't fired yet, which would otherwise allow a third agent to overbook.
+	if (!ctx.mountInFlight && !ctx.deferredOccupied && liveBound < 2) {
 		return { kind: "mount", command: `whisper collab mount ${provider}` };
 	}
 	// Branch 2: a mount is settling, nothing is queued, and the in-flight mount

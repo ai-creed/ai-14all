@@ -41,4 +41,18 @@ describe("SamanthaSessionSliceSchema", () => {
 		bad.app.mode = "fullscreen";
 		expect(SamanthaSessionSliceSchema.safeParse(bad).success).toBe(false);
 	});
+
+	it("accepts a slice with provider 'cursor' (regression: cursor/antigravity sessions must not be silently dropped)", () => {
+		const withCursor = structuredClone(valid);
+		withCursor.worktrees[0].provider = "cursor";
+		expect(SamanthaSessionSliceSchema.safeParse(withCursor).success).toBe(true);
+	});
+
+	it("accepts a slice with provider 'antigravity'", () => {
+		const withAntigravity = structuredClone(valid);
+		withAntigravity.worktrees[0].provider = "antigravity";
+		expect(SamanthaSessionSliceSchema.safeParse(withAntigravity).success).toBe(
+			true,
+		);
+	});
 });

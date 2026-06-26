@@ -224,8 +224,8 @@ test.describe.serial("cortex plugin (stub binary)", () => {
 			"ai-cortex history install-hooks; " +
 			"ai-cortex memory install-prompt-guide";
 
-		// handlePluginInstall sets window.__lastPluginCommand synchronously, but the
-		// React onClick is async so poll briefly.
+		// App.tsx's onConfigure/onInstall inline handlers set window.__lastPluginCommand
+		// synchronously, but the React onClick is async so poll briefly.
 		await expect
 			.poll(
 				() =>
