@@ -61,7 +61,7 @@ const SHORTCUT_GROUPS: { label: string; ids: string[] }[] = [
 	},
 	{
 		label: "App",
-		ids: ["shortcuts-help"],
+		ids: ["command-palette", "shortcuts-help"],
 	},
 ];
 

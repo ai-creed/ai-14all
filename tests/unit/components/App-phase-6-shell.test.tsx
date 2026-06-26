@@ -196,6 +196,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 }));
 
 import { App } from "../../../src/app/App";
+import { CommandRegistryProvider } from "../../../src/features/command-palette/components/CommandRegistryProvider";
 
 describe("App — Phase 6 default shell", () => {
 	beforeEach(() => {
@@ -252,7 +253,7 @@ describe("App — Phase 6 default shell", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		await screen.findByLabelText("Repository path");
 		fireEvent.change(screen.getByLabelText("Repository path"), {
 			target: { value: "/repo" },
@@ -315,7 +316,7 @@ describe("App — Phase 6 default shell", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		await screen.findByLabelText("Repository path");
 		fireEvent.change(screen.getByLabelText("Repository path"), {
 			target: { value: "/repo" },
@@ -375,7 +376,7 @@ describe("App — Phase 6 default shell", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		await screen.findByLabelText("Repository path");
 		fireEvent.change(screen.getByLabelText("Repository path"), {
 			target: { value: "/repo" },
@@ -427,7 +428,7 @@ describe("App — Phase 6 default shell", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		await screen.findByLabelText("Repository path");
 		fireEvent.change(screen.getByLabelText("Repository path"), {
 			target: { value: "/repo" },
@@ -538,7 +539,7 @@ describe("App — Phase 6 default shell", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		// The restored shell occupies slot 0 even with no live terminal session yet
 		// (slot header renders; the xterm pane simply does not mount).
@@ -577,7 +578,7 @@ describe("App — Phase 6 default shell", () => {
 
 		try {
 			await act(async () => {
-				render(<App />);
+				render(<App />, { wrapper: CommandRegistryProvider });
 				await Promise.resolve();
 				await Promise.resolve();
 			});
@@ -641,7 +642,7 @@ describe("App — Phase 6 default shell", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		await screen.findByLabelText("Repository path");
 		fireEvent.change(screen.getByLabelText("Repository path"), {
 			target: { value: "/repo" },
@@ -694,7 +695,7 @@ describe("App — Phase 6 default shell", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		await screen.findByLabelText("Repository path");
 		fireEvent.change(screen.getByLabelText("Repository path"), {
 			target: { value: "/repo" },
@@ -743,7 +744,7 @@ describe("App — Phase 6 default shell", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		await screen.findByLabelText("Repository path");
 		fireEvent.change(screen.getByLabelText("Repository path"), {
 			target: { value: "/repo" },
@@ -807,7 +808,7 @@ describe("App — Phase 6 default shell", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		await screen.findByLabelText("Repository path");
 		fireEvent.change(screen.getByLabelText("Repository path"), {
 			target: { value: "/repo" },
@@ -856,7 +857,7 @@ describe("App — Phase 6 default shell", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		await screen.findByLabelText("Repository path");
 		fireEvent.change(screen.getByLabelText("Repository path"), {
 			target: { value: "/repo" },
@@ -903,7 +904,7 @@ describe("App — Phase 6 default shell", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		await screen.findByLabelText("Repository path");
 		fireEvent.change(screen.getByLabelText("Repository path"), {
 			target: { value: "/repo" },
@@ -950,7 +951,7 @@ describe("App — Phase 6 default shell", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		await screen.findByLabelText("Repository path");
 		fireEvent.change(screen.getByLabelText("Repository path"), {
 			target: { value: "/repo" },
@@ -1002,7 +1003,7 @@ describe("App — Phase 6 default shell", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		await screen.findByLabelText("Repository path");
 		fireEvent.change(screen.getByLabelText("Repository path"), {
 			target: { value: "/repo" },
@@ -1072,7 +1073,7 @@ describe("App — Phase 6 default shell", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		await screen.findByLabelText("Repository path");
 		fireEvent.change(screen.getByLabelText("Repository path"), {
 			target: { value: "/repo" },

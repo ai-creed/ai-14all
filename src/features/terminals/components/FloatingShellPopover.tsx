@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { ITheme } from "xterm";
 import { Icon } from "@/components/ui/icon";
@@ -72,6 +72,34 @@ export function FloatingShellPopover({
 		latestPosRef.current = next;
 		setPos(next);
 	};
+
+	// Esc, or a pointer-down outside the popover, minimizes it back to its pill.
+	// Both listen in the capture phase so Esc wins over xterm — which always holds
+	// focus while the shell is expanded (see targetOwnsTyping/.xterm gotcha) — and
+	// stopPropagation keeps it out of the terminal. The pills bar is excluded
+	// because it owns its own expand/collapse.
+	useEffect(() => {
+		const minimize = () => onMinimize(process.id);
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key !== "Escape" || e.defaultPrevented) return;
+			e.preventDefault();
+			e.stopPropagation();
+			minimize();
+		};
+		const onPointerDown = (e: PointerEvent) => {
+			const target = e.target as HTMLElement | null;
+			if (!target) return;
+			if (rootRef.current?.contains(target)) return;
+			if (target.closest?.(".floating-shell-pills")) return;
+			minimize();
+		};
+		document.addEventListener("keydown", onKeyDown, true);
+		document.addEventListener("pointerdown", onPointerDown, true);
+		return () => {
+			document.removeEventListener("keydown", onKeyDown, true);
+			document.removeEventListener("pointerdown", onPointerDown, true);
+		};
+	}, [process.id, onMinimize]);
 
 	const clamp = (left: number, top: number): FloatingShellPosition => {
 		const width = rootRef.current?.offsetWidth ?? 0;

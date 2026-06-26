@@ -11,7 +11,10 @@ import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
 import { type SessionSidebarWorkspace } from "../features/workspace/components/SessionSidebar";
 import { sortSidebarWorkspaces } from "../features/workspace/logic/sort-sidebar-workspaces";
-import { workspaceReducer } from "../features/workspace/logic/workspace-state";
+import {
+	workspaceReducer,
+	MAX_FLOATING_SHELLS,
+} from "../features/workspace/logic/workspace-state";
 import { PresetManager } from "../features/terminals/components/PresetManager";
 import {
 	ReviewExpandedPortal,
@@ -128,6 +131,9 @@ import { MainColumnChrome } from "./components/MainColumnChrome";
 import { RestoreBanner } from "./components/RestoreBanner";
 import { AgentAttentionBanner } from "./components/AgentAttentionBanner";
 import { normalizeTerminalTitle } from "./normalize-terminal-title";
+import { CommandPalette } from "../features/command-palette/components/CommandPalette";
+import { useRegisterCommands } from "../features/command-palette/hooks/use-command-registry";
+import type { Command } from "../features/command-palette/logic/command";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -179,6 +185,7 @@ export function App() {
 	const [noteSheetOpen, setNoteSheetOpen] = useState(false);
 	const [filesOverlayOpen, setFilesOverlayOpen] = useState(false);
 	const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 	const updateInfo = useUpdateInfoListener();
 	const updateDownloaded = useUpdateDownloadedListener();
 	const [updateDismissedFor, setUpdateDismissedFor] = useState<string | null>(
@@ -1269,15 +1276,216 @@ export function App() {
 		refreshKey,
 	});
 
+	// ── Command actions: shared by keyboard shortcuts and the command palette ──
+	const toggleNoteSheet = useCallback(() => setNoteSheetOpen((p) => !p), []);
+	const openFilesOverlay = useCallback(() => {
+		if (activeWorktree) setFilesOverlayOpen(true);
+	}, [activeWorktree?.id]);
+	const toggleReview = useCallback(() => {
+		if (!activeWorktree) return;
+		if (reviewOpen) collapseReview();
+		else setReviewOpen(true);
+	}, [activeWorktree?.id, reviewOpen]);
+	const startRenameSession = useCallback(() => {
+		if (!activeWorkspaceId || !activeWorktree) return;
+		setSidebarCollapsed(false);
+		setPendingRename({
+			workspaceId: activeWorkspaceId,
+			worktreeId: activeWorktree.id,
+		});
+	}, [activeWorkspaceId, activeWorktree?.id]);
+	const toggleShortcutsHelp = useCallback(
+		() => setShortcutsHelpOpen((p) => !p),
+		[],
+	);
+	const openAddWorktree = useCallback(() => {
+		if (activeWorkspaceId) setCreateDialogOpen(true);
+	}, [activeWorkspaceId]);
+	const openWorkspacePicker = useCallback(() => {
+		if (startupMode === "ready") setWorkspacePickerOpen(true);
+	}, [startupMode]);
+	const newTerminal = useCallback(() => {
+		if (!addDisabled) void handleAddAdHoc();
+	}, [activeWorktree?.id, activeWorkspaceId, addDisabled]);
+	const newFloatingShell = useCallback(() => {
+		void handleAddFloatingShell();
+	}, [activeWorktree?.id, activeWorkspaceId]);
+	const openTerminalLayout = useCallback(() => {
+		if (activeWorktree) setLayoutDialogOpen(true);
+	}, [activeWorktree?.id]);
+	const closeActiveTerminal = useCallback(() => {
+		const currentState = workspaceStateRef.current;
+		const currentWorktreeId = currentState.selectedWorktreeId;
+		if (!currentWorktreeId) return;
+		const activeProcessId =
+			currentState.sessionsByWorktreeId[currentWorktreeId]
+				?.activeProcessSessionId;
+		if (!activeProcessId) return;
+		void handleCloseProcess(activeProcessId);
+	}, [activeWorktree?.id, activeWorkspaceId]);
+	const toggleSidebar = useCallback(
+		() => setSidebarCollapsed((c) => !c),
+		[],
+	);
+	const applyReviewMode = useCallback(
+		(reviewMode: "files" | "changes" | "commits") => {
+			const currentState = workspaceStateRef.current;
+			const currentWorktreeId = currentState.selectedWorktreeId;
+			if (!currentWorktreeId) return;
+			dispatch({
+				type: "session/setReviewMode",
+				worktreeId: currentWorktreeId,
+				reviewMode,
+			});
+			setReviewOpen(true);
+		},
+		[dispatch],
+	);
+	const openPlugins = useCallback(() => setPluginsDialogOpen(true), []);
+	const refreshChanges = useCallback(() => {
+		if (activeWorktree) setRefreshKey((k) => k + 1);
+	}, [activeWorktree?.id]);
+	// handleSelectWorktree's identity churns each render while no workspace is
+	// active (worktrees defaults to a fresh []), so read it from a ref to keep
+	// selectAdjacentWorktree — and thus the cycle command memo — referentially
+	// stable. Otherwise useRegisterCommands' setVersion would re-fire every
+	// render and spin into an infinite update loop.
+	const handleSelectWorktreeRef = useRef(handleSelectWorktree);
+	handleSelectWorktreeRef.current = handleSelectWorktree;
+	const selectAdjacentWorktree = useCallback(
+		(direction: "next" | "prev"): boolean => {
+			const wts = worktreesRef.current;
+			const currentId = workspaceStateRef.current.selectedWorktreeId;
+			if (!wts.length || !currentId) return false;
+			const idx = wts.findIndex((w) => w.id === currentId);
+			if (idx === -1) return false;
+			const nextIdx =
+				direction === "next"
+					? (idx + 1) % wts.length
+					: (idx - 1 + wts.length) % wts.length;
+			const nextId = wts[nextIdx]?.id;
+			if (!nextId) return false;
+			void handleSelectWorktreeRef.current(nextId);
+			return true;
+		},
+		[],
+	);
+	const selectAdjacentWorkspace = useCallback(
+		(direction: "next" | "prev"): boolean => {
+			const order = appWorkspacesRef.current.workspaceOrder;
+			const currentId = appWorkspacesRef.current.activeWorkspaceId;
+			if (order.length < 2 || !currentId) return false;
+			const idx = order.indexOf(currentId);
+			if (idx === -1) return false;
+			const nextIdx =
+				direction === "next"
+					? (idx + 1) % order.length
+					: (idx - 1 + order.length) % order.length;
+			const nextId = order[nextIdx];
+			if (!nextId) return false;
+			if (!hasInlineEditorsRegistered()) {
+				void activateWorkspace(nextId);
+				return true;
+			}
+			void (async () => {
+				const gate = await runInlineEditorDirtyGate();
+				if (gate === "cancel") return;
+				void activateWorkspace(nextId);
+			})();
+			return true;
+		},
+		[],
+	);
+	const selectAdjacentTerminal = useCallback(
+		(direction: "next" | "prev"): boolean => {
+			const currentState = workspaceStateRef.current;
+			const currentWorktreeId = currentState.selectedWorktreeId;
+			if (!currentWorktreeId) return false;
+			const session = currentState.sessionsByWorktreeId[currentWorktreeId];
+			if (!session) return false;
+			const processes = (session.processSessionIds ?? [])
+				.map((id) => currentState.processSessionsById[id])
+				.filter(Boolean)
+				.sort((a, b) => Number(b.pinned) - Number(a.pinned));
+			if (processes.length < 2) return false;
+			const currentProcessId = session.activeProcessSessionId;
+			const idx = processes.findIndex((p) => p.id === currentProcessId);
+			const nextIdx =
+				direction === "next"
+					? (idx + 1) % processes.length
+					: (idx - 1 + processes.length) % processes.length;
+			const nextProcessId = processes[nextIdx]?.id;
+			if (!nextProcessId) return false;
+			dispatch({ type: "session/selectProcess", worktreeId: currentWorktreeId, processId: nextProcessId });
+			dispatch({ type: "session/markProcessViewed", worktreeId: currentWorktreeId, processId: nextProcessId });
+			dispatch({ type: "session/clearProcessAgentAttention", worktreeId: currentWorktreeId, processId: nextProcessId, sticky: false, clearedAt: Date.now() });
+			dispatch({ type: "session/clearSessionAgentAttention", worktreeId: currentWorktreeId });
+			setTerminalFocusSignal((n) => n + 1);
+			return true;
+		},
+		[dispatch],
+	);
+	const countTerminals = useCallback((): number => {
+		const currentState = workspaceStateRef.current;
+		const currentWorktreeId = currentState.selectedWorktreeId;
+		if (!currentWorktreeId) return 0;
+		const session = currentState.sessionsByWorktreeId[currentWorktreeId];
+		return session?.processSessionIds?.length ?? 0;
+	}, []);
+
+	const simpleCommands = useMemo<Command[]>(
+		() => [
+			{ id: "files-overlay", title: "Open Files", group: "Review", keybindingId: "files-overlay", run: openFilesOverlay, isAvailable: () => !!activeWorktree },
+			{ id: "review.open", title: "Open Review", group: "Review", keybindingId: "review.open", run: toggleReview, isAvailable: () => !!activeWorktree },
+			{ id: "review.files", title: "Review: Files", group: "Review", keybindingId: "review.files", run: () => applyReviewMode("files"), isAvailable: () => !!activeWorktree },
+			{ id: "review.changes", title: "Review: Changes", group: "Review", keybindingId: "review.changes", run: () => applyReviewMode("changes"), isAvailable: () => !!activeWorktree },
+			{ id: "review.commits", title: "Review: Commits", group: "Review", keybindingId: "review.commits", run: () => applyReviewMode("commits"), isAvailable: () => !!activeWorktree },
+			{ id: "changes.refresh", title: "Refresh changes", group: "Review", run: refreshChanges, isAvailable: () => !!activeWorktree },
+			{ id: "terminal.new", title: "New terminal", group: "Terminal", keybindingId: "terminal.new", run: newTerminal, isAvailable: () => !!activeWorktree && !addDisabled },
+			{ id: "terminal.newFloating", title: "New throwaway shell", group: "Terminal", keybindingId: "terminal.newFloating", run: newFloatingShell, isAvailable: () => !!activeWorktree && floatingShellIds.length < MAX_FLOATING_SHELLS },
+			{ id: "terminal.close", title: "Close terminal", group: "Terminal", keybindingId: "terminal.close", run: closeActiveTerminal, isAvailable: () => { const s = workspaceStateRef.current; const wt = s.selectedWorktreeId; return !!wt && !!s.sessionsByWorktreeId[wt]?.activeProcessSessionId; } },
+			{ id: "terminal.layout", title: "Choose layout", group: "Terminal", keybindingId: "terminal.layout", run: openTerminalLayout, isAvailable: () => !!activeWorktree },
+			{ id: "worktree.add", title: "Add worktree", group: "Worktree", keybindingId: "worktree.add", run: openAddWorktree, isAvailable: () => !!activeWorkspaceId },
+			{ id: "ui.openWorkspacePicker", title: "Open workspace", group: "Workspace", keybindingId: "ui.openWorkspacePicker", run: openWorkspacePicker, isAvailable: () => startupMode === "ready" },
+			{ id: "layout.toggleSidebar", title: "Toggle sidebar", group: "Layout", keybindingId: "layout.toggleSidebar", run: toggleSidebar },
+			{ id: "note-sheet", title: "Open Note", group: "Session", keybindingId: "note-sheet", run: toggleNoteSheet },
+			{ id: "rename-session", title: "Rename session", group: "Session", keybindingId: "rename-session", run: startRenameSession, isAvailable: () => !!activeWorkspaceId && !!activeWorktree },
+			{ id: "shortcuts-help", title: "Show shortcuts", group: "App", keybindingId: "shortcuts-help", run: toggleShortcutsHelp },
+			{ id: "plugins.open", title: "Open Plugins", group: "App", run: openPlugins },
+		],
+		[
+			openFilesOverlay, toggleReview, applyReviewMode, refreshChanges, newTerminal,
+			newFloatingShell, closeActiveTerminal, openTerminalLayout, openAddWorktree,
+			openWorkspacePicker, toggleSidebar, toggleNoteSheet, startRenameSession,
+			toggleShortcutsHelp, openPlugins,
+			activeWorktree, activeWorkspaceId, addDisabled, startupMode,
+			floatingShellIds.length,
+		],
+	);
+	useRegisterCommands(simpleCommands, [simpleCommands]);
+
+	const cycleCommands = useMemo<Command[]>(
+		() => [
+			{ id: "worktree.selectNext", title: "Next worktree", group: "Worktree", keybindingId: "worktree.selectNext", run: () => selectAdjacentWorktree("next"), isAvailable: () => worktreesRef.current.length > 1 },
+			{ id: "worktree.selectPrev", title: "Previous worktree", group: "Worktree", keybindingId: "worktree.selectPrev", run: () => selectAdjacentWorktree("prev"), isAvailable: () => worktreesRef.current.length > 1 },
+			{ id: "workspace.selectNext", title: "Next workspace", group: "Workspace", keybindingId: "workspace.selectNext", run: () => selectAdjacentWorkspace("next"), isAvailable: () => appWorkspacesRef.current.workspaceOrder.length > 1 },
+			{ id: "workspace.selectPrev", title: "Previous workspace", group: "Workspace", keybindingId: "workspace.selectPrev", run: () => selectAdjacentWorkspace("prev"), isAvailable: () => appWorkspacesRef.current.workspaceOrder.length > 1 },
+			{ id: "terminal.selectNext", title: "Next terminal", group: "Terminal", keybindingId: "terminal.selectNext", run: () => selectAdjacentTerminal("next"), isAvailable: () => countTerminals() > 1 },
+			{ id: "terminal.selectPrev", title: "Previous terminal", group: "Terminal", keybindingId: "terminal.selectPrev", run: () => selectAdjacentTerminal("prev"), isAvailable: () => countTerminals() > 1 },
+		],
+		[selectAdjacentWorktree, selectAdjacentWorkspace, selectAdjacentTerminal, countTerminals],
+	);
+	useRegisterCommands(cycleCommands, [cycleCommands]);
+
 	// Cmd+; / Ctrl+; — toggle note sheet
 	useKeyboardShortcut(
 		"note-sheet",
 		appPlatform,
 		(e) => {
 			e.preventDefault();
-			setNoteSheetOpen((prev) => !prev);
+			toggleNoteSheet();
 		},
-		[],
+		[toggleNoteSheet],
 	);
 
 	// Cmd+P / Ctrl+Shift+P — open Files overlay
@@ -1285,11 +1493,10 @@ export function App() {
 		"files-overlay",
 		appPlatform,
 		(e) => {
-			if (!activeWorktree) return;
 			e.preventDefault();
-			setFilesOverlayOpen(true);
+			openFilesOverlay();
 		},
-		[activeWorktree?.id],
+		[openFilesOverlay],
 	);
 
 	// Cmd+J / Ctrl+J — toggle review overlay
@@ -1297,15 +1504,10 @@ export function App() {
 		"review.open",
 		appPlatform,
 		(e) => {
-			if (!activeWorktree) return;
 			e.preventDefault();
-			if (reviewOpen) {
-				collapseReview();
-			} else {
-				setReviewOpen(true);
-			}
+			toggleReview();
 		},
-		[activeWorktree?.id, reviewOpen],
+		[toggleReview],
 	);
 
 	// Reset the review overlay when the active workspace or worktree changes
@@ -1319,15 +1521,10 @@ export function App() {
 		"rename-session",
 		appPlatform,
 		(e) => {
-			if (!activeWorkspaceId || !activeWorktree) return;
 			e.preventDefault();
-			setSidebarCollapsed(false);
-			setPendingRename({
-				workspaceId: activeWorkspaceId,
-				worktreeId: activeWorktree.id,
-			});
+			startRenameSession();
 		},
-		[activeWorkspaceId, activeWorktree?.id],
+		[startRenameSession],
 	);
 
 	// Cmd+/ or Cmd+? / Ctrl+/ or Ctrl+? — show shortcuts help
@@ -1336,7 +1533,18 @@ export function App() {
 		appPlatform,
 		(e) => {
 			e.preventDefault();
-			setShortcutsHelpOpen((prev) => !prev);
+			toggleShortcutsHelp();
+		},
+		[toggleShortcutsHelp],
+	);
+
+	// Cmd+Shift+K / Ctrl+Shift+K — open the command palette
+	useKeyboardShortcut(
+		"command-palette",
+		appPlatform,
+		(e) => {
+			e.preventDefault();
+			setCommandPaletteOpen(true);
 		},
 		[],
 	);
@@ -1347,21 +1555,9 @@ export function App() {
 		"worktree.selectPrev",
 		appPlatform,
 		(e, direction) => {
-			const wts = worktreesRef.current;
-			const currentId = workspaceStateRef.current.selectedWorktreeId;
-			if (!wts.length || !currentId) return;
-			const idx = wts.findIndex((w) => w.id === currentId);
-			if (idx === -1) return;
-			const nextIdx =
-				direction === "next"
-					? (idx + 1) % wts.length
-					: (idx - 1 + wts.length) % wts.length;
-			const nextId = wts[nextIdx]?.id;
-			if (!nextId) return;
-			e.preventDefault();
-			void handleSelectWorktree(nextId);
+			if (selectAdjacentWorktree(direction)) e.preventDefault();
 		},
-		[handleSelectWorktree],
+		[selectAdjacentWorktree],
 	);
 
 	// Cmd+N / Ctrl+N — add worktree
@@ -1369,11 +1565,10 @@ export function App() {
 		"worktree.add",
 		appPlatform,
 		(e) => {
-			if (!activeWorkspaceId) return;
 			e.preventDefault();
-			setCreateDialogOpen(true);
+			openAddWorktree();
 		},
-		[activeWorkspaceId],
+		[openAddWorktree],
 	);
 
 	// Cmd+Shift+] / Ctrl+Shift+] and Cmd+Shift+[ / Ctrl+Shift+[ — cycle through workspaces
@@ -1382,33 +1577,9 @@ export function App() {
 		"workspace.selectPrev",
 		appPlatform,
 		(e, direction) => {
-			const order = appWorkspacesRef.current.workspaceOrder;
-			const currentId = appWorkspacesRef.current.activeWorkspaceId;
-			if (order.length < 2 || !currentId) return;
-			const idx = order.indexOf(currentId);
-			if (idx === -1) return;
-			const nextIdx =
-				direction === "next"
-					? (idx + 1) % order.length
-					: (idx - 1 + order.length) % order.length;
-			const nextId = order[nextIdx];
-			if (!nextId) return;
-			e.preventDefault();
-			// Dirty-gate before swapping workspaces — otherwise activateWorkspace
-			// unmounts the editor from the outgoing workspace and the user loses
-			// their buffer without Save/Discard/Cancel.
-			if (!hasInlineEditorsRegistered()) {
-				void activateWorkspace(nextId);
-				return;
-			}
-			void (async () => {
-				const gate = await runInlineEditorDirtyGate();
-				if (gate === "cancel") return;
-				void activateWorkspace(nextId);
-			})();
+			if (selectAdjacentWorkspace(direction)) e.preventDefault();
 		},
-		// activateWorkspace reads from refs internally — stale closure is safe
-		[],
+		[selectAdjacentWorkspace],
 	);
 
 	// Cmd+O / Ctrl+O — open workspace picker (menu accelerator already fires
@@ -1417,11 +1588,10 @@ export function App() {
 		"ui.openWorkspacePicker",
 		appPlatform,
 		(e) => {
-			if (startupMode !== "ready") return;
 			e.preventDefault();
-			setWorkspacePickerOpen(true);
+			openWorkspacePicker();
 		},
-		[startupMode],
+		[openWorkspacePicker],
 	);
 
 	// Cmd+T / Ctrl+T — new terminal (disabled when 6 shells are running)
@@ -1430,10 +1600,9 @@ export function App() {
 		appPlatform,
 		(e) => {
 			e.preventDefault();
-			if (addDisabled) return;
-			void handleAddAdHoc();
+			newTerminal();
 		},
-		[activeWorktree?.id, activeWorkspaceId, addDisabled],
+		[newTerminal],
 	);
 
 	// Cmd+Shift+T / Ctrl+Shift+T — new floating throwaway shell (own cap check)
@@ -1442,9 +1611,9 @@ export function App() {
 		appPlatform,
 		(e) => {
 			e.preventDefault();
-			void handleAddFloatingShell();
+			newFloatingShell();
 		},
-		[activeWorktree?.id, activeWorkspaceId],
+		[newFloatingShell],
 	);
 
 	// Cmd+Shift+L / Ctrl+Shift+L — open the terminal layout dialog
@@ -1453,9 +1622,9 @@ export function App() {
 		appPlatform,
 		(e) => {
 			e.preventDefault();
-			if (activeWorktree) setLayoutDialogOpen(true);
+			openTerminalLayout();
 		},
-		[activeWorktree?.id],
+		[openTerminalLayout],
 	);
 
 	// Cmd+Shift+W / Ctrl+Shift+W — close active terminal
@@ -1463,17 +1632,10 @@ export function App() {
 		"terminal.close",
 		appPlatform,
 		(e) => {
-			const currentState = workspaceStateRef.current;
-			const currentWorktreeId = currentState.selectedWorktreeId;
-			if (!currentWorktreeId) return;
-			const activeProcessId =
-				currentState.sessionsByWorktreeId[currentWorktreeId]
-					?.activeProcessSessionId;
-			if (!activeProcessId) return;
 			e.preventDefault();
-			void handleCloseProcess(activeProcessId);
+			closeActiveTerminal();
 		},
-		[activeWorktree?.id, activeWorkspaceId],
+		[closeActiveTerminal],
 	);
 
 	// Cmd+Shift+D / Ctrl+Shift+D and Cmd+Shift+A / Ctrl+Shift+A — cycle through terminals
@@ -1482,51 +1644,9 @@ export function App() {
 		"terminal.selectPrev",
 		appPlatform,
 		(e, direction) => {
-			const currentState = workspaceStateRef.current;
-			const currentWorktreeId = currentState.selectedWorktreeId;
-			if (!currentWorktreeId) return;
-			const session = currentState.sessionsByWorktreeId[currentWorktreeId];
-			if (!session) return;
-			const processes = (session.processSessionIds ?? [])
-				.map((id) => currentState.processSessionsById[id])
-				.filter(Boolean)
-				.sort((a, b) => Number(b.pinned) - Number(a.pinned));
-			if (processes.length < 2) return;
-			const currentProcessId = session.activeProcessSessionId;
-			const idx = processes.findIndex((p) => p.id === currentProcessId);
-			const nextIdx =
-				direction === "next"
-					? (idx + 1) % processes.length
-					: (idx - 1 + processes.length) % processes.length;
-			const nextProcessId = processes[nextIdx]?.id;
-			if (!nextProcessId) return;
-			e.preventDefault();
-
-			// Next/prev only cycles focus across slots — layout is unchanged.
-			dispatch({
-				type: "session/selectProcess",
-				worktreeId: currentWorktreeId,
-				processId: nextProcessId,
-			});
-			dispatch({
-				type: "session/markProcessViewed",
-				worktreeId: currentWorktreeId,
-				processId: nextProcessId,
-			});
-			dispatch({
-				type: "session/clearProcessAgentAttention",
-				worktreeId: currentWorktreeId,
-				processId: nextProcessId,
-				sticky: false,
-				clearedAt: Date.now(),
-			});
-			dispatch({
-				type: "session/clearSessionAgentAttention",
-				worktreeId: currentWorktreeId,
-			});
-			setTerminalFocusSignal((n) => n + 1);
+			if (selectAdjacentTerminal(direction)) e.preventDefault();
 		},
-		[dispatch],
+		[selectAdjacentTerminal],
 	);
 
 	// Cmd+B / Ctrl+B — toggle sidebar
@@ -1535,26 +1655,18 @@ export function App() {
 		appPlatform,
 		(e) => {
 			e.preventDefault();
-			setSidebarCollapsed((current) => !current);
+			toggleSidebar();
 		},
-		[],
+		[toggleSidebar],
 	);
 
 	// Cmd+1/2/3 / Ctrl+1/2/3 — switch review pane tab and open overlay
 	const switchReviewMode = useCallback(
 		(reviewMode: "files" | "changes" | "commits") => (e: KeyboardEvent) => {
-			const currentState = workspaceStateRef.current;
-			const currentWorktreeId = currentState.selectedWorktreeId;
-			if (!currentWorktreeId) return;
 			e.preventDefault();
-			dispatch({
-				type: "session/setReviewMode",
-				worktreeId: currentWorktreeId,
-				reviewMode,
-			});
-			setReviewOpen(true);
+			applyReviewMode(reviewMode);
 		},
-		[dispatch, workspaceStateRef],
+		[applyReviewMode],
 	);
 	useKeyboardShortcut("review.files", appPlatform, switchReviewMode("files"), [
 		switchReviewMode,
@@ -2237,6 +2349,11 @@ export function App() {
 					agentInstallStatus={agentInstallStatus}
 				/>
 			</main>
+			<CommandPalette
+				open={commandPaletteOpen}
+				onOpenChange={setCommandPaletteOpen}
+				platform={appPlatform}
+			/>
 		</ToastProvider>
 	);
 }
