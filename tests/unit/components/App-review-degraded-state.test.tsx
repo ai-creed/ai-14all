@@ -150,6 +150,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 }));
 
 import { App } from "../../../src/app/App";
+import { CommandRegistryProvider } from "../../../src/features/command-palette/components/CommandRegistryProvider";
 import { workspace, repository, git } from "../../../src/lib/desktop-client";
 
 const mockOpenRepository = vi.mocked(workspace.openRepository);
@@ -190,7 +191,7 @@ async function loadRepositoryWithTwoWorktrees() {
 		},
 	]);
 
-	render(<App />);
+	render(<App />, { wrapper: CommandRegistryProvider });
 
 	await waitFor(() => {
 		expect(screen.getByLabelText("Repository path")).toBeInTheDocument();
@@ -229,7 +230,7 @@ async function loadRepositoryAndSwitchToCommits() {
 		},
 	]);
 
-	render(<App />);
+	render(<App />, { wrapper: CommandRegistryProvider });
 
 	// Wait for startup loading to complete and repository input to appear
 	await waitFor(() => {

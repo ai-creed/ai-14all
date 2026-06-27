@@ -12,7 +12,10 @@ import { RestorePrompt } from "../features/repository/RestorePrompt";
 import { type SessionSidebarWorkspace } from "../features/workspace/components/SessionSidebar";
 import { sortSidebarWorkspaces } from "../features/workspace/logic/sort-sidebar-workspaces";
 import { useCollapsedWorkspaces } from "../features/workspace/logic/use-collapsed-workspaces";
-import { workspaceReducer } from "../features/workspace/logic/workspace-state";
+import {
+	workspaceReducer,
+	MAX_FLOATING_SHELLS,
+} from "../features/workspace/logic/workspace-state";
 import { PresetManager } from "../features/terminals/components/PresetManager";
 import {
 	ReviewExpandedPortal,
@@ -97,15 +100,19 @@ import { TerminalPanel } from "./components/TerminalPanel";
 import { TerminalActions } from "../features/terminals/components/TerminalActions";
 import { FloatingShellPills } from "../features/terminals/components/FloatingShellPills";
 import { FloatingShellPopover } from "../features/terminals/components/FloatingShellPopover";
+import type { Size } from "../features/terminals/logic/floating-shell-resize";
 import { useFloatingShellActions } from "./hooks/use-floating-shell-actions";
 import { AgentLauncherBar } from "../features/terminals/components/AgentLauncherBar";
 import {
 	type AgentProvider,
 	boundCount,
-	launchCommandFor,
+	decideLaunch,
 	visibleProviders,
 } from "../features/terminals/logic/agent-launch";
+import { providerDef } from "../../shared/models/agent-provider";
 import { useMountPendingGuard } from "../features/terminals/logic/use-mount-pending-guard";
+import { useDeferredMount } from "../features/terminals/logic/use-deferred-mount";
+import { resolvePresetLaunch } from "../features/terminals/logic/preset-launch";
 import { TerminalChromeHeader } from "../features/terminals/components/TerminalChromeHeader";
 import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
 import { PluginsPanelDialog } from "../features/plugins/components/PluginsPanelDialog";
@@ -127,6 +134,10 @@ import { MainColumnChrome } from "./components/MainColumnChrome";
 import { RestoreBanner } from "./components/RestoreBanner";
 import { AgentAttentionBanner } from "./components/AgentAttentionBanner";
 import { normalizeTerminalTitle } from "./normalize-terminal-title";
+import { CommandPalette } from "../features/command-palette/components/CommandPalette";
+import { useRegisterCommands } from "../features/command-palette/hooks/use-command-registry";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import type { Command } from "../features/command-palette/logic/command";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -172,6 +183,7 @@ export function App() {
 	const [noteSheetOpen, setNoteSheetOpen] = useState(false);
 	const [filesOverlayOpen, setFilesOverlayOpen] = useState(false);
 	const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 	const updateInfo = useUpdateInfoListener();
 	const updateDownloaded = useUpdateDownloadedListener();
 	const [updateDismissedFor, setUpdateDismissedFor] = useState<string | null>(
@@ -212,6 +224,10 @@ export function App() {
 	const floatingPositionsRef = useRef<
 		Map<string, { left: number; top: number }>
 	>(new Map());
+	// One shared throwaway-popover size for the session (memory-only, like
+	// floatingPositionsRef). Resizing any popover updates it; the next popover
+	// opens at it.
+	const floatingSharedSizeRef = useRef<Size | null>(null);
 	const [refreshKey, setRefreshKey] = useState(0);
 	const [windowFocused, setWindowFocused] = useState(
 		typeof document !== "undefined" ? document.hasFocus() : true,
@@ -785,12 +801,24 @@ export function App() {
 		removeSession,
 	});
 
+	const subscribeSessionExit = useCallback(
+		(sessionId: string, cb: (exitCode: number | null) => void) => {
+			const off = terminalsClient.onExit((event) => {
+				if (event.sessionId !== sessionId) return;
+				cb(event.exitCode);
+			});
+			return off;
+		},
+		[],
+	);
+
 	const {
 		handleAddFloatingShell,
 		handleCloseFloatingShell,
 		handlePinFloatingShell,
 		handleExpandFloatingShell,
 		handleMinimizeFloatingShell,
+		runCommandInFloatingShell,
 	} = useFloatingShellActions({
 		workspaceId: activeWorkspaceId,
 		worktree: activeWorktree,
@@ -802,7 +830,32 @@ export function App() {
 		spawnAdHocProcess,
 		stopSession,
 		removeSession,
+		subscribeSessionExit,
+		sendInput,
 	});
+
+	// Route a preset Launch to the pinned grid path or a throwaway floating
+	// shell based on the preset's stored target. Lives here (not in
+	// useProcessActions) because the throwaway runner comes from a later hook.
+	const launchPreset = useCallback(
+		(presetId: string) => {
+			const preset = workspaceState.commandPresets.find(
+				(p) => p.id === presetId,
+			);
+			if (!preset) return;
+			const plan = resolvePresetLaunch(preset);
+			if (plan.kind === "throwaway") {
+				void runCommandInFloatingShell(plan.command, { label: plan.label });
+			} else {
+				void handleLaunchPreset(presetId);
+			}
+		},
+		[
+			workspaceState.commandPresets,
+			runCommandInFloatingShell,
+			handleLaunchPreset,
+		],
+	);
 
 	// Floating throwaway shells live outside the layout slot grid; surface the
 	// current set and the expanded one (if any) so the pills + popover can render.
@@ -821,78 +874,9 @@ export function App() {
 	const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
 	const [pluginsDialogOpen, setPluginsDialogOpen] = useState(false);
 
-	// Guided plugin install: run the install command in a fresh, visible shell on
-	// the active worktree (same create-session + register-process + sendInput path
-	// as launching a preset), then re-probe when that shell exits so the panel
-	// reflects the newly-installed peer. If the install shell never exits cleanly,
-	// the panel also re-probes every time it is re-opened (PluginsPanelDialog
-	// effect), so a stale "not installed" chip self-heals on the next open.
-	const handlePluginInstall = useCallback(
-		async (command: string, label = "plugin install") => {
-			(
-				window as unknown as { __lastPluginCommand?: string }
-			).__lastPluginCommand = command;
-			if (!activeWorktree || !activeWorkspaceId) return;
-			const targetWorkspaceId = activeWorkspaceId;
-			const targetWorktree = activeWorktree;
-			let terminal: TerminalSession;
-			try {
-				terminal = await createSession(
-					targetWorkspaceId,
-					targetWorktree.id,
-					targetWorktree.path,
-				);
-			} catch (err) {
-				console.error("Failed to start plugin install shell:", err);
-				notifyToast("Failed to start install shell");
-				return;
-			}
-			createScopedWorkspaceDispatch(targetWorkspaceId)({
-				type: "session/registerProcess",
-				worktreeId: targetWorktree.id,
-				process: {
-					id: crypto.randomUUID(),
-					workspaceId: targetWorkspaceId,
-					worktreeId: targetWorktree.id,
-					terminalSessionId: terminal.id,
-					origin: "adHoc",
-					presetId: null,
-					label,
-					command,
-					status: "running",
-					lastActivityAt: null,
-					lastOutputPreview: null,
-					exitCode: null,
-					pinned: true,
-					attentionState: "idle",
-					agentAttentionReasons: {},
-					agentAttentionClearedAt: null,
-					agentDetected: false,
-					provider: null,
-				},
-			});
-			// Re-probe once the install shell exits, so a newly-installed peer flips
-			// from "not installed" to "installed, off" without re-opening the panel.
-			const off = terminalsClient.onExit((event) => {
-				if (event.sessionId !== terminal.id) return;
-				off();
-				void pluginsClient.reprobe();
-			});
-			// `\r` on Windows (ConPTY only runs a line on CR), `\n` elsewhere.
-			await sendInput(terminal.id, `${command}${commandSubmitKey()}`);
-		},
-		[
-			activeWorktree,
-			activeWorkspaceId,
-			createSession,
-			sendInput,
-			createScopedWorkspaceDispatch,
-		],
-	);
-
 	// Launches a single command in a new pinned terminal for the collab flow.
-	// Mirrors handlePluginInstall but without the reprobe-on-exit side effect and
-	// with a "collab: <agent>" label so the terminals are identifiable.
+	// Spawns a session, registers it as a process, and sends the command; uses a
+	// "collab: <agent>" label so the terminals are identifiable.
 	const launchCollabTerminal = useCallback(
 		async (command: string, slotIndex?: number) => {
 			if (!activeWorktree || !activeWorkspaceId) return;
@@ -969,20 +953,60 @@ export function App() {
 	// fire a second concurrent `whisper collab mount`.
 	const mountGuard = useMountPendingGuard(activeWhisperState);
 
-	// Empty-slot agent launch: same whisper-aware command resolution and shared
-	// guard as the chrome bar, but lands the agent in the clicked slot.
-	const handleLaunchAgentInSlot = useCallback(
-		(provider: AgentProvider, slotIndex: number) => {
-			const command = launchCommandFor(provider, {
+	// Single-slot deferred-mount queue: a rapid second click on an empty collab is
+	// parked here while the first mount settles, then auto-mounted once a real slot
+	// frees up — or vendor-launched if the collab never becomes ready in time.
+	const deferredMount = useDeferredMount({
+		whisperState: activeWhisperState,
+		mountInFlight: mountGuard.mountPending,
+		onReady: (provider, slot) => {
+			void launchCollabTerminal(`whisper collab mount ${provider}`, slot);
+			mountGuard.beginMount();
+		},
+		onTimeout: (provider, slot) => {
+			void launchCollabTerminal(providerDef(provider).binary, slot);
+			notifyToast("Collab init timed out — launched without collab");
+		},
+	});
+
+	// The single launch entry point shared by every surface (chrome bar and each
+	// empty-slot launcher): decide mount / defer / vendor against the 2-agent cap.
+	const launchAgent = useCallback(
+		(provider: AgentProvider, slot: number | undefined) => {
+			// Re-clicking the queued chip cancels the deferral.
+			if (deferredMount.deferredProvider === provider) {
+				deferredMount.cancel();
+				return;
+			}
+			const decision = decideLaunch(provider, {
 				whisperHealthy: whisperOnHealthy,
 				boundCount: boundCount(activeWhisperState),
 				daemonAlive: activeWhisperState?.daemonAlive ?? false,
-				mountPending: mountGuard.mountPending,
+				mountInFlight: mountGuard.mountPending,
+				deferredOccupied: deferredMount.deferredOccupied,
 			});
-			void launchCollabTerminal(command, slotIndex);
-			if (command.startsWith("whisper collab mount")) mountGuard.beginMount();
+			if (decision.kind === "defer") {
+				deferredMount.enqueue(provider, slot);
+				return;
+			}
+			void launchCollabTerminal(decision.command, slot);
+			if (decision.kind === "mount") mountGuard.beginMount();
 		},
-		[whisperOnHealthy, activeWhisperState, mountGuard, launchCollabTerminal],
+		[
+			whisperOnHealthy,
+			activeWhisperState,
+			mountGuard,
+			deferredMount,
+			launchCollabTerminal,
+		],
+	);
+
+	// Empty-slot agent launch: lands the agent in the clicked slot via the shared
+	// launch rule above.
+	const handleLaunchAgentInSlot = useCallback(
+		(provider: AgentProvider, slotIndex: number) =>
+			launchAgent(provider, slotIndex),
+		[launchAgent],
 	);
 
 	const handlePromoteSlot = useCallback(
@@ -1277,229 +1301,135 @@ export function App() {
 		refreshKey,
 	});
 
-	// Cmd+; / Ctrl+; — toggle note sheet
-	useKeyboardShortcut(
-		"note-sheet",
-		appPlatform,
-		(e) => {
-			e.preventDefault();
-			setNoteSheetOpen((prev) => !prev);
-		},
-		[],
-	);
-
-	// Cmd+P / Ctrl+Shift+P — open Files overlay
-	useKeyboardShortcut(
-		"files-overlay",
-		appPlatform,
-		(e) => {
-			if (!activeWorktree) return;
-			e.preventDefault();
-			setFilesOverlayOpen(true);
-		},
-		[activeWorktree?.id],
-	);
-
-	// Cmd+J / Ctrl+J — toggle review overlay
-	useKeyboardShortcut(
-		"review.open",
-		appPlatform,
-		(e) => {
-			if (!activeWorktree) return;
-			e.preventDefault();
-			if (reviewOpen) {
-				collapseReview();
-			} else {
-				setReviewOpen(true);
-			}
-		},
-		[activeWorktree?.id, reviewOpen],
-	);
-
-	// Reset the review overlay when the active workspace or worktree changes
-	// so it doesn't silently retarget the new worktree.
-	useEffect(() => {
-		setReviewOpen(false);
+	// ── Command actions: shared by keyboard shortcuts and the command palette ──
+	const toggleNoteSheet = useCallback(() => setNoteSheetOpen((p) => !p), []);
+	const openFilesOverlay = useCallback(() => {
+		if (activeWorktree) setFilesOverlayOpen(true);
+	}, [activeWorktree?.id]);
+	const toggleReview = useCallback(() => {
+		if (!activeWorktree) return;
+		if (reviewOpen) collapseReview();
+		else setReviewOpen(true);
+	}, [activeWorktree?.id, reviewOpen]);
+	const startRenameSession = useCallback(() => {
+		if (!activeWorkspaceId || !activeWorktree) return;
+		setSidebarCollapsed(false);
+		setPendingRename({
+			workspaceId: activeWorkspaceId,
+			worktreeId: activeWorktree.id,
+		});
 	}, [activeWorkspaceId, activeWorktree?.id]);
-
-	// Cmd+Shift+R / Ctrl+Alt+R — rename active session
-	useKeyboardShortcut(
-		"rename-session",
-		appPlatform,
-		(e) => {
-			if (!activeWorkspaceId || !activeWorktree) return;
-			e.preventDefault();
-			setSidebarCollapsed(false);
-			setPendingRename({
-				workspaceId: activeWorkspaceId,
-				worktreeId: activeWorktree.id,
-			});
-		},
-		[activeWorkspaceId, activeWorktree?.id],
-	);
-
-	// Cmd+/ or Cmd+? / Ctrl+/ or Ctrl+? — show shortcuts help
-	useKeyboardShortcut(
-		"shortcuts-help",
-		appPlatform,
-		(e) => {
-			e.preventDefault();
-			setShortcutsHelpOpen((prev) => !prev);
-		},
+	const toggleShortcutsHelp = useCallback(
+		() => setShortcutsHelpOpen((p) => !p),
 		[],
 	);
-
-	// Cmd+] / Ctrl+] and Cmd+[ / Ctrl+[ — cycle through worktrees
-	useNextPrevShortcut(
-		"worktree.selectNext",
-		"worktree.selectPrev",
-		appPlatform,
-		(e, direction) => {
+	const openAddWorktree = useCallback(() => {
+		if (activeWorkspaceId) setCreateDialogOpen(true);
+	}, [activeWorkspaceId]);
+	const openWorkspacePicker = useCallback(() => {
+		if (startupMode === "ready") setWorkspacePickerOpen(true);
+	}, [startupMode]);
+	const newTerminal = useCallback(() => {
+		if (!addDisabled) void handleAddAdHoc();
+	}, [activeWorktree?.id, activeWorkspaceId, addDisabled]);
+	const newFloatingShell = useCallback(() => {
+		void handleAddFloatingShell();
+	}, [activeWorktree?.id, activeWorkspaceId]);
+	const openTerminalLayout = useCallback(() => {
+		if (activeWorktree) setLayoutDialogOpen(true);
+	}, [activeWorktree?.id]);
+	const closeActiveTerminal = useCallback(() => {
+		const currentState = workspaceStateRef.current;
+		const currentWorktreeId = currentState.selectedWorktreeId;
+		if (!currentWorktreeId) return;
+		const activeProcessId =
+			currentState.sessionsByWorktreeId[currentWorktreeId]
+				?.activeProcessSessionId;
+		if (!activeProcessId) return;
+		void handleCloseProcess(activeProcessId);
+	}, [activeWorktree?.id, activeWorkspaceId]);
+	const toggleSidebar = useCallback(() => setSidebarCollapsed((c) => !c), []);
+	const applyReviewMode = useCallback(
+		(reviewMode: "files" | "changes" | "commits") => {
+			const currentState = workspaceStateRef.current;
+			const currentWorktreeId = currentState.selectedWorktreeId;
+			if (!currentWorktreeId) return;
+			dispatch({
+				type: "session/setReviewMode",
+				worktreeId: currentWorktreeId,
+				reviewMode,
+			});
+			setReviewOpen(true);
+		},
+		[dispatch],
+	);
+	const openPlugins = useCallback(() => setPluginsDialogOpen(true), []);
+	const refreshChanges = useCallback(() => {
+		if (activeWorktree) setRefreshKey((k) => k + 1);
+	}, [activeWorktree?.id]);
+	// handleSelectWorktree's identity churns each render while no workspace is
+	// active (worktrees defaults to a fresh []), so read it from a ref to keep
+	// selectAdjacentWorktree — and thus the cycle command memo — referentially
+	// stable. Otherwise useRegisterCommands' setVersion would re-fire every
+	// render and spin into an infinite update loop.
+	const handleSelectWorktreeRef = useRef(handleSelectWorktree);
+	handleSelectWorktreeRef.current = handleSelectWorktree;
+	const selectAdjacentWorktree = useCallback(
+		(direction: "next" | "prev"): boolean => {
 			const wts = worktreesRef.current;
 			const currentId = workspaceStateRef.current.selectedWorktreeId;
-			if (!wts.length || !currentId) return;
+			if (!wts.length || !currentId) return false;
 			const idx = wts.findIndex((w) => w.id === currentId);
-			if (idx === -1) return;
+			if (idx === -1) return false;
 			const nextIdx =
 				direction === "next"
 					? (idx + 1) % wts.length
 					: (idx - 1 + wts.length) % wts.length;
 			const nextId = wts[nextIdx]?.id;
-			if (!nextId) return;
-			e.preventDefault();
-			void handleSelectWorktree(nextId);
+			if (!nextId) return false;
+			void handleSelectWorktreeRef.current(nextId);
+			return true;
 		},
-		[handleSelectWorktree],
+		[],
 	);
-
-	// Cmd+N / Ctrl+N — add worktree
-	useKeyboardShortcut(
-		"worktree.add",
-		appPlatform,
-		(e) => {
-			if (!activeWorkspaceId) return;
-			e.preventDefault();
-			setCreateDialogOpen(true);
-		},
-		[activeWorkspaceId],
-	);
-
-	// Cmd+Shift+] / Ctrl+Shift+] and Cmd+Shift+[ / Ctrl+Shift+[ — cycle through workspaces
-	useNextPrevShortcut(
-		"workspace.selectNext",
-		"workspace.selectPrev",
-		appPlatform,
-		(e, direction) => {
+	const selectAdjacentWorkspace = useCallback(
+		(direction: "next" | "prev"): boolean => {
 			const order = appWorkspacesRef.current.workspaceOrder;
 			const currentId = appWorkspacesRef.current.activeWorkspaceId;
-			if (order.length < 2 || !currentId) return;
+			if (order.length < 2 || !currentId) return false;
 			const idx = order.indexOf(currentId);
-			if (idx === -1) return;
+			if (idx === -1) return false;
 			const nextIdx =
 				direction === "next"
 					? (idx + 1) % order.length
 					: (idx - 1 + order.length) % order.length;
 			const nextId = order[nextIdx];
-			if (!nextId) return;
-			e.preventDefault();
-			// Dirty-gate before swapping workspaces — otherwise activateWorkspace
-			// unmounts the editor from the outgoing workspace and the user loses
-			// their buffer without Save/Discard/Cancel.
+			if (!nextId) return false;
 			if (!hasInlineEditorsRegistered()) {
 				void activateWorkspace(nextId);
-				return;
+				return true;
 			}
 			void (async () => {
 				const gate = await runInlineEditorDirtyGate();
 				if (gate === "cancel") return;
 				void activateWorkspace(nextId);
 			})();
+			return true;
 		},
-		// activateWorkspace reads from refs internally — stale closure is safe
 		[],
 	);
-
-	// Cmd+O / Ctrl+O — open workspace picker (menu accelerator already fires
-	// this via IPC; this handler covers the renderer path for completeness)
-	useKeyboardShortcut(
-		"ui.openWorkspacePicker",
-		appPlatform,
-		(e) => {
-			if (startupMode !== "ready") return;
-			e.preventDefault();
-			setWorkspacePickerOpen(true);
-		},
-		[startupMode],
-	);
-
-	// Cmd+T / Ctrl+T — new terminal (disabled when 6 shells are running)
-	useKeyboardShortcut(
-		"terminal.new",
-		appPlatform,
-		(e) => {
-			e.preventDefault();
-			if (addDisabled) return;
-			void handleAddAdHoc();
-		},
-		[activeWorktree?.id, activeWorkspaceId, addDisabled],
-	);
-
-	// Cmd+Shift+T / Ctrl+Shift+T — new floating throwaway shell (own cap check)
-	useKeyboardShortcut(
-		"terminal.newFloating",
-		appPlatform,
-		(e) => {
-			e.preventDefault();
-			void handleAddFloatingShell();
-		},
-		[activeWorktree?.id, activeWorkspaceId],
-	);
-
-	// Cmd+Shift+L / Ctrl+Shift+L — open the terminal layout dialog
-	useKeyboardShortcut(
-		"terminal.layout",
-		appPlatform,
-		(e) => {
-			e.preventDefault();
-			if (activeWorktree) setLayoutDialogOpen(true);
-		},
-		[activeWorktree?.id],
-	);
-
-	// Cmd+Shift+W / Ctrl+Shift+W — close active terminal
-	useKeyboardShortcut(
-		"terminal.close",
-		appPlatform,
-		(e) => {
+	const selectAdjacentTerminal = useCallback(
+		(direction: "next" | "prev"): boolean => {
 			const currentState = workspaceStateRef.current;
 			const currentWorktreeId = currentState.selectedWorktreeId;
-			if (!currentWorktreeId) return;
-			const activeProcessId =
-				currentState.sessionsByWorktreeId[currentWorktreeId]
-					?.activeProcessSessionId;
-			if (!activeProcessId) return;
-			e.preventDefault();
-			void handleCloseProcess(activeProcessId);
-		},
-		[activeWorktree?.id, activeWorkspaceId],
-	);
-
-	// Cmd+Shift+D / Ctrl+Shift+D and Cmd+Shift+A / Ctrl+Shift+A — cycle through terminals
-	useNextPrevShortcut(
-		"terminal.selectNext",
-		"terminal.selectPrev",
-		appPlatform,
-		(e, direction) => {
-			const currentState = workspaceStateRef.current;
-			const currentWorktreeId = currentState.selectedWorktreeId;
-			if (!currentWorktreeId) return;
+			if (!currentWorktreeId) return false;
 			const session = currentState.sessionsByWorktreeId[currentWorktreeId];
-			if (!session) return;
+			if (!session) return false;
 			const processes = (session.processSessionIds ?? [])
 				.map((id) => currentState.processSessionsById[id])
 				.filter(Boolean)
 				.sort((a, b) => Number(b.pinned) - Number(a.pinned));
-			if (processes.length < 2) return;
+			if (processes.length < 2) return false;
 			const currentProcessId = session.activeProcessSessionId;
 			const idx = processes.findIndex((p) => p.id === currentProcessId);
 			const nextIdx =
@@ -1507,10 +1437,7 @@ export function App() {
 					? (idx + 1) % processes.length
 					: (idx - 1 + processes.length) % processes.length;
 			const nextProcessId = processes[nextIdx]?.id;
-			if (!nextProcessId) return;
-			e.preventDefault();
-
-			// Next/prev only cycles focus across slots — layout is unchanged.
+			if (!nextProcessId) return false;
 			dispatch({
 				type: "session/selectProcess",
 				worktreeId: currentWorktreeId,
@@ -1533,8 +1460,411 @@ export function App() {
 				worktreeId: currentWorktreeId,
 			});
 			setTerminalFocusSignal((n) => n + 1);
+			return true;
 		},
 		[dispatch],
+	);
+	const countTerminals = useCallback((): number => {
+		const currentState = workspaceStateRef.current;
+		const currentWorktreeId = currentState.selectedWorktreeId;
+		if (!currentWorktreeId) return 0;
+		const session = currentState.sessionsByWorktreeId[currentWorktreeId];
+		return session?.processSessionIds?.length ?? 0;
+	}, []);
+
+	const simpleCommands = useMemo<Command[]>(
+		() => [
+			{
+				id: "files-overlay",
+				title: "Open Files",
+				group: "Review",
+				keybindingId: "files-overlay",
+				run: openFilesOverlay,
+				isAvailable: () => !!activeWorktree,
+			},
+			{
+				id: "review.open",
+				title: "Open Review",
+				group: "Review",
+				keybindingId: "review.open",
+				run: toggleReview,
+				isAvailable: () => !!activeWorktree,
+			},
+			{
+				id: "review.files",
+				title: "Review: Files",
+				group: "Review",
+				keybindingId: "review.files",
+				run: () => applyReviewMode("files"),
+				isAvailable: () => !!activeWorktree,
+			},
+			{
+				id: "review.changes",
+				title: "Review: Changes",
+				group: "Review",
+				keybindingId: "review.changes",
+				run: () => applyReviewMode("changes"),
+				isAvailable: () => !!activeWorktree,
+			},
+			{
+				id: "review.commits",
+				title: "Review: Commits",
+				group: "Review",
+				keybindingId: "review.commits",
+				run: () => applyReviewMode("commits"),
+				isAvailable: () => !!activeWorktree,
+			},
+			{
+				id: "changes.refresh",
+				title: "Refresh changes",
+				group: "Review",
+				run: refreshChanges,
+				isAvailable: () => !!activeWorktree,
+			},
+			{
+				id: "terminal.new",
+				title: "New terminal",
+				group: "Terminal",
+				keybindingId: "terminal.new",
+				run: newTerminal,
+				isAvailable: () => !!activeWorktree && !addDisabled,
+			},
+			{
+				id: "terminal.newFloating",
+				title: "New throwaway shell",
+				group: "Terminal",
+				keybindingId: "terminal.newFloating",
+				run: newFloatingShell,
+				isAvailable: () =>
+					!!activeWorktree && floatingShellIds.length < MAX_FLOATING_SHELLS,
+			},
+			{
+				id: "terminal.close",
+				title: "Close terminal",
+				group: "Terminal",
+				keybindingId: "terminal.close",
+				run: closeActiveTerminal,
+				isAvailable: () => {
+					const s = workspaceStateRef.current;
+					const wt = s.selectedWorktreeId;
+					return !!wt && !!s.sessionsByWorktreeId[wt]?.activeProcessSessionId;
+				},
+			},
+			{
+				id: "terminal.layout",
+				title: "Choose layout",
+				group: "Terminal",
+				keybindingId: "terminal.layout",
+				run: openTerminalLayout,
+				isAvailable: () => !!activeWorktree,
+			},
+			{
+				id: "worktree.add",
+				title: "Add worktree",
+				group: "Worktree",
+				keybindingId: "worktree.add",
+				run: openAddWorktree,
+				isAvailable: () => !!activeWorkspaceId,
+			},
+			{
+				id: "ui.openWorkspacePicker",
+				title: "Open workspace",
+				group: "Workspace",
+				keybindingId: "ui.openWorkspacePicker",
+				run: openWorkspacePicker,
+				isAvailable: () => startupMode === "ready",
+			},
+			{
+				id: "layout.toggleSidebar",
+				title: "Toggle sidebar",
+				group: "Layout",
+				keybindingId: "layout.toggleSidebar",
+				run: toggleSidebar,
+			},
+			{
+				id: "note-sheet",
+				title: "Open Note",
+				group: "Session",
+				keybindingId: "note-sheet",
+				run: toggleNoteSheet,
+			},
+			{
+				id: "rename-session",
+				title: "Rename session",
+				group: "Session",
+				keybindingId: "rename-session",
+				run: startRenameSession,
+				isAvailable: () => !!activeWorkspaceId && !!activeWorktree,
+			},
+			{
+				id: "shortcuts-help",
+				title: "Show shortcuts",
+				group: "App",
+				keybindingId: "shortcuts-help",
+				run: toggleShortcutsHelp,
+			},
+			{
+				id: "plugins.open",
+				title: "Open Plugins",
+				group: "App",
+				run: openPlugins,
+			},
+		],
+		[
+			openFilesOverlay,
+			toggleReview,
+			applyReviewMode,
+			refreshChanges,
+			newTerminal,
+			newFloatingShell,
+			closeActiveTerminal,
+			openTerminalLayout,
+			openAddWorktree,
+			openWorkspacePicker,
+			toggleSidebar,
+			toggleNoteSheet,
+			startRenameSession,
+			toggleShortcutsHelp,
+			openPlugins,
+			activeWorktree,
+			activeWorkspaceId,
+			addDisabled,
+			startupMode,
+			floatingShellIds.length,
+		],
+	);
+	useRegisterCommands(simpleCommands, [simpleCommands]);
+
+	const cycleCommands = useMemo<Command[]>(
+		() => [
+			{
+				id: "worktree.selectNext",
+				title: "Next worktree",
+				group: "Worktree",
+				keybindingId: "worktree.selectNext",
+				run: () => selectAdjacentWorktree("next"),
+				isAvailable: () => worktreesRef.current.length > 1,
+			},
+			{
+				id: "worktree.selectPrev",
+				title: "Previous worktree",
+				group: "Worktree",
+				keybindingId: "worktree.selectPrev",
+				run: () => selectAdjacentWorktree("prev"),
+				isAvailable: () => worktreesRef.current.length > 1,
+			},
+			{
+				id: "workspace.selectNext",
+				title: "Next workspace",
+				group: "Workspace",
+				keybindingId: "workspace.selectNext",
+				run: () => selectAdjacentWorkspace("next"),
+				isAvailable: () => appWorkspacesRef.current.workspaceOrder.length > 1,
+			},
+			{
+				id: "workspace.selectPrev",
+				title: "Previous workspace",
+				group: "Workspace",
+				keybindingId: "workspace.selectPrev",
+				run: () => selectAdjacentWorkspace("prev"),
+				isAvailable: () => appWorkspacesRef.current.workspaceOrder.length > 1,
+			},
+			{
+				id: "terminal.selectNext",
+				title: "Next terminal",
+				group: "Terminal",
+				keybindingId: "terminal.selectNext",
+				run: () => selectAdjacentTerminal("next"),
+				isAvailable: () => countTerminals() > 1,
+			},
+			{
+				id: "terminal.selectPrev",
+				title: "Previous terminal",
+				group: "Terminal",
+				keybindingId: "terminal.selectPrev",
+				run: () => selectAdjacentTerminal("prev"),
+				isAvailable: () => countTerminals() > 1,
+			},
+		],
+		[
+			selectAdjacentWorktree,
+			selectAdjacentWorkspace,
+			selectAdjacentTerminal,
+			countTerminals,
+		],
+	);
+	useRegisterCommands(cycleCommands, [cycleCommands]);
+
+	// Cmd+; / Ctrl+; — toggle note sheet
+	useKeyboardShortcut(
+		"note-sheet",
+		appPlatform,
+		(e) => {
+			e.preventDefault();
+			toggleNoteSheet();
+		},
+		[toggleNoteSheet],
+	);
+
+	// Cmd+P / Ctrl+Shift+P — open Files overlay
+	useKeyboardShortcut(
+		"files-overlay",
+		appPlatform,
+		(e) => {
+			e.preventDefault();
+			openFilesOverlay();
+		},
+		[openFilesOverlay],
+	);
+
+	// Cmd+J / Ctrl+J — toggle review overlay
+	useKeyboardShortcut(
+		"review.open",
+		appPlatform,
+		(e) => {
+			e.preventDefault();
+			toggleReview();
+		},
+		[toggleReview],
+	);
+
+	// Reset the review overlay when the active workspace or worktree changes
+	// so it doesn't silently retarget the new worktree.
+	useEffect(() => {
+		setReviewOpen(false);
+	}, [activeWorkspaceId, activeWorktree?.id]);
+
+	// Cmd+Shift+R / Ctrl+Alt+R — rename active session
+	useKeyboardShortcut(
+		"rename-session",
+		appPlatform,
+		(e) => {
+			e.preventDefault();
+			startRenameSession();
+		},
+		[startRenameSession],
+	);
+
+	// Cmd+/ or Cmd+? / Ctrl+/ or Ctrl+? — show shortcuts help
+	useKeyboardShortcut(
+		"shortcuts-help",
+		appPlatform,
+		(e) => {
+			e.preventDefault();
+			toggleShortcutsHelp();
+		},
+		[toggleShortcutsHelp],
+	);
+
+	// Cmd+Shift+K / Ctrl+Shift+K — open the command palette
+	useKeyboardShortcut(
+		"command-palette",
+		appPlatform,
+		(e) => {
+			e.preventDefault();
+			setCommandPaletteOpen(true);
+		},
+		[],
+	);
+
+	// Cmd+] / Ctrl+] and Cmd+[ / Ctrl+[ — cycle through worktrees
+	useNextPrevShortcut(
+		"worktree.selectNext",
+		"worktree.selectPrev",
+		appPlatform,
+		(e, direction) => {
+			if (selectAdjacentWorktree(direction)) e.preventDefault();
+		},
+		[selectAdjacentWorktree],
+	);
+
+	// Cmd+N / Ctrl+N — add worktree
+	useKeyboardShortcut(
+		"worktree.add",
+		appPlatform,
+		(e) => {
+			e.preventDefault();
+			openAddWorktree();
+		},
+		[openAddWorktree],
+	);
+
+	// Cmd+Shift+] / Ctrl+Shift+] and Cmd+Shift+[ / Ctrl+Shift+[ — cycle through workspaces
+	useNextPrevShortcut(
+		"workspace.selectNext",
+		"workspace.selectPrev",
+		appPlatform,
+		(e, direction) => {
+			if (selectAdjacentWorkspace(direction)) e.preventDefault();
+		},
+		[selectAdjacentWorkspace],
+	);
+
+	// Cmd+O / Ctrl+O — open workspace picker (menu accelerator already fires
+	// this via IPC; this handler covers the renderer path for completeness)
+	useKeyboardShortcut(
+		"ui.openWorkspacePicker",
+		appPlatform,
+		(e) => {
+			e.preventDefault();
+			openWorkspacePicker();
+		},
+		[openWorkspacePicker],
+	);
+
+	// Cmd+T / Ctrl+T — new terminal (disabled when 6 shells are running)
+	useKeyboardShortcut(
+		"terminal.new",
+		appPlatform,
+		(e) => {
+			e.preventDefault();
+			newTerminal();
+		},
+		[newTerminal],
+	);
+
+	// Cmd+Shift+T / Ctrl+Shift+T — new floating throwaway shell (own cap check)
+	useKeyboardShortcut(
+		"terminal.newFloating",
+		appPlatform,
+		(e) => {
+			e.preventDefault();
+			newFloatingShell();
+		},
+		[newFloatingShell],
+	);
+
+	// Cmd+Shift+L / Ctrl+Shift+L — open the terminal layout dialog
+	useKeyboardShortcut(
+		"terminal.layout",
+		appPlatform,
+		(e) => {
+			e.preventDefault();
+			openTerminalLayout();
+		},
+		[openTerminalLayout],
+	);
+
+	// Cmd+Shift+W / Ctrl+Shift+W — close active terminal
+	useKeyboardShortcut(
+		"terminal.close",
+		appPlatform,
+		(e) => {
+			e.preventDefault();
+			closeActiveTerminal();
+		},
+		[closeActiveTerminal],
+	);
+
+	// Cmd+Shift+D / Ctrl+Shift+D and Cmd+Shift+A / Ctrl+Shift+A — cycle through terminals
+	useNextPrevShortcut(
+		"terminal.selectNext",
+		"terminal.selectPrev",
+		appPlatform,
+		(e, direction) => {
+			if (selectAdjacentTerminal(direction)) e.preventDefault();
+		},
+		[selectAdjacentTerminal],
 	);
 
 	// Cmd+B / Ctrl+B — toggle sidebar
@@ -1543,26 +1873,18 @@ export function App() {
 		appPlatform,
 		(e) => {
 			e.preventDefault();
-			setSidebarCollapsed((current) => !current);
+			toggleSidebar();
 		},
-		[],
+		[toggleSidebar],
 	);
 
 	// Cmd+1/2/3 / Ctrl+1/2/3 — switch review pane tab and open overlay
 	const switchReviewMode = useCallback(
 		(reviewMode: "files" | "changes" | "commits") => (e: KeyboardEvent) => {
-			const currentState = workspaceStateRef.current;
-			const currentWorktreeId = currentState.selectedWorktreeId;
-			if (!currentWorktreeId) return;
 			e.preventDefault();
-			dispatch({
-				type: "session/setReviewMode",
-				worktreeId: currentWorktreeId,
-				reviewMode,
-			});
-			setReviewOpen(true);
+			applyReviewMode(reviewMode);
 		},
-		[dispatch, workspaceStateRef],
+		[applyReviewMode],
 	);
 	useKeyboardShortcut("review.files", appPlatform, switchReviewMode("files"), [
 		switchReviewMode,
@@ -1839,395 +2161,436 @@ export function App() {
 
 	return (
 		<ToastProvider>
-			<AgentAttentionBanner />
-			<main className="shell-app">
-				<RestoreBanner
-					message={restoreWarning}
-					onDismiss={() => setRestoreWarning(null)}
-				/>
-				<div
-					className="shell-layout"
-					data-testid="shell-layout"
-					style={{
-						gridTemplateColumns: `${
-							sidebarCollapsed ? 88 : sidebarWidth
-						}px minmax(0, 1fr)`,
-					}}
-				>
-					<SidebarPanel
-						sidebarWorkspaces={sidebarWorkspaces}
-						sidebarCollapsed={sidebarCollapsed}
-						setSidebarCollapsed={setSidebarCollapsed}
-						handleSidebarResizeStart={handleSidebarResizeStart}
-						activeWorkspaceId={activeWorkspaceId}
-						pendingRename={pendingRename}
-						setPendingRename={setPendingRename}
-						openWorkspacePicker={() => setWorkspacePickerOpen(true)}
-						openCreateWorktreeDialog={() => setCreateDialogOpen(true)}
-						openRemoveWorktreeDialog={(worktreeId) => {
-							setRemoveTargetId(worktreeId);
-							setConfirmedDirtyRemoval(false);
-							setRemoveDialogOpen(true);
-						}}
-						activateWorkspace={activateWorkspace}
-						handleSelectSidebarWorktree={handleSelectSidebarWorktree}
-						handleRemoveWorkspace={handleRemoveWorkspace}
-						onOpenWorkflowDetail={(workspaceId, worktreeId) =>
-							setWorkflowDetailTarget({ workspaceId, worktreeId })
-						}
-						dispatch={dispatch}
-						collapsedWorkspaceIds={collapsedWorkspaceIds}
-						onToggleWorkspaceCollapsed={toggleWorkspaceCollapsed}
-						palette={palette}
-						onSetTheme={setTheme}
+			<TooltipProvider delayDuration={300}>
+				<AgentAttentionBanner />
+				<main className="shell-app">
+					<RestoreBanner
+						message={restoreWarning}
+						onDismiss={() => setRestoreWarning(null)}
 					/>
-
-					<section className="shell-main-column" ref={mainColRef}>
-						<MainColumnChrome
-							downloadingBannerInfo={downloadingBannerInfo}
-							downloadedBannerInfo={downloadedBannerInfo}
-							onRestartUpdate={() => void system.installUpdate()}
-							onLaterUpdate={() =>
-								setUpdateDismissedFor(downloadedBannerInfo?.version ?? null)
-							}
-							chipBarRef={chipBarRef}
-							activeWorktree={activeWorktree}
-							activeSession={activeSession ?? null}
-							activeSummary={activeSummary}
-							changedFileCount={changes.length}
-							activeWorkspaceId={activeWorkspaceId}
+					<div
+						className="shell-layout"
+						data-testid="shell-layout"
+						style={{
+							gridTemplateColumns: `${
+								sidebarCollapsed ? 88 : sidebarWidth
+							}px minmax(0, 1fr)`,
+						}}
+					>
+						<SidebarPanel
+							sidebarWorkspaces={sidebarWorkspaces}
+							sidebarCollapsed={sidebarCollapsed}
 							setSidebarCollapsed={setSidebarCollapsed}
+							handleSidebarResizeStart={handleSidebarResizeStart}
+							activeWorkspaceId={activeWorkspaceId}
+							pendingRename={pendingRename}
 							setPendingRename={setPendingRename}
-							openReview={() => setReviewOpen(true)}
+							openWorkspacePicker={() => setWorkspacePickerOpen(true)}
+							openCreateWorktreeDialog={() => setCreateDialogOpen(true)}
+							openRemoveWorktreeDialog={(worktreeId) => {
+								setRemoveTargetId(worktreeId);
+								setConfirmedDirtyRemoval(false);
+								setRemoveDialogOpen(true);
+							}}
+							activateWorkspace={activateWorkspace}
+							handleSelectSidebarWorktree={handleSelectSidebarWorktree}
+							handleRemoveWorkspace={handleRemoveWorkspace}
+							onOpenWorkflowDetail={(workspaceId, worktreeId) =>
+								setWorkflowDetailTarget({ workspaceId, worktreeId })
+							}
 							dispatch={dispatch}
-							noteSheetOpen={noteSheetOpen}
-							setNoteSheetOpen={setNoteSheetOpen}
-							filesOverlayOpen={filesOverlayOpen}
-							setFilesOverlayOpen={setFilesOverlayOpen}
-							trackedFilesLoader={trackedFilesLoader}
-							gitStatusMap={gitStatusMap}
-							shortcutsHelpOpen={shortcutsHelpOpen}
-							setShortcutsHelpOpen={setShortcutsHelpOpen}
-							appPlatform={appPlatform}
-							openWorktreePaths={worktrees
-								.filter((w) => workspaceState.sessionsByWorktreeId[w.id])
-								.map((w) => w.path)}
-							onOpenPlugins={() => setPluginsDialogOpen(true)}
+							collapsedWorkspaceIds={collapsedWorkspaceIds}
+							onToggleWorkspaceCollapsed={toggleWorkspaceCollapsed}
+							palette={palette}
+							onSetTheme={setTheme}
 						/>
 
-						<div className="shell-terminal-frame">
-							{activeWorktree && (
-								<div className="terminal-chrome-header-anchor">
-									<TerminalChromeHeader
-										agentLauncher={
-											<AgentLauncherBar
-												probes={agentClis}
-												whisperHealthy={whisperOnHealthy}
-												whisperState={activeWhisperState}
-												mountPending={mountGuard.mountPending}
-												beginMount={mountGuard.beginMount}
-												launchInTerminal={(command) =>
-													void launchCollabTerminal(command)
-												}
-											/>
-										}
-										terminalActions={
-											<>
-												<FloatingShellPills
-													floatingShellIds={floatingShellIds}
-													processSessionsById={
-														workspaceState.processSessionsById
+						<section className="shell-main-column" ref={mainColRef}>
+							<MainColumnChrome
+								downloadingBannerInfo={downloadingBannerInfo}
+								downloadedBannerInfo={downloadedBannerInfo}
+								onRestartUpdate={() => void system.installUpdate()}
+								onLaterUpdate={() =>
+									setUpdateDismissedFor(downloadedBannerInfo?.version ?? null)
+								}
+								chipBarRef={chipBarRef}
+								activeWorktree={activeWorktree}
+								activeSession={activeSession ?? null}
+								activeSummary={activeSummary}
+								changedFileCount={changes.length}
+								activeWorkspaceId={activeWorkspaceId}
+								setSidebarCollapsed={setSidebarCollapsed}
+								setPendingRename={setPendingRename}
+								openReview={() => setReviewOpen(true)}
+								dispatch={dispatch}
+								noteSheetOpen={noteSheetOpen}
+								setNoteSheetOpen={setNoteSheetOpen}
+								filesOverlayOpen={filesOverlayOpen}
+								setFilesOverlayOpen={setFilesOverlayOpen}
+								trackedFilesLoader={trackedFilesLoader}
+								gitStatusMap={gitStatusMap}
+								shortcutsHelpOpen={shortcutsHelpOpen}
+								setShortcutsHelpOpen={setShortcutsHelpOpen}
+								appPlatform={appPlatform}
+								openWorktreePaths={worktrees
+									.filter((w) => workspaceState.sessionsByWorktreeId[w.id])
+									.map((w) => w.path)}
+								onOpenPlugins={() => setPluginsDialogOpen(true)}
+							/>
+
+							<div className="shell-terminal-frame">
+								{activeWorktree && (
+									<div className="terminal-chrome-header-anchor">
+										<TerminalChromeHeader
+											agentLauncher={
+												<AgentLauncherBar
+													probes={agentClis}
+													whisperHealthy={whisperOnHealthy}
+													whisperState={activeWhisperState}
+													deferredProvider={deferredMount.deferredProvider}
+													onLaunch={(provider) =>
+														launchAgent(provider, undefined)
 													}
-													expandedId={expandedFloatingShellId}
-													onExpand={handleExpandFloatingShell}
-													onClose={handleCloseFloatingShell}
 												/>
-												<TerminalActions
-													presets={workspaceState.commandPresets}
-													addDisabled={addDisabled}
-													onAddAdHoc={handleAddAdHoc}
-													onLaunchPreset={handleLaunchPreset}
-													onOpenPresetManager={() => setPresetManagerOpen(true)}
-													onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
-													platform={appPlatform}
-												/>
-											</>
-										}
-									/>
-									{expandedFloatingProcess && (
-										<FloatingShellPopover
-											key={expandedFloatingProcess.id}
-											process={expandedFloatingProcess}
-											session={expandedFloatingSession}
-											theme={terminalTheme}
-											initialPosition={
-												floatingPositionsRef.current.get(
-													expandedFloatingProcess.id,
-												) ?? null
 											}
-											onPositionChange={(p) => {
-												const id = expandedFloatingProcess.id;
-												if (p) floatingPositionsRef.current.set(id, p);
-												else floatingPositionsRef.current.delete(id);
-											}}
-											pinDisabled={addDisabled}
-											onMinimize={handleMinimizeFloatingShell}
-											onPin={handlePinFloatingShell}
-											onClose={handleCloseFloatingShell}
-											onTitleChange={(title) => {
-												const nextLabel = normalizeTerminalTitle(title);
-												if (!nextLabel) return;
-												createScopedWorkspaceDispatch(activeWorkspaceId ?? "")({
-													type: "session/updateProcessLabel",
-													processId: expandedFloatingProcess.id,
-													label: nextLabel,
-												});
-											}}
+											terminalActions={
+												<>
+													<FloatingShellPills
+														floatingShellIds={floatingShellIds}
+														processSessionsById={
+															workspaceState.processSessionsById
+														}
+														expandedId={expandedFloatingShellId}
+														onExpand={handleExpandFloatingShell}
+														onClose={handleCloseFloatingShell}
+													/>
+													<TerminalActions
+														presets={workspaceState.commandPresets}
+														addDisabled={addDisabled}
+														onAddAdHoc={handleAddAdHoc}
+														onLaunchPreset={launchPreset}
+														onOpenPresetManager={() =>
+															setPresetManagerOpen(true)
+														}
+														onOpenLayoutDialog={() => setLayoutDialogOpen(true)}
+														platform={appPlatform}
+													/>
+												</>
+											}
 										/>
-									)}
+										{expandedFloatingProcess && (
+											<FloatingShellPopover
+												key={expandedFloatingProcess.id}
+												process={expandedFloatingProcess}
+												session={expandedFloatingSession}
+												theme={terminalTheme}
+												initialPosition={
+													floatingPositionsRef.current.get(
+														expandedFloatingProcess.id,
+													) ?? null
+												}
+												onPositionChange={(p) => {
+													const id = expandedFloatingProcess.id;
+													if (p) floatingPositionsRef.current.set(id, p);
+													else floatingPositionsRef.current.delete(id);
+												}}
+												initialSize={floatingSharedSizeRef.current}
+												onSizeChange={(s) => {
+													floatingSharedSizeRef.current = s;
+												}}
+												pinDisabled={addDisabled}
+												onMinimize={handleMinimizeFloatingShell}
+												onPin={handlePinFloatingShell}
+												onClose={handleCloseFloatingShell}
+												onTitleChange={(title) => {
+													const nextLabel = normalizeTerminalTitle(title);
+													if (!nextLabel) return;
+													createScopedWorkspaceDispatch(
+														activeWorkspaceId ?? "",
+													)({
+														type: "session/updateProcessLabel",
+														processId: expandedFloatingProcess.id,
+														label: nextLabel,
+													});
+												}}
+											/>
+										)}
+									</div>
+								)}
+
+								{/*
+								 * Render a terminal panel for every hydrated workspace, not just the
+								 * active one. Only the active workspace's panel is visible; the rest
+								 * stay mounted but hidden via CSS. Keeping inactive panels mounted
+								 * means their xterm instances keep their PTY output subscription alive
+								 * and never lose scrollback when the user switches workspaces and back
+								 * (previously the panel was unmounted on switch, disposing the xterm and
+								 * rendering blank on return). Panes are keyed by processId within each
+								 * panel and panels by workspaceId, so switching only flips visibility —
+								 * no unmount/remount of the xterm instances.
+								 */}
+								<div className="shell-terminal-layer">
+									{appWorkspaces.workspaceOrder.map((id) => {
+										const ws = appWorkspaces.workspacesById[id];
+										if (!ws || ws.workspaceState === null) return null;
+										const isActive = ws.workspaceId === activeWorkspaceId;
+										const wsState = isActive
+											? workspaceState
+											: ws.workspaceState;
+										const wsSelectedWorktreeId = wsState.selectedWorktreeId;
+										const wsActiveWorktree = isActive
+											? activeWorktree
+											: (ws.worktrees.find(
+													(w) => w.id === wsSelectedWorktreeId,
+												) ?? null);
+										const wsActiveSession = isActive
+											? (activeSession ?? null)
+											: wsSelectedWorktreeId
+												? (wsState.sessionsByWorktreeId[wsSelectedWorktreeId] ??
+													null)
+												: null;
+										const wsSlotProcessIds =
+											wsActiveSession?.slotProcessIds ?? [null];
+										return (
+											<div
+												key={ws.workspaceId}
+												className="shell-terminal-host"
+												data-active={isActive ? "true" : "false"}
+												data-workspace-id={ws.workspaceId}
+											>
+												<TerminalPanel
+													panelVisible={isActive}
+													suppressAutoFocus={isActive && reviewOpen}
+													terminalTheme={terminalTheme}
+													workspaceState={wsState}
+													activeWorktree={wsActiveWorktree}
+													activeSession={wsActiveSession}
+													sessions={sessions}
+													layoutId={wsActiveSession?.terminalLayoutId ?? "1"}
+													slotProcessIds={wsSlotProcessIds}
+													terminalFocusSignal={terminalFocusSignal}
+													// Workspace-pinned dispatch so terminal title (OSC) updates
+													// emitted by a hidden workspace's PTY always route to THAT
+													// workspace, not whichever one is currently active. A fresh
+													// scoped dispatch is created per event to avoid stale base
+													// state.
+													dispatch={(action) =>
+														createScopedWorkspaceDispatch(ws.workspaceId)(
+															action,
+														)
+													}
+													selectActiveProcess={
+														isActive ? selectActiveProcess : NOOP
+													}
+													onCloseSlot={isActive ? handleCloseProcess : NOOP}
+													onRestartSlot={isActive ? handleRestartProcess : NOOP}
+													onPromoteSlot={isActive ? handlePromoteSlot : NOOP}
+													onStartShellInSlot={
+														isActive ? handleStartShellInSlot : NOOP
+													}
+													agentProviders={visibleProviders(agentClis)}
+													onLaunchAgentInSlot={
+														isActive ? handleLaunchAgentInSlot : NOOP
+													}
+													findProcessByTerminalSessionId={
+														findProcessByTerminalSessionId
+													}
+												/>
+											</div>
+										);
+									})}
 								</div>
+							</div>
+							{activeWorktree && (
+								<TerminalLayoutDialog
+									open={layoutDialogOpen}
+									runningShells={runningShells}
+									currentLayoutId={activeSession?.terminalLayoutId ?? "1"}
+									onSelect={handleSelectLayout}
+									onClose={() => setLayoutDialogOpen(false)}
+								/>
 							)}
 
-							{/*
-							 * Render a terminal panel for every hydrated workspace, not just the
-							 * active one. Only the active workspace's panel is visible; the rest
-							 * stay mounted but hidden via CSS. Keeping inactive panels mounted
-							 * means their xterm instances keep their PTY output subscription alive
-							 * and never lose scrollback when the user switches workspaces and back
-							 * (previously the panel was unmounted on switch, disposing the xterm and
-							 * rendering blank on return). Panes are keyed by processId within each
-							 * panel and panels by workspaceId, so switching only flips visibility —
-							 * no unmount/remount of the xterm instances.
-							 */}
-							<div className="shell-terminal-layer">
-								{appWorkspaces.workspaceOrder.map((id) => {
-									const ws = appWorkspaces.workspacesById[id];
-									if (!ws || ws.workspaceState === null) return null;
-									const isActive = ws.workspaceId === activeWorkspaceId;
-									const wsState = isActive ? workspaceState : ws.workspaceState;
-									const wsSelectedWorktreeId = wsState.selectedWorktreeId;
-									const wsActiveWorktree = isActive
-										? activeWorktree
-										: (ws.worktrees.find(
-												(w) => w.id === wsSelectedWorktreeId,
-											) ?? null);
-									const wsActiveSession = isActive
-										? (activeSession ?? null)
-										: wsSelectedWorktreeId
-											? (wsState.sessionsByWorktreeId[wsSelectedWorktreeId] ??
-												null)
-											: null;
-									const wsSlotProcessIds = wsActiveSession?.slotProcessIds ?? [
-										null,
-									];
-									return (
-										<div
-											key={ws.workspaceId}
-											className="shell-terminal-host"
-											data-active={isActive ? "true" : "false"}
-											data-workspace-id={ws.workspaceId}
-										>
-											<TerminalPanel
-												panelVisible={isActive}
-												suppressAutoFocus={isActive && reviewOpen}
-												terminalTheme={terminalTheme}
-												workspaceState={wsState}
-												activeWorktree={wsActiveWorktree}
-												activeSession={wsActiveSession}
-												sessions={sessions}
-												layoutId={wsActiveSession?.terminalLayoutId ?? "1"}
-												slotProcessIds={wsSlotProcessIds}
-												terminalFocusSignal={terminalFocusSignal}
-												// Workspace-pinned dispatch so terminal title (OSC) updates
-												// emitted by a hidden workspace's PTY always route to THAT
-												// workspace, not whichever one is currently active. A fresh
-												// scoped dispatch is created per event to avoid stale base
-												// state.
-												dispatch={(action) =>
-													createScopedWorkspaceDispatch(ws.workspaceId)(action)
-												}
-												selectActiveProcess={
-													isActive ? selectActiveProcess : NOOP
-												}
-												onCloseSlot={isActive ? handleCloseProcess : NOOP}
-												onRestartSlot={isActive ? handleRestartProcess : NOOP}
-												onPromoteSlot={isActive ? handlePromoteSlot : NOOP}
-												onStartShellInSlot={
-													isActive ? handleStartShellInSlot : NOOP
-												}
-												agentProviders={visibleProviders(agentClis)}
-												onLaunchAgentInSlot={
-													isActive ? handleLaunchAgentInSlot : NOOP
-												}
-												findProcessByTerminalSessionId={
-													findProcessByTerminalSessionId
-												}
-											/>
-										</div>
-									);
-								})}
-							</div>
-						</div>
-						{activeWorktree && (
-							<TerminalLayoutDialog
-								open={layoutDialogOpen}
-								runningShells={runningShells}
-								currentLayoutId={activeSession?.terminalLayoutId ?? "1"}
-								onSelect={handleSelectLayout}
-								onClose={() => setLayoutDialogOpen(false)}
-							/>
-						)}
-
-						<PluginsPanelDialog
-							open={pluginsDialogOpen}
-							onOpenChange={setPluginsDialogOpen}
-							onInstall={(command) => void handlePluginInstall(command)}
-							onConfigure={(command) =>
-								void handlePluginInstall(command, "plugin configure")
-							}
-						/>
-
-						{workflowDetailTarget && (
-							<WorkflowDetail
-								open
-								onOpenChange={(next) => {
-									if (!next) setWorkflowDetailTarget(null);
+							<PluginsPanelDialog
+								open={pluginsDialogOpen}
+								onOpenChange={setPluginsDialogOpen}
+								onInstall={(command) => {
+									(
+										window as unknown as {
+											__lastPluginCommand?: string;
+										}
+									).__lastPluginCommand = command;
+									void runCommandInFloatingShell(command, {
+										label: "plugin install",
+										autoCloseOnZero: true,
+										onExit: () => void pluginsClient.reprobe(),
+									});
 								}}
-								state={
-									whisperStates.get(workflowDetailTarget.worktreeId) ?? null
-								}
-								workspaceId={workflowDetailTarget.workspaceId}
-								worktreeId={workflowDetailTarget.worktreeId}
-								onCommandError={(message) => notifyToast(message)}
-								onCommandReply={(message) => notifyToast(message)}
+								onConfigure={(command) => {
+									(
+										window as unknown as {
+											__lastPluginCommand?: string;
+										}
+									).__lastPluginCommand = command;
+									void runCommandInFloatingShell(command, {
+										label: "plugin configure",
+										autoCloseOnZero: true,
+										onExit: () => void pluginsClient.reprobe(),
+									});
+								}}
 							/>
-						)}
 
-						{activeWorktree && (
-							<ReviewChipBar
-								isDirty={activeSummary?.isDirty ?? false}
-								changedFileCount={changes.length}
-								reviewMode={activeSession?.reviewMode ?? "files"}
-								openCommentCount={openCommentCount}
-								addressedCommentCount={addressedCommentCount}
-								canOpenFiles={canOpenFiles}
-								onRefresh={handleRefreshChanges}
-								onOpen={() => setReviewOpen(true)}
-								onOpenFiles={handleOpenFilesChip}
-								onOpenComments={handleOpenCommentsChip}
-							/>
-						)}
-						{reviewOpen && activeWorktree && (
-							<ReviewExpandedPortal
-								ref={expandedPortalRef}
-								mainColRef={mainColRef}
-								chipBarRef={chipBarRef}
-								onCollapse={() => setReviewOpen(false)}
-								onRefresh={handleRefreshChanges}
-								reviewMode={activeSession?.reviewMode ?? "files"}
-								isDirty={activeSummary?.isDirty ?? false}
-								changedFileCount={changes.length}
-								commentSidebarOpen={commentSidebarOpen}
-								onToggleCommentSidebar={() => setCommentSidebarOpen((o) => !o)}
-								openCommentCount={currentFileOpenCommentCount}
-							>
-								<CodeNavHygiene
-									workspaceId={activeWorkspaceId ?? ""}
-									worktreeId={activeWorktree.id}
-									worktreeRoot={activeWorktree.path}
-								/>
-								<ReviewArea
-									activeWorktree={activeWorktree}
-									activeSession={activeSession ?? null}
-									activeWorkspaceId={activeWorkspaceId}
-									workspaceState={workspaceState}
-									changes={changes}
-									openCommentCounts={openCommentCounts}
-									commitHistoryState={commitHistoryState}
-									commitDetailState={commitDetailState}
-									diffState={diffState}
-									remoteStatus={remoteStatus}
-									selectedCommitOpenCommentCount={
-										selectedCommitOpenCommentCount
+							{workflowDetailTarget && (
+								<WorkflowDetail
+									open
+									onOpenChange={(next) => {
+										if (!next) setWorkflowDetailTarget(null);
+									}}
+									state={
+										whisperStates.get(workflowDetailTarget.worktreeId) ?? null
 									}
-									gitSummaryError={gitSummaryError}
-									gitSummaryMessage={gitSummaryMessage}
-									gitSummaryStale={gitSummaryStale}
-									reviewState={reviewState}
-									reviewRailWidth={reviewRailWidth}
-									handleReviewRailResizeStart={handleReviewRailResizeStart}
-									commentSidebarOpen={commentSidebarOpen}
-									resolvedTheme={resolvedTheme}
-									installCtaVisible={installCtaVisible}
-									onOpenInstall={() => setInstallModalOpen(true)}
-									dispatch={dispatch}
-									handlePushBranch={handlePushBranch}
-									handleSelectChangedFile={handleSelectChangedFile}
-									setDiscardPath={setDiscardPath}
-									bumpRefreshKey={() => setRefreshKey((k) => k + 1)}
-									addingDraft={addingDraft}
-									setAddingDraft={setAddingDraft}
-									updateAddingDraftBody={updateAddingDraftBody}
-									pendingCommentJump={pendingCommentJump}
-									onConsumePendingCommentJump={() => setPendingCommentJump(0)}
-									onCloseReview={() => setReviewOpen(false)}
+									workspaceId={workflowDetailTarget.workspaceId}
+									worktreeId={workflowDetailTarget.worktreeId}
+									onCommandError={(message) => notifyToast(message)}
+									onCommandReply={(message) => notifyToast(message)}
 								/>
-							</ReviewExpandedPortal>
-						)}
-					</section>
-				</div>
+							)}
 
-				<PresetManager
-					open={presetManagerOpen}
-					presets={workspaceState.commandPresets}
-					onOpenChange={setPresetManagerOpen}
-					onSave={(preset) => dispatch({ type: "preset/upsert", preset })}
-					onDelete={(presetId) => dispatch({ type: "preset/remove", presetId })}
-					onLaunch={(presetId) => {
-						setPresetManagerOpen(false);
-						handleLaunchPreset(presetId);
-					}}
+							{activeWorktree && (
+								<ReviewChipBar
+									isDirty={activeSummary?.isDirty ?? false}
+									changedFileCount={changes.length}
+									reviewMode={activeSession?.reviewMode ?? "files"}
+									openCommentCount={openCommentCount}
+									addressedCommentCount={addressedCommentCount}
+									canOpenFiles={canOpenFiles}
+									onRefresh={handleRefreshChanges}
+									onOpen={() => setReviewOpen(true)}
+									onOpenFiles={handleOpenFilesChip}
+									onOpenComments={handleOpenCommentsChip}
+								/>
+							)}
+							{reviewOpen && activeWorktree && (
+								<ReviewExpandedPortal
+									ref={expandedPortalRef}
+									mainColRef={mainColRef}
+									chipBarRef={chipBarRef}
+									onCollapse={() => setReviewOpen(false)}
+									onRefresh={handleRefreshChanges}
+									reviewMode={activeSession?.reviewMode ?? "files"}
+									isDirty={activeSummary?.isDirty ?? false}
+									changedFileCount={changes.length}
+									commentSidebarOpen={commentSidebarOpen}
+									onToggleCommentSidebar={() =>
+										setCommentSidebarOpen((o) => !o)
+									}
+									openCommentCount={currentFileOpenCommentCount}
+								>
+									<CodeNavHygiene
+										workspaceId={activeWorkspaceId ?? ""}
+										worktreeId={activeWorktree.id}
+										worktreeRoot={activeWorktree.path}
+									/>
+									<ReviewArea
+										activeWorktree={activeWorktree}
+										activeSession={activeSession ?? null}
+										activeWorkspaceId={activeWorkspaceId}
+										workspaceState={workspaceState}
+										changes={changes}
+										openCommentCounts={openCommentCounts}
+										commitHistoryState={commitHistoryState}
+										commitDetailState={commitDetailState}
+										diffState={diffState}
+										remoteStatus={remoteStatus}
+										selectedCommitOpenCommentCount={
+											selectedCommitOpenCommentCount
+										}
+										gitSummaryError={gitSummaryError}
+										gitSummaryMessage={gitSummaryMessage}
+										gitSummaryStale={gitSummaryStale}
+										reviewState={reviewState}
+										reviewRailWidth={reviewRailWidth}
+										handleReviewRailResizeStart={handleReviewRailResizeStart}
+										commentSidebarOpen={commentSidebarOpen}
+										resolvedTheme={resolvedTheme}
+										installCtaVisible={installCtaVisible}
+										onOpenInstall={() => setInstallModalOpen(true)}
+										dispatch={dispatch}
+										handlePushBranch={handlePushBranch}
+										handleSelectChangedFile={handleSelectChangedFile}
+										setDiscardPath={setDiscardPath}
+										bumpRefreshKey={() => setRefreshKey((k) => k + 1)}
+										addingDraft={addingDraft}
+										setAddingDraft={setAddingDraft}
+										updateAddingDraftBody={updateAddingDraftBody}
+										pendingCommentJump={pendingCommentJump}
+										onConsumePendingCommentJump={() => setPendingCommentJump(0)}
+										onCloseReview={() => setReviewOpen(false)}
+									/>
+								</ReviewExpandedPortal>
+							)}
+						</section>
+					</div>
+
+					<PresetManager
+						open={presetManagerOpen}
+						presets={workspaceState.commandPresets}
+						onOpenChange={setPresetManagerOpen}
+						onSave={(preset) => dispatch({ type: "preset/upsert", preset })}
+						onDelete={(presetId) =>
+							dispatch({ type: "preset/remove", presetId })
+						}
+						onLaunch={(presetId) => {
+							setPresetManagerOpen(false);
+							launchPreset(presetId);
+						}}
+					/>
+					<DialogStack
+						workspacePickerOpen={workspacePickerOpen}
+						setWorkspacePickerOpen={setWorkspacePickerOpen}
+						handleLoadPath={handleLoadPath}
+						createDialogOpen={createDialogOpen}
+						setCreateDialogOpen={setCreateDialogOpen}
+						createName={createName}
+						setCreateName={setCreateName}
+						createSessionTitle={createSessionTitle}
+						setCreateSessionTitle={setCreateSessionTitle}
+						createPreview={createPreview}
+						createLoading={createLoading}
+						createError={createError}
+						setCreateError={setCreateError}
+						createBusy={createBusy}
+						handleConfirmCreateWorktree={handleConfirmCreateWorktree}
+						baseBranches={baseBranches}
+						selectedBaseBranch={selectedBaseBranch}
+						setSelectedBaseBranch={setSelectedBaseBranch}
+						baseBranchLoading={baseBranchLoading}
+						baseBranchWarning={baseBranchWarning}
+						removeDialogOpen={removeDialogOpen}
+						setRemoveDialogOpen={setRemoveDialogOpen}
+						removePreview={removePreview}
+						removeError={removeError}
+						removeBusy={removeBusy}
+						removeTargetId={removeTargetId}
+						setRemoveTargetId={setRemoveTargetId}
+						confirmedDirtyRemoval={confirmedDirtyRemoval}
+						setConfirmedDirtyRemoval={setConfirmedDirtyRemoval}
+						workspaceState={workspaceState}
+						handleConfirmRemoveWorktree={handleConfirmRemoveWorktree}
+						discardPath={discardPath}
+						setDiscardPath={setDiscardPath}
+						handleDiscardChange={handleDiscardChange}
+						installModalOpen={installModalOpen}
+						setInstallModalOpen={setInstallModalOpen}
+						agentInstallStatus={agentInstallStatus}
+					/>
+				</main>
+				<CommandPalette
+					open={commandPaletteOpen}
+					onOpenChange={setCommandPaletteOpen}
+					platform={appPlatform}
 				/>
-				<DialogStack
-					workspacePickerOpen={workspacePickerOpen}
-					setWorkspacePickerOpen={setWorkspacePickerOpen}
-					handleLoadPath={handleLoadPath}
-					createDialogOpen={createDialogOpen}
-					setCreateDialogOpen={setCreateDialogOpen}
-					createName={createName}
-					setCreateName={setCreateName}
-					createSessionTitle={createSessionTitle}
-					setCreateSessionTitle={setCreateSessionTitle}
-					createPreview={createPreview}
-					createLoading={createLoading}
-					createError={createError}
-					setCreateError={setCreateError}
-					createBusy={createBusy}
-					handleConfirmCreateWorktree={handleConfirmCreateWorktree}
-					baseBranches={baseBranches}
-					selectedBaseBranch={selectedBaseBranch}
-					setSelectedBaseBranch={setSelectedBaseBranch}
-					baseBranchLoading={baseBranchLoading}
-					baseBranchWarning={baseBranchWarning}
-					removeDialogOpen={removeDialogOpen}
-					setRemoveDialogOpen={setRemoveDialogOpen}
-					removePreview={removePreview}
-					removeError={removeError}
-					removeBusy={removeBusy}
-					removeTargetId={removeTargetId}
-					setRemoveTargetId={setRemoveTargetId}
-					confirmedDirtyRemoval={confirmedDirtyRemoval}
-					setConfirmedDirtyRemoval={setConfirmedDirtyRemoval}
-					workspaceState={workspaceState}
-					handleConfirmRemoveWorktree={handleConfirmRemoveWorktree}
-					discardPath={discardPath}
-					setDiscardPath={setDiscardPath}
-					handleDiscardChange={handleDiscardChange}
-					installModalOpen={installModalOpen}
-					setInstallModalOpen={setInstallModalOpen}
-					agentInstallStatus={agentInstallStatus}
-				/>
-			</main>
+			</TooltipProvider>
 		</ToastProvider>
 	);
 }

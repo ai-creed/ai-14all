@@ -57,7 +57,12 @@ export const WorkspaceSnapshotSchema = z.object({
 	selectedWorktreeId: z.string().nullable(),
 	topBandCollapsed: z.boolean().optional(),
 	commandPresets: z.array(
-		z.object({ id: z.string(), label: z.string(), command: z.string() }),
+		z.object({
+			id: z.string(),
+			label: z.string(),
+			command: z.string(),
+			target: z.enum(["pinned", "throwaway"]).optional().default("pinned"),
+		}),
 	),
 	worktreeSessions: z.array(PersistedWorktreeSessionSchema),
 });

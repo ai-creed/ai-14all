@@ -143,6 +143,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 }));
 
 import { App } from "../../../src/app/App";
+import { CommandRegistryProvider } from "../../../src/features/command-palette/components/CommandRegistryProvider";
 import {
 	workspace,
 	repository,
@@ -187,7 +188,7 @@ async function loadRepository() {
 		},
 	});
 
-	render(<App />);
+	render(<App />, { wrapper: CommandRegistryProvider });
 
 	await screen.findByLabelText("Repository path");
 	fireEvent.change(screen.getByLabelText("Repository path"), {

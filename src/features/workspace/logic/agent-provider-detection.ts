@@ -11,6 +11,16 @@ const CODEX_COMMAND = /(?:^|[\s/\\])codex(?=\s|$)/i;
 // optional `ai-` prefix matches both, while the boundary/lookahead still reject
 // `myezio`, `ezio-helper`, and `ai-ezio-helper`.
 const EZIO_COMMAND = /(?:^|[\s/\\])(?:ai-)?ezio(?=\s|$)/i;
+// `agent` (Cursor) and `agy` (Antigravity) are generic binary names. Unlike the
+// whisper-capable agents above — which legitimately appear as the trailing token
+// of `whisper collab mount <id>` and so need the whitespace-boundary anchor —
+// cursor/antigravity are never mounted; they always run as the bare PROGRAM. So
+// match only in command position: start-of-string, optionally preceded by a path,
+// terminated by whitespace or EOS. This still detects `agent`, `agent --resume`,
+// and `/path/to/agent`, while rejecting argument-position uses like
+// `npm run agent` or `python -m agent`.
+const CURSOR_COMMAND = /^(?:\S*[/\\])?agent(?=\s|$)/i;
+const ANTIGRAVITY_COMMAND = /^(?:\S*[/\\])?agy(?=\s|$)/i;
 
 function matchCommand(
 	command: string | null | undefined,
@@ -19,6 +29,8 @@ function matchCommand(
 	if (CLAUDE_COMMAND.test(command)) return "claude";
 	if (CODEX_COMMAND.test(command)) return "codex";
 	if (EZIO_COMMAND.test(command)) return "ezio";
+	if (CURSOR_COMMAND.test(command)) return "cursor";
+	if (ANTIGRAVITY_COMMAND.test(command)) return "antigravity";
 	return null;
 }
 
@@ -31,10 +43,12 @@ function matchLabel(label: string | undefined): AgentProvider | null {
 	// `\bezio\b` already matches the `ai-ezio` alias: the hyphen is a word
 	// boundary, so "ai-ezio" contains the standalone token "ezio".
 	if (/\bezio\b/i.test(label)) return "ezio";
+	if (/\bcursor\b/i.test(label)) return "cursor";
+	if (/\bantigravity\b/i.test(label)) return "antigravity";
 	return null;
 }
 
-// Returns "claude" | "codex" | "ezio" | null. Never emits "other" — that bucket is set by other code paths, not command/label sniffing.
+// Returns "claude" | "codex" | "ezio" | "cursor" | "antigravity" | null. Never emits "other" — that bucket is set by other code paths, not command/label sniffing.
 /**
  * Detect the agent provider for a process. Sticky behavior:
  *

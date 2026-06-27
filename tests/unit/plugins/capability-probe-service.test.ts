@@ -46,10 +46,10 @@ describe("createCapabilityProbeService", () => {
 		const { service, resolveBinaryImpl, advance } = makeService();
 		await service.probeAgentClis();
 		await service.probeAgentClis();
-		expect(resolveBinaryImpl).toHaveBeenCalledTimes(3); // claude + codex + ezio, once
+		expect(resolveBinaryImpl).toHaveBeenCalledTimes(5); // claude + codex + ezio + agent (cursor) + agy (antigravity), once
 		advance(61_000);
 		await service.probeAgentClis();
-		expect(resolveBinaryImpl).toHaveBeenCalledTimes(6);
+		expect(resolveBinaryImpl).toHaveBeenCalledTimes(10);
 	});
 
 	it("invalidate() forces a fresh probe", async () => {
@@ -57,13 +57,13 @@ describe("createCapabilityProbeService", () => {
 		await service.probeAgentClis();
 		service.invalidate();
 		await service.probeAgentClis();
-		expect(resolveBinaryImpl).toHaveBeenCalledTimes(6);
+		expect(resolveBinaryImpl).toHaveBeenCalledTimes(10);
 	});
 
 	it("concurrent callers share one in-flight probe", async () => {
 		const { service, resolveBinaryImpl } = makeService();
 		await Promise.all([service.probeAgentClis(), service.probeAgentClis()]);
-		expect(resolveBinaryImpl).toHaveBeenCalledTimes(3);
+		expect(resolveBinaryImpl).toHaveBeenCalledTimes(5);
 	});
 
 	it("version failure degrades to version null, never a throw", async () => {
@@ -125,6 +125,26 @@ describe("createCapabilityProbeService", () => {
 				(c) => c[0] === "/bin/ezio" && (c[1] as string[]).includes("--version"),
 			),
 		).toBe(false);
+	});
+
+	it("probes cursor by its `agent` binary and keys the result under `cursor`", async () => {
+		const resolveBinaryImpl = vi.fn(async (name: string) =>
+			name === "agent"
+				? { command: "/Users/me/.local/bin/agent", prefixArgs: [] }
+				: null,
+		);
+		const svc = createCapabilityProbeService({
+			resolveBinaryImpl: resolveBinaryImpl as never,
+			execFileImpl: ((
+				_c: string,
+				_a: string[],
+				_o: unknown,
+				cb: (e: Error | null, out: string) => void,
+			) => cb(null, "1.2.3")) as never,
+		});
+		const probes = await svc.probeAgentClis();
+		expect(probes.cursor.kind).toBe("found");
+		expect(resolveBinaryImpl).toHaveBeenCalledWith("agent", expect.anything());
 	});
 
 	it("ezio doctor failure degrades to version null, still found", async () => {

@@ -34,6 +34,7 @@ const preset: CommandPreset = {
 	id: "preset-claude",
 	label: "Claude",
 	command: "claude",
+	target: "pinned",
 };
 
 function makeProcess(
