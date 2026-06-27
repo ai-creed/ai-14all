@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.11.0] – 2026-06-27
+
+### Added
+
+- **A command palette, opened with Cmd+Shift+K.** Type to fuzzy-match commands by subsequence and run them from the keyboard: global app actions, cycling between worktrees, workspaces, and terminals, and jumping straight to review comments. The active row scrolls into view as you navigate with the arrow keys, and commands that would be no-ops in the current context (for example, terminal actions when no terminal is focused) are hidden rather than shown disabled.
+- **ai-14all now detects, brands, and launches Cursor and Antigravity sessions.** Alongside Claude Code and Codex, Cursor and Antigravity agents are recognized in the UI with their own branding and can be discovered and launched directly — they are never whisper-mounted. A rapid second mount is deferred and auto-mounts within the two-agent cap, so launching two agents in quick succession no longer races.
+- **Keyboard navigation for the terminal layout selector.** The layout picker now responds to the arrow keys — moving between tiles by their on-screen position — with Enter applying the focused layout. You can open the picker from the command palette and choose a layout without reaching for the mouse.
+- **A redesigned command-preset manager.** Each preset now shows its label and command on separate lines, with the command styled as a codeblock, and its edit, delete, and launch actions are icon buttons with tooltips. A new per-preset launch target chooses whether the preset opens in a pinned terminal or in a throwaway shell. The seeded default presets are trimmed to the "yolo" claude and codex variants, since the plain launches are already a click away in quick launch.
+- **The throwaway shell is now resizable.** Drag any edge or corner of the floating throwaway shell to resize it, clamped to at most 75% of the app's width and 80% of its height so it never swallows the window. Double-clicking its header resets both size and position back to the default.
+
+### Changed
+
+- **Plugin Configure and Install actions run in a floating throwaway shell.** Rather than taking over a pane in the terminal grid, configuring or installing a plugin (ai-whisper, ai-cortex, agent integrations) now runs in a floating throwaway shell, leaving your grid layout untouched.
+- **The expanded throwaway shell minimizes on Esc or a click outside it.** Pressing Escape or clicking anywhere outside the expanded shell collapses it back to its pill, matching how the rest of the app's transient surfaces dismiss.
+
 ## [0.10.1] – 2026-06-24
 
 ### Added

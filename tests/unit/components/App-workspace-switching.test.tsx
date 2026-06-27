@@ -145,6 +145,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 }));
 
 import { App } from "../../../src/app/App";
+import { CommandRegistryProvider } from "../../../src/features/command-palette/components/CommandRegistryProvider";
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -196,7 +197,7 @@ describe("workspace switching", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		const input = await screen.findByLabelText(/repository path/i);
 		await userEvent.type(input, "/repo-a");
@@ -263,7 +264,7 @@ describe("workspace switching", () => {
 				},
 			]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		const input = await screen.findByLabelText(/repository path/i);
 		await userEvent.type(input, "/repo-a");
@@ -309,7 +310,7 @@ describe("workspace switching", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		const input = await screen.findByLabelText(/repository path/i);
 		await userEvent.type(input, "/repo-a");
@@ -343,7 +344,7 @@ describe("workspace switching", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		await userEvent.type(
 			await screen.findByLabelText(/repository path/i),
@@ -392,7 +393,7 @@ describe("workspace switching", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		await userEvent.type(
 			await screen.findByLabelText(/repository path/i),
@@ -459,7 +460,7 @@ describe("workspace switching", () => {
 				},
 			]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		// Load repo-a
 		const input = await screen.findByLabelText(/repository path/i);
@@ -554,7 +555,7 @@ describe("workspace switching", () => {
 			return () => {};
 		});
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		await userEvent.type(
 			await screen.findByLabelText(/repository path/i),
@@ -653,7 +654,7 @@ describe("workspace switching", () => {
 				},
 			]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		await userEvent.type(
 			await screen.findByLabelText(/repository path/i),
@@ -792,7 +793,7 @@ describe("workspace switching", () => {
 				},
 			]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		// Load repo-a
 		await userEvent.type(

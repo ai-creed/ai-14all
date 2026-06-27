@@ -1,10 +1,16 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { ITheme } from "xterm";
 import { Icon } from "@/components/ui/icon";
 import type { ProcessSession } from "../../../../shared/models/process-session";
 import type { TerminalSession } from "../../../../shared/models/terminal-session";
 import { TerminalPane } from "./TerminalPane";
+import {
+	applyResize,
+	type ResizeHandle,
+	type Rect,
+	type Size,
+} from "../logic/floating-shell-resize";
 
 export type FloatingShellPosition = { left: number; top: number };
 
@@ -25,6 +31,10 @@ type Props = {
 	initialPosition?: FloatingShellPosition | null;
 	/** Persist the dragged position (null when reset back to the anchor). */
 	onPositionChange?: (pos: FloatingShellPosition | null) => void;
+	/** Restored shared size (memory-only), or null to use the CSS default. */
+	initialSize?: Size | null;
+	/** Persist the resized size (null when reset back to the default). */
+	onSizeChange?: (size: Size | null) => void;
 };
 
 // While dragging, keep at least this much of the popover within the viewport so
@@ -53,6 +63,8 @@ export function FloatingShellPopover({
 	onTitleChange,
 	initialPosition = null,
 	onPositionChange,
+	initialSize = null,
+	onSizeChange,
 }: Props) {
 	const exited = process.status === "exited" || process.status === "error";
 	const rootRef = useRef<HTMLDivElement>(null);
@@ -72,6 +84,49 @@ export function FloatingShellPopover({
 		latestPosRef.current = next;
 		setPos(next);
 	};
+
+	const resizeRef = useRef<{
+		pointerId: number;
+		handle: ResizeHandle;
+		startX: number;
+		startY: number;
+		startRect: Rect;
+	} | null>(null);
+	const latestSizeRef = useRef<Size | null>(initialSize);
+	const [size, setSize] = useState<Size | null>(initialSize);
+
+	const applySize = (next: Size | null) => {
+		latestSizeRef.current = next;
+		setSize(next);
+	};
+
+	// Esc, or a pointer-down outside the popover, minimizes it back to its pill.
+	// Both listen in the capture phase so Esc wins over xterm — which always holds
+	// focus while the shell is expanded (see targetOwnsTyping/.xterm gotcha) — and
+	// stopPropagation keeps it out of the terminal. The pills bar is excluded
+	// because it owns its own expand/collapse.
+	useEffect(() => {
+		const minimize = () => onMinimize(process.id);
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key !== "Escape" || e.defaultPrevented) return;
+			e.preventDefault();
+			e.stopPropagation();
+			minimize();
+		};
+		const onPointerDown = (e: PointerEvent) => {
+			const target = e.target as HTMLElement | null;
+			if (!target) return;
+			if (rootRef.current?.contains(target)) return;
+			if (target.closest?.(".floating-shell-pills")) return;
+			minimize();
+		};
+		document.addEventListener("keydown", onKeyDown, true);
+		document.addEventListener("pointerdown", onPointerDown, true);
+		return () => {
+			document.removeEventListener("keydown", onKeyDown, true);
+			document.removeEventListener("pointerdown", onPointerDown, true);
+		};
+	}, [process.id, onMinimize]);
 
 	const clamp = (left: number, top: number): FloatingShellPosition => {
 		const width = rootRef.current?.offsetWidth ?? 0;
@@ -121,9 +176,58 @@ export function FloatingShellPopover({
 		onPositionChange?.(latestPosRef.current);
 	};
 
+	const onResizePointerDown =
+		(handle: ResizeHandle) => (e: ReactPointerEvent<HTMLElement>) => {
+			const rect = rootRef.current?.getBoundingClientRect();
+			if (!rect) return;
+			resizeRef.current = {
+				pointerId: e.pointerId,
+				handle,
+				startX: e.clientX,
+				startY: e.clientY,
+				startRect: {
+					left: rect.left,
+					top: rect.top,
+					width: rect.width,
+					height: rect.height,
+				},
+			};
+			// Anchor at the current spot so west/north edges can move the popover.
+			applyPos({ left: rect.left, top: rect.top });
+			applySize({ width: rect.width, height: rect.height });
+			e.currentTarget.setPointerCapture?.(e.pointerId);
+			e.preventDefault();
+			e.stopPropagation();
+		};
+
+	const onResizePointerMove = (e: ReactPointerEvent<HTMLElement>) => {
+		const rz = resizeRef.current;
+		if (!rz || rz.pointerId !== e.pointerId) return;
+		const next = applyResize(
+			rz.handle,
+			rz.startRect,
+			e.clientX - rz.startX,
+			e.clientY - rz.startY,
+			{ width: window.innerWidth, height: window.innerHeight },
+		);
+		applyPos({ left: next.left, top: next.top });
+		applySize({ width: next.width, height: next.height });
+	};
+
+	const endResize = (e: ReactPointerEvent<HTMLElement>) => {
+		const rz = resizeRef.current;
+		if (!rz || rz.pointerId !== e.pointerId) return;
+		resizeRef.current = null;
+		e.currentTarget.releasePointerCapture?.(e.pointerId);
+		onPositionChange?.(latestPosRef.current);
+		onSizeChange?.(latestSizeRef.current);
+	};
+
 	const resetPosition = () => {
 		applyPos(null);
+		applySize(null);
 		onPositionChange?.(null);
+		onSizeChange?.(null);
 	};
 
 	const dragged = pos !== null;
@@ -136,11 +240,12 @@ export function FloatingShellPopover({
 			data-dragged={dragged ? "true" : "false"}
 			role="dialog"
 			aria-label={`Throwaway shell ${process.label}`}
-			style={
-				dragged
+			style={{
+				...(dragged
 					? { position: "fixed", left: pos.left, top: pos.top, right: "auto" }
-					: undefined
-			}
+					: {}),
+				...(size ? { width: size.width, height: size.height } : {}),
+			}}
 		>
 			<header
 				className="floating-shell-popover__header"
@@ -198,6 +303,19 @@ export function FloatingShellPopover({
 					/>
 				)}
 			</div>
+			{(["n", "s", "e", "w", "ne", "nw", "se", "sw"] as ResizeHandle[]).map(
+				(h) => (
+					<div
+						key={h}
+						className={`floating-shell-popover__resize floating-shell-popover__resize--${h}`}
+						data-testid={`floating-shell-resize-${h}`}
+						onPointerDown={onResizePointerDown(h)}
+						onPointerMove={onResizePointerMove}
+						onPointerUp={endResize}
+						onPointerCancel={endResize}
+					/>
+				),
+			)}
 		</div>
 	);
 }

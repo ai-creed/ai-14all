@@ -8,7 +8,7 @@ import {
 	beginMountPending,
 	boundCount,
 	collabStatus,
-	launchCommandFor,
+	decideLaunch,
 	MOUNT_PENDING_TIMEOUT_MS,
 	visibleProviders,
 } from "../../../src/features/terminals/logic/agent-launch";
@@ -17,6 +17,8 @@ const probes = (over: Partial<AgentCliProbes> = {}): AgentCliProbes => ({
 	claude: { kind: "found", path: "/bin/claude", version: "1" },
 	codex: { kind: "found", path: "/bin/codex", version: "1" },
 	ezio: { kind: "not-found" },
+	cursor: { kind: "not-found" },
+	antigravity: { kind: "not-found" },
 	...over,
 });
 
@@ -55,75 +57,101 @@ describe("visibleProviders", () => {
 	});
 });
 
-describe("launchCommandFor", () => {
+describe("decideLaunch", () => {
 	const base = {
-		whisperHealthy: false,
+		whisperHealthy: true,
 		boundCount: 0,
-		mountPending: false,
-		daemonAlive: false,
+		daemonAlive: true,
+		mountInFlight: false,
+		deferredOccupied: false,
 	};
-	it("whisper off → plain provider spawn", () => {
-		expect(launchCommandFor("claude", base)).toBe("claude");
+
+	it("mounts immediately when a slot is free and nothing is settling", () => {
+		expect(decideLaunch("claude", base)).toEqual({
+			kind: "mount",
+			command: "whisper collab mount claude",
+		});
 	});
-	it("whisper unhealthy → plain provider spawn", () => {
-		expect(
-			launchCommandFor("codex", {
-				...base,
-				whisperHealthy: false,
-				boundCount: 0,
-			}),
-		).toBe("codex");
+
+	it("defers the 2nd click on an empty collab while the 1st mount settles", () => {
+		expect(decideLaunch("codex", { ...base, mountInFlight: true })).toEqual({
+			kind: "defer",
+		});
 	});
-	it("whisper healthy, no collab → mount (creates collab)", () => {
+
+	it("does NOT defer when one agent is already bound and a mount is in flight (cap)", () => {
 		expect(
-			launchCommandFor("claude", {
+			decideLaunch("codex", {
 				...base,
-				whisperHealthy: true,
-				boundCount: 0,
-			}),
-		).toBe("whisper collab mount claude");
-	});
-	it("whisper healthy, live collab 1 bound → mount (fills 2nd slot)", () => {
-		expect(
-			launchCommandFor("ezio", {
-				...base,
-				whisperHealthy: true,
 				boundCount: 1,
-				daemonAlive: true,
+				mountInFlight: true,
 			}),
-		).toBe("whisper collab mount ezio");
+		).toEqual({ kind: "vendor", command: "codex" });
 	});
-	it("whisper healthy, live collab 2 bound (full) → plain provider spawn", () => {
+
+	it("does NOT defer a second time once a deferral is queued (third → vendor)", () => {
 		expect(
-			launchCommandFor("claude", {
+			decideLaunch("ezio", {
 				...base,
-				whisperHealthy: true,
-				boundCount: 2,
-				daemonAlive: true,
+				mountInFlight: true,
+				deferredOccupied: true,
 			}),
-		).toBe("claude");
+		).toEqual({ kind: "vendor", command: "ezio" });
 	});
-	it("whisper healthy, STOPPED collab with stale bindings (daemonAlive false) → mount, not plain", () => {
-		// Bug repro: `whisper collab stop` leaves bindingState="bound" in the store
-		// but the daemon is dead. A dead collab must NOT count as a full live collab.
+
+	it("vendors (not mount) when deferredOccupied is true even with a free slot (cap-belt guard)", () => {
+		// Sub-tick window: mountInFlight just cleared but the deferred mount hasn't
+		// fired yet. A click here must not overbook the 2-agent cap.
 		expect(
-			launchCommandFor("claude", {
+			decideLaunch("claude", {
 				...base,
-				whisperHealthy: true,
-				boundCount: 2,
-				daemonAlive: false,
+				mountInFlight: false,
+				deferredOccupied: true,
 			}),
-		).toBe("whisper collab mount claude");
+		).toEqual({ kind: "vendor", command: "claude" });
 	});
-	it("mountPending → plain provider spawn (rapid-double-click guard)", () => {
+
+	it("always vendors a non-whisper agent", () => {
+		expect(decideLaunch("cursor", base)).toEqual({
+			kind: "vendor",
+			command: "agent",
+		});
+	});
+
+	it("vendors antigravity (non-whisper) by its binary, never mounting", () => {
+		expect(decideLaunch("antigravity", base)).toEqual({
+			kind: "vendor",
+			command: "agy",
+		});
+	});
+
+	it("vendors a whisper-capable agent when whisper is unhealthy", () => {
+		expect(decideLaunch("claude", { ...base, whisperHealthy: false })).toEqual({
+			kind: "vendor",
+			command: "claude",
+		});
+	});
+
+	it("mounts into the 2nd slot of a live 1-bound collab", () => {
+		expect(decideLaunch("ezio", { ...base, boundCount: 1 })).toEqual({
+			kind: "mount",
+			command: "whisper collab mount ezio",
+		});
+	});
+
+	it("vendors when a live collab is already full (2 bound)", () => {
+		expect(decideLaunch("claude", { ...base, boundCount: 2 })).toEqual({
+			kind: "vendor",
+			command: "claude",
+		});
+	});
+
+	it("treats a STOPPED collab's stale bindings as empty → mount, not vendor", () => {
+		// `whisper collab stop` leaves bindingState="bound" but the daemon is dead;
+		// a dead collab occupies no real slots, so a mount must still be offered.
 		expect(
-			launchCommandFor("claude", {
-				whisperHealthy: true,
-				boundCount: 0,
-				mountPending: true,
-				daemonAlive: false,
-			}),
-		).toBe("claude");
+			decideLaunch("claude", { ...base, boundCount: 2, daemonAlive: false }),
+		).toEqual({ kind: "mount", command: "whisper collab mount claude" });
 	});
 });
 
@@ -187,19 +215,20 @@ describe("boundCount", () => {
 });
 
 describe("mount-pending state machine", () => {
-	it("begins pending capturing the bound + daemon baseline", () => {
+	it("begins pending capturing the bound baseline", () => {
 		expect(beginMountPending(state({ daemonAlive: false }), 1000)).toEqual({
 			kind: "pending",
 			startedAt: 1000,
 			baselineBound: 0,
-			baselineDaemonAlive: false,
 		});
 	});
-	it("clears once the daemon comes alive for a collab-creating mount", () => {
+	it("stays pending when only the daemon comes alive (no binding yet)", () => {
+		// The daemon heartbeat precedes the binding; clearing here would let a rapid
+		// second click slip through before the slot is actually real.
 		const pending = beginMountPending(state({ daemonAlive: false }), 1000);
 		expect(
 			advanceMountPending(pending, state({ daemonAlive: true }), 1500),
-		).toEqual({ kind: "idle" });
+		).toEqual(pending);
 	});
 	it("clears once a new binding lands", () => {
 		const pending = beginMountPending(
@@ -220,11 +249,10 @@ describe("mount-pending state machine", () => {
 			advanceMountPending(pending, state({ daemonAlive: false }), 1500),
 		).toEqual(pending);
 	});
-	it("stays pending for a second mount while the daemon was already alive (guards baselineDaemonAlive)", () => {
+	it("stays pending for a second mount while the daemon was already alive", () => {
 		// Second mount: the collab already exists (daemonAlive true at click time).
 		// The guard must NOT clear merely because the daemon is alive — only a new
-		// binding or the timeout may clear it. This locks in the baselineDaemonAlive
-		// condition against a future "if (daemonAlive) return idle" simplification.
+		// binding or the timeout may clear it.
 		const pending = beginMountPending(
 			state({ daemonAlive: true, bindings: bound("claude") }),
 			1000,

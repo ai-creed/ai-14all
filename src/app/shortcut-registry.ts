@@ -238,6 +238,22 @@ function isTerminalNewFloatingShortcut(
 	return e.ctrlKey && !e.metaKey;
 }
 
+// ⌘⇧K / Ctrl+Shift+K — open the command palette. Shift is REQUIRED: ⌘K /
+// Ctrl+K (no Shift) is TerminalPane's clear-terminal binding, so the palette
+// must not claim it. allowXterm so it opens from inside a focused terminal.
+function isCommandPaletteShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "k" && e.key !== "K") return false;
+	if (e.altKey || !e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null, { allowXterm: true }))
+		return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
 function isLayoutToggleSidebarShortcut(
 	e: KeyboardEvent,
 	platform: Platform,
@@ -515,6 +531,13 @@ export const SHORTCUT_REGISTRY: AppShortcut[] = [
 		mac: "⌘⇧R",
 		other: "Ctrl+Alt+R",
 		predicate: isRenameSessionShortcut,
+	},
+	{
+		id: "command-palette",
+		label: "Command palette",
+		mac: "⌘⇧K",
+		other: "Ctrl+Shift+K",
+		predicate: isCommandPaletteShortcut,
 	},
 	{
 		id: "shortcuts-help",

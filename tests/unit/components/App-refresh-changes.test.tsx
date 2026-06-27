@@ -154,6 +154,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 }));
 
 import { App } from "../../../src/app/App";
+import { CommandRegistryProvider } from "../../../src/features/command-palette/components/CommandRegistryProvider";
 import { workspace, repository, git } from "../../../src/lib/desktop-client";
 
 const mockOpenRepository = vi.mocked(workspace.openRepository);
@@ -190,7 +191,7 @@ async function loadRepoAndSwitchToChanges() {
 		recentCommits: [{ sha: "abc", shortSha: "abc", subject: "initial commit" }],
 	});
 
-	render(<App />);
+	render(<App />, { wrapper: CommandRegistryProvider });
 
 	// Wait for startup loading to complete and repository input to appear
 	await waitFor(() => {
@@ -250,7 +251,7 @@ async function loadRepositoryWithTwoWorktrees() {
 	// both worktrees alive and don't reconcile feature-a away.
 	mockListWorktrees.mockResolvedValue(twoWorktrees);
 
-	render(<App />);
+	render(<App />, { wrapper: CommandRegistryProvider });
 
 	// Wait for startup loading to complete
 	await waitFor(() => {
@@ -375,7 +376,7 @@ describe("App — refresh changes button", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 
 		// Wait for startup loading to complete
 		const repoInput = await screen.findByLabelText("Repository path");
@@ -456,7 +457,7 @@ describe("App — refresh changes button", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		const repoInput = await screen.findByLabelText("Repository path");
 		fireEvent.change(repoInput, {
 			target: { value: "/repo" },
@@ -514,7 +515,7 @@ describe("App — refresh changes button", () => {
 		]);
 		mockReadSummary.mockRejectedValue(new Error("git error"));
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		const repoInput = await screen.findByLabelText("Repository path");
 		fireEvent.change(repoInput, {
 			target: { value: "/repo" },
@@ -557,7 +558,7 @@ describe("App — refresh changes button", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		const repoInput = await screen.findByLabelText("Repository path");
 		fireEvent.change(repoInput, { target: { value: "/repo" } });
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
@@ -608,7 +609,7 @@ describe("App — refresh changes button", () => {
 			},
 		]);
 
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		const repoInput = await screen.findByLabelText("Repository path");
 		fireEvent.change(repoInput, { target: { value: "/repo" } });
 		fireEvent.click(screen.getByRole("button", { name: "Load" }));
@@ -813,7 +814,7 @@ describe("App — process lifecycle", () => {
 	});
 
 	it("launches a preset into a terminal slot", async () => {
-		render(<App />);
+		render(<App />, { wrapper: CommandRegistryProvider });
 		await loadRepository();
 		await createPreset("Claude", "claude");
 		await user.click(screen.getByRole("button", { name: "Presets" }));

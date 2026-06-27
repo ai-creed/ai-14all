@@ -158,3 +158,57 @@ describe("FloatingShellPopover dragging", () => {
 		expect(onPositionChange).toHaveBeenCalledWith(null);
 	});
 });
+
+describe("FloatingShellPopover dismissal", () => {
+	const base = {
+		process: proc("running"),
+		session,
+		theme: {} as never,
+		pinDisabled: false,
+		onPin: () => {},
+		onClose: () => {},
+		onTitleChange: () => {},
+	};
+
+	it("minimizes when Escape is pressed (even from inside the terminal)", () => {
+		const onMinimize = vi.fn();
+		render(<FloatingShellPopover {...base} onMinimize={onMinimize} />);
+		fireEvent.keyDown(screen.getByTestId("terminal-pane"), { key: "Escape" });
+		expect(onMinimize).toHaveBeenCalledWith("p1");
+	});
+
+	it("minimizes on a pointer-down outside the popover", () => {
+		const onMinimize = vi.fn();
+		render(
+			<div>
+				<div data-testid="outside-area">elsewhere</div>
+				<FloatingShellPopover {...base} onMinimize={onMinimize} />
+			</div>,
+		);
+		fireEvent.pointerDown(screen.getByTestId("outside-area"));
+		expect(onMinimize).toHaveBeenCalledWith("p1");
+	});
+
+	it("does not minimize on a pointer-down inside the popover", () => {
+		const onMinimize = vi.fn();
+		render(<FloatingShellPopover {...base} onMinimize={onMinimize} />);
+		fireEvent.pointerDown(screen.getByTestId("terminal-pane"));
+		expect(onMinimize).not.toHaveBeenCalled();
+	});
+
+	it("does not minimize when interacting with the floating-shell pills bar", () => {
+		const onMinimize = vi.fn();
+		render(
+			<div>
+				<div className="floating-shell-pills">
+					<button type="button" data-testid="a-pill">
+						pill
+					</button>
+				</div>
+				<FloatingShellPopover {...base} onMinimize={onMinimize} />
+			</div>,
+		);
+		fireEvent.pointerDown(screen.getByTestId("a-pill"));
+		expect(onMinimize).not.toHaveBeenCalled();
+	});
+});

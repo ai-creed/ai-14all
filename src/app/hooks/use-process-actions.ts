@@ -36,8 +36,13 @@ type Options = {
 export type UseProcessActions = {
 	handleAddAdHoc: () => Promise<void>;
 	/** Spawn an ad-hoc shell PTY + build its ProcessSession, or null on failure
-	 * (a toast is shown). Caller places it into a slot. */
-	spawnAdHocProcess: () => Promise<ProcessSession | null>;
+	 * (a toast is shown). When `command` is given it is RECORDED on the session
+	 * but NOT sent — the caller sends it after subscribing to exit. Caller places
+	 * it into a slot. */
+	spawnAdHocProcess: (opts?: {
+		command?: string;
+		label?: string;
+	}) => Promise<ProcessSession | null>;
 	handleCloseProcess: (processId: string) => Promise<void>;
 	handleLaunchPreset: (presetId: string) => Promise<void>;
 	handleStopProcess: (processId: string) => Promise<void>;
@@ -66,8 +71,11 @@ export function useProcessActions(options: Options): UseProcessActions {
 		removeSession,
 	} = options;
 
-	const spawnAdHocProcess =
-		useCallback(async (): Promise<ProcessSession | null> => {
+	const spawnAdHocProcess = useCallback(
+		async (opts?: {
+			command?: string;
+			label?: string;
+		}): Promise<ProcessSession | null> => {
 			if (!worktree || !workspaceId) return null;
 			const targetWorkspaceId = workspaceId;
 			const targetWorktree = worktree;
@@ -82,7 +90,11 @@ export function useProcessActions(options: Options): UseProcessActions {
 					targetWorkspaceState?.nextAdHocNumberByWorktreeId[
 						targetWorktree.id
 					] ?? 1;
-				const adHocLabel = `shell ${adHocNumber}`;
+				const label = opts?.label ?? `shell ${adHocNumber}`;
+				const command = opts?.command ?? null;
+				// Do NOT send the command here. The caller subscribes to the session's
+				// exit first (so a fast command cannot exit before the listener
+				// exists), then sends it. We only record it on the ProcessSession.
 				return {
 					id: crypto.randomUUID(),
 					workspaceId: targetWorkspaceId,
@@ -90,8 +102,8 @@ export function useProcessActions(options: Options): UseProcessActions {
 					terminalSessionId: termSession.id,
 					origin: "adHoc",
 					presetId: null,
-					label: adHocLabel,
-					command: null,
+					label,
+					command,
 					status: "running",
 					lastActivityAt: null,
 					lastOutputPreview: null,
@@ -100,7 +112,7 @@ export function useProcessActions(options: Options): UseProcessActions {
 					attentionState: "idle",
 					agentAttentionReasons: {},
 					agentAttentionClearedAt: null,
-					agentDetected: isAgentProcess(adHocLabel, null),
+					agentDetected: isAgentProcess(label, command),
 					provider: null,
 				};
 			} catch (err) {
@@ -110,7 +122,9 @@ export function useProcessActions(options: Options): UseProcessActions {
 				notifyToast("Failed to start shell");
 				return null;
 			}
-		}, [worktree, workspaceId, createSession, getWorkspaceStateById]);
+		},
+		[worktree, workspaceId, createSession, getWorkspaceStateById],
+	);
 
 	const handleAddAdHoc = useCallback(async () => {
 		if (!workspaceId) return;

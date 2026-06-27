@@ -403,6 +403,36 @@ test.describe.serial("Throwaway shell", () => {
 		expect(afterSeventh).toBe(atCap);
 	});
 
+	test("the popover resizes via the SE handle and resets on header double-click", async () => {
+		test.setTimeout(60_000);
+		await spawnFloatingShell();
+		const before = await popover().boundingBox();
+		expect(before).toBeTruthy();
+		// Drag the SE corner handle to grow the popover.
+		const handle = page.getByTestId("floating-shell-resize-se");
+		const hb = await handle.boundingBox();
+		expect(hb).toBeTruthy();
+		await page.mouse.move(hb!.x + hb!.width / 2, hb!.y + hb!.height / 2);
+		await page.mouse.down();
+		await page.mouse.move(hb!.x + 140, hb!.y + 100, { steps: 8 });
+		await page.mouse.up();
+		const grown = await popover().boundingBox();
+		expect(grown!.width).toBeGreaterThan(before!.width);
+		expect(grown!.height).toBeGreaterThan(before!.height);
+		// Clamp ceilings: never exceed 75% width / 80% height of the window.
+		const win = await page.evaluate(() => ({
+			w: window.innerWidth,
+			h: window.innerHeight,
+		}));
+		expect(grown!.width).toBeLessThanOrEqual(win.w * 0.75 + 1);
+		expect(grown!.height).toBeLessThanOrEqual(win.h * 0.8 + 1);
+		// Double-click the header resets size (and position) to the default.
+		await popover().locator(".floating-shell-popover__header").dblclick();
+		const reset = await popover().boundingBox();
+		expect(Math.abs(reset!.width - before!.width)).toBeLessThan(4);
+		expect(Math.abs(reset!.height - before!.height)).toBeLessThan(4);
+	});
+
 	test("Cmd+Shift+T fires while a terminal pane is focused", async () => {
 		test.setTimeout(60_000);
 		// Focus the default slot's xterm textarea (a focused terminal pane).
