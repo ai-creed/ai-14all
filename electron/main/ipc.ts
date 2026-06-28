@@ -574,7 +574,7 @@ export function registerIpcHandlers(
 	});
 	ipcMain.handle("usage:setRange", (_event, raw: unknown) => {
 		const range = raw === "month" ? "month" : "week";
-		usageHost?.setRange(range);
+		usageHost?.setChipRange(range);
 	});
 
 	// --- Review Comments ---

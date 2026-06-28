@@ -19,6 +19,7 @@ import {
 import electronUpdater from "electron-updater";
 import { startUpdateService } from "./services/update-service.js";
 import { UsageHost, USAGE_SNAPSHOT_CHANNEL } from "./services/usage-host.js";
+import { createUsageSettingsBridge } from "./services/usage-settings-bridge.js";
 import type { KnownWorktree } from "../../shared/models/usage.js";
 import { ReviewCommentStore } from "../../services/review/review-comment-store.js";
 import { ReviewCommentService } from "../../services/review/review-comment-service.js";
@@ -128,8 +129,16 @@ app.whenReady().then(async () => {
 		},
 	});
 
+	const workspacePersistence = new WorkspacePersistenceService(
+		process.env.AI14ALL_WORKSPACE_STATE_PATH ??
+			join(app.getPath("userData"), "workspace-state.json"),
+	);
+
 	// Token telemetry: gated utilityProcess that reads ~/.claude and ~/.codex logs
-	// and pushes UsageSnapshots to the renderer. Enabled by default.
+	// and pushes UsageSnapshots to the renderer. Enabled by default. The settings
+	// bridge loads the persisted usage UI settings once (async) and exposes a sync
+	// snapshot for the host's loadSettings plus an async read-modify-write persist.
+	const usageSettings = await createUsageSettingsBridge(workspacePersistence);
 	const usageHost = new UsageHost({
 		userDataDir: app.getPath("userData"),
 		launchMs: Date.now(),
@@ -138,6 +147,8 @@ app.whenReady().then(async () => {
 				mainWindow.webContents.send(channel, payload);
 			}
 		},
+		loadSettings: () => usageSettings.settings,
+		persistSettings: usageSettings.persist, // returns Promise<void>; host fires it without awaiting
 	});
 	usageHost.start();
 	// E2E seam: the fixture snapshot is emitted inside start() before loadFile() is
@@ -151,10 +162,6 @@ app.whenReady().then(async () => {
 		}
 	});
 	Menu.setApplicationMenu(buildApplicationMenu(mainWindow));
-	const workspacePersistence = new WorkspacePersistenceService(
-		process.env.AI14ALL_WORKSPACE_STATE_PATH ??
-			join(app.getPath("userData"), "workspace-state.json"),
-	);
 	const workspaceRegistry = new WorkspaceRegistryService();
 	const reviewUserDir = join(app.getPath("userData"), "ai-14all");
 	const reviewCommentStore = new ReviewCommentStore(
