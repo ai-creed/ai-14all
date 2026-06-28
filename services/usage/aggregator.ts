@@ -76,6 +76,22 @@ export class UsageAggregator {
 			cur.billable += e.billable;
 			cur.raw += e.raw;
 			this.since.set(k, cur);
+			// per-(provider, model) cost ledger — gated on launchMs exactly like
+			// sinceLaunch, so the notional $ reflects THIS SITTING (since app launch),
+			// not pre-launch events replayed by the ~35-day backfill. Lifetime /
+			// all-history cost is deferred to Slice 2.
+			const lk = `${e.provider}${LEDGER_SEP}${e.model}`;
+			const lt = this.ledger.get(lk) ?? {
+				input: 0,
+				output: 0,
+				billable: 0,
+				raw: 0,
+			};
+			lt.input += e.input;
+			lt.output += e.output;
+			lt.billable += e.billable;
+			lt.raw += e.raw;
+			this.ledger.set(lk, lt);
 		}
 		let wc = this.week.get(k);
 		if (!wc) {
@@ -92,14 +108,9 @@ export class UsageAggregator {
 		const dayRec = this.daily.get(dayStart) ?? {};
 		dayRec[e.provider] = (dayRec[e.provider] ?? 0) + e.billable;
 		this.daily.set(dayStart, dayRec);
-		// per-(provider, model) cost ledger
-		const lk = `${e.provider}${LEDGER_SEP}${e.model}`;
-		const lt = this.ledger.get(lk) ?? { input: 0, output: 0, billable: 0, raw: 0 };
-		lt.input += e.input;
-		lt.output += e.output;
-		lt.billable += e.billable;
-		lt.raw += e.raw;
-		this.ledger.set(lk, lt);
+		// NOTE: the cost ledger is updated above, inside the launchMs gate, so it
+		// stays scoped to this sitting; the daily series here is intentionally
+		// unconditional (range-scoped chart over the ~35-day window).
 	}
 
 	setProviderLimits(id: AgentProviderId, limits: ProviderRateLimits): void {

@@ -16,8 +16,8 @@ describe("worker protocol shape", () => {
 			includeUntracked: false,
 			backfillBatchSize: 8,
 		};
-		// @ts-expect-error claudeRoot was removed
-		cfg.claudeRoot;
+		// @ts-expect-error claudeRoot was removed from UsageWorkerConfig
+		expect(cfg.claudeRoot).toBeUndefined();
 		expect(cfg.home).toBe("/home/me");
 	});
 

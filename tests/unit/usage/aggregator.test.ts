@@ -75,6 +75,24 @@ describe("UsageAggregator analytics additions", () => {
 		expect(entries.some((e) => e.provider === "codex")).toBe(true);
 	});
 
+	it("scopes the cost ledger to this sitting: pre-launch backfilled events are excluded", () => {
+		const launch = 1000 * HOUR;
+		const agg = new UsageAggregator(launch);
+		// Pre-launch event replayed by the 35-day backfill — must NOT be priced.
+		agg.ingest(ev({ timestampMs: launch - HOUR, billable: 100, input: 100, raw: 100 }));
+		// Post-launch "this sitting" event — counts toward cost.
+		agg.ingest(ev({ timestampMs: launch + HOUR, billable: 5, input: 5, raw: 5 }));
+		const entry = agg
+			.costEntries()
+			.find((e) => e.provider === "codex" && e.model === "m");
+		// Only the post-launch billable reaches the cost ledger.
+		expect(entry?.tokens.billable).toBe(5);
+		// ...but the range-scoped daily series (the chart) still includes BOTH days.
+		const series = agg.dailySeries(launch + HOUR, 35);
+		const codexTotal = series.reduce((s, p) => s + (p.tokens.codex ?? 0), 0);
+		expect(codexTotal).toBe(105);
+	});
+
 	it("stores provider limits by id and tracks which providers had data", () => {
 		const agg = new UsageAggregator(0);
 		agg.setProviderLimits("codex", {
