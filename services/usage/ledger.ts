@@ -201,3 +201,48 @@ export function hourlySeries(session: SessionState): HourlyPoint[] {
 		.sort((a, b) => a[0] - b[0])
 		.map(([hourStartMs, tokens]) => ({ hourStartMs, tokens: { ...tokens } }));
 }
+
+// Per-file contribution to the ledger, in JSON-native form (dayStartMs as a string
+// key) so it persists inside the offset cache without custom Map serialization.
+export type ContributionJson = Record<string, Record<BucketKey, TokenTotals>>;
+
+export function recordContribution(
+	contrib: ContributionJson,
+	dayStartMs: number,
+	key: BucketKey,
+	e: TokenDelta,
+): void {
+	const dk = String(dayStartMs);
+	const day = contrib[dk] ?? (contrib[dk] = {});
+	const t = day[key] ?? (day[key] = emptyTotals());
+	addEvent(t, e);
+}
+
+// Add (sign +1) or subtract (sign -1) a contribution to/from the global ledger.
+// Subtraction is used to reconcile a truncated active file before re-reading it.
+export function applyContribution(
+	ledger: DailyLedger,
+	contrib: ContributionJson,
+	sign: 1 | -1,
+): void {
+	for (const [dk, buckets] of Object.entries(contrib)) {
+		const day = Number(dk);
+		let dayMap = ledger.days.get(day);
+		if (!dayMap) {
+			if (sign < 0) continue; // nothing to subtract from
+			dayMap = new Map();
+			ledger.days.set(day, dayMap);
+		}
+		for (const [key, t] of Object.entries(buckets)) {
+			let cur = dayMap.get(key);
+			if (!cur) {
+				cur = emptyTotals();
+				dayMap.set(key, cur);
+			}
+			cur.input += sign * t.input;
+			cur.output += sign * t.output;
+			cur.billable += sign * t.billable;
+			cur.raw += sign * t.raw;
+		}
+	}
+}

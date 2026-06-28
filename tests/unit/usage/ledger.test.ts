@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	applyContribution,
 	bucketKey,
 	bucketsForScope,
 	createLedger,
@@ -7,8 +8,10 @@ import {
 	hourlySeries,
 	ingestEvent,
 	parseBucketKey,
+	recordContribution,
 	startOfHour,
 	startOfLocalDay,
+	type ContributionJson,
 } from "../../../services/usage/ledger.js";
 import type { UsageEvent } from "../../../shared/models/usage.js";
 
@@ -102,5 +105,25 @@ describe("ledger ingest", () => {
 		for (const buckets of ledger.days.values())
 			for (const tt of buckets.values()) billable += tt.billable;
 		expect(billable).toBe(12);
+	});
+});
+
+describe("contribution reconcile", () => {
+	it("subtracting a file's contribution removes exactly what it added", () => {
+		const ledger = createLedger();
+		const session = createSession();
+		const day = startOfLocalDay(Date.now());
+		const key = bucketKey("/a", "codex", "m");
+		// simulate ingest of one file's two events into the ledger + its contribution
+		const contrib: ContributionJson = {};
+		const e1 = ev({ timestampMs: day + HOUR, billable: 7, raw: 70, input: 5, output: 2 });
+		const e2 = ev({ timestampMs: day + 2 * HOUR, billable: 3, raw: 30, input: 1, output: 2 });
+		for (const e of [e1, e2]) {
+			ingestEvent(ledger, session, e, Number.MAX_SAFE_INTEGER); // ledger only
+			recordContribution(contrib, startOfLocalDay(e.timestampMs), key, e);
+		}
+		expect(ledger.days.get(day)?.get(key)?.billable).toBe(10);
+		applyContribution(ledger, contrib, -1);
+		expect(ledger.days.get(day)?.get(key)).toEqual({ input: 0, output: 0, billable: 0, raw: 0 });
 	});
 });

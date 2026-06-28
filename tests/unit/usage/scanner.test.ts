@@ -2,6 +2,7 @@ import {
 	appendFileSync,
 	mkdirSync,
 	mkdtempSync,
+	truncateSync,
 	utimesSync,
 	writeFileSync,
 } from "node:fs";
@@ -20,8 +21,19 @@ import {
 	scanClaude,
 	scanCodex,
 	type OffsetCache,
+	type ScanHandlers,
 } from "../../../services/usage/scanner.js";
 import { ezioDriver } from "../../../services/usage/providers/ezio.js";
+import { claudeDriver } from "../../../services/usage/providers/claude.js";
+import {
+	applyContribution,
+	createLedger,
+	createSession,
+	ingestEvent,
+	type ContributionJson,
+} from "../../../services/usage/ledger.js";
+import type { AgentProviderId } from "../../../shared/models/agent-provider.js";
+import type { ProviderRateLimits } from "../../../shared/models/usage.js";
 
 function writeClaudeEvent(dir: string, file: string, isoTs: string): string {
 	mkdirSync(dir, { recursive: true });
@@ -168,13 +180,12 @@ describe("scanners", () => {
 			utimesSync(file, mtime, mtime);
 			const cache: OffsetCache = new Map();
 			const events: UsageEvent[] = [];
-			processJsonlFile(
-				ezioDriver,
-				file,
-				cache,
-				(e) => events.push(e),
-				() => {},
-			);
+			processJsonlFile(ezioDriver, file, cache, {
+				ingest: (e) => events.push(e),
+				onLimits: () => {},
+				onSubtract: () => {},
+				onSealedTruncation: () => {},
+			});
 			expect(events).toHaveLength(1);
 			expect(events[0].provider).toBe("ezio");
 			expect(events[0].cwd).toBe("Users-me-Dev-app");
@@ -195,14 +206,24 @@ describe("scanners", () => {
 			writeFileSync(file, rec(1) + rec(2) + rec(3));
 			const cache: OffsetCache = new Map();
 			const first: UsageEvent[] = [];
-			processJsonlFile(ezioDriver, file, cache, (e) => first.push(e), () => {});
+			processJsonlFile(ezioDriver, file, cache, {
+				ingest: (e) => first.push(e),
+				onLimits: () => {},
+				onSubtract: () => {},
+				onSealedTruncation: () => {},
+			});
 			expect(first).toHaveLength(3);
 			// Rewrite shorter (rotation): a single new record, smaller than the offset.
 			const t = new Date(Date.now() + 1000);
 			writeFileSync(file, rec(9));
 			utimesSync(file, t, t);
 			const second: UsageEvent[] = [];
-			processJsonlFile(ezioDriver, file, cache, (e) => second.push(e), () => {});
+			processJsonlFile(ezioDriver, file, cache, {
+				ingest: (e) => second.push(e),
+				onLimits: () => {},
+				onSubtract: () => {},
+				onSealedTruncation: () => {},
+			});
 			expect(second).toHaveLength(1);
 			expect(second[0].output).toBe(9);
 		});
@@ -287,5 +308,90 @@ describe("resetRecentOffsets analytics window", () => {
 		resetRecentOffsets([root], cache, now, SERIES_WINDOW_MS);
 		expect(cache.has(recent)).toBe(false); // dropped => re-read on next launch
 		expect(cache.has(old)).toBe(true); // preserved => no needless re-parse
+	});
+});
+
+function claudeLine(outputTokens: number): string {
+	return (
+		JSON.stringify({
+			type: "assistant",
+			timestamp: "2026-05-01T00:00:00.000Z",
+			cwd: "/Users/me/Dev/app",
+			sessionId: "s1",
+			message: { model: "m", usage: { output_tokens: outputTokens } },
+		}) + "\n"
+	);
+}
+
+describe("processJsonlFile idempotency", () => {
+	const makeHandlers = (ledger = createLedger(), session = createSession()): { ledger: typeof ledger; h: ScanHandlers } => {
+		const h: ScanHandlers = {
+			ingest: (e) => ingestEvent(ledger, session, e, 0),
+			onLimits: (_id: AgentProviderId, _rl: ProviderRateLimits) => {},
+			onSubtract: (contrib: ContributionJson) => applyContribution(ledger, contrib, -1),
+			onSealedTruncation: () => {},
+		};
+		return { ledger, h };
+	};
+
+	const sumBillable = (ledger: ReturnType<typeof createLedger>): number => {
+		let n = 0;
+		for (const buckets of ledger.days.values()) for (const t of buckets.values()) n += t.billable;
+		return n;
+	};
+
+	it("re-reading the same bytes does not double-count", () => {
+		const dir = mkdtempSync(join(tmpdir(), "scan-idem-"));
+		const proj = join(dir, "-Users-me-Dev-app");
+		mkdirSync(proj);
+		const file = join(proj, "s1.jsonl");
+		writeFileSync(file, claudeLine(10));
+		const { ledger, h } = makeHandlers();
+		const cache: OffsetCache = new Map();
+		processJsonlFile(claudeDriver, file, cache, h);
+		processJsonlFile(claudeDriver, file, cache, h); // no new bytes
+		expect(sumBillable(ledger)).toBe(10);
+		expect(cache.get(file)?.contribution).toBeDefined();
+	});
+
+	it("truncation of an ACTIVE file subtracts its contribution then re-reads (no double-count)", () => {
+		const dir = mkdtempSync(join(tmpdir(), "scan-trunc-"));
+		const proj = join(dir, "-Users-me-Dev-app");
+		mkdirSync(proj);
+		const file = join(proj, "s1.jsonl");
+		writeFileSync(file, claudeLine(10) + claudeLine(10)); // 20
+		const { ledger, h } = makeHandlers();
+		const cache: OffsetCache = new Map();
+		processJsonlFile(claudeDriver, file, cache, h);
+		expect(sumBillable(ledger)).toBe(20);
+		// rewrite shorter (truncate + new single line of 4)
+		truncateSync(file, 0);
+		writeFileSync(file, claudeLine(4));
+		// force mtime difference for changed() detection
+		const future = Date.now() + 10_000;
+		utimesSync(file, future / 1000, future / 1000);
+		processJsonlFile(claudeDriver, file, cache, h);
+		expect(sumBillable(ledger)).toBe(4); // 20 subtracted, 4 re-added
+	});
+
+	it("truncation of a SEALED file (no contribution) signals a rebuild instead of over-counting", () => {
+		const dir = mkdtempSync(join(tmpdir(), "scan-sealed-"));
+		const proj = join(dir, "-Users-me-Dev-app");
+		mkdirSync(proj);
+		const file = join(proj, "s1.jsonl");
+		writeFileSync(file, claudeLine(10) + claudeLine(10));
+		const { ledger, h } = makeHandlers();
+		const cache: OffsetCache = new Map();
+		processJsonlFile(claudeDriver, file, cache, h);
+		// simulate sealing: drop the contribution detail, keep offset+mtime
+		const entry = cache.get(file)!;
+		delete entry.contribution;
+		truncateSync(file, 0);
+		writeFileSync(file, claudeLine(4));
+		const future = Date.now() + 10_000;
+		utimesSync(file, future / 1000, future / 1000);
+		let rebuildRequested = false;
+		processJsonlFile(claudeDriver, file, cache, { ...h, onSealedTruncation: () => { rebuildRequested = true; } });
+		expect(rebuildRequested).toBe(true);
 	});
 });
