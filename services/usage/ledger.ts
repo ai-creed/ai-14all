@@ -1,5 +1,5 @@
 import type { AgentProviderId } from "../../shared/models/agent-provider.js";
-import type { TokenTotals, UsageEvent } from "../../shared/models/usage.js";
+import type { DailyPoint, TokenTotals, UsageEvent } from "../../shared/models/usage.js";
 
 // `${cwd}\u0000${provider}\u0000${model}` — NUL-separated; the separator is the
 // \u0000 ESCAPE, never a raw control byte. cwd/provider/model never contain it.
@@ -119,4 +119,85 @@ export function ingestEvent(
 		rec[e.provider] = (rec[e.provider] ?? 0) + e.billable;
 		session.hourly.set(hour, rec);
 	}
+}
+
+// Temporary local type — REPLACE in Task 6 Step 4 with the shared HourlyPoint
+// import (identical shape). Kept here so this task compiles before shared types land.
+export interface HourlyPoint {
+	hourStartMs: number;
+	tokens: Partial<Record<AgentProviderId, number>>;
+}
+
+export type ScopeName = "session" | "week" | "month" | "all-time";
+
+const SERIES_WINDOW_DAYS = 35;
+
+function mergeInto(out: Map<BucketKey, TokenTotals>, buckets: Map<BucketKey, TokenTotals>): void {
+	for (const [key, t] of buckets) {
+		let cur = out.get(key);
+		if (!cur) {
+			cur = emptyTotals();
+			out.set(key, cur);
+		}
+		addEvent(cur, t);
+	}
+}
+
+// Merge the buckets that fall inside a scope's window into one flat map. Session
+// reads the session accumulator (since launch); the day-aligned scopes read the
+// ledger. Every derived number (totals, provider roll-up, rows, cost) comes from
+// this single map, so they cannot disagree.
+export function bucketsForScope(
+	ledger: DailyLedger,
+	session: SessionState,
+	scope: ScopeName,
+	nowMs: number,
+): Map<BucketKey, TokenTotals> {
+	const out = new Map<BucketKey, TokenTotals>();
+	if (scope === "session") {
+		mergeInto(out, session.since);
+		return out;
+	}
+	let from = Number.NEGATIVE_INFINITY; // all-time
+	if (scope === "week") from = startOfWeekMonday(nowMs);
+	else if (scope === "month") from = startOfMonth(nowMs);
+	for (const [day, buckets] of ledger.days) {
+		if (day < from) continue;
+		mergeInto(out, buckets);
+	}
+	return out;
+}
+
+// Per-provider daily billable over the trailing ~35 days (Week/Month chart). Walk
+// CALENDAR dates so a DST 23h/25h day stays aligned with the ingest-side
+// startOfLocalDay() keys.
+export function dailySeries(
+	ledger: DailyLedger,
+	nowMs: number,
+	windowDays = SERIES_WINDOW_DAYS,
+): DailyPoint[] {
+	const out: DailyPoint[] = [];
+	const cursor = new Date(nowMs);
+	cursor.setHours(0, 0, 0, 0);
+	cursor.setDate(cursor.getDate() - (windowDays - 1)); // oldest first
+	for (let i = 0; i < windowDays; i++) {
+		const dayStartMs = startOfLocalDay(cursor.getTime());
+		const tokens: Partial<Record<AgentProviderId, number>> = {};
+		const buckets = ledger.days.get(dayStartMs);
+		if (buckets) {
+			for (const [key, t] of buckets) {
+				const { provider } = parseBucketKey(key);
+				tokens[provider] = (tokens[provider] ?? 0) + t.billable;
+			}
+		}
+		out.push({ dayStartMs, tokens });
+		cursor.setDate(cursor.getDate() + 1); // DST-safe advance
+	}
+	return out;
+}
+
+export function hourlySeries(session: SessionState): HourlyPoint[] {
+	return [...session.hourly.entries()]
+		.sort((a, b) => a[0] - b[0])
+		.map(([hourStartMs, tokens]) => ({ hourStartMs, tokens: { ...tokens } }));
 }

@@ -20,6 +20,25 @@ const ev = (over: Partial<UsageEvent>): UsageEvent => ({
 	...over,
 });
 
+import { createLedger, createSession, dailySeries, ingestEvent, startOfLocalDay } from "../../../services/usage/ledger.js";
+import type { UsageEvent } from "../../../shared/models/usage.js";
+
+it("ledger.dailySeries keeps day alignment across a 25h fall-back day", () => {
+	const ledger = createLedger();
+	const session = createSession();
+	// US fall-back 2026-11-01; pick local noon so the bucket is unambiguous.
+	const t = new Date(2026, 10, 1, 12, 0, 0, 0).getTime();
+	const e = (over: Partial<UsageEvent>): UsageEvent => ({
+		provider: "codex", timestampMs: t, cwd: "/a", sessionId: "s", model: "m",
+		input: 0, output: 0, billable: 4, raw: 4, ...over,
+	});
+	ingestEvent(ledger, session, e({}), 0);
+	const now = new Date(2026, 10, 3, 9, 0, 0, 0).getTime();
+	const series = dailySeries(ledger, now, 7);
+	const hit = series.find((p) => p.dayStartMs === startOfLocalDay(t));
+	expect(hit?.tokens.codex).toBe(4);
+});
+
 describe("dailySeries local-day alignment across DST", () => {
 	it("buckets activity on a 25h fall-back day to that local calendar day", () => {
 		// US fall-back 2025: clocks roll back 2025-11-02 02:00 -> 01:00, so the local
