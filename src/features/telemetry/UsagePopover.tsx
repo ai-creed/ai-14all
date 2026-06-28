@@ -45,10 +45,10 @@ function BudgetEditor({
 	const toM = (n: number): string => String(n / 1_000_000);
 	const fromM = (s: string): number | null =>
 		s.trim() ? Math.round(Number(s) * 1_000_000) : null;
-	const [fiveHour, setFiveHour] = useState(toM(config.fiveHourBudget));
-	const [weekly, setWeekly] = useState(toM(config.weeklyBudget));
-	const [resetDay, setResetDay] = useState(config.weeklyResetDay);
-	const [resetHour, setResetHour] = useState(config.weeklyResetHour);
+	const [fiveHour, setFiveHour] = useState(toM(config.fiveHourBudget ?? 0));
+	const [weekly, setWeekly] = useState(toM(config.weeklyBudget ?? 0));
+	const [resetDay, setResetDay] = useState(config.weeklyResetDay ?? 0);
+	const [resetHour, setResetHour] = useState(config.weeklyResetHour ?? 0);
 	return (
 		<form
 			className="usage-budget-editor"

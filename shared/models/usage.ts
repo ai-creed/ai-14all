@@ -1,4 +1,8 @@
-export type UsageProvider = "claude" | "codex";
+import type { AgentProviderId } from "./agent-provider.js";
+
+// Widened from "claude" | "codex": telemetry is now generic over the agent
+// registry. Kept as a named alias so existing code keeps compiling.
+export type UsageProvider = AgentProviderId;
 
 export interface TokenTotals {
 	input: number; // prompt-side: input + cache_creation (what you send)
@@ -25,12 +29,14 @@ export interface RateLimitWindow {
 	resetsAtMs: number;
 }
 
-export interface CodexRateLimits {
+export interface ProviderRateLimits {
 	capturedAtMs: number;
 	planType: string;
 	primary: RateLimitWindow | null; // 5-hour
 	secondary: RateLimitWindow | null; // weekly
 }
+/** @deprecated transitional alias — removed in cleanup task. */
+export type CodexRateLimits = ProviderRateLimits;
 
 export interface KnownWorktree {
 	worktreeId: string;
@@ -65,16 +71,62 @@ export interface LimitGauge {
 }
 
 export interface UsageConfig {
-	fiveHourBudget: number;
-	weeklyBudget: number;
-	weeklyResetDay: number; // 0=Sun..6=Sat (local)
-	weeklyResetHour: number; // 0..23 (local)
+	fiveHourBudget?: number; // deprecated — removed in cleanup task
+	weeklyBudget?: number; // deprecated
+	weeklyResetDay?: number; // deprecated
+	weeklyResetHour?: number; // deprecated
+	range?: "week" | "month"; // chart default
+	includeUntracked?: boolean; // breakdown default
+}
+
+export type StoreKind = "jsonl-tree" | "sqlite-dir" | "none";
+export type TimeSource = "per-event" | "file-mtime" | "none";
+export type CwdSource = "in-line" | "dir-slug" | "none";
+
+export interface ProviderTelemetryCapabilities {
+	tokenLog: boolean; // emits parseable per-turn token usage on disk
+	storeKind: StoreKind;
+	timeSource: TimeSource; // ezio = "file-mtime"; inert = "none"
+	cwdSource: CwdSource; // ezio = "dir-slug"; inert = "none"
+	nativeLimits: boolean; // codex = true
+}
+
+export interface ProviderTelemetryInfo {
+	id: AgentProviderId;
+	label: string;
+	brand: string; // identity from providerDef()
+	capabilities: ProviderTelemetryCapabilities;
+	hasData: boolean; // produced >= 1 event this run
+}
+
+export interface CostSnapshot {
+	perProvider: Partial<Record<AgentProviderId, number>>; // priced notional $ (absent => "—")
+	total: number; // sum of priced $; excludes unpriced tokens
+	currency: "USD";
+	notional: true;
+	unpricedTokens: number; // billable tokens whose (provider, model) had no rate
+}
+
+export interface DailyPoint {
+	dayStartMs: number;
+	tokens: Partial<Record<AgentProviderId, number>>; // per-provider billable
+}
+
+export interface LifetimeSnapshot {
+	inApp: { tokens: number; costUsd: number | null };
+	allTime?: { tokens: number; costUsd: number | null };
 }
 
 export interface UsageSnapshot {
 	generatedAtMs: number;
-	limits: LimitGauge[];
+	limits: LimitGauge[]; // deprecated — removed in cleanup task
 	rows: UsageRow[];
 	totals: TokenTotals;
-	config: UsageConfig; // effective values, for the budget editor to prefill
+	config: UsageConfig;
+	// New analytics surface (optional during migration):
+	providers?: ProviderTelemetryInfo[];
+	series?: DailyPoint[];
+	cost?: CostSnapshot | null;
+	codexLimits?: LimitGauge | null;
+	lifetime?: LifetimeSnapshot;
 }
