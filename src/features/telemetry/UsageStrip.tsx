@@ -2,12 +2,11 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import type { UsageSnapshot } from "../../../shared/models/usage.js";
 import { formatTokens, formatUsd } from "./format.js";
-import { providerRollup } from "./rollup.js";
 import { UsageChart } from "./UsageChart.js";
 import { UsagePopover } from "./UsagePopover.js";
 
-function setRange(range: "week" | "month"): void {
-	void window.ai14all?.usage?.setRange(range);
+function setChipRange(range: "week" | "month"): void {
+	void window.ai14all?.usage?.setChipRange(range);
 }
 
 export function UsageStrip({
@@ -40,25 +39,22 @@ export function UsageStrip({
 		};
 	}, [open]);
 	if (!snapshot) return null;
-	const providers = snapshot.providers ?? [];
-	const series = snapshot.series ?? [];
-	const range = snapshot.config.range ?? "week";
-	const nowMs = snapshot.generatedAtMs;
-	const { totalTokens, totalCost } = providerRollup(series, range, snapshot.cost ?? null, nowMs);
+	const chipRange = snapshot.config.chipRange;
+	const scope = snapshot.scopes[chipRange];
+	const totalTokens = scope.totalTokens;
+	const totalCost = scope.cost.total;
 	return (
 		<div className="usage-strip">
 			<span className="usage-range" role="group" aria-label="range">
-				<button className={range === "week" ? "on" : ""} aria-pressed={range === "week"} onClick={() => setRange("week")}>W</button>
-				<button className={range === "month" ? "on" : ""} aria-pressed={range === "month"} onClick={() => setRange("month")}>M</button>
+				<button className={chipRange === "week" ? "on" : ""} aria-pressed={chipRange === "week"} onClick={() => setChipRange("week")}>W</button>
+				<button className={chipRange === "month" ? "on" : ""} aria-pressed={chipRange === "month"} onClick={() => setChipRange("month")}>M</button>
 			</span>
-			<UsageChart series={series} providers={providers} range={range} nowMs={nowMs} height={28} />
+			<UsageChart kind="daily" daily={snapshot.seriesDaily} providers={snapshot.providers} range={chipRange} nowMs={snapshot.generatedAtMs} height={28} />
 			<span className="usage-figure">
 				<span className="usage-figure-tok">{formatTokens(totalTokens)}</span>
-				{snapshot.cost ? (
-					<span className="usage-figure-cost" title="notional API-equivalent value since launch">
-						~{formatUsd(totalCost ?? 0)}
-					</span>
-				) : null}
+				<span className="usage-figure-cost">
+					~{formatUsd(totalCost)}
+				</span>
 			</span>
 			<button
 				ref={caretRef}
