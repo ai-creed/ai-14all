@@ -25,8 +25,12 @@ export async function createUsageSettingsBridge(
 		async persist(patch) {
 			settings = { ...settings, ...patch };
 			bridge.settings = settings;
-			const latest = await persistence.readState();
-			await persistence.writeState({ ...latest, usageTelemetry: settings });
+			try {
+				const latest = await persistence.readState();
+				await persistence.writeState({ ...latest, usageTelemetry: settings });
+			} catch (err) {
+				console.error("usage settings persist failed:", err);
+			}
 		},
 	};
 	return bridge;
