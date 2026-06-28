@@ -1,7 +1,16 @@
 import type { AgentProviderId } from "../../../shared/models/agent-provider.js";
 import type { CostSnapshot, TokenTotals } from "../../../shared/models/usage.js";
-import type { CostEntry } from "../aggregator.js";
 import { rateFor, type ProviderRate } from "./pricing.js";
+
+// A (provider, model) pair with its accumulated token totals. Cost is derived by
+// blended pricing (model is ignored by the rate lookup, kept for traceability).
+// Lives here now that the aggregator is retired; the ledger-based snapshot path
+// builds these from per-provider bucket roll-ups.
+export interface CostEntry {
+	provider: AgentProviderId;
+	model: string;
+	tokens: TokenTotals;
+}
 
 export type RateLookup = (provider: AgentProviderId) => ProviderRate;
 

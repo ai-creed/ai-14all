@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildCostSnapshot, estimateCostUsd } from "../../../services/usage/cost/cost.js";
+import { buildCostSnapshot, estimateCostUsd, type CostEntry } from "../../../services/usage/cost/cost.js";
 import { rateFor } from "../../../services/usage/cost/pricing.js";
-import type { CostEntry } from "../../../services/usage/aggregator.js";
 
 describe("buildCostSnapshot (blended)", () => {
 	it("prices a dated/unknown model id non-zero via the provider median", () => {

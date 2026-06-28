@@ -1,18 +1,14 @@
-import { existsSync, readFileSync, writeFileSync, watch } from "node:fs";
-import {
-	UsageAggregator,
-	SERIES_WINDOW_MS,
-} from "../../../services/usage/aggregator.js";
-import {
-	listJsonlFiles,
-	processJsonlFile,
-	resetRecentOffsets,
-	type OffsetCache,
-	type OffsetEntry,
-} from "../../../services/usage/scanner.js";
+import { join } from "node:path";
+import { existsSync, readFileSync, watch, writeFileSync } from "node:fs";
 import { jsonlDrivers } from "../../../services/usage/providers/index.js";
-import { processInBatches } from "../../../services/usage/batch.js";
 import { buildSnapshot } from "../../../services/usage/snapshot.js";
+import { loadLedger, saveLedger } from "../../../services/usage/ledger-store.js";
+import {
+	type SweepState,
+	createSweepState,
+	sweepFiles,
+} from "../../../services/usage/sweep.js";
+import type { OffsetEntry } from "../../../services/usage/scanner.js";
 import type {
 	MainToWorker,
 	UsageWorkerConfig,
@@ -30,54 +26,83 @@ const parentPort = (
 	}
 ).parentPort;
 
+// --- module state ---
 let cfg: UsageWorkerConfig | null = null;
-let agg: UsageAggregator | null = null;
-const offsets: OffsetCache = new Map();
+let state: SweepState = createSweepState();
 let emitTimer: ReturnType<typeof setTimeout> | null = null;
 let backfilling = false;
 let rescanQueued = false;
 
-function loadOffsets(path: string): void {
+const LEDGER_FILE = "usage-ledger.json";
+const OFFSETS_FILE = "usage-offsets.json";
+// Active horizon: files untouched longer than this are "sealed" (contribution
+// dropped to bound the cache). ~35 days matches the daily-series window.
+const ACTIVE_HORIZON_MS = 35 * 86_400_000;
+
+const ledgerPath = (): string => join(cfg!.userDataDir, LEDGER_FILE);
+const offsetsPath = (): string => join(cfg!.userDataDir, OFFSETS_FILE);
+
+function loadOffsets(): void {
 	try {
-		const obj = JSON.parse(readFileSync(path, "utf8")) as Record<
-			string,
-			OffsetEntry
-		>;
-		for (const [k, v] of Object.entries(obj)) offsets.set(k, v);
+		const obj = JSON.parse(readFileSync(offsetsPath(), "utf8")) as Record<string, OffsetEntry>;
+		for (const [k, v] of Object.entries(obj)) state.offsets.set(k, v);
 	} catch {
 		/* first run */
 	}
 }
 
 function saveOffsets(): void {
+	// Seal stale entries: drop their contribution detail (totals stay in the ledger).
+	const now = Date.now();
+	for (const entry of state.offsets.values()) {
+		if (entry.contribution && now - entry.mtime > ACTIVE_HORIZON_MS) {
+			entry.contribution = undefined;
+		}
+	}
+	writeFileSync(offsetsPath(), JSON.stringify(Object.fromEntries(state.offsets)), "utf8");
+}
+
+function persist(): void {
 	if (!cfg) return;
-	try {
-		writeFileSync(
-			cfg.offsetCachePath,
-			JSON.stringify(Object.fromEntries(offsets)),
-		);
-	} catch {
-		/* best effort */
+	saveLedger(ledgerPath(), state.ledger);
+	saveOffsets();
+}
+
+async function sweep(): Promise<void> {
+	if (!cfg) return;
+	if (backfilling) {
+		rescanQueued = true;
+		return;
+	}
+	backfilling = true;
+	// All scan + idempotency + sealed-truncation-rebuild logic lives in sweepFiles
+	// (electron-free + unit-tested in tests/unit/usage/sweep.test.ts).
+	await sweepFiles(state, jsonlDrivers, cfg.home, cfg.launchMs, cfg.backfillBatchSize, scheduleEmit);
+	persist();
+	backfilling = false;
+	if (rescanQueued) {
+		rescanQueued = false;
+		void sweep();
 	}
 }
 
 function emitSnapshot(): void {
-	if (!cfg || !agg) return;
-	parentPort.postMessage({
+	if (!cfg) return;
+	const msg: WorkerToMain = {
 		kind: "snapshot",
 		snapshot: buildSnapshot({
-			agg,
+			ledger: state.ledger,
+			session: state.session,
 			known: cfg.known,
 			activeWorktreeIds: cfg.activeWorktreeIds,
 			nowMs: Date.now(),
-			// The effective setting → drives config.includeUntracked (the UI's
-			// initial toggle) and whether totals count untracked. Untracked ROWS are
-			// always emitted by buildSnapshot regardless, so the renderer can toggle
-			// client-side with no worker round-trip.
 			includeUntracked: cfg.includeUntracked,
-			range: cfg.range,
+			chipRange: cfg.chipRange,
+			providersWithData: state.providersWithData,
+			codexLimits: state.codexLimits,
 		}),
-	});
+	};
+	parentPort.postMessage(msg);
 }
 
 // Throttle: coalesce many triggers into at most one emit per ~1.5s.
@@ -89,44 +114,6 @@ function scheduleEmit(): void {
 	}, 1500);
 }
 
-// Full sweep (initial backfill + safety re-sweep). Chunked + throttled via the
-// shared, unit-tested processInBatches driver (services/usage/batch.ts), so a
-// large historical backfill yields to the event loop between batches and never
-// blocks the worker's message handling. Emits progressively after each batch.
-async function sweep(): Promise<void> {
-	if (!cfg || !agg) return;
-	if (backfilling) {
-		rescanQueued = true;
-		return;
-	}
-	backfilling = true;
-	const batch = cfg.backfillBatchSize;
-	for (const driver of jsonlDrivers) {
-		for (const root of driver.roots(cfg.home)) {
-			const files = existsSync(root) ? listJsonlFiles(root) : [];
-			await processInBatches(
-				files,
-				batch,
-				(file) =>
-					processJsonlFile(
-						driver,
-						file,
-						offsets,
-						(e) => agg!.ingest(e),
-						(id, rl) => agg!.setProviderLimits(id, rl),
-					),
-				scheduleEmit,
-			);
-		}
-	}
-	saveOffsets();
-	backfilling = false;
-	if (rescanQueued) {
-		rescanQueued = false;
-		void sweep();
-	}
-}
-
 function watchDir(dir: string): void {
 	if (!existsSync(dir)) return;
 	try {
@@ -136,32 +123,29 @@ function watchDir(dir: string): void {
 	}
 }
 
-parentPort.on("message", (e) => {
+parentPort.on("message", (e: { data: MainToWorker }) => {
 	const msg = e.data;
 	if (msg.kind === "config") {
 		cfg = msg.config;
-		agg = new UsageAggregator(cfg.launchMs);
-		loadOffsets(cfg.offsetCachePath);
+		const loaded = loadLedger(ledgerPath()); // null on first run / version upgrade
+		state = createSweepState();
+		if (loaded) {
+			state.ledger = loaded;
+			loadOffsets(); // resume from saved offsets — NO reset (persistence replaces the old 35-day re-read)
+		}
+		// else: fresh state seeds from a full scan
 		const roots = jsonlDrivers.flatMap((d) => d.roots(cfg!.home));
-		// The aggregator starts empty each launch, so persisted offsets would skip
-		// pre-launch usage (only workspaces active *this* session would ever get
-		// rows). Drop offsets for files touched within the analytics window so the
-		// backfill rebuilds every series for every tracked worktree. Use a 35-day
-		// window (SERIES_WINDOW_MS), not WEEK_MS: the aggregator is rebuilt empty
-		// each launch and the daily chart shows the current calendar month, so files
-		// 7–35 days old must be re-read or the month series undercounts after restart.
-		resetRecentOffsets(roots, offsets, Date.now(), SERIES_WINDOW_MS);
-		void sweep(); // chunked backfill; emits progressively, never blocks
+		void sweep();
 		for (const root of roots) watchDir(root);
-		setInterval(() => void sweep(), 60_000); // safety net if watch misses an append
+		setInterval(() => void sweep(), 60_000);
 	} else if (msg.kind === "setKnown" && cfg) {
 		cfg.known = msg.known;
 		scheduleEmit();
 	} else if (msg.kind === "setActive" && cfg) {
 		cfg.activeWorktreeIds = msg.activeWorktreeIds;
 		scheduleEmit();
-	} else if (msg.kind === "setRange" && cfg) {
-		cfg.range = msg.range;
+	} else if (msg.kind === "setChipRange" && cfg) {
+		cfg.chipRange = msg.chipRange;
 		scheduleEmit();
 	} else if (msg.kind === "setIncludeUntracked" && cfg) {
 		cfg.includeUntracked = msg.includeUntracked;

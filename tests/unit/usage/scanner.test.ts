@@ -10,10 +10,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { UsageEvent } from "../../../shared/models/usage.js";
-import {
-	SERIES_WINDOW_MS,
-	WEEK_MS,
-} from "../../../services/usage/aggregator.js";
+// resetRecentOffsets windows (formerly imported from the retired aggregator).
+const WEEK_MS = 7 * 24 * 3_600_000;
+const SERIES_WINDOW_MS = 35 * 86_400_000;
 import {
 	processCodexFile,
 	processJsonlFile,

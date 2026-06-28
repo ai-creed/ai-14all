@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { UsageAggregator } from "../../services/usage/aggregator.js";
+import { createLedger, createSession, ingestEvent } from "../../services/usage/ledger.js";
 import { processInBatches } from "../../services/usage/batch.js";
 import {
 	listJsonlFiles,
@@ -50,7 +50,8 @@ describe("usage backfill perf guard", () => {
 		const root = buildFixture(fileCount, linesPerFile);
 		const files = listJsonlFiles(root);
 		const offsets: OffsetCache = new Map();
-		const agg = new UsageAggregator(0);
+		const ledger = createLedger();
+		const session = createSession();
 
 		let timerRan = false;
 		setTimeout(() => {
@@ -59,7 +60,7 @@ describe("usage backfill perf guard", () => {
 
 		const start = Date.now();
 		await processInBatches(files, 8, (file) =>
-			processClaudeFile(file, offsets, (e) => agg.ingest(e)),
+			processClaudeFile(file, offsets, (e) => ingestEvent(ledger, session, e, 0)),
 		);
 		const elapsed = Date.now() - start;
 
@@ -70,8 +71,9 @@ describe("usage backfill perf guard", () => {
 		// mid-backfill instead of being starved by a synchronous sweep.
 		expect(timerRan).toBe(true);
 		// Correctness sanity: one usage event per 5 lines per file.
-		expect(agg.sinceLaunch().get("claude /p/0")?.billable).toBe(
-			linesPerFile / 5,
-		);
+		let billable = 0;
+		for (const buckets of ledger.days.values())
+			for (const t of buckets.values()) billable += t.billable;
+		expect(billable).toBe(fileCount * (linesPerFile / 5)); // each file: linesPerFile/5 usage lines of 1 token
 	});
 });
