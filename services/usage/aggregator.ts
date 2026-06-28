@@ -113,16 +113,6 @@ export class UsageAggregator {
 		return this.providerLimits.get(id) ?? null;
 	}
 
-	/** @deprecated use setProviderLimits("codex", …) — removed in cleanup task. */
-	setCodexLimits(limits: ProviderRateLimits): void {
-		this.setProviderLimits("codex", limits);
-	}
-
-	/** @deprecated use getProviderLimits("codex") — removed in cleanup task. */
-	latestCodexLimits(): ProviderRateLimits | null {
-		return this.getProviderLimits("codex");
-	}
-
 	sinceLaunch(): Map<string, TokenTotals> {
 		return this.since;
 	}

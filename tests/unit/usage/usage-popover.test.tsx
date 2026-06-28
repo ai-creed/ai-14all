@@ -17,7 +17,6 @@ const cap = {
 };
 const snapshot: UsageSnapshot = {
 	generatedAtMs: NOW,
-	limits: [],
 	rows: [
 		{
 			workspaceId: "ws1",
@@ -43,7 +42,6 @@ const snapshot: UsageSnapshot = {
 	cost: { perProvider: { claude: 1.5, codex: 1.4 }, total: 2.9, currency: "USD", notional: true, unpricedTokens: 0 },
 	codexLimits: {
 		provider: "codex",
-		real: true,
 		fiveHour: { percent: 41, resetsAtMs: NOW + 90 * 60_000 },
 		weekly: { percent: 23, resetsAtMs: null, used: null, budget: null },
 	},

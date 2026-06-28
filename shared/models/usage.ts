@@ -35,8 +35,6 @@ export interface ProviderRateLimits {
 	primary: RateLimitWindow | null; // 5-hour
 	secondary: RateLimitWindow | null; // weekly
 }
-/** @deprecated transitional alias — removed in cleanup task. */
-export type CodexRateLimits = ProviderRateLimits;
 
 export interface KnownWorktree {
 	worktreeId: string;
@@ -60,7 +58,6 @@ export interface UsageRow {
 
 export interface LimitGauge {
 	provider: UsageProvider;
-	real: boolean; // true = Codex real %, false = Claude budget proxy
 	fiveHour: { percent: number; resetsAtMs: number | null };
 	weekly: {
 		percent: number;
@@ -71,12 +68,8 @@ export interface LimitGauge {
 }
 
 export interface UsageConfig {
-	fiveHourBudget?: number; // deprecated — removed in cleanup task
-	weeklyBudget?: number; // deprecated
-	weeklyResetDay?: number; // deprecated
-	weeklyResetHour?: number; // deprecated
-	range?: "week" | "month"; // chart default
-	includeUntracked?: boolean; // breakdown default
+	range: "week" | "month";
+	includeUntracked: boolean;
 }
 
 export type StoreKind = "jsonl-tree" | "sqlite-dir" | "none";
@@ -119,14 +112,12 @@ export interface LifetimeSnapshot {
 
 export interface UsageSnapshot {
 	generatedAtMs: number;
-	limits: LimitGauge[]; // deprecated — removed in cleanup task
 	rows: UsageRow[];
 	totals: TokenTotals;
 	config: UsageConfig;
-	// New analytics surface (optional during migration):
-	providers?: ProviderTelemetryInfo[];
-	series?: DailyPoint[];
-	cost?: CostSnapshot | null;
-	codexLimits?: LimitGauge | null;
-	lifetime?: LifetimeSnapshot;
+	providers: ProviderTelemetryInfo[];
+	series: DailyPoint[];
+	cost: CostSnapshot | null;
+	codexLimits: LimitGauge | null;
+	lifetime?: LifetimeSnapshot; // Slice 2
 }

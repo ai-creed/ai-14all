@@ -34,19 +34,19 @@ describe("UsageAggregator", () => {
 	});
 	it("keeps the newest codex rate limits", () => {
 		const agg = new UsageAggregator(0);
-		agg.setCodexLimits({
+		agg.setProviderLimits("codex", {
 			capturedAtMs: 10,
 			planType: "plus",
 			primary: null,
 			secondary: null,
 		});
-		agg.setCodexLimits({
+		agg.setProviderLimits("codex", {
 			capturedAtMs: 5,
 			planType: "old",
 			primary: null,
 			secondary: null,
 		});
-		expect(agg.latestCodexLimits()?.planType).toBe("plus");
+		expect(agg.getProviderLimits("codex")?.planType).toBe("plus");
 	});
 });
 

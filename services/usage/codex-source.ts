@@ -1,5 +1,5 @@
 import type {
-	CodexRateLimits,
+	ProviderRateLimits,
 	RateLimitWindow,
 	UsageEvent,
 } from "../../shared/models/usage.js";
@@ -98,7 +98,7 @@ function win(w: unknown): RateLimitWindow | null {
 	};
 }
 
-export function parseCodexRateLimits(line: string): CodexRateLimits | null {
+export function parseCodexRateLimits(line: string): ProviderRateLimits | null {
 	const o = parse(line);
 	if (!o) return null;
 	const payload = o.payload as

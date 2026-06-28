@@ -46,12 +46,8 @@ describe("buildSnapshot", () => {
 			known,
 			nowMs: now,
 			includeUntracked: false,
-			claudeTier: "default_claude_max_5x",
-			fiveHourBudget: 1_500_000,
-			weeklyBudget: 9_000_000,
+			range: "week",
 			activeWorktreeIds: ["w1"],
-			weeklyResetDay: 1,
-			weeklyResetHour: 7,
 		});
 		expect(onlyTracked.totals).toEqual({
 			input: 5,
@@ -72,12 +68,8 @@ describe("buildSnapshot", () => {
 			known,
 			nowMs: now,
 			includeUntracked: true,
-			claudeTier: "default_claude_max_5x",
-			fiveHourBudget: 1_500_000,
-			weeklyBudget: 9_000_000,
+			range: "week",
 			activeWorktreeIds: ["w1"],
-			weeklyResetDay: 1,
-			weeklyResetHour: 7,
 		});
 		expect(all.totals).toEqual({
 			input: 7,
@@ -88,49 +80,6 @@ describe("buildSnapshot", () => {
 		expect(all.rows.find((r) => r.workspaceId === null)?.worktreeTitle).toBe(
 			"other (untracked)",
 		);
-	});
-	it("emits codex real limit gauge and claude budget gauge", () => {
-		const now = 1000 * HOUR;
-		const agg = new UsageAggregator(now);
-		agg.setCodexLimits({
-			capturedAtMs: now,
-			planType: "plus",
-			primary: { usedPercent: 3, windowMinutes: 300, resetsAtMs: now + HOUR },
-			secondary: {
-				usedPercent: 41,
-				windowMinutes: 10080,
-				resetsAtMs: now + 100 * HOUR,
-			},
-		});
-		agg.ingest({
-			provider: "claude",
-			timestampMs: now,
-			cwd: "/x",
-			sessionId: "s",
-			model: "m",
-			input: 2_000_000,
-			output: 500_000,
-			billable: 2_500_000,
-			raw: 2_500_000,
-		});
-		const snap = buildSnapshot({
-			agg,
-			known,
-			nowMs: now,
-			includeUntracked: true,
-			claudeTier: "default_claude_max_5x",
-			fiveHourBudget: 1_500_000,
-			weeklyBudget: 9_000_000,
-			activeWorktreeIds: ["w1"],
-			weeklyResetDay: 1,
-			weeklyResetHour: 7,
-		});
-		const codex = snap.limits.find((l) => l.provider === "codex")!;
-		expect(codex.real).toBe(true);
-		expect(codex.weekly.percent).toBe(41);
-		const claude = snap.limits.find((l) => l.provider === "claude")!;
-		expect(claude.real).toBe(false);
-		expect(claude.weekly.percent).toBe(28); // 2.5M / 9M
 	});
 });
 

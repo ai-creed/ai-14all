@@ -81,7 +81,6 @@ export const codexDriver: TelemetryDriver = {
 		const rl = gctx.providerLimits;
 		return {
 			provider: "codex",
-			real: true, // dropped in the cleanup task along with LimitGauge.real
 			fiveHour: {
 				percent: rl?.primary?.usedPercent ?? 0,
 				resetsAtMs: rl?.primary?.resetsAtMs ?? null,
