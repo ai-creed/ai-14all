@@ -4552,61 +4552,6 @@ select {
 .usage-help b {
 	color: var(--text-primary);
 }
-.usage-budget-editor {
-	display: flex;
-	flex-direction: column;
-	gap: 14px;
-}
-.usage-budget-row {
-	display: flex;
-	gap: 8px;
-	align-items: end;
-	flex-wrap: nowrap;
-}
-.usage-budget-editor label {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	font-size: 10px;
-	color: var(--text-secondary);
-	white-space: nowrap;
-}
-.usage-budget-editor input,
-.usage-budget-editor select,
-.usage-budget-row button {
-	height: 26px;
-	box-sizing: border-box;
-}
-.usage-budget-editor input,
-.usage-budget-editor select {
-	width: 72px;
-	background: var(--panel-bg);
-	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: 0;
-	color: var(--text-primary);
-	padding: 3px 6px;
-}
-.usage-budget-row button {
-	background: var(--panel-bg-elevated);
-	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: 0;
-	color: var(--text-primary);
-	padding: 0 12px;
-	cursor: pointer;
-	white-space: nowrap;
-}
-.usage-budget-note {
-	margin: 0;
-	font-size: 10px;
-	line-height: 1.6;
-	color: var(--text-secondary);
-}
-.usage-budget-note code {
-	color: var(--text-primary);
-	background: var(--panel-bg);
-	padding: 0 4px;
-	border-radius: 0;
-}
 /* Dense chip: range toggle (W/M) — mirrors .usage-seg style */
 .usage-range {
 	display: inline-flex;
@@ -4633,6 +4578,14 @@ select {
 	align-items: flex-end;
 	gap: 1px;
 	overflow: hidden;
+}
+/* Chip chart: fixed width so week (7 bars) and month (~30 bars) match. */
+.usage-strip .usage-chart {
+	width: 120px;
+}
+/* Popover chart: fill the section width. */
+.usage-pop .usage-chart {
+	width: 100%;
 }
 .usage-chart-bar {
 	display: flex;
