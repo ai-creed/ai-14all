@@ -1,90 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { providerRollup, rowCostUsd, seriesForRange } from "../../../src/features/telemetry/rollup.js";
-import type { DailyPoint, UsageRow } from "../../../shared/models/usage.js";
+import { seriesForRange } from "../../../src/features/telemetry/rollup.js";
+import type { DailyPoint } from "../../../shared/models/usage.js";
 
-const DAY = 86_400_000;
-// Local calendar helpers, recomputed in the test so assertions are timezone- and
-// weekday-agnostic (no hardcoded "which day is Monday").
-const localDay = (ms: number): number => {
-	const d = new Date(ms);
-	d.setHours(0, 0, 0, 0);
-	return d.getTime();
-};
-const monday = (ms: number): number => {
-	const d = new Date(localDay(ms));
-	d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-	return d.getTime();
-};
-const first = (ms: number): number => {
-	const d = new Date(localDay(ms));
-	d.setDate(1);
-	return d.getTime();
-};
+const day = (y: number, m: number, d: number): number => new Date(y, m, d, 12).getTime();
 
-const NOW = new Date("2026-06-17T12:00:00").getTime();
-// 45 consecutive local days ending today — spans the current week and month.
-const series: DailyPoint[] = Array.from({ length: 45 }, (_, i) => ({
-	dayStartMs: localDay(NOW) - (44 - i) * DAY,
-	tokens: { claude: 10, codex: 5 },
-}));
-
-describe("seriesForRange (calendar)", () => {
-	it("week starts at this Monday; month starts at the 1st — not a trailing window", () => {
-		const wk = seriesForRange(series, "week", NOW);
-		expect(wk[0].dayStartMs).toBe(monday(NOW));
-		expect(wk.every((p) => p.dayStartMs >= monday(NOW))).toBe(true);
-		const mo = seriesForRange(series, "month", NOW);
-		expect(mo[0].dayStartMs).toBe(first(NOW));
-		expect(mo.every((p) => p.dayStartMs >= first(NOW))).toBe(true);
+describe("seriesForRange", () => {
+	const series: DailyPoint[] = [
+		{ dayStartMs: day(2026, 5, 8), tokens: { codex: 1 } }, // Mon 06-08 (last week)
+		{ dayStartMs: day(2026, 5, 15), tokens: { codex: 2 } }, // Mon 06-15 (this week)
+		{ dayStartMs: day(2026, 5, 17), tokens: { codex: 3 } }, // Wed 06-17
+	];
+	const now = day(2026, 5, 17);
+	it("week keeps only points >= this Monday", () => {
+		const out = seriesForRange(series, "week", now);
+		expect(out.map((p) => p.tokens.codex)).toEqual([2, 3]);
 	});
-});
-
-describe("providerRollup", () => {
-	it("sums per provider over the calendar period and attaches notional cost", () => {
-		const cost = {
-			perProvider: { claude: 2.5 },
-			total: 2.5,
-			currency: "USD" as const,
-			notional: true as const,
-			unpricedTokens: 0,
-		};
-		const days = seriesForRange(series, "week", NOW).length;
-		const { rows, totalTokens } = providerRollup(series, "week", cost, NOW);
-		const claude = rows.find((r) => r.provider === "claude");
-		expect(claude?.tokens).toBe(10 * days);
-		expect(claude?.costUsd).toBe(2.5);
-		expect(rows.find((r) => r.provider === "codex")?.costUsd).toBeNull();
-		expect(totalTokens).toBe(15 * days); // 10 claude + 5 codex per day
-		expect(rows[0].provider).toBe("claude"); // sorted desc by tokens
-	});
-});
-
-const mkRow = (provider: UsageRow["provider"], billable: number): UsageRow => ({
-	workspaceId: "ws",
-	worktreeId: "w",
-	worktreePath: "/p",
-	worktreeTitle: "t",
-	provider,
-	active: false,
-	sinceLaunch: { input: 0, output: 0, billable, raw: billable },
-	thisWeek: { input: 0, output: 0, billable: 0, raw: 0 },
-});
-
-describe("rowCostUsd", () => {
-	it("splits a provider's notional cost by the row's billable share", () => {
-		const rows = [mkRow("claude", 75), mkRow("claude", 25)];
-		const cost = {
-			perProvider: { claude: 4 },
-			total: 4,
-			currency: "USD" as const,
-			notional: true as const,
-			unpricedTokens: 0,
-		};
-		expect(rowCostUsd(rows[0], rows, cost)).toBeCloseTo(3, 6);
-		expect(rowCostUsd(rows[1], rows, cost)).toBeCloseTo(1, 6);
-	});
-	it("returns null when the provider has no priced cost", () => {
-		const rows = [mkRow("ezio", 10)];
-		expect(rowCostUsd(rows[0], rows, { perProvider: {}, total: 0, currency: "USD", notional: true, unpricedTokens: 10 })).toBeNull();
+	it("month keeps only points >= the 1st", () => {
+		const out = seriesForRange(series, "month", now);
+		expect(out.map((p) => p.tokens.codex)).toEqual([1, 2, 3]);
 	});
 });

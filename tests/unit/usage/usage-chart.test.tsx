@@ -18,10 +18,16 @@ const series: DailyPoint[] = [
 describe("UsageChart", () => {
 	it("renders one bar per day and a segment per provider with data", () => {
 		const { container } = render(
-			<UsageChart series={series} providers={providers} range="week" nowMs={NOW} />,
+			<UsageChart kind="daily" daily={series} providers={providers} range="week" nowMs={NOW} />,
 		);
 		expect(container.querySelectorAll(".usage-chart-bar")).toHaveLength(2);
 		// day 0 has claude+codex (2 segments); day 1 has claude only (1)
 		expect(container.querySelectorAll(".usage-chart-seg")).toHaveLength(3);
+	});
+	it("renders nothing when the slice is empty", () => {
+		const { container } = render(
+			<UsageChart kind="daily" daily={[]} providers={providers} range="week" nowMs={NOW} />,
+		);
+		expect(container.firstChild).toBeNull();
 	});
 });
