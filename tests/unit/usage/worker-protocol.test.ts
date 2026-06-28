@@ -1,28 +1,22 @@
 import { describe, expect, it } from "vitest";
-import type {
-	MainToWorker,
-	UsageWorkerConfig,
-} from "../../../services/usage/worker-protocol.js";
+import type { MainToWorker, UsageWorkerConfig } from "../../../services/usage/worker-protocol.js";
 
-describe("worker protocol shape", () => {
-	it("config carries home + range and no path/budget fields", () => {
+describe("worker-protocol", () => {
+	it("config carries userDataDir + chipRange (no popoverScope)", () => {
 		const cfg: UsageWorkerConfig = {
-			home: "/home/me",
-			offsetCachePath: "/u/offsets.json",
-			launchMs: 0,
-			known: [],
-			activeWorktreeIds: [],
-			range: "week",
-			includeUntracked: false,
-			backfillBatchSize: 8,
+			home: "/home", userDataDir: "/data", launchMs: 0, known: [], activeWorktreeIds: [],
+			chipRange: "week", includeUntracked: false, backfillBatchSize: 8,
 		};
-		// @ts-expect-error claudeRoot was removed from UsageWorkerConfig
-		expect(cfg.claudeRoot).toBeUndefined();
-		expect(cfg.home).toBe("/home/me");
+		expect(cfg.userDataDir).toBe("/data");
+		expect(cfg.chipRange).toBe("week");
+		expect("popoverScope" in cfg).toBe(false);
 	});
 
-	it("supports a setRange message", () => {
-		const msg: MainToWorker = { kind: "setRange", range: "month" };
-		expect(msg.kind).toBe("setRange");
+	it("setChipRange replaces setRange; no setScope message exists", () => {
+		const msg: MainToWorker = { kind: "setChipRange", chipRange: "month" };
+		expect(msg.kind).toBe("setChipRange");
+		// @ts-expect-error setRange is gone
+		const bad: MainToWorker = { kind: "setRange", range: "week" };
+		void bad;
 	});
 });
