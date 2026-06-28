@@ -1,27 +1,18 @@
 import { readdirSync, statSync, type Stats } from "node:fs";
 import { join } from "node:path";
-import type { CodexRateLimits, UsageEvent } from "../../shared/models/usage.js";
-import { CLAUDE_MARKER, parseClaudeLine } from "./claude-source.js";
-import {
-	CODEX_MARKER,
-	CODEX_META_MARKER,
-	CODEX_TURN_MARKER,
-	parseCodexRateLimits,
-	parseCodexSessionMeta,
-	parseCodexTokenLine,
-	parseCodexTurnContext,
-	sessionIdFromCodexFile,
-} from "./codex-source.js";
+import type { AgentProviderId } from "../../shared/models/agent-provider.js";
+import type { ProviderRateLimits, UsageEvent } from "../../shared/models/usage.js";
+import { claudeDriver } from "./providers/claude.js";
+import { codexDriver } from "./providers/codex.js";
+import type { ParseCtx, TelemetryDriver } from "./providers/types.js";
 import { readNewLines } from "./incremental-reader.js";
 
 export interface OffsetEntry {
 	offset: number;
 	mtime: number;
-	// Codex-only: ctx threaded forward across appends. Persisted so a worker
-	// restart resumes mid-rollout without losing cwd/model (token lines do not
-	// carry them — only session_meta/turn_context lines do).
-	cwd?: string;
-	model?: string;
+	// Opaque parse ctx threaded across appends (codex cwd/model, ezio slug).
+	// Persisted so a worker restart resumes mid-file without re-deriving it.
+	ctx?: ParseCtx;
 }
 export type OffsetCache = Map<string, OffsetEntry>;
 
@@ -49,10 +40,15 @@ function changed(
 	file: string,
 	cache: OffsetCache,
 ): { from: number; mtime: number } | null {
-	const mtime = statSync(file).mtimeMs;
+	const st = statSync(file);
+	const mtime = st.mtimeMs;
 	const prev = cache.get(file);
 	if (prev && prev.mtime === mtime) return null;
-	return { from: prev?.offset ?? 0, mtime };
+	let from = prev?.offset ?? 0;
+	// Truncation / rotation (e.g. ezio's unknown-0.record.jsonl rewritten shorter):
+	// the cached offset is now past EOF, so re-read from the start.
+	if (prev && st.size < prev.offset) from = 0;
+	return { from, mtime };
 }
 
 // Enumerate every .jsonl under root (recursive). Used by the worker to build a
@@ -89,99 +85,73 @@ export function resetRecentOffsets(
 	}
 }
 
-// Process ONE Claude file: ingest events parsed from newly-appended lines, then
-// advance the offset cache. Returns the number of events ingested.
+// Process ONE jsonl file for the given driver: ingest token events from newly
+// appended matching lines, surface any provider limits, and advance the offset
+// cache (threading parse ctx). Generalizes processClaudeFile/processCodexFile.
+export function processJsonlFile(
+	driver: TelemetryDriver,
+	file: string,
+	cache: OffsetCache,
+	ingest: (e: UsageEvent) => void,
+	onLimits: (id: AgentProviderId, limits: ProviderRateLimits) => void,
+): void {
+	const ch = changed(file, cache);
+	if (!ch) return;
+	const prev = cache.get(file);
+	// Seeded defaults first; persisted ctx wins over them.
+	const ctx: ParseCtx = {
+		...(driver.seedCtx?.(file) ?? {}),
+		...(prev?.ctx ?? {}),
+	};
+	// Back-compat: resumed past byte 0 without threaded ctx (old cache or codex
+	// upgrade). Re-derive it without re-ingesting events.
+	if (ch.from > 0 && driver.recoverCtx && !ctx.cwd) {
+		Object.assign(ctx, driver.recoverCtx(file, ch.from));
+	}
+	const keep = driver.keep ?? ((): boolean => true);
+	const { lines, offset } = readNewLines(file, ch.from, keep);
+	const fileMtime = driver.capabilities.timeSource === "file-mtime";
+	for (const line of lines) {
+		const r = driver.parseLine?.(line, ctx);
+		if (!r) continue;
+		if (r.limits) onLimits(driver.id, r.limits);
+		if (r.event) {
+			if (fileMtime) r.event.timestampMs = ch.mtime;
+			ingest(r.event);
+		}
+	}
+	cache.set(file, { offset, mtime: ch.mtime, ctx });
+}
+
+// Thin wrappers (used by unit tests and scanClaude/scanCodex). Parity with the
+// generic processor is guaranteed because they ARE the generic processor.
 export function processClaudeFile(
 	file: string,
 	cache: OffsetCache,
 	ingest: (e: UsageEvent) => void,
 ): number {
-	const ch = changed(file, cache);
-	if (!ch) return 0;
-	const { lines, offset } = readNewLines(file, ch.from, (l) =>
-		l.includes(CLAUDE_MARKER),
-	);
 	let count = 0;
-	for (const line of lines) {
-		const e = parseClaudeLine(line);
-		if (e) {
+	processJsonlFile(
+		claudeDriver,
+		file,
+		cache,
+		(e) => {
 			ingest(e);
 			count++;
-		}
-	}
-	cache.set(file, { offset, mtime: ch.mtime });
+		},
+		() => {},
+	);
 	return count;
 }
 
-// Process ONE Codex rollout: ingest token events, return the newest rate-limit
-// snapshot seen in this file (or null). Per-file ctx (cwd/model) is persisted
-// in the OffsetCache entry so a worker restart resuming mid-file still has it.
 export function processCodexFile(
 	file: string,
 	cache: OffsetCache,
 	ingest: (e: UsageEvent) => void,
-): CodexRateLimits | null {
-	const ch = changed(file, cache);
-	if (!ch) return null;
-	const prev = cache.get(file);
-	const ctx = {
-		cwd: prev?.cwd ?? "",
-		model: prev?.model ?? "",
-		sessionId: sessionIdFromCodexFile(file.split("/").pop() ?? ""),
-	};
-	// Back-compat: cache entry from an older build (or any case where ctx was
-	// never persisted) resumed past byte 0. Re-scan [0, ch.from) with the
-	// meta-only filter to recover cwd/model. Token lines are excluded by the
-	// keep filter so no events are re-ingested.
-	if (ch.from > 0 && !ctx.cwd) {
-		const metaOnly = (l: string): boolean =>
-			l.includes(CODEX_META_MARKER) || l.includes(CODEX_TURN_MARKER);
-		const back = readNewLines(file, 0, metaOnly);
-		for (const line of back.lines) {
-			const meta = parseCodexSessionMeta(line);
-			if (meta) {
-				ctx.cwd = meta.cwd;
-				continue;
-			}
-			const tc = parseCodexTurnContext(line);
-			if (tc) {
-				if (tc.cwd) ctx.cwd = tc.cwd;
-				if (tc.model) ctx.model = tc.model;
-			}
-		}
-	}
-	let limits: CodexRateLimits | null = null;
-	// Marker pre-filter: only token lines (what we aggregate) plus the small
-	// session_meta/turn_context lines (cwd/model). Large unrelated lines never
-	// reach JSON.parse.
-	const keep = (l: string): boolean =>
-		l.includes(CODEX_MARKER) ||
-		l.includes(CODEX_META_MARKER) ||
-		l.includes(CODEX_TURN_MARKER);
-	const { lines, offset } = readNewLines(file, ch.from, keep);
-	for (const line of lines) {
-		const meta = parseCodexSessionMeta(line);
-		if (meta) {
-			ctx.cwd = meta.cwd;
-			continue;
-		}
-		const tc = parseCodexTurnContext(line);
-		if (tc) {
-			if (tc.cwd) ctx.cwd = tc.cwd;
-			if (tc.model) ctx.model = tc.model;
-			continue;
-		}
-		if (!line.includes(CODEX_MARKER)) continue;
-		const rl = parseCodexRateLimits(line);
-		if (rl && (!limits || rl.capturedAtMs >= limits.capturedAtMs)) limits = rl;
-		const e = parseCodexTokenLine(line, ctx);
-		if (e) ingest(e);
-	}
-	cache.set(file, {
-		offset,
-		mtime: ch.mtime,
-		cwd: ctx.cwd,
-		model: ctx.model,
+): ProviderRateLimits | null {
+	let limits: ProviderRateLimits | null = null;
+	processJsonlFile(codexDriver, file, cache, ingest, (_id, rl) => {
+		if (!limits || rl.capturedAtMs >= limits.capturedAtMs) limits = rl;
 	});
 	return limits;
 }
@@ -198,9 +168,9 @@ export function scanClaude(root: string, cache: OffsetCache): UsageEvent[] {
 export function scanCodex(
 	root: string,
 	cache: OffsetCache,
-): { events: UsageEvent[]; limits: CodexRateLimits | null } {
+): { events: UsageEvent[]; limits: ProviderRateLimits | null } {
 	const events: UsageEvent[] = [];
-	let limits: CodexRateLimits | null = null;
+	let limits: ProviderRateLimits | null = null;
 	for (const file of listJsonlFiles(root)) {
 		const rl = processCodexFile(file, cache, (e) => events.push(e));
 		if (rl && (!limits || rl.capturedAtMs >= limits.capturedAtMs)) limits = rl;

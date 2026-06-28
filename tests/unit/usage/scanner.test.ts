@@ -12,11 +12,13 @@ import type { UsageEvent } from "../../../shared/models/usage.js";
 import { WEEK_MS } from "../../../services/usage/aggregator.js";
 import {
 	processCodexFile,
+	processJsonlFile,
 	resetRecentOffsets,
 	scanClaude,
 	scanCodex,
 	type OffsetCache,
 } from "../../../services/usage/scanner.js";
+import { ezioDriver } from "../../../services/usage/providers/ezio.js";
 
 function writeClaudeEvent(dir: string, file: string, isoTs: string): string {
 	mkdirSync(dir, { recursive: true });
@@ -144,6 +146,63 @@ describe("scanners", () => {
 			raw: 100,
 		});
 		expect(result.limits?.secondary?.usedPercent).toBe(41);
+	});
+
+	describe("processJsonlFile (generic)", () => {
+		it("stamps ezio events with file mtime and seeds cwd from the dir slug", () => {
+			const root = mkdtempSync(join(tmpdir(), "ezio-"));
+			const sessDir = join(root, "Users-me-Dev-app");
+			mkdirSync(sessDir, { recursive: true });
+			const file = join(sessDir, "rec.record.jsonl");
+			writeFileSync(
+				file,
+				JSON.stringify({
+					model: "gpt-5-codex",
+					usage: { contextTokens: 1000, outputTokens: 200, cachedTokens: 600 },
+				}) + "\n",
+			);
+			const mtime = new Date("2026-06-01T00:00:00.000Z");
+			utimesSync(file, mtime, mtime);
+			const cache: OffsetCache = new Map();
+			const events: UsageEvent[] = [];
+			processJsonlFile(
+				ezioDriver,
+				file,
+				cache,
+				(e) => events.push(e),
+				() => {},
+			);
+			expect(events).toHaveLength(1);
+			expect(events[0].provider).toBe("ezio");
+			expect(events[0].cwd).toBe("Users-me-Dev-app");
+			expect(events[0].timestampMs).toBe(mtime.getTime());
+			expect(events[0].billable).toBe(600);
+		});
+
+		it("resets to offset 0 when a file is truncated/rotated", () => {
+			const root = mkdtempSync(join(tmpdir(), "ezio-trunc-"));
+			const sessDir = join(root, "Users-me-Dev-app");
+			mkdirSync(sessDir, { recursive: true });
+			const file = join(sessDir, "rec.record.jsonl");
+			const rec = (out: number): string =>
+				JSON.stringify({
+					model: "m",
+					usage: { contextTokens: 10, outputTokens: out, cachedTokens: 0 },
+				}) + "\n";
+			writeFileSync(file, rec(1) + rec(2) + rec(3));
+			const cache: OffsetCache = new Map();
+			const first: UsageEvent[] = [];
+			processJsonlFile(ezioDriver, file, cache, (e) => first.push(e), () => {});
+			expect(first).toHaveLength(3);
+			// Rewrite shorter (rotation): a single new record, smaller than the offset.
+			const t = new Date(Date.now() + 1000);
+			writeFileSync(file, rec(9));
+			utimesSync(file, t, t);
+			const second: UsageEvent[] = [];
+			processJsonlFile(ezioDriver, file, cache, (e) => second.push(e), () => {});
+			expect(second).toHaveLength(1);
+			expect(second[0].output).toBe(9);
+		});
 	});
 
 	it("processCodexFile threads cwd/model across worker restarts via cache", async () => {
