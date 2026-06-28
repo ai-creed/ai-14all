@@ -6,6 +6,7 @@ import { claudeDriver } from "../../../services/usage/providers/claude.js";
 import { codexDriver } from "../../../services/usage/providers/codex.js";
 import { cursorDriver } from "../../../services/usage/providers/cursor.js";
 import { antigravityDriver } from "../../../services/usage/providers/antigravity.js";
+import { ezioDriver } from "../../../services/usage/providers/ezio.js";
 
 describe("real drivers", () => {
 	it("claude declares per-event/in-line capabilities and a projects root", () => {
@@ -81,5 +82,40 @@ describe("inert drivers", () => {
 		expect(antigravityDriver.roots("/home/me")).toEqual([]);
 		expect(antigravityDriver.capabilities.storeKind).toBe("sqlite-dir");
 		expect(antigravityDriver.capabilities.timeSource).toBe("none");
+	});
+});
+
+describe("ezio driver", () => {
+	it("declares file-mtime/dir-slug capabilities and a sessions root", () => {
+		expect(ezioDriver.capabilities).toEqual({
+			tokenLog: true,
+			storeKind: "jsonl-tree",
+			timeSource: "file-mtime",
+			cwdSource: "dir-slug",
+			nativeLimits: false,
+		});
+		expect(ezioDriver.roots("/home/me")).toEqual([
+			"/home/me/.local/state/ezio/sessions",
+		]);
+	});
+
+	it("seedCtx pulls the dir slug as cwd and the file basename as sessionId", () => {
+		const ctx = ezioDriver.seedCtx?.(
+			"/home/me/.local/state/ezio/sessions/Users-me-Dev-app/abc.record.jsonl",
+		);
+		expect(ctx?.cwd).toBe("Users-me-Dev-app");
+		expect(ctx?.sessionId).toBe("abc.record");
+	});
+
+	it("parseLine maps a usage record using the seeded ctx", () => {
+		const ctx = { cwd: "Users-me-Dev-app", sessionId: "abc.record" };
+		const line = JSON.stringify({
+			model: "gpt-5-codex",
+			usage: { contextTokens: 1000, outputTokens: 200, cachedTokens: 600 },
+		});
+		const r = ezioDriver.parseLine?.(line, ctx);
+		expect(r?.event?.provider).toBe("ezio");
+		expect(r?.event?.cwd).toBe("Users-me-Dev-app");
+		expect(r?.event?.billable).toBe(600);
 	});
 });
