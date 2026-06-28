@@ -1,39 +1,18 @@
 import { Fragment, useState, type CSSProperties, type Ref } from "react";
-import type { UsageRow, UsageSnapshot } from "../../../shared/models/usage.js";
+import type { UsageScope, UsageSnapshot } from "../../../shared/models/usage.js";
 import { Icon } from "@/components/ui/icon";
 import { formatReset, formatTokens, formatUsd } from "./format.js";
 import { Gauge } from "./Gauge.js";
 import { groupByWorkspace } from "./group.js";
-import { providerRollup, rowCostUsd } from "./rollup.js";
 import { UsageChart } from "./UsageChart.js";
 
-type Scope = "active" | "all";
 type Breakdown = "provider" | "workspace" | "worktree";
-
-// Apply scope + untracked toggle. Pulled out so it is unit-testable.
-export function selectRows(
-	rows: UsageRow[],
-	scope: Scope,
-	includeUntracked: boolean,
-): UsageRow[] {
-	let tracked = rows.filter((r) => r.workspaceId !== null);
-	if (scope === "active") tracked = tracked.filter((r) => r.active);
-	const untracked = includeUntracked
-		? rows.filter((r) => r.workspaceId === null)
-		: [];
-	return [...tracked, ...untracked];
-}
-
-function setRange(range: "week" | "month"): void {
-	void window.ai14all?.usage?.setRange(range);
-}
 
 export function UsagePopover({
 	snapshot,
 	onClose,
 	style,
 	rootRef,
-	openWorktreePaths,
 }: {
 	snapshot: UsageSnapshot;
 	onClose: () => void;
@@ -42,9 +21,11 @@ export function UsagePopover({
 	openWorktreePaths?: string[];
 	currentWorktreePath?: string | null;
 }) {
-	const range = snapshot.config.range ?? "week";
+	// Scope is ephemeral: the popover always opens on Session and resets on every
+	// mount/open (UsageStrip mounts the popover only while open, so unmounting on
+	// close is what makes reopening return to Session). Not persisted.
+	const [scope, setScope] = useState<UsageScope>("session");
 	const [breakdown, setBreakdown] = useState<Breakdown>("provider");
-	const [scope] = useState<Scope>("all");
 	// Seed the toggle from the persisted/effective setting in config (NOT a blank
 	// false), so a user who turned "include untracked" on sees it reflected.
 	const [includeUntracked, setIncludeUntracked] = useState(
@@ -52,18 +33,11 @@ export function UsagePopover({
 	);
 	const [showLimits, setShowLimits] = useState(false);
 	const now = snapshot.generatedAtMs;
-	const providers = snapshot.providers ?? [];
-	const series = snapshot.series ?? [];
-	const cost = snapshot.cost ?? null;
-
-	const scopedRows = openWorktreePaths
-		? snapshot.rows.map((r) => ({
-				...r,
-				active: r.worktreePath !== null && openWorktreePaths.includes(r.worktreePath),
-			}))
-		: snapshot.rows;
-	const rows = selectRows(scopedRows, scope, includeUntracked);
-	const rollup = providerRollup(series, range, cost, now);
+	const data = snapshot.scopes[scope];
+	const cost = data.cost;
+	const rows = data.rows.filter(
+		(r) => includeUntracked || r.workspaceId !== null,
+	);
 	const groups = groupByWorkspace(rows);
 	const limits = snapshot.codexLimits ?? null;
 
@@ -78,19 +52,25 @@ export function UsagePopover({
 			{/* chart */}
 			<div className="usage-pop-sec">
 				<div className="usage-pop-h">
-					<span className="usage-range" role="group" aria-label="range">
-						<button className={range === "week" ? "on" : ""} onClick={() => setRange("week")}>Week</button>
-						<button className={range === "month" ? "on" : ""} onClick={() => setRange("month")}>Month</button>
+					<span className="usage-seg" role="group" aria-label="scope">
+						<button className={scope === "session" ? "on" : ""} onClick={() => setScope("session")}>Session</button>
+						<button className={scope === "week" ? "on" : ""} onClick={() => setScope("week")}>Week</button>
+						<button className={scope === "month" ? "on" : ""} onClick={() => setScope("month")}>Month</button>
+						<button className={scope === "all-time" ? "on" : ""} onClick={() => setScope("all-time")}>All-time</button>
 					</span>
 					<span className="usage-pop-total">
-						<b>{formatTokens(rollup.totalTokens)}</b>
-						{cost ? <span className="usage-dim" title="notional · since launch"> · ~{formatUsd(rollup.totalCost ?? 0)} notional</span> : null}
+						<b>{formatTokens(data.totalTokens)}</b>
+						<span className="usage-dim" title="notional"> · ~{formatUsd(cost.total)} notional</span>
 					</span>
 					<button className="usage-gear" aria-label="close" onClick={onClose}>
 						<Icon name="close" />
 					</button>
 				</div>
-				<UsageChart series={series} providers={providers} range={range} nowMs={now} height={74} />
+				{scope === "session" ? (
+					<UsageChart kind="hourly" hourly={snapshot.seriesHourly} providers={snapshot.providers} nowMs={now} />
+				) : scope === "all-time" ? null : (
+					<UsageChart kind="daily" daily={snapshot.seriesDaily} providers={snapshot.providers} range={scope} nowMs={now} />
+				)}
 			</div>
 
 			{/* breakdown */}
@@ -111,38 +91,36 @@ export function UsagePopover({
 
 				{breakdown === "provider" ? (
 					<div className="usage-rollup">
-						{rollup.rows.map((r) => (
+						{data.byProvider.map((r) => (
 							<div className="usage-rollup-row" key={r.provider}>
 								<span className={`usage-prov usage-prov--${r.provider}`}>{r.provider}</span>
 								<span className="usage-share">
 									<span
 										className="usage-share-fill"
 										style={{
-											width: `${rollup.totalTokens ? (r.tokens / rollup.totalTokens) * 100 : 0}%`,
+											width: `${data.totalTokens ? (r.tokens / data.totalTokens) * 100 : 0}%`,
 											background: `var(--provider-${r.provider})`,
 										}}
 									/>
 								</span>
 								<span className="usage-rollup-tok">{formatTokens(r.tokens)}</span>
-								<span className="usage-dim" title="notional · since launch">{r.costUsd == null ? "—" : `~${formatUsd(r.costUsd)}`}</span>
+								<span className="usage-dim" title="notional">{r.costUsd == null ? "—" : `~${formatUsd(r.costUsd)}`}</span>
 							</div>
 						))}
 						<div className="usage-rollup-row usage-rollup-total">
 							<span>total</span>
 							<span className="usage-share" />
-							<span className="usage-rollup-tok">{formatTokens(rollup.totalTokens)}</span>
-							<span className="usage-dim" title="notional · since launch">{cost ? `~${formatUsd(rollup.totalCost ?? 0)}` : "—"}</span>
+							<span className="usage-rollup-tok">{formatTokens(data.totalTokens)}</span>
+							<span className="usage-dim" title="notional">~{formatUsd(cost.total)}</span>
 						</div>
-						{cost && cost.unpricedTokens > 0 ? (
+						{cost.unpricedTokens > 0 ? (
 							<div className="usage-dim usage-unpriced">
 								+{formatTokens(cost.unpricedTokens)} tokens unpriced
 							</div>
 						) : null}
-						{cost ? (
-							<div className="usage-dim usage-rollup-note" title="notional · since launch">
-								~$ = notional API-equivalent value · since launch (tokens are this {range})
-							</div>
-						) : null}
+						<div className="usage-dim usage-rollup-note" title="notional">
+							~$ = notional API-equivalent value
+						</div>
 					</div>
 				) : (
 					<table className="usage-tbl">
@@ -161,47 +139,22 @@ export function UsagePopover({
 										<td>{formatTokens(g.subtotal.billable)}</td>
 										<td />
 									</tr>
-									{g.rows.map((r, i) => {
-										const c = rowCostUsd(r, rows, cost);
-										return (
-											<tr key={`${g.workspaceId}-${r.worktreeId}-${r.provider}-${i}`}>
-												<td className="l usage-wt">
-													{r.worktreeTitle} ·{" "}
-													<span className={`usage-prov usage-prov--${r.provider}`}>{r.provider}</span>
-												</td>
-												<td>{formatTokens(r.sinceLaunch.billable)}</td>
-												<td className="usage-dim">{c == null ? "—" : `~${formatUsd(c)}`}</td>
-											</tr>
-										);
-									})}
+									{g.rows.map((r, i) => (
+										<tr key={`${g.workspaceId}-${r.worktreeId}-${r.provider}-${i}`}>
+											<td className="l usage-wt">
+												{r.worktreeTitle} ·{" "}
+												<span className={`usage-prov usage-prov--${r.provider}`}>{r.provider}</span>
+											</td>
+											<td>{formatTokens(r.tokens.billable)}</td>
+											<td className="usage-dim">{r.costUsd == null ? "—" : `~${formatUsd(r.costUsd)}`}</td>
+										</tr>
+									))}
 								</Fragment>
 							))}
 						</tbody>
 					</table>
 				)}
 			</div>
-
-			{/* lifetime (Slice 2): rendered only when present */}
-			{snapshot.lifetime ? (
-				<div className="usage-pop-sec usage-lifetime">
-					<div className="usage-life-card">
-						<div className="usage-dim">in app</div>
-						<div className="usage-life-fig">{formatTokens(snapshot.lifetime.inApp.tokens)}</div>
-						<div className="usage-dim">
-							{snapshot.lifetime.inApp.costUsd == null ? "—" : `~${formatUsd(snapshot.lifetime.inApp.costUsd)}`} · while app open
-						</div>
-					</div>
-					{snapshot.lifetime.allTime ? (
-						<div className="usage-life-card">
-							<div className="usage-dim">all-time</div>
-							<div className="usage-life-fig">{formatTokens(snapshot.lifetime.allTime.tokens)}</div>
-							<div className="usage-dim">
-								{snapshot.lifetime.allTime.costUsd == null ? "—" : `~${formatUsd(snapshot.lifetime.allTime.costUsd)}`} · on this machine
-							</div>
-						</div>
-					) : null}
-				</div>
-			) : null}
 
 			{/* codex native limits — collapsed */}
 			{limits ? (

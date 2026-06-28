@@ -23,10 +23,10 @@ export function groupByWorkspace(rows: UsageRow[]): WorkspaceGroup[] {
 		}
 		g.rows.push(r);
 		g.subtotal = {
-			input: g.subtotal.input + r.sinceLaunch.input,
-			output: g.subtotal.output + r.sinceLaunch.output,
-			billable: g.subtotal.billable + r.sinceLaunch.billable,
-			raw: g.subtotal.raw + r.sinceLaunch.raw,
+			input: g.subtotal.input + r.tokens.input,
+			output: g.subtotal.output + r.tokens.output,
+			billable: g.subtotal.billable + r.tokens.billable,
+			raw: g.subtotal.raw + r.tokens.raw,
 		};
 	}
 	const groups = [...map.values()];
