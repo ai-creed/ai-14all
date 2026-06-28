@@ -56,20 +56,33 @@ pane's empty/loading/error/large-data states and decomposes the 959-line
 
 ### Information architecture: one store, three projections
 
-All comment views read the same `reviewState.comments`. Only the inline surface (and the
-minimap flyout's Resolve action) mutate state. Because the other views are read-only
-projections, there is no cross-view sync to get wrong.
+All comment views derive from the same canonical `reviewState.comments`, owned by
+`review-comment-service` / `review-comment-store`. The invariant is **one source of truth
+with one write path**, not read-only views: no projection keeps its own copy of comment
+state, and every mutation — author, reply, resolve, toggle-addressed, clear-addressed —
+routes through that single service. Projections differ only in *which* actions they expose,
+never in where the data lives or where writes go. Because there is exactly one store and
+one write path, the projections cannot drift, so there is no cross-view sync to get wrong.
 
-1. **Inline threads (center diff)** — the *editing* surface. Author, reply, and resolve
-   where the reviewer's eyes already are. This is the canonical interaction point.
+1. **Inline threads (center diff)** — the *editing* surface and the only place that can
+   author or reply. Exposed actions: author, reply, resolve. This is the richest
+   interaction point, where the reviewer's eyes already are.
 2. **Slim minimap (right rail, ~46px)** — the *navigation* surface for the current file.
    A vertical progress fill plus one dot per comment (amber = open, green = addressed).
-   Hovering or clicking a dot pops a flyout preview (author, snippet, Jump, Resolve)
-   without leaving the diff. Replaces the old `ReviewQueuePanel` as the right surface.
+   Hovering or clicking a dot pops a flyout preview (author, snippet). Exposed actions:
+   Jump (navigation) and Resolve (toggle-addressed for that one comment). Replaces the old
+   `ReviewQueuePanel` as the right surface.
 3. **Rail overview (left rail)** — the *triage + progress* surface. The Changes/Commits
    file list shows per-file open-comment counts and a reviewed (✓) marker, with a
    progress header and a collapsible "All open comments" section (the old cross-file
-   queue, relocated). This preserves whole-branch triage without a separate panel.
+   queue, relocated). Exposed actions: Jump (navigation), per-comment toggle-addressed, and
+   clear-addressed (the bulk triage action inherited from the old queue). This preserves
+   whole-branch triage without a separate panel.
+
+All of these actions — including the minimap Resolve and the overview's toggle-addressed /
+clear-addressed — are calls into `review-comment-service`. They are allowed mutations
+precisely because they go through the single write path; relocating them out of the old
+sidebar does not create a second state owner.
 
 This applies to **Changes** and **Commits** modes. **Files** mode keeps no comment chrome.
 
@@ -88,13 +101,17 @@ tested independently. `ReviewArea` becomes a thin layout/wiring shell.
 ### Data flow
 
 - **Comments:** `review-comment-service` / `review-comment-store` are unchanged and remain
-  canonical. Inline, minimap, and overview are projections; only inline (plus the flyout
-  Resolve) mutate.
+  canonical. Inline, minimap, and overview are projections of that store; whenever any of
+  them mutates (resolve / toggle-addressed / clear-addressed) it calls the same service,
+  and none holds a private copy. The service is the single write path.
 - **Minimap dots:** derived from the current file's comments, mapping `startLine` to a
   scroll proportion. The flyout shows a preview and offers Jump (scrolls the inline
   thread into view and focuses it) and Resolve (toggles addressed).
 - **Overview:** derived from all comments across files, grouped by file (reusing the old
-  queue's grouping/clear-addressed logic, relocated into the rail).
+  queue's grouping and hide-addressed logic, relocated into the rail). Its triage
+  mutations (per-comment toggle-addressed and bulk clear-addressed) call
+  `review-comment-service` directly — the same write path the inline threads use — so
+  relocating them out of the old sidebar introduces no second source of truth.
 - **`hideAddressed`:** a single filter applied uniformly to all three projections so the
   views never disagree about what is shown.
 
@@ -133,8 +150,10 @@ tested independently. `ReviewArea` becomes a thin layout/wiring shell.
 
 ### Migration / back-compat
 
-- `ReviewQueuePanel` is removed as a resizable sidebar; its grouping and clear-addressed
-  logic moves into the rail overview and the minimap flyout.
+- `ReviewQueuePanel` is removed as a resizable sidebar; its grouping, hide-addressed, and
+  clear-addressed logic moves into the rail overview and the minimap flyout. These actions
+  continue to write through `review-comment-service`, so no new state owner is introduced —
+  the panel's *location* changes, not who owns comment state.
 - `reviewSidebarWidth` is deprecated (the minimap is fixed-width). `reviewRailWidth`
   stays (the left rail remains resizable). `commentSidebarOpen` becomes the
   "overview expanded" toggle in the rail.
