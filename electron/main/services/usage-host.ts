@@ -109,15 +109,6 @@ export class UsageHost {
 		this.postMessage({ kind: "setRange", range });
 	}
 
-	/** @deprecated budget proxy removed — no-op; deleted in cleanup task. */
-	setBudgets(
-		_fiveHourBudget: number | null,
-		_weeklyBudget: number | null,
-	): void {}
-
-	/** @deprecated weekly reset removed — no-op; deleted in cleanup task. */
-	setWeeklyReset(_weeklyResetDay: number, _weeklyResetHour: number): void {}
-
 	setIncludeUntracked(includeUntracked: boolean): void {
 		this.includeUntracked = includeUntracked;
 		this.postMessage({ kind: "setIncludeUntracked", includeUntracked });

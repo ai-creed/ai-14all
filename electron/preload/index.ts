@@ -332,18 +332,6 @@ const api: Ai14AllDesktopApi = {
 		setEnabled(enabled) {
 			return ipcRenderer.invoke("usage:setEnabled", enabled);
 		},
-		setBudgets(fiveHourBudget, weeklyBudget) {
-			return ipcRenderer.invoke("usage:setBudgets", {
-				fiveHourBudget,
-				weeklyBudget,
-			});
-		},
-		setWeeklyReset(weeklyResetDay, weeklyResetHour) {
-			return ipcRenderer.invoke("usage:setWeeklyReset", {
-				weeklyResetDay,
-				weeklyResetHour,
-			});
-		},
 		setIncludeUntracked(includeUntracked) {
 			return ipcRenderer.invoke("usage:setIncludeUntracked", includeUntracked);
 		},
