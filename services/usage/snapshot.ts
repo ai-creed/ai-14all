@@ -1,6 +1,10 @@
+import { providerDef } from "../../shared/models/agent-provider.js";
 import type {
+	CostSnapshot,
+	DailyPoint,
 	KnownWorktree,
 	LimitGauge,
+	ProviderTelemetryInfo,
 	TokenTotals,
 	UsageProvider,
 	UsageRow,
@@ -8,6 +12,10 @@ import type {
 } from "../../shared/models/usage.js";
 import { UsageAggregator, FIVE_H_MS } from "./aggregator.js";
 import { budgetPercent, weeklyAnchorMs } from "./budget.js";
+import { buildCostSnapshot, type RateLookup } from "./cost/cost.js";
+import { rateFor } from "./cost/pricing.js";
+import { TELEMETRY_DRIVERS } from "./providers/index.js";
+import type { TelemetryDriver } from "./providers/types.js";
 import { matchCwd } from "./worktree-map.js";
 
 export interface BuildSnapshotInput {
@@ -16,11 +24,15 @@ export interface BuildSnapshotInput {
 	activeWorktreeIds: string[]; // currently open in the app => scope "Active"
 	nowMs: number;
 	includeUntracked: boolean;
-	claudeTier: string;
-	fiveHourBudget: number;
-	weeklyBudget: number;
-	weeklyResetDay: number; // 0=Sun..6=Sat (local)
-	weeklyResetHour: number; // 0..23 (local)
+	range?: "week" | "month";
+	drivers?: readonly TelemetryDriver[];
+	rate?: RateLookup;
+	// Deprecated (Claude budget proxy) — optional, defaulted; removed in cleanup.
+	claudeTier?: string;
+	fiveHourBudget?: number;
+	weeklyBudget?: number;
+	weeklyResetDay?: number; // 0=Sun..6=Sat (local)
+	weeklyResetHour?: number; // 0..23 (local)
 }
 
 const SEP = " ";
@@ -34,10 +46,14 @@ const add = (a: TokenTotals, b: TokenTotals): TokenTotals => ({
 
 export function buildSnapshot(input: BuildSnapshotInput): UsageSnapshot {
 	const { agg, known, nowMs, includeUntracked } = input;
+	const fiveHourBudget = input.fiveHourBudget ?? 5_000_000;
+	const weeklyBudget = input.weeklyBudget ?? 112_000_000;
+	const weeklyResetDay = input.weeklyResetDay ?? 1;
+	const weeklyResetHour = input.weeklyResetHour ?? 7;
 	const anchorMs = weeklyAnchorMs(
 		nowMs,
-		input.weeklyResetDay,
-		input.weeklyResetHour,
+		weeklyResetDay,
+		weeklyResetHour,
 	);
 	const rows: UsageRow[] = [];
 	const untracked = new Map<
@@ -81,36 +97,68 @@ export function buildSnapshot(input: BuildSnapshotInput): UsageSnapshot {
 		});
 	}
 
-	if (includeUntracked) {
-		for (const [provider, u] of untracked) {
-			rows.push({
-				workspaceId: null,
-				worktreeId: null,
-				worktreePath: null,
-				worktreeTitle: "other (untracked)",
-				provider,
-				active: false,
-				sinceLaunch: u.since,
-				thisWeek: { input: 0, output: 0, billable: u.week, raw: 0 },
-			});
-		}
+	// Always emit untracked rows; the renderer filters them client-side based on
+	// config.includeUntracked. Only totals still respect the setting.
+	for (const [provider, u] of untracked) {
+		rows.push({
+			workspaceId: null,
+			worktreeId: null,
+			worktreePath: null,
+			worktreeTitle: "other (untracked)",
+			provider,
+			active: false,
+			sinceLaunch: u.since,
+			thisWeek: { input: 0, output: 0, billable: u.week, raw: 0 },
+		});
 	}
 
 	const limits: LimitGauge[] = [
 		buildCodexGauge(input),
-		buildClaudeGauge(input, anchorMs),
+		buildClaudeGauge(input, anchorMs, fiveHourBudget, weeklyBudget),
 	];
+
+	// Analytics surface
+	const drivers = input.drivers ?? TELEMETRY_DRIVERS;
+	const withData = input.agg.providersWithData();
+	const providers: ProviderTelemetryInfo[] = drivers.map((d) => {
+		const def = providerDef(d.id);
+		return {
+			id: d.id,
+			label: def.label,
+			brand: def.brand,
+			capabilities: d.capabilities,
+			hasData: withData.has(d.id),
+		};
+	});
+	const series: DailyPoint[] = input.agg.dailySeries(input.nowMs);
+	const cost: CostSnapshot = buildCostSnapshot(
+		input.agg.costEntries(),
+		input.rate ?? rateFor,
+	);
+	const codexDriver = drivers.find((d) => d.id === "codex");
+	const codexRl = input.agg.getProviderLimits("codex");
+	const codexLimits =
+		codexDriver?.buildGauge && codexRl
+			? codexDriver.buildGauge({ providerLimits: codexRl, nowMs: input.nowMs })
+			: null;
+
 	return {
 		generatedAtMs: nowMs,
-		limits,
+		limits, // deprecated; removed in cleanup task
 		rows,
 		totals,
 		config: {
-			fiveHourBudget: input.fiveHourBudget,
-			weeklyBudget: input.weeklyBudget,
-			weeklyResetDay: input.weeklyResetDay,
-			weeklyResetHour: input.weeklyResetHour,
+			fiveHourBudget,
+			weeklyBudget,
+			weeklyResetDay,
+			weeklyResetHour,
+			range: input.range ?? "week",
+			includeUntracked: input.includeUntracked,
 		},
+		providers,
+		series,
+		cost,
+		codexLimits,
 	};
 }
 
@@ -135,8 +183,10 @@ function buildCodexGauge(input: BuildSnapshotInput): LimitGauge {
 function buildClaudeGauge(
 	input: BuildSnapshotInput,
 	anchorMs: number,
+	fiveHourBudget: number,
+	weeklyBudget: number,
 ): LimitGauge {
-	const { agg, nowMs, fiveHourBudget, weeklyBudget } = input;
+	const { agg, nowMs } = input;
 	// 5h stays a rolling trailing window; weekly is fixed since the reset anchor.
 	const used5h = agg.rollingBillable("claude", FIVE_H_MS, nowMs);
 	const usedWeek = agg.providerBillableSince("claude", anchorMs);
