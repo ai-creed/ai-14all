@@ -1,20 +1,18 @@
 import { existsSync, readFileSync, writeFileSync, watch } from "node:fs";
-import { UsageAggregator } from "../../../services/usage/aggregator.js";
-import { readClaudeTier } from "../../../services/usage/credentials.js";
+import {
+	UsageAggregator,
+	SERIES_WINDOW_MS,
+} from "../../../services/usage/aggregator.js";
 import {
 	listJsonlFiles,
-	processClaudeFile,
-	processCodexFile,
+	processJsonlFile,
 	resetRecentOffsets,
 	type OffsetCache,
+	type OffsetEntry,
 } from "../../../services/usage/scanner.js";
-import { WEEK_MS } from "../../../services/usage/aggregator.js";
+import { jsonlDrivers } from "../../../services/usage/providers/index.js";
 import { processInBatches } from "../../../services/usage/batch.js";
 import { buildSnapshot } from "../../../services/usage/snapshot.js";
-import {
-	seedFiveHourBudget,
-	seedWeeklyBudget,
-} from "../../../services/usage/budget.js";
 import type {
 	MainToWorker,
 	UsageWorkerConfig,
@@ -43,7 +41,7 @@ function loadOffsets(path: string): void {
 	try {
 		const obj = JSON.parse(readFileSync(path, "utf8")) as Record<
 			string,
-			{ offset: number; mtime: number }
+			OffsetEntry
 		>;
 		for (const [k, v] of Object.entries(obj)) offsets.set(k, v);
 	} catch {
@@ -65,7 +63,6 @@ function saveOffsets(): void {
 
 function emitSnapshot(): void {
 	if (!cfg || !agg) return;
-	const tier = readClaudeTier(cfg.credentialsPath);
 	parentPort.postMessage({
 		kind: "snapshot",
 		snapshot: buildSnapshot({
@@ -73,15 +70,12 @@ function emitSnapshot(): void {
 			known: cfg.known,
 			activeWorktreeIds: cfg.activeWorktreeIds,
 			nowMs: Date.now(),
-			// Always emit untracked rows so the renderer can toggle scope/untracked
-			// instantly (no worker round-trip). cfg.includeUntracked is the persisted
-			// UI default the renderer seeds from; it does not gate row emission.
-			includeUntracked: true,
-			claudeTier: tier,
-			fiveHourBudget: cfg.fiveHourBudget ?? seedFiveHourBudget(tier),
-			weeklyBudget: cfg.weeklyBudget ?? seedWeeklyBudget(tier),
-			weeklyResetDay: cfg.weeklyResetDay,
-			weeklyResetHour: cfg.weeklyResetHour,
+			// The effective setting → drives config.includeUntracked (the UI's
+			// initial toggle) and whether totals count untracked. Untracked ROWS are
+			// always emitted by buildSnapshot regardless, so the renderer can toggle
+			// client-side with no worker round-trip.
+			includeUntracked: cfg.includeUntracked,
+			range: cfg.range,
 		}),
 	});
 }
@@ -107,27 +101,24 @@ async function sweep(): Promise<void> {
 	}
 	backfilling = true;
 	const batch = cfg.backfillBatchSize;
-	const claudeFiles = existsSync(cfg.claudeRoot)
-		? listJsonlFiles(cfg.claudeRoot)
-		: [];
-	const codexFiles = existsSync(cfg.codexRoot)
-		? listJsonlFiles(cfg.codexRoot)
-		: [];
-	await processInBatches(
-		claudeFiles,
-		batch,
-		(file) => processClaudeFile(file, offsets, (e) => agg!.ingest(e)),
-		scheduleEmit,
-	);
-	await processInBatches(
-		codexFiles,
-		batch,
-		(file) => {
-			const rl = processCodexFile(file, offsets, (e) => agg!.ingest(e));
-			if (rl) agg!.setCodexLimits(rl);
-		},
-		scheduleEmit,
-	);
+	for (const driver of jsonlDrivers) {
+		for (const root of driver.roots(cfg.home)) {
+			const files = existsSync(root) ? listJsonlFiles(root) : [];
+			await processInBatches(
+				files,
+				batch,
+				(file) =>
+					processJsonlFile(
+						driver,
+						file,
+						offsets,
+						(e) => agg!.ingest(e),
+						(id, rl) => agg!.setProviderLimits(id, rl),
+					),
+				scheduleEmit,
+			);
+		}
+	}
 	saveOffsets();
 	backfilling = false;
 	if (rescanQueued) {
@@ -151,19 +142,17 @@ parentPort.on("message", (e) => {
 		cfg = msg.config;
 		agg = new UsageAggregator(cfg.launchMs);
 		loadOffsets(cfg.offsetCachePath);
+		const roots = jsonlDrivers.flatMap((d) => d.roots(cfg!.home));
 		// The aggregator starts empty each launch, so persisted offsets would skip
-		// this week's pre-launch usage (only workspaces active *this* session would
-		// ever get rows). Drop offsets for files touched within the rolling window
-		// so the backfill rebuilds the full week for every tracked worktree.
-		resetRecentOffsets(
-			[cfg.claudeRoot, cfg.codexRoot],
-			offsets,
-			Date.now(),
-			WEEK_MS,
-		);
+		// pre-launch usage (only workspaces active *this* session would ever get
+		// rows). Drop offsets for files touched within the analytics window so the
+		// backfill rebuilds every series for every tracked worktree. Use a 35-day
+		// window (SERIES_WINDOW_MS), not WEEK_MS: the aggregator is rebuilt empty
+		// each launch and the daily chart shows the current calendar month, so files
+		// 7–35 days old must be re-read or the month series undercounts after restart.
+		resetRecentOffsets(roots, offsets, Date.now(), SERIES_WINDOW_MS);
 		void sweep(); // chunked backfill; emits progressively, never blocks
-		watchDir(cfg.claudeRoot);
-		watchDir(cfg.codexRoot);
+		for (const root of roots) watchDir(root);
 		setInterval(() => void sweep(), 60_000); // safety net if watch misses an append
 	} else if (msg.kind === "setKnown" && cfg) {
 		cfg.known = msg.known;
@@ -171,13 +160,8 @@ parentPort.on("message", (e) => {
 	} else if (msg.kind === "setActive" && cfg) {
 		cfg.activeWorktreeIds = msg.activeWorktreeIds;
 		scheduleEmit();
-	} else if (msg.kind === "setBudgets" && cfg) {
-		cfg.fiveHourBudget = msg.fiveHourBudget;
-		cfg.weeklyBudget = msg.weeklyBudget;
-		scheduleEmit();
-	} else if (msg.kind === "setWeeklyReset" && cfg) {
-		cfg.weeklyResetDay = msg.weeklyResetDay;
-		cfg.weeklyResetHour = msg.weeklyResetHour;
+	} else if (msg.kind === "setRange" && cfg) {
+		cfg.range = msg.range;
 		scheduleEmit();
 	} else if (msg.kind === "setIncludeUntracked" && cfg) {
 		cfg.includeUntracked = msg.includeUntracked;

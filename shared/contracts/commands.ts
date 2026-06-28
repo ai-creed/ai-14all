@@ -511,6 +511,7 @@ export type Ai14AllDesktopApi = {
 			weeklyResetHour: number,
 		): Promise<void>;
 		setIncludeUntracked(includeUntracked: boolean): Promise<void>;
+		setRange(range: "week" | "month"): Promise<void>;
 	};
 	reviewComments: {
 		list(worktreeId: string): Promise<{ comments: ReviewComment[] }>;

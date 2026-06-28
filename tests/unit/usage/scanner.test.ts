@@ -9,7 +9,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { UsageEvent } from "../../../shared/models/usage.js";
-import { WEEK_MS } from "../../../services/usage/aggregator.js";
+import {
+	SERIES_WINDOW_MS,
+	WEEK_MS,
+} from "../../../services/usage/aggregator.js";
 import {
 	processCodexFile,
 	processJsonlFile,
@@ -262,5 +265,27 @@ describe("scanners", () => {
 		expect(second).toHaveLength(1);
 		expect(second[0]?.cwd).toBe("/Users/me/Dev/app");
 		expect(second[0]?.model).toBe("gpt-5.5");
+	});
+});
+
+describe("resetRecentOffsets analytics window", () => {
+	it("re-reads month-old (>1wk, <35d) files but not files past the window", () => {
+		const root = mkdtempSync(join(tmpdir(), "win-"));
+		const now = Date.now();
+		const recent = join(root, "recent.jsonl"); // ~20 days old (within 35d window)
+		const old = join(root, "old.jsonl"); // ~40 days old (outside the window)
+		writeFileSync(recent, "{}\n");
+		writeFileSync(old, "{}\n");
+		const t20 = new Date(now - 20 * 86_400_000);
+		const t40 = new Date(now - 40 * 86_400_000);
+		utimesSync(recent, t20, t20);
+		utimesSync(old, t40, t40);
+		const cache: OffsetCache = new Map([
+			[recent, { offset: 5, mtime: t20.getTime() }],
+			[old, { offset: 5, mtime: t40.getTime() }],
+		]);
+		resetRecentOffsets([root], cache, now, SERIES_WINDOW_MS);
+		expect(cache.has(recent)).toBe(false); // dropped => re-read on next launch
+		expect(cache.has(old)).toBe(true); // preserved => no needless re-parse
 	});
 });

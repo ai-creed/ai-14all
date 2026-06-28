@@ -347,6 +347,9 @@ const api: Ai14AllDesktopApi = {
 		setIncludeUntracked(includeUntracked) {
 			return ipcRenderer.invoke("usage:setIncludeUntracked", includeUntracked);
 		},
+		setRange(range) {
+			return ipcRenderer.invoke("usage:setRange", range);
+		},
 	},
 	reviewComments: {
 		list(worktreeId) {

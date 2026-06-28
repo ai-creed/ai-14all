@@ -591,6 +591,10 @@ export function registerIpcHandlers(
 	ipcMain.handle("usage:setIncludeUntracked", (_event, v: unknown) => {
 		usageHost?.setIncludeUntracked(Boolean(v));
 	});
+	ipcMain.handle("usage:setRange", (_event, raw: unknown) => {
+		const range = raw === "month" ? "month" : "week";
+		usageHost?.setRange(range);
+	});
 
 	// --- Review Comments ---
 

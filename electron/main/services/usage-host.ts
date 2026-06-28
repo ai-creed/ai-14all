@@ -24,10 +24,7 @@ export class UsageHost {
 	private proc: UtilityProcess | null = null;
 	private known: KnownWorktree[] = [];
 	private activeWorktreeIds: string[] = [];
-	private fiveHourBudget: number | null = null;
-	private weeklyBudget: number | null = null;
-	private weeklyResetDay = 1; // Monday
-	private weeklyResetHour = 7; // 07:00 local
+	private range: "week" | "month" = "week";
 	private includeUntracked = false;
 	private lastSnapshot: UsageSnapshot | null = null;
 	private spawned = false;
@@ -70,17 +67,12 @@ export class UsageHost {
 		this.proc.on("spawn", () => {
 			this.spawned = true;
 			const config: UsageWorkerConfig = {
-				claudeRoot: join(homedir(), ".claude", "projects"),
-				codexRoot: join(homedir(), ".codex", "sessions"),
-				credentialsPath: join(homedir(), ".claude", ".credentials.json"),
+				home: homedir(),
 				offsetCachePath: join(this.opts.userDataDir, "usage-offsets.json"),
 				launchMs: this.opts.launchMs,
 				known: this.known,
 				activeWorktreeIds: this.activeWorktreeIds,
-				fiveHourBudget: this.fiveHourBudget,
-				weeklyBudget: this.weeklyBudget,
-				weeklyResetDay: this.weeklyResetDay,
-				weeklyResetHour: this.weeklyResetHour,
+				range: this.range,
 				includeUntracked: this.includeUntracked,
 				backfillBatchSize: 8,
 			};
@@ -112,21 +104,19 @@ export class UsageHost {
 		this.postMessage({ kind: "setActive", activeWorktreeIds });
 	}
 
-	setBudgets(fiveHourBudget: number | null, weeklyBudget: number | null): void {
-		this.fiveHourBudget = fiveHourBudget;
-		this.weeklyBudget = weeklyBudget;
-		this.postMessage({ kind: "setBudgets", fiveHourBudget, weeklyBudget });
+	setRange(range: "week" | "month"): void {
+		this.range = range;
+		this.postMessage({ kind: "setRange", range });
 	}
 
-	setWeeklyReset(weeklyResetDay: number, weeklyResetHour: number): void {
-		this.weeklyResetDay = weeklyResetDay;
-		this.weeklyResetHour = weeklyResetHour;
-		this.postMessage({
-			kind: "setWeeklyReset",
-			weeklyResetDay,
-			weeklyResetHour,
-		});
-	}
+	/** @deprecated budget proxy removed — no-op; deleted in cleanup task. */
+	setBudgets(
+		_fiveHourBudget: number | null,
+		_weeklyBudget: number | null,
+	): void {}
+
+	/** @deprecated weekly reset removed — no-op; deleted in cleanup task. */
+	setWeeklyReset(_weeklyResetDay: number, _weeklyResetHour: number): void {}
 
 	setIncludeUntracked(includeUntracked: boolean): void {
 		this.includeUntracked = includeUntracked;
