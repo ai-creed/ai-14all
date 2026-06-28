@@ -503,7 +503,7 @@ export type Ai14AllDesktopApi = {
 		): () => void;
 		setEnabled(enabled: boolean): Promise<void>;
 		setIncludeUntracked(includeUntracked: boolean): Promise<void>;
-		setRange(range: "week" | "month"): Promise<void>;
+		setChipRange(range: "week" | "month"): Promise<void>;
 	};
 	reviewComments: {
 		list(worktreeId: string): Promise<{ comments: ReviewComment[] }>;
