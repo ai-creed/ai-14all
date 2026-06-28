@@ -49,3 +49,43 @@ describe("UsageAggregator", () => {
 		expect(agg.latestCodexLimits()?.planType).toBe("plus");
 	});
 });
+
+describe("UsageAggregator analytics additions", () => {
+	it("buckets a daily series by provider (local day)", () => {
+		const agg = new UsageAggregator(0);
+		const t0 = new Date("2026-06-10T10:00:00").getTime();
+		const t1 = new Date("2026-06-11T09:00:00").getTime();
+		agg.ingest(ev({ timestampMs: t0, billable: 5, provider: "claude" }));
+		agg.ingest(ev({ timestampMs: t0, billable: 2, provider: "codex" }));
+		agg.ingest(ev({ timestampMs: t1, billable: 9, provider: "claude" }));
+		const series = agg.dailySeries(t1, 35);
+		const d0 = series.find((p) => p.tokens.claude === 5);
+		expect(d0?.tokens.codex).toBe(2);
+		expect(series.find((p) => p.tokens.claude === 9)).toBeTruthy();
+	});
+
+	it("accumulates a per-(provider, model) cost ledger", () => {
+		const agg = new UsageAggregator(0);
+		agg.ingest(ev({ model: "claude-opus-4", input: 10, output: 5, billable: 15, raw: 15 }));
+		agg.ingest(ev({ model: "claude-opus-4", input: 1, output: 1, billable: 2, raw: 2 }));
+		agg.ingest(ev({ provider: "codex", model: "gpt-5", billable: 4, input: 4, raw: 4 }));
+		const entries = agg.costEntries();
+		const opus = entries.find((e) => e.model === "claude-opus-4");
+		expect(opus?.tokens.billable).toBe(17);
+		expect(entries.some((e) => e.provider === "codex")).toBe(true);
+	});
+
+	it("stores provider limits by id and tracks which providers had data", () => {
+		const agg = new UsageAggregator(0);
+		agg.setProviderLimits("codex", {
+			capturedAtMs: 1,
+			planType: "plus",
+			primary: null,
+			secondary: null,
+		});
+		expect(agg.getProviderLimits("codex")?.planType).toBe("plus");
+		agg.ingest(ev({ provider: "ezio", billable: 1 }));
+		expect(agg.providersWithData().has("ezio")).toBe(true);
+		expect(agg.providersWithData().has("cursor")).toBe(false);
+	});
+});
