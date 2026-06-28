@@ -7,6 +7,12 @@ import { codexDriver } from "../../../services/usage/providers/codex.js";
 import { cursorDriver } from "../../../services/usage/providers/cursor.js";
 import { antigravityDriver } from "../../../services/usage/providers/antigravity.js";
 import { ezioDriver } from "../../../services/usage/providers/ezio.js";
+import {
+	TELEMETRY_DRIVERS,
+	jsonlDrivers,
+	driverFor,
+} from "../../../services/usage/providers/index.js";
+import { AGENT_PROVIDER_IDS } from "../../../shared/models/agent-provider.js";
 
 describe("real drivers", () => {
 	it("claude declares per-event/in-line capabilities and a projects root", () => {
@@ -117,5 +123,18 @@ describe("ezio driver", () => {
 		expect(r?.event?.provider).toBe("ezio");
 		expect(r?.event?.cwd).toBe("Users-me-Dev-app");
 		expect(r?.event?.billable).toBe(600);
+	});
+});
+
+describe("registry", () => {
+	it("is ordered to match AGENT_PROVIDERS", () => {
+		expect(TELEMETRY_DRIVERS.map((d) => d.id)).toEqual([...AGENT_PROVIDER_IDS]);
+	});
+	it("jsonlDrivers are only the three real ones", () => {
+		expect(jsonlDrivers.map((d) => d.id)).toEqual(["claude", "codex", "ezio"]);
+	});
+	it("driverFor resolves by id", () => {
+		expect(driverFor("codex")?.id).toBe("codex");
+		expect(driverFor("nope" as never)).toBeUndefined();
 	});
 });
