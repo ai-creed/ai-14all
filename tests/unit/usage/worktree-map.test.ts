@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchCwd } from "../../../services/usage/worktree-map.js";
+import { matchCwd, workspaceGroupFor } from "../../../services/usage/worktree-map.js";
 import type { KnownWorktree } from "../../../shared/models/usage.js";
 import { ezioSlug } from "../../../services/usage/ezio-source.js";
 
@@ -82,5 +82,20 @@ describe("matchCwd dir-slug (ezio)", () => {
 	});
 	it("returns null for an unknown slug", () => {
 		expect(matchCwd(ezioSlug("/Users/me/Dev/other"), known)).toBeNull();
+	});
+});
+
+describe("workspaceGroupFor", () => {
+	const known = [
+		{ worktreeId: "w1", workspaceId: "ws-app", title: "main", path: "/Users/me/Dev/app/main" },
+	];
+	it("groups a deleted worktree under its workspace when the root prefix matches a known one", () => {
+		// /Users/me/Dev/app/feature-x is gone, but shares the /Users/me/Dev/app root
+		const g = workspaceGroupFor("/Users/me/Dev/app/feature-x", known);
+		expect(g.workspaceId).toBe("ws-app");
+		expect(g.title).toBe("main"); // or the workspace label derivable from known
+	});
+	it("falls back to untracked when no workspace root is derivable", () => {
+		expect(workspaceGroupFor("/tmp/random", known)).toEqual({ workspaceId: null, title: "other (untracked)" });
 	});
 });

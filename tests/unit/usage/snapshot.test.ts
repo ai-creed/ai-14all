@@ -50,4 +50,16 @@ describe("buildSnapshot coherence", () => {
 		expect(Array.isArray(snap.seriesHourly)).toBe(true);
 		expect(snap.config).toEqual({ chipRange: "month", includeUntracked: false });
 	});
+
+	it("groups a deleted worktree's all-time tokens under its workspace", () => {
+		const ledger = createLedger();
+		const session = createSession();
+		const now = Date.now();
+		// known worktree shares the /Users/me/Dev/app root
+		const k: KnownWorktree[] = [{ worktreeId: "w1", workspaceId: "ws-app", title: "main", path: "/Users/me/Dev/app/main" }];
+		ingestEvent(ledger, session, ev({ cwd: "/Users/me/Dev/app/gone", timestampMs: now - HOUR, billable: 5, raw: 5 }), now - 2 * HOUR);
+		const snap = buildSnapshot({ ledger, session, known: k, activeWorktreeIds: [], nowMs: now, includeUntracked: true, chipRange: "week", providersWithData: new Set(["codex"]), codexLimits: null });
+		const row = snap.scopes["all-time"].rows.find((r) => r.workspaceId === "ws-app");
+		expect(row?.tokens.billable).toBe(5);
+	});
 });

@@ -26,7 +26,7 @@ import {
 } from "./ledger.js";
 import { TELEMETRY_DRIVERS } from "./providers/index.js";
 import type { TelemetryDriver } from "./providers/types.js";
-import { matchCwd } from "./worktree-map.js";
+import { matchCwd, workspaceGroupFor } from "./worktree-map.js";
 
 export interface BuildSnapshotInput {
 	ledger: DailyLedger;
@@ -77,22 +77,35 @@ export function buildScopeData(
 		byProviderTotals.set(provider, pv);
 
 		const wt = matchCwd(cwd, known);
-		const rk = wt ? `${wt.worktreeId}\u0000${provider}` : `__untracked__\u0000${provider}`;
+		let rk: string;
+		let meta: Omit<UsageRow, "tokens" | "costUsd">;
+		if (wt) {
+			rk = `${wt.worktreeId}\u0000${provider}`;
+			meta = {
+				workspaceId: wt.workspaceId,
+				worktreeId: wt.worktreeId,
+				worktreePath: wt.path,
+				worktreeTitle: wt.title,
+				provider: provider as UsageProvider,
+				active: activeWorktreeIds.includes(wt.worktreeId),
+			};
+		} else {
+			const g = workspaceGroupFor(cwd, known);
+			rk = `${g.workspaceId ?? "__untracked__"}\u0000${provider}`;
+			meta = {
+				workspaceId: g.workspaceId,
+				worktreeId: null,
+				worktreePath: null,
+				worktreeTitle: g.title,
+				provider: provider as UsageProvider,
+				active: false,
+			};
+		}
 		const existing = rowAgg.get(rk);
 		if (existing) {
 			addInto(existing.tokens, t);
 		} else {
-			rowAgg.set(rk, {
-				row: {
-					workspaceId: wt ? wt.workspaceId : null,
-					worktreeId: wt ? wt.worktreeId : null,
-					worktreePath: wt ? wt.path : null,
-					worktreeTitle: wt ? wt.title : "other (untracked)",
-					provider: provider as UsageProvider,
-					active: wt ? activeWorktreeIds.includes(wt.worktreeId) : false,
-				},
-				tokens: { ...t },
-			});
+			rowAgg.set(rk, { row: meta, tokens: { ...t } });
 		}
 	}
 

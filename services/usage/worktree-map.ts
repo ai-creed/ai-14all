@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import type { KnownWorktree } from "../../shared/models/usage.js";
 import { ezioSlug } from "./ezio-source.js";
 
@@ -10,6 +11,23 @@ import { ezioSlug } from "./ezio-source.js";
 // (no backslashes) this is a no-op beyond the existing trailing-slash trim.
 function norm(p: string): string {
 	return p.replace(/\\/g, "/").replace(/\/+$/, "");
+}
+
+// For a cwd with no current worktree (deleted/closed), group it under the
+// workspace of any known worktree that shares its parent directory (the repo
+// root). Keeps the All-time breakdown meaningful for worktrees that no longer
+// exist. Falls back to untracked when no workspace root is derivable.
+export function workspaceGroupFor(
+	cwd: string,
+	known: KnownWorktree[],
+): { workspaceId: string | null; title: string } {
+	const parent = dirname(cwd);
+	for (const wt of known) {
+		if (dirname(wt.path) === parent || wt.path === parent) {
+			return { workspaceId: wt.workspaceId, title: wt.title };
+		}
+	}
+	return { workspaceId: null, title: "other (untracked)" };
 }
 
 export function matchCwd(
