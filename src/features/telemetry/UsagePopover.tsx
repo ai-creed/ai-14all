@@ -124,18 +124,23 @@ export function UsagePopover({
 									/>
 								</span>
 								<span className="usage-rollup-tok">{formatTokens(r.tokens)}</span>
-								<span className="usage-dim">{r.costUsd == null ? "—" : `~${formatUsd(r.costUsd)}`}</span>
+								<span className="usage-dim" title="notional · since launch">{r.costUsd == null ? "—" : `~${formatUsd(r.costUsd)}`}</span>
 							</div>
 						))}
 						<div className="usage-rollup-row usage-rollup-total">
 							<span>total</span>
 							<span className="usage-share" />
 							<span className="usage-rollup-tok">{formatTokens(rollup.totalTokens)}</span>
-							<span className="usage-dim">{cost ? `~${formatUsd(rollup.totalCost ?? 0)}` : "—"}</span>
+							<span className="usage-dim" title="notional · since launch">{cost ? `~${formatUsd(rollup.totalCost ?? 0)}` : "—"}</span>
 						</div>
 						{cost && cost.unpricedTokens > 0 ? (
 							<div className="usage-dim usage-unpriced">
 								+{formatTokens(cost.unpricedTokens)} tokens unpriced
+							</div>
+						) : null}
+						{cost ? (
+							<div className="usage-dim usage-rollup-note" title="notional · since launch">
+								~$ = notional API-equivalent value · since launch (tokens are this {range})
 							</div>
 						) : null}
 					</div>
