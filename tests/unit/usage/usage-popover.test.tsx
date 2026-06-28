@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	UsagePopover,
@@ -49,9 +49,31 @@ const snapshot: UsageSnapshot = {
 	},
 };
 
+const untrackedRow: (typeof snapshot.rows)[0] = {
+	workspaceId: null,
+	worktreeId: "wt-untracked",
+	worktreePath: null,
+	worktreeTitle: "detached",
+	provider: "codex",
+	active: false,
+	sinceLaunch: { input: 0, output: 0, billable: 0, raw: 0 },
+	thisWeek: { input: 0, output: 0, billable: 0, raw: 0 },
+};
+const rowsWithUntracked = [...snapshot.rows, untrackedRow];
+
 describe("selectRows", () => {
 	it("active scope keeps only active tracked rows", () => {
 		expect(selectRows(snapshot.rows, "active", false).map((r) => r.worktreeId)).toEqual(["w1"]);
+	});
+
+	it("includeUntracked=true includes null-workspaceId rows", () => {
+		const ids = selectRows(rowsWithUntracked, "all", true).map((r) => r.worktreeId);
+		expect(ids).toContain("wt-untracked");
+	});
+
+	it("includeUntracked=false excludes null-workspaceId rows", () => {
+		const ids = selectRows(rowsWithUntracked, "all", false).map((r) => r.worktreeId);
+		expect(ids).not.toContain("wt-untracked");
 	});
 });
 
@@ -76,16 +98,22 @@ describe("UsagePopover", () => {
 	});
 
 	it("switching the breakdown to Workspace shows the worktree tree", () => {
-		render(<UsagePopover snapshot={snapshot} onClose={() => {}} />);
+		const { container } = render(<UsagePopover snapshot={snapshot} onClose={() => {}} />);
 		fireEvent.click(screen.getByRole("button", { name: "Workspace" }));
-		expect(screen.getByText(/main/)).toBeTruthy();
+		// "main" appears in both the workspace header (g.label) and the worktree cell;
+		// scope to .usage-wt to assert the worktree row specifically.
+		const wtCell = container.querySelector(".usage-wt");
+		expect(wtCell?.textContent).toContain("main");
 	});
 
 	it("codex native limits are collapsed and expand on click", () => {
-		render(<UsagePopover snapshot={snapshot} onClose={() => {}} />);
+		const { container } = render(<UsagePopover snapshot={snapshot} onClose={() => {}} />);
+		// Collapsed: glanceable summary visible, expanded detail not yet rendered
+		expect(screen.getByText("5h 41% · wk 23%")).toBeTruthy();
 		expect(screen.queryByText(/resets/)).toBeNull();
+		// Expand: gauge percent now inside .usage-limits
 		fireEvent.click(screen.getByRole("button", { name: /Codex limits/ }));
-		expect(screen.getByText(/41%/)).toBeTruthy();
+		expect(within(container.querySelector(".usage-limits")!).getByText("41%")).toBeTruthy();
 	});
 
 	it("has no budget editor", () => {

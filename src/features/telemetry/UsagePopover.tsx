@@ -152,7 +152,7 @@ export function UsagePopover({
 							{groups.map((g) => (
 								<Fragment key={g.workspaceId ?? "untracked"}>
 									<tr className="usage-ws">
-										<td className="l">{g.workspaceId ?? "untracked"}</td>
+										<td className="l">{g.label}</td>
 										<td>{formatTokens(g.subtotal.billable)}</td>
 										<td />
 									</tr>
@@ -208,6 +208,9 @@ export function UsagePopover({
 						onClick={() => setShowLimits((v) => !v)}
 					>
 						<span className="usage-dim">{showLimits ? "▾" : "▸"} Codex limits · native</span>
+						{!showLimits && (
+							<span className="usage-lim-summary">5h {limits.fiveHour.percent}% · wk {limits.weekly.percent}%</span>
+						)}
 					</button>
 					{showLimits ? (
 						<div className="usage-limits">
