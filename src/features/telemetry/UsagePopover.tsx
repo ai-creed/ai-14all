@@ -84,7 +84,7 @@ export function UsagePopover({
 					</span>
 					<span className="usage-pop-total">
 						<b>{formatTokens(rollup.totalTokens)}</b>
-						{cost ? <span className="usage-dim"> · ~{formatUsd(rollup.totalCost ?? 0)}</span> : null}
+						{cost ? <span className="usage-dim" title="notional · since launch"> · ~{formatUsd(rollup.totalCost ?? 0)} notional</span> : null}
 					</span>
 					<button className="usage-gear" aria-label="close" onClick={onClose}>
 						<Icon name="close" />

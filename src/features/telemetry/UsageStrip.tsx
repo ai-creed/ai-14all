@@ -55,8 +55,8 @@ export function UsageStrip({
 			<span className="usage-figure">
 				<span className="usage-figure-tok">{formatTokens(totalTokens)}</span>
 				{snapshot.cost ? (
-					<span className="usage-figure-cost">
-						~{formatUsd(totalCost ?? 0)} {range === "week" ? "wk" : "mo"}
+					<span className="usage-figure-cost" title="notional API-equivalent value since launch">
+						~{formatUsd(totalCost ?? 0)}
 					</span>
 				) : null}
 			</span>
