@@ -5,6 +5,7 @@ process.env.TZ = "America/New_York";
 
 import { describe, expect, it } from "vitest";
 import { UsageAggregator } from "../../../services/usage/aggregator.js";
+import { createLedger, createSession, dailySeries, ingestEvent, startOfLocalDay } from "../../../services/usage/ledger.js";
 import type { UsageEvent } from "../../../shared/models/usage.js";
 
 const ev = (over: Partial<UsageEvent>): UsageEvent => ({
@@ -20,9 +21,6 @@ const ev = (over: Partial<UsageEvent>): UsageEvent => ({
 	...over,
 });
 
-import { createLedger, createSession, dailySeries, ingestEvent, startOfLocalDay } from "../../../services/usage/ledger.js";
-import type { UsageEvent } from "../../../shared/models/usage.js";
-
 it("ledger.dailySeries keeps day alignment across a 25h fall-back day", () => {
 	const ledger = createLedger();
 	const session = createSession();
@@ -37,6 +35,9 @@ it("ledger.dailySeries keeps day alignment across a 25h fall-back day", () => {
 	const series = dailySeries(ledger, now, 7);
 	const hit = series.find((p) => p.dayStartMs === startOfLocalDay(t));
 	expect(hit?.tokens.codex).toBe(4);
+	// All 7 points must have distinct dayStartMs. Under a fixed-ms advance across
+	// the 25h fall-back day two points would collapse to the same bucket.
+	expect(new Set(series.map((p) => p.dayStartMs)).size).toBe(7);
 });
 
 describe("dailySeries local-day alignment across DST", () => {

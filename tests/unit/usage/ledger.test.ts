@@ -4,14 +4,11 @@ import {
 	bucketsForScope,
 	createLedger,
 	createSession,
-	dailySeries,
 	hourlySeries,
 	ingestEvent,
 	parseBucketKey,
 	startOfHour,
 	startOfLocalDay,
-	startOfMonth,
-	startOfWeekMonday,
 } from "../../../services/usage/ledger.js";
 import type { UsageEvent } from "../../../shared/models/usage.js";
 
