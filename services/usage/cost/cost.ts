@@ -1,16 +1,13 @@
 import type { AgentProviderId } from "../../../shared/models/agent-provider.js";
 import type { CostSnapshot, TokenTotals } from "../../../shared/models/usage.js";
 import type { CostEntry } from "../aggregator.js";
-import { rateFor, type ModelRate } from "./pricing.js";
+import { rateFor, type ProviderRate } from "./pricing.js";
 
-export type RateLookup = (
-	provider: AgentProviderId,
-	model: string,
-) => ModelRate | null;
+export type RateLookup = (provider: AgentProviderId) => ProviderRate;
 
 // Pure multiply. input already includes cache-creation (billable); cache reads
 // are (raw - billable), priced at the cache-read rate.
-export function estimateCostUsd(t: TokenTotals, rate: ModelRate): number {
+export function estimateCostUsd(t: TokenTotals, rate: ProviderRate): number {
 	const cacheRead = Math.max(0, t.raw - t.billable);
 	return (
 		(t.input * rate.inputPerM +
@@ -20,25 +17,17 @@ export function estimateCostUsd(t: TokenTotals, rate: ModelRate): number {
 	);
 }
 
-// Walk the per-(provider, model) ledger. Priced models add dollars; unpriced
-// models contribute nothing to any total and accrue into unpricedTokens. A
-// provider whose models are all unpriced is absent from perProvider (=> "—").
 export function buildCostSnapshot(
 	entries: CostEntry[],
 	rate: RateLookup = rateFor,
 ): CostSnapshot {
 	const perProvider: Partial<Record<AgentProviderId, number>> = {};
 	let total = 0;
-	let unpricedTokens = 0;
-	for (const { provider, model, tokens } of entries) {
-		const r = rate(provider, model);
-		if (!r) {
-			unpricedTokens += tokens.billable;
-			continue;
-		}
-		const usd = estimateCostUsd(tokens, r);
+	for (const { provider, tokens } of entries) {
+		const usd = estimateCostUsd(tokens, rate(provider));
 		perProvider[provider] = (perProvider[provider] ?? 0) + usd;
 		total += usd;
 	}
-	return { perProvider, total, currency: "USD", notional: true, unpricedTokens };
+	// Blended pricing always resolves a rate, so no token is ever "unpriced".
+	return { perProvider, total, currency: "USD", notional: true, unpricedTokens: 0 };
 }

@@ -83,10 +83,12 @@ describe("buildSnapshot", () => {
 	});
 });
 
-const stubRate = (_p: string, model: string) =>
-	model === "claude-opus-4"
+// Blended-pricing stub: claude is priced at its exact rate; all other providers
+// get a zero rate (so their tokens are priced at $0, not left "unpriced").
+const stubRate = (p: string) =>
+	p === "claude"
 		? { inputPerM: 15, outputPerM: 75, cacheReadPerM: 1.5 }
-		: null;
+		: { inputPerM: 0, outputPerM: 0, cacheReadPerM: 0 };
 
 describe("buildSnapshot analytics surface", () => {
 	it("emits providers[], series[], cost, and codexLimits", () => {
@@ -141,10 +143,11 @@ describe("buildSnapshot analytics surface", () => {
 		expect(cursor?.capabilities.timeSource).toBe("none");
 		// daily series present and keyed by provider
 		expect((snap.series?.length ?? 0)).toBeGreaterThan(0);
-		// cost: claude priced, ezio's unknown model excluded into unpricedTokens
+		// cost: claude priced at stub rate; ezio tokens are zero-input so cost = $0
+		// blended pricing always resolves a rate, so unpricedTokens is always 0
 		expect(snap.cost?.perProvider.claude).toBeCloseTo(15, 6);
-		expect(snap.cost?.perProvider.ezio).toBeUndefined();
-		expect(snap.cost?.unpricedTokens).toBe(5000);
+		expect(snap.cost?.perProvider.ezio).toBe(0); // zero-rate stub → $0, not unpriced
+		expect(snap.cost?.unpricedTokens).toBe(0);
 		// native codex gauge present
 		expect(snap.codexLimits?.fiveHour.percent).toBe(41);
 		expect(snap.codexLimits?.weekly.percent).toBe(23);
