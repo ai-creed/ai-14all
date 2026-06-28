@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { providerRollup, seriesForRange } from "../../../src/features/telemetry/rollup.js";
-import type { DailyPoint } from "../../../shared/models/usage.js";
+import { providerRollup, rowCostUsd, seriesForRange } from "../../../src/features/telemetry/rollup.js";
+import type { DailyPoint, UsageRow } from "../../../shared/models/usage.js";
 
 const DAY = 86_400_000;
 // Local calendar helpers, recomputed in the test so assertions are timezone- and
@@ -56,5 +56,35 @@ describe("providerRollup", () => {
 		expect(rows.find((r) => r.provider === "codex")?.costUsd).toBeNull();
 		expect(totalTokens).toBe(15 * days); // 10 claude + 5 codex per day
 		expect(rows[0].provider).toBe("claude"); // sorted desc by tokens
+	});
+});
+
+const mkRow = (provider: UsageRow["provider"], billable: number): UsageRow => ({
+	workspaceId: "ws",
+	worktreeId: "w",
+	worktreePath: "/p",
+	worktreeTitle: "t",
+	provider,
+	active: false,
+	sinceLaunch: { input: 0, output: 0, billable, raw: billable },
+	thisWeek: { input: 0, output: 0, billable: 0, raw: 0 },
+});
+
+describe("rowCostUsd", () => {
+	it("splits a provider's notional cost by the row's billable share", () => {
+		const rows = [mkRow("claude", 75), mkRow("claude", 25)];
+		const cost = {
+			perProvider: { claude: 4 },
+			total: 4,
+			currency: "USD" as const,
+			notional: true as const,
+			unpricedTokens: 0,
+		};
+		expect(rowCostUsd(rows[0], rows, cost)).toBeCloseTo(3, 6);
+		expect(rowCostUsd(rows[1], rows, cost)).toBeCloseTo(1, 6);
+	});
+	it("returns null when the provider has no priced cost", () => {
+		const rows = [mkRow("ezio", 10)];
+		expect(rowCostUsd(rows[0], rows, { perProvider: {}, total: 0, currency: "USD", notional: true, unpricedTokens: 10 })).toBeNull();
 	});
 });

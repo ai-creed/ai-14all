@@ -4607,6 +4607,142 @@ select {
 	padding: 0 4px;
 	border-radius: 0;
 }
+/* Dense chip: range toggle (W/M) — mirrors .usage-seg style */
+.usage-range {
+	display: inline-flex;
+	background: var(--panel-bg);
+	border: var(--shell-border-width) solid var(--panel-border);
+	border-radius: 0;
+	overflow: hidden;
+}
+.usage-range button {
+	padding: 2px 6px;
+	font-size: 9px;
+	color: var(--text-muted);
+	background: none;
+	border: none;
+	cursor: pointer;
+}
+.usage-range button.on {
+	background: var(--panel-bg-elevated);
+	color: var(--text-primary);
+}
+/* Chart: stacked daily bars (shared by chip and popover) */
+.usage-chart {
+	display: flex;
+	align-items: flex-end;
+	gap: 1px;
+	overflow: hidden;
+}
+.usage-chart-bar {
+	display: flex;
+	flex-direction: column-reverse;
+	align-items: center;
+	flex: 1;
+	min-width: 2px;
+}
+.usage-chart-seg {
+	width: 100%;
+}
+/* Dense chip: token + cost figure */
+.usage-figure {
+	display: inline-flex;
+	flex-direction: column;
+	font-size: 9px;
+	line-height: 1.3;
+}
+.usage-figure-tok {
+	color: var(--text-primary);
+	font-weight: 600;
+}
+.usage-figure-cost {
+	color: var(--text-muted);
+}
+/* Popover: provider roll-up rows */
+.usage-rollup {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+}
+.usage-rollup-row {
+	display: grid;
+	grid-template-columns: 64px 1fr 60px 64px;
+	gap: 8px;
+	align-items: center;
+}
+.usage-rollup-total {
+	border-top: var(--shell-border-width) solid var(--panel-border);
+	padding-top: 4px;
+	margin-top: 2px;
+	color: var(--text-primary);
+	font-weight: 600;
+}
+.usage-rollup-tok {
+	text-align: right;
+	color: var(--text-primary);
+}
+.usage-share {
+	height: 4px;
+	background: var(--panel-border);
+	position: relative;
+	border-radius: 0;
+	overflow: hidden;
+}
+.usage-share-fill {
+	position: absolute;
+	top: 0;
+	left: 0;
+	height: 100%;
+	border-radius: 0;
+}
+.usage-unpriced {
+	margin-top: 4px;
+	font-size: 10px;
+}
+/* Popover: lifetime cards */
+.usage-lifetime {
+	display: flex;
+	gap: 16px;
+}
+.usage-life-card {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+.usage-life-fig {
+	font-size: 16px;
+	font-weight: 700;
+	color: var(--text-primary);
+}
+/* Popover: collapsed Codex limits row */
+.usage-limits-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	width: 100%;
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	color: inherit;
+	font: inherit;
+}
+/* Popover total line */
+.usage-pop-total {
+	font-size: 12px;
+	color: var(--text-secondary);
+}
+/* Additional provider brand colors */
+.usage-prov--ezio {
+	color: var(--provider-ezio);
+}
+.usage-prov--cursor {
+	color: var(--provider-cursor);
+}
+.usage-prov--antigravity {
+	color: var(--provider-antigravity);
+}
 
 /* Files pane / symbol search */
 
