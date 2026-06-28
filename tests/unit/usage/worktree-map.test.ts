@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { matchCwd } from "../../../services/usage/worktree-map.js";
 import type { KnownWorktree } from "../../../shared/models/usage.js";
+import { ezioSlug } from "../../../services/usage/ezio-source.js";
 
 const known: KnownWorktree[] = [
 	{
@@ -67,5 +68,19 @@ describe("matchCwd", () => {
 
 	it("does not false-match a sibling dir sharing a path prefix (win)", () => {
 		expect(matchCwd("C:\\Users\\me\\Dev\\app-other\\src", winKnown)).toBeNull();
+	});
+});
+
+describe("matchCwd dir-slug (ezio)", () => {
+	it("matches a forward-slug against a known worktree path", () => {
+		const slug = ezioSlug("/Users/me/Dev/app");
+		expect(matchCwd(slug, known)?.worktreeId).toBe("w1");
+	});
+	it("matches a worktree under .worktrees by slug", () => {
+		const slug = ezioSlug("/Users/me/Dev/app/.worktrees/feat");
+		expect(matchCwd(slug, known)?.worktreeId).toBe("w2");
+	});
+	it("returns null for an unknown slug", () => {
+		expect(matchCwd(ezioSlug("/Users/me/Dev/other"), known)).toBeNull();
 	});
 });

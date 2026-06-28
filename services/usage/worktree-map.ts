@@ -1,4 +1,5 @@
 import type { KnownWorktree } from "../../shared/models/usage.js";
+import { ezioSlug } from "./ezio-source.js";
 
 // Canonicalise a path for prefix comparison: fold Windows backslashes to "/"
 // and drop trailing separators. Unlike resolveWithinWorktree (which compares two
@@ -12,11 +13,12 @@ function norm(p: string): string {
 }
 
 export function matchCwd(
-	cwd: string,
+	cwdOrSlug: string,
 	known: KnownWorktree[],
 ): KnownWorktree | null {
-	if (!cwd) return null;
-	const c = norm(cwd);
+	if (!cwdOrSlug) return null;
+	// First pass: real-path longest-prefix (claude/codex feed absolute paths).
+	const c = norm(cwdOrSlug);
 	let best: KnownWorktree | null = null;
 	for (const wt of known) {
 		const base = norm(wt.path);
@@ -24,5 +26,11 @@ export function matchCwd(
 			if (!best || norm(best.path).length < base.length) best = wt;
 		}
 	}
-	return best;
+	if (best) return best;
+	// Second pass: exact dir-slug match (ezio feeds a lossy, separator-free slug).
+	// norm() drops the trailing slash so registry paths slugify consistently.
+	for (const wt of known) {
+		if (ezioSlug(norm(wt.path)) === cwdOrSlug) return wt;
+	}
+	return null;
 }
