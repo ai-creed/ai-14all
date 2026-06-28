@@ -83,7 +83,7 @@ export const PersistedWorkspaceStateV1Schema = z.object({
 export const UsageTelemetrySettingsSchema = z.object({
 	enabled: z.boolean().default(true),
 	includeUntracked: z.boolean().default(false),
-	range: z.enum(["week", "month"]).default("week"),
+	chipRange: z.enum(["week", "month"]).default("week"),
 });
 
 export const PersistedWorkspaceStateV2Schema = z.object({

@@ -1,5 +1,5 @@
 import type { AgentProviderId } from "../../shared/models/agent-provider.js";
-import type { DailyPoint, TokenTotals, UsageEvent } from "../../shared/models/usage.js";
+import type { DailyPoint, HourlyPoint, TokenTotals, UsageEvent } from "../../shared/models/usage.js";
 
 // `${cwd}\u0000${provider}\u0000${model}` — NUL-separated; the separator is the
 // \u0000 ESCAPE, never a raw control byte. cwd/provider/model never contain it.
@@ -119,13 +119,6 @@ export function ingestEvent(
 		rec[e.provider] = (rec[e.provider] ?? 0) + e.billable;
 		session.hourly.set(hour, rec);
 	}
-}
-
-// Temporary local type — REPLACE in Task 6 Step 4 with the shared HourlyPoint
-// import (identical shape). Kept here so this task compiles before shared types land.
-export interface HourlyPoint {
-	hourStartMs: number;
-	tokens: Partial<Record<AgentProviderId, number>>;
 }
 
 export type ScopeName = "session" | "week" | "month" | "all-time";

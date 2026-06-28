@@ -51,9 +51,9 @@ export interface UsageRow {
 	worktreePath: string | null;
 	worktreeTitle: string;
 	provider: UsageProvider;
-	active: boolean; // true => worktree currently open in the app (scope = Active)
-	sinceLaunch: TokenTotals;
-	thisWeek: TokenTotals;
+	active: boolean; // true => worktree currently open in the app
+	tokens: TokenTotals; // billable in THIS scope
+	costUsd: number | null; // notional; null only if the provider has no rate at all
 }
 
 export interface LimitGauge {
@@ -68,7 +68,7 @@ export interface LimitGauge {
 }
 
 export interface UsageConfig {
-	range: "week" | "month";
+	chipRange: "week" | "month"; // persisted chip glance preference
 	includeUntracked: boolean;
 }
 
@@ -105,19 +105,33 @@ export interface DailyPoint {
 	tokens: Partial<Record<AgentProviderId, number>>; // per-provider billable
 }
 
-export interface LifetimeSnapshot {
-	inApp: { tokens: number; costUsd: number | null };
-	allTime?: { tokens: number; costUsd: number | null };
+export type UsageScope = "session" | "week" | "month" | "all-time";
+
+export interface ScopeRollupRow {
+	provider: AgentProviderId;
+	tokens: number; // billable in this scope
+	costUsd: number | null; // notional; null only if the provider has no rate at all
+}
+
+export interface ScopeData {
+	scope: UsageScope;
+	totalTokens: number; // billable across the scope
+	byProvider: ScopeRollupRow[]; // provider roll-up, sorted desc by tokens
+	rows: UsageRow[]; // workspace/worktree breakdown for THIS scope
+	cost: CostSnapshot; // priced for THIS scope
+}
+
+export interface HourlyPoint {
+	hourStartMs: number;
+	tokens: Partial<Record<AgentProviderId, number>>;
 }
 
 export interface UsageSnapshot {
 	generatedAtMs: number;
-	rows: UsageRow[];
-	totals: TokenTotals;
-	config: UsageConfig;
-	providers: ProviderTelemetryInfo[];
-	series: DailyPoint[];
-	cost: CostSnapshot | null;
+	providers: ProviderTelemetryInfo[]; // identity + capabilities + hasData
+	scopes: Record<UsageScope, ScopeData>;
+	seriesDaily: DailyPoint[]; // by provider, ~35d -> Week/Month chart
+	seriesHourly: HourlyPoint[]; // by provider, this run -> Session chart
 	codexLimits: LimitGauge | null;
-	lifetime?: LifetimeSnapshot; // Slice 2
+	config: UsageConfig;
 }
