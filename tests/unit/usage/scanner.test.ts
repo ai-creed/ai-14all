@@ -393,5 +393,7 @@ describe("processJsonlFile idempotency", () => {
 		let rebuildRequested = false;
 		processJsonlFile(claudeDriver, file, cache, { ...h, onSealedTruncation: () => { rebuildRequested = true; } });
 		expect(rebuildRequested).toBe(true);
+		// sealed branch returns early without re-reading: ledger must stay at the stale 20, not 24 or 4
+		expect(sumBillable(ledger)).toBe(20);
 	});
 });
