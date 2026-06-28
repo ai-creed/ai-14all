@@ -172,15 +172,25 @@ tested independently. `ReviewArea` becomes a thin layout/wiring shell.
 
 ## Staged implementation phases
 
-The spec is one cohesive design, but the plan slices it so each phase lands independently:
+The spec is one cohesive design, but the plan slices it so each phase lands independently.
+The ordering is deliberate: cross-file triage and bulk clear-addressed live in the
+right-slot `ReviewQueuePanel` today, so the rail overview that absorbs that behavior is
+built **before** the panel is removed. No phase ever lands with cross-file triage missing.
 
 1. **State + data layer** — `useReviewedFiles` hook, workspace-state slice, content-hash
    reset, progress selector. Plus the `ReviewArea` decomposition (extract `DiffViewerPane`,
-   thin the shell) so later phases edit small files.
-2. **Minimap** — `CommentMinimap` component (dots, progress fill, flyout, clustering),
-   wired to current-file comments; remove `ReviewQueuePanel` from the right slot.
-3. **Rail overview** — progress header, per-file reviewed/count markers, "All open
-   comments" collapsible (relocating queue logic), mark-viewed controls + shortcuts.
+   thin the shell) so later phases edit small files. The right-slot `ReviewQueuePanel` is
+   untouched in this phase.
+2. **Rail overview** — progress header, per-file reviewed/count markers, "All open
+   comments" collapsible that relocates the queue's grouping / hide-addressed /
+   clear-addressed logic into the rail, plus mark-viewed controls + shortcuts.
+   `ReviewQueuePanel` **stays in the right slot** through this phase; cross-file triage and
+   bulk clear are now available in both the rail overview and the old panel (temporary,
+   intentional redundancy), so landing this phase regresses nothing.
+3. **Minimap + retire the right panel** — add the `CommentMinimap` component (dots,
+   progress fill, flyout, clustering) wired to current-file comments, and only now remove
+   `ReviewQueuePanel` from the right slot. Removal is safe because the rail overview from
+   phase 2 already carries the cross-file triage + bulk-clear surface.
 4. **Polish + robustness** — status color system, spacing, empty/loading/large-data
    states, virtualization, e2e coverage.
 
