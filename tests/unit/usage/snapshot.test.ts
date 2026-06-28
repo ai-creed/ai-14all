@@ -177,4 +177,54 @@ describe("buildSnapshot analytics surface", () => {
 		expect(on.rows.some((r) => r.workspaceId === null)).toBe(true);
 		expect(on.config.includeUntracked).toBe(true);
 	});
+
+	it("scopes snapshot cost to this sitting: pre-launch backfilled events are NOT priced", () => {
+		const now = 1000 * HOUR;
+		const agg = new UsageAggregator(now); // launchMs = now
+		// Pre-launch event replayed by the 35-day startup backfill — priced model,
+		// but timestamped BEFORE launch. Must NOT contribute to CostSnapshot.
+		agg.ingest({
+			provider: "claude",
+			timestampMs: now - 5 * HOUR,
+			cwd: "/Users/me/Dev/app",
+			sessionId: "s",
+			model: "claude-opus-4",
+			input: 1_000_000,
+			output: 0,
+			billable: 1_000_000,
+			raw: 1_000_000,
+		});
+		// Post-launch "this sitting" event — same priced model.
+		agg.ingest({
+			provider: "claude",
+			timestampMs: now + HOUR,
+			cwd: "/Users/me/Dev/app",
+			sessionId: "s",
+			model: "claude-opus-4",
+			input: 100_000,
+			output: 0,
+			billable: 100_000,
+			raw: 100_000,
+		});
+		const snap = buildSnapshot({
+			agg,
+			known,
+			nowMs: now + HOUR,
+			includeUntracked: true,
+			range: "week",
+			activeWorktreeIds: ["w1"],
+			rate: stubRate,
+		});
+		// Only the post-launch 100k input tokens are priced (stubRate $15/M) => $1.50.
+		// The pre-launch 1M tokens ($15) are excluded — CostSnapshot is "this sitting",
+		// not the backfilled history. (Lifetime/all-history is deferred to Slice 2.)
+		expect(snap.cost?.perProvider.claude).toBeCloseTo(1.5, 6);
+		expect(snap.cost?.total).toBeCloseTo(1.5, 6);
+		// ...but the range-scoped daily series (the chart) still includes BOTH events.
+		const seriesClaude = (snap.series ?? []).reduce(
+			(s, p) => s + (p.tokens.claude ?? 0),
+			0,
+		);
+		expect(seriesClaude).toBe(1_100_000);
+	});
 });
