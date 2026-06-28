@@ -18,7 +18,7 @@ import {
 } from "../../services/diagnostics/agent-attention-logger.js";
 import electronUpdater from "electron-updater";
 import { startUpdateService } from "./services/update-service.js";
-import { UsageHost } from "./services/usage-host.js";
+import { UsageHost, USAGE_SNAPSHOT_CHANNEL } from "./services/usage-host.js";
 import type { KnownWorktree } from "../../shared/models/usage.js";
 import { ReviewCommentStore } from "../../services/review/review-comment-store.js";
 import { ReviewCommentService } from "../../services/review/review-comment-service.js";
@@ -140,6 +140,16 @@ app.whenReady().then(async () => {
 		},
 	});
 	usageHost.start();
+	// E2E seam: the fixture snapshot is emitted inside start() before loadFile() is
+	// called, so webContents.send() has no renderer to deliver to and the message is
+	// dropped. Re-send the cached last snapshot once the page has fully loaded so the
+	// preload's buffered-channel once-handler can capture it.
+	mainWindow.webContents.on("did-finish-load", () => {
+		const last = usageHost.getLastSnapshot();
+		if (last && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+			mainWindow.webContents.send(USAGE_SNAPSHOT_CHANNEL, last);
+		}
+	});
 	Menu.setApplicationMenu(buildApplicationMenu(mainWindow));
 	const workspacePersistence = new WorkspacePersistenceService(
 		process.env.AI14ALL_WORKSPACE_STATE_PATH ??
