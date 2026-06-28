@@ -1,14 +1,14 @@
 import { join } from "node:path";
-import { existsSync, readFileSync, watch, writeFileSync } from "node:fs";
+import { existsSync, watch, writeFileSync } from "node:fs";
 import { jsonlDrivers } from "../../../services/usage/providers/index.js";
 import { buildSnapshot } from "../../../services/usage/snapshot.js";
-import { loadLedger, saveLedger } from "../../../services/usage/ledger-store.js";
+import { saveLedger } from "../../../services/usage/ledger-store.js";
 import {
 	type SweepState,
 	createSweepState,
+	loadPersistedState,
 	sweepFiles,
 } from "../../../services/usage/sweep.js";
-import type { OffsetEntry } from "../../../services/usage/scanner.js";
 import type {
 	MainToWorker,
 	UsageWorkerConfig,
@@ -41,15 +41,6 @@ const ACTIVE_HORIZON_MS = 35 * 86_400_000;
 
 const ledgerPath = (): string => join(cfg!.userDataDir, LEDGER_FILE);
 const offsetsPath = (): string => join(cfg!.userDataDir, OFFSETS_FILE);
-
-function loadOffsets(): void {
-	try {
-		const obj = JSON.parse(readFileSync(offsetsPath(), "utf8")) as Record<string, OffsetEntry>;
-		for (const [k, v] of Object.entries(obj)) state.offsets.set(k, v);
-	} catch {
-		/* first run */
-	}
-}
 
 function saveOffsets(): void {
 	// Seal stale entries: drop their contribution detail (totals stay in the ledger).
@@ -127,13 +118,7 @@ parentPort.on("message", (e: { data: MainToWorker }) => {
 	const msg = e.data;
 	if (msg.kind === "config") {
 		cfg = msg.config;
-		const loaded = loadLedger(ledgerPath()); // null on first run / version upgrade
-		state = createSweepState();
-		if (loaded) {
-			state.ledger = loaded;
-			loadOffsets(); // resume from saved offsets — NO reset (persistence replaces the old 35-day re-read)
-		}
-		// else: fresh state seeds from a full scan
+		state = loadPersistedState(ledgerPath(), offsetsPath());
 		const roots = jsonlDrivers.flatMap((d) => d.roots(cfg!.home));
 		void sweep();
 		for (const root of roots) watchDir(root);
