@@ -68,12 +68,13 @@ export function startOfHour(ms: number): number {
 	return d.getTime();
 }
 
-export function startOfWeekMonday(ms: number): number {
+// "Week" is a rolling 7-day window: today plus the 6 prior local days. Computed by
+// calendar-date iteration (DST-safe) so it always covers exactly 7 days ending
+// today — it never collapses to near-empty at the start of a calendar week.
+export function startOfTrailingWeek(ms: number): number {
 	const d = new Date(ms);
 	d.setHours(0, 0, 0, 0);
-	const dow = d.getDay(); // 0 = Sun .. 6 = Sat
-	const sinceMonday = (dow + 6) % 7; // Mon -> 0, Sun -> 6
-	d.setDate(d.getDate() - sinceMonday);
+	d.setDate(d.getDate() - 6); // today + 6 prior days = 7-day window
 	return d.getTime();
 }
 
@@ -152,7 +153,7 @@ export function bucketsForScope(
 		return out;
 	}
 	let from = Number.NEGATIVE_INFINITY; // all-time
-	if (scope === "week") from = startOfWeekMonday(nowMs);
+	if (scope === "week") from = startOfTrailingWeek(nowMs);
 	else if (scope === "month") from = startOfMonth(nowMs);
 	for (const [day, buckets] of ledger.days) {
 		if (day < from) continue;

@@ -36,19 +36,19 @@ describe("ledger scope queries", () => {
 		// now = noon on a fixed local day
 		const now = new Date(2026, 5, 17, 12, 0, 0, 0).getTime(); // Wed 2026-06-17
 		const lastMonth = new Date(2026, 4, 10, 9, 0, 0, 0).getTime(); // 2026-05-10
-		const lastWeek = new Date(2026, 5, 9, 9, 0, 0, 0).getTime(); // 2026-06-09 (before this Mon)
+		const recentBeforeMonday = new Date(2026, 5, 12, 9, 0, 0, 0).getTime(); // Fri 2026-06-12: within the trailing 7 days but BEFORE this calendar Monday (06-15)
 		const thisWeek = new Date(2026, 5, 16, 9, 0, 0, 0).getTime(); // Tue 2026-06-16
 		// ingest with launch AFTER now so session stays empty for the historical events
 		ingestEvent(ledger, session, ev({ timestampMs: lastMonth, billable: 100, raw: 100 }), now + HOUR);
-		ingestEvent(ledger, session, ev({ timestampMs: lastWeek, billable: 10, raw: 10 }), now + HOUR);
+		ingestEvent(ledger, session, ev({ timestampMs: recentBeforeMonday, billable: 10, raw: 10 }), now + HOUR);
 		ingestEvent(ledger, session, ev({ timestampMs: thisWeek, billable: 1, raw: 1 }), now + HOUR);
 
 		const sum = (m: Map<string, { billable: number }>) =>
 			[...m.values()].reduce((a, t) => a + t.billable, 0);
 
 		expect(sum(bucketsForScope(ledger, session, "all-time", now))).toBe(111);
-		expect(sum(bucketsForScope(ledger, session, "month", now))).toBe(11); // 05-10 excluded? no: month = June 1st -> only this-June
-		expect(sum(bucketsForScope(ledger, session, "week", now))).toBe(1); // only thisWeek (>= Monday 06-15)
+		expect(sum(bucketsForScope(ledger, session, "month", now))).toBe(11); // June only: 06-12 + 06-16 (05-10 excluded)
+		expect(sum(bucketsForScope(ledger, session, "week", now))).toBe(11); // rolling 7 days (06-11..06-17): 06-12 + 06-16; a calendar-Monday week would drop 06-12 → 1
 		expect(sum(bucketsForScope(ledger, session, "session", now))).toBe(0); // launch after all events
 	});
 
