@@ -17,7 +17,8 @@ import type {
 	WorktreeIdentity,
 } from "./observe-types";
 import {
-	renderReport,
+	buildSessionReport,
+	renderReportText,
 	resolveWorktreeKey,
 } from "./samantha-command-capabilities";
 import { createSamanthaCommandDispatcher } from "./samantha-command-dispatcher";
@@ -253,7 +254,10 @@ export function createSamanthaDriver(
 	const dispatcher = createIdempotentDispatcher(
 		createSamanthaCommandDispatcher(
 			{
-				buildReport: async () => renderReport(assembleObserve(await gather())),
+				buildReport: async () => {
+					const sessions = buildSessionReport(await gather());
+					return { report: renderReportText(sessions), sessions };
+				},
 				resolveWorktree: async (key) =>
 					resolveWorktreeKey(await options.getIdentities(), key),
 				focusWorktree: options.focusWorktree,
