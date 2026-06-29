@@ -1,5 +1,8 @@
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { processInBatches } from "./batch.js";
+import { parseCodexRateLimits } from "./codex-source.js";
+import { readNewLines } from "./incremental-reader.js";
+import { codexDriver } from "./providers/codex.js";
 import {
 	type DailyLedger,
 	type SessionState,
@@ -119,4 +122,47 @@ export function loadPersistedState(statePath: string): SweepState {
 	state.ledger = st.ledger;
 	state.codexLimits = st.codexLimits; // restore the Codex-limits gauge across restarts
 	return state;
+}
+
+const LIMITS_TAIL_BYTES = 256_000;
+
+// Recover the latest codex rate-limit reading directly from the logs (newest files
+// first), INDEPENDENT of the incremental read offset. The "Codex limits" gauge
+// reflects the latest known limit, which always lives in the logs — but the sweep
+// only reads NEWLY appended bytes, so after a restart the last rate-limit line is
+// already behind the saved offset and is never re-read. This one-time launch scan
+// of the tail of the few newest codex files restores the gauge WITHOUT re-ingesting
+// any tokens (it parses rate-limit lines only and never touches the ledger/offsets).
+export function recoverCodexLimits(home: string): ProviderRateLimits | null {
+	const files: { path: string; mtime: number }[] = [];
+	for (const root of codexDriver.roots(home)) {
+		if (!existsSync(root)) continue;
+		for (const path of listJsonlFiles(root)) {
+			try {
+				files.push({ path, mtime: statSync(path).mtimeMs });
+			} catch {
+				/* unreadable — skip */
+			}
+		}
+	}
+	files.sort((a, b) => b.mtime - a.mtime); // newest first
+	let best: ProviderRateLimits | null = null;
+	for (const { path } of files.slice(0, 3)) {
+		let size: number;
+		try {
+			size = statSync(path).size;
+		} catch {
+			continue;
+		}
+		// Read only the tail (the latest rate-limit line sits near the end); a partial
+		// first line just fails to parse and is skipped.
+		const { lines } = readNewLines(path, Math.max(0, size - LIMITS_TAIL_BYTES), (l) =>
+			l.includes('"rate_limits"'),
+		);
+		for (const line of lines) {
+			const rl = parseCodexRateLimits(line);
+			if (rl && (!best || rl.capturedAtMs > best.capturedAtMs)) best = rl;
+		}
+	}
+	return best;
 }

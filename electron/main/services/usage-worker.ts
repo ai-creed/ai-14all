@@ -7,6 +7,7 @@ import {
 	type SweepState,
 	createSweepState,
 	loadPersistedState,
+	recoverCodexLimits,
 	sweepFiles,
 } from "../../../services/usage/sweep.js";
 import type {
@@ -115,6 +116,17 @@ parentPort.on("message", (e: { data: MainToWorker }) => {
 	if (msg.kind === "config") {
 		cfg = msg.config;
 		state = loadPersistedState(ledgerPath());
+		// The Codex-limits gauge reflects the latest codex rate-limit, which the
+		// incremental sweep won't re-read after a restart (it's behind the saved
+		// offset). Recover it straight from the logs so the gauge shows on launch;
+		// onLimits keeps it live as new codex turns arrive.
+		const recovered = recoverCodexLimits(cfg.home);
+		if (
+			recovered &&
+			(!state.codexLimits || recovered.capturedAtMs > state.codexLimits.capturedAtMs)
+		) {
+			state.codexLimits = recovered;
+		}
 		const roots = jsonlDrivers.flatMap((d) => d.roots(cfg!.home));
 		void sweep();
 		for (const root of roots) watchDir(root);

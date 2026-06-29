@@ -2,7 +2,12 @@ import { mkdirSync, mkdtempSync, truncateSync, utimesSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createSweepState, loadPersistedState, sweepFiles } from "../../../services/usage/sweep.js";
+import {
+	createSweepState,
+	loadPersistedState,
+	recoverCodexLimits,
+	sweepFiles,
+} from "../../../services/usage/sweep.js";
 import { saveState } from "../../../services/usage/ledger-store.js";
 import { claudeDriver } from "../../../services/usage/providers/claude.js";
 import type { TelemetryDriver } from "../../../services/usage/providers/types.js";
@@ -161,5 +166,36 @@ describe("loadPersistedState single atomic state file", () => {
 		};
 		saveState(statePath, createSweepState().ledger, new Map(), limits);
 		expect(loadPersistedState(statePath).codexLimits).toEqual(limits);
+	});
+
+	it("recoverCodexLimits reads the latest codex rate-limit straight from the logs (offset-independent, latest wins)", () => {
+		const home = mkdtempSync(join(tmpdir(), "codex-home-"));
+		const dir = join(home, ".codex", "sessions", "2026", "06", "29");
+		mkdirSync(dir, { recursive: true });
+		const line = (pct: number, ts: string): string =>
+			JSON.stringify({
+				timestamp: ts,
+				type: "event_msg",
+				payload: {
+					type: "token_count",
+					info: {},
+					rate_limits: {
+						primary: { used_percent: pct, window_minutes: 300, resets_at: 1_782_739_536 },
+						secondary: { used_percent: 11, window_minutes: 10_080, resets_at: 1_783_302_935 },
+						plan_type: "plus",
+					},
+				},
+			});
+		// two rate-limit lines; the one with the LATER timestamp must win
+		writeFileSync(
+			join(dir, "roll.jsonl"),
+			`${line(1, "2026-06-29T08:00:00.000Z")}\n${line(72, "2026-06-29T09:00:00.000Z")}\n`,
+		);
+		const rl = recoverCodexLimits(home);
+		expect(rl?.primary?.usedPercent).toBe(72);
+		expect(rl?.secondary?.usedPercent).toBe(11);
+		expect(rl?.planType).toBe("plus");
+		// resets_at (seconds) is converted to ms
+		expect(rl?.primary?.resetsAtMs).toBe(1_782_739_536_000);
 	});
 });
