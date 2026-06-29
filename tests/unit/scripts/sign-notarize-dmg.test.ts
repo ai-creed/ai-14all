@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-	pickDmg,
+	listDmgs,
 	parseIdentities,
 	findDeveloperIdApplication,
 	buildCodesignArgs,
@@ -8,28 +8,40 @@ import {
 	buildStapleArgs,
 } from "../../../scripts/sign-notarize-dmg.mjs";
 
-describe("pickDmg", () => {
-	it("returns the single .dmg, ignoring blockmaps and zips", () => {
+describe("listDmgs", () => {
+	it("returns every .dmg path, ignoring blockmaps and zips", () => {
+		// The universal+arm64 build produces TWO dmgs; both must be signed,
+		// notarized, and stapled — selecting only one would ship one unsigned.
+		const entries = [
+			"ai-14all-0.11.1-arm64.dmg",
+			"ai-14all-0.11.1-arm64.dmg.blockmap",
+			"ai-14all-0.11.1-arm64-mac.zip",
+			"ai-14all-0.11.1-universal.dmg",
+			"ai-14all-0.11.1-universal.dmg.blockmap",
+			"ai-14all-0.11.1-universal-mac.zip",
+			"latest-mac.yml",
+		];
+		expect(listDmgs(entries, "release")).toEqual([
+			"release/ai-14all-0.11.1-arm64.dmg",
+			"release/ai-14all-0.11.1-universal.dmg",
+		]);
+	});
+
+	it("returns the single .dmg when only one is present (back-compat)", () => {
 		const entries = [
 			"ai-14all-0.7.1-arm64.dmg",
 			"ai-14all-0.7.1-arm64.dmg.blockmap",
 			"ai-14all-0.7.1-arm64-mac.zip",
 			"latest-mac.yml",
 		];
-		expect(pickDmg(entries, "release")).toBe(
+		expect(listDmgs(entries, "release")).toEqual([
 			"release/ai-14all-0.7.1-arm64.dmg",
-		);
+		]);
 	});
 
 	it("throws when no .dmg is present", () => {
-		expect(() => pickDmg(["a.zip", "b.dmg.blockmap"], "release")).toThrow(
+		expect(() => listDmgs(["a.zip", "b.dmg.blockmap"], "release")).toThrow(
 			/no \.dmg/i,
-		);
-	});
-
-	it("throws when more than one .dmg is present", () => {
-		expect(() => pickDmg(["a.dmg", "b.dmg"], "release")).toThrow(
-			/multiple \.dmg/i,
 		);
 	});
 });
