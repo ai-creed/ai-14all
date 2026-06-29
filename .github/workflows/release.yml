@@ -71,7 +71,11 @@ jobs:
       # internal @electron/rebuild then sees a cache hit and SKIPS rebuilding, so
       # it would package the host-ABI binary — which the afterPack guard rejects
       # (NODE_MODULE_VERSION 137 vs Electron's 145). Force the Electron rebuild
-      # here so the packaged better-sqlite3 matches Electron's ABI.
+      # here so the packaged better-sqlite3 matches Electron's ABI. For the
+      # universal target, electron-builder's buildDependenciesFromSource rebuilds
+      # better-sqlite3 from source for BOTH the arm64 and x64 sub-builds (the
+      # macos-14 Xcode toolchain cross-compiles the x64 slice); the slice gate
+      # below is the safety net that fails the build if either arch is wrong.
       - name: Rebuild better-sqlite3 for Electron before packaging
         run: pnpm exec electron-rebuild -f -w better-sqlite3
 
@@ -100,6 +104,10 @@ jobs:
           printf '%s' "$APPLE_API_KEY_P8" > "$KEYFILE"
           export APPLE_API_KEY="$KEYFILE"
           pnpm package:mac
+
+      - name: Assert universal + arm64 CPU slices
+        shell: bash
+        run: node scripts/ci/assert-universal-slices.mjs release ai-14all
 
       - name: Sign + notarize + staple DMG
         shell: bash
