@@ -42,14 +42,18 @@ const PRODUCT = "ai-14all";
 
 // Build the standard packaged-app file/dir layout for one arch's .app, given
 // the slice strings for each binary. Returns { dirs, files, lipo } fragments.
-function appLayout(releaseDir: string, macDir: string, slices: {
-	mainExe: string;
-	sqlite: string;
-	ptyX64?: string;
-	helperX64?: string;
-	ptyArm64?: string;
-	helperArm64?: string;
-}) {
+function appLayout(
+	releaseDir: string,
+	macDir: string,
+	slices: {
+		mainExe: string;
+		sqlite: string;
+		ptyX64?: string;
+		helperX64?: string;
+		ptyArm64?: string;
+		helperArm64?: string;
+	},
+) {
 	const app = `${releaseDir}/${macDir}/${PRODUCT}.app`;
 	const res = `${app}/Contents/Resources`;
 	const unpacked = `${res}/app.asar.unpacked`;

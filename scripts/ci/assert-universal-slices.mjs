@@ -89,7 +89,14 @@ function nodePtyPrebuildFile(appPath, arch, file) {
 // is how the node-pty per-arch prebuilds are enforced as thin-per-arch: a fat
 // darwin-x64/pty.node (x86_64 + arm64) is REJECTED, because node-pty selects its
 // prebuild dir by process.arch at runtime and the layout must stay thin per arch.
-function assertSlices({ file, required, exact = false, runLipo, existsSync, label }) {
+function assertSlices({
+	file,
+	required,
+	exact = false,
+	runLipo,
+	existsSync,
+	label,
+}) {
 	if (!existsSync(file)) {
 		throw new Error(`slice gate: ${label} missing on disk: ${file}`);
 	}
@@ -132,7 +139,10 @@ export function assertAppSlices({
 		label: `${kind} main executable`,
 	});
 
-	const sqlite = findBetterSqliteBinary(unpackedDir, { existsSync, readdirSync });
+	const sqlite = findBetterSqliteBinary(unpackedDir, {
+		existsSync,
+		readdirSync,
+	});
 	if (!sqlite) {
 		throw new Error(
 			`slice gate: better_sqlite3.node not found under ${unpackedDir} (${kind} app)`,

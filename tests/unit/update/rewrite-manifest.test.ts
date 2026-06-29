@@ -67,7 +67,8 @@ describe("rewriteManifest", () => {
 
 	it("prefers the universal dmg for the top-level pointer and preserves all files[]", () => {
 		const rewritten = rewriteManifest(EMITTED_TWO_DMG, "0.1.0");
-		const base = "https://github.com/ai-creed/ai-14all/releases/download/v0.1.0";
+		const base =
+			"https://github.com/ai-creed/ai-14all/releases/download/v0.1.0";
 
 		// Top-level legacy pointer is the UNIVERSAL dmg (deterministic), not the arm64 one.
 		expect(rewritten).toContain(`path: ${base}/ai-14all-0.1.0-universal.dmg`);
