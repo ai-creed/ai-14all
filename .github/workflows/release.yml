@@ -200,6 +200,12 @@ jobs:
           cp "$GITHUB_WORKSPACE/release/latest-mac.published.yml" "$RUNNER_TEMP/ai-creed/public/ai-14all/latest-mac.yml"
           target="${{ steps.resolve.outputs.version }}"
           mdx="src/content/projects/ai-14all.mdx"
+          # Idempotently expose the universal dmg as the default macOS download
+          # (arm64 becomes the secondary "native" link) and drop the stale
+          # "no Intel macOS" copy. Runs BEFORE the version-bump sed so this first
+          # universal release atomically updates the page when the universal dmg
+          # becomes downloadable; a no-op on releases where it is already applied.
+          node "$GITHUB_WORKSPACE/scripts/ci/ensure-ai-creed-universal-download.mjs" "$mdx"
           sed -i.bak -E \
             -e "s|ai-14all-[0-9]+\.[0-9]+\.[0-9]+-universal\.dmg|ai-14all-${target}-universal.dmg|g" \
             -e "s|ai-14all-[0-9]+\.[0-9]+\.[0-9]+-arm64\.dmg|ai-14all-${target}-arm64.dmg|g" \
