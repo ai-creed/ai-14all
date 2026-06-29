@@ -92,7 +92,7 @@ describe("loadPersistedState single atomic state file", () => {
 		const s1 = createSweepState();
 		await sweepFiles(s1, [driver], "ignored-home", 0, 8);
 		expect(sumBillable(s1)).toBe(10);
-		saveState(statePath, s1.ledger, s1.offsets); // the last fully-committed state
+		saveState(statePath, s1.ledger, s1.offsets, null); // the last fully-committed state
 
 		// A NEW file B lands on disk, but the next persist never runs (crash before persist).
 		writeFileSync(join(proj, "b.jsonl"), claudeLine(7)); // file B: 7 billable
@@ -129,7 +129,7 @@ describe("loadPersistedState single atomic state file", () => {
 		const s1 = createSweepState();
 		await sweepFiles(s1, [driver], "ignored-home", 0, 8);
 		expect(sumBillable(s1)).toBe(10);
-		saveState(statePath, s1.ledger, s1.offsets);
+		saveState(statePath, s1.ledger, s1.offsets, null);
 
 		const s2 = loadPersistedState(statePath);
 		expect(sumBillable(s2)).toBe(10);
@@ -149,5 +149,17 @@ describe("loadPersistedState single atomic state file", () => {
 		writeFileSync(statePath, JSON.stringify(payload), "utf8");
 		const s = loadPersistedState(statePath);
 		expect(sumBillable(s)).toBe(0);
+	});
+
+	it("restores persisted codexLimits so the Codex gauge survives a restart", () => {
+		const { statePath } = setup();
+		const limits = {
+			capturedAtMs: 1_700_000_000_000,
+			planType: "pro",
+			primary: { usedPercent: 72, windowMinutes: 300, resetsAtMs: 1_700_000_018_000 },
+			secondary: { usedPercent: 11, windowMinutes: 10_080, resetsAtMs: 1_700_000_604_000 },
+		};
+		saveState(statePath, createSweepState().ledger, new Map(), limits);
+		expect(loadPersistedState(statePath).codexLimits).toEqual(limits);
 	});
 });

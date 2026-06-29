@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
-import type { TokenTotals } from "../../shared/models/usage.js";
+import type { ProviderRateLimits, TokenTotals } from "../../shared/models/usage.js";
 import { type BucketKey, type DailyLedger, createLedger, emptyTotals } from "./ledger.js";
 import type { OffsetCache, OffsetEntry } from "./scanner.js";
 
@@ -65,14 +65,30 @@ export function deserializeLedger(raw: unknown): DailyLedger | null {
 // leave a torn pair: the on-disk state is always either the prior fully-committed
 // state or the new fully-committed state (spec §4.3: a persisted, accumulated
 // ledger must never double-count — even across a crash between writes).
-export function saveState(path: string, ledger: DailyLedger, offsets: OffsetCache): void {
-	const payload = { ...serializeLedger(ledger), offsets: Object.fromEntries(offsets) };
+export function saveState(
+	path: string,
+	ledger: DailyLedger,
+	offsets: OffsetCache,
+	codexLimits: ProviderRateLimits | null,
+): void {
+	const payload = {
+		...serializeLedger(ledger),
+		offsets: Object.fromEntries(offsets),
+		// Last-known codex rate limits, cached so the "Codex limits" gauge survives a
+		// restart (the worker no longer re-reads old log files on launch, so it would
+		// otherwise show nothing until codex next appends a rate-limit line).
+		codexLimits,
+	};
 	const tmp = `${path}.${process.pid}.${randomUUID()}.tmp`;
 	writeFileSync(tmp, JSON.stringify(payload), "utf8");
 	renameSync(tmp, path); // atomic commit: a crash leaves the prior file intact
 }
 
-export function loadState(path: string): { ledger: DailyLedger; offsets: OffsetCache } | null {
+export function loadState(path: string): {
+	ledger: DailyLedger;
+	offsets: OffsetCache;
+	codexLimits: ProviderRateLimits | null;
+} | null {
 	let raw: unknown;
 	try {
 		raw = JSON.parse(readFileSync(path, "utf8"));
@@ -84,5 +100,9 @@ export function loadState(path: string): { ledger: DailyLedger; offsets: OffsetC
 	const offsetsRaw = (raw as { offsets?: unknown }).offsets;
 	if (typeof offsetsRaw !== "object" || offsetsRaw === null) return null; // old two-file format (no offsets field) → rebuild
 	const offsets = new Map(Object.entries(offsetsRaw as Record<string, OffsetEntry>));
-	return { ledger, offsets };
+	// Best-effort cache; the pre-codexLimits format omits it → null. It refreshes as
+	// soon as the sweep reads a fresh codex rate-limit line.
+	const cl = (raw as { codexLimits?: unknown }).codexLimits;
+	const codexLimits = cl && typeof cl === "object" ? (cl as ProviderRateLimits) : null;
+	return { ledger, offsets, codexLimits };
 }

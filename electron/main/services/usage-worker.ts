@@ -52,7 +52,7 @@ function persist(): void {
 	}
 	// Write ledger + offsets together as one atomic state file — a crash can never
 	// leave a torn pair that would double-count on the next sweep (spec §4.3).
-	saveState(ledgerPath(), state.ledger, state.offsets);
+	saveState(ledgerPath(), state.ledger, state.offsets, state.codexLimits);
 }
 
 async function sweep(): Promise<void> {

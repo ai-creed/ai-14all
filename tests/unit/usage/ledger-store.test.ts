@@ -32,7 +32,7 @@ describe("ledger-store", () => {
 		]);
 		const dir = mkdtempSync(join(tmpdir(), "ledger-"));
 		const path = join(dir, "usage-ledger.json");
-		saveState(path, ledger, offsets);
+		saveState(path, ledger, offsets, null);
 		// The persisted JSON must NOT contain a raw NUL byte — the BucketKey separator is
 		// serialized as a JSON unicode escape, so the on-disk bytes stay pure UTF-8.
 		const bytes = readFileSync(path);
@@ -44,6 +44,22 @@ describe("ledger-store", () => {
 		expect(day?.get(bucketKey("/a", "claude", "claude-opus-4-8"))).toEqual({ input: 5, output: 2, billable: 7, raw: 70 });
 		// the offset cache round-trips alongside the ledger (one atomic file)
 		expect(loaded!.offsets.get("/a/s1.jsonl")).toEqual({ offset: 42, mtime: 1_700_000_000_000 });
+	});
+
+	it("round-trips codexLimits so the gauge survives a restart; null when absent", () => {
+		const limits = {
+			capturedAtMs: 1_700_000_000_000,
+			planType: "pro",
+			primary: { usedPercent: 72, windowMinutes: 300, resetsAtMs: 1_700_000_018_000 },
+			secondary: { usedPercent: 11, windowMinutes: 10_080, resetsAtMs: 1_700_000_604_000 },
+		};
+		const dir = mkdtempSync(join(tmpdir(), "ledger-"));
+		const path = join(dir, "usage-ledger.json");
+		saveState(path, createLedger(), new Map(), limits);
+		expect(loadState(path)?.codexLimits).toEqual(limits);
+		// a state written without limits (no codex yet) restores null
+		saveState(path, createLedger(), new Map(), null);
+		expect(loadState(path)?.codexLimits).toBeNull();
 	});
 
 	it("serializeLedger stamps the current version", () => {

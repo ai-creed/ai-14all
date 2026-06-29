@@ -117,5 +117,6 @@ export function loadPersistedState(statePath: string): SweepState {
 	if (!st) return createSweepState();
 	const state = createSweepState(st.offsets);
 	state.ledger = st.ledger;
+	state.codexLimits = st.codexLimits; // restore the Codex-limits gauge across restarts
 	return state;
 }
