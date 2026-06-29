@@ -15,28 +15,17 @@ import type {
 	WorkspaceState,
 } from "../../features/workspace/logic/workspace-state";
 import type { ResolvedTheme } from "../../lib/use-theme";
-import { CommitDiffStack } from "../../features/git/components/CommitDiffStack";
-import { DiffViewer } from "../../features/viewer/components/DiffViewer";
-import {
-	InlineEditor,
-	type InlineEditorHandle,
-} from "../../features/viewer/components/InlineEditor";
+import type { InlineEditorHandle } from "../../features/viewer/components/InlineEditor";
 import { ReviewQueuePanel } from "../../features/review/components/ReviewQueuePanel";
 import { ReviewRail } from "../../features/review/components/ReviewRail";
-import { InlineMountsBridge } from "../../features/review/components/InlineMountsBridge";
-import { filterForInlineMount } from "../../features/review/logic/inline-mount-filter";
+import { DiffViewerPane } from "../../features/review/components/DiffViewerPane";
 import {
 	dispatchActionsForJump,
 	waitForEditor,
 	runCommentJump,
 } from "../../features/review/logic/queue-jump";
 import { usePendingCommentJump } from "../../features/review/hooks/use-pending-comment-jump";
-import {
-	scrollToLineRange,
-	installAddAffordances,
-} from "../../features/review/logic/diff-editor-decorations";
-import { installSelectionPill } from "../../features/review/logic/inline-comment-widgets";
-import { installCommentKeyBindings } from "../../features/review/logic/comment-key-bindings";
+import { scrollToLineRange } from "../../features/review/logic/diff-editor-decorations";
 import { useToast } from "../../features/ui/toast/use-toast";
 import { createDiffEditorRegistry } from "../../features/review/logic/diff-editor-registry";
 import {
@@ -186,208 +175,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 			: activeSession?.reviewMode === "changes"
 				? (activeSession?.selectedChangedFilePath ?? null)
 				: null;
-
-	const ensureFileFocused = useCallback(
-		(filePath: string) => {
-			if (activeSession?.reviewMode === "commits") {
-				if (activeSession.selectedCommitFilePath !== filePath) {
-					dispatch({
-						type: "session/selectCommitFile",
-						worktreeId: activeWorktree.id,
-						relativePath: filePath,
-					});
-				}
-			} else {
-				if (activeSession?.selectedChangedFilePath !== filePath) {
-					dispatch({
-						type: "session/selectChangedFile",
-						worktreeId: activeWorktree.id,
-						relativePath: filePath,
-					});
-				}
-			}
-		},
-		[activeWorktree, activeSession, dispatch],
-	);
-
-	const startDraft = useCallback(
-		(
-			arg: Pick<
-				NewCommentDraft,
-				"filePath" | "startLine" | "endLine" | "snippet"
-			>,
-		) => {
-			if (
-				addingDraft &&
-				addingDraft.body.trim().length > 0 &&
-				(addingDraft.filePath !== arg.filePath ||
-					addingDraft.startLine !== arg.startLine ||
-					addingDraft.endLine !== arg.endLine)
-			) {
-				const ok = window.confirm(
-					"You have an unsaved comment draft. Discard it and start a new one?",
-				);
-				if (!ok) return;
-			}
-			const source: ReviewCommentSource =
-				activeSession?.reviewMode === "commits" ? "commit" : "working-tree";
-			const commitSha =
-				activeSession?.reviewMode === "commits"
-					? (activeSession?.selectedCommitSha ?? null)
-					: null;
-			setAddingDraft({ ...arg, body: "", source, commitSha });
-		},
-		[addingDraft, setAddingDraft, activeSession],
-	);
-
-	const inlineComments = useMemo(() => {
-		const commitSha =
-			activeSession?.reviewMode === "commits"
-				? (activeSession?.selectedCommitSha ?? null)
-				: null;
-		const { inline } = filterForInlineMount(reviewState.comments, {
-			reviewMode: activeSession?.reviewMode ?? "files",
-			filePath: currentFilePath,
-			commitSha,
-		});
-		return hideAddressed
-			? inline.filter((c) => c.status !== "addressed")
-			: inline;
-	}, [reviewState.comments, activeSession, currentFilePath, hideAddressed]);
-
-	const navigateThread = useCallback(
-		(dir: 1 | -1) => {
-			const threadsForFile = inlineComments;
-			if (threadsForFile.length === 0) return;
-			const sorted = [...threadsForFile].sort(
-				(a, b) => a.startLine - b.startLine,
-			);
-			const idx = sorted.findIndex((c) => c.id === focusedThreadId);
-			const nextIdx =
-				idx === -1
-					? dir > 0
-						? 0
-						: sorted.length - 1
-					: (idx + dir + sorted.length) % sorted.length;
-			const target = sorted[nextIdx];
-			setFocusedThreadId(target.id);
-			const editor = diffEditorRegistry.get(target.filePath);
-			if (editor) scrollToLineRange(editor, target);
-		},
-		[inlineComments, focusedThreadId, diffEditorRegistry],
-	);
-
-	const pillsRef = useRef(
-		new Map<string, ReturnType<typeof installSelectionPill>>(),
-	);
-
-	// Stable refs so key-binding handlers (registered once at editor-mount time)
-	// always delegate to the latest versions without needing re-registration.
-	const startDraftRef = useRef<typeof startDraft>(null!);
-	const navigateThreadRef = useRef<(dir: 1 | -1) => void>(null!);
-	const focusedThreadIdRef = useRef<string | null>(null);
-	const reviewStateRef = useRef<ReviewState>(null!);
-
-	useEffect(() => {
-		startDraftRef.current = startDraft;
-	}, [startDraft]);
-	useEffect(() => {
-		navigateThreadRef.current = navigateThread;
-	}, [navigateThread]);
-	useEffect(() => {
-		focusedThreadIdRef.current = focusedThreadId;
-	}, [focusedThreadId]);
-	useEffect(() => {
-		reviewStateRef.current = reviewState;
-	}, [reviewState]);
-
-	const handleDiffEditorMount = useCallback(
-		(filePath: string, editor: Parameters<typeof installAddAffordances>[0]) => {
-			diffEditorRegistry.register(filePath, editor);
-
-			const disposeAdd = installAddAffordances(editor, {
-				filePath,
-				onEnsureFileFocused: ensureFileFocused,
-				onAddSingleLine: ({ filePath: fp, line, snippet }) =>
-					startDraftRef.current({
-						filePath: fp,
-						startLine: line,
-						endLine: line,
-						snippet,
-					}),
-				onSelectionChange: () => {
-					// selection-pill widget handles its own state
-				},
-			});
-
-			const pill = installSelectionPill(editor, filePath, (arg) =>
-				startDraftRef.current(arg),
-			);
-			pillsRef.current.set(filePath, pill);
-
-			installCommentKeyBindings(editor.getModifiedEditor(), {
-				addAtCaret: () => {
-					const pos = editor.getModifiedEditor().getPosition();
-					if (!pos) return;
-					const snippet =
-						editor
-							.getModifiedEditor()
-							.getModel()
-							?.getLineContent(pos.lineNumber) ?? "";
-					startDraftRef.current({
-						filePath,
-						startLine: pos.lineNumber,
-						endLine: pos.lineNumber,
-						snippet,
-					});
-				},
-				nextThread: () => navigateThreadRef.current(+1),
-				prevThread: () => navigateThreadRef.current(-1),
-				editFocused: () => {
-					const id = focusedThreadIdRef.current;
-					if (!id) return;
-					const c = reviewStateRef.current.comments.find((x) => x.id === id);
-					if (c) scrollToLineRange(editor, c);
-				},
-				toggleAddressedFocused: () => {
-					const id = focusedThreadIdRef.current;
-					if (!id) return;
-					const c = reviewStateRef.current.comments.find((x) => x.id === id);
-					if (!c) return;
-					if (c.status === "open")
-						void reviewStateRef.current.markAddressed(c.id);
-					else void reviewStateRef.current.reopen(c.id);
-				},
-			});
-
-			editor.onDidDispose(() => {
-				disposeAdd();
-				pill.dispose();
-				pillsRef.current.delete(filePath);
-				diffEditorRegistry.unregister(filePath);
-			});
-		},
-		[ensureFileFocused, diffEditorRegistry],
-	);
-
-	const handleDiffEditorUnmount = useCallback(
-		(filePath: string) => {
-			pillsRef.current.get(filePath)?.dispose();
-			pillsRef.current.delete(filePath);
-			diffEditorRegistry.unregister(filePath);
-		},
-		[diffEditorRegistry],
-	);
-
-	// Suppress selection pill while a draft for that file is active
-	useEffect(() => {
-		if (!currentFilePath) return;
-		const pill = pillsRef.current.get(currentFilePath);
-		if (!pill) return;
-		pill.setSuppressed(
-			addingDraft !== null && addingDraft.filePath === currentFilePath,
-		);
-	}, [currentFilePath, addingDraft]);
 
 	const platform = useMemo(() => detectPlatform(), []);
 
@@ -555,9 +342,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 	);
 	useRegisterCommands(reviewNavCommands, [reviewNavCommands]);
 
-	const draftBelongsHere =
-		addingDraft !== null && addingDraft.filePath === currentFilePath;
-
 	return (
 		<Tabs
 			value={activeSession?.reviewMode ?? "files"}
@@ -614,125 +398,26 @@ export function ReviewArea(props: Props): React.ReactElement {
 					onMouseDown={handleReviewRailResizeStart}
 				/>
 
-				<section className="shell-panel shell-viewer-panel">
-					<InlineMountsBridge
-						registry={diffEditorRegistry}
-						filePath={currentFilePath}
-						comments={inlineComments}
-						draft={
-							draftBelongsHere && addingDraft
-								? {
-										startLine: addingDraft.startLine,
-										endLine: addingDraft.endLine,
-									}
-								: null
-						}
-						draftBody={draftBelongsHere ? (addingDraft?.body ?? "") : ""}
-						onDraftChange={updateAddingDraftBody}
-						onSave={async (id, body) => {
-							try {
-								const res = await reviewState.update(id, body);
-								if (res && "ok" in res && !res.ok) {
-									toast.show(
-										`Failed to update comment: ${(res as { ok: false; error: string }).error}`,
-									);
-									return false;
-								}
-								return true;
-							} catch (e) {
-								toast.show(`Failed to update: ${(e as Error).message}`);
-								return false;
-							}
-						}}
-						onToggleAddressed={async (id) => {
-							const c = reviewState.comments.find((x) => x.id === id);
-							if (!c) return;
-							try {
-								if (c.status === "open") await reviewState.markAddressed(id);
-								else await reviewState.reopen(id);
-							} catch (e) {
-								toast.show(`Failed: ${(e as Error).message}`);
-							}
-						}}
-						onDelete={async (id) => {
-							try {
-								await reviewState.remove(id);
-							} catch (e) {
-								toast.show(`Failed to delete: ${(e as Error).message}`);
-							}
-						}}
-						onSubmitDraft={async () => {
-							if (!addingDraft || addingDraft.body.trim().length === 0) return;
-							try {
-								await reviewState.create({
-									filePath: addingDraft.filePath,
-									startLine: addingDraft.startLine,
-									endLine: addingDraft.endLine,
-									snippet: addingDraft.snippet,
-									body: addingDraft.body.trim(),
-									source: addingDraft.source,
-									commitSha: addingDraft.commitSha,
-								});
-								setAddingDraft(null);
-							} catch (e) {
-								toast.show(`Failed to save: ${(e as Error).message}`);
-							}
-						}}
-						onCancelDraft={() => setAddingDraft(null)}
-					/>
-					{activeSession?.reviewMode === "commits" &&
-					commitDetailState.message !== null &&
-					commitDetailState.data === null ? (
-						<p className="shell-error">{commitDetailState.message}</p>
-					) : activeSession?.reviewMode === "commits" &&
-					  commitDetailState.data ? (
-						<CommitDiffStack
-							key={commitDetailState.data.sha}
-							workspaceId={activeWorkspaceId ?? ""}
-							worktreeId={activeWorktree.id}
-							detail={commitDetailState.data}
-							focusedPath={activeSession.selectedCommitFilePath}
-							resolvedTheme={resolvedTheme}
-							onEditorMount={(filePath, editor) => {
-								handleDiffEditorMount(filePath, editor);
-							}}
-							onEditorUnmount={handleDiffEditorUnmount}
-						/>
-					) : activeSession?.reviewMode === "files" &&
-					  activeSession.selectedFilePath ? (
-						<InlineEditor
-							ref={inlineEditorRef}
-							workspaceId={activeWorkspaceId ?? ""}
-							worktreeId={activeWorktree.id}
-							relativePath={activeSession.selectedFilePath}
-							resolvedTheme={resolvedTheme}
-							onSaved={bumpRefreshKey}
-							pendingReveal={activeSession.pendingReveal}
-							onConsumePendingReveal={() =>
-								dispatch({
-									type: "session/consumePendingReveal",
-									worktreeId: activeWorktree.id,
-								})
-							}
-						/>
-					) : activeSession?.reviewMode === "changes" && diffState.data ? (
-						<DiffViewer
-							key={diffState.data.path}
-							path={diffState.data.path}
-							content={diffState.data.content}
-							originalContent={diffState.data.originalContent}
-							modifiedContent={diffState.data.modifiedContent}
-							resolvedTheme={resolvedTheme}
-							onMount={(filePath, editor) => {
-								handleDiffEditorMount(filePath, editor);
-							}}
-						/>
-					) : (
-						<p className="shell-empty-state">
-							Select a file or changed file to inspect it.
-						</p>
-					)}
-				</section>
+				<DiffViewerPane
+					activeWorktree={activeWorktree}
+					activeSession={activeSession}
+					activeWorkspaceId={activeWorkspaceId}
+					diffState={diffState}
+					commitDetailState={commitDetailState}
+					reviewState={reviewState}
+					registry={diffEditorRegistry}
+					resolvedTheme={resolvedTheme}
+					hideAddressed={hideAddressed}
+					currentFilePath={currentFilePath}
+					addingDraft={addingDraft}
+					setAddingDraft={setAddingDraft}
+					updateAddingDraftBody={updateAddingDraftBody}
+					bumpRefreshKey={bumpRefreshKey}
+					dispatch={dispatch}
+					inlineEditorRef={inlineEditorRef}
+					focusedThreadId={focusedThreadId}
+					onFocusedThreadChange={setFocusedThreadId}
+				/>
 
 				{commentSidebarOpen &&
 					(() => {
