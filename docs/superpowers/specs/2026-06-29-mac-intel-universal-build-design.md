@@ -35,8 +35,11 @@ release.yml (macos-14 / Apple Silicon runner)
         latest-mac.yml (files[] lists BOTH zips + dmgs + blockmaps)
         (afterPack guards run per arch: ABI + dependency-closure)
   3. NEW slice gate: assert-universal-slices.mjs
-        universal .app + native modules  → must be fat (x86_64 + arm64)
-        arm64 .app                       → must be arm64
+        universal .app: main exe + better_sqlite3.node → fat (x86_64 + arm64)
+        universal .app: node-pty prebuilds/darwin-{x64,arm64}/{pty.node,spawn-helper}
+                        → BOTH dirs present, each thin for its own arch (NOT fat)
+        arm64 .app: main exe + better_sqlite3.node → arm64;
+                    node-pty prebuilds/darwin-arm64/* present (arm64)
   4. sign + notarize (one pass per artifact) + verify ALL apps/dmgs
   5. rewrite + publish latest-mac.yml to ai-creed; upload all assets
 ```
@@ -57,22 +60,33 @@ mac:
 
 electron-builder builds the arm64 and x64 apps, `@electron/universal` `lipo`-merges the x64+arm64 apps into the universal `.app`, and also emits the standalone arm64 `.app`. `buildDependenciesFromSource: true` stays; it rebuilds native deps from source per arch sub-pass.
 
-> **Verify during implementation, do not assume:** our native modules are `asarUnpack`'d (`node-pty`) and live under `app.asar.unpacked`. `@electron/universal` lipo-merges Mach-O files present in both arch builds (`better_sqlite3.node`, `pty.node`, `spawn-helper` are all Mach-O, so they are lipo-able), but the universal merge of an app that mixes an `asar` with arch-specific `asar.unpacked` content can require explicit electron-builder config (`mac.mergeASARs`, `singleArchFiles`, or `x64ArchFiles`). If the first universal build fails the merge, that config is the fix — the §5.4 slice gate is exactly what surfaces a bad/thin merge as a hard failure rather than a silent ship.
+> **Verify during implementation, do not assume:** our native modules are `asarUnpack`'d (`node-pty`) and live under `app.asar.unpacked`. The two modules merge differently, and the slice gate (§5.3) must reflect that:
+> - **`better_sqlite3.node`** sits at one fixed path (`build/Release/better_sqlite3.node`, no `prebuilds/` dir). `@electron/universal` lipo-merges the x64 and arm64 copies into one **fat** Mach-O.
+> - **node-pty** loads `prebuilds/${process.platform}-${process.arch}/pty.node` at runtime (`node-pty/lib/utils.js:17`) and derives `spawn-helper` from that *selected* directory (`node-pty/lib/unixTerminal.js:27`). Its binaries therefore live under **per-arch** paths (`prebuilds/darwin-x64/...`, `prebuilds/darwin-arm64/...`), the npm package ships both committed prebuilts (each thin for its arch, byte-identical across the two arch sub-builds), and the universal merge passes them through unchanged so **both directories coexist** in the universal `.app`. They are NOT (and must not be) lipo-merged into a fat file — forcing that would break node-pty's runtime lookup.
+>
+> The universal merge of an app that mixes an `asar` with arch-specific `asar.unpacked` content can still require explicit electron-builder config (`mac.mergeASARs`, `singleArchFiles`, or `x64ArchFiles`) — in particular, the node-pty loader checks `build/Release/` *before* `prebuilds/`, so if a per-arch `build/Release/pty.node` is packaged at the same path in both sub-builds it would collide on merge. Ensure node-pty resolves from `prebuilds/` (the layout the existing `afterPack` guard already assumes, `scripts/electron-builder-after-pack.mjs:29-44`) so the two arch dirs stay distinct. If the first universal build fails the merge, that config is the fix — the §5.3 slice gate is exactly what surfaces a bad/thin/missing merge as a hard failure rather than a silent ship.
 
 ### 5.2 Native-dependency rebuild (in `release.yml`)
-`better-sqlite3` and `node-pty` are native modules compiled against Electron's ABI. The existing single-arch pre-rebuild step (`electron-rebuild -f -w better-sqlite3`, arm64 only) must produce **both** arch binaries, or be reconciled with electron-builder's per-arch source rebuild. Concretely: run the Electron rebuild for `--arch x64` and `--arch arm64` before packaging (defeating the host-ABI cache-hit documented in the better-sqlite3 ABI gotcha). The macos-14 (Apple Silicon) Xcode toolchain cross-compiles the x64 slice. The §5.4 slice gate is the safety net that catches any arch that failed to build.
+`better-sqlite3` and `node-pty` are native modules compiled against Electron's ABI. The existing single-arch pre-rebuild step (`electron-rebuild -f -w better-sqlite3`, arm64 only) must produce **both** arch binaries, or be reconciled with electron-builder's per-arch source rebuild. Concretely: run the Electron rebuild for `--arch x64` and `--arch arm64` before packaging (defeating the host-ABI cache-hit documented in the better-sqlite3 ABI gotcha). The macos-14 (Apple Silicon) Xcode toolchain cross-compiles the x64 slice. The §5.3 slice gate is the safety net that catches any arch that failed to build.
 
 ### 5.3 CI slice gate — `scripts/ci/assert-universal-slices.mjs` (new)
-Mirrors the existing `scripts/ci/windows-x64-acceptance.ps1` pattern (a native acceptance gate, no human). Locates the packaged `.app`(s) under `release/` and asserts, via `lipo -archs`:
+Mirrors the existing `scripts/ci/windows-x64-acceptance.ps1` pattern (a native acceptance gate, no human). Locates the packaged `.app`(s) under `release/` and asserts the correct slice condition **per native module's actual runtime layout** via `lipo -archs`. Two layouts coexist and must be checked **differently** — asserting "everything is fat" is wrong for node-pty:
 
-- **Universal `.app`:** the main executable AND every bundled native binary
-  (`better_sqlite3.node`, node-pty `pty.node`, `spawn-helper`) are **fat**:
-  contain both `x86_64` and `arm64`.
+**(a) Single-path, lipo-merged binaries** — the main Electron executable and `better_sqlite3.node` (`build/Release/better_sqlite3.node`; one fixed path, no `prebuilds/` dir). `@electron/universal` lipo-merges these across the x64 and arm64 sub-builds into one fat Mach-O. Assert:
+
+- **Universal `.app`:** main executable AND `better_sqlite3.node` are **fat** (contain both `x86_64` and `arm64`).
 - **arm64 `.app`:** the same binaries contain `arm64`.
 
-Fails the build (non-zero exit) on any missing slice or missing binary. The existing `afterPack` guards (better-sqlite3 `NODE_MODULE_VERSION` ABI guard, dependency-closure guard) are unchanged and continue to run per arch.
+**(b) Per-arch prebuild binaries** — node-pty. Its loader selects `prebuilds/${process.platform}-${process.arch}/` at runtime (`node-pty/lib/utils.js:17`) and derives `spawn-helper` from the *selected* directory (`node-pty/lib/unixTerminal.js:27`). The shipped prebuilds are intentionally **thin per arch** (`prebuilds/darwin-arm64/{pty.node,spawn-helper}` → `arm64`; `prebuilds/darwin-x64/{pty.node,spawn-helper}` → `x86_64`). A universal app therefore ships **both arch directories side by side** — they are NOT lipo-merged into a fat file, and must not be. Assert:
 
-> Note: the `afterPack` ABI guard is **arch-blind** — it reads `NODE_MODULE_VERSION` from the binary, which is identical across CPU arches. The new slice gate is what verifies CPU slices are present; the two are complementary.
+- **Universal `.app`:** BOTH `prebuilds/darwin-x64/pty.node` + `darwin-x64/spawn-helper` (each **thin `x86_64`**) AND `prebuilds/darwin-arm64/pty.node` + `darwin-arm64/spawn-helper` (each **thin `arm64`**) exist with their expected single slice.
+- **arm64 `.app`:** `prebuilds/darwin-arm64/pty.node` + `darwin-arm64/spawn-helper` exist and are **`arm64`** (the npm package also ships the unused `darwin-x64` dir; the gate need not reject its presence).
+
+> **Why node-pty differs (do not assert fat here):** node-pty never loads a fat binary — it indexes into `prebuilds/darwin-<arch>/` by `process.arch`. Requiring a *fat* `pty.node`/`spawn-helper` would either fail a valid universal package or force packaging away from node-pty's real runtime layout. The packaged path the existing `afterPack` guard already targets (`app.asar.unpacked/.../node-pty/prebuilds/darwin-${arch}/spawn-helper`, `scripts/electron-builder-after-pack.mjs:29-44`) confirms this layout; the gate's job for the universal build is to verify the **peer x64 directory** is present and correctly thin.
+
+Fails the build (non-zero exit) on any missing slice, wrong slice, or missing binary. The existing `afterPack` guards (better-sqlite3 `NODE_MODULE_VERSION` ABI guard, dependency-closure guard, node-pty spawn-helper existence/chmod) are unchanged and continue to run per arch.
+
+> Note: the `afterPack` ABI guard is **arch-blind** — it reads `NODE_MODULE_VERSION` from the binary, which is identical across CPU arches. The new slice gate is what verifies CPU slices are present and correctly placed; the two are complementary.
 
 ### 5.4 Signing / notarization / verification (in `release.yml`)
 - Signing a universal `.app` signs both slices in one `codesign` pass; notarization is one submission per artifact. `electron-builder` `notarize: true` and `scripts/sign-notarize-dmg.mjs` work unchanged.
@@ -112,18 +126,26 @@ With both `…-arm64-mac.zip` and `…-universal-mac.zip` in one `latest-mac.yml
 
 ## 7. Testing
 
-- **Unit (TDD)** for `assert-universal-slices.mjs`: inject a fake `lipo` runner.
-  - fat binary (both slices) → pass.
-  - missing `x86_64` slice on a universal binary → fail with a clear message.
-  - missing binary on disk → fail.
-  - arm64 artifact with arm64 slice → pass.
+- **Unit (TDD)** for `assert-universal-slices.mjs`: inject a fake `lipo` runner and a fake filesystem layout.
+  - *Single-path binaries (main executable, `better_sqlite3.node`):*
+    - universal build → fat (both `x86_64` + `arm64`) → pass.
+    - universal build with a thin (arm64-only) `better_sqlite3.node` → fail with a clear "missing x86_64 slice" message.
+    - arm64 build → arm64 → pass.
+    - binary missing on disk → fail.
+  - *node-pty per-arch prebuilds:*
+    - universal build with BOTH `prebuilds/darwin-x64/{pty.node,spawn-helper}` (thin `x86_64`) and `prebuilds/darwin-arm64/{pty.node,spawn-helper}` (thin `arm64`) present → pass.
+    - universal build missing the `darwin-x64` prebuild dir (or a file inside it) → fail with a clear "node-pty x64 prebuild missing" message.
+    - universal build where `darwin-x64/pty.node` carries the *wrong* slice (arm64) → fail.
+    - **a *fat* node-pty `pty.node`/`spawn-helper` is REJECTED** — the gate enforces an *exact* single slice per arch (a fat `darwin-x64/pty.node` returning `x86_64 arm64` fails), never merely "contains the slice". This both forbids requiring fat and catches an unexpected lipo-merge of node-pty's per-arch layout (regression guard for this finding).
+    - arm64 build with `prebuilds/darwin-arm64/{pty.node,spawn-helper}` present and `arm64` → pass.
 - **Existing** `electron-builder-after-pack` unit tests stay green (no behavior change there).
 - **Manifest:** add/extend a `rewrite-manifest` unit test asserting both zips survive and the top-level pointer is the universal dmg.
 - **CI integration:** the slice gate runs in `release.yml` on every release build (and any release-smoke `workflow_dispatch`).
 
 ## 8. Edge cases
 
-- **x64 native module silently fails to cross-compile** → caught by the slice gate (universal `.node` would be thin arm64). Hard fail, no ship.
+- **x64 `better_sqlite3.node` silently fails to cross-compile** → the lipo-merge yields a thin arm64 `better_sqlite3.node`; caught by the slice gate's fat-binary assertion. Hard fail, no ship.
+- **node-pty's `darwin-x64` prebuild missing from (or wrong-slice in) the universal app** → caught by the slice gate's "both `prebuilds/darwin-x64` and `darwin-arm64` present, thin per arch" assertion. Hard fail, no ship.
 - **Two dmgs → nondeterministic top-level manifest pointer** → fixed by §5.5 (deterministic universal pick).
 - **Verify step only checks one artifact** → fixed by §5.4 (verify all).
 - **arm64 user on a universal-only manifest** would bloat to 2× download → avoided by keeping the native arm64 zip (§3.1).
