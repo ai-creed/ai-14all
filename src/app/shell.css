@@ -1352,6 +1352,30 @@ select {
 	transition: width 0.2s ease;
 }
 
+.shell-review-mark-viewed {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 8px;
+	font-size: 11px;
+	line-height: 1.6;
+	color: var(--text-secondary);
+	background: var(--muted);
+	border: 1px solid var(--border);
+	border-radius: 0;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.shell-review-mark-viewed:hover {
+	border-color: var(--muted-foreground);
+}
+
+.shell-review-mark-viewed[data-reviewed="true"] {
+	color: var(--success);
+	border-color: var(--success);
+}
+
 .shell-review-rail__header,
 .shell-review-tabs__list {
 	display: flex;

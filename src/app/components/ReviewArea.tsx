@@ -16,6 +16,7 @@ import type {
 } from "../../features/workspace/logic/workspace-state";
 import type { ResolvedTheme } from "../../lib/use-theme";
 import type { InlineEditorHandle } from "../../features/viewer/components/InlineEditor";
+import { MarkViewedToggle } from "../../features/review/components/MarkViewedToggle";
 import { ReviewProgressHeader } from "../../features/review/components/ReviewProgressHeader";
 import { ReviewQueuePanel } from "../../features/review/components/ReviewQueuePanel";
 import { ReviewRail } from "../../features/review/components/ReviewRail";
@@ -227,6 +228,13 @@ export function ReviewArea(props: Props): React.ReactElement {
 
 	const platform = useMemo(() => detectPlatform(), []);
 
+	// Whether the current file is currently considered reviewed, and whether the
+	// active mode carries comment chrome (Changes/Commits — never Files).
+	const isCurrentFileReviewed = currentFilePath
+		? reviewed.isReviewed(currentFilePath)
+		: false;
+	const hasCommentChrome = activeSession?.reviewMode !== "files";
+
 	const stepFile = useCallback(
 		(direction: 1 | -1, e?: KeyboardEvent) => {
 			if (activeSession?.reviewMode === "changes") {
@@ -333,6 +341,61 @@ export function ReviewArea(props: Props): React.ReactElement {
 		navigateToPrevDiff(editor);
 	}, [currentFilePath, diffEditorRegistry]);
 
+	// Resolve the current file's modified content so the reviewed-files hook can
+	// hash it. In Changes mode the diff state holds the content directly; in
+	// Commits mode we read it from the live Monaco diff editor.
+	const getCurrentFileContent = useCallback((): string | null => {
+		if (!currentFilePath) return null;
+		if (activeSession?.reviewMode === "changes") {
+			return diffState.data && diffState.data.path === currentFilePath
+				? diffState.data.modifiedContent
+				: null;
+		}
+		const editor = diffEditorRegistry.get(currentFilePath);
+		const model = editor?.getModifiedEditor?.().getModel?.();
+		return model ? model.getValue() : null;
+	}, [
+		currentFilePath,
+		activeSession?.reviewMode,
+		diffState.data,
+		diffEditorRegistry,
+	]);
+
+	const handleMarkFileViewed = useCallback(() => {
+		if (!currentFilePath) return;
+		const content = getCurrentFileContent();
+		if (content === null) return;
+		// The hook owns the mark/unmark decision and the hashing.
+		reviewed.toggleViewed(currentFilePath, content);
+	}, [currentFilePath, getCurrentFileContent, reviewed]);
+
+	const handleToggleOverview = useCallback(() => {
+		dispatch({
+			type: "session/setReviewOverviewExpanded",
+			worktreeId: activeWorktree.id,
+			expanded: !(activeSession?.reviewOverviewExpanded ?? false),
+		});
+	}, [activeWorktree.id, activeSession?.reviewOverviewExpanded, dispatch]);
+
+	useKeyboardShortcut(
+		"review.markViewed",
+		platform,
+		(e) => {
+			e.preventDefault();
+			handleMarkFileViewed();
+		},
+		[handleMarkFileViewed],
+	);
+	useKeyboardShortcut(
+		"review.toggleOverview",
+		platform,
+		(e) => {
+			e.preventDefault();
+			handleToggleOverview();
+		},
+		[handleToggleOverview],
+	);
+
 	// Render-synced ref so reviewNavCommands can reference the latest stepFile
 	// without listing it (or its churning deps) in the useMemo dependency array.
 	// This prevents an infinite render loop: stepFile's deps include `changes`
@@ -341,6 +404,14 @@ export function ReviewArea(props: Props): React.ReactElement {
 	// churn → useRegisterCommands re-fires → version bump → re-render → loop.
 	const stepFileRef = useRef(stepFile);
 	stepFileRef.current = stepFile;
+
+	// Same render-synced-ref pattern as stepFileRef: these handlers close over
+	// churning deps (diffState.data, reviewOverviewExpanded), so reference them
+	// via refs to keep reviewNavCommands stable and avoid a re-register loop.
+	const handleMarkFileViewedRef = useRef(handleMarkFileViewed);
+	handleMarkFileViewedRef.current = handleMarkFileViewed;
+	const handleToggleOverviewRef = useRef(handleToggleOverview);
+	handleToggleOverviewRef.current = handleToggleOverview;
 
 	const reviewNavCommands = useMemo<Command[]>(
 		() => [
@@ -379,6 +450,23 @@ export function ReviewArea(props: Props): React.ReactElement {
 				keybindingId: "review.diffPrev",
 				run: goPrevDiff,
 				isAvailable: () => !!currentFilePath,
+			},
+			{
+				id: "review.markViewed",
+				title: "Mark file viewed",
+				group: "Review",
+				keybindingId: "review.markViewed",
+				run: () => handleMarkFileViewedRef.current(),
+				isAvailable: () =>
+					!!currentFilePath && activeSession?.reviewMode !== "files",
+			},
+			{
+				id: "review.toggleOverview",
+				title: "Toggle comments overview",
+				group: "Review",
+				keybindingId: "review.toggleOverview",
+				run: () => handleToggleOverviewRef.current(),
+				isAvailable: () => activeSession?.reviewMode !== "files",
 			},
 		],
 		[
@@ -470,11 +558,19 @@ export function ReviewArea(props: Props): React.ReactElement {
 					}
 					onCloseReview={props.onCloseReview}
 					header={
-						activeSession?.reviewMode !== "files" ? (
-							<ReviewProgressHeader
-								reviewed={progress.reviewed}
-								total={progress.total}
-							/>
+						hasCommentChrome ? (
+							<>
+								<ReviewProgressHeader
+									reviewed={progress.reviewed}
+									total={progress.total}
+								/>
+								{currentFilePath ? (
+									<MarkViewedToggle
+										reviewed={isCurrentFileReviewed}
+										onToggle={handleMarkFileViewed}
+									/>
+								) : null}
+							</>
 						) : null
 					}
 					footer={overviewNode}
