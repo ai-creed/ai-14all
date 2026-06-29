@@ -12,7 +12,7 @@ export function ReviewProgressHeader({ reviewed, total }: Props) {
 				<div
 					className="shell-review-progress__fill"
 					data-testid="review-progress-fill"
-					style={{ width: `${pct}%`, background: "var(--success)" }}
+					style={{ width: `${pct}%` }}
 				/>
 			</div>
 		</div>

@@ -55,7 +55,7 @@ export function ReviewRailOverview({
 						</button>
 						<button
 							type="button"
-							className="shell-review-queue__btn--danger"
+							className="shell-review-overview__btn--danger"
 							aria-label="Clear addressed"
 							onClick={onClearAddressed}
 							disabled={addressedCount === 0}

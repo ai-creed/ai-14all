@@ -5570,6 +5570,21 @@ select {
 	cursor: default;
 }
 
+.shell-review-overview__btn--danger {
+	color: var(--destructive) !important;
+	border-color: color-mix(
+		in srgb,
+		var(--destructive) 40%,
+		var(--panel-border)
+	) !important;
+}
+
+.shell-review-overview__btn--danger:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--destructive) 10%, transparent) !important;
+	border-color: var(--destructive) !important;
+	color: var(--destructive) !important;
+}
+
 .shell-review-overview__group {
 	padding-bottom: var(--space-1);
 }
