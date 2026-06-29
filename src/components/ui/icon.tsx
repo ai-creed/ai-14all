@@ -51,6 +51,7 @@ export const ICON_GLYPHS = {
 	minimize: { fallback: "—", nf: "" }, // minus (minimize / collapse)
 	trash: { fallback: "🗑", nf: "" }, // trash (nf-fa-trash, U+F1F8)
 	play: { fallback: "▶", nf: "" }, // play (nf-fa-play, U+F04B)
+	help: { fallback: "?", nf: "" }, // question-circle (nf-fa-question_circle, U+F059)
 } as const;
 
 export type IconName = keyof typeof ICON_GLYPHS;

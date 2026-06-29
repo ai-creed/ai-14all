@@ -33,6 +33,10 @@ import type {
 
 import type { WorkspaceState } from "../../../../shared/models/workspace-state";
 export type { WorkspaceState };
+import {
+	removeReviewedMark,
+	upsertReviewedMark,
+} from "../../review/logic/reviewed-files";
 import type { LayoutId } from "../../../../shared/models/terminal-layout";
 import { TERMINAL_LAYOUTS } from "../../terminals/logic/terminal-layouts";
 import {
@@ -88,6 +92,18 @@ export type WorkspaceAction =
 			type: "session/setReviewSidebarWidth";
 			worktreeId: string;
 			width: number;
+	  }
+	| {
+			type: "session/markFileViewed";
+			worktreeId: string;
+			filePath: string;
+			contentHash: string;
+	  }
+	| { type: "session/unmarkFileViewed"; worktreeId: string; filePath: string }
+	| {
+			type: "session/setReviewOverviewExpanded";
+			worktreeId: string;
+			expanded: boolean;
 	  }
 	| { type: "session/selectFile"; worktreeId: string; relativePath: string }
 	| {
@@ -295,6 +311,8 @@ function createSession(worktree: Worktree): WorktreeSession {
 		terminalLayoutId: "1",
 		slotProcessIds: [null],
 		reviewSidebarWidth: 280,
+		reviewedFiles: [],
+		reviewOverviewExpanded: false,
 		treeExpandedPaths: [],
 		treeShowIgnored: false,
 		task: null,
@@ -464,6 +482,8 @@ function restorePersistedSession(
 		terminalLayoutId: restoredLayoutId,
 		slotProcessIds: restoredSlots,
 		reviewSidebarWidth: snapshot.reviewSidebarWidth ?? 280,
+		reviewedFiles: snapshot.reviewedFiles ?? [],
+		reviewOverviewExpanded: snapshot.reviewOverviewExpanded ?? false,
 	};
 
 	return {
@@ -1395,6 +1415,22 @@ export function workspaceReducer(
 		nextSession = { ...session, filesPaneMode: action.filesPaneMode };
 	} else if (action.type === "session/setReviewSidebarWidth") {
 		nextSession = { ...session, reviewSidebarWidth: action.width };
+	} else if (action.type === "session/markFileViewed") {
+		nextSession = {
+			...session,
+			reviewedFiles: upsertReviewedMark(
+				session.reviewedFiles,
+				action.filePath,
+				action.contentHash,
+			),
+		};
+	} else if (action.type === "session/unmarkFileViewed") {
+		nextSession = {
+			...session,
+			reviewedFiles: removeReviewedMark(session.reviewedFiles, action.filePath),
+		};
+	} else if (action.type === "session/setReviewOverviewExpanded") {
+		nextSession = { ...session, reviewOverviewExpanded: action.expanded };
 	} else if (action.type === "session/selectFile") {
 		// A deliberate file open (tree click) ends any transient preview and
 		// becomes the current nav location at file top.

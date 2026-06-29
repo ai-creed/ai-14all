@@ -18,6 +18,18 @@ describe("readNewLines", () => {
 		expect(second.lines).toEqual(["c"]); // "partial" has no newline yet
 		expect(second.offset).toBe(first.offset + 2); // only consumed "c\n"
 	});
+	it("readNewLines honors an end bound (toOffset)", () => {
+		const dir = mkdtempSync(join(tmpdir(), "inc-"));
+		const file = join(dir, "f.jsonl");
+		writeFileSync(file, "aaa\nbbb\nccc\n");
+		expect(readNewLines(file, 0, () => true).lines).toEqual([
+			"aaa",
+			"bbb",
+			"ccc",
+		]);
+		// Bound to the first two lines only (8 bytes = "aaa\nbbb\n").
+		expect(readNewLines(file, 0, () => true, 8).lines).toEqual(["aaa", "bbb"]);
+	});
 	it("applies the marker pre-filter", () => {
 		const dir = mkdtempSync(join(tmpdir(), "usage-"));
 		const file = join(dir, "f.jsonl");

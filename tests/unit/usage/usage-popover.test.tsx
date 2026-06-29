@@ -1,128 +1,240 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import {
-	UsagePopover,
-	selectRows,
-} from "../../../src/features/telemetry/UsagePopover.js";
-import type { UsageSnapshot } from "../../../shared/models/usage.js";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { UsagePopover } from "../../../src/features/telemetry/UsagePopover.js";
+import type {
+	CostSnapshot,
+	ScopeData,
+	TokenTotals,
+	UsageScope,
+	UsageSnapshot,
+} from "../../../shared/models/usage.js";
 
 const NOW = 1_000_000_000_000;
-const snapshot: UsageSnapshot = {
-	generatedAtMs: NOW,
-	limits: [
-		{
-			provider: "codex",
-			real: true,
-			fiveHour: { percent: 3, resetsAtMs: NOW + 90 * 60_000 },
-			weekly: {
-				percent: 41,
-				resetsAtMs: NOW + 3 * 86_400_000,
-				used: null,
-				budget: null,
-			},
-		},
-		{
-			provider: "claude",
-			real: false,
-			fiveHour: { percent: 12, resetsAtMs: null },
-			weekly: {
-				percent: 28,
-				resetsAtMs: null,
-				used: 2_500_000,
-				budget: 9_000_000,
-			},
-		},
-	],
-	rows: [
-		{
-			workspaceId: "ws1",
-			worktreeId: "w1",
-			worktreePath: "/p/w1",
-			worktreeTitle: "main",
-			provider: "codex",
-			active: true,
-			sinceLaunch: {
-				input: 700_000,
-				output: 100_000,
-				billable: 800_000,
-				raw: 12_900_000,
-			},
-			thisWeek: { input: 0, output: 0, billable: 5_100_000, raw: 0 },
-		},
-		{
-			workspaceId: "ws1",
-			worktreeId: "w2",
-			worktreePath: "/p/w2",
-			worktreeTitle: "old-branch",
-			provider: "claude",
-			active: false,
-			sinceLaunch: {
-				input: 1_000_000,
-				output: 200_000,
-				billable: 1_200_000,
-				raw: 9_000_000,
-			},
-			thisWeek: { input: 0, output: 0, billable: 0, raw: 0 },
-		},
-		{
-			workspaceId: null,
-			worktreeId: null,
-			worktreePath: null,
-			worktreeTitle: "other (untracked)",
-			provider: "claude",
-			active: false,
-			sinceLaunch: {
-				input: 3_000_000,
-				output: 500_000,
-				billable: 3_500_000,
-				raw: 28_000_000,
-			},
-			thisWeek: { input: 0, output: 0, billable: 0, raw: 0 },
-		},
-	],
-	totals: { input: 0, output: 0, billable: 0, raw: 0 },
-	config: {
-		fiveHourBudget: 5_000_000,
-		weeklyBudget: 112_000_000,
-		weeklyResetDay: 1,
-		weeklyResetHour: 7,
-	},
+const cap = {
+	tokenLog: true,
+	storeKind: "jsonl-tree" as const,
+	timeSource: "per-event" as const,
+	cwdSource: "in-line" as const,
+	nativeLimits: false,
 };
 
-describe("selectRows", () => {
-	it("active scope keeps only active tracked rows", () => {
-		expect(
-			selectRows(snapshot.rows, "active", false).map((r) => r.worktreeId),
-		).toEqual(["w1"]);
-	});
-	it("all scope keeps all tracked; untracked adds the null row", () => {
-		expect(
-			selectRows(snapshot.rows, "all", false).map((r) => r.worktreeId),
-		).toEqual(["w1", "w2"]);
-		expect(
-			selectRows(snapshot.rows, "all", true).some(
-				(r) => r.workspaceId === null,
-			),
-		).toBe(true);
-	});
-});
+function tokens(billable: number): TokenTotals {
+	return {
+		input: Math.round(billable * 0.7),
+		output: Math.round(billable * 0.3),
+		billable,
+		raw: billable,
+	};
+}
+
+function cost(codexUsd: number, claudeUsd: number): CostSnapshot {
+	return {
+		perProvider: { codex: codexUsd, claude: claudeUsd },
+		total: codexUsd + claudeUsd,
+		currency: "USD",
+		notional: true,
+		unpricedTokens: 0,
+	};
+}
+
+// Build a scope with codex=60% / claude=40% of `total` tokens, so each scope's
+// total, byProvider, rows and cost are internally coherent and the four scopes
+// have distinct totals we can assert against after switching.
+function scopeData(
+	scope: UsageScope,
+	total: number,
+	codexUsd: number,
+	claudeUsd: number,
+): ScopeData {
+	const codexTok = Math.round(total * 0.6);
+	const claudeTok = total - codexTok;
+	return {
+		scope,
+		totalTokens: total,
+		byProvider: [
+			{ provider: "codex", tokens: codexTok, costUsd: codexUsd },
+			{ provider: "claude", tokens: claudeTok, costUsd: claudeUsd },
+		],
+		rows: [
+			{
+				workspaceId: "ws1",
+				worktreeId: "w1",
+				worktreePath: "/p/w1",
+				worktreeTitle: "main",
+				provider: "codex",
+				active: true,
+				tokens: tokens(codexTok),
+				costUsd: codexUsd,
+			},
+			{
+				workspaceId: "ws1",
+				worktreeId: "w1",
+				worktreePath: "/p/w1",
+				worktreeTitle: "main",
+				provider: "claude",
+				active: true,
+				tokens: tokens(claudeTok),
+				costUsd: claudeUsd,
+			},
+		],
+		cost: cost(codexUsd, claudeUsd),
+	};
+}
+
+const snapshot: UsageSnapshot = {
+	generatedAtMs: NOW,
+	providers: [
+		{
+			id: "claude",
+			label: "Claude",
+			brand: "var(--provider-claude)",
+			capabilities: cap,
+			hasData: true,
+		},
+		{
+			id: "codex",
+			label: "Codex",
+			brand: "var(--provider-codex)",
+			capabilities: { ...cap, nativeLimits: true },
+			hasData: true,
+		},
+	],
+	scopes: {
+		session: scopeData("session", 800_000, 1.4, 0.9), // total cost $2.30
+		week: scopeData("week", 1_200_000, 3.0, 2.0), // total cost $5.00
+		month: scopeData("month", 2_000_000, 6.0, 3.0), // total cost $9.00
+		"all-time": scopeData("all-time", 3_000_000, 10.0, 5.0), // total cost $15.00
+	},
+	seriesDaily: [
+		{
+			dayStartMs: NOW - 86_400_000,
+			tokens: { claude: 500_000, codex: 300_000 },
+		},
+		{ dayStartMs: NOW, tokens: { codex: 500_000 } },
+	],
+	seriesHourly: [
+		{ hourStartMs: NOW - 3_600_000, tokens: { codex: 200_000 } },
+		{ hourStartMs: NOW, tokens: { claude: 100_000, codex: 300_000 } },
+	],
+	codexLimits: {
+		provider: "codex",
+		fiveHour: { percent: 41, resetsAtMs: NOW + 90 * 60_000 },
+		weekly: { percent: 23, resetsAtMs: null, used: null, budget: null },
+	},
+	config: { chipRange: "week", includeUntracked: false },
+};
 
 describe("UsagePopover", () => {
-	it("scope + untracked toggles change rows and total", () => {
-		render(<UsagePopover snapshot={snapshot} onClose={() => {}} />);
-		const total = () => screen.getByTestId("usage-total").textContent ?? "";
-		expect(screen.queryByText(/old-branch/)).toBeNull();
-		expect(total()).toContain("0.7M");
-		fireEvent.click(screen.getByRole("button", { name: "all tracked" }));
-		expect(screen.getByText(/old-branch/)).toBeTruthy();
-		expect(total()).toContain("1.7M");
-		fireEvent.click(screen.getByLabelText("include untracked"));
-		expect(total()).toContain("4.7M");
+	beforeEach(() => {
+		(window as unknown as { ai14all: unknown }).ai14all = {
+			usage: { setChipRange: vi.fn(), setIncludeUntracked: vi.fn() },
+		};
 	});
-	it("renders codex reset countdown and claude used/budget", () => {
+
+	it("opens on the Session scope (Session button active, total = session total)", () => {
+		const { container } = render(
+			<UsagePopover snapshot={snapshot} onClose={() => {}} />,
+		);
+		expect(screen.getByRole("button", { name: "Session" }).className).toContain(
+			"on",
+		);
+		expect(
+			screen.getByRole("button", { name: "Week" }).className,
+		).not.toContain("on");
+		// session total = 0.8M
+		expect(container.querySelector(".usage-pop-total")?.textContent).toContain(
+			"0.8M",
+		);
+	});
+
+	it("switches the rendered scope total when Week / Month / All-time are clicked", () => {
+		const { container } = render(
+			<UsagePopover snapshot={snapshot} onClose={() => {}} />,
+		);
+		const total = () =>
+			container.querySelector(".usage-pop-total")?.textContent ?? "";
+		expect(total()).toContain("0.8M"); // session
+		fireEvent.click(screen.getByRole("button", { name: "Week" }));
+		expect(total()).toContain("1.2M");
+		fireEvent.click(screen.getByRole("button", { name: "Month" }));
+		expect(total()).toContain("2.0M");
+		fireEvent.click(screen.getByRole("button", { name: "All-time" }));
+		expect(total()).toContain("3.0M");
+	});
+
+	it("renders a chart for Session but none for All-time", () => {
+		const { container } = render(
+			<UsagePopover snapshot={snapshot} onClose={() => {}} />,
+		);
+		// Session => hourly chart present
+		expect(container.querySelector(".usage-chart")).not.toBeNull();
+		fireEvent.click(screen.getByRole("button", { name: "All-time" }));
+		// All-time omits the chart entirely
+		expect(container.querySelector(".usage-chart")).toBeNull();
+	});
+
+	it("shows a real notional cost (not $0) for a scope with tokens", () => {
+		const { container } = render(
+			<UsagePopover snapshot={snapshot} onClose={() => {}} />,
+		);
+		// session total cost = $2.30
+		const totalText =
+			container.querySelector(".usage-pop-total")?.textContent ?? "";
+		expect(totalText).toMatch(/\$2\.30/);
+		expect(totalText).not.toMatch(/\$0\.00/);
+	});
+
+	it("renders the provider roll-up rows from byProvider", () => {
 		render(<UsagePopover snapshot={snapshot} onClose={() => {}} />);
-		expect(screen.getByText(/resets 1h30m/)).toBeTruthy();
-		expect(screen.getByText(/2\.5M \/ 9\.0M/)).toBeTruthy();
+		expect(screen.getByText("claude")).toBeTruthy();
+		expect(screen.getByText("codex")).toBeTruthy();
+		// per-provider notional cost from byProvider (codex = $1.40)
+		expect(screen.getByText(/\$1\.40/)).toBeTruthy();
+	});
+
+	it("switching the breakdown to Workspace shows the worktree tree", () => {
+		const { container } = render(
+			<UsagePopover snapshot={snapshot} onClose={() => {}} />,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Workspace" }));
+		// "main" appears in both the workspace header (g.label) and the worktree cell;
+		// scope to .usage-wt to assert the worktree row specifically.
+		const wtCell = container.querySelector(".usage-wt");
+		expect(wtCell?.textContent).toContain("main");
+	});
+
+	it("codex native limits are collapsed and expand on click", () => {
+		const { container } = render(
+			<UsagePopover snapshot={snapshot} onClose={() => {}} />,
+		);
+		// Collapsed: glanceable summary visible, expanded detail not yet rendered
+		expect(screen.getByText("5h 41% · wk 23%")).toBeTruthy();
+		expect(screen.queryByText(/resets/)).toBeNull();
+		// Expand: gauge percent now inside .usage-limits
+		fireEvent.click(screen.getByRole("button", { name: /Codex limits/ }));
+		expect(
+			within(container.querySelector(".usage-limits")!).getByText("41%"),
+		).toBeTruthy();
+	});
+
+	it("seeds the include-untracked toggle from config (default false)", () => {
+		render(<UsagePopover snapshot={snapshot} onClose={() => {}} />);
+		fireEvent.click(screen.getByRole("button", { name: "Workspace" }));
+		expect(
+			(screen.getByLabelText("include untracked") as HTMLInputElement).checked,
+		).toBe(false);
+	});
+
+	it("seeds the include-untracked toggle from config (true)", () => {
+		const on: UsageSnapshot = {
+			...snapshot,
+			config: { ...snapshot.config, includeUntracked: true },
+		};
+		render(<UsagePopover snapshot={on} onClose={() => {}} />);
+		fireEvent.click(screen.getByRole("button", { name: "Workspace" }));
+		expect(
+			(screen.getByLabelText("include untracked") as HTMLInputElement).checked,
+		).toBe(true);
 	});
 });

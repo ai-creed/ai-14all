@@ -19,6 +19,7 @@ type Props = {
 	gitSummaryStale?: boolean;
 	gitSummaryMessage?: string | null;
 	openCommentCounts?: Record<string, number>;
+	reviewedPaths?: string[];
 };
 
 export function ChangesList({
@@ -32,6 +33,7 @@ export function ChangesList({
 	gitSummaryStale,
 	gitSummaryMessage,
 	openCommentCounts,
+	reviewedPaths,
 }: Props) {
 	const [previewPath, setPreviewPath] = useState<string | null>(null);
 
@@ -84,6 +86,16 @@ export function ChangesList({
 										aria-label={`${openCommentCounts[change.path]} open review comments`}
 									>
 										[{openCommentCounts[change.path]}]
+									</span>
+								) : null}
+								{reviewedPaths?.includes(change.path) ? (
+									<span
+										className="shell-list__reviewed-mark"
+										data-testid={`reviewed-mark-${change.path}`}
+										aria-label="Reviewed"
+										style={{ color: "var(--success)" }}
+									>
+										✓
 									</span>
 								) : null}
 								<strong>{change.status}</strong>

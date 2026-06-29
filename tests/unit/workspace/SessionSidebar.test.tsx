@@ -178,6 +178,39 @@ describe("SessionSidebar process rows", () => {
 	});
 });
 
+describe("SessionSidebar — global footer actions", () => {
+	it("calls onOpenShortcutsHelp when the help button is clicked", () => {
+		const onOpenShortcutsHelp = vi.fn();
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[]}
+				onOpenShortcutsHelp={onOpenShortcutsHelp}
+			/>,
+		);
+		fireEvent.click(
+			screen.getByRole("button", { name: /keyboard shortcuts/i }),
+		);
+		expect(onOpenShortcutsHelp).toHaveBeenCalledTimes(1);
+	});
+
+	it("renders and triggers the help button while collapsed", () => {
+		const onOpenShortcutsHelp = vi.fn();
+		render(
+			<SessionSidebar
+				{...baseProps}
+				collapsed
+				workspaces={[]}
+				onOpenShortcutsHelp={onOpenShortcutsHelp}
+			/>,
+		);
+		const help = screen.getByRole("button", { name: /keyboard shortcuts/i });
+		expect(help).toBeInTheDocument();
+		fireEvent.click(help);
+		expect(onOpenShortcutsHelp).toHaveBeenCalledTimes(1);
+	});
+});
+
 describe("SessionSidebar — task and provider rendering", () => {
 	it("renders task line when taskByWorktreeId[worktreeId] is a non-null string", () => {
 		const workspace: SessionSidebarWorkspace = {

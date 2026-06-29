@@ -13,7 +13,6 @@ type Props = {
 	onRefresh: () => void;
 	onOpen: () => void;
 	onOpenFiles: () => void;
-	onOpenComments: () => void;
 };
 
 const MODE_LABEL: Record<ReviewMode, string> = {
@@ -32,7 +31,6 @@ export function ReviewChipBar({
 	onRefresh,
 	onOpen,
 	onOpenFiles,
-	onOpenComments,
 }: Props): React.ReactElement {
 	const hasComments = openCommentCount > 0 || addressedCommentCount > 0;
 	return (
@@ -64,24 +62,13 @@ export function ReviewChipBar({
 				</span>
 			)}
 			{hasComments && (
-				<span className="shell-review-chipbar__comments">
-					{openCommentCount > 0 && (
-						<button
-							type="button"
-							className="shell-review-chipbar__open shell-review-chipbar__open--action"
-							data-testid="review-chipbar-comments"
-							title="Go to first open comment"
-							onClick={onOpenComments}
-						>
-							{openCommentCount} open
-						</button>
-					)}
-					{addressedCommentCount > 0 && (
-						<span className="shell-review-chipbar__addressed">
-							{openCommentCount > 0 ? " · " : ""}
-							{addressedCommentCount} addressed
-						</span>
-					)}
+				<span
+					className="shell-review-chip__comments"
+					data-testid="review-chipbar-comments"
+					title={`${openCommentCount} unresolved of ${openCommentCount + addressedCommentCount} comments`}
+					aria-label={`${openCommentCount} unresolved of ${openCommentCount + addressedCommentCount} comments`}
+				>
+					{openCommentCount}/{openCommentCount + addressedCommentCount}
 				</span>
 			)}
 			<span className="shell-review-chipbar__spacer" />

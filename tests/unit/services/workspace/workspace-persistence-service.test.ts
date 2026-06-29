@@ -78,6 +78,8 @@ describe("WorkspacePersistenceService", () => {
 								selectedCommitSha: null,
 								selectedCommitFilePath: null,
 								reviewSidebarWidth: 280,
+								reviewedFiles: [],
+								reviewOverviewExpanded: false,
 								activeProcessSessionId: "process-1",
 								nextAdHocNumber: 2,
 								processSessions: [

@@ -1,6 +1,5 @@
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
-import { join } from "node:path";
 import { utilityProcess, type UtilityProcess } from "electron";
 import type {
 	KnownWorktree,
@@ -11,11 +10,14 @@ import type {
 	UsageWorkerConfig,
 	WorkerToMain,
 } from "../../../services/usage/worker-protocol.js";
+import type { UsageTelemetrySettings } from "../../../shared/models/persisted-workspace-state.js";
 
 export interface UsageHostOptions {
 	userDataDir: string;
 	launchMs: number;
 	send: (channel: string, payload: unknown) => void;
+	loadSettings: () => UsageTelemetrySettings;
+	persistSettings: (patch: Partial<UsageTelemetrySettings>) => void;
 }
 
 export const USAGE_SNAPSHOT_CHANNEL = "usage:snapshot";
@@ -24,16 +26,30 @@ export class UsageHost {
 	private proc: UtilityProcess | null = null;
 	private known: KnownWorktree[] = [];
 	private activeWorktreeIds: string[] = [];
-	private fiveHourBudget: number | null = null;
-	private weeklyBudget: number | null = null;
-	private weeklyResetDay = 1; // Monday
-	private weeklyResetHour = 7; // 07:00 local
-	private includeUntracked = false;
+	private chipRange: "week" | "month";
+	private includeUntracked: boolean;
 	private lastSnapshot: UsageSnapshot | null = null;
 	private spawned = false;
 	private pending: MainToWorker[] = [];
 
-	constructor(private readonly opts: UsageHostOptions) {}
+	constructor(private readonly opts: UsageHostOptions) {
+		const s = opts.loadSettings();
+		this.chipRange = s.chipRange;
+		this.includeUntracked = s.includeUntracked;
+	}
+
+	buildConfig(): UsageWorkerConfig {
+		return {
+			home: homedir(),
+			userDataDir: this.opts.userDataDir,
+			launchMs: this.opts.launchMs,
+			known: this.known,
+			activeWorktreeIds: this.activeWorktreeIds,
+			chipRange: this.chipRange,
+			includeUntracked: this.includeUntracked,
+			backfillBatchSize: 8,
+		};
+	}
 
 	// Gated: only start when enabled. When disabled, no worker, no watchers => zero cost.
 	start(): void {
@@ -69,21 +85,7 @@ export class UsageHost {
 		// send config first on "spawn", then flush anything queued meanwhile.
 		this.proc.on("spawn", () => {
 			this.spawned = true;
-			const config: UsageWorkerConfig = {
-				claudeRoot: join(homedir(), ".claude", "projects"),
-				codexRoot: join(homedir(), ".codex", "sessions"),
-				credentialsPath: join(homedir(), ".claude", ".credentials.json"),
-				offsetCachePath: join(this.opts.userDataDir, "usage-offsets.json"),
-				launchMs: this.opts.launchMs,
-				known: this.known,
-				activeWorktreeIds: this.activeWorktreeIds,
-				fiveHourBudget: this.fiveHourBudget,
-				weeklyBudget: this.weeklyBudget,
-				weeklyResetDay: this.weeklyResetDay,
-				weeklyResetHour: this.weeklyResetHour,
-				includeUntracked: this.includeUntracked,
-				backfillBatchSize: 8,
-			};
+			const config = this.buildConfig();
 			this.proc?.postMessage({ kind: "config", config });
 			for (const msg of this.pending) this.proc?.postMessage(msg);
 			this.pending = [];
@@ -112,24 +114,15 @@ export class UsageHost {
 		this.postMessage({ kind: "setActive", activeWorktreeIds });
 	}
 
-	setBudgets(fiveHourBudget: number | null, weeklyBudget: number | null): void {
-		this.fiveHourBudget = fiveHourBudget;
-		this.weeklyBudget = weeklyBudget;
-		this.postMessage({ kind: "setBudgets", fiveHourBudget, weeklyBudget });
-	}
-
-	setWeeklyReset(weeklyResetDay: number, weeklyResetHour: number): void {
-		this.weeklyResetDay = weeklyResetDay;
-		this.weeklyResetHour = weeklyResetHour;
-		this.postMessage({
-			kind: "setWeeklyReset",
-			weeklyResetDay,
-			weeklyResetHour,
-		});
+	setChipRange(range: "week" | "month"): void {
+		this.chipRange = range;
+		this.opts.persistSettings({ chipRange: range });
+		this.postMessage({ kind: "setChipRange", chipRange: range });
 	}
 
 	setIncludeUntracked(includeUntracked: boolean): void {
 		this.includeUntracked = includeUntracked;
+		this.opts.persistSettings({ includeUntracked });
 		this.postMessage({ kind: "setIncludeUntracked", includeUntracked });
 	}
 

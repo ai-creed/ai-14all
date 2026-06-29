@@ -42,6 +42,7 @@ type Props = {
 	onToggleWorkspaceCollapsed: (workspaceId: string) => void;
 	palette: Palette;
 	onSetTheme: (mode: Palette) => void;
+	onOpenShortcutsHelp: () => void;
 };
 
 /**
@@ -70,6 +71,7 @@ export function SidebarPanel(props: Props): React.ReactElement {
 		onToggleWorkspaceCollapsed,
 		palette,
 		onSetTheme,
+		onOpenShortcutsHelp,
 	} = props;
 
 	return (
@@ -131,6 +133,7 @@ export function SidebarPanel(props: Props): React.ReactElement {
 				onToggleWorkspaceCollapsed={onToggleWorkspaceCollapsed}
 				palette={palette}
 				onSetTheme={onSetTheme}
+				onOpenShortcutsHelp={onOpenShortcutsHelp}
 			/>
 		</div>
 	);

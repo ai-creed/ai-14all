@@ -163,6 +163,22 @@ test.describe("Session chip bar", () => {
 		await page.keyboard.press("Escape");
 	});
 
+	test("Commands button opens the command palette", async () => {
+		await page.getByRole("button", { name: /open command palette/i }).click();
+		await expect(page.getByTestId("command-palette")).toBeVisible();
+		await page.keyboard.press("Escape");
+		await expect(page.getByTestId("command-palette")).toHaveCount(0);
+	});
+
+	test("help button opens the keyboard shortcuts dialog", async () => {
+		await worktreeNav()
+			.getByRole("button", { name: /keyboard shortcuts/i })
+			.click();
+		await expect(page.getByTestId("shortcuts-help")).toBeVisible();
+		await page.keyboard.press("Escape");
+		await expect(page.getByTestId("shortcuts-help")).toHaveCount(0);
+	});
+
 	test("dirty chip and review expansion — manual smoke only", async () => {
 		test.skip(
 			true,

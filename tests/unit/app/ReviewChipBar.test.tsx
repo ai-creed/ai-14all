@@ -19,7 +19,6 @@ function defaultProps(
 		onRefresh: NOOP,
 		onOpen: NOOP,
 		onOpenFiles: NOOP,
-		onOpenComments: NOOP,
 		...overrides,
 	};
 }
@@ -47,26 +46,29 @@ describe("ReviewChipBar", () => {
 		expect(screen.queryByText(/clean/i)).not.toBeInTheDocument();
 	});
 
-	it("hides comment info when both counts are zero", () => {
+	it("hides the comment count when both counts are zero", () => {
 		render(<ReviewChipBar {...defaultProps()} />);
-		expect(screen.queryByText(/open/)).not.toBeInTheDocument();
-		expect(screen.queryByText(/addressed/)).not.toBeInTheDocument();
+		expect(
+			screen.queryByTestId("review-chipbar-comments"),
+		).not.toBeInTheDocument();
 	});
 
-	it("shows only open count when no addressed", () => {
+	it("shows unresolved/all when there are only open comments", () => {
 		render(<ReviewChipBar {...defaultProps({ openCommentCount: 2 })} />);
-		expect(screen.getByText(/2 open/)).toBeInTheDocument();
-		expect(screen.queryByText(/addressed/)).not.toBeInTheDocument();
+		expect(screen.getByTestId("review-chipbar-comments")).toHaveTextContent(
+			"2/2",
+		);
 	});
 
-	it("shows open and addressed when both > 0", () => {
+	it("counts addressed comments in the denominator", () => {
 		render(
 			<ReviewChipBar
 				{...defaultProps({ openCommentCount: 2, addressedCommentCount: 1 })}
 			/>,
 		);
-		expect(screen.getByText(/2 open/)).toBeInTheDocument();
-		expect(screen.getByText(/1 addressed/)).toBeInTheDocument();
+		expect(screen.getByTestId("review-chipbar-comments")).toHaveTextContent(
+			"2/3",
+		);
 	});
 
 	it("calls onRefresh when refresh button clicked", async () => {
@@ -133,36 +135,23 @@ describe("ReviewChipBar", () => {
 		expect(onOpenFiles).toHaveBeenCalledTimes(1);
 	});
 
-	// --- New behavior: clickable "N open" chip ---
+	// --- Comment count is a non-interactive unresolved/all label ---
 
-	it("renders 'N open' as a button when openCommentCount > 0", () => {
+	it("renders the comment count as a non-interactive label, not a button", () => {
 		render(<ReviewChipBar {...defaultProps({ openCommentCount: 3 })} />);
-		expect(screen.getByTestId("review-chipbar-comments").tagName).toBe(
-			"BUTTON",
-		);
+		const label = screen.getByTestId("review-chipbar-comments");
+		expect(label.tagName).toBe("SPAN");
+		expect(label).toHaveTextContent("3/3");
 	});
 
-	it("calls onOpenComments when the open-comments chip button is clicked", async () => {
-		const user = userEvent.setup();
-		const onOpenComments = vi.fn();
-		render(
-			<ReviewChipBar
-				{...defaultProps({ openCommentCount: 3, onOpenComments })}
-			/>,
-		);
-		await user.click(screen.getByTestId("review-chipbar-comments"));
-		expect(onOpenComments).toHaveBeenCalledTimes(1);
-	});
-
-	it("renders 'M addressed' as non-interactive text", () => {
+	it("renders the count even when every comment is addressed", () => {
 		render(
 			<ReviewChipBar
 				{...defaultProps({ openCommentCount: 0, addressedCommentCount: 4 })}
 			/>,
 		);
-		expect(screen.getByText(/4 addressed/).tagName).not.toBe("BUTTON");
-		expect(
-			screen.queryByTestId("review-chipbar-comments"),
-		).not.toBeInTheDocument();
+		const label = screen.getByTestId("review-chipbar-comments");
+		expect(label.tagName).not.toBe("BUTTON");
+		expect(label).toHaveTextContent("0/4");
 	});
 });

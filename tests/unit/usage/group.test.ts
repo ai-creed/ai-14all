@@ -10,8 +10,8 @@ const rows: UsageRow[] = [
 		worktreeTitle: "main",
 		provider: "claude",
 		active: true,
-		sinceLaunch: { input: 1, output: 1, billable: 2, raw: 20 },
-		thisWeek: { input: 0, output: 0, billable: 9, raw: 0 },
+		tokens: { input: 1, output: 1, billable: 2, raw: 20 },
+		costUsd: 0.02,
 	},
 	{
 		workspaceId: "ws1",
@@ -20,8 +20,8 @@ const rows: UsageRow[] = [
 		worktreeTitle: "main",
 		provider: "codex",
 		active: true,
-		sinceLaunch: { input: 1, output: 0, billable: 1, raw: 10 },
-		thisWeek: { input: 0, output: 0, billable: 5, raw: 0 },
+		tokens: { input: 1, output: 0, billable: 1, raw: 10 },
+		costUsd: 0.01,
 	},
 	{
 		workspaceId: null,
@@ -30,8 +30,8 @@ const rows: UsageRow[] = [
 		worktreeTitle: "other (untracked)",
 		provider: "claude",
 		active: false,
-		sinceLaunch: { input: 3, output: 0, billable: 3, raw: 30 },
-		thisWeek: { input: 0, output: 0, billable: 4, raw: 0 },
+		tokens: { input: 3, output: 0, billable: 3, raw: 30 },
+		costUsd: 0.03,
 	},
 ];
 

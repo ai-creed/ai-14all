@@ -69,6 +69,7 @@ type Props = {
 	pendingRename?: { workspaceId: string; worktreeId: string } | null;
 	palette?: Palette;
 	onSetTheme?: (mode: Palette) => void;
+	onOpenShortcutsHelp?: () => void;
 };
 
 const THEMES: { mode: Palette; label: string }[] = [
@@ -97,6 +98,7 @@ export function SessionSidebar({
 	pendingRename,
 	palette,
 	onSetTheme,
+	onOpenShortcutsHelp,
 }: Props) {
 	const [renaming, setRenaming] = React.useState<{
 		workspaceId: string;
@@ -614,6 +616,19 @@ export function SessionSidebar({
 							))}
 						</DropdownMenuContent>
 					</DropdownMenu>
+				)}
+				{onOpenShortcutsHelp && (
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="shell-sidebar__help-trigger"
+						aria-label="Keyboard shortcuts"
+						title="Keyboard shortcuts"
+						onClick={onOpenShortcutsHelp}
+					>
+						<Icon name="help" />
+					</Button>
 				)}
 			</div>
 		</nav>

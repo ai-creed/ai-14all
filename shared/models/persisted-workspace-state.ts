@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ReviewedFileMarkSchema } from "./reviewed-file";
 
 export const RestorePreferenceSchema = z.enum([
 	"prompt",
@@ -47,6 +48,8 @@ export const PersistedWorktreeSessionSchema = z.object({
 		.max(800)
 		.optional()
 		.default(280),
+	reviewedFiles: z.array(ReviewedFileMarkSchema).optional().default([]),
+	reviewOverviewExpanded: z.boolean().optional().default(false),
 	nextAdHocNumber: z.number().int().min(1),
 	processSessions: z.array(PersistedProcessSessionSchema),
 });
@@ -82,13 +85,8 @@ export const PersistedWorkspaceStateV1Schema = z.object({
 
 export const UsageTelemetrySettingsSchema = z.object({
 	enabled: z.boolean().default(true),
-	// null => seed from rateLimitTier at runtime; number => explicit override.
-	fiveHourBudget: z.number().positive().nullable().default(null),
-	weeklyBudget: z.number().positive().nullable().default(null),
 	includeUntracked: z.boolean().default(false),
-	// Claude weekly limit reset anchor (local time). 0=Sun..6=Sat. Default Mon 07:00.
-	weeklyResetDay: z.number().int().min(0).max(6).default(1),
-	weeklyResetHour: z.number().int().min(0).max(23).default(7),
+	chipRange: z.enum(["week", "month"]).default("week"),
 });
 
 export const PersistedWorkspaceStateV2Schema = z.object({
