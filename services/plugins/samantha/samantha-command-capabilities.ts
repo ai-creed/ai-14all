@@ -1,4 +1,5 @@
-import type { ObserveOutput, WorktreeIdentity } from "./observe-types";
+import { SessionReportResult, type SessionEntry } from "@ai-creed/command-contract";
+import type { ObserveInput, ObserveOutput, WorktreeIdentity } from "./observe-types";
 
 export type ResolveResult =
 	| { kind: "found"; worktreeId: string }
@@ -31,4 +32,73 @@ export function renderReport(out: ObserveOutput): string {
 		([key, line]) => `${key}: ${line}`,
 	);
 	return lines.length === 0 ? out.summary : [out.summary, ...lines].join("\n");
+}
+
+// The shape the session-report command forwards: the rendered TTS text plus the
+// canonical structure. `report` is what Samantha speaks; `sessions` is the
+// structure the phone renders cards from (and Slice 2b's XBP edge will carry).
+export type SessionReportSnapshot = {
+	report: string;
+	sessions: SessionReportResult;
+};
+
+// Assemble the canonical structured report from the same four sources the
+// observe assembler merges (identity, review counts, the session slice, whisper
+// state), in the same per-worktree iteration order, and validate it against the
+// shared contract schema (fail closed). This is the structure-first form: the
+// phone renders cards from it, and `renderReportText` renders Samantha's text
+// from it.
+export function buildSessionReport(input: ObserveInput): SessionReportResult {
+	const focusedId = input.session?.app.focusedWorktreeId ?? null;
+	const whisperById = new Map(input.whisper.map((w) => [w.worktreeId, w]));
+	const sessionById = new Map(
+		(input.session?.worktrees ?? []).map((w) => [w.worktreeId, w]),
+	);
+	// Same union + order as assembleObserve, so the rendered text matches today's.
+	const worktreeIds = new Set<string>([
+		...Object.keys(input.identities),
+		...input.whisper.map((w) => w.worktreeId),
+		...sessionById.keys(),
+	]);
+
+	const sessions: SessionEntry[] = [];
+	for (const worktreeId of worktreeIds) {
+		const identity = input.identities[worktreeId];
+		if (!identity) continue; // no identity -> cannot key it -> drop (matches assembleObserve)
+		const wt = sessionById.get(worktreeId);
+		const whisper = whisperById.get(worktreeId);
+		sessions.push({
+			worktreeId,
+			repo: identity.repo,
+			branch: identity.branch,
+			provider: wt?.provider ?? null,
+			attention: wt?.attention ?? "idle",
+			summary: wt?.summary ?? "",
+			task: wt?.task ?? null,
+			nextAction: wt?.nextAction ?? null,
+			reviewCount: input.reviewCounts[worktreeId] ?? 0,
+			escalation: whisper?.escalation
+				? { reason: whisper.escalation.reason }
+				: null,
+			workflow: whisper?.workflow
+				? {
+						workflowType: whisper.workflow.workflowType,
+						status: whisper.workflow.status,
+						...(whisper.workflow.phaseName
+							? { phaseName: whisper.workflow.phaseName }
+							: {}),
+					}
+				: null,
+			live: wt?.sessionId != null,
+			updatedAt: wt?.updatedAt ?? 0,
+			recent: wt?.recent ?? [],
+		});
+	}
+
+	// Fail closed: a structure that drifts from the shared contract must not ship.
+	return SessionReportResult.parse({
+		mode: input.session?.app.mode ?? "loading",
+		focus: focusedId,
+		sessions,
+	});
 }
