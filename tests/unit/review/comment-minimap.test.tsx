@@ -91,4 +91,10 @@ describe("CommentMinimap", () => {
 		expect(screen.queryByTestId(/^minimap-dot-/)).toBeNull();
 		expect(screen.getByTestId("minimap-progress-fill")).toBeInTheDocument();
 	});
+
+	it("empty-changes: fill is 0% and no dots when progress.total === 0 and comments === []", () => {
+		render(<CommentMinimap {...base} progress={{ reviewed: 0, total: 0 }} comments={[]} />);
+		expect(screen.getByTestId("minimap-progress-fill")).toHaveStyle({ height: "0%" });
+		expect(screen.queryByTestId(/^minimap-dot-/)).toBeNull();
+	});
 });

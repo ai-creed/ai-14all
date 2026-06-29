@@ -45,4 +45,9 @@ describe("ReviewRailOverview", () => {
 		render(<ReviewRailOverview {...base} comments={[c({ status: "open" })]} />);
 		expect(screen.getByRole("button", { name: /clear addressed/i })).toBeDisabled();
 	});
+
+	it("shows 'No open comments.' when comments is empty and expanded", () => {
+		render(<ReviewRailOverview {...base} comments={[]} expanded={true} />);
+		expect(screen.getByText("No open comments.")).toBeInTheDocument();
+	});
 });
