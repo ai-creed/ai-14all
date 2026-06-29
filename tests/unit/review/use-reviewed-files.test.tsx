@@ -27,7 +27,10 @@ describe("useReviewedFiles", () => {
 			useReviewedFiles({ worktreeId: "wt1", marks, dispatch }),
 		);
 		expect(result.current.reviewedPaths(["a.ts", "b.ts"])).toEqual(["a.ts"]);
-		expect(result.current.progress(["a.ts", "b.ts"])).toEqual({ reviewed: 1, total: 2 });
+		expect(result.current.progress(["a.ts", "b.ts"])).toEqual({
+			reviewed: 1,
+			total: 2,
+		});
 		act(() => result.current.recordHash("a.ts", "different")); // hash now known + stale
 		expect(result.current.reviewedPaths(["a.ts", "b.ts"])).toEqual([]);
 	});
@@ -49,7 +52,9 @@ describe("useReviewedFiles", () => {
 			}),
 		);
 		// simulate the mark now existing with that hash → toggle should unmark
-		rerender({ marks: [{ filePath: "a.ts", contentHash: hashContent("body") }] });
+		rerender({
+			marks: [{ filePath: "a.ts", contentHash: hashContent("body") }],
+		});
 		act(() => result.current.toggleViewed("a.ts", "body"));
 		expect(dispatch).toHaveBeenLastCalledWith(
 			expect.objectContaining({

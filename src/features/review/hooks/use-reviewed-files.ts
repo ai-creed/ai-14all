@@ -3,7 +3,10 @@ import type { ReviewedFileMark } from "../../../../shared/models/reviewed-file";
 import type { WorkspaceAction } from "../../workspace/logic/workspace-state";
 import { hashContent } from "../logic/content-hash";
 import { isFileReviewed } from "../logic/reviewed-files";
-import { reviewedPathsAmong, type ReviewProgress } from "../logic/review-progress";
+import {
+	reviewedPathsAmong,
+	type ReviewProgress,
+} from "../logic/review-progress";
 
 export type ReviewedFilesApi = {
 	recordHash: (filePath: string, content: string) => void;
@@ -26,7 +29,9 @@ export function useReviewedFiles(args: {
 
 	const recordHash = useCallback((filePath: string, content: string) => {
 		const h = hashContent(content);
-		setHashes((prev) => (prev[filePath] === h ? prev : { ...prev, [filePath]: h }));
+		setHashes((prev) =>
+			prev[filePath] === h ? prev : { ...prev, [filePath]: h },
+		);
 	}, []);
 
 	const isReviewed = useCallback(
@@ -59,7 +64,12 @@ export function useReviewedFiles(args: {
 			dispatch(
 				already
 					? { type: "session/unmarkFileViewed", worktreeId, filePath }
-					: { type: "session/markFileViewed", worktreeId, filePath, contentHash: h },
+					: {
+							type: "session/markFileViewed",
+							worktreeId,
+							filePath,
+							contentHash: h,
+						},
 			);
 		},
 		[marks, worktreeId, dispatch],

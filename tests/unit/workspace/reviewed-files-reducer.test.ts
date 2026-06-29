@@ -80,7 +80,9 @@ describe("reviewed-files reducer + snapshot", () => {
 			worktreeId: "wt1",
 			expanded: true,
 		});
-		expect(state.sessionsByWorktreeId["wt1"]!.reviewOverviewExpanded).toBe(true);
+		expect(state.sessionsByWorktreeId["wt1"]!.reviewOverviewExpanded).toBe(
+			true,
+		);
 	});
 
 	it("round-trips reviewedFiles through snapshot → schema → restore", () => {

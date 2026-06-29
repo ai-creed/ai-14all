@@ -4,7 +4,10 @@ type Props = { reviewed: boolean; onToggle: () => void };
  * GitHub-style "Viewed" toggle for the current review file. A visible,
  * discoverable counterpart to the keyboard-only ⌘⇧V / Ctrl+Shift+V shortcut.
  */
-export function MarkViewedToggle({ reviewed, onToggle }: Props): React.ReactElement {
+export function MarkViewedToggle({
+	reviewed,
+	onToggle,
+}: Props): React.ReactElement {
 	return (
 		<button
 			type="button"

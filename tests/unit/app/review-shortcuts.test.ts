@@ -27,7 +27,9 @@ describe("review.markViewed", () => {
 
 	it("markViewed fires on Cmd+Shift+V (mac)", () => {
 		const p = find("review.markViewed").predicate;
-		expect(p(ev({ key: "v", metaKey: true, shiftKey: true }), "mac")).toBe(true);
+		expect(p(ev({ key: "v", metaKey: true, shiftKey: true }), "mac")).toBe(
+			true,
+		);
 		expect(p(ev({ key: "v", metaKey: true, shiftKey: false }), "mac")).toBe(
 			false,
 		);

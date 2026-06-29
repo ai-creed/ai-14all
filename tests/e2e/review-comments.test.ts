@@ -438,9 +438,7 @@ test.describe.serial("Review comments — inline UX", () => {
 		// the Commits-mode rail chrome at all.
 		const commitItems = page.locator(".shell-commit-list__item");
 		if ((await commitItems.count()) === 0) {
-			console.log(
-				"Commits-mode e2e skipped: no reviewable commits in fixture",
-			);
+			console.log("Commits-mode e2e skipped: no reviewable commits in fixture");
 			test.skip();
 			return;
 		}

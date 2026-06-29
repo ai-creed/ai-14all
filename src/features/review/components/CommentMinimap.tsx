@@ -14,7 +14,13 @@ type Props = {
 
 const CLUSTER_THRESHOLD = 0.02;
 
-export function CommentMinimap({ comments, totalLines, progress, onJump, onToggleAddressed }: Props) {
+export function CommentMinimap({
+	comments,
+	totalLines,
+	progress,
+	onJump,
+	onToggleAddressed,
+}: Props) {
 	const [activeHeadId, setActiveHeadId] = useState<string | null>(null);
 	const byId = new Map(comments.map((c) => [c.id, c]));
 	const dots: Dot[] =
@@ -22,15 +28,24 @@ export function CommentMinimap({ comments, totalLines, progress, onJump, onToggl
 			? comments.map((c) => ({
 					id: c.id,
 					status: c.status,
-					position: Math.min(1, Math.max(0, (c.startLine - 1) / Math.max(1, totalLines - 1))),
+					position: Math.min(
+						1,
+						Math.max(0, (c.startLine - 1) / Math.max(1, totalLines - 1)),
+					),
 				}))
 			: [];
 	const clusters = clusterDots(dots, CLUSTER_THRESHOLD);
 	const fillPct =
-		progress.total > 0 ? Math.round((progress.reviewed / progress.total) * 1000) / 10 : 0;
+		progress.total > 0
+			? Math.round((progress.reviewed / progress.total) * 1000) / 10
+			: 0;
 
 	return (
-		<aside className="shell-review-minimap" data-testid="review-minimap" aria-label="Comment map and review progress">
+		<aside
+			className="shell-review-minimap"
+			data-testid="review-minimap"
+			aria-label="Comment map and review progress"
+		>
 			<div className="shell-review-minimap__track">
 				<div
 					className="shell-review-minimap__fill"
@@ -65,13 +80,20 @@ export function CommentMinimap({ comments, totalLines, progress, onJump, onToggl
 								className="shell-review-minimap__dot"
 								aria-haspopup="dialog"
 								style={{
-									background: head.status === "open" ? "var(--warning)" : "var(--success)",
+									background:
+										head.status === "open"
+											? "var(--warning)"
+											: "var(--success)",
 								}}
 								onMouseEnter={() => setActiveHeadId(head.id)}
 								onFocus={() => setActiveHeadId(head.id)}
 								onClick={() => setActiveHeadId(head.id)}
 							>
-								{isCluster ? <span className="shell-review-minimap__count">+{cluster.items.length}</span> : null}
+								{isCluster ? (
+									<span className="shell-review-minimap__count">
+										+{cluster.items.length}
+									</span>
+								) : null}
 							</button>
 							{/* Always rendered so pointer can travel from dot → flyout buttons
 							    without the flyout unmounting mid-transition. aria-hidden keeps
@@ -89,9 +111,14 @@ export function CommentMinimap({ comments, totalLines, progress, onJump, onToggl
 									</div>
 								) : null}
 								{clusterComments.map((cm) => (
-									<div key={cm.id} className="shell-review-minimap__flyout-item">
+									<div
+										key={cm.id}
+										className="shell-review-minimap__flyout-item"
+									>
 										<div className="shell-review-minimap__flyout-head">
-											<span className="shell-review-minimap__flyout-author">you</span>
+											<span className="shell-review-minimap__flyout-author">
+												you
+											</span>
 											<span className="shell-review-minimap__flyout-line">
 												L{cm.startLine}
 												{cm.startLine !== cm.endLine ? `–${cm.endLine}` : ""}
@@ -102,10 +129,17 @@ export function CommentMinimap({ comments, totalLines, progress, onJump, onToggl
 												{firstLine(cm.snippet)}
 											</code>
 										) : null}
-										<div className="shell-review-minimap__flyout-body">{firstLine(cm.body)}</div>
+										<div className="shell-review-minimap__flyout-body">
+											{firstLine(cm.body)}
+										</div>
 										<div className="shell-review-minimap__flyout-actions">
-											<button type="button" onClick={() => onJump(cm)}>Jump</button>
-											<button type="button" onClick={() => onToggleAddressed(cm.id)}>
+											<button type="button" onClick={() => onJump(cm)}>
+												Jump
+											</button>
+											<button
+												type="button"
+												onClick={() => onToggleAddressed(cm.id)}
+											>
 												{cm.status === "open" ? "Resolve" : "Reopen"}
 											</button>
 										</div>

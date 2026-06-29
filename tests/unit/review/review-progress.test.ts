@@ -42,12 +42,19 @@ describe("review-progress", () => {
 	});
 
 	it("total is the change count; empty changes → 0/0", () => {
-		expect(computeReviewProgress([], [], {})).toEqual({ reviewed: 0, total: 0 });
+		expect(computeReviewProgress([], [], {})).toEqual({
+			reviewed: 0,
+			total: 0,
+		});
 	});
 
 	it("reviewedPathsAmong applies the same rule to an arbitrary path list (commit files)", () => {
 		const marks: ReviewedFileMark[] = [{ filePath: "x.ts", contentHash: "h" }];
-		expect(reviewedPathsAmong(["x.ts", "y.ts"], marks, { "x.ts": "h" })).toEqual(["x.ts"]);
-		expect(reviewedPathsAmong(["x.ts"], marks, { "x.ts": "stale" })).toEqual([]);
+		expect(
+			reviewedPathsAmong(["x.ts", "y.ts"], marks, { "x.ts": "h" }),
+		).toEqual(["x.ts"]);
+		expect(reviewedPathsAmong(["x.ts"], marks, { "x.ts": "stale" })).toEqual(
+			[],
+		);
 	});
 });

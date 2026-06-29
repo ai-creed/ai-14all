@@ -11,7 +11,9 @@ describe("ReviewProgressHeader", () => {
 	});
 
 	it("renders nothing when there are no changed files", () => {
-		const { container } = render(<ReviewProgressHeader reviewed={0} total={0} />);
+		const { container } = render(
+			<ReviewProgressHeader reviewed={0} total={0} />,
+		);
 		expect(container).toBeEmptyDOMElement();
 	});
 });

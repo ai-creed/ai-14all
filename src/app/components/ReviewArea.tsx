@@ -234,7 +234,12 @@ export function ReviewArea(props: Props): React.ReactElement {
 			? diffEditorRegistry.get(currentFilePath)
 			: null;
 		return editor?.getModifiedEditor?.().getModel?.()?.getLineCount?.() ?? 0;
-	}, [activeSession?.reviewMode, diffState.data, currentFilePath, diffEditorRegistry]);
+	}, [
+		activeSession?.reviewMode,
+		diffState.data,
+		currentFilePath,
+		diffEditorRegistry,
+	]);
 
 	const currentFileComments = useMemo(
 		() =>

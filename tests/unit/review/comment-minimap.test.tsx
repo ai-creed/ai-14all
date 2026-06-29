@@ -5,22 +5,47 @@ import { CommentMinimap } from "../../../src/features/review/components/CommentM
 import type { ReviewComment } from "../../../shared/models/review-comment";
 
 const c = (over: Partial<ReviewComment>): ReviewComment => ({
-	id: "1", worktreeId: "wt1", filePath: "a.ts", startLine: 10, endLine: 10,
-	snippet: "", body: "abort signal", status: "open", source: "working-tree",
-	commitSha: null, createdAt: "2026-06-28T00:00:00.000Z", addressedAt: null, ...over,
+	id: "1",
+	worktreeId: "wt1",
+	filePath: "a.ts",
+	startLine: 10,
+	endLine: 10,
+	snippet: "",
+	body: "abort signal",
+	status: "open",
+	source: "working-tree",
+	commitSha: null,
+	createdAt: "2026-06-28T00:00:00.000Z",
+	addressedAt: null,
+	...over,
 });
 
-const base = { totalLines: 100, progress: { reviewed: 3, total: 8 }, onJump: () => {}, onToggleAddressed: () => {} };
+const base = {
+	totalLines: 100,
+	progress: { reviewed: 3, total: 8 },
+	onJump: () => {},
+	onToggleAddressed: () => {},
+};
 
 describe("CommentMinimap", () => {
 	it("renders one dot per non-clustered comment", () => {
-		render(<CommentMinimap {...base} comments={[c({ id: "1", startLine: 10 }), c({ id: "2", startLine: 80 })]} />);
+		render(
+			<CommentMinimap
+				{...base}
+				comments={[
+					c({ id: "1", startLine: 10 }),
+					c({ id: "2", startLine: 80 }),
+				]}
+			/>,
+		);
 		expect(screen.getAllByTestId(/^minimap-dot-/)).toHaveLength(2);
 	});
 
 	it("renders the progress fill height from progress", () => {
 		render(<CommentMinimap {...base} comments={[]} />);
-		expect(screen.getByTestId("minimap-progress-fill")).toHaveStyle({ height: "37.5%" });
+		expect(screen.getByTestId("minimap-progress-fill")).toHaveStyle({
+			height: "37.5%",
+		});
 	});
 
 	it("flyout shows author + snippet + body; Jump calls onJump", async () => {
@@ -93,8 +118,16 @@ describe("CommentMinimap", () => {
 	});
 
 	it("empty-changes: fill is 0% and no dots when progress.total === 0 and comments === []", () => {
-		render(<CommentMinimap {...base} progress={{ reviewed: 0, total: 0 }} comments={[]} />);
-		expect(screen.getByTestId("minimap-progress-fill")).toHaveStyle({ height: "0%" });
+		render(
+			<CommentMinimap
+				{...base}
+				progress={{ reviewed: 0, total: 0 }}
+				comments={[]}
+			/>,
+		);
+		expect(screen.getByTestId("minimap-progress-fill")).toHaveStyle({
+			height: "0%",
+		});
 		expect(screen.queryByTestId(/^minimap-dot-/)).toBeNull();
 	});
 });
