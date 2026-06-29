@@ -19,6 +19,7 @@ import type { InlineEditorHandle } from "../../features/viewer/components/Inline
 import { ReviewProgressHeader } from "../../features/review/components/ReviewProgressHeader";
 import { ReviewQueuePanel } from "../../features/review/components/ReviewQueuePanel";
 import { ReviewRail } from "../../features/review/components/ReviewRail";
+import { ReviewRailOverview } from "../../features/review/components/ReviewRailOverview";
 import { DiffViewerPane } from "../../features/review/components/DiffViewerPane";
 import {
 	dispatchActionsForJump,
@@ -390,6 +391,36 @@ export function ReviewArea(props: Props): React.ReactElement {
 	);
 	useRegisterCommands(reviewNavCommands, [reviewNavCommands]);
 
+	const overviewNode =
+		activeSession?.reviewMode === "files" ? null : (
+			<ReviewRailOverview
+				comments={reviewState.comments}
+				hideAddressed={hideAddressed}
+				expanded={activeSession?.reviewOverviewExpanded ?? false}
+				onToggleExpanded={() =>
+					dispatch({
+						type: "session/setReviewOverviewExpanded",
+						worktreeId: activeWorktree.id,
+						expanded: !(activeSession?.reviewOverviewExpanded ?? false),
+					})
+				}
+				onJump={(c) => void jumpToComment(c)}
+				onToggleAddressed={async (id) => {
+					const c = reviewState.comments.find((x) => x.id === id);
+					if (!c) return;
+					if (c.status === "open") await reviewState.markAddressed(id);
+					else await reviewState.reopen(id);
+				}}
+				onDelete={async (id) => {
+					await reviewState.remove(id);
+				}}
+				onClearAddressed={async () => {
+					await reviewState.clearAddressed();
+				}}
+				onToggleHideAddressed={() => setHideAddressed((v) => !v)}
+			/>
+		);
+
 	return (
 		<Tabs
 			value={activeSession?.reviewMode ?? "files"}
@@ -446,6 +477,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 							/>
 						) : null
 					}
+					footer={overviewNode}
 				/>
 
 				<div
