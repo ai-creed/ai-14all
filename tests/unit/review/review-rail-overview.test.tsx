@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ReviewRailOverview } from "../../../src/features/review/components/ReviewRailOverview";
+import { ReviewRailOverview, MAX_OVERVIEW_ROWS } from "../../../src/features/review/components/ReviewRailOverview";
 import type { ReviewComment } from "../../../shared/models/review-comment";
 
 const c = (over: Partial<ReviewComment>): ReviewComment => ({
@@ -49,5 +49,45 @@ describe("ReviewRailOverview", () => {
 	it("shows 'No open comments.' when comments is empty and expanded", () => {
 		render(<ReviewRailOverview {...base} comments={[]} expanded={true} />);
 		expect(screen.getByText("No open comments.")).toBeInTheDocument();
+	});
+
+	describe("bounded rows (large data)", () => {
+		// Build MAX_OVERVIEW_ROWS + 10 comments, each on a distinct file so grouping
+		// is 1 comment per group — makes row counting straightforward.
+		const manyComments = Array.from({ length: MAX_OVERVIEW_ROWS + 10 }, (_, i) =>
+			c({ id: `c${i}`, filePath: `file${i}.ts`, body: `comment ${i}` }),
+		);
+
+		it("renders only MAX_OVERVIEW_ROWS rows initially when over the cap", () => {
+			render(<ReviewRailOverview {...base} comments={manyComments} />);
+			// Each comment body is unique; count rendered jump buttons via role
+			const rows = screen.getAllByRole("button", { name: /L\d/ });
+			expect(rows.length).toBe(MAX_OVERVIEW_ROWS);
+		});
+
+		it("shows a 'Show all' control when over the cap", () => {
+			render(<ReviewRailOverview {...base} comments={manyComments} />);
+			expect(screen.getByTestId("review-overview-show-all")).toBeInTheDocument();
+			expect(screen.getByTestId("review-overview-show-all")).toHaveTextContent(
+				`Show all (${MAX_OVERVIEW_ROWS + 10})`,
+			);
+		});
+
+		it("clicking 'Show all' reveals all rows", async () => {
+			const user = userEvent.setup();
+			render(<ReviewRailOverview {...base} comments={manyComments} />);
+			await user.click(screen.getByTestId("review-overview-show-all"));
+			const rows = screen.getAllByRole("button", { name: /L\d/ });
+			expect(rows.length).toBe(MAX_OVERVIEW_ROWS + 10);
+			expect(screen.queryByTestId("review-overview-show-all")).toBeNull();
+		});
+
+		it("does not show 'Show all' when comment count is at or below the cap", () => {
+			const exactCap = Array.from({ length: MAX_OVERVIEW_ROWS }, (_, i) =>
+				c({ id: `c${i}`, filePath: `file${i}.ts`, body: `comment ${i}` }),
+			);
+			render(<ReviewRailOverview {...base} comments={exactCap} />);
+			expect(screen.queryByTestId("review-overview-show-all")).toBeNull();
+		});
 	});
 });

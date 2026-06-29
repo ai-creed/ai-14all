@@ -24,4 +24,10 @@ describe("clusterDots", () => {
 	it("returns [] for no dots", () => {
 		expect(clusterDots([], 0.02)).toEqual([]);
 	});
+
+	it("collapses dense regions: 200 evenly-spaced dots with threshold 0.02 produce fewer than 200 clusters", () => {
+		const dots: Dot[] = Array.from({ length: 200 }, (_, i) => d(`d${i}`, i / 200));
+		const clusters = clusterDots(dots, 0.02);
+		expect(clusters.length).toBeLessThan(200);
+	});
 });

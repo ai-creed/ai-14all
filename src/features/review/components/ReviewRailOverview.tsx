@@ -1,4 +1,5 @@
 // src/features/review/components/ReviewRailOverview.tsx
+import { useState } from "react";
 import { Icon } from "@/components/ui/icon";
 import type { ReviewComment } from "../../../../shared/models/review-comment";
 import {
@@ -6,6 +7,8 @@ import {
 	firstLine,
 	groupCommentsByFile,
 } from "../logic/group-comments";
+
+export const MAX_OVERVIEW_ROWS = 200;
 
 type Props = {
 	comments: ReviewComment[];
@@ -30,10 +33,31 @@ export function ReviewRailOverview({
 	onClearAddressed,
 	onToggleHideAddressed,
 }: Props) {
+	const [showAll, setShowAll] = useState(false);
 	const visible = filterHideAddressed(comments, hideAddressed);
 	const grouped = groupCommentsByFile(visible);
 	const openCount = comments.filter((c) => c.status === "open").length;
 	const addressedCount = comments.length - openCount;
+
+	const totalRows = grouped.reduce((sum, [, items]) => sum + items.length, 0);
+	const isCapped = totalRows > MAX_OVERVIEW_ROWS && !showAll;
+
+	let visibleGrouped = grouped;
+	if (isCapped) {
+		let remaining = MAX_OVERVIEW_ROWS;
+		const capped: Array<[string, ReviewComment[]]> = [];
+		for (const [filePath, items] of grouped) {
+			if (remaining <= 0) break;
+			if (items.length <= remaining) {
+				capped.push([filePath, items]);
+				remaining -= items.length;
+			} else {
+				capped.push([filePath, items.slice(0, remaining)]);
+				remaining = 0;
+			}
+		}
+		visibleGrouped = capped;
+	}
 
 	return (
 		<section className="shell-review-overview" data-testid="review-overview">
@@ -66,7 +90,7 @@ export function ReviewRailOverview({
 					{grouped.length === 0 ? (
 						<p className="shell-empty-state">No open comments.</p>
 					) : (
-						grouped.map(([filePath, items]) => (
+						visibleGrouped.map(([filePath, items]) => (
 							<div key={filePath} className="shell-review-overview__group">
 								<div className="shell-review-overview__file">{filePath}</div>
 								<ul>
@@ -112,6 +136,16 @@ export function ReviewRailOverview({
 								</ul>
 							</div>
 						))
+					)}
+					{isCapped && (
+						<button
+							type="button"
+							className="shell-review-overview__show-all"
+							data-testid="review-overview-show-all"
+							onClick={() => setShowAll(true)}
+						>
+							Show all ({totalRows})
+						</button>
 					)}
 				</>
 			)}
