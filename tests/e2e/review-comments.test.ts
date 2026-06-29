@@ -3,7 +3,7 @@
  *
  * These tests exercise the new inline thread UX:
  *   - .shell-inline-thread (view-zone nodes in Monaco DOM, accessible via Playwright)
- *   - [data-testid="review-queue-panel"] queue sidebar
+ *   - [data-testid="review-overview"] left-rail overview (collapsible "All open comments" section)
  *   - Keyboard shortcut Meta+Shift+A to open draft at caret (installCommentKeyBindings)
  *
  * Preload guard: window.ai14all is injected via contextBridge (contextIsolation:true,
@@ -222,7 +222,7 @@ test.describe.serial("Review comments — inline UX", () => {
 		await expect(overview).toContainText("rename x", { timeout: 10_000 });
 	});
 
-	test("mark addressed → queue shows 0 open → reopen → queue shows 1 open", async () => {
+	test("mark addressed → rail overview shows 0 open → reopen → rail overview shows 1 open", async () => {
 		test.setTimeout(120_000);
 
 		// The previous test left a saved open comment. Find the inline thread.
@@ -245,9 +245,11 @@ test.describe.serial("Review comments — inline UX", () => {
 			btn.click();
 		});
 
-		// Queue should now show "0 open" — comment is addressed
-		const queuePanel = page.locator('[data-testid="review-queue-panel"]');
-		await expect(queuePanel).toContainText("0 open", { timeout: 5_000 });
+		// Rail overview should now show "0 open" — comment is addressed
+		await page.evaluate(() => (document.querySelector('[data-testid="review-overview-toggle"]') as HTMLButtonElement | null)?.click());
+		const overview = page.locator('[data-testid="review-overview"]');
+		await expect(overview).toBeVisible({ timeout: 10_000 });
+		await expect(overview).toContainText("0 open", { timeout: 5_000 });
 
 		// The thread stays visible but the queue row should reflect addressed state.
 		// To test reopen: click the Reopen button (component stays in expanded view).
@@ -266,8 +268,8 @@ test.describe.serial("Review comments — inline UX", () => {
 			throw new Error("Reopen button not found");
 		});
 
-		// Queue should now show "1 open" again
-		await expect(queuePanel).toContainText("1 open", { timeout: 5_000 });
+		// Rail overview should now show "1 open" again
+		await expect(overview).toContainText("1 open", { timeout: 5_000 });
 	});
 
 	test("persist across reload", async () => {
@@ -280,10 +282,11 @@ test.describe.serial("Review comments — inline UX", () => {
 		// Re-open the diff for src/index.ts
 		await openIndexTsDiff();
 
-		// Comment should still be in the queue panel
-		const queuePanel = page.locator('[data-testid="review-queue-panel"]');
-		await expect(queuePanel).toBeVisible({ timeout: 10_000 });
-		await expect(queuePanel).toContainText("rename x", { timeout: 15_000 });
+		// Comment should still be in the rail overview
+		await page.evaluate(() => (document.querySelector('[data-testid="review-overview-toggle"]') as HTMLButtonElement | null)?.click());
+		const overview = page.locator('[data-testid="review-overview"]');
+		await expect(overview).toBeVisible({ timeout: 10_000 });
+		await expect(overview).toContainText("rename x", { timeout: 15_000 });
 
 		// Inline thread should also be visible in the diff
 		await page.waitForFunction(

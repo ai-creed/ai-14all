@@ -152,8 +152,9 @@ test.describe.serial("Review chip actions", () => {
 			}
 			throw new Error("Save button not found in draft thread");
 		});
-		// Confirm the comment persisted (queue panel will show it).
-		await expect(page.getByTestId("review-queue-panel")).toBeVisible({
+		// Confirm the comment persisted (rail overview will show it).
+		await page.evaluate(() => (document.querySelector('[data-testid="review-overview-toggle"]') as HTMLButtonElement | null)?.click());
+		await expect(page.getByTestId("review-overview")).toBeVisible({
 			timeout: 15_000,
 		});
 
@@ -174,7 +175,7 @@ test.describe.serial("Review chip actions", () => {
 		// --- Assert: overlay + sidebar open, jumped to the comment's file, thread
 		// revealed, and the thread is focused (not merely "sidebar visible"). ---
 		await expect(page.getByTestId("review-expanded-portal")).toBeVisible();
-		await expect(page.getByTestId("review-queue-panel")).toBeVisible();
+		await expect(page.getByTestId("review-overview")).toBeVisible();
 		await expect(
 			page.locator('.shell-list__item[data-selected="true"]'),
 		).toContainText("index.ts", { timeout: 15_000 });
