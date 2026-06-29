@@ -2,6 +2,7 @@ import type { AgentAttentionReasonsBySource } from "./agent-attention";
 import type { GitSummary } from "./git-summary";
 import type { ProcessAttentionState } from "./process-session";
 import type { LayoutId } from "./terminal-layout";
+import type { ReviewedFileMark } from "./reviewed-file";
 
 export type ReviewMode = "files" | "changes" | "commits";
 
@@ -36,6 +37,10 @@ export type WorktreeSession = {
 	terminalLayoutId: LayoutId;
 	slotProcessIds: (string | null)[];
 	reviewSidebarWidth: number;
+	/** Files explicitly marked viewed this review, keyed by path → content hash. */
+	reviewedFiles: ReviewedFileMark[];
+	/** Whether the left-rail "All open comments" overview is expanded. */
+	reviewOverviewExpanded: boolean;
 	/**
 	 * Per-worktree expand state for the Files tree. Held in memory only and
 	 * intentionally omitted from `PersistedWorktreeSessionSchema` so that

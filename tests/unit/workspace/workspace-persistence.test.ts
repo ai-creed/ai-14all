@@ -114,6 +114,8 @@ describe("buildWorkspaceSnapshot", () => {
 					terminalLayoutId: "1",
 					slotProcessIds: ["process-1"],
 					reviewSidebarWidth: 280,
+					reviewedFiles: [],
+					reviewOverviewExpanded: false,
 					nextAdHocNumber: 2,
 					processSessions: [
 						{

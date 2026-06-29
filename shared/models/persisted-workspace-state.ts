@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ReviewedFileMarkSchema } from "./reviewed-file";
 
 export const RestorePreferenceSchema = z.enum([
 	"prompt",
@@ -47,6 +48,8 @@ export const PersistedWorktreeSessionSchema = z.object({
 		.max(800)
 		.optional()
 		.default(280),
+	reviewedFiles: z.array(ReviewedFileMarkSchema).optional().default([]),
+	reviewOverviewExpanded: z.boolean().optional().default(false),
 	nextAdHocNumber: z.number().int().min(1),
 	processSessions: z.array(PersistedProcessSessionSchema),
 });
