@@ -45,6 +45,7 @@
 	--accent-strong: var(--secondary);
 	--warning: oklch(0.828 0.122 75);
 	--info: oklch(0.72 0.13 235);
+	--success: oklch(0.72 0.15 155);
 	--danger: var(--destructive);
 	--accent: var(--primary);
 
@@ -107,6 +108,8 @@
 	 * 1.73:1. AAA accessible amber: 0.55 was ~5.07:1 on white but only 4.31:1 on
 	 * the old gradient top (sub-AA); 0.43 -> 8.51:1 on the flat-white surface. */
 	--warning: oklch(0.43 0.14 60);
+	/* AAA: darker green for the reviewed marker on the flat-white surface. */
+	--success: oklch(0.52 0.15 155);
 }
 
 /* ---- warm theme: existing palette via shadcn token names ---- */
@@ -132,6 +135,7 @@
 	--accent-foreground: #221c15;
 	--destructive: #d97058;
 	--warning: #dda85e;
+	--success: oklch(0.74 0.14 150);
 	--danger: #d97058;
 	/* warm did not define --info -> inherited dark's blue. Pinned explicitly so
 	 * a future :root edit cannot silently change it (passes at 6.95:1). */
@@ -165,6 +169,7 @@
 	 * dark surface). Pinned explicitly so a future :root edit can't break tui. */
 	--warning: oklch(0.828 0.122 75);
 	--info: oklch(0.72 0.13 235);
+	--success: oklch(0.74 0.13 165);
 	--border: oklch(0.34 0.015 240);
 	--input: oklch(0.26 0.015 240);
 	--ring: var(--primary);
@@ -197,6 +202,7 @@
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
+	--color-success: var(--success);
 	/* max() clamp: every theme now runs --radius: 0rem (square corners —
 	 * docs/superpowers/specs/2026-06-23-tui-traits-to-all-themes-design.md), so
 	 * the subtractions go negative, which is invalid border-radius (spec §4.5).

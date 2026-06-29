@@ -40,6 +40,7 @@ type Props = {
 	setSidebarCollapsed: (next: boolean | ((prev: boolean) => boolean)) => void;
 	setPendingRename: (next: PendingRename | null) => void;
 	openReview: () => void;
+	openCommandPalette: () => void;
 	dispatch: (action: WorkspaceAction) => void;
 
 	noteSheetOpen: boolean;
@@ -81,6 +82,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 		setSidebarCollapsed,
 		setPendingRename,
 		openReview,
+		openCommandPalette,
 		dispatch,
 		noteSheetOpen,
 		setNoteSheetOpen,
@@ -133,6 +135,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 							openReview();
 						}}
 						onFilesClick={() => setFilesOverlayOpen(true)}
+						onCommandsClick={openCommandPalette}
 						onNoteClick={() => setNoteSheetOpen((prev) => !prev)}
 						usage={
 							<UsageStrip

@@ -41,6 +41,8 @@ function makeSession(worktreeId: string, note: string) {
 		terminalLayoutId: "1" as const,
 		slotProcessIds: [null],
 		reviewSidebarWidth: 320,
+		reviewedFiles: [],
+		reviewOverviewExpanded: false,
 		treeExpandedPaths: [],
 		treeShowIgnored: false,
 		task: null,

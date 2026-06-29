@@ -1,157 +1,206 @@
+import { providerDef } from "../../shared/models/agent-provider.js";
+import type { AgentProviderId } from "../../shared/models/agent-provider.js";
 import type {
 	KnownWorktree,
-	LimitGauge,
+	ProviderRateLimits,
+	ProviderTelemetryInfo,
+	ScopeData,
+	ScopeRollupRow,
 	TokenTotals,
 	UsageProvider,
 	UsageRow,
+	UsageScope,
 	UsageSnapshot,
 } from "../../shared/models/usage.js";
-import { UsageAggregator, FIVE_H_MS } from "./aggregator.js";
-import { budgetPercent, weeklyAnchorMs } from "./budget.js";
-import { matchCwd } from "./worktree-map.js";
+import {
+	buildCostSnapshot,
+	estimateCostUsd,
+	type RateLookup,
+} from "./cost/cost.js";
+import { rateFor } from "./cost/pricing.js";
+import {
+	type BucketKey,
+	type DailyLedger,
+	type SessionState,
+	bucketsForScope,
+	dailySeries,
+	emptyTotals,
+	hourlySeries,
+	parseBucketKey,
+} from "./ledger.js";
+import { TELEMETRY_DRIVERS } from "./providers/index.js";
+import type { TelemetryDriver } from "./providers/types.js";
+import { matchCwd, workspaceGroupFor } from "./worktree-map.js";
 
 export interface BuildSnapshotInput {
-	agg: UsageAggregator;
-	known: KnownWorktree[]; // all tracked worktrees (open + historical registry)
-	activeWorktreeIds: string[]; // currently open in the app => scope "Active"
+	ledger: DailyLedger;
+	session: SessionState;
+	known: KnownWorktree[];
+	activeWorktreeIds: string[];
 	nowMs: number;
 	includeUntracked: boolean;
-	claudeTier: string;
-	fiveHourBudget: number;
-	weeklyBudget: number;
-	weeklyResetDay: number; // 0=Sun..6=Sat (local)
-	weeklyResetHour: number; // 0..23 (local)
+	chipRange: "week" | "month";
+	providersWithData: Set<AgentProviderId>;
+	codexLimits: ProviderRateLimits | null;
+	drivers?: readonly TelemetryDriver[];
+	rate?: RateLookup;
 }
 
-const SEP = " ";
-const ZERO: TokenTotals = { input: 0, output: 0, billable: 0, raw: 0 };
-const add = (a: TokenTotals, b: TokenTotals): TokenTotals => ({
-	input: a.input + b.input,
-	output: a.output + b.output,
-	billable: a.billable + b.billable,
-	raw: a.raw + b.raw,
-});
+const SCOPES: UsageScope[] = ["session", "week", "month", "all-time"];
 
-export function buildSnapshot(input: BuildSnapshotInput): UsageSnapshot {
-	const { agg, known, nowMs, includeUntracked } = input;
-	const anchorMs = weeklyAnchorMs(
-		nowMs,
-		input.weeklyResetDay,
-		input.weeklyResetHour,
-	);
-	const rows: UsageRow[] = [];
-	const untracked = new Map<
-		UsageProvider,
-		{ since: TokenTotals; week: number }
+function addInto(a: TokenTotals, b: TokenTotals): void {
+	a.input += b.input;
+	a.output += b.output;
+	a.billable += b.billable;
+	a.raw += b.raw;
+}
+
+// Build one coherent scope from its merged buckets. Every number — totalTokens,
+// byProvider, rows, cost — is derived from the SAME bucket map, so they agree by
+// construction (the headline fix).
+export function buildScopeData(
+	scope: UsageScope,
+	buckets: Map<BucketKey, TokenTotals>,
+	known: KnownWorktree[],
+	activeWorktreeIds: string[],
+	includeUntracked: boolean,
+	rate: RateLookup,
+): ScopeData {
+	// Aggregate by provider and by (worktree|untracked, provider).
+	const byProviderTotals = new Map<AgentProviderId, TokenTotals>();
+	// rowKey -> { meta, tokens }
+	const rowAgg = new Map<
+		string,
+		{ row: Omit<UsageRow, "tokens" | "costUsd">; tokens: TokenTotals }
 	>();
-	let totals: TokenTotals = { ...ZERO };
+	let totalTokens = 0;
 
-	// Iterate every provider+cwd seen in the rolling-week window, so worktrees with
-	// recent (but not this-session) activity still appear. "this week" = billable
-	// since the fixed weekly reset anchor. Skip ones with nothing in either window.
-	for (const k of agg.weekKeys()) {
-		const sepIndex = k.indexOf(SEP);
-		const provider = k.slice(0, sepIndex) as UsageProvider;
-		const cwd = k.slice(sepIndex + 1);
-		const since = agg.sinceLaunch().get(k) ?? ZERO;
-		const week = agg.weeklyBillableSince(provider, cwd, anchorMs);
-		if (since.billable === 0 && since.raw === 0 && week === 0) continue;
+	for (const [key, t] of buckets) {
+		const { cwd, provider } = parseBucketKey(key);
+		totalTokens += t.billable;
+
+		const pv = byProviderTotals.get(provider) ?? emptyTotals();
+		addInto(pv, t);
+		byProviderTotals.set(provider, pv);
+
 		const wt = matchCwd(cwd, known);
-		if (!wt) {
-			const u = untracked.get(provider) ?? {
-				since: { ...ZERO },
-				week: 0,
+		let rk: string;
+		let meta: Omit<UsageRow, "tokens" | "costUsd">;
+		if (wt) {
+			rk = `${wt.worktreeId}\u0000${provider}`;
+			meta = {
+				workspaceId: wt.workspaceId,
+				worktreeId: wt.worktreeId,
+				worktreePath: wt.path,
+				worktreeTitle: wt.title,
+				provider: provider as UsageProvider,
+				active: activeWorktreeIds.includes(wt.worktreeId),
 			};
-			u.since = add(u.since, since);
-			u.week += week;
-			untracked.set(provider, u);
-			if (includeUntracked) totals = add(totals, since);
-			continue;
-		}
-		totals = add(totals, since);
-		rows.push({
-			workspaceId: wt.workspaceId,
-			worktreeId: wt.worktreeId,
-			worktreePath: wt.path,
-			worktreeTitle: wt.title,
-			provider,
-			active: input.activeWorktreeIds.includes(wt.worktreeId),
-			sinceLaunch: since,
-			thisWeek: { input: 0, output: 0, billable: week, raw: 0 },
-		});
-	}
-
-	if (includeUntracked) {
-		for (const [provider, u] of untracked) {
-			rows.push({
-				workspaceId: null,
+		} else {
+			const g = workspaceGroupFor(cwd, known);
+			rk = `${g.workspaceId ?? "__untracked__"}\u0000${provider}`;
+			meta = {
+				workspaceId: g.workspaceId,
 				worktreeId: null,
 				worktreePath: null,
-				worktreeTitle: "other (untracked)",
-				provider,
+				worktreeTitle: g.title,
+				provider: provider as UsageProvider,
 				active: false,
-				sinceLaunch: u.since,
-				thisWeek: { input: 0, output: 0, billable: u.week, raw: 0 },
-			});
+			};
+		}
+		const existing = rowAgg.get(rk);
+		if (existing) {
+			addInto(existing.tokens, t);
+		} else {
+			rowAgg.set(rk, { row: meta, tokens: { ...t } });
 		}
 	}
 
-	const limits: LimitGauge[] = [
-		buildCodexGauge(input),
-		buildClaudeGauge(input, anchorMs),
-	];
+	// Cost for the scope (and per-provider $) from the same window's (provider,model)
+	// — model is ignored by blended pricing, so aggregate by provider.
+	const cost = buildCostSnapshot(
+		[...byProviderTotals.entries()].map(([provider, tokens]) => ({
+			provider,
+			model: "",
+			tokens,
+		})),
+		rate,
+	);
+
+	const byProvider: ScopeRollupRow[] = [...byProviderTotals.entries()]
+		.map(([provider, tokens]) => ({
+			provider,
+			tokens: tokens.billable,
+			costUsd: cost.perProvider[provider] ?? null,
+		}))
+		.sort((a, b) => b.tokens - a.tokens);
+
+	const rows: UsageRow[] = [...rowAgg.values()].map(({ row, tokens }) => ({
+		...row,
+		tokens,
+		costUsd: estimateCostUsd(tokens, rate(row.provider)),
+	}));
+
+	// totalTokens already excludes nothing; but to honor includeUntracked the
+	// renderer filters untracked rows client-side. Keep totals over ALL buckets so
+	// totalTokens == sum(rows) == sum(byProvider) holds unconditionally.
+	void includeUntracked;
+
+	return { scope, totalTokens, byProvider, rows, cost };
+}
+
+export function buildSnapshot(input: BuildSnapshotInput): UsageSnapshot {
+	const rate = input.rate ?? rateFor;
+	const drivers = input.drivers ?? TELEMETRY_DRIVERS;
+
+	const scopes = {} as Record<UsageScope, ScopeData>;
+	for (const scope of SCOPES) {
+		const buckets = bucketsForScope(
+			input.ledger,
+			input.session,
+			scope,
+			input.nowMs,
+		);
+		scopes[scope] = buildScopeData(
+			scope,
+			buckets,
+			input.known,
+			input.activeWorktreeIds,
+			input.includeUntracked,
+			rate,
+		);
+	}
+
+	const providers: ProviderTelemetryInfo[] = drivers.map((d) => {
+		const def = providerDef(d.id);
+		return {
+			id: d.id,
+			label: def.label,
+			brand: def.brand,
+			capabilities: d.capabilities,
+			hasData: input.providersWithData.has(d.id),
+		};
+	});
+
+	const codexDriver = drivers.find((d) => d.id === "codex");
+	const codexLimits =
+		codexDriver?.buildGauge && input.codexLimits
+			? codexDriver.buildGauge({
+					providerLimits: input.codexLimits,
+					nowMs: input.nowMs,
+				})
+			: null;
+
 	return {
-		generatedAtMs: nowMs,
-		limits,
-		rows,
-		totals,
+		generatedAtMs: input.nowMs,
+		providers,
+		scopes,
+		seriesDaily: dailySeries(input.ledger, input.nowMs),
+		seriesHourly: hourlySeries(input.session),
+		codexLimits,
 		config: {
-			fiveHourBudget: input.fiveHourBudget,
-			weeklyBudget: input.weeklyBudget,
-			weeklyResetDay: input.weeklyResetDay,
-			weeklyResetHour: input.weeklyResetHour,
-		},
-	};
-}
-
-function buildCodexGauge(input: BuildSnapshotInput): LimitGauge {
-	const rl = input.agg.latestCodexLimits();
-	return {
-		provider: "codex",
-		real: true,
-		fiveHour: {
-			percent: rl?.primary?.usedPercent ?? 0,
-			resetsAtMs: rl?.primary?.resetsAtMs ?? null,
-		},
-		weekly: {
-			percent: rl?.secondary?.usedPercent ?? 0,
-			resetsAtMs: rl?.secondary?.resetsAtMs ?? null,
-			used: null,
-			budget: null,
-		},
-	};
-}
-
-function buildClaudeGauge(
-	input: BuildSnapshotInput,
-	anchorMs: number,
-): LimitGauge {
-	const { agg, nowMs, fiveHourBudget, weeklyBudget } = input;
-	// 5h stays a rolling trailing window; weekly is fixed since the reset anchor.
-	const used5h = agg.rollingBillable("claude", FIVE_H_MS, nowMs);
-	const usedWeek = agg.providerBillableSince("claude", anchorMs);
-	return {
-		provider: "claude",
-		real: false,
-		fiveHour: {
-			percent: budgetPercent(used5h, fiveHourBudget),
-			resetsAtMs: null,
-		},
-		weekly: {
-			percent: budgetPercent(usedWeek, weeklyBudget),
-			resetsAtMs: anchorMs + 7 * 24 * 3_600_000,
-			used: usedWeek,
-			budget: weeklyBudget,
+			chipRange: input.chipRange,
+			includeUntracked: input.includeUntracked,
 		},
 	};
 }

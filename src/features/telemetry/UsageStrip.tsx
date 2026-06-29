@@ -1,30 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import type {
-	LimitGauge,
-	UsageProvider,
-	UsageSnapshot,
-} from "../../../shared/models/usage.js";
-import { formatTokens } from "./format.js";
-import { Gauge } from "./Gauge.js";
+import type { UsageSnapshot } from "../../../shared/models/usage.js";
+import { formatTokens, formatUsd } from "./format.js";
+import { UsageChart } from "./UsageChart.js";
 import { UsagePopover } from "./UsagePopover.js";
 
-const ORDER: UsageProvider[] = ["claude", "codex"]; // claude over codex
-
-function rowTotals(
-	snapshot: UsageSnapshot,
-	provider: UsageProvider,
-	currentWorktreePath: string | null,
-) {
-	let input = 0;
-	let output = 0;
-	for (const r of snapshot.rows) {
-		if (r.provider !== provider) continue;
-		if (currentWorktreePath && r.worktreePath !== currentWorktreePath) continue;
-		input += r.sinceLaunch.input;
-		output += r.sinceLaunch.output;
-	}
-	return { input, output };
+function setChipRange(range: "week" | "month"): void {
+	void window.ai14all?.usage?.setChipRange(range);
 }
 
 export function UsageStrip({
@@ -39,15 +21,12 @@ export function UsageStrip({
 	const [open, setOpen] = useState(false);
 	const caretRef = useRef<HTMLButtonElement>(null);
 	const popoverRef = useRef<HTMLDivElement>(null);
-	// Persistent popover: stays open until the caret is toggled, Escape, or a
-	// click outside it. Never closes on mouse-out.
 	useEffect(() => {
 		if (!open) return;
 		const onDown = (e: MouseEvent) => {
 			const t = e.target as Node;
-			if (caretRef.current?.contains(t) || popoverRef.current?.contains(t)) {
+			if (caretRef.current?.contains(t) || popoverRef.current?.contains(t))
 				return;
-			}
 			setOpen(false);
 		};
 		const onKey = (e: KeyboardEvent) => {
@@ -61,40 +40,40 @@ export function UsageStrip({
 		};
 	}, [open]);
 	if (!snapshot) return null;
-	const gaugeFor = (p: UsageProvider): LimitGauge | undefined =>
-		snapshot.limits.find((l) => l.provider === p);
+	const chipRange = snapshot.config.chipRange;
+	const scope = snapshot.scopes[chipRange];
+	const totalTokens = scope.totalTokens;
+	const totalCost = scope.cost.total;
 	return (
 		<div className="usage-strip">
-			<div className="usage-tele">
-				{ORDER.map((provider) => {
-					const t = rowTotals(snapshot, provider, currentWorktreePath);
-					const g = gaugeFor(provider);
-					return (
-						<div className="usage-trow" key={provider}>
-							<span className={`usage-prov usage-prov--${provider}`}>
-								{provider}
-							</span>
-							<span
-								className="usage-tok"
-								title="↑ prompt tokens sent · ↓ tokens generated"
-							>
-								<span className="usage-bill">↑{formatTokens(t.input)}</span>{" "}
-								<span className="usage-raw">↓{formatTokens(t.output)}</span>
-							</span>
-							<span className="usage-cell">
-								<span className="usage-col-h">5h</span>
-								<Gauge percent={g?.fiveHour.percent ?? 0} />{" "}
-								{g?.fiveHour.percent ?? 0}%
-							</span>
-							<span className="usage-cell">
-								<span className="usage-col-h">wk</span>
-								<Gauge percent={g?.weekly.percent ?? 0} />{" "}
-								{g?.weekly.percent ?? 0}%
-							</span>
-						</div>
-					);
-				})}
-			</div>
+			<span className="usage-range" role="group" aria-label="range">
+				<button
+					className={chipRange === "week" ? "on" : ""}
+					aria-pressed={chipRange === "week"}
+					onClick={() => setChipRange("week")}
+				>
+					W
+				</button>
+				<button
+					className={chipRange === "month" ? "on" : ""}
+					aria-pressed={chipRange === "month"}
+					onClick={() => setChipRange("month")}
+				>
+					M
+				</button>
+			</span>
+			<UsageChart
+				kind="daily"
+				daily={snapshot.seriesDaily}
+				providers={snapshot.providers}
+				range={chipRange}
+				nowMs={snapshot.generatedAtMs}
+				height={28}
+			/>
+			<span className="usage-figure">
+				<span className="usage-figure-tok">{formatTokens(totalTokens)}</span>
+				<span className="usage-figure-cost">~{formatUsd(totalCost)}</span>
+			</span>
 			<button
 				ref={caretRef}
 				className="usage-caret"
@@ -111,6 +90,7 @@ export function UsageStrip({
 						style={anchorStyle(caretRef.current)}
 						rootRef={popoverRef}
 						openWorktreePaths={openWorktreePaths}
+						currentWorktreePath={currentWorktreePath}
 					/>,
 					document.body,
 				)}
@@ -118,8 +98,6 @@ export function UsageStrip({
 	);
 }
 
-// Fixed-position anchor under the caret. Rendered in a portal so the dropdown
-// escapes the chip bar's overflow clipping.
 function anchorStyle(el: HTMLElement | null): CSSProperties {
 	const r = el?.getBoundingClientRect();
 	if (!r) return { position: "fixed", top: 56, right: 12 };

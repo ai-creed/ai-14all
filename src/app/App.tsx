@@ -548,27 +548,9 @@ export function App() {
 		agentInstallStatus.providers.length > 0 &&
 		agentInstallStatus.providers.every((p) => !p.installed);
 	const [installModalOpen, setInstallModalOpen] = useState(false);
-	const [commentSidebarOpen, setCommentSidebarOpen] = useState(false);
 	const [pendingCommentJump, setPendingCommentJump] = useState(0);
 
 	useInstallModalListener(useCallback(() => setInstallModalOpen(true), []));
-
-	useEffect(() => {
-		const currentFilePath =
-			activeSession?.reviewMode === "commits"
-				? (activeSession.selectedCommitFilePath ?? null)
-				: (activeSession?.selectedChangedFilePath ?? null);
-		const hasComments =
-			currentFilePath !== null &&
-			reviewState.comments.some((c) => c.filePath === currentFilePath);
-		setCommentSidebarOpen(hasComments || addingDraft !== null);
-	}, [
-		activeSession?.reviewMode,
-		activeSession?.selectedCommitFilePath,
-		activeSession?.selectedChangedFilePath,
-		reviewState.comments,
-		addingDraft,
-	]);
 
 	const trackedFilesLoader = useCallback(
 		async (opts: { includeIgnored: boolean }) => {
@@ -678,19 +660,6 @@ export function App() {
 	const addressedCommentCount = reviewState.comments.filter(
 		(c) => c.status === "addressed",
 	).length;
-
-	// File-scoped open count rendered in the overlay header.
-	const currentReviewFilePath =
-		activeSession?.reviewMode === "commits"
-			? (activeSession.selectedCommitFilePath ?? null)
-			: activeSession?.reviewMode === "changes"
-				? (activeSession.selectedChangedFilePath ?? null)
-				: null;
-	const currentFileOpenCommentCount = currentReviewFilePath
-		? reviewState.comments.filter(
-				(c) => c.filePath === currentReviewFilePath && c.status === "open",
-			).length
-		: null;
 
 	// ---------------------------------------------------------------------------
 	// Persist effect — writes V2 state
@@ -1922,12 +1891,6 @@ export function App() {
 		setReviewOpen(true);
 	}, [filesChipTarget, activeWorktree, dispatch]);
 
-	const handleOpenCommentsChip = useCallback(() => {
-		setReviewOpen(true);
-		setCommentSidebarOpen(true);
-		setPendingCommentJump((n) => n + 1);
-	}, []);
-
 	const { handleRemoveWorkspace } = useWorkspaceRemoval({
 		appWorkspaces,
 		dispatchAppWorkspaces,
@@ -2203,6 +2166,7 @@ export function App() {
 							onToggleWorkspaceCollapsed={toggleWorkspaceCollapsed}
 							palette={palette}
 							onSetTheme={setTheme}
+							onOpenShortcutsHelp={() => setShortcutsHelpOpen(true)}
 						/>
 
 						<section className="shell-main-column" ref={mainColRef}>
@@ -2222,6 +2186,7 @@ export function App() {
 								setSidebarCollapsed={setSidebarCollapsed}
 								setPendingRename={setPendingRename}
 								openReview={() => setReviewOpen(true)}
+								openCommandPalette={() => setCommandPaletteOpen(true)}
 								dispatch={dispatch}
 								noteSheetOpen={noteSheetOpen}
 								setNoteSheetOpen={setNoteSheetOpen}
@@ -2467,7 +2432,6 @@ export function App() {
 									onRefresh={handleRefreshChanges}
 									onOpen={() => setReviewOpen(true)}
 									onOpenFiles={handleOpenFilesChip}
-									onOpenComments={handleOpenCommentsChip}
 								/>
 							)}
 							{reviewOpen && activeWorktree && (
@@ -2480,11 +2444,6 @@ export function App() {
 									reviewMode={activeSession?.reviewMode ?? "files"}
 									isDirty={activeSummary?.isDirty ?? false}
 									changedFileCount={changes.length}
-									commentSidebarOpen={commentSidebarOpen}
-									onToggleCommentSidebar={() =>
-										setCommentSidebarOpen((o) => !o)
-									}
-									openCommentCount={currentFileOpenCommentCount}
 								>
 									<CodeNavHygiene
 										workspaceId={activeWorkspaceId ?? ""}
@@ -2511,7 +2470,6 @@ export function App() {
 										reviewState={reviewState}
 										reviewRailWidth={reviewRailWidth}
 										handleReviewRailResizeStart={handleReviewRailResizeStart}
-										commentSidebarOpen={commentSidebarOpen}
 										resolvedTheme={resolvedTheme}
 										installCtaVisible={installCtaVisible}
 										onOpenInstall={() => setInstallModalOpen(true)}

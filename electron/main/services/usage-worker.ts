@@ -1,20 +1,15 @@
-import { existsSync, readFileSync, writeFileSync, watch } from "node:fs";
-import { UsageAggregator } from "../../../services/usage/aggregator.js";
-import { readClaudeTier } from "../../../services/usage/credentials.js";
-import {
-	listJsonlFiles,
-	processClaudeFile,
-	processCodexFile,
-	resetRecentOffsets,
-	type OffsetCache,
-} from "../../../services/usage/scanner.js";
-import { WEEK_MS } from "../../../services/usage/aggregator.js";
-import { processInBatches } from "../../../services/usage/batch.js";
+import { join } from "node:path";
+import { existsSync, watch } from "node:fs";
+import { jsonlDrivers } from "../../../services/usage/providers/index.js";
 import { buildSnapshot } from "../../../services/usage/snapshot.js";
+import { saveState } from "../../../services/usage/ledger-store.js";
 import {
-	seedFiveHourBudget,
-	seedWeeklyBudget,
-} from "../../../services/usage/budget.js";
+	type SweepState,
+	createSweepState,
+	loadPersistedState,
+	recoverCodexLimits,
+	sweepFiles,
+} from "../../../services/usage/sweep.js";
 import type {
 	MainToWorker,
 	UsageWorkerConfig,
@@ -32,58 +27,77 @@ const parentPort = (
 	}
 ).parentPort;
 
+// --- module state ---
 let cfg: UsageWorkerConfig | null = null;
-let agg: UsageAggregator | null = null;
-const offsets: OffsetCache = new Map();
+let state: SweepState = createSweepState();
 let emitTimer: ReturnType<typeof setTimeout> | null = null;
 let backfilling = false;
 let rescanQueued = false;
 
-function loadOffsets(path: string): void {
-	try {
-		const obj = JSON.parse(readFileSync(path, "utf8")) as Record<
-			string,
-			{ offset: number; mtime: number }
-		>;
-		for (const [k, v] of Object.entries(obj)) offsets.set(k, v);
-	} catch {
-		/* first run */
+// Single combined state file (ledger + offset cache), persisted atomically.
+const LEDGER_FILE = "usage-ledger.json";
+// Active horizon: files untouched longer than this are "sealed" (contribution
+// dropped to bound the cache). ~35 days matches the daily-series window.
+const ACTIVE_HORIZON_MS = 35 * 86_400_000;
+
+const ledgerPath = (): string => join(cfg!.userDataDir, LEDGER_FILE);
+
+function persist(): void {
+	if (!cfg) return;
+	// Seal stale entries: drop their contribution detail (totals stay in the ledger).
+	const now = Date.now();
+	for (const entry of state.offsets.values()) {
+		if (entry.contribution && now - entry.mtime > ACTIVE_HORIZON_MS) {
+			entry.contribution = undefined;
+		}
 	}
+	// Write ledger + offsets together as one atomic state file — a crash can never
+	// leave a torn pair that would double-count on the next sweep (spec §4.3).
+	saveState(ledgerPath(), state.ledger, state.offsets, state.codexLimits);
 }
 
-function saveOffsets(): void {
+async function sweep(): Promise<void> {
 	if (!cfg) return;
-	try {
-		writeFileSync(
-			cfg.offsetCachePath,
-			JSON.stringify(Object.fromEntries(offsets)),
-		);
-	} catch {
-		/* best effort */
+	if (backfilling) {
+		rescanQueued = true;
+		return;
+	}
+	backfilling = true;
+	// All scan + idempotency + sealed-truncation-rebuild logic lives in sweepFiles
+	// (electron-free + unit-tested in tests/unit/usage/sweep.test.ts).
+	await sweepFiles(
+		state,
+		jsonlDrivers,
+		cfg.home,
+		cfg.launchMs,
+		cfg.backfillBatchSize,
+		scheduleEmit,
+	);
+	persist();
+	backfilling = false;
+	if (rescanQueued) {
+		rescanQueued = false;
+		void sweep();
 	}
 }
 
 function emitSnapshot(): void {
-	if (!cfg || !agg) return;
-	const tier = readClaudeTier(cfg.credentialsPath);
-	parentPort.postMessage({
+	if (!cfg) return;
+	const msg: WorkerToMain = {
 		kind: "snapshot",
 		snapshot: buildSnapshot({
-			agg,
+			ledger: state.ledger,
+			session: state.session,
 			known: cfg.known,
 			activeWorktreeIds: cfg.activeWorktreeIds,
 			nowMs: Date.now(),
-			// Always emit untracked rows so the renderer can toggle scope/untracked
-			// instantly (no worker round-trip). cfg.includeUntracked is the persisted
-			// UI default the renderer seeds from; it does not gate row emission.
-			includeUntracked: true,
-			claudeTier: tier,
-			fiveHourBudget: cfg.fiveHourBudget ?? seedFiveHourBudget(tier),
-			weeklyBudget: cfg.weeklyBudget ?? seedWeeklyBudget(tier),
-			weeklyResetDay: cfg.weeklyResetDay,
-			weeklyResetHour: cfg.weeklyResetHour,
+			includeUntracked: cfg.includeUntracked,
+			chipRange: cfg.chipRange,
+			providersWithData: state.providersWithData,
+			codexLimits: state.codexLimits,
 		}),
-	});
+	};
+	parentPort.postMessage(msg);
 }
 
 // Throttle: coalesce many triggers into at most one emit per ~1.5s.
@@ -95,47 +109,6 @@ function scheduleEmit(): void {
 	}, 1500);
 }
 
-// Full sweep (initial backfill + safety re-sweep). Chunked + throttled via the
-// shared, unit-tested processInBatches driver (services/usage/batch.ts), so a
-// large historical backfill yields to the event loop between batches and never
-// blocks the worker's message handling. Emits progressively after each batch.
-async function sweep(): Promise<void> {
-	if (!cfg || !agg) return;
-	if (backfilling) {
-		rescanQueued = true;
-		return;
-	}
-	backfilling = true;
-	const batch = cfg.backfillBatchSize;
-	const claudeFiles = existsSync(cfg.claudeRoot)
-		? listJsonlFiles(cfg.claudeRoot)
-		: [];
-	const codexFiles = existsSync(cfg.codexRoot)
-		? listJsonlFiles(cfg.codexRoot)
-		: [];
-	await processInBatches(
-		claudeFiles,
-		batch,
-		(file) => processClaudeFile(file, offsets, (e) => agg!.ingest(e)),
-		scheduleEmit,
-	);
-	await processInBatches(
-		codexFiles,
-		batch,
-		(file) => {
-			const rl = processCodexFile(file, offsets, (e) => agg!.ingest(e));
-			if (rl) agg!.setCodexLimits(rl);
-		},
-		scheduleEmit,
-	);
-	saveOffsets();
-	backfilling = false;
-	if (rescanQueued) {
-		rescanQueued = false;
-		void sweep();
-	}
-}
-
 function watchDir(dir: string): void {
 	if (!existsSync(dir)) return;
 	try {
@@ -145,39 +118,35 @@ function watchDir(dir: string): void {
 	}
 }
 
-parentPort.on("message", (e) => {
+parentPort.on("message", (e: { data: MainToWorker }) => {
 	const msg = e.data;
 	if (msg.kind === "config") {
 		cfg = msg.config;
-		agg = new UsageAggregator(cfg.launchMs);
-		loadOffsets(cfg.offsetCachePath);
-		// The aggregator starts empty each launch, so persisted offsets would skip
-		// this week's pre-launch usage (only workspaces active *this* session would
-		// ever get rows). Drop offsets for files touched within the rolling window
-		// so the backfill rebuilds the full week for every tracked worktree.
-		resetRecentOffsets(
-			[cfg.claudeRoot, cfg.codexRoot],
-			offsets,
-			Date.now(),
-			WEEK_MS,
-		);
-		void sweep(); // chunked backfill; emits progressively, never blocks
-		watchDir(cfg.claudeRoot);
-		watchDir(cfg.codexRoot);
-		setInterval(() => void sweep(), 60_000); // safety net if watch misses an append
+		state = loadPersistedState(ledgerPath());
+		// The Codex-limits gauge reflects the latest codex rate-limit, which the
+		// incremental sweep won't re-read after a restart (it's behind the saved
+		// offset). Recover it straight from the logs so the gauge shows on launch;
+		// onLimits keeps it live as new codex turns arrive.
+		const recovered = recoverCodexLimits(cfg.home);
+		if (
+			recovered &&
+			(!state.codexLimits ||
+				recovered.capturedAtMs > state.codexLimits.capturedAtMs)
+		) {
+			state.codexLimits = recovered;
+		}
+		const roots = jsonlDrivers.flatMap((d) => d.roots(cfg!.home));
+		void sweep();
+		for (const root of roots) watchDir(root);
+		setInterval(() => void sweep(), 60_000);
 	} else if (msg.kind === "setKnown" && cfg) {
 		cfg.known = msg.known;
 		scheduleEmit();
 	} else if (msg.kind === "setActive" && cfg) {
 		cfg.activeWorktreeIds = msg.activeWorktreeIds;
 		scheduleEmit();
-	} else if (msg.kind === "setBudgets" && cfg) {
-		cfg.fiveHourBudget = msg.fiveHourBudget;
-		cfg.weeklyBudget = msg.weeklyBudget;
-		scheduleEmit();
-	} else if (msg.kind === "setWeeklyReset" && cfg) {
-		cfg.weeklyResetDay = msg.weeklyResetDay;
-		cfg.weeklyResetHour = msg.weeklyResetHour;
+	} else if (msg.kind === "setChipRange" && cfg) {
+		cfg.chipRange = msg.chipRange;
 		scheduleEmit();
 	} else if (msg.kind === "setIncludeUntracked" && cfg) {
 		cfg.includeUntracked = msg.includeUntracked;

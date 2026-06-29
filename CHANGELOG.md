@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.11.1] – 2026-06-29
+
+### Added
+
+- **A redesigned usage chip and analytics popover.** The token-usage chip now renders a dense stacked chart inline, and clicking it opens a popover with a four-way scope toggle — Session, Week, Month, and All-time — each showing a coherent period total, a per-provider breakdown, and a notional blended-rate cost. The daily chart carries weekday labels with the current day highlighted, and "Week" now means a rolling trailing seven days — always seven columns with today on the right — instead of a calendar week that looked empty on a Monday.
+- **A native Codex rate-limit gauge.** When you use Codex, the popover surfaces its native usage limits — the rolling 5-hour primary window and the weekly secondary window — read straight from Codex's own logs. The gauge persists across restarts and is recovered from the logs on launch, so it survives an app restart instead of disappearing until the next limit event.
+- **Lifetime token accounting that survives restarts.** Usage is now persisted as a durable day-by-day ledger, so All-time totals accumulate across runs instead of resetting each launch. Tokens are attributed to the repository they were spent in: historical and deleted worktrees roll up under their repo's workspace, and a sibling repository that merely shares a parent directory is no longer misattributed to its neighbor.
+- **Codex and ezio token logs are counted alongside Claude.** Usage analytics ingest Claude, Codex, and ezio session logs, with blended per-provider pricing so a cost estimate is always shown.
+
+### Changed
+
+- **The review pane's right-hand queue panel is replaced by a slim comment minimap.** Open review comments now appear as a vertical strip of dots with a progress fill, clustering, and a flyout for each comment, reclaiming horizontal space for the diff. A rail "All open comments" overview collects the open-comments controls, the review chip becomes a comment-count label, and a Commands chip button plus a sidebar shortcuts-help button make the review actions discoverable.
+- **The changes and commit lists show what you have already reviewed.** Reviewed files are marked and review-progress counts are shown, backed by a persisted reviewed-files record, with mark-viewed and toggle-overview available as both keyboard shortcuts and palette commands.
+
+### Fixed
+
+- **A failed settings write no longer crashes the app.** Errors while persisting settings (for example, the usage chip's selected range) are now caught and logged instead of surfacing as an unhandled promise rejection.
+
 ## [0.11.0] – 2026-06-27
 
 ### Added

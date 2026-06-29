@@ -3,7 +3,7 @@
  *
  * These tests exercise the new inline thread UX:
  *   - .shell-inline-thread (view-zone nodes in Monaco DOM, accessible via Playwright)
- *   - [data-testid="review-queue-panel"] queue sidebar
+ *   - [data-testid^="minimap-dot-"] right-side comment minimap dots
  *   - Keyboard shortcut Meta+Shift+A to open draft at caret (installCommentKeyBindings)
  *
  * Preload guard: window.ai14all is injected via contextBridge (contextIsolation:true,
@@ -102,6 +102,75 @@ async function openIndexTsDiff() {
 	await page.waitForTimeout(200);
 }
 
+/**
+ * Add an inline comment to the first view-line of the modified diff editor.
+ * Mirrors the hover-glyph / Meta+Shift+A fallback pattern used in the
+ * "hover-plus add single line" test; saves via evaluate() to bypass Monaco's
+ * pointer-event overlay. Call openIndexTsDiff() before this helper.
+ */
+async function addInlineComment(commentText: string) {
+	const modifiedPane = page.locator(".modified-in-monaco-diff-editor");
+	const viewLines = modifiedPane.locator(".view-line");
+	const firstLine = viewLines.first();
+	const box = await firstLine.boundingBox();
+	if (!box) throw new Error("No bounding box for first view-line");
+
+	// Hover over the glyph margin to trigger the plus glyph.
+	await page.mouse.move(box.x - 10, box.y + box.height / 2);
+	await page.waitForTimeout(300);
+
+	const glyph = page.locator(".shell-review-plus-decoration").first();
+	const glyphVisible = await glyph.isVisible().catch(() => false);
+
+	if (glyphVisible) {
+		await glyph.click();
+	} else {
+		await page.keyboard.press("Meta+Shift+A");
+	}
+
+	await page.waitForFunction(
+		() =>
+			document.querySelector('.shell-inline-thread[data-draft="true"]') !==
+			null,
+		null,
+		{ timeout: 10_000 },
+	);
+
+	const textarea = page.locator(".shell-inline-thread__textarea");
+	await expect(textarea).toBeVisible({ timeout: 5_000 });
+	await textarea.fill(commentText);
+
+	// Save via evaluate to bypass Monaco's view-lines pointer-event overlay.
+	await page.evaluate(() => {
+		const draft = document.querySelector(
+			'.shell-inline-thread[data-draft="true"]',
+		);
+		if (!draft) throw new Error("draft thread not found");
+		const btns = draft.querySelectorAll("button");
+		for (const btn of btns) {
+			if (btn.textContent?.trim() === "Save") {
+				btn.click();
+				return;
+			}
+		}
+		throw new Error("Save button not found in draft thread");
+	});
+
+	// Wait until the saved comment body is visible in the thread.
+	await page.waitForFunction(
+		(text) => {
+			const threads = document.querySelectorAll(".shell-inline-thread");
+			for (const t of threads) {
+				const body = t.querySelector(".shell-inline-thread__body");
+				if (body?.textContent?.includes(text)) return true;
+			}
+			return false;
+		},
+		commentText,
+		{ timeout: 10_000 },
+	);
+}
+
 test.beforeAll(async () => {
 	testRepo = createTestRepo();
 	persistedStateDir = realpathSync(
@@ -132,7 +201,7 @@ test.afterAll(async () => {
 });
 
 test.describe.serial("Review comments — inline UX", () => {
-	test("hover-plus add single line, save, appears in queue panel", async () => {
+	test("hover-plus add single line, save, appears as inline thread and minimap dot", async () => {
 		test.setTimeout(120_000);
 
 		await openIndexTsDiff();
@@ -207,15 +276,12 @@ test.describe.serial("Review comments — inline UX", () => {
 			{ timeout: 10_000 },
 		);
 
-		// Queue panel has a row containing "rename x". The panel may scroll internally
-		// so we assert on the panel's text content rather than the row element's
-		// visibility (which can be "hidden" when scrolled out of view in the overlay).
-		const queuePanel = page.locator('[data-testid="review-queue-panel"]');
-		await expect(queuePanel).toBeVisible({ timeout: 10_000 });
-		await expect(queuePanel).toContainText("rename x", { timeout: 10_000 });
+		// The saved comment must also surface a dot in the right-side minimap rail.
+		const dot = page.locator('[data-testid^="minimap-dot-"]').first();
+		await expect(dot).toBeVisible({ timeout: 10_000 });
 	});
 
-	test("mark addressed → queue shows 0 open → reopen → queue shows 1 open", async () => {
+	test("mark addressed → chip count 0/1 → reopen → 1/1", async () => {
 		test.setTimeout(120_000);
 
 		// The previous test left a saved open comment. Find the inline thread.
@@ -238,9 +304,12 @@ test.describe.serial("Review comments — inline UX", () => {
 			btn.click();
 		});
 
-		// Queue should now show "0 open" — comment is addressed
-		const queuePanel = page.locator('[data-testid="review-queue-panel"]');
-		await expect(queuePanel).toContainText("0 open", { timeout: 5_000 });
+		// The review chip shows the worktree-wide unresolved/all comment count.
+		// Addressing the sole comment drops the unresolved count to 0 while the
+		// total stays 1, so the label reads "0/1".
+		const commentsChip = page.getByTestId("review-chipbar-comments");
+		await expect(commentsChip).toBeVisible({ timeout: 10_000 });
+		await expect(commentsChip).toContainText("0/1", { timeout: 5_000 });
 
 		// The thread stays visible but the queue row should reflect addressed state.
 		// To test reopen: click the Reopen button (component stays in expanded view).
@@ -259,8 +328,8 @@ test.describe.serial("Review comments — inline UX", () => {
 			throw new Error("Reopen button not found");
 		});
 
-		// Queue should now show "1 open" again
-		await expect(queuePanel).toContainText("1 open", { timeout: 5_000 });
+		// Reopening restores the unresolved count to 1, so the label reads "1/1".
+		await expect(commentsChip).toContainText("1/1", { timeout: 5_000 });
 	});
 
 	test("persist across reload", async () => {
@@ -273,12 +342,7 @@ test.describe.serial("Review comments — inline UX", () => {
 		// Re-open the diff for src/index.ts
 		await openIndexTsDiff();
 
-		// Comment should still be in the queue panel
-		const queuePanel = page.locator('[data-testid="review-queue-panel"]');
-		await expect(queuePanel).toBeVisible({ timeout: 10_000 });
-		await expect(queuePanel).toContainText("rename x", { timeout: 15_000 });
-
-		// Inline thread should also be visible in the diff
+		// The comment should persist as an inline thread in the diff.
 		await page.waitForFunction(
 			() => {
 				const threads = document.querySelectorAll(".shell-inline-thread");
@@ -291,5 +355,104 @@ test.describe.serial("Review comments — inline UX", () => {
 			null,
 			{ timeout: 15_000 },
 		);
+	});
+
+	test("mark file viewed advances the progress header", async () => {
+		test.setTimeout(120_000);
+		await openIndexTsDiff();
+		const header = page.locator('[data-testid="review-progress-header"]');
+		await expect(header).toContainText("reviewed");
+		await page.keyboard.press("Meta+Shift+V");
+		await expect(header).toContainText("1 / ", { timeout: 10_000 });
+	});
+
+	test("inline comment shows a minimap dot", async () => {
+		test.setTimeout(120_000);
+		await openIndexTsDiff();
+		await addInlineComment("minimap dot check");
+		// A dot must appear in the minimap rail for the newly saved comment.
+		const dot = page.locator('[data-testid^="minimap-dot-"]').first();
+		await expect(dot).toBeVisible({ timeout: 10_000 });
+	});
+
+	test("resolve from the minimap flyout", async () => {
+		test.setTimeout(120_000);
+		// A minimap dot is present from the "minimap dot check" comment added in
+		// the previous test. Hover the dot to open the flyout, then click Resolve
+		// via evaluate to bypass any pointer-event overlay on the minimap rail.
+		await openIndexTsDiff();
+		const dot = page.locator('[data-testid^="minimap-dot-"]').first();
+		await expect(dot).toBeVisible({ timeout: 10_000 });
+		await dot.hover();
+		// Wait for the flyout to become active (CommentMinimap flips aria-hidden
+		// from "true" to "false" on hover via onMouseEnter → setActiveHeadId).
+		await page.waitForFunction(
+			() =>
+				document.querySelector(
+					'.shell-review-minimap__flyout[aria-hidden="false"]',
+				) !== null,
+			null,
+			{ timeout: 5_000 },
+		);
+		await page.evaluate(() => {
+			const flyout = document.querySelector(
+				'.shell-review-minimap__flyout[aria-hidden="false"]',
+			);
+			if (!flyout) throw new Error("minimap flyout not visible");
+			const btns = flyout.querySelectorAll("button");
+			for (const btn of btns) {
+				if (btn.textContent?.trim() === "Resolve") {
+					btn.click();
+					return;
+				}
+			}
+			throw new Error("Resolve button not found in minimap flyout");
+		});
+		// Assert: resolving the "minimap dot check" comment moves it from unresolved
+		// to addressed. The two comments in this file ("rename x" + "minimap dot
+		// check") keep the total at 2 while the unresolved count drops to 1, so the
+		// review chip reads "1/2".
+		const commentsChip = page.getByTestId("review-chipbar-comments");
+		await expect(commentsChip).toContainText("1/2", { timeout: 10_000 });
+	});
+
+	test("the open-comments chip is a non-interactive unresolved/all count label", async () => {
+		test.setTimeout(120_000);
+		await openIndexTsDiff();
+		// After the resolve test, one comment is unresolved and one is addressed in
+		// this file, so the chip reads "1/2". The chip is now a plain label (a
+		// <span>), not a button, so it has no click behavior to exercise.
+		const commentsChip = page.getByTestId("review-chipbar-comments");
+		await expect(commentsChip).toBeVisible({ timeout: 10_000 });
+		await expect(commentsChip).toContainText("1/2", { timeout: 10_000 });
+		await expect(commentsChip).toHaveJSProperty("tagName", "SPAN");
+	});
+
+	test("Commits mode shows the progress header and mark-viewed toggle", async () => {
+		test.setTimeout(120_000);
+		await ensureReviewOverlayOpen(page);
+		await page.keyboard.press("Meta+3"); // review.commits
+		// Guard: if the fixture has no reviewable commits, skip rather than
+		// silently passing as covered. Never omit this guard — an empty commit
+		// list would let the assertions below trivially succeed without exercising
+		// the Commits-mode rail chrome at all.
+		const commitItems = page.locator(".shell-commit-list__item");
+		if ((await commitItems.count()) === 0) {
+			console.log("Commits-mode e2e skipped: no reviewable commits in fixture");
+			test.skip();
+			return;
+		}
+		await commitItems.first().click();
+		await page
+			.locator(".shell-commit-list__files .shell-list__item--split")
+			.first()
+			.click();
+		await expect(
+			page.locator('[data-testid="review-progress-header"]'),
+		).toBeVisible({ timeout: 10_000 });
+		const toggle = page.locator('[data-testid="mark-viewed-toggle"]');
+		await expect(toggle).toBeVisible();
+		await toggle.click();
+		await expect(toggle).toHaveText(/viewed/i);
 	});
 });

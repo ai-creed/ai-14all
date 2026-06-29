@@ -96,7 +96,11 @@ function onChannelBuffered<T>(
 // and any pending entry is drained — preventing a stale buffer leak.
 const pendingEvents: Record<string, unknown> = {};
 const pendingOnceRemovers: Record<string, () => void> = {};
-for (const channel of ["update:available", "update:downloaded"] as const) {
+for (const channel of [
+	"update:available",
+	"update:downloaded",
+	"usage:snapshot",
+] as const) {
 	const handler = (_: Electron.IpcRendererEvent, payload: unknown) => {
 		pendingEvents[channel] = payload;
 		delete pendingOnceRemovers[channel];
@@ -332,20 +336,11 @@ const api: Ai14AllDesktopApi = {
 		setEnabled(enabled) {
 			return ipcRenderer.invoke("usage:setEnabled", enabled);
 		},
-		setBudgets(fiveHourBudget, weeklyBudget) {
-			return ipcRenderer.invoke("usage:setBudgets", {
-				fiveHourBudget,
-				weeklyBudget,
-			});
-		},
-		setWeeklyReset(weeklyResetDay, weeklyResetHour) {
-			return ipcRenderer.invoke("usage:setWeeklyReset", {
-				weeklyResetDay,
-				weeklyResetHour,
-			});
-		},
 		setIncludeUntracked(includeUntracked) {
 			return ipcRenderer.invoke("usage:setIncludeUntracked", includeUntracked);
+		},
+		setChipRange(range) {
+			return ipcRenderer.invoke("usage:setChipRange", range);
 		},
 	},
 	reviewComments: {

@@ -16,6 +16,12 @@ export function gaugeColor(percent: number): GaugeLevel {
 	return "ok";
 }
 
+// Notional dollars. Two decimals below $100, whole dollars above. Callers prefix
+// "~" to signal "API-equivalent value", not a bill.
+export function formatUsd(n: number): string {
+	return n >= 100 ? `$${Math.round(n)}` : `$${n.toFixed(2)}`;
+}
+
 // Relative countdown to a reset epoch (ms). "" when unknown, "now" when past.
 export function formatReset(resetsAtMs: number | null, nowMs: number): string {
 	if (resetsAtMs === null) return "";

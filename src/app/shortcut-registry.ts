@@ -363,6 +363,21 @@ function isReviewDiffPrevShortcut(
 	return e.ctrlKey && !e.metaKey;
 }
 
+// ⌘⇧V / Ctrl+Shift+V — toggle the current file's "viewed" mark. Default typing
+// guard (no allowXterm): the terminal owns its keystrokes, so this never fires
+// while a terminal or input is focused.
+function isReviewMarkViewedShortcut(
+	e: KeyboardEvent,
+	platform: Platform,
+): boolean {
+	if (e.defaultPrevented) return false;
+	if (e.key !== "v" && e.key !== "V") return false;
+	if (e.altKey || !e.shiftKey) return false;
+	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
+	if (platform === "mac") return e.metaKey && !e.ctrlKey;
+	return e.ctrlKey && !e.metaKey;
+}
+
 export const SHORTCUT_REGISTRY: AppShortcut[] = [
 	{
 		id: "worktree.selectNext",
@@ -503,6 +518,13 @@ export const SHORTCUT_REGISTRY: AppShortcut[] = [
 		mac: "⌘⇧,",
 		other: "Ctrl+Shift+,",
 		predicate: isReviewDiffPrevShortcut,
+	},
+	{
+		id: "review.markViewed",
+		label: "Mark file viewed",
+		mac: "⌘⇧V",
+		other: "Ctrl+Shift+V",
+		predicate: isReviewMarkViewedShortcut,
 	},
 	{
 		id: "files-overlay",

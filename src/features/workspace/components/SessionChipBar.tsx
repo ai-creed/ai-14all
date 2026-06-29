@@ -10,6 +10,7 @@ type Props = {
 	onRenameClick: () => void;
 	onDirtyClick: () => void;
 	onFilesClick: () => void;
+	onCommandsClick: () => void;
 	onNoteClick: () => void;
 	/** Render slot for the token-telemetry strip, placed in the bar's mid gap. */
 	usage?: React.ReactNode;
@@ -31,6 +32,7 @@ export function SessionChipBar({
 	onRenameClick,
 	onDirtyClick,
 	onFilesClick,
+	onCommandsClick,
 	onNoteClick,
 	usage,
 	plugins,
@@ -88,6 +90,18 @@ export function SessionChipBar({
 				<button
 					type="button"
 					className="shell-chip-bar__action"
+					aria-label="Open command palette"
+					onClick={onCommandsClick}
+				>
+					<span className="shell-chip-bar__action-icon" aria-hidden="true">
+						<Icon name="code" />
+					</span>
+					Commands
+				</button>
+				{plugins}
+				<button
+					type="button"
+					className="shell-chip-bar__action"
 					aria-label="Open Files"
 					onClick={onFilesClick}
 				>
@@ -96,7 +110,6 @@ export function SessionChipBar({
 					</span>
 					Files
 				</button>
-				{plugins}
 				<button
 					type="button"
 					className="shell-chip-bar__action"

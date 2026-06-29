@@ -2,23 +2,24 @@ import { describe, expect, it } from "vitest";
 import { UsageTelemetrySettingsSchema } from "../../../shared/models/persisted-workspace-state.js";
 
 describe("UsageTelemetrySettingsSchema", () => {
-	it("defaults enabled on with seeded-null budgets", () => {
-		const parsed = UsageTelemetrySettingsSchema.parse({});
-		expect(parsed).toEqual({
+	it("defaults to enabled, tracked-only, week chip range", () => {
+		expect(UsageTelemetrySettingsSchema.parse({})).toEqual({
 			enabled: true,
-			fiveHourBudget: null,
-			weeklyBudget: null,
 			includeUntracked: false,
-			weeklyResetDay: 1,
-			weeklyResetHour: 7,
+			chipRange: "week",
 		});
 	});
-	it("accepts overrides", () => {
+
+	it("rejects a popoverScope field is irrelevant — it simply isn't part of the schema", () => {
 		const parsed = UsageTelemetrySettingsSchema.parse({
-			enabled: false,
-			weeklyBudget: 30_000_000,
+			chipRange: "month",
+			popoverScope: "all-time",
 		});
-		expect(parsed.enabled).toBe(false);
-		expect(parsed.weeklyBudget).toBe(30_000_000);
+		expect(parsed).toEqual({
+			enabled: true,
+			includeUntracked: false,
+			chipRange: "month",
+		});
+		expect("popoverScope" in parsed).toBe(false);
 	});
 });

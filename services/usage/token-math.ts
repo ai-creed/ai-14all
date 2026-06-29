@@ -37,3 +37,20 @@ export function codexTokens(u: CodexUsageRaw): TokenTotals {
 	const input = Math.max(0, raw - n(u.cached_input_tokens) - output);
 	return { input, output, billable: input + output, raw };
 }
+
+export interface EzioUsageRaw {
+	contextTokens?: number;
+	outputTokens?: number;
+	cachedTokens?: number;
+	contextLimit?: number;
+}
+
+// ezio (hax engine) reports the running context size + output per turn. Non-cached
+// context is the billable input; cached context is the free re-read. raw = the
+// full context plus output (what actually moved through the model this turn).
+export function ezioTokens(u: EzioUsageRaw): TokenTotals {
+	const context = n(u.contextTokens);
+	const output = n(u.outputTokens);
+	const input = Math.max(0, context - n(u.cachedTokens));
+	return { input, output, billable: input + output, raw: context + output };
+}

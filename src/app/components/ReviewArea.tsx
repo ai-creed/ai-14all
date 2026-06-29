@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs } from "@/components/ui/tabs";
 import type { GitChange } from "../../../shared/models/git-change";
 import type { GitDiff } from "../../../shared/models/git-diff";
 import type {
@@ -16,31 +15,17 @@ import type {
 	WorkspaceState,
 } from "../../features/workspace/logic/workspace-state";
 import type { ResolvedTheme } from "../../lib/use-theme";
-import { CommitList } from "../../features/git/components/CommitList";
-import { ChangesList } from "../../features/git/components/ChangesList";
-import { FilesPane } from "./FilesPane";
-import { CommitDiffStack } from "../../features/git/components/CommitDiffStack";
-import { DiffViewer } from "../../features/viewer/components/DiffViewer";
-import { MarkdownPreviewModal } from "../../features/viewer/components/MarkdownPreviewModal";
-import {
-	InlineEditor,
-	type InlineEditorHandle,
-} from "../../features/viewer/components/InlineEditor";
-import { ReviewQueuePanel } from "../../features/review/components/ReviewQueuePanel";
-import { InlineMountsBridge } from "../../features/review/components/InlineMountsBridge";
-import { filterForInlineMount } from "../../features/review/logic/inline-mount-filter";
-import {
-	dispatchActionsForJump,
-	waitForEditor,
-	runCommentJump,
-} from "../../features/review/logic/queue-jump";
+import type { InlineEditorHandle } from "../../features/viewer/components/InlineEditor";
+import { MarkViewedToggle } from "../../features/review/components/MarkViewedToggle";
+import { ReviewProgressHeader } from "../../features/review/components/ReviewProgressHeader";
+import { CommentMinimap } from "../../features/review/components/CommentMinimap";
+import { ReviewRail } from "../../features/review/components/ReviewRail";
+import { DiffViewerPane } from "../../features/review/components/DiffViewerPane";
+import { runCommentJump } from "../../features/review/logic/queue-jump";
+import { filterHideAddressed } from "../../features/review/logic/group-comments";
 import { usePendingCommentJump } from "../../features/review/hooks/use-pending-comment-jump";
-import {
-	scrollToLineRange,
-	installAddAffordances,
-} from "../../features/review/logic/diff-editor-decorations";
-import { installSelectionPill } from "../../features/review/logic/inline-comment-widgets";
-import { installCommentKeyBindings } from "../../features/review/logic/comment-key-bindings";
+import { useReviewedFiles } from "../../features/review/hooks/use-reviewed-files";
+import { scrollToLineRange } from "../../features/review/logic/diff-editor-decorations";
 import { useToast } from "../../features/ui/toast/use-toast";
 import { createDiffEditorRegistry } from "../../features/review/logic/diff-editor-registry";
 import {
@@ -85,7 +70,6 @@ type Props = {
 	reviewState: ReviewState;
 	reviewRailWidth: number;
 	handleReviewRailResizeStart: (e: React.MouseEvent<HTMLDivElement>) => void;
-	commentSidebarOpen: boolean;
 	resolvedTheme: ResolvedTheme;
 	installCtaVisible: boolean;
 	onOpenInstall: () => void;
@@ -127,7 +111,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 		reviewState,
 		reviewRailWidth,
 		handleReviewRailResizeStart,
-		commentSidebarOpen,
 		resolvedTheme,
 		installCtaVisible,
 		onOpenInstall,
@@ -145,11 +128,60 @@ export function ReviewArea(props: Props): React.ReactElement {
 
 	// Local UI state owned by the review surface
 	const [treePreviewPath, setTreePreviewPath] = useState<string | null>(null);
-	const [hideAddressed, setHideAddressed] = useState(false);
+	// Always show addressed comments inline now that the overview (which owned the
+	// hide-addressed toggle) is gone. Kept as state so the value still threads
+	// through the comment filter and the diff viewer.
+	const [hideAddressed] = useState(false);
 	const [focusedThreadId, setFocusedThreadId] = useState<string | null>(null);
 	const diffEditorRegistry = useMemo(() => createDiffEditorRegistry(), []);
 	const toast = useToast();
 	const inlineEditorRef = useRef<InlineEditorHandle | null>(null);
+
+	// Single reviewed-files boundary: hashes diff content as editors mount and
+	// resolves which paths are currently considered reviewed (per mode).
+	const reviewed = useReviewedFiles({
+		worktreeId: activeWorktree.id,
+		marks: activeSession?.reviewedFiles ?? [],
+		dispatch,
+	});
+
+	// Record the changes-mode file's content as its diff loads, so its marker
+	// resets when the file changes (commit files are recorded on editor mount,
+	// via DiffViewerPane's onFileContent).
+	useEffect(() => {
+		if (activeSession?.reviewMode === "changes" && diffState.data) {
+			reviewed.recordHash(diffState.data.path, diffState.data.modifiedContent);
+		}
+	}, [activeSession?.reviewMode, diffState.data, reviewed]);
+
+	const reviewedPaths = useMemo(
+		() => reviewed.reviewedPaths(changes.map((c) => c.path)),
+		[reviewed, changes],
+	);
+
+	const commitFiles = commitDetailState.data?.files ?? [];
+	const commitReviewedPaths = useMemo(
+		() => reviewed.reviewedPaths(commitFiles.map((f) => f.path)),
+		[reviewed, commitFiles],
+	);
+	const commitOpenCommentCounts = useMemo(() => {
+		const counts: Record<string, number> = {};
+		const sha = activeSession?.selectedCommitSha ?? null;
+		for (const c of reviewState.comments) {
+			if (c.status === "open" && c.source === "commit" && c.commitSha === sha) {
+				counts[c.filePath] = (counts[c.filePath] ?? 0) + 1;
+			}
+		}
+		return counts;
+	}, [reviewState.comments, activeSession?.selectedCommitSha]);
+
+	const progress = useMemo(() => {
+		const paths =
+			activeSession?.reviewMode === "commits"
+				? (commitDetailState.data?.files ?? []).map((f) => f.path)
+				: changes.map((c) => c.path);
+		return reviewed.progress(paths);
+	}, [reviewed, activeSession?.reviewMode, commitDetailState.data, changes]);
 
 	// Lifted out of the comment-sidebar IIFE so the chip-initiated hook below can
 	// call it too. Reused for both the sidebar onJump (default 500ms editor
@@ -191,209 +223,41 @@ export function ReviewArea(props: Props): React.ReactElement {
 				? (activeSession?.selectedChangedFilePath ?? null)
 				: null;
 
-	const ensureFileFocused = useCallback(
-		(filePath: string) => {
-			if (activeSession?.reviewMode === "commits") {
-				if (activeSession.selectedCommitFilePath !== filePath) {
-					dispatch({
-						type: "session/selectCommitFile",
-						worktreeId: activeWorktree.id,
-						relativePath: filePath,
-					});
-				}
-			} else {
-				if (activeSession?.selectedChangedFilePath !== filePath) {
-					dispatch({
-						type: "session/selectChangedFile",
-						worktreeId: activeWorktree.id,
-						relativePath: filePath,
-					});
-				}
-			}
-		},
-		[activeWorktree, activeSession, dispatch],
+	// Total line count of the modified document, used to position minimap dots.
+	// Changes mode reads the loaded diff content directly; commits mode reads the
+	// live Monaco model (the diff is not held in React state there).
+	const totalLines = useMemo(() => {
+		if (activeSession?.reviewMode === "changes" && diffState.data) {
+			return diffState.data.modifiedContent.split("\n").length;
+		}
+		const editor = currentFilePath
+			? diffEditorRegistry.get(currentFilePath)
+			: null;
+		return editor?.getModifiedEditor?.().getModel?.()?.getLineCount?.() ?? 0;
+	}, [
+		activeSession?.reviewMode,
+		diffState.data,
+		currentFilePath,
+		diffEditorRegistry,
+	]);
+
+	const currentFileComments = useMemo(
+		() =>
+			filterHideAddressed(
+				reviewState.comments.filter((c) => c.filePath === currentFilePath),
+				hideAddressed,
+			),
+		[reviewState.comments, currentFilePath, hideAddressed],
 	);
-
-	const startDraft = useCallback(
-		(
-			arg: Pick<
-				NewCommentDraft,
-				"filePath" | "startLine" | "endLine" | "snippet"
-			>,
-		) => {
-			if (
-				addingDraft &&
-				addingDraft.body.trim().length > 0 &&
-				(addingDraft.filePath !== arg.filePath ||
-					addingDraft.startLine !== arg.startLine ||
-					addingDraft.endLine !== arg.endLine)
-			) {
-				const ok = window.confirm(
-					"You have an unsaved comment draft. Discard it and start a new one?",
-				);
-				if (!ok) return;
-			}
-			const source: ReviewCommentSource =
-				activeSession?.reviewMode === "commits" ? "commit" : "working-tree";
-			const commitSha =
-				activeSession?.reviewMode === "commits"
-					? (activeSession?.selectedCommitSha ?? null)
-					: null;
-			setAddingDraft({ ...arg, body: "", source, commitSha });
-		},
-		[addingDraft, setAddingDraft, activeSession],
-	);
-
-	const inlineComments = useMemo(() => {
-		const commitSha =
-			activeSession?.reviewMode === "commits"
-				? (activeSession?.selectedCommitSha ?? null)
-				: null;
-		const { inline } = filterForInlineMount(reviewState.comments, {
-			reviewMode: activeSession?.reviewMode ?? "files",
-			filePath: currentFilePath,
-			commitSha,
-		});
-		return hideAddressed
-			? inline.filter((c) => c.status !== "addressed")
-			: inline;
-	}, [reviewState.comments, activeSession, currentFilePath, hideAddressed]);
-
-	const navigateThread = useCallback(
-		(dir: 1 | -1) => {
-			const threadsForFile = inlineComments;
-			if (threadsForFile.length === 0) return;
-			const sorted = [...threadsForFile].sort(
-				(a, b) => a.startLine - b.startLine,
-			);
-			const idx = sorted.findIndex((c) => c.id === focusedThreadId);
-			const nextIdx =
-				idx === -1
-					? dir > 0
-						? 0
-						: sorted.length - 1
-					: (idx + dir + sorted.length) % sorted.length;
-			const target = sorted[nextIdx];
-			setFocusedThreadId(target.id);
-			const editor = diffEditorRegistry.get(target.filePath);
-			if (editor) scrollToLineRange(editor, target);
-		},
-		[inlineComments, focusedThreadId, diffEditorRegistry],
-	);
-
-	const pillsRef = useRef(
-		new Map<string, ReturnType<typeof installSelectionPill>>(),
-	);
-
-	// Stable refs so key-binding handlers (registered once at editor-mount time)
-	// always delegate to the latest versions without needing re-registration.
-	const startDraftRef = useRef<typeof startDraft>(null!);
-	const navigateThreadRef = useRef<(dir: 1 | -1) => void>(null!);
-	const focusedThreadIdRef = useRef<string | null>(null);
-	const reviewStateRef = useRef<ReviewState>(null!);
-
-	useEffect(() => {
-		startDraftRef.current = startDraft;
-	}, [startDraft]);
-	useEffect(() => {
-		navigateThreadRef.current = navigateThread;
-	}, [navigateThread]);
-	useEffect(() => {
-		focusedThreadIdRef.current = focusedThreadId;
-	}, [focusedThreadId]);
-	useEffect(() => {
-		reviewStateRef.current = reviewState;
-	}, [reviewState]);
-
-	const handleDiffEditorMount = useCallback(
-		(filePath: string, editor: Parameters<typeof installAddAffordances>[0]) => {
-			diffEditorRegistry.register(filePath, editor);
-
-			const disposeAdd = installAddAffordances(editor, {
-				filePath,
-				onEnsureFileFocused: ensureFileFocused,
-				onAddSingleLine: ({ filePath: fp, line, snippet }) =>
-					startDraftRef.current({
-						filePath: fp,
-						startLine: line,
-						endLine: line,
-						snippet,
-					}),
-				onSelectionChange: () => {
-					// selection-pill widget handles its own state
-				},
-			});
-
-			const pill = installSelectionPill(editor, filePath, (arg) =>
-				startDraftRef.current(arg),
-			);
-			pillsRef.current.set(filePath, pill);
-
-			installCommentKeyBindings(editor.getModifiedEditor(), {
-				addAtCaret: () => {
-					const pos = editor.getModifiedEditor().getPosition();
-					if (!pos) return;
-					const snippet =
-						editor
-							.getModifiedEditor()
-							.getModel()
-							?.getLineContent(pos.lineNumber) ?? "";
-					startDraftRef.current({
-						filePath,
-						startLine: pos.lineNumber,
-						endLine: pos.lineNumber,
-						snippet,
-					});
-				},
-				nextThread: () => navigateThreadRef.current(+1),
-				prevThread: () => navigateThreadRef.current(-1),
-				editFocused: () => {
-					const id = focusedThreadIdRef.current;
-					if (!id) return;
-					const c = reviewStateRef.current.comments.find((x) => x.id === id);
-					if (c) scrollToLineRange(editor, c);
-				},
-				toggleAddressedFocused: () => {
-					const id = focusedThreadIdRef.current;
-					if (!id) return;
-					const c = reviewStateRef.current.comments.find((x) => x.id === id);
-					if (!c) return;
-					if (c.status === "open")
-						void reviewStateRef.current.markAddressed(c.id);
-					else void reviewStateRef.current.reopen(c.id);
-				},
-			});
-
-			editor.onDidDispose(() => {
-				disposeAdd();
-				pill.dispose();
-				pillsRef.current.delete(filePath);
-				diffEditorRegistry.unregister(filePath);
-			});
-		},
-		[ensureFileFocused, diffEditorRegistry],
-	);
-
-	const handleDiffEditorUnmount = useCallback(
-		(filePath: string) => {
-			pillsRef.current.get(filePath)?.dispose();
-			pillsRef.current.delete(filePath);
-			diffEditorRegistry.unregister(filePath);
-		},
-		[diffEditorRegistry],
-	);
-
-	// Suppress selection pill while a draft for that file is active
-	useEffect(() => {
-		if (!currentFilePath) return;
-		const pill = pillsRef.current.get(currentFilePath);
-		if (!pill) return;
-		pill.setSuppressed(
-			addingDraft !== null && addingDraft.filePath === currentFilePath,
-		);
-	}, [currentFilePath, addingDraft]);
 
 	const platform = useMemo(() => detectPlatform(), []);
+
+	// Whether the current file is currently considered reviewed, and whether the
+	// active mode carries comment chrome (Changes/Commits — never Files).
+	const isCurrentFileReviewed = currentFilePath
+		? reviewed.isReviewed(currentFilePath)
+		: false;
+	const hasCommentChrome = activeSession?.reviewMode !== "files";
 
 	const stepFile = useCallback(
 		(direction: 1 | -1, e?: KeyboardEvent) => {
@@ -501,6 +365,44 @@ export function ReviewArea(props: Props): React.ReactElement {
 		navigateToPrevDiff(editor);
 	}, [currentFilePath, diffEditorRegistry]);
 
+	// Resolve the current file's modified content so the reviewed-files hook can
+	// hash it. In Changes mode the diff state holds the content directly; in
+	// Commits mode we read it from the live Monaco diff editor.
+	const getCurrentFileContent = useCallback((): string | null => {
+		if (!currentFilePath) return null;
+		if (activeSession?.reviewMode === "changes") {
+			return diffState.data && diffState.data.path === currentFilePath
+				? diffState.data.modifiedContent
+				: null;
+		}
+		const editor = diffEditorRegistry.get(currentFilePath);
+		const model = editor?.getModifiedEditor?.().getModel?.();
+		return model ? model.getValue() : null;
+	}, [
+		currentFilePath,
+		activeSession?.reviewMode,
+		diffState.data,
+		diffEditorRegistry,
+	]);
+
+	const handleMarkFileViewed = useCallback(() => {
+		if (!currentFilePath) return;
+		const content = getCurrentFileContent();
+		if (content === null) return;
+		// The hook owns the mark/unmark decision and the hashing.
+		reviewed.toggleViewed(currentFilePath, content);
+	}, [currentFilePath, getCurrentFileContent, reviewed]);
+
+	useKeyboardShortcut(
+		"review.markViewed",
+		platform,
+		(e) => {
+			e.preventDefault();
+			handleMarkFileViewed();
+		},
+		[handleMarkFileViewed],
+	);
+
 	// Render-synced ref so reviewNavCommands can reference the latest stepFile
 	// without listing it (or its churning deps) in the useMemo dependency array.
 	// This prevents an infinite render loop: stepFile's deps include `changes`
@@ -509,6 +411,12 @@ export function ReviewArea(props: Props): React.ReactElement {
 	// churn → useRegisterCommands re-fires → version bump → re-render → loop.
 	const stepFileRef = useRef(stepFile);
 	stepFileRef.current = stepFile;
+
+	// Same render-synced-ref pattern as stepFileRef: handleMarkFileViewed closes
+	// over churning deps (diffState.data), so reference it via a ref to keep
+	// reviewNavCommands stable and avoid a re-register loop.
+	const handleMarkFileViewedRef = useRef(handleMarkFileViewed);
+	handleMarkFileViewedRef.current = handleMarkFileViewed;
 
 	const reviewNavCommands = useMemo<Command[]>(
 		() => [
@@ -548,6 +456,15 @@ export function ReviewArea(props: Props): React.ReactElement {
 				run: goPrevDiff,
 				isAvailable: () => !!currentFilePath,
 			},
+			{
+				id: "review.markViewed",
+				title: "Mark file viewed",
+				group: "Review",
+				keybindingId: "review.markViewed",
+				run: () => handleMarkFileViewedRef.current(),
+				isAvailable: () =>
+					!!currentFilePath && activeSession?.reviewMode !== "files",
+			},
 		],
 		[
 			goNextDiff,
@@ -558,9 +475,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 		],
 	);
 	useRegisterCommands(reviewNavCommands, [reviewNavCommands]);
-
-	const draftBelongsHere =
-		addingDraft !== null && addingDraft.filePath === currentFilePath;
 
 	return (
 		<Tabs
@@ -579,166 +493,57 @@ export function ReviewArea(props: Props): React.ReactElement {
 				data-testid="review-grid"
 				data-focused-thread-id={focusedThreadId ?? ""}
 				style={{
-					gridTemplateColumns: commentSidebarOpen
-						? `${reviewRailWidth}px 8px minmax(0, 1fr) 8px ${activeSession?.reviewSidebarWidth ?? 280}px`
-						: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
+					gridTemplateColumns:
+						activeSession?.reviewMode !== "files" && currentFilePath
+							? `${reviewRailWidth}px 8px minmax(0, 1fr) 46px`
+							: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
 				}}
 			>
-				<section
-					className="shell-panel shell-review-rail"
-					data-testid="review-rail"
-				>
-					<div className="shell-review-rail__header">
-						<TabsList
-							aria-label="Review mode"
-							className="shell-review-tabs__list shell-review-tabs__segments"
-						>
-							<TabsTrigger value="files" className="shell-review-tab">
-								Files
-							</TabsTrigger>
-							<TabsTrigger value="changes" className="shell-review-tab">
-								Changes
-							</TabsTrigger>
-							<TabsTrigger value="commits" className="shell-review-tab">
-								Commits
-							</TabsTrigger>
-						</TabsList>
-					</div>
-
-					<ScrollArea className="shell-review-rail__scroll">
-						<div className="shell-rail__viewport">
-							{activeSession?.reviewMode === "commits" ? (
-								<>
-									{commitHistoryState.message && (
-										<p
-											className={
-												commitHistoryState.stale
-													? "shell-inline-warning"
-													: "shell-error"
-											}
-										>
-											{commitHistoryState.message}
-										</p>
-									)}
-									<CommitList
-										workspaceId={activeWorkspaceId ?? ""}
-										worktreeId={activeWorktree.id}
-										history={
-											commitHistoryState.data ?? {
-												mergeTargetRef: null,
-												entries: [],
-											}
-										}
-										selectedCommitSha={activeSession.selectedCommitSha}
-										selectedCommitFilePath={
-											activeSession.selectedCommitFilePath
-										}
-										activeDetail={commitDetailState.data}
-										onSelectCommit={(sha) =>
-											dispatch({
-												type: "session/selectCommit",
-												worktreeId: activeWorktree.id,
-												sha,
-											})
-										}
-										onDeselectCommit={() =>
-											dispatch({
-												type: "session/clearSelectedCommit",
-												worktreeId: activeWorktree.id,
-											})
-										}
-										onSelectCommitFile={(relativePath) =>
-											dispatch({
-												type: "session/selectCommitFile",
-												worktreeId: activeWorktree.id,
-												relativePath,
-											})
-										}
-										remoteStatus={remoteStatus}
-										onPush={handlePushBranch}
-										selectedCommitOpenCommentCount={
-											selectedCommitOpenCommentCount
-										}
-									/>
-								</>
-							) : activeSession?.reviewMode === "files" ? (
-								<>
-									<FilesPane
-										workspaceId={activeWorkspaceId ?? ""}
-										worktreeId={activeWorktree.id}
-										worktreeLabel={activeWorktree.label}
-										selectedFile={activeSession.selectedFilePath}
-										onSelect={async (relativePath) => {
-											const decision =
-												(await inlineEditorRef.current?.requestSwitch?.()) ??
-												"proceed";
-											if (decision === "cancel") return;
-											dispatch({
-												type: "session/selectFile",
-												worktreeId: activeWorktree.id,
-												relativePath,
-											});
-										}}
-										onPreviewMarkdown={setTreePreviewPath}
-										changedFiles={changes}
-										gitSummaryError={gitSummaryError}
-										gitSummaryMessage={gitSummaryMessage}
-										expandedPaths={activeSession.treeExpandedPaths}
-										onExpandedPathsChange={(worktreeId, paths) =>
-											dispatch({
-												type: "session/setTreeExpandedPaths",
-												worktreeId,
-												paths,
-											})
-										}
-										showIgnored={activeSession.treeShowIgnored}
-										onToggleShowIgnored={() =>
-											dispatch({
-												type: "session/setTreeShowIgnored",
-												worktreeId: activeWorktree.id,
-												showIgnored: !activeSession.treeShowIgnored,
-											})
-										}
-										mode={activeSession.filesPaneMode}
-										onModeChange={(filesPaneMode) =>
-											dispatch({
-												type: "session/setFilesPaneMode",
-												worktreeId: activeWorktree.id,
-												filesPaneMode,
-											})
-										}
-										onRequestClose={props.onCloseReview}
-									/>
-									{/* Always mounted, visibility driven by `open`: unmounting
-									    a Radix Dialog while it is still open skips its body
-									    pointer-events/aria cleanup and freezes the app. */}
-									<MarkdownPreviewModal
-										workspaceId={activeWorkspaceId ?? ""}
-										worktreeId={activeWorktree.id}
-										relativePath={treePreviewPath ?? ""}
-										open={treePreviewPath !== null}
-										onClose={() => setTreePreviewPath(null)}
-									/>
-								</>
-							) : (
-								<ChangesList
-									workspaceId={activeWorkspaceId ?? ""}
-									worktreeId={activeWorktree.id}
-									changes={changes}
-									selectedPath={activeSession?.selectedChangedFilePath ?? null}
-									onSelect={handleSelectChangedFile}
-									onDiscardChange={(relativePath) =>
-										setDiscardPath(relativePath)
-									}
-									gitSummaryError={gitSummaryError}
-									gitSummaryStale={gitSummaryStale}
-									gitSummaryMessage={gitSummaryMessage}
-									openCommentCounts={openCommentCounts}
+				<ReviewRail
+					activeWorktree={activeWorktree}
+					activeSession={activeSession}
+					activeWorkspaceId={activeWorkspaceId}
+					changes={changes}
+					openCommentCounts={openCommentCounts}
+					reviewedPaths={reviewedPaths}
+					commitReviewedPaths={commitReviewedPaths}
+					commitOpenCommentCounts={commitOpenCommentCounts}
+					commitHistoryState={commitHistoryState}
+					commitDetailState={commitDetailState}
+					remoteStatus={remoteStatus}
+					selectedCommitOpenCommentCount={selectedCommitOpenCommentCount}
+					gitSummaryError={gitSummaryError}
+					gitSummaryStale={gitSummaryStale}
+					gitSummaryMessage={gitSummaryMessage}
+					treePreviewPath={treePreviewPath}
+					onSetTreePreviewPath={setTreePreviewPath}
+					dispatch={dispatch}
+					handleSelectChangedFile={handleSelectChangedFile}
+					setDiscardPath={setDiscardPath}
+					handlePushBranch={handlePushBranch}
+					requestFileSwitch={async () =>
+						(await inlineEditorRef.current?.requestSwitch?.()) ?? "proceed"
+					}
+					onCloseReview={props.onCloseReview}
+					installCtaVisible={installCtaVisible}
+					onOpenInstall={onOpenInstall}
+					header={
+						hasCommentChrome ? (
+							<>
+								<ReviewProgressHeader
+									reviewed={progress.reviewed}
+									total={progress.total}
 								/>
-							)}
-						</div>
-					</ScrollArea>
-				</section>
+								{currentFilePath ? (
+									<MarkViewedToggle
+										reviewed={isCurrentFileReviewed}
+										onToggle={handleMarkFileViewed}
+									/>
+								) : null}
+							</>
+						) : null
+					}
+				/>
 
 				<div
 					role="separator"
@@ -749,210 +554,42 @@ export function ReviewArea(props: Props): React.ReactElement {
 					onMouseDown={handleReviewRailResizeStart}
 				/>
 
-				<section className="shell-panel shell-viewer-panel">
-					<InlineMountsBridge
-						registry={diffEditorRegistry}
-						filePath={currentFilePath}
-						comments={inlineComments}
-						draft={
-							draftBelongsHere && addingDraft
-								? {
-										startLine: addingDraft.startLine,
-										endLine: addingDraft.endLine,
-									}
-								: null
-						}
-						draftBody={draftBelongsHere ? (addingDraft?.body ?? "") : ""}
-						onDraftChange={updateAddingDraftBody}
-						onSave={async (id, body) => {
-							try {
-								const res = await reviewState.update(id, body);
-								if (res && "ok" in res && !res.ok) {
-									toast.show(
-										`Failed to update comment: ${(res as { ok: false; error: string }).error}`,
-									);
-									return false;
-								}
-								return true;
-							} catch (e) {
-								toast.show(`Failed to update: ${(e as Error).message}`);
-								return false;
-							}
-						}}
+				<DiffViewerPane
+					activeWorktree={activeWorktree}
+					activeSession={activeSession}
+					activeWorkspaceId={activeWorkspaceId}
+					diffState={diffState}
+					commitDetailState={commitDetailState}
+					reviewState={reviewState}
+					registry={diffEditorRegistry}
+					resolvedTheme={resolvedTheme}
+					hideAddressed={hideAddressed}
+					currentFilePath={currentFilePath}
+					addingDraft={addingDraft}
+					setAddingDraft={setAddingDraft}
+					updateAddingDraftBody={updateAddingDraftBody}
+					bumpRefreshKey={bumpRefreshKey}
+					dispatch={dispatch}
+					inlineEditorRef={inlineEditorRef}
+					focusedThreadId={focusedThreadId}
+					onFocusedThreadChange={setFocusedThreadId}
+					onFileContent={reviewed.recordHash}
+				/>
+
+				{activeSession?.reviewMode !== "files" && currentFilePath ? (
+					<CommentMinimap
+						comments={currentFileComments}
+						totalLines={totalLines}
+						progress={progress}
+						onJump={(c) => void jumpToComment(c)}
 						onToggleAddressed={async (id) => {
 							const c = reviewState.comments.find((x) => x.id === id);
 							if (!c) return;
-							try {
-								if (c.status === "open") await reviewState.markAddressed(id);
-								else await reviewState.reopen(id);
-							} catch (e) {
-								toast.show(`Failed: ${(e as Error).message}`);
-							}
+							if (c.status === "open") await reviewState.markAddressed(id);
+							else await reviewState.reopen(id);
 						}}
-						onDelete={async (id) => {
-							try {
-								await reviewState.remove(id);
-							} catch (e) {
-								toast.show(`Failed to delete: ${(e as Error).message}`);
-							}
-						}}
-						onSubmitDraft={async () => {
-							if (!addingDraft || addingDraft.body.trim().length === 0) return;
-							try {
-								await reviewState.create({
-									filePath: addingDraft.filePath,
-									startLine: addingDraft.startLine,
-									endLine: addingDraft.endLine,
-									snippet: addingDraft.snippet,
-									body: addingDraft.body.trim(),
-									source: addingDraft.source,
-									commitSha: addingDraft.commitSha,
-								});
-								setAddingDraft(null);
-							} catch (e) {
-								toast.show(`Failed to save: ${(e as Error).message}`);
-							}
-						}}
-						onCancelDraft={() => setAddingDraft(null)}
 					/>
-					{activeSession?.reviewMode === "commits" &&
-					commitDetailState.message !== null &&
-					commitDetailState.data === null ? (
-						<p className="shell-error">{commitDetailState.message}</p>
-					) : activeSession?.reviewMode === "commits" &&
-					  commitDetailState.data ? (
-						<CommitDiffStack
-							key={commitDetailState.data.sha}
-							workspaceId={activeWorkspaceId ?? ""}
-							worktreeId={activeWorktree.id}
-							detail={commitDetailState.data}
-							focusedPath={activeSession.selectedCommitFilePath}
-							resolvedTheme={resolvedTheme}
-							onEditorMount={(filePath, editor) => {
-								handleDiffEditorMount(filePath, editor);
-							}}
-							onEditorUnmount={handleDiffEditorUnmount}
-						/>
-					) : activeSession?.reviewMode === "files" &&
-					  activeSession.selectedFilePath ? (
-						<InlineEditor
-							ref={inlineEditorRef}
-							workspaceId={activeWorkspaceId ?? ""}
-							worktreeId={activeWorktree.id}
-							relativePath={activeSession.selectedFilePath}
-							resolvedTheme={resolvedTheme}
-							onSaved={bumpRefreshKey}
-							pendingReveal={activeSession.pendingReveal}
-							onConsumePendingReveal={() =>
-								dispatch({
-									type: "session/consumePendingReveal",
-									worktreeId: activeWorktree.id,
-								})
-							}
-						/>
-					) : activeSession?.reviewMode === "changes" && diffState.data ? (
-						<DiffViewer
-							key={diffState.data.path}
-							path={diffState.data.path}
-							content={diffState.data.content}
-							originalContent={diffState.data.originalContent}
-							modifiedContent={diffState.data.modifiedContent}
-							resolvedTheme={resolvedTheme}
-							onMount={(filePath, editor) => {
-								handleDiffEditorMount(filePath, editor);
-							}}
-						/>
-					) : (
-						<p className="shell-empty-state">
-							Select a file or changed file to inspect it.
-						</p>
-					)}
-				</section>
-
-				{commentSidebarOpen &&
-					(() => {
-						const reviewMode = activeSession?.reviewMode ?? "files";
-						const commitSha =
-							reviewMode === "commits"
-								? (activeSession?.selectedCommitSha ?? null)
-								: null;
-
-						return (
-							<ReviewQueuePanel
-								activeMode={
-									reviewMode === "commits"
-										? { kind: "commits", commitSha }
-										: reviewMode === "changes"
-											? { kind: "changes" }
-											: { kind: "files" }
-								}
-								comments={reviewState.comments}
-								hideAddressed={hideAddressed}
-								pendingDraft={
-									addingDraft && addingDraft.filePath !== currentFilePath
-										? addingDraft
-										: null
-								}
-								onJumpToPendingDraft={async (draft) => {
-									const actions = dispatchActionsForJump({
-										id: "__pending_draft__",
-										worktreeId: activeWorktree.id,
-										filePath: draft.filePath,
-										startLine: draft.startLine,
-										endLine: draft.endLine,
-										snippet: draft.snippet,
-										body: draft.body,
-										status: "open",
-										source: draft.source,
-										commitSha: draft.commitSha,
-										createdAt: new Date(0).toISOString(),
-										addressedAt: null,
-									});
-									for (const a of actions) dispatch(a);
-									const editor = await waitForEditor(
-										() => diffEditorRegistry.get(draft.filePath) ?? null,
-									);
-									if (editor) {
-										scrollToLineRange(editor, draft);
-									}
-								}}
-								onJump={(c) => void jumpToComment(c)}
-								onToggleAddressed={async (id) => {
-									const c = reviewState.comments.find((x) => x.id === id);
-									if (!c) return;
-									try {
-										if (c.status === "open")
-											await reviewState.markAddressed(id);
-										else await reviewState.reopen(id);
-									} catch (e) {
-										toast.show(`Failed: ${(e as Error).message}`);
-									}
-								}}
-								onDelete={async (id) => {
-									try {
-										await reviewState.remove(id);
-									} catch (e) {
-										toast.show(`Failed to delete: ${(e as Error).message}`);
-									}
-								}}
-								onClearAddressed={async () => {
-									try {
-										const res = await reviewState.clearAddressed();
-										if (res && "ok" in res && !res.ok) {
-											toast.show(
-												`Failed to clear: ${(res as { ok: false; error: string }).error}`,
-											);
-										}
-									} catch (e) {
-										toast.show(`Failed to clear: ${(e as Error).message}`);
-									}
-								}}
-								onToggleHideAddressed={() => setHideAddressed((v) => !v)}
-								installCtaVisible={installCtaVisible}
-								onOpenInstall={onOpenInstall}
-							/>
-						);
-					})()}
+				) : null}
 			</div>
 		</Tabs>
 	);

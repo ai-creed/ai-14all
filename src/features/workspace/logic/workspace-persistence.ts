@@ -101,6 +101,8 @@ export function buildWorkspaceSnapshot(
 				terminalLayoutId: session.terminalLayoutId,
 				slotProcessIds: session.slotProcessIds,
 				reviewSidebarWidth: session.reviewSidebarWidth,
+				reviewedFiles: session.reviewedFiles,
+				reviewOverviewExpanded: session.reviewOverviewExpanded,
 				nextAdHocNumber:
 					state.nextAdHocNumberByWorktreeId[session.worktreeId] ?? 1,
 				processSessions: session.processSessionIds

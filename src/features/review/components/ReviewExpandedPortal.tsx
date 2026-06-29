@@ -35,9 +35,6 @@ interface ReviewExpandedPortalProps {
 	reviewMode: ReviewMode;
 	isDirty: boolean;
 	changedFileCount: number;
-	commentSidebarOpen?: boolean;
-	onToggleCommentSidebar?: () => void;
-	openCommentCount?: number | null;
 	children: React.ReactNode;
 }
 
@@ -53,9 +50,6 @@ export const ReviewExpandedPortal = forwardRef<
 		reviewMode,
 		isDirty,
 		changedFileCount,
-		commentSidebarOpen,
-		onToggleCommentSidebar,
-		openCommentCount,
 		children,
 	},
 	ref,
@@ -217,17 +211,6 @@ export const ReviewExpandedPortal = forwardRef<
 					</span>
 				)}
 				<span className="shell-review-chipbar__spacer" />
-				{onToggleCommentSidebar &&
-					openCommentCount !== null &&
-					openCommentCount !== undefined && (
-						<ReviewBarButton
-							icon="comment"
-							label={commentSidebarOpen ? "Hide comments" : "Comments"}
-							ariaLabel={commentSidebarOpen ? "Hide comments" : "Show comments"}
-							title={commentSidebarOpen ? "Hide comments" : "Show comments"}
-							onClick={onToggleCommentSidebar}
-						/>
-					)}
 				<ReviewBarButton
 					icon="refresh"
 					label="Refresh"
