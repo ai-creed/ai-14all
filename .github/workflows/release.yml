@@ -143,17 +143,21 @@ jobs:
       - name: Verify signature & notarization
         shell: bash
         run: |
-          APP=$(find release -maxdepth 2 -name '*.app' | head -1)
-          if [ -z "$APP" ]; then echo "no .app found in release/"; exit 1; fi
-          echo "Verifying app: $APP"
-          codesign --verify --deep --strict --verbose=2 "$APP"
-          spctl --assess --type execute --verbose=2 "$APP"
+          mapfile -t APPS < <(find release -maxdepth 2 -name '*.app')
+          if [ "${#APPS[@]}" -eq 0 ]; then echo "no .app found in release/"; exit 1; fi
+          for APP in "${APPS[@]}"; do
+            echo "Verifying app: $APP"
+            codesign --verify --deep --strict --verbose=2 "$APP"
+            spctl --assess --type execute --verbose=2 "$APP"
+          done
 
-          DMG=$(find release -maxdepth 1 -name '*.dmg' | head -1)
-          if [ -z "$DMG" ]; then echo "no .dmg found in release/"; exit 1; fi
-          echo "Verifying dmg: $DMG"
-          codesign --verify --verbose=2 "$DMG"
-          spctl --assess --type install --verbose=2 "$DMG"
+          mapfile -t DMGS < <(find release -maxdepth 1 -name '*.dmg')
+          if [ "${#DMGS[@]}" -eq 0 ]; then echo "no .dmg found in release/"; exit 1; fi
+          for DMG in "${DMGS[@]}"; do
+            echo "Verifying dmg: $DMG"
+            codesign --verify --verbose=2 "$DMG"
+            spctl --assess --type install --verbose=2 "$DMG"
+          done
 
       - name: Pre-rewrite validation
         shell: bash
@@ -197,6 +201,7 @@ jobs:
           target="${{ steps.resolve.outputs.version }}"
           mdx="src/content/projects/ai-14all.mdx"
           sed -i.bak -E \
+            -e "s|ai-14all-[0-9]+\.[0-9]+\.[0-9]+-universal\.dmg|ai-14all-${target}-universal.dmg|g" \
             -e "s|ai-14all-[0-9]+\.[0-9]+\.[0-9]+-arm64\.dmg|ai-14all-${target}-arm64.dmg|g" \
             -e "s|ai-14all-[0-9]+\.[0-9]+\.[0-9]+-x64-Setup\.exe|ai-14all-${target}-x64-Setup.exe|g" \
             -e "s|releases/download/v[0-9]+\.[0-9]+\.[0-9]+/|releases/download/v${target}/|g" \
