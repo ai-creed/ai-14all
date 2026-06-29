@@ -86,16 +86,26 @@ describe("matchCwd dir-slug (ezio)", () => {
 });
 
 describe("workspaceGroupFor", () => {
+	// Only a worktree of `app` is open (main checkout closed). Repo root = /Users/me/Dev/app.
 	const known = [
-		{ worktreeId: "w1", workspaceId: "ws-app", title: "main", path: "/Users/me/Dev/app/main" },
+		{ worktreeId: "w2", workspaceId: "ws-app", title: "feat", path: "/Users/me/Dev/app/.worktrees/feat" },
 	];
-	it("groups a deleted worktree under its workspace when the root prefix matches a known one", () => {
-		// /Users/me/Dev/app/feature-x is gone, but shares the /Users/me/Dev/app root
-		const g = workspaceGroupFor("/Users/me/Dev/app/feature-x", known);
-		expect(g.workspaceId).toBe("ws-app");
-		expect(g.title).toBe("main"); // or the workspace label derivable from known
+	it("groups a closed sibling worktree of the same repo under its workspace", () => {
+		// /Users/me/Dev/app/.worktrees/gone shares the repo root /Users/me/Dev/app
+		expect(workspaceGroupFor("/Users/me/Dev/app/.worktrees/gone", known).workspaceId).toBe("ws-app");
 	});
-	it("falls back to untracked when no workspace root is derivable", () => {
+	it("groups the repo's main checkout under its workspace", () => {
+		expect(workspaceGroupFor("/Users/me/Dev/app", known).workspaceId).toBe("ws-app");
+	});
+	it("does NOT merge a sibling REPO that only shares a parent directory (the bug)", () => {
+		// /Users/me/Dev/other-repo is a DIFFERENT repo; it shares /Users/me/Dev with `app`
+		// but must not collapse into the app workspace.
+		expect(workspaceGroupFor("/Users/me/Dev/other-repo", known)).toEqual({
+			workspaceId: null,
+			title: "other (untracked)",
+		});
+	});
+	it("falls back to untracked when no repo root contains the cwd", () => {
 		expect(workspaceGroupFor("/tmp/random", known)).toEqual({ workspaceId: null, title: "other (untracked)" });
 	});
 });

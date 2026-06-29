@@ -55,11 +55,23 @@ describe("buildSnapshot coherence", () => {
 		const ledger = createLedger();
 		const session = createSession();
 		const now = Date.now();
-		// known worktree shares the /Users/me/Dev/app root
-		const k: KnownWorktree[] = [{ worktreeId: "w1", workspaceId: "ws-app", title: "main", path: "/Users/me/Dev/app/main" }];
-		ingestEvent(ledger, session, ev({ cwd: "/Users/me/Dev/app/gone", timestampMs: now - HOUR, billable: 5, raw: 5 }), now - 2 * HOUR);
+		// an open worktree of `app`; the deleted worktree shares the repo root /Users/me/Dev/app
+		const k: KnownWorktree[] = [{ worktreeId: "w1", workspaceId: "ws-app", title: "feat", path: "/Users/me/Dev/app/.worktrees/feat" }];
+		ingestEvent(ledger, session, ev({ cwd: "/Users/me/Dev/app/.worktrees/gone", timestampMs: now - HOUR, billable: 5, raw: 5 }), now - 2 * HOUR);
 		const snap = buildSnapshot({ ledger, session, known: k, activeWorktreeIds: [], nowMs: now, includeUntracked: true, chipRange: "week", providersWithData: new Set(["codex"]), codexLimits: null });
 		const row = snap.scopes["all-time"].rows.find((r) => r.workspaceId === "ws-app");
 		expect(row?.tokens.billable).toBe(5);
+	});
+	it("does NOT attribute a sibling repo to another repo's workspace (only shares a parent dir)", () => {
+		const ledger = createLedger();
+		const session = createSession();
+		const now = Date.now();
+		const k: KnownWorktree[] = [{ worktreeId: "w1", workspaceId: "ws-app", title: "app", path: "/Users/me/Dev/app" }];
+		// a DIFFERENT repo under the same ~/Dev parent — must land in untracked, not ws-app.
+		ingestEvent(ledger, session, ev({ cwd: "/Users/me/Dev/other-repo", timestampMs: now - HOUR, billable: 7, raw: 7 }), now - 2 * HOUR);
+		const snap = buildSnapshot({ ledger, session, known: k, activeWorktreeIds: [], nowMs: now, includeUntracked: true, chipRange: "week", providersWithData: new Set(["codex"]), codexLimits: null });
+		expect(snap.scopes["all-time"].rows.find((r) => r.workspaceId === "ws-app")).toBeUndefined();
+		const untracked = snap.scopes["all-time"].rows.find((r) => r.workspaceId === null);
+		expect(untracked?.tokens.billable).toBe(7);
 	});
 });
