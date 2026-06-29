@@ -102,3 +102,59 @@ export function buildSessionReport(input: ObserveInput): SessionReportResult {
 		sessions,
 	});
 }
+
+// The workflow fragment, reproduced from the structured entry. Escalation wins
+// over a running workflow — exactly the precedence in assembleObserve's
+// workflowFragment.
+function workflowFragmentFromEntry(entry: SessionEntry): string {
+	if (entry.escalation) return `workflow escalated: ${entry.escalation.reason}`;
+	const wf = entry.workflow;
+	if (!wf) return "";
+	const phase = wf.phaseName ? ` ${wf.phaseName}` : "";
+	return `${wf.workflowType} ${wf.status}${phase}`.trim();
+}
+
+// The transition tail, reproduced from the structured entry's `recent` history —
+// identical to assembleObserve's recentFragment.
+function recentFragmentFromEntry(recent: SessionEntry["recent"]): string {
+	if (recent.length === 0) return "";
+	const parts = recent.map((r) => {
+		const detail = [r.summary, r.source].filter(Boolean).join("; ");
+		return detail ? `${r.from}→${r.to} (${detail})` : `${r.from}→${r.to}`;
+	});
+	return `recent: ${parts.join(", ")}`;
+}
+
+// Render Samantha's spoken report FROM the canonical structure. Byte-for-byte
+// identical to renderReport(assembleObserve(input)) for every field the
+// structure models — provider, attention, summary, task, next, reviews,
+// workflow/escalation, the recent: tail, the focus marker, the headline, and
+// the per-worktree ordering. No speech drift.
+export function renderReportText(report: SessionReportResult): string {
+	const focusBranch =
+		report.sessions.find((s) => s.worktreeId === report.focus)?.branch ?? null;
+	const count = report.sessions.length;
+	const head = `[${report.mode}]${focusBranch ? ` focus ${focusBranch}` : ""}`;
+	const digest = report.sessions.map((s) => `${s.branch} ${s.attention}`);
+	const summary =
+		count === 0
+			? `${head} — no active sessions`
+			: `${head} — ${count} session${count === 1 ? "" : "s"}: ${digest.join(", ")}`;
+	if (count === 0) return summary;
+
+	const lines = report.sessions.map((s) => {
+		const fields = [
+			s.provider ?? "",
+			s.attention,
+			s.summary,
+			s.task ? `task: ${s.task}` : "",
+			s.nextAction ? `next: ${s.nextAction}` : "",
+			s.reviewCount > 0 ? `${s.reviewCount} reviews` : "",
+			workflowFragmentFromEntry(s),
+			recentFragmentFromEntry(s.recent),
+		].filter((f) => f.length > 0);
+		const prefix = s.worktreeId === report.focus ? "★ " : "";
+		return `${s.repo}/${s.branch}: ${prefix}${fields.join(" · ")}`;
+	});
+	return [summary, ...lines].join("\n");
+}
