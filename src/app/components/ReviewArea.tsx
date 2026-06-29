@@ -20,7 +20,6 @@ import { MarkViewedToggle } from "../../features/review/components/MarkViewedTog
 import { ReviewProgressHeader } from "../../features/review/components/ReviewProgressHeader";
 import { CommentMinimap } from "../../features/review/components/CommentMinimap";
 import { ReviewRail } from "../../features/review/components/ReviewRail";
-import { ReviewRailOverview } from "../../features/review/components/ReviewRailOverview";
 import { DiffViewerPane } from "../../features/review/components/DiffViewerPane";
 import { runCommentJump } from "../../features/review/logic/queue-jump";
 import { filterHideAddressed } from "../../features/review/logic/group-comments";
@@ -129,7 +128,10 @@ export function ReviewArea(props: Props): React.ReactElement {
 
 	// Local UI state owned by the review surface
 	const [treePreviewPath, setTreePreviewPath] = useState<string | null>(null);
-	const [hideAddressed, setHideAddressed] = useState(false);
+	// Always show addressed comments inline now that the overview (which owned the
+	// hide-addressed toggle) is gone. Kept as state so the value still threads
+	// through the comment filter and the diff viewer.
+	const [hideAddressed] = useState(false);
 	const [focusedThreadId, setFocusedThreadId] = useState<string | null>(null);
 	const diffEditorRegistry = useMemo(() => createDiffEditorRegistry(), []);
 	const toast = useToast();
@@ -386,14 +388,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 		reviewed.toggleViewed(currentFilePath, content);
 	}, [currentFilePath, getCurrentFileContent, reviewed]);
 
-	const handleToggleOverview = useCallback(() => {
-		dispatch({
-			type: "session/setReviewOverviewExpanded",
-			worktreeId: activeWorktree.id,
-			expanded: !(activeSession?.reviewOverviewExpanded ?? false),
-		});
-	}, [activeWorktree.id, activeSession?.reviewOverviewExpanded, dispatch]);
-
 	useKeyboardShortcut(
 		"review.markViewed",
 		platform,
@@ -402,15 +396,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 			handleMarkFileViewed();
 		},
 		[handleMarkFileViewed],
-	);
-	useKeyboardShortcut(
-		"review.toggleOverview",
-		platform,
-		(e) => {
-			e.preventDefault();
-			handleToggleOverview();
-		},
-		[handleToggleOverview],
 	);
 
 	// Render-synced ref so reviewNavCommands can reference the latest stepFile
@@ -422,13 +407,11 @@ export function ReviewArea(props: Props): React.ReactElement {
 	const stepFileRef = useRef(stepFile);
 	stepFileRef.current = stepFile;
 
-	// Same render-synced-ref pattern as stepFileRef: these handlers close over
-	// churning deps (diffState.data, reviewOverviewExpanded), so reference them
-	// via refs to keep reviewNavCommands stable and avoid a re-register loop.
+	// Same render-synced-ref pattern as stepFileRef: handleMarkFileViewed closes
+	// over churning deps (diffState.data), so reference it via a ref to keep
+	// reviewNavCommands stable and avoid a re-register loop.
 	const handleMarkFileViewedRef = useRef(handleMarkFileViewed);
 	handleMarkFileViewedRef.current = handleMarkFileViewed;
-	const handleToggleOverviewRef = useRef(handleToggleOverview);
-	handleToggleOverviewRef.current = handleToggleOverview;
 
 	const reviewNavCommands = useMemo<Command[]>(
 		() => [
@@ -477,14 +460,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 				isAvailable: () =>
 					!!currentFilePath && activeSession?.reviewMode !== "files",
 			},
-			{
-				id: "review.toggleOverview",
-				title: "Toggle comments overview",
-				group: "Review",
-				keybindingId: "review.toggleOverview",
-				run: () => handleToggleOverviewRef.current(),
-				isAvailable: () => activeSession?.reviewMode !== "files",
-			},
 		],
 		[
 			goNextDiff,
@@ -495,36 +470,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 		],
 	);
 	useRegisterCommands(reviewNavCommands, [reviewNavCommands]);
-
-	const overviewNode =
-		activeSession?.reviewMode === "files" ? null : (
-			<ReviewRailOverview
-				comments={reviewState.comments}
-				hideAddressed={hideAddressed}
-				expanded={activeSession?.reviewOverviewExpanded ?? false}
-				onToggleExpanded={() =>
-					dispatch({
-						type: "session/setReviewOverviewExpanded",
-						worktreeId: activeWorktree.id,
-						expanded: !(activeSession?.reviewOverviewExpanded ?? false),
-					})
-				}
-				onJump={(c) => void jumpToComment(c)}
-				onToggleAddressed={async (id) => {
-					const c = reviewState.comments.find((x) => x.id === id);
-					if (!c) return;
-					if (c.status === "open") await reviewState.markAddressed(id);
-					else await reviewState.reopen(id);
-				}}
-				onDelete={async (id) => {
-					await reviewState.remove(id);
-				}}
-				onClearAddressed={async () => {
-					await reviewState.clearAddressed();
-				}}
-				onToggleHideAddressed={() => setHideAddressed((v) => !v)}
-			/>
-		);
 
 	return (
 		<Tabs
@@ -593,7 +538,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 							</>
 						) : null
 					}
-					footer={overviewNode}
 				/>
 
 				<div

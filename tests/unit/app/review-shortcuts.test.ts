@@ -20,10 +20,9 @@ function ev(over: Partial<KeyboardEvent>): KeyboardEvent {
 	} as unknown as KeyboardEvent;
 }
 
-describe("review.markViewed / review.toggleOverview", () => {
-	it("are registered with the expected bindings", () => {
+describe("review.markViewed", () => {
+	it("is registered with the expected binding", () => {
 		expect(find("review.markViewed").mac).toBe("⌘⇧V");
-		expect(find("review.toggleOverview").mac).toBe("⌘⇧O");
 	});
 
 	it("markViewed fires on Cmd+Shift+V (mac)", () => {
@@ -40,12 +39,5 @@ describe("review.markViewed / review.toggleOverview", () => {
 		expect(
 			p(ev({ key: "v", metaKey: true, shiftKey: true, target: input }), "mac"),
 		).toBe(false);
-	});
-
-	it("toggleOverview fires on Ctrl+Shift+O (other)", () => {
-		const p = find("review.toggleOverview").predicate;
-		expect(p(ev({ key: "o", ctrlKey: true, shiftKey: true }), "other")).toBe(
-			true,
-		);
 	});
 });

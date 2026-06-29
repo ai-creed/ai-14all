@@ -3907,20 +3907,13 @@ select {
 	color: var(--danger);
 }
 
-.shell-review-chipbar__comments {
+/* Non-interactive unresolved/all comment count label (square corners, muted). */
+.shell-review-chip__comments {
 	color: var(--text-secondary);
 	font-size: 0.7rem;
 	background: color-mix(in srgb, var(--accent) 10%, transparent);
-	border-radius: var(--radius-sm);
+	border-radius: 0;
 	padding: 2px 7px;
-}
-
-.shell-review-chipbar__open {
-	color: var(--accent);
-}
-
-.shell-review-chipbar__addressed {
-	color: var(--text-muted);
 }
 
 .shell-review-chipbar__status--action {
@@ -3930,18 +3923,6 @@ select {
 }
 
 .shell-review-chipbar__status--action:hover {
-	text-decoration: underline;
-}
-
-.shell-review-chipbar__open--action {
-	background: none;
-	border: none;
-	padding: 0;
-	font: inherit;
-	cursor: pointer;
-}
-
-.shell-review-chipbar__open--action:hover {
 	text-decoration: underline;
 }
 
@@ -5508,173 +5489,6 @@ select {
 	justify-content: flex-end;
 	gap: var(--space-2);
 	margin-top: var(--space-3);
-}
-
-/* ── ReviewRailOverview ─────────────────────────────── */
-
-.shell-review-overview {
-	border-top: var(--shell-border-width) solid var(--panel-border);
-	margin-top: var(--space-2);
-}
-
-.shell-review-overview__toggle {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	width: 100%;
-	padding: var(--space-2) var(--space-3);
-	background: transparent;
-	border: none;
-	border-radius: 0;
-	color: var(--text-secondary);
-	cursor: pointer;
-	font: inherit;
-	font-size: 0.8rem;
-	text-align: left;
-}
-
-.shell-review-overview__toggle:hover {
-	color: var(--text-primary);
-	background: var(--panel-bg-elevated);
-}
-
-.shell-review-overview__count {
-	font-size: 0.75rem;
-	color: var(--text-muted);
-}
-
-.shell-review-overview__actions {
-	display: flex;
-	gap: var(--space-2);
-	padding: var(--space-1) var(--space-3) var(--space-2);
-}
-
-.shell-review-overview__actions button {
-	background: none;
-	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: 0;
-	color: var(--text-secondary);
-	cursor: pointer;
-	font: inherit;
-	font-size: 0.75rem;
-	padding: 2px var(--space-2);
-}
-
-.shell-review-overview__actions button:hover:not(:disabled) {
-	border-color: var(--text-muted);
-	color: var(--text-primary);
-}
-
-.shell-review-overview__actions button:disabled {
-	opacity: 0.4;
-	cursor: default;
-}
-
-.shell-review-overview__btn--danger {
-	color: var(--destructive) !important;
-	border-color: color-mix(
-		in srgb,
-		var(--destructive) 40%,
-		var(--panel-border)
-	) !important;
-}
-
-.shell-review-overview__btn--danger:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--destructive) 10%, transparent) !important;
-	border-color: var(--destructive) !important;
-	color: var(--destructive) !important;
-}
-
-.shell-review-overview__group {
-	padding-bottom: var(--space-1);
-}
-
-.shell-review-overview__file {
-	padding: var(--space-1) var(--space-3);
-	font-size: 0.75rem;
-	font-weight: 600;
-	color: var(--text-muted);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.shell-review-overview__group ul {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-.shell-review-overview__row {
-	display: flex;
-	align-items: center;
-	border-left: 2px solid transparent;
-	border-radius: 0;
-}
-
-.shell-review-overview__row[data-status="open"] {
-	border-left-color: var(--warning);
-}
-
-.shell-review-overview__row[data-status="addressed"] {
-	border-left-color: var(--success);
-}
-
-.shell-review-overview__row-jump {
-	flex: 1;
-	display: flex;
-	align-items: baseline;
-	gap: var(--space-2);
-	min-width: 0;
-	padding: 4px var(--space-2) 4px var(--space-3);
-	background: none;
-	border: none;
-	border-radius: 0;
-	color: var(--text-secondary);
-	cursor: pointer;
-	font: inherit;
-	font-size: 0.8rem;
-	text-align: left;
-	overflow: hidden;
-}
-
-.shell-review-overview__row-jump:hover {
-	color: var(--text-primary);
-	background: var(--panel-bg-elevated);
-}
-
-.shell-review-overview__row-jump span:first-child {
-	flex-shrink: 0;
-	font-size: 0.7rem;
-	color: var(--text-muted);
-}
-
-.shell-review-overview__row-jump span:last-child {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.shell-review-overview__row-actions {
-	display: flex;
-	flex-shrink: 0;
-	gap: 2px;
-	padding-right: var(--space-1);
-}
-
-.shell-review-overview__row-actions button {
-	background: none;
-	border: none;
-	border-radius: 0;
-	color: var(--text-muted);
-	cursor: pointer;
-	font: inherit;
-	line-height: 1;
-	padding: 4px 6px;
-}
-
-.shell-review-overview__row-actions button:hover {
-	color: var(--text-primary);
 }
 
 /* ── CommentMinimap ─────────────────────────────────── */

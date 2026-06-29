@@ -49,8 +49,6 @@ type Props = {
 	onOpenInstall: () => void;
 	/** Slot rendered above the active list — Phase 2 fills this with the progress header. */
 	header?: React.ReactNode;
-	/** Slot rendered below the active list — Phase 2 fills this with the overview. */
-	footer?: React.ReactNode;
 };
 
 /**
@@ -58,8 +56,8 @@ type Props = {
  * plus the active list ladder (file tree, working-tree changes, or commit
  * history). Renders only the `shell-review-rail` section; the surrounding
  * `<Tabs>` context (and the diff viewer grid) stay in the host so the tab
- * triggers continue to drive the shared review mode. `header`/`footer` are
- * layout slots reserved for the progress header and overview added later.
+ * triggers continue to drive the shared review mode. `header` is a layout slot
+ * for the progress header and mark-viewed toggle.
  */
 export function ReviewRail(props: Props): React.ReactElement {
 	const {
@@ -89,7 +87,6 @@ export function ReviewRail(props: Props): React.ReactElement {
 		installCtaVisible,
 		onOpenInstall,
 		header,
-		footer,
 	} = props;
 
 	return (
@@ -242,8 +239,6 @@ export function ReviewRail(props: Props): React.ReactElement {
 							reviewedPaths={reviewedPaths}
 						/>
 					)}
-
-					{footer}
 				</div>
 			</ScrollArea>
 

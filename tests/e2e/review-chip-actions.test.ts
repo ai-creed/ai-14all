@@ -100,7 +100,7 @@ test.describe.serial("Review chip actions", () => {
 		await page.keyboard.press("Escape");
 	});
 
-	test("open-comments chip navigates to, reveals, and focuses the first open comment", async () => {
+	test("open-comments chip shows the unresolved/all comment count", async () => {
 		test.setTimeout(120_000);
 
 		// --- Arrange: create one open comment in src/index.ts via the inline draft flow ---
@@ -152,39 +152,17 @@ test.describe.serial("Review chip actions", () => {
 			}
 			throw new Error("Save button not found in draft thread");
 		});
-		// Confirm the comment persisted (rail overview will show it).
-		await page.evaluate(() => (document.querySelector('[data-testid="review-overview-toggle"]') as HTMLButtonElement | null)?.click());
-		await expect(page.getByTestId("review-overview")).toBeVisible({
-			timeout: 15_000,
-		});
-
-		// Collapse the overlay so the chip drives a cold-open jump. Use the
-		// collapse button (Escape is swallowed by the focused Monaco editor).
-		await page
-			.getByRole("button", { name: /collapse full review/i })
-			.click({ force: true });
-		await expect(page.getByTestId("review-expanded-portal")).toHaveCount(0, {
-			timeout: 15_000,
-		});
-
-		// --- Act: click the open-comments chip ---
-		const commentsChip = page.getByTestId("review-chipbar-comments");
-		await expect(commentsChip).toBeVisible({ timeout: 15_000 });
-		await commentsChip.click();
-
-		// --- Assert: overlay + sidebar open, jumped to the comment's file, thread
-		// revealed, and the thread is focused (not merely "sidebar visible"). ---
-		await expect(page.getByTestId("review-expanded-portal")).toBeVisible();
-		await expect(page.getByTestId("review-overview")).toBeVisible();
-		await expect(
-			page.locator('.shell-list__item[data-selected="true"]'),
-		).toContainText("index.ts", { timeout: 15_000 });
+		// Confirm the comment persisted by asserting its inline thread is present.
 		await expect(
 			page.locator(".shell-inline-thread", { hasText: "rename x" }),
 		).toBeVisible({ timeout: 15_000 });
-		await expect(page.getByTestId("review-grid")).not.toHaveAttribute(
-			"data-focused-thread-id",
-			"",
-		);
+
+		// --- Assert: the review chip is a non-interactive label reporting the
+		// worktree-wide unresolved/all comment count. With a single open comment it
+		// reads "1/1" and is a <span>, not a button. ---
+		const commentsChip = page.getByTestId("review-chipbar-comments");
+		await expect(commentsChip).toBeVisible({ timeout: 15_000 });
+		await expect(commentsChip).toContainText("1/1", { timeout: 15_000 });
+		await expect(commentsChip).toHaveJSProperty("tagName", "SPAN");
 	});
 });

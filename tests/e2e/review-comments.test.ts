@@ -3,7 +3,7 @@
  *
  * These tests exercise the new inline thread UX:
  *   - .shell-inline-thread (view-zone nodes in Monaco DOM, accessible via Playwright)
- *   - [data-testid="review-overview"] left-rail overview (collapsible "All open comments" section)
+ *   - [data-testid^="minimap-dot-"] right-side comment minimap dots
  *   - Keyboard shortcut Meta+Shift+A to open draft at caret (installCommentKeyBindings)
  *
  * Preload guard: window.ai14all is injected via contextBridge (contextIsolation:true,
@@ -100,23 +100,6 @@ async function openIndexTsDiff() {
 		throw new Error("Modified editor first view-line has no bounding box");
 	await page.mouse.click(box.x + 60, box.y + box.height / 2);
 	await page.waitForTimeout(200);
-}
-
-/**
- * Expand the left-rail overview only if it is currently collapsed. These tests
- * run serially without a reload and `reviewOverviewExpanded` persists across
- * them, so a blind toggle click could collapse an already-expanded overview.
- * Reading `aria-expanded` and clicking only when "false" is idempotent.
- */
-async function ensureOverviewExpanded(targetPage: Page) {
-	await targetPage.evaluate(() => {
-		const toggle = document.querySelector(
-			'[data-testid="review-overview-toggle"]',
-		) as HTMLButtonElement | null;
-		if (toggle && toggle.getAttribute("aria-expanded") === "false") {
-			toggle.click();
-		}
-	});
 }
 
 /**
@@ -218,7 +201,7 @@ test.afterAll(async () => {
 });
 
 test.describe.serial("Review comments — inline UX", () => {
-	test("hover-plus add single line, save, appears in rail overview", async () => {
+	test("hover-plus add single line, save, appears as inline thread and minimap dot", async () => {
 		test.setTimeout(120_000);
 
 		await openIndexTsDiff();
@@ -293,17 +276,12 @@ test.describe.serial("Review comments — inline UX", () => {
 			{ timeout: 10_000 },
 		);
 
-		// Open the left-rail overview, then assert the saved comment is listed there.
-		// The overview may scroll internally so we assert on its text content rather
-		// than a row element's visibility (which can be "hidden" when scrolled out of
-		// view in the overlay).
-		await ensureOverviewExpanded(page);
-		const overview = page.locator('[data-testid="review-overview"]');
-		await expect(overview).toBeVisible({ timeout: 10_000 });
-		await expect(overview).toContainText("rename x", { timeout: 10_000 });
+		// The saved comment must also surface a dot in the right-side minimap rail.
+		const dot = page.locator('[data-testid^="minimap-dot-"]').first();
+		await expect(dot).toBeVisible({ timeout: 10_000 });
 	});
 
-	test("mark addressed → overview open count 0 → reopen → overview open count 1", async () => {
+	test("mark addressed → chip count 0/1 → reopen → 1/1", async () => {
 		test.setTimeout(120_000);
 
 		// The previous test left a saved open comment. Find the inline thread.
@@ -326,14 +304,12 @@ test.describe.serial("Review comments — inline UX", () => {
 			btn.click();
 		});
 
-		// The rail overview reports the open count as a bare number in the toggle's
-		// count span (the toggle label "All open comments" has no digits, so a
-		// substring match on "0"/"1" is unambiguous). Addressing the sole comment
-		// drops the open count to 0.
-		await ensureOverviewExpanded(page);
-		const overviewToggle = page.getByTestId("review-overview-toggle");
-		await expect(overviewToggle).toBeVisible({ timeout: 10_000 });
-		await expect(overviewToggle).toContainText("0", { timeout: 5_000 });
+		// The review chip shows the worktree-wide unresolved/all comment count.
+		// Addressing the sole comment drops the unresolved count to 0 while the
+		// total stays 1, so the label reads "0/1".
+		const commentsChip = page.getByTestId("review-chipbar-comments");
+		await expect(commentsChip).toBeVisible({ timeout: 10_000 });
+		await expect(commentsChip).toContainText("0/1", { timeout: 5_000 });
 
 		// The thread stays visible but the queue row should reflect addressed state.
 		// To test reopen: click the Reopen button (component stays in expanded view).
@@ -352,8 +328,8 @@ test.describe.serial("Review comments — inline UX", () => {
 			throw new Error("Reopen button not found");
 		});
 
-		// Reopening restores the open count to 1.
-		await expect(overviewToggle).toContainText("1", { timeout: 5_000 });
+		// Reopening restores the unresolved count to 1, so the label reads "1/1".
+		await expect(commentsChip).toContainText("1/1", { timeout: 5_000 });
 	});
 
 	test("persist across reload", async () => {
@@ -366,13 +342,7 @@ test.describe.serial("Review comments — inline UX", () => {
 		// Re-open the diff for src/index.ts
 		await openIndexTsDiff();
 
-		// Comment should still be in the rail overview
-		await ensureOverviewExpanded(page);
-		const overview = page.locator('[data-testid="review-overview"]');
-		await expect(overview).toBeVisible({ timeout: 10_000 });
-		await expect(overview).toContainText("rename x", { timeout: 15_000 });
-
-		// Inline thread should also be visible in the diff
+		// The comment should persist as an inline thread in the diff.
 		await page.waitForFunction(
 			() => {
 				const threads = document.querySelectorAll(".shell-inline-thread");
@@ -438,22 +408,24 @@ test.describe.serial("Review comments — inline UX", () => {
 			}
 			throw new Error("Resolve button not found in minimap flyout");
 		});
-		// Assert: resolving the "minimap dot check" comment reduces the open count
-		// in the overview toggle from 2 ("rename x" + "minimap dot check") to 1.
-		await ensureOverviewExpanded(page);
-		const overviewToggle = page.getByTestId("review-overview-toggle");
-		await expect(overviewToggle).toContainText("1", { timeout: 10_000 });
+		// Assert: resolving the "minimap dot check" comment moves it from unresolved
+		// to addressed. The two comments in this file ("rename x" + "minimap dot
+		// check") keep the total at 2 while the unresolved count drops to 1, so the
+		// review chip reads "1/2".
+		const commentsChip = page.getByTestId("review-chipbar-comments");
+		await expect(commentsChip).toContainText("1/2", { timeout: 10_000 });
 	});
 
-	test("the open-comments chip expands the rail overview", async () => {
+	test("the open-comments chip is a non-interactive unresolved/all count label", async () => {
 		test.setTimeout(120_000);
 		await openIndexTsDiff();
-		// "rename x" from earlier in the suite is still open; that is enough to
-		// exercise the chip → overview wiring from Task 14 Step 4. Click the chip
-		// and assert the overview panel becomes visible/expanded.
-		await page.locator('[data-testid="review-chipbar-comments"]').click();
-		const overview = page.locator('[data-testid="review-overview"]');
-		await expect(overview).toBeVisible({ timeout: 10_000 });
+		// After the resolve test, one comment is unresolved and one is addressed in
+		// this file, so the chip reads "1/2". The chip is now a plain label (a
+		// <span>), not a button, so it has no click behavior to exercise.
+		const commentsChip = page.getByTestId("review-chipbar-comments");
+		await expect(commentsChip).toBeVisible({ timeout: 10_000 });
+		await expect(commentsChip).toContainText("1/2", { timeout: 10_000 });
+		await expect(commentsChip).toHaveJSProperty("tagName", "SPAN");
 	});
 
 	test("Commits mode shows the progress header and mark-viewed toggle", async () => {

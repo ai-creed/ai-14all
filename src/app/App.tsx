@@ -666,19 +666,6 @@ export function App() {
 		(c) => c.status === "addressed",
 	).length;
 
-	// File-scoped open count rendered in the overlay header.
-	const currentReviewFilePath =
-		activeSession?.reviewMode === "commits"
-			? (activeSession.selectedCommitFilePath ?? null)
-			: activeSession?.reviewMode === "changes"
-				? (activeSession.selectedChangedFilePath ?? null)
-				: null;
-	const currentFileOpenCommentCount = currentReviewFilePath
-		? reviewState.comments.filter(
-				(c) => c.filePath === currentReviewFilePath && c.status === "open",
-			).length
-		: null;
-
 	// ---------------------------------------------------------------------------
 	// Persist effect — writes V2 state
 	// ---------------------------------------------------------------------------
@@ -1909,19 +1896,6 @@ export function App() {
 		setReviewOpen(true);
 	}, [filesChipTarget, activeWorktree, dispatch]);
 
-	const handleOpenCommentsChip = useCallback(() => {
-		setReviewOpen(true);
-		const wid = activeWorktree?.id;
-		if (wid) {
-			dispatch({
-				type: "session/setReviewOverviewExpanded",
-				worktreeId: wid,
-				expanded: true,
-			});
-		}
-		setPendingCommentJump((n) => n + 1);
-	}, [activeWorktree?.id, dispatch]);
-
 	const { handleRemoveWorkspace } = useWorkspaceRemoval({
 		appWorkspaces,
 		dispatchAppWorkspaces,
@@ -2459,7 +2433,6 @@ export function App() {
 									onRefresh={handleRefreshChanges}
 									onOpen={() => setReviewOpen(true)}
 									onOpenFiles={handleOpenFilesChip}
-									onOpenComments={handleOpenCommentsChip}
 								/>
 							)}
 							{reviewOpen && activeWorktree && (
@@ -2472,21 +2445,6 @@ export function App() {
 									reviewMode={activeSession?.reviewMode ?? "files"}
 									isDirty={activeSummary?.isDirty ?? false}
 									changedFileCount={changes.length}
-									commentSidebarOpen={
-										activeSession?.reviewOverviewExpanded ?? false
-									}
-									onToggleCommentSidebar={() => {
-										const wid = activeWorktree?.id;
-										if (!wid) return;
-										dispatch({
-											type: "session/setReviewOverviewExpanded",
-											worktreeId: wid,
-											expanded: !(
-												activeSession?.reviewOverviewExpanded ?? false
-											),
-										});
-									}}
-									openCommentCount={currentFileOpenCommentCount}
 								>
 									<CodeNavHygiene
 										workspaceId={activeWorkspaceId ?? ""}

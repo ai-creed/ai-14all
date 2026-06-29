@@ -378,21 +378,6 @@ function isReviewMarkViewedShortcut(
 	return e.ctrlKey && !e.metaKey;
 }
 
-// ⌘⇧O / Ctrl+Shift+O — toggle the comments-overview expansion. Default typing
-// guard (no allowXterm) so it stays out of the terminal/inputs. Distinct from
-// ⌘O (ui.openWorkspacePicker), which carries no Shift.
-function isReviewToggleOverviewShortcut(
-	e: KeyboardEvent,
-	platform: Platform,
-): boolean {
-	if (e.defaultPrevented) return false;
-	if (e.key !== "o" && e.key !== "O") return false;
-	if (e.altKey || !e.shiftKey) return false;
-	if (targetOwnsTyping(e.target as HTMLElement | null)) return false;
-	if (platform === "mac") return e.metaKey && !e.ctrlKey;
-	return e.ctrlKey && !e.metaKey;
-}
-
 export const SHORTCUT_REGISTRY: AppShortcut[] = [
 	{
 		id: "worktree.selectNext",
@@ -540,13 +525,6 @@ export const SHORTCUT_REGISTRY: AppShortcut[] = [
 		mac: "⌘⇧V",
 		other: "Ctrl+Shift+V",
 		predicate: isReviewMarkViewedShortcut,
-	},
-	{
-		id: "review.toggleOverview",
-		label: "Toggle comments overview",
-		mac: "⌘⇧O",
-		other: "Ctrl+Shift+O",
-		predicate: isReviewToggleOverviewShortcut,
 	},
 	{
 		id: "files-overlay",
