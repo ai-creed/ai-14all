@@ -4,6 +4,11 @@ import type {
 	ReviewComment,
 	ReviewCommentSource,
 } from "../../../../shared/models/review-comment";
+import {
+	filterHideAddressed,
+	firstLine,
+	groupCommentsByFile,
+} from "../logic/group-comments";
 import { AgentInstallCta } from "./AgentInstallCta";
 
 type ActiveMode =
@@ -57,9 +62,7 @@ export function ReviewQueuePanel({
 	onOpenInstall,
 }: Props) {
 	const { active, other, openCount } = useMemo(() => {
-		const visible = hideAddressed
-			? comments.filter((c) => c.status !== "addressed")
-			: comments;
+		const visible = filterHideAddressed(comments, hideAddressed);
 		const active: ReviewComment[] = [];
 		const other: ReviewComment[] = [];
 		let openCount = 0;
@@ -168,15 +171,9 @@ function FileGroups({
 	if (list.length === 0) {
 		return emptyText ? <p className="shell-empty-state">{emptyText}</p> : null;
 	}
-	const byFile = new Map<string, ReviewComment[]>();
-	for (const c of list) {
-		const arr = byFile.get(c.filePath) ?? [];
-		arr.push(c);
-		byFile.set(c.filePath, arr);
-	}
 	return (
 		<ul className="shell-review-queue__files">
-			{[...byFile.entries()].map(([filePath, items]) => (
+			{groupCommentsByFile(list).map(([filePath, items]) => (
 				<li key={filePath}>
 					<div className="shell-review-queue__filepath" title={filePath}>
 						{filePath}
@@ -228,9 +225,4 @@ function FileGroups({
 			))}
 		</ul>
 	);
-}
-
-function firstLine(s: string): string {
-	const i = s.indexOf("\n");
-	return i === -1 ? s : s.slice(0, i);
 }
