@@ -1319,11 +1319,37 @@ select {
 
 .shell-review-rail {
 	display: grid;
-	grid-template-rows: auto minmax(0, 1fr);
+	grid-template-rows: auto auto minmax(0, 1fr);
 	padding: 0;
 	min-width: 0;
 	min-height: 0;
 	overflow: hidden;
+}
+
+.shell-review-progress {
+	padding: 6px 8px 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.shell-review-progress__label {
+	font-size: 11px;
+	color: var(--text-secondary);
+}
+
+.shell-review-progress__track {
+	height: 3px;
+	background: var(--muted);
+	border-radius: 0;
+	overflow: hidden;
+}
+
+.shell-review-progress__fill {
+	height: 100%;
+	border-radius: 0;
+	background: var(--success);
+	transition: width 0.2s ease;
 }
 
 .shell-review-rail__header,

@@ -16,6 +16,7 @@ import type {
 } from "../../features/workspace/logic/workspace-state";
 import type { ResolvedTheme } from "../../lib/use-theme";
 import type { InlineEditorHandle } from "../../features/viewer/components/InlineEditor";
+import { ReviewProgressHeader } from "../../features/review/components/ReviewProgressHeader";
 import { ReviewQueuePanel } from "../../features/review/components/ReviewQueuePanel";
 import { ReviewRail } from "../../features/review/components/ReviewRail";
 import { DiffViewerPane } from "../../features/review/components/DiffViewerPane";
@@ -174,6 +175,14 @@ export function ReviewArea(props: Props): React.ReactElement {
 		}
 		return counts;
 	}, [reviewState.comments, activeSession?.selectedCommitSha]);
+
+	const progress = useMemo(() => {
+		const paths =
+			activeSession?.reviewMode === "commits"
+				? (commitDetailState.data?.files ?? []).map((f) => f.path)
+				: changes.map((c) => c.path);
+		return reviewed.progress(paths);
+	}, [reviewed, activeSession?.reviewMode, commitDetailState.data, changes]);
 
 	// Lifted out of the comment-sidebar IIFE so the chip-initiated hook below can
 	// call it too. Reused for both the sidebar onJump (default 500ms editor
@@ -429,6 +438,14 @@ export function ReviewArea(props: Props): React.ReactElement {
 						(await inlineEditorRef.current?.requestSwitch?.()) ?? "proceed"
 					}
 					onCloseReview={props.onCloseReview}
+					header={
+						activeSession?.reviewMode !== "files" ? (
+							<ReviewProgressHeader
+								reviewed={progress.reviewed}
+								total={progress.total}
+							/>
+						) : null
+					}
 				/>
 
 				<div
