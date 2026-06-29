@@ -1,9 +1,9 @@
-import { mkdirSync, mkdtempSync, rmSync, truncateSync, utimesSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, truncateSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createSweepState, loadPersistedState, sweepFiles } from "../../../services/usage/sweep.js";
-import { saveLedger } from "../../../services/usage/ledger-store.js";
+import { saveState } from "../../../services/usage/ledger-store.js";
 import { claudeDriver } from "../../../services/usage/providers/claude.js";
 import type { TelemetryDriver } from "../../../services/usage/providers/types.js";
 
@@ -67,11 +67,12 @@ describe("sweepFiles sealed-truncation full rebuild", () => {
 	});
 });
 
-describe("loadPersistedState pair-consistency", () => {
-	function makeRoot(): { root: string; driver: TelemetryDriver } {
+describe("loadPersistedState single atomic state file", () => {
+	// state file == the single combined ledger+offsets file the worker now persists.
+	function setup(): { proj: string; statePath: string; driver: TelemetryDriver } {
 		const root = mkdtempSync(join(tmpdir(), "sweep-persist-"));
-		mkdirSync(join(root, "-Users-me-Dev-app"));
-		writeFileSync(join(root, "-Users-me-Dev-app", "s1.jsonl"), claudeLine(10) + claudeLine(10)); // 20 billable
+		const proj = join(root, "-Users-me-Dev-app");
+		mkdirSync(proj);
 		const driver: TelemetryDriver = {
 			id: "claude",
 			capabilities: claudeDriver.capabilities,
@@ -80,75 +81,73 @@ describe("loadPersistedState pair-consistency", () => {
 			seedCtx: claudeDriver.seedCtx,
 			parseLine: claudeDriver.parseLine,
 		};
-		return { root, driver };
+		return { proj, statePath: join(root, "usage-ledger.json"), driver };
 	}
 
-	it("ledger present + offsets MISSING → fresh state (no double-count)", async () => {
-		const { root, driver } = makeRoot();
-		const ledgerPath = join(root, "usage-ledger.json");
-		const offsetsPath = join(root, "usage-offsets.json");
+	it("crash between ledger and offset writes does NOT double-count", async () => {
+		const { proj, statePath, driver } = setup();
+		writeFileSync(join(proj, "a.jsonl"), claudeLine(10)); // file A: 10 billable
 
-		// First sweep → 20 billable; persist ledger only (no offsets file).
+		// Sweep A, then commit the fully-persisted state (ledger=10 + offsets listing A).
 		const s1 = createSweepState();
 		await sweepFiles(s1, [driver], "ignored-home", 0, 8);
-		expect(sumBillable(s1)).toBe(20);
-		saveLedger(ledgerPath, s1.ledger);
-		// deliberately do NOT write offsetsPath
+		expect(sumBillable(s1)).toBe(10);
+		saveState(statePath, s1.ledger, s1.offsets); // the last fully-committed state
 
-		// loadPersistedState with missing offsets → fresh state.
-		const s2 = loadPersistedState(ledgerPath, offsetsPath);
-		expect(sumBillable(s2)).toBe(0);
-		expect(s2.offsets.size).toBe(0);
+		// A NEW file B lands on disk, but the next persist never runs (crash before persist).
+		writeFileSync(join(proj, "b.jsonl"), claudeLine(7)); // file B: 7 billable
 
-		// A subsequent sweep on the fresh state reads the 20 lines exactly once.
+		// Restart: the loaded state is the consistent committed pair → ledger is exactly 10.
+		const s2 = loadPersistedState(statePath);
+		expect(sumBillable(s2)).toBe(10);
+
+		// Next sweep ingests B exactly once → 17, NOT 24 (a stale-offset re-read of B
+		// onto an already-counted ledger). This is THE regression for spec §4.3.
 		await sweepFiles(s2, [driver], "ignored-home", 0, 8);
-		expect(sumBillable(s2)).toBe(20); // NOT 40
+		expect(sumBillable(s2)).toBe(17);
 	});
 
-	it("ledger present + offsets CORRUPT → fresh state", () => {
-		const { root } = makeRoot();
-		const ledgerPath = join(root, "usage-ledger.json");
-		const offsetsPath = join(root, "usage-offsets.json");
-
-		const s1 = createSweepState();
-		saveLedger(ledgerPath, s1.ledger);
-		writeFileSync(offsetsPath, "{ not json", "utf8");
-
-		const s2 = loadPersistedState(ledgerPath, offsetsPath);
-		expect(sumBillable(s2)).toBe(0);
-		expect(s2.offsets.size).toBe(0);
+	it("missing state file → rebuild", () => {
+		const { statePath } = setup();
+		const s = loadPersistedState(statePath); // never written
+		expect(sumBillable(s)).toBe(0);
+		expect(s.offsets.size).toBe(0);
 	});
 
-	it("ledger + valid matching offsets → resumes (no re-read)", async () => {
-		const { root, driver } = makeRoot();
-		const ledgerPath = join(root, "usage-ledger.json");
-		const offsetsPath = join(root, "usage-offsets.json");
+	it("corrupt state file → rebuild", () => {
+		const { statePath } = setup();
+		writeFileSync(statePath, "{ not json", "utf8");
+		const s = loadPersistedState(statePath);
+		expect(sumBillable(s)).toBe(0);
+		expect(s.offsets.size).toBe(0);
+	});
 
-		// First sweep → 20; persist both.
+	it("valid committed state → resumes without re-read", async () => {
+		const { proj, statePath, driver } = setup();
+		writeFileSync(join(proj, "a.jsonl"), claudeLine(10)); // 10 billable
+
 		const s1 = createSweepState();
 		await sweepFiles(s1, [driver], "ignored-home", 0, 8);
-		expect(sumBillable(s1)).toBe(20);
-		saveLedger(ledgerPath, s1.ledger);
-		writeFileSync(offsetsPath, JSON.stringify(Object.fromEntries(s1.offsets)), "utf8");
+		expect(sumBillable(s1)).toBe(10);
+		saveState(statePath, s1.ledger, s1.offsets);
 
-		// Resume from persisted pair → ledger already populated.
-		const s2 = loadPersistedState(ledgerPath, offsetsPath);
-		expect(sumBillable(s2)).toBe(20);
+		const s2 = loadPersistedState(statePath);
+		expect(sumBillable(s2)).toBe(10);
 
-		// Another sweep with no new bytes → still 20 (no re-read from byte 0).
+		// No new bytes → still 10 (resumed from the saved offset, not re-read from byte 0).
 		await sweepFiles(s2, [driver], "ignored-home", 0, 8);
-		expect(sumBillable(s2)).toBe(20);
+		expect(sumBillable(s2)).toBe(10);
 	});
 
-	it("no ledger → fresh state", () => {
-		const root = mkdtempSync(join(tmpdir(), "sweep-nyledger-"));
-		const ledgerPath = join(root, "usage-ledger.json");
-		const offsetsPath = join(root, "usage-offsets.json");
-
-		const s2 = loadPersistedState(ledgerPath, offsetsPath);
-		expect(sumBillable(s2)).toBe(0);
-		expect(s2.offsets.size).toBe(0);
-
-		rmSync(root, { recursive: true, force: true });
+	it("old two-file format (ledger JSON without offsets field) → rebuild", () => {
+		const { statePath } = setup();
+		// A legacy ledger-only file: valid version 2 + one day/bucket, but NO offsets key.
+		const payload = {
+			version: 2,
+			days: { "100000": { k: { input: 0, output: 10, billable: 10, raw: 100 } } },
+		};
+		writeFileSync(statePath, JSON.stringify(payload), "utf8");
+		const s = loadPersistedState(statePath);
+		expect(sumBillable(s)).toBe(0);
 	});
 });

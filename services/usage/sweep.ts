@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { processInBatches } from "./batch.js";
 import {
 	type DailyLedger,
@@ -8,10 +8,9 @@ import {
 	createSession,
 	ingestEvent,
 } from "./ledger.js";
-import { loadLedger } from "./ledger-store.js";
+import { loadState } from "./ledger-store.js";
 import {
 	type OffsetCache,
-	type OffsetEntry,
 	type ScanHandlers,
 	listJsonlFiles,
 	processJsonlFile,
@@ -108,28 +107,15 @@ export async function sweepFiles(
 	return { rebuilt: false };
 }
 
-function readOffsets(path: string): OffsetCache | null {
-	try {
-		const obj = JSON.parse(readFileSync(path, "utf8")) as Record<string, OffsetEntry>;
-		return new Map(Object.entries(obj));
-	} catch {
-		return null;
-	}
-}
-
-// Load the persisted ledger + offset cache, enforcing pair-consistency. The ledger
-// and offsets are written together by the worker, so a resume is only safe when
-// BOTH are present and consistent. If the ledger is missing/invalid, OR it exists
-// but the offsets are missing/corrupt, OR the offsets are empty while the ledger
-// holds data, return a FRESH state so the next sweep rebuilds from byte 0 into an
-// empty ledger — never re-scanning from scratch onto an already-populated ledger
-// (spec §4.3: the persisted ledger must never double-count).
-export function loadPersistedState(ledgerPath: string, offsetsPath: string): SweepState {
-	const ledger = loadLedger(ledgerPath);
-	if (!ledger) return createSweepState();
-	const offsets = readOffsets(offsetsPath);
-	if (!offsets || (offsets.size === 0 && ledger.days.size > 0)) return createSweepState();
-	const state = createSweepState(offsets);
-	state.ledger = ledger;
+// Load the persisted combined state (ledger + offset cache). They are written as
+// ONE atomic file, so a successful load is always a consistent pair; a missing/
+// corrupt/old-format file returns a FRESH state so the next sweep rebuilds from
+// byte 0 (spec §4.3: the persisted ledger must never double-count, even across a
+// crash between writes — which is now impossible since there is a single atomic file).
+export function loadPersistedState(statePath: string): SweepState {
+	const st = loadState(statePath);
+	if (!st) return createSweepState();
+	const state = createSweepState(st.offsets);
+	state.ledger = st.ledger;
 	return state;
 }

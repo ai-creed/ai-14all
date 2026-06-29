@@ -1,8 +1,8 @@
 import { join } from "node:path";
-import { existsSync, watch, writeFileSync } from "node:fs";
+import { existsSync, watch } from "node:fs";
 import { jsonlDrivers } from "../../../services/usage/providers/index.js";
 import { buildSnapshot } from "../../../services/usage/snapshot.js";
-import { saveLedger } from "../../../services/usage/ledger-store.js";
+import { saveState } from "../../../services/usage/ledger-store.js";
 import {
 	type SweepState,
 	createSweepState,
@@ -33,16 +33,16 @@ let emitTimer: ReturnType<typeof setTimeout> | null = null;
 let backfilling = false;
 let rescanQueued = false;
 
+// Single combined state file (ledger + offset cache), persisted atomically.
 const LEDGER_FILE = "usage-ledger.json";
-const OFFSETS_FILE = "usage-offsets.json";
 // Active horizon: files untouched longer than this are "sealed" (contribution
 // dropped to bound the cache). ~35 days matches the daily-series window.
 const ACTIVE_HORIZON_MS = 35 * 86_400_000;
 
 const ledgerPath = (): string => join(cfg!.userDataDir, LEDGER_FILE);
-const offsetsPath = (): string => join(cfg!.userDataDir, OFFSETS_FILE);
 
-function saveOffsets(): void {
+function persist(): void {
+	if (!cfg) return;
 	// Seal stale entries: drop their contribution detail (totals stay in the ledger).
 	const now = Date.now();
 	for (const entry of state.offsets.values()) {
@@ -50,13 +50,9 @@ function saveOffsets(): void {
 			entry.contribution = undefined;
 		}
 	}
-	writeFileSync(offsetsPath(), JSON.stringify(Object.fromEntries(state.offsets)), "utf8");
-}
-
-function persist(): void {
-	if (!cfg) return;
-	saveLedger(ledgerPath(), state.ledger);
-	saveOffsets();
+	// Write ledger + offsets together as one atomic state file — a crash can never
+	// leave a torn pair that would double-count on the next sweep (spec §4.3).
+	saveState(ledgerPath(), state.ledger, state.offsets);
 }
 
 async function sweep(): Promise<void> {
@@ -118,7 +114,7 @@ parentPort.on("message", (e: { data: MainToWorker }) => {
 	const msg = e.data;
 	if (msg.kind === "config") {
 		cfg = msg.config;
-		state = loadPersistedState(ledgerPath(), offsetsPath());
+		state = loadPersistedState(ledgerPath());
 		const roots = jsonlDrivers.flatMap((d) => d.roots(cfg!.home));
 		void sweep();
 		for (const root of roots) watchDir(root);

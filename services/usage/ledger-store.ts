@@ -1,6 +1,8 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import type { TokenTotals } from "../../shared/models/usage.js";
 import { type BucketKey, type DailyLedger, createLedger, emptyTotals } from "./ledger.js";
+import type { OffsetCache, OffsetEntry } from "./scanner.js";
 
 export const LEDGER_VERSION = 2;
 
@@ -58,14 +60,29 @@ export function deserializeLedger(raw: unknown): DailyLedger | null {
 	return ledger;
 }
 
-export function loadLedger(path: string): DailyLedger | null {
-	try {
-		return deserializeLedger(JSON.parse(readFileSync(path, "utf8")));
-	} catch {
-		return null; // missing file / parse error -> rebuild
-	}
+// Persist the ledger and offset cache as ONE combined state file, committed
+// atomically (write a temp file, then rename over the target). A crash can never
+// leave a torn pair: the on-disk state is always either the prior fully-committed
+// state or the new fully-committed state (spec §4.3: a persisted, accumulated
+// ledger must never double-count — even across a crash between writes).
+export function saveState(path: string, ledger: DailyLedger, offsets: OffsetCache): void {
+	const payload = { ...serializeLedger(ledger), offsets: Object.fromEntries(offsets) };
+	const tmp = `${path}.${process.pid}.${randomUUID()}.tmp`;
+	writeFileSync(tmp, JSON.stringify(payload), "utf8");
+	renameSync(tmp, path); // atomic commit: a crash leaves the prior file intact
 }
 
-export function saveLedger(path: string, ledger: DailyLedger): void {
-	writeFileSync(path, JSON.stringify(serializeLedger(ledger)), "utf8");
+export function loadState(path: string): { ledger: DailyLedger; offsets: OffsetCache } | null {
+	let raw: unknown;
+	try {
+		raw = JSON.parse(readFileSync(path, "utf8"));
+	} catch {
+		return null; // missing / corrupt → rebuild
+	}
+	const ledger = deserializeLedger(raw); // validates version === 2 + days shape
+	if (!ledger) return null; // missing/lower/malformed → rebuild
+	const offsetsRaw = (raw as { offsets?: unknown }).offsets;
+	if (typeof offsetsRaw !== "object" || offsetsRaw === null) return null; // old two-file format (no offsets field) → rebuild
+	const offsets = new Map(Object.entries(offsetsRaw as Record<string, OffsetEntry>));
+	return { ledger, offsets };
 }
