@@ -26,9 +26,11 @@ mac:
     - target: zip
       arch:
         - arm64
+        - universal
     - target: dmg
       arch:
         - arm64
+        - universal
 win:
   # Phase 2: NSIS installer (per-user, one-click) + portable zip fallback, both
   # unsigned. No explicit arch — overridden per build by the CLI flag
