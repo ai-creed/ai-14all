@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs } from "@/components/ui/tabs";
 import type { GitChange } from "../../../shared/models/git-change";
 import type { GitDiff } from "../../../shared/models/git-diff";
 import type {
@@ -16,17 +15,14 @@ import type {
 	WorkspaceState,
 } from "../../features/workspace/logic/workspace-state";
 import type { ResolvedTheme } from "../../lib/use-theme";
-import { CommitList } from "../../features/git/components/CommitList";
-import { ChangesList } from "../../features/git/components/ChangesList";
-import { FilesPane } from "./FilesPane";
 import { CommitDiffStack } from "../../features/git/components/CommitDiffStack";
 import { DiffViewer } from "../../features/viewer/components/DiffViewer";
-import { MarkdownPreviewModal } from "../../features/viewer/components/MarkdownPreviewModal";
 import {
 	InlineEditor,
 	type InlineEditorHandle,
 } from "../../features/viewer/components/InlineEditor";
 import { ReviewQueuePanel } from "../../features/review/components/ReviewQueuePanel";
+import { ReviewRail } from "../../features/review/components/ReviewRail";
 import { InlineMountsBridge } from "../../features/review/components/InlineMountsBridge";
 import { filterForInlineMount } from "../../features/review/logic/inline-mount-filter";
 import {
@@ -584,161 +580,30 @@ export function ReviewArea(props: Props): React.ReactElement {
 						: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
 				}}
 			>
-				<section
-					className="shell-panel shell-review-rail"
-					data-testid="review-rail"
-				>
-					<div className="shell-review-rail__header">
-						<TabsList
-							aria-label="Review mode"
-							className="shell-review-tabs__list shell-review-tabs__segments"
-						>
-							<TabsTrigger value="files" className="shell-review-tab">
-								Files
-							</TabsTrigger>
-							<TabsTrigger value="changes" className="shell-review-tab">
-								Changes
-							</TabsTrigger>
-							<TabsTrigger value="commits" className="shell-review-tab">
-								Commits
-							</TabsTrigger>
-						</TabsList>
-					</div>
-
-					<ScrollArea className="shell-review-rail__scroll">
-						<div className="shell-rail__viewport">
-							{activeSession?.reviewMode === "commits" ? (
-								<>
-									{commitHistoryState.message && (
-										<p
-											className={
-												commitHistoryState.stale
-													? "shell-inline-warning"
-													: "shell-error"
-											}
-										>
-											{commitHistoryState.message}
-										</p>
-									)}
-									<CommitList
-										workspaceId={activeWorkspaceId ?? ""}
-										worktreeId={activeWorktree.id}
-										history={
-											commitHistoryState.data ?? {
-												mergeTargetRef: null,
-												entries: [],
-											}
-										}
-										selectedCommitSha={activeSession.selectedCommitSha}
-										selectedCommitFilePath={
-											activeSession.selectedCommitFilePath
-										}
-										activeDetail={commitDetailState.data}
-										onSelectCommit={(sha) =>
-											dispatch({
-												type: "session/selectCommit",
-												worktreeId: activeWorktree.id,
-												sha,
-											})
-										}
-										onDeselectCommit={() =>
-											dispatch({
-												type: "session/clearSelectedCommit",
-												worktreeId: activeWorktree.id,
-											})
-										}
-										onSelectCommitFile={(relativePath) =>
-											dispatch({
-												type: "session/selectCommitFile",
-												worktreeId: activeWorktree.id,
-												relativePath,
-											})
-										}
-										remoteStatus={remoteStatus}
-										onPush={handlePushBranch}
-										selectedCommitOpenCommentCount={
-											selectedCommitOpenCommentCount
-										}
-									/>
-								</>
-							) : activeSession?.reviewMode === "files" ? (
-								<>
-									<FilesPane
-										workspaceId={activeWorkspaceId ?? ""}
-										worktreeId={activeWorktree.id}
-										worktreeLabel={activeWorktree.label}
-										selectedFile={activeSession.selectedFilePath}
-										onSelect={async (relativePath) => {
-											const decision =
-												(await inlineEditorRef.current?.requestSwitch?.()) ??
-												"proceed";
-											if (decision === "cancel") return;
-											dispatch({
-												type: "session/selectFile",
-												worktreeId: activeWorktree.id,
-												relativePath,
-											});
-										}}
-										onPreviewMarkdown={setTreePreviewPath}
-										changedFiles={changes}
-										gitSummaryError={gitSummaryError}
-										gitSummaryMessage={gitSummaryMessage}
-										expandedPaths={activeSession.treeExpandedPaths}
-										onExpandedPathsChange={(worktreeId, paths) =>
-											dispatch({
-												type: "session/setTreeExpandedPaths",
-												worktreeId,
-												paths,
-											})
-										}
-										showIgnored={activeSession.treeShowIgnored}
-										onToggleShowIgnored={() =>
-											dispatch({
-												type: "session/setTreeShowIgnored",
-												worktreeId: activeWorktree.id,
-												showIgnored: !activeSession.treeShowIgnored,
-											})
-										}
-										mode={activeSession.filesPaneMode}
-										onModeChange={(filesPaneMode) =>
-											dispatch({
-												type: "session/setFilesPaneMode",
-												worktreeId: activeWorktree.id,
-												filesPaneMode,
-											})
-										}
-										onRequestClose={props.onCloseReview}
-									/>
-									{/* Always mounted, visibility driven by `open`: unmounting
-									    a Radix Dialog while it is still open skips its body
-									    pointer-events/aria cleanup and freezes the app. */}
-									<MarkdownPreviewModal
-										workspaceId={activeWorkspaceId ?? ""}
-										worktreeId={activeWorktree.id}
-										relativePath={treePreviewPath ?? ""}
-										open={treePreviewPath !== null}
-										onClose={() => setTreePreviewPath(null)}
-									/>
-								</>
-							) : (
-								<ChangesList
-									workspaceId={activeWorkspaceId ?? ""}
-									worktreeId={activeWorktree.id}
-									changes={changes}
-									selectedPath={activeSession?.selectedChangedFilePath ?? null}
-									onSelect={handleSelectChangedFile}
-									onDiscardChange={(relativePath) =>
-										setDiscardPath(relativePath)
-									}
-									gitSummaryError={gitSummaryError}
-									gitSummaryStale={gitSummaryStale}
-									gitSummaryMessage={gitSummaryMessage}
-									openCommentCounts={openCommentCounts}
-								/>
-							)}
-						</div>
-					</ScrollArea>
-				</section>
+				<ReviewRail
+					activeWorktree={activeWorktree}
+					activeSession={activeSession}
+					activeWorkspaceId={activeWorkspaceId}
+					changes={changes}
+					openCommentCounts={openCommentCounts}
+					commitHistoryState={commitHistoryState}
+					commitDetailState={commitDetailState}
+					remoteStatus={remoteStatus}
+					selectedCommitOpenCommentCount={selectedCommitOpenCommentCount}
+					gitSummaryError={gitSummaryError}
+					gitSummaryStale={gitSummaryStale}
+					gitSummaryMessage={gitSummaryMessage}
+					treePreviewPath={treePreviewPath}
+					onSetTreePreviewPath={setTreePreviewPath}
+					dispatch={dispatch}
+					handleSelectChangedFile={handleSelectChangedFile}
+					setDiscardPath={setDiscardPath}
+					handlePushBranch={handlePushBranch}
+					requestFileSwitch={async () =>
+						(await inlineEditorRef.current?.requestSwitch?.()) ?? "proceed"
+					}
+					onCloseReview={props.onCloseReview}
+				/>
 
 				<div
 					role="separator"
