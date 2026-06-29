@@ -89,7 +89,8 @@ Fails the build (non-zero exit) on any missing slice, wrong slice, or missing bi
 > Note: the `afterPack` ABI guard is **arch-blind** — it reads `NODE_MODULE_VERSION` from the binary, which is identical across CPU arches. The new slice gate is what verifies CPU slices are present and correctly placed; the two are complementary.
 
 ### 5.4 Signing / notarization / verification (in `release.yml`)
-- Signing a universal `.app` signs both slices in one `codesign` pass; notarization is one submission per artifact. `electron-builder` `notarize: true` and `scripts/sign-notarize-dmg.mjs` work unchanged.
+- Signing a universal `.app` signs both slices in one `codesign` pass; notarization is one submission per artifact. `electron-builder` `notarize: true` handles the `.app`s unchanged.
+- **`scripts/sign-notarize-dmg.mjs` does NOT work unchanged** (corrected during implementation): it signs/notarizes/staples the DMG container that electron-builder leaves untouched, and its `pickDmg` helper **threw when more than one `.dmg` was present** ("refusing to guess"). With two dmgs (`-arm64.dmg` + `-universal.dmg`) that would fail the release. Fix: replace `pickDmg` with `listDmgs` (returns **all** dmgs, sorted; still throws on zero) and loop the codesign → notarytool → stapler pass over **every** dmg. The Developer ID identity is resolved once and reused. Update `tests/unit/scripts/sign-notarize-dmg.test.ts` (the old "throws when more than one .dmg" case is replaced by "returns every .dmg path" + a single-dmg back-compat case).
 - The **"Verify signature & notarization"** step currently uses `find … | head -1`, verifying only one `.app` and one `.dmg`. It must verify **every** produced `.app` and `.dmg` (both arches), or the second artifact ships unverified.
 
 ### 5.5 Manifest rewrite — `shared/update/rewrite-manifest.ts`
@@ -97,7 +98,7 @@ Fails the build (non-zero exit) on any missing slice, wrong slice, or missing bi
 
 ### 5.6 Publish + Release upload (in `release.yml`)
 - Upload **both** dmgs and **both** zips (plus mac `.blockmap`s if emitted) to the GitHub Release. The current globs (`release/*.dmg release/*.zip`) already match multiple files; confirm blockmaps are included if differential download is desired.
-- The ai-creed `.mdx` download section currently hardcodes the `-arm64.dmg` link. Update it to expose the **universal** dmg as the default (works everywhere) and the **arm64** dmg as a secondary "Apple Silicon (native)" link. The `release.yml` `sed` rewrite of the `.mdx` must be updated accordingly.
+- The ai-creed `.mdx` download section currently hardcodes the `-arm64.dmg` link. Expose the **universal** dmg as the default (works everywhere) and the **arm64** dmg as a secondary "Apple Silicon (native)" link, and drop the stale "no Intel macOS" copy. **Delivery (decided during implementation): an idempotent transform `scripts/ci/ensure-ai-creed-universal-download.mjs` wired into the `release.yml` ai-creed publish step, run BEFORE the version-bump `sed`.** This makes the **first universal release** atomically rewrite the live page at the moment the universal dmg becomes downloadable — avoiding the 404 window a manual pre-release edit would open (no `-universal.dmg` exists for older arm64-only versions). The added `sed -e` rule for `-universal.dmg` then keeps both links version-pinned on every subsequent release. The transform is unit-tested and idempotent (a no-op once applied).
 
 ## 6. Auto-updater behavior (verified)
 
@@ -173,7 +174,11 @@ With both `…-arm64-mac.zip` and `…-universal-mac.zip` in one `latest-mac.yml
 | `tests/unit/…assert-universal-slices…` | **new** — unit tests for the gate |
 | `shared/update/rewrite-manifest.ts` | deterministic top-level pointer (universal dmg) |
 | `tests/unit/…rewrite-manifest…` | extend — both zips survive, pointer is universal |
-| `docs/…mac-distribution note` | short note on universal+arm64 + auto-update arch selection |
-| ai-creed `.mdx` (separate repo) | expose universal (default) + arm64 (native) download links |
+| `scripts/sign-notarize-dmg.mjs` | **fix** — `listDmgs` (all dmgs) + loop sign/notarize/staple over every dmg |
+| `tests/unit/…sign-notarize-dmg…` | update — `listDmgs` returns all dmgs; single-dmg back-compat |
+| `scripts/ci/ensure-ai-creed-universal-download.mjs` | **new** — idempotent ai-creed `.mdx` universal-default transform |
+| `tests/unit/…ensure-ai-creed-universal-download…` | **new** — transform unit tests (incl. idempotency) |
+| `docs/mac-distribution.md` | **new** — note on universal+arm64 + auto-update arch selection |
+| ai-creed `.mdx` (separate repo) | rewritten at release time by the transform above (universal default + arm64 native, drop "no Intel macOS") |
 
-(>3 files → the implementation plan will decompose into reviewable slices.)
+(>3 files → the implementation plan decomposed into reviewable slices.)
