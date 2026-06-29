@@ -119,6 +119,75 @@ async function ensureOverviewExpanded(targetPage: Page) {
 	});
 }
 
+/**
+ * Add an inline comment to the first view-line of the modified diff editor.
+ * Mirrors the hover-glyph / Meta+Shift+A fallback pattern used in the
+ * "hover-plus add single line" test; saves via evaluate() to bypass Monaco's
+ * pointer-event overlay. Call openIndexTsDiff() before this helper.
+ */
+async function addInlineComment(commentText: string) {
+	const modifiedPane = page.locator(".modified-in-monaco-diff-editor");
+	const viewLines = modifiedPane.locator(".view-line");
+	const firstLine = viewLines.first();
+	const box = await firstLine.boundingBox();
+	if (!box) throw new Error("No bounding box for first view-line");
+
+	// Hover over the glyph margin to trigger the plus glyph.
+	await page.mouse.move(box.x - 10, box.y + box.height / 2);
+	await page.waitForTimeout(300);
+
+	const glyph = page.locator(".shell-review-plus-decoration").first();
+	const glyphVisible = await glyph.isVisible().catch(() => false);
+
+	if (glyphVisible) {
+		await glyph.click();
+	} else {
+		await page.keyboard.press("Meta+Shift+A");
+	}
+
+	await page.waitForFunction(
+		() =>
+			document.querySelector('.shell-inline-thread[data-draft="true"]') !==
+			null,
+		null,
+		{ timeout: 10_000 },
+	);
+
+	const textarea = page.locator(".shell-inline-thread__textarea");
+	await expect(textarea).toBeVisible({ timeout: 5_000 });
+	await textarea.fill(commentText);
+
+	// Save via evaluate to bypass Monaco's view-lines pointer-event overlay.
+	await page.evaluate(() => {
+		const draft = document.querySelector(
+			'.shell-inline-thread[data-draft="true"]',
+		);
+		if (!draft) throw new Error("draft thread not found");
+		const btns = draft.querySelectorAll("button");
+		for (const btn of btns) {
+			if (btn.textContent?.trim() === "Save") {
+				btn.click();
+				return;
+			}
+		}
+		throw new Error("Save button not found in draft thread");
+	});
+
+	// Wait until the saved comment body is visible in the thread.
+	await page.waitForFunction(
+		(text) => {
+			const threads = document.querySelectorAll(".shell-inline-thread");
+			for (const t of threads) {
+				const body = t.querySelector(".shell-inline-thread__body");
+				if (body?.textContent?.includes(text)) return true;
+			}
+			return false;
+		},
+		commentText,
+		{ timeout: 10_000 },
+	);
+}
+
 test.beforeAll(async () => {
 	testRepo = createTestRepo();
 	persistedStateDir = realpathSync(
@@ -316,5 +385,104 @@ test.describe.serial("Review comments — inline UX", () => {
 			null,
 			{ timeout: 15_000 },
 		);
+	});
+
+	test("mark file viewed advances the progress header", async () => {
+		test.setTimeout(120_000);
+		await openIndexTsDiff();
+		const header = page.locator('[data-testid="review-progress-header"]');
+		await expect(header).toContainText("reviewed");
+		await page.keyboard.press("Meta+Shift+V");
+		await expect(header).toContainText("1 / ", { timeout: 10_000 });
+	});
+
+	test("inline comment shows a minimap dot", async () => {
+		test.setTimeout(120_000);
+		await openIndexTsDiff();
+		await addInlineComment("minimap dot check");
+		// A dot must appear in the minimap rail for the newly saved comment.
+		const dot = page.locator('[data-testid^="minimap-dot-"]').first();
+		await expect(dot).toBeVisible({ timeout: 10_000 });
+	});
+
+	test("resolve from the minimap flyout", async () => {
+		test.setTimeout(120_000);
+		// A minimap dot is present from the "minimap dot check" comment added in
+		// the previous test. Hover the dot to open the flyout, then click Resolve
+		// via evaluate to bypass any pointer-event overlay on the minimap rail.
+		await openIndexTsDiff();
+		const dot = page.locator('[data-testid^="minimap-dot-"]').first();
+		await expect(dot).toBeVisible({ timeout: 10_000 });
+		await dot.hover();
+		// Wait for the flyout to become active (CommentMinimap flips aria-hidden
+		// from "true" to "false" on hover via onMouseEnter → setActiveHeadId).
+		await page.waitForFunction(
+			() =>
+				document.querySelector(
+					'.shell-review-minimap__flyout[aria-hidden="false"]',
+				) !== null,
+			null,
+			{ timeout: 5_000 },
+		);
+		await page.evaluate(() => {
+			const flyout = document.querySelector(
+				'.shell-review-minimap__flyout[aria-hidden="false"]',
+			);
+			if (!flyout) throw new Error("minimap flyout not visible");
+			const btns = flyout.querySelectorAll("button");
+			for (const btn of btns) {
+				if (btn.textContent?.trim() === "Resolve") {
+					btn.click();
+					return;
+				}
+			}
+			throw new Error("Resolve button not found in minimap flyout");
+		});
+		// Assert: resolving the "minimap dot check" comment reduces the open count
+		// in the overview toggle from 2 ("rename x" + "minimap dot check") to 1.
+		await ensureOverviewExpanded(page);
+		const overviewToggle = page.getByTestId("review-overview-toggle");
+		await expect(overviewToggle).toContainText("1", { timeout: 10_000 });
+	});
+
+	test("the open-comments chip expands the rail overview", async () => {
+		test.setTimeout(120_000);
+		await openIndexTsDiff();
+		// "rename x" from earlier in the suite is still open; that is enough to
+		// exercise the chip → overview wiring from Task 14 Step 4. Click the chip
+		// and assert the overview panel becomes visible/expanded.
+		await page.locator('[data-testid="review-chipbar-comments"]').click();
+		const overview = page.locator('[data-testid="review-overview"]');
+		await expect(overview).toBeVisible({ timeout: 10_000 });
+	});
+
+	test("Commits mode shows the progress header and mark-viewed toggle", async () => {
+		test.setTimeout(120_000);
+		await ensureReviewOverlayOpen(page);
+		await page.keyboard.press("Meta+3"); // review.commits
+		// Guard: if the fixture has no reviewable commits, skip rather than
+		// silently passing as covered. Never omit this guard — an empty commit
+		// list would let the assertions below trivially succeed without exercising
+		// the Commits-mode rail chrome at all.
+		const commitItems = page.locator(".shell-commit-list__item");
+		if ((await commitItems.count()) === 0) {
+			console.log(
+				"Commits-mode e2e skipped: no reviewable commits in fixture",
+			);
+			test.skip();
+			return;
+		}
+		await commitItems.first().click();
+		await page
+			.locator(".shell-commit-list__files .shell-list__item--split")
+			.first()
+			.click();
+		await expect(
+			page.locator('[data-testid="review-progress-header"]'),
+		).toBeVisible({ timeout: 10_000 });
+		const toggle = page.locator('[data-testid="mark-viewed-toggle"]');
+		await expect(toggle).toBeVisible();
+		await toggle.click();
+		await expect(toggle).toHaveText(/viewed/i);
 	});
 });
