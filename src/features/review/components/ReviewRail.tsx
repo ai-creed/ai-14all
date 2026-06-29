@@ -21,6 +21,12 @@ type Props = {
 	activeWorkspaceId: string | null;
 	changes: GitChange[];
 	openCommentCounts: Record<string, number>;
+	/** Changes-mode paths currently considered reviewed (Changes file list). */
+	reviewedPaths: string[];
+	/** Commit-mode paths currently considered reviewed (selected commit's files). */
+	commitReviewedPaths: string[];
+	/** Open-comment counts per file for the selected commit's files. */
+	commitOpenCommentCounts: Record<string, number>;
 	commitHistoryState: ReviewLoadState<GitCommitHistory>;
 	commitDetailState: ReviewLoadState<GitCommitDetail>;
 	remoteStatus: RemoteStatus | null;
@@ -57,6 +63,9 @@ export function ReviewRail(props: Props): React.ReactElement {
 		activeWorkspaceId,
 		changes,
 		openCommentCounts,
+		reviewedPaths,
+		commitReviewedPaths,
+		commitOpenCommentCounts,
 		commitHistoryState,
 		commitDetailState,
 		remoteStatus,
@@ -150,6 +159,8 @@ export function ReviewRail(props: Props): React.ReactElement {
 								remoteStatus={remoteStatus}
 								onPush={handlePushBranch}
 								selectedCommitOpenCommentCount={selectedCommitOpenCommentCount}
+								reviewedPaths={commitReviewedPaths}
+								openCommentCounts={commitOpenCommentCounts}
 							/>
 						</>
 					) : activeSession?.reviewMode === "files" ? (
@@ -221,6 +232,7 @@ export function ReviewRail(props: Props): React.ReactElement {
 							gitSummaryStale={gitSummaryStale}
 							gitSummaryMessage={gitSummaryMessage}
 							openCommentCounts={openCommentCounts}
+							reviewedPaths={reviewedPaths}
 						/>
 					)}
 

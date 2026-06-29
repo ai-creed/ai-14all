@@ -25,6 +25,7 @@ import {
 	runCommentJump,
 } from "../../features/review/logic/queue-jump";
 import { usePendingCommentJump } from "../../features/review/hooks/use-pending-comment-jump";
+import { useReviewedFiles } from "../../features/review/hooks/use-reviewed-files";
 import { scrollToLineRange } from "../../features/review/logic/diff-editor-decorations";
 import { useToast } from "../../features/ui/toast/use-toast";
 import { createDiffEditorRegistry } from "../../features/review/logic/diff-editor-registry";
@@ -135,6 +136,44 @@ export function ReviewArea(props: Props): React.ReactElement {
 	const diffEditorRegistry = useMemo(() => createDiffEditorRegistry(), []);
 	const toast = useToast();
 	const inlineEditorRef = useRef<InlineEditorHandle | null>(null);
+
+	// Single reviewed-files boundary: hashes diff content as editors mount and
+	// resolves which paths are currently considered reviewed (per mode).
+	const reviewed = useReviewedFiles({
+		worktreeId: activeWorktree.id,
+		marks: activeSession?.reviewedFiles ?? [],
+		dispatch,
+	});
+
+	// Record the changes-mode file's content as its diff loads, so its marker
+	// resets when the file changes (commit files are recorded on editor mount,
+	// via DiffViewerPane's onFileContent).
+	useEffect(() => {
+		if (activeSession?.reviewMode === "changes" && diffState.data) {
+			reviewed.recordHash(diffState.data.path, diffState.data.modifiedContent);
+		}
+	}, [activeSession?.reviewMode, diffState.data, reviewed]);
+
+	const reviewedPaths = useMemo(
+		() => reviewed.reviewedPaths(changes.map((c) => c.path)),
+		[reviewed, changes],
+	);
+
+	const commitFiles = commitDetailState.data?.files ?? [];
+	const commitReviewedPaths = useMemo(
+		() => reviewed.reviewedPaths(commitFiles.map((f) => f.path)),
+		[reviewed, commitFiles],
+	);
+	const commitOpenCommentCounts = useMemo(() => {
+		const counts: Record<string, number> = {};
+		const sha = activeSession?.selectedCommitSha ?? null;
+		for (const c of reviewState.comments) {
+			if (c.status === "open" && c.source === "commit" && c.commitSha === sha) {
+				counts[c.filePath] = (counts[c.filePath] ?? 0) + 1;
+			}
+		}
+		return counts;
+	}, [reviewState.comments, activeSession?.selectedCommitSha]);
 
 	// Lifted out of the comment-sidebar IIFE so the chip-initiated hook below can
 	// call it too. Reused for both the sidebar onJump (default 500ms editor
@@ -370,6 +409,9 @@ export function ReviewArea(props: Props): React.ReactElement {
 					activeWorkspaceId={activeWorkspaceId}
 					changes={changes}
 					openCommentCounts={openCommentCounts}
+					reviewedPaths={reviewedPaths}
+					commitReviewedPaths={commitReviewedPaths}
+					commitOpenCommentCounts={commitOpenCommentCounts}
 					commitHistoryState={commitHistoryState}
 					commitDetailState={commitDetailState}
 					remoteStatus={remoteStatus}
@@ -417,6 +459,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 					inlineEditorRef={inlineEditorRef}
 					focusedThreadId={focusedThreadId}
 					onFocusedThreadChange={setFocusedThreadId}
+					onFileContent={reviewed.recordHash}
 				/>
 
 				{commentSidebarOpen &&

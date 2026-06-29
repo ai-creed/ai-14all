@@ -47,6 +47,12 @@ type Props = {
 	inlineEditorRef: React.RefObject<InlineEditorHandle | null>;
 	focusedThreadId: string | null;
 	onFocusedThreadChange: (id: string | null) => void;
+	/**
+	 * Reports the modified-model content of a diff editor as it mounts so the
+	 * reviewed-files hook can hash it. Lets commit-mode files (which never flow
+	 * through `diffState`) get a current hash once viewed, resetting their marker.
+	 */
+	onFileContent?: (path: string, content: string) => void;
 };
 
 /**
@@ -79,6 +85,7 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 		inlineEditorRef,
 		focusedThreadId,
 		onFocusedThreadChange,
+		onFileContent,
 	} = props;
 
 	const toast = useToast();
@@ -201,6 +208,9 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 		(filePath: string, editor: Parameters<typeof installAddAffordances>[0]) => {
 			registry.register(filePath, editor);
 
+			const value = editor.getModifiedEditor?.().getModel?.()?.getValue?.();
+			if (value !== undefined) onFileContent?.(filePath, value);
+
 			const disposeAdd = installAddAffordances(editor, {
 				filePath,
 				onEnsureFileFocused: ensureFileFocused,
@@ -263,7 +273,7 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 				registry.unregister(filePath);
 			});
 		},
-		[ensureFileFocused, registry],
+		[ensureFileFocused, registry, onFileContent],
 	);
 
 	const handleDiffEditorUnmount = useCallback(

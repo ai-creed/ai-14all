@@ -29,6 +29,8 @@ type Props = {
 	remoteStatus?: RemoteStatus | null;
 	onPush?: (force: boolean) => Promise<void>;
 	selectedCommitOpenCommentCount?: number;
+	reviewedPaths?: string[];
+	openCommentCounts?: Record<string, number>;
 };
 
 export function CommitList({
@@ -44,6 +46,8 @@ export function CommitList({
 	remoteStatus,
 	onPush,
 	selectedCommitOpenCommentCount,
+	reviewedPaths,
+	openCommentCounts,
 }: Props) {
 	const [previewState, setPreviewState] = useState<{
 		path: string;
@@ -153,6 +157,24 @@ export function CommitList({
 											onClick={() => onSelectCommitFile(file.path)}
 										>
 											<span>{file.path}</span>
+											{openCommentCounts?.[file.path] ? (
+												<span
+													className="shell-review-comment-badge"
+													aria-label={`${openCommentCounts[file.path]} open review comments`}
+												>
+													[{openCommentCounts[file.path]}]
+												</span>
+											) : null}
+											{reviewedPaths?.includes(file.path) ? (
+												<span
+													className="shell-list__reviewed-mark"
+													data-testid={`reviewed-mark-${file.path}`}
+													aria-label="Reviewed"
+													style={{ color: "var(--success)" }}
+												>
+													✓
+												</span>
+											) : null}
 											<strong>{file.status}</strong>
 										</button>
 									);
