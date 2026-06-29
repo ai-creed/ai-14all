@@ -23,27 +23,100 @@ import { tmpdir } from "node:os";
 import { closeApp } from "./fixtures/close-app";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 
-const scopeData = (scope: string, codexTokens: number, claudeTokens: number) => ({
+const scopeData = (
+	scope: string,
+	codexTokens: number,
+	claudeTokens: number,
+) => ({
 	scope,
 	totalTokens: codexTokens + claudeTokens,
 	byProvider: [
-		{ provider: "codex", tokens: codexTokens, costUsd: (codexTokens / 1_000_000) * 10 },
-		{ provider: "claude", tokens: claudeTokens, costUsd: (claudeTokens / 1_000_000) * 15 },
-	].filter((r) => r.tokens > 0).sort((a, b) => b.tokens - a.tokens),
+		{
+			provider: "codex",
+			tokens: codexTokens,
+			costUsd: (codexTokens / 1_000_000) * 10,
+		},
+		{
+			provider: "claude",
+			tokens: claudeTokens,
+			costUsd: (claudeTokens / 1_000_000) * 15,
+		},
+	]
+		.filter((r) => r.tokens > 0)
+		.sort((a, b) => b.tokens - a.tokens),
 	rows: [
-		{ workspaceId: "ws1", worktreeId: "w1", worktreePath: "/p/w1", worktreeTitle: "main", provider: "codex", active: true, tokens: { input: codexTokens, output: 0, billable: codexTokens, raw: codexTokens }, costUsd: (codexTokens / 1_000_000) * 10 },
+		{
+			workspaceId: "ws1",
+			worktreeId: "w1",
+			worktreePath: "/p/w1",
+			worktreeTitle: "main",
+			provider: "codex",
+			active: true,
+			tokens: {
+				input: codexTokens,
+				output: 0,
+				billable: codexTokens,
+				raw: codexTokens,
+			},
+			costUsd: (codexTokens / 1_000_000) * 10,
+		},
 	],
-	cost: { perProvider: { codex: (codexTokens / 1_000_000) * 10, claude: (claudeTokens / 1_000_000) * 15 }, total: (codexTokens / 1_000_000) * 10 + (claudeTokens / 1_000_000) * 15, currency: "USD", notional: true, unpricedTokens: 0 },
+	cost: {
+		perProvider: {
+			codex: (codexTokens / 1_000_000) * 10,
+			claude: (claudeTokens / 1_000_000) * 15,
+		},
+		total: (codexTokens / 1_000_000) * 10 + (claudeTokens / 1_000_000) * 15,
+		currency: "USD",
+		notional: true,
+		unpricedTokens: 0,
+	},
 });
 
 const SNAPSHOT = {
 	generatedAtMs: 1_000_000_000_000,
 	providers: [
-		{ id: "claude", label: "Claude", brand: "var(--provider-claude)", capabilities: { tokenLog: true, storeKind: "jsonl-tree", timeSource: "per-event", cwdSource: "in-line", nativeLimits: false }, hasData: true },
-		{ id: "codex", label: "Codex", brand: "var(--provider-codex)", capabilities: { tokenLog: true, storeKind: "jsonl-tree", timeSource: "per-event", cwdSource: "in-line", nativeLimits: true }, hasData: true },
+		{
+			id: "claude",
+			label: "Claude",
+			brand: "var(--provider-claude)",
+			capabilities: {
+				tokenLog: true,
+				storeKind: "jsonl-tree",
+				timeSource: "per-event",
+				cwdSource: "in-line",
+				nativeLimits: false,
+			},
+			hasData: true,
+		},
+		{
+			id: "codex",
+			label: "Codex",
+			brand: "var(--provider-codex)",
+			capabilities: {
+				tokenLog: true,
+				storeKind: "jsonl-tree",
+				timeSource: "per-event",
+				cwdSource: "in-line",
+				nativeLimits: true,
+			},
+			hasData: true,
+		},
 		// Inert provider: capabilities all off, no series tokens, no scope tokens.
 		// E2e must prove an inert provider renders NO chart segment.
-		{ id: "cursor", label: "Cursor", brand: "var(--provider-cursor)", capabilities: { tokenLog: false, storeKind: "none", timeSource: "none", cwdSource: "none", nativeLimits: false }, hasData: false },
+		{
+			id: "cursor",
+			label: "Cursor",
+			brand: "var(--provider-cursor)",
+			capabilities: {
+				tokenLog: false,
+				storeKind: "none",
+				timeSource: "none",
+				cwdSource: "none",
+				nativeLimits: false,
+			},
+			hasData: false,
+		},
 	],
 	scopes: {
 		session: scopeData("session", 500_000, 0),
@@ -52,14 +125,21 @@ const SNAPSHOT = {
 		"all-time": scopeData("all-time", 1_200_000, 900_000),
 	},
 	seriesDaily: [
-		{ dayStartMs: 1_000_000_000_000 - 86_400_000, tokens: { claude: 500_000, codex: 300_000 } },
+		{
+			dayStartMs: 1_000_000_000_000 - 86_400_000,
+			tokens: { claude: 500_000, codex: 300_000 },
+		},
 		{ dayStartMs: 1_000_000_000_000, tokens: { codex: 500_000 } },
 	],
 	seriesHourly: [
 		{ hourStartMs: 1_000_000_000_000 - 3_600_000, tokens: { codex: 200_000 } },
 		{ hourStartMs: 1_000_000_000_000, tokens: { codex: 300_000 } },
 	],
-	codexLimits: { provider: "codex", fiveHour: { percent: 41, resetsAtMs: 1_000_000_000_000 + 5_400_000 }, weekly: { percent: 23, resetsAtMs: null, used: null, budget: null } },
+	codexLimits: {
+		provider: "codex",
+		fiveHour: { percent: 41, resetsAtMs: 1_000_000_000_000 + 5_400_000 },
+		weekly: { percent: 23, resetsAtMs: null, used: null, budget: null },
+	},
 	config: { chipRange: "week", includeUntracked: false },
 };
 
@@ -144,11 +224,15 @@ test.describe.serial("usage chip + popover", () => {
 		// buttons that are also in the page at the same time.
 		const pop = page.locator(".usage-pop");
 		await page.getByRole("button", { name: "Open token breakdown" }).click();
-		await expect(pop.getByRole("button", { name: "Session", exact: true })).toHaveClass(/on/);
+		await expect(
+			pop.getByRole("button", { name: "Session", exact: true }),
+		).toHaveClass(/on/);
 
 		// (b) switching scope changes the rendered total.
 		await pop.getByRole("button", { name: "All-time", exact: true }).click();
-		await expect(pop.getByRole("button", { name: "All-time", exact: true })).toHaveClass(/on/);
+		await expect(
+			pop.getByRole("button", { name: "All-time", exact: true }),
+		).toHaveClass(/on/);
 		await expect(page.getByText(/2\.1\s?M|2,100,000/).first()).toBeVisible(); // 1.2M + 0.9M all-time
 
 		// (c) REOPEN REGRESSION: scope is ephemeral renderer state — closing and reopening the
@@ -157,8 +241,12 @@ test.describe.serial("usage chip + popover", () => {
 		await expect(page.locator(".usage-pop")).toHaveCount(0);
 		await page.getByRole("button", { name: "Open token breakdown" }).click(); // reopen
 		const pop2 = page.locator(".usage-pop");
-		await expect(pop2.getByRole("button", { name: "Session", exact: true })).toHaveClass(/on/);
-		await expect(pop2.getByRole("button", { name: "All-time", exact: true })).not.toHaveClass(/on/);
+		await expect(
+			pop2.getByRole("button", { name: "Session", exact: true }),
+		).toHaveClass(/on/);
+		await expect(
+			pop2.getByRole("button", { name: "All-time", exact: true }),
+		).not.toHaveClass(/on/);
 
 		// (d) All-time omits the chart entirely.
 		await pop2.getByRole("button", { name: "All-time", exact: true }).click();
@@ -168,8 +256,12 @@ test.describe.serial("usage chip + popover", () => {
 		//     The inert `cursor` provider has no tokens, so no segment uses --provider-cursor,
 		//     while the active providers still render their segments.
 		await pop2.getByRole("button", { name: "Week", exact: true }).click();
-		await expect(page.locator('.usage-chart-seg[style*="--provider-cursor"]')).toHaveCount(0);
-		await expect(page.locator('.usage-chart-seg[style*="--provider-codex"]').first()).toBeVisible();
+		await expect(
+			page.locator('.usage-chart-seg[style*="--provider-cursor"]'),
+		).toHaveCount(0);
+		await expect(
+			page.locator('.usage-chart-seg[style*="--provider-codex"]').first(),
+		).toBeVisible();
 
 		// (f) cost shows a real `$` (never `$0`) in a scope with tokens.
 		await expect(page.getByText(/\$\s?\d/).first()).toBeVisible();

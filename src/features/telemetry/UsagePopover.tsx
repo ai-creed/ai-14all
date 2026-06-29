@@ -1,5 +1,8 @@
 import { Fragment, useState, type CSSProperties, type Ref } from "react";
-import type { UsageScope, UsageSnapshot } from "../../../shared/models/usage.js";
+import type {
+	UsageScope,
+	UsageSnapshot,
+} from "../../../shared/models/usage.js";
 import { Icon } from "@/components/ui/icon";
 import { formatReset, formatTokens, formatUsd } from "./format.js";
 import { Gauge } from "./Gauge.js";
@@ -53,23 +56,58 @@ export function UsagePopover({
 			<div className="usage-pop-sec">
 				<div className="usage-pop-h">
 					<span className="usage-seg" role="group" aria-label="scope">
-						<button className={scope === "session" ? "on" : ""} onClick={() => setScope("session")}>Session</button>
-						<button className={scope === "week" ? "on" : ""} onClick={() => setScope("week")}>Week</button>
-						<button className={scope === "month" ? "on" : ""} onClick={() => setScope("month")}>Month</button>
-						<button className={scope === "all-time" ? "on" : ""} onClick={() => setScope("all-time")}>All-time</button>
+						<button
+							className={scope === "session" ? "on" : ""}
+							onClick={() => setScope("session")}
+						>
+							Session
+						</button>
+						<button
+							className={scope === "week" ? "on" : ""}
+							onClick={() => setScope("week")}
+						>
+							Week
+						</button>
+						<button
+							className={scope === "month" ? "on" : ""}
+							onClick={() => setScope("month")}
+						>
+							Month
+						</button>
+						<button
+							className={scope === "all-time" ? "on" : ""}
+							onClick={() => setScope("all-time")}
+						>
+							All-time
+						</button>
 					</span>
 					<span className="usage-pop-total">
 						<b>{formatTokens(data.totalTokens)}</b>
-						<span className="usage-dim" title="notional"> · ~{formatUsd(cost.total)} notional</span>
+						<span className="usage-dim" title="notional">
+							{" "}
+							· ~{formatUsd(cost.total)} notional
+						</span>
 					</span>
 					<button className="usage-gear" aria-label="close" onClick={onClose}>
 						<Icon name="close" />
 					</button>
 				</div>
 				{scope === "session" ? (
-					<UsageChart kind="hourly" hourly={snapshot.seriesHourly} providers={snapshot.providers} nowMs={now} />
+					<UsageChart
+						kind="hourly"
+						hourly={snapshot.seriesHourly}
+						providers={snapshot.providers}
+						nowMs={now}
+					/>
 				) : scope === "all-time" ? null : (
-					<UsageChart kind="daily" daily={snapshot.seriesDaily} providers={snapshot.providers} range={scope} nowMs={now} showDayLabels />
+					<UsageChart
+						kind="daily"
+						daily={snapshot.seriesDaily}
+						providers={snapshot.providers}
+						range={scope}
+						nowMs={now}
+						showDayLabels
+					/>
 				)}
 			</div>
 
@@ -77,14 +115,33 @@ export function UsagePopover({
 			<div className="usage-pop-sec">
 				<div className="usage-pop-h">
 					<span className="usage-seg" role="group" aria-label="breakdown">
-						<button className={breakdown === "provider" ? "on" : ""} onClick={() => setBreakdown("provider")}>Provider</button>
-						<button className={breakdown === "workspace" ? "on" : ""} onClick={() => setBreakdown("workspace")}>Workspace</button>
-						<button className={breakdown === "worktree" ? "on" : ""} onClick={() => setBreakdown("worktree")}>Worktree</button>
+						<button
+							className={breakdown === "provider" ? "on" : ""}
+							onClick={() => setBreakdown("provider")}
+						>
+							Provider
+						</button>
+						<button
+							className={breakdown === "workspace" ? "on" : ""}
+							onClick={() => setBreakdown("workspace")}
+						>
+							Workspace
+						</button>
+						<button
+							className={breakdown === "worktree" ? "on" : ""}
+							onClick={() => setBreakdown("worktree")}
+						>
+							Worktree
+						</button>
 					</span>
 					{breakdown !== "provider" ? (
 						<label className="usage-toggle">
 							include untracked
-							<input type="checkbox" checked={includeUntracked} onChange={toggleUntracked} />
+							<input
+								type="checkbox"
+								checked={includeUntracked}
+								onChange={toggleUntracked}
+							/>
 						</label>
 					) : null}
 				</div>
@@ -93,7 +150,9 @@ export function UsagePopover({
 					<div className="usage-rollup">
 						{data.byProvider.map((r) => (
 							<div className="usage-rollup-row" key={r.provider}>
-								<span className={`usage-prov usage-prov--${r.provider}`}>{r.provider}</span>
+								<span className={`usage-prov usage-prov--${r.provider}`}>
+									{r.provider}
+								</span>
 								<span className="usage-share">
 									<span
 										className="usage-share-fill"
@@ -103,15 +162,23 @@ export function UsagePopover({
 										}}
 									/>
 								</span>
-								<span className="usage-rollup-tok">{formatTokens(r.tokens)}</span>
-								<span className="usage-dim" title="notional">{r.costUsd == null ? "—" : `~${formatUsd(r.costUsd)}`}</span>
+								<span className="usage-rollup-tok">
+									{formatTokens(r.tokens)}
+								</span>
+								<span className="usage-dim" title="notional">
+									{r.costUsd == null ? "—" : `~${formatUsd(r.costUsd)}`}
+								</span>
 							</div>
 						))}
 						<div className="usage-rollup-row usage-rollup-total">
 							<span>total</span>
 							<span className="usage-share" />
-							<span className="usage-rollup-tok">{formatTokens(data.totalTokens)}</span>
-							<span className="usage-dim" title="notional">~{formatUsd(cost.total)}</span>
+							<span className="usage-rollup-tok">
+								{formatTokens(data.totalTokens)}
+							</span>
+							<span className="usage-dim" title="notional">
+								~{formatUsd(cost.total)}
+							</span>
 						</div>
 						{cost.unpricedTokens > 0 ? (
 							<div className="usage-dim usage-unpriced">
@@ -140,13 +207,21 @@ export function UsagePopover({
 										<td />
 									</tr>
 									{g.rows.map((r, i) => (
-										<tr key={`${g.workspaceId}-${r.worktreeId}-${r.provider}-${i}`}>
+										<tr
+											key={`${g.workspaceId}-${r.worktreeId}-${r.provider}-${i}`}
+										>
 											<td className="l usage-wt">
 												{r.worktreeTitle} ·{" "}
-												<span className={`usage-prov usage-prov--${r.provider}`}>{r.provider}</span>
+												<span
+													className={`usage-prov usage-prov--${r.provider}`}
+												>
+													{r.provider}
+												</span>
 											</td>
 											<td>{formatTokens(r.tokens.billable)}</td>
-											<td className="usage-dim">{r.costUsd == null ? "—" : `~${formatUsd(r.costUsd)}`}</td>
+											<td className="usage-dim">
+												{r.costUsd == null ? "—" : `~${formatUsd(r.costUsd)}`}
+											</td>
 										</tr>
 									))}
 								</Fragment>
@@ -165,9 +240,13 @@ export function UsagePopover({
 						aria-label="Codex limits"
 						onClick={() => setShowLimits((v) => !v)}
 					>
-						<span className="usage-dim">{showLimits ? "▾" : "▸"} Codex limits · native</span>
+						<span className="usage-dim">
+							{showLimits ? "▾" : "▸"} Codex limits · native
+						</span>
 						{!showLimits && (
-							<span className="usage-lim-summary">5h {limits.fiveHour.percent}% · wk {limits.weekly.percent}%</span>
+							<span className="usage-lim-summary">
+								5h {limits.fiveHour.percent}% · wk {limits.weekly.percent}%
+							</span>
 						)}
 					</button>
 					{showLimits ? (
@@ -176,13 +255,17 @@ export function UsagePopover({
 							<Gauge percent={limits.fiveHour.percent} />
 							<span className="usage-lim-pct">{limits.fiveHour.percent}%</span>
 							<span className="usage-reset">
-								{formatReset(limits.fiveHour.resetsAtMs, now) ? `resets ${formatReset(limits.fiveHour.resetsAtMs, now)}` : ""}
+								{formatReset(limits.fiveHour.resetsAtMs, now)
+									? `resets ${formatReset(limits.fiveHour.resetsAtMs, now)}`
+									: ""}
 							</span>
 							<span className="usage-lim-lbl">week</span>
 							<Gauge percent={limits.weekly.percent} />
 							<span className="usage-lim-pct">{limits.weekly.percent}%</span>
 							<span className="usage-reset">
-								{formatReset(limits.weekly.resetsAtMs, now) ? `resets ${formatReset(limits.weekly.resetsAtMs, now)}` : ""}
+								{formatReset(limits.weekly.resetsAtMs, now)
+									? `resets ${formatReset(limits.weekly.resetsAtMs, now)}`
+									: ""}
 							</span>
 						</div>
 					) : null}

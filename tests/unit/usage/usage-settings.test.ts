@@ -11,8 +11,15 @@ describe("UsageTelemetrySettingsSchema", () => {
 	});
 
 	it("rejects a popoverScope field is irrelevant — it simply isn't part of the schema", () => {
-		const parsed = UsageTelemetrySettingsSchema.parse({ chipRange: "month", popoverScope: "all-time" });
-		expect(parsed).toEqual({ enabled: true, includeUntracked: false, chipRange: "month" });
+		const parsed = UsageTelemetrySettingsSchema.parse({
+			chipRange: "month",
+			popoverScope: "all-time",
+		});
+		expect(parsed).toEqual({
+			enabled: true,
+			includeUntracked: false,
+			chipRange: "month",
+		});
 		expect("popoverScope" in parsed).toBe(false);
 	});
 });

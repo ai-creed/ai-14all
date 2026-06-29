@@ -2,7 +2,13 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createLedger, createSession, ingestEvent, bucketKey, startOfLocalDay } from "../../../services/usage/ledger.js";
+import {
+	createLedger,
+	createSession,
+	ingestEvent,
+	bucketKey,
+	startOfLocalDay,
+} from "../../../services/usage/ledger.js";
 import {
 	LEDGER_VERSION,
 	deserializeLedger,
@@ -14,8 +20,16 @@ import type { OffsetCache } from "../../../services/usage/scanner.js";
 import type { UsageEvent } from "../../../shared/models/usage.js";
 
 const ev = (over: Partial<UsageEvent>): UsageEvent => ({
-	provider: "codex", timestampMs: 0, cwd: "/a", sessionId: "s", model: "m",
-	input: 0, output: 0, billable: 0, raw: 0, ...over,
+	provider: "codex",
+	timestampMs: 0,
+	cwd: "/a",
+	sessionId: "s",
+	model: "m",
+	input: 0,
+	output: 0,
+	billable: 0,
+	raw: 0,
+	...over,
 });
 
 describe("ledger-store", () => {
@@ -26,7 +40,21 @@ describe("ledger-store", () => {
 		// timestampMs MUST be `t` so the event lands in the startOfLocalDay(t) bucket the
 		// assertion below looks up. The factory default of 0 would bucket it under epoch,
 		// making this test pass/fail for the wrong reason instead of proving persistence.
-		ingestEvent(ledger, session, ev({ timestampMs: t, cwd: "/a", provider: "claude", model: "claude-opus-4-8", billable: 7, raw: 70, input: 5, output: 2 }), 0);
+		ingestEvent(
+			ledger,
+			session,
+			ev({
+				timestampMs: t,
+				cwd: "/a",
+				provider: "claude",
+				model: "claude-opus-4-8",
+				billable: 7,
+				raw: 70,
+				input: 5,
+				output: 2,
+			}),
+			0,
+		);
 		const offsets: OffsetCache = new Map([
 			["/a/s1.jsonl", { offset: 42, mtime: 1_700_000_000_000 }],
 		]);
@@ -41,17 +69,33 @@ describe("ledger-store", () => {
 		expect(loaded).not.toBeNull();
 		const day = loaded!.ledger.days.get(startOfLocalDay(t));
 		// round-trip proves the NUL-separated key survived save -> load intact
-		expect(day?.get(bucketKey("/a", "claude", "claude-opus-4-8"))).toEqual({ input: 5, output: 2, billable: 7, raw: 70 });
+		expect(day?.get(bucketKey("/a", "claude", "claude-opus-4-8"))).toEqual({
+			input: 5,
+			output: 2,
+			billable: 7,
+			raw: 70,
+		});
 		// the offset cache round-trips alongside the ledger (one atomic file)
-		expect(loaded!.offsets.get("/a/s1.jsonl")).toEqual({ offset: 42, mtime: 1_700_000_000_000 });
+		expect(loaded!.offsets.get("/a/s1.jsonl")).toEqual({
+			offset: 42,
+			mtime: 1_700_000_000_000,
+		});
 	});
 
 	it("round-trips codexLimits so the gauge survives a restart; null when absent", () => {
 		const limits = {
 			capturedAtMs: 1_700_000_000_000,
 			planType: "pro",
-			primary: { usedPercent: 72, windowMinutes: 300, resetsAtMs: 1_700_000_018_000 },
-			secondary: { usedPercent: 11, windowMinutes: 10_080, resetsAtMs: 1_700_000_604_000 },
+			primary: {
+				usedPercent: 72,
+				windowMinutes: 300,
+				resetsAtMs: 1_700_000_018_000,
+			},
+			secondary: {
+				usedPercent: 11,
+				windowMinutes: 10_080,
+				resetsAtMs: 1_700_000_604_000,
+			},
 		};
 		const dir = mkdtempSync(join(tmpdir(), "ledger-"));
 		const path = join(dir, "usage-ledger.json");
@@ -69,7 +113,9 @@ describe("ledger-store", () => {
 	it("deserializeLedger returns null on a lower version (forces a rebuild)", () => {
 		expect(deserializeLedger({ version: 1, days: {} })).toBeNull();
 		expect(deserializeLedger("garbage")).toBeNull();
-		expect(deserializeLedger({ version: LEDGER_VERSION, days: {} })).not.toBeNull();
+		expect(
+			deserializeLedger({ version: LEDGER_VERSION, days: {} }),
+		).not.toBeNull();
 	});
 
 	it("loadState returns null for missing / corrupt / lower-version / no-offsets-field files", () => {
@@ -82,11 +128,19 @@ describe("ledger-store", () => {
 		expect(loadState(corrupt)).toBeNull();
 		// lower-version payload (rejected by deserializeLedger before offsets are read)
 		const lower = join(dir, "lower.json");
-		writeFileSync(lower, JSON.stringify({ version: 1, days: {}, offsets: {} }), "utf8");
+		writeFileSync(
+			lower,
+			JSON.stringify({ version: 1, days: {}, offsets: {} }),
+			"utf8",
+		);
 		expect(loadState(lower)).toBeNull();
 		// old two-file format: a valid ledger but NO offsets field
 		const noOffsets = join(dir, "no-offsets.json");
-		writeFileSync(noOffsets, JSON.stringify({ version: LEDGER_VERSION, days: {} }), "utf8");
+		writeFileSync(
+			noOffsets,
+			JSON.stringify({ version: LEDGER_VERSION, days: {} }),
+			"utf8",
+		);
 		expect(loadState(noOffsets)).toBeNull();
 	});
 });

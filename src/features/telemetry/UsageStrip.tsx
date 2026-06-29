@@ -25,7 +25,8 @@ export function UsageStrip({
 		if (!open) return;
 		const onDown = (e: MouseEvent) => {
 			const t = e.target as Node;
-			if (caretRef.current?.contains(t) || popoverRef.current?.contains(t)) return;
+			if (caretRef.current?.contains(t) || popoverRef.current?.contains(t))
+				return;
 			setOpen(false);
 		};
 		const onKey = (e: KeyboardEvent) => {
@@ -46,15 +47,32 @@ export function UsageStrip({
 	return (
 		<div className="usage-strip">
 			<span className="usage-range" role="group" aria-label="range">
-				<button className={chipRange === "week" ? "on" : ""} aria-pressed={chipRange === "week"} onClick={() => setChipRange("week")}>W</button>
-				<button className={chipRange === "month" ? "on" : ""} aria-pressed={chipRange === "month"} onClick={() => setChipRange("month")}>M</button>
+				<button
+					className={chipRange === "week" ? "on" : ""}
+					aria-pressed={chipRange === "week"}
+					onClick={() => setChipRange("week")}
+				>
+					W
+				</button>
+				<button
+					className={chipRange === "month" ? "on" : ""}
+					aria-pressed={chipRange === "month"}
+					onClick={() => setChipRange("month")}
+				>
+					M
+				</button>
 			</span>
-			<UsageChart kind="daily" daily={snapshot.seriesDaily} providers={snapshot.providers} range={chipRange} nowMs={snapshot.generatedAtMs} height={28} />
+			<UsageChart
+				kind="daily"
+				daily={snapshot.seriesDaily}
+				providers={snapshot.providers}
+				range={chipRange}
+				nowMs={snapshot.generatedAtMs}
+				height={28}
+			/>
 			<span className="usage-figure">
 				<span className="usage-figure-tok">{formatTokens(totalTokens)}</span>
-				<span className="usage-figure-cost">
-					~{formatUsd(totalCost)}
-				</span>
+				<span className="usage-figure-cost">~{formatUsd(totalCost)}</span>
 			</span>
 			<button
 				ref={caretRef}

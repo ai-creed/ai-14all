@@ -1,11 +1,20 @@
 import { describe, expect, it } from "vitest";
-import type { MainToWorker, UsageWorkerConfig } from "../../../services/usage/worker-protocol.js";
+import type {
+	MainToWorker,
+	UsageWorkerConfig,
+} from "../../../services/usage/worker-protocol.js";
 
 describe("worker-protocol", () => {
 	it("config carries userDataDir + chipRange (no popoverScope)", () => {
 		const cfg: UsageWorkerConfig = {
-			home: "/home", userDataDir: "/data", launchMs: 0, known: [], activeWorktreeIds: [],
-			chipRange: "week", includeUntracked: false, backfillBatchSize: 8,
+			home: "/home",
+			userDataDir: "/data",
+			launchMs: 0,
+			known: [],
+			activeWorktreeIds: [],
+			chipRange: "week",
+			includeUntracked: false,
+			backfillBatchSize: 8,
 		};
 		expect(cfg.userDataDir).toBe("/data");
 		expect(cfg.chipRange).toBe("week");

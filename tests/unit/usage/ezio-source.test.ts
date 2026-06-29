@@ -7,9 +7,9 @@ import {
 
 describe("ezioSlug", () => {
 	it("strips the leading slash and replaces / and . with -", () => {
-		expect(ezioSlug("/Users/vuphan/Dev/ai-14all/.worktrees/bugs-hardening")).toBe(
-			"Users-vuphan-Dev-ai-14all--worktrees-bugs-hardening",
-		);
+		expect(
+			ezioSlug("/Users/vuphan/Dev/ai-14all/.worktrees/bugs-hardening"),
+		).toBe("Users-vuphan-Dev-ai-14all--worktrees-bugs-hardening");
 	});
 });
 

@@ -54,9 +54,15 @@ export function UsageChart(props: Props): JSX.Element | null {
 	const bars = (
 		<div className="usage-chart" style={{ height }}>
 			{slice.map((pt, i) => {
-				const isToday = labelled && "dayStartMs" in pt && sameLocalDay(pt.dayStartMs, props.nowMs);
+				const isToday =
+					labelled &&
+					"dayStartMs" in pt &&
+					sameLocalDay(pt.dayStartMs, props.nowMs);
 				return (
-					<div className={isToday ? "usage-chart-bar is-today" : "usage-chart-bar"} key={i}>
+					<div
+						className={isToday ? "usage-chart-bar is-today" : "usage-chart-bar"}
+						key={i}
+					>
 						{order.map((id) => {
 							const v = pt.tokens[id] ?? 0;
 							if (!v) return null;
@@ -64,7 +70,10 @@ export function UsageChart(props: Props): JSX.Element | null {
 								<span
 									key={id}
 									className="usage-chart-seg"
-									style={{ height: `${(v / max) * height}px`, background: `var(--provider-${id})` }}
+									style={{
+										height: `${(v / max) * height}px`,
+										background: `var(--provider-${id})`,
+									}}
 								/>
 							);
 						})}
@@ -84,7 +93,12 @@ export function UsageChart(props: Props): JSX.Element | null {
 					const ds = "dayStartMs" in pt ? pt.dayStartMs : props.nowMs;
 					const isToday = sameLocalDay(ds, props.nowMs);
 					return (
-						<span key={i} className={isToday ? "usage-chart-label is-today" : "usage-chart-label"}>
+						<span
+							key={i}
+							className={
+								isToday ? "usage-chart-label is-today" : "usage-chart-label"
+							}
+						>
 							{WEEKDAY[new Date(ds).getDay()]}
 						</span>
 					);

@@ -1,4 +1,7 @@
-import type { KnownWorktree, UsageSnapshot } from "../../shared/models/usage.js";
+import type {
+	KnownWorktree,
+	UsageSnapshot,
+} from "../../shared/models/usage.js";
 
 export interface UsageWorkerConfig {
 	home: string;

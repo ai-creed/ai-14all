@@ -1,12 +1,20 @@
 import type { AgentProviderId } from "../../shared/models/agent-provider.js";
-import type { DailyPoint, HourlyPoint, TokenTotals, UsageEvent } from "../../shared/models/usage.js";
+import type {
+	DailyPoint,
+	HourlyPoint,
+	TokenTotals,
+	UsageEvent,
+} from "../../shared/models/usage.js";
 
 // `${cwd}\u0000${provider}\u0000${model}` — NUL-separated; the separator is the
 // \u0000 ESCAPE, never a raw control byte. cwd/provider/model never contain it.
 export type BucketKey = string;
 export const BUCKET_SEP = "\u0000";
 
-export type TokenDelta = Pick<UsageEvent, "input" | "output" | "billable" | "raw">;
+export type TokenDelta = Pick<
+	UsageEvent,
+	"input" | "output" | "billable" | "raw"
+>;
 
 export interface DailyLedger {
 	// dayStartMs (local midnight) -> BucketKey -> TokenTotals
@@ -26,7 +34,11 @@ export function createSession(): SessionState {
 	return { since: new Map(), hourly: new Map() };
 }
 
-export function bucketKey(cwd: string, provider: AgentProviderId, model: string): BucketKey {
+export function bucketKey(
+	cwd: string,
+	provider: AgentProviderId,
+	model: string,
+): BucketKey {
 	return `${cwd}${BUCKET_SEP}${provider}${BUCKET_SEP}${model}`;
 }
 
@@ -126,7 +138,10 @@ export type ScopeName = "session" | "week" | "month" | "all-time";
 
 const SERIES_WINDOW_DAYS = 35;
 
-function mergeInto(out: Map<BucketKey, TokenTotals>, buckets: Map<BucketKey, TokenTotals>): void {
+function mergeInto(
+	out: Map<BucketKey, TokenTotals>,
+	buckets: Map<BucketKey, TokenTotals>,
+): void {
 	for (const [key, t] of buckets) {
 		let cur = out.get(key);
 		if (!cur) {

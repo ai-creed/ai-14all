@@ -15,9 +15,8 @@ export const TELEMETRY_DRIVERS: readonly TelemetryDriver[] = [
 	antigravityDriver,
 ];
 
-export const jsonlDrivers: readonly TelemetryDriver[] = TELEMETRY_DRIVERS.filter(
-	(d) => d.capabilities.storeKind === "jsonl-tree",
-);
+export const jsonlDrivers: readonly TelemetryDriver[] =
+	TELEMETRY_DRIVERS.filter((d) => d.capabilities.storeKind === "jsonl-tree");
 
 export function driverFor(id: AgentProviderId): TelemetryDriver | undefined {
 	return TELEMETRY_DRIVERS.find((d) => d.id === id);

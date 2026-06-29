@@ -61,14 +61,28 @@ describe("usage snapshot shape", () => {
 			totalTokens: 7,
 			byProvider: [{ provider: "codex", tokens: 7, costUsd: 0.01 }],
 			rows: [],
-			cost: { perProvider: { codex: 0.01 }, total: 0.01, currency: "USD", notional: true, unpricedTokens: 0 },
+			cost: {
+				perProvider: { codex: 0.01 },
+				total: 0.01,
+				currency: "USD",
+				notional: true,
+				unpricedTokens: 0,
+			},
 		};
 		expect(sd.scope).toBe("week");
 	});
 
 	it("UsageSnapshot carries all four scopes + both series", () => {
 		const scopes = {} as Record<UsageScope, ScopeData>;
-		const snap = { generatedAtMs: 0, providers: [], scopes, seriesDaily: [], seriesHourly: [], codexLimits: null, config: { chipRange: "week", includeUntracked: false } } satisfies UsageSnapshot;
+		const snap = {
+			generatedAtMs: 0,
+			providers: [],
+			scopes,
+			seriesDaily: [],
+			seriesHourly: [],
+			codexLimits: null,
+			config: { chipRange: "week", includeUntracked: false },
+		} satisfies UsageSnapshot;
 		expect(snap.config.chipRange).toBe("week");
 	});
 });

@@ -4,7 +4,13 @@
 process.env.TZ = "America/New_York";
 
 import { expect, it } from "vitest";
-import { createLedger, createSession, dailySeries, ingestEvent, startOfLocalDay } from "../../../services/usage/ledger.js";
+import {
+	createLedger,
+	createSession,
+	dailySeries,
+	ingestEvent,
+	startOfLocalDay,
+} from "../../../services/usage/ledger.js";
 import type { UsageEvent } from "../../../shared/models/usage.js";
 
 it("ledger.dailySeries keeps day alignment across a 25h fall-back day", () => {
@@ -13,8 +19,16 @@ it("ledger.dailySeries keeps day alignment across a 25h fall-back day", () => {
 	// US fall-back 2026-11-01; pick local noon so the bucket is unambiguous.
 	const t = new Date(2026, 10, 1, 12, 0, 0, 0).getTime();
 	const e = (over: Partial<UsageEvent>): UsageEvent => ({
-		provider: "codex", timestampMs: t, cwd: "/a", sessionId: "s", model: "m",
-		input: 0, output: 0, billable: 4, raw: 4, ...over,
+		provider: "codex",
+		timestampMs: t,
+		cwd: "/a",
+		sessionId: "s",
+		model: "m",
+		input: 0,
+		output: 0,
+		billable: 4,
+		raw: 4,
+		...over,
 	});
 	ingestEvent(ledger, session, e({}), 0);
 	const now = new Date(2026, 10, 3, 9, 0, 0, 0).getTime();

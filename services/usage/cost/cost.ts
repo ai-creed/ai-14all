@@ -1,5 +1,8 @@
 import type { AgentProviderId } from "../../../shared/models/agent-provider.js";
-import type { CostSnapshot, TokenTotals } from "../../../shared/models/usage.js";
+import type {
+	CostSnapshot,
+	TokenTotals,
+} from "../../../shared/models/usage.js";
 import { rateFor, type ProviderRate } from "./pricing.js";
 
 // A (provider, model) pair with its accumulated token totals. Cost is derived by
@@ -38,5 +41,11 @@ export function buildCostSnapshot(
 		total += usd;
 	}
 	// Blended pricing always resolves a rate, so no token is ever "unpriced".
-	return { perProvider, total, currency: "USD", notional: true, unpricedTokens: 0 };
+	return {
+		perProvider,
+		total,
+		currency: "USD",
+		notional: true,
+		unpricedTokens: 0,
+	};
 }

@@ -72,7 +72,8 @@ export async function sweepFiles(
 		onLimits: (id, rl) => {
 			if (
 				id === "codex" &&
-				(!state.codexLimits || rl.capturedAtMs >= state.codexLimits.capturedAtMs)
+				(!state.codexLimits ||
+					rl.capturedAtMs >= state.codexLimits.capturedAtMs)
 			) {
 				state.codexLimits = rl;
 			}
@@ -91,7 +92,8 @@ export async function sweepFiles(
 					files,
 					batchSize,
 					(file) => {
-						if (!sealedTruncation) processJsonlFile(driver, file, state.offsets, handlers);
+						if (!sealedTruncation)
+							processJsonlFile(driver, file, state.offsets, handlers);
 					},
 					onProgress,
 				);
@@ -156,8 +158,10 @@ export function recoverCodexLimits(home: string): ProviderRateLimits | null {
 		}
 		// Read only the tail (the latest rate-limit line sits near the end); a partial
 		// first line just fails to parse and is skipped.
-		const { lines } = readNewLines(path, Math.max(0, size - LIMITS_TAIL_BYTES), (l) =>
-			l.includes('"rate_limits"'),
+		const { lines } = readNewLines(
+			path,
+			Math.max(0, size - LIMITS_TAIL_BYTES),
+			(l) => l.includes('"rate_limits"'),
 		);
 		for (const line of lines) {
 			const rl = parseCodexRateLimits(line);

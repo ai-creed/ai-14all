@@ -2,7 +2,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createLedger, createSession, ingestEvent } from "../../services/usage/ledger.js";
+import {
+	createLedger,
+	createSession,
+	ingestEvent,
+} from "../../services/usage/ledger.js";
 import { processInBatches } from "../../services/usage/batch.js";
 import {
 	listJsonlFiles,
@@ -60,7 +64,9 @@ describe("usage backfill perf guard", () => {
 
 		const start = Date.now();
 		await processInBatches(files, 8, (file) =>
-			processClaudeFile(file, offsets, (e) => ingestEvent(ledger, session, e, 0)),
+			processClaudeFile(file, offsets, (e) =>
+				ingestEvent(ledger, session, e, 0),
+			),
 		);
 		const elapsed = Date.now() - start;
 

@@ -1,7 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
-import type { ProviderRateLimits, TokenTotals } from "../../shared/models/usage.js";
-import { type BucketKey, type DailyLedger, createLedger, emptyTotals } from "./ledger.js";
+import type {
+	ProviderRateLimits,
+	TokenTotals,
+} from "../../shared/models/usage.js";
+import {
+	type BucketKey,
+	type DailyLedger,
+	createLedger,
+	emptyTotals,
+} from "./ledger.js";
 import type { OffsetCache, OffsetEntry } from "./scanner.js";
 
 export const LEDGER_VERSION = 2;
@@ -38,13 +46,22 @@ function isTotals(v: unknown): v is TokenTotals {
 export function deserializeLedger(raw: unknown): DailyLedger | null {
 	if (typeof raw !== "object" || raw === null) return null;
 	const obj = raw as Partial<PersistedLedger>;
-	if (obj.version !== LEDGER_VERSION || typeof obj.days !== "object" || obj.days === null) {
+	if (
+		obj.version !== LEDGER_VERSION ||
+		typeof obj.days !== "object" ||
+		obj.days === null
+	) {
 		return null;
 	}
 	const ledger = createLedger();
 	for (const [dayStr, buckets] of Object.entries(obj.days)) {
 		const day = Number(dayStr);
-		if (!Number.isFinite(day) || typeof buckets !== "object" || buckets === null) continue;
+		if (
+			!Number.isFinite(day) ||
+			typeof buckets !== "object" ||
+			buckets === null
+		)
+			continue;
 		const map = new Map<BucketKey, TokenTotals>();
 		for (const [key, t] of Object.entries(buckets)) {
 			if (!isTotals(t)) continue;
@@ -99,10 +116,13 @@ export function loadState(path: string): {
 	if (!ledger) return null; // missing/lower/malformed → rebuild
 	const offsetsRaw = (raw as { offsets?: unknown }).offsets;
 	if (typeof offsetsRaw !== "object" || offsetsRaw === null) return null; // old two-file format (no offsets field) → rebuild
-	const offsets = new Map(Object.entries(offsetsRaw as Record<string, OffsetEntry>));
+	const offsets = new Map(
+		Object.entries(offsetsRaw as Record<string, OffsetEntry>),
+	);
 	// Best-effort cache; the pre-codexLimits format omits it → null. It refreshes as
 	// soon as the sweep reads a fresh codex rate-limit line.
 	const cl = (raw as { codexLimits?: unknown }).codexLimits;
-	const codexLimits = cl && typeof cl === "object" ? (cl as ProviderRateLimits) : null;
+	const codexLimits =
+		cl && typeof cl === "object" ? (cl as ProviderRateLimits) : null;
 	return { ledger, offsets, codexLimits };
 }

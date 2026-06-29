@@ -1,4 +1,10 @@
-import { mkdirSync, mkdtempSync, truncateSync, utimesSync, writeFileSync } from "node:fs";
+import {
+	mkdirSync,
+	mkdtempSync,
+	truncateSync,
+	utimesSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -74,7 +80,11 @@ describe("sweepFiles sealed-truncation full rebuild", () => {
 
 describe("loadPersistedState single atomic state file", () => {
 	// state file == the single combined ledger+offsets file the worker now persists.
-	function setup(): { proj: string; statePath: string; driver: TelemetryDriver } {
+	function setup(): {
+		proj: string;
+		statePath: string;
+		driver: TelemetryDriver;
+	} {
 		const root = mkdtempSync(join(tmpdir(), "sweep-persist-"));
 		const proj = join(root, "-Users-me-Dev-app");
 		mkdirSync(proj);
@@ -149,7 +159,9 @@ describe("loadPersistedState single atomic state file", () => {
 		// A legacy ledger-only file: valid version 2 + one day/bucket, but NO offsets key.
 		const payload = {
 			version: 2,
-			days: { "100000": { k: { input: 0, output: 10, billable: 10, raw: 100 } } },
+			days: {
+				"100000": { k: { input: 0, output: 10, billable: 10, raw: 100 } },
+			},
 		};
 		writeFileSync(statePath, JSON.stringify(payload), "utf8");
 		const s = loadPersistedState(statePath);
@@ -161,8 +173,16 @@ describe("loadPersistedState single atomic state file", () => {
 		const limits = {
 			capturedAtMs: 1_700_000_000_000,
 			planType: "pro",
-			primary: { usedPercent: 72, windowMinutes: 300, resetsAtMs: 1_700_000_018_000 },
-			secondary: { usedPercent: 11, windowMinutes: 10_080, resetsAtMs: 1_700_000_604_000 },
+			primary: {
+				usedPercent: 72,
+				windowMinutes: 300,
+				resetsAtMs: 1_700_000_018_000,
+			},
+			secondary: {
+				usedPercent: 11,
+				windowMinutes: 10_080,
+				resetsAtMs: 1_700_000_604_000,
+			},
 		};
 		saveState(statePath, createSweepState().ledger, new Map(), limits);
 		expect(loadPersistedState(statePath).codexLimits).toEqual(limits);
@@ -180,8 +200,16 @@ describe("loadPersistedState single atomic state file", () => {
 					type: "token_count",
 					info: {},
 					rate_limits: {
-						primary: { used_percent: pct, window_minutes: 300, resets_at: 1_782_739_536 },
-						secondary: { used_percent: 11, window_minutes: 10_080, resets_at: 1_783_302_935 },
+						primary: {
+							used_percent: pct,
+							window_minutes: 300,
+							resets_at: 1_782_739_536,
+						},
+						secondary: {
+							used_percent: 11,
+							window_minutes: 10_080,
+							resets_at: 1_783_302_935,
+						},
 						plan_type: "plus",
 					},
 				},

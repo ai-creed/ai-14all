@@ -11,11 +11,15 @@ const statePath = (): string =>
 describe("usage settings bridge (real async persistence)", () => {
 	it("persists chipRange to disk so the next run seeds Month", async () => {
 		const path = statePath();
-		const run1 = await createUsageSettingsBridge(new WorkspacePersistenceService(path));
+		const run1 = await createUsageSettingsBridge(
+			new WorkspacePersistenceService(path),
+		);
 		expect(run1.settings.chipRange).toBe("week"); // default on first run (missing file)
 		await run1.persist({ chipRange: "month" }); // awaitable async write
 		// next run: a fresh service + bridge over the same file
-		const run2 = await createUsageSettingsBridge(new WorkspacePersistenceService(path));
+		const run2 = await createUsageSettingsBridge(
+			new WorkspacePersistenceService(path),
+		);
 		expect(run2.settings.chipRange).toBe("month");
 	});
 

@@ -157,7 +157,11 @@ app.whenReady().then(async () => {
 	// preload's buffered-channel once-handler can capture it.
 	mainWindow.webContents.on("did-finish-load", () => {
 		const last = usageHost.getLastSnapshot();
-		if (last && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+		if (
+			last &&
+			!mainWindow.isDestroyed() &&
+			!mainWindow.webContents.isDestroyed()
+		) {
 			mainWindow.webContents.send(USAGE_SNAPSHOT_CHANNEL, last);
 		}
 	});

@@ -19,7 +19,9 @@ export async function createUsageSettingsBridge(
 	persistence: WorkspacePersistenceService,
 ): Promise<UsageSettingsBridge> {
 	const initial = await persistence.readState();
-	let settings = UsageTelemetrySettingsSchema.parse(initial.usageTelemetry ?? {});
+	let settings = UsageTelemetrySettingsSchema.parse(
+		initial.usageTelemetry ?? {},
+	);
 	const bridge: UsageSettingsBridge = {
 		settings,
 		async persist(patch) {

@@ -96,7 +96,11 @@ function onChannelBuffered<T>(
 // and any pending entry is drained — preventing a stale buffer leak.
 const pendingEvents: Record<string, unknown> = {};
 const pendingOnceRemovers: Record<string, () => void> = {};
-for (const channel of ["update:available", "update:downloaded", "usage:snapshot"] as const) {
+for (const channel of [
+	"update:available",
+	"update:downloaded",
+	"usage:snapshot",
+] as const) {
 	const handler = (_: Electron.IpcRendererEvent, payload: unknown) => {
 		pendingEvents[channel] = payload;
 		delete pendingOnceRemovers[channel];

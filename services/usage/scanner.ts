@@ -1,7 +1,10 @@
 import { readdirSync, statSync, type Stats } from "node:fs";
 import { join } from "node:path";
 import type { AgentProviderId } from "../../shared/models/agent-provider.js";
-import type { ProviderRateLimits, UsageEvent } from "../../shared/models/usage.js";
+import type {
+	ProviderRateLimits,
+	UsageEvent,
+} from "../../shared/models/usage.js";
 import { claudeDriver } from "./providers/claude.js";
 import { codexDriver } from "./providers/codex.js";
 import type { ParseCtx, TelemetryDriver } from "./providers/types.js";
@@ -143,7 +146,9 @@ export function processJsonlFile(
 	const fileMtime = driver.capabilities.timeSource === "file-mtime";
 
 	// Re-reading after truncation resets contribution; appends extend it.
-	const contribution: ContributionJson = ch.truncated ? {} : (prev?.contribution ?? {});
+	const contribution: ContributionJson = ch.truncated
+		? {}
+		: (prev?.contribution ?? {});
 
 	for (const line of lines) {
 		const r = driver.parseLine?.(line, ctx);

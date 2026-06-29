@@ -85,8 +85,20 @@ function scopeData(
 const snapshot: UsageSnapshot = {
 	generatedAtMs: NOW,
 	providers: [
-		{ id: "claude", label: "Claude", brand: "var(--provider-claude)", capabilities: cap, hasData: true },
-		{ id: "codex", label: "Codex", brand: "var(--provider-codex)", capabilities: { ...cap, nativeLimits: true }, hasData: true },
+		{
+			id: "claude",
+			label: "Claude",
+			brand: "var(--provider-claude)",
+			capabilities: cap,
+			hasData: true,
+		},
+		{
+			id: "codex",
+			label: "Codex",
+			brand: "var(--provider-codex)",
+			capabilities: { ...cap, nativeLimits: true },
+			hasData: true,
+		},
 	],
 	scopes: {
 		session: scopeData("session", 800_000, 1.4, 0.9), // total cost $2.30
@@ -95,7 +107,10 @@ const snapshot: UsageSnapshot = {
 		"all-time": scopeData("all-time", 3_000_000, 10.0, 5.0), // total cost $15.00
 	},
 	seriesDaily: [
-		{ dayStartMs: NOW - 86_400_000, tokens: { claude: 500_000, codex: 300_000 } },
+		{
+			dayStartMs: NOW - 86_400_000,
+			tokens: { claude: 500_000, codex: 300_000 },
+		},
 		{ dayStartMs: NOW, tokens: { codex: 500_000 } },
 	],
 	seriesHourly: [
@@ -118,16 +133,27 @@ describe("UsagePopover", () => {
 	});
 
 	it("opens on the Session scope (Session button active, total = session total)", () => {
-		const { container } = render(<UsagePopover snapshot={snapshot} onClose={() => {}} />);
-		expect(screen.getByRole("button", { name: "Session" }).className).toContain("on");
-		expect(screen.getByRole("button", { name: "Week" }).className).not.toContain("on");
+		const { container } = render(
+			<UsagePopover snapshot={snapshot} onClose={() => {}} />,
+		);
+		expect(screen.getByRole("button", { name: "Session" }).className).toContain(
+			"on",
+		);
+		expect(
+			screen.getByRole("button", { name: "Week" }).className,
+		).not.toContain("on");
 		// session total = 0.8M
-		expect(container.querySelector(".usage-pop-total")?.textContent).toContain("0.8M");
+		expect(container.querySelector(".usage-pop-total")?.textContent).toContain(
+			"0.8M",
+		);
 	});
 
 	it("switches the rendered scope total when Week / Month / All-time are clicked", () => {
-		const { container } = render(<UsagePopover snapshot={snapshot} onClose={() => {}} />);
-		const total = () => container.querySelector(".usage-pop-total")?.textContent ?? "";
+		const { container } = render(
+			<UsagePopover snapshot={snapshot} onClose={() => {}} />,
+		);
+		const total = () =>
+			container.querySelector(".usage-pop-total")?.textContent ?? "";
 		expect(total()).toContain("0.8M"); // session
 		fireEvent.click(screen.getByRole("button", { name: "Week" }));
 		expect(total()).toContain("1.2M");
@@ -138,7 +164,9 @@ describe("UsagePopover", () => {
 	});
 
 	it("renders a chart for Session but none for All-time", () => {
-		const { container } = render(<UsagePopover snapshot={snapshot} onClose={() => {}} />);
+		const { container } = render(
+			<UsagePopover snapshot={snapshot} onClose={() => {}} />,
+		);
 		// Session => hourly chart present
 		expect(container.querySelector(".usage-chart")).not.toBeNull();
 		fireEvent.click(screen.getByRole("button", { name: "All-time" }));
@@ -147,9 +175,12 @@ describe("UsagePopover", () => {
 	});
 
 	it("shows a real notional cost (not $0) for a scope with tokens", () => {
-		const { container } = render(<UsagePopover snapshot={snapshot} onClose={() => {}} />);
+		const { container } = render(
+			<UsagePopover snapshot={snapshot} onClose={() => {}} />,
+		);
 		// session total cost = $2.30
-		const totalText = container.querySelector(".usage-pop-total")?.textContent ?? "";
+		const totalText =
+			container.querySelector(".usage-pop-total")?.textContent ?? "";
 		expect(totalText).toMatch(/\$2\.30/);
 		expect(totalText).not.toMatch(/\$0\.00/);
 	});
@@ -163,7 +194,9 @@ describe("UsagePopover", () => {
 	});
 
 	it("switching the breakdown to Workspace shows the worktree tree", () => {
-		const { container } = render(<UsagePopover snapshot={snapshot} onClose={() => {}} />);
+		const { container } = render(
+			<UsagePopover snapshot={snapshot} onClose={() => {}} />,
+		);
 		fireEvent.click(screen.getByRole("button", { name: "Workspace" }));
 		// "main" appears in both the workspace header (g.label) and the worktree cell;
 		// scope to .usage-wt to assert the worktree row specifically.
@@ -172,19 +205,25 @@ describe("UsagePopover", () => {
 	});
 
 	it("codex native limits are collapsed and expand on click", () => {
-		const { container } = render(<UsagePopover snapshot={snapshot} onClose={() => {}} />);
+		const { container } = render(
+			<UsagePopover snapshot={snapshot} onClose={() => {}} />,
+		);
 		// Collapsed: glanceable summary visible, expanded detail not yet rendered
 		expect(screen.getByText("5h 41% · wk 23%")).toBeTruthy();
 		expect(screen.queryByText(/resets/)).toBeNull();
 		// Expand: gauge percent now inside .usage-limits
 		fireEvent.click(screen.getByRole("button", { name: /Codex limits/ }));
-		expect(within(container.querySelector(".usage-limits")!).getByText("41%")).toBeTruthy();
+		expect(
+			within(container.querySelector(".usage-limits")!).getByText("41%"),
+		).toBeTruthy();
 	});
 
 	it("seeds the include-untracked toggle from config (default false)", () => {
 		render(<UsagePopover snapshot={snapshot} onClose={() => {}} />);
 		fireEvent.click(screen.getByRole("button", { name: "Workspace" }));
-		expect((screen.getByLabelText("include untracked") as HTMLInputElement).checked).toBe(false);
+		expect(
+			(screen.getByLabelText("include untracked") as HTMLInputElement).checked,
+		).toBe(false);
 	});
 
 	it("seeds the include-untracked toggle from config (true)", () => {
@@ -194,6 +233,8 @@ describe("UsagePopover", () => {
 		};
 		render(<UsagePopover snapshot={on} onClose={() => {}} />);
 		fireEvent.click(screen.getByRole("button", { name: "Workspace" }));
-		expect((screen.getByLabelText("include untracked") as HTMLInputElement).checked).toBe(true);
+		expect(
+			(screen.getByLabelText("include untracked") as HTMLInputElement).checked,
+		).toBe(true);
 	});
 });

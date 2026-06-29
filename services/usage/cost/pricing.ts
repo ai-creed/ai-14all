@@ -17,7 +17,11 @@ const PROVIDER_RATE: Partial<Record<AgentProviderId, ProviderRate>> = {
 	ezio: { inputPerM: 1.25, outputPerM: 10, cacheReadPerM: 0.125 }, // runs on the codex/OpenAI provider
 };
 
-const GLOBAL_AVG: ProviderRate = { inputPerM: 2, outputPerM: 12, cacheReadPerM: 0.2 };
+const GLOBAL_AVG: ProviderRate = {
+	inputPerM: 2,
+	outputPerM: 12,
+	cacheReadPerM: 0.2,
+};
 
 export function rateFor(provider: AgentProviderId): ProviderRate {
 	return PROVIDER_RATE[provider] ?? GLOBAL_AVG;

@@ -323,11 +323,15 @@ function claudeLine(outputTokens: number): string {
 }
 
 describe("processJsonlFile idempotency", () => {
-	const makeHandlers = (ledger = createLedger(), session = createSession()): { ledger: typeof ledger; h: ScanHandlers } => {
+	const makeHandlers = (
+		ledger = createLedger(),
+		session = createSession(),
+	): { ledger: typeof ledger; h: ScanHandlers } => {
 		const h: ScanHandlers = {
 			ingest: (e) => ingestEvent(ledger, session, e, 0),
 			onLimits: (_id: AgentProviderId, _rl: ProviderRateLimits) => {},
-			onSubtract: (contrib: ContributionJson) => applyContribution(ledger, contrib, -1),
+			onSubtract: (contrib: ContributionJson) =>
+				applyContribution(ledger, contrib, -1),
 			onSealedTruncation: () => {},
 		};
 		return { ledger, h };
@@ -335,7 +339,8 @@ describe("processJsonlFile idempotency", () => {
 
 	const sumBillable = (ledger: ReturnType<typeof createLedger>): number => {
 		let n = 0;
-		for (const buckets of ledger.days.values()) for (const t of buckets.values()) n += t.billable;
+		for (const buckets of ledger.days.values())
+			for (const t of buckets.values()) n += t.billable;
 		return n;
 	};
 
@@ -390,7 +395,12 @@ describe("processJsonlFile idempotency", () => {
 		const future = Date.now() + 10_000;
 		utimesSync(file, future / 1000, future / 1000);
 		let rebuildRequested = false;
-		processJsonlFile(claudeDriver, file, cache, { ...h, onSealedTruncation: () => { rebuildRequested = true; } });
+		processJsonlFile(claudeDriver, file, cache, {
+			...h,
+			onSealedTruncation: () => {
+				rebuildRequested = true;
+			},
+		});
 		expect(rebuildRequested).toBe(true);
 		// sealed branch returns early without re-reading: ledger must stay at the stale 20, not 24 or 4
 		expect(sumBillable(ledger)).toBe(20);

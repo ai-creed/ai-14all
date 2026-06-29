@@ -70,7 +70,10 @@ describe("codex recoverCtx bound", () => {
 		expect(codexDriver.recoverCtx?.(file, from)?.cwd).toBe("/A");
 		// Scanning the whole file (no bound) would instead pick up "/B".
 		expect(
-			codexDriver.recoverCtx?.(file, Buffer.byteLength(metaLine + turnLine, "utf8"))?.cwd,
+			codexDriver.recoverCtx?.(
+				file,
+				Buffer.byteLength(metaLine + turnLine, "utf8"),
+			)?.cwd,
 		).toBe("/B");
 	});
 });

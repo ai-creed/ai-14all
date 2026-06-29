@@ -22,7 +22,11 @@ describe("readNewLines", () => {
 		const dir = mkdtempSync(join(tmpdir(), "inc-"));
 		const file = join(dir, "f.jsonl");
 		writeFileSync(file, "aaa\nbbb\nccc\n");
-		expect(readNewLines(file, 0, () => true).lines).toEqual(["aaa", "bbb", "ccc"]);
+		expect(readNewLines(file, 0, () => true).lines).toEqual([
+			"aaa",
+			"bbb",
+			"ccc",
+		]);
 		// Bound to the first two lines only (8 bytes = "aaa\nbbb\n").
 		expect(readNewLines(file, 0, () => true, 8).lines).toEqual(["aaa", "bbb"]);
 	});

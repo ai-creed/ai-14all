@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { seriesForRange } from "../../../src/features/telemetry/rollup.js";
 import type { DailyPoint } from "../../../shared/models/usage.js";
 
-const day = (y: number, m: number, d: number): number => new Date(y, m, d, 12).getTime();
+const day = (y: number, m: number, d: number): number =>
+	new Date(y, m, d, 12).getTime();
 
 describe("seriesForRange", () => {
 	const series: DailyPoint[] = [

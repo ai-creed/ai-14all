@@ -12,7 +12,11 @@ import type {
 	UsageScope,
 	UsageSnapshot,
 } from "../../shared/models/usage.js";
-import { buildCostSnapshot, estimateCostUsd, type RateLookup } from "./cost/cost.js";
+import {
+	buildCostSnapshot,
+	estimateCostUsd,
+	type RateLookup,
+} from "./cost/cost.js";
 import { rateFor } from "./cost/pricing.js";
 import {
 	type BucketKey,
@@ -65,7 +69,10 @@ export function buildScopeData(
 	// Aggregate by provider and by (worktree|untracked, provider).
 	const byProviderTotals = new Map<AgentProviderId, TokenTotals>();
 	// rowKey -> { meta, tokens }
-	const rowAgg = new Map<string, { row: Omit<UsageRow, "tokens" | "costUsd">; tokens: TokenTotals }>();
+	const rowAgg = new Map<
+		string,
+		{ row: Omit<UsageRow, "tokens" | "costUsd">; tokens: TokenTotals }
+	>();
 	let totalTokens = 0;
 
 	for (const [key, t] of buckets) {
@@ -112,7 +119,11 @@ export function buildScopeData(
 	// Cost for the scope (and per-provider $) from the same window's (provider,model)
 	// — model is ignored by blended pricing, so aggregate by provider.
 	const cost = buildCostSnapshot(
-		[...byProviderTotals.entries()].map(([provider, tokens]) => ({ provider, model: "", tokens })),
+		[...byProviderTotals.entries()].map(([provider, tokens]) => ({
+			provider,
+			model: "",
+			tokens,
+		})),
 		rate,
 	);
 
@@ -144,7 +155,12 @@ export function buildSnapshot(input: BuildSnapshotInput): UsageSnapshot {
 
 	const scopes = {} as Record<UsageScope, ScopeData>;
 	for (const scope of SCOPES) {
-		const buckets = bucketsForScope(input.ledger, input.session, scope, input.nowMs);
+		const buckets = bucketsForScope(
+			input.ledger,
+			input.session,
+			scope,
+			input.nowMs,
+		);
 		scopes[scope] = buildScopeData(
 			scope,
 			buckets,
@@ -169,7 +185,10 @@ export function buildSnapshot(input: BuildSnapshotInput): UsageSnapshot {
 	const codexDriver = drivers.find((d) => d.id === "codex");
 	const codexLimits =
 		codexDriver?.buildGauge && input.codexLimits
-			? codexDriver.buildGauge({ providerLimits: input.codexLimits, nowMs: input.nowMs })
+			? codexDriver.buildGauge({
+					providerLimits: input.codexLimits,
+					nowMs: input.nowMs,
+				})
 			: null;
 
 	return {
@@ -179,6 +198,9 @@ export function buildSnapshot(input: BuildSnapshotInput): UsageSnapshot {
 		seriesDaily: dailySeries(input.ledger, input.nowMs),
 		seriesHourly: hourlySeries(input.session),
 		codexLimits,
-		config: { chipRange: input.chipRange, includeUntracked: input.includeUntracked },
+		config: {
+			chipRange: input.chipRange,
+			includeUntracked: input.includeUntracked,
+		},
 	};
 }

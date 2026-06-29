@@ -28,6 +28,7 @@ export function seriesForRange(
 	range: "week" | "month",
 	nowMs: number,
 ): DailyPoint[] {
-	const from = range === "month" ? startOfMonth(nowMs) : startOfTrailingWeek(nowMs);
+	const from =
+		range === "month" ? startOfMonth(nowMs) : startOfTrailingWeek(nowMs);
 	return series.filter((p) => p.dayStartMs >= from);
 }

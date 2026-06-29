@@ -65,7 +65,14 @@ async function sweep(): Promise<void> {
 	backfilling = true;
 	// All scan + idempotency + sealed-truncation-rebuild logic lives in sweepFiles
 	// (electron-free + unit-tested in tests/unit/usage/sweep.test.ts).
-	await sweepFiles(state, jsonlDrivers, cfg.home, cfg.launchMs, cfg.backfillBatchSize, scheduleEmit);
+	await sweepFiles(
+		state,
+		jsonlDrivers,
+		cfg.home,
+		cfg.launchMs,
+		cfg.backfillBatchSize,
+		scheduleEmit,
+	);
 	persist();
 	backfilling = false;
 	if (rescanQueued) {
@@ -123,7 +130,8 @@ parentPort.on("message", (e: { data: MainToWorker }) => {
 		const recovered = recoverCodexLimits(cfg.home);
 		if (
 			recovered &&
-			(!state.codexLimits || recovered.capturedAtMs > state.codexLimits.capturedAtMs)
+			(!state.codexLimits ||
+				recovered.capturedAtMs > state.codexLimits.capturedAtMs)
 		) {
 			state.codexLimits = recovered;
 		}
