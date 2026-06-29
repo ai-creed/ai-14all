@@ -102,6 +102,23 @@ async function openIndexTsDiff() {
 	await page.waitForTimeout(200);
 }
 
+/**
+ * Expand the left-rail overview only if it is currently collapsed. These tests
+ * run serially without a reload and `reviewOverviewExpanded` persists across
+ * them, so a blind toggle click could collapse an already-expanded overview.
+ * Reading `aria-expanded` and clicking only when "false" is idempotent.
+ */
+async function ensureOverviewExpanded(targetPage: Page) {
+	await targetPage.evaluate(() => {
+		const toggle = document.querySelector(
+			'[data-testid="review-overview-toggle"]',
+		) as HTMLButtonElement | null;
+		if (toggle && toggle.getAttribute("aria-expanded") === "false") {
+			toggle.click();
+		}
+	});
+}
+
 test.beforeAll(async () => {
 	testRepo = createTestRepo();
 	persistedStateDir = realpathSync(
@@ -211,18 +228,13 @@ test.describe.serial("Review comments — inline UX", () => {
 		// The overview may scroll internally so we assert on its text content rather
 		// than a row element's visibility (which can be "hidden" when scrolled out of
 		// view in the overlay).
-		await page.evaluate(() => {
-			const toggle = document.querySelector(
-				'[data-testid="review-overview-toggle"]',
-			) as HTMLButtonElement | null;
-			toggle?.click();
-		});
+		await ensureOverviewExpanded(page);
 		const overview = page.locator('[data-testid="review-overview"]');
 		await expect(overview).toBeVisible({ timeout: 10_000 });
 		await expect(overview).toContainText("rename x", { timeout: 10_000 });
 	});
 
-	test("mark addressed → rail overview shows 0 open → reopen → rail overview shows 1 open", async () => {
+	test("mark addressed → overview open count 0 → reopen → overview open count 1", async () => {
 		test.setTimeout(120_000);
 
 		// The previous test left a saved open comment. Find the inline thread.
@@ -245,11 +257,14 @@ test.describe.serial("Review comments — inline UX", () => {
 			btn.click();
 		});
 
-		// Rail overview should now show "0 open" — comment is addressed
-		await page.evaluate(() => (document.querySelector('[data-testid="review-overview-toggle"]') as HTMLButtonElement | null)?.click());
-		const overview = page.locator('[data-testid="review-overview"]');
-		await expect(overview).toBeVisible({ timeout: 10_000 });
-		await expect(overview).toContainText("0 open", { timeout: 5_000 });
+		// The rail overview reports the open count as a bare number in the toggle's
+		// count span (the toggle label "All open comments" has no digits, so a
+		// substring match on "0"/"1" is unambiguous). Addressing the sole comment
+		// drops the open count to 0.
+		await ensureOverviewExpanded(page);
+		const overviewToggle = page.getByTestId("review-overview-toggle");
+		await expect(overviewToggle).toBeVisible({ timeout: 10_000 });
+		await expect(overviewToggle).toContainText("0", { timeout: 5_000 });
 
 		// The thread stays visible but the queue row should reflect addressed state.
 		// To test reopen: click the Reopen button (component stays in expanded view).
@@ -268,8 +283,8 @@ test.describe.serial("Review comments — inline UX", () => {
 			throw new Error("Reopen button not found");
 		});
 
-		// Rail overview should now show "1 open" again
-		await expect(overview).toContainText("1 open", { timeout: 5_000 });
+		// Reopening restores the open count to 1.
+		await expect(overviewToggle).toContainText("1", { timeout: 5_000 });
 	});
 
 	test("persist across reload", async () => {
@@ -283,7 +298,7 @@ test.describe.serial("Review comments — inline UX", () => {
 		await openIndexTsDiff();
 
 		// Comment should still be in the rail overview
-		await page.evaluate(() => (document.querySelector('[data-testid="review-overview-toggle"]') as HTMLButtonElement | null)?.click());
+		await ensureOverviewExpanded(page);
 		const overview = page.locator('[data-testid="review-overview"]');
 		await expect(overview).toBeVisible({ timeout: 10_000 });
 		await expect(overview).toContainText("rename x", { timeout: 15_000 });

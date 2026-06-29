@@ -113,6 +113,8 @@ export function ReviewArea(props: Props): React.ReactElement {
 		reviewRailWidth,
 		handleReviewRailResizeStart,
 		resolvedTheme,
+		installCtaVisible,
+		onOpenInstall,
 		dispatch,
 		handlePushBranch,
 		handleSelectChangedFile,
@@ -573,6 +575,8 @@ export function ReviewArea(props: Props): React.ReactElement {
 						(await inlineEditorRef.current?.requestSwitch?.()) ?? "proceed"
 					}
 					onCloseReview={props.onCloseReview}
+					installCtaVisible={installCtaVisible}
+					onOpenInstall={onOpenInstall}
 					header={
 						hasCommentChrome ? (
 							<>

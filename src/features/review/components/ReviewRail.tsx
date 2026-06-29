@@ -4,6 +4,7 @@ import { CommitList } from "../../git/components/CommitList";
 import { ChangesList } from "../../git/components/ChangesList";
 import { FilesPane } from "../../../app/components/FilesPane";
 import { MarkdownPreviewModal } from "../../viewer/components/MarkdownPreviewModal";
+import { AgentInstallCta } from "./AgentInstallCta";
 import type { GitChange } from "../../../../shared/models/git-change";
 import type { Worktree } from "../../../../shared/models/worktree";
 import type { WorktreeSession } from "../../../../shared/models/worktree-session";
@@ -42,6 +43,10 @@ type Props = {
 	handlePushBranch: (force: boolean) => Promise<void>;
 	requestFileSwitch: () => Promise<"proceed" | "cancel">;
 	onCloseReview: () => void;
+	/** Whether the in-pane install nudge should be shown at the bottom of the rail. */
+	installCtaVisible: boolean;
+	/** Opens the agent install modal from the in-pane install nudge. */
+	onOpenInstall: () => void;
 	/** Slot rendered above the active list — Phase 2 fills this with the progress header. */
 	header?: React.ReactNode;
 	/** Slot rendered below the active list — Phase 2 fills this with the overview. */
@@ -81,6 +86,8 @@ export function ReviewRail(props: Props): React.ReactElement {
 		handlePushBranch,
 		requestFileSwitch,
 		onCloseReview,
+		installCtaVisible,
+		onOpenInstall,
 		header,
 		footer,
 	} = props;
@@ -239,6 +246,10 @@ export function ReviewRail(props: Props): React.ReactElement {
 					{footer}
 				</div>
 			</ScrollArea>
+
+			{installCtaVisible ? (
+				<AgentInstallCta onOpenInstall={onOpenInstall} />
+			) : null}
 		</section>
 	);
 }

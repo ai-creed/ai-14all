@@ -2472,6 +2472,9 @@ export function App() {
 									reviewMode={activeSession?.reviewMode ?? "files"}
 									isDirty={activeSummary?.isDirty ?? false}
 									changedFileCount={changes.length}
+									commentSidebarOpen={
+										activeSession?.reviewOverviewExpanded ?? false
+									}
 									onToggleCommentSidebar={() => {
 										const wid = activeWorktree?.id;
 										if (!wid) return;
