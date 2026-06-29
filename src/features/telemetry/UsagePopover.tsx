@@ -69,7 +69,7 @@ export function UsagePopover({
 				{scope === "session" ? (
 					<UsageChart kind="hourly" hourly={snapshot.seriesHourly} providers={snapshot.providers} nowMs={now} />
 				) : scope === "all-time" ? null : (
-					<UsageChart kind="daily" daily={snapshot.seriesDaily} providers={snapshot.providers} range={scope} nowMs={now} />
+					<UsageChart kind="daily" daily={snapshot.seriesDaily} providers={snapshot.providers} range={scope} nowMs={now} showDayLabels />
 				)}
 			</div>
 

@@ -30,4 +30,23 @@ describe("UsageChart", () => {
 		);
 		expect(container.firstChild).toBeNull();
 	});
+	it("renders weekday labels and marks today when showDayLabels is set", () => {
+		const { container } = render(
+			<UsageChart kind="daily" daily={series} providers={providers} range="week" nowMs={NOW} showDayLabels />,
+		);
+		const labels = container.querySelectorAll(".usage-chart-label");
+		expect(labels).toHaveLength(2); // Tue 06-16, Wed 06-17
+		// NOW = Wed 2026-06-17 → today's label is "We" and carries the is-today accent.
+		const today = container.querySelector(".usage-chart-label.is-today");
+		expect(today?.textContent).toBe("We");
+		// today's column is also tick-marked
+		expect(container.querySelectorAll(".usage-chart-bar.is-today")).toHaveLength(1);
+	});
+	it("omits weekday labels without showDayLabels (e.g. the chip)", () => {
+		const { container } = render(
+			<UsageChart kind="daily" daily={series} providers={providers} range="week" nowMs={NOW} />,
+		);
+		expect(container.querySelectorAll(".usage-chart-label")).toHaveLength(0);
+		expect(container.querySelectorAll(".usage-chart-bar.is-today")).toHaveLength(0);
+	});
 });

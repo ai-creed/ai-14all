@@ -4597,6 +4597,39 @@ select {
 .usage-chart-seg {
 	width: 100%;
 }
+/* Daily chart with a weekday-label row (popover only). */
+.usage-chart-wrap {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+.usage-pop .usage-chart-wrap {
+	width: 100%;
+}
+.usage-chart-labels {
+	display: flex;
+	gap: 1px;
+}
+.usage-chart-label {
+	flex: 1;
+	min-width: 2px;
+	overflow: hidden;
+	font-size: 8px;
+	line-height: 1;
+	text-align: center;
+	color: var(--text-muted);
+}
+.usage-chart-label.is-today {
+	color: var(--accent);
+	font-weight: 700;
+}
+/* "You are here" tick at the baseline of today's column — the only today marker on
+   the month chart (which has no weekday labels). min-height keeps it visible even
+   when today has no usage yet. */
+.usage-chart-bar.is-today {
+	min-height: 2px;
+	box-shadow: inset 0 -2px 0 0 var(--accent);
+}
 /* Dense chip: token + cost figure */
 .usage-figure {
 	display: inline-flex;
