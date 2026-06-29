@@ -2169,6 +2169,7 @@ export function App() {
 							dispatch={dispatch}
 							themeMode={mode}
 							onThemeToggle={() => setTheme(nextThemeMode(mode))}
+							onOpenShortcutsHelp={() => setShortcutsHelpOpen(true)}
 						/>
 
 						<section className="shell-main-column" ref={mainColRef}>
@@ -2188,6 +2189,7 @@ export function App() {
 								setSidebarCollapsed={setSidebarCollapsed}
 								setPendingRename={setPendingRename}
 								openReview={() => setReviewOpen(true)}
+								openCommandPalette={() => setCommandPaletteOpen(true)}
 								dispatch={dispatch}
 								noteSheetOpen={noteSheetOpen}
 								setNoteSheetOpen={setNoteSheetOpen}

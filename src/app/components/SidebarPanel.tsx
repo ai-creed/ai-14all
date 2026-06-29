@@ -40,6 +40,7 @@ type Props = {
 	) => void;
 	themeMode: ThemeMode;
 	onThemeToggle: () => void;
+	onOpenShortcutsHelp: () => void;
 };
 
 /**
@@ -66,6 +67,7 @@ export function SidebarPanel(props: Props): React.ReactElement {
 		dispatch,
 		themeMode,
 		onThemeToggle,
+		onOpenShortcutsHelp,
 	} = props;
 
 	return (
@@ -125,6 +127,7 @@ export function SidebarPanel(props: Props): React.ReactElement {
 				pendingRename={pendingRename}
 				themeMode={themeMode}
 				onThemeToggle={onThemeToggle}
+				onOpenShortcutsHelp={onOpenShortcutsHelp}
 			/>
 		</div>
 	);

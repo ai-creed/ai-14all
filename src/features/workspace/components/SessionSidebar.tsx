@@ -61,6 +61,7 @@ type Props = {
 	pendingRename?: { workspaceId: string; worktreeId: string } | null;
 	themeMode?: ThemeMode;
 	onThemeToggle?: () => void;
+	onOpenShortcutsHelp?: () => void;
 };
 
 export function SessionSidebar({
@@ -80,6 +81,7 @@ export function SessionSidebar({
 	pendingRename,
 	themeMode = "system",
 	onThemeToggle,
+	onOpenShortcutsHelp,
 }: Props) {
 	const [renaming, setRenaming] = React.useState<{
 		workspaceId: string;
@@ -548,6 +550,17 @@ export function SessionSidebar({
 						onClick={onThemeToggle}
 					>
 						{themeIcon}
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						size="icon"
+						style={collapsed ? { width: "100%" } : undefined}
+						aria-label="Keyboard shortcuts"
+						title="Keyboard shortcuts"
+						onClick={onOpenShortcutsHelp}
+					>
+						<Icon name="help" />
 					</Button>
 				</div>
 			</div>

@@ -12,6 +12,7 @@ const defaults = {
 	onRenameClick: vi.fn(),
 	onDirtyClick: vi.fn(),
 	onFilesClick: vi.fn(),
+	onCommandsClick: vi.fn(),
 	onNoteClick: vi.fn(),
 };
 
@@ -100,5 +101,34 @@ describe("SessionChipBar", () => {
 		render(<SessionChipBar {...defaults} onFilesClick={spy} />);
 		await user.click(screen.getByRole("button", { name: /open files/i }));
 		expect(spy).toHaveBeenCalledTimes(1);
+	});
+
+	it("calls onCommandsClick when Commands button clicked", async () => {
+		const user = userEvent.setup();
+		const spy = vi.fn();
+		render(<SessionChipBar {...defaults} onCommandsClick={spy} />);
+		await user.click(
+			screen.getByRole("button", { name: /open command palette/i }),
+		);
+		expect(spy).toHaveBeenCalledTimes(1);
+	});
+
+	it("renders chip-bar actions in order: Commands, Plugins, Files, Note", () => {
+		const { container } = render(
+			<SessionChipBar
+				{...defaults}
+				plugins={<button aria-label="Open Plugins panel">Plugins</button>}
+			/>,
+		);
+		const actions = container.querySelector(".shell-chip-bar__actions");
+		const labels = Array.from(actions?.querySelectorAll("button") ?? []).map(
+			(b) => b.getAttribute("aria-label"),
+		);
+		expect(labels).toEqual([
+			"Open command palette",
+			"Open Plugins panel",
+			"Open Files",
+			"Open note",
+		]);
 	});
 });
