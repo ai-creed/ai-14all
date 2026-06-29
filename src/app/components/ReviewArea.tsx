@@ -18,15 +18,12 @@ import type { ResolvedTheme } from "../../lib/use-theme";
 import type { InlineEditorHandle } from "../../features/viewer/components/InlineEditor";
 import { MarkViewedToggle } from "../../features/review/components/MarkViewedToggle";
 import { ReviewProgressHeader } from "../../features/review/components/ReviewProgressHeader";
-import { ReviewQueuePanel } from "../../features/review/components/ReviewQueuePanel";
+import { CommentMinimap } from "../../features/review/components/CommentMinimap";
 import { ReviewRail } from "../../features/review/components/ReviewRail";
 import { ReviewRailOverview } from "../../features/review/components/ReviewRailOverview";
 import { DiffViewerPane } from "../../features/review/components/DiffViewerPane";
-import {
-	dispatchActionsForJump,
-	waitForEditor,
-	runCommentJump,
-} from "../../features/review/logic/queue-jump";
+import { runCommentJump } from "../../features/review/logic/queue-jump";
+import { filterHideAddressed } from "../../features/review/logic/group-comments";
 import { usePendingCommentJump } from "../../features/review/hooks/use-pending-comment-jump";
 import { useReviewedFiles } from "../../features/review/hooks/use-reviewed-files";
 import { scrollToLineRange } from "../../features/review/logic/diff-editor-decorations";
@@ -74,7 +71,6 @@ type Props = {
 	reviewState: ReviewState;
 	reviewRailWidth: number;
 	handleReviewRailResizeStart: (e: React.MouseEvent<HTMLDivElement>) => void;
-	commentSidebarOpen: boolean;
 	resolvedTheme: ResolvedTheme;
 	installCtaVisible: boolean;
 	onOpenInstall: () => void;
@@ -116,10 +112,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 		reviewState,
 		reviewRailWidth,
 		handleReviewRailResizeStart,
-		commentSidebarOpen,
 		resolvedTheme,
-		installCtaVisible,
-		onOpenInstall,
 		dispatch,
 		handlePushBranch,
 		handleSelectChangedFile,
@@ -225,6 +218,28 @@ export function ReviewArea(props: Props): React.ReactElement {
 			: activeSession?.reviewMode === "changes"
 				? (activeSession?.selectedChangedFilePath ?? null)
 				: null;
+
+	// Total line count of the modified document, used to position minimap dots.
+	// Changes mode reads the loaded diff content directly; commits mode reads the
+	// live Monaco model (the diff is not held in React state there).
+	const totalLines = useMemo(() => {
+		if (activeSession?.reviewMode === "changes" && diffState.data) {
+			return diffState.data.modifiedContent.split("\n").length;
+		}
+		const editor = currentFilePath
+			? diffEditorRegistry.get(currentFilePath)
+			: null;
+		return editor?.getModifiedEditor?.().getModel?.()?.getLineCount?.() ?? 0;
+	}, [activeSession?.reviewMode, diffState.data, currentFilePath, diffEditorRegistry]);
+
+	const currentFileComments = useMemo(
+		() =>
+			filterHideAddressed(
+				reviewState.comments.filter((c) => c.filePath === currentFilePath),
+				hideAddressed,
+			),
+		[reviewState.comments, currentFilePath, hideAddressed],
+	);
 
 	const platform = useMemo(() => detectPlatform(), []);
 
@@ -526,9 +541,10 @@ export function ReviewArea(props: Props): React.ReactElement {
 				data-testid="review-grid"
 				data-focused-thread-id={focusedThreadId ?? ""}
 				style={{
-					gridTemplateColumns: commentSidebarOpen
-						? `${reviewRailWidth}px 8px minmax(0, 1fr) 8px ${activeSession?.reviewSidebarWidth ?? 280}px`
-						: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
+					gridTemplateColumns:
+						activeSession?.reviewMode !== "files" && currentFilePath
+							? `${reviewRailWidth}px 8px minmax(0, 1fr) 46px`
+							: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
 				}}
 			>
 				<ReviewRail
@@ -607,90 +623,20 @@ export function ReviewArea(props: Props): React.ReactElement {
 					onFileContent={reviewed.recordHash}
 				/>
 
-				{commentSidebarOpen &&
-					(() => {
-						const reviewMode = activeSession?.reviewMode ?? "files";
-						const commitSha =
-							reviewMode === "commits"
-								? (activeSession?.selectedCommitSha ?? null)
-								: null;
-
-						return (
-							<ReviewQueuePanel
-								activeMode={
-									reviewMode === "commits"
-										? { kind: "commits", commitSha }
-										: reviewMode === "changes"
-											? { kind: "changes" }
-											: { kind: "files" }
-								}
-								comments={reviewState.comments}
-								hideAddressed={hideAddressed}
-								pendingDraft={
-									addingDraft && addingDraft.filePath !== currentFilePath
-										? addingDraft
-										: null
-								}
-								onJumpToPendingDraft={async (draft) => {
-									const actions = dispatchActionsForJump({
-										id: "__pending_draft__",
-										worktreeId: activeWorktree.id,
-										filePath: draft.filePath,
-										startLine: draft.startLine,
-										endLine: draft.endLine,
-										snippet: draft.snippet,
-										body: draft.body,
-										status: "open",
-										source: draft.source,
-										commitSha: draft.commitSha,
-										createdAt: new Date(0).toISOString(),
-										addressedAt: null,
-									});
-									for (const a of actions) dispatch(a);
-									const editor = await waitForEditor(
-										() => diffEditorRegistry.get(draft.filePath) ?? null,
-									);
-									if (editor) {
-										scrollToLineRange(editor, draft);
-									}
-								}}
-								onJump={(c) => void jumpToComment(c)}
-								onToggleAddressed={async (id) => {
-									const c = reviewState.comments.find((x) => x.id === id);
-									if (!c) return;
-									try {
-										if (c.status === "open")
-											await reviewState.markAddressed(id);
-										else await reviewState.reopen(id);
-									} catch (e) {
-										toast.show(`Failed: ${(e as Error).message}`);
-									}
-								}}
-								onDelete={async (id) => {
-									try {
-										await reviewState.remove(id);
-									} catch (e) {
-										toast.show(`Failed to delete: ${(e as Error).message}`);
-									}
-								}}
-								onClearAddressed={async () => {
-									try {
-										const res = await reviewState.clearAddressed();
-										if (res && "ok" in res && !res.ok) {
-											toast.show(
-												`Failed to clear: ${(res as { ok: false; error: string }).error}`,
-											);
-										}
-									} catch (e) {
-										toast.show(`Failed to clear: ${(e as Error).message}`);
-									}
-								}}
-								onToggleHideAddressed={() => setHideAddressed((v) => !v)}
-								installCtaVisible={installCtaVisible}
-								onOpenInstall={onOpenInstall}
-							/>
-						);
-					})()}
+				{activeSession?.reviewMode !== "files" && currentFilePath ? (
+					<CommentMinimap
+						comments={currentFileComments}
+						totalLines={totalLines}
+						progress={progress}
+						onJump={(c) => void jumpToComment(c)}
+						onToggleAddressed={async (id) => {
+							const c = reviewState.comments.find((x) => x.id === id);
+							if (!c) return;
+							if (c.status === "open") await reviewState.markAddressed(id);
+							else await reviewState.reopen(id);
+						}}
+					/>
+				) : null}
 			</div>
 		</Tabs>
 	);

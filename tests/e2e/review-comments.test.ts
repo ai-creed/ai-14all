@@ -132,7 +132,7 @@ test.afterAll(async () => {
 });
 
 test.describe.serial("Review comments — inline UX", () => {
-	test("hover-plus add single line, save, appears in queue panel", async () => {
+	test("hover-plus add single line, save, appears in rail overview", async () => {
 		test.setTimeout(120_000);
 
 		await openIndexTsDiff();
@@ -207,12 +207,19 @@ test.describe.serial("Review comments — inline UX", () => {
 			{ timeout: 10_000 },
 		);
 
-		// Queue panel has a row containing "rename x". The panel may scroll internally
-		// so we assert on the panel's text content rather than the row element's
-		// visibility (which can be "hidden" when scrolled out of view in the overlay).
-		const queuePanel = page.locator('[data-testid="review-queue-panel"]');
-		await expect(queuePanel).toBeVisible({ timeout: 10_000 });
-		await expect(queuePanel).toContainText("rename x", { timeout: 10_000 });
+		// Open the left-rail overview, then assert the saved comment is listed there.
+		// The overview may scroll internally so we assert on its text content rather
+		// than a row element's visibility (which can be "hidden" when scrolled out of
+		// view in the overlay).
+		await page.evaluate(() => {
+			const toggle = document.querySelector(
+				'[data-testid="review-overview-toggle"]',
+			) as HTMLButtonElement | null;
+			toggle?.click();
+		});
+		const overview = page.locator('[data-testid="review-overview"]');
+		await expect(overview).toBeVisible({ timeout: 10_000 });
+		await expect(overview).toContainText("rename x", { timeout: 10_000 });
 	});
 
 	test("mark addressed → queue shows 0 open → reopen → queue shows 1 open", async () => {

@@ -553,27 +553,9 @@ export function App() {
 		agentInstallStatus.providers.length > 0 &&
 		agentInstallStatus.providers.every((p) => !p.installed);
 	const [installModalOpen, setInstallModalOpen] = useState(false);
-	const [commentSidebarOpen, setCommentSidebarOpen] = useState(false);
 	const [pendingCommentJump, setPendingCommentJump] = useState(0);
 
 	useInstallModalListener(useCallback(() => setInstallModalOpen(true), []));
-
-	useEffect(() => {
-		const currentFilePath =
-			activeSession?.reviewMode === "commits"
-				? (activeSession.selectedCommitFilePath ?? null)
-				: (activeSession?.selectedChangedFilePath ?? null);
-		const hasComments =
-			currentFilePath !== null &&
-			reviewState.comments.some((c) => c.filePath === currentFilePath);
-		setCommentSidebarOpen(hasComments || addingDraft !== null);
-	}, [
-		activeSession?.reviewMode,
-		activeSession?.selectedCommitFilePath,
-		activeSession?.selectedChangedFilePath,
-		reviewState.comments,
-		addingDraft,
-	]);
 
 	const trackedFilesLoader = useCallback(
 		async (opts: { includeIgnored: boolean }) => {
@@ -1929,9 +1911,16 @@ export function App() {
 
 	const handleOpenCommentsChip = useCallback(() => {
 		setReviewOpen(true);
-		setCommentSidebarOpen(true);
+		const wid = activeWorktree?.id;
+		if (wid) {
+			dispatch({
+				type: "session/setReviewOverviewExpanded",
+				worktreeId: wid,
+				expanded: true,
+			});
+		}
 		setPendingCommentJump((n) => n + 1);
-	}, []);
+	}, [activeWorktree?.id, dispatch]);
 
 	const { handleRemoveWorkspace } = useWorkspaceRemoval({
 		appWorkspaces,
@@ -2483,10 +2472,17 @@ export function App() {
 									reviewMode={activeSession?.reviewMode ?? "files"}
 									isDirty={activeSummary?.isDirty ?? false}
 									changedFileCount={changes.length}
-									commentSidebarOpen={commentSidebarOpen}
-									onToggleCommentSidebar={() =>
-										setCommentSidebarOpen((o) => !o)
-									}
+									onToggleCommentSidebar={() => {
+										const wid = activeWorktree?.id;
+										if (!wid) return;
+										dispatch({
+											type: "session/setReviewOverviewExpanded",
+											worktreeId: wid,
+											expanded: !(
+												activeSession?.reviewOverviewExpanded ?? false
+											),
+										});
+									}}
 									openCommentCount={currentFileOpenCommentCount}
 								>
 									<CodeNavHygiene
@@ -2514,7 +2510,6 @@ export function App() {
 										reviewState={reviewState}
 										reviewRailWidth={reviewRailWidth}
 										handleReviewRailResizeStart={handleReviewRailResizeStart}
-										commentSidebarOpen={commentSidebarOpen}
 										resolvedTheme={resolvedTheme}
 										installCtaVisible={installCtaVisible}
 										onOpenInstall={() => setInstallModalOpen(true)}
