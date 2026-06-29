@@ -184,6 +184,11 @@ jobs:
           grep -q "https://github.com/ai-creed/ai-14all/releases/download/v${{ steps.resolve.outputs.version }}/" release/latest-mac.published.yml
 
       - name: Publish manifest to ai-creed
+        # Only on a real tagged release (event_name == 'push'). A workflow_dispatch
+        # smoke/dry-run must NOT mutate the live ai-creed site or publish a manifest
+        # that points at GitHub Release assets a dispatch run never creates (the
+        # "Create or refresh GitHub Release" step below is likewise push-only).
+        if: github.event_name == 'push'
         shell: bash
         env:
           DEPLOY_KEY: ${{ secrets.AI_CREED_DEPLOY_KEY }}
