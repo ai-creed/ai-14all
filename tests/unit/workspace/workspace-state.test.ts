@@ -1232,6 +1232,8 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 						selectedCommitSha: null,
 						selectedCommitFilePath: null,
 						reviewSidebarWidth: 280,
+						reviewedFiles: [],
+						reviewOverviewExpanded: false,
 						activeProcessSessionId: "process-1",
 						nextAdHocNumber: 2,
 						processSessions: [
@@ -1280,6 +1282,8 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 				selectedCommitSha: null,
 				selectedCommitFilePath: null,
 				reviewSidebarWidth: 280,
+				reviewedFiles: [],
+				reviewOverviewExpanded: false,
 				activeProcessSessionId: "process-2",
 				nextAdHocNumber: 4,
 				processSessions: [
@@ -1319,6 +1323,8 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 				selectedCommitSha: "abc1234",
 				selectedCommitFilePath: "src/index.ts",
 				reviewSidebarWidth: 280,
+				reviewedFiles: [],
+				reviewOverviewExpanded: false,
 				activeProcessSessionId: null,
 				nextAdHocNumber: 1,
 				processSessions: [],
@@ -1349,6 +1355,8 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 				selectedCommitSha: null,
 				selectedCommitFilePath: null,
 				reviewSidebarWidth: 280,
+				reviewedFiles: [],
+				reviewOverviewExpanded: false,
 				activeProcessSessionId: "orphan-id", // not in processSessions
 				nextAdHocNumber: 2,
 				processSessions: [
@@ -2754,6 +2762,8 @@ describe("restore resets agentAttentionReasons", () => {
 						selectedCommitSha: null,
 						selectedCommitFilePath: null,
 						reviewSidebarWidth: 280,
+						reviewedFiles: [],
+						reviewOverviewExpanded: false,
 						activeProcessSessionId: null,
 						nextAdHocNumber: 1,
 						processSessions: [],
@@ -2821,6 +2831,8 @@ describe("restore resets agentAttentionReasons", () => {
 						selectedCommitSha: null,
 						selectedCommitFilePath: null,
 						reviewSidebarWidth: 280,
+						reviewedFiles: [],
+						reviewOverviewExpanded: false,
 						activeProcessSessionId: "proc-restore-1",
 						nextAdHocNumber: 2,
 						processSessions: [
@@ -2877,6 +2889,8 @@ describe("restore resets agentAttentionReasons", () => {
 				selectedCommitSha: null,
 				selectedCommitFilePath: null,
 				reviewSidebarWidth: 280,
+				reviewedFiles: [],
+				reviewOverviewExpanded: false,
 				activeProcessSessionId: null,
 				nextAdHocNumber: 1,
 				processSessions: [],
@@ -2934,6 +2948,8 @@ describe("restore resets agentAttentionReasons", () => {
 				selectedCommitSha: null,
 				selectedCommitFilePath: null,
 				reviewSidebarWidth: 280,
+				reviewedFiles: [],
+				reviewOverviewExpanded: false,
 				activeProcessSessionId: "proc-restore-2",
 				nextAdHocNumber: 2,
 				processSessions: [
