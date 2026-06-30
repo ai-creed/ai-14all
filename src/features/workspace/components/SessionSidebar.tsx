@@ -342,6 +342,13 @@ export function SessionSidebar({
 												>
 													{shownTitle}
 												</strong>
+												{(workspace.attentionByWorktreeId[worktree.id] ?? "idle") === "ready" && (
+													<span
+														className="shell-sidebar__row-ready-dot"
+														data-testid="row-ready-dot"
+														aria-hidden="true"
+													/>
+												)}
 												{hasCustomTitle && (
 													<div className="shell-sidebar__worktree-label">
 														{worktree.label}

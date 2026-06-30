@@ -903,7 +903,7 @@ select {
 
 @keyframes shell-sidebar-attention-pulse {
 	to {
-		--attention-opacity: 1;
+		--attention-opacity: 0.55;
 	}
 }
 
@@ -936,7 +936,7 @@ select {
 	mask-composite: exclude;
 	pointer-events: none;
 	animation:
-		shell-sidebar-attention-rotate 4s linear infinite,
+		shell-sidebar-attention-rotate 8s linear infinite,
 		shell-sidebar-attention-pulse 2.5s ease-in-out infinite alternate;
 }
 
@@ -983,6 +983,46 @@ select {
 		box-shadow: 0 0 16px
 			color-mix(in srgb, var(--attention-color) 55%, transparent);
 	}
+}
+
+/* Row ready tier: quiet dot only — no ring, no tint, no title recolor (D4). */
+.shell-sidebar__row-ready-dot {
+	display: inline-block;
+	width: 6px;
+	height: 6px;
+	margin-left: var(--space-2);
+	border-radius: 50%;
+	background: var(--ready);
+	vertical-align: middle;
+}
+/* Collapsed-row rollup dot (Task 8) */
+.shell-sidebar__workspace-rollup-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+}
+.shell-sidebar__workspace-rollup-dot[data-tier="actionRequired"] { background: var(--danger); }
+.shell-sidebar__workspace-rollup-dot[data-tier="ready"] { background: var(--ready); }
+.shell-sidebar__workspace-count {
+	font-size: var(--ws-fs-chip);
+	color: var(--text-secondary);
+	margin-left: var(--space-1);
+}
+/* Workflow card status adopts the §4 tiers via data-tier (set in WorkflowRow.tsx,
+   Task 11). "ready" (done) is a quiet --ready dot with NO pill tint (D4); only
+   "actionRequired" (escalated/halted) keeps an alert treatment. */
+.workflow-row__status[data-tier="ready"] {
+	color: var(--text-secondary);
+	background: none;
+}
+.workflow-row__status[data-tier="ready"] .workflow-row__status-dot {
+	background: var(--ready);
+}
+.workflow-row__status[data-tier="actionRequired"] {
+	color: var(--danger);
+}
+.workflow-row__status[data-tier="actionRequired"] .workflow-row__status-dot {
+	background: var(--danger);
 }
 
 .shell-sidebar__row[data-attention="activity"] {

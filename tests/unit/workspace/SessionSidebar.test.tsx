@@ -486,3 +486,26 @@ describe("SessionSidebar — collapsed workspace rollup", () => {
 		expect(screen.queryByTestId("workspace-rollup-dot")).toBeNull();
 	});
 });
+
+describe("SessionSidebar — ready tier dot", () => {
+	it("renders a quiet ready dot for a ready worktree row (dot only)", () => {
+		renderSidebar({
+			workspaces: [makeWorkspace({ attentionByWorktreeId: { wt1: "ready" } })],
+		});
+		const dot = screen.getByTestId("row-ready-dot");
+		expect(dot).toBeInTheDocument();
+		expect(dot.closest(".shell-sidebar__item")).toHaveAttribute(
+			"data-attention",
+			"ready",
+		);
+	});
+
+	it("does not render the ready dot for idle or actionRequired rows", () => {
+		renderSidebar({
+			workspaces: [
+				makeWorkspace({ attentionByWorktreeId: { wt1: "actionRequired" } }),
+			],
+		});
+		expect(screen.queryByTestId("row-ready-dot")).toBeNull();
+	});
+});
