@@ -5,6 +5,7 @@ import {
 	formatQuietAge,
 } from "../../../src/features/workspace/logic/sidebar-shell-summary";
 import { STALE_THRESHOLD_MS } from "../../../shared/models/agent-attention";
+import type { AgentAttentionReason } from "../../../shared/models/agent-attention";
 
 const now = 20_000;
 
@@ -446,8 +447,9 @@ describe("buildWorktreeAttentionDisplay", () => {
 				},
 			},
 			processSummary: { rows: [], overflowCount: 0 },
+			now,
 		});
-		expect(display.state).toBe("active");
+		expect(display.state).toBe("ready");
 		expect(display.context).toContain("implementation complete");
 	});
 
@@ -485,11 +487,12 @@ describe("buildWorktreeAttentionDisplay", () => {
 					provider: null,
 				},
 			},
+			now,
 		});
 		expect(display.state).toBe("actionRequired");
 	});
 
-	it("maps mcp ready to SidebarShellState 'active', not 'activity'", () => {
+	it("maps mcp ready to SidebarShellState 'ready', not 'activity'", () => {
 		const display = buildWorktreeAttentionDisplay({
 			sessionAgentAttentionReasons: {
 				mcp: {
@@ -501,20 +504,21 @@ describe("buildWorktreeAttentionDisplay", () => {
 				},
 			},
 			processSummary: { rows: [], overflowCount: 0, topRow: null },
+			now,
 		});
-		expect(display.state).toBe("active");
+		expect(display.state).toBe("ready");
 		expect(display.state).not.toBe("activity");
 	});
 
-	it("returns process row when mcp and top process row have equal severity rank", () => {
-		// both mcp and top process row are at the "active" SidebarShellState level (ready maps to active)
-		// per the > comparison, process row wins on tie
+	it("returns process row when session and process have equal severity rank", () => {
+		// both mcp:waiting (session actionRequired rank 4) and top process row are at
+		// actionRequired (rank 4) — per the strict > comparison, process row wins on tie
 		const display = buildWorktreeAttentionDisplay({
 			sessionAgentAttentionReasons: {
 				mcp: {
-					state: "ready",
+					state: "waiting",
 					source: "mcp",
-					summary: "mcp done",
+					summary: "mcp waiting",
 					nextAction: null,
 					reportedAt: 1_000,
 				},
@@ -524,7 +528,7 @@ describe("buildWorktreeAttentionDisplay", () => {
 					{
 						id: "p1",
 						label: "claude",
-						state: "active",
+						state: "actionRequired",
 						context: "process context",
 						lastActivityAt: now,
 						hasFailedReason: false,
@@ -535,15 +539,94 @@ describe("buildWorktreeAttentionDisplay", () => {
 				topRow: {
 					id: "p1",
 					label: "claude",
-					state: "active",
+					state: "actionRequired",
 					context: "process context",
 					lastActivityAt: now,
 					hasFailedReason: false,
 					provider: null,
 				},
 			},
+			now: 5_000, // 4 s after reportedAt=1000, fresh (< STALE_THRESHOLD_MS=120 000)
 		});
-		expect(display.state).toBe("active");
+		expect(display.state).toBe("actionRequired");
 		expect(display.context).toBe("process context");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Three-tier tests (Task 1)
+// ---------------------------------------------------------------------------
+
+const reason = (
+	state: AgentAttentionReason["state"],
+	source: AgentAttentionReason["source"],
+	reportedAt: number,
+	summary = "x",
+): AgentAttentionReason => ({ state, source, summary, nextAction: null, reportedAt });
+
+const emptySummary = { rows: [], overflowCount: 0, topRow: null };
+// All reportedAt/now values below are relative to STALE_THRESHOLD_MS = 120_000ms.
+
+describe("buildWorktreeAttentionDisplay three-tier", () => {
+	it("retires a stale mcp:waiting cleared by a later workflow:done (the false-red bug)", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: {
+				mcp: reason("waiting", "mcp", 1000),
+				workflow: reason("ready", "workflow", 2000, "workflow done"),
+			},
+			processSummary: emptySummary,
+			now: 2000,
+			agentAttentionClearedAt: 2000,
+		});
+		expect(display.state).toBe("ready");
+	});
+
+	it("surfaces a done workflow as the ready tier", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: { workflow: reason("ready", "workflow", 5) },
+			processSummary: emptySummary,
+			now: 5,
+			agentAttentionClearedAt: null,
+		});
+		expect(display.state).toBe("ready");
+	});
+
+	it("keeps a fresh mcp:waiting (reported after the clear) red", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: { mcp: reason("waiting", "mcp", 3000) },
+			processSummary: emptySummary,
+			now: 3500,
+			agentAttentionClearedAt: 2000,
+		});
+		expect(display.state).toBe("actionRequired");
+	});
+
+	it("retires a lone stale-by-age mcp:waiting with no terminal clear (spec §4.2)", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: { mcp: reason("waiting", "mcp", 1000) },
+			processSummary: emptySummary,
+			now: 1000 + 200_000, // quiet > STALE_THRESHOLD_MS since the waiting was reported
+			agentAttentionClearedAt: null,
+		});
+		expect(display.state).toBe("idle");
+	});
+
+	it("keeps a recent mcp:waiting red even without a clear", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: { mcp: reason("waiting", "mcp", 1000) },
+			processSummary: emptySummary,
+			now: 1000 + 5_000, // 5s < STALE_THRESHOLD_MS
+			agentAttentionClearedAt: null,
+		});
+		expect(display.state).toBe("actionRequired");
+	});
+
+	it("ignores non-authoritative session sources at session scope", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: { terminal: reason("waiting", "terminal", 9) },
+			processSummary: emptySummary,
+			now: 9,
+		});
+		expect(display.state).toBe("idle");
 	});
 });

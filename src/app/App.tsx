@@ -1945,6 +1945,7 @@ export function App() {
 						const display = buildWorktreeAttentionDisplay({
 							sessionAgentAttentionReasons: session.agentAttentionReasons,
 							processSummary,
+							now: sidebarNow,
 						});
 						attentionByWorktreeId[worktreeId] =
 							display.state === "actionRequired"
