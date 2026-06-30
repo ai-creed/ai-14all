@@ -155,7 +155,11 @@ export function processJsonlFile(
 		if (!r) continue;
 		if (r.limits) h.onLimits(driver.id, r.limits);
 		if (r.event) {
-			if (fileMtime) r.event.timestampMs = ch.mtime;
+			// Stamp file mtime for file-mtime drivers AND for any event whose
+			// parser produced a falsy timestamp (legacy ezio rows, or any row
+			// missing a per-line timestamp) — so a 0/NaN never reaches the
+			// ledger and timestamp-less rows still bucket sanely.
+			if (fileMtime || !r.event.timestampMs) r.event.timestampMs = ch.mtime;
 			h.ingest(r.event);
 			recordContribution(
 				contribution,
