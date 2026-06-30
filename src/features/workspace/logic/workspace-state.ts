@@ -142,6 +142,8 @@ export type WorkspaceAction =
 			processId: string;
 			status: ProcessSession["status"];
 			exitCode?: number | null;
+			/** Event time; advances the session clear timestamp on a terminal transition (§4.2). */
+			at?: number;
 	  }
 	| {
 			type: "session/recordProcessOutput";
@@ -308,6 +310,7 @@ function createSession(worktree: Worktree): WorktreeSession {
 		processSessionIds: [],
 		attentionState: "idle",
 		agentAttentionReasons: {},
+		agentAttentionClearedAt: null,
 		terminalLayoutId: "1",
 		slotProcessIds: [null],
 		reviewSidebarWidth: 280,
@@ -789,18 +792,45 @@ export function workspaceReducer(
 			action.status === "running"
 				? detectAgentProvider(process.command, undefined, null)
 				: null;
+
+		const nextProcessSessionsById = {
+			...state.processSessionsById,
+			[action.processId]: {
+				...process,
+				status: action.status,
+				exitCode: action.exitCode ?? process.exitCode,
+				agentDetected: nextAgentDetected,
+				provider: nextProvider,
+			},
+		};
+
+		// Process exit is a terminal event: retire session-level waiting/failed
+		// reported before the exit by advancing the session clear timestamp to the
+		// exit EVENT time (§4.2), so a reason reported after the last activity but
+		// before the exit is still retired. Fall back to lastActivityAt if no event
+		// time was supplied.
+		const exitAt = action.at ?? process.lastActivityAt ?? null;
+		let nextSessionsByWorktreeId = state.sessionsByWorktreeId;
+		if (action.status !== "running" && exitAt != null) {
+			const session = state.sessionsByWorktreeId[process.worktreeId];
+			if (session) {
+				nextSessionsByWorktreeId = {
+					...state.sessionsByWorktreeId,
+					[process.worktreeId]: {
+						...session,
+						agentAttentionClearedAt: Math.max(
+							session.agentAttentionClearedAt ?? 0,
+							exitAt,
+						),
+					},
+				};
+			}
+		}
+
 		return {
 			...state,
-			processSessionsById: {
-				...state.processSessionsById,
-				[action.processId]: {
-					...process,
-					status: action.status,
-					exitCode: action.exitCode ?? process.exitCode,
-					agentDetected: nextAgentDetected,
-					provider: nextProvider,
-				},
-			},
+			processSessionsById: nextProcessSessionsById,
+			sessionsByWorktreeId: nextSessionsByWorktreeId,
 		};
 	}
 
@@ -1163,6 +1193,13 @@ export function workspaceReducer(
 		if (replaced) {
 			updatedReasons[action.reason.source] = action.reason;
 		}
+		// Advance the session clear timestamp when an accepted reason signals `ready`
+		// (spec §4.2). Only accepted pushes (`replaced`) advance it; stale/rejected
+		// ones are no-ops. Take the max so the timestamp never regresses.
+		const nextClearedAt =
+			replaced && action.reason.state === "ready"
+				? Math.max(session.agentAttentionClearedAt ?? 0, action.reason.reportedAt)
+				: session.agentAttentionClearedAt;
 		// Task only updates when the push was accepted (`replaced`). A stale /
 		// out-of-order MCP push (older `reportedAt`) is rejected, so it must NOT
 		// overwrite the visible task — leave `session.task` untouched, making a
@@ -1190,6 +1227,7 @@ export function workspaceReducer(
 		const base: WorktreeSession = {
 			...session,
 			agentAttentionReasons: updatedReasons,
+			agentAttentionClearedAt: nextClearedAt,
 			task: nextTask,
 		};
 		const nextSession: WorktreeSession = {

@@ -2991,3 +2991,111 @@ describe("session and process models — new fields", () => {
 		expect(state.processSessionsById.p1.provider).toBeNull();
 	});
 });
+
+describe("session/reportAgentAttention and session/updateProcessStatus — agentAttentionClearedAt advancement", () => {
+	// Helper: seed a session with a session-level reason via reportAgentAttention.
+	function seedSessionWithReason(reason: {
+		state: "waiting" | "active" | "ready" | "failed";
+		source: "mcp" | "workflow";
+		summary: string;
+		nextAction: string | null;
+		reportedAt: number;
+	}) {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason,
+		});
+		return state;
+	}
+
+	// Helper: seed a session with a session-level reason AND a registered process.
+	function seedSessionWithReasonAndProcess(
+		reason: {
+			state: "waiting" | "active" | "ready" | "failed";
+			source: "mcp" | "workflow";
+			summary: string;
+			nextAction: string | null;
+			reportedAt: number;
+		},
+		proc: {
+			processId: string;
+			lastActivityAt: number | null;
+			status: ProcessSession["status"];
+		},
+	) {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess(proc.processId, "main", "shell", {
+				lastActivityAt: proc.lastActivityAt,
+				status: proc.status,
+			}),
+		});
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason,
+		});
+		return state;
+	}
+
+	// Helper: return the "main" worktree id (the worktree used in all seeding helpers above).
+	function onlyWorktreeId(_state: ReturnType<typeof createWorkspaceState>) {
+		return "main";
+	}
+
+	it("advances agentAttentionClearedAt when an accepted ready reason arrives", () => {
+		// Arrange: a session already carrying a stale mcp:waiting (reportedAt 1000).
+		let state = seedSessionWithReason({
+			state: "waiting",
+			source: "mcp",
+			summary: "?",
+			nextAction: null,
+			reportedAt: 1000,
+		});
+		const worktreeId = onlyWorktreeId(state);
+
+		// Act: a workflow-source ready (done) at reportedAt 2000.
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId,
+			reason: {
+				state: "ready",
+				source: "workflow",
+				summary: "workflow done",
+				nextAction: null,
+				reportedAt: 2000,
+			},
+		});
+
+		// Assert.
+		expect(state.sessionsByWorktreeId[worktreeId].agentAttentionClearedAt).toBe(2000);
+	});
+
+	it("advances agentAttentionClearedAt to the exit EVENT time on process exit", () => {
+		// Arrange: a session with an mcp:waiting (reportedAt 1200) reported AFTER the
+		// process's last activity (1100) but BEFORE the exit (1500). Using lastActivityAt
+		// would fail to retire it; using the exit event time retires it.
+		let state = seedSessionWithReasonAndProcess(
+			{ state: "waiting", source: "mcp", summary: "?", nextAction: null, reportedAt: 1200 },
+			{ processId: "p1", lastActivityAt: 1100, status: "running" },
+		);
+		const worktreeId = onlyWorktreeId(state);
+
+		// Act: the process exits at event time 1500.
+		state = workspaceReducer(state, {
+			type: "session/updateProcessStatus",
+			processId: "p1",
+			status: "exited",
+			exitCode: 0,
+			at: 1500,
+		});
+
+		// Assert: the clear timestamp is the exit event time (1500), NOT lastActivityAt
+		// (1100) — so the mcp:waiting (reportedAt 1200) is retired.
+		expect(state.sessionsByWorktreeId[worktreeId].agentAttentionClearedAt).toBe(1500);
+	});
+});

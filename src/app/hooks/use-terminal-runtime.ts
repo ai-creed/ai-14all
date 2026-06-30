@@ -218,6 +218,7 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 					processId: process.id,
 					status: "exited",
 					exitCode: event.exitCode ?? null,
+					at: Date.now(),
 				};
 				applyActionForOwner(ownerWsId, action);
 				// `process` is a snapshot captured before applyActionForOwner ran,
@@ -303,6 +304,7 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 					processId: process.id,
 					status: "error",
 					exitCode: null,
+					at: Date.now(),
 				};
 				applyActionForOwner(ownerWsId, action);
 				if (process.agentDetected) {
