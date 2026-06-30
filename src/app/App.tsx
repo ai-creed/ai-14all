@@ -28,6 +28,7 @@ import { useAgentInstallStatus } from "../features/review/hooks/use-agent-instal
 import {
 	buildWorktreeAttentionDisplay,
 	buildWorktreeProcessSummary,
+	rollupWorkspaceAttention,
 	type SidebarAttentionTier,
 	type WorktreeProcessSummary,
 } from "../features/workspace/logic/sidebar-shell-summary";
@@ -1920,6 +1921,7 @@ export function App() {
 							processesByWorktreeId: {},
 							attentionContextByWorktreeId: {},
 							taskByWorktreeId: {},
+							collapsedSummary: { sessionCount: 0, attentionTier: null },
 						};
 					const attentionByWorktreeId: Record<string, SidebarAttentionTier> =
 						{};
@@ -1975,6 +1977,12 @@ export function App() {
 						processesByWorktreeId,
 						attentionContextByWorktreeId,
 						taskByWorktreeId,
+						collapsedSummary: {
+							sessionCount: Object.keys(ws.workspaceState.sessionsByWorktreeId).length,
+							attentionTier: rollupWorkspaceAttention(
+								Object.values(attentionByWorktreeId),
+							),
+						},
 					};
 				})(),
 				titleByWorktreeId: ws.workspaceState

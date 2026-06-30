@@ -162,6 +162,14 @@ function deriveContext(
 	return process.lastOutputPreview ?? "";
 }
 
+export function rollupWorkspaceAttention(
+	tiers: SidebarAttentionTier[],
+): "actionRequired" | "ready" | null {
+	if (tiers.includes("actionRequired")) return "actionRequired";
+	if (tiers.includes("ready")) return "ready";
+	return null;
+}
+
 export function buildWorktreeProcessSummary(
 	processes: Array<ProcessRowInput>,
 	now: number,

@@ -567,6 +567,21 @@ const reason = (
 const emptySummary = { rows: [], overflowCount: 0, topRow: null };
 // All reportedAt/now values below are relative to STALE_THRESHOLD_MS = 120_000ms.
 
+import { rollupWorkspaceAttention } from "../../../src/features/workspace/logic/sidebar-shell-summary";
+
+describe("rollupWorkspaceAttention", () => {
+	it("returns actionRequired if any worktree needs action", () => {
+		expect(rollupWorkspaceAttention(["idle", "ready", "actionRequired"])).toBe("actionRequired");
+	});
+	it("returns ready if any worktree is ready and none need action", () => {
+		expect(rollupWorkspaceAttention(["idle", "activity", "ready"])).toBe("ready");
+	});
+	it("returns null when everything is calm", () => {
+		expect(rollupWorkspaceAttention(["idle", "activity", "idle"])).toBeNull();
+		expect(rollupWorkspaceAttention([])).toBeNull();
+	});
+});
+
 describe("buildWorktreeAttentionDisplay three-tier", () => {
 	it("retires a stale mcp:waiting cleared by a later workflow:done (the false-red bug)", () => {
 		const display = buildWorktreeAttentionDisplay({

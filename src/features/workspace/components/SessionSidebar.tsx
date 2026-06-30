@@ -40,6 +40,10 @@ export type SessionSidebarWorkspace = {
 		string,
 		WorkflowRowModel & { stale?: boolean }
 	>;
+	collapsedSummary: {
+		sessionCount: number;
+		attentionTier: "actionRequired" | "ready" | null;
+	};
 	active: boolean;
 	hydrated: boolean;
 };
