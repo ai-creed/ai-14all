@@ -785,8 +785,8 @@ select {
 .shell-sidebar__node {
 	position: relative;
 	padding-left: 24px;
-	/* Gap between cards — matches the prototype's 2px card spacing. */
-	padding-bottom: 2px;
+	/* Gap between worktree clusters — 8px so consecutive worktrees breathe. */
+	padding-bottom: var(--space-2);
 }
 
 .shell-sidebar__node:last-child {
@@ -1156,6 +1156,20 @@ select {
 	padding: 0 6px;
 	font-size: 11px;
 	line-height: 20px;
+}
+
+/* Rollup "N more…" toggle — compact, muted, no chrome. */
+.shell-sidebar__process.shell-sidebar__process--more {
+	background: none;
+	border: none;
+	padding: 2px 12px;
+	font-size: var(--ws-fs-chip);
+	color: var(--text-secondary);
+	cursor: pointer;
+	text-align: left;
+}
+.shell-sidebar__process.shell-sidebar__process--more:hover {
+	color: var(--text-primary);
 }
 
 .shell-sidebar__process-indicator {
