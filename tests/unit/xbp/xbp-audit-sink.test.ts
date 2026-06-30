@@ -1,6 +1,6 @@
 // tests/unit/xbp/xbp-audit-sink.test.ts
 import { describe, it, expect } from "vitest";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { XbpAuditSink } from "../../../services/xbp/xbp-audit-sink";
@@ -29,6 +29,45 @@ describe("XbpAuditSink", () => {
 		const entries = sink.entries();
 		expect(entries.map((e) => e.outcome)).toEqual(["accepted", "rejected"]);
 		expect(typeof entries[0].ts).toBe("number");
+	});
+
+	it("is append-only: constructing over a pre-seeded log preserves every prior entry (no truncation)", () => {
+		const dir = mkdtempSync(join(tmpdir(), "xbp-audit-append-"));
+		const path = join(dir, "audit.jsonl");
+
+		// Pre-seed with a large history that exceeds the OLD 5 MiB truncation
+		// threshold, so a regression that re-introduces truncation would drop
+		// these entries and fail the assertions below.
+		const prior: string[] = [];
+		for (let i = 0; i < 60_000; i++) {
+			prior.push(
+				JSON.stringify({
+					ts: i,
+					cap: "xavier.control.session-report",
+					risk: "low",
+					outcome: "accepted",
+					reason: `seed-${i}`,
+				}),
+			);
+		}
+		writeFileSync(path, `${prior.join("\n")}\n`, "utf8");
+		expect(statSync(path).size).toBeGreaterThan(5 * 1024 * 1024);
+
+		// A fresh sink over the same dir must NOT delete or truncate the log.
+		const sink = new XbpAuditSink({ dir, now: () => 999 });
+		sink.append({
+			cap: null,
+			risk: null,
+			outcome: "rejected",
+			reason: "fresh",
+		});
+
+		const entries = sink.entries();
+		// Every pre-seeded entry survives, in order, plus the one new append.
+		expect(entries).toHaveLength(prior.length + 1);
+		expect(entries[0].reason).toBe("seed-0");
+		expect(entries[prior.length - 1].reason).toBe(`seed-${prior.length - 1}`);
+		expect(entries[entries.length - 1].reason).toBe("fresh");
 	});
 
 	it("never throws when the directory is unwritable", () => {

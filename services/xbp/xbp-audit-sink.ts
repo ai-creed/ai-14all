@@ -1,15 +1,8 @@
 // services/xbp/xbp-audit-sink.ts
-import {
-	appendFileSync,
-	mkdirSync,
-	readFileSync,
-	statSync,
-	truncateSync,
-} from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const FILE_NAME = "audit.jsonl";
-const MAX_BYTES = 5 * 1024 * 1024;
 
 export interface XbpAuditEntry {
 	ts: number;
@@ -27,10 +20,10 @@ export class XbpAuditSink {
 	constructor(opts: { dir: string; now?: () => number }) {
 		this.path = join(opts.dir, FILE_NAME);
 		this.now = opts.now ?? Date.now;
+		// Append-only audit (spec §5/AC6): the constructor must only ensure the
+		// directory exists. It must NEVER truncate or delete prior entries.
 		try {
 			mkdirSync(opts.dir, { recursive: true });
-			const size = statSync(this.path, { throwIfNoEntry: false })?.size ?? 0;
-			if (size > MAX_BYTES) truncateSync(this.path, 0);
 		} catch {
 			this.disabled = true;
 		}
