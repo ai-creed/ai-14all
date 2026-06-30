@@ -76,6 +76,8 @@ type Props = {
 	palette?: Palette;
 	onSetTheme?: (mode: Palette) => void;
 	onOpenShortcutsHelp?: () => void;
+	expandedProcessWorktreeIds?: string[];
+	onToggleProcessExpanded?: (worktreeId: string) => void;
 };
 
 const THEMES: { mode: Palette; label: string }[] = [
@@ -105,6 +107,8 @@ export function SessionSidebar({
 	palette,
 	onSetTheme,
 	onOpenShortcutsHelp,
+	expandedProcessWorktreeIds,
+	onToggleProcessExpanded,
 }: Props) {
 	const [renaming, setRenaming] = React.useState<{
 		workspaceId: string;
@@ -364,67 +368,106 @@ export function SessionSidebar({
 															</span>
 														</div>
 													) : null}
-													{summary?.rows.map((row) => (
-														<div
-															key={row.id}
-															className="shell-sidebar__process"
-														>
-															<span
-																data-testid="process-state-indicator"
-																className="shell-sidebar__process-indicator"
-																data-state={row.state}
-															/>
-															{row.provider && (
-																<span
-																	className="shell-sidebar__provider-badge"
-																	data-provider={row.provider}
-																>
-																	{row.provider}
-																</span>
-															)}
-															<span
-																className="shell-sidebar__process-label"
-																title={row.label}
-															>
-																{row.label}
-															</span>
-															{row.context ? (
-																<span
-																	className="shell-sidebar__process-context"
-																	title={row.context}
-																>
-																	{row.context}
-																</span>
-															) : null}
-															{row.hasFailedReason &&
-															onClearFailedReason &&
-															workspace.active ? (
-																<Button
-																	type="button"
-																	variant="secondary"
-																	size="sm"
-																	className="shell-sidebar__process-clear-failed"
-																	aria-label={`Clear failed for ${row.label}`}
-																	onClick={(e) => {
-																		e.stopPropagation();
-																		onClearFailedReason(
-																			workspace.workspaceId,
-																			worktree.id,
-																			row.id,
-																		);
-																	}}
-																>
-																	Clear failed
-																</Button>
-															) : null}
-														</div>
-													))}
-													{summary && summary.overflowCount > 0 && (
-														<div className="shell-sidebar__process shell-sidebar__process--overflow">
-															{summary.overflowCount} more shell
-															{summary.overflowCount === 1 ? "" : "s"}
-														</div>
-													)}
+													{(() => {
+														const expanded =
+															expandedProcessWorktreeIds?.includes(worktree.id) ??
+															false;
+														const allRows = summary?.rows ?? [];
+														const top =
+															summary?.topRow ?? allRows[0] ?? null;
+														const visibleRows =
+															expanded || allRows.length <= 1
+																? allRows
+																: top
+																	? [top]
+																	: allRows.slice(0, 1);
+														const hiddenCount =
+															(summary?.overflowCount ?? 0) +
+															Math.max(0, allRows.length - visibleRows.length);
+														return (
+															<>
+																{visibleRows.map((row) => (
+																	<div
+																		key={row.id}
+																		className="shell-sidebar__process"
+																	>
+																		<span
+																			data-testid="process-state-indicator"
+																			className="shell-sidebar__process-indicator"
+																			data-state={row.state}
+																		/>
+																		{row.provider && (
+																			<span
+																				className="shell-sidebar__provider-badge"
+																				data-provider={row.provider}
+																			>
+																				{row.provider}
+																			</span>
+																		)}
+																		<span
+																			className="shell-sidebar__process-label"
+																			title={row.label}
+																		>
+																			{row.label}
+																		</span>
+																		{row.context ? (
+																			<span
+																				className="shell-sidebar__process-context"
+																				title={row.context}
+																			>
+																				{row.context}
+																			</span>
+																		) : null}
+																		{row.hasFailedReason &&
+																		onClearFailedReason &&
+																		workspace.active ? (
+																			<Button
+																				type="button"
+																				variant="secondary"
+																				size="sm"
+																				className="shell-sidebar__process-clear-failed"
+																				aria-label={`Clear failed for ${row.label}`}
+																				onClick={(e) => {
+																					e.stopPropagation();
+																					onClearFailedReason(
+																						workspace.workspaceId,
+																						worktree.id,
+																						row.id,
+																					);
+																				}}
+																			>
+																				Clear failed
+																			</Button>
+																		) : null}
+																	</div>
+																))}
+																{!expanded && hiddenCount > 0 && (
+																	<button
+																		type="button"
+																		className="shell-sidebar__process shell-sidebar__process--more"
+																		onClick={(e) => {
+																			e.stopPropagation();
+																			onToggleProcessExpanded?.(worktree.id);
+																		}}
+																	>
+																		{hiddenCount} more ›
+																	</button>
+																)}
+																{expanded && allRows.length > 1 && (
+																	<button
+																		type="button"
+																		className="shell-sidebar__process shell-sidebar__process--more"
+																		onClick={(e) => {
+																			e.stopPropagation();
+																			onToggleProcessExpanded?.(worktree.id);
+																		}}
+																	>
+																		Show less ‹
+																	</button>
+																)}
+															</>
+														);
+													})()}
 												</div>
 											) : null;
 

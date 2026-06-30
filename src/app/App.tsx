@@ -12,6 +12,7 @@ import { RestorePrompt } from "../features/repository/RestorePrompt";
 import { type SessionSidebarWorkspace } from "../features/workspace/components/SessionSidebar";
 import { sortSidebarWorkspaces } from "../features/workspace/logic/sort-sidebar-workspaces";
 import { useCollapsedWorkspaces } from "../features/workspace/logic/use-collapsed-workspaces";
+import { useExpandedProcesses } from "../features/workspace/logic/use-expanded-processes";
 import {
 	workspaceReducer,
 	MAX_FLOATING_SHELLS,
@@ -174,6 +175,10 @@ export function App() {
 		collapsedIds: collapsedWorkspaceIds,
 		toggle: toggleWorkspaceCollapsed,
 	} = useCollapsedWorkspaces();
+	const {
+		expandedIds: expandedProcessWorktreeIds,
+		toggle: toggleProcessExpanded,
+	} = useExpandedProcesses();
 	const [pendingRename, setPendingRename] = useState<{
 		workspaceId: string;
 		worktreeId: string;
@@ -2177,6 +2182,8 @@ export function App() {
 							palette={palette}
 							onSetTheme={setTheme}
 							onOpenShortcutsHelp={() => setShortcutsHelpOpen(true)}
+							expandedProcessWorktreeIds={expandedProcessWorktreeIds}
+							onToggleProcessExpanded={toggleProcessExpanded}
 						/>
 
 						<section className="shell-main-column" ref={mainColRef}>

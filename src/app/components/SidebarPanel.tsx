@@ -43,6 +43,8 @@ type Props = {
 	palette: Palette;
 	onSetTheme: (mode: Palette) => void;
 	onOpenShortcutsHelp: () => void;
+	expandedProcessWorktreeIds: string[];
+	onToggleProcessExpanded: (worktreeId: string) => void;
 };
 
 /**
@@ -72,6 +74,8 @@ export function SidebarPanel(props: Props): React.ReactElement {
 		palette,
 		onSetTheme,
 		onOpenShortcutsHelp,
+		expandedProcessWorktreeIds,
+		onToggleProcessExpanded,
 	} = props;
 
 	return (
@@ -134,6 +138,8 @@ export function SidebarPanel(props: Props): React.ReactElement {
 				palette={palette}
 				onSetTheme={onSetTheme}
 				onOpenShortcutsHelp={onOpenShortcutsHelp}
+				expandedProcessWorktreeIds={expandedProcessWorktreeIds}
+				onToggleProcessExpanded={onToggleProcessExpanded}
 			/>
 		</div>
 	);

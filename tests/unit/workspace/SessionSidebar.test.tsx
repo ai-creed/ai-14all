@@ -211,6 +211,127 @@ describe("SessionSidebar — global footer actions", () => {
 	});
 });
 
+describe("SessionSidebar — process list collapse/expand", () => {
+	function makeThreeProcessWorkspace() {
+		return makeWorkspace([
+			{
+				id: "p1",
+				label: "dev server",
+				state: "active",
+				context: "listening on :3000",
+				lastActivityAt: 1000,
+				hasFailedReason: false,
+			},
+			{
+				id: "p2",
+				label: "type check",
+				state: "idle",
+				context: "no errors",
+				lastActivityAt: 900,
+				hasFailedReason: false,
+			},
+			{
+				id: "p3",
+				label: "tests",
+				state: "idle",
+				context: "12 passed",
+				lastActivityAt: 800,
+				hasFailedReason: false,
+			},
+		]);
+	}
+
+	it("collapses processes to the top row + a '2 more' control by default", () => {
+		const workspace = makeThreeProcessWorkspace();
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[workspace]}
+				expandedProcessWorktreeIds={[]}
+				onToggleProcessExpanded={vi.fn()}
+			/>,
+		);
+		expect(screen.getAllByTestId("process-state-indicator")).toHaveLength(1);
+		expect(
+			screen.getByRole("button", { name: /2 more/i }),
+		).toBeInTheDocument();
+	});
+
+	it("expands all processes when the worktree id is in expandedProcessWorktreeIds", () => {
+		const workspace = makeThreeProcessWorkspace();
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[workspace]}
+				expandedProcessWorktreeIds={["wt1"]}
+				onToggleProcessExpanded={vi.fn()}
+			/>,
+		);
+		expect(screen.getAllByTestId("process-state-indicator")).toHaveLength(3);
+		expect(
+			screen.queryByRole("button", { name: /more/i }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /show less/i }),
+		).toBeInTheDocument();
+	});
+
+	it("calls onToggleProcessExpanded with the worktree id when the 'more' button is clicked", () => {
+		const onToggleProcessExpanded = vi.fn();
+		const workspace = makeThreeProcessWorkspace();
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[workspace]}
+				expandedProcessWorktreeIds={[]}
+				onToggleProcessExpanded={onToggleProcessExpanded}
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: /2 more/i }));
+		expect(onToggleProcessExpanded).toHaveBeenCalledWith("wt1");
+	});
+
+	it("calls onToggleProcessExpanded when 'Show less' is clicked", () => {
+		const onToggleProcessExpanded = vi.fn();
+		const workspace = makeThreeProcessWorkspace();
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[workspace]}
+				expandedProcessWorktreeIds={["wt1"]}
+				onToggleProcessExpanded={onToggleProcessExpanded}
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: /show less/i }));
+		expect(onToggleProcessExpanded).toHaveBeenCalledWith("wt1");
+	});
+
+	it("shows all rows when there is only 1 process (no 'more' control)", () => {
+		const workspace = makeWorkspace([
+			{
+				id: "p1",
+				label: "dev",
+				state: "active",
+				context: "compiled",
+				lastActivityAt: 1000,
+				hasFailedReason: false,
+			},
+		]);
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[workspace]}
+				expandedProcessWorktreeIds={[]}
+				onToggleProcessExpanded={vi.fn()}
+			/>,
+		);
+		expect(screen.getAllByTestId("process-state-indicator")).toHaveLength(1);
+		expect(
+			screen.queryByRole("button", { name: /more/i }),
+		).not.toBeInTheDocument();
+	});
+});
+
 describe("SessionSidebar — task and provider rendering", () => {
 	it("renders task line when taskByWorktreeId[worktreeId] is a non-null string", () => {
 		const workspace: SessionSidebarWorkspace = {
