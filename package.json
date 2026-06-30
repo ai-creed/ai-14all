@@ -1,6 +1,6 @@
 {
 	"name": "ai-14all",
-	"version": "0.11.1",
+	"version": "0.11.2",
 	"private": true,
 	"description": "Mission-control desktop app for running AI coding agents in parallel across Git worktrees",
 	"author": "Vu Phan <vu.phan.se@gmail.com>",
@@ -28,7 +28,7 @@
 		"test:e2e": "electron-vite build && playwright test",
 		"posttest:e2e": "node scripts/rebuild-better-sqlite3-host.mjs || true",
 		"test:all": "pnpm test && pnpm test:e2e",
-		"package:mac": "pnpm build && electron-builder --mac zip dmg --publish never",
+		"package:mac": "pnpm build && electron-builder --mac --publish never",
 		"package:mac:signed": "node scripts/package-mac-signed.mjs",
 		"package:win": "pnpm build && electron-builder --win zip --publish never",
 		"release:beta": "node scripts/release-beta.mjs",
