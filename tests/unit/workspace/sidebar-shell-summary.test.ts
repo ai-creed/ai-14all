@@ -658,3 +658,46 @@ describe("buildWorktreeAttentionDisplay three-tier", () => {
 		expect(display.state).toBe("idle");
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Process-path action-required retirement (Task 13, spec §4.2 gap 3)
+// ---------------------------------------------------------------------------
+
+const proc = (over: Record<string, unknown> = {}) => ({
+	id: "p",
+	label: "claude",
+	status: "running" as const,
+	attentionState: "actionRequired" as const,
+	lastActivityAt: 0,
+	lastOutputPreview: null,
+	exitCode: null,
+	agentAttentionReasons: {},
+	agentAttentionClearedAt: null,
+	...over,
+});
+
+describe("deriveState process-path retirement", () => {
+	it("retires a running process's actionRequired once it is quiet past the threshold", () => {
+		const summary = buildWorktreeProcessSummary([proc({ lastActivityAt: 0 })], 200_000);
+		expect(summary.topRow?.state).not.toBe("actionRequired");
+	});
+	it("keeps a fresh running process's actionRequired", () => {
+		const summary = buildWorktreeProcessSummary([proc({ lastActivityAt: 4_000 })], 5_000);
+		expect(summary.topRow?.state).toBe("actionRequired");
+	});
+	it("retires a fresh-but-cleared running process (clearedAt >= lastActivityAt)", () => {
+		// Recent activity (not stale by age) but cleared after that activity → retired.
+		const summary = buildWorktreeProcessSummary(
+			[proc({ lastActivityAt: 4_000, agentAttentionClearedAt: 4_000 })],
+			5_000,
+		);
+		expect(summary.topRow?.state).not.toBe("actionRequired");
+	});
+	it("an exited process is never actionRequired", () => {
+		const summary = buildWorktreeProcessSummary(
+			[proc({ status: "exited", lastActivityAt: 100 })],
+			1_000,
+		);
+		expect(summary.topRow?.state).toBe("exited");
+	});
+});

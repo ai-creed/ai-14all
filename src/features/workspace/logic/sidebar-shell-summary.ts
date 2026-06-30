@@ -84,15 +84,26 @@ export function formatQuietAge(ageMs: number): string {
 }
 
 function deriveState(
-	process: Pick<ProcessSession, "status" | "attentionState" | "lastActivityAt">,
+	process: Pick<ProcessSession, "status" | "attentionState" | "lastActivityAt"> &
+		Partial<Pick<ProcessSession, "agentAttentionClearedAt">>,
 	now: number,
 ): SidebarShellState {
 	if (process.status !== "running") return "exited";
-	if (process.attentionState === "actionRequired") return "actionRequired";
-	if (
-		process.lastActivityAt != null &&
-		now - process.lastActivityAt <= ACTIVE_WINDOW_MS
-	) {
+	const lastActivityAt = process.lastActivityAt ?? null;
+	if (process.attentionState === "actionRequired") {
+		const clearedAt = process.agentAttentionClearedAt ?? null;
+		// Retired if explicitly cleared after its last activity, OR quiet past the
+		// staleness threshold (spec §4.2 gap 3 + STALE_THRESHOLD_MS). Compute both
+		// explicitly: deriveStale conflates them (it returns false for a cleared
+		// reason), so reusing it alone would keep a cleared process red.
+		const cleared =
+			clearedAt !== null && (lastActivityAt === null || lastActivityAt <= clearedAt);
+		const staleByAge =
+			lastActivityAt !== null && now - lastActivityAt >= STALE_THRESHOLD_MS;
+		if (!cleared && !staleByAge) return "actionRequired";
+		// cleared or stale → retired, fall through to active/idle
+	}
+	if (lastActivityAt != null && now - lastActivityAt <= ACTIVE_WINDOW_MS) {
 		return "active";
 	}
 	return "idle";
