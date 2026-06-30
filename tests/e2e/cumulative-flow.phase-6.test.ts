@@ -308,7 +308,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await page.waitForTimeout(11_000);
 		await expect(
 			mainRow.locator(".shell-sidebar__process-context"),
-		).toContainText(/quiet for 1[01]s/, {
+		).toContainText(/quiet 1[01]s/, {
 			timeout: 5_000,
 		});
 
