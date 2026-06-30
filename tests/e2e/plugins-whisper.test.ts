@@ -409,6 +409,132 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 			.toBe("whisper skill install --force");
 	});
 
+	test("workflow done shows no actionRequired ring; halted (escalation proxy) does", async () => {
+		repo = createTestRepo();
+		stub = setUpWhisperStub({ enabled: true });
+
+		// Seed the initial DB with a "done" workflow so the driver sees it on its
+		// first real snapshot (triggered by subscribeWorktreeChanges on repo load
+		// after the 0.9.3 fix). The boot-time snapshot fires before the repo is
+		// registered, so we still use the off→on toggle to force a fresh driver
+		// tick AND attach the event socket (same stabilisation as the halted test).
+		stub.writeFixture({
+			schemaVersion: 6,
+			collabs: [
+				{
+					collab_id: "c1",
+					workspace_root: repo.worktreePath,
+					status: "active",
+				},
+			],
+			daemons: [{ collab_id: "c1", last_heartbeat_at: new Date().toISOString() }],
+			workflows: [
+				{
+					workflow_id: "wf1",
+					collab_id: "c1",
+					status: "done",
+					current_phase_index: 0,
+				},
+			],
+			phases: [
+				{
+					phase_run_id: "pr1",
+					workflow_id: "wf1",
+					phase_index: 0,
+					phase_name: "implementation",
+					chain_id: "ch1",
+				},
+			],
+			chains: [{ chain_id: "ch1", collab_id: "c1" }],
+		});
+
+		socket = await startStubEventSocket(stub.stateRoot, "c1");
+		await launch({ AI14ALL_WHISPER_POLL_MS: "60000" });
+		await loadRepoAndSelectWorktree();
+
+		// Off→on toggle — same stabilisation as the halted test.
+		await page.getByRole("button", { name: "Open Plugins panel" }).click();
+		const card = page.locator('[data-plugin-id="whisper"]');
+		await expect(card).toBeVisible({ timeout: 15_000 });
+		await card.getByRole("switch").click(); // off
+		await expect(card.locator(".plugin-chip")).toContainText(/off/, {
+			timeout: 15_000,
+		});
+		await card.getByRole("switch").click(); // back on → fresh driver tick
+		await expect(card.locator(".plugin-chip")).toContainText(/on/, {
+			timeout: 15_000,
+		});
+		await page.keyboard.press("Escape");
+
+		const row = worktreeNav().locator(".workflow-row");
+		// Wait for the "done" row — confirms driver snapshot picked up the fixture.
+		await expect(row).toContainText("done", { timeout: 30_000 });
+		await socket.waitForClient();
+
+		// --- Part 1: workflow "done" must NOT produce actionRequired ---
+		// diffWorkflowAttention(undefined, {done}) → {kind:"report", reason:{state:"ready"}}
+		// → mapToProcessAttentionState("ready") → "activity", never "actionRequired".
+		// Use the worktree-row data-status as the primary reliable signal;
+		// then check data-attention on the feature-a nav button (substring match,
+		// no anchor, to tolerate any icon prefix in the accessible name).
+		await expect(row.locator(".workflow-row__status")).toHaveAttribute(
+			"data-status",
+			"done",
+			{ timeout: 10_000 },
+		);
+		const featureABtn = worktreeNav().getByRole("button", {
+			name: /feature-a/i,
+		});
+		await expect(featureABtn).not.toHaveAttribute(
+			"data-attention",
+			"actionRequired",
+			{ timeout: 20_000 },
+		);
+
+		// --- Part 2: halted (escalation proxy) MUST produce actionRequired ---
+		stub.writeFixture({
+			schemaVersion: 6,
+			collabs: [
+				{ collab_id: "c1", workspace_root: repo.worktreePath, status: "active" },
+			],
+			daemons: [{ collab_id: "c1", last_heartbeat_at: new Date().toISOString() }],
+			workflows: [
+				{
+					workflow_id: "wf1",
+					collab_id: "c1",
+					status: "halted",
+					halt_reason: "round limit reached",
+					current_phase_index: 0,
+				},
+			],
+			phases: [
+				{
+					phase_run_id: "pr1",
+					workflow_id: "wf1",
+					phase_index: 0,
+					phase_name: "implementation",
+					chain_id: "ch1",
+				},
+			],
+			chains: [{ chain_id: "ch1", collab_id: "c1" }],
+		});
+		socket.emit("workflow.halted", {
+			workflowId: "wf1",
+			reason: "round limit reached",
+		});
+
+		// "halted" → waiting → "actionRequired".
+		await expect(row).toContainText("halted", { timeout: 10_000 });
+		await expect(row.locator(".workflow-row__status")).toHaveAttribute(
+			"data-status",
+			"halted",
+			{ timeout: 10_000 },
+		);
+		await expect(featureABtn).toHaveAttribute("data-attention", "actionRequired", {
+			timeout: 20_000,
+		});
+	});
+
 	test("Configure opens a floating-shell popover and does not add a grid session", async () => {
 		repo = createTestRepo();
 		stub = setUpWhisperStub({ enabled: false });

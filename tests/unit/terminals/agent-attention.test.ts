@@ -218,6 +218,11 @@ const reason = (
 });
 
 describe("deriveStale", () => {
+	it("a waiting reason quiet past the threshold is stale unless cleared after its activity", () => {
+		expect(deriveStale(200_000, 0, null)).toBe(true); // never cleared → stale
+		expect(deriveStale(200_000, 0, 150_000)).toBe(false); // cleared after activity → not stale
+		expect(deriveStale(5_000, 0, null)).toBe(false); // within threshold → not stale
+	});
 	it("returns false when lastActivityAt is null", () => {
 		expect(deriveStale(1_000_000, null, null)).toBe(false);
 	});

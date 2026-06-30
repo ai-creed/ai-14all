@@ -159,6 +159,14 @@ describe("diffWorkflowAttention", () => {
 		});
 	});
 
+	it("done emits a ready reason with source workflow", () => {
+		const done = { ...base, workflow: { ...base.workflow!, status: "done" } };
+		expect(diffWorkflowAttention(base, done, 1234)).toEqual({
+			kind: "report",
+			reason: expect.objectContaining({ state: "ready", source: "workflow" }),
+		});
+	});
+
 	it("halted → running (resume) emits clear", () => {
 		const halted = {
 			...base,
