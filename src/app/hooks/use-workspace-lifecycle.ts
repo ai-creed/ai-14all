@@ -205,6 +205,8 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 								: liveSession.status === "exited"
 									? "exited"
 									: "running";
+						// `at` intentionally omitted: reducer falls back to lastActivityAt.
+						// Passing Date.now() here would over-retire reasons from the disconnect gap.
 						dispatchFn({
 							type: "session/updateProcessStatus",
 							processId: process.id,
@@ -245,6 +247,8 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 						}
 					}
 				} catch {
+					// `at` intentionally omitted: reducer falls back to lastActivityAt.
+					// Passing Date.now() here would over-retire reasons from the disconnect gap.
 					dispatchFn({
 						type: "session/updateProcessStatus",
 						processId: process.id,

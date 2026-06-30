@@ -482,6 +482,7 @@ function restorePersistedSession(
 				: (restoredSlots.find((s): s is string => s !== null) ?? null),
 		attentionState: "idle",
 		agentAttentionReasons: {},
+		agentAttentionClearedAt: null,
 		terminalLayoutId: restoredLayoutId,
 		slotProcessIds: restoredSlots,
 		reviewSidebarWidth: snapshot.reviewSidebarWidth ?? 280,

@@ -3098,4 +3098,56 @@ describe("session/reportAgentAttention and session/updateProcessStatus — agent
 		// (1100) — so the mcp:waiting (reportedAt 1200) is retired.
 		expect(state.sessionsByWorktreeId[worktreeId].agentAttentionClearedAt).toBe(1500);
 	});
+
+	it("falls back to lastActivityAt when process exits without an `at` timestamp", () => {
+		// Arrange: process with lastActivityAt 1100; no `at` will be supplied on exit.
+		let state = seedSessionWithReasonAndProcess(
+			{ state: "waiting", source: "mcp", summary: "?", nextAction: null, reportedAt: 900 },
+			{ processId: "p2", lastActivityAt: 1100, status: "running" },
+		);
+		const worktreeId = onlyWorktreeId(state);
+
+		// Act: exit dispatched WITHOUT `at` — reducer must fall back to lastActivityAt.
+		state = workspaceReducer(state, {
+			type: "session/updateProcessStatus",
+			processId: "p2",
+			status: "exited",
+			exitCode: 0,
+			// `at` intentionally absent
+		});
+
+		// Assert: agentAttentionClearedAt is the process's lastActivityAt (1100).
+		expect(state.sessionsByWorktreeId[worktreeId].agentAttentionClearedAt).toBe(1100);
+	});
+
+	it("does NOT advance agentAttentionClearedAt when a ready reason is rejected (stale reportedAt)", () => {
+		// Arrange: seed an accepted reason at reportedAt 2000 so the session's mcp
+		// reason has reportedAt 2000. agentAttentionClearedAt starts at null.
+		let state = seedSessionWithReason({
+			state: "active",
+			source: "mcp",
+			summary: "running",
+			nextAction: null,
+			reportedAt: 2000,
+		});
+		const worktreeId = onlyWorktreeId(state);
+		expect(state.sessionsByWorktreeId[worktreeId].agentAttentionClearedAt).toBeNull();
+
+		// Act: dispatch a `ready` reason with an older reportedAt (1000 < 2000).
+		// shouldReplaceAgentAttentionReason returns false → rejected push.
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId,
+			reason: {
+				state: "ready",
+				source: "mcp",
+				summary: "stale done",
+				nextAction: null,
+				reportedAt: 1000,
+			},
+		});
+
+		// Assert: the rejected push must not advance agentAttentionClearedAt.
+		expect(state.sessionsByWorktreeId[worktreeId].agentAttentionClearedAt).toBeNull();
+	});
 });
