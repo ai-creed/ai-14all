@@ -1,5 +1,5 @@
 // tests/integration/xbp/peer-session.test.ts
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -129,6 +129,49 @@ describe("XbpPeerSession (in-memory)", () => {
 		session.notifyChanged();
 		await new Promise((r) => setTimeout(r, 40));
 		expect(events.filter((t) => t === SESSION_CHANGED_TOPIC)).toHaveLength(1);
+
+		session.stop();
+	});
+
+	it("re-pairing drops the previous peer: a second attach() stops the first peer", async () => {
+		const backend = await createNodeSodiumBackend();
+		const [hostT] = createInMemoryPair();
+		const audit = new XbpAuditSink({
+			dir: mkdtempSync(join(tmpdir(), "xbp-ps-reattach-")),
+		});
+		const hostIdentity = generateIdentity(backend);
+		const phoneA = generateIdentity(backend);
+		const phoneB = generateIdentity(backend);
+		const session = new XbpPeerSession({
+			backend,
+			identity: hostIdentity,
+			transport: hostT,
+			audit,
+			getSessionReport: async () => ({
+				mode: "ready",
+				focus: null,
+				sessions: [],
+			}),
+		});
+
+		// Pair phone A, then capture the live Peer instance and spy its stop().
+		session.attach(phoneA.sign.publicKey, phoneA.box.publicKey);
+		const internals = session as unknown as {
+			peer: { stop: () => void };
+			phoneNode: string;
+		};
+		const firstPeer = internals.peer;
+		const firstNode = internals.phoneNode;
+		const stopSpy = vi.spyOn(firstPeer, "stop");
+
+		// Re-pair with phone B: the previous peer must be stopped and discarded so
+		// phone A's Peer is no longer subscribed/authorized on the transport.
+		session.attach(phoneB.sign.publicKey, phoneB.box.publicKey);
+
+		expect(stopSpy).toHaveBeenCalledTimes(1);
+		// The session now points at a brand-new peer bound to phone B's node.
+		expect(internals.peer).not.toBe(firstPeer);
+		expect(internals.phoneNode).not.toBe(firstNode);
 
 		session.stop();
 	});

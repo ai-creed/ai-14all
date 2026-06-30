@@ -44,6 +44,12 @@ export class XbpPeerSession {
 		phoneBoxPub: Uint8Array,
 		grantedPermissions: string[] = [sessionReportCapability.permission],
 	): void {
+		// One paired phone: re-pairing must drop the previous live peer so the old
+		// phone's Peer is no longer subscribed/authorized on the transport.
+		this.peer?.stop();
+		this.peer = null;
+		this.phoneNode = null;
+
 		const peer = new Peer({
 			backend: this.opts.backend,
 			identity: this.opts.identity,

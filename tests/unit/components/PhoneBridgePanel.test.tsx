@@ -83,6 +83,19 @@ describe("PhoneBridgePanel", () => {
 		expect(window.ai14all.phoneBridge.confirmSas).toHaveBeenCalledWith(true);
 	});
 
+	it("disables Pair a phone once a phone is paired (one phone; revocation deferred)", async () => {
+		// enabled: true so the ONLY thing that can disable the button is paired.
+		mountBridge({ ...base, paired: true });
+		render(<PhoneBridgePanel />);
+		// Wait until the host status (enabled + paired) has been applied.
+		await waitFor(() =>
+			expect(screen.getByText(/10\.0\.0\.5:51820/)).toBeInTheDocument(),
+		);
+		expect(
+			screen.getByRole("button", { name: /pair a phone/i }),
+		).toBeDisabled();
+	});
+
 	it("lists the paired device once paired", async () => {
 		mountBridge({ ...base, paired: true });
 		render(<PhoneBridgePanel />);

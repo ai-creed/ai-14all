@@ -79,7 +79,7 @@ export function PhoneBridgePanel(): React.ReactElement {
 				<button
 					type="button"
 					className="phone-bridge-panel__pair-button"
-					disabled={pairingBusy || !status?.enabled}
+					disabled={pairingBusy || !status?.enabled || status?.paired}
 					onClick={() => void handleStartPairing()}
 				>
 					Pair a phone
