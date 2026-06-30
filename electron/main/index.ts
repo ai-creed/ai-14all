@@ -1,4 +1,4 @@
-import { app, ipcMain, Menu } from "electron";
+import { app, ipcMain, Menu, safeStorage } from "electron";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -59,6 +59,9 @@ import { PluginCommandLogger } from "../../services/diagnostics/plugin-command-l
 import { ActingAuditLogger } from "../../services/diagnostics/acting-audit-logger.js";
 import { createActingTokenVerifier } from "../../services/plugins/samantha/acting-token-verifier.js";
 import type { WhisperCommand } from "../../shared/contracts/plugins.js";
+import { createSessionSliceStore } from "../../services/plugins/samantha/session-slice-source.js";
+import { createSessionReportProvider } from "../../services/plugins/samantha/session-report-provider.js";
+import { XbpHostService } from "../../services/xbp/xbp-host-service.js";
 
 app.setName("ai-14all");
 
@@ -348,12 +351,25 @@ app.whenReady().then(async () => {
 		return null;
 	};
 
+	// Shared slice store — single source of truth for both Samantha driver and
+	// the XBP session-report provider so neither path drifts from the other.
+	const samanthaSliceSource = createSessionSliceStore();
+
+	const xbpSessionReport = createSessionReportProvider({
+		getIdentities: getSamanthaIdentities,
+		getReviewCount: (worktreeId) =>
+			reviewCommentService.listOpenByWorktree(worktreeId).length,
+		getWhisperStates: () => samanthaWhisperWatcher.snapshot(),
+		getSessionSlice: () => samanthaSliceSource.get(),
+	});
+
 	const samanthaDriver = createSamanthaDriver({
 		client: createSamanthaConnectorClient({}),
 		getIdentities: getSamanthaIdentities,
 		getReviewCount: (worktreeId) =>
 			reviewCommentService.listOpenByWorktree(worktreeId).length,
 		getWhisperStates: () => samanthaWhisperWatcher.snapshot(),
+		sliceSource: samanthaSliceSource,
 		subscribeReviews: (cb) => reviewCommentService.onChange(() => cb()),
 		subscribeWorktrees: (cb) => workspaceRegistry.onChange(cb),
 		pushHealth: (health) =>
@@ -540,6 +556,29 @@ app.whenReady().then(async () => {
 		},
 	};
 
+	const xbpDir = join(app.getPath("userData"), "ai-14all", "xbp");
+	let xbpService: XbpHostService | null = null;
+	try {
+		xbpService = new XbpHostService({
+			dir: xbpDir,
+			secureStorage: safeStorage,
+			getSessionReport: xbpSessionReport,
+			subscribeChanges: (cb) => {
+				const offReviews = reviewCommentService.onChange(() => cb());
+				const offWorktrees = workspaceRegistry.onChange(cb);
+				const offSlice = samanthaSliceSource.subscribe(cb);
+				return () => {
+					offReviews();
+					offWorktrees();
+					offSlice();
+				};
+			},
+		});
+		await xbpService.start();
+	} catch (err) {
+		console.error("[xbp] failed to start host service", err);
+	}
+
 	const closeGate = createCloseGate();
 	closeGate.attach(mainWindow);
 	const { dispose, terminalService } = registerIpcHandlers(mainWindow, {
@@ -573,6 +612,7 @@ app.whenReady().then(async () => {
 		offRegistry();
 		void deleteLivenessFile(livenessPath);
 		void mcpServer?.stop().catch(() => {});
+		void xbpService?.stop().catch(() => {});
 		sessionNoteBridge.dispose();
 		agentAttentionBridge.dispose();
 		usageHost.stop();
