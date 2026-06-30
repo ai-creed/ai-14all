@@ -93,6 +93,12 @@ jobs:
       - name: Package DMG + ZIP + manifest (signed + notarized)
         shell: bash
         env:
+          # Raise V8's heap ceiling for the electron-vite production build. The
+          # default (~2GB) is right at the bundle's peak, so `pnpm build` OOMs
+          # intermittently ("Ineffective mark-compacts near heap limit"); 4GB on
+          # the 7GB macos-14 runner gives headroom. Applies to the whole step
+          # (build + electron-builder) — harmless, it is a ceiling, not a reserve.
+          NODE_OPTIONS: --max-old-space-size=4096
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
