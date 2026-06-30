@@ -20,8 +20,14 @@ export function createSessionReportProvider(
 			sources.getWhisperStates(),
 		]);
 		const reviewCounts: Record<string, number> = {};
-		for (const id of Object.keys(identities)) reviewCounts[id] = sources.getReviewCount(id);
-		const input: ObserveInput = { identities, reviewCounts, whisper, session: sources.getSessionSlice() };
+		for (const id of Object.keys(identities))
+			reviewCounts[id] = sources.getReviewCount(id);
+		const input: ObserveInput = {
+			identities,
+			reviewCounts,
+			whisper,
+			session: sources.getSessionSlice(),
+		};
 		return buildSessionReport(input);
 	};
 }

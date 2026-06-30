@@ -459,7 +459,8 @@ const api: Ai14AllDesktopApi = {
 		startPairing: () => ipcRenderer.invoke(PHONE_BRIDGE_START_PAIRING),
 		confirmSas: (ok: boolean) =>
 			ipcRenderer.invoke(PHONE_BRIDGE_CONFIRM_SAS, { ok }),
-		onStatusChanged: (handler) => onChannel(PHONE_BRIDGE_STATUS_CHANGED, handler),
+		onStatusChanged: (handler) =>
+			onChannel(PHONE_BRIDGE_STATUS_CHANGED, handler),
 	},
 	events: {
 		onOpenInstallModal(handler: () => void) {

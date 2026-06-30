@@ -1371,10 +1371,7 @@ export function App() {
 		[dispatch],
 	);
 	const openPlugins = useCallback(() => setPluginsDialogOpen(true), []);
-	const openPhoneBridge = useCallback(
-		() => setPhoneBridgeDialogOpen(true),
-		[],
-	);
+	const openPhoneBridge = useCallback(() => setPhoneBridgeDialogOpen(true), []);
 	const refreshChanges = useCallback(() => {
 		if (activeWorktree) setRefreshKey((k) => k + 1);
 	}, [activeWorktree?.id]);

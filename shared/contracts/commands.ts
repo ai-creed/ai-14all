@@ -680,22 +680,28 @@ export type Ai14AllDesktopApi = {
 		onAvailabilityChanged(handler: () => void): () => void;
 	};
 	phoneBridge: {
-		status(): Promise<{
-			enabled: boolean;
-			listening: boolean;
-			addr: string | null;
-			port: number | null;
-			paired: boolean;
-			sas: string | null;
-		} | undefined>;
-		setEnabled(enabled: boolean): Promise<{
-			enabled: boolean;
-			listening: boolean;
-			addr: string | null;
-			port: number | null;
-			paired: boolean;
-			sas: string | null;
-		} | undefined>;
+		status(): Promise<
+			| {
+					enabled: boolean;
+					listening: boolean;
+					addr: string | null;
+					port: number | null;
+					paired: boolean;
+					sas: string | null;
+			  }
+			| undefined
+		>;
+		setEnabled(enabled: boolean): Promise<
+			| {
+					enabled: boolean;
+					listening: boolean;
+					addr: string | null;
+					port: number | null;
+					paired: boolean;
+					sas: string | null;
+			  }
+			| undefined
+		>;
 		startPairing(): Promise<{ offer: string | null }>;
 		confirmSas(ok: boolean): Promise<boolean>;
 		onStatusChanged(

@@ -356,20 +356,24 @@ app.whenReady().then(async () => {
 	// the XBP session-report provider so neither path drifts from the other.
 	const samanthaSliceSource = createSessionSliceStore();
 
+	// Shared getters — declared once so both consumers are structurally guaranteed
+	// to use the same implementation (a future edit cannot change one without the other).
+	const getReviewCount = (worktreeId: string) =>
+		reviewCommentService.listOpenByWorktree(worktreeId).length;
+	const getWhisperStates = () => samanthaWhisperWatcher.snapshot();
+
 	const xbpSessionReport = createSessionReportProvider({
 		getIdentities: getSamanthaIdentities,
-		getReviewCount: (worktreeId) =>
-			reviewCommentService.listOpenByWorktree(worktreeId).length,
-		getWhisperStates: () => samanthaWhisperWatcher.snapshot(),
+		getReviewCount,
+		getWhisperStates,
 		getSessionSlice: () => samanthaSliceSource.get(),
 	});
 
 	const samanthaDriver = createSamanthaDriver({
 		client: createSamanthaConnectorClient({}),
 		getIdentities: getSamanthaIdentities,
-		getReviewCount: (worktreeId) =>
-			reviewCommentService.listOpenByWorktree(worktreeId).length,
-		getWhisperStates: () => samanthaWhisperWatcher.snapshot(),
+		getReviewCount,
+		getWhisperStates,
 		sliceSource: samanthaSliceSource,
 		subscribeReviews: (cb) => reviewCommentService.onChange(() => cb()),
 		subscribeWorktrees: (cb) => workspaceRegistry.onChange(cb),

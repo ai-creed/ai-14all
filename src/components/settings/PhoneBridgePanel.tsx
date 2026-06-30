@@ -44,7 +44,11 @@ export function PhoneBridgePanel(): React.ReactElement {
 	}
 
 	async function handleConfirmSas(ok: boolean) {
-		await window.ai14all.phoneBridge.confirmSas(ok);
+		try {
+			await window.ai14all.phoneBridge.confirmSas(ok);
+		} catch {
+			// ignore: surfaced via status refresh
+		}
 	}
 
 	const addrLabel =

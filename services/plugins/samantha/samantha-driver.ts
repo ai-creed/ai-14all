@@ -20,9 +20,7 @@ import {
 	renderReportText,
 	resolveWorktreeKey,
 } from "./samantha-command-capabilities";
-import {
-	createSessionReportProvider,
-} from "./session-report-provider";
+import { createSessionReportProvider } from "./session-report-provider";
 import { createSessionSliceStore } from "./session-slice-source";
 import { createSamanthaCommandDispatcher } from "./samantha-command-dispatcher";
 import {
@@ -405,7 +403,9 @@ export function createSamanthaDriver(
 		for (const [worktreeId, signal] of Object.entries(out.signals)) {
 			const prev = lastSignals[worktreeId];
 			if (signal === prev || !SPEECH_WORTHY.has(signal)) continue;
-			const wt = sliceSource.get()?.worktrees.find((w) => w.worktreeId === worktreeId);
+			const wt = sliceSource
+				.get()
+				?.worktrees.find((w) => w.worktreeId === worktreeId);
 			const branch = identities[worktreeId]?.branch ?? worktreeId;
 			// Build the summary from non-empty parts: a whisper-only worktree has no
 			// session slice (wt undefined), so avoid a dangling "branch:  —".
