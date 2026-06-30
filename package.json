@@ -37,6 +37,8 @@
 	},
 	"dependencies": {
 		"@ai-creed/command-contract": "^0.1.0-alpha.0",
+		"@xavier/xbp": "file:vendor/xavier-xbp-0.1.0-alpha.0.tgz",
+		"libsodium-wrappers": "^0.7.15",
 		"@modelcontextprotocol/sdk": "^1.29.0",
 		"@monaco-editor/react": "^4.7.0",
 		"@radix-ui/react-context-menu": "^2.2.16",
