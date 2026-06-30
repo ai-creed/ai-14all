@@ -1940,10 +1940,14 @@ export function App() {
 						const processes = session.processSessionIds
 							.map((id) => ws.workspaceState!.processSessionsById[id])
 							.filter(Boolean);
+						// Keep every process in `summary.rows` (overflowCount → 0); the
+						// sidebar's collapse/expand controls own row visibility, so the
+						// rollup must never silently drop processes 4+ (they were
+						// unreachable when capped at 3).
 						const processSummary = buildWorktreeProcessSummary(
 							processes,
 							sidebarNow,
-							3,
+							processes.length,
 						);
 						processesByWorktreeId[worktreeId] = processSummary;
 						taskByWorktreeId[worktreeId] = session.task ?? null;

@@ -610,7 +610,7 @@ describe("App — Phase 6 default shell", () => {
 				vi.advanceTimersByTime(11_000);
 			});
 
-			expect(screen.getByText("quiet for 11s")).toBeInTheDocument();
+			expect(screen.getByText("quiet 11s")).toBeInTheDocument();
 		} finally {
 			vi.useRealTimers();
 		}

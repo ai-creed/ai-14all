@@ -30,6 +30,7 @@ const workspaces = [
 		worktrees,
 		selectedWorktreeId: "feature-a",
 		attentionByWorktreeId: {},
+		collapsedSummary: { sessionCount: 0, attentionTier: null },
 		active: true,
 		hydrated: true,
 	},
@@ -200,13 +201,13 @@ describe("SessionSidebar", () => {
 										id: "process-2",
 										label: "npm run dev",
 										state: "idle",
-										context: "quiet for 18s",
+										context: "quiet 18s",
 										lastActivityAt: 2_000,
 										hasFailedReason: false,
 										provider: null,
 									},
 								],
-								overflowCount: 1,
+								overflowCount: 0,
 							},
 						},
 					},
@@ -219,6 +220,7 @@ describe("SessionSidebar", () => {
 				onCreateWorktree={vi.fn()}
 				onRemoveWorktree={vi.fn()}
 				onRemoveWorkspace={vi.fn()}
+				expandedProcessWorktreeIds={["main"]}
 			/>,
 		);
 
@@ -226,8 +228,12 @@ describe("SessionSidebar", () => {
 		expect(within(group).getByText("claude")).toBeInTheDocument();
 		expect(within(group).getByText("npm run dev")).toBeInTheDocument();
 		expect(within(group).getByText("Continue? [y/N]")).toBeInTheDocument();
-		expect(within(group).getByText("quiet for 18s")).toBeInTheDocument();
-		expect(within(group).getByText("1 more shell")).toBeInTheDocument();
+		expect(within(group).getByText("quiet 18s")).toBeInTheDocument();
+		// Worktree is expanded, so every process row is visible and the rollup
+		// offers the "Show less" affordance to collapse back to the top row.
+		expect(
+			within(group).getByRole("button", { name: /show less/i }),
+		).toBeInTheDocument();
 		const indicators = within(group).getAllByTestId("process-state-indicator");
 		expect(indicators).toHaveLength(2);
 		expect(indicators[0]).toHaveAttribute("data-state", "actionRequired");
@@ -271,7 +277,10 @@ describe("SessionSidebar", () => {
 		);
 
 		const group = screen.getByRole("group", { name: "repo-a" });
-		expect(within(group).getByText("3 more shells")).toBeInTheDocument();
+		// Collapsed rollup surfaces the hidden process count as an expandable button.
+		expect(
+			within(group).getByRole("button", { name: "3 more ›" }),
+		).toBeInTheDocument();
 	});
 
 	it("hides overflow shell line when count is zero", () => {
