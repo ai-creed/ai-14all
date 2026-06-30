@@ -284,6 +284,35 @@ describe("assert-universal-slices", () => {
 		).toThrow(/node-pty darwin-x64\/spawn-helper must be thin .* but is fat/);
 	});
 
+	it("REJECTS an app that ships node-pty build/ (it shadows the validated prebuilds at runtime)", () => {
+		// node-pty's loader checks build/Release before prebuilds/, so a packaged
+		// build/ binary would shadow the per-arch prebuild the gate validated. The
+		// from-source build/ must be excluded from the package.
+		const l = appLayout("release", "mac-universal", {
+			mainExe: "x86_64 arm64",
+			sqlite: "x86_64 arm64",
+			ptyX64: "x86_64",
+			helperX64: "x86_64",
+			ptyArm64: "arm64",
+			helperArm64: "arm64",
+		});
+		const shadow = `${l.app}/Contents/Resources/app.asar.unpacked/node_modules/node-pty/build/Release/pty.node`;
+		const env = makeEnv({
+			dirs: l.dirs,
+			files: [...l.files, shadow],
+			lipo: l.lipo,
+		});
+		expect(() =>
+			assertAppSlices({
+				app: { kind: "universal", appPath: l.app },
+				productFilename: PRODUCT,
+				runLipo: env.runLipo,
+				existsSync: env.existsSync,
+				readdirSync: env.readdirSync,
+			}),
+		).toThrow(/ships node-pty build\/Release\/pty\.node, which shadows/);
+	});
+
 	it("passes a well-formed arm64 app (single-path bins arm64; arm64 prebuild present)", () => {
 		const l = appLayout("release", "mac-arm64", {
 			mainExe: "arm64",

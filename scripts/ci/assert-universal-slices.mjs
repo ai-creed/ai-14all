@@ -173,6 +173,32 @@ export function assertAppSlices({
 			});
 		}
 	}
+
+	// (c) node-pty MUST load the committed per-arch prebuilds asserted in (b), so
+	// its from-source build output must be ABSENT from the package. node-pty's
+	// loader (lib/utils.js) checks build/Release and build/Debug BEFORE
+	// prebuilds/${platform}-${arch}, so a packaged build/ binary would shadow the
+	// prebuild this gate just validated — and on the universal app that build/
+	// binary is a single fat (or worse, single-arch) file, defeating the whole
+	// point. electron-builder.yml excludes node_modules/node-pty/{build,bin}; this
+	// asserts that exclusion actually held in the packaged app.
+	for (const variant of ["build/Release", "build/Debug"]) {
+		const shadow = join(
+			unpackedDir,
+			"node_modules",
+			"node-pty",
+			...variant.split("/"),
+			"pty.node",
+		);
+		if (existsSync(shadow)) {
+			throw new Error(
+				`slice gate: ${kind} app ships node-pty ${variant}/pty.node, which shadows the ` +
+					`validated prebuilds/darwin-<arch>/ binary at runtime (node-pty loads ${variant} ` +
+					"before prebuilds/). Exclude node_modules/node-pty/{build,bin} in electron-builder.yml. " +
+					`Found: ${shadow}`,
+			);
+		}
+	}
 }
 
 export function assertUniversalSlices({

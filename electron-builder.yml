@@ -11,6 +11,15 @@ directories:
 files:
   - out/**
   - package.json
+  # node-pty is N-API: ship only its committed, ABI-portable prebuilds/darwin-<arch>/
+  # and DROP the from-source build artifacts. `bin/darwin-<host>-<abi>/node-pty.node`
+  # is a stray host-arch copy node-pty never loads (its loader checks build/ then
+  # prebuilds/, never bin/) and is byte-identical across the x64+arm64 universal
+  # sub-builds, which @electron/universal rejects as an identical Mach-O; `build/` is
+  # the rebuilt output whose per-arch intermediates also break the merge. Excluding
+  # both makes node-pty load the committed prebuilds (present + correct per arch).
+  - "!node_modules/node-pty/bin/**"
+  - "!node_modules/node-pty/build/**"
 extraResources:
   - assets/agent-skills/**/*
 asarUnpack:
@@ -22,6 +31,12 @@ mac:
   notarize: true
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
+  # The committed node-pty prebuilds (prebuilds/darwin-{x64,arm64}/{pty.node,
+  # spawn-helper}) are byte-identical across the two universal sub-builds, so
+  # @electron/universal would reject them as identical Mach-O. Allowlist them: they
+  # are intentionally per-arch-thin and node-pty picks the right darwin-<arch> dir
+  # by process.arch at runtime, so no lipo-merge is wanted (or possible).
+  x64ArchFiles: "**/node-pty/prebuilds/**"
   target:
     - target: zip
       arch:
