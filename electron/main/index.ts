@@ -431,6 +431,44 @@ app.whenReady().then(async () => {
 		},
 	});
 
+	// Spec §1: the XBP host service starts BEFORE the plugin registry boots, so a
+	// phone that connects during early startup finds the bridge already live. All
+	// mainWindow/webContents references below are lazy + null-safe so this block is
+	// safe to run regardless of when the window is created.
+	const xbpDir = join(app.getPath("userData"), "ai-14all", "xbp");
+	let xbpService: XbpHostService | null = null;
+	try {
+		xbpService = new XbpHostService({
+			dir: xbpDir,
+			secureStorage: safeStorage,
+			getSessionReport: xbpSessionReport,
+			subscribeChanges: (cb) => {
+				const offReviews = reviewCommentService.onChange(() => cb());
+				const offWorktrees = workspaceRegistry.onChange(cb);
+				const offSlice = samanthaSliceSource.subscribe(cb);
+				return () => {
+					offReviews();
+					offWorktrees();
+					offSlice();
+				};
+			},
+			onStatusChange: () =>
+				mainWindow?.webContents?.send(
+					PHONE_BRIDGE_STATUS_CHANGED,
+					xbpService?.getStatus(),
+				),
+		});
+		await xbpService.start();
+	} catch (err) {
+		console.error("[xbp] failed to start host service", err);
+	}
+
+	const xbpIpc = registerXbpIpc({
+		ipcMain,
+		getService: () => xbpService,
+		getWebContents: () => mainWindow?.webContents,
+	});
+
 	const pluginRegistry = createPluginRegistry(
 		[whisperDriver, cortexDriver, samanthaDriver],
 		pluginConfig,
@@ -476,12 +514,6 @@ app.whenReady().then(async () => {
 		ingestSamanthaSessionSlice: (slice) =>
 			samanthaDriver.ingestSessionSlice(slice),
 		reconnectSamantha: () => samanthaDriver.reconnectNow(),
-	});
-
-	const xbpIpc = registerXbpIpc({
-		ipcMain,
-		getService: () => xbpService,
-		getWebContents: () => mainWindow.webContents,
 	});
 
 	// Re-probe triggers (spec §3.4) funnel through capabilityProbes.invalidate():
@@ -566,34 +598,6 @@ app.whenReady().then(async () => {
 			return mcpPort === null ? null : `http://127.0.0.1:${mcpPort}/mcp`;
 		},
 	};
-
-	const xbpDir = join(app.getPath("userData"), "ai-14all", "xbp");
-	let xbpService: XbpHostService | null = null;
-	try {
-		xbpService = new XbpHostService({
-			dir: xbpDir,
-			secureStorage: safeStorage,
-			getSessionReport: xbpSessionReport,
-			subscribeChanges: (cb) => {
-				const offReviews = reviewCommentService.onChange(() => cb());
-				const offWorktrees = workspaceRegistry.onChange(cb);
-				const offSlice = samanthaSliceSource.subscribe(cb);
-				return () => {
-					offReviews();
-					offWorktrees();
-					offSlice();
-				};
-			},
-			onStatusChange: () =>
-				mainWindow.webContents.send(
-					PHONE_BRIDGE_STATUS_CHANGED,
-					xbpService?.getStatus(),
-				),
-		});
-		await xbpService.start();
-	} catch (err) {
-		console.error("[xbp] failed to start host service", err);
-	}
 
 	const closeGate = createCloseGate();
 	closeGate.attach(mainWindow);
