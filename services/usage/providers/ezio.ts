@@ -8,7 +8,7 @@ export const ezioDriver: TelemetryDriver = {
 	capabilities: {
 		tokenLog: true,
 		storeKind: "jsonl-tree",
-		timeSource: "file-mtime", // records carry no per-turn timestamp
+		timeSource: "per-event", // ezio rows carry a per-turn ISO-8601 timestamp
 		cwdSource: "dir-slug", // cwd derived from the parent directory slug
 		nativeLimits: false,
 	},

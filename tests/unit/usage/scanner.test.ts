@@ -164,7 +164,7 @@ describe("scanners", () => {
 	});
 
 	describe("processJsonlFile (generic)", () => {
-		it("stamps ezio events with file mtime and seeds cwd from the dir slug", () => {
+		it("falls back to file mtime for a timestamp-less ezio row (and seeds cwd from the dir slug)", () => {
 			const root = mkdtempSync(join(tmpdir(), "ezio-"));
 			const sessDir = join(root, "Users-me-Dev-app");
 			mkdirSync(sessDir, { recursive: true });
@@ -281,6 +281,37 @@ describe("scanners", () => {
 			});
 			expect(events[0].timestampMs).toBe(eventTs);
 			expect(events[0].timestampMs).not.toBe(mtime.getTime());
+		});
+
+		it("passes a per-line ezio timestamp through instead of overriding with file mtime", () => {
+			const root = mkdtempSync(join(tmpdir(), "ezio-perevent-"));
+			const sessDir = join(root, "Users-me-Dev-app");
+			mkdirSync(sessDir, { recursive: true });
+			const file = join(sessDir, "rec.record.jsonl");
+			const iso = "2026-06-10T08:00:00.000Z";
+			writeFileSync(
+				file,
+				JSON.stringify({
+					timestamp: iso,
+					model: "gpt-5-codex",
+					usage: { contextTokens: 1000, outputTokens: 200, cachedTokens: 600 },
+				}) + "\n",
+			);
+			// File mtime is deliberately different from the per-line timestamp.
+			const mtime = new Date("2026-06-01T00:00:00.000Z");
+			utimesSync(file, mtime, mtime);
+			const cache: OffsetCache = new Map();
+			const events: UsageEvent[] = [];
+			processJsonlFile(ezioDriver, file, cache, {
+				ingest: (e) => events.push(e),
+				onLimits: () => {},
+				onSubtract: () => {},
+				onSealedTruncation: () => {},
+			});
+			expect(events).toHaveLength(1);
+			expect(events[0].timestampMs).toBe(Date.parse(iso));
+			expect(events[0].timestampMs).not.toBe(mtime.getTime());
+			expect(events[0].model).toBe("gpt-5-codex");
 		});
 
 		it("resets to offset 0 when a file is truncated/rotated", () => {
