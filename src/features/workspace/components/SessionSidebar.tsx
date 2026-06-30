@@ -208,6 +208,19 @@ export function SessionSidebar({
 										<span className="shell-sidebar__workspace-badge-initial">
 											{workspace.name.slice(0, 1).toUpperCase()}
 										</span>
+										{workspace.collapsedSummary.sessionCount > 0 && (
+											<span className="shell-sidebar__workspace-count">
+												{workspace.collapsedSummary.sessionCount}
+											</span>
+										)}
+										{workspace.collapsedSummary.attentionTier && (
+											<span
+												data-testid="workspace-rollup-dot"
+												className="shell-sidebar__workspace-rollup-dot"
+												data-tier={workspace.collapsedSummary.attentionTier}
+												aria-hidden="true"
+											/>
+										)}
 									</button>
 								) : (
 									<>

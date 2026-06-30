@@ -4,17 +4,23 @@ import { SessionSidebar } from "../../../src/features/workspace/components/Sessi
 import type { SessionSidebarWorkspace } from "../../../src/features/workspace/components/SessionSidebar";
 import type { AgentProvider } from "../../../shared/models/agent-attention";
 
+type RowSpec = {
+	id: string;
+	label: string;
+	state: "actionRequired" | "active" | "idle" | "exited";
+	context: string;
+	lastActivityAt: number | null;
+	hasFailedReason: boolean;
+	provider?: AgentProvider | null;
+};
+
+function makeWorkspace(rows: RowSpec[]): SessionSidebarWorkspace;
+function makeWorkspace(overrides: Partial<SessionSidebarWorkspace>): SessionSidebarWorkspace;
 function makeWorkspace(
-	rows: Array<{
-		id: string;
-		label: string;
-		state: "actionRequired" | "active" | "idle" | "exited";
-		context: string;
-		lastActivityAt: number | null;
-		hasFailedReason: boolean;
-		provider?: AgentProvider | null;
-	}>,
+	arg: RowSpec[] | Partial<SessionSidebarWorkspace> = [],
 ): SessionSidebarWorkspace {
+	const rows = Array.isArray(arg) ? arg : [];
+	const overrides = Array.isArray(arg) ? {} : arg;
 	return {
 		workspaceId: "ws1",
 		name: "my-workspace",
@@ -39,7 +45,15 @@ function makeWorkspace(
 		titleByWorktreeId: { wt1: "main" },
 		active: true,
 		hydrated: true,
+		collapsedSummary: { sessionCount: 0, attentionTier: null },
+		...overrides,
 	};
+}
+
+function renderSidebar(
+	props: { workspaces: SessionSidebarWorkspace[] } & Partial<Parameters<typeof SessionSidebar>[0]>,
+) {
+	return render(<SessionSidebar {...baseProps} {...props} />);
 }
 
 const baseProps = {
@@ -440,5 +454,35 @@ describe("SessionSidebar — task and provider rendering", () => {
 		expect(
 			container.querySelector(".shell-sidebar__provider-badge"),
 		).not.toBeInTheDocument();
+	});
+});
+
+describe("SessionSidebar — collapsed workspace rollup", () => {
+	it("shows session count and an attention dot on a collapsed workspace row", () => {
+		renderSidebar({
+			collapsed: true,
+			workspaces: [
+				makeWorkspace({
+					collapsedSummary: { sessionCount: 3, attentionTier: "actionRequired" },
+				}),
+			],
+		});
+		expect(screen.getByText("3")).toBeInTheDocument();
+		expect(screen.getByTestId("workspace-rollup-dot")).toHaveAttribute(
+			"data-tier",
+			"actionRequired",
+		);
+	});
+
+	it("omits the dot when the workspace is calm", () => {
+		renderSidebar({
+			collapsed: true,
+			workspaces: [
+				makeWorkspace({
+					collapsedSummary: { sessionCount: 0, attentionTier: null },
+				}),
+			],
+		});
+		expect(screen.queryByTestId("workspace-rollup-dot")).toBeNull();
 	});
 });
