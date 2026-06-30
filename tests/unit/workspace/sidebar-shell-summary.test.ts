@@ -3,6 +3,7 @@ import {
 	buildWorktreeAttentionDisplay,
 	buildWorktreeProcessSummary,
 	formatQuietAge,
+	formatRelativeQuiet,
 } from "../../../src/features/workspace/logic/sidebar-shell-summary";
 import { STALE_THRESHOLD_MS } from "../../../shared/models/agent-attention";
 import type { AgentAttentionReason } from "../../../shared/models/agent-attention";
@@ -11,7 +12,19 @@ const now = 20_000;
 
 describe("formatQuietAge", () => {
 	it("formats quiet age in whole seconds", () => {
-		expect(formatQuietAge(14_900)).toBe("quiet for 14s");
+		expect(formatQuietAge(14_900)).toBe("quiet 14s");
+	});
+});
+
+describe("formatRelativeQuiet", () => {
+	it("formats seconds, minutes, hours, days", () => {
+		expect(formatRelativeQuiet(5_000)).toBe("quiet 5s");
+		expect(formatRelativeQuiet(180_000)).toBe("quiet 3m");
+		expect(formatRelativeQuiet(5 * 3_600_000)).toBe("quiet 5h");
+		expect(formatRelativeQuiet(2 * 86_400_000)).toBe("quiet 2d");
+	});
+	it("floors sub-second to 1s", () => {
+		expect(formatRelativeQuiet(0)).toBe("quiet 1s");
 	});
 });
 
@@ -66,7 +79,7 @@ describe("buildWorktreeProcessSummary", () => {
 		).toEqual([
 			["claude", "actionRequired", "Continue? [y/N]"],
 			["dev", "active", "compiled in 124ms"],
-			["tests", "idle", "quiet for 12s"],
+			["tests", "idle", "quiet 12s"],
 			["lint", "exited", "exit 1"],
 		]);
 	});

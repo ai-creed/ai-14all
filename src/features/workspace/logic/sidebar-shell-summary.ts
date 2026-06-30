@@ -69,8 +69,18 @@ function deriveExitedContext(
 }
 
 // restarting intentionally shares the exited dot/state; context text disambiguates it
+export function formatRelativeQuiet(ageMs: number): string {
+	const secs = Math.max(1, Math.floor(ageMs / 1000));
+	if (secs < 60) return `quiet ${secs}s`;
+	const mins = Math.floor(secs / 60);
+	if (mins < 60) return `quiet ${mins}m`;
+	const hours = Math.floor(mins / 60);
+	if (hours < 24) return `quiet ${hours}h`;
+	return `quiet ${Math.floor(hours / 24)}d`;
+}
+
 export function formatQuietAge(ageMs: number): string {
-	return `quiet for ${Math.max(1, Math.floor(ageMs / 1000))}s`;
+	return formatRelativeQuiet(ageMs);
 }
 
 function deriveState(
@@ -124,7 +134,7 @@ function deriveAgentContext(
 	const ranked = rankAgentAttention(reasons, stale);
 	if (ranked === "idle") return null;
 	if (ranked === "stale")
-		return `stale: quiet for ${Math.max(1, Math.floor((now - (process.lastActivityAt ?? now)) / 1000))}s`;
+		return `stale: ${formatRelativeQuiet(now - (process.lastActivityAt ?? now))}`;
 	// terminal reasons are only meaningful during active execution; after exit show lifecycle only
 	const reason =
 		process.status === "running"
