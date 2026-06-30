@@ -143,21 +143,29 @@ jobs:
       - name: Verify signature & notarization
         shell: bash
         run: |
-          mapfile -t APPS < <(find release -maxdepth 2 -name '*.app')
-          if [ "${#APPS[@]}" -eq 0 ]; then echo "no .app found in release/"; exit 1; fi
-          for APP in "${APPS[@]}"; do
+          # `while read` + process substitution, NOT mapfile: GitHub's macOS
+          # `shell: bash` is /bin/bash 3.2, where mapfile (a bash-4 builtin) is
+          # "command not found" (exit 127). This loop is bash-3.2 portable and
+          # still verifies EVERY produced .app and .dmg, hard-failing on an empty set.
+          app_count=0
+          while IFS= read -r APP; do
+            [ -n "$APP" ] || continue
+            app_count=$((app_count + 1))
             echo "Verifying app: $APP"
             codesign --verify --deep --strict --verbose=2 "$APP"
             spctl --assess --type execute --verbose=2 "$APP"
-          done
+          done < <(find release -maxdepth 2 -name '*.app')
+          if [ "$app_count" -eq 0 ]; then echo "no .app found in release/"; exit 1; fi
 
-          mapfile -t DMGS < <(find release -maxdepth 1 -name '*.dmg')
-          if [ "${#DMGS[@]}" -eq 0 ]; then echo "no .dmg found in release/"; exit 1; fi
-          for DMG in "${DMGS[@]}"; do
+          dmg_count=0
+          while IFS= read -r DMG; do
+            [ -n "$DMG" ] || continue
+            dmg_count=$((dmg_count + 1))
             echo "Verifying dmg: $DMG"
             codesign --verify --verbose=2 "$DMG"
             spctl --assess --type install --verbose=2 "$DMG"
-          done
+          done < <(find release -maxdepth 1 -name '*.dmg')
+          if [ "$dmg_count" -eq 0 ]; then echo "no .dmg found in release/"; exit 1; fi
 
       - name: Pre-rewrite validation
         shell: bash
