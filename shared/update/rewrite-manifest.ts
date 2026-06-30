@@ -36,10 +36,16 @@ export function rewriteManifest(raw: string, targetVersion: string): string {
 		}
 		return { ...file, url: `${versionedBase}${file.url}` };
 	});
-	const dmg = rewrittenFiles.find((f) => f.url.endsWith(".dmg"));
-	if (!dmg) {
+	const dmgs = rewrittenFiles.filter((f) => f.url.endsWith(".dmg"));
+	if (dmgs.length === 0) {
 		throw new Error("emitted manifest has no .dmg file entry");
 	}
+	// With both a universal and an arm64 dmg present, the legacy top-level
+	// path/sha512 must be deterministic rather than order-dependent: prefer the
+	// universal dmg (it runs on every Mac). electron-updater 6.x uses the
+	// arch-filtered zip from files[] for mac auto-update, so this top-level
+	// pointer is only a legacy fallback — see the design spec section 5.5.
+	const dmg = dmgs.find((f) => /-universal\.dmg$/.test(f.url)) ?? dmgs[0];
 	const published: EmittedManifest = {
 		version: doc.version,
 		releaseDate: doc.releaseDate,

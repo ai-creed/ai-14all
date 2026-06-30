@@ -4,20 +4,17 @@ import { join } from "node:path";
 
 const RELEASE_DIR = "release";
 
-/** Pick the one .dmg in a directory listing (ignores .blockmap and other files).
- *  Throws if zero or more than one .dmg is present, so we never sign the wrong
- *  artifact when the folder is dirty. */
-export function pickDmg(entries, dir = RELEASE_DIR) {
+/** List every .dmg in a directory listing (ignores .blockmap and other files),
+ *  sorted for deterministic order. The universal+arm64 build produces TWO dmgs
+ *  (`…-arm64.dmg` and `…-universal.dmg`) and BOTH must be signed/notarized/
+ *  stapled. Throws if zero .dmg are present — that means packaging produced no
+ *  installer, a real error we must not sail past. */
+export function listDmgs(entries, dir = RELEASE_DIR) {
 	const dmgs = entries.filter((name) => name.endsWith(".dmg"));
 	if (dmgs.length === 0) {
 		throw new Error(`no .dmg found in ${dir}/`);
 	}
-	if (dmgs.length > 1) {
-		throw new Error(
-			`multiple .dmg files in ${dir}/ (${dmgs.join(", ")}); refusing to guess`,
-		);
-	}
-	return join(dir, dmgs[0]);
+	return dmgs.sort().map((name) => join(dir, name));
 }
 
 /** Parse `security find-identity -v -p codesigning` output into {hash,name}. */
@@ -98,7 +95,7 @@ export function main() {
 		throw new Error(`missing required env: ${missing.join(", ")}`);
 	}
 
-	const dmg = pickDmg(readdirSync(RELEASE_DIR));
+	const dmgs = listDmgs(readdirSync(RELEASE_DIR));
 
 	const found = spawnSync(
 		"security",
@@ -116,24 +113,28 @@ export function main() {
 		);
 	}
 
-	process.stdout.write(`Signing DMG ${dmg} with ${identity.name}\n`);
-	run(
-		"codesign",
-		buildCodesignArgs({ dmg, identity: identity.name }),
-		"codesign",
-	);
+	// Sign + notarize + staple EVERY produced dmg (arm64 and universal). The
+	// identity is the same for all; resolve it once, then process each dmg.
+	for (const dmg of dmgs) {
+		process.stdout.write(`Signing DMG ${dmg} with ${identity.name}\n`);
+		run(
+			"codesign",
+			buildCodesignArgs({ dmg, identity: identity.name }),
+			"codesign",
+		);
 
-	process.stdout.write(`Notarizing DMG ${dmg} (waiting on Apple)…\n`);
-	run(
-		"xcrun",
-		["notarytool", ...buildNotarizeArgs({ dmg, keyPath, keyId, issuer })],
-		"notarytool submit",
-	);
+		process.stdout.write(`Notarizing DMG ${dmg} (waiting on Apple)…\n`);
+		run(
+			"xcrun",
+			["notarytool", ...buildNotarizeArgs({ dmg, keyPath, keyId, issuer })],
+			"notarytool submit",
+		);
 
-	process.stdout.write(`Stapling DMG ${dmg}\n`);
-	run("xcrun", ["stapler", ...buildStapleArgs(dmg)], "stapler staple");
+		process.stdout.write(`Stapling DMG ${dmg}\n`);
+		run("xcrun", ["stapler", ...buildStapleArgs(dmg)], "stapler staple");
 
-	process.stdout.write(`DMG signed, notarized, and stapled: ${dmg}\n`);
+		process.stdout.write(`DMG signed, notarized, and stapled: ${dmg}\n`);
+	}
 }
 
 if (import.meta.url === new URL(process.argv[1], "file:").href) {

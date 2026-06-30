@@ -71,7 +71,11 @@ jobs:
       # internal @electron/rebuild then sees a cache hit and SKIPS rebuilding, so
       # it would package the host-ABI binary — which the afterPack guard rejects
       # (NODE_MODULE_VERSION 137 vs Electron's 145). Force the Electron rebuild
-      # here so the packaged better-sqlite3 matches Electron's ABI.
+      # here so the packaged better-sqlite3 matches Electron's ABI. For the
+      # universal target, electron-builder's buildDependenciesFromSource rebuilds
+      # better-sqlite3 from source for BOTH the arm64 and x64 sub-builds (the
+      # macos-14 Xcode toolchain cross-compiles the x64 slice); the slice gate
+      # below is the safety net that fails the build if either arch is wrong.
       - name: Rebuild better-sqlite3 for Electron before packaging
         run: pnpm exec electron-rebuild -f -w better-sqlite3
 
@@ -89,6 +93,12 @@ jobs:
       - name: Package DMG + ZIP + manifest (signed + notarized)
         shell: bash
         env:
+          # Raise V8's heap ceiling for the electron-vite production build. The
+          # default (~2GB) is right at the bundle's peak, so `pnpm build` OOMs
+          # intermittently ("Ineffective mark-compacts near heap limit"); 4GB on
+          # the 7GB macos-14 runner gives headroom. Applies to the whole step
+          # (build + electron-builder) — harmless, it is a ceiling, not a reserve.
+          NODE_OPTIONS: --max-old-space-size=4096
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
@@ -100,6 +110,10 @@ jobs:
           printf '%s' "$APPLE_API_KEY_P8" > "$KEYFILE"
           export APPLE_API_KEY="$KEYFILE"
           pnpm package:mac
+
+      - name: Assert universal + arm64 CPU slices
+        shell: bash
+        run: node scripts/ci/assert-universal-slices.mjs release ai-14all
 
       - name: Sign + notarize + staple DMG
         shell: bash
@@ -135,17 +149,29 @@ jobs:
       - name: Verify signature & notarization
         shell: bash
         run: |
-          APP=$(find release -maxdepth 2 -name '*.app' | head -1)
-          if [ -z "$APP" ]; then echo "no .app found in release/"; exit 1; fi
-          echo "Verifying app: $APP"
-          codesign --verify --deep --strict --verbose=2 "$APP"
-          spctl --assess --type execute --verbose=2 "$APP"
+          # `while read` + process substitution, NOT mapfile: GitHub's macOS
+          # `shell: bash` is /bin/bash 3.2, where mapfile (a bash-4 builtin) is
+          # "command not found" (exit 127). This loop is bash-3.2 portable and
+          # still verifies EVERY produced .app and .dmg, hard-failing on an empty set.
+          app_count=0
+          while IFS= read -r APP; do
+            [ -n "$APP" ] || continue
+            app_count=$((app_count + 1))
+            echo "Verifying app: $APP"
+            codesign --verify --deep --strict --verbose=2 "$APP"
+            spctl --assess --type execute --verbose=2 "$APP"
+          done < <(find release -maxdepth 2 -name '*.app')
+          if [ "$app_count" -eq 0 ]; then echo "no .app found in release/"; exit 1; fi
 
-          DMG=$(find release -maxdepth 1 -name '*.dmg' | head -1)
-          if [ -z "$DMG" ]; then echo "no .dmg found in release/"; exit 1; fi
-          echo "Verifying dmg: $DMG"
-          codesign --verify --verbose=2 "$DMG"
-          spctl --assess --type install --verbose=2 "$DMG"
+          dmg_count=0
+          while IFS= read -r DMG; do
+            [ -n "$DMG" ] || continue
+            dmg_count=$((dmg_count + 1))
+            echo "Verifying dmg: $DMG"
+            codesign --verify --verbose=2 "$DMG"
+            spctl --assess --type install --verbose=2 "$DMG"
+          done < <(find release -maxdepth 1 -name '*.dmg')
+          if [ "$dmg_count" -eq 0 ]; then echo "no .dmg found in release/"; exit 1; fi
 
       - name: Pre-rewrite validation
         shell: bash
@@ -172,6 +198,11 @@ jobs:
           grep -q "https://github.com/ai-creed/ai-14all/releases/download/v${{ steps.resolve.outputs.version }}/" release/latest-mac.published.yml
 
       - name: Publish manifest to ai-creed
+        # Only on a real tagged release (event_name == 'push'). A workflow_dispatch
+        # smoke/dry-run must NOT mutate the live ai-creed site or publish a manifest
+        # that points at GitHub Release assets a dispatch run never creates (the
+        # "Create or refresh GitHub Release" step below is likewise push-only).
+        if: github.event_name == 'push'
         shell: bash
         env:
           DEPLOY_KEY: ${{ secrets.AI_CREED_DEPLOY_KEY }}
@@ -188,7 +219,14 @@ jobs:
           cp "$GITHUB_WORKSPACE/release/latest-mac.published.yml" "$RUNNER_TEMP/ai-creed/public/ai-14all/latest-mac.yml"
           target="${{ steps.resolve.outputs.version }}"
           mdx="src/content/projects/ai-14all.mdx"
+          # Idempotently expose the universal dmg as the default macOS download
+          # (arm64 becomes the secondary "native" link) and drop the stale
+          # "no Intel macOS" copy. Runs BEFORE the version-bump sed so this first
+          # universal release atomically updates the page when the universal dmg
+          # becomes downloadable; a no-op on releases where it is already applied.
+          node "$GITHUB_WORKSPACE/scripts/ci/ensure-ai-creed-universal-download.mjs" "$mdx"
           sed -i.bak -E \
+            -e "s|ai-14all-[0-9]+\.[0-9]+\.[0-9]+-universal\.dmg|ai-14all-${target}-universal.dmg|g" \
             -e "s|ai-14all-[0-9]+\.[0-9]+\.[0-9]+-arm64\.dmg|ai-14all-${target}-arm64.dmg|g" \
             -e "s|ai-14all-[0-9]+\.[0-9]+\.[0-9]+-x64-Setup\.exe|ai-14all-${target}-x64-Setup.exe|g" \
             -e "s|releases/download/v[0-9]+\.[0-9]+\.[0-9]+/|releases/download/v${target}/|g" \

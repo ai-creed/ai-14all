@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.11.2] – 2026-06-30
+
+### Added
+
+- **Intel Mac support via a universal build.** macOS releases now ship a universal (Intel + Apple Silicon) build alongside the native arm64 build, so Intel Macs are supported for the first time. The in-app auto-updater is arch-aware — Apple Silicon keeps pulling the slim native arm64 build while Intel Macs pull the universal build, both from one update manifest. A CI slice gate statically verifies (via `lipo`) that the universal binaries carry both CPU slices before any release is published. Resolves [#9](https://github.com/ai-creed/ai-14all/issues/9).
+
 ## [0.11.1] – 2026-06-29
 
 ### Added
