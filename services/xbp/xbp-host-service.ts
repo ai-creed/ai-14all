@@ -69,11 +69,23 @@ export class XbpHostService {
 		this.backend ??= await createNodeSodiumBackend();
 		this.audit = new XbpAuditSink({ dir: this.opts.dir, now: this.opts.now });
 		// Fail-closed: the store throws XbpSecureStorageUnavailableError if encryption is off.
-		const loaded = new XbpIdentityStore({
-			dir: this.opts.dir,
-			backend: this.backend,
-			secureStorage: this.opts.secureStorage,
-		}).load();
+		// AC6: audit the refusal before re-throwing so the rejection is traceable.
+		let loaded: ReturnType<XbpIdentityStore["load"]>;
+		try {
+			loaded = new XbpIdentityStore({
+				dir: this.opts.dir,
+				backend: this.backend,
+				secureStorage: this.opts.secureStorage,
+			}).load();
+		} catch (err) {
+			this.audit.append({
+				cap: null,
+				risk: null,
+				outcome: "rejected",
+				reason: "safe-storage-unavailable",
+			});
+			throw err;
+		}
 		this.identity = loaded.identity;
 
 		this.pairingHost = new XbpPairingHost({

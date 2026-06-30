@@ -9,6 +9,7 @@ import {
 } from "@xavier/xbp/node";
 import { XbpHostService } from "../../../services/xbp/xbp-host-service";
 import { XbpSecureStorageUnavailableError } from "../../../services/xbp/xbp-identity-store";
+import { XbpAuditSink } from "../../../services/xbp/xbp-audit-sink";
 import { XbpPairedDeviceStore } from "../../../services/xbp/xbp-paired-device-store";
 
 const okStorage = {
@@ -46,11 +47,29 @@ describe("XbpHostService", () => {
 	});
 
 	it("fails closed when secure storage is unavailable", async () => {
-		svc = makeService({ ...okStorage, isEncryptionAvailable: () => false });
+		const dir = mkdtempSync(join(tmpdir(), "xbp-svc-"));
+		svc = new XbpHostService({
+			dir,
+			secureStorage: { ...okStorage, isEncryptionAvailable: () => false },
+			getSessionReport: async () => ({
+				mode: "ready",
+				focus: null,
+				sessions: [],
+			}),
+			subscribeChanges: () => () => {},
+		});
 		await expect(svc.start()).rejects.toBeInstanceOf(
 			XbpSecureStorageUnavailableError,
 		);
 		expect(svc.getStatus().listening).toBe(false);
+		// AC6: the safeStorage-unavailable refusal must be written to the audit log.
+		const audit = new XbpAuditSink({ dir });
+		expect(audit.entries()).toContainEqual(
+			expect.objectContaining({
+				outcome: "rejected",
+				reason: "safe-storage-unavailable",
+			}),
+		);
 	});
 
 	it("kill switch (setEnabled false) stops listening and drops the session", async () => {
