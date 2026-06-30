@@ -26,4 +26,10 @@ describe("workspace tokens", () => {
 			expect(d).not.toMatch(/color-mix|transparent|\/\s*[\d.%]/); // no alpha
 		}
 	});
+
+	it("defines --ready in every theme", () => {
+		// one in :root (dark) + light + warm + tui = 4 declarations
+		const decls = css.match(/--ready:\s*[^;]+;/g) ?? [];
+		expect(decls.length).toBe(4);
+	});
 });
