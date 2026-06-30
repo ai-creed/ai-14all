@@ -13,8 +13,10 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { Worktree } from "../../../../shared/models/worktree";
-import type { ProcessAttentionState } from "../../../../shared/models/process-session";
-import type { WorktreeProcessSummary } from "../logic/sidebar-shell-summary";
+import type {
+	SidebarAttentionTier,
+	WorktreeProcessSummary,
+} from "../logic/sidebar-shell-summary";
 import { displayTitle } from "../logic/session-display-title";
 import type { WorkflowRow as WorkflowRowModel } from "../../workflows/logic/workflow-lens";
 import { WorkflowRow } from "../../workflows/components/WorkflowRow";
@@ -26,7 +28,7 @@ export type SessionSidebarWorkspace = {
 	name: string;
 	worktrees: Worktree[];
 	selectedWorktreeId: string | null;
-	attentionByWorktreeId: Record<string, ProcessAttentionState>;
+	attentionByWorktreeId: Record<string, SidebarAttentionTier>;
 	processesByWorktreeId?: Record<string, WorktreeProcessSummary>;
 	attentionContextByWorktreeId?: Record<string, string>;
 	taskByWorktreeId?: Record<string, string | null>;

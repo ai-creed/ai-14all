@@ -28,16 +28,14 @@ import { useAgentInstallStatus } from "../features/review/hooks/use-agent-instal
 import {
 	buildWorktreeAttentionDisplay,
 	buildWorktreeProcessSummary,
+	type SidebarAttentionTier,
 	type WorktreeProcessSummary,
 } from "../features/workspace/logic/sidebar-shell-summary";
 import {
 	diffAndAdvanceResolutions,
 	type DisplayedAttentionSnapshot,
 } from "../features/workspace/logic/resolution-emitter";
-import type {
-	ProcessAttentionState,
-	ProcessSession,
-} from "../../shared/models/process-session";
+import type { ProcessSession } from "../../shared/models/process-session";
 import type { WorktreeSession } from "../../shared/models/worktree-session";
 import { createSamanthaSliceBuilder } from "../features/workspace/logic/samantha-slice-builder";
 import { findWorkspaceForWorktree } from "../features/workspace/logic/focus-target";
@@ -1923,7 +1921,7 @@ export function App() {
 							attentionContextByWorktreeId: {},
 							taskByWorktreeId: {},
 						};
-					const attentionByWorktreeId: Record<string, ProcessAttentionState> =
+					const attentionByWorktreeId: Record<string, SidebarAttentionTier> =
 						{};
 					const processesByWorktreeId: Record<string, WorktreeProcessSummary> =
 						{};
@@ -1946,13 +1944,16 @@ export function App() {
 							sessionAgentAttentionReasons: session.agentAttentionReasons,
 							processSummary,
 							now: sidebarNow,
+							agentAttentionClearedAt: session.agentAttentionClearedAt,
 						});
 						attentionByWorktreeId[worktreeId] =
 							display.state === "actionRequired"
 								? "actionRequired"
-								: display.state === "active"
-									? "activity"
-									: "idle";
+								: display.state === "ready"
+									? "ready"
+									: display.state === "active"
+										? "activity"
+										: "idle";
 						if (display.source === "session" && display.context) {
 							attentionContextByWorktreeId[worktreeId] = display.context;
 						}
