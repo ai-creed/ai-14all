@@ -13,6 +13,12 @@ export function WorkflowRow(props: {
 	const { row } = props;
 	// Escalation is a distinct, more-urgent state than the raw workflow status.
 	const statusKey = row.escalated ? "escalated" : row.status;
+	const statusTier =
+		row.escalated || row.status === "halted"
+			? "actionRequired"
+			: row.status === "done"
+				? "ready"
+				: "neutral";
 	return (
 		<button
 			type="button"
@@ -22,7 +28,7 @@ export function WorkflowRow(props: {
 			<div className="workflow-row__header">
 				<span className="workflow-row__caption">Last workflow:</span>
 				<span className="workflow-row__type">{row.typeLabel}</span>
-				<span className="workflow-row__status" data-status={statusKey}>
+				<span className="workflow-row__status" data-status={statusKey} data-tier={statusTier}>
 					<span className="workflow-row__status-dot" aria-hidden="true" />
 					{statusKey}
 				</span>

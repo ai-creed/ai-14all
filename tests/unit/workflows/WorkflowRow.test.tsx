@@ -17,6 +17,10 @@ const row: WorkflowRowModel = {
 	liveFeed: "socket",
 };
 
+function makeRow(overrides: Partial<WorkflowRowModel>): WorkflowRowModel {
+	return { ...row, ...overrides };
+}
+
 describe("WorkflowRow", () => {
 	it("renders the type label, artifact, phase, round, and a status badge", () => {
 		render(<WorkflowRow row={row} onOpenDetail={vi.fn()} />);
@@ -59,5 +63,15 @@ describe("WorkflowRow", () => {
 			/>,
 		);
 		expect(screen.getByText(/daemon not running/i)).toBeInTheDocument();
+	});
+
+	it("maps a done workflow to the quiet ready tier on the status badge", () => {
+		render(<WorkflowRow row={makeRow({ status: "done", escalated: false })} onOpenDetail={() => {}} />);
+		expect(screen.getByText("done").closest(".workflow-row__status")).toHaveAttribute("data-tier", "ready");
+	});
+
+	it("maps an escalated workflow to the actionRequired tier", () => {
+		render(<WorkflowRow row={makeRow({ status: "running", escalated: true })} onOpenDetail={() => {}} />);
+		expect(screen.getByText("escalated").closest(".workflow-row__status")).toHaveAttribute("data-tier", "actionRequired");
 	});
 });
