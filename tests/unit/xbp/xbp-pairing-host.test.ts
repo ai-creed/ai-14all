@@ -65,7 +65,7 @@ describe("XbpPairingHost", () => {
 	});
 
 	it("computes a 6-digit SAS for a fresh in-TTL pair-request (positive control + SAS source)", async () => {
-		let clock = 1_000_000;
+		const clock = 1_000_000;
 		const { backend, host } = await makeHost({ now: () => clock, ttl: 60_000 });
 		const offer = host.createOffer({ url: "ws://10.0.0.5:51820" });
 		const client = new ReferenceClient({
