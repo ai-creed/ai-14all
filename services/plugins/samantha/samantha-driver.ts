@@ -17,10 +17,13 @@ import type {
 	WorktreeIdentity,
 } from "./observe-types";
 import {
-	buildSessionReport,
 	renderReportText,
 	resolveWorktreeKey,
 } from "./samantha-command-capabilities";
+import {
+	createSessionReportProvider,
+} from "./session-report-provider";
+import { createSessionSliceStore } from "./session-slice-source";
 import { createSamanthaCommandDispatcher } from "./samantha-command-dispatcher";
 import {
 	buildTargetSessionState,
@@ -60,6 +63,7 @@ export type SamanthaDriverOptions = {
 	dedupTtlMs?: number;
 	dedupMax?: number;
 	log?: (message: string, error?: unknown) => void;
+	sliceSource?: ReturnType<typeof createSessionSliceStore>;
 	isActingEnabled: () => boolean;
 	verifyActingToken: (token: string | undefined) => boolean;
 	auditAct: (entry: ActingAuditEntry) => void;
@@ -153,9 +157,10 @@ export function createSamanthaDriver(
 		random: options.random,
 	});
 
+	const sliceSource = options.sliceSource ?? createSessionSliceStore();
+
 	let stopped = true;
 	let registered = false;
-	let session: SamanthaSessionSlice | null = null;
 	let lastBody: string | null = null;
 	let lastSignals: Record<string, SamanthaSignal> = {};
 	let pendingForce = false; // a keep-alive trigger forces a PATCH even if unchanged
@@ -178,8 +183,15 @@ export function createSamanthaDriver(
 		const reviewCounts: Record<string, number> = {};
 		for (const id of Object.keys(identities))
 			reviewCounts[id] = options.getReviewCount(id);
-		return { identities, reviewCounts, whisper, session };
+		return { identities, reviewCounts, whisper, session: sliceSource.get() };
 	}
+
+	const getSessionReport = createSessionReportProvider({
+		getIdentities: options.getIdentities,
+		getReviewCount: options.getReviewCount,
+		getWhisperStates: options.getWhisperStates,
+		getSessionSlice: () => sliceSource.get(),
+	});
 
 	const execute: import("./act-guard").ExecuteFn = async (
 		worktreeId,
@@ -238,7 +250,7 @@ export function createSamanthaDriver(
 			const state = buildTargetSessionState(
 				resolved.worktreeId,
 				await options.getWhisperStates(),
-				session,
+				sliceSource.get(),
 			);
 			const decision = routeInstruction({ instruction, state });
 			return {
@@ -255,8 +267,8 @@ export function createSamanthaDriver(
 		createSamanthaCommandDispatcher(
 			{
 				buildReport: async () => {
-					const sessions = buildSessionReport(await gather());
-					return { report: renderReportText(sessions), sessions };
+					const result = await getSessionReport();
+					return { report: renderReportText(result), sessions: result };
 				},
 				resolveWorktree: async (key) =>
 					resolveWorktreeKey(await options.getIdentities(), key),
@@ -393,7 +405,7 @@ export function createSamanthaDriver(
 		for (const [worktreeId, signal] of Object.entries(out.signals)) {
 			const prev = lastSignals[worktreeId];
 			if (signal === prev || !SPEECH_WORTHY.has(signal)) continue;
-			const wt = session?.worktrees.find((w) => w.worktreeId === worktreeId);
+			const wt = sliceSource.get()?.worktrees.find((w) => w.worktreeId === worktreeId);
 			const branch = identities[worktreeId]?.branch ?? worktreeId;
 			// Build the summary from non-empty parts: a whisper-only worktree has no
 			// session slice (wt undefined), so avoid a dangling "branch:  —".
@@ -512,6 +524,7 @@ export function createSamanthaDriver(
 			health("connecting");
 			unsubscribers.push(options.subscribeReviews(() => scheduleRebuild()));
 			unsubscribers.push(options.subscribeWorktrees(() => scheduleRebuild()));
+			unsubscribers.push(sliceSource.subscribe(() => scheduleRebuild()));
 			// Keep-alive: force a PATCH ~every keepAliveMs even when content is
 			// unchanged, so Samantha's stale-row freshness affordance stays current.
 			keepAliveTimer = setInterval(() => scheduleRebuild(true), keepAliveMs);
@@ -529,8 +542,7 @@ export function createSamanthaDriver(
 			health("samantha-not-running");
 		},
 		ingestSessionSlice(slice: SamanthaSessionSlice) {
-			session = slice;
-			scheduleRebuild();
+			sliceSource.set(slice);
 		},
 		instructSession,
 		reconnectNow,
