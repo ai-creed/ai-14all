@@ -62,6 +62,7 @@ import type { WhisperCommand } from "../../shared/contracts/plugins.js";
 import { createSessionSliceStore } from "../../services/plugins/samantha/session-slice-source.js";
 import { createSessionReportProvider } from "../../services/plugins/samantha/session-report-provider.js";
 import { XbpHostService } from "../../services/xbp/xbp-host-service.js";
+import { registerXbpIpc, PHONE_BRIDGE_STATUS_CHANGED } from "./xbp-ipc.js";
 
 app.setName("ai-14all");
 
@@ -473,6 +474,12 @@ app.whenReady().then(async () => {
 		reconnectSamantha: () => samanthaDriver.reconnectNow(),
 	});
 
+	const xbpIpc = registerXbpIpc({
+		ipcMain,
+		getService: () => xbpService,
+		getWebContents: () => mainWindow.webContents,
+	});
+
 	// Re-probe triggers (spec §3.4) funnel through capabilityProbes.invalidate():
 	// app start (boot() above, cold cache) and window focus. Panel open and
 	// toggle flip already invalidate inside the IPC handlers.
@@ -573,6 +580,11 @@ app.whenReady().then(async () => {
 					offSlice();
 				};
 			},
+			onStatusChange: () =>
+				mainWindow.webContents.send(
+					PHONE_BRIDGE_STATUS_CHANGED,
+					xbpService?.getStatus(),
+				),
 		});
 		await xbpService.start();
 	} catch (err) {
@@ -617,6 +629,7 @@ app.whenReady().then(async () => {
 		agentAttentionBridge.dispose();
 		usageHost.stop();
 		pluginIpc.dispose();
+		xbpIpc.dispose();
 		void pluginRegistry.stopAll();
 		pluginConfig.dispose();
 	});

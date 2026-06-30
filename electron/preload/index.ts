@@ -58,6 +58,12 @@ const PLUGINS_SAMANTHA_SESSION_STATE = "plugins:samanthaSessionState";
 const PLUGINS_SAMANTHA_HEALTH = "plugins:samanthaHealth";
 const PLUGINS_SAMANTHA_FOCUS_WORKTREE = "plugins:samanthaFocusWorktree";
 const PLUGINS_SAMANTHA_RECONNECT = "plugins:samanthaReconnect";
+// phoneBridge channel constants (duplicated to keep Zod out of the sandboxed preload)
+const PHONE_BRIDGE_STATUS = "phoneBridge:status";
+const PHONE_BRIDGE_SET_ENABLED = "phoneBridge:setEnabled";
+const PHONE_BRIDGE_START_PAIRING = "phoneBridge:startPairing";
+const PHONE_BRIDGE_CONFIRM_SAS = "phoneBridge:confirmSas";
+const PHONE_BRIDGE_STATUS_CHANGED = "phoneBridge:statusChanged";
 
 // Helper: register a one-way listener on an ipcRenderer channel and return an
 // unsubscribe function (matching the onXxx pattern in the API type).
@@ -445,6 +451,15 @@ const api: Ai14AllDesktopApi = {
 		onSamanthaFocusWorktree: (handler) =>
 			onChannel(PLUGINS_SAMANTHA_FOCUS_WORKTREE, handler),
 		reconnectSamantha: () => ipcRenderer.invoke(PLUGINS_SAMANTHA_RECONNECT),
+	},
+	phoneBridge: {
+		status: () => ipcRenderer.invoke(PHONE_BRIDGE_STATUS),
+		setEnabled: (enabled: boolean) =>
+			ipcRenderer.invoke(PHONE_BRIDGE_SET_ENABLED, { enabled }),
+		startPairing: () => ipcRenderer.invoke(PHONE_BRIDGE_START_PAIRING),
+		confirmSas: (ok: boolean) =>
+			ipcRenderer.invoke(PHONE_BRIDGE_CONFIRM_SAS, { ok }),
+		onStatusChanged: (handler) => onChannel(PHONE_BRIDGE_STATUS_CHANGED, handler),
 	},
 	events: {
 		onOpenInstallModal(handler: () => void) {
