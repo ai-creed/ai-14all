@@ -121,21 +121,21 @@ const DESCRIPTORS: Record<EcosystemPluginId, PluginDescriptor> = {
 	whisper: {
 		title: "ai-whisper",
 		pitch:
-			"Pair two coding agents on a worktree with autonomous review workflows. ai-14all shows live workflow status and escalations once enabled.",
+			"Pair two coding agents on a worktree with autonomous review workflows. Live status and escalations appear here once enabled.",
 		installCommand: "npm i -g ai-whisper",
 		repoUrl: "https://github.com/ai-creed/ai-whisper",
 	},
 	cortex: {
 		title: "ai-cortex",
 		pitch:
-			"Substrate knowledge for your agents — a memory layer they recall from and record to across sessions — and its index unlocks code navigation inside ai-14all (go-to-definition, references, symbol search) as a power feature. Enable it, then Configure to register the MCP server and install the capture hooks + memory prompt guide.",
+			"A memory layer your agents recall from and record to across sessions — and it powers code navigation (go-to-definition, references, symbol search) here. Enable, then Configure.",
 		installCommand: "npm i -g ai-cortex",
 		repoUrl: "https://github.com/ai-creed/ai-cortex",
 	},
 	samantha: {
 		title: "ai-samantha",
 		pitch:
-			"Your voice-first supervising companion. Once enabled, ai-14all streams a rich, per-worktree view of what your agents are doing — and what just happened — to Samantha so she can keep you oriented and speak up when something needs you.",
+			"A voice-first companion that watches your agents and speaks up when something needs you.",
 		installCommand: "",
 		repoUrl: "https://github.com/ai-creed/ai-samantha",
 	},
@@ -293,8 +293,8 @@ export function PluginsPanelDialog(props: {
 				>
 					<Dialog.Title className="plugins-panel__title">Plugins</Dialog.Title>
 					<Dialog.Description className="plugins-panel__description">
-						Optional integrations with the rest of the ecosystem. ai-14all works
-						fully without any of them.
+						Optional add-ons from the ai-14all ecosystem. All off by default —
+						ai-14all works fully without them.
 					</Dialog.Description>
 
 					<AgentClisSection probes={agentClis} />

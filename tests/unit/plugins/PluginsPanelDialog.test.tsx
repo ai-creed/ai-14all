@@ -40,6 +40,18 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 vi.mock("../../../src/features/plugins/hooks/use-plugins-state", () => ({
 	usePluginsState: () => [
 		{
+			id: "whisper",
+			enabled: false,
+			installPath: "/x",
+			status: { state: "off", version: null, limited: false },
+		},
+		{
+			id: "cortex",
+			enabled: false,
+			installPath: "/x",
+			status: { state: "off", version: null, limited: false },
+		},
+		{
 			id: "samantha",
 			enabled: true,
 			installPath: "/x",
@@ -169,5 +181,25 @@ describe("PluginsPanelDialog — Samantha reconnect", () => {
 		await waitFor(() =>
 			expect(screen.getByTestId("samantha-reconnect")).not.toBeDisabled(),
 		);
+	});
+});
+
+describe("PluginsPanelDialog — copy", () => {
+	it("renders the benefit-first description and pitches", async () => {
+		renderPanel();
+		expect(
+			await screen.findByText(
+				/Optional add-ons from the ai-14all ecosystem\. All off by default/i,
+			),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(/Pair two coding agents on a worktree/i),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(/A memory layer your agents recall from and record to/i),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(/A voice-first companion that watches your agents/i),
+		).toBeInTheDocument();
 	});
 });
