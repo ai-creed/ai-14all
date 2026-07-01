@@ -450,6 +450,9 @@ test.describe.serial("Review comments — inline UX", () => {
 		await expect(
 			page.locator('[data-testid="review-progress-header"]'),
 		).toBeVisible({ timeout: 10_000 });
+		// The viewed control is now inline on the currently-open file row (it moved
+		// out of the rail header). Selecting the first commit file above makes it the
+		// open row, so exactly one toggle is present.
 		const toggle = page.locator('[data-testid="mark-viewed-toggle"]');
 		await expect(toggle).toBeVisible();
 		await toggle.click();

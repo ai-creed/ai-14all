@@ -16,7 +16,6 @@ import type {
 } from "../../features/workspace/logic/workspace-state";
 import type { ResolvedTheme } from "../../lib/use-theme";
 import type { InlineEditorHandle } from "../../features/viewer/components/InlineEditor";
-import { MarkViewedToggle } from "../../features/review/components/MarkViewedToggle";
 import { ReviewProgressHeader } from "../../features/review/components/ReviewProgressHeader";
 import { CommentMinimap } from "../../features/review/components/CommentMinimap";
 import { ReviewRail } from "../../features/review/components/ReviewRail";
@@ -252,11 +251,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 
 	const platform = useMemo(() => detectPlatform(), []);
 
-	// Whether the current file is currently considered reviewed, and whether the
-	// active mode carries comment chrome (Changes/Commits — never Files).
-	const isCurrentFileReviewed = currentFilePath
-		? reviewed.isReviewed(currentFilePath)
-		: false;
+	// Whether the active mode carries comment chrome (Changes/Commits — never Files).
 	const hasCommentChrome = activeSession?.reviewMode !== "files";
 
 	const stepFile = useCallback(
@@ -527,20 +522,13 @@ export function ReviewArea(props: Props): React.ReactElement {
 					onCloseReview={props.onCloseReview}
 					installCtaVisible={installCtaVisible}
 					onOpenInstall={onOpenInstall}
+					onToggleViewed={() => handleMarkFileViewed()}
 					header={
 						hasCommentChrome ? (
-							<>
-								<ReviewProgressHeader
-									reviewed={progress.reviewed}
-									total={progress.total}
-								/>
-								{currentFilePath ? (
-									<MarkViewedToggle
-										reviewed={isCurrentFileReviewed}
-										onToggle={handleMarkFileViewed}
-									/>
-								) : null}
-							</>
+							<ReviewProgressHeader
+								reviewed={progress.reviewed}
+								total={progress.total}
+							/>
 						) : null
 					}
 				/>
