@@ -204,7 +204,12 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 		// restarting the driver and its fresh snapshot landing — slower under CI
 		// load. Give it room: this is setup, not the socket-speed assertion below
 		// (the halted flip stays pinned to 10s « the 60s poll to prove the socket).
-		await expect(row).toContainText("running", { timeout: 30_000 });
+		// Status is a dot (no text), so key off its data-status.
+		await expect(row.locator(".workflow-row__status")).toHaveAttribute(
+			"data-status",
+			"running",
+			{ timeout: 30_000 },
+		);
 
 		await socket.waitForClient();
 
@@ -248,14 +253,13 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 		});
 
 		// 10s << the 60s poll: arriving this fast proves the socket drove it.
-		// The halted badge on `.workflow-row` is the assertion target. We do NOT
-		// assert the sidebar row's `data-attention="actionRequired"` here: the
+		// The halted status dot on `.workflow-row` is the assertion target. We do
+		// NOT assert the sidebar row's `data-attention="actionRequired"` here: the
 		// collab lives on the feature-a worktree (workspace_root) which is not the
 		// selected row, and the row's data-attention is computed by
 		// buildWorktreeAttentionDisplay (App.tsx) from session/process attention,
-		// a path with its own timing. The lens flipping `.workflow-row` to
+		// a path with its own timing. The lens flipping `.workflow-row` status to
 		// "halted" inside the 10s window is itself the unambiguous socket proof.
-		await expect(row).toContainText("halted", { timeout: 10_000 });
 		await expect(row.locator(".workflow-row__status")).toHaveAttribute(
 			"data-status",
 			"halted",
@@ -468,20 +472,21 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 
 		const row = worktreeNav().locator(".workflow-row");
 		// Wait for the phase name to render — confirms the driver snapshot picked up
-		// the fixture. A done workflow no longer renders a status badge (its "done"
-		// is carried inline on the worktree header), so we key off the phase.
+		// the fixture. The status is a dot (no text), so we key off the phase.
 		await expect(row).toContainText("implementation", { timeout: 30_000 });
 		await socket.waitForClient();
 
 		// --- Part 1: workflow "done" must NOT produce actionRequired ---
 		// diffWorkflowAttention(undefined, {done}) → {kind:"report", reason:{state:"ready"}}
 		// → mapToProcessAttentionState("ready") → "activity", never "actionRequired".
-		// A done workflow shows NO status badge (the header carries it); assert that,
+		// The done workflow shows a quiet ready status dot; assert its data-status,
 		// then check data-attention on the feature-a nav button (substring match,
 		// no anchor, to tolerate any icon prefix in the accessible name).
-		await expect(row.locator(".workflow-row__status")).toHaveCount(0, {
-			timeout: 10_000,
-		});
+		await expect(row.locator(".workflow-row__status")).toHaveAttribute(
+			"data-status",
+			"done",
+			{ timeout: 10_000 },
+		);
 		const featureABtn = worktreeNav().getByRole("button", {
 			name: /feature-a/i,
 		});
@@ -523,8 +528,7 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 			reason: "round limit reached",
 		});
 
-		// "halted" → waiting → "actionRequired".
-		await expect(row).toContainText("halted", { timeout: 10_000 });
+		// "halted" → waiting → "actionRequired". Status is a dot (no text).
 		await expect(row.locator(".workflow-row__status")).toHaveAttribute(
 			"data-status",
 			"halted",

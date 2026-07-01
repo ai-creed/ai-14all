@@ -1044,17 +1044,6 @@ select {
 	color: var(--text-secondary);
 	margin-left: var(--space-1);
 }
-/* Workflow card status adopts the §4 tiers via data-tier (set in WorkflowRow.tsx).
-   The quiet "ready" (done) tier renders no badge at all — the worktree header
-   carries "workflow done" — so only the "actionRequired" (escalated/halted)
-   alert treatment remains. */
-.workflow-row__status[data-tier="actionRequired"] {
-	color: var(--danger);
-}
-.workflow-row__status[data-tier="actionRequired"] .workflow-row__status-dot {
-	background: var(--danger);
-}
-
 .shell-sidebar__row[data-attention="activity"] {
 	/* Distinct from the accent used for "selected" — too many green-ish cards
 	 * on screen otherwise made it hard to tell at a glance which row is in
@@ -4414,6 +4403,7 @@ select {
 .workflow-row__phase {
 	display: flex;
 	flex-wrap: wrap;
+	align-items: center;
 	gap: 5px;
 	color: var(--text-muted);
 	font-size: 0.68rem;
@@ -4421,16 +4411,12 @@ select {
 .workflow-row__round::before {
 	content: "· ";
 }
+/* Status is a dot on the phase line: its color carries the state, its title the
+   word. The wrapper is just an inline holder — no pill. */
 .workflow-row__status {
 	display: inline-flex;
 	align-items: center;
-	gap: 5px;
-	margin-left: auto;
-	padding: 1px 7px;
-	border-radius: 999px;
-	font-size: 0.66rem;
-	font-weight: 600;
-	flex-shrink: 0;
+	flex: 0 0 auto;
 }
 .workflow-row__status-dot {
 	width: 6px;
@@ -4438,25 +4424,23 @@ select {
 	border-radius: 50%;
 	background: currentColor;
 }
-/* Semantic status colors: live / complete / idle / needs-attention / urgent. */
+/* Semantic status dot colors: live / complete / idle / needs-attention / urgent.
+   The dot inherits currentColor, so each state only needs to set color. */
 .workflow-row__status[data-status="running"] {
 	color: var(--accent);
-	background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
-/* No data-status="done" rule: a done workflow renders no status badge (the
-   worktree header carries "workflow done"). */
+.workflow-row__status[data-status="done"] {
+	color: var(--ready);
+}
 .workflow-row__status[data-status="paused"],
 .workflow-row__status[data-status="canceled"] {
 	color: var(--text-muted);
-	background: color-mix(in srgb, var(--text-muted) 14%, transparent);
 }
 .workflow-row__status[data-status="halted"] {
 	color: var(--warning);
-	background: color-mix(in srgb, var(--warning) 14%, transparent);
 }
 .workflow-row__status[data-status="escalated"] {
 	color: var(--danger);
-	background: color-mix(in srgb, var(--danger) 16%, transparent);
 }
 .workflow-row__daemon-down,
 .workflow-row__stale {

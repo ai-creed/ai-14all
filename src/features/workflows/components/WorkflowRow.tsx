@@ -2,14 +2,13 @@ import type { WorkflowRow as WorkflowRowModel } from "../logic/workflow-lens";
 
 /**
  * Sidebar workflow lens — a mini version of the dashboard inspector, separated
- * from the shells above it. Line 1: workflow type + artifact, plus a
- * semantically-colored status (escalation outranks the raw status). Line 2: the
+ * from the shells above it. Line 1: workflow type + artifact. Line 2: a
+ * semantically-colored status dot (escalation outranks the raw status), then the
  * current phase + iteration.
  *
- * The quiet "done" state renders NO status badge: the worktree header already
- * carries "workflow done" inline, so a done badge here would just duplicate it.
- * Every other state (running / paused / halted / escalated / canceled) keeps its
- * badge — those are not surfaced as text on the worktree header.
+ * The status is a dot rather than a text badge: its color carries the tier
+ * (ready / neutral / actionRequired) and its title carries the exact word, so
+ * the lens stays compact and doesn't duplicate the worktree header's status.
  */
 export function WorkflowRow(props: {
 	row: WorkflowRowModel & { stale?: boolean };
@@ -24,8 +23,6 @@ export function WorkflowRow(props: {
 			: row.status === "done"
 				? "ready"
 				: "neutral";
-	// "ready" (done) is carried by the worktree header — omit it here.
-	const showStatus = statusTier !== "ready";
 	return (
 		<button
 			type="button"
@@ -39,18 +36,18 @@ export function WorkflowRow(props: {
 						{row.artifact}
 					</span>
 				)}
-				{showStatus && (
-					<span
-						className="workflow-row__status"
-						data-status={statusKey}
-						data-tier={statusTier}
-					>
-						<span className="workflow-row__status-dot" aria-hidden="true" />
-						{statusKey}
-					</span>
-				)}
 			</div>
 			<div className="workflow-row__phase">
+				<span
+					className="workflow-row__status"
+					data-status={statusKey}
+					data-tier={statusTier}
+					role="img"
+					aria-label={`workflow ${statusKey}`}
+					title={statusKey}
+				>
+					<span className="workflow-row__status-dot" aria-hidden="true" />
+				</span>
 				<span className="workflow-row__phase-name">{row.phaseName ?? "—"}</span>
 				{row.roundLabel && (
 					<span className="workflow-row__round">round {row.roundLabel}</span>
