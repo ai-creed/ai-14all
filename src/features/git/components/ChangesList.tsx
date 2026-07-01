@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/context-menu";
 import type { GitChange } from "../../../../shared/models/git-change";
 import { MarkdownPreviewModal } from "../../viewer/components/MarkdownPreviewModal";
+import { RowViewedToggle } from "../../review/components/RowViewedToggle";
 
 type Props = {
 	workspaceId: string;
@@ -20,6 +21,8 @@ type Props = {
 	gitSummaryMessage?: string | null;
 	openCommentCounts?: Record<string, number>;
 	reviewedPaths?: string[];
+	/** Toggles "viewed" for the currently-open file row. */
+	onToggleViewed?: (path: string) => void;
 };
 
 export function ChangesList({
@@ -34,6 +37,7 @@ export function ChangesList({
 	gitSummaryMessage,
 	openCommentCounts,
 	reviewedPaths,
+	onToggleViewed,
 }: Props) {
 	const [previewPath, setPreviewPath] = useState<string | null>(null);
 
@@ -71,24 +75,37 @@ export function ChangesList({
 			) : (
 				<div className="shell-list">
 					{changes.map((change) => {
-						const button = (
-							<button
-								key={change.path}
-								type="button"
-								className="shell-list__item shell-list__item--split"
-								data-selected={String(selectedPath === change.path)}
-								onClick={() => onSelect(change.path)}
+						const isOpen = selectedPath === change.path;
+						const isReviewed =
+							reviewedPaths?.includes(change.path) ?? false;
+						const row = (
+							<div
+								className="shell-list__item-row"
+								data-selected={String(isOpen)}
 							>
-								<span>{change.path}</span>
-								{openCommentCounts?.[change.path] ? (
-									<span
-										className="shell-review-comment-badge"
-										aria-label={`${openCommentCounts[change.path]} open review comments`}
-									>
-										[{openCommentCounts[change.path]}]
-									</span>
-								) : null}
-								{reviewedPaths?.includes(change.path) ? (
+								<button
+									type="button"
+									className="shell-list__item shell-list__item--split"
+									data-selected={String(isOpen)}
+									onClick={() => onSelect(change.path)}
+								>
+									<span>{change.path}</span>
+									{openCommentCounts?.[change.path] ? (
+										<span
+											className="shell-review-comment-badge"
+											aria-label={`${openCommentCounts[change.path]} open review comments`}
+										>
+											[{openCommentCounts[change.path]}]
+										</span>
+									) : null}
+									<strong>{change.status}</strong>
+								</button>
+								{isOpen && onToggleViewed ? (
+									<RowViewedToggle
+										reviewed={isReviewed}
+										onToggle={() => onToggleViewed(change.path)}
+									/>
+								) : isReviewed ? (
 									<span
 										className="shell-list__reviewed-mark"
 										data-testid={`reviewed-mark-${change.path}`}
@@ -98,15 +115,14 @@ export function ChangesList({
 										✓
 									</span>
 								) : null}
-								<strong>{change.status}</strong>
-							</button>
+							</div>
 						);
 
 						const isMd = change.path.endsWith(".md");
 
 						return (
 							<ContextMenu key={change.path}>
-								<ContextMenuTrigger asChild>{button}</ContextMenuTrigger>
+								<ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
 								<ContextMenuContent className="shell-toolbar-menu">
 									{isMd && (
 										<ContextMenuItem
