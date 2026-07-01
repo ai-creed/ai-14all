@@ -45,3 +45,27 @@ describe(".shell-review-rail grid", () => {
 		);
 	});
 });
+
+const reviewAreaSrc = readFileSync(
+	resolve(
+		dirname(fileURLToPath(import.meta.url)),
+		"../../../src/app/components/ReviewArea.tsx",
+	),
+	"utf8",
+);
+
+/**
+ * The review grid must size the rail column as `minmax(0, <width>px)`, not a
+ * hard `<width>px`. A hard fixed track can exceed a narrow review area, and
+ * because the grid clips overflow the rail is cut off; the responsive track
+ * lets the rail shrink to fit its parent instead.
+ */
+describe("review grid rail column", () => {
+	it("sizes the rail column responsively (minmax) so it shrinks to fit", () => {
+		expect(reviewAreaSrc).toMatch(/minmax\(0, \$\{reviewRailWidth\}px\)/);
+	});
+
+	it("does not use a hard fixed-px rail track that could overflow", () => {
+		expect(reviewAreaSrc).not.toMatch(/`\$\{reviewRailWidth\}px 8px/);
+	});
+});

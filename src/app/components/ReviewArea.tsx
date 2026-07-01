@@ -490,8 +490,8 @@ export function ReviewArea(props: Props): React.ReactElement {
 				style={{
 					gridTemplateColumns:
 						activeSession?.reviewMode !== "files" && currentFilePath
-							? `${reviewRailWidth}px 8px minmax(0, 1fr) 46px`
-							: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
+							? `minmax(0, ${reviewRailWidth}px) 8px minmax(0, 1fr) 46px`
+							: `minmax(0, ${reviewRailWidth}px) 8px minmax(0, 1fr)`,
 				}}
 			>
 				<ReviewRail
