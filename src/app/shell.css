@@ -1044,16 +1044,10 @@ select {
 	color: var(--text-secondary);
 	margin-left: var(--space-1);
 }
-/* Workflow card status adopts the §4 tiers via data-tier (set in WorkflowRow.tsx,
-   Task 11). "ready" (done) is a quiet --ready dot with NO pill tint (D4); only
-   "actionRequired" (escalated/halted) keeps an alert treatment. */
-.workflow-row__status[data-tier="ready"] {
-	color: var(--text-secondary);
-	background: none;
-}
-.workflow-row__status[data-tier="ready"] .workflow-row__status-dot {
-	background: var(--ready);
-}
+/* Workflow card status adopts the §4 tiers via data-tier (set in WorkflowRow.tsx).
+   The quiet "ready" (done) tier renders no badge at all — the worktree header
+   carries "workflow done" — so only the "actionRequired" (escalated/halted)
+   alert treatment remains. */
 .workflow-row__status[data-tier="actionRequired"] {
 	color: var(--danger);
 }
@@ -4388,18 +4382,17 @@ select {
 	 * still signals interactivity. */
 	background: color-mix(in srgb, var(--panel-bg) 80%, transparent);
 }
-.workflow-row__header {
+/* Line 1: type badge + artifact, with any non-done status pushed to the right. */
+.workflow-row__artifact-line {
 	display: flex;
 	align-items: center;
 	gap: 6px;
-}
-.workflow-row__caption {
-	color: var(--text-muted);
-	font-size: 0.66rem;
+	min-width: 0;
 }
 .workflow-row__type {
 	display: inline-flex;
 	align-items: center;
+	flex: 0 0 auto;
 	padding: 0 6px;
 	height: 16px;
 	border-radius: var(--radius-sm);
@@ -4410,6 +4403,8 @@ select {
 	color: var(--sha-color);
 }
 .workflow-row__artifact {
+	flex: 1 1 auto;
+	min-width: 0;
 	color: var(--text-secondary);
 	font-size: 0.68rem;
 	overflow: hidden;
@@ -4448,17 +4443,8 @@ select {
 	color: var(--accent);
 	background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
-.workflow-row__status[data-status="done"] {
-	color: #69c06a;
-	background: color-mix(in srgb, #69c06a 12%, transparent);
-}
-/* A done workflow adopts the quiet "ready" tier (D4): this combined-specificity
-   selector (0,3,0) overrides the equal-specificity data-status="done" tint above,
-   so the done badge shows no alarming green pill — only the quiet --ready dot. */
-.workflow-row__status[data-status="done"][data-tier="ready"] {
-	color: var(--text-secondary);
-	background: none;
-}
+/* No data-status="done" rule: a done workflow renders no status badge (the
+   worktree header carries "workflow done"). */
 .workflow-row__status[data-status="paused"],
 .workflow-row__status[data-status="canceled"] {
 	color: var(--text-muted);

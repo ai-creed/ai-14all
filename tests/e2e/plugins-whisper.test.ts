@@ -467,21 +467,21 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 		await page.keyboard.press("Escape");
 
 		const row = worktreeNav().locator(".workflow-row");
-		// Wait for the "done" row — confirms driver snapshot picked up the fixture.
-		await expect(row).toContainText("done", { timeout: 30_000 });
+		// Wait for the phase name to render — confirms the driver snapshot picked up
+		// the fixture. A done workflow no longer renders a status badge (its "done"
+		// is carried inline on the worktree header), so we key off the phase.
+		await expect(row).toContainText("implementation", { timeout: 30_000 });
 		await socket.waitForClient();
 
 		// --- Part 1: workflow "done" must NOT produce actionRequired ---
 		// diffWorkflowAttention(undefined, {done}) → {kind:"report", reason:{state:"ready"}}
 		// → mapToProcessAttentionState("ready") → "activity", never "actionRequired".
-		// Use the worktree-row data-status as the primary reliable signal;
+		// A done workflow shows NO status badge (the header carries it); assert that,
 		// then check data-attention on the feature-a nav button (substring match,
 		// no anchor, to tolerate any icon prefix in the accessible name).
-		await expect(row.locator(".workflow-row__status")).toHaveAttribute(
-			"data-status",
-			"done",
-			{ timeout: 10_000 },
-		);
+		await expect(row.locator(".workflow-row__status")).toHaveCount(0, {
+			timeout: 10_000,
+		});
 		const featureABtn = worktreeNav().getByRole("button", {
 			name: /feature-a/i,
 		});

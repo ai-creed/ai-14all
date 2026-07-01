@@ -22,9 +22,8 @@ function makeRow(overrides: Partial<WorkflowRowModel>): WorkflowRowModel {
 }
 
 describe("WorkflowRow", () => {
-	it("renders the type label, artifact, phase, round, and a status badge", () => {
+	it("renders the type label, artifact, phase, round, and a non-done status badge", () => {
 		render(<WorkflowRow row={row} onOpenDetail={vi.fn()} />);
-		expect(screen.getByText(/last workflow/i)).toBeInTheDocument();
 		expect(screen.getByText("SDD")).toBeInTheDocument();
 		expect(screen.getByText("payments-api.md")).toBeInTheDocument();
 		expect(screen.getByText("implementation")).toBeInTheDocument();
@@ -33,6 +32,21 @@ describe("WorkflowRow", () => {
 			"data-status",
 			"running",
 		);
+	});
+
+	it("no longer renders the 'Last workflow:' caption", () => {
+		render(<WorkflowRow row={row} onOpenDetail={vi.fn()} />);
+		expect(screen.queryByText(/last workflow/i)).not.toBeInTheDocument();
+	});
+
+	it("places the type label on the artifact line, alongside the artifact", () => {
+		const { container } = render(
+			<WorkflowRow row={row} onOpenDetail={vi.fn()} />,
+		);
+		const line = container.querySelector(".workflow-row__artifact-line");
+		expect(line).not.toBeNull();
+		expect(line?.textContent).toContain("SDD");
+		expect(line?.textContent).toContain("payments-api.md");
 	});
 
 	it("shows 'escalated' (not the raw status) with the escalated tone", () => {
@@ -65,9 +79,17 @@ describe("WorkflowRow", () => {
 		expect(screen.getByText(/daemon not running/i)).toBeInTheDocument();
 	});
 
-	it("maps a done workflow to the quiet ready tier on the status badge", () => {
-		render(<WorkflowRow row={makeRow({ status: "done", escalated: false })} onOpenDetail={() => {}} />);
-		expect(screen.getByText("done").closest(".workflow-row__status")).toHaveAttribute("data-tier", "ready");
+	it("shows no status badge for a done workflow (the worktree header carries it)", () => {
+		const { container } = render(
+			<WorkflowRow
+				row={makeRow({ status: "done", escalated: false })}
+				onOpenDetail={() => {}}
+			/>,
+		);
+		expect(container.querySelector(".workflow-row__status")).toBeNull();
+		expect(screen.queryByText("done")).not.toBeInTheDocument();
+		// The rest of the lens still renders.
+		expect(screen.getByText("SDD")).toBeInTheDocument();
 	});
 
 	it("maps an escalated workflow to the actionRequired tier", () => {
