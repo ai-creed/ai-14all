@@ -4892,6 +4892,19 @@ select {
 	color: var(--accent);
 	font-weight: 700;
 }
+/* Month chart: only a few sparse ticks (month abbrev + today dot). Let each label
+   paint over its empty neighbour slots instead of clipping, and anchor the abbrev
+   to its boundary column. */
+.usage-chart-labels.is-month .usage-chart-label {
+	overflow: visible;
+	white-space: nowrap;
+}
+.usage-chart-labels.is-month .usage-chart-label.align-left {
+	text-align: left;
+}
+.usage-chart-labels.is-month .usage-chart-label.align-right {
+	text-align: right;
+}
 /* "You are here" tick at the baseline of today's column — the only today marker on
    the month chart (which has no weekday labels). min-height keeps it visible even
    when today has no usage yet. */
