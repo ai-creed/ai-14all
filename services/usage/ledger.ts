@@ -90,10 +90,13 @@ export function startOfTrailingWeek(ms: number): number {
 	return d.getTime();
 }
 
-export function startOfMonth(ms: number): number {
+// "Month" is a rolling 31-day window: today plus the 30 prior local days (the
+// widest calendar month). Computed by calendar-date iteration (DST-safe) like the
+// week window, so it never collapses to near-empty on the 1st of a calendar month.
+export function startOfTrailingMonth(ms: number): number {
 	const d = new Date(ms);
 	d.setHours(0, 0, 0, 0);
-	d.setDate(1);
+	d.setDate(d.getDate() - 30); // today + 30 prior days = 31-day window
 	return d.getTime();
 }
 
@@ -169,7 +172,7 @@ export function bucketsForScope(
 	}
 	let from = Number.NEGATIVE_INFINITY; // all-time
 	if (scope === "week") from = startOfTrailingWeek(nowMs);
-	else if (scope === "month") from = startOfMonth(nowMs);
+	else if (scope === "month") from = startOfTrailingMonth(nowMs);
 	for (const [day, buckets] of ledger.days) {
 		if (day < from) continue;
 		mergeInto(out, buckets);
