@@ -344,6 +344,41 @@ describe("SessionSidebar — process list collapse/expand", () => {
 			screen.queryByRole("button", { name: /more/i }),
 		).not.toBeInTheDocument();
 	});
+
+	it("shows both rows when there are exactly 2 processes (no collapse control)", () => {
+		// Collapsing 2 shells to a top row + toggle occupies the same two lines,
+		// so the toggle only appears at 3+ shells.
+		const workspace = makeWorkspace([
+			{
+				id: "p1",
+				label: "dev",
+				state: "active",
+				context: "compiled",
+				lastActivityAt: 1000,
+				hasFailedReason: false,
+			},
+			{
+				id: "p2",
+				label: "tests",
+				state: "idle",
+				context: "12 passed",
+				lastActivityAt: 900,
+				hasFailedReason: false,
+			},
+		]);
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[workspace]}
+				expandedProcessWorktreeIds={[]}
+				onToggleProcessExpanded={vi.fn()}
+			/>,
+		);
+		expect(screen.getAllByTestId("process-state-indicator")).toHaveLength(2);
+		expect(
+			screen.queryByRole("button", { name: /more|show less/i }),
+		).not.toBeInTheDocument();
+	});
 });
 
 describe("SessionSidebar — task and provider rendering", () => {

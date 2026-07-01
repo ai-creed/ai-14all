@@ -229,11 +229,12 @@ describe("SessionSidebar", () => {
 		expect(within(group).getByText("npm run dev")).toBeInTheDocument();
 		expect(within(group).getByText("Continue? [y/N]")).toBeInTheDocument();
 		expect(within(group).getByText("quiet 18s")).toBeInTheDocument();
-		// Worktree is expanded, so every process row is visible and the rollup
-		// offers the "Show less" affordance to collapse back to the top row.
+		// With only 2 shells the list never collapses (a top row + a toggle
+		// would occupy the same two lines), so both rows show and there is no
+		// expand/collapse control.
 		expect(
-			within(group).getByRole("button", { name: /show less/i }),
-		).toBeInTheDocument();
+			within(group).queryByRole("button", { name: /more|show less/i }),
+		).not.toBeInTheDocument();
 		const indicators = within(group).getAllByTestId("process-state-indicator");
 		expect(indicators).toHaveLength(2);
 		expect(indicators[0]).toHaveAttribute("data-state", "actionRequired");

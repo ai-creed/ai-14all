@@ -427,8 +427,16 @@ export function SessionSidebar({
 														const allRows = summary?.rows ?? [];
 														const top =
 															summary?.topRow ?? allRows[0] ?? null;
+														// Collapsing only saves vertical space at 3+ shells:
+														// with 2, a top row + a toggle occupies the same two
+														// lines as showing both. Count total shells (visible
+														// rows + any the summary already dropped).
+														const totalShells =
+															allRows.length +
+															(summary?.overflowCount ?? 0);
+														const collapsible = totalShells > 2;
 														const visibleRows =
-															expanded || allRows.length <= 1
+															expanded || !collapsible
 																? allRows
 																: top
 																	? [top]
@@ -493,7 +501,7 @@ export function SessionSidebar({
 																		) : null}
 																	</div>
 																))}
-																{!expanded && hiddenCount > 0 && (
+																{collapsible && !expanded && hiddenCount > 0 && (
 																	<button
 																		type="button"
 																		className="shell-sidebar__process shell-sidebar__process--more"
@@ -505,7 +513,7 @@ export function SessionSidebar({
 																		{hiddenCount} more ›
 																	</button>
 																)}
-																{expanded && allRows.length > 1 && (
+																{collapsible && expanded && (
 																	<button
 																		type="button"
 																		className="shell-sidebar__process shell-sidebar__process--more"
