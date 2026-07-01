@@ -36,4 +36,12 @@ describe(".workflow-row layout", () => {
 	it("has no border (not a boxed card)", () => {
 		expect(baseRule).not.toMatch(/\bborder:\s/);
 	});
+
+	it("has no background fill (flat, not a card)", () => {
+		expect(baseRule).not.toMatch(/\bbackground:\s/);
+	});
+
+	it("has no top margin (sits tight under the worktree summary)", () => {
+		expect(baseRule).not.toMatch(/\bmargin-top:\s/);
+	});
 });

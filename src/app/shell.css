@@ -4359,14 +4359,14 @@ select {
 	 * left of the rail indent, so the artifact ellipsis and margin-left:auto
 	 * status still have a bounded box. */
 	text-align: left;
-	margin-top: var(--space-2);
 	margin-bottom: var(--space-3);
 	margin-left: 24px;
 	padding: var(--space-2);
-	/* Borderless: the rail elbow + indent already group it under the worktree;
-	 * a box border read as a heavy card. */
+	/* Flat: no border and no fill — the rail elbow + indent already group it
+	 * under the worktree; a bordered/filled box read as a heavy card. The fill
+	 * only appears on :hover to signal the row is clickable. border-radius is
+	 * retained so that hover fill has rounded corners. */
 	border-radius: var(--radius-md);
-	background: color-mix(in srgb, var(--panel-bg) 92%, transparent);
 	color: inherit;
 	font: inherit;
 	font-size: var(--ws-fs-chip);
