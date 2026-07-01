@@ -21,7 +21,7 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 	plugins: {
 		reprobe: vi.fn(async () => undefined),
 		agentClis: vi.fn(async () => ({
-			claude: { kind: "missing" },
+			claude: { kind: "found", version: "1.2.3", path: "/bin/claude" },
 			codex: { kind: "missing" },
 			ezio: { kind: "missing" },
 			cursor: { kind: "missing" },
@@ -40,6 +40,18 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 vi.mock("../../../src/features/plugins/hooks/use-plugins-state", () => ({
 	usePluginsState: () => [
 		{
+			id: "whisper",
+			enabled: false,
+			installPath: "/x",
+			status: { state: "off", version: null, limited: false },
+		},
+		{
+			id: "cortex",
+			enabled: false,
+			installPath: "/x",
+			status: { state: "off", version: null, limited: false },
+		},
+		{
 			id: "samantha",
 			enabled: true,
 			installPath: "/x",
@@ -49,6 +61,7 @@ vi.mock("../../../src/features/plugins/hooks/use-plugins-state", () => ({
 }));
 
 import { PluginsPanelDialog } from "../../../src/features/plugins/components/PluginsPanelDialog";
+import { plugins } from "../../../src/lib/desktop-client";
 
 function renderPanel() {
 	return render(
@@ -65,6 +78,68 @@ beforeEach(() => {
 	healthHandler = undefined;
 	reconnectSamantha.mockClear();
 	reconnectSamantha.mockImplementation(async () => ({ ok: true }));
+});
+
+describe("PluginsPanelDialog — Agent CLIs collapse", () => {
+	beforeEach(() => localStorage.clear());
+
+	it("defaults collapsed and summarises the found count", async () => {
+		renderPanel();
+		const toggle = await screen.findByTestId("agent-clis-toggle");
+		expect(toggle).toHaveTextContent("Agent CLIs — 1 of 5 found");
+		expect(toggle).toHaveAttribute("aria-expanded", "false");
+		// Detail rows are hidden while collapsed.
+		expect(document.querySelector('[data-cli="claude"]')).toBeNull();
+	});
+
+	it("expands to reveal the detail rows and persists the state", async () => {
+		const { unmount } = renderPanel();
+		const toggle = await screen.findByTestId("agent-clis-toggle");
+		await act(async () => fireEvent.click(toggle));
+		expect(screen.getByTestId("agent-clis-toggle")).toHaveAttribute(
+			"aria-expanded",
+			"true",
+		);
+		await waitFor(() =>
+			expect(document.querySelector('[data-cli="claude"]')).not.toBeNull(),
+		);
+		unmount();
+		// Remount reads the persisted expanded state.
+		renderPanel();
+		expect(await screen.findByTestId("agent-clis-toggle")).toHaveAttribute(
+			"aria-expanded",
+			"true",
+		);
+	});
+
+	it("shows 'checking…' while probes are null and keeps the body collapsed", () => {
+		// A never-resolving probe keeps the component's agentClis state null.
+		vi.mocked(plugins.agentClis).mockImplementationOnce(
+			() => new Promise(() => {}),
+		);
+		renderPanel();
+		const toggle = screen.getByTestId("agent-clis-toggle");
+		expect(toggle).toHaveTextContent("Agent CLIs — checking…");
+		expect(toggle).toHaveAttribute("aria-expanded", "false");
+		expect(document.querySelector('[data-cli="claude"]')).toBeNull();
+	});
+
+	it("degrades to in-memory state when localStorage.setItem throws", async () => {
+		const spy = vi
+			.spyOn(Storage.prototype, "setItem")
+			.mockImplementation(() => {
+				throw new Error("private mode");
+			});
+		renderPanel();
+		const toggle = await screen.findByTestId("agent-clis-toggle");
+		await act(async () => fireEvent.click(toggle));
+		// The section still expands in-memory despite the failed persist.
+		expect(screen.getByTestId("agent-clis-toggle")).toHaveAttribute(
+			"aria-expanded",
+			"true",
+		);
+		spy.mockRestore();
+	});
 });
 
 describe("PluginsPanelDialog — Samantha reconnect", () => {
@@ -106,5 +181,25 @@ describe("PluginsPanelDialog — Samantha reconnect", () => {
 		await waitFor(() =>
 			expect(screen.getByTestId("samantha-reconnect")).not.toBeDisabled(),
 		);
+	});
+});
+
+describe("PluginsPanelDialog — copy", () => {
+	it("renders the benefit-first description and pitches", async () => {
+		renderPanel();
+		expect(
+			await screen.findByText(
+				/Optional add-ons from the ai-14all ecosystem\. All off by default/i,
+			),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(/Pair two coding agents on a worktree/i),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(/A memory layer your agents recall from and record to/i),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(/A voice-first companion that watches your agents/i),
+		).toBeInTheDocument();
 	});
 });

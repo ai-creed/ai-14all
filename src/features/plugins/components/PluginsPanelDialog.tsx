@@ -121,21 +121,21 @@ const DESCRIPTORS: Record<EcosystemPluginId, PluginDescriptor> = {
 	whisper: {
 		title: "ai-whisper",
 		pitch:
-			"Pair two coding agents on a worktree with autonomous review workflows. ai-14all shows live workflow status and escalations once enabled.",
+			"Pair two coding agents on a worktree with autonomous review workflows. Live status and escalations appear here once enabled.",
 		installCommand: "npm i -g ai-whisper",
 		repoUrl: "https://github.com/ai-creed/ai-whisper",
 	},
 	cortex: {
 		title: "ai-cortex",
 		pitch:
-			"Substrate knowledge for your agents — a memory layer they recall from and record to across sessions — and its index unlocks code navigation inside ai-14all (go-to-definition, references, symbol search) as a power feature. Enable it, then Configure to register the MCP server and install the capture hooks + memory prompt guide.",
+			"A memory layer your agents recall from and record to across sessions — and it powers code navigation (go-to-definition, references, symbol search) here. Enable, then Configure.",
 		installCommand: "npm i -g ai-cortex",
 		repoUrl: "https://github.com/ai-creed/ai-cortex",
 	},
 	samantha: {
 		title: "ai-samantha",
 		pitch:
-			"Your voice-first supervising companion. Once enabled, ai-14all streams a rich, per-worktree view of what your agents are doing — and what just happened — to Samantha so she can keep you oriented and speak up when something needs you.",
+			"A voice-first companion that watches your agents and speaks up when something needs you.",
 		installCommand: "",
 		repoUrl: "https://github.com/ai-creed/ai-samantha",
 	},
@@ -159,53 +159,97 @@ const CLI_ORDER: Array<keyof AgentCliProbes> = [
 	"antigravity",
 ];
 
+const AGENT_CLIS_COLLAPSED_KEY = "ai14all.pluginsAgentClisCollapsed";
+
+function readAgentClisCollapsed(): boolean {
+	try {
+		const raw = localStorage.getItem(AGENT_CLIS_COLLAPSED_KEY);
+		return raw === null ? true : raw === "true";
+	} catch {
+		return true;
+	}
+}
+
+function writeAgentClisCollapsed(collapsed: boolean): void {
+	try {
+		localStorage.setItem(AGENT_CLIS_COLLAPSED_KEY, String(collapsed));
+	} catch {
+		/* storage unavailable (e.g. private mode) — keep in-memory state */
+	}
+}
+
 function AgentClisSection({
 	probes,
 }: {
 	probes: AgentCliProbes | null;
 }): React.ReactElement {
+	const [collapsed, setCollapsed] = useState<boolean>(readAgentClisCollapsed);
+	const foundCount =
+		probes === null
+			? 0
+			: CLI_ORDER.filter((name) => probes[name].kind === "found").length;
+	const summary =
+		probes === null
+			? "Agent CLIs — checking…"
+			: `Agent CLIs — ${foundCount} of ${CLI_ORDER.length} found`;
+	const toggle = () => {
+		setCollapsed((prev) => {
+			const next = !prev;
+			writeAgentClisCollapsed(next);
+			return next;
+		});
+	};
 	return (
 		<section className="plugins-panel__agent-clis">
-			<h3 className="plugins-panel__section-title">Agent CLIs</h3>
-			{probes === null ? (
-				<p className="plugins-panel__agent-cli-line plugins-panel__agent-cli-line--pending">
-					Checking…
-				</p>
-			) : (
-				CLI_ORDER.map((name) => {
-					const probe = probes[name];
-					if (probe.kind === "found") {
+			<button
+				type="button"
+				className="plugins-panel__agent-clis-toggle"
+				data-testid="agent-clis-toggle"
+				aria-expanded={!collapsed}
+				onClick={toggle}
+			>
+				<span className="plugins-panel__agent-clis-caret" aria-hidden="true">
+					{collapsed ? "▸" : "▾"}
+				</span>
+				<span className="plugins-panel__section-title">{summary}</span>
+			</button>
+			{!collapsed && probes !== null && (
+				<div className="plugins-panel__agent-clis-body">
+					{CLI_ORDER.map((name) => {
+						const probe = probes[name];
+						if (probe.kind === "found") {
+							return (
+								<p
+									key={name}
+									className="plugins-panel__agent-cli-line"
+									data-cli={name}
+									data-found="true"
+								>
+									<span className="plugins-panel__agent-cli-name">{name}</span>{" "}
+									— found{" "}
+									{probe.version ? `v${probe.version}` : "(version unknown)"}{" "}
+									<span className="plugins-panel__agent-cli-path">
+										({probe.path})
+									</span>
+								</p>
+							);
+						}
 						return (
 							<p
 								key={name}
 								className="plugins-panel__agent-cli-line"
 								data-cli={name}
-								data-found="true"
+								data-found="false"
 							>
 								<span className="plugins-panel__agent-cli-name">{name}</span> —
-								found{" "}
-								{probe.version ? `v${probe.version}` : "(version unknown)"}{" "}
-								<span className="plugins-panel__agent-cli-path">
-									({probe.path})
+								not found{" "}
+								<span className="plugins-panel__agent-cli-hint">
+									{CLI_INSTALL_HINTS[name]}
 								</span>
 							</p>
 						);
-					}
-					return (
-						<p
-							key={name}
-							className="plugins-panel__agent-cli-line"
-							data-cli={name}
-							data-found="false"
-						>
-							<span className="plugins-panel__agent-cli-name">{name}</span> —
-							not found{" "}
-							<span className="plugins-panel__agent-cli-hint">
-								{CLI_INSTALL_HINTS[name]}
-							</span>
-						</p>
-					);
-				})
+					})}
+				</div>
 			)}
 		</section>
 	);
@@ -249,8 +293,8 @@ export function PluginsPanelDialog(props: {
 				>
 					<Dialog.Title className="plugins-panel__title">Plugins</Dialog.Title>
 					<Dialog.Description className="plugins-panel__description">
-						Optional integrations with the rest of the ecosystem. ai-14all works
-						fully without any of them.
+						Optional add-ons from the ai-14all ecosystem. All off by default —
+						ai-14all works fully without them.
 					</Dialog.Description>
 
 					<AgentClisSection probes={agentClis} />

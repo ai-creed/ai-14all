@@ -483,6 +483,66 @@ select {
 	flex-shrink: 0;
 }
 
+.shell-install-banner {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-4);
+	font-size: var(--font-size-body);
+	color: var(--text-primary);
+	background: color-mix(in srgb, var(--accent) 14%, var(--panel-bg));
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
+}
+
+.shell-install-banner__msg {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.shell-install-banner__actions {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	flex-shrink: 0;
+}
+
+.shell-install-banner__install {
+	padding: 2px var(--space-3);
+	font-size: 0.75rem;
+	color: var(--text-primary);
+	background: var(--panel-bg-elevated);
+	border: var(--shell-border-width) solid var(--panel-border);
+	border-radius: var(--radius-md);
+	cursor: pointer;
+}
+
+.shell-install-banner__install:hover {
+	border-color: var(--text-muted);
+}
+
+.shell-install-banner__dismiss {
+	background: none;
+	border: none;
+	color: var(--text-secondary);
+	cursor: pointer;
+	padding: 0 var(--space-1);
+	font-size: 1rem;
+	line-height: 1;
+}
+
+.shell-install-banner__dismiss:hover {
+	color: var(--text-primary);
+}
+
+.shell-install-modal__subtitle {
+	margin: 0 0 var(--space-3);
+	font-size: 0.75rem;
+	color: var(--text-secondary);
+}
+
 .shell-label {
 	line-height: 1.2;
 	letter-spacing: 0.08em;
@@ -541,10 +601,6 @@ select {
 	   protrude past the panel edge when the sidebar is shrunk. */
 	overflow-x: clip;
 	border-color: var(--pane-border-sessions);
-}
-
-.shell-review-rail {
-	padding: var(--space-4);
 }
 
 .shell-sidebar__header {
@@ -1635,6 +1691,12 @@ select {
 	overflow: hidden;
 }
 
+.shell-review-rail__toolbar {
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+
 .shell-review-progress {
 	padding: 6px 8px 4px;
 	display: flex;
@@ -1661,29 +1723,6 @@ select {
 	transition: width 0.2s ease;
 }
 
-.shell-review-mark-viewed {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	padding: 2px 8px;
-	font-size: 11px;
-	line-height: 1.6;
-	color: var(--text-secondary);
-	background: var(--muted);
-	border: 1px solid var(--border);
-	border-radius: 0;
-	cursor: pointer;
-	white-space: nowrap;
-}
-
-.shell-review-mark-viewed:hover {
-	border-color: var(--muted-foreground);
-}
-
-.shell-review-mark-viewed[data-reviewed="true"] {
-	color: var(--success);
-	border-color: var(--success);
-}
 
 .shell-review-rail__header,
 .shell-review-tabs__list {
@@ -1797,6 +1836,67 @@ select {
 	justify-content: space-between;
 	align-items: center;
 	gap: var(--space-3);
+}
+
+.shell-list__item-row {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	/* Let the row shrink as a grid item (Changes `.shell-list`, Commits
+	   `.shell-commit-list__files`) so the file-name ellipsis engages instead of
+	   the row forcing the list wider than the rail. */
+	min-width: 0;
+}
+
+.shell-list__item-row .shell-list__item {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+/* Reserve top-right space on the open row so the absolutely-positioned "Viewed"
+   chip never overlaps the filename or the status badge. */
+.shell-list__item-row--has-toggle .shell-list__item {
+	padding-right: 100px;
+}
+
+/* Truncate long file names so a name with no break points can't force the row
+   wider than the panel and push the floating "Viewed" chip (or the status
+   badge) out of view. */
+.shell-list__item-name {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.shell-review-row-viewed {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	z-index: 1;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 6px;
+	font-size: 11px;
+	line-height: 1.5;
+	color: var(--text-secondary);
+	background: var(--muted);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.shell-review-row-viewed:hover {
+	border-color: var(--muted-foreground);
+}
+
+.shell-review-row-viewed[data-reviewed="true"] {
+	color: var(--success);
+	border-color: var(--success);
 }
 
 .shell-toolbar-menu {
@@ -5318,13 +5418,36 @@ select {
 	border-top: var(--shell-border-width) solid var(--panel-border);
 	padding: var(--space-3) 0;
 }
+
+.plugins-panel__agent-clis-toggle {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	width: 100%;
+	padding: 0;
+	background: none;
+	border: none;
+	cursor: pointer;
+	text-align: left;
+}
+
+.plugins-panel__agent-clis-toggle .plugins-panel__section-title {
+	margin: 0;
+}
+
+.plugins-panel__agent-clis-caret {
+	color: var(--text-muted);
+	font-size: 0.7rem;
+}
+
+.plugins-panel__agent-clis-body {
+	margin-top: var(--space-2);
+}
+
 .plugins-panel__agent-cli-line {
 	font-size: 0.75rem;
 	color: var(--text-secondary);
 	margin: 0 0 4px;
-}
-.plugins-panel__agent-cli-line--pending {
-	font-style: italic;
 }
 .plugins-panel__agent-cli-name {
 	font-weight: 600;

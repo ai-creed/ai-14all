@@ -219,4 +219,117 @@ describe("ChangesList", () => {
 		fireEvent.click(screen.getByRole("menuitem", { name: "Discard changes" }));
 		expect(onDiscardChange).toHaveBeenCalledWith("src/index.ts");
 	});
+
+	it("shows an interactive Viewed toggle only on the open row", () => {
+		const onToggleViewed = vi.fn();
+		render(
+			<ChangesList
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
+				changes={[
+					{ path: "src/open.ts", status: "M" },
+					{ path: "src/other.ts", status: "M" },
+				]}
+				selectedPath="src/open.ts"
+				onSelect={vi.fn()}
+				onDiscardChange={vi.fn()}
+				onToggleViewed={onToggleViewed}
+				reviewedPaths={[]}
+			/>,
+		);
+		// Exactly one toggle, on the open row.
+		const toggles = screen.getAllByTestId("mark-viewed-toggle");
+		expect(toggles).toHaveLength(1);
+		fireEvent.click(toggles[0]);
+		expect(onToggleViewed).toHaveBeenCalledWith("src/open.ts");
+	});
+
+	it("keeps the toggle a sibling of the file-select button (no nested buttons)", () => {
+		render(
+			<ChangesList
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
+				changes={[{ path: "src/open.ts", status: "M" }]}
+				selectedPath="src/open.ts"
+				onSelect={vi.fn()}
+				onDiscardChange={vi.fn()}
+				onToggleViewed={vi.fn()}
+				reviewedPaths={[]}
+			/>,
+		);
+		const toggle = screen.getByTestId("mark-viewed-toggle");
+		const selectButton = screen.getByRole("button", { name: /src\/open\.ts/i });
+		// The toggle must NOT be nested inside the file-select button (invalid DOM).
+		expect(selectButton).not.toContainElement(toggle);
+		// Both controls are siblings within the same row container.
+		const row = toggle.closest(".shell-list__item-row");
+		expect(row).not.toBeNull();
+		expect(selectButton.closest(".shell-list__item-row")).toBe(row);
+	});
+
+	it("keeps a read-only reviewed mark on non-open reviewed rows", () => {
+		render(
+			<ChangesList
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
+				changes={[
+					{ path: "src/open.ts", status: "M" },
+					{ path: "src/done.ts", status: "M" },
+				]}
+				selectedPath="src/open.ts"
+				onSelect={vi.fn()}
+				onDiscardChange={vi.fn()}
+				onToggleViewed={vi.fn()}
+				reviewedPaths={["src/done.ts"]}
+			/>,
+		);
+		// Non-open reviewed row shows the read-only mark, not a toggle.
+		expect(screen.getByTestId("reviewed-mark-src/done.ts")).toBeInTheDocument();
+		expect(screen.getAllByTestId("mark-viewed-toggle")).toHaveLength(1);
+	});
+
+	it("makes the toggle live after a non-open row is selected", () => {
+		const onSelect = vi.fn();
+		const onToggleViewed = vi.fn();
+		const { rerender } = render(
+			<ChangesList
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
+				changes={[
+					{ path: "src/a.ts", status: "M" },
+					{ path: "src/b.ts", status: "M" },
+				]}
+				selectedPath={null}
+				onSelect={onSelect}
+				onDiscardChange={vi.fn()}
+				onToggleViewed={onToggleViewed}
+				reviewedPaths={[]}
+			/>,
+		);
+		// No open row yet → no interactive toggle anywhere.
+		expect(screen.queryAllByTestId("mark-viewed-toggle")).toHaveLength(0);
+		// Clicking a non-open row selects it.
+		fireEvent.click(screen.getByRole("button", { name: /src\/b\.ts/i }));
+		expect(onSelect).toHaveBeenCalledWith("src/b.ts");
+		// The parent promotes it to the open row → its toggle is now live.
+		rerender(
+			<ChangesList
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
+				changes={[
+					{ path: "src/a.ts", status: "M" },
+					{ path: "src/b.ts", status: "M" },
+				]}
+				selectedPath="src/b.ts"
+				onSelect={onSelect}
+				onDiscardChange={vi.fn()}
+				onToggleViewed={onToggleViewed}
+				reviewedPaths={[]}
+			/>,
+		);
+		const toggles = screen.getAllByTestId("mark-viewed-toggle");
+		expect(toggles).toHaveLength(1);
+		fireEvent.click(toggles[0]);
+		expect(onToggleViewed).toHaveBeenCalledWith("src/b.ts");
+	});
 });

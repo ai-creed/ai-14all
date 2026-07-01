@@ -11,8 +11,8 @@ export function AgentInstallCta({ onOpenInstall }: Props) {
 			data-testid="agent-install-cta"
 		>
 			<p className="shell-review-comment-sidebar__cta-copy">
-				<strong>Install fix-review skill</strong> — let your Claude Code or
-				Codex agent address these comments.
+				<strong>Connect your agent</strong> — let Claude Code or Codex address
+				these comments.
 			</p>
 			<Button type="button" variant="default" size="sm" onClick={onOpenInstall}>
 				Install…

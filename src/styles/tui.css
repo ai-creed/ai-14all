@@ -400,8 +400,7 @@
 
 /* Terminals don't italicize. Base keeps italic for the other palettes. */
 [data-theme="tui"] .shell-sidebar__workspace-empty,
-[data-theme="tui"] .shell-list__item--dir,
-[data-theme="tui"] .plugins-panel__agent-cli-line--pending {
+[data-theme="tui"] .shell-list__item--dir {
 	font-style: normal;
 }
 
