@@ -60,6 +60,8 @@ type Props = {
 
 	/** Opens the global Plugins panel. Wired to a button beside the usage strip. */
 	onOpenPlugins: () => void;
+	/** Opens the Phone Bridge settings panel. Wired beside the Plugins button. */
+	onOpenPhoneBridge: () => void;
 };
 
 /**
@@ -95,6 +97,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 		appPlatform,
 		openWorktreePaths,
 		onOpenPlugins,
+		onOpenPhoneBridge,
 	} = props;
 
 	const usageSnapshot = useUsageSnapshot();
@@ -145,20 +148,30 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 							/>
 						}
 						plugins={
-							<button
-								type="button"
-								className="shell-chip-bar__action plugins-entry-button"
-								aria-label="Open Plugins panel"
-								onClick={onOpenPlugins}
-							>
-								<span
-									className="shell-chip-bar__action-icon"
-									aria-hidden="true"
+							<>
+								<button
+									type="button"
+									className="shell-chip-bar__action plugins-entry-button"
+									aria-label="Open Plugins panel"
+									onClick={onOpenPlugins}
 								>
-									<Icon name="plugins" />
-								</span>
-								Plugins
-							</button>
+									<span
+										className="shell-chip-bar__action-icon"
+										aria-hidden="true"
+									>
+										<Icon name="plugins" />
+									</span>
+									Plugins
+								</button>
+								<button
+									type="button"
+									className="shell-chip-bar__action phone-bridge-entry-button"
+									aria-label="Open Phone Bridge panel"
+									onClick={onOpenPhoneBridge}
+								>
+									Phone Bridge
+								</button>
+							</>
 						}
 					/>
 				</div>

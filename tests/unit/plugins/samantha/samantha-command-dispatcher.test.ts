@@ -18,7 +18,10 @@ function make(
 ) {
 	const focusWorktree = vi.fn();
 	const cb = {
-		buildReport: vi.fn(async () => "the report"),
+		buildReport: vi.fn(async () => ({
+			report: "the report",
+			sessions: { mode: "ready" as const, focus: null, sessions: [] },
+		})),
 		resolveWorktree: vi.fn(
 			async (): Promise<ResolveResult> => ({
 				kind: "found",
@@ -46,7 +49,10 @@ describe("samantha-command-dispatcher", () => {
 			type: "commandResult",
 			requestId: "req_1",
 			status: "ok",
-			result: { report: "the report" },
+			result: {
+				report: "the report",
+				sessions: { mode: "ready", focus: null, sessions: [] },
+			},
 		});
 	});
 

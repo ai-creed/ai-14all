@@ -1,4 +1,4 @@
-import { app, ipcMain, Menu } from "electron";
+import { app, ipcMain, Menu, safeStorage } from "electron";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -60,6 +60,10 @@ import { PluginCommandLogger } from "../../services/diagnostics/plugin-command-l
 import { ActingAuditLogger } from "../../services/diagnostics/acting-audit-logger.js";
 import { createActingTokenVerifier } from "../../services/plugins/samantha/acting-token-verifier.js";
 import type { WhisperCommand } from "../../shared/contracts/plugins.js";
+import { createSessionSliceStore } from "../../services/plugins/samantha/session-slice-source.js";
+import { createSessionReportProvider } from "../../services/plugins/samantha/session-report-provider.js";
+import { XbpHostService } from "../../services/xbp/xbp-host-service.js";
+import { registerXbpIpc, PHONE_BRIDGE_STATUS_CHANGED } from "./xbp-ipc.js";
 
 app.setName("ai-14all");
 
@@ -369,12 +373,29 @@ app.whenReady().then(async () => {
 		return null;
 	};
 
+	// Shared slice store — single source of truth for both Samantha driver and
+	// the XBP session-report provider so neither path drifts from the other.
+	const samanthaSliceSource = createSessionSliceStore();
+
+	// Shared getters — declared once so both consumers are structurally guaranteed
+	// to use the same implementation (a future edit cannot change one without the other).
+	const getReviewCount = (worktreeId: string) =>
+		reviewCommentService.listOpenByWorktree(worktreeId).length;
+	const getWhisperStates = () => samanthaWhisperWatcher.snapshot();
+
+	const xbpSessionReport = createSessionReportProvider({
+		getIdentities: getSamanthaIdentities,
+		getReviewCount,
+		getWhisperStates,
+		getSessionSlice: () => samanthaSliceSource.get(),
+	});
+
 	const samanthaDriver = createSamanthaDriver({
 		client: createSamanthaConnectorClient({}),
 		getIdentities: getSamanthaIdentities,
-		getReviewCount: (worktreeId) =>
-			reviewCommentService.listOpenByWorktree(worktreeId).length,
-		getWhisperStates: () => samanthaWhisperWatcher.snapshot(),
+		getReviewCount,
+		getWhisperStates,
+		sliceSource: samanthaSliceSource,
 		subscribeReviews: (cb) => reviewCommentService.onChange(() => cb()),
 		subscribeWorktrees: (cb) => workspaceRegistry.onChange(cb),
 		pushHealth: (health) =>
@@ -429,6 +450,44 @@ app.whenReady().then(async () => {
 			}
 			return { ok: true, detail: "sent" };
 		},
+	});
+
+	// Spec §1: the XBP host service starts BEFORE the plugin registry boots, so a
+	// phone that connects during early startup finds the bridge already live. All
+	// mainWindow/webContents references below are lazy + null-safe so this block is
+	// safe to run regardless of when the window is created.
+	const xbpDir = join(app.getPath("userData"), "ai-14all", "xbp");
+	let xbpService: XbpHostService | null = null;
+	try {
+		xbpService = new XbpHostService({
+			dir: xbpDir,
+			secureStorage: safeStorage,
+			getSessionReport: xbpSessionReport,
+			subscribeChanges: (cb) => {
+				const offReviews = reviewCommentService.onChange(() => cb());
+				const offWorktrees = workspaceRegistry.onChange(cb);
+				const offSlice = samanthaSliceSource.subscribe(cb);
+				return () => {
+					offReviews();
+					offWorktrees();
+					offSlice();
+				};
+			},
+			onStatusChange: () =>
+				mainWindow?.webContents?.send(
+					PHONE_BRIDGE_STATUS_CHANGED,
+					xbpService?.getStatus(),
+				),
+		});
+		await xbpService.start();
+	} catch (err) {
+		console.error("[xbp] failed to start host service", err);
+	}
+
+	const xbpIpc = registerXbpIpc({
+		ipcMain,
+		getService: () => xbpService,
+		getWebContents: () => mainWindow?.webContents,
 	});
 
 	const pluginRegistry = createPluginRegistry(
@@ -594,10 +653,12 @@ app.whenReady().then(async () => {
 		offRegistry();
 		void deleteLivenessFile(livenessPath);
 		void mcpServer?.stop().catch(() => {});
+		void xbpService?.stop().catch(() => {});
 		sessionNoteBridge.dispose();
 		agentAttentionBridge.dispose();
 		usageHost.stop();
 		pluginIpc.dispose();
+		xbpIpc.dispose();
 		void pluginRegistry.stopAll();
 		pluginConfig.dispose();
 	});

@@ -5,14 +5,17 @@ import {
 	errorResult,
 	okResult,
 } from "./command-types";
-import type { ResolveResult } from "./samantha-command-capabilities";
+import type {
+	ResolveResult,
+	SessionReportSnapshot,
+} from "./samantha-command-capabilities";
 
 export type InstructOutcome =
 	| { ok: true; routed: "collab-tell" | "workflow-resume" | "send-input" }
 	| { ok: false; code: CommandErrorCode; message: string };
 
 export type DispatcherCallbacks = {
-	buildReport: () => Promise<string>;
+	buildReport: () => Promise<SessionReportSnapshot>;
 	resolveWorktree: (key: string) => Promise<ResolveResult>;
 	focusWorktree: (worktreeId: string) => void;
 	instructSession: (
@@ -32,7 +35,11 @@ export function createSamanthaCommandDispatcher(
 	async function dispatch(frame: CommandFrame): Promise<CommandResult> {
 		try {
 			if (frame.capabilityId === "session-report") {
-				return okResult(frame.requestId, { report: await cb.buildReport() });
+				const snapshot = await cb.buildReport();
+				return okResult(frame.requestId, {
+					report: snapshot.report,
+					sessions: snapshot.sessions,
+				});
 			}
 			if (frame.capabilityId === "focus-worktree") {
 				const key = frame.args?.worktree;
