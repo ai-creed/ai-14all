@@ -27,8 +27,28 @@ type Props =
 	  };
 
 const WEEKDAY = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const;
+const MONTH = [
+	"Jan",
+	"Feb",
+	"Mar",
+	"Apr",
+	"May",
+	"Jun",
+	"Jul",
+	"Aug",
+	"Sep",
+	"Oct",
+	"Nov",
+	"Dec",
+] as const;
 const sameLocalDay = (a: number, b: number): boolean =>
 	new Date(a).toDateString() === new Date(b).toDateString();
+// Absolute month index (year*12 + month) so a Dec->Jan roll counts as a boundary
+// and the same month a year apart never false-matches.
+const monthIndex = (ms: number): number => {
+	const d = new Date(ms);
+	return d.getFullYear() * 12 + d.getMonth();
+};
 
 export function UsageChart(props: Props): JSX.Element | null {
 	const height = props.height ?? 34;
@@ -46,10 +66,9 @@ export function UsageChart(props: Props): JSX.Element | null {
 	}
 	if (max === 0) return null;
 
-	// Weekday initials only fit the ~7-bar week; the ~30-bar month just marks
-	// today's column (the `is-today` tick). The chip never opts in.
+	// The date-label row is a popover-only affordance — the 120px chip has no room
+	// for it, so it never opts in.
 	const labelled = props.kind === "daily" && props.showDayLabels === true;
-	const showWeekdayLabels = labelled && slice.length <= 8;
 
 	const bars = (
 		<div className="usage-chart" style={{ height }}>
@@ -83,23 +102,52 @@ export function UsageChart(props: Props): JSX.Element | null {
 		</div>
 	);
 
-	if (!showWeekdayLabels) return bars;
+	if (props.kind !== "daily" || props.showDayLabels !== true) return bars;
 
+	// Week (≤7 bars): a weekday initial under every bar. Month (~31 bars): sparse
+	// ticks — the month abbrev at the leftmost bar and each 1st-of-month, plus a
+	// dot on today when it isn't already a boundary. Every bar still gets one label
+	// slot (blank between ticks) so the ticks stay aligned to their column.
+	const monthMode = props.range === "month";
+	const nowMs = props.nowMs;
 	return (
 		<div className="usage-chart-wrap">
 			{bars}
-			<div className="usage-chart-labels" aria-hidden="true">
+			<div
+				className={
+					monthMode ? "usage-chart-labels is-month" : "usage-chart-labels"
+				}
+				aria-hidden="true"
+			>
 				{slice.map((pt, i) => {
-					const ds = "dayStartMs" in pt ? pt.dayStartMs : props.nowMs;
-					const isToday = sameLocalDay(ds, props.nowMs);
+					const ds = "dayStartMs" in pt ? pt.dayStartMs : nowMs;
+					const isToday = sameLocalDay(ds, nowMs);
+					let text = "";
+					let align = "";
+					if (!monthMode) {
+						text = WEEKDAY[new Date(ds).getDay()];
+					} else {
+						const prev = slice[i - 1];
+						const prevDs =
+							prev && "dayStartMs" in prev ? prev.dayStartMs : null;
+						const boundary =
+							i === 0 ||
+							(prevDs !== null && monthIndex(prevDs) !== monthIndex(ds));
+						if (boundary) {
+							text = MONTH[new Date(ds).getMonth()];
+							// Anchor the abbrev to its boundary column: flow right normally,
+							// but right-align the last column so it never spills off the edge.
+							align = i === slice.length - 1 ? " align-right" : " align-left";
+						} else if (isToday) {
+							text = "•";
+						}
+					}
 					return (
 						<span
 							key={i}
-							className={
-								isToday ? "usage-chart-label is-today" : "usage-chart-label"
-							}
+							className={`usage-chart-label${isToday ? " is-today" : ""}${align}`}
 						>
-							{WEEKDAY[new Date(ds).getDay()]}
+							{text}
 						</span>
 					);
 				})}
