@@ -785,8 +785,8 @@ select {
 .shell-sidebar__node {
 	position: relative;
 	padding-left: 24px;
-	/* Gap between cards — matches the prototype's 2px card spacing. */
-	padding-bottom: 2px;
+	/* Gap between worktree clusters — 8px so consecutive worktrees breathe. */
+	padding-bottom: var(--space-2);
 }
 
 .shell-sidebar__node:last-child {
@@ -876,6 +876,42 @@ select {
 }
 
 /*
+ * Header line: the title and the inline ready status share one horizontal row.
+ * This replaces the prior flex-column stacking that stranded the ready dot and
+ * "workflow done" status on their own lines below the title. The title flexes
+ * and truncates first; the ready status keeps its natural width and trails to
+ * the right edge of the row.
+ */
+.shell-sidebar__item-head {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	align-self: stretch;
+	min-width: 0;
+}
+
+.shell-sidebar__item-head > strong {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+/* The ready unit: quiet dot + summary, read as "● workflow done". */
+.shell-sidebar__row-ready {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	flex: 0 1 auto;
+	min-width: 0;
+}
+
+/* The moved session status shrinks (ellipsis via its inner context span) rather
+ * than shoving the title off-screen. */
+.shell-sidebar__item-status {
+	flex: 0 1 auto;
+	min-width: 0;
+}
+
+/*
  * Worktree row attention: rotating conic-gradient ring + subtle bg tint.
  * Drawn by a ::before pseudo so the row's own border (and selected accent)
  * stays intact underneath. Mask-composite: exclude carves the inside out
@@ -903,7 +939,7 @@ select {
 
 @keyframes shell-sidebar-attention-pulse {
 	to {
-		--attention-opacity: 1;
+		--attention-opacity: 0.55;
 	}
 }
 
@@ -936,7 +972,7 @@ select {
 	mask-composite: exclude;
 	pointer-events: none;
 	animation:
-		shell-sidebar-attention-rotate 4s linear infinite,
+		shell-sidebar-attention-rotate 8s linear infinite,
 		shell-sidebar-attention-pulse 2.5s ease-in-out infinite alternate;
 }
 
@@ -985,6 +1021,29 @@ select {
 	}
 }
 
+/* Row ready tier: quiet dot only — no ring, no tint, no title recolor (D4).
+ * Lives inside the flex `.shell-sidebar__row` unit on the header line, so no
+ * inline-flow margins/alignment are needed. */
+.shell-sidebar__row-ready-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--ready);
+	flex: 0 0 auto;
+}
+/* Collapsed-row rollup dot (Task 8) */
+.shell-sidebar__workspace-rollup-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+}
+.shell-sidebar__workspace-rollup-dot[data-tier="actionRequired"] { background: var(--danger); }
+.shell-sidebar__workspace-rollup-dot[data-tier="ready"] { background: var(--ready); }
+.shell-sidebar__workspace-count {
+	font-size: var(--ws-fs-chip);
+	color: var(--text-secondary);
+	margin-left: var(--space-1);
+}
 .shell-sidebar__row[data-attention="activity"] {
 	/* Distinct from the accent used for "selected" — too many green-ish cards
 	 * on screen otherwise made it hard to tell at a glance which row is in
@@ -1116,6 +1175,20 @@ select {
 	padding: 0 6px;
 	font-size: 11px;
 	line-height: 20px;
+}
+
+/* Rollup "N more…" toggle — compact, muted, no chrome. */
+.shell-sidebar__process.shell-sidebar__process--more {
+	background: none;
+	border: none;
+	padding: 2px 12px;
+	font-size: var(--ws-fs-chip);
+	color: var(--text-secondary);
+	cursor: pointer;
+	text-align: left;
+}
+.shell-sidebar__process.shell-sidebar__process--more:hover {
+	color: var(--text-primary);
 }
 
 .shell-sidebar__process-indicator {
@@ -4264,32 +4337,51 @@ select {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
-	width: 100%;
+	/* No width:100% — combined with margin-left:24px it overflowed the sidebar
+	 * and clipped the right-aligned status badge. Auto width fills the space
+	 * left of the rail indent, so the artifact ellipsis and margin-left:auto
+	 * status still have a bounded box. */
 	text-align: left;
-	margin-top: var(--space-2);
+	margin-bottom: var(--space-3);
+	margin-left: 24px;
 	padding: var(--space-2);
-	border: var(--shell-border-width) solid var(--panel-border);
+	/* Flat: no border and no fill — the rail elbow + indent already group it
+	 * under the worktree; a bordered/filled box read as a heavy card. The fill
+	 * only appears on :hover to signal the row is clickable. border-radius is
+	 * retained so that hover fill has rounded corners. */
 	border-radius: var(--radius-md);
-	background: var(--panel-bg-elevated);
 	color: inherit;
 	font: inherit;
+	font-size: var(--ws-fs-chip);
 	cursor: pointer;
+	position: relative;
+}
+.workflow-row::before {
+	content: "";
+	position: absolute;
+	left: -12px;
+	top: -2px;
+	bottom: 50%;
+	width: 12px;
+	border-left: 2px solid var(--rail);
+	border-bottom: 2px solid var(--rail);
 }
 .workflow-row:hover {
-	border-color: var(--panel-border-strong);
+	/* Border-less now — give the clickable card a subtle fill on hover so it
+	 * still signals interactivity. */
+	background: color-mix(in srgb, var(--panel-bg) 80%, transparent);
 }
-.workflow-row__header {
+/* Line 1: type badge + artifact, with any non-done status pushed to the right. */
+.workflow-row__artifact-line {
 	display: flex;
 	align-items: center;
 	gap: 6px;
-}
-.workflow-row__caption {
-	color: var(--text-muted);
-	font-size: 0.66rem;
+	min-width: 0;
 }
 .workflow-row__type {
 	display: inline-flex;
 	align-items: center;
+	flex: 0 0 auto;
 	padding: 0 6px;
 	height: 16px;
 	border-radius: var(--radius-sm);
@@ -4300,6 +4392,8 @@ select {
 	color: var(--sha-color);
 }
 .workflow-row__artifact {
+	flex: 1 1 auto;
+	min-width: 0;
 	color: var(--text-secondary);
 	font-size: 0.68rem;
 	overflow: hidden;
@@ -4309,6 +4403,7 @@ select {
 .workflow-row__phase {
 	display: flex;
 	flex-wrap: wrap;
+	align-items: center;
 	gap: 5px;
 	color: var(--text-muted);
 	font-size: 0.68rem;
@@ -4316,16 +4411,12 @@ select {
 .workflow-row__round::before {
 	content: "· ";
 }
+/* Status is a dot on the phase line: its color carries the state, its title the
+   word. The wrapper is just an inline holder — no pill. */
 .workflow-row__status {
 	display: inline-flex;
 	align-items: center;
-	gap: 5px;
-	margin-left: auto;
-	padding: 1px 7px;
-	border-radius: 999px;
-	font-size: 0.66rem;
-	font-weight: 600;
-	flex-shrink: 0;
+	flex: 0 0 auto;
 }
 .workflow-row__status-dot {
 	width: 6px;
@@ -4333,27 +4424,23 @@ select {
 	border-radius: 50%;
 	background: currentColor;
 }
-/* Semantic status colors: live / complete / idle / needs-attention / urgent. */
+/* Semantic status dot colors: live / complete / idle / needs-attention / urgent.
+   The dot inherits currentColor, so each state only needs to set color. */
 .workflow-row__status[data-status="running"] {
 	color: var(--accent);
-	background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 .workflow-row__status[data-status="done"] {
-	color: #69c06a;
-	background: color-mix(in srgb, #69c06a 12%, transparent);
+	color: var(--ready);
 }
 .workflow-row__status[data-status="paused"],
 .workflow-row__status[data-status="canceled"] {
 	color: var(--text-muted);
-	background: color-mix(in srgb, var(--text-muted) 14%, transparent);
 }
 .workflow-row__status[data-status="halted"] {
 	color: var(--warning);
-	background: color-mix(in srgb, var(--warning) 14%, transparent);
 }
 .workflow-row__status[data-status="escalated"] {
 	color: var(--danger);
-	background: color-mix(in srgb, var(--danger) 16%, transparent);
 }
 .workflow-row__daemon-down,
 .workflow-row__stale {

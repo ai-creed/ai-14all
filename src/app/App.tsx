@@ -12,6 +12,7 @@ import { RestorePrompt } from "../features/repository/RestorePrompt";
 import { type SessionSidebarWorkspace } from "../features/workspace/components/SessionSidebar";
 import { sortSidebarWorkspaces } from "../features/workspace/logic/sort-sidebar-workspaces";
 import { useCollapsedWorkspaces } from "../features/workspace/logic/use-collapsed-workspaces";
+import { useExpandedProcesses } from "../features/workspace/logic/use-expanded-processes";
 import {
 	workspaceReducer,
 	MAX_FLOATING_SHELLS,
@@ -28,16 +29,15 @@ import { useAgentInstallStatus } from "../features/review/hooks/use-agent-instal
 import {
 	buildWorktreeAttentionDisplay,
 	buildWorktreeProcessSummary,
+	rollupWorkspaceAttention,
+	type SidebarAttentionTier,
 	type WorktreeProcessSummary,
 } from "../features/workspace/logic/sidebar-shell-summary";
 import {
 	diffAndAdvanceResolutions,
 	type DisplayedAttentionSnapshot,
 } from "../features/workspace/logic/resolution-emitter";
-import type {
-	ProcessAttentionState,
-	ProcessSession,
-} from "../../shared/models/process-session";
+import type { ProcessSession } from "../../shared/models/process-session";
 import type { WorktreeSession } from "../../shared/models/worktree-session";
 import { createSamanthaSliceBuilder } from "../features/workspace/logic/samantha-slice-builder";
 import { findWorkspaceForWorktree } from "../features/workspace/logic/focus-target";
@@ -175,6 +175,10 @@ export function App() {
 		collapsedIds: collapsedWorkspaceIds,
 		toggle: toggleWorkspaceCollapsed,
 	} = useCollapsedWorkspaces();
+	const {
+		expandedIds: expandedProcessWorktreeIds,
+		toggle: toggleProcessExpanded,
+	} = useExpandedProcesses();
 	const [pendingRename, setPendingRename] = useState<{
 		workspaceId: string;
 		worktreeId: string;
@@ -1922,8 +1926,9 @@ export function App() {
 							processesByWorktreeId: {},
 							attentionContextByWorktreeId: {},
 							taskByWorktreeId: {},
+							collapsedSummary: { sessionCount: 0, attentionTier: null },
 						};
-					const attentionByWorktreeId: Record<string, ProcessAttentionState> =
+					const attentionByWorktreeId: Record<string, SidebarAttentionTier> =
 						{};
 					const processesByWorktreeId: Record<string, WorktreeProcessSummary> =
 						{};
@@ -1935,23 +1940,31 @@ export function App() {
 						const processes = session.processSessionIds
 							.map((id) => ws.workspaceState!.processSessionsById[id])
 							.filter(Boolean);
+						// Keep every process in `summary.rows` (overflowCount → 0); the
+						// sidebar's collapse/expand controls own row visibility, so the
+						// rollup must never silently drop processes 4+ (they were
+						// unreachable when capped at 3).
 						const processSummary = buildWorktreeProcessSummary(
 							processes,
 							sidebarNow,
-							3,
+							processes.length,
 						);
 						processesByWorktreeId[worktreeId] = processSummary;
 						taskByWorktreeId[worktreeId] = session.task ?? null;
 						const display = buildWorktreeAttentionDisplay({
 							sessionAgentAttentionReasons: session.agentAttentionReasons,
 							processSummary,
+							now: sidebarNow,
+							agentAttentionClearedAt: session.agentAttentionClearedAt,
 						});
 						attentionByWorktreeId[worktreeId] =
 							display.state === "actionRequired"
 								? "actionRequired"
-								: display.state === "active"
-									? "activity"
-									: "idle";
+								: display.state === "ready"
+									? "ready"
+									: display.state === "active"
+										? "activity"
+										: "idle";
 						if (display.source === "session" && display.context) {
 							attentionContextByWorktreeId[worktreeId] = display.context;
 						}
@@ -1973,6 +1986,12 @@ export function App() {
 						processesByWorktreeId,
 						attentionContextByWorktreeId,
 						taskByWorktreeId,
+						collapsedSummary: {
+							sessionCount: Object.keys(ws.workspaceState.sessionsByWorktreeId).length,
+							attentionTier: rollupWorkspaceAttention(
+								Object.values(attentionByWorktreeId),
+							),
+						},
 					};
 				})(),
 				titleByWorktreeId: ws.workspaceState
@@ -2167,6 +2186,8 @@ export function App() {
 							palette={palette}
 							onSetTheme={setTheme}
 							onOpenShortcutsHelp={() => setShortcutsHelpOpen(true)}
+							expandedProcessWorktreeIds={expandedProcessWorktreeIds}
+							onToggleProcessExpanded={toggleProcessExpanded}
 						/>
 
 						<section className="shell-main-column" ref={mainColRef}>

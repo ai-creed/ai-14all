@@ -13,8 +13,10 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { Worktree } from "../../../../shared/models/worktree";
-import type { ProcessAttentionState } from "../../../../shared/models/process-session";
-import type { WorktreeProcessSummary } from "../logic/sidebar-shell-summary";
+import type {
+	SidebarAttentionTier,
+	WorktreeProcessSummary,
+} from "../logic/sidebar-shell-summary";
 import { displayTitle } from "../logic/session-display-title";
 import type { WorkflowRow as WorkflowRowModel } from "../../workflows/logic/workflow-lens";
 import { WorkflowRow } from "../../workflows/components/WorkflowRow";
@@ -26,7 +28,7 @@ export type SessionSidebarWorkspace = {
 	name: string;
 	worktrees: Worktree[];
 	selectedWorktreeId: string | null;
-	attentionByWorktreeId: Record<string, ProcessAttentionState>;
+	attentionByWorktreeId: Record<string, SidebarAttentionTier>;
 	processesByWorktreeId?: Record<string, WorktreeProcessSummary>;
 	attentionContextByWorktreeId?: Record<string, string>;
 	taskByWorktreeId?: Record<string, string | null>;
@@ -38,6 +40,10 @@ export type SessionSidebarWorkspace = {
 		string,
 		WorkflowRowModel & { stale?: boolean }
 	>;
+	collapsedSummary: {
+		sessionCount: number;
+		attentionTier: "actionRequired" | "ready" | null;
+	};
 	active: boolean;
 	hydrated: boolean;
 };
@@ -70,6 +76,8 @@ type Props = {
 	palette?: Palette;
 	onSetTheme?: (mode: Palette) => void;
 	onOpenShortcutsHelp?: () => void;
+	expandedProcessWorktreeIds?: string[];
+	onToggleProcessExpanded?: (worktreeId: string) => void;
 };
 
 const THEMES: { mode: Palette; label: string }[] = [
@@ -99,6 +107,8 @@ export function SessionSidebar({
 	palette,
 	onSetTheme,
 	onOpenShortcutsHelp,
+	expandedProcessWorktreeIds,
+	onToggleProcessExpanded,
 }: Props) {
 	const [renaming, setRenaming] = React.useState<{
 		workspaceId: string;
@@ -198,6 +208,19 @@ export function SessionSidebar({
 										<span className="shell-sidebar__workspace-badge-initial">
 											{workspace.name.slice(0, 1).toUpperCase()}
 										</span>
+										{workspace.collapsedSummary.sessionCount > 0 && (
+											<span className="shell-sidebar__workspace-count">
+												{workspace.collapsedSummary.sessionCount}
+											</span>
+										)}
+										{workspace.collapsedSummary.attentionTier && (
+											<span
+												data-testid="workspace-rollup-dot"
+												className="shell-sidebar__workspace-rollup-dot"
+												data-tier={workspace.collapsedSummary.attentionTier}
+												aria-hidden="true"
+											/>
+										)}
 									</button>
 								) : (
 									<>
@@ -263,12 +286,27 @@ export function SessionSidebar({
 											renaming?.workspaceId === workspace.workspaceId &&
 											renaming?.worktreeId === worktree.id;
 
+										const attentionTier =
+											workspace.attentionByWorktreeId[worktree.id] ?? "idle";
+										const isReady = attentionTier === "ready";
+										// Session-source attention summary (e.g. "ready: workflow done"),
+										// present only when the render path picked the session over its
+										// processes.
+										const sessionAttentionContext =
+											workspace.attentionContextByWorktreeId?.[worktree.id];
+										// A ready row shows this summary inline on the header line next to
+										// the title. The quiet dot already means "ready", so the redundant
+										// "ready: " prefix is stripped, leaving just the summary.
+										const readyInlineStatus =
+											isReady && sessionAttentionContext
+												? sessionAttentionContext.replace(/^ready:\s*/i, "")
+												: null;
+
 										// Mirrored on the wrapper so CSS can frame the title button + process
 										// list as a single card; tests still read the attributes off the button.
 										const rowAttentionProps = {
 											"data-selected": String(selected),
-											"data-attention":
-												workspace.attentionByWorktreeId[worktree.id] ?? "idle",
+											"data-attention": attentionTier,
 										};
 
 										const rowCommonProps = {
@@ -306,19 +344,40 @@ export function SessionSidebar({
 											</span>
 										) : (
 											<>
-												<strong
-													onDoubleClick={(e) => {
-														if (!workspace.active) return;
-														e.stopPropagation();
-														startRename(
-															workspace.workspaceId,
-															worktree.id,
-															rawTitle,
-														);
-													}}
-												>
-													{shownTitle}
-												</strong>
+												<div className="shell-sidebar__item-head">
+													<strong
+														onDoubleClick={(e) => {
+															if (!workspace.active) return;
+															e.stopPropagation();
+															startRename(
+																workspace.workspaceId,
+																worktree.id,
+																rawTitle,
+															);
+														}}
+													>
+														{shownTitle}
+													</strong>
+													{isReady && (
+														<span className="shell-sidebar__row-ready">
+															<span
+																className="shell-sidebar__row-ready-dot"
+																data-testid="row-ready-dot"
+																aria-hidden="true"
+															/>
+															{readyInlineStatus && (
+																<span
+																	className="shell-sidebar__process shell-sidebar__process--session shell-sidebar__item-status"
+																	title={sessionAttentionContext}
+																>
+																	<span className="shell-sidebar__process-context">
+																		{readyInlineStatus}
+																	</span>
+																</span>
+															)}
+														</span>
+													)}
+												</div>
 												{hasCustomTitle && (
 													<div className="shell-sidebar__worktree-label">
 														{worktree.label}
@@ -341,14 +400,17 @@ export function SessionSidebar({
 											) : null;
 
 										// Process list rendered outside the row button to avoid nested <button> elements.
-										const sessionAttentionContext =
-											workspace.attentionContextByWorktreeId?.[worktree.id];
+										// A ready row shows its session status inline on the header line
+										// (see shell-sidebar__item-head); every other session-source status
+										// stays here, below the header.
+										const showSessionContextBelow =
+											!!sessionAttentionContext && !isReady;
 										const processList =
 											!isRenamingThisRow &&
 											!collapsed &&
-											(summary || sessionAttentionContext) ? (
+											(summary || showSessionContextBelow) ? (
 												<div className="shell-sidebar__processes">
-													{sessionAttentionContext ? (
+													{showSessionContextBelow ? (
 														<div className="shell-sidebar__process shell-sidebar__process--session">
 															<span
 																className="shell-sidebar__process-context"
@@ -358,67 +420,114 @@ export function SessionSidebar({
 															</span>
 														</div>
 													) : null}
-													{summary?.rows.map((row) => (
-														<div
-															key={row.id}
-															className="shell-sidebar__process"
-														>
-															<span
-																data-testid="process-state-indicator"
-																className="shell-sidebar__process-indicator"
-																data-state={row.state}
-															/>
-															{row.provider && (
-																<span
-																	className="shell-sidebar__provider-badge"
-																	data-provider={row.provider}
-																>
-																	{row.provider}
-																</span>
-															)}
-															<span
-																className="shell-sidebar__process-label"
-																title={row.label}
-															>
-																{row.label}
-															</span>
-															{row.context ? (
-																<span
-																	className="shell-sidebar__process-context"
-																	title={row.context}
-																>
-																	{row.context}
-																</span>
-															) : null}
-															{row.hasFailedReason &&
-															onClearFailedReason &&
-															workspace.active ? (
-																<Button
-																	type="button"
-																	variant="secondary"
-																	size="sm"
-																	className="shell-sidebar__process-clear-failed"
-																	aria-label={`Clear failed for ${row.label}`}
-																	onClick={(e) => {
-																		e.stopPropagation();
-																		onClearFailedReason(
-																			workspace.workspaceId,
-																			worktree.id,
-																			row.id,
-																		);
-																	}}
-																>
-																	Clear failed
-																</Button>
-															) : null}
-														</div>
-													))}
-													{summary && summary.overflowCount > 0 && (
-														<div className="shell-sidebar__process shell-sidebar__process--overflow">
-															{summary.overflowCount} more shell
-															{summary.overflowCount === 1 ? "" : "s"}
-														</div>
-													)}
+													{(() => {
+														const expanded =
+															expandedProcessWorktreeIds?.includes(worktree.id) ??
+															false;
+														const allRows = summary?.rows ?? [];
+														const top =
+															summary?.topRow ?? allRows[0] ?? null;
+														// Collapsing only saves vertical space at 3+ shells:
+														// with 2, a top row + a toggle occupies the same two
+														// lines as showing both. Count total shells (visible
+														// rows + any the summary already dropped).
+														const totalShells =
+															allRows.length +
+															(summary?.overflowCount ?? 0);
+														const collapsible = totalShells > 2;
+														const visibleRows =
+															expanded || !collapsible
+																? allRows
+																: top
+																	? [top]
+																	: allRows.slice(0, 1);
+														const hiddenCount =
+															(summary?.overflowCount ?? 0) +
+															Math.max(0, allRows.length - visibleRows.length);
+														return (
+															<>
+																{visibleRows.map((row) => (
+																	<div
+																		key={row.id}
+																		className="shell-sidebar__process"
+																	>
+																		<span
+																			data-testid="process-state-indicator"
+																			className="shell-sidebar__process-indicator"
+																			data-state={row.state}
+																		/>
+																		{row.provider && (
+																			<span
+																				className="shell-sidebar__provider-badge"
+																				data-provider={row.provider}
+																			>
+																				{row.provider}
+																			</span>
+																		)}
+																		<span
+																			className="shell-sidebar__process-label"
+																			title={row.label}
+																		>
+																			{row.label}
+																		</span>
+																		{row.context ? (
+																			<span
+																				className="shell-sidebar__process-context"
+																				title={row.context}
+																			>
+																				{row.context}
+																			</span>
+																		) : null}
+																		{row.hasFailedReason &&
+																		onClearFailedReason &&
+																		workspace.active ? (
+																			<Button
+																				type="button"
+																				variant="secondary"
+																				size="sm"
+																				className="shell-sidebar__process-clear-failed"
+																				aria-label={`Clear failed for ${row.label}`}
+																				onClick={(e) => {
+																					e.stopPropagation();
+																					onClearFailedReason(
+																						workspace.workspaceId,
+																						worktree.id,
+																						row.id,
+																					);
+																				}}
+																			>
+																				Clear failed
+																			</Button>
+																		) : null}
+																	</div>
+																))}
+																{collapsible && !expanded && hiddenCount > 0 && (
+																	<button
+																		type="button"
+																		className="shell-sidebar__process shell-sidebar__process--more"
+																		onClick={(e) => {
+																			e.stopPropagation();
+																			onToggleProcessExpanded?.(worktree.id);
+																		}}
+																	>
+																		{hiddenCount} more ›
+																	</button>
+																)}
+																{collapsible && expanded && (
+																	<button
+																		type="button"
+																		className="shell-sidebar__process shell-sidebar__process--more"
+																		onClick={(e) => {
+																			e.stopPropagation();
+																			onToggleProcessExpanded?.(worktree.id);
+																		}}
+																	>
+																		Show less ‹
+																	</button>
+																)}
+															</>
+														);
+													})()}
 												</div>
 											) : null;
 

@@ -800,6 +800,66 @@ test.describe.serial("session attention v2", () => {
 	});
 
 	// -------------------------------------------------------------------------
+	// Test 13: workflow-done (MCP ready) clears actionRequired; waiting is kept
+	// -------------------------------------------------------------------------
+	test("workflow done (ready) resolves to non-actionRequired; waiting keeps actionRequired", async () => {
+		test.setTimeout(120_000);
+
+		const nav = page.getByRole("navigation", { name: "Worktree sessions" });
+
+		// Navigate away from main so its attention is not suppressed by being
+		// the active selected worktree (the reducer skips accumulation when viewed).
+		await nav.getByRole("button", { name: /feature-a/i }).click();
+
+		const client = await connectMcpClient();
+		try {
+			// Part 1 (inverse): report `waiting` → main nav button should be actionRequired.
+			const bridgeReady = await reportSessionStatusUntilBridgeReady(client, {
+				worktreePath: testRepo.repoPath,
+				state: "waiting",
+				summary: "e2e test-13: waiting (inverse check)",
+				nextAction: null,
+			});
+
+			if (!bridgeReady) {
+				test.skip(
+					true,
+					"Agent attention bridge never became ready (renderer_not_ready) " +
+						"— same Playwright+Electron preload limitation as Test 5",
+				);
+				return;
+			}
+
+			await expect(nav.getByRole("button", { name: /main/i })).toHaveAttribute(
+				"data-attention",
+				"actionRequired",
+				{ timeout: 10_000 },
+			);
+
+			// Part 2: report `ready` (simulating workflow done) → main nav button
+			// must leave actionRequired (maps to "activity", never "actionRequired").
+			await callReportSessionStatus(client, {
+				worktreePath: testRepo.repoPath,
+				state: "ready",
+				summary: "e2e test-13: workflow done — ready",
+				nextAction: null,
+			});
+
+			await expect
+				.poll(
+					async () =>
+						nav
+							.getByRole("button", { name: /main/i })
+							.getAttribute("data-attention"),
+					{ timeout: 15_000, intervals: [500, 1_000] },
+				)
+				.not.toBe("actionRequired");
+		} finally {
+			await client.close();
+		}
+	});
+
+	// -------------------------------------------------------------------------
 	// Test 12: an MCP non-failed push clears a stale terminal-classified failed
 	// -------------------------------------------------------------------------
 	test("MCP ready clears stale terminal failed in sidebar", async () => {

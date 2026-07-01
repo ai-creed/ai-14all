@@ -34,6 +34,13 @@ export type WorktreeSession = {
 	processSessionIds: string[];
 	attentionState: ProcessAttentionState;
 	agentAttentionReasons: AgentAttentionReasonsBySource;
+	/**
+	 * Timestamp of the last terminal event (agent/workflow `ready` or process
+	 * exit). Session-level `waiting`/`failed` reasons reported at or before this
+	 * are retired by `buildWorktreeAttentionDisplay`, mirroring
+	 * `ProcessSession.agentAttentionClearedAt`.
+	 */
+	agentAttentionClearedAt: number | null;
 	terminalLayoutId: LayoutId;
 	slotProcessIds: (string | null)[];
 	reviewSidebarWidth: number;

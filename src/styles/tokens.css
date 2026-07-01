@@ -47,6 +47,7 @@
 	--info: oklch(0.72 0.13 235);
 	--success: oklch(0.72 0.15 155);
 	--danger: var(--destructive);
+	--ready: oklch(0.72 0.10 220);
 	--accent: var(--primary);
 
 	--radius-sm: max(0px, calc(var(--radius) - 4px));
@@ -110,6 +111,7 @@
 	--warning: oklch(0.43 0.14 60);
 	/* AAA: darker green for the reviewed marker on the flat-white surface. */
 	--success: oklch(0.52 0.15 155);
+	--ready: oklch(0.55 0.11 230);
 }
 
 /* ---- warm theme: existing palette via shadcn token names ---- */
@@ -137,6 +139,7 @@
 	--warning: #dda85e;
 	--success: oklch(0.74 0.14 150);
 	--danger: #d97058;
+	--ready: #4f9d8f;
 	/* warm did not define --info -> inherited dark's blue. Pinned explicitly so
 	 * a future :root edit cannot silently change it (passes at 6.95:1). */
 	--info: oklch(0.72 0.13 235);
@@ -170,6 +173,7 @@
 	--warning: oklch(0.828 0.122 75);
 	--info: oklch(0.72 0.13 235);
 	--success: oklch(0.74 0.13 165);
+	--ready: oklch(0.75 0.10 200);
 	--border: oklch(0.34 0.015 240);
 	--input: oklch(0.26 0.015 240);
 	--ring: var(--primary);
