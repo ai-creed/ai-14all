@@ -4410,6 +4410,13 @@ select {
 	color: #69c06a;
 	background: color-mix(in srgb, #69c06a 12%, transparent);
 }
+/* A done workflow adopts the quiet "ready" tier (D4): this combined-specificity
+   selector (0,3,0) overrides the equal-specificity data-status="done" tint above,
+   so the done badge shows no alarming green pill — only the quiet --ready dot. */
+.workflow-row__status[data-status="done"][data-tier="ready"] {
+	color: var(--text-secondary);
+	background: none;
+}
 .workflow-row__status[data-status="paused"],
 .workflow-row__status[data-status="canceled"] {
 	color: var(--text-muted);

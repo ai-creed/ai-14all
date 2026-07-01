@@ -29,6 +29,7 @@ function sessionWith(
 		agentAttentionReasons: {
 			mcp: { state, source: "mcp", summary, nextAction: null, reportedAt: 1 },
 		},
+		agentAttentionClearedAt: null,
 		terminalLayoutId: "1",
 		slotProcessIds: [null],
 		reviewSidebarWidth: 320,
@@ -68,6 +69,7 @@ function makeWorktreeSession(over: {
 		processSessionIds: [],
 		attentionState: "idle",
 		agentAttentionReasons: {},
+		agentAttentionClearedAt: null,
 		terminalLayoutId: "1",
 		slotProcessIds: [null],
 		reviewSidebarWidth: 320,
