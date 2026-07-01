@@ -93,7 +93,7 @@ export function ChangesList({
 									data-selected={String(isOpen)}
 									onClick={() => onSelect(change.path)}
 								>
-									<span>{change.path}</span>
+									<span className="shell-list__item-name">{change.path}</span>
 									{openCommentCounts?.[change.path] ? (
 										<span
 											className="shell-review-comment-badge"

@@ -39,4 +39,12 @@ describe("row viewed toggle layout", () => {
 			rule(".shell-list__item-row--has-toggle .shell-list__item"),
 		).toMatch(/padding-right:/);
 	});
+
+	it("truncates long file names with an ellipsis so the row never overflows", () => {
+		const r = rule(".shell-list__item-name");
+		expect(r).toMatch(/overflow:\s*hidden/);
+		expect(r).toMatch(/text-overflow:\s*ellipsis/);
+		expect(r).toMatch(/white-space:\s*nowrap/);
+		expect(r).toMatch(/min-width:\s*0/);
+	});
 });

@@ -1856,6 +1856,17 @@ select {
 	padding-right: 100px;
 }
 
+/* Truncate long file names so a name with no break points can't force the row
+   wider than the panel and push the floating "Viewed" chip (or the status
+   badge) out of view. */
+.shell-list__item-name {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .shell-review-row-viewed {
 	position: absolute;
 	top: 8px;
