@@ -159,53 +159,97 @@ const CLI_ORDER: Array<keyof AgentCliProbes> = [
 	"antigravity",
 ];
 
+const AGENT_CLIS_COLLAPSED_KEY = "ai14all.pluginsAgentClisCollapsed";
+
+function readAgentClisCollapsed(): boolean {
+	try {
+		const raw = localStorage.getItem(AGENT_CLIS_COLLAPSED_KEY);
+		return raw === null ? true : raw === "true";
+	} catch {
+		return true;
+	}
+}
+
+function writeAgentClisCollapsed(collapsed: boolean): void {
+	try {
+		localStorage.setItem(AGENT_CLIS_COLLAPSED_KEY, String(collapsed));
+	} catch {
+		/* storage unavailable (e.g. private mode) — keep in-memory state */
+	}
+}
+
 function AgentClisSection({
 	probes,
 }: {
 	probes: AgentCliProbes | null;
 }): React.ReactElement {
+	const [collapsed, setCollapsed] = useState<boolean>(readAgentClisCollapsed);
+	const foundCount =
+		probes === null
+			? 0
+			: CLI_ORDER.filter((name) => probes[name].kind === "found").length;
+	const summary =
+		probes === null
+			? "Agent CLIs — checking…"
+			: `Agent CLIs — ${foundCount} of ${CLI_ORDER.length} found`;
+	const toggle = () => {
+		setCollapsed((prev) => {
+			const next = !prev;
+			writeAgentClisCollapsed(next);
+			return next;
+		});
+	};
 	return (
 		<section className="plugins-panel__agent-clis">
-			<h3 className="plugins-panel__section-title">Agent CLIs</h3>
-			{probes === null ? (
-				<p className="plugins-panel__agent-cli-line plugins-panel__agent-cli-line--pending">
-					Checking…
-				</p>
-			) : (
-				CLI_ORDER.map((name) => {
-					const probe = probes[name];
-					if (probe.kind === "found") {
+			<button
+				type="button"
+				className="plugins-panel__agent-clis-toggle"
+				data-testid="agent-clis-toggle"
+				aria-expanded={!collapsed}
+				onClick={toggle}
+			>
+				<span className="plugins-panel__agent-clis-caret" aria-hidden="true">
+					{collapsed ? "▸" : "▾"}
+				</span>
+				<span className="plugins-panel__section-title">{summary}</span>
+			</button>
+			{!collapsed && probes !== null && (
+				<div className="plugins-panel__agent-clis-body">
+					{CLI_ORDER.map((name) => {
+						const probe = probes[name];
+						if (probe.kind === "found") {
+							return (
+								<p
+									key={name}
+									className="plugins-panel__agent-cli-line"
+									data-cli={name}
+									data-found="true"
+								>
+									<span className="plugins-panel__agent-cli-name">{name}</span>{" "}
+									— found{" "}
+									{probe.version ? `v${probe.version}` : "(version unknown)"}{" "}
+									<span className="plugins-panel__agent-cli-path">
+										({probe.path})
+									</span>
+								</p>
+							);
+						}
 						return (
 							<p
 								key={name}
 								className="plugins-panel__agent-cli-line"
 								data-cli={name}
-								data-found="true"
+								data-found="false"
 							>
 								<span className="plugins-panel__agent-cli-name">{name}</span> —
-								found{" "}
-								{probe.version ? `v${probe.version}` : "(version unknown)"}{" "}
-								<span className="plugins-panel__agent-cli-path">
-									({probe.path})
+								not found{" "}
+								<span className="plugins-panel__agent-cli-hint">
+									{CLI_INSTALL_HINTS[name]}
 								</span>
 							</p>
 						);
-					}
-					return (
-						<p
-							key={name}
-							className="plugins-panel__agent-cli-line"
-							data-cli={name}
-							data-found="false"
-						>
-							<span className="plugins-panel__agent-cli-name">{name}</span> —
-							not found{" "}
-							<span className="plugins-panel__agent-cli-hint">
-								{CLI_INSTALL_HINTS[name]}
-							</span>
-						</p>
-					);
-				})
+					})}
+				</div>
 			)}
 		</section>
 	);
