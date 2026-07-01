@@ -3,7 +3,19 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<link rel="icon" type="image/svg+xml" href="/assets/ai-14all-icon.svg" />
+		<!-- Brand mark favicon: dark-ink on light browser chrome, light-ink on dark. -->
+		<link
+			rel="icon"
+			type="image/png"
+			href="/assets/ai-14all-mark-dark.png"
+			media="(prefers-color-scheme: light)"
+		/>
+		<link
+			rel="icon"
+			type="image/png"
+			href="/assets/ai-14all-mark-light.png"
+			media="(prefers-color-scheme: dark)"
+		/>
 		<title>ai-14all</title>
 		<style>
 			/*
@@ -35,6 +47,14 @@
 				align-items: center;
 				gap: 14px;
 				width: 280px;
+			}
+			/* Brand mark — light-ink variant for the dark splash (swapped below
+			   for light mode). */
+			.app-splash__logo {
+				width: 72px;
+				height: 72px;
+				background: center / contain no-repeat
+					url("/assets/ai-14all-mark-light.png");
 			}
 			.app-splash__title {
 				font-size: 13px;
@@ -83,6 +103,9 @@
 				.app-splash__title {
 					color: #7a8a9a;
 				}
+				.app-splash__logo {
+					background-image: url("/assets/ai-14all-mark-dark.png");
+				}
 				.app-splash__bar {
 					background: #e2e6eb;
 				}
@@ -101,6 +124,7 @@
 		<div id="root">
 			<div class="app-splash" role="status" aria-live="polite">
 				<div class="app-splash__inner">
+					<div class="app-splash__logo" aria-hidden="true"></div>
 					<div class="app-splash__title">Initializing, ready soon</div>
 					<div class="app-splash__bar">
 						<div class="app-splash__bar-fill"></div>
