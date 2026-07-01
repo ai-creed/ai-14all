@@ -508,4 +508,47 @@ describe("SessionSidebar — ready tier dot", () => {
 		});
 		expect(screen.queryByTestId("row-ready-dot")).toBeNull();
 	});
+
+	it("renders the ready status inline on the header line with the 'ready:' prefix stripped", () => {
+		const { container } = renderSidebar({
+			workspaces: [
+				makeWorkspace({
+					attentionByWorktreeId: { wt1: "ready" },
+					attentionContextByWorktreeId: { wt1: "ready: workflow done" },
+				}),
+			],
+		});
+		const head = container.querySelector(".shell-sidebar__item-head");
+		expect(head).not.toBeNull();
+		// Dot + status text share the header line with the title.
+		expect(head?.querySelector('[data-testid="row-ready-dot"]')).not.toBeNull();
+		expect(head).toHaveTextContent("workflow done");
+		// The dot already means "ready" — the redundant prefix is dropped.
+		expect(head?.textContent).not.toContain("ready:");
+		// The status is NOT left stranded in the processes block below.
+		const processes = container.querySelector(".shell-sidebar__processes");
+		expect(
+			processes?.querySelector(".shell-sidebar__process--session") ?? null,
+		).toBeNull();
+	});
+
+	it("keeps a non-ready session context below the header (unchanged)", () => {
+		const { container } = renderSidebar({
+			workspaces: [
+				makeWorkspace({
+					attentionByWorktreeId: { wt1: "activity" },
+					attentionContextByWorktreeId: { wt1: "active: working" },
+				}),
+			],
+		});
+		const processes = container.querySelector(".shell-sidebar__processes");
+		expect(
+			processes?.querySelector(".shell-sidebar__process--session"),
+		).not.toBeNull();
+		expect(processes).toHaveTextContent("active: working");
+		// Not duplicated on the header line, and no ready dot for a non-ready row.
+		const head = container.querySelector(".shell-sidebar__item-head");
+		expect(head?.textContent).not.toContain("active: working");
+		expect(screen.queryByTestId("row-ready-dot")).toBeNull();
+	});
 });

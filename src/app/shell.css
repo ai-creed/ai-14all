@@ -876,6 +876,42 @@ select {
 }
 
 /*
+ * Header line: the title and the inline ready status share one horizontal row.
+ * This replaces the prior flex-column stacking that stranded the ready dot and
+ * "workflow done" status on their own lines below the title. The title flexes
+ * and truncates first; the ready status keeps its natural width and trails to
+ * the right edge of the row.
+ */
+.shell-sidebar__item-head {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	align-self: stretch;
+	min-width: 0;
+}
+
+.shell-sidebar__item-head > strong {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+/* The ready unit: quiet dot + summary, read as "● workflow done". */
+.shell-sidebar__row-ready {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	flex: 0 1 auto;
+	min-width: 0;
+}
+
+/* The moved session status shrinks (ellipsis via its inner context span) rather
+ * than shoving the title off-screen. */
+.shell-sidebar__item-status {
+	flex: 0 1 auto;
+	min-width: 0;
+}
+
+/*
  * Worktree row attention: rotating conic-gradient ring + subtle bg tint.
  * Drawn by a ::before pseudo so the row's own border (and selected accent)
  * stays intact underneath. Mask-composite: exclude carves the inside out
@@ -985,15 +1021,15 @@ select {
 	}
 }
 
-/* Row ready tier: quiet dot only — no ring, no tint, no title recolor (D4). */
+/* Row ready tier: quiet dot only — no ring, no tint, no title recolor (D4).
+ * Lives inside the flex `.shell-sidebar__row` unit on the header line, so no
+ * inline-flow margins/alignment are needed. */
 .shell-sidebar__row-ready-dot {
-	display: inline-block;
 	width: 6px;
 	height: 6px;
-	margin-left: var(--space-2);
 	border-radius: 50%;
 	background: var(--ready);
-	vertical-align: middle;
+	flex: 0 0 auto;
 }
 /* Collapsed-row rollup dot (Task 8) */
 .shell-sidebar__workspace-rollup-dot {

@@ -286,12 +286,27 @@ export function SessionSidebar({
 											renaming?.workspaceId === workspace.workspaceId &&
 											renaming?.worktreeId === worktree.id;
 
+										const attentionTier =
+											workspace.attentionByWorktreeId[worktree.id] ?? "idle";
+										const isReady = attentionTier === "ready";
+										// Session-source attention summary (e.g. "ready: workflow done"),
+										// present only when the render path picked the session over its
+										// processes.
+										const sessionAttentionContext =
+											workspace.attentionContextByWorktreeId?.[worktree.id];
+										// A ready row shows this summary inline on the header line next to
+										// the title. The quiet dot already means "ready", so the redundant
+										// "ready: " prefix is stripped, leaving just the summary.
+										const readyInlineStatus =
+											isReady && sessionAttentionContext
+												? sessionAttentionContext.replace(/^ready:\s*/i, "")
+												: null;
+
 										// Mirrored on the wrapper so CSS can frame the title button + process
 										// list as a single card; tests still read the attributes off the button.
 										const rowAttentionProps = {
 											"data-selected": String(selected),
-											"data-attention":
-												workspace.attentionByWorktreeId[worktree.id] ?? "idle",
+											"data-attention": attentionTier,
 										};
 
 										const rowCommonProps = {
@@ -329,26 +344,40 @@ export function SessionSidebar({
 											</span>
 										) : (
 											<>
-												<strong
-													onDoubleClick={(e) => {
-														if (!workspace.active) return;
-														e.stopPropagation();
-														startRename(
-															workspace.workspaceId,
-															worktree.id,
-															rawTitle,
-														);
-													}}
-												>
-													{shownTitle}
-												</strong>
-												{(workspace.attentionByWorktreeId[worktree.id] ?? "idle") === "ready" && (
-													<span
-														className="shell-sidebar__row-ready-dot"
-														data-testid="row-ready-dot"
-														aria-hidden="true"
-													/>
-												)}
+												<div className="shell-sidebar__item-head">
+													<strong
+														onDoubleClick={(e) => {
+															if (!workspace.active) return;
+															e.stopPropagation();
+															startRename(
+																workspace.workspaceId,
+																worktree.id,
+																rawTitle,
+															);
+														}}
+													>
+														{shownTitle}
+													</strong>
+													{isReady && (
+														<span className="shell-sidebar__row-ready">
+															<span
+																className="shell-sidebar__row-ready-dot"
+																data-testid="row-ready-dot"
+																aria-hidden="true"
+															/>
+															{readyInlineStatus && (
+																<span
+																	className="shell-sidebar__process shell-sidebar__process--session shell-sidebar__item-status"
+																	title={sessionAttentionContext}
+																>
+																	<span className="shell-sidebar__process-context">
+																		{readyInlineStatus}
+																	</span>
+																</span>
+															)}
+														</span>
+													)}
+												</div>
 												{hasCustomTitle && (
 													<div className="shell-sidebar__worktree-label">
 														{worktree.label}
@@ -371,14 +400,17 @@ export function SessionSidebar({
 											) : null;
 
 										// Process list rendered outside the row button to avoid nested <button> elements.
-										const sessionAttentionContext =
-											workspace.attentionContextByWorktreeId?.[worktree.id];
+										// A ready row shows its session status inline on the header line
+										// (see shell-sidebar__item-head); every other session-source status
+										// stays here, below the header.
+										const showSessionContextBelow =
+											!!sessionAttentionContext && !isReady;
 										const processList =
 											!isRenamingThisRow &&
 											!collapsed &&
-											(summary || sessionAttentionContext) ? (
+											(summary || showSessionContextBelow) ? (
 												<div className="shell-sidebar__processes">
-													{sessionAttentionContext ? (
+													{showSessionContextBelow ? (
 														<div className="shell-sidebar__process shell-sidebar__process--session">
 															<span
 																className="shell-sidebar__process-context"
