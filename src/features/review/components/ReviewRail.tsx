@@ -47,6 +47,8 @@ type Props = {
 	installCtaVisible: boolean;
 	/** Opens the agent install modal from the in-pane install nudge. */
 	onOpenInstall: () => void;
+	/** Toggles "viewed" for the currently-open file (Changes/Commits open row). */
+	onToggleViewed?: (path: string) => void;
 	/** Slot rendered above the active list — Phase 2 fills this with the progress header. */
 	header?: React.ReactNode;
 };
@@ -86,6 +88,7 @@ export function ReviewRail(props: Props): React.ReactElement {
 		onCloseReview,
 		installCtaVisible,
 		onOpenInstall,
+		onToggleViewed,
 		header,
 	} = props;
 
@@ -165,6 +168,7 @@ export function ReviewRail(props: Props): React.ReactElement {
 								selectedCommitOpenCommentCount={selectedCommitOpenCommentCount}
 								reviewedPaths={commitReviewedPaths}
 								openCommentCounts={commitOpenCommentCounts}
+								onToggleViewed={onToggleViewed}
 							/>
 						</>
 					) : activeSession?.reviewMode === "files" ? (
@@ -237,6 +241,7 @@ export function ReviewRail(props: Props): React.ReactElement {
 							gitSummaryMessage={gitSummaryMessage}
 							openCommentCounts={openCommentCounts}
 							reviewedPaths={reviewedPaths}
+							onToggleViewed={onToggleViewed}
 						/>
 					)}
 				</div>
