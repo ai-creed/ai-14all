@@ -98,3 +98,17 @@ describe("AgentInstallModal — Locate CLI", () => {
 		expect(await screen.findByText(/Path does not exist/)).toBeTruthy();
 	});
 });
+
+describe("AgentInstallModal — copy", () => {
+	it("renders the reworded title and technical secondary line", () => {
+		render(<AgentInstallModal open onClose={() => {}} status={makeStatus()} />);
+		expect(
+			screen.getByText("Connect your coding agents to ai-14all"),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				/Installs the ai-14all review skill and registers its MCP server/i,
+			),
+		).toBeInTheDocument();
+	});
+});

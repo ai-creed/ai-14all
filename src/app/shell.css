@@ -537,6 +537,12 @@ select {
 	color: var(--text-primary);
 }
 
+.shell-install-modal__subtitle {
+	margin: 0 0 var(--space-3);
+	font-size: 0.75rem;
+	color: var(--text-secondary);
+}
+
 .shell-label {
 	line-height: 1.2;
 	letter-spacing: 0.08em;
