@@ -1861,6 +1861,42 @@ select {
 	gap: var(--space-3);
 }
 
+.shell-list__item-row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.shell-list__item-row .shell-list__item {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.shell-review-row-viewed {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	flex-shrink: 0;
+	padding: 2px 6px;
+	font-size: 11px;
+	line-height: 1.5;
+	color: var(--text-secondary);
+	background: var(--muted);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.shell-review-row-viewed:hover {
+	border-color: var(--muted-foreground);
+}
+
+.shell-review-row-viewed[data-reviewed="true"] {
+	color: var(--success);
+	border-color: var(--success);
+}
+
 .shell-toolbar-menu {
 	padding: var(--space-2);
 	background: var(--panel-bg);
