@@ -1839,6 +1839,7 @@ select {
 }
 
 .shell-list__item-row {
+	position: relative;
 	display: flex;
 	align-items: center;
 	gap: var(--space-2);
@@ -1849,11 +1850,20 @@ select {
 	min-width: 0;
 }
 
+/* Reserve top-right space on the open row so the absolutely-positioned "Viewed"
+   chip never overlaps the filename or the status badge. */
+.shell-list__item-row--has-toggle .shell-list__item {
+	padding-right: 100px;
+}
+
 .shell-review-row-viewed {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	z-index: 1;
 	display: inline-flex;
 	align-items: center;
 	gap: 4px;
-	flex-shrink: 0;
 	padding: 2px 6px;
 	font-size: 11px;
 	line-height: 1.5;

@@ -155,7 +155,11 @@ export function CommitList({
 										reviewedPaths?.includes(file.path) ?? false;
 									const row = (
 										<div
-											className="shell-list__item-row"
+											className={
+												isOpen && onToggleViewed
+													? "shell-list__item-row shell-list__item-row--has-toggle"
+													: "shell-list__item-row"
+											}
 											data-selected={String(isOpen)}
 										>
 											<button
