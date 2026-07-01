@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.0] – 2026-07-01
+
+The 1.0 milestone: ai-14all graduates from the 0.x line to its first major version. This release is dominated by a workspace-sidebar rework, a light/dark/warm theme overhaul, and the adoption of the aicreed brand mark.
+
+### Added
+
+- **A redesigned workspace sidebar built around a git-tree rail.** Repositories are now collapsible groups with a git-branch glyph and a persisted expand/collapse state, and worktrees and workspaces read as a clear type ladder. A slim mini-rail keeps the tree legible when the panel is collapsed, collapsed workspace rows show a session count and an attention dot, and the global footer gains a palette theme switcher.
+- **A three-tier session-attention model in the sidebar.** Sessions surface as a calm active ring, a dot-only "ready" tier, or an action-required tier, with stale and cleared running-process reasons retired so the ring lights up only when something genuinely needs you. Quiet sessions show a relative quiet-age ("quiet 3m"), and collapsed workspace rows roll their sessions' attention up into a single indicator.
+- **A slimmer workflow lens on the rail.** Each workflow card shows its type and artifact over a phase line, with status as an inline dot and a "ready" badge, nested on the rail — dropping the older done badge and heavier chrome.
+- **Per-worktree process-list collapse.** The process list collapses to its top row with an inline expand, and the expanded/collapsed choice persists per worktree.
+- **The aicreed brand mark is now the app logo,** with light and dark variants, alongside Nerd Font git-branch and palette glyphs used across the chrome.
+
+### Changed
+
+- **A full light / dark / warm theme overhaul.** All three themes now render with square corners (`--radius: 0`), solid neutral pane-separator borders, and Symbol Nerd Font icons, porting the TUI theme's traits across the board. The light theme was pushed from WCAG AA to AAA legibility.
+- **The review rail holds up in narrow layouts.** The rail's file column is sized responsively (`minmax`) so it can't overflow a cramped review area, long file names ellipsize instead of pushing controls out of view, and the per-row "Viewed" toggle now floats inline at each file's top-right corner — retiring the separate header mark-viewed control.
+- **Plugin dialogs lead with benefits.** The install dialog opens with a benefit-first description and per-plugin pitches, the Agent CLIs list is collapsible with a found-count summary, and the incomplete-install banner and its installer copy were rewritten in plain language.
+- **Usage analytics moved to per-event ezio timestamps.** The ezio driver now stamps each event from its own per-line timestamp (NaN-safe) rather than the file mtime, the month scope is a rolling 31-day window, and the month popover chart carries date labels.
+
+### Fixed
+
+- **Review file rows no longer overflow their grid.** Rows can shrink in the commit-files grid so names ellipsize, and the rail header slot maps its `1fr` track to the scroll list, keeping the layout stable.
+- **Sidebar layout hardening across themes.** Collapsed selection markers stay centered and single-boxed in every theme, worktree titles and branches ellipsis-clamp, header separators no longer bleed, and chrome icons recede at rest so the no-background hover highlight reads clearly.
+
 ## [0.11.2] – 2026-06-30
 
 ### Added
