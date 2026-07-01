@@ -111,7 +111,7 @@ export function ReviewRail(props: Props): React.ReactElement {
 				</TabsList>
 			</div>
 
-			{header}
+			<div className="shell-review-rail__toolbar">{header}</div>
 
 			<ScrollArea className="shell-review-rail__scroll">
 				<div className="shell-rail__viewport">
