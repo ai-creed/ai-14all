@@ -23,7 +23,11 @@ function provider(overrides: Partial<Provider>): Provider {
 }
 
 const none: Provider[] = [
-	provider({ id: "claude-code", displayName: "Claude Code", cliAvailable: false }),
+	provider({
+		id: "claude-code",
+		displayName: "Claude Code",
+		cliAvailable: false,
+	}),
 ];
 const allInstalled: Provider[] = [
 	provider({ id: "codex", installed: true }),
@@ -31,11 +35,20 @@ const allInstalled: Provider[] = [
 ];
 const oneGap: Provider[] = [
 	provider({ id: "codex", cliAvailable: true, installed: false }),
-	provider({ id: "claude-code", displayName: "Claude Code", cliAvailable: false }),
+	provider({
+		id: "claude-code",
+		displayName: "Claude Code",
+		cliAvailable: false,
+	}),
 ];
 const twoGaps: Provider[] = [
 	provider({ id: "codex", cliAvailable: true, installed: false }),
-	provider({ id: "claude-code", displayName: "Claude Code", cliAvailable: true, installed: false }),
+	provider({
+		id: "claude-code",
+		displayName: "Claude Code",
+		cliAvailable: true,
+		installed: false,
+	}),
 ];
 
 describe("install-gap pure helpers", () => {

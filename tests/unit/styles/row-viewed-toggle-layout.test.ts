@@ -4,7 +4,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const css = readFileSync(
-	resolve(dirname(fileURLToPath(import.meta.url)), "../../../src/app/shell.css"),
+	resolve(
+		dirname(fileURLToPath(import.meta.url)),
+		"../../../src/app/shell.css",
+	),
 	"utf8",
 );
 
@@ -35,9 +38,9 @@ describe("row viewed toggle layout", () => {
 	});
 
 	it("reserves right-hand space on the open row so the chip never overlaps content", () => {
-		expect(
-			rule(".shell-list__item-row--has-toggle .shell-list__item"),
-		).toMatch(/padding-right:/);
+		expect(rule(".shell-list__item-row--has-toggle .shell-list__item")).toMatch(
+			/padding-right:/,
+		);
 	});
 
 	it("truncates long file names with an ellipsis so the row never overflows", () => {

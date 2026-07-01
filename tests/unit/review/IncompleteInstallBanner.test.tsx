@@ -43,13 +43,13 @@ describe("IncompleteInstallBanner", () => {
 
 	it("shows singular copy naming the gap provider", () => {
 		render(<IncompleteInstallBanner providers={oneGap} onInstall={() => {}} />);
-		expect(
-			screen.getByText(/Connect Codex to ai-14all/i),
-		).toBeInTheDocument();
+		expect(screen.getByText(/Connect Codex to ai-14all/i)).toBeInTheDocument();
 	});
 
 	it("shows plural copy with the count", () => {
-		render(<IncompleteInstallBanner providers={twoGaps} onInstall={() => {}} />);
+		render(
+			<IncompleteInstallBanner providers={twoGaps} onInstall={() => {}} />,
+		);
 		expect(
 			screen.getByText(/2 agents aren't connected to ai-14all/i),
 		).toBeInTheDocument();
@@ -57,7 +57,9 @@ describe("IncompleteInstallBanner", () => {
 
 	it("fires onInstall from the Install button", () => {
 		const onInstall = vi.fn();
-		render(<IncompleteInstallBanner providers={oneGap} onInstall={onInstall} />);
+		render(
+			<IncompleteInstallBanner providers={oneGap} onInstall={onInstall} />,
+		);
 		fireEvent.click(screen.getByRole("button", { name: /install/i }));
 		expect(onInstall).toHaveBeenCalledTimes(1);
 	});
@@ -67,7 +69,9 @@ describe("IncompleteInstallBanner", () => {
 			<IncompleteInstallBanner providers={oneGap} onInstall={() => {}} />,
 		);
 		fireEvent.click(screen.getByRole("button", { name: /dismiss/i }));
-		rerender(<IncompleteInstallBanner providers={oneGap} onInstall={() => {}} />);
+		rerender(
+			<IncompleteInstallBanner providers={oneGap} onInstall={() => {}} />,
+		);
 		expect(
 			screen.queryByTestId("incomplete-install-banner"),
 		).not.toBeInTheDocument();

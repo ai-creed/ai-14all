@@ -17,10 +17,9 @@ const rail = readFileSync(railSrc, "utf8");
 
 // The base `.shell-review-rail { ... }` rule (not __header / __scroll / __toolbar),
 // comments stripped so we assert on real declarations.
-const railRule = (/\.shell-review-rail\s*\{[^}]*\}/.exec(css)?.[0] ?? "").replace(
-	/\/\*[\s\S]*?\*\//g,
-	"",
-);
+const railRule = (
+	/\.shell-review-rail\s*\{[^}]*\}/.exec(css)?.[0] ?? ""
+).replace(/\/\*[\s\S]*?\*\//g, "");
 
 /**
  * The review rail is a three-row grid (tabs / header-slot / scroll list). The
@@ -33,7 +32,9 @@ const railRule = (/\.shell-review-rail\s*\{[^}]*\}/.exec(css)?.[0] ?? "").replac
  */
 describe(".shell-review-rail grid", () => {
 	it("keeps the three-row template", () => {
-		expect(railRule).toMatch(/grid-template-rows:\s*auto\s+auto\s+minmax\(0,\s*1fr\)/);
+		expect(railRule).toMatch(
+			/grid-template-rows:\s*auto\s+auto\s+minmax\(0,\s*1fr\)/,
+		);
 	});
 
 	it("wraps the header slot in exactly one .shell-review-rail__toolbar", () => {

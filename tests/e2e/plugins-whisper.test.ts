@@ -431,7 +431,9 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 					status: "active",
 				},
 			],
-			daemons: [{ collab_id: "c1", last_heartbeat_at: new Date().toISOString() }],
+			daemons: [
+				{ collab_id: "c1", last_heartbeat_at: new Date().toISOString() },
+			],
 			workflows: [
 				{
 					workflow_id: "wf1",
@@ -500,9 +502,15 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 		stub.writeFixture({
 			schemaVersion: 6,
 			collabs: [
-				{ collab_id: "c1", workspace_root: repo.worktreePath, status: "active" },
+				{
+					collab_id: "c1",
+					workspace_root: repo.worktreePath,
+					status: "active",
+				},
 			],
-			daemons: [{ collab_id: "c1", last_heartbeat_at: new Date().toISOString() }],
+			daemons: [
+				{ collab_id: "c1", last_heartbeat_at: new Date().toISOString() },
+			],
 			workflows: [
 				{
 					workflow_id: "wf1",
@@ -534,9 +542,13 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 			"halted",
 			{ timeout: 10_000 },
 		);
-		await expect(featureABtn).toHaveAttribute("data-attention", "actionRequired", {
-			timeout: 20_000,
-		});
+		await expect(featureABtn).toHaveAttribute(
+			"data-attention",
+			"actionRequired",
+			{
+				timeout: 20_000,
+			},
+		);
 	});
 
 	test("Configure opens a floating-shell popover and does not add a grid session", async () => {

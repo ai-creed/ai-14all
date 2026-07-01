@@ -1093,8 +1093,12 @@ select {
 	height: 6px;
 	border-radius: 50%;
 }
-.shell-sidebar__workspace-rollup-dot[data-tier="actionRequired"] { background: var(--danger); }
-.shell-sidebar__workspace-rollup-dot[data-tier="ready"] { background: var(--ready); }
+.shell-sidebar__workspace-rollup-dot[data-tier="actionRequired"] {
+	background: var(--danger);
+}
+.shell-sidebar__workspace-rollup-dot[data-tier="ready"] {
+	background: var(--ready);
+}
 .shell-sidebar__workspace-count {
 	font-size: var(--ws-fs-chip);
 	color: var(--text-secondary);
@@ -1722,7 +1726,6 @@ select {
 	background: var(--success);
 	transition: width 0.2s ease;
 }
-
 
 .shell-review-rail__header,
 .shell-review-tabs__list {

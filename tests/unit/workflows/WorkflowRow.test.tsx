@@ -39,7 +39,9 @@ describe("WorkflowRow", () => {
 		const { container } = render(
 			<WorkflowRow row={row} onOpenDetail={vi.fn()} />,
 		);
-		const artifactLine = container.querySelector(".workflow-row__artifact-line");
+		const artifactLine = container.querySelector(
+			".workflow-row__artifact-line",
+		);
 		expect(artifactLine).not.toBeNull();
 		expect(artifactLine?.textContent).toContain("SDD");
 		expect(artifactLine?.textContent).toContain("payments-api.md");
@@ -56,7 +58,9 @@ describe("WorkflowRow", () => {
 			<WorkflowRow row={row} onOpenDetail={vi.fn()} />,
 		);
 		expect(
-			container.querySelector(".workflow-row__status .workflow-row__status-dot"),
+			container.querySelector(
+				".workflow-row__status .workflow-row__status-dot",
+			),
 		).not.toBeNull();
 		// The raw status word is not rendered as visible text — only the dot.
 		expect(screen.queryByText("running")).not.toBeInTheDocument();
@@ -100,7 +104,10 @@ describe("WorkflowRow", () => {
 
 	it("shows daemon-down state with a restart hint", () => {
 		render(
-			<WorkflowRow row={{ ...row, daemonAlive: false }} onOpenDetail={vi.fn()} />,
+			<WorkflowRow
+				row={{ ...row, daemonAlive: false }}
+				onOpenDetail={vi.fn()}
+			/>,
 		);
 		expect(screen.getByText(/daemon not running/i)).toBeInTheDocument();
 	});

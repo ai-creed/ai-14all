@@ -60,9 +60,7 @@ describe("IncompleteInstallBanner → install modal wiring", () => {
 		render(<Harness />);
 		// Modal closed → no "Close" buttons present (neither footer nor dialog ×).
 		// (Title-agnostic, so this holds regardless of the Task 4 copy reword.)
-		expect(
-			screen.queryAllByRole("button", { name: "Close" }),
-		).toHaveLength(0);
+		expect(screen.queryAllByRole("button", { name: "Close" })).toHaveLength(0);
 		// The banner's Install… is the only Install button while the modal is closed.
 		fireEvent.click(screen.getByRole("button", { name: /install/i }));
 		// The modal is now visible — at least one "Close" button is present

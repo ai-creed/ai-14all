@@ -1199,7 +1199,10 @@ export function workspaceReducer(
 		// ones are no-ops. Take the max so the timestamp never regresses.
 		const nextClearedAt =
 			replaced && action.reason.state === "ready"
-				? Math.max(session.agentAttentionClearedAt ?? 0, action.reason.reportedAt)
+				? Math.max(
+						session.agentAttentionClearedAt ?? 0,
+						action.reason.reportedAt,
+					)
 				: session.agentAttentionClearedAt;
 		// Task only updates when the push was accepted (`replaced`). A stale /
 		// out-of-order MCP push (older `reportedAt`) is rejected, so it must NOT

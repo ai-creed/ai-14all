@@ -76,8 +76,7 @@ export function ChangesList({
 				<div className="shell-list">
 					{changes.map((change) => {
 						const isOpen = selectedPath === change.path;
-						const isReviewed =
-							reviewedPaths?.includes(change.path) ?? false;
+						const isReviewed = reviewedPaths?.includes(change.path) ?? false;
 						const row = (
 							<div
 								className={

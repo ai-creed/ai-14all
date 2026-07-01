@@ -1988,7 +1988,8 @@ export function App() {
 						attentionContextByWorktreeId,
 						taskByWorktreeId,
 						collapsedSummary: {
-							sessionCount: Object.keys(ws.workspaceState.sessionsByWorktreeId).length,
+							sessionCount: Object.keys(ws.workspaceState.sessionsByWorktreeId)
+								.length,
 							attentionTier: rollupWorkspaceAttention(
 								Object.values(attentionByWorktreeId),
 							),

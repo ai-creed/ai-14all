@@ -479,7 +479,12 @@ describe("CommitList", () => {
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
-						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
 					],
 				}}
 				selectedCommitSha="abc"
@@ -513,7 +518,12 @@ describe("CommitList", () => {
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
-						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
 					],
 				}}
 				selectedCommitSha="abc"
@@ -548,7 +558,12 @@ describe("CommitList", () => {
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
-						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
 					],
 				}}
 				selectedCommitSha="abc"
@@ -583,7 +598,12 @@ describe("CommitList", () => {
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
-						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
 					],
 				}}
 				selectedCommitSha="abc"
@@ -616,7 +636,12 @@ describe("CommitList", () => {
 				history={{
 					mergeTargetRef: "origin/main",
 					entries: [
-						{ sha: "abc", shortSha: "abc", subject: "feature commit", isMergeTarget: false },
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
 					],
 				}}
 				selectedCommitSha="abc"

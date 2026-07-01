@@ -15,7 +15,9 @@ type RowSpec = {
 };
 
 function makeWorkspace(rows: RowSpec[]): SessionSidebarWorkspace;
-function makeWorkspace(overrides: Partial<SessionSidebarWorkspace>): SessionSidebarWorkspace;
+function makeWorkspace(
+	overrides: Partial<SessionSidebarWorkspace>,
+): SessionSidebarWorkspace;
 function makeWorkspace(
 	arg: RowSpec[] | Partial<SessionSidebarWorkspace> = [],
 ): SessionSidebarWorkspace {
@@ -51,7 +53,9 @@ function makeWorkspace(
 }
 
 function renderSidebar(
-	props: { workspaces: SessionSidebarWorkspace[] } & Partial<Parameters<typeof SessionSidebar>[0]>,
+	props: { workspaces: SessionSidebarWorkspace[] } & Partial<
+		Parameters<typeof SessionSidebar>[0]
+	>,
 ) {
 	return render(<SessionSidebar {...baseProps} {...props} />);
 }
@@ -266,9 +270,7 @@ describe("SessionSidebar — process list collapse/expand", () => {
 			/>,
 		);
 		expect(screen.getAllByTestId("process-state-indicator")).toHaveLength(1);
-		expect(
-			screen.getByRole("button", { name: /2 more/i }),
-		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /2 more/i })).toBeInTheDocument();
 	});
 
 	it("expands all processes when the worktree id is in expandedProcessWorktreeIds", () => {
@@ -498,7 +500,10 @@ describe("SessionSidebar — collapsed workspace rollup", () => {
 			collapsed: true,
 			workspaces: [
 				makeWorkspace({
-					collapsedSummary: { sessionCount: 3, attentionTier: "actionRequired" },
+					collapsedSummary: {
+						sessionCount: 3,
+						attentionTier: "actionRequired",
+					},
 				}),
 			],
 		});

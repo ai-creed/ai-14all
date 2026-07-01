@@ -14,7 +14,9 @@ describe("useExpandedProcesses", () => {
 		const { result } = renderHook(() => useExpandedProcesses());
 		act(() => result.current.toggle("wt-1"));
 		expect(result.current.expandedIds).toEqual(["wt-1"]);
-		expect(localStorage.getItem("ai14all.expandedProcessWorktrees")).toContain("wt-1");
+		expect(localStorage.getItem("ai14all.expandedProcessWorktrees")).toContain(
+			"wt-1",
+		);
 	});
 
 	it("toggles a worktree id off and removes from storage", () => {

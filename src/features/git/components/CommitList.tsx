@@ -168,7 +168,9 @@ export function CommitList({
 												data-selected={String(isOpen)}
 												onClick={() => onSelectCommitFile(file.path)}
 											>
-												<span className="shell-list__item-name">{file.path}</span>
+												<span className="shell-list__item-name">
+													{file.path}
+												</span>
 												{openCommentCounts?.[file.path] ? (
 													<span
 														className="shell-review-comment-badge"

@@ -47,7 +47,7 @@
 	--info: oklch(0.72 0.13 235);
 	--success: oklch(0.72 0.15 155);
 	--danger: var(--destructive);
-	--ready: oklch(0.72 0.10 220);
+	--ready: oklch(0.72 0.1 220);
 	--accent: var(--primary);
 
 	--radius-sm: max(0px, calc(var(--radius) - 4px));
@@ -173,7 +173,7 @@
 	--warning: oklch(0.828 0.122 75);
 	--info: oklch(0.72 0.13 235);
 	--success: oklch(0.74 0.13 165);
-	--ready: oklch(0.75 0.10 200);
+	--ready: oklch(0.75 0.1 200);
 	--border: oklch(0.34 0.015 240);
 	--input: oklch(0.26 0.015 240);
 	--ring: var(--primary);

@@ -575,7 +575,13 @@ const reason = (
 	source: AgentAttentionReason["source"],
 	reportedAt: number,
 	summary = "x",
-): AgentAttentionReason => ({ state, source, summary, nextAction: null, reportedAt });
+): AgentAttentionReason => ({
+	state,
+	source,
+	summary,
+	nextAction: null,
+	reportedAt,
+});
 
 const emptySummary = { rows: [], overflowCount: 0, topRow: null };
 // All reportedAt/now values below are relative to STALE_THRESHOLD_MS = 120_000ms.
@@ -584,10 +590,14 @@ import { rollupWorkspaceAttention } from "../../../src/features/workspace/logic/
 
 describe("rollupWorkspaceAttention", () => {
 	it("returns actionRequired if any worktree needs action", () => {
-		expect(rollupWorkspaceAttention(["idle", "ready", "actionRequired"])).toBe("actionRequired");
+		expect(rollupWorkspaceAttention(["idle", "ready", "actionRequired"])).toBe(
+			"actionRequired",
+		);
 	});
 	it("returns ready if any worktree is ready and none need action", () => {
-		expect(rollupWorkspaceAttention(["idle", "activity", "ready"])).toBe("ready");
+		expect(rollupWorkspaceAttention(["idle", "activity", "ready"])).toBe(
+			"ready",
+		);
 	});
 	it("returns null when everything is calm", () => {
 		expect(rollupWorkspaceAttention(["idle", "activity", "idle"])).toBeNull();
@@ -611,7 +621,9 @@ describe("buildWorktreeAttentionDisplay three-tier", () => {
 
 	it("surfaces a done workflow as the ready tier", () => {
 		const display = buildWorktreeAttentionDisplay({
-			sessionAgentAttentionReasons: { workflow: reason("ready", "workflow", 5) },
+			sessionAgentAttentionReasons: {
+				workflow: reason("ready", "workflow", 5),
+			},
 			processSummary: emptySummary,
 			now: 5,
 			agentAttentionClearedAt: null,
@@ -651,7 +663,9 @@ describe("buildWorktreeAttentionDisplay three-tier", () => {
 
 	it("ignores non-authoritative session sources at session scope", () => {
 		const display = buildWorktreeAttentionDisplay({
-			sessionAgentAttentionReasons: { terminal: reason("waiting", "terminal", 9) },
+			sessionAgentAttentionReasons: {
+				terminal: reason("waiting", "terminal", 9),
+			},
 			processSummary: emptySummary,
 			now: 9,
 		});
@@ -678,11 +692,17 @@ const proc = (over: Record<string, unknown> = {}) => ({
 
 describe("deriveState process-path retirement", () => {
 	it("retires a running process's actionRequired once it is quiet past the threshold", () => {
-		const summary = buildWorktreeProcessSummary([proc({ lastActivityAt: 0 })], 200_000);
+		const summary = buildWorktreeProcessSummary(
+			[proc({ lastActivityAt: 0 })],
+			200_000,
+		);
 		expect(summary.topRow?.state).not.toBe("actionRequired");
 	});
 	it("keeps a fresh running process's actionRequired", () => {
-		const summary = buildWorktreeProcessSummary([proc({ lastActivityAt: 4_000 })], 5_000);
+		const summary = buildWorktreeProcessSummary(
+			[proc({ lastActivityAt: 4_000 })],
+			5_000,
+		);
 		expect(summary.topRow?.state).toBe("actionRequired");
 	});
 	it("retires a fresh-but-cleared running process (clearedAt >= lastActivityAt)", () => {

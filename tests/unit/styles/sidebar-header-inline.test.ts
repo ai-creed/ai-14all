@@ -4,7 +4,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const css = readFileSync(
-	resolve(dirname(fileURLToPath(import.meta.url)), "../../../src/app/shell.css"),
+	resolve(
+		dirname(fileURLToPath(import.meta.url)),
+		"../../../src/app/shell.css",
+	),
 	"utf8",
 );
 
@@ -18,8 +21,7 @@ const css = readFileSync(
  */
 describe("sidebar header line layout", () => {
 	it("declares .shell-sidebar__item-head as a horizontal flex row", () => {
-		const rule =
-			/\.shell-sidebar__item-head\s*\{[^}]*\}/.exec(css)?.[0] ?? "";
+		const rule = /\.shell-sidebar__item-head\s*\{[^}]*\}/.exec(css)?.[0] ?? "";
 		expect(rule).toMatch(/display:\s*flex/);
 		expect(rule).not.toMatch(/flex-direction:\s*column/);
 	});

@@ -150,7 +150,10 @@ app.whenReady().then(async () => {
 				iconImage.resize({ width: size, height: size }).toPNG(),
 			);
 		}
-		writeFileSync(iconPngPath, readFileSync(join(iconsetDir, "icon_512x512.png")));
+		writeFileSync(
+			iconPngPath,
+			readFileSync(join(iconsetDir, "icon_512x512.png")),
+		);
 		execFileSync(
 			"/usr/bin/iconutil",
 			["-c", "icns", iconsetDir, "-o", icnsPath.pathname],

@@ -18,7 +18,11 @@ export type SidebarShellState =
 	| "exited";
 
 /** The display tier consumed by the sidebar's `data-attention` attribute. */
-export type SidebarAttentionTier = "actionRequired" | "ready" | "activity" | "idle";
+export type SidebarAttentionTier =
+	| "actionRequired"
+	| "ready"
+	| "activity"
+	| "idle";
 
 export type SidebarShellRow = {
 	id: string;
@@ -84,7 +88,10 @@ export function formatQuietAge(ageMs: number): string {
 }
 
 function deriveState(
-	process: Pick<ProcessSession, "status" | "attentionState" | "lastActivityAt"> &
+	process: Pick<
+		ProcessSession,
+		"status" | "attentionState" | "lastActivityAt"
+	> &
 		Partial<Pick<ProcessSession, "agentAttentionClearedAt">>,
 	now: number,
 ): SidebarShellState {
@@ -97,7 +104,8 @@ function deriveState(
 		// explicitly: deriveStale conflates them (it returns false for a cleared
 		// reason), so reusing it alone would keep a cleared process red.
 		const cleared =
-			clearedAt !== null && (lastActivityAt === null || lastActivityAt <= clearedAt);
+			clearedAt !== null &&
+			(lastActivityAt === null || lastActivityAt <= clearedAt);
 		const staleByAge =
 			lastActivityAt !== null && now - lastActivityAt >= STALE_THRESHOLD_MS;
 		if (!cleared && !staleByAge) return "actionRequired";
@@ -232,7 +240,9 @@ export function buildWorktreeProcessSummary(
 	};
 }
 
-function agentStateToSidebarShell(state: AgentAttentionState): SidebarShellState {
+function agentStateToSidebarShell(
+	state: AgentAttentionState,
+): SidebarShellState {
 	if (state === "waiting" || state === "failed") return "actionRequired";
 	if (state === "ready") return "ready";
 	if (state === "active") return "active";
@@ -267,9 +277,14 @@ export function buildWorktreeAttentionDisplay(input: {
 		});
 	}
 
-	const session = candidates.reduce<{ state: SidebarShellState; context: string } | null>(
+	const session = candidates.reduce<{
+		state: SidebarShellState;
+		context: string;
+	} | null>(
 		(best, c) =>
-			best === null || severityRank[c.state] > severityRank[best.state] ? c : best,
+			best === null || severityRank[c.state] > severityRank[best.state]
+				? c
+				: best,
 		null,
 	);
 	const sessionState: SidebarShellState = session?.state ?? "idle";

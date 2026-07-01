@@ -3072,7 +3072,9 @@ describe("session/reportAgentAttention and session/updateProcessStatus — agent
 		});
 
 		// Assert.
-		expect(state.sessionsByWorktreeId[worktreeId].agentAttentionClearedAt).toBe(2000);
+		expect(state.sessionsByWorktreeId[worktreeId].agentAttentionClearedAt).toBe(
+			2000,
+		);
 	});
 
 	it("advances agentAttentionClearedAt to the exit EVENT time on process exit", () => {
@@ -3080,7 +3082,13 @@ describe("session/reportAgentAttention and session/updateProcessStatus — agent
 		// process's last activity (1100) but BEFORE the exit (1500). Using lastActivityAt
 		// would fail to retire it; using the exit event time retires it.
 		let state = seedSessionWithReasonAndProcess(
-			{ state: "waiting", source: "mcp", summary: "?", nextAction: null, reportedAt: 1200 },
+			{
+				state: "waiting",
+				source: "mcp",
+				summary: "?",
+				nextAction: null,
+				reportedAt: 1200,
+			},
 			{ processId: "p1", lastActivityAt: 1100, status: "running" },
 		);
 		const worktreeId = onlyWorktreeId(state);
@@ -3096,13 +3104,21 @@ describe("session/reportAgentAttention and session/updateProcessStatus — agent
 
 		// Assert: the clear timestamp is the exit event time (1500), NOT lastActivityAt
 		// (1100) — so the mcp:waiting (reportedAt 1200) is retired.
-		expect(state.sessionsByWorktreeId[worktreeId].agentAttentionClearedAt).toBe(1500);
+		expect(state.sessionsByWorktreeId[worktreeId].agentAttentionClearedAt).toBe(
+			1500,
+		);
 	});
 
 	it("falls back to lastActivityAt when process exits without an `at` timestamp", () => {
 		// Arrange: process with lastActivityAt 1100; no `at` will be supplied on exit.
 		let state = seedSessionWithReasonAndProcess(
-			{ state: "waiting", source: "mcp", summary: "?", nextAction: null, reportedAt: 900 },
+			{
+				state: "waiting",
+				source: "mcp",
+				summary: "?",
+				nextAction: null,
+				reportedAt: 900,
+			},
 			{ processId: "p2", lastActivityAt: 1100, status: "running" },
 		);
 		const worktreeId = onlyWorktreeId(state);
@@ -3117,7 +3133,9 @@ describe("session/reportAgentAttention and session/updateProcessStatus — agent
 		});
 
 		// Assert: agentAttentionClearedAt is the process's lastActivityAt (1100).
-		expect(state.sessionsByWorktreeId[worktreeId].agentAttentionClearedAt).toBe(1100);
+		expect(state.sessionsByWorktreeId[worktreeId].agentAttentionClearedAt).toBe(
+			1100,
+		);
 	});
 
 	it("does NOT advance agentAttentionClearedAt when a ready reason is rejected (stale reportedAt)", () => {
@@ -3131,7 +3149,9 @@ describe("session/reportAgentAttention and session/updateProcessStatus — agent
 			reportedAt: 2000,
 		});
 		const worktreeId = onlyWorktreeId(state);
-		expect(state.sessionsByWorktreeId[worktreeId].agentAttentionClearedAt).toBeNull();
+		expect(
+			state.sessionsByWorktreeId[worktreeId].agentAttentionClearedAt,
+		).toBeNull();
 
 		// Act: dispatch a `ready` reason with an older reportedAt (1000 < 2000).
 		// shouldReplaceAgentAttentionReason returns false → rejected push.
@@ -3148,6 +3168,8 @@ describe("session/reportAgentAttention and session/updateProcessStatus — agent
 		});
 
 		// Assert: the rejected push must not advance agentAttentionClearedAt.
-		expect(state.sessionsByWorktreeId[worktreeId].agentAttentionClearedAt).toBeNull();
+		expect(
+			state.sessionsByWorktreeId[worktreeId].agentAttentionClearedAt,
+		).toBeNull();
 	});
 });
