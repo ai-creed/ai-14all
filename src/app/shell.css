@@ -483,6 +483,60 @@ select {
 	flex-shrink: 0;
 }
 
+.shell-install-banner {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-4);
+	font-size: var(--font-size-body);
+	color: var(--text-primary);
+	background: color-mix(in srgb, var(--accent) 14%, var(--panel-bg));
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
+}
+
+.shell-install-banner__msg {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.shell-install-banner__actions {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	flex-shrink: 0;
+}
+
+.shell-install-banner__install {
+	padding: 2px var(--space-3);
+	font-size: 0.75rem;
+	color: var(--text-primary);
+	background: var(--panel-bg-elevated);
+	border: var(--shell-border-width) solid var(--panel-border);
+	border-radius: var(--radius-md);
+	cursor: pointer;
+}
+
+.shell-install-banner__install:hover {
+	border-color: var(--text-muted);
+}
+
+.shell-install-banner__dismiss {
+	background: none;
+	border: none;
+	color: var(--text-secondary);
+	cursor: pointer;
+	padding: 0 var(--space-1);
+	font-size: 1rem;
+	line-height: 1;
+}
+
+.shell-install-banner__dismiss:hover {
+	color: var(--text-primary);
+}
+
 .shell-label {
 	line-height: 1.2;
 	letter-spacing: 0.08em;

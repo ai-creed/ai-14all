@@ -133,6 +133,7 @@ import { SidebarPanel } from "./components/SidebarPanel";
 import { MainColumnChrome } from "./components/MainColumnChrome";
 import { RestoreBanner } from "./components/RestoreBanner";
 import { AgentAttentionBanner } from "./components/AgentAttentionBanner";
+import { IncompleteInstallBanner } from "../features/review/components/IncompleteInstallBanner";
 import { normalizeTerminalTitle } from "./normalize-terminal-title";
 import { CommandPalette } from "../features/command-palette/components/CommandPalette";
 import { useRegisterCommands } from "../features/command-palette/hooks/use-command-registry";
@@ -2191,6 +2192,10 @@ export function App() {
 						/>
 
 						<section className="shell-main-column" ref={mainColRef}>
+							<IncompleteInstallBanner
+								providers={agentInstallStatus.providers}
+								onInstall={() => setInstallModalOpen(true)}
+							/>
 							<MainColumnChrome
 								downloadingBannerInfo={downloadingBannerInfo}
 								downloadedBannerInfo={downloadedBannerInfo}
