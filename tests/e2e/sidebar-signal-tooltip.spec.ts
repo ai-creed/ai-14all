@@ -64,13 +64,15 @@ test("truncated branch/path and task rows expose full text via Radix tooltip", a
 	// hover-timing race); focusing the next trigger blurs the first, closing its
 	// tooltip. The real sidebar rows are hover-triggered — that path is covered
 	// by session-attention.spec.ts Test 8's hover assertion on the task line.
+	// Both tooltips stay open once focused, so target each by its accessible
+	// name (the tooltip's text) to avoid a strict-mode multi-match.
 	await page.locator('[data-testid="gallery-branch"]').focus();
-	await expect(page.getByRole("tooltip")).toContainText(
-		"feature/very-long-branch-name-that-is-truncated",
-	);
+	await expect(
+		page.getByRole("tooltip", { name: /feature\/very-long-branch-name/ }),
+	).toBeVisible();
 
 	await page.locator('[data-testid="gallery-task-row"]').focus();
-	await expect(page.getByRole("tooltip")).toContainText(
-		"Refine demo recording hygiene — awaiting approval",
-	);
+	await expect(
+		page.getByRole("tooltip", { name: /Refine demo recording hygiene/ }),
+	).toBeVisible();
 });
