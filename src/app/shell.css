@@ -1216,10 +1216,14 @@ select {
 	align-items: center;
 	gap: 3px;
 	font-size: 0.6rem;
+	/* Tight line box + symmetric vertical padding so the uppercase caps sit
+	   optically centered in the pill (inherited ~1.4 line-height left the caps
+	   riding high, since all-caps leaves the descender region empty). */
+	line-height: 1;
 	font-weight: 700;
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
-	padding: 0 4px;
+	padding: 2px 4px;
 	white-space: nowrap;
 	color: var(--background);
 	background: var(--attention-action-required, #f0776a);
