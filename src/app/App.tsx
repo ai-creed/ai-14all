@@ -133,6 +133,8 @@ import { SidebarPanel } from "./components/SidebarPanel";
 import { MainColumnChrome } from "./components/MainColumnChrome";
 import { RestoreBanner } from "./components/RestoreBanner";
 import { AgentAttentionBanner } from "./components/AgentAttentionBanner";
+import { OnboardingLayer } from "../features/onboarding/components/OnboardingLayer";
+import { useOnboarding } from "../features/onboarding/hooks/use-onboarding";
 import { IncompleteInstallBanner } from "../features/review/components/IncompleteInstallBanner";
 import { normalizeTerminalTitle } from "./normalize-terminal-title";
 import { CommandPalette } from "../features/command-palette/components/CommandPalette";
@@ -2108,6 +2110,10 @@ export function App() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
+	const onboarding = useOnboarding({
+		sessionViewMounted: startupMode === "ready" && Boolean(repository),
+	});
+
 	if (startupMode === "loading") {
 		return (
 			<main className="shell-app shell-app--setup">
@@ -2147,6 +2153,7 @@ export function App() {
 		<ToastProvider>
 			<TooltipProvider delayDuration={300}>
 				<AgentAttentionBanner />
+				<OnboardingLayer onboarding={onboarding} />
 				<main className="shell-app">
 					<RestoreBanner
 						message={restoreWarning}
@@ -2223,6 +2230,7 @@ export function App() {
 								gitStatusMap={gitStatusMap}
 								shortcutsHelpOpen={shortcutsHelpOpen}
 								setShortcutsHelpOpen={setShortcutsHelpOpen}
+								onReplayTour={onboarding.replay}
 								appPlatform={appPlatform}
 								openWorktreePaths={worktrees
 									.filter((w) => workspaceState.sessionsByWorktreeId[w.id])

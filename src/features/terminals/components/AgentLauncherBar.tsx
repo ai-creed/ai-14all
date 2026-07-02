@@ -42,6 +42,7 @@ export function AgentLauncherBar({
 		<div
 			className="shell-chip-bar__terminal-group"
 			data-testid="agent-launcher-bar"
+			data-tour="agent-launcher"
 		>
 			<span className="agent-launcher-bar__label" aria-hidden="true">
 				Agents

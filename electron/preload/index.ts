@@ -451,6 +451,12 @@ const api: Ai14AllDesktopApi = {
 		onAdjustTerminalFontSize(handler) {
 			return onChannel("terminal/fontSize", handler);
 		},
+		onShowWelcomeTour(handler) {
+			return onChannel("help/showWelcomeTour", handler);
+		},
+		onResetOnboardingHints(handler) {
+			return onChannel("help/resetOnboardingHints", handler);
+		},
 	},
 	app: {
 		setEditorDirty(args) {
