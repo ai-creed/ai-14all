@@ -404,7 +404,9 @@ describe("SessionSidebar — task and provider rendering", () => {
 		const taskEl = container.querySelector(".shell-sidebar__card-task");
 		expect(taskEl).toBeInTheDocument();
 		expect(taskEl).toHaveTextContent("Implement the sidebar task line");
-		expect(taskEl).toHaveAttribute("title", "Implement the sidebar task line");
+		// Task line no longer uses native `title`; it is wrapped in a Radix tooltip
+		// trigger (full-text-on-hover is covered by e2e). Assert element identity.
+		expect(taskEl).toHaveAttribute("data-testid", "sidebar-task");
 	});
 
 	it("does not render task line when taskByWorktreeId[worktreeId] is null", () => {

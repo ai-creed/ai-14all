@@ -696,11 +696,13 @@ test.describe.serial("session attention v2", () => {
 			}
 
 			const taskLine = worktreeCard(/main/i).locator(
-				".shell-sidebar__card-task",
+				'[data-testid="sidebar-task"]',
 			);
 			await expect(taskLine).toBeVisible({ timeout: 10_000 });
 			await expect(taskLine).toContainText(taskText);
-			await expect(taskLine).toHaveAttribute("title", taskText);
+			// Full text is now surfaced via the Radix tooltip, not a title attr.
+			await taskLine.hover();
+			await expect(page.getByRole("tooltip")).toContainText(taskText);
 		} finally {
 			await client.close();
 		}
