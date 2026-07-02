@@ -1557,6 +1557,9 @@ select {
 .shell-chip-bar__action[data-provider] {
 	color: var(--chip-provider);
 	font-weight: 600;
+	/* Subtle provider-tinted resting fill so launchers read as pressable
+	   actions, not passive outline filters. Stays square/flat (TUI). */
+	background: color-mix(in srgb, var(--chip-provider) 8%, transparent);
 }
 .shell-chip-bar__action[data-provider]:hover {
 	color: var(--chip-provider);
