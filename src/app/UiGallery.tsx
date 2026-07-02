@@ -234,10 +234,7 @@ export function UiGallery() {
 							data-provider="claude"
 							data-testid="gallery-launch-claude"
 						>
-							<span
-								className="shell-chip-bar__action-icon"
-								aria-hidden="true"
-							>
+							<span className="shell-chip-bar__action-icon" aria-hidden="true">
 								<Icon name="plus" />
 							</span>
 							Claude

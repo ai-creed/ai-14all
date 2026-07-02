@@ -1017,18 +1017,23 @@ test.describe.serial("session attention v2", () => {
 				return;
 			}
 
-			await expect(
-				nav.getByRole("button", { name: /main/i }),
-			).toHaveAttribute("data-attention", "actionRequired", {
-				timeout: 10_000,
-			});
+			await expect(nav.getByRole("button", { name: /main/i })).toHaveAttribute(
+				"data-attention",
+				"actionRequired",
+				{
+					timeout: 10_000,
+				},
+			);
 
 			const signal = worktreeCard(/main/i).locator(
 				'[data-testid="row-needs-you"]',
 			);
 			await expect(signal).toBeVisible({ timeout: 10_000 });
 			await expect(signal).toHaveText(/needs you/i);
-			await expect(signal).toHaveAttribute("aria-label", "Needs your attention");
+			await expect(signal).toHaveAttribute(
+				"aria-label",
+				"Needs your attention",
+			);
 			await expect(signal.locator(".app-nf").first()).toBeVisible();
 
 			const contextRow = worktreeCard(/main/i).locator(
