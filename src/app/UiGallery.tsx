@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -216,6 +217,49 @@ export function UiGallery() {
 								<span>idle</span>
 							</div>
 						</div>
+					</div>
+				</Section>
+
+				<Section title="Agent launchers & collab status">
+					<div
+						className="shell-chip-bar__terminal-group"
+						data-testid="gallery-launcher-group"
+					>
+						<button
+							type="button"
+							className="shell-chip-bar__action"
+							data-provider="claude"
+							data-testid="gallery-launch-claude"
+						>
+							<span
+								className="shell-chip-bar__action-icon"
+								aria-hidden="true"
+							>
+								<Icon name="plus" />
+							</span>
+							Claude
+						</button>
+						<span
+							className="agent-launcher-bar__status"
+							data-tone="muted"
+							data-testid="gallery-collab-muted"
+						>
+							mount an agent to start a collab
+						</span>
+						<span
+							className="agent-launcher-bar__status"
+							data-tone="amber"
+							data-testid="gallery-collab-amber"
+						>
+							collab · 1 agent · need 1 more
+						</span>
+						<span
+							className="agent-launcher-bar__status"
+							data-tone="accent"
+							data-testid="gallery-collab-accent"
+						>
+							collab · ready for workflows
+						</span>
 					</div>
 				</Section>
 			</main>

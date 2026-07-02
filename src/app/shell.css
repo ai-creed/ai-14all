@@ -5617,17 +5617,13 @@ select {
 .agent-launcher-bar__status[data-tone="muted"] {
 	color: var(--text-muted);
 }
+/* Collab status conveys tone by text color only — no border, no background
+   box — so it never wears a launcher button's costume in any tone (#2). */
 .agent-launcher-bar__status[data-tone="amber"] {
 	color: #e58a5e;
-	border: var(--shell-border-width) solid
-		color-mix(in srgb, #e58a5e 35%, transparent);
-	background: color-mix(in srgb, #e58a5e 8%, transparent);
 }
 .agent-launcher-bar__status[data-tone="accent"] {
 	color: var(--accent);
-	border: var(--shell-border-width) solid
-		color-mix(in srgb, var(--accent) 35%, transparent);
-	background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .floating-shell-pills {
 	display: inline-flex;
