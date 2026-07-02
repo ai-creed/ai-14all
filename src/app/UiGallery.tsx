@@ -272,6 +272,7 @@ export function UiGallery() {
 								<div
 									className="shell-sidebar__branch"
 									data-testid="gallery-branch"
+									tabIndex={0}
 									style={{ maxWidth: 160 }}
 								>
 									feature/very-long-branch-name-that-is-truncated
@@ -281,6 +282,7 @@ export function UiGallery() {
 								<div
 									className="shell-sidebar__card-task"
 									data-testid="gallery-task-row"
+									tabIndex={0}
 									style={{ maxWidth: 160 }}
 								>
 									Refine demo recording hygiene — awaiting approval

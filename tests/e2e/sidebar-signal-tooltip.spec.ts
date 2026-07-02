@@ -60,16 +60,16 @@ test("actionRequired signal shows a VISIBLE glyph/shape + label, not color alone
 });
 
 test("truncated branch/path and task rows expose full text via Radix tooltip", async () => {
-	await page.locator('[data-testid="gallery-branch"]').hover();
+	// Focus deterministically opens a Radix tooltip on a focusable trigger (no
+	// hover-timing race); focusing the next trigger blurs the first, closing its
+	// tooltip. The real sidebar rows are hover-triggered — that path is covered
+	// by session-attention.spec.ts Test 8's hover assertion on the task line.
+	await page.locator('[data-testid="gallery-branch"]').focus();
 	await expect(page.getByRole("tooltip")).toContainText(
 		"feature/very-long-branch-name-that-is-truncated",
 	);
 
-	// Move away, then hover the task row.
-	await page.locator('[data-testid="gallery-sidebar"]').hover({
-		position: { x: 0, y: 0 },
-	});
-	await page.locator('[data-testid="gallery-task-row"]').hover();
+	await page.locator('[data-testid="gallery-task-row"]').focus();
 	await expect(page.getByRole("tooltip")).toContainText(
 		"Refine demo recording hygiene — awaiting approval",
 	);
