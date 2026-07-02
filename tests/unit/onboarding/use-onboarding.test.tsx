@@ -119,6 +119,21 @@ describe("useOnboarding — arm-then-show", () => {
 		act(() => result.current.back());
 		expect(result.current.stepIndex).toBe(0);
 	});
+
+	it("stays fully suppressed in E2E mode without the opt-in flag", async () => {
+		const w = window as unknown as { __ai14allSuppressOnboarding?: boolean };
+		w.__ai14allSuppressOnboarding = true;
+		try {
+			const { result } = renderHook(() =>
+				useOnboarding({ sessionViewMounted: true }),
+			);
+			await waitFor(() => expect(readRestoreState).toHaveBeenCalled());
+			expect(result.current.tourVisible).toBe(false);
+			expect(result.current.isCoachmarkVisible("plugins")).toBe(false);
+		} finally {
+			w.__ai14allSuppressOnboarding = undefined;
+		}
+	});
 });
 
 describe("useOnboarding — coachmarks + replay", () => {

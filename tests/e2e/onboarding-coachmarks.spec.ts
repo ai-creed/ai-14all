@@ -26,6 +26,7 @@ async function launch(dirs: { userDataDir: string; stateDir: string }) {
 		env: {
 			...process.env,
 			AI14ALL_E2E: "1",
+			AI14ALL_E2E_ONBOARDING: "1",
 			AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
 			AI14ALL_WORKSPACE_STATE_PATH: join(dirs.stateDir, "workspace-state.json"),
 			AI14ALL_USER_DATA_PATH: dirs.userDataDir,

@@ -21,6 +21,24 @@ import {
 	type TourStep,
 } from "../logic/tour-steps";
 
+/**
+ * In E2E runs the first-launch onboarding is suppressed by default so its
+ * overlay/coachmarks never cover unrelated e2e flows (which all start from a
+ * fresh profile and load a repo). A spec that exercises onboarding opts in with
+ * AI14ALL_E2E_ONBOARDING=1, which flips this flag off in the preload. Always
+ * false outside E2E, so real users are unaffected.
+ */
+function onboardingSuppressedInE2E(): boolean {
+	try {
+		return (
+			(window as unknown as { __ai14allSuppressOnboarding?: boolean })
+				.__ai14allSuppressOnboarding === true
+		);
+	} catch {
+		return false;
+	}
+}
+
 export interface Onboarding {
 	tourVisible: boolean;
 	steps: readonly TourStep[];
@@ -100,13 +118,16 @@ export function useOnboarding(params: {
 		return () => window.removeEventListener("resize", measure);
 	}, [sessionViewMounted]);
 
-	const tourVisible = computeTourVisible({
-		tourVersionSeen,
-		forceShow,
-		sessionViewMounted,
-		migrationChecked,
-		firstAnchorMeasurable,
-	});
+	const suppressed = onboardingSuppressedInE2E();
+	const tourVisible =
+		!suppressed &&
+		computeTourVisible({
+			tourVersionSeen,
+			forceShow,
+			sessionViewMounted,
+			migrationChecked,
+			firstAnchorMeasurable,
+		});
 
 	const finish = useCallback(() => {
 		writeTourVersionSeen(CURRENT_TOUR_VERSION);
@@ -145,8 +166,9 @@ export function useOnboarding(params: {
 	}, []);
 
 	const isCoachmarkVisible = useCallback(
-		(id: string) => computeCoachmarkVisible(dismissed, id, tourVisible),
-		[dismissed, tourVisible],
+		(id: string) =>
+			!suppressed && computeCoachmarkVisible(dismissed, id, tourVisible),
+		[suppressed, dismissed, tourVisible],
 	);
 
 	// Help-menu / shortcuts-overlay bridge. Optional-chained so non-Electron
