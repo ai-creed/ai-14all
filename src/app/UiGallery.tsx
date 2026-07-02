@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { NeedsYouSignal } from "../features/workspace/components/NeedsYouSignal";
+import { SidebarTooltip } from "../features/workspace/components/SidebarTooltip";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -261,6 +264,33 @@ export function UiGallery() {
 							collab · ready for workflows
 						</span>
 					</div>
+				</Section>
+				<Section title="Sidebar attention & tooltips">
+					<TooltipProvider delayDuration={0}>
+						<div className="flex flex-col gap-2" data-testid="gallery-sidebar">
+							<div data-testid="gallery-needs-you">
+								<NeedsYouSignal tier="actionRequired" />
+							</div>
+							<SidebarTooltip label="feature/very-long-branch-name-that-is-truncated">
+								<div
+									className="shell-sidebar__branch"
+									data-testid="gallery-branch"
+									style={{ maxWidth: 160 }}
+								>
+									feature/very-long-branch-name-that-is-truncated
+								</div>
+							</SidebarTooltip>
+							<SidebarTooltip label="Refine demo recording hygiene — awaiting approval">
+								<div
+									className="shell-sidebar__card-task"
+									data-testid="gallery-task-row"
+									style={{ maxWidth: 160 }}
+								>
+									Refine demo recording hygiene — awaiting approval
+								</div>
+							</SidebarTooltip>
+						</div>
+					</TooltipProvider>
 				</Section>
 			</main>
 		</div>
