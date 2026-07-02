@@ -20,6 +20,7 @@ import {
 	primaryLanIPv4,
 } from "./lan-websocket-transport.js";
 import { XbpPeerSession } from "./xbp-peer-session.js";
+import type { XbpActingExecutor } from "./xbp-acting-executor.js";
 
 export interface XbpStatus {
 	enabled: boolean;
@@ -49,6 +50,7 @@ export class XbpHostService {
 			getSessionReport: () => Promise<SessionReportResult>;
 			subscribeChanges: (cb: () => void) => () => void;
 			onStatusChange?: () => void;
+			acting?: XbpActingExecutor;
 			now?: () => number;
 		},
 	) {
@@ -102,6 +104,7 @@ export class XbpHostService {
 			transport: this.lan.transport,
 			audit: this.audit,
 			getSessionReport: this.opts.getSessionReport,
+			acting: this.opts.acting,
 			now: this.opts.now,
 		});
 
