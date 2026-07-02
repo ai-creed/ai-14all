@@ -1208,6 +1208,23 @@ select {
 	white-space: nowrap;
 }
 
+/* Non-color signal for actionRequired rows: a distinct, high-contrast tag whose
+   shape + text carry the meaning independent of hue/motion (colorblind + SR
+   safe). Square/flat per the TUI aesthetic. */
+.shell-sidebar__needs-you {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	font-size: 0.6rem;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	padding: 0 4px;
+	white-space: nowrap;
+	color: var(--background);
+	background: var(--attention-action-required, #f0776a);
+}
+
 .shell-sidebar__processes {
 	display: flex;
 	flex-direction: column;

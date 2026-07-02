@@ -592,3 +592,26 @@ describe("SessionSidebar — ready tier dot", () => {
 		expect(screen.queryByTestId("row-ready-dot")).toBeNull();
 	});
 });
+
+describe("SessionSidebar — non-color actionRequired signal", () => {
+	it("renders the 'needs you' signal with aria-label for an actionRequired row", () => {
+		renderSidebar({
+			workspaces: [
+				makeWorkspace({ attentionByWorktreeId: { wt1: "actionRequired" } }),
+			],
+		});
+		const signal = screen.getByTestId("row-needs-you");
+		expect(signal).toHaveAttribute("aria-label", "Needs your attention");
+		expect(signal).toHaveTextContent(/needs you/i);
+	});
+
+	it("does not render the signal for idle or activity rows", () => {
+		for (const tier of ["idle", "activity"] as const) {
+			const { unmount } = renderSidebar({
+				workspaces: [makeWorkspace({ attentionByWorktreeId: { wt1: tier } })],
+			});
+			expect(screen.queryByTestId("row-needs-you")).toBeNull();
+			unmount();
+		}
+	});
+});

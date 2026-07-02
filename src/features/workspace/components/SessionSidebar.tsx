@@ -21,6 +21,7 @@ import { displayTitle } from "../logic/session-display-title";
 import type { WorkflowRow as WorkflowRowModel } from "../../workflows/logic/workflow-lens";
 import { WorkflowRow } from "../../workflows/components/WorkflowRow";
 import { Icon } from "@/components/ui/icon";
+import { NeedsYouSignal } from "./NeedsYouSignal";
 import type { Palette } from "../../../lib/use-theme";
 
 export type SessionSidebarWorkspace = {
@@ -377,6 +378,7 @@ export function SessionSidebar({
 															)}
 														</span>
 													)}
+													<NeedsYouSignal tier={attentionTier} />
 												</div>
 												{hasCustomTitle && (
 													<div className="shell-sidebar__worktree-label">
