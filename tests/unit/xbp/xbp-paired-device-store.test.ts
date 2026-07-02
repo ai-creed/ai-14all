@@ -43,6 +43,23 @@ describe("XbpPairedDeviceStore", () => {
 		expect(reloaded).toEqual(device);
 	});
 
+	it("saves and reloads a device with grantedPermissions intact (decision 8)", () => {
+		const device = {
+			signPubHex: "aa11",
+			boxPubHex: "bb22",
+			pairedAt: 1234,
+			grantedPermissions: ["control:read", "control:act"],
+		};
+		new XbpPairedDeviceStore({ dir, secureStorage: fakeSecureStorage() }).save(
+			device,
+		);
+		const reloaded = new XbpPairedDeviceStore({
+			dir,
+			secureStorage: fakeSecureStorage(),
+		}).load();
+		expect(reloaded).toEqual(device);
+	});
+
 	it("clear() forgets the device", () => {
 		const store = new XbpPairedDeviceStore({
 			dir,

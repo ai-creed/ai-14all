@@ -15,6 +15,10 @@ export interface PairedDevice {
 	signPubHex: string;
 	boxPubHex: string;
 	pairedAt: number;
+	// Decision 8: permissions granted to this device, minted at pairing time and
+	// replayed verbatim on startup re-attach. Absent on records persisted before
+	// slice 2b.2 — readers must treat absence as read-only (control:read).
+	grantedPermissions?: string[];
 }
 
 export class XbpPairedDeviceStore {

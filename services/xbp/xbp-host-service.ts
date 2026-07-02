@@ -13,6 +13,7 @@ import {
 	type PairedDevice,
 } from "./xbp-paired-device-store.js";
 import { XbpAuditSink } from "./xbp-audit-sink.js";
+import { NEW_PAIRING_GRANTS, grantsForStoredDevice } from "./xbp-grants.js";
 import { XbpPairingHost } from "./xbp-pairing-host.js";
 import {
 	createLanWebSocketHost,
@@ -118,6 +119,7 @@ export class XbpHostService {
 			this.peerSession.attach(
 				fromHex(this.pairedDevice.signPubHex),
 				fromHex(this.pairedDevice.boxPubHex),
+				grantsForStoredDevice(this.pairedDevice),
 			);
 		}
 
@@ -140,11 +142,14 @@ export class XbpHostService {
 		if (confirmed) {
 			const peer = this.pairingHost!.activePeer();
 			if (peer) {
-				this.peerSession!.attach(peer.signPub, peer.boxPub);
+				this.peerSession!.attach(peer.signPub, peer.boxPub, [
+					...NEW_PAIRING_GRANTS,
+				]);
 				this.pairedDevice = {
 					signPubHex: toHex(peer.signPub),
 					boxPubHex: toHex(peer.boxPub),
 					pairedAt: (this.opts.now ?? Date.now)(),
+					grantedPermissions: [...NEW_PAIRING_GRANTS],
 				};
 				this.pairedStore.save(this.pairedDevice); // persist — survives restart (AC2)
 			}
