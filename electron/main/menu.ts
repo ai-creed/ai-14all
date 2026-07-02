@@ -75,6 +75,21 @@ export function buildApplicationMenu(mainWindow: BrowserWindow): Menu {
 		],
 	};
 
+	// Custom View submenu that OMITS the default zoomIn/zoomOut/resetZoom items.
+	// Those roles register CmdOrCtrl+Plus / +- / +0 for webContents zoom, which
+	// would collide with the Terminal font-size accelerators above (and app-level
+	// zoom is not meaningful here — terminal font size is this app's "zoom").
+	const viewMenu: MenuItemConstructorOptions = {
+		label: "View",
+		submenu: [
+			{ role: "reload" },
+			{ role: "forceReload" },
+			{ role: "toggleDevTools" },
+			{ type: "separator" },
+			{ role: "togglefullscreen" },
+		],
+	};
+
 	const template: MenuItemConstructorOptions[] =
 		process.platform === "darwin"
 			? [
@@ -82,7 +97,7 @@ export function buildApplicationMenu(mainWindow: BrowserWindow): Menu {
 					workspaceMenu,
 					terminalMenu,
 					{ role: "editMenu" },
-					{ role: "viewMenu" },
+					viewMenu,
 					{ role: "windowMenu" },
 					{ role: "help" },
 				]
@@ -90,7 +105,7 @@ export function buildApplicationMenu(mainWindow: BrowserWindow): Menu {
 					workspaceMenu,
 					terminalMenu,
 					{ role: "editMenu" },
-					{ role: "viewMenu" },
+					viewMenu,
 					{ role: "help" },
 				];
 
