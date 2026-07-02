@@ -41,11 +41,46 @@ export function buildApplicationMenu(mainWindow: BrowserWindow): Menu {
 		],
 	};
 
+	const terminalMenu: MenuItemConstructorOptions = {
+		label: "Terminal",
+		submenu: [
+			{
+				id: "terminal-font-increase",
+				label: "Increase Font Size",
+				accelerator: "CmdOrCtrl+Plus",
+				click: () => sendToRenderer("terminal/fontSize", "increase"),
+			},
+			{
+				// Bind the unshifted "=" key too (the physical "+" key). Hidden so
+				// the submenu shows one visible "Increase" item.
+				id: "terminal-font-increase-eq",
+				label: "Increase Font Size",
+				accelerator: "CmdOrCtrl+=",
+				visible: false,
+				acceleratorWorksWhenHidden: true,
+				click: () => sendToRenderer("terminal/fontSize", "increase"),
+			},
+			{
+				id: "terminal-font-decrease",
+				label: "Decrease Font Size",
+				accelerator: "CmdOrCtrl+-",
+				click: () => sendToRenderer("terminal/fontSize", "decrease"),
+			},
+			{
+				id: "terminal-font-reset",
+				label: "Reset Font Size",
+				accelerator: "CmdOrCtrl+0",
+				click: () => sendToRenderer("terminal/fontSize", "reset"),
+			},
+		],
+	};
+
 	const template: MenuItemConstructorOptions[] =
 		process.platform === "darwin"
 			? [
 					{ role: "appMenu" },
 					workspaceMenu,
+					terminalMenu,
 					{ role: "editMenu" },
 					{ role: "viewMenu" },
 					{ role: "windowMenu" },
@@ -53,6 +88,7 @@ export function buildApplicationMenu(mainWindow: BrowserWindow): Menu {
 				]
 			: [
 					workspaceMenu,
+					terminalMenu,
 					{ role: "editMenu" },
 					{ role: "viewMenu" },
 					{ role: "help" },

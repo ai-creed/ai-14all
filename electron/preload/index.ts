@@ -448,6 +448,9 @@ const api: Ai14AllDesktopApi = {
 		onSetTheme(handler) {
 			return onChannel("theme/set", handler);
 		},
+		onAdjustTerminalFontSize(handler) {
+			return onChannel("terminal/fontSize", handler);
+		},
 	},
 	app: {
 		setEditorDirty(args) {
