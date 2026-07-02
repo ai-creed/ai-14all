@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@ai-creed/command-contract':
-        specifier: ^0.1.0-alpha.0
-        version: 0.1.0-alpha.0
+        specifier: file:vendor/ai-creed-command-contract-0.1.0-alpha.1.tgz
+        version: file:vendor/ai-creed-command-contract-0.1.0-alpha.1.tgz
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.3.6)
@@ -227,6 +227,10 @@ packages:
 
   '@ai-creed/command-contract@0.1.0-alpha.0':
     resolution: {integrity: sha512-xTET+aTrgml1HEdU/ObU0p/ezmYW/9kXxaIOFL5lDf54DzJf+SfRs/KJE7+vH6IQx9EmxJbqUemxqMwgVu7okQ==, tarball: https://npm.pkg.github.com/download/@ai-creed/command-contract/0.1.0-alpha.0/6229c35bc680effd759c89e90d0c114612665e6a}
+
+  '@ai-creed/command-contract@file:vendor/ai-creed-command-contract-0.1.0-alpha.1.tgz':
+    resolution: {integrity: sha512-nBAd0DskL6x3kyZw60jlRJ9xjlsMrolsx8jAKPebUnzaOWtYYRN7Qg1PjXZn/rzsV4XP5jy7pR4DALyZVz2a1g==, tarball: file:vendor/ai-creed-command-contract-0.1.0-alpha.1.tgz}
+    version: 0.1.0-alpha.1
 
   '@asamuzakjp/css-color@5.1.1':
     resolution: {integrity: sha512-iGWN8E45Ws0XWx3D44Q1t6vX2LqhCKcwfmwBYCDsFrYFS6m4q/Ks61L2veETaLv+ckDC6+dTETJoaAAb7VjLiw==}
@@ -4320,6 +4324,10 @@ snapshots:
   '@adobe/css-tools@4.4.4': {}
 
   '@ai-creed/command-contract@0.1.0-alpha.0':
+    dependencies:
+      zod: 4.3.6
+
+  '@ai-creed/command-contract@file:vendor/ai-creed-command-contract-0.1.0-alpha.1.tgz':
     dependencies:
       zod: 4.3.6
 
