@@ -990,4 +990,55 @@ test.describe.serial("session attention v2", () => {
 			await client.close();
 		}
 	});
+
+	// -----------------------------------------------------------------------
+	// Test 14 (supplemental): actionRequired shows the live non-color signal
+	// -----------------------------------------------------------------------
+	test("actionRequired renders the live 'needs you' signal (glyph + label) and status tooltip", async () => {
+		test.setTimeout(120_000);
+		const nav = page.getByRole("navigation", { name: "Worktree sessions" });
+		await nav.getByRole("button", { name: /feature-a/i }).click();
+
+		const client = await connectMcpClient();
+		try {
+			const summary = "e2e test-14: live needs-you signal";
+			const bridgeReady = await reportSessionStatusUntilBridgeReady(client, {
+				worktreePath: testRepo.repoPath,
+				state: "waiting",
+				summary,
+				nextAction: null,
+			});
+			if (!bridgeReady) {
+				test.skip(
+					true,
+					"Agent attention bridge never became ready (renderer_not_ready) " +
+						"— supplemental; mandatory coverage is in sidebar-signal-tooltip.spec.ts",
+				);
+				return;
+			}
+
+			await expect(
+				nav.getByRole("button", { name: /main/i }),
+			).toHaveAttribute("data-attention", "actionRequired", {
+				timeout: 10_000,
+			});
+
+			const signal = worktreeCard(/main/i).locator(
+				'[data-testid="row-needs-you"]',
+			);
+			await expect(signal).toBeVisible({ timeout: 10_000 });
+			await expect(signal).toHaveText(/needs you/i);
+			await expect(signal).toHaveAttribute("aria-label", "Needs your attention");
+			await expect(signal.locator(".app-nf").first()).toBeVisible();
+
+			const contextRow = worktreeCard(/main/i).locator(
+				'[data-testid="sidebar-session-context"]',
+			);
+			await expect(contextRow).toBeVisible({ timeout: 10_000 });
+			await contextRow.hover();
+			await expect(page.getByRole("tooltip")).toContainText(summary);
+		} finally {
+			await client.close();
+		}
+	});
 });
