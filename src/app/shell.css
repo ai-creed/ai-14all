@@ -1225,6 +1225,15 @@ select {
 	background: var(--attention-action-required, #f0776a);
 }
 
+/* Tooltips are informational, never interactive: their Radix popper wrapper must
+   not intercept pointer events, or an open tooltip can block clicks on the
+   controls beneath/beside it (e.g. sidebar rows and nav buttons). Scoped via
+   :has([role="tooltip"]) so interactive poppers (menus, dropdowns, dialogs)
+   keep their pointer events. */
+[data-radix-popper-content-wrapper]:has([role="tooltip"]) {
+	pointer-events: none;
+}
+
 .shell-sidebar__processes {
 	display: flex;
 	flex-direction: column;
