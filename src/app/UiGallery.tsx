@@ -263,7 +263,7 @@ export function UiGallery() {
 					</div>
 				</Section>
 				<Section title="Sidebar attention & tooltips">
-					<TooltipProvider delayDuration={0}>
+					<TooltipProvider delayDuration={0} disableHoverableContent>
 						<div className="flex flex-col gap-2" data-testid="gallery-sidebar">
 							<div data-testid="gallery-needs-you">
 								<NeedsYouSignal tier="actionRequired" />

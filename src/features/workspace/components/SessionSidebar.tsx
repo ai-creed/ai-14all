@@ -158,7 +158,7 @@ export function SessionSidebar({
 	}
 
 	return (
-		<TooltipProvider delayDuration={200}>
+		<TooltipProvider delayDuration={200} disableHoverableContent>
 			<nav
 				aria-label="Worktree sessions"
 				className="shell-panel shell-sidebar"

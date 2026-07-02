@@ -20,7 +20,9 @@ export function SidebarTooltip({
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>{children}</TooltipTrigger>
-			<TooltipContent>{label}</TooltipContent>
+			{/* pointer-events-none so an open tooltip's popper never intercepts
+			    clicks on adjacent sidebar controls (rows/nav buttons). */}
+			<TooltipContent className="pointer-events-none">{label}</TooltipContent>
 		</Tooltip>
 	);
 }
