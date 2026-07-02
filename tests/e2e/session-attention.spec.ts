@@ -1041,7 +1041,12 @@ test.describe.serial("session attention v2", () => {
 			);
 			await expect(contextRow).toBeVisible({ timeout: 10_000 });
 			await contextRow.hover();
-			await expect(page.getByRole("tooltip")).toContainText(summary);
+			// Scope to THIS row's tooltip by accessible name: the task-line tooltip
+			// ("Review spec X") from earlier in this serial suite may also be open,
+			// so an unscoped getByRole("tooltip") would strict-mode multi-match.
+			await expect(
+				page.getByRole("tooltip", { name: /test-14/ }),
+			).toContainText(summary);
 		} finally {
 			await client.close();
 		}
