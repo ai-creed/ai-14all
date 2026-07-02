@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { NeedsYouSignal } from "../features/workspace/components/NeedsYouSignal";
+import { SidebarTooltip } from "../features/workspace/components/SidebarTooltip";
+import { WorkflowRow } from "../features/workflows/components/WorkflowRow";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -216,6 +221,129 @@ export function UiGallery() {
 								<span>idle</span>
 							</div>
 						</div>
+					</div>
+				</Section>
+
+				<Section title="Agent launchers & collab status">
+					<div
+						className="shell-chip-bar__terminal-group"
+						data-testid="gallery-launcher-group"
+					>
+						<button
+							type="button"
+							className="shell-chip-bar__action"
+							data-provider="claude"
+							data-testid="gallery-launch-claude"
+						>
+							<span className="shell-chip-bar__action-icon" aria-hidden="true">
+								<Icon name="plus" />
+							</span>
+							Claude
+						</button>
+						<span
+							className="agent-launcher-bar__status"
+							data-tone="muted"
+							data-testid="gallery-collab-muted"
+						>
+							mount an agent to start a collab
+						</span>
+						<span
+							className="agent-launcher-bar__status"
+							data-tone="amber"
+							data-testid="gallery-collab-amber"
+						>
+							collab · 1 agent · need 1 more
+						</span>
+						<span
+							className="agent-launcher-bar__status"
+							data-tone="accent"
+							data-testid="gallery-collab-accent"
+						>
+							collab · ready for workflows
+						</span>
+					</div>
+				</Section>
+				<Section title="Sidebar attention & tooltips">
+					<TooltipProvider delayDuration={0} disableHoverableContent>
+						<div className="flex flex-col gap-2" data-testid="gallery-sidebar">
+							<div data-testid="gallery-needs-you">
+								<NeedsYouSignal tier="actionRequired" />
+							</div>
+							<SidebarTooltip label="feature/very-long-branch-name-that-is-truncated">
+								<div
+									className="shell-sidebar__branch"
+									data-testid="gallery-branch"
+									tabIndex={0}
+									style={{ maxWidth: 160 }}
+								>
+									feature/very-long-branch-name-that-is-truncated
+								</div>
+							</SidebarTooltip>
+							<SidebarTooltip label="Refine demo recording hygiene — awaiting approval">
+								<div
+									className="shell-sidebar__card-task"
+									data-testid="gallery-task-row"
+									tabIndex={0}
+									style={{ maxWidth: 160 }}
+								>
+									Refine demo recording hygiene — awaiting approval
+								</div>
+							</SidebarTooltip>
+						</div>
+					</TooltipProvider>
+				</Section>
+				<Section title="Workflow lens (status word + tier color)">
+					<div
+						className="flex flex-col gap-2"
+						data-testid="gallery-workflow-lens"
+						style={{ maxWidth: 280 }}
+					>
+						{(
+							[
+								{
+									status: "running",
+									escalated: false,
+									phaseName: "code-review",
+									roundLabel: "1/5",
+								},
+								{
+									status: "done",
+									escalated: false,
+									phaseName: "implementation",
+									roundLabel: "3/3",
+								},
+								{
+									status: "halted",
+									escalated: false,
+									phaseName: "plan",
+									roundLabel: "2/5",
+								},
+								{
+									status: "running",
+									escalated: true,
+									phaseName: "deliberation",
+									roundLabel: "4/5",
+								},
+							] as const
+						).map((o, i) => (
+							<WorkflowRow
+								key={i}
+								row={{
+									worktreeId: `wt${i}`,
+									workflowId: `wf${i}`,
+									workflowType: "spec-driven-development",
+									typeLabel: "SDD",
+									artifact: "2026-07-02-session-view-p0-ux-design.md",
+									phaseName: o.phaseName,
+									roundLabel: o.roundLabel,
+									status: o.status,
+									escalated: o.escalated,
+									daemonAlive: true,
+									liveFeed: "socket",
+								}}
+								onOpenDetail={() => {}}
+							/>
+						))}
 					</div>
 				</Section>
 			</main>

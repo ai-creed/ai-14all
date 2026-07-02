@@ -404,7 +404,9 @@ describe("SessionSidebar — task and provider rendering", () => {
 		const taskEl = container.querySelector(".shell-sidebar__card-task");
 		expect(taskEl).toBeInTheDocument();
 		expect(taskEl).toHaveTextContent("Implement the sidebar task line");
-		expect(taskEl).toHaveAttribute("title", "Implement the sidebar task line");
+		// Task line no longer uses native `title`; it is wrapped in a Radix tooltip
+		// trigger (full-text-on-hover is covered by e2e). Assert element identity.
+		expect(taskEl).toHaveAttribute("data-testid", "sidebar-task");
 	});
 
 	it("does not render task line when taskByWorktreeId[worktreeId] is null", () => {
@@ -590,5 +592,28 @@ describe("SessionSidebar — ready tier dot", () => {
 		const head = container.querySelector(".shell-sidebar__item-head");
 		expect(head?.textContent).not.toContain("active: working");
 		expect(screen.queryByTestId("row-ready-dot")).toBeNull();
+	});
+});
+
+describe("SessionSidebar — non-color actionRequired signal", () => {
+	it("renders the 'needs you' signal with aria-label for an actionRequired row", () => {
+		renderSidebar({
+			workspaces: [
+				makeWorkspace({ attentionByWorktreeId: { wt1: "actionRequired" } }),
+			],
+		});
+		const signal = screen.getByTestId("row-needs-you");
+		expect(signal).toHaveAttribute("aria-label", "Needs your attention");
+		expect(signal).toHaveTextContent(/needs you/i);
+	});
+
+	it("does not render the signal for idle or activity rows", () => {
+		for (const tier of ["idle", "activity"] as const) {
+			const { unmount } = renderSidebar({
+				workspaces: [makeWorkspace({ attentionByWorktreeId: { wt1: tier } })],
+			});
+			expect(screen.queryByTestId("row-needs-you")).toBeNull();
+			unmount();
+		}
 	});
 });

@@ -600,6 +600,12 @@ export type Ai14AllDesktopApi = {
 		onSetTheme(
 			handler: (mode: "system" | "light" | "dark" | "warm" | "tui") => void,
 		): () => void;
+		// Optional: implemented by the real preload bridge; the hook consuming
+		// this handles absence gracefully so non-Electron contexts (unit tests,
+		// future non-desktop shells) do not need a stub.
+		onAdjustTerminalFontSize?(
+			handler: (action: "increase" | "decrease" | "reset") => void,
+		): () => void;
 	};
 	app: {
 		setEditorDirty(args: {

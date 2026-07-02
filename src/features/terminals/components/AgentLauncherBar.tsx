@@ -60,7 +60,7 @@ export function AgentLauncherBar({
 						onClick={() => onLaunch(provider)}
 					>
 						<span className="shell-chip-bar__action-icon" aria-hidden="true">
-							<Icon name="caret-right" />
+							<Icon name="plus" />
 						</span>
 						{PROVIDER_LABEL[provider]}
 						{queued && (

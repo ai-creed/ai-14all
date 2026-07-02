@@ -1208,6 +1208,36 @@ select {
 	white-space: nowrap;
 }
 
+/* Non-color signal for actionRequired rows: a distinct, high-contrast tag whose
+   shape + text carry the meaning independent of hue/motion (colorblind + SR
+   safe). Square/flat per the TUI aesthetic. */
+.shell-sidebar__needs-you {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	font-size: 0.6rem;
+	/* Tight line box + symmetric vertical padding so the uppercase caps sit
+	   optically centered in the pill (inherited ~1.4 line-height left the caps
+	   riding high, since all-caps leaves the descender region empty). */
+	line-height: 1;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	padding: 2px 4px;
+	white-space: nowrap;
+	color: var(--background);
+	background: var(--attention-action-required, #f0776a);
+}
+
+/* Tooltips are informational, never interactive: their Radix popper wrapper must
+   not intercept pointer events, or an open tooltip can block clicks on the
+   controls beneath/beside it (e.g. sidebar rows and nav buttons). Scoped via
+   :has([role="tooltip"]) so interactive poppers (menus, dropdowns, dialogs)
+   keep their pointer events. */
+[data-radix-popper-content-wrapper]:has([role="tooltip"]) {
+	pointer-events: none;
+}
+
 .shell-sidebar__processes {
 	display: flex;
 	flex-direction: column;
@@ -1557,6 +1587,9 @@ select {
 .shell-chip-bar__action[data-provider] {
 	color: var(--chip-provider);
 	font-weight: 600;
+	/* Subtle provider-tinted resting fill so launchers read as pressable
+	   actions, not passive outline filters. Stays square/flat (TUI). */
+	background: color-mix(in srgb, var(--chip-provider) 8%, transparent);
 }
 .shell-chip-bar__action[data-provider]:hover {
 	color: var(--chip-provider);
@@ -4511,15 +4544,24 @@ select {
 	color: var(--text-muted);
 	font-size: 0.68rem;
 }
-.workflow-row__round::before {
-	content: "· ";
+/* Dash separators for the `<status> - <phase> - <round>` phase line. */
+.workflow-row__phase-name::before {
+	content: "- ";
 }
-/* Status is a dot on the phase line: its color carries the state, its title the
-   word. The wrapper is just an inline holder — no pill. */
+.workflow-row__round::before {
+	content: "- ";
+}
+/* Status = dot + explicit word on the phase line. The wrapper sets `color` per
+   data-status (below); the dot uses currentColor and the label inherits it, so
+   both share one status color. No pill — just colored inline text. */
 .workflow-row__status {
 	display: inline-flex;
 	align-items: center;
+	gap: 4px;
 	flex: 0 0 auto;
+}
+.workflow-row__status-label {
+	font-weight: 600;
 }
 .workflow-row__status-dot {
 	width: 6px;
@@ -5614,17 +5656,13 @@ select {
 .agent-launcher-bar__status[data-tone="muted"] {
 	color: var(--text-muted);
 }
+/* Collab status conveys tone by text color only — no border, no background
+   box — so it never wears a launcher button's costume in any tone (#2). */
 .agent-launcher-bar__status[data-tone="amber"] {
 	color: #e58a5e;
-	border: var(--shell-border-width) solid
-		color-mix(in srgb, #e58a5e 35%, transparent);
-	background: color-mix(in srgb, #e58a5e 8%, transparent);
 }
 .agent-launcher-bar__status[data-tone="accent"] {
 	color: var(--accent);
-	border: var(--shell-border-width) solid
-		color-mix(in srgb, var(--accent) 35%, transparent);
-	background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .floating-shell-pills {
 	display: inline-flex;
