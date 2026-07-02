@@ -4544,15 +4544,24 @@ select {
 	color: var(--text-muted);
 	font-size: 0.68rem;
 }
-.workflow-row__round::before {
-	content: "· ";
+/* Dash separators for the `<status> - <phase> - <round>` phase line. */
+.workflow-row__phase-name::before {
+	content: "- ";
 }
-/* Status is a dot on the phase line: its color carries the state, its title the
-   word. The wrapper is just an inline holder — no pill. */
+.workflow-row__round::before {
+	content: "- ";
+}
+/* Status = dot + explicit word on the phase line. The wrapper sets `color` per
+   data-status (below); the dot uses currentColor and the label inherits it, so
+   both share one status color. No pill — just colored inline text. */
 .workflow-row__status {
 	display: inline-flex;
 	align-items: center;
+	gap: 4px;
 	flex: 0 0 auto;
+}
+.workflow-row__status-label {
+	font-weight: 600;
 }
 .workflow-row__status-dot {
 	width: 6px;
