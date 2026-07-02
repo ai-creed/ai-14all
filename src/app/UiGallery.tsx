@@ -5,6 +5,7 @@ import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NeedsYouSignal } from "../features/workspace/components/NeedsYouSignal";
 import { SidebarTooltip } from "../features/workspace/components/SidebarTooltip";
+import { WorkflowRow } from "../features/workflows/components/WorkflowRow";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -290,6 +291,60 @@ export function UiGallery() {
 							</SidebarTooltip>
 						</div>
 					</TooltipProvider>
+				</Section>
+				<Section title="Workflow lens (status word + tier color)">
+					<div
+						className="flex flex-col gap-2"
+						data-testid="gallery-workflow-lens"
+						style={{ maxWidth: 280 }}
+					>
+						{(
+							[
+								{
+									status: "running",
+									escalated: false,
+									phaseName: "code-review",
+									roundLabel: "1/5",
+								},
+								{
+									status: "done",
+									escalated: false,
+									phaseName: "implementation",
+									roundLabel: "3/3",
+								},
+								{
+									status: "halted",
+									escalated: false,
+									phaseName: "plan",
+									roundLabel: "2/5",
+								},
+								{
+									status: "running",
+									escalated: true,
+									phaseName: "deliberation",
+									roundLabel: "4/5",
+								},
+							] as const
+						).map((o, i) => (
+							<WorkflowRow
+								key={i}
+								row={{
+									worktreeId: `wt${i}`,
+									workflowId: `wf${i}`,
+									workflowType: "spec-driven-development",
+									typeLabel: "SDD",
+									artifact: "2026-07-02-session-view-p0-ux-design.md",
+									phaseName: o.phaseName,
+									roundLabel: o.roundLabel,
+									status: o.status,
+									escalated: o.escalated,
+									daemonAlive: true,
+									liveFeed: "socket",
+								}}
+								onOpenDetail={() => {}}
+							/>
+						))}
+					</div>
 				</Section>
 			</main>
 		</div>
