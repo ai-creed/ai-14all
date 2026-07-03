@@ -4,7 +4,9 @@ import type { ProbeResult } from "../../../shared/models/ecosystem-plugin.js";
 import type { ResolvedBinary } from "../binary-resolver.js";
 import { adaptResolvedExec } from "../exec-resolved-binary.js";
 
-export const SUPPORTED_DB_SCHEMA = { min: 6, max: 6 };
+// v7 (whisper 0.12.x) only added the duo_roll/duo_assignment tables; every
+// table and column in the read contract that we consume is unchanged from v6.
+export const SUPPORTED_DB_SCHEMA = { min: 6, max: 7 };
 
 const WhisperEnvReportSchema = z.object({
 	engineVersion: z.string(),
