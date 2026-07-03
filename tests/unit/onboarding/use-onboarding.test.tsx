@@ -147,16 +147,20 @@ describe("useOnboarding — coachmarks + replay", () => {
 		expect(result.current.isCoachmarkVisible("plugins")).toBe(true);
 	});
 
-	it("dismisses a coachmark and persists it", async () => {
+	it("dismisses the leading coachmark, advances to the next, and persists it", async () => {
 		localStorage.setItem(KEY, SEEN);
 		const { result } = renderHook(() =>
 			useOnboarding({ sessionViewMounted: true }),
 		);
 		await waitFor(() => expect(result.current.tourVisible).toBe(false));
-		act(() => result.current.dismissCoachmark("telemetry"));
-		expect(result.current.isCoachmarkVisible("telemetry")).toBe(false);
+		// Coachmarks surface one at a time: `plugins` leads. Dismissing it hides
+		// `plugins`, promotes the next one (`telemetry`), and persists the dismissal.
+		expect(result.current.isCoachmarkVisible("plugins")).toBe(true);
+		act(() => result.current.dismissCoachmark("plugins"));
+		expect(result.current.isCoachmarkVisible("plugins")).toBe(false);
+		expect(result.current.isCoachmarkVisible("telemetry")).toBe(true);
 		expect(JSON.parse(localStorage.getItem(DISMISSED) ?? "[]")).toContain(
-			"telemetry",
+			"plugins",
 		);
 	});
 

@@ -3,6 +3,7 @@ import {
 	coachmarkVisible,
 	computeTourVisible,
 	dismissCoachmark,
+	nextVisibleCoachmarkId,
 	shouldRetroMark,
 	tourArmed,
 } from "../../../src/features/onboarding/logic/onboarding-state";
@@ -104,6 +105,28 @@ describe("dismissCoachmark", () => {
 	});
 });
 
+describe("nextVisibleCoachmarkId", () => {
+	it("leads with the first coachmark when none are dismissed", () => {
+		expect(nextVisibleCoachmarkId([])).toBe("plugins");
+	});
+	it("skips dismissed coachmarks in canonical order", () => {
+		expect(nextVisibleCoachmarkId(["plugins"])).toBe("telemetry");
+		expect(nextVisibleCoachmarkId(["plugins", "telemetry"])).toBe(
+			"settings-footer",
+		);
+	});
+	it("returns null once every coachmark is dismissed", () => {
+		expect(
+			nextVisibleCoachmarkId([
+				"plugins",
+				"telemetry",
+				"settings-footer",
+				"command-palette",
+			]),
+		).toBe(null);
+	});
+});
+
 describe("coachmarkVisible", () => {
 	it("hides while the tour is active", () => {
 		expect(coachmarkVisible([], "plugins", true)).toBe(false);
@@ -111,7 +134,20 @@ describe("coachmarkVisible", () => {
 	it("hides once dismissed", () => {
 		expect(coachmarkVisible(["plugins"], "plugins", false)).toBe(false);
 	});
-	it("shows when not dismissed and the tour is inactive", () => {
+	it("shows the leading undismissed coachmark when the tour is inactive", () => {
 		expect(coachmarkVisible([], "plugins", false)).toBe(true);
+	});
+	it("shows only the leader — a later, undismissed coachmark stays hidden", () => {
+		// Exactly one at a time: plugins leads, so telemetry does not show yet even
+		// though it is not dismissed.
+		expect(coachmarkVisible([], "telemetry", false)).toBe(false);
+	});
+	it("advances to the next coachmark once the leader is dismissed", () => {
+		expect(coachmarkVisible(["plugins"], "telemetry", false)).toBe(true);
+		expect(coachmarkVisible(["plugins"], "settings-footer", false)).toBe(false);
+	});
+	it("shows nothing once every coachmark is dismissed", () => {
+		const all = ["plugins", "telemetry", "settings-footer", "command-palette"];
+		expect(coachmarkVisible(all, "command-palette", false)).toBe(false);
 	});
 });

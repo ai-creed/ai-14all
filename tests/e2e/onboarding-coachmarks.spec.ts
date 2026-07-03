@@ -57,7 +57,7 @@ test.afterAll(() => {
 	testRepo?.cleanup();
 });
 
-test("coachmarks appear once the tour is done, and dismissal persists", async () => {
+test("coachmarks surface one at a time, and dismissal persists", async () => {
 	const dirs = makeDirs();
 	let app: ElectronApplication | undefined;
 	try {
@@ -65,29 +65,37 @@ test("coachmarks appear once the tour is done, and dismissal persists", async ()
 		const page = await app.firstWindow({ timeout: 60_000 });
 		await loadRepoSeenTour(page);
 
-		// The tour is suppressed (seen); a coachmark is visible.
+		// The tour is suppressed (seen); exactly one coachmark shows at a time —
+		// the leader, `plugins` ("Built-in power tools"). The others stay hidden so
+		// their cards never stack and overlap in the top chrome.
 		await expect(page.locator('[data-testid="coachmark"]').first()).toBeVisible(
-			{
-				timeout: 15_000,
-			},
+			{ timeout: 15_000 },
 		);
-		const before = await page.locator('[data-testid="coachmark"]').count();
-		expect(before).toBeGreaterThan(0);
+		await expect(page.locator('[data-testid="coachmark"]')).toHaveCount(1);
+		await expect(page.getByText("Built-in power tools")).toBeVisible();
 
-		// Dismiss one; it does not come back after a reload.
-		await page.locator('[data-testid="coachmark-dismiss"]').first().click();
-		await expect(page.locator('[data-testid="coachmark"]')).toHaveCount(
-			before - 1,
-		);
+		// Dismissing the leader promotes the next coachmark (`telemetry`); the
+		// dismissed one does not linger, and there is still only one on screen.
+		await page.locator('[data-testid="coachmark-dismiss"]').click();
+		await expect(page.getByText("Token & cost usage")).toBeVisible({
+			timeout: 15_000,
+		});
+		await expect(page.getByText("Built-in power tools")).toHaveCount(0);
+		await expect(page.locator('[data-testid="coachmark"]')).toHaveCount(1);
+
+		// The dismissal persists across a reload: the sequence resumes at the
+		// second coachmark rather than restarting at the dismissed leader.
 		await page.reload();
 		const nav = page.getByRole("navigation", { name: "Worktree sessions" });
 		await expect(nav.getByRole("button", { name: /main/i })).toBeVisible({
 			timeout: 15_000,
 		});
 		await nav.getByRole("button", { name: /main/i }).click();
-		await expect(page.locator('[data-testid="coachmark"]')).toHaveCount(
-			before - 1,
-		);
+		await expect(page.getByText("Token & cost usage")).toBeVisible({
+			timeout: 15_000,
+		});
+		await expect(page.getByText("Built-in power tools")).toHaveCount(0);
+		await expect(page.locator('[data-testid="coachmark"]')).toHaveCount(1);
 	} finally {
 		await closeApp(app);
 		rmSync(dirs.userDataDir, { recursive: true, force: true });

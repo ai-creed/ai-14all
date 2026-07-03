@@ -1,3 +1,4 @@
+import { COACHMARKS } from "./coachmarks";
 import { CURRENT_TOUR_VERSION } from "./tour-steps";
 
 /** The tour is armed when the user has never seen the current version. */
@@ -51,11 +52,26 @@ export function dismissCoachmark(
 	return dismissed.includes(id) ? [...dismissed] : [...dismissed, id];
 }
 
-/** A coachmark shows only when the tour is inactive and it is not dismissed. */
+/**
+ * The single coachmark to surface right now: the first in canonical
+ * (`COACHMARKS`) order that the user has not dismissed, or null once all are
+ * dismissed. Coachmarks are shown one at a time so their cards never stack and
+ * overlap in the top chrome.
+ */
+export function nextVisibleCoachmarkId(
+	dismissed: readonly string[],
+): string | null {
+	return COACHMARKS.find((c) => !dismissed.includes(c.id))?.id ?? null;
+}
+
+/**
+ * A coachmark shows only when the tour is inactive and it is the current leader
+ * — the next undismissed coachmark in order. Exactly one is visible at a time.
+ */
 export function coachmarkVisible(
 	dismissed: readonly string[],
 	id: string,
 	tourActive: boolean,
 ): boolean {
-	return !tourActive && !dismissed.includes(id);
+	return !tourActive && nextVisibleCoachmarkId(dismissed) === id;
 }
