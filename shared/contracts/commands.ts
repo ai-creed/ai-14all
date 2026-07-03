@@ -606,6 +606,10 @@ export type Ai14AllDesktopApi = {
 		onAdjustTerminalFontSize?(
 			handler: (action: "increase" | "decrease" | "reset") => void,
 		): () => void;
+		// Optional: implemented by the real preload bridge; the onboarding hook
+		// optional-chains these, so non-Electron contexts need no stub.
+		onShowWelcomeTour?(handler: () => void): () => void;
+		onResetOnboardingHints?(handler: () => void): () => void;
 	};
 	app: {
 		setEditorDirty(args: {

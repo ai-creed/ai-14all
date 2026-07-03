@@ -11,6 +11,7 @@ interface Props {
 	open: boolean;
 	platform: Platform;
 	onClose: () => void;
+	onReplayTour?: () => void;
 }
 
 const SHORTCUT_GROUPS: { label: string; ids: string[] }[] = [
@@ -66,7 +67,12 @@ const SHORTCUT_GROUPS: { label: string; ids: string[] }[] = [
 	},
 ];
 
-export function ShortcutsHelp({ open, platform, onClose }: Props) {
+export function ShortcutsHelp({
+	open,
+	platform,
+	onClose,
+	onReplayTour,
+}: Props) {
 	const byId = Object.fromEntries(SHORTCUT_REGISTRY.map((s) => [s.id, s]));
 
 	return (
@@ -85,6 +91,19 @@ export function ShortcutsHelp({ open, platform, onClose }: Props) {
 					<DialogTitle className="shell-shortcuts-help__title">
 						Keyboard shortcuts
 					</DialogTitle>
+					{onReplayTour && (
+						<button
+							type="button"
+							className="shell-shortcuts-help__replay text-xs underline"
+							data-testid="shortcuts-replay-tour"
+							onClick={() => {
+								onReplayTour();
+								onClose();
+							}}
+						>
+							Replay welcome tour
+						</button>
+					)}
 					<DialogClose asChild>
 						<button
 							type="button"

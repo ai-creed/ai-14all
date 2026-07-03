@@ -6,6 +6,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { NeedsYouSignal } from "../features/workspace/components/NeedsYouSignal";
 import { SidebarTooltip } from "../features/workspace/components/SidebarTooltip";
 import { WorkflowRow } from "../features/workflows/components/WorkflowRow";
+import { TourStepCard } from "../features/onboarding/components/TourStepCard";
+import { TOUR_STEPS } from "../features/onboarding/logic/tour-steps";
+import { CoachmarkCard } from "../features/onboarding/components/CoachmarkCard";
+import { COACHMARKS } from "../features/onboarding/logic/coachmarks";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -344,6 +348,25 @@ export function UiGallery() {
 								onOpenDetail={() => {}}
 							/>
 						))}
+					</div>
+				</Section>
+				<Section title="Onboarding">
+					<div data-testid="gallery-onboarding-tour">
+						<TourStepCard
+							step={TOUR_STEPS[0]}
+							index={0}
+							total={TOUR_STEPS.length}
+							onNext={() => {}}
+							onBack={() => {}}
+							onSkip={() => {}}
+						/>
+					</div>
+					<div data-testid="gallery-onboarding-coachmark" className="mt-4">
+						<CoachmarkCard
+							title={COACHMARKS[0].title}
+							body={COACHMARKS[0].body}
+							onDismiss={() => {}}
+						/>
 					</div>
 				</Section>
 			</main>

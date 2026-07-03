@@ -1,4 +1,5 @@
 import { BrowserWindow, Menu, type MenuItemConstructorOptions } from "electron";
+import { buildHelpSubmenu } from "./help-menu";
 
 export function buildApplicationMenu(mainWindow: BrowserWindow): Menu {
 	const sendToRenderer = (channel: string, ...args: unknown[]) => {
@@ -90,6 +91,8 @@ export function buildApplicationMenu(mainWindow: BrowserWindow): Menu {
 		],
 	};
 
+	const helpMenu = buildHelpSubmenu((channel) => sendToRenderer(channel));
+
 	const template: MenuItemConstructorOptions[] =
 		process.platform === "darwin"
 			? [
@@ -99,15 +102,9 @@ export function buildApplicationMenu(mainWindow: BrowserWindow): Menu {
 					{ role: "editMenu" },
 					viewMenu,
 					{ role: "windowMenu" },
-					{ role: "help" },
+					helpMenu,
 				]
-			: [
-					workspaceMenu,
-					terminalMenu,
-					{ role: "editMenu" },
-					viewMenu,
-					{ role: "help" },
-				];
+			: [workspaceMenu, terminalMenu, { role: "editMenu" }, viewMenu, helpMenu];
 
 	return Menu.buildFromTemplate(template);
 }

@@ -183,7 +183,7 @@ export function SessionSidebar({
 					</Button>
 				</div>
 
-				<div className="shell-sidebar__list">
+				<div className="shell-sidebar__list" data-tour="sidebar-tree">
 					{workspaces.map((workspace) => {
 						const repoCollapsed =
 							!collapsed &&
@@ -627,6 +627,7 @@ export function SessionSidebar({
 													>
 														<div
 															className="shell-sidebar__row"
+															data-tour="session-row"
 															{...rowAttentionProps}
 															onClick={handleRowClick}
 														>
@@ -644,6 +645,7 @@ export function SessionSidebar({
 													<ContextMenu>
 														<div
 															className="shell-sidebar__row"
+															data-tour="session-row"
 															{...rowAttentionProps}
 															onClick={handleRowClick}
 														>
@@ -722,7 +724,10 @@ export function SessionSidebar({
 						);
 					})}
 				</div>
-				<div className="shell-sidebar__footer shell-sidebar__footer--global">
+				<div
+					className="shell-sidebar__footer shell-sidebar__footer--global"
+					data-tour="settings-footer"
+				>
 					<Button
 						type="button"
 						variant="outline"

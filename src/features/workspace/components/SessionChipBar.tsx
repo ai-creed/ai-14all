@@ -84,13 +84,18 @@ export function SessionChipBar({
 				)}
 			</div>
 
-			{usage && <div className="shell-chip-bar__usage">{usage}</div>}
+			{usage && (
+				<div className="shell-chip-bar__usage" data-tour="telemetry">
+					{usage}
+				</div>
+			)}
 
 			<div className="shell-chip-bar__actions">
 				<button
 					type="button"
 					className="shell-chip-bar__action"
 					aria-label="Open command palette"
+					data-tour="command-palette"
 					onClick={onCommandsClick}
 				>
 					<span className="shell-chip-bar__action-icon" aria-hidden="true">
