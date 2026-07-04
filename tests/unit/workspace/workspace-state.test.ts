@@ -62,6 +62,8 @@ function makeProcess(
 		agentAttentionClearedAt: null,
 		agentDetected: false,
 		provider: null,
+		resumeCommand: null,
+		resumePending: false,
 		...overrides,
 	};
 }
@@ -138,6 +140,8 @@ describe("workspaceReducer", () => {
 				agentAttentionClearedAt: null,
 				agentDetected: false,
 				provider: null,
+				resumeCommand: null,
+				resumePending: false,
 			},
 		});
 		state = workspaceReducer(state, {
@@ -162,6 +166,8 @@ describe("workspaceReducer", () => {
 				agentAttentionClearedAt: null,
 				agentDetected: false,
 				provider: null,
+				resumeCommand: null,
+				resumePending: false,
 			},
 		});
 		state = workspaceReducer(state, {
@@ -202,6 +208,8 @@ describe("workspaceReducer", () => {
 				agentAttentionClearedAt: null,
 				agentDetected: false,
 				provider: null,
+				resumeCommand: null,
+				resumePending: false,
 			},
 		});
 
@@ -600,6 +608,8 @@ describe("workspaceReducer — Phase 3 process model", () => {
 				agentAttentionClearedAt: null,
 				agentDetected: false,
 				provider: null,
+				resumeCommand: null,
+				resumePending: false,
 			},
 		});
 		expect(state.processSessionsById["process-1"]?.pinned).toBe(true);
@@ -632,6 +642,8 @@ describe("workspaceReducer — Phase 3 process model", () => {
 				agentAttentionClearedAt: null,
 				agentDetected: false,
 				provider: null,
+				resumeCommand: null,
+				resumePending: false,
 			},
 		});
 		state = workspaceReducer(state, {
@@ -1245,6 +1257,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 								command: "claude",
 								pinned: true,
 								terminalSessionId: null,
+								resumeCommand: null,
 							},
 						],
 					},
@@ -1295,6 +1308,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 						command: null,
 						pinned: false,
 						terminalSessionId: null,
+						resumeCommand: null,
 					},
 				],
 			},
@@ -1368,6 +1382,7 @@ describe("workspaceReducer — Phase 5 persistence restore", () => {
 						command: null,
 						pinned: false,
 						terminalSessionId: null,
+						resumeCommand: null,
 					},
 				],
 			},
@@ -2711,6 +2726,8 @@ describe("agentAttentionReasons defaults", () => {
 				agentAttentionClearedAt: null,
 				agentDetected: false,
 				provider: null,
+				resumeCommand: null,
+				resumePending: false,
 			},
 		});
 		const proc = state.processSessionsById["proc-1"];
@@ -2844,6 +2861,7 @@ describe("restore resets agentAttentionReasons", () => {
 								command: null,
 								pinned: false,
 								terminalSessionId: null,
+								resumeCommand: null,
 							},
 						],
 					},
@@ -2961,6 +2979,7 @@ describe("restore resets agentAttentionReasons", () => {
 						command: null,
 						pinned: false,
 						terminalSessionId: null,
+						resumeCommand: null,
 					},
 				],
 			},
@@ -3171,5 +3190,60 @@ describe("session/reportAgentAttention and session/updateProcessStatus — agent
 		expect(
 			state.sessionsByWorktreeId[worktreeId].agentAttentionClearedAt,
 		).toBeNull();
+	});
+});
+
+describe("session/setResumeCommand and session/setResumePending", () => {
+	function seedWithTerminal(processId: string, terminalSessionId: string) {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess(processId, "main", "shell", { terminalSessionId }),
+		});
+		return state;
+	}
+
+	it("session/setResumeCommand sets the field on the process matching terminalSessionId", () => {
+		const seeded = seedWithTerminal("p1", "term-1");
+		const next = workspaceReducer(seeded, {
+			type: "session/setResumeCommand",
+			terminalSessionId: "term-1",
+			resumeCommand: "claude --resume abc-123",
+		});
+		const proc = Object.values(next.processSessionsById).find(
+			(p) => p.terminalSessionId === "term-1",
+		);
+		expect(proc?.resumeCommand).toBe("claude --resume abc-123");
+	});
+
+	it("session/setResumeCommand is a no-op for unknown terminal ids", () => {
+		const seeded = seedWithTerminal("p1", "term-1");
+		const next = workspaceReducer(seeded, {
+			type: "session/setResumeCommand",
+			terminalSessionId: "nope",
+			resumeCommand: "claude --resume abc-123",
+		});
+		expect(next).toBe(seeded);
+	});
+
+	it("session/setResumePending sets the field on the process matching processId", () => {
+		const seeded = seedWithTerminal("p1", "term-1");
+		const next = workspaceReducer(seeded, {
+			type: "session/setResumePending",
+			processId: "p1",
+			resumePending: true,
+		});
+		expect(next.processSessionsById.p1.resumePending).toBe(true);
+	});
+
+	it("session/setResumePending is a no-op for an unknown processId", () => {
+		const seeded = seedWithTerminal("p1", "term-1");
+		const next = workspaceReducer(seeded, {
+			type: "session/setResumePending",
+			processId: "nope",
+			resumePending: true,
+		});
+		expect(next).toBe(seeded);
 	});
 });

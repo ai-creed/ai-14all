@@ -130,6 +130,7 @@ export function buildWorkspaceSnapshot(
 						command: process.command,
 						pinned: process.pinned,
 						terminalSessionId: process.terminalSessionId,
+						resumeCommand: process.resumeCommand,
 					})),
 			}),
 		),

@@ -114,6 +114,8 @@ export function useProcessActions(options: Options): UseProcessActions {
 					agentAttentionClearedAt: null,
 					agentDetected: isAgentProcess(label, command),
 					provider: null,
+					resumeCommand: null,
+					resumePending: false,
 				};
 			} catch (err) {
 				// Spawn failed: toast + return null so the caller dispatches nothing
@@ -225,6 +227,8 @@ export function useProcessActions(options: Options): UseProcessActions {
 					agentAttentionClearedAt: null,
 					agentDetected: isAgentProcess(preset.label, preset.command),
 					provider: detectAgentProvider(preset.command, preset.label, null),
+					resumeCommand: null,
+					resumePending: false,
 				},
 			});
 			// Submit with the platform's Enter byte: `\r` on Windows (ConPTY only

@@ -894,6 +894,8 @@ function AppContent() {
 				agentAttentionClearedAt: null,
 				agentDetected: false,
 				provider: null,
+				resumeCommand: null,
+				resumePending: false,
 			};
 			// An empty-slot launcher passes a slotIndex to land in THAT slot; the
 			// chrome bar omits it and auto-places (fill first empty, else promote).

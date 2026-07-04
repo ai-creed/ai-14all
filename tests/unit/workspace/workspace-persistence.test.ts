@@ -15,7 +15,10 @@ import {
 	createWorkspaceState,
 	workspaceReducer,
 } from "../../../src/features/workspace/logic/workspace-state";
-import { PersistedWorkspaceStateSchema } from "../../../shared/models/persisted-workspace-state";
+import {
+	PersistedProcessSessionSchema,
+	PersistedWorkspaceStateSchema,
+} from "../../../shared/models/persisted-workspace-state";
 import type {
 	PersistedSavedWorkspace,
 	WorkspaceSnapshot,
@@ -83,6 +86,8 @@ describe("buildWorkspaceSnapshot", () => {
 				agentAttentionClearedAt: null,
 				agentDetected: false,
 				provider: null,
+				resumeCommand: null,
+				resumePending: false,
 			},
 		});
 		state = workspaceReducer(state, {
@@ -130,6 +135,7 @@ describe("buildWorkspaceSnapshot", () => {
 							command: null,
 							pinned: false,
 							terminalSessionId: "terminal-live",
+							resumeCommand: null,
 						},
 					],
 				},
@@ -146,6 +152,65 @@ describe("buildWorkspaceSnapshot", () => {
 		expect(snapshot.commandPresets).toEqual(DEFAULT_COMMAND_PRESETS);
 		expect(snapshot.worktreeSessions).toEqual([]);
 		expect(snapshot.selectedWorktreeId).toBeNull();
+	});
+
+	it("round-trips resumeCommand", () => {
+		let state = createWorkspaceState([
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
+		]);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: {
+				id: "process-1",
+				workspaceId: "workspace-1",
+				worktreeId: "main",
+				terminalSessionId: "terminal-live",
+				origin: "adHoc",
+				presetId: null,
+				label: "shell 1",
+				command: null,
+				status: "running",
+				lastActivityAt: null,
+				lastOutputPreview: null,
+				exitCode: null,
+				pinned: false,
+				attentionState: "idle",
+				agentAttentionReasons: {},
+				agentAttentionClearedAt: null,
+				agentDetected: false,
+				provider: null,
+				resumeCommand: "claude --resume abc",
+				resumePending: false,
+			},
+		});
+
+		const snap = buildWorkspaceSnapshot("/repo", null, state);
+
+		expect(snap.worktreeSessions[0].processSessions[0].resumeCommand).toBe(
+			"claude --resume abc",
+		);
+	});
+});
+
+describe("PersistedProcessSessionSchema", () => {
+	it("old persisted snapshots parse with resumeCommand defaulting to null", () => {
+		const parsed = PersistedProcessSessionSchema.parse({
+			id: "p1",
+			origin: "adHoc",
+			presetId: null,
+			label: "zsh",
+			command: null,
+			pinned: false,
+		});
+		expect(parsed.resumeCommand).toBe(null);
 	});
 });
 
@@ -380,6 +445,8 @@ it("includes terminalSessionId in buildWorkspaceSnapshot output", () => {
 			agentAttentionClearedAt: null,
 			agentDetected: false,
 			provider: null,
+			resumeCommand: null,
+			resumePending: false,
 		},
 	});
 
