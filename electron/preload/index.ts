@@ -4,6 +4,7 @@ import type {
 	UpdateInfo,
 } from "../../shared/contracts/commands.js";
 import type { UsageSnapshot } from "../../shared/models/usage.js";
+import type { PersistedSettingsV1 } from "../../shared/models/persisted-settings.js";
 import type {
 	TerminalOutputEvent,
 	TerminalExitEvent,
@@ -46,6 +47,10 @@ const NOTE_BRIDGE_REPLY = "mcp:note:reply";
 const NOTE_BRIDGE_READY = "mcp:note:ready";
 const NOTE_BRIDGE_GOODBYE = "mcp:note:goodbye";
 const DIAGNOSTICS_ATTENTION_EVENT = "diagnostics:attention-event";
+const SETTINGS_READ_SYNC = "settings:readSync";
+const SETTINGS_READ = "settings:read";
+const SETTINGS_WRITE = "settings:write";
+const SETTINGS_CHANGED = "settings:changed";
 // plugins channel constants (duplicated to keep Zod out of the sandboxed preload)
 const PLUGINS_LIST = "plugins:list";
 const PLUGINS_SET_ENABLED = "plugins:setEnabled";
@@ -109,6 +114,13 @@ for (const channel of [
 	pendingOnceRemovers[channel] = () =>
 		ipcRenderer.removeListener(channel, handler);
 }
+
+// Synchronous initial read so settings.initial is available before first
+// paint (no async round-trip is possible this early). The main handler
+// registers this before the first window loads.
+const initialSettings = ipcRenderer.sendSync(
+	SETTINGS_READ_SYNC,
+) as PersistedSettingsV1;
 
 const api: Ai14AllDesktopApi = {
 	repository: {
@@ -298,6 +310,15 @@ const api: Ai14AllDesktopApi = {
 			return onChannel("workspace/openPicker", listener);
 		},
 	},
+	settings: {
+		initial: initialSettings,
+		read() {
+			return ipcRenderer.invoke(SETTINGS_READ);
+		},
+		write(patch) {
+			return ipcRenderer.invoke(SETTINGS_WRITE, { patch });
+		},
+	},
 	diagnostics: {
 		logShellEvent(event) {
 			return ipcRenderer.invoke("diagnostics:logShellEvent", event);
@@ -456,6 +477,9 @@ const api: Ai14AllDesktopApi = {
 		},
 		onResetOnboardingHints(handler) {
 			return onChannel("help/resetOnboardingHints", handler);
+		},
+		onSettingsChanged(cb) {
+			return onChannel<PersistedSettingsV1>(SETTINGS_CHANGED, cb);
 		},
 	},
 	app: {

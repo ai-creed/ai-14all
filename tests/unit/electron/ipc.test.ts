@@ -97,6 +97,11 @@ describe("registerIpcHandlers diagnostics", () => {
 					readState: vi.fn(),
 					writeState: vi.fn(),
 				} as never,
+				settingsService: {
+					readState: vi.fn(),
+					readStateSync: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
 				workspaceRegistry: { register: vi.fn(), get: vi.fn() } as never,
 				worktreeService: worktreeServiceInstance as never,
 				shellEventLog: overrides.shellEventLog as never,
@@ -174,6 +179,11 @@ describe("registerIpcHandlers diagnostics", () => {
 					readState: vi.fn(),
 					writeState: vi.fn(),
 				} as never,
+				settingsService: {
+					readState: vi.fn(),
+					readStateSync: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
 				workspaceRegistry: { register: vi.fn(), get: vi.fn() } as never,
 				worktreeService: worktreeServiceInstance as never,
 				shellEventLog: { log: logMock } as never,
@@ -226,6 +236,11 @@ describe("registerIpcHandlers diagnostics", () => {
 					readState: vi.fn(),
 					writeState: vi.fn(),
 				} as never,
+				settingsService: {
+					readState: vi.fn(),
+					readStateSync: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
 				workspaceRegistry: { register: vi.fn(), get: vi.fn() } as never,
 				worktreeService: worktreeServiceInstance as never,
 				shellEventLog: { log: logMock } as never,
@@ -272,6 +287,11 @@ describe("registerIpcHandlers files:listWorktree identity resolution", () => {
 			{
 				workspacePersistence: {
 					readState: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
+				settingsService: {
+					readState: vi.fn(),
+					readStateSync: vi.fn(),
 					writeState: vi.fn(),
 				} as never,
 				workspaceRegistry: {
@@ -419,6 +439,11 @@ describe("registerIpcHandlers repository remote branches", () => {
 					readState: vi.fn(),
 					writeState: vi.fn(),
 				} as never,
+				settingsService: {
+					readState: vi.fn(),
+					readStateSync: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
 				workspaceRegistry: registry as never,
 				worktreeService: worktreeServiceInstance as never,
 				shellEventLog: undefined as never,
@@ -457,6 +482,11 @@ describe("registerIpcHandlers repository remote branches", () => {
 			{
 				workspacePersistence: {
 					readState: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
+				settingsService: {
+					readState: vi.fn(),
+					readStateSync: vi.fn(),
 					writeState: vi.fn(),
 				} as never,
 				workspaceRegistry: registry as never,
@@ -500,6 +530,11 @@ describe("registerIpcHandlers repository remote branches", () => {
 			{
 				workspacePersistence: {
 					readState: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
+				settingsService: {
+					readState: vi.fn(),
+					readStateSync: vi.fn(),
 					writeState: vi.fn(),
 				} as never,
 				workspaceRegistry: registry as never,

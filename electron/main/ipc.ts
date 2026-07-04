@@ -34,6 +34,7 @@ import {
 	ReadGitSummarySchema,
 	ReadWorkspaceRestoreStateSchema,
 	WriteWorkspaceRestoreStateSchema,
+	WriteSettingsSchema,
 	ReadGitCommitHistorySchema,
 	ReadGitCommitDetailSchema,
 	ReadGitCommitFileDiffSchema,
@@ -59,6 +60,7 @@ import {
 	type AttentionLogEvent,
 } from "../../services/diagnostics/agent-attention-logger.js";
 import type { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
+import type { SettingsService } from "../../services/settings/settings-service.js";
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 import type { ShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
 import type { AgentAttentionLogger } from "../../services/diagnostics/agent-attention-logger.js";
@@ -132,6 +134,7 @@ export function registerIpcHandlers(
 	mainWindow: BrowserWindow,
 	{
 		workspacePersistence,
+		settingsService,
 		workspaceRegistry,
 		worktreeService,
 		shellEventLog,
@@ -143,6 +146,7 @@ export function registerIpcHandlers(
 		getCortexEnabled,
 	}: {
 		workspacePersistence: WorkspacePersistenceService;
+		settingsService: SettingsService;
 		workspaceRegistry: WorkspaceRegistryService;
 		worktreeService: WorktreeService;
 		shellEventLog?: ShellEventLogService;
@@ -522,6 +526,19 @@ export function registerIpcHandlers(
 	ipcMain.handle("workspace:writeRestoreState", (_event, raw: unknown) => {
 		const { state } = WriteWorkspaceRestoreStateSchema.parse(raw);
 		return workspacePersistence.writeState(state);
+	});
+
+	// --- Settings ---
+
+	ipcMain.handle("settings:read", () => settingsService.readState());
+
+	ipcMain.handle("settings:write", async (_event, raw: unknown) => {
+		const { patch } = WriteSettingsSchema.parse(raw);
+		const merged = await settingsService.writeState(patch);
+		for (const win of BrowserWindow.getAllWindows()) {
+			win.webContents.send("settings:changed", merged);
+		}
+		return merged;
 	});
 
 	// --- System ---

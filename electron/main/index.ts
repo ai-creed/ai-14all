@@ -10,6 +10,7 @@ import { createCloseGate } from "./close-gate.js";
 import { registerAppLifecycle } from "./lifecycle.js";
 import { buildApplicationMenu } from "./menu.js";
 import { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
+import { SettingsService } from "../../services/settings/settings-service.js";
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 import { createShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
 import {
@@ -129,16 +130,36 @@ app.whenReady().then(async () => {
 		},
 	});
 
-	const workspacePersistence = new WorkspacePersistenceService(
+	// Shared with SettingsService below: its legacy seed source must read the SAME
+	// resolved workspace-state file WorkspacePersistenceService uses — including
+	// the AI14ALL_WORKSPACE_STATE_PATH env seam e2e tests rely on.
+	const workspaceStatePath =
 		process.env.AI14ALL_WORKSPACE_STATE_PATH ??
-			join(app.getPath("userData"), "workspace-state.json"),
+		join(app.getPath("userData"), "workspace-state.json");
+	const workspacePersistence = new WorkspacePersistenceService(
+		workspaceStatePath,
 	);
+	const settingsService = new SettingsService(
+		join(app.getPath("userData"), "settings.json"),
+		workspaceStatePath,
+	);
+	// Sync read for the preload's settings.initial. Must be registered before
+	// the first window loads (loadFile/loadURL below triggers the preload).
+	// ipcMain.on + a promise does NOT satisfy sendSync — the renderer unblocks
+	// on the synchronous return — so this uses SettingsService's sync twin.
+	ipcMain.on("settings:readSync", (event) => {
+		try {
+			event.returnValue = settingsService.readStateSync().settings;
+		} catch {
+			event.returnValue = null;
+		}
+	});
 
 	// Token telemetry: gated utilityProcess that reads ~/.claude and ~/.codex logs
 	// and pushes UsageSnapshots to the renderer. Enabled by default. The settings
 	// bridge loads the persisted usage UI settings once (async) and exposes a sync
 	// snapshot for the host's loadSettings plus an async read-modify-write persist.
-	const usageSettings = await createUsageSettingsBridge(workspacePersistence);
+	const usageSettings = await createUsageSettingsBridge(settingsService);
 	const usageHost = new UsageHost({
 		userDataDir: app.getPath("userData"),
 		launchMs: Date.now(),
@@ -565,6 +586,7 @@ app.whenReady().then(async () => {
 	closeGate.attach(mainWindow);
 	const { dispose, terminalService } = registerIpcHandlers(mainWindow, {
 		workspacePersistence,
+		settingsService,
 		workspaceRegistry,
 		worktreeService,
 		shellEventLog,

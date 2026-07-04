@@ -161,6 +161,7 @@ export const events: Ai14AllDesktopApi["events"] = {
 	onOpenInstallModal: (handler) =>
 		getDesktopClient().events.onOpenInstallModal(handler),
 	onSetTheme: (handler) => getDesktopClient().events.onSetTheme(handler),
+	onSettingsChanged: (cb) => getDesktopClient().events.onSettingsChanged(cb),
 };
 
 export const noteBridge: Ai14AllDesktopApi["noteBridge"] = {

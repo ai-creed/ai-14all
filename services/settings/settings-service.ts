@@ -14,7 +14,10 @@ import {
 	type PersistedSettingsV1,
 	type SettingsPatch,
 } from "../../shared/models/persisted-settings.js";
-import { PersistedWorkspaceStateV2Schema } from "../../shared/models/persisted-workspace-state.js";
+import {
+	PersistedWorkspaceStateV1Schema,
+	PersistedWorkspaceStateV2Schema,
+} from "../../shared/models/persisted-workspace-state.js";
 
 export type PersistenceFsAdapter = {
 	mkdir: typeof mkdir;
@@ -107,9 +110,26 @@ export class SettingsService {
 			const { settings } = await this.readState();
 			this.current = settings;
 		}
+		// usageTelemetry is nested: a shallow `{...this.current, ...patch}` would
+		// replace the whole sub-object with `patch.usageTelemetry`, and zod's
+		// per-field `.default()` on UsageTelemetrySettingsSchema would then
+		// re-inject defaults (not the current values) for any key the patch
+		// omitted — e.g. `{usageTelemetry:{enabled:false}}` would silently reset
+		// includeUntracked/chipRange. Deep-merge that one nested object so a
+		// partial usageTelemetry patch only touches the keys it specifies. This is
+		// the single source of truth for the merge: both the settings:write IPC
+		// handler and the usage-settings-bridge funnel through writeState().
 		const merged = PersistedSettingsV1Schema.parse({
 			...this.current,
 			...patch,
+			...(patch.usageTelemetry
+				? {
+						usageTelemetry: {
+							...this.current.usageTelemetry,
+							...patch.usageTelemetry,
+						},
+					}
+				: {}),
 			version: 1,
 		});
 		this.current = merged;
@@ -200,14 +220,24 @@ function parseSettingsFile(raw: string): ParseOutcome {
 // Shared by seedFromLegacy() and seedFromLegacySync() so both paths derive
 // identical settings from the same legacy workspace-state contents.
 function seedFromLegacyRaw(raw: string): PersistedSettingsV1 {
-	const legacy = PersistedWorkspaceStateV2Schema.safeParse(JSON.parse(raw));
-	if (legacy.success) {
+	const parsed: unknown = JSON.parse(raw);
+	const v2 = PersistedWorkspaceStateV2Schema.safeParse(parsed);
+	if (v2.success) {
 		return PersistedSettingsV1Schema.parse({
 			version: 1,
-			restorePreference: legacy.data.restorePreference,
-			...(legacy.data.usageTelemetry
-				? { usageTelemetry: legacy.data.usageTelemetry }
+			restorePreference: v2.data.restorePreference,
+			...(v2.data.usageTelemetry
+				? { usageTelemetry: v2.data.usageTelemetry }
 				: {}),
+		});
+	}
+	// Fall back to the v1 workspace-state shape (pre-multi-workspace): it also
+	// carries restorePreference but has no usageTelemetry field at all.
+	const v1 = PersistedWorkspaceStateV1Schema.safeParse(parsed);
+	if (v1.success) {
+		return PersistedSettingsV1Schema.parse({
+			version: 1,
+			restorePreference: v1.data.restorePreference,
 		});
 	}
 	return DEFAULT_PERSISTED_SETTINGS;

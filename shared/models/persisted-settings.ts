@@ -4,8 +4,17 @@ import {
 	UsageTelemetrySettingsSchema,
 } from "./persisted-workspace-state";
 
-export const ThemeModeSchema = z.enum(["light", "dark", "system", "warm", "tui"]);
-export const RestoreDepthSchema = z.enum(["stateEagerTerminalsLazy", "activeOnly"]);
+export const ThemeModeSchema = z.enum([
+	"light",
+	"dark",
+	"system",
+	"warm",
+	"tui",
+]);
+export const RestoreDepthSchema = z.enum([
+	"stateEagerTerminalsLazy",
+	"activeOnly",
+]);
 export const AgentResumeModeSchema = z.enum(["auto", "manual", "off"]);
 
 // Range mirrors MIN/MAX_TERMINAL_FONT_SIZE in use-terminal-font-size.ts.
@@ -30,6 +39,20 @@ export type RestoreDepth = z.infer<typeof RestoreDepthSchema>;
 export type AgentResumeMode = z.infer<typeof AgentResumeModeSchema>;
 export type PersistedSettingsV1 = z.infer<typeof PersistedSettingsV1Schema>;
 
+// Bare (non-`.default()`) mirror of UsageTelemetrySettingsSchema's fields, for
+// the same reason the top-level fields below avoid `.default()` (see comment
+// below): reusing UsageTelemetrySettingsSchema as-is for the nested
+// `usageTelemetry` patch would mean a sub-patch of just `{ enabled: false }`
+// re-injects zod's own defaults (`includeUntracked: false`, `chipRange:
+// "week"`) as explicit values on parse — verified via a standalone repro —
+// silently discarding whatever SettingsService.writeState()'s deep-merge was
+// meant to preserve.
+const UsageTelemetryPatchSchema = z.object({
+	enabled: z.boolean().optional(),
+	includeUntracked: z.boolean().optional(),
+	chipRange: z.enum(["week", "month"]).optional(),
+});
+
 // Built from the bare (non-`.default()`) field schemas rather than
 // `PersistedSettingsV1Schema.omit({version:true}).partial()`: in zod v4 a
 // field's `.default()` resolves on `undefined` input regardless of
@@ -44,7 +67,7 @@ export const SettingsPatchSchema = z.object({
 	restorePreference: RestorePreferenceSchema.optional(),
 	restoreDepth: RestoreDepthSchema.optional(),
 	agentResume: AgentResumeModeSchema.optional(),
-	usageTelemetry: UsageTelemetrySettingsSchema.optional(),
+	usageTelemetry: UsageTelemetryPatchSchema.optional(),
 });
 export type SettingsPatch = z.infer<typeof SettingsPatchSchema>;
 

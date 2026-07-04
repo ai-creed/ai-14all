@@ -35,7 +35,11 @@ describe("SettingsService.readState", () => {
 				activeWorkspaceId: null,
 				workspaceOrder: [],
 				workspaces: [],
-				usageTelemetry: { enabled: false, includeUntracked: true, chipRange: "month" },
+				usageTelemetry: {
+					enabled: false,
+					includeUntracked: true,
+					chipRange: "month",
+				},
 			}),
 		);
 		const svc = new SettingsService(settingsPath, legacyPath);
@@ -49,13 +53,30 @@ describe("SettingsService.readState", () => {
 		});
 	});
 
+	it("missing file + legacy v1 workspace-state (no usageTelemetry) → seeds restorePreference", async () => {
+		writeFileSync(
+			legacyPath,
+			JSON.stringify({
+				version: 1,
+				restorePreference: "alwaysRestore",
+				snapshot: null,
+			}),
+		);
+		const svc = new SettingsService(settingsPath, legacyPath);
+		const { settings, firstRun } = await svc.readState();
+		expect(firstRun).toBe(true);
+		expect(settings.restorePreference).toBe("alwaysRestore");
+	});
+
 	it("corrupt JSON → overwritten with defaults, firstRun: false", async () => {
 		writeFileSync(settingsPath, "{not json");
 		const svc = new SettingsService(settingsPath, legacyPath);
 		const { settings, firstRun } = await svc.readState();
 		expect(firstRun).toBe(false);
 		expect(settings).toEqual(DEFAULT_PERSISTED_SETTINGS);
-		expect(JSON.parse(readFileSync(settingsPath, "utf8"))).toEqual(DEFAULT_PERSISTED_SETTINGS);
+		expect(JSON.parse(readFileSync(settingsPath, "utf8"))).toEqual(
+			DEFAULT_PERSISTED_SETTINGS,
+		);
 	});
 
 	it("newer schema → defaults served, file NOT overwritten", async () => {
@@ -73,7 +94,10 @@ describe("SettingsService.writeState", () => {
 	it("merges a patch over current state and persists", async () => {
 		const svc = new SettingsService(settingsPath, legacyPath);
 		await svc.readState();
-		const merged = await svc.writeState({ theme: "warm", terminalFontSize: 15 });
+		const merged = await svc.writeState({
+			theme: "warm",
+			terminalFontSize: 15,
+		});
 		expect(merged.theme).toBe("warm");
 		expect(merged.terminalFontSize).toBe(15);
 		expect(merged.agentResume).toBe("auto");
@@ -88,6 +112,24 @@ describe("SettingsService.writeState", () => {
 			svc.writeState({ theme: "tui" }),
 		]);
 		expect(JSON.parse(readFileSync(settingsPath, "utf8")).theme).toBe("tui");
+	});
+
+	it("a partial usageTelemetry patch deep-merges instead of resetting the other fields to defaults", async () => {
+		const svc = new SettingsService(settingsPath, legacyPath);
+		await svc.readState();
+		await svc.writeState({
+			usageTelemetry: {
+				enabled: true,
+				includeUntracked: true,
+				chipRange: "month",
+			},
+		});
+		const merged = await svc.writeState({ usageTelemetry: { enabled: false } });
+		expect(merged.usageTelemetry).toEqual({
+			enabled: false,
+			includeUntracked: true,
+			chipRange: "month",
+		});
 	});
 });
 
@@ -112,7 +154,11 @@ describe("SettingsService.readStateSync", () => {
 				activeWorkspaceId: null,
 				workspaceOrder: [],
 				workspaces: [],
-				usageTelemetry: { enabled: false, includeUntracked: true, chipRange: "month" },
+				usageTelemetry: {
+					enabled: false,
+					includeUntracked: true,
+					chipRange: "month",
+				},
 			}),
 		);
 		const svc = new SettingsService(settingsPath, legacyPath);
@@ -132,7 +178,9 @@ describe("SettingsService.readStateSync", () => {
 		const { settings, firstRun } = svc.readStateSync();
 		expect(firstRun).toBe(false);
 		expect(settings).toEqual(DEFAULT_PERSISTED_SETTINGS);
-		expect(JSON.parse(readFileSync(settingsPath, "utf8"))).toEqual(DEFAULT_PERSISTED_SETTINGS);
+		expect(JSON.parse(readFileSync(settingsPath, "utf8"))).toEqual(
+			DEFAULT_PERSISTED_SETTINGS,
+		);
 	});
 
 	it("newer schema → defaults served, file NOT overwritten", () => {

@@ -26,6 +26,11 @@ import {
 	PersistedWorkspaceStateV2Schema,
 	type PersistedWorkspaceStateV2,
 } from "../models/persisted-workspace-state.js";
+import {
+	SettingsPatchSchema,
+	type PersistedSettingsV1,
+	type SettingsPatch,
+} from "../models/persisted-settings.js";
 import type {
 	CreateWorktreePreview,
 	RemoveWorktreePreview,
@@ -319,6 +324,10 @@ export const WriteWorkspaceRestoreStateSchema = z.object({
 	state: PersistedWorkspaceStateV2Schema,
 });
 
+export const WriteSettingsSchema = z.object({
+	patch: SettingsPatchSchema.strict(),
+});
+
 export const ReadGitCommitHistorySchema = z.object({
 	workspaceId: z.string().min(1),
 	worktreeId: z.string().min(1),
@@ -482,6 +491,11 @@ export type Ai14AllDesktopApi = {
 		writeRestoreState(state: PersistedWorkspaceStateV2): Promise<void>;
 		onOpenPicker(listener: () => void): () => void;
 	};
+	settings: {
+		initial: PersistedSettingsV1;
+		read(): Promise<{ settings: PersistedSettingsV1; firstRun: boolean }>;
+		write(patch: SettingsPatch): Promise<PersistedSettingsV1>;
+	};
 	diagnostics: {
 		logShellEvent(event: z.infer<typeof LogShellEventSchema>): Promise<void>;
 		logAttentionEvent(event: DiagnosticsAttentionLogEvent): void;
@@ -610,6 +624,7 @@ export type Ai14AllDesktopApi = {
 		// optional-chains these, so non-Electron contexts need no stub.
 		onShowWelcomeTour?(handler: () => void): () => void;
 		onResetOnboardingHints?(handler: () => void): () => void;
+		onSettingsChanged(cb: (settings: PersistedSettingsV1) => void): () => void;
 	};
 	app: {
 		setEditorDirty(args: {
