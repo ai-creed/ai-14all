@@ -14,8 +14,10 @@ import {
 } from "../../../src/features/workspace/logic/workspace-state";
 import type { PendingRestoreEntry } from "../../../src/features/workspace/logic/workspace-persistence";
 import {
+	PersistedWorktreeSessionSchema,
 	WorkspaceSnapshotSchema,
 	type PersistedSavedWorkspace,
+	type PersistedWorktreeSession,
 	type WorkspaceSnapshot,
 } from "../../../shared/models/persisted-workspace-state";
 import type { Repository } from "../../../shared/models/repository";
@@ -383,5 +385,153 @@ describe("hydrateWorkspace", () => {
 		// The pending map must not be touched either — activateWorkspace owns
 		// this workspace's state now.
 		expect(harness.pending()).toEqual({});
+	});
+
+	it("R1: does not downgrade a live workspace when hydration fails after the registry goes live mid-flight", async () => {
+		openRepositoryMock.mockResolvedValueOnce({
+			workspaceId: "workspace:repoB",
+			repository: repo("/repos/repoB"),
+		});
+
+		const harness = makeHarness(baseRegistry());
+
+		// Simulate activateWorkspace winning the race (as above), but this time
+		// hydrateWorkspace's own listWorktrees call goes on to REJECT — a
+		// transient failure racing a successful activateWorkspace must not be
+		// allowed to downgrade the now-live workspace back to dormant+loadError.
+		listWorktreesMock.mockImplementationOnce(async () => {
+			harness.options.appWorkspacesRef.current = appWorkspacesReducer(
+				harness.options.appWorkspacesRef.current,
+				{
+					type: "workspace/register",
+					workspace: {
+						workspaceId: "workspace:repoB",
+						repository: repo("/repos/repoB"),
+						worktrees: [worktree("/repos/repoB", true)],
+						workspaceState: createWorkspaceState([
+							worktree("/repos/repoB", true),
+						]),
+						persistedSnapshot: null,
+						hydrationState: "active",
+						loadError: null,
+					},
+				},
+			);
+			throw new Error("ENOENT");
+		});
+
+		const { result } = renderHook(() => useWorkspaceLifecycle(harness.options));
+		harness.appDispatchLog.length = 0;
+
+		const ok = await result.current.hydrateWorkspace("workspace:repoB");
+
+		// The end state is hydrated (by activateWorkspace), even though this
+		// call's own attempt failed — matches the success-path race semantics.
+		expect(ok).toBe(true);
+		// No dormant+loadError re-register should have clobbered the live workspace.
+		expect(
+			harness.appDispatchLog.some(
+				(a) =>
+					a.type === "workspace/register" &&
+					a.workspace.hydrationState === "dormant",
+			),
+		).toBe(false);
+		expect(harness.appDispatchLog).toEqual([]);
+	});
+});
+
+describe("activateWorkspace — pending-restore-map pruning (R2)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	function pendingSession(worktreeId: string): PersistedWorktreeSession {
+		return PersistedWorktreeSessionSchema.parse({
+			worktreeId,
+			note: "",
+			reviewMode: "files",
+			viewerMode: "file",
+			selectedFilePath: null,
+			selectedChangedFilePath: null,
+			activeProcessSessionId: null,
+			nextAdHocNumber: 1,
+			processSessions: [],
+		});
+	}
+
+	it("replacing one workspace's pending entries preserves another workspace's entries", async () => {
+		openRepositoryMock.mockResolvedValueOnce({
+			workspaceId: "workspace:repoA",
+			repository: repo("/repos/repoA"),
+		});
+		listWorktreesMock.mockResolvedValueOnce([
+			worktree("/repos/repoA", true),
+			worktree("/repos/repoA-feature", false),
+		]);
+
+		// Workspace A: dormant, with a two-session persisted snapshot — activating
+		// it re-hydrates and re-populates ITS pending entries.
+		let state = createAppWorkspacesState();
+		state = appWorkspacesReducer(state, {
+			type: "workspace/register",
+			workspace: {
+				workspaceId: "workspace:repoA",
+				repository: repo("/repos/repoA"),
+				worktrees: [],
+				workspaceState: null,
+				persistedSnapshot: savedWorkspace(
+					"workspace:repoA",
+					"/repos/repoA",
+					["/repos/repoA", "/repos/repoA-feature"],
+					"/repos/repoA",
+				),
+				hydrationState: "dormant",
+				loadError: null,
+			},
+		});
+		// Workspace C: already hydrated live by the background queue, with its own
+		// pending (unvisited) entry sitting in the shared map.
+		state = appWorkspacesReducer(state, {
+			type: "workspace/register",
+			workspace: {
+				workspaceId: "workspace:repoC",
+				repository: repo("/repos/repoC"),
+				worktrees: [worktree("/repos/repoC", true)],
+				workspaceState: createWorkspaceState([worktree("/repos/repoC", true)]),
+				persistedSnapshot: null,
+				hydrationState: "inactiveLive",
+				loadError: null,
+			},
+		});
+
+		const harness = makeHarness(state);
+
+		// Seed the shared pending map as if background hydration already ran:
+		// a stale entry for A (from a previous, now-superseded hydration) and a
+		// live entry for C.
+		harness.options.setPendingRestoreSessions({
+			"/repos/repoA-stale": {
+				workspaceId: "workspace:repoA",
+				session: pendingSession("/repos/repoA-stale"),
+			},
+			"/repos/repoC": {
+				workspaceId: "workspace:repoC",
+				session: pendingSession("/repos/repoC"),
+			},
+		});
+
+		const { result } = renderHook(() => useWorkspaceLifecycle(harness.options));
+		await result.current.activateWorkspace("workspace:repoA");
+
+		const pending = harness.pending();
+		// C's entry must survive untouched — activating A must not wipe it.
+		expect(pending["/repos/repoC"]?.workspaceId).toBe("workspace:repoC");
+		// A's stale entry is gone, replaced by the fresh hydration's own entries.
+		expect(pending["/repos/repoA-stale"]).toBeUndefined();
+		// A's fresh pending entry (the non-selected feature worktree) is present,
+		// tagged to the reopened workspace id.
+		expect(pending["/repos/repoA-feature"]?.workspaceId).toBe(
+			"workspace:repoA",
+		);
 	});
 });

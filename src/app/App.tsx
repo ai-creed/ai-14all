@@ -71,6 +71,7 @@ import { detectPlatform } from "./shortcut-registry";
 import { useWindowFocus } from "./hooks/use-window-focus";
 import { useWorkspacePersistence } from "./hooks/use-workspace-persistence";
 import { useWorkspaceLifecycle } from "./hooks/use-workspace-lifecycle";
+import { useBackgroundHydration } from "./hooks/use-background-hydration";
 import { useWorkspaceRemoval } from "./hooks/use-workspace-removal";
 import { useWorktreeSelection } from "./hooks/use-worktree-selection";
 import { usePaneResizers } from "./hooks/use-pane-resizers";
@@ -1047,6 +1048,7 @@ function AppContent() {
 
 	const {
 		activateWorkspace,
+		hydrateWorkspace,
 		handleLoadPath,
 		restoreWorkspace,
 		handleRestoreDecision,
@@ -1081,6 +1083,17 @@ function AppContent() {
 	// earlier in the body) can call into the lifecycle hook even though that
 	// hook is set up after terminal-runtime and default-shell deps resolve.
 	restoreWorkspaceRef.current = restoreWorkspace;
+
+	// Background hydration queue (spec §restore-depth): sequentially warms
+	// every dormant, non-active saved workspace once startup settles, but only
+	// when the user opted into eager state restore. Gated off for
+	// "activeOnly" so those users never pay the background IPC cost.
+	useBackgroundHydration({
+		enabled: settings.restoreDepth === "stateEagerTerminalsLazy",
+		startupMode,
+		appWorkspaces,
+		hydrateWorkspace,
+	});
 
 	useGitSummaryLoader({
 		workspaceId: activeWorkspaceId,

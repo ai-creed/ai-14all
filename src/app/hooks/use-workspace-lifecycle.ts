@@ -136,6 +136,26 @@ function tagPendingEntries(
 }
 
 /**
+ * Drops every pending entry owned by `workspaceId`, preserving entries
+ * belonging to other workspaces untouched. A (re)load of one workspace must
+ * only ever replace THAT workspace's slice of the pending map — the map is
+ * shared across the whole registry (background hydration populates entries
+ * for workspaces other than the one currently loading), so a full
+ * replace/clear here would silently drop other workspaces' unvisited
+ * sessions, and their next persist write would serialize placeholder state.
+ */
+function prunePendingForWorkspace(
+	prev: Record<string, PendingRestoreEntry>,
+	workspaceId: string,
+): Record<string, PendingRestoreEntry> {
+	const pruned: Record<string, PendingRestoreEntry> = {};
+	for (const [worktreeId, entry] of Object.entries(prev)) {
+		if (entry.workspaceId !== workspaceId) pruned[worktreeId] = entry;
+	}
+	return pruned;
+}
+
+/**
  * Bundle of workspace-level lifecycle handlers: activate (hydrate dormant),
  * load a brand-new repository, restore from snapshot, drive the post-prompt
  * decision, and recreate persisted process sessions inside a worktree.
@@ -380,9 +400,10 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 			if (reconciledSnapshot) {
 				const { selectedSession, pendingByWorktreeId } =
 					splitPendingRestores(reconciledSnapshot);
-				setPendingRestoreSessions(
-					tagPendingEntries(openedId, pendingByWorktreeId),
-				);
+				setPendingRestoreSessions((prev) => ({
+					...prunePendingForWorkspace(prev, openedId),
+					...tagPendingEntries(openedId, pendingByWorktreeId),
+				}));
 				setSavedSnapshot(reconciledSnapshot);
 				const selectedWorktree = reconciledSnapshot.selectedWorktreeId
 					? (newWorktrees.find(
@@ -529,6 +550,17 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 				}
 				return true;
 			} catch (err) {
+				// Race hardening (mirrors the success-path check above): a transient
+				// failure in THIS call (e.g. listWorktrees rejecting) can race a
+				// concurrent activateWorkspace that already won and registered the
+				// workspace live. Re-registering dormant+loadError here would
+				// downgrade that now-active workspace. Bail without touching the
+				// registry — activateWorkspace owns this workspace now.
+				if (
+					appWorkspacesRef.current.workspacesById[workspaceId]?.workspaceState
+				) {
+					return true;
+				}
 				dispatchAppWorkspaces({
 					type: "workspace/register",
 					workspace: {
@@ -624,9 +656,10 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 
 				const { selectedSession, pendingByWorktreeId } =
 					splitPendingRestores(nextSnapshot);
-				setPendingRestoreSessions(
-					tagPendingEntries(newWorkspaceId, pendingByWorktreeId),
-				);
+				setPendingRestoreSessions((prev) => ({
+					...prunePendingForWorkspace(prev, newWorkspaceId),
+					...tagPendingEntries(newWorkspaceId, pendingByWorktreeId),
+				}));
 				setSavedSnapshot(nextSnapshot);
 
 				const selectedWorktree = newWorktrees.find(
@@ -694,7 +727,9 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 			activeWorkspaceStateRef.current = freshState;
 
 			resetDefaultShellEnsured();
-			setPendingRestoreSessions({});
+			setPendingRestoreSessions((prev) =>
+				prunePendingForWorkspace(prev, newWorkspaceId),
+			);
 			setError(null);
 			setStartupError(null);
 			setRestoreWarning(null);
