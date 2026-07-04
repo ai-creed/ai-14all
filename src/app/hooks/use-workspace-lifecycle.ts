@@ -37,6 +37,11 @@ import { commandSubmitKey } from "../../lib/command-submit-key";
 import { describeRepositoryLoadError } from "../../features/repository/describe-repository-load-error";
 import { logRendererShellEvent } from "../../features/terminals/logic/shell-event-logger";
 import { logBindingChange } from "../logging/log-binding-change";
+import type { AgentResumeMode } from "../../../shared/models/persisted-settings";
+import {
+	AGENT_BINARIES,
+	validateResumeCommand,
+} from "../../../shared/models/resume-command";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -87,6 +92,12 @@ type Options = {
 
 	// Default-shell housekeeping (from useDefaultShellOnEmptyWorktree)
 	resetDefaultShellEnsured: () => void;
+
+	// Task 13: agent-resume setting, read once via useSettings() and threaded
+	// through so every internal recreatePersistedProcesses call site (activate,
+	// load-path, restore) shares the same current value without each needing
+	// its own useSettings() call.
+	agentResume: AgentResumeMode;
 };
 
 export type UseWorkspaceLifecycle = {
@@ -115,6 +126,7 @@ export type UseWorkspaceLifecycle = {
 		worktree: Worktree,
 		sessionSnapshot: PersistedWorktreeSession,
 		targetWorkspaceId: string,
+		agentResume: AgentResumeMode,
 		dispatchFn?: (action: WorkspaceAction) => void,
 	) => Promise<void>;
 };
@@ -187,6 +199,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 		sendInput,
 		adoptSession,
 		resetDefaultShellEnsured,
+		agentResume: agentResumeSetting,
 	} = options;
 
 	const recreatePersistedProcesses = useCallback(
@@ -194,6 +207,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 			worktree: Worktree,
 			sessionSnapshot: PersistedWorktreeSession,
 			targetWorkspaceId: string,
+			agentResume: AgentResumeMode,
 			dispatchFn: (action: WorkspaceAction) => void = dispatch,
 		) => {
 			let liveSessions: Map<string, TerminalSession> = new Map();
@@ -291,8 +305,37 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 							exitCode: null,
 						});
 
-						if (process.command) {
+						// Spec §5.5: re-validate at EVERY replay point, never trust a
+						// stored handle — it may predate a validation-rule change or have
+						// been hand-edited on disk. This is one of two mandatory
+						// re-validation points; the other is the manual affordance's
+						// onClick in SessionSidebar.
+						const validatedResume =
+							process.resumeCommand &&
+							validateResumeCommand(process.resumeCommand, AGENT_BINARIES).ok
+								? process.resumeCommand
+								: null;
+
+						if (validatedResume && agentResume === "auto") {
 							// `\r` on Windows, `\n` elsewhere — see commandSubmitKey.
+							await sendInput(
+								terminal.id,
+								`${validatedResume}${commandSubmitKey()}`,
+							);
+						} else if (validatedResume && agentResume === "manual") {
+							// Manual mode must NOT auto-launch process.command either — that
+							// would start a NEW agent conversation, and the affordance's
+							// later --resume would no longer target the pane's visible
+							// state. The shell stays bare; the affordance types the resume
+							// command on click.
+							dispatchFn({
+								type: "session/setResumePending",
+								processId: process.id,
+								resumePending: true,
+							});
+						} else if (process.command) {
+							// `off`, or `auto`/`manual` with no validated resume handle —
+							// today's behavior: replay the original launch command.
 							await sendInput(
 								terminal.id,
 								`${process.command}${commandSubmitKey()}`,
@@ -430,6 +473,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 						selectedWorktree,
 						selectedSession,
 						openedId,
+						agentResumeSetting,
 						scopedDispatch,
 					);
 				}
@@ -449,6 +493,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 			setPendingRestoreSessions,
 			setSavedSnapshot,
 			recreatePersistedProcesses,
+			agentResumeSetting,
 		],
 	);
 
@@ -673,6 +718,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 						selectedWorktree,
 						selectedSession,
 						newWorkspaceId,
+						agentResumeSetting,
 					);
 					setRestoreWarning(
 						`Recovered your previous workspace after the repository path changed.${degradedNote}`,
@@ -749,6 +795,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 			setWorkspacePickerOpen,
 			recreatePersistedProcesses,
 			resetDefaultShellEnsured,
+			agentResumeSetting,
 		],
 	);
 
@@ -833,6 +880,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 						selectedWorktree,
 						selectedSession,
 						restoredWorkspaceId,
+						agentResumeSetting,
 					);
 				} else if (snapshot.selectedWorktreeId && !selectedWorktree) {
 					setRestoreWarning(
@@ -892,6 +940,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 			setStartupError,
 			setRestoreWarning,
 			recreatePersistedProcesses,
+			agentResumeSetting,
 		],
 	);
 

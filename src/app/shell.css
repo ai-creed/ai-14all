@@ -1267,6 +1267,28 @@ select {
 	line-height: 20px;
 }
 
+/* "Resume conversation" affordance (spec §5.5, Task 13): a flat TUI pill —
+ * deliberately NOT the shared <Button> component's rounded chrome, and no
+ * border-radius, to read as a terminal-native control rather than a modal
+ * dialog button. */
+.shell-sidebar__process-resume {
+	height: 20px;
+	padding: 0 6px;
+	font-size: 11px;
+	line-height: 18px;
+	font-family: var(--font-ui);
+	background: var(--accent);
+	color: var(--accent-foreground);
+	border: 1px solid var(--panel-border);
+	border-radius: 0;
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.shell-sidebar__process-resume:hover {
+	filter: brightness(1.1);
+}
+
 /* Rollup "N more…" toggle — compact, muted, no chrome. */
 .shell-sidebar__process.shell-sidebar__process--more {
 	background: none;

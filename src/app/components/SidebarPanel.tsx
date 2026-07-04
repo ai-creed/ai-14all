@@ -36,6 +36,11 @@ type Props = {
 					processId: string;
 					sticky?: boolean;
 					clearedAt: number;
+			  }
+			| {
+					type: "session/setResumePending";
+					processId: string;
+					resumePending: boolean;
 			  },
 	) => void;
 	collapsedWorkspaceIds: string[];
@@ -124,6 +129,14 @@ export function SidebarPanel(props: Props): React.ReactElement {
 						processId,
 						sticky: true,
 						clearedAt: Date.now(),
+					});
+				}}
+				onResumeConversation={(workspaceId, _worktreeId, processId) => {
+					if (workspaceId !== activeWorkspaceId) return;
+					dispatch({
+						type: "session/setResumePending",
+						processId,
+						resumePending: false,
 					});
 				}}
 				onRequestExpand={(workspaceId, worktreeId) => {

@@ -146,6 +146,7 @@ function makeHarness(initial: AppWorkspacesState): Harness {
 		sendInput: vi.fn(),
 		adoptSession: vi.fn(),
 		resetDefaultShellEnsured: vi.fn(),
+		agentResume: "auto",
 	};
 
 	return { options, appDispatchLog, pending: () => pendingState };

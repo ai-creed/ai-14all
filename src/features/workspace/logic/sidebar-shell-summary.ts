@@ -32,6 +32,14 @@ export type SidebarShellRow = {
 	lastActivityAt: number | null;
 	hasFailedReason: boolean;
 	provider: AgentProvider | null;
+	// Task 13 (agent-resume manual affordance). Optional — undefined is treated
+	// as "not pending" / "no resume data" by consumers — so the many existing
+	// `SidebarShellRow` literals in tests and `buildWorktreeAttentionDisplay`
+	// callers don't need updating for a feature that only applies to the
+	// process-summary production path.
+	resumePending?: boolean;
+	resumeCommand?: string | null;
+	terminalSessionId?: string | null;
 };
 
 export type WorktreeProcessSummary = {
@@ -130,7 +138,12 @@ type ProcessRowInput = Pick<
 	Partial<
 		Pick<
 			ProcessSession,
-			"agentAttentionReasons" | "agentAttentionClearedAt" | "provider"
+			| "agentAttentionReasons"
+			| "agentAttentionClearedAt"
+			| "provider"
+			| "resumePending"
+			| "resumeCommand"
+			| "terminalSessionId"
 		>
 	>;
 
@@ -220,6 +233,9 @@ export function buildWorktreeProcessSummary(
 			lastActivityAt: process.lastActivityAt,
 			hasFailedReason,
 			provider: process.provider ?? null,
+			resumePending: process.resumePending ?? false,
+			resumeCommand: process.resumeCommand ?? null,
+			terminalSessionId: process.terminalSessionId ?? null,
 		};
 	});
 

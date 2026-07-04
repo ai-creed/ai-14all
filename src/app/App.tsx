@@ -1102,6 +1102,7 @@ function AppContent() {
 		sendInput,
 		adoptSession,
 		resetDefaultShellEnsured,
+		agentResume: settings.agentResume,
 	});
 
 	// Late-bind `restoreWorkspace` so the startup-restore effect (declared
@@ -1264,6 +1265,7 @@ function AppContent() {
 			dispatch,
 			activateWorkspace,
 			recreatePersistedProcesses,
+			agentResume: settings.agentResume,
 		});
 
 	const { handleConfirmCreateWorktree, handleConfirmRemoveWorktree } =

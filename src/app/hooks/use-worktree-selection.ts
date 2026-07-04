@@ -14,6 +14,7 @@ import {
 	runInlineEditorDirtyGate,
 } from "../../features/viewer/inline-editor-registry";
 import { logBindingChange } from "../logging/log-binding-change";
+import type { AgentResumeMode } from "../../../shared/models/persisted-settings";
 
 type TargetContext = {
 	workspaceId: string;
@@ -37,7 +38,12 @@ type Options = {
 		worktree: Worktree,
 		sessionSnapshot: PersistedWorktreeSession,
 		targetWorkspaceId: string,
+		agentResume: AgentResumeMode,
 	) => Promise<void>;
+	// Task 13: threaded from useSettings().settings.agentResume, the same value
+	// passed at every recreatePersistedProcesses call site (see
+	// use-workspace-lifecycle.ts's Options for the other three sites).
+	agentResume: AgentResumeMode;
 };
 
 export type UseWorktreeSelection = {
@@ -73,6 +79,7 @@ export function useWorktreeSelection(options: Options): UseWorktreeSelection {
 		dispatch,
 		activateWorkspace,
 		recreatePersistedProcesses,
+		agentResume,
 	} = options;
 
 	const handleSelectWorktree = useCallback(
@@ -197,6 +204,7 @@ export function useWorktreeSelection(options: Options): UseWorktreeSelection {
 						worktree,
 						pending,
 						targetWorkspaceId,
+						agentResume,
 					);
 				}
 			}
@@ -210,6 +218,7 @@ export function useWorktreeSelection(options: Options): UseWorktreeSelection {
 			setPendingRestoreSessions,
 			dispatch,
 			recreatePersistedProcesses,
+			agentResume,
 		],
 	);
 

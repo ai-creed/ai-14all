@@ -25,6 +25,12 @@ import { NeedsYouSignal } from "./NeedsYouSignal";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarTooltip } from "./SidebarTooltip";
 import type { Palette } from "../../../lib/use-theme";
+import { terminals } from "../../../lib/desktop-client";
+import { commandSubmitKey } from "../../../lib/command-submit-key";
+import {
+	AGENT_BINARIES,
+	validateResumeCommand,
+} from "../../../../shared/models/resume-command";
 
 export type SessionSidebarWorkspace = {
 	workspaceId: string;
@@ -74,6 +80,14 @@ type Props = {
 		worktreeId: string,
 		processId: string,
 	) => void;
+	// Task 13: called after the "Resume conversation" affordance click resolves
+	// (whether the click actually sent input or was rejected by re-validation)
+	// so the parent can clear the process's runtime-only `resumePending` flag.
+	onResumeConversation?: (
+		workspaceId: string,
+		worktreeId: string,
+		processId: string,
+	) => void;
 	onOpenWorkflowDetail?: (workspaceId: string, worktreeId: string) => void;
 	pendingRename?: { workspaceId: string; worktreeId: string } | null;
 	palette?: Palette;
@@ -106,6 +120,7 @@ export function SessionSidebar({
 	onRenameSession,
 	onRequestExpand,
 	onClearFailedReason,
+	onResumeConversation,
 	onOpenWorkflowDetail,
 	pendingRename,
 	palette,
@@ -528,6 +543,42 @@ export function SessionSidebar({
 																				>
 																					Clear failed
 																				</Button>
+																			) : null}
+																			{row.resumePending &&
+																			onResumeConversation &&
+																			workspace.active ? (
+																				<button
+																					type="button"
+																					className="shell-sidebar__process-resume"
+																					onClick={(e) => {
+																						e.stopPropagation();
+																						// Spec §5.5: re-validate IMMEDIATELY before
+																						// replay — this click IS the replay point in
+																						// manual mode, and the stored handle may
+																						// predate a validation-rule change or have
+																						// been hand-edited on disk since it was set.
+																						if (
+																							row.resumeCommand &&
+																							row.terminalSessionId &&
+																							validateResumeCommand(
+																								row.resumeCommand,
+																								AGENT_BINARIES,
+																							).ok
+																						) {
+																							void terminals.sendInput(
+																								row.terminalSessionId,
+																								`${row.resumeCommand}${commandSubmitKey()}`,
+																							);
+																						}
+																						onResumeConversation(
+																							workspace.workspaceId,
+																							worktree.id,
+																							row.id,
+																						);
+																					}}
+																				>
+																					Resume conversation
+																				</button>
 																			) : null}
 																		</div>
 																	))}
