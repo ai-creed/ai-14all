@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Ai14AllDesktopApi } from "../../../../shared/contracts/commands";
 import { initialSettings } from "../../../app/hooks/use-settings";
 
@@ -65,15 +65,24 @@ export function useTerminalFontSize(): {
 	const [fontSize, setFontSize] = useState<number>(
 		() => initialSettings().terminalFontSize,
 	);
+	// Mirror of the latest locally-applied value, advanced synchronously so a
+	// burst of menu clicks never reads a state value an in-flight echo just
+	// rewound (see the onSettingsChanged guard below).
+	const localFontSizeRef = useRef(fontSize);
+	// Number of settings.write calls still in flight from THIS hook.
+	const pendingWritesRef = useRef(0);
 
 	const apply = useCallback((action: FontSizeAction) => {
-		setFontSize((prev) => {
-			const next = nextTerminalFontSize(prev, action);
-			void (window.ai14all as Ai14AllDesktopApi | undefined)?.settings
-				?.write({ terminalFontSize: next })
-				.catch(() => {});
-			return next;
-		});
+		const next = nextTerminalFontSize(localFontSizeRef.current, action);
+		localFontSizeRef.current = next;
+		setFontSize(next);
+		pendingWritesRef.current += 1;
+		void (window.ai14all as Ai14AllDesktopApi | undefined)?.settings
+			?.write({ terminalFontSize: next })
+			.catch(() => {})
+			.finally(() => {
+				pendingWritesRef.current -= 1;
+			});
 	}, []);
 
 	useEffect(() => {
@@ -81,11 +90,20 @@ export function useTerminalFontSize(): {
 		return bridge?.onAdjustTerminalFontSize?.(apply);
 	}, [apply]);
 
-	// Converge with settings changes written elsewhere (other windows, or this
-	// window's own write above echoed back).
+	// Converge with settings changes written elsewhere (other windows, the
+	// Settings dialog, or this window's own write above echoed back). Skip
+	// echoes while our own writes are still in flight: a rapid click burst
+	// (13→14→15→16) queues three writes, and applying the FIRST write's echo
+	// after local state already reached 16 would rewind it — the next click
+	// would then recompute from the rewound value and lose an increment.
+	// Once the last write settles, the final echo equals the local value.
 	useEffect(() => {
 		const bridge = (window.ai14all as Ai14AllDesktopApi | undefined)?.events;
-		return bridge?.onSettingsChanged?.((s) => setFontSize(s.terminalFontSize));
+		return bridge?.onSettingsChanged?.((s) => {
+			if (pendingWritesRef.current > 0) return;
+			localFontSizeRef.current = s.terminalFontSize;
+			setFontSize(s.terminalFontSize);
+		});
 	}, []);
 
 	const increase = useCallback(() => apply("increase"), [apply]);
