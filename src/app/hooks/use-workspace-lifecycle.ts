@@ -62,6 +62,11 @@ type Options = {
 	setPendingRestoreSessions: Dispatch<
 		SetStateAction<Record<string, PersistedWorktreeSession>>
 	>;
+	// Settings-store write-through (Task 4): called whenever the user makes a
+	// new restore-preference decision, alongside the existing legacy
+	// workspace-state write, so the settings store stays authoritative for the
+	// next launch's `useStartupRestore`.
+	persistRestorePreference: (preference: RestorePreference) => void;
 
 	// Misc UI state setters
 	setStartupMode: Dispatch<SetStateAction<StartupMode>>;
@@ -125,6 +130,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 		setSavedSnapshot,
 		setRestorePreference,
 		setPendingRestoreSessions,
+		persistRestorePreference,
 		setStartupMode,
 		setStartupError,
 		setError,
@@ -711,6 +717,10 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 					? "alwaysRestore"
 					: "alwaysStartClean"
 				: "prompt";
+			// Settings-store write-through: persist regardless of which branch
+			// below runs, so "restore & remember" (alwaysRestore) is honored on
+			// the next launch too, not just "don't restore & remember".
+			persistRestorePreference(nextPreference);
 
 			if (!shouldRestore) {
 				// Preserve the snapshot so the user can restore it on a future launch
@@ -749,6 +759,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 			savedSnapshot,
 			savedDormantWorkspaces,
 			setRestorePreference,
+			persistRestorePreference,
 			setStartupMode,
 			restoreWorkspace,
 		],

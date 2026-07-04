@@ -89,6 +89,7 @@ import { useGitActions } from "./hooks/use-git-actions";
 import { useProcessActions } from "./hooks/use-process-actions";
 import { useWorktreeActions } from "./hooks/use-worktree-actions";
 import { useStartupRestore } from "./hooks/use-startup-restore";
+import { SettingsProvider, useSettings } from "./hooks/use-settings";
 import { useGitSummaryLoader } from "./hooks/use-git-summary-loader";
 import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-empty-worktree";
 import { useCreateWorktreePreview } from "./hooks/use-create-worktree-preview";
@@ -150,8 +151,13 @@ type StartupMode = "loading" | "prompt" | "ready";
  */
 const NOOP = () => {};
 
-export function App() {
+/**
+ * Inner app component — rendered inside `SettingsProvider` (see the exported
+ * `App` at the bottom of this file) so it can consume `useSettings()`.
+ */
+function AppContent() {
 	const { resolvedTheme, palette, setTheme } = useTheme();
+	const { settings, update: updateSettings } = useSettings();
 	const terminalTheme = useMemo(() => terminalThemeFor(palette), [palette]);
 	const appPlatform = useMemo(detectPlatform, []);
 	const {
@@ -399,6 +405,7 @@ export function App() {
 	>(null);
 
 	useStartupRestore({
+		restorePreference: settings.restorePreference,
 		setStartupMode,
 		setStartupError,
 		setRestorePreference,
@@ -1060,6 +1067,9 @@ export function App() {
 		setSavedSnapshot,
 		setRestorePreference,
 		setPendingRestoreSessions,
+		persistRestorePreference: (preference) => {
+			void updateSettings({ restorePreference: preference });
+		},
 		setStartupMode,
 		setStartupError,
 		setError,
@@ -2585,5 +2595,13 @@ export function App() {
 				/>
 			</TooltipProvider>
 		</ToastProvider>
+	);
+}
+
+export function App() {
+	return (
+		<SettingsProvider>
+			<AppContent />
+		</SettingsProvider>
 	);
 }

@@ -115,12 +115,21 @@ for (const channel of [
 		ipcRenderer.removeListener(channel, handler);
 }
 
-// Synchronous initial read so settings.initial is available before first
-// paint (no async round-trip is possible this early). The main handler
-// registers this before the first window loads.
-const initialSettings = ipcRenderer.sendSync(
-	SETTINGS_READ_SYNC,
-) as PersistedSettingsV1;
+// Synchronous initial read so settings.initial/initialFirstRun are available
+// before first paint (no async round-trip is possible this early). The main
+// handler registers this before the first window loads.
+//
+// This sendSync call is the ONLY point in the app that can ever observe
+// firstRun: true: SettingsService.readStateSync() seeds the settings file as
+// a side effect of this very call, so any later async settings:read() always
+// sees firstRun: false. initialFirstRun therefore must be captured here, not
+// re-derived from settings.read() in the renderer.
+const initialSettingsResult = ipcRenderer.sendSync(SETTINGS_READ_SYNC) as {
+	settings: PersistedSettingsV1;
+	firstRun: boolean;
+} | null;
+const initialSettings = initialSettingsResult?.settings as PersistedSettingsV1;
+const initialSettingsFirstRun = initialSettingsResult?.firstRun ?? false;
 
 const api: Ai14AllDesktopApi = {
 	repository: {
@@ -312,6 +321,7 @@ const api: Ai14AllDesktopApi = {
 	},
 	settings: {
 		initial: initialSettings,
+		initialFirstRun: initialSettingsFirstRun,
 		read() {
 			return ipcRenderer.invoke(SETTINGS_READ);
 		},

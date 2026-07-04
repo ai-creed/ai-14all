@@ -143,13 +143,17 @@ app.whenReady().then(async () => {
 		join(app.getPath("userData"), "settings.json"),
 		workspaceStatePath,
 	);
-	// Sync read for the preload's settings.initial. Must be registered before
-	// the first window loads (loadFile/loadURL below triggers the preload).
-	// ipcMain.on + a promise does NOT satisfy sendSync — the renderer unblocks
-	// on the synchronous return — so this uses SettingsService's sync twin.
+	// Sync read for the preload's settings.initial/initialFirstRun. Must be
+	// registered before the first window loads (loadFile/loadURL below triggers
+	// the preload). ipcMain.on + a promise does NOT satisfy sendSync — the
+	// renderer unblocks on the synchronous return — so this uses SettingsService's
+	// sync twin. The full { settings, firstRun } result is returned (not just
+	// `.settings`) because this sendSync call is the ONLY point that can ever
+	// observe firstRun: true — it seeds the settings file as a side effect, so
+	// any later async settings:read always sees firstRun: false.
 	ipcMain.on("settings:readSync", (event) => {
 		try {
-			event.returnValue = settingsService.readStateSync().settings;
+			event.returnValue = settingsService.readStateSync();
 		} catch {
 			event.returnValue = null;
 		}

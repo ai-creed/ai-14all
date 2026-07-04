@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Ai14AllDesktopApi } from "../../../../shared/contracts/commands";
+import { initialSettings } from "../../../app/hooks/use-settings";
 
-const STORAGE_KEY = "ai14all.terminalFontSize";
+// Exported so SettingsProvider's one-time legacy migration (use-settings.tsx)
+// reads/writes the exact same localStorage key.
+export const STORAGE_KEY = "ai14all.terminalFontSize";
 export const DEFAULT_TERMINAL_FONT_SIZE = 13;
 export const MIN_TERMINAL_FONT_SIZE = 10;
 export const MAX_TERMINAL_FONT_SIZE = 20;
@@ -46,11 +49,12 @@ export function persistFontSize(size: number): void {
 }
 
 /**
- * Global terminal font size. Value persists in localStorage and is adjusted via
- * the native app-menu accelerators (Terminal → Increase/Decrease/Reset Font
- * Size) delivered over the preload bridge. Menu accelerators are used instead of
- * a renderer keydown handler so the shortcut still fires when a terminal pane
- * owns keyboard focus (see Global Constraints).
+ * Global terminal font size. Value persists via the settings store (see
+ * use-settings.tsx) and is adjusted via the native app-menu accelerators
+ * (Terminal → Increase/Decrease/Reset Font Size) delivered over the preload
+ * bridge. Menu accelerators are used instead of a renderer keydown handler so
+ * the shortcut still fires when a terminal pane owns keyboard focus (see
+ * Global Constraints).
  */
 export function useTerminalFontSize(): {
 	fontSize: number;
@@ -58,12 +62,16 @@ export function useTerminalFontSize(): {
 	decrease: () => void;
 	reset: () => void;
 } {
-	const [fontSize, setFontSize] = useState<number>(readPersistedFontSize);
+	const [fontSize, setFontSize] = useState<number>(
+		() => initialSettings().terminalFontSize,
+	);
 
 	const apply = useCallback((action: FontSizeAction) => {
 		setFontSize((prev) => {
 			const next = nextTerminalFontSize(prev, action);
-			persistFontSize(next);
+			void (window.ai14all as Ai14AllDesktopApi | undefined)?.settings
+				?.write({ terminalFontSize: next })
+				.catch(() => {});
 			return next;
 		});
 	}, []);
@@ -72,6 +80,13 @@ export function useTerminalFontSize(): {
 		const bridge = (window.ai14all as Ai14AllDesktopApi | undefined)?.events;
 		return bridge?.onAdjustTerminalFontSize?.(apply);
 	}, [apply]);
+
+	// Converge with settings changes written elsewhere (other windows, or this
+	// window's own write above echoed back).
+	useEffect(() => {
+		const bridge = (window.ai14all as Ai14AllDesktopApi | undefined)?.events;
+		return bridge?.onSettingsChanged?.((s) => setFontSize(s.terminalFontSize));
+	}, []);
 
 	const increase = useCallback(() => apply("increase"), [apply]);
 	const decrease = useCallback(() => apply("decrease"), [apply]);

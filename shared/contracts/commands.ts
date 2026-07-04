@@ -493,6 +493,11 @@ export type Ai14AllDesktopApi = {
 	};
 	settings: {
 		initial: PersistedSettingsV1;
+		// Captured once from the preload's sendSync settings:readSync call — the
+		// only point that can observe firstRun: true (see preload/index.ts). The
+		// async read() below always reports firstRun: false because the sendSync
+		// call above already seeds the file first.
+		initialFirstRun: boolean;
 		read(): Promise<{ settings: PersistedSettingsV1; firstRun: boolean }>;
 		write(patch: SettingsPatch): Promise<PersistedSettingsV1>;
 	};
