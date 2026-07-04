@@ -21,6 +21,7 @@ import {
 	reconcileSnapshotToWorktrees,
 	shouldReattachSnapshot,
 	splitPendingRestores,
+	type PendingRestoreEntry,
 } from "../../features/workspace/logic/workspace-persistence";
 import {
 	createWorkspaceState,
@@ -60,7 +61,7 @@ type Options = {
 	setSavedSnapshot: Dispatch<SetStateAction<WorkspaceSnapshot | null>>;
 	setRestorePreference: Dispatch<SetStateAction<RestorePreference>>;
 	setPendingRestoreSessions: Dispatch<
-		SetStateAction<Record<string, PersistedWorktreeSession>>
+		SetStateAction<Record<string, PendingRestoreEntry>>
 	>;
 	// Settings-store write-through (Task 4): called whenever the user makes a
 	// new restore-preference decision, alongside the existing legacy
@@ -90,6 +91,16 @@ type Options = {
 
 export type UseWorkspaceLifecycle = {
 	activateWorkspace: (workspaceId: string) => Promise<ActivationResult | null>;
+	/**
+	 * Hydrate a dormant workspace in the background WITHOUT selecting it: opens
+	 * the repository, restores its snapshot into a fresh workspace state, and
+	 * registers it with `hydrationState: "inactiveLive"`. Every saved worktree
+	 * session (including the snapshot's selected one) is added to the pending
+	 * restore map so terminals stay lazy until the user first visits a worktree.
+	 * Resolves `true` when the workspace ends hydrated (or already was), `false`
+	 * on load error (the target is re-registered `dormant` with a `loadError`).
+	 */
+	hydrateWorkspace: (workspaceId: string) => Promise<boolean>;
 	handleLoadPath: (path: string) => Promise<void>;
 	restoreWorkspace: (
 		snapshot: WorkspaceSnapshot,
@@ -107,6 +118,22 @@ export type UseWorkspaceLifecycle = {
 		dispatchFn?: (action: WorkspaceAction) => void,
 	) => Promise<void>;
 };
+
+/**
+ * Tags a `worktreeId -> session` restore map with the id of the owning
+ * workspace, so the persist path can route each pending session back into the
+ * correct workspace snapshot (spec §4.4) — even for non-active workspaces.
+ */
+function tagPendingEntries(
+	workspaceId: string,
+	byWorktreeId: Record<string, PersistedWorktreeSession>,
+): Record<string, PendingRestoreEntry> {
+	const tagged: Record<string, PendingRestoreEntry> = {};
+	for (const [worktreeId, session] of Object.entries(byWorktreeId)) {
+		tagged[worktreeId] = { workspaceId, session };
+	}
+	return tagged;
+}
 
 /**
  * Bundle of workspace-level lifecycle handlers: activate (hydrate dormant),
@@ -353,7 +380,9 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 			if (reconciledSnapshot) {
 				const { selectedSession, pendingByWorktreeId } =
 					splitPendingRestores(reconciledSnapshot);
-				setPendingRestoreSessions(pendingByWorktreeId);
+				setPendingRestoreSessions(
+					tagPendingEntries(openedId, pendingByWorktreeId),
+				);
 				setSavedSnapshot(reconciledSnapshot);
 				const selectedWorktree = reconciledSnapshot.selectedWorktreeId
 					? (newWorktrees.find(
@@ -400,6 +429,105 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 			setSavedSnapshot,
 			recreatePersistedProcesses,
 		],
+	);
+
+	const hydrateWorkspace = useCallback(
+		async (workspaceId: string): Promise<boolean> => {
+			const target = appWorkspacesRef.current.workspacesById[workspaceId];
+			if (!target) return false;
+			// Already live (active or previously-hydrated inactiveLive) — nothing to do.
+			if (target.workspaceState) return true;
+
+			try {
+				const { workspaceId: openedId, repository } =
+					await workspace.openRepository(target.repository.rootPath);
+				const newWorktrees = await repositoryClient.listWorktrees(openedId);
+
+				const snapshot = target.persistedSnapshot?.snapshot;
+				let nextWorkspaceState = createWorkspaceState(newWorktrees);
+				let reconciledSnapshot: WorkspaceSnapshot | null = null;
+				if (snapshot) {
+					const rebasedSnapshot = rebaseSnapshotPaths(
+						snapshot,
+						snapshot.repositoryPath,
+						repository.rootPath,
+					);
+					reconciledSnapshot = reconcileSnapshotToWorktrees(
+						rebasedSnapshot,
+						snapshot,
+						newWorktrees,
+					);
+					nextWorkspaceState = workspaceReducer(
+						createWorkspaceState(newWorktrees),
+						{
+							type: "workspace/restoreSnapshot",
+							worktrees: newWorktrees,
+							snapshot: reconciledSnapshot,
+							workspaceId: openedId,
+						},
+					);
+					const rebaseMapping = buildWorktreeIdRebaseMapping(
+						snapshot,
+						snapshot.repositoryPath,
+						repository.rootPath,
+					);
+					if (Object.keys(rebaseMapping).length > 0) {
+						try {
+							await reviewComments.rebaseWorktreeIds(rebaseMapping);
+						} catch (err) {
+							console.warn("[review] rebase IPC failed", err);
+						}
+					}
+				}
+
+				// Register as inactiveLive — deliberately NO workspace/select and NO
+				// ref priming: this workspace is hydrated in the background and must
+				// not become active or steal the selected-workspace refs.
+				dispatchAppWorkspaces({
+					type: "workspace/register",
+					workspace: {
+						workspaceId: openedId,
+						repository,
+						worktrees: newWorktrees,
+						workspaceState: nextWorkspaceState,
+						persistedSnapshot: target.persistedSnapshot,
+						hydrationState: "inactiveLive",
+						loadError: null,
+					},
+				});
+				// Canonical-id drift: the reopened workspace resolved to a different
+				// id than the dormant stub — drop the stale entry (mirrors
+				// activateWorkspace's `openedId !== workspaceId` handling).
+				if (openedId !== workspaceId) {
+					dispatchAppWorkspaces({ type: "workspace/remove", workspaceId });
+				}
+
+				// Terminals are lazy: EVERY saved session — including the snapshot's
+				// own selected worktree — becomes pending, so nothing spawns until the
+				// user first visits a worktree. Entries are tagged with the owning
+				// workspace id so persist writes re-serialise them into the right
+				// snapshot even while this workspace is not active (spec §4.4).
+				if (reconciledSnapshot) {
+					const pending: Record<string, PendingRestoreEntry> = {};
+					for (const session of reconciledSnapshot.worktreeSessions) {
+						pending[session.worktreeId] = { workspaceId: openedId, session };
+					}
+					setPendingRestoreSessions((prev) => ({ ...prev, ...pending }));
+				}
+				return true;
+			} catch (err) {
+				dispatchAppWorkspaces({
+					type: "workspace/register",
+					workspace: {
+						...target,
+						loadError: String(err),
+						hydrationState: "dormant",
+					},
+				});
+				return false;
+			}
+		},
+		[appWorkspacesRef, dispatchAppWorkspaces, setPendingRestoreSessions],
 	);
 
 	const handleLoadPath = useCallback(
@@ -483,7 +611,9 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 
 				const { selectedSession, pendingByWorktreeId } =
 					splitPendingRestores(nextSnapshot);
-				setPendingRestoreSessions(pendingByWorktreeId);
+				setPendingRestoreSessions(
+					tagPendingEntries(newWorkspaceId, pendingByWorktreeId),
+				);
 				setSavedSnapshot(nextSnapshot);
 
 				const selectedWorktree = newWorktrees.find(
@@ -508,7 +638,10 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 					if (selectedSession) {
 						setPendingRestoreSessions((prev) => ({
 							...prev,
-							[selectedSession.worktreeId]: selectedSession,
+							[selectedSession.worktreeId]: {
+								workspaceId: newWorkspaceId,
+								session: selectedSession,
+							},
 						}));
 					}
 				}
@@ -636,7 +769,9 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 
 				const { selectedSession, pendingByWorktreeId } =
 					splitPendingRestores(snapshot);
-				setPendingRestoreSessions(pendingByWorktreeId);
+				setPendingRestoreSessions(
+					tagPendingEntries(restoredWorkspaceId, pendingByWorktreeId),
+				);
 				setRestorePreference(nextPreference);
 				setSavedSnapshot(snapshot);
 				setStartupMode("ready");
@@ -662,7 +797,10 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 					if (selectedSession) {
 						setPendingRestoreSessions((prev) => ({
 							...prev,
-							[selectedSession.worktreeId]: selectedSession,
+							[selectedSession.worktreeId]: {
+								workspaceId: restoredWorkspaceId,
+								session: selectedSession,
+							},
 						}));
 					}
 				}
@@ -767,6 +905,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 
 	return {
 		activateWorkspace,
+		hydrateWorkspace,
 		handleLoadPath,
 		restoreWorkspace,
 		handleRestoreDecision,

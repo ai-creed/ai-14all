@@ -7,6 +7,18 @@ import type {
 } from "../../../../shared/models/persisted-workspace-state";
 
 /**
+ * A pending worktree-session restore, tagged with the id of the workspace that
+ * owns it. The renderer keeps ALL unvisited (and missing-worktree) sessions in a
+ * single pending map keyed by worktreeId; the tag lets the persist path route
+ * each pending session back into its owning workspace's snapshot (spec §4.4),
+ * even for non-active workspaces hydrated in the background.
+ */
+export type PendingRestoreEntry = {
+	workspaceId: string;
+	session: PersistedWorktreeSession;
+};
+
+/**
  * Returns true when the loaded repo likely corresponds to the saved snapshot,
  * even if the filesystem path has changed (e.g. after a rename/move).
  */
@@ -193,6 +205,33 @@ export function buildSavedWorkspace(
 		repositoryPath,
 		repoId,
 		snapshot: buildWorkspaceSnapshot(repositoryPath, repoId, state),
+	};
+}
+
+/**
+ * Spec §4.4: a pending (unvisited, or missing-worktree) session must survive
+ * EVERY persist write, for non-active workspaces too. Appends any pending
+ * session whose `worktreeId` is absent from the saved snapshot's
+ * `worktreeSessions`. Returns the SAME `saved` reference when there is nothing
+ * to add, so callers avoid needless re-serialisation churn.
+ */
+export function mergePendingIntoSaved(
+	saved: PersistedSavedWorkspace,
+	pending: PersistedWorktreeSession[],
+): PersistedSavedWorkspace {
+	const existing = new Set(
+		saved.snapshot.worktreeSessions.map((session) => session.worktreeId),
+	);
+	const missing = pending.filter(
+		(session) => !existing.has(session.worktreeId),
+	);
+	if (missing.length === 0) return saved;
+	return {
+		...saved,
+		snapshot: {
+			...saved.snapshot,
+			worktreeSessions: [...saved.snapshot.worktreeSessions, ...missing],
+		},
 	};
 }
 

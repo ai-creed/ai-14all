@@ -5,6 +5,7 @@ import {
 	buildWorkspaceSnapshot,
 	buildWorktreeIdRebaseMapping,
 	findSavedWorkspaceMatch,
+	mergePendingIntoSaved,
 	rebaseSnapshotPaths,
 	reconcileSnapshotToWorktrees,
 	shouldReattachSnapshot,
@@ -15,7 +16,10 @@ import {
 	workspaceReducer,
 } from "../../../src/features/workspace/logic/workspace-state";
 import { PersistedWorkspaceStateSchema } from "../../../shared/models/persisted-workspace-state";
-import type { WorkspaceSnapshot } from "../../../shared/models/persisted-workspace-state";
+import type {
+	PersistedSavedWorkspace,
+	WorkspaceSnapshot,
+} from "../../../shared/models/persisted-workspace-state";
 
 it("serializes multiple workspaces into one persisted file", () => {
 	const parsed = PersistedWorkspaceStateSchema.parse({
@@ -1027,5 +1031,47 @@ describe("buildWorktreeIdRebaseMapping", () => {
 		expect(buildWorktreeIdRebaseMapping(snap, "/old", "/new")).toEqual({
 			"/old/a": "/new/a",
 		});
+	});
+});
+
+function makeSavedWorkspace(
+	repositoryPath: string,
+	sessions: WorkspaceSnapshot["worktreeSessions"],
+): PersistedSavedWorkspace {
+	return {
+		workspaceId: repositoryPath,
+		repositoryPath,
+		repoId: null,
+		snapshot: {
+			repositoryPath,
+			repoId: null,
+			selectedWorktreeId: sessions[0]?.worktreeId ?? null,
+			commandPresets: [],
+			worktreeSessions: sessions,
+		},
+	};
+}
+
+describe("mergePendingIntoSaved", () => {
+	it("appends sessions whose worktree is missing from the snapshot", () => {
+		const saved = makeSavedWorkspace("/repos/b", [makeSession("/repos/b")]);
+		const orphan = makeSession("/repos/b-deleted-worktree");
+		const merged = mergePendingIntoSaved(saved, [orphan]);
+		expect(merged.snapshot.worktreeSessions.map((s) => s.worktreeId)).toEqual([
+			"/repos/b",
+			"/repos/b-deleted-worktree",
+		]);
+	});
+
+	it("never duplicates a session already present in the snapshot", () => {
+		const session = makeSession("/repos/b");
+		const saved = makeSavedWorkspace("/repos/b", [session]);
+		// Nothing to add → returns the SAME reference (no needless persist churn).
+		expect(mergePendingIntoSaved(saved, [session])).toBe(saved);
+	});
+
+	it("returns the same reference when the pending list is empty", () => {
+		const saved = makeSavedWorkspace("/repos/b", [makeSession("/repos/b")]);
+		expect(mergePendingIntoSaved(saved, [])).toBe(saved);
 	});
 });

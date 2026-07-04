@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
-	PersistedWorktreeSession,
 	PersistedSavedWorkspace,
 	PersistedWorkspaceStateV2,
+	PersistedWorktreeSession,
 	RestorePreference,
 	WorkspaceSnapshot,
 } from "../../shared/models/persisted-workspace-state";
-import { buildSavedWorkspace } from "../features/workspace/logic/workspace-persistence";
+import {
+	buildSavedWorkspace,
+	mergePendingIntoSaved,
+	type PendingRestoreEntry,
+} from "../features/workspace/logic/workspace-persistence";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
 import { type SessionSidebarWorkspace } from "../features/workspace/components/SessionSidebar";
@@ -382,8 +386,11 @@ function AppContent() {
 
 	const [startupError, setStartupError] = useState<string | null>(null);
 	const [restoreWarning, setRestoreWarning] = useState<string | null>(null);
+	// Tagged pending-restore map: worktreeId -> { workspaceId, session }. The tag
+	// lets the persist path re-serialise each pending session into its OWNING
+	// workspace snapshot, including background-hydrated (inactiveLive) workspaces.
 	const [pendingRestoreSessions, setPendingRestoreSessions] = useState<
-		Record<string, PersistedWorktreeSession>
+		Record<string, PendingRestoreEntry>
 	>({});
 
 	// ---------------------------------------------------------------------------
@@ -681,52 +688,39 @@ function AppContent() {
 	// ---------------------------------------------------------------------------
 
 	const persistableStateV2: PersistedWorkspaceStateV2 = useMemo(() => {
+		// Group pending sessions by their OWNING workspace id so each workspace's
+		// snapshot re-serialises only its own pending (unvisited / missing-worktree)
+		// sessions — spec §4.4, applied to non-active workspaces too, not just the
+		// active one as the previous active-only orphan merge did.
+		const pendingByWorkspaceId = new Map<string, PersistedWorktreeSession[]>();
+		for (const entry of Object.values(pendingRestoreSessions)) {
+			const list = pendingByWorkspaceId.get(entry.workspaceId);
+			if (list) list.push(entry.session);
+			else pendingByWorkspaceId.set(entry.workspaceId, [entry.session]);
+		}
+
 		const workspaces = appWorkspaces.workspaceOrder.flatMap((wsId) => {
 			const ws = appWorkspaces.workspacesById[wsId];
 			if (!ws) return [];
 
-			// For dormant workspaces, preserve the original persisted snapshot
+			const pendingForWs = pendingByWorkspaceId.get(ws.workspaceId) ?? [];
+
+			// Dormant workspaces: preserve the original persisted snapshot, but still
+			// re-serialise any of its pending sessions whose worktree is missing.
 			if (!ws.workspaceState && ws.persistedSnapshot) {
-				return [ws.persistedSnapshot];
+				return [mergePendingIntoSaved(ws.persistedSnapshot, pendingForWs)];
 			}
 			if (!ws.workspaceState) return [];
 
-			// Build live snapshot, merging in any orphaned pending sessions
+			// Live workspaces (active or background-hydrated inactiveLive): build from
+			// runtime state, then re-serialise pending sessions absent from it.
 			const base = buildSavedWorkspace(
 				ws.workspaceId,
 				ws.repository.rootPath,
 				ws.repository.repoId ?? null,
 				ws.workspaceState,
 			);
-
-			// For the active workspace, include orphaned pending sessions
-			if (
-				ws.workspaceId === appWorkspaces.activeWorkspaceId &&
-				Object.keys(pendingRestoreSessions).length > 0
-			) {
-				const baseIds = new Set(
-					base.snapshot.worktreeSessions.map((s) => s.worktreeId),
-				);
-				const orphaned = Object.values(pendingRestoreSessions).filter(
-					(s) => !baseIds.has(s.worktreeId),
-				);
-				if (orphaned.length > 0) {
-					return [
-						{
-							...base,
-							snapshot: {
-								...base.snapshot,
-								worktreeSessions: [
-									...base.snapshot.worktreeSessions,
-									...orphaned,
-								],
-							},
-						},
-					];
-				}
-			}
-
-			return [base];
+			return [mergePendingIntoSaved(base, pendingForWs)];
 		});
 
 		// When no workspaces are loaded but we have a saved snapshot (e.g. after
