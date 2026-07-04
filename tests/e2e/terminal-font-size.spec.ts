@@ -23,8 +23,16 @@ async function clickFontMenu(id: string): Promise<void> {
 	}, id);
 }
 
+// The persisted store moved from localStorage to settings.json (persistent
+// settings v1 — use-terminal-font-size writes through settings.write, and
+// localStorage is only consulted by the one-time first-run migration). Read
+// the canonical store the same way the app does.
 function storedFontSize(): Promise<string | null> {
-	return page.evaluate(() => localStorage.getItem("ai14all.terminalFontSize"));
+	return page.evaluate(() =>
+		window.ai14all.settings
+			.read()
+			.then((s) => String(s.settings.terminalFontSize)),
+	);
 }
 
 // Reads the value the LIVE xterm instance applied (data-terminal-font-size is

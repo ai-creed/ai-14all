@@ -192,13 +192,18 @@ test.describe.serial("Multi-workspace fast-switch", () => {
 
 		await closeApp();
 
-		// Relaunch — no PICK_PATH so restart prompt may appear
+		// Relaunch — no PICK_PATH so restart prompt may appear. Keep the SAME
+		// isolated userData dir: restorePreference is settings-canonical now, so
+		// dropping AI14ALL_USER_DATA_PATH here would read the developer's real
+		// settings.json (suppressing the prompt this test clicks) instead of the
+		// "prompt" default this suite's first boot seeded.
 		app = await electron.launch({
 			args: ["out/main/index.js"],
 			env: {
 				...process.env,
 				AI14ALL_E2E: "1",
 				AI14ALL_WORKSPACE_STATE_PATH: persistedStatePath,
+				AI14ALL_USER_DATA_PATH: userDataDir,
 			},
 		});
 		page = await app.firstWindow({ timeout: 60_000 });
