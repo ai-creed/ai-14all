@@ -4,8 +4,9 @@ import {
 	fireEvent,
 	act,
 	waitFor,
+	cleanup,
 } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Capture the health handler so the test can drive link states, and spy on the
 // reconnect IPC. The mock specifiers resolve to the SAME module files the
@@ -78,6 +79,21 @@ beforeEach(() => {
 	healthHandler = undefined;
 	reconnectSamantha.mockClear();
 	reconnectSamantha.mockImplementation(async () => ({ ok: true }));
+});
+
+// The dialog mounts a Radix FocusScope, which restores focus via a
+// `setTimeout(…, 0)` scheduled when it unmounts. testing-library's auto-cleanup
+// unmounts after each test and arms that timer; if it fires after the jsdom
+// realm is torn down, its cross-realm CustomEvent makes `dispatchEvent` throw a
+// benign TypeError that Vitest surfaces as an unhandled error and fails the run.
+// Unmount explicitly and flush the timer here, while the realm is still alive,
+// so it can never fire post-teardown. `cleanup()` is idempotent, so this is safe
+// regardless of hook ordering relative to the auto-cleanup afterEach.
+afterEach(async () => {
+	cleanup();
+	await act(async () => {
+		await new Promise((resolve) => setTimeout(resolve, 0));
+	});
 });
 
 describe("PluginsPanelDialog — Agent CLIs collapse", () => {

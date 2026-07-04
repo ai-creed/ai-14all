@@ -464,6 +464,15 @@ const api: Ai14AllDesktopApi = {
 		onSetTheme(handler) {
 			return onChannel("theme/set", handler);
 		},
+		onAdjustTerminalFontSize(handler) {
+			return onChannel("terminal/fontSize", handler);
+		},
+		onShowWelcomeTour(handler) {
+			return onChannel("help/showWelcomeTour", handler);
+		},
+		onResetOnboardingHints(handler) {
+			return onChannel("help/resetOnboardingHints", handler);
+		},
 	},
 	app: {
 		setEditorDirty(args) {
@@ -528,5 +537,13 @@ if (process.env.AI14ALL_E2E) {
 		"__codeNavE2eIngest",
 		(args: { jsonPath: string; dbPath: string }) =>
 			ipcRenderer.invoke("code-nav:e2eIngest", args),
+	);
+	// First-launch onboarding is suppressed in E2E by default so its overlay and
+	// coachmarks never cover unrelated e2e flows (which all start from a fresh
+	// profile and load a repo). A spec that exercises onboarding opts in with
+	// AI14ALL_E2E_ONBOARDING=1.
+	contextBridge.exposeInMainWorld(
+		"__ai14allSuppressOnboarding",
+		process.env.AI14ALL_E2E_ONBOARDING !== "1",
 	);
 }

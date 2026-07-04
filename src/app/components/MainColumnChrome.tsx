@@ -53,6 +53,7 @@ type Props = {
 
 	shortcutsHelpOpen: boolean;
 	setShortcutsHelpOpen: (next: boolean) => void;
+	onReplayTour?: () => void;
 	appPlatform: Platform;
 
 	/** Paths of worktrees currently open in the app (telemetry "Active" scope). */
@@ -94,6 +95,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 		gitStatusMap,
 		shortcutsHelpOpen,
 		setShortcutsHelpOpen,
+		onReplayTour,
 		appPlatform,
 		openWorktreePaths,
 		onOpenPlugins,
@@ -153,6 +155,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 									type="button"
 									className="shell-chip-bar__action plugins-entry-button"
 									aria-label="Open Plugins panel"
+									data-tour="plugins"
 									onClick={onOpenPlugins}
 								>
 									<span
@@ -239,6 +242,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 			<ShortcutsHelp
 				open={shortcutsHelpOpen}
 				platform={appPlatform}
+				onReplayTour={onReplayTour}
 				onClose={() => setShortcutsHelpOpen(false)}
 			/>
 		</>

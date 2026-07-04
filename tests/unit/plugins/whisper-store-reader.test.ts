@@ -29,14 +29,39 @@ describe("WhisperStoreReader", () => {
 		expect(reader.readCollabs()).toEqual([]);
 	});
 
-	it("refuses reads when user_version is unsupported", () => {
+	it("reads a v7 db (whisper 0.12.x duo-tables bump; contract tables unchanged)", () => {
 		makeWhisperFixtureDb(dbPath, {
 			schemaVersion: 7,
 			collabs: [{ collab_id: "c1", workspace_root: "/w1" }],
 		});
 		const reader = new WhisperStoreReader(dbPath);
 		expect(reader.readSchemaVersion()).toBe(7);
+		expect(reader.readCollabs()).toEqual([
+			{
+				collabId: "c1",
+				workspaceRoot: "/w1",
+				displayName: "fixture",
+				status: "active",
+			},
+		]);
+	});
+
+	it("refuses reads when user_version is above the supported range", () => {
+		makeWhisperFixtureDb(dbPath, {
+			schemaVersion: 8,
+			collabs: [{ collab_id: "c1", workspace_root: "/w1" }],
+		});
+		const reader = new WhisperStoreReader(dbPath);
+		expect(reader.readSchemaVersion()).toBe(8);
 		expect(reader.readCollabs()).toEqual([]);
+	});
+
+	it("refuses reads when user_version is below the supported range", () => {
+		makeWhisperFixtureDb(dbPath, {
+			schemaVersion: 5,
+			collabs: [{ collab_id: "c1", workspace_root: "/w1" }],
+		});
+		expect(new WhisperStoreReader(dbPath).readCollabs()).toEqual([]);
 	});
 
 	it("reads collabs, daemon row, and bindings", () => {

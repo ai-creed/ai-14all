@@ -84,7 +84,7 @@ describe("probeWhisper", () => {
 		});
 	});
 
-	it("maps unsupported db schema to incompatible", async () => {
+	it("accepts db schema 7 (whisper 0.12.x duo-tables bump; read contract surface unchanged)", async () => {
 		const report = JSON.stringify({
 			...JSON.parse(GOOD_ENV),
 			dbSchemaVersion: 7,
@@ -95,9 +95,27 @@ describe("probeWhisper", () => {
 			{ timeoutMs: 2000 },
 		);
 		expect(result).toEqual({
+			kind: "installed",
+			version: "0.6.0",
+			installPath: "/opt/homebrew/lib/node_modules/ai-whisper",
+			protocolVersion: "1",
+		});
+	});
+
+	it("maps a too-new db schema to incompatible (update ai-14all)", async () => {
+		const report = JSON.stringify({
+			...JSON.parse(GOOD_ENV),
+			dbSchemaVersion: 8,
+		});
+		const bin = fakeWhisper(`echo '${report}'`);
+		const result = await probeWhisper(
+			{ command: bin, prefixArgs: [] },
+			{ timeoutMs: 2000 },
+		);
+		expect(result).toEqual({
 			kind: "incompatible",
-			found: "db schema 7",
-			required: "db schema 6 (update ai-14all)",
+			found: "db schema 8",
+			required: "db schema 7 (update ai-14all)",
 		});
 	});
 

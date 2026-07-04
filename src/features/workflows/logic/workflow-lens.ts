@@ -31,6 +31,15 @@ export function workflowTypeLabel(type: string): string {
 }
 
 /**
+ * Human-readable status word for the sidebar lens. `done` reads as "completed"
+ * (the friendlier terminal word); every other status — `halted`, `escalated`,
+ * `running`, `paused`, `canceled`, or an unknown value — passes through as-is.
+ */
+export function workflowStatusLabel(statusKey: string): string {
+	return statusKey === "done" ? "completed" : statusKey;
+}
+
+/**
  * The artifact's display name: the spec path's basename, or null when empty.
  * Tolerates missing data (null/undefined) — IPC snapshots are untyped at
  * runtime, so a version skew or older snapshot must degrade to "no artifact"

@@ -1,14 +1,15 @@
-import type { WorkflowRow as WorkflowRowModel } from "../logic/workflow-lens";
+import {
+	workflowStatusLabel,
+	type WorkflowRow as WorkflowRowModel,
+} from "../logic/workflow-lens";
 
 /**
  * Sidebar workflow lens — a mini version of the dashboard inspector, separated
- * from the shells above it. Line 1: workflow type + artifact. Line 2: a
- * semantically-colored status dot (escalation outranks the raw status), then the
- * current phase + iteration.
- *
- * The status is a dot rather than a text badge: its color carries the tier
- * (ready / neutral / actionRequired) and its title carries the exact word, so
- * the lens stays compact and doesn't duplicate the worktree header's status.
+ * from the shells above it. Line 1: workflow type + artifact. Line 2:
+ * `<dot> <status> - <phase> - <round>` — a semantically-colored status dot plus
+ * an explicit status word ("completed" / "halted" / "escalated" / …) in the
+ * SAME color, so whether a run finished or halted reads at a glance rather than
+ * relying on the dot color alone. Escalation outranks the raw status.
  */
 export function WorkflowRow(props: {
 	row: WorkflowRowModel & { stale?: boolean };
@@ -23,6 +24,7 @@ export function WorkflowRow(props: {
 			: row.status === "done"
 				? "ready"
 				: "neutral";
+	const statusLabel = workflowStatusLabel(statusKey);
 	return (
 		<button
 			type="button"
@@ -42,11 +44,10 @@ export function WorkflowRow(props: {
 					className="workflow-row__status"
 					data-status={statusKey}
 					data-tier={statusTier}
-					role="img"
-					aria-label={`workflow ${statusKey}`}
 					title={statusKey}
 				>
 					<span className="workflow-row__status-dot" aria-hidden="true" />
+					<span className="workflow-row__status-label">{statusLabel}</span>
 				</span>
 				<span className="workflow-row__phase-name">{row.phaseName ?? "—"}</span>
 				{row.roundLabel && (

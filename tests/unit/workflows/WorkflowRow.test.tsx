@@ -53,17 +53,42 @@ describe("WorkflowRow", () => {
 		expect(phaseStatus).toHaveAttribute("data-status", "running");
 	});
 
-	it("renders the status as a dot (no status text)", () => {
+	it("renders the status word as a colored label beside the dot", () => {
 		const { container } = render(
 			<WorkflowRow row={row} onOpenDetail={vi.fn()} />,
 		);
+		const status = container.querySelector(".workflow-row__status");
+		// Dot + explicit word live in one element that sets the status color,
+		// so the label matches the dot color for free.
+		expect(status?.querySelector(".workflow-row__status-dot")).not.toBeNull();
 		expect(
-			container.querySelector(
-				".workflow-row__status .workflow-row__status-dot",
-			),
-		).not.toBeNull();
-		// The raw status word is not rendered as visible text — only the dot.
-		expect(screen.queryByText("running")).not.toBeInTheDocument();
+			status?.querySelector(".workflow-row__status-label")?.textContent,
+		).toBe("running");
+	});
+
+	it("labels a done workflow as 'completed' in the ready-tier element", () => {
+		const { container } = render(
+			<WorkflowRow row={makeRow({ status: "done" })} onOpenDetail={vi.fn()} />,
+		);
+		const status = container.querySelector(".workflow-row__status");
+		expect(status).toHaveAttribute("data-tier", "ready");
+		expect(
+			status?.querySelector(".workflow-row__status-label")?.textContent,
+		).toBe("completed");
+	});
+
+	it("labels a halted workflow as 'halted' in the actionRequired element", () => {
+		const { container } = render(
+			<WorkflowRow
+				row={makeRow({ status: "halted" })}
+				onOpenDetail={vi.fn()}
+			/>,
+		);
+		const status = container.querySelector(".workflow-row__status");
+		expect(status).toHaveAttribute("data-tier", "actionRequired");
+		expect(
+			status?.querySelector(".workflow-row__status-label")?.textContent,
+		).toBe("halted");
 	});
 
 	it("maps a done workflow to the quiet ready tier on the status dot", () => {

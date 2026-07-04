@@ -34,7 +34,7 @@ A live session view: the worktree rail and per-agent attention on the left, the
 terminal-first main column, and on-demand review without leaving the window.
 Click the still to learn more on the project page.
 
-[![ai-14all session view](./assets/ai-14all.png)](https://ai-creed.dev/projects/ai-14all/)
+[![ai-14all session view](./assets/hero.png)](https://ai-creed.dev/projects/ai-14all/)
 
 ## Who this is for
 

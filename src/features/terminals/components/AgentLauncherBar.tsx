@@ -42,6 +42,7 @@ export function AgentLauncherBar({
 		<div
 			className="shell-chip-bar__terminal-group"
 			data-testid="agent-launcher-bar"
+			data-tour="agent-launcher"
 		>
 			<span className="agent-launcher-bar__label" aria-hidden="true">
 				Agents
@@ -60,7 +61,7 @@ export function AgentLauncherBar({
 						onClick={() => onLaunch(provider)}
 					>
 						<span className="shell-chip-bar__action-icon" aria-hidden="true">
-							<Icon name="caret-right" />
+							<Icon name="plus" />
 						</span>
 						{PROVIDER_LABEL[provider]}
 						{queued && (

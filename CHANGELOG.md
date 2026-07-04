@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.1] – 2026-07-04
+
+### Fixed
+
+- **The sidebar workflow status card no longer vanishes after upgrading ai-whisper to a schema-v7 build.** ai-whisper 0.12.x bumped its state-db read-contract version from 6 to 7 (a purely additive change: two new duo tables). ai-14all pinned support to v6 exactly, so the probe reported the plugin incompatible — the whisper driver never started and the store reader refused all reads, leaving running workflows with no status card. The supported schema range is now 6–7, with regression tests covering v7 acceptance at both gates, and v8 ("update ai-14all") / v5 ("upgrade whisper") rejections.
+
+## [1.1.0] – 2026-07-03
+
+A polish release centered on first-run guidance and session-view UX hardening: new users get a guided tour and passive hints, the terminal gains a real font-size control, and the sidebar's attention signals, tooltips, and agent launchers were refined.
+
+### Added
+
+- **A first-launch guided tour and passive coachmarks.** On first run — once a repository is loaded — a four-step spotlight tour introduces the core workflow (isolated sessions, mounting an agent, the "needs you" signal, and in-window review), then hands off to passive coachmarks that surface **one hint at a time** (plugins, token usage, settings, the command palette) and stay gone once dismissed. The tour is armed only for genuinely new profiles — an upgrading install with existing workspaces is silently marked seen — and both the tour and hints can be replayed from **Help → Show Welcome Tour / Reset Onboarding Hints**.
+- **A user-adjustable terminal font size.** Terminal text size is now a persisted, global preference driven from the View-menu zoom accelerators and applied live to the panes.
+- **A color-independent "needs you" signal in the sidebar.** Action-required rows carry a non-color "needs you" badge so attention no longer depends on color alone, and every truncated sidebar row now shows its full text via a hover tooltip.
+- **Clearer agent launchers.** The per-agent launch chips gained a plus glyph and a resting fill so they read as actionable, and the collab status pill is de-boxed to sit more quietly in the header.
+- **An explicit workflow status word in the sidebar lens.** The workflow lens spells out its state (completed / halted / …) in the status color rather than relying on the dot alone.
+
+### Fixed
+
+- **View-menu zoom items no longer collide with the terminal font-size accelerators.** The built-in Electron View zoom entries were removed so the terminal shortcuts own those keys.
+- **Sidebar tooltips no longer intercept clicks.** The tooltip popper wrapper and content could swallow clicks on adjacent controls; both are now click-transparent, and the "needs you" tag text is vertically centered.
+
 ## [1.0.0] – 2026-07-01
 
 The 1.0 milestone: ai-14all graduates from the 0.x line to its first major version. This release is dominated by a workspace-sidebar rework, a light/dark/warm theme overhaul, and the adoption of the aicreed brand mark.
