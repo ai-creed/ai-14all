@@ -63,6 +63,10 @@ import type { WhisperCommand } from "../../shared/contracts/plugins.js";
 import { createSessionSliceStore } from "../../services/plugins/samantha/session-slice-source.js";
 import { createSessionReportProvider } from "../../services/plugins/samantha/session-report-provider.js";
 import { XbpHostService } from "../../services/xbp/xbp-host-service.js";
+import {
+	createWorkflowResolver,
+	createXbpActingExecutor,
+} from "../../services/xbp/xbp-acting-executor.js";
 import { registerXbpIpc, PHONE_BRIDGE_STATUS_CHANGED } from "./xbp-ipc.js";
 
 app.setName("ai-14all");
@@ -383,6 +387,11 @@ app.whenReady().then(async () => {
 		reviewCommentService.listOpenByWorktree(worktreeId).length;
 	const getWhisperStates = () => samanthaWhisperWatcher.snapshot();
 
+	// Shared acting gate — one enable/kill control governs both acting channels
+	// (samantha connector + XBP lifecycle capabilities), per spec decision 5.
+	const isActingEnabled = () =>
+		pluginConfig.get("samantha").behavior?.actingEnabled ?? false;
+
 	const xbpSessionReport = createSessionReportProvider({
 		getIdentities: getSamanthaIdentities,
 		getReviewCount,
@@ -403,8 +412,7 @@ app.whenReady().then(async () => {
 		focusWorktree: samanthaFocusWorktree,
 		webSocketImpl: globalThis.WebSocket as unknown as WebSocketCtor,
 		log: (message, error) => console.error(message, error),
-		isActingEnabled: () =>
-			pluginConfig.get("samantha").behavior?.actingEnabled ?? false,
+		isActingEnabled,
 		verifyActingToken: (token) => actingTokenVerifier.verify(token),
 		auditAct: (entry) => actingAuditLogger.append(entry),
 		runManagedInstruction: async (worktreeId, decision) => {
@@ -452,6 +460,16 @@ app.whenReady().then(async () => {
 		},
 	});
 
+	const xbpActingExecutor = createXbpActingExecutor({
+		isActingEnabled,
+		resolveWorkflow: createWorkflowResolver({
+			getWhisperStates,
+			resolveWorktreeRef,
+		}),
+		runWhisperCommand: (command, cwd) => whisperCommandRunner.run(command, cwd),
+		auditAct: (entry) => actingAuditLogger.append(entry),
+	});
+
 	// Spec §1: the XBP host service starts BEFORE the plugin registry boots, so a
 	// phone that connects during early startup finds the bridge already live. All
 	// mainWindow/webContents references below are lazy + null-safe so this block is
@@ -463,6 +481,7 @@ app.whenReady().then(async () => {
 			dir: xbpDir,
 			secureStorage: safeStorage,
 			getSessionReport: xbpSessionReport,
+			acting: xbpActingExecutor,
 			subscribeChanges: (cb) => {
 				const offReviews = reviewCommentService.onChange(() => cb());
 				const offWorktrees = workspaceRegistry.onChange(cb);

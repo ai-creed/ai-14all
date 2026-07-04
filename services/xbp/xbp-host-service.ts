@@ -13,12 +13,14 @@ import {
 	type PairedDevice,
 } from "./xbp-paired-device-store.js";
 import { XbpAuditSink } from "./xbp-audit-sink.js";
+import { NEW_PAIRING_GRANTS, grantsForStoredDevice } from "./xbp-grants.js";
 import { XbpPairingHost } from "./xbp-pairing-host.js";
 import {
 	createLanWebSocketHost,
 	primaryLanIPv4,
 } from "./lan-websocket-transport.js";
 import { XbpPeerSession } from "./xbp-peer-session.js";
+import type { XbpActingExecutor } from "./xbp-acting-executor.js";
 
 export interface XbpStatus {
 	enabled: boolean;
@@ -48,6 +50,7 @@ export class XbpHostService {
 			getSessionReport: () => Promise<SessionReportResult>;
 			subscribeChanges: (cb: () => void) => () => void;
 			onStatusChange?: () => void;
+			acting?: XbpActingExecutor;
 			now?: () => number;
 		},
 	) {
@@ -101,6 +104,7 @@ export class XbpHostService {
 			transport: this.lan.transport,
 			audit: this.audit,
 			getSessionReport: this.opts.getSessionReport,
+			acting: this.opts.acting,
 			now: this.opts.now,
 		});
 
@@ -118,6 +122,7 @@ export class XbpHostService {
 			this.peerSession.attach(
 				fromHex(this.pairedDevice.signPubHex),
 				fromHex(this.pairedDevice.boxPubHex),
+				grantsForStoredDevice(this.pairedDevice),
 			);
 		}
 
@@ -140,11 +145,14 @@ export class XbpHostService {
 		if (confirmed) {
 			const peer = this.pairingHost!.activePeer();
 			if (peer) {
-				this.peerSession!.attach(peer.signPub, peer.boxPub);
+				this.peerSession!.attach(peer.signPub, peer.boxPub, [
+					...NEW_PAIRING_GRANTS,
+				]);
 				this.pairedDevice = {
 					signPubHex: toHex(peer.signPub),
 					boxPubHex: toHex(peer.boxPub),
 					pairedAt: (this.opts.now ?? Date.now)(),
+					grantedPermissions: [...NEW_PAIRING_GRANTS],
 				};
 				this.pairedStore.save(this.pairedDevice); // persist — survives restart (AC2)
 			}

@@ -6,12 +6,17 @@ import {
 	type Transport,
 } from "@xavier/xbp/node";
 import {
+	pauseSessionCapability,
+	resumeSessionCapability,
+	stopSessionCapability,
 	sessionReportCapability,
 	SESSION_CHANGED_TOPIC,
+	type LifecycleResult,
 	type SessionReportResult,
 } from "@ai-creed/command-contract";
 import { createCoalescer } from "./coalescer.js";
 import type { XbpAuditSink } from "./xbp-audit-sink.js";
+import type { XbpActingExecutor } from "./xbp-acting-executor.js";
 
 export class XbpPeerSession {
 	private peer: Peer | null = null;
@@ -25,6 +30,7 @@ export class XbpPeerSession {
 			transport: Transport;
 			audit: XbpAuditSink;
 			getSessionReport: () => Promise<SessionReportResult>;
+			acting?: XbpActingExecutor;
 			coalesceMs?: number;
 			now?: () => number;
 		},
@@ -62,6 +68,32 @@ export class XbpPeerSession {
 			grantedPermissions,
 		);
 		peer.expose(sessionReportCapability, () => this.opts.getSessionReport());
+
+		const acting = this.opts.acting;
+		if (acting) {
+			const wrap =
+				(call: (worktreeId: string) => Promise<LifecycleResult>) =>
+				async (args: { worktreeId: string }) => {
+					const result = await call(args.worktreeId);
+					// AC4: success reflects in Observe via the same coalesced
+					// session-changed the report path uses; refusals fire no event.
+					if (result.ok) this.notifyChanged();
+					return result;
+				};
+			peer.expose(
+				pauseSessionCapability,
+				wrap((w) => acting.pause(w)),
+			);
+			peer.expose(
+				resumeSessionCapability,
+				wrap((w) => acting.resume(w)),
+			);
+			peer.expose(
+				stopSessionCapability,
+				wrap((w) => acting.stop(w)),
+			);
+		}
+
 		peer.start();
 		this.peer = peer;
 	}

@@ -60,6 +60,7 @@ export function createActGuard(deps: ActGuardDeps): {
 				deps.audit({
 					phase: "result",
 					ts,
+					channel: "samantha",
 					worktreeId: "",
 					instruction: "",
 					route: "reject",
@@ -75,6 +76,7 @@ export function createActGuard(deps: ActGuardDeps): {
 				deps.audit({
 					phase: "result",
 					ts,
+					channel: "samantha",
 					worktreeId: "",
 					instruction: "",
 					route: "reject",
@@ -95,6 +97,7 @@ export function createActGuard(deps: ActGuardDeps): {
 				deps.audit({
 					phase: "result",
 					ts,
+					channel: "samantha",
 					worktreeId: "",
 					instruction: "",
 					route: "reject",
@@ -109,6 +112,7 @@ export function createActGuard(deps: ActGuardDeps): {
 				deps.audit({
 					phase: "result",
 					ts,
+					channel: "samantha",
 					worktreeId: prep.worktreeId,
 					instruction: prep.instruction,
 					route: "reject",
@@ -132,6 +136,7 @@ export function createActGuard(deps: ActGuardDeps): {
 			deps.audit({
 				phase: "start",
 				ts,
+				channel: "samantha",
 				worktreeId: prep.worktreeId,
 				instruction: prep.instruction,
 				route: prep.decision.kind,
@@ -151,6 +156,7 @@ export function createActGuard(deps: ActGuardDeps): {
 			deps.audit({
 				phase: "result",
 				ts: now(),
+				channel: "samantha",
 				worktreeId: prep.worktreeId,
 				instruction: prep.instruction,
 				route: prep.decision.kind,

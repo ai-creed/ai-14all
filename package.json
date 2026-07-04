@@ -36,7 +36,7 @@
 		"diag:attention": "node scripts/dump-attention-log.mjs"
 	},
 	"dependencies": {
-		"@ai-creed/command-contract": "^0.1.0-alpha.0",
+		"@ai-creed/command-contract": "file:vendor/ai-creed-command-contract-0.1.0-alpha.1.tgz",
 		"@xavier/xbp": "file:vendor/xavier-xbp-0.1.0-alpha.0.tgz",
 		"libsodium-wrappers": "^0.7.15",
 		"@modelcontextprotocol/sdk": "^1.29.0",
