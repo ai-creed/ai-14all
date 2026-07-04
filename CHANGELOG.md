@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.1] – 2026-07-04
+
+### Fixed
+
+- **The sidebar workflow status card no longer vanishes after upgrading ai-whisper to a schema-v7 build.** ai-whisper 0.12.x bumped its state-db read-contract version from 6 to 7 (a purely additive change: two new duo tables). ai-14all pinned support to v6 exactly, so the probe reported the plugin incompatible — the whisper driver never started and the store reader refused all reads, leaving running workflows with no status card. The supported schema range is now 6–7, with regression tests covering v7 acceptance at both gates, and v8 ("update ai-14all") / v5 ("upgrade whisper") rejections.
+
 ## [1.1.0] – 2026-07-03
 
 A polish release centered on first-run guidance and session-view UX hardening: new users get a guided tour and passive hints, the terminal gains a real font-size control, and the sidebar's attention signals, tooltips, and agent launchers were refined.
