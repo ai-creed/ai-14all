@@ -595,6 +595,33 @@ describe("SessionSidebar — ready tier dot", () => {
 	});
 });
 
+describe("SessionSidebar — hydrated inactive workspace rendering", () => {
+	it("renders worktree rows (no placeholder) for a hydrated inactive workspace", () => {
+		renderSidebar({
+			workspaces: [makeWorkspace({ active: false, hydrated: true })],
+		});
+		expect(
+			screen.getByRole("button", { name: "main" }),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByText(
+				"Open this workspace to load its worktree sessions.",
+			),
+		).not.toBeInTheDocument();
+	});
+
+	it("shows the placeholder for a dormant (not yet hydrated) workspace", () => {
+		renderSidebar({
+			workspaces: [
+				makeWorkspace({ active: false, hydrated: false, worktrees: [] }),
+			],
+		});
+		expect(
+			screen.getByText("Open this workspace to load its worktree sessions."),
+		).toBeInTheDocument();
+	});
+});
+
 describe("SessionSidebar — non-color actionRequired signal", () => {
 	it("renders the 'needs you' signal with aria-label for an actionRequired row", () => {
 		renderSidebar({
