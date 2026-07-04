@@ -326,4 +326,62 @@ describe("hydrateWorkspace", () => {
 		expect(ok).toBe(false);
 		expect(openRepositoryMock).not.toHaveBeenCalled();
 	});
+
+	it("bails out without registering when the workspace goes live mid-hydration", async () => {
+		openRepositoryMock.mockResolvedValueOnce({
+			workspaceId: "workspace:repoB",
+			repository: repo("/repos/repoB"),
+		});
+
+		const harness = makeHarness(baseRegistry());
+
+		// Simulate activateWorkspace winning the race: it finishes (registering
+		// workspace:repoB as live) while hydrateWorkspace's own listWorktrees
+		// await is still in flight.
+		listWorktreesMock.mockImplementationOnce(async () => {
+			harness.options.appWorkspacesRef.current = appWorkspacesReducer(
+				harness.options.appWorkspacesRef.current,
+				{
+					type: "workspace/register",
+					workspace: {
+						workspaceId: "workspace:repoB",
+						repository: repo("/repos/repoB"),
+						worktrees: [worktree("/repos/repoB", true)],
+						workspaceState: createWorkspaceState([
+							worktree("/repos/repoB", true),
+						]),
+						persistedSnapshot: null,
+						hydrationState: "active",
+						loadError: null,
+					},
+				},
+			);
+			return [
+				worktree("/repos/repoB", true),
+				worktree("/repos/repoB-feature", false),
+			];
+		});
+
+		const { result } = renderHook(() => useWorkspaceLifecycle(harness.options));
+		harness.appDispatchLog.length = 0;
+
+		const ok = await result.current.hydrateWorkspace("workspace:repoB");
+
+		expect(ok).toBe(true);
+		// No workspace/register dispatch after the liveness check should have
+		// downgraded the now-active workspace back to inactiveLive.
+		expect(
+			harness.appDispatchLog.some(
+				(a) =>
+					a.type === "workspace/register" &&
+					a.workspace.hydrationState === "inactiveLive",
+			),
+		).toBe(false);
+		expect(
+			harness.appDispatchLog.some((a) => a.type === "workspace/remove"),
+		).toBe(false);
+		// The pending map must not be touched either — activateWorkspace owns
+		// this workspace's state now.
+		expect(harness.pending()).toEqual({});
+	});
 });

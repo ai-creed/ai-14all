@@ -1063,11 +1063,22 @@ describe("mergePendingIntoSaved", () => {
 		]);
 	});
 
-	it("never duplicates a session already present in the snapshot", () => {
-		const session = makeSession("/repos/b");
-		const saved = makeSavedWorkspace("/repos/b", [session]);
-		// Nothing to add → returns the SAME reference (no needless persist churn).
-		expect(mergePendingIntoSaved(saved, [session])).toBe(saved);
+	it("replaces a present-but-empty session with the rich pending version", () => {
+		// restoreSnapshot only ever materialises the SELECTED worktree into live
+		// state; buildWorkspaceSnapshot then re-serializes every OTHER worktree
+		// as present-but-empty. A pending entry means "the live copy is an
+		// unmaterialized placeholder" — the pending version must win, replacing
+		// (not duplicating) the placeholder so its rich data survives the write.
+		const placeholder = makeSession("/repos/b");
+		const saved = makeSavedWorkspace("/repos/b", [placeholder]);
+		const richPending = makeSession("/repos/b", "resume here");
+
+		const merged = mergePendingIntoSaved(saved, [richPending]);
+
+		expect(merged.snapshot.worktreeSessions).toHaveLength(1);
+		expect(
+			merged.snapshot.worktreeSessions.find((s) => s.worktreeId === "/repos/b"),
+		).toBe(richPending);
 	});
 
 	it("returns the same reference when the pending list is empty", () => {

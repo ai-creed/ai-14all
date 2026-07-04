@@ -480,6 +480,19 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 					}
 				}
 
+				// Race hardening: between the awaits above, a user click can run
+				// activateWorkspace on this same workspace (matched either by the
+				// original `workspaceId` or the possibly-drifted `openedId`). If it
+				// already registered live state, registering here as inactiveLive
+				// would downgrade the now-active workspace and clobber its state.
+				// Bail out without registering, removing, or touching the pending
+				// map — activateWorkspace owns this workspace now.
+				const liveNow =
+					appWorkspacesRef.current.workspacesById[workspaceId]
+						?.workspaceState ??
+					appWorkspacesRef.current.workspacesById[openedId]?.workspaceState;
+				if (liveNow) return true;
+
 				// Register as inactiveLive — deliberately NO workspace/select and NO
 				// ref priming: this workspace is hydrated in the background and must
 				// not become active or steal the selected-workspace refs.

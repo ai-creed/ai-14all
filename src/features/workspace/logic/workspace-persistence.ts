@@ -210,27 +210,42 @@ export function buildSavedWorkspace(
 
 /**
  * Spec §4.4: a pending (unvisited, or missing-worktree) session must survive
- * EVERY persist write, for non-active workspaces too. Appends any pending
- * session whose `worktreeId` is absent from the saved snapshot's
- * `worktreeSessions`. Returns the SAME `saved` reference when there is nothing
- * to add, so callers avoid needless re-serialisation churn.
+ * EVERY persist write, for non-active workspaces too. `workspace/restoreSnapshot`
+ * only ever materialises the SELECTED worktree into live state — every other
+ * worktree's session in `saved` is a present-but-empty placeholder produced by
+ * `buildWorkspaceSnapshot`. A pending entry means "the live copy is an
+ * unmaterialized placeholder", so pending sessions are replacement-wins: for
+ * each pending session, replace the saved snapshot's session with the same
+ * `worktreeId` (or append it when no such session exists). Returns the SAME
+ * `saved` reference only when `pending` is empty, so callers avoid needless
+ * re-serialisation churn.
  */
 export function mergePendingIntoSaved(
 	saved: PersistedSavedWorkspace,
 	pending: PersistedWorktreeSession[],
 ): PersistedSavedWorkspace {
-	const existing = new Set(
+	if (pending.length === 0) return saved;
+
+	const pendingByWorktreeId = new Map(
+		pending.map((session) => [session.worktreeId, session]),
+	);
+	const existingIds = new Set(
 		saved.snapshot.worktreeSessions.map((session) => session.worktreeId),
 	);
-	const missing = pending.filter(
-		(session) => !existing.has(session.worktreeId),
+	const merged = saved.snapshot.worktreeSessions.map(
+		(session) => pendingByWorktreeId.get(session.worktreeId) ?? session,
 	);
-	if (missing.length === 0) return saved;
+	for (const session of pendingByWorktreeId.values()) {
+		if (!existingIds.has(session.worktreeId)) {
+			merged.push(session);
+		}
+	}
+
 	return {
 		...saved,
 		snapshot: {
 			...saved.snapshot,
-			worktreeSessions: [...saved.snapshot.worktreeSessions, ...missing],
+			worktreeSessions: merged,
 		},
 	};
 }
