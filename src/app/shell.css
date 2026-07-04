@@ -1363,7 +1363,8 @@ select {
 	font-size: var(--ws-fs-branch);
 }
 .shell-sidebar__theme-trigger,
-.shell-sidebar__help-trigger {
+.shell-sidebar__help-trigger,
+.shell-sidebar__settings-trigger {
 	flex: 0 0 auto;
 }
 
@@ -1373,6 +1374,7 @@ select {
 .shell-sidebar__header button,
 .shell-sidebar__theme-trigger,
 .shell-sidebar__help-trigger,
+.shell-sidebar__settings-trigger,
 .shell-sidebar__workspace-remove {
 	color: var(--muted-foreground);
 }
@@ -5521,6 +5523,93 @@ select {
 	cursor: pointer;
 }
 .plugins-panel__close:hover {
+	border-color: var(--text-muted);
+	color: var(--text-primary);
+}
+
+/* --- Settings dialog ---
+   TUI trait set is mandatory here (no rounded corners, no drop shadow, solid
+   separators between groups) rather than following plugins-panel's shadow —
+   var(--radius*) already resolves to 0 everywhere, but box-shadow is omitted
+   outright to keep the surface flat. */
+.settings-dialog__overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.45);
+	z-index: 49;
+}
+.settings-dialog {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	z-index: 50;
+	background: var(--panel-bg);
+	border: var(--shell-border-width) solid var(--panel-border);
+	width: 420px;
+	max-width: calc(100vw - 32px);
+	max-height: calc(100vh - 64px);
+	overflow-y: auto;
+	padding: var(--space-4);
+}
+.settings-dialog__title {
+	font-size: 13px;
+	font-weight: 600;
+	margin: 0 0 var(--space-3);
+	color: var(--text-primary);
+}
+.settings-dialog__section {
+	border-top: var(--shell-border-width) solid var(--panel-border);
+	padding: var(--space-3) 0;
+}
+.settings-dialog__section:first-of-type {
+	border-top: none;
+	padding-top: 0;
+}
+.settings-dialog__section-title {
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--text-secondary);
+	margin: 0 0 var(--space-2);
+}
+.settings-dialog__row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	margin: 0 0 var(--space-2);
+	font-size: 0.75rem;
+	color: var(--text-secondary);
+}
+.settings-dialog__row:last-child {
+	margin-bottom: 0;
+}
+.settings-dialog__row select,
+.settings-dialog__row input[type="number"] {
+	background: var(--panel-bg-elevated);
+	border: var(--shell-border-width) solid var(--panel-border);
+	color: var(--text-primary);
+	font-family: inherit;
+	font-size: 0.75rem;
+	padding: 2px 4px;
+}
+.settings-dialog__checkbox-label {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+.settings-dialog__close {
+	margin-top: var(--space-3);
+	background: none;
+	border: var(--shell-border-width) solid var(--panel-border);
+	color: var(--text-secondary);
+	padding: 4px var(--space-3);
+	font-size: 0.75rem;
+	cursor: pointer;
+}
+.settings-dialog__close:hover {
 	border-color: var(--text-muted);
 	color: var(--text-primary);
 }

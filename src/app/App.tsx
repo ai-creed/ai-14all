@@ -117,6 +117,7 @@ import { resolvePresetLaunch } from "../features/terminals/logic/preset-launch";
 import { TerminalChromeHeader } from "../features/terminals/components/TerminalChromeHeader";
 import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
 import { PluginsPanelDialog } from "../features/plugins/components/PluginsPanelDialog";
+import { SettingsDialog } from "../features/settings/components/SettingsDialog";
 import {
 	useWhisperState,
 	type WhisperAttentionDispatch,
@@ -856,6 +857,7 @@ function AppContent() {
 
 	const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
 	const [pluginsDialogOpen, setPluginsDialogOpen] = useState(false);
+	const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 
 	// Launches a single command in a new pinned terminal for the collab flow.
 	// Spawns a session, registers it as a process, and sends the command; uses a
@@ -2205,6 +2207,7 @@ function AppContent() {
 							palette={palette}
 							onSetTheme={setTheme}
 							onOpenShortcutsHelp={() => setShortcutsHelpOpen(true)}
+							onOpenSettings={() => setSettingsDialogOpen(true)}
 							expandedProcessWorktreeIds={expandedProcessWorktreeIds}
 							onToggleProcessExpanded={toggleProcessExpanded}
 						/>
@@ -2448,6 +2451,11 @@ function AppContent() {
 										onExit: () => void pluginsClient.reprobe(),
 									});
 								}}
+							/>
+
+							<SettingsDialog
+								open={settingsDialogOpen}
+								onOpenChange={setSettingsDialogOpen}
 							/>
 
 							{workflowDetailTarget && (

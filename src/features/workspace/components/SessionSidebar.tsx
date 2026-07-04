@@ -79,6 +79,7 @@ type Props = {
 	palette?: Palette;
 	onSetTheme?: (mode: Palette) => void;
 	onOpenShortcutsHelp?: () => void;
+	onOpenSettings?: () => void;
 	expandedProcessWorktreeIds?: string[];
 	onToggleProcessExpanded?: (worktreeId: string) => void;
 };
@@ -110,6 +111,7 @@ export function SessionSidebar({
 	palette,
 	onSetTheme,
 	onOpenShortcutsHelp,
+	onOpenSettings,
 	expandedProcessWorktreeIds,
 	onToggleProcessExpanded,
 }: Props) {
@@ -779,6 +781,19 @@ export function SessionSidebar({
 							onClick={onOpenShortcutsHelp}
 						>
 							<Icon name="help" />
+						</Button>
+					)}
+					{onOpenSettings && (
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							className="shell-sidebar__settings-trigger"
+							aria-label="Settings"
+							title="Settings"
+							onClick={onOpenSettings}
+						>
+							<Icon name="gear" />
 						</Button>
 					)}
 				</div>
