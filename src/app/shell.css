@@ -592,6 +592,12 @@ select {
 .shell-sidebar {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr) auto;
+	/* Clamp the single column track to the container. Without this the auto
+	   track grows to the widest row's min-content (max-content propagation),
+	   so ONE inflexible row (e.g. the global footer's icon cluster) silently
+	   widens EVERY row — pushing the header's collapse button out of the
+	   sidebar and under the chip bar, where it becomes unclickable. */
+	grid-template-columns: minmax(0, 1fr);
 	padding: var(--space-3);
 	width: 100%;
 	height: 100%;
@@ -2897,6 +2903,11 @@ select {
 .shell-sidebar__footer--global {
 	margin-top: var(--space-3);
 	display: flex;
+	/* The row no longer fits the narrowest sidebar widths since the Settings
+	   trigger joined it (Load + three 36px icons ≈ 268px min-content). Wrap
+	   instead of overflowing so every control stays visible and clickable at
+	   any legal sidebar width (SIDEBAR_MIN = 200). */
+	flex-wrap: wrap;
 	gap: var(--space-2);
 	align-items: stretch;
 }
