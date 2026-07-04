@@ -26,6 +26,16 @@ import {
 	AGENT_ATTENTION_BRIDGE_REQUEST,
 	AGENT_ATTENTION_BRIDGE_REPLY,
 } from "../../shared/contracts/agent-attention-bridge.js";
+import type {
+	AgentResumeBridgeReply,
+	AgentResumeBridgeRequest,
+} from "../../shared/contracts/agent-resume-bridge.js";
+import {
+	AGENT_RESUME_BRIDGE_READY,
+	AGENT_RESUME_BRIDGE_GOODBYE,
+	AGENT_RESUME_BRIDGE_REQUEST,
+	AGENT_RESUME_BRIDGE_REPLY,
+} from "../../shared/contracts/agent-resume-bridge.js";
 // Channel name constants duplicated from shared/contracts to avoid pulling Zod
 // into the sandboxed preload context (sandbox:true blocks require("zod")).
 const REVIEW_LIST = "reviewComments:list";
@@ -490,6 +500,18 @@ const api: Ai14AllDesktopApi = {
 		},
 		onSettingsChanged(cb) {
 			return onChannel<PersistedSettingsV1>(SETTINGS_CHANGED, cb);
+		},
+		onAgentResumeRequest(handler: (req: AgentResumeBridgeRequest) => void) {
+			return onChannel(AGENT_RESUME_BRIDGE_REQUEST, handler);
+		},
+		sendAgentResumeReply(reply: AgentResumeBridgeReply) {
+			ipcRenderer.send(AGENT_RESUME_BRIDGE_REPLY, reply);
+		},
+		sendAgentResumeReady() {
+			ipcRenderer.send(AGENT_RESUME_BRIDGE_READY);
+		},
+		sendAgentResumeGoodbye() {
+			ipcRenderer.send(AGENT_RESUME_BRIDGE_GOODBYE);
 		},
 	},
 	app: {

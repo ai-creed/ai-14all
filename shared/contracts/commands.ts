@@ -45,6 +45,10 @@ import type {
 	AgentAttentionBridgeReply,
 	AgentAttentionBridgeRequest,
 } from "./agent-attention-bridge.js";
+import type {
+	AgentResumeBridgeReply,
+	AgentResumeBridgeRequest,
+} from "./agent-resume-bridge.js";
 import type { PluginsApi } from "./plugins.js";
 
 // --- Zod schemas for command payloads ---
@@ -293,6 +297,16 @@ export type DiagnosticsAttentionLogEvent =
 			summary: string;
 			task: string | null | undefined;
 			nextAction: string | null;
+	  }
+	| {
+			type: "mcp_resume_rejected";
+			ts: number;
+			worktreeId: string;
+			// Raw free-text provider the agent reported (NOT the constrained
+			// `AttentionLogProvider` enum). Mirrors `MCPResumeRejectedLogEvent` in
+			// services/diagnostics/agent-attention-logger.ts.
+			provider: string;
+			reason: string;
 	  }
 	| {
 			type: "lifecycle";
@@ -630,6 +644,16 @@ export type Ai14AllDesktopApi = {
 		onShowWelcomeTour?(handler: () => void): () => void;
 		onResetOnboardingHints?(handler: () => void): () => void;
 		onSettingsChanged(cb: (settings: PersistedSettingsV1) => void): () => void;
+		// Agent conversation-resume bridge (main → renderer request/ack). Optional:
+		// the real preload bridge implements these; the consuming hook
+		// optional-chains them so non-Electron contexts (unit tests, future
+		// non-desktop shells) need no stub.
+		onAgentResumeRequest?(
+			handler: (req: AgentResumeBridgeRequest) => void,
+		): () => void;
+		sendAgentResumeReply?(reply: AgentResumeBridgeReply): void;
+		sendAgentResumeReady?(): void;
+		sendAgentResumeGoodbye?(): void;
 	};
 	app: {
 		setEditorDirty(args: {

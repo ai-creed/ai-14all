@@ -33,6 +33,7 @@ import {
 import { Ai14allMcpServer } from "../../services/mcp/ai14all-mcp-server.js";
 import { SessionNoteBridge } from "../../services/mcp/session-note-bridge.js";
 import { AgentAttentionBridge } from "../../services/mcp/agent-attention-bridge.js";
+import { AgentResumeBridge } from "../../services/mcp/agent-resume-bridge.js";
 import { createWorktreePathResolver } from "../../services/review/worktree-path-resolver.js";
 import { createPluginConfigStore } from "../../services/plugins/plugin-config.js";
 import { createCapabilityProbeService } from "../../services/plugins/capability-probe-service.js";
@@ -544,6 +545,7 @@ app.whenReady().then(async () => {
 	const agentAttentionBridge = new AgentAttentionBridge(
 		() => mainWindow.webContents,
 	);
+	const agentResumeBridge = new AgentResumeBridge(() => mainWindow.webContents);
 
 	const offRegistry = workspaceRegistry.onChange(() => {
 		void worktreePathResolver.refresh();
@@ -564,6 +566,7 @@ app.whenReady().then(async () => {
 			worktreePathResolver,
 			sessionNoteBridge,
 			agentAttentionBridge,
+			agentResumeBridge,
 			{ port: desiredPort, host: "127.0.0.1" },
 			agentAttentionLogger,
 		);
@@ -622,6 +625,7 @@ app.whenReady().then(async () => {
 		void mcpServer?.stop().catch(() => {});
 		sessionNoteBridge.dispose();
 		agentAttentionBridge.dispose();
+		agentResumeBridge.dispose();
 		usageHost.stop();
 		pluginIpc.dispose();
 		void pluginRegistry.stopAll();

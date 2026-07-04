@@ -47,6 +47,7 @@ import { createSamanthaSliceBuilder } from "../features/workspace/logic/samantha
 import { findWorkspaceForWorktree } from "../features/workspace/logic/focus-target";
 import { useNoteBridgeReceiver } from "../features/workspace/hooks/use-note-bridge-receiver";
 import { attachAgentAttentionBridge } from "../features/terminals/logic/agent-attention-renderer-bridge";
+import { useAgentResumeBridge } from "./hooks/use-agent-resume-bridge";
 import type { GitChangeStatus } from "../../shared/models/git-change";
 import {
 	repository as repositoryClient,
@@ -325,6 +326,28 @@ function AppContent() {
 		// dispatch and agentAttentionBridge are stable refs; only startupMode should re-run
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [startupMode]);
+
+	// Agent conversation-resume bridge: main forwards `register_agent_session`
+	// registrations; route the resume command into the workspace that owns the
+	// reported terminal session (across ALL workspaces), same routing shape as
+	// the agent-attention bridge above.
+	const dispatchResumeToWorkspace = useCallback(
+		(
+			workspaceId: string,
+			action: {
+				type: "session/setResumeCommand";
+				terminalSessionId: string;
+				resumeCommand: string;
+			},
+		) => {
+			createScopedWorkspaceDispatch(workspaceId)(action);
+		},
+		[createScopedWorkspaceDispatch],
+	);
+	useAgentResumeBridge({
+		appWorkspacesRef,
+		dispatchToWorkspace: dispatchResumeToWorkspace,
+	});
 
 	// Whisper workflow lens: the driver pushes per-worktree state keyed by
 	// worktreeId across ALL workspaces, so its attention dispatch must route to

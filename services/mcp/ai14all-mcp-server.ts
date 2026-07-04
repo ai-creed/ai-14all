@@ -13,11 +13,17 @@ import {
 	RendererNotReadyError,
 } from "./session-note-bridge.js";
 import type { AgentAttentionBridge } from "./agent-attention-bridge.js";
+import type { AgentResumeBridge } from "./agent-resume-bridge.js";
 import type { AgentAttentionLogger } from "../diagnostics/agent-attention-logger.js";
+import {
+	AGENT_BINARIES,
+	RESUME_COMMAND_MAX_LENGTH,
+	validateResumeCommand,
+} from "../../shared/models/resume-command.js";
 
 const AI14ALL_MCP_INSTRUCTIONS = `This MCP server is provided by the ai-14all desktop app. It is connected to a specific git worktree on the user's machine and exposes tools the agent can call while working in that worktree. Every worktree-scoped tool takes a \`worktreePath\` argument — pass the absolute path of the current worktree (the working directory of this session).
 
-The server exposes three tool families:
+The server exposes four tool families:
 
 Reviews — act on review comments authored in the ai-14all UI:
 - \`list_pending_reviews({ worktreePath })\` returns open review comments for the worktree.
@@ -33,13 +39,18 @@ Session status — a lifecycle signal that drives the app's sidebar attention in
   - "waiting" — blocked on a question or input from the user.
   - "ready" — task is complete and awaiting user review.
   - "failed" — task hit an unrecoverable error.
-  Keep \`summary\` ≤ 200 chars and specific (e.g. "running tsc", "awaiting answer on caching strategy", "3 tests failing in workspace-state.test.ts"). Set \`nextAction\` to a short imperative when the user has a clear next step (e.g. "review diff", "answer question above"), else null. Set the optional \`task\` (≤ 200 chars) once at mission start to a high-level summary of what the user asked you to do; repeat the same \`task\` in subsequent pushes for that mission, change it only when you pivot to a new mission, and use null when idle. Call once per transition — not on every tool use or every assistant turn.`;
+  Keep \`summary\` ≤ 200 chars and specific (e.g. "running tsc", "awaiting answer on caching strategy", "3 tests failing in workspace-state.test.ts"). Set \`nextAction\` to a short imperative when the user has a clear next step (e.g. "review diff", "answer question above"), else null. Set the optional \`task\` (≤ 200 chars) once at mission start to a high-level summary of what the user asked you to do; repeat the same \`task\` in subsequent pushes for that mission, change it only when you pivot to a new mission, and use null when idle. Call once per transition — not on every tool use or every assistant turn.
+
+Session resume — let the app reopen this conversation after a restart:
+- \`register_agent_session({ worktreePath, terminalSessionId, provider, resumeCommand })\` records how to resume THIS agent conversation. Call once at session start. Pass \`terminalSessionId\` from the \`$AI14ALL_TERMINAL_SESSION_ID\` env var the app injects into the terminal, and \`resumeCommand\` as the complete command that reopens this exact conversation (e.g. "claude --resume <session-id>"). The command must contain only letters, digits, spaces, and the characters . _ / : = @ - — anything with shell meaning is rejected as \`invalid_resume_command\`.`;
 
 type Options = { port: number; host: string };
 
 export type SessionNoteBridgeLike = Pick<SessionNoteBridge, "read" | "append">;
 
 export type AgentAttentionBridgeLike = Pick<AgentAttentionBridge, "report">;
+
+export type AgentResumeBridgeLike = Pick<AgentResumeBridge, "report">;
 
 export type AgentAttentionLoggerLike = Pick<AgentAttentionLogger, "append">;
 
@@ -49,6 +60,13 @@ export const ReportSessionStatusInputSchema = z.object({
 	summary: z.string().min(1).max(200),
 	nextAction: z.string().max(200).nullable(),
 	task: z.string().min(1).max(200).nullable().optional(),
+});
+
+export const RegisterAgentSessionInputSchema = z.object({
+	worktreePath: z.string().min(1),
+	terminalSessionId: z.string().min(1),
+	provider: z.string().min(1).max(40),
+	resumeCommand: z.string().min(1).max(RESUME_COMMAND_MAX_LENGTH),
 });
 
 export async function resolveWithRefresh(
@@ -101,6 +119,7 @@ export class Ai14allMcpServer {
 		private readonly resolver: WorktreePathResolver,
 		private readonly noteBridge: SessionNoteBridgeLike,
 		private readonly attentionBridge: AgentAttentionBridgeLike,
+		private readonly resumeBridge: AgentResumeBridgeLike,
 		private readonly options: Options,
 		private readonly attentionLogger?: AgentAttentionLoggerLike,
 	) {}
@@ -109,6 +128,7 @@ export class Ai14allMcpServer {
 		this.registerReviewTools(mcp);
 		this.registerNoteTools(mcp);
 		this.registerAttentionTools(mcp);
+		this.registerResumeTools(mcp);
 	}
 
 	private registerReviewTools(mcp: McpServer): void {
@@ -266,6 +286,56 @@ export class Ai14allMcpServer {
 						reportedAt,
 					});
 					return jsonOk({ worktreeId, state, reportedAt });
+				} catch (err) {
+					return jsonError(
+						mapBridgeErrorCode(err),
+						(err as Error).message ?? "bridge error",
+					);
+				}
+			},
+		);
+	}
+
+	private registerResumeTools(mcp: McpServer): void {
+		mcp.tool(
+			"register_agent_session",
+			'Register this agent session for conversation resume after an ai-14all restart. Call once at session start. Pass `terminalSessionId` from $AI14ALL_TERMINAL_SESSION_ID and a complete `resumeCommand` (e.g. "claude --resume <session-id>") that reopens THIS conversation. The command must contain only letters, digits, spaces, and the characters . _ / : = @ - (any shell control character is rejected).',
+			RegisterAgentSessionInputSchema.shape,
+			async ({ worktreePath, terminalSessionId, provider, resumeCommand }) => {
+				const worktreeId = await resolveWithRefresh(
+					this.resolver,
+					worktreePath,
+				);
+				if (!worktreeId) {
+					return jsonError(
+						"no_worktree",
+						`no worktree at path: ${worktreePath}`,
+					);
+				}
+				const verdict = validateResumeCommand(resumeCommand, AGENT_BINARIES);
+				if (!verdict.ok) {
+					// Spec §5.5: rejected resume registrations MUST be logged.
+					// Best-effort; never let logging failures break the tool call.
+					this.attentionLogger
+						?.append({
+							type: "mcp_resume_rejected",
+							ts: Date.now(),
+							worktreeId,
+							provider,
+							reason: verdict.reason,
+						})
+						.catch(() => {});
+					return jsonError("invalid_resume_command", verdict.reason);
+				}
+				try {
+					await this.resumeBridge.report({
+						worktreeId,
+						terminalSessionId,
+						provider,
+						resumeCommand,
+						reportedAt: Date.now(),
+					});
+					return jsonOk({ worktreeId });
 				} catch (err) {
 					return jsonError(
 						mapBridgeErrorCode(err),
