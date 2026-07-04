@@ -535,6 +535,16 @@ export function registerIpcHandlers(
 	ipcMain.handle("settings:write", async (_event, raw: unknown) => {
 		const { patch } = WriteSettingsSchema.parse(raw);
 		const merged = await settingsService.writeState(patch);
+		// Settings dialog's "usage telemetry" checkbox writes usageTelemetry
+		// through this single funnel rather than the usage:setEnabled IPC
+		// handler, so without this the live UsageHost worker keeps running (or
+		// stays stopped) until app restart even though the persisted value
+		// flipped. Apply it through the same UsageHost method usage:setEnabled
+		// uses — setEnabled() only starts/stops the worker, it never persists,
+		// so this cannot loop back into another settingsService write.
+		if (patch.usageTelemetry) {
+			usageHost?.setEnabled(merged.usageTelemetry.enabled);
+		}
 		for (const win of BrowserWindow.getAllWindows()) {
 			win.webContents.send("settings:changed", merged);
 		}

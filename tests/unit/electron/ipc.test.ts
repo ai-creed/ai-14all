@@ -50,6 +50,10 @@ const { worktreeServiceInstance, fileServiceInstance } = vi.hoisted(() => {
 	return { worktreeServiceInstance, fileServiceInstance };
 });
 
+const { getAllWindowsMock } = vi.hoisted(() => ({
+	getAllWindowsMock: vi.fn(() => [] as unknown[]),
+}));
+
 vi.mock("electron", () => ({
 	app: {
 		getPath: vi.fn(() => "/tmp/test-home"),
@@ -57,6 +61,7 @@ vi.mock("electron", () => ({
 	},
 	dialog: { showOpenDialog: vi.fn() },
 	ipcMain: { handle: handleMock, on: onMock },
+	BrowserWindow: { getAllWindows: getAllWindowsMock },
 }));
 
 vi.mock("../../../services/worktrees/worktree-service.js", () => {
@@ -555,5 +560,124 @@ describe("registerIpcHandlers repository remote branches", () => {
 
 		expect(worktreeServiceInstance.refreshRemote).toHaveBeenCalledWith(repo);
 		expect(result).toEqual({ ok: false, error: "boom" });
+	});
+});
+
+// Direction 1 of the settings:write <-> usage bridge seam (spec §3.2): the
+// Settings dialog's "usage telemetry" checkbox writes usageTelemetry through
+// settings:write, not through the usage:setEnabled IPC handler, so without
+// this the live main-process UsageHost worker keeps running/stopped until app
+// restart even though the persisted `enabled` flag flipped.
+describe("registerIpcHandlers settings:write usage-telemetry live sync", () => {
+	const baseSettings = {
+		version: 1 as const,
+		theme: "system" as const,
+		terminalFontSize: 13,
+		restorePreference: "prompt" as const,
+		restoreDepth: "stateEagerTerminalsLazy" as const,
+		agentResume: "auto" as const,
+		usageTelemetry: {
+			enabled: false,
+			includeUntracked: false,
+			chipRange: "week" as const,
+		},
+	};
+
+	beforeEach(() => {
+		handlers.clear();
+		handleMock.mockClear();
+		getAllWindowsMock.mockReset();
+		getAllWindowsMock.mockReturnValue([]);
+	});
+
+	const registerWith = (
+		writeStateResult: unknown,
+		usageHost?: { setEnabled: ReturnType<typeof vi.fn> },
+	) => {
+		registerIpcHandlers(
+			{
+				isDestroyed: () => false,
+				webContents: { isDestroyed: () => false, send: vi.fn() },
+			} as never,
+			{
+				workspacePersistence: {
+					readState: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
+				settingsService: {
+					readState: vi.fn(),
+					readStateSync: vi.fn(),
+					writeState: vi.fn().mockResolvedValue(writeStateResult),
+				} as never,
+				workspaceRegistry: { register: vi.fn(), get: vi.fn() } as never,
+				worktreeService: worktreeServiceInstance as never,
+				usageHost: usageHost as never,
+				review: {
+					service: {
+						onChange: vi.fn(() => () => {}),
+						removeByWorktree: vi.fn(),
+						listByWorktree: vi.fn(() => []),
+						create: vi.fn(),
+						markAddressed: vi.fn(),
+						reopen: vi.fn(),
+						delete: vi.fn(),
+						rebaseWorktreeIds: vi.fn(),
+					},
+					mcpStatus: { port: null, bindError: null, getUrl: () => null },
+					worktreePathResolver: { resolve: vi.fn(), refresh: vi.fn() },
+				} as never,
+				getCortexEnabled: () => false,
+			},
+		);
+		return handlers.get("settings:write")!;
+	};
+
+	it("a usageTelemetry patch pushes the merged enabled flag into the live UsageHost", async () => {
+		const setEnabled = vi.fn();
+		const handler = registerWith(baseSettings, { setEnabled });
+
+		await handler(
+			{},
+			{
+				patch: {
+					usageTelemetry: {
+						enabled: false,
+						includeUntracked: false,
+						chipRange: "week",
+					},
+				},
+			},
+		);
+
+		expect(setEnabled).toHaveBeenCalledTimes(1);
+		expect(setEnabled).toHaveBeenCalledWith(false);
+	});
+
+	it("a patch that doesn't touch usageTelemetry never calls UsageHost.setEnabled", async () => {
+		const setEnabled = vi.fn();
+		const handler = registerWith(baseSettings, { setEnabled });
+
+		await handler({}, { patch: { theme: "warm" } });
+
+		expect(setEnabled).not.toHaveBeenCalled();
+	});
+
+	it("does not throw when no UsageHost is wired (usageHost undefined)", async () => {
+		const handler = registerWith(baseSettings, undefined);
+
+		await expect(
+			handler({}, { patch: { usageTelemetry: { enabled: true } } }),
+		).resolves.toEqual(baseSettings);
+	});
+
+	it("still broadcasts settings:changed to every window after syncing UsageHost", async () => {
+		const send = vi.fn();
+		getAllWindowsMock.mockReturnValue([{ webContents: { send } }]);
+		const setEnabled = vi.fn();
+		const handler = registerWith(baseSettings, { setEnabled });
+
+		await handler({}, { patch: { usageTelemetry: { enabled: false } } });
+
+		expect(send).toHaveBeenCalledWith("settings:changed", baseSettings);
 	});
 });

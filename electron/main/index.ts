@@ -11,6 +11,7 @@ import { registerAppLifecycle } from "./lifecycle.js";
 import { buildApplicationMenu } from "./menu.js";
 import { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
 import { SettingsService } from "../../services/settings/settings-service.js";
+import type { PersistedSettingsV1 } from "../../shared/models/persisted-settings.js";
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 import { createShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
 import {
@@ -164,7 +165,19 @@ app.whenReady().then(async () => {
 	// and pushes UsageSnapshots to the renderer. Enabled by default. The settings
 	// bridge loads the persisted usage UI settings once (async) and exposes a sync
 	// snapshot for the host's loadSettings plus an async read-modify-write persist.
-	const usageSettings = await createUsageSettingsBridge(settingsService);
+	// Broadcasts settings:changed on every bridge-driven persist (usage popover
+	// writes bypass the settings:write IPC handler's own broadcast — see the
+	// bridge's `onPersisted` doc comment) so the Settings dialog's usage
+	// telemetry checkbox/toggles stay in sync within the same session.
+	const broadcastSettingsChanged = (settings: PersistedSettingsV1) => {
+		if (!mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+			mainWindow.webContents.send("settings:changed", settings);
+		}
+	};
+	const usageSettings = await createUsageSettingsBridge(
+		settingsService,
+		broadcastSettingsChanged,
+	);
 	const usageHost = new UsageHost({
 		userDataDir: app.getPath("userData"),
 		launchMs: Date.now(),
