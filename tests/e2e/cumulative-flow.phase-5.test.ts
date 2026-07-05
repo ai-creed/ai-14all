@@ -22,6 +22,7 @@ let page: Page;
 let testRepo: TestRepo;
 let persistedStateDir: string;
 let persistedStatePath: string;
+let userDataDir: string;
 
 // These helpers support multi-launch — this suite relaunches the app to test
 // persistence across sessions, unlike single-launch phase tests.
@@ -32,9 +33,25 @@ async function launchApp(firstWindowTimeout = 30_000) {
 			...process.env,
 			AI14ALL_E2E: "1",
 			AI14ALL_WORKSPACE_STATE_PATH: persistedStatePath,
+			// Isolate settings.json (restorePreference is settings-canonical now,
+			// with the legacy workspace-state value seeded only on first run) so
+			// this suite neither reads nor mutates the developer's real userData.
+			AI14ALL_USER_DATA_PATH: userDataDir,
 		},
 	});
 	page = await app.firstWindow({ timeout: firstWindowTimeout });
+}
+
+/**
+ * Reset the persisted settings so the NEXT launch is a settings first-run and
+ * re-seeds restorePreference from the legacy workspace-state file this suite
+ * writes. Tests that hand-write `persistedStatePath` with a specific
+ * restorePreference call this right after, otherwise the settings file left
+ * by an earlier launch (settings are canonical) wins and the seeded legacy
+ * value is ignored.
+ */
+function resetSettingsForLegacySeed(): void {
+	rmSync(join(userDataDir, "settings.json"), { force: true });
 }
 
 async function closeApp() {
@@ -55,6 +72,7 @@ test.beforeAll(async () => {
 	testRepo = createTestRepo();
 	persistedStateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-phase5-")));
 	persistedStatePath = join(persistedStateDir, "workspace-state.json");
+	userDataDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-phase5-ud-")));
 	await launchApp();
 }, 90_000);
 
@@ -63,6 +81,7 @@ test.afterAll(async () => {
 		await closeApp();
 	} finally {
 		rmSync(persistedStateDir, { recursive: true, force: true });
+		rmSync(userDataDir, { recursive: true, force: true });
 		testRepo.cleanup();
 	}
 });
@@ -217,6 +236,9 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		// Worktree IDs equal the filesystem path of each worktree
 		// (see services/worktrees/parse-worktree-porcelain.ts).
 		await closeApp();
+		// The previous test persisted alwaysStartClean into settings.json; drop
+		// it so the legacy "prompt" written below seeds a fresh settings file.
+		resetSettingsForLegacySeed();
 
 		writeFileSync(
 			persistedStatePath,
@@ -297,6 +319,9 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		test.setTimeout(120_000);
 		// Start from a clean state so this test doesn't depend on previous test outcomes
 		await closeApp();
+		// Same reason as the previous test: settings.json is canonical for
+		// restorePreference, so reset it for the legacy "alwaysRestore" below.
+		resetSettingsForLegacySeed();
 		writeFileSync(
 			persistedStatePath,
 			JSON.stringify({

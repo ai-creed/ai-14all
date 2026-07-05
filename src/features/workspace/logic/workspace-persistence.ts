@@ -7,6 +7,18 @@ import type {
 } from "../../../../shared/models/persisted-workspace-state";
 
 /**
+ * A pending worktree-session restore, tagged with the id of the workspace that
+ * owns it. The renderer keeps ALL unvisited (and missing-worktree) sessions in a
+ * single pending map keyed by worktreeId; the tag lets the persist path route
+ * each pending session back into its owning workspace's snapshot (spec §4.4),
+ * even for non-active workspaces hydrated in the background.
+ */
+export type PendingRestoreEntry = {
+	workspaceId: string;
+	session: PersistedWorktreeSession;
+};
+
+/**
  * Returns true when the loaded repo likely corresponds to the saved snapshot,
  * even if the filesystem path has changed (e.g. after a rename/move).
  */
@@ -118,6 +130,7 @@ export function buildWorkspaceSnapshot(
 						command: process.command,
 						pinned: process.pinned,
 						terminalSessionId: process.terminalSessionId,
+						resumeCommand: process.resumeCommand,
 					})),
 			}),
 		),
@@ -193,6 +206,48 @@ export function buildSavedWorkspace(
 		repositoryPath,
 		repoId,
 		snapshot: buildWorkspaceSnapshot(repositoryPath, repoId, state),
+	};
+}
+
+/**
+ * Spec §4.4: a pending (unvisited, or missing-worktree) session must survive
+ * EVERY persist write, for non-active workspaces too. `workspace/restoreSnapshot`
+ * only ever materialises the SELECTED worktree into live state — every other
+ * worktree's session in `saved` is a present-but-empty placeholder produced by
+ * `buildWorkspaceSnapshot`. A pending entry means "the live copy is an
+ * unmaterialized placeholder", so pending sessions are replacement-wins: for
+ * each pending session, replace the saved snapshot's session with the same
+ * `worktreeId` (or append it when no such session exists). Returns the SAME
+ * `saved` reference only when `pending` is empty, so callers avoid needless
+ * re-serialisation churn.
+ */
+export function mergePendingIntoSaved(
+	saved: PersistedSavedWorkspace,
+	pending: PersistedWorktreeSession[],
+): PersistedSavedWorkspace {
+	if (pending.length === 0) return saved;
+
+	const pendingByWorktreeId = new Map(
+		pending.map((session) => [session.worktreeId, session]),
+	);
+	const existingIds = new Set(
+		saved.snapshot.worktreeSessions.map((session) => session.worktreeId),
+	);
+	const merged = saved.snapshot.worktreeSessions.map(
+		(session) => pendingByWorktreeId.get(session.worktreeId) ?? session,
+	);
+	for (const session of pendingByWorktreeId.values()) {
+		if (!existingIds.has(session.worktreeId)) {
+			merged.push(session);
+		}
+	}
+
+	return {
+		...saved,
+		snapshot: {
+			...saved.snapshot,
+			worktreeSessions: merged,
+		},
 	};
 }
 

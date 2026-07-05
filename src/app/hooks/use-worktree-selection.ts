@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { PersistedWorktreeSession } from "../../../shared/models/persisted-workspace-state";
 import type { Worktree } from "../../../shared/models/worktree";
+import type { PendingRestoreEntry } from "../../features/workspace/logic/workspace-persistence";
 import type {
 	WorkspaceAction,
 	WorkspaceState,
@@ -13,6 +14,7 @@ import {
 	runInlineEditorDirtyGate,
 } from "../../features/viewer/inline-editor-registry";
 import { logBindingChange } from "../logging/log-binding-change";
+import type { AgentResumeMode } from "../../../shared/models/persisted-settings";
 
 type TargetContext = {
 	workspaceId: string;
@@ -26,9 +28,9 @@ type Options = {
 	workspaceState: WorkspaceState;
 	appWorkspacesRef: MutableRefObject<AppWorkspacesState>;
 	activeWorkspaceStateRef: MutableRefObject<WorkspaceState>;
-	pendingRestoreSessions: Record<string, PersistedWorktreeSession>;
+	pendingRestoreSessions: Record<string, PendingRestoreEntry>;
 	setPendingRestoreSessions: Dispatch<
-		SetStateAction<Record<string, PersistedWorktreeSession>>
+		SetStateAction<Record<string, PendingRestoreEntry>>
 	>;
 	dispatch: (action: WorkspaceAction) => void;
 	activateWorkspace: (workspaceId: string) => Promise<TargetContext | null>;
@@ -36,7 +38,12 @@ type Options = {
 		worktree: Worktree,
 		sessionSnapshot: PersistedWorktreeSession,
 		targetWorkspaceId: string,
+		agentResume: AgentResumeMode,
 	) => Promise<void>;
+	// Task 13: threaded from useSettings().settings.agentResume, the same value
+	// passed at every recreatePersistedProcesses call site (see
+	// use-workspace-lifecycle.ts's Options for the other three sites).
+	agentResume: AgentResumeMode;
 };
 
 export type UseWorktreeSelection = {
@@ -72,6 +79,7 @@ export function useWorktreeSelection(options: Options): UseWorktreeSelection {
 		dispatch,
 		activateWorkspace,
 		recreatePersistedProcesses,
+		agentResume,
 	} = options;
 
 	const handleSelectWorktree = useCallback(
@@ -117,7 +125,14 @@ export function useWorktreeSelection(options: Options): UseWorktreeSelection {
 				nextBinding: { workspaceId: targetWorkspaceId, worktreeId },
 			});
 
-			const pending = pendingRestoreSessions[worktreeId];
+			// The pending map value is tagged with its owning workspace id, but the
+			// fire path always dispatches through the GLOBAL `dispatch`, which routes
+			// to the active workspace. That is correct because visiting a worktree in
+			// a non-active (e.g. background-hydrated inactiveLive) workspace always
+			// goes through handleSelectSidebarWorktree, which calls activateWorkspace
+			// FIRST (making the target active) before delegating here — so by the time
+			// a pending session fires, its owning workspace IS the active one.
+			const pending = pendingRestoreSessions[worktreeId]?.session;
 			if (pending) {
 				dispatch({
 					type: "session/restoreSnapshot",
@@ -189,6 +204,7 @@ export function useWorktreeSelection(options: Options): UseWorktreeSelection {
 						worktree,
 						pending,
 						targetWorkspaceId,
+						agentResume,
 					);
 				}
 			}
@@ -202,6 +218,7 @@ export function useWorktreeSelection(options: Options): UseWorktreeSelection {
 			setPendingRestoreSessions,
 			dispatch,
 			recreatePersistedProcesses,
+			agentResume,
 		],
 	);
 

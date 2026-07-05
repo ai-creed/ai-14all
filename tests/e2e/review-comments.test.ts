@@ -30,6 +30,7 @@ let page: Page;
 let testRepo: TestRepo;
 let persistedStateDir: string;
 let persistedStatePath: string;
+let userDataDir: string;
 
 async function launchRaw(firstWindowTimeout = 60_000) {
 	app = await electron.launch({
@@ -39,6 +40,11 @@ async function launchRaw(firstWindowTimeout = 60_000) {
 			AI14ALL_E2E: "1",
 			AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
 			AI14ALL_WORKSPACE_STATE_PATH: persistedStatePath,
+			// Isolate settings.json: restorePreference is settings-canonical now,
+			// and relaunch() clicks the restore prompt — which only appears when
+			// the preference is "prompt" (this suite's seeded first-run default),
+			// not whatever the developer's real settings file happens to hold.
+			AI14ALL_USER_DATA_PATH: userDataDir,
 		},
 	});
 	page = await app.firstWindow({ timeout: firstWindowTimeout });
@@ -177,6 +183,9 @@ test.beforeAll(async () => {
 		mkdtempSync(join(tmpdir(), "ofa-review-comments-")),
 	);
 	persistedStatePath = join(persistedStateDir, "workspace-state.json");
+	userDataDir = realpathSync(
+		mkdtempSync(join(tmpdir(), "ofa-review-comments-ud-")),
+	);
 
 	await launchRaw();
 	await page.getByRole("button", { name: "Browse" }).click();
@@ -196,6 +205,7 @@ test.afterAll(async () => {
 		await closeApp(app);
 	} finally {
 		rmSync(persistedStateDir, { recursive: true, force: true });
+		rmSync(userDataDir, { recursive: true, force: true });
 		testRepo?.cleanup();
 	}
 });

@@ -50,6 +50,10 @@ const { worktreeServiceInstance, fileServiceInstance } = vi.hoisted(() => {
 	return { worktreeServiceInstance, fileServiceInstance };
 });
 
+const { getAllWindowsMock } = vi.hoisted(() => ({
+	getAllWindowsMock: vi.fn(() => [] as unknown[]),
+}));
+
 vi.mock("electron", () => ({
 	app: {
 		getPath: vi.fn(() => "/tmp/test-home"),
@@ -57,6 +61,7 @@ vi.mock("electron", () => ({
 	},
 	dialog: { showOpenDialog: vi.fn() },
 	ipcMain: { handle: handleMock, on: onMock },
+	BrowserWindow: { getAllWindows: getAllWindowsMock },
 }));
 
 vi.mock("../../../services/worktrees/worktree-service.js", () => {
@@ -95,6 +100,11 @@ describe("registerIpcHandlers diagnostics", () => {
 			{
 				workspacePersistence: {
 					readState: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
+				settingsService: {
+					readState: vi.fn(),
+					readStateSync: vi.fn(),
 					writeState: vi.fn(),
 				} as never,
 				workspaceRegistry: { register: vi.fn(), get: vi.fn() } as never,
@@ -174,6 +184,11 @@ describe("registerIpcHandlers diagnostics", () => {
 					readState: vi.fn(),
 					writeState: vi.fn(),
 				} as never,
+				settingsService: {
+					readState: vi.fn(),
+					readStateSync: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
 				workspaceRegistry: { register: vi.fn(), get: vi.fn() } as never,
 				worktreeService: worktreeServiceInstance as never,
 				shellEventLog: { log: logMock } as never,
@@ -226,6 +241,11 @@ describe("registerIpcHandlers diagnostics", () => {
 					readState: vi.fn(),
 					writeState: vi.fn(),
 				} as never,
+				settingsService: {
+					readState: vi.fn(),
+					readStateSync: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
 				workspaceRegistry: { register: vi.fn(), get: vi.fn() } as never,
 				worktreeService: worktreeServiceInstance as never,
 				shellEventLog: { log: logMock } as never,
@@ -272,6 +292,11 @@ describe("registerIpcHandlers files:listWorktree identity resolution", () => {
 			{
 				workspacePersistence: {
 					readState: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
+				settingsService: {
+					readState: vi.fn(),
+					readStateSync: vi.fn(),
 					writeState: vi.fn(),
 				} as never,
 				workspaceRegistry: {
@@ -419,6 +444,11 @@ describe("registerIpcHandlers repository remote branches", () => {
 					readState: vi.fn(),
 					writeState: vi.fn(),
 				} as never,
+				settingsService: {
+					readState: vi.fn(),
+					readStateSync: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
 				workspaceRegistry: registry as never,
 				worktreeService: worktreeServiceInstance as never,
 				shellEventLog: undefined as never,
@@ -457,6 +487,11 @@ describe("registerIpcHandlers repository remote branches", () => {
 			{
 				workspacePersistence: {
 					readState: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
+				settingsService: {
+					readState: vi.fn(),
+					readStateSync: vi.fn(),
 					writeState: vi.fn(),
 				} as never,
 				workspaceRegistry: registry as never,
@@ -502,6 +537,11 @@ describe("registerIpcHandlers repository remote branches", () => {
 					readState: vi.fn(),
 					writeState: vi.fn(),
 				} as never,
+				settingsService: {
+					readState: vi.fn(),
+					readStateSync: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
 				workspaceRegistry: registry as never,
 				worktreeService: worktreeServiceInstance as never,
 				shellEventLog: undefined as never,
@@ -520,5 +560,185 @@ describe("registerIpcHandlers repository remote branches", () => {
 
 		expect(worktreeServiceInstance.refreshRemote).toHaveBeenCalledWith(repo);
 		expect(result).toEqual({ ok: false, error: "boom" });
+	});
+});
+
+// Direction 1 of the settings:write <-> usage bridge seam (spec §3.2): the
+// Settings dialog's "usage telemetry" checkbox writes usageTelemetry through
+// settings:write, not through the usage:setEnabled IPC handler, so without
+// this the live main-process UsageHost worker keeps running/stopped until app
+// restart even though the persisted `enabled` flag flipped.
+describe("registerIpcHandlers settings:write usage-telemetry live sync", () => {
+	const baseSettings = {
+		version: 1 as const,
+		theme: "system" as const,
+		terminalFontSize: 13,
+		restorePreference: "prompt" as const,
+		restoreDepth: "stateEagerTerminalsLazy" as const,
+		agentResume: "auto" as const,
+		usageTelemetry: {
+			enabled: false,
+			includeUntracked: false,
+			chipRange: "week" as const,
+		},
+	};
+
+	beforeEach(() => {
+		handlers.clear();
+		handleMock.mockClear();
+		getAllWindowsMock.mockReset();
+		getAllWindowsMock.mockReturnValue([]);
+	});
+
+	const makeUsageHost = () => ({
+		setEnabled: vi.fn(),
+		applyChipRange: vi.fn(),
+		applyIncludeUntracked: vi.fn(),
+	});
+	type UsageHostMock = ReturnType<typeof makeUsageHost>;
+
+	const registerWith = (
+		writeStateResult: unknown,
+		usageHost?: UsageHostMock,
+		usageSettingsBridge?: { refresh: ReturnType<typeof vi.fn> },
+	) => {
+		registerIpcHandlers(
+			{
+				isDestroyed: () => false,
+				webContents: { isDestroyed: () => false, send: vi.fn() },
+			} as never,
+			{
+				workspacePersistence: {
+					readState: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
+				settingsService: {
+					readState: vi.fn(),
+					readStateSync: vi.fn(),
+					writeState: vi.fn().mockResolvedValue(writeStateResult),
+				} as never,
+				workspaceRegistry: { register: vi.fn(), get: vi.fn() } as never,
+				worktreeService: worktreeServiceInstance as never,
+				usageHost: usageHost as never,
+				usageSettingsBridge: usageSettingsBridge as never,
+				review: {
+					service: {
+						onChange: vi.fn(() => () => {}),
+						removeByWorktree: vi.fn(),
+						listByWorktree: vi.fn(() => []),
+						create: vi.fn(),
+						markAddressed: vi.fn(),
+						reopen: vi.fn(),
+						delete: vi.fn(),
+						rebaseWorktreeIds: vi.fn(),
+					},
+					mcpStatus: { port: null, bindError: null, getUrl: () => null },
+					worktreePathResolver: { resolve: vi.fn(), refresh: vi.fn() },
+				} as never,
+				getCortexEnabled: () => false,
+			},
+		);
+		return handlers.get("settings:write")!;
+	};
+
+	it("a usageTelemetry patch pushes the merged enabled flag into the live UsageHost", async () => {
+		const usageHost = makeUsageHost();
+		const handler = registerWith(baseSettings, usageHost);
+
+		await handler(
+			{},
+			{
+				patch: {
+					usageTelemetry: {
+						enabled: false,
+						includeUntracked: false,
+						chipRange: "week",
+					},
+				},
+			},
+		);
+
+		expect(usageHost.setEnabled).toHaveBeenCalledTimes(1);
+		expect(usageHost.setEnabled).toHaveBeenCalledWith(false);
+	});
+
+	it("live-applies the merged chipRange and includeUntracked (non-persisting) to the UsageHost", async () => {
+		// Merged result differs from the patch to prove the handler forwards the
+		// merged values (post deep-merge), not the raw sub-patch.
+		const merged = {
+			...baseSettings,
+			usageTelemetry: {
+				enabled: true,
+				includeUntracked: true,
+				chipRange: "month" as const,
+			},
+		};
+		const usageHost = makeUsageHost();
+		const handler = registerWith(merged, usageHost);
+
+		await handler(
+			{},
+			{ patch: { usageTelemetry: { enabled: true } } },
+		);
+
+		expect(usageHost.applyChipRange).toHaveBeenCalledTimes(1);
+		expect(usageHost.applyChipRange).toHaveBeenCalledWith("month");
+		expect(usageHost.applyIncludeUntracked).toHaveBeenCalledTimes(1);
+		expect(usageHost.applyIncludeUntracked).toHaveBeenCalledWith(true);
+		expect(usageHost.setEnabled).toHaveBeenCalledWith(true);
+	});
+
+	it("refreshes the usage-settings-bridge snapshot from the merged settings", async () => {
+		const merged = {
+			...baseSettings,
+			usageTelemetry: {
+				enabled: true,
+				includeUntracked: true,
+				chipRange: "month" as const,
+			},
+		};
+		const usageHost = makeUsageHost();
+		const refresh = vi.fn();
+		const handler = registerWith(merged, usageHost, { refresh });
+
+		await handler(
+			{},
+			{ patch: { usageTelemetry: { chipRange: "month" } } },
+		);
+
+		expect(refresh).toHaveBeenCalledTimes(1);
+		expect(refresh).toHaveBeenCalledWith(merged);
+	});
+
+	it("a patch that doesn't touch usageTelemetry never touches UsageHost or the bridge", async () => {
+		const usageHost = makeUsageHost();
+		const refresh = vi.fn();
+		const handler = registerWith(baseSettings, usageHost, { refresh });
+
+		await handler({}, { patch: { theme: "warm" } });
+
+		expect(usageHost.setEnabled).not.toHaveBeenCalled();
+		expect(usageHost.applyChipRange).not.toHaveBeenCalled();
+		expect(usageHost.applyIncludeUntracked).not.toHaveBeenCalled();
+		expect(refresh).not.toHaveBeenCalled();
+	});
+
+	it("does not throw when no UsageHost or bridge is wired", async () => {
+		const handler = registerWith(baseSettings, undefined, undefined);
+
+		await expect(
+			handler({}, { patch: { usageTelemetry: { enabled: true } } }),
+		).resolves.toEqual(baseSettings);
+	});
+
+	it("still broadcasts settings:changed to every window after syncing UsageHost", async () => {
+		const send = vi.fn();
+		getAllWindowsMock.mockReturnValue([{ webContents: { send } }]);
+		const usageHost = makeUsageHost();
+		const handler = registerWith(baseSettings, usageHost);
+
+		await handler({}, { patch: { usageTelemetry: { enabled: false } } });
+
+		expect(send).toHaveBeenCalledWith("settings:changed", baseSettings);
 	});
 });

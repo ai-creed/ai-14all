@@ -36,6 +36,11 @@ type Props = {
 					processId: string;
 					sticky?: boolean;
 					clearedAt: number;
+			  }
+			| {
+					type: "session/setResumePending";
+					processId: string;
+					resumePending: boolean;
 			  },
 	) => void;
 	collapsedWorkspaceIds: string[];
@@ -43,6 +48,7 @@ type Props = {
 	palette: Palette;
 	onSetTheme: (mode: Palette) => void;
 	onOpenShortcutsHelp: () => void;
+	onOpenSettings: () => void;
 	expandedProcessWorktreeIds: string[];
 	onToggleProcessExpanded: (worktreeId: string) => void;
 };
@@ -74,6 +80,7 @@ export function SidebarPanel(props: Props): React.ReactElement {
 		palette,
 		onSetTheme,
 		onOpenShortcutsHelp,
+		onOpenSettings,
 		expandedProcessWorktreeIds,
 		onToggleProcessExpanded,
 	} = props;
@@ -124,6 +131,14 @@ export function SidebarPanel(props: Props): React.ReactElement {
 						clearedAt: Date.now(),
 					});
 				}}
+				onResumeConversation={(workspaceId, _worktreeId, processId) => {
+					if (workspaceId !== activeWorkspaceId) return;
+					dispatch({
+						type: "session/setResumePending",
+						processId,
+						resumePending: false,
+					});
+				}}
 				onRequestExpand={(workspaceId, worktreeId) => {
 					if (sidebarCollapsed) setSidebarCollapsed(false);
 					if (workspaceId !== activeWorkspaceId) {
@@ -138,6 +153,7 @@ export function SidebarPanel(props: Props): React.ReactElement {
 				palette={palette}
 				onSetTheme={onSetTheme}
 				onOpenShortcutsHelp={onOpenShortcutsHelp}
+				onOpenSettings={onOpenSettings}
 				expandedProcessWorktreeIds={expandedProcessWorktreeIds}
 				onToggleProcessExpanded={onToggleProcessExpanded}
 			/>

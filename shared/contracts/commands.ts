@@ -26,6 +26,11 @@ import {
 	PersistedWorkspaceStateV2Schema,
 	type PersistedWorkspaceStateV2,
 } from "../models/persisted-workspace-state.js";
+import {
+	SettingsPatchSchema,
+	type PersistedSettingsV1,
+	type SettingsPatch,
+} from "../models/persisted-settings.js";
 import type {
 	CreateWorktreePreview,
 	RemoveWorktreePreview,
@@ -40,6 +45,10 @@ import type {
 	AgentAttentionBridgeReply,
 	AgentAttentionBridgeRequest,
 } from "./agent-attention-bridge.js";
+import type {
+	AgentResumeBridgeReply,
+	AgentResumeBridgeRequest,
+} from "./agent-resume-bridge.js";
 import type { PluginsApi } from "./plugins.js";
 
 // --- Zod schemas for command payloads ---
@@ -290,6 +299,16 @@ export type DiagnosticsAttentionLogEvent =
 			nextAction: string | null;
 	  }
 	| {
+			type: "mcp_resume_rejected";
+			ts: number;
+			worktreeId: string;
+			// Raw free-text provider the agent reported (NOT the constrained
+			// `AttentionLogProvider` enum). Mirrors `MCPResumeRejectedLogEvent` in
+			// services/diagnostics/agent-attention-logger.ts.
+			provider: string;
+			reason: string;
+	  }
+	| {
 			type: "lifecycle";
 			ts: number;
 			worktreeId: string;
@@ -317,6 +336,10 @@ export const ReadWorkspaceRestoreStateSchema = z.object({});
 
 export const WriteWorkspaceRestoreStateSchema = z.object({
 	state: PersistedWorkspaceStateV2Schema,
+});
+
+export const WriteSettingsSchema = z.object({
+	patch: SettingsPatchSchema.strict(),
 });
 
 export const ReadGitCommitHistorySchema = z.object({
@@ -482,6 +505,16 @@ export type Ai14AllDesktopApi = {
 		writeRestoreState(state: PersistedWorkspaceStateV2): Promise<void>;
 		onOpenPicker(listener: () => void): () => void;
 	};
+	settings: {
+		initial: PersistedSettingsV1;
+		// Captured once from the preload's sendSync settings:readSync call — the
+		// only point that can observe firstRun: true (see preload/index.ts). The
+		// async read() below always reports firstRun: false because the sendSync
+		// call above already seeds the file first.
+		initialFirstRun: boolean;
+		read(): Promise<{ settings: PersistedSettingsV1; firstRun: boolean }>;
+		write(patch: SettingsPatch): Promise<PersistedSettingsV1>;
+	};
 	diagnostics: {
 		logShellEvent(event: z.infer<typeof LogShellEventSchema>): Promise<void>;
 		logAttentionEvent(event: DiagnosticsAttentionLogEvent): void;
@@ -610,6 +643,17 @@ export type Ai14AllDesktopApi = {
 		// optional-chains these, so non-Electron contexts need no stub.
 		onShowWelcomeTour?(handler: () => void): () => void;
 		onResetOnboardingHints?(handler: () => void): () => void;
+		onSettingsChanged(cb: (settings: PersistedSettingsV1) => void): () => void;
+		// Agent conversation-resume bridge (main → renderer request/ack). Optional:
+		// the real preload bridge implements these; the consuming hook
+		// optional-chains them so non-Electron contexts (unit tests, future
+		// non-desktop shells) need no stub.
+		onAgentResumeRequest?(
+			handler: (req: AgentResumeBridgeRequest) => void,
+		): () => void;
+		sendAgentResumeReply?(reply: AgentResumeBridgeReply): void;
+		sendAgentResumeReady?(): void;
+		sendAgentResumeGoodbye?(): void;
 	};
 	app: {
 		setEditorDirty(args: {

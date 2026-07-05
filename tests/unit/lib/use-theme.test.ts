@@ -122,4 +122,72 @@ describe("useTheme", () => {
 		act(() => result.current.setTheme("system"));
 		expect(result.current.mode).toBe("system");
 	});
+
+	it("boots from settings.initial when the bridge is present", () => {
+		mockMatchMedia(false);
+		(window as unknown as { ai14all: unknown }).ai14all = {
+			settings: { initial: { theme: "warm" }, write: vi.fn() },
+			events: {},
+		};
+		const { result } = renderHook(() => useTheme());
+		expect(result.current.mode).toBe("warm");
+		expect(document.documentElement.getAttribute("data-theme")).toBe("warm");
+		delete (window as unknown as { ai14all?: unknown }).ai14all;
+	});
+
+	it("setTheme() writes the pick through the settings bridge", () => {
+		mockMatchMedia(false);
+		const write = vi.fn().mockResolvedValue(undefined);
+		(window as unknown as { ai14all: unknown }).ai14all = {
+			settings: { write },
+			events: {},
+		};
+		const { result } = renderHook(() => useTheme());
+		act(() => result.current.setTheme("dark"));
+		expect(write).toHaveBeenCalledWith({ theme: "dark" });
+		delete (window as unknown as { ai14all?: unknown }).ai14all;
+	});
+
+	it("routes application-menu theme picks through the write-through setTheme", () => {
+		mockMatchMedia(false);
+		const write = vi.fn().mockResolvedValue(undefined);
+		let menuHandler: ((mode: "light" | "dark" | "system") => void) | null =
+			null;
+		(window as unknown as { ai14all: unknown }).ai14all = {
+			settings: { write },
+			events: {
+				onSetTheme: (h: (mode: "light" | "dark" | "system") => void) => {
+					menuHandler = h;
+					return () => {
+						menuHandler = null;
+					};
+				},
+			},
+		};
+		const { result } = renderHook(() => useTheme());
+		act(() => menuHandler!("dark"));
+		expect(result.current.mode).toBe("dark");
+		expect(write).toHaveBeenCalledWith({ theme: "dark" });
+		delete (window as unknown as { ai14all?: unknown }).ai14all;
+	});
+
+	it("converges when settings change elsewhere (onSettingsChanged)", () => {
+		mockMatchMedia(false);
+		let changedHandler: ((s: { theme: string }) => void) | null = null;
+		(window as unknown as { ai14all: unknown }).ai14all = {
+			settings: { write: vi.fn() },
+			events: {
+				onSettingsChanged: (h: (s: { theme: string }) => void) => {
+					changedHandler = h;
+					return () => {
+						changedHandler = null;
+					};
+				},
+			},
+		};
+		const { result } = renderHook(() => useTheme());
+		act(() => changedHandler!({ theme: "light" }));
+		expect(result.current.mode).toBe("light");
+		delete (window as unknown as { ai14all?: unknown }).ai14all;
+	});
 });

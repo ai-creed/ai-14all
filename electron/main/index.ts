@@ -10,6 +10,8 @@ import { createCloseGate } from "./close-gate.js";
 import { registerAppLifecycle } from "./lifecycle.js";
 import { buildApplicationMenu } from "./menu.js";
 import { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
+import { SettingsService } from "../../services/settings/settings-service.js";
+import type { PersistedSettingsV1 } from "../../shared/models/persisted-settings.js";
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 import { createShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
 import {
@@ -32,6 +34,7 @@ import {
 import { Ai14allMcpServer } from "../../services/mcp/ai14all-mcp-server.js";
 import { SessionNoteBridge } from "../../services/mcp/session-note-bridge.js";
 import { AgentAttentionBridge } from "../../services/mcp/agent-attention-bridge.js";
+import { AgentResumeBridge } from "../../services/mcp/agent-resume-bridge.js";
 import { createWorktreePathResolver } from "../../services/review/worktree-path-resolver.js";
 import { createPluginConfigStore } from "../../services/plugins/plugin-config.js";
 import { createCapabilityProbeService } from "../../services/plugins/capability-probe-service.js";
@@ -129,16 +132,52 @@ app.whenReady().then(async () => {
 		},
 	});
 
-	const workspacePersistence = new WorkspacePersistenceService(
+	// Shared with SettingsService below: its legacy seed source must read the SAME
+	// resolved workspace-state file WorkspacePersistenceService uses — including
+	// the AI14ALL_WORKSPACE_STATE_PATH env seam e2e tests rely on.
+	const workspaceStatePath =
 		process.env.AI14ALL_WORKSPACE_STATE_PATH ??
-			join(app.getPath("userData"), "workspace-state.json"),
+		join(app.getPath("userData"), "workspace-state.json");
+	const workspacePersistence = new WorkspacePersistenceService(
+		workspaceStatePath,
 	);
+	const settingsService = new SettingsService(
+		join(app.getPath("userData"), "settings.json"),
+		workspaceStatePath,
+	);
+	// Sync read for the preload's settings.initial/initialFirstRun. Must be
+	// registered before the first window loads (loadFile/loadURL below triggers
+	// the preload). ipcMain.on + a promise does NOT satisfy sendSync — the
+	// renderer unblocks on the synchronous return — so this uses SettingsService's
+	// sync twin. The full { settings, firstRun } result is returned (not just
+	// `.settings`) because this sendSync call is the ONLY point that can ever
+	// observe firstRun: true — it seeds the settings file as a side effect, so
+	// any later async settings:read always sees firstRun: false.
+	ipcMain.on("settings:readSync", (event) => {
+		try {
+			event.returnValue = settingsService.readStateSync();
+		} catch {
+			event.returnValue = null;
+		}
+	});
 
 	// Token telemetry: gated utilityProcess that reads ~/.claude and ~/.codex logs
 	// and pushes UsageSnapshots to the renderer. Enabled by default. The settings
 	// bridge loads the persisted usage UI settings once (async) and exposes a sync
 	// snapshot for the host's loadSettings plus an async read-modify-write persist.
-	const usageSettings = await createUsageSettingsBridge(workspacePersistence);
+	// Broadcasts settings:changed on every bridge-driven persist (usage popover
+	// writes bypass the settings:write IPC handler's own broadcast — see the
+	// bridge's `onPersisted` doc comment) so the Settings dialog's usage
+	// telemetry checkbox/toggles stay in sync within the same session.
+	const broadcastSettingsChanged = (settings: PersistedSettingsV1) => {
+		if (!mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+			mainWindow.webContents.send("settings:changed", settings);
+		}
+	};
+	const usageSettings = await createUsageSettingsBridge(
+		settingsService,
+		broadcastSettingsChanged,
+	);
 	const usageHost = new UsageHost({
 		userDataDir: app.getPath("userData"),
 		launchMs: Date.now(),
@@ -519,6 +558,7 @@ app.whenReady().then(async () => {
 	const agentAttentionBridge = new AgentAttentionBridge(
 		() => mainWindow.webContents,
 	);
+	const agentResumeBridge = new AgentResumeBridge(() => mainWindow.webContents);
 
 	const offRegistry = workspaceRegistry.onChange(() => {
 		void worktreePathResolver.refresh();
@@ -539,6 +579,7 @@ app.whenReady().then(async () => {
 			worktreePathResolver,
 			sessionNoteBridge,
 			agentAttentionBridge,
+			agentResumeBridge,
 			{ port: desiredPort, host: "127.0.0.1" },
 			agentAttentionLogger,
 		);
@@ -565,6 +606,7 @@ app.whenReady().then(async () => {
 	closeGate.attach(mainWindow);
 	const { dispose, terminalService } = registerIpcHandlers(mainWindow, {
 		workspacePersistence,
+		settingsService,
 		workspaceRegistry,
 		worktreeService,
 		shellEventLog,
@@ -575,6 +617,7 @@ app.whenReady().then(async () => {
 			worktreePathResolver,
 		},
 		usageHost,
+		usageSettingsBridge: usageSettings,
 		installUpdate: () => updateService.installUpdate(),
 		closeGate,
 		getCortexEnabled: () => pluginConfig.get("cortex").enabled,
@@ -596,6 +639,7 @@ app.whenReady().then(async () => {
 		void mcpServer?.stop().catch(() => {});
 		sessionNoteBridge.dispose();
 		agentAttentionBridge.dispose();
+		agentResumeBridge.dispose();
 		usageHost.stop();
 		pluginIpc.dispose();
 		void pluginRegistry.stopAll();

@@ -4,6 +4,7 @@ import type {
 	UpdateInfo,
 } from "../../shared/contracts/commands.js";
 import type { UsageSnapshot } from "../../shared/models/usage.js";
+import type { PersistedSettingsV1 } from "../../shared/models/persisted-settings.js";
 import type {
 	TerminalOutputEvent,
 	TerminalExitEvent,
@@ -25,6 +26,16 @@ import {
 	AGENT_ATTENTION_BRIDGE_REQUEST,
 	AGENT_ATTENTION_BRIDGE_REPLY,
 } from "../../shared/contracts/agent-attention-bridge.js";
+import type {
+	AgentResumeBridgeReply,
+	AgentResumeBridgeRequest,
+} from "../../shared/contracts/agent-resume-bridge.js";
+import {
+	AGENT_RESUME_BRIDGE_READY,
+	AGENT_RESUME_BRIDGE_GOODBYE,
+	AGENT_RESUME_BRIDGE_REQUEST,
+	AGENT_RESUME_BRIDGE_REPLY,
+} from "../../shared/contracts/agent-resume-bridge.js";
 // Channel name constants duplicated from shared/contracts to avoid pulling Zod
 // into the sandboxed preload context (sandbox:true blocks require("zod")).
 const REVIEW_LIST = "reviewComments:list";
@@ -46,6 +57,10 @@ const NOTE_BRIDGE_REPLY = "mcp:note:reply";
 const NOTE_BRIDGE_READY = "mcp:note:ready";
 const NOTE_BRIDGE_GOODBYE = "mcp:note:goodbye";
 const DIAGNOSTICS_ATTENTION_EVENT = "diagnostics:attention-event";
+const SETTINGS_READ_SYNC = "settings:readSync";
+const SETTINGS_READ = "settings:read";
+const SETTINGS_WRITE = "settings:write";
+const SETTINGS_CHANGED = "settings:changed";
 // plugins channel constants (duplicated to keep Zod out of the sandboxed preload)
 const PLUGINS_LIST = "plugins:list";
 const PLUGINS_SET_ENABLED = "plugins:setEnabled";
@@ -109,6 +124,22 @@ for (const channel of [
 	pendingOnceRemovers[channel] = () =>
 		ipcRenderer.removeListener(channel, handler);
 }
+
+// Synchronous initial read so settings.initial/initialFirstRun are available
+// before first paint (no async round-trip is possible this early). The main
+// handler registers this before the first window loads.
+//
+// This sendSync call is the ONLY point in the app that can ever observe
+// firstRun: true: SettingsService.readStateSync() seeds the settings file as
+// a side effect of this very call, so any later async settings:read() always
+// sees firstRun: false. initialFirstRun therefore must be captured here, not
+// re-derived from settings.read() in the renderer.
+const initialSettingsResult = ipcRenderer.sendSync(SETTINGS_READ_SYNC) as {
+	settings: PersistedSettingsV1;
+	firstRun: boolean;
+} | null;
+const initialSettings = initialSettingsResult?.settings as PersistedSettingsV1;
+const initialSettingsFirstRun = initialSettingsResult?.firstRun ?? false;
 
 const api: Ai14AllDesktopApi = {
 	repository: {
@@ -298,6 +329,16 @@ const api: Ai14AllDesktopApi = {
 			return onChannel("workspace/openPicker", listener);
 		},
 	},
+	settings: {
+		initial: initialSettings,
+		initialFirstRun: initialSettingsFirstRun,
+		read() {
+			return ipcRenderer.invoke(SETTINGS_READ);
+		},
+		write(patch) {
+			return ipcRenderer.invoke(SETTINGS_WRITE, { patch });
+		},
+	},
 	diagnostics: {
 		logShellEvent(event) {
 			return ipcRenderer.invoke("diagnostics:logShellEvent", event);
@@ -456,6 +497,21 @@ const api: Ai14AllDesktopApi = {
 		},
 		onResetOnboardingHints(handler) {
 			return onChannel("help/resetOnboardingHints", handler);
+		},
+		onSettingsChanged(cb) {
+			return onChannel<PersistedSettingsV1>(SETTINGS_CHANGED, cb);
+		},
+		onAgentResumeRequest(handler: (req: AgentResumeBridgeRequest) => void) {
+			return onChannel(AGENT_RESUME_BRIDGE_REQUEST, handler);
+		},
+		sendAgentResumeReply(reply: AgentResumeBridgeReply) {
+			ipcRenderer.send(AGENT_RESUME_BRIDGE_REPLY, reply);
+		},
+		sendAgentResumeReady() {
+			ipcRenderer.send(AGENT_RESUME_BRIDGE_READY);
+		},
+		sendAgentResumeGoodbye() {
+			ipcRenderer.send(AGENT_RESUME_BRIDGE_GOODBYE);
 		},
 	},
 	app: {

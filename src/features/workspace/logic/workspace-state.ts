@@ -138,6 +138,16 @@ export type WorkspaceAction =
 			terminalSessionId: string;
 	  }
 	| {
+			type: "session/setResumeCommand";
+			terminalSessionId: string;
+			resumeCommand: string;
+	  }
+	| {
+			type: "session/setResumePending";
+			processId: string;
+			resumePending: boolean;
+	  }
+	| {
 			type: "session/updateProcessStatus";
 			processId: string;
 			status: ProcessSession["status"];
@@ -460,6 +470,8 @@ function restorePersistedSession(
 			// from the fresh shell's output once the new terminal session starts.
 			agentDetected: false,
 			provider: null,
+			resumeCommand: process.resumeCommand ?? null,
+			resumePending: false,
 		};
 	}
 
@@ -775,6 +787,33 @@ export function workspaceReducer(
 					...process,
 					terminalSessionId: action.terminalSessionId,
 				},
+			},
+		};
+	}
+
+	if (action.type === "session/setResumeCommand") {
+		const entry = Object.entries(state.processSessionsById).find(
+			([, p]) => p.terminalSessionId === action.terminalSessionId,
+		);
+		if (!entry) return state;
+		const [processId, process] = entry;
+		return {
+			...state,
+			processSessionsById: {
+				...state.processSessionsById,
+				[processId]: { ...process, resumeCommand: action.resumeCommand },
+			},
+		};
+	}
+
+	if (action.type === "session/setResumePending") {
+		const process = state.processSessionsById[action.processId];
+		if (!process) return state;
+		return {
+			...state,
+			processSessionsById: {
+				...state.processSessionsById,
+				[action.processId]: { ...process, resumePending: action.resumePending },
 			},
 		};
 	}

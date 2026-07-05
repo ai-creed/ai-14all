@@ -21,6 +21,7 @@ import {
 	reconcileSnapshotToWorktrees,
 	shouldReattachSnapshot,
 	splitPendingRestores,
+	type PendingRestoreEntry,
 } from "../../features/workspace/logic/workspace-persistence";
 import {
 	createWorkspaceState,
@@ -36,6 +37,11 @@ import { commandSubmitKey } from "../../lib/command-submit-key";
 import { describeRepositoryLoadError } from "../../features/repository/describe-repository-load-error";
 import { logRendererShellEvent } from "../../features/terminals/logic/shell-event-logger";
 import { logBindingChange } from "../logging/log-binding-change";
+import type { AgentResumeMode } from "../../../shared/models/persisted-settings";
+import {
+	AGENT_BINARIES,
+	validateResumeCommand,
+} from "../../../shared/models/resume-command";
 
 type StartupMode = "loading" | "prompt" | "ready";
 
@@ -60,8 +66,13 @@ type Options = {
 	setSavedSnapshot: Dispatch<SetStateAction<WorkspaceSnapshot | null>>;
 	setRestorePreference: Dispatch<SetStateAction<RestorePreference>>;
 	setPendingRestoreSessions: Dispatch<
-		SetStateAction<Record<string, PersistedWorktreeSession>>
+		SetStateAction<Record<string, PendingRestoreEntry>>
 	>;
+	// Settings-store write-through (Task 4): called whenever the user makes a
+	// new restore-preference decision, alongside the existing legacy
+	// workspace-state write, so the settings store stays authoritative for the
+	// next launch's `useStartupRestore`.
+	persistRestorePreference: (preference: RestorePreference) => void;
 
 	// Misc UI state setters
 	setStartupMode: Dispatch<SetStateAction<StartupMode>>;
@@ -81,10 +92,26 @@ type Options = {
 
 	// Default-shell housekeeping (from useDefaultShellOnEmptyWorktree)
 	resetDefaultShellEnsured: () => void;
+
+	// Task 13: agent-resume setting, read once via useSettings() and threaded
+	// through so every internal recreatePersistedProcesses call site (activate,
+	// load-path, restore) shares the same current value without each needing
+	// its own useSettings() call.
+	agentResume: AgentResumeMode;
 };
 
 export type UseWorkspaceLifecycle = {
 	activateWorkspace: (workspaceId: string) => Promise<ActivationResult | null>;
+	/**
+	 * Hydrate a dormant workspace in the background WITHOUT selecting it: opens
+	 * the repository, restores its snapshot into a fresh workspace state, and
+	 * registers it with `hydrationState: "inactiveLive"`. Every saved worktree
+	 * session (including the snapshot's selected one) is added to the pending
+	 * restore map so terminals stay lazy until the user first visits a worktree.
+	 * Resolves `true` when the workspace ends hydrated (or already was), `false`
+	 * on load error (the target is re-registered `dormant` with a `loadError`).
+	 */
+	hydrateWorkspace: (workspaceId: string) => Promise<boolean>;
 	handleLoadPath: (path: string) => Promise<void>;
 	restoreWorkspace: (
 		snapshot: WorkspaceSnapshot,
@@ -99,9 +126,46 @@ export type UseWorkspaceLifecycle = {
 		worktree: Worktree,
 		sessionSnapshot: PersistedWorktreeSession,
 		targetWorkspaceId: string,
+		agentResume: AgentResumeMode,
 		dispatchFn?: (action: WorkspaceAction) => void,
 	) => Promise<void>;
 };
+
+/**
+ * Tags a `worktreeId -> session` restore map with the id of the owning
+ * workspace, so the persist path can route each pending session back into the
+ * correct workspace snapshot (spec §4.4) — even for non-active workspaces.
+ */
+function tagPendingEntries(
+	workspaceId: string,
+	byWorktreeId: Record<string, PersistedWorktreeSession>,
+): Record<string, PendingRestoreEntry> {
+	const tagged: Record<string, PendingRestoreEntry> = {};
+	for (const [worktreeId, session] of Object.entries(byWorktreeId)) {
+		tagged[worktreeId] = { workspaceId, session };
+	}
+	return tagged;
+}
+
+/**
+ * Drops every pending entry owned by `workspaceId`, preserving entries
+ * belonging to other workspaces untouched. A (re)load of one workspace must
+ * only ever replace THAT workspace's slice of the pending map — the map is
+ * shared across the whole registry (background hydration populates entries
+ * for workspaces other than the one currently loading), so a full
+ * replace/clear here would silently drop other workspaces' unvisited
+ * sessions, and their next persist write would serialize placeholder state.
+ */
+function prunePendingForWorkspace(
+	prev: Record<string, PendingRestoreEntry>,
+	workspaceId: string,
+): Record<string, PendingRestoreEntry> {
+	const pruned: Record<string, PendingRestoreEntry> = {};
+	for (const [worktreeId, entry] of Object.entries(prev)) {
+		if (entry.workspaceId !== workspaceId) pruned[worktreeId] = entry;
+	}
+	return pruned;
+}
 
 /**
  * Bundle of workspace-level lifecycle handlers: activate (hydrate dormant),
@@ -125,6 +189,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 		setSavedSnapshot,
 		setRestorePreference,
 		setPendingRestoreSessions,
+		persistRestorePreference,
 		setStartupMode,
 		setStartupError,
 		setError,
@@ -134,6 +199,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 		sendInput,
 		adoptSession,
 		resetDefaultShellEnsured,
+		agentResume: agentResumeSetting,
 	} = options;
 
 	const recreatePersistedProcesses = useCallback(
@@ -141,6 +207,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 			worktree: Worktree,
 			sessionSnapshot: PersistedWorktreeSession,
 			targetWorkspaceId: string,
+			agentResume: AgentResumeMode,
 			dispatchFn: (action: WorkspaceAction) => void = dispatch,
 		) => {
 			let liveSessions: Map<string, TerminalSession> = new Map();
@@ -238,8 +305,37 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 							exitCode: null,
 						});
 
-						if (process.command) {
+						// Spec §5.5: re-validate at EVERY replay point, never trust a
+						// stored handle — it may predate a validation-rule change or have
+						// been hand-edited on disk. This is one of two mandatory
+						// re-validation points; the other is the manual affordance's
+						// onClick in SessionSidebar.
+						const validatedResume =
+							process.resumeCommand &&
+							validateResumeCommand(process.resumeCommand, AGENT_BINARIES).ok
+								? process.resumeCommand
+								: null;
+
+						if (validatedResume && agentResume === "auto") {
 							// `\r` on Windows, `\n` elsewhere — see commandSubmitKey.
+							await sendInput(
+								terminal.id,
+								`${validatedResume}${commandSubmitKey()}`,
+							);
+						} else if (validatedResume && agentResume === "manual") {
+							// Manual mode must NOT auto-launch process.command either — that
+							// would start a NEW agent conversation, and the affordance's
+							// later --resume would no longer target the pane's visible
+							// state. The shell stays bare; the affordance types the resume
+							// command on click.
+							dispatchFn({
+								type: "session/setResumePending",
+								processId: process.id,
+								resumePending: true,
+							});
+						} else if (process.command) {
+							// `off`, or `auto`/`manual` with no validated resume handle —
+							// today's behavior: replay the original launch command.
 							await sendInput(
 								terminal.id,
 								`${process.command}${commandSubmitKey()}`,
@@ -347,7 +443,10 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 			if (reconciledSnapshot) {
 				const { selectedSession, pendingByWorktreeId } =
 					splitPendingRestores(reconciledSnapshot);
-				setPendingRestoreSessions(pendingByWorktreeId);
+				setPendingRestoreSessions((prev) => ({
+					...prunePendingForWorkspace(prev, openedId),
+					...tagPendingEntries(openedId, pendingByWorktreeId),
+				}));
 				setSavedSnapshot(reconciledSnapshot);
 				const selectedWorktree = reconciledSnapshot.selectedWorktreeId
 					? (newWorktrees.find(
@@ -374,6 +473,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 						selectedWorktree,
 						selectedSession,
 						openedId,
+						agentResumeSetting,
 						scopedDispatch,
 					);
 				}
@@ -393,7 +493,131 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 			setPendingRestoreSessions,
 			setSavedSnapshot,
 			recreatePersistedProcesses,
+			agentResumeSetting,
 		],
+	);
+
+	const hydrateWorkspace = useCallback(
+		async (workspaceId: string): Promise<boolean> => {
+			const target = appWorkspacesRef.current.workspacesById[workspaceId];
+			if (!target) return false;
+			// Already live (active or previously-hydrated inactiveLive) — nothing to do.
+			if (target.workspaceState) return true;
+
+			try {
+				const { workspaceId: openedId, repository } =
+					await workspace.openRepository(target.repository.rootPath);
+				const newWorktrees = await repositoryClient.listWorktrees(openedId);
+
+				const snapshot = target.persistedSnapshot?.snapshot;
+				let nextWorkspaceState = createWorkspaceState(newWorktrees);
+				let reconciledSnapshot: WorkspaceSnapshot | null = null;
+				if (snapshot) {
+					const rebasedSnapshot = rebaseSnapshotPaths(
+						snapshot,
+						snapshot.repositoryPath,
+						repository.rootPath,
+					);
+					reconciledSnapshot = reconcileSnapshotToWorktrees(
+						rebasedSnapshot,
+						snapshot,
+						newWorktrees,
+					);
+					nextWorkspaceState = workspaceReducer(
+						createWorkspaceState(newWorktrees),
+						{
+							type: "workspace/restoreSnapshot",
+							worktrees: newWorktrees,
+							snapshot: reconciledSnapshot,
+							workspaceId: openedId,
+						},
+					);
+					const rebaseMapping = buildWorktreeIdRebaseMapping(
+						snapshot,
+						snapshot.repositoryPath,
+						repository.rootPath,
+					);
+					if (Object.keys(rebaseMapping).length > 0) {
+						try {
+							await reviewComments.rebaseWorktreeIds(rebaseMapping);
+						} catch (err) {
+							console.warn("[review] rebase IPC failed", err);
+						}
+					}
+				}
+
+				// Race hardening: between the awaits above, a user click can run
+				// activateWorkspace on this same workspace (matched either by the
+				// original `workspaceId` or the possibly-drifted `openedId`). If it
+				// already registered live state, registering here as inactiveLive
+				// would downgrade the now-active workspace and clobber its state.
+				// Bail out without registering, removing, or touching the pending
+				// map — activateWorkspace owns this workspace now.
+				const liveNow =
+					appWorkspacesRef.current.workspacesById[workspaceId]
+						?.workspaceState ??
+					appWorkspacesRef.current.workspacesById[openedId]?.workspaceState;
+				if (liveNow) return true;
+
+				// Register as inactiveLive — deliberately NO workspace/select and NO
+				// ref priming: this workspace is hydrated in the background and must
+				// not become active or steal the selected-workspace refs.
+				dispatchAppWorkspaces({
+					type: "workspace/register",
+					workspace: {
+						workspaceId: openedId,
+						repository,
+						worktrees: newWorktrees,
+						workspaceState: nextWorkspaceState,
+						persistedSnapshot: target.persistedSnapshot,
+						hydrationState: "inactiveLive",
+						loadError: null,
+					},
+				});
+				// Canonical-id drift: the reopened workspace resolved to a different
+				// id than the dormant stub — drop the stale entry (mirrors
+				// activateWorkspace's `openedId !== workspaceId` handling).
+				if (openedId !== workspaceId) {
+					dispatchAppWorkspaces({ type: "workspace/remove", workspaceId });
+				}
+
+				// Terminals are lazy: EVERY saved session — including the snapshot's
+				// own selected worktree — becomes pending, so nothing spawns until the
+				// user first visits a worktree. Entries are tagged with the owning
+				// workspace id so persist writes re-serialise them into the right
+				// snapshot even while this workspace is not active (spec §4.4).
+				if (reconciledSnapshot) {
+					const pending: Record<string, PendingRestoreEntry> = {};
+					for (const session of reconciledSnapshot.worktreeSessions) {
+						pending[session.worktreeId] = { workspaceId: openedId, session };
+					}
+					setPendingRestoreSessions((prev) => ({ ...prev, ...pending }));
+				}
+				return true;
+			} catch (err) {
+				// Race hardening (mirrors the success-path check above): a transient
+				// failure in THIS call (e.g. listWorktrees rejecting) can race a
+				// concurrent activateWorkspace that already won and registered the
+				// workspace live. Re-registering dormant+loadError here would
+				// downgrade that now-active workspace. Bail without touching the
+				// registry — activateWorkspace owns this workspace now.
+				if (
+					appWorkspacesRef.current.workspacesById[workspaceId]?.workspaceState
+				) {
+					return true;
+				}
+				dispatchAppWorkspaces({
+					type: "workspace/register",
+					workspace: {
+						...target,
+						loadError: String(err),
+						hydrationState: "dormant",
+					},
+				});
+				return false;
+			}
+		},
+		[appWorkspacesRef, dispatchAppWorkspaces, setPendingRestoreSessions],
 	);
 
 	const handleLoadPath = useCallback(
@@ -477,7 +701,10 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 
 				const { selectedSession, pendingByWorktreeId } =
 					splitPendingRestores(nextSnapshot);
-				setPendingRestoreSessions(pendingByWorktreeId);
+				setPendingRestoreSessions((prev) => ({
+					...prunePendingForWorkspace(prev, newWorkspaceId),
+					...tagPendingEntries(newWorkspaceId, pendingByWorktreeId),
+				}));
 				setSavedSnapshot(nextSnapshot);
 
 				const selectedWorktree = newWorktrees.find(
@@ -491,6 +718,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 						selectedWorktree,
 						selectedSession,
 						newWorkspaceId,
+						agentResumeSetting,
 					);
 					setRestoreWarning(
 						`Recovered your previous workspace after the repository path changed.${degradedNote}`,
@@ -502,7 +730,10 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 					if (selectedSession) {
 						setPendingRestoreSessions((prev) => ({
 							...prev,
-							[selectedSession.worktreeId]: selectedSession,
+							[selectedSession.worktreeId]: {
+								workspaceId: newWorkspaceId,
+								session: selectedSession,
+							},
 						}));
 					}
 				}
@@ -542,7 +773,9 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 			activeWorkspaceStateRef.current = freshState;
 
 			resetDefaultShellEnsured();
-			setPendingRestoreSessions({});
+			setPendingRestoreSessions((prev) =>
+				prunePendingForWorkspace(prev, newWorkspaceId),
+			);
 			setError(null);
 			setStartupError(null);
 			setRestoreWarning(null);
@@ -562,6 +795,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 			setWorkspacePickerOpen,
 			recreatePersistedProcesses,
 			resetDefaultShellEnsured,
+			agentResumeSetting,
 		],
 	);
 
@@ -630,7 +864,9 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 
 				const { selectedSession, pendingByWorktreeId } =
 					splitPendingRestores(snapshot);
-				setPendingRestoreSessions(pendingByWorktreeId);
+				setPendingRestoreSessions(
+					tagPendingEntries(restoredWorkspaceId, pendingByWorktreeId),
+				);
 				setRestorePreference(nextPreference);
 				setSavedSnapshot(snapshot);
 				setStartupMode("ready");
@@ -644,6 +880,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 						selectedWorktree,
 						selectedSession,
 						restoredWorkspaceId,
+						agentResumeSetting,
 					);
 				} else if (snapshot.selectedWorktreeId && !selectedWorktree) {
 					setRestoreWarning(
@@ -656,7 +893,10 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 					if (selectedSession) {
 						setPendingRestoreSessions((prev) => ({
 							...prev,
-							[selectedSession.worktreeId]: selectedSession,
+							[selectedSession.worktreeId]: {
+								workspaceId: restoredWorkspaceId,
+								session: selectedSession,
+							},
 						}));
 					}
 				}
@@ -700,6 +940,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 			setStartupError,
 			setRestoreWarning,
 			recreatePersistedProcesses,
+			agentResumeSetting,
 		],
 	);
 
@@ -711,6 +952,10 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 					? "alwaysRestore"
 					: "alwaysStartClean"
 				: "prompt";
+			// Settings-store write-through: persist regardless of which branch
+			// below runs, so "restore & remember" (alwaysRestore) is honored on
+			// the next launch too, not just "don't restore & remember".
+			persistRestorePreference(nextPreference);
 
 			if (!shouldRestore) {
 				// Preserve the snapshot so the user can restore it on a future launch
@@ -749,6 +994,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 			savedSnapshot,
 			savedDormantWorkspaces,
 			setRestorePreference,
+			persistRestorePreference,
 			setStartupMode,
 			restoreWorkspace,
 		],
@@ -756,6 +1002,7 @@ export function useWorkspaceLifecycle(options: Options): UseWorkspaceLifecycle {
 
 	return {
 		activateWorkspace,
+		hydrateWorkspace,
 		handleLoadPath,
 		restoreWorkspace,
 		handleRestoreDecision,
