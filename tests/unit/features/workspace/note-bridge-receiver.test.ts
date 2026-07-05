@@ -52,6 +52,7 @@ function makeSession(worktreeId: string, note: string) {
 		navLocation: null,
 		floatingShellIds: [],
 		expandedFloatingShellId: null,
+		mcpReportingActive: false,
 	};
 }
 

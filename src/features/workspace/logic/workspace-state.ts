@@ -334,6 +334,7 @@ function createSession(worktree: Worktree): WorktreeSession {
 		navLocation: null,
 		floatingShellIds: [],
 		expandedFloatingShellId: null,
+		mcpReportingActive: false,
 	};
 }
 
@@ -495,6 +496,7 @@ function restorePersistedSession(
 		attentionState: "idle",
 		agentAttentionReasons: {},
 		agentAttentionClearedAt: null,
+		mcpReportingActive: false,
 		terminalLayoutId: restoredLayoutId,
 		slotProcessIds: restoredSlots,
 		reviewSidebarWidth: snapshot.reviewSidebarWidth ?? 280,
@@ -851,17 +853,27 @@ export function workspaceReducer(
 		// time was supplied.
 		const exitAt = action.at ?? process.lastActivityAt ?? null;
 		let nextSessionsByWorktreeId = state.sessionsByWorktreeId;
-		if (action.status !== "running" && exitAt != null) {
+		if (action.status !== "running") {
 			const session = state.sessionsByWorktreeId[process.worktreeId];
 			if (session) {
+				// Reset self-reporting mode when the worktree's last running detected
+				// agent leaves "running" (spec §5): heuristics come back for the next
+				// agent generation.
+				const anyRunningDetectedAgent = session.processSessionIds.some((id) => {
+					const p = nextProcessSessionsById[id];
+					return p != null && p.status === "running" && p.agentDetected;
+				});
 				nextSessionsByWorktreeId = {
 					...state.sessionsByWorktreeId,
 					[process.worktreeId]: {
 						...session,
-						agentAttentionClearedAt: Math.max(
-							session.agentAttentionClearedAt ?? 0,
-							exitAt,
-						),
+						agentAttentionClearedAt:
+							exitAt != null
+								? Math.max(session.agentAttentionClearedAt ?? 0, exitAt)
+								: session.agentAttentionClearedAt,
+						mcpReportingActive: anyRunningDetectedAgent
+							? session.mcpReportingActive
+							: false,
 					},
 				};
 			}
@@ -1233,6 +1245,19 @@ export function workspaceReducer(
 		if (replaced) {
 			updatedReasons[action.reason.source] = action.reason;
 		}
+		// Self-reporting mode (spec §5): only an accepted mcp push made while a
+		// detected agent is actually running enters the mode. The live-agent
+		// guard closes the late-report-after-last-exit race — without it, no
+		// later status transition would exist to reset the flag, muting the
+		// NEXT agent generation before it ever self-reports (spec §7).
+		const hasRunningDetectedAgent = session.processSessionIds.some((id) => {
+			const p = state.processSessionsById[id];
+			return p != null && p.status === "running" && p.agentDetected;
+		});
+		const nextMcpReportingActive =
+			action.reason.source === "mcp" && replaced && hasRunningDetectedAgent
+				? true
+				: session.mcpReportingActive;
 		// Advance the session clear timestamp when an accepted reason signals `ready`
 		// (spec §4.2). Only accepted pushes (`replaced`) advance it; stale/rejected
 		// ones are no-ops. Take the max so the timestamp never regresses.
@@ -1272,6 +1297,7 @@ export function workspaceReducer(
 			agentAttentionReasons: updatedReasons,
 			agentAttentionClearedAt: nextClearedAt,
 			task: nextTask,
+			mcpReportingActive: nextMcpReportingActive,
 		};
 		const nextSession: WorktreeSession = {
 			...base,

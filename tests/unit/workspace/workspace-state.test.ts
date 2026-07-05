@@ -3247,3 +3247,149 @@ describe("session/setResumeCommand and session/setResumePending", () => {
 		expect(next).toBe(seeded);
 	});
 });
+
+describe("mcpReportingActive lifecycle (spec §5, D4)", () => {
+	const mcpReason = (reportedAt: number) => ({
+		state: "active" as const,
+		source: "mcp" as const,
+		summary: "working",
+		nextAction: null,
+		reportedAt,
+	});
+
+	function seedRunningAgent() {
+		let state = workspaceReducer(createWorkspaceState(worktrees), {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("agent-1", "main", "claude", {
+				agentDetected: true,
+			}),
+		});
+		return state;
+	}
+
+	it("sets the flag on an accepted mcp push while a detected agent runs", () => {
+		let state = seedRunningAgent();
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: mcpReason(1_000),
+		});
+		expect(state.sessionsByWorktreeId.main.mcpReportingActive).toBe(true);
+	});
+
+	it("does NOT set the flag when no running detected agent exists (late-report race, spec §7)", () => {
+		let state = seedRunningAgent();
+		state = workspaceReducer(state, {
+			type: "session/updateProcessStatus",
+			processId: "agent-1",
+			status: "exited",
+			exitCode: 0,
+			at: 900,
+		});
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: mcpReason(1_000),
+		});
+		expect(state.sessionsByWorktreeId.main.mcpReportingActive).toBe(false);
+		// The reason itself is still recorded normally (display-layer purity, D5).
+		expect(state.sessionsByWorktreeId.main.agentAttentionReasons.mcp).toBeDefined();
+	});
+
+	it("is unaffected by a rejected (stale) mcp push", () => {
+		let state = seedRunningAgent();
+		// Accept a fresh mcp push (reportedAt 3000): flag set, reason stored.
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: mcpReason(3_000),
+		});
+		expect(state.sessionsByWorktreeId.main.mcpReportingActive).toBe(true);
+		expect(
+			state.sessionsByWorktreeId.main.agentAttentionReasons.mcp?.reportedAt,
+		).toBe(3_000);
+
+		// Now dispatch an OLDER same-source mcp push (reportedAt 2000). It is
+		// stale → shouldReplaceAgentAttentionReason returns false → rejected. A
+		// rejected push must not touch the flag or overwrite the stored reason.
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: mcpReason(2_000),
+		});
+		expect(state.sessionsByWorktreeId.main.mcpReportingActive).toBe(true);
+		expect(
+			state.sessionsByWorktreeId.main.agentAttentionReasons.mcp?.reportedAt,
+		).toBe(3_000);
+	});
+
+	it("is not set by a workflow-source report", () => {
+		let state = seedRunningAgent();
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: { ...mcpReason(3_000), source: "workflow" as const },
+		});
+		// Only the `mcp` source enters self-reporting mode (spec §5); a
+		// workflow-source report leaves the flag false.
+		expect(state.sessionsByWorktreeId.main.mcpReportingActive).toBe(false);
+	});
+
+	it("resets when the last running detected agent exits, and stays when one remains", () => {
+		let state = seedRunningAgent();
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("agent-2", "main", "codex", {
+				agentDetected: true,
+			}),
+		});
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: mcpReason(1_000),
+		});
+		expect(state.sessionsByWorktreeId.main.mcpReportingActive).toBe(true);
+
+		state = workspaceReducer(state, {
+			type: "session/updateProcessStatus",
+			processId: "agent-1",
+			status: "exited",
+			exitCode: 0,
+			at: 2_000,
+		});
+		// agent-2 still running → flag holds.
+		expect(state.sessionsByWorktreeId.main.mcpReportingActive).toBe(true);
+
+		state = workspaceReducer(state, {
+			type: "session/updateProcessStatus",
+			processId: "agent-2",
+			status: "exited",
+			exitCode: 0,
+			at: 3_000,
+		});
+		expect(state.sessionsByWorktreeId.main.mcpReportingActive).toBe(false);
+	});
+
+	it("survives an unrelated session action", () => {
+		let state = seedRunningAgent();
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: mcpReason(1_000),
+		});
+		expect(state.sessionsByWorktreeId.main.mcpReportingActive).toBe(true);
+
+		// A benign, unrelated action (setNote spreads ...session) must not disturb
+		// the flag (spec §8: "survives unrelated actions").
+		state = workspaceReducer(state, {
+			type: "session/setNote",
+			worktreeId: "main",
+			note: "an unrelated edit",
+		});
+		// The action actually ran (note changed) AND the flag is untouched.
+		expect(state.sessionsByWorktreeId.main.note).toBe("an unrelated edit");
+		expect(state.sessionsByWorktreeId.main.mcpReportingActive).toBe(true);
+	});
+});
