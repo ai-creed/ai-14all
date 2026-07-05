@@ -39,16 +39,22 @@ function matchCommand(
 }
 
 // Titles are freeform; an agent may set its terminal title to "claude" or
-// "Claude Code", so a word-boundary match is the right looseness here.
+// "Claude Code", so a word-boundary match is the right looseness here. The
+// `(?!-\d)` guard excludes version-suffixed forms like "claude-1.2.3": the
+// command matchers already reject those (spec §3 deliberately drops
+// version-suffix parity), and without this guard the loose label path would
+// re-detect them via the hyphen word boundary. Non-numeric suffixes like
+// "-code"/"-fake"/"-stub" are still allowed — only a hyphen immediately
+// followed by a digit is treated as a version suffix and excluded.
 function matchLabel(label: string | undefined): AgentProvider | null {
 	if (!label) return null;
-	if (/\bclaude\b/i.test(label)) return "claude";
-	if (/\bcodex\b/i.test(label)) return "codex";
+	if (/\bclaude\b(?!-\d)/i.test(label)) return "claude";
+	if (/\bcodex\b(?!-\d)/i.test(label)) return "codex";
 	// `\bezio\b` already matches the `ai-ezio` alias: the hyphen is a word
 	// boundary, so "ai-ezio" contains the standalone token "ezio".
-	if (/\bezio\b/i.test(label)) return "ezio";
-	if (/\bcursor\b/i.test(label)) return "cursor";
-	if (/\bantigravity\b/i.test(label)) return "antigravity";
+	if (/\bezio\b(?!-\d)/i.test(label)) return "ezio";
+	if (/\bcursor\b(?!-\d)/i.test(label)) return "cursor";
+	if (/\bantigravity\b(?!-\d)/i.test(label)) return "antigravity";
 	return null;
 }
 

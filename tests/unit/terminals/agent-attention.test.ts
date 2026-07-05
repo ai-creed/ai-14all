@@ -12,7 +12,6 @@ describe("isAgentProcess", () => {
 		["claude --print", "claude --print"],
 		["codex chat", "codex chat"],
 		["/usr/local/bin/claude --print", "/usr/local/bin/claude --print"],
-		["claude-1.2.3", "claude-1.2.3"],
 		["npx codex", "npx codex"],
 		["npx claude --help", "npx claude --help"],
 		["codex", null],
@@ -22,7 +21,6 @@ describe("isAgentProcess", () => {
 		// Detection must use first-token logic on the label, mirroring command-side rules.
 		["claude --print", null],
 		["codex chat", null],
-		["claude-1.2.3", null],
 		["/usr/local/bin/claude --print", null],
 		// --- Superseded by spec §3's deliberate detection widening (unification
 		// onto detectAgentProvider) — these were negatives under the old
@@ -48,6 +46,12 @@ describe("isAgentProcess", () => {
 		["", ""],
 		["shell 1", null],
 		["", null],
+		// Version-suffixed binaries are deliberately NOT detected (spec §3: the
+		// old KNOWN_AGENTS numeric-suffix rule is dropped). The command matcher
+		// already rejects `claude-1.2.3`, and matchLabel's `(?!-\d)` guard keeps
+		// the loose label path from re-detecting it when label === command.
+		["claude-1.2.3", "claude-1.2.3"],
+		["claude-1.2.3", null],
 	];
 
 	for (const [label, command] of positives) {

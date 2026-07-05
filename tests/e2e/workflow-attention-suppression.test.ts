@@ -259,6 +259,23 @@ test.describe.serial("workflow attention suppression", () => {
 			"data-attention",
 			"actionRequired",
 		);
+		// Spec §8: the process row must STILL SHOW ACTIVITY while the red tier is
+		// suppressed — suppression must not drop the row to idle or hide it. Scope
+		// to the claude shell's own row via its provider badge; under suppression
+		// deriveState skips the actionRequired branch and falls through to "active"
+		// by recency (the prompt just landed, well inside the 10s active window).
+		// This assertion fails if a regression suppressed the row to idle/hidden
+		// (which the worktree-button check above would NOT catch).
+		const claudeRow = worktreeRow(/feature-a/i)
+			.locator(".shell-sidebar__process")
+			.filter({
+				has: page.locator(
+					'.shell-sidebar__provider-badge[data-provider="claude"]',
+				),
+			});
+		await expect(
+			claudeRow.locator('[data-testid="process-state-indicator"]'),
+		).toHaveAttribute("data-state", "active");
 
 		// --- Part 2: escalation punches through, unambiguously from the workflow
 		// source. The workflow status stays "running" (so Task 4's predicate keeps
