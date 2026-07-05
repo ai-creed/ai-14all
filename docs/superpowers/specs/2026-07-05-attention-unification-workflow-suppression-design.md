@@ -135,10 +135,17 @@ New runtime-only field `WorktreeSession.mcpReportingActive: boolean`
 because the processes it describes are dead).
 
 - **Set `true`:** in reducer case `session/reportAgentAttention` when the
-  reason's source is `mcp` and the push is accepted (`replaced === true`).
-  The existing one-shot `clearStaleTerminalReasonsForSessionProcesses` sweep
-  at that moment stays — it clears residue; the new flag prevents
-  re-accumulation.
+  reason's source is `mcp`, the push is accepted (`replaced === true`),
+  **and at least one running `agentDetected` process exists in the
+  worktree**. Without the live-agent guard, a late MCP report accepted
+  after the last agent process has already exited would set the flag with
+  no later status transition left to reset it, leaving the next agent
+  generation muted before it ever self-reports — violating D4's
+  per-generation stickiness. A late report with no live detected agents
+  still records its reason normally; it just does not enter self-reporting
+  mode. The existing one-shot
+  `clearStaleTerminalReasonsForSessionProcesses` sweep at that moment
+  stays — it clears residue; the new flag prevents re-accumulation.
 - **Reset `false`:** in reducer case `session/updateProcessStatus`, when a
   process transitions out of `running` and no other running `agentDetected`
   process remains in that worktree.
@@ -194,8 +201,11 @@ sidebar task line continues to work outside workflows.
   so suppression can read `false` for a few seconds. Acceptable: D2 means
   agents aren't pushing during workflow turns anyway, and the window closes on
   the first snapshot.
-- MCP report races the last agent process exit → flag set, then the next
-  status transition resets it; harmless.
+- MCP report races the last agent process exit — both orderings are safe:
+  report accepted first → flag set, then the exit transition resets it;
+  exit lands first → the live-agent guard on the set site (§5) means the
+  late report never sets the flag, so the next generation starts with
+  heuristics active.
 - App restart → `mcpReportingActive` resets with the runtime state; restored
   placeholder processes re-detect on spawn.
 
@@ -222,9 +232,12 @@ sidebar task line continues to work outside workflows.
 - **Suppression:** `deriveState` and `buildWorktreeAttentionDisplay` with the
   flag on/off per source; regression pin that a workflow escalation still
   yields NEEDS YOU while suppressed; pin that `done` yields ready.
-- **Flag lifecycle:** set on accepted `mcp` push; unaffected by rejected
-  (stale) pushes and by `workflow`-source reports; resets when the last
-  running agent process exits; survives unrelated actions.
+- **Flag lifecycle:** set on accepted `mcp` push while a running
+  `agentDetected` process exists; NOT set by an accepted `mcp` push when no
+  running detected agent remains (late-report-after-last-exit race — the
+  next generation must start unmuted); unaffected by rejected (stale)
+  pushes and by `workflow`-source reports; resets when the last running
+  agent process exits; survives unrelated actions.
 - **Runtime gating:** classifier not invoked and legacy patterns bypassed for
   agent processes while the flag is set; non-agent shells unaffected (existing
   hook test harness covers the seam).
