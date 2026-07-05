@@ -1993,10 +1993,21 @@ function AppContent() {
 						// sidebar's collapse/expand controls own row visibility, so the
 						// rollup must never silently drop processes 4+ (they were
 						// unreachable when capped at 3).
+						// Workflow suppression (spec §4): while a whisper workflow is
+						// running or paused with a live daemon, the workflow lens is the
+						// sole verdict authority for this worktree's attention.
+						const lensState = whisperStates.get(worktreeId);
+						const workflowSuppressed =
+							lensState != null &&
+							lensState.daemonAlive &&
+							lensState.workflow != null &&
+							(lensState.workflow.status === "running" ||
+								lensState.workflow.status === "paused");
 						const processSummary = buildWorktreeProcessSummary(
 							processes,
 							sidebarNow,
 							processes.length,
+							{ suppressActionRequired: workflowSuppressed },
 						);
 						processesByWorktreeId[worktreeId] = processSummary;
 						taskByWorktreeId[worktreeId] = session.task ?? null;
@@ -2005,6 +2016,7 @@ function AppContent() {
 							processSummary,
 							now: sidebarNow,
 							agentAttentionClearedAt: session.agentAttentionClearedAt,
+							suppressNonWorkflow: workflowSuppressed,
 						});
 						attentionByWorktreeId[worktreeId] =
 							display.state === "actionRequired"
