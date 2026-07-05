@@ -102,10 +102,13 @@ function deriveState(
 	> &
 		Partial<Pick<ProcessSession, "agentAttentionClearedAt">>,
 	now: number,
+	suppressActionRequired = false,
 ): SidebarShellState {
 	if (process.status !== "running") return "exited";
 	const lastActivityAt = process.lastActivityAt ?? null;
-	if (process.attentionState === "actionRequired") {
+	// While a whisper workflow runs, the red tier is suppressed at the display
+	// layer (spec D1/D5): the row falls through to active/idle by recency.
+	if (!suppressActionRequired && process.attentionState === "actionRequired") {
 		const clearedAt = process.agentAttentionClearedAt ?? null;
 		// Retired if explicitly cleared after its last activity, OR quiet past the
 		// staleness threshold (spec §4.2 gap 3 + STALE_THRESHOLD_MS). Compute both
@@ -216,11 +219,12 @@ export function buildWorktreeProcessSummary(
 	processes: Array<ProcessRowInput>,
 	now: number,
 	maxRows = 3,
+	options?: { suppressActionRequired?: boolean },
 ): WorktreeProcessSummary {
 	// Keep rows in input (creation) order — never reorder by state/recency, so the
 	// sidebar list stays put while shells change status simultaneously.
 	const rows = processes.map((process) => {
-		const state = deriveState(process, now);
+		const state = deriveState(process, now, options?.suppressActionRequired);
 		const reasons = process.agentAttentionReasons ?? {};
 		const hasFailedReason = Object.values(reasons).some(
 			(r) => r != null && r.state === "failed",
@@ -270,6 +274,7 @@ export function buildWorktreeAttentionDisplay(input: {
 	processSummary: WorktreeProcessSummary;
 	now: number;
 	agentAttentionClearedAt?: number | null;
+	suppressNonWorkflow?: boolean;
 }): WorktreeAttentionDisplay {
 	const clearedAt = input.agentAttentionClearedAt ?? null;
 
@@ -279,6 +284,9 @@ export function buildWorktreeAttentionDisplay(input: {
 	// worktree stops showing red once it is finished OR has gone quiet (§4.2).
 	const candidates: Array<{ state: SidebarShellState; context: string }> = [];
 	for (const source of ["mcp", "workflow"] as const) {
+		// While a whisper workflow runs, the workflow source is the sole verdict
+		// authority (spec D1): mcp candidates are ignored in all states.
+		if (input.suppressNonWorkflow && source === "mcp") continue;
 		const r = input.sessionAgentAttentionReasons[source];
 		if (!r) continue;
 		const actionRequired = r.state === "waiting" || r.state === "failed";
