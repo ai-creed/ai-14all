@@ -791,62 +791,67 @@ export function SessionSidebar({
 					>
 						{collapsed ? "Load" : "Load workspace"}
 					</Button>
-					{onSetTheme && (
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon"
-									className="shell-sidebar__theme-trigger"
-									aria-label="Switch theme"
-								>
-									<Icon name="palette" />
-								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end" className="shell-toolbar-menu">
-								{THEMES.map((t) => (
-									<DropdownMenuItem
-										key={t.mode}
-										className="shell-toolbar-menu__item"
-										data-active={String(palette === t.mode)}
-										onSelect={() => onSetTheme(t.mode)}
+					<div className="shell-sidebar__footer-actions">
+						{onSetTheme && (
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<Button
+										type="button"
+										variant="ghost"
+										size="icon"
+										className="shell-sidebar__theme-trigger"
+										aria-label="Switch theme"
 									>
-										{t.label}
-										{palette === t.mode && (
-											<Icon name="check" className="ml-auto" />
-										)}
-									</DropdownMenuItem>
-								))}
-							</DropdownMenuContent>
-						</DropdownMenu>
-					)}
-					{onOpenShortcutsHelp && (
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon"
-							className="shell-sidebar__help-trigger"
-							aria-label="Keyboard shortcuts"
-							title="Keyboard shortcuts"
-							onClick={onOpenShortcutsHelp}
-						>
-							<Icon name="help" />
-						</Button>
-					)}
-					{onOpenSettings && (
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon"
-							className="shell-sidebar__settings-trigger"
-							aria-label="Settings"
-							title="Settings"
-							onClick={onOpenSettings}
-						>
-							<Icon name="gear" />
-						</Button>
-					)}
+										<Icon name="palette" />
+									</Button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent
+									align="end"
+									className="shell-toolbar-menu"
+								>
+									{THEMES.map((t) => (
+										<DropdownMenuItem
+											key={t.mode}
+											className="shell-toolbar-menu__item"
+											data-active={String(palette === t.mode)}
+											onSelect={() => onSetTheme(t.mode)}
+										>
+											{t.label}
+											{palette === t.mode && (
+												<Icon name="check" className="ml-auto" />
+											)}
+										</DropdownMenuItem>
+									))}
+								</DropdownMenuContent>
+							</DropdownMenu>
+						)}
+						{onOpenShortcutsHelp && (
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="shell-sidebar__help-trigger"
+								aria-label="Keyboard shortcuts"
+								title="Keyboard shortcuts"
+								onClick={onOpenShortcutsHelp}
+							>
+								<Icon name="help" />
+							</Button>
+						)}
+						{onOpenSettings && (
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="shell-sidebar__settings-trigger"
+								aria-label="Settings"
+								title="Settings"
+								onClick={onOpenSettings}
+							>
+								<Icon name="gear" />
+							</Button>
+						)}
+					</div>
 				</div>
 			</nav>
 		</TooltipProvider>

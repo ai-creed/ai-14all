@@ -1385,10 +1385,12 @@ select {
 	font-size: var(--ws-fs-branch);
 }
 .shell-sidebar__footer--global .w-full {
-	/* Load button shares the row with the theme trigger instead of forcing 100% */
-	flex: 1 1 auto;
-	width: auto;
 	font-size: var(--ws-fs-branch);
+}
+.shell-sidebar__footer-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--space-2);
 }
 .shell-sidebar__theme-trigger,
 .shell-sidebar__help-trigger,
@@ -1450,11 +1452,12 @@ select {
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__footer--global {
-	flex-direction: column;
 	align-items: center;
 }
-.shell-sidebar[data-collapsed="true"] .shell-sidebar__footer--global .w-full {
-	flex: 0 0 auto;
+/* The collapsed rail is too narrow for a horizontal icon row; stack them. */
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__footer-actions {
+	flex-direction: column;
+	align-items: center;
 }
 
 /* ── Session chip bar ────────────────────────────────── */
@@ -2903,11 +2906,11 @@ select {
 .shell-sidebar__footer--global {
 	margin-top: var(--space-3);
 	display: flex;
-	/* The row no longer fits the narrowest sidebar widths since the Settings
-	   trigger joined it (Load + three 36px icons ≈ 268px min-content). Wrap
-	   instead of overflowing so every control stays visible and clickable at
-	   any legal sidebar width (SIDEBAR_MIN = 200). */
-	flex-wrap: wrap;
+	/* Two stacked rows — the full-width Load workspace button, then the icon
+	   actions. A single shared row stopped fitting the narrowest sidebar
+	   widths once the Settings trigger joined it (Load + three 36px icons
+	   ≈ 268px min-content vs SIDEBAR_MIN = 200). */
+	flex-direction: column;
 	gap: var(--space-2);
 	align-items: stretch;
 }
