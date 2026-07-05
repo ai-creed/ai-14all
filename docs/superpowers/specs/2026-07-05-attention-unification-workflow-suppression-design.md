@@ -199,12 +199,26 @@ sidebar task line continues to work outside workflows.
 - App restart → `mcpReportingActive` resets with the runtime state; restored
   placeholder processes re-detect on spawn.
 
-## 8. Testing (unit-level)
+## 8. Testing
 
-- **Detection matrix:** all five providers × bare command / absolute path /
-  whisper-mount form / `npx` form / adHoc title-only, plus parity pins for
-  `claude-code` and `ai-ezio`, and negative cases (`claudette`,
-  `claude-helper`, `npm run agent`).
+### Unit
+
+- **Detection matrix** — scoped per provider; the command forms are NOT a
+  full cross-product, because two of them only exist for some providers:
+  - All five providers × bare command, absolute path, and adHoc title-only
+    (`matchLabel`).
+  - Whisper-mount form (`whisper collab mount <id>`, trailing-token match)
+    for the whisper-capable providers only: `claude`, `codex`, `ezio`.
+    `cursor` and `antigravity` are never mounted; their regexes are
+    command-position only by design (see the design note in
+    `agent-provider-detection.ts`), so no mount-form cases exist for them.
+  - `npx` form for `claude`/`codex`/`ezio` only — the whitespace-boundary
+    anchor matches `npx claude` etc. `npx agent` must NOT detect: `agent`
+    is a generic binary name and its regex is command-position only.
+  - Parity pins for `claude-code` and `ai-ezio`.
+  - Negative cases: `claudette`, `claude-helper`, `ai-ezio-helper`, and the
+    argument-position generics that must not detect — `npx agent`,
+    `npm run agent`, `python -m agy`.
 - **Suppression:** `deriveState` and `buildWorktreeAttentionDisplay` with the
   flag on/off per source; regression pin that a workflow escalation still
   yields NEEDS YOU while suppressed; pin that `done` yields ready.
@@ -214,6 +228,26 @@ sidebar task line continues to work outside workflows.
 - **Runtime gating:** classifier not invoked and legacy patterns bypassed for
   agent processes while the flag is set; non-agent shells unaffected (existing
   hook test harness covers the seam).
+
+### E2e
+
+Per `AGENTS.md` §Verification ("new user-visible behavior … is not done
+until the e2e suite covers it"), the suppression and unified-detection
+behavior is user-visible and gets e2e coverage. Build on the existing
+attention e2e surface (`tests/e2e/session-attention.spec.ts` patterns) and
+the whisper stub (`tests/e2e/fixtures/whisper-stub.ts` — `writeFixture`
+state-db workflow rows plus the stub event socket):
+
+- **Suppression on:** with the whisper fixture reporting a running workflow,
+  an agent process emitting a waiting-pattern prompt does NOT surface NEEDS
+  YOU in the sidebar; its process row still shows activity.
+- **Escalation punches through:** same fixture flipped to an escalation →
+  NEEDS YOU appears while all other sources stay suppressed.
+- **Completion lifts:** fixture set to `done` → worktree shows ready and
+  normal attention derivation resumes afterward.
+- **Unified detection is user-visible:** an `ezio`-command shell (previously
+  missed by `KNOWN_AGENTS`) that prints failure output now raises attention
+  the same way a `claude` shell does.
 
 ## 9. Out of Scope
 
