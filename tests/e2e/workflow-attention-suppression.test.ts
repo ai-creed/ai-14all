@@ -275,13 +275,19 @@ test.describe.serial("workflow attention suppression", () => {
 		);
 		socket.emit("relay.escalated", { chainId: "ch1" });
 
-		// Workflow is still running → process prompt still suppressed.
+		// The fixture keeps the WORKFLOW status "running" — App.tsx's suppression
+		// predicate keys on that, so the PROCESS prompt stays suppressed. But the
+		// relay chain is now escalated, and WorkflowRow renders escalation-over-
+		// status (statusKey = row.escalated ? "escalated" : row.status), so the
+		// row's data-status becomes "escalated". That is the unambiguous witness
+		// that the red ring below is the workflow escalation source — a resurfaced
+		// (still-suppressed) process prompt would never move the workflow row.
 		await expect(row.locator(".workflow-row__status")).toHaveAttribute(
 			"data-status",
-			"running",
+			"escalated",
 			{ timeout: 20_000 },
 		);
-		// …yet the ring is red: it must be the workflow escalation source.
+		// …and the ring is red: the escalation punched through suppression.
 		await expect(featureABtn()).toHaveAttribute(
 			"data-attention",
 			"actionRequired",
