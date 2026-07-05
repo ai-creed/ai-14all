@@ -3258,7 +3258,7 @@ describe("mcpReportingActive lifecycle (spec §5, D4)", () => {
 	});
 
 	function seedRunningAgent() {
-		let state = workspaceReducer(createWorkspaceState(worktrees), {
+		const state = workspaceReducer(createWorkspaceState(worktrees), {
 			type: "session/registerProcess",
 			worktreeId: "main",
 			process: makeProcess("agent-1", "main", "claude", {
@@ -3391,5 +3391,41 @@ describe("mcpReportingActive lifecycle (spec §5, D4)", () => {
 		// The action actually ran (note changed) AND the flag is untouched.
 		expect(state.sessionsByWorktreeId.main.note).toBe("an unrelated edit");
 		expect(state.sessionsByWorktreeId.main.mcpReportingActive).toBe(true);
+	});
+
+	it("resets when the last running detected agent is closed, and stays when one remains", () => {
+		let state = seedRunningAgent();
+		state = workspaceReducer(state, {
+			type: "session/reportAgentAttention",
+			worktreeId: "main",
+			reason: mcpReason(1_000),
+		});
+		expect(state.sessionsByWorktreeId.main.mcpReportingActive).toBe(true);
+
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("agent-2", "main", "codex", {
+				agentDetected: true,
+			}),
+		});
+
+		// Closing agent-1 (sidebar close, not a natural exit) while agent-2 is
+		// still running must NOT reset the flag.
+		state = workspaceReducer(state, {
+			type: "session/closeProcess",
+			worktreeId: "main",
+			processId: "agent-1",
+		});
+		expect(state.sessionsByWorktreeId.main.mcpReportingActive).toBe(true);
+
+		// Closing agent-2 — the last running detected agent — must reset the
+		// flag (spec §5), mirroring the session/updateProcessStatus reset.
+		state = workspaceReducer(state, {
+			type: "session/closeProcess",
+			worktreeId: "main",
+			processId: "agent-2",
+		});
+		expect(state.sessionsByWorktreeId.main.mcpReportingActive).toBe(false);
 	});
 });

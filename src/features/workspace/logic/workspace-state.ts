@@ -1128,12 +1128,25 @@ export function workspaceReducer(
 			activeProcessSessionId = null;
 		}
 
+		// Self-reporting mode resets when the last running detected agent leaves the
+		// worktree — closing an agent (vs. a natural exit) is such a departure, so
+		// mirror the reset from session/updateProcessStatus here (spec §5). Without
+		// this, closing a self-reporting agent would strand mcpReportingActive=true
+		// and mute the next agent generation's heuristics.
+		const anyRunningDetectedAgent = remaining.some((id) => {
+			const p = nextProcessSessionsById[id];
+			return p != null && p.status === "running" && p.agentDetected;
+		});
+
 		const nextSession: WorktreeSession = {
 			...session,
 			terminalLayoutId,
 			slotProcessIds,
 			processSessionIds: remaining,
 			activeProcessSessionId,
+			mcpReportingActive: anyRunningDetectedAgent
+				? session.mcpReportingActive
+				: false,
 		};
 		return {
 			...state,
