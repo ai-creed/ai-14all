@@ -5,6 +5,12 @@ import type { SettingsService } from "../../../services/settings/settings-servic
 export interface UsageSettingsBridge {
 	settings: UsageTelemetrySettings; // synchronous snapshot for UsageHost.loadSettings
 	persist: (patch: Partial<UsageTelemetrySettings>) => Promise<void>;
+	// Refresh the in-memory snapshot from an external merged settings write (the
+	// settings:write IPC handler, which persists usageTelemetry itself). Without
+	// this the bridge snapshot goes stale, and a later popover chipRange /
+	// includeUntracked click would seed the worker from — and (pre-fix) write
+	// back — the stale value.
+	refresh: (settings: PersistedSettingsV1) => void;
 }
 
 // Load persisted usage settings once (async) via SettingsService, then return a
@@ -34,13 +40,23 @@ export async function createUsageSettingsBridge(
 	let settings = initial.settings.usageTelemetry;
 	const bridge: UsageSettingsBridge = {
 		settings,
-		async persist(patch) {
-			settings = { ...settings, ...patch };
+		refresh(next) {
+			settings = next.usageTelemetry;
 			bridge.settings = settings;
+		},
+		async persist(patch) {
 			try {
+				// Hand writeState() the *bare* patch and let its deep-merge own the
+				// merge against the authoritative on-disk state. Pre-merging into the
+				// local `settings` snapshot (which an external settings:write may have
+				// left stale) then writing the whole sub-object back would resurrect
+				// the stale value. Refresh the snapshot from the returned merged
+				// result so it stays coherent for the next popover click.
 				const merged = await settingsService.writeState({
-					usageTelemetry: settings,
+					usageTelemetry: patch,
 				});
+				settings = merged.usageTelemetry;
+				bridge.settings = settings;
 				onPersisted?.(merged);
 			} catch (err) {
 				console.error("usage settings persist failed:", err);

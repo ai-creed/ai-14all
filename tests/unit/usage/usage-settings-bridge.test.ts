@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { SettingsService } from "../../../services/settings/settings-service.js";
 import { createUsageSettingsBridge } from "../../../electron/main/services/usage-settings-bridge.js";
+import { DEFAULT_PERSISTED_SETTINGS } from "../../../shared/models/persisted-settings.js";
 
 function makePaths(): { settingsPath: string; legacyPath: string } {
 	const dir = mkdtempSync(join(tmpdir(), "settings-bridge-"));
@@ -107,5 +108,77 @@ describe("usage settings bridge (real async persistence via SettingsService)", (
 			bridge.persist({ chipRange: "month" }),
 		).resolves.toBeUndefined();
 		expect(bridge.settings.chipRange).toBe("month");
+	});
+
+	// The bridge must hand writeState() the *bare* patch and let writeState()'s
+	// deep-merge own the merge, rather than pre-merging the patch into a possibly
+	// stale in-memory snapshot and writing the whole sub-object back.
+	it("persist writes the bare patch (not the full snapshot) so writeState's deep-merge owns the merge", async () => {
+		const { settingsPath, legacyPath } = makePaths();
+		const svc = new SettingsService(settingsPath, legacyPath);
+		await svc.writeState({
+			usageTelemetry: {
+				enabled: true,
+				includeUntracked: true,
+				chipRange: "week",
+			},
+		});
+		const bridge = await createUsageSettingsBridge(svc);
+		const writeStateSpy = vi.spyOn(svc, "writeState");
+
+		await bridge.persist({ chipRange: "month" });
+
+		expect(writeStateSpy).toHaveBeenCalledTimes(1);
+		expect(writeStateSpy).toHaveBeenCalledWith({
+			usageTelemetry: { chipRange: "month" },
+		});
+	});
+
+	// Regression for the pre-existing stale-snapshot write-back: an external
+	// writer (the settings:write IPC handler) flips a field on disk while the
+	// bridge's in-memory snapshot still holds the old value. A later popover
+	// click must not resurrect the stale value, and the snapshot must end up
+	// refreshed from writeState()'s merged result.
+	it("does not resurrect a stale snapshot value after an external write", async () => {
+		const { settingsPath, legacyPath } = makePaths();
+		const svc = new SettingsService(settingsPath, legacyPath);
+		const bridge = await createUsageSettingsBridge(svc);
+		expect(bridge.settings.enabled).toBe(true); // fresh snapshot from defaults
+
+		// External writer flips `enabled` on disk; bridge snapshot is now stale.
+		await svc.writeState({ usageTelemetry: { enabled: false } });
+
+		// Later popover chipRange click funnels through the bridge.
+		await bridge.persist({ chipRange: "month" });
+
+		const after = await svc.readState();
+		expect(after.settings.usageTelemetry).toEqual({
+			enabled: false, // NOT clobbered back to the stale `true`
+			includeUntracked: false,
+			chipRange: "month",
+		});
+		expect(bridge.settings.enabled).toBe(false); // snapshot refreshed from merged
+	});
+
+	it("refresh() updates the in-memory snapshot from an external merged settings write", async () => {
+		const { settingsPath, legacyPath } = makePaths();
+		const svc = new SettingsService(settingsPath, legacyPath);
+		const bridge = await createUsageSettingsBridge(svc);
+		expect(bridge.settings.chipRange).toBe("week");
+
+		bridge.refresh({
+			...DEFAULT_PERSISTED_SETTINGS,
+			usageTelemetry: {
+				enabled: true,
+				includeUntracked: true,
+				chipRange: "month",
+			},
+		});
+
+		expect(bridge.settings).toEqual({
+			enabled: true,
+			includeUntracked: true,
+			chipRange: "month",
+		});
 	});
 });

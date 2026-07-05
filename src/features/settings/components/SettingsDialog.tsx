@@ -37,6 +37,11 @@ const AGENT_RESUME_OPTIONS: { value: AgentResumeMode; label: string }[] = [
 	{ value: "off", label: "off" },
 ];
 
+const CHIP_RANGE_OPTIONS: { value: "week" | "month"; label: string }[] = [
+	{ value: "week", label: "week" },
+	{ value: "month", label: "month" },
+];
+
 /**
  * Settings dialog: Appearance / Startup / Agents / Usage groups, each backed
  * by `useSettings().update()` (write-through to the persisted settings file —
@@ -180,6 +185,44 @@ export function SettingsDialog({
 								/>
 								usage telemetry
 							</label>
+						</div>
+						<div className="settings-dialog__row">
+							<label className="settings-dialog__checkbox-label">
+								<input
+									type="checkbox"
+									checked={settings.usageTelemetry.includeUntracked}
+									onChange={(e) =>
+										void update({
+											usageTelemetry: {
+												...settings.usageTelemetry,
+												includeUntracked: e.target.checked,
+											},
+										})
+									}
+								/>
+								include untracked
+							</label>
+						</div>
+						<div className="settings-dialog__row">
+							<label htmlFor="settings-chip-range">Chip range</label>
+							<select
+								id="settings-chip-range"
+								value={settings.usageTelemetry.chipRange}
+								onChange={(e) =>
+									void update({
+										usageTelemetry: {
+											...settings.usageTelemetry,
+											chipRange: e.target.value as "week" | "month",
+										},
+									})
+								}
+							>
+								{CHIP_RANGE_OPTIONS.map((o) => (
+									<option key={o.value} value={o.value}>
+										{o.label}
+									</option>
+								))}
+							</select>
 						</div>
 					</section>
 

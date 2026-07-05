@@ -590,9 +590,17 @@ describe("registerIpcHandlers settings:write usage-telemetry live sync", () => {
 		getAllWindowsMock.mockReturnValue([]);
 	});
 
+	const makeUsageHost = () => ({
+		setEnabled: vi.fn(),
+		applyChipRange: vi.fn(),
+		applyIncludeUntracked: vi.fn(),
+	});
+	type UsageHostMock = ReturnType<typeof makeUsageHost>;
+
 	const registerWith = (
 		writeStateResult: unknown,
-		usageHost?: { setEnabled: ReturnType<typeof vi.fn> },
+		usageHost?: UsageHostMock,
+		usageSettingsBridge?: { refresh: ReturnType<typeof vi.fn> },
 	) => {
 		registerIpcHandlers(
 			{
@@ -612,6 +620,7 @@ describe("registerIpcHandlers settings:write usage-telemetry live sync", () => {
 				workspaceRegistry: { register: vi.fn(), get: vi.fn() } as never,
 				worktreeService: worktreeServiceInstance as never,
 				usageHost: usageHost as never,
+				usageSettingsBridge: usageSettingsBridge as never,
 				review: {
 					service: {
 						onChange: vi.fn(() => () => {}),
@@ -633,8 +642,8 @@ describe("registerIpcHandlers settings:write usage-telemetry live sync", () => {
 	};
 
 	it("a usageTelemetry patch pushes the merged enabled flag into the live UsageHost", async () => {
-		const setEnabled = vi.fn();
-		const handler = registerWith(baseSettings, { setEnabled });
+		const usageHost = makeUsageHost();
+		const handler = registerWith(baseSettings, usageHost);
 
 		await handler(
 			{},
@@ -649,21 +658,73 @@ describe("registerIpcHandlers settings:write usage-telemetry live sync", () => {
 			},
 		);
 
-		expect(setEnabled).toHaveBeenCalledTimes(1);
-		expect(setEnabled).toHaveBeenCalledWith(false);
+		expect(usageHost.setEnabled).toHaveBeenCalledTimes(1);
+		expect(usageHost.setEnabled).toHaveBeenCalledWith(false);
 	});
 
-	it("a patch that doesn't touch usageTelemetry never calls UsageHost.setEnabled", async () => {
-		const setEnabled = vi.fn();
-		const handler = registerWith(baseSettings, { setEnabled });
+	it("live-applies the merged chipRange and includeUntracked (non-persisting) to the UsageHost", async () => {
+		// Merged result differs from the patch to prove the handler forwards the
+		// merged values (post deep-merge), not the raw sub-patch.
+		const merged = {
+			...baseSettings,
+			usageTelemetry: {
+				enabled: true,
+				includeUntracked: true,
+				chipRange: "month" as const,
+			},
+		};
+		const usageHost = makeUsageHost();
+		const handler = registerWith(merged, usageHost);
+
+		await handler(
+			{},
+			{ patch: { usageTelemetry: { enabled: true } } },
+		);
+
+		expect(usageHost.applyChipRange).toHaveBeenCalledTimes(1);
+		expect(usageHost.applyChipRange).toHaveBeenCalledWith("month");
+		expect(usageHost.applyIncludeUntracked).toHaveBeenCalledTimes(1);
+		expect(usageHost.applyIncludeUntracked).toHaveBeenCalledWith(true);
+		expect(usageHost.setEnabled).toHaveBeenCalledWith(true);
+	});
+
+	it("refreshes the usage-settings-bridge snapshot from the merged settings", async () => {
+		const merged = {
+			...baseSettings,
+			usageTelemetry: {
+				enabled: true,
+				includeUntracked: true,
+				chipRange: "month" as const,
+			},
+		};
+		const usageHost = makeUsageHost();
+		const refresh = vi.fn();
+		const handler = registerWith(merged, usageHost, { refresh });
+
+		await handler(
+			{},
+			{ patch: { usageTelemetry: { chipRange: "month" } } },
+		);
+
+		expect(refresh).toHaveBeenCalledTimes(1);
+		expect(refresh).toHaveBeenCalledWith(merged);
+	});
+
+	it("a patch that doesn't touch usageTelemetry never touches UsageHost or the bridge", async () => {
+		const usageHost = makeUsageHost();
+		const refresh = vi.fn();
+		const handler = registerWith(baseSettings, usageHost, { refresh });
 
 		await handler({}, { patch: { theme: "warm" } });
 
-		expect(setEnabled).not.toHaveBeenCalled();
+		expect(usageHost.setEnabled).not.toHaveBeenCalled();
+		expect(usageHost.applyChipRange).not.toHaveBeenCalled();
+		expect(usageHost.applyIncludeUntracked).not.toHaveBeenCalled();
+		expect(refresh).not.toHaveBeenCalled();
 	});
 
-	it("does not throw when no UsageHost is wired (usageHost undefined)", async () => {
-		const handler = registerWith(baseSettings, undefined);
+	it("does not throw when no UsageHost or bridge is wired", async () => {
+		const handler = registerWith(baseSettings, undefined, undefined);
 
 		await expect(
 			handler({}, { patch: { usageTelemetry: { enabled: true } } }),
@@ -673,8 +734,8 @@ describe("registerIpcHandlers settings:write usage-telemetry live sync", () => {
 	it("still broadcasts settings:changed to every window after syncing UsageHost", async () => {
 		const send = vi.fn();
 		getAllWindowsMock.mockReturnValue([{ webContents: { send } }]);
-		const setEnabled = vi.fn();
-		const handler = registerWith(baseSettings, { setEnabled });
+		const usageHost = makeUsageHost();
+		const handler = registerWith(baseSettings, usageHost);
 
 		await handler({}, { patch: { usageTelemetry: { enabled: false } } });
 

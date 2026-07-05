@@ -617,6 +617,7 @@ app.whenReady().then(async () => {
 			worktreePathResolver,
 		},
 		usageHost,
+		usageSettingsBridge: usageSettings,
 		installUpdate: () => updateService.installUpdate(),
 		closeGate,
 		getCortexEnabled: () => pluginConfig.get("cortex").enabled,

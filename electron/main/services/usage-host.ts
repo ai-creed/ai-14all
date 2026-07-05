@@ -114,16 +114,32 @@ export class UsageHost {
 		this.postMessage({ kind: "setActive", activeWorktreeIds });
 	}
 
-	setChipRange(range: "week" | "month"): void {
+	// Non-persisting appliers: update the live worker (and the config it seeds on
+	// respawn) without writing settings back. Invoked from the settings:write IPC
+	// handler, which has ALREADY persisted the merged value via SettingsService —
+	// persisting again here would double-write settings.json and desync the
+	// usage-settings-bridge snapshot.
+	applyChipRange(range: "week" | "month"): void {
 		this.chipRange = range;
-		this.opts.persistSettings({ chipRange: range });
 		this.postMessage({ kind: "setChipRange", chipRange: range });
 	}
 
-	setIncludeUntracked(includeUntracked: boolean): void {
+	applyIncludeUntracked(includeUntracked: boolean): void {
 		this.includeUntracked = includeUntracked;
-		this.opts.persistSettings({ includeUntracked });
 		this.postMessage({ kind: "setIncludeUntracked", includeUntracked });
+	}
+
+	// Persisting setters: used by the usage popover's own IPC handlers
+	// (usage:setChipRange / usage:setIncludeUntracked), which are the sole writer
+	// for those toggles and therefore must persist through the bridge.
+	setChipRange(range: "week" | "month"): void {
+		this.opts.persistSettings({ chipRange: range });
+		this.applyChipRange(range);
+	}
+
+	setIncludeUntracked(includeUntracked: boolean): void {
+		this.opts.persistSettings({ includeUntracked });
+		this.applyIncludeUntracked(includeUntracked);
 	}
 
 	getLastSnapshot(): UsageSnapshot | null {

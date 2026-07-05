@@ -36,4 +36,50 @@ describe("SettingsDialog", () => {
 			.ai14all;
 		expect(api.settings.write).toHaveBeenCalledWith({ agentResume: "manual" });
 	});
+
+	it("renders the Usage include-untracked checkbox and writes the full merged usageTelemetry", async () => {
+		render(
+			<SettingsProvider>
+				<SettingsDialog open onOpenChange={() => {}} />
+			</SettingsProvider>,
+		);
+		const checkbox = screen.getByLabelText("include untracked");
+		expect(checkbox).toBeInTheDocument();
+
+		await userEvent.click(checkbox);
+
+		const api = (window as never as { ai14all: { settings: { write: ReturnType<typeof vi.fn> } } })
+			.ai14all;
+		// Writes the full merged usageTelemetry object (not a bare sub-patch), so
+		// SettingsService.writeState()'s deep-merge sees every field.
+		expect(api.settings.write).toHaveBeenCalledWith({
+			usageTelemetry: {
+				enabled: DEFAULT_PERSISTED_SETTINGS.usageTelemetry.enabled,
+				includeUntracked: true,
+				chipRange: DEFAULT_PERSISTED_SETTINGS.usageTelemetry.chipRange,
+			},
+		});
+	});
+
+	it("renders the Usage chip-range select and writes the full merged usageTelemetry", async () => {
+		render(
+			<SettingsProvider>
+				<SettingsDialog open onOpenChange={() => {}} />
+			</SettingsProvider>,
+		);
+		const select = screen.getByLabelText("Chip range");
+		expect(select).toBeInTheDocument();
+
+		await userEvent.selectOptions(select, "month");
+
+		const api = (window as never as { ai14all: { settings: { write: ReturnType<typeof vi.fn> } } })
+			.ai14all;
+		expect(api.settings.write).toHaveBeenCalledWith({
+			usageTelemetry: {
+				enabled: DEFAULT_PERSISTED_SETTINGS.usageTelemetry.enabled,
+				includeUntracked: DEFAULT_PERSISTED_SETTINGS.usageTelemetry.includeUntracked,
+				chipRange: "month",
+			},
+		});
+	});
 });
