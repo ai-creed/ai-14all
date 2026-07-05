@@ -126,4 +126,23 @@ describe("detectAgentProvider", () => {
 			detectAgentProvider("/Users/me/.local/bin/agy", undefined, null),
 		).toBe("antigravity");
 	});
+
+	describe("claude-code binary parity (spec §3)", () => {
+		it("detects the claude-code binary name as claude", () => {
+			expect(detectAgentProvider("claude-code", undefined, null)).toBe("claude");
+			expect(detectAgentProvider("npx claude-code --resume abc", undefined, null)).toBe(
+				"claude",
+			);
+			expect(
+				detectAgentProvider("/usr/local/bin/claude-code", undefined, null),
+			).toBe("claude");
+		});
+
+		it("still rejects near-miss names", () => {
+			expect(detectAgentProvider("claudette", undefined, null)).toBeNull();
+			expect(detectAgentProvider("claude-helper", undefined, null)).toBeNull();
+			// Version-suffix forms are deliberately NOT detected (spec §3: parity dropped).
+			expect(detectAgentProvider("claude-1.2.3", undefined, null)).toBeNull();
+		});
+	});
 });

@@ -5,7 +5,11 @@ import type { AgentProvider } from "../../../../shared/models/agent-attention";
 // `(?:^|[\s/\\])` anchors to a real boundary (NOT a generic `\b`, which would
 // treat `-` as a boundary); `(?=\s|$)` requires the token to end at whitespace
 // or EOS, so `claude-helper`, `myclaude`, `claudette` all fail.
-const CLAUDE_COMMAND = /(?:^|[\s/\\])claude(?=\s|$)/i;
+// `claude-code` is a real shipped binary name for the same CLI; `(?:-code)?`
+// restores parity with the deleted KNOWN_AGENTS list. The lookahead still
+// rejects `claude-helper` and version-suffixed names like `claude-1.2.3`
+// (spec §3: version-suffix parity deliberately dropped).
+const CLAUDE_COMMAND = /(?:^|[\s/\\])claude(?:-code)?(?=\s|$)/i;
 const CODEX_COMMAND = /(?:^|[\s/\\])codex(?=\s|$)/i;
 // `ezio` ships under two binary names — `ezio` and the `ai-ezio` alias — so the
 // optional `ai-` prefix matches both, while the boundary/lookahead still reject
