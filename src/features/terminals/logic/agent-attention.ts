@@ -6,49 +6,14 @@ import {
 	type AgentAttentionState,
 } from "../../../../shared/models/agent-attention";
 import type { ProcessAttentionState } from "../../../../shared/models/process-session";
+import { detectAgentProvider } from "../../workspace/logic/agent-provider-detection";
 
-const KNOWN_AGENTS = ["codex", "claude", "claude-code"] as const;
-
-function tokenize(command: string): string[] {
-	return command
-		.trim()
-		.split(/\s+/)
-		.filter((tok) => tok.length > 0);
-}
-
-function basenameLast(token: string): string {
-	const slash = Math.max(token.lastIndexOf("/"), token.lastIndexOf("\\"));
-	return slash === -1 ? token : token.slice(slash + 1);
-}
-
-function matchesKnownAgent(token: string): boolean {
-	const base = basenameLast(token);
-	for (const name of KNOWN_AGENTS) {
-		if (base === name) return true;
-		if (base.startsWith(`${name}-`)) {
-			const suffix = base.slice(name.length + 1);
-			if (/^\d+(\.\d+)*$/.test(suffix)) return true;
-		}
-	}
-	return false;
-}
-
-function commandMatches(command: string): boolean {
-	const tokens = tokenize(command);
-	if (tokens.length === 0) return false;
-	const head = tokens[0];
-	if (basenameLast(head) === "npx") {
-		const next = tokens[1];
-		return next != null && matchesKnownAgent(next);
-	}
-	return matchesKnownAgent(head);
-}
-
-// When `command` is null (adHoc shells), the label may itself be a command-shaped
-// string set via OSC title — e.g. "claude --print" or "/usr/local/bin/claude" —
-// so it goes through the same first-token logic as `command`.
+// Single detection mechanism (spec D3): a process is an agent iff the provider
+// badge logic recognizes it. When `command` is null (adHoc shells), detection
+// falls through to the label, which may itself be a command-shaped string set
+// via OSC title — detectAgentProvider handles both.
 export function isAgentProcess(label: string, command: string | null): boolean {
-	return commandMatches(command !== null ? command : label);
+	return detectAgentProvider(command, label, null) !== null;
 }
 
 const WAITING_PATTERNS = [
