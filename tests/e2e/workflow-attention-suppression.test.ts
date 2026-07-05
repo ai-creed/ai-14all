@@ -1,23 +1,23 @@
 /**
  * E2E for workflow-suppressed attention (spec 2026-07-05 §4/§8) and unified
  * agent detection (§3). Builds on the plugins-whisper.test.ts fixture pattern:
- * a stub whisper binary + fixture state.db bound to the feature-a worktree,
- * and the stub event socket driving live workflow transitions.
+ * a stub whisper binary + fixture state.db bound to the feature-a worktree.
  *
- * Driver-snapshot note (ai-cortex gotcha mem-2026-06-19): the workflow-lens row
- * renders because the whisper driver re-snapshots on the worktree-change
- * signal (subscribeWorktreeChanges, 0.9.3 self-heal) when the repo loads — NOT
- * because of the off→on plugin toggle. plugin-registry.reconcile() is
- * level-triggered, so an off→on toggle is a NET no-op that never cycles the
- * driver. We still perform the toggle in refreshWhisperDriver() purely to
- * mirror the known-good plugins-whisper.test.ts sequence and to give the
- * boot-time snapshot's worktree-change follow-up time to land under CI load;
- * it is belt-and-braces, not the mechanism.
+ * Reliability model (poll-driven, no socket): these tests do NOT need the
+ * "flip without polling" guarantee that plugins-whisper.test.ts proves, so they
+ * run the whisper driver at its DEFAULT fast poll (~3s) rather than pinning it
+ * to 60s. Every workflow state change is applied by rewriting the fixture
+ * state.db; the next poll re-reads it and re-renders the lens. This removes the
+ * dependency on the flaky worktree-change re-snapshot (gotcha mem-2026-06-19)
+ * and the net-no-op off→on plugin toggle — both of which made the initial
+ * `.workflow-row` render time out under full-suite load. Heartbeats are written
+ * in the near future so `daemonAlive` (staleMs = 30s) stays true for the whole
+ * test regardless of wall-clock duration.
  *
- * Attention-raising recipe (from session-attention.spec.ts): a shell becomes
- * an agent via OSC title (session/updateProcessLabel → isAgentProcess), and
- * its output raises actionRequired only while UNVIEWED — so each scenario
- * sets up the shell on feature-a, switches to main, then sends input.
+ * Attention-raising recipe (from session-attention.spec.ts): a shell becomes an
+ * agent via OSC title (session/updateProcessLabel → isAgentProcess), and its
+ * output raises actionRequired only while UNVIEWED — so each scenario sets up
+ * the shell on feature-a, switches to main, then sends input.
  */
 
 import {
@@ -30,18 +30,12 @@ import {
 import { rmSync } from "node:fs";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 import { closeApp } from "./fixtures/close-app";
-import {
-	setUpWhisperStub,
-	startStubEventSocket,
-	type StubEventSocket,
-	type WhisperStubEnv,
-} from "./fixtures/whisper-stub";
+import { setUpWhisperStub, type WhisperStubEnv } from "./fixtures/whisper-stub";
 
 let app: ElectronApplication | undefined;
 let page: Page;
 let repo: TestRepo;
 let stub: WhisperStubEnv;
-let socket: StubEventSocket | undefined;
 
 function worktreeNav() {
 	return page.getByRole("navigation", { name: "Worktree sessions" });
@@ -53,10 +47,10 @@ function featureABtn() {
 
 /**
  * The card wrapper (`.shell-sidebar__row`) for the worktree whose nav button
- * matches `name`. The provider badge is rendered as a SIBLING of the nav
- * button (SessionSidebar.tsx renders `{item}{taskLine}{processList}` inside
- * the row, deliberately outside the row button to avoid nested `<button>`
- * elements), so badge lookups must scope to the row, not to the button.
+ * matches `name`. The provider badge is rendered as a SIBLING of the nav button
+ * (SessionSidebar.tsx renders `{item}{taskLine}{processList}` inside the row,
+ * deliberately outside the row button to avoid nested `<button>` elements), so
+ * badge/process-row lookups must scope to the row, not to the button.
  */
 function worktreeRow(name: RegExp) {
 	return worktreeNav()
@@ -82,26 +76,6 @@ async function loadRepoAndSelect(name: RegExp): Promise<void> {
 	await expect(page.getByRole("region", { name: "Session" })).toBeVisible({
 		timeout: 15_000,
 	});
-}
-
-/** Belt-and-braces stabilisation copied verbatim from plugins-whisper.test.ts.
- *  NOTE (gotcha mem-2026-06-19): this off→on toggle does NOT restart the driver
- *  — reconcile() is level-triggered and the toggle is a net no-op. The row
- *  actually renders via the driver's worktree-change re-snapshot on repo load.
- *  Kept only to match the known-good sequence and absorb CI timing. */
-async function refreshWhisperDriver(): Promise<void> {
-	await page.getByRole("button", { name: "Open Plugins panel" }).click();
-	const card = page.locator('[data-plugin-id="whisper"]');
-	await expect(card).toBeVisible({ timeout: 15_000 });
-	await card.getByRole("switch").click(); // off
-	await expect(card.locator(".plugin-chip")).toContainText(/off/, {
-		timeout: 15_000,
-	});
-	await card.getByRole("switch").click(); // back on → fresh driver tick
-	await expect(card.locator(".plugin-chip")).toContainText(/on/, {
-		timeout: 15_000,
-	});
-	await page.keyboard.press("Escape");
 }
 
 async function getVisibleTerminalSessionId(): Promise<string | null> {
@@ -174,23 +148,28 @@ async function setProviderViaOscTitle(
 	return (await badge.count()) > 0;
 }
 
-/** Base fixture: a live daemon + a RUNNING workflow bound to feature-a, with a
- *  normal (non-escalated) relay chain. `chainOverride` lets a caller flip the
- *  chain to `status: "escalated"` while keeping the workflow status running. */
-function runningWorkflowFixture(
-	heartbeatIso: string,
-	chainOverride: Record<string, unknown> = {},
-) {
+/**
+ * Near-future heartbeat so `daemonAlive` (staleMs = 30s) stays true for the
+ * whole test regardless of duration: `now() - Date.parse(heartbeat)` is
+ * negative, which is < 30s. Removes the heartbeat-aging flake that a
+ * `Date.now()` heartbeat suffers once a scenario's setup exceeds 30s.
+ */
+function futureHeartbeat(): string {
+	return new Date(Date.now() + 5 * 60_000).toISOString();
+}
+
+/**
+ * Base fixture: a live daemon + a RUNNING workflow bound to feature-a with a
+ * normal (non-escalated) relay chain. `chainOverride` flips the chain to
+ * `status: "escalated"` while keeping the WORKFLOW status running.
+ */
+function runningWorkflowFixture(chainOverride: Record<string, unknown> = {}) {
 	return {
 		schemaVersion: 6,
 		collabs: [
-			{
-				collab_id: "c1",
-				workspace_root: repo.worktreePath,
-				status: "active",
-			},
+			{ collab_id: "c1", workspace_root: repo.worktreePath, status: "active" },
 		],
-		daemons: [{ collab_id: "c1", last_heartbeat_at: heartbeatIso }],
+		daemons: [{ collab_id: "c1", last_heartbeat_at: futureHeartbeat() }],
 		workflows: [
 			{
 				workflow_id: "wf1",
@@ -213,8 +192,6 @@ function runningWorkflowFixture(
 }
 
 test.afterEach(async () => {
-	await socket?.close();
-	socket = undefined;
 	await closeApp(app);
 	app = undefined;
 	rmSync(stub.userDataDir, { recursive: true, force: true });
@@ -227,20 +204,18 @@ test.describe.serial("workflow attention suppression", () => {
 		test.setTimeout(180_000);
 		repo = createTestRepo();
 		stub = setUpWhisperStub({ enabled: true });
-		stub.writeFixture(runningWorkflowFixture(new Date().toISOString()));
-		socket = await startStubEventSocket(stub.stateRoot, "c1");
-		await launch({ AI14ALL_WHISPER_POLL_MS: "60000" });
+		stub.writeFixture(runningWorkflowFixture());
+		await launch();
 		await loadRepoAndSelect(/feature-a/i);
-		await refreshWhisperDriver();
 
-		// Driver snapshot picked up the running workflow.
+		// The default fast poll (~3s) renders the running workflow row within a
+		// few seconds — no socket / toggle / snapshot dependency.
 		const row = worktreeNav().locator(".workflow-row");
 		await expect(row.locator(".workflow-row__status")).toHaveAttribute(
 			"data-status",
 			"running",
 			{ timeout: 30_000 },
 		);
-		await socket.waitForClient();
 
 		// Agent shell on feature-a, then switch away so its output is UNVIEWED
 		// (viewed output never raises attention regardless of suppression).
@@ -264,8 +239,8 @@ test.describe.serial("workflow attention suppression", () => {
 		// to the claude shell's own row via its provider badge; under suppression
 		// deriveState skips the actionRequired branch and falls through to "active"
 		// by recency (the prompt just landed, well inside the 10s active window).
-		// This assertion fails if a regression suppressed the row to idle/hidden
-		// (which the worktree-button check above would NOT catch).
+		// This fails if a regression suppressed the row to idle/hidden (which the
+		// worktree-button check above would NOT catch).
 		const claudeRow = worktreeRow(/feature-a/i)
 			.locator(".shell-sidebar__process")
 			.filter({
@@ -278,37 +253,31 @@ test.describe.serial("workflow attention suppression", () => {
 		).toHaveAttribute("data-state", "active");
 
 		// --- Part 2: escalation punches through, unambiguously from the workflow
-		// source. The workflow status stays "running" (so Task 4's predicate keeps
-		// the PROCESS prompt suppressed); only the relay chain flips to escalated,
-		// which the lens surfaces as a workflow-source waiting reason. Because the
-		// process source is provably still suppressed (asserted via data-status
-		// still "running"), an actionRequired ring here can ONLY be the escalation.
+		// source. Rewrite the fixture so the relay chain is escalated while the
+		// WORKFLOW status stays "running" (App.tsx's suppression predicate keys on
+		// that, so the PROCESS prompt stays suppressed). The next poll re-reads it. ---
 		stub.writeFixture(
-			runningWorkflowFixture(new Date().toISOString(), {
+			runningWorkflowFixture({
 				status: "escalated",
 				terminal_reason: "needs a human decision",
-				updated_at: new Date().toISOString(),
+				updated_at: futureHeartbeat(),
 			}),
 		);
-		socket.emit("relay.escalated", { chainId: "ch1" });
-
-		// The fixture keeps the WORKFLOW status "running" — App.tsx's suppression
-		// predicate keys on that, so the PROCESS prompt stays suppressed. But the
-		// relay chain is now escalated, and WorkflowRow renders escalation-over-
-		// status (statusKey = row.escalated ? "escalated" : row.status), so the
-		// row's data-status becomes "escalated". That is the unambiguous witness
-		// that the red ring below is the workflow escalation source — a resurfaced
-		// (still-suppressed) process prompt would never move the workflow row.
+		// WorkflowRow renders escalation-over-status (statusKey = row.escalated ?
+		// "escalated" : row.status), so the row's data-status becomes "escalated".
+		// That is the unambiguous witness that the red ring below is the workflow
+		// escalation source — a resurfaced (still-suppressed) process prompt would
+		// never move the workflow row.
 		await expect(row.locator(".workflow-row__status")).toHaveAttribute(
 			"data-status",
 			"escalated",
-			{ timeout: 20_000 },
+			{ timeout: 30_000 },
 		);
 		// …and the ring is red: the escalation punched through suppression.
 		await expect(featureABtn()).toHaveAttribute(
 			"data-attention",
 			"actionRequired",
-			{ timeout: 20_000 },
+			{ timeout: 30_000 },
 		);
 	});
 
@@ -316,11 +285,9 @@ test.describe.serial("workflow attention suppression", () => {
 		test.setTimeout(180_000);
 		repo = createTestRepo();
 		stub = setUpWhisperStub({ enabled: true });
-		stub.writeFixture(runningWorkflowFixture(new Date().toISOString()));
-		socket = await startStubEventSocket(stub.stateRoot, "c1");
-		await launch({ AI14ALL_WHISPER_POLL_MS: "60000" });
+		stub.writeFixture(runningWorkflowFixture());
+		await launch();
 		await loadRepoAndSelect(/feature-a/i);
-		await refreshWhisperDriver();
 
 		const row = worktreeNav().locator(".workflow-row");
 		await expect(row.locator(".workflow-row__status")).toHaveAttribute(
@@ -328,12 +295,11 @@ test.describe.serial("workflow attention suppression", () => {
 			"running",
 			{ timeout: 30_000 },
 		);
-		await socket.waitForClient();
 
 		// --- Part 1: done → the worktree shows the READY tier (workflow-source
 		// ready reason; no competing process attention because none was raised). ---
 		stub.writeFixture({
-			...runningWorkflowFixture(new Date().toISOString()),
+			...runningWorkflowFixture(),
 			workflows: [
 				{
 					workflow_id: "wf1",
@@ -343,14 +309,13 @@ test.describe.serial("workflow attention suppression", () => {
 				},
 			],
 		});
-		socket.emit("workflow.done", { workflowId: "wf1" });
 		await expect(row.locator(".workflow-row__status")).toHaveAttribute(
 			"data-status",
 			"done",
-			{ timeout: 20_000 },
+			{ timeout: 30_000 },
 		);
 		await expect(featureABtn()).toHaveAttribute("data-attention", "ready", {
-			timeout: 20_000,
+			timeout: 30_000,
 		});
 
 		// --- Part 2: normal attention resumes. With the workflow done, suppression
