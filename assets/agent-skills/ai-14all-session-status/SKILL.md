@@ -133,6 +133,13 @@ output — do not extend this list without similar verification):
 - Internal planning / self-talk steps.
 - Sub-steps within a mission. Stay `active` until you finish or transition to
   waiting/ready/failed.
+- **Workflow exception:** if the message you are acting on is an ai-whisper
+  workflow handoff (or a workflow resume notice), do not call
+  `report_session_status` at all during that turn — the app's workflow lens
+  already tracks the run and the sidebar suppresses non-workflow attention
+  while it is active. Resume normal lifecycle pushes on ordinary interactive
+  turns. (Section 6's one-time resume registration is NOT affected by this
+  exception.)
 
 ## Notes
 
