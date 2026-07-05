@@ -157,6 +157,55 @@ describe("register_agent_session tool", () => {
 		expect(typeof logged.ts).toBe("number");
 	});
 
+	it("rejects an overlong resume command through the handler and logs reason too_long", async () => {
+		rig = await makeRig();
+
+		// 266 chars (> RESUME_COMMAND_MAX_LENGTH of 256), valid charset + known
+		// binary — so the schema layer accepts it and the handler's
+		// validateResumeCommand is the only gate that can reject it.
+		const result = await callTool(rig.client, "register_agent_session", {
+			worktreePath: "/repo",
+			terminalSessionId: "term-1",
+			provider: "claude",
+			resumeCommand: `claude --resume ${"x".repeat(250)}`,
+		});
+
+		expect(result.ok).toBe(false);
+		expect(result.error).toBe("invalid_resume_command");
+		expect(rig.resumeBridge.report).not.toHaveBeenCalled();
+
+		expect(rig.attentionLogger.append).toHaveBeenCalledOnce();
+		const logged = rig.attentionLogger.append.mock.calls[0][0] as Record<
+			string,
+			unknown
+		>;
+		expect(logged.type).toBe("mcp_resume_rejected");
+		expect(logged.reason).toBe("too_long");
+	});
+
+	it("rejects a whitespace-only resume command through the handler and logs reason empty", async () => {
+		rig = await makeRig();
+
+		const result = await callTool(rig.client, "register_agent_session", {
+			worktreePath: "/repo",
+			terminalSessionId: "term-1",
+			provider: "claude",
+			resumeCommand: "   ",
+		});
+
+		expect(result.ok).toBe(false);
+		expect(result.error).toBe("invalid_resume_command");
+		expect(rig.resumeBridge.report).not.toHaveBeenCalled();
+
+		expect(rig.attentionLogger.append).toHaveBeenCalledOnce();
+		const logged = rig.attentionLogger.append.mock.calls[0][0] as Record<
+			string,
+			unknown
+		>;
+		expect(logged.type).toBe("mcp_resume_rejected");
+		expect(logged.reason).toBe("empty");
+	});
+
 	it("rejects an unknown binary and logs the rejection", async () => {
 		rig = await makeRig();
 
@@ -264,13 +313,18 @@ describe("RegisterAgentSessionInputSchema", () => {
 		expect(result.success).toBe(false);
 	});
 
-	it("rejects a resumeCommand longer than the max length", () => {
+	// Length/empty validation is intentionally NOT enforced at the schema layer:
+	// it lives in the handler's validateResumeCommand so every invalid report
+	// yields an `invalid_resume_command` error result AND exactly one logged
+	// `mcp_resume_rejected` entry (spec §5.5/§6). The schema therefore accepts an
+	// overlong resumeCommand and defers to the handler.
+	it("accepts an overlong resumeCommand at the schema layer (handler owns length/empty validation)", () => {
 		const result = RegisterAgentSessionInputSchema.safeParse({
 			worktreePath: "/repo",
 			terminalSessionId: "term-1",
 			provider: "claude",
 			resumeCommand: `claude --resume ${"x".repeat(300)}`,
 		});
-		expect(result.success).toBe(false);
+		expect(result.success).toBe(true);
 	});
 });

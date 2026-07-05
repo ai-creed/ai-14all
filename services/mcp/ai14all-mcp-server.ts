@@ -17,7 +17,6 @@ import type { AgentResumeBridge } from "./agent-resume-bridge.js";
 import type { AgentAttentionLogger } from "../diagnostics/agent-attention-logger.js";
 import {
 	AGENT_BINARIES,
-	RESUME_COMMAND_MAX_LENGTH,
 	validateResumeCommand,
 } from "../../shared/models/resume-command.js";
 
@@ -66,7 +65,13 @@ export const RegisterAgentSessionInputSchema = z.object({
 	worktreePath: z.string().min(1),
 	terminalSessionId: z.string().min(1),
 	provider: z.string().min(1).max(40),
-	resumeCommand: z.string().min(1).max(RESUME_COMMAND_MAX_LENGTH),
+	// Length/empty constraints are intentionally NOT enforced here: a schema-layer
+	// rejection would short-circuit the SDK before the handler runs, so an
+	// overlong or empty resumeCommand would never reach validateResumeCommand and
+	// therefore never produce the spec-mandated `invalid_resume_command` error
+	// result + single `mcp_resume_rejected` log entry (spec §5.5/§6). Keep this a
+	// bare string so ALL resume-command validation flows through the handler.
+	resumeCommand: z.string(),
 });
 
 export async function resolveWithRefresh(
