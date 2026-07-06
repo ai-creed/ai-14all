@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.0] – 2026-07-06
+
+A feature release on two fronts: your workspace now comes back the way you left it — settings, open workspaces, and agent conversations survive a restart — and the sidebar's attention signals got smarter about ai-whisper autonomous workflows and agent self-reporting.
+
+### Added
+
+- **Persistent app settings.** Theme, terminal font size, and your session-restore preference now persist across restarts through a dedicated settings store (atomic writes, first-run seeding from prior state) and a Settings dialog.
+- **Restore your workspaces on launch.** ai-14all reopens the workspaces you had open — the previously selected one immediately, the rest hydrated lazily in the background — governed by a restore-depth preference so you can choose eager terminals, state-only, or a clean start.
+- **Resume agent conversations after a restart.** Agents can register how to reopen their exact conversation via a new `register_agent_session` MCP tool; after an app restart or a shell relaunch, ai-14all offers to replay that resume command (setting-gated, with a manual affordance on the session card). Resume commands are validated against a strict character allowlist so only safe, replayable invocations are stored.
+
+### Changed
+
+- **The sidebar stays quiet during ai-whisper autonomous workflows.** While a workflow is running or paused, redundant "needs you" attention from MCP status reports and terminal heuristics is suppressed — the workflow lens is the sole authority, so only an escalation (needs a human) or completion surfaces attention. There is nothing to act on during an autonomous run until it escalates or finishes.
+- **Agent self-reporting mutes duplicate terminal heuristics.** Once an agent reports its status over MCP, ai-14all stops second-guessing it from terminal output for that agent's processes; plain shells (builds, tests) in the same worktree keep their own error/failure detection.
+- **One unified agent-detection mechanism.** Detection of claude, codex, ezio, cursor, and antigravity now runs through a single code path, so every provider consistently gets the output classifier, lifecycle signals, and the provider badge — previously ezio and whisper-mounted sessions silently missed out.
+- **The session-status skill skips status pushes during workflow turns**, cutting redundant `report_session_status` calls (and their token cost) when the app's workflow lens is already tracking the run.
+
+### Fixed
+
+- **The sidebar footer no longer crowds.** The Load workspace button and the icon actions (theme, help, settings) now sit on their own rows.
+
 ## [1.1.1] – 2026-07-04
 
 ### Fixed
