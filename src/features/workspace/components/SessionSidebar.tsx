@@ -25,6 +25,12 @@ import { NeedsYouSignal } from "./NeedsYouSignal";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarTooltip } from "./SidebarTooltip";
 import type { Palette } from "../../../lib/use-theme";
+import { terminals } from "../../../lib/desktop-client";
+import { commandSubmitKey } from "../../../lib/command-submit-key";
+import {
+	AGENT_BINARIES,
+	validateResumeCommand,
+} from "../../../../shared/models/resume-command";
 
 export type SessionSidebarWorkspace = {
 	workspaceId: string;
@@ -74,11 +80,20 @@ type Props = {
 		worktreeId: string,
 		processId: string,
 	) => void;
+	// Task 13: called after the "Resume conversation" affordance click resolves
+	// (whether the click actually sent input or was rejected by re-validation)
+	// so the parent can clear the process's runtime-only `resumePending` flag.
+	onResumeConversation?: (
+		workspaceId: string,
+		worktreeId: string,
+		processId: string,
+	) => void;
 	onOpenWorkflowDetail?: (workspaceId: string, worktreeId: string) => void;
 	pendingRename?: { workspaceId: string; worktreeId: string } | null;
 	palette?: Palette;
 	onSetTheme?: (mode: Palette) => void;
 	onOpenShortcutsHelp?: () => void;
+	onOpenSettings?: () => void;
 	expandedProcessWorktreeIds?: string[];
 	onToggleProcessExpanded?: (worktreeId: string) => void;
 };
@@ -105,11 +120,13 @@ export function SessionSidebar({
 	onRenameSession,
 	onRequestExpand,
 	onClearFailedReason,
+	onResumeConversation,
 	onOpenWorkflowDetail,
 	pendingRename,
 	palette,
 	onSetTheme,
 	onOpenShortcutsHelp,
+	onOpenSettings,
 	expandedProcessWorktreeIds,
 	onToggleProcessExpanded,
 }: Props) {
@@ -527,6 +544,42 @@ export function SessionSidebar({
 																					Clear failed
 																				</Button>
 																			) : null}
+																			{row.resumePending &&
+																			onResumeConversation &&
+																			workspace.active ? (
+																				<button
+																					type="button"
+																					className="shell-sidebar__process-resume"
+																					onClick={(e) => {
+																						e.stopPropagation();
+																						// Spec §5.5: re-validate IMMEDIATELY before
+																						// replay — this click IS the replay point in
+																						// manual mode, and the stored handle may
+																						// predate a validation-rule change or have
+																						// been hand-edited on disk since it was set.
+																						if (
+																							row.resumeCommand &&
+																							row.terminalSessionId &&
+																							validateResumeCommand(
+																								row.resumeCommand,
+																								AGENT_BINARIES,
+																							).ok
+																						) {
+																							void terminals.sendInput(
+																								row.terminalSessionId,
+																								`${row.resumeCommand}${commandSubmitKey()}`,
+																							);
+																						}
+																						onResumeConversation(
+																							workspace.workspaceId,
+																							worktree.id,
+																							row.id,
+																						);
+																					}}
+																				>
+																					Resume conversation
+																				</button>
+																			) : null}
 																		</div>
 																	))}
 																	{collapsible &&
@@ -738,49 +791,64 @@ export function SessionSidebar({
 					>
 						{collapsed ? "Load" : "Load workspace"}
 					</Button>
-					{onSetTheme && (
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon"
-									className="shell-sidebar__theme-trigger"
-									aria-label="Switch theme"
-								>
-									<Icon name="palette" />
-								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end" className="shell-toolbar-menu">
-								{THEMES.map((t) => (
-									<DropdownMenuItem
-										key={t.mode}
-										className="shell-toolbar-menu__item"
-										data-active={String(palette === t.mode)}
-										onSelect={() => onSetTheme(t.mode)}
+					<div className="shell-sidebar__footer-actions">
+						{onSetTheme && (
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<Button
+										type="button"
+										variant="ghost"
+										size="icon"
+										className="shell-sidebar__theme-trigger"
+										aria-label="Switch theme"
 									>
-										{t.label}
-										{palette === t.mode && (
-											<Icon name="check" className="ml-auto" />
-										)}
-									</DropdownMenuItem>
-								))}
-							</DropdownMenuContent>
-						</DropdownMenu>
-					)}
-					{onOpenShortcutsHelp && (
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon"
-							className="shell-sidebar__help-trigger"
-							aria-label="Keyboard shortcuts"
-							title="Keyboard shortcuts"
-							onClick={onOpenShortcutsHelp}
-						>
-							<Icon name="help" />
-						</Button>
-					)}
+										<Icon name="palette" />
+									</Button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="end" className="shell-toolbar-menu">
+									{THEMES.map((t) => (
+										<DropdownMenuItem
+											key={t.mode}
+											className="shell-toolbar-menu__item"
+											data-active={String(palette === t.mode)}
+											onSelect={() => onSetTheme(t.mode)}
+										>
+											{t.label}
+											{palette === t.mode && (
+												<Icon name="check" className="ml-auto" />
+											)}
+										</DropdownMenuItem>
+									))}
+								</DropdownMenuContent>
+							</DropdownMenu>
+						)}
+						{onOpenShortcutsHelp && (
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="shell-sidebar__help-trigger"
+								aria-label="Keyboard shortcuts"
+								title="Keyboard shortcuts"
+								onClick={onOpenShortcutsHelp}
+							>
+								<Icon name="help" />
+							</Button>
+						)}
+						{onOpenSettings && (
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="shell-sidebar__settings-trigger"
+								aria-label="Settings"
+								title="Settings"
+								onClick={onOpenSettings}
+							>
+								<Icon name="gear" />
+							</Button>
+						)}
+					</div>
 				</div>
 			</nav>
 		</TooltipProvider>

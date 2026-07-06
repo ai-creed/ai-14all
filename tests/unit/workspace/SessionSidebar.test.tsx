@@ -1,8 +1,16 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { SessionSidebar } from "../../../src/features/workspace/components/SessionSidebar";
 import type { SessionSidebarWorkspace } from "../../../src/features/workspace/components/SessionSidebar";
 import type { AgentProvider } from "../../../shared/models/agent-attention";
+
+const sendInputMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../../../src/lib/desktop-client", () => ({
+	terminals: {
+		sendInput: sendInputMock,
+	},
+}));
 
 type RowSpec = {
 	id: string;
@@ -12,6 +20,9 @@ type RowSpec = {
 	lastActivityAt: number | null;
 	hasFailedReason: boolean;
 	provider?: AgentProvider | null;
+	resumePending?: boolean;
+	resumeCommand?: string | null;
+	terminalSessionId?: string | null;
 };
 
 function makeWorkspace(rows: RowSpec[]): SessionSidebarWorkspace;
@@ -595,6 +606,29 @@ describe("SessionSidebar — ready tier dot", () => {
 	});
 });
 
+describe("SessionSidebar — hydrated inactive workspace rendering", () => {
+	it("renders worktree rows (no placeholder) for a hydrated inactive workspace", () => {
+		renderSidebar({
+			workspaces: [makeWorkspace({ active: false, hydrated: true })],
+		});
+		expect(screen.getByRole("button", { name: "main" })).toBeInTheDocument();
+		expect(
+			screen.queryByText("Open this workspace to load its worktree sessions."),
+		).not.toBeInTheDocument();
+	});
+
+	it("shows the placeholder for a dormant (not yet hydrated) workspace", () => {
+		renderSidebar({
+			workspaces: [
+				makeWorkspace({ active: false, hydrated: false, worktrees: [] }),
+			],
+		});
+		expect(
+			screen.getByText("Open this workspace to load its worktree sessions."),
+		).toBeInTheDocument();
+	});
+});
+
 describe("SessionSidebar — non-color actionRequired signal", () => {
 	it("renders the 'needs you' signal with aria-label for an actionRequired row", () => {
 		renderSidebar({
@@ -615,5 +649,105 @@ describe("SessionSidebar — non-color actionRequired signal", () => {
 			expect(screen.queryByTestId("row-needs-you")).toBeNull();
 			unmount();
 		}
+	});
+});
+
+describe("SessionSidebar — resume conversation affordance (Task 13)", () => {
+	beforeEach(() => {
+		sendInputMock.mockClear();
+	});
+
+	function resumableWorkspace(overrides: Partial<RowSpec> = {}) {
+		return makeWorkspace([
+			{
+				id: "p1",
+				label: "claude",
+				state: "idle",
+				context: "",
+				lastActivityAt: 1000,
+				hasFailedReason: false,
+				resumePending: true,
+				resumeCommand: "claude --resume abc",
+				terminalSessionId: "term-1",
+				...overrides,
+			},
+		]);
+	}
+
+	it("renders the affordance when resumePending is true", () => {
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[resumableWorkspace()]}
+				onResumeConversation={vi.fn()}
+			/>,
+		);
+		expect(
+			screen.getByRole("button", { name: "Resume conversation" }),
+		).toBeInTheDocument();
+	});
+
+	it("does not render the affordance when resumePending is false", () => {
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[resumableWorkspace({ resumePending: false })]}
+				onResumeConversation={vi.fn()}
+			/>,
+		);
+		expect(
+			screen.queryByRole("button", { name: "Resume conversation" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("sends the resume command and notifies the parent on a valid command", () => {
+		const onResumeConversation = vi.fn();
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[resumableWorkspace()]}
+				onResumeConversation={onResumeConversation}
+			/>,
+		);
+		fireEvent.click(
+			screen.getByRole("button", { name: "Resume conversation" }),
+		);
+		expect(sendInputMock).toHaveBeenCalledWith(
+			"term-1",
+			expect.stringContaining("claude --resume abc"),
+		);
+		expect(onResumeConversation).toHaveBeenCalledWith("ws1", "wt1", "p1");
+	});
+
+	it("manual affordance re-validates at click: tampered command is never typed", () => {
+		const onResumeConversation = vi.fn();
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[
+					resumableWorkspace({ resumeCommand: "claude --resume abc; rm x" }),
+				]}
+				onResumeConversation={onResumeConversation}
+			/>,
+		);
+		fireEvent.click(
+			screen.getByRole("button", { name: "Resume conversation" }),
+		);
+		expect(sendInputMock).not.toHaveBeenCalled();
+		expect(onResumeConversation).toHaveBeenCalledWith("ws1", "wt1", "p1");
+	});
+
+	it("does not render the affordance for an inactive workspace", () => {
+		const workspace = { ...resumableWorkspace(), active: false };
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[workspace]}
+				onResumeConversation={vi.fn()}
+			/>,
+		);
+		expect(
+			screen.queryByRole("button", { name: "Resume conversation" }),
+		).not.toBeInTheDocument();
 	});
 });

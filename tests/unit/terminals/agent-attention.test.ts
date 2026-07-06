@@ -12,7 +12,6 @@ describe("isAgentProcess", () => {
 		["claude --print", "claude --print"],
 		["codex chat", "codex chat"],
 		["/usr/local/bin/claude --print", "/usr/local/bin/claude --print"],
-		["claude-1.2.3", "claude-1.2.3"],
 		["npx codex", "npx codex"],
 		["npx claude --help", "npx claude --help"],
 		["codex", null],
@@ -22,21 +21,37 @@ describe("isAgentProcess", () => {
 		// Detection must use first-token logic on the label, mirroring command-side rules.
 		["claude --print", null],
 		["codex chat", null],
-		["claude-1.2.3", null],
 		["/usr/local/bin/claude --print", null],
-	];
-	const negatives: Array<[string, string | null]> = [
+		// --- Superseded by spec §3's deliberate detection widening (unification
+		// onto detectAgentProvider) — these were negatives under the old
+		// first-token-only KNOWN_AGENTS matcher and are now positives. ---
+		// (a) command matching widens from first-token-only to token-anywhere for
+		// claude/codex/ezio (whisper-mount parity): "claude" is a trailing token.
 		["echo claude", "echo claude"],
+		// (c) label matching widens to loose word-boundary: with the command
+		// itself unmatched (a hyphenated suffix breaks the command regex), the
+		// label (same string here) still matches "codex"/"claude" as a
+		// hyphen-bounded word.
 		["npm run codex-test", "npm run codex-test"],
 		["claude-stub", "claude-stub"],
 		["claude-fake --x", "claude-fake --x"],
-		["", ""],
-		["shell 1", null],
+		// (c) label matching widens to anywhere-in-string word-boundary matching
+		// (not first-token-only), for adHoc shells (command null).
 		["working on codex", null],
 		["start claude", null],
 		["label only — codex", null],
 		["label only — claude-code", null],
+	];
+	const negatives: Array<[string, string | null]> = [
+		["", ""],
+		["shell 1", null],
 		["", null],
+		// Version-suffixed binaries are deliberately NOT detected (spec §3: the
+		// old KNOWN_AGENTS numeric-suffix rule is dropped). The command matcher
+		// already rejects `claude-1.2.3`, and matchLabel's `(?!-\d)` guard keeps
+		// the loose label path from re-detecting it when label === command.
+		["claude-1.2.3", "claude-1.2.3"],
+		["claude-1.2.3", null],
 	];
 
 	for (const [label, command] of positives) {
@@ -53,6 +68,53 @@ describe("isAgentProcess", () => {
 	it("detects an agent invoked via a Windows backslash path", () => {
 		expect(isAgentProcess("", "C:\\tools\\bin\\claude --print")).toBe(true);
 		expect(isAgentProcess("", "C:\\tools\\bin\\codex")).toBe(true);
+	});
+});
+
+describe("isAgentProcess — unified detection (spec §3, D3)", () => {
+	it("detects all five providers by command", () => {
+		expect(isAgentProcess("shell", "claude")).toBe(true);
+		expect(isAgentProcess("shell", "codex --full-auto")).toBe(true);
+		expect(isAgentProcess("shell", "ezio")).toBe(true);
+		expect(isAgentProcess("shell", "ai-ezio")).toBe(true);
+		expect(isAgentProcess("shell", "agent")).toBe(true); // cursor
+		expect(isAgentProcess("shell", "agy")).toBe(true); // antigravity
+	});
+
+	it("detects absolute paths and npx forms (claude/codex/ezio)", () => {
+		expect(isAgentProcess("shell", "/usr/local/bin/claude --resume abc")).toBe(
+			true,
+		);
+		expect(isAgentProcess("shell", "npx claude")).toBe(true);
+		expect(isAgentProcess("shell", "npx codex")).toBe(true);
+		expect(isAgentProcess("shell", "npx ezio")).toBe(true);
+		expect(isAgentProcess("shell", "claude-code")).toBe(true);
+	});
+
+	it("detects whisper-mount forms for whisper-capable providers", () => {
+		expect(isAgentProcess("shell", "whisper collab mount claude")).toBe(true);
+		expect(isAgentProcess("shell", "whisper collab mount codex")).toBe(true);
+		expect(isAgentProcess("shell", "whisper collab mount ezio")).toBe(true);
+	});
+
+	it("falls back to the label for adHoc shells (command null)", () => {
+		expect(isAgentProcess("claude", null)).toBe(true);
+		// Loose word-boundary label matching is a deliberate widening (spec §3):
+		// matches what the provider badge already did.
+		expect(isAgentProcess("Claude Code", null)).toBe(true);
+		expect(isAgentProcess("ezio", null)).toBe(true);
+		expect(isAgentProcess("plain shell", null)).toBe(false);
+	});
+
+	it("rejects argument-position generics and near-misses", () => {
+		expect(isAgentProcess("shell", "npx agent")).toBe(false);
+		expect(isAgentProcess("shell", "npm run agent")).toBe(false);
+		expect(isAgentProcess("shell", "python -m agy")).toBe(false);
+		expect(isAgentProcess("shell", "claudette")).toBe(false);
+		expect(isAgentProcess("shell", "claude-helper")).toBe(false);
+		expect(isAgentProcess("shell", "ai-ezio-helper")).toBe(false);
+		// Version-suffix parity deliberately dropped (spec §3).
+		expect(isAgentProcess("shell", "claude-1.2.3")).toBe(false);
 	});
 });
 

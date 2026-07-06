@@ -8,6 +8,12 @@ import { logRendererShellEvent } from "../../features/terminals/logic/shell-even
 type StartupMode = "loading" | "prompt" | "ready";
 
 type Options = {
+	// Sourced from the settings store (Task 4): the authoritative restore
+	// preference for deciding startup behavior. The persisted-workspace-state
+	// file's own `restorePreference` field is legacy input only, relevant for
+	// launches that predate the settings-store migration (Task 2 seeds it from
+	// that file); this hook no longer reads it directly.
+	restorePreference: RestorePreference;
 	setStartupMode: (mode: StartupMode) => void;
 	setStartupError: (err: string | null) => void;
 	setRestorePreference: (pref: RestorePreference) => void;
@@ -27,6 +33,7 @@ type Options = {
  */
 export function useStartupRestore(options: Options): void {
 	const {
+		restorePreference,
 		setStartupMode,
 		setStartupError,
 		setRestorePreference,
@@ -53,7 +60,7 @@ export function useStartupRestore(options: Options): void {
 					(w) => w.workspaceId !== (activeSaved?.workspaceId ?? ""),
 				);
 
-				setRestorePreference(result.restorePreference);
+				setRestorePreference(restorePreference);
 				setSavedSnapshot(snapshot);
 				setSavedDormantWorkspaces(dormantSaved);
 
@@ -61,16 +68,12 @@ export function useStartupRestore(options: Options): void {
 					setStartupMode("ready");
 					return;
 				}
-				if (result.restorePreference === "alwaysStartClean") {
+				if (restorePreference === "alwaysStartClean") {
 					setStartupMode("ready");
 					return;
 				}
-				if (result.restorePreference === "alwaysRestore") {
-					void restoreWorkspace(
-						snapshot,
-						result.restorePreference,
-						dormantSaved,
-					);
+				if (restorePreference === "alwaysRestore") {
+					void restoreWorkspace(snapshot, restorePreference, dormantSaved);
 					return;
 				}
 
@@ -104,11 +107,7 @@ export function useStartupRestore(options: Options): void {
 									liveSessionCount: liveSessions.length,
 								},
 							});
-							void restoreWorkspace(
-								snapshot,
-								result.restorePreference,
-								dormantSaved,
-							);
+							void restoreWorkspace(snapshot, restorePreference, dormantSaved);
 							return;
 						}
 					} catch {

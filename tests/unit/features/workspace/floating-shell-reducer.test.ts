@@ -36,6 +36,8 @@ const proc = (id: string): ProcessSession => ({
 	agentAttentionClearedAt: null,
 	agentDetected: false,
 	provider: null,
+	resumeCommand: null,
+	resumePending: false,
 });
 
 const base = (): WorkspaceState => createWorkspaceState([wt("a")]);

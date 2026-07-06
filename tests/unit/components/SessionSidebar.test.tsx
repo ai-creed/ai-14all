@@ -674,6 +674,32 @@ describe("SessionSidebar footer label", () => {
 	});
 });
 
+describe("SessionSidebar footer layout", () => {
+	it("stacks the footer into two rows: load button, then the icon actions", () => {
+		const { container } = renderSidebar({
+			palette: "dark",
+			onSetTheme: vi.fn(),
+			onOpenShortcutsHelp: vi.fn(),
+			onOpenSettings: vi.fn(),
+		});
+		const footer = container.querySelector(".shell-sidebar__footer--global");
+		const actions = container.querySelector(".shell-sidebar__footer-actions");
+		expect(footer).not.toBeNull();
+		expect(actions).not.toBeNull();
+		expect(actions!.parentElement).toBe(footer);
+
+		// Load workspace sits directly in the footer, on its own row.
+		const load = screen.getByRole("button", { name: /load workspace/i });
+		expect(load.parentElement).toBe(footer);
+
+		// All icon triggers share the actions row.
+		for (const name of [/switch theme/i, /keyboard shortcuts/i, /settings/i]) {
+			const btn = screen.getByRole("button", { name });
+			expect(actions!.contains(btn)).toBe(true);
+		}
+	});
+});
+
 describe("SessionSidebar repo collapse", () => {
 	it("toggles a repo via the chevron", () => {
 		const onToggleWorkspaceCollapsed = vi.fn();

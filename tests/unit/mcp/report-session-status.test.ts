@@ -16,6 +16,7 @@ import {
 } from "../../../services/mcp/agent-attention-bridge";
 import type {
 	AgentAttentionBridgeLike,
+	AgentResumeBridgeLike,
 	AgentAttentionLoggerLike,
 } from "../../../services/mcp/ai14all-mcp-server";
 
@@ -31,6 +32,7 @@ function stubResolver(map: Record<string, string>) {
 async function makeRig(
 	opts: {
 		attentionBridge?: { report: ReturnType<typeof vi.fn> };
+		resumeBridge?: { report: ReturnType<typeof vi.fn> };
 		attentionLogger?: { append: ReturnType<typeof vi.fn> };
 		resolver?: ReturnType<typeof stubResolver>;
 	} = {},
@@ -55,6 +57,10 @@ async function makeRig(
 		report: vi.fn().mockResolvedValue(undefined),
 	};
 
+	const resumeBridge = opts.resumeBridge ?? {
+		report: vi.fn().mockResolvedValue(undefined),
+	};
+
 	const attentionLogger = opts.attentionLogger ?? {
 		append: vi.fn().mockResolvedValue(undefined),
 	};
@@ -64,6 +70,7 @@ async function makeRig(
 		resolver,
 		noteBridge,
 		attentionBridge as AgentAttentionBridgeLike,
+		resumeBridge as AgentResumeBridgeLike,
 		{
 			port: 0,
 			host: "127.0.0.1",
@@ -82,6 +89,7 @@ async function makeRig(
 		client,
 		noteBridge,
 		attentionBridge,
+		resumeBridge,
 		attentionLogger,
 		resolver,
 		cleanup: async () => {

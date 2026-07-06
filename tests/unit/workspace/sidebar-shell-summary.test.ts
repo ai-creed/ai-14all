@@ -721,3 +721,70 @@ describe("deriveState process-path retirement", () => {
 		expect(summary.topRow?.state).toBe("exited");
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Workflow suppression (Task 3, spec §4, D1+D5)
+// ---------------------------------------------------------------------------
+
+describe("workflow suppression (spec §4, D1+D5)", () => {
+	const NOW = 1_000_000;
+
+	it("suppressActionRequired drops a process row to active/idle", () => {
+		const waitingProcess = proc({
+			lastActivityAt: NOW - 1_000,
+			lastOutputPreview: "Continue? (y/n)",
+		});
+
+		const normal = buildWorktreeProcessSummary([waitingProcess], NOW, 3);
+		expect(normal.rows[0].state).toBe("actionRequired");
+
+		const suppressed = buildWorktreeProcessSummary([waitingProcess], NOW, 3, {
+			suppressActionRequired: true,
+		});
+		// Recent activity → "active", never the red tier (spec §4).
+		expect(suppressed.rows[0].state).toBe("active");
+		expect(suppressed.topRow?.state).toBe("active");
+	});
+
+	it("suppressNonWorkflow ignores the mcp source entirely", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: {
+				mcp: reason("waiting", "mcp", NOW - 1_000, "needs an answer"),
+			},
+			processSummary: emptySummary,
+			now: NOW,
+			suppressNonWorkflow: true,
+		});
+		expect(display.state).not.toBe("actionRequired");
+	});
+
+	it("workflow source passes through while suppressed (escalation still NEEDS YOU)", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: {
+				workflow: reason(
+					"waiting",
+					"workflow",
+					NOW - 1_000,
+					"halted: round limit reached",
+				),
+			},
+			processSummary: emptySummary,
+			now: NOW,
+			suppressNonWorkflow: true,
+		});
+		expect(display.state).toBe("actionRequired");
+		expect(display.source).toBe("session");
+	});
+
+	it("workflow done yields ready while suppressed", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: {
+				workflow: reason("ready", "workflow", NOW - 1_000, "workflow done"),
+			},
+			processSummary: emptySummary,
+			now: NOW,
+			suppressNonWorkflow: true,
+		});
+		expect(display.state).toBe("ready");
+	});
+});

@@ -197,6 +197,34 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 
 import { App } from "../../../src/app/App";
 import { CommandRegistryProvider } from "../../../src/features/command-palette/components/CommandRegistryProvider";
+import { DEFAULT_PERSISTED_SETTINGS } from "../../../shared/models/persisted-settings";
+import type { RestorePreference } from "../../../shared/models/persisted-workspace-state";
+
+// The settings store (Task 4), not the legacy workspace-state file, now
+// decides startup restore behavior — `useStartupRestore` reads
+// `settings.restorePreference` instead of `readRestoreState()`'s own field.
+// Keep this in sync with each test's `readRestoreStateMock` value so the
+// legacy-file scenario being exercised still drives the same behavior.
+function installSettingsBridge(
+	restorePreference: RestorePreference = "prompt",
+) {
+	(window as unknown as { ai14all?: unknown }).ai14all = {
+		settings: {
+			initial: { ...DEFAULT_PERSISTED_SETTINGS, restorePreference },
+			initialFirstRun: false,
+			read: vi.fn().mockResolvedValue({
+				settings: { ...DEFAULT_PERSISTED_SETTINGS, restorePreference },
+				firstRun: false,
+			}),
+			write: vi.fn().mockImplementation(async (patch) => ({
+				...DEFAULT_PERSISTED_SETTINGS,
+				restorePreference,
+				...patch,
+			})),
+		},
+		events: { onSettingsChanged: vi.fn().mockReturnValue(() => {}) },
+	};
+}
 
 describe("App — Phase 6 default shell", () => {
 	beforeEach(() => {
@@ -225,6 +253,7 @@ describe("App — Phase 6 default shell", () => {
 		mockReadCommitDetail.mockResolvedValue(null);
 		outputListenersRef.current = [];
 		openPickerListenerRef.current = null;
+		installSettingsBridge("prompt");
 	});
 
 	it("creates one default shell when the selected worktree has no processes", async () => {
@@ -539,6 +568,7 @@ describe("App — Phase 6 default shell", () => {
 			},
 		]);
 
+		installSettingsBridge("alwaysRestore");
 		render(<App />, { wrapper: CommandRegistryProvider });
 
 		// The restored shell occupies slot 0 even with no live terminal session yet

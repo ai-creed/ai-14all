@@ -43,6 +43,7 @@ function sessionWith(
 		navLocation: null,
 		floatingShellIds: [],
 		expandedFloatingShellId: null,
+		mcpReportingActive: false,
 	} as WorktreeSession;
 }
 
@@ -83,6 +84,7 @@ function makeWorktreeSession(over: {
 		navLocation: null,
 		floatingShellIds: [],
 		expandedFloatingShellId: null,
+		mcpReportingActive: false,
 	} as WorktreeSession;
 }
 

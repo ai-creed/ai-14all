@@ -62,6 +62,21 @@ export type MCPLogEvent = {
 };
 
 /**
+ * A rejected agent-resume registration: the `register_agent_session` MCP tool
+ * received a `resumeCommand` that failed validation (spec §5.5 requires every
+ * rejection to be logged). Unlike {@link MCPLogEvent}, `provider` is the raw
+ * free-text provider string the agent reported (not the constrained
+ * {@link AttentionLogProvider} enum), and `reason` is the validator verdict.
+ */
+export type MCPResumeRejectedLogEvent = {
+	type: "mcp_resume_rejected";
+	ts: number;
+	worktreeId: string;
+	provider: string;
+	reason: string;
+};
+
+/**
  * A process lifecycle event: an agent process started or exited.
  *
  * `terminalSessionId` is the backend `TerminalSession.id` (the PTY-backed
@@ -108,6 +123,7 @@ export type ResolutionLogEvent = {
 export type AttentionLogEvent =
 	| ClassifierLogEvent
 	| MCPLogEvent
+	| MCPResumeRejectedLogEvent
 	| LifecycleLogEvent
 	| ResolutionLogEvent;
 
@@ -138,6 +154,14 @@ const MCPLogEventSchema = z.object({
 	// mirroring MCPLogEvent.task exactly (not an optional key).
 	task: z.union([z.string(), z.null(), z.undefined()]),
 	nextAction: z.string().nullable(),
+});
+
+const MCPResumeRejectedLogEventSchema = z.object({
+	type: z.literal("mcp_resume_rejected"),
+	ts: z.number(),
+	worktreeId: z.string(),
+	provider: z.string(),
+	reason: z.string(),
 });
 
 const LifecycleLogEventSchema = z.object({
@@ -180,6 +204,7 @@ const ResolutionLogEventSchema = z.object({
 export const AttentionLogEventSchema = z.discriminatedUnion("type", [
 	ClassifierLogEventSchema,
 	MCPLogEventSchema,
+	MCPResumeRejectedLogEventSchema,
 	LifecycleLogEventSchema,
 	ResolutionLogEventSchema,
 ]);

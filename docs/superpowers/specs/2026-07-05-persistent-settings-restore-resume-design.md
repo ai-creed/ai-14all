@@ -167,11 +167,13 @@ Resume opens the conversation idle — no agent starts working uninvited. A stal
 
 ### 5.5 Safety validation
 
-`resumeCommand` is agent-authored text the app will later type into a shell — an injection surface. Validate at report time (main process; invalid reports rejected with an error result and logged via the attention logger) and re-validate before replay (defense in depth):
+`resumeCommand` is agent-authored text the app will later type into an interactive shell (the replay path uses the same input-typing mechanism as today's command replay) — an injection surface. Validation is a **character allowlist**, not a metacharacter blacklist: blacklists leak (newline, carriage return, a single `&`, `||`, redirection, quotes, variable expansion would all have slipped past an enumerated deny list). The contract:
 
+- The entire string must match `^[A-Za-z0-9 ._/:=@-]+$` — letters, digits, space, and `. _ / : = @ -` only. Every shell control operator and control character (`;`, `&`, `|`, backticks, `$`, parentheses, quotes, `<`, `>`, `#`, `!`, `*`, `?`, `~`, newline, carriage return, tab, NUL, all other bytes) is thereby unrepresentable, rather than enumerated. Legitimate resume invocations (`<binary> <subcommand|flags> <uuid-ish id>`) fit comfortably. Widening the set later is a deliberate schema change; it must never reintroduce characters with shell meaning.
 - First token must be a known agent binary (the provider registry serves as allowlist — used for validation only, not per-provider strategy)
-- No shell metacharacters: `;`, `&&`, `|`, backticks, `$(`
 - Length cap (256 chars)
+
+Enforced at report time (main process; invalid reports rejected with an error result and logged via the attention logger) and re-validated immediately before replay (defense in depth — a stored handle is re-checked even if it predates a rule change).
 
 ### 5.6 Version skew
 
@@ -199,7 +201,7 @@ Resume opens the conversation idle — no agent starts working uninvited. A stal
 **Unit** (mirroring `tests/unit/workspace/workspace-persistence*.test.ts` patterns; reuse existing helpers where they fit):
 
 - `settings-service`: read/write/corrupt/newer-schema/write-chain; migration seeding matrix
-- Resume-command validation: allowlist, metacharacters, length — table-driven
+- Resume-command validation: character-allowlist regex, binary allowlist, length — table-driven, with explicit negative cases for newline, carriage return, single `&`, `&&`, `||`, `;`, pipes, redirection (`<`, `>`), backticks, `$(`, `$VAR`, quotes, and tab
 - Hydration queue: order, skip-active, skip-hydrated-mid-queue, error-continues, abort-on-quit
 - Reducer + snapshot round-trip with `resumeCommand`; old-snapshot parse (absent → null)
 - Pending-map behavior across multiple workspaces

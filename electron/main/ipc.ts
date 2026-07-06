@@ -14,6 +14,7 @@ import {
 } from "../../shared/contracts/agent-install.js";
 import { openExternalUrl } from "./services/open-external.js";
 import type { UsageHost } from "./services/usage-host.js";
+import type { UsageSettingsBridge } from "./services/usage-settings-bridge.js";
 import { consumeE2eGitFault } from "./e2e-git-faults.js";
 import { consumeE2eTerminalCreateDelay } from "./e2e-terminal-create-delay.js";
 import {
@@ -34,6 +35,7 @@ import {
 	ReadGitSummarySchema,
 	ReadWorkspaceRestoreStateSchema,
 	WriteWorkspaceRestoreStateSchema,
+	WriteSettingsSchema,
 	ReadGitCommitHistorySchema,
 	ReadGitCommitDetailSchema,
 	ReadGitCommitFileDiffSchema,
@@ -59,6 +61,7 @@ import {
 	type AttentionLogEvent,
 } from "../../services/diagnostics/agent-attention-logger.js";
 import type { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
+import type { SettingsService } from "../../services/settings/settings-service.js";
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 import type { ShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
 import type { AgentAttentionLogger } from "../../services/diagnostics/agent-attention-logger.js";
@@ -132,17 +135,20 @@ export function registerIpcHandlers(
 	mainWindow: BrowserWindow,
 	{
 		workspacePersistence,
+		settingsService,
 		workspaceRegistry,
 		worktreeService,
 		shellEventLog,
 		agentAttentionLogger,
 		review,
 		usageHost,
+		usageSettingsBridge,
 		installUpdate,
 		closeGate,
 		getCortexEnabled,
 	}: {
 		workspacePersistence: WorkspacePersistenceService;
+		settingsService: SettingsService;
 		workspaceRegistry: WorkspaceRegistryService;
 		worktreeService: WorktreeService;
 		shellEventLog?: ShellEventLogService;
@@ -157,6 +163,7 @@ export function registerIpcHandlers(
 			worktreePathResolver: WorktreePathResolver;
 		};
 		usageHost?: UsageHost;
+		usageSettingsBridge?: Pick<UsageSettingsBridge, "refresh">;
 		installUpdate?: () => void;
 		closeGate?: import("./close-gate.js").CloseGate;
 		getCortexEnabled: () => boolean;
@@ -522,6 +529,37 @@ export function registerIpcHandlers(
 	ipcMain.handle("workspace:writeRestoreState", (_event, raw: unknown) => {
 		const { state } = WriteWorkspaceRestoreStateSchema.parse(raw);
 		return workspacePersistence.writeState(state);
+	});
+
+	// --- Settings ---
+
+	ipcMain.handle("settings:read", () => settingsService.readState());
+
+	ipcMain.handle("settings:write", async (_event, raw: unknown) => {
+		const { patch } = WriteSettingsSchema.parse(raw);
+		const merged = await settingsService.writeState(patch);
+		// The Settings dialog's Usage group writes enabled / includeUntracked /
+		// chipRange through this single funnel rather than the usage:* IPC
+		// handlers, so without live-applying here the running UsageHost worker
+		// keeps stale settings until app restart even though the persisted values
+		// flipped. writeState() above already persisted the merged result, so we
+		// apply through the host's NON-persisting appliers (applyChipRange /
+		// applyIncludeUntracked) and setEnabled() (start/stop only) — none of
+		// which write settings back, so this cannot loop into another
+		// settingsService write or double-write settings.json. Finally refresh the
+		// usage-settings-bridge's in-memory snapshot from the merged result so a
+		// later popover chipRange/includeUntracked click doesn't seed the worker
+		// from — or write back — a stale value.
+		if (patch.usageTelemetry) {
+			usageHost?.applyChipRange(merged.usageTelemetry.chipRange);
+			usageHost?.applyIncludeUntracked(merged.usageTelemetry.includeUntracked);
+			usageHost?.setEnabled(merged.usageTelemetry.enabled);
+			usageSettingsBridge?.refresh(merged);
+		}
+		for (const win of BrowserWindow.getAllWindows()) {
+			win.webContents.send("settings:changed", merged);
+		}
+		return merged;
 	});
 
 	// --- System ---

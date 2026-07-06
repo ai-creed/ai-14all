@@ -156,6 +156,34 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 
 import { App } from "../../../src/app/App";
 import { CommandRegistryProvider } from "../../../src/features/command-palette/components/CommandRegistryProvider";
+import { DEFAULT_PERSISTED_SETTINGS } from "../../../shared/models/persisted-settings";
+import type { RestorePreference } from "../../../shared/models/persisted-workspace-state";
+
+// The settings store (Task 4), not the legacy workspace-state file, now
+// decides startup restore behavior — `useStartupRestore` reads
+// `settings.restorePreference` instead of `readRestoreState()`'s own field.
+// Keep this in sync with each test's `readRestoreStateMock` value so the
+// legacy-file scenario being exercised still drives the same behavior.
+function installSettingsBridge(
+	restorePreference: RestorePreference = "prompt",
+) {
+	(window as unknown as { ai14all?: unknown }).ai14all = {
+		settings: {
+			initial: { ...DEFAULT_PERSISTED_SETTINGS, restorePreference },
+			initialFirstRun: false,
+			read: vi.fn().mockResolvedValue({
+				settings: { ...DEFAULT_PERSISTED_SETTINGS, restorePreference },
+				firstRun: false,
+			}),
+			write: vi.fn().mockImplementation(async (patch) => ({
+				...DEFAULT_PERSISTED_SETTINGS,
+				restorePreference,
+				...patch,
+			})),
+		},
+		events: { onSettingsChanged: vi.fn().mockReturnValue(() => {}) },
+	};
+}
 
 describe("App — Phase 5 restore flow", () => {
 	beforeEach(() => {
@@ -186,6 +214,7 @@ describe("App — Phase 5 restore flow", () => {
 			],
 		});
 		writeRestoreStateMock.mockResolvedValue(undefined);
+		installSettingsBridge("prompt");
 	});
 
 	it("shows the restore prompt when a promptable snapshot exists", async () => {
@@ -487,6 +516,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
+		installSettingsBridge("alwaysRestore");
 		render(<App />, { wrapper: CommandRegistryProvider });
 
 		await waitFor(() => {
@@ -565,6 +595,7 @@ describe("App — Phase 5 restore flow", () => {
 		]);
 		listMock.mockResolvedValue([]);
 
+		installSettingsBridge("alwaysRestore");
 		render(<App />, { wrapper: CommandRegistryProvider });
 
 		await waitFor(() => {
@@ -660,6 +691,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
+		installSettingsBridge("alwaysRestore");
 		render(<App />, { wrapper: CommandRegistryProvider });
 
 		await waitFor(() => {
@@ -776,6 +808,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
+		installSettingsBridge("alwaysRestore");
 		render(<App />, { wrapper: CommandRegistryProvider });
 
 		// Workspace should load — the repo was found even though the worktree wasn't
@@ -836,6 +869,7 @@ describe("App — Phase 5 restore flow", () => {
 			new Error("No such file or directory"),
 		);
 
+		installSettingsBridge("alwaysRestore");
 		render(<App />, { wrapper: CommandRegistryProvider });
 
 		await screen.findByRole("button", { name: "Load" });
@@ -881,6 +915,7 @@ describe("App — Phase 5 restore flow", () => {
 			new Error("No such file or directory"),
 		);
 
+		installSettingsBridge("alwaysRestore");
 		render(<App />, { wrapper: CommandRegistryProvider });
 
 		await screen.findByRole("button", { name: "Load" });
@@ -1081,6 +1116,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
+		installSettingsBridge("alwaysRestore");
 		render(<App />, { wrapper: CommandRegistryProvider });
 
 		// Wait for the app to finish auto-restoring (feature-a has no processes so createMock isn't called for it)
@@ -1387,6 +1423,7 @@ describe("App — Phase 5 restore flow", () => {
 			new Error("ENOENT: no such file or directory, realpath '/missing'"),
 		);
 
+		installSettingsBridge("alwaysRestore");
 		render(<App />, { wrapper: CommandRegistryProvider });
 
 		expect(
@@ -1449,6 +1486,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
+		installSettingsBridge("alwaysRestore");
 		render(<App />, { wrapper: CommandRegistryProvider });
 
 		// Chip bar renders; note sheet is closed by default
@@ -1524,6 +1562,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
+		installSettingsBridge("alwaysRestore");
 		render(<App />, { wrapper: CommandRegistryProvider });
 
 		const sidebar = await screen.findByRole("navigation", {
@@ -1600,6 +1639,7 @@ describe("App — Phase 5 restore flow", () => {
 			},
 		]);
 
+		installSettingsBridge("alwaysRestore");
 		render(<App />, { wrapper: CommandRegistryProvider });
 
 		// Wait for initial restore to complete

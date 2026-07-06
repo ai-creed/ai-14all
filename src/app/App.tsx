@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
-	PersistedWorktreeSession,
 	PersistedSavedWorkspace,
 	PersistedWorkspaceStateV2,
+	PersistedWorktreeSession,
 	RestorePreference,
 	WorkspaceSnapshot,
 } from "../../shared/models/persisted-workspace-state";
-import { buildSavedWorkspace } from "../features/workspace/logic/workspace-persistence";
+import {
+	buildSavedWorkspace,
+	mergePendingIntoSaved,
+	type PendingRestoreEntry,
+} from "../features/workspace/logic/workspace-persistence";
 import { RepositoryInput } from "../features/repository/RepositoryInput";
 import { RestorePrompt } from "../features/repository/RestorePrompt";
 import { type SessionSidebarWorkspace } from "../features/workspace/components/SessionSidebar";
@@ -43,6 +47,7 @@ import { createSamanthaSliceBuilder } from "../features/workspace/logic/samantha
 import { findWorkspaceForWorktree } from "../features/workspace/logic/focus-target";
 import { useNoteBridgeReceiver } from "../features/workspace/hooks/use-note-bridge-receiver";
 import { attachAgentAttentionBridge } from "../features/terminals/logic/agent-attention-renderer-bridge";
+import { useAgentResumeBridge } from "./hooks/use-agent-resume-bridge";
 import type { GitChangeStatus } from "../../shared/models/git-change";
 import {
 	repository as repositoryClient,
@@ -67,6 +72,7 @@ import { detectPlatform } from "./shortcut-registry";
 import { useWindowFocus } from "./hooks/use-window-focus";
 import { useWorkspacePersistence } from "./hooks/use-workspace-persistence";
 import { useWorkspaceLifecycle } from "./hooks/use-workspace-lifecycle";
+import { useBackgroundHydration } from "./hooks/use-background-hydration";
 import { useWorkspaceRemoval } from "./hooks/use-workspace-removal";
 import { useWorktreeSelection } from "./hooks/use-worktree-selection";
 import { usePaneResizers } from "./hooks/use-pane-resizers";
@@ -89,6 +95,7 @@ import { useGitActions } from "./hooks/use-git-actions";
 import { useProcessActions } from "./hooks/use-process-actions";
 import { useWorktreeActions } from "./hooks/use-worktree-actions";
 import { useStartupRestore } from "./hooks/use-startup-restore";
+import { SettingsProvider, useSettings } from "./hooks/use-settings";
 import { useGitSummaryLoader } from "./hooks/use-git-summary-loader";
 import { useDefaultShellOnEmptyWorktree } from "./hooks/use-default-shell-on-empty-worktree";
 import { useCreateWorktreePreview } from "./hooks/use-create-worktree-preview";
@@ -117,6 +124,7 @@ import { TerminalChromeHeader } from "../features/terminals/components/TerminalC
 import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
 import { PluginsPanelDialog } from "../features/plugins/components/PluginsPanelDialog";
 import { PhoneBridgeDialog } from "../components/settings/PhoneBridgeDialog";
+import { SettingsDialog } from "../features/settings/components/SettingsDialog";
 import {
 	useWhisperState,
 	type WhisperAttentionDispatch,
@@ -151,8 +159,13 @@ type StartupMode = "loading" | "prompt" | "ready";
  */
 const NOOP = () => {};
 
-export function App() {
+/**
+ * Inner app component — rendered inside `SettingsProvider` (see the exported
+ * `App` at the bottom of this file) so it can consume `useSettings()`.
+ */
+function AppContent() {
 	const { resolvedTheme, palette, setTheme } = useTheme();
+	const { settings, update: updateSettings } = useSettings();
 	const terminalTheme = useMemo(() => terminalThemeFor(palette), [palette]);
 	const appPlatform = useMemo(detectPlatform, []);
 	const {
@@ -315,6 +328,28 @@ export function App() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [startupMode]);
 
+	// Agent conversation-resume bridge: main forwards `register_agent_session`
+	// registrations; route the resume command into the workspace that owns the
+	// reported terminal session (across ALL workspaces), same routing shape as
+	// the agent-attention bridge above.
+	const dispatchResumeToWorkspace = useCallback(
+		(
+			workspaceId: string,
+			action: {
+				type: "session/setResumeCommand";
+				terminalSessionId: string;
+				resumeCommand: string;
+			},
+		) => {
+			createScopedWorkspaceDispatch(workspaceId)(action);
+		},
+		[createScopedWorkspaceDispatch],
+	);
+	useAgentResumeBridge({
+		appWorkspacesRef,
+		dispatchToWorkspace: dispatchResumeToWorkspace,
+	});
+
 	// Whisper workflow lens: the driver pushes per-worktree state keyed by
 	// worktreeId across ALL workspaces, so its attention dispatch must route to
 	// the workspace that owns the worktree — the same routing the agent-attention
@@ -376,8 +411,11 @@ export function App() {
 
 	const [startupError, setStartupError] = useState<string | null>(null);
 	const [restoreWarning, setRestoreWarning] = useState<string | null>(null);
+	// Tagged pending-restore map: worktreeId -> { workspaceId, session }. The tag
+	// lets the persist path re-serialise each pending session into its OWNING
+	// workspace snapshot, including background-hydrated (inactiveLive) workspaces.
 	const [pendingRestoreSessions, setPendingRestoreSessions] = useState<
-		Record<string, PersistedWorktreeSession>
+		Record<string, PendingRestoreEntry>
 	>({});
 
 	// ---------------------------------------------------------------------------
@@ -400,6 +438,7 @@ export function App() {
 	>(null);
 
 	useStartupRestore({
+		restorePreference: settings.restorePreference,
 		setStartupMode,
 		setStartupError,
 		setRestorePreference,
@@ -674,52 +713,39 @@ export function App() {
 	// ---------------------------------------------------------------------------
 
 	const persistableStateV2: PersistedWorkspaceStateV2 = useMemo(() => {
+		// Group pending sessions by their OWNING workspace id so each workspace's
+		// snapshot re-serialises only its own pending (unvisited / missing-worktree)
+		// sessions — spec §4.4, applied to non-active workspaces too, not just the
+		// active one as the previous active-only orphan merge did.
+		const pendingByWorkspaceId = new Map<string, PersistedWorktreeSession[]>();
+		for (const entry of Object.values(pendingRestoreSessions)) {
+			const list = pendingByWorkspaceId.get(entry.workspaceId);
+			if (list) list.push(entry.session);
+			else pendingByWorkspaceId.set(entry.workspaceId, [entry.session]);
+		}
+
 		const workspaces = appWorkspaces.workspaceOrder.flatMap((wsId) => {
 			const ws = appWorkspaces.workspacesById[wsId];
 			if (!ws) return [];
 
-			// For dormant workspaces, preserve the original persisted snapshot
+			const pendingForWs = pendingByWorkspaceId.get(ws.workspaceId) ?? [];
+
+			// Dormant workspaces: preserve the original persisted snapshot, but still
+			// re-serialise any of its pending sessions whose worktree is missing.
 			if (!ws.workspaceState && ws.persistedSnapshot) {
-				return [ws.persistedSnapshot];
+				return [mergePendingIntoSaved(ws.persistedSnapshot, pendingForWs)];
 			}
 			if (!ws.workspaceState) return [];
 
-			// Build live snapshot, merging in any orphaned pending sessions
+			// Live workspaces (active or background-hydrated inactiveLive): build from
+			// runtime state, then re-serialise pending sessions absent from it.
 			const base = buildSavedWorkspace(
 				ws.workspaceId,
 				ws.repository.rootPath,
 				ws.repository.repoId ?? null,
 				ws.workspaceState,
 			);
-
-			// For the active workspace, include orphaned pending sessions
-			if (
-				ws.workspaceId === appWorkspaces.activeWorkspaceId &&
-				Object.keys(pendingRestoreSessions).length > 0
-			) {
-				const baseIds = new Set(
-					base.snapshot.worktreeSessions.map((s) => s.worktreeId),
-				);
-				const orphaned = Object.values(pendingRestoreSessions).filter(
-					(s) => !baseIds.has(s.worktreeId),
-				);
-				if (orphaned.length > 0) {
-					return [
-						{
-							...base,
-							snapshot: {
-								...base.snapshot,
-								worktreeSessions: [
-									...base.snapshot.worktreeSessions,
-									...orphaned,
-								],
-							},
-						},
-					];
-				}
-			}
-
-			return [base];
+			return [mergePendingIntoSaved(base, pendingForWs)];
 		});
 
 		// When no workspaces are loaded but we have a saved snapshot (e.g. after
@@ -851,6 +877,7 @@ export function App() {
 	const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
 	const [pluginsDialogOpen, setPluginsDialogOpen] = useState(false);
 	const [phoneBridgeDialogOpen, setPhoneBridgeDialogOpen] = useState(false);
+	const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 
 	// Launches a single command in a new pinned terminal for the collab flow.
 	// Spawns a session, registers it as a process, and sends the command; uses a
@@ -892,6 +919,8 @@ export function App() {
 				agentAttentionClearedAt: null,
 				agentDetected: false,
 				provider: null,
+				resumeCommand: null,
+				resumePending: false,
 			};
 			// An empty-slot launcher passes a slotIndex to land in THAT slot; the
 			// chrome bar omits it and auto-places (fill first empty, else promote).
@@ -1046,6 +1075,7 @@ export function App() {
 
 	const {
 		activateWorkspace,
+		hydrateWorkspace,
 		handleLoadPath,
 		restoreWorkspace,
 		handleRestoreDecision,
@@ -1062,6 +1092,9 @@ export function App() {
 		setSavedSnapshot,
 		setRestorePreference,
 		setPendingRestoreSessions,
+		persistRestorePreference: (preference) => {
+			void updateSettings({ restorePreference: preference });
+		},
 		setStartupMode,
 		setStartupError,
 		setError,
@@ -1071,12 +1104,24 @@ export function App() {
 		sendInput,
 		adoptSession,
 		resetDefaultShellEnsured,
+		agentResume: settings.agentResume,
 	});
 
 	// Late-bind `restoreWorkspace` so the startup-restore effect (declared
 	// earlier in the body) can call into the lifecycle hook even though that
 	// hook is set up after terminal-runtime and default-shell deps resolve.
 	restoreWorkspaceRef.current = restoreWorkspace;
+
+	// Background hydration queue (spec §restore-depth): sequentially warms
+	// every dormant, non-active saved workspace once startup settles, but only
+	// when the user opted into eager state restore. Gated off for
+	// "activeOnly" so those users never pay the background IPC cost.
+	useBackgroundHydration({
+		enabled: settings.restoreDepth === "stateEagerTerminalsLazy",
+		startupMode,
+		appWorkspaces,
+		hydrateWorkspace,
+	});
 
 	useGitSummaryLoader({
 		workspaceId: activeWorkspaceId,
@@ -1222,6 +1267,7 @@ export function App() {
 			dispatch,
 			activateWorkspace,
 			recreatePersistedProcesses,
+			agentResume: settings.agentResume,
 		});
 
 	const { handleConfirmCreateWorktree, handleConfirmRemoveWorktree } =
@@ -1950,10 +1996,21 @@ export function App() {
 						// sidebar's collapse/expand controls own row visibility, so the
 						// rollup must never silently drop processes 4+ (they were
 						// unreachable when capped at 3).
+						// Workflow suppression (spec §4): while a whisper workflow is
+						// running or paused with a live daemon, the workflow lens is the
+						// sole verdict authority for this worktree's attention.
+						const lensState = whisperStates.get(worktreeId);
+						const workflowSuppressed =
+							lensState != null &&
+							lensState.daemonAlive &&
+							lensState.workflow != null &&
+							(lensState.workflow.status === "running" ||
+								lensState.workflow.status === "paused");
 						const processSummary = buildWorktreeProcessSummary(
 							processes,
 							sidebarNow,
 							processes.length,
+							{ suppressActionRequired: workflowSuppressed },
 						);
 						processesByWorktreeId[worktreeId] = processSummary;
 						taskByWorktreeId[worktreeId] = session.task ?? null;
@@ -1962,6 +2019,7 @@ export function App() {
 							processSummary,
 							now: sidebarNow,
 							agentAttentionClearedAt: session.agentAttentionClearedAt,
+							suppressNonWorkflow: workflowSuppressed,
 						});
 						attentionByWorktreeId[worktreeId] =
 							display.state === "actionRequired"
@@ -2198,6 +2256,7 @@ export function App() {
 							palette={palette}
 							onSetTheme={setTheme}
 							onOpenShortcutsHelp={() => setShortcutsHelpOpen(true)}
+							onOpenSettings={() => setSettingsDialogOpen(true)}
 							expandedProcessWorktreeIds={expandedProcessWorktreeIds}
 							onToggleProcessExpanded={toggleProcessExpanded}
 						/>
@@ -2449,6 +2508,11 @@ export function App() {
 								}}
 							/>
 
+							<SettingsDialog
+								open={settingsDialogOpen}
+								onOpenChange={setSettingsDialogOpen}
+							/>
+
 							{workflowDetailTarget && (
 								<WorkflowDetail
 									open
@@ -2594,5 +2658,13 @@ export function App() {
 				/>
 			</TooltipProvider>
 		</ToastProvider>
+	);
+}
+
+export function App() {
+	return (
+		<SettingsProvider>
+			<AppContent />
+		</SettingsProvider>
 	);
 }

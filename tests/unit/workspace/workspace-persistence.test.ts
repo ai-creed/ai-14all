@@ -5,6 +5,7 @@ import {
 	buildWorkspaceSnapshot,
 	buildWorktreeIdRebaseMapping,
 	findSavedWorkspaceMatch,
+	mergePendingIntoSaved,
 	rebaseSnapshotPaths,
 	reconcileSnapshotToWorktrees,
 	shouldReattachSnapshot,
@@ -14,8 +15,14 @@ import {
 	createWorkspaceState,
 	workspaceReducer,
 } from "../../../src/features/workspace/logic/workspace-state";
-import { PersistedWorkspaceStateSchema } from "../../../shared/models/persisted-workspace-state";
-import type { WorkspaceSnapshot } from "../../../shared/models/persisted-workspace-state";
+import {
+	PersistedProcessSessionSchema,
+	PersistedWorkspaceStateSchema,
+} from "../../../shared/models/persisted-workspace-state";
+import type {
+	PersistedSavedWorkspace,
+	WorkspaceSnapshot,
+} from "../../../shared/models/persisted-workspace-state";
 
 it("serializes multiple workspaces into one persisted file", () => {
 	const parsed = PersistedWorkspaceStateSchema.parse({
@@ -79,6 +86,8 @@ describe("buildWorkspaceSnapshot", () => {
 				agentAttentionClearedAt: null,
 				agentDetected: false,
 				provider: null,
+				resumeCommand: null,
+				resumePending: false,
 			},
 		});
 		state = workspaceReducer(state, {
@@ -126,6 +135,7 @@ describe("buildWorkspaceSnapshot", () => {
 							command: null,
 							pinned: false,
 							terminalSessionId: "terminal-live",
+							resumeCommand: null,
 						},
 					],
 				},
@@ -142,6 +152,65 @@ describe("buildWorkspaceSnapshot", () => {
 		expect(snapshot.commandPresets).toEqual(DEFAULT_COMMAND_PRESETS);
 		expect(snapshot.worktreeSessions).toEqual([]);
 		expect(snapshot.selectedWorktreeId).toBeNull();
+	});
+
+	it("round-trips resumeCommand", () => {
+		let state = createWorkspaceState([
+			{
+				id: "main",
+				repositoryId: "repo-1",
+				branchName: "main",
+				path: "/repo",
+				label: "main",
+				isMain: true,
+			},
+		]);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: {
+				id: "process-1",
+				workspaceId: "workspace-1",
+				worktreeId: "main",
+				terminalSessionId: "terminal-live",
+				origin: "adHoc",
+				presetId: null,
+				label: "shell 1",
+				command: null,
+				status: "running",
+				lastActivityAt: null,
+				lastOutputPreview: null,
+				exitCode: null,
+				pinned: false,
+				attentionState: "idle",
+				agentAttentionReasons: {},
+				agentAttentionClearedAt: null,
+				agentDetected: false,
+				provider: null,
+				resumeCommand: "claude --resume abc",
+				resumePending: false,
+			},
+		});
+
+		const snap = buildWorkspaceSnapshot("/repo", null, state);
+
+		expect(snap.worktreeSessions[0].processSessions[0].resumeCommand).toBe(
+			"claude --resume abc",
+		);
+	});
+});
+
+describe("PersistedProcessSessionSchema", () => {
+	it("old persisted snapshots parse with resumeCommand defaulting to null", () => {
+		const parsed = PersistedProcessSessionSchema.parse({
+			id: "p1",
+			origin: "adHoc",
+			presetId: null,
+			label: "zsh",
+			command: null,
+			pinned: false,
+		});
+		expect(parsed.resumeCommand).toBe(null);
 	});
 });
 
@@ -376,6 +445,8 @@ it("includes terminalSessionId in buildWorkspaceSnapshot output", () => {
 			agentAttentionClearedAt: null,
 			agentDetected: false,
 			provider: null,
+			resumeCommand: null,
+			resumePending: false,
 		},
 	});
 
@@ -1027,5 +1098,58 @@ describe("buildWorktreeIdRebaseMapping", () => {
 		expect(buildWorktreeIdRebaseMapping(snap, "/old", "/new")).toEqual({
 			"/old/a": "/new/a",
 		});
+	});
+});
+
+function makeSavedWorkspace(
+	repositoryPath: string,
+	sessions: WorkspaceSnapshot["worktreeSessions"],
+): PersistedSavedWorkspace {
+	return {
+		workspaceId: repositoryPath,
+		repositoryPath,
+		repoId: null,
+		snapshot: {
+			repositoryPath,
+			repoId: null,
+			selectedWorktreeId: sessions[0]?.worktreeId ?? null,
+			commandPresets: [],
+			worktreeSessions: sessions,
+		},
+	};
+}
+
+describe("mergePendingIntoSaved", () => {
+	it("appends sessions whose worktree is missing from the snapshot", () => {
+		const saved = makeSavedWorkspace("/repos/b", [makeSession("/repos/b")]);
+		const orphan = makeSession("/repos/b-deleted-worktree");
+		const merged = mergePendingIntoSaved(saved, [orphan]);
+		expect(merged.snapshot.worktreeSessions.map((s) => s.worktreeId)).toEqual([
+			"/repos/b",
+			"/repos/b-deleted-worktree",
+		]);
+	});
+
+	it("replaces a present-but-empty session with the rich pending version", () => {
+		// restoreSnapshot only ever materialises the SELECTED worktree into live
+		// state; buildWorkspaceSnapshot then re-serializes every OTHER worktree
+		// as present-but-empty. A pending entry means "the live copy is an
+		// unmaterialized placeholder" — the pending version must win, replacing
+		// (not duplicating) the placeholder so its rich data survives the write.
+		const placeholder = makeSession("/repos/b");
+		const saved = makeSavedWorkspace("/repos/b", [placeholder]);
+		const richPending = makeSession("/repos/b", "resume here");
+
+		const merged = mergePendingIntoSaved(saved, [richPending]);
+
+		expect(merged.snapshot.worktreeSessions).toHaveLength(1);
+		expect(
+			merged.snapshot.worktreeSessions.find((s) => s.worktreeId === "/repos/b"),
+		).toBe(richPending);
+	});
+
+	it("returns the same reference when the pending list is empty", () => {
+		const saved = makeSavedWorkspace("/repos/b", [makeSession("/repos/b")]);
+		expect(mergePendingIntoSaved(saved, [])).toBe(saved);
 	});
 });

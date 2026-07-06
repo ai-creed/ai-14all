@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	DEFAULT_TERMINAL_FONT_SIZE,
 	type FontSizeAction,
@@ -48,7 +48,9 @@ describe("persistence", () => {
 describe("useTerminalFontSize (hook boundary)", () => {
 	it("applies bridge events and exposes increase/decrease/reset", () => {
 		let bridgeHandler: ((a: FontSizeAction) => void) | null = null;
+		const write = vi.fn().mockResolvedValue(undefined);
 		(window as unknown as { ai14all: unknown }).ai14all = {
+			settings: { write },
 			events: {
 				onAdjustTerminalFontSize: (h: (a: FontSizeAction) => void) => {
 					bridgeHandler = h;
@@ -62,10 +64,10 @@ describe("useTerminalFontSize (hook boundary)", () => {
 		const { result } = renderHook(() => useTerminalFontSize());
 		expect(result.current.fontSize).toBe(13);
 
-		// Bridge event → size change + persistence (menu-accelerator path).
+		// Bridge event → size change + write-through (menu-accelerator path).
 		act(() => bridgeHandler!("increase"));
 		expect(result.current.fontSize).toBe(14);
-		expect(localStorage.getItem("ai14all.terminalFontSize")).toBe("14");
+		expect(write).toHaveBeenLastCalledWith({ terminalFontSize: 14 });
 
 		// Returned methods drive the same reducer.
 		act(() => result.current.increase());
@@ -74,6 +76,38 @@ describe("useTerminalFontSize (hook boundary)", () => {
 		expect(result.current.fontSize).toBe(14);
 		act(() => result.current.reset());
 		expect(result.current.fontSize).toBe(13);
-		expect(localStorage.getItem("ai14all.terminalFontSize")).toBe("13");
+		expect(write).toHaveBeenLastCalledWith({ terminalFontSize: 13 });
+	});
+
+	it("boots from settings.initial when the bridge is present", () => {
+		(window as unknown as { ai14all: unknown }).ai14all = {
+			settings: { initial: { terminalFontSize: 18 }, write: vi.fn() },
+			events: {},
+		};
+
+		const { result } = renderHook(() => useTerminalFontSize());
+		expect(result.current.fontSize).toBe(18);
+	});
+
+	it("converges when settings change elsewhere (onSettingsChanged)", () => {
+		let changedHandler: ((s: { terminalFontSize: number }) => void) | null =
+			null;
+		(window as unknown as { ai14all: unknown }).ai14all = {
+			settings: { write: vi.fn() },
+			events: {
+				onSettingsChanged: (h: (s: { terminalFontSize: number }) => void) => {
+					changedHandler = h;
+					return () => {
+						changedHandler = null;
+					};
+				},
+			},
+		};
+
+		const { result } = renderHook(() => useTerminalFontSize());
+		expect(result.current.fontSize).toBe(13);
+
+		act(() => changedHandler!({ terminalFontSize: 16 }));
+		expect(result.current.fontSize).toBe(16);
 	});
 });
