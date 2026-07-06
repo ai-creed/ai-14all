@@ -107,12 +107,12 @@ output — do not extend this list without similar verification):
   holds `11111111-2222-3333-4444-555555555555`, register
   `claude --resume 11111111-2222-3333-4444-555555555555`. Confirmed via
   `claude --help` (`-r, --resume [value]  Resume a conversation by session
-  ID`) and by observing `CLAUDE_CODE_SESSION_ID` set in the running process's
+ID`) and by observing `CLAUDE_CODE_SESSION_ID` set in the running process's
   own environment.
 - **Codex**: register `codex resume --last`. Confirmed via
   `codex resume --help`: "Resume a previous interactive session (picker by
   default; use --last to continue the most recent)", and session listing is
-  cwd-scoped by default (`--all` is documented as the flag that *disables*
+  cwd-scoped by default (`--all` is documented as the flag that _disables_
   cwd filtering) — so `--last` without `--all` picks up the most recent
   session in this worktree, not globally. No session-id environment variable
   was found for Codex, so this coarser cwd-scoped form is the verified

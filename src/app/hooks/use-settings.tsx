@@ -35,7 +35,8 @@ type SettingsContextValue = {
 const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-	const [settings, setSettings] = useState<PersistedSettingsV1>(initialSettings);
+	const [settings, setSettings] =
+		useState<PersistedSettingsV1>(initialSettings);
 
 	useEffect(() => {
 		return bridge()?.events?.onSettingsChanged?.((next) => setSettings(next));

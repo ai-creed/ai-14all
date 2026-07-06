@@ -288,7 +288,9 @@ describe("register_agent_session tool", () => {
 		expect(instructions).toContain("register_agent_session");
 
 		const { tools } = await rig.client.listTools();
-		expect(tools.find((t) => t.name === "register_agent_session")).toBeDefined();
+		expect(
+			tools.find((t) => t.name === "register_agent_session"),
+		).toBeDefined();
 	});
 });
 

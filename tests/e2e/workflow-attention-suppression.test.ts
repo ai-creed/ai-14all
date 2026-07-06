@@ -223,7 +223,9 @@ test.describe.serial("workflow attention suppression", () => {
 		test.skip(sid === null, "no live shell session available");
 		const badged = await setProviderViaOscTitle(sid!, "claude", /feature-a/i);
 		expect(badged).toBe(true);
-		await worktreeNav().getByRole("button", { name: / main$/i }).click();
+		await worktreeNav()
+			.getByRole("button", { name: / main$/i })
+			.click();
 
 		// --- Part 1: suppression on. A waiting prompt must NOT go red. ---
 		await trySendInput(sid!, " printf 'Approve this change? (y/n)\\n'\r");
@@ -325,7 +327,9 @@ test.describe.serial("workflow attention suppression", () => {
 		test.skip(sid === null, "no live shell session available");
 		const badged = await setProviderViaOscTitle(sid!, "claude", /feature-a/i);
 		expect(badged).toBe(true);
-		await worktreeNav().getByRole("button", { name: / main$/i }).click();
+		await worktreeNav()
+			.getByRole("button", { name: / main$/i })
+			.click();
 
 		await trySendInput(sid!, " printf 'Approve this change? (y/n)\\n'\r");
 		await expect(featureABtn()).toHaveAttribute(
@@ -350,7 +354,9 @@ test.describe.serial("workflow attention suppression", () => {
 		// the unified path end-to-end.
 		const badged = await setProviderViaOscTitle(sid!, "ezio", /feature-a/i);
 		expect(badged).toBe(true);
-		await worktreeNav().getByRole("button", { name: / main$/i }).click();
+		await worktreeNav()
+			.getByRole("button", { name: / main$/i })
+			.click();
 
 		await trySendInput(sid!, " printf 'Approve this change? (y/n)\\n'\r");
 		await expect(featureABtn()).toHaveAttribute(

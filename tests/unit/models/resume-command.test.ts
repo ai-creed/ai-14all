@@ -37,13 +37,19 @@ describe("validateResumeCommand", () => {
 	});
 
 	it("rejects unknown first token", () => {
-		expect(ok("bash --resume abc")).toEqual({ ok: false, reason: "unknown_binary" });
+		expect(ok("bash --resume abc")).toEqual({
+			ok: false,
+			reason: "unknown_binary",
+		});
 	});
 	it("rejects empty and whitespace-only", () => {
 		expect(ok("")).toEqual({ ok: false, reason: "empty" });
 		expect(ok("   ")).toEqual({ ok: false, reason: "empty" });
 	});
 	it("rejects strings over 256 chars", () => {
-		expect(ok(`claude ${"a".repeat(256)}`)).toEqual({ ok: false, reason: "too_long" });
+		expect(ok(`claude ${"a".repeat(256)}`)).toEqual({
+			ok: false,
+			reason: "too_long",
+		});
 	});
 });

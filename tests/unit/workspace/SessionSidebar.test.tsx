@@ -611,13 +611,9 @@ describe("SessionSidebar — hydrated inactive workspace rendering", () => {
 		renderSidebar({
 			workspaces: [makeWorkspace({ active: false, hydrated: true })],
 		});
+		expect(screen.getByRole("button", { name: "main" })).toBeInTheDocument();
 		expect(
-			screen.getByRole("button", { name: "main" }),
-		).toBeInTheDocument();
-		expect(
-			screen.queryByText(
-				"Open this workspace to load its worktree sessions.",
-			),
+			screen.queryByText("Open this workspace to load its worktree sessions."),
 		).not.toBeInTheDocument();
 	});
 
@@ -713,7 +709,9 @@ describe("SessionSidebar — resume conversation affordance (Task 13)", () => {
 				onResumeConversation={onResumeConversation}
 			/>,
 		);
-		fireEvent.click(screen.getByRole("button", { name: "Resume conversation" }));
+		fireEvent.click(
+			screen.getByRole("button", { name: "Resume conversation" }),
+		);
 		expect(sendInputMock).toHaveBeenCalledWith(
 			"term-1",
 			expect.stringContaining("claude --resume abc"),
@@ -732,7 +730,9 @@ describe("SessionSidebar — resume conversation affordance (Task 13)", () => {
 				onResumeConversation={onResumeConversation}
 			/>,
 		);
-		fireEvent.click(screen.getByRole("button", { name: "Resume conversation" }));
+		fireEvent.click(
+			screen.getByRole("button", { name: "Resume conversation" }),
+		);
 		expect(sendInputMock).not.toHaveBeenCalled();
 		expect(onResumeConversation).toHaveBeenCalledWith("ws1", "wt1", "p1");
 	});

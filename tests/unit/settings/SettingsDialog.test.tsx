@@ -9,8 +9,14 @@ beforeEach(() => {
 	(window as never as Record<string, unknown>).ai14all = {
 		settings: {
 			initial: DEFAULT_PERSISTED_SETTINGS,
-			read: vi.fn().mockResolvedValue({ settings: DEFAULT_PERSISTED_SETTINGS, firstRun: false }),
-			write: vi.fn().mockImplementation(async (patch) => ({ ...DEFAULT_PERSISTED_SETTINGS, ...patch })),
+			read: vi.fn().mockResolvedValue({
+				settings: DEFAULT_PERSISTED_SETTINGS,
+				firstRun: false,
+			}),
+			write: vi.fn().mockImplementation(async (patch) => ({
+				...DEFAULT_PERSISTED_SETTINGS,
+				...patch,
+			})),
 		},
 		events: { onSettingsChanged: vi.fn().mockReturnValue(() => {}) },
 	};
@@ -32,8 +38,11 @@ describe("SettingsDialog", () => {
 			screen.getByLabelText("Conversation resume"),
 			"manual",
 		);
-		const api = (window as never as { ai14all: { settings: { write: ReturnType<typeof vi.fn> } } })
-			.ai14all;
+		const api = (
+			window as never as {
+				ai14all: { settings: { write: ReturnType<typeof vi.fn> } };
+			}
+		).ai14all;
 		expect(api.settings.write).toHaveBeenCalledWith({ agentResume: "manual" });
 	});
 
@@ -48,8 +57,11 @@ describe("SettingsDialog", () => {
 
 		await userEvent.click(checkbox);
 
-		const api = (window as never as { ai14all: { settings: { write: ReturnType<typeof vi.fn> } } })
-			.ai14all;
+		const api = (
+			window as never as {
+				ai14all: { settings: { write: ReturnType<typeof vi.fn> } };
+			}
+		).ai14all;
 		// Writes the full merged usageTelemetry object (not a bare sub-patch), so
 		// SettingsService.writeState()'s deep-merge sees every field.
 		expect(api.settings.write).toHaveBeenCalledWith({
@@ -72,12 +84,16 @@ describe("SettingsDialog", () => {
 
 		await userEvent.selectOptions(select, "month");
 
-		const api = (window as never as { ai14all: { settings: { write: ReturnType<typeof vi.fn> } } })
-			.ai14all;
+		const api = (
+			window as never as {
+				ai14all: { settings: { write: ReturnType<typeof vi.fn> } };
+			}
+		).ai14all;
 		expect(api.settings.write).toHaveBeenCalledWith({
 			usageTelemetry: {
 				enabled: DEFAULT_PERSISTED_SETTINGS.usageTelemetry.enabled,
-				includeUntracked: DEFAULT_PERSISTED_SETTINGS.usageTelemetry.includeUntracked,
+				includeUntracked:
+					DEFAULT_PERSISTED_SETTINGS.usageTelemetry.includeUntracked,
 				chipRange: "month",
 			},
 		});

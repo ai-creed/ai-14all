@@ -129,10 +129,12 @@ describe("detectAgentProvider", () => {
 
 	describe("claude-code binary parity (spec §3)", () => {
 		it("detects the claude-code binary name as claude", () => {
-			expect(detectAgentProvider("claude-code", undefined, null)).toBe("claude");
-			expect(detectAgentProvider("npx claude-code --resume abc", undefined, null)).toBe(
+			expect(detectAgentProvider("claude-code", undefined, null)).toBe(
 				"claude",
 			);
+			expect(
+				detectAgentProvider("npx claude-code --resume abc", undefined, null),
+			).toBe("claude");
 			expect(
 				detectAgentProvider("/usr/local/bin/claude-code", undefined, null),
 			).toBe("claude");
@@ -149,7 +151,9 @@ describe("detectAgentProvider", () => {
 			// re-detect through the hyphen word boundary.
 			expect(detectAgentProvider("claude-1.2.3", undefined, null)).toBeNull();
 			expect(detectAgentProvider(null, "claude-1.2.3", null)).toBeNull();
-			expect(detectAgentProvider("claude-1.2.3", "claude-1.2.3", null)).toBeNull();
+			expect(
+				detectAgentProvider("claude-1.2.3", "claude-1.2.3", null),
+			).toBeNull();
 			expect(detectAgentProvider(null, "codex-2.0.1", null)).toBeNull();
 		});
 	});

@@ -9,11 +9,16 @@ const ALLOWED = /^[A-Za-z0-9 ._/:=@-]+$/;
 
 /** First-token allowlist for resume commands (validation only — the app never
  *  constructs resume commands; see spec D3). */
-export const AGENT_BINARIES: readonly string[] = AGENT_PROVIDERS.map((p) => p.binary);
+export const AGENT_BINARIES: readonly string[] = AGENT_PROVIDERS.map(
+	(p) => p.binary,
+);
 
 export type ResumeCommandValidation =
 	| { ok: true }
-	| { ok: false; reason: "empty" | "too_long" | "forbidden_characters" | "unknown_binary" };
+	| {
+			ok: false;
+			reason: "empty" | "too_long" | "forbidden_characters" | "unknown_binary";
+	  };
 
 export function validateResumeCommand(
 	command: string,
@@ -23,7 +28,8 @@ export function validateResumeCommand(
 	if (trimmed.length === 0) return { ok: false, reason: "empty" };
 	if (command.length > RESUME_COMMAND_MAX_LENGTH)
 		return { ok: false, reason: "too_long" };
-	if (!ALLOWED.test(command)) return { ok: false, reason: "forbidden_characters" };
+	if (!ALLOWED.test(command))
+		return { ok: false, reason: "forbidden_characters" };
 	const firstToken = trimmed.split(" ")[0]!;
 	if (!knownBinaries.includes(firstToken))
 		return { ok: false, reason: "unknown_binary" };

@@ -676,10 +676,7 @@ describe("registerIpcHandlers settings:write usage-telemetry live sync", () => {
 		const usageHost = makeUsageHost();
 		const handler = registerWith(merged, usageHost);
 
-		await handler(
-			{},
-			{ patch: { usageTelemetry: { enabled: true } } },
-		);
+		await handler({}, { patch: { usageTelemetry: { enabled: true } } });
 
 		expect(usageHost.applyChipRange).toHaveBeenCalledTimes(1);
 		expect(usageHost.applyChipRange).toHaveBeenCalledWith("month");
@@ -701,10 +698,7 @@ describe("registerIpcHandlers settings:write usage-telemetry live sync", () => {
 		const refresh = vi.fn();
 		const handler = registerWith(merged, usageHost, { refresh });
 
-		await handler(
-			{},
-			{ patch: { usageTelemetry: { chipRange: "month" } } },
-		);
+		await handler({}, { patch: { usageTelemetry: { chipRange: "month" } } });
 
 		expect(refresh).toHaveBeenCalledTimes(1);
 		expect(refresh).toHaveBeenCalledWith(merged);

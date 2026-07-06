@@ -91,7 +91,9 @@ function getVisibleTerminalSessionId(): Promise<string | null> {
 // whichever pane is currently visible.
 const visiblePaneA11yTree = () =>
 	page
-		.locator('.shell-terminal-pane[aria-hidden="false"] .xterm-accessibility-tree')
+		.locator(
+			'.shell-terminal-pane[aria-hidden="false"] .xterm-accessibility-tree',
+		)
 		.first();
 
 test.beforeAll(() => {
@@ -144,9 +146,7 @@ test("registered resume handle drives manual, off, and auto modes across restart
 	);
 	const client = new Client({ name: "e2e-resume", version: "1.0.0" });
 	await client.connect(
-		new StreamableHTTPClientTransport(
-			new URL(`http://127.0.0.1:${port}/mcp`),
-		),
+		new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`)),
 	);
 	try {
 		// The renderer's agent-resume bridge announces "ready" once mounted, but

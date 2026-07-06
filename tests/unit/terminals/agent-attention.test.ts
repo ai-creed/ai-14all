@@ -82,7 +82,9 @@ describe("isAgentProcess — unified detection (spec §3, D3)", () => {
 	});
 
 	it("detects absolute paths and npx forms (claude/codex/ezio)", () => {
-		expect(isAgentProcess("shell", "/usr/local/bin/claude --resume abc")).toBe(true);
+		expect(isAgentProcess("shell", "/usr/local/bin/claude --resume abc")).toBe(
+			true,
+		);
 		expect(isAgentProcess("shell", "npx claude")).toBe(true);
 		expect(isAgentProcess("shell", "npx codex")).toBe(true);
 		expect(isAgentProcess("shell", "npx ezio")).toBe(true);

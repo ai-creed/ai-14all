@@ -71,11 +71,7 @@ describe("useBackgroundHydration (queue re-plan)", () => {
 
 	// State where `a` is active+live and `b`, `c` are dormant → first pick is `b`.
 	const initial = () =>
-		make(["a", "b", "c"], "a", [
-			ws("a", { state: true }),
-			ws("b"),
-			ws("c"),
-		]);
+		make(["a", "b", "c"], "a", [ws("a", { state: true }), ws("b"), ws("c")]);
 
 	it("re-plans and hydrates the next dormant workspace after a no-dispatch bail", async () => {
 		const dB = deferred<boolean>();
@@ -161,7 +157,9 @@ describe("useBackgroundHydration (queue re-plan)", () => {
 	});
 
 	it("aborts the queue on unmount without re-planning or warning", async () => {
-		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+		const consoleError = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => {});
 		const dB = deferred<boolean>();
 		const hydrateWorkspace = vi.fn(() => dB.promise);
 

@@ -805,10 +805,7 @@ export function SessionSidebar({
 										<Icon name="palette" />
 									</Button>
 								</DropdownMenuTrigger>
-								<DropdownMenuContent
-									align="end"
-									className="shell-toolbar-menu"
-								>
+								<DropdownMenuContent align="end" className="shell-toolbar-menu">
 									{THEMES.map((t) => (
 										<DropdownMenuItem
 											key={t.mode}

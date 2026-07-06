@@ -15,7 +15,11 @@ describe("PersistedSettingsV1Schema", () => {
 			restorePreference: "prompt",
 			restoreDepth: "stateEagerTerminalsLazy",
 			agentResume: "auto",
-			usageTelemetry: { enabled: true, includeUntracked: false, chipRange: "week" },
+			usageTelemetry: {
+				enabled: true,
+				includeUntracked: false,
+				chipRange: "week",
+			},
 		});
 	});
 
@@ -27,15 +31,21 @@ describe("PersistedSettingsV1Schema", () => {
 
 	it("rejects out-of-range font size and unknown enum values", () => {
 		expect(
-			PersistedSettingsV1Schema.safeParse({ version: 1, terminalFontSize: 9 }).success,
+			PersistedSettingsV1Schema.safeParse({ version: 1, terminalFontSize: 9 })
+				.success,
 		).toBe(false);
 		expect(
-			PersistedSettingsV1Schema.safeParse({ version: 1, theme: "solarized" }).success,
+			PersistedSettingsV1Schema.safeParse({ version: 1, theme: "solarized" })
+				.success,
 		).toBe(false);
 	});
 
 	it("SettingsPatchSchema accepts partial updates and rejects version", () => {
-		expect(SettingsPatchSchema.parse({ theme: "warm" })).toEqual({ theme: "warm" });
-		expect("version" in SettingsPatchSchema.parse({ version: 1 } as never)).toBe(false);
+		expect(SettingsPatchSchema.parse({ theme: "warm" })).toEqual({
+			theme: "warm",
+		});
+		expect(
+			"version" in SettingsPatchSchema.parse({ version: 1 } as never),
+		).toBe(false);
 	});
 });

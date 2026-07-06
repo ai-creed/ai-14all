@@ -81,9 +81,7 @@ test.beforeAll(() => {
 	repoA = createTestRepo();
 	repoB = createTestRepo();
 	stateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-restoreall-")));
-	userDataDir = realpathSync(
-		mkdtempSync(join(tmpdir(), "ofa-restoreall-ud-")),
-	);
+	userDataDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-restoreall-ud-")));
 	writeFileSync(
 		join(stateDir, "workspace-state.json"),
 		JSON.stringify({

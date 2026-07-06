@@ -205,7 +205,9 @@ import type { RestorePreference } from "../../../shared/models/persisted-workspa
 // `settings.restorePreference` instead of `readRestoreState()`'s own field.
 // Keep this in sync with each test's `readRestoreStateMock` value so the
 // legacy-file scenario being exercised still drives the same behavior.
-function installSettingsBridge(restorePreference: RestorePreference = "prompt") {
+function installSettingsBridge(
+	restorePreference: RestorePreference = "prompt",
+) {
 	(window as unknown as { ai14all?: unknown }).ai14all = {
 		settings: {
 			initial: { ...DEFAULT_PERSISTED_SETTINGS, restorePreference },

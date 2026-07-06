@@ -3294,7 +3294,9 @@ describe("mcpReportingActive lifecycle (spec §5, D4)", () => {
 		});
 		expect(state.sessionsByWorktreeId.main.mcpReportingActive).toBe(false);
 		// The reason itself is still recorded normally (display-layer purity, D5).
-		expect(state.sessionsByWorktreeId.main.agentAttentionReasons.mcp).toBeDefined();
+		expect(
+			state.sessionsByWorktreeId.main.agentAttentionReasons.mcp,
+		).toBeDefined();
 	});
 
 	it("is unaffected by a rejected (stale) mcp push", () => {
