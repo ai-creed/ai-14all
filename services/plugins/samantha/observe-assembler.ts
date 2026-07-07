@@ -5,6 +5,7 @@ import type {
 	ObserveInput,
 	ObserveOutput,
 	SamanthaSignal,
+	SupervisorWorktree,
 } from "./observe-types";
 
 const SIGNAL_SEVERITY: Record<SamanthaSignal, number> = {
@@ -58,6 +59,7 @@ function recentFragment(
 export function assembleObserve(input: ObserveInput): ObserveOutput {
 	const details: Record<string, string> = {};
 	const signals: Record<string, SamanthaSignal> = {};
+	const worktrees: SupervisorWorktree[] = [];
 	const focusedId = input.session?.app.focusedWorktreeId ?? null;
 	const whisperById = new Map(input.whisper.map((w) => [w.worktreeId, w]));
 	const sessionById = new Map(
@@ -110,6 +112,24 @@ export function assembleObserve(input: ObserveInput): ObserveOutput {
 		details[`${identity.repo}/${identity.branch}`] =
 			prefix + fields.join(" · ");
 		digest.push(`${identity.branch} ${attention}`);
+
+		const wf = whisper?.workflow ?? null;
+		worktrees.push({
+			worktreeId,
+			repo: identity.repo,
+			branch: identity.branch,
+			focused: worktreeId === focusedId,
+			provider: wt?.provider ?? null,
+			attention,
+			signal: sig,
+			summary: wt?.summary ?? null,
+			task: wt?.task ?? null,
+			nextAction: wt?.nextAction ?? null,
+			reviewCount: reviews,
+			workflow: wf ? { workflowType: wf.workflowType, status: wf.status, phaseName: wf.phaseName, workflowId: wf.workflowId } : null,
+			escalation: whisper?.escalation ? { reason: whisper.escalation.reason } : null,
+			recent: wt?.recent ?? [],
+		});
 	}
 
 	const count = Object.keys(details).length;
@@ -131,5 +151,5 @@ export function assembleObserve(input: ObserveInput): ObserveOutput {
 			? `${head} — no active sessions`
 			: `${head} — ${count} session${count === 1 ? "" : "s"}: ${digest.join(", ")}`;
 
-	return { summary, status, details, signals };
+	return { summary, status, details, signals, worktrees, mode, focusedWorktreeId: focusedId };
 }
