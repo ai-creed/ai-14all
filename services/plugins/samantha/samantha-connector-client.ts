@@ -22,6 +22,8 @@ export type SnapshotBody = {
 	status: string;
 	details: Record<string, string>;
 	updatedAt: number;
+	/** Generic self-describing structured payload (e.g. the supervisor worktree list). */
+	data?: { kind: string; version: number; payload: unknown };
 };
 
 export type EventBody = {

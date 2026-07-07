@@ -353,6 +353,15 @@ export function createSamanthaDriver(
 			status: out.status,
 			details: out.details,
 			updatedAt: now(),
+			data: {
+				kind: "ai-14all.supervisor",
+				version: 1,
+				payload: {
+					worktrees: out.worktrees,
+					mode: out.mode,
+					focusedWorktreeId: out.focusedWorktreeId,
+				},
+			},
 		};
 		// Idempotent on CONTENT: skip a byte-identical body UNLESS this is a forced
 		// (keep-alive) rebuild, which must refresh Samantha's freshness ~every 30s.
@@ -360,6 +369,7 @@ export function createSamanthaDriver(
 			summary: body.summary,
 			status: body.status,
 			details: body.details,
+			data: body.data, // structured-only changes (e.g. workflowId) must still trigger a PATCH
 		});
 		if (force || fingerprint !== lastBody) {
 			let r = await options.client.patchSnapshot(body);
