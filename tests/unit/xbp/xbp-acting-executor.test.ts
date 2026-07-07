@@ -33,6 +33,7 @@ function makeExecutor(overrides?: {
 	resolve?: (worktreeId: string) => Promise<ResolveResult>;
 	runOk?: boolean;
 	runThrows?: boolean;
+	runStderr?: string;
 }) {
 	const entries: ActingAuditEntry[] = [];
 	const run = vi.fn(async () =>
@@ -42,7 +43,10 @@ function makeExecutor(overrides?: {
 					ok: overrides?.runOk ?? true,
 					exitCode: overrides?.runOk === false ? 1 : 0,
 					stdout: "",
-					stderr: overrides?.runOk === false ? "boom" : "",
+					stderr:
+						overrides?.runOk === false
+							? (overrides?.runStderr ?? "boom")
+							: "",
 				},
 	);
 	const executor = createXbpActingExecutor({
@@ -104,6 +108,25 @@ describe("createWorkflowResolver", () => {
 			resolveWorktreeRef,
 		});
 		expect(await noWorkflow("wt-1")).toMatchObject({
+			ok: false,
+			code: "no-live-agent",
+		});
+	});
+
+	it("returns no-live-agent when the resolved workflow is in a terminal state", async () => {
+		const resolve = createWorkflowResolver({
+			getWhisperStates: () => [
+				{
+					...liveState,
+					workflow: { ...liveState.workflow, status: "canceled" },
+				},
+			],
+			resolveWorktreeRef: async () => ({
+				workspaceId: "ws-1",
+				cwd: "/tmp/wt-1",
+			}),
+		});
+		expect(await resolve("wt-1")).toMatchObject({
 			ok: false,
 			code: "no-live-agent",
 		});
@@ -262,12 +285,16 @@ describe("createXbpActingExecutor", () => {
 		]);
 	});
 
-	it("runner reports ok:false: maps to code:internal, keeps the start/result pair, rejectCode stays null", async () => {
+	it("runner reports ok:false: maps to code:internal with a sanitized message; audit keeps the stderr detail", async () => {
 		const { executor, entries } = makeExecutor({ runOk: false });
 
 		const result = await executor.pause("wt-1");
 
-		expect(result).toEqual({ ok: false, code: "internal", message: "boom" });
+		expect(result).toEqual({
+			ok: false,
+			code: "internal",
+			message: "internal error during workflow-pause",
+		});
 		expect(entries).toHaveLength(2);
 		expect(entries[0].phase).toBe("start");
 		expect(entries[1]).toMatchObject({
@@ -284,7 +311,7 @@ describe("createXbpActingExecutor", () => {
 		await expect(executor.pause("wt-1")).resolves.toEqual({
 			ok: false,
 			code: "internal",
-			message: "spawn failed",
+			message: "internal error during workflow-pause",
 		});
 		expect(entries).toHaveLength(2);
 		expect(entries[0].phase).toBe("start");
@@ -294,5 +321,20 @@ describe("createXbpActingExecutor", () => {
 			rejectCode: null,
 			result: { ok: false, detail: "spawn failed" },
 		});
+	});
+
+	it("internal runner failure does not leak stderr or host paths into the client message", async () => {
+		const leakyStderr =
+			"file:///opt/homebrew/lib/node_modules/ai-whisper/dist/bin/whisper.js:4278\n" +
+			"      throw new Error(`pauseWorkflow: workflow wf-1 is canceled, only running workflows can be paused`);";
+		const { executor } = makeExecutor({ runOk: false, runStderr: leakyStderr });
+
+		const result = await executor.pause("wt-1");
+
+		if (result.ok) throw new Error("expected a refusal");
+		expect(result.code).toBe("internal");
+		expect(result.message ?? "").not.toMatch(/file:\/\//);
+		expect(result.message ?? "").not.toMatch(/\/opt\//);
+		expect(result.message ?? "").not.toMatch(/whisper\.js/);
 	});
 });

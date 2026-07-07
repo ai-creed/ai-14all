@@ -23,6 +23,18 @@ export type ResolveResult =
 	| { ok: true; ref: WorkflowRef }
 	| { ok: false; code: LifecycleErrorCode; message?: string };
 
+// Whisper reports workflow status as a free string from its state DB. These are
+// the unambiguously-ended states: a workflow in one of them has no live agent to
+// control, so pause/resume/stop must refuse rather than forward a doomed command
+// to the whisper CLI. Live states (running/paused/halted/escalated) are left
+// resolvable so their valid actions still reach the CLI.
+const TERMINAL_WORKFLOW_STATUSES = new Set([
+	"canceled",
+	"cancelled",
+	"completed",
+	"failed",
+]);
+
 // worktreeId → the worktree's active managed whisper workflow. Fail-closed:
 // refusals are returned, never thrown, and ambiguity never guesses a target.
 export function createWorkflowResolver(deps: {
@@ -51,8 +63,17 @@ export function createWorkflowResolver(deps: {
 				message: `${matches.length} collab states for worktree`,
 			};
 		const state = matches[0];
-		// Same liveness rule the samantha router uses (session-instruction-router.ts).
-		if (!state || !state.daemonAlive || state.workflow === null)
+		// Same liveness rule the samantha router uses (session-instruction-router.ts),
+		// extended so a terminal workflow is treated like a missing one: without this,
+		// a canceled/completed run still populates state.workflow, so pause/resume/stop
+		// would forward to the whisper CLI, which throws ("only running workflows can be
+		// paused") and leaks its stderr as an internal error instead of refusing cleanly.
+		if (
+			!state ||
+			!state.daemonAlive ||
+			state.workflow === null ||
+			TERMINAL_WORKFLOW_STATUSES.has(state.workflow.status)
+		)
 			return {
 				ok: false,
 				code: "no-live-agent",
@@ -179,8 +200,15 @@ export function createXbpActingExecutor(deps: {
 			rejectCode: null,
 			result: outcome,
 		});
+		// Never surface the runner's stderr — which can contain host filesystem paths
+		// and stack traces — to the remote client. The stderr summary stays in the
+		// host-side audit above; the client gets a bounded, path-free message.
 		if (!outcome.ok)
-			return { ok: false, code: "internal", message: outcome.detail };
+			return {
+				ok: false,
+				code: "internal",
+				message: `internal error during ${route}`,
+			};
 		return {
 			ok: true,
 			worktreeId,
