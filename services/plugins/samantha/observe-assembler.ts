@@ -126,7 +126,7 @@ export function assembleObserve(input: ObserveInput): ObserveOutput {
 			task: wt?.task ?? null,
 			nextAction: wt?.nextAction ?? null,
 			reviewCount: reviews,
-			workflow: wf ? { workflowType: wf.workflowType, status: wf.status, phaseName: wf.phaseName, workflowId: wf.workflowId } : null,
+			workflow: wf ? { workflowType: wf.workflowType, status: wf.status, phaseName: wf.phaseName ?? null, workflowId: wf.workflowId } : null,
 			escalation: whisper?.escalation ? { reason: whisper.escalation.reason } : null,
 			recent: wt?.recent ?? [],
 		});
