@@ -14,7 +14,7 @@ Deliver the ai-14all half of push-wake: the `register`/`deregister-push-token` c
 
 This spec fixes WHAT and the interfaces; the following are pinned against the live ai-14all codebase + whisper DB at the start of the host SDD (not visible from ai-xavier):
 
-- **Exact whisper status strings** for the trigger set and the `state.db` schema/read path (`~/.ai-whisper/state.db`). The host already reads this DB for session-report — reuse that read path.
+- **Exact whisper status strings** — pinned at design review against the live DB and codebase: raw `workflows.status` values are `running | paused | halted | done | canceled` (`shared/models/ecosystem-plugin.ts:75`; live `~/.ai-whisper/state.db` shows exactly `running`, `halted`, `done`, `canceled`). There is no raw `completed`, `failed`, or `escalated` status — `done` is the terminal success status (the UI lens renders it as "completed", `src/features/workflows/logic/workflow-lens.ts:38-40`), failures surface as `halted` with a `halt_reason`, and escalation is a separate relay-chain signal (see Deliverable 3). Re-confirm against the live DB at implementation start; the `state.db` read path already exists in `services/plugins/whisper/whisper-store-reader.ts` (`readActiveWorkflow`, `readEscalatedChain`) — reuse it.
 - **Detection point:** raw `state.db` read vs. ai-14all's existing session/attention model (it computes `SamanthaSessionTransition` with `from`/`to` attention). Either is acceptable; the source of truth is the whisper workflow lifecycle.
 - **Module layout:** where the capability registry/executor lives (the acting path is `xbp-acting-executor.ts`; audit is `services/diagnostics/acting-audit-logger.ts`), and where to start/stop the watcher in the host lifecycle.
 - **Store location:** the XBP store dir is `<userData>/ai-14all/xbp/` (holds `identity.enc`, `paired-device.enc`, `audit.jsonl`); the push token store slots in there.
@@ -38,7 +38,12 @@ Register handler validates the token and stores it, returns `{ ok:true, register
 Persist exactly one Expo push token at rest via safeStorage in `<userData>/ai-14all/xbp/` (e.g. `push-token.enc`), mirroring the identity/paired-device store. Register overwrites; deregister clears. **Clear the token whenever the paired device is forgotten/replaced** (`mem-…-a525fc`: today that is the manual `paired-device.enc` removal path; wire token-clear to the same device-forget point so a re-paired/reset phone never inherits a stale registration). Also cleared on dead-token cleanup (below).
 
 ### 3. Workflow-lifecycle watcher
-Poll the whisper workflow lifecycle on the recon'd interval; a **pure transition-detection module** takes the previous snapshot + current rows and returns qualifying transitions — INTO `{escalated, completed, failed, halted}`, `canceled`/`cancelled` excluded, unknown/ambiguous status ignored, coalesced (one workflow-end = one event). Requirements: persist **last-seen + last-pinged** so a host restart neither re-pings settled workflows nor misses a transition; only emit while a token is registered. The polling loop is a thin I/O shell around the pure module.
+Poll the whisper workflow lifecycle on the recon'd interval; a **pure transition-detection module** takes the previous snapshot + current rows and returns qualifying events. Two qualifying signals, both raw `state.db` reads (the watcher operates on raw values — display labels such as "completed" belong to the UI lens, `workflow-lens.ts`, and must not appear in the trigger set):
+
+- **Status transitions** INTO the raw terminal/attention set `{done, halted}` (whisper's `workflows.status`; known raw values are `running | paused | halted | done | canceled`). `done` is the terminal success status (rendered as "completed" in the UI); there is no raw `failed` status — failures arrive as `halted` with a `halt_reason`. `canceled`/`cancelled` excluded, unknown/ambiguous status ignored.
+- **Escalation events** — escalation is NOT a `workflows.status` value; it is a relay-chain signal the host already reads via `readEscalatedChain` (`whisper-store-reader.ts`), identified by `chainId`. A newly escalated chain (unseen `chainId`) is a qualifying event.
+
+Coalesced (one workflow-end = one event; one escalated chain = one event). Requirements: persist **last-seen + last-pinged** (statuses and escalation `chainId`s) so a host restart neither re-pings settled workflows nor misses a transition; only emit while a token is registered. The polling loop is a thin I/O shell around the pure module.
 
 ### 4. Content-free Expo push sender
 On a qualifying event, POST to the Expo Push API targeting the stored token with a content-free payload (fixed body constant). Response handling: `DeviceNotRegistered` → clear the token + audit (stop pinging a gone device); other transient errors → bounded retry then give up (pull-on-open covers the miss); no token stored → no send.
@@ -53,7 +58,7 @@ On a qualifying event, POST to the Expo Push API targeting the stored token with
 
 ## Testing
 
-- **Transition-detection (the heart):** table-driven — previous snapshot + current rows → qualifying transitions; INTO-trigger-set only; canceled/cancelled excluded; unknown ignored; coalescing; no re-ping after restart (last-pinged persistence); nothing emitted with no token registered.
+- **Transition-detection (the heart):** table-driven — previous snapshot + current rows → qualifying events; INTO raw `{done, halted}` only (raw status strings, never display labels — a `completed` or `failed` row must be treated as unknown and ignored); new escalated `chainId` qualifies, already-seen `chainId` does not; canceled/cancelled excluded; unknown ignored; coalescing; no re-ping after restart (last-pinged persistence); nothing emitted with no token registered.
 - **Token store:** persist / overwrite / clear; one slot; cleared on device-forget.
 - **Handlers:** valid token → `{ok:true}`; feature off → `push-disabled`; bad token → `invalid-token`; never throws for expected refusals.
 - **Sender:** content-free payload assertion (no session id/category/content); `DeviceNotRegistered` → token cleared; transient error → bounded retry then give up.
