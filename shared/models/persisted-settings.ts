@@ -18,6 +18,8 @@ export const RestoreDepthSchema = z.enum([
 export const AgentResumeModeSchema = z.enum(["auto", "manual", "off"]);
 export const PhoneBridgeSettingsSchema = z.object({
 	enabled: z.boolean(),
+	// Kill switch for the push-wake sender/handlers; the bridge itself stays up.
+	pushWakeEnabled: z.boolean().default(true),
 });
 
 // Range mirrors MIN/MAX_TERMINAL_FONT_SIZE in use-terminal-font-size.ts.
@@ -35,7 +37,10 @@ export const PersistedSettingsV1Schema = z.object({
 		includeUntracked: false,
 		chipRange: "week",
 	}),
-	phoneBridge: PhoneBridgeSettingsSchema.default({ enabled: false }),
+	phoneBridge: PhoneBridgeSettingsSchema.default({
+		enabled: false,
+		pushWakeEnabled: true,
+	}),
 });
 
 export type ThemeMode = z.infer<typeof ThemeModeSchema>;
@@ -59,6 +64,7 @@ const UsageTelemetryPatchSchema = z.object({
 
 const PhoneBridgePatchSchema = z.object({
 	enabled: z.boolean().optional(),
+	pushWakeEnabled: z.boolean().optional(),
 });
 
 // Built from the bare (non-`.default()`) field schemas rather than
@@ -86,4 +92,9 @@ export const DEFAULT_PERSISTED_SETTINGS: PersistedSettingsV1 =
 /** Single source of truth for the phone-bridge feature gate (spec D2). */
 export function isPhoneBridgeEnabled(s: PersistedSettingsV1): boolean {
 	return s.phoneBridge.enabled;
+}
+
+/** Push-wake feature gate (spec Arc B): behind isPhoneBridgeEnabled at runtime. */
+export function isPushWakeEnabled(s: PersistedSettingsV1): boolean {
+	return s.phoneBridge.pushWakeEnabled;
 }

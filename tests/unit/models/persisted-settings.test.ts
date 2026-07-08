@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	DEFAULT_PERSISTED_SETTINGS,
 	isPhoneBridgeEnabled,
+	isPushWakeEnabled,
 	PersistedSettingsV1Schema,
 	SettingsPatchSchema,
 } from "../../../shared/models/persisted-settings";
@@ -23,6 +24,7 @@ describe("PersistedSettingsV1Schema", () => {
 			},
 			phoneBridge: {
 				enabled: false,
+				pushWakeEnabled: true,
 			},
 		});
 	});
@@ -96,5 +98,27 @@ describe("phoneBridge flag", () => {
 		expect(
 			isPhoneBridgeEnabled(PersistedSettingsV1Schema.parse({ version: 1 })),
 		).toBe(false);
+	});
+
+	it("defaults pushWakeEnabled to true, including for pre-existing files without the key", () => {
+		const parsed = PersistedSettingsV1Schema.parse({
+			version: 1,
+			phoneBridge: { enabled: true },
+		});
+		expect(parsed.phoneBridge.pushWakeEnabled).toBe(true);
+		expect(isPushWakeEnabled(parsed)).toBe(true);
+	});
+
+	it("pushWakeEnabled=false is honored and patchable", () => {
+		const parsed = PersistedSettingsV1Schema.parse({
+			version: 1,
+			phoneBridge: { enabled: true, pushWakeEnabled: false },
+		});
+		expect(isPushWakeEnabled(parsed)).toBe(false);
+		const patch = SettingsPatchSchema.parse({
+			phoneBridge: { pushWakeEnabled: false },
+		});
+		// zod-v4 trap regression: a sub-patch must NOT re-inject sibling defaults.
+		expect(patch.phoneBridge).toEqual({ pushWakeEnabled: false });
 	});
 });
