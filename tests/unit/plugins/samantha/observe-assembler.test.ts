@@ -192,14 +192,32 @@ describe("assembleObserve", () => {
 		const out = assembleObserve({
 			identities: { w1: { repo: "acme", branch: "main", path: "/w/w1" } },
 			reviewCounts: { w1: 2 },
-			whisper: [{
-				worktreeId: "w1", daemonAlive: true,
-				workflow: { workflowId: "wf1", workflowType: "sdd", status: "paused", phaseName: "impl" },
-				escalation: null,
-			} as never],
+			whisper: [
+				{
+					worktreeId: "w1",
+					daemonAlive: true,
+					workflow: {
+						workflowId: "wf1",
+						workflowType: "sdd",
+						status: "paused",
+						phaseName: "impl",
+					},
+					escalation: null,
+				} as never,
+			],
 			session: {
 				app: { mode: "ready", focusedWorktreeId: "w1" },
-				worktrees: [{ worktreeId: "w1", provider: "claude", attention: "waiting", summary: "s", task: "t", nextAction: "n", recent: [] }],
+				worktrees: [
+					{
+						worktreeId: "w1",
+						provider: "claude",
+						attention: "waiting",
+						summary: "s",
+						task: "t",
+						nextAction: "n",
+						recent: [],
+					},
+				],
 			} as never,
 		});
 
@@ -207,9 +225,19 @@ describe("assembleObserve", () => {
 		expect(out.focusedWorktreeId).toBe("w1");
 		expect(out.worktrees).toHaveLength(1);
 		expect(out.worktrees[0]).toMatchObject({
-			worktreeId: "w1", repo: "acme", branch: "main", focused: true,
-			provider: "claude", attention: "waiting", reviewCount: 2,
-			workflow: { workflowType: "sdd", status: "paused", phaseName: "impl", workflowId: "wf1" },
+			worktreeId: "w1",
+			repo: "acme",
+			branch: "main",
+			focused: true,
+			provider: "claude",
+			attention: "waiting",
+			reviewCount: 2,
+			workflow: {
+				workflowType: "sdd",
+				status: "paused",
+				phaseName: "impl",
+				workflowId: "wf1",
+			},
 			escalation: null,
 		});
 	});
@@ -218,8 +246,20 @@ describe("assembleObserve", () => {
 	// asserts the identical literal), so cross-repo shape drift fails a test on both sides.
 	it("pins the SupervisorWorktree field set", () => {
 		expect([...SUPERVISOR_WORKTREE_FIELDS]).toEqual([
-			"worktreeId", "repo", "branch", "focused", "provider", "attention", "signal",
-			"summary", "task", "nextAction", "reviewCount", "workflow", "escalation", "recent",
+			"worktreeId",
+			"repo",
+			"branch",
+			"focused",
+			"provider",
+			"attention",
+			"signal",
+			"summary",
+			"task",
+			"nextAction",
+			"reviewCount",
+			"workflow",
+			"escalation",
+			"recent",
 		]);
 	});
 });

@@ -126,8 +126,17 @@ export function assembleObserve(input: ObserveInput): ObserveOutput {
 			task: wt?.task ?? null,
 			nextAction: wt?.nextAction ?? null,
 			reviewCount: reviews,
-			workflow: wf ? { workflowType: wf.workflowType, status: wf.status, phaseName: wf.phaseName ?? null, workflowId: wf.workflowId } : null,
-			escalation: whisper?.escalation ? { reason: whisper.escalation.reason } : null,
+			workflow: wf
+				? {
+						workflowType: wf.workflowType,
+						status: wf.status,
+						phaseName: wf.phaseName ?? null,
+						workflowId: wf.workflowId,
+					}
+				: null,
+			escalation: whisper?.escalation
+				? { reason: whisper.escalation.reason }
+				: null,
 			recent: wt?.recent ?? [],
 		});
 	}
@@ -151,5 +160,13 @@ export function assembleObserve(input: ObserveInput): ObserveOutput {
 			? `${head} — no active sessions`
 			: `${head} — ${count} session${count === 1 ? "" : "s"}: ${digest.join(", ")}`;
 
-	return { summary, status, details, signals, worktrees, mode, focusedWorktreeId: focusedId };
+	return {
+		summary,
+		status,
+		details,
+		signals,
+		worktrees,
+		mode,
+		focusedWorktreeId: focusedId,
+	};
 }

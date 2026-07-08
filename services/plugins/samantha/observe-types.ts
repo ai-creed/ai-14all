@@ -39,7 +39,12 @@ export type SupervisorWorktree = {
 	task: string | null;
 	nextAction: string | null;
 	reviewCount: number;
-	workflow: { workflowType: string; status: string; phaseName: string | null; workflowId: string } | null;
+	workflow: {
+		workflowType: string;
+		status: string;
+		phaseName: string | null;
+		workflowId: string;
+	} | null;
 	escalation: { reason: string } | null;
 	recent: { from: string; to: string; summary: string; source: string }[];
 };
@@ -47,13 +52,27 @@ export type SupervisorWorktree = {
 // Canonical field order. ai-14all owns this; Samantha mirrors the identical literal, and
 // both repos pin it. The compile-time guard fails the build if the list and the type drift.
 export const SUPERVISOR_WORKTREE_FIELDS = [
-	"worktreeId", "repo", "branch", "focused", "provider", "attention", "signal",
-	"summary", "task", "nextAction", "reviewCount", "workflow", "escalation", "recent",
+	"worktreeId",
+	"repo",
+	"branch",
+	"focused",
+	"provider",
+	"attention",
+	"signal",
+	"summary",
+	"task",
+	"nextAction",
+	"reviewCount",
+	"workflow",
+	"escalation",
+	"recent",
 ] as const;
 
 type _FieldsEqual =
 	(typeof SUPERVISOR_WORKTREE_FIELDS)[number] extends keyof SupervisorWorktree
-		? keyof SupervisorWorktree extends (typeof SUPERVISOR_WORKTREE_FIELDS)[number] ? true : never
+		? keyof SupervisorWorktree extends (typeof SUPERVISOR_WORKTREE_FIELDS)[number]
+			? true
+			: never
 		: never;
 const _fieldsEqual: _FieldsEqual = true;
 void _fieldsEqual;

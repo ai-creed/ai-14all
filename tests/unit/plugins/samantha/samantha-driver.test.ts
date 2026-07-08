@@ -576,9 +576,7 @@ describe("samantha-driver", () => {
 		expect(typeof wt.branch).toBe("string");
 		expect(typeof wt.focused).toBe("boolean");
 		expect(typeof wt.reviewCount).toBe("number");
-		expect("workflow" in wt && "escalation" in wt && "recent" in wt).toBe(
-			true,
-		);
+		expect("workflow" in wt && "escalation" in wt && "recent" in wt).toBe(true);
 	});
 
 	it("advertises the three capabilities in the register body", async () => {
