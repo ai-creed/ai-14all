@@ -141,7 +141,10 @@ const inputs: Record<string, ObserveInput> = {
 		identities: {},
 		reviewCounts: {},
 		whisper: [],
-		session: { worktrees: [], app: { focusedWorktreeId: null, mode: "loading" } },
+		session: {
+			worktrees: [],
+			app: { focusedWorktreeId: null, mode: "loading" },
+		},
 	},
 };
 

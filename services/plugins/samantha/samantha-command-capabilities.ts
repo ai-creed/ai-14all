@@ -1,5 +1,12 @@
-import { SessionReportResult, type SessionEntry } from "@ai-creed/command-contract";
-import type { ObserveInput, ObserveOutput, WorktreeIdentity } from "./observe-types";
+import {
+	SessionReportResult,
+	type SessionEntry,
+} from "@ai-creed/command-contract";
+import type {
+	ObserveInput,
+	ObserveOutput,
+	WorktreeIdentity,
+} from "./observe-types";
 
 export type ResolveResult =
 	| { kind: "found"; worktreeId: string }

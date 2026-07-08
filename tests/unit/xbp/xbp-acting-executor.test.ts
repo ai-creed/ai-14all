@@ -44,9 +44,7 @@ function makeExecutor(overrides?: {
 					exitCode: overrides?.runOk === false ? 1 : 0,
 					stdout: "",
 					stderr:
-						overrides?.runOk === false
-							? (overrides?.runStderr ?? "boom")
-							: "",
+						overrides?.runOk === false ? (overrides?.runStderr ?? "boom") : "",
 				},
 	);
 	const executor = createXbpActingExecutor({
