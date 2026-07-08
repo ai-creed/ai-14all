@@ -54,19 +54,20 @@ On a qualifying event, POST to the Expo Push API targeting the stored token with
 
 ## Interfaces consumed (from the phone slice)
 
-- `@ai-creed/command-contract` v3: `registerPushTokenCapability` / `deregisterPushTokenCapability`, `RegisterPushTokenArgs` `{ expoPushToken, platform }`, the result unions, `PushTokenErrorCode`, `CONTROL_NOTIFY = "control:notify"`, `COMMAND_CONTRACT_VERSION === 3`. The host registers these capabilities in its registry and grants `control:notify` at pairing.
+- `@ai-creed/command-contract` v3: `registerPushTokenCapability` / `deregisterPushTokenCapability`, `RegisterPushTokenArgs` `{ expoPushToken, platform }`, the result unions, `PushTokenErrorCode`, `CONTROL_NOTIFY = "control:notify"`, `COMMAND_CONTRACT_VERSION === 3`. The host registers these capabilities in its registry and grants `control:notify` at pairing — concretely: add `CONTROL_NOTIFY` to `NEW_PAIRING_GRANTS` in `services/xbp/xbp-grants.ts`, and the stored-device replay path (`grantsForStoredDevice`) must carry it across restarts; a pre-v3 device record without the grant loads fail-closed (denied until re-paired), matching the existing `control:act` pattern.
 
 ## Testing
 
-- **Transition-detection (the heart):** table-driven — previous snapshot + current rows → qualifying events; INTO raw `{done, halted}` only (raw status strings, never display labels — a `completed` or `failed` row must be treated as unknown and ignored); new escalated `chainId` qualifies, already-seen `chainId` does not; canceled/cancelled excluded; unknown ignored; coalescing; no re-ping after restart (last-pinged persistence); nothing emitted with no token registered.
-- **Token store:** persist / overwrite / clear; one slot; cleared on device-forget.
+- **Transition-detection (the heart):** table-driven — previous snapshot + current rows → qualifying events; INTO raw `{done, halted}` only (raw status strings, never display labels — a `completed` or `failed` row must be treated as unknown and ignored); new escalated `chainId` qualifies, already-seen `chainId` does not; canceled/cancelled excluded; unknown ignored; coalescing; nothing emitted with no token registered. Restart persistence covers **both halves**: (a) no re-ping — a workflow already in last-pinged does not emit again after restart; (b) no missed transition — persisted last-seen has the workflow `running` before shutdown, first post-restart snapshot has it `done` (or a new escalated `chainId` that appeared while the host was down) → must emit. The detector diffs against the *persisted* last-seen; a test must reject an implementation that baselines the first post-restart snapshot.
+- **Token store:** persist / overwrite / clear; one slot; at-rest bytes are ciphertext — the stored file never contains the raw token string (no-plaintext assertion); safeStorage unavailable → write fails closed (nothing persisted, register surfaces a structured refusal, token never logged); cleared on device-forget AND on device replacement — a re-paired/reset phone must not inherit the previous registration.
 - **Handlers:** valid token → `{ok:true}`; feature off → `push-disabled`; bad token → `invalid-token`; never throws for expected refusals.
+- **Authorization (`control:notify`):** protocol-level, not just handler-level — both capabilities are exposed under `control:notify` and nothing else; a peer without the grant gets a protocol denial and the handler is never invoked; pairing mints `control:notify` (`NEW_PAIRING_GRANTS`); the grant persists and replays for a stored device across host restart (`grantsForStoredDevice`); a pre-v3 stored device record without the grant is denied fail-closed until re-paired.
 - **Sender:** content-free payload assertion (no session id/category/content); `DeviceNotRegistered` → token cleared; transient error → bounded retry then give up.
 - **Audit:** a send writes exactly one semantic entry with the right outcome; register/deregister rely on the protocol-layer entry (no double-audit).
 
 ## Verification (slice-local)
 
-ai-14all's test + typecheck + lint suite green in the worktree; the new watcher/handler/sender tests pass; no regression in the existing acting/session-report suites.
+ai-14all's test + typecheck + lint suite green in the worktree; the new watcher/token-store/handler/authorization/sender/audit tests pass; no regression in the existing acting/session-report suites.
 
 ## Sequencing
 
