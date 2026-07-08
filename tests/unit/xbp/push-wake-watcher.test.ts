@@ -42,10 +42,11 @@ function harness(opts?: {
 	const stateStore = new PushWakeStateStore({ dir });
 	let states: WhisperWorktreeState[] = [];
 	const outcomes = [...(opts?.outcomes ?? ["sent"])];
+	const getStates = vi.fn(async () => states);
 	const send = vi.fn(async () => outcomes.shift() ?? ("sent" as const));
 	const audits: PushWakeAuditEntry[] = [];
 	const watcher = createPushWakeWatcher({
-		getStates: async () => states,
+		getStates,
 		stateStore,
 		isEnabled: () => opts?.enabled ?? true,
 		hasToken: () => opts?.token ?? true,
@@ -53,7 +54,7 @@ function harness(opts?: {
 		audit: (e) => audits.push(e),
 		now: () => NOW,
 	});
-	return { watcher, send, audits, stateStore, dir, setStates: (s: WhisperWorktreeState[]) => (states = s) };
+	return { watcher, getStates, send, audits, stateStore, dir, setStates: (s: WhisperWorktreeState[]) => (states = s) };
 }
 
 describe("push-wake watcher", () => {
@@ -159,18 +160,67 @@ describe("push-wake watcher", () => {
 		expect(h.audits[0].outcome).toBe("dead-token-cleared");
 	});
 
+	it("a rejected getStates does not escape tick(): resolves, warns, and self-heals without deadlocking `ticking`", async () => {
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+		try {
+			const dir = mkdtempSync(join(tmpdir(), "pw-watch-err-"));
+			const stateStore = new PushWakeStateStore({ dir });
+			let calls = 0;
+			const getStates = vi.fn(async () => {
+				calls += 1;
+				if (calls === 1) throw new Error("boom");
+				return [state("wf-1", calls === 2 ? "running" : "done")];
+			});
+			const send = vi.fn(async () => "sent" as const);
+			const watcher = createPushWakeWatcher({
+				getStates,
+				stateStore,
+				isEnabled: () => true,
+				hasToken: () => true,
+				send,
+				audit: () => {},
+				now: () => NOW,
+			});
+
+			// Rejected getStates must not escape tick() as an unhandled rejection.
+			await expect(watcher.tick()).resolves.toBeUndefined();
+			expect(warnSpy).toHaveBeenCalledWith("[push-wake] tick failed:", expect.any(Error));
+			expect(send).not.toHaveBeenCalled();
+
+			// Self-heal: `ticking` was reset in `finally`, so the next tick actually
+			// runs (not short-circuited by the `if (ticking) return;` guard) and
+			// baselines wf-1 normally (no send yet — first observation).
+			await watcher.tick();
+			expect(getStates).toHaveBeenCalledTimes(2);
+			expect(send).not.toHaveBeenCalled();
+
+			// And the watcher keeps working normally afterwards: a real transition
+			// on a subsequent healthy tick still sends.
+			await watcher.tick();
+			expect(send).toHaveBeenCalledTimes(1);
+		} finally {
+			warnSpy.mockRestore();
+		}
+	});
+
 	it("start()/stop() manage the interval without double-starting", async () => {
 		vi.useFakeTimers();
 		try {
+			// harness() defaults to enabled: true, so getStates is actually invoked
+			// on every tick — required for this call-count assertion to mean anything.
 			const h = harness();
 			h.setStates([]);
 			h.watcher.start();
-			h.watcher.start(); // idempotent
-			await vi.advanceTimersByTimeAsync(10_000);
+			h.watcher.start(); // idempotent: must not leak a second interval
+			// 3 intervals @ the default 3000ms cadence = 9000ms.
+			await vi.advanceTimersByTimeAsync(9_000);
+			// 1 immediate tick (from start()) + 3 interval ticks = 4. A leaked
+			// second interval would double every subsequent count (8, not 4).
+			expect(h.getStates).toHaveBeenCalledTimes(4);
 			h.watcher.stop();
-			const before = h.send.mock.calls.length;
+			const before = h.getStates.mock.calls.length;
 			await vi.advanceTimersByTimeAsync(10_000);
-			expect(h.send.mock.calls.length).toBe(before);
+			expect(h.getStates.mock.calls.length).toBe(before);
 		} finally {
 			vi.useRealTimers();
 		}

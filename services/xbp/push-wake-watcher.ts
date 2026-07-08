@@ -49,6 +49,12 @@ export function createPushWakeWatcher(deps: {
 				deps.audit({ ts: now(), trigger: event.trigger, outcome });
 				if (outcome === "dead-token-cleared") return; // device gone
 			}
+		} catch (e) {
+			// Best-effort: never let a tick failure escape as an unhandled
+			// rejection (setInterval callers use `void tick()`). Log and
+			// self-heal on the next tick.
+			console.warn("[push-wake] tick failed:", e);
+			return;
 		} finally {
 			ticking = false;
 		}
