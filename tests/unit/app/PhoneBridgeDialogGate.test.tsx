@@ -12,7 +12,9 @@ vi.mock("../../../src/components/settings/PhoneBridgeDialog", () => ({
 
 function seedPhoneBridge(enabled: boolean) {
 	(window as unknown as { ai14all?: unknown }).ai14all = {
-		settings: { initial: { ...DEFAULT_PERSISTED_SETTINGS, phoneBridge: { enabled } } },
+		settings: {
+			initial: { ...DEFAULT_PERSISTED_SETTINGS, phoneBridge: { enabled } },
+		},
 	};
 }
 afterEach(() => {
@@ -37,6 +39,8 @@ describe("PhoneBridgeDialogGate (settings-gated)", () => {
 				<PhoneBridgeDialogGate open onOpenChange={vi.fn()} />
 			</SettingsProvider>,
 		);
-		expect(screen.getByTestId("phone-bridge-dialog").getAttribute("data-open")).toBe("true");
+		expect(
+			screen.getByTestId("phone-bridge-dialog").getAttribute("data-open"),
+		).toBe("true");
 	});
 });

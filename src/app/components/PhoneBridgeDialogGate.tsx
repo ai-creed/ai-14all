@@ -14,5 +14,7 @@ export function PhoneBridgeDialogGate(props: {
 }): React.ReactElement | null {
 	const { settings } = useSettings();
 	if (!isPhoneBridgeEnabled(settings)) return null;
-	return <PhoneBridgeDialog open={props.open} onOpenChange={props.onOpenChange} />;
+	return (
+		<PhoneBridgeDialog open={props.open} onOpenChange={props.onOpenChange} />
+	);
 }

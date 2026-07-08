@@ -80,8 +80,7 @@ describe("phoneBridge flag", () => {
 
 	it("SettingsPatchSchema accepts a phoneBridge sub-patch", () => {
 		expect(
-			SettingsPatchSchema.parse({ phoneBridge: { enabled: true } })
-				.phoneBridge,
+			SettingsPatchSchema.parse({ phoneBridge: { enabled: true } }).phoneBridge,
 		).toEqual({ enabled: true });
 	});
 
