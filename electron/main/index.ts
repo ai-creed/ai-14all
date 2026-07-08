@@ -7,7 +7,7 @@ import { watch } from "chokidar";
 import { createMainWindow } from "./windows.js";
 import { registerIpcHandlers } from "./ipc.js";
 import { createCloseGate } from "./close-gate.js";
-import { registerAppLifecycle } from "./lifecycle.js";
+import { registerAppLifecycle, registerHideOnClose } from "./lifecycle.js";
 import { buildApplicationMenu } from "./menu.js";
 import { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
 import { SettingsService } from "../../services/settings/settings-service.js";
@@ -680,8 +680,12 @@ app.whenReady().then(async () => {
 		},
 	};
 
+	// Set once a real quit is underway so hide-on-close and the close-gate can
+	// tell "user pressed the red X" (hide) apart from "user is quitting" (destroy).
+	let isQuitting = false;
+
 	const closeGate = createCloseGate();
-	closeGate.attach(mainWindow);
+	closeGate.attach(mainWindow, { isQuitting: () => isQuitting });
 	const { dispose, terminalService } = registerIpcHandlers(mainWindow, {
 		workspacePersistence,
 		settingsService,
@@ -711,6 +715,7 @@ app.whenReady().then(async () => {
 		);
 	}
 	app.on("before-quit", () => {
+		isQuitting = true;
 		updateService.dispose();
 		offRegistry();
 		void deleteLivenessFile(livenessPath);
@@ -732,5 +737,17 @@ app.whenReady().then(async () => {
 		onWindowAllClosed: (listener) => app.on("window-all-closed", listener),
 		quit: () => app.quit(),
 		dispose,
+	});
+
+	registerHideOnClose({
+		onClose: (listener) => mainWindow.on("close", listener),
+		onActivate: (listener) => app.on("activate", listener),
+		isQuitting: () => isQuitting,
+		hide: () => mainWindow.hide(),
+		show: () => {
+			mainWindow.show();
+			mainWindow.focus();
+		},
+		isDestroyed: () => mainWindow.isDestroyed(),
 	});
 });

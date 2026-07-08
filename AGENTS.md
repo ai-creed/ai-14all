@@ -34,6 +34,7 @@ Keep these boundaries intact:
 - Electron main stays thin.
 - Durable product logic belongs in services, not React components.
 - Shared contracts and shared models are the canonical source of truth across renderer and backend.
+- **XBP protocol contract:** `docs/shared/XBP-PROTOCOL.md` (secret, gitignored — synced mirror; owner is ai-xavier). Read it before touching bridge/pairing/acting/capability/audit code. Do not edit the mirror.
 
 The frontend should stay session-first:
 

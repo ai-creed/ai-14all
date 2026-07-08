@@ -541,6 +541,44 @@ describe("samantha-driver", () => {
 		expect(calls.snapshot.length).toBeGreaterThan(after);
 	});
 
+	it("rides a versioned ai-14all.supervisor envelope carrying the full payload shape", async () => {
+		const { client, calls } = okClient();
+		const { driver } = makeDriver(client);
+		await driver.start(ctx);
+		await vi.advanceTimersByTimeAsync(30);
+		driver.ingestSessionSlice(slice("active"));
+		await vi.advanceTimersByTimeAsync(30);
+
+		const body = calls.snapshot.at(-1)!;
+		expect(body.data?.kind).toBe("ai-14all.supervisor");
+		expect(body.data?.version).toBe(1);
+
+		// Guard the FULL required payload shape { worktrees, mode, focusedWorktreeId }. An
+		// implementation that drops mode or focusedWorktreeId would still send a data envelope,
+		// but Samantha's strict parser would reject it — so assert them at the producer too.
+		const payload = body.data?.payload as {
+			worktrees: Array<Record<string, unknown>>;
+			mode: unknown;
+			focusedWorktreeId: unknown;
+		};
+		expect(typeof payload.mode).toBe("string");
+		expect(
+			payload.focusedWorktreeId === null ||
+				typeof payload.focusedWorktreeId === "string",
+		).toBe(true);
+		expect(Array.isArray(payload.worktrees)).toBe(true);
+		expect(payload.worktrees.length).toBeGreaterThan(0);
+
+		// A representative row carries the structured fields, not just an id.
+		const wt = payload.worktrees[0];
+		expect(typeof wt.worktreeId).toBe("string");
+		expect(typeof wt.repo).toBe("string");
+		expect(typeof wt.branch).toBe("string");
+		expect(typeof wt.focused).toBe("boolean");
+		expect(typeof wt.reviewCount).toBe("number");
+		expect("workflow" in wt && "escalation" in wt && "recent" in wt).toBe(true);
+	});
+
 	it("advertises the three capabilities in the register body", async () => {
 		const { client, calls } = okClient();
 		const { driver } = makeDriver(client);

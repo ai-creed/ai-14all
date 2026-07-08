@@ -144,6 +144,39 @@ describe("close-gate", () => {
 		expect(send).not.toHaveBeenCalled();
 	});
 
+	it("defers to hide-on-close when isQuitting() is false, even if dirty", () => {
+		const gate = createCloseGate();
+		const { window, emitClose, send, destroy } = makeFakeWindow();
+		gate.attach(window, { isQuitting: () => false });
+		gate.setDirty({
+			workspaceId: "ws",
+			worktreeId: "wt",
+			relativePath: "a.md",
+			dirty: true,
+		});
+		const { defaultPrevented } = emitClose();
+		expect(defaultPrevented).toBe(false);
+		expect(send).not.toHaveBeenCalled();
+		expect(destroy).not.toHaveBeenCalled();
+	});
+
+	it("guards a dirty close when isQuitting() is true", () => {
+		const gate = createCloseGate();
+		const { window, emitClose, send } = makeFakeWindow();
+		gate.attach(window, { isQuitting: () => true });
+		gate.setDirty({
+			workspaceId: "ws",
+			worktreeId: "wt",
+			relativePath: "a.md",
+			dirty: true,
+		});
+		const { defaultPrevented } = emitClose();
+		expect(defaultPrevented).toBe(true);
+		expect(send).toHaveBeenCalledWith("app:requestClose", {
+			keys: ["ws|wt|a.md"],
+		});
+	});
+
 	it("blocks duplicate close events while a confirmation is pending", () => {
 		const gate = createCloseGate();
 		const { window, emitClose, send, destroy } = makeFakeWindow();
