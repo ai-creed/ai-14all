@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	DEFAULT_PERSISTED_SETTINGS,
+	isPhoneBridgeEnabled,
 	PersistedSettingsV1Schema,
 	SettingsPatchSchema,
 } from "../../../shared/models/persisted-settings";
@@ -19,6 +20,9 @@ describe("PersistedSettingsV1Schema", () => {
 				enabled: true,
 				includeUntracked: false,
 				chipRange: "week",
+			},
+			phoneBridge: {
+				enabled: false,
 			},
 		});
 	});
@@ -46,6 +50,52 @@ describe("PersistedSettingsV1Schema", () => {
 		});
 		expect(
 			"version" in SettingsPatchSchema.parse({ version: 1 } as never),
+		).toBe(false);
+	});
+});
+
+describe("phoneBridge flag", () => {
+	it("defaults phoneBridge.enabled to false", () => {
+		expect(DEFAULT_PERSISTED_SETTINGS.phoneBridge.enabled).toBe(false);
+		expect(
+			PersistedSettingsV1Schema.parse({ version: 1 }).phoneBridge.enabled,
+		).toBe(false);
+	});
+
+	it("parses a legacy object with no phoneBridge to the false default", () => {
+		const parsed = PersistedSettingsV1Schema.parse({
+			version: 1,
+			theme: "dark",
+		});
+		expect(parsed.phoneBridge.enabled).toBe(false);
+	});
+
+	it("accepts an explicit phoneBridge.enabled true", () => {
+		const parsed = PersistedSettingsV1Schema.parse({
+			version: 1,
+			phoneBridge: { enabled: true },
+		});
+		expect(parsed.phoneBridge.enabled).toBe(true);
+	});
+
+	it("SettingsPatchSchema accepts a phoneBridge sub-patch", () => {
+		expect(
+			SettingsPatchSchema.parse({ phoneBridge: { enabled: true } })
+				.phoneBridge,
+		).toEqual({ enabled: true });
+	});
+
+	it("isPhoneBridgeEnabled returns the flag value", () => {
+		expect(
+			isPhoneBridgeEnabled(
+				PersistedSettingsV1Schema.parse({
+					version: 1,
+					phoneBridge: { enabled: true },
+				}),
+			),
+		).toBe(true);
+		expect(
+			isPhoneBridgeEnabled(PersistedSettingsV1Schema.parse({ version: 1 })),
 		).toBe(false);
 	});
 });

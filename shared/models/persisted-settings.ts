@@ -16,6 +16,9 @@ export const RestoreDepthSchema = z.enum([
 	"activeOnly",
 ]);
 export const AgentResumeModeSchema = z.enum(["auto", "manual", "off"]);
+export const PhoneBridgeSettingsSchema = z.object({
+	enabled: z.boolean(),
+});
 
 // Range mirrors MIN/MAX_TERMINAL_FONT_SIZE in use-terminal-font-size.ts.
 const TerminalFontSizeSchema = z.number().int().min(10).max(20);
@@ -32,6 +35,7 @@ export const PersistedSettingsV1Schema = z.object({
 		includeUntracked: false,
 		chipRange: "week",
 	}),
+	phoneBridge: PhoneBridgeSettingsSchema.default({ enabled: false }),
 });
 
 export type ThemeMode = z.infer<typeof ThemeModeSchema>;
@@ -53,6 +57,10 @@ const UsageTelemetryPatchSchema = z.object({
 	chipRange: z.enum(["week", "month"]).optional(),
 });
 
+const PhoneBridgePatchSchema = z.object({
+	enabled: z.boolean().optional(),
+});
+
 // Built from the bare (non-`.default()`) field schemas rather than
 // `PersistedSettingsV1Schema.omit({version:true}).partial()`: in zod v4 a
 // field's `.default()` resolves on `undefined` input regardless of
@@ -68,8 +76,14 @@ export const SettingsPatchSchema = z.object({
 	restoreDepth: RestoreDepthSchema.optional(),
 	agentResume: AgentResumeModeSchema.optional(),
 	usageTelemetry: UsageTelemetryPatchSchema.optional(),
+	phoneBridge: PhoneBridgePatchSchema.optional(),
 });
 export type SettingsPatch = z.infer<typeof SettingsPatchSchema>;
 
 export const DEFAULT_PERSISTED_SETTINGS: PersistedSettingsV1 =
 	PersistedSettingsV1Schema.parse({ version: 1 });
+
+/** Single source of truth for the phone-bridge feature gate (spec D2). */
+export function isPhoneBridgeEnabled(s: PersistedSettingsV1): boolean {
+	return s.phoneBridge.enabled;
+}
