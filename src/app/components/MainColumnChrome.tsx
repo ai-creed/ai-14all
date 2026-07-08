@@ -13,6 +13,7 @@ import {
 import { ShortcutsHelp } from "../../features/shortcuts/ShortcutsHelp";
 import { UpdateBanner } from "../../features/updater/UpdateBanner";
 import { NoteSheet } from "../../features/workspace/components/NoteSheet";
+import { PhoneBridgeEntryButton } from "./PhoneBridgeEntryButton";
 import { SessionChipBar } from "../../features/workspace/components/SessionChipBar";
 import { UsageStrip } from "../../features/telemetry/UsageStrip";
 import { useUsageSnapshot } from "../../features/telemetry/use-usage-snapshot";
@@ -166,14 +167,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 									</span>
 									Plugins
 								</button>
-								<button
-									type="button"
-									className="shell-chip-bar__action phone-bridge-entry-button"
-									aria-label="Open Phone Bridge panel"
-									onClick={onOpenPhoneBridge}
-								>
-									Phone Bridge
-								</button>
+								<PhoneBridgeEntryButton onOpen={onOpenPhoneBridge} />
 							</>
 						}
 					/>

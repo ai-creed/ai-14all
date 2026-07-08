@@ -123,7 +123,7 @@ import { resolvePresetLaunch } from "../features/terminals/logic/preset-launch";
 import { TerminalChromeHeader } from "../features/terminals/components/TerminalChromeHeader";
 import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
 import { PluginsPanelDialog } from "../features/plugins/components/PluginsPanelDialog";
-import { PhoneBridgeDialog } from "../components/settings/PhoneBridgeDialog";
+import { PhoneBridgeDialogGate } from "./components/PhoneBridgeDialogGate";
 import { SettingsDialog } from "../features/settings/components/SettingsDialog";
 import {
 	useWhisperState,
@@ -2474,7 +2474,7 @@ function AppContent() {
 								/>
 							)}
 
-							<PhoneBridgeDialog
+							<PhoneBridgeDialogGate
 								open={phoneBridgeDialogOpen}
 								onOpenChange={setPhoneBridgeDialogOpen}
 							/>
