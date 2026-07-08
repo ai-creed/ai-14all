@@ -10,6 +10,8 @@ import {
 	resumeSessionCapability,
 	stopSessionCapability,
 	sessionReportCapability,
+	registerPushTokenCapability,
+	deregisterPushTokenCapability,
 	SESSION_CHANGED_TOPIC,
 	type LifecycleResult,
 	type SessionReportResult,
@@ -17,6 +19,7 @@ import {
 import { createCoalescer } from "./coalescer.js";
 import type { XbpAuditSink } from "./xbp-audit-sink.js";
 import type { XbpActingExecutor } from "./xbp-acting-executor.js";
+import type { PushTokenHandlers } from "./xbp-push-token-handlers.js";
 
 export class XbpPeerSession {
 	private peer: Peer | null = null;
@@ -31,6 +34,7 @@ export class XbpPeerSession {
 			audit: XbpAuditSink;
 			getSessionReport: () => Promise<SessionReportResult>;
 			acting?: XbpActingExecutor;
+			pushToken?: PushTokenHandlers;
 			coalesceMs?: number;
 			now?: () => number;
 		},
@@ -92,6 +96,14 @@ export class XbpPeerSession {
 				stopSessionCapability,
 				wrap((w) => acting.stop(w)),
 			);
+		}
+
+		const pushToken = this.opts.pushToken;
+		if (pushToken) {
+			peer.expose(registerPushTokenCapability, (args) =>
+				pushToken.register(args),
+			);
+			peer.expose(deregisterPushTokenCapability, () => pushToken.deregister());
 		}
 
 		peer.start();

@@ -21,6 +21,8 @@ import {
 } from "./lan-websocket-transport.js";
 import { XbpPeerSession } from "./xbp-peer-session.js";
 import type { XbpActingExecutor } from "./xbp-acting-executor.js";
+import type { XbpPushTokenStore } from "./xbp-push-token-store.js";
+import type { PushTokenHandlers } from "./xbp-push-token-handlers.js";
 
 export interface XbpStatus {
 	enabled: boolean;
@@ -51,6 +53,8 @@ export class XbpHostService {
 			subscribeChanges: (cb: () => void) => () => void;
 			onStatusChange?: () => void;
 			acting?: XbpActingExecutor;
+			pushTokenStore?: XbpPushTokenStore;
+			pushTokenHandlers?: PushTokenHandlers;
 			now?: () => number;
 		},
 	) {
@@ -105,6 +109,7 @@ export class XbpHostService {
 			audit: this.audit,
 			getSessionReport: this.opts.getSessionReport,
 			acting: this.opts.acting,
+			pushToken: this.opts.pushTokenHandlers,
 			now: this.opts.now,
 		});
 
@@ -124,6 +129,11 @@ export class XbpHostService {
 				fromHex(this.pairedDevice.boxPubHex),
 				grantsForStoredDevice(this.pairedDevice),
 			);
+		} else {
+			// Device-forget path: today forgetting = removing paired-device.enc
+			// (no in-app unpair until Arc C). A leftover push token must not
+			// outlive the pairing that authorized it.
+			this.opts.pushTokenStore?.clear();
 		}
 
 		this.unsubscribe = this.opts.subscribeChanges(() =>
@@ -148,6 +158,9 @@ export class XbpHostService {
 				this.peerSession!.attach(peer.signPub, peer.boxPub, [
 					...NEW_PAIRING_GRANTS,
 				]);
+				// A fresh pairing is a fresh device (or a reset one): it must not
+				// inherit the previous registration. The new phone re-registers.
+				this.opts.pushTokenStore?.clear();
 				this.pairedDevice = {
 					signPubHex: toHex(peer.signPub),
 					boxPubHex: toHex(peer.boxPub),
