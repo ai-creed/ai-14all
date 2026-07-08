@@ -117,4 +117,28 @@ describe("push-wake sender", () => {
 		await expect(sender.send()).resolves.toBe("retry-exhausted");
 		expect(clearToken).not.toHaveBeenCalled();
 	});
+
+	it("singular-object DeviceNotRegistered response → clears token, no retry, dead-token-cleared", async () => {
+		const fetchSpy = vi.fn(async () =>
+			okResponse({
+				data: {
+					status: "error",
+					message: "not registered",
+					details: { error: "DeviceNotRegistered" },
+				},
+			}),
+		);
+		const { sender, clearToken } = makeSender(
+			fetchSpy as unknown as typeof fetch,
+		);
+		await expect(sender.send()).resolves.toBe("dead-token-cleared");
+		expect(clearToken).toHaveBeenCalledTimes(1);
+		expect(fetchSpy).toHaveBeenCalledTimes(1);
+	});
+
+	it("singular-object success response → sent", async () => {
+		const fetchSpy = vi.fn(async () => okResponse({ data: { status: "ok" } }));
+		const { sender } = makeSender(fetchSpy as unknown as typeof fetch);
+		await expect(sender.send()).resolves.toBe("sent");
+	});
 });

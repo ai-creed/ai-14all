@@ -40,9 +40,11 @@ export function createPushWakeSender(deps: {
 					});
 					if (res.ok) {
 						const json = (await res.json()) as {
-							data?: Array<{ status?: string; details?: { error?: string } }>;
+							data?:
+								| Array<{ status?: string; details?: { error?: string } }>
+								| { status?: string; details?: { error?: string } };
 						};
-						const item = json.data?.[0];
+						const item = Array.isArray(json.data) ? json.data[0] : json.data;
 						if (item?.status !== "error") return "sent";
 						if (item.details?.error === "DeviceNotRegistered") {
 							// The device is gone — stop pinging it (spec Deliverable 4).
