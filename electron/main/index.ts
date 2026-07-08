@@ -73,6 +73,13 @@ import {
 import { registerXbpIpc, PHONE_BRIDGE_STATUS_CHANGED } from "./xbp-ipc.js";
 import { createXbpHostIfEnabled } from "./xbp-boot.js";
 import { isPhoneBridgeEnabled } from "../../shared/models/persisted-settings.js";
+import { XbpPushTokenStore } from "../../services/xbp/xbp-push-token-store.js";
+import { createPushTokenHandlers } from "../../services/xbp/xbp-push-token-handlers.js";
+import { createPushWakeWatcher } from "../../services/xbp/push-wake-watcher.js";
+import { PushWakeStateStore } from "../../services/xbp/push-wake-state-store.js";
+import { createPushWakeSender } from "../../services/xbp/push-wake-sender.js";
+import { PushWakeAuditLogger } from "../../services/diagnostics/push-wake-audit-logger.js";
+import { isPushWakeEnabled } from "../../shared/models/persisted-settings.js";
 
 app.setName("ai-14all");
 
@@ -517,6 +524,21 @@ app.whenReady().then(async () => {
 	// safe to run regardless of when the window is created.
 	const { settings: persistedSettings } = settingsService.readStateSync();
 	const xbpDir = join(app.getPath("userData"), "ai-14all", "xbp");
+
+	// --- Arc B push-wake: token store, handlers, watcher (spec Deliverables 1-5)
+	const pushTokenStore = new XbpPushTokenStore({
+		dir: xbpDir,
+		secureStorage: safeStorage,
+	});
+	// readStateSync per call: register/deregister and a 3 s tick — negligible
+	// I/O, and it picks up settings edits without extra plumbing.
+	const isPushWakeOn = () =>
+		isPushWakeEnabled(settingsService.readStateSync().settings);
+	const pushTokenHandlers = createPushTokenHandlers({
+		isPushWakeEnabled: isPushWakeOn,
+		store: pushTokenStore,
+	});
+
 	let xbpService: XbpHostService | null = null;
 	xbpService = await createXbpHostIfEnabled({
 		enabled: isPhoneBridgeEnabled(persistedSettings),
@@ -525,6 +547,8 @@ app.whenReady().then(async () => {
 			secureStorage: safeStorage,
 			getSessionReport: xbpSessionReport,
 			acting: xbpActingExecutor,
+			pushTokenStore,
+			pushTokenHandlers,
 			subscribeChanges: (cb) => {
 				const offReviews = reviewCommentService.onChange(() => cb());
 				const offWorktrees = workspaceRegistry.onChange(cb);
@@ -550,6 +574,29 @@ app.whenReady().then(async () => {
 		getService: () => xbpService,
 		getWebContents: () => mainWindow?.webContents,
 	});
+
+	const pushWakeAudit = new PushWakeAuditLogger({
+		logsDir: join(app.getPath("userData"), "logs"),
+	});
+	const pushWakeWatcher = createPushWakeWatcher({
+		getStates: getWhisperStates,
+		stateStore: new PushWakeStateStore({ dir: xbpDir }),
+		isEnabled: () =>
+			(xbpService?.getStatus().enabled ?? false) && isPushWakeOn(),
+		hasToken: () => pushTokenStore.exists(),
+		send: createPushWakeSender({
+			loadToken: () => {
+				try {
+					return pushTokenStore.load()?.expoPushToken ?? null;
+				} catch {
+					return null; // safeStorage unavailable → behave as no token
+				}
+			},
+			clearToken: () => pushTokenStore.clear(),
+		}).send,
+		audit: (entry) => pushWakeAudit.append(entry),
+	});
+	pushWakeWatcher.start();
 
 	const pluginRegistry = createPluginRegistry(
 		[whisperDriver, cortexDriver, samanthaDriver],
@@ -724,6 +771,7 @@ app.whenReady().then(async () => {
 		void deleteLivenessFile(livenessPath);
 		void mcpServer?.stop().catch(() => {});
 		void xbpService?.stop().catch(() => {});
+		pushWakeWatcher.stop();
 		sessionNoteBridge.dispose();
 		agentAttentionBridge.dispose();
 		agentResumeBridge.dispose();
