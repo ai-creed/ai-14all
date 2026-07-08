@@ -65,12 +65,14 @@ import { createActingTokenVerifier } from "../../services/plugins/samantha/actin
 import type { WhisperCommand } from "../../shared/contracts/plugins.js";
 import { createSessionSliceStore } from "../../services/plugins/samantha/session-slice-source.js";
 import { createSessionReportProvider } from "../../services/plugins/samantha/session-report-provider.js";
-import { XbpHostService } from "../../services/xbp/xbp-host-service.js";
+import type { XbpHostService } from "../../services/xbp/xbp-host-service.js";
 import {
 	createWorkflowResolver,
 	createXbpActingExecutor,
 } from "../../services/xbp/xbp-acting-executor.js";
 import { registerXbpIpc, PHONE_BRIDGE_STATUS_CHANGED } from "./xbp-ipc.js";
+import { createXbpHostIfEnabled } from "./xbp-boot.js";
+import { isPhoneBridgeEnabled } from "../../shared/models/persisted-settings.js";
 
 app.setName("ai-14all");
 
@@ -513,10 +515,12 @@ app.whenReady().then(async () => {
 	// phone that connects during early startup finds the bridge already live. All
 	// mainWindow/webContents references below are lazy + null-safe so this block is
 	// safe to run regardless of when the window is created.
+	const { settings: persistedSettings } = settingsService.readStateSync();
 	const xbpDir = join(app.getPath("userData"), "ai-14all", "xbp");
 	let xbpService: XbpHostService | null = null;
-	try {
-		xbpService = new XbpHostService({
+	xbpService = await createXbpHostIfEnabled({
+		enabled: isPhoneBridgeEnabled(persistedSettings),
+		options: {
 			dir: xbpDir,
 			secureStorage: safeStorage,
 			getSessionReport: xbpSessionReport,
@@ -536,11 +540,10 @@ app.whenReady().then(async () => {
 					PHONE_BRIDGE_STATUS_CHANGED,
 					xbpService?.getStatus(),
 				),
-		});
-		await xbpService.start();
-	} catch (err) {
-		console.error("[xbp] failed to start host service", err);
-	}
+		},
+		onStartError: (err) =>
+			console.error("[xbp] failed to start host service", err),
+	});
 
 	const xbpIpc = registerXbpIpc({
 		ipcMain,
