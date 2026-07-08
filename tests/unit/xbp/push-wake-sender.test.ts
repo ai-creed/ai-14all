@@ -36,7 +36,10 @@ describe("push-wake sender", () => {
 		const { sender } = makeSender(fetchSpy as unknown as typeof fetch);
 		await expect(sender.send()).resolves.toBe("sent");
 		expect(fetchSpy).toHaveBeenCalledTimes(1);
-		const [url, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
+		const [url, init] = fetchSpy.mock.calls[0] as unknown as [
+			string,
+			RequestInit,
+		];
 		expect(url).toBe(EXPO_PUSH_ENDPOINT);
 		const payload = JSON.parse(String(init.body));
 		// The spec's test: no session id, no category, no content. The ONLY

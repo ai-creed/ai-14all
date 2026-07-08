@@ -36,7 +36,9 @@ function state(workflowId: string, status: string): WhisperWorktreeState {
 function harness(opts?: {
 	enabled?: boolean;
 	token?: boolean;
-	outcomes?: Array<"sent" | "dead-token-cleared" | "retry-exhausted" | "no-token">;
+	outcomes?: Array<
+		"sent" | "dead-token-cleared" | "retry-exhausted" | "no-token"
+	>;
 }) {
 	const dir = mkdtempSync(join(tmpdir(), "pw-watch-"));
 	const stateStore = new PushWakeStateStore({ dir });
@@ -54,7 +56,15 @@ function harness(opts?: {
 		audit: (e) => audits.push(e),
 		now: () => NOW,
 	});
-	return { watcher, getStates, send, audits, stateStore, dir, setStates: (s: WhisperWorktreeState[]) => (states = s) };
+	return {
+		watcher,
+		getStates,
+		send,
+		audits,
+		stateStore,
+		dir,
+		setStates: (s: WhisperWorktreeState[]) => (states = s),
+	};
 }
 
 describe("push-wake watcher", () => {
@@ -120,7 +130,11 @@ describe("push-wake watcher", () => {
 		const getStates = vi.fn(async () => [state("wf-1", "done")]);
 		const dir = mkdtempSync(join(tmpdir(), "pw-watch-en-"));
 		const stateStore = new PushWakeStateStore({ dir });
-		stateStore.save({ workflows: { "wf-1": "running" }, pingedWorkflows: [], pingedChains: [] });
+		stateStore.save({
+			workflows: { "wf-1": "running" },
+			pingedWorkflows: [],
+			pingedChains: [],
+		});
 		const send = vi.fn(async () => "sent" as const);
 		const watcher = createPushWakeWatcher({
 			getStates,
@@ -151,9 +165,15 @@ describe("push-wake watcher", () => {
 
 	it("dead-token-cleared stops the remaining sends of the tick and audits the clearance", async () => {
 		const h = harness({ outcomes: ["dead-token-cleared"] });
-		h.setStates([state("wf-1", "running"), { ...state("wf-2", "running"), worktreeId: "wt-2", collabId: "collab-2" }]);
+		h.setStates([
+			state("wf-1", "running"),
+			{ ...state("wf-2", "running"), worktreeId: "wt-2", collabId: "collab-2" },
+		]);
 		await h.watcher.tick();
-		h.setStates([state("wf-1", "done"), { ...state("wf-2", "halted"), worktreeId: "wt-2", collabId: "collab-2" }]);
+		h.setStates([
+			state("wf-1", "done"),
+			{ ...state("wf-2", "halted"), worktreeId: "wt-2", collabId: "collab-2" },
+		]);
 		await h.watcher.tick();
 		expect(h.send).toHaveBeenCalledTimes(1);
 		expect(h.audits).toHaveLength(1);
@@ -184,7 +204,10 @@ describe("push-wake watcher", () => {
 
 			// Rejected getStates must not escape tick() as an unhandled rejection.
 			await expect(watcher.tick()).resolves.toBeUndefined();
-			expect(warnSpy).toHaveBeenCalledWith("[push-wake] tick failed:", expect.any(Error));
+			expect(warnSpy).toHaveBeenCalledWith(
+				"[push-wake] tick failed:",
+				expect.any(Error),
+			);
 			expect(send).not.toHaveBeenCalled();
 
 			// Self-heal: `ticking` was reset in `finally`, so the next tick actually

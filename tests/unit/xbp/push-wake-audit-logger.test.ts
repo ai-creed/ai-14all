@@ -28,7 +28,11 @@ describe("PushWakeAuditLogger", () => {
 	it("appends one JSONL entry per send decision", () => {
 		const logger = new PushWakeAuditLogger({ logsDir: dir });
 		logger.append(entry);
-		logger.append({ ...entry, trigger: "escalated", outcome: "retry-exhausted" });
+		logger.append({
+			...entry,
+			trigger: "escalated",
+			outcome: "retry-exhausted",
+		});
 		expect(readLines()).toEqual([
 			entry,
 			{ ...entry, trigger: "escalated", outcome: "retry-exhausted" },

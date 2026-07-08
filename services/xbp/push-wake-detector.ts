@@ -67,7 +67,8 @@ export function detectPushWakeEvents(
 						// Genuine transition INTO the trigger set — includes the
 						// restart case (persisted running → first snapshot done).
 						events.push({
-							trigger: wf.status === "done" ? "workflow-done" : "workflow-halted",
+							trigger:
+								wf.status === "done" ? "workflow-done" : "workflow-halted",
 							workflowId: wf.workflowId,
 						});
 					}

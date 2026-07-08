@@ -115,7 +115,11 @@ describe("detectPushWakeEvents — status transitions (raw strings only)", () =>
 	});
 
 	it("two independent ends in one tick ⇒ two events", () => {
-		const s2 = { ...state({ workflowId: "wf-2", status: "halted" }), worktreeId: "wt-2", collabId: "collab-2" };
+		const s2 = {
+			...state({ workflowId: "wf-2", status: "halted" }),
+			worktreeId: "wt-2",
+			collabId: "collab-2",
+		};
 		const { events } = detectPushWakeEvents(
 			seen({ "wf-1": "running", "wf-2": "running" }),
 			[state({ workflowId: "wf-1", status: "done" }), s2],
@@ -200,11 +204,13 @@ describe("detectPushWakeEvents — state maintenance", () => {
 			worktreeId: "wt-2",
 			collabId: "collab-2",
 		};
-		const { events, next } = detectPushWakeEvents(seen({ "wf-dup": "running" }), [
-			state({ workflowId: "wf-dup", status: "done" }),
-			s2,
+		const { events, next } = detectPushWakeEvents(
+			seen({ "wf-dup": "running" }),
+			[state({ workflowId: "wf-dup", status: "done" }), s2],
+		);
+		expect(events).toEqual([
+			{ trigger: "workflow-done", workflowId: "wf-dup" },
 		]);
-		expect(events).toEqual([{ trigger: "workflow-done", workflowId: "wf-dup" }]);
 		expect(next.pingedWorkflows).toEqual(["wf-dup"]);
 	});
 });
