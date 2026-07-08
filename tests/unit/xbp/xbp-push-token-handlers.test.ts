@@ -60,7 +60,13 @@ describe("push token handlers", () => {
 
 	it("malformed token → invalid-token, nothing stored", async () => {
 		const { handlers, save } = makeHandlers();
-		for (const bad of ["", "not-a-token", "ExponentPushToken[]", "x".repeat(4096)]) {
+		for (const bad of [
+			"",
+			"not-a-token",
+			"ExponentPushToken[]",
+			"x".repeat(4096),
+			`ExponentPushToken[${"x".repeat(257)}]`,
+		]) {
 			await expect(
 				handlers.register({ ...validArgs, expoPushToken: bad }),
 			).resolves.toMatchObject({ ok: false, code: "invalid-token" });
