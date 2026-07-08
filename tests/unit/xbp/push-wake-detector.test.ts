@@ -193,4 +193,18 @@ describe("detectPushWakeEvents — state maintenance", () => {
 		detectPushWakeEvents(prev, [state({ workflowId: "wf-1", status: "done" })]);
 		expect(prev).toEqual(frozen);
 	});
+
+	it("same workflowId in two states of one snapshot ⇒ one event, no duplicate ping", () => {
+		const s2 = {
+			...state({ workflowId: "wf-dup", status: "done" }),
+			worktreeId: "wt-2",
+			collabId: "collab-2",
+		};
+		const { events, next } = detectPushWakeEvents(seen({ "wf-dup": "running" }), [
+			state({ workflowId: "wf-dup", status: "done" }),
+			s2,
+		]);
+		expect(events).toEqual([{ trigger: "workflow-done", workflowId: "wf-dup" }]);
+		expect(next.pingedWorkflows).toEqual(["wf-dup"]);
+	});
 });

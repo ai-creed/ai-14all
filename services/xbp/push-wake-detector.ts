@@ -31,7 +31,10 @@ export function detectPushWakeEvents(
 		pingedWorkflows: [],
 		pingedChains: [],
 	};
-	const prevPingedWorkflows = new Set(prev?.pingedWorkflows ?? []);
+	// Live, seeded from prev: mirrors pingedChains below so a workflowId
+	// repeated across two states of one snapshot is caught mid-loop, not just
+	// tick-to-tick (same duplicate-ping risk as the chain guard).
+	const pingedWorkflows = new Set(prev?.pingedWorkflows ?? []);
 	// Retained verbatim, never evicted: an already-seen chainId must never
 	// re-qualify (spec), and any eviction would reopen a duplicate-ping path.
 	// Escalations are rare — unbounded retention stays tiny in practice.
@@ -43,11 +46,17 @@ export function detectPushWakeEvents(
 		if (wf) {
 			next.workflows[wf.workflowId] = wf.status;
 			if (QUALIFYING.has(wf.status)) {
-				if (prevPingedWorkflows.has(wf.workflowId)) {
-					next.pingedWorkflows.push(wf.workflowId);
+				if (pingedWorkflows.has(wf.workflowId)) {
+					// Already pinged — either carried over from prev, or this is a
+					// second occurrence of the same workflowId within this very
+					// snapshot. Carry forward at most once; never re-push.
+					if (!next.pingedWorkflows.includes(wf.workflowId)) {
+						next.pingedWorkflows.push(wf.workflowId);
+					}
 				} else if (prev === null) {
 					// Fresh baseline: settle without pinging.
 					next.pingedWorkflows.push(wf.workflowId);
+					pingedWorkflows.add(wf.workflowId);
 				} else {
 					const before = prev.workflows[wf.workflowId];
 					if (
@@ -65,6 +74,7 @@ export function detectPushWakeEvents(
 					// Unseen-terminal rows settle silently; emitted ones must
 					// never fire again. Both end up pinged.
 					next.pingedWorkflows.push(wf.workflowId);
+					pingedWorkflows.add(wf.workflowId);
 				}
 			}
 		}
