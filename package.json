@@ -36,7 +36,7 @@
 		"diag:attention": "node scripts/dump-attention-log.mjs"
 	},
 	"dependencies": {
-		"@ai-creed/command-contract": "file:vendor/ai-creed-command-contract-0.1.0-alpha.1.tgz",
+		"@ai-creed/command-contract": "file:vendor/ai-creed-command-contract-0.1.0-alpha.2.tgz",
 		"@xavier/xbp": "file:vendor/xavier-xbp-0.1.0-alpha.0.tgz",
 		"libsodium-wrappers": "^0.7.15",
 		"@modelcontextprotocol/sdk": "^1.29.0",
@@ -80,7 +80,10 @@
 			"esbuild",
 			"node-pty",
 			"better-sqlite3"
-		]
+		],
+		"overrides": {
+			"@ai-creed/command-contract": "file:vendor/ai-creed-command-contract-0.1.0-alpha.2.tgz"
+		}
 	},
 	"devDependencies": {
 		"@electron/rebuild": "^4.0.4",
