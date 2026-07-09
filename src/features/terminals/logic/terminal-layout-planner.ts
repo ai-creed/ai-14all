@@ -104,7 +104,10 @@ function relate(a: Range, b: Range): Rel {
 }
 
 // +1 for each preserved axis-relation across every survivor pair.
-function scoreCandidate(survivors: Placement[], candidate: Placement[]): number {
+function scoreCandidate(
+	survivors: Placement[],
+	candidate: Placement[],
+): number {
 	let score = 0;
 	for (let i = 0; i < survivors.length; i++) {
 		for (let j = i + 1; j < survivors.length; j++) {
