@@ -1,16 +1,11 @@
-import { describe, it, expect, afterEach, vi } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-	connectWebSocketClient,
 	createNodeSodiumBackend,
-	fromHex,
 	generateIdentity,
-	Peer,
-	ReferenceClient,
 	toHex,
-	type Identity,
 } from "@xavier/xbp/node";
 import {
 	CONTROL_ACT,
@@ -23,12 +18,7 @@ import { XbpPairedDeviceStore } from "../../../services/xbp/xbp-paired-device-st
 import { XbpPushTokenStore } from "../../../services/xbp/xbp-push-token-store";
 import { createPushTokenHandlers } from "../../../services/xbp/xbp-push-token-handlers";
 import { NEW_PAIRING_GRANTS } from "../../../services/xbp/xbp-grants";
-
-const okStorage = {
-	isEncryptionAvailable: () => true,
-	encryptString: (s: string) => Buffer.from(s, "utf8"),
-	decryptString: (b: Buffer) => b.toString("utf8"),
-};
+import { connectPeer, okStorage, pairPhone } from "./pairing-helpers";
 
 const validArgs = {
 	expoPushToken: "ExponentPushToken[integration]",
@@ -63,45 +53,6 @@ function makeService(dir: string) {
 		},
 	});
 	return { svc, pushTokenStore, calls: () => registerCalls };
-}
-
-async function connectPeer(
-	port: number,
-	phone: Identity,
-	hostSignPubHex: string,
-	hostBoxPubHex: string,
-) {
-	const backend = await createNodeSodiumBackend();
-	const transport = await connectWebSocketClient(`ws://127.0.0.1:${port}`);
-	const peer = new Peer({ backend, identity: phone, transport });
-	const hostNode = peer.addPeer(
-		fromHex(hostSignPubHex),
-		fromHex(hostBoxPubHex),
-		[],
-	);
-	peer.start();
-	return { peer, hostNode, transport };
-}
-
-async function pairPhone(svc: XbpHostService, port: number, phone: Identity) {
-	const backend = await createNodeSodiumBackend();
-	const offer = await svc.startPairing();
-	const refClient = new ReferenceClient({ backend, identity: phone });
-	const t = await connectWebSocketClient(`ws://127.0.0.1:${port}`);
-	// A previous pairing on this same svc instance leaves lastSas set (it is
-	// never cleared), so "not null" alone would pass instantly on a second
-	// pairing before this device's frame is even processed. Wait for it to
-	// actually change instead.
-	const priorSas = svc.getStatus().sas;
-	await t.send(refClient.buildPairRequest(offer.token));
-	await vi.waitFor(() => {
-		const sas = svc.getStatus().sas;
-		expect(sas).not.toBeNull();
-		expect(sas).not.toBe(priorSas);
-	});
-	expect(svc.confirmPairing(true)).toBe(true);
-	await t.close();
-	return offer;
 }
 
 let svc: XbpHostService | undefined;
