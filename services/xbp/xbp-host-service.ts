@@ -174,6 +174,34 @@ export class XbpHostService {
 		return confirmed;
 	}
 
+	async forgetDevice(): Promise<void> {
+		this.peerSession?.detach();
+		// Cancel any in-flight pairing: a stale Confirm must not complete after
+		// the forget, and the pre-forget QR offer token must die. ReferenceHost
+		// keeps its pending peer/token private and confirmPairing(false) clears
+		// neither lastSas nor the token (and would audit spurious rejections), so
+		// swap in a fresh pairing host. Whenever pairingHost is non-null,
+		// backend/identity/audit are too (all created together in start()).
+		if (this.pairingHost) {
+			this.pairingHost = new XbpPairingHost({
+				backend: this.backend!,
+				identity: this.identity!,
+				audit: this.audit!,
+				now: this.opts.now,
+			});
+		}
+		this.pairedDevice = null;
+		this.pairedStore.clear();
+		this.opts.pushTokenStore?.clear();
+		this.audit?.append({
+			cap: null,
+			risk: null,
+			outcome: "accepted",
+			reason: "device-forgotten",
+		});
+		this.emitStatusChange();
+	}
+
 	getStatus(): XbpStatus {
 		return {
 			enabled: this.enabled,
