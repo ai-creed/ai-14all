@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 function makeIpcMain() {
 	const handlers = new Map<string, (e: unknown, raw: unknown) => unknown>();
@@ -13,6 +13,7 @@ function makeIpcMain() {
 import {
 	registerXbpIpc,
 	PHONE_BRIDGE_STATUS,
+	PHONE_BRIDGE_FORGET,
 } from "../../../electron/main/xbp-ipc";
 
 describe("registerXbpIpc", () => {
@@ -39,5 +40,62 @@ describe("registerXbpIpc", () => {
 			port: 51820,
 			sas: "048213",
 		});
+	});
+
+	it("phoneBridge:forget invokes forgetDevice() and returns the post-forget status", async () => {
+		const ipcMain = makeIpcMain();
+		const forgetDevice = vi.fn(async () => {});
+		const service = {
+			forgetDevice,
+			getStatus: () => ({
+				enabled: true,
+				listening: true,
+				addr: "10.0.0.5",
+				port: 51820,
+				paired: false,
+				sas: null,
+			}),
+		};
+		registerXbpIpc({
+			ipcMain: ipcMain as never,
+			getService: () => service as never,
+			getWebContents: () => undefined,
+		});
+		const status = await ipcMain.invoke(PHONE_BRIDGE_FORGET);
+		expect(forgetDevice).toHaveBeenCalledTimes(1);
+		expect(status).toMatchObject({ enabled: true, paired: false });
+	});
+
+	it("phoneBridge:forget is a graceful no-op returning undefined when the service is null", async () => {
+		const ipcMain = makeIpcMain();
+		registerXbpIpc({
+			ipcMain: ipcMain as never,
+			getService: () => null,
+			getWebContents: () => undefined,
+		});
+		await expect(ipcMain.invoke(PHONE_BRIDGE_FORGET)).resolves.toBeUndefined();
+	});
+
+	it("dispose() removes the phoneBridge:forget handler", async () => {
+		const ipcMain = makeIpcMain();
+		const service = {
+			forgetDevice: vi.fn(async () => {}),
+			getStatus: () => ({
+				enabled: true,
+				listening: true,
+				addr: null,
+				port: null,
+				paired: false,
+				sas: null,
+			}),
+		};
+		const reg = registerXbpIpc({
+			ipcMain: ipcMain as never,
+			getService: () => service as never,
+			getWebContents: () => undefined,
+		});
+		expect(await ipcMain.invoke(PHONE_BRIDGE_FORGET)).toBeDefined();
+		reg.dispose();
+		expect(await ipcMain.invoke(PHONE_BRIDGE_FORGET)).toBeUndefined();
 	});
 });
