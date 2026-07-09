@@ -131,6 +131,28 @@ describe("SettingsService.writeState", () => {
 			chipRange: "month",
 		});
 	});
+
+	// This is the regression a shallow `{ ...current, ...patch }` merge fails: an
+	// empty sub-patch would replace phoneBridge with `{}`, and the final
+	// PersistedSettingsV1Schema.parse would throw on the required `enabled`.
+	it("deep-merges a partial phoneBridge sub-patch (empty sub-patch preserves the nested value)", async () => {
+		const svc = new SettingsService(settingsPath, legacyPath);
+		await svc.readState();
+		await svc.writeState({ phoneBridge: { enabled: true } });
+		const merged = await svc.writeState({ phoneBridge: {} });
+		expect(merged.phoneBridge.enabled).toBe(true);
+		const reread = (await svc.readState()).settings;
+		expect(reread.phoneBridge.enabled).toBe(true);
+	});
+
+	it("writeState persists a phoneBridge patch and preserves sibling settings", async () => {
+		const svc = new SettingsService(settingsPath, legacyPath);
+		await svc.readState();
+		await svc.writeState({ theme: "dark" });
+		const merged = await svc.writeState({ phoneBridge: { enabled: true } });
+		expect(merged.phoneBridge.enabled).toBe(true);
+		expect(merged.theme).toBe("dark"); // sibling not clobbered by the phoneBridge patch
+	});
 });
 
 // Mirrors the four async readState() cases above — readStateSync() backs the

@@ -726,6 +726,53 @@ export type Ai14AllDesktopApi = {
 		): () => void;
 		onAvailabilityChanged(handler: () => void): () => void;
 	};
+	phoneBridge: {
+		status(): Promise<
+			| {
+					enabled: boolean;
+					listening: boolean;
+					addr: string | null;
+					port: number | null;
+					paired: boolean;
+					sas: string | null;
+			  }
+			| undefined
+		>;
+		setEnabled(enabled: boolean): Promise<
+			| {
+					enabled: boolean;
+					listening: boolean;
+					addr: string | null;
+					port: number | null;
+					paired: boolean;
+					sas: string | null;
+			  }
+			| undefined
+		>;
+		startPairing(): Promise<{ offer: string | null }>;
+		confirmSas(ok: boolean): Promise<boolean>;
+		forget(): Promise<
+			| {
+					enabled: boolean;
+					listening: boolean;
+					addr: string | null;
+					port: number | null;
+					paired: boolean;
+					sas: string | null;
+			  }
+			| undefined
+		>;
+		onStatusChanged(
+			handler: (status: {
+				enabled: boolean;
+				listening: boolean;
+				addr: string | null;
+				port: number | null;
+				paired: boolean;
+				sas: string | null;
+			}) => void,
+		): () => void;
+	};
 };
 
 // ---------- code-nav ----------

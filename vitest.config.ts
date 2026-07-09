@@ -23,5 +23,13 @@ export default defineConfig({
 				new URL("./tests/stubs/electron.ts", import.meta.url),
 			),
 		},
+		// @xavier/xbp ships TypeScript sources only (no dist build). Vite does not
+		// transpile node_modules by default, so we inline it so vite processes the
+		// .ts files from the vendored tarball.
+		server: {
+			deps: {
+				inline: [/@xavier\/xbp/],
+			},
+		},
 	},
 });

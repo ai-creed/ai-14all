@@ -624,6 +624,9 @@ describe("samantha-driver", () => {
 		const reply = JSON.parse(sock.sent[0]);
 		expect(reply).toMatchObject({ requestId: "r1", status: "ok" });
 		expect(typeof reply.result.report).toBe("string");
+		expect(reply.result.sessions).toBeDefined();
+		expect(Array.isArray(reply.result.sessions.sessions)).toBe(true);
+		expect(typeof reply.result.sessions.mode).toBe("string");
 	});
 
 	it("a focus-worktree command resolves the key and invokes focusWorktree", async () => {

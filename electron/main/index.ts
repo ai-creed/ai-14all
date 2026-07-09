@@ -1,4 +1,4 @@
-import { app, ipcMain, Menu } from "electron";
+import { app, ipcMain, Menu, safeStorage } from "electron";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -63,6 +63,23 @@ import { PluginCommandLogger } from "../../services/diagnostics/plugin-command-l
 import { ActingAuditLogger } from "../../services/diagnostics/acting-audit-logger.js";
 import { createActingTokenVerifier } from "../../services/plugins/samantha/acting-token-verifier.js";
 import type { WhisperCommand } from "../../shared/contracts/plugins.js";
+import { createSessionSliceStore } from "../../services/plugins/samantha/session-slice-source.js";
+import { createSessionReportProvider } from "../../services/plugins/samantha/session-report-provider.js";
+import type { XbpHostService } from "../../services/xbp/xbp-host-service.js";
+import {
+	createWorkflowResolver,
+	createXbpActingExecutor,
+} from "../../services/xbp/xbp-acting-executor.js";
+import { registerXbpIpc, PHONE_BRIDGE_STATUS_CHANGED } from "./xbp-ipc.js";
+import { createXbpHostIfEnabled } from "./xbp-boot.js";
+import { isPhoneBridgeEnabled } from "../../shared/models/persisted-settings.js";
+import { XbpPushTokenStore } from "../../services/xbp/xbp-push-token-store.js";
+import { createPushTokenHandlers } from "../../services/xbp/xbp-push-token-handlers.js";
+import { createPushWakeWatcher } from "../../services/xbp/push-wake-watcher.js";
+import { PushWakeStateStore } from "../../services/xbp/push-wake-state-store.js";
+import { createPushWakeSender } from "../../services/xbp/push-wake-sender.js";
+import { PushWakeAuditLogger } from "../../services/diagnostics/push-wake-audit-logger.js";
+import { isPushWakeEnabled } from "../../shared/models/persisted-settings.js";
 
 app.setName("ai-14all");
 
@@ -408,12 +425,34 @@ app.whenReady().then(async () => {
 		return null;
 	};
 
+	// Shared slice store — single source of truth for both Samantha driver and
+	// the XBP session-report provider so neither path drifts from the other.
+	const samanthaSliceSource = createSessionSliceStore();
+
+	// Shared getters — declared once so both consumers are structurally guaranteed
+	// to use the same implementation (a future edit cannot change one without the other).
+	const getReviewCount = (worktreeId: string) =>
+		reviewCommentService.listOpenByWorktree(worktreeId).length;
+	const getWhisperStates = () => samanthaWhisperWatcher.snapshot();
+
+	// Shared acting gate — one enable/kill control governs both acting channels
+	// (samantha connector + XBP lifecycle capabilities), per spec decision 5.
+	const isActingEnabled = () =>
+		pluginConfig.get("samantha").behavior?.actingEnabled ?? false;
+
+	const xbpSessionReport = createSessionReportProvider({
+		getIdentities: getSamanthaIdentities,
+		getReviewCount,
+		getWhisperStates,
+		getSessionSlice: () => samanthaSliceSource.get(),
+	});
+
 	const samanthaDriver = createSamanthaDriver({
 		client: createSamanthaConnectorClient({}),
 		getIdentities: getSamanthaIdentities,
-		getReviewCount: (worktreeId) =>
-			reviewCommentService.listOpenByWorktree(worktreeId).length,
-		getWhisperStates: () => samanthaWhisperWatcher.snapshot(),
+		getReviewCount,
+		getWhisperStates,
+		sliceSource: samanthaSliceSource,
 		subscribeReviews: (cb) => reviewCommentService.onChange(() => cb()),
 		subscribeWorktrees: (cb) => workspaceRegistry.onChange(cb),
 		pushHealth: (health) =>
@@ -421,8 +460,7 @@ app.whenReady().then(async () => {
 		focusWorktree: samanthaFocusWorktree,
 		webSocketImpl: globalThis.WebSocket as unknown as WebSocketCtor,
 		log: (message, error) => console.error(message, error),
-		isActingEnabled: () =>
-			pluginConfig.get("samantha").behavior?.actingEnabled ?? false,
+		isActingEnabled,
 		verifyActingToken: (token) => actingTokenVerifier.verify(token),
 		auditAct: (entry) => actingAuditLogger.append(entry),
 		runManagedInstruction: async (worktreeId, decision) => {
@@ -469,6 +507,96 @@ app.whenReady().then(async () => {
 			return { ok: true, detail: "sent" };
 		},
 	});
+
+	const xbpActingExecutor = createXbpActingExecutor({
+		isActingEnabled,
+		resolveWorkflow: createWorkflowResolver({
+			getWhisperStates,
+			resolveWorktreeRef,
+		}),
+		runWhisperCommand: (command, cwd) => whisperCommandRunner.run(command, cwd),
+		auditAct: (entry) => actingAuditLogger.append(entry),
+	});
+
+	// Spec §1: the XBP host service starts BEFORE the plugin registry boots, so a
+	// phone that connects during early startup finds the bridge already live. All
+	// mainWindow/webContents references below are lazy + null-safe so this block is
+	// safe to run regardless of when the window is created.
+	const { settings: persistedSettings } = settingsService.readStateSync();
+	const xbpDir = join(app.getPath("userData"), "ai-14all", "xbp");
+
+	// --- Arc B push-wake: token store, handlers, watcher (spec Deliverables 1-5)
+	const pushTokenStore = new XbpPushTokenStore({
+		dir: xbpDir,
+		secureStorage: safeStorage,
+	});
+	// readStateSync per call: register/deregister and a 3 s tick — negligible
+	// I/O, and it picks up settings edits without extra plumbing.
+	const isPushWakeOn = () =>
+		isPushWakeEnabled(settingsService.readStateSync().settings);
+	const pushTokenHandlers = createPushTokenHandlers({
+		isPushWakeEnabled: isPushWakeOn,
+		store: pushTokenStore,
+	});
+
+	let xbpService: XbpHostService | null = null;
+	xbpService = await createXbpHostIfEnabled({
+		enabled: isPhoneBridgeEnabled(persistedSettings),
+		options: {
+			dir: xbpDir,
+			secureStorage: safeStorage,
+			getSessionReport: xbpSessionReport,
+			acting: xbpActingExecutor,
+			pushTokenStore,
+			pushTokenHandlers,
+			subscribeChanges: (cb) => {
+				const offReviews = reviewCommentService.onChange(() => cb());
+				const offWorktrees = workspaceRegistry.onChange(cb);
+				const offSlice = samanthaSliceSource.subscribe(cb);
+				return () => {
+					offReviews();
+					offWorktrees();
+					offSlice();
+				};
+			},
+			onStatusChange: () =>
+				mainWindow?.webContents?.send(
+					PHONE_BRIDGE_STATUS_CHANGED,
+					xbpService?.getStatus(),
+				),
+		},
+		onStartError: (err) =>
+			console.error("[xbp] failed to start host service", err),
+	});
+
+	const xbpIpc = registerXbpIpc({
+		ipcMain,
+		getService: () => xbpService,
+		getWebContents: () => mainWindow?.webContents,
+	});
+
+	const pushWakeAudit = new PushWakeAuditLogger({
+		logsDir: join(app.getPath("userData"), "logs"),
+	});
+	const pushWakeWatcher = createPushWakeWatcher({
+		getStates: getWhisperStates,
+		stateStore: new PushWakeStateStore({ dir: xbpDir }),
+		isEnabled: () =>
+			(xbpService?.getStatus().enabled ?? false) && isPushWakeOn(),
+		hasToken: () => pushTokenStore.exists(),
+		send: createPushWakeSender({
+			loadToken: () => {
+				try {
+					return pushTokenStore.load()?.expoPushToken ?? null;
+				} catch {
+					return null; // safeStorage unavailable → behave as no token
+				}
+			},
+			clearToken: () => pushTokenStore.clear(),
+		}).send,
+		audit: (entry) => pushWakeAudit.append(entry),
+	});
+	pushWakeWatcher.start();
 
 	const pluginRegistry = createPluginRegistry(
 		[whisperDriver, cortexDriver, samanthaDriver],
@@ -642,11 +770,14 @@ app.whenReady().then(async () => {
 		offRegistry();
 		void deleteLivenessFile(livenessPath);
 		void mcpServer?.stop().catch(() => {});
+		void xbpService?.stop().catch(() => {});
+		pushWakeWatcher.stop();
 		sessionNoteBridge.dispose();
 		agentAttentionBridge.dispose();
 		agentResumeBridge.dispose();
 		usageHost.stop();
 		pluginIpc.dispose();
+		xbpIpc.dispose();
 		void pluginRegistry.stopAll();
 		pluginConfig.dispose();
 	});

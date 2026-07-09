@@ -130,6 +130,14 @@ export class SettingsService {
 						},
 					}
 				: {}),
+			...(patch.phoneBridge
+				? {
+						phoneBridge: {
+							...this.current.phoneBridge,
+							...patch.phoneBridge,
+						},
+					}
+				: {}),
 			version: 1,
 		});
 		this.current = merged;

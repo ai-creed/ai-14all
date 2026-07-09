@@ -123,6 +123,7 @@ import { resolvePresetLaunch } from "../features/terminals/logic/preset-launch";
 import { TerminalChromeHeader } from "../features/terminals/components/TerminalChromeHeader";
 import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
 import { PluginsPanelDialog } from "../features/plugins/components/PluginsPanelDialog";
+import { PhoneBridgeDialogGate } from "./components/PhoneBridgeDialogGate";
 import { SettingsDialog } from "../features/settings/components/SettingsDialog";
 import {
 	useWhisperState,
@@ -875,6 +876,7 @@ function AppContent() {
 
 	const [layoutDialogOpen, setLayoutDialogOpen] = useState(false);
 	const [pluginsDialogOpen, setPluginsDialogOpen] = useState(false);
+	const [phoneBridgeDialogOpen, setPhoneBridgeDialogOpen] = useState(false);
 	const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 
 	// Launches a single command in a new pinned terminal for the collab flow.
@@ -1386,6 +1388,7 @@ function AppContent() {
 		[dispatch],
 	);
 	const openPlugins = useCallback(() => setPluginsDialogOpen(true), []);
+	const openPhoneBridge = useCallback(() => setPhoneBridgeDialogOpen(true), []);
 	const refreshChanges = useCallback(() => {
 		if (activeWorktree) setRefreshKey((k) => k + 1);
 	}, [activeWorktree?.id]);
@@ -2295,6 +2298,7 @@ function AppContent() {
 									.filter((w) => workspaceState.sessionsByWorktreeId[w.id])
 									.map((w) => w.path)}
 								onOpenPlugins={() => setPluginsDialogOpen(true)}
+								onOpenPhoneBridge={openPhoneBridge}
 							/>
 
 							<div className="shell-terminal-frame">
@@ -2469,6 +2473,11 @@ function AppContent() {
 									onClose={() => setLayoutDialogOpen(false)}
 								/>
 							)}
+
+							<PhoneBridgeDialogGate
+								open={phoneBridgeDialogOpen}
+								onOpenChange={setPhoneBridgeDialogOpen}
+							/>
 
 							<PluginsPanelDialog
 								open={pluginsDialogOpen}

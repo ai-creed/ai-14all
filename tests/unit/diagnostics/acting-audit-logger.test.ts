@@ -11,6 +11,7 @@ function startEntry(over: Partial<ActingAuditEntry> = {}): ActingAuditEntry {
 	return {
 		phase: "start",
 		ts: 1000,
+		channel: "samantha",
 		worktreeId: "wt1",
 		instruction: "add tests",
 		route: "collab-tell",

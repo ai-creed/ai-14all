@@ -13,6 +13,7 @@ import {
 import { ShortcutsHelp } from "../../features/shortcuts/ShortcutsHelp";
 import { UpdateBanner } from "../../features/updater/UpdateBanner";
 import { NoteSheet } from "../../features/workspace/components/NoteSheet";
+import { PhoneBridgeEntryButton } from "./PhoneBridgeEntryButton";
 import { SessionChipBar } from "../../features/workspace/components/SessionChipBar";
 import { UsageStrip } from "../../features/telemetry/UsageStrip";
 import { useUsageSnapshot } from "../../features/telemetry/use-usage-snapshot";
@@ -61,6 +62,8 @@ type Props = {
 
 	/** Opens the global Plugins panel. Wired to a button beside the usage strip. */
 	onOpenPlugins: () => void;
+	/** Opens the Phone Bridge settings panel. Wired beside the Plugins button. */
+	onOpenPhoneBridge: () => void;
 };
 
 /**
@@ -97,6 +100,7 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 		appPlatform,
 		openWorktreePaths,
 		onOpenPlugins,
+		onOpenPhoneBridge,
 	} = props;
 
 	const usageSnapshot = useUsageSnapshot();
@@ -147,21 +151,24 @@ export function MainColumnChrome(props: Props): React.ReactElement {
 							/>
 						}
 						plugins={
-							<button
-								type="button"
-								className="shell-chip-bar__action plugins-entry-button"
-								aria-label="Open Plugins panel"
-								data-tour="plugins"
-								onClick={onOpenPlugins}
-							>
-								<span
-									className="shell-chip-bar__action-icon"
-									aria-hidden="true"
+							<>
+								<button
+									type="button"
+									className="shell-chip-bar__action plugins-entry-button"
+									aria-label="Open Plugins panel"
+									data-tour="plugins"
+									onClick={onOpenPlugins}
 								>
-									<Icon name="plugins" />
-								</span>
-								Plugins
-							</button>
+									<span
+										className="shell-chip-bar__action-icon"
+										aria-hidden="true"
+									>
+										<Icon name="plugins" />
+									</span>
+									Plugins
+								</button>
+								<PhoneBridgeEntryButton onOpen={onOpenPhoneBridge} />
+							</>
 						}
 					/>
 				</div>
