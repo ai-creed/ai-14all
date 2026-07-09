@@ -19,6 +19,7 @@ export function PhoneBridgePanel(): React.ReactElement {
 	const [status, setStatus] = useState<BridgeStatus | null>(null);
 	const [offerQr, setOfferQr] = useState<string | null>(null);
 	const [pairingBusy, setPairingBusy] = useState(false);
+	const [confirmingUnpair, setConfirmingUnpair] = useState(false);
 
 	useEffect(() => {
 		const bridge = window.ai14all.phoneBridge;
@@ -48,6 +49,16 @@ export function PhoneBridgePanel(): React.ReactElement {
 			await window.ai14all.phoneBridge.confirmSas(ok);
 		} catch {
 			// ignore: surfaced via status refresh
+		}
+	}
+
+	async function handleForget() {
+		try {
+			await window.ai14all.phoneBridge.forget();
+		} catch {
+			// ignore: surfaced via status refresh
+		} finally {
+			setConfirmingUnpair(false);
 		}
 	}
 
@@ -124,6 +135,35 @@ export function PhoneBridgePanel(): React.ReactElement {
 			{status?.paired && (
 				<div className="phone-bridge-panel__paired-list">
 					<p className="phone-bridge-panel__paired-row">Paired</p>
+					{!confirmingUnpair ? (
+						<button
+							type="button"
+							className="phone-bridge-panel__unpair-button"
+							onClick={() => setConfirmingUnpair(true)}
+						>
+							Unpair phone
+						</button>
+					) : (
+						<div className="phone-bridge-panel__unpair-confirm">
+							<p className="phone-bridge-panel__unpair-label">
+								Confirm unpair? The phone will have to re-pair.
+							</p>
+							<button
+								type="button"
+								className="phone-bridge-panel__unpair-confirm-button"
+								onClick={() => void handleForget()}
+							>
+								Confirm unpair
+							</button>
+							<button
+								type="button"
+								className="phone-bridge-panel__unpair-cancel"
+								onClick={() => setConfirmingUnpair(false)}
+							>
+								Cancel
+							</button>
+						</div>
+					)}
 				</div>
 			)}
 		</div>

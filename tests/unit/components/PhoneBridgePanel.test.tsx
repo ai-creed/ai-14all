@@ -37,6 +37,7 @@ function mountBridge(status: Status) {
 				}),
 			}),
 			confirmSas: vi.fn().mockResolvedValue(true),
+			forget: vi.fn().mockResolvedValue({ ...status, paired: false }),
 			onStatusChanged: vi.fn().mockReturnValue(() => {}),
 		},
 	};
@@ -102,5 +103,63 @@ describe("PhoneBridgePanel", () => {
 		await waitFor(() =>
 			expect(screen.getByText(/paired/i)).toBeInTheDocument(),
 		);
+	});
+
+	it("shows Unpair phone in the paired state", async () => {
+		mountBridge({ ...base, paired: true });
+		render(<PhoneBridgePanel />);
+		expect(
+			await screen.findByRole("button", { name: /unpair phone/i }),
+		).toBeInTheDocument();
+	});
+
+	it("does not show Unpair phone when no device is paired", async () => {
+		mountBridge(base);
+		render(<PhoneBridgePanel />);
+		await waitFor(() =>
+			expect(screen.getByText(/10\.0\.0\.5:51820/)).toBeInTheDocument(),
+		);
+		expect(
+			screen.queryByRole("button", { name: /unpair phone/i }),
+		).not.toBeInTheDocument();
+	});
+
+	it("requires confirmation: the first click reveals Confirm unpair without calling forget", async () => {
+		mountBridge({ ...base, paired: true });
+		render(<PhoneBridgePanel />);
+		await userEvent.click(
+			await screen.findByRole("button", { name: /unpair phone/i }),
+		);
+		expect(window.ai14all.phoneBridge.forget).not.toHaveBeenCalled();
+		expect(
+			screen.getByRole("button", { name: /confirm unpair/i }),
+		).toBeInTheDocument();
+	});
+
+	it("confirming calls forget()", async () => {
+		mountBridge({ ...base, paired: true });
+		render(<PhoneBridgePanel />);
+		await userEvent.click(
+			await screen.findByRole("button", { name: /unpair phone/i }),
+		);
+		await userEvent.click(
+			screen.getByRole("button", { name: /confirm unpair/i }),
+		);
+		await waitFor(() =>
+			expect(window.ai14all.phoneBridge.forget).toHaveBeenCalledTimes(1),
+		);
+	});
+
+	it("cancel backs out of the confirmation without calling forget", async () => {
+		mountBridge({ ...base, paired: true });
+		render(<PhoneBridgePanel />);
+		await userEvent.click(
+			await screen.findByRole("button", { name: /unpair phone/i }),
+		);
+		await userEvent.click(screen.getByRole("button", { name: /cancel/i }));
+		expect(window.ai14all.phoneBridge.forget).not.toHaveBeenCalled();
+		expect(
+			screen.queryByRole("button", { name: /confirm unpair/i }),
+		).not.toBeInTheDocument();
 	});
 });
