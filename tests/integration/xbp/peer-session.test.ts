@@ -322,3 +322,91 @@ describe("XbpPeerSession (in-memory)", () => {
 		session.stop();
 	});
 });
+
+describe("XbpPeerSession.detach", () => {
+	async function setupDetachable() {
+		const backend = await createNodeSodiumBackend();
+		const [hostT, clientT] = createInMemoryPair();
+		const audit = new XbpAuditSink({
+			dir: mkdtempSync(join(tmpdir(), "xbp-ps-detach-")),
+		});
+		const hostIdentity = generateIdentity(backend);
+		const clientIdentity = generateIdentity(backend);
+		const session = new XbpPeerSession({
+			backend,
+			identity: hostIdentity,
+			transport: hostT,
+			audit,
+			getSessionReport: async () => ({
+				mode: "ready",
+				focus: null,
+				sessions: [],
+			}),
+			coalesceMs: 10,
+		});
+		// Short client timeout so a call against a detached host fails fast.
+		const client = new Peer({
+			backend,
+			identity: clientIdentity,
+			transport: clientT,
+			requestTimeoutMs: 300,
+		});
+		const hostNode = client.addPeer(
+			hostIdentity.sign.publicKey,
+			hostIdentity.box.publicKey,
+			[],
+		);
+		const events: string[] = [];
+		client.onEvent((_from, topic) => events.push(topic));
+		client.start();
+		return { session, client, hostNode, clientIdentity, events };
+	}
+
+	it("stops serving after detach(); a subsequent attach() re-authorizes and serves again", async () => {
+		const { session, client, hostNode, clientIdentity } =
+			await setupDetachable();
+		session.attach(clientIdentity.sign.publicKey, clientIdentity.box.publicKey);
+		await expect(
+			client.call(hostNode, sessionReportCapability, {}),
+		).resolves.toMatchObject({ mode: "ready" });
+
+		session.detach();
+		await expect(
+			client.call(hostNode, sessionReportCapability, {}),
+		).rejects.toThrow();
+
+		session.attach(clientIdentity.sign.publicKey, clientIdentity.box.publicKey);
+		await expect(
+			client.call(hostNode, sessionReportCapability, {}),
+		).resolves.toMatchObject({ mode: "ready" });
+
+		session.stop();
+	});
+
+	it("preserves the coalescer across detach: notifyChanged after re-attach still emits one coalesced event", async () => {
+		const { session, clientIdentity, events } = await setupDetachable();
+		session.attach(clientIdentity.sign.publicKey, clientIdentity.box.publicKey);
+		session.detach();
+		session.attach(clientIdentity.sign.publicKey, clientIdentity.box.publicKey);
+
+		session.notifyChanged();
+		session.notifyChanged();
+		await new Promise((r) => setTimeout(r, 40));
+		expect(events.filter((t) => t === SESSION_CHANGED_TOPIC)).toHaveLength(1);
+
+		session.stop();
+	});
+
+	it("is idempotent: detach() with no peer attached (and repeated) never throws", async () => {
+		const { session, client, hostNode, clientIdentity } =
+			await setupDetachable();
+		expect(() => session.detach()).not.toThrow();
+		expect(() => session.detach()).not.toThrow();
+		// Still usable afterwards.
+		session.attach(clientIdentity.sign.publicKey, clientIdentity.box.publicKey);
+		await expect(
+			client.call(hostNode, sessionReportCapability, {}),
+		).resolves.toMatchObject({ mode: "ready" });
+		session.stop();
+	});
+});

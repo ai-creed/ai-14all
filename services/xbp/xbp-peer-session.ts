@@ -56,9 +56,7 @@ export class XbpPeerSession {
 	): void {
 		// One paired phone: re-pairing must drop the previous live peer so the old
 		// phone's Peer is no longer subscribed/authorized on the transport.
-		this.peer?.stop();
-		this.peer = null;
-		this.phoneNode = null;
+		this.detach();
 
 		const peer = new Peer({
 			backend: this.opts.backend,
@@ -112,6 +110,15 @@ export class XbpPeerSession {
 
 	notifyChanged(): void {
 		this.coalescer.trigger();
+	}
+
+	detach(): void {
+		// De-authorize the phone but keep serving: the shared transport and the
+		// change coalescer stay up so a fresh attach() (re-pair) works immediately.
+		// Unlike stop(), this must NOT cancel the coalescer.
+		this.peer?.stop();
+		this.peer = null;
+		this.phoneNode = null;
 	}
 
 	stop(): void {
