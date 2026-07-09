@@ -253,6 +253,25 @@ describe("session/closeProcess (slot model)", () => {
 		expect(sess.terminalLayoutId).toBe("3-vm");
 		expect(sess.slotProcessIds).toEqual(["m", "b", "c"]);
 	});
+	it("collapses a pre-existing-gap layout to single when one survivor remains (4-grid, 2 running)", () => {
+		// The layout was manually oversized (4-grid holding only 2 shells). Closing
+		// one leaves a single survivor, so it must shrink to the single "1" layout.
+		let s = seed(["a", null, "b", null], "4-grid");
+		for (const id of ["a", "b"])
+			s = {
+				...s,
+				processSessionsById: { ...s.processSessionsById, [id]: proc(id) },
+			};
+		const next = workspaceReducer(s, {
+			type: "session/closeProcess",
+			worktreeId: "wt1",
+			processId: "a",
+		});
+		const sess = next.sessionsByWorktreeId["wt1"];
+		expect(sess.terminalLayoutId).toBe("1");
+		expect(sess.slotProcessIds).toEqual(["b"]);
+		expect(sess.processSessionIds).toEqual(["b"]);
+	});
 });
 
 describe("session/swapTerminalSlots", () => {
