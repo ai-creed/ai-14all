@@ -751,6 +751,17 @@ export type Ai14AllDesktopApi = {
 		>;
 		startPairing(): Promise<{ offer: string | null }>;
 		confirmSas(ok: boolean): Promise<boolean>;
+		forget(): Promise<
+			| {
+					enabled: boolean;
+					listening: boolean;
+					addr: string | null;
+					port: number | null;
+					paired: boolean;
+					sas: string | null;
+			  }
+			| undefined
+		>;
 		onStatusChanged(
 			handler: (status: {
 				enabled: boolean;

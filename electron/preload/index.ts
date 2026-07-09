@@ -78,6 +78,7 @@ const PHONE_BRIDGE_STATUS = "phoneBridge:status";
 const PHONE_BRIDGE_SET_ENABLED = "phoneBridge:setEnabled";
 const PHONE_BRIDGE_START_PAIRING = "phoneBridge:startPairing";
 const PHONE_BRIDGE_CONFIRM_SAS = "phoneBridge:confirmSas";
+const PHONE_BRIDGE_FORGET = "phoneBridge:forget";
 const PHONE_BRIDGE_STATUS_CHANGED = "phoneBridge:statusChanged";
 
 // Helper: register a one-way listener on an ipcRenderer channel and return an
@@ -495,6 +496,7 @@ const api: Ai14AllDesktopApi = {
 		startPairing: () => ipcRenderer.invoke(PHONE_BRIDGE_START_PAIRING),
 		confirmSas: (ok: boolean) =>
 			ipcRenderer.invoke(PHONE_BRIDGE_CONFIRM_SAS, { ok }),
+		forget: () => ipcRenderer.invoke(PHONE_BRIDGE_FORGET),
 		onStatusChanged: (handler) =>
 			onChannel(PHONE_BRIDGE_STATUS_CHANGED, handler),
 	},
