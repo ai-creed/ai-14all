@@ -3,15 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PhoneBridgePanel } from "../../../src/components/settings/PhoneBridgePanel";
-
-type Status = {
-	enabled: boolean;
-	listening: boolean;
-	addr: string | null;
-	port: number | null;
-	paired: boolean;
-	sas: string | null;
-};
+import type { PhoneBridgeStatus as Status } from "../../../shared/contracts/commands";
 
 const base: Status = {
 	enabled: true,

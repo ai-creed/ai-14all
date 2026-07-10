@@ -389,6 +389,15 @@ export interface UpdateInfo {
 	releaseDate: string;
 }
 
+export interface PhoneBridgeStatus {
+	enabled: boolean;
+	listening: boolean;
+	addr: string | null;
+	port: number | null;
+	paired: boolean;
+	sas: string | null;
+}
+
 // --- The API surface exposed to the renderer via the preload bridge ---
 
 export type Ai14AllDesktopApi = {
@@ -727,51 +736,12 @@ export type Ai14AllDesktopApi = {
 		onAvailabilityChanged(handler: () => void): () => void;
 	};
 	phoneBridge: {
-		status(): Promise<
-			| {
-					enabled: boolean;
-					listening: boolean;
-					addr: string | null;
-					port: number | null;
-					paired: boolean;
-					sas: string | null;
-			  }
-			| undefined
-		>;
-		setEnabled(enabled: boolean): Promise<
-			| {
-					enabled: boolean;
-					listening: boolean;
-					addr: string | null;
-					port: number | null;
-					paired: boolean;
-					sas: string | null;
-			  }
-			| undefined
-		>;
+		status(): Promise<PhoneBridgeStatus | undefined>;
+		setEnabled(enabled: boolean): Promise<PhoneBridgeStatus | undefined>;
 		startPairing(): Promise<{ offer: string | null }>;
 		confirmSas(ok: boolean): Promise<boolean>;
-		forget(): Promise<
-			| {
-					enabled: boolean;
-					listening: boolean;
-					addr: string | null;
-					port: number | null;
-					paired: boolean;
-					sas: string | null;
-			  }
-			| undefined
-		>;
-		onStatusChanged(
-			handler: (status: {
-				enabled: boolean;
-				listening: boolean;
-				addr: string | null;
-				port: number | null;
-				paired: boolean;
-				sas: string | null;
-			}) => void,
-		): () => void;
+		forget(): Promise<PhoneBridgeStatus | undefined>;
+		onStatusChanged(handler: (status: PhoneBridgeStatus) => void): () => void;
 	};
 };
 

@@ -1,22 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { Switch } from "@/components/ui/switch";
-
-type BridgeStatus = {
-	enabled: boolean;
-	listening: boolean;
-	addr: string | null;
-	port: number | null;
-	paired: boolean;
-	sas: string | null;
-};
+import type { PhoneBridgeStatus } from "../../../shared/contracts/commands";
 
 /**
  * Settings panel that exposes the XBP Phone Bridge: live status, enable/disable
  * toggle, QR-code pairing flow, SAS confirmation dialog, and paired-device list.
  */
 export function PhoneBridgePanel(): React.ReactElement {
-	const [status, setStatus] = useState<BridgeStatus | null>(null);
+	const [status, setStatus] = useState<PhoneBridgeStatus | null>(null);
 	const [offerQr, setOfferQr] = useState<string | null>(null);
 	const [pairingBusy, setPairingBusy] = useState(false);
 	const [confirmingUnpair, setConfirmingUnpair] = useState(false);
