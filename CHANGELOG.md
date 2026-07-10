@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.3.0] – 2026-07-10
+
+This release introduces the Phone Bridge: pair your phone with ai-14all over your local network and keep an eye on your agent workflows away from the desk — get woken by a push notification when a workflow needs you, and, with explicit per-device grants, pause, resume, or stop it from the phone. Samantha's spoken session reports now ride a canonical structured contract, and terminal layouts tidy themselves when shells close.
+
+### Added
+
+- **Phone Bridge (off by default).** A LAN-only bridge between ai-14all and a paired phone. Pairing is QR-initiated and confirmed with a short authentication string (SAS); device identities and pairings live in safeStorage-encrypted stores that fail closed when encryption is unavailable; every bridge action lands in an append-only audit log; and a kill switch drops the host instantly. A new Phone Bridge settings panel shows bridge status, drives pairing, and lists paired devices. Everything sits behind a `phoneBridge.enabled` setting — disabled (the default) means no host and no LAN listener at all.
+- **Push-wake notifications.** When a workflow transitions into needing you, the bridge sends a content-free push notification to wake the paired phone. Tokens are stored encrypted (one slot, cleared on unpair or replacement), dead tokens are cleaned up automatically, sends are retried with a bound, and every send is audited. Gated by `phoneBridge.pushWakeEnabled` (on by default, within an enabled bridge).
+- **Remote workflow control with per-device grants.** A paired phone granted the acting capability can pause, resume, or stop a running workflow; actions on terminal-state workflows are refused, pairings made before this release stay read-only until re-granted, and every lifecycle action is recorded in the acting audit with its channel and route.
+- **Unpair a phone.** A confirmed Unpair action in the Phone Bridge panel forgets the device: its session is de-authorized, its stored push token is cleared, and re-pairing starts from scratch.
+- **Terminal layouts reorganize themselves.** Closing a shell now auto-reorganizes the remaining terminal panes instead of leaving a hole.
+
+### Changed
+
+- **Samantha's spoken session reports are assembled from a canonical structure.** Session reports are now built as structured data on the shared command contract and rendered to speech from that structure, the observe assembler emits structured per-worktree data, and status snapshots ride the `ai-14all.supervisor` v1 envelope — groundwork for richer voice and remote surfaces sharing one report shape.
+
+### Fixed
+
+- **Closing the window with the red X no longer strands the app on macOS.** Clicking the Dock icon reopens the window as expected.
+- **Code-nav previews survive cortex availability changes.** Toggling the cortex plugin no longer disposes open preview models mid-session.
+
 ## [1.2.0] – 2026-07-06
 
 A feature release on two fronts: your workspace now comes back the way you left it — settings, open workspaces, and agent conversations survive a restart — and the sidebar's attention signals got smarter about ai-whisper autonomous workflows and agent self-reporting.
