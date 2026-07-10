@@ -107,17 +107,9 @@ describe("session/placeProcessInNewSlot", () => {
 	it("fills a gap slot in the current layout without killing later shells", () => {
 		// Mirrors the in-grid "+ start a shell" CTA path: close a middle shell,
 		// then place a new shell into the resulting empty slot of the SAME layout.
-		let s = seed(["a", "b", "c"], "3-v");
-		s = workspaceReducer(s, {
-			type: "session/closeProcess",
-			worktreeId: "wt1",
-			processId: "b",
-		});
-		expect(s.sessionsByWorktreeId["wt1"].slotProcessIds).toEqual([
-			"a",
-			null,
-			"c",
-		]);
+		// A gap can still exist from a manually oversized/restored layout; build it
+		// directly (closing a shell now compacts instead of leaving a gap).
+		const s = seed(["a", null, "c"], "3-v");
 
 		const next = workspaceReducer(s, {
 			type: "session/placeProcessInNewSlot",
@@ -137,18 +129,9 @@ describe("session/placeProcessInNewSlot", () => {
 
 describe("session/registerProcess (slot model)", () => {
 	it("fills a gap left by a closed middle shell without killing later shells", () => {
-		// Layout 3, all slots full, close the MIDDLE shell -> [a, null, c].
-		let s = seed(["a", "b", "c"], "3-v");
-		s = workspaceReducer(s, {
-			type: "session/closeProcess",
-			worktreeId: "wt1",
-			processId: "b",
-		});
-		expect(s.sessionsByWorktreeId["wt1"].slotProcessIds).toEqual([
-			"a",
-			null,
-			"c",
-		]);
+		// A gap can still exist from a manually oversized/restored layout; build it
+		// directly (closing a shell now compacts instead of leaving a gap).
+		const s = seed(["a", null, "c"], "3-v");
 
 		// Adding a new shell must fill the gap and leave every existing shell
 		// untouched — previously the layout was compacted before placement, which
@@ -187,7 +170,7 @@ describe("session/registerProcess (slot model)", () => {
 });
 
 describe("session/closeProcess (slot model)", () => {
-	it("empties the slot without changing the layout", () => {
+	it("reorganizes to a best-fit smaller layout and compacts survivors", () => {
 		let s = seed(["a", "b", "c"], "3-v");
 		for (const id of ["a", "b", "c"])
 			s = {
@@ -200,8 +183,8 @@ describe("session/closeProcess (slot model)", () => {
 			processId: "b",
 		});
 		const sess = next.sessionsByWorktreeId["wt1"];
-		expect(sess.terminalLayoutId).toBe("3-v");
-		expect(sess.slotProcessIds).toEqual(["a", null, "c"]);
+		expect(sess.terminalLayoutId).toBe("2-v");
+		expect(sess.slotProcessIds).toEqual(["a", "c"]);
 		expect(sess.processSessionIds).toEqual(["a", "c"]);
 	});
 	it("resets to single when the last shell closes", () => {
@@ -233,8 +216,9 @@ describe("session/closeProcess (slot model)", () => {
 			processId: "c",
 		});
 		const sess = next.sessionsByWorktreeId["wt1"];
-		expect(sess.slotProcessIds).toEqual(["a", "b", null]);
-		expect(sess.activeProcessSessionId).toBe("b"); // nearest, NOT "a"
+		expect(sess.terminalLayoutId).toBe("2-v");
+		expect(sess.slotProcessIds).toEqual(["a", "b"]);
+		expect(sess.activeProcessSessionId).toBe("b"); // nearest to the closed slot
 	});
 	it("keeps focus when a non-active slot closes", () => {
 		let s = seed(["a", "b", "c"], "3-v"); // active = "c"
@@ -248,7 +232,45 @@ describe("session/closeProcess (slot model)", () => {
 			worktreeId: "wt1",
 			processId: "a",
 		});
-		expect(next.sessionsByWorktreeId["wt1"].activeProcessSessionId).toBe("c");
+		const sess = next.sessionsByWorktreeId["wt1"];
+		expect(sess.activeProcessSessionId).toBe("c");
+		expect(sess.terminalLayoutId).toBe("2-v");
+		expect(sess.slotProcessIds).toEqual(["b", "c"]);
+	});
+	it("preserves the master shape when a child closes (4-vm -> 3-vm)", () => {
+		let s = seed(["m", "b", "c", "d"], "4-vm");
+		for (const id of ["m", "b", "c", "d"])
+			s = {
+				...s,
+				processSessionsById: { ...s.processSessionsById, [id]: proc(id) },
+			};
+		const next = workspaceReducer(s, {
+			type: "session/closeProcess",
+			worktreeId: "wt1",
+			processId: "d",
+		});
+		const sess = next.sessionsByWorktreeId["wt1"];
+		expect(sess.terminalLayoutId).toBe("3-vm");
+		expect(sess.slotProcessIds).toEqual(["m", "b", "c"]);
+	});
+	it("collapses a pre-existing-gap layout to single when one survivor remains (4-grid, 2 running)", () => {
+		// The layout was manually oversized (4-grid holding only 2 shells). Closing
+		// one leaves a single survivor, so it must shrink to the single "1" layout.
+		let s = seed(["a", null, "b", null], "4-grid");
+		for (const id of ["a", "b"])
+			s = {
+				...s,
+				processSessionsById: { ...s.processSessionsById, [id]: proc(id) },
+			};
+		const next = workspaceReducer(s, {
+			type: "session/closeProcess",
+			worktreeId: "wt1",
+			processId: "a",
+		});
+		const sess = next.sessionsByWorktreeId["wt1"];
+		expect(sess.terminalLayoutId).toBe("1");
+		expect(sess.slotProcessIds).toEqual(["b"]);
+		expect(sess.processSessionIds).toEqual(["b"]);
 	});
 });
 

@@ -78,3 +78,102 @@ export function planAddPlacement(session: {
 	if (!promoted) return { kind: "full" };
 	return { kind: "promote", layoutId: promoted, slotIndex: running };
 }
+
+type Range = { start: number; end: number };
+type Rel = "before" | "after" | "overlap";
+type Placement = { col: Range; row: Range };
+
+function parseGridRange(value: string): Range {
+	const [start, end] = value.split("/").map((p) => Number(p.trim()));
+	return { start, end };
+}
+
+function placementOf(p: { gridColumn: string; gridRow: string }): Placement {
+	return {
+		col: parseGridRange(p.gridColumn),
+		row: parseGridRange(p.gridRow),
+	};
+}
+
+// Relation of `a` to `b` along one axis: does a come entirely before b,
+// entirely after, or do their ranges overlap (share a band)?
+function relate(a: Range, b: Range): Rel {
+	if (a.end <= b.start) return "before";
+	if (b.end <= a.start) return "after";
+	return "overlap";
+}
+
+// +1 for each preserved axis-relation across every survivor pair.
+function scoreCandidate(
+	survivors: Placement[],
+	candidate: Placement[],
+): number {
+	let score = 0;
+	for (let i = 0; i < survivors.length; i++) {
+		for (let j = i + 1; j < survivors.length; j++) {
+			if (
+				relate(survivors[i].col, survivors[j].col) ===
+				relate(candidate[i].col, candidate[j].col)
+			)
+				score++;
+			if (
+				relate(survivors[i].row, survivors[j].row) ===
+				relate(candidate[i].row, candidate[j].row)
+			)
+				score++;
+		}
+	}
+	return score;
+}
+
+// True when every range shares at least one common unit (non-empty intersection).
+function shareBand(ranges: Range[]): boolean {
+	const start = Math.max(...ranges.map((r) => r.start));
+	const end = Math.min(...ranges.map((r) => r.end));
+	return start < end;
+}
+
+/**
+ * The layout to reorganize into after a close, chosen by best-fit against the
+ * surviving panes' current grid placements. `survivingSlotIndices` are indices
+ * into currentId's slotPlacements that still hold a running shell, in ascending
+ * slot order. Returns "1" for <= 1 survivors.
+ */
+export function resolveReorganizedLayout(
+	currentId: LayoutId,
+	survivingSlotIndices: number[],
+): LayoutId {
+	const n = survivingSlotIndices.length;
+	if (n <= 1) return "1";
+
+	const current = TERMINAL_LAYOUTS[currentId];
+	const survivors = survivingSlotIndices.map((i) =>
+		placementOf(current.slotPlacements[i]),
+	);
+
+	const candidates = LAYOUT_IDS.filter(
+		(id) => TERMINAL_LAYOUTS[id].slotCount === n,
+	);
+	const maxScore = n * (n - 1); // 2 * C(n, 2)
+
+	let best: LayoutId = candidates[0];
+	let bestScore = -1;
+	for (const id of candidates) {
+		const cand = TERMINAL_LAYOUTS[id].slotPlacements.map(placementOf);
+		const score = scoreCandidate(survivors, cand);
+		// Strict `>` keeps the catalog-earliest layout on ties (deterministic).
+		if (score > bestScore) {
+			bestScore = score;
+			best = id;
+		}
+	}
+
+	// Perfect match preserves master/grid shapes when survivors still form them.
+	if (bestScore === maxScore) return best;
+
+	// Grid remnant: equal split oriented by the survivors' dominant axis.
+	const rowCommon = shareBand(survivors.map((s) => s.row));
+	const colCommon = shareBand(survivors.map((s) => s.col));
+	const orientation = rowCommon ? "v" : colCommon ? "h" : "v";
+	return `${n}-${orientation}` as LayoutId;
+}

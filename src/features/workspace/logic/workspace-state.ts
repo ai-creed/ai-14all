@@ -41,8 +41,9 @@ import type { LayoutId } from "../../../../shared/models/terminal-layout";
 import { TERMINAL_LAYOUTS } from "../../terminals/logic/terminal-layouts";
 import {
 	compactIntoLayout,
-	runningCount,
+	resolveReorganizedLayout,
 	planAddPlacement,
+	runningCount,
 } from "../../terminals/logic/terminal-layout-planner";
 
 /** Nearest non-null slot to `fromIndex`, preferring the next slot then previous. */
@@ -666,9 +667,9 @@ export function workspaceReducer(
 		const session = state.sessionsByWorktreeId[action.worktreeId];
 		if (!session) return state;
 		// Placing into an empty slot of the CURRENT layout (the "+ start a shell"
-		// CTA filling a gap left by a closed shell): write in place. Do NOT compact
-		// — compaction packs survivors forward and would shift a later shell into
-		// action.slotIndex, overwriting and orphaning its running process. Only a
+		// CTA filling a gap from a restored/oversized layout): write in place. Do NOT
+		// compact — compaction packs survivors forward and would shift a later shell
+		// into action.slotIndex, overwriting and orphaning its running process. Only a
 		// genuine layout change (growing into a larger layout) needs the reflow.
 		const compacted =
 			action.layoutId === session.terminalLayoutId
@@ -1110,10 +1111,19 @@ export function workspaceReducer(
 			),
 		);
 
-		let terminalLayoutId: LayoutId = session.terminalLayoutId;
-		let slotProcessIds = slots;
-		// Focus the NEAREST remaining slot when the closed slot was active;
-		// otherwise leave focus untouched.
+		// Position-aware reorganize: shrink to the layout that best preserves where
+		// the surviving panes already sit, then compact survivors forward (no gaps).
+		const survivingSlotIndices = slots
+			.map((s, i) => (s !== null ? i : -1))
+			.filter((i) => i >= 0);
+		const terminalLayoutId = resolveReorganizedLayout(
+			session.terminalLayoutId,
+			survivingSlotIndices,
+		);
+		const slotProcessIds = compactIntoLayout(slots, terminalLayoutId);
+
+		// Focus the NEAREST surviving pane when the closed slot was active; that id
+		// stays valid after compaction. Otherwise leave focus untouched.
 		let activeProcessSessionId =
 			session.activeProcessSessionId === action.processId
 				? slotIndex >= 0
@@ -1122,9 +1132,7 @@ export function workspaceReducer(
 				: session.activeProcessSessionId;
 
 		if (remaining.length === 0) {
-			// last shell closed -> reset to single empty layout
-			terminalLayoutId = "1";
-			slotProcessIds = [null];
+			// last shell closed -> single empty layout ("1" already returned above)
 			activeProcessSessionId = null;
 		}
 
