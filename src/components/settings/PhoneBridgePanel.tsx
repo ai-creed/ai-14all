@@ -1,25 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { Switch } from "@/components/ui/switch";
-
-type BridgeStatus = {
-	enabled: boolean;
-	listening: boolean;
-	addr: string | null;
-	port: number | null;
-	paired: boolean;
-	sas: string | null;
-};
+import type { PhoneBridgeStatus } from "../../../shared/contracts/commands";
 
 /**
  * Settings panel that exposes the XBP Phone Bridge: live status, enable/disable
  * toggle, QR-code pairing flow, SAS confirmation dialog, and paired-device list.
  */
 export function PhoneBridgePanel(): React.ReactElement {
-	const [status, setStatus] = useState<BridgeStatus | null>(null);
+	const [status, setStatus] = useState<PhoneBridgeStatus | null>(null);
 	const [offerQr, setOfferQr] = useState<string | null>(null);
 	const [pairingBusy, setPairingBusy] = useState(false);
 	const [confirmingUnpair, setConfirmingUnpair] = useState(false);
+	const [unpairBusy, setUnpairBusy] = useState(false);
+	// Ref latch, not just state: two clicks in the same tick both read the
+	// pre-update unpairBusy, so state alone cannot stop a double forget().
+	const unpairInFlight = useRef(false);
 
 	useEffect(() => {
 		const bridge = window.ai14all.phoneBridge;
@@ -53,11 +49,17 @@ export function PhoneBridgePanel(): React.ReactElement {
 	}
 
 	async function handleForget() {
+		if (unpairInFlight.current) return;
+		unpairInFlight.current = true;
+		setUnpairBusy(true);
 		try {
-			await window.ai14all.phoneBridge.forget();
+			const s = await window.ai14all.phoneBridge.forget();
+			if (s) setStatus(s);
 		} catch {
 			// ignore: surfaced via status refresh
 		} finally {
+			unpairInFlight.current = false;
+			setUnpairBusy(false);
 			setConfirmingUnpair(false);
 		}
 	}
@@ -151,6 +153,7 @@ export function PhoneBridgePanel(): React.ReactElement {
 							<button
 								type="button"
 								className="phone-bridge-panel__unpair-confirm-button"
+								disabled={unpairBusy}
 								onClick={() => void handleForget()}
 							>
 								Confirm unpair

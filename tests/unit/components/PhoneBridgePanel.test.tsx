@@ -3,15 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PhoneBridgePanel } from "../../../src/components/settings/PhoneBridgePanel";
-
-type Status = {
-	enabled: boolean;
-	listening: boolean;
-	addr: string | null;
-	port: number | null;
-	paired: boolean;
-	sas: string | null;
-};
+import type { PhoneBridgeStatus as Status } from "../../../shared/contracts/commands";
 
 const base: Status = {
 	enabled: true,
@@ -147,6 +139,51 @@ describe("PhoneBridgePanel", () => {
 		);
 		await waitFor(() =>
 			expect(window.ai14all.phoneBridge.forget).toHaveBeenCalledTimes(1),
+		);
+	});
+
+	it("rapid double-click on Confirm unpair calls forget() only once", async () => {
+		mountBridge({ ...base, paired: true });
+		// Keep forget() in flight across both clicks — an instantly-resolving mock
+		// would unmount the confirm button before the second click can land.
+		let resolveForget!: (value: Status) => void;
+		vi.mocked(window.ai14all.phoneBridge.forget).mockImplementation(
+			() =>
+				new Promise<Status>((resolve) => {
+					resolveForget = resolve;
+				}),
+		);
+		render(<PhoneBridgePanel />);
+		await userEvent.click(
+			await screen.findByRole("button", { name: /unpair phone/i }),
+		);
+		await userEvent.dblClick(
+			screen.getByRole("button", { name: /confirm unpair/i }),
+		);
+		expect(window.ai14all.phoneBridge.forget).toHaveBeenCalledTimes(1);
+		resolveForget({ ...base, paired: false });
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("button", { name: /confirm unpair/i }),
+			).not.toBeInTheDocument(),
+		);
+	});
+
+	it("confirming unpair applies forget's returned status without waiting for a push", async () => {
+		// onStatusChanged never fires in mountBridge — the unpaired UI can only
+		// come from handleForget seeding setStatus with forget's return value.
+		mountBridge({ ...base, paired: true });
+		render(<PhoneBridgePanel />);
+		await userEvent.click(
+			await screen.findByRole("button", { name: /unpair phone/i }),
+		);
+		await userEvent.click(
+			screen.getByRole("button", { name: /confirm unpair/i }),
+		);
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("button", { name: /unpair phone/i }),
+			).not.toBeInTheDocument(),
 		);
 	});
 

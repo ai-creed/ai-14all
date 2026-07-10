@@ -123,8 +123,6 @@ export class XbpPeerSession {
 
 	stop(): void {
 		this.coalescer.cancel();
-		this.peer?.stop();
-		this.peer = null;
-		this.phoneNode = null;
+		this.detach();
 	}
 }

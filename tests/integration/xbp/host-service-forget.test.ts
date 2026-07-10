@@ -50,33 +50,36 @@ describe("XbpHostService.forgetDevice (live transport)", () => {
 		const offer = await svc.startPairing();
 		const refClient = new ReferenceClient({ backend, identity: phone });
 		const t = await connectWebSocketClient(`ws://127.0.0.1:${port}`);
-		await t.send(refClient.buildPairRequest(offer.token));
-		await vi.waitFor(() => expect(svc!.getStatus().sas).not.toBeNull());
+		try {
+			await t.send(refClient.buildPairRequest(offer.token));
+			await vi.waitFor(() => expect(svc!.getStatus().sas).not.toBeNull());
 
-		await svc.forgetDevice();
+			await svc.forgetDevice();
 
-		// SAS gone, forget audited exactly once with zero rejected noise.
-		expect(svc.getStatus().sas).toBeNull();
-		const entries = new XbpAuditSink({ dir }).entries();
-		expect(
-			entries.filter(
-				(e) => e.outcome === "accepted" && e.reason === "device-forgotten",
-			),
-		).toHaveLength(1);
-		expect(entries.filter((e) => e.outcome === "rejected")).toHaveLength(0);
+			// SAS gone, forget audited exactly once with zero rejected noise.
+			expect(svc.getStatus().sas).toBeNull();
+			const entries = new XbpAuditSink({ dir }).entries();
+			expect(
+				entries.filter(
+					(e) => e.outcome === "accepted" && e.reason === "device-forgotten",
+				),
+			).toHaveLength(1);
+			expect(entries.filter((e) => e.outcome === "rejected")).toHaveLength(0);
 
-		// A stale Confirm after the forget must pair nothing.
-		expect(svc.confirmPairing(true)).toBe(false);
-		expect(svc.getStatus().paired).toBe(false);
-		expect(
-			new XbpPairedDeviceStore({ dir, secureStorage: okStorage }).load(),
-		).toBeNull();
+			// A stale Confirm after the forget must pair nothing.
+			expect(svc.confirmPairing(true)).toBe(false);
+			expect(svc.getStatus().paired).toBe(false);
+			expect(
+				new XbpPairedDeviceStore({ dir, secureStorage: okStorage }).load(),
+			).toBeNull();
 
-		// Replaying the pre-forget offer token mints no new SAS.
-		await t.send(refClient.buildPairRequest(offer.token));
-		await new Promise((r) => setTimeout(r, 100));
-		expect(svc.getStatus().sas).toBeNull();
-		await t.close();
+			// Replaying the pre-forget offer token mints no new SAS.
+			await t.send(refClient.buildPairRequest(offer.token));
+			await new Promise((r) => setTimeout(r, 100));
+			expect(svc.getStatus().sas).toBeNull();
+		} finally {
+			await t.close();
+		}
 	});
 
 	it("re-pair works after forget: a fresh pairing completes end-to-end on the same service instance", async () => {
@@ -116,16 +119,19 @@ describe("XbpHostService.forgetDevice (live transport)", () => {
 			offer.boxPubHex,
 			{ requestTimeoutMs: 500 },
 		);
-		await expect(
-			peer.call(hostNode, sessionReportCapability, {}),
-		).resolves.toMatchObject({ mode: "ready" });
+		try {
+			await expect(
+				peer.call(hostNode, sessionReportCapability, {}),
+			).resolves.toMatchObject({ mode: "ready" });
 
-		await svc.forgetDevice();
+			await svc.forgetDevice();
 
-		await expect(
-			peer.call(hostNode, sessionReportCapability, {}),
-		).rejects.toThrow();
-		peer.stop();
-		await transport.close();
+			await expect(
+				peer.call(hostNode, sessionReportCapability, {}),
+			).rejects.toThrow();
+		} finally {
+			peer.stop();
+			await transport.close();
+		}
 	});
 });
