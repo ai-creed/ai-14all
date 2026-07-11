@@ -197,13 +197,15 @@ describe("InlineCommentThread", () => {
 		expect(confirmSpy).not.toHaveBeenCalled();
 		expect(screen.queryByRole("textbox")).toBeNull();
 		expect(screen.getByText("body text")).toBeInTheDocument();
+		expect(onCancelEdit).toHaveBeenCalledTimes(1);
 		confirmSpy.mockRestore();
 	});
 
 	it("edit textarea: Escape with modified draft consults window.confirm before discarding", async () => {
 		const user = userEvent.setup();
 		const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-		renderThread();
+		const onCancelEdit = vi.fn();
+		renderThread({}, { onCancelEdit });
 		await user.click(screen.getByRole("button", { name: /edit/i }));
 		const input = screen.getByRole("textbox");
 		await user.clear(input);
@@ -212,13 +214,15 @@ describe("InlineCommentThread", () => {
 		expect(confirmSpy).toHaveBeenCalledWith("Discard changes to this comment?");
 		expect(screen.queryByRole("textbox")).toBeNull();
 		expect(screen.getByText("body text")).toBeInTheDocument();
+		expect(onCancelEdit).toHaveBeenCalledTimes(1);
 		confirmSpy.mockRestore();
 	});
 
 	it("edit textarea: Escape with modified draft stays in edit mode when confirm is declined", async () => {
 		const user = userEvent.setup();
 		const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-		renderThread();
+		const onCancelEdit = vi.fn();
+		renderThread({}, { onCancelEdit });
 		await user.click(screen.getByRole("button", { name: /edit/i }));
 		const input = screen.getByRole("textbox");
 		await user.clear(input);
@@ -226,6 +230,7 @@ describe("InlineCommentThread", () => {
 		fireEvent.keyDown(input, { key: "Escape" });
 		expect(confirmSpy).toHaveBeenCalled();
 		expect(screen.getByRole("textbox")).toBeTruthy();
+		expect(onCancelEdit).not.toHaveBeenCalled();
 		confirmSpy.mockRestore();
 	});
 });

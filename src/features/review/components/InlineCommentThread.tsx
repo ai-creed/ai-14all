@@ -109,6 +109,7 @@ export function InlineCommentThread({
 							) {
 								setEditing(false);
 								setDraft(comment.body);
+								onCancelEdit();
 							}
 						}
 					}}
