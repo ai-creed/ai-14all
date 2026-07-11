@@ -27,14 +27,17 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 	};
 });
 import * as fsPromises from "node:fs/promises";
+import { symlink, mkdir, writeFile } from "node:fs/promises";
 
 describe("FileService", () => {
 	let service: FileService;
+	let tmpBase: string;
 	let worktreeDir: string;
 
 	beforeEach(() => {
 		service = new FileService();
-		worktreeDir = mkdtempSync(join(tmpdir(), "ofa-file-test-"));
+		tmpBase = mkdtempSync(join(tmpdir(), "ofa-file-test-"));
+		worktreeDir = join(tmpBase, "worktree");
 		mkdirSync(join(worktreeDir, "src"), { recursive: true });
 		writeFileSync(
 			join(worktreeDir, "src", "index.ts"),
@@ -43,7 +46,7 @@ describe("FileService", () => {
 	});
 
 	afterEach(() => {
-		rmSync(worktreeDir, { recursive: true });
+		rmSync(tmpBase, { recursive: true });
 	});
 
 	describe("readFile", () => {
@@ -63,10 +66,39 @@ describe("FileService", () => {
 			if (!result.ok) expect(result.reason.kind).toBe("read-failed");
 		});
 
-		it("returns read-failed when the path escapes the worktree", async () => {
+		it("returns path-escape when the path lexically escapes the worktree", async () => {
 			const result = await service.readFile(worktreeDir, "../../etc/passwd");
 			expect(result.ok).toBe(false);
-			if (!result.ok) expect(result.reason.kind).toBe("read-failed");
+			if (!result.ok) expect(result.reason.kind).toBe("path-escape");
+		});
+
+		it("returns path-escape for a symlinked file resolving outside the worktree", async () => {
+			const outside = join(tmpBase, "outside.md");
+			await writeFile(outside, "# outside");
+			await symlink(outside, join(worktreeDir, "leak.md"));
+			const result = await service.readFile(worktreeDir, "leak.md");
+			expect(result.ok).toBe(false);
+			if (!result.ok) expect(result.reason.kind).toBe("path-escape");
+		});
+
+		it("returns path-escape for a file under a symlinked parent directory resolving outside", async () => {
+			const outsideDir = join(tmpBase, "outside-dir");
+			await mkdir(outsideDir, { recursive: true });
+			await writeFile(join(outsideDir, "a.md"), "# a");
+			await symlink(outsideDir, join(worktreeDir, "linkdir"));
+			const result = await service.readFile(worktreeDir, "linkdir/a.md");
+			expect(result.ok).toBe(false);
+			if (!result.ok) expect(result.reason.kind).toBe("path-escape");
+		});
+
+		it("still reads a symlink resolving inside the worktree", async () => {
+			await writeFile(join(worktreeDir, "real.md"), "# real");
+			await symlink(
+				join(worktreeDir, "real.md"),
+				join(worktreeDir, "alias.md"),
+			);
+			const result = await service.readFile(worktreeDir, "alias.md");
+			expect(result.ok).toBe(true);
 		});
 	});
 

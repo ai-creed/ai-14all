@@ -179,6 +179,33 @@ export class FileService {
 			: { ok: false, reason: "path-escape" };
 	}
 
+	/**
+	 * Unconditional realpath containment: catches symlinked files AND files under
+	 * symlinked parent directories (the conditional lstat guard missed the latter).
+	 */
+	private async realpathContained(
+		worktreePath: string,
+		absolute: string,
+	): Promise<
+		"contained" | "escaped" | "not-found" | "permission-denied" | "read-failed"
+	> {
+		try {
+			const [realWorktree, realFile] = await Promise.all([
+				realpath(worktreePath),
+				realpath(absolute),
+			]);
+			return realFile === realWorktree ||
+				realFile.startsWith(realWorktree + sep)
+				? "contained"
+				: "escaped";
+		} catch (err) {
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code === "ENOENT") return "not-found";
+			if (code === "EACCES") return "permission-denied";
+			return "read-failed";
+		}
+	}
+
 	async openForEdit(
 		worktreePath: string,
 		relativePath: string,
@@ -307,10 +334,26 @@ export class FileService {
 			return {
 				ok: false,
 				path: relativePath,
-				reason: { kind: "read-failed" },
+				reason: { kind: "path-escape" },
 			};
 		}
 		const absolutePath = resolved.absolute;
+
+		const containment = await this.realpathContained(
+			worktreePath,
+			absolutePath,
+		);
+		if (containment !== "contained") {
+			const kind =
+				containment === "escaped"
+					? ("path-escape" as const)
+					: containment === "not-found"
+						? ("not-found" as const)
+						: containment === "permission-denied"
+							? ("permission-denied" as const)
+							: ("read-failed" as const);
+			return { ok: false, path: relativePath, reason: { kind } };
+		}
 
 		let fileStat: import("node:fs").Stats;
 		try {
