@@ -3,7 +3,10 @@ import type { GitDiff } from "../../../../shared/models/git-diff";
 import type { GitCommitDetail } from "../../../../shared/models/git-commit-review";
 import type { Worktree } from "../../../../shared/models/worktree";
 import type { WorktreeSession } from "../../../../shared/models/worktree-session";
-import type { ReviewCommentSource } from "../../../../shared/models/review-comment";
+import type {
+	ReviewComment,
+	ReviewCommentSource,
+} from "../../../../shared/models/review-comment";
 import type { ReviewLoadState } from "../../../app/hooks/review-load-state";
 import type { WorkspaceAction } from "../../workspace/logic/workspace-state";
 import type { ResolvedTheme } from "../../../lib/use-theme";
@@ -188,6 +191,10 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 	const navigateThreadRef = useRef<(dir: 1 | -1) => void>(null!);
 	const focusedThreadIdRef = useRef<string | null>(null);
 	const reviewStateRef = useRef<ReviewState>(null!);
+	const pendingUndoRef = useRef<{
+		toastId: string;
+		snapshot: ReviewComment;
+	} | null>(null);
 
 	useEffect(() => {
 		startDraftRef.current = startDraft;
@@ -338,11 +345,27 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 					}
 				}}
 				onDelete={async (id) => {
+					const snapshot = reviewState.comments.find((c) => c.id === id);
 					try {
 						await reviewState.remove(id);
 					} catch (e) {
 						toast.show(`Failed to delete: ${(e as Error).message}`);
+						return;
 					}
+					if (!snapshot) return;
+					if (pendingUndoRef.current)
+						toast.dismiss(pendingUndoRef.current.toastId);
+					const toastId = toast.show("Comment deleted", {
+						ttlMs: 6000,
+						action: {
+							label: "Undo",
+							onSelect: () => {
+								pendingUndoRef.current = null;
+								void reviewState.restore(snapshot);
+							},
+						},
+					});
+					pendingUndoRef.current = { toastId, snapshot };
 				}}
 				onSubmitDraft={async () => {
 					if (!addingDraft || addingDraft.body.trim().length === 0) return;
