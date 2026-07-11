@@ -5,6 +5,7 @@ import type { Repository } from "../models/repository.js";
 import type { Worktree } from "../models/worktree.js";
 import type { TerminalSession } from "../models/terminal-session.js";
 import type { FileReadResult } from "../models/file-view.js";
+import type { ImageReadResult } from "../models/image-view.js";
 import type {
 	TerminalOutputEvent,
 	TerminalExitEvent,
@@ -454,6 +455,11 @@ export type Ai14AllDesktopApi = {
 			worktreeId: string,
 			relativePath: string,
 		): Promise<FileReadResult>;
+		readImage(
+			workspaceId: string,
+			worktreeId: string,
+			relativePath: string,
+		): Promise<ImageReadResult>;
 		openForEdit(
 			workspaceId: string,
 			worktreeId: string,

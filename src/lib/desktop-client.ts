@@ -62,6 +62,8 @@ export const files: Ai14AllDesktopApi["files"] = {
 		getDesktopClient().files.listWorktree(workspaceId, worktreeId, opts),
 	read: (workspaceId, worktreeId, relativePath) =>
 		getDesktopClient().files.read(workspaceId, worktreeId, relativePath),
+	readImage: (workspaceId, worktreeId, relativePath) =>
+		getDesktopClient().files.readImage(workspaceId, worktreeId, relativePath),
 	openForEdit: async (workspaceId, worktreeId, relativePath) => {
 		const raw = await getDesktopClient().files.openForEdit(
 			workspaceId,
