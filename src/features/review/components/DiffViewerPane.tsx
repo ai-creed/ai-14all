@@ -91,6 +91,14 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 
 	const toast = useToast();
 
+	const focusHostEditor = useCallback(
+		(filePath: string | null) => {
+			if (!filePath) return;
+			registry.get(filePath)?.getModifiedEditor().focus();
+		},
+		[registry],
+	);
+
 	const ensureFileFocused = useCallback(
 		(filePath: string) => {
 			if (activeSession?.reviewMode === "commits") {
@@ -328,6 +336,7 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 							);
 							return false;
 						}
+						focusHostEditor(currentFilePath);
 						return true;
 					} catch (e) {
 						toast.show(`Failed to update: ${(e as Error).message}`);
@@ -366,7 +375,9 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 						},
 					});
 					pendingUndoRef.current = { toastId, snapshot };
+					focusHostEditor(currentFilePath);
 				}}
+				onCancelEdit={() => focusHostEditor(currentFilePath)}
 				onSubmitDraft={async () => {
 					if (!addingDraft || addingDraft.body.trim().length === 0) return;
 					try {
@@ -380,11 +391,15 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 							commitSha: addingDraft.commitSha,
 						});
 						setAddingDraft(null);
+						focusHostEditor(currentFilePath);
 					} catch (e) {
 						toast.show(`Failed to save: ${(e as Error).message}`);
 					}
 				}}
-				onCancelDraft={() => setAddingDraft(null)}
+				onCancelDraft={() => {
+					setAddingDraft(null);
+					focusHostEditor(currentFilePath);
+				}}
 			/>
 			{activeSession?.reviewMode === "commits" &&
 			commitDetailState.message !== null &&

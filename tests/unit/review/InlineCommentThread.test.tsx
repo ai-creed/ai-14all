@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { InlineCommentThread } from "../../../src/features/review/components/InlineCommentThread";
 import type { ReviewComment } from "../../../shared/models/review-comment";
@@ -32,6 +32,7 @@ describe("InlineCommentThread", () => {
 				onToggleAddressed={noop}
 				onDelete={noop}
 				onSave={noopSave}
+				onCancelEdit={noop}
 				onMeasureChange={noop}
 			/>,
 		);
@@ -52,6 +53,7 @@ describe("InlineCommentThread", () => {
 				onToggleAddressed={noop}
 				onDelete={noop}
 				onSave={onSave}
+				onCancelEdit={noop}
 				onMeasureChange={noop}
 			/>,
 		);
@@ -71,6 +73,7 @@ describe("InlineCommentThread", () => {
 				onToggleAddressed={noop}
 				onDelete={noop}
 				onSave={noopSave}
+				onCancelEdit={noop}
 				onMeasureChange={noop}
 			/>,
 		);
@@ -91,6 +94,7 @@ describe("InlineCommentThread", () => {
 				onToggleAddressed={noop}
 				onDelete={noop}
 				onSave={noopSave}
+				onCancelEdit={noop}
 				onMeasureChange={onMeasureChange}
 			/>,
 		);
@@ -98,5 +102,62 @@ describe("InlineCommentThread", () => {
 		onMeasureChange.mockClear();
 		await user.click(screen.getByRole("button", { name: /edit/i }));
 		expect(onMeasureChange).toHaveBeenCalled();
+	});
+
+	it("serializes edit save: pending onSave ignores a second click; Save is disabled while pending", async () => {
+		const user = userEvent.setup();
+		let resolveSave: ((ok: boolean) => void) | undefined;
+		const onSave = vi.fn(
+			() =>
+				new Promise<boolean>((resolve) => {
+					resolveSave = resolve;
+				}),
+		);
+		render(
+			<InlineCommentThread
+				comment={c}
+				onToggleAddressed={noop}
+				onDelete={noop}
+				onSave={onSave}
+				onCancelEdit={noop}
+				onMeasureChange={noop}
+			/>,
+		);
+		await user.click(screen.getByRole("button", { name: /edit/i }));
+		const saveButton = screen.getByRole("button", { name: /save/i });
+
+		fireEvent.click(saveButton);
+		expect(onSave).toHaveBeenCalledTimes(1);
+		expect(saveButton).toBeDisabled();
+
+		fireEvent.click(saveButton);
+		expect(onSave).toHaveBeenCalledTimes(1);
+
+		resolveSave?.(true);
+		await waitFor(() =>
+			expect(screen.queryByRole("button", { name: /save/i })).toBeNull(),
+		);
+	});
+
+	it("Cancel during edit calls onCancelEdit and discards the draft", async () => {
+		const user = userEvent.setup();
+		const onCancelEdit = vi.fn();
+		render(
+			<InlineCommentThread
+				comment={c}
+				onToggleAddressed={noop}
+				onDelete={noop}
+				onSave={noopSave}
+				onCancelEdit={onCancelEdit}
+				onMeasureChange={noop}
+			/>,
+		);
+		await user.click(screen.getByRole("button", { name: /edit/i }));
+		const input = screen.getByRole("textbox");
+		await user.clear(input);
+		await user.type(input, "discarded");
+		await user.click(screen.getByRole("button", { name: /cancel/i }));
+		expect(onCancelEdit).toHaveBeenCalledTimes(1);
+		expect(screen.getByText("body text")).toBeInTheDocument();
 	});
 });

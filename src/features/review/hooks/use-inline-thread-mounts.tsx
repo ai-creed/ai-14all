@@ -21,6 +21,7 @@ type Args = {
 	onSave: (id: string, body: string) => Promise<boolean>;
 	onToggleAddressed: (id: string) => void;
 	onDelete: (id: string) => void;
+	onCancelEdit: () => void;
 	draft: DraftSpec;
 	draftBody: string;
 	onDraftChange: (body: string) => void;
@@ -96,6 +97,7 @@ export function useInlineThreadMounts(args: Args): void {
 					onSave={async (body) => args.onSave(c.id, body)}
 					onToggleAddressed={() => args.onToggleAddressed(c.id)}
 					onDelete={() => args.onDelete(c.id)}
+					onCancelEdit={args.onCancelEdit}
 					onMeasureChange={() => {
 						const el = entrySnapshot.handle.domNode
 							.firstElementChild as HTMLElement | null;
@@ -105,7 +107,13 @@ export function useInlineThreadMounts(args: Args): void {
 				/>,
 			);
 		}
-	}, [args.comments, args.onSave, args.onToggleAddressed, args.onDelete]);
+	}, [
+		args.comments,
+		args.onSave,
+		args.onToggleAddressed,
+		args.onDelete,
+		args.onCancelEdit,
+	]);
 
 	useEffect(() => {
 		const mount = mountRef.current;

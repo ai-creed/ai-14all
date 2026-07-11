@@ -14,6 +14,7 @@ type Props = {
 	onSave: (id: string, body: string) => Promise<boolean>;
 	onToggleAddressed: (id: string) => void;
 	onDelete: (id: string) => void;
+	onCancelEdit: () => void;
 	onSubmitDraft: () => void;
 	onCancelDraft: () => void;
 };
@@ -44,6 +45,7 @@ export function InlineMountsBridge(props: Props) {
 		onSave: props.onSave,
 		onToggleAddressed: props.onToggleAddressed,
 		onDelete: props.onDelete,
+		onCancelEdit: props.onCancelEdit,
 		draft: editor ? props.draft : null,
 		draftBody: props.draftBody,
 		onDraftChange: props.onDraftChange,

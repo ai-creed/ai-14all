@@ -6,6 +6,7 @@ type Props = {
 	onSave: (body: string) => Promise<boolean>;
 	onToggleAddressed: () => void;
 	onDelete: () => void;
+	onCancelEdit: () => void;
 	onMeasureChange: () => void;
 };
 
@@ -14,12 +15,25 @@ export function InlineCommentThread({
 	onSave,
 	onToggleAddressed,
 	onDelete,
+	onCancelEdit,
 	onMeasureChange,
 }: Props) {
 	const [editing, setEditing] = useState(false);
 	const [expanded, setExpanded] = useState(comment.status === "open");
 	const [draft, setDraft] = useState(comment.body);
+	const [saving, setSaving] = useState(false);
 	const rootRef = useRef<HTMLDivElement>(null);
+
+	const save = async () => {
+		if (saving || draft.trim().length === 0) return;
+		setSaving(true);
+		try {
+			const ok = await onSave(draft.trim());
+			if (ok) setEditing(false);
+		} finally {
+			setSaving(false);
+		}
+	};
 
 	useLayoutEffect(() => {
 		onMeasureChange();
@@ -78,19 +92,15 @@ export function InlineCommentThread({
 						onClick={() => {
 							setEditing(false);
 							setDraft(comment.body);
+							onCancelEdit();
 						}}
 					>
 						Cancel
 					</button>
 					<button
 						type="button"
-						disabled={draft.trim().length === 0}
-						onClick={async () => {
-							const ok = await onSave(draft.trim());
-							if (ok) {
-								setEditing(false);
-							}
-						}}
+						disabled={saving || draft.trim().length === 0}
+						onClick={() => void save()}
 					>
 						Save
 					</button>
