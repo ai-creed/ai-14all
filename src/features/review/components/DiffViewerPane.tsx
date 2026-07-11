@@ -458,6 +458,15 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 						handleDiffEditorMount(filePath, editor);
 					}}
 				/>
+			) : activeSession?.reviewMode === "changes" &&
+			  activeSession.selectedChangedFilePath &&
+			  diffState.message !== null &&
+			  diffState.data === null ? (
+				<p className="shell-error">{diffState.message}</p>
+			) : activeSession?.reviewMode === "changes" &&
+			  activeSession.selectedChangedFilePath &&
+			  diffState.data === null ? (
+				<p className="shell-empty-state">Loading diff…</p>
 			) : (
 				<p className="shell-empty-state">
 					Select a file or changed file to inspect it.
