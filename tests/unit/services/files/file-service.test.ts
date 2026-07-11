@@ -102,6 +102,58 @@ describe("FileService", () => {
 		});
 	});
 
+	describe("openForEdit", () => {
+		it("openForEdit rejects a file under a symlinked parent directory resolving outside", async () => {
+			const outsideDir = join(tmpBase, "outside-edit");
+			await mkdir(outsideDir, { recursive: true });
+			await writeFile(join(outsideDir, "b.md"), "# b");
+			await symlink(outsideDir, join(worktreeDir, "editlink"));
+			const result = await service.openForEdit(worktreeDir, "editlink/b.md");
+			expect(result.ok).toBe(false);
+			if (!result.ok) expect(result.reason).toBe("path-escape");
+		});
+
+		it("openForEdit still rejects a final-file symlink resolving outside (behavior preserved)", async () => {
+			const outside = join(tmpBase, "outside-b.md");
+			await writeFile(outside, "# outside");
+			await symlink(outside, join(worktreeDir, "leak-edit.md"));
+			const result = await service.openForEdit(worktreeDir, "leak-edit.md");
+			expect(result.ok).toBe(false);
+			if (!result.ok) expect(result.reason).toBe("path-escape");
+		});
+	});
+
+	describe("saveFile", () => {
+		it("saveFile rejects a file under a symlinked parent directory resolving outside", async () => {
+			const outsideDir = join(tmpBase, "outside-save");
+			await mkdir(outsideDir, { recursive: true });
+			await writeFile(join(outsideDir, "b.md"), "# b");
+			await symlink(outsideDir, join(worktreeDir, "savelink"));
+			const result = await service.saveFile(
+				worktreeDir,
+				"savelink/b.md",
+				"new content",
+				0,
+			);
+			expect(result.ok).toBe(false);
+			if (!result.ok) expect(result.reason).toBe("path-escape");
+		});
+
+		it("saveFile still rejects a final-file symlink resolving outside (behavior preserved)", async () => {
+			const outside = join(tmpBase, "outside-save-b.md");
+			await writeFile(outside, "# outside");
+			await symlink(outside, join(worktreeDir, "leak-save.md"));
+			const result = await service.saveFile(
+				worktreeDir,
+				"leak-save.md",
+				"new content",
+				0,
+			);
+			expect(result.ok).toBe(false);
+			if (!result.ok) expect(result.reason).toBe("path-escape");
+		});
+	});
+
 	describe("listFiles", () => {
 		it("returns relative paths for files in the worktree", async () => {
 			const files = await service.listFiles(worktreeDir);

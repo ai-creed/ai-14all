@@ -4,7 +4,6 @@ import {
 	readdir,
 	readFile as fsReadFile,
 	stat,
-	lstat,
 	realpath,
 	writeFile,
 } from "node:fs/promises";
@@ -214,23 +213,17 @@ export class FileService {
 		if (!resolved.ok) return resolved;
 		const basename = relativePath.split("/").pop() ?? "";
 		if (!isEditable(basename)) return { ok: false, reason: "not-editable" };
-		try {
-			const lstats = await lstat(resolved.absolute);
-			if (lstats.isSymbolicLink()) {
-				const [realWorktree, realFile] = await Promise.all([
-					realpath(worktreePath),
-					realpath(resolved.absolute),
-				]);
-				if (
-					realFile !== realWorktree &&
-					!realFile.startsWith(realWorktree + sep)
-				)
-					return { ok: false, reason: "path-escape" };
-			}
-		} catch (err) {
-			const code = (err as NodeJS.ErrnoException).code;
-			if (code === "ENOENT") return { ok: false, reason: "not-found" };
-			if (code === "EACCES") return { ok: false, reason: "permission-denied" };
+		const containment = await this.realpathContained(
+			worktreePath,
+			resolved.absolute,
+		);
+		if (containment !== "contained") {
+			if (containment === "escaped")
+				return { ok: false, reason: "path-escape" };
+			if (containment === "not-found")
+				return { ok: false, reason: "not-found" };
+			if (containment === "permission-denied")
+				return { ok: false, reason: "permission-denied" };
 			return { ok: false, reason: "read-failed" };
 		}
 		let stats: import("node:fs").Stats;
@@ -271,23 +264,17 @@ export class FileService {
 		if (!resolved.ok) return resolved;
 		const basename = relativePath.split("/").pop() ?? "";
 		if (!isEditable(basename)) return { ok: false, reason: "not-editable" };
-		try {
-			const lstats = await lstat(resolved.absolute);
-			if (lstats.isSymbolicLink()) {
-				const [realWorktree, realFile] = await Promise.all([
-					realpath(worktreePath),
-					realpath(resolved.absolute),
-				]);
-				if (
-					realFile !== realWorktree &&
-					!realFile.startsWith(realWorktree + sep)
-				)
-					return { ok: false, reason: "path-escape" };
-			}
-		} catch (err) {
-			const code = (err as NodeJS.ErrnoException).code;
-			if (code === "ENOENT") return { ok: false, reason: "not-found" };
-			if (code === "EACCES") return { ok: false, reason: "permission-denied" };
+		const containment = await this.realpathContained(
+			worktreePath,
+			resolved.absolute,
+		);
+		if (containment !== "contained") {
+			if (containment === "escaped")
+				return { ok: false, reason: "path-escape" };
+			if (containment === "not-found")
+				return { ok: false, reason: "not-found" };
+			if (containment === "permission-denied")
+				return { ok: false, reason: "permission-denied" };
 			return { ok: false, reason: "write-failed" };
 		}
 		let stats: import("node:fs").Stats;
