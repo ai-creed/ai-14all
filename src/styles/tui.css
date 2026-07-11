@@ -223,12 +223,10 @@
  * the cursor accent so they read clearly. Other palettes are untouched
  * because there `--accent` already equals `--primary`. */
 [data-theme="tui"]
-	:is(.shell-md-modal__body, .shell-inline-editor__preview-body)
+	:is(.shell-md-modal__body, .shell-md-preview__body)
 	:not(pre)
 	> code,
-[data-theme="tui"]
-	:is(.shell-md-modal__body, .shell-inline-editor__preview-body)
-	a {
+[data-theme="tui"] :is(.shell-md-modal__body, .shell-md-preview__body) a {
 	color: var(--primary);
 }
 
@@ -263,17 +261,6 @@
 [data-theme="tui"] .shell-review-chipbar__status[data-state="clean"] {
 	background: color-mix(in srgb, var(--primary) 14%, transparent);
 	color: var(--primary);
-}
-
-/* Review file viewer — the markdown Edit/Preview toggle colors its pressed
- * state with --accent (the dark bg2 step in TUI), leaving the "Edit" label
- * dark-on-dark after switching from Preview. Pin only the pressed state to the
- * cursor accent; hover is left to the shared base rule so it matches the
- * Refresh / Collapse / Review buttons (which use the same hover). */
-[data-theme="tui"] .shell-inline-editor__preview-btn[aria-pressed="true"] {
-	color: var(--primary);
-	border-color: var(--primary);
-	background: var(--panel-bg);
 }
 
 /* ---- Accent foreground/border legibility sweep (TUI only) -----------------
@@ -407,11 +394,11 @@
 /* Markdown lists get visible markers in the modal/preview bodies (base leaves
  * them list-style:none as on devel). */
 [data-theme="tui"] .shell-md-modal__body ul,
-[data-theme="tui"] .shell-inline-editor__preview-body ul {
+[data-theme="tui"] .shell-md-preview__body ul {
 	list-style: disc;
 }
 [data-theme="tui"] .shell-md-modal__body ol,
-[data-theme="tui"] .shell-inline-editor__preview-body ol {
+[data-theme="tui"] .shell-md-preview__body ol {
 	list-style: decimal;
 }
 

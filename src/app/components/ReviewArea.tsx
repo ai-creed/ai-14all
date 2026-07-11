@@ -125,8 +125,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 		onConsumePendingCommentJump,
 	} = props;
 
-	// Local UI state owned by the review surface
-	const [treePreviewPath, setTreePreviewPath] = useState<string | null>(null);
 	// Always show addressed comments inline now that the overview (which owned the
 	// hide-addressed toggle) is gone. Kept as state so the value still threads
 	// through the comment filter and the diff viewer.
@@ -209,11 +207,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 		jump: jumpToComment,
 		onConsume: onConsumePendingCommentJump,
 	});
-
-	// Clear tree preview when the active worktree changes
-	useEffect(() => {
-		setTreePreviewPath(null);
-	}, [activeWorktree.id]);
 
 	const currentFilePath =
 		activeSession?.reviewMode === "commits"
@@ -510,8 +503,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 					gitSummaryError={gitSummaryError}
 					gitSummaryStale={gitSummaryStale}
 					gitSummaryMessage={gitSummaryMessage}
-					treePreviewPath={treePreviewPath}
-					onSetTreePreviewPath={setTreePreviewPath}
 					dispatch={dispatch}
 					handleSelectChangedFile={handleSelectChangedFile}
 					setDiscardPath={setDiscardPath}

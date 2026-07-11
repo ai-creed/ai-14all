@@ -3,7 +3,6 @@ import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CommitList } from "../../git/components/CommitList";
 import { ChangesList } from "../../git/components/ChangesList";
 import { FilesPane } from "../../../app/components/FilesPane";
-import { MarkdownPreviewModal } from "../../viewer/components/MarkdownPreviewModal";
 import { AgentInstallCta } from "./AgentInstallCta";
 import type { GitChange } from "../../../../shared/models/git-change";
 import type { Worktree } from "../../../../shared/models/worktree";
@@ -35,8 +34,6 @@ type Props = {
 	gitSummaryError: boolean;
 	gitSummaryStale: boolean;
 	gitSummaryMessage: string | null;
-	treePreviewPath: string | null;
-	onSetTreePreviewPath: (path: string | null) => void;
 	dispatch: (action: WorkspaceAction) => void;
 	handleSelectChangedFile: (relativePath: string) => void;
 	setDiscardPath: (next: string | null) => void;
@@ -78,8 +75,6 @@ export function ReviewRail(props: Props): React.ReactElement {
 		gitSummaryError,
 		gitSummaryStale,
 		gitSummaryMessage,
-		treePreviewPath,
-		onSetTreePreviewPath,
 		dispatch,
 		handleSelectChangedFile,
 		setDiscardPath,
@@ -187,7 +182,6 @@ export function ReviewRail(props: Props): React.ReactElement {
 										relativePath,
 									});
 								}}
-								onPreviewMarkdown={onSetTreePreviewPath}
 								changedFiles={changes}
 								gitSummaryError={gitSummaryError}
 								gitSummaryMessage={gitSummaryMessage}
@@ -216,16 +210,6 @@ export function ReviewRail(props: Props): React.ReactElement {
 									})
 								}
 								onRequestClose={onCloseReview}
-							/>
-							{/* Always mounted, visibility driven by `open`: unmounting
-							    a Radix Dialog while it is still open skips its body
-							    pointer-events/aria cleanup and freezes the app. */}
-							<MarkdownPreviewModal
-								workspaceId={activeWorkspaceId ?? ""}
-								worktreeId={activeWorktree.id}
-								relativePath={treePreviewPath ?? ""}
-								open={treePreviewPath !== null}
-								onClose={() => onSetTreePreviewPath(null)}
 							/>
 						</>
 					) : (

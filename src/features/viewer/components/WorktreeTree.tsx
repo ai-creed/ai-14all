@@ -30,7 +30,6 @@ export type WorktreeTreeProps = {
 	searchTerm: string;
 	selectedFile: string | null;
 	onSelect: (relativePath: string) => void;
-	onPreviewMarkdown?: (relativePath: string) => void;
 	changedFiles: GitChange[];
 	gitSummaryError?: boolean;
 	gitSummaryMessage?: string | null;
@@ -199,28 +198,6 @@ export function WorktreeTree(props: WorktreeTreeProps) {
 							onSelect={() => reload()}
 						>
 							Refresh
-						</ContextMenuItem>
-					</ContextMenuContent>
-				</ContextMenu>
-			);
-		}
-		if (row.kind === "file") {
-			const name = row.name;
-			const isMarkdown = name.endsWith(".md");
-			const previewMarkdown = props.onPreviewMarkdown;
-			const canPreview = isMarkdown && previewMarkdown != null;
-			if (!canPreview) {
-				return <div key={`${row.kind}:${row.path}`}>{body}</div>;
-			}
-			return (
-				<ContextMenu key={`${row.kind}:${row.path}`}>
-					<ContextMenuTrigger asChild>{body}</ContextMenuTrigger>
-					<ContextMenuContent className="shell-toolbar-menu">
-						<ContextMenuItem
-							className="shell-toolbar-menu__item"
-							onSelect={() => previewMarkdown(row.path)}
-						>
-							Preview
 						</ContextMenuItem>
 					</ContextMenuContent>
 				</ContextMenu>

@@ -2077,50 +2077,6 @@ select {
 	color: var(--danger, #d76b6b);
 }
 
-.shell-inline-editor__preview-btn {
-	margin-left: auto;
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	padding: 2px 10px;
-	background: var(--panel-bg);
-	color: var(--text-primary);
-	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: var(--radius-sm);
-	font-size: 0.7rem;
-	line-height: 1;
-	cursor: pointer;
-}
-
-/* Pin the icon glyph's box so swapping color-emoji codepoints can't push
-   the button's line-box (and thus the header) by a pixel or two. */
-.shell-inline-editor__preview-btn > span[aria-hidden="true"] {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 12px;
-	height: 12px;
-	line-height: 1;
-	font-size: 11px;
-}
-
-.shell-inline-editor__preview-btn:hover {
-	background: var(--panel-bg-elevated);
-	border-color: var(--accent);
-}
-
-.shell-inline-editor__preview-btn[aria-pressed="true"] {
-	background: color-mix(in srgb, var(--accent) 14%, transparent);
-	border-color: var(--accent);
-	color: var(--accent);
-}
-
-.shell-inline-editor__preview {
-	flex: 1;
-	min-height: 0;
-	overflow: auto;
-}
-
 .shell-inline-editor__bar-slot {
 	position: absolute;
 	left: 0;
@@ -2696,7 +2652,7 @@ select {
 }
 
 .shell-md-modal__body,
-.shell-inline-editor__preview-body {
+.shell-md-preview__body {
 	padding: var(--space-4) var(--space-6);
 	color: var(--text-primary);
 	line-height: 1.6;
@@ -2708,12 +2664,12 @@ select {
 .shell-md-modal__body h4,
 .shell-md-modal__body h5,
 .shell-md-modal__body h6,
-.shell-inline-editor__preview-body h1,
-.shell-inline-editor__preview-body h2,
-.shell-inline-editor__preview-body h3,
-.shell-inline-editor__preview-body h4,
-.shell-inline-editor__preview-body h5,
-.shell-inline-editor__preview-body h6 {
+.shell-md-preview__body h1,
+.shell-md-preview__body h2,
+.shell-md-preview__body h3,
+.shell-md-preview__body h4,
+.shell-md-preview__body h5,
+.shell-md-preview__body h6 {
 	margin-top: var(--space-4);
 	margin-bottom: var(--space-2);
 	font-weight: 600;
@@ -2721,12 +2677,12 @@ select {
 }
 
 .shell-md-modal__body p,
-.shell-inline-editor__preview-body p {
+.shell-md-preview__body p {
 	margin-bottom: var(--space-3);
 }
 
 .shell-md-modal__body pre,
-.shell-inline-editor__preview-body pre {
+.shell-md-preview__body pre {
 	background: var(--panel-bg-elevated);
 	padding: var(--space-3);
 	border-radius: var(--radius-sm);
@@ -2735,13 +2691,13 @@ select {
 }
 
 .shell-md-modal__body code,
-.shell-inline-editor__preview-body code {
+.shell-md-preview__body code {
 	font-family: var(--font-terminal);
 	font-size: 0.875rem;
 }
 
 .shell-md-modal__body :not(pre) > code,
-.shell-inline-editor__preview-body :not(pre) > code {
+.shell-md-preview__body :not(pre) > code {
 	background: var(--panel-bg-elevated);
 	padding: 2px var(--space-1);
 	border-radius: var(--radius-sm);
@@ -2749,7 +2705,7 @@ select {
 }
 
 .shell-md-modal__body table,
-.shell-inline-editor__preview-body table {
+.shell-md-preview__body table {
 	border-collapse: collapse;
 	width: 100%;
 	margin-bottom: var(--space-3);
@@ -2757,29 +2713,29 @@ select {
 
 .shell-md-modal__body th,
 .shell-md-modal__body td,
-.shell-inline-editor__preview-body th,
-.shell-inline-editor__preview-body td {
+.shell-md-preview__body th,
+.shell-md-preview__body td {
 	border: var(--shell-border-width) solid var(--panel-border);
 	padding: var(--space-2) var(--space-3);
 	text-align: left;
 }
 
 .shell-md-modal__body th,
-.shell-inline-editor__preview-body th {
+.shell-md-preview__body th {
 	background: var(--panel-bg-elevated);
 	color: var(--text-secondary);
 }
 
 .shell-md-modal__body ul,
 .shell-md-modal__body ol,
-.shell-inline-editor__preview-body ul,
-.shell-inline-editor__preview-body ol {
+.shell-md-preview__body ul,
+.shell-md-preview__body ol {
 	margin-bottom: var(--space-3);
 	padding-left: var(--space-5);
 }
 
 .shell-md-modal__body blockquote,
-.shell-inline-editor__preview-body blockquote {
+.shell-md-preview__body blockquote {
 	border-left: 3px solid var(--panel-border-strong);
 	margin: 0 0 var(--space-3) 0;
 	padding-left: var(--space-4);
@@ -2787,13 +2743,13 @@ select {
 }
 
 .shell-md-modal__body a,
-.shell-inline-editor__preview-body a {
+.shell-md-preview__body a {
 	color: var(--accent);
 	text-decoration: underline;
 }
 
 .shell-md-modal__body del,
-.shell-inline-editor__preview-body del {
+.shell-md-preview__body del {
 	color: var(--text-muted);
 }
 
@@ -2830,6 +2786,33 @@ select {
 .shell-md-preview__body {
 	padding: 12px 16px;
 	max-width: 860px;
+}
+
+/* ── File Viewer ([Preview │ Source] toggle) ────────────────────────── */
+
+.shell-file-viewer {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.shell-file-viewer__header {
+	display: flex;
+	gap: 0;
+	border-bottom: 1px solid var(--border);
+}
+
+.shell-file-viewer__mode-btn {
+	border: none;
+	border-radius: var(--radius);
+	padding: 2px 10px;
+	font-size: 11px;
+	cursor: pointer;
+	background: transparent;
+}
+
+.shell-file-viewer__mode-btn[aria-pressed="true"] {
+	background: var(--muted);
 }
 
 /* ── Lightweight Editor Modal ───────────────────────────────────────── */

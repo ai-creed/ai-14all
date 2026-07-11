@@ -8,14 +8,9 @@ import {
 	useRef,
 	useState,
 } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeHighlight from "rehype-highlight";
-import "highlight.js/styles/github-dark.css";
 import { files } from "../../../lib/desktop-client";
 import { app } from "../../../lib/desktop-client";
 import type { ResolvedTheme } from "../../../lib/use-theme";
-import { Icon } from "@/components/ui/icon";
 import { isEditable } from "../../../../shared/editor/editable-files";
 import { languageForBasename } from "../logic/language-for-basename.js";
 import { ConfirmCloseDialog } from "./ConfirmCloseDialog";
@@ -152,16 +147,11 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 			null,
 		);
 		const [confirmSwitch, setConfirmSwitch] = useState(false);
-		const [previewing, setPreviewing] = useState(false);
 		const [status, setStatus] = useState<{
 			kind: "saved" | "error";
 			message: string;
 		} | null>(null);
 
-		// Reset preview when navigating to a different file.
-		useEffect(() => {
-			setPreviewing(false);
-		}, [relativePath]);
 		const editorRef = useRef<MonacoEditorInstance | null>(null);
 		const switchResolverRef = useRef<
 			((decision: "proceed" | "cancel") => void) | null
@@ -514,14 +504,12 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 		const readOnly = load.kind !== "editable";
 		const value = readOnly ? load.content : buffer;
 		const language = load.language;
-		const isMarkdown = relativePath.endsWith(".md");
 
 		return (
 			<div
 				className="shell-viewer shell-inline-editor"
 				data-testid="inline-editor"
 				data-readonly={readOnly ? "true" : "false"}
-				data-preview={previewing ? "true" : "false"}
 				onKeyDownCapture={onKeyDown}
 			>
 				<div className="shell-viewer__header">
@@ -539,58 +527,18 @@ export const InlineEditor = forwardRef<InlineEditorHandle, InlineEditorProps>(
 							{status.message}
 						</span>
 					)}
-					{isMarkdown && (
-						<button
-							type="button"
-							className="shell-inline-editor__preview-btn"
-							onClick={() => setPreviewing((p) => !p)}
-							title={
-								previewing
-									? "Edit raw markdown"
-									: "Preview rendered markdown in place"
-							}
-							aria-label={
-								previewing
-									? "Edit raw markdown"
-									: "Preview rendered markdown in place"
-							}
-							aria-pressed={previewing}
-						>
-							<span aria-hidden="true">
-								{previewing ? (
-									<Icon name="edit" fallback="✏" />
-								) : (
-									<Icon name="eye" />
-								)}
-							</span>
-							<span>{previewing ? "Edit" : "Preview"}</span>
-						</button>
-					)}
 				</div>
-				{previewing && isMarkdown ? (
-					<div className="shell-inline-editor__preview">
-						<div className="shell-inline-editor__preview-body">
-							<ReactMarkdown
-								remarkPlugins={[remarkGfm]}
-								rehypePlugins={[rehypeHighlight]}
-							>
-								{value}
-							</ReactMarkdown>
-						</div>
-					</div>
-				) : (
-					<Editor
-						height="100%"
-						language={language}
-						theme={monacoTheme}
-						value={value}
-						onChange={(v) => {
-							if (!readOnly) setBuffer(v ?? "");
-						}}
-						onMount={handleMount}
-						options={{ ...MONACO_OPTIONS, readOnly }}
-					/>
-				)}
+				<Editor
+					height="100%"
+					language={language}
+					theme={monacoTheme}
+					value={value}
+					onChange={(v) => {
+						if (!readOnly) setBuffer(v ?? "");
+					}}
+					onMount={handleMount}
+					options={{ ...MONACO_OPTIONS, readOnly }}
+				/>
 				{dirty && (
 					<div className="shell-inline-editor__bar-slot">
 						<EditorDirtyBar

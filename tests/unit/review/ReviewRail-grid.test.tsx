@@ -59,8 +59,6 @@ function renderRail() {
 				gitSummaryError={false}
 				gitSummaryStale={false}
 				gitSummaryMessage={null}
-				treePreviewPath={null}
-				onSetTreePreviewPath={() => {}}
 				dispatch={() => {}}
 				handleSelectChangedFile={() => {}}
 				setDiscardPath={() => {}}

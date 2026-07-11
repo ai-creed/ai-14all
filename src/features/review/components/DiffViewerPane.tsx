@@ -10,10 +10,8 @@ import type { ResolvedTheme } from "../../../lib/use-theme";
 import type { NewCommentDraft } from "../../../app/components/ReviewArea";
 import { CommitDiffStack } from "../../git/components/CommitDiffStack";
 import { DiffViewer } from "../../viewer/components/DiffViewer";
-import {
-	InlineEditor,
-	type InlineEditorHandle,
-} from "../../viewer/components/InlineEditor";
+import { FileViewer } from "../../viewer/components/FileViewer";
+import type { InlineEditorHandle } from "../../viewer/components/InlineEditor";
 import { InlineMountsBridge } from "./InlineMountsBridge";
 import { filterForInlineMount } from "../logic/inline-mount-filter";
 import {
@@ -384,7 +382,7 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 				/>
 			) : activeSession?.reviewMode === "files" &&
 			  activeSession.selectedFilePath ? (
-				<InlineEditor
+				<FileViewer
 					ref={inlineEditorRef}
 					workspaceId={activeWorkspaceId ?? ""}
 					worktreeId={activeWorktree.id}

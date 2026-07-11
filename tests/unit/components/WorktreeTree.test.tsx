@@ -214,52 +214,36 @@ describe("WorktreeTree root refresh", () => {
 	});
 });
 
-describe("WorktreeTree markdown preview", () => {
-	it("calls onPreviewMarkdown when Preview is picked on a .md file", async () => {
+describe("WorktreeTree file rows — no context menu (D3 tree preview retired)", () => {
+	// The tree right-click Preview path was retired; markdown is previewed via the
+	// FileViewer [Preview │ Source] toggle, so file rows carry no context menu.
+	it("shows no Preview menu item on a .md file row", async () => {
 		mockListWorktree.mockResolvedValueOnce(
 			wrapEntries(["README.md", "src/a.ts"]),
 		);
-		const onPreviewMarkdown = vi.fn();
-		renderTree({ expandedPaths: [""], onPreviewMarkdown });
+		renderTree({ expandedPaths: [""] });
 		const mdRow = await screen.findByText("README.md");
 		fireEvent.contextMenu(mdRow);
-		const preview = await screen.findByRole("menuitem", { name: "Preview" });
-		fireEvent.click(preview);
-		expect(onPreviewMarkdown).toHaveBeenCalledWith("README.md");
+		expect(screen.queryByRole("menuitem", { name: "Preview" })).toBeNull();
 	});
 
-	it("does not show a preview menu on non-.md files", async () => {
+	it("shows no Preview menu item on a non-.md file row", async () => {
 		mockListWorktree.mockResolvedValueOnce(wrapEntries(["src/a.ts"]));
 		renderTree({ expandedPaths: ["", "src"] });
 		const tsRow = await screen.findByText("a.ts");
 		fireEvent.contextMenu(tsRow);
 		expect(screen.queryByRole("menuitem", { name: "Preview" })).toBeNull();
 	});
-});
 
-describe("WorktreeTree file context menu — Edit removed (always-inline)", () => {
-	it("never renders an Edit menu item on whitelisted files (modal flow gone)", async () => {
+	it("shows no Edit menu item on whitelisted files (modal flow gone)", async () => {
 		mockListWorktree.mockResolvedValueOnce(wrapEntries(["package.json"]));
-		const onPreviewMarkdown = vi.fn();
-		renderTree({ expandedPaths: [""], onPreviewMarkdown });
+		renderTree({ expandedPaths: [""] });
 		const row = await screen.findByText("package.json");
 		fireEvent.contextMenu(row);
 		expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull();
 	});
 
-	it("still shows Preview on a .md row when onPreviewMarkdown is provided", async () => {
-		mockListWorktree.mockResolvedValueOnce(wrapEntries(["README.md"]));
-		const onPreviewMarkdown = vi.fn();
-		renderTree({ expandedPaths: [""], onPreviewMarkdown });
-		const mdRow = await screen.findByText("README.md");
-		fireEvent.contextMenu(mdRow);
-		expect(
-			await screen.findByRole("menuitem", { name: "Preview" }),
-		).toBeInTheDocument();
-		expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull();
-	});
-
-	it("shows no context menu on a non-markdown, non-whitelisted file", async () => {
+	it("shows no context menu on an image file row", async () => {
 		mockListWorktree.mockResolvedValueOnce(wrapEntries(["image.png"]));
 		renderTree({ expandedPaths: [""] });
 		const row = await screen.findByText("image.png");
