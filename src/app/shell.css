@@ -6145,7 +6145,7 @@ select {
 
 .shell-review-minimap {
 	position: relative;
-	width: 46px;
+	width: 24px;
 	flex-shrink: 0;
 	align-self: stretch;
 }
@@ -6189,12 +6189,14 @@ select {
 	flex-shrink: 0;
 }
 
+.shell-review-minimap__dot--cluster {
+	width: 16px;
+	height: 16px;
+	font-size: 8px;
+	color: var(--background);
+}
+
 .shell-review-minimap__count {
-	position: absolute;
-	right: calc(100% + 2px);
-	font-size: 9px;
-	color: var(--text-muted);
-	white-space: nowrap;
 	line-height: 1;
 }
 

@@ -61,6 +61,14 @@ export function CommentMinimap({
 					const clusterComments = cluster.items
 						.map((it) => byId.get(it.id))
 						.filter((c): c is ReviewComment => c !== undefined);
+					const label = isCluster
+						? `${cluster.items.length} comments from L${clusterComments[0]?.startLine ?? 0}`
+						: `Comment L${clusterComments[0]?.startLine ?? 0}${
+								clusterComments[0] &&
+								clusterComments[0].startLine !== clusterComments[0].endLine
+									? `–${clusterComments[0].endLine}`
+									: ""
+							} — ${head.status}`;
 					return (
 						// Dot + flyout share ONE hover region. onMouseLeave lives on the
 						// WRAPPER, not the dot, and the flyout is a child of the wrapper —
@@ -77,8 +85,9 @@ export function CommentMinimap({
 							<button
 								type="button"
 								data-testid={`minimap-dot-${head.id}`}
-								className="shell-review-minimap__dot"
+								className={`shell-review-minimap__dot${isCluster ? " shell-review-minimap__dot--cluster" : ""}`}
 								aria-haspopup="dialog"
+								aria-label={label}
 								style={{
 									background:
 										head.status === "open"
@@ -87,10 +96,17 @@ export function CommentMinimap({
 								}}
 								onMouseEnter={() => setActiveHeadId(head.id)}
 								onFocus={() => setActiveHeadId(head.id)}
-								onClick={() => setActiveHeadId(head.id)}
+								onClick={() => {
+									setActiveHeadId(head.id);
+									const target = clusterComments[0];
+									if (target) onJump(target);
+								}}
 							>
 								{isCluster ? (
-									<span className="shell-review-minimap__count">
+									<span
+										className="shell-review-minimap__count"
+										aria-hidden="true"
+									>
 										+{cluster.items.length}
 									</span>
 								) : null}
