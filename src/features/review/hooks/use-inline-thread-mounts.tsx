@@ -6,6 +6,7 @@ import {
 	createInlineThreadMount,
 	type InlineThreadHandle,
 	type InlineThreadMount,
+	type ThreadActions,
 } from "../logic/inline-thread-mount";
 import { InlineCommentThread } from "../components/InlineCommentThread";
 import { InlineDraftThread } from "../components/InlineDraftThread";
@@ -22,6 +23,7 @@ type Args = {
 	onToggleAddressed: (id: string) => void;
 	onDelete: (id: string) => void;
 	onCancelEdit: () => void;
+	threadActions: React.MutableRefObject<Map<string, ThreadActions>>;
 	draft: DraftSpec;
 	draftBody: string;
 	onDraftChange: (body: string) => void;
@@ -57,6 +59,7 @@ export function useInlineThreadMounts(args: Args): void {
 				safeUnmount(root);
 			}
 			handlesRef.current.clear();
+			args.threadActions.current.clear();
 			if (draftRef.current) {
 				draftRef.current.handle.remove();
 				safeUnmount(draftRef.current.root);
@@ -65,7 +68,7 @@ export function useInlineThreadMounts(args: Args): void {
 			mountRef.current?.disposeAll();
 			mountRef.current = null;
 		};
-	}, [args.editor]);
+	}, [args.editor, args.threadActions]);
 
 	useEffect(() => {
 		const mount = mountRef.current;
@@ -77,6 +80,7 @@ export function useInlineThreadMounts(args: Args): void {
 				handle.remove();
 				safeUnmount(root);
 				handles.delete(id);
+				args.threadActions.current.delete(id);
 			}
 		}
 		for (const c of args.comments) {
@@ -98,6 +102,11 @@ export function useInlineThreadMounts(args: Args): void {
 					onToggleAddressed={() => args.onToggleAddressed(c.id)}
 					onDelete={() => args.onDelete(c.id)}
 					onCancelEdit={args.onCancelEdit}
+					onRegisterActions={(a) => {
+						const map = args.threadActions.current;
+						if (a) map.set(c.id, a);
+						else map.delete(c.id);
+					}}
 					onMeasureChange={() => {
 						const el = entrySnapshot.handle.domNode
 							.firstElementChild as HTMLElement | null;
@@ -113,6 +122,7 @@ export function useInlineThreadMounts(args: Args): void {
 		args.onToggleAddressed,
 		args.onDelete,
 		args.onCancelEdit,
+		args.threadActions,
 	]);
 
 	useEffect(() => {

@@ -51,6 +51,13 @@ export function InlineDraftThread({
 					if (e.key === "Enter" && !e.shiftKey) {
 						e.preventDefault();
 						void submit();
+					} else if (e.key === "Escape") {
+						e.preventDefault();
+						if (
+							body.trim().length === 0 ||
+							window.confirm("Discard this draft comment?")
+						)
+							onCancel();
 					}
 				}}
 			/>

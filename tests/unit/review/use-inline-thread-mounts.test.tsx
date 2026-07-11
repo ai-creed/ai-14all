@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
+import { useRef } from "react";
 import { useInlineThreadMounts } from "../../../src/features/review/hooks/use-inline-thread-mounts";
 import type { editor as MonacoEditor } from "monaco-editor";
 import type { ReviewComment } from "../../../shared/models/review-comment";
+import type { ThreadActions } from "../../../src/features/review/logic/inline-thread-mount";
 
 function fakeEditor() {
 	const zones = new Map<string, { node: HTMLDivElement; line: number }>();
@@ -70,6 +72,7 @@ function Harness({
 	editor: MonacoEditor.IStandaloneDiffEditor;
 	comments: ReviewComment[];
 }) {
+	const threadActions = useRef(new Map<string, ThreadActions>());
 	useInlineThreadMounts({
 		editor,
 		comments,
@@ -77,6 +80,7 @@ function Harness({
 		onToggleAddressed: vi.fn(),
 		onDelete: vi.fn(),
 		onCancelEdit: vi.fn(),
+		threadActions,
 		draft: null,
 		draftBody: "",
 		onDraftChange: vi.fn(),
@@ -87,6 +91,7 @@ function Harness({
 }
 
 function NullHarness({ comments }: { comments: ReviewComment[] }) {
+	const threadActions = useRef(new Map<string, ThreadActions>());
 	useInlineThreadMounts({
 		editor: null,
 		comments,
@@ -94,6 +99,7 @@ function NullHarness({ comments }: { comments: ReviewComment[] }) {
 		onToggleAddressed: vi.fn(),
 		onDelete: vi.fn(),
 		onCancelEdit: vi.fn(),
+		threadActions,
 		draft: null,
 		draftBody: "",
 		onDraftChange: vi.fn(),

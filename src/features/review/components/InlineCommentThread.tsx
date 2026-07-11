@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReviewComment } from "../../../../shared/models/review-comment";
+import type { ThreadActions } from "../logic/inline-thread-mount";
 
 type Props = {
 	comment: ReviewComment;
@@ -8,6 +9,7 @@ type Props = {
 	onDelete: () => void;
 	onCancelEdit: () => void;
 	onMeasureChange: () => void;
+	onRegisterActions?: (actions: ThreadActions | null) => void;
 };
 
 export function InlineCommentThread({
@@ -17,6 +19,7 @@ export function InlineCommentThread({
 	onDelete,
 	onCancelEdit,
 	onMeasureChange,
+	onRegisterActions,
 }: Props) {
 	const [editing, setEditing] = useState(false);
 	const [expanded, setExpanded] = useState(comment.status === "open");
@@ -42,6 +45,15 @@ export function InlineCommentThread({
 	useEffect(() => {
 		if (comment.status === "open") setExpanded(true);
 	}, [comment.status, comment.id]);
+
+	useEffect(() => {
+		onRegisterActions?.({
+			openEdit: () => {
+				if (comment.status === "open") setEditing(true);
+			},
+		});
+		return () => onRegisterActions?.(null);
+	}, [comment.id, comment.status, onRegisterActions]);
 
 	if (comment.status === "addressed" && !expanded) {
 		return (
@@ -85,6 +97,21 @@ export function InlineCommentThread({
 					value={draft}
 					autoFocus
 					onChange={(e) => setDraft(e.target.value)}
+					onKeyDown={(e) => {
+						if (e.key === "Enter" && !e.shiftKey) {
+							e.preventDefault();
+							void save();
+						} else if (e.key === "Escape") {
+							e.preventDefault();
+							if (
+								draft === comment.body ||
+								window.confirm("Discard changes to this comment?")
+							) {
+								setEditing(false);
+								setDraft(comment.body);
+							}
+						}
+					}}
 				/>
 				<div className="shell-inline-thread__actions">
 					<button

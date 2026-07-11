@@ -26,6 +26,7 @@ import { installCommentKeyBindings } from "../logic/comment-key-bindings";
 import { useToast } from "../../ui/toast/use-toast";
 import type { DiffEditorRegistry } from "../logic/diff-editor-registry";
 import type { useReviewComments } from "../hooks/use-review-comments";
+import type { ThreadActions } from "../logic/inline-thread-mount";
 
 type ReviewState = ReturnType<typeof useReviewComments>;
 
@@ -193,6 +194,13 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 		new Map<string, ReturnType<typeof installSelectionPill>>(),
 	);
 
+	// Mount-time registry of per-comment imperative actions (currently just
+	// `openEdit`), keyed by comment id and populated by InlineCommentThread via
+	// InlineMountsBridge → useInlineThreadMounts. Lets keyboard handlers below
+	// (e.g. `editFocused`) drive a mounted thread without a separate global
+	// registry — see inline-thread-mount.ts's `ThreadActions`.
+	const threadActionsRef = useRef(new Map<string, ThreadActions>());
+
 	// Stable refs so key-binding handlers (registered once at editor-mount time)
 	// always delegate to the latest versions without needing re-registration.
 	const startDraftRef = useRef<typeof startDraft>(null!);
@@ -266,7 +274,9 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 					const id = focusedThreadIdRef.current;
 					if (!id) return;
 					const c = reviewStateRef.current.comments.find((x) => x.id === id);
-					if (c) scrollToLineRange(editor, c);
+					if (!c) return;
+					scrollToLineRange(editor, c);
+					threadActionsRef.current.get(id)?.openEdit();
 				},
 				toggleAddressedFocused: () => {
 					const id = focusedThreadIdRef.current;
@@ -327,6 +337,7 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 				}
 				draftBody={draftBelongsHere ? (addingDraft?.body ?? "") : ""}
 				onDraftChange={updateAddingDraftBody}
+				threadActions={threadActionsRef}
 				onSave={async (id, body) => {
 					try {
 						const res = await reviewState.update(id, body);

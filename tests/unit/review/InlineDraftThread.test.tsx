@@ -92,4 +92,61 @@ describe("InlineDraftThread", () => {
 		resolveSubmit?.();
 		await waitFor(() => expect(saveButton).not.toBeDisabled());
 	});
+
+	it("Escape on an empty draft cancels immediately without confirm", () => {
+		const onCancel = vi.fn();
+		const confirmSpy = vi.spyOn(window, "confirm");
+		render(
+			<InlineDraftThread
+				range={{ startLine: 1, endLine: 1 }}
+				body=""
+				onChange={() => {}}
+				onSubmit={() => {}}
+				onCancel={onCancel}
+				onMeasureChange={() => {}}
+			/>,
+		);
+		fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+		expect(confirmSpy).not.toHaveBeenCalled();
+		expect(onCancel).toHaveBeenCalledTimes(1);
+		confirmSpy.mockRestore();
+	});
+
+	it("Escape on a dirty draft cancels only when window.confirm returns true", () => {
+		const onCancel = vi.fn();
+		const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+		render(
+			<InlineDraftThread
+				range={{ startLine: 1, endLine: 1 }}
+				body="a draft in progress"
+				onChange={() => {}}
+				onSubmit={() => {}}
+				onCancel={onCancel}
+				onMeasureChange={() => {}}
+			/>,
+		);
+		fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+		expect(confirmSpy).toHaveBeenCalledWith("Discard this draft comment?");
+		expect(onCancel).toHaveBeenCalledTimes(1);
+		confirmSpy.mockRestore();
+	});
+
+	it("Escape on a dirty draft does not cancel when window.confirm returns false", () => {
+		const onCancel = vi.fn();
+		const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+		render(
+			<InlineDraftThread
+				range={{ startLine: 1, endLine: 1 }}
+				body="a draft in progress"
+				onChange={() => {}}
+				onSubmit={() => {}}
+				onCancel={onCancel}
+				onMeasureChange={() => {}}
+			/>,
+		);
+		fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+		expect(confirmSpy).toHaveBeenCalled();
+		expect(onCancel).not.toHaveBeenCalled();
+		confirmSpy.mockRestore();
+	});
 });

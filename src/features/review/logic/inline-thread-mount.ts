@@ -18,6 +18,11 @@ export type InlineThreadMount = {
 	disposeAll: () => void;
 };
 
+// Per-comment imperative actions registered by a mounted thread component so
+// pane-level keyboard handlers (e.g. `editFocused`) can drive it without a
+// separate global registry. Keyed by comment id in the mount hook's map.
+export type ThreadActions = { openEdit: () => void };
+
 export function createInlineThreadMount(
 	editor: MonacoEditor.IStandaloneDiffEditor,
 ): InlineThreadMount {
