@@ -445,7 +445,7 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		).toBeVisible();
 	});
 
-	test("right-clicking a .md file shows Preview and opens the markdown modal", async () => {
+	test("selecting a .md file opens the inline markdown preview; Source shows the editor", async () => {
 		await ensureWorkspaceLoaded();
 
 		// Navigate to feature-a — it has a dirty NOTES.md so scopeRoots is non-empty
@@ -459,26 +459,34 @@ test.describe.serial("Cumulative flow — Phase 6", () => {
 		await page.getByRole("tab", { name: "Files" }).click({ force: true });
 
 		// Wait for NOTES.md to appear (scopeRoots includes "." for root-level dirty files)
-		const notesButton = page.getByRole("button", { name: /^NOTES\.md/i });
-		await expect(notesButton).toBeVisible({ timeout: 10_000 });
+		const notesRow = page
+			.locator(".shell-list__item--tree")
+			.filter({ hasText: /^NOTES\.md/ });
+		await expect(notesRow).toBeVisible({ timeout: 10_000 });
 
-		// Right-click to open context menu
-		await notesButton.click({ button: "right" });
-		await expect(page.getByRole("menuitem", { name: "Preview" })).toBeVisible();
-
-		// Click Preview
-		await page.getByRole("menuitem", { name: "Preview" }).click();
-
-		// Modal should appear with rendered heading from "# Preview Test"
+		// Selecting the .md file defaults to the rendered inline markdown preview
+		// (the tree's right-click "Preview" modal was retired in favor of the
+		// FileViewer [Preview │ Source] toggle).
+		await notesRow.click();
+		const preview = page.locator(".shell-md-preview");
+		await expect(preview).toBeVisible({ timeout: 10_000 });
 		await expect(
-			page.getByRole("heading", { name: "Preview Test" }),
-		).toBeVisible({ timeout: 10_000 });
+			preview.getByRole("heading", { name: "Preview Test" }),
+		).toBeVisible();
+		await expect(page.getByRole("button", { name: "Preview" })).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
 
-		// ESC should close the modal
-		await page.keyboard.press("Escape");
-		await expect(
-			page.getByRole("heading", { name: "Preview Test" }),
-		).not.toBeVisible();
+		// The Source toggle switches into the Monaco-backed inline editor.
+		await page.getByRole("button", { name: "Source" }).click();
+		await expect(page.getByTestId("inline-editor")).toBeVisible({
+			timeout: 10_000,
+		});
+		await expect(page.getByRole("button", { name: "Source" })).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
 	});
 
 	test("right-clicking a .md file in Changes shows Preview and opens the markdown modal", async () => {
