@@ -9,6 +9,7 @@ import {
 } from "node:fs/promises";
 import { join, extname, sep } from "node:path";
 import type { FileReadResult } from "../../shared/models/file-view.js";
+import type { ImageReadResult } from "../../shared/models/image-view.js";
 import type {
 	OpenFileForEditResult,
 	SaveFileResult,
@@ -17,7 +18,11 @@ import type {
 import { getGitBinaryPath } from "../git/git-binary.js";
 import { isEditable } from "../../shared/editor/editable-files.js";
 import { isLikelyBinary } from "./binary-detect.js";
-import { MAX_FILE_VIEW_BYTES } from "../../shared/files/size-limits.js";
+import { IMAGE_MIME_BY_EXT } from "../../shared/files/image-files.js";
+import {
+	MAX_FILE_VIEW_BYTES,
+	MAX_IMAGE_PREVIEW_BYTES,
+} from "../../shared/files/size-limits.js";
 import { isUnderDenylistedDir } from "../../shared/files/ignored-denylist.js";
 import { resolveWithinWorktree } from "./worktree-path.js";
 
@@ -393,5 +398,65 @@ export class FileService {
 				language: detectLanguage(relativePath),
 			},
 		};
+	}
+
+	async readImage(
+		worktreePath: string,
+		relativePath: string,
+	): Promise<ImageReadResult> {
+		const dot = relativePath.lastIndexOf(".");
+		const mime =
+			dot >= 0
+				? IMAGE_MIME_BY_EXT[relativePath.slice(dot).toLowerCase()]
+				: undefined;
+		if (!mime) return { ok: false, reason: { kind: "not-image" } };
+
+		const resolved = this.resolveInsideWorktree(worktreePath, relativePath);
+		if (!resolved.ok) return { ok: false, reason: { kind: "path-escape" } };
+
+		const containment = await this.realpathContained(
+			worktreePath,
+			resolved.absolute,
+		);
+		if (containment !== "contained") {
+			const kind =
+				containment === "escaped"
+					? ("path-escape" as const)
+					: containment === "not-found"
+						? ("not-found" as const)
+						: containment === "permission-denied"
+							? ("permission-denied" as const)
+							: ("read-failed" as const);
+			return { ok: false, reason: { kind } };
+		}
+
+		let fileStat: import("node:fs").Stats;
+		try {
+			fileStat = await stat(resolved.absolute);
+		} catch (err) {
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code === "EACCES")
+				return { ok: false, reason: { kind: "permission-denied" } };
+			return { ok: false, reason: { kind: "not-found" } };
+		}
+		if (fileStat.isDirectory())
+			return { ok: false, reason: { kind: "read-failed" } };
+		if (fileStat.size > MAX_IMAGE_PREVIEW_BYTES)
+			return { ok: false, reason: { kind: "too-large", size: fileStat.size } };
+
+		try {
+			const buffer = await fsReadFile(resolved.absolute);
+			return {
+				ok: true,
+				base64: buffer.toString("base64"),
+				mime,
+				byteLength: buffer.byteLength,
+			};
+		} catch (err) {
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code === "EACCES")
+				return { ok: false, reason: { kind: "permission-denied" } };
+			return { ok: false, reason: { kind: "read-failed" } };
+		}
 	}
 }

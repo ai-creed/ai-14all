@@ -15,6 +15,7 @@ import {
 	FileService,
 	MAX_EDITOR_FILE_BYTES,
 } from "../../../../services/files/file-service.js";
+import { MAX_IMAGE_PREVIEW_BYTES } from "../../../../shared/files/size-limits.js";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("node:fs/promises")>();
@@ -27,7 +28,7 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 	};
 });
 import * as fsPromises from "node:fs/promises";
-import { symlink, mkdir, writeFile } from "node:fs/promises";
+import { symlink, mkdir, writeFile, open } from "node:fs/promises";
 
 describe("FileService", () => {
 	let service: FileService;
@@ -99,6 +100,64 @@ describe("FileService", () => {
 			);
 			const result = await service.readFile(worktreeDir, "alias.md");
 			expect(result.ok).toBe(true);
+		});
+	});
+
+	describe("readImage", () => {
+		it("reads a png and returns base64 + mime + byteLength", async () => {
+			const bytes = Buffer.from([
+				0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+			]);
+			await writeFile(join(worktreeDir, "pic.png"), bytes);
+			const r = await service.readImage(worktreeDir, "pic.png");
+			expect(r.ok).toBe(true);
+			if (r.ok) {
+				expect(r.mime).toBe("image/png");
+				expect(r.byteLength).toBe(8);
+				expect(Buffer.from(r.base64, "base64").equals(bytes)).toBe(true);
+			}
+		});
+
+		it("rejects non-image extensions with not-image", async () => {
+			await writeFile(join(worktreeDir, "notes.md"), "# hi");
+			const r = await service.readImage(worktreeDir, "notes.md");
+			expect(!r.ok && r.reason.kind === "not-image").toBe(true);
+		});
+
+		it("rejects lexical escape with path-escape", async () => {
+			const r = await service.readImage(worktreeDir, "../../pic.png");
+			expect(!r.ok && r.reason.kind === "path-escape").toBe(true);
+		});
+
+		it("rejects a symlinked image file resolving outside the worktree", async () => {
+			const outside = join(tmpBase, "outside.png");
+			await writeFile(outside, Buffer.from([1]));
+			await symlink(outside, join(worktreeDir, "leak.png"));
+			const r = await service.readImage(worktreeDir, "leak.png");
+			expect(!r.ok && r.reason.kind === "path-escape").toBe(true);
+		});
+
+		it("rejects an image under a symlinked parent dir resolving outside", async () => {
+			const outsideDir = join(tmpBase, "outside-img");
+			await mkdir(outsideDir, { recursive: true });
+			await writeFile(join(outsideDir, "x.png"), Buffer.from([1]));
+			await symlink(outsideDir, join(worktreeDir, "imglink"));
+			const r = await service.readImage(worktreeDir, "imglink/x.png");
+			expect(!r.ok && r.reason.kind === "path-escape").toBe(true);
+		});
+
+		it("rejects images over MAX_IMAGE_PREVIEW_BYTES with too-large", async () => {
+			// Do NOT write 20MB in a unit test; stat is what matters. Use a sparse file.
+			const fh = await open(join(worktreeDir, "big.png"), "w");
+			await fh.truncate(MAX_IMAGE_PREVIEW_BYTES + 1);
+			await fh.close();
+			const r = await service.readImage(worktreeDir, "big.png");
+			expect(!r.ok && r.reason.kind === "too-large").toBe(true);
+		});
+
+		it("rejects a missing file with not-found", async () => {
+			const r = await service.readImage(worktreeDir, "nope.png");
+			expect(!r.ok && r.reason.kind === "not-found").toBe(true);
 		});
 	});
 
