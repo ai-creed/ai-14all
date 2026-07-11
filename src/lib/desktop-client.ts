@@ -140,6 +140,7 @@ export const reviewComments: Ai14AllDesktopApi["reviewComments"] = {
 		getDesktopClient().reviewComments.markAddressed(commentId),
 	reopen: (commentId) => getDesktopClient().reviewComments.reopen(commentId),
 	delete: (commentId) => getDesktopClient().reviewComments.delete(commentId),
+	restore: (comment) => getDesktopClient().reviewComments.restore(comment),
 	rebaseWorktreeIds: (mapping) =>
 		getDesktopClient().reviewComments.rebaseWorktreeIds(mapping),
 	onChanged: (handler: (event: ReviewCommentChangedEvent) => void) =>

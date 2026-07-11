@@ -73,6 +73,7 @@ import {
 	REVIEW_MARK_ADDRESSED,
 	REVIEW_REOPEN,
 	REVIEW_DELETE,
+	REVIEW_RESTORE,
 	REVIEW_REBASE,
 	REVIEW_UPDATE,
 	REVIEW_BULK_REMOVE_ADDRESSED,
@@ -82,6 +83,7 @@ import {
 	ReviewMarkAddressedRequestSchema,
 	ReviewReopenRequestSchema,
 	ReviewDeleteRequestSchema,
+	ReviewRestoreRequestSchema,
 	ReviewRebaseRequestSchema,
 	ReviewUpdateRequestSchema,
 	ReviewBulkRemoveAddressedRequestSchema,
@@ -650,6 +652,11 @@ export function registerIpcHandlers(
 		const { commentId } = ReviewDeleteRequestSchema.parse(raw);
 		const deleted = await reviewCommentService.delete(commentId);
 		return { deleted };
+	});
+
+	ipcMain.handle(REVIEW_RESTORE, async (_event, raw: unknown) => {
+		const parsed = ReviewRestoreRequestSchema.parse(raw);
+		return reviewCommentService.restore(parsed);
 	});
 
 	ipcMain.handle(REVIEW_REBASE, async (_event, raw: unknown) => {

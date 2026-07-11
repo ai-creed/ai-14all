@@ -43,6 +43,7 @@ const REVIEW_CREATE = "reviewComments:create";
 const REVIEW_MARK_ADDRESSED = "reviewComments:markAddressed";
 const REVIEW_REOPEN = "reviewComments:reopen";
 const REVIEW_DELETE = "reviewComments:delete";
+const REVIEW_RESTORE = "reviewComments:restore";
 const REVIEW_REBASE = "reviewComments:rebaseWorktreeIds";
 const REVIEW_COMMENT_CHANGED = "reviewComments:changed";
 const REVIEW_UPDATE = "reviewComments:update";
@@ -413,6 +414,9 @@ const api: Ai14AllDesktopApi = {
 		},
 		delete(commentId) {
 			return ipcRenderer.invoke(REVIEW_DELETE, { commentId });
+		},
+		restore(comment) {
+			return ipcRenderer.invoke(REVIEW_RESTORE, comment);
 		},
 		update(commentId: string, body: string) {
 			return ipcRenderer.invoke(REVIEW_UPDATE, { commentId, body });

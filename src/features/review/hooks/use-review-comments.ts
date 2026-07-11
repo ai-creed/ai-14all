@@ -53,6 +53,10 @@ export function useReviewComments(worktreeId: string | null) {
 		(commentId: string) => reviewComments.delete(commentId),
 		[],
 	);
+	const restore = useCallback(
+		(comment: ReviewComment) => reviewComments.restore(comment),
+		[],
+	);
 
 	const update = useCallback(
 		(commentId: string, body: string) => reviewComments.update(commentId, body),
@@ -76,6 +80,7 @@ export function useReviewComments(worktreeId: string | null) {
 		markAddressed,
 		reopen,
 		remove,
+		restore,
 		update,
 		clearAddressed,
 	};

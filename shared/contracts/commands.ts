@@ -563,6 +563,9 @@ export type Ai14AllDesktopApi = {
 		>;
 		reopen(commentId: string): Promise<{ comment: ReviewComment | null }>;
 		delete(commentId: string): Promise<{ deleted: boolean }>;
+		restore(
+			comment: ReviewComment,
+		): Promise<{ ok: true } | { ok: false; error: "already_exists" }>;
 		update(
 			commentId: string,
 			body: string,

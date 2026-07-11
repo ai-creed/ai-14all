@@ -100,6 +100,18 @@ export class ReviewCommentService {
 		return { ok: true, comment: { ...found } };
 	}
 
+	async restore(
+		comment: ReviewComment,
+	): Promise<{ ok: true } | { ok: false; error: "already_exists" }> {
+		if (this.find(comment.id)) return { ok: false, error: "already_exists" };
+		const list = this.byWorktree.get(comment.worktreeId) ?? [];
+		list.push({ ...comment });
+		this.byWorktree.set(comment.worktreeId, list);
+		await this.persist();
+		this.emit("created");
+		return { ok: true };
+	}
+
 	async delete(id: string): Promise<boolean> {
 		for (const [wid, list] of this.byWorktree.entries()) {
 			const idx = list.findIndex((c) => c.id === id);

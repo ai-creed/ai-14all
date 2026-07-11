@@ -13,6 +13,7 @@ async function makeService() {
 	await service.init();
 	return {
 		dir,
+		store,
 		service,
 		cleanup: () => rm(dir, { recursive: true, force: true }),
 	};
@@ -166,6 +167,69 @@ describe("ReviewCommentService", () => {
 		await ctx.service.removeByWorktree("/a");
 		expect(ctx.service.listByWorktree("/a")).toHaveLength(0);
 		expect(ctx.service.listByWorktree("/b")).toHaveLength(1);
+	});
+
+	it("restore reinserts the exact record — same id, status, timestamps", async () => {
+		const created = await ctx.service.create({
+			worktreeId: "/a",
+			filePath: "f",
+			startLine: 1,
+			endLine: 1,
+			snippet: "",
+			body: "keep me",
+			source: "working-tree",
+			commitSha: null,
+		});
+		await ctx.service.markAddressed(created.id);
+		const snapshot = ctx.service
+			.listByWorktree(created.worktreeId)
+			.find((c) => c.id === created.id)!;
+		await ctx.service.delete(created.id);
+		const res = await ctx.service.restore(snapshot);
+		expect(res).toEqual({ ok: true });
+		const back = ctx.service
+			.listByWorktree(snapshot.worktreeId)
+			.find((c) => c.id === snapshot.id);
+		expect(back).toEqual(snapshot);
+	});
+
+	it("restore rejects when the id already exists (double-undo no-op)", async () => {
+		const created = await ctx.service.create({
+			worktreeId: "/a",
+			filePath: "f",
+			startLine: 1,
+			endLine: 1,
+			snippet: "",
+			body: "dup",
+			source: "working-tree",
+			commitSha: null,
+		});
+		const res = await ctx.service.restore(created);
+		expect(res).toEqual({ ok: false, error: "already_exists" });
+	});
+
+	it("restore persists — a fresh service initialized from the same store sees the record", async () => {
+		const created = await ctx.service.create({
+			worktreeId: "/a",
+			filePath: "f",
+			startLine: 1,
+			endLine: 1,
+			snippet: "",
+			body: "persist me",
+			source: "working-tree",
+			commitSha: null,
+		});
+		const snapshot = ctx.service
+			.listByWorktree(created.worktreeId)
+			.find((c) => c.id === created.id)!;
+		await ctx.service.delete(created.id);
+		await ctx.service.restore(snapshot);
+		const reloaded = new ReviewCommentService(ctx.store);
+		await reloaded.init();
+		const back = reloaded
+			.listByWorktree(snapshot.worktreeId)
+			.find((c) => c.id === snapshot.id);
+		expect(back).toEqual(snapshot);
 	});
 
 	it("rebaseWorktreeIds rewrites matching ids only", async () => {
