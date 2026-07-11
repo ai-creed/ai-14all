@@ -3838,6 +3838,14 @@ select {
 	font-size: 13px;
 }
 
+.shell-toast__action {
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	padding: 0 6px;
+	background: transparent;
+	cursor: pointer;
+}
+
 /* ── Inline comment thread (Monaco view-zone) ───────────────── */
 
 .shell-inline-thread {
