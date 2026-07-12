@@ -29,7 +29,7 @@ describe("parseSkillVersion", () => {
 		expect(parseSkillVersion(skillMd("0.1.0", "x"))).toBe("0.1.0");
 	});
 	it("extracts a quoted semver", () => {
-		expect(parseSkillVersion(`---\nversion: "1.2.3"\n---\nx`)).toBe("1.2.3");
+		expect(parseSkillVersion("---\nversion: \"1.2.3\"\n---\nx")).toBe("1.2.3");
 	});
 	it("returns null when there is no frontmatter", () => {
 		expect(parseSkillVersion("# just markdown\nversion: 1.0.0\n")).toBeNull();
@@ -38,11 +38,11 @@ describe("parseSkillVersion", () => {
 		expect(parseSkillVersion(skillMd(null, "x"))).toBeNull();
 	});
 	it("returns null for a non-semver version value", () => {
-		expect(parseSkillVersion(`---\nversion: latest\n---\nx`)).toBeNull();
+		expect(parseSkillVersion("---\nversion: latest\n---\nx")).toBeNull();
 	});
 	it("ignores a version line after the frontmatter closes", () => {
 		expect(
-			parseSkillVersion(`---\nname: stub\n---\nversion: 1.0.0\n`),
+			parseSkillVersion("---\nname: stub\n---\nversion: 1.0.0\n"),
 		).toBeNull();
 	});
 });
