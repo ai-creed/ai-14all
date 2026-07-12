@@ -29,7 +29,7 @@ describe("parseSkillVersion", () => {
 		expect(parseSkillVersion(skillMd("0.1.0", "x"))).toBe("0.1.0");
 	});
 	it("extracts a quoted semver", () => {
-		expect(parseSkillVersion("---\nversion: \"1.2.3\"\n---\nx")).toBe("1.2.3");
+		expect(parseSkillVersion('---\nversion: "1.2.3"\n---\nx')).toBe("1.2.3");
 	});
 	it("returns null when there is no frontmatter", () => {
 		expect(parseSkillVersion("# just markdown\nversion: 1.0.0\n")).toBeNull();
