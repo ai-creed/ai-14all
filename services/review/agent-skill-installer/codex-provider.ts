@@ -1,11 +1,11 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { BundledSkill } from "./skill-asset.js";
 import { BUNDLED_SKILL_IDS } from "./skill-asset.js";
 import {
 	guardedWriteSkill,
+	removeInstalledSkill,
 	type SkillInstallOutcome,
 } from "./skill-version.js";
 
@@ -69,7 +69,7 @@ export class CodexProvider {
 
 	async uninstall(input: { serverName: string }): Promise<void> {
 		for (const id of BUNDLED_SKILL_IDS) {
-			await rm(this.skillDir(id), { recursive: true, force: true });
+			await removeInstalledSkill(this.skillDir(id));
 		}
 		if (await this.deps.isCliAvailable()) {
 			try {

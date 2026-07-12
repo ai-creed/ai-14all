@@ -1,9 +1,10 @@
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { BundledSkill } from "./skill-asset.js";
 import { BUNDLED_SKILL_IDS } from "./skill-asset.js";
 import {
 	guardedWriteSkill,
+	removeInstalledSkill,
 	type SkillInstallOutcome,
 } from "./skill-version.js";
 
@@ -82,7 +83,7 @@ export class EzioProvider {
 
 	async uninstall(input: { serverName: string }): Promise<void> {
 		for (const id of BUNDLED_SKILL_IDS) {
-			await rm(this.skillDir(id), { recursive: true, force: true });
+			await removeInstalledSkill(this.skillDir(id));
 		}
 		const raw = await tryReadFile(this.mcpPath());
 		if (raw === null) return;
