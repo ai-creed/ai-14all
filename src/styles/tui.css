@@ -222,11 +222,8 @@
  * code, links and the note indicator dot rendered dark-on-dark. Pin them to
  * the cursor accent so they read clearly. Other palettes are untouched
  * because there `--accent` already equals `--primary`. */
-[data-theme="tui"]
-	:is(.shell-md-modal__body, .shell-md-preview__body)
-	:not(pre)
-	> code,
-[data-theme="tui"] :is(.shell-md-modal__body, .shell-md-preview__body) a {
+[data-theme="tui"] .shell-md-body :not(pre) > code,
+[data-theme="tui"] .shell-md-body a {
 	color: var(--primary);
 }
 
@@ -389,17 +386,6 @@
 [data-theme="tui"] .shell-sidebar__workspace-empty,
 [data-theme="tui"] .shell-list__item--dir {
 	font-style: normal;
-}
-
-/* Markdown lists get visible markers in the modal/preview bodies (base leaves
- * them list-style:none as on devel). */
-[data-theme="tui"] .shell-md-modal__body ul,
-[data-theme="tui"] .shell-md-preview__body ul {
-	list-style: disc;
-}
-[data-theme="tui"] .shell-md-modal__body ol,
-[data-theme="tui"] .shell-md-preview__body ol {
-	list-style: decimal;
 }
 
 /* Sharp corners on the file-jump overlay (base restored to devel's rounded
