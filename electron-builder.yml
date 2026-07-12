@@ -21,7 +21,11 @@ files:
   - "!node_modules/node-pty/bin/**"
   - "!node_modules/node-pty/build/**"
 extraResources:
-  - assets/agent-skills/**/*
+  - from: assets/agent-skills
+    to: assets/agent-skills
+    filter:
+      - "**/*"
+      - "!*/evals${/*}"
 asarUnpack:
   - node_modules/node-pty/**
 mac:
