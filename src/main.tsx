@@ -7,6 +7,10 @@ import { App } from "./app/App.js";
 import { UiGallery } from "./app/UiGallery.js";
 import { CommandRegistryProvider } from "./features/command-palette/components/CommandRegistryProvider.js";
 import { installKnownRendererErrorHandler } from "./app/logic/known-renderer-errors.js";
+// Self-hosted reading font for markdown document bodies (spec D18):
+// registers the "Hanken Grotesk Variable" font-face; consumed via
+// --font-reading in shell.css. No network fetch — works packaged.
+import "@fontsource-variable/hanken-grotesk";
 import "./styles/tokens.css";
 import "./app/shell.css";
 import "./styles/tui.css";
