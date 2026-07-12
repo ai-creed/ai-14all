@@ -1,4 +1,11 @@
-import { mkdir, readFile, rename, rm, rmdir, writeFile } from "node:fs/promises";
+import {
+	mkdir,
+	readFile,
+	rename,
+	rm,
+	rmdir,
+	writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 import type { BundledSkill } from "./skill-asset.js";
 

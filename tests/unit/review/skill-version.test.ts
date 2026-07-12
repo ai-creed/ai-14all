@@ -1,6 +1,13 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+	access,
+	mkdir,
+	mkdtemp,
+	readFile,
+	rm,
+	writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -34,7 +41,9 @@ describe("parseSkillVersion", () => {
 		expect(parseSkillVersion(`---\nversion: latest\n---\nx`)).toBeNull();
 	});
 	it("ignores a version line after the frontmatter closes", () => {
-		expect(parseSkillVersion(`---\nname: stub\n---\nversion: 1.0.0\n`)).toBeNull();
+		expect(
+			parseSkillVersion(`---\nname: stub\n---\nversion: 1.0.0\n`),
+		).toBeNull();
 	});
 });
 
@@ -64,7 +73,9 @@ describe("decideSkillAction", () => {
 		expect(decideSkillAction(bundled, skillMd("0.0.9", "i"))).toBe("install");
 	});
 	it("reports up-to-date on equal versions", () => {
-		expect(decideSkillAction(bundled, skillMd("0.1.0", "i"))).toBe("up-to-date");
+		expect(decideSkillAction(bundled, skillMd("0.1.0", "i"))).toBe(
+			"up-to-date",
+		);
 	});
 	it("skips when bundled is older", () => {
 		expect(decideSkillAction(bundled, skillMd("0.2.0", "i"))).toBe(

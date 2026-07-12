@@ -7,3 +7,4 @@ node_modules
 docs
 pnpm-lock.yaml
 tests/stubs/whisper-stub/whisper
+assets/agent-skills

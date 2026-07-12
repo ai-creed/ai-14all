@@ -1,0 +1,25 @@
+{
+  "skill_name": "ai-14all-session-status",
+  "queries": [
+    { "query": "Push your session status.", "should_trigger": true },
+    { "query": "Update your status in the ai-14all sidebar.", "should_trigger": true },
+    { "query": "Report your task status to ai-14all.", "should_trigger": true },
+    { "query": "Report session status.", "should_trigger": true },
+    { "query": "Mark this as active in ai-14all.", "should_trigger": true },
+    { "query": "Show me you're waiting on my answer in the sidebar.", "should_trigger": true },
+    { "query": "Set your ai-14all status to ready.", "should_trigger": true },
+    { "query": "Push a status update.", "should_trigger": true },
+    { "query": "Register this session for resume in ai-14all.", "should_trigger": true },
+    { "query": "Set up conversation resume so I can reopen this later.", "should_trigger": true },
+    { "query": "Update the sidebar — you're blocked on a question.", "should_trigger": true },
+    { "query": "Flag this task as failed in ai-14all.", "should_trigger": true },
+    { "query": "Fix my pending review comments in ai-14all.", "should_trigger": false },
+    { "query": "Work through the reviews I left in the app and apply the fixes.", "should_trigger": false },
+    { "query": "What's the CI status?", "should_trigger": false },
+    { "query": "What's the status of this PR?", "should_trigger": false },
+    { "query": "Check the status of the deployment.", "should_trigger": false },
+    { "query": "Take a note for later — remind me to refactor this module.", "should_trigger": false },
+    { "query": "Save this decision to my notes.", "should_trigger": false },
+    { "query": "What's your current session ID?", "should_trigger": false }
+  ]
+}

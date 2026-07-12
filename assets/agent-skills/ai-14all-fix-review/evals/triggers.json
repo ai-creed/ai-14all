@@ -1,0 +1,21 @@
+{
+  "skill_name": "ai-14all-fix-review",
+  "queries": [
+    { "query": "Fix review", "should_trigger": true },
+    { "query": "Fix the pending review", "should_trigger": true },
+    { "query": "Act on the review feedback I wrote in ai-14all.", "should_trigger": true },
+    { "query": "Any review comments waiting for this worktree? Address them.", "should_trigger": true },
+    { "query": "Work through my ai-14all review comments.", "should_trigger": true },
+    { "query": "I left comments in the ai-14all app — apply the fixes.", "should_trigger": true },
+    { "query": "Handle the pending reviews from the desktop app.", "should_trigger": true },
+    { "query": "Check ai-14all for review comments and fix each one.", "should_trigger": true },
+    { "query": "Address my pending review notes and mark them done.", "should_trigger": true },
+    { "query": "Review this pull request for logic errors.", "should_trigger": false },
+    { "query": "Fix the failing test in auth.test.ts.", "should_trigger": false },
+    { "query": "Address the reviewer feedback on GitHub PR #12.", "should_trigger": false },
+    { "query": "Fix the lint errors in this repo.", "should_trigger": false },
+    { "query": "Leave a review comment on this function for my teammate.", "should_trigger": false },
+    { "query": "What's the status of my agent session in ai-14all?", "should_trigger": false },
+    { "query": "Do a code review of my latest commit.", "should_trigger": false }
+  ]
+}
