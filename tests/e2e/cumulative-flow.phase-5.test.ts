@@ -382,7 +382,10 @@ test.describe.serial("Cumulative flow — Phase 5", () => {
 		).toHaveValue("resume here", { timeout: 15_000 });
 		await page.keyboard.press("Escape");
 		// A recovery banner must be visible
-		await expect(page.getByRole("status")).toContainText(/recovered/i);
+		// Scoped locator: role=status is ambiguous when the install-gap banner is present.
+		await expect(page.locator(".shell-restore-warning")).toContainText(
+			/recovered/i,
+		);
 
 		// Cleanup: rename back so testRepo.cleanup() can run correctly in afterAll,
 		// or remove the renamed directory directly since the original path is now gone
