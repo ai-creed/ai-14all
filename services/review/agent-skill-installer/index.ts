@@ -13,6 +13,10 @@ import {
 	type Detection,
 } from "./cli-detection.js";
 import { loadBundledSkills, REVIEW_SKILL_ID } from "./skill-asset.js";
+import {
+	composeInstallMessage,
+	type SkillInstallOutcome,
+} from "./skill-version.js";
 import type { ProviderId } from "../../../shared/contracts/agent-install.js";
 
 const exec = promisify(execFile);
@@ -199,28 +203,45 @@ export class AgentSkillInstaller {
 				const cliPath = detection.cliPath; // safe: null guard throws above
 				const isCliAvailable = async () => detection !== null;
 				const skills = await loadBundledSkills(this.deps.resourcesPath);
+				let outcomes: SkillInstallOutcome[] = [];
 				if (id === "claude-code") {
 					const p = new ClaudeProvider({
 						home: this.deps.home,
 						cliPath,
 						isCliAvailable,
 					});
-					await p.installSkills({ serverName: "ai-14all", url, skills });
+					outcomes = await p.installSkills({
+						serverName: "ai-14all",
+						url,
+						skills,
+					});
 				} else if (id === "codex") {
 					const p = new CodexProvider({
 						home: this.deps.home,
 						cliPath,
 						isCliAvailable,
 					});
-					await p.installSkills({ serverName: "ai-14all", url, skills });
+					outcomes = await p.installSkills({
+						serverName: "ai-14all",
+						url,
+						skills,
+					});
 				} else if (id === "ezio") {
 					const p = new EzioProvider({
 						configDir: ezioConfigDir(this.deps.home),
 						isCliAvailable,
 					});
-					await p.installSkills({ serverName: "ai-14all", url, skills });
+					outcomes = await p.installSkills({
+						serverName: "ai-14all",
+						url,
+						skills,
+					});
 				}
-				results.push({ id, ok: true, message: null });
+				results.push({
+					id,
+					ok: true,
+					message: composeInstallMessage(outcomes),
+				});
 			} catch (e) {
 				results.push({ id, ok: false, message: (e as Error).message });
 			}

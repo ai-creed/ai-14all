@@ -7,6 +7,7 @@ import {
 	chmod,
 	mkdir,
 	readFile,
+	stat,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -242,5 +243,168 @@ describe("AgentSkillInstaller (detection + override)", () => {
 		await expect(
 			installer.setOverride("claude-code", join(dir, "no-such-file")),
 		).rejects.toThrow(/does not exist/i);
+	});
+});
+
+describe("AgentSkillInstaller (version guard)", () => {
+	let dir: string;
+	let prevXdg: string | undefined;
+	beforeEach(async () => {
+		dir = await mkdtemp(join(tmpdir(), "installer-guard-"));
+		prevXdg = process.env.XDG_CONFIG_HOME;
+		process.env.XDG_CONFIG_HOME = join(dir, "xdg");
+		execMock.mockReset();
+	});
+	afterEach(async () => {
+		if (prevXdg === undefined) delete process.env.XDG_CONFIG_HOME;
+		else process.env.XDG_CONFIG_HOME = prevXdg;
+		await rm(dir, { recursive: true, force: true });
+	});
+
+	function accessInsideDir(d: string) {
+		return async (p: string) => {
+			if (!p.startsWith(d)) throw new Error("ENOENT");
+			const { access: realAccess } = await import("node:fs/promises");
+			return realAccess(p);
+		};
+	}
+
+	function newInstaller() {
+		return new AgentSkillInstaller({
+			home: dir,
+			resourcesPath: join(dir, "resources"),
+			userDataPath: dir,
+			getMcpUrl: () => "http://127.0.0.1:9999",
+			_access: accessInsideDir(dir),
+		});
+	}
+
+	function versionedSkillMd(version: string | null, body: string): string {
+		const versionLine = version === null ? "" : `version: ${version}\n`;
+		return `---\nname: stub\n${versionLine}---\n\n${body}\n`;
+	}
+
+	async function stubBundled(version: string | null) {
+		for (const id of BUNDLED_SKILL_IDS) {
+			await mkdir(join(dir, "resources", "agent-skills", id), {
+				recursive: true,
+			});
+			await writeFile(
+				join(dir, "resources", "agent-skills", id, "SKILL.md"),
+				versionedSkillMd(version, `bundled ${id}`),
+				"utf-8",
+			);
+		}
+	}
+
+	async function seedInstalled(version: string | null, body: string) {
+		for (const id of BUNDLED_SKILL_IDS) {
+			const d = join(dir, ".claude", "skills", id);
+			await mkdir(d, { recursive: true });
+			await writeFile(
+				join(d, "SKILL.md"),
+				versionedSkillMd(version, body),
+				"utf-8",
+			);
+		}
+	}
+
+	async function readInstalled(id: string) {
+		return readFile(join(dir, ".claude", "skills", id, "SKILL.md"), "utf-8");
+	}
+
+	async function installedMtimes(): Promise<number[]> {
+		const out: number[] = [];
+		for (const id of BUNDLED_SKILL_IDS) {
+			out.push(
+				(await stat(join(dir, ".claude", "skills", id, "SKILL.md"))).mtimeMs,
+			);
+		}
+		return out;
+	}
+
+	async function installClaude() {
+		const cliBin = join(dir, "claude-bin");
+		await writeFile(cliBin, "#!/bin/sh\n", "utf-8");
+		await chmod(cliBin, 0o755);
+		execMock.mockImplementation((_cmd, _args, cb) =>
+			cb(null, { stdout: "", stderr: "" }),
+		);
+		const installer = newInstaller();
+		await installer.setOverride("claude-code", cliBin);
+		return installer.install(["claude-code"]);
+	}
+
+	it("installs both skills when the destination is missing (null message)", async () => {
+		await stubBundled("0.1.0");
+		const res = await installClaude();
+		expect(res[0]).toEqual({ id: "claude-code", ok: true, message: null });
+		expect(await readInstalled("ai-14all-fix-review")).toBe(
+			versionedSkillMd("0.1.0", "bundled ai-14all-fix-review"),
+		);
+	});
+
+	it("upgrades in place when the bundled version is newer", async () => {
+		await stubBundled("0.1.0");
+		await seedInstalled("0.0.9", "old local body");
+		const res = await installClaude();
+		expect(res[0].message).toBeNull();
+		expect(await readInstalled("ai-14all-session-status")).toBe(
+			versionedSkillMd("0.1.0", "bundled ai-14all-session-status"),
+		);
+	});
+
+	it("skips equal versions and reports Already up to date, zero writes", async () => {
+		await stubBundled("0.1.0");
+		await seedInstalled("0.1.0", "locally calibrated body");
+		const before = await installedMtimes();
+		const res = await installClaude();
+		expect(res[0].ok).toBe(true);
+		expect(res[0].message).toBe("Already up to date");
+		expect(await readInstalled("ai-14all-fix-review")).toBe(
+			versionedSkillMd("0.1.0", "locally calibrated body"),
+		);
+		// Zero writes: not even a same-bytes rewrite (mtime must not move).
+		expect(await installedMtimes()).toEqual(before);
+	});
+
+	it("never downgrades: older bundled is skipped and reported", async () => {
+		await stubBundled("0.1.0");
+		await seedInstalled("0.2.0", "newer local body");
+		const before = await installedMtimes();
+		const res = await installClaude();
+		expect(res[0].ok).toBe(true);
+		expect(res[0].message).toMatch(/skipped — newer version installed/);
+		expect(await readInstalled("ai-14all-fix-review")).toBe(
+			versionedSkillMd("0.2.0", "newer local body"),
+		);
+		// Zero writes: not even a same-bytes rewrite (mtime must not move).
+		expect(await installedMtimes()).toEqual(before);
+	});
+
+	it("overwrites an installed copy that has no version field", async () => {
+		await stubBundled("0.1.0");
+		await seedInstalled(null, "legacy unversioned body");
+		const res = await installClaude();
+		expect(res[0].message).toBeNull();
+		expect(await readInstalled("ai-14all-fix-review")).toBe(
+			versionedSkillMd("0.1.0", "bundled ai-14all-fix-review"),
+		);
+	});
+
+	it("reports mixed outcomes per skill", async () => {
+		await stubBundled("0.1.0");
+		// Seed only the first skill (equal version); leave the second missing.
+		const d = join(dir, ".claude", "skills", "ai-14all-fix-review");
+		await mkdir(d, { recursive: true });
+		await writeFile(
+			join(d, "SKILL.md"),
+			versionedSkillMd("0.1.0", "seeded"),
+			"utf-8",
+		);
+		const res = await installClaude();
+		expect(res[0].message).toBe(
+			"ai-14all-fix-review: up to date; ai-14all-session-status: installed",
+		);
 	});
 });
