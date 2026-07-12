@@ -25,9 +25,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
       - run: corepack enable
-      # --ignore-scripts: shakespii is a pure-JS CLI; skip the Electron/native
-      # toolchain this repo's postinstall work would otherwise pull in.
+      # --ignore-scripts: skip this repo's Electron/native postinstall work —
+      # the QA step needs only the shakespii CLI (a TypeScript CLI executed by
+      # the bun runtime installed above) plus git.
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Skills QA (lint + deterministic checks + version discipline)
         run: node scripts/ci/skills-qa.mjs

@@ -55,7 +55,12 @@ function runShakespiiJson(args) {
 		});
 	} catch (err) {
 		stdout = err.stdout ?? "";
-		if (!stdout) throw err;
+		if (!stdout) {
+			console.error(
+				`FAIL: shakespii could not run (is the bun runtime installed? see skills-qa.yml setup-bun step): ${err.message}`,
+			);
+			process.exit(1);
+		}
 	}
 	return JSON.parse(stdout);
 }
