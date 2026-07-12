@@ -10,7 +10,7 @@ import { installKnownRendererErrorHandler } from "./app/logic/known-renderer-err
 // Self-hosted reading font for markdown document bodies (spec D18):
 // registers the "Hanken Grotesk Variable" font-face; consumed via
 // --font-reading in shell.css. No network fetch — works packaged.
-import "@fontsource-variable/hanken-grotesk";
+import "@fontsource-variable/hanken-grotesk/index.css";
 import "./styles/tokens.css";
 import "./app/shell.css";
 import "./styles/tui.css";
