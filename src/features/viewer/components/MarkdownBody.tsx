@@ -5,11 +5,13 @@ import "highlight.js/styles/github-dark.css";
 
 export function MarkdownBody({ content }: { content: string }) {
 	return (
-		<ReactMarkdown
-			remarkPlugins={[remarkGfm]}
-			rehypePlugins={[rehypeHighlight]}
-		>
-			{content}
-		</ReactMarkdown>
+		<div className="shell-md-body">
+			<ReactMarkdown
+				remarkPlugins={[remarkGfm]}
+				rehypePlugins={[rehypeHighlight]}
+			>
+				{content}
+			</ReactMarkdown>
+		</div>
 	);
 }
