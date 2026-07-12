@@ -49,6 +49,13 @@ A GFM table for markdown-preview e2e coverage:
 | --- | --- |
 | README.md | markdown |
 | logo.png | image |
+
+- first bullet
+- second bullet
+
+\`\`\`js
+const answer = 42;
+\`\`\`
 `;
 
 test.beforeAll(async () => {
@@ -122,6 +129,74 @@ test.describe.serial("Files-mode viewer previews", () => {
 		await expect(preview).toBeVisible({ timeout: 10_000 });
 		await expect(preview.locator("table")).toBeVisible({ timeout: 10_000 });
 		await expect(page.locator(".monaco-editor")).toHaveCount(0);
+	});
+
+	test("markdown preview typography and themed code blocks (readability spec)", async () => {
+		test.setTimeout(30_000);
+		// Reuse the already-open preview from the seeded README (same navigation
+		// as the default-preview test: Files tab → README.md row).
+		const body = page.locator(".shell-md-body");
+		await expect(body).toBeVisible();
+
+		// D18: prose uses the reading font; code keeps the terminal font.
+		await page.evaluate(() => document.fonts.ready);
+		const bodyFont = await body.evaluate(
+			(el) => getComputedStyle(el).fontFamily,
+		);
+		expect(bodyFont).toContain("Hanken Grotesk Variable");
+		const codeFont = await page
+			.locator(".shell-md-body pre code")
+			.first()
+			.evaluate((el) => getComputedStyle(el).fontFamily);
+		expect(codeFont).not.toContain("Hanken Grotesk Variable");
+
+		// D6: heading hierarchy restored (h1 renders larger than body text).
+		const h1Size = await page
+			.locator(".shell-md-body h1")
+			.first()
+			.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+		const bodySize = await body.evaluate((el) =>
+			parseFloat(getComputedStyle(el).fontSize),
+		);
+		expect(h1Size).toBeGreaterThan(bodySize);
+
+		// D8: list markers restored.
+		const listStyle = await page
+			.locator(".shell-md-body ul")
+			.first()
+			.evaluate((el) => getComputedStyle(el).listStyleType);
+		expect(listStyle).toBe("disc");
+
+		// D14: the vendored github-dark box (#0d1117) is gone. The <pre> owns the
+		// visual box (spec D14), so assert the box element itself — and the inner
+		// code.hljs must be transparent so no second box can reappear inside it.
+		const preBg = await page
+			.locator(".shell-md-body pre")
+			.first()
+			.evaluate((el) => getComputedStyle(el).backgroundColor);
+		expect(preBg).not.toBe("rgb(13, 17, 23)");
+		const codeBg = await page
+			.locator(".shell-md-body pre code")
+			.first()
+			.evaluate((el) => getComputedStyle(el).backgroundColor);
+		expect(codeBg).toBe("rgba(0, 0, 0, 0)"); // computed "transparent"
+
+		// D16/T5: token indirection — keyword color changes with the theme.
+		const keyword = page.locator(".shell-md-body .hljs-keyword").first();
+		await expect(keyword).toBeVisible();
+		const darkColor = await keyword.evaluate(
+			(el) => getComputedStyle(el).color,
+		);
+		await page.evaluate(() =>
+			document.documentElement.setAttribute("data-theme", "light"),
+		);
+		const lightColor = await keyword.evaluate(
+			(el) => getComputedStyle(el).color,
+		);
+		await page.evaluate(() =>
+			document.documentElement.removeAttribute("data-theme"),
+		);
+		expect(lightColor).not.toBe(darkColor);
 	});
 
 	test("clicking Source mounts Monaco", async () => {
