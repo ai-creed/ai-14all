@@ -182,8 +182,20 @@ test.describe.serial("Files-mode viewer previews", () => {
 		expect(codeBg).toBe("rgba(0, 0, 0, 0)"); // computed "transparent"
 
 		// D16/T5: token indirection — keyword color changes with the theme.
+		// use-theme.ts applies an explicit data-theme at boot from the
+		// persisted/system theme, so force "dark" (matches no tokens.css
+		// override block → :root dark tokens apply) for a deterministic
+		// baseline instead of trusting the ambient boot theme, then restore
+		// the boot attribute afterwards — removeAttribute would leave a state
+		// React's theme effect (keyed on an unchanged mode) never re-applies.
 		const keyword = page.locator(".shell-md-body .hljs-keyword").first();
 		await expect(keyword).toBeVisible();
+		const bootTheme = await page.evaluate(() =>
+			document.documentElement.getAttribute("data-theme"),
+		);
+		await page.evaluate(() =>
+			document.documentElement.setAttribute("data-theme", "dark"),
+		);
 		const darkColor = await keyword.evaluate(
 			(el) => getComputedStyle(el).color,
 		);
@@ -193,9 +205,13 @@ test.describe.serial("Files-mode viewer previews", () => {
 		const lightColor = await keyword.evaluate(
 			(el) => getComputedStyle(el).color,
 		);
-		await page.evaluate(() =>
-			document.documentElement.removeAttribute("data-theme"),
-		);
+		await page.evaluate((theme) => {
+			if (theme === null) {
+				document.documentElement.removeAttribute("data-theme");
+			} else {
+				document.documentElement.setAttribute("data-theme", theme);
+			}
+		}, bootTheme);
 		expect(lightColor).not.toBe(darkColor);
 	});
 
