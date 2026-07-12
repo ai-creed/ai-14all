@@ -1,19 +1,11 @@
 /**
- * E2E tests for AgentSkillInstaller (Task 32).
+ * E2E tests for AgentSkillInstaller.
  *
- * SKIP REASON: All E2E tests in this project currently fail because
- * `window.ai14all` (injected via contextBridge in the Electron preload) is
- * never defined when Playwright launches the app. Root-cause analysis shows
- * that Playwright 1.59's loader.js patches `app.whenReady` / `app.emit` and
- * inserts itself via `-r loader` before `out/main/index.js`. This interacts
- * with Electron 41's sandboxed-preload execution: the preload runs but
- * `contextBridge.exposeInMainWorld` does not surface `window.ai14all` in the
- * renderer's main execution context. The same failure is reproduced by running
- * `review-comments.test.ts` on this machine.
- *
- * Resolution path: investigate the Playwright+Electron preload timing issue
- * (possibly upgrade Playwright or adjust `sandbox`/`contextIsolation` flags)
- * before enabling these tests.
+ * Historical note: this file was skipped for a Playwright+Electron preload
+ * timing issue (`window.ai14all` not yet exposed at firstWindow()). The
+ * active suites solved it with an explicit waitForFunction guard after
+ * firstWindow() — see tests/e2e/review-comments.test.ts — which this file
+ * now uses too.
  */
 
 import {
@@ -31,6 +23,7 @@ import {
 	mkdirSync,
 	readFileSync,
 	existsSync,
+	statSync,
 } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -42,11 +35,6 @@ import { closeApp } from "./fixtures/close-app";
 // ---------------------------------------------------------------------------
 
 test.describe.serial("AgentSkillInstaller — CLI-present path", () => {
-	test.skip(
-		true,
-		"requires E2E environment — unskip when Playwright/Electron compat is resolved",
-	);
-
 	let app: ElectronApplication | undefined;
 	let page: Page;
 	let testRepo: TestRepo;
@@ -55,6 +43,7 @@ test.describe.serial("AgentSkillInstaller — CLI-present path", () => {
 	let tempHomeDir: string;
 	let shimDir: string;
 	let shimLogFile: string;
+	let userDataDir: string;
 
 	test.beforeAll(async () => {
 		testRepo = createTestRepo();
@@ -66,6 +55,14 @@ test.describe.serial("AgentSkillInstaller — CLI-present path", () => {
 		// Temp HOME
 		tempHomeDir = realpathSync(
 			mkdtempSync(join(tmpdir(), "ofa-agent-install-home-")),
+		);
+
+		// Isolate userData: without this the app falls back to the real OS
+		// user-data dir (electron/main/index.ts only calls app.setPath("userData",
+		// ...) when AI14ALL_USER_DATA_PATH is set), which shares the developer's
+		// live review-mcp port config and collides with a running instance.
+		userDataDir = realpathSync(
+			mkdtempSync(join(tmpdir(), "ofa-agent-install-cli-present-ud-")),
 		);
 
 		// Shim log file — shims append their args here
@@ -106,8 +103,11 @@ test.describe.serial("AgentSkillInstaller — CLI-present path", () => {
 		// Launch app with custom HOME and PATH. XDG_CONFIG_HOME is pinned inside the
 		// temp HOME so ezio's config root (`$XDG_CONFIG_HOME/ai-ezio`) is contained
 		// and deterministic regardless of the runner's environment.
+		// args: ["."] (package mode) so app.getAppPath() = repo root: agentInstall's
+		// dev-mode resourcesPath is join(appPath, "assets"); script-mode
+		// "out/main/index.js" yields appPath = out/main, where no assets exist.
 		app = await electron.launch({
-			args: ["out/main/index.js"],
+			args: ["."],
 			env: {
 				...process.env,
 				AI14ALL_E2E: "1",
@@ -116,9 +116,13 @@ test.describe.serial("AgentSkillInstaller — CLI-present path", () => {
 				HOME: tempHomeDir,
 				XDG_CONFIG_HOME: join(tempHomeDir, ".config"),
 				PATH: `${shimDir}:${process.env.PATH ?? ""}`,
+				AI14ALL_USER_DATA_PATH: userDataDir,
 			},
 		});
 		page = await app.firstWindow({ timeout: 60_000 });
+		await page.waitForFunction(() => "ai14all" in window, null, {
+			timeout: 30_000,
+		});
 		page.setDefaultTimeout(60_000);
 
 		// Navigate into workspace
@@ -139,6 +143,7 @@ test.describe.serial("AgentSkillInstaller — CLI-present path", () => {
 			rmSync(persistedStateDir, { recursive: true, force: true });
 			rmSync(tempHomeDir, { recursive: true, force: true });
 			rmSync(shimDir, { recursive: true, force: true });
+			rmSync(userDataDir, { recursive: true, force: true });
 			testRepo?.cleanup();
 		}
 	});
@@ -147,7 +152,7 @@ test.describe.serial("AgentSkillInstaller — CLI-present path", () => {
 		test.setTimeout(120_000);
 
 		// Call install via window.ai14all.agentInstall
-		const results = await page.evaluate(async () => {
+		const { results } = await page.evaluate(async () => {
 			const ai = (window as unknown as { ai14all: typeof window.ai14all })
 				.ai14all;
 			return ai.agentInstall.install(["claude-code", "codex", "ezio"]);
@@ -229,15 +234,173 @@ test.describe.serial("AgentSkillInstaller — CLI-present path", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Version-guard statuses — skipped-newer / up-to-date paths (spec §5.6)
+// ---------------------------------------------------------------------------
+
+test.describe.serial("AgentSkillInstaller — version-guard statuses", () => {
+	let app: ElectronApplication | undefined;
+	let page: Page;
+	let testRepo: TestRepo;
+	let persistedStateDir: string;
+	let persistedStatePath: string;
+	let tempHomeDir: string;
+	let shimDir: string;
+	let userDataDir: string;
+
+	const SKILL_IDS = ["ai-14all-fix-review", "ai-14all-session-status"] as const;
+
+	function installedSkillPath(id: string): string {
+		return join(tempHomeDir, ".claude", "skills", id, "SKILL.md");
+	}
+
+	// Dev-mode resourcesPath is `<appPath>/assets`, so the repo's own assets
+	// are the bundled skills the app serves in this test.
+	function bundledSkillContent(id: string): string {
+		return readFileSync(
+			join("assets", "agent-skills", id, "SKILL.md"),
+			"utf-8",
+		);
+	}
+
+	function seedInstalled(id: string, content: string): void {
+		mkdirSync(join(tempHomeDir, ".claude", "skills", id), { recursive: true });
+		writeFileSync(installedSkillPath(id), content, "utf-8");
+	}
+
+	test.beforeAll(async () => {
+		testRepo = createTestRepo();
+		persistedStateDir = realpathSync(
+			mkdtempSync(join(tmpdir(), "ofa-agent-install-guard-")),
+		);
+		persistedStatePath = join(persistedStateDir, "workspace-state.json");
+		tempHomeDir = realpathSync(
+			mkdtempSync(join(tmpdir(), "ofa-agent-install-guard-home-")),
+		);
+		shimDir = realpathSync(
+			mkdtempSync(join(tmpdir(), "ofa-agent-install-guard-shims-")),
+		);
+		userDataDir = realpathSync(
+			mkdtempSync(join(tmpdir(), "ofa-agent-install-guard-ud-")),
+		);
+		writeFileSync(join(shimDir, "claude"), "#!/bin/sh\nexit 0\n", {
+			mode: 0o755,
+		});
+
+		// args: ["."] (package mode) so app.getAppPath() = repo root: agentInstall's
+		// dev-mode resourcesPath is join(appPath, "assets"); script-mode
+		// "out/main/index.js" yields appPath = out/main, where no assets exist.
+		app = await electron.launch({
+			args: ["."],
+			env: {
+				...process.env,
+				AI14ALL_E2E: "1",
+				AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
+				AI14ALL_WORKSPACE_STATE_PATH: persistedStatePath,
+				HOME: tempHomeDir,
+				XDG_CONFIG_HOME: join(tempHomeDir, ".config"),
+				PATH: `${shimDir}:${process.env.PATH ?? ""}`,
+				AI14ALL_USER_DATA_PATH: userDataDir,
+			},
+		});
+		page = await app.firstWindow({ timeout: 60_000 });
+		await page.waitForFunction(() => "ai14all" in window, null, {
+			timeout: 30_000,
+		});
+		page.setDefaultTimeout(60_000);
+
+		await page.getByRole("button", { name: "Browse" }).click();
+		await page.getByRole("button", { name: "Load" }).click();
+		const worktreeNav = page.getByRole("navigation", {
+			name: "Worktree sessions",
+		});
+		await expect(
+			worktreeNav.getByRole("button", { name: /feature-a/i }),
+		).toBeVisible({ timeout: 15_000 });
+	}, 90_000);
+
+	test.afterAll(async () => {
+		try {
+			await closeApp(app);
+		} finally {
+			rmSync(persistedStateDir, { recursive: true, force: true });
+			rmSync(tempHomeDir, { recursive: true, force: true });
+			rmSync(shimDir, { recursive: true, force: true });
+			rmSync(userDataDir, { recursive: true, force: true });
+			testRepo?.cleanup();
+		}
+	});
+
+	test("skips a newer installed version and leaves it byte-untouched", async () => {
+		test.setTimeout(120_000);
+		const newerContent =
+			"---\nname: guard-test\nversion: 9.9.9\n---\n\nlocally newer body\n";
+		for (const id of SKILL_IDS) seedInstalled(id, newerContent);
+
+		const { results } = await page.evaluate(async () => {
+			const ai = (window as unknown as { ai14all: typeof window.ai14all })
+				.ai14all;
+			return ai.agentInstall.install(["claude-code"]);
+		});
+		const claude = results.find(
+			(r: { id: string }) => r.id === "claude-code",
+		) as { ok: boolean; message: string | null };
+		expect(claude.ok).toBe(true);
+		expect(claude.message).toMatch(/skipped — newer version installed/);
+		for (const id of SKILL_IDS) {
+			expect(readFileSync(installedSkillPath(id), "utf-8")).toBe(newerContent);
+		}
+	});
+
+	test("reports Already up to date on equal versions with zero writes", async () => {
+		test.setTimeout(120_000);
+		for (const id of SKILL_IDS) seedInstalled(id, bundledSkillContent(id));
+		const mtimesBefore = SKILL_IDS.map(
+			(id) => statSync(installedSkillPath(id)).mtimeMs,
+		);
+
+		const { results } = await page.evaluate(async () => {
+			const ai = (window as unknown as { ai14all: typeof window.ai14all })
+				.ai14all;
+			return ai.agentInstall.install(["claude-code"]);
+		});
+		const claude = results.find(
+			(r: { id: string }) => r.id === "claude-code",
+		) as { ok: boolean; message: string | null };
+		expect(claude.ok).toBe(true);
+		expect(claude.message).toBe("Already up to date");
+		SKILL_IDS.forEach((id, i) => {
+			expect(readFileSync(installedSkillPath(id), "utf-8")).toBe(
+				bundledSkillContent(id),
+			);
+			// Zero writes: mtime unchanged, not merely identical bytes.
+			expect(statSync(installedSkillPath(id)).mtimeMs).toBe(mtimesBefore[i]);
+		});
+	});
+
+	test("install modal shows the up-to-date status instead of Installed", async () => {
+		test.setTimeout(120_000);
+		// Installed copies still equal the bundled versions from the previous test.
+		await app!.evaluate(({ BrowserWindow }) => {
+			BrowserWindow.getAllWindows()[0]?.webContents.send(
+				"review:openInstallModal",
+			);
+		});
+		const dialog = page.getByRole("dialog");
+		await expect(
+			dialog.getByText("Connect your coding agents to ai-14all"),
+		).toBeVisible();
+		await dialog.getByRole("checkbox").first().check();
+		await dialog.getByRole("button", { name: "Install" }).click();
+		await expect(dialog.getByText("Already up to date")).toBeVisible();
+		await expect(dialog.getByText(/^Installed/)).not.toBeVisible();
+	});
+});
+
+// ---------------------------------------------------------------------------
 // Test 2: CLI-absent — checkboxes disabled, nothing written
 // ---------------------------------------------------------------------------
 
 test.describe.serial("AgentSkillInstaller — CLI-absent path", () => {
-	test.skip(
-		true,
-		"requires E2E environment — unskip when Playwright/Electron compat is resolved",
-	);
-
 	let app: ElectronApplication | undefined;
 	let page: Page;
 	let testRepo: TestRepo;
@@ -248,6 +411,7 @@ test.describe.serial("AgentSkillInstaller — CLI-absent path", () => {
 	let strippedPath: string;
 	/** Original content seeded into ~/.claude.json */
 	let seededClaudeJson: string;
+	let userDataDir: string;
 
 	test.beforeAll(async () => {
 		testRepo = createTestRepo();
@@ -261,6 +425,14 @@ test.describe.serial("AgentSkillInstaller — CLI-absent path", () => {
 			mkdtempSync(join(tmpdir(), "ofa-agent-install-home2-")),
 		);
 
+		// Isolate userData: without this the app falls back to the real OS
+		// user-data dir (electron/main/index.ts only calls app.setPath("userData",
+		// ...) when AI14ALL_USER_DATA_PATH is set), which shares the developer's
+		// live review-mcp port config and collides with a running instance.
+		userDataDir = realpathSync(
+			mkdtempSync(join(tmpdir(), "ofa-agent-install-cli-absent-ud-")),
+		);
+
 		// ~/.claude.json — configRootDetected for ClaudeProvider
 		seededClaudeJson = JSON.stringify({ oauth: { token: "secret" } });
 		writeFileSync(join(tempHomeDir, ".claude.json"), seededClaudeJson, "utf-8");
@@ -271,18 +443,29 @@ test.describe.serial("AgentSkillInstaller — CLI-absent path", () => {
 		// $XDG_CONFIG_HOME/ai-ezio/ — configRootDetected for EzioProvider
 		mkdirSync(join(tempHomeDir, ".config", "ai-ezio"), { recursive: true });
 
-		// Strip claude + codex + ezio from PATH (keep only system dirs without them)
+		// Strip claude + codex + ezio from PATH. Matching on the directory path
+		// string alone is not enough: shared bin dirs (e.g. /opt/homebrew/bin)
+		// contain the real binaries without "claude"/"codex"/"ezio" in their
+		// path, so also drop any dir that actually contains one of the CLIs.
 		strippedPath = (process.env.PATH ?? "")
 			.split(":")
 			.filter(
 				(p) =>
-					!p.includes("claude") && !p.includes("codex") && !p.includes("ezio"),
+					!p.includes("claude") &&
+					!p.includes("codex") &&
+					!p.includes("ezio") &&
+					!existsSync(join(p, "claude")) &&
+					!existsSync(join(p, "codex")) &&
+					!existsSync(join(p, "ai-ezio")),
 			)
 			.join(":");
 
-		// Launch app
+		// Launch app.
+		// args: ["."] (package mode) so app.getAppPath() = repo root: agentInstall's
+		// dev-mode resourcesPath is join(appPath, "assets"); script-mode
+		// "out/main/index.js" yields appPath = out/main, where no assets exist.
 		app = await electron.launch({
-			args: ["out/main/index.js"],
+			args: ["."],
 			env: {
 				...process.env,
 				AI14ALL_E2E: "1",
@@ -291,9 +474,13 @@ test.describe.serial("AgentSkillInstaller — CLI-absent path", () => {
 				HOME: tempHomeDir,
 				XDG_CONFIG_HOME: join(tempHomeDir, ".config"),
 				PATH: strippedPath,
+				AI14ALL_USER_DATA_PATH: userDataDir,
 			},
 		});
 		page = await app.firstWindow({ timeout: 60_000 });
+		await page.waitForFunction(() => "ai14all" in window, null, {
+			timeout: 30_000,
+		});
 		page.setDefaultTimeout(60_000);
 
 		// Navigate into workspace
@@ -313,6 +500,7 @@ test.describe.serial("AgentSkillInstaller — CLI-absent path", () => {
 		} finally {
 			rmSync(persistedStateDir, { recursive: true, force: true });
 			rmSync(tempHomeDir, { recursive: true, force: true });
+			rmSync(userDataDir, { recursive: true, force: true });
 			testRepo?.cleanup();
 		}
 	});
@@ -320,7 +508,7 @@ test.describe.serial("AgentSkillInstaller — CLI-absent path", () => {
 	test("listProviders reports CLI unavailable, configRoot detected", async () => {
 		test.setTimeout(60_000);
 
-		const providers = await page.evaluate(async () => {
+		const { providers } = await page.evaluate(async () => {
 			const ai = (window as unknown as { ai14all: typeof window.ai14all })
 				.ai14all;
 			return ai.agentInstall.listProviders();
@@ -346,7 +534,7 @@ test.describe.serial("AgentSkillInstaller — CLI-absent path", () => {
 	test("install fails with 'not available' and writes nothing", async () => {
 		test.setTimeout(60_000);
 
-		const results = await page.evaluate(async () => {
+		const { results } = await page.evaluate(async () => {
 			const ai = (window as unknown as { ai14all: typeof window.ai14all })
 				.ai14all;
 			return ai.agentInstall.install(["claude-code"]);
