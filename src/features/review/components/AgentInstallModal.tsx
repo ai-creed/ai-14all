@@ -117,15 +117,13 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 								{pickMsg && <p className="shell-error">{pickMsg}</p>}
 								{result && (
 									<p className={result.ok ? "shell-info" : "shell-error"}>
-										{result.ok ? (
-										(result.message ?? (
-											<>
-												Installed <Icon name="check" />
-											</>
-										))
-										) : (
-											`Failed: ${result.message}`
-										)}
+										{result.ok
+											? (result.message ?? (
+													<>
+														Installed <Icon name="check" />
+													</>
+												))
+											: `Failed: ${result.message}`}
 									</p>
 								)}
 							</li>
