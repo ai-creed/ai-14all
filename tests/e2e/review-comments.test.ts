@@ -594,6 +594,46 @@ test.describe.serial("Review comments — inline UX", () => {
 		await expect(toggle).toHaveText(/viewed/i);
 	});
 
+	test("commits mode: minimap shows a dot for a comment on a freshly opened file", async () => {
+		test.setTimeout(120_000);
+		await ensureReviewOverlayOpen(page);
+		await page.keyboard.press("Meta+3"); // review.commits
+		// Guard: fixture must have reviewable commits — an empty list would let
+		// the assertions below pass vacuously (same guard as the rail test above).
+		const commitItems = page.locator(".shell-commit-list__item");
+		if ((await commitItems.count()) === 0) {
+			console.log("Commits-mode minimap e2e skipped: no reviewable commits");
+			test.skip();
+			return;
+		}
+		// Prefer a commit that is NOT already selected: a fresh selection forces
+		// a fresh detail fetch and a fresh (lazily mounted) diff section — the
+		// exact reproduction. Re-clicking an already-active commit can no-op.
+		const count = await commitItems.count();
+		await commitItems.nth(count > 1 ? 1 : 0).click();
+		const fileRow = page
+			.locator(".shell-commit-list__files .shell-list__item--split")
+			.first();
+		await expect(fileRow).toBeVisible({ timeout: 15_000 });
+		// Selecting the file BEFORE its diff editor exists is the reproduction:
+		// CommitDiffStack mounts the focused file's editor lazily AFTER the
+		// selection, so ReviewArea's totalLines must pick the editor up when it
+		// registers, not only at selection time.
+		await fileRow.click();
+		await expect(
+			page.locator(".modified-in-monaco-diff-editor").first(),
+		).toBeVisible({ timeout: 10_000 });
+
+		await addInlineComment("commits-mode dot");
+
+		// Regression: the dot never appeared because totalLines memoized 0 from
+		// before the commit editor registered, and the mutable registry never
+		// invalidated the memo.
+		await expect(
+			page.locator('[data-testid^="minimap-dot-"]').first(),
+		).toBeVisible({ timeout: 10_000 });
+	});
+
 	test("minimap dot click jumps the diff editor to the comment's line and opens the flyout", async () => {
 		test.setTimeout(120_000);
 		await openIndexTsDiff();

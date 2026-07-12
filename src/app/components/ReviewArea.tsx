@@ -215,10 +215,22 @@ export function ReviewArea(props: Props): React.ReactElement {
 				? (activeSession?.selectedChangedFilePath ?? null)
 				: null;
 
+	// The registry is a mutable map React cannot observe; commits mode mounts
+	// the focused file's diff editor lazily AFTER the selection that computes
+	// totalLines below, so registration must invalidate the memo or the minimap
+	// latches totalLines=0 and renders no dots (same pattern InlineMountsBridge
+	// uses to mount threads reactively).
+	const [registryVersion, setRegistryVersion] = useState(0);
+	useEffect(
+		() => diffEditorRegistry.subscribe(() => setRegistryVersion((v) => v + 1)),
+		[diffEditorRegistry],
+	);
+
 	// Total line count of the modified document, used to position minimap dots.
 	// Changes mode reads the loaded diff content directly; commits mode reads the
 	// live Monaco model (the diff is not held in React state there).
 	const totalLines = useMemo(() => {
+		void registryVersion; // re-read the registry after (de)registrations
 		if (activeSession?.reviewMode === "changes" && diffState.data) {
 			return diffState.data.modifiedContent.split("\n").length;
 		}
@@ -231,6 +243,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 		diffState.data,
 		currentFilePath,
 		diffEditorRegistry,
+		registryVersion,
 	]);
 
 	const currentFileComments = useMemo(
@@ -483,7 +496,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 				style={{
 					gridTemplateColumns:
 						activeSession?.reviewMode !== "files" && currentFilePath
-							? `minmax(0, ${reviewRailWidth}px) 8px minmax(0, 1fr) 46px`
+							? `minmax(0, ${reviewRailWidth}px) 8px minmax(0, 1fr) 24px`
 							: `minmax(0, ${reviewRailWidth}px) 8px minmax(0, 1fr)`,
 				}}
 			>
