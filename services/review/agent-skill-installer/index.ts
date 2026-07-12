@@ -95,6 +95,10 @@ export class AgentSkillInstaller {
 				return { stdout: typeof r.stdout === "string" ? r.stdout : "" };
 			},
 			access: accessFn,
+			// E2E isolation: restrict detection to the caller-controlled PATH so
+			// stripped-PATH tests can't find (and exec) real CLIs installed at
+			// fixed absolute paths on the host. See DetectDeps.pathOnly.
+			pathOnly: process.env.AI14ALL_E2E === "1",
 		});
 	}
 

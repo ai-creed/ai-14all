@@ -684,7 +684,12 @@ export function registerIpcHandlers(
 	// --- Agent Install ---
 
 	const installer = new AgentSkillInstaller({
-		home: app.getPath("home"),
+		// homedir() (not app.getPath("home")): Electron's native home path
+		// ignores a HOME env override on POSIX, which breaks e2e sandboxing —
+		// tests point HOME at a temp dir and must not touch the real ~/.claude
+		// or ~/.codex. Node's homedir() respects HOME, matching the other
+		// homedir() call sites in this file.
+		home: homedir(),
 		resourcesPath: app.isPackaged
 			? process.resourcesPath
 			: join(app.getAppPath(), "assets"),

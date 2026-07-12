@@ -14,6 +14,15 @@ export type DetectDeps = {
 		opts?: { timeout?: number },
 	) => Promise<{ stdout: string }>;
 	access: (path: string) => Promise<void>;
+	/**
+	 * E2E isolation seam. When true, detection stops after Tier 2 (which/where,
+	 * which honors the caller-controlled PATH) and skips Tier 3 (fixed absolute
+	 * candidates) and Tier 4 (login-shell probe) — both of which escape PATH.
+	 * Without this, a stripped-PATH e2e run on a machine with real CLIs at
+	 * fixed paths (e.g. /opt/homebrew/bin/claude) would detect the REAL CLI and
+	 * exec a real `claude mcp add/remove` against the developer's ~/.claude.json.
+	 */
+	pathOnly?: boolean;
 };
 
 export type CliCmd = "claude" | "codex" | "ai-ezio";
@@ -82,6 +91,10 @@ export async function detectCliPath(
 	} catch {
 		/* fall through */
 	}
+
+	// Tiers 3–4 escape the caller-controlled PATH; skip them in pathOnly mode
+	// (e2e isolation — see DetectDeps.pathOnly).
+	if (deps.pathOnly) return null;
 
 	// Tier 3: fixed candidates (skip on win32)
 	if (deps.platform !== "win32") {
