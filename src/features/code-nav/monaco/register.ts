@@ -213,17 +213,27 @@ export function registerCodeNavProviders(deps: {
 		w.__codeNavTestDispatch = deps.dispatch;
 	}
 	// Both a worktree re-index AND a cortex enable/disable toggle must clear the
-	// renderer-side code-nav caches — otherwise a disabled cortex would keep
-	// serving stale definitions / document links from the 30s provider caches,
-	// bypassing the main-process IPC gate (spec D1). availabilityChanged fires on
-	// every cortex toggle (emitted by the cortex driver's start/stop).
-	const invalidateCaches = () => {
+	// renderer-side row caches — otherwise a disabled cortex would keep serving
+	// stale definitions / document links from the 30s provider caches, bypassing
+	// the main-process IPC gate (spec D1). availabilityChanged fires on every
+	// cortex toggle (emitted by the cortex driver's start/stop).
+	const invalidateRowCaches = () => {
 		invalidateDefinitionCache();
 		invalidateDocumentLinkCache();
-		getModelProvisioner()?.disposeAll();
 	};
-	const unsubRefreshed = subscribeWorktreeIndexRefreshed(invalidateCaches);
-	const unsubAvailability = subscribeAvailabilityChanged(invalidateCaches);
+	// A re-index can change a file's CONTENT, so drop provisioned preview models
+	// too — they are re-read (and thus refreshed) on the next lookup.
+	const unsubRefreshed = subscribeWorktreeIndexRefreshed(() => {
+		invalidateRowCaches();
+		getModelProvisioner()?.disposeAll();
+	});
+	// A cortex availability toggle changes the code-nav GATE, not file content.
+	// Flip the gate by clearing the row caches, but do NOT dispose provisioned
+	// models: disposing here races with an in-flight Go-to-Definition / Peek — the
+	// provider creates the file:// preview models, then this handler wipes them
+	// before Monaco renders the preview, surfacing "Model not found". Model
+	// lifetime is bounded by worktree switch (ModelProvisioner.ensureModel) + LRU.
+	const unsubAvailability = subscribeAvailabilityChanged(invalidateRowCaches);
 	return () => {
 		unsubRefreshed();
 		unsubAvailability();

@@ -469,4 +469,202 @@ describe("CommitList", () => {
 			screen.queryByRole("button", { name: "Push" }),
 		).not.toBeInTheDocument();
 	});
+
+	it("shows an interactive Viewed toggle on the open commit-file row", () => {
+		const onToggleViewed = vi.fn();
+		render(
+			<CommitList
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
+				history={{
+					mergeTargetRef: "origin/main",
+					entries: [
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
+					],
+				}}
+				selectedCommitSha="abc"
+				selectedCommitFilePath="src/index.ts"
+				activeDetail={{
+					sha: "abc",
+					shortSha: "abc",
+					subject: "feature commit",
+					files: [
+						{ path: "src/index.ts", oldPath: null, status: "M" },
+						{ path: "src/other.ts", oldPath: null, status: "M" },
+					],
+				}}
+				onSelectCommit={vi.fn()}
+				onSelectCommitFile={vi.fn()}
+				onToggleViewed={onToggleViewed}
+				reviewedPaths={[]}
+			/>,
+		);
+		const toggles = screen.getAllByTestId("mark-viewed-toggle");
+		expect(toggles).toHaveLength(1);
+		fireEvent.click(toggles[0]);
+		expect(onToggleViewed).toHaveBeenCalledWith("src/index.ts");
+	});
+
+	it("keeps the commit-file toggle a sibling of the file-select button (no nested buttons)", () => {
+		render(
+			<CommitList
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
+				history={{
+					mergeTargetRef: "origin/main",
+					entries: [
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
+					],
+				}}
+				selectedCommitSha="abc"
+				selectedCommitFilePath="src/index.ts"
+				activeDetail={{
+					sha: "abc",
+					shortSha: "abc",
+					subject: "feature commit",
+					files: [{ path: "src/index.ts", oldPath: null, status: "M" }],
+				}}
+				onSelectCommit={vi.fn()}
+				onSelectCommitFile={vi.fn()}
+				onToggleViewed={vi.fn()}
+				reviewedPaths={[]}
+			/>,
+		);
+		const toggle = screen.getByTestId("mark-viewed-toggle");
+		const fileButton = screen.getByRole("button", { name: /src\/index\.ts/i });
+		// The toggle must NOT be nested inside the file-select button (invalid DOM).
+		expect(fileButton).not.toContainElement(toggle);
+		// Both controls are siblings within the same row container.
+		const row = toggle.closest(".shell-list__item-row");
+		expect(row).not.toBeNull();
+		expect(fileButton.closest(".shell-list__item-row")).toBe(row);
+	});
+
+	it("keeps non-open commit-file rows read-only", () => {
+		render(
+			<CommitList
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
+				history={{
+					mergeTargetRef: "origin/main",
+					entries: [
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
+					],
+				}}
+				selectedCommitSha="abc"
+				selectedCommitFilePath="src/index.ts"
+				activeDetail={{
+					sha: "abc",
+					shortSha: "abc",
+					subject: "feature commit",
+					files: [
+						{ path: "src/index.ts", oldPath: null, status: "M" },
+						{ path: "src/done.ts", oldPath: null, status: "M" },
+					],
+				}}
+				onSelectCommit={vi.fn()}
+				onSelectCommitFile={vi.fn()}
+				onToggleViewed={vi.fn()}
+				reviewedPaths={["src/done.ts"]}
+			/>,
+		);
+		// Non-open reviewed row keeps the read-only mark; only the open row toggles.
+		expect(screen.getByTestId("reviewed-mark-src/done.ts")).toBeInTheDocument();
+		expect(screen.getAllByTestId("mark-viewed-toggle")).toHaveLength(1);
+	});
+
+	it("makes the toggle live after a non-open commit file is selected", () => {
+		const onSelectCommitFile = vi.fn();
+		const onToggleViewed = vi.fn();
+		const { rerender } = render(
+			<CommitList
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
+				history={{
+					mergeTargetRef: "origin/main",
+					entries: [
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
+					],
+				}}
+				selectedCommitSha="abc"
+				selectedCommitFilePath={null}
+				activeDetail={{
+					sha: "abc",
+					shortSha: "abc",
+					subject: "feature commit",
+					files: [
+						{ path: "src/index.ts", oldPath: null, status: "M" },
+						{ path: "src/other.ts", oldPath: null, status: "M" },
+					],
+				}}
+				onSelectCommit={vi.fn()}
+				onSelectCommitFile={onSelectCommitFile}
+				onToggleViewed={onToggleViewed}
+				reviewedPaths={[]}
+			/>,
+		);
+		// No open file row → no interactive toggle.
+		expect(screen.queryAllByTestId("mark-viewed-toggle")).toHaveLength(0);
+		// Clicking a non-open file selects it.
+		fireEvent.click(screen.getByRole("button", { name: /src\/other\.ts/i }));
+		expect(onSelectCommitFile).toHaveBeenCalledWith("src/other.ts");
+		// The parent promotes it to the open file → its toggle is live.
+		rerender(
+			<CommitList
+				workspaceId="workspace:test"
+				worktreeId="wt-test"
+				history={{
+					mergeTargetRef: "origin/main",
+					entries: [
+						{
+							sha: "abc",
+							shortSha: "abc",
+							subject: "feature commit",
+							isMergeTarget: false,
+						},
+					],
+				}}
+				selectedCommitSha="abc"
+				selectedCommitFilePath="src/other.ts"
+				activeDetail={{
+					sha: "abc",
+					shortSha: "abc",
+					subject: "feature commit",
+					files: [
+						{ path: "src/index.ts", oldPath: null, status: "M" },
+						{ path: "src/other.ts", oldPath: null, status: "M" },
+					],
+				}}
+				onSelectCommit={vi.fn()}
+				onSelectCommitFile={onSelectCommitFile}
+				onToggleViewed={onToggleViewed}
+				reviewedPaths={[]}
+			/>,
+		);
+		const liveToggles = screen.getAllByTestId("mark-viewed-toggle");
+		expect(liveToggles).toHaveLength(1);
+		// Clicking the newly-live toggle toggles the newly-selected commit file.
+		fireEvent.click(liveToggles[0]);
+		expect(onToggleViewed).toHaveBeenCalledWith("src/other.ts");
+	});
 });

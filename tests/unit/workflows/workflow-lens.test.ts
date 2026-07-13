@@ -4,6 +4,7 @@ import {
 	artifactLabel,
 	diffWorkflowAttention,
 	toWorkflowRow,
+	workflowStatusLabel,
 } from "../../../src/features/workflows/logic/workflow-lens";
 
 const base: WhisperWorktreeState = {
@@ -159,6 +160,14 @@ describe("diffWorkflowAttention", () => {
 		});
 	});
 
+	it("done emits a ready reason with source workflow", () => {
+		const done = { ...base, workflow: { ...base.workflow!, status: "done" } };
+		expect(diffWorkflowAttention(base, done, 1234)).toEqual({
+			kind: "report",
+			reason: expect.objectContaining({ state: "ready", source: "workflow" }),
+		});
+	});
+
 	it("halted → running (resume) emits clear", () => {
 		const halted = {
 			...base,
@@ -179,5 +188,15 @@ describe("diffWorkflowAttention", () => {
 		expect(diffWorkflowAttention(undefined, halted, 9)).toMatchObject({
 			kind: "report",
 		});
+	});
+});
+
+describe("workflowStatusLabel", () => {
+	it("reads 'done' as 'completed' and passes other statuses through", () => {
+		expect(workflowStatusLabel("done")).toBe("completed");
+		expect(workflowStatusLabel("halted")).toBe("halted");
+		expect(workflowStatusLabel("escalated")).toBe("escalated");
+		expect(workflowStatusLabel("running")).toBe("running");
+		expect(workflowStatusLabel("paused")).toBe("paused");
 	});
 });

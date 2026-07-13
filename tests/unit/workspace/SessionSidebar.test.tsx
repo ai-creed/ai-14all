@@ -1,20 +1,39 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { SessionSidebar } from "../../../src/features/workspace/components/SessionSidebar";
 import type { SessionSidebarWorkspace } from "../../../src/features/workspace/components/SessionSidebar";
 import type { AgentProvider } from "../../../shared/models/agent-attention";
 
+const sendInputMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../../../src/lib/desktop-client", () => ({
+	terminals: {
+		sendInput: sendInputMock,
+	},
+}));
+
+type RowSpec = {
+	id: string;
+	label: string;
+	state: "actionRequired" | "active" | "idle" | "exited";
+	context: string;
+	lastActivityAt: number | null;
+	hasFailedReason: boolean;
+	provider?: AgentProvider | null;
+	resumePending?: boolean;
+	resumeCommand?: string | null;
+	terminalSessionId?: string | null;
+};
+
+function makeWorkspace(rows: RowSpec[]): SessionSidebarWorkspace;
 function makeWorkspace(
-	rows: Array<{
-		id: string;
-		label: string;
-		state: "actionRequired" | "active" | "idle" | "exited";
-		context: string;
-		lastActivityAt: number | null;
-		hasFailedReason: boolean;
-		provider?: AgentProvider | null;
-	}>,
+	overrides: Partial<SessionSidebarWorkspace>,
+): SessionSidebarWorkspace;
+function makeWorkspace(
+	arg: RowSpec[] | Partial<SessionSidebarWorkspace> = [],
 ): SessionSidebarWorkspace {
+	const rows = Array.isArray(arg) ? arg : [];
+	const overrides = Array.isArray(arg) ? {} : arg;
 	return {
 		workspaceId: "ws1",
 		name: "my-workspace",
@@ -39,7 +58,17 @@ function makeWorkspace(
 		titleByWorktreeId: { wt1: "main" },
 		active: true,
 		hydrated: true,
+		collapsedSummary: { sessionCount: 0, attentionTier: null },
+		...overrides,
 	};
+}
+
+function renderSidebar(
+	props: { workspaces: SessionSidebarWorkspace[] } & Partial<
+		Parameters<typeof SessionSidebar>[0]
+	>,
+) {
+	return render(<SessionSidebar {...baseProps} {...props} />);
 }
 
 const baseProps = {
@@ -211,6 +240,160 @@ describe("SessionSidebar — global footer actions", () => {
 	});
 });
 
+describe("SessionSidebar — process list collapse/expand", () => {
+	function makeThreeProcessWorkspace() {
+		return makeWorkspace([
+			{
+				id: "p1",
+				label: "dev server",
+				state: "active",
+				context: "listening on :3000",
+				lastActivityAt: 1000,
+				hasFailedReason: false,
+			},
+			{
+				id: "p2",
+				label: "type check",
+				state: "idle",
+				context: "no errors",
+				lastActivityAt: 900,
+				hasFailedReason: false,
+			},
+			{
+				id: "p3",
+				label: "tests",
+				state: "idle",
+				context: "12 passed",
+				lastActivityAt: 800,
+				hasFailedReason: false,
+			},
+		]);
+	}
+
+	it("collapses processes to the top row + a '2 more' control by default", () => {
+		const workspace = makeThreeProcessWorkspace();
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[workspace]}
+				expandedProcessWorktreeIds={[]}
+				onToggleProcessExpanded={vi.fn()}
+			/>,
+		);
+		expect(screen.getAllByTestId("process-state-indicator")).toHaveLength(1);
+		expect(screen.getByRole("button", { name: /2 more/i })).toBeInTheDocument();
+	});
+
+	it("expands all processes when the worktree id is in expandedProcessWorktreeIds", () => {
+		const workspace = makeThreeProcessWorkspace();
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[workspace]}
+				expandedProcessWorktreeIds={["wt1"]}
+				onToggleProcessExpanded={vi.fn()}
+			/>,
+		);
+		expect(screen.getAllByTestId("process-state-indicator")).toHaveLength(3);
+		expect(
+			screen.queryByRole("button", { name: /more/i }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /show less/i }),
+		).toBeInTheDocument();
+	});
+
+	it("calls onToggleProcessExpanded with the worktree id when the 'more' button is clicked", () => {
+		const onToggleProcessExpanded = vi.fn();
+		const workspace = makeThreeProcessWorkspace();
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[workspace]}
+				expandedProcessWorktreeIds={[]}
+				onToggleProcessExpanded={onToggleProcessExpanded}
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: /2 more/i }));
+		expect(onToggleProcessExpanded).toHaveBeenCalledWith("wt1");
+	});
+
+	it("calls onToggleProcessExpanded when 'Show less' is clicked", () => {
+		const onToggleProcessExpanded = vi.fn();
+		const workspace = makeThreeProcessWorkspace();
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[workspace]}
+				expandedProcessWorktreeIds={["wt1"]}
+				onToggleProcessExpanded={onToggleProcessExpanded}
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: /show less/i }));
+		expect(onToggleProcessExpanded).toHaveBeenCalledWith("wt1");
+	});
+
+	it("shows all rows when there is only 1 process (no 'more' control)", () => {
+		const workspace = makeWorkspace([
+			{
+				id: "p1",
+				label: "dev",
+				state: "active",
+				context: "compiled",
+				lastActivityAt: 1000,
+				hasFailedReason: false,
+			},
+		]);
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[workspace]}
+				expandedProcessWorktreeIds={[]}
+				onToggleProcessExpanded={vi.fn()}
+			/>,
+		);
+		expect(screen.getAllByTestId("process-state-indicator")).toHaveLength(1);
+		expect(
+			screen.queryByRole("button", { name: /more/i }),
+		).not.toBeInTheDocument();
+	});
+
+	it("shows both rows when there are exactly 2 processes (no collapse control)", () => {
+		// Collapsing 2 shells to a top row + toggle occupies the same two lines,
+		// so the toggle only appears at 3+ shells.
+		const workspace = makeWorkspace([
+			{
+				id: "p1",
+				label: "dev",
+				state: "active",
+				context: "compiled",
+				lastActivityAt: 1000,
+				hasFailedReason: false,
+			},
+			{
+				id: "p2",
+				label: "tests",
+				state: "idle",
+				context: "12 passed",
+				lastActivityAt: 900,
+				hasFailedReason: false,
+			},
+		]);
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[workspace]}
+				expandedProcessWorktreeIds={[]}
+				onToggleProcessExpanded={vi.fn()}
+			/>,
+		);
+		expect(screen.getAllByTestId("process-state-indicator")).toHaveLength(2);
+		expect(
+			screen.queryByRole("button", { name: /more|show less/i }),
+		).not.toBeInTheDocument();
+	});
+});
+
 describe("SessionSidebar — task and provider rendering", () => {
 	it("renders task line when taskByWorktreeId[worktreeId] is a non-null string", () => {
 		const workspace: SessionSidebarWorkspace = {
@@ -232,7 +415,9 @@ describe("SessionSidebar — task and provider rendering", () => {
 		const taskEl = container.querySelector(".shell-sidebar__card-task");
 		expect(taskEl).toBeInTheDocument();
 		expect(taskEl).toHaveTextContent("Implement the sidebar task line");
-		expect(taskEl).toHaveAttribute("title", "Implement the sidebar task line");
+		// Task line no longer uses native `title`; it is wrapped in a Radix tooltip
+		// trigger (full-text-on-hover is covered by e2e). Assert element identity.
+		expect(taskEl).toHaveAttribute("data-testid", "sidebar-task");
 	});
 
 	it("does not render task line when taskByWorktreeId[worktreeId] is null", () => {
@@ -318,6 +503,251 @@ describe("SessionSidebar — task and provider rendering", () => {
 		);
 		expect(
 			container.querySelector(".shell-sidebar__provider-badge"),
+		).not.toBeInTheDocument();
+	});
+});
+
+describe("SessionSidebar — collapsed workspace rollup", () => {
+	it("shows session count and an attention dot on a collapsed workspace row", () => {
+		renderSidebar({
+			collapsed: true,
+			workspaces: [
+				makeWorkspace({
+					collapsedSummary: {
+						sessionCount: 3,
+						attentionTier: "actionRequired",
+					},
+				}),
+			],
+		});
+		expect(screen.getByText("3")).toBeInTheDocument();
+		expect(screen.getByTestId("workspace-rollup-dot")).toHaveAttribute(
+			"data-tier",
+			"actionRequired",
+		);
+	});
+
+	it("omits the dot when the workspace is calm", () => {
+		renderSidebar({
+			collapsed: true,
+			workspaces: [
+				makeWorkspace({
+					collapsedSummary: { sessionCount: 0, attentionTier: null },
+				}),
+			],
+		});
+		expect(screen.queryByTestId("workspace-rollup-dot")).toBeNull();
+	});
+});
+
+describe("SessionSidebar — ready tier dot", () => {
+	it("renders a quiet ready dot for a ready worktree row (dot only)", () => {
+		renderSidebar({
+			workspaces: [makeWorkspace({ attentionByWorktreeId: { wt1: "ready" } })],
+		});
+		const dot = screen.getByTestId("row-ready-dot");
+		expect(dot).toBeInTheDocument();
+		expect(dot.closest(".shell-sidebar__item")).toHaveAttribute(
+			"data-attention",
+			"ready",
+		);
+	});
+
+	it("does not render the ready dot for idle or actionRequired rows", () => {
+		renderSidebar({
+			workspaces: [
+				makeWorkspace({ attentionByWorktreeId: { wt1: "actionRequired" } }),
+			],
+		});
+		expect(screen.queryByTestId("row-ready-dot")).toBeNull();
+	});
+
+	it("renders the ready status inline on the header line with the 'ready:' prefix stripped", () => {
+		const { container } = renderSidebar({
+			workspaces: [
+				makeWorkspace({
+					attentionByWorktreeId: { wt1: "ready" },
+					attentionContextByWorktreeId: { wt1: "ready: workflow done" },
+				}),
+			],
+		});
+		const head = container.querySelector(".shell-sidebar__item-head");
+		expect(head).not.toBeNull();
+		// Dot + status text share the header line with the title.
+		expect(head?.querySelector('[data-testid="row-ready-dot"]')).not.toBeNull();
+		expect(head).toHaveTextContent("workflow done");
+		// The dot already means "ready" — the redundant prefix is dropped.
+		expect(head?.textContent).not.toContain("ready:");
+		// The status is NOT left stranded in the processes block below.
+		const processes = container.querySelector(".shell-sidebar__processes");
+		expect(
+			processes?.querySelector(".shell-sidebar__process--session") ?? null,
+		).toBeNull();
+	});
+
+	it("keeps a non-ready session context below the header (unchanged)", () => {
+		const { container } = renderSidebar({
+			workspaces: [
+				makeWorkspace({
+					attentionByWorktreeId: { wt1: "activity" },
+					attentionContextByWorktreeId: { wt1: "active: working" },
+				}),
+			],
+		});
+		const processes = container.querySelector(".shell-sidebar__processes");
+		expect(
+			processes?.querySelector(".shell-sidebar__process--session"),
+		).not.toBeNull();
+		expect(processes).toHaveTextContent("active: working");
+		// Not duplicated on the header line, and no ready dot for a non-ready row.
+		const head = container.querySelector(".shell-sidebar__item-head");
+		expect(head?.textContent).not.toContain("active: working");
+		expect(screen.queryByTestId("row-ready-dot")).toBeNull();
+	});
+});
+
+describe("SessionSidebar — hydrated inactive workspace rendering", () => {
+	it("renders worktree rows (no placeholder) for a hydrated inactive workspace", () => {
+		renderSidebar({
+			workspaces: [makeWorkspace({ active: false, hydrated: true })],
+		});
+		expect(screen.getByRole("button", { name: "main" })).toBeInTheDocument();
+		expect(
+			screen.queryByText("Open this workspace to load its worktree sessions."),
+		).not.toBeInTheDocument();
+	});
+
+	it("shows the placeholder for a dormant (not yet hydrated) workspace", () => {
+		renderSidebar({
+			workspaces: [
+				makeWorkspace({ active: false, hydrated: false, worktrees: [] }),
+			],
+		});
+		expect(
+			screen.getByText("Open this workspace to load its worktree sessions."),
+		).toBeInTheDocument();
+	});
+});
+
+describe("SessionSidebar — non-color actionRequired signal", () => {
+	it("renders the 'needs you' signal with aria-label for an actionRequired row", () => {
+		renderSidebar({
+			workspaces: [
+				makeWorkspace({ attentionByWorktreeId: { wt1: "actionRequired" } }),
+			],
+		});
+		const signal = screen.getByTestId("row-needs-you");
+		expect(signal).toHaveAttribute("aria-label", "Needs your attention");
+		expect(signal).toHaveTextContent(/needs you/i);
+	});
+
+	it("does not render the signal for idle or activity rows", () => {
+		for (const tier of ["idle", "activity"] as const) {
+			const { unmount } = renderSidebar({
+				workspaces: [makeWorkspace({ attentionByWorktreeId: { wt1: tier } })],
+			});
+			expect(screen.queryByTestId("row-needs-you")).toBeNull();
+			unmount();
+		}
+	});
+});
+
+describe("SessionSidebar — resume conversation affordance (Task 13)", () => {
+	beforeEach(() => {
+		sendInputMock.mockClear();
+	});
+
+	function resumableWorkspace(overrides: Partial<RowSpec> = {}) {
+		return makeWorkspace([
+			{
+				id: "p1",
+				label: "claude",
+				state: "idle",
+				context: "",
+				lastActivityAt: 1000,
+				hasFailedReason: false,
+				resumePending: true,
+				resumeCommand: "claude --resume abc",
+				terminalSessionId: "term-1",
+				...overrides,
+			},
+		]);
+	}
+
+	it("renders the affordance when resumePending is true", () => {
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[resumableWorkspace()]}
+				onResumeConversation={vi.fn()}
+			/>,
+		);
+		expect(
+			screen.getByRole("button", { name: "Resume conversation" }),
+		).toBeInTheDocument();
+	});
+
+	it("does not render the affordance when resumePending is false", () => {
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[resumableWorkspace({ resumePending: false })]}
+				onResumeConversation={vi.fn()}
+			/>,
+		);
+		expect(
+			screen.queryByRole("button", { name: "Resume conversation" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("sends the resume command and notifies the parent on a valid command", () => {
+		const onResumeConversation = vi.fn();
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[resumableWorkspace()]}
+				onResumeConversation={onResumeConversation}
+			/>,
+		);
+		fireEvent.click(
+			screen.getByRole("button", { name: "Resume conversation" }),
+		);
+		expect(sendInputMock).toHaveBeenCalledWith(
+			"term-1",
+			expect.stringContaining("claude --resume abc"),
+		);
+		expect(onResumeConversation).toHaveBeenCalledWith("ws1", "wt1", "p1");
+	});
+
+	it("manual affordance re-validates at click: tampered command is never typed", () => {
+		const onResumeConversation = vi.fn();
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[
+					resumableWorkspace({ resumeCommand: "claude --resume abc; rm x" }),
+				]}
+				onResumeConversation={onResumeConversation}
+			/>,
+		);
+		fireEvent.click(
+			screen.getByRole("button", { name: "Resume conversation" }),
+		);
+		expect(sendInputMock).not.toHaveBeenCalled();
+		expect(onResumeConversation).toHaveBeenCalledWith("ws1", "wt1", "p1");
+	});
+
+	it("does not render the affordance for an inactive workspace", () => {
+		const workspace = { ...resumableWorkspace(), active: false };
+		render(
+			<SessionSidebar
+				{...baseProps}
+				workspaces={[workspace]}
+				onResumeConversation={vi.fn()}
+			/>,
+		);
+		expect(
+			screen.queryByRole("button", { name: "Resume conversation" }),
 		).not.toBeInTheDocument();
 	});
 });

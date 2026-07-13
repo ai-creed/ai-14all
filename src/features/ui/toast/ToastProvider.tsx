@@ -9,12 +9,14 @@ import {
 } from "react";
 import { Icon } from "@/components/ui/icon";
 
-type ToastItem = { id: string; message: string };
+type ToastAction = { label: string; onSelect: () => void };
+type ToastOpts = { action?: ToastAction; ttlMs?: number };
+type ToastItem = { id: string; message: string; action?: ToastAction };
 const MAX = 3;
 const TTL_MS = 4000;
 
 type Ctx = {
-	show: (message: string) => void;
+	show: (message: string, opts?: ToastOpts) => string;
 	dismiss: (id: string) => void;
 };
 
@@ -24,10 +26,10 @@ const ToastCtx = createContext<Ctx | null>(null);
 // that runs OUTSIDE the provider subtree (e.g. App-level hooks whose JSX renders
 // the provider below them) can surface a toast without the React context. No-op
 // when no provider is mounted.
-let activeShow: ((message: string) => void) | null = null;
+let activeShow: ((message: string, opts?: ToastOpts) => string) | null = null;
 
-export function notifyToast(message: string): void {
-	activeShow?.(message);
+export function notifyToast(message: string, opts?: ToastOpts): string {
+	return activeShow?.(message, opts) ?? "";
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -44,14 +46,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 	}, []);
 
 	const show = useCallback(
-		(message: string) => {
+		(message: string, opts?: ToastOpts): string => {
 			const id = crypto.randomUUID();
 			setItems((prev) => {
 				const trimmed = prev.length >= MAX ? prev.slice(1) : prev;
-				return [...trimmed, { id, message }];
+				return [...trimmed, { id, message, action: opts?.action }];
 			});
-			const handle = setTimeout(() => dismiss(id), TTL_MS);
+			const handle = setTimeout(() => dismiss(id), opts?.ttlMs ?? TTL_MS);
 			timers.current.set(id, handle);
+			return id;
 		},
 		[dismiss],
 	);
@@ -81,6 +84,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 				{items.map((t) => (
 					<div key={t.id} className="shell-toast">
 						<span>{t.message}</span>
+						{t.action && (
+							<button
+								type="button"
+								className="shell-toast__action"
+								onClick={() => {
+									t.action?.onSelect();
+									dismiss(t.id);
+								}}
+							>
+								{t.action.label}
+							</button>
+						)}
 						<button
 							type="button"
 							aria-label="dismiss"

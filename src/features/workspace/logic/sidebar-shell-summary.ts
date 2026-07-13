@@ -1,15 +1,28 @@
 import {
 	deriveStale,
-	mapToProcessAttentionState,
 	rankAgentAttention,
 } from "../../terminals/logic/agent-attention";
+import { STALE_THRESHOLD_MS } from "../../../../shared/models/agent-attention";
 import type {
 	AgentAttentionReasonsBySource,
+	AgentAttentionState,
 	AgentProvider,
 } from "../../../../shared/models/agent-attention";
 import type { ProcessSession } from "../../../../shared/models/process-session";
 
-export type SidebarShellState = "actionRequired" | "active" | "idle" | "exited";
+export type SidebarShellState =
+	| "actionRequired"
+	| "ready"
+	| "active"
+	| "idle"
+	| "exited";
+
+/** The display tier consumed by the sidebar's `data-attention` attribute. */
+export type SidebarAttentionTier =
+	| "actionRequired"
+	| "ready"
+	| "activity"
+	| "idle";
 
 export type SidebarShellRow = {
 	id: string;
@@ -19,6 +32,14 @@ export type SidebarShellRow = {
 	lastActivityAt: number | null;
 	hasFailedReason: boolean;
 	provider: AgentProvider | null;
+	// Task 13 (agent-resume manual affordance). Optional — undefined is treated
+	// as "not pending" / "no resume data" by consumers — so the many existing
+	// `SidebarShellRow` literals in tests and `buildWorktreeAttentionDisplay`
+	// callers don't need updating for a feature that only applies to the
+	// process-summary production path.
+	resumePending?: boolean;
+	resumeCommand?: string | null;
+	terminalSessionId?: string | null;
 };
 
 export type WorktreeProcessSummary = {
@@ -44,7 +65,8 @@ export type WorktreeAttentionDisplay = {
 
 const ACTIVE_WINDOW_MS = 10_000;
 const severityRank: Record<SidebarShellState, number> = {
-	actionRequired: 3,
+	actionRequired: 4,
+	ready: 3,
 	exited: 2,
 	active: 1,
 	idle: 0,
@@ -59,30 +81,50 @@ function deriveExitedContext(
 }
 
 // restarting intentionally shares the exited dot/state; context text disambiguates it
+export function formatRelativeQuiet(ageMs: number): string {
+	const secs = Math.max(1, Math.floor(ageMs / 1000));
+	if (secs < 60) return `quiet ${secs}s`;
+	const mins = Math.floor(secs / 60);
+	if (mins < 60) return `quiet ${mins}m`;
+	const hours = Math.floor(mins / 60);
+	if (hours < 24) return `quiet ${hours}h`;
+	return `quiet ${Math.floor(hours / 24)}d`;
+}
+
 export function formatQuietAge(ageMs: number): string {
-	return `quiet for ${Math.max(1, Math.floor(ageMs / 1000))}s`;
+	return formatRelativeQuiet(ageMs);
 }
 
 function deriveState(
-	process: Pick<ProcessSession, "status" | "attentionState" | "lastActivityAt">,
+	process: Pick<
+		ProcessSession,
+		"status" | "attentionState" | "lastActivityAt"
+	> &
+		Partial<Pick<ProcessSession, "agentAttentionClearedAt">>,
 	now: number,
+	suppressActionRequired = false,
 ): SidebarShellState {
 	if (process.status !== "running") return "exited";
-	if (process.attentionState === "actionRequired") return "actionRequired";
-	if (
-		process.lastActivityAt != null &&
-		now - process.lastActivityAt <= ACTIVE_WINDOW_MS
-	) {
+	const lastActivityAt = process.lastActivityAt ?? null;
+	// While a whisper workflow runs, the red tier is suppressed at the display
+	// layer (spec D1/D5): the row falls through to active/idle by recency.
+	if (!suppressActionRequired && process.attentionState === "actionRequired") {
+		const clearedAt = process.agentAttentionClearedAt ?? null;
+		// Retired if explicitly cleared after its last activity, OR quiet past the
+		// staleness threshold (spec §4.2 gap 3 + STALE_THRESHOLD_MS). Compute both
+		// explicitly: deriveStale conflates them (it returns false for a cleared
+		// reason), so reusing it alone would keep a cleared process red.
+		const cleared =
+			clearedAt !== null &&
+			(lastActivityAt === null || lastActivityAt <= clearedAt);
+		const staleByAge =
+			lastActivityAt !== null && now - lastActivityAt >= STALE_THRESHOLD_MS;
+		if (!cleared && !staleByAge) return "actionRequired";
+		// cleared or stale → retired, fall through to active/idle
+	}
+	if (lastActivityAt != null && now - lastActivityAt <= ACTIVE_WINDOW_MS) {
 		return "active";
 	}
-	return "idle";
-}
-
-function processAttentionToSidebarShell(
-	state: ReturnType<typeof mapToProcessAttentionState>,
-): SidebarShellState {
-	if (state === "actionRequired") return "actionRequired";
-	if (state === "activity") return "active";
 	return "idle";
 }
 
@@ -99,7 +141,12 @@ type ProcessRowInput = Pick<
 	Partial<
 		Pick<
 			ProcessSession,
-			"agentAttentionReasons" | "agentAttentionClearedAt" | "provider"
+			| "agentAttentionReasons"
+			| "agentAttentionClearedAt"
+			| "provider"
+			| "resumePending"
+			| "resumeCommand"
+			| "terminalSessionId"
 		>
 	>;
 
@@ -122,7 +169,7 @@ function deriveAgentContext(
 	const ranked = rankAgentAttention(reasons, stale);
 	if (ranked === "idle") return null;
 	if (ranked === "stale")
-		return `stale: quiet for ${Math.max(1, Math.floor((now - (process.lastActivityAt ?? now)) / 1000))}s`;
+		return `stale: ${formatRelativeQuiet(now - (process.lastActivityAt ?? now))}`;
 	// terminal reasons are only meaningful during active execution; after exit show lifecycle only
 	const reason =
 		process.status === "running"
@@ -160,15 +207,24 @@ function deriveContext(
 	return process.lastOutputPreview ?? "";
 }
 
+export function rollupWorkspaceAttention(
+	tiers: SidebarAttentionTier[],
+): "actionRequired" | "ready" | null {
+	if (tiers.includes("actionRequired")) return "actionRequired";
+	if (tiers.includes("ready")) return "ready";
+	return null;
+}
+
 export function buildWorktreeProcessSummary(
 	processes: Array<ProcessRowInput>,
 	now: number,
 	maxRows = 3,
+	options?: { suppressActionRequired?: boolean },
 ): WorktreeProcessSummary {
 	// Keep rows in input (creation) order — never reorder by state/recency, so the
 	// sidebar list stays put while shells change status simultaneously.
 	const rows = processes.map((process) => {
-		const state = deriveState(process, now);
+		const state = deriveState(process, now, options?.suppressActionRequired);
 		const reasons = process.agentAttentionReasons ?? {};
 		const hasFailedReason = Object.values(reasons).some(
 			(r) => r != null && r.state === "failed",
@@ -181,6 +237,9 @@ export function buildWorktreeProcessSummary(
 			lastActivityAt: process.lastActivityAt,
 			hasFailedReason,
 			provider: process.provider ?? null,
+			resumePending: process.resumePending ?? false,
+			resumeCommand: process.resumeCommand ?? null,
+			terminalSessionId: process.terminalSessionId ?? null,
 		};
 	});
 
@@ -201,15 +260,59 @@ export function buildWorktreeProcessSummary(
 	};
 }
 
+function agentStateToSidebarShell(
+	state: AgentAttentionState,
+): SidebarShellState {
+	if (state === "waiting" || state === "failed") return "actionRequired";
+	if (state === "ready") return "ready";
+	if (state === "active") return "active";
+	return "idle"; // stale, idle
+}
+
 export function buildWorktreeAttentionDisplay(input: {
 	sessionAgentAttentionReasons: AgentAttentionReasonsBySource;
 	processSummary: WorktreeProcessSummary;
+	now: number;
+	agentAttentionClearedAt?: number | null;
+	suppressNonWorkflow?: boolean;
 }): WorktreeAttentionDisplay {
-	const mcp = input.sessionAgentAttentionReasons.mcp ?? null;
-	const sessionState: SidebarShellState = mcp
-		? processAttentionToSidebarShell(mapToProcessAttentionState(mcp.state))
-		: "idle";
-	const sessionContext = mcp ? `${mcp.state}: ${mcp.summary}` : "";
+	const clearedAt = input.agentAttentionClearedAt ?? null;
+
+	// Only the authoritative session sources contribute to the worktree ring. An
+	// action-required reason is retired when it is (a) reported at or before the
+	// last terminal clear, or (b) stale — quiet past STALE_THRESHOLD_MS — so a
+	// worktree stops showing red once it is finished OR has gone quiet (§4.2).
+	const candidates: Array<{ state: SidebarShellState; context: string }> = [];
+	for (const source of ["mcp", "workflow"] as const) {
+		// While a whisper workflow runs, the workflow source is the sole verdict
+		// authority (spec D1): mcp candidates are ignored in all states.
+		if (input.suppressNonWorkflow && source === "mcp") continue;
+		const r = input.sessionAgentAttentionReasons[source];
+		if (!r) continue;
+		const actionRequired = r.state === "waiting" || r.state === "failed";
+		if (actionRequired) {
+			const cleared = clearedAt !== null && r.reportedAt <= clearedAt;
+			const staleByAge = input.now - r.reportedAt >= STALE_THRESHOLD_MS;
+			if (cleared || staleByAge) continue;
+		}
+		candidates.push({
+			state: agentStateToSidebarShell(r.state),
+			context: `${r.state}: ${r.summary}`,
+		});
+	}
+
+	const session = candidates.reduce<{
+		state: SidebarShellState;
+		context: string;
+	} | null>(
+		(best, c) =>
+			best === null || severityRank[c.state] > severityRank[best.state]
+				? c
+				: best,
+		null,
+	);
+	const sessionState: SidebarShellState = session?.state ?? "idle";
+	const sessionContext = session?.context ?? "";
 
 	const top = input.processSummary.topRow ?? null;
 	const topState: SidebarShellState = top?.state ?? "idle";

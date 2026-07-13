@@ -62,6 +62,8 @@ export const files: Ai14AllDesktopApi["files"] = {
 		getDesktopClient().files.listWorktree(workspaceId, worktreeId, opts),
 	read: (workspaceId, worktreeId, relativePath) =>
 		getDesktopClient().files.read(workspaceId, worktreeId, relativePath),
+	readImage: (workspaceId, worktreeId, relativePath) =>
+		getDesktopClient().files.readImage(workspaceId, worktreeId, relativePath),
 	openForEdit: async (workspaceId, worktreeId, relativePath) => {
 		const raw = await getDesktopClient().files.openForEdit(
 			workspaceId,
@@ -138,6 +140,7 @@ export const reviewComments: Ai14AllDesktopApi["reviewComments"] = {
 		getDesktopClient().reviewComments.markAddressed(commentId),
 	reopen: (commentId) => getDesktopClient().reviewComments.reopen(commentId),
 	delete: (commentId) => getDesktopClient().reviewComments.delete(commentId),
+	restore: (comment) => getDesktopClient().reviewComments.restore(comment),
 	rebaseWorktreeIds: (mapping) =>
 		getDesktopClient().reviewComments.rebaseWorktreeIds(mapping),
 	onChanged: (handler: (event: ReviewCommentChangedEvent) => void) =>
@@ -161,6 +164,7 @@ export const events: Ai14AllDesktopApi["events"] = {
 	onOpenInstallModal: (handler) =>
 		getDesktopClient().events.onOpenInstallModal(handler),
 	onSetTheme: (handler) => getDesktopClient().events.onSetTheme(handler),
+	onSettingsChanged: (cb) => getDesktopClient().events.onSettingsChanged(cb),
 };
 
 export const noteBridge: Ai14AllDesktopApi["noteBridge"] = {

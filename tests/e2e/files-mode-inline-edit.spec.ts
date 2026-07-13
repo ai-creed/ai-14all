@@ -102,6 +102,12 @@ test.describe.serial("Files-mode inline edit", () => {
 			.locator(".shell-list__item--tree")
 			.filter({ hasText: /^NOTES\.md/ });
 		await notesRow.click();
+		// .md files default to a rendered markdown preview; switch to Source to
+		// mount the inline Monaco editor.
+		await expect(page.locator(".shell-md-preview")).toBeVisible({
+			timeout: 10_000,
+		});
+		await page.getByRole("button", { name: "Source" }).click();
 		await expect(page.getByTestId("inline-editor")).toBeVisible({
 			timeout: 10_000,
 		});
@@ -160,6 +166,12 @@ test.describe.serial("Files-mode inline edit", () => {
 			.locator(".shell-list__item--tree")
 			.filter({ hasText: /^NOTES\.md/ });
 		await notesRow.click();
+		// .md files default to a rendered markdown preview; switch to Source to
+		// mount the inline Monaco editor.
+		await expect(page.locator(".shell-md-preview")).toBeVisible({
+			timeout: 10_000,
+		});
+		await page.getByRole("button", { name: "Source" }).click();
 		await expect(page.getByTestId("inline-editor")).toBeVisible();
 		// Monaco renders the textarea content; the editor's visible text should
 		// include the previously-saved marker.

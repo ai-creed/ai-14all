@@ -17,3 +17,6 @@ release/
 docs/strategy.md
 Docs/bugreports/
 scripts/usage-smoke.ts
+
+# Secret XBP protocol doc — synced from ai-xavier, never commit/push
+docs/shared/XBP-PROTOCOL.md

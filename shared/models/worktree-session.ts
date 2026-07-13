@@ -34,6 +34,13 @@ export type WorktreeSession = {
 	processSessionIds: string[];
 	attentionState: ProcessAttentionState;
 	agentAttentionReasons: AgentAttentionReasonsBySource;
+	/**
+	 * Timestamp of the last terminal event (agent/workflow `ready` or process
+	 * exit). Session-level `waiting`/`failed` reasons reported at or before this
+	 * are retired by `buildWorktreeAttentionDisplay`, mirroring
+	 * `ProcessSession.agentAttentionClearedAt`.
+	 */
+	agentAttentionClearedAt: number | null;
 	terminalLayoutId: LayoutId;
 	slotProcessIds: (string | null)[];
 	reviewSidebarWidth: number;
@@ -87,4 +94,13 @@ export type WorktreeSession = {
 	 * minimized. Enforces "one expanded at a time". Memory-only.
 	 */
 	expandedFloatingShellId: string | null;
+	/**
+	 * Self-reporting mode (spec 2026-07-05 §5, D4): true once an accepted MCP
+	 * status push arrives while a detected agent process is running in this
+	 * worktree; terminal/legacy heuristics for agent processes are muted while
+	 * set. Resets when the last running detected agent exits. Memory-only —
+	 * intentionally absent from PersistedWorktreeSessionSchema (the processes
+	 * it describes are dead after a restart).
+	 */
+	mcpReportingActive: boolean;
 };

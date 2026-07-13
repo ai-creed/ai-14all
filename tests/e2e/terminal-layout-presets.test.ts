@@ -117,12 +117,20 @@ test.describe.serial("Terminal layout presets", () => {
 		await expect(page.getByTestId("slot-cta-1")).toHaveCount(0);
 	});
 
-	test("closing a shell leaves an empty slot (no layout shrink)", async () => {
+	test("closing a shell reorganizes the layout to fit the survivors", async () => {
 		test.setTimeout(60_000);
+		// Reset to a clean two-column layout with two running shells.
+		await page.getByTestId("terminal-layout-button").click();
+		await page.getByTestId("layout-tile-2-v").click();
+		const cta1 = page.getByTestId("slot-cta-1");
+		if (await cta1.isVisible().catch(() => false)) await cta1.click();
+		await expect(page.getByTestId("slot-1")).toBeVisible();
+		// Close one shell -> a single shell remains -> layout collapses to one pane,
+		// no leftover empty slot or CTA.
 		await page.getByTestId("slot-close-1").click();
-		await expect(page.getByTestId("slot-cta-1")).toBeVisible();
-		await expect(page.getByTestId("slot-cta-2")).toBeVisible();
 		await expect(page.getByTestId("slot-0")).toBeVisible();
+		await expect(page.getByTestId("slot-1")).toHaveCount(0);
+		await expect(page.getByTestId("slot-cta-1")).toHaveCount(0);
 	});
 
 	test("adding when all slots are full auto-promotes to the next bucket", async () => {
@@ -221,7 +229,13 @@ test.describe.serial("Command presets redesign", () => {
 	test("throwaway preset opens a floating shell; pinned preset fills a grid slot", async () => {
 		test.setTimeout(120_000);
 		// Free one grid slot (the layout suite above leaves all six occupied).
+		// Closing a shell now reorganizes the layout to fit survivors, so we
+		// close slot-5 (shrinks to 5 shells) then re-expand to a 6-slot layout
+		// to get an empty slot-cta-5 for the pinned preset to fill.
 		await page.getByTestId("slot-close-5").click();
+		await expect(page.getByTestId("slot-4")).toBeVisible();
+		await page.getByTestId("terminal-layout-button").click();
+		await page.getByTestId("layout-tile-6-v").click();
 		await expect(page.getByTestId("slot-cta-5")).toBeVisible();
 
 		// Create one preset of each target via the manager form's toggle.

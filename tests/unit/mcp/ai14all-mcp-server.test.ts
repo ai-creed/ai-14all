@@ -37,11 +37,15 @@ async function makeRig(opts: { resolveResult?: string | null } = {}) {
 	const attentionBridge = {
 		report: vi.fn(async () => {}),
 	};
+	const resumeBridge = {
+		report: vi.fn(async () => {}),
+	};
 	const server = new Ai14allMcpServer(
 		service,
 		resolver,
 		bridge,
 		attentionBridge,
+		resumeBridge,
 		{
 			port: 0,
 			host: "127.0.0.1",

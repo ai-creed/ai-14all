@@ -1,7 +1,12 @@
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { BundledSkill } from "./skill-asset.js";
 import { BUNDLED_SKILL_IDS } from "./skill-asset.js";
+import {
+	guardedWriteSkill,
+	removeInstalledSkill,
+	type SkillInstallOutcome,
+} from "./skill-version.js";
 
 export type Deps = {
 	/** The `ai-ezio` config root, e.g. `${XDG_CONFIG_HOME:-~/.config}/ai-ezio`. */
@@ -52,14 +57,18 @@ export class EzioProvider {
 		return join(this.deps.configDir, "mcp.json");
 	}
 
-	async installSkills(input: InstallSkillsInput): Promise<void> {
+	async installSkills(
+		input: InstallSkillsInput,
+	): Promise<SkillInstallOutcome[]> {
 		if (!(await this.deps.isCliAvailable())) {
 			throw new Error(
 				"ai-ezio CLI is not available on PATH; install ezio or use the manual-setup snippet.",
 			);
 		}
+		const outcomes: SkillInstallOutcome[] = [];
 		for (const skill of input.skills) {
-			await this.writeSkill(skill);
+			const action = await guardedWriteSkill(this.skillDir(skill.id), skill);
+			outcomes.push({ id: skill.id, action });
 		}
 		const config = await this.readMcpJson();
 		const servers = config.mcpServers ?? {};
@@ -69,11 +78,12 @@ export class EzioProvider {
 		};
 		config.mcpServers = servers;
 		await this.writeMcpJson(config);
+		return outcomes;
 	}
 
 	async uninstall(input: { serverName: string }): Promise<void> {
 		for (const id of BUNDLED_SKILL_IDS) {
-			await rm(this.skillDir(id), { recursive: true, force: true });
+			await removeInstalledSkill(this.skillDir(id));
 		}
 		const raw = await tryReadFile(this.mcpPath());
 		if (raw === null) return;
@@ -88,14 +98,6 @@ export class EzioProvider {
 			delete config.mcpServers[input.serverName];
 			await this.writeMcpJson(config);
 		}
-	}
-
-	private async writeSkill(skill: BundledSkill): Promise<void> {
-		const dir = this.skillDir(skill.id);
-		await mkdir(dir, { recursive: true });
-		const tmp = join(dir, "SKILL.md.ai-14all.tmp");
-		await writeFile(tmp, skill.content, "utf-8");
-		await rename(tmp, join(dir, "SKILL.md"));
 	}
 
 	/**

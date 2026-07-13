@@ -141,3 +141,23 @@ it("shows no pill when whisper is off", () => {
 	renderBar({ whisperHealthy: false });
 	expect(screen.queryByTestId("collab-status-pill")).not.toBeInTheDocument();
 });
+
+it("renders launch chips with the plus (mount) glyph, not the old caret", () => {
+	renderBar({ whisperHealthy: true });
+	const claude = screen.getByTestId("agent-launch-claude");
+	expect(claude.tagName).toBe("BUTTON");
+	// Icon name="plus" renders its fallback glyph ("＋", U+FF0B) in a hidden span;
+	// the swap is verified by its presence and the old caret ("▸") being gone.
+	expect(claude).toHaveTextContent("＋");
+	expect(claude).not.toHaveTextContent("▸");
+});
+
+it("keeps the collab status a non-interactive span (never an action) in a toned state", () => {
+	renderBar({
+		whisperHealthy: true,
+		whisperState: state({ daemonAlive: true, bindings: bound("claude") }),
+	});
+	const pill = screen.getByTestId("collab-status-pill");
+	expect(pill.tagName).toBe("SPAN");
+	expect(pill).toHaveAttribute("data-tone", "amber");
+});

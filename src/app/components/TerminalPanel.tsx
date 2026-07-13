@@ -10,6 +10,7 @@ import type { LayoutId } from "../../../shared/models/terminal-layout";
 import { Icon } from "@/components/ui/icon";
 import { TERMINAL_LAYOUTS } from "../../features/terminals/logic/terminal-layouts";
 import { TerminalPane } from "../../features/terminals/components/TerminalPane";
+import { useTerminalFontSize } from "../../features/terminals/hooks/use-terminal-font-size";
 import { EmptySlotLauncher } from "../../features/terminals/components/EmptySlotLauncher";
 import type { AgentProvider } from "../../features/terminals/logic/agent-launch";
 import { normalizeTerminalTitle } from "../normalize-terminal-title";
@@ -90,14 +91,16 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 			[processId]: (prev[processId] ?? 0) + 1,
 		}));
 
+	// Global, user-controlled, persisted terminal font size (replaces the old
+	// slot-count auto-scale). Called before the early return to satisfy the
+	// Rules of Hooks.
+	const { fontSize: terminalFontSize } = useTerminalFontSize();
+
 	if (!workspaceState.selectedWorktreeId) return null;
 
 	const layout = TERMINAL_LAYOUTS[layoutId];
 	const isMasterFamily =
 		layout.distribution === "master" || layout.distribution === "double-master";
-	// Shrink terminal text by 1px per two slots so denser layouts fit more rows:
-	// 1–2 slots → 12, 3–4 → 11, 5–6 → 10.
-	const terminalFontSize = 12 - Math.floor((layout.slotCount - 1) / 2);
 
 	return (
 		<section className="shell-panel shell-terminal-section">

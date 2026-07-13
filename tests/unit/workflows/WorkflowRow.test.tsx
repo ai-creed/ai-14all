@@ -17,32 +17,108 @@ const row: WorkflowRowModel = {
 	liveFeed: "socket",
 };
 
+function makeRow(overrides: Partial<WorkflowRowModel>): WorkflowRowModel {
+	return { ...row, ...overrides };
+}
+
 describe("WorkflowRow", () => {
-	it("renders the type label, artifact, phase, round, and a status badge", () => {
+	it("renders the type label, artifact, phase, and round", () => {
 		render(<WorkflowRow row={row} onOpenDetail={vi.fn()} />);
-		expect(screen.getByText(/last workflow/i)).toBeInTheDocument();
 		expect(screen.getByText("SDD")).toBeInTheDocument();
 		expect(screen.getByText("payments-api.md")).toBeInTheDocument();
 		expect(screen.getByText("implementation")).toBeInTheDocument();
 		expect(screen.getByText("round 2/3")).toBeInTheDocument();
-		expect(screen.getByText("running")).toHaveAttribute(
-			"data-status",
-			"running",
-		);
 	});
 
-	it("shows 'escalated' (not the raw status) with the escalated tone", () => {
-		render(
-			<WorkflowRow row={{ ...row, escalated: true }} onOpenDetail={vi.fn()} />,
-		);
-		expect(screen.getByText("escalated")).toHaveAttribute(
-			"data-status",
-			"escalated",
-		);
-		expect(screen.queryByText("running")).not.toBeInTheDocument();
+	it("no longer renders the 'Last workflow:' caption", () => {
+		render(<WorkflowRow row={row} onOpenDetail={vi.fn()} />);
+		expect(screen.queryByText(/last workflow/i)).not.toBeInTheDocument();
 	});
 
-	it("omits the artifact line when there is none", () => {
+	it("places the type label on the artifact line, and the status dot on the phase line", () => {
+		const { container } = render(
+			<WorkflowRow row={row} onOpenDetail={vi.fn()} />,
+		);
+		const artifactLine = container.querySelector(
+			".workflow-row__artifact-line",
+		);
+		expect(artifactLine).not.toBeNull();
+		expect(artifactLine?.textContent).toContain("SDD");
+		expect(artifactLine?.textContent).toContain("payments-api.md");
+		// The status indicator is a dot on the phase line, not on the artifact line.
+		expect(artifactLine?.querySelector(".workflow-row__status")).toBeNull();
+		const phaseStatus = container.querySelector(
+			".workflow-row__phase .workflow-row__status",
+		);
+		expect(phaseStatus).toHaveAttribute("data-status", "running");
+	});
+
+	it("renders the status word as a colored label beside the dot", () => {
+		const { container } = render(
+			<WorkflowRow row={row} onOpenDetail={vi.fn()} />,
+		);
+		const status = container.querySelector(".workflow-row__status");
+		// Dot + explicit word live in one element that sets the status color,
+		// so the label matches the dot color for free.
+		expect(status?.querySelector(".workflow-row__status-dot")).not.toBeNull();
+		expect(
+			status?.querySelector(".workflow-row__status-label")?.textContent,
+		).toBe("running");
+	});
+
+	it("labels a done workflow as 'completed' in the ready-tier element", () => {
+		const { container } = render(
+			<WorkflowRow row={makeRow({ status: "done" })} onOpenDetail={vi.fn()} />,
+		);
+		const status = container.querySelector(".workflow-row__status");
+		expect(status).toHaveAttribute("data-tier", "ready");
+		expect(
+			status?.querySelector(".workflow-row__status-label")?.textContent,
+		).toBe("completed");
+	});
+
+	it("labels a halted workflow as 'halted' in the actionRequired element", () => {
+		const { container } = render(
+			<WorkflowRow
+				row={makeRow({ status: "halted" })}
+				onOpenDetail={vi.fn()}
+			/>,
+		);
+		const status = container.querySelector(".workflow-row__status");
+		expect(status).toHaveAttribute("data-tier", "actionRequired");
+		expect(
+			status?.querySelector(".workflow-row__status-label")?.textContent,
+		).toBe("halted");
+	});
+
+	it("maps a done workflow to the quiet ready tier on the status dot", () => {
+		const { container } = render(
+			<WorkflowRow
+				row={makeRow({ status: "done", escalated: false })}
+				onOpenDetail={() => {}}
+			/>,
+		);
+		const status = container.querySelector(
+			".workflow-row__phase .workflow-row__status",
+		);
+		expect(status).not.toBeNull();
+		expect(status).toHaveAttribute("data-status", "done");
+		expect(status).toHaveAttribute("data-tier", "ready");
+	});
+
+	it("maps an escalated workflow (not the raw status) to the actionRequired tier", () => {
+		const { container } = render(
+			<WorkflowRow
+				row={makeRow({ status: "running", escalated: true })}
+				onOpenDetail={() => {}}
+			/>,
+		);
+		const status = container.querySelector(".workflow-row__status");
+		expect(status).toHaveAttribute("data-status", "escalated");
+		expect(status).toHaveAttribute("data-tier", "actionRequired");
+	});
+
+	it("omits the artifact when there is none", () => {
 		render(
 			<WorkflowRow row={{ ...row, artifact: null }} onOpenDetail={vi.fn()} />,
 		);

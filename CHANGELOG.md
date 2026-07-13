@@ -4,7 +4,123 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.4.0] – 2026-07-13
+
+This release is about reading: markdown files open as rendered documents in a real reading font with theme-native, contrast-checked code blocks; images get a proper preview; and the review pane picks up an undo for deletes, a keyboard path for edits, and a slimmer minimap that jumps where you click. The bundled agent skills grow eval suites, version-guarded installs, and a gentler uninstall.
+
+### Added
+
+- **Markdown files open as rendered preview.** Selecting a `.md` file in the file viewer now shows the rendered document by default, with a `[Preview │ Source]` toggle to reach the editor (a dirty-guard protects unsaved edits when switching back). The tree's right-click preview is retired — selecting the file _is_ the preview. Commit- and changes-list previews keep their modal.
+- **Image preview.** Selecting an image (png/jpg/gif/webp/svg…) shows a minimal centered preview with filename, dimensions, and size — instead of base64 noise in the editor. Capped at 20 MB; SVGs render inertly so scripted SVGs can't execute.
+- **A reading font for markdown.** Rendered markdown uses Hanken Grotesk (self-hosted) with GitHub-style typography: real heading sizes, list markers, task-list checkboxes, horizontal rules, zebra-striped tables, and contained images — restoring everything the CSS reset had silently stripped. Code keeps the terminal font.
+- **Theme-native code blocks.** Syntax highlighting in markdown now draws from per-theme tokens (dark, light, warm, tui) instead of a hardwired dark palette — no more cold blue-black code boxes on the warm theme — and every token color clears a WCAG 4.5:1 contrast gate enforced by a unit test.
+- **Undo for comment delete.** Deleting a review comment shows an undo toast (~6 s) that restores the exact comment — same id, status, and timestamps.
+- **Keyboard edit for comments.** `e` on the focused comment thread now opens the edit box (previously it only scrolled); Escape and Enter behave symmetrically across draft and edit modes (Enter saves, Shift+Enter breaks a line, Escape confirms before discarding changes).
+- **Calibrated bundled skills with eval suites.** The two companion skills (`ai-14all-fix-review`, `ai-14all-session-status`) now ship their M5d-calibrated content (versioned 0.1.0), and their evaluation suites live in the repo guarded by a new skills QA CI gate (shakespii lint + deterministic checks + version-bump discipline).
+
+### Changed
+
+- **Slimmer, smarter review minimap.** The comment minimap column shrinks from 46 px to 24 px, cluster counts render inside the dot, clicking a dot jumps to the comment _and_ opens its flyout, and dots carry screen-reader labels.
+- **Keyboard flow survives comment actions.** Submitting, saving, cancelling, or deleting a comment returns focus to the diff editor, so `j`/`k`/`e`/`x` keep working without a mouse click.
+- **Session-note preview matches the file viewer.** The note sheet renders through the same markdown pipeline (typography, reading font, themed code blocks included).
+- **Version-guarded skill installs.** The agent-skill installer compares semver versions before writing and never downgrades: an equal installed copy reports "Already up to date", a newer one reports "skipped — newer version installed", and the install dialog shows these statuses instead of a blanket "Installed".
+- **Softer skill uninstall.** Uninstalling now removes only the files the app wrote (`SKILL.md`), preserving anything else in the skill directory — such as locally installed eval suites — and removes the directory only when empty.
+
+### Fixed
+
+- **Duplicate comments on double-submit.** The save button and Enter stay disabled while a comment create or edit is in flight.
+- **Missing minimap dots in commits mode.** Opening a file in commits mode now renders its comment dots immediately (the minimap tracked editor registration lazily and could latch an empty state).
+- **Changes-mode diff states.** Loading and error states now show instead of falling through to a misleading "Select a file…" empty state.
+- **Hardened file access.** All file-viewer reads and writes (including the new image path) verify symlink-resolved containment inside the worktree, closing parent-directory symlink escapes.
+
+## [1.3.0] – 2026-07-10
+
+This release introduces the Phone Bridge: pair your phone with ai-14all over your local network and keep an eye on your agent workflows away from the desk — get woken by a push notification when a workflow needs you, and, with explicit per-device grants, pause, resume, or stop it from the phone. Samantha's spoken session reports now ride a canonical structured contract, and terminal layouts tidy themselves when shells close.
+
+### Added
+
+- **Phone Bridge (off by default).** A LAN-only bridge between ai-14all and a paired phone. Pairing is QR-initiated and confirmed with a short authentication string (SAS); device identities and pairings live in safeStorage-encrypted stores that fail closed when encryption is unavailable; every bridge action lands in an append-only audit log; and a kill switch drops the host instantly. A new Phone Bridge settings panel shows bridge status, drives pairing, and lists paired devices. Everything sits behind a `phoneBridge.enabled` setting — disabled (the default) means no host and no LAN listener at all.
+- **Push-wake notifications.** When a workflow transitions into needing you, the bridge sends a content-free push notification to wake the paired phone. Tokens are stored encrypted (one slot, cleared on unpair or replacement), dead tokens are cleaned up automatically, sends are retried with a bound, and every send is audited. Gated by `phoneBridge.pushWakeEnabled` (on by default, within an enabled bridge).
+- **Remote workflow control with per-device grants.** A paired phone granted the acting capability can pause, resume, or stop a running workflow; actions on terminal-state workflows are refused, pairings made before this release stay read-only until re-granted, and every lifecycle action is recorded in the acting audit with its channel and route.
+- **Unpair a phone.** A confirmed Unpair action in the Phone Bridge panel forgets the device: its session is de-authorized, its stored push token is cleared, and re-pairing starts from scratch.
+- **Terminal layouts reorganize themselves.** Closing a shell now auto-reorganizes the remaining terminal panes instead of leaving a hole.
+
+### Changed
+
+- **Samantha's spoken session reports are assembled from a canonical structure.** Session reports are now built as structured data on the shared command contract and rendered to speech from that structure, the observe assembler emits structured per-worktree data, and status snapshots ride the `ai-14all.supervisor` v1 envelope — groundwork for richer voice and remote surfaces sharing one report shape.
+
+### Fixed
+
+- **Closing the window with the red X no longer strands the app on macOS.** Clicking the Dock icon reopens the window as expected.
+- **Code-nav previews survive cortex availability changes.** Toggling the cortex plugin no longer disposes open preview models mid-session.
+
+## [1.2.0] – 2026-07-06
+
+A feature release on two fronts: your workspace now comes back the way you left it — settings, open workspaces, and agent conversations survive a restart — and the sidebar's attention signals got smarter about ai-whisper autonomous workflows and agent self-reporting.
+
+### Added
+
+- **Persistent app settings.** Theme, terminal font size, and your session-restore preference now persist across restarts through a dedicated settings store (atomic writes, first-run seeding from prior state) and a Settings dialog.
+- **Restore your workspaces on launch.** ai-14all reopens the workspaces you had open — the previously selected one immediately, the rest hydrated lazily in the background — governed by a restore-depth preference so you can choose eager terminals, state-only, or a clean start.
+- **Resume agent conversations after a restart.** Agents can register how to reopen their exact conversation via a new `register_agent_session` MCP tool; after an app restart or a shell relaunch, ai-14all offers to replay that resume command (setting-gated, with a manual affordance on the session card). Resume commands are validated against a strict character allowlist so only safe, replayable invocations are stored.
+
+### Changed
+
+- **The sidebar stays quiet during ai-whisper autonomous workflows.** While a workflow is running or paused, redundant "needs you" attention from MCP status reports and terminal heuristics is suppressed — the workflow lens is the sole authority, so only an escalation (needs a human) or completion surfaces attention. There is nothing to act on during an autonomous run until it escalates or finishes.
+- **Agent self-reporting mutes duplicate terminal heuristics.** Once an agent reports its status over MCP, ai-14all stops second-guessing it from terminal output for that agent's processes; plain shells (builds, tests) in the same worktree keep their own error/failure detection.
+- **One unified agent-detection mechanism.** Detection of claude, codex, ezio, cursor, and antigravity now runs through a single code path, so every provider consistently gets the output classifier, lifecycle signals, and the provider badge — previously ezio and whisper-mounted sessions silently missed out.
+- **The session-status skill skips status pushes during workflow turns**, cutting redundant `report_session_status` calls (and their token cost) when the app's workflow lens is already tracking the run.
+
+### Fixed
+
+- **The sidebar footer no longer crowds.** The Load workspace button and the icon actions (theme, help, settings) now sit on their own rows.
+
+## [1.1.1] – 2026-07-04
+
+### Fixed
+
+- **The sidebar workflow status card no longer vanishes after upgrading ai-whisper to a schema-v7 build.** ai-whisper 0.12.x bumped its state-db read-contract version from 6 to 7 (a purely additive change: two new duo tables). ai-14all pinned support to v6 exactly, so the probe reported the plugin incompatible — the whisper driver never started and the store reader refused all reads, leaving running workflows with no status card. The supported schema range is now 6–7, with regression tests covering v7 acceptance at both gates, and v8 ("update ai-14all") / v5 ("upgrade whisper") rejections.
+
+## [1.1.0] – 2026-07-03
+
+A polish release centered on first-run guidance and session-view UX hardening: new users get a guided tour and passive hints, the terminal gains a real font-size control, and the sidebar's attention signals, tooltips, and agent launchers were refined.
+
+### Added
+
+- **A first-launch guided tour and passive coachmarks.** On first run — once a repository is loaded — a four-step spotlight tour introduces the core workflow (isolated sessions, mounting an agent, the "needs you" signal, and in-window review), then hands off to passive coachmarks that surface **one hint at a time** (plugins, token usage, settings, the command palette) and stay gone once dismissed. The tour is armed only for genuinely new profiles — an upgrading install with existing workspaces is silently marked seen — and both the tour and hints can be replayed from **Help → Show Welcome Tour / Reset Onboarding Hints**.
+- **A user-adjustable terminal font size.** Terminal text size is now a persisted, global preference driven from the View-menu zoom accelerators and applied live to the panes.
+- **A color-independent "needs you" signal in the sidebar.** Action-required rows carry a non-color "needs you" badge so attention no longer depends on color alone, and every truncated sidebar row now shows its full text via a hover tooltip.
+- **Clearer agent launchers.** The per-agent launch chips gained a plus glyph and a resting fill so they read as actionable, and the collab status pill is de-boxed to sit more quietly in the header.
+- **An explicit workflow status word in the sidebar lens.** The workflow lens spells out its state (completed / halted / …) in the status color rather than relying on the dot alone.
+
+### Fixed
+
+- **View-menu zoom items no longer collide with the terminal font-size accelerators.** The built-in Electron View zoom entries were removed so the terminal shortcuts own those keys.
+- **Sidebar tooltips no longer intercept clicks.** The tooltip popper wrapper and content could swallow clicks on adjacent controls; both are now click-transparent, and the "needs you" tag text is vertically centered.
+
+## [1.0.0] – 2026-07-01
+
+The 1.0 milestone: ai-14all graduates from the 0.x line to its first major version. This release is dominated by a workspace-sidebar rework, a light/dark/warm theme overhaul, and the adoption of the aicreed brand mark.
+
+### Added
+
+- **A redesigned workspace sidebar built around a git-tree rail.** Repositories are now collapsible groups with a git-branch glyph and a persisted expand/collapse state, and worktrees and workspaces read as a clear type ladder. A slim mini-rail keeps the tree legible when the panel is collapsed, collapsed workspace rows show a session count and an attention dot, and the global footer gains a palette theme switcher.
+- **A three-tier session-attention model in the sidebar.** Sessions surface as a calm active ring, a dot-only "ready" tier, or an action-required tier, with stale and cleared running-process reasons retired so the ring lights up only when something genuinely needs you. Quiet sessions show a relative quiet-age ("quiet 3m"), and collapsed workspace rows roll their sessions' attention up into a single indicator.
+- **A slimmer workflow lens on the rail.** Each workflow card shows its type and artifact over a phase line, with status as an inline dot and a "ready" badge, nested on the rail — dropping the older done badge and heavier chrome.
+- **Per-worktree process-list collapse.** The process list collapses to its top row with an inline expand, and the expanded/collapsed choice persists per worktree.
+- **The aicreed brand mark is now the app logo,** with light and dark variants, alongside Nerd Font git-branch and palette glyphs used across the chrome.
+
+### Changed
+
+- **A full light / dark / warm theme overhaul.** All three themes now render with square corners (`--radius: 0`), solid neutral pane-separator borders, and Symbol Nerd Font icons, porting the TUI theme's traits across the board. The light theme was pushed from WCAG AA to AAA legibility.
+- **The review rail holds up in narrow layouts.** The rail's file column is sized responsively (`minmax`) so it can't overflow a cramped review area, long file names ellipsize instead of pushing controls out of view, and the per-row "Viewed" toggle now floats inline at each file's top-right corner — retiring the separate header mark-viewed control.
+- **Plugin dialogs lead with benefits.** The install dialog opens with a benefit-first description and per-plugin pitches, the Agent CLIs list is collapsible with a found-count summary, and the incomplete-install banner and its installer copy were rewritten in plain language.
+- **Usage analytics moved to per-event ezio timestamps.** The ezio driver now stamps each event from its own per-line timestamp (NaN-safe) rather than the file mtime, the month scope is a rolling 31-day window, and the month popover chart carries date labels.
+
+### Fixed
+
+- **Review file rows no longer overflow their grid.** Rows can shrink in the commit-files grid so names ellipsize, and the rail header slot maps its `1fr` track to the scroll list, keeping the layout stable.
+- **Sidebar layout hardening across themes.** Collapsed selection markers stay centered and single-boxed in every theme, worktree titles and branches ellipsis-clamp, header separators no longer bleed, and chrome icons recede at rest so the no-background hover highlight reads clearly.
 
 ## [0.11.2] – 2026-06-30
 

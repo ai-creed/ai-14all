@@ -1,0 +1,37 @@
+name: skills-qa
+# QA gate for the bundled agent skills (assets/agent-skills): shakespii lint
+# errors fail the build, deterministic harness checks must pass, and any
+# content change since the last release tag requires a version bump. Live
+# LLM sweeps (`shakespii test --run`) stay out of CI by design — they are
+# manual calibration campaigns run from this repo.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master, devel]
+concurrency:
+  group: skills-qa-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  skills-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history + tags: the version-discipline check diffs against
+          # the last v* release tag.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: corepack enable
+      # --ignore-scripts: skip this repo's Electron/native postinstall work —
+      # the QA step needs only the shakespii CLI (a TypeScript CLI executed by
+      # the bun runtime installed above) plus git.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Skills QA (lint + deterministic checks + version discipline)
+        run: node scripts/ci/skills-qa.mjs

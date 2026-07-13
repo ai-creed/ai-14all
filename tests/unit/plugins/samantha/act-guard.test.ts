@@ -3,6 +3,7 @@ import {
 	createActGuard,
 	type PrepResult,
 } from "../../../../services/plugins/samantha/act-guard";
+import type { ActingAuditEntry } from "../../../../services/diagnostics/acting-audit-logger";
 
 function make(over: Partial<Parameters<typeof createActGuard>[0]> = {}) {
 	const audit = vi.fn();
@@ -164,5 +165,44 @@ describe("act-guard", () => {
 				result: { ok: false, detail: "Terminal session not found: sess_1" },
 			}),
 		);
+	});
+
+	it("stamps channel:samantha on every audit entry (decision 7)", async () => {
+		const entries: ActingAuditEntry[] = [];
+		// Denial path (single reject result entry):
+		const denied = createActGuard({
+			verifyToken: () => false,
+			isActingEnabled: () => true,
+			execute: async () => ({ ok: true, detail: "" }),
+			audit: (e) => entries.push(e),
+		});
+		await denied.run({
+			token: undefined,
+			prepare: async () => {
+				throw new Error("unreached");
+			},
+		});
+		// Executing path (start/result pair):
+		const guard = createActGuard({
+			verifyToken: () => true,
+			isActingEnabled: () => true,
+			execute: async () => ({ ok: true, detail: "done" }),
+			audit: (e) => entries.push(e),
+		});
+		await guard.run({
+			token: "t",
+			prepare: async () => ({
+				ok: true,
+				worktreeId: "wt-1",
+				instruction: "do it",
+				decision: {
+					kind: "workflow-resume",
+					workflowId: "wf-1",
+					message: "go",
+				},
+			}),
+		});
+		expect(entries.length).toBe(3); // 1 reject + start + result
+		for (const e of entries) expect(e.channel).toBe("samantha");
 	});
 });

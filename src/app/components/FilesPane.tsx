@@ -16,7 +16,6 @@ export type FilesPaneProps = {
 	worktreeLabel: string;
 	selectedFile: string | null;
 	onSelect: (relativePath: string) => void;
-	onPreviewMarkdown?: (relativePath: string) => void;
 	changedFiles: GitChange[];
 	gitSummaryError?: boolean;
 	gitSummaryMessage?: string | null;
@@ -156,7 +155,6 @@ export function FilesPane(props: FilesPaneProps) {
 					searchTerm={symbolsActive ? "" : query}
 					selectedFile={props.selectedFile}
 					onSelect={props.onSelect}
-					onPreviewMarkdown={props.onPreviewMarkdown}
 					changedFiles={props.changedFiles}
 					gitSummaryError={props.gitSummaryError}
 					gitSummaryMessage={props.gitSummaryMessage}

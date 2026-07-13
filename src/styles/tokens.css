@@ -47,6 +47,7 @@
 	--info: oklch(0.72 0.13 235);
 	--success: oklch(0.72 0.15 155);
 	--danger: var(--destructive);
+	--ready: oklch(0.72 0.1 220);
 	--accent: var(--primary);
 
 	--radius-sm: max(0px, calc(var(--radius) - 4px));
@@ -66,6 +67,25 @@
 	--ws-fs-path: 12px;
 	--ws-fs-chip: 11px;
 	--rail: oklch(0.42 0.02 256); /* solid tree-rail (dark default) */
+
+	/* Syntax-highlighting tokens for markdown code blocks (spec D15/D16):
+	 * the GitHub-dark palette on the themed --popover code background.
+	 * --hljs-section lifted #1f6feb → #58a6ff (3.9:1 → 7.0:1) to clear the
+	 * 4.5:1 gate (hljs-contrast.test.ts); all others carried verbatim. */
+	--hljs-fg: #c9d1d9;
+	--hljs-comment: #8b949e;
+	--hljs-keyword: #ff7b72;
+	--hljs-entity: #d2a8ff;
+	--hljs-constant: #79c0ff;
+	--hljs-string: #a5d6ff;
+	--hljs-builtin: #ffa657;
+	--hljs-name: #7ee787;
+	--hljs-section: #58a6ff;
+	--hljs-bullet: #f2cc60;
+	--hljs-addition-fg: #aff5b4;
+	--hljs-addition-bg: #033a16;
+	--hljs-deletion-fg: #ffdcd7;
+	--hljs-deletion-bg: #67060c;
 
 	color: var(--foreground);
 	background: var(--background);
@@ -110,6 +130,27 @@
 	--warning: oklch(0.43 0.14 60);
 	/* AAA: darker green for the reviewed marker on the flat-white surface. */
 	--success: oklch(0.52 0.15 155);
+	--ready: oklch(0.55 0.11 230);
+
+	/* GitHub-light palette (migrated from the deleted hljs-light.css).
+	 * --hljs-builtin darkened #e36209 → #953800 (3.5:1 → 7.4:1) and
+	 * --hljs-addition-fg #22863a → #116329 (4.5:1 → 7.1:1 on its bg) to
+	 * clear the gate; all others carried verbatim. Keyword (4.57:1) and
+	 * name (4.65:1) pass with slim margin — do not darken the background. */
+	--hljs-fg: #24292e;
+	--hljs-comment: #6a737d;
+	--hljs-keyword: #d73a49;
+	--hljs-entity: #6f42c1;
+	--hljs-constant: #005cc5;
+	--hljs-string: #032f62;
+	--hljs-builtin: #953800;
+	--hljs-name: #22863a;
+	--hljs-section: #005cc5;
+	--hljs-bullet: #735c0f;
+	--hljs-addition-fg: #116329;
+	--hljs-addition-bg: #f0fff4;
+	--hljs-deletion-fg: #b31d28;
+	--hljs-deletion-bg: #ffeef0;
 }
 
 /* ---- warm theme: existing palette via shadcn token names ---- */
@@ -137,9 +178,28 @@
 	--warning: #dda85e;
 	--success: oklch(0.74 0.14 150);
 	--danger: #d97058;
+	--ready: #4f9d8f;
 	/* warm did not define --info -> inherited dark's blue. Pinned explicitly so
 	 * a future :root edit cannot silently change it (passes at 6.95:1). */
 	--info: oklch(0.72 0.13 235);
+
+	/* Warm-native code palette (spec D16): amber keyword family around
+	 * --primary #e58a5e, sand strings, khaki comments — every value picked
+	 * ≥ 4.5:1 on the warm --popover #342c22 (hljs-contrast.test.ts). */
+	--hljs-fg: #f6efe4;
+	--hljs-comment: #cab999;
+	--hljs-keyword: #e58a5e;
+	--hljs-entity: #e8a9a0;
+	--hljs-constant: #7cc0b0;
+	--hljs-string: #d9c39a;
+	--hljs-builtin: #dda85e;
+	--hljs-name: #a3c585;
+	--hljs-section: #f0a06c;
+	--hljs-bullet: #d9b573;
+	--hljs-addition-fg: #b8e0b9;
+	--hljs-addition-bg: #1e3620;
+	--hljs-deletion-fg: #f0c4b8;
+	--hljs-deletion-bg: #4a201a;
 }
 
 /* ---- Terminal UI theme: WebTUI-style stepped ladder on shadcn token names
@@ -170,10 +230,30 @@
 	--warning: oklch(0.828 0.122 75);
 	--info: oklch(0.72 0.13 235);
 	--success: oklch(0.74 0.13 165);
+	--ready: oklch(0.75 0.1 200);
 	--border: oklch(0.34 0.015 240);
 	--input: oklch(0.26 0.015 240);
 	--ring: var(--primary);
 	--rail: oklch(0.44 0.015 240);
+
+	/* Ladder-conformant code palette (spec D16, docs/tui-css-spec.md):
+	 * cursor-teal keywords + xterm-style accents on the bg1 --popover.
+	 * Literal oklch values (no var() — the contrast test parses literals);
+	 * keyword deliberately equals --primary's value. */
+	--hljs-fg: oklch(0.96 0.01 200);
+	--hljs-comment: oklch(0.7 0.02 230);
+	--hljs-keyword: oklch(0.78 0.13 175);
+	--hljs-entity: oklch(0.85 0.08 300);
+	--hljs-constant: oklch(0.8 0.1 235);
+	--hljs-string: oklch(0.87 0.06 140);
+	--hljs-builtin: oklch(0.8 0.11 65);
+	--hljs-name: oklch(0.85 0.12 145);
+	--hljs-section: oklch(0.75 0.12 210);
+	--hljs-bullet: oklch(0.83 0.1 90);
+	--hljs-addition-fg: oklch(0.85 0.1 150);
+	--hljs-addition-bg: oklch(0.3 0.05 150);
+	--hljs-deletion-fg: oklch(0.85 0.08 25);
+	--hljs-deletion-bg: oklch(0.3 0.08 25);
 
 	/* Character-grid tokens (spec §4.6): pin line-height so 1lh is
 	 * deterministic for cell-sized layout and box-drawing borders. */

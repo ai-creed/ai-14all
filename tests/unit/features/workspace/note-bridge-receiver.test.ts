@@ -38,6 +38,7 @@ function makeSession(worktreeId: string, note: string) {
 		processSessionIds: [],
 		attentionState: "idle" as const,
 		agentAttentionReasons: {},
+		agentAttentionClearedAt: null,
 		terminalLayoutId: "1" as const,
 		slotProcessIds: [null],
 		reviewSidebarWidth: 320,
@@ -51,6 +52,7 @@ function makeSession(worktreeId: string, note: string) {
 		navLocation: null,
 		floatingShellIds: [],
 		expandedFloatingShellId: null,
+		mcpReportingActive: false,
 	};
 }
 

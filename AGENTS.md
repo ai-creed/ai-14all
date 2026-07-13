@@ -34,6 +34,7 @@ Keep these boundaries intact:
 - Electron main stays thin.
 - Durable product logic belongs in services, not React components.
 - Shared contracts and shared models are the canonical source of truth across renderer and backend.
+- **XBP protocol contract:** `docs/shared/XBP-PROTOCOL.md` (secret, gitignored — synced mirror; owner is ai-xavier). Read it before touching bridge/pairing/acting/capability/audit code. Do not edit the mirror.
 
 The frontend should stay session-first:
 
@@ -115,6 +116,23 @@ Avoid pulling deferred scope into current work unless explicitly requested:
 - Non-superpowers design specs live under `docs/design-specs`.
 - Local agent execution plans live under `docs/superpowers/plans/` and are intentionally gitignored.
 - When adding or changing project direction, update the relevant design or planning doc rather than relying on conversational context only.
+
+## Bundled Agent Skills
+
+- `assets/agent-skills/` is the owning source of truth for the
+  `ai-14all-fix-review` and `ai-14all-session-status` skills. The content
+  originated bit-for-bit from `ai-skills @ 91890bb` (M5d calibration).
+- Any content change inside a bundled skill directory (SKILL.md or evals)
+  MUST bump the `version` field in that skill's SKILL.md frontmatter —
+  version-guarded installers silently skip unbumped content. CI enforces
+  this (`scripts/ci/skills-qa.mjs`, `skills-qa.yml`).
+- Calibration workflow: edit the skill here → `pnpm exec shakespii lint
+  <dir>` and `pnpm exec shakespii test <dir>` → bump `version` → PR. Live
+  trigger/grading sweeps (`shakespii test --run`) are manual campaigns,
+  never CI.
+- Evals (`evals/`) are dev/CI assets: the installer never writes them to
+  provider directories, and the packaged app excludes them.
+- Installed live copies (e.g. `~/.claude/skills/...`) are never hand-edited.
 
 ## Branch Completion
 

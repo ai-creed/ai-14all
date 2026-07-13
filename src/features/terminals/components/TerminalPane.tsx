@@ -75,6 +75,9 @@ export function TerminalPane({
 	const containerRef = useRef<HTMLDivElement>(null);
 	const termRef = useRef<Terminal | null>(null);
 	const fitAddonRef = useRef<FitAddon | null>(null);
+	// Root element ref: used to mirror the live xterm font size onto a DOM
+	// attribute so e2e can assert the rendered terminal size (see font effect).
+	const paneRootRef = useRef<HTMLElement | null>(null);
 	// Holds the latest fontSize for the mount-time terminal creation, which only
 	// re-runs on session.id. Live changes are applied by the effect below.
 	const fontSizeRef = useRef(fontSize);
@@ -352,9 +355,15 @@ export function TerminalPane({
 		const term = termRef.current;
 		const fitAddon = fitAddonRef.current;
 		if (!term || !fitAddon) return;
-		if (term.options.fontSize === fontSize) return;
+		const changed = term.options.fontSize !== fontSize;
 		term.options.fontSize = fontSize;
-		if (visible && isLive) fitAddon.fit();
+		// Test seam: expose the LIVE xterm option read back from the instance
+		// (not the React prop) so e2e verifies the terminal actually applied it.
+		paneRootRef.current?.setAttribute(
+			"data-terminal-font-size",
+			String(term.options.fontSize),
+		);
+		if (changed && visible && isLive) fitAddon.fit();
 	}, [fontSize, visible, isLive]);
 
 	// Apply color-theme changes (app palette) without recreating the terminal.
@@ -511,6 +520,7 @@ export function TerminalPane({
 
 	return (
 		<section
+			ref={paneRootRef}
 			aria-hidden={visible ? "false" : "true"}
 			className="shell-panel shell-terminal-pane"
 			data-terminal-session-id={session.id}

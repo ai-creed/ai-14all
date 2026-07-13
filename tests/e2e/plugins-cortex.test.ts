@@ -207,6 +207,8 @@ test.describe.serial("cortex plugin (stub binary)", () => {
 		const card = page.locator('[data-plugin-id="cortex"]');
 		await expect(card).toBeVisible({ timeout: 15_000 });
 
+		// Agent CLIs is collapsed by default now — expand it to reveal probe rows.
+		await page.locator('[data-testid="agent-clis-toggle"]').click();
 		// Wait for agent-CLI probes to resolve so Configure uses the full probed
 		// set (claude + codex are both found via AI14ALL_FAKE_AGENT_CLIS).
 		await expect(
@@ -248,6 +250,8 @@ test.describe.serial("cortex plugin (stub binary)", () => {
 		await page.getByRole("button", { name: "Open Plugins panel" }).click();
 		const card = page.locator('[data-plugin-id="cortex"]');
 		await expect(card).toBeVisible({ timeout: 15_000 });
+		// Agent CLIs is collapsed by default now — expand it to reveal probe rows.
+		await page.locator('[data-testid="agent-clis-toggle"]').click();
 		await expect(
 			page.locator('[data-cli="claude"][data-found="true"]'),
 		).toBeVisible({ timeout: 15_000 });

@@ -5,6 +5,7 @@ import type { Repository } from "../models/repository.js";
 import type { Worktree } from "../models/worktree.js";
 import type { TerminalSession } from "../models/terminal-session.js";
 import type { FileReadResult } from "../models/file-view.js";
+import type { ImageReadResult } from "../models/image-view.js";
 import type {
 	TerminalOutputEvent,
 	TerminalExitEvent,
@@ -26,6 +27,11 @@ import {
 	PersistedWorkspaceStateV2Schema,
 	type PersistedWorkspaceStateV2,
 } from "../models/persisted-workspace-state.js";
+import {
+	SettingsPatchSchema,
+	type PersistedSettingsV1,
+	type SettingsPatch,
+} from "../models/persisted-settings.js";
 import type {
 	CreateWorktreePreview,
 	RemoveWorktreePreview,
@@ -40,6 +46,10 @@ import type {
 	AgentAttentionBridgeReply,
 	AgentAttentionBridgeRequest,
 } from "./agent-attention-bridge.js";
+import type {
+	AgentResumeBridgeReply,
+	AgentResumeBridgeRequest,
+} from "./agent-resume-bridge.js";
 import type { PluginsApi } from "./plugins.js";
 
 // --- Zod schemas for command payloads ---
@@ -290,6 +300,16 @@ export type DiagnosticsAttentionLogEvent =
 			nextAction: string | null;
 	  }
 	| {
+			type: "mcp_resume_rejected";
+			ts: number;
+			worktreeId: string;
+			// Raw free-text provider the agent reported (NOT the constrained
+			// `AttentionLogProvider` enum). Mirrors `MCPResumeRejectedLogEvent` in
+			// services/diagnostics/agent-attention-logger.ts.
+			provider: string;
+			reason: string;
+	  }
+	| {
 			type: "lifecycle";
 			ts: number;
 			worktreeId: string;
@@ -317,6 +337,10 @@ export const ReadWorkspaceRestoreStateSchema = z.object({});
 
 export const WriteWorkspaceRestoreStateSchema = z.object({
 	state: PersistedWorkspaceStateV2Schema,
+});
+
+export const WriteSettingsSchema = z.object({
+	patch: SettingsPatchSchema.strict(),
 });
 
 export const ReadGitCommitHistorySchema = z.object({
@@ -364,6 +388,15 @@ export interface UpdateInfo {
 	version: string;
 	url: string;
 	releaseDate: string;
+}
+
+export interface PhoneBridgeStatus {
+	enabled: boolean;
+	listening: boolean;
+	addr: string | null;
+	port: number | null;
+	paired: boolean;
+	sas: string | null;
 }
 
 // --- The API surface exposed to the renderer via the preload bridge ---
@@ -422,6 +455,11 @@ export type Ai14AllDesktopApi = {
 			worktreeId: string,
 			relativePath: string,
 		): Promise<FileReadResult>;
+		readImage(
+			workspaceId: string,
+			worktreeId: string,
+			relativePath: string,
+		): Promise<ImageReadResult>;
 		openForEdit(
 			workspaceId: string,
 			worktreeId: string,
@@ -482,6 +520,16 @@ export type Ai14AllDesktopApi = {
 		writeRestoreState(state: PersistedWorkspaceStateV2): Promise<void>;
 		onOpenPicker(listener: () => void): () => void;
 	};
+	settings: {
+		initial: PersistedSettingsV1;
+		// Captured once from the preload's sendSync settings:readSync call — the
+		// only point that can observe firstRun: true (see preload/index.ts). The
+		// async read() below always reports firstRun: false because the sendSync
+		// call above already seeds the file first.
+		initialFirstRun: boolean;
+		read(): Promise<{ settings: PersistedSettingsV1; firstRun: boolean }>;
+		write(patch: SettingsPatch): Promise<PersistedSettingsV1>;
+	};
 	diagnostics: {
 		logShellEvent(event: z.infer<typeof LogShellEventSchema>): Promise<void>;
 		logAttentionEvent(event: DiagnosticsAttentionLogEvent): void;
@@ -515,6 +563,9 @@ export type Ai14AllDesktopApi = {
 		>;
 		reopen(commentId: string): Promise<{ comment: ReviewComment | null }>;
 		delete(commentId: string): Promise<{ deleted: boolean }>;
+		restore(
+			comment: ReviewComment,
+		): Promise<{ ok: true } | { ok: false; error: "already_exists" }>;
 		update(
 			commentId: string,
 			body: string,
@@ -600,6 +651,27 @@ export type Ai14AllDesktopApi = {
 		onSetTheme(
 			handler: (mode: "system" | "light" | "dark" | "warm" | "tui") => void,
 		): () => void;
+		// Optional: implemented by the real preload bridge; the hook consuming
+		// this handles absence gracefully so non-Electron contexts (unit tests,
+		// future non-desktop shells) do not need a stub.
+		onAdjustTerminalFontSize?(
+			handler: (action: "increase" | "decrease" | "reset") => void,
+		): () => void;
+		// Optional: implemented by the real preload bridge; the onboarding hook
+		// optional-chains these, so non-Electron contexts need no stub.
+		onShowWelcomeTour?(handler: () => void): () => void;
+		onResetOnboardingHints?(handler: () => void): () => void;
+		onSettingsChanged(cb: (settings: PersistedSettingsV1) => void): () => void;
+		// Agent conversation-resume bridge (main → renderer request/ack). Optional:
+		// the real preload bridge implements these; the consuming hook
+		// optional-chains them so non-Electron contexts (unit tests, future
+		// non-desktop shells) need no stub.
+		onAgentResumeRequest?(
+			handler: (req: AgentResumeBridgeRequest) => void,
+		): () => void;
+		sendAgentResumeReply?(reply: AgentResumeBridgeReply): void;
+		sendAgentResumeReady?(): void;
+		sendAgentResumeGoodbye?(): void;
 	};
 	app: {
 		setEditorDirty(args: {
@@ -671,6 +743,14 @@ export type Ai14AllDesktopApi = {
 			}) => void,
 		): () => void;
 		onAvailabilityChanged(handler: () => void): () => void;
+	};
+	phoneBridge: {
+		status(): Promise<PhoneBridgeStatus | undefined>;
+		setEnabled(enabled: boolean): Promise<PhoneBridgeStatus | undefined>;
+		startPairing(): Promise<{ offer: string | null }>;
+		confirmSas(ok: boolean): Promise<boolean>;
+		forget(): Promise<PhoneBridgeStatus | undefined>;
+		onStatusChanged(handler: (status: PhoneBridgeStatus) => void): () => void;
 	};
 };
 

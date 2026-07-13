@@ -3,14 +3,28 @@ import {
 	buildWorktreeAttentionDisplay,
 	buildWorktreeProcessSummary,
 	formatQuietAge,
+	formatRelativeQuiet,
 } from "../../../src/features/workspace/logic/sidebar-shell-summary";
 import { STALE_THRESHOLD_MS } from "../../../shared/models/agent-attention";
+import type { AgentAttentionReason } from "../../../shared/models/agent-attention";
 
 const now = 20_000;
 
 describe("formatQuietAge", () => {
 	it("formats quiet age in whole seconds", () => {
-		expect(formatQuietAge(14_900)).toBe("quiet for 14s");
+		expect(formatQuietAge(14_900)).toBe("quiet 14s");
+	});
+});
+
+describe("formatRelativeQuiet", () => {
+	it("formats seconds, minutes, hours, days", () => {
+		expect(formatRelativeQuiet(5_000)).toBe("quiet 5s");
+		expect(formatRelativeQuiet(180_000)).toBe("quiet 3m");
+		expect(formatRelativeQuiet(5 * 3_600_000)).toBe("quiet 5h");
+		expect(formatRelativeQuiet(2 * 86_400_000)).toBe("quiet 2d");
+	});
+	it("floors sub-second to 1s", () => {
+		expect(formatRelativeQuiet(0)).toBe("quiet 1s");
 	});
 });
 
@@ -65,7 +79,7 @@ describe("buildWorktreeProcessSummary", () => {
 		).toEqual([
 			["claude", "actionRequired", "Continue? [y/N]"],
 			["dev", "active", "compiled in 124ms"],
-			["tests", "idle", "quiet for 12s"],
+			["tests", "idle", "quiet 12s"],
 			["lint", "exited", "exit 1"],
 		]);
 	});
@@ -446,8 +460,9 @@ describe("buildWorktreeAttentionDisplay", () => {
 				},
 			},
 			processSummary: { rows: [], overflowCount: 0 },
+			now,
 		});
-		expect(display.state).toBe("active");
+		expect(display.state).toBe("ready");
 		expect(display.context).toContain("implementation complete");
 	});
 
@@ -485,11 +500,12 @@ describe("buildWorktreeAttentionDisplay", () => {
 					provider: null,
 				},
 			},
+			now,
 		});
 		expect(display.state).toBe("actionRequired");
 	});
 
-	it("maps mcp ready to SidebarShellState 'active', not 'activity'", () => {
+	it("maps mcp ready to SidebarShellState 'ready', not 'activity'", () => {
 		const display = buildWorktreeAttentionDisplay({
 			sessionAgentAttentionReasons: {
 				mcp: {
@@ -501,20 +517,21 @@ describe("buildWorktreeAttentionDisplay", () => {
 				},
 			},
 			processSummary: { rows: [], overflowCount: 0, topRow: null },
+			now,
 		});
-		expect(display.state).toBe("active");
+		expect(display.state).toBe("ready");
 		expect(display.state).not.toBe("activity");
 	});
 
-	it("returns process row when mcp and top process row have equal severity rank", () => {
-		// both mcp and top process row are at the "active" SidebarShellState level (ready maps to active)
-		// per the > comparison, process row wins on tie
+	it("returns process row when session and process have equal severity rank", () => {
+		// both mcp:waiting (session actionRequired rank 4) and top process row are at
+		// actionRequired (rank 4) — per the strict > comparison, process row wins on tie
 		const display = buildWorktreeAttentionDisplay({
 			sessionAgentAttentionReasons: {
 				mcp: {
-					state: "ready",
+					state: "waiting",
 					source: "mcp",
-					summary: "mcp done",
+					summary: "mcp waiting",
 					nextAction: null,
 					reportedAt: 1_000,
 				},
@@ -524,7 +541,7 @@ describe("buildWorktreeAttentionDisplay", () => {
 					{
 						id: "p1",
 						label: "claude",
-						state: "active",
+						state: "actionRequired",
 						context: "process context",
 						lastActivityAt: now,
 						hasFailedReason: false,
@@ -535,15 +552,239 @@ describe("buildWorktreeAttentionDisplay", () => {
 				topRow: {
 					id: "p1",
 					label: "claude",
-					state: "active",
+					state: "actionRequired",
 					context: "process context",
 					lastActivityAt: now,
 					hasFailedReason: false,
 					provider: null,
 				},
 			},
+			now: 5_000, // 4 s after reportedAt=1000, fresh (< STALE_THRESHOLD_MS=120 000)
 		});
-		expect(display.state).toBe("active");
+		expect(display.state).toBe("actionRequired");
 		expect(display.context).toBe("process context");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Three-tier tests (Task 1)
+// ---------------------------------------------------------------------------
+
+const reason = (
+	state: AgentAttentionReason["state"],
+	source: AgentAttentionReason["source"],
+	reportedAt: number,
+	summary = "x",
+): AgentAttentionReason => ({
+	state,
+	source,
+	summary,
+	nextAction: null,
+	reportedAt,
+});
+
+const emptySummary = { rows: [], overflowCount: 0, topRow: null };
+// All reportedAt/now values below are relative to STALE_THRESHOLD_MS = 120_000ms.
+
+import { rollupWorkspaceAttention } from "../../../src/features/workspace/logic/sidebar-shell-summary";
+
+describe("rollupWorkspaceAttention", () => {
+	it("returns actionRequired if any worktree needs action", () => {
+		expect(rollupWorkspaceAttention(["idle", "ready", "actionRequired"])).toBe(
+			"actionRequired",
+		);
+	});
+	it("returns ready if any worktree is ready and none need action", () => {
+		expect(rollupWorkspaceAttention(["idle", "activity", "ready"])).toBe(
+			"ready",
+		);
+	});
+	it("returns null when everything is calm", () => {
+		expect(rollupWorkspaceAttention(["idle", "activity", "idle"])).toBeNull();
+		expect(rollupWorkspaceAttention([])).toBeNull();
+	});
+});
+
+describe("buildWorktreeAttentionDisplay three-tier", () => {
+	it("retires a stale mcp:waiting cleared by a later workflow:done (the false-red bug)", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: {
+				mcp: reason("waiting", "mcp", 1000),
+				workflow: reason("ready", "workflow", 2000, "workflow done"),
+			},
+			processSummary: emptySummary,
+			now: 2000,
+			agentAttentionClearedAt: 2000,
+		});
+		expect(display.state).toBe("ready");
+	});
+
+	it("surfaces a done workflow as the ready tier", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: {
+				workflow: reason("ready", "workflow", 5),
+			},
+			processSummary: emptySummary,
+			now: 5,
+			agentAttentionClearedAt: null,
+		});
+		expect(display.state).toBe("ready");
+	});
+
+	it("keeps a fresh mcp:waiting (reported after the clear) red", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: { mcp: reason("waiting", "mcp", 3000) },
+			processSummary: emptySummary,
+			now: 3500,
+			agentAttentionClearedAt: 2000,
+		});
+		expect(display.state).toBe("actionRequired");
+	});
+
+	it("retires a lone stale-by-age mcp:waiting with no terminal clear (spec §4.2)", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: { mcp: reason("waiting", "mcp", 1000) },
+			processSummary: emptySummary,
+			now: 1000 + 200_000, // quiet > STALE_THRESHOLD_MS since the waiting was reported
+			agentAttentionClearedAt: null,
+		});
+		expect(display.state).toBe("idle");
+	});
+
+	it("keeps a recent mcp:waiting red even without a clear", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: { mcp: reason("waiting", "mcp", 1000) },
+			processSummary: emptySummary,
+			now: 1000 + 5_000, // 5s < STALE_THRESHOLD_MS
+			agentAttentionClearedAt: null,
+		});
+		expect(display.state).toBe("actionRequired");
+	});
+
+	it("ignores non-authoritative session sources at session scope", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: {
+				terminal: reason("waiting", "terminal", 9),
+			},
+			processSummary: emptySummary,
+			now: 9,
+		});
+		expect(display.state).toBe("idle");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Process-path action-required retirement (Task 13, spec §4.2 gap 3)
+// ---------------------------------------------------------------------------
+
+const proc = (over: Record<string, unknown> = {}) => ({
+	id: "p",
+	label: "claude",
+	status: "running" as const,
+	attentionState: "actionRequired" as const,
+	lastActivityAt: 0,
+	lastOutputPreview: null,
+	exitCode: null,
+	agentAttentionReasons: {},
+	agentAttentionClearedAt: null,
+	...over,
+});
+
+describe("deriveState process-path retirement", () => {
+	it("retires a running process's actionRequired once it is quiet past the threshold", () => {
+		const summary = buildWorktreeProcessSummary(
+			[proc({ lastActivityAt: 0 })],
+			200_000,
+		);
+		expect(summary.topRow?.state).not.toBe("actionRequired");
+	});
+	it("keeps a fresh running process's actionRequired", () => {
+		const summary = buildWorktreeProcessSummary(
+			[proc({ lastActivityAt: 4_000 })],
+			5_000,
+		);
+		expect(summary.topRow?.state).toBe("actionRequired");
+	});
+	it("retires a fresh-but-cleared running process (clearedAt >= lastActivityAt)", () => {
+		// Recent activity (not stale by age) but cleared after that activity → retired.
+		const summary = buildWorktreeProcessSummary(
+			[proc({ lastActivityAt: 4_000, agentAttentionClearedAt: 4_000 })],
+			5_000,
+		);
+		expect(summary.topRow?.state).not.toBe("actionRequired");
+	});
+	it("an exited process is never actionRequired", () => {
+		const summary = buildWorktreeProcessSummary(
+			[proc({ status: "exited", lastActivityAt: 100 })],
+			1_000,
+		);
+		expect(summary.topRow?.state).toBe("exited");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Workflow suppression (Task 3, spec §4, D1+D5)
+// ---------------------------------------------------------------------------
+
+describe("workflow suppression (spec §4, D1+D5)", () => {
+	const NOW = 1_000_000;
+
+	it("suppressActionRequired drops a process row to active/idle", () => {
+		const waitingProcess = proc({
+			lastActivityAt: NOW - 1_000,
+			lastOutputPreview: "Continue? (y/n)",
+		});
+
+		const normal = buildWorktreeProcessSummary([waitingProcess], NOW, 3);
+		expect(normal.rows[0].state).toBe("actionRequired");
+
+		const suppressed = buildWorktreeProcessSummary([waitingProcess], NOW, 3, {
+			suppressActionRequired: true,
+		});
+		// Recent activity → "active", never the red tier (spec §4).
+		expect(suppressed.rows[0].state).toBe("active");
+		expect(suppressed.topRow?.state).toBe("active");
+	});
+
+	it("suppressNonWorkflow ignores the mcp source entirely", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: {
+				mcp: reason("waiting", "mcp", NOW - 1_000, "needs an answer"),
+			},
+			processSummary: emptySummary,
+			now: NOW,
+			suppressNonWorkflow: true,
+		});
+		expect(display.state).not.toBe("actionRequired");
+	});
+
+	it("workflow source passes through while suppressed (escalation still NEEDS YOU)", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: {
+				workflow: reason(
+					"waiting",
+					"workflow",
+					NOW - 1_000,
+					"halted: round limit reached",
+				),
+			},
+			processSummary: emptySummary,
+			now: NOW,
+			suppressNonWorkflow: true,
+		});
+		expect(display.state).toBe("actionRequired");
+		expect(display.source).toBe("session");
+	});
+
+	it("workflow done yields ready while suppressed", () => {
+		const display = buildWorktreeAttentionDisplay({
+			sessionAgentAttentionReasons: {
+				workflow: reason("ready", "workflow", NOW - 1_000, "workflow done"),
+			},
+			processSummary: emptySummary,
+			now: NOW,
+			suppressNonWorkflow: true,
+		});
+		expect(display.state).toBe("ready");
 	});
 });

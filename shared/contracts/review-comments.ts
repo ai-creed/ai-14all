@@ -9,6 +9,7 @@ export const REVIEW_CREATE = "reviewComments:create" as const;
 export const REVIEW_MARK_ADDRESSED = "reviewComments:markAddressed" as const;
 export const REVIEW_REOPEN = "reviewComments:reopen" as const;
 export const REVIEW_DELETE = "reviewComments:delete" as const;
+export const REVIEW_RESTORE = "reviewComments:restore" as const;
 export const REVIEW_REBASE = "reviewComments:rebaseWorktreeIds" as const;
 
 export const ReviewListRequestSchema = z.object({
@@ -62,6 +63,15 @@ export const ReviewDeleteRequestSchema = z.object({
 export const ReviewDeleteResponseSchema = z.object({
 	deleted: z.boolean(),
 });
+
+export const ReviewRestoreRequestSchema = ReviewCommentSchema;
+export const ReviewRestoreResponseSchema = z.discriminatedUnion("ok", [
+	z.object({ ok: z.literal(true) }),
+	z.object({
+		ok: z.literal(false),
+		error: z.enum(["already_exists"]),
+	}),
+]);
 
 export const ReviewRebaseRequestSchema = z.object({
 	mapping: z.record(z.string(), z.string()),

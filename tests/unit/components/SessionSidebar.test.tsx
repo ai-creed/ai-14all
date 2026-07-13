@@ -30,6 +30,7 @@ const workspaces = [
 		worktrees,
 		selectedWorktreeId: "feature-a",
 		attentionByWorktreeId: {},
+		collapsedSummary: { sessionCount: 0, attentionTier: null },
 		active: true,
 		hydrated: true,
 	},
@@ -200,13 +201,13 @@ describe("SessionSidebar", () => {
 										id: "process-2",
 										label: "npm run dev",
 										state: "idle",
-										context: "quiet for 18s",
+										context: "quiet 18s",
 										lastActivityAt: 2_000,
 										hasFailedReason: false,
 										provider: null,
 									},
 								],
-								overflowCount: 1,
+								overflowCount: 0,
 							},
 						},
 					},
@@ -219,6 +220,7 @@ describe("SessionSidebar", () => {
 				onCreateWorktree={vi.fn()}
 				onRemoveWorktree={vi.fn()}
 				onRemoveWorkspace={vi.fn()}
+				expandedProcessWorktreeIds={["main"]}
 			/>,
 		);
 
@@ -226,8 +228,13 @@ describe("SessionSidebar", () => {
 		expect(within(group).getByText("claude")).toBeInTheDocument();
 		expect(within(group).getByText("npm run dev")).toBeInTheDocument();
 		expect(within(group).getByText("Continue? [y/N]")).toBeInTheDocument();
-		expect(within(group).getByText("quiet for 18s")).toBeInTheDocument();
-		expect(within(group).getByText("1 more shell")).toBeInTheDocument();
+		expect(within(group).getByText("quiet 18s")).toBeInTheDocument();
+		// With only 2 shells the list never collapses (a top row + a toggle
+		// would occupy the same two lines), so both rows show and there is no
+		// expand/collapse control.
+		expect(
+			within(group).queryByRole("button", { name: /more|show less/i }),
+		).not.toBeInTheDocument();
 		const indicators = within(group).getAllByTestId("process-state-indicator");
 		expect(indicators).toHaveLength(2);
 		expect(indicators[0]).toHaveAttribute("data-state", "actionRequired");
@@ -271,7 +278,10 @@ describe("SessionSidebar", () => {
 		);
 
 		const group = screen.getByRole("group", { name: "repo-a" });
-		expect(within(group).getByText("3 more shells")).toBeInTheDocument();
+		// Collapsed rollup surfaces the hidden process count as an expandable button.
+		expect(
+			within(group).getByRole("button", { name: "3 more ›" }),
+		).toBeInTheDocument();
 	});
 
 	it("hides overflow shell line when count is zero", () => {
@@ -661,6 +671,32 @@ describe("SessionSidebar footer label", () => {
 		const btn = screen.getByRole("button", { name: /new session/i });
 		expect(btn).toBeInTheDocument();
 		expect(btn.textContent).toBe("+ New session");
+	});
+});
+
+describe("SessionSidebar footer layout", () => {
+	it("stacks the footer into two rows: load button, then the icon actions", () => {
+		const { container } = renderSidebar({
+			palette: "dark",
+			onSetTheme: vi.fn(),
+			onOpenShortcutsHelp: vi.fn(),
+			onOpenSettings: vi.fn(),
+		});
+		const footer = container.querySelector(".shell-sidebar__footer--global");
+		const actions = container.querySelector(".shell-sidebar__footer-actions");
+		expect(footer).not.toBeNull();
+		expect(actions).not.toBeNull();
+		expect(actions!.parentElement).toBe(footer);
+
+		// Load workspace sits directly in the footer, on its own row.
+		const load = screen.getByRole("button", { name: /load workspace/i });
+		expect(load.parentElement).toBe(footer);
+
+		// All icon triggers share the actions row.
+		for (const name of [/switch theme/i, /keyboard shortcuts/i, /settings/i]) {
+			const btn = screen.getByRole("button", { name });
+			expect(actions!.contains(btn)).toBe(true);
+		}
 	});
 });
 

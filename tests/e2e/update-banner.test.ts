@@ -76,8 +76,11 @@ test.describe("downloaded update shows Restart now / Later", () => {
 	});
 
 	test("banner shows the downloaded version with a Restart now button", async () => {
-		await expect(h.page.getByRole("status")).toBeVisible({ timeout: 15_000 });
-		await expect(h.page.getByRole("status")).toContainText("99.0.0");
+		// Scoped locator: role=status is ambiguous when the install-gap banner is present.
+		await expect(h.page.locator(".update-banner")).toBeVisible({
+			timeout: 15_000,
+		});
+		await expect(h.page.locator(".update-banner")).toContainText("99.0.0");
 		await expect(
 			h.page.getByRole("button", { name: /restart now/i }),
 		).toBeVisible();
@@ -111,8 +114,10 @@ test.describe("Later dismisses the restart prompt for the session", () => {
 	});
 
 	test("Later hides the banner", async () => {
-		await expect(h.page.getByRole("status")).toBeVisible({ timeout: 15_000 });
+		await expect(h.page.locator(".update-banner")).toBeVisible({
+			timeout: 15_000,
+		});
 		await h.page.getByRole("button", { name: /later/i }).click();
-		await expect(h.page.getByRole("status")).toBeHidden();
+		await expect(h.page.locator(".update-banner")).toBeHidden();
 	});
 });

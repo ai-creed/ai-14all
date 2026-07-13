@@ -11,11 +11,13 @@ import { join } from "node:path";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 import { closeApp } from "./fixtures/close-app";
 
-// Regression for: adding a shell into a slot left empty by closing a NON-last
-// shell killed a later shell (its running process was orphaned). The in-grid
-// "+ start a shell" CTA dispatches session/placeProcessInNewSlot, which
-// compacted the slot model before placing — shifting a later shell into the
-// target index and overwriting it. This drives the real CTA path end-to-end.
+// Regression for: closing a NON-last shell must never orphan a later shell's
+// running process. Closing a shell now auto-reorganizes the layout — it shrinks
+// to a smaller layout and compacts survivors forward (no empty slot left
+// behind). This drives that close path end-to-end and asserts the later shell's
+// process survives, packed forward into the freed slot rather than killed.
+// (The in-place gap-fill path for restored/oversized layouts is covered by the
+// terminal-layout-reducer unit tests.)
 
 let app: ElectronApplication | undefined;
 let page: Page;
@@ -71,7 +73,7 @@ test.afterAll(async () => {
 	}
 });
 
-test("filling a gap from a closed middle shell keeps the later shell alive", async () => {
+test("closing a middle shell reorganizes and keeps the later shell alive", async () => {
 	test.setTimeout(90_000);
 
 	// 3 equal columns; fill all three slots.
@@ -89,28 +91,18 @@ test("filling a gap from a closed middle shell keeps the later shell alive", asy
 		.getAttribute("data-process-id");
 	expect(laterId).toBeTruthy();
 
-	// Close the MIDDLE shell (slot 1) -> leaves an empty slot with a CTA.
+	// Close the MIDDLE shell (slot 1). Auto-reorganize shrinks 3-v -> 2-v and
+	// compacts survivors forward: the later shell moves from slot 2 into slot 1,
+	// with no empty slot or CTA left behind.
 	await page.getByTestId("slot-close-1").click();
-	await expect(page.getByTestId("slot-cta-1")).toBeVisible();
-	// The later shell is still in slot 2 at this point.
-	await expect(page.getByTestId("slot-2")).toHaveAttribute(
-		"data-process-id",
-		laterId!,
-	);
-
-	// Fill the gap via the in-grid CTA.
-	await page.getByTestId("slot-cta-1").click();
 	await expect(page.getByTestId("slot-1")).toBeVisible();
+	await expect(page.getByTestId("slot-2")).toHaveCount(0);
+	await expect(page.getByTestId("slot-cta-1")).toHaveCount(0);
 
-	// The later shell must NOT have been killed/overwritten: slot 2 still holds
-	// the same process, and the new shell occupies slot 1 with a different id.
-	await expect(page.getByTestId("slot-2")).toHaveAttribute(
+	// The later shell must NOT have been killed/overwritten: its process is now
+	// packed forward into slot 1, still alive with the same id.
+	await expect(page.getByTestId("slot-1")).toHaveAttribute(
 		"data-process-id",
 		laterId!,
 	);
-	const newId = await page
-		.getByTestId("slot-1")
-		.getAttribute("data-process-id");
-	expect(newId).toBeTruthy();
-	expect(newId).not.toBe(laterId);
 });

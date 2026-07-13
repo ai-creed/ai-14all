@@ -40,3 +40,29 @@ describe("UsageHost chipRange persistence (host contract)", () => {
 		expect(next.buildConfig().chipRange).toBe("month"); // seeds the config the worker receives
 	});
 });
+
+// The settings:write funnel already persists (via SettingsService) before it
+// live-applies to the host, so the host's appliers invoked from that path must
+// NOT persist again — a second write would double-write settings.json and
+// desync the usage-settings-bridge snapshot.
+describe("UsageHost non-persisting appliers (settings:write live-apply seam)", () => {
+	it("applyChipRange updates the effective range without persisting", () => {
+		const store = makeStore({ chipRange: "week" });
+		const host = new UsageHost(opts(store));
+
+		host.applyChipRange("month");
+
+		expect(store.current.chipRange).toBe("week"); // store untouched
+		expect(host.buildConfig().chipRange).toBe("month"); // but live config updated
+	});
+
+	it("applyIncludeUntracked updates the effective flag without persisting", () => {
+		const store = makeStore({ includeUntracked: false });
+		const host = new UsageHost(opts(store));
+
+		host.applyIncludeUntracked(true);
+
+		expect(store.current.includeUntracked).toBe(false); // store untouched
+		expect(host.buildConfig().includeUntracked).toBe(true); // but live config updated
+	});
+});

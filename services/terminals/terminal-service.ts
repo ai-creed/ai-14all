@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import pty from "node-pty";
 import type { IPty } from "node-pty";
+import { TERMINAL_SESSION_ENV_VAR } from "../../shared/contracts/terminal-env.js";
 import type { TerminalSession } from "../../shared/models/terminal-session.js";
 import type { AgentAttentionLogger } from "../diagnostics/agent-attention-logger.js";
 import type { ShellEventLogInput } from "../diagnostics/shell-event-log-service.js";
@@ -121,7 +122,10 @@ export class TerminalService {
 				cols: 80,
 				rows: 24,
 				cwd,
-				env: process.env as Record<string, string>,
+				env: {
+					...(process.env as Record<string, string>),
+					[TERMINAL_SESSION_ENV_VAR]: id,
+				},
 			});
 		} catch (err: unknown) {
 			const meta: TerminalSession = {

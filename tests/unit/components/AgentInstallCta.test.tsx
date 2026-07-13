@@ -7,7 +7,7 @@ import { AgentInstallCta } from "../../../src/features/review/components/AgentIn
 describe("AgentInstallCta", () => {
 	it("renders the install copy and a button", () => {
 		render(<AgentInstallCta onOpenInstall={() => {}} />);
-		expect(screen.getByText(/Install fix-review skill/i)).toBeTruthy();
+		expect(screen.getByText(/Connect your agent/i)).toBeTruthy();
 		expect(screen.getByRole("button", { name: /Install/i })).toBeTruthy();
 	});
 

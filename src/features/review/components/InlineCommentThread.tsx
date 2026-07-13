@@ -1,12 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReviewComment } from "../../../../shared/models/review-comment";
+import type { ThreadActions } from "../logic/inline-thread-mount";
 
 type Props = {
 	comment: ReviewComment;
 	onSave: (body: string) => Promise<boolean>;
 	onToggleAddressed: () => void;
 	onDelete: () => void;
+	onCancelEdit: () => void;
 	onMeasureChange: () => void;
+	onRegisterActions?: (actions: ThreadActions | null) => void;
 };
 
 export function InlineCommentThread({
@@ -14,12 +17,26 @@ export function InlineCommentThread({
 	onSave,
 	onToggleAddressed,
 	onDelete,
+	onCancelEdit,
 	onMeasureChange,
+	onRegisterActions,
 }: Props) {
 	const [editing, setEditing] = useState(false);
 	const [expanded, setExpanded] = useState(comment.status === "open");
 	const [draft, setDraft] = useState(comment.body);
+	const [saving, setSaving] = useState(false);
 	const rootRef = useRef<HTMLDivElement>(null);
+
+	const save = async () => {
+		if (saving || draft.trim().length === 0) return;
+		setSaving(true);
+		try {
+			const ok = await onSave(draft.trim());
+			if (ok) setEditing(false);
+		} finally {
+			setSaving(false);
+		}
+	};
 
 	useLayoutEffect(() => {
 		onMeasureChange();
@@ -28,6 +45,15 @@ export function InlineCommentThread({
 	useEffect(() => {
 		if (comment.status === "open") setExpanded(true);
 	}, [comment.status, comment.id]);
+
+	useEffect(() => {
+		onRegisterActions?.({
+			openEdit: () => {
+				if (comment.status === "open") setEditing(true);
+			},
+		});
+		return () => onRegisterActions?.(null);
+	}, [comment.id, comment.status, onRegisterActions]);
 
 	if (comment.status === "addressed" && !expanded) {
 		return (
@@ -71,6 +97,22 @@ export function InlineCommentThread({
 					value={draft}
 					autoFocus
 					onChange={(e) => setDraft(e.target.value)}
+					onKeyDown={(e) => {
+						if (e.key === "Enter" && !e.shiftKey) {
+							e.preventDefault();
+							void save();
+						} else if (e.key === "Escape") {
+							e.preventDefault();
+							if (
+								draft === comment.body ||
+								window.confirm("Discard changes to this comment?")
+							) {
+								setEditing(false);
+								setDraft(comment.body);
+								onCancelEdit();
+							}
+						}
+					}}
 				/>
 				<div className="shell-inline-thread__actions">
 					<button
@@ -78,19 +120,15 @@ export function InlineCommentThread({
 						onClick={() => {
 							setEditing(false);
 							setDraft(comment.body);
+							onCancelEdit();
 						}}
 					>
 						Cancel
 					</button>
 					<button
 						type="button"
-						disabled={draft.trim().length === 0}
-						onClick={async () => {
-							const ok = await onSave(draft.trim());
-							if (ok) {
-								setEditing(false);
-							}
-						}}
+						disabled={saving || draft.trim().length === 0}
+						onClick={() => void save()}
 					>
 						Save
 					</button>

@@ -126,4 +126,35 @@ describe("detectAgentProvider", () => {
 			detectAgentProvider("/Users/me/.local/bin/agy", undefined, null),
 		).toBe("antigravity");
 	});
+
+	describe("claude-code binary parity (spec §3)", () => {
+		it("detects the claude-code binary name as claude", () => {
+			expect(detectAgentProvider("claude-code", undefined, null)).toBe(
+				"claude",
+			);
+			expect(
+				detectAgentProvider("npx claude-code --resume abc", undefined, null),
+			).toBe("claude");
+			expect(
+				detectAgentProvider("/usr/local/bin/claude-code", undefined, null),
+			).toBe("claude");
+		});
+
+		it("still rejects near-miss names", () => {
+			expect(detectAgentProvider("claudette", undefined, null)).toBeNull();
+			expect(detectAgentProvider("claude-helper", undefined, null)).toBeNull();
+			// Version-suffix forms are deliberately NOT detected (spec §3: parity
+			// dropped) — via the command path AND the loose label path. The label
+			// path is the important one: `isAgentProcess` passes the (often
+			// command-shaped) label into detectAgentProvider, so without the
+			// matchLabel `(?!-\d)` guard a version-suffixed title/command would
+			// re-detect through the hyphen word boundary.
+			expect(detectAgentProvider("claude-1.2.3", undefined, null)).toBeNull();
+			expect(detectAgentProvider(null, "claude-1.2.3", null)).toBeNull();
+			expect(
+				detectAgentProvider("claude-1.2.3", "claude-1.2.3", null),
+			).toBeNull();
+			expect(detectAgentProvider(null, "codex-2.0.1", null)).toBeNull();
+		});
+	});
 });

@@ -204,7 +204,12 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 		// restarting the driver and its fresh snapshot landing — slower under CI
 		// load. Give it room: this is setup, not the socket-speed assertion below
 		// (the halted flip stays pinned to 10s « the 60s poll to prove the socket).
-		await expect(row).toContainText("running", { timeout: 30_000 });
+		// Status is a dot (no text), so key off its data-status.
+		await expect(row.locator(".workflow-row__status")).toHaveAttribute(
+			"data-status",
+			"running",
+			{ timeout: 30_000 },
+		);
 
 		await socket.waitForClient();
 
@@ -248,14 +253,13 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 		});
 
 		// 10s << the 60s poll: arriving this fast proves the socket drove it.
-		// The halted badge on `.workflow-row` is the assertion target. We do NOT
-		// assert the sidebar row's `data-attention="actionRequired"` here: the
+		// The halted status dot on `.workflow-row` is the assertion target. We do
+		// NOT assert the sidebar row's `data-attention="actionRequired"` here: the
 		// collab lives on the feature-a worktree (workspace_root) which is not the
 		// selected row, and the row's data-attention is computed by
 		// buildWorktreeAttentionDisplay (App.tsx) from session/process attention,
-		// a path with its own timing. The lens flipping `.workflow-row` to
+		// a path with its own timing. The lens flipping `.workflow-row` status to
 		// "halted" inside the 10s window is itself the unambiguous socket proof.
-		await expect(row).toContainText("halted", { timeout: 10_000 });
 		await expect(row.locator(".workflow-row__status")).toHaveAttribute(
 			"data-status",
 			"halted",
@@ -407,6 +411,144 @@ test.describe.serial("whisper plugin (stub binary)", () => {
 				{ timeout: 10_000 },
 			)
 			.toBe("whisper skill install --force");
+	});
+
+	test("workflow done shows no actionRequired ring; halted (escalation proxy) does", async () => {
+		repo = createTestRepo();
+		stub = setUpWhisperStub({ enabled: true });
+
+		// Seed the initial DB with a "done" workflow so the driver sees it on its
+		// first real snapshot (triggered by subscribeWorktreeChanges on repo load
+		// after the 0.9.3 fix). The boot-time snapshot fires before the repo is
+		// registered, so we still use the off→on toggle to force a fresh driver
+		// tick AND attach the event socket (same stabilisation as the halted test).
+		stub.writeFixture({
+			schemaVersion: 6,
+			collabs: [
+				{
+					collab_id: "c1",
+					workspace_root: repo.worktreePath,
+					status: "active",
+				},
+			],
+			daemons: [
+				{ collab_id: "c1", last_heartbeat_at: new Date().toISOString() },
+			],
+			workflows: [
+				{
+					workflow_id: "wf1",
+					collab_id: "c1",
+					status: "done",
+					current_phase_index: 0,
+				},
+			],
+			phases: [
+				{
+					phase_run_id: "pr1",
+					workflow_id: "wf1",
+					phase_index: 0,
+					phase_name: "implementation",
+					chain_id: "ch1",
+				},
+			],
+			chains: [{ chain_id: "ch1", collab_id: "c1" }],
+		});
+
+		socket = await startStubEventSocket(stub.stateRoot, "c1");
+		await launch({ AI14ALL_WHISPER_POLL_MS: "60000" });
+		await loadRepoAndSelectWorktree();
+
+		// Off→on toggle — same stabilisation as the halted test.
+		await page.getByRole("button", { name: "Open Plugins panel" }).click();
+		const card = page.locator('[data-plugin-id="whisper"]');
+		await expect(card).toBeVisible({ timeout: 15_000 });
+		await card.getByRole("switch").click(); // off
+		await expect(card.locator(".plugin-chip")).toContainText(/off/, {
+			timeout: 15_000,
+		});
+		await card.getByRole("switch").click(); // back on → fresh driver tick
+		await expect(card.locator(".plugin-chip")).toContainText(/on/, {
+			timeout: 15_000,
+		});
+		await page.keyboard.press("Escape");
+
+		const row = worktreeNav().locator(".workflow-row");
+		// Wait for the phase name to render — confirms the driver snapshot picked up
+		// the fixture. The status is a dot (no text), so we key off the phase.
+		await expect(row).toContainText("implementation", { timeout: 30_000 });
+		await socket.waitForClient();
+
+		// --- Part 1: workflow "done" must NOT produce actionRequired ---
+		// diffWorkflowAttention(undefined, {done}) → {kind:"report", reason:{state:"ready"}}
+		// → mapToProcessAttentionState("ready") → "activity", never "actionRequired".
+		// The done workflow shows a quiet ready status dot; assert its data-status,
+		// then check data-attention on the feature-a nav button (substring match,
+		// no anchor, to tolerate any icon prefix in the accessible name).
+		await expect(row.locator(".workflow-row__status")).toHaveAttribute(
+			"data-status",
+			"done",
+			{ timeout: 10_000 },
+		);
+		const featureABtn = worktreeNav().getByRole("button", {
+			name: /feature-a/i,
+		});
+		await expect(featureABtn).not.toHaveAttribute(
+			"data-attention",
+			"actionRequired",
+			{ timeout: 20_000 },
+		);
+
+		// --- Part 2: halted (escalation proxy) MUST produce actionRequired ---
+		stub.writeFixture({
+			schemaVersion: 6,
+			collabs: [
+				{
+					collab_id: "c1",
+					workspace_root: repo.worktreePath,
+					status: "active",
+				},
+			],
+			daemons: [
+				{ collab_id: "c1", last_heartbeat_at: new Date().toISOString() },
+			],
+			workflows: [
+				{
+					workflow_id: "wf1",
+					collab_id: "c1",
+					status: "halted",
+					halt_reason: "round limit reached",
+					current_phase_index: 0,
+				},
+			],
+			phases: [
+				{
+					phase_run_id: "pr1",
+					workflow_id: "wf1",
+					phase_index: 0,
+					phase_name: "implementation",
+					chain_id: "ch1",
+				},
+			],
+			chains: [{ chain_id: "ch1", collab_id: "c1" }],
+		});
+		socket.emit("workflow.halted", {
+			workflowId: "wf1",
+			reason: "round limit reached",
+		});
+
+		// "halted" → waiting → "actionRequired". Status is a dot (no text).
+		await expect(row.locator(".workflow-row__status")).toHaveAttribute(
+			"data-status",
+			"halted",
+			{ timeout: 10_000 },
+		);
+		await expect(featureABtn).toHaveAttribute(
+			"data-attention",
+			"actionRequired",
+			{
+				timeout: 20_000,
+			},
+		);
 	});
 
 	test("Configure opens a floating-shell popover and does not add a grid session", async () => {

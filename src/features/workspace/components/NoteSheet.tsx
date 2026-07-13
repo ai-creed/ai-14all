@@ -7,9 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Icon } from "@/components/ui/icon";
-import ReactMarkdown from "react-markdown";
-import rehypeHighlight from "rehype-highlight";
-import remarkGfm from "remark-gfm";
+import { MarkdownBody } from "../../viewer/components/MarkdownBody";
 
 type Props = {
 	open: boolean;
@@ -86,13 +84,8 @@ export function NoteSheet({ open, note, onNoteChange, onClose }: Props) {
 						role="region"
 						aria-label="Session note preview"
 					>
-						<div className="shell-md-modal__body shell-note-sheet__preview-body">
-							<ReactMarkdown
-								remarkPlugins={[remarkGfm]}
-								rehypePlugins={[rehypeHighlight]}
-							>
-								{note}
-							</ReactMarkdown>
+						<div className="shell-note-sheet__preview-body">
+							<MarkdownBody content={note} />
 						</div>
 					</div>
 				)}

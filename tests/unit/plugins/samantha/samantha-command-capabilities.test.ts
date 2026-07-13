@@ -53,6 +53,9 @@ describe("renderReport", () => {
 					"ai-14all/dev": "★ codex · idle",
 				},
 				signals: {},
+				worktrees: [],
+				mode: "ready",
+				focusedWorktreeId: null,
 			}),
 		).toBe(
 			"[ready] — 2 sessions\nai-14all/main: claude · active\nai-14all/dev: ★ codex · idle",
@@ -66,6 +69,9 @@ describe("renderReport", () => {
 				status: "unknown",
 				details: {},
 				signals: {},
+				worktrees: [],
+				mode: "ready",
+				focusedWorktreeId: null,
 			}),
 		).toBe("[ready] — no active sessions");
 	});

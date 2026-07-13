@@ -15,6 +15,7 @@ export const PersistedProcessSessionSchema = z.object({
 	command: z.string().nullable(),
 	pinned: z.boolean(),
 	terminalSessionId: z.string().nullable().optional().default(null),
+	resumeCommand: z.string().nullable().optional().default(null),
 });
 
 /**

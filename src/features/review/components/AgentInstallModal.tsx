@@ -33,10 +33,12 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 				if (!o) onClose();
 			}}
 		>
-			<AppDialog.Title>
-				Install ai-14all-fix-review skill + MCP server
-			</AppDialog.Title>
+			<AppDialog.Title>Connect your coding agents to ai-14all</AppDialog.Title>
 			<AppDialog.Body>
+				<p className="shell-install-modal__subtitle">
+					Installs the ai-14all review skill and registers its MCP server so
+					your agent can address review comments and report status.
+				</p>
 				{status.bindError && (
 					<p className="shell-error">
 						MCP server could not bind. {status.bindError}. Resolve and restart
@@ -115,13 +117,13 @@ export function AgentInstallModal({ open, onClose, status }: Props) {
 								{pickMsg && <p className="shell-error">{pickMsg}</p>}
 								{result && (
 									<p className={result.ok ? "shell-info" : "shell-error"}>
-										{result.ok ? (
-											<>
-												Installed <Icon name="check" />
-											</>
-										) : (
-											`Failed: ${result.message}`
-										)}
+										{result.ok
+											? (result.message ?? (
+													<>
+														Installed <Icon name="check" />
+													</>
+												))
+											: `Failed: ${result.message}`}
 									</p>
 								)}
 							</li>

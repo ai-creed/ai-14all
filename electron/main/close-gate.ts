@@ -38,8 +38,15 @@ export interface CloseGate {
 	setDirty(args: CloseGateDirtyArgs): void;
 	isAnyDirty(): boolean;
 	dirtyKeys(): string[];
-	attach(window: CloseGateWindow): void;
+	attach(window: CloseGateWindow, opts?: CloseGateAttachOptions): void;
 	confirmClose(args: { proceed: boolean }): void;
+}
+
+export interface CloseGateAttachOptions {
+	// When provided, the gate only guards a `close` if this returns true (i.e. a
+	// real app quit). On macOS the window is hidden — not destroyed — on a normal
+	// close, so unsaved editor buffers survive and there is nothing to guard.
+	isQuitting?: () => boolean;
 }
 
 function keyFor(args: {
@@ -76,8 +83,11 @@ export function createCloseGate(opts: CloseGateOptions = {}): CloseGate {
 		dirtyKeys() {
 			return [...dirty];
 		},
-		attach(window) {
+		attach(window, attachOpts = {}) {
 			window.on("close", (event) => {
+				// Not a real quit: let hide-on-close handle it (hiding never loses
+				// buffers, so there is nothing to guard here).
+				if (attachOpts.isQuitting && !attachOpts.isQuitting()) return;
 				if (dirty.size === 0) return; // allow default close
 				if (pendingWindow) {
 					// A close is already in flight; just block this event.

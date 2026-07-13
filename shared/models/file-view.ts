@@ -8,7 +8,9 @@ export type FileReadFailure =
 	| { kind: "too-large"; size: number }
 	| { kind: "binary" }
 	| { kind: "not-found" }
-	| { kind: "read-failed" };
+	| { kind: "read-failed" }
+	| { kind: "path-escape" }
+	| { kind: "permission-denied" };
 
 export type FileReadResult =
 	| { ok: true; view: FileView }

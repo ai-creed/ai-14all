@@ -259,3 +259,16 @@ describe("InlineEditor — requestSwitch", () => {
 		await expect(p).resolves.toBe("proceed");
 	});
 });
+
+describe("InlineEditor — no embedded markdown preview (D15)", () => {
+	it("renders no Preview button for a markdown file (preview lives in FileViewer)", async () => {
+		openForEditMock.mockResolvedValueOnce({
+			ok: true,
+			content: "# hello",
+			mtimeMs: 100,
+		});
+		render(<InlineEditor {...base} relativePath="NOTES.md" />);
+		await screen.findByTestId("monaco");
+		expect(screen.queryByRole("button", { name: /preview/i })).toBeNull();
+	});
+});

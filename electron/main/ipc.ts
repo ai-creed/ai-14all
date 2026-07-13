@@ -14,6 +14,7 @@ import {
 } from "../../shared/contracts/agent-install.js";
 import { openExternalUrl } from "./services/open-external.js";
 import type { UsageHost } from "./services/usage-host.js";
+import type { UsageSettingsBridge } from "./services/usage-settings-bridge.js";
 import { consumeE2eGitFault } from "./e2e-git-faults.js";
 import { consumeE2eTerminalCreateDelay } from "./e2e-terminal-create-delay.js";
 import {
@@ -34,6 +35,7 @@ import {
 	ReadGitSummarySchema,
 	ReadWorkspaceRestoreStateSchema,
 	WriteWorkspaceRestoreStateSchema,
+	WriteSettingsSchema,
 	ReadGitCommitHistorySchema,
 	ReadGitCommitDetailSchema,
 	ReadGitCommitFileDiffSchema,
@@ -59,6 +61,7 @@ import {
 	type AttentionLogEvent,
 } from "../../services/diagnostics/agent-attention-logger.js";
 import type { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
+import type { SettingsService } from "../../services/settings/settings-service.js";
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 import type { ShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
 import type { AgentAttentionLogger } from "../../services/diagnostics/agent-attention-logger.js";
@@ -70,6 +73,7 @@ import {
 	REVIEW_MARK_ADDRESSED,
 	REVIEW_REOPEN,
 	REVIEW_DELETE,
+	REVIEW_RESTORE,
 	REVIEW_REBASE,
 	REVIEW_UPDATE,
 	REVIEW_BULK_REMOVE_ADDRESSED,
@@ -79,6 +83,7 @@ import {
 	ReviewMarkAddressedRequestSchema,
 	ReviewReopenRequestSchema,
 	ReviewDeleteRequestSchema,
+	ReviewRestoreRequestSchema,
 	ReviewRebaseRequestSchema,
 	ReviewUpdateRequestSchema,
 	ReviewBulkRemoveAddressedRequestSchema,
@@ -132,17 +137,20 @@ export function registerIpcHandlers(
 	mainWindow: BrowserWindow,
 	{
 		workspacePersistence,
+		settingsService,
 		workspaceRegistry,
 		worktreeService,
 		shellEventLog,
 		agentAttentionLogger,
 		review,
 		usageHost,
+		usageSettingsBridge,
 		installUpdate,
 		closeGate,
 		getCortexEnabled,
 	}: {
 		workspacePersistence: WorkspacePersistenceService;
+		settingsService: SettingsService;
 		workspaceRegistry: WorkspaceRegistryService;
 		worktreeService: WorktreeService;
 		shellEventLog?: ShellEventLogService;
@@ -157,6 +165,7 @@ export function registerIpcHandlers(
 			worktreePathResolver: WorktreePathResolver;
 		};
 		usageHost?: UsageHost;
+		usageSettingsBridge?: Pick<UsageSettingsBridge, "refresh">;
 		installUpdate?: () => void;
 		closeGate?: import("./close-gate.js").CloseGate;
 		getCortexEnabled: () => boolean;
@@ -387,6 +396,13 @@ export function registerIpcHandlers(
 		return fileService.readFile(worktree.path, relativePath);
 	});
 
+	ipcMain.handle("files:readImage", async (_event, raw: unknown) => {
+		const { workspaceId, worktreeId, relativePath } = ReadFileSchema.parse(raw);
+		const repository = workspaceRegistry.get(workspaceId);
+		const worktree = await worktreeService.findWorktree(repository, worktreeId);
+		return fileService.readImage(worktree.path, relativePath);
+	});
+
 	ipcMain.handle("files:openForEdit", async (_event, raw: unknown) => {
 		const { workspaceId, worktreeId, relativePath } =
 			OpenFileForEditSchema.parse(raw);
@@ -524,6 +540,37 @@ export function registerIpcHandlers(
 		return workspacePersistence.writeState(state);
 	});
 
+	// --- Settings ---
+
+	ipcMain.handle("settings:read", () => settingsService.readState());
+
+	ipcMain.handle("settings:write", async (_event, raw: unknown) => {
+		const { patch } = WriteSettingsSchema.parse(raw);
+		const merged = await settingsService.writeState(patch);
+		// The Settings dialog's Usage group writes enabled / includeUntracked /
+		// chipRange through this single funnel rather than the usage:* IPC
+		// handlers, so without live-applying here the running UsageHost worker
+		// keeps stale settings until app restart even though the persisted values
+		// flipped. writeState() above already persisted the merged result, so we
+		// apply through the host's NON-persisting appliers (applyChipRange /
+		// applyIncludeUntracked) and setEnabled() (start/stop only) — none of
+		// which write settings back, so this cannot loop into another
+		// settingsService write or double-write settings.json. Finally refresh the
+		// usage-settings-bridge's in-memory snapshot from the merged result so a
+		// later popover chipRange/includeUntracked click doesn't seed the worker
+		// from — or write back — a stale value.
+		if (patch.usageTelemetry) {
+			usageHost?.applyChipRange(merged.usageTelemetry.chipRange);
+			usageHost?.applyIncludeUntracked(merged.usageTelemetry.includeUntracked);
+			usageHost?.setEnabled(merged.usageTelemetry.enabled);
+			usageSettingsBridge?.refresh(merged);
+		}
+		for (const win of BrowserWindow.getAllWindows()) {
+			win.webContents.send("settings:changed", merged);
+		}
+		return merged;
+	});
+
 	// --- System ---
 
 	ipcMain.handle("system:openExternal", async (_event, raw: unknown) => {
@@ -607,6 +654,11 @@ export function registerIpcHandlers(
 		return { deleted };
 	});
 
+	ipcMain.handle(REVIEW_RESTORE, async (_event, raw: unknown) => {
+		const parsed = ReviewRestoreRequestSchema.parse(raw);
+		return reviewCommentService.restore(parsed);
+	});
+
 	ipcMain.handle(REVIEW_REBASE, async (_event, raw: unknown) => {
 		const { mapping } = ReviewRebaseRequestSchema.parse(raw);
 		await reviewCommentService.rebaseWorktreeIds(
@@ -632,7 +684,12 @@ export function registerIpcHandlers(
 	// --- Agent Install ---
 
 	const installer = new AgentSkillInstaller({
-		home: app.getPath("home"),
+		// homedir() (not app.getPath("home")): Electron's native home path
+		// ignores a HOME env override on POSIX, which breaks e2e sandboxing —
+		// tests point HOME at a temp dir and must not touch the real ~/.claude
+		// or ~/.codex. Node's homedir() respects HOME, matching the other
+		// homedir() call sites in this file.
+		home: homedir(),
 		resourcesPath: app.isPackaged
 			? process.resourcesPath
 			: join(app.getAppPath(), "assets"),

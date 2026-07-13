@@ -34,12 +34,15 @@ type ExitCb = (e: { sessionId: string; exitCode: number | null }) => void;
 // Minimal runtime wiring: one workspace whose state maps process `p1` to the
 // terminal session under test, so `findProcessByTerminalSessionId` resolves and
 // the onOutput handler runs its full record/preview path.
-function makeOptions(): Options {
+function makeOptions(overrides?: {
+	agentDetected?: boolean;
+	mcpReportingActive?: boolean;
+}): Options {
 	const process = {
 		id: "p1",
 		worktreeId: "wt1",
 		terminalSessionId: TERM_ID,
-		agentDetected: false,
+		agentDetected: overrides?.agentDetected ?? false,
 	};
 	return {
 		appWorkspacesRef: {
@@ -54,7 +57,16 @@ function makeOptions(): Options {
 							selectedWorktreeId: "wt1",
 							commandPresets: [],
 							processSessionsById: { p1: process },
-							sessionsByWorktreeId: {},
+							sessionsByWorktreeId: {
+								wt1: {
+									// `floatingShellIds` is required by `isFloatingShell`
+									// (used on the onExit path exercised by the replay
+									// tests below); keep it present even though this
+									// harness only cares about `mcpReportingActive`.
+									floatingShellIds: [],
+									mcpReportingActive: overrides?.mcpReportingActive ?? false,
+								},
+							},
 							nextAdHocNumberByWorktreeId: {},
 						},
 					},
@@ -71,10 +83,10 @@ function makeOptions(): Options {
 
 // Render the hook and return the PTY event handlers it subscribed, so a test can
 // drive output/exit events directly through the real onOutput/onExit logic.
-async function captureHandlers(): Promise<{
-	onOutput: OutputCb;
-	onExit: ExitCb;
-}> {
+async function captureHandlers(overrides?: {
+	agentDetected?: boolean;
+	mcpReportingActive?: boolean;
+}): Promise<{ onOutput: OutputCb; onExit: ExitCb; options: Options }> {
 	const { terminals } = await import("../../../src/lib/desktop-client");
 	const captured: { onOutput?: OutputCb; onExit?: ExitCb } = {};
 	vi.mocked(terminals.onOutput).mockImplementation((cb) => {
@@ -85,11 +97,26 @@ async function captureHandlers(): Promise<{
 		captured.onExit = cb as ExitCb;
 		return vi.fn();
 	});
-	renderHook(() => useTerminalRuntime(makeOptions()));
+	const options = makeOptions(overrides);
+	renderHook(() => useTerminalRuntime(options));
 	if (!captured.onOutput || !captured.onExit) {
 		throw new Error("terminal event handlers were not captured");
 	}
-	return { onOutput: captured.onOutput, onExit: captured.onExit };
+	return { onOutput: captured.onOutput, onExit: captured.onExit, options };
+}
+
+// Extracts the `session/recordProcessOutput` action dispatched by the onOutput
+// handler. The harness's owner workspace ("ws1") equals `activeWorkspaceId`, so
+// `applyActionForOwner` calls `dispatch(action)` directly.
+function recordedOutputAction(
+	options: Options,
+): { attentionState: string; agentReason: unknown } | undefined {
+	return vi
+		.mocked(options.dispatch)
+		.mock.calls.map((c) => c[0])
+		.find(
+			(a) => (a as { type?: string })?.type === "session/recordProcessOutput",
+		) as { attentionState: string; agentReason: unknown } | undefined;
 }
 
 describe("useTerminalRuntime replay buffering", () => {
@@ -136,5 +163,38 @@ describe("useTerminalRuntime replay buffering", () => {
 			onExit({ sessionId: TERM_ID, exitCode: 0 });
 		});
 		expect(getReplayOutput(TERM_ID)).toBe("");
+	});
+});
+
+describe("self-reporting mode gating (spec §5, D4)", () => {
+	it("mutes classifier and legacy patterns for agent processes while flag is set", async () => {
+		const { onOutput, options } = await captureHandlers({
+			agentDetected: true,
+			mcpReportingActive: true,
+		});
+		const { diagnostics } = await import("../../../src/lib/desktop-client");
+		vi.mocked(diagnostics.logAttentionEvent).mockClear();
+
+		act(() => {
+			onOutput({ sessionId: TERM_ID, data: "Continue? (y/n)\n" });
+		});
+
+		const dispatched = recordedOutputAction(options);
+		expect(dispatched?.attentionState).toBe("activity");
+		expect(dispatched?.agentReason ?? null).toBeNull();
+		expect(diagnostics.logAttentionEvent).not.toHaveBeenCalled();
+	});
+
+	it("keeps legacy patterns for non-agent shells even while flag is set", async () => {
+		const { onOutput, options } = await captureHandlers({
+			agentDetected: false,
+			mcpReportingActive: true,
+		});
+		act(() => {
+			onOutput({ sessionId: TERM_ID, data: "error: build failed\n" });
+		});
+		expect(recordedOutputAction(options)?.attentionState).toBe(
+			"actionRequired",
+		);
 	});
 });

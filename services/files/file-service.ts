@@ -4,12 +4,12 @@ import {
 	readdir,
 	readFile as fsReadFile,
 	stat,
-	lstat,
 	realpath,
 	writeFile,
 } from "node:fs/promises";
 import { join, extname, sep } from "node:path";
 import type { FileReadResult } from "../../shared/models/file-view.js";
+import type { ImageReadResult } from "../../shared/models/image-view.js";
 import type {
 	OpenFileForEditResult,
 	SaveFileResult,
@@ -18,7 +18,11 @@ import type {
 import { getGitBinaryPath } from "../git/git-binary.js";
 import { isEditable } from "../../shared/editor/editable-files.js";
 import { isLikelyBinary } from "./binary-detect.js";
-import { MAX_FILE_VIEW_BYTES } from "../../shared/files/size-limits.js";
+import { IMAGE_MIME_BY_EXT } from "../../shared/files/image-files.js";
+import {
+	MAX_FILE_VIEW_BYTES,
+	MAX_IMAGE_PREVIEW_BYTES,
+} from "../../shared/files/size-limits.js";
 import { isUnderDenylistedDir } from "../../shared/files/ignored-denylist.js";
 import { resolveWithinWorktree } from "./worktree-path.js";
 
@@ -179,6 +183,33 @@ export class FileService {
 			: { ok: false, reason: "path-escape" };
 	}
 
+	/**
+	 * Unconditional realpath containment: catches symlinked files AND files under
+	 * symlinked parent directories (the conditional lstat guard missed the latter).
+	 */
+	private async realpathContained(
+		worktreePath: string,
+		absolute: string,
+	): Promise<
+		"contained" | "escaped" | "not-found" | "permission-denied" | "read-failed"
+	> {
+		try {
+			const [realWorktree, realFile] = await Promise.all([
+				realpath(worktreePath),
+				realpath(absolute),
+			]);
+			return realFile === realWorktree ||
+				realFile.startsWith(realWorktree + sep)
+				? "contained"
+				: "escaped";
+		} catch (err) {
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code === "ENOENT") return "not-found";
+			if (code === "EACCES") return "permission-denied";
+			return "read-failed";
+		}
+	}
+
 	async openForEdit(
 		worktreePath: string,
 		relativePath: string,
@@ -187,23 +218,17 @@ export class FileService {
 		if (!resolved.ok) return resolved;
 		const basename = relativePath.split("/").pop() ?? "";
 		if (!isEditable(basename)) return { ok: false, reason: "not-editable" };
-		try {
-			const lstats = await lstat(resolved.absolute);
-			if (lstats.isSymbolicLink()) {
-				const [realWorktree, realFile] = await Promise.all([
-					realpath(worktreePath),
-					realpath(resolved.absolute),
-				]);
-				if (
-					realFile !== realWorktree &&
-					!realFile.startsWith(realWorktree + sep)
-				)
-					return { ok: false, reason: "path-escape" };
-			}
-		} catch (err) {
-			const code = (err as NodeJS.ErrnoException).code;
-			if (code === "ENOENT") return { ok: false, reason: "not-found" };
-			if (code === "EACCES") return { ok: false, reason: "permission-denied" };
+		const containment = await this.realpathContained(
+			worktreePath,
+			resolved.absolute,
+		);
+		if (containment !== "contained") {
+			if (containment === "escaped")
+				return { ok: false, reason: "path-escape" };
+			if (containment === "not-found")
+				return { ok: false, reason: "not-found" };
+			if (containment === "permission-denied")
+				return { ok: false, reason: "permission-denied" };
 			return { ok: false, reason: "read-failed" };
 		}
 		let stats: import("node:fs").Stats;
@@ -244,23 +269,17 @@ export class FileService {
 		if (!resolved.ok) return resolved;
 		const basename = relativePath.split("/").pop() ?? "";
 		if (!isEditable(basename)) return { ok: false, reason: "not-editable" };
-		try {
-			const lstats = await lstat(resolved.absolute);
-			if (lstats.isSymbolicLink()) {
-				const [realWorktree, realFile] = await Promise.all([
-					realpath(worktreePath),
-					realpath(resolved.absolute),
-				]);
-				if (
-					realFile !== realWorktree &&
-					!realFile.startsWith(realWorktree + sep)
-				)
-					return { ok: false, reason: "path-escape" };
-			}
-		} catch (err) {
-			const code = (err as NodeJS.ErrnoException).code;
-			if (code === "ENOENT") return { ok: false, reason: "not-found" };
-			if (code === "EACCES") return { ok: false, reason: "permission-denied" };
+		const containment = await this.realpathContained(
+			worktreePath,
+			resolved.absolute,
+		);
+		if (containment !== "contained") {
+			if (containment === "escaped")
+				return { ok: false, reason: "path-escape" };
+			if (containment === "not-found")
+				return { ok: false, reason: "not-found" };
+			if (containment === "permission-denied")
+				return { ok: false, reason: "permission-denied" };
 			return { ok: false, reason: "write-failed" };
 		}
 		let stats: import("node:fs").Stats;
@@ -307,10 +326,26 @@ export class FileService {
 			return {
 				ok: false,
 				path: relativePath,
-				reason: { kind: "read-failed" },
+				reason: { kind: "path-escape" },
 			};
 		}
 		const absolutePath = resolved.absolute;
+
+		const containment = await this.realpathContained(
+			worktreePath,
+			absolutePath,
+		);
+		if (containment !== "contained") {
+			const kind =
+				containment === "escaped"
+					? ("path-escape" as const)
+					: containment === "not-found"
+						? ("not-found" as const)
+						: containment === "permission-denied"
+							? ("permission-denied" as const)
+							: ("read-failed" as const);
+			return { ok: false, path: relativePath, reason: { kind } };
+		}
 
 		let fileStat: import("node:fs").Stats;
 		try {
@@ -363,5 +398,65 @@ export class FileService {
 				language: detectLanguage(relativePath),
 			},
 		};
+	}
+
+	async readImage(
+		worktreePath: string,
+		relativePath: string,
+	): Promise<ImageReadResult> {
+		const dot = relativePath.lastIndexOf(".");
+		const mime =
+			dot >= 0
+				? IMAGE_MIME_BY_EXT[relativePath.slice(dot).toLowerCase()]
+				: undefined;
+		if (!mime) return { ok: false, reason: { kind: "not-image" } };
+
+		const resolved = this.resolveInsideWorktree(worktreePath, relativePath);
+		if (!resolved.ok) return { ok: false, reason: { kind: "path-escape" } };
+
+		const containment = await this.realpathContained(
+			worktreePath,
+			resolved.absolute,
+		);
+		if (containment !== "contained") {
+			const kind =
+				containment === "escaped"
+					? ("path-escape" as const)
+					: containment === "not-found"
+						? ("not-found" as const)
+						: containment === "permission-denied"
+							? ("permission-denied" as const)
+							: ("read-failed" as const);
+			return { ok: false, reason: { kind } };
+		}
+
+		let fileStat: import("node:fs").Stats;
+		try {
+			fileStat = await stat(resolved.absolute);
+		} catch (err) {
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code === "EACCES")
+				return { ok: false, reason: { kind: "permission-denied" } };
+			return { ok: false, reason: { kind: "not-found" } };
+		}
+		if (fileStat.isDirectory())
+			return { ok: false, reason: { kind: "read-failed" } };
+		if (fileStat.size > MAX_IMAGE_PREVIEW_BYTES)
+			return { ok: false, reason: { kind: "too-large", size: fileStat.size } };
+
+		try {
+			const buffer = await fsReadFile(resolved.absolute);
+			return {
+				ok: true,
+				base64: buffer.toString("base64"),
+				mime,
+				byteLength: buffer.byteLength,
+			};
+		} catch (err) {
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code === "EACCES")
+				return { ok: false, reason: { kind: "permission-denied" } };
+			return { ok: false, reason: { kind: "read-failed" } };
+		}
 	}
 }

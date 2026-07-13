@@ -91,6 +91,7 @@ describe("WorkspacePersistenceService", () => {
 										command: null,
 										pinned: false,
 										terminalSessionId: null,
+										resumeCommand: null,
 									},
 								],
 							},

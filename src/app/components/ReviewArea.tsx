@@ -16,7 +16,6 @@ import type {
 } from "../../features/workspace/logic/workspace-state";
 import type { ResolvedTheme } from "../../lib/use-theme";
 import type { InlineEditorHandle } from "../../features/viewer/components/InlineEditor";
-import { MarkViewedToggle } from "../../features/review/components/MarkViewedToggle";
 import { ReviewProgressHeader } from "../../features/review/components/ReviewProgressHeader";
 import { CommentMinimap } from "../../features/review/components/CommentMinimap";
 import { ReviewRail } from "../../features/review/components/ReviewRail";
@@ -126,8 +125,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 		onConsumePendingCommentJump,
 	} = props;
 
-	// Local UI state owned by the review surface
-	const [treePreviewPath, setTreePreviewPath] = useState<string | null>(null);
 	// Always show addressed comments inline now that the overview (which owned the
 	// hide-addressed toggle) is gone. Kept as state so the value still threads
 	// through the comment filter and the diff viewer.
@@ -211,11 +208,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 		onConsume: onConsumePendingCommentJump,
 	});
 
-	// Clear tree preview when the active worktree changes
-	useEffect(() => {
-		setTreePreviewPath(null);
-	}, [activeWorktree.id]);
-
 	const currentFilePath =
 		activeSession?.reviewMode === "commits"
 			? (activeSession?.selectedCommitFilePath ?? null)
@@ -223,10 +215,22 @@ export function ReviewArea(props: Props): React.ReactElement {
 				? (activeSession?.selectedChangedFilePath ?? null)
 				: null;
 
+	// The registry is a mutable map React cannot observe; commits mode mounts
+	// the focused file's diff editor lazily AFTER the selection that computes
+	// totalLines below, so registration must invalidate the memo or the minimap
+	// latches totalLines=0 and renders no dots (same pattern InlineMountsBridge
+	// uses to mount threads reactively).
+	const [registryVersion, setRegistryVersion] = useState(0);
+	useEffect(
+		() => diffEditorRegistry.subscribe(() => setRegistryVersion((v) => v + 1)),
+		[diffEditorRegistry],
+	);
+
 	// Total line count of the modified document, used to position minimap dots.
 	// Changes mode reads the loaded diff content directly; commits mode reads the
 	// live Monaco model (the diff is not held in React state there).
 	const totalLines = useMemo(() => {
+		void registryVersion; // re-read the registry after (de)registrations
 		if (activeSession?.reviewMode === "changes" && diffState.data) {
 			return diffState.data.modifiedContent.split("\n").length;
 		}
@@ -239,6 +243,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 		diffState.data,
 		currentFilePath,
 		diffEditorRegistry,
+		registryVersion,
 	]);
 
 	const currentFileComments = useMemo(
@@ -252,11 +257,7 @@ export function ReviewArea(props: Props): React.ReactElement {
 
 	const platform = useMemo(() => detectPlatform(), []);
 
-	// Whether the current file is currently considered reviewed, and whether the
-	// active mode carries comment chrome (Changes/Commits — never Files).
-	const isCurrentFileReviewed = currentFilePath
-		? reviewed.isReviewed(currentFilePath)
-		: false;
+	// Whether the active mode carries comment chrome (Changes/Commits — never Files).
 	const hasCommentChrome = activeSession?.reviewMode !== "files";
 
 	const stepFile = useCallback(
@@ -495,8 +496,8 @@ export function ReviewArea(props: Props): React.ReactElement {
 				style={{
 					gridTemplateColumns:
 						activeSession?.reviewMode !== "files" && currentFilePath
-							? `${reviewRailWidth}px 8px minmax(0, 1fr) 46px`
-							: `${reviewRailWidth}px 8px minmax(0, 1fr)`,
+							? `minmax(0, ${reviewRailWidth}px) 8px minmax(0, 1fr) 24px`
+							: `minmax(0, ${reviewRailWidth}px) 8px minmax(0, 1fr)`,
 				}}
 			>
 				<ReviewRail
@@ -515,8 +516,6 @@ export function ReviewArea(props: Props): React.ReactElement {
 					gitSummaryError={gitSummaryError}
 					gitSummaryStale={gitSummaryStale}
 					gitSummaryMessage={gitSummaryMessage}
-					treePreviewPath={treePreviewPath}
-					onSetTreePreviewPath={setTreePreviewPath}
 					dispatch={dispatch}
 					handleSelectChangedFile={handleSelectChangedFile}
 					setDiscardPath={setDiscardPath}
@@ -527,20 +526,13 @@ export function ReviewArea(props: Props): React.ReactElement {
 					onCloseReview={props.onCloseReview}
 					installCtaVisible={installCtaVisible}
 					onOpenInstall={onOpenInstall}
+					onToggleViewed={() => handleMarkFileViewed()}
 					header={
 						hasCommentChrome ? (
-							<>
-								<ReviewProgressHeader
-									reviewed={progress.reviewed}
-									total={progress.total}
-								/>
-								{currentFilePath ? (
-									<MarkViewedToggle
-										reviewed={isCurrentFileReviewed}
-										onToggle={handleMarkFileViewed}
-									/>
-								) : null}
-							</>
+							<ReviewProgressHeader
+								reviewed={progress.reviewed}
+								total={progress.total}
+							/>
 						) : null
 					}
 				/>

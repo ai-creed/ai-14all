@@ -41,8 +41,9 @@ import type { LayoutId } from "../../../../shared/models/terminal-layout";
 import { TERMINAL_LAYOUTS } from "../../terminals/logic/terminal-layouts";
 import {
 	compactIntoLayout,
-	runningCount,
+	resolveReorganizedLayout,
 	planAddPlacement,
+	runningCount,
 } from "../../terminals/logic/terminal-layout-planner";
 
 /** Nearest non-null slot to `fromIndex`, preferring the next slot then previous. */
@@ -138,10 +139,22 @@ export type WorkspaceAction =
 			terminalSessionId: string;
 	  }
 	| {
+			type: "session/setResumeCommand";
+			terminalSessionId: string;
+			resumeCommand: string;
+	  }
+	| {
+			type: "session/setResumePending";
+			processId: string;
+			resumePending: boolean;
+	  }
+	| {
 			type: "session/updateProcessStatus";
 			processId: string;
 			status: ProcessSession["status"];
 			exitCode?: number | null;
+			/** Event time; advances the session clear timestamp on a terminal transition (§4.2). */
+			at?: number;
 	  }
 	| {
 			type: "session/recordProcessOutput";
@@ -308,6 +321,7 @@ function createSession(worktree: Worktree): WorktreeSession {
 		processSessionIds: [],
 		attentionState: "idle",
 		agentAttentionReasons: {},
+		agentAttentionClearedAt: null,
 		terminalLayoutId: "1",
 		slotProcessIds: [null],
 		reviewSidebarWidth: 280,
@@ -321,6 +335,7 @@ function createSession(worktree: Worktree): WorktreeSession {
 		navLocation: null,
 		floatingShellIds: [],
 		expandedFloatingShellId: null,
+		mcpReportingActive: false,
 	};
 }
 
@@ -457,6 +472,8 @@ function restorePersistedSession(
 			// from the fresh shell's output once the new terminal session starts.
 			agentDetected: false,
 			provider: null,
+			resumeCommand: process.resumeCommand ?? null,
+			resumePending: false,
 		};
 	}
 
@@ -479,6 +496,8 @@ function restorePersistedSession(
 				: (restoredSlots.find((s): s is string => s !== null) ?? null),
 		attentionState: "idle",
 		agentAttentionReasons: {},
+		agentAttentionClearedAt: null,
+		mcpReportingActive: false,
 		terminalLayoutId: restoredLayoutId,
 		slotProcessIds: restoredSlots,
 		reviewSidebarWidth: snapshot.reviewSidebarWidth ?? 280,
@@ -648,9 +667,9 @@ export function workspaceReducer(
 		const session = state.sessionsByWorktreeId[action.worktreeId];
 		if (!session) return state;
 		// Placing into an empty slot of the CURRENT layout (the "+ start a shell"
-		// CTA filling a gap left by a closed shell): write in place. Do NOT compact
-		// — compaction packs survivors forward and would shift a later shell into
-		// action.slotIndex, overwriting and orphaning its running process. Only a
+		// CTA filling a gap from a restored/oversized layout): write in place. Do NOT
+		// compact — compaction packs survivors forward and would shift a later shell
+		// into action.slotIndex, overwriting and orphaning its running process. Only a
 		// genuine layout change (growing into a larger layout) needs the reflow.
 		const compacted =
 			action.layoutId === session.terminalLayoutId
@@ -775,6 +794,33 @@ export function workspaceReducer(
 		};
 	}
 
+	if (action.type === "session/setResumeCommand") {
+		const entry = Object.entries(state.processSessionsById).find(
+			([, p]) => p.terminalSessionId === action.terminalSessionId,
+		);
+		if (!entry) return state;
+		const [processId, process] = entry;
+		return {
+			...state,
+			processSessionsById: {
+				...state.processSessionsById,
+				[processId]: { ...process, resumeCommand: action.resumeCommand },
+			},
+		};
+	}
+
+	if (action.type === "session/setResumePending") {
+		const process = state.processSessionsById[action.processId];
+		if (!process) return state;
+		return {
+			...state,
+			processSessionsById: {
+				...state.processSessionsById,
+				[action.processId]: { ...process, resumePending: action.resumePending },
+			},
+		};
+	}
+
 	if (action.type === "session/updateProcessStatus") {
 		const process = state.processSessionsById[action.processId];
 		if (!process) return state;
@@ -789,18 +835,55 @@ export function workspaceReducer(
 			action.status === "running"
 				? detectAgentProvider(process.command, undefined, null)
 				: null;
+
+		const nextProcessSessionsById = {
+			...state.processSessionsById,
+			[action.processId]: {
+				...process,
+				status: action.status,
+				exitCode: action.exitCode ?? process.exitCode,
+				agentDetected: nextAgentDetected,
+				provider: nextProvider,
+			},
+		};
+
+		// Process exit is a terminal event: retire session-level waiting/failed
+		// reported before the exit by advancing the session clear timestamp to the
+		// exit EVENT time (§4.2), so a reason reported after the last activity but
+		// before the exit is still retired. Fall back to lastActivityAt if no event
+		// time was supplied.
+		const exitAt = action.at ?? process.lastActivityAt ?? null;
+		let nextSessionsByWorktreeId = state.sessionsByWorktreeId;
+		if (action.status !== "running") {
+			const session = state.sessionsByWorktreeId[process.worktreeId];
+			if (session) {
+				// Reset self-reporting mode when the worktree's last running detected
+				// agent leaves "running" (spec §5): heuristics come back for the next
+				// agent generation.
+				const anyRunningDetectedAgent = session.processSessionIds.some((id) => {
+					const p = nextProcessSessionsById[id];
+					return p != null && p.status === "running" && p.agentDetected;
+				});
+				nextSessionsByWorktreeId = {
+					...state.sessionsByWorktreeId,
+					[process.worktreeId]: {
+						...session,
+						agentAttentionClearedAt:
+							exitAt != null
+								? Math.max(session.agentAttentionClearedAt ?? 0, exitAt)
+								: session.agentAttentionClearedAt,
+						mcpReportingActive: anyRunningDetectedAgent
+							? session.mcpReportingActive
+							: false,
+					},
+				};
+			}
+		}
+
 		return {
 			...state,
-			processSessionsById: {
-				...state.processSessionsById,
-				[action.processId]: {
-					...process,
-					status: action.status,
-					exitCode: action.exitCode ?? process.exitCode,
-					agentDetected: nextAgentDetected,
-					provider: nextProvider,
-				},
-			},
+			processSessionsById: nextProcessSessionsById,
+			sessionsByWorktreeId: nextSessionsByWorktreeId,
 		};
 	}
 
@@ -1028,10 +1111,19 @@ export function workspaceReducer(
 			),
 		);
 
-		let terminalLayoutId: LayoutId = session.terminalLayoutId;
-		let slotProcessIds = slots;
-		// Focus the NEAREST remaining slot when the closed slot was active;
-		// otherwise leave focus untouched.
+		// Position-aware reorganize: shrink to the layout that best preserves where
+		// the surviving panes already sit, then compact survivors forward (no gaps).
+		const survivingSlotIndices = slots
+			.map((s, i) => (s !== null ? i : -1))
+			.filter((i) => i >= 0);
+		const terminalLayoutId = resolveReorganizedLayout(
+			session.terminalLayoutId,
+			survivingSlotIndices,
+		);
+		const slotProcessIds = compactIntoLayout(slots, terminalLayoutId);
+
+		// Focus the NEAREST surviving pane when the closed slot was active; that id
+		// stays valid after compaction. Otherwise leave focus untouched.
 		let activeProcessSessionId =
 			session.activeProcessSessionId === action.processId
 				? slotIndex >= 0
@@ -1040,11 +1132,19 @@ export function workspaceReducer(
 				: session.activeProcessSessionId;
 
 		if (remaining.length === 0) {
-			// last shell closed -> reset to single empty layout
-			terminalLayoutId = "1";
-			slotProcessIds = [null];
+			// last shell closed -> single empty layout ("1" already returned above)
 			activeProcessSessionId = null;
 		}
+
+		// Self-reporting mode resets when the last running detected agent leaves the
+		// worktree — closing an agent (vs. a natural exit) is such a departure, so
+		// mirror the reset from session/updateProcessStatus here (spec §5). Without
+		// this, closing a self-reporting agent would strand mcpReportingActive=true
+		// and mute the next agent generation's heuristics.
+		const anyRunningDetectedAgent = remaining.some((id) => {
+			const p = nextProcessSessionsById[id];
+			return p != null && p.status === "running" && p.agentDetected;
+		});
 
 		const nextSession: WorktreeSession = {
 			...session,
@@ -1052,6 +1152,9 @@ export function workspaceReducer(
 			slotProcessIds,
 			processSessionIds: remaining,
 			activeProcessSessionId,
+			mcpReportingActive: anyRunningDetectedAgent
+				? session.mcpReportingActive
+				: false,
 		};
 		return {
 			...state,
@@ -1163,6 +1266,29 @@ export function workspaceReducer(
 		if (replaced) {
 			updatedReasons[action.reason.source] = action.reason;
 		}
+		// Self-reporting mode (spec §5): only an accepted mcp push made while a
+		// detected agent is actually running enters the mode. The live-agent
+		// guard closes the late-report-after-last-exit race — without it, no
+		// later status transition would exist to reset the flag, muting the
+		// NEXT agent generation before it ever self-reports (spec §7).
+		const hasRunningDetectedAgent = session.processSessionIds.some((id) => {
+			const p = state.processSessionsById[id];
+			return p != null && p.status === "running" && p.agentDetected;
+		});
+		const nextMcpReportingActive =
+			action.reason.source === "mcp" && replaced && hasRunningDetectedAgent
+				? true
+				: session.mcpReportingActive;
+		// Advance the session clear timestamp when an accepted reason signals `ready`
+		// (spec §4.2). Only accepted pushes (`replaced`) advance it; stale/rejected
+		// ones are no-ops. Take the max so the timestamp never regresses.
+		const nextClearedAt =
+			replaced && action.reason.state === "ready"
+				? Math.max(
+						session.agentAttentionClearedAt ?? 0,
+						action.reason.reportedAt,
+					)
+				: session.agentAttentionClearedAt;
 		// Task only updates when the push was accepted (`replaced`). A stale /
 		// out-of-order MCP push (older `reportedAt`) is rejected, so it must NOT
 		// overwrite the visible task — leave `session.task` untouched, making a
@@ -1190,7 +1316,9 @@ export function workspaceReducer(
 		const base: WorktreeSession = {
 			...session,
 			agentAttentionReasons: updatedReasons,
+			agentAttentionClearedAt: nextClearedAt,
 			task: nextTask,
+			mcpReportingActive: nextMcpReportingActive,
 		};
 		const nextSession: WorktreeSession = {
 			...base,

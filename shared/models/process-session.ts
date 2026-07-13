@@ -30,4 +30,11 @@ export type ProcessSession = {
 	// drop us back into "not an agent" mid-run.
 	agentDetected: boolean;
 	provider: AgentProvider | null;
+	// The last known `claude --resume <sessionId>`-style relaunch command for this
+	// process's agent CLI, captured from its own session-id reporting. Persisted
+	// so a restored (restarting) process can offer to relaunch with continuity.
+	resumeCommand: string | null;
+	// Runtime-only: true while a manual resume relaunch (Task 13's affordance) is
+	// in flight for this process. Never persisted — always starts false.
+	resumePending: boolean;
 };

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { editor as MonacoEditor } from "monaco-editor";
 import type { ReviewComment } from "../../../../shared/models/review-comment";
 import type { DiffEditorRegistry } from "../logic/diff-editor-registry";
+import type { ThreadActions } from "../logic/inline-thread-mount";
 import { useInlineThreadMounts } from "../hooks/use-inline-thread-mounts";
 
 type Props = {
@@ -14,6 +15,8 @@ type Props = {
 	onSave: (id: string, body: string) => Promise<boolean>;
 	onToggleAddressed: (id: string) => void;
 	onDelete: (id: string) => void;
+	onCancelEdit: () => void;
+	threadActions: React.MutableRefObject<Map<string, ThreadActions>>;
 	onSubmitDraft: () => void;
 	onCancelDraft: () => void;
 };
@@ -44,6 +47,8 @@ export function InlineMountsBridge(props: Props) {
 		onSave: props.onSave,
 		onToggleAddressed: props.onToggleAddressed,
 		onDelete: props.onDelete,
+		onCancelEdit: props.onCancelEdit,
+		threadActions: props.threadActions,
 		draft: editor ? props.draft : null,
 		draftBody: props.draftBody,
 		onDraftChange: props.onDraftChange,

@@ -34,7 +34,11 @@ export function ReviewChipBar({
 }: Props): React.ReactElement {
 	const hasComments = openCommentCount > 0 || addressedCommentCount > 0;
 	return (
-		<div className="shell-review-chipbar" data-testid="review-chipbar">
+		<div
+			className="shell-review-chipbar"
+			data-testid="review-chipbar"
+			data-tour="review-bar"
+		>
 			<span className="shell-review-chipbar__label">REVIEW</span>
 			<span className="shell-review-chipbar__mode">
 				{MODE_LABEL[reviewMode]}

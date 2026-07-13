@@ -133,9 +133,21 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 					outputPreviewBuffersRef.current.delete(event.sessionId);
 				}
 				const { process, workspaceId: ownerWsId } = found;
+				// Self-reporting mode (spec §5): once this worktree's agent reports
+				// over MCP, terminal heuristics for AGENT processes are noise — skip
+				// the classifier (and its telemetry) entirely and record plain
+				// activity. Plain shells in the same worktree keep their legacy
+				// error/failed patterns: the agent vouches for itself, not for
+				// neighboring build/test shells.
+				const ownerSession =
+					appWorkspacesRef.current.workspacesById[ownerWsId]?.workspaceState
+						?.sessionsByWorktreeId[process.worktreeId] ?? null;
+				const selfReporting =
+					process.agentDetected === true &&
+					ownerSession?.mcpReportingActive === true;
 				const now = Date.now();
 				let agentReason: AgentAttentionReason | null = null;
-				if (process.agentDetected) {
+				if (process.agentDetected && !selfReporting) {
 					const classified = classifyOutput(event.data, {
 						// Fires only on a non-active actionable verdict (the
 						// classifier throttles); one-way fire-and-forget IPC.
@@ -179,7 +191,9 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 					type: "session/recordProcessOutput",
 					worktreeId: process.worktreeId,
 					processId: process.id,
-					attentionState: deriveAttentionState(event.data),
+					attentionState: selfReporting
+						? "activity"
+						: deriveAttentionState(event.data),
 					at: now,
 					isViewed:
 						getVisibleProcessIds().includes(process.id) &&
@@ -218,6 +232,7 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 					processId: process.id,
 					status: "exited",
 					exitCode: event.exitCode ?? null,
+					at: Date.now(),
 				};
 				applyActionForOwner(ownerWsId, action);
 				// `process` is a snapshot captured before applyActionForOwner ran,
@@ -303,6 +318,7 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 					processId: process.id,
 					status: "error",
 					exitCode: null,
+					at: Date.now(),
 				};
 				applyActionForOwner(ownerWsId, action);
 				if (process.agentDetected) {

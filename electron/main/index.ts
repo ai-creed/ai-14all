@@ -1,4 +1,4 @@
-import { app, ipcMain, Menu } from "electron";
+import { app, ipcMain, Menu, safeStorage } from "electron";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -7,9 +7,11 @@ import { watch } from "chokidar";
 import { createMainWindow } from "./windows.js";
 import { registerIpcHandlers } from "./ipc.js";
 import { createCloseGate } from "./close-gate.js";
-import { registerAppLifecycle } from "./lifecycle.js";
+import { registerAppLifecycle, registerHideOnClose } from "./lifecycle.js";
 import { buildApplicationMenu } from "./menu.js";
 import { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
+import { SettingsService } from "../../services/settings/settings-service.js";
+import type { PersistedSettingsV1 } from "../../shared/models/persisted-settings.js";
 import { WorkspaceRegistryService } from "../../services/workspace/workspace-registry-service.js";
 import { createShellEventLogService } from "../../services/diagnostics/shell-event-log-service.js";
 import {
@@ -32,6 +34,7 @@ import {
 import { Ai14allMcpServer } from "../../services/mcp/ai14all-mcp-server.js";
 import { SessionNoteBridge } from "../../services/mcp/session-note-bridge.js";
 import { AgentAttentionBridge } from "../../services/mcp/agent-attention-bridge.js";
+import { AgentResumeBridge } from "../../services/mcp/agent-resume-bridge.js";
 import { createWorktreePathResolver } from "../../services/review/worktree-path-resolver.js";
 import { createPluginConfigStore } from "../../services/plugins/plugin-config.js";
 import { createCapabilityProbeService } from "../../services/plugins/capability-probe-service.js";
@@ -60,6 +63,23 @@ import { PluginCommandLogger } from "../../services/diagnostics/plugin-command-l
 import { ActingAuditLogger } from "../../services/diagnostics/acting-audit-logger.js";
 import { createActingTokenVerifier } from "../../services/plugins/samantha/acting-token-verifier.js";
 import type { WhisperCommand } from "../../shared/contracts/plugins.js";
+import { createSessionSliceStore } from "../../services/plugins/samantha/session-slice-source.js";
+import { createSessionReportProvider } from "../../services/plugins/samantha/session-report-provider.js";
+import type { XbpHostService } from "../../services/xbp/xbp-host-service.js";
+import {
+	createWorkflowResolver,
+	createXbpActingExecutor,
+} from "../../services/xbp/xbp-acting-executor.js";
+import { registerXbpIpc, PHONE_BRIDGE_STATUS_CHANGED } from "./xbp-ipc.js";
+import { createXbpHostIfEnabled } from "./xbp-boot.js";
+import { isPhoneBridgeEnabled } from "../../shared/models/persisted-settings.js";
+import { XbpPushTokenStore } from "../../services/xbp/xbp-push-token-store.js";
+import { createPushTokenHandlers } from "../../services/xbp/xbp-push-token-handlers.js";
+import { createPushWakeWatcher } from "../../services/xbp/push-wake-watcher.js";
+import { PushWakeStateStore } from "../../services/xbp/push-wake-state-store.js";
+import { createPushWakeSender } from "../../services/xbp/push-wake-sender.js";
+import { PushWakeAuditLogger } from "../../services/diagnostics/push-wake-audit-logger.js";
+import { isPushWakeEnabled } from "../../shared/models/persisted-settings.js";
 
 app.setName("ai-14all");
 
@@ -129,16 +149,52 @@ app.whenReady().then(async () => {
 		},
 	});
 
-	const workspacePersistence = new WorkspacePersistenceService(
+	// Shared with SettingsService below: its legacy seed source must read the SAME
+	// resolved workspace-state file WorkspacePersistenceService uses — including
+	// the AI14ALL_WORKSPACE_STATE_PATH env seam e2e tests rely on.
+	const workspaceStatePath =
 		process.env.AI14ALL_WORKSPACE_STATE_PATH ??
-			join(app.getPath("userData"), "workspace-state.json"),
+		join(app.getPath("userData"), "workspace-state.json");
+	const workspacePersistence = new WorkspacePersistenceService(
+		workspaceStatePath,
 	);
+	const settingsService = new SettingsService(
+		join(app.getPath("userData"), "settings.json"),
+		workspaceStatePath,
+	);
+	// Sync read for the preload's settings.initial/initialFirstRun. Must be
+	// registered before the first window loads (loadFile/loadURL below triggers
+	// the preload). ipcMain.on + a promise does NOT satisfy sendSync — the
+	// renderer unblocks on the synchronous return — so this uses SettingsService's
+	// sync twin. The full { settings, firstRun } result is returned (not just
+	// `.settings`) because this sendSync call is the ONLY point that can ever
+	// observe firstRun: true — it seeds the settings file as a side effect, so
+	// any later async settings:read always sees firstRun: false.
+	ipcMain.on("settings:readSync", (event) => {
+		try {
+			event.returnValue = settingsService.readStateSync();
+		} catch {
+			event.returnValue = null;
+		}
+	});
 
 	// Token telemetry: gated utilityProcess that reads ~/.claude and ~/.codex logs
 	// and pushes UsageSnapshots to the renderer. Enabled by default. The settings
 	// bridge loads the persisted usage UI settings once (async) and exposes a sync
 	// snapshot for the host's loadSettings plus an async read-modify-write persist.
-	const usageSettings = await createUsageSettingsBridge(workspacePersistence);
+	// Broadcasts settings:changed on every bridge-driven persist (usage popover
+	// writes bypass the settings:write IPC handler's own broadcast — see the
+	// bridge's `onPersisted` doc comment) so the Settings dialog's usage
+	// telemetry checkbox/toggles stay in sync within the same session.
+	const broadcastSettingsChanged = (settings: PersistedSettingsV1) => {
+		if (!mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+			mainWindow.webContents.send("settings:changed", settings);
+		}
+	};
+	const usageSettings = await createUsageSettingsBridge(
+		settingsService,
+		broadcastSettingsChanged,
+	);
 	const usageHost = new UsageHost({
 		userDataDir: app.getPath("userData"),
 		launchMs: Date.now(),
@@ -369,12 +425,34 @@ app.whenReady().then(async () => {
 		return null;
 	};
 
+	// Shared slice store — single source of truth for both Samantha driver and
+	// the XBP session-report provider so neither path drifts from the other.
+	const samanthaSliceSource = createSessionSliceStore();
+
+	// Shared getters — declared once so both consumers are structurally guaranteed
+	// to use the same implementation (a future edit cannot change one without the other).
+	const getReviewCount = (worktreeId: string) =>
+		reviewCommentService.listOpenByWorktree(worktreeId).length;
+	const getWhisperStates = () => samanthaWhisperWatcher.snapshot();
+
+	// Shared acting gate — one enable/kill control governs both acting channels
+	// (samantha connector + XBP lifecycle capabilities), per spec decision 5.
+	const isActingEnabled = () =>
+		pluginConfig.get("samantha").behavior?.actingEnabled ?? false;
+
+	const xbpSessionReport = createSessionReportProvider({
+		getIdentities: getSamanthaIdentities,
+		getReviewCount,
+		getWhisperStates,
+		getSessionSlice: () => samanthaSliceSource.get(),
+	});
+
 	const samanthaDriver = createSamanthaDriver({
 		client: createSamanthaConnectorClient({}),
 		getIdentities: getSamanthaIdentities,
-		getReviewCount: (worktreeId) =>
-			reviewCommentService.listOpenByWorktree(worktreeId).length,
-		getWhisperStates: () => samanthaWhisperWatcher.snapshot(),
+		getReviewCount,
+		getWhisperStates,
+		sliceSource: samanthaSliceSource,
 		subscribeReviews: (cb) => reviewCommentService.onChange(() => cb()),
 		subscribeWorktrees: (cb) => workspaceRegistry.onChange(cb),
 		pushHealth: (health) =>
@@ -382,8 +460,7 @@ app.whenReady().then(async () => {
 		focusWorktree: samanthaFocusWorktree,
 		webSocketImpl: globalThis.WebSocket as unknown as WebSocketCtor,
 		log: (message, error) => console.error(message, error),
-		isActingEnabled: () =>
-			pluginConfig.get("samantha").behavior?.actingEnabled ?? false,
+		isActingEnabled,
 		verifyActingToken: (token) => actingTokenVerifier.verify(token),
 		auditAct: (entry) => actingAuditLogger.append(entry),
 		runManagedInstruction: async (worktreeId, decision) => {
@@ -430,6 +507,96 @@ app.whenReady().then(async () => {
 			return { ok: true, detail: "sent" };
 		},
 	});
+
+	const xbpActingExecutor = createXbpActingExecutor({
+		isActingEnabled,
+		resolveWorkflow: createWorkflowResolver({
+			getWhisperStates,
+			resolveWorktreeRef,
+		}),
+		runWhisperCommand: (command, cwd) => whisperCommandRunner.run(command, cwd),
+		auditAct: (entry) => actingAuditLogger.append(entry),
+	});
+
+	// Spec §1: the XBP host service starts BEFORE the plugin registry boots, so a
+	// phone that connects during early startup finds the bridge already live. All
+	// mainWindow/webContents references below are lazy + null-safe so this block is
+	// safe to run regardless of when the window is created.
+	const { settings: persistedSettings } = settingsService.readStateSync();
+	const xbpDir = join(app.getPath("userData"), "ai-14all", "xbp");
+
+	// --- Arc B push-wake: token store, handlers, watcher (spec Deliverables 1-5)
+	const pushTokenStore = new XbpPushTokenStore({
+		dir: xbpDir,
+		secureStorage: safeStorage,
+	});
+	// readStateSync per call: register/deregister and a 3 s tick — negligible
+	// I/O, and it picks up settings edits without extra plumbing.
+	const isPushWakeOn = () =>
+		isPushWakeEnabled(settingsService.readStateSync().settings);
+	const pushTokenHandlers = createPushTokenHandlers({
+		isPushWakeEnabled: isPushWakeOn,
+		store: pushTokenStore,
+	});
+
+	let xbpService: XbpHostService | null = null;
+	xbpService = await createXbpHostIfEnabled({
+		enabled: isPhoneBridgeEnabled(persistedSettings),
+		options: {
+			dir: xbpDir,
+			secureStorage: safeStorage,
+			getSessionReport: xbpSessionReport,
+			acting: xbpActingExecutor,
+			pushTokenStore,
+			pushTokenHandlers,
+			subscribeChanges: (cb) => {
+				const offReviews = reviewCommentService.onChange(() => cb());
+				const offWorktrees = workspaceRegistry.onChange(cb);
+				const offSlice = samanthaSliceSource.subscribe(cb);
+				return () => {
+					offReviews();
+					offWorktrees();
+					offSlice();
+				};
+			},
+			onStatusChange: () =>
+				mainWindow?.webContents?.send(
+					PHONE_BRIDGE_STATUS_CHANGED,
+					xbpService?.getStatus(),
+				),
+		},
+		onStartError: (err) =>
+			console.error("[xbp] failed to start host service", err),
+	});
+
+	const xbpIpc = registerXbpIpc({
+		ipcMain,
+		getService: () => xbpService,
+		getWebContents: () => mainWindow?.webContents,
+	});
+
+	const pushWakeAudit = new PushWakeAuditLogger({
+		logsDir: join(app.getPath("userData"), "logs"),
+	});
+	const pushWakeWatcher = createPushWakeWatcher({
+		getStates: getWhisperStates,
+		stateStore: new PushWakeStateStore({ dir: xbpDir }),
+		isEnabled: () =>
+			(xbpService?.getStatus().enabled ?? false) && isPushWakeOn(),
+		hasToken: () => pushTokenStore.exists(),
+		send: createPushWakeSender({
+			loadToken: () => {
+				try {
+					return pushTokenStore.load()?.expoPushToken ?? null;
+				} catch {
+					return null; // safeStorage unavailable → behave as no token
+				}
+			},
+			clearToken: () => pushTokenStore.clear(),
+		}).send,
+		audit: (entry) => pushWakeAudit.append(entry),
+	});
+	pushWakeWatcher.start();
 
 	const pluginRegistry = createPluginRegistry(
 		[whisperDriver, cortexDriver, samanthaDriver],
@@ -519,6 +686,7 @@ app.whenReady().then(async () => {
 	const agentAttentionBridge = new AgentAttentionBridge(
 		() => mainWindow.webContents,
 	);
+	const agentResumeBridge = new AgentResumeBridge(() => mainWindow.webContents);
 
 	const offRegistry = workspaceRegistry.onChange(() => {
 		void worktreePathResolver.refresh();
@@ -539,6 +707,7 @@ app.whenReady().then(async () => {
 			worktreePathResolver,
 			sessionNoteBridge,
 			agentAttentionBridge,
+			agentResumeBridge,
 			{ port: desiredPort, host: "127.0.0.1" },
 			agentAttentionLogger,
 		);
@@ -561,10 +730,15 @@ app.whenReady().then(async () => {
 		},
 	};
 
+	// Set once a real quit is underway so hide-on-close and the close-gate can
+	// tell "user pressed the red X" (hide) apart from "user is quitting" (destroy).
+	let isQuitting = false;
+
 	const closeGate = createCloseGate();
-	closeGate.attach(mainWindow);
+	closeGate.attach(mainWindow, { isQuitting: () => isQuitting });
 	const { dispose, terminalService } = registerIpcHandlers(mainWindow, {
 		workspacePersistence,
+		settingsService,
 		workspaceRegistry,
 		worktreeService,
 		shellEventLog,
@@ -575,6 +749,7 @@ app.whenReady().then(async () => {
 			worktreePathResolver,
 		},
 		usageHost,
+		usageSettingsBridge: usageSettings,
 		installUpdate: () => updateService.installUpdate(),
 		closeGate,
 		getCortexEnabled: () => pluginConfig.get("cortex").enabled,
@@ -590,14 +765,19 @@ app.whenReady().then(async () => {
 		);
 	}
 	app.on("before-quit", () => {
+		isQuitting = true;
 		updateService.dispose();
 		offRegistry();
 		void deleteLivenessFile(livenessPath);
 		void mcpServer?.stop().catch(() => {});
+		void xbpService?.stop().catch(() => {});
+		pushWakeWatcher.stop();
 		sessionNoteBridge.dispose();
 		agentAttentionBridge.dispose();
+		agentResumeBridge.dispose();
 		usageHost.stop();
 		pluginIpc.dispose();
+		xbpIpc.dispose();
 		void pluginRegistry.stopAll();
 		pluginConfig.dispose();
 	});
@@ -608,5 +788,17 @@ app.whenReady().then(async () => {
 		onWindowAllClosed: (listener) => app.on("window-all-closed", listener),
 		quit: () => app.quit(),
 		dispose,
+	});
+
+	registerHideOnClose({
+		onClose: (listener) => mainWindow.on("close", listener),
+		onActivate: (listener) => app.on("activate", listener),
+		isQuitting: () => isQuitting,
+		hide: () => mainWindow.hide(),
+		show: () => {
+			mainWindow.show();
+			mainWindow.focus();
+		},
+		isDestroyed: () => mainWindow.isDestroyed(),
 	});
 });

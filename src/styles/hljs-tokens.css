@@ -1,0 +1,100 @@
+/* Token-driven syntax highlighting for markdown code blocks (spec D14/D15,
+ * docs/superpowers/specs/2026-07-12-markdown-preview-readability-design.md).
+ * Replaces the vendored highlight.js github-dark stylesheet and the
+ * light-theme override file. Colors come from the per-theme --hljs-* tokens
+ * in src/styles/tokens.css; the grouping mirrors the GitHub palettes' group
+ * structure exactly. Scopes GitHub purposely leaves unstyled (char.escape_,
+ * link, params, property, punctuation, tag) get NO rules here — they inherit
+ * the base color. The themed <pre> in shell.css owns the visual box;
+ * code.hljs is transparent so there is no nested vendored box. */
+
+.shell-md-body code.hljs {
+	color: var(--hljs-fg);
+	background: transparent;
+	padding: 0;
+}
+
+.shell-md-body .hljs-doctag,
+.shell-md-body .hljs-keyword,
+.shell-md-body .hljs-meta .hljs-keyword,
+.shell-md-body .hljs-template-tag,
+.shell-md-body .hljs-template-variable,
+.shell-md-body .hljs-type,
+.shell-md-body .hljs-variable.language_ {
+	color: var(--hljs-keyword);
+}
+
+.shell-md-body .hljs-title,
+.shell-md-body .hljs-title.class_,
+.shell-md-body .hljs-title.class_.inherited__,
+.shell-md-body .hljs-title.function_ {
+	color: var(--hljs-entity);
+}
+
+.shell-md-body .hljs-attr,
+.shell-md-body .hljs-attribute,
+.shell-md-body .hljs-literal,
+.shell-md-body .hljs-meta,
+.shell-md-body .hljs-number,
+.shell-md-body .hljs-operator,
+.shell-md-body .hljs-variable,
+.shell-md-body .hljs-selector-attr,
+.shell-md-body .hljs-selector-class,
+.shell-md-body .hljs-selector-id {
+	color: var(--hljs-constant);
+}
+
+.shell-md-body .hljs-regexp,
+.shell-md-body .hljs-string,
+.shell-md-body .hljs-meta .hljs-string {
+	color: var(--hljs-string);
+}
+
+.shell-md-body .hljs-built_in,
+.shell-md-body .hljs-symbol {
+	color: var(--hljs-builtin);
+}
+
+.shell-md-body .hljs-comment,
+.shell-md-body .hljs-code,
+.shell-md-body .hljs-formula {
+	color: var(--hljs-comment);
+}
+
+.shell-md-body .hljs-name,
+.shell-md-body .hljs-quote,
+.shell-md-body .hljs-selector-tag,
+.shell-md-body .hljs-selector-pseudo {
+	color: var(--hljs-name);
+}
+
+.shell-md-body .hljs-subst {
+	color: var(--hljs-fg);
+}
+
+.shell-md-body .hljs-section {
+	color: var(--hljs-section);
+	font-weight: bold;
+}
+
+.shell-md-body .hljs-bullet {
+	color: var(--hljs-bullet);
+}
+
+.shell-md-body .hljs-emphasis {
+	font-style: italic;
+}
+
+.shell-md-body .hljs-strong {
+	font-weight: bold;
+}
+
+.shell-md-body .hljs-addition {
+	color: var(--hljs-addition-fg);
+	background-color: var(--hljs-addition-bg);
+}
+
+.shell-md-body .hljs-deletion {
+	color: var(--hljs-deletion-fg);
+	background-color: var(--hljs-deletion-bg);
+}

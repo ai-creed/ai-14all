@@ -63,6 +63,9 @@
 		"AI14All Terminal Powerline", "Meslo LG M DZ for Powerline",
 		"Meslo LG M for Powerline", "Meslo LG M DZ Regular for Powerline", "Hack",
 		ui-monospace, Menlo, Monaco, monospace;
+	--font-reading:
+		"Hanken Grotesk Variable", system-ui, -apple-system, "Segoe UI", Roboto,
+		sans-serif;
 	--font-size-body: 13px;
 	--font-size-label: 16px;
 	font-family: var(--font-ui);
@@ -483,6 +486,66 @@ select {
 	flex-shrink: 0;
 }
 
+.shell-install-banner {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-4);
+	font-size: var(--font-size-body);
+	color: var(--text-primary);
+	background: color-mix(in srgb, var(--accent) 14%, var(--panel-bg));
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
+}
+
+.shell-install-banner__msg {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.shell-install-banner__actions {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	flex-shrink: 0;
+}
+
+.shell-install-banner__install {
+	padding: 2px var(--space-3);
+	font-size: 0.75rem;
+	color: var(--text-primary);
+	background: var(--panel-bg-elevated);
+	border: var(--shell-border-width) solid var(--panel-border);
+	border-radius: var(--radius-md);
+	cursor: pointer;
+}
+
+.shell-install-banner__install:hover {
+	border-color: var(--text-muted);
+}
+
+.shell-install-banner__dismiss {
+	background: none;
+	border: none;
+	color: var(--text-secondary);
+	cursor: pointer;
+	padding: 0 var(--space-1);
+	font-size: 1rem;
+	line-height: 1;
+}
+
+.shell-install-banner__dismiss:hover {
+	color: var(--text-primary);
+}
+
+.shell-install-modal__subtitle {
+	margin: 0 0 var(--space-3);
+	font-size: 0.75rem;
+	color: var(--text-secondary);
+}
+
 .shell-label {
 	line-height: 1.2;
 	letter-spacing: 0.08em;
@@ -532,6 +595,12 @@ select {
 .shell-sidebar {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr) auto;
+	/* Clamp the single column track to the container. Without this the auto
+	   track grows to the widest row's min-content (max-content propagation),
+	   so ONE inflexible row (e.g. the global footer's icon cluster) silently
+	   widens EVERY row — pushing the header's collapse button out of the
+	   sidebar and under the chip bar, where it becomes unclickable. */
+	grid-template-columns: minmax(0, 1fr);
 	padding: var(--space-3);
 	width: 100%;
 	height: 100%;
@@ -541,10 +610,6 @@ select {
 	   protrude past the panel edge when the sidebar is shrunk. */
 	overflow-x: clip;
 	border-color: var(--pane-border-sessions);
-}
-
-.shell-review-rail {
-	padding: var(--space-4);
 }
 
 .shell-sidebar__header {
@@ -785,8 +850,8 @@ select {
 .shell-sidebar__node {
 	position: relative;
 	padding-left: 24px;
-	/* Gap between cards — matches the prototype's 2px card spacing. */
-	padding-bottom: 2px;
+	/* Gap between worktree clusters — 8px so consecutive worktrees breathe. */
+	padding-bottom: var(--space-2);
 }
 
 .shell-sidebar__node:last-child {
@@ -876,6 +941,42 @@ select {
 }
 
 /*
+ * Header line: the title and the inline ready status share one horizontal row.
+ * This replaces the prior flex-column stacking that stranded the ready dot and
+ * "workflow done" status on their own lines below the title. The title flexes
+ * and truncates first; the ready status keeps its natural width and trails to
+ * the right edge of the row.
+ */
+.shell-sidebar__item-head {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	align-self: stretch;
+	min-width: 0;
+}
+
+.shell-sidebar__item-head > strong {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+/* The ready unit: quiet dot + summary, read as "● workflow done". */
+.shell-sidebar__row-ready {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	flex: 0 1 auto;
+	min-width: 0;
+}
+
+/* The moved session status shrinks (ellipsis via its inner context span) rather
+ * than shoving the title off-screen. */
+.shell-sidebar__item-status {
+	flex: 0 1 auto;
+	min-width: 0;
+}
+
+/*
  * Worktree row attention: rotating conic-gradient ring + subtle bg tint.
  * Drawn by a ::before pseudo so the row's own border (and selected accent)
  * stays intact underneath. Mask-composite: exclude carves the inside out
@@ -903,7 +1004,7 @@ select {
 
 @keyframes shell-sidebar-attention-pulse {
 	to {
-		--attention-opacity: 1;
+		--attention-opacity: 0.55;
 	}
 }
 
@@ -936,7 +1037,7 @@ select {
 	mask-composite: exclude;
 	pointer-events: none;
 	animation:
-		shell-sidebar-attention-rotate 4s linear infinite,
+		shell-sidebar-attention-rotate 8s linear infinite,
 		shell-sidebar-attention-pulse 2.5s ease-in-out infinite alternate;
 }
 
@@ -985,6 +1086,33 @@ select {
 	}
 }
 
+/* Row ready tier: quiet dot only — no ring, no tint, no title recolor (D4).
+ * Lives inside the flex `.shell-sidebar__row` unit on the header line, so no
+ * inline-flow margins/alignment are needed. */
+.shell-sidebar__row-ready-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--ready);
+	flex: 0 0 auto;
+}
+/* Collapsed-row rollup dot (Task 8) */
+.shell-sidebar__workspace-rollup-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+}
+.shell-sidebar__workspace-rollup-dot[data-tier="actionRequired"] {
+	background: var(--danger);
+}
+.shell-sidebar__workspace-rollup-dot[data-tier="ready"] {
+	background: var(--ready);
+}
+.shell-sidebar__workspace-count {
+	font-size: var(--ws-fs-chip);
+	color: var(--text-secondary);
+	margin-left: var(--space-1);
+}
 .shell-sidebar__row[data-attention="activity"] {
 	/* Distinct from the accent used for "selected" — too many green-ish cards
 	 * on screen otherwise made it hard to tell at a glance which row is in
@@ -1089,6 +1217,36 @@ select {
 	white-space: nowrap;
 }
 
+/* Non-color signal for actionRequired rows: a distinct, high-contrast tag whose
+   shape + text carry the meaning independent of hue/motion (colorblind + SR
+   safe). Square/flat per the TUI aesthetic. */
+.shell-sidebar__needs-you {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	font-size: 0.6rem;
+	/* Tight line box + symmetric vertical padding so the uppercase caps sit
+	   optically centered in the pill (inherited ~1.4 line-height left the caps
+	   riding high, since all-caps leaves the descender region empty). */
+	line-height: 1;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	padding: 2px 4px;
+	white-space: nowrap;
+	color: var(--background);
+	background: var(--attention-action-required, #f0776a);
+}
+
+/* Tooltips are informational, never interactive: their Radix popper wrapper must
+   not intercept pointer events, or an open tooltip can block clicks on the
+   controls beneath/beside it (e.g. sidebar rows and nav buttons). Scoped via
+   :has([role="tooltip"]) so interactive poppers (menus, dropdowns, dialogs)
+   keep their pointer events. */
+[data-radix-popper-content-wrapper]:has([role="tooltip"]) {
+	pointer-events: none;
+}
+
 .shell-sidebar__processes {
 	display: flex;
 	flex-direction: column;
@@ -1116,6 +1274,42 @@ select {
 	padding: 0 6px;
 	font-size: 11px;
 	line-height: 20px;
+}
+
+/* "Resume conversation" affordance (spec §5.5, Task 13): a flat TUI pill —
+ * deliberately NOT the shared <Button> component's rounded chrome, and no
+ * border-radius, to read as a terminal-native control rather than a modal
+ * dialog button. */
+.shell-sidebar__process-resume {
+	height: 20px;
+	padding: 0 6px;
+	font-size: 11px;
+	line-height: 18px;
+	font-family: var(--font-ui);
+	background: var(--accent);
+	color: var(--accent-foreground);
+	border: 1px solid var(--panel-border);
+	border-radius: 0;
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.shell-sidebar__process-resume:hover {
+	filter: brightness(1.1);
+}
+
+/* Rollup "N more…" toggle — compact, muted, no chrome. */
+.shell-sidebar__process.shell-sidebar__process--more {
+	background: none;
+	border: none;
+	padding: 2px 12px;
+	font-size: var(--ws-fs-chip);
+	color: var(--text-secondary);
+	cursor: pointer;
+	text-align: left;
+}
+.shell-sidebar__process.shell-sidebar__process--more:hover {
+	color: var(--text-primary);
 }
 
 .shell-sidebar__process-indicator {
@@ -1194,13 +1388,16 @@ select {
 	font-size: var(--ws-fs-branch);
 }
 .shell-sidebar__footer--global .w-full {
-	/* Load button shares the row with the theme trigger instead of forcing 100% */
-	flex: 1 1 auto;
-	width: auto;
 	font-size: var(--ws-fs-branch);
 }
+.shell-sidebar__footer-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--space-2);
+}
 .shell-sidebar__theme-trigger,
-.shell-sidebar__help-trigger {
+.shell-sidebar__help-trigger,
+.shell-sidebar__settings-trigger {
 	flex: 0 0 auto;
 }
 
@@ -1210,6 +1407,7 @@ select {
 .shell-sidebar__header button,
 .shell-sidebar__theme-trigger,
 .shell-sidebar__help-trigger,
+.shell-sidebar__settings-trigger,
 .shell-sidebar__workspace-remove {
 	color: var(--muted-foreground);
 }
@@ -1257,11 +1455,12 @@ select {
 }
 
 .shell-sidebar[data-collapsed="true"] .shell-sidebar__footer--global {
-	flex-direction: column;
 	align-items: center;
 }
-.shell-sidebar[data-collapsed="true"] .shell-sidebar__footer--global .w-full {
-	flex: 0 0 auto;
+/* The collapsed rail is too narrow for a horizontal icon row; stack them. */
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__footer-actions {
+	flex-direction: column;
+	align-items: center;
 }
 
 /* ── Session chip bar ────────────────────────────────── */
@@ -1424,6 +1623,9 @@ select {
 .shell-chip-bar__action[data-provider] {
 	color: var(--chip-provider);
 	font-weight: 600;
+	/* Subtle provider-tinted resting fill so launchers read as pressable
+	   actions, not passive outline filters. Stays square/flat (TUI). */
+	background: color-mix(in srgb, var(--chip-provider) 8%, transparent);
 }
 .shell-chip-bar__action[data-provider]:hover {
 	color: var(--chip-provider);
@@ -1562,6 +1764,12 @@ select {
 	overflow: hidden;
 }
 
+.shell-review-rail__toolbar {
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+
 .shell-review-progress {
 	padding: 6px 8px 4px;
 	display: flex;
@@ -1586,30 +1794,6 @@ select {
 	border-radius: 0;
 	background: var(--success);
 	transition: width 0.2s ease;
-}
-
-.shell-review-mark-viewed {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	padding: 2px 8px;
-	font-size: 11px;
-	line-height: 1.6;
-	color: var(--text-secondary);
-	background: var(--muted);
-	border: 1px solid var(--border);
-	border-radius: 0;
-	cursor: pointer;
-	white-space: nowrap;
-}
-
-.shell-review-mark-viewed:hover {
-	border-color: var(--muted-foreground);
-}
-
-.shell-review-mark-viewed[data-reviewed="true"] {
-	color: var(--success);
-	border-color: var(--success);
 }
 
 .shell-review-rail__header,
@@ -1726,6 +1910,67 @@ select {
 	gap: var(--space-3);
 }
 
+.shell-list__item-row {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	/* Let the row shrink as a grid item (Changes `.shell-list`, Commits
+	   `.shell-commit-list__files`) so the file-name ellipsis engages instead of
+	   the row forcing the list wider than the rail. */
+	min-width: 0;
+}
+
+.shell-list__item-row .shell-list__item {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+/* Reserve top-right space on the open row so the absolutely-positioned "Viewed"
+   chip never overlaps the filename or the status badge. */
+.shell-list__item-row--has-toggle .shell-list__item {
+	padding-right: 100px;
+}
+
+/* Truncate long file names so a name with no break points can't force the row
+   wider than the panel and push the floating "Viewed" chip (or the status
+   badge) out of view. */
+.shell-list__item-name {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.shell-review-row-viewed {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	z-index: 1;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 6px;
+	font-size: 11px;
+	line-height: 1.5;
+	color: var(--text-secondary);
+	background: var(--muted);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.shell-review-row-viewed:hover {
+	border-color: var(--muted-foreground);
+}
+
+.shell-review-row-viewed[data-reviewed="true"] {
+	color: var(--success);
+	border-color: var(--success);
+}
+
 .shell-toolbar-menu {
 	padding: var(--space-2);
 	background: var(--panel-bg);
@@ -1833,50 +2078,6 @@ select {
 
 .shell-inline-editor__status--error {
 	color: var(--danger, #d76b6b);
-}
-
-.shell-inline-editor__preview-btn {
-	margin-left: auto;
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	padding: 2px 10px;
-	background: var(--panel-bg);
-	color: var(--text-primary);
-	border: var(--shell-border-width) solid var(--panel-border);
-	border-radius: var(--radius-sm);
-	font-size: 0.7rem;
-	line-height: 1;
-	cursor: pointer;
-}
-
-/* Pin the icon glyph's box so swapping color-emoji codepoints can't push
-   the button's line-box (and thus the header) by a pixel or two. */
-.shell-inline-editor__preview-btn > span[aria-hidden="true"] {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 12px;
-	height: 12px;
-	line-height: 1;
-	font-size: 11px;
-}
-
-.shell-inline-editor__preview-btn:hover {
-	background: var(--panel-bg-elevated);
-	border-color: var(--accent);
-}
-
-.shell-inline-editor__preview-btn[aria-pressed="true"] {
-	background: color-mix(in srgb, var(--accent) 14%, transparent);
-	border-color: var(--accent);
-	color: var(--accent);
-}
-
-.shell-inline-editor__preview {
-	flex: 1;
-	min-height: 0;
-	overflow: auto;
 }
 
 .shell-inline-editor__bar-slot {
@@ -1989,6 +2190,26 @@ select {
 .shell-viewer-panel > .shell-empty-state,
 .shell-viewer-panel > .shell-error {
 	padding: var(--space-4);
+}
+
+.shell-image-preview {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	background: var(--muted);
+	gap: 8px;
+}
+
+.shell-image-preview__img {
+	max-width: 100%;
+	max-height: calc(100% - 32px);
+}
+
+.shell-image-preview__caption {
+	font-size: 11px;
+	color: var(--text-muted);
 }
 
 .shell-review-grid__resize-handle {
@@ -2434,105 +2655,187 @@ select {
 }
 
 .shell-md-modal__body,
-.shell-inline-editor__preview-body {
+.shell-md-preview__body {
 	padding: var(--space-4) var(--space-6);
+}
+
+/* ── Markdown document body (shared MarkdownBody renderer) ──────────
+ * Rendered inside MarkdownPreview, MarkdownPreviewModal and NoteSheet.
+ * Tailwind preflight resets heading sizes, list markers and hr globally,
+ * so every rule below that looks like a browser default is load-bearing.
+ * Spec: docs/superpowers/specs/2026-07-12-markdown-preview-readability-design.md */
+
+.shell-md-body {
 	color: var(--text-primary);
+	font-family: var(--font-reading);
+	font-size: 14px;
 	line-height: 1.6;
 }
 
-.shell-md-modal__body h1,
-.shell-md-modal__body h2,
-.shell-md-modal__body h3,
-.shell-md-modal__body h4,
-.shell-md-modal__body h5,
-.shell-md-modal__body h6,
-.shell-inline-editor__preview-body h1,
-.shell-inline-editor__preview-body h2,
-.shell-inline-editor__preview-body h3,
-.shell-inline-editor__preview-body h4,
-.shell-inline-editor__preview-body h5,
-.shell-inline-editor__preview-body h6 {
-	margin-top: var(--space-4);
-	margin-bottom: var(--space-2);
+.shell-md-body > :first-child {
+	margin-top: 0;
+}
+
+.shell-md-body > :last-child {
+	margin-bottom: 0;
+}
+
+.shell-md-body h1,
+.shell-md-body h2,
+.shell-md-body h3,
+.shell-md-body h4,
+.shell-md-body h5,
+.shell-md-body h6 {
+	margin: 1.5em 0 0.5em;
 	font-weight: 600;
+	line-height: 1.25;
 	color: var(--text-primary);
 }
 
-.shell-md-modal__body p,
-.shell-inline-editor__preview-body p {
-	margin-bottom: var(--space-3);
+.shell-md-body h1 {
+	font-size: 2em;
+	padding-bottom: 0.3em;
+	border-bottom: 1px solid var(--panel-border);
 }
 
-.shell-md-modal__body pre,
-.shell-inline-editor__preview-body pre {
+.shell-md-body h2 {
+	font-size: 1.5em;
+	padding-bottom: 0.3em;
+	border-bottom: 1px solid var(--panel-border);
+}
+
+.shell-md-body h3 {
+	font-size: 1.25em;
+}
+
+.shell-md-body h4 {
+	font-size: 1em;
+}
+
+.shell-md-body h5 {
+	font-size: 0.875em;
+}
+
+.shell-md-body h6 {
+	font-size: 0.85em;
+	color: var(--text-muted);
+}
+
+.shell-md-body p {
+	margin: 0 0 0.75em;
+}
+
+.shell-md-body ul {
+	list-style: disc;
+}
+
+.shell-md-body ol {
+	list-style: decimal;
+}
+
+.shell-md-body ul ul {
+	list-style: circle;
+}
+
+.shell-md-body ul ul ul {
+	list-style: square;
+}
+
+.shell-md-body ul,
+.shell-md-body ol {
+	margin: 0 0 0.75em;
+	padding-left: 2em;
+}
+
+.shell-md-body li + li {
+	margin-top: 0.25em;
+}
+
+.shell-md-body li > ul,
+.shell-md-body li > ol {
+	margin-bottom: 0;
+}
+
+.shell-md-body li.task-list-item {
+	list-style: none;
+}
+
+.shell-md-body li.task-list-item input[type="checkbox"] {
+	margin: 0 0.4em 0.15em -1.6em;
+	vertical-align: middle;
+	accent-color: var(--accent);
+}
+
+.shell-md-body hr {
+	border: 0;
+	border-top: 2px solid var(--panel-border);
+	margin: 1.5em 0;
+}
+
+.shell-md-body pre {
 	background: var(--panel-bg-elevated);
 	padding: var(--space-3);
 	border-radius: var(--radius-sm);
 	overflow-x: auto;
-	margin-bottom: var(--space-3);
+	margin: 0 0 0.75em;
 }
 
-.shell-md-modal__body code,
-.shell-inline-editor__preview-body code {
+.shell-md-body code {
 	font-family: var(--font-terminal);
-	font-size: 0.875rem;
+	font-size: 0.875em;
 }
 
-.shell-md-modal__body :not(pre) > code,
-.shell-inline-editor__preview-body :not(pre) > code {
+.shell-md-body :not(pre) > code {
 	background: var(--panel-bg-elevated);
 	padding: 2px var(--space-1);
 	border-radius: var(--radius-sm);
 	color: var(--accent);
 }
 
-.shell-md-modal__body table,
-.shell-inline-editor__preview-body table {
+.shell-md-body table {
+	display: block;
+	width: max-content;
+	max-width: 100%;
+	overflow-x: auto;
 	border-collapse: collapse;
-	width: 100%;
-	margin-bottom: var(--space-3);
+	margin: 0 0 0.75em;
 }
 
-.shell-md-modal__body th,
-.shell-md-modal__body td,
-.shell-inline-editor__preview-body th,
-.shell-inline-editor__preview-body td {
+.shell-md-body th,
+.shell-md-body td {
 	border: var(--shell-border-width) solid var(--panel-border);
 	padding: var(--space-2) var(--space-3);
 	text-align: left;
 }
 
-.shell-md-modal__body th,
-.shell-inline-editor__preview-body th {
+.shell-md-body th {
 	background: var(--panel-bg-elevated);
 	color: var(--text-secondary);
 }
 
-.shell-md-modal__body ul,
-.shell-md-modal__body ol,
-.shell-inline-editor__preview-body ul,
-.shell-inline-editor__preview-body ol {
-	margin-bottom: var(--space-3);
-	padding-left: var(--space-5);
+.shell-md-body tbody tr:nth-child(2n) {
+	background: var(--panel-bg-elevated);
 }
 
-.shell-md-modal__body blockquote,
-.shell-inline-editor__preview-body blockquote {
+.shell-md-body blockquote {
 	border-left: 3px solid var(--panel-border-strong);
-	margin: 0 0 var(--space-3) 0;
+	margin: 0 0 0.75em;
 	padding-left: var(--space-4);
 	color: var(--text-muted);
 }
 
-.shell-md-modal__body a,
-.shell-inline-editor__preview-body a {
+.shell-md-body a {
 	color: var(--accent);
 	text-decoration: underline;
 }
 
-.shell-md-modal__body del,
-.shell-inline-editor__preview-body del {
+.shell-md-body del {
 	color: var(--text-muted);
+}
+
+.shell-md-body img {
+	max-width: 100%;
+	border-radius: var(--radius-sm);
 }
 
 .shell-md-modal__retry {
@@ -2556,6 +2859,40 @@ select {
 .shell-md-modal__retry:focus-visible {
 	outline: 2px solid var(--accent);
 	outline-offset: 2px;
+}
+
+/* ── Markdown Preview (inline) ──────────────────────────────────────── */
+
+.shell-md-preview {
+	height: 100%;
+	overflow-y: auto;
+}
+
+/* ── File Viewer ([Preview │ Source] toggle) ────────────────────────── */
+
+.shell-file-viewer {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.shell-file-viewer__header {
+	display: flex;
+	gap: 0;
+	border-bottom: 1px solid var(--border);
+}
+
+.shell-file-viewer__mode-btn {
+	border: none;
+	border-radius: var(--radius);
+	padding: 2px 10px;
+	font-size: 11px;
+	cursor: pointer;
+	background: transparent;
+}
+
+.shell-file-viewer__mode-btn[aria-pressed="true"] {
+	background: var(--muted);
 }
 
 /* ── Lightweight Editor Modal ───────────────────────────────────────── */
@@ -2664,6 +3001,11 @@ select {
 .shell-sidebar__footer--global {
 	margin-top: var(--space-3);
 	display: flex;
+	/* Two stacked rows — the full-width Load workspace button, then the icon
+	   actions. A single shared row stopped fitting the narrowest sidebar
+	   widths once the Settings trigger joined it (Load + three 36px icons
+	   ≈ 268px min-content vs SIDEBAR_MIN = 200). */
+	flex-direction: column;
 	gap: var(--space-2);
 	align-items: stretch;
 }
@@ -3591,6 +3933,14 @@ select {
 	font-size: 13px;
 }
 
+.shell-toast__action {
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	padding: 0 6px;
+	background: transparent;
+	cursor: pointer;
+}
+
 /* ── Inline comment thread (Monaco view-zone) ───────────────── */
 
 .shell-inline-thread {
@@ -4264,32 +4614,51 @@ select {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
-	width: 100%;
+	/* No width:100% — combined with margin-left:24px it overflowed the sidebar
+	 * and clipped the right-aligned status badge. Auto width fills the space
+	 * left of the rail indent, so the artifact ellipsis and margin-left:auto
+	 * status still have a bounded box. */
 	text-align: left;
-	margin-top: var(--space-2);
+	margin-bottom: var(--space-3);
+	margin-left: 24px;
 	padding: var(--space-2);
-	border: var(--shell-border-width) solid var(--panel-border);
+	/* Flat: no border and no fill — the rail elbow + indent already group it
+	 * under the worktree; a bordered/filled box read as a heavy card. The fill
+	 * only appears on :hover to signal the row is clickable. border-radius is
+	 * retained so that hover fill has rounded corners. */
 	border-radius: var(--radius-md);
-	background: var(--panel-bg-elevated);
 	color: inherit;
 	font: inherit;
+	font-size: var(--ws-fs-chip);
 	cursor: pointer;
+	position: relative;
+}
+.workflow-row::before {
+	content: "";
+	position: absolute;
+	left: -12px;
+	top: -2px;
+	bottom: 50%;
+	width: 12px;
+	border-left: 2px solid var(--rail);
+	border-bottom: 2px solid var(--rail);
 }
 .workflow-row:hover {
-	border-color: var(--panel-border-strong);
+	/* Border-less now — give the clickable card a subtle fill on hover so it
+	 * still signals interactivity. */
+	background: color-mix(in srgb, var(--panel-bg) 80%, transparent);
 }
-.workflow-row__header {
+/* Line 1: type badge + artifact, with any non-done status pushed to the right. */
+.workflow-row__artifact-line {
 	display: flex;
 	align-items: center;
 	gap: 6px;
-}
-.workflow-row__caption {
-	color: var(--text-muted);
-	font-size: 0.66rem;
+	min-width: 0;
 }
 .workflow-row__type {
 	display: inline-flex;
 	align-items: center;
+	flex: 0 0 auto;
 	padding: 0 6px;
 	height: 16px;
 	border-radius: var(--radius-sm);
@@ -4300,6 +4669,8 @@ select {
 	color: var(--sha-color);
 }
 .workflow-row__artifact {
+	flex: 1 1 auto;
+	min-width: 0;
 	color: var(--text-secondary);
 	font-size: 0.68rem;
 	overflow: hidden;
@@ -4309,23 +4680,29 @@ select {
 .workflow-row__phase {
 	display: flex;
 	flex-wrap: wrap;
+	align-items: center;
 	gap: 5px;
 	color: var(--text-muted);
 	font-size: 0.68rem;
 }
-.workflow-row__round::before {
-	content: "· ";
+/* Dash separators for the `<status> - <phase> - <round>` phase line. */
+.workflow-row__phase-name::before {
+	content: "- ";
 }
+.workflow-row__round::before {
+	content: "- ";
+}
+/* Status = dot + explicit word on the phase line. The wrapper sets `color` per
+   data-status (below); the dot uses currentColor and the label inherits it, so
+   both share one status color. No pill — just colored inline text. */
 .workflow-row__status {
 	display: inline-flex;
 	align-items: center;
-	gap: 5px;
-	margin-left: auto;
-	padding: 1px 7px;
-	border-radius: 999px;
-	font-size: 0.66rem;
+	gap: 4px;
+	flex: 0 0 auto;
+}
+.workflow-row__status-label {
 	font-weight: 600;
-	flex-shrink: 0;
 }
 .workflow-row__status-dot {
 	width: 6px;
@@ -4333,27 +4710,23 @@ select {
 	border-radius: 50%;
 	background: currentColor;
 }
-/* Semantic status colors: live / complete / idle / needs-attention / urgent. */
+/* Semantic status dot colors: live / complete / idle / needs-attention / urgent.
+   The dot inherits currentColor, so each state only needs to set color. */
 .workflow-row__status[data-status="running"] {
 	color: var(--accent);
-	background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 .workflow-row__status[data-status="done"] {
-	color: #69c06a;
-	background: color-mix(in srgb, #69c06a 12%, transparent);
+	color: var(--ready);
 }
 .workflow-row__status[data-status="paused"],
 .workflow-row__status[data-status="canceled"] {
 	color: var(--text-muted);
-	background: color-mix(in srgb, var(--text-muted) 14%, transparent);
 }
 .workflow-row__status[data-status="halted"] {
 	color: var(--warning);
-	background: color-mix(in srgb, var(--warning) 14%, transparent);
 }
 .workflow-row__status[data-status="escalated"] {
 	color: var(--danger);
-	background: color-mix(in srgb, var(--danger) 16%, transparent);
 }
 .workflow-row__daemon-down,
 .workflow-row__stale {
@@ -4892,6 +5265,19 @@ select {
 	color: var(--accent);
 	font-weight: 700;
 }
+/* Month chart: only a few sparse ticks (month abbrev + today dot). Let each label
+   paint over its empty neighbour slots instead of clipping, and anchor the abbrev
+   to its boundary column. */
+.usage-chart-labels.is-month .usage-chart-label {
+	overflow: visible;
+	white-space: nowrap;
+}
+.usage-chart-labels.is-month .usage-chart-label.align-left {
+	text-align: left;
+}
+.usage-chart-labels.is-month .usage-chart-label.align-right {
+	text-align: right;
+}
 /* "You are here" tick at the baseline of today's column — the only today marker on
    the month chart (which has no weekday labels). min-height keeps it visible even
    when today has no usage yet. */
@@ -5218,13 +5604,36 @@ select {
 	border-top: var(--shell-border-width) solid var(--panel-border);
 	padding: var(--space-3) 0;
 }
+
+.plugins-panel__agent-clis-toggle {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	width: 100%;
+	padding: 0;
+	background: none;
+	border: none;
+	cursor: pointer;
+	text-align: left;
+}
+
+.plugins-panel__agent-clis-toggle .plugins-panel__section-title {
+	margin: 0;
+}
+
+.plugins-panel__agent-clis-caret {
+	color: var(--text-muted);
+	font-size: 0.7rem;
+}
+
+.plugins-panel__agent-clis-body {
+	margin-top: var(--space-2);
+}
+
 .plugins-panel__agent-cli-line {
 	font-size: 0.75rem;
 	color: var(--text-secondary);
 	margin: 0 0 4px;
-}
-.plugins-panel__agent-cli-line--pending {
-	font-style: italic;
 }
 .plugins-panel__agent-cli-name {
 	font-weight: 600;
@@ -5253,6 +5662,93 @@ select {
 	cursor: pointer;
 }
 .plugins-panel__close:hover {
+	border-color: var(--text-muted);
+	color: var(--text-primary);
+}
+
+/* --- Settings dialog ---
+   TUI trait set is mandatory here (no rounded corners, no drop shadow, solid
+   separators between groups) rather than following plugins-panel's shadow —
+   var(--radius*) already resolves to 0 everywhere, but box-shadow is omitted
+   outright to keep the surface flat. */
+.settings-dialog__overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.45);
+	z-index: 49;
+}
+.settings-dialog {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	z-index: 50;
+	background: var(--panel-bg);
+	border: var(--shell-border-width) solid var(--panel-border);
+	width: 420px;
+	max-width: calc(100vw - 32px);
+	max-height: calc(100vh - 64px);
+	overflow-y: auto;
+	padding: var(--space-4);
+}
+.settings-dialog__title {
+	font-size: 13px;
+	font-weight: 600;
+	margin: 0 0 var(--space-3);
+	color: var(--text-primary);
+}
+.settings-dialog__section {
+	border-top: var(--shell-border-width) solid var(--panel-border);
+	padding: var(--space-3) 0;
+}
+.settings-dialog__section:first-of-type {
+	border-top: none;
+	padding-top: 0;
+}
+.settings-dialog__section-title {
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--text-secondary);
+	margin: 0 0 var(--space-2);
+}
+.settings-dialog__row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	margin: 0 0 var(--space-2);
+	font-size: 0.75rem;
+	color: var(--text-secondary);
+}
+.settings-dialog__row:last-child {
+	margin-bottom: 0;
+}
+.settings-dialog__row select,
+.settings-dialog__row input[type="number"] {
+	background: var(--panel-bg-elevated);
+	border: var(--shell-border-width) solid var(--panel-border);
+	color: var(--text-primary);
+	font-family: inherit;
+	font-size: 0.75rem;
+	padding: 2px 4px;
+}
+.settings-dialog__checkbox-label {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+.settings-dialog__close {
+	margin-top: var(--space-3);
+	background: none;
+	border: var(--shell-border-width) solid var(--panel-border);
+	color: var(--text-secondary);
+	padding: 4px var(--space-3);
+	font-size: 0.75rem;
+	cursor: pointer;
+}
+.settings-dialog__close:hover {
 	border-color: var(--text-muted);
 	color: var(--text-primary);
 }
@@ -5388,17 +5884,13 @@ select {
 .agent-launcher-bar__status[data-tone="muted"] {
 	color: var(--text-muted);
 }
+/* Collab status conveys tone by text color only — no border, no background
+   box — so it never wears a launcher button's costume in any tone (#2). */
 .agent-launcher-bar__status[data-tone="amber"] {
 	color: #e58a5e;
-	border: var(--shell-border-width) solid
-		color-mix(in srgb, #e58a5e 35%, transparent);
-	background: color-mix(in srgb, #e58a5e 8%, transparent);
 }
 .agent-launcher-bar__status[data-tone="accent"] {
 	color: var(--accent);
-	border: var(--shell-border-width) solid
-		color-mix(in srgb, var(--accent) 35%, transparent);
-	background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .floating-shell-pills {
 	display: inline-flex;
@@ -5733,7 +6225,7 @@ select {
 
 .shell-review-minimap {
 	position: relative;
-	width: 46px;
+	width: 24px;
 	flex-shrink: 0;
 	align-self: stretch;
 }
@@ -5777,12 +6269,14 @@ select {
 	flex-shrink: 0;
 }
 
+.shell-review-minimap__dot--cluster {
+	width: 16px;
+	height: 16px;
+	font-size: 8px;
+	color: var(--background);
+}
+
 .shell-review-minimap__count {
-	position: absolute;
-	right: calc(100% + 2px);
-	font-size: 9px;
-	color: var(--text-muted);
-	white-space: nowrap;
 	line-height: 1;
 }
 

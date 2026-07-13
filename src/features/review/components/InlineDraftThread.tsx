@@ -1,10 +1,10 @@
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, useState } from "react";
 
 type Props = {
 	range: { startLine: number; endLine: number };
 	body: string;
 	onChange: (body: string) => void;
-	onSubmit: () => void;
+	onSubmit: () => Promise<void> | void;
 	onCancel: () => void;
 	onMeasureChange: () => void;
 };
@@ -17,9 +17,21 @@ export function InlineDraftThread({
 	onCancel,
 	onMeasureChange,
 }: Props) {
+	const [submitting, setSubmitting] = useState(false);
+
 	useLayoutEffect(() => {
 		onMeasureChange();
 	}, [body, onMeasureChange]);
+
+	const submit = async () => {
+		if (submitting || body.trim().length === 0) return;
+		setSubmitting(true);
+		try {
+			await onSubmit();
+		} finally {
+			setSubmitting(false);
+		}
+	};
 
 	return (
 		<div className="shell-inline-thread" data-state="editing" data-draft="true">
@@ -38,7 +50,14 @@ export function InlineDraftThread({
 				onKeyDown={(e) => {
 					if (e.key === "Enter" && !e.shiftKey) {
 						e.preventDefault();
-						if (body.trim().length > 0) onSubmit();
+						void submit();
+					} else if (e.key === "Escape") {
+						e.preventDefault();
+						if (
+							body.trim().length === 0 ||
+							window.confirm("Discard this draft comment?")
+						)
+							onCancel();
 					}
 				}}
 			/>
@@ -48,8 +67,8 @@ export function InlineDraftThread({
 				</button>
 				<button
 					type="button"
-					disabled={body.trim().length === 0}
-					onClick={onSubmit}
+					disabled={submitting || body.trim().length === 0}
+					onClick={() => void submit()}
 				>
 					Save
 				</button>

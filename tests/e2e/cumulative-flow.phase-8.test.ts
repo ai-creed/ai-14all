@@ -128,15 +128,17 @@ test.describe.serial("Cumulative flow — Phase 8", () => {
 			.filter({ hasText: /^NOTES\.md/ });
 		await expect(notesMdRow).toBeVisible({ timeout: 5_000 });
 
-		// Click NOTES.md to select it
+		// Click NOTES.md to select it. .md files default to the rendered inline
+		// markdown preview (FileViewer's Preview mode), not the Monaco editor —
+		// the tree-row title bar only mounts in Source mode.
 		await notesMdRow.click();
 
-		// FileViewer should show NOTES.md in the title
-		await expect(
-			page.locator(".shell-viewer__title", { hasText: "NOTES.md" }),
-		).toBeVisible({
+		await expect(page.locator(".shell-md-preview")).toBeVisible({
 			timeout: 10_000,
 		});
+		await expect(
+			page.getByRole("heading", { name: "Preview Test" }),
+		).toBeVisible();
 	});
 
 	test("right-clicking root row and clicking Refresh keeps the tree rendered", async () => {

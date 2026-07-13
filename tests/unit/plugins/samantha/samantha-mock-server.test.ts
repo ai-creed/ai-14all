@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { once } from "node:events";
 import { request } from "node:http";
 import WebSocket from "ws";
 import {
@@ -37,13 +38,24 @@ function httpStatus(
 	});
 }
 
+async function openClient(port: number): Promise<WebSocket> {
+	const ws = new WebSocket(`ws://127.0.0.1:${port}/connectors/ai-14all/events`);
+	// Raw test client: swallow benign handshake/teardown errors so they don't
+	// surface as unhandled (e.g. the server terminate() during afterEach).
+	ws.on("error", () => {});
+	// Wait for CONNECTING -> OPEN before we close/drop it. waitForConnection only
+	// observes the server side, which fires before the client finishes its
+	// handshake; closing a CONNECTING socket makes ws throw "WebSocket was closed
+	// before the connection was established".
+	await once(ws, "open");
+	return ws;
+}
+
 describe("samantha-mock-server (S4 extensions)", () => {
 	it("counts connections and supports waitForConnection", async () => {
 		mock = await startMockSamantha();
 		expect(mock.connectionCount).toBe(0);
-		const ws = new WebSocket(
-			`ws://127.0.0.1:${mock.port}/connectors/ai-14all/events`,
-		);
+		const ws = await openClient(mock.port);
 		await mock.waitForConnection(1);
 		expect(mock.connectionCount).toBe(1);
 		ws.close();
@@ -51,9 +63,7 @@ describe("samantha-mock-server (S4 extensions)", () => {
 
 	it("dropSocket closes the active connector socket", async () => {
 		mock = await startMockSamantha();
-		const ws = new WebSocket(
-			`ws://127.0.0.1:${mock.port}/connectors/ai-14all/events`,
-		);
+		const ws = await openClient(mock.port);
 		const closed = new Promise<void>((resolve) =>
 			ws.on("close", () => resolve()),
 		);

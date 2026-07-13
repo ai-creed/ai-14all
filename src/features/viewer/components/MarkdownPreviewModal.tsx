@@ -6,11 +6,8 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/icon";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeHighlight from "rehype-highlight";
-import "highlight.js/styles/github-dark.css";
 import { files } from "../../../lib/desktop-client";
+import { MarkdownBody } from "./MarkdownBody";
 
 interface Props {
 	workspaceId: string;
@@ -112,12 +109,7 @@ export function MarkdownPreviewModal({
 				{content !== null && (
 					<div className="shell-md-modal__scroll">
 						<div className="shell-md-modal__body">
-							<ReactMarkdown
-								remarkPlugins={[remarkGfm]}
-								rehypePlugins={[rehypeHighlight]}
-							>
-								{content}
-							</ReactMarkdown>
+							<MarkdownBody content={content} />
 						</div>
 					</div>
 				)}

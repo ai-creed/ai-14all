@@ -1,6 +1,13 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { access, mkdtemp, readFile, rm } from "node:fs/promises";
+import {
+	access,
+	mkdir,
+	mkdtemp,
+	readFile,
+	rm,
+	writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -77,7 +84,29 @@ describe("ClaudeProvider", () => {
 		).rejects.toBeTruthy();
 	});
 
-	it("uninstall runs `claude mcp remove` and deletes the skill folder", async () => {
+	it("uninstall removes SKILL.md, preserves evals, still runs mcp remove", async () => {
+		execMock.mockImplementation((_cmd, _args, cb) =>
+			cb(null, { stdout: "", stderr: "" }),
+		);
+		const provider = new ClaudeProvider({
+			home: dir,
+			cliPath: "claude",
+			isCliAvailable: async () => true,
+		});
+		const skillDir = join(dir, ".claude", "skills", "ai-14all-fix-review");
+		await mkdir(join(skillDir, "evals"), { recursive: true });
+		await writeFile(join(skillDir, "SKILL.md"), "x", "utf-8");
+		await writeFile(join(skillDir, "evals", "evals.json"), "{}", "utf-8");
+		await provider.uninstall({ serverName: "ai-14all" });
+		const callArgs = execMock.mock.calls.at(-1)?.[1];
+		expect(callArgs).toEqual(["mcp", "remove", "ai-14all"]);
+		await expect(access(join(skillDir, "SKILL.md"))).rejects.toBeTruthy();
+		expect(await readFile(join(skillDir, "evals", "evals.json"), "utf-8")).toBe(
+			"{}",
+		);
+	});
+
+	it("uninstall removes the whole dir when it only held SKILL.md", async () => {
 		execMock.mockImplementation((_cmd, _args, cb) =>
 			cb(null, { stdout: "", stderr: "" }),
 		);
@@ -92,11 +121,24 @@ describe("ClaudeProvider", () => {
 			skills: [{ id: "ai-14all-fix-review", content: "x" }],
 		});
 		await provider.uninstall({ serverName: "ai-14all" });
-		const callArgs = execMock.mock.calls.at(-1)?.[1];
-		expect(callArgs).toEqual(["mcp", "remove", "ai-14all"]);
 		await expect(
-			access(join(dir, ".claude", "skills", "ai-14all-fix-review", "SKILL.md")),
+			access(join(dir, ".claude", "skills", "ai-14all-fix-review")),
 		).rejects.toBeTruthy();
+	});
+
+	it("uninstall succeeds when the skill directories are missing", async () => {
+		execMock.mockImplementation((_cmd, _args, cb) =>
+			cb(null, { stdout: "", stderr: "" }),
+		);
+		const provider = new ClaudeProvider({
+			home: dir,
+			cliPath: "claude",
+			isCliAvailable: async () => true,
+		});
+		// Nothing was ever installed under this temp HOME.
+		await expect(
+			provider.uninstall({ serverName: "ai-14all" }),
+		).resolves.toBeUndefined();
 	});
 
 	afterEach(async () => {

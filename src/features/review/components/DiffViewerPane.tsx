@@ -3,17 +3,18 @@ import type { GitDiff } from "../../../../shared/models/git-diff";
 import type { GitCommitDetail } from "../../../../shared/models/git-commit-review";
 import type { Worktree } from "../../../../shared/models/worktree";
 import type { WorktreeSession } from "../../../../shared/models/worktree-session";
-import type { ReviewCommentSource } from "../../../../shared/models/review-comment";
+import type {
+	ReviewComment,
+	ReviewCommentSource,
+} from "../../../../shared/models/review-comment";
 import type { ReviewLoadState } from "../../../app/hooks/review-load-state";
 import type { WorkspaceAction } from "../../workspace/logic/workspace-state";
 import type { ResolvedTheme } from "../../../lib/use-theme";
 import type { NewCommentDraft } from "../../../app/components/ReviewArea";
 import { CommitDiffStack } from "../../git/components/CommitDiffStack";
 import { DiffViewer } from "../../viewer/components/DiffViewer";
-import {
-	InlineEditor,
-	type InlineEditorHandle,
-} from "../../viewer/components/InlineEditor";
+import { FileViewer } from "../../viewer/components/FileViewer";
+import type { InlineEditorHandle } from "../../viewer/components/InlineEditor";
 import { InlineMountsBridge } from "./InlineMountsBridge";
 import { filterForInlineMount } from "../logic/inline-mount-filter";
 import {
@@ -25,6 +26,7 @@ import { installCommentKeyBindings } from "../logic/comment-key-bindings";
 import { useToast } from "../../ui/toast/use-toast";
 import type { DiffEditorRegistry } from "../logic/diff-editor-registry";
 import type { useReviewComments } from "../hooks/use-review-comments";
+import type { ThreadActions } from "../logic/inline-thread-mount";
 
 type ReviewState = ReturnType<typeof useReviewComments>;
 
@@ -89,6 +91,14 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 	} = props;
 
 	const toast = useToast();
+
+	const focusHostEditor = useCallback(
+		(filePath: string | null) => {
+			if (!filePath) return;
+			registry.get(filePath)?.getModifiedEditor().focus();
+		},
+		[registry],
+	);
 
 	const ensureFileFocused = useCallback(
 		(filePath: string) => {
@@ -184,12 +194,23 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 		new Map<string, ReturnType<typeof installSelectionPill>>(),
 	);
 
+	// Mount-time registry of per-comment imperative actions (currently just
+	// `openEdit`), keyed by comment id and populated by InlineCommentThread via
+	// InlineMountsBridge → useInlineThreadMounts. Lets keyboard handlers below
+	// (e.g. `editFocused`) drive a mounted thread without a separate global
+	// registry — see inline-thread-mount.ts's `ThreadActions`.
+	const threadActionsRef = useRef(new Map<string, ThreadActions>());
+
 	// Stable refs so key-binding handlers (registered once at editor-mount time)
 	// always delegate to the latest versions without needing re-registration.
 	const startDraftRef = useRef<typeof startDraft>(null!);
 	const navigateThreadRef = useRef<(dir: 1 | -1) => void>(null!);
 	const focusedThreadIdRef = useRef<string | null>(null);
 	const reviewStateRef = useRef<ReviewState>(null!);
+	const pendingUndoRef = useRef<{
+		toastId: string;
+		snapshot: ReviewComment;
+	} | null>(null);
 
 	useEffect(() => {
 		startDraftRef.current = startDraft;
@@ -253,7 +274,9 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 					const id = focusedThreadIdRef.current;
 					if (!id) return;
 					const c = reviewStateRef.current.comments.find((x) => x.id === id);
-					if (c) scrollToLineRange(editor, c);
+					if (!c) return;
+					scrollToLineRange(editor, c);
+					threadActionsRef.current.get(id)?.openEdit();
 				},
 				toggleAddressedFocused: () => {
 					const id = focusedThreadIdRef.current;
@@ -314,6 +337,7 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 				}
 				draftBody={draftBelongsHere ? (addingDraft?.body ?? "") : ""}
 				onDraftChange={updateAddingDraftBody}
+				threadActions={threadActionsRef}
 				onSave={async (id, body) => {
 					try {
 						const res = await reviewState.update(id, body);
@@ -323,6 +347,7 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 							);
 							return false;
 						}
+						focusHostEditor(currentFilePath);
 						return true;
 					} catch (e) {
 						toast.show(`Failed to update: ${(e as Error).message}`);
@@ -340,12 +365,30 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 					}
 				}}
 				onDelete={async (id) => {
+					const snapshot = reviewState.comments.find((c) => c.id === id);
 					try {
 						await reviewState.remove(id);
 					} catch (e) {
 						toast.show(`Failed to delete: ${(e as Error).message}`);
+						return;
 					}
+					if (!snapshot) return;
+					if (pendingUndoRef.current)
+						toast.dismiss(pendingUndoRef.current.toastId);
+					const toastId = toast.show("Comment deleted", {
+						ttlMs: 6000,
+						action: {
+							label: "Undo",
+							onSelect: () => {
+								pendingUndoRef.current = null;
+								void reviewState.restore(snapshot);
+							},
+						},
+					});
+					pendingUndoRef.current = { toastId, snapshot };
+					focusHostEditor(currentFilePath);
 				}}
+				onCancelEdit={() => focusHostEditor(currentFilePath)}
 				onSubmitDraft={async () => {
 					if (!addingDraft || addingDraft.body.trim().length === 0) return;
 					try {
@@ -359,11 +402,15 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 							commitSha: addingDraft.commitSha,
 						});
 						setAddingDraft(null);
+						focusHostEditor(currentFilePath);
 					} catch (e) {
 						toast.show(`Failed to save: ${(e as Error).message}`);
 					}
 				}}
-				onCancelDraft={() => setAddingDraft(null)}
+				onCancelDraft={() => {
+					setAddingDraft(null);
+					focusHostEditor(currentFilePath);
+				}}
 			/>
 			{activeSession?.reviewMode === "commits" &&
 			commitDetailState.message !== null &&
@@ -384,7 +431,7 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 				/>
 			) : activeSession?.reviewMode === "files" &&
 			  activeSession.selectedFilePath ? (
-				<InlineEditor
+				<FileViewer
 					ref={inlineEditorRef}
 					workspaceId={activeWorkspaceId ?? ""}
 					worktreeId={activeWorktree.id}
@@ -411,6 +458,15 @@ export function DiffViewerPane(props: Props): React.ReactElement {
 						handleDiffEditorMount(filePath, editor);
 					}}
 				/>
+			) : activeSession?.reviewMode === "changes" &&
+			  activeSession.selectedChangedFilePath &&
+			  diffState.message !== null &&
+			  diffState.data === null ? (
+				<p className="shell-error">{diffState.message}</p>
+			) : activeSession?.reviewMode === "changes" &&
+			  activeSession.selectedChangedFilePath &&
+			  diffState.data === null ? (
+				<p className="shell-empty-state">Loading diff…</p>
 			) : (
 				<p className="shell-empty-state">
 					Select a file or changed file to inspect it.

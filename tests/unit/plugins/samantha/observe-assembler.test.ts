@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { assembleObserve } from "../../../../services/plugins/samantha/observe-assembler";
 import type { ObserveInput } from "../../../../services/plugins/samantha/observe-types";
+import { SUPERVISOR_WORKTREE_FIELDS } from "../../../../services/plugins/samantha/observe-types";
 
 function baseInput(overrides: Partial<ObserveInput> = {}): ObserveInput {
 	return {
@@ -185,5 +186,80 @@ describe("assembleObserve", () => {
 		const out = assembleObserve(input);
 		expect(out.details["ai-14all/bugfix/tts"].startsWith("★ ")).toBe(true);
 		expect(out.details["ai-14all/feature/auth"].startsWith("★ ")).toBe(false);
+	});
+
+	it("emits a structured worktrees[] mirroring the details, plus mode + focusedWorktreeId", () => {
+		const out = assembleObserve({
+			identities: { w1: { repo: "acme", branch: "main", path: "/w/w1" } },
+			reviewCounts: { w1: 2 },
+			whisper: [
+				{
+					worktreeId: "w1",
+					daemonAlive: true,
+					workflow: {
+						workflowId: "wf1",
+						workflowType: "sdd",
+						status: "paused",
+						phaseName: "impl",
+					},
+					escalation: null,
+				} as never,
+			],
+			session: {
+				app: { mode: "ready", focusedWorktreeId: "w1" },
+				worktrees: [
+					{
+						worktreeId: "w1",
+						provider: "claude",
+						attention: "waiting",
+						summary: "s",
+						task: "t",
+						nextAction: "n",
+						recent: [],
+					},
+				],
+			} as never,
+		});
+
+		expect(out.mode).toBe("ready");
+		expect(out.focusedWorktreeId).toBe("w1");
+		expect(out.worktrees).toHaveLength(1);
+		expect(out.worktrees[0]).toMatchObject({
+			worktreeId: "w1",
+			repo: "acme",
+			branch: "main",
+			focused: true,
+			provider: "claude",
+			attention: "waiting",
+			reviewCount: 2,
+			workflow: {
+				workflowType: "sdd",
+				status: "paused",
+				phaseName: "impl",
+				workflowId: "wf1",
+			},
+			escalation: null,
+		});
+	});
+
+	// Pin the canonical field order. Samantha mirrors this list byte-for-byte (its own pin test
+	// asserts the identical literal), so cross-repo shape drift fails a test on both sides.
+	it("pins the SupervisorWorktree field set", () => {
+		expect([...SUPERVISOR_WORKTREE_FIELDS]).toEqual([
+			"worktreeId",
+			"repo",
+			"branch",
+			"focused",
+			"provider",
+			"attention",
+			"signal",
+			"summary",
+			"task",
+			"nextAction",
+			"reviewCount",
+			"workflow",
+			"escalation",
+			"recent",
+		]);
 	});
 });

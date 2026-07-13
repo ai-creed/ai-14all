@@ -23,6 +23,7 @@ import {
 	type ScanHandlers,
 } from "../../../services/usage/scanner.js";
 import { ezioDriver } from "../../../services/usage/providers/ezio.js";
+import type { TelemetryDriver } from "../../../services/usage/providers/types.js";
 import { claudeDriver } from "../../../services/usage/providers/claude.js";
 import {
 	applyContribution,
@@ -163,7 +164,7 @@ describe("scanners", () => {
 	});
 
 	describe("processJsonlFile (generic)", () => {
-		it("stamps ezio events with file mtime and seeds cwd from the dir slug", () => {
+		it("falls back to file mtime for a timestamp-less ezio row (and seeds cwd from the dir slug)", () => {
 			const root = mkdtempSync(join(tmpdir(), "ezio-"));
 			const sessDir = join(root, "Users-me-Dev-app");
 			mkdirSync(sessDir, { recursive: true });
@@ -190,6 +191,127 @@ describe("scanners", () => {
 			expect(events[0].cwd).toBe("Users-me-Dev-app");
 			expect(events[0].timestampMs).toBe(mtime.getTime());
 			expect(events[0].billable).toBe(600);
+		});
+
+		it("stamps file mtime for a falsy timestampMs even when the driver is not file-mtime", () => {
+			const root = mkdtempSync(join(tmpdir(), "falsy-ts-"));
+			const file = join(root, "x.jsonl");
+			writeFileSync(file, "x\n"); // content ignored; the fake driver keeps all lines
+			const mtime = new Date("2026-06-15T00:00:00.000Z");
+			utimesSync(file, mtime, mtime);
+
+			// A per-event driver (NOT file-mtime) whose parser emits a 0 timestamp,
+			// mimicking a legacy/timestamp-less ezio row. The generalized fallback
+			// must stamp file mtime so a 0 never reaches the ledger.
+			const fakeDriver: TelemetryDriver = {
+				id: "ezio",
+				capabilities: {
+					tokenLog: true,
+					storeKind: "jsonl-tree",
+					timeSource: "per-event",
+					cwdSource: "dir-slug",
+					nativeLimits: false,
+				},
+				roots: () => [],
+				parseLine: () => ({
+					event: {
+						provider: "ezio",
+						timestampMs: 0,
+						cwd: "c",
+						sessionId: "s",
+						model: "m",
+						input: 1,
+						output: 1,
+						billable: 1,
+						raw: 1,
+					},
+				}),
+			};
+
+			const events: UsageEvent[] = [];
+			processJsonlFile(fakeDriver, file, new Map(), {
+				ingest: (e) => events.push(e),
+				onLimits: () => {},
+				onSubtract: () => {},
+				onSealedTruncation: () => {},
+			});
+			expect(events).toHaveLength(1);
+			expect(events[0].timestampMs).toBe(mtime.getTime());
+		});
+
+		it("does not overwrite a valid per-event timestampMs with file mtime", () => {
+			const root = mkdtempSync(join(tmpdir(), "valid-ts-"));
+			const file = join(root, "y.jsonl");
+			writeFileSync(file, "y\n");
+			const mtime = new Date("2026-06-15T00:00:00.000Z");
+			utimesSync(file, mtime, mtime);
+			const eventTs = Date.parse("2026-06-10T08:00:00.000Z");
+
+			const fakeDriver: TelemetryDriver = {
+				id: "ezio",
+				capabilities: {
+					tokenLog: true,
+					storeKind: "jsonl-tree",
+					timeSource: "per-event",
+					cwdSource: "dir-slug",
+					nativeLimits: false,
+				},
+				roots: () => [],
+				parseLine: () => ({
+					event: {
+						provider: "ezio",
+						timestampMs: eventTs,
+						cwd: "c",
+						sessionId: "s",
+						model: "m",
+						input: 1,
+						output: 1,
+						billable: 1,
+						raw: 1,
+					},
+				}),
+			};
+
+			const events: UsageEvent[] = [];
+			processJsonlFile(fakeDriver, file, new Map(), {
+				ingest: (e) => events.push(e),
+				onLimits: () => {},
+				onSubtract: () => {},
+				onSealedTruncation: () => {},
+			});
+			expect(events[0].timestampMs).toBe(eventTs);
+			expect(events[0].timestampMs).not.toBe(mtime.getTime());
+		});
+
+		it("passes a per-line ezio timestamp through instead of overriding with file mtime", () => {
+			const root = mkdtempSync(join(tmpdir(), "ezio-perevent-"));
+			const sessDir = join(root, "Users-me-Dev-app");
+			mkdirSync(sessDir, { recursive: true });
+			const file = join(sessDir, "rec.record.jsonl");
+			const iso = "2026-06-10T08:00:00.000Z";
+			writeFileSync(
+				file,
+				JSON.stringify({
+					timestamp: iso,
+					model: "gpt-5-codex",
+					usage: { contextTokens: 1000, outputTokens: 200, cachedTokens: 600 },
+				}) + "\n",
+			);
+			// File mtime is deliberately different from the per-line timestamp.
+			const mtime = new Date("2026-06-01T00:00:00.000Z");
+			utimesSync(file, mtime, mtime);
+			const cache: OffsetCache = new Map();
+			const events: UsageEvent[] = [];
+			processJsonlFile(ezioDriver, file, cache, {
+				ingest: (e) => events.push(e),
+				onLimits: () => {},
+				onSubtract: () => {},
+				onSealedTruncation: () => {},
+			});
+			expect(events).toHaveLength(1);
+			expect(events[0].timestampMs).toBe(Date.parse(iso));
+			expect(events[0].timestampMs).not.toBe(mtime.getTime());
+			expect(events[0].model).toBe("gpt-5-codex");
 		});
 
 		it("resets to offset 0 when a file is truncated/rotated", () => {

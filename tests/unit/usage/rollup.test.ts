@@ -19,8 +19,17 @@ describe("seriesForRange", () => {
 		// A calendar-Monday week (>= 06-15) would have dropped 06-12 — proving the rolling window.
 		expect(out.map((p) => p.tokens.codex)).toEqual([9, 2, 3]);
 	});
-	it("month keeps only points >= the 1st", () => {
-		const out = seriesForRange(series, "month", now);
-		expect(out.map((p) => p.tokens.codex)).toEqual([1, 9, 2, 3]);
+	it("month keeps the rolling trailing 31 days, including prior-month days on the 1st", () => {
+		const monthSeries: DailyPoint[] = [
+			{ dayStartMs: day(2026, 4, 31), tokens: { codex: 100 } }, // 05-31 — 31 days before 07-01: OUTSIDE
+			{ dayStartMs: day(2026, 5, 1), tokens: { codex: 4 } }, // 06-01 — 30 days before: boundary, INSIDE
+			{ dayStartMs: day(2026, 5, 20), tokens: { codex: 5 } }, // 06-20 — prior calendar month, INSIDE
+			{ dayStartMs: day(2026, 6, 1), tokens: { codex: 3 } }, // 07-01 (today, the 1st)
+		];
+		const firstOfMonth = day(2026, 6, 1); // 2026-07-01
+		const out = seriesForRange(monthSeries, "month", firstOfMonth);
+		// window starts 06-01: keeps 06-01, 06-20, 07-01; drops 05-31. A calendar
+		// month (>= the 1st) would keep only 07-01 — proving the rolling window.
+		expect(out.map((p) => p.tokens.codex)).toEqual([4, 5, 3]);
 	});
 });

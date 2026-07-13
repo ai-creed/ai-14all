@@ -29,6 +29,7 @@ function sessionWith(
 		agentAttentionReasons: {
 			mcp: { state, source: "mcp", summary, nextAction: null, reportedAt: 1 },
 		},
+		agentAttentionClearedAt: null,
 		terminalLayoutId: "1",
 		slotProcessIds: [null],
 		reviewSidebarWidth: 320,
@@ -42,6 +43,7 @@ function sessionWith(
 		navLocation: null,
 		floatingShellIds: [],
 		expandedFloatingShellId: null,
+		mcpReportingActive: false,
 	} as WorktreeSession;
 }
 
@@ -68,6 +70,7 @@ function makeWorktreeSession(over: {
 		processSessionIds: [],
 		attentionState: "idle",
 		agentAttentionReasons: {},
+		agentAttentionClearedAt: null,
 		terminalLayoutId: "1",
 		slotProcessIds: [null],
 		reviewSidebarWidth: 320,
@@ -81,6 +84,7 @@ function makeWorktreeSession(over: {
 		navLocation: null,
 		floatingShellIds: [],
 		expandedFloatingShellId: null,
+		mcpReportingActive: false,
 	} as WorktreeSession;
 }
 

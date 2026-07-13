@@ -95,11 +95,11 @@ describe("inert drivers", () => {
 });
 
 describe("ezio driver", () => {
-	it("declares file-mtime/dir-slug capabilities and a sessions root", () => {
+	it("declares per-event/dir-slug capabilities and a sessions root", () => {
 		expect(ezioDriver.capabilities).toEqual({
 			tokenLog: true,
 			storeKind: "jsonl-tree",
-			timeSource: "file-mtime",
+			timeSource: "per-event",
 			cwdSource: "dir-slug",
 			nativeLimits: false,
 		});

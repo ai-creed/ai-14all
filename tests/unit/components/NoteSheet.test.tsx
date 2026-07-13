@@ -91,4 +91,23 @@ describe("NoteSheet", () => {
 		);
 		expect(screen.getAllByRole("button", { name: /close/i })).toHaveLength(1);
 	});
+
+	it("renders the preview through the shared MarkdownBody (spec D1)", async () => {
+		render(
+			<NoteSheet
+				open
+				note="# Hello"
+				onNoteChange={() => {}}
+				onClose={() => {}}
+			/>,
+		);
+		await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+		// Radix Dialog portals to document.body — query the document, not container.
+		const body = document.querySelector(
+			".shell-note-sheet__preview-body .shell-md-body",
+		);
+		expect(body).not.toBeNull();
+		expect(body!.querySelector("h1")).not.toBeNull();
+		expect(document.querySelector(".shell-md-modal__body")).toBeNull();
+	});
 });

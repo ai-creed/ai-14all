@@ -6,6 +6,7 @@ import {
 	ContextMenuItem,
 	ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { RowViewedToggle } from "../../review/components/RowViewedToggle";
 import { buildLinearCommitGraph } from "../logic/build-linear-commit-graph.js";
 import type {
 	GitCommitHistory,
@@ -31,6 +32,8 @@ type Props = {
 	selectedCommitOpenCommentCount?: number;
 	reviewedPaths?: string[];
 	openCommentCounts?: Record<string, number>;
+	/** Toggles "viewed" for the currently-open commit-file row. */
+	onToggleViewed?: (path: string) => void;
 };
 
 export function CommitList({
@@ -48,6 +51,7 @@ export function CommitList({
 	selectedCommitOpenCommentCount,
 	reviewedPaths,
 	openCommentCounts,
+	onToggleViewed,
 }: Props) {
 	const [previewState, setPreviewState] = useState<{
 		path: string;
@@ -146,26 +150,43 @@ export function CommitList({
 						{showFiles && (
 							<div className="shell-commit-list__files">
 								{activeDetail.files.map((file) => {
-									const button = (
-										<button
-											key={file.path}
-											type="button"
-											className="shell-list__item shell-list__item--split"
-											data-selected={String(
-												selectedCommitFilePath === file.path,
-											)}
-											onClick={() => onSelectCommitFile(file.path)}
+									const isOpen = selectedCommitFilePath === file.path;
+									const isReviewed =
+										reviewedPaths?.includes(file.path) ?? false;
+									const row = (
+										<div
+											className={
+												isOpen && onToggleViewed
+													? "shell-list__item-row shell-list__item-row--has-toggle"
+													: "shell-list__item-row"
+											}
+											data-selected={String(isOpen)}
 										>
-											<span>{file.path}</span>
-											{openCommentCounts?.[file.path] ? (
-												<span
-													className="shell-review-comment-badge"
-													aria-label={`${openCommentCounts[file.path]} open review comments`}
-												>
-													[{openCommentCounts[file.path]}]
+											<button
+												type="button"
+												className="shell-list__item shell-list__item--split"
+												data-selected={String(isOpen)}
+												onClick={() => onSelectCommitFile(file.path)}
+											>
+												<span className="shell-list__item-name">
+													{file.path}
 												</span>
-											) : null}
-											{reviewedPaths?.includes(file.path) ? (
+												{openCommentCounts?.[file.path] ? (
+													<span
+														className="shell-review-comment-badge"
+														aria-label={`${openCommentCounts[file.path]} open review comments`}
+													>
+														[{openCommentCounts[file.path]}]
+													</span>
+												) : null}
+												<strong>{file.status}</strong>
+											</button>
+											{isOpen && onToggleViewed ? (
+												<RowViewedToggle
+													reviewed={isReviewed}
+													onToggle={() => onToggleViewed(file.path)}
+												/>
+											) : isReviewed ? (
 												<span
 													className="shell-list__reviewed-mark"
 													data-testid={`reviewed-mark-${file.path}`}
@@ -175,25 +196,23 @@ export function CommitList({
 													✓
 												</span>
 											) : null}
-											<strong>{file.status}</strong>
-										</button>
+										</div>
 									);
 
 									if (!file.path.endsWith(".md") || file.status === "D") {
-										return button;
+										return <div key={file.path}>{row}</div>;
 									}
 
 									return (
 										<ContextMenu key={file.path}>
-											<ContextMenuTrigger asChild>{button}</ContextMenuTrigger>
+											<ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
 											<ContextMenuContent className="shell-toolbar-menu">
 												<ContextMenuItem
 													className="shell-toolbar-menu__item"
 													onSelect={() => {
 														if (!activeDetail) return;
-														// Lazy-fetch the modified blob at the commit
-														// for the preview override. `readCommitFileDiff`
-														// returns the same shape the eager flow used.
+														// Lazy-fetch the modified blob at the commit for
+														// the preview override.
 														void git
 															.readCommitFileDiff(
 																workspaceId,
@@ -208,8 +227,6 @@ export function CommitList({
 																});
 															})
 															.catch(() => {
-																// Fall back to opening the modal without an
-																// override — it'll read the working-tree copy.
 																setPreviewState({
 																	path: file.path,
 																	content: "",

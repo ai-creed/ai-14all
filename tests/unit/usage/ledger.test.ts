@@ -62,9 +62,45 @@ describe("ledger scope queries", () => {
 			[...m.values()].reduce((a, t) => a + t.billable, 0);
 
 		expect(sum(bucketsForScope(ledger, session, "all-time", now))).toBe(111);
-		expect(sum(bucketsForScope(ledger, session, "month", now))).toBe(11); // June only: 06-12 + 06-16 (05-10 excluded)
+		expect(sum(bucketsForScope(ledger, session, "month", now))).toBe(11); // rolling 31 days (05-18..06-17): 06-12 + 06-16; 05-10 is 38 days out
 		expect(sum(bucketsForScope(ledger, session, "week", now))).toBe(11); // rolling 7 days (06-11..06-17): 06-12 + 06-16; a calendar-Monday week would drop 06-12 → 1
 		expect(sum(bucketsForScope(ledger, session, "session", now))).toBe(0); // launch after all events
+	});
+
+	it("month is a rolling 31-day window, not the calendar month", () => {
+		const ledger = createLedger();
+		const session = createSession();
+		// now = the 1st of the month — the boundary that broke the calendar-month
+		// scope (it collapsed to today alone). The rolling window must still reach back.
+		const now = new Date(2026, 6, 1, 12, 0, 0, 0).getTime(); // Wed 2026-07-01
+		const priorMonth = new Date(2026, 5, 20, 9, 0, 0, 0).getTime(); // 2026-06-20: prior calendar month, 11 days ago
+		const today = new Date(2026, 6, 1, 9, 0, 0, 0).getTime(); // 2026-07-01
+		const tooOld = new Date(2026, 4, 15, 9, 0, 0, 0).getTime(); // 2026-05-15: 47 days ago, outside 31 days
+		const launch = now + HOUR; // launch after all events → session stays empty
+		ingestEvent(
+			ledger,
+			session,
+			ev({ timestampMs: priorMonth, billable: 5, raw: 5 }),
+			launch,
+		);
+		ingestEvent(
+			ledger,
+			session,
+			ev({ timestampMs: today, billable: 3, raw: 3 }),
+			launch,
+		);
+		ingestEvent(
+			ledger,
+			session,
+			ev({ timestampMs: tooOld, billable: 100, raw: 100 }),
+			launch,
+		);
+		const sum = (m: Map<string, { billable: number }>) =>
+			[...m.values()].reduce((a, t) => a + t.billable, 0);
+		// rolling 31 days (06-01..07-01): 06-20 + 07-01 = 8. A calendar month
+		// (>= the 1st) would keep only 07-01 → 3.
+		expect(sum(bucketsForScope(ledger, session, "month", now))).toBe(8);
+		expect(sum(bucketsForScope(ledger, session, "all-time", now))).toBe(108);
 	});
 
 	it("session scope reads the session accumulator, not the ledger", () => {

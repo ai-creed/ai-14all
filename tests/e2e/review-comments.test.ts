@@ -19,17 +19,20 @@ import {
 	type Page,
 } from "@playwright/test";
 import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 import { closeApp } from "./fixtures/close-app";
 import { ensureReviewOverlayOpen } from "./helpers/review-overlay";
+import type { ReviewComment } from "../../shared/models/review-comment";
 
 let app: ElectronApplication | undefined;
 let page: Page;
 let testRepo: TestRepo;
 let persistedStateDir: string;
 let persistedStatePath: string;
+let userDataDir: string;
 
 async function launchRaw(firstWindowTimeout = 60_000) {
 	app = await electron.launch({
@@ -39,6 +42,11 @@ async function launchRaw(firstWindowTimeout = 60_000) {
 			AI14ALL_E2E: "1",
 			AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
 			AI14ALL_WORKSPACE_STATE_PATH: persistedStatePath,
+			// Isolate settings.json: restorePreference is settings-canonical now,
+			// and relaunch() clicks the restore prompt — which only appears when
+			// the preference is "prompt" (this suite's seeded first-run default),
+			// not whatever the developer's real settings file happens to hold.
+			AI14ALL_USER_DATA_PATH: userDataDir,
 		},
 	});
 	page = await app.firstWindow({ timeout: firstWindowTimeout });
@@ -171,12 +179,138 @@ async function addInlineComment(commentText: string) {
 	);
 }
 
+/**
+ * Like addInlineComment, but clicks the draft's Save button twice in quick
+ * succession (double rAF apart — enough for React to commit the `submitting`
+ * state update and flip `disabled` on the button, mirroring how a real
+ * double-click's second mouseup lands after the first click's render) to
+ * exercise InlineDraftThread's double-submit guard. Used by the
+ * "double-click Save creates exactly one comment" persistence test.
+ */
+async function addInlineCommentDoubleClick(commentText: string) {
+	const modifiedPane = page.locator(".modified-in-monaco-diff-editor");
+	const viewLines = modifiedPane.locator(".view-line");
+	const firstLine = viewLines.first();
+	const box = await firstLine.boundingBox();
+	if (!box) throw new Error("No bounding box for first view-line");
+
+	await page.mouse.move(box.x - 10, box.y + box.height / 2);
+	await page.waitForTimeout(300);
+
+	const glyph = page.locator(".shell-review-plus-decoration").first();
+	const glyphVisible = await glyph.isVisible().catch(() => false);
+
+	if (glyphVisible) {
+		await glyph.click();
+	} else {
+		await page.keyboard.press("Meta+Shift+A");
+	}
+
+	await page.waitForFunction(
+		() =>
+			document.querySelector('.shell-inline-thread[data-draft="true"]') !==
+			null,
+		null,
+		{ timeout: 10_000 },
+	);
+
+	const textarea = page.locator(".shell-inline-thread__textarea");
+	await expect(textarea).toBeVisible({ timeout: 5_000 });
+	await textarea.fill(commentText);
+
+	await page.evaluate(async () => {
+		const findSave = () => {
+			const draft = document.querySelector(
+				'.shell-inline-thread[data-draft="true"]',
+			);
+			if (!draft) return null;
+			for (const btn of draft.querySelectorAll("button")) {
+				if (btn.textContent?.trim() === "Save") return btn as HTMLButtonElement;
+			}
+			return null;
+		};
+		const first = findSave();
+		if (!first) throw new Error("Save button not found in draft thread");
+		first.click();
+		// Two animation-frame turns give React's commit for the `submitting`
+		// state a chance to land (and the button its `disabled` attribute)
+		// before the second click, the same way a real double-click's second
+		// mouseup trails the first click's render.
+		await new Promise<void>((resolve) =>
+			requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+		);
+		const second = findSave();
+		second?.click();
+	});
+
+	await page.waitForFunction(
+		(text) => {
+			const threads = document.querySelectorAll(".shell-inline-thread");
+			for (const t of threads) {
+				const body = t.querySelector(".shell-inline-thread__body");
+				if (body?.textContent?.includes(text)) return true;
+			}
+			return false;
+		},
+		commentText,
+		{ timeout: 10_000 },
+	);
+}
+
+/**
+ * Reads the on-disk review-comments store directly — the same file the app's
+ * main process persists to on every create/update/delete/restore
+ * (`<userData>/ai-14all/review-comments.json`, written by
+ * services/review/review-comment-store.ts). Used to assert real persisted
+ * state (id/status identity across delete+undo; dedupe counts) rather than
+ * relying solely on the renderer's in-memory view.
+ */
+async function readPersistedComments(): Promise<ReviewComment[]> {
+	const raw = await readFile(
+		join(userDataDir, "ai-14all", "review-comments.json"),
+		"utf-8",
+	);
+	const json = JSON.parse(raw) as {
+		version: number;
+		comments: ReviewComment[];
+	};
+	return json.comments;
+}
+
+/**
+ * Presses `j` (nextThread) up to `maxPresses` times until the focused thread
+ * (tracked by the review grid's data-focused-thread-id attribute) lands on a
+ * comment whose persisted status is "open" — required before `e` can open
+ * the edit textarea (InlineCommentThread only registers openEdit for open
+ * comments). Avoids depending on insertion-order assumptions across a serial
+ * suite that mutates comment order via delete+restore.
+ */
+async function focusAnOpenThread(maxPresses = 10): Promise<string> {
+	const openIds = new Set(
+		(await readPersistedComments())
+			.filter((c) => c.status === "open")
+			.map((c) => c.id),
+	);
+	const grid = page.getByTestId("review-grid");
+	for (let i = 0; i < maxPresses; i++) {
+		await page.keyboard.press("j");
+		const id = await grid.getAttribute("data-focused-thread-id");
+		if (id && openIds.has(id)) return id;
+	}
+	throw new Error(
+		`could not focus an open thread within ${maxPresses} 'j' presses`,
+	);
+}
+
 test.beforeAll(async () => {
 	testRepo = createTestRepo();
 	persistedStateDir = realpathSync(
 		mkdtempSync(join(tmpdir(), "ofa-review-comments-")),
 	);
 	persistedStatePath = join(persistedStateDir, "workspace-state.json");
+	userDataDir = realpathSync(
+		mkdtempSync(join(tmpdir(), "ofa-review-comments-ud-")),
+	);
 
 	await launchRaw();
 	await page.getByRole("button", { name: "Browse" }).click();
@@ -196,6 +330,7 @@ test.afterAll(async () => {
 		await closeApp(app);
 	} finally {
 		rmSync(persistedStateDir, { recursive: true, force: true });
+		rmSync(userDataDir, { recursive: true, force: true });
 		testRepo?.cleanup();
 	}
 });
@@ -450,9 +585,231 @@ test.describe.serial("Review comments — inline UX", () => {
 		await expect(
 			page.locator('[data-testid="review-progress-header"]'),
 		).toBeVisible({ timeout: 10_000 });
+		// The viewed control is now inline on the currently-open file row (it moved
+		// out of the rail header). Selecting the first commit file above makes it the
+		// open row, so exactly one toggle is present.
 		const toggle = page.locator('[data-testid="mark-viewed-toggle"]');
 		await expect(toggle).toBeVisible();
 		await toggle.click();
 		await expect(toggle).toHaveText(/viewed/i);
+	});
+
+	test("commits mode: minimap shows a dot for a comment on a freshly opened file", async () => {
+		test.setTimeout(120_000);
+		await ensureReviewOverlayOpen(page);
+		await page.keyboard.press("Meta+3"); // review.commits
+		// Guard: fixture must have reviewable commits — an empty list would let
+		// the assertions below pass vacuously (same guard as the rail test above).
+		const commitItems = page.locator(".shell-commit-list__item");
+		if ((await commitItems.count()) === 0) {
+			console.log("Commits-mode minimap e2e skipped: no reviewable commits");
+			test.skip();
+			return;
+		}
+		// Prefer a commit that is NOT already selected: a fresh selection forces
+		// a fresh detail fetch and a fresh (lazily mounted) diff section — the
+		// exact reproduction. Re-clicking an already-active commit can no-op.
+		const count = await commitItems.count();
+		await commitItems.nth(count > 1 ? 1 : 0).click();
+		const fileRow = page
+			.locator(".shell-commit-list__files .shell-list__item--split")
+			.first();
+		await expect(fileRow).toBeVisible({ timeout: 15_000 });
+		// Selecting the file BEFORE its diff editor exists is the reproduction:
+		// CommitDiffStack mounts the focused file's editor lazily AFTER the
+		// selection, so ReviewArea's totalLines must pick the editor up when it
+		// registers, not only at selection time.
+		await fileRow.click();
+		await expect(
+			page.locator(".modified-in-monaco-diff-editor").first(),
+		).toBeVisible({ timeout: 10_000 });
+
+		await addInlineComment("commits-mode dot");
+
+		// Regression: the dot never appeared because totalLines memoized 0 from
+		// before the commit editor registered, and the mutable registry never
+		// invalidated the memo.
+		await expect(
+			page.locator('[data-testid^="minimap-dot-"]').first(),
+		).toBeVisible({ timeout: 10_000 });
+	});
+
+	test("minimap dot click jumps the diff editor to the comment's line and opens the flyout", async () => {
+		test.setTimeout(120_000);
+		await openIndexTsDiff();
+		await addInlineComment("dot jump target");
+
+		const dot = page.locator('[data-testid^="minimap-dot-"]').first();
+		await expect(dot).toBeVisible({ timeout: 10_000 });
+		await dot.click();
+
+		// Click both scrolls (CommentMinimap's onClick calls onJump) and opens
+		// the flyout (setActiveHeadId flips aria-hidden to "false").
+		await page.waitForFunction(
+			() =>
+				document.querySelector(
+					'.shell-review-minimap__flyout[aria-hidden="false"]',
+				) !== null,
+			null,
+			{ timeout: 5_000 },
+		);
+		const flyout = page.locator(
+			'.shell-review-minimap__flyout[aria-hidden="false"]',
+		);
+		await expect(flyout).toHaveAttribute("role", "dialog");
+
+		// The jumped-to line must be within the modified editor's rendered
+		// viewport. index.ts is a single line, so its content is always
+		// present in .view-lines once scrollToLineRange has revealed it.
+		const viewLines = page.locator(
+			".modified-in-monaco-diff-editor .view-lines",
+		);
+		await expect(viewLines).toContainText("phase-2", { timeout: 5_000 });
+	});
+
+	test("delete shows an undo toast; Undo restores the identical id and status", async () => {
+		test.setTimeout(120_000);
+		await openIndexTsDiff();
+		await addInlineComment("delete undo target");
+
+		const before = (await readPersistedComments()).find(
+			(c) => c.body === "delete undo target",
+		);
+		if (!before) throw new Error("comment not found in persisted store");
+
+		// Delete via the thread's Delete button, dispatched through evaluate()
+		// (same pointer-overlay-bypass pattern as Address/Reopen above),
+		// targeting the specific thread by body text since several threads now
+		// coexist on this line.
+		await page.evaluate((text) => {
+			const threads = document.querySelectorAll(".shell-inline-thread");
+			for (const t of threads) {
+				const body = t.querySelector(".shell-inline-thread__body");
+				if (!body?.textContent?.includes(text)) continue;
+				const btn = t.querySelector(
+					'button[aria-label="Delete comment"]',
+				) as HTMLButtonElement | null;
+				if (btn) {
+					btn.click();
+					return;
+				}
+			}
+			throw new Error("Delete button not found for target thread");
+		}, "delete undo target");
+
+		await expect(
+			page.locator(".shell-inline-thread", { hasText: "delete undo target" }),
+		).toHaveCount(0, { timeout: 10_000 });
+
+		const toast = page.locator(".shell-toast", { hasText: "Comment deleted" });
+		await expect(toast).toBeVisible({ timeout: 10_000 });
+		const undoBtn = toast.locator(".shell-toast__action");
+		await expect(undoBtn).toHaveText("Undo");
+
+		await undoBtn.click();
+
+		await expect(
+			page.locator(".shell-inline-thread", { hasText: "delete undo target" }),
+		).toBeVisible({ timeout: 10_000 });
+
+		// The persisted record must carry the IDENTICAL id and status — an
+		// id-changing (or status-changing) undo regression fails here.
+		await expect
+			.poll(
+				async () =>
+					(await readPersistedComments()).find(
+						(c) => c.body === "delete undo target",
+					)?.id ?? null,
+				{ timeout: 10_000 },
+			)
+			.toBe(before.id);
+		await expect
+			.poll(
+				async () =>
+					(await readPersistedComments()).find(
+						(c) => c.body === "delete undo target",
+					)?.status ?? null,
+				{ timeout: 10_000 },
+			)
+			.toBe(before.status);
+	});
+
+	test("focus returns to the modified editor after draft submit, so 'j' navigates with no extra click", async () => {
+		test.setTimeout(120_000);
+		await openIndexTsDiff();
+
+		const grid = page.getByTestId("review-grid");
+		const before = await grid.getAttribute("data-focused-thread-id");
+
+		await addInlineComment("focus restore target");
+
+		// No click here — DiffViewerPane's onSubmitDraft must have already
+		// returned focus to the modified editor (focusHostEditor) for 'j' to
+		// reach Monaco's nextThread key binding.
+		await page.keyboard.press("j");
+
+		await expect
+			.poll(() => grid.getAttribute("data-focused-thread-id"), {
+				timeout: 10_000,
+			})
+			.not.toBe(before);
+	});
+
+	test("double-clicking Save creates exactly one persisted comment", async () => {
+		test.setTimeout(120_000);
+		await openIndexTsDiff();
+		await addInlineCommentDoubleClick("dbl click marker");
+
+		// DOM-level dedupe: exactly one thread rendered for this draft.
+		await expect(
+			page.locator(".shell-inline-thread", { hasText: "dbl click marker" }),
+		).toHaveCount(1);
+
+		// Persistence-level dedupe: navigate away (Files tab) and back to the
+		// Changes diff — forcing the inline-thread mounts to unmount/remount
+		// and the comments list to refetch from the main process — then assert
+		// the count is still exactly one. Cheaper than a second full app
+		// relaunch (already covered by the "persist across reload" test above)
+		// while still proving this isn't a UI-only render-key dedupe.
+		await ensureReviewOverlayOpen(page);
+		await page.getByRole("tab", { name: "Files" }).click({ force: true });
+		await openIndexTsDiff();
+		await expect(
+			page.locator(".shell-inline-thread", { hasText: "dbl click marker" }),
+		).toHaveCount(1, { timeout: 10_000 });
+
+		const persisted = (await readPersistedComments()).filter(
+			(c) => c.body === "dbl click marker",
+		);
+		expect(persisted).toHaveLength(1);
+	});
+
+	test("'e' opens the focused thread's edit textarea; Escape closes it and 'j' still navigates", async () => {
+		test.setTimeout(120_000);
+		await openIndexTsDiff();
+
+		await focusAnOpenThread();
+		await page.keyboard.press("e");
+
+		const editingTextarea = page.locator(
+			'.shell-inline-thread[data-state="editing"]:not([data-draft="true"]) .shell-inline-thread__textarea',
+		);
+		await expect(editingTextarea).toBeVisible({ timeout: 5_000 });
+		await expect(editingTextarea).toBeFocused();
+
+		await page.keyboard.press("Escape");
+		await expect(editingTextarea).toHaveCount(0, { timeout: 5_000 });
+
+		// Focus must be back on the Monaco editor — not stranded on the removed
+		// textarea or the document body — for 'j' to still reach the
+		// nextThread key binding with no intervening click.
+		const grid = page.getByTestId("review-grid");
+		const before = await grid.getAttribute("data-focused-thread-id");
+		await page.keyboard.press("j");
+		await expect
+			.poll(() => grid.getAttribute("data-focused-thread-id"), {
+				timeout: 10_000,
+			})
+			.not.toBe(before);
 	});
 });
