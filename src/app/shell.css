@@ -2666,8 +2666,6 @@ select {
  * Spec: docs/superpowers/specs/2026-07-12-markdown-preview-readability-design.md */
 
 .shell-md-body {
-	max-width: 72ch;
-	margin-inline: auto;
 	color: var(--text-primary);
 	font-family: var(--font-reading);
 	font-size: 14px;

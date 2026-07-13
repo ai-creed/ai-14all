@@ -41,11 +41,13 @@ describe("markdown typography restores Tailwind-preflight defaults (spec D5-D13)
 		);
 	});
 
-	it("sets the reading measure and reading font on the body", () => {
-		expect(shell).toMatch(/\.shell-md-body\s*{[^}]*max-width:\s*72ch/);
+	it("sets the reading font on the body, with no width cap (D5 revised)", () => {
 		expect(shell).toMatch(
 			/\.shell-md-body\s*{[^}]*font-family:\s*var\(--font-reading\)/,
 		);
+		// Vu dropped the 72ch reading measure (2026-07-13): the body fills
+		// whatever width the pane gives it.
+		expect(shell).not.toMatch(/\.shell-md-body\s*{[^}]*max-width/);
 	});
 
 	it("opts task-list items out of list markers", () => {
