@@ -1,6 +1,13 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+	access,
+	mkdir,
+	mkdtemp,
+	readFile,
+	rm,
+	writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EzioProvider } from "../../../services/review/agent-skill-installer/ezio-provider.js";
@@ -135,7 +142,7 @@ describe("EzioProvider", () => {
 		).rejects.toBeTruthy();
 	});
 
-	it("uninstall removes skill dirs and the ai-14all entry, preserving other servers", async () => {
+	it("uninstall removes skill dirs' SKILL.md and the ai-14all entry, preserving other servers and evals", async () => {
 		await writeFile(
 			join(configDir, "mcp.json"),
 			JSON.stringify({
@@ -145,6 +152,9 @@ describe("EzioProvider", () => {
 		);
 		const p = newProvider();
 		await p.installSkills({ serverName: "ai-14all", url: URL, skills: SKILLS });
+		const evalsDir = join(configDir, "skills", "ai-14all-fix-review", "evals");
+		await mkdir(evalsDir, { recursive: true });
+		await writeFile(join(evalsDir, "evals.json"), "{}", "utf-8");
 		await p.uninstall({ serverName: "ai-14all" });
 		const mcp = await readMcp();
 		expect(mcp.mcpServers["ai-14all"]).toBeUndefined();
@@ -155,8 +165,17 @@ describe("EzioProvider", () => {
 		await expect(
 			access(join(configDir, "skills", "ai-14all-fix-review", "SKILL.md")),
 		).rejects.toBeTruthy();
+		expect(await readFile(join(evalsDir, "evals.json"), "utf-8")).toBe("{}");
+		// The second skill dir held only SKILL.md → fully removed.
 		await expect(
-			access(join(configDir, "skills", "ai-14all-session-status", "SKILL.md")),
+			access(join(configDir, "skills", "ai-14all-session-status")),
 		).rejects.toBeTruthy();
+	});
+
+	it("uninstall succeeds when the skill directories are missing", async () => {
+		// Fresh configDir: no skills, no mcp.json.
+		await expect(
+			newProvider().uninstall({ serverName: "ai-14all" }),
+		).resolves.toBeUndefined();
 	});
 });

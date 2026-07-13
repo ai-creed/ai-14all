@@ -138,6 +138,26 @@ describe("detectCliPath", () => {
 		expect(result).toEqual({ cliPath: path, source: "fixed" });
 	});
 
+	it("pathOnly skips fixed and shell tiers even when a fixed candidate exists", async () => {
+		// E2E isolation seam: with PATH detection failing, a fixed candidate that
+		// WOULD be accepted must not be reached when pathOnly is set — otherwise a
+		// stripped-PATH e2e run on a host with a real CLI at a fixed path would
+		// detect (and later exec) the real binary.
+		const fixedCandidate = join(home, ".claude", "local", "claude");
+		const deps = defaultDeps(home);
+		deps.pathOnly = true;
+		deps.exec = vi.fn(async (file: string) => {
+			if (file === "which") throw new Error("not found");
+			throw new Error("should not reach shell tier");
+		});
+		deps.access = async (p: string) => {
+			if (p === fixedCandidate) return; // would match Tier 3 if reached
+			throw new Error("ENOENT");
+		};
+		const result = await detectCliPath("claude", deps);
+		expect(result).toBeNull();
+	});
+
 	it("skips fixed and shell tiers on win32", async () => {
 		const deps = defaultDeps(home);
 		deps.platform = "win32";

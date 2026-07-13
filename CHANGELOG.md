@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Calibrated bundled skills with eval suites.** The two companion skills (`ai-14all-fix-review`, `ai-14all-session-status`) now ship their M5d-calibrated content (versioned 0.1.0), and their evaluation suites live in the repo guarded by a new skills QA CI gate (shakespii lint + deterministic checks + version-bump discipline).
+
+### Changed
+
+- **Version-guarded skill installs.** The agent-skill installer compares semver versions before writing and never downgrades: an equal installed copy reports "Already up to date", a newer one reports "skipped — newer version installed", and the install dialog shows these statuses instead of a blanket "Installed".
+- **Softer skill uninstall.** Uninstalling now removes only the files the app wrote (`SKILL.md`), preserving anything else in the skill directory — such as locally installed eval suites — and removes the directory only when empty.
+
 ## [1.3.0] – 2026-07-10
 
 This release introduces the Phone Bridge: pair your phone with ai-14all over your local network and keep an eye on your agent workflows away from the desk — get woken by a push notification when a workflow needs you, and, with explicit per-device grants, pause, resume, or stop it from the phone. Samantha's spoken session reports now ride a canonical structured contract, and terminal layouts tidy themselves when shells close.

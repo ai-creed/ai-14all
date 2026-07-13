@@ -117,6 +117,23 @@ Avoid pulling deferred scope into current work unless explicitly requested:
 - Local agent execution plans live under `docs/superpowers/plans/` and are intentionally gitignored.
 - When adding or changing project direction, update the relevant design or planning doc rather than relying on conversational context only.
 
+## Bundled Agent Skills
+
+- `assets/agent-skills/` is the owning source of truth for the
+  `ai-14all-fix-review` and `ai-14all-session-status` skills. The content
+  originated bit-for-bit from `ai-skills @ 91890bb` (M5d calibration).
+- Any content change inside a bundled skill directory (SKILL.md or evals)
+  MUST bump the `version` field in that skill's SKILL.md frontmatter —
+  version-guarded installers silently skip unbumped content. CI enforces
+  this (`scripts/ci/skills-qa.mjs`, `skills-qa.yml`).
+- Calibration workflow: edit the skill here → `pnpm exec shakespii lint
+  <dir>` and `pnpm exec shakespii test <dir>` → bump `version` → PR. Live
+  trigger/grading sweeps (`shakespii test --run`) are manual campaigns,
+  never CI.
+- Evals (`evals/`) are dev/CI assets: the installer never writes them to
+  provider directories, and the packaged app excludes them.
+- Installed live copies (e.g. `~/.claude/skills/...`) are never hand-edited.
+
 ## Branch Completion
 
 - After finishing a development branch, merge locally to master and wait for the user to do their own code review before pushing.

@@ -1,9 +1,13 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { BundledSkill } from "./skill-asset.js";
 import { BUNDLED_SKILL_IDS } from "./skill-asset.js";
+import {
+	guardedWriteSkill,
+	removeInstalledSkill,
+	type SkillInstallOutcome,
+} from "./skill-version.js";
 
 const exec = promisify(execFile);
 
@@ -27,23 +31,23 @@ export class CodexProvider {
 	}
 
 	/**
-	 * Install every bundled skill, then register the MCP server once. The
-	 * per-skill copy is identical to the original single-skill path — only
-	 * iterated. MCP registration is server-level, not per-skill, so it runs
-	 * exactly once.
+	 * Install every bundled skill through the version guard, then register the
+	 * MCP server once. A skill is only written when the bundled copy is new or
+	 * strictly newer than the installed one; skips are reported per skill. MCP
+	 * registration is server-level, not per-skill, so it runs exactly once.
 	 */
-	async installSkills(input: InstallSkillsInput): Promise<void> {
+	async installSkills(
+		input: InstallSkillsInput,
+	): Promise<SkillInstallOutcome[]> {
 		if (!(await this.deps.isCliAvailable())) {
 			throw new Error(
 				"codex CLI is not available on PATH; install Codex or use the manual-setup snippet.",
 			);
 		}
+		const outcomes: SkillInstallOutcome[] = [];
 		for (const skill of input.skills) {
-			const dir = this.skillDir(skill.id);
-			await mkdir(dir, { recursive: true });
-			const tmp = join(dir, "SKILL.md.ai-14all.tmp");
-			await writeFile(tmp, skill.content, "utf-8");
-			await rename(tmp, join(dir, "SKILL.md"));
+			const action = await guardedWriteSkill(this.skillDir(skill.id), skill);
+			outcomes.push({ id: skill.id, action });
 		}
 		// Idempotent: remove any prior registration before adding. Handles the
 		// case where the user wiped the skill dir manually but ~/.codex/config
@@ -60,11 +64,12 @@ export class CodexProvider {
 			input.url,
 			input.serverName,
 		]);
+		return outcomes;
 	}
 
 	async uninstall(input: { serverName: string }): Promise<void> {
 		for (const id of BUNDLED_SKILL_IDS) {
-			await rm(this.skillDir(id), { recursive: true, force: true });
+			await removeInstalledSkill(this.skillDir(id));
 		}
 		if (await this.deps.isCliAvailable()) {
 			try {

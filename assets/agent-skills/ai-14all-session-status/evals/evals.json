@@ -1,0 +1,61 @@
+{
+  "skill_name": "ai-14all-session-status",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "You are running inside an ai-14all-managed worktree at /workspace/webapp. The user gives you a new mission: 'Build the CSV export endpoint.' Push your session state per the ai-14all lifecycle before starting work.",
+      "expected_output": "The agent pushes (or attempts to push) report_session_status with state 'active', a concise task summary, and the worktree path; if the ai-14all MCP server is unavailable in this session it says so honestly after describing the exact push it would make, and it does not spam further pushes for routine steps.",
+      "files": [],
+      "expectations": [
+        "Checks for the report_session_status tool and either pushes state 'active' at mission start or skips the push per the skill's best-effort rule when the tool is unavailable (an explicit note of the skip is welcome; silence is acceptable)",
+        "Proceeds with the mission rather than blocking on the missing telemetry tool",
+        "Does not fabricate a successful push or invent tool output"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Mid-mission on 'Build the CSV export endpoint', you cannot proceed without the user's input: should rows be comma- or semicolon-delimited for EU locales? Update your session state accordingly before stopping.",
+      "expected_output": "The agent pushes (or attempts) report_session_status with state 'waiting', the unchanged mission task, and a short imperative nextAction telling the user what to answer; if the MCP server is unavailable it describes that exact push honestly instead of silently stopping.",
+      "files": [],
+      "expectations": [
+        "Either pushes report_session_status with state 'waiting' or, with the tool unavailable, skips it per the skill's best-effort rule while still stopping to wait for the user",
+        "Surfaces the delimiter question to the user as the thing to answer next",
+        "Does not fabricate a successful push or invent tool output"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "This is the very first turn of a new session. Treat these as the resolved environment values: AI14ALL_TERMINAL_SESSION_ID is 'term-abc123' and CLAUDE_CODE_SESSION_ID is 'sess-77f0a1'. Register this session for conversation resume per the ai-14all lifecycle.",
+      "expected_output": "The agent attempts register_agent_session with provider 'claude' and a resumeCommand built from the resolved value sess-77f0a1 (never the literal '$CLAUDE_CODE_SESSION_ID'), using only allowlisted characters; if the MCP server is unavailable it describes that exact registration honestly, and it registers at most once.",
+      "files": [],
+      "expectations": [
+        "Checks for the register_agent_session tool and either registers or skips per the skill's best-effort rule when the tool is unavailable (an explicit note of the skip is welcome; silence is acceptable)",
+        "Any resumeCommand it builds or states uses the resolved value sess-77f0a1 — never the literal string '$CLAUDE_CODE_SESSION_ID' — and only characters from [A-Za-z0-9 ._/:=@-]",
+        "Any registration it attempts or describes sets provider to 'claude' and happens at most once",
+        "Does not fabricate a successful registration or invent tool output"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "The migration script you were running for the mission just failed with an unrecoverable disk-full error and you cannot continue. Update your session state before reporting to the user.",
+      "expected_output": "The agent pushes (or attempts) report_session_status with state 'failed' and a specific summary of what failed; if the MCP server is unavailable it describes that exact push honestly. It does not leave the failure unreported.",
+      "files": [],
+      "expectations": [
+        "Either pushes report_session_status with state 'failed' or, with the tool unavailable, skips it per the skill's best-effort rule",
+        "Names the concrete failure (disk-full / migration script) in its report to the user rather than a generic 'error occurred'",
+        "Reports the failure to the user rather than silently stopping"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "We're pivoting: drop the CSV export work entirely — the new mission is fixing the login-timeout bug. Update your session state to reflect the pivot before starting.",
+      "expected_output": "The agent pushes (or attempts) report_session_status with state 'active' and a NEW task value naming the login-timeout mission, since a pivot changes the mission-level task; if the MCP server is unavailable it describes that exact push honestly.",
+      "files": [],
+      "expectations": [
+        "Either pushes report_session_status with state 'active' for the pivot or, with the tool unavailable, skips it per the skill's best-effort rule",
+        "Treats the pivot as a mission-level change: any task value it pushes or states names the login-timeout mission, concise, not the CSV-export task",
+        "Acknowledges the new mission and proceeds on it, without fabricating a successful push"
+      ]
+    }
+  ]
+}
