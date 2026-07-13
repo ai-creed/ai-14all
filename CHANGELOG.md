@@ -4,16 +4,34 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.4.0] – 2026-07-13
+
+This release is about reading: markdown files open as rendered documents in a real reading font with theme-native, contrast-checked code blocks; images get a proper preview; and the review pane picks up an undo for deletes, a keyboard path for edits, and a slimmer minimap that jumps where you click. The bundled agent skills grow eval suites, version-guarded installs, and a gentler uninstall.
 
 ### Added
 
+- **Markdown files open as rendered preview.** Selecting a `.md` file in the file viewer now shows the rendered document by default, with a `[Preview │ Source]` toggle to reach the editor (a dirty-guard protects unsaved edits when switching back). The tree's right-click preview is retired — selecting the file _is_ the preview. Commit- and changes-list previews keep their modal.
+- **Image preview.** Selecting an image (png/jpg/gif/webp/svg…) shows a minimal centered preview with filename, dimensions, and size — instead of base64 noise in the editor. Capped at 20 MB; SVGs render inertly so scripted SVGs can't execute.
+- **A reading font for markdown.** Rendered markdown uses Hanken Grotesk (self-hosted) with GitHub-style typography: real heading sizes, list markers, task-list checkboxes, horizontal rules, zebra-striped tables, and contained images — restoring everything the CSS reset had silently stripped. Code keeps the terminal font.
+- **Theme-native code blocks.** Syntax highlighting in markdown now draws from per-theme tokens (dark, light, warm, tui) instead of a hardwired dark palette — no more cold blue-black code boxes on the warm theme — and every token color clears a WCAG 4.5:1 contrast gate enforced by a unit test.
+- **Undo for comment delete.** Deleting a review comment shows an undo toast (~6 s) that restores the exact comment — same id, status, and timestamps.
+- **Keyboard edit for comments.** `e` on the focused comment thread now opens the edit box (previously it only scrolled); Escape and Enter behave symmetrically across draft and edit modes (Enter saves, Shift+Enter breaks a line, Escape confirms before discarding changes).
 - **Calibrated bundled skills with eval suites.** The two companion skills (`ai-14all-fix-review`, `ai-14all-session-status`) now ship their M5d-calibrated content (versioned 0.1.0), and their evaluation suites live in the repo guarded by a new skills QA CI gate (shakespii lint + deterministic checks + version-bump discipline).
 
 ### Changed
 
+- **Slimmer, smarter review minimap.** The comment minimap column shrinks from 46 px to 24 px, cluster counts render inside the dot, clicking a dot jumps to the comment _and_ opens its flyout, and dots carry screen-reader labels.
+- **Keyboard flow survives comment actions.** Submitting, saving, cancelling, or deleting a comment returns focus to the diff editor, so `j`/`k`/`e`/`x` keep working without a mouse click.
+- **Session-note preview matches the file viewer.** The note sheet renders through the same markdown pipeline (typography, reading font, themed code blocks included).
 - **Version-guarded skill installs.** The agent-skill installer compares semver versions before writing and never downgrades: an equal installed copy reports "Already up to date", a newer one reports "skipped — newer version installed", and the install dialog shows these statuses instead of a blanket "Installed".
 - **Softer skill uninstall.** Uninstalling now removes only the files the app wrote (`SKILL.md`), preserving anything else in the skill directory — such as locally installed eval suites — and removes the directory only when empty.
+
+### Fixed
+
+- **Duplicate comments on double-submit.** The save button and Enter stay disabled while a comment create or edit is in flight.
+- **Missing minimap dots in commits mode.** Opening a file in commits mode now renders its comment dots immediately (the minimap tracked editor registration lazily and could latch an empty state).
+- **Changes-mode diff states.** Loading and error states now show instead of falling through to a misleading "Select a file…" empty state.
+- **Hardened file access.** All file-viewer reads and writes (including the new image path) verify symlink-resolved containment inside the worktree, closing parent-directory symlink escapes.
 
 ## [1.3.0] – 2026-07-10
 
