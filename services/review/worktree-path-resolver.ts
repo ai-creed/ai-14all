@@ -7,14 +7,25 @@ export type WorktreePathResolver = {
 	refresh: () => Promise<void>;
 };
 
+export type WorktreePathResolverOptions = {
+	now?: () => number;
+	refreshCooldownMs?: number;
+};
+
 export async function createWorktreePathResolver(
 	listWorktrees: () =>
 		| WorktreeRegistryEntry[]
 		| Promise<WorktreeRegistryEntry[]>,
+	options: WorktreePathResolverOptions = {},
 ): Promise<WorktreePathResolver> {
+	const { now = Date.now, refreshCooldownMs = 1000 } = options;
 	let canonicalToId = new Map<string, string>();
+	// -Infinity so the first miss always re-lists: the initial population below
+	// does not arm the cooldown, keeping a repo registered in the same instant
+	// the resolver is built discoverable.
+	let lastRefreshAt = Number.NEGATIVE_INFINITY;
 
-	const refresh = async () => {
+	const populate = async () => {
 		const next = new Map<string, string>();
 		const entries = await listWorktrees();
 		for (const entry of entries) {
@@ -27,6 +38,11 @@ export async function createWorktreePathResolver(
 			next.set(canonical, entry.id);
 		}
 		canonicalToId = next;
+	};
+
+	const refresh = async () => {
+		lastRefreshAt = now();
+		await populate();
 	};
 
 	const canonicalize = async (input: string) => {
@@ -44,13 +60,15 @@ export async function createWorktreePathResolver(
 		// Cache miss. The worktree set may have changed since the last refresh:
 		// a repo can be registered just after an eager consumer (the whisper lens
 		// poll) resolves its collab path, so the map is momentarily stale. Re-list
-		// once and retry before reporting the path as unknown. A path we genuinely
-		// don't manage still returns null — only at the cost of one extra re-list,
-		// which is cheap (an in-process registry walk / `git worktree list`).
+		// once and retry before reporting the path as unknown — but at most once
+		// per cooldown window. A single re-list is cheap; unthrottled, a batch of
+		// permanently unresolvable paths (dead collab rows) pays a full sweep per
+		// miss, which is what stalled the XBP session-report handler for seconds.
+		if (now() - lastRefreshAt < refreshCooldownMs) return null;
 		await refresh();
 		return canonicalToId.get(canonical) ?? null;
 	};
 
-	await refresh();
+	await populate();
 	return { resolve, refresh };
 }

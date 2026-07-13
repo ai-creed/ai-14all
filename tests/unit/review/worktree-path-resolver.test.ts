@@ -77,4 +77,92 @@ describe("worktree-path-resolver", () => {
 		// The self-heal re-lists once before giving up — bounded, not a loop.
 		expect(calls).toBe(afterConstruct + 1);
 	});
+
+	describe("refresh throttling", () => {
+		// Paths that don't exist on disk canonicalize to themselves, so the
+		// resolver stays a pure map lookup — no real dirs, timers, or git needed.
+		const virtualRepo = (name: string) => `/virtual/${name}`;
+
+		it("a cache hit resolves without re-listing", async () => {
+			const repo = virtualRepo("hit");
+			let calls = 0;
+			const resolver = await createWorktreePathResolver(() => {
+				calls++;
+				return [{ id: repo, path: repo }];
+			});
+			const afterConstruct = calls;
+			expect(await resolver.resolve(repo)).toBe(repo);
+			expect(await resolver.resolve(repo)).toBe(repo);
+			expect(calls).toBe(afterConstruct);
+		});
+
+		it("repeated misses within the cooldown re-list exactly once and still return null", async () => {
+			const t = { value: 0 };
+			let calls = 0;
+			const resolver = await createWorktreePathResolver(
+				() => {
+					calls++;
+					return [];
+				},
+				{ now: () => t.value, refreshCooldownMs: 1000 },
+			);
+			const afterConstruct = calls;
+			expect(await resolver.resolve(virtualRepo("miss-a"))).toBeNull();
+			expect(await resolver.resolve(virtualRepo("miss-b"))).toBeNull();
+			expect(await resolver.resolve(virtualRepo("miss-c"))).toBeNull();
+			// The first miss pays the re-list; the rest are answered from the map.
+			expect(calls).toBe(afterConstruct + 1);
+		});
+
+		it("a miss after the cooldown elapses re-lists and discovers a newly registered worktree", async () => {
+			const t = { value: 0 };
+			let calls = 0;
+			const late = virtualRepo("late");
+			let registry: { id: string; path: string }[] = [];
+			const resolver = await createWorktreePathResolver(
+				() => {
+					calls++;
+					return registry;
+				},
+				{ now: () => t.value, refreshCooldownMs: 1000 },
+			);
+			const afterConstruct = calls;
+			// First miss re-lists (finds nothing) and arms the cooldown at t=0.
+			expect(await resolver.resolve(late)).toBeNull();
+			registry = [{ id: late, path: late }];
+			// Inside the cooldown: no re-list, so the new repo is not seen yet.
+			t.value = 500;
+			expect(await resolver.resolve(late)).toBeNull();
+			expect(calls).toBe(afterConstruct + 1);
+			// Cooldown elapsed: the miss re-lists and the repo is discovered.
+			t.value = 1500;
+			expect(await resolver.resolve(late)).toBe(late);
+			expect(calls).toBe(afterConstruct + 2);
+		});
+
+		it("explicit refresh() always re-lists and updates the cooldown timestamp", async () => {
+			const t = { value: 0 };
+			let calls = 0;
+			const resolver = await createWorktreePathResolver(
+				() => {
+					calls++;
+					return [];
+				},
+				{ now: () => t.value, refreshCooldownMs: 1000 },
+			);
+			const afterConstruct = calls;
+			// Arm the cooldown via a miss at t=0.
+			expect(await resolver.resolve(virtualRepo("miss"))).toBeNull();
+			expect(calls).toBe(afterConstruct + 1);
+			// Explicit refresh inside the cooldown must still re-list.
+			t.value = 100;
+			await resolver.refresh();
+			expect(calls).toBe(afterConstruct + 2);
+			// 1050ms after the miss-refresh but only 950ms after refresh(): a miss
+			// must stay throttled, proving refresh() moved the timestamp forward.
+			t.value = 1050;
+			expect(await resolver.resolve(virtualRepo("miss-2"))).toBeNull();
+			expect(calls).toBe(afterConstruct + 2);
+		});
+	});
 });
