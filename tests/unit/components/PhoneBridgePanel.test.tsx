@@ -1,6 +1,7 @@
 // tests/unit/components/PhoneBridgePanel.test.tsx
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+// Spec: docs/superpowers/specs/2026-07-15-phone-bridge-dialog-redesign-design.md §4, §6
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PhoneBridgePanel } from "../../../src/components/settings/PhoneBridgePanel";
 import type { PhoneBridgeStatus as Status } from "../../../shared/contracts/commands";
@@ -20,189 +21,158 @@ const base: Status = {
 	lastError: null,
 };
 
-function mountBridge(status: Status) {
-	(window as unknown as { ai14all: unknown }).ai14all = {
-		phoneBridge: {
-			status: vi.fn().mockResolvedValue(status),
-			setEnabled: vi.fn().mockResolvedValue(status),
-			startPairing: vi.fn().mockResolvedValue({
-				offer: JSON.stringify({
-					token: "t",
-					signPubHex: "aa",
-					boxPubHex: "bb",
-					connect: { url: "ws://10.0.0.5:51820" },
-					expiresAt: 9,
-				}),
-			}),
-			confirmSas: vi.fn().mockResolvedValue(true),
-			forget: vi.fn().mockResolvedValue({ ...status, paired: false }),
-			onStatusChanged: vi.fn().mockReturnValue(() => {}),
-		},
+function mountBridge(status: Status, overrides: Record<string, unknown> = {}) {
+	const api = {
+		status: vi.fn().mockResolvedValue(status),
+		setEnabled: vi.fn().mockResolvedValue(status),
+		startPairing: vi.fn().mockResolvedValue({ offer: "{}" }),
+		confirmSas: vi.fn().mockResolvedValue(true),
+		cancelPairing: vi.fn().mockResolvedValue(status),
+		forget: vi.fn().mockResolvedValue({ ...base }),
+		onStatusChanged: vi.fn().mockReturnValue(() => {}),
+		...overrides,
 	};
+	(window as unknown as { ai14all: unknown }).ai14all = { phoneBridge: api };
+	return api;
 }
 
-describe("PhoneBridgePanel", () => {
-	it("shows the listening address once status resolves", async () => {
+afterEach(() => {
+	(window as unknown as { ai14all?: unknown }).ai14all = undefined;
+});
+
+describe("PhoneBridgePanel state machine", () => {
+	it("shows the loading view until status resolves", () => {
+		mountBridge(base, { status: vi.fn(() => new Promise(() => {})) });
+		render(<PhoneBridgePanel />);
+		expect(screen.getByTestId("view-loading")).toBeInTheDocument();
+	});
+
+	it("renders no duplicate title heading (the dialog owns the title)", async () => {
 		mountBridge(base);
 		render(<PhoneBridgePanel />);
-		await waitFor(() =>
-			expect(screen.getByText(/10\.0\.0\.5:51820/)).toBeInTheDocument(),
-		);
+		await screen.findByTestId("view-idle");
+		expect(screen.queryByRole("heading")).toBeNull();
 	});
 
-	it("renders the pairing QR after clicking Pair a phone", async () => {
-		mountBridge(base);
+	it("off: explainer only, no pair button", async () => {
+		mountBridge({ ...base, enabled: false, listening: false });
 		render(<PhoneBridgePanel />);
+		expect(await screen.findByTestId("view-off")).toBeInTheDocument();
+		expect(screen.getByText(/bridge off/i)).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /pair a phone/i })).toBeNull();
+	});
+
+	it("idle: shows the address strip and starts pairing on click without rendering a QR", async () => {
+		const api = mountBridge(base);
+		render(<PhoneBridgePanel />);
+		expect(await screen.findByText(/10\.0\.0\.5:51820/)).toBeInTheDocument();
 		await userEvent.click(
-			await screen.findByRole("button", { name: /pair a phone/i }),
-		);
-		await waitFor(() =>
-			expect(window.ai14all.phoneBridge.startPairing).toHaveBeenCalled(),
-		);
-		expect(await screen.findByTestId("pairing-qr")).toBeInTheDocument();
-	});
-
-	it("displays the six-digit SAS with Confirm/Reject when the host reports a SAS", async () => {
-		mountBridge({ ...base, sas: "048213" });
-		render(<PhoneBridgePanel />);
-		// The exact digits the host computed must be on screen — not a blind Confirm button.
-		expect(await screen.findByText("048213")).toBeInTheDocument();
-		expect(
-			screen.getByRole("button", { name: /confirm/i }),
-		).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /reject/i })).toBeInTheDocument();
-	});
-
-	it("confirming the displayed SAS calls confirmSas(true)", async () => {
-		mountBridge({ ...base, sas: "048213" });
-		render(<PhoneBridgePanel />);
-		await userEvent.click(
-			await screen.findByRole("button", { name: /confirm/i }),
-		);
-		expect(window.ai14all.phoneBridge.confirmSas).toHaveBeenCalledWith(true);
-	});
-
-	it("disables Pair a phone once a phone is paired (one phone; revocation deferred)", async () => {
-		// enabled: true so the ONLY thing that can disable the button is paired.
-		mountBridge({ ...base, paired: true });
-		render(<PhoneBridgePanel />);
-		// Wait until the host status (enabled + paired) has been applied.
-		await waitFor(() =>
-			expect(screen.getByText(/10\.0\.0\.5:51820/)).toBeInTheDocument(),
-		);
-		expect(
 			screen.getByRole("button", { name: /pair a phone/i }),
-		).toBeDisabled();
+		);
+		expect(api.startPairing).toHaveBeenCalledTimes(1);
+		// QR derives from status.offer, never from the startPairing return value.
+		expect(screen.queryByTestId("pairing-qr")).toBeNull();
 	});
 
-	it("lists the paired device once paired", async () => {
-		mountBridge({ ...base, paired: true });
+	it("scan: recovers the QR step purely from status (reopen-mid-pairing)", async () => {
+		const api = mountBridge({
+			...base,
+			pairing: "awaiting-scan",
+			offer: JSON.stringify({ token: "t", connect: { url: "ws://x" } }),
+			offerExpiresAt: Date.now() + 120_000,
+		});
 		render(<PhoneBridgePanel />);
-		await waitFor(() =>
-			expect(screen.getByText(/paired/i)).toBeInTheDocument(),
-		);
+		expect(await screen.findByTestId("pairing-qr")).toBeInTheDocument();
+		expect(screen.getByText(/expires in/i)).toBeInTheDocument();
+		await userEvent.click(screen.getByRole("button", { name: /cancel/i }));
+		expect(api.cancelPairing).toHaveBeenCalledTimes(1);
 	});
 
-	it("shows Unpair phone in the paired state", async () => {
-		mountBridge({ ...base, paired: true });
+	it("sas: shows the grouped digits; Confirm and Reject call confirmSas", async () => {
+		const api = mountBridge({ ...base, sas: "048213", pairing: "awaiting-sas" });
 		render(<PhoneBridgePanel />);
-		expect(
-			await screen.findByRole("button", { name: /unpair phone/i }),
-		).toBeInTheDocument();
+		expect(await screen.findByText("048 213")).toBeInTheDocument();
+		await userEvent.click(screen.getByRole("button", { name: /^confirm$/i }));
+		expect(api.confirmSas).toHaveBeenCalledWith(true);
+		await userEvent.click(screen.getByRole("button", { name: /reject/i }));
+		expect(api.confirmSas).toHaveBeenCalledWith(false);
 	});
 
-	it("does not show Unpair phone when no device is paired", async () => {
-		mountBridge(base);
-		render(<PhoneBridgePanel />);
-		await waitFor(() =>
-			expect(screen.getByText(/10\.0\.0\.5:51820/)).toBeInTheDocument(),
-		);
-		expect(
-			screen.queryByRole("button", { name: /unpair phone/i }),
-		).not.toBeInTheDocument();
-	});
-
-	it("requires confirmation: the first click reveals Confirm unpair without calling forget", async () => {
-		mountBridge({ ...base, paired: true });
-		render(<PhoneBridgePanel />);
-		await userEvent.click(
-			await screen.findByRole("button", { name: /unpair phone/i }),
-		);
-		expect(window.ai14all.phoneBridge.forget).not.toHaveBeenCalled();
-		expect(
-			screen.getByRole("button", { name: /confirm unpair/i }),
-		).toBeInTheDocument();
-	});
-
-	it("confirming calls forget()", async () => {
-		mountBridge({ ...base, paired: true });
-		render(<PhoneBridgePanel />);
-		await userEvent.click(
-			await screen.findByRole("button", { name: /unpair phone/i }),
-		);
-		await userEvent.click(
-			screen.getByRole("button", { name: /confirm unpair/i }),
-		);
-		await waitFor(() =>
-			expect(window.ai14all.phoneBridge.forget).toHaveBeenCalledTimes(1),
-		);
-	});
-
-	it("rapid double-click on Confirm unpair calls forget() only once", async () => {
-		mountBridge({ ...base, paired: true });
-		// Keep forget() in flight across both clicks — an instantly-resolving mock
-		// would unmount the confirm button before the second click can land.
-		let resolveForget!: (value: Status) => void;
-		vi.mocked(window.ai14all.phoneBridge.forget).mockImplementation(
-			() =>
-				new Promise<Status>((resolve) => {
-					resolveForget = resolve;
-				}),
+	it("paired: device card shows humanized pairedAt + permissions, unpair confirms in-card", async () => {
+		// forget stays pending so the ref-latch assertion below is deterministic:
+		// a resolving mock could release the latch between the two dblClick events.
+		const forget = vi.fn(() => new Promise<never>(() => {}));
+		const api = mountBridge(
+			{
+				...base,
+				paired: true,
+				pairedAt: Date.now() - 3 * 86_400_000,
+				grantedPermissions: ["control:act"],
+			},
+			{ forget },
 		);
 		render(<PhoneBridgePanel />);
-		await userEvent.click(
-			await screen.findByRole("button", { name: /unpair phone/i }),
-		);
+		expect(await screen.findByTestId("view-paired")).toBeInTheDocument();
+		expect(screen.getByText(/paired 3 days ago/i)).toBeInTheDocument();
+		expect(screen.getByText(/can act/i)).toBeInTheDocument();
+		await userEvent.click(screen.getByRole("button", { name: /^unpair$/i }));
+		expect(screen.getByTestId("unpair-confirm")).toBeInTheDocument();
 		await userEvent.dblClick(
 			screen.getByRole("button", { name: /confirm unpair/i }),
 		);
-		expect(window.ai14all.phoneBridge.forget).toHaveBeenCalledTimes(1);
-		resolveForget({ ...base, paired: false });
+		// Ref latch: a same-tick double click must invoke forget exactly once.
+		expect(api.forget).toHaveBeenCalledTimes(1);
+	});
+
+	it("fault: enabled-but-not-listening features lastError detail", async () => {
+		mountBridge({
+			...base,
+			listening: false,
+			lastError: "listen EADDRINUSE: address already in use",
+		});
+		render(<PhoneBridgePanel />);
+		expect(await screen.findByTestId("view-fault")).toBeInTheDocument();
+		expect(screen.getByText(/EADDRINUSE/)).toBeInTheDocument();
+	});
+
+	it("surfaces a rejected action as an inline error", async () => {
+		mountBridge(
+			{ ...base, sas: "048213", pairing: "awaiting-sas" },
+			{ confirmSas: vi.fn().mockRejectedValue(new Error("boom")) },
+		);
+		render(<PhoneBridgePanel />);
+		await userEvent.click(await screen.findByRole("button", { name: /^confirm$/i }));
+		expect(await screen.findByTestId("action-error")).toHaveTextContent("boom");
+	});
+
+	it("a stale inline error clears when a status change arrives", async () => {
+		let push: ((s: Status) => void) | undefined;
+		mountBridge(
+			{ ...base, sas: "048213", pairing: "awaiting-sas" },
+			{
+				confirmSas: vi.fn().mockRejectedValue(new Error("boom")),
+				onStatusChanged: vi.fn((h: (s: Status) => void) => {
+					push = h;
+					return () => {};
+				}),
+			},
+		);
+		render(<PhoneBridgePanel />);
+		await userEvent.click(
+			await screen.findByRole("button", { name: /^confirm$/i }),
+		);
+		expect(await screen.findByTestId("action-error")).toBeInTheDocument();
+		act(() => push!({ ...base }));
 		await waitFor(() =>
-			expect(
-				screen.queryByRole("button", { name: /confirm unpair/i }),
-			).not.toBeInTheDocument(),
+			expect(screen.queryByTestId("action-error")).toBeNull(),
 		);
 	});
 
-	it("confirming unpair applies forget's returned status without waiting for a push", async () => {
-		// onStatusChanged never fires in mountBridge — the unpaired UI can only
-		// come from handleForget seeding setStatus with forget's return value.
-		mountBridge({ ...base, paired: true });
+	it("renders the status-carried lastError as a danger line outside the fault view", async () => {
+		mountBridge({ ...base, lastError: "startPairing failed: not listening" });
 		render(<PhoneBridgePanel />);
-		await userEvent.click(
-			await screen.findByRole("button", { name: /unpair phone/i }),
+		expect(await screen.findByTestId("last-error")).toHaveTextContent(
+			/startPairing failed/,
 		);
-		await userEvent.click(
-			screen.getByRole("button", { name: /confirm unpair/i }),
-		);
-		await waitFor(() =>
-			expect(
-				screen.queryByRole("button", { name: /unpair phone/i }),
-			).not.toBeInTheDocument(),
-		);
-	});
-
-	it("cancel backs out of the confirmation without calling forget", async () => {
-		mountBridge({ ...base, paired: true });
-		render(<PhoneBridgePanel />);
-		await userEvent.click(
-			await screen.findByRole("button", { name: /unpair phone/i }),
-		);
-		await userEvent.click(screen.getByRole("button", { name: /cancel/i }));
-		expect(window.ai14all.phoneBridge.forget).not.toHaveBeenCalled();
-		expect(
-			screen.queryByRole("button", { name: /confirm unpair/i }),
-		).not.toBeInTheDocument();
 	});
 });
