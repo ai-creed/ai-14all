@@ -5666,6 +5666,215 @@ select {
 	color: var(--text-primary);
 }
 
+/* --- Phone bridge dialog body ---
+   Spec: docs/superpowers/specs/2026-07-15-phone-bridge-dialog-redesign-design.md §5.
+   TUI trait set is mandatory (as for the settings dialog): radius 0 via
+   tokens, flat surfaces (no box-shadow), solid separators, mono UI font.
+   Only the status dot is round. */
+.phone-bridge {
+	font-family: var(--font-ui);
+}
+.phone-bridge__strip {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	border-top: var(--shell-border-width) solid var(--panel-border);
+	border-bottom: var(--shell-border-width) solid var(--panel-border);
+	padding: var(--space-2) 0;
+	margin-bottom: var(--space-3);
+	font-size: 0.75rem;
+}
+.phone-bridge__dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex: none;
+}
+.phone-bridge__dot--on {
+	background: var(--success);
+}
+.phone-bridge__dot--off {
+	background: var(--text-muted);
+}
+.phone-bridge__dot--warn {
+	background: var(--warning);
+}
+.phone-bridge__addr {
+	color: var(--text-primary);
+	flex: 1;
+}
+.phone-bridge__view {
+	min-height: 150px;
+}
+.phone-bridge__label {
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--text-secondary);
+	margin: 0 0 var(--space-2);
+}
+.phone-bridge__hint {
+	font-size: 0.75rem;
+	color: var(--text-secondary);
+	margin: 0 0 var(--space-3);
+}
+.phone-bridge__hint--tight {
+	margin-bottom: var(--space-1);
+}
+.phone-bridge__btn {
+	background: none;
+	border: var(--shell-border-width) solid var(--panel-border);
+	color: var(--text-secondary);
+	padding: 4px var(--space-3);
+	font-size: 0.75rem;
+	font-family: inherit;
+	cursor: pointer;
+}
+.phone-bridge__btn:hover:not(:disabled) {
+	border-color: var(--text-muted);
+	color: var(--text-primary);
+}
+.phone-bridge__btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+/* Spec §5 mandates --primary (NOT --accent: in the tui theme --accent is a
+   muted surface color, so an accent-tokened primary would lose contrast). */
+.phone-bridge__btn--primary {
+	border-color: var(--primary);
+	color: var(--primary);
+}
+.phone-bridge__btn--primary:hover:not(:disabled) {
+	background: var(--primary);
+	color: var(--primary-foreground);
+	border-color: var(--primary);
+}
+.phone-bridge__btn--danger {
+	border-color: var(--danger);
+	color: var(--danger);
+}
+.phone-bridge__btn--danger:hover:not(:disabled) {
+	background: var(--danger);
+	color: var(--app-bg);
+	border-color: var(--danger);
+}
+.phone-bridge__scan {
+	display: flex;
+	gap: var(--space-4);
+	align-items: flex-start;
+}
+.phone-bridge__qr {
+	background: #fff;
+	padding: 8px;
+	width: 168px;
+	height: 168px;
+	box-sizing: content-box;
+	flex: none;
+	image-rendering: pixelated;
+}
+.phone-bridge__scan-meta {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	font-size: 0.75rem;
+	color: var(--text-secondary);
+}
+.phone-bridge__scan-title {
+	color: var(--text-primary);
+	font-weight: 600;
+	font-size: 13px;
+}
+.phone-bridge__countdown {
+	color: var(--text-secondary);
+}
+.phone-bridge__countdown--late {
+	color: var(--warning);
+}
+.phone-bridge__sas-digits {
+	font-size: 32px;
+	font-weight: 600;
+	letter-spacing: 0.35em;
+	color: var(--primary); /* spec §5: SAS digits ride --primary */
+	margin: var(--space-2) 0 var(--space-1);
+}
+.phone-bridge__sas-actions {
+	display: flex;
+	gap: var(--space-2);
+	margin-top: var(--space-3);
+}
+.phone-bridge__device {
+	background: var(--panel-bg-elevated);
+	border: var(--shell-border-width) solid var(--panel-border);
+}
+.phone-bridge__device-main {
+	display: flex;
+	gap: var(--space-3);
+	align-items: center;
+	padding: var(--space-3);
+}
+.phone-bridge__device-icon {
+	width: 26px;
+	height: 40px;
+	border: var(--shell-border-width) solid var(--text-muted);
+	position: relative;
+	flex: none;
+}
+.phone-bridge__device-icon::after {
+	content: "";
+	position: absolute;
+	bottom: 3px;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 6px;
+	height: 2px;
+	background: var(--text-muted);
+}
+.phone-bridge__device-lines {
+	font-size: 0.75rem;
+	color: var(--text-secondary);
+	flex: 1;
+}
+.phone-bridge__device-name {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text-primary);
+}
+.phone-bridge__device-action {
+	align-self: flex-start;
+	flex: none;
+}
+.phone-bridge__device-confirm {
+	display: flex;
+	gap: var(--space-2);
+	align-items: center;
+	flex-wrap: wrap;
+	border-top: var(--shell-border-width) solid var(--panel-border);
+	padding: var(--space-2) var(--space-3);
+}
+.phone-bridge__confirm-text {
+	font-size: 0.75rem;
+	color: var(--warning);
+	flex: 1;
+}
+.phone-bridge__fault {
+	border: var(--shell-border-width) solid var(--warning);
+	padding: var(--space-3);
+	font-size: 0.75rem;
+	color: var(--text-primary);
+}
+.phone-bridge__fault-detail {
+	color: var(--text-secondary);
+	margin-top: var(--space-1);
+}
+.phone-bridge__error {
+	border-top: var(--shell-border-width) solid var(--panel-border);
+	margin: var(--space-3) 0 0;
+	padding-top: var(--space-2);
+	font-size: 0.75rem;
+	color: var(--danger);
+}
+
 /* --- Settings dialog ---
    TUI trait set is mandatory here (no rounded corners, no drop shadow, solid
    separators between groups) rather than following plugins-panel's shadow —
