@@ -9,8 +9,8 @@ vi.mock("../../../services/xbp/xbp-host-service.js", () => ({
 const MockXbpHostService = vi.mocked(XbpHostService);
 type Options = ConstructorParameters<typeof XbpHostService>[0];
 
-function fakeService(startImpl?: () => Promise<void>) {
-	return { start: vi.fn(startImpl ?? (async () => {})) };
+function fakeService(setEnabledImpl?: () => Promise<void>) {
+	return { setEnabled: vi.fn(setEnabledImpl ?? (async () => {})) };
 }
 
 beforeEach(() => {
@@ -27,7 +27,7 @@ describe("createXbpHostIfEnabled", () => {
 		expect(result).toBeNull();
 	});
 
-	it("constructs exactly once with the options and awaits start() when enabled", async () => {
+	it("constructs exactly once with the options and awaits setEnabled(true) when enabled", async () => {
 		const svc = fakeService();
 		MockXbpHostService.mockImplementation(function () {
 			return svc as unknown as XbpHostService;
@@ -36,11 +36,12 @@ describe("createXbpHostIfEnabled", () => {
 		const result = await createXbpHostIfEnabled({ enabled: true, options });
 		expect(MockXbpHostService).toHaveBeenCalledTimes(1);
 		expect(MockXbpHostService).toHaveBeenCalledWith(options);
-		expect(svc.start).toHaveBeenCalledTimes(1);
+		expect(svc.setEnabled).toHaveBeenCalledTimes(1);
+		expect(svc.setEnabled).toHaveBeenCalledWith(true);
 		expect(result).toBe(svc);
 	});
 
-	it("routes a start() failure to onStartError and still returns the service", async () => {
+	it("routes a setEnabled(true) failure to onStartError and still returns the service", async () => {
 		const boom = new Error("bind failed");
 		const svc = fakeService(async () => {
 			throw boom;

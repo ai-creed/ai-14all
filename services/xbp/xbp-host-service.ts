@@ -328,6 +328,7 @@ export class XbpHostService {
 	async setEnabled(on: boolean): Promise<void> {
 		try {
 			if (on && !this.enabled) {
+				this.enabled = true;
 				await this.start();
 			} else if (!on && this.enabled) {
 				await this.stop();

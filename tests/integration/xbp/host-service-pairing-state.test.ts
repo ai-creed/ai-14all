@@ -220,4 +220,29 @@ describe("XbpHostService pairing state machine", () => {
 		await expect(failing.start()).rejects.toThrow();
 		expect(failing.getStatus().lastError).not.toBeNull();
 	});
+
+	it("a failed enable leaves user intent visible: enabled:true, listening:false (fault state)", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "xbp-state-"));
+		// Fail-closed path: the identity store throws when encryption is off.
+		const badStorage = {
+			isEncryptionAvailable: () => false,
+			encryptString: (s: string) => Buffer.from(s, "utf8"),
+			decryptString: (b: Buffer) => b.toString("utf8"),
+		};
+		svc = new XbpHostService({
+			dir,
+			secureStorage: badStorage,
+			getSessionReport: async () => ({
+				mode: "ready",
+				focus: null,
+				sessions: [],
+			}),
+			subscribeChanges: () => () => {},
+		});
+		await expect(svc.setEnabled(true)).rejects.toThrow();
+		const s = svc.getStatus();
+		expect(s.enabled).toBe(true);
+		expect(s.listening).toBe(false);
+		expect(s.lastError).not.toBeNull();
+	});
 });

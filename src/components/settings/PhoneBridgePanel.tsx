@@ -70,8 +70,11 @@ export function PhoneBridgePanel(): React.ReactElement {
 		};
 	}, [offer]);
 
-	// 1s countdown tick, only while the QR step is showing.
+	// Fresh tick on entering the time-sensitive views (countdown, "Paired N
+	// ago"), then a 1s interval only while the QR countdown is showing.
 	useEffect(() => {
+		if (view !== "scan" && view !== "paired") return;
+		setNowTick(Date.now());
 		if (view !== "scan") return;
 		const t = setInterval(() => setNowTick(Date.now()), 1000);
 		return () => clearInterval(t);

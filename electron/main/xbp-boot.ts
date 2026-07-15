@@ -17,7 +17,7 @@ export async function createXbpHostIfEnabled(deps: {
 	if (!deps.enabled) return null;
 	const service = new XbpHostService(deps.options);
 	try {
-		await service.start();
+		await service.setEnabled(true);
 	} catch (err) {
 		deps.onStartError?.(err);
 	}
