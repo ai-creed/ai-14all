@@ -12,6 +12,12 @@ const base: Status = {
 	port: 51820,
 	paired: false,
 	sas: null,
+	pairing: "idle",
+	offer: null,
+	offerExpiresAt: null,
+	pairedAt: null,
+	grantedPermissions: null,
+	lastError: null,
 };
 
 function mountBridge(status: Status) {

@@ -14,6 +14,7 @@ import {
 	registerXbpIpc,
 	PHONE_BRIDGE_STATUS,
 	PHONE_BRIDGE_FORGET,
+	PHONE_BRIDGE_CANCEL_PAIRING,
 } from "../../../electron/main/xbp-ipc";
 
 describe("registerXbpIpc", () => {
@@ -97,5 +98,73 @@ describe("registerXbpIpc", () => {
 		expect(await ipcMain.invoke(PHONE_BRIDGE_FORGET)).toBeDefined();
 		reg.dispose();
 		expect(await ipcMain.invoke(PHONE_BRIDGE_FORGET)).toBeUndefined();
+	});
+
+	const extendedStatus = {
+		enabled: true,
+		listening: true,
+		addr: "10.0.0.5",
+		port: 51820,
+		paired: false,
+		sas: null,
+		pairing: "idle",
+		offer: null,
+		offerExpiresAt: null,
+		pairedAt: null,
+		grantedPermissions: null,
+		lastError: null,
+	};
+
+	it("phoneBridge:cancelPairing invokes cancelPairing() and returns the post-cancel status", async () => {
+		const ipcMain = makeIpcMain();
+		const cancelPairing = vi.fn(async () => {});
+		const service = { cancelPairing, getStatus: () => extendedStatus };
+		registerXbpIpc({
+			ipcMain: ipcMain as never,
+			getService: () => service as never,
+			getWebContents: () => undefined,
+		});
+		const status = await ipcMain.invoke(PHONE_BRIDGE_CANCEL_PAIRING);
+		expect(cancelPairing).toHaveBeenCalledTimes(1);
+		expect(status).toMatchObject({ pairing: "idle" });
+	});
+
+	it("phoneBridge:cancelPairing is a graceful no-op returning undefined when the service is null", async () => {
+		const ipcMain = makeIpcMain();
+		registerXbpIpc({
+			ipcMain: ipcMain as never,
+			getService: () => null,
+			getWebContents: () => undefined,
+		});
+		expect(await ipcMain.invoke(PHONE_BRIDGE_CANCEL_PAIRING)).toBeUndefined();
+	});
+
+	it("dispose() removes the cancelPairing handler", async () => {
+		const ipcMain = makeIpcMain();
+		const { dispose } = registerXbpIpc({
+			ipcMain: ipcMain as never,
+			getService: () => null,
+			getWebContents: () => undefined,
+		});
+		dispose();
+		expect(await ipcMain.invoke(PHONE_BRIDGE_CANCEL_PAIRING)).toBeUndefined();
+	});
+
+	it("null-service status fallback carries the extended state-machine fields", async () => {
+		const ipcMain = makeIpcMain();
+		registerXbpIpc({
+			ipcMain: ipcMain as never,
+			getService: () => null,
+			getWebContents: () => undefined,
+		});
+		expect(await ipcMain.invoke(PHONE_BRIDGE_STATUS)).toMatchObject({
+			enabled: false,
+			pairing: "idle",
+			offer: null,
+			offerExpiresAt: null,
+			pairedAt: null,
+			grantedPermissions: null,
+			lastError: null,
+		});
 	});
 });

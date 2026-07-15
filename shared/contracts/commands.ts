@@ -397,6 +397,12 @@ export interface PhoneBridgeStatus {
 	port: number | null;
 	paired: boolean;
 	sas: string | null;
+	pairing: "idle" | "awaiting-scan" | "awaiting-sas";
+	offer: string | null;
+	offerExpiresAt: number | null;
+	pairedAt: number | null;
+	grantedPermissions: string[] | null;
+	lastError: string | null;
 }
 
 // --- The API surface exposed to the renderer via the preload bridge ---
@@ -749,6 +755,7 @@ export type Ai14AllDesktopApi = {
 		setEnabled(enabled: boolean): Promise<PhoneBridgeStatus | undefined>;
 		startPairing(): Promise<{ offer: string | null }>;
 		confirmSas(ok: boolean): Promise<boolean>;
+		cancelPairing(): Promise<PhoneBridgeStatus | undefined>;
 		forget(): Promise<PhoneBridgeStatus | undefined>;
 		onStatusChanged(handler: (status: PhoneBridgeStatus) => void): () => void;
 	};

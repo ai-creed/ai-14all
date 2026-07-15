@@ -5,6 +5,7 @@ export const PHONE_BRIDGE_SET_ENABLED = "phoneBridge:setEnabled";
 export const PHONE_BRIDGE_START_PAIRING = "phoneBridge:startPairing";
 export const PHONE_BRIDGE_CONFIRM_SAS = "phoneBridge:confirmSas";
 export const PHONE_BRIDGE_FORGET = "phoneBridge:forget";
+export const PHONE_BRIDGE_CANCEL_PAIRING = "phoneBridge:cancelPairing";
 export const PHONE_BRIDGE_STATUS_CHANGED = "phoneBridge:statusChanged";
 
 export function registerXbpIpc(deps: {
@@ -23,6 +24,12 @@ export function registerXbpIpc(deps: {
 				port: null,
 				paired: false,
 				sas: null,
+				pairing: "idle",
+				offer: null,
+				offerExpiresAt: null,
+				pairedAt: null,
+				grantedPermissions: null,
+				lastError: null,
 			},
 	);
 	ipcMain.handle(PHONE_BRIDGE_SET_ENABLED, async (_e, raw) => {
@@ -44,6 +51,10 @@ export function registerXbpIpc(deps: {
 		await deps.getService()?.forgetDevice();
 		return deps.getService()?.getStatus();
 	});
+	ipcMain.handle(PHONE_BRIDGE_CANCEL_PAIRING, async () => {
+		await deps.getService()?.cancelPairing();
+		return deps.getService()?.getStatus();
+	});
 	return {
 		dispose() {
 			ipcMain.removeHandler(PHONE_BRIDGE_STATUS);
@@ -51,6 +62,7 @@ export function registerXbpIpc(deps: {
 			ipcMain.removeHandler(PHONE_BRIDGE_START_PAIRING);
 			ipcMain.removeHandler(PHONE_BRIDGE_CONFIRM_SAS);
 			ipcMain.removeHandler(PHONE_BRIDGE_FORGET);
+			ipcMain.removeHandler(PHONE_BRIDGE_CANCEL_PAIRING);
 		},
 	};
 }
