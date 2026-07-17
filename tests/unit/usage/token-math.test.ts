@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
 	claudeTokens,
 	codexTokens,
-	ezioTokens,
 	haxTokens,
 } from "../../../services/usage/token-math.js";
 
@@ -42,26 +41,6 @@ describe("codexTokens", () => {
 		expect(t.output).toBe(257);
 		expect(t.billable).toBe(19799 - 6528);
 		expect(t.raw).toBe(19799);
-	});
-});
-
-describe("ezioTokens", () => {
-	it("input = contextTokens - cachedTokens; raw = contextTokens + output", () => {
-		expect(
-			ezioTokens({ contextTokens: 1000, outputTokens: 200, cachedTokens: 600 }),
-		).toEqual({ input: 400, output: 200, billable: 600, raw: 1200 });
-	});
-
-	it("clamps negative input to 0 and tolerates missing fields", () => {
-		expect(
-			ezioTokens({ contextTokens: 100, outputTokens: 0, cachedTokens: 500 }),
-		).toEqual({ input: 0, output: 0, billable: 0, raw: 100 });
-		expect(ezioTokens({})).toEqual({
-			input: 0,
-			output: 0,
-			billable: 0,
-			raw: 0,
-		});
 	});
 });
 

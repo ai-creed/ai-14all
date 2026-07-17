@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+	ezioSlug,
 	matchCwd,
 	workspaceGroupFor,
 } from "../../../services/usage/worktree-map.js";
 import type { KnownWorktree } from "../../../shared/models/usage.js";
-import { ezioSlug } from "../../../services/usage/ezio-source.js";
 
 const known: KnownWorktree[] = [
 	{
@@ -71,6 +71,14 @@ describe("matchCwd", () => {
 
 	it("does not false-match a sibling dir sharing a path prefix (win)", () => {
 		expect(matchCwd("C:\\Users\\me\\Dev\\app-other\\src", winKnown)).toBeNull();
+	});
+});
+
+describe("ezioSlug", () => {
+	it("strips the leading slash and replaces / and . with -", () => {
+		expect(
+			ezioSlug("/Users/vuphan/Dev/ai-14all/.worktrees/bugs-hardening"),
+		).toBe("Users-vuphan-Dev-ai-14all--worktrees-bugs-hardening");
 	});
 });
 

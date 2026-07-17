@@ -1,5 +1,12 @@
 import type { KnownWorktree } from "../../shared/models/usage.js";
-import { ezioSlug } from "./ezio-source.js";
+
+// Forward slug of an absolute path: drop the leading "/", then replace every "/"
+// and "." with "-". Lossy (not reversible). Historic ledger buckets from the
+// retired ezio record store are keyed by this slug, so matchCwd keeps a
+// second-pass exact-slug match to resolve them in all-time views.
+export function ezioSlug(path: string): string {
+	return path.replace(/^\//, "").replace(/[/.]/g, "-");
+}
 
 // Canonicalise a path for prefix comparison: fold Windows backslashes to "/"
 // and drop trailing separators. Unlike resolveWithinWorktree (which compares two
