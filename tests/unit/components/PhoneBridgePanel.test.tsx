@@ -89,7 +89,11 @@ describe("PhoneBridgePanel state machine", () => {
 	});
 
 	it("sas: shows the grouped digits; Confirm and Reject call confirmSas", async () => {
-		const api = mountBridge({ ...base, sas: "048213", pairing: "awaiting-sas" });
+		const api = mountBridge({
+			...base,
+			sas: "048213",
+			pairing: "awaiting-sas",
+		});
 		render(<PhoneBridgePanel />);
 		expect(await screen.findByText("048 213")).toBeInTheDocument();
 		await userEvent.click(screen.getByRole("button", { name: /^confirm$/i }));
@@ -141,7 +145,9 @@ describe("PhoneBridgePanel state machine", () => {
 			{ confirmSas: vi.fn().mockRejectedValue(new Error("boom")) },
 		);
 		render(<PhoneBridgePanel />);
-		await userEvent.click(await screen.findByRole("button", { name: /^confirm$/i }));
+		await userEvent.click(
+			await screen.findByRole("button", { name: /^confirm$/i }),
+		);
 		expect(await screen.findByTestId("action-error")).toHaveTextContent("boom");
 	});
 

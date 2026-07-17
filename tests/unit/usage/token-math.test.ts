@@ -47,9 +47,12 @@ describe("codexTokens", () => {
 describe("haxTokens", () => {
 	it("input includes cached: billable input = input - cached; raw = input + output", () => {
 		// Real sampled row from the hax store (spec §2): verified via engine cost fields.
-		expect(
-			haxTokens({ input: 137422, output: 580, cached: 9728 }),
-		).toEqual({ input: 127694, output: 580, billable: 128274, raw: 138002 });
+		expect(haxTokens({ input: 137422, output: 580, cached: 9728 })).toEqual({
+			input: 127694,
+			output: 580,
+			billable: 128274,
+			raw: 138002,
+		});
 	});
 
 	it("clamps cached > input to 0 and tolerates missing fields", () => {

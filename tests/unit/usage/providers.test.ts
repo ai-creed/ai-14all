@@ -111,7 +111,9 @@ describe("ezio driver (hax native store)", () => {
 	it("keep accepts header + usage lines and rejects other rows", () => {
 		expect(ezioDriver.keep?.('{"type":"session","cwd":"/x"}')).toBe(true);
 		expect(ezioDriver.keep?.('{"kind":"turn_usage","usage":{}}')).toBe(true);
-		expect(ezioDriver.keep?.('{"kind":"reasoning","reasoning_text":"…"}')).toBe(false);
+		expect(ezioDriver.keep?.('{"kind":"reasoning","reasoning_text":"…"}')).toBe(
+			false,
+		);
 	});
 
 	it("seedCtx derives a fallback sessionId from the filename (no cwd)", () => {

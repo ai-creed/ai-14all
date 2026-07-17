@@ -33,7 +33,12 @@ describe("parseHaxLine: turn_usage", () => {
 	const ctx: ParseCtx = { cwd: "/Users/me/Dev/app", sessionId: "s1" };
 
 	it("maps a real sampled row to an event with ctx cwd, row model, and 0 timestamp", () => {
-		const line = usageLine({ input: 137422, output: 580, cached: 9728, elapsed_ms: 15135 });
+		const line = usageLine({
+			input: 137422,
+			output: 580,
+			cached: 9728,
+			elapsed_ms: 15135,
+		});
 		expect(parseHaxLine(line, { ...ctx })).toEqual({
 			provider: "ezio",
 			timestampMs: 0,
@@ -48,7 +53,11 @@ describe("parseHaxLine: turn_usage", () => {
 	});
 
 	it("drops a turn_usage row whose usage is absent, null, or a non-object (each fixture)", () => {
-		expect(parseHaxLine(JSON.stringify({ kind: "turn_usage", model: "m" }), { ...ctx })).toBeNull();
+		expect(
+			parseHaxLine(JSON.stringify({ kind: "turn_usage", model: "m" }), {
+				...ctx,
+			}),
+		).toBeNull();
 		expect(parseHaxLine(usageLine(null), { ...ctx })).toBeNull();
 		expect(parseHaxLine(usageLine("usage-as-string"), { ...ctx })).toBeNull();
 		expect(parseHaxLine(usageLine(42), { ...ctx })).toBeNull();
@@ -76,7 +85,11 @@ describe("parseHaxLine: turn_usage", () => {
 
 	it("falls back to empty model/cwd/sessionId when absent", () => {
 		const line = JSON.stringify({ kind: "turn_usage", usage: { output: 5 } });
-		expect(parseHaxLine(line, {})).toMatchObject({ model: "", cwd: "", sessionId: "" });
+		expect(parseHaxLine(line, {})).toMatchObject({
+			model: "",
+			cwd: "",
+			sessionId: "",
+		});
 	});
 });
 
@@ -84,9 +97,17 @@ describe("parseHaxLine: everything else", () => {
 	const ctx: ParseCtx = { cwd: "/x", sessionId: "s" };
 
 	it("ignores other row kinds, malformed JSON, and marker-free lines", () => {
-		expect(parseHaxLine(JSON.stringify({ kind: "turn_boundary" }), { ...ctx })).toBeNull();
-		expect(parseHaxLine(JSON.stringify({ kind: "assistant", text: "hi" }), { ...ctx })).toBeNull();
-		expect(parseHaxLine("not json but contains " + HAX_USAGE_MARKER, { ...ctx })).toBeNull();
+		expect(
+			parseHaxLine(JSON.stringify({ kind: "turn_boundary" }), { ...ctx }),
+		).toBeNull();
+		expect(
+			parseHaxLine(JSON.stringify({ kind: "assistant", text: "hi" }), {
+				...ctx,
+			}),
+		).toBeNull();
+		expect(
+			parseHaxLine("not json but contains " + HAX_USAGE_MARKER, { ...ctx }),
+		).toBeNull();
 		expect(parseHaxLine("", { ...ctx })).toBeNull();
 	});
 

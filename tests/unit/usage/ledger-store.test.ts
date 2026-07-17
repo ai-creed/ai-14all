@@ -181,7 +181,10 @@ describe("v2 -> v3 migration (D3 surgical strip)", () => {
 		offsets: {
 			"/home/me/.local/state/ezio/sessions/Users-me-Dev-app/unknown-0.record.jsonl":
 				{ offset: 10, mtime: 1 },
-			"/home/me/.local/state/hax/sessions/d.abc/f.jsonl": { offset: 20, mtime: 2 },
+			"/home/me/.local/state/hax/sessions/d.abc/f.jsonl": {
+				offset: 20,
+				mtime: 2,
+			},
 			"/home/me/.claude/projects/p/s.jsonl": { offset: 30, mtime: 3 },
 			"/home/me/.codex/sessions/r.jsonl": { offset: 40, mtime: 4 },
 		} as Record<string, { offset: number; mtime: number }>,
@@ -202,10 +205,14 @@ describe("v2 -> v3 migration (D3 surgical strip)", () => {
 		// Corrupt bucket gone; same-day survivors intact (day entry NOT dropped).
 		expect(days.get(EXPECTED_DAY)?.has(EXPECTED_KEY)).toBe(false);
 		expect(
-			days.get(EXPECTED_DAY)?.get(`/Users/me/Dev/app${NUL}ezio${NUL}gpt-5-codex`),
+			days
+				.get(EXPECTED_DAY)
+				?.get(`/Users/me/Dev/app${NUL}ezio${NUL}gpt-5-codex`),
 		).toEqual(t(11));
 		expect(
-			days.get(EXPECTED_DAY)?.get(`/Users/me/Dev/app${NUL}claude${NUL}claude-opus-4-8`),
+			days
+				.get(EXPECTED_DAY)
+				?.get(`/Users/me/Dev/app${NUL}claude${NUL}claude-opus-4-8`),
 		).toEqual(t(22));
 		// Adjacent-day and distant-day same-key buckets survive.
 		expect(days.get(EXPECTED_DAY - DAY)?.get(EXPECTED_KEY)).toEqual(t(33));
@@ -223,7 +230,9 @@ describe("v2 -> v3 migration (D3 surgical strip)", () => {
 	it("prunes retired ezio-root offsets and keeps claude/codex/hax offsets", () => {
 		const st = writeAndLoad(v2Payload());
 		const keys = [...st!.offsets.keys()];
-		expect(keys.some((k) => k.includes("/.local/state/ezio/sessions/"))).toBe(false);
+		expect(keys.some((k) => k.includes("/.local/state/ezio/sessions/"))).toBe(
+			false,
+		);
 		expect(keys).toContain("/home/me/.local/state/hax/sessions/d.abc/f.jsonl");
 		expect(keys).toContain("/home/me/.claude/projects/p/s.jsonl");
 		expect(keys).toContain("/home/me/.codex/sessions/r.jsonl");
@@ -232,7 +241,9 @@ describe("v2 -> v3 migration (D3 surgical strip)", () => {
 	it("is an idempotent no-op on a v2 file without the corrupt entry", () => {
 		const p = v2Payload();
 		delete p.days[String(EXPECTED_DAY)];
-		p.offsets = { "/home/me/.claude/projects/p/s.jsonl": { offset: 30, mtime: 3 } };
+		p.offsets = {
+			"/home/me/.claude/projects/p/s.jsonl": { offset: 30, mtime: 3 },
+		};
 		const st = writeAndLoad(p);
 		expect(st).not.toBeNull();
 		expect(st!.ledger.days.get(otherDayKey)?.get(EXPECTED_KEY)).toEqual(t(55));
