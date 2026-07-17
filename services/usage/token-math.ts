@@ -54,3 +54,18 @@ export function ezioTokens(u: EzioUsageRaw): TokenTotals {
 	const input = Math.max(0, context - n(u.cachedTokens));
 	return { input, output, billable: input + output, raw: context + output };
 }
+
+export interface HaxUsageRaw {
+	input?: number; // includes cached
+	output?: number;
+	cached?: number;
+}
+
+// hax engine turn_usage: `input` INCLUDES `cached` (verified against the engine's
+// own cost fields: cost_in == (input - cached) * rate). Non-cached input is the
+// billable side; raw = everything that moved through the model this turn.
+export function haxTokens(u: HaxUsageRaw): TokenTotals {
+	const output = n(u.output);
+	const input = Math.max(0, n(u.input) - n(u.cached));
+	return { input, output, billable: input + output, raw: n(u.input) + output };
+}
