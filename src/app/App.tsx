@@ -805,7 +805,7 @@ function AppContent() {
 		removeSession,
 	});
 
-	useAgentPtyPublisher(workspaceState);
+	useAgentPtyPublisher(workspaceState, activeWorkspaceId);
 
 	const subscribeSessionExit = useCallback(
 		(sessionId: string, cb: (exitCode: number | null) => void) => {
