@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import type { MutableRefObject } from "react";
 import { commandSubmitKey } from "../../lib/command-submit-key";
+import { agentPtys } from "../../lib/desktop-client";
 import type { ProcessSession } from "../../../shared/models/process-session";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
 import type { Worktree } from "../../../shared/models/worktree";
@@ -170,6 +171,10 @@ export function useProcessActions(options: Options): UseProcessActions {
 				worktreeId: targetWorktreeId,
 				processId,
 			});
+			// Fire-and-forget: the main-process agent PTY catalog drops its entry
+			// (if any) for this process. Best-effort — a dropped IPC call here must
+			// not block or fail the (already-dispatched) close.
+			agentPtys.remove(targetWorktreeId, processId).catch(() => {});
 		},
 		[
 			worktree,
@@ -261,37 +266,54 @@ export function useProcessActions(options: Options): UseProcessActions {
 			const targetWorkspaceId = workspaceId;
 			const targetWorktree = worktree;
 
-			if (process.terminalSessionId) {
-				try {
-					await stopSession(process.terminalSessionId);
-				} catch {
-					// best effort
+			// Tell the main-process agent PTY catalog a rebind is coming BEFORE
+			// tearing down the old terminal, so its exit doesn't publish a
+			// premature "agent-exit" hint to a subscribed phone (spec §1.3) — the
+			// intent is cancelled below if this restart fails before a new
+			// terminal replaces it.
+			await agentPtys.rebindIntent(targetWorktree.id, processId);
+
+			try {
+				if (process.terminalSessionId) {
+					try {
+						await stopSession(process.terminalSessionId);
+					} catch {
+						// best effort
+					}
+					outputPreviewBuffersRef.current.delete(process.terminalSessionId);
+					removeSession(process.terminalSessionId);
 				}
-				outputPreviewBuffersRef.current.delete(process.terminalSessionId);
-				removeSession(process.terminalSessionId);
-			}
 
-			const terminal = await createSession(
-				targetWorkspaceId,
-				targetWorktree.id,
-				targetWorktree.path,
-			);
-			const dispatchToTargetWorkspace =
-				createScopedWorkspaceDispatch(targetWorkspaceId);
-			dispatchToTargetWorkspace({
-				type: "session/replaceProcessTerminal",
-				processId,
-				terminalSessionId: terminal.id,
-			});
-			dispatchToTargetWorkspace({
-				type: "session/updateProcessStatus",
-				processId,
-				status: "running",
-				exitCode: null,
-			});
+				const terminal = await createSession(
+					targetWorkspaceId,
+					targetWorktree.id,
+					targetWorktree.path,
+				);
+				const dispatchToTargetWorkspace =
+					createScopedWorkspaceDispatch(targetWorkspaceId);
+				dispatchToTargetWorkspace({
+					type: "session/replaceProcessTerminal",
+					processId,
+					terminalSessionId: terminal.id,
+				});
+				dispatchToTargetWorkspace({
+					type: "session/updateProcessStatus",
+					processId,
+					status: "running",
+					exitCode: null,
+				});
 
-			if (process.command) {
-				await sendInput(terminal.id, `${process.command}${commandSubmitKey()}`);
+				if (process.command) {
+					await sendInput(
+						terminal.id,
+						`${process.command}${commandSubmitKey()}`,
+					);
+				}
+			} catch (err) {
+				console.error("Failed to restart process:", err);
+				notifyToast("Failed to restart process");
+				agentPtys.rebindCancel(targetWorktree.id, processId).catch(() => {});
+				throw err;
 			}
 		},
 		[

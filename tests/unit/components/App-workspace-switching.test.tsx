@@ -53,6 +53,12 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		onState: vi.fn(() => () => {}),
 		onError: vi.fn(() => () => {}),
 	},
+	agentPtys: {
+		upsert: vi.fn().mockResolvedValue(undefined),
+		remove: vi.fn().mockResolvedValue(undefined),
+		rebindIntent: vi.fn().mockResolvedValue(undefined),
+		rebindCancel: vi.fn().mockResolvedValue(undefined),
+	},
 	git: {
 		readSummary: vi.fn().mockResolvedValue({
 			branchName: "main",

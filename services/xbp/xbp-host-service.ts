@@ -19,7 +19,7 @@ import {
 	createLanWebSocketHost,
 	primaryLanIPv4,
 } from "./lan-websocket-transport.js";
-import { XbpPeerSession } from "./xbp-peer-session.js";
+import { XbpPeerSession, type PtyInspectBinding } from "./xbp-peer-session.js";
 import type { XbpActingExecutor } from "./xbp-acting-executor.js";
 import type { XbpPushTokenStore } from "./xbp-push-token-store.js";
 import type { PushTokenHandlers } from "./xbp-push-token-handlers.js";
@@ -55,6 +55,7 @@ export class XbpHostService {
 			acting?: XbpActingExecutor;
 			pushTokenStore?: XbpPushTokenStore;
 			pushTokenHandlers?: PushTokenHandlers;
+			ptyInspect?: PtyInspectBinding;
 			now?: () => number;
 		},
 	) {
@@ -110,6 +111,7 @@ export class XbpHostService {
 			getSessionReport: this.opts.getSessionReport,
 			acting: this.opts.acting,
 			pushToken: this.opts.pushTokenHandlers,
+			ptyInspect: this.opts.ptyInspect,
 			now: this.opts.now,
 		});
 

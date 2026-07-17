@@ -53,6 +53,16 @@ export const terminals: Ai14AllDesktopApi["terminals"] = {
 	onError: (listener) => getDesktopClient().terminals.onError(listener),
 };
 
+export const agentPtys: Ai14AllDesktopApi["agentPtys"] = {
+	upsert: (msg) => getDesktopClient().agentPtys.upsert(msg),
+	remove: (worktreeId, agentId) =>
+		getDesktopClient().agentPtys.remove(worktreeId, agentId),
+	rebindIntent: (worktreeId, agentId) =>
+		getDesktopClient().agentPtys.rebindIntent(worktreeId, agentId),
+	rebindCancel: (worktreeId, agentId) =>
+		getDesktopClient().agentPtys.rebindCancel(worktreeId, agentId),
+};
+
 export const files: Ai14AllDesktopApi["files"] = {
 	list: (workspaceId, worktreeId) =>
 		getDesktopClient().files.list(workspaceId, worktreeId),

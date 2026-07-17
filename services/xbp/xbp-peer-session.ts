@@ -25,7 +25,10 @@ import { createCoalescer } from "./coalescer.js";
 import type { XbpAuditSink } from "./xbp-audit-sink.js";
 import type { XbpActingExecutor } from "./xbp-acting-executor.js";
 import type { PushTokenHandlers } from "./xbp-push-token-handlers.js";
-import type { PtySubscriptionRegistry } from "../pty-inspect/pty-subscription-registry.js";
+import type {
+	PtyRefusal,
+	PtySubscriptionRegistry,
+} from "../pty-inspect/pty-subscription-registry.js";
 import type { AgentPtyCatalog } from "../pty-inspect/agent-pty-catalog.js";
 
 // Produced here so Task 8's PtyInspectService can satisfy it structurally —
@@ -48,6 +51,15 @@ export type PtyInspectBinding = {
 	// index in the main process (WorkspaceRegistryService stores only
 	// repositories).
 	isKnownWorktree(worktreeId: string): Promise<boolean>;
+	// Spec §4: every refusal from any of the four PTY-inspect capabilities
+	// lands in the audit, so each capability handler below calls this after a
+	// `{ ok: false }` result before returning it.
+	auditRefusal(
+		capabilityId: string,
+		worktreeId: string,
+		agentId: string | null,
+		code: "no-such-pty" | "no-live-agent" | "internal",
+	): void;
 };
 
 export class XbpPeerSession {
@@ -137,30 +149,73 @@ export class XbpPeerSession {
 		if (this.opts.ptyInspect) {
 			const ptyInspect = this.opts.ptyInspect;
 			const { registry, catalog } = ptyInspect;
+			// Spec §4: audit every refusal from the three registry-backed
+			// capabilities (they all return the same `{ ok: false; code }` shape
+			// on refusal). listPtysCapability below checks a precondition by hand
+			// instead of wrapping a registry call, so it audits inline.
+			const withRefusalAudit =
+				<
+					A extends { worktreeId: string; agentId: string },
+					R extends PtyRefusal | { ok: true },
+				>(
+					capabilityId: string,
+					call: (args: A) => R | Promise<R>,
+				) =>
+				async (args: A): Promise<R> => {
+					const result = await call(args);
+					if (!result.ok) {
+						ptyInspect.auditRefusal(
+							capabilityId,
+							args.worktreeId,
+							args.agentId,
+							result.code,
+						);
+					}
+					return result;
+				};
 			peer.expose(listPtysCapability, async (args: { worktreeId: string }) => {
 				// Unknown session → no-such-pty (spec §3). A KNOWN worktree with
 				// zero agents legitimately returns an empty list — the async
 				// resolver distinguishes the two (worktree lookup shells out, so
 				// this handler is async like the lifecycle capabilities).
 				if (!(await ptyInspect.isKnownWorktree(args.worktreeId))) {
+					ptyInspect.auditRefusal(
+						listPtysCapability.id,
+						args.worktreeId,
+						null,
+						"no-such-pty",
+					);
 					return { ok: false, code: "no-such-pty" };
 				}
 				return { ok: true, ptys: catalog.listPtys(args.worktreeId) };
 			});
 			peer.expose(
 				subscribePtyCapability,
-				(args: { worktreeId: string; agentId: string }) =>
-					registry.subscribe(args.worktreeId, args.agentId),
+				withRefusalAudit(
+					subscribePtyCapability.id,
+					(args: { worktreeId: string; agentId: string }) =>
+						registry.subscribe(args.worktreeId, args.agentId),
+				),
 			);
 			peer.expose(
 				unsubscribePtyCapability,
-				(args: { worktreeId: string; agentId: string }) =>
-					registry.unsubscribe(args.worktreeId, args.agentId),
+				withRefusalAudit(
+					unsubscribePtyCapability.id,
+					(args: { worktreeId: string; agentId: string }) =>
+						registry.unsubscribe(args.worktreeId, args.agentId),
+				),
 			);
 			peer.expose(
 				ptyRowsCapability,
-				(args: { worktreeId: string; agentId: string; cursor: string | null }) =>
-					registry.pullRows(args.worktreeId, args.agentId, args.cursor ?? null),
+				withRefusalAudit(
+					ptyRowsCapability.id,
+					(args: {
+						worktreeId: string;
+						agentId: string;
+						cursor: string | null;
+					}) =>
+						registry.pullRows(args.worktreeId, args.agentId, args.cursor ?? null),
+				),
 			);
 		}
 

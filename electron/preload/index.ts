@@ -225,6 +225,26 @@ const api: Ai14AllDesktopApi = {
 			return onChannel("terminal/error", listener);
 		},
 	},
+	agentPtys: {
+		upsert(msg) {
+			return ipcRenderer.invoke("agentPtys:upsert", msg);
+		},
+		remove(worktreeId, agentId) {
+			return ipcRenderer.invoke("agentPtys:remove", { worktreeId, agentId });
+		},
+		rebindIntent(worktreeId, agentId) {
+			return ipcRenderer.invoke("agentPtys:rebindIntent", {
+				worktreeId,
+				agentId,
+			});
+		},
+		rebindCancel(worktreeId, agentId) {
+			return ipcRenderer.invoke("agentPtys:rebindCancel", {
+				worktreeId,
+				agentId,
+			});
+		},
+	},
 	files: {
 		list(workspaceId, worktreeId) {
 			return ipcRenderer.invoke("files:list", { workspaceId, worktreeId });

@@ -55,6 +55,12 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		onState: vi.fn(() => vi.fn()),
 		onError: vi.fn(() => vi.fn()),
 	},
+	agentPtys: {
+		upsert: vi.fn().mockResolvedValue(undefined),
+		remove: vi.fn().mockResolvedValue(undefined),
+		rebindIntent: vi.fn().mockResolvedValue(undefined),
+		rebindCancel: vi.fn().mockResolvedValue(undefined),
+	},
 	files: {
 		list: vi.fn().mockResolvedValue([]),
 		listScoped: vi.fn().mockResolvedValue(["src/index.ts", "src/new-file.ts"]),

@@ -291,6 +291,17 @@ export class TerminalService {
 				this.mirrorsBySession.get(id)?.dispose();
 			}
 			this.mirrorsOpt?.onExit(id);
+			// Latent leak fix: both maps grew without bound across the process
+			// lifetime — neither entry is needed by this service once the PTY has
+			// exited. `takeMirror()` is only ever called with the terminalSessionId
+			// of a session that is still live (initial adoption or a rebind onto a
+			// NEW terminal), never with an id that has already exited, and
+			// `getMirror()` has no caller today; an adopted mirror's own object
+			// reference lives on independently inside the catalog's Entry (handed
+			// off at `takeMirror()` time), so dropping this service's map entry
+			// does not affect the catalog's post-exit drain/disposal.
+			this.mirrorsBySession.delete(id);
+			this.adoptedSessions.delete(id);
 		});
 
 		return meta;

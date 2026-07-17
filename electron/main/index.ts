@@ -61,6 +61,7 @@ import type { WorktreeIdentity } from "../../services/plugins/samantha/observe-t
 import { createWhisperCommandRunner } from "../../services/plugins/whisper/whisper-command-runner.js";
 import { PluginCommandLogger } from "../../services/diagnostics/plugin-command-logger.js";
 import { ActingAuditLogger } from "../../services/diagnostics/acting-audit-logger.js";
+import { PtyInspectService } from "../../services/pty-inspect/pty-inspect-service.js";
 import { createActingTokenVerifier } from "../../services/plugins/samantha/acting-token-verifier.js";
 import type { WhisperCommand } from "../../shared/contracts/plugins.js";
 import { createSessionSliceStore } from "../../services/plugins/samantha/session-slice-source.js";
@@ -425,6 +426,17 @@ app.whenReady().then(async () => {
 		return null;
 	};
 
+	// Composition seam (XBP PTY inspect, spec §§1.2/3-4): constructed here —
+	// after resolveWorktreeRef, before the XBP host below — because the host
+	// (and XbpPeerSession inside it) is built synchronously at startup, while
+	// TerminalService only exists later inside registerIpcHandlers. Injected
+	// into both: the host now, TerminalService via attachTerminalService()
+	// once registerIpcHandlers returns it.
+	const ptyInspectService = new PtyInspectService({
+		logsDir: join(app.getPath("userData"), "logs"),
+		resolveWorktree: resolveWorktreeRef,
+	});
+
 	// Shared slice store — single source of truth for both Samantha driver and
 	// the XBP session-report provider so neither path drifts from the other.
 	const samanthaSliceSource = createSessionSliceStore();
@@ -549,6 +561,7 @@ app.whenReady().then(async () => {
 			acting: xbpActingExecutor,
 			pushTokenStore,
 			pushTokenHandlers,
+			ptyInspect: ptyInspectService,
 			subscribeChanges: (cb) => {
 				const offReviews = reviewCommentService.onChange(() => cb());
 				const offWorktrees = workspaceRegistry.onChange(cb);
@@ -753,6 +766,7 @@ app.whenReady().then(async () => {
 		installUpdate: () => updateService.installUpdate(),
 		closeGate,
 		getCortexEnabled: () => pluginConfig.get("cortex").enabled,
+		ptyInspect: ptyInspectService,
 	});
 	actingSendInput = (sessionId, data) =>
 		terminalService.sendInput(sessionId, data);
