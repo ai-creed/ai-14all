@@ -97,7 +97,7 @@ type StyleRun = {
 
 Detail in the 14all child spec. Requirements the host must meet regardless of internal approach:
 
-- **Every agent PTY in a session is watchable, regardless of desktop layout visibility.** A pane not mounted in the current layout must still serve rows. Recommended approach: an `@xterm/headless` mirror per agent PTY in the main process, fed the same byte stream, resized to match the visible pane (default 120 cols when never mounted).
+- **Every agent PTY in a session is watchable, regardless of desktop layout visibility.** A pane not mounted in the current layout must still serve rows. Recommended approach: an `@xterm/headless` mirror per agent PTY in the main process, fed the same byte stream, sized to the PTY's actual geometry at all times (the PTY spawn size when never mounted, tracking every resize thereafter — the mirror never invents dimensions).
 - Rows serialize from the buffer with cell-level styles compressed to `StyleRun`s in UTF-16 code units over the translated string (wide/zero-width cell handling per §5); dirty-line tracking + 200ms coalescer + per-epoch watermark as in §5.
 - Cursors are durable resume tokens: every success response returns one, valid for both the next replay page and later live-tail pulls; stale/unknown cursors answer as fresh snapshots. Epoch is monotonic within a serializer run.
 - One active subscription per paired phone; a new `subscribe-pty` replaces the previous one.
