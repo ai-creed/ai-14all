@@ -173,7 +173,11 @@ export class PtyMirror {
 	private bumpEpoch(): void {
 		this.epochValue++;
 		this.watermarkValue = 0;
-		this.linesScrolled = 0;
+		// The buffer keeps its scrollback across an epoch bump (resize, alt-screen
+		// exit), so re-seed the scroll counter to the retained-scrollback size:
+		// real trims resume once the buffer is at capacity, i.e. after
+		// (TERMINAL_SCROLLBACK_ROWS - retained) further scrolls — not 10k.
+		this.linesScrolled = Math.max(0, this.buffer.length - this.term.rows);
 		this.trimmed = 0;
 		this.dirtyAbsolute.clear();
 		this.stamps.clear();

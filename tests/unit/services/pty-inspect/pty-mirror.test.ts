@@ -145,4 +145,28 @@ describe("PtyMirror trim + dirty tracking", () => {
 		expect(m.tick()).toBe(false);
 		m.dispose();
 	});
+
+	it("trim accounting survives an epoch bump on a saturated buffer (spec §6.2)", async () => {
+		const m = new PtyMirror({ cols: 20, rows: 5 });
+		const capacity = 10_000;
+		// Saturate: total such that scrolled = total - (rows-1) = capacity + 10
+		const total = capacity + 10 + (5 - 1);
+		let chunk = "";
+		for (let i = 0; i < total; i++) chunk += `line-${i}\r\n`;
+		await writeAll(m, chunk);
+		expect(m.trimmedBefore).toBe(10); // pre-bump sanity
+		m.resize(21, 5); // epoch bump; buffer keeps its scrollback
+		expect(m.trimmedBefore).toBe(0); // fresh epoch, fresh trim space
+		// Buffer is still at capacity: EVERY further scrolled line is a real trim.
+		await writeAll(m, "after-0\r\nafter-1\r\nafter-2\r\n");
+		expect(m.trimmedBefore).toBe(3); // must count immediately, not after 10k
+		// Absolute ID ground truth: retained index 0 is absoluteLine trimmedBefore.
+		expect(m.snapshotLineText(0)).not.toBe(""); // sanity: buffer non-empty
+		// Departed-viewport stamping must not stall across the bump: the rows
+		// that scrolled out post-bump are stamped, not silently dropped.
+		m.tick();
+		const stampedAbs = [...m.takeStamps().keys()];
+		expect(stampedAbs.length).toBeGreaterThan(0);
+		m.dispose();
+	}, 30_000);
 });
