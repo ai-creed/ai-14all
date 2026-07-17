@@ -307,7 +307,8 @@ test.describe.serial("usage telemetry — real hax-store scan", () => {
 		);
 
 		// Fixture hax store: header (absolute cwd = the test repo) + two usage rows.
-		// billable = (1_500_000-0)+300_000 + (500_000-0)+100_000 = 2_400_000 -> "2.4M".
+		// billable = (1_500_000-200_000)+300_000 + (500_000-0)+100_000 = 2_200_000 -> "2.2M".
+		// raw (no cached subtraction) = 1_500_000+300_000 + 500_000+100_000 = 2_400_000 -> distinct from billable.
 		const storeDir = join(
 			tempHome,
 			".local",
@@ -333,7 +334,7 @@ test.describe.serial("usage telemetry — real hax-store scan", () => {
 					kind: "turn_usage",
 					provider: "codex",
 					model: "gpt-5.6-terra",
-					usage: { input: 1_500_000, output: 300_000, cached: 0 },
+					usage: { input: 1_500_000, output: 300_000, cached: 200_000 },
 				}),
 				JSON.stringify({
 					kind: "turn_usage",
@@ -389,8 +390,8 @@ test.describe.serial("usage telemetry — real hax-store scan", () => {
 		await page.getByRole("button", { name: "Open token breakdown" }).click();
 		const pop = page.locator(".usage-pop");
 		await pop.getByRole("button", { name: "All-time", exact: true }).click();
-		// The fixture's 2.4M billable ezio tokens came through the REAL pipeline.
+		// The fixture's 2.2M billable ezio tokens came through the REAL pipeline.
 		await expect(page.locator(".usage-prov--ezio")).toBeVisible();
-		await expect(page.getByText(/2\.4\s?M|2,400,000/).first()).toBeVisible();
+		await expect(page.getByText(/2\.2\s?M|2,200,000/).first()).toBeVisible();
 	});
 });

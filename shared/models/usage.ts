@@ -79,8 +79,8 @@ export type CwdSource = "in-line" | "dir-slug" | "none";
 export interface ProviderTelemetryCapabilities {
 	tokenLog: boolean; // emits parseable per-turn token usage on disk
 	storeKind: StoreKind;
-	timeSource: TimeSource; // ezio = "per-event"; inert = "none"
-	cwdSource: CwdSource; // ezio = "dir-slug"; inert = "none"
+	timeSource: TimeSource; // claude/codex = "per-event"; ezio = "file-mtime"; inert = "none"
+	cwdSource: CwdSource; // "in-line" for all live drivers; "dir-slug" survives only in historic ezio ledger buckets
 	nativeLimits: boolean; // codex = true
 }
 
