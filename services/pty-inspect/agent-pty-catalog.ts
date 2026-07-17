@@ -1,10 +1,11 @@
 import type { PtyMirror } from "./pty-mirror.js";
+import type { AgentProvider } from "../../shared/models/agent-attention.js";
 
 export type AgentPtyUpsert = {
 	worktreeId: string;
 	agentId: string;
 	terminalSessionId: string | null;
-	provider: string | null;
+	provider: AgentProvider | null;
 	label: string;
 	live: boolean;
 	agentDetected: boolean;
@@ -25,7 +26,7 @@ type Entry = {
 	worktreeId: string;
 	agentId: string;
 	terminalSessionId: string;
-	provider: string | null;
+	provider: AgentProvider | null;
 	label: string;
 	live: boolean;
 	mirror: PtyMirror;

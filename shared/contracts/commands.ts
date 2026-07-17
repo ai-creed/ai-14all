@@ -129,7 +129,11 @@ export const AgentPtyUpsertSchema = z.object({
 	worktreeId: z.string(),
 	agentId: z.string(),
 	terminalSessionId: z.string().nullable(),
-	provider: z.string().nullable(),
+	// Mirrors AgentProvider (shared/models/agent-attention.ts); keep in sync when
+	// new providers are added.
+	provider: z
+		.enum(["claude", "codex", "ezio", "cursor", "antigravity", "other"])
+		.nullable(),
 	label: z.string(),
 	live: z.boolean(),
 	agentDetected: z.boolean(),

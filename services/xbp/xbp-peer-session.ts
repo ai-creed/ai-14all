@@ -20,6 +20,7 @@ import {
 	PTY_CHANGED_TOPIC,
 	type LifecycleResult,
 	type SessionReportResult,
+	type ListPtysResult,
 } from "@ai-creed/command-contract";
 import { createCoalescer } from "./coalescer.js";
 import type { XbpAuditSink } from "./xbp-audit-sink.js";
@@ -173,22 +174,25 @@ export class XbpPeerSession {
 					}
 					return result;
 				};
-			peer.expose(listPtysCapability, async (args: { worktreeId: string }) => {
-				// Unknown session → no-such-pty (spec §3). A KNOWN worktree with
-				// zero agents legitimately returns an empty list — the async
-				// resolver distinguishes the two (worktree lookup shells out, so
-				// this handler is async like the lifecycle capabilities).
-				if (!(await ptyInspect.isKnownWorktree(args.worktreeId))) {
-					ptyInspect.auditRefusal(
-						listPtysCapability.id,
-						args.worktreeId,
-						null,
-						"no-such-pty",
-					);
-					return { ok: false, code: "no-such-pty" };
-				}
-				return { ok: true, ptys: catalog.listPtys(args.worktreeId) };
-			});
+			peer.expose(
+				listPtysCapability,
+				async (args: { worktreeId: string }): Promise<ListPtysResult> => {
+					// Unknown session → no-such-pty (spec §3). A KNOWN worktree with
+					// zero agents legitimately returns an empty list — the async
+					// resolver distinguishes the two (worktree lookup shells out, so
+					// this handler is async like the lifecycle capabilities).
+					if (!(await ptyInspect.isKnownWorktree(args.worktreeId))) {
+						ptyInspect.auditRefusal(
+							listPtysCapability.id,
+							args.worktreeId,
+							null,
+							"no-such-pty",
+						);
+						return { ok: false, code: "no-such-pty" };
+					}
+					return { ok: true, ptys: catalog.listPtys(args.worktreeId) };
+				},
+			);
 			peer.expose(
 				subscribePtyCapability,
 				withRefusalAudit(
