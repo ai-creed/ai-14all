@@ -296,7 +296,7 @@ describe("scanners", () => {
 			expect(events[0].timestampMs).not.toBe(mtime.getTime());
 		});
 
-		it("passes a per-line ezio timestamp through instead of overriding with file mtime", () => {
+		it("stamps file mtime on a hax turn_usage row (no per-line timestamp)", () => {
 			const root = mkdtempSync(join(tmpdir(), "ezio-perevent-"));
 			const dir = join(root, "Users-me-Dev-app.def456");
 			mkdirSync(dir, { recursive: true });
