@@ -94,38 +94,49 @@ describe("inert drivers", () => {
 	});
 });
 
-describe("ezio driver", () => {
-	it("declares per-event/dir-slug capabilities and a sessions root", () => {
+describe("ezio driver (hax native store)", () => {
+	it("declares file-mtime/in-line capabilities and the hax sessions root", () => {
 		expect(ezioDriver.capabilities).toEqual({
 			tokenLog: true,
 			storeKind: "jsonl-tree",
-			timeSource: "per-event",
-			cwdSource: "dir-slug",
+			timeSource: "file-mtime",
+			cwdSource: "in-line",
 			nativeLimits: false,
 		});
 		expect(ezioDriver.roots("/home/me")).toEqual([
-			"/home/me/.local/state/ezio/sessions",
+			"/home/me/.local/state/hax/sessions",
 		]);
 	});
 
-	it("seedCtx pulls the dir slug as cwd and the file basename as sessionId", () => {
-		const ctx = ezioDriver.seedCtx?.(
-			"/home/me/.local/state/ezio/sessions/Users-me-Dev-app/abc.record.jsonl",
-		);
-		expect(ctx?.cwd).toBe("Users-me-Dev-app");
-		expect(ctx?.sessionId).toBe("abc.record");
+	it("keep accepts header + usage lines and rejects other rows", () => {
+		expect(ezioDriver.keep?.('{"type":"session","cwd":"/x"}')).toBe(true);
+		expect(ezioDriver.keep?.('{"kind":"turn_usage","usage":{}}')).toBe(true);
+		expect(ezioDriver.keep?.('{"kind":"reasoning","reasoning_text":"…"}')).toBe(false);
 	});
 
-	it("parseLine maps a usage record using the seeded ctx", () => {
-		const ctx = { cwd: "Users-me-Dev-app", sessionId: "abc.record" };
-		const line = JSON.stringify({
-			model: "gpt-5-codex",
-			usage: { contextTokens: 1000, outputTokens: 200, cachedTokens: 600 },
-		});
-		const r = ezioDriver.parseLine?.(line, ctx);
+	it("seedCtx derives a fallback sessionId from the filename (no cwd)", () => {
+		const ctx = ezioDriver.seedCtx?.(
+			"/home/me/.local/state/hax/sessions/Users-me-Dev-app.abc123/2026-07-17T08-50-11Z_uuid.jsonl",
+		);
+		expect(ctx).toEqual({ sessionId: "2026-07-17T08-50-11Z_uuid" });
+	});
+
+	it("parseLine threads header cwd into a subsequent usage event", () => {
+		const ctx = { sessionId: "seed" };
+		expect(
+			ezioDriver.parseLine?.(
+				'{"type":"session","id":"real-id","cwd":"/Users/me/Dev/app"}',
+				ctx,
+			),
+		).toEqual({});
+		const r = ezioDriver.parseLine?.(
+			'{"kind":"turn_usage","model":"gpt-5.6-terra","usage":{"input":1000,"output":200,"cached":600}}',
+			ctx,
+		);
 		expect(r?.event?.provider).toBe("ezio");
-		expect(r?.event?.cwd).toBe("Users-me-Dev-app");
-		expect(r?.event?.billable).toBe(600);
+		expect(r?.event?.cwd).toBe("/Users/me/Dev/app");
+		expect(r?.event?.sessionId).toBe("real-id");
+		expect(r?.event?.billable).toBe(600); // (1000-600) + 200
 	});
 });
 
