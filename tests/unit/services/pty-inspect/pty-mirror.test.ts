@@ -66,6 +66,7 @@ describe("PtyMirror core", () => {
 		await writeAll(m, "old\r\n");
 		m.tick();
 		const oldEpoch = m.epoch;
+		await writeAll(m, "\rchanged"); // dirty a row so the barrier tick has something to (not) stamp
 		m.armResetForTest(); // same code path as the ESC-c / CSI-3J handlers
 		expect(m.isResetSettling).toBe(true);
 		expect(m.tick()).toBe(false); // coalescer barrier: no stamp, no hint
