@@ -48,6 +48,28 @@ describe("serializePage", () => {
 		m.dispose();
 	});
 
+	it("interior empty cells (tab stop) attribute as default-space runs, not the following color (review fix)", async () => {
+		const m = await mirrorWith("a\t\x1b[31mred\x1b[0m\r\n");
+		const row = serializePage(m, null).rows[0];
+		expect(row.text).toBe("a       red");
+		// Runs tile the text exactly.
+		let off = 0;
+		for (const run of row.runs) {
+			expect(run.start).toBe(off);
+			off += run.len;
+		}
+		expect(off).toBe(row.text.length);
+		// The run covering the tab-filled gap (offsets 0..7) must carry no
+		// fg — the interior empty cells are NOT the red that comes later.
+		for (const run of row.runs) {
+			if (run.start + run.len <= 8) expect(run.fg).toBeUndefined();
+		}
+		// The run covering "red" (offsets 8..10) carries the red fg.
+		const redRun = row.runs.find((r) => r.start <= 8 && r.start + r.len > 8);
+		expect(redRun).toMatchObject({ fg: 1 });
+		m.dispose();
+	});
+
 	it("CJK + surrogate-pair emoji + combining marks: UTF-16 tiling, wcwidth budget, combining exceeds columns (spec §7)", async () => {
 		// Local wcwidth approximation covering exactly this fixture's ranges:
 		// combining marks = 0, CJK unified + emoji = 2, everything else = 1.
@@ -121,6 +143,8 @@ describe("serializePage", () => {
 		expect(p2.more).toBe(false);
 		const seen = [...p1.rows, ...p2.rows].map((r) => r.line);
 		expect(new Set(seen).size).toBe(seen.length); // no duplicates
+		const texts = [...p1.rows, ...p2.rows].map((r) => r.text);
+		for (let i = 0; i < 12; i++) expect(texts).toContain(`r${i}`); // union covers every written line — a dropped page 2 must fail
 		m.dispose();
 	});
 

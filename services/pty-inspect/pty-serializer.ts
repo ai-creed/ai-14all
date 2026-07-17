@@ -65,25 +65,38 @@ function serializeRow(
 	let off = 0;
 	for (let x = 0; x < line.length && off < text.length; x++) {
 		line.getCell(x, cell);
+		if (cell.getWidth() === 0) continue; // zero-width joins previous run
 		const chars = cell.getChars();
-		if (cell.getWidth() === 0 || chars.length === 0) continue; // zero-width joins previous run
-		const attrs: CellAttrs = {};
-		const fg = cellColor(
-			cell.isFgDefault() ? "default" : cell.isFgPalette() ? "palette" : "rgb",
-			cell.getFgColor(),
-		);
-		const bg = cellColor(
-			cell.isBgDefault() ? "default" : cell.isBgPalette() ? "palette" : "rgb",
-			cell.getBgColor(),
-		);
-		if (fg !== undefined) attrs.fg = fg;
-		if (bg !== undefined) attrs.bg = bg;
-		if (cell.isBold()) attrs.bold = true;
-		if (cell.isDim()) attrs.dim = true;
-		if (cell.isItalic()) attrs.italic = true;
-		if (cell.isUnderline()) attrs.underline = true;
-		if (cell.isInverse()) attrs.inverse = true;
-		const len = Math.min(chars.length, text.length - off);
+		let attrs: CellAttrs;
+		let len: number;
+		if (chars.length === 0) {
+			// Interior gap (tab stop, cursor jump past written content):
+			// translateToString(true) fills the gap with a literal space in
+			// `text` (it only trims trailing blanks), but the cell itself
+			// carries no glyph — treat it as one default-attrs space so a
+			// later write's color never bleeds backward onto the gap
+			// (review fix: interior empty cells must not mis-attribute).
+			attrs = {};
+			len = 1;
+		} else {
+			attrs = {};
+			const fg = cellColor(
+				cell.isFgDefault() ? "default" : cell.isFgPalette() ? "palette" : "rgb",
+				cell.getFgColor(),
+			);
+			const bg = cellColor(
+				cell.isBgDefault() ? "default" : cell.isBgPalette() ? "palette" : "rgb",
+				cell.getBgColor(),
+			);
+			if (fg !== undefined) attrs.fg = fg;
+			if (bg !== undefined) attrs.bg = bg;
+			if (cell.isBold()) attrs.bold = true;
+			if (cell.isDim()) attrs.dim = true;
+			if (cell.isItalic()) attrs.italic = true;
+			if (cell.isUnderline()) attrs.underline = true;
+			if (cell.isInverse()) attrs.inverse = true;
+			len = Math.min(chars.length, text.length - off);
+		}
 		const prev = runs.at(-1);
 		if (prev && sameAttrs(runAttrs(prev), attrs)) {
 			prev.len += len; // adjacent cells with identical attrs merge (spec §2)
