@@ -149,6 +149,8 @@ describe("PtySubscriptionRegistry", () => {
 
 	it("pull through the registry counts rowsServed and refuses after teardown", async () => {
 		const { catalog, registry, mirror } = await harness();
+		const ops: Array<{ op: string; cause?: string }> = [];
+		registry.onLifecycle((ev) => ops.push({ op: ev.op, cause: ev.cause }));
 		registry.subscribe("wt-1", "proc-1");
 		mirror.write("a\r\nb\r\n");
 		await mirror.drained();
@@ -156,11 +158,34 @@ describe("PtySubscriptionRegistry", () => {
 		const page = await registry.pullRows("wt-1", "proc-1", null);
 		expect(page).toMatchObject({ ok: true });
 		expect(registry.rowsServedTotal()).toBeGreaterThan(0);
-		catalog.remove("wt-1", "proc-1");
+		catalog.remove("wt-1", "proc-1"); // catalog "disposed" event with an active subscription
+		expect(ops).toContainEqual({ op: "teardown", cause: "session-teardown" });
 		await expect(registry.pullRows("wt-1", "proc-1", null)).resolves.toEqual({
 			ok: false,
 			code: "no-such-pty",
 		});
+	});
+
+	it("exit-final-hint with an active subscription: direct final hint, agent-exit teardown, then silence (spec §6.6)", async () => {
+		const { catalog, registry, mirror, hints } = await harness();
+		const ops: Array<{ op: string; cause?: string }> = [];
+		registry.onLifecycle((ev) => ops.push({ op: ev.op, cause: ev.cause }));
+		registry.subscribe("wt-1", "proc-1");
+		mirror.write("last row before exit\r\n");
+		await mirror.drained();
+		hints.length = 0;
+		await catalog.handleTerminalExit("term-1");
+		// The final hint fires directly (not coalesced) before teardown, so it
+		// is observable immediately after the awaited exit — no extra wait.
+		expect(hints.length).toBeGreaterThanOrEqual(1);
+		expect(ops).toContainEqual({ op: "teardown", cause: "agent-exit" });
+		hints.length = 0;
+		mirror.write("post-exit output\r\n"); // retained mirror, no subscriber left
+		await mirror.drained();
+		await new Promise((r) => setTimeout(r, 25));
+		expect(hints).toHaveLength(0); // subscription gone — no further hints
+		const page = await registry.pullRows("wt-1", "proc-1", null);
+		expect(page).toMatchObject({ ok: true }); // pty-rows still serves the dead terminal
 	});
 
 	it("subscribe refuses no-live-agent after exit while pty-rows still serves (spec §3)", async () => {

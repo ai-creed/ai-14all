@@ -184,8 +184,15 @@ export class PtySubscriptionRegistry {
 		if (!entry) return { ok: false, code: "no-such-pty" };
 		try {
 			await entry.mirror.settled(); // §2 barrier: never serialize mid-reset
-			entry.mirror.tick(); // fold pending writes into stamps before serving
-			const page = serializePage(entry.mirror, cursor);
+			// Re-validate after the await: a rebind (disposes the old mirror,
+			// swaps in a new one) or a remove can interleave while settled()
+			// was pending. Serving off the stale `entry` here would tick/
+			// serialize a disposed mirror (stale-epoch page, or a caught throw
+			// masquerading as a spurious "internal" refusal).
+			const current = this.catalog.getEntry(worktreeId, agentId);
+			if (!current) return { ok: false, code: "no-such-pty" };
+			current.mirror.tick(); // fold pending writes into stamps before serving
+			const page = serializePage(current.mirror, cursor);
 			this.served += page.rows.length;
 			if (
 				this.active &&
