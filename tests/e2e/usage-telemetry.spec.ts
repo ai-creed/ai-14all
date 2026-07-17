@@ -17,7 +17,13 @@ import {
 	type ElectronApplication,
 	type Page,
 } from "@playwright/test";
-import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import {
+	mkdirSync,
+	mkdtempSync,
+	realpathSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { closeApp } from "./fixtures/close-app";
@@ -143,48 +149,48 @@ const SNAPSHOT = {
 	config: { chipRange: "week", includeUntracked: false },
 };
 
-let app: ElectronApplication | undefined;
-let page: Page;
-let testRepo: TestRepo;
-let stateDir: string;
-let tempHome: string;
-
-test.beforeAll(async () => {
-	testRepo = createTestRepo();
-	stateDir = realpathSync(mkdtempSync(join(tmpdir(), "ai14-usage-state-")));
-	tempHome = realpathSync(mkdtempSync(join(tmpdir(), "ai14-usage-home-")));
-
-	app = await electron.launch({
-		args: ["out/main/index.js"],
-		env: {
-			...process.env,
-			AI14ALL_E2E: "1",
-			AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
-			AI14ALL_WORKSPACE_STATE_PATH: join(stateDir, "workspace-state.json"),
-			AI14ALL_E2E_USAGE_SNAPSHOT: JSON.stringify(SNAPSHOT),
-			HOME: tempHome,
-			// Empty ZDOTDIR: prevents the user's .zshrc (OSC title sequences, plugins)
-			// from being sourced inside the app's shells, which mirrors CI's clean shell
-			// environment and avoids terminal-title assertion flakes.
-			ZDOTDIR: join(tempHome, ".zdotdir"),
-			XDG_CONFIG_HOME: join(tempHome, ".config"),
-		},
-	});
-	page = await app.firstWindow({ timeout: 60_000 });
-	page.setDefaultTimeout(60_000);
-}, 90_000);
-
-test.afterAll(async () => {
-	try {
-		await closeApp(app);
-	} finally {
-		rmSync(stateDir, { recursive: true, force: true });
-		rmSync(tempHome, { recursive: true, force: true });
-		testRepo?.cleanup();
-	}
-});
-
 test.describe.serial("usage chip + popover", () => {
+	let app: ElectronApplication | undefined;
+	let page: Page;
+	let testRepo: TestRepo;
+	let stateDir: string;
+	let tempHome: string;
+
+	test.beforeAll(async () => {
+		testRepo = createTestRepo();
+		stateDir = realpathSync(mkdtempSync(join(tmpdir(), "ai14-usage-state-")));
+		tempHome = realpathSync(mkdtempSync(join(tmpdir(), "ai14-usage-home-")));
+
+		app = await electron.launch({
+			args: ["out/main/index.js"],
+			env: {
+				...process.env,
+				AI14ALL_E2E: "1",
+				AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
+				AI14ALL_WORKSPACE_STATE_PATH: join(stateDir, "workspace-state.json"),
+				AI14ALL_E2E_USAGE_SNAPSHOT: JSON.stringify(SNAPSHOT),
+				HOME: tempHome,
+				// Empty ZDOTDIR: prevents the user's .zshrc (OSC title sequences, plugins)
+				// from being sourced inside the app's shells, which mirrors CI's clean shell
+				// environment and avoids terminal-title assertion flakes.
+				ZDOTDIR: join(tempHome, ".zdotdir"),
+				XDG_CONFIG_HOME: join(tempHome, ".config"),
+			},
+		});
+		page = await app.firstWindow({ timeout: 60_000 });
+		page.setDefaultTimeout(60_000);
+	}, 90_000);
+
+	test.afterAll(async () => {
+		try {
+			await closeApp(app);
+		} finally {
+			rmSync(stateDir, { recursive: true, force: true });
+			rmSync(tempHome, { recursive: true, force: true });
+			testRepo?.cleanup();
+		}
+	});
+
 	test("navigates into a worktree so the chip bar mounts", async () => {
 		test.setTimeout(60_000);
 		// AI14ALL_E2E_PICK_PATH auto-fills the repo picker; Load navigates in.
@@ -276,5 +282,115 @@ test.describe.serial("usage chip + popover", () => {
 		// Codex native limits are collapsed; expand to reveal the gauges.
 		await page.getByRole("button", { name: /Codex limits/ }).click();
 		await expect(page.getByText(/41%/)).toBeVisible();
+	});
+});
+
+// Real scan path: NO AI14ALL_E2E_USAGE_SNAPSHOT. The app forks the real usage
+// worker, which resolves driver roots via os.homedir() — HOME is overridden to
+// a temp dir seeded with a fixture hax store, so the worker scans, parses, and
+// buckets real turn_usage rows through the full pipeline (root -> keep -> parser
+// -> scanner -> ledger -> snapshot). Guards the layers the snapshot seam bypasses.
+test.describe.serial("usage telemetry — real hax-store scan", () => {
+	let app: ElectronApplication | undefined;
+	let page: Page;
+	let testRepo: TestRepo;
+	let stateDir: string;
+	let tempHome: string;
+
+	test.beforeAll(async () => {
+		testRepo = createTestRepo();
+		stateDir = realpathSync(
+			mkdtempSync(join(tmpdir(), "ai14-usage-live-state-")),
+		);
+		tempHome = realpathSync(
+			mkdtempSync(join(tmpdir(), "ai14-usage-live-home-")),
+		);
+
+		// Fixture hax store: header (absolute cwd = the test repo) + two usage rows.
+		// billable = (1_500_000-0)+300_000 + (500_000-0)+100_000 = 2_400_000 -> "2.4M".
+		const storeDir = join(
+			tempHome,
+			".local",
+			"state",
+			"hax",
+			"sessions",
+			"Users-e2e-repo.deadbeef00000000",
+		);
+		mkdirSync(storeDir, { recursive: true });
+		writeFileSync(
+			join(storeDir, "2026-07-17T08-00-00Z_e2e-fixture.jsonl"),
+			[
+				JSON.stringify({
+					type: "session",
+					version: 1,
+					id: "e2e-session",
+					timestamp: "2026-07-17T08:00:00Z",
+					cwd: testRepo.repoPath,
+					provider: "codex",
+					model: "gpt-5.6-terra",
+				}),
+				JSON.stringify({
+					kind: "turn_usage",
+					provider: "codex",
+					model: "gpt-5.6-terra",
+					usage: { input: 1_500_000, output: 300_000, cached: 0 },
+				}),
+				JSON.stringify({
+					kind: "turn_usage",
+					provider: "codex",
+					model: "gpt-5.6-terra",
+					usage: { input: 500_000, output: 100_000, cached: 0 },
+				}),
+				"",
+			].join("\n"),
+		);
+
+		app = await electron.launch({
+			args: ["out/main/index.js"],
+			env: {
+				...process.env,
+				AI14ALL_E2E: "1",
+				AI14ALL_E2E_PICK_PATH: testRepo.repoPath,
+				AI14ALL_WORKSPACE_STATE_PATH: join(stateDir, "workspace-state.json"),
+				AI14ALL_USER_DATA_PATH: join(stateDir, "user-data"),
+				HOME: tempHome,
+				ZDOTDIR: join(tempHome, ".zdotdir"),
+				XDG_CONFIG_HOME: join(tempHome, ".config"),
+			},
+		});
+		page = await app.firstWindow({ timeout: 60_000 });
+		page.setDefaultTimeout(60_000);
+	}, 90_000);
+
+	test.afterAll(async () => {
+		try {
+			await closeApp(app);
+		} finally {
+			rmSync(stateDir, { recursive: true, force: true });
+			rmSync(tempHome, { recursive: true, force: true });
+			testRepo?.cleanup();
+		}
+	});
+
+	test("worker scans the hax store and the popover shows the ezio rollup", async () => {
+		test.setTimeout(120_000);
+		await page.getByRole("button", { name: "Browse" }).click();
+		await page.getByRole("button", { name: "Load" }).click();
+		const worktreeNav = page.getByRole("navigation", {
+			name: "Worktree sessions",
+		});
+		await expect(
+			worktreeNav.getByRole("button", { name: /feature-a/i }),
+		).toBeVisible({ timeout: 15_000 });
+		await worktreeNav.getByRole("button", { name: /feature-a/i }).click();
+
+		// Real worker: first snapshot arrives after the initial sweep (throttled ~1.5s).
+		await expect(page.locator(".usage-strip")).toBeVisible({ timeout: 30_000 });
+		await page.getByRole("button", { name: "Open token breakdown" }).click();
+		const pop = page.locator(".usage-pop");
+		await pop.getByRole("button", { name: "All-time", exact: true }).click();
+		// The fixture's 2.4M billable ezio tokens came through the REAL pipeline.
+		await expect(page.locator(".usage-prov--ezio")).toBeVisible();
+		await expect(page.getByText(/2\.4\s?M|2,400,000/).first()).toBeVisible();
 	});
 });
