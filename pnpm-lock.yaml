@@ -235,7 +235,7 @@ packages:
     resolution: {integrity: sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg==}
 
   '@ai-creed/command-contract@file:vendor/ai-creed-command-contract-0.1.0-alpha.3.tgz':
-    resolution: {integrity: sha512-j7zxWEiWoGXf2/8QD+uUtkLVBYrfr4RqJGD/F+qtjfY/p8jaC2oKWpWs+o3DumnZMI/LGTWp01Ra6/so/DFpMw==, tarball: file:vendor/ai-creed-command-contract-0.1.0-alpha.3.tgz}
+    resolution: {integrity: sha512-JSy8ySnjdEneAe5KYgqP9MTWm61oBrwi2e1XW0/WAzih2VYeVnuXIKN0/r2otQ+uiaJa3pt5+9ROVmbIKXV4mA==, tarball: file:vendor/ai-creed-command-contract-0.1.0-alpha.3.tgz}
     version: 0.1.0-alpha.3
 
   '@asamuzakjp/css-color@5.1.1':
