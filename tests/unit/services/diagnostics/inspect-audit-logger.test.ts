@@ -59,6 +59,6 @@ describe("InspectAuditLogger", () => {
 			].sort(),
 		);
 		expect(raw).not.toContain("text");
-		expect(raw).not.toContain("rows\":[");
+		expect(raw).not.toContain('rows":[');
 	});
 });

@@ -30,7 +30,10 @@ type Entry = {
 	live: boolean;
 	mirror: PtyMirror;
 	epochFloor: number;
-	intent: { timer: ReturnType<typeof setTimeout>; deferredExit: boolean } | null;
+	intent: {
+		timer: ReturnType<typeof setTimeout>;
+		deferredExit: boolean;
+	} | null;
 };
 
 const DEFAULT_INTENT_TIMEOUT_MS = 10_000;
@@ -95,7 +98,10 @@ export class AgentPtyCatalog {
 			// continue the entry's epoch sequence strictly upward.
 			const next = this.source?.takeMirror(msg.terminalSessionId);
 			if (!next) return;
-			existing.epochFloor = Math.max(existing.epochFloor, existing.mirror.epoch);
+			existing.epochFloor = Math.max(
+				existing.epochFloor,
+				existing.mirror.epoch,
+			);
 			existing.mirror.dispose(); // also cancels its pending drain influence
 			next.setEpochFloor(existing.epochFloor);
 			existing.mirror = next;

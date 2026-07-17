@@ -101,9 +101,7 @@ async function setupInspectSession(opts: { grants?: string[] } = {}) {
 	// The async resolveWorktreeRef stand-in (spec §3): "wt-1" resolves, anything
 	// else is an unknown worktree.
 	const resolveWorktree = vi.fn(async (worktreeId: string) =>
-		worktreeId === "wt-1"
-			? { workspaceId: "ws-1", cwd: "/tmp/wt-1" }
-			: null,
+		worktreeId === "wt-1" ? { workspaceId: "ws-1", cwd: "/tmp/wt-1" } : null,
 	);
 	const ptyInspect = new PtyInspectService({ logsDir, resolveWorktree });
 
@@ -126,7 +124,11 @@ async function setupInspectSession(opts: { grants?: string[] } = {}) {
 		identity: hostIdentity,
 		transport: hostT,
 		audit,
-		getSessionReport: async () => ({ mode: "ready", focus: null, sessions: [] }),
+		getSessionReport: async () => ({
+			mode: "ready",
+			focus: null,
+			sessions: [],
+		}),
 		ptyInspect,
 		coalesceMs: 10,
 	});
@@ -177,7 +179,12 @@ async function setupInspectSession(opts: { grants?: string[] } = {}) {
 		});
 		const entry = ptyInspect.catalog.getEntry(worktreeId, o.agentId);
 		if (!entry) throw new Error("seedAgent: catalog upsert produced no entry");
-		return { termId: meta.id, mirror: entry.mirror, worktreeId, agentId: o.agentId };
+		return {
+			termId: meta.id,
+			mirror: entry.mirror,
+			worktreeId,
+			agentId: o.agentId,
+		};
 	};
 
 	return {
@@ -331,7 +338,9 @@ describe("XBP PTY inspect lifecycle (control:inspect, real dispatch)", () => {
 		expect(
 			h.audit
 				.entries()
-				.some((e) => e.cap === ptyRowsCapability.id && e.outcome === "accepted"),
+				.some(
+					(e) => e.cap === ptyRowsCapability.id && e.outcome === "accepted",
+				),
 		).toBe(true);
 		const inspect = h.ptyInspect.audit.entries();
 		expect(
@@ -389,7 +398,9 @@ describe("XBP PTY inspect lifecycle (control:inspect, real dispatch)", () => {
 		});
 		assertOk(page);
 		expect(page.cols).toBe(132);
-		expect(page.rows.map((r) => r.text).join("\n")).toContain("early boot line");
+		expect(page.rows.map((r) => r.text).join("\n")).toContain(
+			"early boot line",
+		);
 
 		h.session.stop();
 	});
@@ -426,7 +437,9 @@ describe("XBP PTY inspect lifecycle (control:inspect, real dispatch)", () => {
 			cursor: null,
 		});
 		assertOk(page);
-		expect(page.rows.map((r) => r.text).join("\n")).toContain("FINAL-DRAIN-ROW");
+		expect(page.rows.map((r) => r.text).join("\n")).toContain(
+			"FINAL-DRAIN-ROW",
+		);
 
 		// list-ptys now reports the retained-but-dead terminal.
 		const list = await h.client.call(h.hostNode, listPtysCapability, {
@@ -481,10 +494,13 @@ describe("XBP PTY inspect lifecycle (control:inspect, real dispatch)", () => {
 
 		// Subscription survives the rebind: a write on the NEW mirror hints.
 		await feed(mirror2, "after restart\r\n");
-		await vi.waitFor(() => expect(h.ptyEvents.length).toBeGreaterThan(preCount), {
-			timeout: 2000,
-			interval: 20,
-		});
+		await vi.waitFor(
+			() => expect(h.ptyEvents.length).toBeGreaterThan(preCount),
+			{
+				timeout: 2000,
+				interval: 20,
+			},
+		);
 		const postEpochs = h.ptyEvents.slice(preCount).map((e) => e.payload.epoch);
 
 		// Entry stays live + enumerable.
@@ -551,10 +567,13 @@ describe("XBP PTY inspect lifecycle (control:inspect, real dispatch)", () => {
 		// Subscription alive throughout: a write on the new mirror hints.
 		const preCount = h.ptyEvents.length;
 		await feed(mirror2, "post rebind\r\n");
-		await vi.waitFor(() => expect(h.ptyEvents.length).toBeGreaterThan(preCount), {
-			timeout: 2000,
-			interval: 20,
-		});
+		await vi.waitFor(
+			() => expect(h.ptyEvents.length).toBeGreaterThan(preCount),
+			{
+				timeout: 2000,
+				interval: 20,
+			},
+		);
 
 		list = await h.client.call(h.hostNode, listPtysCapability, {
 			worktreeId: "wt-1",

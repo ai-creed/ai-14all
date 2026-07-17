@@ -104,7 +104,9 @@ describe("useAgentPtyPublisher", () => {
 		const wsAState = makeWorkspaceState({ [process.id]: process });
 		const { rerender } = renderHook(
 			({ state, workspaceId }) => useAgentPtyPublisher(state, workspaceId),
-			{ initialProps: { state: wsAState, workspaceId: "ws-a" as string | null } },
+			{
+				initialProps: { state: wsAState, workspaceId: "ws-a" as string | null },
+			},
 		);
 		expect(upsertMock).toHaveBeenCalledTimes(1);
 

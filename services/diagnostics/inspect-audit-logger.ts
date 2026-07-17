@@ -1,4 +1,10 @@
-import { appendFileSync, mkdirSync, readFileSync, statSync, truncateSync } from "node:fs";
+import {
+	appendFileSync,
+	mkdirSync,
+	readFileSync,
+	statSync,
+	truncateSync,
+} from "node:fs";
 import { join } from "node:path";
 
 export type InspectAuditEntry = {

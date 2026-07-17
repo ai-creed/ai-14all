@@ -214,7 +214,11 @@ export class XbpPeerSession {
 						agentId: string;
 						cursor: string | null;
 					}) =>
-						registry.pullRows(args.worktreeId, args.agentId, args.cursor ?? null),
+						registry.pullRows(
+							args.worktreeId,
+							args.agentId,
+							args.cursor ?? null,
+						),
 				),
 			);
 		}

@@ -36,7 +36,8 @@ export class PtySubscriptionRegistry {
 		hint: ReturnType<typeof createCoalescer>;
 	} | null = null;
 	private served = 0;
-	private readonly lifecycleListeners: Array<(ev: PtyLifecycleEvent) => void> = [];
+	private readonly lifecycleListeners: Array<(ev: PtyLifecycleEvent) => void> =
+		[];
 
 	constructor(opts: {
 		catalog: AgentPtyCatalog;
@@ -87,7 +88,10 @@ export class PtySubscriptionRegistry {
 
 	private hintNow(): void {
 		if (!this.active) return;
-		const entry = this.catalog.getEntry(this.active.worktreeId, this.active.agentId);
+		const entry = this.catalog.getEntry(
+			this.active.worktreeId,
+			this.active.agentId,
+		);
 		if (!entry) return;
 		this.emitHint({
 			worktreeId: this.active.worktreeId,

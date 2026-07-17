@@ -2,7 +2,11 @@ import { useEffect, useRef } from "react";
 import { agentPtys } from "../../lib/desktop-client";
 import type { WorkspaceState } from "../../features/workspace/logic/workspace-state";
 
-type PublishedRecord = { workspaceId: string; worktreeId: string; tuple: string };
+type PublishedRecord = {
+	workspaceId: string;
+	worktreeId: string;
+	tuple: string;
+};
 
 /**
  * Publishes every ProcessSession's (terminalSessionId, label, provider,

@@ -18,7 +18,9 @@ function harness(opts?: { intentTimeoutMs?: number }) {
 		mirrors.set(id, m);
 		return m;
 	};
-	const upsert = (over: Partial<Parameters<AgentPtyCatalog["upsert"]>[0]> = {}) =>
+	const upsert = (
+		over: Partial<Parameters<AgentPtyCatalog["upsert"]>[0]> = {},
+	) =>
 		catalog.upsert({
 			worktreeId: "wt-1",
 			agentId: "proc-1",
