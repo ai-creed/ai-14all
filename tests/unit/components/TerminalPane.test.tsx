@@ -1,6 +1,7 @@
 import { fireEvent, render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
+import { TERMINAL_SCROLLBACK_ROWS } from "../../../shared/constants/terminal-geometry";
 
 const {
 	resizeMock,
@@ -296,8 +297,9 @@ describe("TerminalPane", () => {
 		const session = makeSession();
 		render(<TerminalPane session={session} visible={true} />);
 		expect(xtermConstructorMock).toHaveBeenCalledWith(
-			expect.objectContaining({ scrollback: 10_000 }),
+			expect.objectContaining({ scrollback: TERMINAL_SCROLLBACK_ROWS }),
 		);
+		expect(TERMINAL_SCROLLBACK_ROWS).toBe(10_000);
 		// allowProposedApi is set lazily on the Terminal instance only when
 		// SearchAddon is loaded — keeping idle panes off xterm's proposed-API
 		// init path during startup.

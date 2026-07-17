@@ -25,6 +25,8 @@ import {
 	ResizeTerminalSessionSchema,
 	StopTerminalSessionSchema,
 	ListTerminalSessionsSchema,
+	AgentPtyUpsertSchema,
+	AgentPtyRefSchema,
 	ListFilesSchema,
 	ReadFileSchema,
 	OpenFileForEditSchema,
@@ -90,6 +92,7 @@ import {
 } from "../../shared/contracts/review-comments.js";
 import { WorktreeService } from "../../services/worktrees/worktree-service.js";
 import { TerminalService } from "../../services/terminals/terminal-service.js";
+import type { PtyInspectService } from "../../services/pty-inspect/pty-inspect-service.js";
 import { FileService } from "../../services/files/file-service.js";
 import { GitService } from "../../services/git/git-service.js";
 import { homedir } from "node:os";
@@ -148,6 +151,7 @@ export function registerIpcHandlers(
 		installUpdate,
 		closeGate,
 		getCortexEnabled,
+		ptyInspect,
 	}: {
 		workspacePersistence: WorkspacePersistenceService;
 		settingsService: SettingsService;
@@ -169,6 +173,7 @@ export function registerIpcHandlers(
 		installUpdate?: () => void;
 		closeGate?: import("./close-gate.js").CloseGate;
 		getCortexEnabled: () => boolean;
+		ptyInspect?: PtyInspectService;
 	},
 ): {
 	dispose: () => void;
@@ -226,7 +231,18 @@ export function registerIpcHandlers(
 		terminalEventHandlers,
 		undefined,
 		agentAttentionLogger,
+		{
+			// Adoption (via catalog.upsert -> takeMirror) is service-internal and
+			// driven by the renderer's agentPtys:upsert publish, not by this
+			// creation hook — nothing to do here.
+			onCreate: () => {},
+			onExit: (id) => void ptyInspect?.catalog.handleTerminalExit(id),
+		},
 	);
+	// Composition seam (Task 8): TerminalService only exists from this point on
+	// (electron/main/index.ts builds the XBP host, and PtyInspectService with
+	// it, earlier at startup) — attach now so catalog upserts can adopt mirrors.
+	ptyInspect?.attachTerminalService(terminalService);
 
 	// --- Repository ---
 
@@ -378,6 +394,24 @@ export function registerIpcHandlers(
 			data: { terminalSessionId: sessionId },
 		});
 		terminalService.stop(sessionId);
+	});
+
+	// --- Agent PTYs (XBP inspect catalog) ---
+
+	ipcMain.handle("agentPtys:upsert", (_event, raw: unknown) => {
+		ptyInspect?.catalog.upsert(AgentPtyUpsertSchema.parse(raw));
+	});
+	ipcMain.handle("agentPtys:remove", (_event, raw: unknown) => {
+		const { worktreeId, agentId } = AgentPtyRefSchema.parse(raw);
+		ptyInspect?.catalog.remove(worktreeId, agentId);
+	});
+	ipcMain.handle("agentPtys:rebindIntent", (_event, raw: unknown) => {
+		const { worktreeId, agentId } = AgentPtyRefSchema.parse(raw);
+		ptyInspect?.catalog.rebindIntent(worktreeId, agentId);
+	});
+	ipcMain.handle("agentPtys:rebindCancel", (_event, raw: unknown) => {
+		const { worktreeId, agentId } = AgentPtyRefSchema.parse(raw);
+		ptyInspect?.catalog.rebindCancel(worktreeId, agentId);
 	});
 
 	// --- Files ---

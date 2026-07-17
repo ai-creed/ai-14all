@@ -14,6 +14,11 @@ vi.mock("node-pty", () => ({
 
 import { TerminalService } from "../../../../services/terminals/terminal-service.js";
 import { resolveDefaultShell } from "../../../../services/platform/default-shell.js";
+import type { PtyMirror } from "../../../../services/pty-inspect/pty-mirror.js";
+import {
+	TERMINAL_SPAWN_COLS,
+	TERMINAL_SPAWN_ROWS,
+} from "../../../../shared/constants/terminal-geometry.js";
 
 type ExitHandler = (event: { exitCode: number; signal?: number }) => void;
 
@@ -184,6 +189,29 @@ describe("TerminalService", () => {
 		);
 	});
 
+	it("spawns PTYs with the shared geometry constants", () => {
+		const pty = createPtyDouble();
+		spawnMock.mockReturnValue(pty);
+		const handlers = {
+			onOutput: vi.fn(),
+			onExit: vi.fn(),
+			onState: vi.fn(),
+			onError: vi.fn(),
+		};
+		const service = new TerminalService(handlers);
+
+		service.create("ws-1", "wt-1", "/tmp");
+
+		expect(spawnMock).toHaveBeenCalledWith(
+			expect.any(String),
+			expect.any(Array),
+			expect.objectContaining({
+				cols: TERMINAL_SPAWN_COLS,
+				rows: TERMINAL_SPAWN_ROWS,
+			}),
+		);
+	});
+
 	it("spawns a login shell so profile PATH is available", () => {
 		const pty = createPtyDouble();
 		spawnMock.mockReturnValue(pty);
@@ -304,6 +332,37 @@ describe("TerminalService", () => {
 		const list = service.listSessions();
 		expect(list).toHaveLength(1);
 		expect(list[0].id).not.toBe(s1.id);
+	});
+
+	it("creates a from-birth mirror teed to PTY output and resize", async () => {
+		const pty = createPtyDouble();
+		spawnMock.mockReturnValue(pty);
+		const created: Array<{ id: string; mirror: PtyMirror }> = [];
+		const handlers = {
+			onOutput: vi.fn(),
+			onExit: vi.fn(),
+			onState: vi.fn(),
+			onError: vi.fn(),
+		};
+		const service = new TerminalService(handlers, undefined, undefined, {
+			onCreate: (id, mirror) => created.push({ id, mirror }),
+			onExit: vi.fn(),
+		});
+
+		const meta = service.create("ws-1", "wt-1", "/tmp");
+		expect(created).toHaveLength(1);
+		// §6.5 geometry parity, asserted BEFORE any resize: mirror construction
+		// matches the pty.spawn shared constants (Task 1 asserts the spawn side).
+		expect(created[0].mirror.cols).toBe(TERMINAL_SPAWN_COLS);
+		expect(created[0].mirror.rows).toBe(TERMINAL_SPAWN_ROWS);
+
+		const onData = (pty.onData as unknown as ReturnType<typeof vi.fn>).mock
+			.calls[0]?.[0] as (data: string) => void;
+		onData("early output\r\n");
+		service.resize(meta.id, 132, 43);
+		await created[0].mirror.drained();
+		expect(created[0].mirror.cols).toBe(132);
+		expect(created[0].mirror.snapshotLineText(0)).toBe("early output");
 	});
 
 	describe("agent-attention lifecycle emits", () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
 	CONTROL_ACT,
+	CONTROL_INSPECT,
 	CONTROL_NOTIFY,
 	sessionReportCapability,
 } from "@ai-creed/command-contract";
@@ -15,7 +16,12 @@ describe("xbp grants (decision 8)", () => {
 			sessionReportCapability.permission,
 			CONTROL_ACT,
 			CONTROL_NOTIFY,
+			CONTROL_INSPECT,
 		]);
+	});
+
+	it("mints control:inspect for new pairings (spec §4; existing pairings re-pair)", () => {
+		expect(NEW_PAIRING_GRANTS).toContain(CONTROL_INSPECT);
 	});
 
 	it("replays stored grants verbatim", () => {

@@ -2,10 +2,15 @@ import { randomUUID } from "node:crypto";
 import pty from "node-pty";
 import type { IPty } from "node-pty";
 import { TERMINAL_SESSION_ENV_VAR } from "../../shared/contracts/terminal-env.js";
+import {
+	TERMINAL_SPAWN_COLS,
+	TERMINAL_SPAWN_ROWS,
+} from "../../shared/constants/terminal-geometry.js";
 import type { TerminalSession } from "../../shared/models/terminal-session.js";
 import type { AgentAttentionLogger } from "../diagnostics/agent-attention-logger.js";
 import type { ShellEventLogInput } from "../diagnostics/shell-event-log-service.js";
 import { resolveDefaultShell } from "../platform/default-shell.js";
+import { PtyMirror } from "../pty-inspect/pty-mirror.js";
 import { OutputBatcher } from "./output-batcher.js";
 
 /**
@@ -15,6 +20,18 @@ import { OutputBatcher } from "./output-batcher.js";
  * be injected without coupling this Electron-agnostic service to the class.
  */
 export type AgentAttentionLoggerLike = Pick<AgentAttentionLogger, "append">;
+
+/**
+ * Optional from-birth mirror hook (XBP PTY inspect). When supplied, every
+ * spawned session gets a headless `PtyMirror` teed off `p.onData`/`resize`
+ * from the moment the PTY is created — so a later agent-detection upsert can
+ * adopt a mirror that already has the session's full history, with no
+ * lossy window between spawn and adoption (spec §6.5/§6.11).
+ */
+export type TerminalMirrorsHook = {
+	onCreate(terminalSessionId: string, mirror: PtyMirror): void;
+	onExit(terminalSessionId: string): void;
+};
 
 const OUTPUT_BATCH_WINDOW_MS = Number(
 	process.env.AI14ALL_TERMINAL_BATCH_MS ?? 16,
@@ -48,16 +65,25 @@ export class TerminalService {
 	private readonly handlers: TerminalEventHandlers;
 	private readonly shellEventLog?: { log: (event: ShellEventLogInput) => void };
 	private readonly attentionLogger?: AgentAttentionLoggerLike;
+	private readonly mirrorsOpt?: TerminalMirrorsHook;
+	// One mirror per live-or-recently-exited session. `adoptedSessions` marks
+	// mirrors the catalog has taken via `takeMirror()`: the service keeps
+	// teeing data/resize into them for as long as the PTY lives, and skips
+	// disposing them on exit (the catalog owns disposal from that point on).
+	private readonly mirrorsBySession = new Map<string, PtyMirror>();
+	private readonly adoptedSessions = new Set<string>();
 	private disposed = false;
 
 	constructor(
 		handlers: TerminalEventHandlers,
 		shellEventLog?: { log: (event: ShellEventLogInput) => void },
 		attentionLogger?: AgentAttentionLoggerLike,
+		mirrors?: TerminalMirrorsHook,
 	) {
 		this.handlers = handlers;
 		this.shellEventLog = shellEventLog;
 		this.attentionLogger = attentionLogger;
+		this.mirrorsOpt = mirrors;
 	}
 
 	/**
@@ -119,8 +145,8 @@ export class TerminalService {
 		try {
 			p = pty.spawn(shell, args, {
 				name: "xterm-256color",
-				cols: 80,
-				rows: 24,
+				cols: TERMINAL_SPAWN_COLS,
+				rows: TERMINAL_SPAWN_ROWS,
 				cwd,
 				env: {
 					...(process.env as Record<string, string>),
@@ -160,6 +186,13 @@ export class TerminalService {
 		};
 
 		this.sessions.set(id, { meta, pty: p });
+
+		const mirror = new PtyMirror({
+			cols: TERMINAL_SPAWN_COLS,
+			rows: TERMINAL_SPAWN_ROWS,
+		});
+		this.mirrorsBySession.set(id, mirror);
+		this.mirrorsOpt?.onCreate(id, mirror);
 
 		this.emitLifecycle(worktreeId, id, "active", null);
 
@@ -215,6 +248,7 @@ export class TerminalService {
 					truncated: false,
 				},
 			});
+			this.mirrorsBySession.get(id)?.write(data);
 			batcher.push(data);
 		});
 
@@ -250,6 +284,24 @@ export class TerminalService {
 			this.handlers.onState(id, "exited");
 			this.handlers.onExit(id, exitCode, signal);
 			this.sessions.delete(id);
+			// A mirror never adopted by the catalog (plain shell) is disposed
+			// here; an adopted mirror is owned by the catalog from `takeMirror()`
+			// onward, which awaits its own drain before tearing it down.
+			if (!this.adoptedSessions.has(id)) {
+				this.mirrorsBySession.get(id)?.dispose();
+			}
+			this.mirrorsOpt?.onExit(id);
+			// Latent leak fix: both maps grew without bound across the process
+			// lifetime — neither entry is needed by this service once the PTY has
+			// exited. `takeMirror()` is only ever called with the terminalSessionId
+			// of a session that is still live (initial adoption or a rebind onto a
+			// NEW terminal), never with an id that has already exited, and
+			// `getMirror()` has no caller today; an adopted mirror's own object
+			// reference lives on independently inside the catalog's Entry (handed
+			// off at `takeMirror()` time), so dropping this service's map entry
+			// does not affect the catalog's post-exit drain/disposal.
+			this.mirrorsBySession.delete(id);
+			this.adoptedSessions.delete(id);
 		});
 
 		return meta;
@@ -319,6 +371,27 @@ export class TerminalService {
 			data: { terminalSessionId: sessionId, cols, rows },
 		});
 		session.pty.resize(cols, rows);
+		this.mirrorsBySession.get(sessionId)?.resize(cols, rows);
+	}
+
+	// -----------------------------------------------------------------------
+	// mirrors — XBP PTY inspect (spec §6.5/§6.11)
+	// -----------------------------------------------------------------------
+
+	/** Plain lookup — does not affect exit-time disposal ownership. */
+	getMirror(sessionId: string): PtyMirror | undefined {
+		return this.mirrorsBySession.get(sessionId);
+	}
+
+	/**
+	 * Adopts the mirror: the service keeps teeing data/resize into it for as
+	 * long as the PTY lives, but no longer disposes it on exit — the caller
+	 * (the agent PTY catalog) owns disposal from this point on.
+	 */
+	takeMirror(sessionId: string): PtyMirror | undefined {
+		const mirror = this.mirrorsBySession.get(sessionId);
+		if (mirror) this.adoptedSessions.add(sessionId);
+		return mirror;
 	}
 
 	// -----------------------------------------------------------------------

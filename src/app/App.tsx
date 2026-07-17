@@ -93,6 +93,7 @@ import { useInstallModalListener } from "./hooks/use-install-modal-listener";
 import { useRendererStartLog } from "./hooks/use-renderer-start-log";
 import { useGitActions } from "./hooks/use-git-actions";
 import { useProcessActions } from "./hooks/use-process-actions";
+import { useAgentPtyPublisher } from "./hooks/use-agent-pty-publisher";
 import { useWorktreeActions } from "./hooks/use-worktree-actions";
 import { useStartupRestore } from "./hooks/use-startup-restore";
 import { SettingsProvider, useSettings } from "./hooks/use-settings";
@@ -803,6 +804,8 @@ function AppContent() {
 		stopSession,
 		removeSession,
 	});
+
+	useAgentPtyPublisher(workspaceState, activeWorkspaceId);
 
 	const subscribeSessionExit = useCallback(
 		(sessionId: string, cb: (exitCode: number | null) => void) => {

@@ -121,6 +121,31 @@ export const ListTerminalSessionsSchema = z.object({
 	workspaceId: z.string().optional(),
 });
 
+// AgentPtyUpsert's canonical shape lives in
+// services/pty-inspect/agent-pty-catalog.ts; `shared/` must not import from
+// `services/` (same rationale as DiagnosticsAttentionLogEvent above), so the
+// renderer-facing schema is mirrored here — fields must stay in exact sync.
+export const AgentPtyUpsertSchema = z.object({
+	worktreeId: z.string(),
+	agentId: z.string(),
+	terminalSessionId: z.string().nullable(),
+	// Mirrors AgentProvider (shared/models/agent-attention.ts); keep in sync when
+	// new providers are added.
+	provider: z
+		.enum(["claude", "codex", "ezio", "cursor", "antigravity", "other"])
+		.nullable(),
+	label: z.string(),
+	live: z.boolean(),
+	agentDetected: z.boolean(),
+});
+export type AgentPtyUpsert = z.infer<typeof AgentPtyUpsertSchema>;
+
+export const AgentPtyRefSchema = z.object({
+	worktreeId: z.string(),
+	agentId: z.string(),
+});
+export type AgentPtyRef = z.infer<typeof AgentPtyRefSchema>;
+
 export const ListFilesSchema = z.object({
 	workspaceId: z.string().min(1),
 	worktreeId: z.string().min(1),
@@ -443,6 +468,12 @@ export type Ai14AllDesktopApi = {
 		onExit(listener: (event: TerminalExitEvent) => void): () => void;
 		onState(listener: (event: TerminalStateEvent) => void): () => void;
 		onError(listener: (event: TerminalErrorEvent) => void): () => void;
+	};
+	agentPtys: {
+		upsert(msg: AgentPtyUpsert): Promise<void>;
+		remove(worktreeId: string, agentId: string): Promise<void>;
+		rebindIntent(worktreeId: string, agentId: string): Promise<void>;
+		rebindCancel(worktreeId: string, agentId: string): Promise<void>;
 	};
 	files: {
 		list(workspaceId: string, worktreeId: string): Promise<string[]>;

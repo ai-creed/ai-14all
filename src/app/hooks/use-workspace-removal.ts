@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { agentPtys } from "../../lib/desktop-client";
 import type {
 	AppWorkspacesAction,
 	AppWorkspacesState,
@@ -41,6 +42,14 @@ export function useWorkspaceRemoval(options: Options): {
 						p.terminalSessionId ? [stopSession(p.terminalSessionId)] : [],
 					),
 				);
+			}
+			// The renderer's publisher (use-agent-pty-publisher.ts) only diffs the
+			// currently ACTIVE workspace's processSessionsById, so it can never
+			// notice a removed workspace's catalog entries — publish the removes
+			// here, for every process this workspace ever tracked, before the
+			// workspace itself disappears from state.
+			for (const p of Object.values(ws.workspaceState.processSessionsById)) {
+				void agentPtys.remove(p.worktreeId, p.id).catch(() => {});
 			}
 			dispatchAppWorkspaces({ type: "workspace/remove", workspaceId });
 		},

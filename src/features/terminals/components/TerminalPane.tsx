@@ -6,6 +6,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "xterm-addon-search";
 import "xterm/css/xterm.css";
 import type { TerminalSession } from "../../../../shared/models/terminal-session";
+import { TERMINAL_SCROLLBACK_ROWS } from "../../../../shared/constants/terminal-geometry";
 import { files, terminals } from "../../../lib/desktop-client";
 import { logRendererShellEvent } from "../logic/shell-event-logger";
 import { getReplayOutput } from "../logic/replay-buffer";
@@ -196,7 +197,7 @@ export function TerminalPane({
 
 		const term = new Terminal({
 			cursorBlink: true,
-			scrollback: 10_000,
+			scrollback: TERMINAL_SCROLLBACK_ROWS,
 			screenReaderMode: true,
 			fontSize: fontSizeRef.current,
 			theme: themeRef.current,
