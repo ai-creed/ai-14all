@@ -25,6 +25,8 @@ export class PtyMirror {
 	private fingerprints = new Map<number, number>(); // absoluteLine -> hash (viewport rows)
 	private epochBumpListeners: Array<() => void> = [];
 	private disposed = false;
+	private wroteSinceTick = false; // set true in write() completion callback
+	private lastViewportTopAbs = 0;
 
 	constructor(opts: { cols: number; rows: number }) {
 		this.term = new Terminal({
@@ -45,8 +47,11 @@ export class PtyMirror {
 		});
 		this.term.onScroll(() => {
 			this.linesScrolled++;
-			if (this.linesScrolled > TERMINAL_SCROLLBACK_ROWS) this.trimmed++;
-			this.markDirty(this.absoluteTop() + this.term.rows - 1);
+			if (this.linesScrolled > TERMINAL_SCROLLBACK_ROWS) {
+				this.trimmed++;
+				this.stamps.delete(this.trimmed - 1);
+				this.fingerprints.delete(this.trimmed - 1);
+			}
 		});
 		this.term.buffer.onBufferChange((buf) => {
 			this.altScreenActive = buf.type === "alternate";
@@ -101,6 +106,7 @@ export class PtyMirror {
 		this.term.write(data, () => {
 			// Phase 2 of RIS/ED3: the reset has fully parsed by now.
 			this.settleReset();
+			this.wroteSinceTick = true;
 			resolve();
 		});
 	}
@@ -164,10 +170,6 @@ export class PtyMirror {
 		return this.buffer.getLine(retainedIndex)?.translateToString(true) ?? "";
 	}
 
-	markDirty(absoluteLine: number): void {
-		this.dirtyAbsolute.add(absoluteLine);
-	}
-
 	private bumpEpoch(): void {
 		this.epochValue++;
 		this.watermarkValue = 0;
@@ -176,18 +178,83 @@ export class PtyMirror {
 		this.dirtyAbsolute.clear();
 		this.stamps.clear();
 		this.fingerprints.clear();
+		// Post-bump absolute space starts at trimmed = 0.
+		this.lastViewportTopAbs = Math.max(0, this.buffer.length - this.term.rows);
 		for (const cb of this.epochBumpListeners) cb();
 	}
 
-	// Fingerprint pass — Task 3 fills tick()/takeDirty() behavior in full.
-	// Task 2 only establishes the settle barrier: no stamp/hint may escape
-	// while a reset is pending (spec §2). Outside the barrier there is no
-	// dirty/fingerprint tracking yet (that lands in Task 3), so tick() has
-	// nothing to report either way — it always signals "no change."
-	tick(): boolean {
-		return false;
+	// FNV-1a over the row's translated text and packed cell attrs. Only
+	// viewport rows can mutate in place (scrolled-out rows are immutable
+	// within an epoch — reflow/RIS/ED3 bump the epoch), so hashing the
+	// viewport is sufficient. Spec §2 dirty-line tracking.
+	private rowFingerprint(retainedIndex: number): number {
+		const line = this.buffer.getLine(retainedIndex);
+		if (!line) return 0;
+		let h = 0x811c9dc5;
+		const mix = (n: number) => {
+			h ^= n & 0xff;
+			h = Math.imul(h, 0x01000193);
+			h ^= (n >>> 8) & 0xff;
+			h = Math.imul(h, 0x01000193);
+		};
+		const text = line.translateToString(false);
+		for (let i = 0; i < text.length; i++) mix(text.charCodeAt(i));
+		const cell = this.buffer.getNullCell();
+		for (let x = 0; x < line.length; x++) {
+			line.getCell(x, cell);
+			mix(cell.getFgColor() + 1);
+			mix(cell.getBgColor() + 1);
+			mix(
+				(cell.isBold() ? 1 : 0) |
+					(cell.isDim() ? 2 : 0) |
+					(cell.isItalic() ? 4 : 0) |
+					(cell.isUnderline() ? 8 : 0) |
+					(cell.isInverse() ? 16 : 0),
+			);
+		}
+		return h >>> 0;
 	}
-	takeDirty(): Map<number, number> {
-		throw new Error("implemented in Task 3");
+
+	// One coalesce tick (spec §2): stamp rows that departed the viewport
+	// since the last tick (dirty by construction — a burst larger than the
+	// viewport cannot silently lose rows), fingerprint-diff the current
+	// viewport, stamp dirty rows with ++watermark, clear the dirty set.
+	tick(): boolean {
+		if (this.resetPending) return false; // §2 barrier: nothing stamps mid-reset
+		if (!this.wroteSinceTick && this.dirtyAbsolute.size === 0) return false;
+		this.wroteSinceTick = false;
+		const viewportStart = Math.max(0, this.buffer.length - this.term.rows);
+		// Rows that left the viewport since the last tick can never change
+		// again (scrolled-out rows are immutable within an epoch), so they are
+		// dirty by construction — a burst larger than the viewport must not
+		// silently lose its earliest rows (spec §2).
+		const viewportTopAbs = viewportStart + this.trimmed;
+		for (let abs = this.lastViewportTopAbs; abs < viewportTopAbs; abs++) {
+			if (abs >= this.trimmed) this.dirtyAbsolute.add(abs);
+		}
+		this.lastViewportTopAbs = viewportTopAbs;
+		for (let r = viewportStart; r < this.buffer.length; r++) {
+			const abs = r + this.trimmed;
+			const fp = this.rowFingerprint(r);
+			if (this.fingerprints.get(abs) !== fp) {
+				this.fingerprints.set(abs, fp);
+				this.dirtyAbsolute.add(abs);
+			}
+		}
+		// Evict fingerprints of rows that scrolled out of the viewport.
+		for (const abs of this.fingerprints.keys()) {
+			if (abs < viewportStart + this.trimmed) this.fingerprints.delete(abs);
+		}
+		if (this.dirtyAbsolute.size === 0) return false;
+		this.watermarkValue++;
+		for (const abs of this.dirtyAbsolute) {
+			if (abs >= this.trimmed) this.stamps.set(abs, this.watermarkValue);
+		}
+		this.dirtyAbsolute.clear();
+		return true;
+	}
+
+	takeStamps(): ReadonlyMap<number, number> {
+		return this.stamps;
 	}
 }

@@ -90,3 +90,58 @@ describe("PtyMirror core", () => {
 		m.dispose();
 	});
 });
+
+describe("PtyMirror trim + dirty tracking", () => {
+	it("computes exact trimmedBefore past capacity and keeps absolute IDs stable (spec §6.2)", async () => {
+		const m = new PtyMirror({ cols: 20, rows: 5 });
+		const capacity = 10_000; // TERMINAL_SCROLLBACK_ROWS
+		const total = capacity + 5 + 37; // scrolls 37 lines past saturation
+		let chunk = "";
+		for (let i = 0; i < total; i++) chunk += `line-${i}\r\n`;
+		await writeAll(m, chunk);
+		const scrolled = total - (m.rows - 1); // first rows-1 line feeds move the cursor without scrolling
+		expect(m.trimmedBefore).toBe(scrolled - capacity);
+		// Cross-check against buffer-length accounting (spec §2: both mechanisms agree).
+		expect(m.trimmedBefore).toBe(scrolled - (m.buffer.length - m.rows));
+		// Surviving row keeps its absolute ID: retained index 0 is absoluteLine trimmedBefore.
+		expect(m.snapshotLineText(0)).toBe(`line-${m.trimmedBefore}`);
+		m.dispose();
+	}, 30_000);
+
+	it("a 10Hz spinner dirties exactly one row per tick (spec §6.1)", async () => {
+		const m = new PtyMirror({ cols: 20, rows: 5 });
+		await writeAll(m, "header\r\nspinner: |");
+		m.tick(); // baseline stamp
+		await writeAll(m, "\rspinner: /"); // in-place redraw of the same row
+		const changed = m.tick();
+		expect(changed).toBe(true);
+		const w = m.watermark;
+		const stampedNow = [...m.takeStamps()].filter(([, wm]) => wm === w);
+		expect(stampedNow).toHaveLength(1);
+		m.dispose();
+	});
+
+	it("a burst larger than the viewport stamps every appended row (spec §2)", async () => {
+		const m = new PtyMirror({ cols: 10, rows: 4 });
+		await writeAll(m, "seed\r\n");
+		m.tick();
+		const before = m.watermark;
+		let burst = "";
+		for (let i = 0; i < 20; i++) burst += `b${i}\r\n`; // 20 rows through a 4-row viewport
+		await writeAll(m, burst);
+		m.tick();
+		const stamped = [...m.takeStamps()].filter(([, wm]) => wm > before);
+		// Every appended row is stamped, including the ones that scrolled out
+		// of the viewport before this tick ran.
+		expect(stamped.length).toBeGreaterThanOrEqual(20);
+		m.dispose();
+	});
+
+	it("tick with no writes stamps nothing and returns false", async () => {
+		const m = new PtyMirror({ cols: 20, rows: 5 });
+		await writeAll(m, "x");
+		m.tick();
+		expect(m.tick()).toBe(false);
+		m.dispose();
+	});
+});
