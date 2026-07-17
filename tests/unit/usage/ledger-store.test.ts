@@ -10,6 +10,8 @@ import {
 	startOfLocalDay,
 } from "../../../services/usage/ledger.js";
 import {
+	CORRUPT_BUCKET_KEY,
+	CORRUPT_DAY_KEY,
 	LEDGER_VERSION,
 	deserializeLedger,
 	loadState,
@@ -142,5 +144,107 @@ describe("ledger-store", () => {
 			"utf8",
 		);
 		expect(loadState(noOffsets)).toBeNull();
+	});
+});
+
+describe("v2 -> v3 migration (D3 surgical strip)", () => {
+	// The expected corrupt identity is written out as INDEPENDENT literals from
+	// spec §4 D3 — never derived from the implementation's exported constants.
+	// If a production constant regressed (typo'd day key, wrong cwd slug), fixtures
+	// built FROM those constants would drift with the bug and the migration would
+	// strip the test's equally-wrong entry while missing the real one on disk.
+	const NUL = "\u0000"; // BUCKET_SEP, spelled out independently
+	const EXPECTED_DAY = 1782838800000; // 2026-06-30T17:00:00.000Z — spec §4 literal
+	const EXPECTED_KEY = `SMOKE-perEvent-test${NUL}ezio${NUL}gpt-5-codex`; // spec §4 literal
+	const DAY = 86_400_000;
+	const t = (n: number) => ({ input: 0, output: n, billable: n, raw: n });
+	const corrupt = t(1_332_000);
+	const otherDayKey = EXPECTED_DAY + 10 * DAY;
+
+	it("production constants equal the spec's literal corrupt identity", () => {
+		expect(CORRUPT_DAY_KEY).toBe(EXPECTED_DAY);
+		expect(CORRUPT_BUCKET_KEY).toBe(EXPECTED_KEY);
+	});
+
+	const v2Payload = () => ({
+		version: 2,
+		days: {
+			[String(EXPECTED_DAY)]: {
+				[EXPECTED_KEY]: corrupt,
+				[`/Users/me/Dev/app${NUL}ezio${NUL}gpt-5-codex`]: t(11), // different cwd, SAME day
+				[`/Users/me/Dev/app${NUL}claude${NUL}claude-opus-4-8`]: t(22),
+			},
+			[String(EXPECTED_DAY - DAY)]: { [EXPECTED_KEY]: t(33) }, // June-29 neighbor
+			[String(EXPECTED_DAY + DAY)]: { [EXPECTED_KEY]: t(44) }, // July-1 neighbor
+			[String(otherDayKey)]: { [EXPECTED_KEY]: t(55) }, // distant day
+		},
+		offsets: {
+			"/home/me/.local/state/ezio/sessions/Users-me-Dev-app/unknown-0.record.jsonl":
+				{ offset: 10, mtime: 1 },
+			"/home/me/.local/state/hax/sessions/d.abc/f.jsonl": { offset: 20, mtime: 2 },
+			"/home/me/.claude/projects/p/s.jsonl": { offset: 30, mtime: 3 },
+			"/home/me/.codex/sessions/r.jsonl": { offset: 40, mtime: 4 },
+		} as Record<string, { offset: number; mtime: number }>,
+		codexLimits: null,
+	});
+
+	const writeAndLoad = (payload: unknown) => {
+		const dir = mkdtempSync(join(tmpdir(), "ledger-mig-"));
+		const path = join(dir, "usage-ledger.json");
+		writeFileSync(path, JSON.stringify(payload));
+		return loadState(path);
+	};
+
+	it("strips exactly the corrupt bucket and preserves every neighbor", () => {
+		const st = writeAndLoad(v2Payload());
+		expect(st).not.toBeNull();
+		const days = st!.ledger.days;
+		// Corrupt bucket gone; same-day survivors intact (day entry NOT dropped).
+		expect(days.get(EXPECTED_DAY)?.has(EXPECTED_KEY)).toBe(false);
+		expect(
+			days.get(EXPECTED_DAY)?.get(`/Users/me/Dev/app${NUL}ezio${NUL}gpt-5-codex`),
+		).toEqual(t(11));
+		expect(
+			days.get(EXPECTED_DAY)?.get(`/Users/me/Dev/app${NUL}claude${NUL}claude-opus-4-8`),
+		).toEqual(t(22));
+		// Adjacent-day and distant-day same-key buckets survive.
+		expect(days.get(EXPECTED_DAY - DAY)?.get(EXPECTED_KEY)).toEqual(t(33));
+		expect(days.get(EXPECTED_DAY + DAY)?.get(EXPECTED_KEY)).toEqual(t(44));
+		expect(days.get(otherDayKey)?.get(EXPECTED_KEY)).toEqual(t(55));
+	});
+
+	it("drops the day entry when the strip empties it", () => {
+		const p = v2Payload();
+		p.days[String(EXPECTED_DAY)] = { [EXPECTED_KEY]: corrupt };
+		const st = writeAndLoad(p);
+		expect(st!.ledger.days.has(EXPECTED_DAY)).toBe(false);
+	});
+
+	it("prunes retired ezio-root offsets and keeps claude/codex/hax offsets", () => {
+		const st = writeAndLoad(v2Payload());
+		const keys = [...st!.offsets.keys()];
+		expect(keys.some((k) => k.includes("/.local/state/ezio/sessions/"))).toBe(false);
+		expect(keys).toContain("/home/me/.local/state/hax/sessions/d.abc/f.jsonl");
+		expect(keys).toContain("/home/me/.claude/projects/p/s.jsonl");
+		expect(keys).toContain("/home/me/.codex/sessions/r.jsonl");
+	});
+
+	it("is an idempotent no-op on a v2 file without the corrupt entry", () => {
+		const p = v2Payload();
+		delete p.days[String(EXPECTED_DAY)];
+		p.offsets = { "/home/me/.claude/projects/p/s.jsonl": { offset: 30, mtime: 3 } };
+		const st = writeAndLoad(p);
+		expect(st).not.toBeNull();
+		expect(st!.ledger.days.get(otherDayKey)?.get(EXPECTED_KEY)).toEqual(t(55));
+		expect(st!.offsets.size).toBe(1);
+	});
+
+	it("round-trips version 3 and still rejects version 1", () => {
+		expect(LEDGER_VERSION).toBe(3);
+		const v3 = { ...v2Payload(), version: 3 };
+		const st3 = writeAndLoad(v3);
+		// v3 loads WITHOUT migration: the corrupt bucket is trusted as-is.
+		expect(st3!.ledger.days.get(EXPECTED_DAY)?.has(EXPECTED_KEY)).toBe(true);
+		expect(writeAndLoad({ ...v2Payload(), version: 1 })).toBeNull();
 	});
 });

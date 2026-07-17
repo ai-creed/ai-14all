@@ -5,14 +5,47 @@ import type {
 	TokenTotals,
 } from "../../shared/models/usage.js";
 import {
+	BUCKET_SEP,
 	type BucketKey,
 	type DailyLedger,
 	createLedger,
 	emptyTotals,
+	parseBucketKey,
 } from "./ledger.js";
 import type { OffsetCache, OffsetEntry } from "./scanner.js";
 
-export const LEDGER_VERSION = 2;
+export const LEDGER_VERSION = 3;
+
+// D3 (spec §4): the single corrupt contribution, extracted from the live ledger
+// and verified 2026-07-17 — a Jun-30 dev smoke fixture (1,332,000 output-only
+// tokens) whose source file no longer exists. Targeted by exact identity: no
+// date arithmetic (a persisted day key has no timezone identity), no
+// provider+model pattern (would hit legitimate history on other days/cwds).
+export const CORRUPT_DAY_KEY = 1782838800000; // 2026-06-30T17:00:00.000Z
+export const CORRUPT_BUCKET_KEY: BucketKey = `SMOKE-perEvent-test${BUCKET_SEP}ezio${BUCKET_SEP}gpt-5-codex`;
+const RETIRED_EZIO_ROOT = "/.local/state/ezio/sessions/";
+
+// v2 -> v3: strip the corrupt bucket (guarded by re-parsing the key), drop the
+// day entry if that leaves it empty, and prune offsets under the retired ezio
+// record-store root (never scanned again). Idempotent: a no-op when absent.
+export function migrateStateV2toV3(
+	ledger: DailyLedger,
+	offsets: OffsetCache,
+): void {
+	const day = ledger.days.get(CORRUPT_DAY_KEY);
+	const parsed = parseBucketKey(CORRUPT_BUCKET_KEY);
+	if (
+		day?.has(CORRUPT_BUCKET_KEY) &&
+		parsed.provider === "ezio" &&
+		parsed.model === "gpt-5-codex"
+	) {
+		day.delete(CORRUPT_BUCKET_KEY);
+		if (day.size === 0) ledger.days.delete(CORRUPT_DAY_KEY);
+	}
+	for (const path of [...offsets.keys()]) {
+		if (path.includes(RETIRED_EZIO_ROOT)) offsets.delete(path);
+	}
+}
 
 export interface PersistedLedger {
 	version: number;
@@ -40,14 +73,16 @@ function isTotals(v: unknown): v is TokenTotals {
 	);
 }
 
-// Returns null for anything we cannot safely accumulate onto — a missing/lower
-// version or malformed shape. The caller responds by resetting offsets to 0 and
-// doing the one-time full scan (spec §4.2), which rebuilds a clean ledger.
+// Returns null for anything we cannot safely accumulate onto — an unknown
+// version or malformed shape. Version 2 deserializes identically (same days
+// shape); `loadState` migrates it to v3 semantics in-memory. The caller
+// responds to null by resetting offsets to 0 and doing the one-time full scan
+// (spec §4.2), which rebuilds a clean ledger.
 export function deserializeLedger(raw: unknown): DailyLedger | null {
 	if (typeof raw !== "object" || raw === null) return null;
 	const obj = raw as Partial<PersistedLedger>;
 	if (
-		obj.version !== LEDGER_VERSION ||
+		(obj.version !== 2 && obj.version !== LEDGER_VERSION) ||
 		typeof obj.days !== "object" ||
 		obj.days === null
 	) {
@@ -112,13 +147,18 @@ export function loadState(path: string): {
 	} catch {
 		return null; // missing / corrupt → rebuild
 	}
-	const ledger = deserializeLedger(raw); // validates version === 2 + days shape
-	if (!ledger) return null; // missing/lower/malformed → rebuild
+	const ledger = deserializeLedger(raw); // validates version 2 or 3 + days shape
+	if (!ledger) return null; // unknown version/malformed → rebuild
 	const offsetsRaw = (raw as { offsets?: unknown }).offsets;
 	if (typeof offsetsRaw !== "object" || offsetsRaw === null) return null; // old two-file format (no offsets field) → rebuild
 	const offsets = new Map(
 		Object.entries(offsetsRaw as Record<string, OffsetEntry>),
 	);
+	// One-time v2 -> v3 migration (D3): applied in-memory on load; the next
+	// persist writes version 3, so the strip runs at most once per state file.
+	if ((raw as { version?: unknown }).version === 2) {
+		migrateStateV2toV3(ledger, offsets);
+	}
 	// Best-effort cache; the pre-codexLimits format omits it → null. It refreshes as
 	// soon as the sweep reads a fresh codex rate-limit line.
 	const cl = (raw as { codexLimits?: unknown }).codexLimits;
