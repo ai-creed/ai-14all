@@ -14,6 +14,10 @@ vi.mock("node-pty", () => ({
 
 import { TerminalService } from "../../../../services/terminals/terminal-service.js";
 import { resolveDefaultShell } from "../../../../services/platform/default-shell.js";
+import {
+	TERMINAL_SPAWN_COLS,
+	TERMINAL_SPAWN_ROWS,
+} from "../../../../shared/constants/terminal-geometry.js";
 
 type ExitHandler = (event: { exitCode: number; signal?: number }) => void;
 
@@ -181,6 +185,29 @@ describe("TerminalService", () => {
 			expected.shell,
 			expected.args,
 			expect.objectContaining({ cwd: "/repo-a" }),
+		);
+	});
+
+	it("spawns PTYs with the shared geometry constants", () => {
+		const pty = createPtyDouble();
+		spawnMock.mockReturnValue(pty);
+		const handlers = {
+			onOutput: vi.fn(),
+			onExit: vi.fn(),
+			onState: vi.fn(),
+			onError: vi.fn(),
+		};
+		const service = new TerminalService(handlers);
+
+		service.create("ws-1", "wt-1", "/tmp");
+
+		expect(spawnMock).toHaveBeenCalledWith(
+			expect.any(String),
+			expect.any(Array),
+			expect.objectContaining({
+				cols: TERMINAL_SPAWN_COLS,
+				rows: TERMINAL_SPAWN_ROWS,
+			}),
 		);
 	});
 

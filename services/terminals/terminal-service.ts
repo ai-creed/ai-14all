@@ -2,6 +2,10 @@ import { randomUUID } from "node:crypto";
 import pty from "node-pty";
 import type { IPty } from "node-pty";
 import { TERMINAL_SESSION_ENV_VAR } from "../../shared/contracts/terminal-env.js";
+import {
+	TERMINAL_SPAWN_COLS,
+	TERMINAL_SPAWN_ROWS,
+} from "../../shared/constants/terminal-geometry.js";
 import type { TerminalSession } from "../../shared/models/terminal-session.js";
 import type { AgentAttentionLogger } from "../diagnostics/agent-attention-logger.js";
 import type { ShellEventLogInput } from "../diagnostics/shell-event-log-service.js";
@@ -119,8 +123,8 @@ export class TerminalService {
 		try {
 			p = pty.spawn(shell, args, {
 				name: "xterm-256color",
-				cols: 80,
-				rows: 24,
+				cols: TERMINAL_SPAWN_COLS,
+				rows: TERMINAL_SPAWN_ROWS,
 				cwd,
 				env: {
 					...(process.env as Record<string, string>),
