@@ -19,7 +19,7 @@ The phone becomes a read-only window onto the desktop xterm: same text, same col
 ## 2. Non-goals and guardrails
 
 - **No input path.** The contract defines no keystroke, signal, or resize capability. ai-xavier is not a remote shell; read-only is enforced by construction, not by policy.
-- No scrollback persistence across host restart; retention is the live xterm buffer only (~2000 scrollback rows + viewport).
+- No scrollback persistence across host restart; retention is the live xterm buffer only (the renderer's configured scrollback — a shared host constant, currently 10,000 rows — plus viewport).
 - No simultaneous multi-PTY watching on the phone (one PTY on screen at a time; switching is cheap).
 - No pixel/image streaming, no font/zoom settings sync. Phone renders rows at its own fixed readable type size.
 - Pinch-to-zoom and fit-to-width toggles are v2 candidates, out of scope here.
@@ -39,7 +39,7 @@ ai-14all (host)                          XBP (sealed+signed)              ai-xav
 │ agent PTY ─▶ xterm buffer │   event: pty-changed {epoch, watermark}  │ Terminal watch screen│
 │   row serializer          │ ────────────────────────────────────▶    │  row store (by line) │
 │   (dirty-line tracker,    │                                          │  styled mono renderer│
-│    200ms coalescer,       │   request: pty-rows {epoch, cursor}      │  follow-tail + pill  │
+│    200ms coalescer,       │   request: pty-rows {cursor}             │  follow-tail + pill  │
 │    epoch manager)         │ ◀────────────────────────────────────    │  agent switcher      │
 │ subscription registry     │   ack: rows + runs + watermark           │                      │
 └───────────────────────────┘                                          └──────────────────────┘
@@ -55,19 +55,21 @@ New capabilities (all under `control:inspect`, all fail-closed; refusals fire no
 
 | Capability | Request | Success result |
 |---|---|---|
-| `list-ptys` | `{ sessionId }` | `{ ptys: [{ agentId, provider, label, cols, epoch, watermark, live }] }` |
-| `subscribe-pty` | `{ sessionId, agentId }` | `{ cols, epoch, watermark }` — hints start flowing |
-| `unsubscribe-pty` | `{ sessionId, agentId }` | `{ ok: true }` |
-| `pty-rows` | `{ sessionId, agentId, epoch, cursor }` | `{ epoch, cols, altScreen, watermark, trimmedBefore, rows, cursor }` |
+| `list-ptys` | `{ worktreeId }` | `{ ptys: [{ agentId, provider, label, cols, epoch, watermark, live }] }` |
+| `subscribe-pty` | `{ worktreeId, agentId }` | `{ cols, epoch, watermark }` — hints start flowing |
+| `unsubscribe-pty` | `{ worktreeId, agentId }` | `{ ok: true }` |
+| `pty-rows` | `{ worktreeId, agentId, cursor }` | `{ epoch, cols, altScreen, watermark, trimmedBefore, rows, cursor, more }` |
+
+**Session addressing:** `worktreeId` is the canonical session key — the same identifier `session-report` and the pause/resume/stop lifecycle capabilities already use. This feature introduces **no** `sessionId`; a PTY target is `{ worktreeId, agentId }` everywhere (requests, events, phone route params).
 
 Refusal codes (result-union style, like `LifecycleResult`): `no-live-agent`, `no-such-pty`, `internal`.
 
-New event topic: **`xavier.control.pty-changed`** — payload `{ sessionId, agentId, epoch, watermark }`. Emitted only to a subscribed peer, coalesced to ≥200ms. Carries no row content.
+New event topic: **`xavier.control.pty-changed`** — payload `{ worktreeId, agentId, epoch, watermark }`. Emitted only to a subscribed peer, coalesced to ≥200ms. Carries no row content.
 
 ### Row model
 
 ```ts
-type PtyRow = { line: number; text: string; runs: StyleRun[] };   // text.length ≤ cols
+type PtyRow = { line: number; text: string; runs: StyleRun[] };   // wcwidth(text) ≤ cols — the budget is COLUMNS, not UTF-16 length; text.length may legitimately exceed the occupied columns (combining marks, surrogate-pair emoji)
 type StyleRun = {
   start: number; len: number;
   fg?: number | { r: number; g: number; b: number };   // 0–255 xterm palette index, or truecolor
@@ -78,14 +80,17 @@ type StyleRun = {
 
 - `line` is the absolute line index **within the current epoch** (stable as scrollback trims; trimming only raises `trimmedBefore`).
 - `watermark` is a monotonic per-epoch revision counter. Each coalesce tick stamps all dirty lines with the new watermark.
-- `cursor` is an **opaque continuation token**. `null` means "from the start of the epoch" (full replay). A non-null `cursor` in a response means more rows are immediately available — pull again. Responses are capped (host cap, ~500 rows) so a full 2000-row replay is a handful of pulls, safely under frame-size limits.
-- **Epoch** increments on anything that invalidates line identity: terminal resize/reflow (desktop layout change), alt-screen enter/exit, serializer restart. On epoch mismatch between request and host, the host answers with a fresh-epoch snapshot (as if `cursor: null`); the phone clears its row store and rebuilds. Resize correctness comes from reset, not incremental patching.
+- **`StyleRun` units:** `start`/`len` are **UTF-16 code-unit offsets into `text`** (plain JS string slicing on the phone — styles can never drift from the string). Terminal *columns* are a separate axis: a wide glyph (wcwidth 2 — CJK, most emoji) appears once in `text` but occupies two columns; zero-width/combining cells attach to the preceding glyph's run. The host guarantees the wcwidth sum of `text` ≤ `cols`. Fidelity scope: per-row text + style-run alignment is **exact** (normative, fixture-tested with CJK/emoji rows at both the contract and renderer layers); cross-row *vertical* alignment through wide glyphs is best-effort on the phone, because RN mono-font fallback metrics for CJK/emoji are not guaranteed to be exactly 2 cells — the pan canvas is sized by `cols × cellWidth` and a wide-glyph row may underflow it slightly. This tolerance is a documented product decision, not an open question.
+- **`cursor` is an opaque resume token, and every success response returns a non-null one.** It encodes the position *after* the rows in that response (internally: epoch + watermark + line progress; opaque to the phone). A request with `cursor: null` means "replay from the start of the current epoch." `more: true` means further rows are already available — pull again immediately with the returned cursor; `more: false` means caught up — hold the cursor and pull with it on the next hint or screen re-focus. One token thus serves both replay pagination and live-tailing; there is no separate "since" field. Responses are capped (host cap, ~500 rows) so a full replay is bounded — ≤20 pulls even for a saturated 10,000-row buffer, a handful in the typical case — each safely under frame-size limits.
+- **Stale cursor:** a cursor from an older epoch, a trimmed-past range, or a restarted serializer is answered as if `cursor: null` — a fresh snapshot of the current epoch. The phone detects the epoch change in the response and resets its store.
+- **Epoch** is a **monotonically increasing integer within a serializer run**, incremented by anything that invalidates line identity: terminal resize/reflow (desktop layout change), alt-screen enter/exit, serializer restart (restart re-seeds a new subscription anyway — see ordering rule below). Resize correctness comes from reset, not incremental patching.
+- **Epoch ordering rule (normative for the phone):** the store adopts the epoch from the `subscribe-pty` ack unconditionally. Within a subscription, a pull response with epoch **greater than** the store's is a reset-and-rebuild; **equal** merges; **lower** is a stale delayed ack and is **dropped**. Combined with single-flight pulls (at most one outstanding `pty-rows` per screen, superseded request generations discarded — see the xavier child), this makes the delayed-old-epoch-ack interleaving deterministic.
 
 ### Flow
 
-1. Phone opens terminal screen → `list-ptys` → render agent chips → `subscribe-pty` for the chosen agent.
-2. Replay: `pty-rows` with `cursor: null`, loop while response `cursor` non-null.
-3. Live-tail: on each `pty-changed` hint (or screen re-focus), `pty-rows` with last epoch + continuation. Lost hints heal on the next hint or re-focus — no gap-repair machinery.
+1. Phone opens terminal screen → `list-ptys` → render agent chips → `subscribe-pty` for the chosen agent (store adopts its epoch/watermark).
+2. Replay: `pty-rows` with `cursor: null`, loop with each returned cursor while `more: true`.
+3. Live-tail: on each `pty-changed` hint (or screen re-focus), `pty-rows` with the last returned cursor; loop while `more: true`. Lost hints heal on the next hint or re-focus — no gap-repair machinery.
 4. Leave screen / background app → `unsubscribe-pty` (host also auto-tears-down on peer detach).
 
 ## 6. Host requirements (ai-14all) — summary
@@ -93,7 +98,8 @@ type StyleRun = {
 Detail in the 14all child spec. Requirements the host must meet regardless of internal approach:
 
 - **Every agent PTY in a session is watchable, regardless of desktop layout visibility.** A pane not mounted in the current layout must still serve rows. Recommended approach: an `@xterm/headless` mirror per agent PTY in the main process, fed the same byte stream, resized to match the visible pane (default 120 cols when never mounted).
-- Rows serialize from the buffer with cell-level styles; dirty-line tracking + 200ms coalescer + per-epoch watermark as in §5.
+- Rows serialize from the buffer with cell-level styles compressed to `StyleRun`s in UTF-16 code units over the translated string (wide/zero-width cell handling per §5); dirty-line tracking + 200ms coalescer + per-epoch watermark as in §5.
+- Cursors are durable resume tokens: every success response returns one, valid for both the next replay page and later live-tail pulls; stale/unknown cursors answer as fresh snapshots. Epoch is monotonic within a serializer run.
 - One active subscription per paired phone; a new `subscribe-pty` replaces the previous one.
 - After an agent exits, its buffer stays pullable until session teardown; `subscribe-pty` then refuses `no-live-agent` while `pty-rows` still serves retained rows. After teardown both refuse.
 - Subscribe/unsubscribe/refusals land in the existing layered audit log at info level.
@@ -122,7 +128,7 @@ Detail in the xavier child spec. The approved composition (mockup above, ratifie
 | Situation | Behavior |
 |---|---|
 | Phone reconnects after hours | Pull with stale cursor/epoch → snapshot or delta, heals by construction |
-| Desktop layout resize | Epoch bump → phone clears + full re-pull (≤2000 rows, a few pulls on LAN) |
+| Desktop layout resize | Epoch bump → phone clears + full re-pull (≤10,000 rows / ≤20 pulls worst case on LAN; typically far fewer) |
 | Host restart | New epoch (serializer restart) → same reset path |
 | Alt-screen TUI (vim-style) | Epoch bump on enter/exit; while active, retained set = viewport rows, `altScreen: true` |
 | Agent exits mid-watch | Final hint; subscribe refuses afterwards; rows remain pullable until session teardown; phone shows ended banner over kept rows |
@@ -132,7 +138,7 @@ Detail in the xavier child spec. The approved composition (mockup above, ratifie
 ## 10. Testing & acceptance
 
 - **Contract:** round-trip encode/decode tests for all four capabilities + event payload (ai-xavier).
-- **Host:** serializer unit tests against synthetic ANSI — in-place spinner redraws, color runs, scroll-trim past 2000, resize reflow epoch bump, alt-screen flip (ai-14all).
+- **Host:** serializer unit tests against synthetic ANSI — in-place spinner redraws, color runs, scroll-trim past the scrollback capacity (the shared host constant, currently 10,000), resize reflow epoch bump, alt-screen flip (ai-14all).
 - **Phone:** TDD on pure helpers — row-store reducer (apply pull, epoch reset, trim), follow-tail state machine, run→style mapping (ai-xavier).
 - **Joint acceptance (house tradition):** real iPhone + real LAN + real 14all running a live agent; verify replay, live-tail latency feel, layout-switch reset, agent switcher, ended state, re-pair with `control:inspect`.
 - `docs/shared/XBP-PROTOCOL.md` (secret, gitignored) gains a PTY Inspect section as part of acceptance, not before.
