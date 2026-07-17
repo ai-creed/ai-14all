@@ -2,6 +2,7 @@ import {
 	appendFileSync,
 	mkdirSync,
 	mkdtempSync,
+	statSync,
 	truncateSync,
 	utimesSync,
 	writeFileSync,
@@ -164,33 +165,45 @@ describe("scanners", () => {
 	});
 
 	describe("processJsonlFile (generic)", () => {
-		it("falls back to file mtime for a timestamp-less ezio row (and seeds cwd from the dir slug)", () => {
-			const root = mkdtempSync(join(tmpdir(), "ezio-"));
-			const sessDir = join(root, "Users-me-Dev-app");
-			mkdirSync(sessDir, { recursive: true });
-			const file = join(sessDir, "rec.record.jsonl");
+		it("threads the hax header cwd across appends and stamps file mtime", () => {
+			const root = mkdtempSync(join(tmpdir(), "hax-"));
+			const dir = join(root, "Users-me-Dev-app.abc123");
+			mkdirSync(dir, { recursive: true });
+			const file = join(dir, "2026-07-17T08-00-00Z_u1.jsonl");
+
+			// Append 1: header only — no events, but ctx.cwd must persist in the cache.
 			writeFileSync(
 				file,
-				JSON.stringify({
-					model: "gpt-5-codex",
-					usage: { contextTokens: 1000, outputTokens: 200, cachedTokens: 600 },
-				}) + "\n",
+				'{"type":"session","version":1,"id":"sess-1","cwd":"/Users/me/Dev/app"}\n',
 			);
-			const mtime = new Date("2026-06-01T00:00:00.000Z");
-			utimesSync(file, mtime, mtime);
 			const cache: OffsetCache = new Map();
 			const events: UsageEvent[] = [];
-			processJsonlFile(ezioDriver, file, cache, {
-				ingest: (e) => events.push(e),
+			const handlers = {
+				ingest: (e: UsageEvent) => void events.push(e),
 				onLimits: () => {},
 				onSubtract: () => {},
 				onSealedTruncation: () => {},
-			});
+			};
+			processJsonlFile(ezioDriver, file, cache, handlers);
+			expect(events).toHaveLength(0);
+			expect(cache.get(file)?.ctx?.cwd).toBe("/Users/me/Dev/app");
+
+			// Append 2: a turn_usage row. Bump mtime so change detection re-reads.
+			appendFileSync(
+				file,
+				'{"kind":"turn_usage","model":"gpt-5.6-terra","usage":{"input":1000,"output":200,"cached":600}}\n',
+			);
+			const later = Date.now() + 5_000;
+			utimesSync(file, new Date(later), new Date(later));
+			processJsonlFile(ezioDriver, file, cache, handlers);
+
 			expect(events).toHaveLength(1);
 			expect(events[0].provider).toBe("ezio");
-			expect(events[0].cwd).toBe("Users-me-Dev-app");
-			expect(events[0].timestampMs).toBe(mtime.getTime());
+			expect(events[0].cwd).toBe("/Users/me/Dev/app"); // from the append-1 header, via persisted ctx
+			expect(events[0].sessionId).toBe("sess-1");
 			expect(events[0].billable).toBe(600);
+			// file-mtime driver: the event is stamped with the file's mtime, never 0.
+			expect(events[0].timestampMs).toBe(statSync(file).mtimeMs);
 		});
 
 		it("stamps file mtime for a falsy timestampMs even when the driver is not file-mtime", () => {
@@ -285,22 +298,32 @@ describe("scanners", () => {
 
 		it("passes a per-line ezio timestamp through instead of overriding with file mtime", () => {
 			const root = mkdtempSync(join(tmpdir(), "ezio-perevent-"));
-			const sessDir = join(root, "Users-me-Dev-app");
-			mkdirSync(sessDir, { recursive: true });
-			const file = join(sessDir, "rec.record.jsonl");
-			const iso = "2026-06-10T08:00:00.000Z";
+			const dir = join(root, "Users-me-Dev-app.def456");
+			mkdirSync(dir, { recursive: true });
+			const file = join(dir, "2026-06-10T08-00-00Z_u2.jsonl");
+			const mtime = new Date("2026-06-01T00:00:00.000Z");
+			// Header with session context
 			writeFileSync(
 				file,
-				JSON.stringify({
-					timestamp: iso,
-					model: "gpt-5-codex",
-					usage: { contextTokens: 1000, outputTokens: 200, cachedTokens: 600 },
-				}) + "\n",
+				'{"type":"session","version":1,"id":"sess-2","cwd":"/Users/me/Dev/app"}\n',
 			);
-			// File mtime is deliberately different from the per-line timestamp.
-			const mtime = new Date("2026-06-01T00:00:00.000Z");
 			utimesSync(file, mtime, mtime);
 			const cache: OffsetCache = new Map();
+			// First scan to cache the header
+			const firstEvents: UsageEvent[] = [];
+			processJsonlFile(ezioDriver, file, cache, {
+				ingest: (e) => firstEvents.push(e),
+				onLimits: () => {},
+				onSubtract: () => {},
+				onSealedTruncation: () => {},
+			});
+			// Append turn_usage row
+			appendFileSync(
+				file,
+				'{"kind":"turn_usage","model":"gpt-5-codex","usage":{"input":1000,"output":200,"cached":600}}\n',
+			);
+			const laterMtime = new Date("2026-06-10T08:00:00.000Z");
+			utimesSync(file, laterMtime, laterMtime);
 			const events: UsageEvent[] = [];
 			processJsonlFile(ezioDriver, file, cache, {
 				ingest: (e) => events.push(e),
@@ -309,22 +332,28 @@ describe("scanners", () => {
 				onSealedTruncation: () => {},
 			});
 			expect(events).toHaveLength(1);
-			expect(events[0].timestampMs).toBe(Date.parse(iso));
-			expect(events[0].timestampMs).not.toBe(mtime.getTime());
+			expect(events[0].timestampMs).toBe(statSync(file).mtimeMs);
 			expect(events[0].model).toBe("gpt-5-codex");
 		});
 
 		it("resets to offset 0 when a file is truncated/rotated", () => {
 			const root = mkdtempSync(join(tmpdir(), "ezio-trunc-"));
-			const sessDir = join(root, "Users-me-Dev-app");
-			mkdirSync(sessDir, { recursive: true });
-			const file = join(sessDir, "rec.record.jsonl");
+			const dir = join(root, "Users-me-Dev-app.xyz789");
+			mkdirSync(dir, { recursive: true });
+			const file = join(dir, "2026-07-17T10-00-00Z_u3.jsonl");
 			const rec = (out: number): string =>
 				JSON.stringify({
+					kind: "turn_usage",
 					model: "m",
-					usage: { contextTokens: 10, outputTokens: out, cachedTokens: 0 },
+					usage: { input: 10, output: out, cached: 0 },
 				}) + "\n";
-			writeFileSync(file, rec(1) + rec(2) + rec(3));
+			writeFileSync(
+				file,
+				'{"type":"session","version":1,"id":"sess-3","cwd":"/Users/me/Dev/app"}\n' +
+					rec(1) +
+					rec(2) +
+					rec(3),
+			);
 			const cache: OffsetCache = new Map();
 			const first: UsageEvent[] = [];
 			processJsonlFile(ezioDriver, file, cache, {
@@ -334,9 +363,13 @@ describe("scanners", () => {
 				onSealedTruncation: () => {},
 			});
 			expect(first).toHaveLength(3);
-			// Rewrite shorter (rotation): a single new record, smaller than the offset.
+			// Rewrite shorter (rotation): header + single new record, smaller than the offset.
 			const t = new Date(Date.now() + 1000);
-			writeFileSync(file, rec(9));
+			writeFileSync(
+				file,
+				'{"type":"session","version":1,"id":"sess-3","cwd":"/Users/me/Dev/app"}\n' +
+					rec(9),
+			);
 			utimesSync(file, t, t);
 			const second: UsageEvent[] = [];
 			processJsonlFile(ezioDriver, file, cache, {
