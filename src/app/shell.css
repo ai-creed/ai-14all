@@ -6647,3 +6647,12 @@ select {
 	stroke-linecap: round;
 	stroke-linejoin: round;
 }
+
+/* ---- Hybrid focus indicator (terminal-ux-hardening spec §6) ------------ */
+/* Border COLOR only — width stays the theme's slot width, no layout shift. */
+.shell-terminal-slot[data-focus="typing"] {
+	border-color: var(--primary);
+}
+.shell-terminal-slot[data-focus="active"] {
+	border-color: color-mix(in srgb, var(--primary) 45%, var(--panel-border));
+}

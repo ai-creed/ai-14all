@@ -150,6 +150,14 @@ function makeSession(
 	};
 }
 
+function renderPane(
+	overrides: Partial<React.ComponentProps<typeof TerminalPane>> = {},
+) {
+	return render(
+		<TerminalPane session={makeSession()} visible={true} {...overrides} />,
+	);
+}
+
 describe("TerminalPane", () => {
 	beforeEach(() => {
 		resizeMock.mockReset();
@@ -644,5 +652,31 @@ describe("TerminalPane", () => {
 		// The fit-signal effect must be skipped on mount (signal unchanged): its
 		// scroll-to-bottom is the distinguishing side effect and must not fire.
 		expect(xtermScrollToBottomMock).not.toHaveBeenCalled();
+	});
+
+	it("reports typing focus for the pane section only", () => {
+		const onTypingFocusChange = vi.fn();
+		const { container } = renderPane({ onTypingFocusChange });
+		const section = container.querySelector(".shell-terminal-pane")!;
+		const sink = document.createElement("textarea");
+		sink.className = "xterm-helper-textarea";
+		section.querySelector(".shell-terminal-pane__viewport")!.appendChild(sink);
+
+		fireEvent.focus(sink);
+		expect(onTypingFocusChange).toHaveBeenLastCalledWith(true);
+
+		// Intra-pane move (xterm → find bar): the contains(relatedTarget) guard
+		// must swallow it — typing state persists (spec §6).
+		const findInput = document.createElement("input");
+		section.appendChild(findInput);
+		onTypingFocusChange.mockClear();
+		fireEvent.blur(sink, { relatedTarget: findInput });
+		expect(onTypingFocusChange).not.toHaveBeenCalled();
+
+		// Leaving the pane section entirely DOES report false.
+		const outside = document.createElement("button");
+		document.body.appendChild(outside);
+		fireEvent.blur(findInput, { relatedTarget: outside });
+		expect(onTypingFocusChange).toHaveBeenLastCalledWith(false);
 	});
 });

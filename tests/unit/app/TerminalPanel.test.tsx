@@ -4,7 +4,18 @@ import { TerminalPanel } from "../../../src/app/components/TerminalPanel";
 import { DEFAULT_PERSISTED_SETTINGS } from "../../../shared/models/persisted-settings";
 
 vi.mock("../../../src/features/terminals/components/TerminalPane", () => ({
-	TerminalPane: () => <div data-testid="terminal-pane-stub" />,
+	TerminalPane: (props: {
+		onTypingFocusChange?: (has: boolean) => void;
+		session: { id: string };
+	}) => (
+		<div
+			data-testid="terminal-pane-stub"
+			data-session={props.session.id}
+			tabIndex={0}
+			onFocus={() => props.onTypingFocusChange?.(true)}
+			onBlur={() => props.onTypingFocusChange?.(false)}
+		/>
+	),
 }));
 
 const settingsFixture = {
@@ -223,6 +234,29 @@ describe("TerminalPanel confirm gate", () => {
 		fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
 		expect(props.onCloseSlot).toHaveBeenCalledWith("p2");
 		expect(props.onRestartSlot).not.toHaveBeenCalled();
+	});
+});
+
+describe("TerminalPanel data-focus", () => {
+	it("typing on DOM focus in the pane, active for the selected-but-unfocused pane, none otherwise", () => {
+		const props = baseProps("2-v", ["p1", "p2"]);
+		render(<TerminalPanel {...props} />);
+		const slot0 = screen.getByTestId("slot-0");
+		const slot1 = screen.getByTestId("slot-1");
+		// p1 is activeProcessSessionId in baseProps; no DOM focus yet.
+		expect(slot0.dataset.focus).toBe("active");
+		expect(slot1.dataset.focus).toBe("none");
+		fireEvent.focus(screen.getAllByTestId("terminal-pane-stub")[0]);
+		expect(slot0.dataset.focus).toBe("typing");
+		fireEvent.blur(screen.getAllByTestId("terminal-pane-stub")[0]);
+		expect(slot0.dataset.focus).toBe("active");
+	});
+
+	it("a focused header button never reads as typing", () => {
+		const props = baseProps("1", ["p1"]);
+		render(<TerminalPanel {...props} />);
+		screen.getByTestId("slot-restart-0").focus();
+		expect(screen.getByTestId("slot-0").dataset.focus).toBe("active");
 	});
 });
 

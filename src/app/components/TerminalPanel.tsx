@@ -111,6 +111,8 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 		processId: string;
 		label: string;
 	} | null>(null);
+	// processId whose pane section currently holds DOM focus (spec §6).
+	const [typingProcessId, setTypingProcessId] = useState<string | null>(null);
 
 	const invokeSlotAction = (kind: "restart" | "close", processId: string) => {
 		if (kind === "restart") onRestartSlot(processId);
@@ -187,6 +189,13 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 							data-testid={`slot-${slotIndex}`}
 							data-top-row={isTopRow ? "true" : "false"}
 							data-process-id={processId}
+							data-focus={
+								typingProcessId === processId
+									? "typing"
+									: process?.id === activeSession?.activeProcessSessionId
+										? "active"
+										: "none"
+							}
 						>
 							<header className="shell-terminal-slot__header">
 								{process && (
@@ -296,6 +305,11 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										if (process && process.worktreeId === activeWorktree?.id)
 											selectActiveProcess(process.id);
 									}}
+									onTypingFocusChange={(has) =>
+										setTypingProcessId((prev) =>
+											has ? processId : prev === processId ? null : prev,
+										)
+									}
 								/>
 							)}
 						</div>

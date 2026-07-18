@@ -54,6 +54,12 @@ type Props = {
 	theme?: ITheme;
 	onTitleChange?: (title: string) => void;
 	onActivate?: () => void;
+	/**
+	 * Fires when DOM focus enters/leaves this pane's section (xterm's hidden
+	 * helper textarea and the find bar live inside it; the slot header does
+	 * NOT — spec §6). Drives the slot's data-focus="typing" state.
+	 */
+	onTypingFocusChange?: (hasFocus: boolean) => void;
 };
 
 /**
@@ -72,6 +78,7 @@ export function TerminalPane({
 	theme,
 	onTitleChange,
 	onActivate,
+	onTypingFocusChange,
 }: Props) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const termRef = useRef<Terminal | null>(null);
@@ -528,6 +535,12 @@ export function TerminalPane({
 			onMouseDown={onActivate}
 			onDragOver={handleDragOver}
 			onDrop={handleDrop}
+			onFocus={() => onTypingFocusChange?.(true)}
+			onBlur={(e) => {
+				// Ignore focus moves WITHIN the pane (e.g. xterm → find input).
+				if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+				onTypingFocusChange?.(false);
+			}}
 			style={{ display: visible ? "block" : "none" }}
 		>
 			<div ref={containerRef} className="shell-terminal-pane__viewport" />
