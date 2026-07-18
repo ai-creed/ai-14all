@@ -53,19 +53,52 @@ unrelated vendor CSS and stay where they are).
 @import "./tokens.css";                     /* pulls tailwindcss; its own
                                                `@layer theme, base, components, utilities;`
                                                statement is a no-op re-declaration */
-@import "./base.css" layer(app.base);
-@import "./modules/primitives.css" layer(app.components);
-@import "./modules/sidebar.css" layer(app.components);
-@import "./modules/terminals.css" layer(app.components);
-@import "./modules/review.css" layer(app.components);
-@import "./modules/files.css" layer(app.components);
-@import "./modules/viewer.css" layer(app.components);
-@import "./modules/dialogs.css" layer(app.components);
-@import "./modules/usage.css" layer(app.components);
-@import "./modules/plugins.css" layer(app.components);
-@import "./modules/md-preview.css" layer(app.components);
-@import "./hljs-tokens.css" layer(app.components);
+@import "./base.css";                       /* modules are imported PLAIN (no
+                                               layer(...)) — each file assigns
+                                               its own rules to the top-level
+                                               layers, see anatomy below */
+@import "./modules/primitives.css";
+@import "./modules/sidebar.css";
+@import "./modules/terminals.css";
+@import "./modules/review.css";
+@import "./modules/files.css";
+@import "./modules/viewer.css";
+@import "./modules/dialogs.css";
+@import "./modules/usage.css";
+@import "./modules/plugins.css";
+@import "./modules/md-preview.css";
+@import "./hljs-tokens.css" layer(app.components);  /* sole layer() import:
+                                               file stays verbatim and contains
+                                               no @layer blocks, so nothing can
+                                               nest (see pitfall below) */
 ```
+
+**Module file anatomy** — every module assigns its rules to the top-level
+layers explicitly; component rules first, theme overrides in a trailing
+sibling block:
+
+```css
+/* modules/terminals.css */
+@layer app.components {
+	.shell-terminal-tab { /* ... */ }
+}
+@layer app.themes {
+	[data-theme="tui"] .shell-terminal-tab { /* ... */ }
+}
+```
+
+(`base.css` uses `@layer app.base { ... }` + `@layer app.themes { ... }` the
+same way.)
+
+**Why plain imports, not `layer(...)` imports:** `@import "x.css"
+layer(app.components)` wraps the whole file in `app.components`, so an
+`@layer app.themes` block inside the file would become the **nested** layer
+`app.components.app.themes` — not the top-level `app.themes`. Per
+css-cascade-5, a layer's direct declarations beat all of its nested sublayers,
+so co-located theme overrides would lose to that module's component rules —
+the exact inversion of the guarantee this design exists to provide. In-file
+`@layer` blocks attach to the top-level layers declared in index.css, which
+keeps co-location (D4) and sibling-layer semantics together.
 
 Verified facts this relies on:
 
@@ -76,9 +109,10 @@ Verified facts this relies on:
 - Layer order beats specificity for normal declarations. `app.*` layers come
   after `utilities`, so app rules keep beating Tailwind utilities — the same
   effective result as today's unlayered-beats-layered relationship.
-- `app.base < app.components < app.themes` means theme overrides **always**
-  win over component rules regardless of specificity or import order. Import
-  order stops being load-bearing.
+- `app.base < app.components < app.themes` — **as sibling top-level layers**
+  (guaranteed by the in-file `@layer` block anatomy above) — means theme
+  overrides always win over component rules regardless of specificity or
+  import order. Import order stops being load-bearing.
 
 ### 3.2 Module map
 
@@ -130,8 +164,10 @@ Theme switching mechanism is unchanged:
    rules never hardcode a per-theme value; they reference `var(--*)`.
 2. **Structural variance** (layout toggles, borders that appear/disappear,
    tui chrome quirks) lives in a `[data-theme]` block at the **bottom of the
-   owning feature module**, wrapped in `@layer app.themes`. Editing a feature
-   file shows every theme's quirks for that feature in one screen.
+   owning feature module**, wrapped in a top-level `@layer app.themes { ... }`
+   block (sibling to the module's `@layer app.components` block — never nested
+   inside it, and never via a `layer(...)` import; see §3.1 anatomy). Editing
+   a feature file shows every theme's quirks for that feature in one screen.
 3. **No `[data-theme]` selectors anywhere else.** Grep-checkable invariant:
    `[data-theme` appears only in tokens.css and inside `app.themes` blocks.
 4. **New-theme recipe:** add one token block to tokens.css → run the
@@ -159,39 +195,70 @@ token. If no (genuinely structural) → co-locate per rule 2.
 
 ### Slice 0 — skeleton + baselines
 
-- Create `index.css` with the `@layer` statement and imports; shell.css is
-  temporarily imported from index.css **unlayered** so nothing changes.
+- Create `index.css` as a pure entry-point indirection: the `@layer` order
+  statement plus **all four current stylesheets imported unlayered, in
+  today's exact `main.tsx` order** (`tokens → shell → tui → hljs-tokens`,
+  per src/main.tsx:14–20). tui.css is load-bearing until its rules are
+  absorbed — omitting it here would poison the baselines with a regression
+  recorded as the "before" state.
+
+  ```css
+  /* index.css during Slice 0 — behavior-identical indirection */
+  @layer theme, base, components, utilities, app.base, app.components, app.themes;
+  @import "./tokens.css";
+  @import "../app/shell.css";  /* unlayered — temporary until slices empty it */
+  @import "./tui.css";         /* unlayered — temporary until slices empty it */
+  @import "./hljs-tokens.css"; /* unlayered — switches to layer(app.components) in Slice 10 */
+  ```
+
+  The bare `@layer` order statement declares empty layers and moves no rule,
+  so the rendered cascade is unchanged.
 - `main.tsx` drops its four CSS imports for the single `styles/index.css`.
 - Add the visual-regression harness (§6.1) and record baselines
-  (`--update-snapshots`), committed as the "before" set.
+  (`--update-snapshots`) **after** this no-op conversion, committed as the
+  "before" set.
 
 ### Slices 1–9 — one module each
 
 Order: base → sidebar → terminals → review → files/viewer → dialogs → usage →
 plugins → md-preview/primitives (leftovers). Per-slice recipe:
 
-1. Cut the feature's rules **verbatim** from shell.css into the module file,
-   imported under `layer(app.components)`.
-2. Pull that feature's tui.css rules into the module's trailing
-   `@layer app.themes` block.
+1. Cut the feature's rules **verbatim** from shell.css into the module file's
+   `@layer app.components { ... }` block; add a plain (un-`layer()`-ed)
+   `@import` for the module to index.css, before the temporary unlayered
+   shell.css/tui.css imports.
+2. Pull that feature's tui.css rules into the module's trailing top-level
+   `@layer app.themes { ... }` block.
 3. Apply the §4.3 criterion to `[data-theme]` one-offs in the moved region.
 4. Verify (§6): visual spec if it covers the surface, manual theme-cycle spot
    check otherwise, plus that feature's behavioral e2e specs.
 
 ### Slice 10 — teardown + guardrails
 
-- shell.css and tui.css reach zero lines → delete both; light/warm token
-  blocks merged into tokens.css (may also land earlier, in the base slice).
+- shell.css and tui.css reach zero lines → delete both (and their temporary
+  unlayered imports in index.css); light/warm token blocks merged into
+  tokens.css (may also land earlier, in the base slice).
+- hljs-tokens.css's import switches from unlayered to
+  `layer(app.components)` — the file itself stays verbatim.
 - Guardrail script + architecture doc (§7) land.
 - Full verification gates (§6.3).
 
-### Known risk — cross-module source order
+### Known risk — cross-module source order and mid-migration layering
 
-Within a module, relative rule order is preserved (verbatim moves). Across
-modules it changes: two same-specificity rules targeting the same element from
-different former sections can flip winners. The visual harness catches this on
-covered surfaces. Fix policy: raise the intended winner into `app.themes` or
-make its specificity explicit — never fix by re-shuffling import order.
+Within a module, relative rule order is preserved (verbatim moves). Two
+cascade shifts are still possible:
+
+- **Across modules** order changes: two same-specificity rules targeting the
+  same element from different former sections can flip winners.
+- **During migration**, not-yet-moved shell.css/tui.css rules are unlayered
+  and therefore beat already-moved (layered) rules on any conflict — a rule
+  that previously won by source order within shell.css can temporarily lose
+  after its competitor moves.
+
+The visual harness catches both on covered surfaces, per slice. Fix policy:
+raise the intended winner into `app.themes` or make its specificity explicit —
+never fix by re-shuffling import order; for mid-migration flips, moving the
+conflicting leftover rule in the same slice is also acceptable.
 
 ## 6. Verification
 
@@ -236,8 +303,12 @@ review, no assertions. Playwright's native pixel-diff is the cheap upgrade:
 ## 7. Guardrails against re-drift
 
 - `scripts/ci/check-css-architecture.mjs`: fails when `[data-theme` appears
-  outside tokens.css / `@layer app.themes` blocks; warns when a module exceeds
-  ~800 lines. Wired into the lint step so master-gate enforces it.
+  outside tokens.css / `@layer app.themes` blocks; fails when a module file
+  (base.css or `modules/*.css`) contains top-level rules outside
+  `@layer app.base` / `app.components` / `app.themes` blocks; fails when
+  index.css uses a `layer(...)` import for anything other than
+  hljs-tokens.css (the nested-layer pitfall, §3.1); warns when a module
+  exceeds ~800 lines. Wired into the lint step so master-gate enforces it.
 - Architecture note in `docs/shared/` documenting the layer taxonomy, the four
   theme rules, and the new-theme recipe.
 - **`AGENTS.md` styling section** (currently has zero CSS guidance): a short
@@ -249,6 +320,9 @@ review, no assertions. Playwright's native pixel-diff is the cheap upgrade:
     overrides only in the owning module's `@layer app.themes` block;
   - never reintroduce unlayered app CSS or add CSS imports to `main.tsx` —
     `src/styles/index.css` is the only entry and the cascade authority;
+    modules are imported plainly and wrap their own rules in top-level
+    `@layer` blocks — never `layer(...)` imports (nested-layer pitfall,
+    §3.1);
   - `check-css-architecture.mjs` enforces the invariants; if it fails, fix the
     placement, don't relax the script.
 
