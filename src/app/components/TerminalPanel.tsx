@@ -15,6 +15,8 @@ import { useTerminalFontSize } from "../../features/terminals/hooks/use-terminal
 import { EmptySlotLauncher } from "../../features/terminals/components/EmptySlotLauncher";
 import { ProviderLogo } from "../../features/terminals/components/ProviderLogo";
 import type { AgentProvider } from "../../features/terminals/logic/agent-launch";
+import { collabGlyphState } from "../../features/terminals/logic/agent-launch";
+import type { WhisperWorktreeState } from "../../../shared/models/ecosystem-plugin";
 import { normalizeTerminalTitle } from "../normalize-terminal-title";
 import { useSettings } from "../hooks/use-settings";
 
@@ -55,6 +57,8 @@ type Props = {
 	findProcessByTerminalSessionId: (
 		terminalSessionId: string,
 	) => { process: ProcessSession; workspaceId: string } | null;
+	/** Live whisper state for THIS panel's worktree; drives the collab glyph. */
+	whisperState?: WhisperWorktreeState;
 };
 
 /**
@@ -83,6 +87,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 		onStartShellInSlot,
 		agentProviders,
 		onLaunchAgentInSlot,
+		whisperState,
 	} = props;
 
 	// Per-process refit counters; bumping one tells that slot's pane to re-fit
@@ -200,6 +205,23 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 								{process?.provider && process.provider !== "other" && (
 									<ProviderLogo provider={process.provider} />
 								)}
+								{process &&
+									(() => {
+										const collab = collabGlyphState(process, whisperState);
+										return collab ? (
+											<span
+												className="shell-terminal-slot__collab"
+												title={
+													collab.ready
+														? `${collab.pairLabel} · ready for workflows`
+														: collab.pairLabel
+												}
+												data-testid={`slot-collab-${slotIndex}`}
+											>
+												<Icon name="link" />
+											</span>
+										) : null;
+									})()}
 								<span className="shell-terminal-slot__label">
 									{process?.label ?? "shell"}
 								</span>

@@ -47,6 +47,7 @@ export const ICON_GLYPHS = {
 	code: { fallback: "❮❯", nf: "" }, // code </>
 	comment: { fallback: "💬", nf: "" }, // comment
 	info: { fallback: "ⓘ", nf: "" }, // info-circle
+	link: { fallback: "⧉", nf: "" }, // link (nf-fa-link, U+F0C1)
 	pin: { fallback: "📌", nf: "" }, // thumb-tack (pin)
 	minimize: { fallback: "—", nf: "" }, // minus (minimize / collapse)
 	trash: { fallback: "🗑", nf: "" }, // trash (nf-fa-trash, U+F1F8)

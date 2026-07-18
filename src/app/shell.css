@@ -4875,6 +4875,14 @@ select {
 	flex: 0 0 auto;
 	background: var(--text-muted);
 }
+/* Collab pair glyph: --info so it reads next to near-white --primary text in
+ * dark; TUI re-points it to the cursor accent in tui.css (spec §4). */
+.shell-terminal-slot__collab {
+	display: inline-flex;
+	flex: 0 0 auto;
+	font-size: 11px;
+	color: var(--info);
+}
 .shell-terminal-slot__badge[data-attention="activity"] {
 	background: var(--warning);
 }

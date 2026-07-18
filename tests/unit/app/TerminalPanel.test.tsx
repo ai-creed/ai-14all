@@ -257,3 +257,90 @@ describe("TerminalPanel provider identity", () => {
 		},
 	);
 });
+
+describe("TerminalPanel collab glyph", () => {
+	const collabWhisper = {
+		worktreeId: "wt1",
+		collabId: "c1",
+		daemonAlive: true,
+		liveFeed: "socket",
+		bindings: [
+			{ agentType: "claude", bindingState: "bound" },
+			{ agentType: "codex", bindingState: "bound" },
+		],
+		workflow: null,
+		escalation: null,
+		handoffs: [],
+	} as never;
+
+	function collabProps() {
+		const props = baseProps("1", ["p1"]);
+		const p = (
+			props.workspaceState as {
+				processSessionsById: Record<
+					string,
+					{ command: string | null; provider: string | null }
+				>;
+			}
+		).processSessionsById.p1;
+		p.command = "whisper collab mount claude";
+		p.provider = "claude";
+		return { ...props, whisperState: collabWhisper };
+	}
+
+	it("renders the link glyph via the Icon registry with the composed pair tooltip", () => {
+		render(<TerminalPanel {...collabProps()} />);
+		const glyph = screen.getByTestId("slot-collab-0");
+		// Renderer appends the readiness suffix to the helper's pairLabel (§4).
+		expect(glyph).toHaveAttribute(
+			"title",
+			"collab: claude ⇄ codex · ready for workflows",
+		);
+		// Icon contract: the registry glyph renders its Nerd-Font span with the
+		// link codepoint (Icon renders <span data-nf="..."> — spec §4/§8).
+		const nf = glyph.querySelector("span[data-nf]");
+		expect(nf).not.toBeNull();
+		expect(nf?.getAttribute("data-nf")).toBe("");
+	});
+
+	it("waiting pane composes no readiness suffix", () => {
+		const props = collabProps();
+		(
+			props.whisperState as {
+				bindings: { agentType: string; bindingState: string }[];
+			}
+		).bindings = [
+			{ agentType: "claude", bindingState: "bound" },
+			{ agentType: "codex", bindingState: "unbound" },
+		];
+		render(<TerminalPanel {...props} />);
+		expect(screen.getByTestId("slot-collab-0")).toHaveAttribute(
+			"title",
+			"collab: claude · waiting for peer",
+		);
+	});
+
+	it("removes the glyph live when a state push reports the daemon dead", () => {
+		const props = collabProps();
+		const { rerender } = render(<TerminalPanel {...props} />);
+		expect(screen.getByTestId("slot-collab-0")).toBeInTheDocument();
+		rerender(
+			<TerminalPanel
+				{...props}
+				whisperState={
+					{
+						...(props.whisperState as object),
+						daemonAlive: false,
+					} as never
+				}
+			/>,
+		);
+		expect(screen.queryByTestId("slot-collab-0")).not.toBeInTheDocument();
+	});
+
+	it("no glyph without whisperState", () => {
+		const props = { ...collabProps(), whisperState: undefined };
+		render(<TerminalPanel {...props} />);
+		expect(screen.queryByTestId("slot-collab-0")).not.toBeInTheDocument();
+	});
+});

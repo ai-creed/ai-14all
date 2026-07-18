@@ -2457,6 +2457,11 @@ function AppContent() {
 													layoutId={wsActiveSession?.terminalLayoutId ?? "1"}
 													slotProcessIds={wsSlotProcessIds}
 													terminalFocusSignal={terminalFocusSignal}
+													whisperState={
+														wsActiveWorktree
+															? whisperStates.get(wsActiveWorktree.id)
+															: undefined
+													}
 													// Workspace-pinned dispatch so terminal title (OSC) updates
 													// emitted by a hidden workspace's PTY always route to THAT
 													// workspace, not whichever one is currently active. A fresh
