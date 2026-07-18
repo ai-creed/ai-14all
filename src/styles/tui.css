@@ -220,8 +220,7 @@
  * "Selection leads" rule always wins for that element) but keeping a copy in
  * the correct layer preserves the original cascade shape instead of relying
  * on this unlayered leftover to win by default. */
-[data-theme="tui"] .shell-review-comment-form__actions > button[type="submit"],
-[data-theme="tui"] .shell-layout-dialog__tile[data-current="true"] {
+[data-theme="tui"] .shell-review-comment-form__actions > button[type="submit"] {
 	border-color: var(--primary);
 }
 
@@ -236,8 +235,7 @@
 [data-theme="tui"]
 	.shell-inline-thread__actions
 	> button[aria-label="Address comment"]:hover,
-[data-theme="tui"] .shell-review-queue__pending-draft:hover,
-[data-theme="tui"] .shell-layout-dialog__tile:hover:not(:disabled) {
+[data-theme="tui"] .shell-review-queue__pending-draft:hover {
 	border-color: var(--primary);
 }
 

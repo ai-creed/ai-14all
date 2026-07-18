@@ -14,6 +14,7 @@
 @import "./modules/review.css";
 @import "./modules/files.css";
 @import "./modules/viewer.css";
+@import "./modules/dialogs.css";
 @import "../app/shell.css"; /* unlayered — temporary until slices empty it */
 @import "./tui.css"; /* unlayered — temporary until slices empty it */
 @import "./hljs-tokens.css"; /* unlayered — switches to layer(app.components) at teardown */

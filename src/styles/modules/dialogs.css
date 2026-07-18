@@ -1,0 +1,702 @@
+/* Dialogs module. Component rules in app.components; per-theme structural
+ * overrides in app.themes (spec §4.2). Theme COLOR variance belongs in
+ * tokens.css, not here. */
+@layer app.components {
+	/* Split from shell.css's shadcn DialogContent-compatibility reset (shared
+	 * with .shell-md-modal, .shell-shortcuts-help, .shell-note-sheet — left
+	 * behind in shell.css, not yet extracted; .shell-files-overlay's copy
+	 * already lives in files.css per Task 7). Only this module's selector
+	 * moves; see task-8 report for the cascade math (relative order vs the
+	 * real .shell-layout-dialog rule further below is preserved, so the
+	 * same-file source-order tiebreak still holds). */
+	.shell-layout-dialog {
+		translate: none;
+		display: block;
+		gap: normal;
+		max-width: none;
+		padding: 0;
+		border: 0;
+		border-radius: 0;
+		box-shadow: none;
+		background: none;
+	}
+
+	.shell-app-dialog .shell-input-row {
+		margin-top: var(--space-3);
+	}
+
+	/* ---- App Dialog (replaces .shell-modal*) ---- */
+	.shell-app-dialog--wide {
+		width: min(640px, calc(100vw - 32px));
+	}
+	.shell-app-dialog__title {
+		font-size: var(--font-size-label);
+		font-weight: 600;
+		margin: 0 0 var(--space-3);
+		padding-right: calc(32px + var(--space-2));
+	}
+	.shell-app-dialog__description {
+		color: var(--text-secondary);
+		font-size: var(--font-size-body);
+		margin: 0 0 var(--space-3);
+	}
+	.shell-app-dialog__body {
+		flex: 1;
+		min-height: 0;
+		overflow: auto;
+	}
+	.shell-app-dialog__footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: 8px;
+		margin-top: var(--space-4);
+		padding-top: var(--space-3);
+		border-top: var(--shell-border-width) solid var(--panel-border);
+	}
+
+	/* Body-layout helpers (renamed from .shell-modal__*; rules copied verbatim) */
+	.shell-app-dialog__preview {
+		display: grid;
+		gap: var(--space-2);
+		margin: var(--space-3) 0;
+	}
+	.shell-app-dialog__field {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		margin-top: var(--space-4);
+	}
+
+	/* Calmer, actionable alternative to the red error banner for known,
+	 * recoverable problems (e.g. origin/HEAD not set). */
+	.shell-app-dialog__hint {
+		display: grid;
+		gap: var(--space-2);
+		padding: var(--space-3);
+		background: rgba(120, 160, 210, 0.1);
+		border: var(--shell-border-width) solid rgba(120, 160, 210, 0.3);
+		border-radius: var(--radius-sm);
+		font-size: var(--font-size-body);
+		margin-top: var(--space-2);
+	}
+	.shell-app-dialog__hint p {
+		margin: 0;
+		opacity: 0.85;
+	}
+	.shell-app-dialog__hint code {
+		padding: var(--space-1) var(--space-2);
+		background: rgba(0, 0, 0, 0.25);
+		border-radius: var(--radius-sm);
+		font-family: var(--font-mono, monospace);
+		user-select: all;
+	}
+	.shell-app-dialog__confirm-dirty {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		font-size: var(--text-sm);
+		color: var(--status-danger, #f87171);
+		margin-top: var(--space-2);
+		cursor: pointer;
+	}
+	.base-branch-select__list {
+		margin: var(--space-1) 0 0;
+		padding: 0;
+		list-style: none;
+		max-height: 160px;
+		overflow-y: auto;
+		border: 1px solid var(--panel-border);
+		border-radius: var(--radius-sm);
+	}
+	.base-branch-select__option {
+		display: block;
+		width: 100%;
+		text-align: left;
+		padding: 4px 8px;
+		background: transparent;
+		border: none;
+		color: inherit;
+		cursor: pointer;
+		font: inherit;
+	}
+	.base-branch-select__option--selected,
+	.base-branch-select__option:hover {
+		background: var(--accent);
+		color: var(--app-bg);
+	}
+	.base-branch-select__empty {
+		padding: 4px 8px;
+		color: var(--text-muted);
+		font-size: var(--font-size-label);
+	}
+	.shell-app-dialog__warning {
+		color: var(--warning);
+		font-size: var(--font-size-label);
+	}
+	.shell-app-dialog__note {
+		color: var(--text-muted);
+		font-size: var(--font-size-label);
+	}
+
+	/* ---- Terminal layout dialog ---- */
+	.shell-layout-dialog__overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.45);
+		z-index: 49;
+	}
+	.shell-layout-dialog {
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		z-index: 50;
+		background: var(--panel-bg);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-lg);
+		width: 560px;
+		max-width: calc(100vw - 32px);
+		max-height: calc(100vh - 64px);
+		overflow-y: auto;
+		padding: var(--space-4);
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+	}
+	.shell-layout-dialog__title {
+		font-size: 13px;
+		font-weight: 600;
+		margin: 0 0 var(--space-3);
+		color: var(--text-primary);
+	}
+	.shell-layout-dialog__bucket {
+		display: flex;
+		gap: var(--space-3);
+		align-items: flex-start;
+		padding: var(--space-2) 0;
+		border-top: var(--shell-border-width) solid var(--panel-border);
+	}
+	.shell-layout-dialog__bucket-label {
+		flex: 0 0 72px;
+		font-size: 11px;
+		color: var(--text-secondary);
+		padding-top: 6px;
+	}
+	.shell-layout-dialog__tiles {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
+	}
+	.shell-layout-dialog__tile {
+		width: 132px;
+		height: 78px;
+		padding: 6px;
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-sm);
+		background: var(--panel-bg-elevated);
+		cursor: pointer;
+	}
+	.shell-layout-dialog__tile:focus-visible {
+		outline: var(--shell-border-width) solid var(--accent);
+		outline-offset: 2px;
+	}
+	.shell-layout-dialog__tile:hover:not(:disabled) {
+		border-color: var(--accent);
+	}
+	.shell-layout-dialog__tile[data-current="true"] {
+		border-color: var(--accent);
+		box-shadow: 0 0 0 1px var(--accent);
+	}
+	.shell-layout-dialog__tile:disabled {
+		opacity: 0.35;
+		cursor: not-allowed;
+	}
+	.shell-layout-dialog__glyph {
+		display: grid;
+		gap: 3px;
+		width: 100%;
+		height: 100%;
+	}
+	.shell-layout-dialog__cell {
+		background: #222a3a;
+		border-radius: 0;
+	}
+	.shell-layout-dialog__cell[data-master="true"] {
+		background: #3a4f7d;
+	}
+
+	/* --- Phone bridge dialog body ---
+	   Spec: docs/superpowers/specs/2026-07-15-phone-bridge-dialog-redesign-design.md §5.
+	   TUI trait set is mandatory (as for the settings dialog): radius 0 via
+	   tokens, flat surfaces (no box-shadow), solid separators, mono UI font.
+	   Only the status dot is round. */
+	.phone-bridge {
+		font-family: var(--font-ui);
+	}
+	.phone-bridge__strip {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		border-top: var(--shell-border-width) solid var(--panel-border);
+		border-bottom: var(--shell-border-width) solid var(--panel-border);
+		padding: var(--space-2) 0;
+		margin-bottom: var(--space-3);
+		font-size: 0.75rem;
+	}
+	.phone-bridge__dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		flex: none;
+	}
+	.phone-bridge__dot--on {
+		background: var(--success);
+	}
+	.phone-bridge__dot--off {
+		background: var(--text-muted);
+	}
+	.phone-bridge__dot--warn {
+		background: var(--warning);
+	}
+	.phone-bridge__addr {
+		color: var(--text-primary);
+		flex: 1;
+	}
+	.phone-bridge__view {
+		min-height: 150px;
+	}
+	.phone-bridge__label {
+		font-size: 11px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--text-secondary);
+		margin: 0 0 var(--space-2);
+	}
+	.phone-bridge__hint {
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+		margin: 0 0 var(--space-3);
+	}
+	.phone-bridge__hint--tight {
+		margin-bottom: var(--space-1);
+	}
+	.phone-bridge__btn {
+		background: none;
+		border: var(--shell-border-width) solid var(--panel-border);
+		color: var(--text-secondary);
+		padding: 4px var(--space-3);
+		font-size: 0.75rem;
+		font-family: inherit;
+		cursor: pointer;
+	}
+	.phone-bridge__btn:hover:not(:disabled) {
+		border-color: var(--text-muted);
+		color: var(--text-primary);
+	}
+	.phone-bridge__btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+	/* Spec §5 mandates --primary (NOT --accent: in the tui theme --accent is a
+	   muted surface color, so an accent-tokened primary would lose contrast). */
+	.phone-bridge__btn--primary {
+		border-color: var(--primary);
+		color: var(--primary);
+	}
+	.phone-bridge__btn--primary:hover:not(:disabled) {
+		background: var(--primary);
+		color: var(--primary-foreground);
+		border-color: var(--primary);
+	}
+	.phone-bridge__btn--danger {
+		border-color: var(--danger);
+		color: var(--danger);
+	}
+	.phone-bridge__btn--danger:hover:not(:disabled) {
+		background: var(--danger);
+		color: var(--app-bg);
+		border-color: var(--danger);
+	}
+	.phone-bridge__scan {
+		display: flex;
+		gap: var(--space-4);
+		align-items: flex-start;
+	}
+	.phone-bridge__qr {
+		background: #fff;
+		padding: 8px;
+		width: 168px;
+		height: 168px;
+		box-sizing: content-box;
+		flex: none;
+		image-rendering: pixelated;
+	}
+	.phone-bridge__scan-meta {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+	}
+	.phone-bridge__scan-title {
+		color: var(--text-primary);
+		font-weight: 600;
+		font-size: 13px;
+	}
+	.phone-bridge__countdown {
+		color: var(--text-secondary);
+	}
+	.phone-bridge__countdown--late {
+		color: var(--warning);
+	}
+	.phone-bridge__sas-digits {
+		font-size: 32px;
+		font-weight: 600;
+		letter-spacing: 0.35em;
+		color: var(--primary); /* spec §5: SAS digits ride --primary */
+		margin: var(--space-2) 0 var(--space-1);
+	}
+	.phone-bridge__sas-actions {
+		display: flex;
+		gap: var(--space-2);
+		margin-top: var(--space-3);
+	}
+	.phone-bridge__device {
+		background: var(--panel-bg-elevated);
+		border: var(--shell-border-width) solid var(--panel-border);
+	}
+	.phone-bridge__device-main {
+		display: flex;
+		gap: var(--space-3);
+		align-items: center;
+		padding: var(--space-3);
+	}
+	.phone-bridge__device-icon {
+		width: 26px;
+		height: 40px;
+		border: var(--shell-border-width) solid var(--text-muted);
+		position: relative;
+		flex: none;
+	}
+	.phone-bridge__device-icon::after {
+		content: "";
+		position: absolute;
+		bottom: 3px;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 6px;
+		height: 2px;
+		background: var(--text-muted);
+	}
+	.phone-bridge__device-lines {
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+		flex: 1;
+	}
+	.phone-bridge__device-name {
+		font-size: 13px;
+		font-weight: 600;
+		color: var(--text-primary);
+	}
+	.phone-bridge__device-action {
+		align-self: flex-start;
+		flex: none;
+	}
+	.phone-bridge__device-confirm {
+		display: flex;
+		gap: var(--space-2);
+		align-items: center;
+		flex-wrap: wrap;
+		border-top: var(--shell-border-width) solid var(--panel-border);
+		padding: var(--space-2) var(--space-3);
+	}
+	.phone-bridge__confirm-text {
+		font-size: 0.75rem;
+		color: var(--warning);
+		flex: 1;
+	}
+	.phone-bridge__fault {
+		border: var(--shell-border-width) solid var(--warning);
+		padding: var(--space-3);
+		font-size: 0.75rem;
+		color: var(--text-primary);
+	}
+	.phone-bridge__fault-detail {
+		color: var(--text-secondary);
+		margin-top: var(--space-1);
+	}
+	.phone-bridge__error {
+		border-top: var(--shell-border-width) solid var(--panel-border);
+		margin: var(--space-3) 0 0;
+		padding-top: var(--space-2);
+		font-size: 0.75rem;
+		color: var(--danger);
+	}
+
+	/* --- Settings dialog ---
+	   TUI trait set is mandatory here (no rounded corners, no drop shadow, solid
+	   separators between groups) rather than following plugins-panel's shadow —
+	   var(--radius*) already resolves to 0 everywhere, but box-shadow is omitted
+	   outright to keep the surface flat. */
+	.settings-dialog__overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.45);
+		z-index: 49;
+	}
+	.settings-dialog {
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		z-index: 50;
+		background: var(--panel-bg);
+		border: var(--shell-border-width) solid var(--panel-border);
+		width: 420px;
+		max-width: calc(100vw - 32px);
+		max-height: calc(100vh - 64px);
+		overflow-y: auto;
+		padding: var(--space-4);
+	}
+	.settings-dialog__title {
+		font-size: 13px;
+		font-weight: 600;
+		margin: 0 0 var(--space-3);
+		color: var(--text-primary);
+	}
+	.settings-dialog__section {
+		border-top: var(--shell-border-width) solid var(--panel-border);
+		padding: var(--space-3) 0;
+	}
+	.settings-dialog__section:first-of-type {
+		border-top: none;
+		padding-top: 0;
+	}
+	.settings-dialog__section-title {
+		font-size: 11px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--text-secondary);
+		margin: 0 0 var(--space-2);
+	}
+	.settings-dialog__row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		margin: 0 0 var(--space-2);
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+	}
+	.settings-dialog__row:last-child {
+		margin-bottom: 0;
+	}
+	.settings-dialog__row select,
+	.settings-dialog__row input[type="number"] {
+		background: var(--panel-bg-elevated);
+		border: var(--shell-border-width) solid var(--panel-border);
+		color: var(--text-primary);
+		font-family: inherit;
+		font-size: 0.75rem;
+		padding: 2px 4px;
+	}
+	.settings-dialog__checkbox-label {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+	.settings-dialog__close {
+		margin-top: var(--space-3);
+		background: none;
+		border: var(--shell-border-width) solid var(--panel-border);
+		color: var(--text-secondary);
+		padding: 4px var(--space-3);
+		font-size: 0.75rem;
+		cursor: pointer;
+	}
+	.settings-dialog__close:hover {
+		border-color: var(--text-muted);
+		color: var(--text-primary);
+	}
+
+	/* --- Command presets dialog (slice 2 redesign) --- */
+	.preset-list {
+		list-style: none;
+		padding: 0;
+		margin: 0 0 var(--space-4);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+	.preset-row {
+		display: flex;
+		align-items: flex-start;
+		gap: var(--space-3);
+	}
+	.preset-row__text {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.preset-row__title {
+		font-weight: 500;
+		line-height: 24px;
+		color: var(--text-primary);
+	}
+	.preset-row__command {
+		font-family: var(--font-mono, ui-monospace, monospace);
+		font-size: 11px;
+		color: var(--text-secondary);
+		background: var(--panel-bg-elevated);
+		border-radius: var(--radius-sm);
+		padding: 2px 6px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.preset-row__actions {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+	.preset-row__action {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 24px;
+		height: 24px;
+		background: none;
+		border: none;
+		border-radius: var(--radius-sm);
+		color: var(--text-secondary);
+		cursor: pointer;
+		padding: 0;
+	}
+	.preset-row__action:hover {
+		background: color-mix(in srgb, var(--text-primary) 14%, transparent);
+		color: var(--text-primary);
+	}
+	.preset-row__action:focus-visible {
+		outline: var(--shell-border-width) solid var(--accent);
+		outline-offset: 1px;
+	}
+	.preset-form__field {
+		margin-bottom: var(--space-2);
+	}
+	.preset-form__label {
+		display: block;
+		margin-bottom: var(--space-1);
+	}
+	.preset-target-toggle {
+		display: inline-flex;
+		gap: 0;
+		border: var(--shell-border-width) solid var(--panel-border-strong);
+		border-radius: var(--radius-sm);
+		overflow: hidden;
+	}
+	.preset-target-toggle__option {
+		background: none;
+		border: none;
+		color: var(--text-secondary);
+		cursor: pointer;
+		padding: 4px 12px;
+		font-size: 12px;
+	}
+	.preset-target-toggle__option[aria-pressed="true"] {
+		background: var(--accent);
+		color: var(--accent-foreground, #000);
+	}
+	.preset-form__actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: var(--space-2);
+		margin-top: var(--space-3);
+	}
+
+	/* ---- Confirm dialog (terminal-ux-hardening spec §5.1) ------------------ */
+	.shell-confirm-dialog {
+		max-width: 400px;
+		font-size: 13px;
+	}
+	.shell-confirm-dialog__title {
+		font-size: 14px;
+	}
+	.shell-confirm-dialog__body {
+		font-size: 12px;
+		line-height: 1.55;
+	}
+	.shell-confirm-dialog__dontask {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 12px;
+		color: var(--text-secondary);
+		cursor: pointer;
+		user-select: none;
+	}
+	.shell-confirm-dialog__actions button {
+		font: inherit;
+		font-size: 12px;
+		padding: 5px 14px;
+		cursor: pointer;
+		background: none;
+		border: 1px solid var(--panel-border-strong);
+		border-radius: var(--radius-sm);
+		color: var(--text-primary);
+	}
+	.shell-confirm-dialog__actions button:hover {
+		background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+	}
+	.shell-confirm-dialog__actions button.shell-confirm-dialog__confirm {
+		border-color: var(--danger);
+		color: var(--danger);
+	}
+	.shell-confirm-dialog__actions button.shell-confirm-dialog__confirm:hover {
+		background: color-mix(in srgb, var(--danger) 12%, transparent);
+	}
+}
+
+@layer app.themes {
+	/* Split from two tui.css grouped border-color rules (tui.css ~223-226 and
+	 * ~236-242). Each grouped rule paired exactly one .shell-layout-dialog__tile
+	 * selector with review-owned selectors (.shell-review-comment-form__actions
+	 * > button[type="submit"]; .shell-inline-thread__actions > button[aria-label
+	 * ="Address comment"]:hover, .shell-review-queue__pending-draft:hover) —
+	 * review.css hasn't claimed its half yet (confirmed: no [data-theme="tui"]
+	 * rule for those selectors exists in review.css), so both groups are left
+	 * in tui.css exactly as before, minus this module's selector. See task-8
+	 * report for the cascade math (both split-off rules were already winning
+	 * by specificity pre-move — [data-theme="tui"] adds an attribute selector
+	 * over the plain selector below — so moving them into this later-declared
+	 * layer preserves the same winner). */
+	[data-theme="tui"] .shell-layout-dialog__tile[data-current="true"] {
+		border-color: var(--primary);
+	}
+
+	[data-theme="tui"] .shell-layout-dialog__tile:hover:not(:disabled) {
+		border-color: var(--primary);
+	}
+
+	/* The only other tui.css structural rule touching this module's selectors
+	 * is the shared cross-feature box-shadow-elevation :is() sweep (tui.css
+	 * ~37-51 — also covers .shell-toast, .shell-shortcuts-help, and other
+	 * not-yet-extracted selectors), deliberately left embedded there per
+	 * Tasks 4-7 precedent: cascade-safe because unlayered tui.css always beats
+	 * this layered module regardless of specificity. Hand-carry required at
+	 * tui.css teardown.
+	 *
+	 * `.shell-button__pulse-dot` / `.shell-button__busy` ("Busy/creating pulse
+	 * (dialog actions)", shell.css) are deliberately NOT claimed here, even
+	 * though their only current consumer is a dialog (NewWorktreeDialog):
+	 * tui.css's own comment above its base rule (~66-77) explicitly documents
+	 * this selector as a bare "button primitive", not feature-owned — the
+	 * sidebar module declined the identical selector for the identical reason
+	 * in Task 4's fix wave (see task-4-report.md, "Fix wave: pulse-dot
+	 * reduced-motion"). Claiming it here would reopen that exact
+	 * reduced-motion cascade-flip (unlayered tui.css beats any layered
+	 * app.themes rule regardless of specificity) for a different feature.
+	 * Left fully unlayered in shell.css/tui.css for Task 11 (primitives) to
+	 * claim. */
+}
