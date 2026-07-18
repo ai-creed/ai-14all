@@ -1,0 +1,141 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`TerminalPanel provider identity > provider null keeps the header snapshot-identical to the pre-change baseline 1`] = `
+<header
+  class="shell-terminal-slot__header"
+>
+  <span
+    class="shell-terminal-slot__badge"
+    data-attention="idle"
+    data-status="running"
+    data-testid="slot-badge-0"
+    title="running"
+  />
+  <span
+    class="shell-terminal-slot__label"
+  >
+    p1
+  </span>
+  <button
+    aria-label="Refit terminal"
+    data-testid="slot-refit-0"
+    title="Refit & scroll to bottom"
+    type="button"
+  >
+    <span
+      class="hidden"
+    >
+      ⤓
+    </span>
+    <span
+      aria-hidden="true"
+      class="app-nf inline-block"
+      data-nf=""
+    />
+  </button>
+  <button
+    aria-label="Restart shell"
+    data-testid="slot-restart-0"
+    title="Restart"
+    type="button"
+  >
+    <span
+      class="hidden"
+    >
+      ↻
+    </span>
+    <span
+      aria-hidden="true"
+      class="app-nf inline-block"
+      data-nf=""
+    />
+  </button>
+  <button
+    aria-label="Close shell"
+    data-testid="slot-close-0"
+    title="Close"
+    type="button"
+  >
+    <span
+      class="hidden"
+    >
+      ✕
+    </span>
+    <span
+      aria-hidden="true"
+      class="app-nf inline-block"
+      data-nf=""
+    />
+  </button>
+</header>
+`;
+
+exports[`TerminalPanel provider identity > provider other keeps the header snapshot-identical to the pre-change baseline 1`] = `
+<header
+  class="shell-terminal-slot__header"
+>
+  <span
+    class="shell-terminal-slot__badge"
+    data-attention="idle"
+    data-status="running"
+    data-testid="slot-badge-0"
+    title="running"
+  />
+  <span
+    class="shell-terminal-slot__label"
+  >
+    p1
+  </span>
+  <button
+    aria-label="Refit terminal"
+    data-testid="slot-refit-0"
+    title="Refit & scroll to bottom"
+    type="button"
+  >
+    <span
+      class="hidden"
+    >
+      ⤓
+    </span>
+    <span
+      aria-hidden="true"
+      class="app-nf inline-block"
+      data-nf=""
+    />
+  </button>
+  <button
+    aria-label="Restart shell"
+    data-testid="slot-restart-0"
+    title="Restart"
+    type="button"
+  >
+    <span
+      class="hidden"
+    >
+      ↻
+    </span>
+    <span
+      aria-hidden="true"
+      class="app-nf inline-block"
+      data-nf=""
+    />
+  </button>
+  <button
+    aria-label="Close shell"
+    data-testid="slot-close-0"
+    title="Close"
+    type="button"
+  >
+    <span
+      class="hidden"
+    >
+      ✕
+    </span>
+    <span
+      aria-hidden="true"
+      class="app-nf inline-block"
+      data-nf=""
+    />
+  </button>
+</header>
+`;

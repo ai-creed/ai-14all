@@ -6622,3 +6622,20 @@ select {
 .shell-confirm-dialog__actions button.shell-confirm-dialog__confirm:hover {
 	background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
+
+/* ---- Provider identity glyph (terminal-ux-hardening spec §3) ----------- */
+.shell-provider-logo {
+	display: inline-flex;
+	width: 13px;
+	height: 13px;
+	flex: 0 0 auto;
+}
+.shell-provider-logo svg {
+	width: 100%;
+	height: 100%;
+	stroke: currentColor;
+	fill: none;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}

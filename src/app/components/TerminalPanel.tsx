@@ -13,6 +13,7 @@ import { TERMINAL_LAYOUTS } from "../../features/terminals/logic/terminal-layout
 import { TerminalPane } from "../../features/terminals/components/TerminalPane";
 import { useTerminalFontSize } from "../../features/terminals/hooks/use-terminal-font-size";
 import { EmptySlotLauncher } from "../../features/terminals/components/EmptySlotLauncher";
+import { ProviderLogo } from "../../features/terminals/components/ProviderLogo";
 import type { AgentProvider } from "../../features/terminals/logic/agent-launch";
 import { normalizeTerminalTitle } from "../normalize-terminal-title";
 import { useSettings } from "../hooks/use-settings";
@@ -195,6 +196,9 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 												: ""
 										}`}
 									/>
+								)}
+								{process?.provider && process.provider !== "other" && (
+									<ProviderLogo provider={process.provider} />
 								)}
 								<span className="shell-terminal-slot__label">
 									{process?.label ?? "shell"}

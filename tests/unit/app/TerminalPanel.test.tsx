@@ -225,3 +225,35 @@ describe("TerminalPanel confirm gate", () => {
 		expect(props.onRestartSlot).not.toHaveBeenCalled();
 	});
 });
+
+describe("TerminalPanel provider identity", () => {
+	it("renders the provider glyph for an agent process", () => {
+		const props = baseProps("1", ["p1"]);
+		(
+			props.workspaceState as {
+				processSessionsById: Record<string, { provider: string | null }>;
+			}
+		).processSessionsById.p1.provider = "claude";
+		render(<TerminalPanel {...props} />);
+		expect(screen.getByTestId("provider-logo-claude")).toBeInTheDocument();
+	});
+
+	it.each([null, "other"])(
+		"provider %s keeps the header snapshot-identical to the pre-change baseline",
+		(provider) => {
+			const props = baseProps("1", ["p1"]);
+			(
+				props.workspaceState as {
+					processSessionsById: Record<string, { provider: string | null }>;
+				}
+			).processSessionsById.p1.provider = provider as string | null;
+			const { container } = render(<TerminalPanel {...props} />);
+			// Full header-children snapshot (spec §8): pins tags, attributes and
+			// content — a wrapper node, spacing element, or attribute change
+			// fails this even when no glyph renders.
+			expect(
+				container.querySelector(".shell-terminal-slot__header"),
+			).toMatchSnapshot();
+		},
+	);
+});
