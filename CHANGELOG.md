@@ -4,6 +4,28 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] – 2026-07-18
+
+This release makes terminal slots self-describing and destructive actions deliberate: every slot header shows which agent it runs and whether it's half of a whisper collab, Restart and Close ask before killing a live shell, and a two-level border highlight shows exactly which terminal your keystrokes reach. Under the hood, the phone-facing PTY stream now records how lines wrap, so a paired phone can reflow terminal history faithfully at its own width.
+
+### Added
+
+- **Terminal slots show who's running in them.** Each slot header now carries the agent provider's logo — a monochrome mark tinted with the provider's brand color — so a glance tells claude from codex from ezio (which wears the in-house 14all mark). Plain shells stay unadorned.
+- **Whisper collab pair indicator.** When a shell hosts a `whisper collab mount` session, its header shows a link glyph whose tooltip names the exact pair (`collab: a ⇄ b`) once both agents are bound — and reports "ready for workflows" — or `waiting for peer` while its partner is still unbound.
+- **Restart and Close ask first.** Killing a live shell — a slot's Restart or Close, or a floating shell's Close — now shows a confirmation dialog with a per-action "don't ask again" checkbox. The opt-outs persist across restarts and can be re-armed any time from Settings; idle slots skip the ceremony entirely.
+- **A visible keyboard target.** The terminal slot that will receive your typing wears a bright border; a slot that is active but not keyboard-focused dims to a softer tint of the same accent — so "where do my keystrokes go" is never a guess.
+- **Wrapped-line metadata on the phone PTY stream.** The headless terminal mirror now records which rows are soft-wrapped continuations (command-contract v5, `PtyRow.wrapped`), so the phone viewer can reflow long lines at its own width instead of inheriting the desktop's column breaks. Phones still on the v4 contract keep working — the flag degrades cleanly.
+- **PTY capture and fixture tooling (dev only).** Dev builds can tee raw session bytes to disk (`AI14ALL_PTY_CAPTURE_DIR`; packaged builds are gated inert), and a new `fixture:pty` generator turns a capture into the wire-envelope fixture artifact the phone render tests replay — one real captured session now ships in the repo as that fixture.
+
+### Changed
+
+- **Slimmer terminal borders in the TUI theme.** Terminal slots drop to 1px borders (the deliberate 2px chrome stays everywhere else), and the collab glyph picks up the theme accent.
+
+### Fixed
+
+- **Stale-session events can no longer haunt a restarted shell.** Exit, error, attention, and output events from a killed terminal session are now dropped unless they still match the process's current session — closing a race where restarting a shell could mark the fresh session "exited", flip its attention state, or silently bypass the new close confirmation.
+- **Settings writes no longer flicker on slow disks.** Optimistic settings updates (used by the new confirmation opt-outs) only adopt the service's merged result when it is the latest issued write and no other write is in flight, so rapid toggles can't rewind each other.
+
 ## [1.5.0] – 2026-07-18
 
 This release teaches the Phone Bridge to show, not just tell: a paired phone can now watch the actual terminal of any agent in a session (read-only, behind a per-device grant), the pairing dialog is rebuilt as a single state-driven view, and ezio usage telemetry finally reports real numbers by reading the engine's native session store.
