@@ -69,4 +69,14 @@ describe("generateFixture (reflow spec §3)", () => {
 		const parsed = PtyFixtureArtifactSchema.safeParse(tampered);
 		expect(parsed.success).toBe(false);
 	});
+
+	it("rejects an otherwise-valid stored page that carries ok: true — elements are stored without the wire envelope (spec §3)", async () => {
+		const artifact = await generateFixture(SAMPLE, 40, 6);
+		const tampered = {
+			...artifact,
+			pages: [{ ...artifact.pages[0], ok: true }, ...artifact.pages.slice(1)],
+		};
+		const parsed = PtyFixtureArtifactSchema.safeParse(tampered);
+		expect(parsed.success).toBe(false);
+	});
 });

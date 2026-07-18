@@ -30,6 +30,17 @@ export const PtyFixtureArtifactSchema = z
 			});
 		}
 		artifact.pages.forEach((page, i) => {
+			// Spec §3: elements are stored WITHOUT the envelope. A stored `ok`
+			// would be indistinguishable from the stamp below, so its mere
+			// presence is a violation regardless of value.
+			if ("ok" in page) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["pages", i],
+					message: `page ${i} carries the wire envelope key "ok" — stored pages must be envelope-free`,
+				});
+				return;
+			}
 			const parsed = PtyRowsResult.safeParse({ ...page, ok: true });
 			if (!parsed.success) {
 				ctx.addIssue({
