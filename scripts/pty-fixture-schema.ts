@@ -19,8 +19,8 @@ export const PtyFixtureArtifactSchema = z
 	})
 	.superRefine((artifact, ctx) => {
 		const sub = SubscribePtyResult.safeParse({
-			ok: true,
 			...artifact.subscribe,
+			ok: true,
 		});
 		if (!sub.success) {
 			ctx.addIssue({
@@ -30,7 +30,7 @@ export const PtyFixtureArtifactSchema = z
 			});
 		}
 		artifact.pages.forEach((page, i) => {
-			const parsed = PtyRowsResult.safeParse({ ok: true, ...page });
+			const parsed = PtyRowsResult.safeParse({ ...page, ok: true });
 			if (!parsed.success) {
 				ctx.addIssue({
 					code: "custom",

@@ -59,4 +59,14 @@ describe("generateFixture (reflow spec §3)", () => {
 			SubscribePtyResult.safeParse({ ok: true, ...artifact.subscribe }).success,
 		).toBe(true);
 	});
+
+	it("rejects a refusal-shaped page even though the envelope stamps ok: true (envelope must win)", async () => {
+		const artifact = await generateFixture(SAMPLE, 40, 6);
+		const tampered = {
+			...artifact,
+			pages: [{ ok: false, code: "internal" }, ...artifact.pages.slice(1)],
+		};
+		const parsed = PtyFixtureArtifactSchema.safeParse(tampered);
+		expect(parsed.success).toBe(false);
+	});
 });
