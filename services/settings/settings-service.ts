@@ -138,6 +138,14 @@ export class SettingsService {
 						},
 					}
 				: {}),
+			...(patch.terminalConfirm
+				? {
+						terminalConfirm: {
+							...this.current.terminalConfirm,
+							...patch.terminalConfirm,
+						},
+					}
+				: {}),
 			version: 1,
 		});
 		this.current = merged;

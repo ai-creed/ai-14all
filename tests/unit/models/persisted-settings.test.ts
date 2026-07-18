@@ -26,7 +26,16 @@ describe("PersistedSettingsV1Schema", () => {
 				enabled: false,
 				pushWakeEnabled: true,
 			},
+			terminalConfirm: { restart: true, close: true },
 		});
+	});
+
+	it("terminalConfirm patch stays bare: an omitted sibling is absent, not defaulted", () => {
+		const patch = SettingsPatchSchema.parse({
+			terminalConfirm: { restart: false },
+		});
+		expect(patch.terminalConfirm).toEqual({ restart: false });
+		expect(patch.terminalConfirm).not.toHaveProperty("close");
 	});
 
 	it("DEFAULT_PERSISTED_SETTINGS equals the parsed bare stamp", () => {

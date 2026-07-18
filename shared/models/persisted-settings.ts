@@ -25,6 +25,11 @@ export const PhoneBridgeSettingsSchema = z.object({
 // Range mirrors MIN/MAX_TERMINAL_FONT_SIZE in use-terminal-font-size.ts.
 const TerminalFontSizeSchema = z.number().int().min(10).max(20);
 
+const TerminalConfirmSchema = z.object({
+	restart: z.boolean().default(true),
+	close: z.boolean().default(true),
+});
+
 export const PersistedSettingsV1Schema = z.object({
 	version: z.literal(1),
 	theme: ThemeModeSchema.default("system"),
@@ -40,6 +45,10 @@ export const PersistedSettingsV1Schema = z.object({
 	phoneBridge: PhoneBridgeSettingsSchema.default({
 		enabled: false,
 		pushWakeEnabled: true,
+	}),
+	terminalConfirm: TerminalConfirmSchema.default({
+		restart: true,
+		close: true,
 	}),
 });
 
@@ -67,6 +76,11 @@ const PhoneBridgePatchSchema = z.object({
 	pushWakeEnabled: z.boolean().optional(),
 });
 
+const TerminalConfirmPatchSchema = z.object({
+	restart: z.boolean().optional(),
+	close: z.boolean().optional(),
+});
+
 // Built from the bare (non-`.default()`) field schemas rather than
 // `PersistedSettingsV1Schema.omit({version:true}).partial()`: in zod v4 a
 // field's `.default()` resolves on `undefined` input regardless of
@@ -83,6 +97,7 @@ export const SettingsPatchSchema = z.object({
 	agentResume: AgentResumeModeSchema.optional(),
 	usageTelemetry: UsageTelemetryPatchSchema.optional(),
 	phoneBridge: PhoneBridgePatchSchema.optional(),
+	terminalConfirm: TerminalConfirmPatchSchema.optional(),
 });
 export type SettingsPatch = z.infer<typeof SettingsPatchSchema>;
 

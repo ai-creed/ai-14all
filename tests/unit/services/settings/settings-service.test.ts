@@ -155,6 +155,16 @@ describe("SettingsService.writeState", () => {
 	});
 });
 
+describe("SettingsService.writeState terminalConfirm", () => {
+	it("sequential partial writes preserve siblings: close=false then restart=false → both false", async () => {
+		const svc = new SettingsService(settingsPath, legacyPath);
+		await svc.readState();
+		await svc.writeState({ terminalConfirm: { close: false } });
+		const after = await svc.writeState({ terminalConfirm: { restart: false } });
+		expect(after.terminalConfirm).toEqual({ restart: false, close: false });
+	});
+});
+
 // Mirrors the four async readState() cases above — readStateSync() backs the
 // preload's synchronous settings:readSync IPC so settings.initial can be
 // served before first paint, and must share identical parse/seed semantics.
