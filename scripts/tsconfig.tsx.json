@@ -1,0 +1,33 @@
+{
+	// scripts/tsconfig.tsx.json — runtime-only tsconfig for `tsx --tsconfig`
+	// when invoking scripts/generate-pty-fixture.ts (or any scripts/*.ts)
+	// directly, outside Vite/Vitest.
+	//
+	// Why: @xterm/headless 6.0.0's CJS main (lib-headless/xterm-headless.js)
+	// is a UMD bundle that assigns its named exports via a runtime `for...in`
+	// copy loop, not statically-detectable `exports.X = ...` assignments.
+	// Node's ESM loader (and tsx, which delegates to it) determines a CJS
+	// module's named exports via cjs-module-lexer's static analysis, so
+	// `import { Terminal } from "@xterm/headless"`
+	// (services/pty-inspect/pty-mirror.ts) fails under any bare Node/tsx
+	// execution. electron.vite.config.ts's main.resolve.alias hits the
+	// identical problem and works around it by aliasing straight to the
+	// package's real ESM build, lib-headless/xterm-headless.mjs — this file
+	// mirrors that alias via tsconfig `paths`, which tsx honors for runtime
+	// module resolution.
+	//
+	// Type checking is unaffected: `pnpm typecheck` resolves @xterm/headless
+	// through its own typings via tsconfig.node.json / tsconfig.test.json as
+	// before; this file is never part of that program (it has no `include`
+	// and nothing references it from tsconfig.json's `references`, if any).
+	"compilerOptions": {
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"baseUrl": "..",
+		"paths": {
+			"@xterm/headless": [
+				"node_modules/@xterm/headless/lib-headless/xterm-headless.mjs"
+			]
+		}
+	}
+}

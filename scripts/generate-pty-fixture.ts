@@ -52,11 +52,14 @@ export async function generateFixture(
 }
 
 const USAGE =
-	"Usage: pnpm exec tsx scripts/generate-pty-fixture.ts --bytes <file> --cols <n> --rows <n> --out <file>\n\n" +
+	"Usage: pnpm exec tsx --tsconfig scripts/tsconfig.tsx.json scripts/generate-pty-fixture.ts --bytes <file> --cols <n> --rows <n> --out <file>\n\n" +
 	"Replays raw PTY bytes (as captured by AI14ALL_PTY_CAPTURE_DIR) through the\n" +
 	"real PtyMirror + serializePage chain and writes the fixture artifact\n" +
 	"{ subscribe: { cols, epoch, watermark }, pages: PtyRowsPage[] } as JSON.\n" +
-	"Deterministic for a given byte file + geometry.";
+	"Deterministic for a given byte file + geometry.\n\n" +
+	"--tsconfig scripts/tsconfig.tsx.json is required when running this script\n" +
+	"directly via tsx: it aliases @xterm/headless to its real ESM build so\n" +
+	"named imports resolve outside Vite/Vitest (see that file for why).";
 
 async function main(): Promise<void> {
 	const { values } = parseArgs({
