@@ -157,15 +157,6 @@
 	background: color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
-/* Review chipbar status colors with --accent, which resolves to the dark
- * bg2 step in TUI (see note above) — the ✓ clean pill rendered dark-on-dark.
- * Pin it to the cursor accent like the session clean status; tint the clean
- * pill to match (mirrors the dirty state's red). */
-[data-theme="tui"] .shell-review-chipbar__status[data-state="clean"] {
-	background: color-mix(in srgb, var(--primary) 14%, transparent);
-	color: var(--primary);
-}
-
 /* ---- Accent foreground/border legibility sweep (TUI only) -----------------
  *
  * shell.css uses var(--accent) as a *foreground/border* highlight in ~40 spots.

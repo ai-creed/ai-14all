@@ -1,0 +1,1326 @@
+/* Review module. Component rules in app.components; per-theme structural
+ * overrides in app.themes (spec §4.2). Theme COLOR variance belongs in
+ * tokens.css, not here. */
+@layer app.components {
+	/* Composed on top of `.shell-review-chipbar`: the chip bar provides the
+   shared row layout / fonts; the portal variant only swaps the divider
+   direction (collapsed bar separates from the body BELOW it, expanded
+   bar separates from the body ABOVE it). */
+	.shell-review-expanded-portal__header.shell-review-chipbar {
+		border-top: none;
+		border-bottom: var(--shell-border-width) solid var(--pane-border-review);
+	}
+
+	.shell-review-expanded-portal__body {
+		min-height: 0;
+		display: grid;
+	}
+
+	.shell-review-grid {
+		min-width: 0;
+	}
+
+	.shell-review-grid {
+		display: grid;
+		gap: 0;
+		min-height: 0;
+		overflow: hidden;
+		border-radius: var(--radius-md);
+	}
+
+	.shell-review-grid > .shell-panel {
+		border: none;
+		border-radius: 0;
+	}
+
+	.shell-review-shell {
+		display: grid;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.shell-review-rail {
+		display: grid;
+		grid-template-rows: auto auto minmax(0, 1fr);
+		padding: 0;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.shell-review-rail__toolbar {
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.shell-review-progress {
+		padding: 6px 8px 4px;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.shell-review-progress__label {
+		font-size: 11px;
+		color: var(--text-secondary);
+	}
+
+	.shell-review-progress__track {
+		height: 3px;
+		background: var(--muted);
+		border-radius: 0;
+		overflow: hidden;
+	}
+
+	.shell-review-progress__fill {
+		height: 100%;
+		border-radius: 0;
+		background: var(--success);
+		transition: width 0.2s ease;
+	}
+
+	.shell-review-rail__header,
+	.shell-review-tabs__list {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+
+	.shell-review-rail__header {
+		padding: 4px;
+	}
+
+	.shell-review-tabs__segments {
+		flex: 1 1 auto;
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 0;
+		padding: 0;
+		background: var(--panel-bg);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-md);
+		overflow: hidden;
+	}
+
+	.shell-review-tab {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 28px;
+		padding: 0 10px;
+		color: var(--text-secondary);
+		background: transparent;
+		border: none;
+		border-right: var(--shell-border-width) solid var(--panel-border);
+		border-radius: 0;
+		cursor: pointer;
+	}
+
+	.shell-review-tab:last-child {
+		border-right: none;
+	}
+
+	.shell-review-tab[data-state="active"] {
+		color: var(--text-primary);
+		background: color-mix(in srgb, var(--accent) 18%, transparent);
+		box-shadow: inset 0 -2px 0 var(--accent);
+	}
+
+	.shell-review-tab[data-state="inactive"] {
+		color: var(--text-secondary);
+	}
+
+	.shell-review-tab[data-state="inactive"]:hover {
+		background: var(--panel-bg-elevated);
+		color: var(--text-primary);
+	}
+
+	.shell-review-tab:hover {
+		background: rgba(255, 255, 255, 0.03);
+	}
+
+	.shell-review-tab[data-state="active"]:hover {
+		background: var(--panel-bg-elevated);
+	}
+
+	.shell-review-rail__scroll {
+		height: 100%;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.shell-review-row-viewed {
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		z-index: 1;
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		padding: 2px 6px;
+		font-size: 11px;
+		line-height: 1.5;
+		color: var(--text-secondary);
+		background: var(--muted);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+		white-space: nowrap;
+	}
+
+	.shell-review-row-viewed:hover {
+		border-color: var(--muted-foreground);
+	}
+
+	.shell-review-row-viewed[data-reviewed="true"] {
+		color: var(--success);
+		border-color: var(--success);
+	}
+
+	.shell-review-grid__resize-handle {
+		position: relative;
+		min-height: 0;
+		cursor: col-resize;
+	}
+
+	.shell-review-grid__resize-handle::before {
+		content: "";
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 50%;
+		width: 1px;
+		transform: translateX(-50%);
+		background: var(--panel-border);
+	}
+
+	.shell-review-plus-decoration {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.shell-review-plus-decoration::before {
+		content: "+";
+		display: block;
+		width: 18px;
+		height: 18px;
+		line-height: 16px;
+		text-align: center;
+		font-size: 15px;
+		font-weight: 500;
+		background: rgba(74, 144, 226, 0.22);
+		border: var(--shell-border-width) solid rgba(74, 144, 226, 0.55);
+		border-radius: 0;
+		color: #6ab0f5;
+		cursor: pointer;
+	}
+
+	.shell-review-floating-add {
+		position: absolute;
+		right: 12px;
+		bottom: 12px;
+		padding: 6px 10px;
+		background: var(--shell-accent, #4a90e2);
+		color: white;
+		border: none;
+		border-radius: 0;
+		cursor: pointer;
+		z-index: 10;
+	}
+
+	.shell-review-selection-pill {
+		width: 24px;
+		height: 24px;
+		padding: 0;
+		background: rgba(74, 144, 226, 0.85);
+		border: none;
+		border-radius: 0;
+		color: #fff;
+		font-size: 18px;
+		font-weight: 400;
+		line-height: 1;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+	}
+
+	.shell-review-selection-pill:hover {
+		background: rgba(74, 144, 226, 1);
+	}
+
+	/* ── Review comment sidebar ──────────────────────────────────── */
+
+	.shell-review-comment-sidebar {
+		grid-column: 5;
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
+		min-height: 0;
+		overflow: hidden;
+		border-left: var(--shell-border-width) solid var(--panel-border);
+	}
+
+	.shell-review-comment-sidebar__header {
+		padding: var(--space-2) var(--space-3);
+		border-bottom: var(--shell-border-width) solid var(--panel-border);
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		min-width: 0;
+	}
+
+	.shell-review-comment-sidebar__header-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.shell-review-comment-sidebar__icon {
+		color: var(--text-muted);
+		flex-shrink: 0;
+	}
+
+	.shell-review-comment-sidebar__title {
+		line-height: 1.2;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-muted);
+		font-size: var(--font-size-body);
+	}
+
+	.shell-review-comment-sidebar__count {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		font-size: 11px;
+		color: var(--text-muted);
+		margin-left: auto;
+	}
+	.shell-review-comment-sidebar__count[data-active="false"] {
+		opacity: 0.4;
+	}
+
+	.shell-review-comment-sidebar__path {
+		font-size: 11px;
+		color: var(--text-secondary);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		direction: rtl;
+		text-align: left;
+		min-width: 0;
+	}
+
+	.shell-review-comment-sidebar__list {
+		overflow-y: auto;
+		padding: var(--space-2);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+
+	/* ── Review install CTA ─────────────────────────────────────── */
+
+	.shell-review-comment-sidebar__cta {
+		border-top: var(--shell-border-width) solid var(--panel-border);
+		padding: var(--space-2) var(--space-3);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		flex-shrink: 0;
+	}
+
+	.shell-review-comment-sidebar__cta-copy {
+		font-size: var(--font-size-body);
+		color: var(--text-secondary);
+		margin: 0;
+		line-height: 1.4;
+	}
+
+	.shell-review-comment-sidebar__cta-copy strong {
+		color: var(--text-primary);
+	}
+
+	/* ── Review comment card ────────────────────────────────────── */
+
+	.shell-review-comment-card {
+		background: var(--panel-bg);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-md);
+		padding: var(--space-1) var(--space-2);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		flex-shrink: 0;
+	}
+
+	.shell-review-comment-card[data-status="addressed"] {
+		opacity: 0.55;
+	}
+
+	.shell-review-comment-card__header {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+
+	.shell-review-comment-card__range {
+		background: var(--panel-bg-elevated);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-sm);
+		color: var(--accent);
+		font-size: 11px;
+		font-family: var(--font-terminal);
+		padding: 1px var(--space-1);
+		cursor: pointer;
+		white-space: nowrap;
+	}
+
+	.shell-review-comment-card__range:hover {
+		border-color: var(--panel-border-strong);
+	}
+
+	.shell-review-comment-card__status {
+		font-size: 10px;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--text-muted);
+		background: var(--panel-bg-elevated);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-sm);
+		padding: 1px var(--space-1);
+	}
+
+	.shell-review-comment-card[data-status="open"]
+		.shell-review-comment-card__status {
+		color: var(--accent);
+		border-color: var(--accent);
+	}
+
+	.shell-review-comment-card__actions {
+		margin-left: auto;
+		display: flex;
+		gap: var(--space-1);
+	}
+
+	.shell-review-comment-card__body {
+		margin: 0;
+		font-size: 11px;
+		color: var(--text-primary);
+		line-height: 1.5;
+		white-space: pre-wrap;
+		word-break: break-word;
+	}
+
+	.shell-review-comment-card__action {
+		background: none;
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-sm);
+		color: var(--text-secondary);
+		font-size: 11px;
+		width: 20px;
+		height: 20px;
+		padding: 0;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		flex-shrink: 0;
+	}
+
+	.shell-review-comment-card__action:hover {
+		border-color: var(--panel-border-strong);
+		color: var(--text-primary);
+	}
+
+	/* ── Review comment form ────────────────────────────────────── */
+
+	.shell-review-comment-form {
+		background: var(--panel-bg);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-md);
+		padding: var(--space-2) var(--space-3);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		flex-shrink: 0;
+	}
+
+	.shell-review-comment-form > textarea {
+		width: 100%;
+		box-sizing: border-box;
+		padding: var(--space-2) var(--space-3);
+		background: var(--app-bg);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-sm);
+		color: var(--text-primary);
+		font-size: 11px;
+		font-family: var(--font-ui);
+		resize: vertical;
+		min-height: 60px;
+	}
+
+	.shell-review-comment-form > textarea:focus-visible {
+		outline: var(--shell-border-width) solid var(--accent);
+		border-color: var(--accent);
+	}
+
+	.shell-review-comment-form__actions {
+		display: flex;
+		gap: var(--space-2);
+		justify-content: flex-end;
+	}
+
+	.shell-review-comment-form__actions > button {
+		background: none;
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-sm);
+		color: var(--text-secondary);
+		font-size: 11px;
+		padding: var(--space-1) var(--space-3);
+		cursor: pointer;
+	}
+
+	.shell-review-comment-form__actions > button[type="submit"] {
+		background: var(--accent);
+		border-color: var(--accent);
+		color: var(--app-bg);
+		font-weight: 600;
+	}
+
+	.shell-review-comment-form__actions > button[type="submit"]:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
+	}
+
+	.shell-review-comment-form__actions > button:not([type="submit"]):hover {
+		border-color: var(--panel-border-strong);
+		color: var(--text-primary);
+	}
+
+	/* ── Review expanded portal ──────────────────────────── */
+
+	.shell-review-expanded-portal {
+		position: fixed;
+		/* left/top/right set via inline style — never hard-code right: 0 because
+	   .shell-layout has viewport padding; the main column does not reach the edge */
+		bottom: 0;
+		z-index: 30;
+		display: flex;
+		flex-direction: column;
+		background: var(--panel-bg);
+		border: var(--shell-border-width) solid var(--pane-border-review);
+		border-bottom: 0;
+		border-radius: var(--radius-md) var(--radius-md) 0 0;
+		box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
+		transform: translateY(0);
+		transition: transform 220ms ease-out;
+		overflow: hidden;
+	}
+
+	.shell-review-expanded-portal[data-leaving="true"] {
+		transform: translateY(100%);
+	}
+
+	.shell-review-expanded-portal .shell-review-expanded-portal__body {
+		/* Portal is display:flex flex-direction:column; header is fixed height.
+	   Body must stretch to fill remaining portal height. */
+		flex: 1;
+		min-height: 0;
+		display: grid;
+	}
+
+	/* ── Inline comment thread (Monaco view-zone) ───────────────── */
+
+	.shell-inline-thread {
+		background: var(--panel-bg);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-left: 2px solid var(--pane-border-review);
+		border-radius: 0 var(--radius-md) var(--radius-md) 0;
+		font-family: var(--font-ui);
+		font-size: 12px;
+		color: var(--text-primary);
+		box-sizing: border-box;
+		width: 100%;
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.shell-inline-thread__header {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		padding: 4px var(--space-2);
+		background: var(--panel-bg-elevated);
+		flex-shrink: 0;
+	}
+
+	.shell-inline-thread__header > span:first-child {
+		font-family: var(--font-terminal);
+		font-size: 11px;
+		color: var(--accent);
+		background: color-mix(in srgb, var(--accent) 12%, transparent);
+		border: var(--shell-border-width) solid
+			color-mix(in srgb, var(--accent) 35%, transparent);
+		border-radius: var(--radius-sm);
+		padding: 0 var(--space-1);
+		line-height: 1.6;
+		white-space: nowrap;
+	}
+
+	.shell-inline-thread__status {
+		font-size: 10px;
+		font-family: var(--font-ui);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		border-radius: var(--radius-sm);
+		padding: 0 var(--space-1);
+		line-height: 1.6;
+		white-space: nowrap;
+	}
+
+	.shell-inline-thread__status[data-status="open"] {
+		color: var(--accent);
+		background: color-mix(in srgb, var(--accent) 12%, transparent);
+		border: var(--shell-border-width) solid
+			color-mix(in srgb, var(--accent) 35%, transparent);
+	}
+
+	.shell-inline-thread__status[data-status="addressed"] {
+		color: var(--text-muted);
+		background: var(--panel-bg-elevated);
+		border: var(--shell-border-width) solid var(--panel-border);
+	}
+
+	.shell-inline-thread__time {
+		margin-left: auto;
+		font-size: 10px;
+		color: var(--text-muted);
+		white-space: nowrap;
+	}
+
+	.shell-inline-thread__body {
+		margin: 0;
+		padding: var(--space-2);
+		font-size: 11px;
+		color: var(--text-primary);
+		line-height: 1.5;
+		white-space: pre-wrap;
+		word-break: break-word;
+		flex: 1;
+	}
+
+	.shell-inline-thread__actions {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+		padding: 3px var(--space-2);
+		background: var(--panel-bg-elevated);
+		flex-shrink: 0;
+	}
+
+	.shell-inline-thread__actions > button {
+		background: none;
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-sm);
+		color: var(--text-secondary);
+		font-family: var(--font-ui);
+		font-size: 11px;
+		padding: 1px var(--space-2);
+		cursor: pointer;
+		line-height: 1.5;
+	}
+
+	.shell-inline-thread__actions > button:hover {
+		border-color: var(--panel-border-strong);
+		color: var(--text-primary);
+	}
+
+	.shell-inline-thread__actions > button:last-child {
+		margin-left: auto;
+	}
+
+	.shell-inline-thread__actions > button[aria-label="Address comment"] {
+		color: var(--accent);
+		border-color: color-mix(in srgb, var(--accent) 45%, var(--panel-border));
+	}
+
+	.shell-inline-thread__actions > button[aria-label="Address comment"]:hover {
+		background: color-mix(in srgb, var(--accent) 10%, transparent);
+		border-color: var(--accent);
+	}
+
+	.shell-inline-thread__actions > button[aria-label="Delete comment"] {
+		color: var(--danger);
+		border-color: color-mix(in srgb, var(--danger) 40%, var(--panel-border));
+	}
+
+	.shell-inline-thread__actions > button[aria-label="Delete comment"]:hover {
+		background: color-mix(in srgb, var(--danger) 10%, transparent);
+		border-color: var(--danger);
+	}
+
+	.shell-inline-thread__textarea {
+		display: block;
+		box-sizing: border-box;
+		width: 100%;
+		padding: var(--space-2) var(--space-2);
+		background: var(--inline-thread-textarea-bg);
+		border: none;
+		color: var(--text-primary);
+		font-family: var(--font-ui);
+		font-size: 11px;
+		resize: none;
+		min-height: 60px;
+		line-height: 1.5;
+		flex: 1;
+		outline: none;
+	}
+
+	.shell-inline-thread__textarea::placeholder {
+		color: var(--text-muted);
+	}
+
+	/* Addressed expanded — dim slightly to distinguish from open */
+
+	.shell-inline-thread[data-state="addressed-expanded"] {
+		opacity: 0.75;
+		border-left-color: color-mix(
+			in srgb,
+			var(--pane-border-review) 45%,
+			transparent
+		);
+	}
+
+	.shell-inline-thread[data-state="addressed-expanded"]:hover {
+		opacity: 1;
+	}
+
+	/* Addressed collapsed strip */
+
+	.shell-inline-thread[data-state="addressed-strip"] {
+		flex-direction: row;
+		align-items: center;
+		border-left-color: color-mix(
+			in srgb,
+			var(--pane-border-review) 45%,
+			transparent
+		);
+		opacity: 0.7;
+	}
+
+	.shell-inline-thread__strip {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		flex: 1;
+		min-width: 0;
+		background: none;
+		border: none;
+		color: var(--text-secondary);
+		font-family: var(--font-ui);
+		font-size: 11px;
+		text-align: left;
+		padding: 3px var(--space-2);
+		cursor: pointer;
+		overflow: hidden;
+	}
+
+	.shell-inline-thread__strip > span:first-child {
+		font-size: 10px;
+		color: var(--accent);
+		flex-shrink: 0;
+	}
+
+	.shell-inline-thread__strip > span:nth-child(2) {
+		font-family: var(--font-terminal);
+		font-size: 10px;
+		color: var(--text-muted);
+		flex-shrink: 0;
+	}
+
+	.shell-inline-thread__strip-body {
+		color: var(--text-secondary);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		min-width: 0;
+	}
+
+	.shell-inline-thread__icon-btn {
+		background: none;
+		border: var(--shell-border-width) solid transparent;
+		border-radius: var(--radius-sm);
+		color: var(--text-muted);
+		font-size: 12px;
+		width: 22px;
+		height: 22px;
+		padding: 0;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		flex-shrink: 0;
+		margin-right: var(--space-1);
+	}
+
+	.shell-inline-thread__icon-btn:hover {
+		border-color: var(--panel-border);
+		color: var(--text-primary);
+	}
+
+	/* ── Review queue panel ──────────────────────────────────────── */
+
+	.shell-review-queue {
+		grid-column: 5;
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
+		min-height: 0;
+		overflow: hidden;
+		border-left: var(--shell-border-width) solid var(--panel-border);
+		background: var(--panel-bg);
+	}
+
+	.shell-review-queue__header {
+		padding: var(--space-2) var(--space-3);
+		border-bottom: var(--shell-border-width) solid var(--panel-border);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		flex-shrink: 0;
+	}
+
+	.shell-review-queue__header-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+
+	.shell-review-queue__title {
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-muted);
+		font-size: var(--font-size-body);
+		flex-shrink: 0;
+	}
+
+	.shell-review-queue__count {
+		font-size: 11px;
+		color: var(--text-muted);
+		flex-shrink: 0;
+	}
+
+	.shell-review-queue__actions {
+		display: flex;
+		gap: var(--space-1);
+		align-items: center;
+	}
+
+	.shell-review-queue__actions > button {
+		background: none;
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-sm);
+		color: var(--text-secondary);
+		font-family: var(--font-ui);
+		font-size: 11px;
+		padding: 2px var(--space-2);
+		cursor: pointer;
+		white-space: nowrap;
+	}
+
+	.shell-review-queue__actions > button:hover:not(:disabled) {
+		border-color: var(--panel-border-strong);
+		color: var(--text-primary);
+	}
+
+	.shell-review-queue__actions > button:disabled {
+		opacity: 0.35;
+		cursor: default;
+	}
+
+	.shell-review-queue__btn--danger {
+		color: var(--danger) !important;
+		border-color: color-mix(
+			in srgb,
+			var(--danger) 40%,
+			var(--panel-border)
+		) !important;
+	}
+
+	.shell-review-queue__btn--danger:hover:not(:disabled) {
+		background: color-mix(in srgb, var(--danger) 10%, transparent) !important;
+		border-color: var(--danger) !important;
+		color: var(--danger) !important;
+	}
+
+	.shell-review-queue__body {
+		overflow-y: auto;
+		padding: var(--space-2);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+
+	.shell-review-queue__section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+
+	.shell-review-queue__section > h4 {
+		margin: 0;
+		font-size: 10px;
+		font-weight: 600;
+		letter-spacing: 0.07em;
+		text-transform: uppercase;
+		color: var(--text-muted);
+		padding: 2px 0;
+		border-bottom: var(--shell-border-width) solid var(--panel-border);
+	}
+
+	.shell-review-queue__files {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.shell-review-queue__files > li > ul {
+		list-style: none;
+		margin: 0;
+		padding: 0 0 0 var(--space-2);
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
+	}
+
+	.shell-review-queue__filepath {
+		font-size: 10px;
+		color: var(--text-secondary);
+		font-family: var(--font-terminal);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		direction: rtl;
+		text-align: left;
+		padding: 2px 0;
+		cursor: default;
+	}
+
+	.shell-review-queue__row {
+		list-style: none;
+	}
+
+	.shell-review-queue__row-inner {
+		display: flex;
+		align-items: center;
+		border-radius: var(--radius-sm);
+		border: var(--shell-border-width) solid transparent;
+		min-width: 0;
+	}
+
+	.shell-review-queue__row-inner:hover {
+		background: var(--panel-bg-elevated);
+		border-color: var(--panel-border);
+	}
+
+	.shell-review-queue__row-jump {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+		flex: 1;
+		min-width: 0;
+		background: none;
+		border: none;
+		color: var(--text-secondary);
+		font-family: var(--font-ui);
+		font-size: 11px;
+		text-align: left;
+		padding: 2px var(--space-1);
+		cursor: pointer;
+	}
+
+	.shell-review-queue__row-jump > span:first-child {
+		font-family: var(--font-terminal);
+		font-size: 10px;
+		color: var(--accent);
+		flex-shrink: 0;
+		white-space: nowrap;
+	}
+
+	.shell-review-queue__row-jump > span:last-child {
+		flex: 1;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		min-width: 0;
+		color: var(--text-primary);
+	}
+
+	.shell-review-queue__row[data-status="addressed"]
+		.shell-review-queue__row-jump {
+		opacity: 0.5;
+	}
+
+	.shell-review-queue__row-actions {
+		display: flex;
+		align-items: center;
+		gap: 1px;
+		flex-shrink: 0;
+		padding-right: 2px;
+	}
+
+	.shell-review-queue__row-actions > button {
+		background: none;
+		border: var(--shell-border-width) solid transparent;
+		border-radius: var(--radius-sm);
+		color: var(--text-muted);
+		font-family: var(--font-ui);
+		font-size: 11px;
+		width: 20px;
+		height: 20px;
+		padding: 0;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		flex-shrink: 0;
+	}
+
+	.shell-review-queue__row-actions > button[aria-label="Address"],
+	.shell-review-queue__row-actions > button[aria-label="Reopen"] {
+		color: var(--accent);
+	}
+
+	.shell-review-queue__row-actions > button[aria-label="Address"]:hover,
+	.shell-review-queue__row-actions > button[aria-label="Reopen"]:hover {
+		background: color-mix(in srgb, var(--accent) 12%, transparent);
+		border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+	}
+
+	.shell-review-queue__row-actions > button[aria-label="Delete comment"] {
+		color: var(--danger);
+	}
+
+	.shell-review-queue__row-actions > button[aria-label="Delete comment"]:hover {
+		background: color-mix(in srgb, var(--danger) 12%, transparent);
+		border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+	}
+
+	.shell-review-queue__pending-draft {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+		width: 100%;
+		background: color-mix(in srgb, var(--accent) 8%, transparent);
+		border: var(--shell-border-width) solid
+			color-mix(in srgb, var(--accent) 30%, var(--panel-border));
+		border-radius: var(--radius-sm);
+		color: var(--text-secondary);
+		font-family: var(--font-ui);
+		font-size: 11px;
+		text-align: left;
+		padding: var(--space-1) var(--space-2);
+		cursor: pointer;
+	}
+
+	.shell-review-queue__pending-draft:hover {
+		background: color-mix(in srgb, var(--accent) 14%, transparent);
+		border-color: var(--accent);
+		color: var(--text-primary);
+	}
+
+	.shell-review-chipbar {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 6px 12px;
+		border-top: var(--shell-border-width) solid var(--pane-border-review);
+		background: var(--panel-bg-elevated);
+		flex-shrink: 0;
+		font-family: var(--font-ui);
+		font-size: 0.75rem;
+	}
+
+	.shell-review-chipbar__label {
+		color: var(--text-muted);
+		font-weight: 600;
+		letter-spacing: 0.5px;
+		font-size: 0.65rem;
+		text-transform: uppercase;
+	}
+
+	.shell-review-chipbar__mode {
+		color: var(--text-secondary);
+		font-size: 0.7rem;
+	}
+
+	.shell-review-chipbar__status {
+		border-radius: var(--radius-sm);
+		padding: 2px 7px;
+		font-size: 0.7rem;
+	}
+
+	.shell-review-chipbar__status[data-state="clean"] {
+		background: color-mix(in srgb, var(--accent) 14%, transparent);
+		color: var(--accent);
+	}
+
+	.shell-review-chipbar__status[data-state="dirty"] {
+		background: color-mix(in srgb, var(--danger) 14%, transparent);
+		color: var(--danger);
+	}
+
+	/* Non-interactive unresolved/all comment count label (square corners, muted). */
+	.shell-review-chip__comments {
+		color: var(--text-secondary);
+		font-size: 0.7rem;
+		background: color-mix(in srgb, var(--accent) 10%, transparent);
+		border-radius: 0;
+		padding: 2px 7px;
+	}
+
+	.shell-review-chipbar__status--action {
+		border: none;
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.shell-review-chipbar__status--action:hover {
+		text-decoration: underline;
+	}
+
+	.shell-review-chipbar__spacer {
+		flex: 1;
+	}
+
+	.shell-review-chipbar__open-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		background: var(--panel-bg);
+		color: var(--text-primary);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-sm);
+		padding: 2px 10px;
+		font-size: 0.7rem;
+		line-height: 1;
+		cursor: pointer;
+	}
+
+	/* Pin the icon glyph's box so different icon codepoints (↻, ⬇, ⬆) don't
+   each ride a different baseline and stretch the button to a different
+   height — otherwise the Refresh and Collapse buttons end up unequal. */
+	.shell-review-chipbar__open-btn > span[aria-hidden="true"] {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 12px;
+		height: 12px;
+		line-height: 1;
+		font-size: 11px;
+	}
+
+	.shell-review-chipbar__open-btn:hover {
+		background: var(--panel-bg-elevated);
+		border-color: var(--accent);
+	}
+
+	/* ── CommentMinimap ─────────────────────────────────── */
+
+	.shell-review-minimap {
+		position: relative;
+		width: 24px;
+		flex-shrink: 0;
+		align-self: stretch;
+	}
+
+	.shell-review-minimap__track {
+		position: relative;
+		width: 100%;
+		height: 100%;
+		background: var(--muted);
+	}
+
+	.shell-review-minimap__fill {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		width: 100%;
+		background: var(--success);
+		transition: height 0.2s ease;
+	}
+
+	.shell-review-minimap__dot-wrap {
+		position: absolute;
+		left: 0;
+		right: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.shell-review-minimap__dot {
+		position: relative;
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		border: 2px solid var(--background);
+		padding: 0;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+	}
+
+	.shell-review-minimap__dot--cluster {
+		width: 16px;
+		height: 16px;
+		font-size: 8px;
+		color: var(--background);
+	}
+
+	.shell-review-minimap__count {
+		line-height: 1;
+	}
+
+	.shell-review-minimap__flyout {
+		position: absolute;
+		right: 100%;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 220px;
+		background: var(--popover);
+		border: 1px solid var(--border);
+		border-radius: 0;
+		z-index: 50;
+		overflow: hidden;
+	}
+
+	.shell-review-minimap__flyout[aria-hidden="true"] {
+		display: none;
+	}
+
+	.shell-review-minimap__flyout-clusterhead {
+		padding: 4px 8px;
+		font-size: 11px;
+		color: var(--text-muted);
+		border-bottom: 1px solid var(--border);
+	}
+
+	.shell-review-minimap__flyout-item {
+		padding: 6px 8px;
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+	}
+
+	.shell-review-minimap__flyout-item + .shell-review-minimap__flyout-item {
+		border-top: 1px solid var(--border);
+	}
+
+	.shell-review-minimap__flyout-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2);
+	}
+
+	.shell-review-minimap__flyout-author {
+		font-size: 11px;
+		font-weight: 600;
+		color: var(--text-secondary);
+	}
+
+	.shell-review-minimap__flyout-line {
+		font-size: 10px;
+		color: var(--text-muted);
+	}
+
+	.shell-review-minimap__flyout-snippet {
+		display: block;
+		font-size: 11px;
+		color: var(--text-secondary);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.shell-review-minimap__flyout-body {
+		font-size: 11px;
+		color: var(--text-primary);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.shell-review-minimap__flyout-actions {
+		display: flex;
+		gap: 4px;
+		margin-top: 2px;
+	}
+
+	.shell-review-minimap__flyout-actions button {
+		background: none;
+		border: 1px solid var(--border);
+		border-radius: 0;
+		color: var(--text-secondary);
+		font-size: 10px;
+		padding: 2px 6px;
+		cursor: pointer;
+		line-height: 1.4;
+	}
+
+	.shell-review-minimap__flyout-actions button:hover {
+		color: var(--text-primary);
+		border-color: var(--text-muted);
+	}
+}
+
+@layer app.themes {
+	/* Split from the shared `[data-theme="light"] .shell-terminal-tab:hover,
+	 * [data-theme="light"] .shell-review-tab:hover { background: ... }` rule —
+	 * the terminal half moved to modules/terminals.css (Task 5). */
+
+	[data-theme="light"] .shell-review-tab:hover {
+		background: rgba(0, 0, 0, 0.04);
+	}
+
+	[data-theme="light"] .shell-review-tab[data-state="active"],
+	[data-theme="light"] .shell-review-tab[data-state="active"]:hover {
+		box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.06);
+	}
+
+	[data-theme="warm"] .shell-review-tab:hover {
+		background: rgba(232, 133, 92, 0.08);
+	}
+
+	/* Light theme overrides for inline threads. The textarea half was
+	 * tokenized into tokens.css (`--inline-thread-textarea-bg`, slice 6) —
+	 * it set a real per-theme color swap, which spec §4.2 reserves for
+	 * tokens.css, not a module. This container rule is left verbatim: its
+	 * background/border-color already reference the exact same tokens
+	 * (`--panel-bg`, `--panel-border`) the base `.shell-inline-thread` rule
+	 * above uses, so it is a pre-existing no-op in every theme today — kept
+	 * as-is per the move-verbatim mandate rather than pruned. */
+	[data-theme="light"] .shell-inline-thread {
+		background: var(--panel-bg);
+		border-color: var(--panel-border);
+	}
+
+	/* Review chipbar status colors with --accent, which resolves to the dark
+ * bg2 step in TUI (see note above) — the ✓ clean pill rendered dark-on-dark.
+ * Pin it to the cursor accent like the session clean status; tint the clean
+ * pill to match (mirrors the dirty state's red). */
+	[data-theme="tui"] .shell-review-chipbar__status[data-state="clean"] {
+		background: color-mix(in srgb, var(--primary) 14%, transparent);
+		color: var(--primary);
+	}
+}

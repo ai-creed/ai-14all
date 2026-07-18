@@ -68,6 +68,13 @@
 	--pane-border-session-info: var(--panel-border);
 	--pane-border-terminal: var(--panel-border);
 	--pane-border-review: var(--panel-border);
+	/* Inline comment-thread textarea surface (review module, slice 6):
+	 * tokenized out of shell.css's `[data-theme="light"] .shell-inline-thread__
+	 * textarea` rule — a real per-theme color swap (dark/warm/tui write on the
+	 * app background; light instead uses the elevated popover surface for
+	 * contrast against its flat-white body), which spec §4.2 reserves for
+	 * tokens.css rather than a module's [data-theme] block. */
+	--inline-thread-textarea-bg: var(--app-bg);
 	--sha-color: #a78bfa;
 	--provider-claude: #d97706;
 	--provider-codex: #2563eb;
@@ -178,6 +185,9 @@
 	--pane-border-session-info: var(--panel-border);
 	--pane-border-terminal: var(--panel-border);
 	--pane-border-review: var(--panel-border);
+	/* Elevated popover surface reads better than the flat-white app background
+	 * for the inline-thread textarea (review module, slice 6). */
+	--inline-thread-textarea-bg: var(--panel-bg-elevated);
 	--sha-color: #6d4cbc;
 	--provider-claude: #b45309;
 	--provider-codex: #1d4ed8;
