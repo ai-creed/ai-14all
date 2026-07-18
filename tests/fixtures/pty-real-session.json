@@ -1,0 +1,216 @@
+{
+	"subscribe": {
+		"cols": 80,
+		"epoch": 1,
+		"watermark": 1
+	},
+	"pages": [
+		{
+			"epoch": 1,
+			"cols": 80,
+			"altScreen": false,
+			"watermark": 1,
+			"trimmedBefore": 0,
+			"rows": [
+				{
+					"line": 0,
+					"text": "~/repo on main",
+					"runs": [
+						{
+							"start": 0,
+							"len": 10,
+							"bold": true
+						},
+						{
+							"start": 10,
+							"len": 4,
+							"fg": 6,
+							"bold": true
+						}
+					]
+				},
+				{
+					"line": 1,
+					"text": "$ pnpm test",
+					"runs": [
+						{
+							"start": 0,
+							"len": 11
+						}
+					]
+				},
+				{
+					"line": 2,
+					"text": "✓ serializer emits wrapped flags for soft-wrapped continuation rows and keeps ex",
+					"runs": [
+						{
+							"start": 0,
+							"len": 1,
+							"fg": 2
+						},
+						{
+							"start": 1,
+							"len": 79
+						}
+					]
+				},
+				{
+					"line": 3,
+					"text": "plicit newline rows unflagged across every page boundary in the chain",
+					"runs": [
+						{
+							"start": 0,
+							"len": 69
+						}
+					],
+					"wrapped": true
+				},
+				{
+					"line": 4,
+					"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the ",
+					"runs": [
+						{
+							"start": 0,
+							"len": 80
+						}
+					]
+				},
+				{
+					"line": 5,
+					"text": "lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps",
+					"runs": [
+						{
+							"start": 0,
+							"len": 80
+						}
+					],
+					"wrapped": true
+				},
+				{
+					"line": 6,
+					"text": " over the lazy dog. ",
+					"runs": [
+						{
+							"start": 0,
+							"len": 20
+						}
+					],
+					"wrapped": true
+				},
+				{
+					"line": 7,
+					"text": "────────────────────────────────────────────────────────────────────────────────",
+					"runs": [
+						{
+							"start": 0,
+							"len": 80
+						}
+					]
+				},
+				{
+					"line": 8,
+					"text": "────────────────────",
+					"runs": [
+						{
+							"start": 0,
+							"len": 20
+						}
+					],
+					"wrapped": true
+				},
+				{
+					"line": 9,
+					"text": "error: fixture generated for reflow rendering tests",
+					"runs": [
+						{
+							"start": 0,
+							"len": 5,
+							"fg": 1
+						},
+						{
+							"start": 5,
+							"len": 46
+						}
+					]
+				},
+				{
+					"line": 10,
+					"text": "done",
+					"runs": [
+						{
+							"start": 0,
+							"len": 4
+						}
+					]
+				},
+				{
+					"line": 11,
+					"text": "",
+					"runs": []
+				},
+				{
+					"line": 12,
+					"text": "",
+					"runs": []
+				},
+				{
+					"line": 13,
+					"text": "",
+					"runs": []
+				},
+				{
+					"line": 14,
+					"text": "",
+					"runs": []
+				},
+				{
+					"line": 15,
+					"text": "",
+					"runs": []
+				},
+				{
+					"line": 16,
+					"text": "",
+					"runs": []
+				},
+				{
+					"line": 17,
+					"text": "",
+					"runs": []
+				},
+				{
+					"line": 18,
+					"text": "",
+					"runs": []
+				},
+				{
+					"line": 19,
+					"text": "",
+					"runs": []
+				},
+				{
+					"line": 20,
+					"text": "",
+					"runs": []
+				},
+				{
+					"line": 21,
+					"text": "",
+					"runs": []
+				},
+				{
+					"line": 22,
+					"text": "",
+					"runs": []
+				},
+				{
+					"line": 23,
+					"text": "",
+					"runs": []
+				}
+			],
+			"cursor": "WzEsMSwyM10",
+			"more": false
+		}
+	]
+}
