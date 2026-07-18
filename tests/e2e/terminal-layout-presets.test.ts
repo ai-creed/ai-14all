@@ -54,6 +54,19 @@ test.beforeAll(async () => {
 	await ensureWorkspaceLoaded();
 	// The worktree auto-creates one default shell occupying slot 0.
 	await expect(page.getByTestId("slot-0")).toBeVisible({ timeout: 20_000 });
+	// This suite's subject is layout reorganization, not confirmation — that
+	// behavior is covered by terminal-slot-chrome.spec.ts (terminal-ux-hardening
+	// spec). Disable both confirm prefs so restart/close flows below stay
+	// unmodified instead of parking a modal ConfirmDialog.
+	await page.evaluate(() =>
+		(
+			window as never as {
+				ai14all: { settings: { write: (p: unknown) => Promise<unknown> } };
+			}
+		).ai14all.settings.write({
+			terminalConfirm: { restart: false, close: false },
+		}),
+	);
 }, 90_000);
 
 test.afterAll(async () => {

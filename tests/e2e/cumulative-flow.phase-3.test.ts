@@ -31,6 +31,20 @@ test.beforeAll(async () => {
 		},
 	});
 	page = await app.firstWindow({ timeout: 60_000 });
+	// This suite's subject is the cumulative preset/attention flow, not
+	// confirmation — that behavior is covered by terminal-slot-chrome.spec.ts
+	// (terminal-ux-hardening spec). Disable both confirm prefs so the
+	// restart/close flow below stays unmodified instead of parking a modal
+	// ConfirmDialog (whose backdrop then blocks the follow-up close click).
+	await page.evaluate(() =>
+		(
+			window as never as {
+				ai14all: { settings: { write: (p: unknown) => Promise<unknown> } };
+			}
+		).ai14all.settings.write({
+			terminalConfirm: { restart: false, close: false },
+		}),
+	);
 }, 90_000);
 
 test.afterAll(async () => {
