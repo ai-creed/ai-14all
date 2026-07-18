@@ -272,9 +272,3 @@
 	.shell-list__item[data-selected="true"] {
 	border-color: var(--primary);
 }
-
-/* Plugins panel drops its drop-shadow too (missing from the box-shadow:none
- * group above because it isn't an overlay/popover). */
-[data-theme="tui"] .plugins-panel {
-	box-shadow: none;
-}
