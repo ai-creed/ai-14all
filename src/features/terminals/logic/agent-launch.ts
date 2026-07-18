@@ -8,6 +8,7 @@ import {
 	providerDef,
 	type AgentProviderId,
 } from "../../../../shared/models/agent-provider";
+import type { ProcessSession } from "../../../../shared/models/process-session";
 
 /** Stable left-to-right order of the launcher chips. */
 export const PROVIDER_ORDER = AGENT_PROVIDER_IDS;
@@ -137,4 +138,38 @@ export function advanceMountPending(
 	if (boundCount(whisperState) > state.baselineBound) return { kind: "idle" };
 	if (now - state.startedAt > MOUNT_PENDING_TIMEOUT_MS) return { kind: "idle" };
 	return state;
+}
+
+const MOUNT_COMMAND_PREFIX = "whisper collab mount ";
+
+export type CollabGlyphState = {
+	/** Pair identity only — the renderer appends the readiness suffix (spec §4). */
+	pairLabel: string;
+	/** True when both collab slots are bound (drives the tooltip suffix). */
+	ready: boolean;
+};
+
+/**
+ * Whether a pane hosts a live whisper-collab agent, and the pair label for
+ * its header glyph (terminal-ux-hardening spec §4). Non-null only when the
+ * pane was launched as a mount, the daemon is alive, and the pane's own
+ * agentType binding is bound. A collab mounted by hand-typing the command in
+ * a pre-existing shell has no matching process.command and shows no glyph
+ * (spec §9).
+ */
+export function collabGlyphState(
+	process: Pick<ProcessSession, "command">,
+	whisper: WhisperWorktreeState | undefined,
+): CollabGlyphState | null {
+	if (!process.command?.startsWith(MOUNT_COMMAND_PREFIX)) return null;
+	if (!whisper?.daemonAlive) return null;
+	const own = process.command.slice(MOUNT_COMMAND_PREFIX.length).trim();
+	const bound = whisper.bindings
+		.filter((b) => b.bindingState === "bound")
+		.map((b) => b.agentType);
+	if (!bound.includes(own)) return null;
+	if (bound.length >= 2) {
+		return { pairLabel: `collab: ${bound.join(" ⇄ ")}`, ready: true };
+	}
+	return { pairLabel: `collab: ${own} · waiting for peer`, ready: false };
 }

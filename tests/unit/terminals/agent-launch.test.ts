@@ -7,6 +7,7 @@ import {
 	advanceMountPending,
 	beginMountPending,
 	boundCount,
+	collabGlyphState,
 	collabStatus,
 	decideLaunch,
 	MOUNT_PENDING_TIMEOUT_MS,
@@ -211,6 +212,75 @@ describe("boundCount", () => {
 				}),
 			),
 		).toBe(1);
+	});
+});
+
+function whisperState(
+	bindings: { agentType: string; bindingState: string }[],
+	daemonAlive = true,
+) {
+	return {
+		worktreeId: "wt1",
+		collabId: "c1",
+		daemonAlive,
+		liveFeed: "socket",
+		bindings,
+		workflow: null,
+		escalation: null,
+		handoffs: [],
+	} as never;
+}
+
+describe("collabGlyphState", () => {
+	const mounted = { command: "whisper collab mount claude" };
+
+	it("both bound → pair label and ready flag (suffix is the RENDERER's job, spec §4)", () => {
+		const state = whisperState([
+			{ agentType: "claude", bindingState: "bound" },
+			{ agentType: "codex", bindingState: "bound" },
+		]);
+		expect(collabGlyphState(mounted, state)).toEqual({
+			pairLabel: "collab: claude ⇄ codex",
+			ready: true,
+		});
+	});
+
+	it("only own binding bound → waiting for peer, not ready", () => {
+		const state = whisperState([
+			{ agentType: "claude", bindingState: "bound" },
+			{ agentType: "codex", bindingState: "unbound" },
+		]);
+		expect(collabGlyphState(mounted, state)).toEqual({
+			pairLabel: "collab: claude · waiting for peer",
+			ready: false,
+		});
+	});
+
+	it("dead daemon → null", () => {
+		const state = whisperState(
+			[{ agentType: "claude", bindingState: "bound" }],
+			false,
+		);
+		expect(collabGlyphState(mounted, state)).toBeNull();
+	});
+
+	it("own binding pending_attach → null", () => {
+		const state = whisperState([
+			{ agentType: "claude", bindingState: "pending_attach" },
+		]);
+		expect(collabGlyphState(mounted, state)).toBeNull();
+	});
+
+	it("non-mount command and hand-typed mount in a plain shell → null", () => {
+		const state = whisperState([
+			{ agentType: "claude", bindingState: "bound" },
+		]);
+		expect(collabGlyphState({ command: "claude" }, state)).toBeNull();
+		expect(collabGlyphState({ command: null }, state)).toBeNull();
+	});
+
+	it("no whisper state → null", () => {
+		expect(collabGlyphState(mounted, undefined)).toBeNull();
 	});
 });
 
