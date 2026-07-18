@@ -122,7 +122,7 @@ module. Every rule lands in exactly one module.
 | Module | Content (current shell.css regions) |
 |---|---|
 | `base.css` | `@font-face` rules, body/root layout, **theme-invariant** root vars only (`--font-ui`, `--font-terminal`, `--font-reading`, `--font-size-*`), Icon/Nerd Font glyph rules — theme-varying tokens from shell.css's `:root` move to tokens.css instead (§4.1) |
-| `modules/primitives.css` | shared pills/chips, inline input+button row, tooltips |
+| `modules/primitives.css` | shared pills/chips, inline input+button row, tooltips, `.tui-box` box-drawing primitive (from tui.css; theme-neutral by design — "inert unless the class is used") |
 | `modules/sidebar.css` | workspace/session tree, collapsed rail, rollups, status tags, workflow lens |
 | `modules/terminals.css` | terminal frame, tabs, slot grid, empty-slot launchpad, floating shell, collab status, hybrid focus indicator, provider identity glyph |
 | `modules/review.css` | review chipbar, inline threads, viewed rows |
@@ -170,6 +170,18 @@ contract. The split is:
   `font-family` declaration — no theme overrides any of these.
 - tui.css's token redefinitions (tui.css:34–41) go to tokens.css's
   `[data-theme="tui"]` block, not to a module's `app.themes` block.
+- **Dead token retired — `--box-border-width`:** the `[data-theme="tui"]`
+  block's `--box-border-width: 1px` (tokens.css:263) is **deleted**. Its only
+  consumers are `.tui-box`'s own pseudo-element rules (tui.css:199–201), and
+  `.tui-box` itself declares `--box-border-width: 2px` (tui.css:187), which
+  shadows the theme value for every consumer — the declaration is unreachable,
+  so removal is render-neutral (rendered border width stays 2px). The property
+  is thereby reclassified as a component-local parameter of `.tui-box` (like
+  its `--box-border-color` / `--tui-box-bg` knobs) and migrates with the
+  `.tui-box` rules into `modules/primitives.css`. This is the sole property
+  declared in a current `[data-theme]` block that is also declared elsewhere
+  (verified by declaration scan), so after this retirement the §7 guard's
+  token-locality check holds across the whole tree.
 
 After that, tokens.css is the complete answer to "what makes a theme a theme":
 every custom property that varies by theme has its default **and** all its
@@ -199,6 +211,18 @@ Theme switching mechanism is unchanged:
 4. **New-theme recipe:** add one token block to tokens.css → run the
    ui-gallery screenshot capture across palettes → add structural overrides
    only where screenshots show breakage. No 6k-line audit.
+
+**Component-local parameters are not theme tokens.** A custom property
+declared on a component selector and consumed only within that component's
+subtree — `.tui-box`'s `--box-border-width`, its per-instance
+`--box-border-color` / `--tui-box-bg` knobs — is a parameter, not a theme
+token, and belongs in the component's module. The §7 guard stays compatible
+by construction: it only flags names that also appear in a `[data-theme]`
+block, which parameters by definition don't. (The one existing violation of
+that definition, `--box-border-width`'s dead tui-block declaration, is
+retired in the base slice per §4.1.) A parameter is promoted to a theme token
+the moment any theme wants to vary it — at which point ALL its declarations
+move to tokens.css and the component consumes `var(--*)` only.
 
 ### 4.3 Tokenize-vs-structural criterion
 
@@ -254,7 +278,9 @@ theme-varying defaults from shell.css's `:root` move into tokens.css's `:root`
 (dark) block, the light/warm blocks (shell.css:74–86, 113–125) into their
 tokens.css blocks, and tui.css's token redefinitions (tui.css:34–41) into the
 `[data-theme="tui"]` block — so tokens.css is the complete theme core from the
-first slice onward, and only theme-invariant vars land in base.css.
+first slice onward, and only theme-invariant vars land in base.css. The base
+slice also retires the dead `--box-border-width` declaration from tokens.css's
+tui block (§4.1), so the §7 token-locality guard holds from the first slice.
 
 Per-slice recipe:
 
