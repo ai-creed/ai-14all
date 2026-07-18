@@ -71,7 +71,7 @@ scope.
   collabGlyphState(
     process: ProcessSession,
     whisper: WhisperWorktreeState | undefined,
-  ): { pairLabel: string } | null
+  ): { pairLabel: string; ready: boolean } | null
   ```
 
   Returns non-null when ALL hold:
