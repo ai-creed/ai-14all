@@ -204,6 +204,23 @@ test.describe.serial("workspace sidebar surface", () => {
 				mask: [
 					sidebar.locator(".shell-sidebar__workspace-name"),
 					sidebar.locator(".shell-sidebar__item-head strong").first(),
+					// Every ".shell-sidebar__process" line reflects a REAL spawned
+					// shell, not deterministic fixture data: the process LABEL gets
+					// rewritten the moment the shell reports its own OSC title
+					// (e.g. `vuphan@vpmac:/private/...`, replacing the initial
+					// placeholder "shell 1"), the indicator dot flips idle → active
+					// at the ACTIVE_WINDOW_MS (10s) quiet boundary, and the context
+					// text is either a live output preview or the ticking
+					// "quiet Ns"/"quiet Nm" clock (sidebar-shell-summary.ts +
+					// use-ticking-now.ts's setInterval). All three race real wall
+					// clock time depending on when the screenshot lands relative to
+					// process spawn — not a CSS concern. `.shell-sidebar__process`
+					// is shared by the process row, the below-title session-status
+					// line, AND the ready-tier inline status span, so this one
+					// selector masks every live process/status line in the nav
+					// without touching the static row chrome (border, background,
+					// title) that this suite actually guards.
+					sidebar.locator(".shell-sidebar__process"),
 				],
 			});
 		});
