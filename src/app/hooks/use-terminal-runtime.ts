@@ -233,6 +233,12 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 					status: "exited",
 					exitCode: event.exitCode ?? null,
 					at: Date.now(),
+					// Pin the exit to its originating session. `findProcessByTerminalSessionId`
+					// resolves ownership from a ref that can lag a concurrent restart's
+					// rebind, so `process` may already point at a NEW session. The reducer
+					// drops this action when the process's current terminalSessionId no
+					// longer matches, keeping the restarted shell "running" (restart race).
+					onlyIfTerminalSessionId: event.sessionId,
 				};
 				applyActionForOwner(ownerWsId, action);
 				// `process` is a snapshot captured before applyActionForOwner ran,

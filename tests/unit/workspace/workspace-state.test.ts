@@ -3431,3 +3431,85 @@ describe("mcpReportingActive lifecycle (spec §5, D4)", () => {
 		expect(state.sessionsByWorktreeId.main.mcpReportingActive).toBe(false);
 	});
 });
+
+describe("session/updateProcessStatus — onlyIfTerminalSessionId stale-session guard (restart race)", () => {
+	// Build the exact restart-race shape: process P bound to terminal session S1,
+	// then rebound to a fresh S2 (session/replaceProcessTerminal) with its own
+	// authoritative status=running dispatch. The OLD S1's delayed PTY exit event
+	// arrives afterward pinned to S1. Because the rebind actions always reduce
+	// before the later-arriving exit action, the reducer can drop the stale exit
+	// by comparing the pin against the process's CURRENT terminalSessionId.
+	function rebound() {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("P", "main", "shell", { terminalSessionId: "S1" }),
+		});
+		// Restart rebinds P onto a brand-new terminal session S2 ...
+		state = workspaceReducer(state, {
+			type: "session/replaceProcessTerminal",
+			processId: "P",
+			terminalSessionId: "S2",
+		});
+		// ... and re-asserts status=running (the restart's OWN authoritative status
+		// dispatch — no pin, so it always applies).
+		state = workspaceReducer(state, {
+			type: "session/updateProcessStatus",
+			processId: "P",
+			status: "running",
+			exitCode: null,
+		});
+		return state;
+	}
+
+	it("drops a stale exit pinned to the OLD session so the rebound process stays running", () => {
+		const state = rebound();
+		expect(state.processSessionsById["P"]?.status).toBe("running");
+		expect(state.processSessionsById["P"]?.terminalSessionId).toBe("S2");
+
+		// The OLD terminal session S1 exits late; its event is pinned to S1 but P
+		// is now bound to S2 → the whole action is dropped.
+		const next = workspaceReducer(state, {
+			type: "session/updateProcessStatus",
+			processId: "P",
+			status: "exited",
+			exitCode: 0,
+			at: 5_000,
+			onlyIfTerminalSessionId: "S1",
+		});
+
+		expect(next.processSessionsById["P"]?.status).toBe("running");
+		expect(next.processSessionsById["P"]?.exitCode).toBeNull();
+		// Dropping the WHOLE action's effects is a referential no-op: no session
+		// side-effects (agentAttentionClearedAt / mcpReportingActive) applied either.
+		expect(next).toBe(state);
+	});
+
+	it("applies the exit when NO pin is supplied (today's behavior preserved)", () => {
+		const state = rebound();
+		const next = workspaceReducer(state, {
+			type: "session/updateProcessStatus",
+			processId: "P",
+			status: "exited",
+			exitCode: 0,
+			at: 5_000,
+		});
+		expect(next.processSessionsById["P"]?.status).toBe("exited");
+		expect(next.processSessionsById["P"]?.exitCode).toBe(0);
+	});
+
+	it("applies the exit when the pin MATCHES the current terminal session", () => {
+		const state = rebound();
+		const next = workspaceReducer(state, {
+			type: "session/updateProcessStatus",
+			processId: "P",
+			status: "exited",
+			exitCode: 0,
+			at: 5_000,
+			onlyIfTerminalSessionId: "S2",
+		});
+		expect(next.processSessionsById["P"]?.status).toBe("exited");
+		expect(next.processSessionsById["P"]?.exitCode).toBe(0);
+	});
+});

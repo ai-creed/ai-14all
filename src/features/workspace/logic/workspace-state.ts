@@ -155,6 +155,16 @@ export type WorkspaceAction =
 			exitCode?: number | null;
 			/** Event time; advances the session clear timestamp on a terminal transition (§4.2). */
 			at?: number;
+			/**
+			 * Stale-session guard for the restart race. When present, the action
+			 * applies only if the target process's CURRENT terminalSessionId still
+			 * equals this value; otherwise the WHOLE action is dropped. A restart
+			 * rebinds the process onto a new terminal session before the OLD
+			 * session's delayed exit event arrives, so pinning the exit to its
+			 * originating session lets the reducer discard a misattributed exit that
+			 * would otherwise flip a live, rebound process to "exited".
+			 */
+			onlyIfTerminalSessionId?: string;
 	  }
 	| {
 			type: "session/recordProcessOutput";
@@ -824,6 +834,19 @@ export function workspaceReducer(
 	if (action.type === "session/updateProcessStatus") {
 		const process = state.processSessionsById[action.processId];
 		if (!process) return state;
+		// Stale-session guard (restart race): a restart rebinds this process onto a
+		// new terminal session (session/replaceProcessTerminal) BEFORE the old
+		// session's delayed exit event arrives. When the caller pins the action to a
+		// specific terminal session and the process has since been rebound to a
+		// different one, this action originated from the now-defunct old session —
+		// drop the WHOLE action (status change AND the exit/restart side-effects
+		// below) so it cannot flip the live, rebound process to a terminal status.
+		if (
+			action.onlyIfTerminalSessionId !== undefined &&
+			process.terminalSessionId !== action.onlyIfTerminalSessionId
+		) {
+			return state;
+		}
 		// Reset agent detection when leaving "running" — the next shell incarnation
 		// will re-detect from its own command/OSC title. Re-set on transition back
 		// to "running" if the (still-known) command still matches an agent CLI.
