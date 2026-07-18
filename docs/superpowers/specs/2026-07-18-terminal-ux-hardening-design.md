@@ -117,9 +117,12 @@ type ConfirmDialogProps = {
 ```
 
 Destructive styling on the confirm button (`--danger` border/text). Confirm button receives
-initial focus; Esc / scrim click cancels (Radix defaults). Square corners and zero-duration
-motion come free from the existing theme layers. Reusable later by the five `window.confirm`
-call sites (not migrated here).
+initial focus; Esc / scrim click cancels (Radix defaults). Square corners come free in all
+themes (`--radius: 0rem` tokens). Motion: **zero-duration is TUI-only** (`tui.css:18-21`);
+dark/light/warm keep the dialog primitive's standard 200ms open/close animation
+(`dialog.tsx:46` `duration-200` + animate-in/out classes) — consistent with every other
+dialog in the app, and no ConfirmDialog-specific motion override is added. Reusable later by
+the five `window.confirm` call sites (not migrated here).
 
 ### 5.2 Gating
 
@@ -154,12 +157,15 @@ while open retargets the dialog.
   (`use-settings.tsx:66-71`) commits local state only after `settings.write` resolves, so a
   rejected write would drop the suppression on the floor. `update()` becomes optimistic:
   (1) apply the patch to context state synchronously (nested-merge mirroring `writeState`);
-  (2) fire the bridge write with a pending-writes counter; on resolve converge to the
-  returned merged settings, on reject swallow — suppression continues in-memory for the
-  session; (3) skip `onSettingsChanged` echoes while writes are in flight (the rewind guard
-  proven in `use-terminal-font-size.ts:100-107`). Because every confirm surface (slot panel,
-  floating handler, SettingsDialog) reads the same SettingsProvider context, the optimistic
-  value is shared — no panel-local state.
+  (2) fire the bridge write with a pending-writes counter, decremented on settle; **adopt a
+  resolved write's merged result only when the counter has reached zero** — an earlier
+  write's resolve while a later write is still in flight carries stale siblings (e.g.
+  `{restart:false}` resolving after `{close:false}` was applied optimistically would carry
+  `close:true` and rewind it; this is exactly the rewind the font-size guard prevents,
+  `use-terminal-font-size.ts:93-107`); on reject swallow — suppression continues in-memory
+  for the session; (3) skip `onSettingsChanged` echoes while writes are in flight (same
+  guard). Because every confirm surface (slot panel, floating handler, SettingsDialog) reads
+  the same SettingsProvider context, the optimistic value is shared — no panel-local state.
 - `SettingsDialog.tsx` gains two toggle rows (mockup normative) so suppressed warnings can be
   re-enabled.
 
@@ -177,6 +183,14 @@ so both surfaces inherit it without touching either click site: process live AND
 `terminalConfirm.close` is ask → the hook parks a pending-close (`{ processId } | null`)
 that App renders as the shared ConfirmDialog; exited or pref silent → immediate close. One
 preference (`terminalConfirm.close`), every close surface.
+
+**Automatic cleanup bypasses the gate.** The hook also closes shells programmatically: a
+clean `autoCloseOnZero` exit inside `runCommandInFloatingShell` calls
+`handleCloseFloatingShell` today (`use-floating-shell-actions.ts:253-258`). That is not a
+user-initiated destructive act — it must never park a confirmation. The close logic splits:
+an internal ungated `closeFloatingShellNow(processId)` performs the actual teardown, called
+by (a) the `autoCloseOnZero` cleanup path and (b) the ConfirmDialog's confirm callback; the
+exported `handleCloseFloatingShell` becomes the user-facing gate wrapper around it.
 
 ## 6. D3 — hybrid focus indicator
 
@@ -223,13 +237,12 @@ compounds. The all-theme `border-top: 2px` stacked separator already has parity 
 
 ## 8. Testing
 
-Placement follows AGENTS.md §Test File Layout: new tests live under `tests/unit/<domain>/`
-mirroring their source names; `tests/unit/components/` is a legacy catch-all and receives
-**no new files**.
+Placement follows AGENTS.md §Test File Layout, honoring where each source's tests
+**already live**: extend the existing file when one exists; create a new domain file only
+when none does. `tests/unit/components/` receives no new files.
 
-- **`tests/unit/terminals/`**: `agent-launch.test.ts` — `collabGlyphState` (bound pair /
-  single bound / daemon dead / `pending_attach` / non-mount command / hand-typed mount);
-  `TerminalPanel.test.tsx` —
+- **`tests/unit/app/TerminalPanel.test.tsx`** (extend — existing file; the source lives in
+  `src/app/components/`):
   - provider glyph per provider; for null/`"other"` a **structural guard**, not mere glyph
     absence: the header's child-node sequence is identical to today's (no wrapper node, no
     extra gap element) — assert via a header-children snapshot for both null and `"other"`;
@@ -242,23 +255,32 @@ mirroring their source names; `tests/unit/components/` is a legacy catch-all and
     click is silent; **a second Restart/Close click while the dialog is open retargets the
     single dialog** (title/action swap, no stacking);
   - `data-focus` transitions, **including the negative case: a focused header button
-    (Restart/Close) yields `active`/`none`, never `typing`**;
-  `ProviderLogo.test.tsx` — glyph set renders per id; `TerminalPane.test.tsx` (extends
-  existing coverage location if already drained, else new domain file) —
-  `onTypingFocusChange` fires on pane focus/blur only.
-- **`tests/unit/app/`**: `use-floating-shell-actions.test.ts` — the gated
+    (Restart/Close) yields `active`/`none`, never `typing`**.
+- **`tests/unit/terminals/`**: `agent-launch.test.ts` (extend — existing file) —
+  `collabGlyphState` (bound pair / single bound / daemon dead / `pending_attach` /
+  non-mount command / hand-typed mount); `ProviderLogo.test.tsx` (new) — glyph set renders
+  per id; `TerminalPane.test.tsx` — extend the existing legacy
+  `tests/unit/components/TerminalPane.test.tsx`, migrating it to this domain per the
+  opportunistic-drain rule since D3 touches its source — `onTypingFocusChange` fires on
+  pane focus/blur only.
+- **`tests/unit/app/`** (hooks): `use-floating-shell-actions.test.ts` (new) — the gated
   `handleCloseFloatingShell`: live + ask → pending-close parked (dialog state), confirm
-  closes, cancel does not; pref silent → immediate close; exited → immediate close. Both
-  entry surfaces (popover Kill, pill Kill) call the same handler, so this covers both;
-  `use-settings.test.tsx` (extend) — **optimistic update: a rejected `settings.write` keeps
-  the patched value in context (silent), and a consumer reading the context after the
-  rejection still sees the suppression** (cross-surface sharing = same provider context);
-  echo received mid-flight does not rewind the optimistic value.
-- **`tests/unit/settings/`**: `persisted-settings.test.ts` — schema defaults + bare-patch
-  behavior; `settings-service.test.ts` — **sequential partial writes preserve siblings:
-  write `{ terminalConfirm: { close: false } }`, then `{ terminalConfirm: { restart:
-  false } }` → both remain `false`**; `SettingsDialog.test.tsx` — the two confirm toggles
-  render and write.
+  closes via `closeFloatingShellNow`, cancel does not; pref silent → immediate close;
+  exited → immediate close; **clean `autoCloseOnZero` exit closes immediately with no
+  dialog regardless of pref** (bypass path). Both user surfaces (popover Kill, pill Kill)
+  call the same handler, so this covers both. `use-settings.test.tsx` (extend — existing
+  file) — **optimistic update: a rejected `settings.write` keeps the patched value in
+  context (silent), and a consumer reading the context after the rejection still sees the
+  suppression**; echo received mid-flight does not rewind the optimistic value; **two
+  overlapping writes: `{restart:false}` then `{close:false}` where the first write resolves
+  while the second is in flight → both stay `false`** (converge-at-zero).
+- **`tests/unit/models/persisted-settings.test.ts`** (extend — existing file) — schema
+  defaults + bare-patch behavior. **`tests/unit/services/settings/settings-service.test.ts`**
+  (extend — existing file) — **sequential partial writes preserve siblings: write
+  `{ terminalConfirm: { close: false } }`, then `{ terminalConfirm: { restart: false } }` →
+  both remain `false`**.
+- **`tests/unit/settings/SettingsDialog.test.tsx`** (extend — existing file) — the two
+  confirm toggles render and write.
 - **Focus-test pitfall** (mem-2026-06-15): simulate terminal focus with a real
   `<textarea class="xterm-helper-textarea">` inside the pane as the focus target — a plain
   `<div>` stand-in has previously produced false-passing focus tests in this repo.
