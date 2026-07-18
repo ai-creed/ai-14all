@@ -426,3 +426,20 @@
 [data-theme="tui"] .plugins-panel {
 	box-shadow: none;
 }
+
+/* Terminal slots are exempt from the 2px box-drawing chrome — the pane grid
+ * multiplies every border by adjacent panes and the weight compounds
+ * (terminal-ux-hardening spec §7, scoped amendment to tui-css-spec D3).
+ * The stacked-pane border-top separator (shell.css) stays 2px in ALL themes. */
+[data-theme="tui"] .shell-terminal-slot {
+	border-width: 1px;
+}
+[data-theme="tui"] .shell-terminal-slot__header {
+	border-bottom-width: 1px;
+}
+
+/* Collab pair glyph leads with the cursor accent here; --info stays for the
+ * other palettes (terminal-ux-hardening spec §4). */
+[data-theme="tui"] .shell-terminal-slot__collab {
+	color: var(--primary);
+}
