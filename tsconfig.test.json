@@ -9,6 +9,7 @@
 		"electron",
 		"shared",
 		"services",
+		"scripts",
 		"tests/unit",
 		"tests/e2e/fixtures",
 		"tests/setup.ts"
