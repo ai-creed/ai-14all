@@ -835,12 +835,15 @@ export function workspaceReducer(
 		const process = state.processSessionsById[action.processId];
 		if (!process) return state;
 		// Stale-session guard (restart race): a restart rebinds this process onto a
-		// new terminal session (session/replaceProcessTerminal) BEFORE the old
-		// session's delayed exit event arrives. When the caller pins the action to a
-		// specific terminal session and the process has since been rebound to a
-		// different one, this action originated from the now-defunct old session —
-		// drop the WHOLE action (status change AND the exit/restart side-effects
-		// below) so it cannot flip the live, rebound process to a terminal status.
+		// new terminal session (session/replaceProcessTerminal). When the caller
+		// pins the action to a specific terminal session and the process has since
+		// been rebound to a different one, this action originated from the
+		// now-defunct old session — drop the WHOLE action (status change AND the
+		// exit/restart side-effects below) so it cannot flip the live, rebound
+		// process to a terminal status. The old session's exit may also reduce
+		// BEFORE the rebind (it then legitimately matches and applies); correctness
+		// there rests on the invariant that every rebind path dispatches its own
+		// authoritative unpinned status right after replaceProcessTerminal.
 		if (
 			action.onlyIfTerminalSessionId !== undefined &&
 			process.terminalSessionId !== action.onlyIfTerminalSessionId
