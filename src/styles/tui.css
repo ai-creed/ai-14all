@@ -68,6 +68,19 @@
 	animation: tui-attention-blink 1.2s steps(1, end) infinite;
 }
 
+/* Reduced-motion freeze for the blink above (slice 4 follow-up). This lives
+ * beside its base rule rather than in modules/sidebar.css's app.themes
+ * reduced-motion block: .shell-button__pulse-dot is a button primitive, not
+ * sidebar-owned, and this file is unlayered while sidebar.css is layered — an
+ * unlayered freeze here beats this file's own unlayered blink above by source
+ * order alone, instead of depending on a layered rule elsewhere that
+ * unlayered CSS would beat regardless of order. */
+@media (prefers-reduced-motion: reduce) {
+	[data-theme="tui"] .shell-button__pulse-dot {
+		animation: none;
+	}
+}
+
 /* ---- Box-drawing utility (spec §7, WebTUI box technique) --------------- */
 
 /* Pads the element by one character cell and draws the border on a

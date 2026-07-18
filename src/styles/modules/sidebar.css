@@ -1302,8 +1302,7 @@
 	@media (prefers-reduced-motion: reduce) {
 		[data-theme="tui"] .shell-sidebar__row[data-attention]::before,
 		[data-theme="tui"] .shell-sidebar__row[data-attention],
-		[data-theme="tui"] .shell-sidebar__process-indicator,
-		[data-theme="tui"] .shell-button__pulse-dot {
+		[data-theme="tui"] .shell-sidebar__process-indicator {
 			animation: none;
 		}
 		/* Blink frozen — surface attention as a static single border instead.
