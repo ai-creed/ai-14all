@@ -157,15 +157,19 @@ while open retargets the dialog.
   (`use-settings.tsx:66-71`) commits local state only after `settings.write` resolves, so a
   rejected write would drop the suppression on the floor. `update()` becomes optimistic:
   (1) apply the patch to context state synchronously (nested-merge mirroring `writeState`);
-  (2) fire the bridge write with a pending-writes counter, decremented on settle; **adopt a
-  resolved write's merged result only when the counter has reached zero** — an earlier
-  write's resolve while a later write is still in flight carries stale siblings (e.g.
-  `{restart:false}` resolving after `{close:false}` was applied optimistically would carry
-  `close:true` and rewind it; this is exactly the rewind the font-size guard prevents,
-  `use-terminal-font-size.ts:93-107`); on reject swallow — suppression continues in-memory
-  for the session; (3) skip `onSettingsChanged` echoes while writes are in flight (same
-  guard). Because every confirm surface (slot panel, floating handler, SettingsDialog) reads
-  the same SettingsProvider context, the optimistic value is shared — no panel-local state.
+  (2) fire the bridge write with a monotonically increasing issue-id and a pending-writes
+  counter; **adopt a resolved write's merged result only when that write is the
+  latest-issued one** — an older write's resolve carries siblings that predate newer
+  optimistic patches whether it settles in order or out of order (e.g. `{restart:false}`
+  resolving while `{close:false}` is still in flight carries `close:true` and must never
+  be adopted; a plain converge-at-zero rule fails exactly this out-of-order case). The
+  latest write's merged result is always safe: the service merges writes in call order, so
+  it already contains every older patch. Older resolves converge via the
+  `onSettingsChanged` echo once no writes are pending. On reject swallow — suppression
+  continues in-memory for the session; (3) skip `onSettingsChanged` echoes while writes
+  are in flight (the rewind guard proven in `use-terminal-font-size.ts:93-107`). Because
+  every confirm surface (slot panel, floating handler, SettingsDialog) reads the same
+  SettingsProvider context, the optimistic value is shared — no panel-local state.
 - `SettingsDialog.tsx` gains two toggle rows (mockup normative) so suppressed warnings can be
   re-enabled.
 
@@ -271,9 +275,11 @@ when none does. `tests/unit/components/` receives no new files.
   call the same handler, so this covers both. `use-settings.test.tsx` (extend — existing
   file) — **optimistic update: a rejected `settings.write` keeps the patched value in
   context (silent), and a consumer reading the context after the rejection still sees the
-  suppression**; echo received mid-flight does not rewind the optimistic value; **two
-  overlapping writes: `{restart:false}` then `{close:false}` where the first write resolves
-  while the second is in flight → both stay `false`** (converge-at-zero).
+  suppression**; **a stale `onSettingsChanged` echo delivered while a write is pending is
+  ignored** (invoke the captured callback mid-flight); **two overlapping writes:
+  `{restart:false}` then `{close:false}` where the FIRST write resolves while the second is
+  still in flight → both stay `false`** (latest-issued write wins; older resolves are never
+  adopted).
 - **`tests/unit/models/persisted-settings.test.ts`** (extend — existing file) — schema
   defaults + bare-patch behavior. **`tests/unit/services/settings/settings-service.test.ts`**
   (extend — existing file) — **sequential partial writes preserve siblings: write
