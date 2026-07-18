@@ -6580,3 +6580,45 @@ select {
 	color: var(--text-primary);
 	border-color: var(--text-muted);
 }
+
+/* ---- Confirm dialog (terminal-ux-hardening spec §5.1) ------------------ */
+.shell-confirm-dialog {
+	max-width: 400px;
+	font-size: 13px;
+}
+.shell-confirm-dialog__title {
+	font-size: 14px;
+}
+.shell-confirm-dialog__body {
+	font-size: 12px;
+	line-height: 1.55;
+}
+.shell-confirm-dialog__dontask {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 12px;
+	color: var(--text-secondary);
+	cursor: pointer;
+	user-select: none;
+}
+.shell-confirm-dialog__actions button {
+	font: inherit;
+	font-size: 12px;
+	padding: 5px 14px;
+	cursor: pointer;
+	background: none;
+	border: 1px solid var(--panel-border-strong);
+	border-radius: var(--radius-sm);
+	color: var(--text-primary);
+}
+.shell-confirm-dialog__actions button:hover {
+	background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+}
+.shell-confirm-dialog__actions button.shell-confirm-dialog__confirm {
+	border-color: var(--danger);
+	color: var(--danger);
+}
+.shell-confirm-dialog__actions button.shell-confirm-dialog__confirm:hover {
+	background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
