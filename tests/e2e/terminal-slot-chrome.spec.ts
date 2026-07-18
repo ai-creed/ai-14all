@@ -68,11 +68,15 @@ test.afterAll(async () => {
 /**
  * Wait for slot 0's process to settle into "running" (data-status on
  * slot-badge-0, TerminalPanel.tsx). `requestSlotAction` only shows a confirm
- * dialog when `process.status === "running"` — a process still transitioning
- * (freshly started or freshly restarted) bypasses confirmation entirely, so
- * an immediate close/restart hard on the heels of a start/restart is a real
- * race (observed empirically: an immediate close right after a restart/start
- * silently emptied the slot instead of showing the dialog). Settle before any
+ * dialog when `process.status === "running"`, so a freshly started or freshly
+ * restarted shell that has not yet reported "running" would bypass the gate.
+ * That start transition is an ordinary timing window this poll outlasts.
+ *
+ * The old, PERMANENT failure mode — a restart's OLD terminal session firing a
+ * delayed exit that got misattributed to the rebound process, sticking its
+ * status at "exited" so no wait could recover it — is fixed reducer-side: the
+ * exit action now carries `onlyIfTerminalSessionId`, and the reducer drops it
+ * when the process has already been rebound to a new session. Settle before any
  * subsequent slot action that expects confirm-dialog behavior.
  */
 async function waitForSlotRunning(slotIndex = 0): Promise<void> {
@@ -102,32 +106,6 @@ async function startShellInSlot0() {
 	}
 	await expect(page.getByTestId("slot-restart-0")).toBeVisible();
 	await waitForSlotRunning();
-}
-
-/**
- * Replace whatever currently occupies slot 0 with a guaranteed-fresh shell.
- * Closes the current occupant tolerantly — a confirm dialog may or may not
- * appear, depending on whether the pre-existing restart/exit-event race
- * documented on the restart-independence test below has mis-flagged this
- * particular process — then starts a brand new one via `startShellInSlot0`.
- * Used to isolate an assertion from a process left behind by a PRECEDING
- * test's restart, rather than assuming its status is trustworthy.
- */
-async function ensureFreshShellInSlot0(): Promise<void> {
-	if (
-		await page
-			.getByTestId("slot-close-0")
-			.isVisible()
-			.catch(() => false)
-	) {
-		await page.getByTestId("slot-close-0").click();
-		const maybeDialog = page.getByTestId("confirm-dialog");
-		if (await maybeDialog.isVisible({ timeout: 2_000 }).catch(() => false)) {
-			await page.getByTestId("confirm-dialog-confirm").click();
-		}
-		await expect(page.getByTestId("slot-cta-0")).toBeVisible();
-	}
-	await startShellInSlot0();
 }
 
 async function slotSessionId(): Promise<string | null> {
@@ -206,23 +184,38 @@ test("close on a live shell confirms; cancel keeps it; confirm empties the slot"
 	await expect(page.getByTestId("slot-cta-0")).toBeVisible();
 });
 
-test("restart replaces the terminal session and keeps the slot populated", async () => {
+test("restart replaces the session, settles running, and still gates a live close", async () => {
 	await startShellInSlot0();
 	const before = await slotSessionId();
 	expect(before).not.toBeNull();
 	await page.getByTestId("slot-restart-0").click();
 	await page.getByTestId("confirm-dialog-confirm").click();
+	// (i) the terminal session id changes to the fresh replacement ...
 	await expect.poll(async () => slotSessionId()).not.toBe(before);
-	// Restart must never be satisfiable by a close: the slot stays populated.
+	// (ii) ... and the slot stays populated — restart is never satisfiable by a
+	// close.
 	await expect(page.getByTestId("slot-restart-0")).toBeVisible();
+	// (iii) the restarted shell settles back to "running". The OLD session's
+	// delayed exit is dropped reducer-side (updateProcessStatus's
+	// onlyIfTerminalSessionId pin) instead of misattributing "exited" to the
+	// rebound process, so the badge reliably reaches running.
+	await waitForSlotRunning();
+	// (iv) the confirm gate is honored on the LIVE replacement: close now opens
+	// the dialog (requestSlotAction only confirms a "running" process). Cancel to
+	// leave the shell in place for the following tests.
+	await page.getByTestId("slot-close-0").click();
+	await expect(page.getByTestId("confirm-dialog")).toBeVisible();
+	await page.getByTestId("confirm-dialog-cancel").click();
+	await expect(page.getByTestId("confirm-dialog")).toHaveCount(0);
 });
 
 test("don't-ask-again silences close; the Settings toggle re-arms it", async () => {
-	// Guarantee a fresh shell before the first close below: the previous
-	// test's restart can leave slot 0's process mis-flagged by the
-	// restart/exit-event race documented on the restart-independence test —
-	// see ensureFreshShellInSlot0's doc comment.
-	await ensureFreshShellInSlot0();
+	// The preceding restart test leaves slot 0 holding a live, running shell.
+	// With the restart race fixed reducer-side (updateProcessStatus's
+	// onlyIfTerminalSessionId pin), that inherited shell reliably reports
+	// "running", so the first close below opens the gate — no fresh-shell
+	// sidestep needed; just settle on running first.
+	await waitForSlotRunning();
 	await page.getByTestId("slot-close-0").click();
 	await page.getByTestId("confirm-dialog-dontask").check();
 	await page.getByTestId("confirm-dialog-confirm").click();
@@ -257,31 +250,24 @@ test("don't-ask-again silences restart independently — close still asks", asyn
 	await page.getByTestId("slot-restart-0").click();
 	await expect(page.getByTestId("confirm-dialog")).toHaveCount(0);
 	await expect.poll(async () => slotSessionId()).not.toBe(mid);
-	// Close's independent pref is untouched — it still asks. Verified against a
-	// FRESH shell rather than the one just restarted twice above.
+	// Close's independent pref is untouched — it still asks. Verified DIRECTLY
+	// against the shell just restarted twice above (no fresh-shell sidestep).
 	//
-	// Root-caused (not guessed): a pre-existing backend race in the shared
-	// terminal runtime, unrelated to this feature slice. `onExit`
-	// (use-terminal-runtime.ts) resolves the exiting session's OWNER via
+	// This used to require a fresh shell to dodge a restart/exit-event race:
+	// `onExit` (use-terminal-runtime.ts) resolves the exiting session's OWNER via
 	// `findProcessByTerminalSessionId`, which reads `appWorkspacesRef` — a ref
 	// that only catches up on the next render. `handleRestartProcess`
 	// (use-process-actions.ts) kills the OLD terminal session and rebinds the
 	// slot to a new one; when the OLD session's real "exit" event (from that
-	// kill) is still in flight while the ref hasn't yet caught up to the
-	// rebind, it can be attributed to the (already-rebound) process, flipping
-	// its `status` from "running" straight to "exited". `requestSlotAction`
-	// only confirms a "running" process, so a close aimed at that mis-flagged
-	// process silently bypasses the dialog — independent of the close setting
-	// this test verifies. Confirmed empirically: reproduces consistently
-	// immediately after a restart, and an explicit 2s settle after each
-	// restart does not avoid it (the misattribution is not a transient window
-	// a wait can outlast — once it lands, `status` never self-corrects back to
-	// "running"). Fixing the race is out of scope for this acceptance slice
-	// (core terminal lifecycle code, not this feature's chrome); a fresh shell
-	// sidesteps it — proven unaffected by this bug elsewhere in this same file
-	// (the startShellInSlot0()-then-close sequences above never hit it, since
-	// a plain create has no prior session to race against).
-	await ensureFreshShellInSlot0();
+	// kill) was still in flight while the ref hadn't caught up to the rebind, it
+	// was attributed to the already-rebound process, flipping its `status` from
+	// "running" straight to "exited". `requestSlotAction` only confirms a
+	// "running" process, so a close aimed at that mis-flagged process silently
+	// bypassed the dialog. That is now fixed reducer-side: the exit action carries
+	// `onlyIfTerminalSessionId`, and the reducer drops it when the process has
+	// already been rebound to a new terminal session — so the restarted shell
+	// reliably stays "running" and the gate is honored on it directly.
+	await waitForSlotRunning();
 	await page.getByTestId("slot-close-0").click();
 	await expect(page.getByTestId("confirm-dialog")).toBeVisible();
 	await page.getByTestId("confirm-dialog-cancel").click();
