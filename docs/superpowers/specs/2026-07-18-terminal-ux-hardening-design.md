@@ -138,6 +138,12 @@ while open retargets the dialog.
   (`true` = ask).
 - `SettingsPatchSchema` gains a **bare** `TerminalConfirmPatchSchema { restart?: boolean;
   close?: boolean }` — per the in-file zod v4 nested-patch gotcha.
+- `services/settings/settings-service.ts` — `writeState()` gains a `terminalConfirm`
+  deep-merge branch alongside the existing `usageTelemetry` / `phoneBridge` branches
+  (`settings-service.ts:122-141`). Without it a partial patch replaces the whole nested
+  object and zod re-defaults the omitted sibling to `true` (e.g. suppressing restart would
+  silently re-enable a suppressed close warning). That merge block stays the single source of
+  truth for nested patches.
 - Renderer reads via the SettingsProvider (`initialSettings()` + `onSettingsChanged`); ticking
   "Don't ask again" writes `settings.write({ terminalConfirm: { restart: false } })` (or
   `close`). Write failures are silent; in-memory state continues (same posture as
@@ -145,22 +151,30 @@ while open retargets the dialog.
 - `SettingsDialog.tsx` gains two toggle rows (mockup normative) so suppressed warnings can be
   re-enabled.
 
-### 5.4 Floating throwaway shell
+### 5.4 Floating throwaway shell — close-only
 
-The floating shell's equivalent close/restart affordances (`FloatingShellPopover` /
-`use-floating-shell-actions`) route through the same gate and prefs. Exact wiring is a plan-time
-detail; behavior contract is identical.
+The floating shell exposes exactly one destructive affordance: the Kill button
+(`FloatingShellPopover.tsx:285-290`, `data-testid="floating-shell-close"` →
+`handleCloseFloatingShell` in `use-floating-shell-actions.ts:50`). **No restart affordance
+exists on floating shells and none is added** (§9). The Kill click routes through the same
+close gate: process live AND `terminalConfirm.close` is ask → ConfirmDialog; exited or pref
+silent → immediate. It shares the `terminalConfirm.close` pref with slot close — one
+preference, every close surface.
 
 ## 6. D3 — hybrid focus indicator
 
 - The slot div in `TerminalPanel` carries `data-focus="typing" | "active" | "none"`:
-  - `typing` — DOM focus is inside the slot (React `onFocus`/`onBlur` on the slot div; focus
-    events bubble from xterm's focus sink, the hidden
-    `<textarea class="xterm-helper-textarea">` inside the pane
-    (mem-2026-06-15-xterm-s-focus-sink); `onBlur` checks
-    `currentTarget.contains(relatedTarget)` to ignore intra-slot moves). The find bar counts as
-    typing — its keystrokes stay local to the pane. Intended. No shortcut-gating change:
-    `targetOwnsTyping` is untouched.
+  - `typing` — DOM focus is inside the **TerminalPane section** (`.shell-terminal-pane`),
+    NOT the whole slot div. The pane section contains exactly the surfaces whose keystrokes
+    stay local to the pty: xterm's focus sink, the hidden
+    `<textarea class="xterm-helper-textarea">` (mem-2026-06-15-xterm-s-focus-sink), and the
+    find bar. The slot header (Promote / Refit / Restart / Close buttons) is a **sibling**
+    of the pane section — a focused header button must NOT read as typing, since the pty
+    cannot receive keystrokes then. Contract: `TerminalPane` gains an
+    `onTypingFocusChange(hasFocus: boolean)` prop, driven by React `onFocus`/`onBlur` on its
+    root section with a `currentTarget.contains(relatedTarget)` check to ignore intra-pane
+    moves; `TerminalPanel` combines that with active-pane state to stamp `data-focus`. No
+    shortcut-gating change: `targetOwnsTyping` is untouched.
   - `active` — `process.id === activeSession.activeProcessSessionId` and not `typing`.
   - `none` — otherwise.
 - CSS (`shell.css`, all themes):
@@ -192,24 +206,44 @@ compounds. The all-theme `border-top: 2px` stacked separator already has parity 
 
 ## 8. Testing
 
-- **Unit** (`tests/unit/`): `collabGlyphState` (bound pair / single bound / daemon dead /
-  `pending_attach` / non-mount command / hand-typed mount); confirm gating matrix
-  (live × pref ask/silent, exited skips); settings schema defaults + nested patch merge
-  preserves the sibling key; focus-state derivation.
-- **Component** (`tests/unit/components/`, TerminalPanel): provider glyph renders per provider
-  and absent for null/"other"; collab glyph condition; restart click opens dialog; confirm
-  invokes handler; cancel does not; don't-ask-again writes the patch and the next click is
-  silent; exited close skips the dialog; `data-focus` transitions.
+Placement follows AGENTS.md §Test File Layout: new tests live under `tests/unit/<domain>/`
+mirroring their source names; `tests/unit/components/` is a legacy catch-all and receives
+**no new files**.
+
+- **`tests/unit/terminals/`**: `agent-launch.test.ts` — `collabGlyphState` (bound pair /
+  single bound / daemon dead / `pending_attach` / non-mount command / hand-typed mount);
+  `TerminalPanel.test.tsx` — provider glyph per provider and absent for null/`"other"`;
+  collab glyph condition; restart click opens dialog; confirm invokes handler; cancel does
+  not; don't-ask-again writes the patch and the next click is silent; exited close skips the
+  dialog; `data-focus` transitions, **including the negative case: a focused header button
+  (Restart/Close) yields `active`/`none`, never `typing`**; `ProviderLogo.test.tsx` — glyph
+  set renders per id; `TerminalPane.test.tsx` (extends existing coverage location if already
+  drained, else new domain file) — `onTypingFocusChange` fires on pane focus/blur only.
+- **`tests/unit/settings/`**: `persisted-settings.test.ts` — schema defaults + bare-patch
+  behavior; `settings-service.test.ts` — **sequential partial writes preserve siblings:
+  write `{ terminalConfirm: { close: false } }`, then `{ terminalConfirm: { restart:
+  false } }` → both remain `false`**; `SettingsDialog.test.tsx` — the two confirm toggles
+  render and write.
 - **Focus-test pitfall** (mem-2026-06-15): simulate terminal focus with a real
   `<textarea class="xterm-helper-textarea">` inside the pane as the focus target — a plain
   `<div>` stand-in has previously produced false-passing focus tests in this repo.
-- Existing e2e suites rely on `data-testid` / `data-attention` attributes that are unchanged.
+- **E2E** (AGENTS.md §Verification: new user-visible behavior is not done until the e2e
+  suite covers it; extend, never replace): new `tests/e2e/terminal-slot-chrome.spec.ts` —
+  (a) agent pane header shows the provider glyph, plain shell does not; (b) Restart/Close
+  click on a live shell opens the confirm dialog; cancel keeps the pty alive; confirm kills
+  it; (c) don't-ask-again → subsequent click is silent, and the Settings toggle re-arms the
+  warning; (d) `data-focus` flips to `typing` when the pane is clicked and away when an
+  overlay input takes focus; (e) TUI theme: computed slot `border-width` is `1px` while a
+  sidebar panel keeps `2px`. Existing suites' `data-testid` / `data-attention` contracts are
+  unchanged.
 - TDD throughout (project workflow).
 
 ## 9. Out of scope
 
 - Migrating the five existing `window.confirm` call sites to ConfirmDialog.
 - Focus indicator on the floating throwaway shell.
+- A restart affordance for floating shells (none exists today; D2 gates the existing Kill
+  button only).
 - Provider logos on other surfaces (sidebar process rows, chrome bar).
 - Collab glyph for hand-typed `whisper collab mount` in a pre-existing shell.
 - Any change to attention states, blink animations, or the stacked-pane separator.
@@ -227,12 +261,18 @@ compounds. The all-theme `border-top: 2px` stacked separator already has parity 
 
 ## 11. File map (plan slices per item; each slice ≤3 files)
 
-| Item | Files |
+Each slice touches at most three source files; its tests live in the mirrored domain per §8
+and accompany the slice.
+
+| Slice | Files (≤3 each) |
 | --- | --- |
-| D1 | `ProviderLogo.tsx` (new), `TerminalPanel.tsx`, `shell.css` |
-| D1b | `agent-launch.ts`, `TerminalPanel.tsx`, `App.tsx`, `tui.css` (tint re-point) |
-| D2a (schema) | `persisted-settings.ts` |
+| D1 (glyph) | `ProviderLogo.tsx` (new), `TerminalPanel.tsx`, `shell.css` |
+| D1b-i (helper) | `agent-launch.ts` |
+| D1b-ii (wiring) | `TerminalPanel.tsx`, `App.tsx` |
+| D2a (persistence) | `persisted-settings.ts`, `services/settings/settings-service.ts` |
 | D2b (dialog) | `confirm-dialog.tsx` (new), `shell.css` |
-| D2c (wiring) | `TerminalPanel.tsx`, `SettingsDialog.tsx`, floating-shell files |
-| D3 | `TerminalPanel.tsx`, `shell.css` |
-| D4 | `tui.css` |
+| D2c (slot wiring) | `TerminalPanel.tsx`, `SettingsDialog.tsx` |
+| D2d (floating close) | `FloatingShellPopover.tsx`, `use-floating-shell-actions.ts` |
+| D3 (focus) | `TerminalPane.tsx`, `TerminalPanel.tsx`, `shell.css` |
+| D4 + D1b tint (TUI) | `tui.css` (slot 1px exemption + collab glyph `--primary` re-point) |
+| E2E | `tests/e2e/terminal-slot-chrome.spec.ts` (new) |
