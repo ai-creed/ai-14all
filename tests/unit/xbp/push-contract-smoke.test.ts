@@ -12,7 +12,7 @@ import {
 describe("push-token contract surface (v4)", () => {
 	it("exposes register/deregister under control:notify", () => {
 		expect(CONTROL_NOTIFY).toBe("control:notify");
-		expect(COMMAND_CONTRACT_VERSION).toBe(4);
+		expect(COMMAND_CONTRACT_VERSION).toBe(5);
 		expect(registerPushTokenCapability.id).toBe(
 			"xavier.control.register-push-token",
 		);

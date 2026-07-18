@@ -36,7 +36,7 @@
 		"diag:attention": "node scripts/dump-attention-log.mjs"
 	},
 	"dependencies": {
-		"@ai-creed/command-contract": "file:vendor/ai-creed-command-contract-0.1.0-alpha.3.tgz",
+		"@ai-creed/command-contract": "file:vendor/ai-creed-command-contract-0.1.0-alpha.4.tgz",
 		"@fontsource-variable/hanken-grotesk": "^5.2.8",
 		"@modelcontextprotocol/sdk": "^1.29.0",
 		"@monaco-editor/react": "^4.7.0",
@@ -84,7 +84,7 @@
 			"better-sqlite3"
 		],
 		"overrides": {
-			"@ai-creed/command-contract": "file:vendor/ai-creed-command-contract-0.1.0-alpha.3.tgz"
+			"@ai-creed/command-contract": "file:vendor/ai-creed-command-contract-0.1.0-alpha.4.tgz"
 		}
 	},
 	"devDependencies": {

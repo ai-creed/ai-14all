@@ -5,15 +5,15 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@ai-creed/command-contract': file:vendor/ai-creed-command-contract-0.1.0-alpha.3.tgz
+  '@ai-creed/command-contract': file:vendor/ai-creed-command-contract-0.1.0-alpha.4.tgz
 
 importers:
 
   .:
     dependencies:
       '@ai-creed/command-contract':
-        specifier: file:vendor/ai-creed-command-contract-0.1.0-alpha.3.tgz
-        version: file:vendor/ai-creed-command-contract-0.1.0-alpha.3.tgz
+        specifier: file:vendor/ai-creed-command-contract-0.1.0-alpha.4.tgz
+        version: file:vendor/ai-creed-command-contract-0.1.0-alpha.4.tgz
       '@fontsource-variable/hanken-grotesk':
         specifier: ^5.2.8
         version: 5.2.8
@@ -237,9 +237,9 @@ packages:
   '@adobe/css-tools@4.4.4':
     resolution: {integrity: sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg==}
 
-  '@ai-creed/command-contract@file:vendor/ai-creed-command-contract-0.1.0-alpha.3.tgz':
-    resolution: {integrity: sha512-JSy8ySnjdEneAe5KYgqP9MTWm61oBrwi2e1XW0/WAzih2VYeVnuXIKN0/r2otQ+uiaJa3pt5+9ROVmbIKXV4mA==, tarball: file:vendor/ai-creed-command-contract-0.1.0-alpha.3.tgz}
-    version: 0.1.0-alpha.3
+  '@ai-creed/command-contract@file:vendor/ai-creed-command-contract-0.1.0-alpha.4.tgz':
+    resolution: {integrity: sha512-JDk5kSG2gMtjrN3Tg4UPlsVvtCrwSa/WFK+us4BWJ2jhIP7SAGXCXfaLITrMxzUm+HyJVcMJ9Noc1RUWRtuw4A==, tarball: file:vendor/ai-creed-command-contract-0.1.0-alpha.4.tgz}
+    version: 0.1.0-alpha.4
 
   '@asamuzakjp/css-color@5.1.1':
     resolution: {integrity: sha512-iGWN8E45Ws0XWx3D44Q1t6vX2LqhCKcwfmwBYCDsFrYFS6m4q/Ks61L2veETaLv+ckDC6+dTETJoaAAb7VjLiw==}
@@ -4348,7 +4348,7 @@ snapshots:
 
   '@adobe/css-tools@4.4.4': {}
 
-  '@ai-creed/command-contract@file:vendor/ai-creed-command-contract-0.1.0-alpha.3.tgz':
+  '@ai-creed/command-contract@file:vendor/ai-creed-command-contract-0.1.0-alpha.4.tgz':
     dependencies:
       zod: 4.3.6
 
@@ -5815,7 +5815,7 @@ snapshots:
 
   '@xavier/xbp@file:vendor/xavier-xbp-0.1.0-alpha.0.tgz':
     dependencies:
-      '@ai-creed/command-contract': file:vendor/ai-creed-command-contract-0.1.0-alpha.3.tgz
+      '@ai-creed/command-contract': file:vendor/ai-creed-command-contract-0.1.0-alpha.4.tgz
       libsodium-wrappers: 0.7.16
       qrcode-terminal: 0.12.0
       ws: 8.21.0
