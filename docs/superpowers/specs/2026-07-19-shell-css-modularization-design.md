@@ -121,7 +121,7 @@ module. Every rule lands in exactly one module.
 
 | Module | Content (current shell.css regions) |
 |---|---|
-| `base.css` | body/root layout, fonts (incl. `--font-reading` note), Icon/Nerd Font glyph rules |
+| `base.css` | `@font-face` rules, body/root layout, **theme-invariant** root vars only (`--font-ui`, `--font-terminal`, `--font-reading`, `--font-size-*`), Icon/Nerd Font glyph rules — theme-varying tokens from shell.css's `:root` move to tokens.css instead (§4.1) |
 | `modules/primitives.css` | shared pills/chips, inline input+button row, tooltips |
 | `modules/sidebar.css` | workspace/session tree, collapsed rail, rollups, status tags, workflow lens |
 | `modules/terminals.css` | terminal frame, tabs, slot grid, empty-slot launchpad, floating shell, collab status, hybrid focus indicator, provider identity glyph |
@@ -151,8 +151,31 @@ block: dark = `:root` (default), plus `[data-theme="light"]`,
 currently in shell.css (lines 74–86 and 113–125) move into their tokens.css
 blocks; the structural rules interleaved with them (body backgrounds at 92 and
 127, tab hovers at 97–107 and 132) co-locate into their owning modules per
-§4.2 rule 2. After that, tokens.css is the complete answer to "what makes a
-theme a theme" for color/typography/spacing.
+§4.2 rule 2.
+
+**Defaults move with their overrides.** shell.css's own `:root` block
+(lines 40–72) currently defines the *default* values of tokens that themes
+override — moving it verbatim into base.css would split the dark theme's
+definition across two files and break the "dark = `:root` in tokens.css"
+contract. The split is:
+
+- **Theme-varying → tokens.css `:root` (dark) block:** `--shell-border-width`
+  (tui overrides it, tui.css:41), `--pane-border-sessions` /
+  `--pane-border-session-info` / `--pane-border-terminal` /
+  `--pane-border-review` (light/warm/tui override them, shell.css:76–79,
+  115–118, tui.css:34–37), `--sha-color` and the five `--provider-*` colors
+  (light/warm override them, shell.css:80–85, 119–124).
+- **Theme-invariant → base.css:** `--font-ui`, `--font-terminal`,
+  `--font-reading`, `--font-size-body`, `--font-size-label`, and the
+  `font-family` declaration — no theme overrides any of these.
+- tui.css's token redefinitions (tui.css:34–41) go to tokens.css's
+  `[data-theme="tui"]` block, not to a module's `app.themes` block.
+
+After that, tokens.css is the complete answer to "what makes a theme a theme":
+every custom property that varies by theme has its default **and** all its
+per-theme values there. Theme-invariant design vars (fonts, font sizes) live
+in base.css and are outside the theme contract precisely because no theme may
+vary them without first moving them to tokens.css.
 
 Theme switching mechanism is unchanged:
 `document.documentElement.setAttribute("data-theme", palette)`
@@ -161,7 +184,10 @@ Theme switching mechanism is unchanged:
 ### 4.2 The four rules
 
 1. **Color / spacing / typography / radius variance → tokens only.** Component
-   rules never hardcode a per-theme value; they reference `var(--*)`.
+   rules never hardcode a per-theme value; they reference `var(--*)`. Corollary:
+   a custom property overridden by **any** theme is a theme token, and its
+   default (dark) value must be declared in tokens.css's `:root` block — never
+   in base.css or a module (§4.1 "defaults move with their overrides").
 2. **Structural variance** (layout toggles, borders that appear/disappear,
    tui chrome quirks) lives in a `[data-theme]` block at the **bottom of the
    owning feature module**, wrapped in a top-level `@layer app.themes { ... }`
@@ -221,14 +247,24 @@ token. If no (genuinely structural) → co-locate per rule 2.
 ### Slices 1–9 — one module each
 
 Order: base → sidebar → terminals → review → files/viewer → dialogs → usage →
-plugins → md-preview/primitives (leftovers). Per-slice recipe:
+plugins → md-preview/primitives (leftovers).
+
+The **base slice** additionally executes the §4.1 token split in full: the
+theme-varying defaults from shell.css's `:root` move into tokens.css's `:root`
+(dark) block, the light/warm blocks (shell.css:74–86, 113–125) into their
+tokens.css blocks, and tui.css's token redefinitions (tui.css:34–41) into the
+`[data-theme="tui"]` block — so tokens.css is the complete theme core from the
+first slice onward, and only theme-invariant vars land in base.css.
+
+Per-slice recipe:
 
 1. Cut the feature's rules **verbatim** from shell.css into the module file's
    `@layer app.components { ... }` block; add a plain (un-`layer()`-ed)
    `@import` for the module to index.css, before the temporary unlayered
    shell.css/tui.css imports.
 2. Pull that feature's tui.css rules into the module's trailing top-level
-   `@layer app.themes { ... }` block.
+   `@layer app.themes { ... }` block — except token redefinitions, which go
+   to tokens.css's `[data-theme="tui"]` block (§4.1).
 3. Apply the §4.3 criterion to `[data-theme]` one-offs in the moved region.
 4. Verify (§6): visual spec if it covers the surface, manual theme-cycle spot
    check otherwise, plus that feature's behavioral e2e specs.
@@ -236,8 +272,8 @@ plugins → md-preview/primitives (leftovers). Per-slice recipe:
 ### Slice 10 — teardown + guardrails
 
 - shell.css and tui.css reach zero lines → delete both (and their temporary
-  unlayered imports in index.css); light/warm token blocks merged into
-  tokens.css (may also land earlier, in the base slice).
+  unlayered imports in index.css). The token consolidation itself already
+  happened in the base slice (§5, slices 1–9 intro).
 - hljs-tokens.css's import switches from unlayered to
   `layer(app.components)` — the file itself stays verbatim.
 - Guardrail script + architecture doc (§7) land.
@@ -307,8 +343,14 @@ review, no assertions. Playwright's native pixel-diff is the cheap upgrade:
   (base.css or `modules/*.css`) contains top-level rules outside
   `@layer app.base` / `app.components` / `app.themes` blocks; fails when
   index.css uses a `layer(...)` import for anything other than
-  hljs-tokens.css (the nested-layer pitfall, §3.1); warns when a module
-  exceeds ~800 lines. Wired into the lint step so master-gate enforces it.
+  hljs-tokens.css (the nested-layer pitfall, §3.1); fails when a
+  **theme-varying custom property leaks out of tokens.css** — collect every
+  `--*` name declared inside any `[data-theme]` block, then fail if any such
+  name also has a declaration outside tokens.css (catches both a stranded
+  default in base.css/a module and a future theme override added for a var
+  whose default lives elsewhere — the §4.1/§4.2-rule-1 invariant); warns when
+  a module exceeds ~800 lines. Wired into the lint step so master-gate
+  enforces it.
 - Architecture note in `docs/shared/` documenting the layer taxonomy, the four
   theme rules, and the new-theme recipe.
 - **`AGENTS.md` styling section** (currently has zero CSS guidance): a short
@@ -330,7 +372,8 @@ review, no assertions. Playwright's native pixel-diff is the cheap upgrade:
 
 1. `src/app/shell.css` and `src/styles/tui.css` deleted; no CSS file in
    `src/styles/` exceeds ~800 lines except a justified outlier.
-2. `[data-theme` grep invariant holds (enforced by script).
+2. `[data-theme` grep invariant holds, and no theme-varying custom property
+   is declared outside tokens.css (both enforced by script).
 3. All four themes render without regression: visual harness green on covered
    surfaces, manual spot checks clean elsewhere, `theme-tui-traits` green.
 4. Adding a hypothetical fifth theme requires: one token block + structural
