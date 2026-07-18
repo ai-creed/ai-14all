@@ -10,6 +10,7 @@
 @import "./tokens.css";
 @import "./base.css";
 @import "./modules/sidebar.css";
+@import "./modules/terminals.css";
 @import "../app/shell.css"; /* unlayered — temporary until slices empty it */
 @import "./tui.css"; /* unlayered — temporary until slices empty it */
 @import "./hljs-tokens.css"; /* unlayered — switches to layer(app.components) at teardown */

@@ -122,6 +122,36 @@
 		min-height: 0;
 		overflow: hidden;
 	}
+
+	/* Shared neutral chip-button look, reused by the (not-yet-extracted) session
+	 * chip bar and by the terminals module's agent-launcher chips
+	 * (.shell-chip-bar__action[data-provider]). Lives here — not in either
+	 * feature — specifically so app.base's layer position (before
+	 * app.components) lets the terminals module's provider-tinted override win
+	 * on shared properties (background, color, border-color) without
+	 * !important (cascade-flip fix, slice 5: moved here from shell.css's
+	 * unlayered position, mirroring the .shell-label fix above). */
+	.shell-chip-bar__action {
+		background: none;
+		border: var(--shell-border-width) solid var(--panel-border);
+		color: var(--text-secondary);
+		border-radius: var(--radius-md);
+		padding: 2px var(--space-2);
+		font-size: 0.7rem;
+		cursor: pointer;
+		white-space: nowrap;
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+	}
+	.shell-chip-bar__action:hover {
+		border-color: var(--text-muted);
+		color: var(--text-primary);
+	}
+	.shell-chip-bar__action:disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
 }
 
 @layer app.themes {
