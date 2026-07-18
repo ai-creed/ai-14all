@@ -4,6 +4,23 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] – 2026-07-18
+
+This release teaches the Phone Bridge to show, not just tell: a paired phone can now watch the actual terminal of any agent in a session (read-only, behind a per-device grant), the pairing dialog is rebuilt as a single state-driven view, and ezio usage telemetry finally reports real numbers by reading the engine's native session store.
+
+### Added
+
+- **Watch agent terminals from a paired phone (host side).** ai-14all now serves read-only terminal inspection over the Phone Bridge: every agent PTY is mirrored headlessly in the main process — full 10,000-row scrollback, colors and styling preserved — so a phone can replay what happened while you were away and then live-tail, even for panes not currently visible on the desktop. The whole surface sits behind a new per-device `control:inspect` grant, the protocol defines no input path (read-only by construction, not by policy), and every subscription and row pull lands in the audit log. The phone-side viewer ships with ai-xavier.
+
+### Changed
+
+- **The Phone Bridge dialog is one state-driven view.** Pairing now flows through a single panel driven directly by main-process status: QR, SAS confirmation, the paired-device list, and fault states are all views of the same machine. Cancel now actually cancels an in-flight pairing on the host, the SAS clears on both confirm outcomes, the last error is shown instead of a dead end, and the dialog wears the TUI styling.
+- **The review pane goes easier on worktree resolution.** A resolver miss now retries at most once per cooldown instead of refreshing on every miss.
+
+### Fixed
+
+- **ezio usage is counted again — including whisper-mounted sessions.** The usage telemetry driver now reads ezio's engine-native session store, which every session writes, instead of the CLI recorder's store, which whisper-mounted sessions never wrote — so days of real usage were invisible and the usage chip reported absurdly low totals. Billable input now correctly excludes cached tokens, and a one-time ledger migration removes a bogus development smoke-test entry that had inflated one day by 1.33M fake tokens. Existing history from other providers is untouched.
+
 ## [1.4.0] – 2026-07-13
 
 This release is about reading: markdown files open as rendered documents in a real reading font with theme-native, contrast-checked code blocks; images get a proper preview; and the review pane picks up an undo for deletes, a keyboard path for edits, and a slimmer minimap that jumps where you click. The bundled agent skills grow eval suites, version-guarded installs, and a gentler uninstall.
