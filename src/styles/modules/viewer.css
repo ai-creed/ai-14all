@@ -147,11 +147,12 @@
 }
 
 @layer app.themes {
-	/* No [data-theme] structural rules touch .shell-viewer*, .shell-context*,
-	 * .shell-inline-editor*, or .shell-editor-dirty-bar* today — confirmed by
-	 * exhaustive grep of tui.css (zero matches for any of these families) and
-	 * of shell.css itself (zero [data-theme] selectors anywhere in the whole
-	 * file, pre-move). Left as an empty block per the module's two-block
-	 * anatomy contract; a future tui.css rule touching these selectors (if
-	 * ever added) belongs here. */
+	/* The only tui.css structural rules touching .shell-editor-dirty-bar*
+	 * are the shared cross-feature sweeps (the box-shadow elevation :is()
+	 * sweep at tui.css ~37-51), deliberately left embedded there per Tasks
+	 * 4-6 precedent. Cascade-safe because unlayered tui.css always beats this
+	 * layered module. No rules touch .shell-viewer*, .shell-context*, or
+	 * .shell-inline-editor*. Left as empty per the module's two-block anatomy
+	 * contract; any future tui.css rules touching these selectors must be
+	 * hand-carried here at tui.css teardown. */
 }
