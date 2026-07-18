@@ -15,7 +15,8 @@
 	 * text. */
 	@font-face {
 		font-family: "Symbols Nerd Font";
-		src: url("../assets/fonts/SymbolsNerdFontMono-Regular.ttf") format("truetype");
+		src: url("../assets/fonts/SymbolsNerdFontMono-Regular.ttf")
+			format("truetype");
 		font-weight: 400;
 		font-style: normal;
 		font-display: block;
@@ -53,6 +54,26 @@
 		--font-size-body: 13px;
 		--font-size-label: 16px;
 		font-family: var(--font-ui);
+	}
+
+	/* Shared "eyebrow" label utility (small, muted, uppercase caption text) used
+	 * across many features' section headers. Lives here — not in any one
+	 * feature module — specifically so app.base's layer position (before
+	 * app.components) lets feature-scoped overrides (e.g. the sidebar header's
+	 * `.shell-sidebar__header .shell-label`) win on shared properties like
+	 * letter-spacing without needing !important (cascade-flip fix, slice 4:
+	 * moved here from shell.css's leftover, unlayered position). */
+	.shell-label,
+	.shell-session-info__title,
+	.shell-viewer__title {
+		font-size: var(--font-size-label);
+	}
+
+	.shell-label {
+		line-height: 1.2;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-muted);
 	}
 
 	* {

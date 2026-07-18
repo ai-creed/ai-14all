@@ -63,103 +63,9 @@
 	}
 }
 
-/* Single blinking border (smoke-test feedback): the base theme paints the
- * attention ring on a ::before inset INSIDE the row's own 2px border, so an
- * active row showed two stacked borders. The flat TUI box wants ONE border —
- * drop the ring and blink the row's own border-color instead. */
-[data-theme="tui"] .shell-sidebar__row[data-attention="activity"]::before,
-[data-theme="tui"]
-	.shell-sidebar__row[data-attention="actionRequired"]::before {
-	display: none;
-}
-
-/* Activity: muted amber, slow — a SECOND-tier "agent running" cue that never
- * out-shouts the selected card. ActionRequired: full attention color, fast.
- * Each blinks the row's single border between its accent and the neutral
- * panel border, so only the outermost line ever animates. */
-@keyframes tui-attention-border-activity {
-	0%,
-	100% {
-		border-color: color-mix(
-			in srgb,
-			var(--attention-color) 45%,
-			var(--panel-border)
-		);
-	}
-	50% {
-		border-color: var(--panel-border);
-	}
-}
-
-@keyframes tui-attention-border-action {
-	0%,
-	100% {
-		border-color: var(--attention-color);
-	}
-	50% {
-		border-color: var(--panel-border);
-	}
-}
-
-[data-theme="tui"] .shell-sidebar__row[data-attention="activity"] {
-	animation: tui-attention-border-activity 2s steps(1, end) infinite;
-}
-
-[data-theme="tui"] .shell-sidebar__row[data-attention="actionRequired"] {
-	animation: tui-attention-border-action 0.7s steps(1, end) infinite;
-	box-shadow: none;
-}
-
-/* Selection leads (first in the hierarchy): a selected row holds a static,
- * neutral near-white border and never blinks — even with an active agent. The
- * [data-attention] variant outranks the blink rules above, so selection wins
- * on a combined row regardless of source order. */
-[data-theme="tui"] .shell-sidebar__row[data-selected="true"],
-[data-theme="tui"] .shell-sidebar__row[data-selected="true"][data-attention] {
-	border-color: var(--foreground);
-	animation: none;
-}
-
-/* Non-selected rows recede: dim their text/content so the selected card's
- * full-strength text leads the hierarchy. Targets the content containers (not
- * the row) so the blinking border is left untouched. */
-[data-theme="tui"]
-	.shell-sidebar__row[data-selected="false"]
-	:is(
-		.shell-sidebar__item,
-		.shell-sidebar__card-task,
-		.shell-sidebar__processes,
-		.workflow-row
-	) {
-	opacity: 0.6;
-}
-
-[data-theme="tui"]
-	.shell-sidebar__process-indicator[data-state="actionRequired"] {
-	box-shadow: none;
-	animation: tui-attention-blink 0.7s steps(1, end) infinite;
-}
-
 [data-theme="tui"] .shell-button__pulse-dot {
 	box-shadow: none;
 	animation: tui-attention-blink 1.2s steps(1, end) infinite;
-}
-
-/* tui.css loads after shell.css, so its blink would otherwise override the
- * reduced-motion freezes shell.css declares in its own media block. */
-@media (prefers-reduced-motion: reduce) {
-	[data-theme="tui"] .shell-sidebar__row[data-attention]::before,
-	[data-theme="tui"] .shell-sidebar__row[data-attention],
-	[data-theme="tui"] .shell-sidebar__process-indicator,
-	[data-theme="tui"] .shell-button__pulse-dot {
-		animation: none;
-	}
-	/* Blink frozen — surface attention as a static single border instead.
-	 * Selection still wins via its higher-specificity rule above. */
-	[data-theme="tui"] .shell-sidebar__row[data-attention="activity"],
-	[data-theme="tui"] .shell-sidebar__row[data-attention="actionRequired"] {
-		border-color: var(--attention-color);
-	}
 }
 
 /* ---- Box-drawing utility (spec §7, WebTUI box technique) --------------- */
@@ -304,8 +210,12 @@
 	border-color: var(--primary);
 }
 
-/* Persistent selected/current borders */
-[data-theme="tui"] .shell-sidebar__row[data-selected="true"],
+/* Persistent selected/current borders. The .shell-sidebar__row selector that
+ * used to sit in this group moved to modules/sidebar.css's app.themes block
+ * (slice 4) — it's a no-op there anyway (the sidebar's own higher-specificity
+ * "Selection leads" rule always wins for that element) but keeping a copy in
+ * the correct layer preserves the original cascade shape instead of relying
+ * on this unlayered leftover to win by default. */
 [data-theme="tui"] .shell-review-comment-form__actions > button[type="submit"],
 [data-theme="tui"] .shell-layout-dialog__tile[data-current="true"] {
 	border-color: var(--primary);
@@ -350,14 +260,6 @@
 	gap: var(--space-2);
 }
 
-/* Sidebar title hierarchy: workspace name is the largest/heaviest tier. */
-[data-theme="tui"] .shell-sidebar__workspace-name {
-	font-size: 17px;
-	font-weight: 700;
-	line-height: 1.2;
-	text-align: left;
-}
-
 /* Selected list / commit rows lead with the cursor accent (base uses the
  * neutral panel-border-strong). Sidebar rows are handled by the selection
  * rules higher in this file. */
@@ -367,12 +269,6 @@
 	.shell-commit-list__files
 	.shell-list__item[data-selected="true"] {
 	border-color: var(--primary);
-}
-
-/* Terminals don't italicize. Base keeps italic for the other palettes. */
-[data-theme="tui"] .shell-sidebar__workspace-empty,
-[data-theme="tui"] .shell-list__item--dir {
-	font-style: normal;
 }
 
 /* Sharp corners on the file-jump overlay (base restored to devel's rounded

@@ -1,0 +1,1332 @@
+/* Sidebar module: sidebar/session tree, rollups, status tags, and the
+ * workflow-lens block. Component rules in app.components; per-theme
+ * structural overrides in app.themes (spec §4.2). Theme COLOR variance
+ * belongs in tokens.css, not here. */
+@layer app.components {
+	.shell-sidebar-column {
+		position: relative;
+		display: flex;
+		min-height: 0;
+	}
+
+	.shell-sidebar-column__resize-handle {
+		position: absolute;
+		top: 0;
+		right: -8px;
+		width: 16px;
+		height: 100%;
+		cursor: col-resize;
+		z-index: 10;
+	}
+
+	.shell-sidebar-column__resize-handle::before {
+		content: "";
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 50%;
+		width: 1px;
+		transform: translateX(-50%);
+		background: transparent;
+		transition: background 0.15s;
+	}
+
+	.shell-sidebar-column__resize-handle:hover::before {
+		background: var(--accent);
+	}
+
+	/* Sidebar global title ("Workspace"): BOTTOM tier of the hierarchy — a small,
+	 * muted, left-aligned section eyebrow. Scoped to the sidebar header so the
+	 * session-info pane's .shell-label eyebrows are unaffected. */
+
+	.shell-sidebar__header .shell-label {
+		font-size: var(--ws-fs-header);
+		font-weight: 700;
+		letter-spacing: 0.12em;
+		text-align: left;
+	}
+
+	.shell-sidebar__rename-input {
+		-webkit-appearance: none;
+		appearance: none;
+		box-sizing: border-box;
+		width: 100%;
+		margin: 0;
+		padding: var(--space-1) var(--space-2);
+		color: var(--text-primary);
+		background: var(--panel-bg);
+		border: var(--shell-border-width) solid var(--panel-border-strong);
+		border-radius: var(--radius-sm);
+		font: inherit;
+		line-height: 1.3;
+	}
+
+	.shell-sidebar__rename-input:hover:not(:focus) {
+		border-color: var(--text-muted);
+	}
+
+	.shell-sidebar__rename-input:focus-visible {
+		outline: none;
+		border-color: var(--accent);
+	}
+
+	.shell-sidebar {
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr) auto;
+		/* Clamp the single column track to the container. Without this the auto
+		   track grows to the widest row's min-content (max-content propagation),
+		   so ONE inflexible row (e.g. the global footer's icon cluster) silently
+		   widens EVERY row — pushing the header's collapse button out of the
+		   sidebar and under the chip bar, where it becomes unclickable. */
+		grid-template-columns: minmax(0, 1fr);
+		padding: var(--space-3);
+		width: 100%;
+		height: 100%;
+		min-height: 0;
+		min-width: 0;
+		/* Clip the full-bleed header's negative-margin so the top separator can't
+		   protrude past the panel edge when the sidebar is shrunk. */
+		overflow-x: clip;
+		border-color: var(--pane-border-sessions);
+	}
+
+	.shell-sidebar__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2);
+		/* Full-bleed separator (matches prototype): cancel the sidebar's --space-3
+		   inset so the border-bottom spans edge to edge, keep content in place. */
+		margin-inline: calc(-1 * var(--space-3));
+		padding-inline: var(--space-3);
+		padding-bottom: var(--space-2);
+		border-bottom: var(--shell-border-width) solid var(--panel-border);
+	}
+
+	.shell-sidebar[data-collapsed="true"] {
+		/* Even padding on all four sides (was padding-inline: 8px only). */
+		padding: var(--space-3);
+	}
+
+	.shell-sidebar[data-collapsed="true"] .shell-sidebar__header {
+		/* Center the collapse toggle in the narrow rail (flex-end pinned it to the
+		   right wall, 13px off-center). */
+		justify-content: center;
+		margin-inline: calc(-1 * var(--space-3));
+		padding-inline: var(--space-3);
+	}
+
+	.shell-sidebar[data-collapsed="true"] .shell-sidebar__list {
+		align-items: stretch;
+	}
+
+	/* Collapsed = compact git tree (~100px): KEEP the rail + connectors, but show
+	   single-letter leaf markers instead of full cards, left-aligned. */
+
+	.shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-items {
+		align-items: stretch;
+	}
+
+	.shell-sidebar[data-collapsed="true"] .shell-sidebar__row {
+		background: transparent;
+		border-color: transparent;
+		padding: 0;
+	}
+
+	/* The marker is a single line, so pull the elbow / trunk-stop up to its center
+	   (vs the taller multi-line card the default 17px targets). */
+
+	.shell-sidebar[data-collapsed="true"] .shell-sidebar__node::after {
+		top: 10px;
+	}
+
+	.shell-sidebar[data-collapsed="true"]
+		.shell-sidebar__node:last-child::before {
+		height: 10px;
+	}
+
+	.shell-sidebar[data-collapsed="true"] .shell-sidebar__node--new button {
+		width: auto;
+		min-width: 0;
+		padding: 2px 6px;
+	}
+
+	.shell-sidebar[data-collapsed="true"] .shell-sidebar__item {
+		/* Small centered cell for the single-initial marker on the rail (so the
+		   selected box is tight and the initial sits centered inside it). */
+		width: 24px;
+		height: 24px;
+		min-height: unset;
+		padding: 0;
+		justify-content: center;
+	}
+
+	.shell-sidebar[data-collapsed="true"] .shell-sidebar__marker {
+		width: 100%;
+		height: 100%;
+	}
+
+	/* Selected worktree in collapsed: a TIGHT centered box around the initial cell
+	   (was the wide row card). Box uses --primary (high-contrast in every theme;
+	   --accent is a near-invisible dark step in tui); the initial stays foreground
+	   so it's always legible and centered in the 24px cell. */
+
+	/* Kill the wide row card border on the selected row in collapsed so only the
+	   tight item box shows. The [data-attention] qualifier is required to outrank
+	   tui.css's `[data-selected][data-attention]` selected-row border (0,4,0) — the
+	   row always has data-attention, so this (0,5,0) rule wins without !important. */
+
+	.shell-sidebar[data-collapsed="true"]
+		.shell-sidebar__row[data-selected="true"][data-attention] {
+		border-color: transparent;
+		background: transparent;
+	}
+
+	.shell-sidebar[data-collapsed="true"]
+		.shell-sidebar__row[data-selected="true"]
+		.shell-sidebar__item {
+		border: var(--shell-border-width) solid var(--primary);
+	}
+
+	.shell-sidebar[data-collapsed="true"]
+		.shell-sidebar__row[data-selected="true"]
+		.shell-sidebar__marker {
+		color: var(--text-primary);
+		font-weight: 700;
+	}
+
+	.shell-sidebar__marker {
+		display: inline-grid;
+		place-items: center;
+		width: 100%;
+		height: 100%;
+		font-weight: 600;
+	}
+
+	.shell-sidebar__list {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+		overflow-y: auto;
+		/* No top margin: the first group's padding-top already gives the 12px below
+		   the WORKSPACE separator (prototype tightness — was doubling to 24px). */
+		margin-top: 0;
+		gap: 0;
+		padding-right: 2px;
+	}
+
+	/*
+	 * Workspace group: chromeless. Separation between workspaces comes from a
+	 * gradient divider drawn as a ::before on every group after the first.
+	 * Active state surfaces in the workspace name color/weight, not in chrome.
+	 */
+
+	.shell-sidebar__workspace-group {
+		display: flex;
+		flex-direction: column;
+		/* Header -> first card gap; tightened to the prototype (~10px). */
+		gap: var(--space-1);
+		/* Asymmetric vertical padding: button sits close to the divider below,
+		 * with more breathing room from the worktree cards above. */
+		padding: var(--space-3) 0 var(--space-1);
+	}
+
+	.shell-sidebar__workspace-group + .shell-sidebar__workspace-group::before {
+		content: "";
+		display: block;
+		height: 1px;
+		margin: 0 var(--space-2) var(--space-2);
+		/* A single uniform stroke — same thickness/presence from start to end.
+		 * (Was a center-weighted gradient that faded to transparent at both ends.) */
+		background: var(--panel-border);
+	}
+
+	.shell-sidebar__workspace-header {
+		display: flex;
+		align-items: center;
+		/* Tighter icon↔name gap so the repo title lines up with the worktree titles
+		   below it (was --space-2, which pushed the title ~6px past the row titles). */
+		gap: var(--space-1);
+		padding-left: 4px; /* chevron box (12px, centered) -> center at x=10 = rail x */
+	}
+
+	.shell-sidebar__workspace-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 0;
+		background: transparent;
+		border: none;
+		color: var(--text-secondary);
+		cursor: pointer;
+	}
+
+	.shell-sidebar__chevron {
+		width: 12px;
+		text-align: center;
+		font-size: var(--ws-fs-header);
+	}
+
+	.shell-sidebar__workspace-icon {
+		display: inline-flex;
+		align-items: center;
+		font-size: 13px;
+	}
+
+	.shell-sidebar__workspace-remove {
+		margin-left: auto;
+		opacity: 0;
+		transition: opacity 0.12s ease;
+	}
+
+	.shell-sidebar__workspace-header:hover .shell-sidebar__workspace-remove,
+	.shell-sidebar__workspace-header:focus-within
+		.shell-sidebar__workspace-remove {
+		opacity: 1;
+	}
+
+	.shell-sidebar__workspace-name {
+		min-width: 0;
+		padding: 0;
+		font-size: var(--ws-fs-repo);
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		/* Left-aligned like the prototype (a raw <button> defaults to center, which
+		   centered wrapped titles when the panel is narrow). */
+		text-align: left;
+		/* Truncate (not wrap) when the panel is shrunk down. */
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		color: var(--text-secondary);
+		background: transparent;
+		border: none;
+		cursor: pointer;
+	}
+
+	.shell-sidebar__workspace-name[data-selected="true"] {
+		color: var(--text-primary);
+	}
+
+	.shell-sidebar__workspace-badge {
+		display: inline-grid;
+		place-items: center;
+		width: 24px;
+		height: 24px;
+		padding: 0;
+		font-size: var(--font-size-label);
+		font-weight: 700;
+		color: var(--text-secondary);
+		background: rgba(255, 255, 255, 0.06);
+		border: none;
+		border-radius: 999px;
+		cursor: pointer;
+	}
+
+	.shell-sidebar__workspace-badge[data-selected="true"] {
+		color: var(--text-primary);
+		background: rgba(98, 180, 255, 0.22);
+	}
+
+	.shell-sidebar__workspace-badge:hover {
+		background: rgba(255, 255, 255, 0.1);
+		color: var(--text-primary);
+	}
+
+	.shell-sidebar__workspace-items {
+		display: flex;
+		flex-direction: column;
+		gap: 0; /* spacing moves into node padding so the trunk stays continuous */
+	}
+
+	.shell-sidebar__node {
+		position: relative;
+		padding-left: 24px;
+		/* Gap between worktree clusters — 8px so consecutive worktrees breathe. */
+		padding-bottom: var(--space-2);
+	}
+
+	.shell-sidebar__node:last-child {
+		padding-bottom: 0;
+	}
+
+	.shell-sidebar__node::before {
+		/* vertical trunk: 2px solid, centered on chevron (x=10) */
+		content: "";
+		position: absolute;
+		left: 9px;
+		top: 0;
+		bottom: 0;
+		border-left: 2px solid var(--rail);
+	}
+
+	.shell-sidebar__node:last-child::before {
+		/* stop at the elbow -> └─ */
+		bottom: auto;
+		height: 18px;
+	}
+
+	.shell-sidebar__node::after {
+		/* horizontal elbow aligned to the title line */
+		content: "";
+		position: absolute;
+		left: 9px;
+		top: 17px;
+		width: 13px;
+		height: 2px;
+		background: var(--rail);
+	}
+
+	.shell-sidebar__workspace-empty {
+		padding: 0 var(--space-1) var(--space-1);
+		color: var(--text-muted);
+		font-size: 11px;
+		line-height: 1.4;
+	}
+
+	/*
+	 * Row wrapper is the visual card. Holds the clickable title button (.item)
+	 * and the process list (.processes) so both share one frame and animate as
+	 * a single unit. The button keeps data-attention/data-selected for tests
+	 * and a11y, but visual styling lives here.
+	 */
+
+	.shell-sidebar__row {
+		background: transparent;
+		border: var(--shell-border-width) solid transparent; /* reserve space; invisible until selected */
+		border-radius: var(--radius-sm);
+		overflow: hidden;
+		cursor: pointer;
+	}
+
+	.shell-sidebar__row[data-selected="true"] {
+		background: var(--panel-bg-elevated);
+		border-color: var(--accent);
+	}
+
+	.shell-sidebar__item {
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 2px;
+		padding: var(--space-2) var(--space-3);
+		text-align: left;
+		color: var(--text-primary);
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		line-height: 1.3;
+	}
+
+	/* Session title: MIDDLE tier of the hierarchy — below the workspace name
+	 * (repo/700), above the global eyebrow (header/500). */
+
+	.shell-sidebar__item strong {
+		font-size: var(--ws-fs-branch);
+		font-weight: 600;
+		/* Truncate long titles cleanly at narrow widths (no spill) — same recipe
+		   as the process rows. align-self:stretch gives ellipsis a box to clip. */
+		align-self: stretch;
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/*
+	 * Header line: the title and the inline ready status share one horizontal row.
+	 * This replaces the prior flex-column stacking that stranded the ready dot and
+	 * "workflow done" status on their own lines below the title. The title flexes
+	 * and truncates first; the ready status keeps its natural width and trails to
+	 * the right edge of the row.
+	 */
+
+	.shell-sidebar__item-head {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		align-self: stretch;
+		min-width: 0;
+	}
+
+	.shell-sidebar__item-head > strong {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	/* The ready unit: quiet dot + summary, read as "● workflow done". */
+
+	.shell-sidebar__row-ready {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		flex: 0 1 auto;
+		min-width: 0;
+	}
+
+	/* The moved session status shrinks (ellipsis via its inner context span) rather
+	 * than shoving the title off-screen. */
+
+	.shell-sidebar__item-status {
+		flex: 0 1 auto;
+		min-width: 0;
+	}
+
+	/*
+	 * Worktree row attention: rotating conic-gradient ring + subtle bg tint.
+	 * Drawn by a ::before pseudo so the row's own border (and selected accent)
+	 * stays intact underneath. Mask-composite: exclude carves the inside out
+	 * so the conic gradient becomes a thin animated ring that follows the row's
+	 * border-radius. --attention-angle rotates; --attention-opacity breathes.
+	 * prefers-reduced-motion freezes the gradient into a flat colored ring.
+	 */
+
+	@property --attention-angle {
+		syntax: "<angle>";
+		initial-value: 0deg;
+		inherits: false;
+	}
+
+	@property --attention-opacity {
+		syntax: "<number>";
+		initial-value: 0.55;
+		inherits: false;
+	}
+
+	@keyframes shell-sidebar-attention-rotate {
+		to {
+			--attention-angle: 360deg;
+		}
+	}
+
+	@keyframes shell-sidebar-attention-pulse {
+		to {
+			--attention-opacity: 0.55;
+		}
+	}
+
+	.shell-sidebar__row[data-attention="activity"],
+	.shell-sidebar__row[data-attention="actionRequired"] {
+		position: relative;
+	}
+
+	/*
+	 * Activity: rotating spotlight conic gradient — visual language of
+	 * "something is running / cooking" without urgency.
+	 */
+
+	.shell-sidebar__row[data-attention="activity"]::before {
+		content: "";
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		padding: 2px;
+		background: conic-gradient(
+			from var(--attention-angle),
+			var(--attention-color) 0deg,
+			transparent 140deg,
+			var(--attention-color) 360deg
+		);
+		opacity: var(--attention-opacity);
+		-webkit-mask:
+			linear-gradient(#000 0 0) content-box,
+			linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor;
+		mask-composite: exclude;
+		pointer-events: none;
+		animation:
+			shell-sidebar-attention-rotate 8s linear infinite,
+			shell-sidebar-attention-pulse 2.5s ease-in-out infinite alternate;
+	}
+
+	/*
+	 * ActionRequired: solid ring that pulses opacity + outer glow on the parent.
+	 * Steady, not rotating — visual language of "alarm / waiting on you".
+	 */
+
+	.shell-sidebar__row[data-attention="actionRequired"]::before {
+		content: "";
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		padding: 2px;
+		background: var(--attention-color);
+		-webkit-mask:
+			linear-gradient(#000 0 0) content-box,
+			linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor;
+		mask-composite: exclude;
+		pointer-events: none;
+		animation: shell-sidebar-action-ring 1.4s ease-in-out infinite;
+	}
+
+	.shell-sidebar__row[data-attention="actionRequired"] {
+		animation: shell-sidebar-action-glow 1.4s ease-in-out infinite;
+	}
+
+	@keyframes shell-sidebar-action-ring {
+		0%,
+		100% {
+			opacity: 0.45;
+		}
+		50% {
+			opacity: 1;
+		}
+	}
+
+	@keyframes shell-sidebar-action-glow {
+		0%,
+		100% {
+			box-shadow: 0 0 0 0 transparent;
+		}
+		50% {
+			box-shadow: 0 0 16px
+				color-mix(in srgb, var(--attention-color) 55%, transparent);
+		}
+	}
+
+	/* Row ready tier: quiet dot only — no ring, no tint, no title recolor (D4).
+	 * Lives inside the flex `.shell-sidebar__row` unit on the header line, so no
+	 * inline-flow margins/alignment are needed. */
+
+	.shell-sidebar__row-ready-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--ready);
+		flex: 0 0 auto;
+	}
+
+	/* Collapsed-row rollup dot (Task 8) */
+
+	.shell-sidebar__workspace-rollup-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+	}
+
+	.shell-sidebar__workspace-rollup-dot[data-tier="actionRequired"] {
+		background: var(--danger);
+	}
+
+	.shell-sidebar__workspace-rollup-dot[data-tier="ready"] {
+		background: var(--ready);
+	}
+
+	.shell-sidebar__workspace-count {
+		font-size: var(--ws-fs-chip);
+		color: var(--text-secondary);
+		margin-left: var(--space-1);
+	}
+
+	.shell-sidebar__row[data-attention="activity"] {
+		/* Distinct from the accent used for "selected" — too many green-ish cards
+		 * on screen otherwise made it hard to tell at a glance which row is in
+		 * focus vs which agent is busy. Warning (amber) carries "in progress"
+		 * semantics and cleanly separates from selected (accent) and action
+		 * required (danger). The process-row dot for "active" matches below. */
+		--attention-color: var(--warning);
+		background: color-mix(in srgb, var(--warning) 4%, var(--panel-bg));
+	}
+
+	.shell-sidebar__row[data-attention="actionRequired"] {
+		--attention-color: var(--danger);
+		background: color-mix(in srgb, var(--danger) 6%, var(--panel-bg));
+	}
+
+	/*
+	 * Selected + activity: suppress the rotating ring and title shimmer. The
+	 * selected accent border + elevated bg are enough; doubling up reads as
+	 * visual noise. ActionRequired keeps its pulse even when selected — the
+	 * prompt still needs an answer regardless of which row has focus.
+	 */
+
+	.shell-sidebar__row[data-selected="true"][data-attention="activity"]::before {
+		display: none;
+	}
+
+	.shell-sidebar__row[data-selected="true"][data-attention="activity"] strong {
+		background: none;
+		-webkit-text-fill-color: var(--text-primary);
+		color: var(--text-primary);
+		font-weight: 700;
+		letter-spacing: normal;
+		animation: none;
+	}
+
+	.shell-sidebar__row[data-selected="true"][data-attention="actionRequired"] {
+		background: color-mix(in srgb, var(--danger) 6%, var(--panel-bg-elevated));
+	}
+
+	/*
+	 * Activity title: shimmering gradient — same "running" language as the ring.
+	 * ActionRequired title: solid attention color, slightly bolder — calm but
+	 * unmistakable, complementing the pulsing ring rather than competing with it.
+	 */
+
+	.shell-sidebar__row[data-attention="activity"] strong {
+		background: linear-gradient(
+			90deg,
+			var(--attention-color) 0%,
+			color-mix(in srgb, var(--attention-color) 55%, white) 50%,
+			var(--attention-color) 100%
+		);
+		background-size: 200% 100%;
+		-webkit-background-clip: text;
+		background-clip: text;
+		-webkit-text-fill-color: transparent;
+		color: transparent;
+		font-weight: 800;
+		letter-spacing: 0.01em;
+		animation: shell-sidebar-attention-shimmer 3.2s linear infinite;
+	}
+
+	.shell-sidebar__row[data-attention="actionRequired"] strong {
+		color: var(--attention-color);
+		font-weight: 800;
+		letter-spacing: 0.01em;
+	}
+
+	@keyframes shell-sidebar-attention-shimmer {
+		to {
+			background-position: 200% 0;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.shell-sidebar__row[data-attention="activity"]::before,
+		.shell-sidebar__row[data-attention="actionRequired"]::before {
+			animation: none;
+			background: var(--attention-color);
+			opacity: 0.7;
+		}
+		.shell-sidebar__row[data-attention="actionRequired"] {
+			animation: none;
+		}
+		.shell-sidebar__row[data-attention="activity"] strong {
+			animation: none;
+			background: none;
+			color: var(--attention-color);
+			-webkit-text-fill-color: var(--attention-color);
+		}
+	}
+
+	.shell-sidebar__branch {
+		font-size: var(--ws-fs-path);
+		align-self: stretch;
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/* Non-color signal for actionRequired rows: a distinct, high-contrast tag whose
+	   shape + text carry the meaning independent of hue/motion (colorblind + SR
+	   safe). Square/flat per the TUI aesthetic. */
+
+	.shell-sidebar__needs-you {
+		display: inline-flex;
+		align-items: center;
+		gap: 3px;
+		font-size: 0.6rem;
+		/* Tight line box + symmetric vertical padding so the uppercase caps sit
+		   optically centered in the pill (inherited ~1.4 line-height left the caps
+		   riding high, since all-caps leaves the descender region empty). */
+		line-height: 1;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		padding: 2px 4px;
+		white-space: nowrap;
+		color: var(--background);
+		background: var(--attention-action-required, #f0776a);
+	}
+
+	.shell-sidebar__processes {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding: 0 var(--space-3) var(--space-2);
+	}
+
+	.shell-sidebar__process {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+		/* Match the card task line so all summary text is one size (see
+		 * .shell-sidebar__card-task); labels and context inherit this. */
+		font-size: var(--ws-fs-chip);
+		min-width: 0;
+	}
+
+	/*
+	 * Inline action inside a process row — sized down so it sits proportionally
+	 * next to the 12px row text instead of dwarfing it like the default 32px
+	 * compact button would.
+	 */
+
+	.shell-sidebar__process-clear-failed {
+		height: 20px;
+		padding: 0 6px;
+		font-size: 11px;
+		line-height: 20px;
+	}
+
+	/* "Resume conversation" affordance (spec §5.5, Task 13): a flat TUI pill —
+	 * deliberately NOT the shared <Button> component's rounded chrome, and no
+	 * border-radius, to read as a terminal-native control rather than a modal
+	 * dialog button. */
+
+	.shell-sidebar__process-resume {
+		height: 20px;
+		padding: 0 6px;
+		font-size: 11px;
+		line-height: 18px;
+		font-family: var(--font-ui);
+		background: var(--accent);
+		color: var(--accent-foreground);
+		border: 1px solid var(--panel-border);
+		border-radius: 0;
+		cursor: pointer;
+		flex-shrink: 0;
+	}
+
+	.shell-sidebar__process-resume:hover {
+		filter: brightness(1.1);
+	}
+
+	/* Rollup "N more…" toggle — compact, muted, no chrome. */
+
+	.shell-sidebar__process.shell-sidebar__process--more {
+		background: none;
+		border: none;
+		padding: 2px 12px;
+		font-size: var(--ws-fs-chip);
+		color: var(--text-secondary);
+		cursor: pointer;
+		text-align: left;
+	}
+
+	.shell-sidebar__process.shell-sidebar__process--more:hover {
+		color: var(--text-primary);
+	}
+
+	.shell-sidebar__process-indicator {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--text-muted);
+		flex-shrink: 0;
+	}
+
+	.shell-sidebar__process-indicator[data-state="actionRequired"] {
+		background: var(--danger);
+		/* Same rhythm as the worktree row pulse so the two signals breathe in sync. */
+		animation: shell-sidebar-process-dot-pulse 1.4s ease-in-out infinite;
+	}
+
+	@keyframes shell-sidebar-process-dot-pulse {
+		/* Dot stays fully lit; only the halo around it pulses. */
+		0%,
+		100% {
+			box-shadow: 0 0 0 0 transparent;
+		}
+		50% {
+			box-shadow: 0 0 8px color-mix(in srgb, var(--danger) 80%, transparent);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.shell-sidebar__process-indicator[data-state="actionRequired"] {
+			animation: none;
+		}
+	}
+
+	.shell-sidebar__process-indicator[data-state="active"] {
+		background: var(--warning);
+	}
+
+	.shell-sidebar__process-indicator[data-state="idle"] {
+		background: var(--text-muted);
+	}
+
+	.shell-sidebar__process-indicator[data-state="exited"] {
+		background: transparent;
+		border: var(--shell-border-width) solid var(--text-muted);
+	}
+
+	.shell-sidebar__process-label {
+		color: var(--text-primary);
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.shell-sidebar__process-context {
+		color: var(--text-muted);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		min-width: 0;
+	}
+
+	.shell-sidebar__process--overflow {
+		color: var(--text-muted);
+		font-size: var(--ws-fs-chip);
+	}
+
+	/* Type ladder: explicit chip size on process sub-elements and CTAs (spec §5) */
+
+	.shell-sidebar__process-context,
+	.shell-sidebar__process-label {
+		font-size: var(--ws-fs-chip);
+	}
+
+	/* CTAs (+ New session / Load workspace) match the branch title size (spec D9) */
+
+	.shell-sidebar__node--new .w-full {
+		font-size: var(--ws-fs-branch);
+	}
+
+	.shell-sidebar__footer--global .w-full {
+		font-size: var(--ws-fs-branch);
+	}
+
+	.shell-sidebar__footer-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: var(--space-2);
+	}
+
+	.shell-sidebar__theme-trigger,
+	.shell-sidebar__help-trigger,
+	.shell-sidebar__settings-trigger {
+		flex: 0 0 auto;
+	}
+
+	/* Chrome icon buttons recede at rest so the hover highlight reads in every
+	   theme (a dim->accent shift; in dark --primary is a near-white that wouldn't
+	   pop against full-foreground icons). */
+
+	.shell-sidebar__header button,
+	.shell-sidebar__theme-trigger,
+	.shell-sidebar__help-trigger,
+	.shell-sidebar__settings-trigger,
+	.shell-sidebar__workspace-remove {
+		color: var(--muted-foreground);
+	}
+
+	/* Sidebar button hover: highlight the icon/label itself (accent colour) with NO
+	   background fill. (Overrides shadcn's `hover:bg-accent` + text wash.) */
+
+	.shell-sidebar__header button:hover,
+	.shell-sidebar__workspace-remove:hover,
+	.shell-sidebar__node--new button:hover,
+	.shell-sidebar__footer--global button:hover {
+		background-color: transparent;
+		color: var(--primary);
+	}
+
+	.shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-group {
+		align-items: stretch;
+		padding: var(--space-3) 0 var(--space-1);
+		background: transparent;
+		border: none;
+	}
+
+	.shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-header {
+		justify-content: flex-start;
+		padding-left: 4px;
+	}
+
+	/* collapsed badge: git icon + initial in a ROW (base badge is inline-grid, which
+	   ignored flex-direction and stacked them — switch to flex so the initial sits to
+	   the right of the git icon). Left-aligned so the rail descends under the icon. */
+
+	.shell-sidebar[data-collapsed="true"] .shell-sidebar__workspace-badge {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: var(--space-1);
+		width: auto;
+		height: auto;
+		background: transparent;
+		border-radius: 0;
+		justify-content: flex-start;
+	}
+
+	.shell-sidebar__workspace-badge-initial {
+		font-weight: 700;
+		font-size: var(--ws-fs-path);
+	}
+
+	.shell-sidebar[data-collapsed="true"] .shell-sidebar__footer--global {
+		align-items: center;
+	}
+
+	/* The collapsed rail is too narrow for a horizontal icon row; stack them. */
+
+	.shell-sidebar[data-collapsed="true"] .shell-sidebar__footer-actions {
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.shell-sidebar__footer {
+		margin-top: auto;
+		padding-top: var(--space-3);
+	}
+
+	.shell-sidebar__footer--global {
+		margin-top: var(--space-3);
+		display: flex;
+		/* Two stacked rows — the full-width Load workspace button, then the icon
+		   actions. A single shared row stopped fitting the narrowest sidebar
+		   widths once the Settings trigger joined it (Load + three 36px icons
+		   ≈ 268px min-content vs SIDEBAR_MIN = 200). */
+		flex-direction: column;
+		gap: var(--space-2);
+		align-items: stretch;
+	}
+
+	.shell-sidebar__card-task {
+		display: block;
+		color: var(--text-muted);
+		font-size: 0.7rem;
+		margin: 4px 0 6px;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.shell-sidebar__card-task::before {
+		content: "↪ ";
+		margin-right: 2px;
+	}
+
+	.shell-sidebar__provider-badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 1px 6px;
+		border-radius: var(--radius-sm);
+		font-size: var(--ws-fs-chip);
+		font-weight: 600;
+		letter-spacing: 0.3px;
+		text-transform: lowercase;
+		margin-right: 6px;
+	}
+
+	.shell-sidebar__provider-badge[data-provider="claude"] {
+		background: color-mix(in srgb, var(--provider-claude) 14%, transparent);
+		color: var(--provider-claude);
+	}
+
+	.shell-sidebar__provider-badge[data-provider="codex"] {
+		background: color-mix(in srgb, var(--provider-codex) 14%, transparent);
+		color: var(--provider-codex);
+	}
+
+	.shell-sidebar__provider-badge[data-provider="ezio"] {
+		background: color-mix(in srgb, var(--provider-ezio) 14%, transparent);
+		color: var(--provider-ezio);
+	}
+
+	.shell-sidebar__provider-badge[data-provider="cursor"] {
+		background: color-mix(in srgb, var(--provider-cursor) 14%, transparent);
+		color: var(--provider-cursor);
+	}
+
+	.shell-sidebar__provider-badge[data-provider="antigravity"] {
+		background: color-mix(
+			in srgb,
+			var(--provider-antigravity) 14%,
+			transparent
+		);
+		color: var(--provider-antigravity);
+	}
+
+	.shell-sidebar__provider-badge[data-provider="other"] {
+		background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+		color: var(--text-muted);
+	}
+
+	/* ---- Sidebar workflow lens: a mini dashboard inspector, set apart from the
+	   shells above it by a top divider. ---- */
+
+	.workflow-row {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		/* No width:100% — combined with margin-left:24px it overflowed the sidebar
+		 * and clipped the right-aligned status badge. Auto width fills the space
+		 * left of the rail indent, so the artifact ellipsis and margin-left:auto
+		 * status still have a bounded box. */
+		text-align: left;
+		margin-bottom: var(--space-3);
+		margin-left: 24px;
+		padding: var(--space-2);
+		/* Flat: no border and no fill — the rail elbow + indent already group it
+		 * under the worktree; a bordered/filled box read as a heavy card. The fill
+		 * only appears on :hover to signal the row is clickable. border-radius is
+		 * retained so that hover fill has rounded corners. */
+		border-radius: var(--radius-md);
+		color: inherit;
+		font: inherit;
+		font-size: var(--ws-fs-chip);
+		cursor: pointer;
+		position: relative;
+	}
+
+	.workflow-row::before {
+		content: "";
+		position: absolute;
+		left: -12px;
+		top: -2px;
+		bottom: 50%;
+		width: 12px;
+		border-left: 2px solid var(--rail);
+		border-bottom: 2px solid var(--rail);
+	}
+
+	.workflow-row:hover {
+		/* Border-less now — give the clickable card a subtle fill on hover so it
+		 * still signals interactivity. */
+		background: color-mix(in srgb, var(--panel-bg) 80%, transparent);
+	}
+
+	/* Line 1: type badge + artifact, with any non-done status pushed to the right. */
+
+	.workflow-row__artifact-line {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		min-width: 0;
+	}
+
+	.workflow-row__type {
+		display: inline-flex;
+		align-items: center;
+		flex: 0 0 auto;
+		padding: 0 6px;
+		height: 16px;
+		border-radius: var(--radius-sm);
+		font-size: 0.66rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		background: color-mix(in srgb, var(--sha-color) 16%, transparent);
+		color: var(--sha-color);
+	}
+
+	.workflow-row__artifact {
+		flex: 1 1 auto;
+		min-width: 0;
+		color: var(--text-secondary);
+		font-size: 0.68rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.workflow-row__phase {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 5px;
+		color: var(--text-muted);
+		font-size: 0.68rem;
+	}
+
+	/* Dash separators for the `<status> - <phase> - <round>` phase line. */
+
+	.workflow-row__phase-name::before {
+		content: "- ";
+	}
+
+	.workflow-row__round::before {
+		content: "- ";
+	}
+
+	/* Status = dot + explicit word on the phase line. The wrapper sets `color` per
+	   data-status (below); the dot uses currentColor and the label inherits it, so
+	   both share one status color. No pill — just colored inline text. */
+
+	.workflow-row__status {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		flex: 0 0 auto;
+	}
+
+	.workflow-row__status-label {
+		font-weight: 600;
+	}
+
+	.workflow-row__status-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: currentColor;
+	}
+
+	/* Semantic status dot colors: live / complete / idle / needs-attention / urgent.
+	   The dot inherits currentColor, so each state only needs to set color. */
+
+	.workflow-row__status[data-status="running"] {
+		color: var(--accent);
+	}
+
+	.workflow-row__status[data-status="done"] {
+		color: var(--ready);
+	}
+
+	.workflow-row__status[data-status="paused"],
+	.workflow-row__status[data-status="canceled"] {
+		color: var(--text-muted);
+	}
+
+	.workflow-row__status[data-status="halted"] {
+		color: var(--warning);
+	}
+
+	.workflow-row__status[data-status="escalated"] {
+		color: var(--danger);
+	}
+
+	.workflow-row__daemon-down,
+	.workflow-row__stale {
+		font-size: 0.68rem;
+		color: var(--warning);
+	}
+}
+
+@layer app.themes {
+	/* Single blinking border (smoke-test feedback): the base theme paints the
+	 * attention ring on a ::before inset INSIDE the row's own 2px border, so an
+	 * active row showed two stacked borders. The flat TUI box wants ONE border —
+	 * drop the ring and blink the row's own border-color instead. */
+
+	[data-theme="tui"] .shell-sidebar__row[data-attention="activity"]::before,
+	[data-theme="tui"]
+		.shell-sidebar__row[data-attention="actionRequired"]::before {
+		display: none;
+	}
+
+	/* Activity: muted amber, slow — a SECOND-tier "agent running" cue that never
+	 * out-shouts the selected card. ActionRequired: full attention color, fast.
+	 * Each blinks the row's single border between its accent and the neutral
+	 * panel border, so only the outermost line ever animates. */
+
+	@keyframes tui-attention-border-activity {
+		0%,
+		100% {
+			border-color: color-mix(
+				in srgb,
+				var(--attention-color) 45%,
+				var(--panel-border)
+			);
+		}
+		50% {
+			border-color: var(--panel-border);
+		}
+	}
+
+	@keyframes tui-attention-border-action {
+		0%,
+		100% {
+			border-color: var(--attention-color);
+		}
+		50% {
+			border-color: var(--panel-border);
+		}
+	}
+
+	[data-theme="tui"] .shell-sidebar__row[data-attention="activity"] {
+		animation: tui-attention-border-activity 2s steps(1, end) infinite;
+	}
+
+	[data-theme="tui"] .shell-sidebar__row[data-attention="actionRequired"] {
+		animation: tui-attention-border-action 0.7s steps(1, end) infinite;
+		box-shadow: none;
+	}
+
+	/* Selection leads (first in the hierarchy): a selected row holds a static,
+	 * neutral near-white border and never blinks — even with an active agent. The
+	 * [data-attention] variant outranks the blink rules above, so selection wins
+	 * on a combined row regardless of source order. */
+
+	[data-theme="tui"] .shell-sidebar__row[data-selected="true"],
+	[data-theme="tui"] .shell-sidebar__row[data-selected="true"][data-attention] {
+		border-color: var(--foreground);
+		animation: none;
+	}
+
+	/* Split out of tui.css's "Persistent selected/current borders" sweep
+	 * (slice 4, cascade-flip fix): that rule is unlayered and this module's
+	 * rules are layered, so leaving it behind would let it beat the
+	 * higher-specificity "Selection leads" rule above via unlayered-always-wins
+	 * — even though pre-move, specificity correctly picked --foreground here.
+	 * Moving just this selector keeps the original cascade shape; it renders
+	 * as a no-op today (rows always carry a data-attention attribute, so the
+	 * rule above's compound selector always outranks this one) but guards
+	 * against ever losing that guarantee. */
+	[data-theme="tui"] .shell-sidebar__row[data-selected="true"] {
+		border-color: var(--primary);
+	}
+
+	/* Non-selected rows recede: dim their text/content so the selected card's
+	 * full-strength text leads the hierarchy. Targets the content containers (not
+	 * the row) so the blinking border is left untouched. */
+
+	[data-theme="tui"]
+		.shell-sidebar__row[data-selected="false"]
+		:is(
+			.shell-sidebar__item,
+			.shell-sidebar__card-task,
+			.shell-sidebar__processes,
+			.workflow-row
+		) {
+		opacity: 0.6;
+	}
+
+	[data-theme="tui"]
+		.shell-sidebar__process-indicator[data-state="actionRequired"] {
+		box-shadow: none;
+		animation: tui-attention-blink 0.7s steps(1, end) infinite;
+	}
+
+	/* tui.css loads after shell.css, so its blink would otherwise override the
+	 * reduced-motion freezes shell.css declares in its own media block. */
+
+	@media (prefers-reduced-motion: reduce) {
+		[data-theme="tui"] .shell-sidebar__row[data-attention]::before,
+		[data-theme="tui"] .shell-sidebar__row[data-attention],
+		[data-theme="tui"] .shell-sidebar__process-indicator,
+		[data-theme="tui"] .shell-button__pulse-dot {
+			animation: none;
+		}
+		/* Blink frozen — surface attention as a static single border instead.
+		 * Selection still wins via its higher-specificity rule above. */
+		[data-theme="tui"] .shell-sidebar__row[data-attention="activity"],
+		[data-theme="tui"] .shell-sidebar__row[data-attention="actionRequired"] {
+			border-color: var(--attention-color);
+		}
+	}
+
+	/* Sidebar title hierarchy: workspace name is the largest/heaviest tier. */
+
+	[data-theme="tui"] .shell-sidebar__workspace-name {
+		font-size: 17px;
+		font-weight: 700;
+		line-height: 1.2;
+		text-align: left;
+	}
+
+	/* Terminals don't italicize. Base keeps italic for the other palettes. */
+
+	[data-theme="tui"] .shell-sidebar__workspace-empty,
+	[data-theme="tui"] .shell-list__item--dir {
+		font-style: normal;
+	}
+}
