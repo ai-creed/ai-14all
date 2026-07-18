@@ -11,6 +11,14 @@ export default defineConfig({
 	timeout: 60_000,
 	expect: {
 		timeout: 10_000,
+		toHaveScreenshot: {
+			// Tiny AA tolerance for same-machine reruns; anything visible fails.
+			maxDiffPixels: 64,
+			// Spec §6.1 requires animations disabled. Playwright's default is
+			// "allow" (playwright-core types.d.ts) — set it explicitly so every
+			// assertion in every suite gets deterministic, settled frames.
+			animations: "disabled",
+		},
 	},
 	fullyParallel: false,
 	workers: 1,
