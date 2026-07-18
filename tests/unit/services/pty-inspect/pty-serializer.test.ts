@@ -5,6 +5,8 @@ import {
 	decodeCursor,
 	encodeCursor,
 } from "../../../../services/pty-inspect/pty-cursor";
+import { PtyRowsResult } from "@ai-creed/command-contract";
+import { V4PtyRowsResult } from "./fixtures/v4-pty-rows-schema";
 
 async function mirrorWith(
 	data: string,
@@ -271,6 +273,30 @@ describe("serializePage", () => {
 		expect(page.altScreen).toBe(true);
 		for (const row of page.rows) {
 			expect(row.wrapped).toBeUndefined();
+		}
+		m.dispose();
+	});
+});
+
+describe("v4/v5 contract compatibility (umbrella §3)", () => {
+	it("old host → new phone: a page with no wrapped key parses against the v5 schema with wrapped absent (reflow spec §1.7)", async () => {
+		const m = await mirrorWith("plain\r\nlines\r\n");
+		const page = serializePage(m, null);
+		expect(JSON.stringify(page)).not.toContain("wrapped");
+		const parsed = PtyRowsResult.parse({ ok: true, ...page });
+		if (!parsed.ok) throw new Error("expected success arm");
+		for (const row of parsed.rows) expect(row.wrapped).toBeUndefined();
+		m.dispose();
+	});
+
+	it("new host → old phone: the frozen v4 schema parses an unmodified v5 page and strips wrapped (reflow spec §1.8)", async () => {
+		const m = await mirrorWith("e".repeat(100), 40, 6);
+		const page = serializePage(m, null);
+		expect(page.rows.some((r) => r.wrapped === true)).toBe(true);
+		const parsed = V4PtyRowsResult.parse({ ok: true, ...page });
+		if (!parsed.ok) throw new Error("expected success arm");
+		for (const row of parsed.rows) {
+			expect("wrapped" in row).toBe(false);
 		}
 		m.dispose();
 	});
