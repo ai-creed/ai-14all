@@ -1,99 +1,3 @@
-@font-face {
-	font-family: "AI14All Terminal Powerline";
-	src: url("../assets/fonts/meslo-lg-m-dz-powerline-regular.ttf")
-		format("truetype");
-	font-weight: 400;
-	font-style: normal;
-	font-display: swap;
-}
-
-/* Icons-only Nerd Font. Drives every chrome icon in every theme via the <Icon>
- * component. Glyphs live in the Private Use Area, so this never shadows real
- * text. */
-@font-face {
-	font-family: "Symbols Nerd Font";
-	src: url("../assets/fonts/SymbolsNerdFontMono-Regular.ttf") format("truetype");
-	font-weight: 400;
-	font-style: normal;
-	font-display: block;
-}
-
-/* Nerd Font glyph span emitted by <Icon>. Visible in every theme; the
- * component hides the original glyph/SVG fallback. */
-.app-nf {
-	font-family: "Symbols Nerd Font", var(--font-ui);
-	font-style: normal;
-	font-weight: 400;
-	font-variant: normal;
-	line-height: 1;
-	text-rendering: auto;
-	-webkit-font-smoothing: antialiased;
-}
-
-/* The glyph is drawn from the data-nf attribute via generated content so the
- * Private-Use codepoint never enters the DOM text (keeps textContent, copy and
- * screen readers clean). Painted in all palettes. */
-.app-nf::before {
-	content: attr(data-nf);
-}
-
-:root {
-	/* Surviving non-token shell vars: fonts, pane-accent borders, sha and
-	 * provider colors. shadcn design tokens now live in src/styles/tokens.css
-	 * and are bridged to the legacy app-bg, panel and text names there. */
-	/* Chrome border width. Themes that draw heavier box-drawing rules (TUI)
-	 * override this; light/dark/warm keep the original hairline. */
-	--shell-border-width: 1px;
-	/* Neutral pane separators — each matches --panel-border (like the tui
-	 * theme): one uniform line, no per-pane accent colors. Selected/active/
-	 * focus states keep their accent border (handled elsewhere). */
-	--pane-border-sessions: var(--panel-border);
-	--pane-border-session-info: var(--panel-border);
-	--pane-border-terminal: var(--panel-border);
-	--pane-border-review: var(--panel-border);
-	--sha-color: #a78bfa;
-	--provider-claude: #d97706;
-	--provider-codex: #2563eb;
-	--provider-ezio: #d6519e;
-	--provider-cursor: #0891b2;
-	--provider-antigravity: #7c3aed;
-	--font-ui:
-		"SF Mono", "SFMono-Regular", ui-monospace, Menlo, Monaco, monospace;
-	--font-terminal:
-		"AI14All Terminal Powerline", "Meslo LG M DZ for Powerline",
-		"Meslo LG M for Powerline", "Meslo LG M DZ Regular for Powerline", "Hack",
-		ui-monospace, Menlo, Monaco, monospace;
-	--font-reading:
-		"Hanken Grotesk Variable", system-ui, -apple-system, "Segoe UI", Roboto,
-		sans-serif;
-	--font-size-body: 13px;
-	--font-size-label: 16px;
-	font-family: var(--font-ui);
-}
-
-[data-theme="light"] {
-	/* Neutral pane separators — match --panel-border (like the tui theme). */
-	--pane-border-sessions: var(--panel-border);
-	--pane-border-session-info: var(--panel-border);
-	--pane-border-terminal: var(--panel-border);
-	--pane-border-review: var(--panel-border);
-	--sha-color: #6d4cbc;
-	--provider-claude: #b45309;
-	--provider-codex: #1d4ed8;
-	--provider-ezio: #b3247e;
-	--provider-cursor: #0e7490;
-	--provider-antigravity: #6d28d9;
-}
-
-/* Light theme uses a flat, token-driven surface (docs/theme-wcag-aaa-spec.md
- * §5 P0): the page, the shadcn bg-background/bg-card overlays, and the UI
- * gallery all render on --background, so they match and text contrast is
- * measured on the real surface. (Dark/warm keep their radial gradients.) */
-[data-theme="light"] body {
-	background: var(--app-bg);
-	color: var(--text-primary);
-}
-
 [data-theme="light"] .shell-terminal-tab:hover,
 [data-theme="light"] .shell-review-tab:hover {
 	background: rgba(0, 0, 0, 0.04);
@@ -106,50 +10,8 @@
 	box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.06);
 }
 
-/* Warm theme: a dark espresso/umber take on the terminal surfaces — keeps the
- * terminal-ish dark feel but trades the cool blue-grey for warm browns, ivory
- * text, and a terracotta accent. Preview with
- * document.documentElement.setAttribute("data-theme", "warm"). */
-[data-theme="warm"] {
-	/* Neutral pane separators — match --panel-border (like the tui theme). */
-	--pane-border-sessions: var(--panel-border);
-	--pane-border-session-info: var(--panel-border);
-	--pane-border-terminal: var(--panel-border);
-	--pane-border-review: var(--panel-border);
-	--sha-color: #c4a0db;
-	--provider-claude: #e58a5e;
-	--provider-codex: #5a9bd6;
-	--provider-ezio: #d97aae;
-	--provider-cursor: #22b8d0;
-	--provider-antigravity: #8b5cf6;
-}
-
-[data-theme="warm"] body {
-	background: radial-gradient(circle at top, #2c2318 0%, var(--app-bg) 60%);
-	color: var(--text-primary);
-}
-
 [data-theme="warm"] .shell-review-tab:hover {
 	background: rgba(232, 133, 92, 0.08);
-}
-
-* {
-	box-sizing: border-box;
-}
-
-body {
-	margin: 0;
-	background: radial-gradient(circle at top, #10181f 0%, var(--app-bg) 55%);
-	color: var(--text-primary);
-	font-size: var(--font-size-body);
-}
-
-button,
-input,
-textarea,
-select {
-	font: inherit;
-	font-size: var(--font-size-body);
 }
 
 .shell-label,
@@ -158,29 +20,10 @@ select {
 	font-size: var(--font-size-label);
 }
 
-.shell-app {
-	height: 100vh;
-	overflow: hidden;
-	background: transparent;
-}
-
-.shell-app--setup {
-	display: grid;
-	place-items: center;
-	padding: var(--space-6);
-}
-
 .shell-panel {
 	background: transparent;
 	border: var(--shell-border-width) solid var(--panel-border);
 	border-radius: var(--radius-md);
-}
-
-.shell-layout {
-	display: grid;
-	height: 100vh;
-	gap: var(--space-4);
-	padding: var(--space-4);
 }
 
 /* shadcn DialogContent compatibility for pre-existing fully-custom dialogs.
@@ -240,15 +83,6 @@ select {
 
 .shell-sidebar-column__resize-handle:hover::before {
 	background: var(--accent);
-}
-
-.shell-main-column {
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-4);
-	min-width: 0;
-	min-height: 0;
-	overflow: hidden;
 }
 
 /* Composed on top of `.shell-review-chipbar`: the chip bar provides the

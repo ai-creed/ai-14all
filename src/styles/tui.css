@@ -28,19 +28,6 @@
 	background: var(--background);
 }
 
-/* Pane accent borders become solid full-opacity lines instead of rgba
- * washes — crisp 1px lines read as box-drawing (spec D3). */
-[data-theme="tui"] {
-	--pane-border-sessions: var(--panel-border);
-	--pane-border-session-info: var(--panel-border);
-	--pane-border-terminal: var(--panel-border);
-	--pane-border-review: var(--panel-border);
-	/* Heavier chrome borders read as box-drawing rules. shell.css declares
-	 * `--shell-border-width: 1px` for the other palettes and draws every chrome
-	 * border with `var(--shell-border-width) solid …`; here it widens to 2px. */
-	--shell-border-width: 2px;
-}
-
 /* Elevation shadows off. Targeted per selector — a blanket `box-shadow:
  * none` would also kill Tailwind ring-* focus indicators (they are
  * box-shadows), regressing keyboard a11y (spec D6). Crisp 0-0-0-1px

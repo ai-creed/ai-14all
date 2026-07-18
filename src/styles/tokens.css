@@ -60,6 +60,27 @@
 	--space-5: 20px;
 	--space-6: 24px;
 
+	/* Chrome border + pane separator + provider identity tokens. Defaults
+	 * live here WITH their per-theme overrides (spec §4.1: a custom property
+	 * overridden by any theme is a theme token). */
+	--shell-border-width: 1px;
+	--pane-border-sessions: var(--panel-border);
+	--pane-border-session-info: var(--panel-border);
+	--pane-border-terminal: var(--panel-border);
+	--pane-border-review: var(--panel-border);
+	--sha-color: #a78bfa;
+	--provider-claude: #d97706;
+	--provider-codex: #2563eb;
+	--provider-ezio: #d6519e;
+	--provider-cursor: #0891b2;
+	--provider-antigravity: #7c3aed;
+
+	/* Character-grid tokens: defaults mirror the tui values (1ch/1lh are
+	 * theme-agnostic units; no non-tui consumer exists today), so every
+	 * [data-theme]-declared token has its :root default here. */
+	--cell-w: 1ch;
+	--cell-h: 1lh;
+
 	/* Workspace panel type ladder (docs/design-specs/2026-06-24-workspace-panel-rework-design.md §5) */
 	--ws-fs-header: 11px;
 	--ws-fs-repo: 15px;
@@ -151,6 +172,18 @@
 	--hljs-addition-bg: #f0fff4;
 	--hljs-deletion-fg: #b31d28;
 	--hljs-deletion-bg: #ffeef0;
+
+	/* Neutral pane separators — match --panel-border (like the tui theme). */
+	--pane-border-sessions: var(--panel-border);
+	--pane-border-session-info: var(--panel-border);
+	--pane-border-terminal: var(--panel-border);
+	--pane-border-review: var(--panel-border);
+	--sha-color: #6d4cbc;
+	--provider-claude: #b45309;
+	--provider-codex: #1d4ed8;
+	--provider-ezio: #b3247e;
+	--provider-cursor: #0e7490;
+	--provider-antigravity: #6d28d9;
 }
 
 /* ---- warm theme: existing palette via shadcn token names ---- */
@@ -200,6 +233,22 @@
 	--hljs-addition-bg: #1e3620;
 	--hljs-deletion-fg: #f0c4b8;
 	--hljs-deletion-bg: #4a201a;
+
+	/* Warm theme: a dark espresso/umber take on the terminal surfaces — keeps
+	 * the terminal-ish dark feel but trades the cool blue-grey for warm
+	 * browns, ivory text, and a terracotta accent. Preview with
+	 * document.documentElement.setAttribute("data-theme", "warm"). */
+	/* Neutral pane separators — match --panel-border (like the tui theme). */
+	--pane-border-sessions: var(--panel-border);
+	--pane-border-session-info: var(--panel-border);
+	--pane-border-terminal: var(--panel-border);
+	--pane-border-review: var(--panel-border);
+	--sha-color: #c4a0db;
+	--provider-claude: #e58a5e;
+	--provider-codex: #5a9bd6;
+	--provider-ezio: #d97aae;
+	--provider-cursor: #22b8d0;
+	--provider-antigravity: #8b5cf6;
 }
 
 /* ---- Terminal UI theme: WebTUI-style stepped ladder on shadcn token names
@@ -260,7 +309,17 @@
 	line-height: 1.4;
 	--cell-w: 1ch;
 	--cell-h: 1lh;
-	--box-border-width: 1px;
+
+	/* Pane accent borders become solid full-opacity lines instead of rgba
+	 * washes — crisp 1px lines read as box-drawing (spec D3). */
+	--pane-border-sessions: var(--panel-border);
+	--pane-border-session-info: var(--panel-border);
+	--pane-border-terminal: var(--panel-border);
+	--pane-border-review: var(--panel-border);
+	/* Heavier chrome borders read as box-drawing rules. shell.css declares
+	 * `--shell-border-width: 1px` for the other palettes and draws every chrome
+	 * border with `var(--shell-border-width) solid …`; here it widens to 2px. */
+	--shell-border-width: 2px;
 }
 
 @theme inline {

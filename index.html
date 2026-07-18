@@ -20,12 +20,19 @@
 		<style>
 			/*
 			 * Startup splash: rendered before the main bundle parses so the user
-			 * sees something instead of an empty viewport. Sits inside #root so
-			 * React's first render automatically replaces it on mount.
+			 * sees something instead of an empty viewport. The .app-splash node
+			 * sits inside #root so React's first render automatically replaces
+			 * it on mount, but html/body themselves are outside #root and are
+			 * never "replaced" — so their splash background is scoped with
+			 * :has(.app-splash) to stop competing with the app's own themed
+			 * body background (src/styles/base.css) once the splash is gone.
 			 */
 			html,
 			body {
 				margin: 0;
+			}
+			html:has(.app-splash),
+			body:has(.app-splash) {
 				background: #0b1116;
 			}
 			.app-splash {
@@ -92,8 +99,8 @@
 				}
 			}
 			@media (prefers-color-scheme: light) {
-				html,
-				body,
+				html:has(.app-splash),
+				body:has(.app-splash),
 				.app-splash {
 					background: #f0f2f5;
 				}
