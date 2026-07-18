@@ -102,15 +102,11 @@ test.describe.serial("ui gallery surfaces", () => {
 		},
 		dropdown: async () => {
 			await page.keyboard.press("Escape");
-			await expect(page.getByTestId("gallery-dropdown-content")).toHaveCount(
-				0,
-			);
+			await expect(page.getByTestId("gallery-dropdown-content")).toHaveCount(0);
 		},
 		context: async () => {
 			await page.keyboard.press("Escape");
-			await expect(page.getByTestId("gallery-context-content")).toHaveCount(
-				0,
-			);
+			await expect(page.getByTestId("gallery-context-content")).toHaveCount(0);
 		},
 	};
 
@@ -147,7 +143,9 @@ test.describe.serial("workspace sidebar surface", () => {
 
 	test.beforeAll(async () => {
 		testRepo = createTestRepo();
-		const stateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-cssvis-ws-")));
+		const stateDir = realpathSync(
+			mkdtempSync(join(tmpdir(), "ofa-cssvis-ws-")),
+		);
 		app = await electron.launch({
 			args: ["out/main/index.js"],
 			env: {
@@ -185,10 +183,7 @@ test.describe.serial("workspace sidebar surface", () => {
 				(t) => document.documentElement.setAttribute("data-theme", t),
 				palette,
 			);
-			await expect(page.locator("html")).toHaveAttribute(
-				"data-theme",
-				palette,
-			);
+			await expect(page.locator("html")).toHaveAttribute("data-theme", palette);
 			await page.waitForTimeout(200);
 			const sidebar = page.getByRole("navigation", {
 				name: "Worktree sessions",
