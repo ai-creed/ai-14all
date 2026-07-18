@@ -1,0 +1,13 @@
+/* THE cascade authority. Declares the top-level layer order (the first four
+ * names replicate tailwindcss's own statement, so whichever file the bundler
+ * emits first fixes an identical order) and imports every app stylesheet.
+ * Modules are imported PLAIN — each wraps its own rules in top-level
+ * @layer blocks. layer(...) imports are forbidden for files containing
+ * @layer blocks: the inner layer would nest (app.components.app.themes)
+ * and lose to the outer layer's direct rules (css-cascade-5). */
+@layer theme, base, components, utilities, app.base, app.components, app.themes;
+
+@import "./tokens.css";
+@import "../app/shell.css"; /* unlayered — temporary until slices empty it */
+@import "./tui.css"; /* unlayered — temporary until slices empty it */
+@import "./hljs-tokens.css"; /* unlayered — switches to layer(app.components) at teardown */

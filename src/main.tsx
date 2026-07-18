@@ -11,13 +11,9 @@ import { installKnownRendererErrorHandler } from "./app/logic/known-renderer-err
 // registers the "Hanken Grotesk Variable" font-face; consumed via
 // --font-reading in shell.css. No network fetch — works packaged.
 import "@fontsource-variable/hanken-grotesk/index.css";
-import "./styles/tokens.css";
-import "./app/shell.css";
-import "./styles/tui.css";
-// Token-driven syntax highlighting for markdown code blocks (see
-// styles/hljs-tokens.css): highlight.js scope classes → the per-theme
-// --hljs-* tokens defined in styles/tokens.css.
-import "./styles/hljs-tokens.css";
+// All app CSS flows through the single cascade authority. Do NOT add other
+// CSS imports here — see src/styles/index.css and docs/shared/styling-architecture.md.
+import "./styles/index.css";
 
 installKnownRendererErrorHandler({ dev: import.meta.env.DEV });
 
