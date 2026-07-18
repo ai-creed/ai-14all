@@ -3638,3 +3638,117 @@ describe("session/reportProcessAgentAttention — onlyIfTerminalSessionId stale-
 		);
 	});
 });
+
+describe("session/recordProcessOutput — onlyIfTerminalSessionId stale-session guard (restart race)", () => {
+	// Extends the session/updateProcessStatus (5c4bd4a3) and
+	// session/reportProcessAgentAttention (a61474c3) guards one action deeper. A
+	// restart rebinds the detected agent P from terminal session S1 onto a fresh
+	// S2 and re-asserts running. The OLD S1's delayed PTY output then resolves
+	// against the lagging findProcessByTerminalSessionId ref and dispatches
+	// recordProcessOutput pinned to S1. Because it no longer matches P's CURRENT
+	// terminal session, the reducer must drop the whole action so a dead shell's
+	// bytes cannot mark the live, rebound agent active/action-required or
+	// overwrite its preview/lastActivityAt.
+	function rebound() {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("P", "main", "claude", {
+				terminalSessionId: "S1",
+				command: "claude",
+				agentDetected: true,
+			}),
+		});
+		// Restart rebinds P onto a brand-new terminal session S2 ...
+		state = workspaceReducer(state, {
+			type: "session/replaceProcessTerminal",
+			processId: "P",
+			terminalSessionId: "S2",
+		});
+		// ... and re-asserts status=running (the restart's OWN authoritative status
+		// dispatch — no pin, so it always applies).
+		state = workspaceReducer(state, {
+			type: "session/updateProcessStatus",
+			processId: "P",
+			status: "running",
+			exitCode: null,
+		});
+		return state;
+	}
+
+	it("drops a stale output pinned to the OLD session so the rebound process is untouched", () => {
+		const state = rebound();
+		expect(state.processSessionsById["P"]?.status).toBe("running");
+		expect(state.processSessionsById["P"]?.terminalSessionId).toBe("S2");
+
+		// The OLD terminal session S1's delayed output arrives; it's pinned to S1
+		// but P is now bound to S2 → the whole action is dropped.
+		const next = workspaceReducer(state, {
+			type: "session/recordProcessOutput",
+			worktreeId: "main",
+			processId: "P",
+			attentionState: "actionRequired",
+			at: 5_000,
+			isViewed: false,
+			lastOutputPreview: "stale S1 bytes",
+			agentReason: {
+				state: "waiting",
+				source: "terminal",
+				summary: "y/n prompt",
+				nextAction: null,
+				reportedAt: 5_000,
+			},
+			onlyIfTerminalSessionId: "S1",
+		});
+
+		// Dropping the WHOLE action's effects is a referential no-op: the dead
+		// shell's bytes update neither attention, nor lastActivityAt, nor
+		// lastOutputPreview on the rebound process.
+		expect(next).toBe(state);
+		expect(next.processSessionsById["P"]?.attentionState).toBe("idle");
+		expect(next.processSessionsById["P"]?.lastActivityAt).toBeNull();
+		expect(next.processSessionsById["P"]?.lastOutputPreview).toBeNull();
+	});
+
+	it("applies the output when NO pin is supplied (today's behavior preserved)", () => {
+		const state = rebound();
+		const next = workspaceReducer(state, {
+			type: "session/recordProcessOutput",
+			worktreeId: "main",
+			processId: "P",
+			attentionState: "actionRequired",
+			at: 5_000,
+			isViewed: false,
+			lastOutputPreview: "live S2 bytes",
+		});
+		expect(next.processSessionsById["P"]?.attentionState).toBe(
+			"actionRequired",
+		);
+		expect(next.processSessionsById["P"]?.lastActivityAt).toBe(5_000);
+		expect(next.processSessionsById["P"]?.lastOutputPreview).toBe(
+			"live S2 bytes",
+		);
+	});
+
+	it("applies the output when the pin MATCHES the current terminal session", () => {
+		const state = rebound();
+		const next = workspaceReducer(state, {
+			type: "session/recordProcessOutput",
+			worktreeId: "main",
+			processId: "P",
+			attentionState: "actionRequired",
+			at: 5_000,
+			isViewed: false,
+			lastOutputPreview: "live S2 bytes",
+			onlyIfTerminalSessionId: "S2",
+		});
+		expect(next.processSessionsById["P"]?.attentionState).toBe(
+			"actionRequired",
+		);
+		expect(next.processSessionsById["P"]?.lastActivityAt).toBe(5_000);
+		expect(next.processSessionsById["P"]?.lastOutputPreview).toBe(
+			"live S2 bytes",
+		);
+	});
+});

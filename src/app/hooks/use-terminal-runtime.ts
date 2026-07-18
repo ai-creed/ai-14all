@@ -200,6 +200,15 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 						process.worktreeId === getActiveWorktreeId(),
 					lastOutputPreview: previewUpdate.preview,
 					agentReason,
+					// Pin the output to its originating session, mirroring the
+					// exit/error/lifecycle guards below. `findProcessByTerminalSessionId`
+					// resolves ownership from a ref that can lag a concurrent restart's
+					// rebind, so `process` may already point at a NEW session. The
+					// reducer drops this action when the process's current
+					// terminalSessionId no longer matches, so a delayed chunk of OLD
+					// session output cannot mark the rebound process
+					// active/action-required.
+					onlyIfTerminalSessionId: event.sessionId,
 				};
 				applyActionForOwner(ownerWsId, action);
 			},

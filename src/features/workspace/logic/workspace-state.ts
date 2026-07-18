@@ -175,6 +175,19 @@ export type WorkspaceAction =
 			isViewed: boolean;
 			lastOutputPreview?: string;
 			agentReason?: AgentAttentionReason | null;
+			/**
+			 * Stale-session guard for the restart race, mirroring
+			 * session/updateProcessStatus and session/reportProcessAgentAttention.
+			 * When present, the action applies only if the target process's CURRENT
+			 * terminalSessionId still equals this value; otherwise the WHOLE action
+			 * is dropped. `findProcessByTerminalSessionId` resolves ownership from a
+			 * ref that can lag a concurrent restart's rebind, so a delayed chunk of
+			 * OLD session output can still resolve to the now-rebound process —
+			 * pinning it lets the reducer discard output that would otherwise mark a
+			 * live, rebound agent active/action-required or overwrite its
+			 * preview/lastActivityAt: the bytes belong to the dead shell.
+			 */
+			onlyIfTerminalSessionId?: string;
 	  }
 	| {
 			type: "session/markProcessViewed";
@@ -1044,6 +1057,22 @@ export function workspaceReducer(
 		const process = state.processSessionsById[action.processId];
 		const session = state.sessionsByWorktreeId[action.worktreeId];
 		if (!process || !session) return state;
+		// Stale-session guard (restart race): mirrors the identical guard on
+		// session/updateProcessStatus and session/reportProcessAgentAttention
+		// above. `findProcessByTerminalSessionId` resolves ownership from a ref
+		// that can lag a concurrent restart's rebind, so a delayed chunk of OLD
+		// session output can still resolve to the now-rebound process. When the
+		// caller pins the action and the process has since been rebound to a
+		// different terminal session, drop the WHOLE action so stale output
+		// cannot mark the live, rebound process active/action-required or
+		// overwrite its preview/lastActivityAt — the bytes belong to the dead
+		// shell.
+		if (
+			action.onlyIfTerminalSessionId !== undefined &&
+			process.terminalSessionId !== action.onlyIfTerminalSessionId
+		) {
+			return state;
+		}
 		// `action.attentionState` comes from the legacy pattern set in
 		// deriveAttentionState, which doesn't recognize all agent prompts (e.g.
 		// "Do you want to create X?" — no y/n keywords, just a trailing ?).

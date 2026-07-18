@@ -208,9 +208,15 @@ describe("useTerminalRuntime — lifecycle attention pinned to the originating s
 			captured.onExit?.({ sessionId: "S1", exitCode: 0 });
 		});
 
+		const outputActions = dispatchedOfType("session/recordProcessOutput");
 		const attentionActions = dispatchedOfType(
 			"session/reportProcessAgentAttention",
 		);
+		// The S1 output that produced the ready verdict must itself be pinned —
+		// the reducer's stale-session guard on recordProcessOutput is this fix's
+		// whole point, not just the lifecycle report it feeds.
+		expect(outputActions.length).toBeGreaterThan(0);
+		expect(outputActions[0]).toHaveProperty("onlyIfTerminalSessionId", "S1");
 		const readyLifecycle = attentionActions.find(
 			(a) =>
 				a.type === "session/reportProcessAgentAttention" &&
@@ -219,7 +225,8 @@ describe("useTerminalRuntime — lifecycle attention pinned to the originating s
 		);
 		expect(readyLifecycle).toBeDefined();
 		expect(readyLifecycle).toHaveProperty("onlyIfTerminalSessionId", "S1");
-		for (const a of attentionActions) {
+		// Every output + lifecycle action the runtime emitted is pinned to S1.
+		for (const a of [...outputActions, ...attentionActions]) {
 			expect(a).toHaveProperty("onlyIfTerminalSessionId", "S1");
 		}
 	});
