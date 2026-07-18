@@ -114,7 +114,12 @@ async function startShellInSlot0() {
  * test's restart, rather than assuming its status is trustworthy.
  */
 async function ensureFreshShellInSlot0(): Promise<void> {
-	if (await page.getByTestId("slot-close-0").isVisible().catch(() => false)) {
+	if (
+		await page
+			.getByTestId("slot-close-0")
+			.isVisible()
+			.catch(() => false)
+	) {
 		await page.getByTestId("slot-close-0").click();
 		const maybeDialog = page.getByTestId("confirm-dialog");
 		if (await maybeDialog.isVisible({ timeout: 2_000 }).catch(() => false)) {
@@ -207,9 +212,7 @@ test("restart replaces the terminal session and keeps the slot populated", async
 	expect(before).not.toBeNull();
 	await page.getByTestId("slot-restart-0").click();
 	await page.getByTestId("confirm-dialog-confirm").click();
-	await expect
-		.poll(async () => slotSessionId())
-		.not.toBe(before);
+	await expect.poll(async () => slotSessionId()).not.toBe(before);
 	// Restart must never be satisfiable by a close: the slot stays populated.
 	await expect(page.getByTestId("slot-restart-0")).toBeVisible();
 });
@@ -233,9 +236,7 @@ test("don't-ask-again silences close; the Settings toggle re-arms it", async () 
 	// button carries aria-label="Settings" (SessionSidebar.tsx:844).
 	await page.getByRole("button", { name: "Settings" }).click();
 	const settingsDialog = page.getByTestId("settings-dialog");
-	await settingsDialog
-		.getByLabel("confirm before closing a shell")
-		.check();
+	await settingsDialog.getByLabel("confirm before closing a shell").check();
 	await settingsDialog.getByRole("button", { name: "Close" }).click();
 	await startShellInSlot0();
 	await page.getByTestId("slot-close-0").click();
