@@ -187,4 +187,91 @@ describe("serializePage", () => {
 			expect(row.line).toBeGreaterThanOrEqual(page.trimmedBefore);
 		m.dispose();
 	}, 30_000);
+
+	it("soft-wrapped long line: row 0 unwrapped, continuation rows carry wrapped: true (reflow spec §1.1)", async () => {
+		const m = await mirrorWith("a".repeat(200), 80, 6);
+		const rows = serializePage(m, null).rows;
+		// 200 chars at 80 cols wraps into 3 content rows; the mirror reports the
+		// full 6-row viewport, so 3 blank unwrapped rows pad the tail (observed
+		// xterm behavior — serializePage never trims trailing blank rows).
+		expect(rows.length).toBe(6);
+		expect(rows[0].wrapped).toBeUndefined();
+		expect(rows[1].wrapped).toBe(true);
+		expect(rows[2].wrapped).toBe(true);
+		for (const row of rows.slice(3)) expect(row.wrapped).toBeUndefined();
+		m.dispose();
+	});
+
+	it("explicit newlines never carry wrapped (reflow spec §1.2)", async () => {
+		const m = await mirrorWith("one\r\ntwo\r\nthree\r\n");
+		for (const row of serializePage(m, null).rows) {
+			expect(row.wrapped).toBeUndefined();
+		}
+		m.dispose();
+	});
+
+	it("wrapped chain spanning a page boundary keeps correct flags on both pages (reflow spec §1.3)", async () => {
+		const m = await mirrorWith("b".repeat(200), 40, 8); // 5 wrapped-chain rows at 40 cols
+		const p1 = serializePage(m, null, 2);
+		expect(p1.more).toBe(true);
+		const p2 = serializePage(m, p1.cursor);
+		const all = [...p1.rows, ...p2.rows].sort((a, b) => a.line - b.line);
+		// The 8-row viewport carries the 5-row wrap chain plus 3 blank unwrapped
+		// padding rows (observed xterm behavior, same as reflow spec §1.1).
+		expect(all.length).toBe(8);
+		const chain = all.slice(0, 5);
+		expect(chain[0].wrapped).toBeUndefined();
+		for (const row of chain.slice(1)) expect(row.wrapped).toBe(true);
+		for (const row of all.slice(5)) expect(row.wrapped).toBeUndefined();
+		m.dispose();
+	});
+
+	it("styled soft-wrapped content: runs still tile each row's text; the flag adds no run motion (reflow spec §1.4)", async () => {
+		const m = await mirrorWith("\x1b[31m" + "r".repeat(100) + "\x1b[0m", 40, 6);
+		const rows = serializePage(m, null).rows;
+		// 100 chars at 40 cols wraps into 3 content rows; the mirror reports the
+		// full 6-row viewport, so 3 blank unwrapped rows pad the tail (same
+		// observed xterm behavior as reflow spec §1.1).
+		expect(rows.length).toBe(6);
+		for (const row of rows) {
+			let off = 0;
+			for (const run of row.runs) {
+				expect(run.start).toBe(off);
+				off += run.len;
+			}
+			expect(off).toBe(row.text.length);
+		}
+		expect(rows[0].wrapped).toBeUndefined();
+		expect(rows[1].wrapped).toBe(true);
+		expect(rows[2].wrapped).toBe(true);
+		for (const row of rows.slice(3)) expect(row.wrapped).toBeUndefined();
+		m.dispose();
+	});
+
+	it("after resize(), flags match the new geometry's per-line isWrapped — no hardcoded layout (reflow spec §1.5)", async () => {
+		const m = await mirrorWith("c".repeat(30), 20, 6);
+		m.resize(12, 4); // epoch bump; xterm reflows the buffer
+		const page = serializePage(m, null);
+		expect(page.rows.length).toBeGreaterThan(0);
+		for (const row of page.rows) {
+			const expected =
+				m.buffer.getLine(row.line - m.trimmedBefore)?.isWrapped ?? false;
+			expect(row.wrapped ?? false).toBe(expected);
+		}
+		m.dispose();
+	});
+
+	it("alt-screen rows report their own isWrapped — no cross-buffer leakage (reflow spec §1.6)", async () => {
+		const m = await mirrorWith(
+			"d".repeat(100) + "\r\n" + "\x1b[?1049h" + "alt line\r\nsecond\r\n",
+			40,
+			6,
+		);
+		const page = serializePage(m, null);
+		expect(page.altScreen).toBe(true);
+		for (const row of page.rows) {
+			expect(row.wrapped).toBeUndefined();
+		}
+		m.dispose();
+	});
 });

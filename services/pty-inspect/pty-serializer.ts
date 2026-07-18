@@ -12,7 +12,12 @@ export type StyleRun = {
 	underline?: true;
 	inverse?: true;
 };
-export type PtyRow = { line: number; text: string; runs: StyleRun[] };
+export type PtyRow = {
+	line: number;
+	text: string;
+	runs: StyleRun[];
+	wrapped?: true;
+};
 export type PtyRowsPage = {
 	epoch: number;
 	cols: number;
@@ -112,7 +117,9 @@ function serializeRow(
 		if (prev && sameAttrs(runAttrs(prev), {})) prev.len += text.length - off;
 		else runs.push({ start: off, len: text.length - off });
 	}
-	return { line: absoluteLine, text, runs };
+	const row: PtyRow = { line: absoluteLine, text, runs };
+	if (line.isWrapped) row.wrapped = true;
+	return row;
 }
 
 export function serializePage(
