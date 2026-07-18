@@ -2,9 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { appendFileMock, mkdirMock } = vi.hoisted(() => ({
-	appendFileMock: vi.fn<(...args: unknown[]) => Promise<void>>(
-		async () => {},
-	),
+	appendFileMock: vi.fn<(...args: unknown[]) => Promise<void>>(async () => {}),
 	mkdirMock: vi.fn<(...args: unknown[]) => Promise<void>>(async () => {}),
 }));
 
@@ -22,7 +20,9 @@ const flush = () => new Promise((r) => setImmediate(r));
 
 describe("resolvePtyCaptureDir", () => {
 	it("returns undefined when the env var is unset or empty", () => {
-		expect(resolvePtyCaptureDir({ env: {}, isPackaged: false })).toBeUndefined();
+		expect(
+			resolvePtyCaptureDir({ env: {}, isPackaged: false }),
+		).toBeUndefined();
 		expect(
 			resolvePtyCaptureDir({
 				env: { AI14ALL_PTY_CAPTURE_DIR: "" },
