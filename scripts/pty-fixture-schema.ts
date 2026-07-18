@@ -10,7 +10,11 @@ import { PtyRowsResult, SubscribePtyResult } from "@ai-creed/command-contract";
 // validity therefore implies wire validity.
 export const PtyFixtureArtifactSchema = z
 	.object({
-		subscribe: z.object({
+		// Strict: the stored shape is exactly { cols, epoch, watermark } —
+		// spec §3 forbids the wire envelope (or anything else) in storage, and
+		// a non-strict object would silently strip a stored `ok` before the
+		// superRefine below could see it.
+		subscribe: z.strictObject({
 			cols: z.number().int().positive(),
 			epoch: z.number().int().nonnegative(),
 			watermark: z.number().int().nonnegative(),

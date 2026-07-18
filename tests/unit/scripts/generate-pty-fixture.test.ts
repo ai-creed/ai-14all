@@ -79,4 +79,14 @@ describe("generateFixture (reflow spec §3)", () => {
 		const parsed = PtyFixtureArtifactSchema.safeParse(tampered);
 		expect(parsed.success).toBe(false);
 	});
+
+	it("rejects a stored subscribe that carries ok: true — the exact naked shape is enforced (spec §3)", async () => {
+		const artifact = await generateFixture(SAMPLE, 40, 6);
+		const tampered = {
+			...artifact,
+			subscribe: { ...artifact.subscribe, ok: true },
+		};
+		const parsed = PtyFixtureArtifactSchema.safeParse(tampered);
+		expect(parsed.success).toBe(false);
+	});
 });
