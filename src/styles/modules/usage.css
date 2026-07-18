@@ -1,0 +1,466 @@
+/* Usage module. Component rules in app.components; per-theme structural
+ * overrides in app.themes (spec §4.2). Theme COLOR variance belongs in
+ * tokens.css, not here. */
+@layer app.components {
+	/* token telemetry strip */
+	.shell-chip-bar__usage {
+		margin-left: auto;
+		display: flex;
+		align-items: center;
+	}
+	.usage-strip {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	}
+	.usage-tele {
+		display: grid;
+		grid-template-columns: auto auto auto auto;
+		gap: 2px 12px;
+		align-items: center;
+		font-size: 11px;
+	}
+	.usage-trow {
+		display: contents;
+	}
+	.usage-col-h {
+		font-size: 9px;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--text-muted);
+	}
+	.usage-prov {
+		font-weight: 600;
+	}
+	.usage-prov--claude {
+		color: var(--provider-claude);
+	}
+	.usage-prov--codex {
+		color: var(--provider-codex);
+	}
+	.usage-bill {
+		color: var(--text-primary);
+		font-weight: 600;
+	}
+	.usage-raw {
+		color: var(--text-muted);
+	}
+	.usage-cell {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		white-space: nowrap;
+	}
+	/* retro-terminal segmented gauge (see retro-terminal-progress.html) */
+	.usage-gauge {
+		display: inline-grid;
+		grid-auto-flow: column;
+		grid-auto-columns: 4px;
+		gap: 1px;
+		height: 5px;
+		align-items: stretch;
+		vertical-align: middle;
+	}
+	.usage-gcell {
+		width: 4px;
+		height: 5px;
+		border-radius: 0;
+		background: var(--panel-border);
+		opacity: 0.6;
+	}
+	.usage-gcell.is-on {
+		opacity: 1;
+	}
+	.usage-gauge--ok .usage-gcell.is-on {
+		background: linear-gradient(180deg, #b7faff, #7fced2);
+		box-shadow: 0 0 4px rgba(127, 206, 210, 0.6);
+	}
+	.usage-gauge--warn .usage-gcell.is-on {
+		background: linear-gradient(180deg, #ffd98a, #d29922);
+		box-shadow: 0 0 4px rgba(210, 153, 34, 0.55);
+	}
+	.usage-gauge--hot .usage-gcell.is-on {
+		background: linear-gradient(180deg, #ff9a90, #f85149);
+		box-shadow: 0 0 5px rgba(248, 81, 73, 0.6);
+	}
+	.usage-caret {
+		background: none;
+		border: none;
+		color: var(--text-muted);
+		cursor: pointer;
+		font-size: 13px;
+	}
+	/* breakdown popover */
+	.usage-pop {
+		position: absolute;
+		z-index: 50;
+		top: 100%;
+		right: 0;
+		margin-top: 6px;
+		max-height: 70vh;
+		overflow-y: auto;
+		background: var(--panel-bg-elevated);
+		border: var(--shell-border-width) solid var(--panel-border-strong);
+		border-radius: 0;
+		box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+		width: 760px;
+		color: var(--text-secondary);
+		font-size: 11px;
+		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+		font-variant-numeric: tabular-nums;
+	}
+	.usage-pop-sec {
+		padding: 12px 14px;
+		border-bottom: var(--shell-border-width) solid var(--panel-border);
+	}
+	.usage-pop-sec:last-child {
+		border-bottom: none;
+	}
+	.usage-pop-h {
+		color: var(--text-muted);
+		font-size: 9px;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		margin-bottom: 9px;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+	/* single grid so codex/claude align column-for-column */
+	.usage-limits {
+		display: grid;
+		grid-template-columns: auto auto auto auto auto auto auto auto 1fr;
+		gap: 7px 10px;
+		align-items: center;
+	}
+	.usage-lim-lbl {
+		color: var(--text-muted);
+	}
+	.usage-lim-pct {
+		text-align: right;
+		color: var(--text-primary);
+	}
+	.usage-tbl {
+		width: 100%;
+		border-collapse: collapse;
+	}
+	.usage-tbl th {
+		color: var(--text-muted);
+		font-size: 9px;
+		text-transform: uppercase;
+		text-align: right;
+		padding: 0 0 6px;
+		font-weight: 500;
+	}
+	.usage-tbl th.l,
+	.usage-tbl td.l {
+		text-align: left;
+	}
+	.usage-tbl td {
+		padding: 3px 0;
+		text-align: right;
+		white-space: nowrap;
+	}
+	/* fixed numeric columns so values line up across rows (chip-bar style) */
+	.usage-tbl th:not(.l),
+	.usage-tbl td:not(.l) {
+		width: 64px;
+		padding-left: 10px;
+	}
+	.usage-ws td {
+		padding-top: 9px;
+		border-top: var(--shell-border-width) solid var(--panel-border);
+		font-weight: 700;
+		color: var(--text-primary);
+	}
+	.usage-wt {
+		padding-left: 14px;
+		color: var(--text-secondary);
+	}
+	.usage-dim {
+		color: var(--text-muted);
+	}
+	.usage-reset {
+		color: var(--text-muted);
+	}
+	.usage-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		text-transform: none;
+		letter-spacing: 0;
+		color: var(--text-secondary);
+	}
+	.usage-foot {
+		background: var(--panel-bg);
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+	.usage-seg {
+		display: inline-flex;
+		background: var(--panel-bg);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: 0;
+		overflow: hidden;
+	}
+	.usage-seg button {
+		padding: 3px 10px;
+		font-size: 10px;
+		color: var(--text-muted);
+		background: none;
+		border: none;
+		cursor: pointer;
+	}
+	.usage-seg button.on {
+		background: var(--panel-bg-elevated);
+		color: var(--text-primary);
+	}
+	.usage-gear {
+		background: none;
+		border: none;
+		color: var(--text-muted);
+		font-size: 11px;
+		cursor: pointer;
+	}
+	.usage-foot-actions {
+		display: inline-flex;
+		gap: 12px;
+		align-items: center;
+	}
+	.usage-help dl {
+		margin: 0;
+		display: grid;
+		grid-template-columns: max-content 1fr;
+		gap: 6px 14px;
+		font-size: 11px;
+	}
+	.usage-help dt {
+		color: var(--text-primary);
+		font-weight: 600;
+		white-space: nowrap;
+	}
+	.usage-help dd {
+		margin: 0;
+		color: var(--text-secondary);
+		line-height: 1.5;
+	}
+	.usage-help b {
+		color: var(--text-primary);
+	}
+	/* Dense chip: range toggle (W/M) — mirrors .usage-seg style */
+	.usage-range {
+		display: inline-flex;
+		background: var(--panel-bg);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: 0;
+		overflow: hidden;
+	}
+	.usage-range button {
+		padding: 2px 6px;
+		font-size: 9px;
+		color: var(--text-muted);
+		background: none;
+		border: none;
+		cursor: pointer;
+	}
+	.usage-range button.on {
+		background: var(--panel-bg-elevated);
+		color: var(--text-primary);
+	}
+	/* Chart: stacked daily bars (shared by chip and popover) */
+	.usage-chart {
+		display: flex;
+		align-items: flex-end;
+		gap: 1px;
+		overflow: hidden;
+	}
+	/* Chip chart: fixed width so week (7 bars) and month (~30 bars) match. */
+	.usage-strip .usage-chart {
+		width: 120px;
+	}
+	/* Popover chart: fill the section width. */
+	.usage-pop .usage-chart {
+		width: 100%;
+	}
+	.usage-chart-bar {
+		display: flex;
+		flex-direction: column-reverse;
+		align-items: center;
+		flex: 1;
+		min-width: 2px;
+	}
+	.usage-chart-seg {
+		width: 100%;
+	}
+	/* Daily chart with a weekday-label row (popover only). */
+	.usage-chart-wrap {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.usage-pop .usage-chart-wrap {
+		width: 100%;
+	}
+	.usage-chart-labels {
+		display: flex;
+		gap: 1px;
+	}
+	.usage-chart-label {
+		flex: 1;
+		min-width: 2px;
+		overflow: hidden;
+		font-size: 8px;
+		line-height: 1;
+		text-align: center;
+		color: var(--text-muted);
+	}
+	.usage-chart-label.is-today {
+		color: var(--accent);
+		font-weight: 700;
+	}
+	/* Month chart: only a few sparse ticks (month abbrev + today dot). Let each label
+	   paint over its empty neighbour slots instead of clipping, and anchor the abbrev
+	   to its boundary column. */
+	.usage-chart-labels.is-month .usage-chart-label {
+		overflow: visible;
+		white-space: nowrap;
+	}
+	.usage-chart-labels.is-month .usage-chart-label.align-left {
+		text-align: left;
+	}
+	.usage-chart-labels.is-month .usage-chart-label.align-right {
+		text-align: right;
+	}
+	/* "You are here" tick at the baseline of today's column — the only today marker on
+	   the month chart (which has no weekday labels). min-height keeps it visible even
+	   when today has no usage yet. */
+	.usage-chart-bar.is-today {
+		min-height: 2px;
+		box-shadow: inset 0 -2px 0 0 var(--accent);
+	}
+	/* Dense chip: token + cost figure */
+	.usage-figure {
+		display: inline-flex;
+		flex-direction: column;
+		font-size: 9px;
+		line-height: 1.3;
+	}
+	.usage-figure-tok {
+		color: var(--text-primary);
+		font-weight: 600;
+	}
+	.usage-figure-cost {
+		color: var(--text-muted);
+	}
+	/* Popover: provider roll-up rows */
+	.usage-rollup {
+		display: flex;
+		flex-direction: column;
+		gap: 5px;
+	}
+	.usage-rollup-row {
+		display: grid;
+		grid-template-columns: 64px 1fr 60px 64px;
+		gap: 8px;
+		align-items: center;
+	}
+	.usage-rollup-total {
+		border-top: var(--shell-border-width) solid var(--panel-border);
+		padding-top: 4px;
+		margin-top: 2px;
+		color: var(--text-primary);
+		font-weight: 600;
+	}
+	.usage-rollup-tok {
+		text-align: right;
+		color: var(--text-primary);
+	}
+	.usage-share {
+		height: 4px;
+		background: var(--panel-border);
+		position: relative;
+		border-radius: 0;
+		overflow: hidden;
+	}
+	.usage-share-fill {
+		position: absolute;
+		top: 0;
+		left: 0;
+		height: 100%;
+		border-radius: 0;
+	}
+	.usage-unpriced {
+		margin-top: 4px;
+		font-size: 10px;
+	}
+	/* Popover: lifetime cards */
+	.usage-lifetime {
+		display: flex;
+		gap: 16px;
+	}
+	.usage-life-card {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+	}
+	.usage-life-fig {
+		font-size: 16px;
+		font-weight: 700;
+		color: var(--text-primary);
+	}
+	/* Popover: collapsed Codex limits row */
+	.usage-limits-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		width: 100%;
+		background: none;
+		border: none;
+		padding: 0;
+		cursor: pointer;
+		color: inherit;
+		font: inherit;
+	}
+	/* Popover total line */
+	.usage-pop-total {
+		font-size: 12px;
+		color: var(--text-secondary);
+	}
+	/* Additional provider brand colors */
+	.usage-prov--ezio {
+		color: var(--provider-ezio);
+	}
+	.usage-prov--cursor {
+		color: var(--provider-cursor);
+	}
+	.usage-prov--antigravity {
+		color: var(--provider-antigravity);
+	}
+}
+
+@layer app.themes {
+	/* The only tui.css structural rules touching this module's selectors are
+	 * the shared cross-feature box-shadow-elevation :is() sweep (tui.css
+	 * ~37-51 — also covers .shell-toast, .shell-shortcuts-help, and other
+	 * not-yet-extracted selectors), which includes `.usage-pop` and
+	 * `.usage-gcell.is-on`. Deliberately left embedded there per Tasks 4-8
+	 * precedent: cascade-safe because unlayered tui.css always beats this
+	 * layered module regardless of specificity. Hand-carry required at
+	 * tui.css teardown.
+	 *
+	 * No other [data-theme] rules touch .usage-* / .shell-usage* selectors —
+	 * none were interleaved in the moved shell.css region, and the
+	 * "Additional provider brand colors" block only *consumes*
+	 * `--provider-ezio` / `--provider-cursor` / `--provider-antigravity`
+	 * (var() reads); it does not declare them. Those custom properties
+	 * already live in tokens.css (`:root` default plus `[data-theme="light"]`
+	 * and `[data-theme="warm"]` overrides — tui inherits the `:root`
+	 * values), satisfying the guard invariant with no move needed. Left
+	 * empty per the module's two-block anatomy contract; any future
+	 * tui.css rule touching these selectors must be hand-carried here at
+	 * tui.css teardown. */
+}
