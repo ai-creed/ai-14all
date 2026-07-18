@@ -158,15 +158,16 @@ while open retargets the dialog.
   rejected write would drop the suppression on the floor. `update()` becomes optimistic:
   (1) apply the patch to context state synchronously (nested-merge mirroring `writeState`);
   (2) fire the bridge write with a monotonically increasing issue-id and a pending-writes
-  counter; **adopt a resolved write's merged result only when that write is the
-  latest-issued one** — an older write's resolve carries siblings that predate newer
-  optimistic patches whether it settles in order or out of order (e.g. `{restart:false}`
-  resolving while `{close:false}` is still in flight carries `close:true` and must never
-  be adopted; a plain converge-at-zero rule fails exactly this out-of-order case). The
-  latest write's merged result is always safe: the service merges writes in call order, so
-  it already contains every older patch. Older resolves converge via the
-  `onSettingsChanged` echo once no writes are pending. On reject swallow — suppression
-  continues in-memory for the session; (3) skip `onSettingsChanged` echoes while writes
+  counter, decremented when the write settles; **adopt a resolved write's merged result
+  only when BOTH hold: the write is the latest-issued one, AND the decremented pending
+  counter has reached zero** — an older write's resolve carries siblings that predate
+  newer optimistic patches whether it settles in order or out of order (e.g.
+  `{restart:false}` resolving while `{close:false}` is still in flight carries
+  `close:true`; a plain counter-zero rule alone adopts exactly that stale result when the
+  older write settles last, and a latest-issued rule alone adopts with writes still
+  pending). Any resolve failing either condition is discarded; convergence for those
+  cases rides the `onSettingsChanged` echo once no writes are pending. On reject swallow —
+  suppression continues in-memory for the session; (3) skip `onSettingsChanged` echoes while writes
   are in flight (the rewind guard proven in `use-terminal-font-size.ts:93-107`). Because
   every confirm surface (slot panel, floating handler, SettingsDialog) reads the same
   SettingsProvider context, the optimistic value is shared — no panel-local state.
