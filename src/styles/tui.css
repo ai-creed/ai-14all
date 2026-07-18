@@ -275,27 +275,6 @@
 	border-color: var(--primary);
 }
 
-/* Sharp corners on the file-jump overlay (base restored to devel's rounded
- * px radii; under TUI --radius is 0 so these resolve to square edges). */
-[data-theme="tui"] .shell-files-overlay {
-	border-radius: var(--radius-md);
-}
-[data-theme="tui"] .shell-files-overlay__search {
-	border-radius: var(--radius-sm);
-}
-[data-theme="tui"] .shell-files-overlay__footer-hints kbd {
-	border-radius: var(--radius-sm);
-}
-
-/* Vertically centered, shorter mode switch (base restored to devel's
- * top-anchored 36px control). */
-[data-theme="tui"] .files-pane__modes {
-	top: 50%;
-	transform: translateY(-50%);
-	height: 26px;
-	padding: 0;
-}
-
 /* Plugins panel drops its drop-shadow too (missing from the box-shadow:none
  * group above because it isn't an overlay/popover). */
 [data-theme="tui"] .plugins-panel {

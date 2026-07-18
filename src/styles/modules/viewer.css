@@ -1,0 +1,157 @@
+/* Viewer module. Component rules in app.components; per-theme structural
+ * overrides in app.themes (spec §4.2). Theme COLOR variance belongs in
+ * tokens.css, not here. */
+@layer app.components {
+	/* Physically sat in shell.css's "Scoped file tree" section, but both
+	 * families are viewer-owned, not file-tree-owned: InlineEditor.tsx
+	 * renders `className="shell-viewer shell-inline-editor"` (the two classes
+	 * are co-applied on the same element — .shell-inline-editor is a
+	 * companion/modifier of .shell-viewer, not a tree class) and docks
+	 * EditorDirtyBar into `.shell-inline-editor__bar-slot`. Neither selector
+	 * matches files.css's indicative prefixes; moved here per the membership
+	 * function's "trust feature ownership" escape hatch — see task-7 report. */
+	.shell-inline-editor {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+		height: 100%;
+		position: relative;
+	}
+
+	.shell-inline-editor__readonly-chip {
+		margin-left: 8px;
+		padding: 1px 6px;
+		border-radius: 0;
+		background: var(--panel-bg-elevated);
+		color: var(--text-secondary);
+		font-size: 10px;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+	}
+
+	.shell-inline-editor__status {
+		margin-left: 8px;
+		font-size: 11px;
+		color: var(--text-secondary);
+	}
+
+	.shell-inline-editor__status--error {
+		color: var(--danger, #d76b6b);
+	}
+
+	.shell-inline-editor__bar-slot {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+	}
+
+	.shell-editor-dirty-bar {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 6px 10px;
+		background: var(--panel-bg-elevated);
+		border-top: var(--shell-border-width) solid var(--panel-border);
+		box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.18);
+	}
+
+	.shell-editor-dirty-bar__label {
+		flex: 1;
+		font-size: 11px;
+		color: var(--text-secondary);
+	}
+
+	.shell-editor-dirty-bar__hint kbd {
+		font-size: 10px;
+		color: var(--text-secondary);
+		opacity: 0.7;
+	}
+
+	.shell-viewer {
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
+		height: 100%;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.shell-viewer__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		padding: 6px 10px;
+		min-height: 32px;
+		background: var(--panel-bg-elevated);
+		border-bottom: var(--shell-border-width) solid var(--panel-border);
+		font-family: var(--font-ui);
+		font-size: 0.8em;
+	}
+
+	.shell-viewer__title {
+		color: var(--text-secondary);
+	}
+
+	.shell-viewer__meta {
+		color: var(--text-muted);
+		font-size: 0.9em;
+	}
+
+	.shell-image-preview {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		height: 100%;
+		background: var(--muted);
+		gap: 8px;
+	}
+
+	.shell-image-preview__img {
+		max-width: 100%;
+		max-height: calc(100% - 32px);
+	}
+
+	.shell-image-preview__caption {
+		font-size: 11px;
+		color: var(--text-muted);
+	}
+
+	.shell-context__status {
+		margin-top: var(--space-2);
+		font-weight: 700;
+		color: var(--text-secondary);
+	}
+
+	.shell-context__status[data-dirty="true"] {
+		color: var(--warning);
+	}
+
+	.shell-context__list {
+		margin: var(--space-2) 0 0;
+		padding: 0;
+		list-style: none;
+		display: grid;
+		gap: 4px;
+	}
+
+	.shell-context__list li {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: var(--space-2);
+		font-size: 0.85em;
+		color: var(--text-secondary);
+	}
+}
+
+@layer app.themes {
+	/* No [data-theme] structural rules touch .shell-viewer*, .shell-context*,
+	 * .shell-inline-editor*, or .shell-editor-dirty-bar* today — confirmed by
+	 * exhaustive grep of tui.css (zero matches for any of these families) and
+	 * of shell.css itself (zero [data-theme] selectors anywhere in the whole
+	 * file, pre-move). Left as an empty block per the module's two-block
+	 * anatomy contract; a future tui.css rule touching these selectors (if
+	 * ever added) belongs here. */
+}
