@@ -7,6 +7,7 @@ import { notifyToast } from "../../../src/features/ui/toast/ToastProvider";
 import type { Worktree } from "../../../shared/models/worktree";
 import type { ProcessSession } from "../../../shared/models/process-session";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
+import { DEFAULT_PERSISTED_SETTINGS } from "../../../shared/models/persisted-settings";
 
 // Mock the replay buffer so we can assert the dismissal-time free precisely.
 vi.mock("../../../src/features/terminals/logic/replay-buffer", () => ({
@@ -18,6 +19,17 @@ vi.mock("../../../src/features/terminals/logic/replay-buffer", () => ({
 // Mock the toast module so we can assert the cap hint precisely.
 vi.mock("../../../src/features/ui/toast/ToastProvider", () => ({
 	notifyToast: vi.fn(),
+}));
+
+const settingsFixture = {
+	settings: {
+		...DEFAULT_PERSISTED_SETTINGS,
+		terminalConfirm: { restart: true, close: true },
+	},
+	update: vi.fn(),
+};
+vi.mock("../../../src/app/hooks/use-settings", () => ({
+	useSettings: () => settingsFixture,
 }));
 
 const worktree = {
@@ -438,5 +450,104 @@ describe("useFloatingShellActions.runCommandInFloatingShell", () => {
 			await result.current.runCommandInFloatingShell("x", { label: "y" });
 		});
 		expect(spawnAdHocProcess).not.toHaveBeenCalled();
+	});
+});
+
+describe("gated handleCloseFloatingShell (terminal-ux-hardening spec §5.4)", () => {
+	beforeEach(() => {
+		settingsFixture.settings.terminalConfirm = { restart: true, close: true };
+		settingsFixture.update.mockReset();
+	});
+
+	function makeGateOptions(processStatus: ProcessSession["status"]) {
+		const made = makeCloseOptions("running");
+		(
+			made.options.workspaceStateRef.current.processSessionsById
+				.px as ProcessSession
+		).status = processStatus;
+		(
+			made.options.workspaceStateRef.current.processSessionsById
+				.px as ProcessSession
+		).label = "float-px";
+		return made;
+	}
+
+	it("live + ask parks a pending close; confirm tears down, cancel does not", async () => {
+		const { options, dispatch } = makeGateOptions("running");
+		const { result } = renderHook(() => useFloatingShellActions(options));
+		await act(() => result.current.handleCloseFloatingShell("px"));
+		expect(result.current.pendingFloatingClose).toEqual({
+			processId: "px",
+			label: "float-px",
+		});
+		expect(dispatch).not.toHaveBeenCalled();
+		act(() => result.current.cancelPendingFloatingClose());
+		expect(result.current.pendingFloatingClose).toBeNull();
+		expect(dispatch).not.toHaveBeenCalled();
+		await act(() => result.current.handleCloseFloatingShell("px"));
+		await act(async () => result.current.confirmPendingFloatingClose(false));
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({ type: "session/closeFloatingShell" }),
+		);
+	});
+
+	it("pref silent closes immediately", async () => {
+		settingsFixture.settings.terminalConfirm = { restart: true, close: false };
+		const { options, dispatch } = makeGateOptions("running");
+		const { result } = renderHook(() => useFloatingShellActions(options));
+		await act(() => result.current.handleCloseFloatingShell("px"));
+		expect(result.current.pendingFloatingClose).toBeNull();
+		expect(dispatch).toHaveBeenCalled();
+	});
+
+	it("exited process closes immediately", async () => {
+		const { options, dispatch } = makeGateOptions("exited");
+		const { result } = renderHook(() => useFloatingShellActions(options));
+		await act(() => result.current.handleCloseFloatingShell("px"));
+		expect(result.current.pendingFloatingClose).toBeNull();
+		expect(dispatch).toHaveBeenCalled();
+	});
+
+	it("confirm with dontAskAgain writes the bare close patch", async () => {
+		const { options } = makeGateOptions("running");
+		const { result } = renderHook(() => useFloatingShellActions(options));
+		await act(() => result.current.handleCloseFloatingShell("px"));
+		await act(async () => result.current.confirmPendingFloatingClose(true));
+		expect(settingsFixture.update).toHaveBeenCalledWith({
+			terminalConfirm: { close: false },
+		});
+	});
+
+	it("clean autoCloseOnZero exit closes with no dialog regardless of pref", async () => {
+		// Reuse the file's EXISTING runCommandInFloatingShell fixture if one
+		// exists (the file covers the command path already); otherwise wire
+		// subscribeSessionExit capture on makeGateOptions as below. The
+		// assertion contract is fixed either way: a clean auto-close never
+		// parks pendingFloatingClose and dispatches the close directly.
+		const { options, dispatch } = makeGateOptions("running");
+		let exitCb: ((code: number | null) => void) | null = null;
+		options.subscribeSessionExit = vi.fn(
+			(_id: string, cb: (code: number | null) => void) => {
+				exitCb = cb;
+				return () => {};
+			},
+		) as never;
+		options.spawnAdHocProcess = vi.fn(async () => {
+			const p = proc("px", "t-x") as ProcessSession;
+			p.status = "running";
+			return p;
+		}) as never;
+		const { result } = renderHook(() => useFloatingShellActions(options));
+		await act(() =>
+			result.current.runCommandInFloatingShell("true", {
+				label: "probe",
+				autoCloseOnZero: true,
+			}),
+		);
+		await act(async () => exitCb?.(0));
+		expect(result.current.pendingFloatingClose).toBeNull();
+		expect(dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({ type: "session/closeFloatingShell" }),
+		);
 	});
 });

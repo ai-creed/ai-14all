@@ -150,6 +150,7 @@ import { normalizeTerminalTitle } from "./normalize-terminal-title";
 import { CommandPalette } from "../features/command-palette/components/CommandPalette";
 import { useRegisterCommands } from "../features/command-palette/hooks/use-command-registry";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { Command } from "../features/command-palette/logic/command";
 
 type StartupMode = "loading" | "prompt" | "ready";
@@ -821,6 +822,9 @@ function AppContent() {
 	const {
 		handleAddFloatingShell,
 		handleCloseFloatingShell,
+		pendingFloatingClose,
+		confirmPendingFloatingClose,
+		cancelPendingFloatingClose,
 		handlePinFloatingShell,
 		handleExpandFloatingShell,
 		handleMinimizeFloatingShell,
@@ -2379,6 +2383,24 @@ function AppContent() {
 														label: nextLabel,
 													});
 												}}
+											/>
+										)}
+										{pendingFloatingClose && (
+											<ConfirmDialog
+												key={pendingFloatingClose.processId}
+												open
+												title="Close shell?"
+												body={
+													<>
+														This kills the running process in{" "}
+														<b>{pendingFloatingClose.label}</b> and removes the
+														floating shell.
+													</>
+												}
+												confirmLabel="Close"
+												checkboxLabel="Don't ask again for close"
+												onConfirm={confirmPendingFloatingClose}
+												onCancel={cancelPendingFloatingClose}
 											/>
 										)}
 									</div>

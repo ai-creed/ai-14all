@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import type { MutableRefObject } from "react";
 import type { ProcessSession } from "../../../shared/models/process-session";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
@@ -11,6 +11,7 @@ import {
 	type WorkspaceAction,
 	type WorkspaceState,
 } from "../../features/workspace/logic/workspace-state";
+import { useSettings } from "./use-settings";
 
 type Options = {
 	workspaceId: string | null;
@@ -48,6 +49,9 @@ type Options = {
 export type UseFloatingShellActions = {
 	handleAddFloatingShell: () => Promise<void>;
 	handleCloseFloatingShell: (processId: string) => Promise<void>;
+	pendingFloatingClose: { processId: string; label: string } | null;
+	confirmPendingFloatingClose: (dontAskAgain: boolean) => void;
+	cancelPendingFloatingClose: () => void;
 	handlePinFloatingShell: (processId: string) => void;
 	handleExpandFloatingShell: (processId: string) => void;
 	handleMinimizeFloatingShell: (processId: string) => void;
@@ -84,6 +88,12 @@ export function useFloatingShellActions(
 		subscribeSessionExit,
 		sendInput,
 	} = options;
+
+	const { settings, update } = useSettings();
+	const [pendingFloatingClose, setPendingFloatingClose] = useState<{
+		processId: string;
+		label: string;
+	} | null>(null);
 
 	const floatingCount = useCallback(
 		(worktreeId: string): number =>
@@ -154,7 +164,11 @@ export function useFloatingShellActions(
 		createScopedWorkspaceDispatch,
 	]);
 
-	const handleCloseFloatingShell = useCallback(
+	// Ungated teardown — the single place that actually stops the PTY and
+	// dispatches the close. Programmatic cleanup (autoCloseOnZero) calls this
+	// directly and must never see a confirmation dialog; user-facing Kill
+	// surfaces go through the gated `handleCloseFloatingShell` below instead.
+	const closeFloatingShellNow = useCallback(
 		async (processId: string) => {
 			if (!workspaceId || !worktree) return;
 			const worktreeId = worktree.id;
@@ -193,6 +207,36 @@ export function useFloatingShellActions(
 			outputPreviewBuffersRef,
 			createScopedWorkspaceDispatch,
 		],
+	);
+
+	// User-facing gate (spec §5.4): both Kill surfaces (popover + minimized
+	// pill) call this. Programmatic cleanup (autoCloseOnZero) calls
+	// closeFloatingShellNow directly and must never see a dialog.
+	const handleCloseFloatingShell = useCallback(
+		async (processId: string) => {
+			const process = workspaceStateRef.current.processSessionsById[processId];
+			if (process?.status === "running" && settings.terminalConfirm.close) {
+				setPendingFloatingClose({ processId, label: process.label });
+				return;
+			}
+			await closeFloatingShellNow(processId);
+		},
+		[workspaceStateRef, settings.terminalConfirm.close, closeFloatingShellNow],
+	);
+
+	const confirmPendingFloatingClose = useCallback(
+		(dontAskAgain: boolean) => {
+			if (!pendingFloatingClose) return;
+			if (dontAskAgain) void update({ terminalConfirm: { close: false } });
+			void closeFloatingShellNow(pendingFloatingClose.processId);
+			setPendingFloatingClose(null);
+		},
+		[pendingFloatingClose, update, closeFloatingShellNow],
+	);
+
+	const cancelPendingFloatingClose = useCallback(
+		() => setPendingFloatingClose(null),
+		[],
 	);
 
 	const runCommandInFloatingShell = useCallback(
@@ -254,7 +298,7 @@ export function useFloatingShellActions(
 				off();
 				opts.onExit?.(exitCode);
 				if (opts.autoCloseOnZero && exitCode === 0) {
-					void handleCloseFloatingShell(process.id);
+					void closeFloatingShellNow(process.id);
 				}
 			});
 			// Now run the command — the exit listener is already installed.
@@ -270,7 +314,7 @@ export function useFloatingShellActions(
 			createScopedWorkspaceDispatch,
 			subscribeSessionExit,
 			sendInput,
-			handleCloseFloatingShell,
+			closeFloatingShellNow,
 		],
 	);
 
@@ -321,6 +365,9 @@ export function useFloatingShellActions(
 	return {
 		handleAddFloatingShell,
 		handleCloseFloatingShell,
+		pendingFloatingClose,
+		confirmPendingFloatingClose,
+		cancelPendingFloatingClose,
 		handlePinFloatingShell,
 		handleExpandFloatingShell,
 		handleMinimizeFloatingShell,
