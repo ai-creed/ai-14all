@@ -14,7 +14,26 @@ export default defineConfig({
 		// and transpile its .ts at build time. Its transitive-only deps (ws,
 		// qrcode-terminal) get bundled alongside; the hoisted direct deps
 		// (libsodium-wrappers, zod, @ai-creed/command-contract) stay external.
-		plugins: [externalizeDepsPlugin({ exclude: ["@xavier/xbp"] })],
+		// @xterm/headless 6.0.0 is broken both ways when left external: its CJS
+		// main is a UMD bundle whose named exports Node's cjs-module-lexer
+		// cannot detect (an ESM `import { Terminal }` crashes the main process
+		// at load), and its "module" field points at lib/xterm.mjs, a path the
+		// package does not ship — the real ESM build is
+		// lib-headless/xterm-headless.mjs. Alias straight to that file and
+		// bundle it.
+		resolve: {
+			alias: {
+				"@xterm/headless": fileURLToPath(
+					new URL(
+						"./node_modules/@xterm/headless/lib-headless/xterm-headless.mjs",
+						import.meta.url,
+					),
+				),
+			},
+		},
+		plugins: [
+			externalizeDepsPlugin({ exclude: ["@xavier/xbp", "@xterm/headless"] }),
+		],
 		build: {
 			rollupOptions: {
 				input: {
