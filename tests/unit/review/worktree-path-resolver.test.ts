@@ -164,5 +164,38 @@ describe("worktree-path-resolver", () => {
 			expect(await resolver.resolve(virtualRepo("miss-2"))).toBeNull();
 			expect(calls).toBe(afterConstruct + 2);
 		});
+
+		it("a miss during an in-flight re-list rides it instead of fast-failing", async () => {
+			// Reproduces the whisper-lens race the throttle introduced: listing is
+			// async (git subprocesses), so a second miss can arrive while the first
+			// miss's re-list is still in flight. The cooldown must not fast-fail
+			// that second miss to null — the answer is milliseconds away on the
+			// in-flight listing.
+			const repo = virtualRepo("racy");
+			let calls = 0;
+			let release!: () => void;
+			const gate = new Promise<void>((r) => {
+				release = r;
+			});
+			const resolver = await createWorktreePathResolver(async () => {
+				calls++;
+				// Construction's initial populate is empty and fast — the repo is
+				// "registered" only afterwards. Later re-lists block until released,
+				// holding the refresh in flight while the second miss arrives.
+				if (calls === 1) return [];
+				await gate;
+				return [{ id: repo, path: repo }];
+			});
+			// Both misses land while the map is empty; the first starts the
+			// re-list, the second arrives inside the cooldown with it in flight.
+			const first = resolver.resolve(repo);
+			const second = resolver.resolve(repo);
+			release();
+			expect(await first).toBe(repo);
+			expect(await second).toBe(repo);
+			// One re-list served both misses — the storm-collapse the throttle
+			// exists for is preserved.
+			expect(calls).toBe(2);
+		});
 	});
 });

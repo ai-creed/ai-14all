@@ -24,6 +24,10 @@ export async function createWorktreePathResolver(
 	// does not arm the cooldown, keeping a repo registered in the same instant
 	// the resolver is built discoverable.
 	let lastRefreshAt = Number.NEGATIVE_INFINITY;
+	// The most recent still-running re-list. Listing is async (git subprocesses
+	// per repo), so a miss can arrive while another consumer's re-list is in
+	// flight; it must ride that listing rather than fast-fail on the cooldown.
+	let inFlight: Promise<void> | null = null;
 
 	const populate = async () => {
 		const next = new Map<string, string>();
@@ -42,7 +46,11 @@ export async function createWorktreePathResolver(
 
 	const refresh = async () => {
 		lastRefreshAt = now();
-		await populate();
+		const run = populate().finally(() => {
+			if (inFlight === run) inFlight = null;
+		});
+		inFlight = run;
+		await run;
 	};
 
 	const canonicalize = async (input: string) => {
@@ -64,6 +72,16 @@ export async function createWorktreePathResolver(
 		// per cooldown window. A single re-list is cheap; unthrottled, a batch of
 		// permanently unresolvable paths (dead collab rows) pays a full sweep per
 		// miss, which is what stalled the XBP session-report handler for seconds.
+		//
+		// A re-list already in flight (another consumer's miss, or the eager
+		// refresh on registry change) answers this miss in milliseconds — ride it
+		// instead of fast-failing on the cooldown. The cooldown fast-fail is only
+		// correct against a map that is both fresh AND fully built.
+		if (inFlight !== null) {
+			await inFlight;
+			const rode = canonicalToId.get(canonical);
+			if (rode !== undefined) return rode;
+		}
 		if (now() - lastRefreshAt < refreshCooldownMs) return null;
 		await refresh();
 		return canonicalToId.get(canonical) ?? null;
