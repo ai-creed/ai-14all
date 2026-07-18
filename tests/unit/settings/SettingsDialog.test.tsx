@@ -98,4 +98,31 @@ describe("SettingsDialog", () => {
 			},
 		});
 	});
+
+	it("renders both terminal-confirm toggles and writes bare per-action patches", async () => {
+		render(
+			<SettingsProvider>
+				<SettingsDialog open onOpenChange={() => {}} />
+			</SettingsProvider>,
+		);
+		const restart = screen.getByLabelText("confirm before restarting a shell");
+		const close = screen.getByLabelText("confirm before closing a shell");
+		expect(restart).toBeChecked();
+		expect(close).toBeChecked();
+
+		await userEvent.click(restart);
+		const api = (
+			window as never as {
+				ai14all: { settings: { write: ReturnType<typeof vi.fn> } };
+			}
+		).ai14all;
+		expect(api.settings.write).toHaveBeenCalledWith({
+			terminalConfirm: { restart: false },
+		});
+
+		await userEvent.click(close);
+		expect(api.settings.write).toHaveBeenCalledWith({
+			terminalConfirm: { close: false },
+		});
+	});
 });

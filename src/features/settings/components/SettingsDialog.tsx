@@ -168,6 +168,38 @@ export function SettingsDialog({
 					</section>
 
 					<section className="settings-dialog__section">
+						<h3 className="settings-dialog__section-title">Terminal</h3>
+						<div className="settings-dialog__row">
+							<label className="settings-dialog__checkbox-label">
+								<input
+									type="checkbox"
+									checked={settings.terminalConfirm.restart}
+									onChange={(e) =>
+										void update({
+											terminalConfirm: { restart: e.target.checked },
+										})
+									}
+								/>
+								confirm before restarting a shell
+							</label>
+						</div>
+						<div className="settings-dialog__row">
+							<label className="settings-dialog__checkbox-label">
+								<input
+									type="checkbox"
+									checked={settings.terminalConfirm.close}
+									onChange={(e) =>
+										void update({
+											terminalConfirm: { close: e.target.checked },
+										})
+									}
+								/>
+								confirm before closing a shell
+							</label>
+						</div>
+					</section>
+
+					<section className="settings-dialog__section">
 						<h3 className="settings-dialog__section-title">Usage</h3>
 						<div className="settings-dialog__row">
 							<label className="settings-dialog__checkbox-label">

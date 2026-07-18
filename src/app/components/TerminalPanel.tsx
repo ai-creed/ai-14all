@@ -8,12 +8,14 @@ import type { WorktreeSession } from "../../../shared/models/worktree-session";
 import type { ITheme } from "xterm";
 import type { LayoutId } from "../../../shared/models/terminal-layout";
 import { Icon } from "@/components/ui/icon";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TERMINAL_LAYOUTS } from "../../features/terminals/logic/terminal-layouts";
 import { TerminalPane } from "../../features/terminals/components/TerminalPane";
 import { useTerminalFontSize } from "../../features/terminals/hooks/use-terminal-font-size";
 import { EmptySlotLauncher } from "../../features/terminals/components/EmptySlotLauncher";
 import type { AgentProvider } from "../../features/terminals/logic/agent-launch";
 import { normalizeTerminalTitle } from "../normalize-terminal-title";
+import { useSettings } from "../hooks/use-settings";
 
 type Props = {
 	/** xterm color theme matching the active app palette. */
@@ -95,6 +97,36 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 	// slot-count auto-scale). Called before the early return to satisfy the
 	// Rules of Hooks.
 	const { fontSize: terminalFontSize } = useTerminalFontSize();
+
+	const { settings, update } = useSettings();
+	// Single dialog per panel; a second click while open retargets it (spec §5.2).
+	const [pendingConfirm, setPendingConfirm] = useState<{
+		kind: "restart" | "close";
+		processId: string;
+		label: string;
+	} | null>(null);
+
+	const invokeSlotAction = (kind: "restart" | "close", processId: string) => {
+		if (kind === "restart") onRestartSlot(processId);
+		else onCloseSlot(processId);
+	};
+
+	const requestSlotAction = (
+		kind: "restart" | "close",
+		process: ProcessSession,
+	) => {
+		const ask =
+			kind === "restart"
+				? settings.terminalConfirm.restart
+				: settings.terminalConfirm.close;
+		// Only a live process is destructive to kill; exited/error/restarting
+		// bypass (spec §5.2 — restarting an exited pane is a respawn).
+		if (process.status === "running" && ask) {
+			setPendingConfirm({ kind, processId: process.id, label: process.label });
+			return;
+		}
+		invokeSlotAction(kind, process.id);
+	};
 
 	if (!workspaceState.selectedWorktreeId) return null;
 
@@ -195,7 +227,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										aria-label="Restart shell"
 										title="Restart"
 										data-testid={`slot-restart-${slotIndex}`}
-										onClick={() => onRestartSlot(process.id)}
+										onClick={() => requestSlotAction("restart", process)}
 									>
 										<Icon name="refresh" />
 									</button>
@@ -206,7 +238,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 										aria-label="Close shell"
 										title="Close"
 										data-testid={`slot-close-${slotIndex}`}
-										onClick={() => onCloseSlot(process.id)}
+										onClick={() => requestSlotAction("close", process)}
 									>
 										<Icon name="close" />
 									</button>
@@ -244,6 +276,44 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 					);
 				})}
 			</div>
+			{pendingConfirm && (
+				<ConfirmDialog
+					key={`${pendingConfirm.kind}-${pendingConfirm.processId}`}
+					open
+					title={
+						pendingConfirm.kind === "restart"
+							? "Restart shell?"
+							: "Close shell?"
+					}
+					body={
+						pendingConfirm.kind === "restart" ? (
+							<>
+								This kills the running process in <b>{pendingConfirm.label}</b>{" "}
+								and starts a fresh shell.
+							</>
+						) : (
+							<>
+								This kills the running process in <b>{pendingConfirm.label}</b>{" "}
+								and removes the pane.
+							</>
+						)
+					}
+					confirmLabel={pendingConfirm.kind === "restart" ? "Restart" : "Close"}
+					checkboxLabel={`Don't ask again for ${pendingConfirm.kind}`}
+					onConfirm={(dontAskAgain) => {
+						if (dontAskAgain) {
+							void update(
+								pendingConfirm.kind === "restart"
+									? { terminalConfirm: { restart: false } }
+									: { terminalConfirm: { close: false } },
+							);
+						}
+						invokeSlotAction(pendingConfirm.kind, pendingConfirm.processId);
+						setPendingConfirm(null);
+					}}
+					onCancel={() => setPendingConfirm(null)}
+				/>
+			)}
 		</section>
 	);
 }
