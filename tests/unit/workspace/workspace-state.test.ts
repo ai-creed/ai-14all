@@ -3537,3 +3537,104 @@ describe("session/updateProcessStatus — onlyIfTerminalSessionId stale-session 
 		expect(next).toBe(state);
 	});
 });
+
+describe("session/reportProcessAgentAttention — onlyIfTerminalSessionId stale-session guard (restart race)", () => {
+	// Extends the session/updateProcessStatus guard (5c4bd4a3) one action deeper.
+	// A restart rebinds the detected agent P from terminal session S1 onto a fresh
+	// S2 and re-asserts running. The OLD S1's delayed exit/error then emits a
+	// lifecycle failed/ready report pinned to S1. Because it no longer matches P's
+	// CURRENT terminal session, the reducer must drop the whole action so the same
+	// stale-event race cannot mark the live, rebound agent failed/action-required.
+	function rebound() {
+		let state = createWorkspaceState(worktrees);
+		state = workspaceReducer(state, {
+			type: "session/registerProcess",
+			worktreeId: "main",
+			process: makeProcess("P", "main", "claude", {
+				terminalSessionId: "S1",
+				command: "claude",
+				agentDetected: true,
+			}),
+		});
+		// Restart rebinds P onto a brand-new terminal session S2 ...
+		state = workspaceReducer(state, {
+			type: "session/replaceProcessTerminal",
+			processId: "P",
+			terminalSessionId: "S2",
+		});
+		// ... and re-asserts status=running (the restart's OWN authoritative status
+		// dispatch — no pin, so it always applies).
+		state = workspaceReducer(state, {
+			type: "session/updateProcessStatus",
+			processId: "P",
+			status: "running",
+			exitCode: null,
+		});
+		return state;
+	}
+
+	const failedReason = {
+		state: "failed" as const,
+		source: "lifecycle" as const,
+		summary: "exited with code 1",
+		nextAction: null,
+		reportedAt: 5_000,
+	};
+
+	it("drops a stale failed lifecycle report pinned to the OLD session so the rebound agent stays running", () => {
+		const state = rebound();
+		expect(state.processSessionsById["P"]?.status).toBe("running");
+		expect(state.processSessionsById["P"]?.terminalSessionId).toBe("S2");
+
+		// The OLD terminal session S1 exits late; its lifecycle failed report is
+		// pinned to S1 but P is now bound to S2 → the whole action is dropped.
+		const next = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "P",
+			reason: failedReason,
+			onlyIfTerminalSessionId: "S1",
+		});
+
+		// Dropping the WHOLE action's effects is a referential no-op: no lifecycle
+		// reason recorded and no attention escalation on the live process.
+		expect(next).toBe(state);
+		expect(
+			next.processSessionsById["P"]?.agentAttentionReasons.lifecycle,
+		).toBeUndefined();
+		expect(next.processSessionsById["P"]?.attentionState).toBe("idle");
+	});
+
+	it("applies the failed lifecycle report when NO pin is supplied (today's behavior preserved)", () => {
+		const state = rebound();
+		const next = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "P",
+			reason: failedReason,
+		});
+		expect(
+			next.processSessionsById["P"]?.agentAttentionReasons.lifecycle?.state,
+		).toBe("failed");
+		expect(next.processSessionsById["P"]?.attentionState).toBe(
+			"actionRequired",
+		);
+	});
+
+	it("applies the failed lifecycle report when the pin MATCHES the current terminal session", () => {
+		const state = rebound();
+		const next = workspaceReducer(state, {
+			type: "session/reportProcessAgentAttention",
+			worktreeId: "main",
+			processId: "P",
+			reason: failedReason,
+			onlyIfTerminalSessionId: "S2",
+		});
+		expect(
+			next.processSessionsById["P"]?.agentAttentionReasons.lifecycle?.state,
+		).toBe("failed");
+		expect(next.processSessionsById["P"]?.attentionState).toBe(
+			"actionRequired",
+		);
+	});
+});

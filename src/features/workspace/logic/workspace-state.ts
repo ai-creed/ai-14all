@@ -265,6 +265,17 @@ export type WorkspaceAction =
 			worktreeId: string;
 			processId: string;
 			reason: AgentAttentionReason;
+			/**
+			 * Stale-session guard for the restart race, mirroring
+			 * session/updateProcessStatus. When present, the lifecycle report
+			 * applies only if the target process's CURRENT terminalSessionId still
+			 * equals this value; otherwise the WHOLE action is dropped. A lifecycle
+			 * failed/ready report is emitted from an exit/error resolved against a
+			 * lagging ref, so it may target a session the process was already
+			 * rebound away from — pinning it lets the reducer discard a report that
+			 * would otherwise mark a live, rebound agent failed/action-required.
+			 */
+			onlyIfTerminalSessionId?: string;
 	  }
 	| {
 			type: "session/reportAgentAttention";
@@ -1240,6 +1251,19 @@ export function workspaceReducer(
 		const process = state.processSessionsById[action.processId];
 		const session = state.sessionsByWorktreeId[action.worktreeId];
 		if (!process || !session) return state;
+		// Stale-session guard (restart race): mirrors the identical guard on
+		// session/updateProcessStatus above. A lifecycle failed/ready report is
+		// emitted from an exit/error whose ownership was resolved against a lagging
+		// ref, so it can target a session the process was already rebound away from.
+		// When the caller pins the report and the process has since been rebound to
+		// a different terminal session, drop the WHOLE action so a stale exit/error
+		// cannot mark the live, rebound agent failed/action-required.
+		if (
+			action.onlyIfTerminalSessionId !== undefined &&
+			process.terminalSessionId !== action.onlyIfTerminalSessionId
+		) {
+			return state;
+		}
 		if (action.reason.source === "mcp") return state; // process-level rejects mcp
 		const current = process.agentAttentionReasons[action.reason.source];
 		if (!shouldReplaceAgentAttentionReason(current, action.reason))

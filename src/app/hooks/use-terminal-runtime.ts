@@ -258,6 +258,10 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 								nextAction: null,
 								reportedAt: Date.now(),
 							},
+							// Pin the lifecycle report to its originating session, mirroring
+							// the status guard above. A stale exit resolved against a lagging
+							// ref must not mark a newly-restarted, rebound agent as failed.
+							onlyIfTerminalSessionId: event.sessionId,
 						};
 						applyActionForOwner(ownerWsId, lifecycleAction);
 					} else if (
@@ -278,6 +282,10 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 								nextAction: null,
 								reportedAt: Date.now(),
 							},
+							// Pin the ready promotion to its originating session (see the
+							// failed branch): a stale clean exit for a rebound-away session
+							// must not promote a ready reason onto the live agent.
+							onlyIfTerminalSessionId: event.sessionId,
 						};
 						applyActionForOwner(ownerWsId, lifecycleAction);
 					}
@@ -345,6 +353,10 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 							nextAction: null,
 							reportedAt: Date.now(),
 						},
+						// Pin the lifecycle report to its originating session, mirroring
+						// the status guard above (stale-event twin of the exit branch): a
+						// stale error must not mark a rebound, running agent as failed.
+						onlyIfTerminalSessionId: event.sessionId,
 					};
 					applyActionForOwner(ownerWsId, lifecycleAction);
 				}
