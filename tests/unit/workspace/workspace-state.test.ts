@@ -3512,4 +3512,28 @@ describe("session/updateProcessStatus — onlyIfTerminalSessionId stale-session 
 		expect(next.processSessionsById["P"]?.status).toBe("exited");
 		expect(next.processSessionsById["P"]?.exitCode).toBe(0);
 	});
+
+	it("drops a stale error pinned to the OLD session so the rebound process stays running", () => {
+		const state = rebound();
+		expect(state.processSessionsById["P"]?.status).toBe("running");
+		expect(state.processSessionsById["P"]?.terminalSessionId).toBe("S2");
+
+		// The OLD terminal session S1 errors late; its event is pinned to S1 but P
+		// is now bound to S2 → the whole action is dropped. This mirrors the exit
+		// guard and prevents stale terminal errors from marking a rebound process
+		// "error" and bypassing the confirm gate (spec §3 restart race twin).
+		const next = workspaceReducer(state, {
+			type: "session/updateProcessStatus",
+			processId: "P",
+			status: "error",
+			exitCode: null,
+			at: 5_000,
+			onlyIfTerminalSessionId: "S1",
+		});
+
+		expect(next.processSessionsById["P"]?.status).toBe("running");
+		expect(next.processSessionsById["P"]?.exitCode).toBeNull();
+		// Dropping the WHOLE action's effects is a referential no-op.
+		expect(next).toBe(state);
+	});
 });

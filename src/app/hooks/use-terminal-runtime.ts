@@ -325,6 +325,12 @@ export function useTerminalRuntime(options: Options): UseTerminalRuntime {
 					status: "error",
 					exitCode: null,
 					at: Date.now(),
+					// Pin the error to its originating session, mirroring the exit guard (onExit).
+					// `findProcessByTerminalSessionId` resolves ownership from a ref that can lag
+					// a concurrent restart's rebind, so stale error events for a restarted-away
+					// session must be dropped to keep the rebound process "running" and not
+					// bypass the terminal confirm gate (restart race, stale-event twin of exit).
+					onlyIfTerminalSessionId: event.sessionId,
 				};
 				applyActionForOwner(ownerWsId, action);
 				if (process.agentDetected) {
