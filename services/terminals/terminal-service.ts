@@ -12,6 +12,7 @@ import type { ShellEventLogInput } from "../diagnostics/shell-event-log-service.
 import { resolveDefaultShell } from "../platform/default-shell.js";
 import { PtyMirror } from "../pty-inspect/pty-mirror.js";
 import { OutputBatcher } from "./output-batcher.js";
+import { PtyCaptureTee } from "./pty-capture-tee.js";
 
 /**
  * Narrow view of the agent-attention logger the terminal service needs — just
@@ -66,6 +67,7 @@ export class TerminalService {
 	private readonly shellEventLog?: { log: (event: ShellEventLogInput) => void };
 	private readonly attentionLogger?: AgentAttentionLoggerLike;
 	private readonly mirrorsOpt?: TerminalMirrorsHook;
+	private readonly captureDir?: string;
 	// One mirror per live-or-recently-exited session. `adoptedSessions` marks
 	// mirrors the catalog has taken via `takeMirror()`: the service keeps
 	// teeing data/resize into them for as long as the PTY lives, and skips
@@ -79,11 +81,13 @@ export class TerminalService {
 		shellEventLog?: { log: (event: ShellEventLogInput) => void },
 		attentionLogger?: AgentAttentionLoggerLike,
 		mirrors?: TerminalMirrorsHook,
+		captureDir?: string,
 	) {
 		this.handlers = handlers;
 		this.shellEventLog = shellEventLog;
 		this.attentionLogger = attentionLogger;
 		this.mirrorsOpt = mirrors;
+		this.captureDir = captureDir;
 	}
 
 	/**
@@ -194,6 +198,12 @@ export class TerminalService {
 		this.mirrorsBySession.set(id, mirror);
 		this.mirrorsOpt?.onCreate(id, mirror);
 
+		// Dev-only raw-byte capture (reflow spec §2). Enqueue is synchronous
+		// and self-disabling — it can never block or fail the terminal path.
+		const capture = this.captureDir
+			? new PtyCaptureTee(this.captureDir, id)
+			: null;
+
 		this.emitLifecycle(worktreeId, id, "active", null);
 
 		this.shellEventLog?.log({
@@ -249,6 +259,7 @@ export class TerminalService {
 				},
 			});
 			this.mirrorsBySession.get(id)?.write(data);
+			capture?.push(data);
 			batcher.push(data);
 		});
 

@@ -12,9 +12,20 @@ vi.mock("node-pty", () => ({
 	},
 }));
 
+const { appendFileMock, mkdirMock } = vi.hoisted(() => ({
+	appendFileMock: vi.fn<(...args: unknown[]) => Promise<void>>(async () => {}),
+	mkdirMock: vi.fn<(...args: unknown[]) => Promise<void>>(async () => {}),
+}));
+
+vi.mock("node:fs/promises", () => ({
+	appendFile: appendFileMock,
+	mkdir: mkdirMock,
+}));
+
 import { TerminalService } from "../../../../services/terminals/terminal-service.js";
 import { resolveDefaultShell } from "../../../../services/platform/default-shell.js";
 import type { PtyMirror } from "../../../../services/pty-inspect/pty-mirror.js";
+import { resolvePtyCaptureDir } from "../../../../services/terminals/pty-capture-tee.js";
 import {
 	TERMINAL_SPAWN_COLS,
 	TERMINAL_SPAWN_ROWS,
@@ -472,6 +483,96 @@ describe("TerminalService", () => {
 			const service = makeService(appendMock);
 
 			expect(() => service.create("ws-a", "wt-1", "/repo-a")).not.toThrow();
+		});
+	});
+
+	describe("pty capture tee wiring (reflow spec §2)", () => {
+		beforeEach(() => {
+			appendFileMock.mockReset();
+			appendFileMock.mockImplementation(async () => {});
+			mkdirMock.mockReset();
+			mkdirMock.mockImplementation(async () => {});
+		});
+
+		function createServiceWithCapture(captureDir?: string) {
+			const pty = createPtyDouble();
+			spawnMock.mockReturnValue(pty);
+			const handlers = {
+				onOutput: vi.fn(),
+				onExit: vi.fn(),
+				onState: vi.fn(),
+				onError: vi.fn(),
+			};
+			const service = new TerminalService(
+				handlers,
+				undefined,
+				undefined,
+				undefined,
+				captureDir,
+			);
+			const session = service.create("ws-a", "worktree-a", "/repo-a");
+			const onData = (pty.onData as ReturnType<typeof vi.fn>).mock
+				.calls[0]?.[0] as (data: string) => void;
+			return { service, session, onData, handlers };
+		}
+
+		it("no captureDir injected → writing PTY data performs zero fs calls (reflow spec §2.1)", async () => {
+			const { onData } = createServiceWithCapture(undefined);
+			onData("hello");
+			await new Promise((r) => setImmediate(r));
+			expect(mkdirMock).not.toHaveBeenCalled();
+			expect(appendFileMock).not.toHaveBeenCalled();
+		});
+
+		it("packaged-mode resolver output composes to zero fs calls even with the env var set (reflow spec §2.2)", async () => {
+			const { onData } = createServiceWithCapture(
+				resolvePtyCaptureDir({
+					env: { AI14ALL_PTY_CAPTURE_DIR: "/cap" },
+					isPackaged: true,
+				}),
+			);
+			onData("hello");
+			await new Promise((r) => setImmediate(r));
+			expect(appendFileMock).not.toHaveBeenCalled();
+		});
+
+		it("captureDir set → session bytes are appended to <dir>/<sessionId>.bytes", async () => {
+			const { session, onData } = createServiceWithCapture("/cap");
+			onData("hello");
+			await vi.waitFor(() =>
+				expect(appendFileMock).toHaveBeenCalledWith(
+					`/cap/${session.id}.bytes`,
+					"hello",
+					"utf8",
+				),
+			);
+		});
+
+		it("a rejected capture append leaves mirror and renderer delivery untouched (reflow spec §2.4)", async () => {
+			const consoleError = vi
+				.spyOn(console, "error")
+				.mockImplementation(() => {});
+			appendFileMock.mockRejectedValueOnce(new Error("disk full"));
+			const { service, session, onData, handlers } =
+				createServiceWithCapture("/cap");
+			onData("hello");
+			// Mirror path: the write is enqueued synchronously in the onData
+			// handler and settles via xterm's own write callback — with the
+			// capture append already rejected, content must still land.
+			const mirror = service.getMirror(session.id);
+			expect(mirror).toBeDefined();
+			await mirror!.drained();
+			mirror!.tick();
+			expect(mirror!.snapshotLineText(0)).toContain("hello");
+			// Renderer path: OutputBatcher flushes after its normal batch window
+			// (its shipped async contract, output-batcher.ts) — the flush must
+			// arrive without anything awaiting the capture queue.
+			await vi.waitFor(() =>
+				expect(handlers.onOutput).toHaveBeenCalledWith(session.id, "hello"),
+			);
+			// The tee disabled itself and logged exactly once.
+			await vi.waitFor(() => expect(consoleError).toHaveBeenCalledTimes(1));
+			consoleError.mockRestore();
 		});
 	});
 });

@@ -92,6 +92,7 @@ import {
 } from "../../shared/contracts/review-comments.js";
 import { WorktreeService } from "../../services/worktrees/worktree-service.js";
 import { TerminalService } from "../../services/terminals/terminal-service.js";
+import { resolvePtyCaptureDir } from "../../services/terminals/pty-capture-tee.js";
 import type { PtyInspectService } from "../../services/pty-inspect/pty-inspect-service.js";
 import { FileService } from "../../services/files/file-service.js";
 import { GitService } from "../../services/git/git-service.js";
@@ -238,6 +239,7 @@ export function registerIpcHandlers(
 			onCreate: () => {},
 			onExit: (id) => void ptyInspect?.catalog.handleTerminalExit(id),
 		},
+		resolvePtyCaptureDir({ env: process.env, isPackaged: app.isPackaged }),
 	);
 	// Composition seam (Task 8): TerminalService only exists from this point on
 	// (electron/main/index.ts builds the XBP host, and PtyInspectService with
