@@ -17,8 +17,10 @@ import { closeApp } from "./fixtures/close-app";
  * per theme (dark, light, warm, tui) to lock the visual result of the
  * Workspace Panel Rework branch. Writes PNGs to tests/__screenshots__/.
  *
- * Run to create baselines:
- *   pnpm test:e2e -- workspace-panel.screenshots --update-snapshots
+ * Run to create baselines (no leading `--`: pnpm forwards it literally and
+ * playwright treats it as end-of-options, silently dropping
+ * --update-snapshots when it follows one):
+ *   pnpm test:e2e workspace-panel.screenshots --update-snapshots
  * Run to verify stable:
  *   pnpm test:e2e -- workspace-panel.screenshots
  */

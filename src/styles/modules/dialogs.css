@@ -750,8 +750,8 @@
 
 	/* Split from the box-shadow elevation :is() sweep (10-selector
 	 * cross-feature group; see modules/files.css, modules/terminals.css,
-	 * modules/viewer.css, modules/primitives.css, modules/review.css ×2 and
-	 * modules/usage.css ×2 for the rest). This module's one selector. */
+	 * modules/viewer.css, modules/primitives.css ×2, modules/review.css ×2
+	 * and modules/usage.css ×2 for the rest). This module's one selector. */
 	[data-theme="tui"] .shell-layout-dialog {
 		box-shadow: none;
 	}

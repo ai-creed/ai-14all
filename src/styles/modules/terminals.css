@@ -670,8 +670,8 @@
 
 	/* Split from the box-shadow elevation :is() sweep (10-selector
 	 * cross-feature group; see modules/files.css, modules/viewer.css,
-	 * modules/primitives.css, modules/review.css ×2, modules/dialogs.css and
-	 * modules/usage.css ×2 for the rest). */
+	 * modules/primitives.css ×2, modules/review.css ×2, modules/dialogs.css
+	 * and modules/usage.css ×2 for the rest). */
 	[data-theme="tui"] .shell-terminal-find {
 		box-shadow: none;
 	}
@@ -686,7 +686,8 @@
 
 	/* Split from the same sweep's Focus rings group (7-selector cross-feature
 	 * group; see modules/sidebar.css, modules/review.css,
-	 * modules/primitives.css and modules/md-preview.css for the rest). */
+	 * modules/primitives.css, modules/md-preview.css and modules/viewer.css
+	 * (viewer.css:547) for the rest). */
 	[data-theme="tui"] .shell-terminal-find__input:focus-visible,
 	[data-theme="tui"] .shell-terminal-slot__header button:focus-visible {
 		outline-color: var(--primary);
@@ -694,7 +695,7 @@
 	}
 
 	/* Split from the sweep's Status-text group (14-selector cross-feature
-	 * group; see modules/viewer.css, modules/review.css ×7,
+	 * group; see modules/viewer.css ×2, modules/review.css ×8,
 	 * modules/sidebar.css, modules/files.css and modules/plugins.css for the
 	 * rest). */
 	[data-theme="tui"] .agent-launcher-bar__status[data-tone="accent"] {

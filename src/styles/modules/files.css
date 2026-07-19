@@ -313,12 +313,13 @@
 		opacity: 0.4;
 	}
 
-	/* Split from shell.css's shared reduced-motion freeze (also covers the
-	 * shortcuts-help and note-sheet overlays, left behind in shell.css since
-	 * those aren't extracted yet). Only the files-overlay selectors move here;
-	 * the !important on both declarations means this keeps winning over the
-	 * moved (now layered) base rules above regardless of layer order, exactly
-	 * as it did pre-move — see task-7 report's cascade math. */
+	/* Split from the shared reduced-motion freeze that used to live in
+	 * shell.css (also covered the shortcuts-help and note-sheet overlays,
+	 * which now live wholesale in primitives.css, ~498-506; shell.css itself
+	 * is gone). Only the files-overlay selectors move here; the !important
+	 * on both declarations means this keeps winning over the moved (now
+	 * layered) base rules above regardless of layer order, exactly as it did
+	 * pre-move — see task-7 report's cascade math. */
 	@media (prefers-reduced-motion: reduce) {
 		.shell-files-overlay__backdrop,
 		.shell-files-overlay {
@@ -530,8 +531,8 @@
 
 	/* Split from the box-shadow elevation :is() sweep (10-selector
 	 * cross-feature group; see modules/terminals.css, modules/viewer.css,
-	 * modules/primitives.css, modules/review.css ×2, modules/dialogs.css and
-	 * modules/usage.css ×2 for the rest). */
+	 * modules/primitives.css ×2, modules/review.css ×2, modules/dialogs.css
+	 * and modules/usage.css ×2 for the rest). */
 	[data-theme="tui"] .shell-files-overlay {
 		box-shadow: none;
 	}

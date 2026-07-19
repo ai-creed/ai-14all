@@ -1631,15 +1631,16 @@
 
 	/* Split from the "Accent foreground/border legibility sweep" Status-text
 	 * group (a 14-selector cross-feature group; the other 13 are owned by
-	 * viewer, review ×7, files, plugins, terminals — see each module's own
+	 * viewer ×2, review ×8, files, plugins, terminals — see each module's own
 	 * app.themes for its share). */
 	[data-theme="tui"] .workflow-row__status[data-status="running"] {
 		color: var(--primary);
 	}
 
 	/* Split from the same sweep's Focus rings group (7-selector cross-feature
-	 * group; see modules/primitives.css, modules/terminals.css,
-	 * modules/review.css and modules/md-preview.css for the rest). */
+	 * group; see modules/primitives.css, modules/terminals.css ×2,
+	 * modules/review.css, modules/md-preview.css and modules/viewer.css
+	 * (viewer.css:547) for the rest). */
 	[data-theme="tui"] .shell-sidebar__rename-input:focus-visible {
 		outline-color: var(--primary);
 		border-color: var(--primary);

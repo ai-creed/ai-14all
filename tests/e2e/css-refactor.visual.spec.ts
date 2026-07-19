@@ -16,9 +16,11 @@ import { closeApp } from "./fixtures/close-app";
  * docs/superpowers/specs/2026-07-19-shell-css-modularization-design.md §6.1)
  * and standing theme-drift guard afterwards. Unlike the *.screenshots.spec.ts
  * capture suites, this suite ASSERTS via toHaveScreenshot. Regenerate
- * baselines ONLY when a rendering change is intended:
+ * baselines ONLY when a rendering change is intended. Drop the leading `--`:
+ * pnpm forwards it literally and playwright treats it as end-of-options,
+ * which silently drops --update-snapshots when it follows one.
  *
- *   pnpm test:e2e -- css-refactor.visual --update-snapshots
+ *   pnpm test:e2e css-refactor.visual --update-snapshots
  */
 const PALETTES = ["dark", "light", "warm", "tui"] as const;
 const SURFACES = ["main", "dialog", "dropdown", "context"] as const;

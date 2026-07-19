@@ -445,8 +445,8 @@
 @layer app.themes {
 	/* Split from the box-shadow elevation :is() sweep (10-selector
 	 * cross-feature group; see modules/files.css, modules/terminals.css,
-	 * modules/viewer.css, modules/primitives.css, modules/review.css ×2 and
-	 * modules/dialogs.css for the rest). This module's 2 selectors. */
+	 * modules/viewer.css, modules/primitives.css ×2, modules/review.css ×2
+	 * and modules/dialogs.css for the rest). This module's 2 selectors. */
 	[data-theme="tui"] :is(.usage-pop, .usage-gcell.is-on) {
 		box-shadow: none;
 	}

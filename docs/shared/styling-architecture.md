@@ -35,4 +35,7 @@ specificity or import order.
    `pnpm lint`) checks all of the above. If it fails, fix the placement —
    do not relax the script. Pixel guardrail:
    `pnpm test:e2e -- css-refactor.visual` (baselines are intentional-change
-   only: regenerate with `--update-snapshots` and say why in the commit).
+   only: regenerate with `pnpm test:e2e css-refactor.visual --update-snapshots`
+   — no leading `--`, since pnpm forwards it literally and playwright then
+   treats it as end-of-options, silently dropping the flag — and say why in
+   the commit).

@@ -1404,9 +1404,10 @@
 	}
 
 	/* Review chipbar status colors with --accent, which resolves to the dark
- * bg2 step in TUI (see note above) — the ✓ clean pill rendered dark-on-dark.
- * Pin it to the cursor accent like the session clean status; tint the clean
- * pill to match (mirrors the dirty state's red). */
+	 * bg2 ladder step under tui (needed for shadcn hover/selected backgrounds
+	 * elsewhere), so the ✓ clean pill rendered dark-on-dark. Pin it to the
+	 * cursor accent like the session clean status; tint the clean pill to
+	 * match (mirrors the dirty state's red). */
 	[data-theme="tui"] .shell-review-chipbar__status[data-state="clean"] {
 		background: color-mix(in srgb, var(--primary) 14%, transparent);
 		color: var(--primary);
@@ -1416,7 +1417,7 @@
 
 	/* Split from the box-shadow elevation :is() sweep (10-selector
 	 * cross-feature group; see modules/files.css, modules/terminals.css,
-	 * modules/viewer.css, modules/primitives.css, modules/dialogs.css and
+	 * modules/viewer.css, modules/primitives.css ×2, modules/dialogs.css and
 	 * modules/usage.css ×2 for the rest). */
 	[data-theme="tui"]
 		:is(.shell-review-selection-pill, .shell-review-expanded-portal) {
@@ -1452,8 +1453,9 @@
 	}
 
 	/* Split from the same sweep's Focus rings group (7-selector cross-feature
-	 * group; see modules/sidebar.css, modules/terminals.css,
-	 * modules/primitives.css and modules/md-preview.css for the rest). */
+	 * group; see modules/sidebar.css, modules/terminals.css ×2,
+	 * modules/primitives.css, modules/md-preview.css and modules/viewer.css
+	 * (viewer.css:547) for the rest). */
 	[data-theme="tui"] .shell-review-comment-form > textarea:focus-visible {
 		outline-color: var(--primary);
 		border-color: var(--primary);

@@ -521,8 +521,8 @@
 
 	/* Split from the box-shadow elevation :is() sweep (10-selector
 	 * cross-feature group; see modules/files.css, modules/terminals.css,
-	 * modules/primitives.css, modules/review.css ×2, modules/dialogs.css and
-	 * modules/usage.css ×2 for the rest). */
+	 * modules/primitives.css ×2, modules/review.css ×2, modules/dialogs.css
+	 * and modules/usage.css ×2 for the rest). */
 	[data-theme="tui"] .shell-editor-dirty-bar {
 		box-shadow: none;
 	}
@@ -541,7 +541,7 @@
 	}
 
 	/* Split from the same sweep's Focus rings group (7-selector cross-feature
-	 * group; see modules/sidebar.css, modules/terminals.css,
+	 * group; see modules/sidebar.css, modules/terminals.css ×2,
 	 * modules/review.css, modules/primitives.css and modules/md-preview.css
 	 * for the rest). */
 	[data-theme="tui"] .shell-editor-modal__close:focus-visible {
