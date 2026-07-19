@@ -1282,6 +1282,94 @@
 		color: var(--text-primary);
 		border-color: var(--text-muted);
 	}
+
+	/* Rendered exclusively by IncompleteInstallBanner.tsx. */
+	.shell-install-banner {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2);
+		padding: var(--space-2) var(--space-4);
+		font-size: var(--font-size-body);
+		color: var(--text-primary);
+		background: color-mix(in srgb, var(--accent) 14%, var(--panel-bg));
+		border-bottom: var(--shell-border-width) solid var(--panel-border);
+	}
+
+	.shell-install-banner__msg {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.shell-install-banner__actions {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		flex-shrink: 0;
+	}
+
+	.shell-install-banner__install {
+		padding: 2px var(--space-3);
+		font-size: 0.75rem;
+		color: var(--text-primary);
+		background: var(--panel-bg-elevated);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-md);
+		cursor: pointer;
+	}
+
+	.shell-install-banner__install:hover {
+		border-color: var(--text-muted);
+	}
+
+	.shell-install-banner__dismiss {
+		background: none;
+		border: none;
+		color: var(--text-secondary);
+		cursor: pointer;
+		padding: 0 var(--space-1);
+		font-size: 1rem;
+		line-height: 1;
+	}
+
+	.shell-install-banner__dismiss:hover {
+		color: var(--text-primary);
+	}
+
+	/* Rendered exclusively by AgentInstallModal.tsx. */
+	.shell-install-modal__subtitle {
+		margin: 0 0 var(--space-3);
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+	}
+
+	/* Rendered exclusively by AgentInstallModal.tsx. */
+	.shell-info {
+		color: var(--accent);
+		font-size: var(--font-size-body);
+		margin-top: var(--space-2);
+	}
+
+	/* Physically sat in shell.css's "Viewer chrome" section (assigned to
+	 * viewer.css by earlier tasks' briefs), but rendered exclusively by
+	 * DiffViewerPane.tsx (review feature) — Task 7 confirmed and deliberately
+	 * left both rules in shell.css rather than reach into an already-shipped
+	 * module ("assign each rule to the module owning its PRIMARY selector").
+	 * This task's brief claims them for review.css directly. */
+	.shell-viewer-panel {
+		min-width: 0;
+		min-height: 0;
+		padding: 0;
+		overflow: hidden;
+		background: transparent;
+	}
+
+	.shell-viewer-panel > .shell-empty-state,
+	.shell-viewer-panel > .shell-error {
+		padding: var(--space-4);
+	}
 }
 
 @layer app.themes {
@@ -1322,5 +1410,83 @@
 	[data-theme="tui"] .shell-review-chipbar__status[data-state="clean"] {
 		background: color-mix(in srgb, var(--primary) 14%, transparent);
 		color: var(--primary);
+	}
+
+	/* tui.css teardown (slice 11) — hand-carried from cross-feature sweeps. */
+
+	/* Split from the box-shadow elevation :is() sweep (10-selector
+	 * cross-feature group; see modules/files.css, modules/terminals.css,
+	 * modules/viewer.css, modules/primitives.css, modules/dialogs.css and
+	 * modules/usage.css ×2 for the rest). */
+	[data-theme="tui"]
+		:is(.shell-review-selection-pill, .shell-review-expanded-portal) {
+		box-shadow: none;
+	}
+
+	/* Split from the "Accent foreground/border legibility sweep" Status-text
+	 * group (14-selector cross-feature group; the other 6 are owned by
+	 * viewer ×2, sidebar, files, plugins, terminals — see each module's own
+	 * app.themes). This module's 8. */
+	[data-theme="tui"] .shell-info,
+	[data-theme="tui"] .shell-review-comment-card__range,
+	[data-theme="tui"] .shell-inline-thread__header > span:first-child,
+	[data-theme="tui"] .shell-inline-thread__status[data-status="open"],
+	[data-theme="tui"] .shell-inline-thread__strip > span:first-child,
+	[data-theme="tui"] .shell-review-queue__row-jump > span:first-child,
+	[data-theme="tui"]
+		.shell-review-queue__row-actions
+		> button[aria-label="Address"],
+	[data-theme="tui"]
+		.shell-review-queue__row-actions
+		> button[aria-label="Reopen"] {
+		color: var(--primary);
+	}
+
+	/* Split from the same sweep's State chips/toggles group (the other 2
+	 * selectors are plugins-owned; see modules/plugins.css). */
+	[data-theme="tui"]
+		.shell-review-comment-card[data-status="open"]
+		.shell-review-comment-card__status {
+		color: var(--primary);
+		border-color: var(--primary);
+	}
+
+	/* Split from the same sweep's Focus rings group (7-selector cross-feature
+	 * group; see modules/sidebar.css, modules/terminals.css,
+	 * modules/primitives.css and modules/md-preview.css for the rest). */
+	[data-theme="tui"] .shell-review-comment-form > textarea:focus-visible {
+		outline-color: var(--primary);
+		border-color: var(--primary);
+	}
+
+	/* Split from the same sweep's "Persistent selected/current borders" group
+	 * — already down to this single review-owned selector (Tasks 4 and 8
+	 * split the other members out for sidebar/dialogs). */
+	[data-theme="tui"]
+		.shell-review-comment-form__actions
+		> button[type="submit"] {
+		border-color: var(--primary);
+	}
+
+	/* Split from the same sweep's "Content-action hovers" group — all 3
+	 * selectors are review-owned, so this lands wholesale, unsplit. */
+	[data-theme="tui"]
+		.shell-inline-thread__actions
+		> button[aria-label="Address comment"] {
+		color: var(--primary);
+		border-color: color-mix(in srgb, var(--primary) 45%, var(--panel-border));
+	}
+
+	[data-theme="tui"]
+		.shell-inline-thread__actions
+		> button[aria-label="Address comment"]:hover,
+	[data-theme="tui"] .shell-review-queue__pending-draft:hover {
+		border-color: var(--primary);
+	}
+
+	[data-theme="tui"]
+		.shell-review-queue__row-actions
+		> button[aria-label="Reopen"]:hover {
+		border-color: color-mix(in srgb, var(--primary) 40%, transparent);
 	}
 }

@@ -3,12 +3,13 @@
  * tokens.css, not here. */
 @layer app.components {
 	/* Split from shell.css's shadcn DialogContent-compatibility reset (shared
-	 * with .shell-md-modal, .shell-shortcuts-help, .shell-note-sheet — left
-	 * behind in shell.css, not yet extracted; .shell-files-overlay's copy
-	 * already lives in files.css per Task 7). Only this module's selector
-	 * moves; see task-8 report for the cascade math (relative order vs the
-	 * real .shell-layout-dialog rule further below is preserved, so the
-	 * same-file source-order tiebreak still holds). */
+	 * with .shell-files-overlay [files.css, Task 7], .shell-md-modal
+	 * [md-preview.css, slice 11] and .shell-shortcuts-help/.shell-note-sheet
+	 * [primitives.css, slice 11] — the reset is now fully distributed, none
+	 * of it remains in shell.css). Only this module's selector moves; see
+	 * task-8 report for the cascade math (relative order vs the real
+	 * .shell-layout-dialog rule further below is preserved, so the same-file
+	 * source-order tiebreak still holds). */
 	.shell-layout-dialog {
 		translate: none;
 		display: block;
@@ -656,6 +657,74 @@
 	.shell-confirm-dialog__actions button.shell-confirm-dialog__confirm:hover {
 		background: color-mix(in srgb, var(--danger) 12%, transparent);
 	}
+
+	/* Rendered by all 4 of ForcePushDialog.tsx, DiscardChangeDialog.tsx (git),
+	 * NewWorktreeDialog.tsx, RemoveWorktreeDialog.tsx (workspace) — every
+	 * current consumer is already an AppDialog-wrapped member of this
+	 * module's own "App Dialog" family above. */
+	.shell-error-banner {
+		padding: var(--space-2) var(--space-3);
+		background: rgba(217, 140, 140, 0.12);
+		border: var(--shell-border-width) solid rgba(217, 140, 140, 0.3);
+		border-radius: var(--radius-sm);
+		color: var(--danger);
+		font-size: var(--font-size-body);
+		margin-top: var(--space-2);
+	}
+
+	/* ── Command palette overlay ─────────────────────────────── */
+	/* Rendered by CommandPalette.tsx (features/command-palette/ — a distinct,
+	 * not-yet-extracted feature using the shadcn Dialog primitive directly,
+	 * not the AppDialog wrapper). No module of its own exists; placed here as
+	 * this module's closest structural kin (a top-level app modal, same
+	 * overlay/titlebar/body anatomy as this module's other families) —
+	 * disclosed as a judgment call, not brief-mandated. */
+	.shell-command-palette {
+		width: 100%;
+		max-width: 40rem;
+		padding: 0;
+		gap: 0;
+	}
+	.shell-command-palette__titlebar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0.5rem 0.75rem;
+		border-bottom: 1px solid var(--border);
+	}
+	.shell-command-palette__search {
+		width: 100%;
+		border: 0;
+		background: transparent;
+		padding: 0.625rem 0.75rem;
+		font-size: 0.95rem;
+		outline: none;
+	}
+	.shell-command-palette__list {
+		max-height: 24rem;
+		overflow-y: auto;
+	}
+	.shell-command-palette__group-label {
+		padding: 0.25rem 0.75rem;
+		font-size: 0.7rem;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--muted-foreground);
+	}
+	.shell-command-palette__row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0.375rem 0.75rem;
+		cursor: pointer;
+	}
+	.shell-command-palette__row--selected {
+		background: var(--accent);
+	}
+	.shell-command-palette__empty {
+		padding: 1rem 0.75rem;
+		color: var(--muted-foreground);
+	}
 }
 
 @layer app.themes {
@@ -679,24 +748,21 @@
 		border-color: var(--primary);
 	}
 
-	/* The only other tui.css structural rule touching this module's selectors
-	 * is the shared cross-feature box-shadow-elevation :is() sweep (tui.css
-	 * ~37-51 — also covers .shell-toast, .shell-shortcuts-help, and other
-	 * not-yet-extracted selectors), deliberately left embedded there per
-	 * Tasks 4-7 precedent: cascade-safe because unlayered tui.css always beats
-	 * this layered module regardless of specificity. Hand-carry required at
-	 * tui.css teardown.
-	 *
-	 * `.shell-button__pulse-dot` / `.shell-button__busy` ("Busy/creating pulse
-	 * (dialog actions)", shell.css) are deliberately NOT claimed here, even
-	 * though their only current consumer is a dialog (NewWorktreeDialog):
-	 * tui.css's own comment above its base rule (~66-77) explicitly documents
-	 * this selector as a bare "button primitive", not feature-owned — the
-	 * sidebar module declined the identical selector for the identical reason
-	 * in Task 4's fix wave (see task-4-report.md, "Fix wave: pulse-dot
-	 * reduced-motion"). Claiming it here would reopen that exact
-	 * reduced-motion cascade-flip (unlayered tui.css beats any layered
-	 * app.themes rule regardless of specificity) for a different feature.
-	 * Left fully unlayered in shell.css/tui.css for Task 11 (primitives) to
-	 * claim. */
+	/* Split from the box-shadow elevation :is() sweep (10-selector
+	 * cross-feature group; see modules/files.css, modules/terminals.css,
+	 * modules/viewer.css, modules/primitives.css, modules/review.css ×2 and
+	 * modules/usage.css ×2 for the rest). This module's one selector. */
+	[data-theme="tui"] .shell-layout-dialog {
+		box-shadow: none;
+	}
+
+	/* `.shell-button__pulse-dot` / `.shell-button__busy` ("Busy/creating pulse
+	 * (dialog actions)", shell.css) were deliberately NOT claimed here, even
+	 * though their only current consumer is a dialog (NewWorktreeDialog): the
+	 * base blink rule's own tui.css comment (pre-teardown) explicitly
+	 * documented this selector as a bare "button primitive", not
+	 * feature-owned — the sidebar module declined the identical selector for
+	 * the identical reason in Task 4's fix wave (see task-4-report.md, "Fix
+	 * wave: pulse-dot reduced-motion"). This task (slice 11) claims the whole
+	 * pulse-dot family for modules/primitives.css instead. */
 }

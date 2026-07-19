@@ -62,7 +62,15 @@
 	 * app.components) lets feature-scoped overrides (e.g. the sidebar header's
 	 * `.shell-sidebar__header .shell-label`) win on shared properties like
 	 * letter-spacing without needing !important (cascade-flip fix, slice 4:
-	 * moved here from shell.css's leftover, unlayered position). */
+	 * moved here from shell.css's leftover, unlayered position).
+	 *
+	 * PARKED-PRIMITIVES RULE (slice 11): stays here permanently, NOT in
+	 * modules/primitives.css, even though primitives.css exists now and
+	 * would otherwise be its natural home. Moving it there would put it in
+	 * app.components — the SAME layer feature overrides also live in — so
+	 * the winner would depend on import order between two same-layer files
+	 * instead of the fixed app.base < app.components guarantee this comment
+	 * describes. */
 	.shell-label,
 	.shell-session-info__title,
 	.shell-viewer__title {
@@ -123,14 +131,20 @@
 		overflow: hidden;
 	}
 
-	/* Shared neutral chip-button look, reused by the (not-yet-extracted) session
-	 * chip bar and by the terminals module's agent-launcher chips
-	 * (.shell-chip-bar__action[data-provider]). Lives here — not in either
-	 * feature — specifically so app.base's layer position (before
-	 * app.components) lets the terminals module's provider-tinted override win
-	 * on shared properties (background, color, border-color) without
-	 * !important (cascade-flip fix, slice 5: moved here from shell.css's
-	 * unlayered position, mirroring the .shell-label fix above). */
+	/* Shared neutral chip-button look, reused by the session chip bar
+	 * (modules/sidebar.css, slice 11) and by the terminals module's
+	 * agent-launcher chips (.shell-chip-bar__action[data-provider]). Lives
+	 * here — not in either feature — specifically so app.base's layer
+	 * position (before app.components) lets the terminals module's
+	 * provider-tinted override win on shared properties (background, color,
+	 * border-color) without !important (cascade-flip fix, slice 5: moved
+	 * here from shell.css's unlayered position, mirroring the .shell-label
+	 * fix above).
+	 *
+	 * PARKED-PRIMITIVES RULE (slice 11): stays here permanently, NOT in
+	 * modules/primitives.css, for the exact same layer-order reason as
+	 * .shell-label above — moving it would put it in app.components
+	 * alongside the terminals override it must lose to. */
 	.shell-chip-bar__action {
 		background: none;
 		border: var(--shell-border-width) solid var(--panel-border);
@@ -152,6 +166,30 @@
 		opacity: 0.5;
 		cursor: default;
 	}
+
+	/* Icon span inside .shell-chip-bar__action buttons — co-located with it
+	 * (not modules/sidebar.css, which owns the rest of the chip bar) because
+	 * it is rendered by the exact same shared/terminals consumer set as
+	 * .shell-chip-bar__action above, with no per-feature override anywhere
+	 * (grepped all modules — none). Unlike .shell-chip-bar__action and
+	 * .shell-label, this placement is a consistency choice, not a
+	 * cascade-flip requirement. */
+	.shell-chip-bar__action-icon {
+		display: inline-flex;
+		line-height: 1;
+	}
+
+	/* Dead CSS (zero consumers found across src/) but part of the same
+	 * .shell-chip-bar__action-* sub-family, so parked alongside it rather
+	 * than with the rest of the (session-identity-only) chip bar in
+	 * modules/sidebar.css. */
+	.shell-chip-bar__action-divider {
+		width: 1px;
+		align-self: stretch;
+		min-height: 16px;
+		margin: 0 var(--space-1);
+		background: var(--panel-border);
+	}
 }
 
 @layer app.themes {
@@ -167,5 +205,39 @@
 	[data-theme="warm"] body {
 		background: radial-gradient(circle at top, #2c2318 0%, var(--app-bg) 60%);
 		color: var(--text-primary);
+	}
+
+	/* Motion kill (spec D7): terminals don't tween. Zero out tw-animate-css
+	 * enter/exit animations on Radix overlays (dialog, dropdown, context menu —
+	 * they all toggle data-state between exactly "open"/"closed"; other
+	 * modules use other data-state values, so those are untouched). Durations
+	 * are zeroed rather than `animation: none` so Radix's animation-end
+	 * unmount logic still fires. Done as a plain rule (not a `tui:` utility)
+	 * because the data-[state] animation utilities tie on specificity —
+	 * app.themes beats Tailwind's `utilities` layer regardless. Document-level,
+	 * not feature-owned — from tui.css's teardown (slice 11). */
+	[data-theme="tui"] :is([data-state="open"], [data-state="closed"]) {
+		animation-duration: 0s;
+		transition-duration: 0s;
+	}
+
+	/* Flat background: no radial wash — elevation comes from ladder steps and
+	 * 1px borders, never gradients (spec D2). Document-level; from tui.css's
+	 * teardown (slice 11). */
+	[data-theme="tui"] body {
+		background: var(--background);
+	}
+
+	/* Tighter shell gutters — the flat TUI grid hugs its panes (spec D2).
+	 * .shell-layout / .shell-main-column are app-shell document structure
+	 * (defined in this file's app.base block above), not feature-owned — from
+	 * tui.css's teardown (slice 11). */
+	[data-theme="tui"] .shell-layout {
+		gap: var(--space-2);
+		padding: var(--space-2);
+	}
+
+	[data-theme="tui"] .shell-main-column {
+		gap: var(--space-2);
 	}
 }

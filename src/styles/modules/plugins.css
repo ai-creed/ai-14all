@@ -214,25 +214,25 @@
 		box-shadow: none;
 	}
 
-	/* The following plugin selectors are deliberately NOT claimed here: they
-	 * are hitchhikers inside tui.css's cross-feature "Accent foreground/
-	 * border legibility sweep" (tui.css ~170-203), two large :is()-style
-	 * grouped rules that each pair exactly one plugin selector with ~10
-	 * other features' selectors (terminals, review, sidebar, workflow-row,
-	 * agent-launcher, ...). Per Task 4's precedent (sidebar module, commit
-	 * 0a7b0ae2: "tui.css's genuinely cross-feature 'sweep' sections (accent
-	 * legibility, focus rings, persistent borders) are left in tui.css since
-	 * splitting them would misassign shared/primitive selectors"),
-	 * reconfirmed left untouched by every slice since (5-9) — unlike the
-	 * narrower "Persistent selected/current borders" group that Task 8 did
-	 * split per-selector for dialogs. Left exactly as-is, unlayered, in
-	 * tui.css:
-	 *   [data-theme="tui"] .plugin-readmore a:hover { color: var(--primary); }
-	 *   [data-theme="tui"] .plugin-chip[data-state="on-healthy"],
-	 *   [data-theme="tui"] .plugin-actions button[role="switch"][aria-checked="true"] {
-	 *     color: var(--primary);
-	 *     border-color: var(--primary);
-	 *   }
-	 * Cascade-safe: unlayered tui.css always beats this layered module
-	 * regardless of specificity. Hand-carry required at tui.css teardown. */
+	/* Split from tui.css's "Accent foreground/border legibility sweep"
+	 * Status-text group (14-selector cross-feature group; see
+	 * modules/viewer.css ×2, modules/review.css ×8, modules/sidebar.css,
+	 * modules/files.css and modules/terminals.css for the rest). Hitchhiker
+	 * hand-carried per Task 4's precedent (sidebar module, commit 0a7b0ae2)
+	 * and reconfirmed untouched through every slice since (5-10) — this
+	 * task's teardown finally splits it. */
+	[data-theme="tui"] .plugin-readmore a:hover {
+		color: var(--primary);
+	}
+
+	/* Split from the same sweep's State chips/toggles group (the other 2
+	 * selectors are terminals- and review-owned; see modules/terminals.css
+	 * and modules/review.css). */
+	[data-theme="tui"] .plugin-chip[data-state="on-healthy"],
+	[data-theme="tui"]
+		.plugin-actions
+		button[role="switch"][aria-checked="true"] {
+		color: var(--primary);
+		border-color: var(--primary);
+	}
 }

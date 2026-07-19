@@ -443,24 +443,20 @@
 }
 
 @layer app.themes {
-	/* The only tui.css structural rules touching this module's selectors are
-	 * the shared cross-feature box-shadow-elevation :is() sweep (tui.css
-	 * ~37-51 — also covers .shell-toast, .shell-shortcuts-help, and other
-	 * not-yet-extracted selectors), which includes `.usage-pop` and
-	 * `.usage-gcell.is-on`. Deliberately left embedded there per Tasks 4-8
-	 * precedent: cascade-safe because unlayered tui.css always beats this
-	 * layered module regardless of specificity. Hand-carry required at
-	 * tui.css teardown.
-	 *
-	 * No other [data-theme] rules touch .usage-* / .shell-usage* selectors —
+	/* Split from the box-shadow elevation :is() sweep (10-selector
+	 * cross-feature group; see modules/files.css, modules/terminals.css,
+	 * modules/viewer.css, modules/primitives.css, modules/review.css ×2 and
+	 * modules/dialogs.css for the rest). This module's 2 selectors. */
+	[data-theme="tui"] :is(.usage-pop, .usage-gcell.is-on) {
+		box-shadow: none;
+	}
+
+	/* No other [data-theme] rules touch .usage-* / .shell-usage* selectors —
 	 * none were interleaved in the moved shell.css region, and the
 	 * "Additional provider brand colors" block only *consumes*
 	 * `--provider-ezio` / `--provider-cursor` / `--provider-antigravity`
 	 * (var() reads); it does not declare them. Those custom properties
 	 * already live in tokens.css (`:root` default plus `[data-theme="light"]`
 	 * and `[data-theme="warm"]` overrides — tui inherits the `:root`
-	 * values), satisfying the guard invariant with no move needed. Left
-	 * empty per the module's two-block anatomy contract; any future
-	 * tui.css rule touching these selectors must be hand-carried here at
-	 * tui.css teardown. */
+	 * values), satisfying the guard invariant with no move needed. */
 }

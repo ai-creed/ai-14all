@@ -1,0 +1,325 @@
+/* Markdown preview module. Component rules in app.components; per-theme
+ * structural overrides in app.themes (spec §4.2). Theme COLOR variance
+ * belongs in tokens.css, not here. */
+@layer app.components {
+	/* This module's half of the shared shadcn DialogContent-compatibility
+	 * reset. shadcn's <DialogContent> ships a styled frame (centering,
+	 * max-width, grid, gap, padding, border, radius, shadow) via Tailwind
+	 * utilities; .shell-md-modal predates the migration and defines its own
+	 * frame further below, so this reset neutralizes the injected frame props
+	 * it does NOT set itself, restoring the exact pre-migration rendering.
+	 * Originally grouped with .shell-shortcuts-help/.shell-note-sheet in
+	 * shell.css's shared reset rule; those two now carry their own copy in
+	 * primitives.css (slice 11). Positioned first in this module, mirroring
+	 * its very-early original position in shell.css, so this reset still
+	 * precedes .shell-md-modal's real rule below in source order. */
+	.shell-md-modal {
+		translate: none;
+		display: block;
+		gap: normal;
+		max-width: none;
+		padding: 0;
+		border: 0;
+		border-radius: 0;
+		box-shadow: none;
+		background: none;
+	}
+
+	/* ── Markdown Preview Modal ─────────────────────────────────────────── */
+
+	.shell-md-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.6);
+		z-index: 49;
+	}
+
+	.shell-md-modal {
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: min(80vw, 1200px);
+		max-height: 80vh;
+		display: flex;
+		flex-direction: column;
+		background: var(--panel-bg);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-md);
+		z-index: 50;
+		overflow: hidden;
+	}
+
+	.shell-md-modal__header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: var(--space-3) var(--space-4);
+		border-bottom: var(--shell-border-width) solid var(--panel-border);
+		flex-shrink: 0;
+	}
+
+	.shell-md-modal__title {
+		font-size: 0.875rem;
+		color: var(--text-primary);
+		font-family: var(--font-terminal);
+		margin: 0;
+	}
+
+	.shell-md-modal__close {
+		background: transparent;
+		border: none;
+		color: var(--text-muted);
+		cursor: pointer;
+		padding: var(--space-1);
+		line-height: 1;
+		border-radius: var(--radius-sm);
+	}
+
+	.shell-md-modal__close:hover {
+		color: var(--text-primary);
+		background: var(--panel-bg-elevated);
+	}
+
+	.shell-md-modal__scroll {
+		flex: 1;
+		overflow-y: auto;
+		min-height: 0;
+	}
+
+	.shell-md-modal__body,
+	.shell-md-preview__body {
+		padding: var(--space-4) var(--space-6);
+	}
+
+	/* ── Markdown document body (shared MarkdownBody renderer) ──────────
+	 * Rendered inside MarkdownPreview, MarkdownPreviewModal and NoteSheet.
+	 * Tailwind preflight resets heading sizes, list markers and hr globally,
+	 * so every rule below that looks like a browser default is load-bearing.
+	 * Spec: docs/superpowers/specs/2026-07-12-markdown-preview-readability-design.md */
+
+	.shell-md-body {
+		color: var(--text-primary);
+		font-family: var(--font-reading);
+		font-size: 14px;
+		line-height: 1.6;
+	}
+
+	.shell-md-body > :first-child {
+		margin-top: 0;
+	}
+
+	.shell-md-body > :last-child {
+		margin-bottom: 0;
+	}
+
+	.shell-md-body h1,
+	.shell-md-body h2,
+	.shell-md-body h3,
+	.shell-md-body h4,
+	.shell-md-body h5,
+	.shell-md-body h6 {
+		margin: 1.5em 0 0.5em;
+		font-weight: 600;
+		line-height: 1.25;
+		color: var(--text-primary);
+	}
+
+	.shell-md-body h1 {
+		font-size: 2em;
+		padding-bottom: 0.3em;
+		border-bottom: 1px solid var(--panel-border);
+	}
+
+	.shell-md-body h2 {
+		font-size: 1.5em;
+		padding-bottom: 0.3em;
+		border-bottom: 1px solid var(--panel-border);
+	}
+
+	.shell-md-body h3 {
+		font-size: 1.25em;
+	}
+
+	.shell-md-body h4 {
+		font-size: 1em;
+	}
+
+	.shell-md-body h5 {
+		font-size: 0.875em;
+	}
+
+	.shell-md-body h6 {
+		font-size: 0.85em;
+		color: var(--text-muted);
+	}
+
+	.shell-md-body p {
+		margin: 0 0 0.75em;
+	}
+
+	.shell-md-body ul {
+		list-style: disc;
+	}
+
+	.shell-md-body ol {
+		list-style: decimal;
+	}
+
+	.shell-md-body ul ul {
+		list-style: circle;
+	}
+
+	.shell-md-body ul ul ul {
+		list-style: square;
+	}
+
+	.shell-md-body ul,
+	.shell-md-body ol {
+		margin: 0 0 0.75em;
+		padding-left: 2em;
+	}
+
+	.shell-md-body li + li {
+		margin-top: 0.25em;
+	}
+
+	.shell-md-body li > ul,
+	.shell-md-body li > ol {
+		margin-bottom: 0;
+	}
+
+	.shell-md-body li.task-list-item {
+		list-style: none;
+	}
+
+	.shell-md-body li.task-list-item input[type="checkbox"] {
+		margin: 0 0.4em 0.15em -1.6em;
+		vertical-align: middle;
+		accent-color: var(--accent);
+	}
+
+	.shell-md-body hr {
+		border: 0;
+		border-top: 2px solid var(--panel-border);
+		margin: 1.5em 0;
+	}
+
+	.shell-md-body pre {
+		background: var(--panel-bg-elevated);
+		padding: var(--space-3);
+		border-radius: var(--radius-sm);
+		overflow-x: auto;
+		margin: 0 0 0.75em;
+	}
+
+	.shell-md-body code {
+		font-family: var(--font-terminal);
+		font-size: 0.875em;
+	}
+
+	.shell-md-body :not(pre) > code {
+		background: var(--panel-bg-elevated);
+		padding: 2px var(--space-1);
+		border-radius: var(--radius-sm);
+		color: var(--accent);
+	}
+
+	.shell-md-body table {
+		display: block;
+		width: max-content;
+		max-width: 100%;
+		overflow-x: auto;
+		border-collapse: collapse;
+		margin: 0 0 0.75em;
+	}
+
+	.shell-md-body th,
+	.shell-md-body td {
+		border: var(--shell-border-width) solid var(--panel-border);
+		padding: var(--space-2) var(--space-3);
+		text-align: left;
+	}
+
+	.shell-md-body th {
+		background: var(--panel-bg-elevated);
+		color: var(--text-secondary);
+	}
+
+	.shell-md-body tbody tr:nth-child(2n) {
+		background: var(--panel-bg-elevated);
+	}
+
+	.shell-md-body blockquote {
+		border-left: 3px solid var(--panel-border-strong);
+		margin: 0 0 0.75em;
+		padding-left: var(--space-4);
+		color: var(--text-muted);
+	}
+
+	.shell-md-body a {
+		color: var(--accent);
+		text-decoration: underline;
+	}
+
+	.shell-md-body del {
+		color: var(--text-muted);
+	}
+
+	.shell-md-body img {
+		max-width: 100%;
+		border-radius: var(--radius-sm);
+	}
+
+	.shell-md-modal__retry {
+		margin-top: var(--space-2);
+		padding: var(--space-1) var(--space-3);
+		background: transparent;
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-sm);
+		color: var(--text-secondary);
+		cursor: pointer;
+		font-family: var(--font-ui);
+		font-size: 0.875rem;
+	}
+
+	.shell-md-modal__retry:hover {
+		border-color: var(--panel-border-strong);
+		color: var(--text-primary);
+	}
+
+	.shell-md-modal__close:focus-visible,
+	.shell-md-modal__retry:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+
+	/* ── Markdown Preview (inline) ──────────────────────────────────────── */
+
+	.shell-md-preview {
+		height: 100%;
+		overflow-y: auto;
+	}
+}
+
+@layer app.themes {
+	/* The legacy `--accent` bridges to `--primary` in every palette except
+	 * tui, where it resolves to a dark ladder step (bg2) — so markdown inline
+	 * code and links rendered dark-on-dark. Pin them to the cursor accent so
+	 * they read clearly. Other palettes are untouched because there `--accent`
+	 * already equals `--primary`. */
+	[data-theme="tui"] .shell-md-body :not(pre) > code,
+	[data-theme="tui"] .shell-md-body a {
+		color: var(--primary);
+	}
+
+	/* Split from tui.css's "Accent foreground/border legibility sweep" Focus
+	 * rings group (a 7-selector cross-feature group covering sidebar,
+	 * terminals, review, a generic [role="tab"], this module, and the dead
+	 * editor-modal family) — this is the only selector of that group owned by
+	 * md-preview.css. */
+	[data-theme="tui"] .shell-md-modal__retry:focus-visible {
+		outline-color: var(--primary);
+		border-color: var(--primary);
+	}
+}

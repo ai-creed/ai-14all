@@ -1,0 +1,688 @@
+/* Primitives module: shared chrome and building blocks with no single
+ * feature owner (multiple features render them, or they're app-shell-level
+ * with no dedicated module). Component rules in app.components; per-theme
+ * structural overrides in app.themes (spec §4.2). Theme COLOR variance
+ * belongs in tokens.css, not here.
+ *
+ * PARKED-PRIMITIVES RULE: .shell-label and .shell-chip-bar__action (in
+ * base.css's app.base) are NOT here and must never move here. Both are
+ * primitives that specific features override (sidebar header letter-spacing;
+ * terminals' provider-tinted chips), and app.base's layer position (before
+ * app.components) is what lets those overrides win without !important. If
+ * either moved into this module's app.components layer, the winner would
+ * depend on import order between two same-layer files instead of a fixed
+ * layer guarantee — see base.css's own comments on each rule. */
+@layer app.components {
+	/* Generic panel look, reused across review, terminals, repository and
+	 * app-shell chrome (DiffViewerPane, ReviewRail, RestorePrompt, TerminalPane,
+	 * App.tsx's setup screens, SessionSidebar, TerminalPanel) — no single
+	 * feature owns it. */
+	.shell-panel {
+		background: transparent;
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-md);
+	}
+
+	/* This module's half of the shared shadcn DialogContent-compatibility
+	 * reset (shadcn's <DialogContent> ships a centering/max-width/grid/gap/
+	 * padding/border/radius/shadow frame via Tailwind utilities that fights
+	 * these two pre-migration, fully-custom overlays' own layout). Originally
+	 * grouped with .shell-md-modal in shell.css's shared reset rule; that
+	 * selector now carries its own copy in md-preview.css (slice 11).
+	 * Positioned first in this module, mirroring both selectors' very-early
+	 * original position in shell.css, so this reset still precedes each
+	 * selector's real rule (further below) in source order. */
+	.shell-shortcuts-help,
+	.shell-note-sheet {
+		translate: none;
+		display: block;
+		gap: normal;
+		max-width: none;
+		padding: 0;
+		border: 0;
+		border-radius: 0;
+		box-shadow: none;
+		background: none;
+	}
+
+	/* App-shell "no active session yet" screens: loading / restore-prompt /
+	 * no-repo states in App.tsx, and reused verbatim by RestorePrompt.tsx
+	 * (repository feature) for its own restore-decision screen — a shared
+	 * class by construction, not owned by either call site alone. */
+	.shell-setup-panel {
+		width: min(640px, 100%);
+		padding: var(--space-6);
+	}
+
+	.shell-setup-title {
+		margin: 0 0 var(--space-4);
+	}
+
+	/* Generic inline error text, reused across ~15 features (git dialogs,
+	 * review, viewer, workspace, repository, app-shell). */
+	.shell-error {
+		color: var(--danger);
+	}
+
+	/* App-shell top banner (RestoreBanner.tsx) surfaced when a workspace
+	 * restore raises a recoverable warning. Single current consumer, but no
+	 * feature module owns app-shell-level chrome, so it lands here with the
+	 * rest of the app-shell primitives above. */
+	.shell-restore-warning {
+		background: var(--accent-strong);
+		color: var(--warning);
+		padding: var(--space-2) var(--space-4);
+		font-size: var(--font-size-body);
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2);
+	}
+
+	.shell-restore-warning__dismiss {
+		background: none;
+		border: none;
+		color: var(--warning);
+		cursor: pointer;
+		padding: 0 var(--space-1);
+		font-size: 1rem;
+		line-height: 1;
+		flex-shrink: 0;
+	}
+
+	/* Generic a11y focus ring for any Radix Tabs trigger (role="tab" is set
+	 * by TabsPrimitive.Trigger itself, not a project class) — rendered today
+	 * by the UI gallery and review's ReviewRail, but not owned by either. */
+	[role="tab"]:focus-visible {
+		outline: var(--shell-border-width) solid var(--accent);
+		outline-offset: 1px;
+	}
+
+	/* Split from the grouped rule `.shell-sidebar__branch, .shell-empty-state
+	 * { color: var(--text-secondary); }` (shell.css). .shell-sidebar__branch
+	 * is sidebar-owned (moved to modules/sidebar.css); .shell-empty-state is
+	 * a genuine cross-feature primitive (~10 unrelated consumers: App.tsx,
+	 * RestorePrompt, MarkdownPreview, WorktreeTree, InlineEditor,
+	 * DiffViewerPane, ChangesList, CommitList, CommitDiffStack — flagged for
+	 * this module since Task 4). No shared-property overlap with
+	 * .shell-sidebar__branch's own (unmixed) rule, so no cascade-flip risk
+	 * from splitting the two apart. */
+	.shell-empty-state {
+		color: var(--text-secondary);
+	}
+
+	/* Tooltips are informational, never interactive: their Radix popper wrapper must
+	   not intercept pointer events, or an open tooltip can block clicks on the
+	   controls beneath/beside it (e.g. sidebar rows and nav buttons). Scoped via
+	   :has([role="tooltip"]) so interactive poppers (menus, dropdowns, dialogs)
+	   keep their pointer events. */
+	[data-radix-popper-content-wrapper]:has([role="tooltip"]) {
+		pointer-events: none;
+	}
+
+	/* Dead CSS: grep across src/ finds zero consumers of class="shell-tooltip"
+	 * (the actual <TooltipContent> component in components/ui/tooltip.tsx uses
+	 * Tailwind utility classes directly, not this class). Moved anyway per the
+	 * move-verbatim mandate — same treatment as other dead selectors carried
+	 * through this refactor (.shell-chip-bar__plugins in plugins.css, etc). */
+	.shell-tooltip {
+		padding: 6px 10px;
+		color: var(--text-primary);
+		background: var(--panel-bg);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-sm);
+	}
+
+	.shell-rail__viewport {
+		height: 100%;
+		max-height: none;
+	}
+
+	.shell-rail__message {
+		padding: var(--space-4);
+	}
+
+	/* Dead CSS: grep finds zero consumers of class="shell-scrollbar" anywhere
+	 * in src/. Moved verbatim regardless, same reasoning as .shell-tooltip
+	 * above. */
+	.shell-scrollbar {
+		width: 10px;
+		background: transparent;
+	}
+
+	.shell-list {
+		display: grid;
+		gap: 3px;
+	}
+
+	.shell-list__item {
+		width: 100%;
+		padding: 8px 10px;
+		text-align: left;
+		color: var(--text-primary);
+		background: var(--panel-bg);
+		border: var(--shell-border-width) solid transparent;
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+		font-size: 0.82rem;
+		line-height: 1.35;
+	}
+
+	.shell-list__item[data-selected="true"] {
+		background: var(--panel-bg-elevated);
+		border-color: var(--panel-border-strong);
+	}
+
+	.shell-list__item--split {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: var(--space-3);
+	}
+
+	.shell-list__item-row {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		/* Let the row shrink as a grid item (Changes `.shell-list`, Commits
+		   `.shell-commit-list__files`) so the file-name ellipsis engages instead of
+		   the row forcing the list wider than the rail. */
+		min-width: 0;
+	}
+
+	.shell-list__item-row .shell-list__item {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	/* Reserve top-right space on the open row so the absolutely-positioned "Viewed"
+	   chip never overlaps the filename or the status badge. */
+	.shell-list__item-row--has-toggle .shell-list__item {
+		padding-right: 100px;
+	}
+
+	/* Truncate long file names so a name with no break points can't force the row
+	   wider than the panel and push the floating "Viewed" chip (or the status
+	   badge) out of view. */
+	.shell-list__item-name {
+		flex: 1 1 auto;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/* Shared dropdown-menu look, reused by CommitList, ChangesList,
+	 * WorktreeTree and SessionSidebar — flagged for this module since Task 6
+	 * ("shared → Task 11" grounds, per files.css/viewer.css's own precedent). */
+	.shell-toolbar-menu {
+		padding: var(--space-2);
+		background: var(--panel-bg);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-sm);
+		z-index: 50;
+	}
+
+	.shell-toolbar-menu__item {
+		display: block;
+		width: 100%;
+		padding: var(--space-2) var(--space-3);
+		text-align: left;
+		color: var(--text-primary);
+		background: transparent;
+		border: none;
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
+
+	.shell-toolbar-menu__item:hover {
+		background: var(--panel-bg-elevated);
+	}
+
+	.shell-toolbar-menu__item--disabled {
+		color: var(--text-muted);
+		pointer-events: none;
+	}
+
+	.shell-toolbar-menu__item--danger {
+		color: var(--danger);
+	}
+
+	/* ── Note sheet ─────────────────────────────────────── */
+
+	.shell-note-sheet__overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.35);
+		z-index: 49;
+	}
+
+	.shell-note-sheet {
+		position: fixed;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		left: auto; /* beat shadcn DialogContent's left-[50%] utility */
+		width: calc(clamp(280px, 28vw, 420px) + 140px);
+		background: var(--panel-bg);
+		border-left: var(--shell-border-width) solid var(--panel-border);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		padding: var(--space-4);
+		z-index: 50;
+		outline: none;
+		/* drawer appears instantly: suppress shadcn DialogContent's
+		   center-anchored zoom/fade open animation */
+		animation: none;
+	}
+
+	.shell-note-sheet__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+	}
+
+	.shell-note-sheet__title {
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--text-secondary);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		margin: 0;
+	}
+
+	.shell-note-sheet__close {
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: var(--text-muted);
+		padding: var(--space-1);
+		line-height: 1;
+		border-radius: var(--radius-sm);
+	}
+	.shell-note-sheet__close:hover {
+		color: var(--text-primary);
+	}
+
+	.shell-note-sheet__actions {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+
+	.shell-note-sheet__mode {
+		display: inline-flex;
+		align-items: center;
+		padding: 2px;
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-sm);
+		background: var(--panel-bg-elevated);
+	}
+
+	.shell-note-sheet__mode-button {
+		min-width: 56px;
+		border: none;
+		border-radius: calc(var(--radius-sm) - 2px);
+		background: transparent;
+		color: var(--text-muted);
+		cursor: pointer;
+		font-size: 0.75rem;
+		line-height: 1;
+		padding: 6px 8px;
+	}
+
+	.shell-note-sheet__mode-button:hover {
+		color: var(--text-primary);
+	}
+
+	.shell-note-sheet__mode-button[data-active="true"] {
+		background: var(--panel-bg);
+		color: var(--text-primary);
+		box-shadow: 0 0 0 1px var(--panel-border-strong);
+	}
+
+	.shell-note-sheet__textarea {
+		flex: 1;
+		resize: none;
+		min-height: 0;
+		height: 100%;
+		margin-top: 0; /* cancel .shell-input margin-top inside flex sheet */
+	}
+
+	.shell-note-sheet__preview {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-sm);
+		background: var(--panel-bg-elevated);
+	}
+
+	.shell-note-sheet__preview-body {
+		padding: var(--space-3);
+	}
+
+	/* Reusable inline input + button row. Not dialog-scoped. */
+	.shell-input-row {
+		display: flex;
+		gap: var(--space-2);
+		align-items: center;
+		flex-wrap: wrap;
+	}
+	.shell-input-row > input {
+		flex: 1 1 0;
+		min-width: 240px;
+		margin-top: 0;
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	/* ── Shortcuts help overlay ──────────────────────────────── */
+
+	.shell-shortcuts-help__overlay {
+		position: fixed;
+		inset: 0;
+		background: var(--shell-overlay-backdrop, rgba(0, 0, 0, 0.45));
+		z-index: 49;
+	}
+
+	.shell-shortcuts-help {
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		z-index: 50;
+		background: var(--panel-bg);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-lg);
+		width: 800px;
+		max-width: calc(100vw - 32px);
+		outline: none;
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+	}
+
+	/*
+	 * Two-column masonry flow. Each group is kept whole via break-inside so a
+	 * section never splits across the column boundary. max-height + scroll is a
+	 * safety net for very short viewports.
+	 */
+	.shell-shortcuts-help__body {
+		columns: 2;
+		column-gap: var(--space-4);
+		padding: var(--space-2) var(--space-2);
+		max-height: calc(100vh - 96px);
+		overflow-y: auto;
+	}
+
+	.shell-shortcuts-help__group {
+		break-inside: avoid;
+	}
+
+	.shell-shortcuts-help__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--space-3) var(--space-4);
+		border-bottom: var(--shell-border-width) solid var(--panel-border);
+	}
+
+	.shell-shortcuts-help__title {
+		color: var(--text-primary);
+		font-size: 13px;
+		font-weight: 600;
+		margin: 0;
+	}
+
+	.shell-shortcuts-help__close {
+		background: none;
+		border: none;
+		color: var(--text-secondary);
+		cursor: pointer;
+		padding: var(--space-1);
+		font-size: 12px;
+		line-height: 1;
+		border-radius: var(--radius-sm);
+	}
+
+	.shell-shortcuts-help__close:hover {
+		color: var(--text-primary);
+	}
+
+	.shell-shortcuts-help__group-label {
+		margin-left: 16px;
+	}
+
+	.shell-shortcuts-help__list {
+		list-style: none;
+		margin: 0;
+		padding: var(--space-2) 0;
+	}
+
+	.shell-shortcuts-help__row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--space-2) var(--space-4);
+	}
+
+	.shell-shortcuts-help__label {
+		color: var(--text-primary);
+		font-size: 12px;
+	}
+
+	.shell-shortcuts-help__keys {
+		color: var(--text-secondary);
+		font-size: 11px;
+		font-family: var(--font-ui);
+		background: var(--panel-bg-elevated);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-sm);
+		padding: 2px 6px;
+	}
+
+	/* Both selectors are primitives-owned (shortcuts-help + note-sheet), so
+	 * this freeze moves wholesale, unsplit — no cross-owner cascade concern. */
+	@media (prefers-reduced-motion: reduce) {
+		.shell-shortcuts-help__overlay,
+		.shell-shortcuts-help,
+		.shell-note-sheet__overlay,
+		.shell-note-sheet {
+			animation: none !important;
+			transition: none !important;
+		}
+	}
+
+	/* ── Busy/creating pulse (button primitive) ────────────────────── */
+
+	.shell-button__busy {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5em;
+	}
+
+	.shell-button__pulse-dot {
+		width: 0.5em;
+		height: 0.5em;
+		border-radius: 50%;
+		background: currentColor;
+		/* Same rhythm as the sidebar process-dot pulse so signals breathe in sync. */
+		animation: shell-button-pulse 1.4s ease-in-out infinite;
+	}
+
+	@keyframes shell-button-pulse {
+		0%,
+		100% {
+			opacity: 0.35;
+			box-shadow: 0 0 0 0 transparent;
+		}
+		50% {
+			opacity: 1;
+			box-shadow: 0 0 6px color-mix(in srgb, currentColor 70%, transparent);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.shell-button__pulse-dot {
+			animation: none;
+			opacity: 1;
+		}
+	}
+
+	/* ── Toast stack ──────────────────────────────────────────────────────────── */
+
+	.shell-toast-stack {
+		position: fixed;
+		bottom: 12px;
+		right: 12px;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		z-index: 1000;
+	}
+
+	.shell-toast {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		background: var(--surface-elevated, #1f2228);
+		color: var(--text, #d9d9d9);
+		border: var(--shell-border-width) solid var(--border-subtle, #2c3038);
+		border-radius: 0;
+		padding: 8px 10px;
+		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+		max-width: 320px;
+		font-size: 13px;
+	}
+
+	.shell-toast__action {
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 0 6px;
+		background: transparent;
+		cursor: pointer;
+	}
+
+	/* ---- Box-drawing utility (spec §7, WebTUI box technique) --------------- */
+
+	/* Pads the element by one character cell and draws the border on a
+	 * pseudo-element inset by half a cell — where a box-drawing glyph
+	 * would render. A .tui-box-title child sits ON the border line, punching
+	 * a gap in it. Accent via --box-border-color; surface behind the title via
+	 * --tui-box-bg. Inert unless the class is used, so it is safe to define
+	 * for all themes (the gallery renders it everywhere) — the selectors
+	 * below are NOT [data-theme="tui"]-scoped, unlike the rest of this
+	 * former tui.css content, so this block stays in app.components rather
+	 * than app.themes. --box-border-width is a component-local parameter
+	 * (spec §4.2 exception): it never appears in a [data-theme] block, so it
+	 * is legal to declare here rather than in tokens.css. */
+	.tui-box {
+		--box-border-width: 2px;
+		position: relative;
+		isolation: isolate;
+		padding: 1lh 1ch;
+	}
+
+	.tui-box::before {
+		content: "";
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		translate: -50% -50%;
+		width: calc(100% - 1ch - var(--box-border-width));
+		height: calc(100% - 1lh - var(--box-border-width));
+		border: var(--box-border-width) solid var(--box-border-color, var(--border));
+		z-index: -1;
+	}
+
+	.tui-box > .tui-box-title {
+		position: absolute;
+		top: 0;
+		left: 2ch;
+		height: 1lh;
+		line-height: 1lh;
+		padding-inline: 1ch;
+		background: var(--tui-box-bg, var(--background));
+		color: var(--muted-foreground);
+		font-size: 0.85em;
+		letter-spacing: 0.08em;
+	}
+}
+
+@layer app.themes {
+	/* Split from tui.css's box-shadow elevation :is() sweep (a 10-selector
+	 * cross-feature group; the other 8 selectors are owned by files, terminals,
+	 * viewer, review ×2, dialogs, usage ×2). These two are this module's. */
+	[data-theme="tui"] :is(.shell-shortcuts-help, .shell-toast) {
+		box-shadow: none;
+	}
+
+	/* Attention states: discrete blink instead of rotating conic spotlight and
+	 * breathing glows — terminal motion is stepped, never tweened (spec D7).
+	 * Also drives modules/sidebar.css's process-indicator blink
+	 * (`.shell-sidebar__process-indicator[data-state="actionRequired"]`) by
+	 * name — @keyframes lookups are global and layer/import-order
+	 * independent for a single, non-conflicting definition, so that
+	 * cross-module reference keeps resolving correctly even though sidebar.css
+	 * is imported before this module. This is the ONLY definition of
+	 * tui-attention-blink in the whole app; do not add a second one. */
+	@keyframes tui-attention-blink {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.25;
+		}
+	}
+
+	[data-theme="tui"] .shell-button__pulse-dot {
+		box-shadow: none;
+		animation: tui-attention-blink 1.2s steps(1, end) infinite;
+	}
+
+	/* Reduced-motion freeze for the blink above (slice 4 follow-up
+	 * precedent). Kept in the SAME layer (app.themes) as its base rule,
+	 * immediately after it in source order: within this layer that ordering
+	 * decides the tie (equal specificity), and app.themes itself
+	 * unconditionally beats app.components (the non-tui blink + its own
+	 * freeze, both above) regardless of specificity, per the top-level
+	 * `@layer` order — so under tui + reduced-motion this freeze always wins,
+	 * matching the original unlayered-file behavior the fix wave established. */
+	@media (prefers-reduced-motion: reduce) {
+		[data-theme="tui"] .shell-button__pulse-dot {
+			animation: none;
+		}
+	}
+
+	/* Split from tui.css's "Accent foreground/border legibility sweep" Focus
+	 * rings group (a 7-selector cross-feature group covering sidebar,
+	 * terminals, review, this module, md-preview, and the dead editor-modal
+	 * family) — the only selector of that group with no single feature
+	 * owner. */
+	[data-theme="tui"] [role="tab"]:focus-visible {
+		outline-color: var(--primary);
+		border-color: var(--primary);
+	}
+
+	/* Split from tui.css's "Re-scoped shell chrome" grouped rule (3
+	 * selectors: this one plus two .shell-commit-list__item variants, which
+	 * moved to modules/viewer.css's app.themes alongside the rest of the
+	 * context-panel git sections). Selected list rows lead with the cursor
+	 * accent under tui (base uses the neutral panel-border-strong). */
+	[data-theme="tui"] .shell-list__item[data-selected="true"] {
+		border-color: var(--primary);
+	}
+}

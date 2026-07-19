@@ -722,6 +722,15 @@
 		white-space: nowrap;
 	}
 
+	/* Split from the grouped rule `.shell-sidebar__branch, .shell-empty-state
+	 * { color: var(--text-secondary); }` (shell.css) — this selector's half.
+	 * .shell-empty-state (a genuine cross-feature primitive) moved to
+	 * modules/primitives.css instead (slice 11). Kept as its own rule rather
+	 * than merged into the block above, to keep this a literal verbatim move. */
+	.shell-sidebar__branch {
+		color: var(--text-secondary);
+	}
+
 	/* Non-color signal for actionRequired rows: a distinct, high-contrast tag whose
 	   shape + text carry the meaning independent of hue/motion (colorblind + SR
 	   safe). Square/flat per the TUI aesthetic. */
@@ -1199,6 +1208,267 @@
 		font-size: 0.68rem;
 		color: var(--warning);
 	}
+
+	/* ── Session top band (dead CSS) ──────────────────────────────────────
+	 * SessionHeader.tsx and ContextPanel.tsx (features/workspace/components,
+	 * same directory as SessionSidebar.tsx) render every selector below, but
+	 * grep confirms neither component is imported anywhere in src/ — a
+	 * pre-existing dead-CSS pocket, flagged but left untouched by Task 4
+	 * ("out of scope for this task"). Parked here now (slice 11's hard
+	 * zero-rules requirement): matches this module's own charter prefix
+	 * (`.shell-session*`, task-4-brief.md) and both dead components live in
+	 * the same feature directory as SessionSidebar.tsx, this module's other
+	 * owner. Moved verbatim per the move-verbatim mandate regardless of
+	 * liveness (same treatment as other dead selectors this refactor has
+	 * carried through, e.g. .shell-chip-bar__plugins in plugins.css). */
+	.shell-top-band {
+		position: relative;
+		display: grid;
+		grid-template-columns: minmax(280px, 0.47fr) minmax(0, 1fr);
+		gap: 0;
+		min-width: 0;
+		padding: var(--space-4);
+		padding-right: 52px;
+		border-color: var(--pane-border-session-info);
+	}
+
+	.shell-top-band[data-collapsed="true"] {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.shell-top-band__toggle {
+		position: absolute;
+		top: var(--space-3);
+		right: var(--space-3);
+		width: 28px;
+		height: 28px;
+		display: grid;
+		place-items: center;
+		padding: 0;
+		color: var(--text-secondary);
+		background: transparent;
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: 999px;
+		cursor: pointer;
+		line-height: 1;
+	}
+
+	.shell-session-info__header {
+		display: flex;
+		align-items: center;
+		justify-content: flex-start;
+		gap: var(--space-3);
+	}
+
+	.shell-session-info__title {
+		margin: var(--space-1) 0 0;
+		line-height: 1.2;
+		letter-spacing: 0.01em;
+	}
+
+	.shell-session-info__description {
+		margin-top: 6px;
+		color: var(--text-secondary);
+		font-size: var(--font-size-body);
+		line-height: 1.3;
+	}
+
+	.shell-top-band[data-collapsed="true"] .shell-session-info {
+		padding-right: 0;
+	}
+
+	.shell-top-band[data-collapsed="true"] .shell-session-info__title {
+		margin: 0;
+	}
+
+	.shell-session-info {
+		min-width: 0;
+		padding-right: var(--space-4);
+	}
+
+	.shell-session-info__strip {
+		display: flex;
+		gap: var(--space-3);
+		align-items: center;
+		color: var(--text-secondary);
+		font-size: var(--font-size-body);
+		flex: 1;
+		min-width: 0;
+	}
+
+	.shell-top-band[data-collapsed="true"] .shell-session-info__strip {
+		margin-left: auto;
+		padding-right: var(--space-4);
+	}
+
+	.shell-session-info__path-group {
+		margin-top: var(--space-3);
+	}
+
+	.shell-session-info__path {
+		display: block;
+		margin-top: var(--space-2);
+		color: var(--text-secondary);
+		white-space: pre-wrap;
+		word-break: break-word;
+		padding: 6px 8px;
+		background: var(--panel-bg-elevated);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-sm);
+		font-size: var(--font-size-body);
+	}
+
+	.shell-session-info__meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-3);
+		margin-top: var(--space-3);
+		color: var(--text-secondary);
+		font-size: var(--font-size-body);
+	}
+
+	.shell-session-note {
+		min-width: 0;
+		padding-left: var(--space-4);
+		border-left: var(--shell-border-width) solid var(--panel-border);
+	}
+
+	.shell-session-note textarea {
+		margin-top: var(--space-2);
+		min-height: 112px;
+		resize: none;
+	}
+
+	/* ── Session chip bar ──────────────────────────────────
+	 * Rendered exclusively by SessionChipBar.tsx (features/workspace/
+	 * components — same directory as SessionSidebar.tsx). Only the
+	 * `.shell-chip-bar__action*` sub-parts shared with terminals' chips
+	 * (`__action`, `__action-icon`, `__action-divider`) are NOT here — they
+	 * are parked in base.css's app.base (see the PARKED-PRIMITIVES rule on
+	 * `.shell-chip-bar__action` there). `__usage` (usage.css, slice 9) and
+	 * `__plugins` (plugins.css, slice 10) are likewise claimed elsewhere —
+	 * this is just the remaining session-identity-only parts. */
+
+	.shell-chip-bar {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		padding: 0 var(--space-4);
+		height: 36px;
+		flex-shrink: 0;
+		background: var(--panel-bg);
+		border-bottom: var(--shell-border-width) solid var(--panel-border);
+		overflow: hidden;
+	}
+
+	.shell-chip-bar__identity {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+		min-width: 0;
+	}
+
+	.shell-chip-bar__title {
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: var(--text-primary);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 200px;
+	}
+
+	.shell-chip-bar__rename {
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: var(--text-muted);
+		padding: 2px var(--space-1);
+		border-radius: var(--radius-sm);
+		font-size: 0.75rem;
+		line-height: 1;
+		opacity: 0;
+		transition: opacity 0.1s;
+	}
+	.shell-chip-bar:hover .shell-chip-bar__rename,
+	.shell-chip-bar__rename:focus-visible {
+		opacity: 1;
+		color: var(--text-secondary);
+	}
+	.shell-chip-bar__rename:hover {
+		color: var(--text-primary);
+	}
+
+	.shell-chip-bar__meta {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		font-size: 0.75rem;
+		color: var(--text-muted);
+		white-space: nowrap;
+		overflow: hidden;
+		flex-shrink: 1;
+		min-width: 0;
+	}
+
+	.shell-chip-bar__worktree,
+	.shell-chip-bar__branch {
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.shell-chip-bar__sep {
+		user-select: none;
+	}
+
+	.shell-chip-bar__status {
+		display: flex;
+		align-items: center;
+		margin-left: var(--space-1);
+	}
+
+	/* Mirrors the review chipbar's ✓ clean pill (.shell-review-chipbar__status
+	 * [data-state="clean"]): tinted accent background, accent text, same padding
+	 * and radius — so the two clean indicators read identically. */
+	.shell-chip-bar__clean {
+		background: color-mix(in srgb, var(--accent) 14%, transparent);
+		color: var(--accent);
+		border-radius: var(--radius-sm);
+		padding: 2px 7px;
+		font-size: 0.7rem;
+		white-space: nowrap;
+	}
+
+	.shell-chip-bar__dirty-chip {
+		background: none;
+		border: var(--shell-border-width) solid var(--accent);
+		color: var(--accent);
+		border-radius: var(--radius-md);
+		padding: 1px var(--space-2);
+		font-size: 0.7rem;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+	.shell-chip-bar__dirty-chip:hover {
+		background: color-mix(in srgb, var(--accent) 12%, transparent);
+	}
+
+	.shell-chip-bar__actions {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		margin-left: auto;
+		flex-shrink: 0;
+		flex-wrap: wrap;
+	}
+
+	.shell-chip-bar__note-dot {
+		width: 5px;
+		height: 5px;
+		border-radius: 50%;
+		background: var(--accent);
+		display: inline-block;
+	}
 }
 
 @layer app.themes {
@@ -1327,5 +1597,49 @@
 	[data-theme="tui"] .shell-sidebar__workspace-empty,
 	[data-theme="tui"] .shell-list__item--dir {
 		font-style: normal;
+	}
+
+	/* tui.css teardown (slice 11) — three selectors hand-carried from
+	 * cross-feature sweeps that used to group this module's selectors with
+	 * many other features'. */
+
+	/* Note dot / clean pill / dirty chip: --accent resolves to the dark bg2
+	 * ladder step under tui (needed for shadcn hover/selected backgrounds
+	 * elsewhere), so these foreground/border usages rendered dark-on-dark.
+	 * Pin to the cursor accent instead. Split from the "Markdown / indicator
+	 * legibility (TUI only)" section — the .shell-md-body half moved to
+	 * modules/md-preview.css. */
+	[data-theme="tui"] .shell-chip-bar__note-dot {
+		background: var(--primary);
+	}
+
+	[data-theme="tui"] .shell-chip-bar__clean {
+		background: color-mix(in srgb, var(--primary) 14%, transparent);
+		color: var(--primary);
+	}
+
+	[data-theme="tui"] .shell-chip-bar__dirty-chip {
+		border-color: var(--primary);
+		color: var(--primary);
+	}
+
+	[data-theme="tui"] .shell-chip-bar__dirty-chip:hover {
+		background: color-mix(in srgb, var(--primary) 12%, transparent);
+	}
+
+	/* Split from the "Accent foreground/border legibility sweep" Status-text
+	 * group (a 14-selector cross-feature group; the other 13 are owned by
+	 * viewer, review ×7, files, plugins, terminals — see each module's own
+	 * app.themes for its share). */
+	[data-theme="tui"] .workflow-row__status[data-status="running"] {
+		color: var(--primary);
+	}
+
+	/* Split from the same sweep's Focus rings group (7-selector cross-feature
+	 * group; see modules/primitives.css, modules/terminals.css,
+	 * modules/review.css and modules/md-preview.css for the rest). */
+	[data-theme="tui"] .shell-sidebar__rename-input:focus-visible {
+		outline-color: var(--primary);
+		border-color: var(--primary);
 	}
 }

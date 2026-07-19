@@ -665,4 +665,39 @@
 	[data-theme="tui"] .shell-terminal-slot__collab {
 		color: var(--primary);
 	}
+
+	/* tui.css teardown (slice 11) — hand-carried from cross-feature sweeps. */
+
+	/* Split from the box-shadow elevation :is() sweep (10-selector
+	 * cross-feature group; see modules/files.css, modules/viewer.css,
+	 * modules/primitives.css, modules/review.css ×2, modules/dialogs.css and
+	 * modules/usage.css ×2 for the rest). */
+	[data-theme="tui"] .shell-terminal-find {
+		box-shadow: none;
+	}
+
+	/* Split from the "Accent foreground/border legibility sweep" State
+	 * chips/toggles group (the other 2 selectors are plugins-owned; see
+	 * modules/plugins.css). */
+	[data-theme="tui"] .shell-terminal-find button[data-active="true"] {
+		color: var(--primary);
+		border-color: var(--primary);
+	}
+
+	/* Split from the same sweep's Focus rings group (7-selector cross-feature
+	 * group; see modules/sidebar.css, modules/review.css,
+	 * modules/primitives.css and modules/md-preview.css for the rest). */
+	[data-theme="tui"] .shell-terminal-find__input:focus-visible,
+	[data-theme="tui"] .shell-terminal-slot__header button:focus-visible {
+		outline-color: var(--primary);
+		border-color: var(--primary);
+	}
+
+	/* Split from the sweep's Status-text group (14-selector cross-feature
+	 * group; see modules/viewer.css, modules/review.css ×7,
+	 * modules/sidebar.css, modules/files.css and modules/plugins.css for the
+	 * rest). */
+	[data-theme="tui"] .agent-launcher-bar__status[data-tone="accent"] {
+		color: var(--primary);
+	}
 }

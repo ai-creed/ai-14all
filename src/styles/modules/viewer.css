@@ -144,15 +144,420 @@
 		font-size: 0.85em;
 		color: var(--text-secondary);
 	}
+
+	/* ── File Viewer ([Preview │ Source] toggle) ────────────────────────── */
+	/* Rendered by FileViewer.tsx (features/viewer/components/ — the same
+	 * directory as InlineEditor.tsx, EditorDirtyBar.tsx, ImagePreview.tsx,
+	 * MarkdownPreview.tsx above, all already viewer.css-owned). The prefix
+	 * (.shell-file-*) superficially resembles files.css's indicative list,
+	 * but Task 7 explicitly left this ambiguous between the two; per this
+	 * task's brief, component ownership wins — same reasoning already
+	 * applied to .shell-inline-editor/.shell-editor-dirty-bar above. */
+	.shell-file-viewer {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+
+	.shell-file-viewer__header {
+		display: flex;
+		gap: 0;
+		border-bottom: 1px solid var(--border);
+	}
+
+	.shell-file-viewer__mode-btn {
+		border: none;
+		border-radius: var(--radius);
+		padding: 2px 10px;
+		font-size: 11px;
+		cursor: pointer;
+		background: transparent;
+	}
+
+	.shell-file-viewer__mode-btn[aria-pressed="true"] {
+		background: var(--muted);
+	}
+
+	/* ── Lightweight Editor Modal (dead CSS) ─────────────────────────────
+	 * Grep finds zero consumers of any .shell-editor-modal or
+	 * .shell-editor-overlay class anywhere in src/ — an orphaned modal-based
+	 * file editor, superseded
+	 * by the inline .shell-inline-editor/.shell-editor-dirty-bar pair above.
+	 * Moved verbatim per the move-verbatim mandate regardless of liveness;
+	 * grouped with this module's other editor-prefixed content since "editor"
+	 * is a viewer-feature concept and its structure (fixed overlay + modal +
+	 * header/title/close + body/footer/status) has no other feature's
+	 * component to trace to. */
+	.shell-editor-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.6);
+		z-index: 49;
+	}
+
+	.shell-editor-modal {
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: min(90vw, 1400px);
+		height: 80vh;
+		display: flex;
+		flex-direction: column;
+		background: var(--panel-bg);
+		border: var(--shell-border-width) solid var(--panel-border);
+		border-radius: var(--radius-md);
+		z-index: 50;
+		overflow: hidden;
+	}
+
+	.shell-editor-modal__header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: var(--space-3) var(--space-4);
+		border-bottom: var(--shell-border-width) solid var(--panel-border);
+		flex-shrink: 0;
+	}
+
+	.shell-editor-modal__title {
+		font-size: 0.875rem;
+		color: var(--text-primary);
+		font-family: var(--font-terminal);
+		margin: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.shell-editor-modal__close {
+		background: transparent;
+		border: none;
+		color: var(--text-muted);
+		cursor: pointer;
+		padding: var(--space-1) var(--space-2);
+		line-height: 1;
+		border-radius: var(--radius-sm);
+		flex-shrink: 0;
+	}
+
+	.shell-editor-modal__close:hover {
+		color: var(--text-primary);
+		background: var(--panel-bg-elevated);
+	}
+
+	.shell-editor-modal__close:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+
+	.shell-editor-modal__body {
+		flex: 1;
+		min-height: 0;
+	}
+
+	.shell-editor-modal__footer {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: var(--space-3);
+		padding: var(--space-2) var(--space-4);
+		border-top: var(--shell-border-width) solid var(--panel-border);
+		flex-shrink: 0;
+	}
+
+	.shell-editor-modal__status {
+		font-size: 0.8125rem;
+		font-family: var(--font-terminal);
+		flex: 1;
+	}
+
+	.shell-editor-modal__status--saved {
+		color: var(--text-success, var(--accent));
+	}
+
+	.shell-editor-modal__status--error {
+		color: var(--text-danger, #e05c5c);
+	}
+
+	.shell-editor-modal__status--idle {
+		color: transparent;
+	}
+
+	/* ── Context panel git sections ───────────────────────────────────────
+	 * Rendered by CommitList.tsx/CommitDiffStack.tsx (git feature) or
+	 * RestorePrompt.tsx (repository feature) — Task 7 confirmed neither is
+	 * viewer- or files-owned and left the whole family in shell.css pending a
+	 * future git/repository module. No such module exists in this plan; per
+	 * this task's brief, these land in viewer.css directly (a deliberate,
+	 * brief-directed override of Task 7's deferral — shell.css must reach
+	 * zero rules this task). */
+
+	.shell-commit-list {
+		display: grid;
+		gap: 2px;
+		padding: var(--space-2);
+	}
+
+	.shell-commit-push-strip {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		padding: var(--space-2) var(--space-3);
+		border-bottom: var(--shell-border-width) solid var(--panel-border);
+		font-size: 0.75rem;
+	}
+
+	.shell-commit-push-strip__counts {
+		display: flex;
+		gap: var(--space-2);
+		color: var(--text-muted);
+		flex: 1;
+	}
+
+	.shell-commit-list__target {
+		padding: 4px 8px;
+		font-size: 0.8em;
+		color: var(--text-muted);
+		font-family: var(--font-ui);
+	}
+
+	.shell-commit-list__row {
+		position: relative;
+		display: grid;
+		gap: 2px;
+	}
+
+	.shell-commit-list__row::before {
+		content: "";
+		position: absolute;
+		left: 16px;
+		top: 0;
+		bottom: 0;
+		width: 1px;
+		background: color-mix(in srgb, var(--accent) 40%, transparent);
+	}
+
+	.shell-commit-list__row[data-first="true"]::before {
+		top: 50%;
+	}
+
+	.shell-commit-list__row[data-last="true"]::before {
+		bottom: calc(100% - 18px);
+	}
+
+	.shell-commit-list__row[data-row-kind="mergeTarget"]::before {
+		background: color-mix(in srgb, var(--text-muted) 45%, transparent);
+	}
+
+	.shell-commit-list__item {
+		display: grid;
+		grid-template-columns: 16px auto 1fr;
+		gap: var(--space-2);
+		align-items: center;
+		width: 100%;
+		padding: 6px 8px;
+		text-align: left;
+		color: var(--text-primary);
+		background: transparent;
+		border: var(--shell-border-width) solid transparent;
+		border-radius: var(--radius-sm);
+		font-size: 0.82rem;
+		line-height: 1.25;
+		cursor: pointer;
+	}
+
+	.shell-commit-list__item[data-selected="true"] {
+		background: var(--panel-bg-elevated);
+		border-color: var(--panel-border-strong);
+	}
+
+	.shell-commit-list__item[data-row-kind="mergeTarget"] {
+		color: var(--text-muted);
+	}
+
+	.shell-commit-list__graph-column {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 22px;
+		position: relative;
+		z-index: 1;
+	}
+
+	.shell-commit-list__graph {
+		display: block;
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: var(--accent);
+	}
+
+	.shell-commit-list__sha,
+	.shell-commit-list__subject {
+		display: block;
+		font-size: 0.82rem;
+		line-height: 1.2;
+		align-self: center;
+	}
+
+	.shell-commit-list__sha {
+		min-width: 5.75ch;
+		color: var(--sha-color);
+	}
+
+	.shell-commit-list__item[data-row-kind="mergeTarget"]
+		.shell-commit-list__sha {
+		color: var(--accent);
+	}
+
+	.shell-commit-list__subject {
+		color: var(--text-secondary);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.shell-commit-list__item[data-selected="true"] .shell-commit-list__subject {
+		color: var(--text-primary);
+	}
+
+	.shell-commit-list__item[data-row-kind="mergeTarget"]
+		.shell-commit-list__graph {
+		background: var(--text-muted);
+	}
+
+	.shell-commit-list__files {
+		display: grid;
+		gap: 2px;
+		padding-left: 36px;
+		margin-top: 0;
+	}
+
+	.shell-commit-list__files .shell-list__item {
+		font-size: 0.8rem;
+	}
+
+	.shell-commit-list__files .shell-list__item {
+		background: transparent;
+		border-color: transparent;
+	}
+
+	.shell-commit-list__files .shell-list__item[data-selected="true"] {
+		background: var(--panel-bg-elevated);
+		border-color: var(--panel-border-strong);
+	}
+
+	.shell-commit-diff-stack {
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
+		height: 100%;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.shell-commit-diff-stack__body {
+		min-height: 0;
+		overflow-y: auto;
+		overflow-x: hidden;
+	}
+
+	.shell-commit-diff-stack[data-single-file="true"]
+		.shell-commit-diff-stack__body {
+		overflow: hidden;
+	}
+
+	.shell-commit-diff-stack[data-single-file="true"] .shell-commit-diff-section {
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
+		height: 100%;
+		min-height: 0;
+	}
+
+	.shell-commit-diff-section {
+		border-bottom: var(--shell-border-width) solid var(--panel-border);
+	}
+
+	.shell-commit-diff-section__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		padding: 6px 10px;
+		text-align: left;
+		background: var(--panel-bg-elevated);
+		border: none;
+		color: var(--text-primary);
+		font-family: var(--font-ui);
+		font-size: 0.85em;
+		cursor: pointer;
+	}
+
+	.shell-commit-diff-section[data-focused="true"]
+		.shell-commit-diff-section__header {
+		border-left: 3px solid var(--accent);
+	}
+
+	.shell-restore-actions {
+		display: flex;
+		gap: var(--space-2);
+		margin-top: var(--space-4);
+	}
+
+	.shell-restore-checkbox {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		margin-top: var(--space-4);
+		color: var(--text-secondary);
+	}
 }
 
 @layer app.themes {
-	/* The only tui.css structural rules touching .shell-editor-dirty-bar*
-	 * are the shared cross-feature sweeps (the box-shadow elevation :is()
-	 * sweep at tui.css ~37-51), deliberately left embedded there per Tasks
-	 * 4-6 precedent. Cascade-safe because unlayered tui.css always beats this
-	 * layered module. No rules touch .shell-viewer*, .shell-context*, or
-	 * .shell-inline-editor*. Left as empty per the module's two-block anatomy
-	 * contract; any future tui.css rules touching these selectors must be
-	 * hand-carried here at tui.css teardown. */
+	/* tui.css teardown (slice 11) — hand-carried from cross-feature sweeps
+	 * that were deliberately left embedded in tui.css through Tasks 4-10 (see
+	 * this block's own prior comment, now resolved). No rules touch
+	 * .shell-viewer*, .shell-context*, or .shell-inline-editor*. */
+
+	/* Split from the box-shadow elevation :is() sweep (10-selector
+	 * cross-feature group; see modules/files.css, modules/terminals.css,
+	 * modules/primitives.css, modules/review.css ×2, modules/dialogs.css and
+	 * modules/usage.css ×2 for the rest). */
+	[data-theme="tui"] .shell-editor-dirty-bar {
+		box-shadow: none;
+	}
+
+	/* Split from the "Accent foreground/border legibility sweep" Status-text
+	 * group (14-selector cross-feature group; see modules/review.css ×8,
+	 * modules/sidebar.css, modules/files.css, modules/plugins.css and
+	 * modules/terminals.css for the rest). Both selectors below are this
+	 * module's: the commit-list one is a context-panel git section; the
+	 * editor-modal one is the dead Lightweight Editor Modal family. */
+	[data-theme="tui"]
+		.shell-commit-list__item[data-row-kind="mergeTarget"]
+		.shell-commit-list__sha,
+	[data-theme="tui"] .shell-editor-modal__status--saved {
+		color: var(--primary);
+	}
+
+	/* Split from the same sweep's Focus rings group (7-selector cross-feature
+	 * group; see modules/sidebar.css, modules/terminals.css,
+	 * modules/review.css, modules/primitives.css and modules/md-preview.css
+	 * for the rest). */
+	[data-theme="tui"] .shell-editor-modal__close:focus-visible {
+		outline-color: var(--primary);
+		border-color: var(--primary);
+	}
+
+	/* Split from the sweep's "Re-scoped shell chrome" grouped rule (3
+	 * selectors: these two commit-list variants plus
+	 * .shell-list__item[data-selected="true"], which moved to
+	 * modules/primitives.css). Selected commit rows lead with the cursor
+	 * accent under tui (base uses the neutral panel-border-strong). */
+	[data-theme="tui"] .shell-commit-list__item[data-selected="true"],
+	[data-theme="tui"]
+		.shell-commit-list__files
+		.shell-list__item[data-selected="true"] {
+		border-color: var(--primary);
+	}
 }
