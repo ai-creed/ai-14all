@@ -39,3 +39,22 @@ specificity or import order.
    — no leading `--`, since pnpm forwards it literally and playwright then
    treats it as end-of-options, silently dropping the flag — and say why in
    the commit).
+
+## Module size
+
+Modules target ~300–800 lines; the guard WARNs past 800. Two outliers are
+recorded as justified exceptions (mirrored in the guard's `SIZE_EXCEPTIONS`
+with the same rationale):
+
+- `modules/sidebar.css` (~1,650) — the app's largest feature surface in one
+  cohesive charter: session tree, collapsed rail, rollups, the attention
+  system, and the workflow lens. Splitting by sub-concern would break the
+  one-feature-one-module ownership rule and scatter the `[data-theme]`
+  co-location that the module anatomy exists to provide.
+- `modules/review.css` (~1,500) — second-largest surface (review chipbar,
+  inline threads, viewed rows) with the same cohesion argument.
+
+These are accepted outliers, not precedent: a new module crossing the cap
+must shrink or earn its own recorded rationale here AND a `SIZE_EXCEPTIONS`
+entry. Revisit either exception if the file grows materially or a natural
+sub-feature seam emerges (e.g. workflow lens graduating to its own feature).

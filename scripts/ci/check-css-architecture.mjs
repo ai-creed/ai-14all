@@ -234,14 +234,31 @@ function checkRepo(files) {
 		}
 	}
 
-	// Invariant 5: module size (warn only).
+	// Invariant 5: module size (warn only). Documented exceptions carry their
+	// recorded rationale (docs/shared/styling-architecture.md "Module size");
+	// an exception here is an accepted outlier, not a free pass — new modules
+	// crossing the cap must either shrink or earn an entry + doc rationale.
 	for (const [path, r] of scans) {
 		if (r.kind === "module" && r.lineCount > 800) {
-			warnings.push(`${path} is ${r.lineCount} lines (soft cap 800)`);
+			const exception = SIZE_EXCEPTIONS[path.split("/").pop()];
+			warnings.push(
+				exception
+					? `${path} is ${r.lineCount} lines (soft cap 800) — documented exception: ${exception}`
+					: `${path} is ${r.lineCount} lines (soft cap 800) — no documented exception; shrink it or record one in docs/shared/styling-architecture.md`,
+			);
 		}
 	}
 	return { errors, warnings };
 }
+
+/** Accepted size outliers (see docs/shared/styling-architecture.md §Module
+ * size). Keyed by module basename. */
+const SIZE_EXCEPTIONS = {
+	"sidebar.css":
+		"largest feature surface (session tree, collapsed rail, rollups, attention system, workflow lens); single-feature cohesion beats an arbitrary split",
+	"review.css":
+		"second-largest feature surface (chipbar, inline threads, viewed rows); sub-splitting would scatter its app.themes co-location",
+};
 
 // ---------------------------------------------------------------------------
 // Self-test: adversarial fixtures (the reviewer-demonstrated false negatives

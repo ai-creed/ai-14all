@@ -26,7 +26,11 @@ let userDataDir: string;
 
 // These helpers support multi-launch — this suite relaunches the app to test
 // persistence across sessions, unlike single-launch phase tests.
-async function launchApp(firstWindowTimeout = 30_000) {
+// 60s matches the suite-wide firstWindow convention (every other spec uses
+// 60_000). The old 30s default was the one outlier and produced launch-timeout
+// flakes on loaded hosts — one call site below had already been forced to
+// override it to 60s, which was the tell.
+async function launchApp(firstWindowTimeout = 60_000) {
 	app = await electron.launch({
 		args: ["out/main/index.js"],
 		env: {
