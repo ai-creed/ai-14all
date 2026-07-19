@@ -46,7 +46,7 @@ A new module rooted at `services/insights/` (worker-side logic, portable/testabl
 A dedicated `services/insights/worker-protocol.ts` with `MainToInsightsWorker` and `InsightsWorkerToMain` unions, following `services/usage/worker-protocol.ts`. Phase-1 messages:
 
 - Main → worker: `{ kind: "config", config }`, `{ kind: "setEnabled", enabled }`, `{ kind: "closeStore", requestId }` (release the DB handle so the host can delete the store — delete-all itself is **host-owned**, §7.4), `{ kind: "query", requestId, query }` (the read contract), `{ kind: "flush" }` (force a poll now, e.g. before shutdown).
-- Worker → main: `{ kind: "status", status }` (heartbeat: last poll time, store row counts, whisper availability), `{ kind: "queryResult", requestId, result }`, `{ kind: "storeClosed", requestId }` (DB handle released; the host may now delete the directory), `{ kind: "firstCapture" }` (drives the one-time notice, §7.3), `{ kind: "error", scope, message }`.
+- Worker → main: `{ kind: "status", status }` (heartbeat: last poll time, store row counts, whisper availability, and `firstCaptureAt` read from `meta` — this is what lets the host re-attempt notice delivery on **every** start, §7.3), `{ kind: "queryResult", requestId, result }`, `{ kind: "storeClosed", requestId }` (DB handle released; the host may now delete the directory), `{ kind: "firstCapture" }` (the live first-capture signal, §7.3), `{ kind: "error", scope, message }`.
 
 The acknowledge/retry envelope for live producer events (stable event ID + `ack`/`nack` + retry buffer) is **declared in this protocol as an interface** but has no Phase-1 producer; it is wired in Phase 2. See §9.
 
@@ -65,7 +65,7 @@ CREATE TABLE observations (
   event_id        TEXT PRIMARY KEY,     -- deterministic content hash → idempotency
   kind            TEXT NOT NULL,        -- e.g. 'whisper.workflow', 'whisper.phase'
   source          TEXT NOT NULL,        -- e.g. 'whisper-archiver'
-  subject_id      TEXT,                 -- the entity: workflow_id, '<workflow_id>:<phase>'
+  subject_id      TEXT,                 -- the entity: workflow_id (workflow) | phase_run_id (phase)
   event_ts        INTEGER,              -- ms epoch; the source event time
   ts_precision    TEXT NOT NULL,        -- 'exact' | 'mtime' | 'session-start' | 'derived'
   occurred_start  INTEGER,              -- interval kinds only, else NULL
@@ -97,7 +97,7 @@ Design notes:
 - **No content, ever.** No prompts, responses, terminal output, or file contents. `payload` holds only content-free structured facts (statuses, counts, ids, timestamps).
 - **Promoted vs payload.** Columns are the fields we query/join/index across kinds; kind-specific detail lives in `payload`. A registered zod schema per `kind` validates `payload` at write time in the worker; an unregistered kind or an invalid payload is a hard write error (never a silent junk row).
 
-### 4.3 Coverage stub
+### 4.3 Coverage and meta tables
 
 ```sql
 CREATE TABLE coverage (
@@ -113,9 +113,20 @@ CREATE TABLE coverage (
 
 Defined now so provenance and the read contract can reference completeness, but its population and the detailed-if-complete-else-legacy query rule (exploration §5) are Phase 3. In this slice, the whisper archiver marks per-day completeness for its own `source` so `getWhisperRuns` can return a real completeness marker.
 
+The v1 schema also includes a small durable key/value table for module state that is not an observation:
+
+```sql
+CREATE TABLE meta (
+  key    TEXT PRIMARY KEY,
+  value  TEXT
+);
+```
+
+In this slice `meta` holds `first_capture_at` — the durable "capture has occurred" marker that drives at-least-once notice delivery (§7.3). It is part of **v1** (§4.4), so the migration creates it and a migration-plus-restart test verifies it exists.
+
 ### 4.4 Migrations
 
-Schema version tracked in `PRAGMA user_version`. A `migrate(db)` routine applies ordered steps from the DB's current `user_version` to the module's target, each step in a transaction. Version 1 is the schema in §4.2–4.3. The routine is idempotent (running against an already-current DB is a no-op) and is the only path that creates or alters tables.
+Schema version tracked in `PRAGMA user_version`. A `migrate(db)` routine applies ordered steps from the DB's current `user_version` to the module's target, each step in a transaction. Version 1 is the schema in §4.2–4.3 — the `observations`, `coverage`, **and `meta`** tables; a migration-plus-restart test asserts all three exist at v1. The routine is idempotent (running against an already-current DB is a no-op) and is the only path that creates or alters tables.
 
 ### 4.5 Derived view — `whisper_runs`
 
@@ -124,7 +135,7 @@ Sessions, durations, and rollups are **queries/views over `observations`**, neve
 Because the store **appends a new observation on every change** (§8), a run and each of its phases have *many* rows. The view must therefore collapse to the **current revision** of each entity before it derives anything — otherwise stale snapshots leak in and phases are counted more than once. Two rules make the derivation deterministic and correct:
 
 1. **Current-revision ordering.** The current row for any `subject_id` is the one with the greatest `event_ts`, tie-broken by `ingested_at` then `event_id` (a deterministic total order — required because two snapshots can share the same source `updated_at`). Applied per workflow *and* per phase.
-2. **Phases keyed by their own `subject_id`.** A phase's identity is `<workflow_id>:<phase_name>`; its `run_id` (the workflow id) is carried in the phase payload for grouping. `phase_count` counts **current phase snapshots only** (one per phase), so a phase that moved running→ended is counted once, not twice.
+2. **Phases keyed by their own `subject_id` = whisper `phase_run_id`.** A phase's identity is its whisper `phase_run_id` — the `workflow_phases` primary key — **not** `<workflow_id>:<phase_name>`. `phase_name` carries no uniqueness constraint (verified: `workflow_phases` has `phase_run_id TEXT PRIMARY KEY`, `phase_name TEXT NOT NULL` with no unique index), so keying on the name would collapse two same-named phase runs into one and undercount. The `run_id` (workflow id) is carried in the phase payload for grouping. `phase_count` counts **current phase snapshots only** (one per `phase_run_id`), so a phase that moved running→ended is counted once, not twice, and two distinct phases sharing a name count as two.
 
 **Run duration comes from the workflow's own terminal timestamp** (`occurred_end`, set to `max(phase.ended_at)` at the moment the run goes terminal — §10.3), never from re-maxing phase rows in the view. While a run is still running, `occurred_end` (and thus `duration_ms`) is `NULL`.
 
@@ -205,10 +216,10 @@ effectiveInsightsEnabled = usageTelemetry.enabled && usageTelemetry.insights.ena
 
 The notice is informational, not a second consent gate (consent already defaulted on per D4), but it is **new user-visible behavior**, so it needs a defined delivery path, actionable controls, and e2e coverage (AGENTS.md:159 — user-visible behavior is not done until the e2e suite covers it). The full contract:
 
-- **Trigger, exactly-once.** On its **first successful capture**, the worker emits `{ kind: "firstCapture" }`. Exactly-once is guarded by a persisted flag in the *insights store itself* (a `meta(key,value)` row `notice_emitted=1`), set in the same transaction as the first observations, so a worker restart or a lost `noticeShown` write cannot re-fire it.
-- **Delivery.** The main process, on `firstCapture` with `usageTelemetry.insights.noticeShown === false`, persists `noticeShown = true` and forwards to the renderer over a dedicated channel `insights:notice` via the existing `send()` seam (§3.1). The renderer shows the transparent notice ("ai-14all now records local, content-free usage insights — manage or delete these in Settings") linking to the controls below.
+- **Durable capture marker (not an emit-once guard).** On its **first successful capture**, the worker records `meta.first_capture_at` in the *same transaction* as the first observations, and emits `{ kind: "firstCapture" }`. This records that *capture has occurred* — deliberately **not** a "notice already emitted" flag. A one-way emitted-guard gives at-most-once *emission*, not guaranteed *delivery*: if the worker exits or the `utilityProcess` message is lost between the commit and delivery, such a guard would suppress the notice forever and the user would see nothing.
+- **At-least-once delivery, terminated by an ack.** The host delivers the notice when it learns capture has occurred **and** `usageTelemetry.insights.noticeShown === false`. It learns this two ways: the live `firstCapture` message, **and** the periodic `status`, which carries `firstCaptureAt` from `meta` — so **every worker start re-checks** and re-delivers if the notice was never acknowledged. The host forwards `insights:notice` to the renderer; the renderer shows the transparent notice ("ai-14all now records local, content-free usage insights — manage or delete these in Settings") and **acknowledges** via `insights:noticeAck`; only on that ack does the host persist `noticeShown = true`. Because `first_capture_at` stays set and `noticeShown` stays false through any crash or lost message between commit and delivery, the next start delivers — guaranteed delivery, deduplicated by the ack. (This is the §9 outbox idea in miniature: a durable source-of-truth plus a host-persisted terminal ack. After a delete-all the store's `first_capture_at` is gone, but `noticeShown` lives in settings and survives, so a user who already saw the notice is not shown it again.)
 - **Controls (the actionable part).** The preload exposes `insights.setEnabled(enabled)` and `insights.deleteAll()`, backed by main-process IPC handlers `insights:setEnabled` and `insights:deleteAll` (§7.4). The Settings dialog (`SettingsDialog.tsx`, within the existing Usage/telemetry section) gains the **insights enable toggle** and a **"Delete insights data"** action; the notice's links deep-link there.
-- **Verification.** Unit tests cover the `notice_emitted` guard (fires once across restarts) and `noticeShown` persistence; an **e2e test** covers the user-visible flow — first capture surfaces the notice exactly once, the toggle stops capture, and delete-all clears the store — and extends (not replaces) the existing e2e suite (AGENTS.md:160).
+- **Verification.** Unit tests cover: the durable `first_capture_at` marker; that a **crash / lost message injected between the `meta` commit and delivery** still yields delivery on the next worker start (driven by `firstCaptureAt` in `status`); and that `noticeShown` persists **only** after a renderer `insights:noticeAck`, so re-delivery stops exactly once. An **e2e test** covers the user-visible flow — first capture surfaces the notice, post-ack it never reappears, the toggle stops capture, and delete-all clears the store — extending (not replacing) the existing e2e suite (AGENTS.md:159–160).
 
 ### 7.4 Disable and delete-all
 
@@ -217,7 +228,7 @@ The notice is informational, not a second consent gate (consent already defaulte
 
 ### 7.5 Retention
 
-**Phase 1 has a single retention horizon, not separate detailed-vs-derived knobs.** The store holds exactly one grain of durable data in this slice — raw `observations`. `whisper_runs` is a *view*: it owns no bytes and therefore cannot have an independent horizon, so a separate "derived-history retention knob" would be meaningless here (the contradiction the reviewer flagged). Concretely: one module constant `OBSERVATION_RETENTION_DAYS` (default generous — e.g. 365 — since the data is local-only and content-free), enforced by `DELETE FROM observations WHERE event_ts < cutoff` run on worker start and on a daily timer; derived views follow their surviving observations by construction. The exploration's "separate retention rules for detailed vs aggregated records" (§8.1) applies in **Phase 3**, when persisted aggregate records first exist and actually have bytes to retain independently (recorded in §16). The constant, the pruning schedule, and a prune test are specified in §13; the value is tunable without a schema change.
+**Phase 1 has a single retention horizon, not separate detailed-vs-derived knobs.** The store holds exactly one grain of durable *observational* data in this slice — raw `observations` (the `meta` table is module state, not history, and is not pruned). `whisper_runs` is a *view*: it owns no bytes and therefore cannot have an independent horizon, so a separate "derived-history retention knob" would be meaningless here (the contradiction the reviewer flagged). Concretely: one module constant `OBSERVATION_RETENTION_DAYS` (default generous — e.g. 365 — since the data is local-only and content-free), with the cutoff aligned to a **UTC day boundary**, enforced on worker start and on a daily timer by pruning **both grains in lockstep**: `DELETE FROM observations WHERE event_ts < cutoff` **and** `DELETE FROM coverage WHERE day < cutoffDay`. Pruning `coverage` on the same horizon is mandatory for truthful completeness (§10.4): otherwise a retained coverage row could keep certifying `complete` for a day whose observations are gone. Derived views follow their surviving observations by construction. The exploration's "separate retention rules for detailed vs aggregated records" (§8.1) applies in **Phase 3**, when persisted aggregate records first exist and actually have bytes to retain independently (recorded in §16). The constant, the pruning schedule, and the prune tests are specified in §13; the value is tunable without a schema change.
 
 ### 7.6 Path handling
 
@@ -227,7 +238,7 @@ Store `repo_id` = a stable hash of the absolute repo root, `workspace_rel` = rep
 
 Whisper archiving is inherently at-least-once against a durable source: the worker re-reads whisper's DB every poll and writes idempotently, so a missed or crashed poll self-heals on the next tick (until whisper's own ~2-day prune).
 
-- **Deterministic `event_id`** = a stable hash of the observed content snapshot (for `whisper.workflow`: `workflow_id` + `status` + `halt_reason` + terminal timestamps + phase-outcome set; for `whisper.phase`: `workflow_id` + `phase_name` + `outcome` + `started_at`/`ended_at`). Re-observing an **unchanged** run yields the same `event_id` → the insert is a no-op. Observing a **changed** run yields a new `event_id` → a new observation row is appended. The store thus accumulates the distinct observed states over time — a true observation log, no collapse, no duplicates.
+- **Deterministic `event_id`** = a stable hash of the observed content snapshot (for `whisper.workflow`: `workflow_id` + `status` + `halt_reason` + terminal timestamps + phase-outcome set; for `whisper.phase`: `phase_run_id` + `outcome` + `started_at`/`ended_at` — keyed on the unique `phase_run_id`, never `phase_name`). Re-observing an **unchanged** run yields the same `event_id` → the insert is a no-op. Observing a **changed** run yields a new `event_id` → a new observation row is appended. The store thus accumulates the distinct observed states over time — a true observation log, no collapse, no duplicates.
 - **Write:** `INSERT INTO observations (...) VALUES (...) ON CONFLICT(event_id) DO NOTHING`. Idempotency is structural (the PK), so replays are always safe.
 - The derived `whisper_runs` view collapses to the **current revision** per `subject_id` using a deterministic total order (latest `event_ts`, tie-broken by `ingested_at` then `event_id`), so the append-on-change log still yields exactly one current row per run and counts each phase once (§4.5).
 
@@ -239,7 +250,7 @@ For ephemeral live producer events (focus/idle, lifecycle) that vanish if the wo
 
 ### 10.1 Reader extension
 
-Add `readAllWorkflows(collabId)` to `whisper-store-reader.ts` alongside the existing `readActiveWorkflow` (`:141`): the same read-only DB handle (`?mode=ro`, `PRAGMA`/`SELECT` only — the module **must never write to whisper's DB**), but **drop the `ORDER BY updated_at DESC LIMIT 1`** (`:149`), keep `created_at`, and join `workflow_phases` (`started_at`, `ended_at`, `outcome`, `phase_name`, `chain_id`) and `collab` (`workspace_root`). Returns every run for the collab. The existing `user_version` gate (v6–7, `whisper-env-probe.ts:9`) is enforced before any read; an out-of-range or absent DB makes the archiver a visible no-op (records nothing; never partial/corrupt).
+Add `readAllWorkflows(collabId)` to `whisper-store-reader.ts` alongside the existing `readActiveWorkflow` (`:141`): the same read-only DB handle (`?mode=ro`, `PRAGMA`/`SELECT` only — the module **must never write to whisper's DB**), but **drop the `ORDER BY updated_at DESC LIMIT 1`** (`:149`), keep `created_at`, and join `workflow_phases` (`phase_run_id`, `phase_index`, `phase_name`, `chain_id`, `started_at`, `ended_at`, `outcome` — carrying `phase_run_id`, the phase primary key, so distinct same-named phase runs stay distinct) and `collab` (`workspace_root`). Returns every run for the collab. The existing `user_version` gate (v6–7, `whisper-env-probe.ts:9`) is enforced before any read; an out-of-range or absent DB makes the archiver a visible no-op (records nothing; never partial/corrupt).
 
 ### 10.2 Trigger and ownership
 
@@ -248,7 +259,7 @@ The **insights worker** opens its own read-only whisper reader and runs its own 
 ### 10.3 Observation mapping
 
 - **`whisper.workflow`** per run: `subject_id = <workflow_id>`, `event_ts = updated_at`, `occurred_start = created_at`, `occurred_end =` **the run's terminal timestamp** `= max(workflow_phases.ended_at)` when the run is in a terminal `status`, else `NULL` (exploration §3.2b prefers max-phase-end over `updated_at` for a precise run end; capturing it onto the workflow observation lets the view read one authoritative end without re-maxing phase rows), `ts_precision='exact'`, `source='whisper-archiver'`, `schema_version = user_version`, `origin='n/a'`, `repo_id`/`workspace_rel` from `collab.workspace_root`; `payload = { collab_id, workflow_type, status, halt_reason, workspace_label }`.
-- **`whisper.phase`** per phase: `subject_id = <workflow_id>:<phase_name>`, `occurred_start = started_at`, `occurred_end = ended_at`, `event_ts = ended_at ?? started_at`, `payload = { run_id, phase_name, outcome, chain_id }` (`run_id = <workflow_id>` so the view can group current phase snapshots per run).
+- **`whisper.phase`** per phase: `subject_id = <phase_run_id>` (the whisper `workflow_phases` primary key — globally unique; `phase_name` is **not** unique, so it must not be the identity), `occurred_start = started_at`, `occurred_end = ended_at`, `event_ts = ended_at ?? started_at`, `payload = { run_id, phase_run_id, phase_name, phase_index, outcome, chain_id }` (`run_id = <workflow_id>` so the view can group current phase snapshots per run).
 - `event_id` per §8.
 
 **No success/failure classification here.** Raw `status`, `halt_reason`, and per-phase `outcome` are recorded verbatim; whether `halted`/`canceled`/`escalated` counts as failure is a versioned read-time analytics policy (exploration §3.2b, §8), not a capture decision.
@@ -268,7 +279,7 @@ getWhisperRuns(range: { fromMs: number; toMs: number }): {
 
 **Range inclusion is by run start, half-open, UTC — stated so the test can catch a wrong implementation.** A run is in the result iff `fromMs <= started_at < toMs`, where `started_at` is the workflow's `occurred_start` (`created_at`). Rationale: this answers "workflows executed *during* a period" unambiguously — a run belongs to the single period it started in, so adjacent ranges never double-count a boundary run (`fromMs` inclusive, `toMs` exclusive), and a still-running run (no `ended_at`) is included by its start. Period/day boundaries are computed in **UTC**, matching the `coverage.day` rule (§4.3). Overlap-based ("runs active during") and completion-based ("runs completed during") inclusion are **out of scope** for this slice; if the dashboard later needs them they are added as separate, explicitly-named query variants, never by silently redefining this one.
 
-`completeness` is derived from `coverage` for `source='whisper-archiver'`: `complete` if every UTC day the range touches is marked complete, `partial` if some are, `unknown` if none are recorded.
+`completeness` is derived from `coverage` for `source='whisper-archiver'`: `complete` if every UTC day the range touches is marked complete, `partial` if some are, `unknown` if none are recorded. This stays truthful under retention because `coverage` is pruned in lockstep with `observations` on the same UTC-day horizon (§7.5): a day whose observations were pruned no longer has a coverage row to certify it, so its completeness reverts to `unknown` — never a false `complete`.
 
 ## 11. File / module layout
 
@@ -286,7 +297,7 @@ services/insights/                     -- host-Node-testable core (no Electron)
 electron/main/services/
   insights-host.ts                     -- utilityProcess.fork, consent gating, config seed, IPC relay
   insights-worker.ts                   -- worker entry: wires store + archiver + protocol
-  ipc.ts                               -- register insights:setEnabled / insights:deleteAll handlers; forward insights:notice (edit)
+  ipc.ts                               -- register insights:setEnabled / insights:deleteAll / insights:noticeAck handlers; forward insights:notice (edit)
 shared/models/
   persisted-workspace-state.ts         -- add InsightsSettingsSchema to usageTelemetry (edit)
   persisted-settings.ts                -- extend the patch mirror (edit)
@@ -311,10 +322,12 @@ The `whisper-store-reader` extension is reused by the worker's reader; keep the 
 - **Range-boundary run** → `started_at == toMs` is excluded, `started_at == fromMs` is included (half-open, UTC), so every run lands in exactly one period (§10.4).
 - **Run pruned from whisper before first capture** → unrecoverable by design; not an error (that is the time-criticality this phase races).
 - **Malformed / unregistered payload** → hard write error, surfaced via `{ kind: "error" }`; no silent junk row.
-- **Two collabs, same workflow_id space** → `subject_id` is the workflow id; if whisper ids are only collab-unique, prefix with `collab_id` (verify against whisper's id scheme during implementation).
+- **Phase identity** → phases are keyed by `phase_run_id` (the `workflow_phases` PK), never `phase_name`; two phase runs sharing a name stay two current rows and `phase_count` counts both (§4.5). `workflow_id` is the `workflows` PK (verified globally unique), so a workflow's `subject_id` needs no `collab_id` prefix.
 - **`utilityProcess` drops a pre-spawn message** → the host queues until `spawn` (existing pattern); worker config always arrives first.
 - **Delete-all while a poll is in flight** → host sends `closeStore`, awaits `storeClosed`, stops the worker, then removes the directory (§7.4); a re-enable recreates from schema v1 and re-reads whatever whisper still retains.
 - **Delete-all while disabled (no worker running)** → the host deletes the `insights/` directory directly, no worker required (§7.4); succeeds and is idempotent.
+- **First-capture message lost before delivery** → `meta.first_capture_at` is set but `noticeShown` stays false, so the next worker start's `status` re-drives delivery (§7.3); the notice is guaranteed, not dropped.
+- **Retention prunes a fully-aged UTC day** → both its `observations` and its `coverage` row are deleted in lockstep on the day cutoff (§7.5), so `getWhisperRuns` completeness for that day is `unknown`, never a false `complete`.
 - **ABI mismatch** (`NODE_MODULE_VERSION`) → caught by the test harness rebuild step; document the rebuild in the module README.
 - **Clock/timezone** → all timestamps stored as ms epoch UTC; day bucketing for `coverage` uses a defined local-vs-UTC rule (pick UTC for stability; note it).
 
@@ -322,18 +335,18 @@ The `whisper-store-reader` extension is reused by the worker's reader; keep the 
 
 Runs on the host-Node ABI (`scripts/rebuild-better-sqlite3-host.mjs` before vitest). Existing test helpers are reused where they make the tests cleaner (temp-dir fixtures, settings builders).
 
-- **Migrations:** empty DB → `migrate` creates v1; re-run is a no-op; `user_version` pinned.
+- **Migrations:** empty DB → `migrate` creates v1 with **all three tables** (`observations`, `coverage`, `meta`); reopening the DB after a restart still finds `meta`; re-run is a no-op; `user_version` pinned.
 - **Idempotent write:** same `event_id` inserted twice → one row; a changed snapshot → a second row; PK conflict path exercised.
 - **Payload validation:** valid `whisper.workflow`/`whisper.phase` payloads accepted; malformed rejected; unregistered kind rejected.
-- **Whisper archiver against a fixture `state.db`** (a temp *copy*, opened read-only — never the real DB): observations produced for every run + phase; re-run idempotent; `whisper_runs` durations/statuses/`halt_reason`/`phase_count` correct; collab join orphan-free; schema-version gate refuses an out-of-range DB; absent DB → visible no-op.
-- **Derived view correctness (the reviewer's core failure):** a running→terminal sequence in which a phase itself went running→ended yields **exactly one** `whisper_runs` row; `phase_count` counts each phase once (not its historical snapshots); `duration_ms` derives from the run's terminal `occurred_end`, not a re-max of phase rows in the view; `status`/`halt_reason` reflect the current revision; and two snapshots sharing an `updated_at` resolve deterministically via the `ingested_at`/`event_id` tiebreak.
+- **Whisper archiver against a fixture `state.db`** (a temp *copy*, opened read-only — never the real DB): observations produced for every run + phase; re-run idempotent; `whisper_runs` durations/statuses/`halt_reason`/`phase_count` correct; collab join orphan-free; schema-version gate refuses an out-of-range DB; absent DB → visible no-op. Includes a **duplicate-phase-name fixture** (two phase runs with the same `phase_name` but distinct `phase_run_id`) asserting `phase_count = 2`.
+- **Derived view correctness (the reviewer's core failure):** a running→terminal sequence in which a phase itself went running→ended yields **exactly one** `whisper_runs` row; `phase_count` counts each phase once **keyed by `phase_run_id`** (not its historical snapshots, and two same-named phase runs count as two); `duration_ms` derives from the run's terminal `occurred_end`, not a re-max of phase rows in the view; `status`/`halt_reason` reflect the current revision; and two snapshots sharing an `updated_at` resolve deterministically via the `ingested_at`/`event_id` tiebreak.
 - **Read contract & range inclusion:** `getWhisperRuns(range)` applies half-open UTC start-time inclusion — a run with `started_at == fromMs` is returned, one with `started_at == toMs` is not, a still-running run is included by its start — and returns a `completeness` consistent with `coverage`.
 - **Coverage upsert idempotency:** two completeness upserts for `(whisper-archiver, 'n/a', day)` leave exactly one row; the `'n/a'` sentinel plus the three-column key make NULL-provider duplication impossible.
 - **Consent gating:** effective-false → `start()` opens nothing; master kill (`usageTelemetry.enabled=false`) overrides `insights.enabled=true`.
 - **Settings nesting:** a `{ insights: { enabled: false } }` patch does not reset `noticeShown` (guards the §7.1 deep-merge).
 - **Delete-all:** removes the `insights/` directory; idempotent when absent. **Disable → delete-all:** with the worker already stopped (consent off), delete-all still removes the store via the host-owned path (§7.4).
-- **First-capture notice:** the in-store `notice_emitted` guard makes `firstCapture` fire exactly once across worker restarts; `noticeShown` persists. An **e2e test** covers the user-visible flow — the notice appears exactly once, the Settings insights toggle stops capture, and delete-all clears the store — extending (not replacing) the existing suite (AGENTS.md:159–160).
-- **Retention prune:** an observation older than `OBSERVATION_RETENTION_DAYS` is deleted by the prune on worker start, and the `whisper_runs` view reflects the deletion.
+- **First-capture notice (delivery, not just emission):** `meta.first_capture_at` is set durably at first capture; a **crash / lost `firstCapture` message injected between the `meta` commit and delivery** still yields delivery on the next worker start (driven by `firstCaptureAt` in `status`); `noticeShown` persists **only** after a renderer `insights:noticeAck`, so the notice is delivered at-least-once and then terminated exactly once. An **e2e test** covers the flow — notice appears, post-ack never reappears, the Settings toggle stops capture, delete-all clears the store — extending (not replacing) the existing suite (AGENTS.md:159–160).
+- **Retention prune (observations + coverage in lockstep):** an observation older than `OBSERVATION_RETENTION_DAYS` is deleted by the prune on worker start and `whisper_runs` reflects it; the pruned day's `coverage` row is deleted in the same pass, so `getWhisperRuns` completeness for that day is `unknown`, **not** a false `complete` — the reviewer's retention-vs-completeness case.
 - **Provenance:** every written row has non-null `source`, `ts_precision`, `parser_version`, `schema_version`, `ingested_at`.
 
 ## 14. Acceptance criteria (definition of done for this slice)
@@ -342,16 +355,16 @@ Runs on the host-Node ABI (`scripts/rebuild-better-sqlite3-host.mjs` before vite
 2. Re-running / restarting produces no duplicate observations (idempotency holds).
 3. Whisper's DB is never written to (verified: read-only open, no `INSERT`/`UPDATE`/`PRAGMA`-write against it).
 4. Consent off (either toggle) → no worker, no store, no capture. **Delete-all succeeds even after disabling** (host-owned, no worker required), removes the store, and is idempotent.
-5. The one-time notice fires **exactly once** on first capture (guarded by the in-store `notice_emitted` flag, holding across worker restarts), is delivered to the renderer, links to a working disable toggle and delete-all action in Settings, and is covered by the e2e suite (AGENTS.md:159).
+5. The one-time notice is **delivered at least once and then exactly once** — driven by the durable `meta.first_capture_at`, re-attempted on every worker start until a renderer `insights:noticeAck` persists `noticeShown = true`, so a crash or lost message between capture and delivery cannot drop it — links to a working disable toggle and delete-all action in Settings, and is covered by the e2e suite (AGENTS.md:159).
 6. Every observation carries full provenance; no row stores content or an absolute home path.
 7. The full test suite (§13) passes on the host-Node ABI, and the app still builds/runs on the Electron ABI.
-8. `whisper_runs` is correct under the append-on-change log: a run observed running-then-terminal (including a phase that went running→ended) yields exactly one row, each phase counted once, with `duration_ms` from the run's terminal timestamp.
+8. `whisper_runs` is correct under the append-on-change log: a run observed running-then-terminal (including a phase that went running→ended) yields exactly one row; phases are keyed by `phase_run_id`, so each phase counts once and two same-named phase runs count as two; `duration_ms` comes from the run's terminal timestamp.
 9. `getWhisperRuns(range)` uses half-open UTC start-time inclusion, so every run lands in exactly one period and boundary runs are never double-counted.
-10. Observations past `OBSERVATION_RETENTION_DAYS` are pruned on worker start; no separate derived-history store exists in this slice (single retention horizon).
+10. Observations past `OBSERVATION_RETENTION_DAYS` are pruned on worker start, and `coverage` is pruned in lockstep on the same UTC-day horizon so completeness never falsely reports `complete` for a pruned day; no separate derived-history store exists in this slice (single retention horizon).
 
 ## 15. Risks
 
-- **Whisper id scheme** — if `workflow_id` is not globally unique, `subject_id` must include `collab_id`; resolve against the real schema during implementation (edge case in §12).
+- **Whisper id scheme** — resolved against the real schema (`make-whisper-fixture-db.ts`): `workflow_id` is the `workflows` PK and `phase_run_id` the `workflow_phases` PK (both globally unique), so `subject_id` uses them directly; `phase_name` is non-unique and must never serve as an identity (§4.5, §10.3).
 - **Settings deep-merge regression** — the deeper `insights` nest can silently reset sibling fields if the patch guard is not extended (§7.1); covered by a targeted test.
 - **Second utility process cost** — one more `utilityProcess`; acceptable, and it exists only while consent is on.
 - **View performance** — the `whisper_runs` current-revision window over `observations` may need supporting indexes or a promoted/materialized-column refactor as history grows; revisit if a query is slow. Its *correctness* is pinned by the §4.5 derivation rules and their tests (§13), so any perf refactor must preserve deterministic current-revision selection, once-per-phase counting, and terminal-timestamp duration.
