@@ -1,9 +1,9 @@
 # ai-14all — usage & productivity insights: data-capture module (exploration / feasibility)
 
 - **Date:** 2026-07-19
-- **Status:** Exploration — for review. Not an implementation spec. Precedes the instrumentation design.
+- **Status:** Exploration — for review. Revised after design-review round 1 (observation-store reframe, attribution model, coverage rule, phase reorder). Not an implementation spec; precedes the instrumentation design.
 - **Owner:** Vu
-- **Related:** `2026-07-17-hax-native-usage-driver-design.md` (the token-telemetry pipeline this reuses), memory `mem-2026-07-17-ezio-telemetry-blind-spot-whisper-9700c5`
+- **Related:** `2026-07-17-hax-native-usage-driver-design.md` — the token-telemetry pipeline this reuses, which already **closed** the ezio/whisper telemetry blind spot (memory `mem-2026-07-17-ezio-telemetry-blind-spot-whisper-9700c5`) by repointing the ezio driver at the hax native store.
 
 ## 1. Goal
 
@@ -47,19 +47,24 @@ Everything the ledger discards is **still on disk** in the raw sources, and whis
 
 #### 3.2a Raw provider logs (token/session/turn detail)
 
-The parsers already extract a rich per-turn `UsageEvent{provider,timestampMs,cwd,sessionId,model,input,output,billable,raw}` (`shared/models/usage.ts:14-24`) but `ingestEvent` immediately collapses it to a day-bucket, **structurally discarding** `sessionId`, per-event timestamp, turn counts, and (for hax) `elapsed_ms` + real cost. A separate importer that re-parses the raw lines and keeps those fields reconstructs:
+The parsers already extract a rich per-turn `UsageEvent{provider,timestampMs,cwd,sessionId,model,input,output,billable,raw}` (`shared/models/usage.ts:14-24`) but `ingestEvent` immediately collapses it to a day-bucket, **structurally discarding** `sessionId`, per-event timestamp, turn counts, and (for hax) `elapsed_ms` + engine-reported cost. A separate importer that re-parses the raw lines and keeps those fields reconstructs:
 
 | Metric | claude | codex | hax/ezio | Limiting factor |
 |---|---|---|---|---|
-| Per-session wall-clock **duration** | **YES** (max−min per-event ts, grouped by sessionId) | **YES** | **PARTIAL** — start = header `timestamp`, end ≈ file mtime; active time = Σ`elapsed_ms` | hax rows carry no per-turn timestamp (`hax-source.ts:38`, mtime-stamped) |
+| **Observed usage-event span** (a floor on session length, *not* wall-clock) | **YES** (max−min per-event ts, grouped by sessionId) | **YES** | **PARTIAL** — start = header `timestamp`, end ≈ file mtime; active compute = Σ`elapsed_ms` | hax rows carry no per-turn timestamp (`hax-source.ts:38`, mtime-stamped) |
 | Turn / message **counts** | **YES** | **YES** | **YES** | none — raw is per-turn |
-| Real **cost** | PARTIAL (needs a rate card) | PARTIAL (needs a rate card) | **YES** — engine-reported `cost_total`/`cost_in`/`cost_out` per turn | only hax logs actual $; parser currently discards it |
+| **Engine-reported cost** (estimated) | via a rate card only | via a rate card only | **YES** — `cost_total`/`cost_in`/`cost_out` per turn, but each row carries `cost_estimated:true` | not billed cost anywhere; claude/codex logs carry no $ at all |
 | Historical **hourly / sub-day** | **YES** (real ISO per event) | **YES** | **PARTIAL** — session-start hour only | hax mtime-stamping |
 | Per-**session** attribution | **YES** | **YES** | **YES** | ledger drops sessionId; raw retains it |
-| Active-vs-idle **within** a session | **YES** (inter-turn gaps) | **YES** | **PARTIAL** — active per turn = `elapsed_ms`; idle gaps not locatable | hax lacks per-turn timestamps |
+| Active compute **within** a session | **YES** (inter-turn gaps ≠ idle) | **YES** | **PARTIAL** — active per turn = `elapsed_ms`; gaps not locatable | hax lacks per-turn timestamps |
 | Per-workspace/worktree attribution **historically** | **YES** (`cwd` per line) | **YES** | **YES** (absolute `cwd` in header) | none |
 
 Real-data confirmation: hax `turn_usage` rows carry `elapsed_ms` and full `cost_*` (354 of a 400-row sample had the complete set); claude and codex lines carry real per-event ISO timestamps and `sessionId`.
+
+**Two correctness caveats the capture design must respect:**
+
+- **"Span" is not "duration."** `max−min` of usage-event timestamps is the *observed usage-event span* — it excludes time before the first event and after the last, and an inter-turn gap does not distinguish thinking from stepping away from working on something else. The store must therefore keep **separate, labeled measures** rather than one ambiguous "duration": `observed_usage_span_ms`, `provider_compute_ms` (Σ`elapsed_ms`), `terminal_process_elapsed_ms`, `workflow_elapsed_ms`, `phase_active_ms`, `app_focused_ms`, `app_engaged_ms` — each stamped with its precision and source. Wall-clock engagement comes only from the T3 app-focus/idle signal, never from provider logs.
+- **Raw logs include usage from *outside* ai-14all.** These stores are written by the provider CLIs regardless of who launched them — a claude session run in a plain terminal looks identical to one ai-14all launched. Without an explicit app-managed-vs-external attribution signal (see §6.3), raw-log metrics measure *general AI usage*, not *ai-14all's contribution* — which is the whole productivity thesis. cwd+time correlation alone is only approximate.
 
 #### 3.2b Whisper's `state.db` (workflow run history)
 
@@ -74,7 +79,7 @@ The app is a **live read-only observer** that only ever reads the single latest 
 | Per-**workspace** attribution | **YES** | `workflows.collab_id → collab.workspace_root`; live join clean, 0 orphans, 6 workspaces incl. worktree paths |
 | Day/week **granularity** | **YES** | real ISO timestamps, bucket trivially |
 
-Caveats to resolve (§8): (a) **define which statuses count as "failed"** — `halted` can mean "escalated, awaiting manual completion" (recoverable) rather than a true failure, and `escalated` lives at phase/chain level, not workflow status; (b) prefer `workflow_phases.ended_at` over `updated_at` for a precise end; (c) history depth is bounded by whisper's own retention (only ~2 days on this fresh dev DB) with no independent app-side archive.
+Capture-layer note: record the **raw** signals — `status`, `halt_reason`, per-phase `outcome`, chain escalation, resume transitions, and terminal timestamps — and do **not** decide "success vs failure" here. Whether `halted`/`canceled`/`escalated` counts as a failure vs a recoverable/manual-complete state is an interpretation that belongs to a *versioned analytics policy* (§8), so it can evolve without rewriting captured history. Two mechanics still matter for capture: prefer `max(workflow_phases.ended_at)` over `updated_at` for a precise run end; and because the DB retains only ~2 days here and prunes with no app-side archive, whisper history must be **archived early and continuously** (§9), not backfilled once at leisure.
 
 ### 3.3 Tier 3 — needs new capture (no source exists)
 
@@ -87,12 +92,12 @@ These have **no** on-disk source to reconstruct from. They must be instrumented 
 ## 4. Your five questions, mapped
 
 1. **Workspaces worked in during a period** — T1 proxy (token activity per worktree/day) now; **T3** for a true open/worked-in count with real lifecycle timestamps.
-2. **Which providers used / how long each active session** — providers: **T1**. Session duration: **T2** (claude/codex exact from raw; hax partial via header-start→mtime + Σ`elapsed_ms`).
+2. **Which providers used / how long each active session** — providers: **T1**. "How long" resolves to the *observed usage-event span* + active-compute measures: **T2** for claude/codex (from real per-event timestamps), **partial** for hax (header-start→mtime + Σ`elapsed_ms`). True wall-clock engagement needs T3.
 3. **Whisper workflows executed, success/failed** — **T2**, fully. Reconstructable retroactively from `state.db`; ongoing capture = keep reading it.
 4. **Time spent using the app** — **T3**. No source; must instrument (focus/idle accumulator).
 5. **Productivity over time** — derived. Token/cost trend and workflow-throughput trend are **T1/T2** (available soon); the app-engagement dimension is **T3**.
 
-**Headline:** three of the five headline asks (providers, session durations, workflow outcomes) are recoverable *now* from data already on disk. Only genuine app-engagement time (#4) and a true workspace-worked count (#1) require forward instrumentation that must accumulate before it shows anything.
+**Headline:** three of the five headline asks (providers, session *spans*, workflow outcomes) are recoverable *now* from data already on disk — with the caveat that a span is a floor, not wall-clock (§3.2a), and provider logs need attribution (§6.3) to count as *ai-14all* usage. Only genuine app-engagement time (#4) and a true workspace-worked count (#1) require forward instrumentation that must accumulate before it shows anything.
 
 ## 5. Backfill depth and the two hard ceilings
 
@@ -111,7 +116,11 @@ Two ceilings shape any backfill:
 1. **The hax per-turn timestamp gap.** hax `turn_usage` rows have no per-row timestamp, so the scanner stamps every turn in a file with the file's mtime (`services/usage/providers/ezio.ts:18`, `scanner.ts:162`). For hax you get session-start (header timestamp) and per-turn active compute (`elapsed_ms`), but you **cannot** place turns on a wall-clock timeline or measure inter-turn idle. claude/codex have real per-event timestamps and reconstruct fully. (Per-row hax timestamps are already a tracked upstream ask — see the hax-driver spec §7.)
 2. **Claude's ~30-day log rotation.** Claude Code's default `cleanupPeriodDays` deletes sessions older than ~30 days, so claude backfill is capped near 37 days — well short of codex (~109 d) and the ledger (~110 d).
 
-**Complementarity, not replacement.** The aggregated ledger reaches back to March (deep but thin: day/provider/model tokens only); the raw logs reach back weeks (shallow but rich: sessions, turns, cost, timing). A rebuild *purely* from raw would **lose** the pre-06-12 claude history that only survives in the ledger. The module should therefore treat the ledger as the authoritative deep-history token source and the raw importers as the enrichment source for the recent window — not overwrite one with the other.
+**Complementarity, not replacement — a formal coverage rule.** The aggregated ledger reaches back to March (deep but thin: day/provider/model tokens only); the raw logs reach back weeks (shallow but rich: sessions, turns, cost, timing). A rebuild *purely* from raw would **lose** the pre-06-12 claude history that only survives in the ledger. "Dedupe" is too vague to build on; the store must instead hold the two as **different grains** and track coverage explicitly:
+
+- Persist legacy daily aggregates and detailed raw observations as **distinct record grains**, never merged into each other.
+- Maintain a **coverage/completeness map** keyed by (source, provider, day): is the detailed slice fully imported for that cell?
+- A query for a slice uses **detailed events when that slice is complete, else falls back to the legacy daily aggregate — and never sums both.** This makes the ledger the authoritative deep-history token source and the raw importers the enrichment layer for the recent window, with a decidable rule at every cell instead of a hopeful de-dup.
 
 ## 6. Proposed architecture — a decoupled capture module
 
@@ -121,7 +130,7 @@ Direction only; the detailed build spec is the follow-up document.
 
 A standalone **insights capture module** that owns its own durable store, ingests from the raw sources + whisper's DB + (later) live app events, and exposes a **read-only query API** that a future dashboard consumes. It writes to *its own* store, never mutating the app's ledger, `workspace-state.json`, or whisper's DB. This is the decoupling the build-order calls for: the app depends on the module through one narrow query interface, and the module can be built, tested, and backfilled entirely before any UI exists.
 
-**Process boundary (recommended): a sibling worker/service**, following the precedent already in the codebase — token telemetry runs in a spawned worker (`electron/main/services/usage-host.ts` + `services/usage/usage-worker.ts`). An "insights worker" owns its SQLite store, runs the backfill importers off the main thread, and subscribes to app lifecycle events over IPC. Alternative (in-main service) is simpler to wire but tangles more into the app — rejected against the stated goal.
+**Process boundary (recommended): a sibling worker/service**, following the precedent already in the codebase — token telemetry runs in a spawned worker (`electron/main/services/usage-host.ts` spawns `electron/main/services/usage-worker.ts`, loaded at `usage-host.ts:73`). An "insights worker" owns its SQLite store, runs the backfill importers off the main thread, and subscribes to app lifecycle events over IPC. Alternative (in-main service) is simpler to wire but tangles more into the app — rejected against the stated goal.
 
 ### 6.2 Store (recommended: SQLite)
 
@@ -133,19 +142,41 @@ A standalone **insights capture module** that owns its own durable store, ingest
 
 **Build note (native module):** `better-sqlite3` compiles a single native binary bound to one ABI, so it must be rebuilt for the target runtime — Electron ABI for the app, host-Node ABI for vitest (`scripts/rebuild-better-sqlite3-host.mjs`). The module's test story must account for this rebuild dance; a mismatch throws `NODE_MODULE_VERSION`. See memory `mem-2026-06-03`.
 
-Rough record shape (to detail in the build spec): a `sessions` table (provider, cwd/worktree, start, end, active-ms, turns, tokens, cost, cost_is_estimated), a `workflow_runs` table (type, status, started_at, ended_at, workspace, phase outcomes), and — for T3 — `app_activity` (focus/idle intervals) and `workspace_lifecycle` (open/close/last-active) tables.
+### 6.2.1 Store atomic observations, derive everything else
 
-### 6.3 Three ingestion paths
+The store must **not** repeat the ledger's original sin — collapsing raw facts into summaries too early (the very failure §3 is built on). It records **atomic, content-free observation events** and derives sessions, durations, and daily rollups as **views/queries on top**, so future productivity definitions stay adjustable without losing history. Atomic observation kinds:
 
-1. **Backfill importers (T2, one-time + incremental).** Re-parse the raw provider logs keeping the fields the ledger drops (reuse `claude-source`/`codex-source`/`hax-source` parsers; stop discarding hax `elapsed_ms`/`cost_*`). Read whisper's `state.db` with a *full-history* query (drop the `LIMIT 1`, keep `created_at`, join phases + collab). Idempotent, re-runnable, offset-cached like the existing scanner.
-2. **Whisper live reader (T2, ongoing).** The same full-history query on the existing 3s poll / event-socket trigger keeps the `workflow_runs` table current as new runs complete.
-3. **Live collectors (T3, forward-only).** An app focus/idle accumulator (window focus/blur + `powerMonitor` idle), workspace open/close events, and a durable tap on the existing session-status MCP channel + attention bridge to persist agent-session state transitions.
+- provider usage / turn events (tokens, model, `elapsed_ms`, engine cost + `cost_estimated`);
+- app focus / blur / idle / resume / suspend events;
+- workspace & worktree selection and lifecycle events;
+- terminal / process start and exit events;
+- agent status transitions;
+- workflow / phase / chain / outcome snapshots.
 
-### 6.4 Query API (for the future UI)
+Every observation carries **provenance**: source, event timestamp *and its precision*, parser/schema version, and an import-completeness marker. `sessions`, per-day aggregates, and the labeled duration measures from §3.2a are **derived tables or on-read queries**, not the primary store. (Concrete column-level schema is deferred to the build spec.)
 
-One read-only surface — e.g. "series(metric, scope, range, groupBy)" and "totals(scope, range)" — returning shapes the existing chart primitives can render. No UI is built now; this just fixes the contract so the module is complete and testable on its own.
+### 6.3 App-managed vs external attribution
 
-### 6.5 Reuse
+The productivity thesis — *does ai-14all help?* — is unanswerable if the store cannot separate work the app drove from AI usage the user did elsewhere. Raw provider logs contain both. So every provider observation must carry an **origin** and the evidence for it:
+
+- `app_run_id`, `terminal_session_id`, provider-native `session_id` (when available), `provider`;
+- stable repository identity + worktree path/branch snapshot;
+- `origin: app-managed | external | unknown`;
+- `attribution_confidence` + `attribution_method`.
+
+There is a concrete, non-heuristic hook: `register_agent_session` already reports the `terminalSessionId` and a `resumeCommand` — and the resume command **embeds the provider-native session id** (e.g. `claude --resume <id>`) (`services/mcp/ai14all-mcp-server.ts:304-352`). Correlating that against the sessionId in the raw log yields a high-confidence app-managed tag. Where no such link exists, `origin` is `external` or `unknown` and cwd+time correlation is recorded as an explicitly *approximate* method — never silently promoted to app-managed. This likely needs a small extension to launch/registration instrumentation, called out for the build spec.
+
+### 6.4 Three ingestion paths
+
+1. **Whisper history archiver (T2, time-critical).** Query whisper's `state.db` for *full* history (drop `readActiveWorkflow`'s `LIMIT 1`, keep `created_at`, join `workflow_phases` + `collab`) on the existing 3s poll / event-socket trigger, and **persist each run + phase as observation records**. Time-critical because the DB retains only ~2 days and prunes — see §9.
+2. **Live collectors (T3, forward-only, time-critical).** App focus/idle accumulator (window focus/blur + `powerMonitor` idle), workspace open/close events, terminal/process start-exit, and a durable tap on the session-status MCP channel + attention bridge for agent-session transitions. These signals are **irrecoverable if not captured live** (§9), and delivery must be **at-least-once** (§8) so a worker crash cannot drop them.
+3. **Backfill importers (T2, one-time + incremental).** Re-parse the raw provider logs keeping the fields the ledger drops (reuse `claude-source`/`codex-source`/`hax-source` parsers; stop discarding hax `elapsed_ms`/`cost_*`), tagging each with attribution (§6.3) and provenance. Idempotent, re-runnable, offset-cached like the existing scanner. Bounded by source retention (§5) — claude's ~30-day clock makes this early, not last.
+
+### 6.5 Read contracts (for the future UI)
+
+**Typed** capture and read contracts that expose observations, derived measures, **and their provenance + completeness** — not a premature stringly-typed `series(metric, scope, range, groupBy)` surface. The contract's job now is to make the module complete and testable on its own (given a slice, return the data *and* whether it is detailed-complete or legacy-aggregate per §5). Chart-facing shapes are deliberately deferred to the dashboard spec, when the actual widgets are known.
+
+### 6.6 Reuse
 
 The existing CSS-only chart primitives (`UsageChart`, `Gauge`), formatters (`format.ts`), rolling-window helpers (`rollup.ts`/`ledger.ts`), and the snapshot→IPC→`useUsageSnapshot` plumbing all carry over to the eventual UI — no charting dependency is needed. The raw parsers carry over to the importers.
 
@@ -156,39 +187,52 @@ The forward-only capture the module must add (detail + options belong in the bui
 - **Workspace lifecycle:** add created/opened/closed/last-active timestamps and an open/close event trail (today `workspace-state.json` has none).
 - **Agent-session lifecycle:** persist the session-status transition stream (state, provider, reportedAt) that today only drives the sidebar transiently.
 
-## 8. Open decisions to resolve before the build spec
+## 8. Foundational contracts (decide before any capture starts)
+
+These are **not** deferrable open questions — capture writes durable, potentially sensitive data from day one, so they must be settled first:
+
+1. **Privacy contract.** Guarantee, explicitly: no prompts, responses, terminal output, or source content are ever stored; storage is local-only; there is a clear telemetry **disable** and **delete-all**; separate retention rules for detailed vs aggregated records; a defined policy for how `cwd`s and spec/file names are stored (e.g. hashed or repo-relative); and export/reset. This must honor the existing telemetry opt-out.
+2. **Delivery semantics (main ↔ worker).** Focus/blur and lifecycle events sent over unacknowledged in-memory IPC vanish if the worker crashes. Require **at-least-once** delivery: stable event IDs, acknowledgements, a retry buffer, and **idempotent inserts** so replays don't double-count.
+3. **Provenance model.** Every observation carries source, event timestamp + precision, parser/schema version, and import-completeness — the substrate the §5 coverage rule and §6.3 attribution depend on.
+
+**Deliberately deferred out of the capture layer:** outcome classification (which workflow statuses mean "failed") is a **versioned analytics policy** applied at read time, not a capture decision (§3.2b) — captured history stays raw so the definition can change later.
+
+## 8a. Open design choices for the build spec
 
 1. **Store + process boundary** — confirm SQLite in a sibling insights worker (§6.1–6.2).
-2. **"Failed" definition for workflows** — which of `halted`/`canceled`/`escalated` count as failure vs recoverable/manual-complete (§3.2b).
-3. **Backfill vs ledger authority** — confirm the complementarity rule (ledger = deep token history; raw = recent rich enrichment; never overwrite) (§5).
-4. **Backfill scope for v1** — ship importers in v1, or land live capture first and backfill later?
-5. **Privacy / retention** — the module reads `cwd`s, spec paths, and session content locations. Confirm it stays local-only, honors the existing telemetry opt-out, and set its own retention policy.
-6. **hax timestamp ceiling** — accept session-grain for hax now, or block on the upstream per-row-timestamp ask (recommend: accept now).
+2. **Backfill scope for v1** — how much provider-log/ledger backfill lands in the first cut vs after live capture is solid (§9).
+3. **hax timestamp ceiling** — accept session-grain for hax now, or block on the upstream per-row-timestamp ask (recommend: accept now).
 
 ## 9. Phasing recommendation
 
-- **Phase 0 (this doc):** feasibility + architecture direction. ← you are here.
-- **Phase 1:** the module skeleton — SQLite store + query API + whisper full-history reader + raw-log importers (all T2). Ships *real historical value* immediately (providers, session durations, workflow outcomes) with no waiting.
-- **Phase 2:** T3 live collectors (app engagement, workspace + session lifecycle). Starts accumulating forward.
-- **Phase 3:** the dashboard UI on top of the query API, reusing the existing chart primitives.
+Sequenced by **irrecoverability**, not by quickest demo: forward-only signals are lost every day capture is delayed, and whisper's DB prunes to ~2 days — so live capture comes *before* backfill, which sits inside a more forgiving (but still finite) retention window.
 
-Phase 1 alone answers three of the five headline questions from data that already exists.
+- **Phase 0 (this doc):** feasibility + architecture direction. ← you are here.
+- **Phase 1 — Foundations.** SQLite observation store + schema/migrations, the §8 provenance model, the privacy contract, and the worker with at-least-once delivery. Nothing is captured until this exists.
+- **Phase 2 — Live capture (time-critical).** T3 collectors (app focus/idle, workspace + terminal + agent lifecycle) **and** the whisper history archiver. These lose data permanently every day they are absent; whisper especially, given its ~2-day window.
+- **Phase 3 — Backfill.** Provider-log and legacy-ledger importers with attribution + the §5 coverage map. Urgent-ish, not last-minute: claude's logs rotate at ~30 days, so this should land within weeks of Phase 2.
+- **Phase 4 — Typed query API + data-quality validation.** The read contracts (§6.5) plus completeness/consistency checks over the store.
+- **Phase 5 — Dashboard UI** on the query API, reusing the existing chart primitives.
+
+By the end of Phase 3 the store answers three of the five headline questions (providers, session spans/outcomes, workflow success/failed) from data that already exists, while Phase 2 has been accruing the app-engagement signals that were never captured before.
 
 ## 10. Out of scope (for this doc)
 
-- The dashboard UI (Phase 3) — layout, widgets, interactions.
-- Detailed table schemas, migration plans, and test plans (the build spec).
-- Real per-provider **billed** cost for claude/codex (needs an external rate card; hax already reports actual cost).
+- The dashboard UI (Phase 5) — layout, widgets, interactions.
+- The concrete build-spec artifacts: the observation-event schema, the attribution schema, derived-view definitions, the coverage/completeness-map tables, migrations, and test plans.
+- Real per-provider **billed** cost for claude/codex (needs an external rate card; hax reports only engine-*estimated* cost, `cost_estimated:true`).
 - Cursor / Antigravity token capture (both providers are inert today).
 - Cross-machine / cloud aggregation — local-only for now.
 
 ## 11. Risks
 
-- **Source retention caps history.** claude ~37 d, whisper DB as small as its own pruning allows. Backfill is a one-shot opportunity that shrinks daily — the sooner importers exist, the more history is captured before rotation deletes it.
-- **Upstream format drift.** Raw log and `state.db` schemas are owned by claude/codex/hax/whisper; a rename silently breaks an importer. Mitigation: defensive parsers (existing pattern) + a schema-version gate (whisper already gated to v6–7).
+- **Source retention caps history.** claude ~37 d, whisper DB as small as its own pruning allows. Backfill is a one-shot opportunity that shrinks daily — the sooner the archiver + importers exist, the more history survives before rotation deletes it.
+- **Misattribution.** Treating an external (non-app) provider session as app-managed would inflate ai-14all's apparent contribution. Mitigation: the explicit `origin`/confidence model (§6.3); approximate methods stay labeled and are never promoted to app-managed.
+- **Dropped live events.** Unacknowledged main→worker IPC loses focus/lifecycle events on a worker crash, silently understating engagement. Mitigation: at-least-once delivery + idempotent inserts (§8).
+- **Upstream format drift.** Raw log and `state.db` schemas are owned by claude/codex/hax/whisper; a rename silently breaks an importer. Mitigation: defensive parsers (existing pattern) + a schema-version gate (whisper already gated to v6–7) recorded in provenance.
 - **hax mtime stamping** distorts intra-day placement for cold backfill of multi-day hax files (existing, accepted limitation).
-- **Double-count seam** where a run is present in both the ledger and a raw import — must dedupe on the complementarity rule (§5), not blind-merge.
-- **whisper DB availability** — everything T2/whisper hinges on the DB being present, schema in range, and collabs not pruned; capture nothing silently when absent (visible, not corrupt).
+- **Grain double-count** where a slice exists in both the ledger and a raw import — prevented by the §5 coverage rule (detailed-if-complete else legacy, never sum both), not a hopeful de-dup.
+- **whisper DB availability** — everything whisper hinges on the DB being present, schema in range, and collabs not pruned; capture nothing silently when absent (visible, not corrupt).
 
 ## 12. Appendix — evidence index
 
