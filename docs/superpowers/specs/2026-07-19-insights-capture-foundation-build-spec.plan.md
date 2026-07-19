@@ -264,9 +264,9 @@ git commit -m "feat(insights): v1 store schema (observations/coverage/meta + whi
 
 ```ts
 // tests/unit/insights/store/path-identity.test.ts
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   assertNoAbsolutePaths, assertNoAbsolutePathsDeep, isAbsolutePathLike, resolveWorkspaceIdentity, sha256Short,
@@ -298,9 +298,9 @@ describe("path identity", () => {
     mkdirSync(join(repo, ".git"));
     writeFileSync(join(repo, ".git", "HEAD"), "ref: refs/heads/main\n");
     const id = resolveWorkspaceIdentity(repo);
-    expect(id.repoId).toBe(sha256Short(require("node:fs").realpathSync(repo)));
+    expect(id.repoId).toBe(sha256Short(realpathSync(repo)));
     expect(id.workspaceRel).toBe("");
-    expect(id.workspaceLabel).toBe(require("node:path").basename(repo));
+    expect(id.workspaceLabel).toBe(basename(repo));
     expect(id.branch).toBe("main");
     expect(isAbsolutePathLike(id.repoId)).toBe(false);
     expect(isAbsolutePathLike(id.workspaceRel)).toBe(false);
@@ -315,7 +315,7 @@ describe("path identity", () => {
     writeFileSync(join(wt, ".git"), `gitdir: ${join(repo, ".git", "worktrees", "wt")}\n`);
     writeFileSync(join(repo, ".git", "worktrees", "wt", "HEAD"), "ref: refs/heads/feature\n");
     const id = resolveWorkspaceIdentity(wt);
-    expect(id.repoId).toBe(sha256Short(require("node:fs").realpathSync(repo)));
+    expect(id.repoId).toBe(sha256Short(realpathSync(repo)));
     expect(id.workspaceRel).toBe(join(".worktrees", "wt"));
     expect(id.branch).toBe("feature");
   });
@@ -323,8 +323,8 @@ describe("path identity", () => {
   it("falls back for a non-git path without leaking an absolute path", () => {
     const plain = mk();
     const id = resolveWorkspaceIdentity(plain);
-    expect(id.repoId).toBe(sha256Short(require("node:fs").realpathSync(plain)));
-    expect(id.workspaceRel).toBe(require("node:path").basename(plain));
+    expect(id.repoId).toBe(sha256Short(realpathSync(plain)));
+    expect(id.workspaceRel).toBe(basename(plain));
     expect(id.branch).toBeNull();
     expect(isAbsolutePathLike(id.workspaceRel)).toBe(false);
   });
@@ -975,9 +975,10 @@ git commit -m "feat(insights): meta helpers + lockstep observation/coverage rete
 
 ```ts
 // tests/unit/plugins/whisper/whisper-store-reader.readall.test.ts
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 import { WhisperStoreReader } from "../../../../services/plugins/whisper/whisper-store-reader.js";
 import { makeWhisperFixtureDb } from "../helpers/make-whisper-fixture-db.js";
@@ -985,6 +986,15 @@ import { makeWhisperFixtureDb } from "../helpers/make-whisper-fixture-db.js";
 const dirs: string[] = [];
 const tmp = () => { const d = mkdtempSync(join(tmpdir(), "wsr-")); dirs.push(d); return join(d, "state.db"); };
 afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
+
+// Read-only introspection helpers for the "source unchanged" regression test.
+const version = (p: string) => { const d = new Database(p, { readonly: true }); const v = d.pragma("user_version", { simple: true }); d.close(); return v; };
+const dump = (p: string) => {
+  const d = new Database(p, { readonly: true });
+  const r = { collab: d.prepare("SELECT * FROM collab ORDER BY collab_id").all(), workflows: d.prepare("SELECT * FROM workflows ORDER BY workflow_id").all(), phases: d.prepare("SELECT * FROM workflow_phases ORDER BY phase_run_id").all() };
+  d.close();
+  return r;
+};
 
 describe("readAllWorkflows", () => {
   it("returns every run for a collab with phases carrying phase_run_id (dup names distinct)", () => {
@@ -1004,6 +1014,25 @@ describe("readAllWorkflows", () => {
     expect(runs).toHaveLength(1);
     expect(runs[0].workspaceRoot).toBe("/tmp/repo");
     expect(runs[0].phases.map((p) => p.phaseRunId)).toEqual(["wf1:pa", "wf1:pb"]);
+  });
+
+  it("never writes to the source DB (user_version, rows, and file bytes unchanged after reads)", () => {
+    const path = tmp();
+    makeWhisperFixtureDb(path, {
+      schemaVersion: 7,
+      collabs: [{ collabId: "c1", workspaceRoot: "/tmp/repo", displayName: "r", status: "active" }],
+      workflows: [{ workflowId: "wf1", collabId: "c1", workflowType: "spec-driven-development", status: "done", currentPhaseIndex: 0, createdAt: "2026-07-19T00:00:00.000Z", updatedAt: "2026-07-19T00:01:00.000Z" }],
+      phases: [{ phaseRunId: "wf1:pa", workflowId: "wf1", phaseIndex: 0, phaseName: "impl", chainId: "ch1", startedAt: "2026-07-19T00:00:00.000Z", endedAt: "2026-07-19T00:01:00.000Z", outcome: "ok" }],
+    });
+    const before = { v: version(path), rows: dump(path), bytes: readFileSync(path) };
+    const reader = new WhisperStoreReader(path);
+    reader.listCollabIds();
+    reader.readAllWorkflows("c1");
+    reader.readAllWorkflows("c1"); // repeat — still no writes
+    const after = { v: version(path), rows: dump(path), bytes: readFileSync(path) };
+    expect(after.v).toBe(before.v);
+    expect(after.rows).toEqual(before.rows);
+    expect(after.bytes.equals(before.bytes)).toBe(true); // byte-identical main file: readonly open, no journal/WAL write
   });
 
   it("refuses an out-of-range schema (returns [])", () => {
@@ -1541,18 +1570,24 @@ describe("InsightsHost", () => {
     expect(fork).not.toHaveBeenCalled();
   });
 
-  it("re-drives the notice on status.firstCaptureAt when noticeShown is false", () => {
+  it("delivers the notice at most once per session and never after ack", () => {
     const userDataDir = ud();
     const proc = fakeProc();
+    let shown = false;
     const onNotice = vi.fn();
     const host = new InsightsHost({
       userDataDir, whisperDbPath: join(userDataDir, "state.db"), pollIntervalMs: 3000,
       forkWorker: () => proc, send: (ch) => { if (ch === "insights:notice") onNotice(); },
-      loadNoticeShown: () => false, persistNoticeShown: () => {},
+      loadNoticeShown: () => shown, persistNoticeShown: (v) => { shown = v; },
     });
     host.setEnabled(true);
     proc.emit("spawn");
-    proc.emit("message", { kind: "status", status: { lastPollAt: 1, observationCount: 1, whisperAvailable: true, firstCaptureAt: 123 } });
+    const status = { kind: "status", status: { lastPollAt: 1, observationCount: 1, whisperAvailable: true, firstCaptureAt: 123 } };
+    proc.emit("message", status);
+    proc.emit("message", status); // second poll — must NOT re-deliver (session guard)
+    expect(onNotice).toHaveBeenCalledTimes(1);
+    host.ackNotice();             // persists shown=true + sets the session guard
+    proc.emit("message", status); // after ack — still no delivery
     expect(onNotice).toHaveBeenCalledTimes(1);
   });
 });
@@ -1593,6 +1628,7 @@ export class InsightsHost {
   private spawned = false;
   private pending: MainToInsightsWorker[] = [];
   private pendingClose: ((v: void) => void) | null = null;
+  private sessionNoticeSent = false; // host-local at-most-once guard (independent of the settings snapshot)
 
   constructor(private readonly opts: InsightsHostOptions) {}
 
@@ -1628,23 +1664,23 @@ export class InsightsHost {
     this.proc = null;
   }
 
+  // Deliver at most once per session, and never once durably acknowledged. The
+  // session guard makes this correct even if `loadNoticeShown()`'s source lags a write.
+  private maybeDeliverNotice(): void {
+    if (this.sessionNoticeSent || this.opts.loadNoticeShown()) return;
+    this.sessionNoticeSent = true;
+    this.opts.send(INSIGHTS_NOTICE_CHANNEL, {});
+  }
+
   private onMessage(msg: InsightsWorkerToMain): void {
-    if (msg.kind === "status") {
-      if (msg.status.firstCaptureAt != null && !this.opts.loadNoticeShown()) {
-        this.opts.send(INSIGHTS_NOTICE_CHANNEL, { at: msg.status.firstCaptureAt });
-      }
-      return;
-    }
-    if (msg.kind === "firstCapture") {
-      if (!this.opts.loadNoticeShown()) this.opts.send(INSIGHTS_NOTICE_CHANNEL, {});
-      return;
-    }
+    if (msg.kind === "status") { if (msg.status.firstCaptureAt != null) this.maybeDeliverNotice(); return; }
+    if (msg.kind === "firstCapture") { this.maybeDeliverNotice(); return; }
     if (msg.kind === "storeClosed") { this.pendingClose?.(); this.pendingClose = null; return; }
     if (msg.kind === "queryResult") { this.opts.send("insights:queryResult", msg); return; }
   }
 
-  /** Called by the renderer ack (insights:noticeAck) via IPC. */
-  ackNotice(): void { this.opts.persistNoticeShown(true); }
+  /** Called by the renderer ack (insights:noticeAck) via IPC — stops re-delivery immediately + durably. */
+  ackNotice(): void { this.sessionNoticeSent = true; this.opts.persistNoticeShown(true); }
 
   private post(msg: MainToInsightsWorker): void {
     if (!this.proc) return;
@@ -1669,6 +1705,7 @@ export class InsightsHost {
 ```ts
 // electron/main/services/insights-worker.ts
 // utilityProcess child shell: wires parentPort <-> the testable core, owns the poll timer + store lifecycle.
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import { migrate } from "../../../services/insights/store/schema.js";
@@ -1683,7 +1720,6 @@ let core: ReturnType<typeof createInsightsWorkerCore> | null = null;
 let timer: ReturnType<typeof setInterval> | null = null;
 
 function boot(config: InsightsWorkerConfig): void {
-  const { mkdirSync } = require("node:fs");
   mkdirSync(join(config.userDataDir, "insights"), { recursive: true });
   db = new Database(join(config.userDataDir, "insights", "insights.db"));
   db.pragma("journal_mode = WAL");
@@ -1702,7 +1738,19 @@ port.on("message", (e: { data: MainToInsightsWorker }) => {
 });
 ```
 
-> Note: whisper DB path resolution in the main process — reuse the existing whisper env probe used by `whisper-driver`/`whisper-env-probe.ts` to compute `whisperDbPath`, and pass it into `InsightsHostOptions` when wiring the host at app startup (alongside the existing `UsageHost` wiring). `loadNoticeShown`/`persistNoticeShown` read/write `usageTelemetry.insights.noticeShown` through `SettingsService` (Task 11).
+**Register the worker as a build input.** Electron Vite currently builds only `index` + `usage-worker` (`electron.vite.config.ts:39`), so the forked `./insights-worker.js` will not exist in `out/main/` unless added. Extend `rollupOptions.input`:
+
+```ts
+input: {
+  index: "./electron/main/index.ts",
+  "usage-worker": "./electron/main/services/usage-worker.ts",
+  "insights-worker": "./electron/main/services/insights-worker.ts",
+},
+```
+
+A build guard in Task 14 asserts `out/main/insights-worker.js` exists after `electron-vite build`.
+
+> Note: whisper DB path resolution in the main process — reuse the exact value computed at `electron/main/index.ts:270` (`process.env.AI14ALL_WHISPER_STATE_ROOT ?? join(homedir(), ".ai-whisper")`, then `join(root, "state.db")`) for `whisperDbPath`, passed into `InsightsHostOptions` when wiring the host at app startup (alongside the existing `UsageHost` wiring). `loadNoticeShown` reads `usageTelemetry.insights.noticeShown` **freshly** via `settingsService.readStateSync()` (not a possibly-stale bridge snapshot); `persistNoticeShown` writes it via `settingsService.writeState(...)` (Task 11/12).
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -1738,6 +1786,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { SettingsService } from "../../../../services/settings/settings-service.js";
+import { DEFAULT_PERSISTED_SETTINGS } from "../../../../shared/models/persisted-settings.js";
 import { isInsightsCaptureEnabled, UsageTelemetrySettingsSchema } from "../../../../shared/models/persisted-workspace-state.js";
 
 const dirs: string[] = [];
@@ -1746,8 +1795,11 @@ afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, f
 const t = (over = {}) => ({ enabled: true, includeUntracked: false, chipRange: "week" as const, insights: { enabled: true, noticeShown: false }, ...over });
 
 describe("insights settings", () => {
-  it("defaults insights on, noticeShown false", () => {
+  it("defaults insights on across schema, DEFAULT_PERSISTED_SETTINGS, and a fresh service read", async () => {
     expect(UsageTelemetrySettingsSchema.parse({}).insights).toEqual({ enabled: true, noticeShown: false });
+    expect(DEFAULT_PERSISTED_SETTINGS.usageTelemetry.insights).toEqual({ enabled: true, noticeShown: false }); // outer default literal
+    const { settings } = await service().readState(); // first-run seed writes the file
+    expect(settings.usageTelemetry.insights).toEqual({ enabled: true, noticeShown: false });
   });
 
   it("isInsightsCaptureEnabled honors the master kill (either toggle false → false)", () => {
@@ -1814,6 +1866,17 @@ const UsageTelemetryPatchSchema = z.object({
 });
 ```
 
+**Also** add `insights` to the **outer default literal** in `PersistedSettingsV1Schema` (`persisted-settings.ts:40`). That `.default({...})` object is returned as-is on a first run and currently omits `insights`, so `DEFAULT_PERSISTED_SETTINGS.usageTelemetry.insights` (and every first-run `readState()`) would be `undefined` — the inner schema default does not backfill it:
+
+```ts
+usageTelemetry: UsageTelemetrySettingsSchema.default({
+  enabled: true,
+  includeUntracked: false,
+  chipRange: "week",
+  insights: { enabled: true, noticeShown: false },
+}),
+```
+
 In `services/settings/settings-service.ts` `writeState()` (`:122`), deepen the `usageTelemetry` merge so `insights` merges rather than replaces:
 
 ```ts
@@ -1849,38 +1912,47 @@ git commit -m "feat(insights): usageTelemetry.insights sub-setting (default-on) 
 ## Task 12: IPC handlers + preload bridge + host wiring
 
 **Files:**
-- Modify: `electron/main/ipc.ts` (register handlers; forward the notice; add `insightsHost` dep), plus the app-startup wiring that constructs `InsightsHost`
-- Modify: `electron/preload/index.ts` (expose `window.api.insights`)
-- Test: `tests/unit/insights/insights-ipc.test.ts` (handler registration against a stubbed `ipcMain`/host)
+- Create: `electron/main/insights-ipc.ts` (`registerInsightsIpc` + `applyInsightsConsent`)
+- Modify: `electron/main/ipc.ts` (call `registerInsightsIpc`; add `insightsHost` dep) + the app-startup wiring that constructs `InsightsHost` and calls `applyInsightsConsent` at startup and on `settings:write`
+- Modify: `shared/contracts/commands.ts` (add the `insights` member to `Ai14AllDesktopApi`)
+- Modify: `electron/preload/index.ts` (implement `insights` on the `window.ai14all` `api` object)
+- Test: `tests/unit/insights/insights-ipc.test.ts` (registration + `applyInsightsConsent` master kill)
 
 **Interfaces:**
-- Consumes: `InsightsHost` (Task 10), effective-consent from settings (Task 11).
-- Produces: IPC channels `insights:setEnabled`, `insights:deleteAll`, `insights:noticeAck`; forwarded renderer event `insights:notice`; preload `window.api.insights.{ setEnabled, deleteAll, ackNotice, onNotice }`.
+- Consumes: `InsightsHost` (Task 10), `isInsightsCaptureEnabled` (Task 11).
+- Produces: IPC channels `insights:deleteAll`, `insights:noticeAck`; forwarded renderer event `insights:notice`; `applyInsightsConsent(host, settings)`; the `Ai14AllDesktopApi.insights = { deleteAll, ackNotice, onNotice }` contract on `window.ai14all`.
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
 // tests/unit/insights/insights-ipc.test.ts
 import { describe, expect, it, vi } from "vitest";
-import { registerInsightsIpc } from "../../../electron/main/insights-ipc.js";
+import { registerInsightsIpc, applyInsightsConsent } from "../../../electron/main/insights-ipc.js";
 
 function stubIpcMain() {
   const handlers = new Map<string, (...a: any[]) => any>();
   return { handle: (ch: string, fn: any) => handlers.set(ch, fn), invoke: (ch: string, ...a: any[]) => handlers.get(ch)!({}, ...a), has: (ch: string) => handlers.has(ch) };
 }
+const sett = (over: any = {}) => ({ usageTelemetry: { enabled: true, includeUntracked: false, chipRange: "week", insights: { enabled: true, noticeShown: false }, ...over } }) as any;
 
 describe("insights IPC", () => {
-  it("registers and routes setEnabled / deleteAll / noticeAck", async () => {
+  it("registers deleteAll + noticeAck but NOT a renderer-driven setEnabled", async () => {
     const ipc = stubIpcMain();
-    const host = { setEnabled: vi.fn(), deleteAll: vi.fn().mockResolvedValue(undefined), ackNotice: vi.fn() };
+    const host = { deleteAll: vi.fn().mockResolvedValue(undefined), ackNotice: vi.fn() };
     registerInsightsIpc(ipc as any, host as any);
-    expect(ipc.has("insights:setEnabled")).toBe(true);
-    ipc.invoke("insights:setEnabled", false);
-    expect(host.setEnabled).toHaveBeenCalledWith(false);
+    expect(ipc.has("insights:setEnabled")).toBe(false); // no renderer path to force-enable
     await ipc.invoke("insights:deleteAll");
     expect(host.deleteAll).toHaveBeenCalled();
     ipc.invoke("insights:noticeAck");
     expect(host.ackNotice).toHaveBeenCalled();
+  });
+
+  it("applyInsightsConsent enforces the master kill from persisted settings (raw true never forces start)", () => {
+    const setEnabled = vi.fn();
+    applyInsightsConsent({ setEnabled }, sett());                                                   // both on
+    applyInsightsConsent({ setEnabled }, sett({ enabled: false }));                                 // global off
+    applyInsightsConsent({ setEnabled }, sett({ insights: { enabled: false, noticeShown: false } })); // sub off
+    expect(setEnabled.mock.calls.map((c) => c[0])).toEqual([true, false, false]);
   });
 });
 ```
@@ -1901,9 +1973,11 @@ import type { InsightsHost } from "./services/insights-host.js";
 
 export function registerInsightsIpc(
   ipcMain: Pick<IpcMain, "handle">,
-  host: Pick<InsightsHost, "setEnabled" | "deleteAll" | "ackNotice">,
+  host: Pick<InsightsHost, "deleteAll" | "ackNotice">,
 ): void {
-  ipcMain.handle("insights:setEnabled", (_e, enabled: unknown) => { host.setEnabled(Boolean(enabled)); });
+  // Deliberately NO insights:setEnabled — capture is gated solely by the main-side
+  // derived effective consent (applyInsightsConsent on settings:write), so a renderer
+  // cannot force-start after the global telemetry opt-out (§7.2 master kill).
   ipcMain.handle("insights:deleteAll", async () => { await host.deleteAll(); });
   ipcMain.handle("insights:noticeAck", () => { host.ackNotice(); });
 }
@@ -1915,16 +1989,37 @@ At app startup, construct `InsightsHost` right after `new UsageHost(...)` (`elec
 - `userDataDir` = the same `app.getPath("userData")` passed to `UsageHost`,
 - `whisperDbPath` = `join(whisperStateRoot, "state.db")` where `whisperStateRoot = process.env.AI14ALL_WHISPER_STATE_ROOT ?? join(homedir(), ".ai-whisper")` — the exact value already computed at `electron/main/index.ts:270` and used for the whisper reader at `:346`,
 - `send` = `(ch, p) => mainWindow.webContents.send(ch, p)` (the same seam `UsageHost` uses),
-- `loadNoticeShown` = `() => usageSettings.settings.insights.noticeShown` (retained snapshot; **never** `settingsService.current`),
+- `loadNoticeShown` = `() => settingsService.readStateSync().settings.usageTelemetry.insights.noticeShown` (read **fresh** each poll — `readStateSync()` is public and synchronous (`index.ts:176,548`), so an ack persisted via `writeState` is reflected on the next status; never the possibly-stale bridge snapshot or the private `current`),
 - `persistNoticeShown` = `(v) => void settingsService.writeState({ usageTelemetry: { insights: { noticeShown: v } } })` (public `writeState`, which deep-merges `insights` per Task 11).
 
-Gate on effective consent using the exported helper: call `insightsHost.setEnabled(isInsightsCaptureEnabled(usageSettings.settings))` at startup **and** on every `settings:write` (mirror the existing `usageHost.setEnabled` live-apply near `ipc.ts` `:588`). Import `isInsightsCaptureEnabled` from `../../shared/models/persisted-workspace-state.js`.
+**Effective-consent gating (master-kill-safe).** Do **not** let the renderer drive `InsightsHost.setEnabled` directly. Export a single seam and use it at startup **and** on every `settings:write` — never trusting a renderer boolean:
 
-In `electron/preload/index.ts`, add to the exposed API object (follow the existing `contextBridge.exposeInMainWorld` shape):
+```ts
+// electron/main/insights-ipc.ts (or alongside the host wiring)
+import { isInsightsCaptureEnabled } from "../../shared/models/persisted-workspace-state.js";
+import type { InsightsHost } from "./services/insights-host.js";
+import type { PersistedSettingsV1 } from "../../shared/models/persisted-settings.js";
+export function applyInsightsConsent(host: Pick<InsightsHost, "setEnabled">, settings: PersistedSettingsV1): void {
+  host.setEnabled(isInsightsCaptureEnabled(settings.usageTelemetry)); // global AND insights sub-toggle
+}
+```
+
+Call `applyInsightsConsent(insightsHost, settingsService.readStateSync().settings)` at startup and inside the `settings:write` handler (mirror the existing `usageHost.setEnabled` live-apply near `ipc.ts` `:588`). There is **no** `insights:setEnabled` IPC — the toggle only persists the sub-preference via `update(...)`, and this derived gate is the sole path that starts/stops the host.
+
+First extend the **shared contract** so `window.ai14all.insights` type-checks. In `shared/contracts/commands.ts`, add an `insights` member to `Ai14AllDesktopApi` (`:435`), following the grouped-member style (e.g. `usage:` at `:585`, `terminals:` with `onX` event subscribers):
 
 ```ts
 insights: {
-  setEnabled: (enabled: boolean) => ipcRenderer.invoke("insights:setEnabled", enabled),
+  deleteAll(): Promise<void>;
+  ackNotice(): Promise<void>;
+  onNotice(listener: () => void): () => void;
+};
+```
+
+Then, in `electron/preload/index.ts`, add the implementation to the existing `const api: Ai14AllDesktopApi = { … }` object (`:153`) that is exposed as **`window.ai14all`** via `contextBridge.exposeInMainWorld("ai14all", api)` — there is **no** `window.api`:
+
+```ts
+insights: {
   deleteAll: () => ipcRenderer.invoke("insights:deleteAll"),
   ackNotice: () => ipcRenderer.invoke("insights:noticeAck"),
   onNotice: (cb: () => void) => {
@@ -1934,6 +2029,8 @@ insights: {
   },
 },
 ```
+
+(No `setEnabled` — the toggle persists via `update(...)` and the main-side `applyInsightsConsent` gates the host; see above.)
 
 - [ ] **Step 4: Run test + typecheck**
 
@@ -1945,8 +2042,8 @@ Expected: no new errors.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add electron/main/insights-ipc.ts electron/main/ipc.ts electron/preload/index.ts tests/unit/insights/insights-ipc.test.ts
-git commit -m "feat(insights): IPC handlers (setEnabled/deleteAll/noticeAck), notice forward, preload bridge, host wiring"
+git add electron/main/insights-ipc.ts electron/main/ipc.ts shared/contracts/commands.ts electron/preload/index.ts tests/unit/insights/insights-ipc.test.ts
+git commit -m "feat(insights): deleteAll/noticeAck IPC + applyInsightsConsent master kill, window.ai14all.insights bridge, host wiring"
 ```
 
 ---
@@ -1957,10 +2054,10 @@ git commit -m "feat(insights): IPC handlers (setEnabled/deleteAll/noticeAck), no
 - Create: `src/features/settings/components/InsightsSettingsControls.tsx` (toggle + delete action; uses `useSettings().update`)
 - Modify: `src/features/settings/components/SettingsDialog.tsx` (Usage section, ~`:203` — mount `<InsightsSettingsControls />`)
 - Create: `src/app/components/InsightsNotice.tsx` (one-time notice surface) + mount it in the app chrome
-- Test: `tests/unit/features/settings/insights-controls.test.tsx` (renders both components with a stubbed `window.api.insights` + mocked `useSettings`)
+- Test: `tests/unit/features/settings/insights-controls.test.tsx` (renders both components with a stubbed `window.ai14all.insights` + mocked `useSettings`)
 
 **Interfaces:**
-- Consumes: `window.api.insights` (Task 12), `settings.usageTelemetry.insights` (Task 11).
+- Consumes: `window.ai14all.insights` (Task 12), `settings.usageTelemetry.insights` (Task 11).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1980,7 +2077,7 @@ describe("InsightsNotice", () => {
   it("shows on notice and acks on dismiss", () => {
     const ack = vi.fn();
     let fire: () => void = () => {};
-    (globalThis as any).window.api = { insights: { ackNotice: ack, onNotice: (cb: () => void) => { fire = cb; return () => {}; } } };
+    (globalThis as any).window.ai14all = { insights: { ackNotice: ack, onNotice: (cb: () => void) => { fire = cb; return () => {}; } } };
     render(<InsightsNotice />);
     expect(screen.queryByRole("status")).toBeNull();
     fire();
@@ -1991,14 +2088,13 @@ describe("InsightsNotice", () => {
 });
 
 describe("InsightsSettingsControls", () => {
-  it("toggle persists via update() + applies effective consent; delete calls deleteAll", () => {
+  it("toggle persists the sub-preference via update(); delete calls deleteAll", () => {
     update.mockClear();
-    const setEnabled = vi.fn(); const deleteAll = vi.fn();
-    (globalThis as any).window.api = { insights: { setEnabled, deleteAll } };
+    const deleteAll = vi.fn();
+    (globalThis as any).window.ai14all = { insights: { deleteAll } };
     render(<InsightsSettingsControls />);
     fireEvent.click(screen.getByRole("checkbox", { name: /usage insights/i })); // toggle OFF
     expect(update).toHaveBeenCalledWith({ usageTelemetry: { enabled: true, includeUntracked: false, chipRange: "week", insights: { enabled: false, noticeShown: false } } });
-    expect(setEnabled).toHaveBeenCalledWith(false); // effective = enabled(true) && checked(false)
     fireEvent.click(screen.getByRole("button", { name: /delete insights data/i }));
     expect(deleteAll).toHaveBeenCalled();
   });
@@ -2019,12 +2115,12 @@ import { useEffect, useState } from "react";
 
 export function InsightsNotice(): JSX.Element | null {
   const [show, setShow] = useState(false);
-  useEffect(() => window.api.insights.onNotice(() => setShow(true)), []);
+  useEffect(() => window.ai14all.insights.onNotice(() => setShow(true)), []);
   if (!show) return null;
   return (
     <div role="status" className="insights-notice">
       <span>ai-14all now records local, content-free usage insights — manage or delete these in Settings.</span>
-      <button onClick={() => { window.api.insights.ackNotice(); setShow(false); }}>Dismiss</button>
+      <button onClick={() => { window.ai14all.insights.ackNotice(); setShow(false); }}>Dismiss</button>
     </div>
   );
 }
@@ -2048,14 +2144,15 @@ export function InsightsSettingsControls(): React.ReactElement {
           aria-label="usage insights"
           checked={t.insights.enabled}
           onChange={(e) => {
-            // Spread the full nested objects — matches the dialog's existing usageTelemetry handlers.
+            // Persist the sub-preference only; the MAIN process derives effective consent
+            // and starts/stops the host on settings:write (applyInsightsConsent, Task 12).
+            // Spreading the full nested objects matches the dialog's existing usageTelemetry handlers.
             update({ usageTelemetry: { ...t, insights: { ...t.insights, enabled: e.target.checked } } });
-            void window.api.insights.setEnabled(t.enabled && e.target.checked); // effective consent
           }}
         />
         usage insights (local, content-free)
       </label>
-      <button className="settings-dialog__danger" onClick={() => void window.api.insights.deleteAll()}>
+      <button className="settings-dialog__danger" onClick={() => void window.ai14all.insights.deleteAll()}>
         Delete insights data
       </button>
     </>
@@ -2083,143 +2180,138 @@ git commit -m "feat(insights): Settings toggle + delete-all action + one-time fi
 
 **Files:**
 - Create: `tests/e2e/insights.test.ts`
-- Create: `tests/e2e/fixtures/gen-whisper-state.ts` (one-off generator for the fixture, kept for regeneration)
-- Create: `tests/e2e/fixtures/whisper-state-v7.db` (prebuilt binary fixture — see Step 1)
+- Create: `tests/e2e/fixtures/gen-whisper-state.ts` (one-off generator, kept for regeneration)
+- Create: `tests/e2e/fixtures/whisper-state-v7.db` (1-workflow fixture) and `tests/e2e/fixtures/whisper-state-v7-2wf.db` (2-workflow "altered source")
 
 **Interfaces:**
-- Consumes: the full wired app (Tasks 1–13), and the real env seams `AI14ALL_USER_DATA_PATH` + `AI14ALL_WHISPER_STATE_ROOT` (honored by `electron/main/index.ts:270`).
+- Consumes: the full wired app (Tasks 1–13), and the real env seams `AI14ALL_USER_DATA_PATH` + `AI14ALL_WHISPER_STATE_ROOT` (honored by `electron/main/index.ts:88,270`).
 
-**Design note:** AGENTS.md:159–160 require e2e for new user-visible behavior, extending (not replacing) the suite. The whole e2e suite is **currently skip-blocked** by a documented Playwright + Electron 41 preload timing issue (`window.ai14all` not surfaced — see the header of `tests/e2e/review-mcp.test.ts`); this test carries the same `describe.skip` for consistency, but its harness and assertions are **real** and run once that issue is resolved. Two real seams make seeding deterministic and observable without the renderer: `AI14ALL_WHISPER_STATE_ROOT` (the insights reader reads `<root>/state.db` — `index.ts:270,346`) and `AI14ALL_USER_DATA_PATH` (where `<userData>/…/insights/insights.db` lands). Capture, stop-on-disable, and deletion are all **filesystem-observable**, so they are asserted directly.
+**Design note:** AGENTS.md:159–160 require e2e for new user-visible behavior — and a *skipped* test provides none. So this task splits in two: a **non-skipped, renderer-independent** test that launches the built app and asserts capture + consent-stop purely from the filesystem (no `window.ai14all` needed), and a **skip-gated** renderer test for the notice/toggle/delete UI, which depends on the bridge currently blocked by the documented Playwright+Electron 41 preload issue (see `review-mcp.test.ts`). Crucially, the stop assertion **alters the source** (swaps in a 2-workflow fixture) so a still-running worker *would* archive a new observation — proving capture actually stopped, not merely that idempotent polling wrote nothing. Concrete paths: `<AI14ALL_USER_DATA_PATH>/settings.json` and `<AI14ALL_USER_DATA_PATH>/insights/insights.db` (userData is set from that env at `index.ts:88`; the insights store sits directly under it).
 
-- [ ] **Step 1: Generate + commit the prebuilt whisper fixture**
+- [ ] **Step 1: Generate + commit two prebuilt whisper fixtures**
 
-The e2e process runs on the **Electron** ABI (`pretest:e2e` rebuilds `better-sqlite3` for Electron), so it cannot `require` the host-ABI module to build a fixture in-process. Generate the fixture once under the host ABI and commit the binary. Create `tests/e2e/fixtures/gen-whisper-state.ts`:
+The e2e process runs on the **Electron** ABI (`pretest:e2e` rebuilds `better-sqlite3` for Electron), so it cannot `require` the host-ABI module to build a fixture in-process. Generate both fixtures once under the host ABI and commit the binaries. Create `tests/e2e/fixtures/gen-whisper-state.ts` (ESM-safe — no `__dirname`):
 
 ```ts
-// tests/e2e/fixtures/gen-whisper-state.ts — run with host-ABI sqlite: `pnpm exec vitest run --no-threads` shim,
-// or `node scripts/rebuild-better-sqlite3-host.mjs && pnpm exec tsx tests/e2e/fixtures/gen-whisper-state.ts`
-import { join } from "node:path";
+// tests/e2e/fixtures/gen-whisper-state.ts
+// Run: node scripts/rebuild-better-sqlite3-host.mjs && pnpm exec tsx tests/e2e/fixtures/gen-whisper-state.ts
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { makeWhisperFixtureDb } from "../../unit/plugins/helpers/make-whisper-fixture-db.js";
 
-makeWhisperFixtureDb(join(__dirname, "whisper-state-v7.db"), {
-  schemaVersion: 7,
-  collabs: [{ collabId: "c1", workspaceRoot: "/tmp/e2e-repo", displayName: "r", status: "active" }],
-  workflows: [{ workflowId: "wf1", collabId: "c1", workflowType: "spec-driven-development", status: "done", currentPhaseIndex: 0, createdAt: "2026-07-19T00:00:00.000Z", updatedAt: "2026-07-19T00:05:00.000Z" }],
-  phases: [{ phaseRunId: "wf1:pa", workflowId: "wf1", phaseIndex: 0, phaseName: "impl", chainId: "ch1", startedAt: "2026-07-19T00:00:00.000Z", endedAt: "2026-07-19T00:05:00.000Z", outcome: "ok" }],
-});
+const HERE = dirname(fileURLToPath(import.meta.url));
+const wf = (id: string, over = {}) => ({ workflowId: id, collabId: "c1", workflowType: "spec-driven-development", status: "done", currentPhaseIndex: 0, createdAt: "2026-07-19T00:00:00.000Z", updatedAt: "2026-07-19T00:05:00.000Z", ...over });
+const ph = (run: string) => ({ phaseRunId: `${run}:pa`, workflowId: run, phaseIndex: 0, phaseName: "impl", chainId: "ch1", startedAt: "2026-07-19T00:00:00.000Z", endedAt: "2026-07-19T00:05:00.000Z", outcome: "ok" });
+const collabs = [{ collabId: "c1", workspaceRoot: "/tmp/e2e-repo", displayName: "r", status: "active" }];
+
+makeWhisperFixtureDb(join(HERE, "whisper-state-v7.db"),     { schemaVersion: 7, collabs, workflows: [wf("wf1")],           phases: [ph("wf1")] });
+makeWhisperFixtureDb(join(HERE, "whisper-state-v7-2wf.db"), { schemaVersion: 7, collabs, workflows: [wf("wf1"), wf("wf2")], phases: [ph("wf1"), ph("wf2")] });
 ```
 
-Run it once (`node scripts/rebuild-better-sqlite3-host.mjs && pnpm exec tsx tests/e2e/fixtures/gen-whisper-state.ts`) and `git add tests/e2e/fixtures/whisper-state-v7.db`.
+Run it once, then `git add tests/e2e/fixtures/whisper-state-v7.db tests/e2e/fixtures/whisper-state-v7-2wf.db`.
 
-- [ ] **Step 2: Write the e2e test (real harness + observable assertions)**
+- [ ] **Step 2: Write the e2e test (non-skipped capture/stop + skip-gated UI)**
 
 ```ts
 // tests/e2e/insights.test.ts
-import {
-  test, expect, _electron as electron,
-  type ElectronApplication, type Page,
-} from "@playwright/test";
-import { cpSync, existsSync, mkdtempSync, readdirSync, realpathSync, rmSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { test, expect, _electron as electron, type ElectronApplication } from "@playwright/test";
+import { cpSync, existsSync, mkdtempSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 import { closeApp } from "./fixtures/close-app";
 
-// Consistent with the suite-wide skip (Playwright+Electron 41 preload issue, see review-mcp.test.ts).
-test.describe.skip("insights capture (e2e)", () => {
-  let app: ElectronApplication | undefined;
-  let page: Page;
-  let repo: TestRepo;
-  let userDataDir: string;
-  let whisperRoot: string;
+const HERE = dirname(fileURLToPath(import.meta.url)); // ESM-safe; no __dirname
+// Complete-enough settings.json; omitted top-level fields fall back to schema defaults on parse.
+const disabledSettings = JSON.stringify({
+  version: 1,
+  usageTelemetry: { enabled: false, includeUntracked: false, chipRange: "week", insights: { enabled: false, noticeShown: true } },
+});
 
-  // Locate <userDataDir>/**/insights/insights.db without hardcoding the app's userData subdir.
-  const findStore = (): string | null => {
-    const walk = (dir: string): string | null => {
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
-        if (!e.isDirectory()) continue;
-        const p = join(dir, e.name);
-        if (e.name === "insights" && existsSync(join(p, "insights.db"))) return join(p, "insights.db");
-        const hit = walk(p);
-        if (hit) return hit;
-      }
-      return null;
-    };
-    try { return walk(userDataDir); } catch { return null; }
-  };
+let repo: TestRepo, userDataDir: string, whisperRoot: string;
+const storePath = () => join(userDataDir, "insights", "insights.db");
+const launch = (): Promise<ElectronApplication> => electron.launch({
+  args: ["out/main/index.js"],
+  env: { ...process.env, AI14ALL_E2E: "1", AI14ALL_E2E_PICK_PATH: repo.repoPath, AI14ALL_USER_DATA_PATH: userDataDir, AI14ALL_WHISPER_STATE_ROOT: whisperRoot },
+});
 
-  const launch = () => electron.launch({
-    args: ["out/main/index.js"],
-    env: {
-      ...process.env,
-      AI14ALL_E2E: "1",
-      AI14ALL_E2E_PICK_PATH: repo.repoPath,
-      AI14ALL_USER_DATA_PATH: userDataDir,
-      AI14ALL_WHISPER_STATE_ROOT: whisperRoot,
-    },
-  });
+test.beforeEach(() => {
+  repo = createTestRepo();
+  userDataDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-insights-ud-")));
+  whisperRoot = realpathSync(mkdtempSync(join(tmpdir(), "ofa-insights-wr-")));
+  cpSync(join(HERE, "fixtures", "whisper-state-v7.db"), join(whisperRoot, "state.db")); // 1 workflow
+});
+test.afterEach(() => {
+  rmSync(userDataDir, { recursive: true, force: true });
+  rmSync(whisperRoot, { recursive: true, force: true });
+});
 
-  test.beforeAll(async () => {
-    repo = createTestRepo();
-    userDataDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-insights-ud-")));
-    whisperRoot = realpathSync(mkdtempSync(join(tmpdir(), "ofa-insights-wr-")));
-    cpSync(join(__dirname, "fixtures", "whisper-state-v7.db"), join(whisperRoot, "state.db"));
-    app = await launch();
-    page = await app.firstWindow();
-  });
+// RUNS (renderer-independent). Proves capture, then that disabling consent stops it even when the
+// source GAINS a workflow — i.e. no-new-capture, not merely idempotent idle.
+test("captures on consent; a disabled relaunch does not archive newly-added source workflows", async () => {
+  let app = await launch();
+  await app.firstWindow();
+  await expect.poll(() => existsSync(storePath()), { timeout: 20_000 }).toBe(true);
+  const before = statSync(storePath());
+  await closeApp(app);
 
-  test.afterAll(async () => {
-    await closeApp(app);
-    rmSync(userDataDir, { recursive: true, force: true });
-    rmSync(whisperRoot, { recursive: true, force: true });
-  });
+  writeFileSync(join(userDataDir, "settings.json"), disabledSettings);                       // consent OFF
+  cpSync(join(HERE, "fixtures", "whisper-state-v7-2wf.db"), join(whisperRoot, "state.db"));  // ALTER source
 
-  test("captures, notice once, stops on disable, deletes DB+WAL+SHM", async () => {
-    // 1. First capture within a poll interval — store file appears (filesystem-observable, no renderer needed).
-    await expect.poll(() => findStore() != null, { timeout: 15_000 }).toBe(true);
-    const storePath = findStore()!;
+  app = await launch();
+  await app.firstWindow();
+  await new Promise((r) => setTimeout(r, 8_000));                                            // several poll intervals
+  const after = statSync(storePath());
+  await closeApp(app);
 
-    // 2. Notice appears; acknowledge it.
+  expect(after.mtimeMs).toBe(before.mtimeMs); // worker never ran → the 2nd workflow was never archived
+  expect(after.size).toBe(before.size);
+});
+
+// SKIP-gated: needs the renderer bridge (window.ai14all), blocked by the documented
+// Playwright+Electron 41 preload issue (see review-mcp.test.ts). Real assertions, ready to un-skip.
+test.describe.skip("insights UI (renderer-dependent)", () => {
+  test("notice once, durable after ack, and delete-all removes DB+WAL+SHM", async () => {
+    let app = await launch();
+    let page = await app.firstWindow();
     await expect(page.getByRole("status")).toContainText("usage insights");
     await page.getByRole("button", { name: /dismiss/i }).click();
 
-    // 3. Relaunch → notice does NOT reappear (noticeShown persisted after ack — durable across restart).
     await closeApp(app); app = await launch(); page = await app.firstWindow();
     await page.waitForTimeout(5_000);
-    await expect(page.getByRole("status")).toHaveCount(0);
+    await expect(page.getByRole("status")).toHaveCount(0); // durable suppression after ack
 
-    // 4. Disable via Settings → capture stops (store size stable across two poll intervals).
     await page.getByRole("button", { name: /settings/i }).click();
-    await page.getByRole("checkbox", { name: /usage insights/i }).uncheck();
-    const sizeA = statSync(storePath).size;
-    await page.waitForTimeout(7_000);
-    expect(statSync(storePath).size).toBe(sizeA);
-
-    // 5. Delete insights data → the whole store (db + WAL + SHM) is removed.
     await page.getByRole("button", { name: /delete insights data/i }).click();
-    await expect.poll(
-      () => existsSync(storePath) || existsSync(`${storePath}-wal`) || existsSync(`${storePath}-shm`),
-      { timeout: 5_000 },
-    ).toBe(false);
+    const p = storePath();
+    await expect.poll(() => existsSync(p) || existsSync(`${p}-wal`) || existsSync(`${p}-shm`), { timeout: 5_000 }).toBe(false);
+    await closeApp(app);
   });
 });
 ```
 
-- [ ] **Step 3: Run the e2e test**
+- [ ] **Step 3: Run the e2e**
 
 Run: `pnpm test:e2e insights`
-Expected: skipped (consistent with the suite) but compiling and lint-clean; when the suite-wide preload issue is resolved, un-skip and it PASSes. (`pretest:e2e` runs `electron-rebuild` for the Electron ABI; `posttest:e2e` restores the host ABI.)
+Expected: the capture/stop test PASSES; the renderer UI test is skipped (consistent with the suite until the preload issue is resolved). (`pretest:e2e` rebuilds for the Electron ABI; `posttest:e2e` restores the host ABI.)
 
-- [ ] **Step 4: Full suite + typecheck + lint**
+- [ ] **Step 4: Build guard + full suite + typecheck + lint**
 
-Run: `pnpm typecheck && pnpm lint && pnpm test`
-Expected: all green (unit suite on host ABI). Then `pnpm test:e2e` green (Electron ABI).
+Run `pnpm build`, then verify the worker artifact exists (Task 10's Vite input):
+
+```bash
+test -f out/main/insights-worker.js || { echo "MISSING out/main/insights-worker.js — add it to electron.vite.config.ts input"; exit 1; }
+```
+
+Then: `pnpm typecheck && pnpm lint && pnpm test` (unit suite, host ABI) and `pnpm test:e2e` (Electron ABI).
+Expected: all green; `out/main/insights-worker.js` present.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tests/e2e/insights.test.ts tests/e2e/fixtures/gen-whisper-state.ts tests/e2e/fixtures/whisper-state-v7.db
-git commit -m "test(insights): e2e coverage for notice, disable toggle, and delete-all (DB/WAL/SHM removal)"
+git add tests/e2e/insights.test.ts tests/e2e/fixtures/gen-whisper-state.ts tests/e2e/fixtures/whisper-state-v7.db tests/e2e/fixtures/whisper-state-v7-2wf.db
+git commit -m "test(insights): e2e capture + consent-stop (altered source) and skip-gated notice/delete (DB/WAL/SHM)"
 ```
 
 ---
@@ -2256,4 +2348,4 @@ git commit -m "test(insights): e2e coverage for notice, disable toggle, and dele
 ## Execution notes
 
 - Tasks 1–9 are pure host-Node modules — fully TDD-able with `pnpm test`. Tasks 10–13 touch Electron/renderer; unit-test the extracted cores (host, IPC registrar, notice component) and cover the wired flow in Task 14's e2e.
-- Round-4 review fixes are folded in: the privacy guard is recursive over the full persisted set (Task 3), provenance stamps the source DB's real `user_version` (Task 8), the settings test drives the real `SettingsService` against a temp file (Task 11), startup wiring reuses the `usageSettings` bridge + public `writeState` instead of the private `SettingsService.current` (Task 12), the Settings controls use the dialog's real `update` helper (Task 13), and the e2e uses real harness code with filesystem-observable capture/stop/delete assertions plus a committed fixture (Task 14). The only implementer discretion left is the exact insertion point of `new InsightsHost(...)` beside `new UsageHost(...)` in `electron/main/index.ts`, and un-skipping the e2e once the suite-wide Playwright+Electron preload issue is resolved.
+- Review fixes through round 5 are folded in: recursive privacy guard over the full persisted set (Task 3); provenance stamps the source DB's real `user_version` (Task 8); real-`SettingsService` settings tests including the outer default (Task 11); startup wiring reuses the `usageSettings` bridge + public `writeState` (never private `current`), the worker is a Vite build input, and its `require` is now an import (Tasks 10, 12); capture is gated only by the main-side derived `applyInsightsConsent` (no renderer-driven `setEnabled`), and the notice has a host-local at-most-once guard + fresh `readStateSync` so ack stops re-delivery (Tasks 10, 12); the UI targets the real `window.ai14all`/`Ai14AllDesktopApi` contract (Tasks 12, 13); the reader carries a source-unchanged read-only regression test (Task 7); and the e2e has a **non-skipped**, renderer-independent capture/consent-stop test (an altered source proves no-new-capture) plus a build guard for `out/main/insights-worker.js` (Task 14). The only implementer discretion left is the exact insertion point of `new InsightsHost(...)` beside `new UsageHost(...)` in `electron/main/index.ts`, and un-skipping the renderer-dependent UI e2e once the suite-wide Playwright+Electron preload issue is resolved.
