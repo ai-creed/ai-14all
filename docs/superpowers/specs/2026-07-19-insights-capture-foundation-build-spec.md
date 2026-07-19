@@ -95,7 +95,8 @@ CREATE INDEX idx_obs_source_ts  ON observations (source, event_ts);
 Design notes:
 - **No stored "duration."** The labeled measures (`observed_usage_span_ms`, `provider_compute_ms`, …) are derived on read from `occurred_start`/`occurred_end`/payload, never persisted as one ambiguous field (exploration §3.2a).
 - **No content, ever.** No prompts, responses, terminal output, or file contents. `payload` holds only content-free structured facts (statuses, counts, ids, timestamps).
-- **Promoted vs payload.** Columns are the fields we query/join/index across kinds; kind-specific detail lives in `payload`. A registered zod schema per `kind` validates `payload` at write time in the worker; an unregistered kind or an invalid payload is a hard write error (never a silent junk row).
+- **Promoted vs payload.** Columns are the fields we query/join/index across kinds; kind-specific detail lives in `payload`. A registered `.strict()` zod schema per `kind` validates `payload` at write time in the worker; an unregistered kind or an invalid payload is a hard write error (never a silent junk row).
+- **Path privacy is enforced, not assumed.** Workspace attribution is stored as an opaque `repo_id` + repo-relative `workspace_rel` + basename `workspace_label` via the §7.6 resolver, and a write-time guard rejects any absolute-filesystem-path string in any column or `payload` leaf. See §7.6.
 
 ### 4.3 Coverage and meta tables
 
@@ -232,7 +233,20 @@ The notice is informational, not a second consent gate (consent already defaulte
 
 ### 7.6 Path handling
 
-Store `repo_id` = a stable hash of the absolute repo root, `workspace_rel` = repo-relative path, and (for the future UI) a human `workspace_label` derived from the workspace root's basename kept only in `payload`. **No absolute home paths in the promoted analytics columns.** No file/spec *contents* ever; whisper's `workflow_type` and phase names are metadata, not content, and may be stored. Hashing/redaction of the human label is deferred until export or cross-machine sync exists (both out of scope — exploration §10).
+Path and identity handling is a **privacy invariant with an enforced write guard**, not a convention. Three parts, each test-pinned (§13):
+
+**1. Workspace identity resolver.** `collab.workspace_root` is an absolute path and must never be stored raw. A resolver `resolveWorkspaceIdentity(workspaceRoot)` (`services/insights/store/path-identity.ts`, **filesystem-only** so it is host-Node-testable and needs no `git` binary) maps it to content-free identity:
+- Discover the enclosing repo by walking up for a `.git` entry. If `.git` is a **file** (a linked worktree), read its `gitdir:` pointer and follow it to the **common** git dir; the canonical repo root is that common dir's parent. If `.git` is a **directory**, the canonical repo root is the directory containing it. The **worktree root** is the directory holding the `.git` entry.
+- `repo_id` = a stable hash (SHA-256 → first 16 hex) of the canonical repo root's realpath. Opaque and group-able; the path itself is never stored.
+- `workspace_rel` = the worktree root relative to the canonical repo root when it is inside it (`""` for the main tree, e.g. `.worktrees/dashboard-design` for a nested worktree). If the worktree is **outside** the repo root (a linked worktree elsewhere on disk), store only its **basename** — never a `..`-escaping or absolute path.
+- `branch` = the worktree's current branch (from `.git/HEAD`), the worktree snapshot the productivity thesis needs (exploration §6.3).
+- **Fallback:** if `workspace_root` is in no git repo, `repo_id` = hash of its realpath and `workspace_rel` = its basename — still no absolute path in any column.
+
+**2. Payload allowlist.** Each per-kind zod payload schema is `.strict()` — an **allowlist** that rejects unknown keys at write — so whisper fields are copied by explicit enumeration, never by spreading a row. `spec_path`, `name`, `workflow_context`, `role_bindings`, and any handoff/request/handback text are **excluded**: `spec_path` is a filesystem path and the rest can carry free-text content. Only content-free metadata is allowed: `workflow_type`, `status`, `halt_reason`, `collab_id`, `workflow_id`, `phase_run_id`, `phase_name`, `phase_index`, `outcome`, `chain_id`, and the basename-only `workspace_label`.
+
+**3. Absolute-path write guard.** The store's insert path runs a final assertion over **every** string value — promoted columns and every leaf of `payload` — that **rejects any absolute-filesystem-path shape** (matching `^(/|~|[A-Za-z]:[\\/])` or a UNC `\\` prefix) as a hard write error. This turns "no absolute path in any row" (§14.6) into an enforced, regression-tested invariant rather than a spot-check. No prompt/response/terminal/file **content** is ever stored; whisper's `workflow_type` and phase names are metadata, not content, and are permitted.
+
+Hashing/redaction of the basename `workspace_label` is deferred until export or cross-machine sync exists (both out of scope — exploration §10); until then the label is local-only and basename-only.
 
 ## 8. Delivery — idempotent writes (the half this slice exercises)
 
@@ -258,7 +272,7 @@ The **insights worker** opens its own read-only whisper reader and runs its own 
 
 ### 10.3 Observation mapping
 
-- **`whisper.workflow`** per run: `subject_id = <workflow_id>`, `event_ts = updated_at`, `occurred_start = created_at`, `occurred_end =` **the run's terminal timestamp** `= max(workflow_phases.ended_at)` when the run is in a terminal `status`, else `NULL` (exploration §3.2b prefers max-phase-end over `updated_at` for a precise run end; capturing it onto the workflow observation lets the view read one authoritative end without re-maxing phase rows), `ts_precision='exact'`, `source='whisper-archiver'`, `schema_version = user_version`, `origin='n/a'`, `repo_id`/`workspace_rel` from `collab.workspace_root`; `payload = { collab_id, workflow_type, status, halt_reason, workspace_label }`.
+- **`whisper.workflow`** per run: `subject_id = <workflow_id>`, `event_ts = updated_at`, `occurred_start = created_at`, `occurred_end =` **the run's terminal timestamp** `= max(workflow_phases.ended_at)` when the run is in a terminal `status`, else `NULL` (exploration §3.2b prefers max-phase-end over `updated_at` for a precise run end; capturing it onto the workflow observation lets the view read one authoritative end without re-maxing phase rows), `ts_precision='exact'`, `source='whisper-archiver'`, `schema_version = user_version`, `origin='n/a'`, `repo_id`/`workspace_rel`/`branch` resolved from `collab.workspace_root` via the §7.6 resolver (never the raw path); `payload = { collab_id, workflow_type, status, halt_reason, workspace_label }` (allowlisted; basename-only label; `spec_path`/`name`/`workflow_context` are **excluded** per §7.6).
 - **`whisper.phase`** per phase: `subject_id = <phase_run_id>` (the whisper `workflow_phases` primary key — globally unique; `phase_name` is **not** unique, so it must not be the identity), `occurred_start = started_at`, `occurred_end = ended_at`, `event_ts = ended_at ?? started_at`, `payload = { run_id, phase_run_id, phase_name, phase_index, outcome, chain_id }` (`run_id = <workflow_id>` so the view can group current phase snapshots per run).
 - `event_id` per §8.
 
@@ -291,6 +305,7 @@ services/insights/                     -- host-Node-testable core (no Electron)
     observations.ts                    -- typed insert (idempotent), payload validation registry
     payload-schemas.ts                 -- per-kind zod schemas ('whisper.workflow'|'whisper.phase')
     views.ts                           -- whisper_runs derivation + getWhisperRuns
+    path-identity.ts                   -- resolveWorkspaceIdentity() + absolute-path write guard (§7.6)
   whisper/
     archiver.ts                        -- poll loop, mapping, idempotent write, coverage update
   retention.ts                         -- prune (constants)
@@ -328,6 +343,8 @@ The `whisper-store-reader` extension is reused by the worker's reader; keep the 
 - **Delete-all while disabled (no worker running)** → the host deletes the `insights/` directory directly, no worker required (§7.4); succeeds and is idempotent.
 - **First-capture message lost before delivery** → `meta.first_capture_at` is set but `noticeShown` stays false, so the next worker start's `status` re-drives delivery (§7.3); the notice is guaranteed, not dropped.
 - **Retention prunes a fully-aged UTC day** → both its `observations` and its `coverage` row are deleted in lockstep on the day cutoff (§7.5), so `getWhisperRuns` completeness for that day is `unknown`, never a false `complete`.
+- **Workspace root is a linked worktree, or not a git repo at all** → the §7.6 resolver still yields an opaque `repo_id` plus a repo-relative-or-basename `workspace_rel` and basename label; a linked worktree's `.git` *file* `gitdir:` pointer resolves to the common repo's `repo_id`; a non-git path falls back to a hashed `repo_id` + basename. No absolute path is ever stored.
+- **A whisper field carries an absolute path or free-text content** (e.g. `spec_path`) → the strict payload allowlist drops it and the absolute-path write guard rejects any absolute-path string that slips into any column or payload leaf (§7.6); the write fails loudly rather than persisting it.
 - **ABI mismatch** (`NODE_MODULE_VERSION`) → caught by the test harness rebuild step; document the rebuild in the module README.
 - **Clock/timezone** → all timestamps stored as ms epoch UTC; day bucketing for `coverage` uses a defined local-vs-UTC rule (pick UTC for stability; note it).
 
@@ -347,6 +364,7 @@ Runs on the host-Node ABI (`scripts/rebuild-better-sqlite3-host.mjs` before vite
 - **Delete-all:** removes the `insights/` directory; idempotent when absent. **Disable → delete-all:** with the worker already stopped (consent off), delete-all still removes the store via the host-owned path (§7.4).
 - **First-capture notice (delivery, not just emission):** `meta.first_capture_at` is set durably at first capture; a **crash / lost `firstCapture` message injected between the `meta` commit and delivery** still yields delivery on the next worker start (driven by `firstCaptureAt` in `status`); `noticeShown` persists **only** after a renderer `insights:noticeAck`, so the notice is delivered at-least-once and then terminated exactly once. An **e2e test** covers the flow — notice appears, post-ack never reappears, the Settings toggle stops capture, delete-all clears the store — extending (not replacing) the existing suite (AGENTS.md:159–160).
 - **Retention prune (observations + coverage in lockstep):** an observation older than `OBSERVATION_RETENTION_DAYS` is deleted by the prune on worker start and `whisper_runs` reflects it; the pruned day's `coverage` row is deleted in the same pass, so `getWhisperRuns` completeness for that day is `unknown`, **not** a false `complete` — the reviewer's retention-vs-completeness case.
+- **Path/identity privacy (the reviewer's gap):** `resolveWorkspaceIdentity` maps a fixture `workspace_root` to an opaque `repo_id` (stable hash — assert it is not the path and is deterministic), a repo-relative `workspace_rel` (no leading `/`, no home dir), and a basename-only `workspace_label`; a **linked-worktree** fixture (a `.git` *file* with a `gitdir:` pointer) resolves to the **common** repo's `repo_id` with a basename/relative `workspace_rel`; a **non-git** path falls back to a hashed `repo_id` + basename. A **prohibited-payload** test asserts the strict allowlist drops `spec_path`/`name`/`workflow_context` and that the absolute-path write guard **rejects** a payload (or column) carrying any absolute path, so **no stored row — promoted column or payload leaf — contains an absolute path or a `spec_path`-like field**.
 - **Provenance:** every written row has non-null `source`, `ts_precision`, `parser_version`, `schema_version`, `ingested_at`.
 
 ## 14. Acceptance criteria (definition of done for this slice)
@@ -356,7 +374,7 @@ Runs on the host-Node ABI (`scripts/rebuild-better-sqlite3-host.mjs` before vite
 3. Whisper's DB is never written to (verified: read-only open, no `INSERT`/`UPDATE`/`PRAGMA`-write against it).
 4. Consent off (either toggle) → no worker, no store, no capture. **Delete-all succeeds even after disabling** (host-owned, no worker required), removes the store, and is idempotent.
 5. The one-time notice is **delivered at least once and then exactly once** — driven by the durable `meta.first_capture_at`, re-attempted on every worker start until a renderer `insights:noticeAck` persists `noticeShown = true`, so a crash or lost message between capture and delivery cannot drop it — links to a working disable toggle and delete-all action in Settings, and is covered by the e2e suite (AGENTS.md:159).
-6. Every observation carries full provenance; no row stores content or an absolute home path.
+6. Every observation carries full provenance; no row — promoted column or payload leaf — stores content or an absolute path. Enforced by the §7.6 resolver (opaque `repo_id`, repo-relative `workspace_rel`, basename label), the strict payload allowlist (excluding `spec_path`/free-text fields), and the absolute-path write guard, each covered by a test (§13).
 7. The full test suite (§13) passes on the host-Node ABI, and the app still builds/runs on the Electron ABI.
 8. `whisper_runs` is correct under the append-on-change log: a run observed running-then-terminal (including a phase that went running→ended) yields exactly one row; phases are keyed by `phase_run_id`, so each phase counts once and two same-named phase runs count as two; `duration_ms` comes from the run's terminal timestamp.
 9. `getWhisperRuns(range)` uses half-open UTC start-time inclusion, so every run lands in exactly one period and boundary runs are never double-counted.
@@ -365,6 +383,7 @@ Runs on the host-Node ABI (`scripts/rebuild-better-sqlite3-host.mjs` before vite
 ## 15. Risks
 
 - **Whisper id scheme** — resolved against the real schema (`make-whisper-fixture-db.ts`): `workflow_id` is the `workflows` PK and `phase_run_id` the `workflow_phases` PK (both globally unique), so `subject_id` uses them directly; `phase_name` is non-unique and must never serve as an identity (§4.5, §10.3).
+- **Path/content leakage** — whisper rows carry an absolute `workspace_root` and a `spec_path`; a naive copy would leak them into a durable analytics store. Neutralized by the §7.6 resolver (opaque `repo_id` + repo-relative `workspace_rel`), the strict payload allowlist, and the absolute-path write guard — all test-pinned (§13).
 - **Settings deep-merge regression** — the deeper `insights` nest can silently reset sibling fields if the patch guard is not extended (§7.1); covered by a targeted test.
 - **Second utility process cost** — one more `utilityProcess`; acceptable, and it exists only while consent is on.
 - **View performance** — the `whisper_runs` current-revision window over `observations` may need supporting indexes or a promoted/materialized-column refactor as history grows; revisit if a query is slow. Its *correctness* is pinned by the §4.5 derivation rules and their tests (§13), so any perf refactor must preserve deterministic current-revision selection, once-per-phase counting, and terminal-timestamp duration.
