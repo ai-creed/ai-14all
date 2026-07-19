@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
  * Each entry pairs the glyph the non-TUI palettes already use (`fallback`)
  * with the Nerd Font codepoint shown in every theme (`nf`). Nerd Font
  * codepoints live in the Private Use Area and are supplied by the "Symbols
- * Nerd Font" face (see src/app/shell.css). Every theme renders the Nerd Font
+ * Nerd Font" face (see src/styles/base.css). Every theme renders the Nerd Font
  * glyph; `fallback` is retained as the source-of-truth character and for
  * copy/accessibility tooling.
  *

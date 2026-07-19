@@ -1,7 +1,0 @@
-/* Empty. Every rule that used to live in this file has been extracted into
- * src/styles/modules/*.css (sidebar, terminals, review, files, viewer,
- * dialogs, usage, plugins, md-preview, primitives) or src/styles/base.css,
- * across 11 slices of the shell.css/tui.css modularization
- * (docs/superpowers/specs/2026-07-19-shell-css-modularization-design.md).
- * This file and its temporary unlayered import in src/styles/index.css are
- * deleted at teardown (Task 12) — nothing further should be added here. */

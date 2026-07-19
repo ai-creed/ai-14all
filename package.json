@@ -14,7 +14,7 @@
 		"dev": "electron-vite dev",
 		"build": "electron-vite build",
 		"preview": "electron-vite preview",
-		"lint": "eslint .",
+		"lint": "eslint . && node scripts/ci/check-css-architecture.mjs",
 		"lint:fix": "eslint . --fix",
 		"format": "prettier --check .",
 		"format:write": "prettier --write .",

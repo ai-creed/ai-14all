@@ -84,6 +84,19 @@ Do not put renderer implementation types into `shared/`. The `shared/` layer mus
 - Test file names mirror their source: `SessionSidebar.tsx` → `tests/unit/workspace/SessionSidebar.test.tsx`, `use-theme.ts` → `tests/unit/lib/use-theme.test.ts`.
 - For pure-logic modules, place the test next to its source domain.
 
+## Styling architecture (CSS)
+
+Read `docs/shared/styling-architecture.md` before touching any CSS. Summary:
+new styles go in the owning feature module under `src/styles/modules/`
+(never a new catch-all file, never a CSS import in `main.tsx` —
+`src/styles/index.css` is the only entry). Modules wrap their rules in
+top-level `@layer app.components` / `@layer app.themes` blocks and are
+imported plainly — never with `layer(...)` (nested-layer pitfall). Theme
+color/value variance goes through tokens in `src/styles/tokens.css` ONLY;
+structural per-theme rules go in the owning module's `@layer app.themes`
+block. `scripts/ci/check-css-architecture.mjs` (part of `pnpm lint`)
+enforces this; if it fails, fix the placement, don't relax the script.
+
 ## Product Boundaries
 
 V1 assumptions:

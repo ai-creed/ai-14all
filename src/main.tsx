@@ -9,7 +9,7 @@ import { CommandRegistryProvider } from "./features/command-palette/components/C
 import { installKnownRendererErrorHandler } from "./app/logic/known-renderer-errors.js";
 // Self-hosted reading font for markdown document bodies (spec D18):
 // registers the "Hanken Grotesk Variable" font-face; consumed via
-// --font-reading in shell.css. No network fetch — works packaged.
+// --font-reading in base.css. No network fetch — works packaged.
 import "@fontsource-variable/hanken-grotesk/index.css";
 // All app CSS flows through the single cascade authority. Do NOT add other
 // CSS imports here — see src/styles/index.css and docs/shared/styling-architecture.md.

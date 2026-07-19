@@ -19,6 +19,4 @@
 @import "./modules/plugins.css";
 @import "./modules/md-preview.css";
 @import "./modules/primitives.css";
-@import "../app/shell.css"; /* unlayered — temporary until slices empty it */
-@import "./tui.css"; /* unlayered — temporary until slices empty it */
-@import "./hljs-tokens.css"; /* unlayered — switches to layer(app.components) at teardown */
+@import "./hljs-tokens.css" layer(app.components);
