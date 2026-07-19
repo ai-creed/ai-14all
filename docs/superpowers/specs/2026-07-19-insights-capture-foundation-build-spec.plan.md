@@ -1545,7 +1545,7 @@ function fakeProc() {
 }
 
 describe("InsightsHost", () => {
-  it("deletes the store directory even when disabled (no worker)", async () => {
+  it("delete-all is host-owned, idempotent, and safe when the store is absent (even while disabled)", async () => {
     const userDataDir = ud();
     const insightsDir = join(userDataDir, "insights");
     mkdirSync(insightsDir, { recursive: true });
@@ -1554,10 +1554,21 @@ describe("InsightsHost", () => {
       userDataDir, whisperDbPath: null, pollIntervalMs: 3000,
       forkWorker: () => fakeProc(), send: () => {}, loadNoticeShown: () => false, persistNoticeShown: () => {},
     });
-    // disabled → no worker
-    host.setEnabled(false);
-    await host.deleteAll();
+    host.setEnabled(false); // disabled → no worker
+
+    await host.deleteAll();                                    // 1st call: removes the store
     expect(existsSync(insightsDir)).toBe(false);
+    await expect(host.deleteAll()).resolves.toBeUndefined();   // 2nd call: dir already gone → resolves, no throw
+    expect(existsSync(insightsDir)).toBe(false);
+
+    // A store that NEVER existed: delete-all still resolves and leaves nothing (rm force:true).
+    const freshUserData = ud();
+    const freshHost = new InsightsHost({
+      userDataDir: freshUserData, whisperDbPath: null, pollIntervalMs: 3000,
+      forkWorker: () => fakeProc(), send: () => {}, loadNoticeShown: () => false, persistNoticeShown: () => {},
+    });
+    await expect(freshHost.deleteAll()).resolves.toBeUndefined();
+    expect(existsSync(join(freshUserData, "insights"))).toBe(false);
   });
 
   it("does not fork a worker while disabled (master kill / opt-out)", () => {
@@ -2490,4 +2501,4 @@ git commit -m "test(insights): e2e capture + WAL-aware consent-stop, durable-ack
 ## Execution notes
 
 - Tasks 1–9 are pure host-Node modules — fully TDD-able with `pnpm test`. Tasks 10–13 touch Electron/renderer; unit-test the extracted cores (host, IPC registrar, notice component) and cover the wired flow in Task 14's e2e.
-- Review fixes through round 7 are folded in: recursive privacy guard over the full persisted set (Task 3); provenance stamps the source DB's real `user_version` (Task 8); real-`SettingsService` settings tests including the outer default (Task 11); startup wiring reuses the `usageSettings` bridge + public `writeState` (never private `current`), the worker is a Vite build input, and its `require` is now an import (Tasks 10, 12); the spec-required `insights.setEnabled` API is preserved and its handler uses the **extracted, exported `makeSetInsightsEnabled`** closure — persist the sub-setting, then derive effective consent server-side — with a master-kill test that exercises the **real** closure against a temp-file `SettingsService` (Task 12); the notice separates an **in-process `acknowledged` guard** (never reset on `stop()`) from the per-worker `sessionNoticeSent` state, so an unacked notice re-delivers on the next worker start but a post-ack disable→re-enable cannot re-fire on a not-yet-flushed persist, and it **deep-links to Settings** via "Manage in Settings" (Tasks 10, 13); the UI targets the real `window.ai14all`/`Ai14AllDesktopApi` contract (Tasks 12, 13); the reader carries a source-unchanged read-only regression test (Task 7); and **three** e2e tests run — capture/consent-stop, **durable-ack across a relaunch** (before disable/delete), and a **live Settings toggle** that stops capture against an altered source — all fingerprinting db+WAL+SHM, plus a build guard for `out/main/insights-worker.js` (Task 14). The only implementer discretion left is the exact insertion point of `new InsightsHost(...)` beside `new UsageHost(...)` in `electron/main/index.ts`.
+- Review fixes through round 8 are folded in: recursive privacy guard over the full persisted set (Task 3); provenance stamps the source DB's real `user_version` (Task 8); real-`SettingsService` settings tests including the outer default (Task 11); startup wiring reuses the `usageSettings` bridge + public `writeState` (never private `current`), the worker is a Vite build input, and its `require` is now an import (Tasks 10, 12); the spec-required `insights.setEnabled` API is preserved and its handler uses the **extracted, exported `makeSetInsightsEnabled`** closure — persist the sub-setting, then derive effective consent server-side — with a master-kill test that exercises the **real** closure against a temp-file `SettingsService` (Task 12); the notice separates an **in-process `acknowledged` guard** (never reset on `stop()`) from the per-worker `sessionNoticeSent` state, so an unacked notice re-delivers on the next worker start but a post-ack disable→re-enable cannot re-fire on a not-yet-flushed persist, and it **deep-links to Settings** via "Manage in Settings" (Tasks 10, 13); the UI targets the real `window.ai14all`/`Ai14AllDesktopApi` contract (Tasks 12, 13); the reader carries a source-unchanged read-only regression test (Task 7); and **three** e2e tests run — capture/consent-stop, **durable-ack across a relaunch** (before disable/delete), and a **live Settings toggle** that stops capture against an altered source — all fingerprinting db+WAL+SHM, plus a build guard for `out/main/insights-worker.js` (Task 14); and the host-owned delete-all test now verifies **idempotence** (a second call on an already-deleted store) and the **absent-store** case (a store that never existed), both resolving and leaving no directory (Task 10). The only implementer discretion left is the exact insertion point of `new InsightsHost(...)` beside `new UsageHost(...)` in `electron/main/index.ts`.
