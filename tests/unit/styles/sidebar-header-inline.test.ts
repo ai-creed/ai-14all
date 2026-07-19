@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const css = readFileSync(
 	resolve(
 		dirname(fileURLToPath(import.meta.url)),
-		"../../../src/app/shell.css",
+		"../../../src/styles/modules/sidebar.css",
 	),
 	"utf8",
 );

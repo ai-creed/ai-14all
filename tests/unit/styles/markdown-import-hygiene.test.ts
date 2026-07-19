@@ -13,9 +13,15 @@ describe("markdown highlight import hygiene (spec D2/T4)", () => {
 		).not.toContain("highlight.js/styles");
 	});
 
-	it("main.tsx imports hljs-tokens.css and not hljs-light.css", () => {
+	it("main.tsx imports hljs-tokens.css (via the index.css cascade) and not hljs-light.css", () => {
 		const main = read("../../../src/main.tsx");
-		expect(main).toContain("./styles/hljs-tokens.css");
+		const indexCss = read("../../../src/styles/index.css");
+		// main.tsx now imports only the single cascade authority; hljs-tokens.css
+		// reaches the bundle through index.css's own import chain instead.
+		expect(main).toContain("./styles/index.css");
+		expect(indexCss).toContain(
+			'@import "./hljs-tokens.css" layer(app.components);',
+		);
 		expect(main).not.toContain("hljs-light.css");
 	});
 

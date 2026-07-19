@@ -4,13 +4,24 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const shell = readFileSync(resolve(here, "../../../src/app/shell.css"), "utf8");
+// --font-reading is defined once in base.css; md-preview.css only consumes it.
+const base = readFileSync(
+	resolve(here, "../../../src/styles/base.css"),
+	"utf8",
+);
+const shell = readFileSync(
+	resolve(here, "../../../src/styles/modules/md-preview.css"),
+	"utf8",
+);
 const main = readFileSync(resolve(here, "../../../src/main.tsx"), "utf8");
-const tui = readFileSync(resolve(here, "../../../src/styles/tui.css"), "utf8");
+// md-preview.css's `@layer app.themes` block is this module's slice of the
+// deleted tui.css (per-theme structural overrides); isolate it the same way
+// the old test read tui.css as its own file.
+const tui = shell.slice(shell.indexOf("@layer app.themes"));
 
 describe("markdown reading font (spec D18)", () => {
 	it("defines the --font-reading token with Hanken Grotesk first", () => {
-		expect(shell).toMatch(
+		expect(base).toMatch(
 			/--font-reading:[\s\S]{0,40}?"Hanken Grotesk Variable"/,
 		);
 	});

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const cssPath = resolve(
 	dirname(fileURLToPath(import.meta.url)),
-	"../../../src/app/shell.css",
+	"../../../src/styles/modules/review.css",
 );
 const railSrc = resolve(
 	dirname(fileURLToPath(import.meta.url)),

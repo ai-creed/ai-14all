@@ -3,13 +3,24 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const css = readFileSync(
-	resolve(
-		dirname(fileURLToPath(import.meta.url)),
-		"../../../src/app/shell.css",
-	),
-	"utf8",
-);
+// `.shell-list__item-row*`/`.shell-list__item-name` live in primitives.css;
+// `.shell-review-row-viewed` is review-specific and lives in review.css.
+// Concatenated so the shared `rule()` lookup below can find either.
+const css =
+	readFileSync(
+		resolve(
+			dirname(fileURLToPath(import.meta.url)),
+			"../../../src/styles/modules/primitives.css",
+		),
+		"utf8",
+	) +
+	readFileSync(
+		resolve(
+			dirname(fileURLToPath(import.meta.url)),
+			"../../../src/styles/modules/review.css",
+		),
+		"utf8",
+	);
 
 // Capture a single selector's declaration block, comments stripped.
 function rule(selector: string): string {
