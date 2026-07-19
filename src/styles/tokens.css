@@ -326,9 +326,9 @@
 	--pane-border-session-info: var(--panel-border);
 	--pane-border-terminal: var(--panel-border);
 	--pane-border-review: var(--panel-border);
-	/* Heavier chrome borders read as box-drawing rules. shell.css declares
-	 * `--shell-border-width: 1px` for the other palettes and draws every chrome
-	 * border with `var(--shell-border-width) solid …`; here it widens to 2px. */
+	/* Heavier chrome borders read as box-drawing rules. The 1px default for
+	 * `--shell-border-width` is declared above in :root block, and chrome
+	 * borders draw with `var(--shell-border-width) solid …`; here it widens to 2px. */
 	--shell-border-width: 2px;
 }
 

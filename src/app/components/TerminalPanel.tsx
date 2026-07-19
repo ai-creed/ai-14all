@@ -179,7 +179,7 @@ export function TerminalPanel(props: Props): React.ReactElement | null {
 						: null;
 					const isChild = slotIndex >= layout.masterSlots;
 					// Top-row slots have nothing stacked above them, so their
-					// header skips the bold separator border (see shell.css).
+					// header skips the bold separator border (see src/styles/modules/terminals.css).
 					const isTopRow = placement.gridRow.split("/")[0].trim() === "1";
 					return (
 						<div

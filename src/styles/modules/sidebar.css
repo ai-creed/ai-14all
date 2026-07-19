@@ -1566,8 +1566,8 @@
 		animation: tui-attention-blink 0.7s steps(1, end) infinite;
 	}
 
-	/* tui.css loads after shell.css, so its blink would otherwise override the
-	 * reduced-motion freezes shell.css declares in its own media block. */
+	/* tui.css loads after sidebar.css, so its blink would otherwise override the
+	 * reduced-motion freeze declared below. This @media block ensures freeze priority. */
 
 	@media (prefers-reduced-motion: reduce) {
 		[data-theme="tui"] .shell-sidebar__row[data-attention]::before,
