@@ -269,7 +269,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  assertNoAbsolutePaths, isAbsolutePathLike, resolveWorkspaceIdentity, sha256Short,
+  assertNoAbsolutePaths, assertNoAbsolutePathsDeep, isAbsolutePathLike, resolveWorkspaceIdentity, sha256Short,
 } from "../../../../services/insights/store/path-identity.js";
 
 const dirs: string[] = [];
@@ -288,6 +288,9 @@ describe("path identity", () => {
     for (const s of ["", ".worktrees/x", "repo-rel/dir", "n/a"]) expect(isAbsolutePathLike(s)).toBe(false);
     expect(() => assertNoAbsolutePaths(["ok", "/abs"])).toThrow();
     expect(() => assertNoAbsolutePaths(["ok", 123, null])).not.toThrow();
+    // Recursive guard: catches an absolute path nested in an object/array.
+    expect(() => assertNoAbsolutePathsDeep({ a: { b: ["ok", "/Users/x"] } })).toThrow();
+    expect(() => assertNoAbsolutePathsDeep({ a: { b: ["ok", "rel/dir"] }, c: 1, d: null })).not.toThrow();
   });
 
   it("resolves a normal repo to opaque id + empty rel + basename label", () => {
@@ -362,6 +365,15 @@ export function assertNoAbsolutePaths(values: Iterable<unknown>): void {
       throw new Error("insights: refusing to store an absolute-path-like value");
     }
   }
+}
+// Recursive: walks strings, arrays, and nested objects so no persisted leaf escapes the guard.
+export function assertNoAbsolutePathsDeep(value: unknown): void {
+  if (typeof value === "string") {
+    if (isAbsolutePathLike(value)) throw new Error("insights: refusing to store an absolute-path-like value");
+    return;
+  }
+  if (Array.isArray(value)) { for (const v of value) assertNoAbsolutePathsDeep(v); return; }
+  if (value && typeof value === "object") { for (const v of Object.values(value)) assertNoAbsolutePathsDeep(v); return; }
 }
 
 function realpathSafe(p: string): string {
@@ -488,7 +500,9 @@ describe("insertObservation", () => {
     }))).toThrow();
   });
 
-  it("rejects an absolute-path value anywhere (column or payload leaf)", () => {
+  it("rejects an absolute-path value in ANY persisted field (eventId/source/column/payload leaf)", () => {
+    expect(() => insertObservation(fresh(), base({ eventId: "/abs/evt" }))).toThrow(/absolute/);
+    expect(() => insertObservation(fresh(), base({ source: "/abs/src" }))).toThrow(/absolute/);
     expect(() => insertObservation(fresh(), base({ workspaceRel: "/Users/x/repo" }))).toThrow(/absolute/);
     expect(() => insertObservation(fresh(), base({
       payload: { collab_id: "c1", workflow_type: "sdd", status: "done", halt_reason: null, workspace_label: "/Users/x/wt" },
@@ -534,7 +548,7 @@ export const PAYLOAD_SCHEMAS: Record<string, z.ZodTypeAny> = {
 ```ts
 // services/insights/store/observations.ts
 import type Database from "better-sqlite3";
-import { assertNoAbsolutePaths } from "./path-identity.js";
+import { assertNoAbsolutePathsDeep } from "./path-identity.js";
 import { PAYLOAD_SCHEMAS } from "./payload-schemas.js";
 
 export interface ObservationInput {
@@ -560,8 +574,13 @@ export function insertObservation(db: Database.Database, obs: ObservationInput):
   const schema = PAYLOAD_SCHEMAS[obs.kind];
   if (!schema) throw new Error(`insights: unregistered kind ${obs.kind}`);
   const payload = schema.parse(obs.payload) as Record<string, unknown>;
-  // Guard: promoted string columns + every payload leaf value.
-  assertNoAbsolutePaths([obs.subjectId, obs.repoId, obs.workspaceRel, obs.branch, obs.provider, ...Object.values(payload)]);
+  // Guard EVERY persisted value: all promoted string columns AND every payload leaf
+  // (recursively). Passing `payload` as an object makes the deep walk cover nested leaves;
+  // eventId/source/tsPrecision/origin are included because they are persisted too.
+  assertNoAbsolutePathsDeep([
+    obs.eventId, obs.kind, obs.source, obs.subjectId, obs.tsPrecision, obs.origin ?? "n/a",
+    obs.provider ?? null, obs.repoId, obs.workspaceRel, obs.branch, payload,
+  ]);
   const info = db.prepare(SQL).run({
     event_id: obs.eventId, kind: obs.kind, source: obs.source, subject_id: obs.subjectId,
     event_ts: obs.eventTs, ts_precision: obs.tsPrecision,
@@ -1153,6 +1172,20 @@ describe("archiveOnce", () => {
     expect(getMeta(db, "first_capture_at")).toBe(String(now));
   });
 
+  it("stamps rows with the source DB's real user_version (v6, not a hardcoded default)", () => {
+    const repo = mkRepo();
+    const path = join(mkdtempSync(join(tmpdir(), "arch-v6-")), "state.db"); dirs.push(path);
+    makeWhisperFixtureDb(path, {
+      schemaVersion: 6,
+      collabs: [{ collabId: "c1", workspaceRoot: repo, displayName: "r", status: "active" }],
+      workflows: [{ workflowId: "wf1", collabId: "c1", workflowType: "spec-driven-development", status: "done", currentPhaseIndex: 0, createdAt: "2026-07-19T00:00:00.000Z", updatedAt: "2026-07-19T00:01:00.000Z" }],
+      phases: [{ phaseRunId: "wf1:pa", workflowId: "wf1", phaseIndex: 0, phaseName: "impl", chainId: "ch1", startedAt: "2026-07-19T00:00:00.000Z", endedAt: "2026-07-19T00:01:00.000Z", outcome: "ok" }],
+    });
+    const db = new Database(":memory:"); migrate(db);
+    archiveOnce(db, new WhisperStoreReader(path), { nowMs: Date.parse("2026-07-19T01:00:00.000Z") });
+    expect(db.prepare("SELECT DISTINCT schema_version FROM observations").all()).toEqual([{ schema_version: 6 }]);
+  });
+
   it("no-ops on an out-of-range / absent whisper DB", () => {
     const reader = new WhisperStoreReader("/no/such/state.db");
     const db = new Database(":memory:"); migrate(db);
@@ -1192,18 +1225,20 @@ function ms(iso: string | null): number | null {
 
 function workflowEventId(run: WhisperWorkflowRunRow, endMs: number | null): string {
   const phaseOutcomes = run.phases.map((p) => `${p.phaseRunId}:${p.outcome ?? ""}`).sort().join(",");
-  return sha256Short([run.workflowId, run.status, run.haltReason ?? "", String(endMs ?? ""), phaseOutcomes].join(" "), 24);
+  return sha256Short([run.workflowId, run.status, run.haltReason ?? "", String(endMs ?? ""), phaseOutcomes].join("\u0000"), 24);
 }
 function phaseEventId(runId: string, p: WhisperWorkflowRunRow["phases"][number]): string {
-  return sha256Short([p.phaseRunId, p.outcome ?? "", p.startedAt ?? "", p.endedAt ?? ""].join(" "), 24);
+  return sha256Short([p.phaseRunId, p.outcome ?? "", p.startedAt ?? "", p.endedAt ?? ""].join("\u0000"), 24);
 }
 
 export function archiveOnce(
   db: Database.Database,
-  reader: Pick<WhisperStoreReader, "listCollabIds" | "readAllWorkflows">,
-  opts: { nowMs: number; schemaVersion?: number },
+  reader: Pick<WhisperStoreReader, "listCollabIds" | "readAllWorkflows" | "readSchemaVersion">,
+  opts: { nowMs: number },
 ): { workflows: number; phases: number; firstCaptureAt: number | null } {
-  const schemaVersion = opts.schemaVersion ?? 7;
+  // Provenance: stamp each row with the SOURCE DB's real user_version, never a hardcoded
+  // default — a supported v6 whisper DB must be recorded as v6, not v7 (§5, §10.3).
+  const schemaVersion = reader.readSchemaVersion() ?? 0;
   let workflows = 0, phases = 0, wrote = false;
   const daysTouched = new Set<string>();
 
@@ -1288,7 +1323,7 @@ import { createInsightsWorkerCore } from "../../../services/insights/insights-wo
 import type { InsightsWorkerToMain } from "../../../services/insights/worker-protocol.js";
 
 function stubReader(collabs: string[] = []) {
-  return { listCollabIds: () => collabs, readAllWorkflows: () => [] };
+  return { listCollabIds: () => collabs, readAllWorkflows: () => [], readSchemaVersion: () => 7 };
 }
 
 describe("insights worker core", () => {
@@ -1300,6 +1335,7 @@ describe("insights worker core", () => {
     const reader = {
       listCollabIds: () => ["c1"],
       readAllWorkflows: () => [{ workflowId: "wf1", collabId: "c1", workspaceRoot: "/tmp/repo", workflowType: "sdd", status: "done", haltReason: null, createdAt: "2026-07-19T00:00:00Z", updatedAt: "2026-07-19T00:01:00Z", phases: [] }],
+      readSchemaVersion: () => 7,
     };
     const core = createInsightsWorkerCore({ db, reader: reader as any, now: () => now, post: (m) => posted.push(m) });
     core.tick();
@@ -1373,7 +1409,7 @@ import type { WhisperStoreReader } from "../plugins/whisper/whisper-store-reader
 
 export interface WorkerCoreDeps {
   db: Database.Database;
-  reader: Pick<WhisperStoreReader, "listCollabIds" | "readAllWorkflows">;
+  reader: Pick<WhisperStoreReader, "listCollabIds" | "readAllWorkflows" | "readSchemaVersion">;
   now: () => number;
   post: (msg: InsightsWorkerToMain) => void;
 }
@@ -1493,6 +1529,16 @@ describe("InsightsHost", () => {
     host.setEnabled(false);
     await host.deleteAll();
     expect(existsSync(insightsDir)).toBe(false);
+  });
+
+  it("does not fork a worker while disabled (master kill / opt-out)", () => {
+    const fork = vi.fn(() => fakeProc());
+    const host = new InsightsHost({
+      userDataDir: ud(), whisperDbPath: null, pollIntervalMs: 3000,
+      forkWorker: fork, send: () => {}, loadNoticeShown: () => false, persistNoticeShown: () => {},
+    });
+    host.setEnabled(false);
+    expect(fork).not.toHaveBeenCalled();
   });
 
   it("re-drives the notice on status.firstCaptureAt when noticeShown is false", () => {
@@ -1687,36 +1733,42 @@ git commit -m "feat(insights): InsightsHost (fork, gate, host-owned delete-all, 
 
 ```ts
 // tests/unit/services/settings/insights-settings.test.ts
-import { describe, expect, it } from "vitest";
-import { UsageTelemetrySettingsSchema } from "../../../../shared/models/persisted-workspace-state.js";
-import { DEFAULT_PERSISTED_SETTINGS, SettingsPatchSchema, PersistedSettingsV1Schema } from "../../../../shared/models/persisted-settings.js";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { SettingsService } from "../../../../services/settings/settings-service.js";
+import { isInsightsCaptureEnabled, UsageTelemetrySettingsSchema } from "../../../../shared/models/persisted-workspace-state.js";
 
-// Mirror of SettingsService.writeState()'s deep-merge, to prove the merge rule for insights.
-function merge(current: any, patch: any) {
-  return PersistedSettingsV1Schema.parse({
-    ...current, ...patch,
-    ...(patch.usageTelemetry ? { usageTelemetry: {
-      ...current.usageTelemetry, ...patch.usageTelemetry,
-      ...(patch.usageTelemetry.insights ? { insights: { ...current.usageTelemetry.insights, ...patch.usageTelemetry.insights } } : {}),
-    } } : {}),
-  });
-}
+const dirs: string[] = [];
+const service = () => { const d = mkdtempSync(join(tmpdir(), "ins-set-")); dirs.push(d); return new SettingsService(join(d, "settings.json"), join(d, "legacy.json")); };
+afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
+const t = (over = {}) => ({ enabled: true, includeUntracked: false, chipRange: "week" as const, insights: { enabled: true, noticeShown: false }, ...over });
 
 describe("insights settings", () => {
   it("defaults insights on, noticeShown false", () => {
     expect(UsageTelemetrySettingsSchema.parse({}).insights).toEqual({ enabled: true, noticeShown: false });
-    expect(DEFAULT_PERSISTED_SETTINGS.usageTelemetry.insights).toEqual({ enabled: true, noticeShown: false });
   });
 
-  it("a { insights: { enabled: false } } patch does NOT reset noticeShown", () => {
-    const current = { ...DEFAULT_PERSISTED_SETTINGS, usageTelemetry: { enabled: true, includeUntracked: false, chipRange: "week", insights: { enabled: true, noticeShown: true } } };
-    const patch = SettingsPatchSchema.parse({ usageTelemetry: { insights: { enabled: false } } });
-    const merged = merge(current, patch);
-    expect(merged.usageTelemetry.insights).toEqual({ enabled: false, noticeShown: true });
-    expect(merged.usageTelemetry.enabled).toBe(true); // sibling untouched
+  it("isInsightsCaptureEnabled honors the master kill (either toggle false → false)", () => {
+    expect(isInsightsCaptureEnabled(t())).toBe(true);
+    expect(isInsightsCaptureEnabled(t({ enabled: false }))).toBe(false);                             // global opt-out wins
+    expect(isInsightsCaptureEnabled(t({ insights: { enabled: false, noticeShown: false } }))).toBe(false);
+  });
+
+  it("the REAL SettingsService.writeState deep-merges insights, preserving noticeShown", async () => {
+    const s = service();
+    await s.readState(); // seed defaults into the temp file
+    await s.writeState({ usageTelemetry: { insights: { noticeShown: true } } });
+    await s.writeState({ usageTelemetry: { insights: { enabled: false } } }); // partial — must NOT reset noticeShown
+    const { settings } = await s.readState(); // reload from disk
+    expect(settings.usageTelemetry.insights).toEqual({ enabled: false, noticeShown: true });
+    expect(settings.usageTelemetry.enabled).toBe(true); // sibling untouched
   });
 });
 ```
+
+This test drives the **real** `SettingsService` against a temp file (not a local `merge()` copy), so it fails if the service shallow-merges — exactly the regression the reviewer flagged.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -1738,6 +1790,13 @@ export const UsageTelemetrySettingsSchema = z.object({
   chipRange: z.enum(["week", "month"]).default("week"),
   insights: InsightsSettingsSchema.default({ enabled: true, noticeShown: false }),
 });
+
+// Effective insights-capture consent: global telemetry AND the insights sub-toggle (master kill).
+// `UsageTelemetrySettings` is the existing exported `z.infer<typeof UsageTelemetrySettingsSchema>`
+// type in this file — reference it, do not redeclare it.
+export function isInsightsCaptureEnabled(t: UsageTelemetrySettings): boolean {
+  return t.enabled && t.insights.enabled;
+}
 ```
 
 In `shared/models/persisted-settings.ts`, extend the bare patch mirror (`UsageTelemetryPatchSchema` at `:68`) — bare optionals, no `.default()` (same reason documented there):
@@ -1852,13 +1911,14 @@ export function registerInsightsIpc(
 
 In `electron/main/ipc.ts` `registerIpcHandlers(...)`, add an `insightsHost?: InsightsHost` field to the options object (next to `usageHost?` at `:172`) and call `if (insightsHost) registerInsightsIpc(ipcMain, insightsHost);`. Import `registerInsightsIpc` and `InsightsHost` at the top. The `insights:notice` event is emitted by `InsightsHost` via the `send` seam it already receives (`mainWindow.webContents.send`), so no extra emit code is needed here.
 
-At app startup (where `UsageHost` is constructed — search for `new UsageHost(`), construct `InsightsHost` with:
-- `userDataDir` = the same `app.getPath("userData")` used for usage,
-- `whisperDbPath` = resolved via the whisper env probe (as `whisper-driver` does),
-- `send` = `(ch,p) => mainWindow.webContents.send(ch,p)`,
-- `loadNoticeShown` = `() => settingsService.current.usageTelemetry.insights.noticeShown`,
-- `persistNoticeShown` = `(v) => void settingsService.writeState({ usageTelemetry: { insights: { noticeShown: v } } })`.
-Gate it on effective consent: `insightsHost.setEnabled(s.usageTelemetry.enabled && s.usageTelemetry.insights.enabled)` at startup and on every `settings:write` (mirror the existing `usageHost.setEnabled` live-apply at `ipc.ts` `:588`).
+At app startup, construct `InsightsHost` right after `new UsageHost(...)` (`electron/main/index.ts:199`), **reusing the same `usageSettings` bridge** the usage host already uses (`electron/main/index.ts:185`–`208`). This avoids the private `SettingsService.current` field (`settings-service.ts:38` — it does **not** compile from outside the class); the bridge's `.settings` is the retained synchronous snapshot, exactly the source `loadSettings: () => usageSettings.settings` already uses.
+- `userDataDir` = the same `app.getPath("userData")` passed to `UsageHost`,
+- `whisperDbPath` = `join(whisperStateRoot, "state.db")` where `whisperStateRoot = process.env.AI14ALL_WHISPER_STATE_ROOT ?? join(homedir(), ".ai-whisper")` — the exact value already computed at `electron/main/index.ts:270` and used for the whisper reader at `:346`,
+- `send` = `(ch, p) => mainWindow.webContents.send(ch, p)` (the same seam `UsageHost` uses),
+- `loadNoticeShown` = `() => usageSettings.settings.insights.noticeShown` (retained snapshot; **never** `settingsService.current`),
+- `persistNoticeShown` = `(v) => void settingsService.writeState({ usageTelemetry: { insights: { noticeShown: v } } })` (public `writeState`, which deep-merges `insights` per Task 11).
+
+Gate on effective consent using the exported helper: call `insightsHost.setEnabled(isInsightsCaptureEnabled(usageSettings.settings))` at startup **and** on every `settings:write` (mirror the existing `usageHost.setEnabled` live-apply near `ipc.ts` `:588`). Import `isInsightsCaptureEnabled` from `../../shared/models/persisted-workspace-state.js`.
 
 In `electron/preload/index.ts`, add to the exposed API object (follow the existing `contextBridge.exposeInMainWorld` shape):
 
@@ -1894,9 +1954,10 @@ git commit -m "feat(insights): IPC handlers (setEnabled/deleteAll/noticeAck), no
 ## Task 13: Settings UI — insights toggle, delete action, first-capture notice
 
 **Files:**
-- Modify: `src/features/settings/components/SettingsDialog.tsx` (Usage section, ~`:203`)
+- Create: `src/features/settings/components/InsightsSettingsControls.tsx` (toggle + delete action; uses `useSettings().update`)
+- Modify: `src/features/settings/components/SettingsDialog.tsx` (Usage section, ~`:203` — mount `<InsightsSettingsControls />`)
 - Create: `src/app/components/InsightsNotice.tsx` (one-time notice surface) + mount it in the app chrome
-- Test: `tests/unit/features/settings/insights-controls.test.tsx` (component render/interaction with a stubbed `window.api.insights`)
+- Test: `tests/unit/features/settings/insights-controls.test.tsx` (renders both components with a stubbed `window.api.insights` + mocked `useSettings`)
 
 **Interfaces:**
 - Consumes: `window.api.insights` (Task 12), `settings.usageTelemetry.insights` (Task 11).
@@ -1907,10 +1968,16 @@ git commit -m "feat(insights): IPC handlers (setEnabled/deleteAll/noticeAck), no
 // tests/unit/features/settings/insights-controls.test.tsx
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+
+const update = vi.fn();
+const settings = { usageTelemetry: { enabled: true, includeUntracked: false, chipRange: "week", insights: { enabled: true, noticeShown: false } } };
+vi.mock("../../../../src/app/hooks/use-settings.js", () => ({ useSettings: () => ({ settings, update }) }));
+
 import { InsightsNotice } from "../../../../src/app/components/InsightsNotice.js";
+import { InsightsSettingsControls } from "../../../../src/features/settings/components/InsightsSettingsControls.js";
 
 describe("InsightsNotice", () => {
-  it("shows on notice, acks on dismiss, and does not reappear", () => {
+  it("shows on notice and acks on dismiss", () => {
     const ack = vi.fn();
     let fire: () => void = () => {};
     (globalThis as any).window.api = { insights: { ackNotice: ack, onNotice: (cb: () => void) => { fire = cb; return () => {}; } } };
@@ -1920,6 +1987,20 @@ describe("InsightsNotice", () => {
     expect(screen.getByRole("status")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /dismiss/i }));
     expect(ack).toHaveBeenCalled();
+  });
+});
+
+describe("InsightsSettingsControls", () => {
+  it("toggle persists via update() + applies effective consent; delete calls deleteAll", () => {
+    update.mockClear();
+    const setEnabled = vi.fn(); const deleteAll = vi.fn();
+    (globalThis as any).window.api = { insights: { setEnabled, deleteAll } };
+    render(<InsightsSettingsControls />);
+    fireEvent.click(screen.getByRole("checkbox", { name: /usage insights/i })); // toggle OFF
+    expect(update).toHaveBeenCalledWith({ usageTelemetry: { enabled: true, includeUntracked: false, chipRange: "week", insights: { enabled: false, noticeShown: false } } });
+    expect(setEnabled).toHaveBeenCalledWith(false); // effective = enabled(true) && checked(false)
+    fireEvent.click(screen.getByRole("button", { name: /delete insights data/i }));
+    expect(deleteAll).toHaveBeenCalled();
   });
 });
 ```
@@ -1949,29 +2030,40 @@ export function InsightsNotice(): JSX.Element | null {
 }
 ```
 
-Mount `<InsightsNotice />` once in the top-level app chrome (e.g. beside where global toasts render). In `SettingsDialog.tsx`, inside the Usage `<section>` (after the existing `usageTelemetry.enabled` toggle at `:203`–`:218`), add:
+Mount `<InsightsNotice />` once in the top-level app chrome (beside where global toasts render). Create `src/features/settings/components/InsightsSettingsControls.tsx`, using the dialog's real `useSettings().update` helper — the dialog destructures `{ settings, update }` at `SettingsDialog.tsx:58`; there is **no** `patch`:
 
 ```tsx
-<label className="settings-dialog__row">
-  <input
-    type="checkbox"
-    checked={settings.usageTelemetry.insights.enabled}
-    onChange={(e) => {
-      patch({ usageTelemetry: { insights: { enabled: e.target.checked } } });
-      void window.api.insights.setEnabled(settings.usageTelemetry.enabled && e.target.checked);
-    }}
-  />
-  usage insights (local, content-free)
-</label>
-<button
-  className="settings-dialog__danger"
-  onClick={() => { void window.api.insights.deleteAll(); }}
->
-  Delete insights data
-</button>
+// src/features/settings/components/InsightsSettingsControls.tsx
+import type React from "react";
+import { useSettings } from "../../../app/hooks/use-settings.js";
+
+export function InsightsSettingsControls(): React.ReactElement {
+  const { settings, update } = useSettings();
+  const t = settings.usageTelemetry;
+  return (
+    <>
+      <label className="settings-dialog__row">
+        <input
+          type="checkbox"
+          aria-label="usage insights"
+          checked={t.insights.enabled}
+          onChange={(e) => {
+            // Spread the full nested objects — matches the dialog's existing usageTelemetry handlers.
+            update({ usageTelemetry: { ...t, insights: { ...t.insights, enabled: e.target.checked } } });
+            void window.api.insights.setEnabled(t.enabled && e.target.checked); // effective consent
+          }}
+        />
+        usage insights (local, content-free)
+      </label>
+      <button className="settings-dialog__danger" onClick={() => void window.api.insights.deleteAll()}>
+        Delete insights data
+      </button>
+    </>
+  );
+}
 ```
 
-(Use the exact `patch(...)` helper the dialog already uses for `usageTelemetry` — see the existing `usageTelemetry.enabled` handler; the shape `{ usageTelemetry: { insights: { enabled } } }` matches the Task 11 deep-merge patch.)
+Then render `<InsightsSettingsControls />` inside the Usage `<section>` of `SettingsDialog.tsx` (after the existing `usageTelemetry.enabled` toggle at `:203`–`:218`) — a single JSX line, keeping the dialog thin.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -1991,50 +2083,132 @@ git commit -m "feat(insights): Settings toggle + delete-all action + one-time fi
 
 **Files:**
 - Create: `tests/e2e/insights.test.ts`
+- Create: `tests/e2e/fixtures/gen-whisper-state.ts` (one-off generator for the fixture, kept for regeneration)
+- Create: `tests/e2e/fixtures/whisper-state-v7.db` (prebuilt binary fixture — see Step 1)
 
 **Interfaces:**
-- Consumes: the full wired app (Tasks 1–13).
+- Consumes: the full wired app (Tasks 1–13), and the real env seams `AI14ALL_USER_DATA_PATH` + `AI14ALL_WHISPER_STATE_ROOT` (honored by `electron/main/index.ts:270`).
 
-**Design note:** AGENTS.md:159–160 require e2e for new user-visible behavior, extending (not replacing) the suite. Follow the existing e2e harness in `tests/e2e/` (e.g. `review-mcp.test.ts` for the Electron+Playwright launch pattern) and seed a fixture whisper `state.db` under the app's resolved whisper path so first capture happens deterministically.
+**Design note:** AGENTS.md:159–160 require e2e for new user-visible behavior, extending (not replacing) the suite. The whole e2e suite is **currently skip-blocked** by a documented Playwright + Electron 41 preload timing issue (`window.ai14all` not surfaced — see the header of `tests/e2e/review-mcp.test.ts`); this test carries the same `describe.skip` for consistency, but its harness and assertions are **real** and run once that issue is resolved. Two real seams make seeding deterministic and observable without the renderer: `AI14ALL_WHISPER_STATE_ROOT` (the insights reader reads `<root>/state.db` — `index.ts:270,346`) and `AI14ALL_USER_DATA_PATH` (where `<userData>/…/insights/insights.db` lands). Capture, stop-on-disable, and deletion are all **filesystem-observable**, so they are asserted directly.
 
-- [ ] **Step 1: Write the e2e test**
+- [ ] **Step 1: Generate + commit the prebuilt whisper fixture**
+
+The e2e process runs on the **Electron** ABI (`pretest:e2e` rebuilds `better-sqlite3` for Electron), so it cannot `require` the host-ABI module to build a fixture in-process. Generate the fixture once under the host ABI and commit the binary. Create `tests/e2e/fixtures/gen-whisper-state.ts`:
 
 ```ts
-// tests/e2e/insights.test.ts
-import { test, expect } from "@playwright/test";
-// Reuse the repo's existing Electron launch helper (mirror tests/e2e/review-mcp.test.ts).
-import { launchApp } from "./helpers/launch.js"; // adjust to the actual helper name/path in tests/e2e
+// tests/e2e/fixtures/gen-whisper-state.ts — run with host-ABI sqlite: `pnpm exec vitest run --no-threads` shim,
+// or `node scripts/rebuild-better-sqlite3-host.mjs && pnpm exec tsx tests/e2e/fixtures/gen-whisper-state.ts`
+import { join } from "node:path";
+import { makeWhisperFixtureDb } from "../../unit/plugins/helpers/make-whisper-fixture-db.js";
 
-test("first capture surfaces the notice once; toggle stops; delete-all clears", async () => {
-  const app = await launchApp({ seedWhisperFixture: true }); // seed a state.db with one done workflow
-  const win = await app.firstWindow();
-
-  // Notice appears exactly once after first capture.
-  await expect(win.getByRole("status")).toContainText("usage insights");
-  await win.getByRole("button", { name: /dismiss/i }).click();
-  // Reload → notice does not reappear (noticeShown persisted after ack).
-  await win.reload();
-  await expect(win.getByRole("status")).toHaveCount(0);
-
-  // Disable via Settings → capture stops (store row count stops growing).
-  await win.getByRole("button", { name: /settings/i }).click();
-  await win.getByLabel(/usage insights/i).uncheck();
-
-  // Delete insights data → store directory removed (assert via a debug IPC or by re-enabling and seeing an empty store).
-  await win.getByRole("button", { name: /delete insights data/i }).click();
-
-  await app.close();
+makeWhisperFixtureDb(join(__dirname, "whisper-state-v7.db"), {
+  schemaVersion: 7,
+  collabs: [{ collabId: "c1", workspaceRoot: "/tmp/e2e-repo", displayName: "r", status: "active" }],
+  workflows: [{ workflowId: "wf1", collabId: "c1", workflowType: "spec-driven-development", status: "done", currentPhaseIndex: 0, createdAt: "2026-07-19T00:00:00.000Z", updatedAt: "2026-07-19T00:05:00.000Z" }],
+  phases: [{ phaseRunId: "wf1:pa", workflowId: "wf1", phaseIndex: 0, phaseName: "impl", chainId: "ch1", startedAt: "2026-07-19T00:00:00.000Z", endedAt: "2026-07-19T00:05:00.000Z", outcome: "ok" }],
 });
 ```
 
-- [ ] **Step 2: Run the e2e test**
+Run it once (`node scripts/rebuild-better-sqlite3-host.mjs && pnpm exec tsx tests/e2e/fixtures/gen-whisper-state.ts`) and `git add tests/e2e/fixtures/whisper-state-v7.db`.
+
+- [ ] **Step 2: Write the e2e test (real harness + observable assertions)**
+
+```ts
+// tests/e2e/insights.test.ts
+import {
+  test, expect, _electron as electron,
+  type ElectronApplication, type Page,
+} from "@playwright/test";
+import { cpSync, existsSync, mkdtempSync, readdirSync, realpathSync, rmSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
+import { closeApp } from "./fixtures/close-app";
+
+// Consistent with the suite-wide skip (Playwright+Electron 41 preload issue, see review-mcp.test.ts).
+test.describe.skip("insights capture (e2e)", () => {
+  let app: ElectronApplication | undefined;
+  let page: Page;
+  let repo: TestRepo;
+  let userDataDir: string;
+  let whisperRoot: string;
+
+  // Locate <userDataDir>/**/insights/insights.db without hardcoding the app's userData subdir.
+  const findStore = (): string | null => {
+    const walk = (dir: string): string | null => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        if (!e.isDirectory()) continue;
+        const p = join(dir, e.name);
+        if (e.name === "insights" && existsSync(join(p, "insights.db"))) return join(p, "insights.db");
+        const hit = walk(p);
+        if (hit) return hit;
+      }
+      return null;
+    };
+    try { return walk(userDataDir); } catch { return null; }
+  };
+
+  const launch = () => electron.launch({
+    args: ["out/main/index.js"],
+    env: {
+      ...process.env,
+      AI14ALL_E2E: "1",
+      AI14ALL_E2E_PICK_PATH: repo.repoPath,
+      AI14ALL_USER_DATA_PATH: userDataDir,
+      AI14ALL_WHISPER_STATE_ROOT: whisperRoot,
+    },
+  });
+
+  test.beforeAll(async () => {
+    repo = createTestRepo();
+    userDataDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-insights-ud-")));
+    whisperRoot = realpathSync(mkdtempSync(join(tmpdir(), "ofa-insights-wr-")));
+    cpSync(join(__dirname, "fixtures", "whisper-state-v7.db"), join(whisperRoot, "state.db"));
+    app = await launch();
+    page = await app.firstWindow();
+  });
+
+  test.afterAll(async () => {
+    await closeApp(app);
+    rmSync(userDataDir, { recursive: true, force: true });
+    rmSync(whisperRoot, { recursive: true, force: true });
+  });
+
+  test("captures, notice once, stops on disable, deletes DB+WAL+SHM", async () => {
+    // 1. First capture within a poll interval — store file appears (filesystem-observable, no renderer needed).
+    await expect.poll(() => findStore() != null, { timeout: 15_000 }).toBe(true);
+    const storePath = findStore()!;
+
+    // 2. Notice appears; acknowledge it.
+    await expect(page.getByRole("status")).toContainText("usage insights");
+    await page.getByRole("button", { name: /dismiss/i }).click();
+
+    // 3. Relaunch → notice does NOT reappear (noticeShown persisted after ack — durable across restart).
+    await closeApp(app); app = await launch(); page = await app.firstWindow();
+    await page.waitForTimeout(5_000);
+    await expect(page.getByRole("status")).toHaveCount(0);
+
+    // 4. Disable via Settings → capture stops (store size stable across two poll intervals).
+    await page.getByRole("button", { name: /settings/i }).click();
+    await page.getByRole("checkbox", { name: /usage insights/i }).uncheck();
+    const sizeA = statSync(storePath).size;
+    await page.waitForTimeout(7_000);
+    expect(statSync(storePath).size).toBe(sizeA);
+
+    // 5. Delete insights data → the whole store (db + WAL + SHM) is removed.
+    await page.getByRole("button", { name: /delete insights data/i }).click();
+    await expect.poll(
+      () => existsSync(storePath) || existsSync(`${storePath}-wal`) || existsSync(`${storePath}-shm`),
+      { timeout: 5_000 },
+    ).toBe(false);
+  });
+});
+```
+
+- [ ] **Step 3: Run the e2e test**
 
 Run: `pnpm test:e2e insights`
-Expected: PASS. (`pretest:e2e` runs `electron-rebuild` for the Electron ABI; `posttest:e2e` restores the host ABI.)
-
-- [ ] **Step 3: Adjust to the real harness**
-
-If `launchApp`/`seedWhisperFixture`/selectors differ from the repo's helpers, align them with the existing `tests/e2e/*.test.ts` patterns (they already launch the built Electron app via Playwright). Keep the three assertions: notice-once, toggle-stops, delete-clears.
+Expected: skipped (consistent with the suite) but compiling and lint-clean; when the suite-wide preload issue is resolved, un-skip and it PASSes. (`pretest:e2e` runs `electron-rebuild` for the Electron ABI; `posttest:e2e` restores the host ABI.)
 
 - [ ] **Step 4: Full suite + typecheck + lint**
 
@@ -2044,8 +2218,8 @@ Expected: all green (unit suite on host ABI). Then `pnpm test:e2e` green (Electr
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tests/e2e/insights.test.ts
-git commit -m "test(insights): e2e coverage for first-capture notice, disable toggle, and delete-all"
+git add tests/e2e/insights.test.ts tests/e2e/fixtures/gen-whisper-state.ts tests/e2e/fixtures/whisper-state-v7.db
+git commit -m "test(insights): e2e coverage for notice, disable toggle, and delete-all (DB/WAL/SHM removal)"
 ```
 
 ---
@@ -2082,4 +2256,4 @@ git commit -m "test(insights): e2e coverage for first-capture notice, disable to
 ## Execution notes
 
 - Tasks 1–9 are pure host-Node modules — fully TDD-able with `pnpm test`. Tasks 10–13 touch Electron/renderer; unit-test the extracted cores (host, IPC registrar, notice component) and cover the wired flow in Task 14's e2e.
-- The one place the plan intentionally leaves the last mile to the implementer is the exact app-startup wiring line for `new InsightsHost(...)` and the e2e launch helper names — both must match the repo's current `UsageHost` wiring and `tests/e2e` helpers, which are the authoritative patterns to mirror.
+- Round-4 review fixes are folded in: the privacy guard is recursive over the full persisted set (Task 3), provenance stamps the source DB's real `user_version` (Task 8), the settings test drives the real `SettingsService` against a temp file (Task 11), startup wiring reuses the `usageSettings` bridge + public `writeState` instead of the private `SettingsService.current` (Task 12), the Settings controls use the dialog's real `update` helper (Task 13), and the e2e uses real harness code with filesystem-observable capture/stop/delete assertions plus a committed fixture (Task 14). The only implementer discretion left is the exact insertion point of `new InsightsHost(...)` beside `new UsageHost(...)` in `electron/main/index.ts`, and un-skipping the e2e once the suite-wide Playwright+Electron preload issue is resolved.
