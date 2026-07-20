@@ -25,6 +25,28 @@ export type WhisperDaemonRow = {
 	lastHeartbeatAt: string;
 };
 
+export interface WhisperPhaseRow {
+	phaseRunId: string;
+	phaseIndex: number;
+	phaseName: string;
+	chainId: string | null;
+	startedAt: string | null;
+	endedAt: string | null;
+	outcome: string | null;
+}
+
+export interface WhisperWorkflowRunRow {
+	workflowId: string;
+	collabId: string;
+	workspaceRoot: string;
+	workflowType: string;
+	status: string;
+	haltReason: string | null;
+	createdAt: string | null;
+	updatedAt: string | null;
+	phases: WhisperPhaseRow[];
+}
+
 /** Sole owner of ai-whisper's state.db read-contract knowledge. Read-only. */
 export class WhisperStoreReader {
 	constructor(private readonly dbPath: string) {}
@@ -252,6 +274,69 @@ export class WhisperStoreReader {
 				orchestratorVerdict: (r.orchestrator_verdict as string | null) ?? null,
 				roundNumber: (r.round_number as number | null) ?? null,
 				createdAt: r.created_at as string,
+			}));
+		} catch {
+			return [];
+		} finally {
+			db.close();
+		}
+	}
+
+	listCollabIds(): string[] {
+		const db = this.openChecked();
+		if (!db) return [];
+		try {
+			return (
+				db
+					.prepare("SELECT collab_id FROM collab ORDER BY collab_id")
+					.all() as Array<Record<string, unknown>>
+			).map((r) => r.collab_id as string);
+		} catch {
+			return [];
+		} finally {
+			db.close();
+		}
+	}
+
+	/** Full workflow history (not just the latest run) for a collab, each with its phases. */
+	readAllWorkflows(collabId: string): WhisperWorkflowRunRow[] {
+		const db = this.openChecked();
+		if (!db) return [];
+		try {
+			const collab = db
+				.prepare("SELECT workspace_root FROM collab WHERE collab_id = ?")
+				.get(collabId) as Record<string, unknown> | undefined;
+			if (!collab) return [];
+			const wfRows = db
+				.prepare(
+					`SELECT workflow_id, collab_id, workflow_type, status, halt_reason, created_at, updated_at
+					 FROM workflows WHERE collab_id = ? ORDER BY created_at`,
+				)
+				.all(collabId) as Array<Record<string, unknown>>;
+			const phaseStmt = db.prepare(
+				`SELECT phase_run_id, phase_index, phase_name, chain_id, started_at, ended_at, outcome
+				 FROM workflow_phases WHERE workflow_id = ? ORDER BY phase_index, started_at`,
+			);
+			return wfRows.map((w) => ({
+				workflowId: w.workflow_id as string,
+				collabId: w.collab_id as string,
+				workspaceRoot: collab.workspace_root as string,
+				workflowType: w.workflow_type as string,
+				status: w.status as string,
+				haltReason: (w.halt_reason as string | null) ?? null,
+				createdAt: (w.created_at as string | null) ?? null,
+				updatedAt: (w.updated_at as string | null) ?? null,
+				phases: (
+					phaseStmt.all(w.workflow_id) as Array<Record<string, unknown>>
+				).map((p) => ({
+					phaseRunId: p.phase_run_id as string,
+					phaseIndex: p.phase_index as number,
+					phaseName: p.phase_name as string,
+					chainId: (p.chain_id as string | null) ?? null,
+					startedAt: (p.started_at as string | null) ?? null,
+					endedAt: (p.ended_at as string | null) ?? null,
+					outcome: (p.outcome as string | null) ?? null,
+				})),
 			}));
 		} catch {
 			return [];
