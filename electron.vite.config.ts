@@ -41,6 +41,9 @@ export default defineConfig({
 					// Emitted as out/main/usage-worker.js; the UsageHost (bundled into
 					// index.js) forks it via `new URL("./usage-worker.js", import.meta.url)`.
 					"usage-worker": "./electron/main/services/usage-worker.ts",
+					// Emitted as out/main/insights-worker.js; the InsightsHost forks it
+					// via `new URL("./insights-worker.js", import.meta.url)`.
+					"insights-worker": "./electron/main/services/insights-worker.ts",
 				},
 				// bufferutil/utf-8-validate are `ws`'s optional native addons. `ws`
 				// is bundled transitively via @xavier/xbp; bundling these addons too
