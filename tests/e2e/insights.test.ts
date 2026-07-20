@@ -22,12 +22,13 @@
  *
  * Notice-delivery note: insights:notice is fire-and-forget (no buffered replay),
  * and InsightsNotice only mounts on the loaded main shell. The worker's initial
- * boot-time notice therefore fires before any repository is loaded and is lost.
- * The host's documented at-least-once contract re-delivers an UNACKNOWLEDGED
- * notice on the next worker start (see insights-host.test.ts), so the notice
- * tests load a repo (mounting InsightsNotice), then restart the worker via the
- * real window.ai14all.insights.setEnabled seam to deterministically deliver the
- * notice while the listener is live — exercising the real re-delivery path.
+ * boot-time notice therefore fires before any repository is loaded and reaches no
+ * listener. The renderer recovers it via PULL-ON-MOUNT: when InsightsNotice mounts
+ * on the loaded shell it asks the main process whether the one-time notice is
+ * still pending (window.ai14all.insights.checkNoticePending → insights:noticePending
+ * → InsightsHost.isNoticePending) and shows it if so. The notice tests below load a
+ * repo and assert the banner appears through this real fresh-install delivery path —
+ * no artificial worker restart.
  */
 import {
 	test,
@@ -128,16 +129,6 @@ async function ensureMainShell(page: Page): Promise<void> {
 	).toBeVisible({ timeout: 30_000 });
 }
 
-// Restart the capture worker through the real IPC seam so an UNACKNOWLEDGED
-// notice re-delivers while InsightsNotice is mounted (at-least-once contract).
-// Persists insights.enabled false→true; global telemetry stays on, so the end
-// state is ENABLED. noticeShown is never touched here, so a not-yet-acked notice
-// re-fires and an acked one stays suppressed.
-async function restartWorker(page: Page): Promise<void> {
-	await page.evaluate(() => window.ai14all.insights.setEnabled(false));
-	await page.evaluate(() => window.ai14all.insights.setEnabled(true));
-}
-
 const noticeLocator = (page: Page) => page.locator(".insights-notice");
 
 test.beforeEach(() => {
@@ -202,9 +193,10 @@ test("acknowledgement durably suppresses the notice across a relaunch (still ena
 	await expect
 		.poll(() => existsSync(storePath()), { timeout: 30_000 })
 		.toBe(true);
-	await ensureMainShell(page); // mount the main shell + InsightsNotice
-	await restartWorker(page); // re-deliver the unacknowledged notice to the live listener
+	await ensureMainShell(page); // mount the loaded shell → InsightsNotice mounts and pulls
 
+	// Real fresh-install delivery: the boot-time push was missed (shell not yet
+	// mounted); the pull-on-mount recovers it. No artificial worker restart.
 	await expect(noticeLocator(page)).toContainText(/usage insights/i);
 	await page.getByRole("button", { name: /manage in settings/i }).click(); // opens Settings AND acknowledges
 	await expect(page.getByTestId("settings-dialog")).toBeVisible();
@@ -228,8 +220,7 @@ test("acknowledgement durably suppresses the notice across a relaunch (still ena
 	await expect
 		.poll(() => existsSync(storePath()), { timeout: 30_000 })
 		.toBe(true);
-	await ensureMainShell(page);
-	await restartWorker(page); // a still-unacked notice WOULD re-fire here; a durable ack must not
+	await ensureMainShell(page); // pull-on-mount runs here; a still-unacked notice WOULD show
 	await page.waitForTimeout(5_000);
 	await expect(noticeLocator(page)).toHaveCount(0); // only the persisted ack explains this
 	await closeApp(app);
@@ -246,11 +237,12 @@ test("live Settings toggle stops capture against an altered source; delete-all r
 	const p = storePath();
 	await expect.poll(() => existsSync(p), { timeout: 30_000 }).toBe(true);
 	await new Promise((r) => setTimeout(r, 4_000)); // let the first archive settle
-	await ensureMainShell(page);
-	await restartWorker(page); // deliver the notice to the live listener so we can open Settings via it
+	await ensureMainShell(page); // pull-on-mount delivers the notice to the live listener
 
-	// Open Settings via the notice, then UNCHECK insights (real control →
-	// settings:write → applyInsightsConsent → host.setEnabled(false)).
+	// Open Settings via the notice (recovered through the real pull path), then
+	// UNCHECK insights (real control → settings:write → applyInsightsConsent →
+	// host.setEnabled(false)).
+	await expect(noticeLocator(page)).toContainText(/usage insights/i);
 	await page.getByRole("button", { name: /manage in settings/i }).click();
 	await expect(page.getByTestId("settings-dialog")).toBeVisible();
 	await page.getByRole("checkbox", { name: /usage insights/i }).uncheck();

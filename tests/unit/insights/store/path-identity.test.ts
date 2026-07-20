@@ -90,4 +90,49 @@ describe("path identity", () => {
 		expect(id.branch).toBeNull();
 		expect(isAbsolutePathLike(id.workspaceRel)).toBe(false);
 	});
+
+	// Privacy invariant (spec §7.2): workspace_rel must never be an absolute path
+	// OR a `..`-escaping traversal — the write-guard regex (isAbsolutePathLike)
+	// only catches the former, so this resolver branch is the SOLE defense against
+	// leaking layout via a "../../elsewhere" relative path. A linked worktree
+	// whose root sits OUTSIDE the main repo root exercises exactly that branch.
+	it("a linked worktree outside the repo root stores the BASENAME, never a ..-escape", () => {
+		const repo = mk();
+		mkdirSync(join(repo, ".git", "worktrees", "external"), { recursive: true });
+		writeFileSync(join(repo, ".git", "HEAD"), "ref: refs/heads/main\n");
+		// The worktree lives in an INDEPENDENT temp dir (not nested under repo), so
+		// relative(repoRoot, worktreeRoot) escapes upward with "..".
+		const wt = mk();
+		writeFileSync(
+			join(wt, ".git"),
+			`gitdir: ${join(repo, ".git", "worktrees", "external")}\n`,
+		);
+		writeFileSync(
+			join(repo, ".git", "worktrees", "external", "HEAD"),
+			"ref: refs/heads/external-feature\n",
+		);
+		const id = resolveWorkspaceIdentity(wt);
+		expect(id.repoId).toBe(sha256Short(realpathSync(repo)));
+		// Not "../..": the escape is collapsed to the bare basename.
+		expect(id.workspaceRel).toBe(basename(realpathSync(wt)));
+		expect(id.workspaceRel.startsWith("..")).toBe(false);
+		expect(isAbsolutePathLike(id.workspaceRel)).toBe(false);
+		expect(id.branch).toBe("external-feature");
+	});
+
+	// A detached HEAD stores a bare commit SHA rather than "ref: refs/heads/…", so
+	// branchFromHead's ref regex must not match and branch must be null (never the
+	// raw SHA or a partial match).
+	it("a detached HEAD (bare SHA, no ref) yields a null branch", () => {
+		const repo = mk();
+		mkdirSync(join(repo, ".git"));
+		writeFileSync(
+			join(repo, ".git", "HEAD"),
+			"1234567890abcdef1234567890abcdef12345678\n",
+		);
+		const id = resolveWorkspaceIdentity(repo);
+		expect(id.repoId).toBe(sha256Short(realpathSync(repo)));
+		expect(id.workspaceRel).toBe("");
+		expect(id.branch).toBeNull();
+	});
 });

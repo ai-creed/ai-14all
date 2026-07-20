@@ -172,6 +172,56 @@ describe("InsightsHost", () => {
 		expect(onNotice).toHaveBeenCalledTimes(2); // no re-delivery after ack (durable suppression via loadNoticeShown)
 	});
 
+	it("isNoticePending: true once a first capture is seen; false after ack or a durable noticeShown", () => {
+		const userDataDir = ud();
+		let shown = false;
+		const proc = fakeProc();
+		const host = new InsightsHost({
+			userDataDir,
+			whisperDbPath: null,
+			pollIntervalMs: 3000,
+			forkWorker: () => asProc(proc),
+			send: () => {},
+			loadNoticeShown: () => shown,
+			persistNoticeShown: (v) => {
+				shown = v;
+			},
+		});
+
+		// No first capture observed yet → nothing pending (recovery must not fire
+		// before capture actually starts).
+		expect(host.isNoticePending()).toBe(false);
+
+		host.setEnabled(true);
+		proc.emit("spawn");
+		proc.emit("message", STATUS); // status carries firstCaptureAt → capture started
+		// The boot-time push reached no listener (no `send` assertion here), but the
+		// pull path must now report the notice as recoverable.
+		expect(host.isNoticePending()).toBe(true);
+
+		host.ackNotice(); // in-process ack + durable persist
+		expect(host.isNoticePending()).toBe(false);
+	});
+
+	it("isNoticePending: a durable noticeShown alone suppresses it (relaunch, still enabled, store kept)", () => {
+		const userDataDir = ud();
+		const proc = fakeProc();
+		// Fresh host (acknowledged=false) but the previous session persisted the ack.
+		const host = new InsightsHost({
+			userDataDir,
+			whisperDbPath: null,
+			pollIntervalMs: 3000,
+			forkWorker: () => asProc(proc),
+			send: () => {},
+			loadNoticeShown: () => true, // durable marker from a prior acked session
+			persistNoticeShown: () => {},
+		});
+		host.setEnabled(true);
+		proc.emit("spawn");
+		proc.emit("message", STATUS); // first capture seen again (persisted firstCaptureAt)
+		expect(host.isNoticePending()).toBe(false); // durable suppression, no in-process ack needed
+	});
+
 	it("does NOT re-deliver after ack even if the persist is still pending (async-ack race)", () => {
 		const userDataDir = ud();
 		const persisted = false; // loadNoticeShown's backing store — flushed LATER, never synchronously on ack (stays false all test)

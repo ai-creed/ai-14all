@@ -43,11 +43,15 @@ const sett = (
 	}) as unknown as PersistedSettingsV1;
 
 describe("insights IPC", () => {
-	it("registers setEnabled + deleteAll + noticeAck; setEnabled routes to the persist+derive closure (never host.setEnabled)", async () => {
+	it("registers setEnabled + deleteAll + noticeAck + noticePending; setEnabled routes to the persist+derive closure (never host.setEnabled)", async () => {
 		const ipc = stubIpcMain();
-		const host: Pick<InsightsHost, "deleteAll" | "ackNotice"> = {
+		const host: Pick<
+			InsightsHost,
+			"deleteAll" | "ackNotice" | "isNoticePending"
+		> = {
 			deleteAll: vi.fn().mockResolvedValue(undefined),
 			ackNotice: vi.fn(),
+			isNoticePending: vi.fn().mockReturnValue(true),
 		};
 		const setInsightsEnabled = vi.fn();
 		registerInsightsIpc(asIpc(ipc), host, setInsightsEnabled);
@@ -59,6 +63,10 @@ describe("insights IPC", () => {
 		expect(host.deleteAll).toHaveBeenCalled();
 		ipc.invoke("insights:noticeAck");
 		expect(host.ackNotice).toHaveBeenCalled();
+		// Pull-on-mount recovery channel routes straight to host.isNoticePending.
+		expect(ipc.has("insights:noticePending")).toBe(true);
+		expect(ipc.invoke("insights:noticePending")).toBe(true);
+		expect(host.isNoticePending).toHaveBeenCalled();
 	});
 
 	it("applyInsightsConsent enforces the master kill from persisted settings (raw true never forces start)", () => {

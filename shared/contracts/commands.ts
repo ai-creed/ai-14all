@@ -605,6 +605,13 @@ export type Ai14AllDesktopApi = {
 		deleteAll(): Promise<void>;
 		ackNotice(): Promise<void>;
 		onNotice(listener: () => void): () => void;
+		// Pull-on-mount recovery for the one-time first-capture notice: the
+		// boot-time `insights:notice` push fires before InsightsNotice mounts (the
+		// renderer is still on the setup/restore screen), so it reaches no
+		// listener. A shell mounting later calls this to recover a still-pending
+		// notice. Resolves true only while the notice is un-acknowledged (in
+		// process AND durably) after a first capture. See InsightsHost.isNoticePending.
+		checkNoticePending(): Promise<boolean>;
 	};
 	reviewComments: {
 		list(worktreeId: string): Promise<{ comments: ReviewComment[] }>;

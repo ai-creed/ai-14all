@@ -19,7 +19,20 @@ export function InsightsNotice({
 	// Optional chaining: some test harnesses stub a partial `window.ai14all`
 	// (e.g. only `settings`), and this effect must not throw on mount there —
 	// same defensive pattern as UsageStrip's `window.ai14all?.usage?.…`.
-	useEffect(() => window.ai14all?.insights?.onNotice(() => setShow(true)), []);
+	useEffect(() => {
+		const insights = window.ai14all?.insights;
+		const off = insights?.onNotice(() => setShow(true));
+		// Pull-on-mount recovery: the boot-time `insights:notice` push fires while
+		// this component is unmounted (renderer still on the setup/restore screen),
+		// so it reaches no listener and is lost. Ask the main process whether the
+		// one-time notice is still pending and show it here if so — this is the
+		// normal fresh-install delivery path (§14.5, D4). `checkNoticePending?.()`
+		// stays optional-chained so partial `window.ai14all` stubs don't throw.
+		void insights?.checkNoticePending?.().then((pending) => {
+			if (pending) setShow(true);
+		});
+		return off;
+	}, []);
 
 	if (!show) return null;
 

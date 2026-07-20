@@ -37,6 +37,12 @@ export class InsightsHost {
 	// In-process ack, INDEPENDENT of the worker lifecycle; never reset on stop() so a
 	// disable→re-enable right after ack cannot re-fire before the persist has flushed.
 	private acknowledged = false;
+	// Set once a `status` carrying firstCaptureAt != null has been observed this
+	// process lifetime — i.e. capture has actually started. Drives the
+	// pull-on-mount recovery path (isNoticePending); it is NOT reset on stop(),
+	// so a renderer that mounts long after the boot-time push can still recover
+	// the notice. Independent of the per-worker push guard (sessionNoticeSent).
+	private firstCaptureSeen = false;
 
 	constructor(private readonly opts: InsightsHostOptions) {}
 
@@ -109,7 +115,10 @@ export class InsightsHost {
 
 	private onMessage(msg: InsightsWorkerToMain): void {
 		if (msg.kind === "status") {
-			if (msg.status.firstCaptureAt != null) this.maybeDeliverNotice();
+			if (msg.status.firstCaptureAt != null) {
+				this.firstCaptureSeen = true;
+				this.maybeDeliverNotice();
+			}
 			return;
 		}
 		if (msg.kind === "firstCapture") {
@@ -134,6 +143,22 @@ export class InsightsHost {
 		this.acknowledged = true;
 		this.sessionNoticeSent = true;
 		this.opts.persistNoticeShown(true);
+	}
+
+	/** Pull-on-mount recovery for the one-time first-capture notice (§14.5, D4).
+	 *  The push (`insights:notice`) fires on the worker's FIRST tick at app boot —
+	 *  when the renderer is still on the setup/restore screen and InsightsNotice is
+	 *  NOT yet mounted — so the fire-and-forget push reaches no listener and is
+	 *  lost. When the loaded shell later mounts, the renderer invokes this (via
+	 *  insights:noticePending) to recover the notice it missed. Suppression matches
+	 *  the push exactly: a first capture must have occurred, and neither the
+	 *  in-process ack nor the durable `noticeShown` marker may be set. */
+	isNoticePending(): boolean {
+		return (
+			this.firstCaptureSeen &&
+			!this.acknowledged &&
+			!this.opts.loadNoticeShown()
+		);
 	}
 
 	private post(msg: MainToInsightsWorker): void {

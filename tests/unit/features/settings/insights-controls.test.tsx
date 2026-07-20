@@ -44,6 +44,41 @@ describe("InsightsNotice", () => {
 		expect(ack).toHaveBeenCalledTimes(1); // and acknowledges (durable suppression)
 		expect(screen.queryByRole("status")).toBeNull(); // and dismisses
 	});
+
+	it("shows on mount via pull-on-mount recovery when checkNoticePending resolves true", async () => {
+		const onOpenSettings = vi.fn();
+		(window as unknown as { ai14all?: unknown }).ai14all = {
+			insights: {
+				// No onNotice push fires in this test — the notice must appear purely
+				// from the mount-time pull that recovers a boot-time push missed while
+				// InsightsNotice was unmounted.
+				onNotice: () => () => {},
+				ackNotice: vi.fn(),
+				checkNoticePending: () => Promise.resolve(true),
+			},
+		};
+		render(<InsightsNotice onOpenSettings={onOpenSettings} />);
+		expect(screen.queryByRole("status")).toBeNull(); // not shown synchronously
+		expect(await screen.findByRole("status")).toBeInTheDocument(); // shown after the pull resolves
+	});
+
+	it("stays hidden on mount when checkNoticePending resolves false (already acknowledged)", async () => {
+		const onOpenSettings = vi.fn();
+		const checkNoticePending = vi.fn(() => Promise.resolve(false));
+		(window as unknown as { ai14all?: unknown }).ai14all = {
+			insights: {
+				onNotice: () => () => {},
+				ackNotice: vi.fn(),
+				checkNoticePending,
+			},
+		};
+		render(<InsightsNotice onOpenSettings={onOpenSettings} />);
+		await act(async () => {
+			await Promise.resolve();
+		});
+		expect(checkNoticePending).toHaveBeenCalledTimes(1);
+		expect(screen.queryByRole("status")).toBeNull();
+	});
 });
 
 describe("InsightsSettingsControls", () => {

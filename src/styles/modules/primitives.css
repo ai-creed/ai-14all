@@ -575,6 +575,45 @@
 		cursor: pointer;
 	}
 
+	/* ── First-capture transparency notice ────────────────────────────────────── */
+	/* One-time banner shown once when local usage-insights capture starts (§14.5,
+	 * D4); rendered by src/app/components/InsightsNotice.tsx (role="status").
+	 * Pinned as an app-level fixed banner next to the toast stack but in the
+	 * opposite bottom corner so the two never overlap. Mirrors .shell-toast's
+	 * elevated-surface anatomy for visual kinship. */
+	.insights-notice {
+		position: fixed;
+		bottom: 12px;
+		left: 12px;
+		z-index: 1000;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		max-width: 360px;
+		background: var(--surface-elevated, #1f2228);
+		color: var(--text, #d9d9d9);
+		border: var(--shell-border-width) solid var(--border-subtle, #2c3038);
+		border-radius: 0;
+		padding: 8px 10px;
+		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+		font-size: 13px;
+	}
+
+	.insights-notice button {
+		flex: none;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 2px 8px;
+		background: transparent;
+		color: inherit;
+		cursor: pointer;
+		font: inherit;
+	}
+
+	.insights-notice button:hover {
+		background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+	}
+
 	/* ---- Box-drawing utility (spec §7, WebTUI box technique) --------------- */
 
 	/* Pads the element by one character cell and draws the border on a
@@ -625,7 +664,8 @@
 	/* Split from tui.css's box-shadow elevation :is() sweep (a 10-selector
 	 * cross-feature group; the other 8 selectors are owned by files, terminals,
 	 * viewer, review ×2, dialogs, usage ×2). These two are this module's. */
-	[data-theme="tui"] :is(.shell-shortcuts-help, .shell-toast) {
+	[data-theme="tui"]
+		:is(.shell-shortcuts-help, .shell-toast, .insights-notice) {
 		box-shadow: none;
 	}
 

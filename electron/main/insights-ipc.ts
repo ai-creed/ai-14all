@@ -14,7 +14,7 @@ import type { InsightsHost } from "./services/insights-host.js";
 // while global telemetry is opted out.
 export function registerInsightsIpc(
 	ipcMain: Pick<IpcMain, "handle">,
-	host: Pick<InsightsHost, "deleteAll" | "ackNotice">,
+	host: Pick<InsightsHost, "deleteAll" | "ackNotice" | "isNoticePending">,
 	setInsightsEnabled: (enabled: boolean) => void | Promise<void>,
 ): void {
 	ipcMain.handle("insights:setEnabled", async (_event, enabled: unknown) => {
@@ -26,6 +26,10 @@ export function registerInsightsIpc(
 	ipcMain.handle("insights:noticeAck", () => {
 		host.ackNotice();
 	});
+	// Pull-on-mount recovery: the renderer asks whether the one-time first-capture
+	// notice is still pending, so a shell that mounted AFTER the boot-time push
+	// (which reaches no listener) can recover it. See InsightsHost.isNoticePending.
+	ipcMain.handle("insights:noticePending", () => host.isNoticePending());
 }
 
 // Derives effective insights-capture consent (global telemetry AND the insights
