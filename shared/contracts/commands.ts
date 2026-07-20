@@ -410,6 +410,28 @@ export const PushGitBranchSchema = z.object({
 
 // --- Shared types ---
 
+// Insights read-model, mirrored for the renderer. The canonical shapes live in
+// services/insights/store/views.ts (WhisperRunRow) and services/insights/store/
+// coverage.ts (Completeness); `shared/` must not import from `services/` (same
+// rationale as AgentPtyUpsert / DiagnosticsAttentionLogEvent above), so the
+// renderer-facing types are mirrored here — keep fields in exact sync with those
+// sources. The main host maps its canonical result onto this shape structurally.
+export type InsightsCompleteness = "complete" | "partial" | "unknown";
+
+export interface InsightsWhisperRun {
+	runId: string;
+	collabId: string;
+	repoId: string | null;
+	workspaceRel: string | null;
+	workflowType: string;
+	status: string;
+	haltReason: string | null;
+	startedAt: number | null;
+	endedAt: number | null;
+	durationMs: number | null;
+	phaseCount: number;
+}
+
 export interface UpdateInfo {
 	version: string;
 	url: string;
@@ -604,6 +626,14 @@ export type Ai14AllDesktopApi = {
 		setEnabled(enabled: boolean): Promise<void>;
 		deleteAll(): Promise<void>;
 		ackNotice(): Promise<void>;
+		// Typed read contract (spec §10.4 getWhisperRuns): fetch the whisper runs
+		// started within [range.fromMs, range.toMs) plus a coverage completeness
+		// flag. Resolves an empty result (never rejects) when capture is disabled
+		// (no worker) or the worker fails to answer in time.
+		query(range: { fromMs: number; toMs: number }): Promise<{
+			runs: InsightsWhisperRun[];
+			completeness: InsightsCompleteness;
+		}>;
 		onNotice(listener: () => void): () => void;
 		// Pull-on-mount recovery for the one-time first-capture notice: the
 		// boot-time `insights:notice` push fires before InsightsNotice mounts (the

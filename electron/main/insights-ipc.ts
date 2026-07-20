@@ -12,9 +12,23 @@ import type { InsightsHost } from "./services/insights-host.js";
 // which effective consent is then DERIVED server-side (§7.2 master kill). The
 // raw boolean must never reach the host, or a renderer could force capture on
 // while global telemetry is opted out.
+// Coerce a renderer-supplied range to a trusted { fromMs, toMs } of finite
+// numbers. The value crosses the IPC boundary untyped, so any non-finite field
+// (missing, string, NaN, Infinity) collapses to 0 rather than reaching the
+// worker's SQL bind params.
+function normalizeRange(range: unknown): { fromMs: number; toMs: number } {
+	const r = (range ?? {}) as { fromMs?: unknown; toMs?: unknown };
+	const num = (v: unknown): number =>
+		typeof v === "number" && Number.isFinite(v) ? v : 0;
+	return { fromMs: num(r.fromMs), toMs: num(r.toMs) };
+}
+
 export function registerInsightsIpc(
 	ipcMain: Pick<IpcMain, "handle">,
-	host: Pick<InsightsHost, "deleteAll" | "ackNotice" | "isNoticePending">,
+	host: Pick<
+		InsightsHost,
+		"deleteAll" | "ackNotice" | "isNoticePending" | "query"
+	>,
 	setInsightsEnabled: (enabled: boolean) => void | Promise<void>,
 ): void {
 	ipcMain.handle("insights:setEnabled", async (_event, enabled: unknown) => {
@@ -30,6 +44,12 @@ export function registerInsightsIpc(
 	// notice is still pending, so a shell that mounted AFTER the boot-time push
 	// (which reaches no listener) can recover it. See InsightsHost.isNoticePending.
 	ipcMain.handle("insights:noticePending", () => host.isNoticePending());
+	// Typed read contract (spec §10.4 getWhisperRuns): the renderer-facing entry
+	// point to the correlated worker query. The range is renderer-supplied, so it
+	// is normalized before reaching the host/worker.
+	ipcMain.handle("insights:query", (_event, range: unknown) =>
+		host.query(normalizeRange(range)),
+	);
 }
 
 // Derives effective insights-capture consent (global telemetry AND the insights

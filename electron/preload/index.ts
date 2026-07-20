@@ -440,6 +440,9 @@ const api: Ai14AllDesktopApi = {
 		ackNotice() {
 			return ipcRenderer.invoke("insights:noticeAck");
 		},
+		query(range) {
+			return ipcRenderer.invoke("insights:query", range);
+		},
 		checkNoticePending() {
 			return ipcRenderer.invoke("insights:noticePending");
 		},

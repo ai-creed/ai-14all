@@ -47,11 +47,12 @@ describe("insights IPC", () => {
 		const ipc = stubIpcMain();
 		const host: Pick<
 			InsightsHost,
-			"deleteAll" | "ackNotice" | "isNoticePending"
+			"deleteAll" | "ackNotice" | "isNoticePending" | "query"
 		> = {
 			deleteAll: vi.fn().mockResolvedValue(undefined),
 			ackNotice: vi.fn(),
 			isNoticePending: vi.fn().mockReturnValue(true),
+			query: vi.fn().mockResolvedValue({ runs: [], completeness: "unknown" }),
 		};
 		const setInsightsEnabled = vi.fn();
 		registerInsightsIpc(asIpc(ipc), host, setInsightsEnabled);
@@ -67,6 +68,34 @@ describe("insights IPC", () => {
 		expect(ipc.has("insights:noticePending")).toBe(true);
 		expect(ipc.invoke("insights:noticePending")).toBe(true);
 		expect(host.isNoticePending).toHaveBeenCalled();
+	});
+
+	it("registers insights:query and routes to host.query with a normalized range", async () => {
+		const ipc = stubIpcMain();
+		const query = vi
+			.fn()
+			.mockResolvedValue({ runs: [], completeness: "unknown" });
+		const host = {
+			deleteAll: vi.fn(),
+			ackNotice: vi.fn(),
+			isNoticePending: vi.fn(),
+			query,
+		} as unknown as Pick<
+			InsightsHost,
+			"deleteAll" | "ackNotice" | "isNoticePending" | "query"
+		>;
+		registerInsightsIpc(asIpc(ipc), host, vi.fn());
+
+		expect(ipc.has("insights:query")).toBe(true);
+		await ipc.invoke("insights:query", { fromMs: 10, toMs: 20 });
+		expect(query).toHaveBeenCalledWith({ fromMs: 10, toMs: 20 });
+
+		// The range is renderer-supplied: non-finite fields normalize to 0, never
+		// reaching the worker's SQL bind params as strings/NaN/undefined.
+		await ipc.invoke("insights:query", { fromMs: "x", toMs: null });
+		expect(query).toHaveBeenLastCalledWith({ fromMs: 0, toMs: 0 });
+		await ipc.invoke("insights:query", undefined);
+		expect(query).toHaveBeenLastCalledWith({ fromMs: 0, toMs: 0 });
 	});
 
 	it("applyInsightsConsent enforces the master kill from persisted settings (raw true never forces start)", () => {

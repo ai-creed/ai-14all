@@ -7,6 +7,17 @@ import type {
 	MainToInsightsWorker,
 	InsightsWorkerToMain,
 } from "../../../services/insights/worker-protocol.js";
+import type {
+	Completeness,
+	WhisperRunRow,
+} from "../../../services/insights/store/views.js";
+
+/** The typed read-contract result (spec §10.4): the runs in a range plus a
+ *  coverage completeness flag. Mirrors the worker's `queryResult` payload. */
+export type InsightsQueryResult = {
+	runs: WhisperRunRow[];
+	completeness: Completeness;
+};
 
 export interface InsightsHostOptions {
 	userDataDir: string;
@@ -20,17 +31,37 @@ export interface InsightsHostOptions {
 }
 
 export const INSIGHTS_NOTICE_CHANNEL = "insights:notice";
-export const INSIGHTS_QUERY_RESULT_CHANNEL = "insights:queryResult";
 
 // How long to wait for the worker to acknowledge a closeStore before proceeding
 // with the delete anyway — a wedged worker must never hang delete-all.
 const CLOSE_STORE_TIMEOUT_MS = 2000;
+
+// How long to wait for a queryResult before falling back to an empty result, so
+// a wedged worker can never hang a read (mirrors CLOSE_STORE_TIMEOUT_MS).
+const QUERY_TIMEOUT_MS = 2000;
+
+// The result returned to callers when there is no worker (capture disabled) or
+// the worker never answers within QUERY_TIMEOUT_MS. Built fresh per call so a
+// caller can never mutate a shared instance.
+function emptyQueryResult(): InsightsQueryResult {
+	return { runs: [], completeness: "unknown" };
+}
 
 export class InsightsHost {
 	private proc: UtilityProcess | null = null;
 	private spawned = false;
 	private pending: MainToInsightsWorker[] = [];
 	private pendingClose: (() => void) | null = null;
+	// Monotonic per-host request-id source for queries — deterministic (no
+	// Math.random/Date.now) so correlation is testable.
+	private querySeq = 0;
+	// In-flight queries keyed by requestId, so concurrent reads each resolve with
+	// their OWN matching queryResult. The stored resolver clears its timeout and
+	// removes itself from the map, so it settles at most once.
+	private pendingQueries = new Map<
+		string,
+		(result: InsightsQueryResult) => void
+	>();
 	// At-most-once delivery PER worker session; reset on stop() so an UNACKNOWLEDGED
 	// notice re-delivers when the next worker starts.
 	private sessionNoticeSent = false;
@@ -131,7 +162,11 @@ export class InsightsHost {
 			return;
 		}
 		if (msg.kind === "queryResult") {
-			this.opts.send(INSIGHTS_QUERY_RESULT_CHANNEL, msg);
+			// Correlate by requestId: resolve the matching in-flight query (the
+			// resolver removes itself from the map and clears its timeout). A result
+			// for an unknown/already-settled id (e.g. one that already timed out) is
+			// ignored.
+			this.pendingQueries.get(msg.requestId)?.(msg.result);
 			return;
 		}
 	}
@@ -169,6 +204,36 @@ export class InsightsHost {
 			return;
 		}
 		this.proc.postMessage(msg);
+	}
+
+	// Typed read contract (spec §10.4 getWhisperRuns): post a correlated `query`
+	// to the worker and resolve with the matching `queryResult`. The app may call
+	// this even when capture is OFF, so with no worker we resolve an empty result
+	// rather than rejecting. A timeout guards against a wedged worker that never
+	// answers (mirrors deleteAll's close-wait fallback).
+	query(range: { fromMs: number; toMs: number }): Promise<InsightsQueryResult> {
+		if (!this.proc) return Promise.resolve(emptyQueryResult());
+		const requestId = `q-${++this.querySeq}`;
+		return new Promise<InsightsQueryResult>((resolve) => {
+			const settle = (result: InsightsQueryResult): void => {
+				// The map entry is the "still pending" guard: settle at most once.
+				// (settle is only ever invoked asynchronously — from onMessage's map
+				// lookup or the timeout below — so `timer` is always assigned by then.)
+				if (!this.pendingQueries.delete(requestId)) return;
+				clearTimeout(timer);
+				resolve(result);
+			};
+			this.pendingQueries.set(requestId, settle);
+			const timer = setTimeout(
+				() => settle(emptyQueryResult()),
+				QUERY_TIMEOUT_MS,
+			);
+			this.post({
+				kind: "query",
+				requestId,
+				query: { name: "whisperRuns", range },
+			});
+		});
 	}
 
 	// Host-owned delete-all (§7.4): works whether or not the worker runs. If it runs,

@@ -222,6 +222,86 @@ describe("InsightsHost", () => {
 		expect(host.isNoticePending()).toBe(false); // durable suppression, no in-process ack needed
 	});
 
+	it("query(): posts a correlated whisperRuns request and resolves on the matching queryResult (a mismatched id does NOT resolve it)", async () => {
+		const proc = fakeProc();
+		const host = new InsightsHost({
+			userDataDir: ud(),
+			whisperDbPath: null,
+			pollIntervalMs: 3000,
+			forkWorker: () => asProc(proc),
+			send: () => {},
+			loadNoticeShown: () => false,
+			persistNoticeShown: () => {},
+		});
+		host.setEnabled(true);
+		proc.emit("spawn");
+
+		const range = { fromMs: 10, toMs: 20 };
+		let settled: unknown = "pending";
+		const done = host.query(range).then((r) => {
+			settled = r;
+		});
+
+		// It posted a correlated query naming whisperRuns and carrying the range.
+		const sent = proc.postMessage.mock.calls.map(
+			(c) => c[0] as MainToInsightsWorker,
+		);
+		const queryMsg = sent.find((m) => m.kind === "query");
+		expect(queryMsg).toEqual({
+			kind: "query",
+			requestId: "q-1",
+			query: { name: "whisperRuns", range },
+		});
+
+		// A result for a DIFFERENT requestId must not resolve this query.
+		proc.emit("message", {
+			kind: "queryResult",
+			requestId: "q-999",
+			result: { runs: [], completeness: "partial" },
+		} satisfies InsightsWorkerToMain);
+		await Promise.resolve();
+		expect(settled).toBe("pending");
+
+		// The result for the SAME requestId resolves it with that exact payload.
+		const RUN = {
+			runId: "r1",
+			collabId: "c1",
+			repoId: null,
+			workspaceRel: null,
+			workflowType: "sdd",
+			status: "completed",
+			haltReason: null,
+			startedAt: 11,
+			endedAt: 12,
+			durationMs: 1,
+			phaseCount: 2,
+		};
+		proc.emit("message", {
+			kind: "queryResult",
+			requestId: "q-1",
+			result: { runs: [RUN], completeness: "complete" },
+		} satisfies InsightsWorkerToMain);
+		await done;
+		expect(settled).toEqual({ runs: [RUN], completeness: "complete" });
+	});
+
+	it("query(): resolves an empty result when disabled (no worker)", async () => {
+		const host = new InsightsHost({
+			userDataDir: ud(),
+			whisperDbPath: null,
+			pollIntervalMs: 3000,
+			forkWorker: () => asProc(fakeProc()),
+			send: () => {},
+			loadNoticeShown: () => false,
+			persistNoticeShown: () => {},
+		});
+		host.setEnabled(false); // no worker
+		await expect(host.query({ fromMs: 0, toMs: 1 })).resolves.toEqual({
+			runs: [],
+			completeness: "unknown",
+		});
+	});
+
 	it("does NOT re-deliver after ack even if the persist is still pending (async-ack race)", () => {
 		const userDataDir = ud();
 		const persisted = false; // loadNoticeShown's backing store — flushed LATER, never synchronously on ack (stays false all test)
