@@ -176,12 +176,10 @@ describe("getWhisperRuns / whisper_runs view", () => {
 				},
 			}),
 		);
-		expect(
-			getWhisperRuns(db, { fromMs: 1000, toMs: 2000 }).runs,
-		).toHaveLength(1); // fromMs inclusive
-		expect(getWhisperRuns(db, { fromMs: 0, toMs: 1000 }).runs).toHaveLength(
-			0,
-		); // toMs exclusive
+		expect(getWhisperRuns(db, { fromMs: 1000, toMs: 2000 }).runs).toHaveLength(
+			1,
+		); // fromMs inclusive
+		expect(getWhisperRuns(db, { fromMs: 0, toMs: 1000 }).runs).toHaveLength(0); // toMs exclusive
 	});
 
 	it("reports completeness from coverage and reverts to unknown once coverage is gone", () => {
