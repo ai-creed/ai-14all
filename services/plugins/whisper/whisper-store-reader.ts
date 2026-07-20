@@ -298,8 +298,16 @@ export class WhisperStoreReader {
 		}
 	}
 
-	/** Full workflow history (not just the latest run) for a collab, each with its phases. */
-	readAllWorkflows(collabId: string): WhisperWorkflowRunRow[] {
+	/** Full workflow history (not just the latest run) for a collab, each with its
+	 * phases. Pass `sinceUpdatedAt` (ISO) to read only runs that could have changed
+	 * since a prior tick — a run whose `updated_at >= since` OR which has any phase
+	 * with `started_at`/`ended_at >= since`. whisper's phase closes do not bump
+	 * `workflows.updated_at`, so the phase-activity clause is required (spec §8.1).
+	 * Absent or null → full read (back-compat). */
+	readAllWorkflows(
+		collabId: string,
+		sinceUpdatedAt?: string | null,
+	): WhisperWorkflowRunRow[] {
 		const db = this.openChecked();
 		if (!db) return [];
 		try {
@@ -309,10 +317,23 @@ export class WhisperStoreReader {
 			if (!collab) return [];
 			const wfRows = db
 				.prepare(
-					`SELECT workflow_id, collab_id, workflow_type, status, halt_reason, created_at, updated_at
-					 FROM workflows WHERE collab_id = ? ORDER BY created_at`,
+					`SELECT w.workflow_id, w.collab_id, w.workflow_type, w.status, w.halt_reason, w.created_at, w.updated_at
+					 FROM workflows w
+					 WHERE w.collab_id = @collabId
+					   AND (
+					     @since IS NULL
+					     OR w.updated_at >= @since
+					     OR EXISTS (
+					       SELECT 1 FROM workflow_phases p
+					       WHERE p.workflow_id = w.workflow_id
+					         AND (p.started_at >= @since OR p.ended_at >= @since)
+					     )
+					   )
+					 ORDER BY w.created_at`,
 				)
-				.all(collabId) as Array<Record<string, unknown>>;
+				.all({ collabId, since: sinceUpdatedAt ?? null }) as Array<
+				Record<string, unknown>
+			>;
 			const phaseStmt = db.prepare(
 				`SELECT phase_run_id, phase_index, phase_name, chain_id, started_at, ended_at, outcome
 				 FROM workflow_phases WHERE workflow_id = ? ORDER BY phase_index, started_at`,

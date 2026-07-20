@@ -19,3 +19,15 @@ export function setMetaOnce(
 		.run(key, value);
 	return info.changes > 0;
 }
+
+/** Upsert a meta value (overwrites on conflict). Contrast `setMetaOnce`, which
+ * no-ops when the key already exists. */
+export function setMeta(
+	db: Database.Database,
+	key: string,
+	value: string,
+): void {
+	db.prepare(
+		"INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+	).run(key, value);
+}

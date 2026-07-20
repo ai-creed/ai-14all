@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 import { markCoverage } from "../store/coverage.js";
-import { getMeta, setMetaOnce } from "../store/meta.js";
+import { getMeta, setMeta, setMetaOnce } from "../store/meta.js";
 import {
 	insertObservation,
 	type ObservationInput,
@@ -17,6 +17,10 @@ import type {
 
 export const WHISPER_SOURCE = "whisper-archiver";
 export const PARSER_VERSION = 1;
+// High-water mark (max ISO timestamp already archived). Each tick reads only
+// runs that could have changed since this mark — whisper never time-prunes its
+// workflow history, so an unbounded full re-read would grow with usage.
+export const WHISPER_WATERMARK_KEY = "whisper_watermark";
 
 // Statuses whisper uses for a run that has NOT reached a terminal state. A run
 // in any of these is still in flight, so its window has no end yet.
@@ -31,6 +35,15 @@ function ms(iso: string | null): number | null {
 	if (!iso) return null;
 	const t = Date.parse(iso);
 	return Number.isNaN(t) ? null : t;
+}
+
+// Max of ISO-8601 strings by lexicographic order. whisper writes UTC
+// `toISOString()` (…Z, ms precision), so string order == chronological order —
+// no date parsing needed for the max.
+function maxIso(...vals: (string | null | undefined)[]): string | null {
+	let m: string | null = null;
+	for (const v of vals) if (v != null && (m === null || v > m)) m = v;
+	return m;
 }
 
 // Content-hash the fields that define a run's *observable state* so an unchanged
@@ -88,10 +101,14 @@ export function archiveOnce(
 	let phases = 0;
 	let wrote = false;
 	const daysTouched = new Set<string>();
+	// Read the prior high-water mark once; the reader uses it to skip runs that
+	// cannot have changed, and we advance it to the max timestamp seen this tick.
+	const watermark = getMeta(db, WHISPER_WATERMARK_KEY);
+	let maxSeen: string | null = watermark;
 
 	const tx = db.transaction(() => {
 		for (const collabId of reader.listCollabIds()) {
-			for (const run of reader.readAllWorkflows(collabId)) {
+			for (const run of reader.readAllWorkflows(collabId, watermark)) {
 				const identity = resolveWorkspaceIdentity(run.workspaceRoot);
 				const startMs = ms(run.createdAt);
 				const isTerminal = !ACTIVE_STATUSES.has(run.status);
@@ -129,9 +146,11 @@ export function archiveOnce(
 				};
 				if (insertObservation(db, wfObs)) wrote = true;
 				workflows++;
+				maxSeen = maxIso(maxSeen, run.updatedAt);
 				if (startMs != null) daysTouched.add(utcDay(startMs));
 
 				for (const p of run.phases) {
+					maxSeen = maxIso(maxSeen, p.startedAt, p.endedAt);
 					const phObs: ObservationInput = {
 						eventId: phaseEventId(p),
 						kind: "whisper.phase",
@@ -166,6 +185,10 @@ export function archiveOnce(
 			markCoverage(db, { source: WHISPER_SOURCE, day, complete: true });
 		// Once-only, inside the same transaction as the writes it marks.
 		if (wrote) setMetaOnce(db, "first_capture_at", String(opts.nowMs));
+		// Advance the high-water mark within the same transaction (only when it
+		// moved) so a crash mid-tick never persists a mark ahead of its writes.
+		if (maxSeen && maxSeen !== watermark)
+			setMeta(db, WHISPER_WATERMARK_KEY, maxSeen);
 	});
 	tx();
 
