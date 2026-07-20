@@ -53,8 +53,22 @@ export async function generateFixture(
 		// dispatch to Forward and stuff a snapshot into backwardPages — emit [].
 		const backwardPages: PtyRowsPage[] = [];
 		let before = tailPage.cursorBefore;
-		let iterations = 0;
-		while (before !== undefined && iterations++ < 10_000) {
+		// Each page's cursorBefore strictly decreases (its oldest emitted line is
+		// below the requested boundary), so a valid chain needs at most one page
+		// per retained row. Bound the loop by the retained buffer size, NOT a fixed
+		// constant: a constant smaller than the retained buffer (reachable under a
+		// low pageCap on a large scrollback) would silently truncate a valid chain
+		// and leave the terminal page falsely reporting moreBefore: true. An
+		// overrun means the serializer's cursorBefore is not converging — fail
+		// loudly rather than emit an incomplete fixture that claims completion.
+		const maxBackwardPages = mirror.buffer.length + 1;
+		while (before !== undefined) {
+			if (backwardPages.length >= maxBackwardPages) {
+				throw new Error(
+					`backward chain did not terminate within ${maxBackwardPages} pages ` +
+						`(retained ${mirror.buffer.length} rows) — serializePage cursorBefore not converging`,
+				);
+			}
 			const bp = serializePage(mirror, { cursor: null, before }, pageCap);
 			backwardPages.push(bp); // sequential pull order: index 0 = nearest tail
 			before = bp.cursorBefore;

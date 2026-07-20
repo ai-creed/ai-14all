@@ -191,4 +191,31 @@ describe("generateFixture (reflow spec §3)", () => {
 			false,
 		);
 	});
+
+	it("follows the FULL backward chain past any fixed cap for a large retained buffer (case 7 — no silent truncation)", async () => {
+		// Regression: a fixed 10_000-iteration cap silently truncated valid
+		// retained history under a low pageCap. A terminal retains up to its
+		// scrollback (~10_006 rows here); with pageCap 1 the chain needs ~10_005
+		// backward pages — MORE than the old constant — and must still terminate
+		// at moreBefore:false with the whole buffer reconstructed and no gap. The
+		// old code produced backwardPages.length === 10_000 with the terminal page
+		// falsely reporting moreBefore: true.
+		const artifact = await generateFixture("x\r\n".repeat(10_050), 40, 6, 1, 1);
+		const forwardLines = artifact.pages
+			.flatMap((p) => p.rows)
+			.map((r) => r.line);
+		// The chain genuinely exceeds the old fixed 10_000 cap.
+		expect(artifact.backwardPages!.length).toBeGreaterThan(10_000);
+		// Reverse the stored (sequential-pull) order, flatten, append tailPage:
+		// this must reconstruct the ENTIRE retained buffer with no gap/overlap.
+		const reconstructed = [
+			...[...artifact.backwardPages!].reverse().flatMap((p) => p.rows),
+			...artifact.tailPage!.rows,
+		].map((r) => r.line);
+		expect(reconstructed).toEqual(forwardLines);
+		// Terminal channel state: reached the top of retained history.
+		const terminal = artifact.backwardPages!.at(-1)!;
+		expect(terminal.moreBefore).toBe(false);
+		expect(terminal.cursorBefore).toBeUndefined();
+	}, 30_000);
 });
