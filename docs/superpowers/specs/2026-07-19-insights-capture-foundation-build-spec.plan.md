@@ -2469,6 +2469,308 @@ git commit -m "test(insights): e2e capture + WAL-aware consent-stop, durable-ack
 
 ---
 
+## Task 15: Bound archiver read cost — whisper watermark (`updated_at` + phase-activity)
+
+**Added after the original 14 tasks, on source verification against `~/Dev/ai-whisper` (spec §8.1): whisper never time-prunes `workflows`/`workflow_phases` — the only deletion is explicit collab purge. Without this task, `archiveOnce` rescans + rehashes each *live* collab's entire accumulated history on every 3s poll, growing unbounded with usage. This bounds per-tick work to new/changed runs; idempotency (Task 8) stays the correctness backstop, so a wrong/loose watermark can never corrupt data — only cost.**
+
+**Files:**
+- Modify: `services/insights/store/meta.ts` (add `setMeta` upsert alongside `setMetaOnce`)
+- Modify: `services/plugins/whisper/whisper-store-reader.ts` (`readAllWorkflows` gains optional `sinceUpdatedAt`)
+- Modify: `services/insights/whisper/archiver.ts` (read + advance a persisted watermark)
+- Test: `tests/unit/insights/whisper-watermark.test.ts` (new)
+
+**Interfaces:**
+- Consumes: `getMeta` (Task 6), `WhisperStoreReader.readAllWorkflows` (Task 7), `archiveOnce` (Task 8), `makeWhisperFixtureDb` (test helper).
+- Produces:
+  - `setMeta(db, key, value): void` — upsert (distinct from `setMetaOnce`, which no-ops on conflict).
+  - `readAllWorkflows(collabId: string, sinceUpdatedAt?: string | null): WhisperWorkflowRunRow[]` — when `sinceUpdatedAt` is absent/`null`, identical full read (back-compat with Tasks 7/8); otherwise returns only runs whose `updated_at >= sinceUpdatedAt` **or** which have any phase with `started_at`/`ended_at` `>= sinceUpdatedAt`.
+  - `archiveOnce` persists `meta['whisper_watermark']` = the max ISO timestamp seen across processed runs' `updated_at` and their phases' `started_at`/`ended_at`.
+
+**Design notes (source-verified, keep in mind while implementing):**
+- **Why `>=`, not `>`:** the watermark equals the max timestamp already processed. Re-reading the boundary rows each tick (`>=`) is a handful of rows that re-hash to the same `event_id` → `ON CONFLICT DO NOTHING` no-ops. Using `>` risks skipping a row written at the exact same millisecond as the boundary that a prior tick had not yet seen. Correctness beats saving a few hashes.
+- **Why the phase-activity OR clause:** `closeWorkflowPhaseRun` in whisper (`UPDATE workflow_phases SET ended_at, outcome`) does **not** bump the parent `workflows.updated_at`. In all four current `workflow-control.ts` call sites it co-occurs with a workflow-level write, but that is an undocumented internal coupling of an external project. Keying the watermark on phase timestamps too makes this robust against a whisper refactor that closes a phase without touching its workflow row.
+- **ISO ordering:** whisper writes `new Date().toISOString()` (UTC, `…Z`, ms precision), so lexicographic string comparison equals chronological order — no date parsing needed for the filter or the max.
+
+- [ ] **Step 1: Write the failing reader test (since-filter + phase-activity OR + back-compat)**
+
+Create `tests/unit/insights/whisper-watermark.test.ts`:
+
+```ts
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import Database from "better-sqlite3";
+import { describe, expect, it } from "vitest";
+import { migrate } from "../../../services/insights/store/schema.js";
+import { getMeta, setMeta } from "../../../services/insights/store/meta.js";
+import { archiveOnce } from "../../../services/insights/whisper/archiver.js";
+import { WhisperStoreReader } from "../../../services/plugins/whisper/whisper-store-reader.js";
+import { makeWhisperFixtureDb } from "../plugins/helpers/make-whisper-fixture-db.js";
+
+function whisperFixture(
+	dbPath: string,
+	updatedAt: string,
+	phaseEndedAt: string,
+): void {
+	makeWhisperFixtureDb(dbPath, {
+		schemaVersion: 6,
+		collabs: [{ collab_id: "c1", workspace_root: "/repo" }],
+		workflows: [
+			{
+				workflow_id: "w1",
+				collab_id: "c1",
+				status: "done",
+				created_at: "2026-07-01T00:00:00.000Z",
+				updated_at: updatedAt,
+			},
+		],
+		phases: [
+			{
+				phase_run_id: "p1",
+				workflow_id: "w1",
+				phase_index: 0,
+				phase_name: "impl",
+				chain_id: "ch1",
+				started_at: "2026-07-01T00:10:00.000Z",
+				ended_at: phaseEndedAt,
+				outcome: "done",
+			},
+		],
+	});
+}
+
+describe("readAllWorkflows sinceUpdatedAt", () => {
+	it("full read when since is absent or null (back-compat)", () => {
+		const dir = mkdtempSync(join(tmpdir(), "ins-wm-a-"));
+		const db = join(dir, "state.db");
+		whisperFixture(db, "2026-07-01T01:00:00.000Z", "2026-07-01T00:50:00.000Z");
+		const reader = new WhisperStoreReader(db);
+		expect(reader.readAllWorkflows("c1")).toHaveLength(1);
+		expect(reader.readAllWorkflows("c1", null)).toHaveLength(1);
+	});
+
+	it("skips a run whose updated_at and phases are all before since", () => {
+		const dir = mkdtempSync(join(tmpdir(), "ins-wm-b-"));
+		const db = join(dir, "state.db");
+		whisperFixture(db, "2026-07-01T01:00:00.000Z", "2026-07-01T00:50:00.000Z");
+		const reader = new WhisperStoreReader(db);
+		expect(reader.readAllWorkflows("c1", "2026-07-02T00:00:00.000Z")).toHaveLength(0);
+	});
+
+	it("selects a run via phase activity even when updated_at is before since (coupling caveat)", () => {
+		const dir = mkdtempSync(join(tmpdir(), "ins-wm-c-"));
+		const db = join(dir, "state.db");
+		// workflow.updated_at stays old; a phase closed later without bumping it
+		whisperFixture(db, "2026-07-01T01:00:00.000Z", "2026-07-03T00:00:00.000Z");
+		const reader = new WhisperStoreReader(db);
+		expect(reader.readAllWorkflows("c1", "2026-07-02T00:00:00.000Z")).toHaveLength(1);
+	});
+});
+```
+
+- [ ] **Step 2: Run it — expect FAIL**
+
+Run: `pnpm test whisper-watermark`
+Expected: FAIL — `readAllWorkflows` takes one arg / ignores the second; the skip and phase-activity cases return the wrong length. (`setMeta` import also unresolved — that is Step 3's failure, fine.)
+
+- [ ] **Step 3: Implement `readAllWorkflows(collabId, sinceUpdatedAt?)`**
+
+In `services/plugins/whisper/whisper-store-reader.ts`, change the signature and the workflows query only (the `collab` lookup and `phaseStmt` are unchanged):
+
+```ts
+	/** Full workflow history for a collab, each with its phases. Pass `sinceUpdatedAt`
+	 * (ISO) to read only runs that could have changed since a prior tick — a run
+	 * whose `updated_at >= since` OR which has any phase with `started_at`/`ended_at
+	 * >= since` (phase closes do not bump `workflows.updated_at` — spec §8.1). Absent
+	 * or null → full read. */
+	readAllWorkflows(
+		collabId: string,
+		sinceUpdatedAt?: string | null,
+	): WhisperWorkflowRunRow[] {
+		const db = this.openChecked();
+		if (!db) return [];
+		try {
+			const collab = db
+				.prepare("SELECT workspace_root FROM collab WHERE collab_id = ?")
+				.get(collabId) as Record<string, unknown> | undefined;
+			if (!collab) return [];
+			const wfRows = db
+				.prepare(
+					`SELECT w.workflow_id, w.collab_id, w.workflow_type, w.status, w.halt_reason, w.created_at, w.updated_at
+					 FROM workflows w
+					 WHERE w.collab_id = @collabId
+					   AND (
+					     @since IS NULL
+					     OR w.updated_at >= @since
+					     OR EXISTS (
+					       SELECT 1 FROM workflow_phases p
+					       WHERE p.workflow_id = w.workflow_id
+					         AND (p.started_at >= @since OR p.ended_at >= @since)
+					     )
+					   )
+					 ORDER BY w.created_at`,
+				)
+				.all({ collabId, since: sinceUpdatedAt ?? null }) as Array<
+				Record<string, unknown>
+			>;
+			const phaseStmt = db.prepare(
+				`SELECT phase_run_id, phase_index, phase_name, chain_id, started_at, ended_at, outcome
+				 FROM workflow_phases WHERE workflow_id = ? ORDER BY phase_index, started_at`,
+			);
+			return wfRows.map((w) => ({
+				workflowId: w.workflow_id as string,
+				collabId: w.collab_id as string,
+				workspaceRoot: collab.workspace_root as string,
+				workflowType: w.workflow_type as string,
+				status: w.status as string,
+				haltReason: (w.halt_reason as string | null) ?? null,
+				createdAt: (w.created_at as string | null) ?? null,
+				updatedAt: (w.updated_at as string | null) ?? null,
+				phases: (
+					phaseStmt.all(w.workflow_id) as Array<Record<string, unknown>>
+				).map((p) => ({
+					phaseRunId: p.phase_run_id as string,
+					phaseIndex: p.phase_index as number,
+					phaseName: p.phase_name as string,
+					chainId: (p.chain_id as string | null) ?? null,
+					startedAt: (p.started_at as string | null) ?? null,
+					endedAt: (p.ended_at as string | null) ?? null,
+					outcome: (p.outcome as string | null) ?? null,
+				})),
+			}));
+		} catch {
+			return [];
+		} finally {
+			db.close();
+		}
+	}
+```
+
+Add `setMeta` to `services/insights/store/meta.ts`:
+
+```ts
+/** Upsert a meta value (overwrites on conflict). Contrast `setMetaOnce`, which
+ * no-ops when the key already exists. */
+export function setMeta(
+	db: Database.Database,
+	key: string,
+	value: string,
+): void {
+	db.prepare(
+		"INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+	).run(key, value);
+}
+```
+
+- [ ] **Step 4: Write the failing archiver-watermark test, then implement it**
+
+Append to `tests/unit/insights/whisper-watermark.test.ts`:
+
+```ts
+describe("archiveOnce watermark", () => {
+	it("setMeta upserts (overwrites); setMetaOnce would not", () => {
+		const db = new Database(":memory:");
+		migrate(db);
+		setMeta(db, "k", "v1");
+		expect(getMeta(db, "k")).toBe("v1");
+		setMeta(db, "k", "v2");
+		expect(getMeta(db, "k")).toBe("v2");
+	});
+
+	it("advances the watermark and re-runs cheaply (no new rows)", () => {
+		const dir = mkdtempSync(join(tmpdir(), "ins-wm-d-"));
+		const wdb = join(dir, "state.db");
+		whisperFixture(wdb, "2026-07-01T01:00:00.000Z", "2026-07-01T00:50:00.000Z");
+		const reader = new WhisperStoreReader(wdb);
+		const ins = new Database(":memory:");
+		migrate(ins);
+
+		const r1 = archiveOnce(ins, reader, { nowMs: 1000 });
+		expect(r1.workflows).toBe(1);
+		// watermark = max(updated_at=01:00, phase ended_at=00:50) = 01:00
+		expect(getMeta(ins, "whisper_watermark")).toBe("2026-07-01T01:00:00.000Z");
+
+		const before = (
+			ins.prepare("SELECT COUNT(*) c FROM observations").get() as { c: number }
+		).c;
+		archiveOnce(ins, reader, { nowMs: 2000 });
+		const after = (
+			ins.prepare("SELECT COUNT(*) c FROM observations").get() as { c: number }
+		).c;
+		expect(after).toBe(before); // boundary re-read, all ON CONFLICT no-ops
+	});
+});
+```
+
+Run: `pnpm test whisper-watermark` → expect FAIL (`whisper_watermark` meta never written; `setMeta` may still be unresolved if Step 3's meta edit was skipped).
+
+Then implement the watermark in `services/insights/whisper/archiver.ts`:
+
+```ts
+// near the other imports
+import { getMeta, setMeta, setMetaOnce } from "../store/meta.js";
+
+// module constant beside WHISPER_SOURCE
+export const WHISPER_WATERMARK_KEY = "whisper_watermark";
+
+// helper beside ms()
+function maxIso(...vals: (string | null | undefined)[]): string | null {
+	let m: string | null = null;
+	for (const v of vals) if (v != null && (m === null || v > m)) m = v;
+	return m;
+}
+```
+
+Inside `archiveOnce`, read the watermark before the transaction and advance it within:
+
+```ts
+	const watermark = getMeta(db, WHISPER_WATERMARK_KEY);
+	let maxSeen: string | null = watermark;
+
+	const tx = db.transaction(() => {
+		for (const collabId of reader.listCollabIds()) {
+			for (const run of reader.readAllWorkflows(collabId, watermark)) {
+				// ...unchanged mapping/insert of the workflow observation...
+				maxSeen = maxIso(maxSeen, run.updatedAt);
+				for (const p of run.phases) {
+					maxSeen = maxIso(maxSeen, p.startedAt, p.endedAt);
+					// ...unchanged mapping/insert of the phase observation...
+				}
+			}
+		}
+		for (const day of daysTouched)
+			markCoverage(db, { source: WHISPER_SOURCE, day, complete: true });
+		if (wrote) setMetaOnce(db, "first_capture_at", String(opts.nowMs));
+		if (maxSeen && maxSeen !== watermark)
+			setMeta(db, WHISPER_WATERMARK_KEY, maxSeen);
+	});
+	tx();
+```
+
+Run: `pnpm test whisper-watermark` → expect PASS.
+
+- [ ] **Step 5: Full verification (existing archiver/reader tests must stay green)**
+
+Run: `pnpm typecheck && pnpm lint && pnpm test`
+Expected: all green. The existing Task 7 `readAllWorkflows(collabId)` reader tests and Task 8 `archiveOnce` tests still pass unchanged (`sinceUpdatedAt` defaults to a full read; the first `archiveOnce` on an empty store has a null watermark → full read). Confirm no `no-explicit-any` and tabs (repo Prettier config).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add services/insights/store/meta.ts services/plugins/whisper/whisper-store-reader.ts services/insights/whisper/archiver.ts tests/unit/insights/whisper-watermark.test.ts
+git commit -m "perf(insights): bound archiver read with whisper watermark (updated_at + phase-activity)"
+```
+
+**Edge cases covered by the tests above (+ ones to keep in mind):**
+- Back-compat: `readAllWorkflows(collabId)` / `(collabId, null)` still full-read (existing tests unaffected).
+- Skip: a run entirely before the watermark is not read.
+- Phase-only change on a run whose `updated_at` did not move → still selected (coupling caveat).
+- Idempotent re-run: boundary rows re-read (`>=`) but produce zero new observations.
+- First tick (null watermark) → full read, watermark seeded.
+- **Not separately tested but safe:** a run with null `updated_at` *and* null phase timestamps is skipped once a watermark exists (no temporal signal); it is captured on the first-ever tick (null watermark → full read). Acceptable — such a row has no observable change signal.
+
+---
+
 ## Spec coverage map (self-review)
 
 | Spec § | Requirement | Task |
@@ -2486,6 +2788,7 @@ git commit -m "test(insights): e2e capture + WAL-aware consent-stop, durable-ack
 | §7.5 | single-horizon retention, observations+coverage lockstep | 6 |
 | §7.6 | resolver + strict allowlist + absolute-path guard | 2, 3, 8 |
 | §8 | deterministic event_id, idempotent insert | 3, 8 |
+| §8.1 | archiver read-cost bound: whisper watermark (`updated_at` + phase-activity) | 15 |
 | §10.1 | read-only `readAllWorkflows` (drop LIMIT 1, phase_run_id) | 7 |
 | §10.2 | worker-owned poll | 10 |
 | §10.3 | observation mapping (phase_run_id identity, excl. spec_path) | 8 |
