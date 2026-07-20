@@ -276,6 +276,111 @@ describe("serializePage", () => {
 		}
 		m.dispose();
 	});
+
+	it("tail-first returns the newest `tail` rows with a backward channel (case 1)", async () => {
+		const m = await mirrorWith("x\r\n".repeat(60), 40, 6);
+		const full = serializePage(m, { cursor: null }); // oldest-first snapshot
+		const first = full.rows[0].line;
+		const last = full.rows.at(-1)!.line;
+		const tail = serializePage(m, { cursor: null, tail: 20 });
+		expect(tail.rows.length).toBe(20);
+		expect(tail.rows[0].line).toBe(last - 19);
+		expect(tail.rows.at(-1)!.line).toBe(last);
+		expect(tail.more).toBe(false);
+		expect(tail.moreBefore).toBe(last - 19 > first);
+		if (last - 19 > first) {
+			expect(decodeCursor(tail.cursorBefore!)!.line).toBe(last - 19);
+		}
+		m.dispose();
+	});
+
+	it("tail clamps to cap (case 2)", async () => {
+		const m = await mirrorWith("x\r\n".repeat(60), 40, 6);
+		const full = serializePage(m, { cursor: null });
+		const last = full.rows.at(-1)!.line;
+		const tail = serializePage(m, { cursor: null, tail: 10_000 }, 5);
+		expect(tail.rows.length).toBe(5);
+		expect(tail.rows.at(-1)!.line).toBe(last);
+		expect(tail.rows[0].line).toBe(last - 4);
+		expect(tail.moreBefore).toBe(true);
+		m.dispose();
+	});
+
+	it("tail reaching the top clears the backward channel (case 3)", async () => {
+		const m = await mirrorWith("a\r\nb\r\nc\r\n", 40, 6); // tiny, nothing trimmed
+		const full = serializePage(m, { cursor: null });
+		expect(full.rows[0].line).toBe(0); // first === 0
+		const tail = serializePage(m, { cursor: null, tail: 500 });
+		expect(tail.rows[0].line).toBe(0);
+		expect(tail.moreBefore).toBe(false);
+		expect(tail.cursorBefore).toBeUndefined();
+		m.dispose();
+	});
+
+	it("tail forward cursor resumes live output, never a re-replay of the tail window (case 4)", async () => {
+		// The tail cursor is { epoch, watermark, line: last } — a forward cursor.
+		// The next { cursor } pull runs the existing (stamp, line) delta branch.
+		// `PtyMirror.tick()` re-stamps rows that DEPART the viewport since the last
+		// tick ("dirty by construction", services/pty-inspect/pty-mirror.ts:231-238),
+		// so a resume is a keyed-by-line delta: the genuinely new rows PLUS the
+		// bounded set of rows that scrolled out (one line written ⇒ ~one departed
+		// row). That is idempotent for the phone (it keys by absolute line) and is
+		// NOT a re-replay of the whole tail window — which is exactly what case 4
+		// must prove. Asserting "exactly one row" is wrong (it ignores the departed
+		// row); asserting merely ">= 1" is too weak (a full re-replay would pass).
+		const m = await mirrorWith("x\r\n".repeat(30), 40, 6);
+		const tail = serializePage(m, { cursor: null, tail: 10 });
+		m.write("brand-new\r\n");
+		await m.drained();
+		m.tick();
+		const resume = serializePage(m, { cursor: tail.cursor });
+		// The genuinely new line is delivered.
+		expect(resume.rows.some((r) => r.text === "brand-new")).toBe(true);
+		// It is a small delta, not a full-window resend.
+		expect(resume.rows.length).toBeLessThan(tail.rows.length);
+		// The load-bearing assertion: no tail row is re-sent with UNCHANGED content
+		// except the (bounded) rows that physically scrolled out. A re-replay of the
+		// tail window would re-send many byte-identical rows and blow this bound.
+		const tailByLine = new Map(tail.rows.map((r) => [r.line, r.text]));
+		const identicalReplay = resume.rows.filter(
+			(r) => tailByLine.get(r.line) === r.text,
+		).length;
+		expect(identicalReplay).toBeLessThanOrEqual(1);
+		m.dispose();
+	});
+
+	it("altScreen forces the backward channel off for tail-first (case 8-tail)", async () => {
+		const m = await mirrorWith("\x1b[?1049h" + "alt\r\n".repeat(10), 40, 6);
+		const tail = serializePage(m, { cursor: null, tail: 3 });
+		expect(tail.altScreen).toBe(true);
+		expect(tail.moreBefore).toBe(false);
+		expect(tail.cursorBefore).toBeUndefined();
+		m.dispose();
+	});
+
+	it("forward path is unchanged and now carries moreBefore (cases 9 + 10)", async () => {
+		const m = await mirrorWith("x\r\n".repeat(12), 40, 6);
+		const snap = serializePage(m, { cursor: null });
+		expect(typeof snap.moreBefore).toBe("boolean"); // handshake key present
+		expect(snap.rows[0].line).toBeLessThan(snap.rows.at(-1)!.line); // oldest-first
+		m.write("later\r\n");
+		await m.drained();
+		m.tick();
+		const delta = serializePage(m, { cursor: snap.cursor });
+		// Not "exactly one row": the initial full snapshot already includes the
+		// trailing blank cursor row, and writing one more line always dirties
+		// at least two rows (that blank row filling in with "later", plus a
+		// fresh blank row created after it) — a structural property of the
+		// buffer, not something this task's restructuring changed. With a
+		// saturated 6-row viewport this write also departs one row (dirty by
+		// construction, pty-mirror.ts:231-238, same burst-safety as case 4).
+		// The regression-safety invariant is: new content is delivered and the
+		// delta is small, never a full re-replay of the snapshot.
+		expect(delta.rows.some((r) => r.text === "later")).toBe(true);
+		expect(delta.rows.length).toBeLessThan(snap.rows.length);
+		expect(typeof delta.moreBefore).toBe("boolean");
+		m.dispose();
+	});
 });
 
 describe("v4/v5 contract compatibility (umbrella §3)", () => {
