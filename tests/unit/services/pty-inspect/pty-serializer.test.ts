@@ -34,7 +34,7 @@ describe("serializePage", () => {
 		const m = await mirrorWith(
 			"\x1b[31mred\x1b[0m plain \x1b[1mbold\x1b[0m\r\n",
 		);
-		const page = serializePage(m, null);
+		const page = serializePage(m, { cursor: null });
 		expect(page.cursor).toBeTypeOf("string");
 		const row = page.rows[0];
 		expect(row.text).toBe("red plain bold");
@@ -52,7 +52,7 @@ describe("serializePage", () => {
 
 	it("interior empty cells (tab stop) attribute as default-space runs, not the following color (review fix)", async () => {
 		const m = await mirrorWith("a\t\x1b[31mred\x1b[0m\r\n");
-		const row = serializePage(m, null).rows[0];
+		const row = serializePage(m, { cursor: null }).rows[0];
 		expect(row.text).toBe("a       red");
 		// Runs tile the text exactly.
 		let off = 0;
@@ -87,7 +87,7 @@ describe("serializePage", () => {
 			return w;
 		};
 		const m = await mirrorWith("漢字🚀!\r\né̂ok\r\n");
-		const [wide, combining] = serializePage(m, null).rows;
+		const [wide, combining] = serializePage(m, { cursor: null }).rows;
 		expect(wide.text).toBe("漢字🚀!");
 		// 漢(1 unit) 字(1) 🚀(surrogate pair, 2) !(1) → 5 UTF-16 units over 7 columns.
 		expect(wide.text.length).toBe(5);
@@ -113,7 +113,7 @@ describe("serializePage", () => {
 			watermark: m.watermark + 50,
 			line: 999,
 		});
-		const page = serializePage(m, forged);
+		const page = serializePage(m, { cursor: forged });
 		expect(page.rows.length).toBeGreaterThan(0); // full snapshot, never an empty "tail"
 		expect(page.rows.map((r) => r.text)).toContain("a");
 		m.dispose();
@@ -121,14 +121,14 @@ describe("serializePage", () => {
 
 	it("tail cursor after a burst larger than the viewport returns every appended row (spec §2)", async () => {
 		const m = await mirrorWith("seed\r\n", 10, 4);
-		const tail = serializePage(m, null);
+		const tail = serializePage(m, { cursor: null });
 		expect(tail.more).toBe(false);
 		let burst = "";
 		for (let i = 0; i < 20; i++) burst += `b${i}\r\n`; // 20 rows, 4-row viewport
 		m.write(burst);
 		await m.drained();
 		m.tick();
-		const delta = serializePage(m, tail.cursor);
+		const delta = serializePage(m, { cursor: tail.cursor });
 		const texts = delta.rows.map((r) => r.text);
 		for (let i = 0; i < 20; i++) expect(texts).toContain(`b${i}`);
 		m.dispose();
@@ -138,10 +138,10 @@ describe("serializePage", () => {
 		let data = "";
 		for (let i = 0; i < 12; i++) data += `r${i}\r\n`;
 		const m = await mirrorWith(data, 10, 4);
-		const p1 = serializePage(m, null, 5);
+		const p1 = serializePage(m, { cursor: null }, 5);
 		expect(p1.rows).toHaveLength(5);
 		expect(p1.more).toBe(true);
-		const p2 = serializePage(m, p1.cursor, 500);
+		const p2 = serializePage(m, { cursor: p1.cursor }, 500);
 		expect(p2.more).toBe(false);
 		const seen = [...p1.rows, ...p2.rows].map((r) => r.line);
 		expect(new Set(seen).size).toBe(seen.length); // no duplicates
@@ -152,12 +152,12 @@ describe("serializePage", () => {
 
 	it("tail cursor returns exactly the delta after new output (spec §7 cursor durability)", async () => {
 		const m = await mirrorWith("a\r\nb\r\n", 10, 4);
-		const replay = serializePage(m, null);
+		const replay = serializePage(m, { cursor: null });
 		expect(replay.more).toBe(false);
 		m.write("c\r\n");
 		await m.drained();
 		m.tick();
-		const delta = serializePage(m, replay.cursor);
+		const delta = serializePage(m, { cursor: replay.cursor });
 		expect(delta.rows.map((r) => r.text).filter(Boolean)).toContain("c");
 		expect(delta.rows.map((r) => r.text)).not.toContain("a");
 		m.dispose();
@@ -165,10 +165,10 @@ describe("serializePage", () => {
 
 	it("stale epoch cursor answers as a fresh snapshot (spec §2)", async () => {
 		const m = await mirrorWith("x\r\n", 10, 4);
-		const old = serializePage(m, null);
+		const old = serializePage(m, { cursor: null });
 		m.resize(12, 4); // epoch bump
 		m.tick();
-		const page = serializePage(m, old.cursor);
+		const page = serializePage(m, { cursor: old.cursor });
 		expect(page.epoch).toBeGreaterThan(old.epoch);
 		expect(page.rows.length).toBeGreaterThan(0); // full snapshot, not an error
 		m.dispose();
@@ -176,14 +176,14 @@ describe("serializePage", () => {
 
 	it("pre-trim cursor never returns dropped lines and reports trimmedBefore (spec §6.2)", async () => {
 		const m = await mirrorWith("seed\r\n", 10, 4);
-		const early = serializePage(m, null);
+		const early = serializePage(m, { cursor: null });
 		const total = 10_000 + 4 + 9;
 		let chunk = "";
 		for (let i = 0; i < total; i++) chunk += `l${i}\r\n`;
 		m.write(chunk);
 		await m.drained();
 		m.tick();
-		const page = serializePage(m, early.cursor);
+		const page = serializePage(m, { cursor: early.cursor });
 		expect(page.trimmedBefore).toBe(m.trimmedBefore);
 		for (const row of page.rows)
 			expect(row.line).toBeGreaterThanOrEqual(page.trimmedBefore);
@@ -192,7 +192,7 @@ describe("serializePage", () => {
 
 	it("soft-wrapped long line: row 0 unwrapped, continuation rows carry wrapped: true (reflow spec §1.1)", async () => {
 		const m = await mirrorWith("a".repeat(200), 80, 6);
-		const rows = serializePage(m, null).rows;
+		const rows = serializePage(m, { cursor: null }).rows;
 		// 200 chars at 80 cols wraps into 3 content rows; the mirror reports the
 		// full 6-row viewport, so 3 blank unwrapped rows pad the tail (observed
 		// xterm behavior — serializePage never trims trailing blank rows).
@@ -206,7 +206,7 @@ describe("serializePage", () => {
 
 	it("explicit newlines never carry wrapped (reflow spec §1.2)", async () => {
 		const m = await mirrorWith("one\r\ntwo\r\nthree\r\n");
-		for (const row of serializePage(m, null).rows) {
+		for (const row of serializePage(m, { cursor: null }).rows) {
 			expect(row.wrapped).toBeUndefined();
 		}
 		m.dispose();
@@ -214,9 +214,9 @@ describe("serializePage", () => {
 
 	it("wrapped chain spanning a page boundary keeps correct flags on both pages (reflow spec §1.3)", async () => {
 		const m = await mirrorWith("b".repeat(200), 40, 8); // 5 wrapped-chain rows at 40 cols
-		const p1 = serializePage(m, null, 2);
+		const p1 = serializePage(m, { cursor: null }, 2);
 		expect(p1.more).toBe(true);
-		const p2 = serializePage(m, p1.cursor);
+		const p2 = serializePage(m, { cursor: p1.cursor });
 		const all = [...p1.rows, ...p2.rows].sort((a, b) => a.line - b.line);
 		// The 8-row viewport carries the 5-row wrap chain plus 3 blank unwrapped
 		// padding rows (observed xterm behavior, same as reflow spec §1.1).
@@ -230,7 +230,7 @@ describe("serializePage", () => {
 
 	it("styled soft-wrapped content: runs still tile each row's text; the flag adds no run motion (reflow spec §1.4)", async () => {
 		const m = await mirrorWith("\x1b[31m" + "r".repeat(100) + "\x1b[0m", 40, 6);
-		const rows = serializePage(m, null).rows;
+		const rows = serializePage(m, { cursor: null }).rows;
 		// 100 chars at 40 cols wraps into 3 content rows; the mirror reports the
 		// full 6-row viewport, so 3 blank unwrapped rows pad the tail (same
 		// observed xterm behavior as reflow spec §1.1).
@@ -253,7 +253,7 @@ describe("serializePage", () => {
 	it("after resize(), flags match the new geometry's per-line isWrapped — no hardcoded layout (reflow spec §1.5)", async () => {
 		const m = await mirrorWith("c".repeat(30), 20, 6);
 		m.resize(12, 4); // epoch bump; xterm reflows the buffer
-		const page = serializePage(m, null);
+		const page = serializePage(m, { cursor: null });
 		expect(page.rows.length).toBeGreaterThan(0);
 		for (const row of page.rows) {
 			const expected =
@@ -269,11 +269,229 @@ describe("serializePage", () => {
 			40,
 			6,
 		);
-		const page = serializePage(m, null);
+		const page = serializePage(m, { cursor: null });
 		expect(page.altScreen).toBe(true);
 		for (const row of page.rows) {
 			expect(row.wrapped).toBeUndefined();
 		}
+		m.dispose();
+	});
+
+	it("tail-first returns the newest `tail` rows with a backward channel (case 1)", async () => {
+		const m = await mirrorWith("x\r\n".repeat(60), 40, 6);
+		const full = serializePage(m, { cursor: null }); // oldest-first snapshot
+		const first = full.rows[0].line;
+		const last = full.rows.at(-1)!.line;
+		const tail = serializePage(m, { cursor: null, tail: 20 });
+		expect(tail.rows.length).toBe(20);
+		expect(tail.rows[0].line).toBe(last - 19);
+		expect(tail.rows.at(-1)!.line).toBe(last);
+		expect(tail.more).toBe(false);
+		expect(tail.moreBefore).toBe(last - 19 > first);
+		if (last - 19 > first) {
+			expect(decodeCursor(tail.cursorBefore!)!.line).toBe(last - 19);
+		}
+		m.dispose();
+	});
+
+	it("tail clamps to cap (case 2)", async () => {
+		const m = await mirrorWith("x\r\n".repeat(60), 40, 6);
+		const full = serializePage(m, { cursor: null });
+		const last = full.rows.at(-1)!.line;
+		const tail = serializePage(m, { cursor: null, tail: 10_000 }, 5);
+		expect(tail.rows.length).toBe(5);
+		expect(tail.rows.at(-1)!.line).toBe(last);
+		expect(tail.rows[0].line).toBe(last - 4);
+		expect(tail.moreBefore).toBe(true);
+		m.dispose();
+	});
+
+	it("tail reaching the top clears the backward channel (case 3)", async () => {
+		const m = await mirrorWith("a\r\nb\r\nc\r\n", 40, 6); // tiny, nothing trimmed
+		const full = serializePage(m, { cursor: null });
+		expect(full.rows[0].line).toBe(0); // first === 0
+		const tail = serializePage(m, { cursor: null, tail: 500 });
+		expect(tail.rows[0].line).toBe(0);
+		expect(tail.moreBefore).toBe(false);
+		expect(tail.cursorBefore).toBeUndefined();
+		m.dispose();
+	});
+
+	it("tail forward cursor resumes live output, never a re-replay of the tail window (case 4)", async () => {
+		// The tail cursor is { epoch, watermark, line: last } — a forward cursor.
+		// The next { cursor } pull runs the existing (stamp, line) delta branch.
+		// `PtyMirror.tick()` re-stamps rows that DEPART the viewport since the last
+		// tick ("dirty by construction", services/pty-inspect/pty-mirror.ts:231-238),
+		// so a resume is a keyed-by-line delta: the genuinely new rows PLUS the
+		// bounded set of rows that scrolled out (one line written ⇒ ~one departed
+		// row). That is idempotent for the phone (it keys by absolute line) and is
+		// NOT a re-replay of the whole tail window — which is exactly what case 4
+		// must prove. Asserting "exactly one row" is wrong (it ignores the departed
+		// row); asserting merely ">= 1" is too weak (a full re-replay would pass).
+		const m = await mirrorWith("x\r\n".repeat(30), 40, 6);
+		const tail = serializePage(m, { cursor: null, tail: 10 });
+		m.write("brand-new\r\n");
+		await m.drained();
+		m.tick();
+		const resume = serializePage(m, { cursor: tail.cursor });
+		// The genuinely new line is delivered.
+		expect(resume.rows.some((r) => r.text === "brand-new")).toBe(true);
+		// It is a small delta, not a full-window resend.
+		expect(resume.rows.length).toBeLessThan(tail.rows.length);
+		// The load-bearing assertion: no tail row is re-sent with UNCHANGED content
+		// except the (bounded) rows that physically scrolled out. A re-replay of the
+		// tail window would re-send many byte-identical rows and blow this bound.
+		const tailByLine = new Map(tail.rows.map((r) => [r.line, r.text]));
+		const identicalReplay = resume.rows.filter(
+			(r) => tailByLine.get(r.line) === r.text,
+		).length;
+		expect(identicalReplay).toBeLessThanOrEqual(1);
+		m.dispose();
+	});
+
+	it("altScreen forces the backward channel off for tail-first (case 8-tail)", async () => {
+		const m = await mirrorWith("\x1b[?1049h" + "alt\r\n".repeat(10), 40, 6);
+		const tail = serializePage(m, { cursor: null, tail: 3 });
+		expect(tail.altScreen).toBe(true);
+		expect(tail.moreBefore).toBe(false);
+		expect(tail.cursorBefore).toBeUndefined();
+		m.dispose();
+	});
+
+	it("forward path is unchanged and now carries moreBefore (cases 9 + 10)", async () => {
+		const m = await mirrorWith("x\r\n".repeat(12), 40, 6);
+		const snap = serializePage(m, { cursor: null });
+		expect(typeof snap.moreBefore).toBe("boolean"); // handshake key present
+		expect(snap.rows[0].line).toBeLessThan(snap.rows.at(-1)!.line); // oldest-first
+		m.write("later\r\n");
+		await m.drained();
+		m.tick();
+		const delta = serializePage(m, { cursor: snap.cursor });
+		// Not "exactly one row": the initial full snapshot already includes the
+		// trailing blank cursor row, and writing one more line always dirties
+		// at least two rows (that blank row filling in with "later", plus a
+		// fresh blank row created after it) — a structural property of the
+		// buffer, not something this task's restructuring changed. With a
+		// saturated 6-row viewport this write also departs one row (dirty by
+		// construction, pty-mirror.ts:231-238, same burst-safety as case 4).
+		// The regression-safety invariant is: new content is delivered and the
+		// delta is small, never a full re-replay of the snapshot.
+		expect(delta.rows.some((r) => r.text === "later")).toBe(true);
+		expect(delta.rows.length).toBeLessThan(snap.rows.length);
+		expect(typeof delta.moreBefore).toBe("boolean");
+		m.dispose();
+	});
+
+	it("backward chain returns capped contiguous windows, chained by cursorBefore, with the v6 handshake on each page (cases 5 + 10-backward)", async () => {
+		const cap = 5; // small cap forces multiple backward pages
+		const m = await mirrorWith("x\r\n".repeat(40), 40, 6);
+		const full = serializePage(m, { cursor: null });
+		const first = full.rows[0].line;
+		const tail = serializePage(m, { cursor: null, tail: 5 });
+		const pageLines: number[][] = [];
+		let before = tail.cursorBefore;
+		let terminal = tail; // last backward page processed (for the terminal-state assert)
+		let guard = 0;
+		// Each page ends exactly one line below the previous boundary (starting
+		// just under the tail's oldest line) — proves no gap and no overlap.
+		let expectedEnd = tail.rows[0].line - 1;
+		while (before !== undefined && guard++ < 100) {
+			const B = decodeCursor(before)!.line; // the boundary this page pages back from
+			const page = serializePage(m, { cursor: null, before }, cap);
+			// Case 10: handshake key present AND boolean on a successful backward page.
+			expect("moreBefore" in page).toBe(true);
+			expect(typeof page.moreBefore).toBe("boolean");
+			// Exact required window [max(first, B-cap) .. B-1], contiguous ascending.
+			const startAbs = Math.max(first, B - cap);
+			const endAbs = B - 1;
+			expect(page.rows.length).toBeLessThanOrEqual(cap);
+			expect(page.rows[0].line).toBe(startAbs);
+			expect(page.rows.at(-1)!.line).toBe(endAbs);
+			expect(page.rows.map((r) => r.line)).toEqual(
+				page.rows.map((_, i) => startAbs + i),
+			);
+			expect(endAbs).toBe(expectedEnd);
+			expectedEnd = startAbs - 1;
+			pageLines.push(page.rows.map((r) => r.line));
+			terminal = page;
+			before = page.cursorBefore;
+		}
+		// The cap actually forced more than one backward page.
+		expect(pageLines.length).toBeGreaterThan(1);
+		// Chain terminus (child-spec case 5): the last page reached the top and
+		// MUST report moreBefore === false with no cursorBefore. A page that omits
+		// cursorBefore while moreBefore is still true would end the loop early yet
+		// pass every window/reconstruction check — this assertion catches that.
+		expect(terminal.moreBefore).toBe(false);
+		expect(terminal.cursorBefore).toBeUndefined();
+		// Reconstruct oldest-first: reverse the page array, flatten, append tail.
+		const reconstructed = [
+			...[...pageLines].reverse().flat(),
+			...tail.rows.map((r) => r.line),
+		];
+		const expected: number[] = [];
+		for (let l = first; l <= full.rows.at(-1)!.line; l++) expected.push(l);
+		expect(reconstructed).toEqual(expected);
+		m.dispose();
+	});
+
+	it("backward boundary at first returns empty (case 6)", async () => {
+		const m = await mirrorWith("x\r\n".repeat(20), 40, 6);
+		const full = serializePage(m, { cursor: null });
+		const first = full.rows[0].line;
+		const token = encodeCursor({
+			epoch: full.epoch,
+			watermark: 0,
+			line: first,
+		});
+		const page = serializePage(m, { cursor: null, before: token });
+		expect(page.rows).toEqual([]);
+		expect(page.moreBefore).toBe(false);
+		m.dispose();
+	});
+
+	it("backward rejects stale/foreign/out-of-window/non-integer tokens with zero rows (case 7)", async () => {
+		const m = await mirrorWith("x\r\n".repeat(20), 40, 6);
+		const full = serializePage(m, { cursor: null });
+		const last = full.rows.at(-1)!.line;
+		const cap = 500;
+		// (a) wrong epoch
+		const wrongEpoch = encodeCursor({
+			epoch: full.epoch + 99,
+			watermark: 0,
+			line: last,
+		});
+		// (b) forged / undecodable
+		const forged = "not-a-real-cursor";
+		// (c) current-epoch, out-of-window: line = last + cap + 1
+		const outOfWindow = encodeCursor({
+			epoch: full.epoch,
+			watermark: 0,
+			line: last + cap + 1,
+		});
+		// (d) non-integer line
+		const nonInteger = encodeCursor({
+			epoch: full.epoch,
+			watermark: 0,
+			line: last - 0.5,
+		});
+		for (const before of [wrongEpoch, forged, outOfWindow, nonInteger]) {
+			const page = serializePage(m, { cursor: null, before }, cap);
+			expect(page.rows).toEqual([]); // zero rows — never cap phantom rows
+			expect(page.moreBefore).toBe(false);
+			expect(page.epoch).toBe(full.epoch);
+		}
+		m.dispose();
+	});
+
+	it("altScreen forces the backward channel off for backward mode (case 8-backward)", async () => {
+		const m = await mirrorWith("\x1b[?1049h" + "alt\r\n".repeat(10), 40, 6);
+		const full = serializePage(m, { cursor: null });
+		const last = full.rows.at(-1)!.line;
+		const token = encodeCursor({ epoch: full.epoch, watermark: 0, line: last });
+		const page = serializePage(m, { cursor: null, before: token });
+		expect(page.moreBefore).toBe(false);
+		expect(page.cursorBefore).toBeUndefined();
 		m.dispose();
 	});
 });
@@ -281,7 +499,7 @@ describe("serializePage", () => {
 describe("v4/v5 contract compatibility (umbrella §3)", () => {
 	it("old host → new phone: a page with no wrapped key parses against the v5 schema with wrapped absent (reflow spec §1.7)", async () => {
 		const m = await mirrorWith("plain\r\nlines\r\n");
-		const page = serializePage(m, null);
+		const page = serializePage(m, { cursor: null });
 		expect(JSON.stringify(page)).not.toContain("wrapped");
 		const parsed = PtyRowsResult.parse({ ok: true, ...page });
 		if (!parsed.ok) throw new Error("expected success arm");
@@ -291,7 +509,7 @@ describe("v4/v5 contract compatibility (umbrella §3)", () => {
 
 	it("new host → old phone: the frozen v4 schema parses an unmodified v5 page and strips wrapped (reflow spec §1.8)", async () => {
 		const m = await mirrorWith("e".repeat(100), 40, 6);
-		const page = serializePage(m, null);
+		const page = serializePage(m, { cursor: null });
 		expect(page.rows.some((r) => r.wrapped === true)).toBe(true);
 		const parsed = V4PtyRowsResult.parse({ ok: true, ...page });
 		if (!parsed.ok) throw new Error("expected success arm");

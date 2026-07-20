@@ -14,203 +14,951 @@
 			"rows": [
 				{
 					"line": 0,
-					"text": "~/repo on main",
+					"text": "== session start ==",
 					"runs": [
 						{
 							"start": 0,
-							"len": 10,
-							"bold": true
-						},
-						{
-							"start": 10,
-							"len": 4,
-							"fg": 6,
+							"len": 19,
 							"bold": true
 						}
 					]
 				},
 				{
 					"line": 1,
-					"text": "$ pnpm test",
+					"text": "[01] the quick brown fox jumps over the lazy dog",
 					"runs": [
 						{
 							"start": 0,
-							"len": 11
+							"len": 48
 						}
 					]
 				},
 				{
 					"line": 2,
-					"text": "✓ serializer emits wrapped flags for soft-wrapped continuation rows and keeps ex",
+					"text": "[02] the quick brown fox jumps over the lazy dog",
 					"runs": [
 						{
 							"start": 0,
-							"len": 1,
-							"fg": 2
-						},
-						{
-							"start": 1,
-							"len": 79
+							"len": 48
 						}
 					]
 				},
 				{
 					"line": 3,
-					"text": "plicit newline rows unflagged across every page boundary in the chain",
+					"text": "[03] the quick brown fox jumps over the lazy dog",
 					"runs": [
 						{
 							"start": 0,
-							"len": 69
+							"len": 48
 						}
-					],
-					"wrapped": true
+					]
 				},
 				{
 					"line": 4,
-					"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the ",
+					"text": "[04] the quick brown fox jumps over the lazy dog",
 					"runs": [
 						{
 							"start": 0,
-							"len": 80
+							"len": 48
 						}
 					]
 				},
 				{
 					"line": 5,
-					"text": "lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps",
+					"text": "[05] the quick brown fox jumps over the lazy dog",
 					"runs": [
 						{
 							"start": 0,
-							"len": 80
+							"len": 48
 						}
-					],
-					"wrapped": true
+					]
 				},
 				{
 					"line": 6,
-					"text": " over the lazy dog. ",
+					"text": "[06] the quick brown fox jumps over the lazy dog",
 					"runs": [
 						{
 							"start": 0,
-							"len": 20
+							"len": 48
 						}
-					],
-					"wrapped": true
+					]
 				},
 				{
 					"line": 7,
-					"text": "────────────────────────────────────────────────────────────────────────────────",
+					"text": "[07] the quick brown fox jumps over the lazy dog",
 					"runs": [
 						{
 							"start": 0,
-							"len": 80
+							"len": 48
 						}
 					]
 				},
 				{
 					"line": 8,
-					"text": "────────────────────",
+					"text": "[08] the quick brown fox jumps over the lazy dog",
 					"runs": [
 						{
 							"start": 0,
-							"len": 20
+							"len": 48
 						}
-					],
-					"wrapped": true
+					]
 				},
 				{
 					"line": 9,
-					"text": "error: fixture generated for reflow rendering tests",
+					"text": "[09] the quick brown fox jumps over the lazy dog",
 					"runs": [
 						{
 							"start": 0,
-							"len": 5,
-							"fg": 1
-						},
-						{
-							"start": 5,
-							"len": 46
+							"len": 48
 						}
 					]
 				},
 				{
 					"line": 10,
-					"text": "done",
+					"text": "[10] the quick brown fox jumps over the lazy dog",
 					"runs": [
 						{
 							"start": 0,
-							"len": 4
+							"len": 48
 						}
 					]
 				},
 				{
 					"line": 11,
-					"text": "",
-					"runs": []
+					"text": "[11] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
 				},
 				{
 					"line": 12,
-					"text": "",
-					"runs": []
+					"text": "[12] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
 				},
 				{
 					"line": 13,
-					"text": "",
-					"runs": []
+					"text": "[13] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
 				},
 				{
 					"line": 14,
-					"text": "",
-					"runs": []
+					"text": "[14] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
 				},
 				{
 					"line": 15,
-					"text": "",
-					"runs": []
+					"text": "[15] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
 				},
 				{
 					"line": 16,
-					"text": "",
-					"runs": []
+					"text": "[16] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
 				},
 				{
 					"line": 17,
-					"text": "",
-					"runs": []
+					"text": "[17] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
 				},
 				{
 					"line": 18,
-					"text": "",
-					"runs": []
+					"text": "[18] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
 				},
 				{
 					"line": 19,
-					"text": "",
-					"runs": []
+					"text": "[19] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
 				},
 				{
 					"line": 20,
-					"text": "",
-					"runs": []
+					"text": "[20] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
 				},
 				{
 					"line": 21,
-					"text": "",
-					"runs": []
+					"text": "[21] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
 				},
 				{
 					"line": 22,
-					"text": "",
-					"runs": []
+					"text": "[22] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
 				},
 				{
 					"line": 23,
+					"text": "[23] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 24,
+					"text": "[24] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 25,
+					"text": "[25] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 26,
+					"text": "[26] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 27,
+					"text": "[27] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 28,
+					"text": "[28] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 29,
+					"text": "[29] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 30,
+					"text": "[30] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 31,
+					"text": "[31] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 32,
+					"text": "[32] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 33,
+					"text": "[33] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 34,
+					"text": "[34] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 35,
+					"text": "[35] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 36,
+					"text": "[36] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 37,
+					"text": "[37] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 38,
+					"text": "[38] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 39,
+					"text": "[39] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 40,
+					"text": "[40] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 41,
+					"text": "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+					"runs": [
+						{
+							"start": 0,
+							"len": 80
+						}
+					]
+				},
+				{
+					"line": 42,
+					"text": "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+					"runs": [
+						{
+							"start": 0,
+							"len": 80
+						}
+					],
+					"wrapped": true
+				},
+				{
+					"line": 43,
+					"text": "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+					"runs": [
+						{
+							"start": 0,
+							"len": 40
+						}
+					],
+					"wrapped": true
+				},
+				{
+					"line": 44,
+					"text": "== session end ==",
+					"runs": [
+						{
+							"start": 0,
+							"len": 17
+						}
+					]
+				},
+				{
+					"line": 45,
 					"text": "",
 					"runs": []
 				}
 			],
-			"cursor": "WzEsMSwyM10",
-			"more": false
+			"cursor": "WzEsMSw0NV0",
+			"more": false,
+			"moreBefore": false
+		}
+	],
+	"tailPage": {
+		"epoch": 1,
+		"cols": 80,
+		"altScreen": false,
+		"watermark": 1,
+		"trimmedBefore": 0,
+		"rows": [
+			{
+				"line": 36,
+				"text": "[36] the quick brown fox jumps over the lazy dog",
+				"runs": [
+					{
+						"start": 0,
+						"len": 48
+					}
+				]
+			},
+			{
+				"line": 37,
+				"text": "[37] the quick brown fox jumps over the lazy dog",
+				"runs": [
+					{
+						"start": 0,
+						"len": 48
+					}
+				]
+			},
+			{
+				"line": 38,
+				"text": "[38] the quick brown fox jumps over the lazy dog",
+				"runs": [
+					{
+						"start": 0,
+						"len": 48
+					}
+				]
+			},
+			{
+				"line": 39,
+				"text": "[39] the quick brown fox jumps over the lazy dog",
+				"runs": [
+					{
+						"start": 0,
+						"len": 48
+					}
+				]
+			},
+			{
+				"line": 40,
+				"text": "[40] the quick brown fox jumps over the lazy dog",
+				"runs": [
+					{
+						"start": 0,
+						"len": 48
+					}
+				]
+			},
+			{
+				"line": 41,
+				"text": "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+				"runs": [
+					{
+						"start": 0,
+						"len": 80
+					}
+				]
+			},
+			{
+				"line": 42,
+				"text": "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+				"runs": [
+					{
+						"start": 0,
+						"len": 80
+					}
+				],
+				"wrapped": true
+			},
+			{
+				"line": 43,
+				"text": "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+				"runs": [
+					{
+						"start": 0,
+						"len": 40
+					}
+				],
+				"wrapped": true
+			},
+			{
+				"line": 44,
+				"text": "== session end ==",
+				"runs": [
+					{
+						"start": 0,
+						"len": 17
+					}
+				]
+			},
+			{
+				"line": 45,
+				"text": "",
+				"runs": []
+			}
+		],
+		"cursor": "WzEsMSw0NV0",
+		"more": false,
+		"moreBefore": true,
+		"cursorBefore": "WzEsMCwzNl0"
+	},
+	"backwardPages": [
+		{
+			"epoch": 1,
+			"cols": 80,
+			"altScreen": false,
+			"watermark": 1,
+			"trimmedBefore": 0,
+			"rows": [
+				{
+					"line": 0,
+					"text": "== session start ==",
+					"runs": [
+						{
+							"start": 0,
+							"len": 19,
+							"bold": true
+						}
+					]
+				},
+				{
+					"line": 1,
+					"text": "[01] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 2,
+					"text": "[02] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 3,
+					"text": "[03] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 4,
+					"text": "[04] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 5,
+					"text": "[05] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 6,
+					"text": "[06] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 7,
+					"text": "[07] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 8,
+					"text": "[08] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 9,
+					"text": "[09] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 10,
+					"text": "[10] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 11,
+					"text": "[11] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 12,
+					"text": "[12] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 13,
+					"text": "[13] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 14,
+					"text": "[14] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 15,
+					"text": "[15] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 16,
+					"text": "[16] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 17,
+					"text": "[17] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 18,
+					"text": "[18] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 19,
+					"text": "[19] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 20,
+					"text": "[20] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 21,
+					"text": "[21] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 22,
+					"text": "[22] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 23,
+					"text": "[23] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 24,
+					"text": "[24] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 25,
+					"text": "[25] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 26,
+					"text": "[26] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 27,
+					"text": "[27] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 28,
+					"text": "[28] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 29,
+					"text": "[29] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 30,
+					"text": "[30] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 31,
+					"text": "[31] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 32,
+					"text": "[32] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 33,
+					"text": "[33] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 34,
+					"text": "[34] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				},
+				{
+					"line": 35,
+					"text": "[35] the quick brown fox jumps over the lazy dog",
+					"runs": [
+						{
+							"start": 0,
+							"len": 48
+						}
+					]
+				}
+			],
+			"cursor": "WzEsMSw0NV0",
+			"more": false,
+			"moreBefore": false
 		}
 	]
 }

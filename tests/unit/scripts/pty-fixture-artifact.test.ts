@@ -21,4 +21,23 @@ describe("committed pty fixture artifact (reflow spec §4)", () => {
 		const rows = artifact.pages.flatMap((p) => p.rows);
 		expect(rows.some((r) => r.wrapped === true)).toBe(true);
 	});
+
+	it("the committed fixture exercises backfill (tailPage.moreBefore + nonempty backwardPages)", () => {
+		const artifact = JSON.parse(
+			readFileSync("tests/fixtures/pty-real-session.json", "utf8"),
+		) as {
+			tailPage?: { moreBefore?: boolean };
+			backwardPages?: unknown[];
+		};
+		expect(artifact.tailPage?.moreBefore).toBe(true);
+		expect((artifact.backwardPages ?? []).length).toBeGreaterThan(0);
+	});
+
+	it("an old-shape { subscribe, pages } artifact still validates (umbrella §87)", () => {
+		const artifact = JSON.parse(
+			readFileSync("tests/fixtures/pty-real-session.json", "utf8"),
+		) as { subscribe: unknown; pages: unknown };
+		const oldShape = { subscribe: artifact.subscribe, pages: artifact.pages };
+		expect(PtyFixtureArtifactSchema.safeParse(oldShape).success).toBe(true);
+	});
 });

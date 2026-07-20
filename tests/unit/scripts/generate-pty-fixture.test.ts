@@ -89,4 +89,133 @@ describe("generateFixture (reflow spec §3)", () => {
 		const parsed = PtyFixtureArtifactSchema.safeParse(tampered);
 		expect(parsed.success).toBe(false);
 	});
+
+	const LONG = "row\r\n".repeat(40); // 40 retained rows — larger than tail, so backfill exists
+
+	it("emits a schema-valid tailPage and a MULTI-page backward chain with contiguous per-page windows (cases 1 + 2)", async () => {
+		const cap = 5; // small page cap forces the chain to span more than one page
+		const artifact = await generateFixture(LONG, 40, 6, cap, 5);
+		expect(PtyFixtureArtifactSchema.safeParse(artifact).success).toBe(true);
+		expect(artifact.tailPage).toBeDefined();
+		expect(artifact.tailPage!.rows.length).toBe(5);
+		expect(artifact.tailPage!.moreBefore).toBe(true);
+		// The cap forces MORE THAN ONE backward page — verifies the chain-until-
+		// moreBefore:false loop, not a single first-response shortcut.
+		expect(artifact.backwardPages!.length).toBeGreaterThan(1);
+		// Each stored page is <= cap and contiguous-ascending; adjacent pages in
+		// sequential-pull order step strictly downward with no gap/overlap.
+		let expectedEnd = artifact.tailPage!.rows[0].line - 1;
+		for (const page of artifact.backwardPages!) {
+			expect(page.rows.length).toBeGreaterThan(0);
+			expect(page.rows.length).toBeLessThanOrEqual(cap);
+			const startAbs = page.rows[0].line;
+			const endAbs = page.rows.at(-1)!.line;
+			expect(page.rows.map((r) => r.line)).toEqual(
+				page.rows.map((_, i) => startAbs + i),
+			);
+			expect(endAbs).toBe(expectedEnd);
+			expectedEnd = startAbs - 1;
+		}
+		// Chain terminus (child §4 test 2): the stored chain ends specifically at
+		// moreBefore === false with no cursorBefore. An element that omits
+		// cursorBefore while moreBefore is still true would stop the generator's
+		// loop early yet still reconstruct — this pins the terminal channel state.
+		const terminal = artifact.backwardPages!.at(-1)!;
+		expect(terminal.moreBefore).toBe(false);
+		expect(terminal.cursorBefore).toBeUndefined();
+		// Reconstruction: reverse the page array, flatten, append tailPage.
+		const reconstructed = [
+			...[...artifact.backwardPages!].reverse().flatMap((p) => p.rows),
+			...artifact.tailPage!.rows,
+		].map((r) => r.line);
+		const full = artifact.pages.flatMap((p) => p.rows).map((r) => r.line);
+		expect(reconstructed).toEqual(full);
+	});
+
+	it("is deterministic including tailPage/backwardPages (case 3)", async () => {
+		const a = await generateFixture(LONG, 40, 6, 5, 5);
+		const b = await generateFixture(LONG, 40, 6, 5, 5);
+		expect(b).toEqual(a);
+	});
+
+	it("a pre-L2 { subscribe, pages } artifact still validates (case 4)", () => {
+		const oldShape = {
+			subscribe: { cols: 80, epoch: 1, watermark: 3 },
+			pages: [
+				{
+					epoch: 1,
+					cols: 80,
+					altScreen: false,
+					watermark: 3,
+					trimmedBefore: 0,
+					rows: [{ line: 0, text: "hi", runs: [{ start: 0, len: 2 }] }],
+					cursor: "",
+					more: false,
+				},
+			],
+		};
+		expect(PtyFixtureArtifactSchema.safeParse(oldShape).success).toBe(true);
+	});
+
+	it("no-history sample yields backwardPages: [], never a forward page (case 5)", async () => {
+		// Whole buffer fits within tail → moreBefore false, cursorBefore undefined.
+		const artifact = await generateFixture(
+			"a\r\nb\r\nc\r\n",
+			40,
+			6,
+			undefined,
+			50,
+		);
+		expect(artifact.tailPage!.moreBefore).toBe(false);
+		expect(artifact.tailPage!.cursorBefore).toBeUndefined();
+		expect(artifact.backwardPages).toEqual([]); // length 0, NOT a forward page
+	});
+
+	it("rejects a stored ok key on tailPage or backwardPages[i] (case 6)", async () => {
+		const artifact = await generateFixture(LONG, 40, 6, 5, 5);
+		const tamperedTail = {
+			...artifact,
+			tailPage: { ...artifact.tailPage!, ok: true },
+		};
+		expect(PtyFixtureArtifactSchema.safeParse(tamperedTail).success).toBe(
+			false,
+		);
+		const tamperedBack = {
+			...artifact,
+			backwardPages: [
+				{ ...artifact.backwardPages![0], ok: true },
+				...artifact.backwardPages!.slice(1),
+			],
+		};
+		expect(PtyFixtureArtifactSchema.safeParse(tamperedBack).success).toBe(
+			false,
+		);
+	});
+
+	it("follows the FULL backward chain past any fixed cap for a large retained buffer (case 7 — no silent truncation)", async () => {
+		// Regression: a fixed 10_000-iteration cap silently truncated valid
+		// retained history under a low pageCap. A terminal retains up to its
+		// scrollback (~10_006 rows here); with pageCap 1 the chain needs ~10_005
+		// backward pages — MORE than the old constant — and must still terminate
+		// at moreBefore:false with the whole buffer reconstructed and no gap. The
+		// old code produced backwardPages.length === 10_000 with the terminal page
+		// falsely reporting moreBefore: true.
+		const artifact = await generateFixture("x\r\n".repeat(10_050), 40, 6, 1, 1);
+		const forwardLines = artifact.pages
+			.flatMap((p) => p.rows)
+			.map((r) => r.line);
+		// The chain genuinely exceeds the old fixed 10_000 cap.
+		expect(artifact.backwardPages!.length).toBeGreaterThan(10_000);
+		// Reverse the stored (sequential-pull) order, flatten, append tailPage:
+		// this must reconstruct the ENTIRE retained buffer with no gap/overlap.
+		const reconstructed = [
+			...[...artifact.backwardPages!].reverse().flatMap((p) => p.rows),
+			...artifact.tailPage!.rows,
+		].map((r) => r.line);
+		expect(reconstructed).toEqual(forwardLines);
+		// Terminal channel state: reached the top of retained history.
+		const terminal = artifact.backwardPages!.at(-1)!;
+		expect(terminal.moreBefore).toBe(false);
+		expect(terminal.cursorBefore).toBeUndefined();
+	}, 30_000);
 });

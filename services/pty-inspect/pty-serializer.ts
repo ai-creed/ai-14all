@@ -27,6 +27,8 @@ export type PtyRowsPage = {
 	rows: PtyRow[];
 	cursor: string;
 	more: boolean;
+	cursorBefore?: string;
+	moreBefore?: boolean;
 };
 
 const DEFAULT_CAP = 500;
@@ -122,54 +124,127 @@ function serializeRow(
 	return row;
 }
 
+export type SerializePageArgs = {
+	cursor: string | null;
+	tail?: number;
+	before?: string;
+};
+
 export function serializePage(
 	mirror: PtyMirror,
-	rawCursor: string | null,
+	args: SerializePageArgs,
 	cap: number = DEFAULT_CAP,
 ): PtyRowsPage {
-	const c = decodeCursor(rawCursor);
 	const stamps = mirror.takeStamps();
 	const first = mirror.trimmedBefore;
 	const last = mirror.trimmedBefore + mirror.buffer.length - 1;
-	// Stale OR unknown → fresh snapshot (spec §2): wrong epoch, pre-trim line,
-	// or a forged/foreign token pointing beyond the current watermark or the
-	// retained range. Never an error, and never an empty "tail" page.
-	const fresh =
-		c === null ||
-		c.epoch !== mirror.epoch ||
-		c.line < first ||
-		c.line > last ||
-		c.watermark > mirror.watermark;
 
-	const candidates: number[] = [];
-	if (fresh) {
-		for (let abs = first; abs <= last; abs++) candidates.push(abs);
-	} else {
-		for (let abs = first; abs <= last; abs++) {
-			const wm = stamps.get(abs) ?? 0;
-			if (wm > c.watermark || (wm === c.watermark && abs > c.line)) {
-				candidates.push(abs);
+	let rows: PtyRow[];
+	let cursor: string;
+	let more: boolean;
+
+	if (args.before !== undefined) {
+		// Backward: rows strictly older than the token, ascending within window.
+		const tok = decodeCursor(args.before);
+		if (
+			tok === null ||
+			tok.epoch !== mirror.epoch ||
+			!Number.isInteger(tok.line) ||
+			tok.line <= first ||
+			tok.line > last
+		) {
+			rows = []; // stale / foreign / non-integer / out-of-window — never phantom rows
+		} else {
+			const startAbs = Math.max(first, tok.line - cap);
+			const endAbs = tok.line - 1; // ≤ last − 1, so every line is a real row
+			rows = [];
+			for (let abs = startAbs; abs <= endAbs; abs++) {
+				rows.push(serializeRow(mirror, abs - first, abs));
 			}
 		}
+		cursor = encodeCursor({
+			epoch: mirror.epoch,
+			watermark: mirror.watermark,
+			line: last,
+		}); // ignored by the phone; satisfies the non-null contract
+		more = false;
+	} else if (args.cursor === null && args.tail !== undefined) {
+		// Tail-first: newest min(tail, cap) rows; forward-resume cursor from now.
+		const n = Math.min(args.tail, cap);
+		const startAbs = Math.max(first, last - n + 1); // empty buffer ⇒ no rows
+		rows = [];
+		for (let abs = startAbs; abs <= last; abs++) {
+			rows.push(serializeRow(mirror, abs - first, abs));
+		}
+		cursor = encodeCursor({
+			epoch: mirror.epoch,
+			watermark: mirror.watermark,
+			line: last,
+		});
+		more = false;
+	} else {
+		// Forward (existing selection verbatim).
+		const c = decodeCursor(args.cursor);
+		// Stale OR unknown → fresh snapshot (spec §2): wrong epoch, pre-trim
+		// line, or a forged/foreign token pointing beyond the current
+		// watermark or the retained range. Never an error, and never an
+		// empty "tail" page.
+		const fresh =
+			c === null ||
+			c.epoch !== mirror.epoch ||
+			c.line < first ||
+			c.line > last ||
+			c.watermark > mirror.watermark;
+		const candidates: number[] = [];
+		if (fresh) {
+			for (let abs = first; abs <= last; abs++) candidates.push(abs);
+		} else {
+			for (let abs = first; abs <= last; abs++) {
+				const wm = stamps.get(abs) ?? 0;
+				if (wm > c.watermark || (wm === c.watermark && abs > c.line)) {
+					candidates.push(abs);
+				}
+			}
+		}
+		// Order by (stamp, line) so the cursor's lexicographic resume is stable.
+		candidates.sort((a, b) => {
+			const wa = stamps.get(a) ?? 0;
+			const wb = stamps.get(b) ?? 0;
+			return wa - wb || a - b;
+		});
+		const emit = candidates.slice(0, cap);
+		rows = emit.map((abs) =>
+			serializeRow(mirror, abs - mirror.trimmedBefore, abs),
+		);
+		const tailLine = emit.at(-1);
+		cursor = encodeCursor({
+			epoch: mirror.epoch,
+			watermark:
+				tailLine !== undefined
+					? (stamps.get(tailLine) ?? 0)
+					: fresh
+						? 0
+						: c.watermark,
+			line: tailLine !== undefined ? tailLine : fresh ? first - 1 : c.line,
+		});
+		more = candidates.length > emit.length;
 	}
-	// Order by (stamp, line) so the cursor's lexicographic resume is stable.
-	candidates.sort((a, b) => {
-		const wa = stamps.get(a) ?? 0;
-		const wb = stamps.get(b) ?? 0;
-		return wa - wb || a - b;
-	});
-	const emit = candidates.slice(0, cap);
-	const rows = emit.map((abs) =>
-		serializeRow(mirror, abs - mirror.trimmedBefore, abs),
-	);
-	const tail = emit.at(-1);
-	const cursor = encodeCursor({
-		epoch: mirror.epoch,
-		watermark:
-			tail !== undefined ? (stamps.get(tail) ?? 0) : fresh ? 0 : c.watermark,
-		line: tail !== undefined ? tail : fresh ? first - 1 : c.line,
-	});
-	return {
+
+	// Uniform backward channel — computed from emitted rows for EVERY mode.
+	let moreBefore: boolean;
+	let cursorBefore: string | undefined;
+	if (mirror.altScreen || rows.length === 0) {
+		moreBefore = false;
+		cursorBefore = undefined;
+	} else {
+		const oldest = Math.min(...rows.map((r) => r.line)); // rows.length ≤ cap
+		moreBefore = oldest > first;
+		cursorBefore = moreBefore
+			? encodeCursor({ epoch: mirror.epoch, watermark: 0, line: oldest })
+			: undefined;
+	}
+
+	const page: PtyRowsPage = {
 		epoch: mirror.epoch,
 		cols: mirror.cols,
 		altScreen: mirror.altScreen,
@@ -177,6 +252,9 @@ export function serializePage(
 		trimmedBefore: mirror.trimmedBefore,
 		rows,
 		cursor,
-		more: candidates.length > emit.length,
+		more,
+		moreBefore,
 	};
+	if (cursorBefore !== undefined) page.cursorBefore = cursorBefore;
+	return page;
 }
