@@ -33,6 +33,8 @@ import electronUpdater from "electron-updater";
 import { startUpdateService } from "./services/update-service.js";
 import { UsageHost, USAGE_SNAPSHOT_CHANNEL } from "./services/usage-host.js";
 import { createUsageSettingsBridge } from "./services/usage-settings-bridge.js";
+import { InsightsHost } from "./services/insights-host.js";
+import { applyInsightsConsent } from "./insights-ipc.js";
 import type { KnownWorktree } from "../../shared/models/usage.js";
 import { ReviewCommentStore } from "../../services/review/review-comment-store.js";
 import { ReviewCommentService } from "../../services/review/review-comment-service.js";
@@ -301,6 +303,36 @@ app.whenReady().then(async () => {
 
 	const whisperStateRoot =
 		process.env.AI14ALL_WHISPER_STATE_ROOT ?? join(homedir(), ".ai-whisper");
+
+	// Insights capture (spec §7): a gated utilityProcess that mines whisper run
+	// history into a local insights DB and forwards a one-time first-capture
+	// notice to the renderer. Constructed here where both userData and the
+	// resolved whisperStateRoot are in scope. Effective consent is derived from
+	// persisted settings (global telemetry AND the insights sub-toggle) — the host
+	// is only ever start/stopped via applyInsightsConsent / the persist-then-derive
+	// setEnabled seam, never a raw renderer boolean (§7.2 master kill).
+	const insightsHost = new InsightsHost({
+		userDataDir: app.getPath("userData"),
+		whisperDbPath: join(whisperStateRoot, "state.db"),
+		pollIntervalMs: 3000,
+		send: (channel, payload) => {
+			if (!mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+				mainWindow.webContents.send(channel, payload);
+			}
+		},
+		// Read fresh each poll (public, synchronous) so a noticeAck persisted via
+		// writeState is reflected on the next status — never a stale snapshot.
+		loadNoticeShown: () =>
+			settingsService.readStateSync().settings.usageTelemetry.insights
+				.noticeShown,
+		persistNoticeShown: (v) =>
+			void settingsService.writeState({
+				usageTelemetry: { insights: { noticeShown: v } },
+			}),
+	});
+	// Gate the worker from persisted settings at startup (master kill): starts only
+	// when global telemetry AND the insights sub-toggle are enabled.
+	applyInsightsConsent(insightsHost, settingsService.readStateSync().settings);
 
 	// Spec §3.4: the single probe owner — agent CLIs + cached plugin probes.
 	const capabilityProbes = createCapabilityProbeService();
@@ -843,6 +875,7 @@ app.whenReady().then(async () => {
 		usageHost,
 		usageSettingsBridge: usageSettings,
 		getPhoneBridgeApplier: () => xbpService,
+		insightsHost,
 		installUpdate: () => updateService.installUpdate(),
 		closeGate,
 		getCortexEnabled: () => pluginConfig.get("cortex").enabled,

@@ -430,6 +430,22 @@ const api: Ai14AllDesktopApi = {
 			return ipcRenderer.invoke("usage:setChipRange", range);
 		},
 	},
+	insights: {
+		setEnabled(enabled) {
+			return ipcRenderer.invoke("insights:setEnabled", enabled);
+		},
+		deleteAll() {
+			return ipcRenderer.invoke("insights:deleteAll");
+		},
+		ackNotice() {
+			return ipcRenderer.invoke("insights:noticeAck");
+		},
+		onNotice(cb: () => void) {
+			const listener = () => cb();
+			ipcRenderer.on("insights:notice", listener);
+			return () => ipcRenderer.removeListener("insights:notice", listener);
+		},
+	},
 	reviewComments: {
 		list(worktreeId) {
 			return ipcRenderer.invoke(REVIEW_LIST, { worktreeId });

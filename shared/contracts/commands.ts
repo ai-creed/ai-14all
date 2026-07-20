@@ -597,6 +597,15 @@ export type Ai14AllDesktopApi = {
 		setIncludeUntracked(includeUntracked: boolean): Promise<void>;
 		setChipRange(range: "week" | "month"): Promise<void>;
 	};
+	insights: {
+		// Programmatic sub-toggle write (spec §7.3). The handler persists the
+		// sub-setting then DERIVES effective consent server-side — it never forwards
+		// this raw boolean straight to capture (§7.2 master kill).
+		setEnabled(enabled: boolean): Promise<void>;
+		deleteAll(): Promise<void>;
+		ackNotice(): Promise<void>;
+		onNotice(listener: () => void): () => void;
+	};
 	reviewComments: {
 		list(worktreeId: string): Promise<{ comments: ReviewComment[] }>;
 		create(input: ReviewCreateRequest): Promise<{ comment: ReviewComment }>;

@@ -15,6 +15,12 @@ import {
 import { openExternalUrl } from "./services/open-external.js";
 import type { UsageHost } from "./services/usage-host.js";
 import type { UsageSettingsBridge } from "./services/usage-settings-bridge.js";
+import type { InsightsHost } from "./services/insights-host.js";
+import {
+	applyInsightsConsent,
+	makeSetInsightsEnabled,
+	registerInsightsIpc,
+} from "./insights-ipc.js";
 import { consumeE2eGitFault } from "./e2e-git-faults.js";
 import { consumeE2eTerminalCreateDelay } from "./e2e-terminal-create-delay.js";
 import {
@@ -151,6 +157,7 @@ export function registerIpcHandlers(
 		usageHost,
 		usageSettingsBridge,
 		getPhoneBridgeApplier,
+		insightsHost,
 		installUpdate,
 		closeGate,
 		getCortexEnabled,
@@ -176,6 +183,7 @@ export function registerIpcHandlers(
 		getPhoneBridgeApplier?: () => {
 			applyRelayBaseUrl(url: string): void;
 		} | null;
+		insightsHost?: InsightsHost;
 		installUpdate?: () => void;
 		closeGate?: import("./close-gate.js").CloseGate;
 		getCortexEnabled: () => boolean;
@@ -635,6 +643,13 @@ export function registerIpcHandlers(
 			usageHost?.applyIncludeUntracked(merged.usageTelemetry.includeUntracked);
 			usageHost?.setEnabled(merged.usageTelemetry.enabled);
 			usageSettingsBridge?.refresh(merged);
+			// Live-apply effective insights consent from the just-persisted merged
+			// settings (derives global AND sub-toggle — master kill), mirroring the
+			// usage host above. writeState() already persisted; applyInsightsConsent
+			// only start/stops the host, so this cannot loop back into a settings
+			// write. Covers the Settings dialog toggle (Task 13), which persists via
+			// this settings:write funnel rather than the insights:setEnabled IPC.
+			if (insightsHost) applyInsightsConsent(insightsHost, merged);
 		}
 		// Same live-apply funnel as usageTelemetry above: writeState() already
 		// persisted; applyRelayBaseUrl() is a NON-persisting applier, so this
@@ -702,6 +717,19 @@ export function registerIpcHandlers(
 		const range = raw === "month" ? "month" : "week";
 		usageHost?.setChipRange(range);
 	});
+
+	// --- Insights capture ---
+
+	if (insightsHost) {
+		// The handler persists the requested sub-setting then derives effective
+		// consent from the WRITTEN settings — it never forwards the raw renderer
+		// boolean to the host (§7.2 master kill).
+		registerInsightsIpc(
+			ipcMain,
+			insightsHost,
+			makeSetInsightsEnabled(settingsService, insightsHost),
+		);
+	}
 
 	// --- Review Comments ---
 
