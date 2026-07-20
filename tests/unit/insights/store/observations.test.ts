@@ -70,9 +70,9 @@ describe("insertObservation", () => {
 	});
 
 	it("rejects an unregistered kind", () => {
-		expect(() =>
-			insertObservation(fresh(), base({ kind: "nope" })),
-		).toThrow(/unregistered/);
+		expect(() => insertObservation(fresh(), base({ kind: "nope" }))).toThrow(
+			/unregistered/,
+		);
 	});
 
 	it("rejects an unknown payload key (strict allowlist) — e.g. spec_path", () => {
