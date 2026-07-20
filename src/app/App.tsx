@@ -125,6 +125,7 @@ import { TerminalChromeHeader } from "../features/terminals/components/TerminalC
 import { TerminalLayoutDialog } from "../features/terminals/components/TerminalLayoutDialog";
 import { PluginsPanelDialog } from "../features/plugins/components/PluginsPanelDialog";
 import { PhoneBridgeDialogGate } from "./components/PhoneBridgeDialogGate";
+import { InsightsNotice } from "./components/InsightsNotice.js";
 import { SettingsDialog } from "../features/settings/components/SettingsDialog";
 import {
 	useWhisperState,
@@ -2549,6 +2550,10 @@ function AppContent() {
 							<SettingsDialog
 								open={settingsDialogOpen}
 								onOpenChange={setSettingsDialogOpen}
+							/>
+
+							<InsightsNotice
+								onOpenSettings={() => setSettingsDialogOpen(true)}
 							/>
 
 							{workflowDetailTarget && (

@@ -6,6 +6,7 @@ import type {
 	RestoreDepth,
 	ThemeMode,
 } from "../../../../shared/models/persisted-settings";
+import { InsightsSettingsControls } from "./InsightsSettingsControls.js";
 
 type Props = {
 	open: boolean;
@@ -218,6 +219,9 @@ export function SettingsDialog({
 								usage telemetry
 							</label>
 						</div>
+
+						<InsightsSettingsControls />
+
 						<div className="settings-dialog__row">
 							<label className="settings-dialog__checkbox-label">
 								<input
