@@ -143,7 +143,32 @@ export function serializePage(
 	let cursor: string;
 	let more: boolean;
 
-	if (args.cursor === null && args.tail !== undefined) {
+	if (args.before !== undefined) {
+		// Backward: rows strictly older than the token, ascending within window.
+		const tok = decodeCursor(args.before);
+		if (
+			tok === null ||
+			tok.epoch !== mirror.epoch ||
+			!Number.isInteger(tok.line) ||
+			tok.line <= first ||
+			tok.line > last
+		) {
+			rows = []; // stale / foreign / non-integer / out-of-window — never phantom rows
+		} else {
+			const startAbs = Math.max(first, tok.line - cap);
+			const endAbs = tok.line - 1; // ≤ last − 1, so every line is a real row
+			rows = [];
+			for (let abs = startAbs; abs <= endAbs; abs++) {
+				rows.push(serializeRow(mirror, abs - first, abs));
+			}
+		}
+		cursor = encodeCursor({
+			epoch: mirror.epoch,
+			watermark: mirror.watermark,
+			line: last,
+		}); // ignored by the phone; satisfies the non-null contract
+		more = false;
+	} else if (args.cursor === null && args.tail !== undefined) {
 		// Tail-first: newest min(tail, cap) rows; forward-resume cursor from now.
 		const n = Math.min(args.tail, cap);
 		const startAbs = Math.max(first, last - n + 1); // empty buffer ⇒ no rows

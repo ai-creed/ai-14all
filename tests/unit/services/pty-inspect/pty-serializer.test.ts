@@ -381,6 +381,103 @@ describe("serializePage", () => {
 		expect(typeof delta.moreBefore).toBe("boolean");
 		m.dispose();
 	});
+
+	it("backward chain returns capped contiguous windows, chained by cursorBefore, with the v6 handshake on each page (cases 5 + 10-backward)", async () => {
+		const cap = 5; // small cap forces multiple backward pages
+		const m = await mirrorWith("x\r\n".repeat(40), 40, 6);
+		const full = serializePage(m, { cursor: null });
+		const first = full.rows[0].line;
+		const tail = serializePage(m, { cursor: null, tail: 5 });
+		const pageLines: number[][] = [];
+		let before = tail.cursorBefore;
+		let terminal = tail; // last backward page processed (for the terminal-state assert)
+		let guard = 0;
+		// Each page ends exactly one line below the previous boundary (starting
+		// just under the tail's oldest line) — proves no gap and no overlap.
+		let expectedEnd = tail.rows[0].line - 1;
+		while (before !== undefined && guard++ < 100) {
+			const B = decodeCursor(before)!.line; // the boundary this page pages back from
+			const page = serializePage(m, { cursor: null, before }, cap);
+			// Case 10: handshake key present AND boolean on a successful backward page.
+			expect("moreBefore" in page).toBe(true);
+			expect(typeof page.moreBefore).toBe("boolean");
+			// Exact required window [max(first, B-cap) .. B-1], contiguous ascending.
+			const startAbs = Math.max(first, B - cap);
+			const endAbs = B - 1;
+			expect(page.rows.length).toBeLessThanOrEqual(cap);
+			expect(page.rows[0].line).toBe(startAbs);
+			expect(page.rows.at(-1)!.line).toBe(endAbs);
+			expect(page.rows.map((r) => r.line)).toEqual(
+				page.rows.map((_, i) => startAbs + i),
+			);
+			expect(endAbs).toBe(expectedEnd);
+			expectedEnd = startAbs - 1;
+			pageLines.push(page.rows.map((r) => r.line));
+			terminal = page;
+			before = page.cursorBefore;
+		}
+		// The cap actually forced more than one backward page.
+		expect(pageLines.length).toBeGreaterThan(1);
+		// Chain terminus (child-spec case 5): the last page reached the top and
+		// MUST report moreBefore === false with no cursorBefore. A page that omits
+		// cursorBefore while moreBefore is still true would end the loop early yet
+		// pass every window/reconstruction check — this assertion catches that.
+		expect(terminal.moreBefore).toBe(false);
+		expect(terminal.cursorBefore).toBeUndefined();
+		// Reconstruct oldest-first: reverse the page array, flatten, append tail.
+		const reconstructed = [
+			...[...pageLines].reverse().flat(),
+			...tail.rows.map((r) => r.line),
+		];
+		const expected: number[] = [];
+		for (let l = first; l <= full.rows.at(-1)!.line; l++) expected.push(l);
+		expect(reconstructed).toEqual(expected);
+		m.dispose();
+	});
+
+	it("backward boundary at first returns empty (case 6)", async () => {
+		const m = await mirrorWith("x\r\n".repeat(20), 40, 6);
+		const full = serializePage(m, { cursor: null });
+		const first = full.rows[0].line;
+		const token = encodeCursor({ epoch: full.epoch, watermark: 0, line: first });
+		const page = serializePage(m, { cursor: null, before: token });
+		expect(page.rows).toEqual([]);
+		expect(page.moreBefore).toBe(false);
+		m.dispose();
+	});
+
+	it("backward rejects stale/foreign/out-of-window/non-integer tokens with zero rows (case 7)", async () => {
+		const m = await mirrorWith("x\r\n".repeat(20), 40, 6);
+		const full = serializePage(m, { cursor: null });
+		const last = full.rows.at(-1)!.line;
+		const cap = 500;
+		// (a) wrong epoch
+		const wrongEpoch = encodeCursor({ epoch: full.epoch + 99, watermark: 0, line: last });
+		// (b) forged / undecodable
+		const forged = "not-a-real-cursor";
+		// (c) current-epoch, out-of-window: line = last + cap + 1
+		const outOfWindow = encodeCursor({ epoch: full.epoch, watermark: 0, line: last + cap + 1 });
+		// (d) non-integer line
+		const nonInteger = encodeCursor({ epoch: full.epoch, watermark: 0, line: last - 0.5 });
+		for (const before of [wrongEpoch, forged, outOfWindow, nonInteger]) {
+			const page = serializePage(m, { cursor: null, before }, cap);
+			expect(page.rows).toEqual([]); // zero rows — never cap phantom rows
+			expect(page.moreBefore).toBe(false);
+			expect(page.epoch).toBe(full.epoch);
+		}
+		m.dispose();
+	});
+
+	it("altScreen forces the backward channel off for backward mode (case 8-backward)", async () => {
+		const m = await mirrorWith("\x1b[?1049h" + "alt\r\n".repeat(10), 40, 6);
+		const full = serializePage(m, { cursor: null });
+		const last = full.rows.at(-1)!.line;
+		const token = encodeCursor({ epoch: full.epoch, watermark: 0, line: last });
+		const page = serializePage(m, { cursor: null, before: token });
+		expect(page.moreBefore).toBe(false);
+		expect(page.cursorBefore).toBeUndefined();
+		m.dispose();
+	});
 });
 
 describe("v4/v5 contract compatibility (umbrella §3)", () => {
