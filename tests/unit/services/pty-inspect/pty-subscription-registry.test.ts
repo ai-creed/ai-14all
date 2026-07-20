@@ -213,4 +213,50 @@ describe("PtySubscriptionRegistry", () => {
 		expect(hints).toHaveLength(0);
 		expect(ops).toContainEqual({ op: "teardown", cause: "re-pair" });
 	});
+
+	it("pullRows threads { tail } to a tail page, and no opts to a forward snapshot (case 1)", async () => {
+		const { registry, mirror } = await harness();
+		registry.subscribe("wt-1", "proc-1");
+		mirror.write("x\r\n".repeat(30));
+		await mirror.drained();
+		mirror.tick();
+		const forward = await registry.pullRows("wt-1", "proc-1", null);
+		const tail = await registry.pullRows("wt-1", "proc-1", null, { tail: 5 });
+		if (!("rows" in forward) || !("rows" in tail)) throw new Error("refused");
+		expect(tail.rows.length).toBe(5);
+		expect(tail.more).toBe(false);
+		expect(typeof tail.moreBefore).toBe("boolean");
+		expect(forward.rows.length).toBeGreaterThan(tail.rows.length);
+	});
+
+	it("pullRows threads { before } to the older page (case 2)", async () => {
+		const { registry, mirror } = await harness();
+		registry.subscribe("wt-1", "proc-1");
+		mirror.write("x\r\n".repeat(30));
+		await mirror.drained();
+		mirror.tick();
+		const tail = await registry.pullRows("wt-1", "proc-1", null, { tail: 5 });
+		if (!("rows" in tail) || tail.cursorBefore === undefined)
+			throw new Error("expected a backward channel");
+		const older = await registry.pullRows("wt-1", "proc-1", null, {
+			before: tail.cursorBefore,
+		});
+		if (!("rows" in older)) throw new Error("refused");
+		expect(older.rows.length).toBeGreaterThan(0);
+		expect(older.rows.at(-1)!.line).toBe(tail.rows[0].line - 1);
+	});
+
+	it("existing cursor lifecycle still works with the widened signature (case 3)", async () => {
+		const { registry, mirror } = await harness();
+		registry.subscribe("wt-1", "proc-1");
+		mirror.write("hello\r\n");
+		await mirror.drained();
+		mirror.tick();
+		const replay = await registry.pullRows("wt-1", "proc-1", null);
+		if (!("rows" in replay)) throw new Error("refused");
+		expect(replay.rows.some((r) => r.text === "hello")).toBe(true);
+		const delta = await registry.pullRows("wt-1", "proc-1", replay.cursor);
+		if (!("rows" in delta)) throw new Error("refused");
+		expect(delta.rows.length).toBe(0); // nothing new since replay
+	});
 });

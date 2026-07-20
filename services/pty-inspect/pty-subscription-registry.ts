@@ -183,6 +183,7 @@ export class PtySubscriptionRegistry {
 		worktreeId: string,
 		agentId: string,
 		cursor: string | null,
+		opts?: { tail?: number; before?: string },
 	): Promise<({ ok: true } & PtyRowsPage) | PtyRefusal> {
 		const entry = this.catalog.getEntry(worktreeId, agentId);
 		if (!entry) return { ok: false, code: "no-such-pty" };
@@ -196,7 +197,11 @@ export class PtySubscriptionRegistry {
 			const current = this.catalog.getEntry(worktreeId, agentId);
 			if (!current) return { ok: false, code: "no-such-pty" };
 			current.mirror.tick(); // fold pending writes into stamps before serving
-			const page = serializePage(current.mirror, { cursor });
+			const page = serializePage(current.mirror, {
+				cursor,
+				tail: opts?.tail,
+				before: opts?.before,
+			});
 			this.served += page.rows.length;
 			if (
 				this.active &&
