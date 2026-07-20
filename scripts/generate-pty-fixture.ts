@@ -34,7 +34,7 @@ export async function generateFixture(
 		let cursor: string | null = null;
 		let page: PtyRowsPage;
 		do {
-			page = serializePage(mirror, cursor, pageCap);
+			page = serializePage(mirror, { cursor }, pageCap);
 			pages.push(page);
 			cursor = page.cursor;
 		} while (page.more);

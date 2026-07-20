@@ -34,7 +34,7 @@ describe("serializePage", () => {
 		const m = await mirrorWith(
 			"\x1b[31mred\x1b[0m plain \x1b[1mbold\x1b[0m\r\n",
 		);
-		const page = serializePage(m, null);
+		const page = serializePage(m, { cursor: null });
 		expect(page.cursor).toBeTypeOf("string");
 		const row = page.rows[0];
 		expect(row.text).toBe("red plain bold");
@@ -52,7 +52,7 @@ describe("serializePage", () => {
 
 	it("interior empty cells (tab stop) attribute as default-space runs, not the following color (review fix)", async () => {
 		const m = await mirrorWith("a\t\x1b[31mred\x1b[0m\r\n");
-		const row = serializePage(m, null).rows[0];
+		const row = serializePage(m, { cursor: null }).rows[0];
 		expect(row.text).toBe("a       red");
 		// Runs tile the text exactly.
 		let off = 0;
@@ -87,7 +87,7 @@ describe("serializePage", () => {
 			return w;
 		};
 		const m = await mirrorWith("漢字🚀!\r\né̂ok\r\n");
-		const [wide, combining] = serializePage(m, null).rows;
+		const [wide, combining] = serializePage(m, { cursor: null }).rows;
 		expect(wide.text).toBe("漢字🚀!");
 		// 漢(1 unit) 字(1) 🚀(surrogate pair, 2) !(1) → 5 UTF-16 units over 7 columns.
 		expect(wide.text.length).toBe(5);
@@ -113,7 +113,7 @@ describe("serializePage", () => {
 			watermark: m.watermark + 50,
 			line: 999,
 		});
-		const page = serializePage(m, forged);
+		const page = serializePage(m, { cursor: forged });
 		expect(page.rows.length).toBeGreaterThan(0); // full snapshot, never an empty "tail"
 		expect(page.rows.map((r) => r.text)).toContain("a");
 		m.dispose();
@@ -121,14 +121,14 @@ describe("serializePage", () => {
 
 	it("tail cursor after a burst larger than the viewport returns every appended row (spec §2)", async () => {
 		const m = await mirrorWith("seed\r\n", 10, 4);
-		const tail = serializePage(m, null);
+		const tail = serializePage(m, { cursor: null });
 		expect(tail.more).toBe(false);
 		let burst = "";
 		for (let i = 0; i < 20; i++) burst += `b${i}\r\n`; // 20 rows, 4-row viewport
 		m.write(burst);
 		await m.drained();
 		m.tick();
-		const delta = serializePage(m, tail.cursor);
+		const delta = serializePage(m, { cursor: tail.cursor });
 		const texts = delta.rows.map((r) => r.text);
 		for (let i = 0; i < 20; i++) expect(texts).toContain(`b${i}`);
 		m.dispose();
@@ -138,10 +138,10 @@ describe("serializePage", () => {
 		let data = "";
 		for (let i = 0; i < 12; i++) data += `r${i}\r\n`;
 		const m = await mirrorWith(data, 10, 4);
-		const p1 = serializePage(m, null, 5);
+		const p1 = serializePage(m, { cursor: null }, 5);
 		expect(p1.rows).toHaveLength(5);
 		expect(p1.more).toBe(true);
-		const p2 = serializePage(m, p1.cursor, 500);
+		const p2 = serializePage(m, { cursor: p1.cursor }, 500);
 		expect(p2.more).toBe(false);
 		const seen = [...p1.rows, ...p2.rows].map((r) => r.line);
 		expect(new Set(seen).size).toBe(seen.length); // no duplicates
@@ -152,12 +152,12 @@ describe("serializePage", () => {
 
 	it("tail cursor returns exactly the delta after new output (spec §7 cursor durability)", async () => {
 		const m = await mirrorWith("a\r\nb\r\n", 10, 4);
-		const replay = serializePage(m, null);
+		const replay = serializePage(m, { cursor: null });
 		expect(replay.more).toBe(false);
 		m.write("c\r\n");
 		await m.drained();
 		m.tick();
-		const delta = serializePage(m, replay.cursor);
+		const delta = serializePage(m, { cursor: replay.cursor });
 		expect(delta.rows.map((r) => r.text).filter(Boolean)).toContain("c");
 		expect(delta.rows.map((r) => r.text)).not.toContain("a");
 		m.dispose();
@@ -165,10 +165,10 @@ describe("serializePage", () => {
 
 	it("stale epoch cursor answers as a fresh snapshot (spec §2)", async () => {
 		const m = await mirrorWith("x\r\n", 10, 4);
-		const old = serializePage(m, null);
+		const old = serializePage(m, { cursor: null });
 		m.resize(12, 4); // epoch bump
 		m.tick();
-		const page = serializePage(m, old.cursor);
+		const page = serializePage(m, { cursor: old.cursor });
 		expect(page.epoch).toBeGreaterThan(old.epoch);
 		expect(page.rows.length).toBeGreaterThan(0); // full snapshot, not an error
 		m.dispose();
@@ -176,14 +176,14 @@ describe("serializePage", () => {
 
 	it("pre-trim cursor never returns dropped lines and reports trimmedBefore (spec §6.2)", async () => {
 		const m = await mirrorWith("seed\r\n", 10, 4);
-		const early = serializePage(m, null);
+		const early = serializePage(m, { cursor: null });
 		const total = 10_000 + 4 + 9;
 		let chunk = "";
 		for (let i = 0; i < total; i++) chunk += `l${i}\r\n`;
 		m.write(chunk);
 		await m.drained();
 		m.tick();
-		const page = serializePage(m, early.cursor);
+		const page = serializePage(m, { cursor: early.cursor });
 		expect(page.trimmedBefore).toBe(m.trimmedBefore);
 		for (const row of page.rows)
 			expect(row.line).toBeGreaterThanOrEqual(page.trimmedBefore);
@@ -192,7 +192,7 @@ describe("serializePage", () => {
 
 	it("soft-wrapped long line: row 0 unwrapped, continuation rows carry wrapped: true (reflow spec §1.1)", async () => {
 		const m = await mirrorWith("a".repeat(200), 80, 6);
-		const rows = serializePage(m, null).rows;
+		const rows = serializePage(m, { cursor: null }).rows;
 		// 200 chars at 80 cols wraps into 3 content rows; the mirror reports the
 		// full 6-row viewport, so 3 blank unwrapped rows pad the tail (observed
 		// xterm behavior — serializePage never trims trailing blank rows).
@@ -206,7 +206,7 @@ describe("serializePage", () => {
 
 	it("explicit newlines never carry wrapped (reflow spec §1.2)", async () => {
 		const m = await mirrorWith("one\r\ntwo\r\nthree\r\n");
-		for (const row of serializePage(m, null).rows) {
+		for (const row of serializePage(m, { cursor: null }).rows) {
 			expect(row.wrapped).toBeUndefined();
 		}
 		m.dispose();
@@ -214,9 +214,9 @@ describe("serializePage", () => {
 
 	it("wrapped chain spanning a page boundary keeps correct flags on both pages (reflow spec §1.3)", async () => {
 		const m = await mirrorWith("b".repeat(200), 40, 8); // 5 wrapped-chain rows at 40 cols
-		const p1 = serializePage(m, null, 2);
+		const p1 = serializePage(m, { cursor: null }, 2);
 		expect(p1.more).toBe(true);
-		const p2 = serializePage(m, p1.cursor);
+		const p2 = serializePage(m, { cursor: p1.cursor });
 		const all = [...p1.rows, ...p2.rows].sort((a, b) => a.line - b.line);
 		// The 8-row viewport carries the 5-row wrap chain plus 3 blank unwrapped
 		// padding rows (observed xterm behavior, same as reflow spec §1.1).
@@ -230,7 +230,7 @@ describe("serializePage", () => {
 
 	it("styled soft-wrapped content: runs still tile each row's text; the flag adds no run motion (reflow spec §1.4)", async () => {
 		const m = await mirrorWith("\x1b[31m" + "r".repeat(100) + "\x1b[0m", 40, 6);
-		const rows = serializePage(m, null).rows;
+		const rows = serializePage(m, { cursor: null }).rows;
 		// 100 chars at 40 cols wraps into 3 content rows; the mirror reports the
 		// full 6-row viewport, so 3 blank unwrapped rows pad the tail (same
 		// observed xterm behavior as reflow spec §1.1).
@@ -253,7 +253,7 @@ describe("serializePage", () => {
 	it("after resize(), flags match the new geometry's per-line isWrapped — no hardcoded layout (reflow spec §1.5)", async () => {
 		const m = await mirrorWith("c".repeat(30), 20, 6);
 		m.resize(12, 4); // epoch bump; xterm reflows the buffer
-		const page = serializePage(m, null);
+		const page = serializePage(m, { cursor: null });
 		expect(page.rows.length).toBeGreaterThan(0);
 		for (const row of page.rows) {
 			const expected =
@@ -269,7 +269,7 @@ describe("serializePage", () => {
 			40,
 			6,
 		);
-		const page = serializePage(m, null);
+		const page = serializePage(m, { cursor: null });
 		expect(page.altScreen).toBe(true);
 		for (const row of page.rows) {
 			expect(row.wrapped).toBeUndefined();
@@ -281,7 +281,7 @@ describe("serializePage", () => {
 describe("v4/v5 contract compatibility (umbrella §3)", () => {
 	it("old host → new phone: a page with no wrapped key parses against the v5 schema with wrapped absent (reflow spec §1.7)", async () => {
 		const m = await mirrorWith("plain\r\nlines\r\n");
-		const page = serializePage(m, null);
+		const page = serializePage(m, { cursor: null });
 		expect(JSON.stringify(page)).not.toContain("wrapped");
 		const parsed = PtyRowsResult.parse({ ok: true, ...page });
 		if (!parsed.ok) throw new Error("expected success arm");
@@ -291,7 +291,7 @@ describe("v4/v5 contract compatibility (umbrella §3)", () => {
 
 	it("new host → old phone: the frozen v4 schema parses an unmodified v5 page and strips wrapped (reflow spec §1.8)", async () => {
 		const m = await mirrorWith("e".repeat(100), 40, 6);
-		const page = serializePage(m, null);
+		const page = serializePage(m, { cursor: null });
 		expect(page.rows.some((r) => r.wrapped === true)).toBe(true);
 		const parsed = V4PtyRowsResult.parse({ ok: true, ...page });
 		if (!parsed.ok) throw new Error("expected success arm");

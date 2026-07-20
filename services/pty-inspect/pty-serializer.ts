@@ -122,12 +122,18 @@ function serializeRow(
 	return row;
 }
 
+export type SerializePageArgs = {
+	cursor: string | null;
+	tail?: number;
+	before?: string;
+};
+
 export function serializePage(
 	mirror: PtyMirror,
-	rawCursor: string | null,
+	args: SerializePageArgs,
 	cap: number = DEFAULT_CAP,
 ): PtyRowsPage {
-	const c = decodeCursor(rawCursor);
+	const c = decodeCursor(args.cursor);
 	const stamps = mirror.takeStamps();
 	const first = mirror.trimmedBefore;
 	const last = mirror.trimmedBefore + mirror.buffer.length - 1;

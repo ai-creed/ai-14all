@@ -196,7 +196,7 @@ export class PtySubscriptionRegistry {
 			const current = this.catalog.getEntry(worktreeId, agentId);
 			if (!current) return { ok: false, code: "no-such-pty" };
 			current.mirror.tick(); // fold pending writes into stamps before serving
-			const page = serializePage(current.mirror, cursor);
+			const page = serializePage(current.mirror, { cursor });
 			this.served += page.rows.length;
 			if (
 				this.active &&
