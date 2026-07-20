@@ -439,7 +439,11 @@ describe("serializePage", () => {
 		const m = await mirrorWith("x\r\n".repeat(20), 40, 6);
 		const full = serializePage(m, { cursor: null });
 		const first = full.rows[0].line;
-		const token = encodeCursor({ epoch: full.epoch, watermark: 0, line: first });
+		const token = encodeCursor({
+			epoch: full.epoch,
+			watermark: 0,
+			line: first,
+		});
 		const page = serializePage(m, { cursor: null, before: token });
 		expect(page.rows).toEqual([]);
 		expect(page.moreBefore).toBe(false);
@@ -452,13 +456,25 @@ describe("serializePage", () => {
 		const last = full.rows.at(-1)!.line;
 		const cap = 500;
 		// (a) wrong epoch
-		const wrongEpoch = encodeCursor({ epoch: full.epoch + 99, watermark: 0, line: last });
+		const wrongEpoch = encodeCursor({
+			epoch: full.epoch + 99,
+			watermark: 0,
+			line: last,
+		});
 		// (b) forged / undecodable
 		const forged = "not-a-real-cursor";
 		// (c) current-epoch, out-of-window: line = last + cap + 1
-		const outOfWindow = encodeCursor({ epoch: full.epoch, watermark: 0, line: last + cap + 1 });
+		const outOfWindow = encodeCursor({
+			epoch: full.epoch,
+			watermark: 0,
+			line: last + cap + 1,
+		});
 		// (d) non-integer line
-		const nonInteger = encodeCursor({ epoch: full.epoch, watermark: 0, line: last - 0.5 });
+		const nonInteger = encodeCursor({
+			epoch: full.epoch,
+			watermark: 0,
+			line: last - 0.5,
+		});
 		for (const before of [wrongEpoch, forged, outOfWindow, nonInteger]) {
 			const page = serializePage(m, { cursor: null, before }, cap);
 			expect(page.rows).toEqual([]); // zero rows — never cap phantom rows

@@ -213,7 +213,9 @@ export function serializePage(
 			return wa - wb || a - b;
 		});
 		const emit = candidates.slice(0, cap);
-		rows = emit.map((abs) => serializeRow(mirror, abs - mirror.trimmedBefore, abs));
+		rows = emit.map((abs) =>
+			serializeRow(mirror, abs - mirror.trimmedBefore, abs),
+		);
 		const tailLine = emit.at(-1);
 		cursor = encodeCursor({
 			epoch: mirror.epoch,

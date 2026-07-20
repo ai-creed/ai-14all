@@ -159,7 +159,13 @@ describe("generateFixture (reflow spec §3)", () => {
 
 	it("no-history sample yields backwardPages: [], never a forward page (case 5)", async () => {
 		// Whole buffer fits within tail → moreBefore false, cursorBefore undefined.
-		const artifact = await generateFixture("a\r\nb\r\nc\r\n", 40, 6, undefined, 50);
+		const artifact = await generateFixture(
+			"a\r\nb\r\nc\r\n",
+			40,
+			6,
+			undefined,
+			50,
+		);
 		expect(artifact.tailPage!.moreBefore).toBe(false);
 		expect(artifact.tailPage!.cursorBefore).toBeUndefined();
 		expect(artifact.backwardPages).toEqual([]); // length 0, NOT a forward page
@@ -171,7 +177,9 @@ describe("generateFixture (reflow spec §3)", () => {
 			...artifact,
 			tailPage: { ...artifact.tailPage!, ok: true },
 		};
-		expect(PtyFixtureArtifactSchema.safeParse(tamperedTail).success).toBe(false);
+		expect(PtyFixtureArtifactSchema.safeParse(tamperedTail).success).toBe(
+			false,
+		);
 		const tamperedBack = {
 			...artifact,
 			backwardPages: [
@@ -179,6 +187,8 @@ describe("generateFixture (reflow spec §3)", () => {
 				...artifact.backwardPages!.slice(1),
 			],
 		};
-		expect(PtyFixtureArtifactSchema.safeParse(tamperedBack).success).toBe(false);
+		expect(PtyFixtureArtifactSchema.safeParse(tamperedBack).success).toBe(
+			false,
+		);
 	});
 });

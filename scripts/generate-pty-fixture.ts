@@ -43,7 +43,11 @@ export async function generateFixture(
 		} while (page.more);
 		const DEFAULT_TAIL = 50;
 		const tailN = tail ?? DEFAULT_TAIL;
-		const tailPage = serializePage(mirror, { cursor: null, tail: tailN }, pageCap);
+		const tailPage = serializePage(
+			mirror,
+			{ cursor: null, tail: tailN },
+			pageCap,
+		);
 		// No-history guard: cursorBefore === undefined means the tail already
 		// reached the top. Calling serializePage with { before: undefined } would
 		// dispatch to Forward and stuff a snapshot into backwardPages — emit [].
