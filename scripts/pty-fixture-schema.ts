@@ -20,6 +20,8 @@ export const PtyFixtureArtifactSchema = z
 			watermark: z.number().int().nonnegative(),
 		}),
 		pages: z.array(z.record(z.string(), z.unknown())),
+		tailPage: z.record(z.string(), z.unknown()).optional(),
+		backwardPages: z.array(z.record(z.string(), z.unknown())).optional(),
 	})
 	.superRefine((artifact, ctx) => {
 		const sub = SubscribePtyResult.safeParse({
@@ -33,15 +35,18 @@ export const PtyFixtureArtifactSchema = z
 				message: `subscribe fails SubscribePtyResult: ${sub.error.message}`,
 			});
 		}
-		artifact.pages.forEach((page, i) => {
-			// Spec §3: elements are stored WITHOUT the envelope. A stored `ok`
-			// would be indistinguishable from the stamp below, so its mere
-			// presence is a violation regardless of value.
+		// Declared BEFORE any use. Envelope-free storage guard (spec §3): a stored
+		// `ok` is indistinguishable from the stamp below, so its mere presence is a
+		// violation; otherwise parse against the vendored contract with ok re-added.
+		const checkStoredPage = (
+			page: Record<string, unknown>,
+			path: (string | number)[],
+		) => {
 			if ("ok" in page) {
 				ctx.addIssue({
 					code: "custom",
-					path: ["pages", i],
-					message: `page ${i} carries the wire envelope key "ok" — stored pages must be envelope-free`,
+					path,
+					message: `page carries the wire envelope key "ok" — stored pages must be envelope-free`,
 				});
 				return;
 			}
@@ -49,11 +54,16 @@ export const PtyFixtureArtifactSchema = z
 			if (!parsed.success) {
 				ctx.addIssue({
 					code: "custom",
-					path: ["pages", i],
-					message: `page ${i} fails PtyRowsResult: ${parsed.error.message}`,
+					path,
+					message: `page fails PtyRowsResult: ${parsed.error.message}`,
 				});
 			}
-		});
+		};
+		artifact.pages.forEach((page, i) => checkStoredPage(page, ["pages", i]));
+		if (artifact.tailPage) checkStoredPage(artifact.tailPage, ["tailPage"]);
+		artifact.backwardPages?.forEach((bp, i) =>
+			checkStoredPage(bp, ["backwardPages", i]),
+		);
 	});
 
 export type PtyFixtureArtifactInput = z.input<typeof PtyFixtureArtifactSchema>;

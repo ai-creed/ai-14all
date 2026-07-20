@@ -10,6 +10,8 @@ import {
 export type PtyFixtureArtifact = {
 	subscribe: { cols: number; epoch: number; watermark: number };
 	pages: PtyRowsPage[];
+	tailPage?: PtyRowsPage;
+	backwardPages?: PtyRowsPage[];
 };
 
 /**
@@ -24,6 +26,7 @@ export async function generateFixture(
 	cols: number,
 	rows: number,
 	pageCap?: number,
+	tail?: number,
 ): Promise<PtyFixtureArtifact> {
 	const mirror = new PtyMirror({ cols, rows });
 	try {
@@ -38,6 +41,20 @@ export async function generateFixture(
 			pages.push(page);
 			cursor = page.cursor;
 		} while (page.more);
+		const DEFAULT_TAIL = 50;
+		const tailN = tail ?? DEFAULT_TAIL;
+		const tailPage = serializePage(mirror, { cursor: null, tail: tailN }, pageCap);
+		// No-history guard: cursorBefore === undefined means the tail already
+		// reached the top. Calling serializePage with { before: undefined } would
+		// dispatch to Forward and stuff a snapshot into backwardPages — emit [].
+		const backwardPages: PtyRowsPage[] = [];
+		let before = tailPage.cursorBefore;
+		let iterations = 0;
+		while (before !== undefined && iterations++ < 10_000) {
+			const bp = serializePage(mirror, { cursor: null, before }, pageCap);
+			backwardPages.push(bp); // sequential pull order: index 0 = nearest tail
+			before = bp.cursorBefore;
+		}
 		return {
 			subscribe: {
 				cols: mirror.cols,
@@ -45,6 +62,8 @@ export async function generateFixture(
 				watermark: mirror.watermark,
 			},
 			pages,
+			tailPage,
+			backwardPages,
 		};
 	} finally {
 		mirror.dispose();
@@ -59,7 +78,8 @@ const USAGE =
 	"Deterministic for a given byte file + geometry.\n\n" +
 	"--tsconfig scripts/tsconfig.tsx.json is required when running this script\n" +
 	"directly via tsx: it aliases @xterm/headless to its real ESM build so\n" +
-	"named imports resolve outside Vite/Vitest (see that file for why).";
+	"named imports resolve outside Vite/Vitest (see that file for why).\n\n" +
+	"--tail <n>";
 
 async function main(): Promise<void> {
 	const { values } = parseArgs({
@@ -68,6 +88,7 @@ async function main(): Promise<void> {
 			cols: { type: "string" },
 			rows: { type: "string" },
 			out: { type: "string" },
+			tail: { type: "string" },
 			help: { type: "boolean", short: "h" },
 		},
 	});
@@ -92,8 +113,14 @@ async function main(): Promise<void> {
 		process.exitCode = 1;
 		return;
 	}
+	const tail = values.tail ? Number(values.tail) : undefined;
+	if (tail !== undefined && (!Number.isInteger(tail) || tail <= 0)) {
+		console.error("--tail must be a positive integer");
+		process.exitCode = 1;
+		return;
+	}
 	const bytes = await readFile(values.bytes, "utf8");
-	const artifact = await generateFixture(bytes, cols, rows);
+	const artifact = await generateFixture(bytes, cols, rows, undefined, tail);
 	await writeFile(
 		values.out,
 		JSON.stringify(artifact, null, "\t") + "\n",
