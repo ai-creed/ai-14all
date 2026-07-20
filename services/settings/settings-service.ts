@@ -127,6 +127,14 @@ export class SettingsService {
 						usageTelemetry: {
 							...this.current.usageTelemetry,
 							...patch.usageTelemetry,
+							...(patch.usageTelemetry.insights
+								? {
+										insights: {
+											...this.current.usageTelemetry.insights,
+											...patch.usageTelemetry.insights,
+										},
+									}
+								: {}),
 						},
 					}
 				: {}),

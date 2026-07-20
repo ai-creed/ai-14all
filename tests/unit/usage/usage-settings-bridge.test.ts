@@ -59,6 +59,7 @@ describe("usage settings bridge (real async persistence via SettingsService)", (
 			enabled: false,
 			includeUntracked: true,
 			chipRange: "month",
+			insights: { enabled: true, noticeShown: false },
 		});
 	});
 
@@ -156,6 +157,7 @@ describe("usage settings bridge (real async persistence via SettingsService)", (
 			enabled: false, // NOT clobbered back to the stale `true`
 			includeUntracked: false,
 			chipRange: "month",
+			insights: { enabled: true, noticeShown: false },
 		});
 		expect(bridge.settings.enabled).toBe(false); // snapshot refreshed from merged
 	});
@@ -172,6 +174,7 @@ describe("usage settings bridge (real async persistence via SettingsService)", (
 				enabled: true,
 				includeUntracked: true,
 				chipRange: "month",
+				insights: { enabled: true, noticeShown: false },
 			},
 		});
 
@@ -179,6 +182,7 @@ describe("usage settings bridge (real async persistence via SettingsService)", (
 			enabled: true,
 			includeUntracked: true,
 			chipRange: "month",
+			insights: { enabled: true, noticeShown: false },
 		});
 	});
 });

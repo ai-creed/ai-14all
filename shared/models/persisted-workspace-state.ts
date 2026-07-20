@@ -84,10 +84,18 @@ export const PersistedWorkspaceStateV1Schema = z.object({
 	snapshot: WorkspaceSnapshotSchema.nullable(),
 });
 
+export const InsightsSettingsSchema = z.object({
+	enabled: z.boolean().default(true),
+	noticeShown: z.boolean().default(false),
+});
 export const UsageTelemetrySettingsSchema = z.object({
 	enabled: z.boolean().default(true),
 	includeUntracked: z.boolean().default(false),
 	chipRange: z.enum(["week", "month"]).default("week"),
+	insights: InsightsSettingsSchema.default({
+		enabled: true,
+		noticeShown: false,
+	}),
 });
 
 export const PersistedWorkspaceStateV2Schema = z.object({
@@ -137,3 +145,8 @@ export const DEFAULT_PERSISTED_WORKSPACE_STATE: PersistedWorkspaceStateV2 = {
 	workspaceOrder: [],
 	workspaces: [],
 };
+
+// Effective insights-capture consent: global telemetry AND the insights sub-toggle (master kill).
+export function isInsightsCaptureEnabled(t: UsageTelemetrySettings): boolean {
+	return t.enabled && t.insights.enabled;
+}

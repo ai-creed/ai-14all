@@ -69,6 +69,7 @@ describe("SettingsDialog", () => {
 				enabled: DEFAULT_PERSISTED_SETTINGS.usageTelemetry.enabled,
 				includeUntracked: true,
 				chipRange: DEFAULT_PERSISTED_SETTINGS.usageTelemetry.chipRange,
+				insights: DEFAULT_PERSISTED_SETTINGS.usageTelemetry.insights,
 			},
 		});
 	});
@@ -95,6 +96,7 @@ describe("SettingsDialog", () => {
 				includeUntracked:
 					DEFAULT_PERSISTED_SETTINGS.usageTelemetry.includeUntracked,
 				chipRange: "month",
+				insights: DEFAULT_PERSISTED_SETTINGS.usageTelemetry.insights,
 			},
 		});
 	});

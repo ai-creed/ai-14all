@@ -83,6 +83,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 			usageTelemetry: {
 				...prev.usageTelemetry,
 				...(patch.usageTelemetry ?? {}),
+				insights: {
+					...prev.usageTelemetry.insights,
+					...(patch.usageTelemetry?.insights ?? {}),
+				},
 			},
 			phoneBridge: { ...prev.phoneBridge, ...(patch.phoneBridge ?? {}) },
 			terminalConfirm: {

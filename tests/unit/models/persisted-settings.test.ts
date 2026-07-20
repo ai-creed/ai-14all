@@ -21,6 +21,7 @@ describe("PersistedSettingsV1Schema", () => {
 				enabled: true,
 				includeUntracked: false,
 				chipRange: "week",
+				insights: { enabled: true, noticeShown: false },
 			},
 			phoneBridge: {
 				enabled: false,

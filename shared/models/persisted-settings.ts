@@ -65,6 +65,7 @@ export const PersistedSettingsV1Schema = z.object({
 		enabled: true,
 		includeUntracked: false,
 		chipRange: "week",
+		insights: { enabled: true, noticeShown: false },
 	}),
 	phoneBridge: PhoneBridgeSettingsSchema.default({
 		enabled: false,
@@ -91,10 +92,15 @@ export type PersistedSettingsV1 = z.infer<typeof PersistedSettingsV1Schema>;
 // "week"`) as explicit values on parse — verified via a standalone repro —
 // silently discarding whatever SettingsService.writeState()'s deep-merge was
 // meant to preserve.
+const InsightsPatchSchema = z.object({
+	enabled: z.boolean().optional(),
+	noticeShown: z.boolean().optional(),
+});
 const UsageTelemetryPatchSchema = z.object({
 	enabled: z.boolean().optional(),
 	includeUntracked: z.boolean().optional(),
 	chipRange: z.enum(["week", "month"]).optional(),
+	insights: InsightsPatchSchema.optional(),
 });
 
 const PhoneBridgePatchSchema = z.object({
