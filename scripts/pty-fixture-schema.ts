@@ -46,7 +46,8 @@ export const PtyFixtureArtifactSchema = z
 				ctx.addIssue({
 					code: "custom",
 					path,
-					message: `page carries the wire envelope key "ok" — stored pages must be envelope-free`,
+					message:
+						'page carries the wire envelope key "ok" — stored pages must be envelope-free',
 				});
 				return;
 			}
