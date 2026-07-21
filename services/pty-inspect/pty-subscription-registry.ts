@@ -335,6 +335,19 @@ export class PtySubscriptionRegistry {
 		});
 	}
 
+	// No-op if there's no watch or a grace is already pending (an earlier drop
+	// or idempotent unsubscribe already scheduled one). Fires executeWatchRestore
+	// after restoreGraceMs; a re-watch of the same agent within the window
+	// clears `watch.grace` first (setWatchViewport, Task 3) and never reaches
+	// here.
+	private scheduleWatchGraceRestore(): void {
+		if (!this.watch || this.watch.grace) return;
+		this.watch.grace = setTimeout(() => {
+			if (this.watch) this.watch.grace = null;
+			this.executeWatchRestore();
+		}, this.restoreGraceMs);
+	}
+
 	private drop(
 		op: "unsubscribe" | "replace" | "teardown",
 		cause?: string,
@@ -343,14 +356,28 @@ export class PtySubscriptionRegistry {
 		clearInterval(this.active.interval);
 		this.active.offEpochHint();
 		this.active.hint.cancel();
+		const endedWorktreeId = this.active.worktreeId;
+		const endedAgentId = this.active.agentId;
 		this.lifecycle({
 			op,
 			cause,
-			worktreeId: this.active.worktreeId,
-			agentId: this.active.agentId,
+			worktreeId: endedWorktreeId,
+			agentId: endedAgentId,
 			rowsServed: this.active.rowsServed,
 		});
 		this.active = null;
+		// Resize-on-watch §3: the end of the watched agent's subscription ends the
+		// narrow viewport too. Graceful ends (unsubscribe/replace) get the ~1s
+		// re-watch grace; teardown restores immediately — an explicit unsubscribe is
+		// not guaranteed on app-kill / network-drop.
+		if (
+			this.watch &&
+			this.watch.worktreeId === endedWorktreeId &&
+			this.watch.agentId === endedAgentId
+		) {
+			if (op === "teardown") this.executeWatchRestore();
+			else this.scheduleWatchGraceRestore();
+		}
 	}
 
 	subscribe(
@@ -405,9 +432,22 @@ export class PtySubscriptionRegistry {
 			this.active.worktreeId !== worktreeId ||
 			this.active.agentId !== agentId
 		) {
-			return this.catalog.getEntry(worktreeId, agentId)
-				? { ok: true } // idempotent
-				: { ok: false, code: "no-such-pty" };
+			if (!this.catalog.getEntry(worktreeId, agentId)) {
+				return { ok: false, code: "no-such-pty" };
+			}
+			// The phone's subscription for this agent was already replaced/torn
+			// down (drop() has already run), but the watch survived on its grace —
+			// a stop-watch arriving late for the same agent still needs to
+			// (re-)schedule the restore rather than leave the phone owning it
+			// forever.
+			if (
+				this.watch &&
+				this.watch.worktreeId === worktreeId &&
+				this.watch.agentId === agentId
+			) {
+				this.scheduleWatchGraceRestore();
+			}
+			return { ok: true }; // idempotent
 		}
 		this.drop("unsubscribe");
 		return { ok: true };
@@ -452,5 +492,12 @@ export class PtySubscriptionRegistry {
 
 	teardown(cause: "peer-detach" | "re-pair" | "session-teardown"): void {
 		this.drop("teardown", cause);
+		// Covers a lingering watch whose subscription was already gone (drop()
+		// early-returns when `active` is null) — e.g. teardown fires after an
+		// explicit unsubscribe already dropped the subscription but left the
+		// watch on its grace. executeWatchRestore's `!watch` guard makes this
+		// safe to call unconditionally, including the ordinary case where drop()
+		// above already restored it.
+		this.executeWatchRestore();
 	}
 }

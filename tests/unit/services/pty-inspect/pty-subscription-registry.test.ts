@@ -379,3 +379,53 @@ describe("setWatchViewport (resize-on-watch §2, tests §6.1–6.3)", () => {
 		});
 	});
 });
+
+describe("watch restore lifecycle (resize-on-watch §3, tests §6.4–6.5)", () => {
+	it("unsubscribe schedules a grace restore to the desktop's current geometry; re-watch within the grace cancels it", async () => {
+		const { registry, host } = watchHarness(); // graceMs 40, debounce 10
+		registry.subscribe("wt-1", "proc-1");
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		await settle(20);
+		registry.unsubscribe("wt-1", "proc-1");
+		expect(host.restoreDesktopGeometry).not.toHaveBeenCalled(); // grace pending
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40); // re-watch cancels
+		await settle(60); // well past the grace
+		expect(host.restoreDesktopGeometry).not.toHaveBeenCalled();
+		// now let it actually fire
+		registry.unsubscribe("wt-1", "proc-1");
+		await settle(60);
+		expect(host.restoreDesktopGeometry).toHaveBeenCalledTimes(1);
+		expect(host.restoreDesktopGeometry).toHaveBeenCalledWith("term-1");
+	});
+
+	it("teardown (peer-detach) restores immediately, no grace", async () => {
+		const { registry, host, watchEvents } = watchHarness();
+		registry.subscribe("wt-1", "proc-1");
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		await settle(20);
+		registry.teardown("peer-detach");
+		expect(host.restoreDesktopGeometry).toHaveBeenCalledTimes(1);
+		expect(watchEvents.at(-1)).toMatchObject({ phoneOwned: false });
+	});
+
+	it("a viewport for a DIFFERENT agent hard-restores the previous watch first (agent switch)", async () => {
+		const { catalog, registry, host } = watchHarness();
+		const m2 = new PtyMirror({ cols: 120, rows: 40 });
+		catalog.attachMirrorSource({ getMirror: () => m2, takeMirror: () => m2 });
+		catalog.upsert({
+			worktreeId: "wt-1",
+			agentId: "proc-2",
+			terminalSessionId: "term-2",
+			provider: "codex",
+			label: "codex",
+			live: true,
+			agentDetected: true,
+		});
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		await settle(20);
+		registry.setWatchViewport("wt-1", "proc-2", 50, 38);
+		expect(host.restoreDesktopGeometry).toHaveBeenCalledWith("term-1"); // stop-A
+		await settle(20);
+		expect(host.applyWatchResize).toHaveBeenLastCalledWith("term-2", 50, 38); // start-B
+	});
+});
