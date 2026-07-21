@@ -472,6 +472,19 @@ describe("viewer policy (resize-on-watch §4, test §6.6)", () => {
 		expect(host.applyWatchResize).not.toHaveBeenCalled();
 	});
 
+	it("early reclaim (before the debounce fires) retains the requested geometry so blur can still narrow (final-review finding 1)", async () => {
+		const { registry, host, watchEvents } = watchHarness(); // debounce 10ms, grace 40ms
+		registry.subscribe("wt-1", "proc-1");
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		// no settle: reclaim BEFORE the trailing debounce ever fires
+		registry.notifyDesktopKeystroke("term-1");
+		registry.notifyDesktopBlur("term-1");
+		expect(host.applyWatchResize).toHaveBeenCalledWith("term-1", 46, 40);
+		expect(watchEvents.at(-1)).toMatchObject({ phoneOwned: true, cols: 46 });
+		await settle(25); // past the (cleared) debounce window
+		expect(host.applyWatchResize).toHaveBeenCalledTimes(1); // no double-fire
+	});
+
 	it("getWatchState reflects the live phone-owned state and null when idle", async () => {
 		const { registry } = watchHarness();
 		expect(registry.getWatchState("term-1")).toBeNull();
@@ -532,11 +545,14 @@ describe("watch-without-subscription lifecycle holes (final-review findings 1/2)
 		expect(registry.getWatchState("term-1")).toBeNull();
 	});
 
-	it("a mid-watch rebind restores the OLD session; the phone's next set-watch-viewport re-resolves to the new one", async () => {
-		const { catalog, registry, host } = watchHarness();
+	it("a mid-watch rebind migrates the watch to the new terminal without a manual re-assert (final-review finding 2)", async () => {
+		const { catalog, registry, host, watchEvents } = watchHarness();
 		registry.setWatchViewport("wt-1", "proc-1", 46, 40); // narrows term-1
 		await settle(20);
 		host.restoreDesktopGeometry.mockClear();
+		host.applyWatchResize.mockClear();
+		host.setPhoneOwned.mockClear();
+		watchEvents.length = 0;
 
 		const m2 = new PtyMirror({ cols: 120, rows: 40 });
 		catalog.attachMirrorSource({ getMirror: () => m2, takeMirror: () => m2 });
@@ -550,13 +566,61 @@ describe("watch-without-subscription lifecycle holes (final-review findings 1/2)
 			agentDetected: true,
 		});
 
-		expect(host.restoreDesktopGeometry).toHaveBeenCalledWith("term-1"); // old session un-gated
+		// Old session released — no manual setWatchViewport call anywhere below.
+		expect(host.restoreDesktopGeometry).toHaveBeenCalledWith("term-1");
 		expect(registry.getWatchState("term-1")).toBeNull();
 
-		host.applyWatchResize.mockClear();
-		registry.setWatchViewport("wt-1", "proc-1", 46, 40); // re-resolves naturally
-		await settle(20);
+		// Migration re-points and re-applies the SAME geometry to the new terminal.
+		expect(host.setPhoneOwned).toHaveBeenCalledWith("term-2", true);
 		expect(host.applyWatchResize).toHaveBeenCalledWith("term-2", 46, 40);
+		expect(registry.getWatchState("term-2")).toMatchObject({
+			terminalSessionId: "term-2",
+			phoneOwned: true,
+			cols: 46,
+			rows: 40,
+		});
+
+		expect(watchEvents.at(-2)).toMatchObject({
+			terminalSessionId: "term-1",
+			phoneOwned: false,
+		});
+		expect(watchEvents.at(-1)).toMatchObject({
+			terminalSessionId: "term-2",
+			phoneOwned: true,
+			cols: 46,
+			rows: 40,
+		});
+	});
+
+	it("a reclaimed (desktop-owned) watch migrates without narrowing the new terminal; a subsequent blur narrows it via lastRequested", async () => {
+		const { catalog, registry, host } = watchHarness();
+		registry.subscribe("wt-1", "proc-1");
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40); // narrows term-1
+		await settle(20);
+		registry.notifyDesktopKeystroke("term-1"); // reclaim: owner -> desktop
+		host.restoreDesktopGeometry.mockClear();
+		host.applyWatchResize.mockClear();
+		host.setPhoneOwned.mockClear();
+
+		const m2 = new PtyMirror({ cols: 120, rows: 40 });
+		catalog.attachMirrorSource({ getMirror: () => m2, takeMirror: () => m2 });
+		catalog.upsert({
+			worktreeId: "wt-1",
+			agentId: "proc-1",
+			terminalSessionId: "term-2",
+			provider: "claude",
+			label: "claude",
+			live: true,
+			agentDetected: true,
+		});
+
+		expect(host.restoreDesktopGeometry).toHaveBeenCalledWith("term-1");
+		// Reclaimed: migration re-points the watch but must not gate or narrow term-2.
+		expect(host.applyWatchResize).not.toHaveBeenCalled();
+		expect(host.setPhoneOwned).not.toHaveBeenCalledWith("term-2", true);
+
+		registry.notifyDesktopBlur("term-2");
+		expect(host.applyWatchResize).toHaveBeenCalledWith("term-2", 46, 40); // via lastRequested
 	});
 });
 

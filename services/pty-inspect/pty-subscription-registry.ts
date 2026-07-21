@@ -53,6 +53,12 @@ type WatchState = {
 	preWatchGeometry: { cols: number; rows: number };
 	owner: "phone" | "desktop";
 	lastApplied: { cols: number; rows: number } | null;
+	// Latest RAW (pre-clamp) geometry the phone actually asked for, set on
+	// every setWatchViewport call and surviving a desktop-keystroke reclaim —
+	// so a later blur re-assert or a rebind migration can still re-clamp and
+	// re-apply it even though `pending` was cleared by the reclaim and
+	// `lastApplied` may still be null (final-review finding 1).
+	lastRequested: { cols: number; rows: number } | null;
 	pending: { cols: number; rows: number } | null;
 	debounce: ReturnType<typeof setTimeout> | null;
 	grace: ReturnType<typeof setTimeout> | null;
@@ -169,10 +175,17 @@ export class PtySubscriptionRegistry {
 					ev.kind === "rebound")
 			) {
 				// disposed/exit-final-hint: the watched session is gone — restore
-				// immediately. rebound: the watch still points at the OLD
-				// terminalSessionId — restore (un-gating the old session) so the
-				// phone's next set-watch-viewport re-resolves to the new one.
-				this.executeWatchRestore();
+				// immediately. rebound: the subscription is deliberately RETAINED
+				// across a rebind, and so is the watch — migrate it onto the new
+				// terminalSessionId (final-review finding 2) instead of ending it,
+				// or a continuously-active watch would silently stay desktop-width
+				// on the new terminal (the phone only re-sends set-watch-viewport
+				// on watch-start or geometry change, not on a rebind it never sees).
+				if (ev.kind === "rebound") {
+					this.migrateWatchToRebound(ev.worktreeId, ev.agentId);
+				} else {
+					this.executeWatchRestore();
+				}
 			}
 		});
 	}
@@ -255,6 +268,27 @@ export class PtySubscriptionRegistry {
 		});
 	}
 
+	// Shared clamp: phone geometry is always bounded to [MIN_FLOOR…preWatch],
+	// the watch's frozen desktop snapshot (spec §2). Used by setWatchViewport
+	// and by the reclaim/migration paths that re-derive a target geometry from
+	// `lastRequested` rather than a fresh phone call.
+	private clampToPreWatch(
+		watch: WatchState,
+		cols: number,
+		rows: number,
+	): { cols: number; rows: number } {
+		return {
+			cols: Math.min(
+				Math.max(cols, MIN_FLOOR_COLS),
+				watch.preWatchGeometry.cols,
+			),
+			rows: Math.min(
+				Math.max(rows, MIN_FLOOR_ROWS),
+				watch.preWatchGeometry.rows,
+			),
+		};
+	}
+
 	// Shared restore primitive (Tasks 4/5 build the grace-timer and
 	// blur/reclaim policies on top of this). Always synchronous: cancels any
 	// pending debounce/grace, clears watch state, and asks the host to put
@@ -269,6 +303,73 @@ export class PtySubscriptionRegistry {
 		// the desktop's CURRENT desired geometry (§3 — never the stale snapshot).
 		this.viewportHost?.restoreDesktopGeometry(watch.terminalSessionId);
 		this.emitWatchEnded(watch);
+	}
+
+	// A rebind (spec §1.3) atomically swaps the catalog entry's terminalSessionId
+	// while KEEPING the subscription and — per final-review finding 2 — the
+	// watch alive too. Releases the OLD terminal back to the desktop, then
+	// re-points the same continuous watch at the NEW terminal, re-applying the
+	// last requested geometry only while the phone still owns it (a reclaimed
+	// watch migrates its pointer only — no narrowing until the next blur).
+	private migrateWatchToRebound(worktreeId: string, agentId: string): void {
+		const watch = this.watch;
+		if (!watch) return; // caller already checked, kept for safety
+		const entry = this.catalog.getEntry(worktreeId, agentId);
+		const host = this.viewportHost;
+		if (
+			!entry ||
+			!host ||
+			entry.terminalSessionId === watch.terminalSessionId
+		) {
+			// Nothing to migrate onto (entry gone, host unattached, or the rebind
+			// didn't actually change the terminal) — fall back to ending the watch.
+			this.executeWatchRestore();
+			return;
+		}
+		// Release the OLD terminal back to the desktop; the event still carries
+		// the OLD terminalSessionId so the old pane unfreezes.
+		if (watch.debounce) {
+			clearTimeout(watch.debounce);
+			watch.debounce = null;
+		}
+		watch.pending = null;
+		host.restoreDesktopGeometry(watch.terminalSessionId);
+		this.emitWatchEnded(watch);
+		// Re-point the SAME watch (same `since`, `owner`, `lastRequested`, and
+		// any pending `grace` timer — a graced watch migrates too, and the grace
+		// still fires executeWatchRestore against the NEW session, correctly)
+		// onto the new terminal.
+		watch.terminalSessionId = entry.terminalSessionId;
+		watch.provider = entry.provider;
+		watch.label = entry.label;
+		watch.preWatchGeometry = host.getDesktopGeometry(
+			entry.terminalSessionId,
+		) ?? {
+			cols: TERMINAL_SPAWN_COLS,
+			rows: TERMINAL_SPAWN_ROWS,
+		};
+		watch.lastApplied = null;
+		watch.forceReapply = false;
+		if (watch.owner === "phone") {
+			host.setPhoneOwned(watch.terminalSessionId, true);
+			if (watch.lastRequested) {
+				const clamped = this.clampToPreWatch(
+					watch,
+					watch.lastRequested.cols,
+					watch.lastRequested.rows,
+				);
+				host.applyWatchResize(
+					watch.terminalSessionId,
+					clamped.cols,
+					clamped.rows,
+				);
+				watch.lastApplied = clamped;
+			}
+			this.emitWatchOwned(watch);
+		}
+		// owner === "desktop" (reclaimed): do NOT gate or narrow the new
+		// session — the migrated pointer alone means a later blur re-assert
+		// (notifyDesktopBlur's lastRequested fallback) lands on the new terminal.
 	}
 
 	setWatchViewport(
@@ -311,6 +412,7 @@ export class PtySubscriptionRegistry {
 				preWatchGeometry: pre,
 				owner: "phone",
 				lastApplied: null,
+				lastRequested: null,
 				pending: null,
 				debounce: null,
 				grace: null,
@@ -330,16 +432,11 @@ export class PtySubscriptionRegistry {
 			watch.owner = "phone";
 			host.setPhoneOwned(watch.terminalSessionId, true);
 		}
-		watch.pending = {
-			cols: Math.min(
-				Math.max(cols, MIN_FLOOR_COLS),
-				watch.preWatchGeometry.cols,
-			),
-			rows: Math.min(
-				Math.max(rows, MIN_FLOOR_ROWS),
-				watch.preWatchGeometry.rows,
-			),
-		};
+		// Raw requested geometry, kept around (pre-clamp) so it survives a
+		// reclaim's `pending` wipe and still re-clamps faithfully later — see
+		// `lastRequested` on WatchState.
+		watch.lastRequested = { cols, rows };
+		watch.pending = this.clampToPreWatch(watch, cols, rows);
 		// Trailing debounce: rotation bursts coalesce; only the latest geometry
 		// is applied. Idempotence (same geometry re-sent) is checked at fire time.
 		if (watch.debounce) clearTimeout(watch.debounce);
@@ -585,16 +682,32 @@ export class PtySubscriptionRegistry {
 		}
 		watch.owner = "phone";
 		this.viewportHost?.setPhoneOwned(terminalSessionId, true);
-		if (watch.lastApplied) {
-			// Direct re-apply of the last confirmed phone geometry — no phone
-			// activity happened between the reclaim and this blur, so there's no
-			// `pending` to debounce; this restores the terminal to where the phone
-			// left it and also resyncs `lastApplied`, so forceReapply is spent.
+		// Prefer the last confirmed phone geometry; but an EARLY reclaim (before
+		// the very first debounce ever fired) leaves `lastApplied` null, so fall
+		// back to re-clamping the raw `lastRequested` geometry — otherwise the
+		// terminal would stay at desktop width indefinitely (final-review
+		// finding 1: the phone only re-sends set-watch-viewport on rotation, not
+		// on this reclaim/blur cycle).
+		const target =
+			watch.lastApplied ??
+			(watch.lastRequested
+				? this.clampToPreWatch(
+						watch,
+						watch.lastRequested.cols,
+						watch.lastRequested.rows,
+					)
+				: null);
+		if (target) {
+			// No phone activity happened between the reclaim and this blur, so
+			// there's no `pending` to debounce; this restores the terminal to
+			// where the phone left it (or last asked for) and also resyncs
+			// `lastApplied`, so forceReapply is spent.
 			this.viewportHost?.applyWatchResize(
 				terminalSessionId,
-				watch.lastApplied.cols,
-				watch.lastApplied.rows,
+				target.cols,
+				target.rows,
 			);
+			watch.lastApplied = target;
 			watch.forceReapply = false;
 		}
 		this.emitWatchOwned(watch);
