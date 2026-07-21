@@ -107,11 +107,24 @@ export function usePhoneWatchState(sessionId: string): UsePhoneWatchState {
 
 	useEffect(() => {
 		let cancelled = false;
-		const unsubscribe = terminals.onWatchState(applyEvent);
-		void terminals.getWatchState(sessionId).then((seed) => {
-			if (cancelled || seed === null) return;
-			applyEvent(seed);
+		// The getWatchState seed below is an async snapshot taken at mount; a
+		// live event can arrive — and even fully resolve a watch (owned then
+		// ended) — before that snapshot's promise settles. Once any live event
+		// has been applied, the seed is stale and must be discarded rather than
+		// clobbering state a real event already produced (see the "seed-vs-
+		// live-event race" test).
+		let sawLiveEvent = false;
+		const unsubscribe = terminals.onWatchState((ev) => {
+			sawLiveEvent = true;
+			applyEvent(ev);
 		});
+		terminals
+			.getWatchState(sessionId)
+			.then((seed) => {
+				if (cancelled || sawLiveEvent || seed === null) return;
+				applyEvent(seed);
+			})
+			.catch(() => {});
 		return () => {
 			cancelled = true;
 			unsubscribe();

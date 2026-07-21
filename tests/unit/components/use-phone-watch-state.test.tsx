@@ -84,6 +84,42 @@ describe("usePhoneWatchState (R2 — child spec §5/§6)", () => {
 		expect(terminals.getWatchState).toHaveBeenCalledWith("term-1");
 	});
 
+	// Race: the mount-time getWatchState seed is a snapshot fetched
+	// asynchronously; a live event can arrive and even fully resolve a watch
+	// (owned -> ended) before that seed's promise settles. A stale "owned"
+	// seed resolving afterwards must not re-freeze the pane or reopen the
+	// pleat the live events already closed.
+	it("ignores a getWatchState seed that resolves after a live event already applied (seed-vs-live-event race)", async () => {
+		let resolveSeed: (ev: TerminalWatchStateEvent) => void = () => {};
+		const seedPromise = new Promise<TerminalWatchStateEvent>((resolve) => {
+			resolveSeed = resolve;
+		});
+		vi.mocked(terminals.getWatchState).mockReturnValue(seedPromise);
+
+		const { result } = renderHook(() => usePhoneWatchState("term-1"));
+
+		// A live owned -> ended pair arrives before the seed resolves.
+		emit(owned());
+		emit(owned({ phoneOwned: false, cols: null, rows: null }));
+		expect(result.current.frozenRef.current).toBe(false);
+		const closedTo = result.current.pleat?.to;
+		expect(closedTo).not.toBeNull();
+		expect(closedTo).not.toBeUndefined();
+
+		// The seed (a stale "owned" snapshot fetched at mount, before the ended
+		// arrived) resolves late.
+		await act(async () => {
+			resolveSeed(owned());
+			await seedPromise;
+		});
+
+		// The late seed must not re-freeze the pane, re-show the chip, or
+		// reopen the closed pleat.
+		expect(result.current.frozenRef.current).toBe(false);
+		expect(result.current.chip).toBeNull();
+		expect(result.current.pleat?.to).toBe(closedTo);
+	});
+
 	it("dismissPleat clears the pleat and its bytes", () => {
 		const { result } = renderHook(() => usePhoneWatchState("term-1"));
 		emit(owned());
