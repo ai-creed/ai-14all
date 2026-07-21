@@ -6,6 +6,16 @@ import { terminals } from "../../../lib/desktop-client";
 // preview: 2 MiB of UTF-16 code units.
 const BYTE_BUFFER_CAP = 2 * 1024 * 1024;
 
+// Pleat geometry floor, mirroring the registry's MIN_FLOOR_COLS/MIN_FLOOR_ROWS
+// (services/pty-inspect/pty-subscription-registry.ts) — hardcoded rather than
+// imported because the renderer must not pull in main-process modules. A
+// `phoneOwned: true` event can carry `cols`/`rows: null` (e.g. an app-blur
+// re-assert racing ahead of the first debounce apply), and falling back to 0
+// would produce a zero-geometry pleat and a `new Terminal({ cols: 0 })` on
+// expand.
+const MIN_FLOOR_COLS_FALLBACK = 40;
+const MIN_FLOOR_ROWS_FALLBACK = 10;
+
 export type PhoneWatchChipState = {
 	label: string | null;
 	provider: string | null;
@@ -75,8 +85,8 @@ export function usePhoneWatchState(sessionId: string): UsePhoneWatchState {
 				const nextPleat: PhoneWatchPleatState = {
 					from: ev.since,
 					to: null,
-					cols: ev.cols ?? current?.cols ?? 0,
-					rows: ev.rows ?? current?.rows ?? 0,
+					cols: ev.cols ?? current?.cols ?? MIN_FLOOR_COLS_FALLBACK,
+					rows: ev.rows ?? current?.rows ?? MIN_FLOOR_ROWS_FALLBACK,
 				};
 				pleatRef.current = nextPleat;
 				setPleat(nextPleat);

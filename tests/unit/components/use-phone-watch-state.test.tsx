@@ -197,6 +197,17 @@ describe("usePhoneWatchState (R2 — child spec §5/§6)", () => {
 		expect(result.current.readPleatBytes()).toBe("first second");
 	});
 
+	// Final-review fold-in: a phone-owned event can carry null cols/rows (e.g.
+	// an app-blur re-assert racing ahead of the first debounce apply, before any
+	// geometry has ever been applied). The pleat must fall back to the
+	// registry's MIN_FLOOR (40x10), never to 0 — a zero-geometry pleat would
+	// construct `new Terminal({ cols: 0 })` on expand.
+	it("falls back to the MIN_FLOOR geometry (40x10), not 0, when phoneOwned carries null cols/rows with no prior geometry", () => {
+		const { result } = renderHook(() => usePhoneWatchState("term-1"));
+		emit(owned({ cols: null, rows: null }));
+		expect(result.current.pleat).toMatchObject({ cols: 40, rows: 10 });
+	});
+
 	it("returned functions and frozenRef are identity-stable across re-renders", () => {
 		const { result, rerender } = renderHook(() => usePhoneWatchState("term-1"));
 		const first = {

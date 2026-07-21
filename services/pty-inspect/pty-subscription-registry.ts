@@ -153,6 +153,27 @@ export class PtySubscriptionRegistry {
 					this.active.hint.trigger();
 				}
 			}
+			// Watch-scoped teardown/rebind — INDEPENDENT of `this.active`: a phone
+			// can be watching an agent the desktop isn't (any longer) subscribed
+			// to, and that watch must still end/rebind or the phoneOwned gate
+			// sticks on a dead or replaced PTY forever (final-review finding).
+			// executeWatchRestore is idempotent, so the double-call when `active`
+			// ALSO matched above (already restored via drop()'s teardown path) is
+			// safe.
+			if (
+				this.watch &&
+				ev.worktreeId === this.watch.worktreeId &&
+				ev.agentId === this.watch.agentId &&
+				(ev.kind === "disposed" ||
+					ev.kind === "exit-final-hint" ||
+					ev.kind === "rebound")
+			) {
+				// disposed/exit-final-hint: the watched session is gone — restore
+				// immediately. rebound: the watch still points at the OLD
+				// terminalSessionId — restore (un-gating the old session) so the
+				// phone's next set-watch-viewport re-resolves to the new one.
+				this.executeWatchRestore();
+			}
 		});
 	}
 
@@ -456,6 +477,17 @@ export class PtySubscriptionRegistry {
 			this.active.agentId !== agentId
 		) {
 			if (!this.catalog.getEntry(worktreeId, agentId)) {
+				// Entry gone means the session itself is gone (spec-final-review
+				// finding): a grace here would be pointless — the phone's re-watch
+				// would just refuse no-such-pty — so restore any matching lingering
+				// watch IMMEDIATELY rather than leave the phoneOwned gate stuck.
+				if (
+					this.watch &&
+					this.watch.worktreeId === worktreeId &&
+					this.watch.agentId === agentId
+				) {
+					this.executeWatchRestore();
+				}
 				return { ok: false, code: "no-such-pty" };
 			}
 			// The phone's subscription for this agent was already replaced/torn
@@ -566,6 +598,17 @@ export class PtySubscriptionRegistry {
 			watch.forceReapply = false;
 		}
 		this.emitWatchOwned(watch);
+	}
+
+	/** §4 "the desktop blurs" at the OS/window level: cmd-tabbing away from the
+	 * app (as opposed to an in-app element-level blur, see notifyDesktopBlur)
+	 * must also hand a reclaimed watch back to the phone. Trivial delegation —
+	 * notifyDesktopBlur already guards on the subscription still being active
+	 * and on `owner === "desktop"`, so there is nothing to duplicate here. */
+	notifyAppBlur(): void {
+		const watch = this.watch;
+		if (!watch || watch.owner !== "desktop") return;
+		this.notifyDesktopBlur(watch.terminalSessionId);
 	}
 
 	getWatchState(terminalSessionId: string): WatchStateEvent | null {
