@@ -575,4 +575,73 @@ describe("TerminalService", () => {
 			consoleError.mockRestore();
 		});
 	});
+
+	describe("viewport ownership (resize-on-watch §4)", () => {
+		function makeService() {
+			const pty = createPtyDouble();
+			spawnMock.mockReturnValue(pty);
+			const service = new TerminalService({
+				onOutput: vi.fn(),
+				onExit: vi.fn(),
+				onState: vi.fn(),
+				onError: vi.fn(),
+			});
+			const session = service.create("ws-1", "wt-1", "/repo");
+			return { pty, service, session };
+		}
+
+		it("tracks desktop geometry from spawn defaults and every resize()", () => {
+			const { service, session } = makeService();
+			expect(service.getDesktopGeometry(session.id)).toEqual({
+				cols: TERMINAL_SPAWN_COLS,
+				rows: TERMINAL_SPAWN_ROWS,
+			});
+			service.resize(session.id, 120, 40);
+			expect(service.getDesktopGeometry(session.id)).toEqual({
+				cols: 120,
+				rows: 40,
+			});
+		});
+
+		it("phone-owned gates desktop resize(): desired is recorded, PTY untouched", () => {
+			const { pty, service, session } = makeService();
+			service.setPhoneOwned(session.id, true);
+			service.resize(session.id, 132, 44); // simulated desktop auto-fit (§6.6)
+			expect(pty.resize).not.toHaveBeenCalled();
+			expect(service.getDesktopGeometry(session.id)).toEqual({
+				cols: 132,
+				rows: 44,
+			});
+		});
+
+		it("applyWatchResize resizes pty+mirror without touching desktop geometry", () => {
+			const { pty, service, session } = makeService();
+			service.resize(session.id, 120, 40);
+			service.applyWatchResize(session.id, 46, 58);
+			expect(pty.resize).toHaveBeenLastCalledWith(46, 58);
+			expect(service.getDesktopGeometry(session.id)).toEqual({
+				cols: 120,
+				rows: 40,
+			});
+		});
+
+		it("restoreDesktopGeometry clears the gate and applies the CURRENT desired geometry", () => {
+			const { pty, service, session } = makeService();
+			service.resize(session.id, 120, 40);
+			service.setPhoneOwned(session.id, true);
+			service.resize(session.id, 100, 30); // desktop resized DURING the watch (§3)
+			service.restoreDesktopGeometry(session.id);
+			expect(pty.resize).toHaveBeenLastCalledWith(100, 30);
+			// gate cleared: desktop resize applies again
+			service.resize(session.id, 90, 28);
+			expect(pty.resize).toHaveBeenLastCalledWith(90, 28);
+		});
+
+		it("restoreDesktopGeometry on a dead session is a safe no-op", () => {
+			const { service, session } = makeService();
+			service.stop(session.id); // kill → exit → cleanup
+			expect(() => service.restoreDesktopGeometry(session.id)).not.toThrow();
+			expect(service.getDesktopGeometry(session.id)).toBeUndefined();
+		});
+	});
 });
