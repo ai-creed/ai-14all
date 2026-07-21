@@ -114,6 +114,7 @@ import type {
 	TerminalExitEvent,
 	TerminalStateEvent,
 	TerminalErrorEvent,
+	TerminalWatchStateEvent,
 } from "../../shared/contracts/events.js";
 
 // `shared/` cannot import from `services/`, so the renderer-facing attention
@@ -245,6 +246,21 @@ export function registerIpcHandlers(
 	// (electron/main/index.ts builds the XBP host, and PtyInspectService with
 	// it, earlier at startup) — attach now so catalog upserts can adopt mirrors.
 	ptyInspect?.attachTerminalService(terminalService);
+
+	const toWatchStatePayload = (
+		ev: import("../../services/pty-inspect/pty-subscription-registry.js").WatchStateEvent,
+	): TerminalWatchStateEvent => ({
+		sessionId: ev.terminalSessionId,
+		phoneOwned: ev.phoneOwned,
+		cols: ev.cols,
+		rows: ev.rows,
+		provider: ev.provider,
+		label: ev.label,
+		since: ev.since,
+	});
+	ptyInspect?.registry.onWatchState((ev) => {
+		safeSend("terminal/watchState", toWatchStatePayload(ev));
+	});
 
 	// --- Repository ---
 
@@ -380,11 +396,26 @@ export function registerIpcHandlers(
 	ipcMain.handle("terminals:sendInput", (_event, raw: unknown) => {
 		const { sessionId, data } = SendTerminalInputSchema.parse(raw);
 		terminalService.sendInput(sessionId, data);
+		// Viewer policy (resize-on-watch §4): this handler is only reachable from
+		// renderer user-input paths (typing/paste/drop/launch) — a real desktop
+		// keystroke. Programmatic writers (samantha acting) call
+		// TerminalService.sendInput directly and deliberately do not reclaim.
+		ptyInspect?.registry.notifyDesktopKeystroke(sessionId);
 	});
 
 	ipcMain.handle("terminals:resize", (_event, raw: unknown) => {
 		const { sessionId, cols, rows } = ResizeTerminalSessionSchema.parse(raw);
 		terminalService.resize(sessionId, cols, rows);
+	});
+
+	ipcMain.handle("terminals:notifyBlur", (_event, raw: unknown) => {
+		const { sessionId } = raw as { sessionId: string };
+		ptyInspect?.registry.notifyDesktopBlur(sessionId);
+	});
+	ipcMain.handle("terminals:getWatchState", (_event, raw: unknown) => {
+		const { sessionId } = raw as { sessionId: string };
+		const ev = ptyInspect?.registry.getWatchState(sessionId) ?? null;
+		return ev ? toWatchStatePayload(ev) : null;
 	});
 
 	ipcMain.handle("terminals:stop", (_event, raw: unknown) => {

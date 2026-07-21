@@ -11,6 +11,7 @@ import type {
 	TerminalExitEvent,
 	TerminalStateEvent,
 	TerminalErrorEvent,
+	TerminalWatchStateEvent,
 } from "./events.js";
 import { ShellReasonKindSchema } from "../models/shell-event-record.js";
 import type { GitChange } from "../models/git-change.js";
@@ -468,6 +469,11 @@ export type Ai14AllDesktopApi = {
 		onExit(listener: (event: TerminalExitEvent) => void): () => void;
 		onState(listener: (event: TerminalStateEvent) => void): () => void;
 		onError(listener: (event: TerminalErrorEvent) => void): () => void;
+		onWatchState(
+			listener: (event: TerminalWatchStateEvent) => void,
+		): () => void;
+		notifyBlur(sessionId: string): Promise<void>;
+		getWatchState(sessionId: string): Promise<TerminalWatchStateEvent | null>;
 	};
 	agentPtys: {
 		upsert(msg: AgentPtyUpsert): Promise<void>;

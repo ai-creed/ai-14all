@@ -22,12 +22,25 @@ export const TerminalErrorEventSchema = z.object({
 	message: z.string(),
 });
 
+export const TerminalWatchStateEventSchema = z.object({
+	sessionId: z.string(),
+	phoneOwned: z.boolean(),
+	cols: z.number().int().positive().nullable(),
+	rows: z.number().int().positive().nullable(),
+	provider: z.string().nullable(),
+	label: z.string().nullable(),
+	since: z.number(),
+});
+
 // --- Payload types ---
 
 export type TerminalOutputEvent = z.infer<typeof TerminalOutputEventSchema>;
 export type TerminalExitEvent = z.infer<typeof TerminalExitEventSchema>;
 export type TerminalStateEvent = z.infer<typeof TerminalStateEventSchema>;
 export type TerminalErrorEvent = z.infer<typeof TerminalErrorEventSchema>;
+export type TerminalWatchStateEvent = z.infer<
+	typeof TerminalWatchStateEventSchema
+>;
 
 export {
 	ShellEventRecordSchema,

@@ -85,7 +85,7 @@ export class PtyInspectService {
 		this.registry.teardown("re-pair");
 	}
 
-	// Refusal audit (spec §4): every refusal from any of the four PTY-inspect
+	// Refusal audit (spec §4): every refusal from any of the five PTY-inspect
 	// capabilities lands in the audit, regardless of which handler produced it.
 	// Kept as a thin wrapper here (not baked into the registry) so the registry
 	// stays audit-agnostic and listPtysCapability's structural (not lifecycle)
@@ -113,6 +113,15 @@ export class PtyInspectService {
 		this.catalog.attachMirrorSource({
 			getMirror: (id) => ts.getMirror(id),
 			takeMirror: (id) => ts.takeMirror(id),
+		});
+		// Resize-on-watch (child spec §2): the registry drives the real PTY resize
+		// through the terminal service. Late-attached — TerminalService is
+		// constructed after the XBP host, same seam as the mirror source.
+		this.registry.attachViewportHost({
+			applyWatchResize: (id, cols, rows) => ts.applyWatchResize(id, cols, rows),
+			restoreDesktopGeometry: (id) => ts.restoreDesktopGeometry(id),
+			getDesktopGeometry: (id) => ts.getDesktopGeometry(id),
+			setPhoneOwned: (id, owned) => ts.setPhoneOwned(id, owned),
 		});
 	}
 }

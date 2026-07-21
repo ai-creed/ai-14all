@@ -25,6 +25,7 @@ import {
 	subscribePtyCapability,
 	unsubscribePtyCapability,
 	ptyRowsCapability,
+	setWatchViewportCapability,
 	PTY_CHANGED_TOPIC,
 	CONTROL_INSPECT,
 	type PtyChangedEvent,
@@ -831,6 +832,45 @@ describe("XBP PTY inspect lifecycle (control:inspect, real dispatch)", () => {
 		assertOk(page2);
 		expect(page2.epoch).toBe(epochBefore);
 		expect(page2.rows.map((r) => r.text).join("\n")).toContain("line two");
+
+		h.session.stop();
+	});
+
+	it("set-watch-viewport: unknown target refuses no-such-pty over the wire (v7)", async () => {
+		const h = await setupInspectSession();
+		const r = await h.client.call(h.hostNode, setWatchViewportCapability, {
+			worktreeId: "wt-unknown",
+			agentId: "proc-unknown",
+			cols: 46,
+			rows: 58,
+		});
+		expect(r).toEqual({ ok: false, code: "no-such-pty" });
+
+		h.session.stop();
+	});
+
+	it("set-watch-viewport: known target applies clamped geometry through the real terminal service (v7)", async () => {
+		const h = await setupInspectSession();
+		const { agentId } = h.seedAgent({ agentId: "watch", label: "Watch" });
+		// The harness attaches a real TerminalService (attachTerminalService),
+		// so the registry's viewport host is wired to the SAME pty double
+		// spawnMock just handed out — the ok-path is observable end to end.
+		const ptyDouble = spawnMock.mock.results.at(-1)?.value as IPty;
+
+		const r = await h.client.call(h.hostNode, setWatchViewportCapability, {
+			worktreeId: "wt-1",
+			agentId,
+			cols: 46,
+			rows: 20,
+		});
+		expect(r).toEqual({ ok: true });
+
+		// setWatchViewport debounces the apply (~150ms default); wait for it to
+		// land on the real pty double rather than asserting synchronously.
+		await vi.waitFor(
+			() => expect(ptyDouble.resize).toHaveBeenCalledWith(46, 20),
+			{ timeout: 2000, interval: 20 },
+		);
 
 		h.session.stop();
 	});

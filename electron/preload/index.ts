@@ -10,6 +10,7 @@ import type {
 	TerminalExitEvent,
 	TerminalStateEvent,
 	TerminalErrorEvent,
+	TerminalWatchStateEvent,
 	ReviewCommentChangedEvent,
 } from "../../shared/contracts/events.js";
 import type {
@@ -224,6 +225,15 @@ const api: Ai14AllDesktopApi = {
 		},
 		onError(listener: (event: TerminalErrorEvent) => void) {
 			return onChannel("terminal/error", listener);
+		},
+		onWatchState(listener: (event: TerminalWatchStateEvent) => void) {
+			return onChannel("terminal/watchState", listener);
+		},
+		notifyBlur(sessionId) {
+			return ipcRenderer.invoke("terminals:notifyBlur", { sessionId });
+		},
+		getWatchState(sessionId) {
+			return ipcRenderer.invoke("terminals:getWatchState", { sessionId });
 		},
 	},
 	agentPtys: {
