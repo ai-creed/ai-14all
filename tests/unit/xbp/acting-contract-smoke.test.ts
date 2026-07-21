@@ -11,7 +11,7 @@ import {
 describe("acting contract surface (0.1.0-alpha.5)", () => {
 	it("exposes the lifecycle capabilities under control:act", () => {
 		expect(CONTROL_ACT).toBe("control:act");
-		expect(COMMAND_CONTRACT_VERSION).toBe(6);
+		expect(COMMAND_CONTRACT_VERSION).toBe(7);
 		expect(pauseSessionCapability.id).toBe("xavier.control.pause-session");
 		expect(resumeSessionCapability.id).toBe("xavier.control.resume-session");
 		expect(stopSessionCapability.id).toBe("xavier.control.stop-session");
