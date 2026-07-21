@@ -7,6 +7,9 @@ const {
 	resizeMock,
 	sendInputMock,
 	onOutputMock,
+	onWatchStateMock,
+	getWatchStateMock,
+	notifyBlurMock,
 	logShellEventMock,
 	fitMock,
 	xtermWriteMock,
@@ -31,6 +34,9 @@ const {
 	resizeMock: vi.fn(() => Promise.resolve()),
 	sendInputMock: vi.fn(() => Promise.resolve()),
 	onOutputMock: vi.fn(() => vi.fn()),
+	onWatchStateMock: vi.fn(() => vi.fn()),
+	getWatchStateMock: vi.fn(() => Promise.resolve(null)),
+	notifyBlurMock: vi.fn(() => Promise.resolve()),
 	logShellEventMock: vi.fn(() => Promise.resolve()),
 	fitMock: vi.fn(),
 	xtermWriteMock: vi.fn(),
@@ -77,6 +83,9 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		sendInput: sendInputMock,
 		resize: resizeMock,
 		onOutput: onOutputMock,
+		onWatchState: onWatchStateMock,
+		getWatchState: getWatchStateMock,
+		notifyBlur: notifyBlurMock,
 	},
 	workspace: {
 		readRestoreState: vi.fn().mockResolvedValue({
@@ -163,6 +172,9 @@ describe("TerminalPane", () => {
 		resizeMock.mockReset();
 		sendInputMock.mockReset();
 		onOutputMock.mockClear();
+		onWatchStateMock.mockClear();
+		getWatchStateMock.mockClear();
+		notifyBlurMock.mockClear();
 		fitMock.mockReset();
 		xtermWriteMock.mockReset();
 		xtermDisposeMock.mockReset();

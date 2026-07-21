@@ -172,6 +172,81 @@
 		overflow-anchor: none;
 	}
 
+	/* ---- R2 phone-watch presentation (pty-reflow child spec §5/§6) -------- */
+
+	/* Dims the frozen desktop snapshot underneath the chip/pleat so the user
+	   reads it as "held", not live. */
+	.shell-terminal-pane[data-phone-watching="true"]
+		.shell-terminal-pane__viewport {
+		opacity: 0.4;
+	}
+
+	.shell-watch-chip {
+		position: absolute;
+		top: var(--space-2);
+		right: var(--space-2);
+		z-index: 10;
+		padding: var(--space-1) var(--space-2);
+		font-size: 11px;
+		line-height: 1.4;
+		color: var(--text-primary);
+		background: var(--panel-bg-elevated);
+		border: var(--shell-border-width) solid var(--panel-border-strong);
+		border-radius: 14px;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+	}
+
+	.shell-watch-pleat {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 10;
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-1) var(--space-2);
+		background: var(--panel-bg-elevated);
+		border-top: var(--shell-border-width) solid var(--panel-border-strong);
+	}
+
+	.shell-watch-pleat__range {
+		flex: 1;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		font-size: 11px;
+		color: var(--text-secondary);
+	}
+
+	.shell-watch-pleat button {
+		background: none;
+		border: var(--shell-border-width) solid var(--panel-border-strong);
+		border-radius: var(--radius-sm);
+		color: var(--text-secondary);
+		cursor: pointer;
+		padding: 2px var(--space-2);
+		font-size: 11px;
+		line-height: 1.4;
+	}
+
+	.shell-watch-pleat button:hover {
+		color: var(--text-primary);
+		border-color: var(--accent);
+	}
+
+	.shell-watch-pleat__preview {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 100%;
+		height: 160px;
+		overflow: auto;
+		background: var(--app-bg);
+		border-top: var(--shell-border-width) solid var(--panel-border-strong);
+		border-bottom: var(--shell-border-width) solid var(--panel-border-strong);
+	}
+
 	/* ---- Terminal slot grid ---- */
 	.shell-terminal-panel__grid {
 		display: grid;

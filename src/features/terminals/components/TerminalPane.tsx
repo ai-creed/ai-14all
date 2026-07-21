@@ -10,6 +10,9 @@ import { TERMINAL_SCROLLBACK_ROWS } from "../../../../shared/constants/terminal-
 import { files, terminals } from "../../../lib/desktop-client";
 import { logRendererShellEvent } from "../logic/shell-event-logger";
 import { getReplayOutput } from "../logic/replay-buffer";
+import { usePhoneWatchState } from "../hooks/use-phone-watch-state";
+import { PhoneWatchChip } from "./PhoneWatchChip";
+import { PhoneWatchPleat } from "./PhoneWatchPleat";
 
 const FIND_DECORATIONS = {
 	matchBackground: "#5f4400",
@@ -80,6 +83,13 @@ export function TerminalPane({
 	onActivate,
 	onTypingFocusChange,
 }: Props) {
+	const watch = usePhoneWatchState(session.id);
+	// Render-refreshed ref so the mount-once output subscription below always
+	// sees the latest `watch` (belt-and-braces — the hook's returned functions
+	// and frozenRef are already identity-stable across renders).
+	const watchRef = useRef(watch);
+	watchRef.current = watch;
+
 	const containerRef = useRef<HTMLDivElement>(null);
 	const termRef = useRef<Terminal | null>(null);
 	const fitAddonRef = useRef<FitAddon | null>(null);
@@ -320,6 +330,13 @@ export function TerminalPane({
 		};
 		const unsubOutput = terminals.onOutput((event) => {
 			if (event.sessionId !== session.id) return;
+			if (watchRef.current.frozenRef.current) {
+				// R2 freeze (child spec §5): narrow-epoch bytes keep feeding the mirror
+				// and the phone but never repaint the frozen desktop view — they are
+				// captured for the pleat's narrow preview instead.
+				watchRef.current.captureWatchBytes(event.data);
+				return;
+			}
 			pending += event.data;
 			if (pending.length >= HARD_CAP_BYTES) {
 				drain();
@@ -532,6 +549,7 @@ export function TerminalPane({
 			aria-hidden={visible ? "false" : "true"}
 			className="shell-panel shell-terminal-pane"
 			data-terminal-session-id={session.id}
+			data-phone-watching={watch.chip ? "true" : "false"}
 			onMouseDown={onActivate}
 			onDragOver={handleDragOver}
 			onDrop={handleDrop}
@@ -540,10 +558,30 @@ export function TerminalPane({
 				// Ignore focus moves WITHIN the pane (e.g. xterm → find input).
 				if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
 				onTypingFocusChange?.(false);
+				// §4 blur re-assert signal: the main process ignores this unless a
+				// reclaimed watch exists for this session.
+				terminals.notifyBlur(session.id).catch(() => {});
 			}}
 			style={{ display: visible ? "block" : "none" }}
 		>
 			<div ref={containerRef} className="shell-terminal-pane__viewport" />
+			{watch.chip && (
+				<PhoneWatchChip
+					label={watch.chip.label}
+					provider={watch.chip.provider}
+					since={watch.chip.since}
+				/>
+			)}
+			{watch.pleat && (
+				<PhoneWatchPleat
+					from={watch.pleat.from}
+					to={watch.pleat.to}
+					cols={watch.pleat.cols}
+					rows={watch.pleat.rows}
+					readBytes={watch.readPleatBytes}
+					onDismiss={watch.dismissPleat}
+				/>
+			)}
 			{findOpen && (
 				<div
 					className="shell-terminal-find"
