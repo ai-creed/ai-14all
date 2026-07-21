@@ -102,9 +102,19 @@ export function main() {
 		}
 	}
 
-	run("pnpm", ["test"], { stdio: "inherit" });
+	run("pnpm", ["install", "--frozen-lockfile"], { stdio: "inherit" });
+	run("pnpm", ["lint"], { stdio: "inherit" });
+	run("pnpm", ["format"], { stdio: "inherit" });
 	run("pnpm", ["typecheck"], { stdio: "inherit" });
+	run("pnpm", ["test"], { stdio: "inherit" });
 	run("pnpm", ["test:e2e"], { stdio: "inherit" });
+	// posttest:e2e restores the host-Node ABI for better-sqlite3, so force the
+	// Electron rebuild before packaging — electron-builder treats the existing
+	// host-ABI binary as a cache hit and would skip its own rebuild, tripping
+	// the afterPack guard. Mirrors release-stable.mjs.
+	run("pnpm", ["exec", "electron-rebuild", "-f", "-w", "better-sqlite3"], {
+		stdio: "inherit",
+	});
 	run("pnpm", ["package:mac"], { stdio: "inherit" });
 
 	if (plan.mode === "new-release") {

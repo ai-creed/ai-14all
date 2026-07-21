@@ -69,6 +69,7 @@ export function main(argv = process.argv.slice(2)) {
 	run("pnpm", ["format"], { stdio: "inherit" });
 	run("pnpm", ["typecheck"], { stdio: "inherit" });
 	run("pnpm", ["test"], { stdio: "inherit" });
+	run("pnpm", ["test:e2e"], { stdio: "inherit" });
 	// `pnpm test` (vitest) needs/leaves better-sqlite3 at the host-Node ABI. The
 	// packaged app needs Electron's ABI, but electron-builder's internal rebuild
 	// sees the existing host-ABI binary as a cache hit and SKIPS rebuilding, so
