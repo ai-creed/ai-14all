@@ -429,3 +429,60 @@ describe("watch restore lifecycle (resize-on-watch §3, tests §6.4–6.5)", () 
 		expect(host.applyWatchResize).toHaveBeenLastCalledWith("term-2", 50, 38); // start-B
 	});
 });
+
+describe("viewer policy (resize-on-watch §4, test §6.6)", () => {
+	it("a desktop keystroke reclaims: restores desktop geometry, marks desktop-owned; phone re-assert re-owns", async () => {
+		const { registry, host, watchEvents } = watchHarness();
+		registry.subscribe("wt-1", "proc-1");
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		await settle(20);
+		registry.notifyDesktopKeystroke("term-1");
+		expect(host.restoreDesktopGeometry).toHaveBeenCalledWith("term-1");
+		expect(watchEvents.at(-1)).toMatchObject({ phoneOwned: false });
+		// while desktop-owned, a pending narrow apply must not fire
+		host.applyWatchResize.mockClear();
+		// phone re-asserts → phone owns again
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		await settle(20);
+		expect(host.applyWatchResize).toHaveBeenCalledWith("term-1", 46, 40);
+		expect(watchEvents.at(-1)).toMatchObject({ phoneOwned: true });
+	});
+
+	it("keystroke on an unwatched terminal is a no-op", () => {
+		const { registry, host } = watchHarness();
+		registry.notifyDesktopKeystroke("term-1");
+		expect(host.restoreDesktopGeometry).not.toHaveBeenCalled();
+	});
+
+	it("desktop blur re-asserts the phone ONLY while its subscription is still active", async () => {
+		const { registry, host } = watchHarness();
+		registry.subscribe("wt-1", "proc-1");
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		await settle(20);
+		registry.notifyDesktopKeystroke("term-1");
+		host.applyWatchResize.mockClear();
+		registry.notifyDesktopBlur("term-1");
+		expect(host.applyWatchResize).toHaveBeenCalledWith("term-1", 46, 40);
+		expect(host.setPhoneOwned).toHaveBeenLastCalledWith("term-1", true);
+		// reclaim again, then drop the subscription — blur must NOT re-narrow
+		registry.notifyDesktopKeystroke("term-1");
+		registry.unsubscribe("wt-1", "proc-1");
+		host.applyWatchResize.mockClear();
+		registry.notifyDesktopBlur("term-1");
+		expect(host.applyWatchResize).not.toHaveBeenCalled();
+	});
+
+	it("getWatchState reflects the live phone-owned state and null when idle", async () => {
+		const { registry } = watchHarness();
+		expect(registry.getWatchState("term-1")).toBeNull();
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		expect(registry.getWatchState("term-1")).toMatchObject({
+			terminalSessionId: "term-1",
+			phoneOwned: true,
+			cols: 46,
+			rows: 40,
+		});
+		registry.teardown("peer-detach");
+		expect(registry.getWatchState("term-1")).toBeNull();
+	});
+});

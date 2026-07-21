@@ -55,6 +55,14 @@ type WatchState = {
 	debounce: ReturnType<typeof setTimeout> | null;
 	grace: ReturnType<typeof setTimeout> | null;
 	since: number;
+	// Set by a desktop-keystroke reclaim (Task 5): the reclaim hands the PTY's
+	// REAL geometry back to the desktop, so `lastApplied` — though still the
+	// last value the PHONE asked for, kept around for notifyDesktopBlur's
+	// direct re-apply — no longer describes what's actually on the terminal.
+	// The next debounce-fire in setWatchViewport must re-apply even if the
+	// phone re-asserts the identical geometry, bypassing the idempotence check
+	// exactly once.
+	forceReapply: boolean;
 };
 
 const TICK_MS = 200;
@@ -280,6 +288,7 @@ export class PtySubscriptionRegistry {
 				debounce: null,
 				grace: null,
 				since: this.now(),
+				forceReapply: false,
 			};
 			host.setPhoneOwned(entry.terminalSessionId, true);
 		}
@@ -306,13 +315,15 @@ export class PtySubscriptionRegistry {
 			const target = watch.pending;
 			watch.pending = null;
 			if (!target || watch.owner !== "phone") return;
-			if (
+			// A pending reclaim forces exactly one re-apply through, even when the
+			// target matches `lastApplied` byte-for-byte — see `forceReapply` above.
+			const skip =
+				!watch.forceReapply &&
 				watch.lastApplied &&
 				watch.lastApplied.cols === target.cols &&
-				watch.lastApplied.rows === target.rows
-			) {
-				return;
-			}
+				watch.lastApplied.rows === target.rows;
+			watch.forceReapply = false;
+			if (skip) return;
 			host.applyWatchResize(watch.terminalSessionId, target.cols, target.rows);
 			watch.lastApplied = target;
 		}, this.watchDebounceMs);
@@ -488,6 +499,68 @@ export class PtySubscriptionRegistry {
 		} catch {
 			return { ok: false, code: "internal" };
 		}
+	}
+
+	/** Viewer policy (resize-on-watch §4): a real desktop keystroke routed to the
+	 * phone-owned PTY restores desktop geometry immediately and marks it
+	 * desktop-owned. The watch is RETAINED so the phone can re-assert
+	 * (set-watch-viewport) or the desktop blur can hand ownership back. */
+	notifyDesktopKeystroke(terminalSessionId: string): void {
+		const watch = this.watch;
+		if (!watch || watch.terminalSessionId !== terminalSessionId) return;
+		if (watch.owner !== "phone") return;
+		watch.owner = "desktop";
+		if (watch.debounce) {
+			clearTimeout(watch.debounce);
+			watch.debounce = null;
+			watch.pending = null;
+		}
+		// The reclaim hands the PTY's REAL geometry back to the desktop, so
+		// `lastApplied` (kept around for notifyDesktopBlur's direct re-apply) no
+		// longer describes what's actually on the terminal. forceReapply makes
+		// the next setWatchViewport debounce-fire re-apply even if the phone
+		// re-asserts the identical geometry, instead of matching the now-stale
+		// value and skipping the re-narrow entirely.
+		watch.forceReapply = true;
+		this.viewportHost?.restoreDesktopGeometry(terminalSessionId);
+		this.emitWatchEnded(watch); // phoneOwned: false — renderer unfreezes
+	}
+
+	/** §4 "until … the desktop blurs": after a reclaim, the desktop losing focus
+	 * hands geometry back to a STILL-ACTIVE phone watch. */
+	notifyDesktopBlur(terminalSessionId: string): void {
+		const watch = this.watch;
+		if (!watch || watch.terminalSessionId !== terminalSessionId) return;
+		if (watch.owner !== "desktop") return;
+		if (
+			!this.active ||
+			this.active.worktreeId !== watch.worktreeId ||
+			this.active.agentId !== watch.agentId
+		) {
+			return; // phone is no longer watching — desktop keeps the geometry
+		}
+		watch.owner = "phone";
+		this.viewportHost?.setPhoneOwned(terminalSessionId, true);
+		if (watch.lastApplied) {
+			// Direct re-apply of the last confirmed phone geometry — no phone
+			// activity happened between the reclaim and this blur, so there's no
+			// `pending` to debounce; this restores the terminal to where the phone
+			// left it and also resyncs `lastApplied`, so forceReapply is spent.
+			this.viewportHost?.applyWatchResize(
+				terminalSessionId,
+				watch.lastApplied.cols,
+				watch.lastApplied.rows,
+			);
+			watch.forceReapply = false;
+		}
+		this.emitWatchOwned(watch);
+	}
+
+	getWatchState(terminalSessionId: string): WatchStateEvent | null {
+		const watch = this.watch;
+		if (!watch || watch.terminalSessionId !== terminalSessionId) return null;
+		if (watch.owner !== "phone") return null;
+		return this.buildWatchOwnedEvent(watch);
 	}
 
 	teardown(cause: "peer-detach" | "re-pair" | "session-teardown"): void {
