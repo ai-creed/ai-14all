@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { AgentPtyCatalog } from "../../../../services/pty-inspect/agent-pty-catalog";
 import { PtyMirror } from "../../../../services/pty-inspect/pty-mirror";
-import { PtySubscriptionRegistry } from "../../../../services/pty-inspect/pty-subscription-registry";
+import {
+	PtySubscriptionRegistry,
+	type WatchStateEvent,
+} from "../../../../services/pty-inspect/pty-subscription-registry";
 
 async function harness() {
 	const mirrors = new Map<string, PtyMirror>();
@@ -35,6 +38,47 @@ async function harness() {
 	if (!entry) throw new Error("entry missing");
 	return { catalog, registry, mirror: entry.mirror, hints };
 }
+
+function watchHarness(opts?: { debounceMs?: number; graceMs?: number }) {
+	const mirrors = new Map<string, PtyMirror>();
+	const catalog = new AgentPtyCatalog();
+	catalog.attachMirrorSource({
+		getMirror: (id) => mirrors.get(id),
+		takeMirror: (id) => {
+			const m = mirrors.get(id);
+			mirrors.delete(id);
+			return m;
+		},
+	});
+	mirrors.set("term-1", new PtyMirror({ cols: 120, rows: 40 }));
+	catalog.upsert({
+		worktreeId: "wt-1",
+		agentId: "proc-1",
+		terminalSessionId: "term-1",
+		provider: "claude",
+		label: "claude",
+		live: true,
+		agentDetected: true,
+	});
+	const registry = new PtySubscriptionRegistry({
+		catalog,
+		emitHint: () => {},
+		tickMs: 5,
+		watchDebounceMs: opts?.debounceMs ?? 10,
+		restoreGraceMs: opts?.graceMs ?? 40,
+	});
+	const host = {
+		applyWatchResize: vi.fn(),
+		restoreDesktopGeometry: vi.fn(),
+		getDesktopGeometry: vi.fn(() => ({ cols: 120, rows: 40 })),
+		setPhoneOwned: vi.fn(),
+	};
+	registry.attachViewportHost(host);
+	const watchEvents: WatchStateEvent[] = [];
+	registry.onWatchState((ev) => watchEvents.push(ev));
+	return { catalog, registry, host, watchEvents };
+}
+const settle = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 describe("PtySubscriptionRegistry", () => {
 	it("subscribe → hint on output; unknown targets refuse structurally", async () => {
@@ -258,5 +302,80 @@ describe("PtySubscriptionRegistry", () => {
 		const delta = await registry.pullRows("wt-1", "proc-1", replay.cursor);
 		if (!("rows" in delta)) throw new Error("refused");
 		expect(delta.rows.length).toBe(0); // nothing new since replay
+	});
+});
+
+describe("setWatchViewport (resize-on-watch §2, tests §6.1–6.3)", () => {
+	it("resizes a live session once via the host, clamped to [MIN_FLOOR…desktop]; unknown target refuses no-such-pty", async () => {
+		const { registry, host } = watchHarness();
+		expect(registry.setWatchViewport("wt-1", "nope", 46, 58)).toEqual({
+			ok: false,
+			code: "no-such-pty",
+		});
+		// too-narrow request clamps up to the floor; too-tall clamps down to desktop rows
+		expect(registry.setWatchViewport("wt-1", "proc-1", 20, 99)).toEqual({
+			ok: true,
+		});
+		await settle(25); // past the 10ms trailing debounce
+		expect(host.applyWatchResize).toHaveBeenCalledTimes(1);
+		expect(host.applyWatchResize).toHaveBeenCalledWith("term-1", 40, 40);
+	});
+
+	it("first call captures preWatchGeometry, marks phone-owned; same geometry re-sent is a no-op", async () => {
+		const { registry, host } = watchHarness();
+		registry.setWatchViewport("wt-1", "proc-1", 46, 58);
+		// synchronous on FIRST call: gate closes before any debounce fires
+		expect(host.setPhoneOwned).toHaveBeenCalledWith("term-1", true);
+		expect(host.getDesktopGeometry).toHaveBeenCalledWith("term-1");
+		await settle(25);
+		expect(host.applyWatchResize).toHaveBeenCalledTimes(1);
+		registry.setWatchViewport("wt-1", "proc-1", 46, 58); // identical re-send
+		await settle(25);
+		expect(host.applyWatchResize).toHaveBeenCalledTimes(1); // no second resize
+	});
+
+	it("rapid calls coalesce to a single resize at the latest geometry", async () => {
+		const { registry, host } = watchHarness();
+		registry.setWatchViewport("wt-1", "proc-1", 46, 58);
+		registry.setWatchViewport("wt-1", "proc-1", 58, 46); // rotation burst
+		registry.setWatchViewport("wt-1", "proc-1", 50, 52);
+		await settle(30);
+		expect(host.applyWatchResize).toHaveBeenCalledTimes(1);
+		// 52 rows clamps down to the 40-row desktop ceiling (same clamp as
+		// the other tests in this suite) — only the latest geometry fires.
+		expect(host.applyWatchResize).toHaveBeenCalledWith("term-1", 50, 40);
+	});
+
+	it("emits phone-owned watch-state on watch start (renderer freeze signal)", () => {
+		const { registry, watchEvents } = watchHarness();
+		registry.setWatchViewport("wt-1", "proc-1", 46, 58);
+		expect(watchEvents.at(0)).toMatchObject({
+			terminalSessionId: "term-1",
+			phoneOwned: true,
+			cols: 46,
+			rows: 40, // 58 clamped to desktop rows
+			provider: "claude",
+			label: "claude",
+		});
+	});
+
+	it("refuses no-live-agent for a dead entry and internal before the host is attached", async () => {
+		const { catalog, registry } = watchHarness();
+		await catalog.handleTerminalExit("term-1"); // marks entry not-live? (see note)
+		// NOTE: handleTerminalExit publishes exit only for live entries; after it
+		// resolves, entry.live === false.
+		expect(registry.setWatchViewport("wt-1", "proc-1", 46, 58)).toEqual({
+			ok: false,
+			code: "no-live-agent",
+		});
+		const bare = new PtySubscriptionRegistry({
+			catalog,
+			emitHint: () => {},
+			tickMs: 5,
+		});
+		expect(bare.setWatchViewport("wt-1", "proc-1", 46, 58)).toEqual({
+			ok: false,
+			code: "internal",
+		});
 	});
 });
