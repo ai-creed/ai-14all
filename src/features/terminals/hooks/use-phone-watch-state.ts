@@ -115,7 +115,10 @@ export function usePhoneWatchState(sessionId: string): UsePhoneWatchState {
 		// live-event race" test).
 		let sawLiveEvent = false;
 		const unsubscribe = terminals.onWatchState((ev) => {
-			sawLiveEvent = true;
+			// onWatchState is a single global stream across all sessions — only a
+			// live event for THIS session should retire the seed. applyEvent
+			// still runs unconditionally; it filters other sessions internally.
+			if (ev.sessionId === sessionId) sawLiveEvent = true;
 			applyEvent(ev);
 		});
 		terminals

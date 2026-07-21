@@ -120,6 +120,36 @@ describe("usePhoneWatchState (R2 — child spec §5/§6)", () => {
 		expect(result.current.pleat?.to).toBe(closedTo);
 	});
 
+	// Pins the race guard to the OWN session: onWatchState is a single global
+	// stream, so cross-session traffic must not trip the "a live event already
+	// landed" flag that discards the seed. Otherwise an unrelated term-2 event
+	// arriving while term-1's mount-time seed is still in flight would cause
+	// term-1's legitimate owned seed to be discarded, defeating child spec §5
+	// ("pane mounted mid-watch freezes immediately").
+	it("honors the mount-time seed despite an unrelated session's live event arriving first", async () => {
+		let resolveSeed: (ev: TerminalWatchStateEvent) => void = () => {};
+		const seedPromise = new Promise<TerminalWatchStateEvent>((resolve) => {
+			resolveSeed = resolve;
+		});
+		vi.mocked(terminals.getWatchState).mockReturnValue(seedPromise);
+
+		const { result } = renderHook(() => usePhoneWatchState("term-1"));
+
+		// An unrelated session's watch-state event arrives while term-1's seed
+		// is still in flight.
+		emit(owned({ sessionId: "other" }));
+		expect(result.current.frozenRef.current).toBe(false);
+
+		// term-1's own mount-time seed (pane mounted mid-watch) now resolves.
+		await act(async () => {
+			resolveSeed(owned());
+			await seedPromise;
+		});
+
+		expect(result.current.frozenRef.current).toBe(true);
+		expect(result.current.chip).toMatchObject({ label: "claude", since: 1000 });
+	});
+
 	it("dismissPleat clears the pleat and its bytes", () => {
 		const { result } = renderHook(() => usePhoneWatchState("term-1"));
 		emit(owned());
