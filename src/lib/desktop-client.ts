@@ -53,8 +53,7 @@ export const terminals: Ai14AllDesktopApi["terminals"] = {
 	onError: (listener) => getDesktopClient().terminals.onError(listener),
 	onWatchState: (listener) =>
 		getDesktopClient().terminals.onWatchState(listener),
-	notifyBlur: (sessionId) =>
-		getDesktopClient().terminals.notifyBlur(sessionId),
+	notifyBlur: (sessionId) => getDesktopClient().terminals.notifyBlur(sessionId),
 	getWatchState: (sessionId) =>
 		getDesktopClient().terminals.getWatchState(sessionId),
 };

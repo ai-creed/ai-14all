@@ -24,7 +24,9 @@ export type PtyLifecycleEvent = {
 export type WatchViewportHost = {
 	applyWatchResize(sessionId: string, cols: number, rows: number): void;
 	restoreDesktopGeometry(sessionId: string): void;
-	getDesktopGeometry(sessionId: string): { cols: number; rows: number } | undefined;
+	getDesktopGeometry(
+		sessionId: string,
+	): { cols: number; rows: number } | undefined;
 	setPhoneOwned(sessionId: string, owned: boolean): void;
 };
 export type WatchStateEvent = {
@@ -209,7 +211,11 @@ export class PtySubscriptionRegistry {
 		) {
 			return;
 		}
-		this.lastEmitted = { phoneOwned: ev.phoneOwned, cols: ev.cols, rows: ev.rows };
+		this.lastEmitted = {
+			phoneOwned: ev.phoneOwned,
+			cols: ev.cols,
+			rows: ev.rows,
+		};
 		this.notifyWatchState(ev);
 	}
 
@@ -304,8 +310,14 @@ export class PtySubscriptionRegistry {
 			host.setPhoneOwned(watch.terminalSessionId, true);
 		}
 		watch.pending = {
-			cols: Math.min(Math.max(cols, MIN_FLOOR_COLS), watch.preWatchGeometry.cols),
-			rows: Math.min(Math.max(rows, MIN_FLOOR_ROWS), watch.preWatchGeometry.rows),
+			cols: Math.min(
+				Math.max(cols, MIN_FLOOR_COLS),
+				watch.preWatchGeometry.cols,
+			),
+			rows: Math.min(
+				Math.max(rows, MIN_FLOOR_ROWS),
+				watch.preWatchGeometry.rows,
+			),
 		};
 		// Trailing debounce: rotation bursts coalesce; only the latest geometry
 		// is applied. Idempotence (same geometry re-sent) is checked at fire time.

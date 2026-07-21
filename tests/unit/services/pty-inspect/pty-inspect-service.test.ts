@@ -168,9 +168,9 @@ describe("PtyInspectService", () => {
 
 		// attachTerminalService actually wired the host (not left it null): the
 		// seeded target now succeeds and drives setPhoneOwned on the terminal.
-		expect(
-			service.registry.setWatchViewport("wt-x", "proc-x", 46, 40),
-		).toEqual({ ok: true });
+		expect(service.registry.setWatchViewport("wt-x", "proc-x", 46, 40)).toEqual(
+			{ ok: true },
+		);
 		expect(calls).toContain("owned:term-x:true");
 	});
 });

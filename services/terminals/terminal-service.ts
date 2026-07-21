@@ -81,7 +81,10 @@ export class TerminalService {
 	// Desktop's desired viewport per session, independent of what's currently
 	// applied to the live PTY (resize-on-watch §4): seeded from the spawn
 	// defaults, updated on every desktop resize() call — even while gated.
-	private readonly desktopGeometryBySession = new Map<string, TerminalGeometry>();
+	private readonly desktopGeometryBySession = new Map<
+		string,
+		TerminalGeometry
+	>();
 	// Sessions a paired phone currently "owns" the viewport of: while present,
 	// resize() records the desktop's desired geometry but does not apply it.
 	private readonly phoneOwnedSessions = new Set<string>();
