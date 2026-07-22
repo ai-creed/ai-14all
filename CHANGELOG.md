@@ -4,6 +4,25 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] – 2026-07-22
+
+This release hands a watching phone real control of the terminal it's viewing: the host resizes the actual PTY to the phone's screen so full-screen TUIs repaint natively at phone width, terminal history arrives newest-first and backfills as you scroll, and the desktop clearly shows — and can instantly take back — a terminal a phone is driving. Under the hood, the app's entire stylesheet moved from two monolithic files into feature-owned modules, and beta releases now clear the same gates as stable.
+
+### Added
+
+- **Terminals resize to the watching phone.** When a paired phone watches a terminal, the host now resizes the real PTY to the phone's geometry (command-contract v7 `set-watch-viewport`), so full-screen TUIs repaint natively at phone width instead of inheriting the desktop's line breaks. Typing on the desktop instantly reclaims the terminal, switching away from the app hands it back to the watching phone, and ending the watch restores the desktop's geometry — even across a mid-watch terminal restart, which migrates the watch to the new terminal instead of dropping it.
+- **The desktop shows when a phone is driving.** While a phone owns a terminal's geometry, the desktop pane freezes at its last desktop-width frame and wears a phone-watching chip; output arriving in the meantime collects in an expandable pleat below the frozen view, so nothing is lost and mangled reflow is never shown. Panes opened mid-watch join the frozen state correctly.
+- **Phone terminal history loads newest-first.** The phone-facing PTY stream serves the latest screenful immediately and pages older history in on scroll-up (command-contract v6 backward channel, `cursorBefore`/`moreBefore`), replacing the old front-to-back replay. Phones still on earlier contracts keep working.
+
+### Changed
+
+- **The monolithic stylesheet is gone.** shell.css and tui.css were split into feature-owned CSS modules over a consolidated theme-token core, with an architecture guard and a four-theme pixel-diff visual gate keeping the refactor honest — no visual change intended, and the gate agrees.
+- **Beta releases clear the same bar as stable.** Beta now runs stable's full pre-flight (frozen install, lint, format, typecheck before tests) and forces the Electron ABI rebuild before packaging; stable gains the full e2e step that previously only beta ran.
+
+### Fixed
+
+- **PTY fixture generator: no more silently truncated history.** The dev-only fixture generator stopped its backward-page walk at a hard 10,000 iterations, so a very long retained scrollback could yield an incomplete fixture that still claimed completion. The walk is now bounded by the retained buffer itself and fails loudly if it doesn't converge.
+
 ## [1.6.0] – 2026-07-18
 
 This release makes terminal slots self-describing and destructive actions deliberate: every slot header shows which agent it runs and whether it's half of a whisper collab, Restart and Close ask before killing a live shell, and a two-level border highlight shows exactly which terminal your keystrokes reach. Under the hood, the phone-facing PTY stream now records how lines wrap, so a paired phone can reflow terminal history faithfully at its own width.
