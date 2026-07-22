@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { AgentPtyCatalog } from "../../../../services/pty-inspect/agent-pty-catalog";
 import { PtyMirror } from "../../../../services/pty-inspect/pty-mirror";
-import { PtySubscriptionRegistry } from "../../../../services/pty-inspect/pty-subscription-registry";
+import {
+	PtySubscriptionRegistry,
+	type WatchStateEvent,
+} from "../../../../services/pty-inspect/pty-subscription-registry";
 
 async function harness() {
 	const mirrors = new Map<string, PtyMirror>();
@@ -35,6 +38,47 @@ async function harness() {
 	if (!entry) throw new Error("entry missing");
 	return { catalog, registry, mirror: entry.mirror, hints };
 }
+
+function watchHarness(opts?: { debounceMs?: number; graceMs?: number }) {
+	const mirrors = new Map<string, PtyMirror>();
+	const catalog = new AgentPtyCatalog();
+	catalog.attachMirrorSource({
+		getMirror: (id) => mirrors.get(id),
+		takeMirror: (id) => {
+			const m = mirrors.get(id);
+			mirrors.delete(id);
+			return m;
+		},
+	});
+	mirrors.set("term-1", new PtyMirror({ cols: 120, rows: 40 }));
+	catalog.upsert({
+		worktreeId: "wt-1",
+		agentId: "proc-1",
+		terminalSessionId: "term-1",
+		provider: "claude",
+		label: "claude",
+		live: true,
+		agentDetected: true,
+	});
+	const registry = new PtySubscriptionRegistry({
+		catalog,
+		emitHint: () => {},
+		tickMs: 5,
+		watchDebounceMs: opts?.debounceMs ?? 10,
+		restoreGraceMs: opts?.graceMs ?? 40,
+	});
+	const host = {
+		applyWatchResize: vi.fn(),
+		restoreDesktopGeometry: vi.fn(),
+		getDesktopGeometry: vi.fn(() => ({ cols: 120, rows: 40 })),
+		setPhoneOwned: vi.fn(),
+	};
+	registry.attachViewportHost(host);
+	const watchEvents: WatchStateEvent[] = [];
+	registry.onWatchState((ev) => watchEvents.push(ev));
+	return { catalog, registry, host, watchEvents };
+}
+const settle = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 describe("PtySubscriptionRegistry", () => {
 	it("subscribe → hint on output; unknown targets refuse structurally", async () => {
@@ -258,5 +302,360 @@ describe("PtySubscriptionRegistry", () => {
 		const delta = await registry.pullRows("wt-1", "proc-1", replay.cursor);
 		if (!("rows" in delta)) throw new Error("refused");
 		expect(delta.rows.length).toBe(0); // nothing new since replay
+	});
+});
+
+describe("setWatchViewport (resize-on-watch §2, tests §6.1–6.3)", () => {
+	it("resizes a live session once via the host, clamped to [MIN_FLOOR…desktop]; unknown target refuses no-such-pty", async () => {
+		const { registry, host } = watchHarness();
+		expect(registry.setWatchViewport("wt-1", "nope", 46, 58)).toEqual({
+			ok: false,
+			code: "no-such-pty",
+		});
+		// too-narrow request clamps up to the floor; too-tall clamps down to desktop rows
+		expect(registry.setWatchViewport("wt-1", "proc-1", 20, 99)).toEqual({
+			ok: true,
+		});
+		await settle(25); // past the 10ms trailing debounce
+		expect(host.applyWatchResize).toHaveBeenCalledTimes(1);
+		expect(host.applyWatchResize).toHaveBeenCalledWith("term-1", 40, 40);
+	});
+
+	it("first call captures preWatchGeometry, marks phone-owned; same geometry re-sent is a no-op", async () => {
+		const { registry, host } = watchHarness();
+		registry.setWatchViewport("wt-1", "proc-1", 46, 58);
+		// synchronous on FIRST call: gate closes before any debounce fires
+		expect(host.setPhoneOwned).toHaveBeenCalledWith("term-1", true);
+		expect(host.getDesktopGeometry).toHaveBeenCalledWith("term-1");
+		await settle(25);
+		expect(host.applyWatchResize).toHaveBeenCalledTimes(1);
+		registry.setWatchViewport("wt-1", "proc-1", 46, 58); // identical re-send
+		await settle(25);
+		expect(host.applyWatchResize).toHaveBeenCalledTimes(1); // no second resize
+	});
+
+	it("rapid calls coalesce to a single resize at the latest geometry", async () => {
+		const { registry, host } = watchHarness();
+		registry.setWatchViewport("wt-1", "proc-1", 46, 58);
+		registry.setWatchViewport("wt-1", "proc-1", 58, 46); // rotation burst
+		registry.setWatchViewport("wt-1", "proc-1", 50, 52);
+		await settle(30);
+		expect(host.applyWatchResize).toHaveBeenCalledTimes(1);
+		// 52 rows clamps down to the 40-row desktop ceiling (same clamp as
+		// the other tests in this suite) — only the latest geometry fires.
+		expect(host.applyWatchResize).toHaveBeenCalledWith("term-1", 50, 40);
+	});
+
+	it("emits phone-owned watch-state on watch start (renderer freeze signal)", () => {
+		const { registry, watchEvents } = watchHarness();
+		registry.setWatchViewport("wt-1", "proc-1", 46, 58);
+		expect(watchEvents.at(0)).toMatchObject({
+			terminalSessionId: "term-1",
+			phoneOwned: true,
+			cols: 46,
+			rows: 40, // 58 clamped to desktop rows
+			provider: "claude",
+			label: "claude",
+		});
+	});
+
+	it("refuses no-live-agent for a dead entry and internal before the host is attached", async () => {
+		const { catalog, registry } = watchHarness();
+		await catalog.handleTerminalExit("term-1"); // marks entry not-live? (see note)
+		// NOTE: handleTerminalExit publishes exit only for live entries; after it
+		// resolves, entry.live === false.
+		expect(registry.setWatchViewport("wt-1", "proc-1", 46, 58)).toEqual({
+			ok: false,
+			code: "no-live-agent",
+		});
+		const bare = new PtySubscriptionRegistry({
+			catalog,
+			emitHint: () => {},
+			tickMs: 5,
+		});
+		expect(bare.setWatchViewport("wt-1", "proc-1", 46, 58)).toEqual({
+			ok: false,
+			code: "internal",
+		});
+	});
+});
+
+describe("watch restore lifecycle (resize-on-watch §3, tests §6.4–6.5)", () => {
+	it("unsubscribe schedules a grace restore to the desktop's current geometry; re-watch within the grace cancels it", async () => {
+		const { registry, host } = watchHarness(); // graceMs 40, debounce 10
+		registry.subscribe("wt-1", "proc-1");
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		await settle(20);
+		registry.unsubscribe("wt-1", "proc-1");
+		expect(host.restoreDesktopGeometry).not.toHaveBeenCalled(); // grace pending
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40); // re-watch cancels
+		await settle(60); // well past the grace
+		expect(host.restoreDesktopGeometry).not.toHaveBeenCalled();
+		// now let it actually fire
+		registry.unsubscribe("wt-1", "proc-1");
+		await settle(60);
+		expect(host.restoreDesktopGeometry).toHaveBeenCalledTimes(1);
+		expect(host.restoreDesktopGeometry).toHaveBeenCalledWith("term-1");
+	});
+
+	it("teardown (peer-detach) restores immediately, no grace", async () => {
+		const { registry, host, watchEvents } = watchHarness();
+		registry.subscribe("wt-1", "proc-1");
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		await settle(20);
+		registry.teardown("peer-detach");
+		expect(host.restoreDesktopGeometry).toHaveBeenCalledTimes(1);
+		expect(watchEvents.at(-1)).toMatchObject({ phoneOwned: false });
+	});
+
+	it("a viewport for a DIFFERENT agent hard-restores the previous watch first (agent switch)", async () => {
+		const { catalog, registry, host } = watchHarness();
+		const m2 = new PtyMirror({ cols: 120, rows: 40 });
+		catalog.attachMirrorSource({ getMirror: () => m2, takeMirror: () => m2 });
+		catalog.upsert({
+			worktreeId: "wt-1",
+			agentId: "proc-2",
+			terminalSessionId: "term-2",
+			provider: "codex",
+			label: "codex",
+			live: true,
+			agentDetected: true,
+		});
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		await settle(20);
+		registry.setWatchViewport("wt-1", "proc-2", 50, 38);
+		expect(host.restoreDesktopGeometry).toHaveBeenCalledWith("term-1"); // stop-A
+		await settle(20);
+		expect(host.applyWatchResize).toHaveBeenLastCalledWith("term-2", 50, 38); // start-B
+	});
+});
+
+describe("viewer policy (resize-on-watch §4, test §6.6)", () => {
+	it("a desktop keystroke reclaims: restores desktop geometry, marks desktop-owned; phone re-assert re-owns", async () => {
+		const { registry, host, watchEvents } = watchHarness();
+		registry.subscribe("wt-1", "proc-1");
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		await settle(20);
+		registry.notifyDesktopKeystroke("term-1");
+		expect(host.restoreDesktopGeometry).toHaveBeenCalledWith("term-1");
+		expect(watchEvents.at(-1)).toMatchObject({ phoneOwned: false });
+		// while desktop-owned, a pending narrow apply must not fire
+		host.applyWatchResize.mockClear();
+		// phone re-asserts → phone owns again
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		await settle(20);
+		expect(host.applyWatchResize).toHaveBeenCalledWith("term-1", 46, 40);
+		expect(watchEvents.at(-1)).toMatchObject({ phoneOwned: true });
+	});
+
+	it("keystroke on an unwatched terminal is a no-op", () => {
+		const { registry, host } = watchHarness();
+		registry.notifyDesktopKeystroke("term-1");
+		expect(host.restoreDesktopGeometry).not.toHaveBeenCalled();
+	});
+
+	it("desktop blur re-asserts the phone ONLY while its subscription is still active", async () => {
+		const { registry, host } = watchHarness();
+		registry.subscribe("wt-1", "proc-1");
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		await settle(20);
+		registry.notifyDesktopKeystroke("term-1");
+		host.applyWatchResize.mockClear();
+		registry.notifyDesktopBlur("term-1");
+		expect(host.applyWatchResize).toHaveBeenCalledWith("term-1", 46, 40);
+		expect(host.setPhoneOwned).toHaveBeenLastCalledWith("term-1", true);
+		// reclaim again, then drop the subscription — blur must NOT re-narrow
+		registry.notifyDesktopKeystroke("term-1");
+		registry.unsubscribe("wt-1", "proc-1");
+		host.applyWatchResize.mockClear();
+		registry.notifyDesktopBlur("term-1");
+		expect(host.applyWatchResize).not.toHaveBeenCalled();
+	});
+
+	it("early reclaim (before the debounce fires) retains the requested geometry so blur can still narrow (final-review finding 1)", async () => {
+		const { registry, host, watchEvents } = watchHarness(); // debounce 10ms, grace 40ms
+		registry.subscribe("wt-1", "proc-1");
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		// no settle: reclaim BEFORE the trailing debounce ever fires
+		registry.notifyDesktopKeystroke("term-1");
+		registry.notifyDesktopBlur("term-1");
+		expect(host.applyWatchResize).toHaveBeenCalledWith("term-1", 46, 40);
+		expect(watchEvents.at(-1)).toMatchObject({ phoneOwned: true, cols: 46 });
+		await settle(25); // past the (cleared) debounce window
+		expect(host.applyWatchResize).toHaveBeenCalledTimes(1); // no double-fire
+	});
+
+	it("getWatchState reflects the live phone-owned state and null when idle", async () => {
+		const { registry } = watchHarness();
+		expect(registry.getWatchState("term-1")).toBeNull();
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		expect(registry.getWatchState("term-1")).toMatchObject({
+			terminalSessionId: "term-1",
+			phoneOwned: true,
+			cols: 46,
+			rows: 40,
+		});
+		registry.teardown("peer-detach");
+		expect(registry.getWatchState("term-1")).toBeNull();
+	});
+});
+
+describe("watch-without-subscription lifecycle holes (final-review findings 1/2)", () => {
+	it("a lingering watch (no active subscription) is restored immediately once its session's catalog entry is gone, and unsubscribe's refusal is unchanged", async () => {
+		const { catalog, registry, host } = watchHarness();
+		// Phone watches an agent the desktop never (or no longer) subscribes to —
+		// `active` stays null throughout.
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		await settle(20);
+		expect(host.setPhoneOwned).toHaveBeenCalledWith("term-1", true);
+
+		catalog.remove("wt-1", "proc-1"); // the session itself is gone
+
+		// unsubscribe()'s no-entry branch: restores the lingering watch
+		// IMMEDIATELY (a grace would be pointless — re-watch would just refuse
+		// no-such-pty) while keeping the refusal return value unchanged.
+		expect(registry.unsubscribe("wt-1", "proc-1")).toEqual({
+			ok: false,
+			code: "no-such-pty",
+		});
+		expect(host.restoreDesktopGeometry).toHaveBeenCalledWith("term-1");
+		expect(registry.getWatchState("term-1")).toBeNull();
+	});
+
+	it("a watched-but-not-actively-subscribed agent's disposal ends the watch (constructor onEvent, independent of `active`)", async () => {
+		const { catalog, registry, host, watchEvents } = watchHarness();
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40); // no subscribe() call
+		await settle(20);
+
+		catalog.remove("wt-1", "proc-1");
+
+		expect(host.restoreDesktopGeometry).toHaveBeenCalledWith("term-1");
+		expect(watchEvents.at(-1)).toMatchObject({ phoneOwned: false });
+		expect(registry.getWatchState("term-1")).toBeNull();
+	});
+
+	it("a watched-but-not-actively-subscribed agent's exit-final-hint ends the watch", async () => {
+		const { catalog, registry, host } = watchHarness();
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		await settle(20);
+
+		await catalog.handleTerminalExit("term-1");
+
+		expect(host.restoreDesktopGeometry).toHaveBeenCalledWith("term-1");
+		expect(registry.getWatchState("term-1")).toBeNull();
+	});
+
+	it("a mid-watch rebind migrates the watch to the new terminal without a manual re-assert (final-review finding 2)", async () => {
+		const { catalog, registry, host, watchEvents } = watchHarness();
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40); // narrows term-1
+		await settle(20);
+		host.restoreDesktopGeometry.mockClear();
+		host.applyWatchResize.mockClear();
+		host.setPhoneOwned.mockClear();
+		watchEvents.length = 0;
+
+		const m2 = new PtyMirror({ cols: 120, rows: 40 });
+		catalog.attachMirrorSource({ getMirror: () => m2, takeMirror: () => m2 });
+		catalog.upsert({
+			worktreeId: "wt-1",
+			agentId: "proc-1",
+			terminalSessionId: "term-2", // same agent, rebound to a new terminal
+			provider: "claude",
+			label: "claude",
+			live: true,
+			agentDetected: true,
+		});
+
+		// Old session released — no manual setWatchViewport call anywhere below.
+		expect(host.restoreDesktopGeometry).toHaveBeenCalledWith("term-1");
+		expect(registry.getWatchState("term-1")).toBeNull();
+
+		// Migration re-points and re-applies the SAME geometry to the new terminal.
+		expect(host.setPhoneOwned).toHaveBeenCalledWith("term-2", true);
+		expect(host.applyWatchResize).toHaveBeenCalledWith("term-2", 46, 40);
+		expect(registry.getWatchState("term-2")).toMatchObject({
+			terminalSessionId: "term-2",
+			phoneOwned: true,
+			cols: 46,
+			rows: 40,
+		});
+
+		expect(watchEvents.at(-2)).toMatchObject({
+			terminalSessionId: "term-1",
+			phoneOwned: false,
+		});
+		expect(watchEvents.at(-1)).toMatchObject({
+			terminalSessionId: "term-2",
+			phoneOwned: true,
+			cols: 46,
+			rows: 40,
+		});
+	});
+
+	it("a reclaimed (desktop-owned) watch migrates without narrowing the new terminal; a subsequent blur narrows it via lastRequested", async () => {
+		const { catalog, registry, host } = watchHarness();
+		registry.subscribe("wt-1", "proc-1");
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40); // narrows term-1
+		await settle(20);
+		registry.notifyDesktopKeystroke("term-1"); // reclaim: owner -> desktop
+		host.restoreDesktopGeometry.mockClear();
+		host.applyWatchResize.mockClear();
+		host.setPhoneOwned.mockClear();
+
+		const m2 = new PtyMirror({ cols: 120, rows: 40 });
+		catalog.attachMirrorSource({ getMirror: () => m2, takeMirror: () => m2 });
+		catalog.upsert({
+			worktreeId: "wt-1",
+			agentId: "proc-1",
+			terminalSessionId: "term-2",
+			provider: "claude",
+			label: "claude",
+			live: true,
+			agentDetected: true,
+		});
+
+		expect(host.restoreDesktopGeometry).toHaveBeenCalledWith("term-1");
+		// Reclaimed: migration re-points the watch but must not gate or narrow term-2.
+		expect(host.applyWatchResize).not.toHaveBeenCalled();
+		expect(host.setPhoneOwned).not.toHaveBeenCalledWith("term-2", true);
+
+		registry.notifyDesktopBlur("term-2");
+		expect(host.applyWatchResize).toHaveBeenCalledWith("term-2", 46, 40); // via lastRequested
+	});
+});
+
+describe("app-level blur re-assert (resize-on-watch §4 OS window blur — final-review finding 3)", () => {
+	it("re-asserts the phone after a keystroke reclaim, mirroring notifyDesktopBlur", async () => {
+		const { registry, host, watchEvents } = watchHarness();
+		registry.subscribe("wt-1", "proc-1");
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		await settle(20);
+		registry.notifyDesktopKeystroke("term-1");
+		host.applyWatchResize.mockClear();
+
+		registry.notifyAppBlur();
+
+		expect(host.applyWatchResize).toHaveBeenCalledWith("term-1", 46, 40);
+		expect(host.setPhoneOwned).toHaveBeenLastCalledWith("term-1", true);
+		expect(watchEvents.at(-1)).toMatchObject({ phoneOwned: true });
+	});
+
+	it("is a no-op when there is no watch at all", () => {
+		const { registry, host } = watchHarness();
+		registry.notifyAppBlur();
+		expect(host.restoreDesktopGeometry).not.toHaveBeenCalled();
+		expect(host.applyWatchResize).not.toHaveBeenCalled();
+	});
+
+	it("is a no-op when the watch owner is still the phone (no reclaim happened)", async () => {
+		const { registry, host } = watchHarness();
+		registry.subscribe("wt-1", "proc-1");
+		registry.setWatchViewport("wt-1", "proc-1", 46, 40);
+		await settle(20);
+		host.applyWatchResize.mockClear();
+
+		registry.notifyAppBlur();
+
+		expect(host.applyWatchResize).not.toHaveBeenCalled();
 	});
 });

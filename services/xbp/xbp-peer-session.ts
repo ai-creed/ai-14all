@@ -16,6 +16,7 @@ import {
 	subscribePtyCapability,
 	unsubscribePtyCapability,
 	ptyRowsCapability,
+	setWatchViewportCapability,
 	SESSION_CHANGED_TOPIC,
 	PTY_CHANGED_TOPIC,
 	type LifecycleResult,
@@ -52,7 +53,7 @@ export type PtyInspectBinding = {
 	// index in the main process (WorkspaceRegistryService stores only
 	// repositories).
 	isKnownWorktree(worktreeId: string): Promise<boolean>;
-	// Spec §4: every refusal from any of the four PTY-inspect capabilities
+	// Spec §4: every refusal from any of the five PTY-inspect capabilities
 	// lands in the audit, so each capability handler below calls this after a
 	// `{ ok: false }` result before returning it.
 	auditRefusal(
@@ -150,7 +151,7 @@ export class XbpPeerSession {
 		if (this.opts.ptyInspect) {
 			const ptyInspect = this.opts.ptyInspect;
 			const { registry, catalog } = ptyInspect;
-			// Spec §4: audit every refusal from the three registry-backed
+			// Spec §4: audit every refusal from the four registry-backed
 			// capabilities (they all return the same `{ ok: false; code }` shape
 			// on refusal). listPtysCapability below checks a precondition by hand
 			// instead of wrapping a registry call, so it audits inline.
@@ -225,6 +226,24 @@ export class XbpPeerSession {
 							args.agentId,
 							args.cursor ?? null,
 							{ tail: args.tail, before: args.before },
+						),
+				),
+			);
+			peer.expose(
+				setWatchViewportCapability,
+				withRefusalAudit(
+					setWatchViewportCapability.id,
+					(args: {
+						worktreeId: string;
+						agentId: string;
+						cols: number;
+						rows: number;
+					}) =>
+						registry.setWatchViewport(
+							args.worktreeId,
+							args.agentId,
+							args.cols,
+							args.rows,
 						),
 				),
 			);

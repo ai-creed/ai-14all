@@ -670,6 +670,18 @@ app.whenReady().then(async () => {
 		void pluginRegistry.reprobe();
 	});
 
+	// Resize-on-watch §4 "the desktop blurs": an OS-level window deactivation
+	// (e.g. cmd-tabbing away) must re-assert a reclaimed phone watch just like
+	// the element-level blur wired in ipc.ts (terminals:notifyBlur). windows.ts
+	// already logs a "blur" event for shellEventLog but doesn't have
+	// ptyInspectService in scope; registering a second listener here — where
+	// both mainWindow and ptyInspectService already are — is simpler than
+	// threading it through. notifyAppBlur() is a no-op unless a watch is
+	// currently reclaimed by the desktop.
+	mainWindow.on("blur", () => {
+		ptyInspectService.registry.notifyAppBlur();
+	});
+
 	// Feed the worktree registry to the telemetry host so transcript cwds map to
 	// real worktrees (and the popover's Active scope populates). Refreshed on
 	// registry changes below.

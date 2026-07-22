@@ -51,6 +51,11 @@ export const terminals: Ai14AllDesktopApi["terminals"] = {
 	onExit: (listener) => getDesktopClient().terminals.onExit(listener),
 	onState: (listener) => getDesktopClient().terminals.onState(listener),
 	onError: (listener) => getDesktopClient().terminals.onError(listener),
+	onWatchState: (listener) =>
+		getDesktopClient().terminals.onWatchState(listener),
+	notifyBlur: (sessionId) => getDesktopClient().terminals.notifyBlur(sessionId),
+	getWatchState: (sessionId) =>
+		getDesktopClient().terminals.getWatchState(sessionId),
 };
 
 export const agentPtys: Ai14AllDesktopApi["agentPtys"] = {

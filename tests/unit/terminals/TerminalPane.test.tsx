@@ -1,12 +1,16 @@
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TerminalSession } from "../../../shared/models/terminal-session";
 import { TERMINAL_SCROLLBACK_ROWS } from "../../../shared/constants/terminal-geometry";
+import type { TerminalWatchStateEvent } from "../../../shared/contracts/events";
 
 const {
 	resizeMock,
 	sendInputMock,
 	onOutputMock,
+	onWatchStateMock,
+	getWatchStateMock,
+	notifyBlurMock,
 	logShellEventMock,
 	fitMock,
 	xtermWriteMock,
@@ -31,6 +35,9 @@ const {
 	resizeMock: vi.fn(() => Promise.resolve()),
 	sendInputMock: vi.fn(() => Promise.resolve()),
 	onOutputMock: vi.fn(() => vi.fn()),
+	onWatchStateMock: vi.fn(() => vi.fn()),
+	getWatchStateMock: vi.fn(() => Promise.resolve(null)),
+	notifyBlurMock: vi.fn(() => Promise.resolve()),
 	logShellEventMock: vi.fn(() => Promise.resolve()),
 	fitMock: vi.fn(),
 	xtermWriteMock: vi.fn(),
@@ -77,6 +84,9 @@ vi.mock("../../../src/lib/desktop-client", () => ({
 		sendInput: sendInputMock,
 		resize: resizeMock,
 		onOutput: onOutputMock,
+		onWatchState: onWatchStateMock,
+		getWatchState: getWatchStateMock,
+		notifyBlur: notifyBlurMock,
 	},
 	workspace: {
 		readRestoreState: vi.fn().mockResolvedValue({
@@ -163,6 +173,9 @@ describe("TerminalPane", () => {
 		resizeMock.mockReset();
 		sendInputMock.mockReset();
 		onOutputMock.mockClear();
+		onWatchStateMock.mockClear();
+		getWatchStateMock.mockClear();
+		notifyBlurMock.mockClear();
 		fitMock.mockReset();
 		xtermWriteMock.mockReset();
 		xtermDisposeMock.mockReset();
@@ -678,5 +691,46 @@ describe("TerminalPane", () => {
 		document.body.appendChild(outside);
 		fireEvent.blur(findInput, { relatedTarget: outside });
 		expect(onTypingFocusChange).toHaveBeenLastCalledWith(false);
+	});
+
+	// R2 freeze gate (final-review finding 4): while a phone watch owns this
+	// pane's session, live output must be diverted to the watch-byte capture
+	// (for the pleat preview) instead of repainting the frozen xterm view.
+	it("freezes the pane on a phone-owned watch-state event: output is captured, not written, and the chip renders", async () => {
+		const { getByRole } = renderPane();
+
+		const watchStateListener = (
+			onWatchStateMock.mock.calls as unknown[][]
+		)[0]?.[0] as ((ev: TerminalWatchStateEvent) => void) | undefined;
+		expect(typeof watchStateListener).toBe("function");
+		const outputListener = (onOutputMock.mock.calls as unknown[][])[0]?.[0] as
+			| ((ev: { sessionId: string; data: string }) => void)
+			| undefined;
+		expect(typeof outputListener).toBe("function");
+
+		act(() => {
+			watchStateListener?.({
+				sessionId: "term-1",
+				phoneOwned: true,
+				cols: 46,
+				rows: 20,
+				provider: "claude",
+				label: "claude",
+				since: 1000,
+			});
+		});
+
+		xtermWriteMock.mockClear();
+		// The write path is coalesced via requestAnimationFrame (see TerminalPane's
+		// `drain`); wait past a frame with REAL timers so an un-gated write would
+		// have actually landed by the time we assert — otherwise "not called"
+		// would trivially pass just because the rAF hadn't fired yet.
+		await act(async () => {
+			outputListener?.({ sessionId: "term-1", data: "narrow-epoch bytes" });
+			await new Promise((r) => setTimeout(r, 50));
+		});
+
+		expect(xtermWriteMock).not.toHaveBeenCalled();
+		expect(getByRole("status")).toHaveTextContent(/phone watching/i);
 	});
 });

@@ -9,10 +9,10 @@ import {
 	deregisterPushTokenCapability,
 } from "@ai-creed/command-contract";
 
-describe("push-token contract surface (0.1.0-alpha.5)", () => {
+describe("push-token contract surface (0.1.0-alpha.6)", () => {
 	it("exposes register/deregister under control:notify", () => {
 		expect(CONTROL_NOTIFY).toBe("control:notify");
-		expect(COMMAND_CONTRACT_VERSION).toBe(6);
+		expect(COMMAND_CONTRACT_VERSION).toBe(7);
 		expect(registerPushTokenCapability.id).toBe(
 			"xavier.control.register-push-token",
 		);

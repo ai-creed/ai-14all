@@ -199,6 +199,14 @@ export class AgentPtyCatalog {
 
 	getEntry(worktreeId: string, agentId: string) {
 		const entry = this.entries.get(this.key(worktreeId, agentId));
-		return entry ? { mirror: entry.mirror, live: entry.live } : undefined;
+		return entry
+			? {
+					mirror: entry.mirror,
+					live: entry.live,
+					terminalSessionId: entry.terminalSessionId,
+					provider: entry.provider,
+					label: entry.label,
+				}
+			: undefined;
 	}
 }

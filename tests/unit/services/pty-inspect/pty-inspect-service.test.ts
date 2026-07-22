@@ -143,4 +143,34 @@ describe("PtyInspectService", () => {
 		await expect(service.isKnownWorktree("wt-known")).resolves.toBe(true);
 		await expect(service.isKnownWorktree("wt-unknown")).resolves.toBe(false);
 	});
+
+	it("attachTerminalService wires the registry's viewport host to the terminal service", () => {
+		const service = makeService();
+		seedPty(service, "wt-x", "proc-x", "term-x");
+		const calls: string[] = [];
+		const fakeTs = {
+			getMirror: () => undefined,
+			takeMirror: () => undefined,
+			applyWatchResize: (id: string, c: number, r: number) =>
+				calls.push(`apply:${id}:${c}x${r}`),
+			restoreDesktopGeometry: (id: string) => calls.push(`restore:${id}`),
+			getDesktopGeometry: () => ({ cols: 120, rows: 40 }),
+			setPhoneOwned: (id: string, owned: boolean) =>
+				calls.push(`owned:${id}:${owned}`),
+		} as never;
+		service.attachTerminalService(fakeTs);
+
+		// a refusal proves routing exists; the ok-path is covered by registry tests
+		expect(service.registry.setWatchViewport("wt-x", "nope", 46, 40)).toEqual({
+			ok: false,
+			code: "no-such-pty",
+		});
+
+		// attachTerminalService actually wired the host (not left it null): the
+		// seeded target now succeeds and drives setPhoneOwned on the terminal.
+		expect(service.registry.setWatchViewport("wt-x", "proc-x", 46, 40)).toEqual(
+			{ ok: true },
+		);
+		expect(calls).toContain("owned:term-x:true");
+	});
 });

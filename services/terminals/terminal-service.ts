@@ -54,6 +54,10 @@ type ActiveTerminalSession = {
 	pty: IPty;
 };
 
+/** Desktop-owned terminal viewport (cols/rows), tracked independently of
+ * whatever geometry is currently applied to the live PTY (resize-on-watch §4). */
+export type TerminalGeometry = { cols: number; rows: number };
+
 // ---------------------------------------------------------------------------
 // TerminalService
 //
@@ -74,6 +78,16 @@ export class TerminalService {
 	// disposing them on exit (the catalog owns disposal from that point on).
 	private readonly mirrorsBySession = new Map<string, PtyMirror>();
 	private readonly adoptedSessions = new Set<string>();
+	// Desktop's desired viewport per session, independent of what's currently
+	// applied to the live PTY (resize-on-watch §4): seeded from the spawn
+	// defaults, updated on every desktop resize() call — even while gated.
+	private readonly desktopGeometryBySession = new Map<
+		string,
+		TerminalGeometry
+	>();
+	// Sessions a paired phone currently "owns" the viewport of: while present,
+	// resize() records the desktop's desired geometry but does not apply it.
+	private readonly phoneOwnedSessions = new Set<string>();
 	private disposed = false;
 
 	constructor(
@@ -190,6 +204,10 @@ export class TerminalService {
 		};
 
 		this.sessions.set(id, { meta, pty: p });
+		this.desktopGeometryBySession.set(id, {
+			cols: TERMINAL_SPAWN_COLS,
+			rows: TERMINAL_SPAWN_ROWS,
+		});
 
 		const mirror = new PtyMirror({
 			cols: TERMINAL_SPAWN_COLS,
@@ -313,6 +331,8 @@ export class TerminalService {
 			// does not affect the catalog's post-exit drain/disposal.
 			this.mirrorsBySession.delete(id);
 			this.adoptedSessions.delete(id);
+			this.desktopGeometryBySession.delete(id);
+			this.phoneOwnedSessions.delete(id);
 		});
 
 		return meta;
@@ -375,14 +395,63 @@ export class TerminalService {
 		if (!session) {
 			return;
 		}
+		// Desktop desired geometry is tracked even while a phone watch owns the
+		// PTY (resize-on-watch §4): the fit-driven request is recorded, not
+		// applied, so restore can target the desktop's CURRENT geometry.
+		this.desktopGeometryBySession.set(sessionId, { cols, rows });
+		const gated = this.phoneOwnedSessions.has(sessionId);
 		this.shellEventLog?.log({
 			source: "main",
 			event: "terminal-resize",
+			windowId: null,
+			data: { terminalSessionId: sessionId, cols, rows, gated },
+		});
+		if (gated) return;
+		session.pty.resize(cols, rows);
+		this.mirrorsBySession.get(sessionId)?.resize(cols, rows);
+	}
+
+	// -----------------------------------------------------------------------
+	// viewport ownership — resize-on-watch (spec §3/§4)
+	// -----------------------------------------------------------------------
+
+	/** Marks/unmarks `sessionId` as owned by a paired phone's watch. While
+	 * owned, `resize()` records the desktop's desired geometry but does not
+	 * apply it to the PTY — the watch path drives the live viewport instead. */
+	setPhoneOwned(sessionId: string, owned: boolean): void {
+		if (owned) this.phoneOwnedSessions.add(sessionId);
+		else this.phoneOwnedSessions.delete(sessionId);
+	}
+
+	/** The desktop's current desired geometry, regardless of what's actually
+	 * applied to the live PTY. `undefined` for an unknown/dead session. */
+	getDesktopGeometry(sessionId: string): TerminalGeometry | undefined {
+		return this.desktopGeometryBySession.get(sessionId);
+	}
+
+	/** Watch-path resize (resize-on-watch §2): applies phone geometry to the real
+	 * pty + teed mirror without recording it as the desktop's desired geometry. */
+	applyWatchResize(sessionId: string, cols: number, rows: number): void {
+		if (this.disposed) return;
+		const session = this.sessions.get(sessionId);
+		if (!session) return;
+		this.shellEventLog?.log({
+			source: "main",
+			event: "terminal-watch-resize",
 			windowId: null,
 			data: { terminalSessionId: sessionId, cols, rows },
 		});
 		session.pty.resize(cols, rows);
 		this.mirrorsBySession.get(sessionId)?.resize(cols, rows);
+	}
+
+	/** Restore (resize-on-watch §3): clears the phone-owned gate and re-applies
+	 * the desktop's current desired geometry. Safe no-op for dead sessions. */
+	restoreDesktopGeometry(sessionId: string): void {
+		this.phoneOwnedSessions.delete(sessionId);
+		const desired = this.desktopGeometryBySession.get(sessionId);
+		if (!desired) return;
+		this.applyWatchResize(sessionId, desired.cols, desired.rows);
 	}
 
 	// -----------------------------------------------------------------------
@@ -471,6 +540,8 @@ export class TerminalService {
 			} catch {
 				// Best-effort cleanup; ignore errors on shutdown
 			}
+			this.desktopGeometryBySession.delete(session.meta.id);
+			this.phoneOwnedSessions.delete(session.meta.id);
 		}
 		this.sessions.clear();
 	}
