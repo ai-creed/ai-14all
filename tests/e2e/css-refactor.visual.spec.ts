@@ -40,6 +40,16 @@ type Surface = (typeof SURFACES)[number];
  */
 const SKIPPED_SURFACES = new Set<string>([]);
 
+// The committed baselines are recorded on the local dev machine. CI runner
+// images rasterize fonts/antialiasing differently, so on CI this suite
+// pixel-fails with no CSS change at all (first hit: v1.7.0 release, run
+// 29896610756). This gate is local-only; CI coverage of these surfaces
+// comes from the behavioral e2e suites.
+test.skip(
+	!!process.env.CI,
+	"pixel baselines are recorded on the dev machine — local-only gate",
+);
+
 test.describe.serial("ui gallery surfaces", () => {
 	let app: ElectronApplication;
 	let page: Page;
