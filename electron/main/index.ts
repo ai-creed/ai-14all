@@ -80,7 +80,12 @@ import { createPushWakeWatcher } from "../../services/xbp/push-wake-watcher.js";
 import { PushWakeStateStore } from "../../services/xbp/push-wake-state-store.js";
 import { createPushWakeSender } from "../../services/xbp/push-wake-sender.js";
 import { PushWakeAuditLogger } from "../../services/diagnostics/push-wake-audit-logger.js";
-import { isPushWakeEnabled } from "../../shared/models/persisted-settings.js";
+import {
+	isPushWakeEnabled,
+	isPtyInputEnabled,
+} from "../../shared/models/persisted-settings.js";
+import { createXbpPtyInputExecutor } from "../../services/xbp/xbp-pty-input-executor.js";
+import { PtyInputAuditLogger } from "../../services/diagnostics/pty-input-audit-logger.js";
 
 app.setName("ai-14all");
 
@@ -396,6 +401,14 @@ app.whenReady().then(async () => {
 	let actingSendInput: ((sessionId: string, data: string) => void) | null =
 		null;
 
+	// Late-bound like actingSendInput: TerminalService only exists once
+	// registerIpcHandlers runs. Until then the seam reports not-live —
+	// fail-closed (a pty-input arriving pre-terminal-service refuses
+	// no-live-agent rather than crashing or queuing).
+	let ptyInputWriteIfLive:
+		| ((terminalSessionId: string, data: string) => boolean)
+		| null = null;
+
 	const actingTokenPath =
 		process.env.SAMANTHA_ACTING_TOKEN_PATH ??
 		join(homedir(), ".ai-samantha", "connector-token");
@@ -530,6 +543,28 @@ app.whenReady().then(async () => {
 		auditAct: (entry) => actingAuditLogger.append(entry),
 	});
 
+	const ptyInputAuditLogger = new PtyInputAuditLogger({
+		logsDir: join(app.getPath("userData"), "logs"),
+	});
+	const xbpPtyInputExecutor = createXbpPtyInputExecutor({
+		// readStateSync per call, same pattern as isPushWakeOn: negligible I/O,
+		// picks up settings edits with no extra plumbing.
+		isPtyInputEnabled: () =>
+			isPtyInputEnabled(settingsService.readStateSync().settings),
+		// Catalog resolves ADDRESSING only (worktreeId+agentId → terminal
+		// session); liveness is decided inside writeIfLive (child spec §3.1).
+		resolvePty: (worktreeId, agentId) => {
+			const entry = ptyInspectService.catalog.getEntry(worktreeId, agentId);
+			return entry ? { terminalSessionId: entry.terminalSessionId } : undefined;
+		},
+		writeIfLive: (terminalSessionId, data) =>
+			ptyInputWriteIfLive === null
+				? false
+				: ptyInputWriteIfLive(terminalSessionId, data),
+		auditPtyInput: (entry) => ptyInputAuditLogger.append(entry),
+		logInternal: (detail) => console.error("[xbp-pty-input]", detail),
+	});
+
 	// Spec §1: the XBP host service starts BEFORE the plugin registry boots, so a
 	// phone that connects during early startup finds the bridge already live. All
 	// mainWindow/webContents references below are lazy + null-safe so this block is
@@ -562,6 +597,7 @@ app.whenReady().then(async () => {
 			pushTokenStore,
 			pushTokenHandlers,
 			ptyInspect: ptyInspectService,
+			ptyInput: xbpPtyInputExecutor,
 			subscribeChanges: (cb) => {
 				const offReviews = reviewCommentService.onChange(() => cb());
 				const offWorktrees = workspaceRegistry.onChange(cb);
@@ -782,6 +818,8 @@ app.whenReady().then(async () => {
 	});
 	actingSendInput = (sessionId, data) =>
 		terminalService.sendInput(sessionId, data);
+	ptyInputWriteIfLive = (terminalSessionId, data) =>
+		terminalService.writeIfLive(terminalSessionId, data);
 
 	if (process.env.ELECTRON_RENDERER_URL) {
 		mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
