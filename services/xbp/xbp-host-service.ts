@@ -212,7 +212,7 @@ export class XbpHostService {
 		try {
 			const addr = primaryLanIPv4() ?? "127.0.0.1";
 			const offer = this.pairingHost!.createOffer({
-				url: `ws://${addr}:${this.lan!.port}`,
+				urls: [`ws://${addr}:${this.lan!.port}`],
 			});
 			this.setPendingOffer({
 				payload: JSON.stringify(offer),

@@ -164,7 +164,7 @@ function readStatus(): Promise<PhoneBridgeStatus> {
 	) as Promise<PhoneBridgeStatus>;
 }
 
-// Connects to the offer's own connect.url (what a scanned phone uses)
+// Connects to the offer's own connect.urls[0] (what a scanned phone uses)
 // verbatim first; the host's LAN IPv4 discovery can be flaky in a sandboxed
 // test environment, so fall back to the loopback address on the same port —
 // the server binds 0.0.0.0, so 127.0.0.1 always reaches it too.
@@ -277,7 +277,7 @@ test("full pairing: QR offer -> SAS confirm -> paired card -> unpair", async () 
 	expect(scanStatus.offer).not.toBeNull();
 	const offer = JSON.parse(scanStatus.offer as string) as {
 		token: string;
-		connect: { url: string };
+		connect: { urls: string[] };
 	};
 	expect(scanStatus.port).not.toBeNull();
 
@@ -286,7 +286,7 @@ test("full pairing: QR offer -> SAS confirm -> paired card -> unpair", async () 
 	const refClient = new xbp.ReferenceClient({ backend, identity: phone });
 	const transport = await connectPhoneTransport(
 		xbp.connectWebSocketClient,
-		offer.connect.url,
+		offer.connect.urls[0],
 		scanStatus.port as number,
 	);
 
