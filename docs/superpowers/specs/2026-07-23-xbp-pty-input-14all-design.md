@@ -4,13 +4,20 @@
 **Parent umbrella:** `2026-07-23-xbp-pty-input-v1-design.md` (authoritative for decisions & rationale)
 **Sibling:** `2026-07-23-xbp-pty-input-xavier-design.md` (contract + phone)
 
-This child scopes the ai-14all host work: enforce the grant, gate on the arm toggle, translate named keys → bytes, write to the real PTY, and audit. It consumes the `pty-input` capability published by the xavier child (contract v8). File paths below are from the acting-path precedent (`mem-2026-07-02`); verify against the dev-integration worktree, not master.
+This child scopes the ai-14all host work: enforce the grant, gate on the arm toggle, translate named keys → bytes, write to the real PTY, audit, **and disclose the pairing's granted scopes to the phone via `session-report`**. It consumes the `pty-input` capability and produces the `session-report.grantedScopes` disclosure the phone's dock gate reads (xavier child, contract v8). File paths below are from the acting-path precedent (`mem-2026-07-02`); verify against the dev-integration worktree, not master.
 
 ---
 
 ## 1. Grant & pairing
 - Add `control:pty-write` to the host pairing grant set (wherever `control:inspect` is added today). Existing pairings must re-pair to acquire it — fail closed.
 - Enforce at capability dispatch exactly like `control:act`: a `pty-input` request from a pairing lacking `control:pty-write` is a **protocol rejection** in the Peer (`packages/xbp/src/peer/peer.ts`), never reaching the executor. It gets a protocol audit entry and no semantic entry.
+
+### 1.1 Disclose granted scopes to the phone (`session-report`)
+The phone gates its input dock on whether **its** pairing holds `control:pty-write`, and its only authoritative source is the `grantedScopes` field the xavier child adds to `SessionReportResult` (xavier child §1.3). **This host owns producing it** — without it the phone never learns it holds the grant and the dock stays hidden forever (the gap this closes).
+- In the `session-report` handler, populate `grantedScopes` from **this pairing's live grant set** — the same set `control:pty-write` is added to above. Report exactly the granted scopes, **never a superset**: the phone treats this as authoritative and shows the dock on the strength of it.
+- A pairing granted `control:pty-write` reports a `grantedScopes` containing it (dock eligible); a read-only pairing reports one that omits it (dock stays hidden). This is the fail-closed dock-gate signal (xavier child §3.3).
+- The field is **optional on the wire** only so a not-yet-upgraded host can omit it and leave the phone fail-closed (xavier child §1.3); this V1 host, once shipped, **always** includes `grantedScopes` on every `session-report` response.
+- No new capability and no new round trip — `session-report` is already fetched every connect (sealed + signed, `control:read`), so the disclosure is authenticated and cannot be spoofed across the boundary.
 
 ## 2. Arm toggle
 - Add `isPtyInputEnabled`, **default `true`** (mirrors `isActingEnabled` but default-on — the grant is the deliberate opt-in; the toggle is a live disarm switch).
@@ -57,6 +64,7 @@ Already shipped in ai-xavier (contract + phone). If the host SIGWINCH/restore is
 ## 6. Host tests
 - Translation: each `PtyInputKey` → exact bytes; text → UTF-8; mixed ordered list preserves order in one write.
 - Grant enforcement: missing `control:pty-write` → protocol reject, no semantic entry.
+- **Grant disclosure:** `session-report.grantedScopes` reflects the pairing grant set — a pairing granted `control:pty-write` includes it; a read-only pairing omits it. This is the signal the phone's dock gate consumes (xavier child §3.4). Assert the field is present and content-exact for both pairing kinds.
 - Arm toggle: default on; disarmed → `pty-input-disabled` single reject entry.
 - Resolver refusals: `no-live-agent`, `no-such-pty`.
 - **Exited/terminal-state agent → `no-live-agent`** (not `internal`) with **no** `write()` attempted (`mem-2026-07-07` Bug 1). Write the failing test first.
@@ -66,8 +74,9 @@ Already shipped in ai-xavier (contract + phone). If the host SIGWINCH/restore is
 
 ## 7. SDD delivery order
 1. Grant set + `control:pty-write` enforcement in the Peer path.
-2. `isPtyInputEnabled` toggle + host UI control.
-3. `pty-input` executor (resolve + translate + write + result union).
-4. Semantic audit logger + wiring; verify protocol entries.
-5. (Coordinate) finish resize-on-watch host leg if pending.
-6. Joint real-device acceptance with the phone (umbrella §10) → `XBP-PROTOCOL.md` PTY Input section → memory capture.
+2. **`session-report.grantedScopes` population from the pairing grant set (§1.1) + its disclosure test** — the phone's dock-gate signal; land it with the grant set so the phone half is never stranded.
+3. `isPtyInputEnabled` toggle + host UI control.
+4. `pty-input` executor (resolve + translate + write + result union).
+5. Semantic audit logger + wiring; verify protocol entries.
+6. (Coordinate) finish resize-on-watch host leg if pending.
+7. Joint real-device acceptance with the phone (umbrella §10) → `XBP-PROTOCOL.md` PTY Input section → memory capture.

@@ -63,10 +63,13 @@ One new capability **`pty-input`**, sibling to the `pty-inspect` family, under `
 export const PtyInputKey = z.enum(["enter", "up", "down", "esc", "ctrl-c"]);
 export type PtyInputKey = z.infer<typeof PtyInputKey>;
 
-// Exactly one of text | key per chunk.
+// Exactly one of text | key per chunk. BOTH members are `.strict()`: zod strips
+// unknown keys by default, so a non-strict union would accept `{ text, key }`
+// (matching the first member and dropping `key`). `.strict()` makes both
+// `{ text, key }` and `{}` fail to parse. (Verified against zod 4.4.3.)
 export const PtyInputChunk = z.union([
-  z.object({ text: z.string().min(1) }),
-  z.object({ key: PtyInputKey }),
+  z.object({ text: z.string().min(1) }).strict(),
+  z.object({ key: PtyInputKey }).strict(),
 ]);
 export type PtyInputChunk = z.infer<typeof PtyInputChunk>;
 
@@ -118,6 +121,13 @@ A host-side enable flag (mirrors acting's `isActingEnabled`) named **`isPtyInput
 
 Input causes an agent redraw that surfaces through the existing read-side `xavier.control.pty-changed` hint and the `pty-rows` pull. `pty-input` returns no rows — its echo arrives purely via the hint→pull loop.
 
+### 5.7 Grant disclosure (`session-report`)
+
+The phone gates the dock on holding `control:pty-write`, but nothing in the trust path discloses that to the phone today: `PairingOffer` is pre-trust QR data with no scopes, `PairedHost` persists only keys + URL, and the phone grants **nothing** to the host (`peer.addPeer(..., [])`). V1 adds one **optional** field to `SessionReportResult` — `grantedScopes?: string[]` — the authenticated (sealed + signed, `control:read`) host→phone disclosure of the scopes granted to *this* pairing, fetched every connect and never persisted.
+
+- **Optional on the wire**, exactly like the read side's v6 `cursorBefore`/`moreBefore` (`pty-inspect.ts`): the phone ships before the host (§11), so a v7 host omits the field and the phone must still parse the report. A *required* field would fail-parse a v7 report at `Peer.call`'s `cap.result.safeParse`, null the report, and panic reconnect — bricking the phone against a not-yet-upgraded host. Absent ⇒ dock hidden (fail-closed).
+- The **host populates it** from the live pairing grant set (14all child §1.1); the **phone reads it** through a `canPtyWrite` selector and shows the dock only when it contains `control:pty-write` **and** the PTY is live (xavier child §3.3).
+
 ## 6. Host requirements (ai-14all)
 
 Detail in the 14all child spec:
@@ -127,6 +137,7 @@ Detail in the 14all child spec:
 - **Arm toggle** `isPtyInputEnabled` (default on) with a disarm control in the host UI.
 - **Layered audit** (§8): one automatic protocol entry per dispatched request; one semantic entry per submitted input capturing the **full literal** chunk content and outcome.
 - **`control:pty-write`** added to the host grant registry / `NEW_PAIRING_GRANTS`.
+- **`session-report.grantedScopes` populated** from this pairing's live grant set (§5.7) — the phone's authoritative, fail-closed dock-gate signal; always sent by this V1 host.
 - **(Coordination, not new here)** Finish the resize-on-watch host leg if still pending — SIGWINCH the PTY to the reported viewport on watch and restore desktop geometry on unwatch/detach. Gated by `control:inspect` (shipped decision), independent of `pty-input`.
 - No new PTY is ever created by this path.
 
@@ -140,7 +151,7 @@ Detail in the xavier child spec. The approved composition (visual brainstorm, 20
 - **`⌃C` confirm.** Tapping `⌃C` sends nothing; it raises a destructive confirm sheet whose **Interrupt** action sits at the bottom center (away from `⌃C`), so a fast double-tap hits the dismiss scrim. Copy names the stakes (SIGINT, hard to restart from phone). No "don't ask again". `⌃C` is the only gated control.
 - **Keyboard-up (option B).** When the compose box is focused, the dock rides above the keyboard but the **key bar collapses** — only the compose row stays, giving the terminal ~30% more height. This is a phone-side scroll/layout change only. **It must not re-report the viewport** (no resize thrash): the phone keeps reporting its stable keyboard-down geometry to the shipped `set-watch-viewport` path.
 - **No grid echo + sent/syncing affordance.** On submit, show a brief "sent · syncing" state on the submit control until the next `pty-changed` hint lands, then clear.
-- **Grant- and live-gated dock.** The dock renders only when the phone holds `control:pty-write` **and** the watched agent's PTY is `live`. A read-only phone sees no dock. On session end, the dock disappears and the read-side "ended" banner covers it; a stale in-flight send is answered `no-live-agent`.
+- **Grant- and live-gated dock.** The dock renders only when the phone holds `control:pty-write` **and** the watched agent's PTY is `live`. The phone learns it holds `control:pty-write` from the authenticated `session-report.grantedScopes` (§5.7); absent or omitting the scope ⇒ dock stays hidden (fail-closed). A read-only phone sees no dock. On session end, the dock disappears and the read-side "ended" banner covers it; a stale in-flight send is answered `no-live-agent`.
 - **Agent switch clears staged text.** Switching agent chips clears any unsent compose text. Immediate keys always target the currently-active agent.
 - **Submit snaps to tail.** Sending input re-engages follow-tail so the redraw is visible.
 - **Phone-side sent log.** The phone keeps a local record of what it sent, consistent with the host's authoritative audit.
@@ -180,8 +191,9 @@ Detail in the xavier child spec. The approved composition (visual brainstorm, 20
 
 ## 10. Testing & acceptance
 
-- **Contract (ai-xavier):** round-trip encode/decode of `PtyInputArgs` (every chunk kind, ordered lists) and the `PtyInputResult` union; schema rejection of malformed chunks.
-- **Host (ai-14all):** translation-table unit tests (each `PtyInputKey` → exact bytes; text → UTF-8); order preservation of a mixed chunk list; grant enforcement; arm-toggle gate (default-on, disarmed refusal); `no-live-agent` / `no-such-pty` refusals; audit entry shapes (protocol + semantic, literal content, apply vs reject routes).
+- **Contract (ai-xavier):** round-trip encode/decode of `PtyInputArgs` (every chunk kind, ordered lists) and the `PtyInputResult` union; schema rejection of malformed chunks (both/neither/empty — against the `.strict()` members); `SessionReportResult` round-trips **with and without** `grantedScopes` (a v7-shaped report with the field absent must parse, proving the field is optional — the reconnect-bricking regression).
+- **Conformance (ai-xavier, `packages/xbp`):** since control caps ride the **Peer** layer, add **Peer-level** `pty-input` checks — missing `control:pty-write` → `permission-denied`; malformed args → `schema-invalid`; accepted request audited at `risk: 'high'`; and a `Peer.call` **`bad-result`** negative test proving a malformed `PtyInputResult` handler return is rejected (result validation lives in `Peer.call`, not the serving side). XBP-PROTOCOL §12 requires this — the trust-model change lands as a conformance change.
+- **Host (ai-14all):** translation-table unit tests (each `PtyInputKey` → exact bytes; text → UTF-8); order preservation of a mixed chunk list; grant enforcement; **`session-report.grantedScopes` reflects the pairing grant set** (granted vs read-only pairing); arm-toggle gate (default-on, disarmed refusal); `no-live-agent` / `no-such-pty` refusals; audit entry shapes (protocol + semantic, literal content, apply vs reject routes).
 - **Phone (ai-xavier):** TDD on pure helpers — chunk builder (text submit → `[{text},{key:'enter'}]`); strict key-bar (never reads the buffer); agent-switch-clears-staged reducer; submit-snaps-to-tail state; sent/syncing affordance state machine; `⌃C` confirm gate (tap arms, only Interrupt fires); keyboard-up does not re-report viewport.
 - **Joint acceptance (house tradition):** real iPhone + real LAN + real 14all running a live agent — answer a Claude Code permission prompt with `↑`/`↓` + `⏎`; send a free-text follow-up; interrupt a runaway with `⌃C` (through the confirm); feel out echo latency; toggle host disarm and confirm refusal; re-pair to acquire `control:pty-write`.
 - `docs/shared/XBP-PROTOCOL.md` (secret, gitignored) gains a **PTY Input** section as part of acceptance, not before.
