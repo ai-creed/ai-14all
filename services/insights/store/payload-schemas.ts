@@ -21,7 +21,22 @@ export const WhisperPhasePayload = z
 	})
 	.strict();
 
+export const AppFocusedPayload = z
+	.object({ reason: z.enum(["poll", "blur", "suspend", "quit"]) })
+	.strict();
+
+export const AppEngagedPayload = z
+	.object({ reason: z.enum(["poll", "idle", "blur", "suspend", "quit"]) })
+	.strict();
+
+export const AppUptimePayload = z
+	.object({ reason: z.enum(["disabled", "suspend", "quit"]) })
+	.strict();
+
 export const PAYLOAD_SCHEMAS: Record<string, z.ZodTypeAny> = {
 	"whisper.workflow": WhisperWorkflowPayload,
 	"whisper.phase": WhisperPhasePayload,
+	"app.focused": AppFocusedPayload,
+	"app.engaged": AppEngagedPayload,
+	"app.uptime": AppUptimePayload,
 };

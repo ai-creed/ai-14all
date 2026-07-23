@@ -15,6 +15,8 @@ export interface ObservationInput {
 	schemaVersion: number;
 	ingestedAt: number;
 	origin?: "app-managed" | "external" | "unknown" | "n/a";
+	/** Opaque per-app-launch id for live collectors (§5). Never a path. */
+	appRunId?: string | null;
 	provider?: string | null;
 	repoId?: string | null;
 	workspaceRel?: string | null;
@@ -35,6 +37,7 @@ const COLUMNS = [
 	"schema_version",
 	"ingested_at",
 	"origin",
+	"app_run_id",
 	"provider",
 	"repo_id",
 	"workspace_rel",
@@ -63,6 +66,7 @@ export function insertObservation(
 		obs.subjectId,
 		obs.tsPrecision,
 		obs.origin ?? "n/a",
+		obs.appRunId ?? null,
 		obs.provider ?? null,
 		obs.repoId,
 		obs.workspaceRel,
@@ -82,6 +86,7 @@ export function insertObservation(
 		schema_version: obs.schemaVersion,
 		ingested_at: obs.ingestedAt,
 		origin: obs.origin ?? "n/a",
+		app_run_id: obs.appRunId ?? null,
 		provider: obs.provider ?? null,
 		repo_id: obs.repoId ?? null,
 		workspace_rel: obs.workspaceRel ?? null,
