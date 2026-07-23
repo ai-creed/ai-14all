@@ -9,7 +9,7 @@ import {
 
 describe("set-watch-viewport contract surface (0.1.0-alpha.6 / v7)", () => {
 	it("exposes the capability under control:inspect at v7", () => {
-		expect(COMMAND_CONTRACT_VERSION).toBe(7);
+		expect(COMMAND_CONTRACT_VERSION).toBe(8);
 		expect(setWatchViewportCapability.id).toBe(
 			"xavier.control.set-watch-viewport",
 		);
