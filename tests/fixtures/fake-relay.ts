@@ -1,10 +1,14 @@
 // tests/fixtures/fake-relay.ts
 import { createServer, type Server } from "node:https";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { WebSocketServer, type WebSocket } from "ws";
 
-const TLS_DIR = join(__dirname, "tls");
+// Derived from import.meta.url, not __dirname: this package is "type":"module",
+// and the Playwright e2e run loads this fixture as a native ES module where
+// __dirname is undefined (vitest injects it, Playwright's loader does not).
+const TLS_DIR = join(dirname(fileURLToPath(import.meta.url)), "tls");
 
 // Frame values are pinned to the vendor relay schema (protocol/relay.ts):
 // nonceHex/hostId are 64-char hex, the accept token 32-char hex. The host's
@@ -69,6 +73,13 @@ export async function startFakeRelay(): Promise<{
 		waitForAccept: (token) =>
 			new Promise<WebSocket>((resolve) => acceptWaiters.set(token, resolve)),
 		close: async () => {
+			// Forcibly drop every live socket first. ws' WebSocketServer.close()
+			// leaves existing connections open when the server was created around an
+			// external http(s).Server (our case), and node's https server.close()
+			// then never fires its callback while a socket is still up — so without
+			// this the close() promise hangs AND a registered host never sees the
+			// disconnect that drives it into its retry/backoff state.
+			for (const ws of wss.clients) ws.terminate();
 			wss.close();
 			await new Promise<void>((resolve) => server.close(() => resolve()));
 		},
