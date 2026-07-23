@@ -16,10 +16,19 @@ import {
 import { XbpAuditSink } from "./xbp-audit-sink.js";
 import { NEW_PAIRING_GRANTS, grantsForStoredDevice } from "./xbp-grants.js";
 import { XbpPairingHost } from "./xbp-pairing-host.js";
+import { WebSocket } from "ws";
 import {
 	createLanWebSocketHost,
 	primaryLanIPv4,
+	wsToAttachable,
 } from "./lan-websocket-transport.js";
+import type { AttachableSocket } from "./attachable-transport.js";
+import {
+	createRelayRegistration,
+	wsRelaySocket,
+	type RelayControlSocket,
+	type RelayRegistrationState,
+} from "./relay-registration.js";
 import { XbpPeerSession, type PtyInspectBinding } from "./xbp-peer-session.js";
 import type { XbpActingExecutor } from "./xbp-acting-executor.js";
 import type { XbpPushTokenStore } from "./xbp-push-token-store.js";
@@ -38,6 +47,10 @@ export interface XbpStatus {
 	pairedAt: number | null;
 	grantedPermissions: string[] | null;
 	lastError: string | null;
+	// Off-LAN relay reachability (umbrella §6): "off" when no relay base is
+	// configured or registration is torn down, "retrying" while connecting or in
+	// backoff, "registered" once the relay accepts the host.
+	relay: "off" | "retrying" | "registered";
 }
 
 export class XbpHostService {
@@ -56,8 +69,14 @@ export class XbpHostService {
 	private offerExpiryTimer: ReturnType<typeof setTimeout> | null = null;
 	private lastError: string | null = null;
 	// Source of truth for the relay candidate URL advertised in pairing
-	// offers; later mutated by Task 9's applyRelayBaseUrl.
+	// offers; mutated by applyRelayBaseUrl.
 	private relayBaseUrl: string;
+	// Live relay control-channel registration (null while off). relayState is the
+	// last state the machine reported; getStatus() collapses it to the coarse
+	// three-value XbpStatus.relay.
+	private relayRegistration: ReturnType<typeof createRelayRegistration> | null =
+		null;
+	private relayState: RelayRegistrationState = "off";
 
 	constructor(
 		private readonly opts: {
@@ -72,6 +91,15 @@ export class XbpHostService {
 			ptyInspect?: PtyInspectBinding;
 			now?: () => number;
 			initialRelayBaseUrl?: string;
+			// Test seams: script the relay control channel and accept-dial without
+			// touching the network. Production leaves these undefined and uses the
+			// real ws-backed defaults.
+			relaySocketFactory?: (url: string) => RelayControlSocket;
+			relayJitter?: () => number;
+			relayAcceptDial?: (
+				url: string,
+				attach: (socket: AttachableSocket) => void,
+			) => void;
 		},
 	) {
 		this.pairedStore = new XbpPairedDeviceStore({
@@ -211,6 +239,9 @@ export class XbpHostService {
 			);
 			this.enabled = true;
 			this.lastError = null;
+			// Bring the relay control channel up alongside the LAN listener. No-op
+			// when no relay base is configured (byte-identical LAN-only path).
+			this.startRelayRegistration();
 			return { listening: true, addr: primaryLanIPv4(), port: this.lan.port };
 		} catch (err) {
 			this.recordFailure(err);
@@ -340,6 +371,12 @@ export class XbpHostService {
 				? [...this.pairedDevice.grantedPermissions]
 				: null,
 			lastError: this.lastError,
+			relay:
+				this.relayState === "registered"
+					? "registered"
+					: this.relayState === "off"
+						? "off"
+						: "retrying",
 		};
 	}
 
@@ -354,6 +391,84 @@ export class XbpHostService {
 		this.killSwitchOn = on;
 		if (this.pairingHost) this.pairingHost.killSwitch = on;
 		this.peerSession?.setKillSwitch(on);
+	}
+
+	// Relay lifecycle audits are informational (umbrella §9): no capability, no
+	// risk, always "accepted" — they record connectivity events, not access
+	// decisions.
+	private relayAudit(event: string, reason?: string): void {
+		this.audit?.append({
+			cap: null,
+			risk: null,
+			outcome: "accepted",
+			level: "info",
+			event,
+			reason,
+		});
+	}
+
+	// Bring up the relay control channel if a base URL is configured. Idempotent:
+	// a live registration or an empty base is a no-op. The registration machine
+	// owns reconnect/backoff; we only mirror its state and route its events.
+	private startRelayRegistration(): void {
+		if (this.relayRegistration || !this.relayBaseUrl) return;
+		this.relayRegistration = createRelayRegistration({
+			socketFactory: this.opts.relaySocketFactory ?? wsRelaySocket,
+			signPubHex: toHex(this.identity!.sign.publicKey),
+			sign: (bytes) =>
+				this.backend!.sign(bytes, this.identity!.sign.privateKey),
+			onIncomingSession: (acceptUrl) => this.dialRelayAccept(acceptUrl),
+			onStateChange: (state) => {
+				this.relayState = state;
+				this.emitStatusChange();
+			},
+			audit: (e) => this.relayAudit(e.event, e.reason),
+			setTimer: (cb, ms) => setTimeout(cb, ms),
+			clearTimer: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
+			jitter: this.opts.relayJitter ?? Math.random,
+		});
+		this.relayRegistration.setBaseUrl(this.relayBaseUrl);
+	}
+
+	private stopRelayRegistration(): void {
+		this.relayRegistration?.stop();
+		this.relayRegistration = null;
+		this.relayState = "off";
+	}
+
+	// Accept dial is a SEPARATE, binary XBP transport — it must not ride the
+	// text-only relay control channel. One dial per token; failures are logged
+	// and dropped (the relay expires the token; the phone retries via candidate
+	// machinery — child spec §5).
+	private dialRelayAccept(acceptUrl: string): void {
+		if (this.opts.relayAcceptDial) {
+			// Test seam: report the dial; the socket lands in lan.attach() exactly
+			// as the real path does when the caller invokes attach().
+			this.opts.relayAcceptDial(acceptUrl, (socket) => {
+				this.lan?.attach(socket);
+				this.relayAudit("relay-session-accepted");
+			});
+			return;
+		}
+		const ws = new WebSocket(acceptUrl);
+		ws.on("open", () => {
+			this.lan?.attach(wsToAttachable(ws));
+			this.relayAudit("relay-session-accepted");
+		});
+		ws.on("error", (err) => {
+			console.warn("[xbp-relay] accept dial failed:", err);
+		});
+	}
+
+	// UI/settings entry point for changing the relay base at runtime. No-op on an
+	// unchanged value; teardown on ""; restart on a new base (only while the
+	// bridge is enabled). Always emits so the status surface reflects the change.
+	applyRelayBaseUrl(url: string): void {
+		if (url === this.relayBaseUrl) return;
+		this.relayBaseUrl = url;
+		this.stopRelayRegistration();
+		if (this.enabled && url) this.startRelayRegistration();
+		this.emitStatusChange();
 	}
 
 	async setEnabled(on: boolean): Promise<void> {
@@ -376,6 +491,9 @@ export class XbpHostService {
 		try {
 			this.unsubscribe?.();
 			this.unsubscribe = null;
+			// Tear the relay control channel down with the bridge (child spec §5:
+			// disable stops connectivity; kill-switch does not).
+			this.stopRelayRegistration();
 			this.peerSession?.stop();
 			this.peerSession = null;
 			if (this.lan) {
