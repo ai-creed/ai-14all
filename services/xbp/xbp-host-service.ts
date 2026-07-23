@@ -51,6 +51,7 @@ export class XbpHostService {
 	private pairedDevice: PairedDevice | null = null;
 	private unsubscribe: (() => void) | null = null;
 	private enabled = false;
+	private killSwitchOn = false;
 	private pendingOffer: { payload: string; expiresAt: number } | null = null;
 	private offerExpiryTimer: ReturnType<typeof setTimeout> | null = null;
 	private lastError: string | null = null;
@@ -121,6 +122,7 @@ export class XbpHostService {
 				audit: this.audit!,
 				now: this.opts.now,
 			});
+			this.pairingHost.killSwitch = this.killSwitchOn;
 		}
 	}
 
@@ -166,6 +168,7 @@ export class XbpHostService {
 				audit: this.audit,
 				now: this.opts.now,
 			});
+			this.pairingHost.killSwitch = this.killSwitchOn;
 			this.lan = await createLanWebSocketHost();
 			this.peerSession = new XbpPeerSession({
 				backend: this.backend,
@@ -178,6 +181,7 @@ export class XbpHostService {
 				ptyInspect: this.opts.ptyInspect,
 				now: this.opts.now,
 			});
+			this.peerSession.setKillSwitch(this.killSwitchOn);
 
 			// Route inbound frames to the pairing host; send its responses back, then
 			// notify the UI so a freshly-computed SAS surfaces immediately.
@@ -337,6 +341,19 @@ export class XbpHostService {
 				: null,
 			lastError: this.lastError,
 		};
+	}
+
+	// Kill switch (child spec §5): gates capability execution on both the
+	// pairing host (pre-pairing sealed frames) and the live peer session
+	// (post-pairing capabilities), without touching the LAN listener, the
+	// pairing host itself, or relay registration. killSwitchOn is the source
+	// of truth re-applied at every (re)construction site — resetPairingHost()
+	// and start() — so the flag survives an unpair, a re-pair, and a
+	// stop()/start() cycle.
+	setKillSwitch(on: boolean): void {
+		this.killSwitchOn = on;
+		if (this.pairingHost) this.pairingHost.killSwitch = on;
+		this.peerSession?.setKillSwitch(on);
 	}
 
 	async setEnabled(on: boolean): Promise<void> {

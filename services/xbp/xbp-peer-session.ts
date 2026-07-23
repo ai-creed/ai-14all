@@ -68,6 +68,7 @@ export class XbpPeerSession {
 	private peer: Peer | null = null;
 	private phoneNode: string | null = null;
 	private readonly coalescer: { trigger(): void; cancel(): void };
+	private killed = false;
 
 	constructor(
 		private readonly opts: {
@@ -113,7 +114,31 @@ export class XbpPeerSession {
 			phoneBoxPub,
 			grantedPermissions,
 		);
-		peer.expose(sessionReportCapability, () => this.opts.getSessionReport());
+
+		// Kill switch (child spec §5): halt capability execution, never
+		// connectivity. The throw becomes the vendor's handler-error AckError;
+		// the audited reason "kill-switch" below is the durable contract.
+		const killGuard =
+			<A, R>(capabilityId: string, handler: (args: A) => R | Promise<R>) =>
+			(args: A): R | Promise<R> => {
+				if (this.killed) {
+					this.opts.audit.append({
+						cap: capabilityId,
+						risk: null,
+						outcome: "rejected",
+						reason: "kill-switch",
+					});
+					throw new Error("kill-switch");
+				}
+				return handler(args);
+			};
+
+		peer.expose(
+			sessionReportCapability,
+			killGuard(sessionReportCapability.id, () =>
+				this.opts.getSessionReport(),
+			),
+		);
 
 		const acting = this.opts.acting;
 		if (acting) {
@@ -128,24 +153,41 @@ export class XbpPeerSession {
 				};
 			peer.expose(
 				pauseSessionCapability,
-				wrap((w) => acting.pause(w)),
+				killGuard(
+					pauseSessionCapability.id,
+					wrap((w) => acting.pause(w)),
+				),
 			);
 			peer.expose(
 				resumeSessionCapability,
-				wrap((w) => acting.resume(w)),
+				killGuard(
+					resumeSessionCapability.id,
+					wrap((w) => acting.resume(w)),
+				),
 			);
 			peer.expose(
 				stopSessionCapability,
-				wrap((w) => acting.stop(w)),
+				killGuard(
+					stopSessionCapability.id,
+					wrap((w) => acting.stop(w)),
+				),
 			);
 		}
 
 		const pushToken = this.opts.pushToken;
 		if (pushToken) {
-			peer.expose(registerPushTokenCapability, (args) =>
-				pushToken.register(args),
+			peer.expose(
+				registerPushTokenCapability,
+				killGuard(registerPushTokenCapability.id, (args) =>
+					pushToken.register(args),
+				),
 			);
-			peer.expose(deregisterPushTokenCapability, () => pushToken.deregister());
+			peer.expose(
+				deregisterPushTokenCapability,
+				killGuard(deregisterPushTokenCapability.id, () =>
+					pushToken.deregister(),
+				),
+			);
 		}
 
 		if (this.opts.ptyInspect) {
@@ -177,74 +219,89 @@ export class XbpPeerSession {
 				};
 			peer.expose(
 				listPtysCapability,
-				async (args: { worktreeId: string }): Promise<ListPtysResult> => {
-					// Unknown session → no-such-pty (spec §3). A KNOWN worktree with
-					// zero agents legitimately returns an empty list — the async
-					// resolver distinguishes the two (worktree lookup shells out, so
-					// this handler is async like the lifecycle capabilities).
-					if (!(await ptyInspect.isKnownWorktree(args.worktreeId))) {
-						ptyInspect.auditRefusal(
-							listPtysCapability.id,
-							args.worktreeId,
-							null,
-							"no-such-pty",
-						);
-						return { ok: false, code: "no-such-pty" };
-					}
-					return { ok: true, ptys: catalog.listPtys(args.worktreeId) };
-				},
+				killGuard(
+					listPtysCapability.id,
+					async (args: { worktreeId: string }): Promise<ListPtysResult> => {
+						// Unknown session → no-such-pty (spec §3). A KNOWN worktree with
+						// zero agents legitimately returns an empty list — the async
+						// resolver distinguishes the two (worktree lookup shells out, so
+						// this handler is async like the lifecycle capabilities).
+						if (!(await ptyInspect.isKnownWorktree(args.worktreeId))) {
+							ptyInspect.auditRefusal(
+								listPtysCapability.id,
+								args.worktreeId,
+								null,
+								"no-such-pty",
+							);
+							return { ok: false, code: "no-such-pty" };
+						}
+						return { ok: true, ptys: catalog.listPtys(args.worktreeId) };
+					},
+				),
 			);
 			peer.expose(
 				subscribePtyCapability,
-				withRefusalAudit(
+				killGuard(
 					subscribePtyCapability.id,
-					(args: { worktreeId: string; agentId: string }) =>
-						registry.subscribe(args.worktreeId, args.agentId),
+					withRefusalAudit(
+						subscribePtyCapability.id,
+						(args: { worktreeId: string; agentId: string }) =>
+							registry.subscribe(args.worktreeId, args.agentId),
+					),
 				),
 			);
 			peer.expose(
 				unsubscribePtyCapability,
-				withRefusalAudit(
+				killGuard(
 					unsubscribePtyCapability.id,
-					(args: { worktreeId: string; agentId: string }) =>
-						registry.unsubscribe(args.worktreeId, args.agentId),
+					withRefusalAudit(
+						unsubscribePtyCapability.id,
+						(args: { worktreeId: string; agentId: string }) =>
+							registry.unsubscribe(args.worktreeId, args.agentId),
+					),
 				),
 			);
 			peer.expose(
 				ptyRowsCapability,
-				withRefusalAudit(
+				killGuard(
 					ptyRowsCapability.id,
-					(args: {
-						worktreeId: string;
-						agentId: string;
-						cursor: string | null;
-						tail?: number;
-						before?: string;
-					}) =>
-						registry.pullRows(
-							args.worktreeId,
-							args.agentId,
-							args.cursor ?? null,
-							{ tail: args.tail, before: args.before },
-						),
+					withRefusalAudit(
+						ptyRowsCapability.id,
+						(args: {
+							worktreeId: string;
+							agentId: string;
+							cursor: string | null;
+							tail?: number;
+							before?: string;
+						}) =>
+							registry.pullRows(
+								args.worktreeId,
+								args.agentId,
+								args.cursor ?? null,
+								{ tail: args.tail, before: args.before },
+							),
+					),
 				),
 			);
 			peer.expose(
 				setWatchViewportCapability,
-				withRefusalAudit(
+				killGuard(
 					setWatchViewportCapability.id,
-					(args: {
-						worktreeId: string;
-						agentId: string;
-						cols: number;
-						rows: number;
-					}) =>
-						registry.setWatchViewport(
-							args.worktreeId,
-							args.agentId,
-							args.cols,
-							args.rows,
-						),
+					withRefusalAudit(
+						setWatchViewportCapability.id,
+						(args: {
+							worktreeId: string;
+							agentId: string;
+							cols: number;
+							rows: number;
+						}) =>
+							registry.setWatchViewport(
+								args.worktreeId,
+								args.agentId,
+								args.cols,
+								args.rows,
+							),
+					),
 				),
 			);
 		}
@@ -264,6 +321,10 @@ export class XbpPeerSession {
 
 	notifyChanged(): void {
 		this.coalescer.trigger();
+	}
+
+	setKillSwitch(on: boolean): void {
+		this.killed = on;
 	}
 
 	detach(cause: "peer-detach" | "re-pair" = "peer-detach"): void {

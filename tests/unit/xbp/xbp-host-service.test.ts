@@ -77,11 +77,22 @@ describe("XbpHostService", () => {
 		);
 	});
 
-	it("kill switch (setEnabled false) stops listening and drops the session", async () => {
+	it("disable (setEnabled false) stops listening and drops the session", async () => {
 		svc = makeService();
 		await svc.start();
 		await svc.setEnabled(false);
 		expect(svc.getStatus().listening).toBe(false);
+	});
+
+	it("setKillSwitch(true) leaves the bridge listening and forwards to the pairing host", async () => {
+		svc = makeService();
+		await svc.start();
+		svc.setKillSwitch(true);
+		expect(svc.getStatus().listening).toBe(true);
+		// pairing host refuses sealed frames under kill: exercised end-to-end in
+		// tests/integration/xbp/kill-switch.test.ts; here we assert no teardown.
+		svc.setKillSwitch(false);
+		expect(svc.getStatus().listening).toBe(true);
 	});
 
 	it("reports sas:null before any pair-request arrives", async () => {
