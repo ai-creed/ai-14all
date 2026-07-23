@@ -179,6 +179,7 @@ export function PhoneBridgePanel(): React.ReactElement {
 					</label>
 					<input
 						id="phone-bridge-relay-url"
+						className="phone-bridge__input"
 						type="text"
 						value={relayDraft ?? ""}
 						onChange={(e) => setRelayDraft(e.target.value)}

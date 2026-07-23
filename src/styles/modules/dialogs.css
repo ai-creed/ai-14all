@@ -280,6 +280,21 @@
 	.phone-bridge__hint--tight {
 		margin-bottom: var(--space-1);
 	}
+	.phone-bridge__input {
+		display: block;
+		width: 100%;
+		box-sizing: border-box;
+		background: var(--panel-bg-elevated);
+		border: var(--shell-border-width) solid var(--panel-border);
+		color: var(--text-primary);
+		font-family: inherit;
+		font-size: 0.75rem;
+		padding: 4px var(--space-2);
+	}
+	.phone-bridge__input:focus-visible {
+		outline: var(--shell-border-width) solid var(--accent);
+		outline-offset: 1px;
+	}
 	.phone-bridge__btn {
 		background: none;
 		border: var(--shell-border-width) solid var(--panel-border);
