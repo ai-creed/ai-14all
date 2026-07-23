@@ -408,10 +408,20 @@ export class XbpHostService {
 	}
 
 	// Bring up the relay control channel if a base URL is configured. Idempotent:
-	// a live registration or an empty base is a no-op. The registration machine
-	// owns reconnect/backoff; we only mirror its state and route its events.
+	// a live registration or an empty base is a no-op. Also a no-op without a
+	// live identity/backend (e.g. setEnabled(true) set enabled before start()
+	// failed on safe-storage-unavailable, leaving identity/backend unset): a
+	// later applyRelayBaseUrl() must not throw reaching into null fields.
+	// start() calls this again once identity/backend exist, so registration
+	// correctly comes up once the bridge actually starts.
 	private startRelayRegistration(): void {
-		if (this.relayRegistration || !this.relayBaseUrl) return;
+		if (
+			this.relayRegistration ||
+			!this.relayBaseUrl ||
+			!this.identity ||
+			!this.backend
+		)
+			return;
 		this.relayRegistration = createRelayRegistration({
 			socketFactory: this.opts.relaySocketFactory ?? wsRelaySocket,
 			signPubHex: toHex(this.identity!.sign.publicKey),
@@ -443,16 +453,30 @@ export class XbpHostService {
 	private dialRelayAccept(acceptUrl: string): void {
 		if (this.opts.relayAcceptDial) {
 			// Test seam: report the dial; the socket lands in lan.attach() exactly
-			// as the real path does when the caller invokes attach().
+			// as the real path does when the caller invokes attach(). If the bridge
+			// was stopped between the incoming-session frame and this callback,
+			// there is no lan to attach to — close the socket and skip the audit
+			// (mirrors the real-path guard below).
 			this.opts.relayAcceptDial(acceptUrl, (socket) => {
-				this.lan?.attach(socket);
+				if (!this.lan) {
+					socket.close();
+					return;
+				}
+				this.lan.attach(socket);
 				this.relayAudit("relay-session-accepted");
 			});
 			return;
 		}
 		const ws = new WebSocket(acceptUrl);
 		ws.on("open", () => {
-			this.lan?.attach(wsToAttachable(ws));
+			// stop() may have run between the incoming-session frame and this
+			// socket opening; without a lan to attach to, close it rather than
+			// leaking an open WebSocket and auditing a session that never landed.
+			if (!this.lan) {
+				ws.close();
+				return;
+			}
+			this.lan.attach(wsToAttachable(ws));
 			this.relayAudit("relay-session-accepted");
 		});
 		ws.on("error", (err) => {

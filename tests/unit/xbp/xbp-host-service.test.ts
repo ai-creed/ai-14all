@@ -471,4 +471,40 @@ describe("XbpHostService relay registration lifecycle", () => {
 		svc.setKillSwitch(true);
 		expect(svc.getStatus().relay).toBe("registered");
 	});
+
+	it("applyRelayBaseUrl while disabled is inert (zero dials, relay off); a later start() picks up the stored base", async () => {
+		const h = relayHarness();
+		svc = makeService({ relaySocketFactory: h.factory });
+		// start() was never called: the bridge is disabled.
+		expect(() => svc!.applyRelayBaseUrl(BASE)).not.toThrow();
+		expect(h.dialed).toEqual([]);
+		expect(svc.getStatus().relay).toBe("off");
+
+		// The base is stored regardless: start() dials it once the bridge comes up.
+		await svc.start();
+		expect(h.dialed).toEqual([`${BASE}/host`]);
+	});
+
+	it("applyRelayBaseUrl after a failed setEnabled(true) does not throw and leaves relay off", async () => {
+		const h = relayHarness();
+		const dir = mkdtempSync(join(tmpdir(), "xbp-svc-"));
+		svc = new XbpHostService({
+			dir,
+			// Fails-closed inside start(): identity/backend never get set, but
+			// setEnabled(true) already flipped `enabled` before awaiting start().
+			secureStorage: { ...okStorage, isEncryptionAvailable: () => false },
+			getSessionReport: async () => ({
+				mode: "ready",
+				focus: null,
+				sessions: [],
+			}),
+			subscribeChanges: () => () => {},
+			relaySocketFactory: h.factory,
+		});
+		await expect(svc.setEnabled(true)).rejects.toThrow();
+
+		expect(() => svc!.applyRelayBaseUrl(BASE)).not.toThrow();
+		expect(h.dialed).toEqual([]);
+		expect(svc.getStatus().relay).toBe("off");
+	});
 });
