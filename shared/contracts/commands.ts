@@ -432,6 +432,12 @@ export interface InsightsWhisperRun {
 	phaseCount: number;
 }
 
+export interface InsightsAppTime {
+	focusedMs: number;
+	engagedMs: number;
+	completeness: InsightsCompleteness;
+}
+
 export interface UpdateInfo {
 	version: string;
 	url: string;
@@ -634,6 +640,13 @@ export type Ai14AllDesktopApi = {
 			runs: InsightsWhisperRun[];
 			completeness: InsightsCompleteness;
 		}>;
+		// Aggregated app-time read contract (spec §7): focused/engaged ms clipped
+		// to the range plus uptime-derived completeness. Resolves an empty result
+		// (never rejects) when capture is disabled or the worker does not answer.
+		queryAppTime(range: {
+			fromMs: number;
+			toMs: number;
+		}): Promise<InsightsAppTime>;
 		onNotice(listener: () => void): () => void;
 		// Pull-on-mount recovery for the one-time first-capture notice: the
 		// boot-time `insights:notice` push fires before InsightsNotice mounts (the
@@ -842,6 +855,17 @@ export type Ai14AllDesktopApi = {
 		cancelPairing(): Promise<PhoneBridgeStatus | undefined>;
 		forget(): Promise<PhoneBridgeStatus | undefined>;
 		onStatusChanged(handler: (status: PhoneBridgeStatus) => void): () => void;
+	};
+	/**
+	 * E2E-only collector seam. Present ONLY when AI14ALL_E2E is set; `undefined`
+	 * in a production build (see shared/models/insights-test-seam.ts).
+	 */
+	__insightsTest?: {
+		signal(
+			type: "focus" | "blur" | "idle" | "suspend" | "resume" | "flush",
+			arg?: { atMs?: number; idleSeconds?: number },
+		): Promise<{ ok: boolean; error?: string }>;
+		crashWorker(): Promise<{ ok: boolean; error?: string }>;
 	};
 };
 

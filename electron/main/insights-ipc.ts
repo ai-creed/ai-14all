@@ -2,7 +2,26 @@ import type { IpcMain } from "electron";
 import { isInsightsCaptureEnabled } from "../../shared/models/persisted-workspace-state.js";
 import type { PersistedSettingsV1 } from "../../shared/models/persisted-settings.js";
 import type { SettingsService } from "../../services/settings/settings-service.js";
+import {
+	INSIGHTS_TEST_CHANNEL,
+	INSIGHTS_TEST_SIGNALS,
+	isInsightsTestSeamEnabled,
+	type InsightsTestSignal,
+} from "../../shared/models/insights-test-seam.js";
 import type { InsightsHost } from "./services/insights-host.js";
+
+export interface InsightsTestSeam {
+	signal(
+		type: InsightsTestSignal,
+		arg: { atMs?: number; idleSeconds: number },
+	): void;
+	/**
+	 * Arm a one-shot crash that fires immediately before the next producer post,
+	 * so the next span is deterministically unacked and must arrive via the real
+	 * `exit` handler's re-fork + outbox replay.
+	 */
+	crashWorker(): void;
+}
 
 // Registers the three renderer-facing insights IPC handlers.
 //
@@ -27,9 +46,10 @@ export function registerInsightsIpc(
 	ipcMain: Pick<IpcMain, "handle">,
 	host: Pick<
 		InsightsHost,
-		"deleteAll" | "ackNotice" | "isNoticePending" | "query"
+		"deleteAll" | "ackNotice" | "isNoticePending" | "query" | "queryAppTime"
 	>,
 	setInsightsEnabled: (enabled: boolean) => void | Promise<void>,
+	testSeam?: { seam: InsightsTestSeam; env: { AI14ALL_E2E?: string } },
 ): void {
 	ipcMain.handle("insights:setEnabled", async (_event, enabled: unknown) => {
 		await setInsightsEnabled(Boolean(enabled));
@@ -50,6 +70,35 @@ export function registerInsightsIpc(
 	ipcMain.handle("insights:query", (_event, range: unknown) =>
 		host.query(normalizeRange(range)),
 	);
+	ipcMain.handle("insights:queryAppTime", (_event, range: unknown) =>
+		host.queryAppTime(normalizeRange(range)),
+	);
+
+	// Test seam: registered ONLY under the E2E flag, and then it accepts only the
+	// enumerated signals — anything else is rejected without touching the
+	// collector (spec §4 security contract).
+	if (!testSeam || !isInsightsTestSeamEnabled(testSeam.env)) return;
+	const allowed = new Set<string>(INSIGHTS_TEST_SIGNALS);
+	ipcMain.handle(INSIGHTS_TEST_CHANNEL, (_event, payload: unknown) => {
+		const p = (payload ?? {}) as {
+			type?: unknown;
+			atMs?: unknown;
+			idleSeconds?: unknown;
+		};
+		const type = typeof p.type === "string" ? p.type : "";
+		if (type === "crashWorker") {
+			testSeam.seam.crashWorker();
+			return { ok: true };
+		}
+		if (!allowed.has(type)) return { ok: false, error: "unsupported_signal" };
+		const num = (v: unknown): number | undefined =>
+			typeof v === "number" && Number.isFinite(v) ? v : undefined;
+		testSeam.seam.signal(type as InsightsTestSignal, {
+			atMs: num(p.atMs),
+			idleSeconds: num(p.idleSeconds) ?? 0,
+		});
+		return { ok: true };
+	});
 }
 
 // Derives effective insights-capture consent (global telemetry AND the insights

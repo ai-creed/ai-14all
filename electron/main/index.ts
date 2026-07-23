@@ -38,6 +38,7 @@ import {
 	AppFocusCollector,
 	spanEmitter,
 } from "./services/app-focus-collector.js";
+import { isInsightsTestSeamEnabled } from "../../shared/models/insights-test-seam.js";
 import { applyInsightsConsent } from "./insights-ipc.js";
 import type { KnownWorktree } from "../../shared/models/usage.js";
 import { ReviewCommentStore } from "../../services/review/review-comment-store.js";
@@ -889,6 +890,15 @@ app.whenReady().then(async () => {
 		usageSettingsBridge: usageSettings,
 		getPhoneBridgeApplier: () => xbpService,
 		insightsHost,
+		// Redundant with the gate inside registerInsightsIpc, and deliberately so:
+		// it closes the wiring hop between here and there, so the seam cannot be
+		// made live by a mistake at either end.
+		insightsTestSeam: isInsightsTestSeamEnabled(process.env)
+			? {
+					signal: (type, arg) => appFocusCollector.signal(type, arg),
+					crashWorker: () => insightsHost.crashWorkerForTest(),
+				}
+			: undefined,
 		installUpdate: () => updateService.installUpdate(),
 		closeGate,
 		getCortexEnabled: () => pluginConfig.get("cortex").enabled,

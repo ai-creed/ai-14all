@@ -31,6 +31,7 @@ import type {
 	AgentResumeBridgeReply,
 	AgentResumeBridgeRequest,
 } from "../../shared/contracts/agent-resume-bridge.js";
+import { buildInsightsTestBridge } from "../../shared/models/insights-test-seam.js";
 import {
 	AGENT_RESUME_BRIDGE_READY,
 	AGENT_RESUME_BRIDGE_GOODBYE,
@@ -443,6 +444,9 @@ const api: Ai14AllDesktopApi = {
 		query(range) {
 			return ipcRenderer.invoke("insights:query", range);
 		},
+		queryAppTime(range) {
+			return ipcRenderer.invoke("insights:queryAppTime", range);
+		},
 		checkNoticePending() {
 			return ipcRenderer.invoke("insights:noticePending");
 		},
@@ -649,6 +653,12 @@ const api: Ai14AllDesktopApi = {
 			return onChannel("code-nav:availabilityChanged", handler);
 		},
 	},
+	// The ENTIRE renderer-side seam: one call, no inline logic, so the unit test
+	// of `buildInsightsTestBridge` covers the real construction. Without the flag
+	// this is `undefined`, so `window.ai14all.__insightsTest` is absent.
+	__insightsTest: buildInsightsTestBridge(process.env, (channel, payload) =>
+		ipcRenderer.invoke(channel, payload),
+	),
 };
 
 contextBridge.exposeInMainWorld("ai14all", api);

@@ -20,6 +20,7 @@ import {
 	applyInsightsConsent,
 	makeSetInsightsEnabled,
 	registerInsightsIpc,
+	type InsightsTestSeam,
 } from "./insights-ipc.js";
 import { consumeE2eGitFault } from "./e2e-git-faults.js";
 import { consumeE2eTerminalCreateDelay } from "./e2e-terminal-create-delay.js";
@@ -158,6 +159,7 @@ export function registerIpcHandlers(
 		usageSettingsBridge,
 		getPhoneBridgeApplier,
 		insightsHost,
+		insightsTestSeam,
 		installUpdate,
 		closeGate,
 		getCortexEnabled,
@@ -184,6 +186,10 @@ export function registerIpcHandlers(
 			applyRelayBaseUrl(url: string): void;
 		} | null;
 		insightsHost?: InsightsHost;
+		// E2E-only collector seam, wired in main/index.ts where the collector is
+		// constructed. registerInsightsIpc still gates it on AI14ALL_E2E, so this
+		// being supplied never makes the channel reachable in a production build.
+		insightsTestSeam?: InsightsTestSeam;
 		installUpdate?: () => void;
 		closeGate?: import("./close-gate.js").CloseGate;
 		getCortexEnabled: () => boolean;
@@ -728,6 +734,9 @@ export function registerIpcHandlers(
 			ipcMain,
 			insightsHost,
 			makeSetInsightsEnabled(settingsService, insightsHost),
+			insightsTestSeam
+				? { seam: insightsTestSeam, env: process.env }
+				: undefined,
 		);
 	}
 

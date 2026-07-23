@@ -11,6 +11,12 @@ import {
 import type { InsightsHost } from "../../../electron/main/services/insights-host.js";
 import { SettingsService } from "../../../services/settings/settings-service.js";
 import type { PersistedSettingsV1 } from "../../../shared/models/persisted-settings.js";
+import {
+	buildInsightsTestBridge,
+	INSIGHTS_TEST_CHANNEL,
+	INSIGHTS_TEST_SIGNALS,
+	isInsightsTestSeamEnabled,
+} from "../../../shared/models/insights-test-seam.js";
 
 type IpcHandler = (event: unknown, ...args: unknown[]) => unknown;
 
@@ -47,12 +53,13 @@ describe("insights IPC", () => {
 		const ipc = stubIpcMain();
 		const host: Pick<
 			InsightsHost,
-			"deleteAll" | "ackNotice" | "isNoticePending" | "query"
+			"deleteAll" | "ackNotice" | "isNoticePending" | "query" | "queryAppTime"
 		> = {
 			deleteAll: vi.fn().mockResolvedValue(undefined),
 			ackNotice: vi.fn(),
 			isNoticePending: vi.fn().mockReturnValue(true),
 			query: vi.fn().mockResolvedValue({ runs: [], completeness: "unknown" }),
+			queryAppTime: vi.fn(),
 		};
 		const setInsightsEnabled = vi.fn();
 		registerInsightsIpc(asIpc(ipc), host, setInsightsEnabled);
@@ -80,9 +87,10 @@ describe("insights IPC", () => {
 			ackNotice: vi.fn(),
 			isNoticePending: vi.fn(),
 			query,
+			queryAppTime: vi.fn(),
 		} as unknown as Pick<
 			InsightsHost,
-			"deleteAll" | "ackNotice" | "isNoticePending" | "query"
+			"deleteAll" | "ackNotice" | "isNoticePending" | "query" | "queryAppTime"
 		>;
 		registerInsightsIpc(asIpc(ipc), host, vi.fn());
 
@@ -134,5 +142,126 @@ describe("insights IPC", () => {
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
 		}
+	});
+});
+
+describe("insights seam guard + appTime query", () => {
+	const host = () =>
+		({
+			deleteAll: vi.fn(),
+			ackNotice: vi.fn(),
+			isNoticePending: vi.fn(),
+			query: vi.fn(),
+			queryAppTime: vi.fn().mockResolvedValue({
+				focusedMs: 1,
+				engagedMs: 2,
+				completeness: "partial",
+			}),
+		}) as unknown as Pick<
+			InsightsHost,
+			"deleteAll" | "ackNotice" | "isNoticePending" | "query" | "queryAppTime"
+		>;
+
+	it("registers insights:queryAppTime and normalizes the range", async () => {
+		const ipc = stubIpcMain();
+		const h = host();
+		registerInsightsIpc(asIpc(ipc), h, vi.fn());
+		expect(ipc.has("insights:queryAppTime")).toBe(true);
+		await ipc.invoke("insights:queryAppTime", { fromMs: 5, toMs: 9 });
+		expect(
+			(h as unknown as { queryAppTime: ReturnType<typeof vi.fn> }).queryAppTime,
+		).toHaveBeenCalledWith({ fromMs: 5, toMs: 9 });
+		await ipc.invoke("insights:queryAppTime", { fromMs: "x", toMs: null });
+		expect(
+			(h as unknown as { queryAppTime: ReturnType<typeof vi.fn> }).queryAppTime,
+		).toHaveBeenLastCalledWith({ fromMs: 0, toMs: 0 });
+	});
+
+	it("the seam is ABSENT on BOTH sides without AI14ALL_E2E (unreachable in production)", () => {
+		expect(isInsightsTestSeamEnabled({})).toBe(false);
+
+		// Main side: the channel is never registered.
+		const ipc = stubIpcMain();
+		registerInsightsIpc(asIpc(ipc), host(), vi.fn(), {
+			seam: { signal: vi.fn(), crashWorker: vi.fn() },
+			env: {},
+		});
+		expect(ipc.has(INSIGHTS_TEST_CHANNEL)).toBe(false);
+
+		// Renderer side: this is the EXACT call preload makes, so an unconditional
+		// exposure cannot pass. No flag ⇒ undefined ⇒ window.ai14all.__insightsTest
+		// is absent, and nothing is wired to ipcRenderer.
+		const invoke = vi.fn().mockResolvedValue({ ok: true });
+		expect(buildInsightsTestBridge({}, invoke)).toBeUndefined();
+		expect(invoke).not.toHaveBeenCalled();
+	});
+
+	it("with the flag, the real preload bridge is built and routes to the seam channel", async () => {
+		const invoke = vi.fn().mockResolvedValue({ ok: true });
+		const bridge = buildInsightsTestBridge({ AI14ALL_E2E: "1" }, invoke);
+		expect(bridge).toBeDefined();
+		await bridge!.signal("idle", { atMs: 7, idleSeconds: 3 });
+		expect(invoke).toHaveBeenCalledWith(INSIGHTS_TEST_CHANNEL, {
+			type: "idle",
+			atMs: 7,
+			idleSeconds: 3,
+		});
+		await bridge!.crashWorker();
+		expect(invoke).toHaveBeenLastCalledWith(INSIGHTS_TEST_CHANNEL, {
+			type: "crashWorker",
+		});
+	});
+
+	it("with the flag it accepts ONLY enumerated signals and rejects anything else", () => {
+		expect(isInsightsTestSeamEnabled({ AI14ALL_E2E: "1" })).toBe(true);
+		const ipc = stubIpcMain();
+		const seam = { signal: vi.fn(), crashWorker: vi.fn() };
+		registerInsightsIpc(asIpc(ipc), host(), vi.fn(), {
+			seam,
+			env: { AI14ALL_E2E: "1" },
+		});
+		expect(ipc.has(INSIGHTS_TEST_CHANNEL)).toBe(true);
+
+		// Pin the enumeration itself: the loop below proves every LISTED signal is
+		// accepted, but only this catches the array silently growing an entry.
+		expect(INSIGHTS_TEST_SIGNALS).toEqual([
+			"focus",
+			"blur",
+			"idle",
+			"suspend",
+			"resume",
+			"flush",
+		]);
+
+		// EVERY enumerated signal is accepted and forwarded — not just one.
+		for (const type of INSIGHTS_TEST_SIGNALS) {
+			seam.signal.mockClear();
+			expect(
+				ipc.invoke(INSIGHTS_TEST_CHANNEL, { type, atMs: 5, idleSeconds: 2 }),
+			).toEqual({ ok: true });
+			expect(seam.signal).toHaveBeenCalledWith(type, {
+				atMs: 5,
+				idleSeconds: 2,
+			});
+		}
+		expect(ipc.invoke(INSIGHTS_TEST_CHANNEL, { type: "crashWorker" })).toEqual({
+			ok: true,
+		});
+		expect(seam.crashWorker).toHaveBeenCalled();
+
+		seam.signal.mockClear();
+		expect(ipc.invoke(INSIGHTS_TEST_CHANNEL, { type: "evict" })).toEqual({
+			ok: false,
+			error: "unsupported_signal",
+		});
+		expect(ipc.invoke(INSIGHTS_TEST_CHANNEL, "focus")).toEqual({
+			ok: false,
+			error: "unsupported_signal",
+		});
+		expect(ipc.invoke(INSIGHTS_TEST_CHANNEL, undefined)).toEqual({
+			ok: false,
+			error: "unsupported_signal",
+		});
+		expect(seam.signal).not.toHaveBeenCalled(); // no collector input from a rejected signal
 	});
 });
