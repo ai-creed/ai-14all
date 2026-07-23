@@ -385,6 +385,40 @@ export class TerminalService {
 	}
 
 	// -----------------------------------------------------------------------
+	// writeIfLive — XBP pty-input (child spec §3.1)
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Atomic "write only if currently live" seam for the XBP pty-input path.
+	 * Liveness truth is THIS service's sessions map — the exit handler deletes
+	 * the entry synchronously, so presence here means the PTY is writable now.
+	 * (The pty-inspect catalog's `live` flag deliberately lags exit while the
+	 * mirror drains; it must never gate writes.) Returns false — writing
+	 * nothing — for unknown, exited, or disposed sessions; a throw from the
+	 * underlying pty.write escapes to the caller (mapped to `internal` there).
+	 */
+	writeIfLive(sessionId: string, data: string): boolean {
+		if (this.disposed) return false;
+		const session = this.sessions.get(sessionId);
+		if (!session) return false;
+		const { meta } = session;
+		this.shellEventLog?.log({
+			source: "main",
+			event: "terminal-pty-input-write",
+			windowId: null,
+			data: {
+				terminalSessionId: sessionId,
+				workspaceId: meta.workspaceId,
+				worktreeId: meta.worktreeId,
+				byteLength: Buffer.byteLength(data, "utf8"),
+				truncated: false,
+			},
+		});
+		session.pty.write(data);
+		return true;
+	}
+
+	// -----------------------------------------------------------------------
 	// resize
 	// -----------------------------------------------------------------------
 	resize(sessionId: string, cols: number, rows: number): void {

@@ -644,4 +644,54 @@ describe("TerminalService", () => {
 			expect(service.getDesktopGeometry(session.id)).toBeUndefined();
 		});
 	});
+
+	describe("writeIfLive (XBP pty-input seam, child spec §3.1)", () => {
+		function createServiceWithSession() {
+			const ptyDouble = createPtyDouble();
+			spawnMock.mockReturnValue(ptyDouble);
+			const service = new TerminalService({
+				onOutput: vi.fn(),
+				onExit: vi.fn(),
+				onState: vi.fn(),
+				onError: vi.fn(),
+			});
+			const fireExit = (event: { exitCode: number; signal?: number }) => {
+				const handler = (
+					ptyDouble.onExit as unknown as ReturnType<typeof vi.fn>
+				).mock.calls[0]?.[0] as ExitHandler;
+				handler(event);
+			};
+			return { service, ptyDouble, fireExit };
+		}
+
+		it("writes to a live session and returns true", () => {
+			const { service, ptyDouble } = createServiceWithSession();
+			const session = service.create("ws-1", "wt-1", "/tmp/wt-1");
+			expect(service.writeIfLive(session.id, "y\r")).toBe(true);
+			expect(ptyDouble.write).toHaveBeenCalledTimes(1);
+			expect(ptyDouble.write).toHaveBeenCalledWith("y\r");
+		});
+
+		it("returns false for an unknown session id without writing", () => {
+			const { service, ptyDouble } = createServiceWithSession();
+			service.create("ws-1", "wt-1", "/tmp/wt-1");
+			expect(service.writeIfLive("nope", "y\r")).toBe(false);
+			expect(ptyDouble.write).not.toHaveBeenCalled();
+		});
+
+		it("returns false after the session exits — no write ever reaches a dead PTY", () => {
+			const { service, ptyDouble, fireExit } = createServiceWithSession();
+			const session = service.create("ws-1", "wt-1", "/tmp/wt-1");
+			fireExit({ exitCode: 0 });
+			expect(service.writeIfLive(session.id, "y\r")).toBe(false);
+			expect(ptyDouble.write).not.toHaveBeenCalled();
+		});
+
+		it("returns false after dispose()", () => {
+			const { service } = createServiceWithSession();
+			const session = service.create("ws-1", "wt-1", "/tmp/wt-1");
+			service.dispose();
+			expect(service.writeIfLive(session.id, "y\r")).toBe(false);
+		});
+	});
 });
