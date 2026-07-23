@@ -420,6 +420,12 @@ test("app-focus collector: durable within one poll, no engaged inflation, crash 
 			timeout: 10_000,
 		})
 		.toBe(15_000); // a NEW post-delete span reaches the fresh store
+	// Re-assert the zero now that the store+worker are demonstrably live. The poll
+	// above is only a liveness wait: `queryAppTime` also answers 0 from its empty
+	// fallback when the re-forked worker is still cold or the query times out, so
+	// on its own it can pass without ever reading the store. This range is disjoint
+	// from the t1 span, so a real read must still return 0 — pure strengthening.
+	expect((await appTime(t0, t0 + 300_000)).focusedMs).toBe(0);
 
 	await closeApp(app);
 });

@@ -340,6 +340,18 @@ app.whenReady().then(async () => {
 	const appFocusCollector = new AppFocusCollector({
 		window: mainWindow,
 		emit: spanEmitter((event) => insightsHost.produce(event)),
+		// E2e seam: the collector's e2e drives the focus core on a SYNTHETIC
+		// timeline (explicit `atMs` far ahead of the wall clock). A real idle poll
+		// firing mid-test would push a clamped (empty) span and then rewind the
+		// core's focused boundary back to real `Date.now()`, silently shaving the
+		// synthetic totals — and if the runner's OS idle happens to exceed the
+		// engagement threshold it would also close the engaged boundary. Pushing
+		// the interval out to 24 h under the seam means it never fires during a
+		// test, so the synthetic timeline is the only driver. Production keeps the
+		// default IDLE_POLL_MS.
+		pollIntervalMs: isInsightsTestSeamEnabled(process.env)
+			? 86_400_000
+			: undefined,
 	});
 	insightsHost.setAppRunId(appFocusCollector.appRunId);
 	insightsHost.setCollector(appFocusCollector);
