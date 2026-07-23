@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	createNodeSodiumBackend,
+	deriveHostId,
+	fromHex,
 	generateIdentity,
 	toHex,
 } from "@xavier/xbp/node";
@@ -301,8 +303,10 @@ describe("XbpHostService", () => {
 		const offer = await svc.startPairing();
 		expect(offer.connect.urls).toHaveLength(2);
 		expect(offer.connect.urls[0]).toMatch(/^ws:\/\//);
-		expect(offer.connect.urls[1]).toMatch(
-			/^wss:\/\/relay\.example\.com\/connect\/.+$/,
+		const backend = await createNodeSodiumBackend();
+		const expectedHostId = deriveHostId(backend, fromHex(offer.signPubHex));
+		expect(offer.connect.urls[1]).toBe(
+			`wss://relay.example.com/connect/${expectedHostId}`,
 		);
 	});
 });
