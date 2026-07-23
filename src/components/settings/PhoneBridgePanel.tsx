@@ -275,8 +275,8 @@ export function PhoneBridgePanel(): React.ReactElement {
 							<span className="phone-bridge__device-toggle-label">
 								Terminal input
 								<span className="phone-bridge__hint phone-bridge__hint--tight">
-									Phone may type into live agent terminals. Off = disarm
-									without unpairing.
+									Phone may type into live agent terminals. Off = disarm without
+									unpairing.
 								</span>
 							</span>
 							<Switch

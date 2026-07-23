@@ -363,11 +363,7 @@ test("pty-input: host disarm switch gates a paired phone's terminal input", asyn
 		const wt =
 			worktrees.find((w: { path: string }) => w.path === repoPath) ??
 			worktrees[0];
-		const session = await ai.terminals.create(
-			ws.workspaceId,
-			wt.id,
-			repoPath,
-		);
+		const session = await ai.terminals.create(ws.workspaceId, wt.id, repoPath);
 		await ai.agentPtys.upsert({
 			worktreeId: wt.id,
 			agentId: "e2e-agent",

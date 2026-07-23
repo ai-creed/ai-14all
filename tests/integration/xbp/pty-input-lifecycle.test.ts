@@ -161,9 +161,7 @@ async function setupPtyInputSession(
 		isPtyInputEnabled: () => ptyInputEnabled,
 		resolvePty: (worktreeId, agentId) => {
 			const entry = ptyInspect.catalog.getEntry(worktreeId, agentId);
-			return entry
-				? { terminalSessionId: entry.terminalSessionId }
-				: undefined;
+			return entry ? { terminalSessionId: entry.terminalSessionId } : undefined;
 		},
 		writeIfLive: (terminalSessionId, data) =>
 			ts.writeIfLive(terminalSessionId, data),
@@ -445,7 +443,9 @@ describe("XBP PTY input lifecycle (control:pty-write, real dispatch)", () => {
 
 	it("drain-window liveness (Bug-1, real exit ordering): kill the PTY, dispatch inside the mirror-drain window while catalog.live is STILL true → no-live-agent, zero new writes", async () => {
 		const h = await setupPtyInputSession();
-		const { ptyDouble, worktreeId, agentId } = h.seedAgent({ agentId: "drain" });
+		const { ptyDouble, worktreeId, agentId } = h.seedAgent({
+			agentId: "drain",
+		});
 
 		// kill() fires onExit synchronously: TerminalService deletes its session
 		// (so writeIfLive will return false) AND the mirrors hook fire-and-forgets
