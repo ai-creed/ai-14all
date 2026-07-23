@@ -34,6 +34,10 @@ import { startUpdateService } from "./services/update-service.js";
 import { UsageHost, USAGE_SNAPSHOT_CHANNEL } from "./services/usage-host.js";
 import { createUsageSettingsBridge } from "./services/usage-settings-bridge.js";
 import { InsightsHost } from "./services/insights-host.js";
+import {
+	AppFocusCollector,
+	spanEmitter,
+} from "./services/app-focus-collector.js";
 import { applyInsightsConsent } from "./insights-ipc.js";
 import type { KnownWorktree } from "../../shared/models/usage.js";
 import { ReviewCommentStore } from "../../services/review/review-comment-store.js";
@@ -330,6 +334,15 @@ app.whenReady().then(async () => {
 				usageTelemetry: { insights: { noticeShown: v } },
 			}),
 	});
+	// App-focus collector (spec §4): armed/disarmed with effective consent by the
+	// host, which also applies capture-time consent before buffering each span.
+	const appFocusCollector = new AppFocusCollector({
+		window: mainWindow,
+		emit: spanEmitter((event) => insightsHost.produce(event)),
+	});
+	insightsHost.setAppRunId(appFocusCollector.appRunId);
+	insightsHost.setCollector(appFocusCollector);
+	app.on("before-quit", () => appFocusCollector.flush());
 	// Gate the worker from persisted settings at startup (master kill): starts only
 	// when global telemetry AND the insights sub-toggle are enabled.
 	applyInsightsConsent(insightsHost, settingsService.readStateSync().settings);
