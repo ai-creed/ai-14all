@@ -19,6 +19,7 @@ const base: Status = {
 	pairedAt: null,
 	grantedPermissions: null,
 	lastError: null,
+	relay: "off",
 };
 
 function mountBridge(status: Status, overrides: Record<string, unknown> = {}) {

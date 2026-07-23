@@ -165,6 +165,7 @@ describe("registerXbpIpc", () => {
 			pairedAt: null,
 			grantedPermissions: null,
 			lastError: null,
+			relay: "off",
 		});
 	});
 });

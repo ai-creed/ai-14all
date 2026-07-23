@@ -562,6 +562,7 @@ app.whenReady().then(async () => {
 			pushTokenStore,
 			pushTokenHandlers,
 			ptyInspect: ptyInspectService,
+			initialRelayBaseUrl: persistedSettings.phoneBridge.relayBaseUrl,
 			subscribeChanges: (cb) => {
 				const offReviews = reviewCommentService.onChange(() => cb());
 				const offWorktrees = workspaceRegistry.onChange(cb);
@@ -775,6 +776,7 @@ app.whenReady().then(async () => {
 		},
 		usageHost,
 		usageSettingsBridge: usageSettings,
+		getPhoneBridgeApplier: () => xbpService,
 		installUpdate: () => updateService.installUpdate(),
 		closeGate,
 		getCortexEnabled: () => pluginConfig.get("cortex").enabled,

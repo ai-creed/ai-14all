@@ -150,6 +150,7 @@ export function registerIpcHandlers(
 		review,
 		usageHost,
 		usageSettingsBridge,
+		getPhoneBridgeApplier,
 		installUpdate,
 		closeGate,
 		getCortexEnabled,
@@ -172,6 +173,9 @@ export function registerIpcHandlers(
 		};
 		usageHost?: UsageHost;
 		usageSettingsBridge?: Pick<UsageSettingsBridge, "refresh">;
+		getPhoneBridgeApplier?: () => {
+			applyRelayBaseUrl(url: string): void;
+		} | null;
 		installUpdate?: () => void;
 		closeGate?: import("./close-gate.js").CloseGate;
 		getCortexEnabled: () => boolean;
@@ -631,6 +635,14 @@ export function registerIpcHandlers(
 			usageHost?.applyIncludeUntracked(merged.usageTelemetry.includeUntracked);
 			usageHost?.setEnabled(merged.usageTelemetry.enabled);
 			usageSettingsBridge?.refresh(merged);
+		}
+		// Same live-apply funnel as usageTelemetry above: writeState() already
+		// persisted; applyRelayBaseUrl() is a NON-persisting applier, so this
+		// cannot loop into another settings write.
+		if (patch.phoneBridge) {
+			getPhoneBridgeApplier?.()?.applyRelayBaseUrl(
+				merged.phoneBridge.relayBaseUrl,
+			);
 		}
 		for (const win of BrowserWindow.getAllWindows()) {
 			win.webContents.send("settings:changed", merged);
