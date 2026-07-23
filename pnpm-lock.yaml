@@ -54,8 +54,8 @@ importers:
         specifier: ^3.13.23
         version: 3.13.23(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@xavier/xbp':
-        specifier: file:vendor/xavier-xbp-0.1.0-alpha.0.tgz
-        version: file:vendor/xavier-xbp-0.1.0-alpha.0.tgz
+        specifier: file:vendor/xavier-xbp-0.1.0-alpha.1.tgz
+        version: file:vendor/xavier-xbp-0.1.0-alpha.1.tgz
       '@xterm/addon-fit':
         specifier: ^0.11.0
         version: 0.11.0
@@ -1797,9 +1797,9 @@ packages:
   '@vitest/utils@4.1.2':
     resolution: {integrity: sha512-xw2/TiX82lQHA06cgbqRKFb5lCAy3axQ4H4SoUFhUsg+wztiet+co86IAMDtF6Vm1hc7J6j09oh/rgDn+JdKIQ==}
 
-  '@xavier/xbp@file:vendor/xavier-xbp-0.1.0-alpha.0.tgz':
-    resolution: {integrity: sha512-hOYiT05ojaswmv+V5L7j+b0ltHRXks54LASwnQP7czSL3RYs44AsVxNWi76I4oVj1gbzxg3ue6fafw6WIoWDDA==, tarball: file:vendor/xavier-xbp-0.1.0-alpha.0.tgz}
-    version: 0.1.0-alpha.0
+  '@xavier/xbp@file:vendor/xavier-xbp-0.1.0-alpha.1.tgz':
+    resolution: {integrity: sha512-e/VPS046JO7u3XiPiiHWaJLIsxKKHTfaZaS2QW19aky2IYq5frhVEvPuZDiU6lOPpzdCqAYrt+RV8M3woyLpKw==, tarball: file:vendor/xavier-xbp-0.1.0-alpha.1.tgz}
+    version: 0.1.0-alpha.1
 
   '@xmldom/xmldom@0.8.13':
     resolution: {integrity: sha512-KRYzxepc14G/CEpEGc3Yn+JKaAeT63smlDr+vjB8jRfgTBBI9wRj/nkQEO+ucV8p8I9bfKLWp37uHgFrbntPvw==}
@@ -5813,7 +5813,7 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
 
-  '@xavier/xbp@file:vendor/xavier-xbp-0.1.0-alpha.0.tgz':
+  '@xavier/xbp@file:vendor/xavier-xbp-0.1.0-alpha.1.tgz':
     dependencies:
       '@ai-creed/command-contract': file:vendor/ai-creed-command-contract-0.1.0-alpha.6.tgz
       libsodium-wrappers: 0.7.16
