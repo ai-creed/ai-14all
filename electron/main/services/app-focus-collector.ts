@@ -38,7 +38,7 @@ export class AppFocusCollector implements InsightsCollector {
 	private readonly onBlur = () => this.feed(this.core.blur(this.now()));
 	private readonly onSuspend = () => this.feed(this.core.suspend(this.now()));
 	private readonly onResume = () =>
-		this.feed(this.core.resume(this.now(), this.deps.window.isFocused()));
+		this.feed(this.core.resume(this.now(), this.isWindowFocused()));
 
 	constructor(private readonly deps: AppFocusCollectorDeps) {}
 
@@ -50,6 +50,12 @@ export class AppFocusCollector implements InsightsCollector {
 		return (
 			this.deps.getIdleSeconds ?? (() => powerMonitor.getSystemIdleTime())
 		)();
+	}
+
+	// BrowserWindow#isFocused() throws once the window is destroyed; treat a
+	// destroyed window as "not focused" rather than letting the shell crash.
+	private isWindowFocused(): boolean {
+		return !this.deps.window.isDestroyed() && this.deps.window.isFocused();
 	}
 
 	private feed(spans: AppSpan[]): void {
@@ -70,7 +76,7 @@ export class AppFocusCollector implements InsightsCollector {
 			this.deps.pollIntervalMs ?? IDLE_POLL_MS,
 		);
 		// The window may already hold focus when capture is enabled mid-session.
-		if (this.deps.window.isFocused()) this.feed(this.core.focus(this.now()));
+		if (this.isWindowFocused()) this.feed(this.core.focus(this.now()));
 	}
 
 	/** Disable/pause: drop open engagement, return the finalizing uptime span(s). */
@@ -89,6 +95,14 @@ export class AppFocusCollector implements InsightsCollector {
 	/** Graceful quit: close open spans and the uptime interval. */
 	flush(): void {
 		this.feed(this.core.flush(this.now()));
+		// A quit can be CANCELLED (close-gate prevents default on unsaved buffers),
+		// so leave the collector live: re-open the uptime interval, and the focused
+		// span if the window still holds focus. Without this a cancelled quit
+		// silently ends app.uptime capture for the rest of the session.
+		if (this.armed) {
+			this.core.start(this.now());
+			if (this.isWindowFocused()) this.feed(this.core.focus(this.now()));
+		}
 	}
 
 	/**
@@ -110,7 +124,7 @@ export class AppFocusCollector implements InsightsCollector {
 			case "suspend":
 				return this.feed(this.core.suspend(at));
 			case "resume":
-				return this.feed(this.core.resume(at, this.deps.window.isFocused()));
+				return this.feed(this.core.resume(at, this.isWindowFocused()));
 			case "flush":
 				return this.feed(this.core.flush(at));
 		}
