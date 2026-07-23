@@ -107,4 +107,39 @@ describe("focus-core", () => {
 		const b = c.blur(5 * S); // end < start
 		expect(b).toEqual([]);
 	});
+
+	it("a non-advancing lastInput must not move the engaged boundary backwards", () => {
+		const c = createFocusCore();
+		c.start(0);
+		c.focus(0);
+		const p1 = c.idlePoll(15 * S, 5); // lastInput = 10s
+		expect(bounds(of(p1, "app.engaged"))).toEqual([[0, 10 * S]]);
+		const p2 = c.idlePoll(30 * S, 25); // lastInput = 5s, behind the boundary
+		expect(of(p2, "app.engaged")).toEqual([]);
+		const p3 = c.idlePoll(45 * S, 1); // lastInput = 44s
+		expect(bounds(of(p3, "app.engaged"))).toEqual([[10 * S, 44 * S]]);
+	});
+
+	it("resume(now, true) opens focused immediately but does not reopen engaged until the next input poll", () => {
+		const c = createFocusCore();
+		c.start(0);
+		c.focus(0);
+		c.suspend(30 * S);
+		const r = c.resume(100 * S, true);
+		expect(of(r, "app.engaged")).toEqual([]);
+		const p1 = c.idlePoll(115 * S, 0); // lastInput = 115s: reopens engaged, emits nothing
+		expect(bounds(of(p1, "app.focused"))).toEqual([[100 * S, 115 * S]]);
+		expect(of(p1, "app.engaged")).toEqual([]);
+		const p2 = c.idlePoll(130 * S, 0);
+		expect(bounds(of(p2, "app.engaged"))).toEqual([[115 * S, 130 * S]]);
+	});
+
+	it('crossing the idle threshold emits the engaged remainder with reason "idle"', () => {
+		const c = createFocusCore();
+		c.start(0);
+		c.focus(0);
+		const p = c.idlePoll(200 * S, 65); // lastInput = 135s, idleMs >= threshold
+		expect(bounds(of(p, "app.engaged"))).toEqual([[0, 135 * S]]);
+		expect(of(p, "app.engaged")[0].reason).toBe("idle");
+	});
 });
