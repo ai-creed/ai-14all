@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { Switch } from "@/components/ui/switch";
+import { useSettings } from "../../app/hooks/use-settings";
 import type { PhoneBridgeStatus } from "../../../shared/contracts/commands";
 import {
 	countdownLabel,
@@ -28,6 +29,7 @@ function deriveView(status: PhoneBridgeStatus | null): View {
  * the exact step from status.
  */
 export function PhoneBridgePanel(): React.ReactElement {
+	const { settings, update } = useSettings();
 	const [status, setStatus] = useState<PhoneBridgeStatus | null>(null);
 	const [actionError, setActionError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -268,6 +270,23 @@ export function PhoneBridgePanel(): React.ReactElement {
 									Unpair
 								</button>
 							)}
+						</div>
+						<div className="phone-bridge__device-toggle">
+							<span className="phone-bridge__device-toggle-label">
+								Terminal input
+								<span className="phone-bridge__hint phone-bridge__hint--tight">
+									Phone may type into live agent terminals. Off = disarm
+									without unpairing.
+								</span>
+							</span>
+							<Switch
+								checked={settings.phoneBridge.ptyInputEnabled}
+								disabled={busy}
+								onCheckedChange={(checked) =>
+									void update({ phoneBridge: { ptyInputEnabled: checked } })
+								}
+								aria-label="Allow phone terminal input"
+							/>
 						</div>
 						{confirmingUnpair && (
 							<div

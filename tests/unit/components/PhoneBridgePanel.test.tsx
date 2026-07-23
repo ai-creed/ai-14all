@@ -4,6 +4,8 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PhoneBridgePanel } from "../../../src/components/settings/PhoneBridgePanel";
+import { SettingsProvider } from "../../../src/app/hooks/use-settings";
+import { DEFAULT_PERSISTED_SETTINGS } from "../../../shared/models/persisted-settings";
 import type { PhoneBridgeStatus as Status } from "../../../shared/contracts/commands";
 
 const base: Status = {
@@ -32,8 +34,41 @@ function mountBridge(status: Status, overrides: Record<string, unknown> = {}) {
 		onStatusChanged: vi.fn().mockReturnValue(() => {}),
 		...overrides,
 	};
-	(window as unknown as { ai14all: unknown }).ai14all = { phoneBridge: api };
+	(window as unknown as { ai14all: unknown }).ai14all = {
+		phoneBridge: api,
+		settings: {
+			initial: DEFAULT_PERSISTED_SETTINGS,
+			write: vi.fn().mockImplementation(async (patch) => ({
+				...DEFAULT_PERSISTED_SETTINGS,
+				...patch,
+				phoneBridge: {
+					...DEFAULT_PERSISTED_SETTINGS.phoneBridge,
+					...(patch.phoneBridge ?? {}),
+				},
+			})),
+		},
+		events: { onSettingsChanged: vi.fn().mockReturnValue(() => {}) },
+	};
 	return api;
+}
+
+/** Renders the panel wrapped in its real SettingsProvider — the panel now
+ * reads/writes the phone-bridge PTY-input disarm switch through
+ * useSettings(), which throws outside a provider. */
+function renderPanel() {
+	return render(
+		<SettingsProvider>
+			<PhoneBridgePanel />
+		</SettingsProvider>,
+	);
+}
+
+function settingsWriteSpy() {
+	return (
+		window as unknown as {
+			ai14all: { settings: { write: ReturnType<typeof vi.fn> } };
+		}
+	).ai14all.settings.write;
 }
 
 afterEach(() => {
@@ -43,20 +78,20 @@ afterEach(() => {
 describe("PhoneBridgePanel state machine", () => {
 	it("shows the loading view until status resolves", () => {
 		mountBridge(base, { status: vi.fn(() => new Promise(() => {})) });
-		render(<PhoneBridgePanel />);
+		renderPanel();
 		expect(screen.getByTestId("view-loading")).toBeInTheDocument();
 	});
 
 	it("renders no duplicate title heading (the dialog owns the title)", async () => {
 		mountBridge(base);
-		render(<PhoneBridgePanel />);
+		renderPanel();
 		await screen.findByTestId("view-idle");
 		expect(screen.queryByRole("heading")).toBeNull();
 	});
 
 	it("off: explainer only, no pair button", async () => {
 		mountBridge({ ...base, enabled: false, listening: false });
-		render(<PhoneBridgePanel />);
+		renderPanel();
 		expect(await screen.findByTestId("view-off")).toBeInTheDocument();
 		expect(screen.getByText(/bridge off/i)).toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: /pair a phone/i })).toBeNull();
@@ -64,7 +99,7 @@ describe("PhoneBridgePanel state machine", () => {
 
 	it("idle: shows the address strip and starts pairing on click without rendering a QR", async () => {
 		const api = mountBridge(base);
-		render(<PhoneBridgePanel />);
+		renderPanel();
 		expect(await screen.findByText(/10\.0\.0\.5:51820/)).toBeInTheDocument();
 		await userEvent.click(
 			screen.getByRole("button", { name: /pair a phone/i }),
@@ -81,7 +116,7 @@ describe("PhoneBridgePanel state machine", () => {
 			offer: JSON.stringify({ token: "t", connect: { url: "ws://x" } }),
 			offerExpiresAt: Date.now() + 120_000,
 		});
-		render(<PhoneBridgePanel />);
+		renderPanel();
 		expect(await screen.findByTestId("pairing-qr")).toBeInTheDocument();
 		expect(screen.getByText(/expires in/i)).toBeInTheDocument();
 		await userEvent.click(screen.getByRole("button", { name: /cancel/i }));
@@ -94,7 +129,7 @@ describe("PhoneBridgePanel state machine", () => {
 			sas: "048213",
 			pairing: "awaiting-sas",
 		});
-		render(<PhoneBridgePanel />);
+		renderPanel();
 		expect(await screen.findByText("048 213")).toBeInTheDocument();
 		await userEvent.click(screen.getByRole("button", { name: /^confirm$/i }));
 		expect(api.confirmSas).toHaveBeenCalledWith(true);
@@ -115,7 +150,7 @@ describe("PhoneBridgePanel state machine", () => {
 			},
 			{ forget },
 		);
-		render(<PhoneBridgePanel />);
+		renderPanel();
 		expect(await screen.findByTestId("view-paired")).toBeInTheDocument();
 		expect(screen.getByText(/paired 3 days ago/i)).toBeInTheDocument();
 		expect(screen.getByText(/can act/i)).toBeInTheDocument();
@@ -128,13 +163,48 @@ describe("PhoneBridgePanel state machine", () => {
 		expect(api.forget).toHaveBeenCalledTimes(1);
 	});
 
+	it("paired view renders the terminal-input disarm switch ON by default", async () => {
+		mountBridge({
+			...base,
+			paired: true,
+			pairedAt: Date.now() - 3 * 86_400_000,
+			grantedPermissions: ["control:act"],
+		});
+		renderPanel();
+		await screen.findByTestId("view-paired");
+		const sw = await screen.findByRole("switch", {
+			name: "Allow phone terminal input",
+		});
+		expect(sw).toBeChecked();
+	});
+
+	it("toggling the switch writes { phoneBridge: { ptyInputEnabled: false } }", async () => {
+		mountBridge({
+			...base,
+			paired: true,
+			pairedAt: Date.now() - 3 * 86_400_000,
+			grantedPermissions: ["control:act"],
+		});
+		renderPanel();
+		await screen.findByTestId("view-paired");
+		const sw = await screen.findByRole("switch", {
+			name: "Allow phone terminal input",
+		});
+		await userEvent.click(sw);
+		expect(settingsWriteSpy()).toHaveBeenCalledWith(
+			expect.objectContaining({
+				phoneBridge: expect.objectContaining({ ptyInputEnabled: false }),
+			}),
+		);
+	});
+
 	it("fault: enabled-but-not-listening features lastError detail", async () => {
 		mountBridge({
 			...base,
 			listening: false,
 			lastError: "listen EADDRINUSE: address already in use",
 		});
-		render(<PhoneBridgePanel />);
+		renderPanel();
 		expect(await screen.findByTestId("view-fault")).toBeInTheDocument();
 		expect(screen.getByText(/EADDRINUSE/)).toBeInTheDocument();
 	});
@@ -144,7 +214,7 @@ describe("PhoneBridgePanel state machine", () => {
 			{ ...base, sas: "048213", pairing: "awaiting-sas" },
 			{ confirmSas: vi.fn().mockRejectedValue(new Error("boom")) },
 		);
-		render(<PhoneBridgePanel />);
+		renderPanel();
 		await userEvent.click(
 			await screen.findByRole("button", { name: /^confirm$/i }),
 		);
@@ -163,7 +233,7 @@ describe("PhoneBridgePanel state machine", () => {
 				}),
 			},
 		);
-		render(<PhoneBridgePanel />);
+		renderPanel();
 		await userEvent.click(
 			await screen.findByRole("button", { name: /^confirm$/i }),
 		);
@@ -176,7 +246,7 @@ describe("PhoneBridgePanel state machine", () => {
 
 	it("renders the status-carried lastError as a danger line outside the fault view", async () => {
 		mountBridge({ ...base, lastError: "startPairing failed: not listening" });
-		render(<PhoneBridgePanel />);
+		renderPanel();
 		expect(await screen.findByTestId("last-error")).toHaveTextContent(
 			/startPairing failed/,
 		);

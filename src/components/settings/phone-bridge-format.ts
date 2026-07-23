@@ -33,7 +33,8 @@ export function relativeTimeSince(then: number, now: number): string {
  */
 export function permissionsLabel(perms: string[] | null): string {
 	if (!perms || perms.length === 0) return "session reports (read-only)";
-	return perms.includes("control:act")
-		? "session reports · can act on workflows"
-		: "session reports (read-only)";
+	if (!perms.includes("control:act")) return "session reports (read-only)";
+	const parts = ["session reports", "can act on workflows"];
+	if (perms.includes("control:pty-write")) parts.push("can type into terminals");
+	return parts.join(" · ");
 }

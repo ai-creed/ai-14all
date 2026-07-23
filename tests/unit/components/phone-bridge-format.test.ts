@@ -47,4 +47,13 @@ describe("permissionsLabel", () => {
 	it("control:act reads as can-act", () => {
 		expect(permissionsLabel(["control:act"])).toContain("can act");
 	});
+	it("names terminal input when control:pty-write is granted", () => {
+		expect(
+			permissionsLabel(["session:report", "control:act", "control:pty-write"]),
+		).toBe("session reports · can act on workflows · can type into terminals");
+		expect(permissionsLabel(["session:report", "control:act"])).toBe(
+			"session reports · can act on workflows",
+		);
+		expect(permissionsLabel(null)).toBe("session reports (read-only)");
+	});
 });
