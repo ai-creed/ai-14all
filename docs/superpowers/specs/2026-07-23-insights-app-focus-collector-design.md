@@ -97,7 +97,7 @@ Common fields:
 
 ## 6. The outbox — at-least-once delivery
 
-The producer (main) and the store owner (worker) are different processes; the worker can crash or be intentionally stopped (delete-all). The outbox guarantees every closed span **retained in the bounded buffer** is delivered at least once, and idempotency (§5) makes "at least once" equal "exactly once" in effect. The guarantee is explicitly **bounded-buffer delivery, not unbounded**: the sole loss path is overflow past the 500-cap (below), which drops and logs the oldest unacked span.
+The producer (main) and the store owner (worker) are different processes; the worker can crash or be intentionally stopped (delete-all). The outbox guarantees every closed span **retained in the bounded buffer** is delivered at least once, and idempotency (§5) makes "at least once" equal "exactly once" in effect. The guarantee is explicitly **bounded-buffer delivery, not unbounded**, and scoped to the **live worker-crash-recovery** case: while the app is running, the only loss path is overflow past the 500-cap (below), which drops and logs the oldest unacked span. A full-app crash is a *separate*, out-of-scope loss boundary — it forfeits the entire in-memory buffer (§4, §13), because the outbox is deliberately not persisted across app restarts. So there are two enumerated loss boundaries — bounded overflow (live) and full-app crash — and no other.
 
 **Protocol additions (`worker-protocol.ts`):**
 - Main → worker: `{ kind: "producerEvent"; eventId: string; observation: ObservationInput }`
