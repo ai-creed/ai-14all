@@ -113,7 +113,13 @@ export class XbpPeerSession {
 			phoneBoxPub,
 			grantedPermissions,
 		);
-		peer.expose(sessionReportCapability, () => this.opts.getSessionReport());
+		// V1 grant disclosure (child spec §1.1 / umbrella §5.7): every report
+		// carries the pairing's EXACT live grant set — the phone's authoritative,
+		// fail-closed dock-gate signal. Never a superset.
+		peer.expose(sessionReportCapability, async () => ({
+			...(await this.opts.getSessionReport()),
+			grantedScopes: [...grantedPermissions],
+		}));
 
 		const acting = this.opts.acting;
 		if (acting) {
