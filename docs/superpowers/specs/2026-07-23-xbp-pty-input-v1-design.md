@@ -63,12 +63,19 @@ One new capability **`pty-input`**, sibling to the `pty-inspect` family, under `
 export const PtyInputKey = z.enum(["enter", "up", "down", "esc", "ctrl-c"]);
 export type PtyInputKey = z.infer<typeof PtyInputKey>;
 
+// `{ text }` is PRINTABLE-only — C0 (U+0000–U+001F), DEL (U+007F), and C1
+// (U+0080–U+009F) controls are rejected, so free text cannot synthesize the
+// bytes the named keys own (ETX 0x03 = ctrl-c, ESC 0x1B = esc, CR 0x0D = enter)
+// or NUL. Named keys are the ONLY path to control bytes (§3, "no raw-byte
+// synthesis on the phone"); this also keeps ⌃C behind its confirm gate.
+export const PtyText = z.string().min(1).regex(/^[^\u0000-\u001F\u007F-\u009F]+$/u);
+
 // Exactly one of text | key per chunk. BOTH members are `.strict()`: zod strips
 // unknown keys by default, so a non-strict union would accept `{ text, key }`
 // (matching the first member and dropping `key`). `.strict()` makes both
 // `{ text, key }` and `{}` fail to parse. (Verified against zod 4.4.3.)
 export const PtyInputChunk = z.union([
-  z.object({ text: z.string().min(1) }).strict(),
+  z.object({ text: PtyText }).strict(),
   z.object({ key: PtyInputKey }).strict(),
 ]);
 export type PtyInputChunk = z.infer<typeof PtyInputChunk>;
@@ -94,7 +101,7 @@ export const PtyInputResult = z.discriminatedUnion("ok", [
 export type PtyInputResult = z.infer<typeof PtyInputResult>;
 ```
 
-- **Malformed requests** (empty `chunks`, a chunk with neither/both of `text`/`key`, an empty `text`, an unknown `key`) are rejected at the **schema/protocol layer** — never as a result-union code.
+- **Malformed requests** (empty `chunks`, a chunk with neither/both of `text`/`key`, an empty `text`, an unknown `key`, **or a `{ text }` carrying a terminal control byte** — ETX/ESC/CR/LF/NUL/DEL/C1) are rejected at the **schema/protocol layer** — never as a result-union code. The control-byte rejection is the schema-level enforcement of "no raw-byte synthesis" (§3): free text cannot reach the bytes the named keys own, so `⌃C` stays behind its confirm gate.
 - **Missing `control:pty-write`**, and tamper / forge / replay, are handled at the **protocol layer** (Peer → `rejected`); no result code.
 - The executor **always** returns a schema-valid result for expected refusals and never throws; the Peer records `accepted` and the refusal rides back in the ack. Only an *unexpected* throw becomes a Peer handler-error → protocol `rejected` (fail-closed net). Mirrors the acting path.
 
@@ -184,6 +191,7 @@ Detail in the xavier child spec. The approved composition (visual brainstorm, 20
 | Agent switched mid-compose | Staged compose text cleared; immediate keys retarget to the new active agent |
 | Keyboard opens/closes (rows change) | No viewport re-report, no resize; phone scrolls its inverted list |
 | Malformed chunk (unknown key / empty text / empty list) | Schema/protocol rejection; never a result code |
+| `{ text }` carries a control byte (ETX/ESC/CR/LF/NUL) | Schema/protocol rejection; control bytes reach the PTY only via named keys, never free text |
 | Rapid arrow taps for menu nav | Each tap = its own event + audit entry; host writes in order; coalesced redraws pull back |
 | Hint lost after input | Next hint or screen re-focus triggers a pull (read-side healing) |
 | Submit while scrolled up | Snaps to follow-tail so the redraw is visible |
@@ -191,8 +199,8 @@ Detail in the xavier child spec. The approved composition (visual brainstorm, 20
 
 ## 10. Testing & acceptance
 
-- **Contract (ai-xavier):** round-trip encode/decode of `PtyInputArgs` (every chunk kind, ordered lists) and the `PtyInputResult` union; schema rejection of malformed chunks (both/neither/empty — against the `.strict()` members); `SessionReportResult` round-trips **with and without** `grantedScopes` (a v7-shaped report with the field absent must parse, proving the field is optional — the reconnect-bricking regression).
-- **Conformance (ai-xavier, `packages/xbp`):** since control caps ride the **Peer** layer, add **Peer-level** `pty-input` checks — missing `control:pty-write` → `permission-denied`; malformed args → `schema-invalid`; accepted request audited at `risk: 'high'`; and a `Peer.call` **`bad-result`** negative test proving a malformed `PtyInputResult` handler return is rejected (result validation lives in `Peer.call`, not the serving side). XBP-PROTOCOL §12 requires this — the trust-model change lands as a conformance change.
+- **Contract (ai-xavier):** round-trip encode/decode of `PtyInputArgs` (every chunk kind, ordered lists) and the `PtyInputResult` union; schema rejection of malformed chunks (both/neither/empty — against the `.strict()` members); **`{ text }` control-byte rejection** (ETX/ESC/CR/LF/NUL/DEL/C1 reject, ascii/accented/emoji accept — build via `String.fromCharCode`, never literal control bytes in source); `SessionReportResult` round-trips **with and without** `grantedScopes` (a v7-shaped report with the field absent must parse, proving the field is optional — the reconnect-bricking regression).
+- **Conformance (ai-xavier, `packages/xbp`):** since control caps ride the **Peer** layer, add **Peer-level** `pty-input` checks — missing `control:pty-write` → `permission-denied`; malformed args (incl. **a handcrafted frame with a control byte in `{ text }`**, proving a downlevel/malicious client can't smuggle ETX past the boundary) → `schema-invalid`; accepted request audited at `risk: 'high'`; and a `Peer.call` **`bad-result`** negative test proving a malformed `PtyInputResult` handler return is rejected (result validation lives in `Peer.call`, not the serving side). XBP-PROTOCOL §12 requires this — the trust-model change lands as a conformance change.
 - **Host (ai-14all):** translation-table unit tests (each `PtyInputKey` → exact bytes; text → UTF-8); order preservation of a mixed chunk list; grant enforcement; **`session-report.grantedScopes` reflects the pairing grant set** (granted vs read-only pairing); arm-toggle gate (default-on, disarmed refusal); `no-live-agent` / `no-such-pty` refusals; audit entry shapes (protocol + semantic, literal content, apply vs reject routes).
 - **Phone (ai-xavier):** TDD on pure helpers — chunk builder (text submit → `[{text},{key:'enter'}]`); strict key-bar (never reads the buffer); agent-switch-clears-staged reducer; submit-snaps-to-tail state; sent/syncing affordance state machine; `⌃C` confirm gate (tap arms, only Interrupt fires); keyboard-up does not re-report viewport.
 - **Joint acceptance (house tradition):** real iPhone + real LAN + real 14all running a live agent — answer a Claude Code permission prompt with `↑`/`↓` + `⏎`; send a free-text follow-up; interrupt a runaway with `⌃C` (through the confirm); feel out echo latency; toggle host disarm and confirm refusal; re-pair to acquire `control:pty-write`.

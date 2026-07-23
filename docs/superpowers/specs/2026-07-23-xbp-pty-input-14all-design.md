@@ -42,6 +42,8 @@ Model on `xbp-acting-executor.ts`. Contract: **always** return a schema-valid `P
 | `{ key: 'esc' }` | `\x1b` (`0x1B`) |
 | `{ key: 'ctrl-c' }` | `\x03` |
 
+**`{ text }` is control-free by contract.** The contract's `PtyText` schema (xavier child §1.2) rejects C0/DEL/C1 code points, and the Peer validates args at dispatch **before** the executor runs, so the UTF-8 encoding of a `{ text }` chunk can never emit `\x03` (ETX), `\x1b` (ESC), `\r` (CR), or NUL. Named keys are therefore the **only** way a control byte reaches the PTY — the executor must not add any control-byte synthesis of its own, and must not attempt to "sanitize" or re-encode text (it is already safe). This keeps `⌃C` reachable only through the confirmed `{ key: 'ctrl-c' }` path.
+
 No new PTY is ever created; input only reaches already-live, host-spawned PTYs. There is no echo response — the agent's redraw flows back through the existing `pty-changed` → `pty-rows` loop.
 
 ### 3.1 Hardening — apply the acting-path lessons (`mem-2026-07-07`, **critical**)
@@ -70,6 +72,7 @@ Already shipped in ai-xavier (contract + phone). If the host SIGWINCH/restore is
 - **Exited/terminal-state agent → `no-live-agent`** (not `internal`) with **no** `write()` attempted (`mem-2026-07-07` Bug 1). Write the failing test first.
 - **Sanitized `internal`**: an induced internal failure returns a bounded, path-free `message` — assert no host filesystem paths, no `stderr`, no stack frames cross the boundary (`mem-2026-07-07` Bug 2). Write the failing test first.
 - Executor never throws for expected refusals; unexpected throw → Peer `rejected`.
+- **Control byte in `{ text }` never reaches `write()`:** a handcrafted `pty-input` frame with a control byte (ETX/ESC/CR/NUL) in a `{ text }` chunk is schema-rejected at Peer dispatch (`schema-invalid`), so the executor is never invoked and no bytes are written. Build the byte via `String.fromCharCode` — never a literal control byte in the test source. Proves the named-key boundary holds even against a client that skips its own validation.
 - Audit shapes: protocol entry present for all; semantic apply entry carries literal `chunks`; reject entries single, no pair.
 
 ## 7. SDD delivery order
