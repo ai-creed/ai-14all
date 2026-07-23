@@ -77,4 +77,27 @@ describe("XbpAuditSink", () => {
 		).not.toThrow();
 		expect(sink.entries()).toEqual([]);
 	});
+
+	it("round-trips optional event and level fields", () => {
+		const dir = mkdtempSync(join(tmpdir(), "xbp-audit-"));
+		const sink = new XbpAuditSink({ dir });
+		sink.append({
+			cap: null,
+			risk: null,
+			outcome: "accepted",
+			level: "info",
+			event: "relay-registered",
+			reason: "host abc @ wss://relay.example.com",
+		});
+		const last = sink.entries().at(-1);
+		expect(last?.event).toBe("relay-registered");
+		expect(last?.level).toBe("info");
+	});
+
+	it("legacy entries without event/level still parse", () => {
+		const dir = mkdtempSync(join(tmpdir(), "xbp-audit-"));
+		const sink = new XbpAuditSink({ dir });
+		sink.append({ cap: "pairing", risk: null, outcome: "accepted" });
+		expect(sink.entries().at(-1)?.event).toBeUndefined();
+	});
 });

@@ -429,6 +429,7 @@ export interface PhoneBridgeStatus {
 	pairedAt: number | null;
 	grantedPermissions: string[] | null;
 	lastError: string | null;
+	relay: "off" | "retrying" | "registered";
 }
 
 // --- The API surface exposed to the renderer via the preload bridge ---

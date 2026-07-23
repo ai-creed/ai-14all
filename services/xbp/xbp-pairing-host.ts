@@ -33,7 +33,7 @@ export class XbpPairingHost {
 			now: opts.now,
 		});
 	}
-	createOffer(connect: { url: string }): PairingOffer {
+	createOffer(connect: { urls: [string, ...string[]] }): PairingOffer {
 		return this.host.createPairingOffer(connect);
 	}
 	handle(frame: Uint8Array): Uint8Array | null {

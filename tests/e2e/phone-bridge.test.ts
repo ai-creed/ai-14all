@@ -70,6 +70,9 @@ import { registerHooks } from "node:module";
 import ts from "typescript";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
 import { closeApp } from "./fixtures/close-app";
+// Plain ws + node https fixture (Task 8): no vendored TS, so it transforms
+// under Playwright's loader without the registerHooks dance above.
+import { startFakeRelay } from "../fixtures/fake-relay";
 
 // Minimal shape of the vendor Transport this file needs — kept local instead
 // of a static `import type { Transport } from "@xavier/xbp/node"` so nothing
@@ -164,7 +167,7 @@ function readStatus(): Promise<PhoneBridgeStatus> {
 	) as Promise<PhoneBridgeStatus>;
 }
 
-// Connects to the offer's own connect.url (what a scanned phone uses)
+// Connects to the offer's own connect.urls[0] (what a scanned phone uses)
 // verbatim first; the host's LAN IPv4 discovery can be flaky in a sandboxed
 // test environment, so fall back to the loopback address on the same port —
 // the server binds 0.0.0.0, so 127.0.0.1 always reaches it too.
@@ -277,7 +280,7 @@ test("full pairing: QR offer -> SAS confirm -> paired card -> unpair", async () 
 	expect(scanStatus.offer).not.toBeNull();
 	const offer = JSON.parse(scanStatus.offer as string) as {
 		token: string;
-		connect: { url: string };
+		connect: { urls: string[] };
 	};
 	expect(scanStatus.port).not.toBeNull();
 
@@ -286,7 +289,7 @@ test("full pairing: QR offer -> SAS confirm -> paired card -> unpair", async () 
 	const refClient = new xbp.ReferenceClient({ backend, identity: phone });
 	const transport = await connectPhoneTransport(
 		xbp.connectWebSocketClient,
-		offer.connect.url,
+		offer.connect.urls[0],
 		scanStatus.port as number,
 	);
 
@@ -424,5 +427,148 @@ test("pty-input: host disarm switch gates a paired phone's terminal input", asyn
 	} finally {
 		peer.stop();
 		await transport.close();
+	}
+});
+
+// Drives the app from a freshly-loaded window to the visible Phone Bridge
+// entry button: Browse (auto-filled via AI14ALL_E2E_PICK_PATH) -> Load ->
+// select the `main` session (the chip bar that hosts the entry button only
+// mounts once a session is active). Parameterised on `p` so it can run against
+// a second/relaunched window without touching the shared module-level `page`.
+async function reachPhoneBridgeButton(
+	p: Page,
+	repoPath: string,
+): Promise<void> {
+	const nav = p.getByRole("navigation", { name: "Worktree sessions" });
+	await p.getByRole("button", { name: "Browse" }).click();
+	await expect(p.locator("#repo-path")).toHaveValue(repoPath);
+	await p.getByRole("button", { name: "Load" }).click();
+	await expect(nav.getByRole("button", { name: /main/i })).toBeVisible({
+		timeout: 15_000,
+	});
+	await nav.getByRole("button", { name: /main/i }).click();
+	await expect(
+		p.getByRole("button", { name: "Open Phone Bridge panel" }),
+	).toBeVisible();
+}
+
+/**
+ * Off-LAN relay settings, end to end through the REAL main -> IPC -> renderer
+ * bridge. Proves all three XbpStatus.relay values surface in the panel's
+ * status line, that the base URL persists across a relaunch, and that Task 9's
+ * boot wiring (initialRelayBaseUrl) re-registers on startup:
+ *
+ *   empty field -> "Relay: off"
+ *   fill fake-relay URL + blur (live-apply) -> "Relay: registered"
+ *   relaunch (same userData, relay still up) -> field persisted + registered
+ *   relay.close() (connection lost, backoff redial refused) -> "Relay: retrying"
+ *   clear field + blur (live-apply teardown) -> "Relay: off"
+ *
+ * Runs its OWN isolated app instance (own repo/state/userData) rather than the
+ * shared beforeAll app: it must relaunch, and the beforeAll app is still alive
+ * here — separate git state avoids worktree contention. NODE_TLS_REJECT_UNAUTHORIZED
+ * is set on THIS launch only so the app process trusts the fake relay's
+ * self-signed fixture cert (tests/fixtures/tls).
+ */
+test("relay status: off -> registered -> persists -> retrying -> off via the real bridge", async () => {
+	// Two full launches + a backoff wait exceed the 60s default test timeout.
+	test.setTimeout(240_000);
+
+	const relayRepo = createTestRepo();
+	const relayStateDir = realpathSync(mkdtempSync(join(tmpdir(), "ofa-relay-")));
+	const relayUserData = realpathSync(
+		mkdtempSync(join(tmpdir(), "ofa-relay-ud-")),
+	);
+	writeFileSync(
+		join(relayUserData, "settings.json"),
+		JSON.stringify({
+			version: 1,
+			phoneBridge: { enabled: true, pushWakeEnabled: true, relayBaseUrl: "" },
+		}),
+	);
+
+	// A FRESH workspace-state path per launch: settings.json (relayUserData) is
+	// what must persist across the relaunch, not workspace state. Reusing one
+	// state file would auto-restore the loaded workspace on boot 2, skipping the
+	// Browse/pick screen that reachPhoneBridgeButton drives. The relay URL still
+	// persists because relayUserData is shared across launches.
+	let launchSeq = 0;
+	const launchRelayApp = () =>
+		electron.launch({
+			args: ["out/main/index.js"],
+			env: {
+				...process.env,
+				AI14ALL_E2E: "1",
+				AI14ALL_E2E_PICK_PATH: relayRepo.repoPath,
+				AI14ALL_WORKSPACE_STATE_PATH: join(
+					relayStateDir,
+					`workspace-state-${++launchSeq}.json`,
+				),
+				AI14ALL_USER_DATA_PATH: relayUserData,
+				// Trust the fake relay's self-signed fixture cert — this app process
+				// only, not the shared beforeAll launch.
+				NODE_TLS_REJECT_UNAUTHORIZED: "0",
+			},
+		});
+
+	const relay = await startFakeRelay();
+	let relayClosed = false;
+	let relayApp: ElectronApplication | undefined;
+	let relayPage: Page;
+
+	const dlg = () => relayPage.locator('[data-testid="phone-bridge-dialog"]');
+	const relayInput = () => dlg().locator("#phone-bridge-relay-url");
+	// The status line is a bare <span>Relay: {status.relay}</span>; locate it by
+	// its rendered text (the only element matching this shape).
+	const statusLine = () =>
+		dlg().getByText(/^Relay: (off|registered|retrying)$/);
+
+	async function openPanel(): Promise<void> {
+		await reachPhoneBridgeButton(relayPage, relayRepo.repoPath);
+		await relayPage
+			.getByRole("button", { name: "Open Phone Bridge panel" })
+			.click();
+		await expect(dlg()).toBeVisible();
+		await expect(dlg().getByTestId("view-idle")).toBeVisible();
+	}
+
+	try {
+		// --- Boot 1: no relay configured -> off ---
+		relayApp = await launchRelayApp();
+		relayPage = await relayApp.firstWindow({ timeout: 60_000 });
+		await openPanel();
+		await expect(relayInput()).toHaveValue("");
+		await expect(statusLine()).toHaveText("Relay: off");
+
+		// --- Live-apply: fill base URL + blur -> registered ---
+		await relayInput().fill(relay.baseUrl);
+		await relayInput().blur();
+		await expect(statusLine()).toHaveText(/registered/, { timeout: 15_000 });
+
+		// --- Relaunch (same userData, relay still up): persistence + boot wiring ---
+		await closeApp(relayApp);
+		relayApp = await launchRelayApp();
+		relayPage = await relayApp.firstWindow({ timeout: 60_000 });
+		await openPanel();
+		// Field value proves persistence; the registered status proves Task 9's
+		// initialRelayBaseUrl re-registered on boot, not merely a restored string.
+		await expect(relayInput()).toHaveValue(relay.baseUrl);
+		await expect(statusLine()).toHaveText(/registered/, { timeout: 15_000 });
+
+		// --- Loss: relay goes away -> backoff redial refused -> retrying ---
+		await relay.close();
+		relayClosed = true;
+		await expect(statusLine()).toHaveText(/retrying/, { timeout: 20_000 });
+
+		// --- Live-apply teardown: clear field + blur -> off (no relaunch) ---
+		await relayInput().fill("");
+		await relayInput().blur();
+		await expect(statusLine()).toHaveText("Relay: off");
+	} finally {
+		await closeApp(relayApp);
+		if (!relayClosed) await relay.close().catch(() => {});
+		rmSync(relayStateDir, { recursive: true, force: true });
+		rmSync(relayUserData, { recursive: true, force: true });
+		relayRepo.cleanup();
 	}
 });

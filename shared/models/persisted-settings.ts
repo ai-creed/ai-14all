@@ -16,6 +16,25 @@ export const RestoreDepthSchema = z.enum([
 	"activeOnly",
 ]);
 export const AgentResumeModeSchema = z.enum(["auto", "manual", "off"]);
+
+/** Umbrella §10: host↔relay transport is WSS-only — wss: scheme, no query/fragment. */
+export function isValidRelayBaseUrl(value: string): boolean {
+	let url: URL;
+	try {
+		url = new URL(value);
+	} catch {
+		return false;
+	}
+	return url.protocol === "wss:" && url.search === "" && url.hash === "";
+}
+
+const RelayBaseUrlSchema = z
+	.string()
+	.refine((v) => v === "" || isValidRelayBaseUrl(v), {
+		message: "relayBaseUrl must be a wss:// URL without query or fragment",
+	})
+	.transform((v) => v.replace(/\/+$/, ""));
+
 export const PhoneBridgeSettingsSchema = z.object({
 	enabled: z.boolean(),
 	// Kill switch for the push-wake sender/handlers; the bridge itself stays up.
@@ -24,6 +43,7 @@ export const PhoneBridgeSettingsSchema = z.object({
 	// Default ON: granting control:pty-write at pairing is the deliberate,
 	// re-pair-gated opt-in; this toggle exists to disarm without unpairing.
 	ptyInputEnabled: z.boolean().default(true),
+	relayBaseUrl: RelayBaseUrlSchema.default(""),
 });
 
 // Range mirrors MIN/MAX_TERMINAL_FONT_SIZE in use-terminal-font-size.ts.
@@ -50,6 +70,7 @@ export const PersistedSettingsV1Schema = z.object({
 		enabled: false,
 		pushWakeEnabled: true,
 		ptyInputEnabled: true,
+		relayBaseUrl: "",
 	}),
 	terminalConfirm: TerminalConfirmSchema.default({
 		restart: true,
@@ -80,6 +101,7 @@ const PhoneBridgePatchSchema = z.object({
 	enabled: z.boolean().optional(),
 	pushWakeEnabled: z.boolean().optional(),
 	ptyInputEnabled: z.boolean().optional(),
+	relayBaseUrl: RelayBaseUrlSchema.optional(),
 });
 
 const TerminalConfirmPatchSchema = z.object({

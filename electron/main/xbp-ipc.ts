@@ -30,6 +30,7 @@ export function registerXbpIpc(deps: {
 				pairedAt: null,
 				grantedPermissions: null,
 				lastError: null,
+				relay: "off" as const,
 			},
 	);
 	ipcMain.handle(PHONE_BRIDGE_SET_ENABLED, async (_e, raw) => {

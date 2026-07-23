@@ -736,3 +736,125 @@ describe("registerIpcHandlers settings:write usage-telemetry live sync", () => {
 		expect(send).toHaveBeenCalledWith("settings:changed", baseSettings);
 	});
 });
+
+// Task 9: settings:write live-applies a phoneBridge patch's relayBaseUrl to
+// the running XbpHostService via the same NON-persisting-applier funnel as
+// usageTelemetry above. writeState() already persisted the merged result, so
+// applyRelayBaseUrl() forwarding it cannot loop into another settings write.
+describe("registerIpcHandlers settings:write phoneBridge relayBaseUrl live sync", () => {
+	const baseSettings = {
+		version: 1 as const,
+		theme: "system" as const,
+		terminalFontSize: 13,
+		restorePreference: "prompt" as const,
+		restoreDepth: "stateEagerTerminalsLazy" as const,
+		agentResume: "auto" as const,
+		usageTelemetry: {
+			enabled: false,
+			includeUntracked: false,
+			chipRange: "week" as const,
+		},
+		phoneBridge: {
+			enabled: true,
+			pushWakeEnabled: true,
+			relayBaseUrl: "wss://relay.example.com",
+		},
+	};
+
+	beforeEach(() => {
+		handlers.clear();
+		handleMock.mockClear();
+		getAllWindowsMock.mockReset();
+		getAllWindowsMock.mockReturnValue([]);
+	});
+
+	const makePhoneBridgeApplier = () => ({
+		applyRelayBaseUrl: vi.fn(),
+	});
+	type PhoneBridgeApplierMock = ReturnType<typeof makePhoneBridgeApplier>;
+
+	const registerWith = (
+		writeStateResult: unknown,
+		getPhoneBridgeApplier?: () => PhoneBridgeApplierMock | null,
+	) => {
+		registerIpcHandlers(
+			{
+				isDestroyed: () => false,
+				webContents: { isDestroyed: () => false, send: vi.fn() },
+			} as never,
+			{
+				workspacePersistence: {
+					readState: vi.fn(),
+					writeState: vi.fn(),
+				} as never,
+				settingsService: {
+					readState: vi.fn(),
+					readStateSync: vi.fn(),
+					writeState: vi.fn().mockResolvedValue(writeStateResult),
+				} as never,
+				workspaceRegistry: { register: vi.fn(), get: vi.fn() } as never,
+				worktreeService: worktreeServiceInstance as never,
+				getPhoneBridgeApplier: getPhoneBridgeApplier as never,
+				review: {
+					service: {
+						onChange: vi.fn(() => () => {}),
+						removeByWorktree: vi.fn(),
+						listByWorktree: vi.fn(() => []),
+						create: vi.fn(),
+						markAddressed: vi.fn(),
+						reopen: vi.fn(),
+						delete: vi.fn(),
+						rebaseWorktreeIds: vi.fn(),
+					},
+					mcpStatus: { port: null, bindError: null, getUrl: () => null },
+					worktreePathResolver: { resolve: vi.fn(), refresh: vi.fn() },
+				} as never,
+				getCortexEnabled: () => false,
+			},
+		);
+		return handlers.get("settings:write")!;
+	};
+
+	it("a phoneBridge patch pushes the merged relayBaseUrl into the live applier exactly once", async () => {
+		const applier = makePhoneBridgeApplier();
+		const handler = registerWith(baseSettings, () => applier);
+
+		await handler(
+			{},
+			{
+				patch: {
+					phoneBridge: { relayBaseUrl: "wss://relay.example.com" },
+				},
+			},
+		);
+
+		expect(applier.applyRelayBaseUrl).toHaveBeenCalledTimes(1);
+		expect(applier.applyRelayBaseUrl).toHaveBeenCalledWith(
+			"wss://relay.example.com",
+		);
+	});
+
+	it("a patch that doesn't touch phoneBridge never calls the applier", async () => {
+		const applier = makePhoneBridgeApplier();
+		const handler = registerWith(baseSettings, () => applier);
+
+		await handler({}, { patch: { theme: "warm" } });
+
+		expect(applier.applyRelayBaseUrl).not.toHaveBeenCalled();
+	});
+
+	it("does not throw when no applier is wired", async () => {
+		const handler = registerWith(baseSettings, undefined);
+
+		await expect(
+			handler(
+				{},
+				{
+					patch: {
+						phoneBridge: { relayBaseUrl: "wss://relay.example.com" },
+					},
+				},
+			),
+		).resolves.toEqual(baseSettings);
+	});
+});

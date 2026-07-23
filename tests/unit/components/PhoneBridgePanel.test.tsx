@@ -21,9 +21,14 @@ const base: Status = {
 	pairedAt: null,
 	grantedPermissions: null,
 	lastError: null,
+	relay: "off",
 };
 
-function mountBridge(status: Status, overrides: Record<string, unknown> = {}) {
+function mountBridge(
+	status: Status,
+	overrides: Record<string, unknown> = {},
+	settingsOverrides: Record<string, unknown> = {},
+) {
 	const api = {
 		status: vi.fn().mockResolvedValue(status),
 		setEnabled: vi.fn().mockResolvedValue(status),
@@ -34,22 +39,32 @@ function mountBridge(status: Status, overrides: Record<string, unknown> = {}) {
 		onStatusChanged: vi.fn().mockReturnValue(() => {}),
 		...overrides,
 	};
+	// Union of both consumers: the pty-input switch reads through the real
+	// SettingsProvider (settings.initial + write + events.onSettingsChanged),
+	// while the relay field reads settings.read() and writes settings.write
+	// directly — one write mock serves both paths.
+	const settings = {
+		initial: DEFAULT_PERSISTED_SETTINGS,
+		read: vi.fn().mockResolvedValue({
+			settings: DEFAULT_PERSISTED_SETTINGS,
+			firstRun: false,
+		}),
+		write: vi.fn().mockImplementation(async (patch) => ({
+			...DEFAULT_PERSISTED_SETTINGS,
+			...patch,
+			phoneBridge: {
+				...DEFAULT_PERSISTED_SETTINGS.phoneBridge,
+				...(patch.phoneBridge ?? {}),
+			},
+		})),
+		...settingsOverrides,
+	};
 	(window as unknown as { ai14all: unknown }).ai14all = {
 		phoneBridge: api,
-		settings: {
-			initial: DEFAULT_PERSISTED_SETTINGS,
-			write: vi.fn().mockImplementation(async (patch) => ({
-				...DEFAULT_PERSISTED_SETTINGS,
-				...patch,
-				phoneBridge: {
-					...DEFAULT_PERSISTED_SETTINGS.phoneBridge,
-					...(patch.phoneBridge ?? {}),
-				},
-			})),
-		},
+		settings,
 		events: { onSettingsChanged: vi.fn().mockReturnValue(() => {}) },
 	};
-	return api;
+	return { ...api, settings };
 }
 
 /** Renders the panel wrapped in its real SettingsProvider — the panel now
@@ -113,7 +128,7 @@ describe("PhoneBridgePanel state machine", () => {
 		const api = mountBridge({
 			...base,
 			pairing: "awaiting-scan",
-			offer: JSON.stringify({ token: "t", connect: { url: "ws://x" } }),
+			offer: JSON.stringify({ token: "t", connect: { urls: ["ws://x"] } }),
 			offerExpiresAt: Date.now() + 120_000,
 		});
 		renderPanel();
@@ -250,5 +265,97 @@ describe("PhoneBridgePanel state machine", () => {
 		expect(await screen.findByTestId("last-error")).toHaveTextContent(
 			/startPairing failed/,
 		);
+	});
+});
+
+describe("PhoneBridgePanel relay settings", () => {
+	it("shows a labeled Relay input seeded from settings.read()'s relayBaseUrl", async () => {
+		mountBridge(
+			base,
+			{},
+			{
+				read: vi.fn().mockResolvedValue({
+					settings: {
+						...DEFAULT_PERSISTED_SETTINGS,
+						phoneBridge: {
+							...DEFAULT_PERSISTED_SETTINGS.phoneBridge,
+							relayBaseUrl: "wss://relay.example.com",
+						},
+					},
+					firstRun: false,
+				}),
+			},
+		);
+		renderPanel();
+		const input = await screen.findByLabelText(/relay/i);
+		await waitFor(() => expect(input).toHaveValue("wss://relay.example.com"));
+	});
+
+	it.each([
+		["off", "Relay: off"],
+		["retrying", "Relay: retrying"],
+		["registered", "Relay: registered"],
+	] as const)(
+		"status line maps relay %s to %s",
+		async (relay, expectedText) => {
+			mountBridge({ ...base, relay });
+			renderPanel();
+			expect(await screen.findByText(expectedText)).toBeInTheDocument();
+		},
+	);
+
+	it("commits the relay field on blur after a change, once", async () => {
+		const write = vi.fn().mockResolvedValue({
+			...DEFAULT_PERSISTED_SETTINGS,
+			phoneBridge: {
+				...DEFAULT_PERSISTED_SETTINGS.phoneBridge,
+				relayBaseUrl: "wss://relay.example.com",
+			},
+		});
+		mountBridge(base, {}, { write });
+		renderPanel();
+		const input = await screen.findByLabelText(/relay/i);
+		await userEvent.type(input, "wss://relay.example.com");
+		await userEvent.tab();
+		await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+		expect(write).toHaveBeenCalledWith({
+			phoneBridge: { relayBaseUrl: "wss://relay.example.com" },
+		});
+	});
+
+	it("blurring without a change writes nothing", async () => {
+		const write = vi.fn().mockResolvedValue(DEFAULT_PERSISTED_SETTINGS);
+		mountBridge(base, {}, { write });
+		renderPanel();
+		const input = await screen.findByLabelText(/relay/i);
+		await userEvent.click(input);
+		await userEvent.tab();
+		expect(write).not.toHaveBeenCalled();
+	});
+
+	it("surfaces a rejected relay write as the action-error line and keeps the field editable", async () => {
+		const write = vi
+			.fn()
+			.mockRejectedValue(
+				new Error("Relay URL must be a wss:// URL without query or fragment"),
+			);
+		mountBridge(base, {}, { write });
+		renderPanel();
+		const input = await screen.findByLabelText(/relay/i);
+		await userEvent.type(input, "not-a-url");
+		await userEvent.tab();
+		expect(await screen.findByTestId("action-error")).toHaveTextContent(
+			/wss:\/\//i,
+		);
+		expect(input).not.toBeDisabled();
+		expect(input).toHaveValue("not-a-url");
+	});
+
+	it("off: no relay field or status line renders", async () => {
+		mountBridge({ ...base, enabled: false, listening: false });
+		renderPanel();
+		expect(await screen.findByTestId("view-off")).toBeInTheDocument();
+		expect(screen.queryByLabelText(/relay/i)).toBeNull();
+		expect(screen.queryByText(/relay:/i)).toBeNull();
 	});
 });

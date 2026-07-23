@@ -10,6 +10,10 @@ export interface XbpAuditEntry {
 	risk: "low" | "medium" | "high" | null;
 	outcome: "accepted" | "rejected";
 	reason?: string;
+	/** Lifecycle event name (e.g. relay-registered); absent on capability entries. */
+	event?: string;
+	/** Severity for lifecycle entries (umbrella §9: relay lifecycle audits at info). */
+	level?: "info" | "warn" | "error";
 }
 
 export class XbpAuditSink {

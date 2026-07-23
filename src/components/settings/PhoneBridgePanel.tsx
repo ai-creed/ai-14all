@@ -36,6 +36,11 @@ export function PhoneBridgePanel(): React.ReactElement {
 	const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 	const [nowTick, setNowTick] = useState(() => Date.now());
 	const [confirmingUnpair, setConfirmingUnpair] = useState(false);
+	// null = not yet loaded from settings.read(). relayCommitted tracks the
+	// last known-persisted value (from load, or a successful write) so onBlur
+	// can tell an actual edit from a no-op focus/blur.
+	const [relayDraft, setRelayDraft] = useState<string | null>(null);
+	const relayCommitted = useRef<string | null>(null);
 	// Ref latch, not just state: two clicks in the same tick both read the
 	// pre-update busy flag, so state alone cannot stop a duplicate invoke.
 	const inFlight = useRef(false);
@@ -50,6 +55,16 @@ export function PhoneBridgePanel(): React.ReactElement {
 			// Spec §6: a renderer-local action error clears on the next action OR
 			// state change — a fresh status supersedes the stale message.
 			setActionError(null);
+		});
+	}, []);
+
+	// Relay URL draft: seeded once from the persisted settings file, not from
+	// PhoneBridgeStatus (the relay base URL is renderer-configured, unlike
+	// `status.relay` which is main-process-observed registration state).
+	useEffect(() => {
+		void window.ai14all.settings.read().then(({ settings }) => {
+			relayCommitted.current = settings.phoneBridge.relayBaseUrl;
+			setRelayDraft(settings.phoneBridge.relayBaseUrl);
 		});
 	}, []);
 
@@ -102,6 +117,21 @@ export function PhoneBridgePanel(): React.ReactElement {
 		}
 	}
 
+	function commitRelayDraft() {
+		if (relayDraft === relayCommitted.current) return;
+		window.ai14all.settings
+			.write({ phoneBridge: { relayBaseUrl: relayDraft ?? "" } })
+			.then((merged) => {
+				relayCommitted.current = merged.phoneBridge.relayBaseUrl;
+				setRelayDraft(merged.phoneBridge.relayBaseUrl);
+			})
+			.catch(() =>
+				setActionError(
+					"Relay URL must be a wss:// URL without query or fragment",
+				),
+			);
+	}
+
 	const bridge = () => window.ai14all.phoneBridge;
 	const addrLabel =
 		status?.addr && status.port != null
@@ -140,6 +170,26 @@ export function PhoneBridgePanel(): React.ReactElement {
 					aria-label="Enable phone bridge"
 				/>
 			</div>
+
+			{view !== "off" && view !== "loading" && (
+				<div>
+					<label
+						className="phone-bridge__label"
+						htmlFor="phone-bridge-relay-url"
+					>
+						Relay
+					</label>
+					<input
+						id="phone-bridge-relay-url"
+						className="phone-bridge__input"
+						type="text"
+						value={relayDraft ?? ""}
+						onChange={(e) => setRelayDraft(e.target.value)}
+						onBlur={commitRelayDraft}
+					/>
+					<span>Relay: {status?.relay}</span>
+				</div>
+			)}
 
 			{view === "loading" && (
 				<div className="phone-bridge__view" data-testid="view-loading">

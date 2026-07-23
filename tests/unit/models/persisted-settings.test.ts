@@ -26,6 +26,7 @@ describe("PersistedSettingsV1Schema", () => {
 				enabled: false,
 				pushWakeEnabled: true,
 				ptyInputEnabled: true,
+				relayBaseUrl: "",
 			},
 			terminalConfirm: { restart: true, close: true },
 		});
