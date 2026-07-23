@@ -90,7 +90,7 @@ Rendezvous flow:
 ## 7. Phone requirements (summary — detail in the xavier child)
 
 - `PairedHost` stores `connectUrls: string[]`. Loading a legacy record (`connectUrl` string) migrates the shape to a one-element list so the pairing survives the app update; gaining the relay candidate requires a re-pair, because the offer is the only source of new URLs.
-- Sequential candidate failover with a per-candidate connect timeout, inserted at the two connect seams: initial pairing connect and the injected `connect(host)` inside `performReconnect`. Each candidate attempt spans session *establishment*, not just socket open — a socket that opens and then closes (e.g. relay `4404`/`4408`) before the session establishes fails that candidate and iteration advances. All candidates failing lands in the existing fail-closed `reconnectFailed` state. `driveWake` inherits address-awareness with no further change.
+- Sequential candidate failover with per-candidate budgets (a transport-open timeout, plus an establishment backstop set above the session layer's own request timeout so slow-but-valid hosts are never regressed), inserted at the two connect seams: initial pairing connect and the injected `connect(host)` inside `performReconnect`. Each candidate attempt spans session *establishment*, not just socket open — a socket that opens and then closes (e.g. relay `4404`/`4408`) before the session establishes fails that candidate and iteration advances. All candidates failing lands in the existing fail-closed `reconnectFailed` state. `driveWake` inherits address-awareness with no further change.
 
 ## 8. Relay server requirements (summary — detail in the xavier child)
 
