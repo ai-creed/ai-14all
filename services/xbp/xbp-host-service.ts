@@ -21,6 +21,7 @@ import {
 } from "./lan-websocket-transport.js";
 import { XbpPeerSession, type PtyInspectBinding } from "./xbp-peer-session.js";
 import type { XbpActingExecutor } from "./xbp-acting-executor.js";
+import type { XbpPtyInputExecutor } from "./xbp-pty-input-executor.js";
 import type { XbpPushTokenStore } from "./xbp-push-token-store.js";
 import type { PushTokenHandlers } from "./xbp-push-token-handlers.js";
 
@@ -65,6 +66,7 @@ export class XbpHostService {
 			pushTokenStore?: XbpPushTokenStore;
 			pushTokenHandlers?: PushTokenHandlers;
 			ptyInspect?: PtyInspectBinding;
+			ptyInput?: XbpPtyInputExecutor;
 			now?: () => number;
 		},
 	) {
@@ -170,6 +172,7 @@ export class XbpHostService {
 				acting: this.opts.acting,
 				pushToken: this.opts.pushTokenHandlers,
 				ptyInspect: this.opts.ptyInspect,
+				ptyInput: this.opts.ptyInput,
 				now: this.opts.now,
 			});
 

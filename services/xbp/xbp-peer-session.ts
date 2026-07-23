@@ -17,6 +17,7 @@ import {
 	unsubscribePtyCapability,
 	ptyRowsCapability,
 	setWatchViewportCapability,
+	ptyInputCapability,
 	SESSION_CHANGED_TOPIC,
 	PTY_CHANGED_TOPIC,
 	type LifecycleResult,
@@ -26,6 +27,7 @@ import {
 import { createCoalescer } from "./coalescer.js";
 import type { XbpAuditSink } from "./xbp-audit-sink.js";
 import type { XbpActingExecutor } from "./xbp-acting-executor.js";
+import type { XbpPtyInputExecutor } from "./xbp-pty-input-executor.js";
 import type { PushTokenHandlers } from "./xbp-push-token-handlers.js";
 import type {
 	PtyRefusal,
@@ -79,6 +81,7 @@ export class XbpPeerSession {
 			acting?: XbpActingExecutor;
 			pushToken?: PushTokenHandlers;
 			ptyInspect?: PtyInspectBinding;
+			ptyInput?: XbpPtyInputExecutor;
 			coalesceMs?: number;
 			now?: () => number;
 		},
@@ -253,6 +256,14 @@ export class XbpPeerSession {
 						),
 				),
 			);
+		}
+
+		const ptyInput = this.opts.ptyInput;
+		if (ptyInput) {
+			// No notifyChanged on success: the input's echo rides the existing
+			// pty-changed hint → pty-rows pull loop (umbrella §5.6) — pty-input
+			// itself emits no event. Semantic audit lives inside the executor.
+			peer.expose(ptyInputCapability, (args) => ptyInput.handle(args));
 		}
 
 		peer.start();
