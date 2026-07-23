@@ -82,14 +82,15 @@ Rendezvous flow:
    - `{ t: "challenge-response", sigHex }` (host → relay) — detached signature over the nonce bytes with the host's identity sign key
    - `{ t: "registered", hostId }` (relay → host)
    - `{ t: "incoming-session", token }` (relay → host)
-   - `{ t: "error", code }` (relay → host)
+
+   There is no error frame anywhere in the protocol: every failure — bad signature, malformed or out-of-order message, unknown host — is answered by closing the socket with a code (§6.5) and nothing else, upholding §10's no-probeable-error-bodies rule on the control channel too.
 4. **hostId** = hex of `backend.hash(signPubBytes, 32)` (BLAKE2b-256 via the existing crypto backend), exported as a `deriveHostId` helper. Deterministic, no relay-side account state; the relay computes it from the pubkey presented at registration, so an id cannot be claimed without holding the matching key.
-5. **WebSocket close codes** (normative for phone failure handling): `4404` host-not-registered, `4408` accept-timeout. The phone treats any close or error before the session establishes as a candidate failure and moves on.
+5. **WebSocket close codes** (normative; the only failure signal the relay emits): `4400` protocol-violation (malformed or out-of-order control message), `4401` registration-auth-failed, `4404` host-not-registered, `4408` accept-timeout. The phone treats any close or error before the session establishes as a candidate failure and moves on.
 
 ## 7. Phone requirements (summary — detail in the xavier child)
 
 - `PairedHost` stores `connectUrls: string[]`. Loading a legacy record (`connectUrl` string) migrates the shape to a one-element list so the pairing survives the app update; gaining the relay candidate requires a re-pair, because the offer is the only source of new URLs.
-- Sequential candidate failover with a per-candidate connect timeout, inserted at the two connect seams: initial pairing connect and the injected `connect(host)` inside `performReconnect`. All candidates failing lands in the existing fail-closed `reconnectFailed` state. `driveWake` inherits address-awareness with no further change.
+- Sequential candidate failover with a per-candidate connect timeout, inserted at the two connect seams: initial pairing connect and the injected `connect(host)` inside `performReconnect`. Each candidate attempt spans session *establishment*, not just socket open — a socket that opens and then closes (e.g. relay `4404`/`4408`) before the session establishes fails that candidate and iteration advances. All candidates failing lands in the existing fail-closed `reconnectFailed` state. `driveWake` inherits address-awareness with no further change.
 
 ## 8. Relay server requirements (summary — detail in the xavier child)
 

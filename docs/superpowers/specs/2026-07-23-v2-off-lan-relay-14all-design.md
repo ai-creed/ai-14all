@@ -43,7 +43,7 @@ const offer = this.pairingHost.createOffer({ urls });
 A small state machine, pure core with injected socket factory and timers (mirrors the house pure-core style, fake-testable):
 
 - **States:** `off` (no relayBaseUrl or bridge disabled) → `connecting` → `authenticating` → `registered` → `backoff` → `connecting` …
-- **Connect + auth:** dial `wss://<relayBaseUrl>/host`; send `register { signPubHex }`; on `challenge { nonceHex }` sign the nonce bytes with the identity sign key (detached) and send `challenge-response { sigHex }`; `registered { hostId }` completes. Any protocol violation or `error` message: close and enter backoff.
+- **Connect + auth:** dial `wss://<relayBaseUrl>/host`; send `register { signPubHex }`; on `challenge { nonceHex }` sign the nonce bytes with the identity sign key (detached) and send `challenge-response { sigHex }`; `registered { hostId }` completes. The relay signals failure only by closing the socket with a code (`4400` protocol violation, `4401` bad auth — constants from the contract); there is no error frame. Any close, or a malformed relay frame received, sends the client to backoff.
 - **Keepalive:** answer relay pings (ws library default pong); treat socket close/error as loss → backoff.
 - **Backoff:** jittered exponential, 1 s → 60 s cap, reset on successful registration.
 - **Incoming session:** on `incoming-session { token }`, dial `wss://<relayBaseUrl>/accept/${token}` and hand the opened socket to the exact wrapper + frame-handler path `lan-websocket-transport.ts` uses for an inbound LAN socket. One dial per token; failures are logged and dropped (the relay expires the token; the phone retries by candidate machinery).
