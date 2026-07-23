@@ -20,6 +20,10 @@ export const PhoneBridgeSettingsSchema = z.object({
 	enabled: z.boolean(),
 	// Kill switch for the push-wake sender/handlers; the bridge itself stays up.
 	pushWakeEnabled: z.boolean().default(true),
+	// Live disarm switch for phone→PTY input (pty-input child spec §2).
+	// Default ON: granting control:pty-write at pairing is the deliberate,
+	// re-pair-gated opt-in; this toggle exists to disarm without unpairing.
+	ptyInputEnabled: z.boolean().default(true),
 });
 
 // Range mirrors MIN/MAX_TERMINAL_FONT_SIZE in use-terminal-font-size.ts.
@@ -45,6 +49,7 @@ export const PersistedSettingsV1Schema = z.object({
 	phoneBridge: PhoneBridgeSettingsSchema.default({
 		enabled: false,
 		pushWakeEnabled: true,
+		ptyInputEnabled: true,
 	}),
 	terminalConfirm: TerminalConfirmSchema.default({
 		restart: true,
@@ -74,6 +79,7 @@ const UsageTelemetryPatchSchema = z.object({
 const PhoneBridgePatchSchema = z.object({
 	enabled: z.boolean().optional(),
 	pushWakeEnabled: z.boolean().optional(),
+	ptyInputEnabled: z.boolean().optional(),
 });
 
 const TerminalConfirmPatchSchema = z.object({
@@ -112,4 +118,10 @@ export function isPhoneBridgeEnabled(s: PersistedSettingsV1): boolean {
 /** Push-wake feature gate (spec Arc B): behind isPhoneBridgeEnabled at runtime. */
 export function isPushWakeEnabled(s: PersistedSettingsV1): boolean {
 	return s.phoneBridge.pushWakeEnabled;
+}
+
+/** PTY-input disarm gate (pty-input child spec §2): default ON; the pairing
+ * grant is the opt-in, this is the live disarm switch. */
+export function isPtyInputEnabled(s: PersistedSettingsV1): boolean {
+	return s.phoneBridge.ptyInputEnabled;
 }

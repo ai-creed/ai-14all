@@ -25,6 +25,7 @@ describe("PersistedSettingsV1Schema", () => {
 			phoneBridge: {
 				enabled: false,
 				pushWakeEnabled: true,
+				ptyInputEnabled: true,
 			},
 			terminalConfirm: { restart: true, close: true },
 		});
