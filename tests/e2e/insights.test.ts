@@ -277,3 +277,149 @@ test("live Settings toggle stops capture against an altered source; delete-all r
 		.toBe(false);
 	await closeApp(app);
 });
+
+// (4) App-focus/idle collector (spec §4/§6/§7), driven through the real IPC path
+// via the bounded E2E seam (window.ai14all.__insightsTest). One continuous
+// session covers: durability within a single poll interval BEFORE any
+// blur/flush, no engaged-time inflation across a threshold-crossing poll, a
+// forced worker crash replayed through the REAL exit-handler re-fork + outbox
+// replay, a suspend→resume persisting a second uptime interval, and
+// delete-while-enabled resuming capture on its own.
+test("app-focus collector: durable within one poll, no engaged inflation, crash replay, resume, and delete-while-enabled", async () => {
+	test.setTimeout(120_000);
+
+	const app = await launch();
+	const page = await app.firstWindow();
+	await ensureMainShell(page);
+
+	// Drive the collector through the bounded E2E seam with explicit timestamps
+	// so the assertions are deterministic (no real 15 s waits). The base time is
+	// read from the APP's own clock, not hard-coded: the collector opened its
+	// uptime interval at real `Date.now()` on arm, so a fixed literal would sit
+	// before/after that interval unpredictably across runs and pollute the
+	// completeness assertions.
+	const t0 = await page.evaluate(() => Date.now());
+	const seam = async (type: string, arg: Record<string, number> = {}) =>
+		page.evaluate(
+			([t, a]) =>
+				(
+					window as unknown as {
+						ai14all: {
+							__insightsTest: {
+								signal: (
+									x: string,
+									y: Record<string, number>,
+								) => Promise<{ ok: boolean }>;
+							};
+						};
+					}
+				).ai14all.__insightsTest.signal(
+					t as string,
+					a as Record<string, number>,
+				),
+			[type, arg] as const,
+		);
+	const appTime = async (fromMs: number, toMs: number) =>
+		page.evaluate(
+			([f, t]) =>
+				(
+					window as unknown as {
+						ai14all: {
+							insights: {
+								queryAppTime: (r: { fromMs: number; toMs: number }) => Promise<{
+									focusedMs: number;
+									engagedMs: number;
+									completeness: string;
+								}>;
+							};
+						};
+					}
+				).ai14all.insights.queryAppTime({
+					fromMs: f as number,
+					toMs: t as number,
+				}),
+			[fromMs, toMs] as const,
+		);
+
+	// AC1: focus + ONE active poll must be durable BEFORE any blur/flush.
+	await seam("focus", { atMs: t0 });
+	await seam("idle", { atMs: t0 + 15_000, idleSeconds: 5 });
+	await expect
+		.poll(async () => (await appTime(t0, t0 + 60_000)).focusedMs, {
+			timeout: 10_000,
+		})
+		.toBe(15_000);
+	const first = await appTime(t0, t0 + 60_000);
+	// Engaged is bounded [focusTime, pollTime - idleSeconds] = [t0, t0+10s].
+	expect(first.engagedMs).toBe(10_000);
+
+	// No inflation: a threshold-crossing poll adds nothing past the last input.
+	await seam("idle", { atMs: t0 + 75_000, idleSeconds: 65 });
+	await expect
+		.poll(async () => (await appTime(t0, t0 + 120_000)).engagedMs, {
+			timeout: 10_000,
+		})
+		.toBe(10_000);
+
+	// Forced crash through the REAL exit handler, made deterministic by ARMING the
+	// crash FIRST: the worker dies immediately before the next producer post, so
+	// the span below can never have been inserted or acked pre-crash. It can only
+	// reach the store via the host's own consent-gated re-fork + outbox replay —
+	// no suppression, no manual restart, the production `exit` path throughout.
+	// The hook's MECHANICS (kills before the post, buffers unacked, replays
+	// config-first) are pinned by the Task 6 host regression, so a no-op hook
+	// cannot make this aggregate assertion pass vacuously.
+	await page.evaluate(() =>
+		(
+			window as unknown as {
+				ai14all: { __insightsTest: { crashWorker: () => Promise<unknown> } };
+			}
+		).ai14all.__insightsTest.crashWorker(),
+	); // arm — nothing has died yet
+	await seam("idle", { atMs: t0 + 90_000, idleSeconds: 0 }); // kills, then buffers
+	await expect
+		.poll(async () => (await appTime(t0, t0 + 120_000)).focusedMs, {
+			timeout: 15_000,
+		})
+		.toBe(90_000); // 15s + 60s + the REPLAYED 15s, counted exactly once
+
+	// Suspend → resume must persist a SECOND uptime interval. Close it with a
+	// flush so it is durable, then assert against the RESUMED window (a query
+	// ending before the resume could never see the second interval).
+	await seam("suspend", { atMs: t0 + 100_000 }); // closes interval 1
+	await seam("resume", { atMs: t0 + 200_000 }); // opens interval 2
+	await seam("flush", { atMs: t0 + 260_000 }); // closes interval 2
+	await expect
+		.poll(
+			async () => (await appTime(t0 + 200_000, t0 + 260_000)).completeness,
+			{ timeout: 10_000 },
+		)
+		.toBe("complete"); // only a persisted SECOND interval can certify this window
+	// …and the sleep gap between the two intervals is never certified.
+	expect((await appTime(t0, t0 + 260_000)).completeness).toBe("partial");
+
+	// Delete-while-enabled: consent is untouched, so capture must resume by itself.
+	await page.evaluate(() =>
+		(
+			window as unknown as {
+				ai14all: { insights: { deleteAll: () => Promise<void> } };
+			}
+		).ai14all.insights.deleteAll(),
+	);
+	await expect
+		.poll(async () => (await appTime(t0, t0 + 300_000)).focusedMs, {
+			timeout: 10_000,
+		})
+		.toBe(0); // old data gone, no buffered pre-delete event reappears
+
+	const t1 = t0 + 400_000;
+	await seam("focus", { atMs: t1 });
+	await seam("idle", { atMs: t1 + 15_000, idleSeconds: 0 });
+	await expect
+		.poll(async () => (await appTime(t1, t1 + 60_000)).focusedMs, {
+			timeout: 10_000,
+		})
+		.toBe(15_000); // a NEW post-delete span reaches the fresh store
+
+	await closeApp(app);
+});
