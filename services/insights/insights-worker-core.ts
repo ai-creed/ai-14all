@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import type { WhisperStoreReader } from "../plugins/whisper/whisper-store-reader.js";
-import { getMeta } from "./store/meta.js";
+import { getMeta, setMetaOnce } from "./store/meta.js";
+import { insertObservation } from "./store/observations.js";
 import { getWhisperRuns } from "./store/views.js";
 import { archiveOnce } from "./whisper/archiver.js";
 import { pruneRetention } from "./retention.js";
@@ -77,6 +78,36 @@ export function createInsightsWorkerCore(deps: WorkerCoreDeps) {
 					deps.post({
 						kind: "error",
 						scope: "query",
+						message: String((e as Error).message ?? e),
+					});
+				}
+				return;
+			}
+			// Live producer delivery (spec §6): ONE transaction covering the insert
+			// and the first_capture_at marker, then ack. Because it is atomic, a
+			// crash leaves the store fully-before or fully-after — never a row
+			// without its marker — so a replay is a clean no-op or a clean write.
+			case "producerEvent": {
+				try {
+					const tx = deps.db.transaction(() => {
+						// `ingestedAt` is stamped HERE: only the worker knows when the row
+						// actually landed (main sends a 0 placeholder).
+						const wrote = insertObservation(deps.db, {
+							...msg.observation,
+							ingestedAt: deps.now(),
+						});
+						if (wrote)
+							setMetaOnce(deps.db, "first_capture_at", String(deps.now()));
+					});
+					tx();
+					// Ack ONLY after the transaction commits.
+					deps.post({ kind: "ack", eventId: msg.eventId });
+				} catch (e) {
+					// No ack: a rejected event stays buffered (bounded by the outbox cap)
+					// rather than being silently reported as written.
+					deps.post({
+						kind: "error",
+						scope: "producerEvent",
 						message: String((e as Error).message ?? e),
 					});
 				}

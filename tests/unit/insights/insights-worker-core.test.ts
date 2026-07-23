@@ -1,7 +1,11 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import Database from "better-sqlite3";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createInsightsWorkerCore } from "../../../services/insights/insights-worker-core.js";
 import { insertObservation } from "../../../services/insights/store/observations.js";
+import { getMeta } from "../../../services/insights/store/meta.js";
 import { migrate } from "../../../services/insights/store/schema.js";
 import type { InsightsWorkerToMain } from "../../../services/insights/worker-protocol.js";
 
@@ -104,5 +108,157 @@ describe("insights worker core", () => {
 		expect(
 			posted.some((m) => m.kind === "storeClosed" && m.requestId === "c1"),
 		).toBe(true);
+	});
+});
+
+describe("producerEvent (atomic write, ack after commit)", () => {
+	const obs = (id: string, start: number, end: number) => ({
+		eventId: id,
+		kind: "app.focused",
+		source: "app-focus-collector",
+		subjectId: "app",
+		eventTs: end,
+		tsPrecision: "exact" as const,
+		occurredStart: start,
+		occurredEnd: end,
+		parserVersion: 1,
+		schemaVersion: 1,
+		ingestedAt: 0,
+		origin: "n/a" as const,
+		appRunId: "run-1",
+		repoId: null,
+		workspaceRel: null,
+		branch: null,
+		payload: { reason: "poll" },
+	});
+
+	// File-backed (not :memory:) with a SEPARATE observer connection. This is what
+	// makes "ack only after commit" genuinely observable: the writer connection
+	// can see its OWN uncommitted transaction, so snapshotting through it would
+	// pass even if `ack` were posted from inside the transaction. An independent
+	// connection sees only committed state, so an ack-before-commit implementation
+	// snapshots zero rows and fails. WAL lets the observer read without blocking
+	// on the writer's open transaction.
+	const dirs: string[] = [];
+	afterEach(() => {
+		for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
+	});
+
+	function core() {
+		const dir = mkdtempSync(join(tmpdir(), "iwc-ack-"));
+		dirs.push(dir);
+		const dbPath = join(dir, "insights.db");
+		const db = new Database(dbPath);
+		db.pragma("journal_mode = WAL");
+		migrate(db);
+		const observer = new Database(dbPath, { readonly: true });
+		const posted: InsightsWorkerToMain[] = [];
+		const atAck: Array<{ rows: number; marker: string | null }> = [];
+		const c = createInsightsWorkerCore({
+			db,
+			reader: {
+				listCollabIds: () => [],
+				readAllWorkflows: () => [],
+				readSchemaVersion: () => 1,
+			},
+			now: () => 7777,
+			post: (m) => {
+				posted.push(m);
+				if (m.kind === "ack")
+					atAck.push({
+						rows: (
+							observer.prepare("SELECT COUNT(*) c FROM observations").get() as {
+								c: number;
+							}
+						).c,
+						marker: getMeta(observer, "first_capture_at"),
+					});
+			},
+		});
+		return { db, observer, posted, atAck, c };
+	}
+
+	it("inserts once, stamps ingested_at, sets first_capture_at, and acks after commit", () => {
+		const { db, posted, c } = core();
+		c.handleMessage({
+			kind: "producerEvent",
+			eventId: "e1",
+			observation: obs("e1", 1000, 2000),
+		});
+		const row = db
+			.prepare(
+				"SELECT ingested_at, app_run_id FROM observations WHERE event_id='e1'",
+			)
+			.get() as { ingested_at: number; app_run_id: string };
+		expect(row.ingested_at).toBe(7777); // worker insert time, not main's placeholder
+		expect(row.app_run_id).toBe("run-1");
+		expect(getMeta(db, "first_capture_at")).toBe("7777");
+		expect(posted).toContainEqual({ kind: "ack", eventId: "e1" });
+	});
+
+	it("replay after a lost ack adds no second row, keeps first_capture_at, and re-acks", () => {
+		const { db, posted, c } = core();
+		const msg = {
+			kind: "producerEvent" as const,
+			eventId: "e1",
+			observation: obs("e1", 1000, 2000),
+		};
+		c.handleMessage(msg);
+		posted.length = 0;
+		c.handleMessage(msg); // the ack was lost — main replays the same event
+		expect(
+			(db.prepare("SELECT COUNT(*) c FROM observations").get() as { c: number })
+				.c,
+		).toBe(1);
+		expect(getMeta(db, "first_capture_at")).toBe("7777");
+		expect(posted).toContainEqual({ kind: "ack", eventId: "e1" });
+	});
+
+	it("the ack is posted only AFTER the row and the marker are both COMMITTED (independent connection)", () => {
+		const { atAck, c } = core();
+		c.handleMessage({
+			kind: "producerEvent",
+			eventId: "e1",
+			observation: obs("e1", 1000, 2000),
+		});
+		expect(atAck).toHaveLength(1);
+		// Observed through a connection that CANNOT see the writer's uncommitted
+		// transaction: fails if ack is posted inside the transaction, or if
+		// first_capture_at is written in a separate transaction after the ack.
+		expect(atAck[0]).toEqual({ rows: 1, marker: "7777" });
+	});
+
+	it("rolls the insert back when the metadata write fails — proving ONE transaction — and does not ack", () => {
+		const { db, posted, c } = core();
+		// Force the in-transaction first_capture_at write to throw AFTER the insert
+		// has already been applied inside the same transaction.
+		db.exec("DROP TABLE meta");
+		c.handleMessage({
+			kind: "producerEvent",
+			eventId: "e1",
+			observation: obs("e1", 1000, 2000),
+		});
+		// If insert and metadata were separate transactions, the row would survive.
+		expect(
+			(db.prepare("SELECT COUNT(*) c FROM observations").get() as { c: number })
+				.c,
+		).toBe(0);
+		expect(posted.some((m) => m.kind === "ack")).toBe(false);
+		expect(posted.some((m) => m.kind === "error")).toBe(true);
+	});
+
+	it("a schema-invalid payload posts an error, writes nothing, and does NOT ack", () => {
+		const { db, posted, c } = core();
+		c.handleMessage({
+			kind: "producerEvent",
+			eventId: "bad",
+			observation: { ...obs("bad", 1, 2), payload: { reason: "evict" } },
+		});
+		expect(
+			(db.prepare("SELECT COUNT(*) c FROM observations").get() as { c: number })
+				.c,
+		).toBe(0);
+		expect(posted.some((m) => m.kind === "ack")).toBe(false);
+		expect(posted.some((m) => m.kind === "error")).toBe(true);
 	});
 });
