@@ -26,7 +26,18 @@ const ud = (): string => {
 	dirs.push(d);
 	return d;
 };
+// A userDataDir that is really a FILE. `rm(<userDataDir>/insights, {recursive,
+// force})` then fails with ENOTDIR — a genuine, deterministic wipe failure (the
+// shape of the EACCES/EBUSY/read-only-volume cases) with no fs mocking.
+const unwipeableUd = (): string => {
+	const f = join(ud(), "not-a-dir");
+	writeFileSync(f, "x");
+	return f;
+};
 afterEach(() => {
+	// Restore console spies here rather than inline, so a failing assertion cannot
+	// leak a silenced console into the tests that follow.
+	vi.restoreAllMocks();
 	for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
@@ -737,6 +748,205 @@ describe("InsightsHost — producer outbox and lifecycle", () => {
 		await expect(off.queryAppTime({ fromMs: 0, toMs: 1 })).resolves.toEqual({
 			focusedMs: 0,
 			engagedMs: 0,
+			completeness: "unknown",
+		});
+	});
+
+	it("a failed wipe REJECTS deleteAll, still restarts capture, and leaves the transition queue usable", async () => {
+		const procs: FakeProc[] = [];
+		const fork = vi.fn(() => {
+			const p = fakeProc();
+			procs.push(p);
+			return asProc(p);
+		});
+		const collector = fakeCollector();
+		const host = new InsightsHost(
+			baseOpts({ userDataDir: unwipeableUd(), forkWorker: fork, collector }),
+		);
+		host.setEnabled(true);
+		procs[0].emit("spawn");
+
+		const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		const wipe = host.deleteAll();
+		procs[0].emit("message", { kind: "storeClosed", requestId: "delete-all" });
+
+		// A privacy-facing operation must never report success while the store is
+		// still on disk: the failure reaches the caller (the insights:deleteAll IPC).
+		await expect(wipe).rejects.toThrow(/ENOTDIR/);
+		expect(errSpy).toHaveBeenCalled();
+
+		// …and capture is NOT left dead: consent is still on, so the restart ran.
+		// (Without it `enabled` stays true with no worker, and produce() just fills
+		// the outbox to its cap until the next consent toggle.)
+		expect(fork).toHaveBeenCalledTimes(2);
+		expect(collector.started).toBe(2);
+		procs[1].emit("spawn");
+		const after = evOf(focusedSpan(900, 1000));
+		host.produce(after);
+		expect(sent(procs[1])).toContainEqual({
+			kind: "producerEvent",
+			eventId: after.eventId,
+			observation: after.observation,
+		});
+
+		// The rejecting transition released the queue rather than wedging it: a
+		// later transition still runs to completion.
+		host.setEnabled(false);
+		procs[1].emit("message", {
+			kind: "storeClosed",
+			requestId: "disable-drain",
+		});
+		await host.whenIdle();
+		expect(procs[1].kill).toHaveBeenCalled();
+	});
+
+	it("a drain that starts BEFORE spawn replays the finalizing uptime ahead of closeStore", async () => {
+		const proc = fakeProc();
+		const collector = fakeCollector();
+		const host = new InsightsHost(
+			baseOpts({ forkWorker: () => asProc(proc), collector }),
+		);
+		host.setEnabled(true); // forked, but the child has NOT spawned yet
+		host.setEnabled(false); // drain begins pre-spawn: closeStore queues in `pending`
+
+		proc.emit("spawn");
+
+		const msgs = sent(proc);
+		const uptimeIdx = msgs.findIndex(
+			(m) =>
+				m.kind === "producerEvent" &&
+				(m as { observation: { kind: string } }).observation.kind ===
+					"app.uptime",
+		);
+		const closeIdx = msgs.findIndex(
+			(m) =>
+				m.kind === "closeStore" &&
+				(m as { requestId: string }).requestId === "disable-drain",
+		);
+		// config still goes FIRST, but the replayed uptime row must reach the worker
+		// before the message that closes its store — otherwise the insert throws,
+		// nothing is acked, and the drain's outbox.clear() loses the row.
+		expect(msgs[0].kind).toBe("config");
+		expect(uptimeIdx).toBeGreaterThanOrEqual(0);
+		expect(closeIdx).toBeGreaterThan(uptimeIdx);
+
+		proc.emit("message", { kind: "storeClosed", requestId: "disable-drain" });
+		await host.whenIdle();
+		expect(proc.kill).toHaveBeenCalled();
+	});
+
+	it("bounds the crash re-fork loop: stops after 5 consecutive starts that never spawn", () => {
+		const procs: FakeProc[] = [];
+		const fork = vi.fn(() => {
+			const p = fakeProc();
+			procs.push(p);
+			return asProc(p);
+		});
+		const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		const host = new InsightsHost(baseOpts({ forkWorker: fork }));
+		host.setEnabled(true);
+
+		// Every worker dies immediately, never reaching "spawn" — what a persistent
+		// boot failure (corrupt DB, disk full, EACCES) looks like from the host.
+		for (let i = 0; i < 20; i += 1) procs[procs.length - 1].emit("exit");
+
+		expect(fork).toHaveBeenCalledTimes(6); // the initial fork + 5 bounded re-forks
+		expect(errSpy).toHaveBeenCalledTimes(1);
+		expect(String(errSpy.mock.calls[0][0])).toMatch(/re-fork/i);
+	});
+
+	it("bounds the crash re-fork loop for the REAL boot-failure shape: spawns fine, then dies without reporting in", () => {
+		const procs: FakeProc[] = [];
+		const fork = vi.fn(() => {
+			const p = fakeProc();
+			procs.push(p);
+			return asProc(p);
+		});
+		const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		const host = new InsightsHost(baseOpts({ forkWorker: fork }));
+		host.setEnabled(true);
+
+		// The child boots its store when the `config` MESSAGE arrives — i.e. after
+		// it has spawned — so a corrupt DB / disk-full / EACCES boot throw looks
+		// like this: a clean spawn every time, then an exit with nothing sent back.
+		// A budget keyed on `spawn` would be restored on every cycle and the loop
+		// would never terminate.
+		for (let i = 0; i < 20; i += 1) {
+			procs[procs.length - 1].emit("spawn");
+			procs[procs.length - 1].emit("exit");
+		}
+
+		expect(fork).toHaveBeenCalledTimes(6); // the initial fork + 5 bounded re-forks
+		expect(errSpy).toHaveBeenCalledTimes(1);
+		expect(String(errSpy.mock.calls[0][0])).toMatch(/re-fork/i);
+	});
+
+	it("a MESSAGE from the worker restores the re-fork budget (spawning alone does not)", () => {
+		const procs: FakeProc[] = [];
+		const fork = vi.fn(() => {
+			const p = fakeProc();
+			procs.push(p);
+			return asProc(p);
+		});
+		const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		const host = new InsightsHost(baseOpts({ forkWorker: fork }));
+		host.setEnabled(true);
+
+		for (let i = 0; i < 5; i += 1) {
+			procs[procs.length - 1].emit("spawn");
+			procs[procs.length - 1].emit("exit");
+		}
+		expect(fork).toHaveBeenCalledTimes(6); // budget exhausted…
+
+		// …but this worker booted and reported in, which is what "healthy" means.
+		procs[procs.length - 1].emit("spawn");
+		procs[procs.length - 1].emit("message", STATUS);
+		procs[procs.length - 1].emit("exit"); // a LATER crash is recoverable again
+		expect(fork).toHaveBeenCalledTimes(7);
+		expect(errSpy).not.toHaveBeenCalled();
+	});
+
+	it("a replaced worker's late spawn is ignored: it gets nothing and the LIVE worker still flushes its pending", async () => {
+		const procs: FakeProc[] = [];
+		const fork = vi.fn(() => {
+			const p = fakeProc();
+			procs.push(p);
+			return asProc(p);
+		});
+		const host = new InsightsHost(baseOpts({ forkWorker: fork }));
+		host.setEnabled(true); // worker A — it never spawns
+
+		// Replace A with B (delete-all tears the worker down, then restarts capture).
+		const wipe = host.deleteAll();
+		procs[0].emit("message", { kind: "storeClosed", requestId: "delete-all" });
+		await wipe;
+		expect(fork).toHaveBeenCalledTimes(2);
+
+		// Queued for the LIVE worker: B has not spawned yet, so this sits in `pending`.
+		const range = { fromMs: 1, toMs: 2 };
+		const pending = host.query(range);
+
+		// A's delayed spawn lands now. Without the identity guard it would seed
+		// config into a dead worker, hand it B's `pending`, and clear that queue.
+		procs[0].emit("spawn");
+		expect(sent(procs[0])).toHaveLength(0);
+
+		procs[1].emit("spawn");
+		const msgs = sent(procs[1]);
+		expect(msgs[0].kind).toBe("config");
+		expect(msgs).toContainEqual({
+			kind: "query",
+			requestId: "q-1",
+			query: { name: "whisperRuns", range },
+		});
+
+		procs[1].emit("message", {
+			kind: "queryResult",
+			requestId: "q-1",
+			result: { runs: [], completeness: "unknown" },
+		});
+		await expect(pending).resolves.toEqual({
+			runs: [],
 			completeness: "unknown",
 		});
 	});

@@ -55,6 +55,16 @@ const CLOSE_STORE_TIMEOUT_MS = 2000;
 // a wedged worker can never hang a read (mirrors CLOSE_STORE_TIMEOUT_MS).
 const QUERY_TIMEOUT_MS = 2000;
 
+// Ceiling on the automatic crash re-fork. A worker that dies on every start
+// (corrupt store, disk full, EACCES) would otherwise be re-forked forever at
+// process-spawn rate; after this many consecutive failures the host gives up and
+// says why. The budget is restored by the first MESSAGE a worker sends, not by
+// `spawn`: the child boots its store when the `config` message arrives, i.e.
+// AFTER it has spawned, so a persistent boot failure spawns happily every time
+// and only then dies. Resetting on `spawn` would re-arm the loop forever; a
+// message back proves the worker actually got as far as running.
+const MAX_CONSECUTIVE_REFORKS = 5;
+
 // The result returned to callers when there is no worker (capture disabled) or
 // the worker never answers within QUERY_TIMEOUT_MS. Built fresh per call so a
 // caller can never mutate a shared instance.
@@ -105,6 +115,9 @@ export class InsightsHost {
 	// Set before a deliberate kill so the `exit` handler can tell an intentional
 	// stop from a crash; cleared when a new worker is forked.
 	private intentionalStop = false;
+	// Crash re-forks since the last worker that reported in. Bounds the automatic
+	// restart loop (see MAX_CONSECUTIVE_REFORKS).
+	private consecutiveReforks = 0;
 	// Set once a disable drain has run `closeStore`: the worker's store is closed,
 	// so the next enable must replace that worker rather than reuse it.
 	private storeDrained = false;
@@ -170,16 +183,21 @@ export class InsightsHost {
 	 * time (spec §6), so a later-requested transition immediately supersedes any
 	 * in-flight one: the superseded transition then abandons its remaining
 	 * state-mutating steps rather than clobbering the newer request.
+	 *
+	 * A failing transition PROPAGATES to its caller's promise — `deleteAll` is
+	 * privacy-facing and must never report success on a wipe that did not happen —
+	 * while the queue is released identically on both outcomes (`busy` clears and
+	 * `afterJob` runs), so a rejection can never wedge the serializer.
 	 */
 	private transition(fn: (gen: number) => void | Promise<void>): Promise<void> {
 		const gen = ++this.generation;
-		return new Promise<void>((resolve) => {
+		return new Promise<void>((resolve, reject) => {
 			const job = (): void => {
 				let r: void | Promise<void>;
 				try {
 					r = fn(gen);
-				} catch {
-					resolve();
+				} catch (err) {
+					reject(err);
 					this.afterJob();
 					return;
 				}
@@ -189,12 +207,17 @@ export class InsightsHost {
 					return;
 				}
 				this.busy = true;
-				const settle = (): void => {
+				// Only the caller-facing settlement differs between the two outcomes;
+				// the queue hand-off is the same either way.
+				const release = (settleCaller: () => void): void => {
 					this.busy = false;
-					resolve();
+					settleCaller();
 					this.afterJob();
 				};
-				void Promise.resolve(r).then(settle, settle);
+				void Promise.resolve(r).then(
+					() => release(resolve),
+					(err: unknown) => release(() => reject(err)),
+				);
 			};
 			if (this.busy) this.queue.push(job);
 			else job();
@@ -240,7 +263,7 @@ export class InsightsHost {
 	}
 
 	setEnabled(enabled: boolean): void {
-		void this.transition((gen) => {
+		const done = this.transition((gen) => {
 			// Capture-time consent: the flag flips FIRST, synchronously, so no
 			// engagement can be produced at or after this instant (spec §6/AC5).
 			this.enabled = enabled;
@@ -254,6 +277,12 @@ export class InsightsHost {
 				return;
 			}
 			return this.disable(gen);
+		});
+		// Fire-and-forget by contract, but transitions now propagate their failures,
+		// so this one has to be consumed here or it surfaces as an unhandled
+		// rejection. Consent itself already flipped synchronously above.
+		void done.catch((err: unknown) => {
+			console.error("[insights] consent transition failed", err);
 		});
 	}
 
@@ -270,23 +299,32 @@ export class InsightsHost {
 		this.proc = proc;
 		proc.on("message", (msg: InsightsWorkerToMain) => {
 			if (this.proc !== proc) return;
+			// This worker got far enough to talk to us, so it booted its store: the
+			// crash budget is restored. Deliberately keyed on a message rather than
+			// on `spawn` — see MAX_CONSECUTIVE_REFORKS.
+			this.consecutiveReforks = 0;
 			this.onMessage(msg);
 		});
 		// utilityProcess can drop messages posted before the child has spawned, so
-		// seed config first on "spawn", then flush anything queued meanwhile, then
-		// replay every still-unacked producer event (crash recovery, spec §6).
+		// seed config first on "spawn", then replay every still-unacked producer
+		// event (crash recovery, spec §6), and only then flush the queued control
+		// messages. Replay MUST precede `pending`: a disable that began before the
+		// child spawned has its `closeStore` sitting in `pending`, and delivering
+		// that first would close the worker's store before the replayed finalizing
+		// `app.uptime` row could be inserted — the insert would throw, nothing
+		// would be acked, and the drain's `outbox.clear()` would lose the row.
 		proc.on("spawn", () => {
 			if (this.proc !== proc) return; // stale worker: it owns nothing now
 			this.spawned = true;
 			proc.postMessage({ kind: "config", config: this.buildConfig() });
-			for (const m of this.pending) proc.postMessage(m);
-			this.pending = [];
 			for (const ev of this.outbox.pending())
 				proc.postMessage({
 					kind: "producerEvent",
 					eventId: ev.eventId,
 					observation: ev.observation,
 				});
+			for (const m of this.pending) proc.postMessage(m);
+			this.pending = [];
 		});
 		// Unexpected exit = crash. Clear the stale handle and re-fork ONLY while
 		// consent is still on; a deliberate stop must never resurrect a worker,
@@ -296,6 +334,15 @@ export class InsightsHost {
 			this.spawned = false;
 			this.proc = null;
 			if (this.intentionalStop || !this.enabled) return;
+			// A worker that dies on every start would otherwise be re-forked forever
+			// at process-spawn rate. Bound it, and never silently.
+			if (this.consecutiveReforks >= MAX_CONSECUTIVE_REFORKS) {
+				console.error(
+					`[insights] worker exited ${this.consecutiveReforks} times in a row without ever reporting in (a boot failure: corrupt store, disk full, EACCES); giving up on the automatic re-fork. Capture stays off until consent is toggled or the app restarts.`,
+				);
+				return;
+			}
+			this.consecutiveReforks += 1;
 			this.start();
 		});
 	}
@@ -541,6 +588,12 @@ export class InsightsHost {
 	 * timeout fallback so a wedged worker can't hang). Idempotent + safe when the
 	 * store is absent (rm force:true). The public delete does NOT change consent,
 	 * so capture must resume by itself.
+	 *
+	 * A failure REJECTS: this is privacy-facing, so the caller must never be told
+	 * the data is gone when it is still on disk. The restart runs regardless (it
+	 * lives in the `finally`), so a failed wipe cannot strand `enabled === true`
+	 * with no worker — which would leave capture dead while `produce` silently
+	 * filled the outbox to its cap.
 	 */
 	deleteAll(): Promise<void> {
 		return this.transition(async (gen) => {
@@ -569,15 +622,22 @@ export class InsightsHost {
 					this.stopWorker();
 				}
 				await rm(this.insightsDir, { recursive: true, force: true }); // (3) wipe
+			} catch (err) {
+				console.error(
+					"[insights] delete-all failed; the store may still be on disk. Capture is restarted anyway.",
+					err,
+				);
+				throw err; // the caller must learn the wipe did not happen
 			} finally {
 				// Lift the gate BEFORE the restart so the re-armed collector's spans
-				// are accepted; `finally` so a failed wipe can never wedge capture off.
+				// are accepted. Both live in the `finally` so a failed wipe can never
+				// wedge capture off: the worker was already killed above, so skipping
+				// the restart would leave consent on with no worker at all.
 				this.wiping = false;
-			}
-			if (this.superseded(gen)) return; // a newer transition owns the restart
-			if (this.enabled) {
-				this.start(); // (4) restart: migrate() recreates a fresh v1 store
-				this.collector?.start();
+				if (!this.superseded(gen) && this.enabled) {
+					this.start(); // (4) restart: migrate() recreates a fresh v1 store
+					this.collector?.start();
+				}
 			}
 		});
 	}
