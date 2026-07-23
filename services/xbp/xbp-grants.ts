@@ -2,6 +2,7 @@ import {
 	CONTROL_ACT,
 	CONTROL_INSPECT,
 	CONTROL_NOTIFY,
+	CONTROL_PTY_WRITE,
 	sessionReportCapability,
 } from "@ai-creed/command-contract";
 import type { PairedDevice } from "./xbp-paired-device-store.js";
@@ -15,6 +16,7 @@ export const NEW_PAIRING_GRANTS: readonly string[] = [
 	CONTROL_ACT,
 	CONTROL_NOTIFY,
 	CONTROL_INSPECT,
+	CONTROL_PTY_WRITE,
 ];
 
 // Grants replayed for a persisted device on startup re-attach. A pre-2b.2

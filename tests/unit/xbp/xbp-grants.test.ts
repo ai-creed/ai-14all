@@ -3,6 +3,7 @@ import {
 	CONTROL_ACT,
 	CONTROL_INSPECT,
 	CONTROL_NOTIFY,
+	CONTROL_PTY_WRITE,
 	sessionReportCapability,
 } from "@ai-creed/command-contract";
 import {
@@ -17,6 +18,7 @@ describe("xbp grants (decision 8)", () => {
 			CONTROL_ACT,
 			CONTROL_NOTIFY,
 			CONTROL_INSPECT,
+			CONTROL_PTY_WRITE,
 		]);
 	});
 
@@ -50,5 +52,19 @@ describe("xbp grants (decision 8)", () => {
 		expect(
 			grantsForStoredDevice({ signPubHex: "aa", boxPubHex: "bb", pairedAt: 1 }),
 		).toEqual([sessionReportCapability.permission]);
+	});
+
+	it("mints control:pty-write for a NEW pairing (V1 input path)", () => {
+		expect(NEW_PAIRING_GRANTS).toContain("control:pty-write");
+	});
+
+	it("fail-closed: a stored pre-V1 record does NOT gain control:pty-write", () => {
+		const grants = grantsForStoredDevice({
+			signPubHex: "unused",
+			boxPubHex: "unused",
+			pairedAt: 1,
+			grantedPermissions: ["session:report", "control:act"],
+		});
+		expect(grants).not.toContain("control:pty-write");
 	});
 });
