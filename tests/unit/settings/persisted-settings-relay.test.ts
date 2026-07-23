@@ -16,14 +16,18 @@ describe("phoneBridge.relayBaseUrl", () => {
 		});
 		expect(p.phoneBridge?.relayBaseUrl).toBe("wss://relay.example.com");
 	});
-	it.each(["ws://relay.example.com", "http://x", "https://x", "not a url", "wss://x/?q=1", "wss://x/#f"])(
-		"rejects %s at persist time",
-		(bad) => {
-			expect(() =>
-				SettingsPatchSchema.parse({ phoneBridge: { relayBaseUrl: bad } }),
-			).toThrow();
-		},
-	);
+	it.each([
+		"ws://relay.example.com",
+		"http://x",
+		"https://x",
+		"not a url",
+		"wss://x/?q=1",
+		"wss://x/#f",
+	])("rejects %s at persist time", (bad) => {
+		expect(() =>
+			SettingsPatchSchema.parse({ phoneBridge: { relayBaseUrl: bad } }),
+		).toThrow();
+	});
 	it("accepts empty string (clears the setting)", () => {
 		const p = SettingsPatchSchema.parse({ phoneBridge: { relayBaseUrl: "" } });
 		expect(p.phoneBridge?.relayBaseUrl).toBe("");

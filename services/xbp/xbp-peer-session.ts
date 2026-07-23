@@ -135,9 +135,7 @@ export class XbpPeerSession {
 
 		peer.expose(
 			sessionReportCapability,
-			killGuard(sessionReportCapability.id, () =>
-				this.opts.getSessionReport(),
-			),
+			killGuard(sessionReportCapability.id, () => this.opts.getSessionReport()),
 		);
 
 		const acting = this.opts.acting;

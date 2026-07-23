@@ -58,7 +58,10 @@ function makeActingFake(): XbpActingExecutor {
 }
 
 function makeService(dir: string) {
-	const pushTokenStore = new XbpPushTokenStore({ dir, secureStorage: okStorage });
+	const pushTokenStore = new XbpPushTokenStore({
+		dir,
+		secureStorage: okStorage,
+	});
 	const pushTokenHandlers = createPushTokenHandlers({
 		isPushWakeEnabled: () => true,
 		store: pushTokenStore,

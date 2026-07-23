@@ -330,7 +330,10 @@ test("full pairing: QR offer -> SAS confirm -> paired card -> unpair", async () 
 // select the `main` session (the chip bar that hosts the entry button only
 // mounts once a session is active). Parameterised on `p` so it can run against
 // a second/relaunched window without touching the shared module-level `page`.
-async function reachPhoneBridgeButton(p: Page, repoPath: string): Promise<void> {
+async function reachPhoneBridgeButton(
+	p: Page,
+	repoPath: string,
+): Promise<void> {
 	const nav = p.getByRole("navigation", { name: "Worktree sessions" });
 	await p.getByRole("button", { name: "Browse" }).click();
 	await expect(p.locator("#repo-path")).toHaveValue(repoPath);
