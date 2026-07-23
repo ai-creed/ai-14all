@@ -15,6 +15,10 @@ import type {
 	InsightsWorkerToMain,
 	MainToInsightsWorker,
 } from "../../../services/insights/worker-protocol.js";
+import type { OutboxEvent } from "../../../services/insights/outbox.js";
+import type { AppSpan } from "../../../services/insights/app-focus/focus-core.js";
+import { spanToObservation } from "../../../services/insights/app-focus/span-observation.js";
+import type { InsightsHostOptions } from "../../../electron/main/services/insights-host.js";
 
 const dirs: string[] = [];
 const ud = (): string => {
@@ -332,5 +336,408 @@ describe("InsightsHost", () => {
 		proc.emit("spawn");
 		proc.emit("message", STATUS);
 		expect(onNotice).toHaveBeenCalledTimes(1); // in-process `acknowledged` guard blocks the stale re-delivery
+	});
+});
+
+const focusedSpan = (a: number, b: number): AppSpan => ({
+	kind: "app.focused",
+	startMs: a,
+	endMs: b,
+	reason: "poll",
+});
+const uptimeSpan = (a: number, b: number): AppSpan => ({
+	kind: "app.uptime",
+	startMs: a,
+	endMs: b,
+	reason: "disabled",
+});
+const evOf = (span: AppSpan): OutboxEvent => {
+	const observation = spanToObservation(span, "run-1");
+	return { eventId: observation.eventId, observation };
+};
+
+// Collector double: records arm/stop and yields a finalizing uptime span on stop.
+function fakeCollector(uptime: AppSpan | null = uptimeSpan(0, 100)) {
+	return {
+		started: 0,
+		stopped: 0,
+		start() {
+			this.started += 1;
+		},
+		stop(): AppSpan[] {
+			this.stopped += 1;
+			return uptime ? [uptime] : [];
+		},
+	};
+}
+
+const sent = (p: FakeProc): MainToInsightsWorker[] =>
+	p.postMessage.mock.calls.map((c) => c[0] as MainToInsightsWorker);
+
+describe("InsightsHost — producer outbox and lifecycle", () => {
+	const baseOpts = (
+		over: Partial<InsightsHostOptions>,
+	): InsightsHostOptions => ({
+		userDataDir: ud(),
+		whisperDbPath: null,
+		pollIntervalMs: 3000,
+		send: () => {},
+		loadNoticeShown: () => false,
+		persistNoticeShown: () => {},
+		...over,
+	});
+
+	it("produce posts a producerEvent and buffers it; ack clears the buffer", () => {
+		const proc = fakeProc();
+		const host = new InsightsHost(baseOpts({ forkWorker: () => asProc(proc) }));
+		host.setEnabled(true);
+		proc.emit("spawn");
+
+		const ev = evOf(focusedSpan(0, 1000));
+		host.produce(ev);
+		expect(sent(proc)).toContainEqual({
+			kind: "producerEvent",
+			eventId: ev.eventId,
+			observation: ev.observation,
+		});
+		expect(host.outboxSize).toBe(1);
+		proc.emit("message", { kind: "ack", eventId: ev.eventId });
+		expect(host.outboxSize).toBe(0);
+	});
+
+	it("an unexpected worker exit re-forks while consent is on, sends config first, then replays", () => {
+		let proc = fakeProc();
+		const fork = vi.fn(() => asProc(proc));
+		const host = new InsightsHost(baseOpts({ forkWorker: fork }));
+		host.setEnabled(true);
+		proc.emit("spawn");
+		const ev = evOf(focusedSpan(0, 1000));
+		host.produce(ev); // unacked
+
+		const dead = proc;
+		proc = fakeProc();
+		dead.emit("exit"); // crash → host must re-fork
+		expect(fork).toHaveBeenCalledTimes(2);
+		proc.emit("spawn");
+
+		const order = sent(proc).map((m) => m.kind);
+		expect(order[0]).toBe("config"); // config BEFORE replay
+		expect(sent(proc)).toContainEqual({
+			kind: "producerEvent",
+			eventId: ev.eventId,
+			observation: ev.observation,
+		});
+	});
+
+	it("does NOT re-fork after an intentional stop", async () => {
+		const proc = fakeProc();
+		const fork = vi.fn(() => asProc(proc));
+		const host = new InsightsHost(baseOpts({ forkWorker: fork }));
+		host.setEnabled(true);
+		proc.emit("spawn");
+		host.setEnabled(false);
+		await host.whenIdle();
+		proc.emit("exit"); // the kill's own exit — must not resurrect
+		expect(fork).toHaveBeenCalledTimes(1);
+	});
+
+	it("capture-time consent: a PRE-disable span stays deliverable; a POST-disable span is dropped", async () => {
+		const proc = fakeProc();
+		const collector = fakeCollector();
+		const host = new InsightsHost(
+			baseOpts({ forkWorker: () => asProc(proc), collector }),
+		);
+		host.setEnabled(true);
+		proc.emit("spawn");
+
+		// Captured while consent was ON — bounds wholly before the disable instant.
+		const preDisable = evOf(focusedSpan(0, 400));
+		host.produce(preDisable);
+
+		host.setEnabled(false); // flag flips synchronously; drain still pending
+
+		// Captured AT/AFTER the disable instant — must never reach the worker.
+		const postDisable = evOf(focusedSpan(500, 600));
+		host.produce(postDisable);
+
+		const producerIds = sent(proc)
+			.filter((m) => m.kind === "producerEvent")
+			.map((m) => (m as { eventId: string }).eventId);
+		// The distinction AC5 requires: pre-disable delivered, post-disable never.
+		expect(producerIds).toContain(preDisable.eventId);
+		expect(producerIds).not.toContain(postDisable.eventId);
+		const kinds = sent(proc)
+			.filter((m) => m.kind === "producerEvent")
+			.map((m) => (m as { observation: { kind: string } }).observation.kind);
+		expect(kinds).toContain("app.uptime"); // finalizing uptime IS delivered
+	});
+
+	it("disable drains via the exact closeStore→storeClosed handshake, then tears down and clears", async () => {
+		const proc = fakeProc();
+		const collector = fakeCollector();
+		const host = new InsightsHost(
+			baseOpts({ forkWorker: () => asProc(proc), collector }),
+		);
+		host.setEnabled(true);
+		proc.emit("spawn");
+		host.produce(evOf(focusedSpan(0, 400))); // an unacked event to be cleared
+		expect(host.outboxSize).toBe(1);
+
+		host.setEnabled(false);
+
+		// FIFO ordering (spec §6): the finalizing uptime producerEvent is posted
+		// BEFORE closeStore, so the worker inserts that row before closing its DB.
+		const msgs = sent(proc);
+		const uptimeIdx = msgs.findIndex(
+			(m) =>
+				m.kind === "producerEvent" &&
+				(m as { observation: { kind: string } }).observation.kind ===
+					"app.uptime",
+		);
+		const closeIdx = msgs.findIndex(
+			(m) =>
+				m.kind === "closeStore" &&
+				(m as { requestId: string }).requestId === "disable-drain",
+		);
+		expect(uptimeIdx).toBeGreaterThanOrEqual(0);
+		expect(closeIdx).toBeGreaterThan(uptimeIdx);
+
+		// Teardown waits for the ACTUAL storeClosed: an ack must not release it
+		// (this is what fails a regression back to ack-only draining).
+		proc.emit("message", { kind: "ack", eventId: "some-other-event" });
+		await Promise.resolve();
+		expect(proc.kill).not.toHaveBeenCalled();
+
+		proc.emit("message", { kind: "storeClosed", requestId: "disable-drain" });
+		await host.whenIdle();
+		expect(proc.kill).toHaveBeenCalled();
+		expect(host.outboxSize).toBe(0); // AC4: disable clears the buffer
+	});
+
+	it("delete-all discards the outbox and restarts capture when consent stays on", async () => {
+		let proc = fakeProc();
+		const fork = vi.fn(() => asProc(proc));
+		const collector = fakeCollector();
+		const host = new InsightsHost(baseOpts({ forkWorker: fork, collector }));
+		host.setEnabled(true);
+		proc.emit("spawn");
+		host.produce(evOf(focusedSpan(0, 1000))); // unacked, pre-delete
+		expect(host.outboxSize).toBe(1);
+
+		const p = host.deleteAll();
+		proc.emit("message", { kind: "storeClosed", requestId: "delete-all" });
+		proc = fakeProc();
+		await p;
+
+		expect(host.outboxSize).toBe(0); // discarded — cannot replay into the fresh store
+		expect(fork).toHaveBeenCalledTimes(2); // restarted, consent still on
+		expect(collector.started).toBe(2);
+	});
+
+	it("rapid disable→enable: superseded disable clears nothing; the enable replaces the drained worker", async () => {
+		const procs: FakeProc[] = [];
+		const fork = vi.fn(() => {
+			const p = fakeProc();
+			procs.push(p);
+			return asProc(p);
+		});
+		const collector = fakeCollector();
+		const host = new InsightsHost(baseOpts({ forkWorker: fork, collector }));
+		host.setEnabled(true);
+		procs[0].emit("spawn");
+		const preDisable = evOf(focusedSpan(0, 400)); // unacked engagement
+		host.produce(preDisable);
+		expect(host.outboxSize).toBe(1);
+
+		host.setEnabled(false); // drain pending — `storeClosed` has NOT arrived
+		host.setEnabled(true); // enqueued LATER ⇒ supersedes the in-flight disable
+		host.produce(evOf(focusedSpan(700, 800))); // during the disabled window → dropped
+
+		procs[0].emit("message", {
+			kind: "storeClosed",
+			requestId: "disable-drain",
+		});
+		await host.whenIdle();
+
+		// Spec §6/§11/AC5: the superseded disable abandoned its teardown, so the
+		// buffer survived — proven by the event still being pending and replayed.
+		// Two events are still unacked: the pre-disable engagement span AND the
+		// finalizing uptime span the disable itself delivered (this fake worker
+		// acks neither; a real worker acks the uptime row after it commits). Had
+		// the superseded disable cleared the buffer this would be 0, and the
+		// config-first replay asserted below would find nothing to replay.
+		expect(host.outboxSize).toBe(2);
+		// …and the enable replaced the drained (store-closed) worker: a FRESH fork.
+		expect(fork).toHaveBeenCalledTimes(2);
+		expect(collector.started).toBe(2); // collector re-armed
+
+		procs[1].emit("spawn");
+		const replayed = sent(procs[1]);
+		expect(replayed[0].kind).toBe("config"); // config before replay
+		expect(replayed).toContainEqual({
+			kind: "producerEvent",
+			eventId: preDisable.eventId,
+			observation: preDisable.observation,
+		});
+
+		// The REPLACED worker's exit arrives late. It must not clear the live
+		// handle or trigger a third fork — the final state has to stay stable.
+		procs[0].emit("exit");
+		await host.whenIdle();
+		expect(fork).toHaveBeenCalledTimes(2); // still exactly the one replacement
+		expect(procs).toHaveLength(2);
+		// The live worker is still wired: a new span posts to it, not into a void.
+		const after = evOf(focusedSpan(900, 1000));
+		host.produce(after);
+		expect(sent(procs[1])).toContainEqual({
+			kind: "producerEvent",
+			eventId: after.eventId,
+			observation: after.observation,
+		});
+
+		// No engagement was captured during the disabled window.
+		const focusedOnFirst = sent(procs[0])
+			.filter((m) => m.kind === "producerEvent")
+			.map((m) => (m as { observation: { kind: string } }).observation.kind)
+			.filter((k) => k === "app.focused");
+		expect(focusedOnFirst).toHaveLength(1); // only the pre-disable one
+	});
+
+	it("delete-all is mutually exclusive with produce/query: mid-wipe calls are refused and never replay", async () => {
+		const procs: FakeProc[] = [];
+		const fork = vi.fn(() => {
+			const p = fakeProc();
+			procs.push(p);
+			return asProc(p);
+		});
+		const collector = fakeCollector();
+		const host = new InsightsHost(baseOpts({ forkWorker: fork, collector }));
+		host.setEnabled(true);
+		procs[0].emit("spawn");
+
+		// Hold the wipe open: `storeClosed` is deliberately NOT emitted yet.
+		const wipe = host.deleteAll();
+
+		// A span captured mid-wipe must be dropped outright — not buffered, not
+		// posted — or it would replay into the freshly created store.
+		const midWipe = evOf(focusedSpan(0, 400));
+		host.produce(midWipe);
+		expect(host.outboxSize).toBe(0);
+		expect(
+			sent(procs[0]).some(
+				(m) =>
+					m.kind === "producerEvent" &&
+					(m as { eventId: string }).eventId === midWipe.eventId,
+			),
+		).toBe(false);
+
+		// Reads mid-wipe resolve empty and never reach the half-deleted store.
+		await expect(host.queryAppTime({ fromMs: 0, toMs: 1 })).resolves.toEqual({
+			focusedMs: 0,
+			engagedMs: 0,
+			completeness: "unknown",
+		});
+		await expect(host.query({ fromMs: 0, toMs: 1 })).resolves.toEqual({
+			runs: [],
+			completeness: "unknown",
+		});
+		expect(sent(procs[0]).some((m) => m.kind === "query")).toBe(false);
+
+		procs[0].emit("message", { kind: "storeClosed", requestId: "delete-all" });
+		await wipe;
+
+		// Restarted (consent still on) and the mid-wipe span did NOT survive.
+		expect(fork).toHaveBeenCalledTimes(2);
+		procs[1].emit("spawn");
+		expect(sent(procs[1]).some((m) => m.kind === "producerEvent")).toBe(false);
+		// The gate is lifted afterwards: capture works again into the fresh store.
+		const after = evOf(focusedSpan(900, 1000));
+		host.produce(after);
+		expect(sent(procs[1])).toContainEqual({
+			kind: "producerEvent",
+			eventId: after.eventId,
+			observation: after.observation,
+		});
+	});
+
+	it("armed crash hook: kills BEFORE the producer post, buffers the span, then the real exit path replays it config-first", async () => {
+		const procs: FakeProc[] = [];
+		const fork = vi.fn(() => {
+			const p = fakeProc();
+			procs.push(p);
+			return asProc(p);
+		});
+		const host = new InsightsHost(baseOpts({ forkWorker: fork }));
+		host.setEnabled(true);
+		procs[0].emit("spawn");
+
+		host.crashWorkerForTest(); // ARM only — nothing has died yet
+		expect(procs[0].kill).not.toHaveBeenCalled();
+
+		const ev = evOf(focusedSpan(0, 400));
+		host.produce(ev);
+
+		// The hook fired BEFORE the post: the worker is dead and never received it.
+		// A no-op hook fails here — it would have posted the event normally.
+		expect(procs[0].kill).toHaveBeenCalled();
+		expect(sent(procs[0]).some((m) => m.kind === "producerEvent")).toBe(false);
+		expect(host.outboxSize).toBe(1); // buffered, provably unacked
+
+		// The REAL exit handler recovers: consent is still on, so it re-forks.
+		procs[0].emit("exit");
+		expect(fork).toHaveBeenCalledTimes(2);
+
+		procs[1].emit("spawn");
+		const replayed = sent(procs[1]);
+		expect(replayed[0].kind).toBe("config"); // config BEFORE replay
+		expect(replayed).toContainEqual({
+			kind: "producerEvent",
+			eventId: ev.eventId,
+			observation: ev.observation,
+		});
+
+		// The hook is one-shot: the next produce goes straight to the live worker.
+		const next = evOf(focusedSpan(500, 600));
+		host.produce(next);
+		expect(procs[1].kill).not.toHaveBeenCalled();
+		expect(sent(procs[1])).toContainEqual({
+			kind: "producerEvent",
+			eventId: next.eventId,
+			observation: next.observation,
+		});
+	});
+
+	it("queryAppTime resolves the correlated result and falls back to empty with no worker", async () => {
+		const proc = fakeProc();
+		const host = new InsightsHost(baseOpts({ forkWorker: () => asProc(proc) }));
+		host.setEnabled(true);
+		proc.emit("spawn");
+
+		const pending = host.queryAppTime({ fromMs: 1, toMs: 2 });
+		const q = sent(proc).find(
+			(m) => m.kind === "query" && m.query.name === "appTime",
+		);
+		expect(q).toBeDefined();
+		proc.emit("message", {
+			kind: "appTimeResult",
+			requestId: (q as { requestId: string }).requestId,
+			result: { focusedMs: 5, engagedMs: 3, completeness: "partial" },
+		});
+		await expect(pending).resolves.toEqual({
+			focusedMs: 5,
+			engagedMs: 3,
+			completeness: "partial",
+		});
+
+		const off = new InsightsHost(
+			baseOpts({ forkWorker: () => asProc(fakeProc()) }),
+		);
+		off.setEnabled(false);
+		await off.whenIdle();
+		await expect(off.queryAppTime({ fromMs: 0, toMs: 1 })).resolves.toEqual({
+			focusedMs: 0,
+			engagedMs: 0,
+			completeness: "unknown",
+		});
 	});
 });
