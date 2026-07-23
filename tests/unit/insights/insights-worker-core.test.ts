@@ -261,4 +261,23 @@ describe("producerEvent (atomic write, ack after commit)", () => {
 		expect(posted.some((m) => m.kind === "ack")).toBe(false);
 		expect(posted.some((m) => m.kind === "error")).toBe(true);
 	});
+
+	it("answers an appTime query with the aggregated result", () => {
+		const { posted, c } = core();
+		c.handleMessage({
+			kind: "producerEvent",
+			eventId: "e1",
+			observation: obs("e1", 1000, 2000),
+		});
+		c.handleMessage({
+			kind: "query",
+			requestId: "a-1",
+			query: { name: "appTime", range: { fromMs: 0, toMs: 10_000 } },
+		});
+		expect(posted).toContainEqual({
+			kind: "appTimeResult",
+			requestId: "a-1",
+			result: { focusedMs: 1000, engagedMs: 0, completeness: "unknown" },
+		});
+	});
 });

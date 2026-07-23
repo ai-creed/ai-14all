@@ -3,6 +3,7 @@ import type { WhisperStoreReader } from "../plugins/whisper/whisper-store-reader
 import { getMeta, setMetaOnce } from "./store/meta.js";
 import { insertObservation } from "./store/observations.js";
 import { getWhisperRuns } from "./store/views.js";
+import { getAppTime } from "./store/app-time-view.js";
 import { archiveOnce } from "./whisper/archiver.js";
 import { pruneRetention } from "./retention.js";
 import type {
@@ -72,8 +73,19 @@ export function createInsightsWorkerCore(deps: WorkerCoreDeps) {
 				return;
 			case "query": {
 				try {
-					const result = getWhisperRuns(deps.db, msg.query.range);
-					deps.post({ kind: "queryResult", requestId: msg.requestId, result });
+					if (msg.query.name === "appTime") {
+						deps.post({
+							kind: "appTimeResult",
+							requestId: msg.requestId,
+							result: getAppTime(deps.db, msg.query.range),
+						});
+						return;
+					}
+					deps.post({
+						kind: "queryResult",
+						requestId: msg.requestId,
+						result: getWhisperRuns(deps.db, msg.query.range),
+					});
 				} catch (e) {
 					deps.post({
 						kind: "error",
