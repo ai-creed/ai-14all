@@ -321,3 +321,112 @@ test("full pairing: QR offer -> SAS confirm -> paired card -> unpair", async () 
 		await transport.close();
 	}
 });
+
+test("pty-input: host disarm switch gates a paired phone's terminal input", async () => {
+	const xbp = await import("@xavier/xbp/node");
+	const { ptyInputCapability } = await import("@ai-creed/command-contract");
+
+	// -- Pair afresh (the previous test unpaired). Same flow as test 2.
+	await dialog().getByRole("button", { name: "Pair a phone" }).click();
+	await expect(dialog().getByTestId("view-scan")).toBeVisible();
+	const scanStatus = await readStatus();
+	const offer = JSON.parse(scanStatus.offer as string) as {
+		token: string;
+		signPubHex: string;
+		boxPubHex: string;
+		connect: { url: string };
+	};
+	const backend = await xbp.createNodeSodiumBackend();
+	const phone = xbp.generateIdentity(backend);
+	const refClient = new xbp.ReferenceClient({ backend, identity: phone });
+	const pairT = await connectPhoneTransport(
+		xbp.connectWebSocketClient,
+		offer.connect.url,
+		scanStatus.port as number,
+	);
+	await pairT.send(refClient.buildPairRequest(offer.token));
+	await expect(dialog().getByTestId("view-sas")).toBeVisible();
+	await dialog().getByRole("button", { name: "Confirm", exact: true }).click();
+	await expect(dialog().getByTestId("view-paired")).toBeVisible();
+	await pairT.close();
+
+	// New pairing carries control:pty-write — visible in the permissions line.
+	await expect(dialog()).toContainText("can type into terminals");
+
+	// -- Register a REAL terminal as a live agent PTY (renderer-side, exactly
+	// how agent detection publishes it in production).
+	const target = await page.evaluate(async (repoPath: string) => {
+		const ai = (window as unknown as { ai14all: typeof window.ai14all })
+			.ai14all;
+		const ws = await ai.workspace.openRepository(repoPath);
+		const worktrees = await ai.repository.listWorktrees(ws.workspaceId);
+		const wt =
+			worktrees.find((w: { path: string }) => w.path === repoPath) ??
+			worktrees[0];
+		const session = await ai.terminals.create(
+			ws.workspaceId,
+			wt.id,
+			repoPath,
+		);
+		await ai.agentPtys.upsert({
+			worktreeId: wt.id,
+			agentId: "e2e-agent",
+			terminalSessionId: session.id,
+			provider: null,
+			label: "e2e agent",
+			live: true,
+			agentDetected: true,
+		});
+		return { worktreeId: wt.id, agentId: "e2e-agent" };
+	}, testRepo.repoPath);
+
+	// -- Phone-side Peer against the live LAN listener, keys from the offer.
+	const transport = await connectPhoneTransport(
+		xbp.connectWebSocketClient,
+		offer.connect.url,
+		scanStatus.port as number,
+	);
+	const peer = new xbp.Peer({ backend, identity: phone, transport });
+	const hostNode = peer.addPeer(
+		xbp.fromHex(offer.signPubHex),
+		xbp.fromHex(offer.boxPubHex),
+		[],
+	);
+	peer.start();
+
+	type SendResult =
+		| { ok: true; appliedAt: number }
+		| { ok: false; code: string };
+	const send = (): Promise<SendResult> =>
+		peer.call(hostNode, ptyInputCapability, {
+			worktreeId: target.worktreeId,
+			agentId: target.agentId,
+			chunks: [{ text: "echo pty-input-e2e" }, { key: "enter" }],
+		}) as Promise<SendResult>;
+
+	try {
+		// Armed (default): input applies to the real shell PTY.
+		await expect.poll(async () => (await send()).ok).toBe(true);
+
+		// Disarm on the host → the same request is refused in-band.
+		const inputSwitch = dialog().getByRole("switch", {
+			name: "Allow phone terminal input",
+		});
+		await inputSwitch.click();
+		await expect(inputSwitch).not.toBeChecked();
+		await expect
+			.poll(async () => {
+				const res = await send();
+				return res.ok ? "ok" : res.code;
+			})
+			.toBe("pty-input-disabled");
+
+		// Re-arm → input applies again.
+		await inputSwitch.click();
+		await expect(inputSwitch).toBeChecked();
+		await expect.poll(async () => (await send()).ok).toBe(true);
+	} finally {
+		peer.stop();
+		await transport.close();
+	}
+});
