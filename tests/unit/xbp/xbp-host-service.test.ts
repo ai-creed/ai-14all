@@ -19,7 +19,10 @@ const okStorage = {
 	decryptString: (b: Buffer) => b.toString("utf8"),
 };
 
-function makeService(storage = okStorage) {
+function makeService(
+	opts: { storage?: typeof okStorage; initialRelayBaseUrl?: string } = {},
+) {
+	const { storage = okStorage, ...rest } = opts;
 	return new XbpHostService({
 		dir: mkdtempSync(join(tmpdir(), "xbp-svc-")),
 		secureStorage: storage,
@@ -29,6 +32,7 @@ function makeService(storage = okStorage) {
 			sessions: [],
 		}),
 		subscribeChanges: () => () => {},
+		...rest,
 	});
 }
 
@@ -178,5 +182,24 @@ describe("XbpHostService", () => {
 		expect(svc.getStatus().paired).toBe(false);
 		expect(svc.getStatus().enabled).toBe(true);
 		expect(svc.getStatus().listening).toBe(true);
+	});
+
+	it("offer carries only the LAN URL when relayBaseUrl is unset", async () => {
+		svc = makeService();
+		await svc.start();
+		const offer = await svc.startPairing();
+		expect(offer.connect.urls).toHaveLength(1);
+		expect(offer.connect.urls[0]).toMatch(/^ws:\/\//);
+	});
+
+	it("offer carries LAN first, relay /connect/<hostId> second when set", async () => {
+		svc = makeService({ initialRelayBaseUrl: "wss://relay.example.com" });
+		await svc.start();
+		const offer = await svc.startPairing();
+		expect(offer.connect.urls).toHaveLength(2);
+		expect(offer.connect.urls[0]).toMatch(/^ws:\/\//);
+		expect(offer.connect.urls[1]).toMatch(
+			/^wss:\/\/relay\.example\.com\/connect\/.+$/,
+		);
 	});
 });

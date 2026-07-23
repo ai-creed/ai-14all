@@ -1,5 +1,6 @@
 import {
 	createNodeSodiumBackend,
+	deriveHostId,
 	fromHex,
 	toHex,
 	type Identity,
@@ -53,6 +54,9 @@ export class XbpHostService {
 	private pendingOffer: { payload: string; expiresAt: number } | null = null;
 	private offerExpiryTimer: ReturnType<typeof setTimeout> | null = null;
 	private lastError: string | null = null;
+	// Source of truth for the relay candidate URL advertised in pairing
+	// offers; later mutated by Task 9's applyRelayBaseUrl.
+	private relayBaseUrl: string;
 
 	constructor(
 		private readonly opts: {
@@ -66,12 +70,14 @@ export class XbpHostService {
 			pushTokenHandlers?: PushTokenHandlers;
 			ptyInspect?: PtyInspectBinding;
 			now?: () => number;
+			initialRelayBaseUrl?: string;
 		},
 	) {
 		this.pairedStore = new XbpPairedDeviceStore({
 			dir: opts.dir,
 			secureStorage: opts.secureStorage,
 		});
+		this.relayBaseUrl = opts.initialRelayBaseUrl ?? "";
 	}
 
 	private emitStatusChange(): void {
@@ -211,9 +217,15 @@ export class XbpHostService {
 	async startPairing(): Promise<PairingOffer> {
 		try {
 			const addr = primaryLanIPv4() ?? "127.0.0.1";
-			const offer = this.pairingHost!.createOffer({
-				urls: [`ws://${addr}:${this.lan!.port}`],
-			});
+			const urls: [string, ...string[]] = [`ws://${addr}:${this.lan!.port}`]; // LAN always first (umbrella §6)
+			if (this.relayBaseUrl) {
+				const hostId = deriveHostId(
+					this.backend!,
+					this.identity!.sign.publicKey,
+				);
+				urls.push(`${this.relayBaseUrl}/connect/${hostId}`);
+			}
+			const offer = this.pairingHost!.createOffer({ urls });
 			this.setPendingOffer({
 				payload: JSON.stringify(offer),
 				expiresAt: offer.expiresAt,
