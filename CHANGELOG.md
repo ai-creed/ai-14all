@@ -4,6 +4,15 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] – 2026-07-27
+
+A patch release for two ways the app could get stuck: a throwaway shell that survived its own close confirmation and wedged on screen, and a macOS update that hid the window instead of installing.
+
+### Fixed
+
+- **Confirming "Close shell?" no longer strands a dead throwaway shell.** Closing an expanded throwaway shell (⌘⇧T) while the close confirmation was enabled left the popover on screen, wedged: close, minimize, and pin all did nothing, and only restarting the app cleared it. Two causes, both fixed — the confirmation dialog shared a React key with the popover that raised it, so the reconciler dropped the popover's fiber without ever removing its DOM node; and because the dialog and its scrim are portaled outside the popover, opening the confirmation read as a click _outside_ the shell and minimized the very popover it belonged to. Dismissing the confirmation any way at all — Close, Cancel, the scrim, or Escape — now behaves.
+- **macOS "Restart now" installs the update instead of hiding the app.** Once an update had downloaded, pressing Restart now hid the window and kept running the old version; the only way to get the new one was to force-quit and reopen. On macOS the updater closes windows _before_ the app's "before-quit" fires, so hide-on-close read the install as an ordinary red-X close and cancelled the quit. The quitting flag is now also raised by the native "before-quit-for-update", and an update quit interrupted by the unsaved-editor prompt is resumed rather than restarted — re-invoking the installer would register Electron's window observer twice. Cancelling that prompt leaves the app running as before, with the downloaded update still applied on the next real quit.
+
 ## [1.8.0] – 2026-07-26
 
 This release gives a paired phone hands, not just eyes: typing on the phone now drives the terminal it's watching — behind a new per-device grant, a host-side disarm switch, and a full audit trail — and the phone can reach its host from anywhere through a self-hosted blind relay instead of only the home LAN. It also restores the whisper integration under ai-whisper 0.16.
