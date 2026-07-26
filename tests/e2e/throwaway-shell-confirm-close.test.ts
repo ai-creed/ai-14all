@@ -121,6 +121,60 @@ test.describe.serial("Throwaway shell close confirmation", () => {
 		await expect(allPills()).toHaveCount(0, { timeout: 10_000 });
 	});
 
+	test("cancelling via the dialog scrim leaves a LIVE shell, not a dead one", async () => {
+		test.setTimeout(90_000);
+		await spawnFloatingShell();
+		await page.getByTestId("floating-shell-close").click();
+		await expect(confirmDialog()).toBeVisible({ timeout: 10_000 });
+
+		// Dismiss by clicking the modal overlay (Radix scrim) near the bottom-left,
+		// away from the centred dialog content — and away from the top of the
+		// window, where the macOS drag region would swallow the click. The overlay
+		// is portaled to document.body and carries no role="dialog", so it is a
+		// distinct surface from the dialog content, yet it is still part of the
+		// confirmation this popover itself opened.
+		// Wait until the modal layer is fully armed before clicking: Radix arms its
+		// dismiss handling in an effect, and the same effect locks outside pointer
+		// events by setting body { pointer-events: none }. Polling that style is a
+		// condition-based readiness signal — clicking earlier races the listener
+		// and the scrim click is silently ignored.
+		await expect
+			.poll(
+				() =>
+					page.evaluate(() => getComputedStyle(document.body).pointerEvents),
+				{ timeout: 10_000 },
+			)
+			.toBe("none");
+		const overlay = page.locator('[data-state="open"].inset-0').first();
+		await expect(overlay).toBeVisible({ timeout: 10_000 });
+		const winH = await page.evaluate(() => window.innerHeight);
+		await overlay.click({ position: { x: 12, y: winH - 40 } });
+		await expect(confirmDialog()).toHaveCount(0, { timeout: 10_000 });
+
+		// Cancel aborts the close: the shell survives, still expanded (the
+		// confirmation it owns is not an "outside click" that dismisses it), and
+		// its pill is still there.
+		await expect(popover()).toHaveCount(1, { timeout: 10_000 });
+		await expect(allPills()).toHaveCount(1);
+
+		// Liveness: a surviving popover must still be a mounted React component,
+		// not an orphaned DOM node left behind by an unmount. An orphan keeps its
+		// stale handlers, so its buttons dispatch no-ops and nothing happens —
+		// this click would then leave the popover on screen forever.
+		await page.getByTestId("floating-shell-minimize").click();
+		await expect(popover()).toHaveCount(0, { timeout: 10_000 });
+		await expect(allPills()).toHaveCount(1);
+
+		// Clean up: kill the (still live) shell from its pill.
+		await page
+			.locator('[data-testid^="floating-shell-pill-close-"]')
+			.first()
+			.click();
+		await expect(confirmDialog()).toBeVisible({ timeout: 10_000 });
+		await page.getByTestId("confirm-dialog-confirm").click();
+		await expect(allPills()).toHaveCount(0, { timeout: 10_000 });
+	});
+
 	test("after a confirmed close, a fresh shell still closes directly when the pref is off", async () => {
 		test.setTimeout(90_000);
 		// Guard against the reported "stuck" aftermath wedging later closes:
