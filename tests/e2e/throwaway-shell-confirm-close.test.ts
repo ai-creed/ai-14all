@@ -103,6 +103,34 @@ test.afterAll(async () => {
 });
 
 test.describe.serial("Throwaway shell close confirmation", () => {
+	// NEGATIVE CONTROL — runs first, and passes on master. The bug report says
+	// the stuck shell happens from "either kill surface", but only the EXPANDED
+	// popover is affected: killing from the minimized pill confirms and closes
+	// cleanly. The distinction is the point — while the shell is minimized the
+	// popover is not rendered, so the confirmation dialog has no sibling to
+	// collide with. If this case ever starts failing, the fault is wider than
+	// the expanded-popover path this spec's other cases pin down.
+	test("closing from the MINIMIZED pill confirms and closes cleanly", async () => {
+		test.setTimeout(90_000);
+		await spawnFloatingShell();
+
+		// Minimize first: the popover unmounts here, with nothing else pending.
+		await page.getByTestId("floating-shell-minimize").click();
+		await expect(popover()).toHaveCount(0, { timeout: 10_000 });
+		await expect(allPills()).toHaveCount(1);
+
+		// Same confirmation, reached from the pill's kill button instead.
+		await page
+			.locator('[data-testid^="floating-shell-pill-close-"]')
+			.first()
+			.click();
+		await expect(confirmDialog()).toBeVisible({ timeout: 10_000 });
+		await page.getByTestId("confirm-dialog-confirm").click();
+		await expect(confirmDialog()).toHaveCount(0, { timeout: 10_000 });
+		await expect(allPills()).toHaveCount(0, { timeout: 10_000 });
+		await expect(popover()).toHaveCount(0);
+	});
+
 	test("confirming the Close shell? dialog kills the floating shell", async () => {
 		test.setTimeout(90_000);
 		await spawnFloatingShell();
