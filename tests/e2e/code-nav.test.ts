@@ -750,24 +750,44 @@ test.describe.serial("Code navigation MVP", () => {
 			await expect(peek).toBeVisible({ timeout: 2_000 });
 		}).toPass({ timeout: 20_000 });
 
-		// The peek widget renders with the real filename + real preview content.
-		await expect(peek).toContainText("utils", { timeout: 10_000 });
+		// The peek widget lists the real definition sites. Do NOT assert on
+		// whatever Monaco auto-selects: the fixture deliberately seeds parseConfig
+		// in BOTH src/utils.ts and src/utils2.ts, and the caller's import line is
+		// a third result, so "Definitions (3)" is expected and which one the peek
+		// pre-selects — hence what its preview pane shows — follows provider
+		// ranking rather than anything this test controls. Auto-selecting the
+		// import site left the preview showing src/index.ts and made the old
+		// content assertion fail on roughly two runs in three.
+		//
+		// Select the src/utils.ts entry explicitly instead, then assert the
+		// preview. That is what "renders a real preview" means here, and it holds
+		// regardless of ranking. The tree's top level is file groups; ArrowRight
+		// expands the selected group so its leaf (the source line) renders.
+		const utilsGroup = peek
+			.locator(".monaco-list-row")
+			.filter({ hasText: /^utils\.ts/ })
+			.first();
+		await expect(utilsGroup).toBeVisible({ timeout: 10_000 });
+		await utilsGroup.click();
+		await page.keyboard.press("ArrowRight");
+
+		const defRow = peek
+			.locator(".monaco-list-row")
+			.filter({ hasText: "export function parseConfig" })
+			.first();
+		await expect(defRow).toBeVisible({ timeout: 10_000 });
+
+		// Single-click previews the entry: the peek's preview editor loads the
+		// real definition file, so the definition text must now be on screen.
+		await defRow.click();
 		await expect(peek).toContainText("function parseConfig", {
 			timeout: 10_000,
 		});
 
-		// Open a real peek entry. The tree's top level is file groups; expand the
-		// first group (ArrowRight) so its reference leaf renders, then double-click
-		// the leaf (its row shows the source line). Double-click opens the entry
-		// (single click / Enter only preview it), routing through ICodeEditorService
-		// → our file:// opener → NavRouter, so the main viewer switches files.
-		await peek.locator(".monaco-list-row").first().click();
-		await page.keyboard.press("ArrowRight");
-		await peek
-			.locator(".monaco-list-row")
-			.filter({ hasText: "export function parseConfig" })
-			.first()
-			.dblclick();
+		// Double-click OPENS the entry (single click / Enter only preview it),
+		// routing through ICodeEditorService → our file:// opener → NavRouter, so
+		// the main viewer switches files.
+		await defRow.dblclick();
 		await expect(
 			page.getByTestId("inline-editor").locator(".shell-viewer__title"),
 		).toHaveText(/utils/, { timeout: 15_000 });
