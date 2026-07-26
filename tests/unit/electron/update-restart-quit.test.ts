@@ -76,21 +76,32 @@ function makeFakeWindow() {
 // quit-flag lines are mirrored from index.ts because that wiring lives inline
 // in the app entry and cannot be imported; the fix should extract it into a
 // testable module and this harness should then consume the extracted seam.
-function wireMainProcessLikeIndexTs() {
+function wireMainProcessLikeIndexTs(
+	opts: { updaterMode?: "quits" | "errors" } = {},
+) {
 	const app = makeFakeApp();
 	const win = makeFakeWindow();
 	const hide = vi.fn();
 	let installStarted = false;
+	const updaterListeners = new Map<string, (...args: unknown[]) => void>();
 
-	// Squirrel.Mac quitAndInstall per the documented sequence above.
+	// Squirrel.Mac quitAndInstall per the documented sequence above. In
+	// "errors" mode the native quit never begins (updater failure or the
+	// deferred MacUpdater.js:236-250 wait): no windows close, no install —
+	// only the updater `error` event the service subscribes to.
 	const updater: UpdaterLike = {
 		autoDownload: false,
 		autoInstallOnAppQuit: false,
-		on() {
+		on(event, listener) {
+			updaterListeners.set(event, listener);
 			return updater;
 		},
 		checkForUpdates: () => Promise.resolve(undefined),
 		quitAndInstall() {
+			if (opts.updaterMode === "errors") {
+				updaterListeners.get("error")?.(new Error("squirrel failure"));
+				return;
+			}
 			app.emit("before-quit-for-update");
 			const { defaultPrevented } = win.emitClose();
 			if (defaultPrevented) return; // quit aborted — app keeps running
@@ -139,10 +150,23 @@ function wireMainProcessLikeIndexTs() {
 		// renderer's "Restart now" button ends in.
 		installUpdate: () => updateService.installUpdate(),
 		hide,
+		closeGate,
+		win,
 		installStarted: () => installStarted,
 		isWindowDestroyed: () => win.isDestroyed(),
+		// True once the renderer was asked to confirm discarding dirty buffers
+		// (the close-gate's existing `app:requestClose` round-trip).
+		confirmationRequested: () =>
+			win.webContents.send.mock.calls.some((c) => c[0] === "app:requestClose"),
 	};
 }
+
+const DIRTY_BUFFER = {
+	workspaceId: "ws",
+	worktreeId: "wt",
+	relativePath: "notes.md",
+	dirty: true,
+};
 
 describe("macOS Restart now → quitAndInstall vs hide-on-close", () => {
 	it("quits and installs the update instead of hiding the window", () => {
@@ -166,5 +190,70 @@ describe("macOS Restart now → quitAndInstall vs hide-on-close", () => {
 		h.installUpdate();
 
 		expect(h.installStarted()).toBe(true);
+	});
+});
+
+describe("Restart now with dirty editor buffers (close-gate interplay)", () => {
+	// The fix must obtain the dirty-buffer confirmation BEFORE the native
+	// updater starts closing windows: a close prevented mid-quit aborts the
+	// Squirrel quit, and the gate's confirm path only destroys the window
+	// (close-gate.ts:111-121) — it cannot resume the aborted install. These
+	// tests assert the required end-to-end behavior via the gate's existing
+	// `app:requestClose` renderer round-trip; if the fix confirms through a
+	// different channel, re-point the harness responder at it.
+	it("asks for confirmation first and installs after the user confirms", () => {
+		const h = wireMainProcessLikeIndexTs();
+		h.closeGate.setDirty(DIRTY_BUFFER);
+		h.win.webContents.send.mockImplementation((channel: string) => {
+			if (channel === "app:requestClose") {
+				h.closeGate.confirmClose({ proceed: true }); // renderer: user confirms
+			}
+		});
+
+		h.installUpdate();
+
+		expect(h.confirmationRequested()).toBe(true);
+		expect(h.installStarted()).toBe(true);
+	});
+
+	it("cancelling the confirmation aborts the restart and leaves the app fully usable", () => {
+		const h = wireMainProcessLikeIndexTs();
+		h.closeGate.setDirty(DIRTY_BUFFER);
+		h.win.webContents.send.mockImplementation((channel: string) => {
+			if (channel === "app:requestClose") {
+				h.closeGate.confirmClose({ proceed: false }); // renderer: user cancels
+			}
+		});
+
+		h.installUpdate();
+
+		expect(h.confirmationRequested()).toBe(true);
+		expect(h.installStarted()).toBe(false);
+		expect(h.isWindowDestroyed()).toBe(false);
+		// Cancelling must not hide the window out from under the user…
+		expect(h.hide).not.toHaveBeenCalled();
+		// …and must not leave lifecycle state stuck: a later red-X close still
+		// hides instead of destroying (the #31 macOS contract).
+		const redX = h.win.emitClose();
+		expect(redX.defaultPrevented).toBe(true);
+		expect(h.isWindowDestroyed()).toBe(false);
+	});
+});
+
+describe("updater failure must not corrupt lifecycle state (regression pin)", () => {
+	// Passes today and must STAY green through the fix: if quitting were
+	// marked at button-press time, an updater error (or MacUpdater's deferred
+	// wait, MacUpdater.js:236-250) would leave the flag stuck true and turn
+	// every later red-X close into a destroy. The quitting signal may only
+	// flip when a native quit is genuinely beginning.
+	it("after a failed Restart now, the red-X close still hides the window", () => {
+		const h = wireMainProcessLikeIndexTs({ updaterMode: "errors" });
+
+		h.installUpdate();
+
+		const redX = h.win.emitClose();
+		expect(redX.defaultPrevented).toBe(true);
+		expect(h.isWindowDestroyed()).toBe(false);
+		expect(h.hide).toHaveBeenCalled();
 	});
 });
