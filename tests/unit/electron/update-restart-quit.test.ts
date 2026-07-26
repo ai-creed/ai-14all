@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+	createQuitState,
+	createUpdateQuitGuard,
 	registerAppLifecycle,
 	registerHideOnClose,
 } from "../../../electron/main/lifecycle.js";
@@ -8,11 +10,11 @@ import { startUpdateService } from "../../../electron/main/services/update-servi
 import type { UpdaterLike } from "../../../electron/main/services/update-service.js";
 
 // Reproduction for docs/bugreports/bug-macos-updater-restart-now-minimizes.md:
-// on macOS, pressing "Restart now" hides the window instead of quitting and
+// on macOS, pressing "Restart now" hid the window instead of quitting and
 // installing the downloaded update.
 //
 // The fake models Electron's REAL native updater lifecycle, verified against
-// the Electron 41 source and runtime (review round 5):
+// the Electron 41 source and runtime (diagnosis review round 5):
 //
 //  - electron-updater's MacUpdater delegates quitAndInstall() to Electron's
 //    native autoUpdater (MacUpdater.js:16, 229), deferring while Squirrel has
@@ -23,18 +25,24 @@ import type { UpdaterLike } from "../../../electron/main/services/update-service
 //    once every window actually closed (electron.d.ts contract). A close that
 //    calls event.preventDefault() aborts the sweep BUT LEAVES THE OBSERVER
 //    REGISTERED: when the last window is later closed or destroyed,
-//    OnWindowAllClosed re-enters QuitAndInstall and the install proceeds
-//    (independently reproduced in the Electron 41 runtime).
+//    OnWindowAllClosed re-enters QuitAndInstall and the install proceeds.
 //  - Calling quitAndInstall() again while that observer is registered
 //    violates Electron's observer invariant — base/observer_list.h NOTREACHED
-//    "Observers can only be added once!" (independently reproduced) — modeled
-//    here as the observerDoubleAdds counter, which correct code must keep 0.
+//    "Observers can only be added once!" — modeled here as the
+//    observerDoubleAdds counter, which correct code must keep 0.
 //
 // Updater modes: "quits" (Squirrel ready, native sequence runs on press),
 // "deferred" (press precedes native readiness; completeDeferredQuit() runs it
 // later), "errors" (permanent failure — the native quit never begins).
+//
+// Renderer confirmations are answered ASYNCHRONOUSLY (queueMicrotask): the
+// real app:requestClose/confirmClose round-trip is IPC, so the close sweep
+// always finishes before the user's verdict arrives. Tests that prompt use
+// `await settle()` to let the queued verdict (and its cascade) run.
 
 type CloseEvent = { preventDefault(): void };
+
+const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 function makeFakeApp() {
 	const listeners = new Map<string, Array<() => void>>();
@@ -81,11 +89,9 @@ function makeFakeWindow() {
 	return win;
 }
 
-// Wires the REAL production pieces (createCloseGate, registerHideOnClose,
-// startUpdateService) together exactly as electron/main/index.ts does. The
-// quit-flag lines are mirrored from index.ts because that wiring lives inline
-// in the app entry and cannot be imported; the fix should extract it into a
-// testable module and this harness should then consume the extracted seam.
+// Wires the REAL production pieces — createQuitState, createUpdateQuitGuard,
+// createCloseGate, registerHideOnClose, startUpdateService — together exactly
+// as electron/main/index.ts does, over a fake window/app/native-updater.
 function wireMainProcessLikeIndexTs(
 	opts: { updaterMode?: "quits" | "deferred" | "errors" } = {},
 ) {
@@ -124,6 +130,7 @@ function wireMainProcessLikeIndexTs(
 	};
 
 	// electron-updater MacUpdater wrapper (MacUpdater.js:227-252).
+	let updaterQuitAndInstallCalls = 0;
 	const updater: UpdaterLike = {
 		autoDownload: false,
 		autoInstallOnAppQuit: false,
@@ -133,6 +140,7 @@ function wireMainProcessLikeIndexTs(
 		},
 		checkForUpdates: () => Promise.resolve(undefined),
 		quitAndInstall() {
+			updaterQuitAndInstallCalls += 1;
 			if (opts.updaterMode === "errors") {
 				updaterListeners.get("error")?.(new Error("squirrel failure"));
 				return;
@@ -146,34 +154,47 @@ function wireMainProcessLikeIndexTs(
 		},
 	};
 
-	// index.ts:797 — the flag hide-on-close consults.
-	let isQuitting = false;
+	// index.ts — quit state fed by before-quit and before-quit-for-update.
+	const quitState = createQuitState({
+		onBeforeQuit: (listener) => app.on("before-quit", listener),
+		onBeforeQuitForUpdate: (listener) =>
+			app.on("before-quit-for-update", listener),
+	});
 
-	// index.ts:799-800 — close-gate attaches its window `close` listener first.
-	const closeGate = createCloseGate();
-	closeGate.attach(win, { isQuitting: () => isQuitting });
+	// index.ts — close-gate attaches its window `close` listener first, and a
+	// cancelled prompt resets an aborted update quit.
+	const closeGate = createCloseGate({
+		onCancelled: quitState.resetAbortedUpdateQuit,
+	});
+	closeGate.attach(win, { isQuitting: quitState.isQuitting });
 
-	// index.ts:145-156 — real update service over the (fake) updater.
+	// mainWindow.close(): the normal cancellable close path.
+	const closeMainWindow = () => {
+		if (win.isDestroyed()) return;
+		const { defaultPrevented } = win.emitClose();
+		if (defaultPrevented) return;
+		win.markClosed();
+		nativeOnWindowAllClosed();
+	};
+
+	// index.ts — real update service over the (fake) updater, with the
+	// production update-quit guard.
 	const updateService = startUpdateService({
 		updater,
 		currentVersion: "1.2.3",
 		isPackaged: true,
 		platform: "darwin",
 		arch: "arm64",
+		quitGuard: createUpdateQuitGuard(quitState, closeMainWindow),
 		send: () => {},
 		logger: { warn: () => {}, info: () => {} },
 	});
 
-	// index.ts:833-834 — the ONLY place the flag flips today.
-	app.on("before-quit", () => {
-		isQuitting = true;
-	});
-
-	// index.ts:859-869 — hide-on-close registers its `close` listener second.
+	// index.ts — hide-on-close registers its `close` listener second.
 	registerHideOnClose({
 		onClose: (listener) => win.on("close", listener),
 		onActivate: () => {},
-		isQuitting: () => isQuitting,
+		isQuitting: quitState.isQuitting,
 		hide,
 		show: () => {},
 		isDestroyed: () => win.isDestroyed(),
@@ -189,8 +210,8 @@ function wireMainProcessLikeIndexTs(
 	};
 
 	return {
-		// index.ts:816 + ipc.ts:666-667 — the "update:install" IPC path the
-		// renderer's "Restart now" button ends in.
+		// index.ts + ipc.ts — the "update:install" IPC path the renderer's
+		// "Restart now" button ends in.
 		installUpdate: () => updateService.installUpdate(),
 		hide,
 		closeGate,
@@ -209,15 +230,20 @@ function wireMainProcessLikeIndexTs(
 		emitUpdaterError: () =>
 			updaterListeners.get("error")?.(new Error("squirrel failure")),
 		observerDoubleAdds: () => observerDoubleAdds,
+		updaterQuitAndInstallCalls: () => updaterQuitAndInstallCalls,
 		// Cmd+Q analog: app.quit() → before-quit → close windows (cancellable).
 		realQuit: () => {
 			app.emit("before-quit");
-			if (!win.isDestroyed()) {
-				const { defaultPrevented } = win.emitClose();
-				if (defaultPrevented) return;
-				win.markClosed();
-				nativeOnWindowAllClosed();
-			}
+			closeMainWindow();
+		},
+		// Renderer stand-in: answer the next app:requestClose prompt with the
+		// given verdict, asynchronously like the real IPC round-trip.
+		respondToConfirm: (proceed: () => boolean) => {
+			win.webContents.send.mockImplementation((channel: string) => {
+				if (channel === "app:requestClose") {
+					queueMicrotask(() => closeGate.confirmClose({ proceed: proceed() }));
+				}
+			});
 		},
 		// True once the renderer was asked to confirm discarding dirty buffers
 		// (the close-gate's existing `app:requestClose` round-trip).
@@ -242,13 +268,13 @@ describe("macOS Restart now → quitAndInstall vs hide-on-close", () => {
 		h.installUpdate();
 
 		// The window must be allowed to close so Squirrel.Mac can install;
-		// hiding it is the reported bug (app keeps running the old version).
+		// hiding it was the reported bug (app kept running the old version).
 		expect(h.hide).not.toHaveBeenCalled();
 		expect(h.installStarted()).toBe(true);
 		expect(h.isWindowDestroyed()).toBe(true);
 	});
 
-	it("keeps failing the same way on a second Restart now press (updater state is not consumed)", () => {
+	it("a second Restart now press is harmless once the update quit ran", () => {
 		const h = wireMainProcessLikeIndexTs();
 
 		h.installUpdate();
@@ -263,10 +289,9 @@ describe("macOS Restart now → quitAndInstall vs hide-on-close", () => {
 		h.installUpdate();
 		h.installUpdate();
 
-		// Today the second press re-enters native QuitAndInstall while its
-		// WindowList observer from the first (aborted) attempt is still
-		// registered — the NOTREACHED invariant violation. The fix must make
-		// this unreachable (single-flight install / armed-resume guard).
+		// Re-entering native QuitAndInstall while its WindowList observer is
+		// still registered is the NOTREACHED invariant violation; the guard
+		// must make it unreachable.
 		expect(h.observerDoubleAdds()).toBe(0);
 		expect(h.installStarted()).toBe(true);
 	});
@@ -275,36 +300,30 @@ describe("macOS Restart now → quitAndInstall vs hide-on-close", () => {
 describe("Restart now with dirty editor buffers (close-gate interplay)", () => {
 	// With the quitting flag fixed, the update-quit close sweep reaches the
 	// gate, which prompts and — on proceed — destroys the window via its
-	// EXISTING path (close-gate.ts:111-121). That destroy empties the window
-	// list, and Electron's still-registered updater observer completes the
-	// install (round-5 verified continuation). No retry may be issued: these
-	// tests also require zero observer double-registrations.
-	it("asks for confirmation and installs after the user confirms", () => {
+	// EXISTING path (close-gate.ts destroy-on-proceed). That destroy empties
+	// the window list, and Electron's still-registered updater observer
+	// completes the install. No retry is ever issued: these tests also
+	// require zero observer double-registrations.
+	it("asks for confirmation and installs after the user confirms", async () => {
 		const h = wireMainProcessLikeIndexTs();
 		h.closeGate.setDirty(DIRTY_BUFFER);
-		h.win.webContents.send.mockImplementation((channel: string) => {
-			if (channel === "app:requestClose") {
-				h.closeGate.confirmClose({ proceed: true }); // renderer: user confirms
-			}
-		});
+		h.respondToConfirm(() => true);
 
 		h.installUpdate();
+		await settle();
 
 		expect(h.confirmationRequested()).toBe(true);
 		expect(h.installStarted()).toBe(true);
 		expect(h.observerDoubleAdds()).toBe(0);
 	});
 
-	it("cancelling the confirmation aborts the restart and leaves the app fully usable", () => {
+	it("cancelling the confirmation aborts the restart and leaves the app fully usable", async () => {
 		const h = wireMainProcessLikeIndexTs();
 		h.closeGate.setDirty(DIRTY_BUFFER);
-		h.win.webContents.send.mockImplementation((channel: string) => {
-			if (channel === "app:requestClose") {
-				h.closeGate.confirmClose({ proceed: false }); // renderer: user cancels
-			}
-		});
+		h.respondToConfirm(() => false);
 
 		h.installUpdate();
+		await settle();
 
 		expect(h.confirmationRequested()).toBe(true);
 		expect(h.installStarted()).toBe(false);
@@ -318,23 +337,21 @@ describe("Restart now with dirty editor buffers (close-gate interplay)", () => {
 		expect(h.isWindowDestroyed()).toBe(false);
 	});
 
-	it("after cancelling, a second Restart now press re-prompts and installs without double-registering", () => {
+	it("after cancelling, a second Restart now press re-prompts and installs without double-registering", async () => {
 		const h = wireMainProcessLikeIndexTs();
 		h.closeGate.setDirty(DIRTY_BUFFER);
 		let reply = false;
-		h.win.webContents.send.mockImplementation((channel: string) => {
-			if (channel === "app:requestClose") {
-				h.closeGate.confirmClose({ proceed: reply });
-			}
-		});
+		h.respondToConfirm(() => reply);
 
-		h.installUpdate(); // desired: prompt → user cancels
+		h.installUpdate(); // prompt → user cancels
+		await settle();
 		reply = true;
-		h.installUpdate(); // desired: prompt again → proceed → install
+		h.installUpdate(); // prompt again → proceed → install
+		await settle();
 
-		// The second press must resume via the already-registered native
-		// observer (close the window through the normal gate flow), NEVER by
-		// re-invoking native quitAndInstall.
+		// The second press resumes via the already-registered native observer
+		// (window closed through the normal gate flow), NEVER by re-invoking
+		// native quitAndInstall.
 		expect(h.confirmationRequested()).toBe(true);
 		expect(h.installStarted()).toBe(true);
 		expect(h.observerDoubleAdds()).toBe(0);
@@ -363,35 +380,29 @@ describe("Restart now pressed before Squirrel is natively ready (deferred quit)"
 		expect(h.isWindowDestroyed()).toBe(true);
 	});
 
-	it("edits made during the wait get a FRESH confirmation when the native quit starts", () => {
+	it("edits made during the wait get a FRESH confirmation when the native quit starts", async () => {
 		const h = wireMainProcessLikeIndexTs({ updaterMode: "deferred" });
 		h.installUpdate(); // buffers clean at press time — no consent to give yet
 
 		h.closeGate.setDirty(DIRTY_BUFFER); // user keeps working during the wait
-		h.win.webContents.send.mockImplementation((channel: string) => {
-			if (channel === "app:requestClose") {
-				h.closeGate.confirmClose({ proceed: true });
-			}
-		});
+		h.respondToConfirm(() => true);
 
 		h.completeDeferredQuit();
+		await settle();
 
 		expect(h.confirmationRequested()).toBe(true);
 		expect(h.installStarted()).toBe(true);
 	});
 
-	it("cancelling that fresh confirmation aborts cleanly and red-X still hides", () => {
+	it("cancelling that fresh confirmation aborts cleanly and red-X still hides", async () => {
 		const h = wireMainProcessLikeIndexTs({ updaterMode: "deferred" });
 		h.installUpdate();
 
 		h.closeGate.setDirty(DIRTY_BUFFER);
-		h.win.webContents.send.mockImplementation((channel: string) => {
-			if (channel === "app:requestClose") {
-				h.closeGate.confirmClose({ proceed: false });
-			}
-		});
+		h.respondToConfirm(() => false);
 
 		h.completeDeferredQuit();
+		await settle();
 
 		expect(h.confirmationRequested()).toBe(true);
 		expect(h.installStarted()).toBe(false);
@@ -404,15 +415,14 @@ describe("Restart now pressed before Squirrel is natively ready (deferred quit)"
 });
 
 describe("native observer continuation (regression pin)", () => {
-	// Green today and must stay green: after an aborted updater quit the
-	// native WindowList observer stays registered, so the NEXT successful
-	// quit completes the install — this is the mechanism behind the
-	// reporter's observed force-quit-then-reopen workaround, and it validates
-	// the harness's observer model against real behavior.
+	// After an aborted updater quit the native WindowList observer stays
+	// registered, so the NEXT successful quit completes the install — the
+	// mechanism behind the reporter's force-quit-then-reopen workaround,
+	// validating the harness's observer model against real behavior.
 	it("an aborted update quit still installs on the next real quit", () => {
 		const h = wireMainProcessLikeIndexTs();
 
-		h.installUpdate(); // today: hide-on-close aborts the sweep
+		h.installUpdate();
 		h.realQuit(); // clean buffers: quit proceeds, last window closes
 
 		expect(h.installStarted()).toBe(true);
@@ -421,9 +431,9 @@ describe("native observer continuation (regression pin)", () => {
 });
 
 describe("updater failure must not corrupt lifecycle state (regression pins)", () => {
-	// Pass today and must STAY green through the fix: the quitting signal may
-	// only flip when a native quit is genuinely beginning — never at
-	// button-press time, and never while a deferred quit is still waiting.
+	// The quitting signal may only flip when a native quit is genuinely
+	// beginning — never at button-press time, and never while a deferred
+	// quit is still waiting.
 	it("after a permanently failing Restart now, the red-X close still hides the window", () => {
 		const h = wireMainProcessLikeIndexTs({ updaterMode: "errors" });
 
@@ -446,6 +456,20 @@ describe("updater failure must not corrupt lifecycle state (regression pins)", (
 		expect(h.isWindowDestroyed()).toBe(false);
 		expect(h.hide).toHaveBeenCalled();
 	});
+
+	it("presses during the deferred wait are single-flight; an updater error re-opens retry", () => {
+		const h = wireMainProcessLikeIndexTs({ updaterMode: "deferred" });
+
+		h.installUpdate();
+		h.installUpdate(); // debounced — still one request to the updater
+
+		expect(h.updaterQuitAndInstallCalls()).toBe(1);
+
+		h.emitUpdaterError();
+		h.installUpdate(); // latch cleared — retry allowed
+
+		expect(h.updaterQuitAndInstallCalls()).toBe(2);
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -456,11 +480,9 @@ describe("updater failure must not corrupt lifecycle state (regression pins)", (
 // calls app.quit() (BaseUpdater.js:17-21; its setImmediate is collapsed to
 // synchronous here). Re-invoking quitAndInstall() after an aborted quit is
 // explicitly ignored ("install call ignored: quitAndInstallCalled is set to
-// true", BaseUpdater.js:42-45) and never calls app.quit() again. The
-// continuation that works today is the close-gate's destroy-on-proceed
-// followed by window-all-closed → app.quit() (registerAppLifecycle,
-// lifecycle.ts:28-32). These pins are green today and must STAY green through
-// the fix.
+// true", BaseUpdater.js:42-45) and never calls app.quit() again. The working
+// continuation is the close-gate's destroy-on-proceed followed by
+// window-all-closed → app.quit() (registerAppLifecycle, lifecycle.ts).
 
 function wireWin32MainProcessLikeIndexTs() {
 	const app = makeFakeApp();
@@ -497,12 +519,25 @@ function wireWin32MainProcessLikeIndexTs() {
 		},
 	};
 
-	// index.ts:797 + 833-834 — same flag, same single writer.
-	let isQuitting = false;
+	// index.ts — identical platform-agnostic quit-state wiring.
+	const quitState = createQuitState({
+		onBeforeQuit: (listener) => app.on("before-quit", listener),
+		onBeforeQuitForUpdate: (listener) =>
+			app.on("before-quit-for-update", listener),
+	});
 
-	// index.ts:799-800 — the close gate attaches on every platform.
-	const closeGate = createCloseGate();
-	closeGate.attach(win, { isQuitting: () => isQuitting });
+	const closeGate = createCloseGate({
+		onCancelled: quitState.resetAbortedUpdateQuit,
+	});
+	closeGate.attach(win, { isQuitting: quitState.isQuitting });
+
+	const closeMainWindow = () => {
+		if (win.isDestroyed()) return;
+		const { defaultPrevented } = win.emitClose();
+		if (defaultPrevented) return;
+		win.markClosed();
+		windowAllClosed?.();
+	};
 
 	const updateService = startUpdateService({
 		updater,
@@ -510,15 +545,12 @@ function wireWin32MainProcessLikeIndexTs() {
 		isPackaged: true,
 		platform: "win32",
 		arch: "x64",
+		quitGuard: createUpdateQuitGuard(quitState, closeMainWindow),
 		send: () => {},
 		logger: { warn: () => {}, info: () => {} },
 	});
 
-	app.on("before-quit", () => {
-		isQuitting = true;
-	});
-
-	// index.ts:851-857 — on non-darwin, window-all-closed re-enters app.quit().
+	// index.ts — on non-darwin, window-all-closed re-enters app.quit().
 	let windowAllClosed: (() => void) | undefined;
 	registerAppLifecycle({
 		onMainWindowClosed: () => {},
@@ -536,11 +568,11 @@ function wireWin32MainProcessLikeIndexTs() {
 		windowAllClosed?.();
 	};
 
-	// index.ts:859-869 — registered but inert off macOS (lifecycle.ts:61).
+	// index.ts — registered but inert off macOS (lifecycle.ts darwin guard).
 	registerHideOnClose({
 		onClose: (listener) => win.on("close", listener),
 		onActivate: () => {},
-		isQuitting: () => isQuitting,
+		isQuitting: quitState.isQuitting,
 		hide: () => {},
 		show: () => {},
 		isDestroyed: () => win.isDestroyed(),
@@ -553,6 +585,13 @@ function wireWin32MainProcessLikeIndexTs() {
 		closeGate,
 		installerSpawned: () => installerSpawned,
 		quitCompleted: () => quitCompleted,
+		respondToConfirm: (proceed: () => boolean) => {
+			win.webContents.send.mockImplementation((channel: string) => {
+				if (channel === "app:requestClose") {
+					queueMicrotask(() => closeGate.confirmClose({ proceed: proceed() }));
+				}
+			});
+		},
 		confirmationRequested: () =>
 			win.webContents.send.mock.calls.some((c) => c[0] === "app:requestClose"),
 	};
@@ -568,16 +607,13 @@ describe("Windows (BaseUpdater) restart continuation must be preserved (regressi
 		expect(h.quitCompleted()).toBe(true);
 	});
 
-	it("dirty buffers: confirm resumes the quit via destroy → window-all-closed → app.quit, never by re-running install", () => {
+	it("dirty buffers: confirm resumes the quit via destroy → window-all-closed → app.quit, never by re-running install", async () => {
 		const h = wireWin32MainProcessLikeIndexTs();
 		h.closeGate.setDirty(DIRTY_BUFFER);
-		h.win.webContents.send.mockImplementation((channel: string) => {
-			if (channel === "app:requestClose") {
-				h.closeGate.confirmClose({ proceed: true });
-			}
-		});
+		h.respondToConfirm(() => true);
 
 		h.installUpdate();
+		await settle();
 
 		expect(h.confirmationRequested()).toBe(true);
 		expect(h.installerSpawned()).toBe(true);

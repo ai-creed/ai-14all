@@ -51,6 +51,21 @@ export interface UpdaterLike {
 	quitAndInstall(): void;
 }
 
+/**
+ * Consulted on every install request. Once a native update quit has begun
+ * (the native autoUpdater emitted "before-quit-for-update") but the window
+ * is still open — its close sweep was prevented — the quit is suspended,
+ * not dead: Electron's native updater keeps its WindowList observer
+ * registered. Re-invoking quitAndInstall() then would register that
+ * observer a second time (an observer-invariant violation), so the guard
+ * resumes the armed quit by closing the window through the normal close
+ * path instead.
+ */
+export interface UpdateQuitGuard {
+	isUpdateQuitArmed(): boolean;
+	resumeUpdateQuit(): void;
+}
+
 export interface UpdateServiceArgs {
 	updater: UpdaterLike;
 	currentVersion: string;
@@ -68,6 +83,7 @@ export interface UpdateServiceArgs {
 	 */
 	platform?: NodeJS.Platform;
 	arch?: string;
+	quitGuard?: UpdateQuitGuard;
 }
 
 export interface UpdateServiceHandle {
@@ -146,6 +162,12 @@ export function startUpdateService(
 		return { dispose: () => {}, installUpdate: () => {} };
 	}
 
+	// Single-flight latch: during MacUpdater's deferred wait (Squirrel has
+	// not fetched the update yet), every extra quitAndInstall() call stacks
+	// another native update-downloaded listener that would later re-invoke
+	// the native updater. Cleared on updater error so a retry stays possible.
+	let installRequestPending = false;
+
 	args.updater.autoDownload = true;
 	args.updater.autoInstallOnAppQuit = true;
 	args.updater.on("update-available", (...a: unknown[]) => {
@@ -158,6 +180,7 @@ export function startUpdateService(
 		// Spec §2: fire update:error IPC, log, and stay silent to the user
 		// (the renderer does not surface a banner for this channel).
 		const err = a[0];
+		installRequestPending = false;
 		log.warn("updater error", err);
 		const message =
 			typeof err === "object" && err !== null && "message" in err
@@ -171,6 +194,14 @@ export function startUpdateService(
 
 	return {
 		dispose: () => {},
-		installUpdate: () => args.updater.quitAndInstall(),
+		installUpdate: () => {
+			if (args.quitGuard?.isUpdateQuitArmed()) {
+				args.quitGuard.resumeUpdateQuit();
+				return;
+			}
+			if (installRequestPending) return;
+			installRequestPending = true;
+			args.updater.quitAndInstall();
+		},
 	};
 }

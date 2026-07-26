@@ -208,4 +208,49 @@ describe("startUpdateService", () => {
 		});
 		expect(updater.checkForUpdates).toHaveBeenCalledTimes(1);
 	});
+
+	it("routes installUpdate to resumeUpdateQuit instead of quitAndInstall once armed", () => {
+		const { updater } = makeFakeUpdater();
+		let armed = false;
+		const resumeUpdateQuit = vi.fn();
+		const handle = startUpdateService({
+			updater,
+			currentVersion: "1.2.3",
+			isPackaged: true,
+			send: vi.fn(),
+			logger: silentLogger,
+			quitGuard: { isUpdateQuitArmed: () => armed, resumeUpdateQuit },
+		});
+
+		handle.installUpdate();
+		expect(updater.quitAndInstall).toHaveBeenCalledTimes(1);
+		expect(resumeUpdateQuit).not.toHaveBeenCalled();
+
+		// The native quit began (before-quit-for-update): re-invoking
+		// quitAndInstall would double-register Electron's window observer.
+		armed = true;
+		handle.installUpdate();
+		expect(updater.quitAndInstall).toHaveBeenCalledTimes(1);
+		expect(resumeUpdateQuit).toHaveBeenCalledTimes(1);
+	});
+
+	it("is single-flight while unarmed and re-opens after an updater error", () => {
+		const { updater, emit } = makeFakeUpdater();
+		const handle = startUpdateService({
+			updater,
+			currentVersion: "1.2.3",
+			isPackaged: true,
+			send: vi.fn(),
+			logger: silentLogger,
+			quitGuard: { isUpdateQuitArmed: () => false, resumeUpdateQuit: vi.fn() },
+		});
+
+		handle.installUpdate();
+		handle.installUpdate(); // debounced (deferred wait in progress)
+		expect(updater.quitAndInstall).toHaveBeenCalledTimes(1);
+
+		emit("error", new Error("boom"));
+		handle.installUpdate(); // latch cleared — retry allowed
+		expect(updater.quitAndInstall).toHaveBeenCalledTimes(2);
+	});
 });

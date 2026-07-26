@@ -25,6 +25,9 @@ export interface CloseGateWindow {
 
 export interface CloseGateOptions {
 	replyTimeoutMs?: number;
+	// Notified when a pending close prompt is answered "don't close" — the
+	// quit that raised the prompt (if any) was aborted at this gate.
+	onCancelled?: () => void;
 }
 
 export type CloseGateDirtyArgs = {
@@ -118,6 +121,8 @@ export function createCloseGate(opts: CloseGateOptions = {}): CloseGate {
 				} catch {
 					// best-effort
 				}
+			} else {
+				opts.onCancelled?.();
 			}
 		},
 	};
