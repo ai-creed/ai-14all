@@ -23,6 +23,19 @@ import type { UpdaterLike } from "../../../electron/main/services/update-service
 // So each window receives a cancellable `close` FIRST; `before-quit` (and the
 // install) only happens once every window actually closed. A close that calls
 // event.preventDefault() aborts the whole quit and the app keeps running.
+//
+// Updater modes:
+//  - "quits": Squirrel is ready; quitAndInstall() runs the native quit
+//    sequence synchronously.
+//  - "deferred": models MacUpdater.js:236-250 — the renderer-facing
+//    `update-downloaded` (the banner) fires BEFORE native Squirrel finishes
+//    fetching the update (MacUpdater.js:214-220), so a Restart now press
+//    defers: quitAndInstall() returns and the native quit only runs later,
+//    when the harness calls completeDeferredQuit().
+//  - "errors": permanent updater failure — the native quit never begins; only
+//    the `error` event the service subscribes to fires. (NOT the same as
+//    "deferred": a deferred quit later SUCCEEDS and emits
+//    'before-quit-for-update'.)
 
 type CloseEvent = { preventDefault(): void };
 
@@ -77,18 +90,25 @@ function makeFakeWindow() {
 // in the app entry and cannot be imported; the fix should extract it into a
 // testable module and this harness should then consume the extracted seam.
 function wireMainProcessLikeIndexTs(
-	opts: { updaterMode?: "quits" | "errors" } = {},
+	opts: { updaterMode?: "quits" | "deferred" | "errors" } = {},
 ) {
 	const app = makeFakeApp();
 	const win = makeFakeWindow();
 	const hide = vi.fn();
 	let installStarted = false;
+	let nativeReady = opts.updaterMode !== "deferred";
+	let pendingNativeQuit = false;
 	const updaterListeners = new Map<string, (...args: unknown[]) => void>();
 
-	// Squirrel.Mac quitAndInstall per the documented sequence above. In
-	// "errors" mode the native quit never begins (updater failure or the
-	// deferred MacUpdater.js:236-250 wait): no windows close, no install —
-	// only the updater `error` event the service subscribes to.
+	const runNativeQuitSequence = () => {
+		app.emit("before-quit-for-update");
+		const { defaultPrevented } = win.emitClose();
+		if (defaultPrevented) return; // quit aborted — app keeps running
+		win.markClosed();
+		app.emit("before-quit");
+		installStarted = true; // Squirrel installs and relaunches
+	};
+
 	const updater: UpdaterLike = {
 		autoDownload: false,
 		autoInstallOnAppQuit: false,
@@ -102,12 +122,12 @@ function wireMainProcessLikeIndexTs(
 				updaterListeners.get("error")?.(new Error("squirrel failure"));
 				return;
 			}
-			app.emit("before-quit-for-update");
-			const { defaultPrevented } = win.emitClose();
-			if (defaultPrevented) return; // quit aborted — app keeps running
-			win.markClosed();
-			app.emit("before-quit");
-			installStarted = true; // Squirrel installs and relaunches
+			if (!nativeReady) {
+				// MacUpdater.js:236-250 — wait for native update-downloaded.
+				pendingNativeQuit = true;
+				return;
+			}
+			runNativeQuitSequence();
 		},
 	};
 
@@ -154,6 +174,18 @@ function wireMainProcessLikeIndexTs(
 		win,
 		installStarted: () => installStarted,
 		isWindowDestroyed: () => win.isDestroyed(),
+		// Native Squirrel finished fetching: the deferred quit (if any) starts
+		// now, and any later quitAndInstall() runs synchronously
+		// (squirrelDownloadedUpdate latches true, MacUpdater.js:22-24, 236-240).
+		completeDeferredQuit: () => {
+			nativeReady = true;
+			if (pendingNativeQuit) {
+				pendingNativeQuit = false;
+				runNativeQuitSequence();
+			}
+		},
+		emitUpdaterError: () =>
+			updaterListeners.get("error")?.(new Error("squirrel failure")),
 		// True once the renderer was asked to confirm discarding dirty buffers
 		// (the close-gate's existing `app:requestClose` round-trip).
 		confirmationRequested: () =>
@@ -194,14 +226,14 @@ describe("macOS Restart now → quitAndInstall vs hide-on-close", () => {
 });
 
 describe("Restart now with dirty editor buffers (close-gate interplay)", () => {
-	// The fix must obtain the dirty-buffer confirmation BEFORE the native
-	// updater starts closing windows: a close prevented mid-quit aborts the
-	// Squirrel quit, and the gate's confirm path only destroys the window
-	// (close-gate.ts:111-121) — it cannot resume the aborted install. These
-	// tests assert the required end-to-end behavior via the gate's existing
-	// `app:requestClose` renderer round-trip; if the fix confirms through a
-	// different channel, re-point the harness responder at it.
-	it("asks for confirmation first and installs after the user confirms", () => {
+	// Confirmation must be coordinated with the ACTUAL native quit: a close
+	// prevented mid-quit aborts the Squirrel quit, and the gate's plain
+	// confirm path only destroys the window (close-gate.ts:111-121) — it
+	// cannot resume the aborted install. These tests assert the required
+	// end-to-end behavior via the gate's existing `app:requestClose` renderer
+	// round-trip; if the fix confirms through a different channel, re-point
+	// the harness responder at it.
+	it("asks for confirmation and installs after the user confirms", () => {
 		const h = wireMainProcessLikeIndexTs();
 		h.closeGate.setDirty(DIRTY_BUFFER);
 		h.win.webContents.send.mockImplementation((channel: string) => {
@@ -240,16 +272,88 @@ describe("Restart now with dirty editor buffers (close-gate interplay)", () => {
 	});
 });
 
-describe("updater failure must not corrupt lifecycle state (regression pin)", () => {
-	// Passes today and must STAY green through the fix: if quitting were
-	// marked at button-press time, an updater error (or MacUpdater's deferred
-	// wait, MacUpdater.js:236-250) would leave the flag stuck true and turn
-	// every later red-X close into a destroy. The quitting signal may only
-	// flip when a native quit is genuinely beginning.
-	it("after a failed Restart now, the red-X close still hides the window", () => {
+describe("Restart now pressed before Squirrel is natively ready (deferred quit)", () => {
+	// The banner can appear BEFORE native Squirrel has fetched the update
+	// (MacUpdater.js:214-220), so the press → native-quit gap is unbounded
+	// (MacUpdater.js:236-250). No consent or quit state may exist during that
+	// gap: the interval must behave like normal app usage, and the eventual
+	// native quit must work with the state found AT THAT MOMENT.
+	it("installs when the native quit finally arrives, even after an unrelated red-X hide in between", () => {
+		const h = wireMainProcessLikeIndexTs({ updaterMode: "deferred" });
+
+		h.installUpdate(); // defers — Squirrel still fetching
+
+		// The waiting interval is normal UX: red-X hides as always.
+		const redX = h.win.emitClose();
+		expect(redX.defaultPrevented).toBe(true);
+		expect(h.isWindowDestroyed()).toBe(false);
+
+		h.completeDeferredQuit();
+
+		expect(h.installStarted()).toBe(true);
+		expect(h.isWindowDestroyed()).toBe(true);
+	});
+
+	it("edits made during the wait get a FRESH confirmation when the native quit starts", () => {
+		const h = wireMainProcessLikeIndexTs({ updaterMode: "deferred" });
+		h.installUpdate(); // buffers clean at press time — no consent to give yet
+
+		h.closeGate.setDirty(DIRTY_BUFFER); // user keeps working during the wait
+		h.win.webContents.send.mockImplementation((channel: string) => {
+			if (channel === "app:requestClose") {
+				h.closeGate.confirmClose({ proceed: true });
+			}
+		});
+
+		h.completeDeferredQuit();
+
+		expect(h.confirmationRequested()).toBe(true);
+		expect(h.installStarted()).toBe(true);
+	});
+
+	it("cancelling that fresh confirmation aborts cleanly and red-X still hides", () => {
+		const h = wireMainProcessLikeIndexTs({ updaterMode: "deferred" });
+		h.installUpdate();
+
+		h.closeGate.setDirty(DIRTY_BUFFER);
+		h.win.webContents.send.mockImplementation((channel: string) => {
+			if (channel === "app:requestClose") {
+				h.closeGate.confirmClose({ proceed: false });
+			}
+		});
+
+		h.completeDeferredQuit();
+
+		expect(h.confirmationRequested()).toBe(true);
+		expect(h.installStarted()).toBe(false);
+		expect(h.isWindowDestroyed()).toBe(false);
+		// Lifecycle state must not be stuck after the aborted update quit.
+		const redX = h.win.emitClose();
+		expect(redX.defaultPrevented).toBe(true);
+		expect(h.isWindowDestroyed()).toBe(false);
+	});
+});
+
+describe("updater failure must not corrupt lifecycle state (regression pins)", () => {
+	// Pass today and must STAY green through the fix: the quitting signal may
+	// only flip when a native quit is genuinely beginning — never at
+	// button-press time, and never while a deferred quit is still waiting.
+	it("after a permanently failing Restart now, the red-X close still hides the window", () => {
 		const h = wireMainProcessLikeIndexTs({ updaterMode: "errors" });
 
 		h.installUpdate();
+
+		const redX = h.win.emitClose();
+		expect(redX.defaultPrevented).toBe(true);
+		expect(h.isWindowDestroyed()).toBe(false);
+		expect(h.hide).toHaveBeenCalled();
+	});
+
+	it("an updater error during the deferred wait leaves red-X hiding intact", () => {
+		const h = wireMainProcessLikeIndexTs({ updaterMode: "deferred" });
+
+		h.installUpdate();
+		h.emitUpdaterError();
 
 		const redX = h.win.emitClose();
 		expect(redX.defaultPrevented).toBe(true);
