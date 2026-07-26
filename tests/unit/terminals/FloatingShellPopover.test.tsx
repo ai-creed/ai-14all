@@ -211,4 +211,81 @@ describe("FloatingShellPopover dismissal", () => {
 		fireEvent.pointerDown(screen.getByTestId("a-pill"));
 		expect(onMinimize).not.toHaveBeenCalled();
 	});
+
+	// While this shell's own close confirmation is open, dismissal is suspended.
+	// The dialog and its scrim are portaled outside the popover, so they would
+	// otherwise read as outside clicks and minimize the popover that owns them —
+	// which is what left a dead shell on screen (see the confirm-close bug).
+	it("does not minimize on an outside pointer-down while its confirmation is pending", () => {
+		const onMinimize = vi.fn();
+		render(
+			<div>
+				<div data-testid="outside-area">elsewhere</div>
+				<FloatingShellPopover
+					{...base}
+					onMinimize={onMinimize}
+					confirmPending
+				/>
+			</div>,
+		);
+		fireEvent.pointerDown(screen.getByTestId("outside-area"));
+		expect(onMinimize).not.toHaveBeenCalled();
+	});
+
+	it("does not minimize on Escape while its confirmation is pending", () => {
+		const onMinimize = vi.fn();
+		render(
+			<FloatingShellPopover {...base} onMinimize={onMinimize} confirmPending />,
+		);
+		fireEvent.keyDown(screen.getByTestId("terminal-pane"), { key: "Escape" });
+		expect(onMinimize).not.toHaveBeenCalled();
+	});
+
+	it("resumes dismissal once the confirmation is no longer pending", () => {
+		const onMinimize = vi.fn();
+		const { rerender } = render(
+			<div>
+				<div data-testid="outside-area">elsewhere</div>
+				<FloatingShellPopover
+					{...base}
+					onMinimize={onMinimize}
+					confirmPending
+				/>
+			</div>,
+		);
+		fireEvent.pointerDown(screen.getByTestId("outside-area"));
+		expect(onMinimize).not.toHaveBeenCalled();
+
+		// Cancelling the confirmation flips the flag back; listeners re-attach.
+		rerender(
+			<div>
+				<div data-testid="outside-area">elsewhere</div>
+				<FloatingShellPopover
+					{...base}
+					onMinimize={onMinimize}
+					confirmPending={false}
+				/>
+			</div>,
+		);
+		fireEvent.pointerDown(screen.getByTestId("outside-area"));
+		expect(onMinimize).toHaveBeenCalledWith("p1");
+	});
+
+	it("still minimizes for a shell whose confirmation is not the pending one", () => {
+		// confirmPending is per-shell: an unrelated shell's dialog must not freeze
+		// this popover's dismissal.
+		const onMinimize = vi.fn();
+		render(
+			<div>
+				<div data-testid="outside-area">elsewhere</div>
+				<FloatingShellPopover
+					{...base}
+					onMinimize={onMinimize}
+					confirmPending={false}
+				/>
+			</div>,
+		);
+		fireEvent.pointerDown(screen.getByTestId("outside-area"));
+		expect(onMinimize).toHaveBeenCalledWith("p1");
+	});
 });

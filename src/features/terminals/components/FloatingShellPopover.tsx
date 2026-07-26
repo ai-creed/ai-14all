@@ -25,6 +25,13 @@ type Props = {
 	onClose: (processId: string) => void;
 	onTitleChange: (title: string) => void;
 	/**
+	 * True while THIS shell's close confirmation is open. The dialog and its
+	 * scrim are portaled out of the popover, so without this the confirmation
+	 * would read as an outside click and dismiss the very popover it belongs to.
+	 * Optional and defaulted so callers that never confirm stay unchanged.
+	 */
+	confirmPending?: boolean;
+	/**
 	 * Restored drag position for this shell (memory-only), or null to use the
 	 * default header-anchored position. The popover starts here on mount.
 	 */
@@ -61,6 +68,7 @@ export function FloatingShellPopover({
 	onPin,
 	onClose,
 	onTitleChange,
+	confirmPending = false,
 	initialPosition = null,
 	onPositionChange,
 	initialSize = null,
@@ -105,7 +113,12 @@ export function FloatingShellPopover({
 	// focus while the shell is expanded (see targetOwnsTyping/.xterm gotcha) — and
 	// stopPropagation keeps it out of the terminal. The pills bar is excluded
 	// because it owns its own expand/collapse.
+	//
+	// While this shell's own close confirmation is open the popover owns that
+	// interaction, so dismissal is suspended entirely: the modal's content and
+	// its scrim both live outside this subtree, and Escape belongs to the dialog.
 	useEffect(() => {
+		if (confirmPending) return;
 		const minimize = () => onMinimize(process.id);
 		const onKeyDown = (e: KeyboardEvent) => {
 			if (e.key !== "Escape" || e.defaultPrevented) return;
@@ -126,7 +139,7 @@ export function FloatingShellPopover({
 			document.removeEventListener("keydown", onKeyDown, true);
 			document.removeEventListener("pointerdown", onPointerDown, true);
 		};
-	}, [process.id, onMinimize]);
+	}, [process.id, onMinimize, confirmPending]);
 
 	const clamp = (left: number, top: number): FloatingShellPosition => {
 		const width = rootRef.current?.offsetWidth ?? 0;

@@ -2369,6 +2369,10 @@ function AppContent() {
 													floatingSharedSizeRef.current = s;
 												}}
 												pinDisabled={addDisabled}
+												confirmPending={
+													pendingFloatingClose?.processId ===
+													expandedFloatingProcess.id
+												}
 												onMinimize={handleMinimizeFloatingShell}
 												onPin={handlePinFloatingShell}
 												onClose={handleCloseFloatingShell}
@@ -2387,7 +2391,11 @@ function AppContent() {
 										)}
 										{pendingFloatingClose && (
 											<ConfirmDialog
-												key={pendingFloatingClose.processId}
+												// Must not collide with the popover's key above: two
+												// siblings sharing a key make React's reconciler drop
+												// the first one's fiber without deleting its DOM node,
+												// stranding the popover as a dead element on screen.
+												key={`confirm-close-${pendingFloatingClose.processId}`}
 												open
 												title="Close shell?"
 												body={
