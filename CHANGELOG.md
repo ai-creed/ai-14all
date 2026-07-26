@@ -4,6 +4,20 @@ All notable changes to ai-14all are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] – 2026-07-26
+
+This release gives a paired phone hands, not just eyes: typing on the phone now drives the terminal it's watching — behind a new per-device grant, a host-side disarm switch, and a full audit trail — and the phone can reach its host from anywhere through a self-hosted blind relay instead of only the home LAN. It also restores the whisper integration under ai-whisper 0.16.
+
+### Added
+
+- **Type into terminals from a paired phone (host side).** The Phone Bridge now accepts keyboard input for the terminal a phone is watching (command-contract v8 `pty-input`): named keys are translated to bytes on the host — never trusted from the wire — written atomically only if the target session is still live, and every input lands in the audit log as a single semantic entry. The whole path sits behind a new per-device `control:pty-write` grant; existing pairings must re-pair to acquire it (fail closed). The host also discloses each pairing's live grant set to the phone (`session-report.grantedScopes`), so the phone shows its input dock only when the grant is really held. The phone-side input dock ships with ai-xavier.
+- **A live disarm switch for phone input.** Phone typing is armed by default once granted, and a switch on the paired-device card — mirrored by a permissions label — disarms it instantly without dropping connectivity: the kill-switch gates capabilities, not the connection, so watching keeps working while input is off. The setting (`phoneBridge.ptyInputEnabled`) persists across restarts.
+- **Reach the host from anywhere via a self-hosted relay.** The pairing offer now advertises an ordered list of connect URLs — LAN first, relay second — and the host dials out to register with a blind relay on your own server (challenge-response registration with jittered-backoff retry), which splices sockets and forwards sealed bytes it cannot read. Configure the wss-only relay URL in the phone-bridge settings panel; it applies live, and a status line shows the registration state (registered / retrying / off).
+
+### Fixed
+
+- **whisper 0.16 no longer breaks the collab integration.** ai-whisper 0.16 bumped its state-db schema to v8, which tripped ai-14all's fail-closed compatibility gate: the plugin read as incompatible, the "collab · ready for workflows" pill vanished, and the agent launcher chips silently plain-spawned instead of mounting into the collab. The gate now accepts v8, and archived collabs (0.16's purge keeps their ledger rows) are hidden from live reads so they cannot resurface as stale workflow state.
+
 ## [1.7.0] – 2026-07-22
 
 This release hands a watching phone real control of the terminal it's viewing: the host resizes the actual PTY to the phone's screen so full-screen TUIs repaint natively at phone width, terminal history arrives newest-first and backfills as you scroll, and the desktop clearly shows — and can instantly take back — a terminal a phone is driving. Under the hood, the app's entire stylesheet moved from two monolithic files into feature-owned modules, and beta releases now clear the same gates as stable.
