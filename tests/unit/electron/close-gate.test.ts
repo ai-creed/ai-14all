@@ -193,4 +193,48 @@ describe("close-gate", () => {
 		expect(send).toHaveBeenCalledTimes(1); // not duplicated
 		expect(destroy).not.toHaveBeenCalled();
 	});
+
+	it("notifies onCancelled when the renderer declines a pending close", () => {
+		const onCancelled = vi.fn();
+		const gate = createCloseGate({ onCancelled });
+		const { window, emitClose } = makeFakeWindow();
+		gate.attach(window);
+		gate.setDirty({
+			workspaceId: "ws",
+			worktreeId: "wt",
+			relativePath: "a.md",
+			dirty: true,
+		});
+		emitClose();
+		gate.confirmClose({ proceed: false });
+		expect(onCancelled).toHaveBeenCalledTimes(1);
+	});
+
+	it("does not notify onCancelled on proceed or on the safety timeout", () => {
+		const onCancelled = vi.fn();
+		const gate = createCloseGate({ replyTimeoutMs: 1000, onCancelled });
+		const { window, emitClose, destroy } = makeFakeWindow();
+		gate.attach(window);
+		gate.setDirty({
+			workspaceId: "ws",
+			worktreeId: "wt",
+			relativePath: "a.md",
+			dirty: true,
+		});
+		emitClose();
+		gate.confirmClose({ proceed: true });
+		expect(onCancelled).not.toHaveBeenCalled();
+
+		emitClose();
+		vi.advanceTimersByTime(1000); // crashed renderer → destroy, not cancel
+		expect(destroy).toHaveBeenCalled();
+		expect(onCancelled).not.toHaveBeenCalled();
+	});
+
+	it("does not notify onCancelled when no confirmation is pending", () => {
+		const onCancelled = vi.fn();
+		const gate = createCloseGate({ onCancelled });
+		gate.confirmClose({ proceed: false });
+		expect(onCancelled).not.toHaveBeenCalled();
+	});
 });

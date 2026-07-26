@@ -1,4 +1,10 @@
-import { app, ipcMain, Menu, safeStorage } from "electron";
+import {
+	app,
+	autoUpdater as nativeAutoUpdater,
+	ipcMain,
+	Menu,
+	safeStorage,
+} from "electron";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -7,7 +13,12 @@ import { watch } from "chokidar";
 import { createMainWindow } from "./windows.js";
 import { registerIpcHandlers } from "./ipc.js";
 import { createCloseGate } from "./close-gate.js";
-import { registerAppLifecycle, registerHideOnClose } from "./lifecycle.js";
+import {
+	createQuitState,
+	createUpdateQuitGuard,
+	registerAppLifecycle,
+	registerHideOnClose,
+} from "./lifecycle.js";
 import { buildApplicationMenu } from "./menu.js";
 import { WorkspacePersistenceService } from "../../services/workspace/workspace-persistence-service.js";
 import { SettingsService } from "../../services/settings/settings-service.js";
@@ -141,6 +152,20 @@ app.whenReady().then(async () => {
 	});
 
 	const mainWindow = createMainWindow(shellEventLog);
+
+	// Tracks whether a quit is underway so hide-on-close and the close gate
+	// can tell "user pressed the red X" (hide) apart from "the app is
+	// quitting" (destroy). During updater.quitAndInstall() the window `close`
+	// fires BEFORE app "before-quit", so the update path needs its own
+	// source: the native autoUpdater's "before-quit-for-update" (emitted by
+	// Squirrel.Mac before its close sweep; emulated by electron-updater on
+	// Windows/Linux right before app.quit()).
+	const quitState = createQuitState({
+		onBeforeQuit: (listener) => app.on("before-quit", listener),
+		onBeforeQuitForUpdate: (listener) =>
+			nativeAutoUpdater.on("before-quit-for-update", listener),
+	});
+
 	const { autoUpdater } = electronUpdater;
 	const updateService = startUpdateService({
 		updater: autoUpdater,
@@ -148,6 +173,9 @@ app.whenReady().then(async () => {
 		isPackaged: app.isPackaged,
 		platform: process.platform,
 		arch: process.arch,
+		quitGuard: createUpdateQuitGuard(quitState, () => {
+			if (!mainWindow.isDestroyed()) mainWindow.close();
+		}),
 		send: (channel, payload) => {
 			if (!mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
 				mainWindow.webContents.send(channel, payload);
@@ -792,12 +820,13 @@ app.whenReady().then(async () => {
 		},
 	};
 
-	// Set once a real quit is underway so hide-on-close and the close-gate can
-	// tell "user pressed the red X" (hide) apart from "user is quitting" (destroy).
-	let isQuitting = false;
-
-	const closeGate = createCloseGate();
-	closeGate.attach(mainWindow, { isQuitting: () => isQuitting });
+	// A cancelled update-quit prompt aborts the sweep at the gate; the quit
+	// flag must clear so red-X hides again (the native updater's armed
+	// observer still completes the install on the next successful quit).
+	const closeGate = createCloseGate({
+		onCancelled: quitState.resetAbortedUpdateQuit,
+	});
+	closeGate.attach(mainWindow, { isQuitting: quitState.isQuitting });
 	const { dispose, terminalService } = registerIpcHandlers(mainWindow, {
 		workspacePersistence,
 		settingsService,
@@ -831,7 +860,6 @@ app.whenReady().then(async () => {
 		);
 	}
 	app.on("before-quit", () => {
-		isQuitting = true;
 		updateService.dispose();
 		offRegistry();
 		void deleteLivenessFile(livenessPath);
@@ -859,7 +887,7 @@ app.whenReady().then(async () => {
 	registerHideOnClose({
 		onClose: (listener) => mainWindow.on("close", listener),
 		onActivate: (listener) => app.on("activate", listener),
-		isQuitting: () => isQuitting,
+		isQuitting: quitState.isQuitting,
 		hide: () => mainWindow.hide(),
 		show: () => {
 			mainWindow.show();
