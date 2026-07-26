@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { registerHideOnClose } from "../../../electron/main/lifecycle.js";
+import {
+	registerAppLifecycle,
+	registerHideOnClose,
+} from "../../../electron/main/lifecycle.js";
 import { createCloseGate } from "../../../electron/main/close-gate.js";
 import { startUpdateService } from "../../../electron/main/services/update-service.js";
 import type { UpdaterLike } from "../../../electron/main/services/update-service.js";
@@ -359,5 +362,142 @@ describe("updater failure must not corrupt lifecycle state (regression pins)", (
 		expect(redX.defaultPrevented).toBe(true);
 		expect(h.isWindowDestroyed()).toBe(false);
 		expect(h.hide).toHaveBeenCalled();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Windows/Linux (BaseUpdater) composition. The post-confirmation continuation
+// is DIFFERENT there and must be preserved, not replaced by the macOS retry:
+// BaseUpdater.quitAndInstall() runs install() FIRST — spawning the installer
+// and latching quitAndInstallCalled (BaseUpdater.js:12-15, 41-61) — then
+// emits 'before-quit-for-update' and calls app.quit() (BaseUpdater.js:17-21;
+// its setImmediate is collapsed to synchronous here). Re-invoking
+// quitAndInstall() after an aborted quit is explicitly ignored ("install call
+// ignored: quitAndInstallCalled is set to true", BaseUpdater.js:42-45) and
+// never calls app.quit() again. The continuation that works today is the
+// close-gate's destroy-on-proceed followed by window-all-closed → app.quit()
+// (registerAppLifecycle, lifecycle.ts:28-32). These pins are green today and
+// must STAY green through the fix.
+
+function wireWin32MainProcessLikeIndexTs() {
+	const app = makeFakeApp();
+	const win = makeFakeWindow();
+	let installerSpawned = false;
+	let quitAndInstallCalled = false;
+	let quitCompleted = false;
+
+	// app.quit(): before-quit, then close all windows (cancellable); if none
+	// remain, will-quit → process exit and the spawned installer proceeds.
+	const appQuit = () => {
+		app.emit("before-quit");
+		if (!win.isDestroyed()) {
+			const { defaultPrevented } = win.emitClose();
+			if (defaultPrevented) return; // quit aborted — app keeps running
+			win.markClosed();
+		}
+		quitCompleted = true;
+	};
+
+	const updater: UpdaterLike = {
+		autoDownload: false,
+		autoInstallOnAppQuit: false,
+		on() {
+			return updater;
+		},
+		checkForUpdates: () => Promise.resolve(undefined),
+		quitAndInstall() {
+			if (quitAndInstallCalled) return; // BaseUpdater.js:42-45
+			quitAndInstallCalled = true;
+			installerSpawned = true; // BaseUpdater.js:54-61 (doInstall)
+			app.emit("before-quit-for-update"); // BaseUpdater.js:19 (emulated)
+			appQuit(); // BaseUpdater.js:20
+		},
+	};
+
+	// index.ts:797 + 833-834 — same flag, same single writer.
+	let isQuitting = false;
+
+	// index.ts:799-800 — the close gate attaches on every platform.
+	const closeGate = createCloseGate();
+	closeGate.attach(win, { isQuitting: () => isQuitting });
+
+	const updateService = startUpdateService({
+		updater,
+		currentVersion: "1.2.3",
+		isPackaged: true,
+		platform: "win32",
+		arch: "x64",
+		send: () => {},
+		logger: { warn: () => {}, info: () => {} },
+	});
+
+	app.on("before-quit", () => {
+		isQuitting = true;
+	});
+
+	// index.ts:851-857 — on non-darwin, window-all-closed re-enters app.quit().
+	let windowAllClosed: (() => void) | undefined;
+	registerAppLifecycle({
+		onMainWindowClosed: () => {},
+		onWillQuit: () => {},
+		onWindowAllClosed: (listener) => {
+			windowAllClosed = listener;
+		},
+		quit: appQuit,
+		dispose: () => {},
+		platform: "win32",
+	});
+	const destroy = win.destroy;
+	win.destroy = () => {
+		destroy();
+		windowAllClosed?.();
+	};
+
+	// index.ts:859-869 — registered but inert off macOS (lifecycle.ts:61).
+	registerHideOnClose({
+		onClose: (listener) => win.on("close", listener),
+		onActivate: () => {},
+		isQuitting: () => isQuitting,
+		hide: () => {},
+		show: () => {},
+		isDestroyed: () => win.isDestroyed(),
+		platform: "win32",
+	});
+
+	return {
+		installUpdate: () => updateService.installUpdate(),
+		win,
+		closeGate,
+		installerSpawned: () => installerSpawned,
+		quitCompleted: () => quitCompleted,
+		confirmationRequested: () =>
+			win.webContents.send.mock.calls.some((c) => c[0] === "app:requestClose"),
+	};
+}
+
+describe("Windows (BaseUpdater) restart continuation must be preserved (regression pins)", () => {
+	it("clean buffers: Restart now spawns the installer and completes the quit", () => {
+		const h = wireWin32MainProcessLikeIndexTs();
+
+		h.installUpdate();
+
+		expect(h.installerSpawned()).toBe(true);
+		expect(h.quitCompleted()).toBe(true);
+	});
+
+	it("dirty buffers: confirm resumes the quit via destroy → window-all-closed → app.quit, never by re-running install", () => {
+		const h = wireWin32MainProcessLikeIndexTs();
+		h.closeGate.setDirty(DIRTY_BUFFER);
+		h.win.webContents.send.mockImplementation((channel: string) => {
+			if (channel === "app:requestClose") {
+				h.closeGate.confirmClose({ proceed: true });
+			}
+		});
+
+		h.installUpdate();
+
+		expect(h.confirmationRequested()).toBe(true);
+		expect(h.installerSpawned()).toBe(true);
+		expect(h.quitCompleted()).toBe(true);
 	});
 });
