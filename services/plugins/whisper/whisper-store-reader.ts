@@ -7,6 +7,10 @@ import type {
 } from "../../../shared/models/ecosystem-plugin.js";
 import { SUPPORTED_DB_SCHEMA } from "./whisper-env-probe.js";
 
+// First schema with collab.archived_at: purge archives a collab (keeps its
+// ledger rows) and whisper hides archived collabs from every live path.
+const ARCHIVED_AT_SCHEMA_VERSION = 8;
+
 export type WhisperCollabRow = {
 	collabId: string;
 	workspaceRoot: string;
@@ -75,10 +79,17 @@ export class WhisperStoreReader {
 		const db = this.openChecked();
 		if (!db) return [];
 		try {
+			// Mirror whisper's live paths: skip archived collabs. Pre-v8 stores
+			// have no archived_at column, so the filter is version-gated.
+			const version = db.pragma("user_version", { simple: true }) as number;
+			const liveOnly =
+				version >= ARCHIVED_AT_SCHEMA_VERSION
+					? " WHERE archived_at IS NULL"
+					: "";
 			return (
 				db
 					.prepare(
-						"SELECT collab_id, workspace_root, display_name, status FROM collab",
+						`SELECT collab_id, workspace_root, display_name, status FROM collab${liveOnly}`,
 					)
 					.all() as Array<Record<string, unknown>>
 			).map((r) => ({

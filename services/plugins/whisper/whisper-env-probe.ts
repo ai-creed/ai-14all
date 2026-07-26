@@ -6,7 +6,9 @@ import { adaptResolvedExec } from "../exec-resolved-binary.js";
 
 // v7 (whisper 0.12.x) only added the duo_roll/duo_assignment tables; every
 // table and column in the read contract that we consume is unchanged from v6.
-export const SUPPORTED_DB_SCHEMA = { min: 6, max: 7 };
+// v8 (whisper 0.16.0) added collab.archived_at (purge archives a collab and
+// keeps its ledger rows) — readers must treat archived collabs as not live.
+export const SUPPORTED_DB_SCHEMA = { min: 6, max: 8 };
 
 const WhisperEnvReportSchema = z.object({
 	engineVersion: z.string(),

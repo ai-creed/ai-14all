@@ -9,6 +9,7 @@ export interface WhisperFixture {
 		workspace_root: string;
 		display_name?: string;
 		status?: string;
+		archived_at?: string | null;
 	}>;
 	daemons?: Array<{
 		collab_id: string;
@@ -128,7 +129,12 @@ export function makeWhisperFixtureDb(
 			orchestrator_verdict TEXT
 		);
 	`);
-	db.exec(`PRAGMA user_version = ${fx.schemaVersion ?? 6}`);
+	const schemaVersion = fx.schemaVersion ?? 6;
+	// v8 added the archive lifecycle marker; older stores genuinely lack the
+	// column, so only v8+ fixtures get it (fidelity for both shapes).
+	if (schemaVersion >= 8)
+		db.exec("ALTER TABLE collab ADD COLUMN archived_at TEXT");
+	db.exec(`PRAGMA user_version = ${schemaVersion}`);
 
 	const insert = (table: string, row: Record<string, unknown>) => {
 		const keys = Object.keys(row);

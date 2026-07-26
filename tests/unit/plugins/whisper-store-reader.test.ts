@@ -46,13 +46,52 @@ describe("WhisperStoreReader", () => {
 		]);
 	});
 
-	it("refuses reads when user_version is above the supported range", () => {
+	it("reads a v8 db (whisper 0.16.0 archive lifecycle; collab.archived_at added)", () => {
 		makeWhisperFixtureDb(dbPath, {
 			schemaVersion: 8,
 			collabs: [{ collab_id: "c1", workspace_root: "/w1" }],
 		});
 		const reader = new WhisperStoreReader(dbPath);
 		expect(reader.readSchemaVersion()).toBe(8);
+		expect(reader.readCollabs()).toEqual([
+			{
+				collabId: "c1",
+				workspaceRoot: "/w1",
+				displayName: "fixture",
+				status: "active",
+			},
+		]);
+	});
+
+	it("excludes archived collabs from readCollabs (whisper hides them from live paths)", () => {
+		makeWhisperFixtureDb(dbPath, {
+			schemaVersion: 8,
+			collabs: [
+				{ collab_id: "c-live", workspace_root: "/w1" },
+				{
+					collab_id: "c-arch",
+					workspace_root: "/w2",
+					archived_at: "2026-07-20T00:00:00Z",
+				},
+			],
+		});
+		expect(new WhisperStoreReader(dbPath).readCollabs()).toEqual([
+			{
+				collabId: "c-live",
+				workspaceRoot: "/w1",
+				displayName: "fixture",
+				status: "active",
+			},
+		]);
+	});
+
+	it("refuses reads when user_version is above the supported range", () => {
+		makeWhisperFixtureDb(dbPath, {
+			schemaVersion: 9,
+			collabs: [{ collab_id: "c1", workspace_root: "/w1" }],
+		});
+		const reader = new WhisperStoreReader(dbPath);
+		expect(reader.readSchemaVersion()).toBe(9);
 		expect(reader.readCollabs()).toEqual([]);
 	});
 
