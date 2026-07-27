@@ -20,6 +20,7 @@ import { WebSocket } from "ws";
 import {
 	createLanWebSocketHost,
 	primaryLanIPv4,
+	tailscaleIPv4,
 	wsToAttachable,
 } from "./lan-websocket-transport.js";
 import type { AttachableSocket } from "./attachable-transport.js";
@@ -262,7 +263,7 @@ export class XbpHostService {
 		try {
 			const addr = primaryLanIPv4() ?? "127.0.0.1";
 			const urls: [string, ...string[]] = [`ws://${addr}:${this.lan!.port}`]; // LAN always first (umbrella §6)
-			const reach = this.reachHost.trim();
+			const reach = this.reachHost.trim() || (tailscaleIPv4() ?? "");
 			if (reach) urls.push(`ws://${reach}:${this.lan!.port}`); // Tailscale/direct reach — same live port
 			if (this.relayBaseUrl) {
 				const hostId = deriveHostId(

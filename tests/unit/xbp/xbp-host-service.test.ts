@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,6 +16,18 @@ import { XbpPairedDeviceStore } from "../../../services/xbp/xbp-paired-device-st
 import { XbpPushTokenStore } from "../../../services/xbp/xbp-push-token-store";
 import type { RelayControlSocket } from "../../../services/xbp/relay-registration";
 import type { AttachableSocket } from "../../../services/xbp/attachable-transport";
+
+// Pin auto-detect: the real tailscaleIPv4() reads this machine's interfaces,
+// so a developer box with Tailscale up would grow a second offer candidate in
+// every LAN-only assertion. Default null = no Tailscale; tests opt in.
+const netState = vi.hoisted(() => ({ tailscaleIPv4: null as string | null }));
+vi.mock("../../../services/xbp/lan-websocket-transport", async (original) => {
+	const actual =
+		await original<
+			typeof import("../../../services/xbp/lan-websocket-transport")
+		>();
+	return { ...actual, tailscaleIPv4: () => netState.tailscaleIPv4 };
+});
 
 const okStorage = {
 	isEncryptionAvailable: () => true,
@@ -135,6 +147,7 @@ let svc: XbpHostService | undefined;
 afterEach(async () => {
 	await svc?.stop();
 	svc = undefined;
+	netState.tailscaleIPv4 = null;
 });
 
 describe("XbpHostService", () => {
@@ -330,6 +343,36 @@ describe("XbpHostService", () => {
 
 	it("whitespace-only initialReachHost is treated as unset", async () => {
 		svc = makeService({ initialReachHost: "   " });
+		const { addr, port } = await svc.start();
+		const offer = await svc.startPairing();
+		expect(offer.connect.urls).toEqual([`ws://${addr ?? "127.0.0.1"}:${port}`]);
+	});
+
+	it("offer auto-detects the Tailscale IPv4 as reach when reachHost is unset", async () => {
+		netState.tailscaleIPv4 = "100.110.83.27";
+		svc = makeService();
+		const { addr, port } = await svc.start();
+		const offer = await svc.startPairing();
+		expect(offer.connect.urls).toEqual([
+			`ws://${addr ?? "127.0.0.1"}:${port}`,
+			`ws://100.110.83.27:${port}`,
+		]);
+	});
+
+	it("explicit initialReachHost wins over the auto-detected Tailscale IPv4", async () => {
+		netState.tailscaleIPv4 = "100.110.83.27";
+		svc = makeService({ initialReachHost: "myhost.tailnet.ts.net" });
+		const { addr, port } = await svc.start();
+		const offer = await svc.startPairing();
+		expect(offer.connect.urls).toEqual([
+			`ws://${addr ?? "127.0.0.1"}:${port}`,
+			`ws://myhost.tailnet.ts.net:${port}`,
+		]);
+	});
+
+	it("offer stays LAN-only when reachHost is unset and no Tailscale interface exists", async () => {
+		netState.tailscaleIPv4 = null;
+		svc = makeService();
 		const { addr, port } = await svc.start();
 		const offer = await svc.startPairing();
 		expect(offer.connect.urls).toEqual([`ws://${addr ?? "127.0.0.1"}:${port}`]);

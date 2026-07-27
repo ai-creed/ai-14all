@@ -7,13 +7,41 @@ import {
 	type AttachableSocket,
 } from "./attachable-transport.js";
 
-export function primaryLanIPv4(): string | null {
-	for (const addrs of Object.values(networkInterfaces())) {
+type InterfacesMap = ReturnType<typeof networkInterfaces>;
+
+// Tailscale hands out CGNAT addresses (100.64.0.0/10); a physical LAN never
+// should, so range membership is what splits the two offer-candidate slots.
+function isTailscaleCgnat(address: string): boolean {
+	const [a, b] = address.split(".").map(Number);
+	return a === 100 && b >= 64 && b <= 127;
+}
+
+export function pickPrimaryLanIPv4(ifaces: InterfacesMap): string | null {
+	for (const addrs of Object.values(ifaces)) {
 		for (const a of addrs ?? []) {
-			if (a.family === "IPv4" && !a.internal) return a.address;
+			if (a.family === "IPv4" && !a.internal && !isTailscaleCgnat(a.address))
+				return a.address;
 		}
 	}
 	return null;
+}
+
+export function pickTailscaleIPv4(ifaces: InterfacesMap): string | null {
+	for (const addrs of Object.values(ifaces)) {
+		for (const a of addrs ?? []) {
+			if (a.family === "IPv4" && !a.internal && isTailscaleCgnat(a.address))
+				return a.address;
+		}
+	}
+	return null;
+}
+
+export function primaryLanIPv4(): string | null {
+	return pickPrimaryLanIPv4(networkInterfaces());
+}
+
+export function tailscaleIPv4(): string | null {
+	return pickTailscaleIPv4(networkInterfaces());
 }
 
 export function wsToAttachable(ws: WebSocket): AttachableSocket {
