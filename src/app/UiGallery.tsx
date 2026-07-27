@@ -61,6 +61,22 @@ export function UiGallery() {
 		setPalette(next);
 	};
 
+	// C2 fix (review 2026-07-27): derive the phone-bridge fixture's
+	// line-height RATIO from <html>'s own computed style, not a hardcoded
+	// per-theme copy — a hardcoded copy is exactly the silent-drift class
+	// this guard exists to catch (a tokens.css or Tailwind preflight
+	// line-height edit would go unnoticed by both the fixture and, since the
+	// fixture would stay pinned, by the height-equality guard too). Must be
+	// the RATIO, not the resolved px: the px value (24px/22.4px) is resolved
+	// against <html>'s 16px font-size and would flatten the fixture's
+	// 11/12/13px children if applied directly. `palette` isn't referenced
+	// here on purpose — this reads the live DOM, so it stays correct even if
+	// that state ever drifts from the actual data-theme attribute.
+	const rootComputedStyle = getComputedStyle(document.documentElement);
+	const rootLineHeightRatio =
+		parseFloat(rootComputedStyle.lineHeight) /
+		parseFloat(rootComputedStyle.fontSize);
+
 	return (
 		<div
 			data-testid="ui-gallery"
@@ -372,21 +388,24 @@ export function UiGallery() {
 
 				<Section title="Phone bridge — capability ledger">
 					{/* Fixed to the real dialog's content width (.plugins-panel is
-					    560px with 16px padding each side; 526px uniformly per review).
+					    560px with 16px padding each side; 526px uniformly per review;
+					    documentary, not load-bearing — see dialogs.css:264-311).
 					    lineHeight counters this page's own `text-sm` utility (line 67
 					    above), which sets an unwanted unitless 1.42857
 					    (Tailwind's --text-sm--line-height) that would otherwise inherit
 					    into this subtree. Production never has that leak —
 					    .phone-bridge there inherits directly from <html>, whose
 					    line-height is Tailwind preflight's 1.5, or 1.4 under
-					    [data-theme="tui"] (tokens.css:319). Reproducing that exact
-					    per-theme value here, rather than the page's local override, is
-					    what makes the fixture's measured heights match production (see
-					    the css-refactor.visual.spec.ts height-equality guard). */}
+					    [data-theme="tui"] (tokens.css:319). rootLineHeightRatio (above)
+					    reads that value from <html> at runtime rather than hardcoding a
+					    per-theme copy, so a tokens.css or preflight edit can't silently
+					    drift the fixture away from production — it and the
+					    css-refactor.visual.spec.ts drift assertion are the same guard
+					    the review 2026-07-27 fix added. */}
 					<div
 						data-testid="gallery-phone-bridge"
 						className="phone-bridge flex flex-col gap-4"
-						style={{ maxWidth: 526, lineHeight: palette === "tui" ? 1.4 : 1.5 }}
+						style={{ maxWidth: 526, lineHeight: rootLineHeightRatio }}
 					>
 						{/* Full grants, both controls armed. Wrapped in a real
 						    .phone-bridge__view so its height can be compared against the

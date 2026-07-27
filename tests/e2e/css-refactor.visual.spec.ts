@@ -286,6 +286,80 @@ test.describe.serial("ui gallery surfaces", () => {
 			expect(focused.color).toBe(danger);
 		});
 	}
+
+	// Drift guard (review 2026-07-27, C2 follow-up). The fixture derives its
+	// line-height from <html>'s own computed style at runtime
+	// (UiGallery.tsx's rootLineHeightRatio) instead of a hardcoded per-theme
+	// copy — a hardcoded copy is exactly the silent-drift class this whole
+	// guard exists to catch. Demonstrated: simulating a tokens.css edit
+	// (document.documentElement.style.lineHeight = "1.7") pushed production's
+	// paired height 25px past min-height while a hardcoded fixture stayed
+	// pinned — the height-equality test above kept passing (both fixture
+	// views still moving together) and the pixel baselines kept matching
+	// (fixture unaffected, nothing re-rendered), so nothing caught a real
+	// resize-between-states regression. This test asserts the fixture's
+	// derived values still match their live sources, turning that silent
+	// path into a loud failure.
+	for (const palette of PALETTES) {
+		test(`phone bridge fixture geometry — ${palette}`, async () => {
+			test.skip(!galleryAvailable, "#/ui-gallery route not present");
+			await page.getByTestId(`gallery-theme-${palette}`).click();
+			await expect(page.locator("html")).toHaveAttribute("data-theme", palette);
+			await page.waitForTimeout(200);
+
+			// Ratio, not resolved px — comparing resolved px would fail
+			// spuriously on font-size alone even when the ratio (the thing
+			// that actually matters) is unchanged.
+			const ratios = await page.evaluate(() => {
+				const ratioOf = (el: Element) => {
+					const cs = getComputedStyle(el);
+					return parseFloat(cs.lineHeight) / parseFloat(cs.fontSize);
+				};
+				const fixture = document.querySelector(
+					'[data-testid="gallery-phone-bridge"]',
+				)!;
+				return {
+					html: ratioOf(document.documentElement),
+					fixture: ratioOf(fixture),
+				};
+			});
+			expect(ratios.fixture).toBeCloseTo(ratios.html, 5);
+
+			// .plugins-panel's real content width, measured from a throwaway
+			// instance of the actual production class — not a hand-derived
+			// formula (560 - padding - border), which would itself be a
+			// second drift path if that CSS ever changes. Not portaling the
+			// fixture into a real dialog: that would re-record every
+			// gallery-*-main baseline, out of scope for this fix.
+			const widths = await page.evaluate(() => {
+				const probe = document.createElement("div");
+				probe.className = "plugins-panel";
+				probe.style.visibility = "hidden";
+				probe.style.position = "fixed";
+				probe.style.top = "-9999px";
+				document.body.appendChild(probe);
+				const cs = getComputedStyle(probe);
+				const contentWidth =
+					probe.clientWidth -
+					parseFloat(cs.paddingLeft) -
+					parseFloat(cs.paddingRight);
+				probe.remove();
+				const fixture = document.querySelector(
+					'[data-testid="gallery-phone-bridge"]',
+				)! as HTMLElement;
+				return {
+					plugin: contentWidth,
+					fixture: fixture.getBoundingClientRect().width,
+				};
+			});
+			// Fixture is fixed at 526px for all four palettes (documentary,
+			// not load-bearing — dialogs.css:264-311, height is flat across a
+			// 470-540px width sweep). Real panel content width is 526px
+			// non-tui / 524px tui (--shell-border-width). That known 2px is
+			// harmless slack; anything bigger is a real regression.
+			expect(Math.abs(widths.fixture - widths.plugin)).toBeLessThan(4);
+		});
+	}
 });
 
 test.describe.serial("workspace sidebar surface", () => {

@@ -267,9 +267,12 @@
 	   taller still.
 
 	   MEASURED, not estimated — natural heights with min-height neutralised,
-	   from the real production DOM (body > .plugins-panel > .phone-bridge,
-	   526px content width — .plugins-panel is 560px with 16px padding each
-	   side), all four themes:
+	   from the real production DOM (body > .plugins-panel > .phone-bridge).
+	   .plugins-panel is 560px border-box with 16px padding and a
+	   `--shell-border-width` border each side: content width is 526px
+	   non-tui, 524px tui — documentary here, not load-bearing (height is
+	   flat across a 470-540px width sweep; line-height, below, is what
+	   actually drives these numbers). All four themes:
 
 	                        dark/light/warm      tui
 	     off                          48       45.59
@@ -282,12 +285,18 @@
 
 	   CORRECTED 2026-07-27 (review of the Task 5 visual guard): the table
 	   above superseded a first pass whose harness omitted Tailwind v4
-	   preflight's `html { line-height: 1.5 }` — it measured every non-tui row
-	   with an effective line-height near 1 instead, undercounting every
-	   non-tui row by ~10-30px (e.g. `paired (full grants)` was recorded as
-	   232, not 259.5). tui was unaffected both times: tokens.css pins
-	   `line-height: 1.4` directly on `[data-theme="tui"]`, so it was never
-	   subject to the preflight value either measurement relied on.
+	   preflight's `html { line-height: 1.5 }`. The effect was not uniform:
+	   most non-tui rows grew (`paired full grants` 232 -> 259.5), but
+	   `fault` shrank instead (76 -> 66) — its content includes a conditional
+	   `status.lastError` line this remeasurement's clone omitted, so that
+	   row mixes a content difference into the comparison, not a clean
+	   isolate of the line-height fix. tui mostly reproduces the old numbers
+	   exactly (scan, sas, paired legacy, paired full grants, and the
+	   unpair-confirm figure below all match to 2 decimals, confirming
+	   tokens.css's `line-height: 1.4` pin was already correct there), but
+	   `off` (33.59 -> 45.59) and `fault` (86.39 -> 65.59) moved too — same
+	   content-shape caveat as their non-tui counterparts, not a second
+	   line-height bug.
 
 	   tui is still the tightest fit, but not by the ~30px margin the old
 	   table implied: real headroom over 264px is 4.5px for dark/light/warm
@@ -306,9 +315,12 @@
 	   Guarded by the idle-vs-paired height equality test in
 	   css-refactor.visual.spec.ts, which fails per-palette if this value ever
 	   falls below the tallest resting view again. That guard's own fixture
-	   (src/app/UiGallery.tsx) reproduces this exact DOM shape — real content
-	   width (526px) and a per-theme line-height reset — specifically so it
-	   measures what production renders, not an approximation of it. */
+	   (src/app/UiGallery.tsx) derives its line-height from <html>'s own
+	   computed style at runtime, not a hardcoded per-theme copy — the actual
+	   mechanism that keeps the fixture tracking tokens.css and Tailwind's
+	   preflight automatically; a matching drift assertion lives in
+	   css-refactor.visual.spec.ts. The fixture's width is fixed for realism
+	   only, per the note above. */
 	.phone-bridge__view {
 		min-height: 264px;
 	}
