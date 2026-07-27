@@ -27,19 +27,6 @@ export function relativeTimeSince(then: number, now: number): string {
 	return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
-/**
- * Grant strings -> user-readable permissions summary. A record persisted
- * before slice 2b.2 has no grants and loads fail-closed as read-only.
- */
-export function permissionsLabel(perms: string[] | null): string {
-	if (!perms || perms.length === 0) return "session reports (read-only)";
-	if (!perms.includes("control:act")) return "session reports (read-only)";
-	const parts = ["session reports", "can act on workflows"];
-	if (perms.includes("control:pty-write"))
-		parts.push("can type into terminals");
-	return parts.join(" · ");
-}
-
 export type CapabilityKey = "reports" | "act" | "notify" | "pty";
 
 export type CapabilityRow = {

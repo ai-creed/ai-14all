@@ -307,11 +307,9 @@ test("full pairing: QR offer -> SAS confirm -> paired card -> unpair", async () 
 			.click();
 
 		await expect(dialog().getByTestId("view-paired")).toBeVisible();
-		await expect(dialog()).toContainText("Phone paired");
 		await expect(dialog()).toContainText("Paired just now");
-		await expect(dialog()).toContainText(
-			"Permissions: session reports · can act on workflows",
-		);
+		await expect(dialog()).toContainText("Read session reports");
+		await expect(dialog()).toContainText("Act on workflows");
 
 		await dialog().getByRole("button", { name: "Unpair" }).click();
 		await expect(dialog().getByTestId("unpair-confirm")).toBeVisible();
@@ -353,8 +351,8 @@ test("pty-input: host disarm switch gates a paired phone's terminal input", asyn
 	await expect(dialog().getByTestId("view-paired")).toBeVisible();
 	await pairT.close();
 
-	// New pairing carries control:pty-write — visible in the permissions line.
-	await expect(dialog()).toContainText("can type into terminals");
+	// New pairing carries control:pty-write — the ledger row is a live control.
+	await expect(dialog()).toContainText("Type into terminals");
 
 	// -- Register a REAL terminal as a live agent PTY (renderer-side, exactly
 	// how agent detection publishes it in production).
@@ -409,7 +407,7 @@ test("pty-input: host disarm switch gates a paired phone's terminal input", asyn
 
 		// Disarm on the host → the same request is refused in-band.
 		const inputSwitch = dialog().getByRole("switch", {
-			name: "Allow phone terminal input",
+			name: /Type into terminals/,
 		});
 		await inputSwitch.click();
 		await expect(inputSwitch).not.toBeChecked();

@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { Switch } from "@/components/ui/switch";
 import { useSettings } from "../../app/hooks/use-settings";
 import type { PhoneBridgeStatus } from "../../../shared/contracts/commands";
 import {
+	capabilityRows,
 	countdownLabel,
 	formatSas,
-	permissionsLabel,
 	relativeTimeSince,
 } from "./phone-bridge-format";
 
@@ -138,6 +138,12 @@ export function PhoneBridgePanel(): React.ReactElement {
 			? `${status.addr}:${status.port}`
 			: null;
 	const msLeft = (status?.offerExpiresAt ?? 0) - nowTick;
+
+	const caps = capabilityRows(status?.grantedPermissions ?? null, {
+		pushWakeEnabled: settings.phoneBridge.pushWakeEnabled,
+		ptyInputEnabled: settings.phoneBridge.ptyInputEnabled,
+	});
+	const anyDenied = caps.some((c) => !c.granted);
 
 	return (
 		<div className="phone-bridge" data-view={view}>
@@ -300,51 +306,100 @@ export function PhoneBridgePanel(): React.ReactElement {
 						<div className="phone-bridge__device-main">
 							<div className="phone-bridge__device-icon" aria-hidden="true" />
 							<div className="phone-bridge__device-lines">
-								<div className="phone-bridge__device-name">Phone paired</div>
+								<div className="phone-bridge__device-name">Phone</div>
 								{status?.pairedAt != null && (
 									<div>
 										Paired {relativeTimeSince(status.pairedAt, nowTick)}
 									</div>
 								)}
-								<div>
-									Permissions:{" "}
-									{permissionsLabel(status?.grantedPermissions ?? null)}
-								</div>
 							</div>
 							{!confirmingUnpair && (
 								<button
 									type="button"
-									className="phone-bridge__btn phone-bridge__btn--danger phone-bridge__device-action"
+									className="phone-bridge__btn phone-bridge__btn--quiet-danger phone-bridge__device-action"
 									onClick={() => setConfirmingUnpair(true)}
 								>
 									Unpair
 								</button>
 							)}
 						</div>
-						<div className="phone-bridge__device-toggle">
-							<span className="phone-bridge__device-toggle-label">
-								Terminal input
-								<span className="phone-bridge__hint phone-bridge__hint--tight">
-									Phone may type into live agent terminals. Off = disarm without
-									unpairing.
-								</span>
-							</span>
-							<Switch
-								checked={settings.phoneBridge.ptyInputEnabled}
-								disabled={busy}
-								onCheckedChange={(checked) =>
-									void update({ phoneBridge: { ptyInputEnabled: checked } })
-								}
-								aria-label="Allow phone terminal input"
-							/>
+
+						{/* Capability ledger (spec §5): `armed === null` selects the element.
+						    Do NOT re-test `granted` here — capabilityRows already folds it in,
+						    and a second condition can drift from the model. */}
+						<div className="phone-bridge__caps">
+							{caps.map((cap) =>
+								cap.armed === null ? (
+									<p
+										key={cap.key}
+										className={`phone-bridge__cap${
+											cap.granted ? "" : " phone-bridge__cap--denied"
+										}`}
+									>
+										<span className="phone-bridge__cap-mark">
+											{cap.granted ? "✓" : "·"}
+										</span>
+										<span className="phone-bridge__cap-name">{cap.label}</span>
+										{!cap.granted && (
+											<span className="phone-bridge__cap-deny">
+												not granted
+											</span>
+										)}
+									</p>
+								) : (
+									<Fragment key={cap.key}>
+										<button
+											type="button"
+											className="phone-bridge__cap"
+											role="switch"
+											aria-checked={cap.armed}
+											aria-describedby={
+												cap.hint
+													? `phone-bridge-cap-${cap.key}-hint`
+													: undefined
+											}
+											disabled={busy}
+											onClick={() =>
+												void update({
+													phoneBridge:
+														cap.key === "notify"
+															? { pushWakeEnabled: !cap.armed }
+															: { ptyInputEnabled: !cap.armed },
+												})
+											}
+										>
+											<span className="phone-bridge__cap-mark">
+												{cap.armed ? "[✓]" : "[ ]"}
+											</span>
+											<span className="phone-bridge__cap-name">
+												{cap.label}
+											</span>
+										</button>
+										{cap.hint && (
+											<p
+												className="phone-bridge__cap-hint"
+												id={`phone-bridge-cap-${cap.key}-hint`}
+											>
+												{cap.hint}
+											</p>
+										)}
+									</Fragment>
+								),
+							)}
+							{anyDenied && (
+								<p className="phone-bridge__cap-hint">
+									Pair this phone again to grant the newer capabilities.
+								</p>
+							)}
 						</div>
+
 						{confirmingUnpair && (
 							<div
 								className="phone-bridge__device-confirm"
 								data-testid="unpair-confirm"
 							>
 								<span className="phone-bridge__confirm-text">
-									The phone will have to re-pair.
+									The phone will have to pair again.
 								</span>
 								<button
 									type="button"

@@ -24,6 +24,15 @@ const base: Status = {
 	relay: "off",
 };
 
+// Mirrors NEW_PAIRING_GRANTS (services/xbp/xbp-grants.ts:14).
+const FULL_GRANTS = [
+	"session:report",
+	"control:act",
+	"control:notify",
+	"control:inspect",
+	"control:pty-write",
+];
+
 function mountBridge(
 	status: Status,
 	overrides: Record<string, unknown> = {},
@@ -161,14 +170,14 @@ describe("PhoneBridgePanel state machine", () => {
 				...base,
 				paired: true,
 				pairedAt: Date.now() - 3 * 86_400_000,
-				grantedPermissions: ["control:act"],
+				grantedPermissions: FULL_GRANTS,
 			},
 			{ forget },
 		);
 		renderPanel();
 		expect(await screen.findByTestId("view-paired")).toBeInTheDocument();
 		expect(screen.getByText(/paired 3 days ago/i)).toBeInTheDocument();
-		expect(screen.getByText(/can act/i)).toBeInTheDocument();
+		expect(screen.getByText("Act on workflows")).toBeInTheDocument();
 		await userEvent.click(screen.getByRole("button", { name: /^unpair$/i }));
 		expect(screen.getByTestId("unpair-confirm")).toBeInTheDocument();
 		await userEvent.dblClick(
@@ -183,12 +192,12 @@ describe("PhoneBridgePanel state machine", () => {
 			...base,
 			paired: true,
 			pairedAt: Date.now() - 3 * 86_400_000,
-			grantedPermissions: ["control:act"],
+			grantedPermissions: FULL_GRANTS,
 		});
 		renderPanel();
 		await screen.findByTestId("view-paired");
 		const sw = await screen.findByRole("switch", {
-			name: "Allow phone terminal input",
+			name: /Type into terminals/,
 		});
 		expect(sw).toBeChecked();
 	});
@@ -198,12 +207,12 @@ describe("PhoneBridgePanel state machine", () => {
 			...base,
 			paired: true,
 			pairedAt: Date.now() - 3 * 86_400_000,
-			grantedPermissions: ["control:act"],
+			grantedPermissions: FULL_GRANTS,
 		});
 		renderPanel();
 		await screen.findByTestId("view-paired");
 		const sw = await screen.findByRole("switch", {
-			name: "Allow phone terminal input",
+			name: /Type into terminals/,
 		});
 		await userEvent.click(sw);
 		expect(settingsWriteSpy()).toHaveBeenCalledWith(
@@ -265,6 +274,94 @@ describe("PhoneBridgePanel state machine", () => {
 		expect(await screen.findByTestId("last-error")).toHaveTextContent(
 			/startPairing failed/,
 		);
+	});
+
+	it("paired: renders four capability rows in order", async () => {
+		mountBridge({
+			...base,
+			paired: true,
+			pairedAt: Date.now(),
+			grantedPermissions: FULL_GRANTS,
+		});
+		renderPanel();
+		await screen.findByTestId("view-paired");
+		for (const label of [
+			"Read session reports",
+			"Act on workflows",
+			"Send notifications to this phone",
+			"Type into terminals",
+		]) {
+			expect(screen.getByText(label)).toBeInTheDocument();
+		}
+		// Exactly two controls: notify + pty. The bridge-enable switch lives in
+		// the strip, outside the ledger.
+		expect(
+			screen.getByTestId("view-paired").querySelectorAll('[role="switch"]'),
+		).toHaveLength(2);
+	});
+
+	it("paired: a denied capability renders no control at all", async () => {
+		mountBridge({
+			...base,
+			paired: true,
+			pairedAt: Date.now(),
+			// Legacy pre-2b.2 record: session reports only.
+			grantedPermissions: null,
+		});
+		renderPanel();
+		await screen.findByTestId("view-paired");
+		expect(
+			screen.getByTestId("view-paired").querySelectorAll('[role="switch"]'),
+		).toHaveLength(0);
+		expect(screen.getAllByText("not granted")).toHaveLength(3);
+		expect(
+			screen.getByText(/Pair this phone again to grant the newer capabilities/),
+		).toBeInTheDocument();
+	});
+
+	it("toggling notifications writes pushWakeEnabled, never ptyInputEnabled", async () => {
+		mountBridge({
+			...base,
+			paired: true,
+			pairedAt: Date.now(),
+			grantedPermissions: FULL_GRANTS,
+		});
+		renderPanel();
+		await screen.findByTestId("view-paired");
+		await userEvent.click(
+			screen.getByRole("switch", { name: /Send notifications to this phone/ }),
+		);
+		const patch = settingsWriteSpy().mock.calls[0][0];
+		expect(patch.phoneBridge).toEqual({ pushWakeEnabled: false });
+	});
+
+	it("toggling terminal input writes ptyInputEnabled, never pushWakeEnabled", async () => {
+		mountBridge({
+			...base,
+			paired: true,
+			pairedAt: Date.now(),
+			grantedPermissions: FULL_GRANTS,
+		});
+		renderPanel();
+		await screen.findByTestId("view-paired");
+		await userEvent.click(
+			screen.getByRole("switch", { name: /Type into terminals/ }),
+		);
+		const patch = settingsWriteSpy().mock.calls[0][0];
+		expect(patch.phoneBridge).toEqual({ ptyInputEnabled: false });
+	});
+
+	it("paired: the device header reads Phone, not Phone paired", async () => {
+		mountBridge({
+			...base,
+			paired: true,
+			pairedAt: Date.now(),
+			grantedPermissions: FULL_GRANTS,
+		});
+		renderPanel();
+		await screen.findByTestId("view-paired");
+		expect(screen.getByText("Phone")).toBeInTheDocument();
+		expect(screen.queryByText("Phone paired")).toBeNull();
 	});
 });
 

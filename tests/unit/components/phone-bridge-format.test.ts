@@ -3,7 +3,6 @@ import {
 	capabilityRows,
 	countdownLabel,
 	formatSas,
-	permissionsLabel,
 	relativeTimeSince,
 } from "../../../src/components/settings/phone-bridge-format";
 
@@ -38,24 +37,6 @@ describe("relativeTimeSince", () => {
 	});
 	it("reads days", () => {
 		expect(relativeTimeSince(now - 3 * 86_400_000, now)).toBe("3 days ago");
-	});
-});
-
-describe("permissionsLabel", () => {
-	it("legacy null grants read as read-only", () => {
-		expect(permissionsLabel(null)).toBe("session reports (read-only)");
-	});
-	it("control:act reads as can-act", () => {
-		expect(permissionsLabel(["control:act"])).toContain("can act");
-	});
-	it("names terminal input when control:pty-write is granted", () => {
-		expect(
-			permissionsLabel(["session:report", "control:act", "control:pty-write"]),
-		).toBe("session reports · can act on workflows · can type into terminals");
-		expect(permissionsLabel(["session:report", "control:act"])).toBe(
-			"session reports · can act on workflows",
-		);
-		expect(permissionsLabel(null)).toBe("session reports (read-only)");
 	});
 });
 
