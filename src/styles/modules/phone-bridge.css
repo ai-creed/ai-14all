@@ -1,0 +1,421 @@
+/* Phone Bridge dialog module — the capability ledger, the relay disclosure and
+ * the paired-device card. Split out of modules/dialogs.css on 2026-07-28: the
+ * ledger and disclosure work pushed that file to 994 lines against the 800-line
+ * soft cap, and this block was its largest single feature surface at ~430
+ * lines. Everything here is `.phone-bridge__*`-scoped and was moved verbatim,
+ * in order — internal source order is load-bearing (see the quiet-danger
+ * cascade note below, which depends on following the base .phone-bridge__btn
+ * hover rule).
+ *
+ * Component rules in app.components; theme COLOR variance belongs in
+ * tokens.css, not here. TUI trait set is mandatory across all four themes:
+ * radius 0, flat surfaces, solid separators, var(--font-ui). */
+@layer app.components {
+	/* --- Phone bridge dialog body ---
+	   Spec: docs/superpowers/specs/2026-07-15-phone-bridge-dialog-redesign-design.md §5.
+	   TUI trait set is mandatory (as for the settings dialog): radius 0 via
+	   tokens, flat surfaces (no box-shadow), solid separators, mono UI font.
+	   Only the status dot is round. */
+	.phone-bridge {
+		font-family: var(--font-ui);
+	}
+	.phone-bridge__strip {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		border-top: var(--shell-border-width) solid var(--panel-border);
+		border-bottom: var(--shell-border-width) solid var(--panel-border);
+		padding: var(--space-2) 0;
+		margin-bottom: var(--space-3);
+		font-size: 0.75rem;
+	}
+	.phone-bridge__dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		flex: none;
+	}
+	.phone-bridge__dot--on {
+		background: var(--success);
+	}
+	.phone-bridge__dot--off {
+		background: var(--text-muted);
+	}
+	.phone-bridge__dot--warn {
+		background: var(--warning);
+	}
+	.phone-bridge__addr {
+		color: var(--text-primary);
+		flex: 1;
+	}
+	/* Sized to the tallest view in the PAIRING FLOW, not to the tallest view
+	   overall. Was 150px, then briefly 264px and 328px — see the history note.
+
+	   The flow `idle -> scan -> sas` is an interactive sequence: the user is
+	   clicking through it, so a dialog that jumps on every step is genuinely
+	   disruptive. `paired` is a terminal state — you land on it once and then
+	   read it — so letting it grow past this floor costs nothing in flow.
+	   Pinning everything to `paired` instead is what the 328px value did, and
+	   it left 245.5px of dead space under `idle`, the view an unpaired user
+	   sees on first run. That was a worse trade than the resize it bought.
+
+	   MEASURED (natural heights, min-height neutralised, real production DOM
+	   `body > .plugins-panel > .phone-bridge`, 526px content non-tui / 524px
+	   tui). All four themes:
+
+	                        dark/light/warm      tui
+	     off                          48       45.59
+	     idle                         82.5     80.98
+	     scan                        208.5     207.39   <- drives the value
+	     sas                         160.5     154.58
+	     fault                        66       65.59
+	     ---- terminal states, deliberately above the floor ----
+	     paired (legacy)             285.5     288.98
+	     paired (full grants)        325.5     326.56
+
+	   -> 209px, clearing tui's 207.39 scan by 1.61px. `idle`, `scan` and `sas`
+	   are all pinned to it, so the pairing flow never resizes; `paired` grows
+	   to its own height once, on the transition you make exactly once.
+
+	   HISTORY. 150px was the original and was already wrong — shorter than the
+	   scan view's 168px QR + 16px padding, so scan jumped. 264px (2026-07-27)
+	   sized to the tallest resting view; the D10 `control:inspect` row then
+	   pushed `paired` to 326.56 and forced 328px, at which point the rule had
+	   eaten its own rationale: it was rejecting the unpair-confirm height for
+	   leaving dead space under idle while pinning to something taller still.
+	   Sizing to the flow is the resolution.
+
+	   GUARDED by css-refactor.visual.spec.ts, per palette: `idle` must be
+	   pinned (> 200px, so a deleted rule collapses it to ~82 and fails) and
+	   `scan` must equal `idle` (so a value below scan's natural height lets
+	   scan outgrow idle and fails). `paired` is intentionally NOT compared —
+	   it is expected to exceed this floor. The guard's fixture derives its
+	   line-height from <html>'s computed style at runtime rather than a
+	   hardcoded per-theme copy, which is what keeps it tracking tokens.css
+	   and Tailwind's preflight automatically. */
+	.phone-bridge__view {
+		min-height: 209px;
+	}
+	.phone-bridge__label {
+		font-size: 11px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--text-secondary);
+		margin: 0 0 var(--space-2);
+	}
+	.phone-bridge__hint {
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+		margin: 0 0 var(--space-3);
+	}
+	.phone-bridge__hint--tight {
+		margin-bottom: var(--space-1);
+	}
+	.phone-bridge__input {
+		display: block;
+		width: 100%;
+		box-sizing: border-box;
+		background: var(--panel-bg-elevated);
+		border: var(--shell-border-width) solid var(--panel-border);
+		color: var(--text-primary);
+		font-family: inherit;
+		font-size: 0.75rem;
+		padding: 4px var(--space-2);
+	}
+	/* --ring, NOT --accent: under tui --accent is a dark SURFACE colour, so an
+	   accent-tokened ring is near-invisible. The sibling relay summary already
+	   rings on --ring, and tabbing summary -> field must not change how loud
+	   the focus indicator is. */
+	.phone-bridge__input:focus-visible {
+		outline: var(--shell-border-width) solid var(--ring);
+		outline-offset: 1px;
+	}
+	.phone-bridge__btn {
+		background: none;
+		border: var(--shell-border-width) solid var(--panel-border);
+		color: var(--text-secondary);
+		padding: 4px var(--space-3);
+		font-size: 0.75rem;
+		font-family: inherit;
+		cursor: pointer;
+	}
+	.phone-bridge__btn:hover:not(:disabled) {
+		border-color: var(--text-muted);
+		color: var(--text-primary);
+	}
+	.phone-bridge__btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+	/* Spec §5 mandates --primary (NOT --accent: in the tui theme --accent is a
+	   muted surface color, so an accent-tokened primary would lose contrast). */
+	.phone-bridge__btn--primary {
+		border-color: var(--primary);
+		color: var(--primary);
+	}
+	.phone-bridge__btn--primary:hover:not(:disabled) {
+		background: var(--primary);
+		color: var(--primary-foreground);
+		border-color: var(--primary);
+	}
+	.phone-bridge__btn--danger {
+		border-color: var(--danger);
+		color: var(--danger);
+	}
+	.phone-bridge__btn--danger:hover:not(:disabled) {
+		background: var(--danger);
+		color: var(--app-bg);
+		border-color: var(--danger);
+	}
+	/* --- Capability ledger (spec 2026-07-27 §4/§6) ---
+	   Reading rule: a bare ✓ states a fact, [brackets] mark a control. */
+	.phone-bridge__caps {
+		border-top: var(--shell-border-width) solid var(--panel-border);
+		padding: var(--space-2) var(--space-3) var(--space-3);
+	}
+	/* The transparent border lives on the BASE rule, not only on the button
+	   variant, so <p> fact rows and <button> control rows align to the pixel.
+	   Under tui --shell-border-width is 2px, where a one-sided border would
+	   visibly stagger the mark column. */
+	.phone-bridge__cap {
+		display: flex;
+		align-items: baseline;
+		gap: var(--space-2);
+		margin: 0;
+		padding: 3px 0;
+		border: var(--shell-border-width) solid transparent;
+		font-size: 0.75rem;
+		color: var(--text-primary);
+	}
+	.phone-bridge__cap-mark {
+		flex: none;
+		width: 3ch;
+		text-align: center;
+		color: var(--success);
+	}
+	.phone-bridge__cap-name {
+		flex: 1;
+	}
+	.phone-bridge__cap-deny {
+		flex: none;
+	}
+	.phone-bridge__cap--denied,
+	.phone-bridge__cap--denied .phone-bridge__cap-mark {
+		color: var(--text-muted);
+	}
+	button.phone-bridge__cap {
+		width: 100%;
+		text-align: left;
+		font-family: inherit;
+		background: none;
+		cursor: pointer;
+	}
+	button.phone-bridge__cap:hover:not(:disabled) {
+		border-color: var(--panel-border);
+	}
+	button.phone-bridge__cap:focus-visible {
+		outline: var(--shell-border-width) solid var(--ring);
+		outline-offset: 1px;
+	}
+	button.phone-bridge__cap:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+	button.phone-bridge__cap .phone-bridge__cap-mark {
+		color: var(--primary);
+		font-weight: 600;
+	}
+	button.phone-bridge__cap[aria-checked="false"] .phone-bridge__cap-mark {
+		color: var(--text-muted);
+	}
+	button.phone-bridge__cap[aria-checked="false"] .phone-bridge__cap-name {
+		color: var(--text-secondary);
+	}
+	/* Indents to the name column: mark width + gap + the transparent border. */
+	.phone-bridge__cap-hint {
+		margin: 0 0 var(--space-1)
+			calc(3ch + var(--space-2) + var(--shell-border-width));
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+	}
+
+	/* --- Quiet destructive (spec §6, D6) ---
+	   At rest it inherits .phone-bridge__btn exactly: --panel-border border,
+	   --text-secondary text, no destructive colour anywhere. :hover and
+	   :focus-visible share ONE rule so they cannot diverge. The FILLED danger
+	   background stays on .phone-bridge__btn--danger (Confirm unpair), keeping
+	   the escalation legible: quiet -> outlined danger -> filled danger.
+	   NOTE: this must sit AFTER .phone-bridge__btn:hover:not(:disabled) — both
+	   selectors weigh (0,3,0), so source order decides the winner. */
+	.phone-bridge__btn--quiet-danger:hover:not(:disabled),
+	.phone-bridge__btn--quiet-danger:focus-visible {
+		border-color: var(--danger);
+		color: var(--danger);
+		background: none;
+	}
+
+	/* --- Relay disclosure (spec §5/§6) ---
+	   SEPARATOR ADJACENCY: this block renders at the BOTTOM of the panel, after
+	   the view slot (PhoneBridgePanel.tsx) — its border-top is the only rule
+	   there, because .phone-bridge__view carries no border of its own. Keep it
+	   that way: rendered directly under .phone-bridge__strip (which has its own
+	   border-bottom + margin-bottom) the two margins collapse to 12px and draw
+	   two full-width rules 12px apart — 2px rules under tui. That doubled rule
+	   shipped once and is what the .phone-bridge__strip in the UiGallery
+	   fixture now guards. */
+	.phone-bridge__relay {
+		border-top: var(--shell-border-width) solid var(--panel-border);
+		margin-top: var(--space-3);
+		padding-top: var(--space-2);
+	}
+	.phone-bridge__relay > summary {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		padding: 2px 0;
+		list-style: none;
+		cursor: pointer;
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+	}
+	.phone-bridge__relay > summary::-webkit-details-marker {
+		display: none;
+	}
+	.phone-bridge__relay > summary::before {
+		content: "▸";
+		color: var(--text-muted);
+	}
+	.phone-bridge__relay[open] > summary::before {
+		content: "▾";
+	}
+	.phone-bridge__relay > summary:hover {
+		color: var(--text-primary);
+	}
+	.phone-bridge__relay > summary:focus-visible {
+		outline: var(--shell-border-width) solid var(--ring);
+		outline-offset: 1px;
+	}
+	.phone-bridge__relay-body {
+		padding: var(--space-2) 0 0 var(--space-3);
+	}
+	.phone-bridge__relay-hint {
+		margin-top: var(--space-2);
+	}
+
+	.phone-bridge__scan {
+		display: flex;
+		gap: var(--space-4);
+		align-items: flex-start;
+	}
+	.phone-bridge__qr {
+		background: #fff;
+		padding: 8px;
+		width: 168px;
+		height: 168px;
+		box-sizing: content-box;
+		flex: none;
+		image-rendering: pixelated;
+	}
+	.phone-bridge__scan-meta {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+	}
+	.phone-bridge__scan-title {
+		color: var(--text-primary);
+		font-weight: 600;
+		font-size: 13px;
+	}
+	.phone-bridge__countdown {
+		color: var(--text-secondary);
+	}
+	.phone-bridge__countdown--late {
+		color: var(--warning);
+	}
+	.phone-bridge__sas-digits {
+		font-size: 32px;
+		font-weight: 600;
+		letter-spacing: 0.35em;
+		color: var(--primary); /* spec §5: SAS digits ride --primary */
+		margin: var(--space-2) 0 var(--space-1);
+	}
+	.phone-bridge__sas-actions {
+		display: flex;
+		gap: var(--space-2);
+		margin-top: var(--space-3);
+	}
+	.phone-bridge__device {
+		background: var(--panel-bg-elevated);
+		border: var(--shell-border-width) solid var(--panel-border);
+	}
+	.phone-bridge__device-main {
+		display: flex;
+		gap: var(--space-3);
+		align-items: center;
+		padding: var(--space-3);
+	}
+	.phone-bridge__device-icon {
+		width: 26px;
+		height: 40px;
+		border: var(--shell-border-width) solid var(--text-muted);
+		position: relative;
+		flex: none;
+	}
+	.phone-bridge__device-icon::after {
+		content: "";
+		position: absolute;
+		bottom: 3px;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 6px;
+		height: 2px;
+		background: var(--text-muted);
+	}
+	.phone-bridge__device-lines {
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+		flex: 1;
+	}
+	.phone-bridge__device-name {
+		font-size: 13px;
+		font-weight: 600;
+		color: var(--text-primary);
+	}
+	.phone-bridge__device-action {
+		align-self: flex-start;
+		flex: none;
+	}
+	.phone-bridge__device-confirm {
+		display: flex;
+		gap: var(--space-2);
+		align-items: center;
+		flex-wrap: wrap;
+		border-top: var(--shell-border-width) solid var(--panel-border);
+		padding: var(--space-2) var(--space-3);
+	}
+	.phone-bridge__confirm-text {
+		font-size: 0.75rem;
+		color: var(--warning);
+		flex: 1;
+	}
+	.phone-bridge__fault {
+		border: var(--shell-border-width) solid var(--warning);
+		padding: var(--space-3);
+		font-size: 0.75rem;
+		color: var(--text-primary);
+	}
+	.phone-bridge__fault-detail {
+		color: var(--text-secondary);
+		margin-top: var(--space-1);
+	}
+	.phone-bridge__error {
+		border-top: var(--shell-border-width) solid var(--panel-border);
+		margin: var(--space-3) 0 0;
+		padding-top: var(--space-2);
+		font-size: 0.75rem;
+		color: var(--danger);
+	}
+}

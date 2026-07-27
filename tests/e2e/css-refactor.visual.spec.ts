@@ -223,15 +223,22 @@ test.describe.serial("ui gallery surfaces", () => {
 					.getByTestId(testId)
 					.evaluate((el) => el.getBoundingClientRect().height);
 			const idle = await heightOf("gallery-pb-view-idle");
+			const scan = await heightOf("gallery-pb-view-scan");
 			const paired = await heightOf("gallery-pb-view-paired");
 
 			// min-height is actually applied — idle's natural height is
-			// ~80-82.5px (dialogs.css:264-296), so anything near that means
-			// the rule is gone.
+			// ~80-82.5px, so anything near that means the rule is gone.
 			expect(idle).toBeGreaterThan(200);
-			// And it is large enough for the tallest resting view. Sub-pixel
-			// tolerance only; a real regression moves this by tens of pixels.
-			expect(Math.abs(paired - idle)).toBeLessThan(1);
+			// ...and it clears the tallest view in the PAIRING FLOW, so
+			// idle -> scan -> sas never resizes. Both are pinned to the same
+			// floor; a value below scan's natural height (207.39 tui) lets scan
+			// outgrow idle and this fails. Sub-pixel tolerance only.
+			expect(Math.abs(scan - idle)).toBeLessThan(1);
+			// `paired` is deliberately NOT compared: it is a terminal state and
+			// is expected to exceed the floor (325.5 / 326.56). Asserting
+			// equality here is what forced min-height to 328px and left 245.5px
+			// of dead space under idle — see dialogs.css for the full rationale.
+			expect(paired).toBeGreaterThan(idle);
 		});
 	}
 

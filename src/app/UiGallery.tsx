@@ -492,6 +492,37 @@ export function UiGallery() {
 								</button>
 							</div>
 
+							{/* The tallest view in the PAIRING FLOW — what min-height is
+							    sized to. The QR box is what drives it (168px + 8px padding
+							    each side, content-box). Its height must stay equal to the
+							    idle view above: both are pinned to min-height, and a value
+							    below scan's natural height lets this one outgrow idle. */}
+							<div
+								data-testid="gallery-pb-view-scan"
+								className="phone-bridge__view"
+							>
+								<div className="phone-bridge__label">Pairing</div>
+								<div className="phone-bridge__scan">
+									<div className="phone-bridge__qr" />
+									<div className="phone-bridge__scan-meta">
+										<span className="phone-bridge__scan-title">
+											Scan with your phone
+										</span>
+										<span className="phone-bridge__hint phone-bridge__hint--tight">
+											Open ai-xavier on the same Wi-Fi network.
+										</span>
+										<span className="phone-bridge__countdown">
+											Expires in 2:41
+										</span>
+										<span>
+											<button type="button" className="phone-bridge__btn">
+												Cancel
+											</button>
+										</span>
+									</div>
+								</div>
+							</div>
+
 							<details
 								data-testid="gallery-pb-relay-open"
 								className="phone-bridge__relay"
