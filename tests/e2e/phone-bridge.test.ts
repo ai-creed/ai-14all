@@ -310,6 +310,9 @@ test("full pairing: QR offer -> SAS confirm -> paired card -> unpair", async () 
 		await expect(dialog()).toContainText("Paired just now");
 		await expect(dialog()).toContainText("Read session reports");
 		await expect(dialog()).toContainText("Act on workflows");
+		// D10: control:inspect is minted at pairing and grants reading agent
+		// terminal OUTPUT, so a real pairing must surface it as a granted row.
+		await expect(dialog()).toContainText("Read terminal output");
 
 		await dialog().getByRole("button", { name: "Unpair" }).click();
 		await expect(dialog().getByTestId("unpair-confirm")).toBeVisible();

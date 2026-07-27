@@ -452,6 +452,10 @@ export function UiGallery() {
 										<PbFactRow label={PB_REPORTS_LABEL} />
 										<PbFactRow label={PB_ACT_LABEL} />
 										<PbControlRow armed {...PB_NOTIFY} />
+										<PbFactRow
+											label={PB_INSPECT.label}
+											hint={PB_INSPECT.hint}
+										/>
 										<PbControlRow armed {...PB_PTY} />
 									</div>
 								</div>
@@ -532,6 +536,7 @@ export function UiGallery() {
 								<PbFactRow label={PB_REPORTS_LABEL} />
 								<PbFactRow label={PB_ACT_LABEL} />
 								<PbControlRow armed={false} {...PB_NOTIFY} />
+								<PbFactRow label={PB_INSPECT.label} hint={PB_INSPECT.hint} />
 								<PbControlRow armed={false} {...PB_PTY} />
 							</div>
 						</div>
@@ -546,6 +551,7 @@ export function UiGallery() {
 								<PbFactRow label={PB_REPORTS_LABEL} />
 								<PbFactRow denied label={PB_ACT_LABEL} />
 								<PbFactRow denied label={PB_NOTIFY.label} />
+								<PbFactRow denied label={PB_INSPECT.label} />
 								<PbFactRow denied label={PB_PTY.label} />
 								<p className="phone-bridge__cap-hint">
 									Pair this phone again to grant the newer capabilities.
@@ -568,6 +574,12 @@ const PB_ACT_LABEL = "Act on workflows";
 const PB_NOTIFY = {
 	label: "Send notifications to this phone",
 	hint: "Pings the phone when a workflow finishes or needs you.",
+};
+// control:inspect — granted at pairing but with NO kill switch, so it renders
+// as a bare fact row that still carries a hint (spec D10).
+const PB_INSPECT = {
+	label: "Read terminal output",
+	hint: "The phone can live-tail agent terminals — everything they print — and resize the one it watches.",
 };
 const PB_PTY = {
 	label: "Type into terminals",
@@ -595,17 +607,28 @@ function PbDeviceHeader({ unpairTestId }: { unpairTestId?: string }) {
 }
 
 /** `armed === null` row: a bare ✓ states a fact, · marks an absent grant. */
-function PbFactRow({ label, denied }: { label: string; denied?: boolean }) {
+function PbFactRow({
+	label,
+	denied,
+	hint,
+}: {
+	label: string;
+	denied?: boolean;
+	hint?: string;
+}) {
 	return (
-		<p
-			className={`phone-bridge__cap${denied ? " phone-bridge__cap--denied" : ""}`}
-		>
-			<span className="phone-bridge__cap-mark" aria-hidden="true">
-				{denied ? "·" : "✓"}
-			</span>
-			<span className="phone-bridge__cap-name">{label}</span>
-			{denied && <span className="phone-bridge__cap-deny">not granted</span>}
-		</p>
+		<>
+			<p
+				className={`phone-bridge__cap${denied ? " phone-bridge__cap--denied" : ""}`}
+			>
+				<span className="phone-bridge__cap-mark" aria-hidden="true">
+					{denied ? "·" : "✓"}
+				</span>
+				<span className="phone-bridge__cap-name">{label}</span>
+				{denied && <span className="phone-bridge__cap-deny">not granted</span>}
+			</p>
+			{hint && <p className="phone-bridge__cap-hint">{hint}</p>}
+		</>
 	);
 }
 

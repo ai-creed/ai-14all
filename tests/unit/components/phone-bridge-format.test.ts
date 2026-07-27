@@ -54,11 +54,18 @@ const FULL_GRANTS = [
 const BOTH_ON = { pushWakeEnabled: true, ptyInputEnabled: true };
 
 describe("capabilityRows", () => {
-	it("full grants yield four rows in a fixed order", () => {
+	it("full grants yield five rows in a fixed order", () => {
 		const rows = capabilityRows(FULL_GRANTS, BOTH_ON);
-		expect(rows.map((r) => r.key)).toEqual(["reports", "act", "notify", "pty"]);
-		expect(rows.map((r) => r.granted)).toEqual([true, true, true, true]);
-		expect(rows.map((r) => r.armed)).toEqual([null, null, true, true]);
+		expect(rows.map((r) => r.key)).toEqual([
+			"reports",
+			"act",
+			"notify",
+			"inspect",
+			"pty",
+		]);
+		expect(rows.map((r) => r.granted)).toEqual([true, true, true, true, true]);
+		// inspect has no kill switch, so it stays null even when granted.
+		expect(rows.map((r) => r.armed)).toEqual([null, null, true, null, true]);
 	});
 
 	// A single symmetric case passes even if both rows read the SAME flag.
@@ -83,8 +90,14 @@ describe("capabilityRows", () => {
 	// model that ignores `granted`.
 	it("null perms fail closed with no armed control anywhere", () => {
 		const rows = capabilityRows(null, BOTH_ON);
-		expect(rows.map((r) => r.granted)).toEqual([true, false, false, false]);
-		expect(rows.map((r) => r.armed)).toEqual([null, null, null, null]);
+		expect(rows.map((r) => r.granted)).toEqual([
+			true,
+			false,
+			false,
+			false,
+			false,
+		]);
+		expect(rows.map((r) => r.armed)).toEqual([null, null, null, null, null]);
 	});
 
 	it("empty perms fail closed identically to null", () => {
@@ -117,6 +130,7 @@ describe("capabilityRows", () => {
 			"Read session reports",
 			"Act on workflows",
 			"Send notifications to this phone",
+			"Read terminal output",
 			"Type into terminals",
 		]);
 		expect(rows.find((r) => r.key === "notify")!.hint).toBe(
@@ -128,6 +142,23 @@ describe("capabilityRows", () => {
 	});
 
 	// The property PhoneBridgePanel's element choice depends on (spec §5).
+	it("inspect is granted-but-uncontrollable: a fact row, never a switch", () => {
+		// control:inspect is the permission on the five pty-inspect capabilities
+		// (list / watch / unwatch / terminal rows / resize), i.e. reading agent
+		// terminal OUTPUT. It has no local kill switch, so even fully granted with
+		// both flags on it must stay armed: null — a bare fact row.
+		const granted = capabilityRows(FULL_GRANTS, BOTH_ON).find(
+			(r) => r.key === "inspect",
+		)!;
+		expect(granted).toMatchObject({ granted: true, armed: null });
+		expect(granted.label).toBe("Read terminal output");
+
+		const denied = capabilityRows(["control:act"], BOTH_ON).find(
+			(r) => r.key === "inspect",
+		)!;
+		expect(denied).toMatchObject({ granted: false, armed: null });
+	});
+
 	it("invariant: armed !== null implies granted", () => {
 		const cases: Array<
 			[string[] | null, { pushWakeEnabled: boolean; ptyInputEnabled: boolean }]
@@ -141,6 +172,7 @@ describe("capabilityRows", () => {
 			[["control:act"], BOTH_ON],
 			[["control:notify"], BOTH_ON],
 			[["control:pty-write"], BOTH_ON],
+			[["control:inspect"], BOTH_ON],
 		];
 		for (const [perms, flags] of cases) {
 			for (const row of capabilityRows(perms, flags)) {

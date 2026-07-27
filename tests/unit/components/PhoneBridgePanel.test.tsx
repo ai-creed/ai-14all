@@ -338,7 +338,7 @@ describe("PhoneBridgePanel state machine", () => {
 		expect(
 			screen.getByTestId("view-paired").querySelectorAll('[role="switch"]'),
 		).toHaveLength(0);
-		expect(screen.getAllByText("not granted")).toHaveLength(3);
+		expect(screen.getAllByText("not granted")).toHaveLength(4);
 		// Pin U+00B7 (·) on the denied glyph itself, not just the adjacent
 		// "not granted" text — a swapped granted/denied ternary must fail here.
 		expect(
@@ -423,7 +423,7 @@ describe("PhoneBridgePanel state machine", () => {
 			...base,
 			paired: true,
 			pairedAt: Date.now(),
-			// notify granted (live control), act + pty not (denied facts).
+			// notify granted (live control); act, inspect + pty not (denied facts).
 			grantedPermissions: ["control:read", "control:notify"],
 		});
 		renderPanel();
@@ -438,9 +438,13 @@ describe("PhoneBridgePanel state machine", () => {
 			screen.getByRole("switch", { name: /Send notifications to this phone/ }),
 		).toBeChecked();
 
-		// ...alongside two denied rows carrying the · mark and the suffix.
-		expect(screen.getAllByText("not granted")).toHaveLength(2);
-		for (const label of ["Act on workflows", "Type into terminals"]) {
+		// ...alongside three denied rows carrying the · mark and the suffix.
+		expect(screen.getAllByText("not granted")).toHaveLength(3);
+		for (const label of [
+			"Act on workflows",
+			"Read terminal output",
+			"Type into terminals",
+		]) {
 			const row = screen.getByText(label).closest(".phone-bridge__cap")!;
 			expect(row.querySelector(".phone-bridge__cap-mark")).toHaveTextContent(
 				"·",

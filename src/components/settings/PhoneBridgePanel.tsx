@@ -34,6 +34,7 @@ function capabilityPatch(key: CapabilityKey, next: boolean): PhoneBridgePatch {
 			return { ptyInputEnabled: next };
 		case "reports":
 		case "act":
+		case "inspect":
 			throw new Error(`Capability "${key}" has no kill switch`);
 		default: {
 			const unhandled: never = key;
@@ -381,27 +382,40 @@ export function PhoneBridgePanel(): React.ReactElement {
 						<div className="phone-bridge__caps">
 							{caps.map((cap) =>
 								cap.armed === null ? (
-									<p
-										key={cap.key}
-										className={`phone-bridge__cap${
-											cap.granted ? "" : " phone-bridge__cap--denied"
-										}`}
-									>
-										{/* Decorative on BOTH branches (the control row below
+									// A fact row may still carry a hint (`inspect` does): the hint
+									// describes the CAPABILITY, not the control, so it renders on
+									// both branches. aria-describedby is used only on the control
+									// branch, where a button owns an accessible name to describe.
+									<Fragment key={cap.key}>
+										<p
+											className={`phone-bridge__cap${
+												cap.granted ? "" : " phone-bridge__cap--denied"
+											}`}
+										>
+											{/* Decorative on BOTH branches (the control row below
 										    hides its mark too): a screen reader must not read
 										    "check mark, Read session reports". No information is
 										    lost — a denied row keeps its "not granted" text, so
 										    the two still differ in the accessible name. */}
-										<span className="phone-bridge__cap-mark" aria-hidden="true">
-											{cap.granted ? "✓" : "·"}
-										</span>
-										<span className="phone-bridge__cap-name">{cap.label}</span>
-										{!cap.granted && (
-											<span className="phone-bridge__cap-deny">
-												not granted
+											<span
+												className="phone-bridge__cap-mark"
+												aria-hidden="true"
+											>
+												{cap.granted ? "✓" : "·"}
 											</span>
+											<span className="phone-bridge__cap-name">
+												{cap.label}
+											</span>
+											{!cap.granted && (
+												<span className="phone-bridge__cap-deny">
+													not granted
+												</span>
+											)}
+										</p>
+										{cap.hint && (
+											<p className="phone-bridge__cap-hint">{cap.hint}</p>
 										)}
-									</p>
+									</Fragment>
 								) : (
 									<Fragment key={cap.key}>
 										<button

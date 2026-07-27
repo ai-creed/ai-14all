@@ -279,8 +279,8 @@
 	     idle                         82.5     80.98
 	     scan                        208.5     207.39
 	     sas                         160.5     154.58
-	     paired (legacy)             237.5     241.38
-	     paired (full grants)        259.5     262.17   <- drives the value
+	     paired (legacy)             285.5     288.98
+	     paired (full grants)        325.5     326.56   <- drives the value
 	     fault                        66       65.59
 
 	   CORRECTED 2026-07-27 (review of the Task 5 visual guard): the table
@@ -298,13 +298,24 @@
 	   content-shape caveat as their non-tui counterparts, not a second
 	   line-height bug.
 
-	   tui is still the tightest fit, but not by the ~30px margin the old
-	   table implied: real headroom over 264px is 4.5px for dark/light/warm
-	   and 1.83px for tui (259.5 and 262.17 respectively). tui sets
-	   line-height 1.4 and --shell-border-width 2px (tokens.css), and the
-	   ledger has 4 bordered rows plus 2 hints, so both multiply out — that
-	   1.83px is genuinely thin, and a future capability row, copy change, or
-	   font-metric drift could close it without any width change at all.
+	   RE-MEASURED 2026-07-27 when the control:inspect row landed (spec D10).
+	   The ledger went from 4 rows + 2 hints to 5 rows + 3 hints, and the
+	   `paired (full grants)` row grew 259.5 -> 325.5 (dark) and
+	   262.17 -> 326.56 (tui): +66px / +64px for one row whose hint wraps to
+	   two lines. Hence 328px, which clears tui's 326.56 by 1.44px.
+
+	   *** THIS RULE HAS NOW OUTGROWN ITS OWN RATIONALE — see below. ***
+	   Pinning every view to 328px leaves 245.5px of dead space under `idle`
+	   (natural 82.5px), which is what an unpaired user sees on first run.
+	   The paragraph below rejects the unpair-confirm height for leaving
+	   "dead space under idle" — but the value it rejected (304.5 / 308.97)
+	   is now SMALLER than the resting height this rule is pinned to. The
+	   stated reason for rejecting that value applies with more force to this
+	   one. Sizing to the tallest resting view was a good trade at a 82->262
+	   spread; at 82->327 it is a poor one, and the honest fix is to revisit
+	   whether the dialog must be resize-free at all rather than to keep
+	   raising this number. Flagged for a design ruling; implemented
+	   faithfully in the meantime so the guard's invariant stays true.
 
 	   NOT covered on purpose: paired with the unpair confirm expanded
 	   (304.5 / 308.97, same DOM/width, same correction applied). That growth
@@ -314,7 +325,8 @@
 
 	   Guarded by the idle-vs-paired height equality test in
 	   css-refactor.visual.spec.ts, which fails per-palette if this value ever
-	   falls below the tallest resting view again. That guard's own fixture
+	   falls below the tallest resting view again — it is what caught the
+	   D10 row's +64px the moment it landed. That guard's own fixture
 	   (src/app/UiGallery.tsx) derives its line-height from <html>'s own
 	   computed style at runtime, not a hardcoded per-theme copy — the actual
 	   mechanism that keeps the fixture tracking tokens.css and Tailwind's
@@ -322,7 +334,7 @@
 	   css-refactor.visual.spec.ts. The fixture's width is fixed for realism
 	   only, per the note above. */
 	.phone-bridge__view {
-		min-height: 264px;
+		min-height: 328px;
 	}
 	.phone-bridge__label {
 		font-size: 11px;

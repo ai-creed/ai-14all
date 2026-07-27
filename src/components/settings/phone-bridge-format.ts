@@ -27,7 +27,7 @@ export function relativeTimeSince(then: number, now: number): string {
 	return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
-export type CapabilityKey = "reports" | "act" | "notify" | "pty";
+export type CapabilityKey = "reports" | "act" | "notify" | "inspect" | "pty";
 
 export type CapabilityRow = {
 	key: CapabilityKey;
@@ -49,6 +49,7 @@ export type CapabilityRow = {
 // silently shows "not granted".
 const CONTROL_ACT = "control:act";
 const CONTROL_NOTIFY = "control:notify";
+const CONTROL_INSPECT = "control:inspect";
 const CONTROL_PTY_WRITE = "control:pty-write";
 
 /**
@@ -71,8 +72,15 @@ const CONTROL_PTY_WRITE = "control:pty-write";
  * was minted at pairing (xbp-grants.ts), and the reason a denied row shows no
  * control is that re-pairing, not a switch, is its only upgrade path.
  *
- * control:inspect is deliberately not shown — it is minted at pairing but has
- * no user-facing meaning (spec D3).
+ * control:inspect IS shown (spec D10, superseding D3). It is the permission on
+ * five pty-inspect capabilities — "List terminals", "Watch terminal", "Stop
+ * watching terminal", "Terminal rows" ("Pull styled terminal rows (replay page
+ * or live-tail delta)") and "Resize watched terminal" — so it grants reading
+ * agent terminal OUTPUT, not merely metadata. D3 originally omitted it as
+ * having "no user-facing meaning"; that was wrong, and omitting it left the
+ * ledger stating the phone could type into terminals while saying nothing
+ * about it reading them. It carries no kill switch, so it renders as a bare
+ * fact row.
  */
 export function capabilityRows(
 	perms: string[] | null,
@@ -100,6 +108,17 @@ export function capabilityRows(
 			hint: "Pings the phone when a workflow finishes or needs you.",
 			granted: has(CONTROL_NOTIFY),
 			flag: flags.pushWakeEnabled,
+		},
+		// Sits immediately before `pty` so the read/write pair on the SAME
+		// terminals reads as a pair — that contrast is the reason this row exists.
+		{
+			key: "inspect",
+			label: "Read terminal output",
+			hint: "The phone can live-tail agent terminals — everything they print — and resize the one it watches.",
+			granted: has(CONTROL_INSPECT),
+			// No local kill switch exists for pty-inspect — re-pairing is the only
+			// way to change it, same as `act`.
+			flag: null,
 		},
 		{
 			key: "pty",

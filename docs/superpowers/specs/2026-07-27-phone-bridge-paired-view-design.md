@@ -32,13 +32,14 @@ Goal: the dialog answers "what is this phone allowed to do, and what can I chang
 |---|---|---|
 | D1 | Permissions become a **capability ledger**: one row per capability, inside the device card. | One row = one truth; problems 2, 3, 5 become structurally impossible. |
 | D2 | **Reading rule: a bare `✓` states a fact, `[brackets]` mark a control.** | Learnable in one glance; distinguishes an immutable grant from a live switch without a legend. Mono brackets are TUI-native (memory `mem-2026-07-02…`, `docs/tui-css-spec.md`). |
-| D3 | **Four rows, two controls** (user decision, 2026-07-27): read session reports, act on workflows, send notifications `[✓]`, type into terminals `[✓]`. | Surfaces both real kill switches. `control:inspect` is omitted — it is minted at pairing but has no user-facing meaning and nothing to act on. |
+| D3 | ~~**Four rows, two controls**, omitting `control:inspect` as having "no user-facing meaning".~~ **SUPERSEDED BY D10** — the omission rested on a false premise. |
 | D4 | The **liveness line is dropped** (user decision, 2026-07-27). Header reads `Phone`. | Keeps the slice presentation-only. Remains a deferred non-goal (2026-07-15 spec §10). |
 | D5 | **Relay becomes a disclosure** at the bottom of the panel, whose summary line reports its own state (`Off-network relay · off`). It stays **bridge-scoped** — rendered in exactly the views it is rendered in today, not moved inside the paired card. | Set-once and empty for most users; it should not outrank the paired device. Fixes problem 1 by giving it a designed home without narrowing where it is reachable. |
 | D5a | The disclosure **starts open when a relay URL is persisted**, collapsed when it is empty. Implemented as a **ref-latched state seed** that fires once on the first resolved settings load — never a prop derived from `relayBaseUrl`, which would reopen a user-closed disclosure on the next status re-render (§5, §8). | Never hide configuration the user has already made; an empty field is the only case worth collapsing. A user's later toggle must survive the status changes this panel receives continuously. Also keeps the configured-relay E2E assertions reachable without an extra open step. |
 | D6 | **Unpair is neutral at rest**, destructive on hover/focus, and the existing two-step confirm is kept. | The confirm step already does the safety work. |
 | D7 | The renderer keeps **hardcoded permission strings** (`"control:act"` etc.), as `permissionsLabel` does today. | No `src/` module imports `@ai-creed/command-contract`; this slice does not open that door. Risk noted in §9. |
 | D8 | The terminal-input control's accessible name comes from its **visible label** ("Type into terminals"), replacing today's `aria-label="Allow phone terminal input"`. | WCAG 2.5.3 label-in-name. Costs two test-locator updates (§8). |
+| D10 | **Five rows, two controls** (user decision, 2026-07-27, superseding D3): the four D3 rows plus **`Read terminal output`** for `control:inspect`, placed immediately before `Type into terminals`. | D3 omitted `control:inspect` because I described it as having no user-facing meaning. That was wrong. It is the permission on five pty-inspect capabilities — *List terminals*, *Watch terminal*, *Stop watching terminal*, *Terminal rows* ("Pull styled terminal rows (replay page or live-tail delta)") and *Resize watched terminal* — so it grants reading agent terminal **output**, and it is in `NEW_PAIRING_GRANTS`, i.e. every phone paired since 2b.2 has it. Omitting it left a ledger that told the user the phone could *type into* terminals while saying nothing about it *reading* them — and a five-row ledger with per-row grant marks reads as exhaustive in a way the old run-on string did not. It carries no kill switch (re-pairing is the only way to change it), so it renders as a bare `✓` fact row. Sitting adjacent to `Type into terminals` is deliberate: the read/write pair on the same terminals is the contrast that makes the row worth having. |
 | D9 | **Capability rows write via `settings.write` directly, and are NOT optimistic** (added 2026-07-27, during implementation, superseding this spec's original "use `useSettings().update`"). | `update()` applies the patch optimistically and **swallows** a rejected `settings.write` (`use-settings.tsx`: "Persist failed — keep the optimistic value for this session"). Main reads these flags from its own settings service (`electron/main/index.ts`), so a failed persist would leave the host **armed** while the row rendered `[ ]`. On a surface whose entire job is stating what a phone may do, silently claiming *less* access than the phone has is the worst available direction to be wrong in. Writing directly means the row flips only on the `settings:changed` echo the write emits, and a rejection surfaces on the action-error line — the same treatment `commitRelayDraft` already gives a bad relay URL. `use-settings.tsx` is left untouched, so every other caller keeps the optimistic path. The cost is a non-optimistic control; that is the point. |
 
 ## 4. Design — capability model
@@ -100,6 +101,10 @@ PAIRED DEVICE
 │ [✓]  Send notifications to this phone          │
 │      Pings the phone when a workflow finishes  │
 │      or needs you.                             │
+│  ✓   Read terminal output                      │
+│      The phone can live-tail agent terminals — │
+│      everything they print — and resize the    │
+│      one it watches.                           │
 │ [✓]  Type into terminals                       │
 │      Sends keystrokes to running agents.       │
 ├────────────────────────────────────────────────┤
@@ -117,6 +122,7 @@ Legacy (pre-2b.2) record:
 │  ✓   Read session reports                      │
 │  ·   Act on workflows              not granted │
 │  ·   Send notifications…           not granted │
+│  ·   Read terminal output          not granted │
 │  ·   Type into terminals           not granted │
 │      Pair this phone again to grant the newer  │
 │      capabilities.                             │
@@ -126,7 +132,7 @@ Element contract:
 
 - **`row.armed === null` selects the element**: those rows render `<p class="phone-bridge__cap">`, the rest render `<button class="phone-bridge__cap" role="switch" aria-checked={row.armed}>`. Same class, so the mark and name columns align exactly. Per §4 this single condition already covers both fact rows and denied rows — the panel must not re-test `granted` to decide whether to render a control, or the two conditions can drift apart.
 - A denied row (`granted: false`) renders the `·` mark plus the `not granted` suffix; a disarmed row (`granted: true, armed: false`) renders `[ ]`. The mark distinguishes them, so "off by choice" never reads as "unavailable".
-- The hint is a **sibling** `<p class="phone-bridge__cap-hint">` linked by `aria-describedby`, not a child of the button — keeping it out of the button's accessible name.
+- The hint is a **sibling** `<p class="phone-bridge__cap-hint">`, not a child of the button — keeping it out of the button's accessible name. A **fact row may carry a hint too** (`inspect` does), so the hint renders on both branches; `aria-describedby` links it only on the control branch, where a button owns an accessible name to describe.
 - Toggling a control row writes through `window.ai14all.settings.write({ phoneBridge: … })` **directly, not `useSettings().update()`** — see D9. The row is deliberately **not optimistic**: it flips only once the value is persisted, and a rejected write lands on the action-error line. No new IPC, no contract change.
 - Relay is a native `<details>` that **keeps its current render condition** (`view !== "off" && view !== "loading"`) — the diagram above shows it in the paired view, but it sits below the view slot and appears in `idle` / `scan` / `sas` / `fault` identically. The field commits `onBlur` exactly as today (`commitRelayDraft`), and gains a `wss://relay.example.com` placeholder. Its wrapper and status line get real classes, closing problem 1.
 - Per D5a the `<details>` open state is seeded once from the loaded `relayBaseUrl` (open when non-empty). The status value moves from the classless `<span>Relay: {status.relay}</span>` into the `<summary>` as `Off-network relay · {status.relay}`.
@@ -189,7 +195,8 @@ A pixel baseline can only prove the rule exists, never that its value is large e
 | Capability 1 | `session reports` | `Read session reports` |
 | Capability 2 | `can act on workflows` | `Act on workflows` |
 | Capability 3 | — | `Send notifications to this phone` / hint: `Pings the phone when a workflow finishes or needs you.` |
-| Capability 4 | `can type into terminals` | `Type into terminals` / hint: `Sends keystrokes to running agents.` |
+| Capability 4 (D10) | — | `Read terminal output` / hint: `The phone can live-tail agent terminals — everything they print — and resize the one it watches.` |
+| Capability 5 | `can type into terminals` | `Type into terminals` / hint: `Sends keystrokes to running agents.` |
 | Toggle hint | `Phone may type into live agent terminals. Off = disarm without unpairing.` | folded into the capability hint above |
 | Denied row | — | `not granted` + `Pair this phone again to grant the newer capabilities.` |
 | Relay summary | `Relay: off` | `Off-network relay · off` |
