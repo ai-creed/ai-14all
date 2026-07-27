@@ -39,3 +39,76 @@ export function permissionsLabel(perms: string[] | null): string {
 		parts.push("can type into terminals");
 	return parts.join(" · ");
 }
+
+export type CapabilityKey = "reports" | "act" | "notify" | "pty";
+
+export type CapabilityRow = {
+	key: CapabilityKey;
+	label: string;
+	hint?: string;
+	/** Granted at pairing, from status.grantedPermissions. */
+	granted: boolean;
+	/**
+	 * State of this capability's local kill switch. null = the row has NO
+	 * control — either no switch exists for it, or the grant is absent so the
+	 * switch is moot. `armed !== null` iff the row renders a control.
+	 */
+	armed: boolean | null;
+};
+
+// Hardcoded per spec D7: no src/ module imports @ai-creed/command-contract,
+// and permissionsLabel had the identical exposure before this.
+const CONTROL_ACT = "control:act";
+const CONTROL_NOTIFY = "control:notify";
+const CONTROL_PTY_WRITE = "control:pty-write";
+
+/**
+ * Grants + local kill switches -> one row per user-facing capability.
+ *
+ *     armed = (granted && key in {notify, pty}) ? flagFor(key) : null
+ *
+ * The grant gate is the point: an absent grant means there is nothing to arm,
+ * and the executor refuses the call regardless (xbp-pty-input-executor.ts:69,
+ * xbp-push-token-handlers.ts:28). control:inspect is deliberately not shown —
+ * it is minted at pairing but has no user-facing meaning (spec D3).
+ */
+export function capabilityRows(
+	perms: string[] | null,
+	flags: { pushWakeEnabled: boolean; ptyInputEnabled: boolean },
+): CapabilityRow[] {
+	const has = (p: string) => (perms ?? []).includes(p);
+	// `flag: null` marks a capability with no local switch at all.
+	const spec: Array<Omit<CapabilityRow, "armed"> & { flag: boolean | null }> = [
+		{
+			key: "reports",
+			label: "Read session reports",
+			// Every record carries session reports (xbp-grants.ts:26).
+			granted: true,
+			flag: null,
+		},
+		{
+			key: "act",
+			label: "Act on workflows",
+			granted: has(CONTROL_ACT),
+			flag: null,
+		},
+		{
+			key: "notify",
+			label: "Send notifications to this phone",
+			hint: "Pings the phone when a workflow finishes or needs you.",
+			granted: has(CONTROL_NOTIFY),
+			flag: flags.pushWakeEnabled,
+		},
+		{
+			key: "pty",
+			label: "Type into terminals",
+			hint: "Sends keystrokes to running agents.",
+			granted: has(CONTROL_PTY_WRITE),
+			flag: flags.ptyInputEnabled,
+		},
+	];
+	return spec.map(({ flag, ...row }) => ({
+		...row,
+		armed: row.granted && flag !== null ? flag : null,
+	}));
+}
