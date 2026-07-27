@@ -1,0 +1,23 @@
+{
+  "skill_name": "ai-14all-ux-design",
+  "queries": [
+    { "query": "Design the usage dashboard panel for the 14all app", "should_trigger": true },
+    { "query": "This new plugin dialog looks unpolished — bring it to production quality", "should_trigger": true },
+    { "query": "Add a settings screen for the phone bridge in the app", "should_trigger": true },
+    { "query": "Rework the sidebar status area so it's easier to scan", "should_trigger": true },
+    { "query": "Does this new review panel follow our design theme?", "should_trigger": true },
+    { "query": "Create the mockup for the terminal header changes before we spec them", "should_trigger": true },
+    { "query": "Add a weekly token-usage chart to the in-app dashboard", "should_trigger": true },
+    { "query": "Polish the empty state of the worktree list", "should_trigger": true },
+    { "query": "Design a first-run onboarding flow for the desktop app", "should_trigger": true },
+    { "query": "Review this prototype HTML against the app design language", "should_trigger": true },
+    { "query": "Polish the list screen in our Expo mobile app", "should_trigger": false },
+    { "query": "Make a bar chart of my CSV sales data for a blog post", "should_trigger": false },
+    { "query": "Design a landing page for the ai-14all marketing site", "should_trigger": false },
+    { "query": "Move the plugin styles out of shell.css into a CSS module", "should_trigger": false },
+    { "query": "Write an e2e test for the settings dialog", "should_trigger": false },
+    { "query": "Fix the TypeScript error in workspace-state.ts", "should_trigger": false },
+    { "query": "Choose categorical colors for a matplotlib plot", "should_trigger": false },
+    { "query": "Restyle my personal website's nav bar", "should_trigger": false }
+  ]
+}
