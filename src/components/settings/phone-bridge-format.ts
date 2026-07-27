@@ -60,12 +60,16 @@ const CONTROL_PTY_WRITE = "control:pty-write";
  * so offering a switch for it would be offering a control that cannot change
  * anything (spec §2 problem 3).
  *
- * NOTE on what the host actually enforces: the two executor checks
+ * NOTE on what the host actually enforces: grants ARE checked host-side, at
+ * the protocol layer — `Peer.dispatchRequest` (@xavier/xbp peer.ts) rejects
+ * with "permission-denied" when the sender lacks the capability descriptor's
+ * permission, checking the permission set minted at pairing and passed
+ * through `addPeer` in xbp-peer-session.ts. The two executor checks
  * (xbp-pty-input-executor.ts `isPtyInputEnabled`, xbp-push-token-handlers.ts
- * `isPushWakeEnabled`) gate the LOCAL KILL SWITCHES, not the grants. There is
- * no host-side per-call grant check today — `granted` here is a faithful report
- * of what was minted at pairing (xbp-grants.ts), and the reason a denied row
- * shows no control is that re-pairing, not a switch, is its only upgrade path.
+ * `isPushWakeEnabled`) are a second, independent local kill-switch gate, not
+ * the grant check. Either way, `granted` here is a faithful report of what
+ * was minted at pairing (xbp-grants.ts), and the reason a denied row shows no
+ * control is that re-pairing, not a switch, is its only upgrade path.
  *
  * control:inspect is deliberately not shown — it is minted at pairing but has
  * no user-facing meaning (spec D3).
