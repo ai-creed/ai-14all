@@ -146,6 +146,109 @@ test.describe.serial("ui gallery surfaces", () => {
 			});
 		}
 	}
+
+	for (const palette of PALETTES) {
+		test(`phone bridge — ${palette}`, async () => {
+			test.skip(!galleryAvailable, "#/ui-gallery route not present");
+			await page.getByTestId(`gallery-theme-${palette}`).click();
+			await expect(page.locator("html")).toHaveAttribute("data-theme", palette);
+			await page.waitForTimeout(200);
+
+			const block = page.getByTestId("gallery-phone-bridge");
+			await block.scrollIntoViewIfNeeded();
+			await expect(block).toHaveScreenshot(`phone-bridge-${palette}.png`);
+
+			// D6 hover. Without this capture, deleting the hover rule passes
+			// every other test in the suite.
+			await page.getByTestId("gallery-pb-unpair").hover();
+			await expect(page.getByTestId("gallery-pb-ledger-full")).toHaveScreenshot(
+				`phone-bridge-unpair-hover-${palette}.png`,
+			);
+			// Park the pointer so the hover does not bleed into the next test.
+			await page.mouse.move(0, 0);
+		});
+	}
+
+	// Spec §6: the dialog must not resize moving between states. A pixel
+	// baseline cannot express that — it only proves the box is SOME height.
+	// This measures the two ends directly: both views are pinned to
+	// min-height when the value is large enough, so their heights are equal.
+	// Runs per palette because tui is the only theme where the paired view
+	// outgrows the others (line-height 1.4 + 2px borders).
+	for (const palette of PALETTES) {
+		test(`phone bridge view height — ${palette}`, async () => {
+			test.skip(!galleryAvailable, "#/ui-gallery route not present");
+			await page.getByTestId(`gallery-theme-${palette}`).click();
+			await expect(page.locator("html")).toHaveAttribute("data-theme", palette);
+			await page.waitForTimeout(200);
+
+			const heightOf = (testId: string) =>
+				page
+					.getByTestId(testId)
+					.evaluate((el) => el.getBoundingClientRect().height);
+			const idle = await heightOf("gallery-pb-view-idle");
+			const paired = await heightOf("gallery-pb-view-paired");
+
+			// min-height is actually applied — idle's natural height is ~71-81px,
+			// so anything near that means the rule is gone.
+			expect(idle).toBeGreaterThan(200);
+			// And it is large enough for the tallest resting view. Sub-pixel
+			// tolerance only; a real regression moves this by tens of pixels.
+			expect(Math.abs(paired - idle)).toBeLessThan(1);
+		});
+	}
+
+	for (const palette of PALETTES) {
+		test(`phone bridge unpair focus — ${palette}`, async () => {
+			test.skip(!galleryAvailable, "#/ui-gallery route not present");
+			await page.getByTestId(`gallery-theme-${palette}`).click();
+			await expect(page.locator("html")).toHaveAttribute("data-theme", palette);
+			await page.waitForTimeout(200);
+
+			const unpair = page.getByTestId("gallery-pb-unpair");
+			await unpair.scrollIntoViewIfNeeded();
+			const read = () =>
+				unpair.evaluate((el) => {
+					const cs = getComputedStyle(el);
+					return { border: cs.borderTopColor, color: cs.color };
+				});
+			// Resolve --danger through a probe, because the token is declared as
+			// `var(--destructive)` in :root — getPropertyValue would hand back the
+			// indirection rather than a comparable colour.
+			//
+			// The probe is a CHILD OF THE UNPAIR BUTTON, not of document.body:
+			// custom properties inherit, so a child resolves the exact --danger
+			// that applies at this element. Resolving from <body> instead would
+			// miss any override scoped to the button or an ancestor between it and
+			// <body>, letting a wrong-but-consistent colour pass the guard. The
+			// probe is removed inside the same evaluate, before anything paints.
+			const danger = await unpair.evaluate((el) => {
+				const probe = document.createElement("span");
+				probe.style.color = "var(--danger)";
+				el.appendChild(probe);
+				const c = getComputedStyle(probe).color;
+				probe.remove();
+				return c;
+			});
+
+			const rest = await read();
+			expect(rest.border).not.toBe(danger);
+			expect(rest.color).not.toBe(danger);
+
+			// KEYBOARD-originated focus. A programmatic el.focus() after a pointer
+			// event does NOT match :focus-visible in Chromium, so a .focus()-then-
+			// assert test would silently measure the resting appearance.
+			await page.getByTestId("gallery-pb-focus-anchor").focus();
+			await page.keyboard.press("Tab");
+			await expect(unpair).toBeFocused();
+
+			// D6 changes BOTH properties. Asserting the border alone passes a rule
+			// that colours the border but leaves the text muted.
+			const focused = await read();
+			expect(focused.border).toBe(danger);
+			expect(focused.color).toBe(danger);
+		});
+	}
 });
 
 test.describe.serial("workspace sidebar surface", () => {

@@ -369,6 +369,213 @@ export function UiGallery() {
 						/>
 					</div>
 				</Section>
+
+				<Section title="Phone bridge — capability ledger">
+					<div
+						data-testid="gallery-phone-bridge"
+						className="phone-bridge flex max-w-lg flex-col gap-4"
+					>
+						{/* Full grants, both controls armed. Wrapped in a real
+						    .phone-bridge__view so its height can be compared against the
+						    idle view below — that comparison is what guards the raised
+						    min-height (Task 4 Step 2). */}
+						<div
+							data-testid="gallery-pb-view-paired"
+							className="phone-bridge__view"
+						>
+							<div className="phone-bridge__label">Paired device</div>
+							<div
+								data-testid="gallery-pb-ledger-full"
+								className="phone-bridge__device"
+							>
+								<div className="phone-bridge__device-main">
+									<div
+										className="phone-bridge__device-icon"
+										aria-hidden="true"
+									/>
+									<div className="phone-bridge__device-lines">
+										<div className="phone-bridge__device-name">Phone</div>
+										<div>Paired just now</div>
+									</div>
+									{/* Focus anchor sits immediately before Unpair so the visual
+								    spec can Tab onto it and get a KEYBOARD-originated focus,
+								    which is what :focus-visible requires. */}
+									<button
+										type="button"
+										data-testid="gallery-pb-focus-anchor"
+										className="phone-bridge__btn"
+									>
+										Anchor
+									</button>
+									<button
+										type="button"
+										data-testid="gallery-pb-unpair"
+										className="phone-bridge__btn phone-bridge__btn--quiet-danger phone-bridge__device-action"
+									>
+										Unpair
+									</button>
+								</div>
+								<div className="phone-bridge__caps">
+									<p className="phone-bridge__cap">
+										<span className="phone-bridge__cap-mark">✓</span>
+										<span className="phone-bridge__cap-name">
+											Read session reports
+										</span>
+									</p>
+									<p className="phone-bridge__cap">
+										<span className="phone-bridge__cap-mark">✓</span>
+										<span className="phone-bridge__cap-name">
+											Act on workflows
+										</span>
+									</p>
+									<button
+										type="button"
+										className="phone-bridge__cap"
+										role="switch"
+										aria-checked={true}
+									>
+										<span className="phone-bridge__cap-mark">[✓]</span>
+										<span className="phone-bridge__cap-name">
+											Send notifications to this phone
+										</span>
+									</button>
+									<p className="phone-bridge__cap-hint">
+										Pings the phone when a workflow finishes or needs you.
+									</p>
+									<button
+										type="button"
+										className="phone-bridge__cap"
+										role="switch"
+										aria-checked={true}
+									>
+										<span className="phone-bridge__cap-mark">[✓]</span>
+										<span className="phone-bridge__cap-name">
+											Type into terminals
+										</span>
+									</button>
+									<p className="phone-bridge__cap-hint">
+										Sends keystrokes to running agents.
+									</p>
+								</div>
+							</div>
+						</div>
+
+						{/* Granted but both controls disarmed — [ ] must read as distinct
+						    from the denied · below. */}
+						<div
+							data-testid="gallery-pb-ledger-disarmed"
+							className="phone-bridge__caps"
+						>
+							<button
+								type="button"
+								className="phone-bridge__cap"
+								role="switch"
+								aria-checked={false}
+							>
+								<span className="phone-bridge__cap-mark">[ ]</span>
+								<span className="phone-bridge__cap-name">
+									Send notifications to this phone
+								</span>
+							</button>
+							<button
+								type="button"
+								className="phone-bridge__cap"
+								role="switch"
+								aria-checked={false}
+							>
+								<span className="phone-bridge__cap-mark">[ ]</span>
+								<span className="phone-bridge__cap-name">
+									Type into terminals
+								</span>
+							</button>
+						</div>
+
+						{/* Legacy pre-2b.2 record: one granted, three denied. */}
+						<div
+							data-testid="gallery-pb-ledger-legacy"
+							className="phone-bridge__caps"
+						>
+							<p className="phone-bridge__cap">
+								<span className="phone-bridge__cap-mark">✓</span>
+								<span className="phone-bridge__cap-name">
+									Read session reports
+								</span>
+							</p>
+							{[
+								"Act on workflows",
+								"Send notifications to this phone",
+								"Type into terminals",
+							].map((label) => (
+								<p
+									key={label}
+									className="phone-bridge__cap phone-bridge__cap--denied"
+								>
+									<span className="phone-bridge__cap-mark">·</span>
+									<span className="phone-bridge__cap-name">{label}</span>
+									<span className="phone-bridge__cap-deny">not granted</span>
+								</p>
+							))}
+							<p className="phone-bridge__cap-hint">
+								Pair this phone again to grant the newer capabilities.
+							</p>
+						</div>
+
+						<details
+							data-testid="gallery-pb-relay-collapsed"
+							className="phone-bridge__relay"
+						>
+							<summary>Off-network relay · off</summary>
+						</details>
+
+						<details
+							data-testid="gallery-pb-relay-open"
+							className="phone-bridge__relay"
+							open
+						>
+							<summary>Off-network relay · registered</summary>
+							<div className="phone-bridge__relay-body">
+								<label
+									className="phone-bridge__label"
+									htmlFor="gallery-pb-relay-url"
+								>
+									Relay URL
+								</label>
+								<input
+									id="gallery-pb-relay-url"
+									className="phone-bridge__input"
+									type="text"
+									readOnly
+									value="wss://relay.example.com"
+								/>
+								<p className="phone-bridge__hint phone-bridge__relay-hint">
+									Lets a phone reach this Mac when it is not on your Wi-Fi.
+									Leave empty for local network only.
+								</p>
+							</div>
+						</details>
+
+						{/* The SHORTEST real view (`idle`), in a real .phone-bridge__view.
+						    Paired above + idle here are the two ends of the min-height
+						    requirement: both are pinned to min-height when the value is
+						    large enough, so their heights are EQUAL. If min-height is
+						    deleted, lowered, or simply set below the tallest resting view,
+						    paired grows past idle and the equality test fails — per
+						    palette, which is what catches the tui-only case. */}
+						<div
+							data-testid="gallery-pb-view-idle"
+							className="phone-bridge__view"
+						>
+							<div className="phone-bridge__label">Pairing</div>
+							<p className="phone-bridge__hint">No phone paired.</p>
+							<button
+								type="button"
+								className="phone-bridge__btn phone-bridge__btn--primary"
+							>
+								Pair a phone
+							</button>
+						</div>
+					</div>
+				</Section>
 			</main>
 		</div>
 	);
