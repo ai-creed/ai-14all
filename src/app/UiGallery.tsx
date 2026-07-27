@@ -371,9 +371,22 @@ export function UiGallery() {
 				</Section>
 
 				<Section title="Phone bridge — capability ledger">
+					{/* Fixed to the real dialog's content width (.plugins-panel is
+					    560px with 16px padding each side; 526px uniformly per review).
+					    lineHeight counters this page's own `text-sm` utility (line 67
+					    above), which sets an unwanted unitless 1.42857
+					    (Tailwind's --text-sm--line-height) that would otherwise inherit
+					    into this subtree. Production never has that leak —
+					    .phone-bridge there inherits directly from <html>, whose
+					    line-height is Tailwind preflight's 1.5, or 1.4 under
+					    [data-theme="tui"] (tokens.css:319). Reproducing that exact
+					    per-theme value here, rather than the page's local override, is
+					    what makes the fixture's measured heights match production (see
+					    the css-refactor.visual.spec.ts height-equality guard). */}
 					<div
 						data-testid="gallery-phone-bridge"
-						className="phone-bridge flex max-w-lg flex-col gap-4"
+						className="phone-bridge flex flex-col gap-4"
+						style={{ maxWidth: 526, lineHeight: palette === "tui" ? 1.4 : 1.5 }}
 					>
 						{/* Full grants, both controls armed. Wrapped in a real
 						    .phone-bridge__view so its height can be compared against the

@@ -158,12 +158,48 @@ test.describe.serial("ui gallery surfaces", () => {
 			await block.scrollIntoViewIfNeeded();
 			await expect(block).toHaveScreenshot(`phone-bridge-${palette}.png`);
 
-			// D6 hover. Without this capture, deleting the hover rule passes
-			// every other test in the suite.
-			await page.getByTestId("gallery-pb-unpair").hover();
-			await expect(page.getByTestId("gallery-pb-ledger-full")).toHaveScreenshot(
-				`phone-bridge-unpair-hover-${palette}.png`,
-			);
+			// D6 hover. A pixel capture proved unreliable here: the
+			// element-screenshot operation's own stability loop (captures
+			// until two consecutive frames match) clears :hover between
+			// frames in this Electron harness, so the frame actually compared
+			// is the RESTING one — instrumented via el.matches(":hover"),
+			// which reads true right after .hover() and false right after
+			// every toHaveScreenshot call. Worse, the same race could record
+			// the baseline itself un-hovered, in which case the guard would
+			// silently duplicate the rest screenshot and could never fail on
+			// a deleted :hover rule. Spec §8 route 2 (the computed-style
+			// assertion the focus test below already uses) is established as
+			// the required floor when a pixel route proves unreliable; this
+			// applies that same fallback to hover, not a new one. Mirrors the
+			// focus test's shape exactly, including resolving --danger via a
+			// probe INSIDE the Unpair button (see the focus test below for
+			// why: custom properties inherit, so a child resolves the exact
+			// value applying at this element rather than an indirection or a
+			// wrong-but-consistent ancestor override).
+			const unpairHover = page.getByTestId("gallery-pb-unpair");
+			const readHover = () =>
+				unpairHover.evaluate((el) => {
+					const cs = getComputedStyle(el);
+					return { border: cs.borderTopColor, color: cs.color };
+				});
+			const dangerHover = await unpairHover.evaluate((el) => {
+				const probe = document.createElement("span");
+				probe.style.color = "var(--danger)";
+				el.appendChild(probe);
+				const c = getComputedStyle(probe).color;
+				probe.remove();
+				return c;
+			});
+
+			const restHover = await readHover();
+			expect(restHover.border).not.toBe(dangerHover);
+			expect(restHover.color).not.toBe(dangerHover);
+
+			await unpairHover.hover();
+			const hovered = await readHover();
+			expect(hovered.border).toBe(dangerHover);
+			expect(hovered.color).toBe(dangerHover);
+
 			// Park the pointer so the hover does not bleed into the next test.
 			await page.mouse.move(0, 0);
 		});
@@ -189,8 +225,9 @@ test.describe.serial("ui gallery surfaces", () => {
 			const idle = await heightOf("gallery-pb-view-idle");
 			const paired = await heightOf("gallery-pb-view-paired");
 
-			// min-height is actually applied — idle's natural height is ~71-81px,
-			// so anything near that means the rule is gone.
+			// min-height is actually applied — idle's natural height is
+			// ~80-82.5px (dialogs.css:264-296), so anything near that means
+			// the rule is gone.
 			expect(idle).toBeGreaterThan(200);
 			// And it is large enough for the tallest resting view. Sub-pixel
 			// tolerance only; a real regression moves this by tens of pixels.

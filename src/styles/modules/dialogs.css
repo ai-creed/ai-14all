@@ -266,32 +266,49 @@
 	   (+16px padding), and the four-row capability ledger makes `paired`
 	   taller still.
 
-	   MEASURED, not estimated (natural heights with min-height neutralised,
-	   560px panel, all four themes):
+	   MEASURED, not estimated — natural heights with min-height neutralised,
+	   from the real production DOM (body > .plugins-panel > .phone-bridge,
+	   526px content width — .plugins-panel is 560px with 16px padding each
+	   side), all four themes:
 
 	                        dark/light/warm      tui
-	     off                          28       33.59
-	     idle                         71       80.98
-	     scan                        205      207.39
-	     sas                         135      154.58
-	     paired (legacy)             214      241.38
-	     paired (full grants)        232      262.17   <- drives the value
-	     fault                        76       86.39
+	     off                          48       45.59
+	     idle                         82.5     80.98
+	     scan                        208.5     207.39
+	     sas                         160.5     154.58
+	     paired (legacy)             237.5     241.38
+	     paired (full grants)        259.5     262.17   <- drives the value
+	     fault                        66       65.59
 
-	   tui is the driver on every row: it sets line-height 1.4 and
-	   --shell-border-width 2px (tokens.css), and the ledger has 4 bordered
-	   rows plus 2 hints, so both multiply out. 264px clears the 262.17px
-	   worst case.
+	   CORRECTED 2026-07-27 (review of the Task 5 visual guard): the table
+	   above superseded a first pass whose harness omitted Tailwind v4
+	   preflight's `html { line-height: 1.5 }` — it measured every non-tui row
+	   with an effective line-height near 1 instead, undercounting every
+	   non-tui row by ~10-30px (e.g. `paired (full grants)` was recorded as
+	   232, not 259.5). tui was unaffected both times: tokens.css pins
+	   `line-height: 1.4` directly on `[data-theme="tui"]`, so it was never
+	   subject to the preflight value either measurement relied on.
+
+	   tui is still the tightest fit, but not by the ~30px margin the old
+	   table implied: real headroom over 264px is 4.5px for dark/light/warm
+	   and 1.83px for tui (259.5 and 262.17 respectively). tui sets
+	   line-height 1.4 and --shell-border-width 2px (tokens.css), and the
+	   ledger has 4 bordered rows plus 2 hints, so both multiply out — that
+	   1.83px is genuinely thin, and a future capability row, copy change, or
+	   font-metric drift could close it without any width change at all.
 
 	   NOT covered on purpose: paired with the unpair confirm expanded
-	   (273 / 308.97). That growth is user-initiated — you clicked Unpair —
-	   and sizing every other view to it would leave ~180px of dead space
-	   under `idle`. The no-resize requirement is about moving BETWEEN
-	   states, not about a disclosure the user opened.
+	   (304.5 / 308.97, same DOM/width, same correction applied). That growth
+	   is user-initiated — you clicked Unpair — and sizing every other view to
+	   it would leave dead space under `idle`. The no-resize requirement is
+	   about moving BETWEEN states, not about a disclosure the user opened.
 
 	   Guarded by the idle-vs-paired height equality test in
 	   css-refactor.visual.spec.ts, which fails per-palette if this value ever
-	   falls below the tallest resting view again. */
+	   falls below the tallest resting view again. That guard's own fixture
+	   (src/app/UiGallery.tsx) reproduces this exact DOM shape — real content
+	   width (526px) and a per-theme line-height reset — specifically so it
+	   measures what production renders, not an approximation of it. */
 	.phone-bridge__view {
 		min-height: 264px;
 	}
