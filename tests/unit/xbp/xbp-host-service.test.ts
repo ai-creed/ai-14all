@@ -28,6 +28,7 @@ function makeService(
 		storage?: typeof okStorage;
 		dir?: string;
 		initialRelayBaseUrl?: string;
+		initialReachHost?: string;
 		relaySocketFactory?: (url: string) => RelayControlSocket;
 		relayJitter?: () => number;
 		relayAcceptDial?: (
@@ -308,6 +309,46 @@ describe("XbpHostService", () => {
 		expect(offer.connect.urls[1]).toBe(
 			`wss://relay.example.com/connect/${expectedHostId}`,
 		);
+	});
+
+	it("offer appends ws://<reachHost>:<port> after LAN when initialReachHost is set", async () => {
+		svc = makeService({ initialReachHost: "myhost.tailnet.ts.net" });
+		const { addr, port } = await svc.start();
+		const offer = await svc.startPairing();
+		expect(offer.connect.urls).toEqual([
+			`ws://${addr ?? "127.0.0.1"}:${port}`,
+			`ws://myhost.tailnet.ts.net:${port}`,
+		]);
+	});
+
+	it("empty initialReachHost keeps the single-LAN offer unchanged", async () => {
+		svc = makeService({ initialReachHost: "" });
+		const { addr, port } = await svc.start();
+		const offer = await svc.startPairing();
+		expect(offer.connect.urls).toEqual([`ws://${addr ?? "127.0.0.1"}:${port}`]);
+	});
+
+	it("whitespace-only initialReachHost is treated as unset", async () => {
+		svc = makeService({ initialReachHost: "   " });
+		const { addr, port } = await svc.start();
+		const offer = await svc.startPairing();
+		expect(offer.connect.urls).toEqual([`ws://${addr ?? "127.0.0.1"}:${port}`]);
+	});
+
+	it("offer orders [LAN, reach, relay/connect/<hostId>] when reach and relay are both set", async () => {
+		svc = makeService({
+			initialReachHost: "myhost.tailnet.ts.net",
+			initialRelayBaseUrl: "wss://relay.example.com",
+		});
+		const { addr, port } = await svc.start();
+		const offer = await svc.startPairing();
+		const backend = await createNodeSodiumBackend();
+		const expectedHostId = deriveHostId(backend, fromHex(offer.signPubHex));
+		expect(offer.connect.urls).toEqual([
+			`ws://${addr ?? "127.0.0.1"}:${port}`,
+			`ws://myhost.tailnet.ts.net:${port}`,
+			`wss://relay.example.com/connect/${expectedHostId}`,
+		]);
 	});
 });
 

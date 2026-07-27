@@ -627,6 +627,7 @@ app.whenReady().then(async () => {
 			ptyInspect: ptyInspectService,
 			ptyInput: xbpPtyInputExecutor,
 			initialRelayBaseUrl: persistedSettings.phoneBridge.relayBaseUrl,
+			initialReachHost: process.env.XBP_REACH_HOST?.trim() || "",
 			subscribeChanges: (cb) => {
 				const offReviews = reviewCommentService.onChange(() => cb());
 				const offWorktrees = workspaceRegistry.onChange(cb);
