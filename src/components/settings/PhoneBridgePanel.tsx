@@ -43,9 +43,12 @@ export function PhoneBridgePanel(): React.ReactElement {
 	const relayCommitted = useRef<string | null>(null);
 	// D5a: the disclosure opens when a relay is already configured. This is a
 	// ref-latched STATE seed, never a prop derived from relayDraft — React
-	// rewrites `open` on every render, and this panel re-renders on every
-	// onStatusChanged, so a derived prop would reopen a disclosure the user
-	// just closed.
+	// only writes the DOM `open` property when the prop value CHANGES, so a
+	// derived prop survives a same-value re-render but reopens on remount
+	// (bridge off/on, dialog close/reopen) and flips shut mid-edit whenever
+	// the derived value changes (e.g. the user clearing the field).
+	// relaySeeded (not just relayOpen) guards against StrictMode's
+	// double-invoked effects (src/main.tsx) issuing a second settings.read().
 	const [relayOpen, setRelayOpen] = useState(false);
 	const relaySeeded = useRef(false);
 	// Ref latch, not just state: two clicks in the same tick both read the

@@ -548,8 +548,10 @@ describe("PhoneBridgePanel relay settings", () => {
 		await waitFor(() => expect(relayDetails().open).toBe(true));
 	});
 
-	// D5a regression. The two tests above BOTH pass against the anti-pattern
-	// `open={relayBaseUrl !== ""}`; only this one fails against it.
+	// Sanity check, not the D5a regression: React only writes the DOM `open`
+	// property when the prop value CHANGES, so a derived prop would survive
+	// this same-value re-render too. See "survives an unmount/remount" and
+	// "survives edits that change the relay draft" below for the real kill.
 	it("a status change does not reopen a disclosure the user closed", async () => {
 		mountWithRelay("wss://relay.example.com");
 		renderPanel();
@@ -588,6 +590,37 @@ describe("PhoneBridgePanel relay settings", () => {
 				screen.getByText("Off-network relay · retrying"),
 			).toBeInTheDocument(),
 		);
+		expect(relayDetails().open).toBe(true);
+	});
+
+	it("the user's collapse survives an unmount/remount of the disclosure", async () => {
+		mountWithRelay("wss://relay.example.com");
+		renderPanel();
+		await screen.findByText(/^Off-network relay ·/);
+		await waitFor(() => expect(relayDetails().open).toBe(true));
+		await userEvent.click(screen.getByText(/^Off-network relay ·/));
+		await waitFor(() => expect(relayDetails().open).toBe(false));
+
+		// Bridge toggled off then back on: the relay block unmounts and remounts.
+		act(() => pushStatus!({ ...base, enabled: false, listening: false }));
+		await screen.findByTestId("view-off");
+		act(() => pushStatus!({ ...base, relay: "retrying" }));
+		await screen.findByText("Off-network relay · retrying");
+		expect(relayDetails().open).toBe(false);
+	});
+
+	it("the user's open survives edits that change the relay draft", async () => {
+		mountWithRelay("");
+		renderPanel();
+		await screen.findByText(/^Off-network relay ·/);
+		await waitFor(() => expect(relayDetails().open).toBe(false));
+		await userEvent.click(screen.getByText(/^Off-network relay ·/));
+		await waitFor(() => expect(relayDetails().open).toBe(true));
+
+		const input = screen.getByLabelText(/relay url/i);
+		await userEvent.type(input, "wss://a.example.com");
+		expect(relayDetails().open).toBe(true);
+		await userEvent.clear(input); // flips a derived prop true -> false
 		expect(relayDetails().open).toBe(true);
 	});
 });
