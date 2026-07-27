@@ -7,10 +7,12 @@ export interface InsightsWorkerConfig {
 	pollIntervalMs: number;
 }
 
+// Slimmed to the fields with a consumer (E1): the host reads firstCaptureAt
+// for the notice re-drive; lastPollAt is the liveness stamp. The old
+// observationCount / whisperAvailable fields cost a COUNT(*) and a whisper-DB
+// enumeration per 3s tick and had no reader anywhere.
 export interface InsightsStatus {
 	lastPollAt: number | null;
-	observationCount: number;
-	whisperAvailable: boolean;
 	firstCaptureAt: number | null;
 }
 

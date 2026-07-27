@@ -8,7 +8,7 @@ import {
 	insertObservation,
 	type ObservationInput,
 } from "../../../services/insights/store/observations.js";
-import { getMeta } from "../../../services/insights/store/meta.js";
+import { getMeta, setMetaOnce } from "../../../services/insights/store/meta.js";
 import { migrate } from "../../../services/insights/store/schema.js";
 import type { InsightsWorkerToMain } from "../../../services/insights/worker-protocol.js";
 
@@ -55,7 +55,7 @@ describe("insights worker core", () => {
 			(m): m is Extract<InsightsWorkerToMain, { kind: "status" }> =>
 				m.kind === "status",
 		);
-		expect(status?.status.firstCaptureAt).toBe(now);
+		expect(status?.status).toEqual({ lastPollAt: now, firstCaptureAt: now });
 		expect(posted.filter((m) => m.kind === "firstCapture")).toHaveLength(1);
 		core.tick(); // second tick: no second firstCapture
 		expect(posted.filter((m) => m.kind === "firstCapture")).toHaveLength(1);
@@ -366,5 +366,69 @@ describe("tick retention cadence (prune on UTC-day rollover)", () => {
 		clock.now += 3000; // SAME UTC day — only the failure retry allows this prune
 		core.tick();
 		expect(rows(db)).toBe(0);
+	});
+});
+
+describe("status is O(1) (E1)", () => {
+	function spiedCore() {
+		const db = new Database(":memory:");
+		migrate(db);
+		const listCollabIds = vi.fn((): string[] => []);
+		const core = createInsightsWorkerCore({
+			db,
+			reader: {
+				listCollabIds,
+				readAllWorkflows: () => [],
+				readSchemaVersion: () => 7,
+			},
+			now: () => 1000,
+			post: () => {},
+		});
+		return { db, listCollabIds, core };
+	}
+
+	it("status() makes no reader calls and issues no COUNT(*)", () => {
+		const { db, listCollabIds, core } = spiedCore();
+		const prepareSpy = vi.spyOn(db, "prepare");
+		expect(core.status(null)).toEqual({
+			lastPollAt: null,
+			firstCaptureAt: null,
+		});
+		expect(listCollabIds).not.toHaveBeenCalled();
+		const sqls = prepareSpy.mock.calls.map((c) => String(c[0]));
+		// Not merely "no COUNT(*)": ANY query against observations (COUNT(1),
+		// COUNT(event_id), a scan) is the forbidden O(N) work. The only table
+		// status() may touch is meta (the first_capture_at PK lookup).
+		expect(sqls.some((s) => /observations/i.test(s))).toBe(false);
+		expect(sqls.every((s) => /\bmeta\b/i.test(s))).toBe(true);
+	});
+
+	it("a tick's only whisper enumeration is the archiver's own", () => {
+		const { listCollabIds, core } = spiedCore();
+		core.tick();
+		expect(listCollabIds).toHaveBeenCalledTimes(1);
+	});
+
+	it("a restarted worker re-announces a persisted first_capture_at via status, with no new firstCapture", () => {
+		const db = new Database(":memory:");
+		migrate(db);
+		setMetaOnce(db, "first_capture_at", "555"); // a PRIOR run captured
+		const posted: InsightsWorkerToMain[] = [];
+		const core = createInsightsWorkerCore({
+			db,
+			reader: stubReader(),
+			now: () => 1000,
+			post: (m) => posted.push(m),
+		});
+		core.tick(); // a fresh core over the existing store = worker restart
+		const status = posted.find(
+			(m): m is Extract<InsightsWorkerToMain, { kind: "status" }> =>
+				m.kind === "status",
+		);
+		// AC3's "unchanged" clause, end to end on the REAL persisted marker (the
+		// host tests only inject fixtures): the restart re-drive channel is the
+		// slimmed status message, and the once-only firstCapture must not re-fire.
+		expect(status?.status).toEqual({ lastPollAt: 1000, firstCaptureAt: 555 });
+		expect(posted.some((m) => m.kind === "firstCapture")).toBe(false);
 	});
 });

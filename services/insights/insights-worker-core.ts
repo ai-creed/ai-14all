@@ -43,13 +43,8 @@ export function createInsightsWorkerCore(deps: WorkerCoreDeps) {
 
 	function status(lastPollAt: number | null): InsightsStatus {
 		const fca = getMeta(deps.db, "first_capture_at");
-		const countRow = deps.db
-			.prepare("SELECT COUNT(*) c FROM observations")
-			.get() as { c: number };
 		return {
 			lastPollAt,
-			observationCount: countRow.c,
-			whisperAvailable: deps.reader.listCollabIds().length > 0,
 			firstCaptureAt: fca ? Number(fca) : null,
 		};
 	}

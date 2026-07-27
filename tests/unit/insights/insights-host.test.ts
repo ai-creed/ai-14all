@@ -61,8 +61,6 @@ const STATUS: InsightsWorkerToMain = {
 	kind: "status",
 	status: {
 		lastPollAt: 1,
-		observationCount: 1,
-		whisperAvailable: true,
 		firstCaptureAt: 123,
 	},
 };
