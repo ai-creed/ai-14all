@@ -516,10 +516,18 @@ test("relay status: off -> registered -> persists -> retrying -> off via the rea
 
 	const dlg = () => relayPage.locator('[data-testid="phone-bridge-dialog"]');
 	const relayInput = () => dlg().locator("#phone-bridge-relay-url");
-	// The status line is a bare <span>Relay: {status.relay}</span>; locate it by
-	// its rendered text (the only element matching this shape).
+	// The status now rides the disclosure's <summary>, not a bare <span>.
 	const statusLine = () =>
-		dlg().getByText(/^Relay: (off|registered|retrying)$/);
+		dlg().getByText(/^Off-network relay · (off|registered|retrying)$/);
+	const relayDetails = () => dlg().locator("details.phone-bridge__relay");
+	// IDEMPOTENT: after D5a a relaunch with a persisted URL arrives already
+	// open, and a blind click would collapse it and break the next assertion.
+	async function openRelay(): Promise<void> {
+		if (await relayDetails().evaluate((el: HTMLDetailsElement) => el.open))
+			return;
+		await relayDetails().locator("summary").click();
+		await expect(relayDetails()).toHaveAttribute("open", "");
+	}
 
 	async function openPanel(): Promise<void> {
 		await reachPhoneBridgeButton(relayPage, relayRepo.repoPath);
@@ -531,12 +539,14 @@ test("relay status: off -> registered -> persists -> retrying -> off via the rea
 	}
 
 	try {
-		// --- Boot 1: no relay configured -> off ---
+		// --- Boot 1: no relay configured -> off, disclosure COLLAPSED (D5a) ---
 		relayApp = await launchRelayApp();
 		relayPage = await relayApp.firstWindow({ timeout: 60_000 });
 		await openPanel();
+		await expect(statusLine()).toHaveText("Off-network relay · off");
+		await expect(relayDetails()).not.toHaveAttribute("open", "");
+		await openRelay();
 		await expect(relayInput()).toHaveValue("");
-		await expect(statusLine()).toHaveText("Relay: off");
 
 		// --- Live-apply: fill base URL + blur -> registered ---
 		await relayInput().fill(relay.baseUrl);
@@ -548,8 +558,9 @@ test("relay status: off -> registered -> persists -> retrying -> off via the rea
 		relayApp = await launchRelayApp();
 		relayPage = await relayApp.firstWindow({ timeout: 60_000 });
 		await openPanel();
-		// Field value proves persistence; the registered status proves Task 9's
-		// initialRelayBaseUrl re-registered on boot, not merely a restored string.
+		// D5a: a persisted URL seeds the disclosure OPEN, so no click is needed.
+		await expect(relayDetails()).toHaveAttribute("open", "");
+		await openRelay(); // no-op, proves the helper is idempotent
 		await expect(relayInput()).toHaveValue(relay.baseUrl);
 		await expect(statusLine()).toHaveText(/registered/, { timeout: 15_000 });
 
@@ -559,9 +570,10 @@ test("relay status: off -> registered -> persists -> retrying -> off via the rea
 		await expect(statusLine()).toHaveText(/retrying/, { timeout: 20_000 });
 
 		// --- Live-apply teardown: clear field + blur -> off (no relaunch) ---
+		await openRelay();
 		await relayInput().fill("");
 		await relayInput().blur();
-		await expect(statusLine()).toHaveText("Relay: off");
+		await expect(statusLine()).toHaveText("Off-network relay · off");
 	} finally {
 		await closeApp(relayApp);
 		if (!relayClosed) await relay.close().catch(() => {});

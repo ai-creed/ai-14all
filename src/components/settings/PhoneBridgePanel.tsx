@@ -41,6 +41,13 @@ export function PhoneBridgePanel(): React.ReactElement {
 	// can tell an actual edit from a no-op focus/blur.
 	const [relayDraft, setRelayDraft] = useState<string | null>(null);
 	const relayCommitted = useRef<string | null>(null);
+	// D5a: the disclosure opens when a relay is already configured. This is a
+	// ref-latched STATE seed, never a prop derived from relayDraft — React
+	// rewrites `open` on every render, and this panel re-renders on every
+	// onStatusChanged, so a derived prop would reopen a disclosure the user
+	// just closed.
+	const [relayOpen, setRelayOpen] = useState(false);
+	const relaySeeded = useRef(false);
 	// Ref latch, not just state: two clicks in the same tick both read the
 	// pre-update busy flag, so state alone cannot stop a duplicate invoke.
 	const inFlight = useRef(false);
@@ -65,6 +72,10 @@ export function PhoneBridgePanel(): React.ReactElement {
 		void window.ai14all.settings.read().then(({ settings }) => {
 			relayCommitted.current = settings.phoneBridge.relayBaseUrl;
 			setRelayDraft(settings.phoneBridge.relayBaseUrl);
+			if (!relaySeeded.current) {
+				relaySeeded.current = true;
+				setRelayOpen(settings.phoneBridge.relayBaseUrl !== "");
+			}
 		});
 	}, []);
 
@@ -178,23 +189,34 @@ export function PhoneBridgePanel(): React.ReactElement {
 			</div>
 
 			{view !== "off" && view !== "loading" && (
-				<div>
-					<label
-						className="phone-bridge__label"
-						htmlFor="phone-bridge-relay-url"
-					>
-						Relay
-					</label>
-					<input
-						id="phone-bridge-relay-url"
-						className="phone-bridge__input"
-						type="text"
-						value={relayDraft ?? ""}
-						onChange={(e) => setRelayDraft(e.target.value)}
-						onBlur={commitRelayDraft}
-					/>
-					<span>Relay: {status?.relay}</span>
-				</div>
+				<details
+					className="phone-bridge__relay"
+					open={relayOpen}
+					onToggle={(e) => setRelayOpen(e.currentTarget.open)}
+				>
+					<summary>Off-network relay · {status?.relay}</summary>
+					<div className="phone-bridge__relay-body">
+						<label
+							className="phone-bridge__label"
+							htmlFor="phone-bridge-relay-url"
+						>
+							Relay URL
+						</label>
+						<input
+							id="phone-bridge-relay-url"
+							className="phone-bridge__input"
+							type="text"
+							placeholder="wss://relay.example.com"
+							value={relayDraft ?? ""}
+							onChange={(e) => setRelayDraft(e.target.value)}
+							onBlur={commitRelayDraft}
+						/>
+						<p className="phone-bridge__hint phone-bridge__relay-hint">
+							Lets a phone reach this Mac when it is not on your Wi-Fi. Leave
+							empty for local network only.
+						</p>
+					</div>
+				</details>
 			)}
 
 			{view === "loading" && (

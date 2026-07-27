@@ -440,17 +440,14 @@ describe("PhoneBridgePanel relay settings", () => {
 	});
 
 	it.each([
-		["off", "Relay: off"],
-		["retrying", "Relay: retrying"],
-		["registered", "Relay: registered"],
-	] as const)(
-		"status line maps relay %s to %s",
-		async (relay, expectedText) => {
-			mountBridge({ ...base, relay });
-			renderPanel();
-			expect(await screen.findByText(expectedText)).toBeInTheDocument();
-		},
-	);
+		["off", "Off-network relay · off"],
+		["retrying", "Off-network relay · retrying"],
+		["registered", "Off-network relay · registered"],
+	] as const)("summary maps relay %s to %s", async (relay, expectedText) => {
+		mountBridge({ ...base, relay });
+		renderPanel();
+		expect(await screen.findByText(expectedText)).toBeInTheDocument();
+	});
 
 	it("commits the relay field on blur after a change, once", async () => {
 		const write = vi.fn().mockResolvedValue({
@@ -499,11 +496,98 @@ describe("PhoneBridgePanel relay settings", () => {
 		expect(input).toHaveValue("not-a-url");
 	});
 
-	it("off: no relay field or status line renders", async () => {
+	it("off: no relay disclosure renders", async () => {
 		mountBridge({ ...base, enabled: false, listening: false });
 		renderPanel();
 		expect(await screen.findByTestId("view-off")).toBeInTheDocument();
-		expect(screen.queryByLabelText(/relay/i)).toBeNull();
-		expect(screen.queryByText(/relay:/i)).toBeNull();
+		expect(screen.queryByLabelText(/relay url/i)).toBeNull();
+		expect(screen.queryByText(/Off-network relay/)).toBeNull();
+	});
+
+	function relayDetails(): HTMLDetailsElement {
+		const summary = screen.getByText(/^Off-network relay ·/);
+		return summary.closest("details") as HTMLDetailsElement;
+	}
+
+	function mountWithRelay(url: string, statusOverrides: Partial<Status> = {}) {
+		return mountBridge(
+			{ ...base, ...statusOverrides },
+			{
+				onStatusChanged: vi.fn((h: (s: Status) => void) => {
+					pushStatus = h;
+					return () => {};
+				}),
+			},
+			{
+				read: vi.fn().mockResolvedValue({
+					settings: {
+						...DEFAULT_PERSISTED_SETTINGS,
+						phoneBridge: {
+							...DEFAULT_PERSISTED_SETTINGS.phoneBridge,
+							relayBaseUrl: url,
+						},
+					},
+					firstRun: false,
+				}),
+			},
+		);
+	}
+	let pushStatus: ((s: Status) => void) | undefined;
+
+	it("starts collapsed when no relay URL is persisted", async () => {
+		mountWithRelay("");
+		renderPanel();
+		await screen.findByText(/^Off-network relay ·/);
+		await waitFor(() => expect(relayDetails().open).toBe(false));
+	});
+
+	it("starts open when a relay URL is persisted", async () => {
+		mountWithRelay("wss://relay.example.com");
+		renderPanel();
+		await screen.findByText(/^Off-network relay ·/);
+		await waitFor(() => expect(relayDetails().open).toBe(true));
+	});
+
+	// D5a regression. The two tests above BOTH pass against the anti-pattern
+	// `open={relayBaseUrl !== ""}`; only this one fails against it.
+	it("a status change does not reopen a disclosure the user closed", async () => {
+		mountWithRelay("wss://relay.example.com");
+		renderPanel();
+		await screen.findByText(/^Off-network relay ·/);
+		await waitFor(() => expect(relayDetails().open).toBe(true));
+
+		const details = relayDetails();
+		await userEvent.click(screen.getByText(/^Off-network relay ·/));
+		await waitFor(() => expect(details.open).toBe(false));
+
+		// An UNRELATED status change — the path that fires in production on
+		// every relay transition.
+		act(() => pushStatus!({ ...base, relay: "retrying" }));
+		await waitFor(() =>
+			expect(
+				screen.getByText("Off-network relay · retrying"),
+			).toBeInTheDocument(),
+		);
+		expect(relayDetails().open).toBe(false);
+	});
+
+	// Mirror: catches a latch that re-seeds on every load rather than once.
+	it("a status change does not close a disclosure the user opened", async () => {
+		mountWithRelay("");
+		renderPanel();
+		await screen.findByText(/^Off-network relay ·/);
+		await waitFor(() => expect(relayDetails().open).toBe(false));
+
+		const details = relayDetails();
+		await userEvent.click(screen.getByText(/^Off-network relay ·/));
+		await waitFor(() => expect(details.open).toBe(true));
+
+		act(() => pushStatus!({ ...base, relay: "retrying" }));
+		await waitFor(() =>
+			expect(
+				screen.getByText("Off-network relay · retrying"),
+			).toBeInTheDocument(),
+		);
+		expect(relayDetails().open).toBe(true);
 	});
 });
