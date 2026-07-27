@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import {
+	DDL_V1,
 	migrate,
 	TARGET_SCHEMA_VERSION,
 } from "../../../../services/insights/store/schema.js";
@@ -52,5 +53,66 @@ describe("insights schema migrate", () => {
 			b.prepare("SELECT value FROM meta WHERE key='first_capture_at'").get(),
 		).toEqual({ value: "123" });
 		b.close();
+	});
+
+	// Named indexes only: the TEXT PRIMARY KEY also creates
+	// sqlite_autoindex_observations_1, which is noise for these assertions.
+	const indexes = (db: Database.Database) =>
+		db
+			.prepare(
+				"SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='observations' AND name NOT LIKE 'sqlite_autoindex%' ORDER BY name",
+			)
+			.all()
+			.map((r) => (r as { name: string }).name);
+
+	it("fresh migrate lands at v2: event_ts index added AND all three v1 indexes intact", () => {
+		const db = new Database(":memory:");
+		migrate(db);
+		expect(db.pragma("user_version", { simple: true })).toBe(2);
+		// AC4: the full named-index set — v2 must never drop or rename a v1 index.
+		expect(indexes(db)).toEqual([
+			"idx_obs_kind_ts",
+			"idx_obs_source_ts",
+			"idx_obs_subject",
+			"idx_obs_ts",
+		]);
+	});
+
+	it("upgrades a hand-built v1 store in place: index added, rows preserved", () => {
+		const db = new Database(":memory:");
+		// A store exactly as v1-era migrate() left it: frozen v1 DDL + user_version 1.
+		db.transaction(() => {
+			db.exec(DDL_V1);
+			db.pragma("user_version = 1");
+		})();
+		db.prepare(
+			"INSERT INTO observations (event_id, kind, source, ts_precision, parser_version, schema_version, ingested_at, payload) VALUES ('e1','whisper.workflow','whisper-archiver','exact',1,7,1,'{}')",
+		).run();
+		migrate(db);
+		expect(db.pragma("user_version", { simple: true })).toBe(2);
+		expect(indexes(db)).toEqual([
+			"idx_obs_kind_ts",
+			"idx_obs_source_ts",
+			"idx_obs_subject",
+			"idx_obs_ts",
+		]);
+		expect(db.prepare("SELECT COUNT(*) c FROM observations").get()).toEqual({
+			c: 1,
+		});
+		// Idempotent at v2 (also proves a resumed/re-run migrate is safe):
+		expect(() => migrate(db)).not.toThrow();
+		expect(db.pragma("user_version", { simple: true })).toBe(2);
+	});
+
+	it("the retention DELETE uses idx_obs_ts, never a full scan (E1 regression guard)", () => {
+		const db = new Database(":memory:");
+		migrate(db);
+		const plan = db
+			.prepare("EXPLAIN QUERY PLAN DELETE FROM observations WHERE event_ts < ?")
+			.all(0)
+			.map((r) => (r as { detail: string }).detail)
+			.join(" | ");
+		expect(plan).toContain("USING INDEX idx_obs_ts");
+		expect(plan).not.toMatch(/\bSCAN\b/);
 	});
 });

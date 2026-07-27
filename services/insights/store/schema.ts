@@ -1,8 +1,10 @@
 import type Database from "better-sqlite3";
 
-export const TARGET_SCHEMA_VERSION = 1;
+export const TARGET_SCHEMA_VERSION = 2;
 
-const DDL_V1 = `
+// Frozen v1 history — never edit this string; additive changes are later steps.
+// Exported so tests can hand-build a store exactly as v1-era migrate() left it.
+export const DDL_V1 = `
 CREATE TABLE observations (
   event_id        TEXT PRIMARY KEY,
   kind            TEXT NOT NULL,
@@ -76,12 +78,22 @@ LEFT JOIN ph_current ON ph_current.run_id = wf.subject_id
 WHERE wf.rev = 1;
 `;
 
+// v2 (E1 follow-up): event_ts-leading index so the daily retention DELETE
+// (WHERE event_ts < cutoff) is a range seek — no index had event_ts first.
+const DDL_V2 = `
+CREATE INDEX idx_obs_ts ON observations (event_ts);
+`;
+
 export function migrate(db: Database.Database): void {
 	const current = db.pragma("user_version", { simple: true }) as number;
-	if (current >= TARGET_SCHEMA_VERSION) return;
-	const applyV1 = db.transaction(() => {
-		db.exec(DDL_V1);
-		db.pragma(`user_version = ${TARGET_SCHEMA_VERSION}`);
-	});
-	if (current < 1) applyV1();
+	if (current < 1)
+		db.transaction(() => {
+			db.exec(DDL_V1);
+			db.pragma("user_version = 1");
+		})();
+	if (current < 2)
+		db.transaction(() => {
+			db.exec(DDL_V2);
+			db.pragma("user_version = 2");
+		})();
 }
