@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import type { WhisperStoreReader } from "../plugins/whisper/whisper-store-reader.js";
 import { getMeta, setMetaOnce } from "./store/meta.js";
+import { utcDay } from "./store/time.js";
 import { insertObservation } from "./store/observations.js";
 import { getWhisperRuns } from "./store/views.js";
 import { getAppTime } from "./store/app-time-view.js";
@@ -34,6 +35,12 @@ export function createInsightsWorkerCore(deps: WorkerCoreDeps) {
 	// not re-announce it.
 	let firstCaptureAnnounced = getMeta(deps.db, "first_capture_at") != null;
 
+	// utcDay of the last SUCCESSFUL prune. The retention cutoff is UTC-day-
+	// aligned, so at most one prune per UTC day can ever remove rows — every
+	// other tick skips the DELETE entirely (E1). Left unset on failure so a
+	// transient error retries next tick instead of silently skipping a day.
+	let lastPrunedDay: string | null = null;
+
 	function status(lastPollAt: number | null): InsightsStatus {
 		const fca = getMeta(deps.db, "first_capture_at");
 		const countRow = deps.db
@@ -51,7 +58,11 @@ export function createInsightsWorkerCore(deps: WorkerCoreDeps) {
 		const now = deps.now();
 		try {
 			const res = archiveOnce(deps.db, deps.reader, { nowMs: now });
-			pruneRetention(deps.db, now);
+			const day = utcDay(now);
+			if (day !== lastPrunedDay) {
+				pruneRetention(deps.db, now);
+				lastPrunedDay = day;
+			}
 			deps.post({ kind: "status", status: status(now) });
 			if (res.firstCaptureAt != null && !firstCaptureAnnounced) {
 				firstCaptureAnnounced = true;

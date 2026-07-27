@@ -4,7 +4,10 @@ import { join } from "node:path";
 import Database from "better-sqlite3";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createInsightsWorkerCore } from "../../../services/insights/insights-worker-core.js";
-import { insertObservation } from "../../../services/insights/store/observations.js";
+import {
+	insertObservation,
+	type ObservationInput,
+} from "../../../services/insights/store/observations.js";
 import { getMeta } from "../../../services/insights/store/meta.js";
 import { migrate } from "../../../services/insights/store/schema.js";
 import type { InsightsWorkerToMain } from "../../../services/insights/worker-protocol.js";
@@ -279,5 +282,89 @@ describe("producerEvent (atomic write, ack after commit)", () => {
 			requestId: "a-1",
 			result: { focusedMs: 1000, engagedMs: 0, completeness: "unknown" },
 		});
+	});
+});
+
+describe("tick retention cadence (prune on UTC-day rollover)", () => {
+	const DAY = 86_400_000;
+	const T0 = Date.parse("2026-07-19T12:00:00.000Z");
+
+	// A row 366 days old relative to `nowMs` — expired under 365-day retention
+	// from any tick in the test window. Same app.focused shape the producerEvent
+	// suite uses, so it passes the strict payload allowlist.
+	const expired = (id: string, nowMs: number): ObservationInput => ({
+		eventId: id,
+		kind: "app.focused",
+		source: "app-focus-collector",
+		subjectId: "app",
+		eventTs: nowMs - 366 * DAY,
+		tsPrecision: "exact",
+		occurredStart: nowMs - 366 * DAY - 1000,
+		occurredEnd: nowMs - 366 * DAY,
+		parserVersion: 1,
+		schemaVersion: 1,
+		ingestedAt: 1,
+		origin: "n/a",
+		appRunId: "run-1",
+		repoId: null,
+		workspaceRel: null,
+		branch: null,
+		payload: { reason: "poll" },
+	});
+
+	const rows = (db: Database.Database) =>
+		(db.prepare("SELECT COUNT(*) c FROM observations").get() as { c: number })
+			.c;
+
+	function cadenceCore() {
+		const db = new Database(":memory:");
+		migrate(db);
+		const posted: InsightsWorkerToMain[] = [];
+		const clock = { now: T0 };
+		const core = createInsightsWorkerCore({
+			db,
+			reader: stubReader(),
+			now: () => clock.now,
+			post: (m) => posted.push(m),
+		});
+		return { db, posted, clock, core };
+	}
+
+	it("prunes on the boot tick, skips same-day ticks, prunes again after UTC midnight", () => {
+		const { db, clock, core } = cadenceCore();
+
+		insertObservation(db, expired("old-1", clock.now));
+		core.tick(); // boot tick: no prior prune day → prunes
+		expect(rows(db)).toBe(0);
+
+		insertObservation(db, expired("old-2", clock.now));
+		clock.now += 3000;
+		core.tick(); // same UTC day → DELETE skipped entirely
+		clock.now += 3000;
+		core.tick();
+		expect(rows(db)).toBe(1);
+
+		clock.now = Date.parse("2026-07-20T00:00:01.000Z"); // rollover
+		core.tick();
+		expect(rows(db)).toBe(0);
+	});
+
+	it("a failed prune posts a tick error and retries on the NEXT tick (marker not advanced)", () => {
+		const { db, posted, clock, core } = cadenceCore();
+
+		insertObservation(db, expired("old-1", clock.now));
+		// pruneRetention's transaction also deletes from coverage; hiding the
+		// table makes the whole prune transaction throw and roll back.
+		db.exec("ALTER TABLE coverage RENAME TO coverage_hidden");
+		core.tick();
+		expect(posted.some((m) => m.kind === "error" && m.scope === "tick")).toBe(
+			true,
+		);
+		expect(rows(db)).toBe(1); // rolled back — nothing half-pruned
+
+		db.exec("ALTER TABLE coverage_hidden RENAME TO coverage");
+		clock.now += 3000; // SAME UTC day — only the failure retry allows this prune
+		core.tick();
+		expect(rows(db)).toBe(0);
 	});
 });
