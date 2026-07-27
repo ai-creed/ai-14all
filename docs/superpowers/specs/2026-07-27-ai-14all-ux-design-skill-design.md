@@ -1,8 +1,9 @@
 # Spec: `ai-14all-ux-design` Agent Skill
 
 **Status:** Design approved (2026-07-27) interactively with Vu, including the
-in-app-charts scope amendment. Not yet drafted.
-**Scope:** A new agent skill, authored in `assets/agent-skills/ai-14all-ux-design/`,
+in-app-charts scope amendment. Implemented same day; all shakespii gates
+green (lint 0, grading 17/17, triggers 0.89, bench +0.23 pass-rate delta).
+**Scope:** A new agent skill, authored in `.claude/skills/ai-14all-ux-design/`,
 that governs all ai-14all desktop-app UI/UX work: design-language enforcement,
 a mockup-first hard gate for major UI updates, internal-first UX research, and
 in-app dashboard/chart design.
@@ -45,8 +46,14 @@ that scattered knowledge into an enforced workflow.
 
 - **Name:** `ai-14all-ux-design` (repo `ai-14all-` prefix convention; scope explicit
   in the installed corpus next to generic design skills).
-- **Location:** `assets/agent-skills/ai-14all-ux-design/`; installed to
-  `~/.claude/skills` only via `shakespii install` with explicit approval.
+- **Location:** `.claude/skills/ai-14all-ux-design/` — repo-committed and
+  auto-discovered by Claude Code for anyone developing in this repo.
+  Deliberately NOT under `assets/agent-skills/`: that directory is packaged
+  into the shipped app (`electron-builder.yml` extraResources) and its
+  `BUNDLED_SKILL_IDS` allowlist defines user-facing integration skills,
+  while this is an in-house development skill (decided 2026-07-27 after
+  review). No user-scope install needed for Claude Code; other CLIs can opt
+  in per-developer via `shakespii install`.
 - **Description (trigger-first, drives firing):**
 
   > Use when designing, restyling, polishing, or reviewing ai-14all desktop app
