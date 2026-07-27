@@ -72,6 +72,10 @@ export class XbpHostService {
 	// Source of truth for the relay candidate URL advertised in pairing
 	// offers; mutated by applyRelayBaseUrl.
 	private relayBaseUrl: string;
+	// Optional direct reach hostname (Tailscale MagicDNS name or 100.x IP)
+	// advertised as a second offer candidate; env-var plumbed only, no
+	// live-apply.
+	private reachHost: string;
 	// Live relay control-channel registration (null while off). relayState is the
 	// last state the machine reported; getStatus() collapses it to the coarse
 	// three-value XbpStatus.relay.
@@ -93,6 +97,7 @@ export class XbpHostService {
 			ptyInput?: XbpPtyInputExecutor;
 			now?: () => number;
 			initialRelayBaseUrl?: string;
+			initialReachHost?: string;
 			// Test seams: script the relay control channel and accept-dial without
 			// touching the network. Production leaves these undefined and uses the
 			// real ws-backed defaults.
@@ -109,6 +114,7 @@ export class XbpHostService {
 			secureStorage: opts.secureStorage,
 		});
 		this.relayBaseUrl = opts.initialRelayBaseUrl ?? "";
+		this.reachHost = opts.initialReachHost ?? "";
 	}
 
 	private emitStatusChange(): void {
@@ -256,6 +262,8 @@ export class XbpHostService {
 		try {
 			const addr = primaryLanIPv4() ?? "127.0.0.1";
 			const urls: [string, ...string[]] = [`ws://${addr}:${this.lan!.port}`]; // LAN always first (umbrella §6)
+			const reach = this.reachHost.trim();
+			if (reach) urls.push(`ws://${reach}:${this.lan!.port}`); // Tailscale/direct reach — same live port
 			if (this.relayBaseUrl) {
 				const hostId = deriveHostId(
 					this.backend!,
