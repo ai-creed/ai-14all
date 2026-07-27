@@ -3,41 +3,41 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "You are in an ai-14all worktree. Design a new 'Insights' panel for the ai-14all desktop app showing per-worktree agent activity summaries. Approval to build the mockup is granted. Dark-theme tokens from src/styles/tokens.css: --background: oklch(0.129 0.042 264.695); --card: oklch(0.208 0.042 265.755); --border: oklch(1 0 0 / 10%); --muted-foreground: oklch(0.704 0.04 256.788); assume equivalent blocks exist for the light, warm, and tui themes. Produce the mockup deliverable now; implementation is a later step.",
-      "expected_output": "Classifies this as major UI work and produces a self-contained prototype HTML (as a docs/design-specs/*-prototype.html file or full HTML in the reply) with [data-theme] token blocks or switching for all four themes (dark, light, warm, tui), square corners, solid borders, no shadows, monospace type — and presents it for user review without implementing the panel.",
+      "prompt": "You are designing for the ai-14all desktop app but running in a sandbox without the repo. The token values below are explicitly supplied as the verified live values from src/styles/tokens.css — proceed on them and note their provenance. Design a new 'Insights' panel listing recent agent sessions per worktree (a list surface, no charts). Approval to build the mockup is granted. Dark-theme tokens: --background: oklch(0.129 0.042 264.695); --card: oklch(0.208 0.042 265.755); --border: oklch(1 0 0 / 10%); --muted-foreground: oklch(0.704 0.04 256.788). Deliver a compact self-contained prototype HTML — one representative panel section with brief fake data, small enough for a single reply — with data-theme switching structure for all four themes (dark, light, warm, tui; comment placeholders where the other themes' verbatim token blocks would be mirrored in-repo). Implementation is a later step.",
+      "expected_output": "Classifies this as major UI work and produces a compact self-contained prototype HTML with [data-theme] switching structure for dark, light, warm, and tui, using the supplied oklch token values and TUI traits (square corners, solid borders, no shadows, monospace type), then presents it for user review without implementing the panel.",
       "files": [],
       "expectations": [
         "Treats the request as major UI work and follows the mockup-first gate instead of writing panel implementation code",
-        "Produces prototype HTML handling all four themes: dark, light, warm, and tui",
-        "The prototype uses the provided oklch token values and TUI traits: border-radius 0 (pills/dots aside), no box-shadow, solid borders, monospace font stack",
+        "Produces prototype HTML whose theme handling covers all four themes: dark, light, warm, and tui",
+        "The prototype uses the supplied oklch token values and TUI traits: border-radius 0 (pills/dots aside), no box-shadow, solid borders, monospace font stack",
         "The final message presents the mockup for review and does not claim the panel is implemented"
       ]
     },
     {
       "id": 2,
-      "prompt": "In the ai-14all app, the chips in a sidebar row sit too close together. Current CSS: .session-chips { display: flex; gap: 3px; } Spacing tokens available in src/styles/tokens.css: --space-1: 4px; --space-2: 8px; --space-3: 12px. Fix the spacing.",
-      "expected_output": "Classifies this as a minor tweak — no mockup or design spec — and replaces the raw 3px with a spacing-ladder token such as gap: var(--space-1) or var(--space-2), noting the change is token-based and therefore consistent across all four themes.",
+      "prompt": "In the ai-14all app, the chips in a sidebar row sit too close together. Current CSS: .session-chips { display: flex; gap: 3px; } Spacing tokens, supplied as the verified live values (the repo is unavailable in this sandbox): --space-1: 4px; --space-2: 8px; --space-3: 12px. Decide the right ladder value yourself — approval to apply it is granted; output the fixed CSS rule and a one-line conformance note.",
+      "expected_output": "Classifies this as a minor tweak — no mockup or design spec — picks a ladder value itself, and outputs the fixed rule, e.g. .session-chips { display: flex; gap: var(--space-1); } (or --space-2 with a stated reason), plus a one-line conformance note that the change is token-based and consistent across themes.",
       "files": [],
       "expectations": [
         "Does not demand a mockup or design spec for this single-control spacing fix",
-        "Replaces the raw px value with an existing --space-* token rather than another raw value",
-        "Confirms conformance briefly (token-based change, consistent across the app's themes)"
+        "Outputs the fixed CSS using an existing --space-* token rather than another raw value, choosing the value itself without stalling for further approval",
+        "Includes a brief conformance note (token-based change, consistent across the app's themes)"
       ]
     },
     {
       "id": 3,
-      "prompt": "Review this proposed dialog mockup for the ai-14all desktop app against the app design language and give a verdict: <style> .dlg { border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.4); border: 1px dashed #888; font-family: Inter, sans-serif; } .dlg .ok::before { content: '✅'; } .dlg button:hover { background: rgba(255,255,255,0.08); } </style>",
-      "expected_output": "A failing verdict listing each violation against the app design language: rounded corners (radius must be 0), drop shadow (zero elevation), dashed border (separators are solid full-opacity), sans-serif chrome font (monospace required), emoji glyph (Symbols Nerd Font glyphs instead), and alpha-blended hover (state changes step the color ladder).",
+      "prompt": "Review this proposed dialog mockup for the ai-14all desktop app and give a pass/fail verdict. Repo access is unavailable in this sandbox; judge against these design-language traits, supplied as authoritative: radius 0 everywhere (only status dots and pills round), zero box-shadow, solid full-opacity borders (never dashed), monospace chrome fonts, Symbols Nerd Font glyphs (never emoji), hover/emphasis steps the color ladder (never alpha-blend). Mockup: <style> .dlg { border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.4); border: 1px dashed #888; font-family: Inter, sans-serif; } .dlg .ok::before { content: '✅'; } .dlg button:hover { background: rgba(255,255,255,0.08); } </style>",
+      "expected_output": "A failing verdict listing each violation against the supplied design language: rounded corners (radius must be 0), drop shadow (zero elevation), dashed border (separators are solid full-opacity), sans-serif chrome font (monospace required), emoji glyph (Nerd Font glyphs instead), and alpha-blended hover (state changes step the color ladder).",
       "files": [],
       "expectations": [
-        "Rejects the mockup rather than approving it",
+        "Rejects the mockup with a clear failing verdict rather than approving it or declining to judge",
         "Flags the border-radius, box-shadow, dashed border, non-monospace font, emoji glyph, and alpha-blended hover as violations",
         "Ties each violation to the app's design language (TUI traits, tokens, ladder) rather than generic taste"
       ]
     },
     {
       "id": 4,
-      "prompt": "We want a first-run onboarding checklist surface in the ai-14all desktop app. Assume the internal inventory (existing surfaces, docs/design-specs/, prior design specs) found no precedent covering onboarding. External research approval is granted. Outline the design direction; the mockup comes after.",
+      "prompt": "We want a first-run onboarding checklist surface in the ai-14all desktop app. This sandbox has no repo access — treat the skill's preconditions as verified, and assume the internal inventory (existing surfaces, docs/design-specs/, prior design specs) already ran and found no precedent covering onboarding. External research approval is granted; work from your knowledge of terminal-aesthetic developer tools. Outline the design direction as options with a recommendation; the mockup comes after.",
       "expected_output": "States the internal-first order and that external references are justified only because the inventory came up empty; proposes two or three concrete references from the terminal-aesthetic/dev-tool space; extracts their interaction and hierarchy patterns and translates them into 14all tokens and TUI traits rather than importing foreign visual identity; ends with design options plus a recommendation.",
       "files": [],
       "expectations": [
@@ -48,12 +48,12 @@
     },
     {
       "id": 5,
-      "prompt": "Add a weekly agent-activity bar chart to the ai-14all in-app usage dashboard. Provider series colors exist as app tokens (--provider-claude, --provider-codex, ...). The dataviz skill's chart-form guidance is available to you. Describe the chart design before implementation.",
-      "expected_output": "Composes the two skills: chart form, marks, and axis/legend craft deferred to dataviz; series and chrome colors sourced from app tokens (provider accents); chart chrome on TUI traits (solid separators, monospace axis/legend type); and app-specific chart rules applied, such as a week view rendering at least seven days with the current day indicated.",
+      "prompt": "Add a weekly agent-activity bar chart to the ai-14all in-app usage dashboard. This sandbox has no repo access; supplied as the verified live token names: provider series --provider-claude, --provider-codex, --provider-ezio; status tokens --success, --warning, --danger; chrome font --font-ui (monospace). The dataviz skill's chart-form guidance is available to you. Describe the chart design — form deferral, colors, chrome, and app-specific chart rules — before any implementation.",
+      "expected_output": "Composes the two skills: chart form, marks, and axis/legend craft deferred to dataviz; series and chrome colors sourced from the supplied app tokens (provider accents); chart chrome on TUI traits (solid separators, monospace axis/legend type); and app-specific chart rules applied, such as a week view rendering at least seven days with the current day indicated.",
       "files": [],
       "expectations": [
         "Defers chart-form craft (form choice, marks, axis and legend rules) to the dataviz skill rather than restating or contradicting it",
-        "Sources series and chrome colors from app tokens (e.g. --provider-*) instead of a generic palette",
+        "Sources series and chrome colors from the supplied app tokens (e.g. --provider-*) instead of a generic palette",
         "Applies app-specific chart rules from the design language, e.g. a week view renders at least seven days",
         "Keeps chart chrome on TUI traits: solid separators and monospace type"
       ]

@@ -29,7 +29,11 @@ converges before code, not after.
 - cwd is inside an ai-14all worktree: `src/styles/tokens.css`,
   `src/styles/base.css`, `src/app/shell.css`, `src/styles/modules/`, and
   `docs/design-specs/` resolve. Without them the design language cannot be
-  verified — stop and say so rather than designing from memory.
+  verified — stop and say so rather than designing from memory. One
+  exception: when the requester explicitly supplies token values as the
+  verified live values (a design discussion outside the worktree, a
+  sandbox), proceed on exactly those values and record their provenance in
+  the output.
 - Prototypes are plain self-contained HTML the user opens in a browser: no
   build step, no external assets, system-font fallbacks for SF Mono/Meslo.
 - For in-app chart work: the dataviz skill is loadable; when it is not,
