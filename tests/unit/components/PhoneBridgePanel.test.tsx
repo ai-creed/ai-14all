@@ -487,6 +487,50 @@ describe("PhoneBridgePanel state machine", () => {
 		);
 	});
 
+	// Spec D9: capability rows are deliberately NOT optimistic — they write via
+	// settings.write and flip only once the value is persisted. Every other
+	// toggle test asserts the PATCH, which useSettings().update() would also
+	// produce (it calls the same settings.write underneath), so none of them can
+	// tell the two paths apart. This one can: with the write still in flight,
+	// the optimistic path has already flipped the row and this path has not.
+	it("a capability row does not flip until the write resolves (D9, not optimistic)", async () => {
+		let releaseWrite: ((merged: unknown) => void) | undefined;
+		mountBridge(
+			{
+				...base,
+				paired: true,
+				pairedAt: Date.now(),
+				grantedPermissions: FULL_GRANTS,
+			},
+			{},
+			{
+				write: vi.fn(
+					() =>
+						new Promise((resolve) => {
+							releaseWrite = resolve;
+						}),
+				),
+			},
+		);
+		renderPanel();
+		await screen.findByTestId("view-paired");
+		const sw = screen.getByRole("switch", { name: /Type into terminals/ });
+		expect(sw).toBeChecked();
+
+		await userEvent.click(sw);
+		// The write was issued...
+		expect(settingsWriteSpy()).toHaveBeenCalledTimes(1);
+		// ...and the row still reports the OLD value, because that is still the
+		// truth on the host. An optimistic update would read [ ] here.
+		expect(sw).toBeChecked();
+		expect(sw.querySelector(".phone-bridge__cap-mark")).toHaveTextContent(
+			"[✓]",
+		);
+		expect(screen.queryByTestId("action-error")).toBeNull();
+
+		releaseWrite?.(DEFAULT_PERSISTED_SETTINGS);
+	});
+
 	it("paired: the device header reads Phone, not Phone paired", async () => {
 		mountBridge({
 			...base,
