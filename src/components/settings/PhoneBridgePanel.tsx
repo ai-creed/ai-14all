@@ -3,14 +3,44 @@ import QRCode from "qrcode";
 import { Switch } from "@/components/ui/switch";
 import { useSettings } from "../../app/hooks/use-settings";
 import type { PhoneBridgeStatus } from "../../../shared/contracts/commands";
+import type { SettingsPatch } from "../../../shared/models/persisted-settings";
 import {
 	capabilityRows,
 	countdownLabel,
 	formatSas,
 	relativeTimeSince,
+	type CapabilityKey,
+	type CapabilityRow,
 } from "./phone-bridge-format";
 
 type View = "loading" | "off" | "fault" | "paired" | "sas" | "scan" | "idle";
+
+type PhoneBridgePatch = NonNullable<SettingsPatch["phoneBridge"]>;
+
+/**
+ * The settings key a capability's kill switch writes.
+ *
+ * Exhaustive on purpose: a binary `key === "notify" ? … : …` puts `reports`,
+ * `act` AND any future key on the `ptyInputEnabled` branch, so a fifth
+ * capability with a switch would silently write the wrong flag. Listing the
+ * switchless keys and closing with a `never` assignment makes adding a key a
+ * COMPILE error here rather than a security-relevant runtime surprise.
+ */
+function capabilityPatch(key: CapabilityKey, next: boolean): PhoneBridgePatch {
+	switch (key) {
+		case "notify":
+			return { pushWakeEnabled: next };
+		case "pty":
+			return { ptyInputEnabled: next };
+		case "reports":
+		case "act":
+			throw new Error(`Capability "${key}" has no kill switch`);
+		default: {
+			const unhandled: never = key;
+			throw new Error(`Unhandled capability "${String(unhandled)}"`);
+		}
+	}
+}
 
 function deriveView(status: PhoneBridgeStatus | null): View {
 	if (!status) return "loading";
@@ -29,7 +59,7 @@ function deriveView(status: PhoneBridgeStatus | null): View {
  * the exact step from status.
  */
 export function PhoneBridgePanel(): React.ReactElement {
-	const { settings, update } = useSettings();
+	const { settings } = useSettings();
 	const [status, setStatus] = useState<PhoneBridgeStatus | null>(null);
 	const [actionError, setActionError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -146,6 +176,33 @@ export function PhoneBridgePanel(): React.ReactElement {
 			);
 	}
 
+	/**
+	 * Flip one capability's local kill switch.
+	 *
+	 * Deliberately NOT `useSettings().update()`: that path applies the patch
+	 * optimistically and SWALLOWS a rejected `settings.write`
+	 * (use-settings.tsx:107-109). Main reads these flags from its own settings
+	 * service (electron/main/index.ts), so a failed persist would leave the host
+	 * armed while this row rendered `[ ]` — on a surface whose whole job is
+	 * stating what a phone may do, that is the worst direction to be wrong in.
+	 *
+	 * Writing through `settings.write` directly means the row only flips once the
+	 * value is persisted (the provider adopts it from the `settings:changed`
+	 * broadcast that write emits, electron/main/ipc.ts), and a rejection lands on
+	 * the action-error line — the same treatment `commitRelayDraft` gives a bad
+	 * relay URL. The cost is that the row is not optimistic; that is the point.
+	 */
+	function toggleCapability(cap: CapabilityRow) {
+		const patch = capabilityPatch(cap.key, !cap.armed);
+		void run(() =>
+			window.ai14all.settings.write({ phoneBridge: patch }).catch(() => {
+				throw new Error(
+					`Could not save "${cap.label}" — the phone's access is unchanged.`,
+				);
+			}),
+		);
+	}
+
 	const bridge = () => window.ai14all.phoneBridge;
 	const addrLabel =
 		status?.addr && status.port != null
@@ -190,37 +247,6 @@ export function PhoneBridgePanel(): React.ReactElement {
 					aria-label="Enable phone bridge"
 				/>
 			</div>
-
-			{view !== "off" && view !== "loading" && (
-				<details
-					className="phone-bridge__relay"
-					open={relayOpen}
-					onToggle={(e) => setRelayOpen(e.currentTarget.open)}
-				>
-					<summary>Off-network relay · {status?.relay}</summary>
-					<div className="phone-bridge__relay-body">
-						<label
-							className="phone-bridge__label"
-							htmlFor="phone-bridge-relay-url"
-						>
-							Relay URL
-						</label>
-						<input
-							id="phone-bridge-relay-url"
-							className="phone-bridge__input"
-							type="text"
-							placeholder="wss://relay.example.com"
-							value={relayDraft ?? ""}
-							onChange={(e) => setRelayDraft(e.target.value)}
-							onBlur={commitRelayDraft}
-						/>
-						<p className="phone-bridge__hint phone-bridge__relay-hint">
-							Lets a phone reach this Mac when it is not on your Wi-Fi. Leave
-							empty for local network only.
-						</p>
-					</div>
-				</details>
-			)}
 
 			{view === "loading" && (
 				<div className="phone-bridge__view" data-testid="view-loading">
@@ -361,7 +387,12 @@ export function PhoneBridgePanel(): React.ReactElement {
 											cap.granted ? "" : " phone-bridge__cap--denied"
 										}`}
 									>
-										<span className="phone-bridge__cap-mark">
+										{/* Decorative on BOTH branches (the control row below
+										    hides its mark too): a screen reader must not read
+										    "check mark, Read session reports". No information is
+										    lost — a denied row keeps its "not granted" text, so
+										    the two still differ in the accessible name. */}
+										<span className="phone-bridge__cap-mark" aria-hidden="true">
 											{cap.granted ? "✓" : "·"}
 										</span>
 										<span className="phone-bridge__cap-name">{cap.label}</span>
@@ -384,14 +415,7 @@ export function PhoneBridgePanel(): React.ReactElement {
 													: undefined
 											}
 											disabled={busy}
-											onClick={() =>
-												void update({
-													phoneBridge:
-														cap.key === "notify"
-															? { pushWakeEnabled: !cap.armed }
-															: { ptyInputEnabled: !cap.armed },
-												})
-											}
+											onClick={() => toggleCapability(cap)}
 										>
 											<span
 												className="phone-bridge__cap-mark"
@@ -465,6 +489,51 @@ export function PhoneBridgePanel(): React.ReactElement {
 						</div>
 					</div>
 				</div>
+			)}
+
+			{/* Spec D5/§5: the relay disclosure sits AT THE BOTTOM OF THE PANEL,
+			    below the view slot — it is set-once and empty for most users, so it
+			    must not outrank the paired device card. It stays BRIDGE-scoped, not
+			    device-scoped: the render condition is unchanged, so it still appears
+			    in idle / scan / sas / paired / fault alike. Its own border-top is the
+			    single separator between the view slot and it; the status strip above
+			    keeps its own, and nothing now sits between the two borders. */}
+			{view !== "off" && view !== "loading" && (
+				<details
+					className="phone-bridge__relay"
+					open={relayOpen}
+					onToggle={(e) => {
+						// Latch here too, not only in the settings.read() handler: the
+						// disclosure renders as soon as STATUS resolves, which can beat
+						// settings.read(). Without this, a toggle inside that window is
+						// clobbered by the seed that arrives after it.
+						relaySeeded.current = true;
+						setRelayOpen(e.currentTarget.open);
+					}}
+				>
+					<summary>Off-network relay · {status?.relay}</summary>
+					<div className="phone-bridge__relay-body">
+						<label
+							className="phone-bridge__label"
+							htmlFor="phone-bridge-relay-url"
+						>
+							Relay URL
+						</label>
+						<input
+							id="phone-bridge-relay-url"
+							className="phone-bridge__input"
+							type="text"
+							placeholder="wss://relay.example.com"
+							value={relayDraft ?? ""}
+							onChange={(e) => setRelayDraft(e.target.value)}
+							onBlur={commitRelayDraft}
+						/>
+						<p className="phone-bridge__hint phone-bridge__relay-hint">
+							Lets a phone reach this Mac when it is not on your Wi-Fi. Leave
+							empty for local network only.
+						</p>
+					</div>
+				</details>
 			)}
 
 			{actionError && (

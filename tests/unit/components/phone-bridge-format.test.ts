@@ -40,10 +40,12 @@ describe("relativeTimeSince", () => {
 	});
 });
 
-// Mirrors NEW_PAIRING_GRANTS (services/xbp/xbp-grants.ts:14) — every phone
-// paired since slice 2b.2 carries exactly this set.
+// Mirrors NEW_PAIRING_GRANTS (services/xbp/xbp-grants.ts) — every phone paired
+// since slice 2b.2 carries exactly this set. The first entry is
+// `sessionReportCapability.permission`, whose value is "control:read", NOT
+// "session:report" (@ai-creed/command-contract capabilities/session-report).
 const FULL_GRANTS = [
-	"session:report",
+	"control:read",
 	"control:act",
 	"control:notify",
 	"control:inspect",

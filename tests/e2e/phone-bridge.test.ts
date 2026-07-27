@@ -453,14 +453,16 @@ async function reachPhoneBridgeButton(
 /**
  * Off-LAN relay settings, end to end through the REAL main -> IPC -> renderer
  * bridge. Proves all three XbpStatus.relay values surface in the panel's
- * status line, that the base URL persists across a relaunch, and that Task 9's
- * boot wiring (initialRelayBaseUrl) re-registers on startup:
+ * <summary> line, that the base URL persists across a relaunch, and that Task 9's
+ * boot wiring (initialRelayBaseUrl) re-registers on startup. The status now
+ * rides the relay disclosure's summary (spec 2026-07-27 D5), so every step below
+ * goes through openRelay() before touching the field:
  *
- *   empty field -> "Relay: off"
- *   fill fake-relay URL + blur (live-apply) -> "Relay: registered"
- *   relaunch (same userData, relay still up) -> field persisted + registered
- *   relay.close() (connection lost, backoff redial refused) -> "Relay: retrying"
- *   clear field + blur (live-apply teardown) -> "Relay: off"
+ *   empty field -> "Off-network relay · off", disclosure COLLAPSED (D5a)
+ *   fill fake-relay URL + blur (live-apply) -> "Off-network relay · registered"
+ *   relaunch (same userData, relay still up) -> field persisted, disclosure OPEN
+ *   relay.close() (backoff redial refused) -> "Off-network relay · retrying"
+ *   clear field + blur (live-apply teardown) -> "Off-network relay · off"
  *
  * Runs its OWN isolated app instance (own repo/state/userData) rather than the
  * shared beforeAll app: it must relaunch, and the beforeAll app is still alive

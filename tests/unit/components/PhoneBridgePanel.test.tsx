@@ -24,9 +24,11 @@ const base: Status = {
 	relay: "off",
 };
 
-// Mirrors NEW_PAIRING_GRANTS (services/xbp/xbp-grants.ts:14).
+// Mirrors NEW_PAIRING_GRANTS (services/xbp/xbp-grants.ts). The first entry is
+// `sessionReportCapability.permission`, whose value is "control:read", NOT
+// "session:report" (@ai-creed/command-contract capabilities/session-report).
 const FULL_GRANTS = [
-	"session:report",
+	"control:read",
 	"control:act",
 	"control:notify",
 	"control:inspect",
@@ -200,26 +202,6 @@ describe("PhoneBridgePanel state machine", () => {
 			name: /Type into terminals/,
 		});
 		expect(sw).toBeChecked();
-	});
-
-	it("toggling the switch writes { phoneBridge: { ptyInputEnabled: false } }", async () => {
-		mountBridge({
-			...base,
-			paired: true,
-			pairedAt: Date.now() - 3 * 86_400_000,
-			grantedPermissions: FULL_GRANTS,
-		});
-		renderPanel();
-		await screen.findByTestId("view-paired");
-		const sw = await screen.findByRole("switch", {
-			name: /Type into terminals/,
-		});
-		await userEvent.click(sw);
-		expect(settingsWriteSpy()).toHaveBeenCalledWith(
-			expect.objectContaining({
-				phoneBridge: expect.objectContaining({ ptyInputEnabled: false }),
-			}),
-		);
 	});
 
 	it("fault: enabled-but-not-listening features lastError detail", async () => {
@@ -402,6 +384,109 @@ describe("PhoneBridgePanel state machine", () => {
 		expect(patch.phoneBridge).toEqual({ ptyInputEnabled: false });
 	});
 
+	// Both flags default TRUE, so every other toggle test drives true -> false.
+	// A regression that hardcodes `false` in place of `!cap.armed` passes all of
+	// them; this is the case that fails.
+	it("toggling a DISARMED row writes true, not a hardcoded false", async () => {
+		mountBridge(
+			{
+				...base,
+				paired: true,
+				pairedAt: Date.now(),
+				grantedPermissions: FULL_GRANTS,
+			},
+			{},
+			{
+				initial: {
+					...DEFAULT_PERSISTED_SETTINGS,
+					phoneBridge: {
+						...DEFAULT_PERSISTED_SETTINGS.phoneBridge,
+						pushWakeEnabled: false,
+					},
+				},
+			},
+		);
+		renderPanel();
+		await screen.findByTestId("view-paired");
+		const sw = screen.getByRole("switch", {
+			name: /Send notifications to this phone/,
+		});
+		expect(sw).not.toBeChecked();
+		await userEvent.click(sw);
+		const patch = settingsWriteSpy().mock.calls[0][0];
+		expect(patch.phoneBridge).toEqual({ pushWakeEnabled: true });
+	});
+
+	// The only state where a live control row and a denied row coexist.
+	it("paired: a mixed grant set renders controls and denials side by side", async () => {
+		mountBridge({
+			...base,
+			paired: true,
+			pairedAt: Date.now(),
+			// notify granted (live control), act + pty not (denied facts).
+			grantedPermissions: ["control:read", "control:notify"],
+		});
+		renderPanel();
+		await screen.findByTestId("view-paired");
+
+		// Exactly one control: notify. pty is denied, so it renders no switch.
+		const switches = screen
+			.getByTestId("view-paired")
+			.querySelectorAll('[role="switch"]');
+		expect(switches).toHaveLength(1);
+		expect(
+			screen.getByRole("switch", { name: /Send notifications to this phone/ }),
+		).toBeChecked();
+
+		// ...alongside two denied rows carrying the · mark and the suffix.
+		expect(screen.getAllByText("not granted")).toHaveLength(2);
+		for (const label of ["Act on workflows", "Type into terminals"]) {
+			const row = screen.getByText(label).closest(".phone-bridge__cap")!;
+			expect(row.querySelector(".phone-bridge__cap-mark")).toHaveTextContent(
+				"·",
+			);
+			expect(row.querySelector('[role="switch"]')).toBeNull();
+		}
+		// And the granted fact row still reads as a fact, not a control.
+		expect(
+			screen
+				.getByText("Read session reports")
+				.closest(".phone-bridge__cap")!
+				.querySelector(".phone-bridge__cap-mark"),
+		).toHaveTextContent("✓");
+	});
+
+	// A rejected settings.write must NOT be silent: useSettings().update swallows
+	// it (use-settings.tsx), and main keeps reading the OLD flag from its own
+	// settings service, so a row rendering [ ] over a still-armed host is the
+	// worst direction to be wrong in on this surface.
+	it("a rejected kill-switch write surfaces the action-error line", async () => {
+		mountBridge(
+			{
+				...base,
+				paired: true,
+				pairedAt: Date.now(),
+				grantedPermissions: FULL_GRANTS,
+			},
+			{},
+			{ write: vi.fn().mockRejectedValue(new Error("EPERM: settings.json")) },
+		);
+		renderPanel();
+		await screen.findByTestId("view-paired");
+		const sw = screen.getByRole("switch", { name: /Type into terminals/ });
+		await userEvent.click(sw);
+
+		expect(await screen.findByTestId("action-error")).toHaveTextContent(
+			/Type into terminals/,
+		);
+		// ...and the row keeps claiming the capability is still armed, because it
+		// is: nothing was persisted, so nothing changed on the host.
+		expect(sw).toBeChecked();
+		expect(sw.querySelector(".phone-bridge__cap-mark")).toHaveTextContent(
+			"[✓]",
+		);
+	});
+
 	it("paired: the device header reads Phone, not Phone paired", async () => {
 		mountBridge({
 			...base,
@@ -534,6 +619,35 @@ describe("PhoneBridgePanel relay settings", () => {
 	}
 	let pushStatus: ((s: Status) => void) | undefined;
 
+	// Seed-vs-user race: the disclosure renders as soon as STATUS resolves, which
+	// can beat settings.read(). A latch that only fires inside the read handler
+	// would overwrite a toggle made inside that window.
+	it("a toggle made before settings.read() resolves is not clobbered by the seed", async () => {
+		let resolveRead!: (value: unknown) => void;
+		mountBridge(
+			base,
+			{},
+			{
+				read: vi.fn(
+					() =>
+						new Promise((resolve) => {
+							resolveRead = resolve;
+						}),
+				),
+			},
+		);
+		renderPanel();
+		await screen.findByText(/^Off-network relay ·/);
+		await userEvent.click(screen.getByText(/^Off-network relay ·/));
+		await waitFor(() => expect(relayDetails().open).toBe(true));
+
+		// The persisted URL is empty, so an unguarded seed would close it here.
+		await act(async () => {
+			resolveRead({ settings: DEFAULT_PERSISTED_SETTINGS, firstRun: false });
+		});
+		expect(relayDetails().open).toBe(true);
+	});
+
 	it("starts collapsed when no relay URL is persisted", async () => {
 		mountWithRelay("");
 		renderPanel();
@@ -573,7 +687,12 @@ describe("PhoneBridgePanel relay settings", () => {
 		expect(relayDetails().open).toBe(false);
 	});
 
-	// Mirror: catches a latch that re-seeds on every load rather than once.
+	// Mirror of the case above, in the opposite direction. Same caveat: a derived
+	// prop would survive this too, so this is a sanity check, not a D5a
+	// regression — the latch's real coverage is the remount and draft-flip tests
+	// below. (It does NOT catch a latch that re-seeds on every load: settings
+	// .read() lives in a []-dep effect and resolves once per mount, so there is
+	// no second load to re-seed from.)
 	it("a status change does not close a disclosure the user opened", async () => {
 		mountWithRelay("");
 		renderPanel();

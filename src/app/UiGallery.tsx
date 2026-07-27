@@ -407,209 +407,233 @@ export function UiGallery() {
 						className="phone-bridge flex flex-col gap-4"
 						style={{ maxWidth: 526, lineHeight: rootLineHeightRatio }}
 					>
-						{/* Full grants, both controls armed. Wrapped in a real
-						    .phone-bridge__view so its height can be compared against the
-						    idle view below — that comparison is what guards the raised
-						    min-height (Task 4 Step 2). */}
-						<div
-							data-testid="gallery-pb-view-paired"
-							className="phone-bridge__view"
-						>
-							<div className="phone-bridge__label">Paired device</div>
+						{/* GROUP 1 — production's real stacking order, in production's
+						    BLOCK layout (the gap-4 flex above only separates the groups):
+						    status strip -> view slot -> relay disclosure. Structural, not
+						    decorative: `.phone-bridge__strip` has a border-bottom +
+						    12px margin-bottom and `.phone-bridge__relay` a border-top +
+						    12px margin-top, so putting the disclosure directly under the
+						    strip collapses those margins into TWO full-width rules 12px
+						    apart (2px rules under tui). That artifact shipped once,
+						    precisely because no fixture carried the strip. It does now. */}
+						<div data-testid="gallery-pb-panel">
+							<div className="phone-bridge__strip">
+								<span className="phone-bridge__dot phone-bridge__dot--on" />
+								<span className="phone-bridge__addr">
+									Listening on 192.168.1.51:52329
+								</span>
+								{/* Doubles as the visual spec's focus anchor: it is the real
+								    element that precedes Unpair in production's tab order, so
+								    Tab from here reaches Unpair with a KEYBOARD-originated
+								    focus (what :focus-visible requires) without injecting a
+								    test-only control into the device header. */}
+								<Switch
+									checked
+									onCheckedChange={() => {}}
+									data-testid="gallery-pb-focus-anchor"
+									aria-label="Enable phone bridge"
+								/>
+							</div>
+
+							{/* Full grants, both controls armed. A real .phone-bridge__view
+							    so its height can be compared against the idle view below —
+							    that comparison is what guards the raised min-height. */}
 							<div
-								data-testid="gallery-pb-ledger-full"
-								className="phone-bridge__device"
+								data-testid="gallery-pb-view-paired"
+								className="phone-bridge__view"
 							>
-								<div className="phone-bridge__device-main">
-									<div
-										className="phone-bridge__device-icon"
-										aria-hidden="true"
-									/>
-									<div className="phone-bridge__device-lines">
-										<div className="phone-bridge__device-name">Phone</div>
-										<div>Paired just now</div>
+								<div className="phone-bridge__label">Paired device</div>
+								<div
+									data-testid="gallery-pb-ledger-full"
+									className="phone-bridge__device"
+								>
+									<PbDeviceHeader unpairTestId="gallery-pb-unpair" />
+									<div className="phone-bridge__caps">
+										<PbFactRow label={PB_REPORTS_LABEL} />
+										<PbFactRow label={PB_ACT_LABEL} />
+										<PbControlRow armed {...PB_NOTIFY} />
+										<PbControlRow armed {...PB_PTY} />
 									</div>
-									{/* Focus anchor sits immediately before Unpair so the visual
-								    spec can Tab onto it and get a KEYBOARD-originated focus,
-								    which is what :focus-visible requires. */}
-									<button
-										type="button"
-										data-testid="gallery-pb-focus-anchor"
-										className="phone-bridge__btn"
-									>
-										Anchor
-									</button>
-									<button
-										type="button"
-										data-testid="gallery-pb-unpair"
-										className="phone-bridge__btn phone-bridge__btn--quiet-danger phone-bridge__device-action"
-									>
-										Unpair
-									</button>
-								</div>
-								<div className="phone-bridge__caps">
-									<p className="phone-bridge__cap">
-										<span className="phone-bridge__cap-mark">✓</span>
-										<span className="phone-bridge__cap-name">
-											Read session reports
-										</span>
-									</p>
-									<p className="phone-bridge__cap">
-										<span className="phone-bridge__cap-mark">✓</span>
-										<span className="phone-bridge__cap-name">
-											Act on workflows
-										</span>
-									</p>
-									<button
-										type="button"
-										className="phone-bridge__cap"
-										role="switch"
-										aria-checked={true}
-									>
-										<span className="phone-bridge__cap-mark">[✓]</span>
-										<span className="phone-bridge__cap-name">
-											Send notifications to this phone
-										</span>
-									</button>
-									<p className="phone-bridge__cap-hint">
-										Pings the phone when a workflow finishes or needs you.
-									</p>
-									<button
-										type="button"
-										className="phone-bridge__cap"
-										role="switch"
-										aria-checked={true}
-									>
-										<span className="phone-bridge__cap-mark">[✓]</span>
-										<span className="phone-bridge__cap-name">
-											Type into terminals
-										</span>
-									</button>
-									<p className="phone-bridge__cap-hint">
-										Sends keystrokes to running agents.
-									</p>
 								</div>
 							</div>
+
+							<details
+								data-testid="gallery-pb-relay-collapsed"
+								className="phone-bridge__relay"
+							>
+								<summary>Off-network relay · off</summary>
+							</details>
 						</div>
 
-						{/* Granted but both controls disarmed — [ ] must read as distinct
-						    from the denied · below. */}
+						{/* GROUP 2 — the SHORTEST real view (`idle`) with the disclosure
+						    open beneath it, same production stacking. Paired above + idle
+						    here are the two ends of the min-height requirement: both are
+						    pinned to min-height when the value is large enough, so their
+						    heights are EQUAL. If min-height is deleted, lowered, or simply
+						    set below the tallest resting view, paired grows past idle and
+						    the equality test fails — per palette, which is what catches
+						    the tui-only case. */}
+						<div>
+							<div
+								data-testid="gallery-pb-view-idle"
+								className="phone-bridge__view"
+							>
+								<div className="phone-bridge__label">Pairing</div>
+								<p className="phone-bridge__hint">No phone paired.</p>
+								<button
+									type="button"
+									className="phone-bridge__btn phone-bridge__btn--primary"
+								>
+									Pair a phone
+								</button>
+							</div>
+
+							<details
+								data-testid="gallery-pb-relay-open"
+								className="phone-bridge__relay"
+								open
+							>
+								<summary>Off-network relay · registered</summary>
+								<div className="phone-bridge__relay-body">
+									<label
+										className="phone-bridge__label"
+										htmlFor="gallery-pb-relay-url"
+									>
+										Relay URL
+									</label>
+									<input
+										id="gallery-pb-relay-url"
+										className="phone-bridge__input"
+										type="text"
+										readOnly
+										value="wss://relay.example.com"
+									/>
+									<p className="phone-bridge__hint phone-bridge__relay-hint">
+										Lets a phone reach this Mac when it is not on your Wi-Fi.
+										Leave empty for local network only.
+									</p>
+								</div>
+							</details>
+						</div>
+
+						{/* Granted, both controls disarmed — [ ] must read as distinct from
+						    the denied · below. Full four-row set inside a real
+						    .phone-bridge__device, because production NEVER renders a caps
+						    block anywhere else: on --background these swatches were
+						    guarding a surface the app cannot produce. The hints are
+						    likewise not optional — production renders one for every row
+						    where armed !== null, without exception. */}
 						<div
 							data-testid="gallery-pb-ledger-disarmed"
-							className="phone-bridge__caps"
+							className="phone-bridge__device"
 						>
-							<button
-								type="button"
-								className="phone-bridge__cap"
-								role="switch"
-								aria-checked={false}
-							>
-								<span className="phone-bridge__cap-mark">[ ]</span>
-								<span className="phone-bridge__cap-name">
-									Send notifications to this phone
-								</span>
-							</button>
-							<button
-								type="button"
-								className="phone-bridge__cap"
-								role="switch"
-								aria-checked={false}
-							>
-								<span className="phone-bridge__cap-mark">[ ]</span>
-								<span className="phone-bridge__cap-name">
-									Type into terminals
-								</span>
-							</button>
+							<PbDeviceHeader />
+							<div className="phone-bridge__caps">
+								<PbFactRow label={PB_REPORTS_LABEL} />
+								<PbFactRow label={PB_ACT_LABEL} />
+								<PbControlRow armed={false} {...PB_NOTIFY} />
+								<PbControlRow armed={false} {...PB_PTY} />
+							</div>
 						</div>
 
 						{/* Legacy pre-2b.2 record: one granted, three denied. */}
 						<div
 							data-testid="gallery-pb-ledger-legacy"
-							className="phone-bridge__caps"
+							className="phone-bridge__device"
 						>
-							<p className="phone-bridge__cap">
-								<span className="phone-bridge__cap-mark">✓</span>
-								<span className="phone-bridge__cap-name">
-									Read session reports
-								</span>
-							</p>
-							{[
-								"Act on workflows",
-								"Send notifications to this phone",
-								"Type into terminals",
-							].map((label) => (
-								<p
-									key={label}
-									className="phone-bridge__cap phone-bridge__cap--denied"
-								>
-									<span className="phone-bridge__cap-mark">·</span>
-									<span className="phone-bridge__cap-name">{label}</span>
-									<span className="phone-bridge__cap-deny">not granted</span>
-								</p>
-							))}
-							<p className="phone-bridge__cap-hint">
-								Pair this phone again to grant the newer capabilities.
-							</p>
-						</div>
-
-						<details
-							data-testid="gallery-pb-relay-collapsed"
-							className="phone-bridge__relay"
-						>
-							<summary>Off-network relay · off</summary>
-						</details>
-
-						<details
-							data-testid="gallery-pb-relay-open"
-							className="phone-bridge__relay"
-							open
-						>
-							<summary>Off-network relay · registered</summary>
-							<div className="phone-bridge__relay-body">
-								<label
-									className="phone-bridge__label"
-									htmlFor="gallery-pb-relay-url"
-								>
-									Relay URL
-								</label>
-								<input
-									id="gallery-pb-relay-url"
-									className="phone-bridge__input"
-									type="text"
-									readOnly
-									value="wss://relay.example.com"
-								/>
-								<p className="phone-bridge__hint phone-bridge__relay-hint">
-									Lets a phone reach this Mac when it is not on your Wi-Fi.
-									Leave empty for local network only.
+							<PbDeviceHeader />
+							<div className="phone-bridge__caps">
+								<PbFactRow label={PB_REPORTS_LABEL} />
+								<PbFactRow denied label={PB_ACT_LABEL} />
+								<PbFactRow denied label={PB_NOTIFY.label} />
+								<PbFactRow denied label={PB_PTY.label} />
+								<p className="phone-bridge__cap-hint">
+									Pair this phone again to grant the newer capabilities.
 								</p>
 							</div>
-						</details>
-
-						{/* The SHORTEST real view (`idle`), in a real .phone-bridge__view.
-						    Paired above + idle here are the two ends of the min-height
-						    requirement: both are pinned to min-height when the value is
-						    large enough, so their heights are EQUAL. If min-height is
-						    deleted, lowered, or simply set below the tallest resting view,
-						    paired grows past idle and the equality test fails — per
-						    palette, which is what catches the tui-only case. */}
-						<div
-							data-testid="gallery-pb-view-idle"
-							className="phone-bridge__view"
-						>
-							<div className="phone-bridge__label">Pairing</div>
-							<p className="phone-bridge__hint">No phone paired.</p>
-							<button
-								type="button"
-								className="phone-bridge__btn phone-bridge__btn--primary"
-							>
-								Pair a phone
-							</button>
 						</div>
 					</div>
 				</Section>
 			</main>
 		</div>
+	);
+}
+
+// --- Phone-bridge fixture parts ---
+// Copy kept identical to phone-bridge-format.ts's capabilityRows so the swatches
+// depict states the app can actually produce; the mark spans carry aria-hidden
+// for the same reason PhoneBridgePanel's do (decorative glyphs).
+const PB_REPORTS_LABEL = "Read session reports";
+const PB_ACT_LABEL = "Act on workflows";
+const PB_NOTIFY = {
+	label: "Send notifications to this phone",
+	hint: "Pings the phone when a workflow finishes or needs you.",
+};
+const PB_PTY = {
+	label: "Type into terminals",
+	hint: "Sends keystrokes to running agents.",
+};
+
+/** Device-card header — exactly production's two content children plus Unpair. */
+function PbDeviceHeader({ unpairTestId }: { unpairTestId?: string }) {
+	return (
+		<div className="phone-bridge__device-main">
+			<div className="phone-bridge__device-icon" aria-hidden="true" />
+			<div className="phone-bridge__device-lines">
+				<div className="phone-bridge__device-name">Phone</div>
+				<div>Paired just now</div>
+			</div>
+			<button
+				type="button"
+				data-testid={unpairTestId}
+				className="phone-bridge__btn phone-bridge__btn--quiet-danger phone-bridge__device-action"
+			>
+				Unpair
+			</button>
+		</div>
+	);
+}
+
+/** `armed === null` row: a bare ✓ states a fact, · marks an absent grant. */
+function PbFactRow({ label, denied }: { label: string; denied?: boolean }) {
+	return (
+		<p
+			className={`phone-bridge__cap${denied ? " phone-bridge__cap--denied" : ""}`}
+		>
+			<span className="phone-bridge__cap-mark" aria-hidden="true">
+				{denied ? "·" : "✓"}
+			</span>
+			<span className="phone-bridge__cap-name">{label}</span>
+			{denied && <span className="phone-bridge__cap-deny">not granted</span>}
+		</p>
+	);
+}
+
+/** Control row: [brackets] mark a live switch, always followed by its hint. */
+function PbControlRow({
+	label,
+	hint,
+	armed,
+}: {
+	label: string;
+	hint: string;
+	armed: boolean;
+}) {
+	return (
+		<>
+			<button
+				type="button"
+				className="phone-bridge__cap"
+				role="switch"
+				aria-checked={armed}
+			>
+				<span className="phone-bridge__cap-mark" aria-hidden="true">
+					{armed ? "[✓]" : "[ ]"}
+				</span>
+				<span className="phone-bridge__cap-name">{label}</span>
+			</button>
+			<p className="phone-bridge__cap-hint">{hint}</p>
+		</>
 	);
 }
 

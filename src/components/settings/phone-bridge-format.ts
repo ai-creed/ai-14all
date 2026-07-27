@@ -43,8 +43,10 @@ export type CapabilityRow = {
 	armed: boolean | null;
 };
 
-// Hardcoded per spec D7: no src/ module imports @ai-creed/command-contract,
-// and permissionsLabel had the identical exposure before this.
+// Hardcoded per spec D7: no src/ module imports @ai-creed/command-contract, so
+// the renderer restates the permission strings rather than opening that door.
+// Risk noted in spec §9 — if NEW_PAIRING_GRANTS ever renames one, the ledger
+// silently shows "not granted".
 const CONTROL_ACT = "control:act";
 const CONTROL_NOTIFY = "control:notify";
 const CONTROL_PTY_WRITE = "control:pty-write";
@@ -55,9 +57,18 @@ const CONTROL_PTY_WRITE = "control:pty-write";
  *     armed = (granted && key in {notify, pty}) ? flagFor(key) : null
  *
  * The grant gate is the point: an absent grant means there is nothing to arm,
- * and the executor refuses the call regardless (xbp-pty-input-executor.ts:69,
- * xbp-push-token-handlers.ts:28). control:inspect is deliberately not shown —
- * it is minted at pairing but has no user-facing meaning (spec D3).
+ * so offering a switch for it would be offering a control that cannot change
+ * anything (spec §2 problem 3).
+ *
+ * NOTE on what the host actually enforces: the two executor checks
+ * (xbp-pty-input-executor.ts `isPtyInputEnabled`, xbp-push-token-handlers.ts
+ * `isPushWakeEnabled`) gate the LOCAL KILL SWITCHES, not the grants. There is
+ * no host-side per-call grant check today — `granted` here is a faithful report
+ * of what was minted at pairing (xbp-grants.ts), and the reason a denied row
+ * shows no control is that re-pairing, not a switch, is its only upgrade path.
+ *
+ * control:inspect is deliberately not shown — it is minted at pairing but has
+ * no user-facing meaning (spec D3).
  */
 export function capabilityRows(
 	perms: string[] | null,

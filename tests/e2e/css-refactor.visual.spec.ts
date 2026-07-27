@@ -275,6 +275,12 @@ test.describe.serial("ui gallery surfaces", () => {
 			// KEYBOARD-originated focus. A programmatic el.focus() after a pointer
 			// event does NOT match :focus-visible in Chromium, so a .focus()-then-
 			// assert test would silently measure the resting appearance.
+			//
+			// The anchor is the fixture's status-strip Switch — the same element
+			// that precedes Unpair in production's tab order — not a test-only
+			// button inside .phone-bridge__device-main. An extra child there would
+			// make phone-bridge-${palette}.png capture a device header with three
+			// flex children where production has two.
 			await page.getByTestId("gallery-pb-focus-anchor").focus();
 			await page.keyboard.press("Tab");
 			await expect(unpair).toBeFocused();

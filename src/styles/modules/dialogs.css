@@ -351,8 +351,12 @@
 		font-size: 0.75rem;
 		padding: 4px var(--space-2);
 	}
+	/* --ring, NOT --accent: under tui --accent is a dark SURFACE colour, so an
+	   accent-tokened ring is near-invisible. The sibling relay summary already
+	   rings on --ring, and tabbing summary -> field must not change how loud
+	   the focus indicator is. */
 	.phone-bridge__input:focus-visible {
-		outline: var(--shell-border-width) solid var(--accent);
+		outline: var(--shell-border-width) solid var(--ring);
 		outline-offset: 1px;
 	}
 	.phone-bridge__btn {
@@ -479,7 +483,15 @@
 		background: none;
 	}
 
-	/* --- Relay disclosure (spec §5/§6) --- */
+	/* --- Relay disclosure (spec §5/§6) ---
+	   SEPARATOR ADJACENCY: this block renders at the BOTTOM of the panel, after
+	   the view slot (PhoneBridgePanel.tsx) — its border-top is the only rule
+	   there, because .phone-bridge__view carries no border of its own. Keep it
+	   that way: rendered directly under .phone-bridge__strip (which has its own
+	   border-bottom + margin-bottom) the two margins collapse to 12px and draw
+	   two full-width rules 12px apart — 2px rules under tui. That doubled rule
+	   shipped once and is what the .phone-bridge__strip in the UiGallery
+	   fixture now guards. */
 	.phone-bridge__relay {
 		border-top: var(--shell-border-width) solid var(--panel-border);
 		margin-top: var(--space-3);
