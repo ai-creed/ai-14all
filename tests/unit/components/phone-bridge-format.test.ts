@@ -146,7 +146,9 @@ describe("capabilityRows", () => {
 
 	// The property PhoneBridgePanel's element choice depends on (spec §5).
 	it("invariant: armed !== null implies granted", () => {
-		const cases: Array<[string[] | null, { pushWakeEnabled: boolean; ptyInputEnabled: boolean }]> = [
+		const cases: Array<
+			[string[] | null, { pushWakeEnabled: boolean; ptyInputEnabled: boolean }]
+		> = [
 			[FULL_GRANTS, BOTH_ON],
 			[FULL_GRANTS, { pushWakeEnabled: false, ptyInputEnabled: true }],
 			[FULL_GRANTS, { pushWakeEnabled: true, ptyInputEnabled: false }],
