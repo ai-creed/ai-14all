@@ -298,6 +298,49 @@ describe("PhoneBridgePanel state machine", () => {
 		expect(
 			screen.getByTestId("view-paired").querySelectorAll('[role="switch"]'),
 		).toHaveLength(2);
+		// Pin the mark glyphs themselves — a swapped ternary on either branch
+		// must fail here even though the label text, switch role and count all
+		// stay unchanged. U+2713 (✓) for a granted static row, "[✓]" for an
+		// armed switch (both settings default to true — persisted-settings.ts).
+		expect(
+			screen
+				.getByText("Read session reports")
+				.closest(".phone-bridge__cap")!
+				.querySelector(".phone-bridge__cap-mark"),
+		).toHaveTextContent("✓");
+		expect(
+			screen
+				.getByRole("switch", { name: "Type into terminals" })
+				.querySelector(".phone-bridge__cap-mark"),
+		).toHaveTextContent("[✓]");
+	});
+
+	it("paired: a disarmed switch renders the [ ] mark", async () => {
+		mountBridge(
+			{
+				...base,
+				paired: true,
+				pairedAt: Date.now(),
+				grantedPermissions: FULL_GRANTS,
+			},
+			{},
+			{
+				initial: {
+					...DEFAULT_PERSISTED_SETTINGS,
+					phoneBridge: {
+						...DEFAULT_PERSISTED_SETTINGS.phoneBridge,
+						ptyInputEnabled: false,
+					},
+				},
+			},
+		);
+		renderPanel();
+		await screen.findByTestId("view-paired");
+		const sw = screen.getByRole("switch", { name: "Type into terminals" });
+		expect(sw).not.toBeChecked();
+		expect(sw.querySelector(".phone-bridge__cap-mark")).toHaveTextContent(
+			"[ ]",
+		);
 	});
 
 	it("paired: a denied capability renders no control at all", async () => {
@@ -314,6 +357,14 @@ describe("PhoneBridgePanel state machine", () => {
 			screen.getByTestId("view-paired").querySelectorAll('[role="switch"]'),
 		).toHaveLength(0);
 		expect(screen.getAllByText("not granted")).toHaveLength(3);
+		// Pin U+00B7 (·) on the denied glyph itself, not just the adjacent
+		// "not granted" text — a swapped granted/denied ternary must fail here.
+		expect(
+			screen
+				.getByText("Act on workflows")
+				.closest(".phone-bridge__cap")!
+				.querySelector(".phone-bridge__cap-mark"),
+		).toHaveTextContent("·");
 		expect(
 			screen.getByText(/Pair this phone again to grant the newer capabilities/),
 		).toBeInTheDocument();

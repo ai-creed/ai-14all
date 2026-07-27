@@ -368,7 +368,10 @@ export function PhoneBridgePanel(): React.ReactElement {
 												})
 											}
 										>
-											<span className="phone-bridge__cap-mark">
+											<span
+												className="phone-bridge__cap-mark"
+												aria-hidden="true"
+											>
 												{cap.armed ? "[✓]" : "[ ]"}
 											</span>
 											<span className="phone-bridge__cap-name">
