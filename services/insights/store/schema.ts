@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 
-export const TARGET_SCHEMA_VERSION = 2;
+export const TARGET_SCHEMA_VERSION = 3;
 
 // Frozen v1 history — never edit this string; additive changes are later steps.
 // Exported so tests can hand-build a store exactly as v1-era migrate() left it.
@@ -84,6 +84,15 @@ const DDL_V2 = `
 CREATE INDEX idx_obs_ts ON observations (event_ts);
 `;
 
+// v3 (dashboard slice 1): (a) span-overlap reads (getAppTime + the series view)
+// seek on (source, kind, occurred_end) instead of walking every app-focus row;
+// (b) coverage anchors MIN(occurred_start) under a kind equality is a leftmost
+// seek. Predicates are unchanged — index-only change (spec §4.4).
+const DDL_V3 = `
+CREATE INDEX idx_obs_span ON observations (source, kind, occurred_end, occurred_start);
+CREATE INDEX idx_obs_kind_occstart ON observations (kind, occurred_start);
+`;
+
 export function migrate(db: Database.Database): void {
 	const current = db.pragma("user_version", { simple: true }) as number;
 	if (current < 1)
@@ -95,5 +104,10 @@ export function migrate(db: Database.Database): void {
 		db.transaction(() => {
 			db.exec(DDL_V2);
 			db.pragma("user_version = 2");
+		})();
+	if (current < 3)
+		db.transaction(() => {
+			db.exec(DDL_V3);
+			db.pragma("user_version = 3");
 		})();
 }
