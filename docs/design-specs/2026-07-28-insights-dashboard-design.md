@@ -15,8 +15,9 @@ yet) and one untracked-usage inclusion rule for rows, tiles, and
 charts; round 5: explicit workspace-level view-model aggregation
 (`buildWorkspaceRows`, §4.8) over the raw per-provider usage rows;
 round 6: §4.8 seeds every registry workspace and the untracked row
-before folding, and null-`repoId` run groups fold into untracked.
-Not yet implemented.
+before folding, and null-`repoId` run groups fold into untracked;
+round 7: total run-status projection (§4.9) — every raw status maps to
+exactly one rendered outcome class, none dropped. Not yet implemented.
 
 ## 1. What this is
 
@@ -99,7 +100,9 @@ zones) and a **by-workspace** view (runs + tokens per workspace).
       which is near-invisible on the light theme's white card); engaged
       renders on `--primary`.
     - Run outcomes use status tokens: done `--success`, halted
-      `--warning`, failed `--danger`. Provider series use
+      `--warning`, failed `--danger`; in-flight (`active`) runs render
+      on `--info`, and the residual `other` class on
+      `--muted-foreground` (§4.9). Provider series use
       `--provider-claude/-codex/-ezio`.
     - Completeness is glyph + caption (`●`/`◐`), never color alone.
     - TUI traits throughout: square corners, solid full-opacity
@@ -422,8 +425,10 @@ export type UsageRangeResult =
   quoting the real anchors — the stubs never imply data. Never fewer
   than 7 columns in any mode.
 - **Tiles:** focused/engaged = Σ series buckets in the selected range;
-  runs = `insights.query` results filtered to the range; tokens/cost =
-  Σ `days` in the range from `usage.queryRange`.
+  runs = `insights.query` results filtered to the range and projected
+  per §4.9 (the tile total counts **every** run; the breakdown line
+  follows the §4.9 display rule); tokens/cost = Σ `days` in the range
+  from `usage.queryRange`.
 - **Workspaces view:** rows are the §4.8 view-model built from **all**
   `byWorkspace` rows (never filtered, decision 14) joined with the
   client-side run grouping for the same range; the totals row is the
@@ -446,7 +451,7 @@ interface WorkspaceRowVM {
 	key: string;    // workspaceId, or "untracked"
 	name: string;   // workspace title; "untracked" for the null group
 	detail: string; // e.g. "~/Dev/ai-14all · 4 worktrees" / "outside managed workspaces"
-	runs: { done: number; halted: number; failed: number };
+	runs: RunOutcomeCounts; // §4.9 — one counter per rendered outcome class
 	mix: Array<{ provider: AgentProviderId; tokens: number }>; // desc; drives the share bar
 	tokens: number;         // billable, all providers/worktrees in the group
 	costUsd: number | null; // Σ non-null group costUsd; null when nothing priced
@@ -454,9 +459,10 @@ interface WorkspaceRowVM {
 
 function buildWorkspaceRows(
 	usageRows: UsageRow[],             // queryRange().byWorkspace, unfiltered
-	runGroups: Map<string | null, { done: number; halted: number; failed: number }>,
-	                                   // insights.query runs grouped by repoId —
-	                                   // the run contract permits repoId: null
+	runGroups: Map<string | null, RunOutcomeCounts>,
+	                                   // insights.query runs grouped by repoId,
+	                                   // each run projected per §4.9 — the run
+	                                   // contract permits repoId: null
 	                                   // (unattributed runs), so null IS a key
 	workspaces: WorkspaceIndex,        // renderer registry: workspaceId →
 	                                   //   { title, repoId, rootPath, worktreeCount }
@@ -490,8 +496,9 @@ Rules:
   matches through the repository identity in the renderer registry.
   The **`null` key** (unattributed runs — the run contract explicitly
   permits `repoId: null`) and any non-null `repoId` matching no
-  registered workspace fold into the untracked row's triple — runs are
-  never dropped — so `Σ rows[].runs` equals the overview run tiles.
+  registered workspace fold into the untracked row's counts — runs are
+  never dropped — so `Σ rows[].runs` (across every §4.9 outcome class)
+  equals the overview run tiles.
 - **Name/detail:** workspace title from the renderer registry
   (fallback: the group's first `worktreeTitle`); untracked uses the
   prototyped `untracked / outside managed workspaces` copy.
@@ -500,6 +507,46 @@ Rules:
   deterministic: registered workspaces alphabetical, untracked last);
   `totals` sums the VM rows and — by the seed + partition arguments
   above — equals the overview tiles for the same range.
+
+### 4.9 Run-status projection (total, shared, never drops a run)
+
+`WhisperRunRow.status` is deliberately `string`, not a union — whisper's
+known statuses today are `running | paused | halted | done | canceled`
+(`shared/models/ecosystem-plugin.ts`), and future values are allowed.
+Rendering only a done/halted/failed triple would silently drop or
+mislabel in-flight, canceled, and unknown-status runs, breaking AC5's
+exact table-to-overview equality. One shared pure function
+(`src/features/insights/runStatus.ts`) is the **single** projection used
+by the stat tiles, the runs chart, and `buildWorkspaceRows` — so all
+three surfaces agree by construction:
+
+```ts
+type RunOutcome = "done" | "halted" | "failed" | "active" | "other";
+type RunOutcomeCounts = Record<RunOutcome, number>;
+
+function projectRunStatus(status: string): RunOutcome
+```
+
+| raw `status` | outcome | token |
+|---|---|---|
+| `done` | `done` | `--success` |
+| `halted` | `halted` | `--warning` |
+| `canceled` | `halted` (deliberately-stopped family; tooltip names it) | `--warning` |
+| `failed` | `failed` (defensive: not in whisper's known set today, but the store passes strings through) | `--danger` |
+| `running`, `paused` | `active` (in-flight, not an outcome) | `--info` |
+| anything else | `other` | `--muted-foreground` |
+
+- **The projection is total**: every run lands in exactly one class, so
+  `Σ classes = run count` and every total that AC5 compares includes
+  every run.
+- **Display rule:** the prototyped `X done · Y halted · Z failed` copy
+  stays; `· N active` and `· N other` clauses append **only when
+  non-zero** (stat-tile secondary line and table runs cell alike), and
+  the runs chart stacks `active`/`other` segments on their tokens only
+  when present — so surfaces with purely terminal outcomes render
+  exactly as the approved prototype shows.
+- Refining `halted` by `haltReason` (e.g. distinguishing errors from
+  operator stops) is follow-up work (§9), not slice 1.
 
 ## 5. Components & files
 
@@ -515,6 +562,8 @@ Rules:
   generator + week-fold helpers (decision 12).
 - `src/features/insights/workspaceRows.ts` — the pure
   `buildWorkspaceRows` view-model fold (§4.8).
+- `src/features/insights/runStatus.ts` — the shared total
+  `projectRunStatus` projection (§4.9).
 - `src/features/insights/useInsightsDashboardData.ts` — range/view state
   + the fetch orchestration of §4.5/§4.7 (coverageAnchors + queryRange →
   domain → series/runs), envelope handling (§2.13), poll + retry.
@@ -653,8 +702,9 @@ Rules:
   for the exact selected range: **exactly one row per workspace plus
   one untracked row** — never a row per provider or per worktree — each
   with its provider-mix share bar (`Σ mix tokens = row tokens`), `≈ $
-  est` cost, and runs joined by `repoId` (done/halted/failed in status
-  colors; null-`repoId` and unmatched-`repoId` run groups fold into
+  est` cost, and runs joined by `repoId` (outcome classes per the §4.9
+  total projection in status colors — no raw status is ever dropped or
+  mislabeled; null-`repoId` and unmatched-`repoId` run groups fold into
   untracked, never dropped); sorted by tokens; **row presence is
   unconditional** (§4.8 seeding): every registry workspace renders even
   with zero activity, and the untracked row renders even with no
@@ -718,9 +768,17 @@ a workspace with **no** usage rows and no run groups, whose usage data
 contains **no** untracked buckets, and whose run groups include a
 `repoId: null` entry plus a non-null `repoId` matching no workspace:
 the zero-activity workspace renders a zero row, the untracked row still
-renders and carries both folded run groups' triples, no run is dropped
+renders and carries both folded run groups' counts, no run is dropped
 (`Σ rows.runs` equals the seeded run totals), and `totals` still equals
-the overview-tile sums (AC5).
+the overview-tile sums (AC5); (h) **total status projection** — a
+`projectRunStatus` + tiles/table fixture seeding one run of **every**
+known status (`done`, `halted`, `failed`, `running`, `paused`,
+`canceled`) plus one unknown string (e.g. `"archived-v2"`): each maps
+to its §4.9 class (`canceled → halted`, `running/paused → active`,
+unknown → `other`), the tile run total equals the seeded run count
+(nothing dropped), the breakdown appends `active`/`other` clauses only
+when non-zero, and the table totals equal the tile counts class by
+class (AC5).
 
 ## 9. Follow-up ledger (explicitly out of slice 1)
 
@@ -733,6 +791,9 @@ the overview-tile sums (AC5).
 3. **Export report** — per-project time/effort summary (client-facing).
 4. **Detached-state persistence** across restarts.
 5. **Model-mix breakdown** (ledger already keys by model; no UI yet).
+6. **`haltReason` refinement of the `halted` class** (§4.9) —
+   distinguishing error halts from operator stops/cancels in the
+   outcome display.
 
 ## 10. Out of scope
 
