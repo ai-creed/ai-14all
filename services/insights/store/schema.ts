@@ -85,9 +85,10 @@ CREATE INDEX idx_obs_ts ON observations (event_ts);
 `;
 
 // v3 (dashboard slice 1): (a) span-overlap reads (getAppTime + the series view)
-// seek on (source, kind, occurred_end) instead of walking every app-focus row;
-// (b) coverage anchors MIN(occurred_start) under a kind equality is a leftmost
-// seek. Predicates are unchanged — index-only change (spec §4.4).
+// use a covering index (source, kind, occurred_end, occurred_start) so the planner
+// selects it over idx_obs_kind_occstart — the 4-column form answers the entire query
+// from the index, no table lookups. (b) Coverage anchors MIN(occurred_start) under a
+// kind equality is a leftmost seek on idx_obs_kind_occstart. Predicates unchanged.
 const DDL_V3 = `
 CREATE INDEX idx_obs_span ON observations (source, kind, occurred_end, occurred_start);
 CREATE INDEX idx_obs_kind_occstart ON observations (kind, occurred_start);

@@ -256,10 +256,12 @@ this for both the existing `getAppTime` and the new series view:
 // services/insights/store/schema.ts — same stepped-migration pattern as v2
 export const TARGET_SCHEMA_VERSION = 3;
 const DDL_V3 = `
-CREATE INDEX idx_obs_span ON observations (source, kind, occurred_end);
+CREATE INDEX idx_obs_span ON observations (source, kind, occurred_end, occurred_start);
 CREATE INDEX idx_obs_kind_occstart ON observations (kind, occurred_start);
 `;
 ```
+
+The fourth column on `idx_obs_span` makes it a covering index for the span-overlap query — without it, SQLite's planner would select `idx_obs_kind_occstart` instead, forcing a near-full scan of rows by kind; the covering form ensures the planner chooses `idx_obs_span` and answers the entire query from the index without table lookups.
 
 `idx_obs_span` serves the span-overlap reads; `idx_obs_kind_occstart`
 serves the §4.5 coverage anchors (`MIN(occurred_start)` under a `kind`

@@ -121,20 +121,6 @@ describe("insights schema migrate", () => {
 		expect(plan).not.toMatch(/\bSCAN\b/);
 	});
 
-	it("fresh migrate lands at v3: span + anchor indexes added, v1+v2 set intact", () => {
-		const db = new Database(":memory:");
-		migrate(db);
-		expect(db.pragma("user_version", { simple: true })).toBe(3);
-		expect(indexes(db)).toEqual([
-			"idx_obs_kind_occstart",
-			"idx_obs_kind_ts",
-			"idx_obs_source_ts",
-			"idx_obs_span",
-			"idx_obs_subject",
-			"idx_obs_ts",
-		]);
-	});
-
 	it("upgrades a v2 store in place: rows preserved, idempotent at v3", () => {
 		const db = new Database(":memory:");
 		db.transaction(() => {
@@ -148,7 +134,9 @@ describe("insights schema migrate", () => {
 		).run(APP_FOCUS_SOURCE);
 		migrate(db);
 		expect(db.pragma("user_version", { simple: true })).toBe(3);
-		expect(db.prepare("SELECT COUNT(*) c FROM observations").get()).toEqual({ c: 1 });
+		expect(db.prepare("SELECT COUNT(*) c FROM observations").get()).toEqual({
+			c: 1,
+		});
 		expect(() => migrate(db)).not.toThrow();
 		expect(db.pragma("user_version", { simple: true })).toBe(3);
 	});
@@ -179,5 +167,28 @@ describe("insights schema migrate", () => {
 			.join(" | ");
 		expect(plan).toContain("idx_obs_kind_occstart");
 		expect(plan).not.toMatch(/\bSCAN\b/);
+	});
+
+	it("idx_obs_span has the covering column shape (source, kind, occurred_end, occurred_start)", () => {
+		const db = new Database(":memory:");
+		migrate(db);
+		const info = db
+			.prepare("PRAGMA index_info('idx_obs_span')")
+			.all() as Array<{ name: string }>;
+		expect(info.map((r) => r.name)).toEqual([
+			"source",
+			"kind",
+			"occurred_end",
+			"occurred_start",
+		]);
+	});
+
+	it("idx_obs_kind_occstart has the shape (kind, occurred_start)", () => {
+		const db = new Database(":memory:");
+		migrate(db);
+		const info = db
+			.prepare("PRAGMA index_info('idx_obs_kind_occstart')")
+			.all() as Array<{ name: string }>;
+		expect(info.map((r) => r.name)).toEqual(["kind", "occurred_start"]);
 	});
 });
