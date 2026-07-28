@@ -4,6 +4,18 @@
 // main window. `open()` focuses the existing window if one is already live
 // instead of spawning a second one.
 //
+// Lifecycle coupling to the main window/app quit is NOT this module's job —
+// it lives in electron/main/index.ts, where `mainWindow` and `app` exist:
+// the singleton must be force-closed via `close(false)` on the main
+// window's `closed` event AND on `app.on("before-quit")`, or (a) macOS's
+// hide-on-close (electron/main/lifecycle.ts) can leave the dashboard open
+// against a hidden main window, and (b) on Windows/Linux the dashboard
+// BrowserWindow keeps Electron from ever seeing "all windows closed",
+// leaving the app un-quittable after the main window is gone. index.ts's
+// notifyMain callback additionally `show()`s + `focus()`s the main window
+// on a `reattach: true` close, so a reattach from the dashboard is visible
+// even if the main window was hidden (not closed) at the time.
+//
 // Preload/renderer path depth: this module is a plain static import of
 // electron/main/index.ts (not a separate electron.vite.config.ts main
 // rollupOptions.input entry like usage-worker.ts/insights-worker.ts), so it
@@ -29,6 +41,10 @@ export function createInsightsWindowService(
 			win.focus();
 			return;
 		}
+		// Reset stale intent from a prior close cycle: without this, a leftover
+		// `true` from an earlier reattach could mislabel THIS new window's own
+		// eventual close (e.g. a plain OS-chrome close) as a reattach.
+		closingForReattach = false;
 		win = new BrowserWindow({
 			width: 1120,
 			height: 720,
@@ -52,9 +68,15 @@ export function createInsightsWindowService(
 			);
 		}
 		win.on("closed", () => {
-			notifyMain({ reattach: closingForReattach });
-			closingForReattach = false;
+			// Snapshot + clear state BEFORE notifying: notifyMain sends a
+			// synchronous IPC message that main can react to by re-entering
+			// open()/close() (e.g. reopening the overlay), so `win` and
+			// `closingForReattach` must already read "no window open" before
+			// that happens, not after.
+			const reattach = closingForReattach;
 			win = null;
+			closingForReattach = false;
+			notifyMain({ reattach });
 		});
 	}
 

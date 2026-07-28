@@ -895,10 +895,27 @@ app.whenReady().then(async () => {
 	// `payload.reattach` tells it whether to reopen the overlay (decision 3:
 	// an OS-driven close must NOT reopen it).
 	const insightsWindows = createInsightsWindowService((payload) => {
-		if (!mainWindow.isDestroyed()) {
-			mainWindow.webContents.send("insights:windowClosed", payload);
+		if (mainWindow.isDestroyed()) return;
+		// Reattach: `show()` + `focus()` BEFORE sending the push. The main
+		// window can be merely HIDDEN (not closed) here — macOS's
+		// hide-on-close (lifecycle.ts) intercepts red-X and hides rather than
+		// destroys it — so without this, reattaching would reopen the overlay
+		// inside a window the user can't see.
+		if (payload.reattach) {
+			mainWindow.show();
+			mainWindow.focus();
 		}
+		mainWindow.webContents.send("insights:windowClosed", payload);
 	});
+	// Force-close the singleton on the main window's real close and on a
+	// real app quit — insights-window.ts's own doc comment explains why this
+	// coupling has to live here: otherwise (a) the dashboard can outlive a
+	// hidden-not-closed main window on macOS, and (b) on Windows/Linux the
+	// live dashboard BrowserWindow keeps "window-all-closed" from ever
+	// firing, leaving the app un-quittable once the main window is gone.
+	// `close(false)` is a no-op when no dashboard window is open.
+	mainWindow.on("closed", () => insightsWindows.close(false));
+	app.on("before-quit", () => insightsWindows.close(false));
 
 	const { dispose, terminalService } = registerIpcHandlers(mainWindow, {
 		workspacePersistence,

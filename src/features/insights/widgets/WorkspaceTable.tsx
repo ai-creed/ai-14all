@@ -38,16 +38,24 @@ export function WorkspaceTable({
 				{rows.map((r, i) => {
 					const last = i === rows.length - 1 ? " row-last" : "";
 					const widthPct = (r.tokens / maxTokens) * 100;
+					// Every cell of a row carries the SAME per-row testid (rows sort
+					// tokens-desc, so DOM/visual order never identifies a specific
+					// workspace's row — e.g. the untracked row can sort first) —
+					// combined with the cell's own class it unambiguously scopes to
+					// "this row's runs cell" / "this row's tokens cell" without
+					// depending on sort position. `r.key` is the workspace's registry
+					// id (or UNTRACKED_KEY), stable per row.
+					const rowTestId = `ws-row-${r.key}`;
 					return (
 						<Fragment key={r.key}>
-							<div className={`cell${last}`}>
+							<div className={`cell${last}`} data-testid={rowTestId}>
 								<div className="ws-name">{r.name}</div>
 								<div className="ws-path">{r.detail}</div>
 							</div>
-							<div className={`cell ws-runs${last}`}>
+							<div className={`cell ws-runs${last}`} data-testid={rowTestId}>
 								<RunsBreakdown counts={r.runs} />
 							</div>
-							<div className={`cell${last}`}>
+							<div className={`cell${last}`} data-testid={rowTestId}>
 								{usageDisabled ? null : (
 									<div
 										className="ws-share"
@@ -66,10 +74,10 @@ export function WorkspaceTable({
 									</div>
 								)}
 							</div>
-							<div className={`cell r ws-tok${last}`}>
+							<div className={`cell r ws-tok${last}`} data-testid={rowTestId}>
 								{usageDisabled ? "—" : fmtTokens(r.tokens)}
 							</div>
-							<div className={`cell r ws-cost${last}`}>
+							<div className={`cell r ws-cost${last}`} data-testid={rowTestId}>
 								{usageDisabled ? "—" : fmtCostUsd(r.costUsd)}
 							</div>
 						</Fragment>

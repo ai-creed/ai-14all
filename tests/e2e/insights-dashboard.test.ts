@@ -210,6 +210,17 @@ test("AC1: command palette entry opens the overlay", async () => {
 // workspace registry rows as the overlay (AC5).
 test("AC2: detach → singleton window with LIVE pulled token data; reattach reverses; OS-close never reopens", async () => {
 	const repoName = basename(repo.repoPath);
+	// The real persisted workspaceId — not reverse-engineered from repoPath/
+	// repoId here, but read off the SAME restore-state contract
+	// workspaceIndex.ts uses — so the zero-row assertion below can scope to
+	// THIS workspace's row specifically. Rows sort tokens-desc (§4.8), so
+	// nothing about DOM/visual order identifies "the named workspace's row":
+	// the untracked row (which carries the seeded 12M tokens) sorts first.
+	const wsId = await page.evaluate(async () => {
+		const state = await window.ai14all.workspace.readRestoreState();
+		return state.workspaces[0]?.workspaceId ?? null;
+	});
+	expect(wsId).not.toBeNull();
 
 	await page.click(".insights-entry-button");
 	await page.click('[title="Detach into its own window"]');
@@ -240,11 +251,19 @@ test("AC2: detach → singleton window with LIVE pulled token data; reattach rev
 	await expect(
 		dash.locator(".idb-ws-grid .ws-name", { hasText: repoName }),
 	).toBeVisible();
-	// …and it is a ZERO row (seeded, not data-driven):
-	const zeroRow = dash.locator(".idb-ws-grid .cell.ws-runs", {
-		hasText: "0 done · 0 halted · 0 failed",
-	});
-	await expect(zeroRow.first()).toBeVisible();
+	// …and it is a ZERO row for THIS workspace specifically (seeded, not
+	// data-driven) — scoped by `[data-testid="ws-row-<id>"]` combined with
+	// each cell's own class (WorkspaceTable.tsx stamps the SAME testid on
+	// every cell of a row). An unscoped `.first()` over ALL rows' runs cells
+	// would resolve to whichever row sorts first — here the untracked row
+	// (highest tokens), which also happens to have zero runs in this range,
+	// so it would pass vacuously without ever checking the named row.
+	await expect(
+		dash.locator(`[data-testid="ws-row-${wsId}"].ws-runs`),
+	).toHaveText("0 done · 0 halted · 0 failed");
+	await expect(
+		dash.locator(`[data-testid="ws-row-${wsId}"].ws-tok`),
+	).toHaveText("0M");
 
 	// detach again focuses the SAME window (singleton — still exactly 2 windows):
 	await page.click(".insights-entry-button"); // overlay reopens in main
