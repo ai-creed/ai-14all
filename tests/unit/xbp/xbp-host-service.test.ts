@@ -1,14 +1,23 @@
+// Real @xavier/xbp Peer crypto (used by the hasLivePhoneConnection() service-
+// wiring tests below) signs/verifies via libsodium-wrappers, which throws
+// under jsdom's realm ("unsupported input type for message" — a Uint8Array
+// identity mismatch). This file needs the node environment, not the repo's
+// jsdom unit default.
+// @vitest-environment node
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	connectWebSocketClient,
 	createNodeSodiumBackend,
 	deriveHostId,
 	fromHex,
 	generateIdentity,
+	Peer,
 	toHex,
 } from "@xavier/xbp/node";
+import { sessionReportCapability } from "@ai-creed/command-contract";
 import {
 	XbpHostService,
 	isLiveConnection,
@@ -52,6 +61,7 @@ function makeService(
 			attach: (socket: AttachableSocket) => void,
 		) => void;
 		onStatusChange?: () => void;
+		now?: () => number;
 	} = {},
 ) {
 	const {
@@ -640,5 +650,97 @@ describe("isLiveConnection (push-wake suppress signal)", () => {
 				at + PUSH_WAKE_CONNECTED_WINDOW_MS,
 			),
 		).toBe(true);
+	});
+});
+
+// Class-seam coverage for Task 4's consumed signal: isLiveConnection above is
+// exercised as a pure predicate only, so hasLivePhoneConnection() itself
+// (the wiring at start() binding getInboundGeneration to the real LAN
+// transport) had zero coverage. These tests drive a real paired phone over
+// the real WebSocket LAN listener so the killGuard stamp and the transport's
+// generation bookkeeping are proven together, the way Task 4's watcher will
+// actually observe them.
+async function connectAuthedPhone(
+	svc: XbpHostService,
+	port: number,
+	phone: ReturnType<typeof generateIdentity>,
+) {
+	const backend = await createNodeSodiumBackend();
+	const offer = await svc.startPairing(); // only to learn the host's public keys
+	const transport = await connectWebSocketClient(`ws://127.0.0.1:${port}`);
+	const client = new Peer({ backend, identity: phone, transport });
+	const hostNode = client.addPeer(
+		fromHex(offer.signPubHex),
+		fromHex(offer.boxPubHex),
+		[],
+	);
+	client.start();
+	return { client, hostNode, transport };
+}
+
+describe("hasLivePhoneConnection (push-wake v2 §3 gate 2 — service-level wiring)", () => {
+	it("is false before any call, true right after a real authenticated call, and false again once the recency window lapses while the socket stays open", async () => {
+		const backend = await createNodeSodiumBackend();
+		const dir = mkdtempSync(join(tmpdir(), "xbp-livephone-"));
+		const phone = generateIdentity(backend);
+		new XbpPairedDeviceStore({ dir, secureStorage: okStorage }).save({
+			signPubHex: toHex(phone.sign.publicKey),
+			boxPubHex: toHex(phone.box.publicKey),
+			pairedAt: 1,
+		});
+		let currentTime = 1_700_000_000_000;
+		svc = makeService({ dir, now: () => currentTime });
+		const { port } = await svc.start();
+		expect(svc.hasLivePhoneConnection()).toBe(false); // nothing has called in yet
+
+		const { client, hostNode, transport } = await connectAuthedPhone(
+			svc,
+			port!,
+			phone,
+		);
+		await expect(
+			client.call(hostNode, sessionReportCapability, {}),
+		).resolves.toMatchObject({ mode: "ready" });
+
+		expect(svc.hasLivePhoneConnection()).toBe(true);
+
+		// Recency lapse: the socket is still open, only the clock moved.
+		currentTime += PUSH_WAKE_CONNECTED_WINDOW_MS + 1;
+		expect(svc.hasLivePhoneConnection()).toBe(false);
+
+		client.stop();
+		await transport.close();
+	});
+
+	it("flips false the moment the stamped socket closes, even inside the recency window", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "xbp-livephone-close-"));
+		const backend = await createNodeSodiumBackend();
+		const phone = generateIdentity(backend);
+		new XbpPairedDeviceStore({ dir, secureStorage: okStorage }).save({
+			signPubHex: toHex(phone.sign.publicKey),
+			boxPubHex: toHex(phone.box.publicKey),
+			pairedAt: 1,
+		});
+		svc = makeService({ dir });
+		const { port } = await svc.start();
+
+		const { client, hostNode, transport } = await connectAuthedPhone(
+			svc,
+			port!,
+			phone,
+		);
+		await expect(
+			client.call(hostNode, sessionReportCapability, {}),
+		).resolves.toMatchObject({ mode: "ready" });
+		expect(svc.hasLivePhoneConnection()).toBe(true);
+
+		client.stop();
+		await transport.close(); // closes the real socket the stamp is bound to
+
+		// The server-side close event lands asynchronously; poll rather than
+		// assume it has already been processed by the time close() resolves.
+		await vi.waitFor(() => {
+			expect(svc!.hasLivePhoneConnection()).toBe(false);
+		});
 	});
 });
