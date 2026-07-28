@@ -27,21 +27,34 @@ type FsSeam = {
 	renameSync: typeof renameSync;
 };
 
+// Arrays satisfy `typeof === "object"` but are never valid namespaces here —
+// an accepted array-shaped `sessions` would read as ESTABLISHED-empty and put
+// an already-waiting session on the first-sight firing path (a duplicate
+// ping, the forbidden direction). Reject them and non-string record entries;
+// every invalid shape must fall through to the null baseline.
+function isPlainRecord(v: unknown): v is Record<string, unknown> {
+	return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+function isStringArray(v: unknown): v is string[] {
+	return Array.isArray(v) && v.every((x) => typeof x === "string");
+}
+
 function isLegacyV1(v: unknown): v is PushWakeSeenState {
-	if (typeof v !== "object" || v === null) return false;
-	const s = v as PushWakeSeenState;
+	if (!isPlainRecord(v)) return false;
+	const s = v as unknown as PushWakeSeenState;
 	return (
-		typeof s.workflows === "object" &&
-		s.workflows !== null &&
-		Array.isArray(s.pingedWorkflows) &&
-		Array.isArray(s.pingedChains)
+		isPlainRecord(s.workflows) &&
+		Object.values(s.workflows).every((x) => typeof x === "string") &&
+		isStringArray(s.pingedWorkflows) &&
+		isStringArray(s.pingedChains)
 	);
 }
 
 function isAttentionNamespace(v: unknown): v is PushWakeAttentionSeenState {
-	if (typeof v !== "object" || v === null) return false;
-	const sessions = (v as PushWakeAttentionSeenState).sessions;
-	if (typeof sessions !== "object" || sessions === null) return false;
+	if (!isPlainRecord(v)) return false;
+	const sessions = (v as unknown as PushWakeAttentionSeenState).sessions;
+	if (!isPlainRecord(sessions)) return false;
 	return Object.values(sessions).every(
 		(s) => s === "waiting" || s === "failed",
 	);

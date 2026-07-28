@@ -308,6 +308,28 @@ describe("push-wake watcher", () => {
 		expect(h.audits.map((a) => a.trigger)).toEqual(["attention-failed"]);
 	});
 
+	it("adversarial array-shaped state file loads as null and baselines silently — never the first-sight firing path", async () => {
+		// Valid JSON, invalid shape: if the store accepted `sessions: []` as an
+		// established namespace, the already-waiting session below would fire
+		// first-sight — a duplicate ping. It must baseline like corrupt state.
+		writeFileSync(
+			join(dir, "push-wake-state.json"),
+			JSON.stringify({
+				version: 2,
+				whisper: { workflows: [], pingedWorkflows: [], pingedChains: [] },
+				attention: { sessions: [] },
+				lastPingAt: null,
+			}),
+		);
+		h.report = { sessions: [att("wt-1", "waiting")] }; // already waiting
+		await h.watcher.tick(); // must be a null-load baseline
+		expect(h.sends).toBe(0);
+		expect(h.audits).toEqual([]);
+		h.report = { sessions: [att("wt-1", "waiting"), att("wt-2", "failed")] };
+		await h.watcher.tick(); // later fresh transition fires normally
+		expect(h.sends).toBe(1);
+	});
+
 	it("restart continuity (ported regression): baselined running workflow fires on the first post-restart done snapshot, then never re-pings", async () => {
 		h.whisper = [wf("A", "running")];
 		await h.watcher.tick(); // eventless whisper baseline — must be PERSISTED

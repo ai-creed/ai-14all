@@ -86,6 +86,51 @@ describe("PushWakeStateStore v2", () => {
 		expect(new PushWakeStateStore({ dir }).load()).toBeNull();
 	});
 
+	it("rejects array-shaped namespaces and invalid record entries (duplicate-ping guard)", () => {
+		// typeof [] === "object": an accepted `sessions: []` would read as
+		// ESTABLISHED-empty, putting an already-waiting session on the
+		// first-sight FIRING path instead of the silent null baseline — the
+		// forbidden duplicate direction. Every shape here must load as null.
+		const invalid = [
+			{
+				version: 2,
+				whisper: { workflows: [], pingedWorkflows: [], pingedChains: [] },
+				attention: { sessions: [] },
+				lastPingAt: null,
+			},
+			{ version: 2, whisper: null, attention: [], lastPingAt: null },
+			{ version: 2, whisper: [], attention: null, lastPingAt: null },
+			{
+				version: 2,
+				whisper: {
+					workflows: { "wf-1": 7 },
+					pingedWorkflows: [],
+					pingedChains: [],
+				},
+				attention: null,
+				lastPingAt: null,
+			},
+			{
+				version: 2,
+				whisper: { workflows: {}, pingedWorkflows: [1], pingedChains: [] },
+				attention: null,
+				lastPingAt: null,
+			},
+			{
+				version: 2,
+				whisper: { workflows: {}, pingedWorkflows: [], pingedChains: [{}] },
+				attention: null,
+				lastPingAt: null,
+			},
+			// Array-shaped "legacy v1" must not migrate either.
+			{ workflows: [], pingedWorkflows: [], pingedChains: [] },
+		];
+		for (const doc of invalid) {
+			writeFileSync(join(dir, "push-wake-state.json"), JSON.stringify(doc));
+			expect(new PushWakeStateStore({ dir }).load()).toBeNull();
+		}
+	});
+
 	it("save writes tmp then renames (atomic order) and returns true", () => {
 		const calls: string[] = [];
 		const store = new PushWakeStateStore({
