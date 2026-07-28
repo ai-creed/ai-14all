@@ -657,9 +657,10 @@ export type Ai14AllDesktopApi = {
 		ackNotice(): Promise<void>;
 		// Typed read contract (spec §10.4 getWhisperRuns): fetch the whisper runs
 		// started within [range.fromMs, range.toMs) plus a coverage completeness
-		// flag. Resolves an InsightsReadResult envelope; capture-off resolves ok
-		// with empty data (never rejects) when capture is disabled (no worker) or
-		// the worker fails to answer in time.
+		// flag. Resolves an InsightsReadResult envelope; capture-off (no worker)
+		// resolves ok with empty data. A wedged worker (timeout), a mid-wipe read
+		// (busy), or a worker-side failure (query-failed) resolve ok: false with a
+		// typed reason. Never rejects.
 		query(range: { fromMs: number; toMs: number }): Promise<
 			InsightsReadResult<{
 				runs: InsightsWhisperRun[];
@@ -668,8 +669,10 @@ export type Ai14AllDesktopApi = {
 		>;
 		// Aggregated app-time read contract (spec §7): focused/engaged ms clipped
 		// to the range plus uptime-derived completeness. Resolves an
-		// InsightsReadResult envelope; capture-off resolves ok with empty data
-		// (never rejects) when capture is disabled or the worker does not answer.
+		// InsightsReadResult envelope; capture-off (no worker) resolves ok with
+		// empty data. A wedged worker (timeout), a mid-wipe read (busy), or a
+		// worker-side failure (query-failed) resolve ok: false with a typed
+		// reason. Never rejects.
 		queryAppTime(range: {
 			fromMs: number;
 			toMs: number;
