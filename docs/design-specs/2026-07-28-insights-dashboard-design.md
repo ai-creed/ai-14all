@@ -12,7 +12,9 @@ visibility predicates (`occurred_start`, not `event_ts`) with
 source-specific footer copy; round 4: app-time anchor spans all
 series-visible app kinds (live sessions have no `app.uptime` closure
 yet) and one untracked-usage inclusion rule for rows, tiles, and
-charts. Not yet implemented.
+charts; round 5: explicit workspace-level view-model aggregation
+(`buildWorkspaceRows`, §4.8) over the raw per-provider usage rows.
+Not yet implemented.
 
 ## 1. What this is
 
@@ -356,7 +358,12 @@ export type UsageRangeResult =
 	| {
 			ok: true;
 			days: DailyPoint[];        // one point per local day, dayStart ∈ [fromMs, toMs)
-			byWorkspace: UsageRow[];   // exact-range rollup; same matching as ScopeData.rows
+			// RAW grain, deliberately: one entry per (worktree | workspace-group |
+			// untracked) × provider — the same shape and matching as
+			// ScopeData.rows. The one-row-per-WORKSPACE table with its provider
+			// mix is a renderer view-model built from these rows (§4.8); the wire
+			// result stays at the grain the ledger naturally produces.
+			byWorkspace: UsageRow[];
 			byProvider: ScopeRollupRow[];
 			cost: CostSnapshot;        // priced for exactly this range
 			earliestDayMs: number | null; // earliest ledger day with data (drives `all`)
@@ -415,15 +422,67 @@ export type UsageRangeResult =
 - **Tiles:** focused/engaged = Σ series buckets in the selected range;
   runs = `insights.query` results filtered to the range; tokens/cost =
   Σ `days` in the range from `usage.queryRange`.
-- **Workspaces view:** all `byWorkspace` rows (tokens, provider mix,
-  `≈ $ est` cost), **including the labeled untracked row — never
-  filtered** (decision 14), joined with the client-side run grouping
-  for the same range; sorted by tokens desc; the totals row sums the
-  displayed rows and — because tiles and table read the same unfiltered
-  sums — **exactly** equals the overview tiles for the same range
+- **Workspaces view:** rows are the §4.8 view-model built from **all**
+  `byWorkspace` rows (never filtered, decision 14) joined with the
+  client-side run grouping for the same range; the totals row is the
+  §4.8 totals and therefore **exactly** equals the overview tiles
   (AC5). No app-time column (§9).
 - **Fetch cadence:** on mount, on range/view change, on a 30 s poll while
   visible, and on manual retry from the error state.
+
+### 4.8 Workspace view-model (`buildWorkspaceRows`)
+
+The raw `byWorkspace` rows are (worktree | workspace-group | untracked)
+× provider grain (§4.6); rendering them directly would show one line
+per provider and per worktree. A **pure renderer function**
+(`src/features/insights/workspaceRows.ts`) folds them into exactly the
+table the prototype shows — one row per workspace plus one untracked
+row:
+
+```ts
+interface WorkspaceRowVM {
+	key: string;    // workspaceId, or "untracked"
+	name: string;   // workspace title; "untracked" for the null group
+	detail: string; // e.g. "~/Dev/ai-14all · 4 worktrees" / "outside managed workspaces"
+	runs: { done: number; halted: number; failed: number };
+	mix: Array<{ provider: AgentProviderId; tokens: number }>; // desc; drives the share bar
+	tokens: number;         // billable, all providers/worktrees in the group
+	costUsd: number | null; // Σ non-null group costUsd; null when nothing priced
+}
+
+function buildWorkspaceRows(
+	usageRows: UsageRow[],             // queryRange().byWorkspace, unfiltered
+	runGroups: Map<string, { done: number; halted: number; failed: number }>,
+	                                   // insights.query runs grouped by repoId
+	workspaces: WorkspaceIndex,        // renderer registry: workspaceId →
+	                                   //   { title, repoId, rootPath, worktreeCount }
+): { rows: WorkspaceRowVM[]; totals: Pick<WorkspaceRowVM, "runs" | "tokens" | "costUsd"> }
+```
+
+Rules:
+
+- **Grouping is a partition:** group key `workspaceId ?? "untracked"`.
+  Every usage row lands in exactly one group, so `Σ rows[].tokens`
+  equals the raw total by construction — nothing dropped, nothing
+  double-counted, and per-provider/per-worktree duplicates cannot reach
+  the UI.
+- **Provider mix:** per-provider token subtotals within the group,
+  sorted desc; the share bar renders these proportions, the tooltip
+  states the numbers. Invariant: `Σ mix[].tokens === tokens` for every
+  row.
+- **Cost:** sum of the group's non-null `costUsd`; `null` (rendered `—`)
+  only when no row in the group is priced. Always labeled `≈ … est`.
+- **Runs join:** run groups key on `repoId`; a workspace matches
+  through the repository identity in the renderer registry. Run groups
+  with no matching workspace fold into the untracked row's triple —
+  runs are never dropped — so `Σ rows[].runs` equals the overview run
+  tiles.
+- **Name/detail:** workspace title from the renderer registry
+  (fallback: the group's first `worktreeTitle`); untracked uses the
+  prototyped `untracked / outside managed workspaces` copy.
+- **Sort & totals:** rows sorted by tokens desc; `totals` sums the VM
+  rows and — by the partition arguments above — equals the overview
+  tiles for the same range.
 
 ## 5. Components & files
 
@@ -437,6 +496,8 @@ export type UsageRangeResult =
   `WorkspaceTable.tsx`.
 - `src/features/insights/bucketEdges.ts` — the shared local-calendar edge
   generator + week-fold helpers (decision 12).
+- `src/features/insights/workspaceRows.ts` — the pure
+  `buildWorkspaceRows` view-model fold (§4.8).
 - `src/features/insights/useInsightsDashboardData.ts` — range/view state
   + the fetch orchestration of §4.5/§4.7 (coverageAnchors + queryRange →
   domain → series/runs), envelope handling (§2.13), poll + retry.
@@ -570,16 +631,18 @@ export type UsageRangeResult =
   claims data older than what the store still holds, and never hides
   data the store does hold. Footer copy matches §6; aggregate and
   detailed sources are never summed.
-- **AC5 — workspaces view.** Table rows come from
-  `usage.queryRange().byWorkspace` for the exact selected range (tokens,
-  provider-mix share bar, `≈ $ est`) joined with runs grouped from
-  `insights.query` (done/halted/failed in status colors); sorted by
-  tokens; **one inclusion rule** (decision 14): the untracked row is
-  always displayed and untracked buckets are in every sum, so the
-  totals row **exactly** equals the overview tiles for the same range —
-  both read the same unfiltered sums; the popover's `includeUntracked`
-  preference has no effect on this surface; no per-row share rounding
-  anywhere.
+- **AC5 — workspaces view.** Table rows are the §4.8
+  `buildWorkspaceRows` view-model over `usage.queryRange().byWorkspace`
+  for the exact selected range: **exactly one row per workspace plus
+  one untracked row** — never a row per provider or per worktree — each
+  with its provider-mix share bar (`Σ mix tokens = row tokens`), `≈ $
+  est` cost, and runs joined by `repoId` (done/halted/failed in status
+  colors; unmatched run groups fold into untracked); sorted by tokens;
+  **one inclusion rule** (decision 14): untracked buckets are in every
+  sum and the untracked row always renders, so the totals row
+  **exactly** equals the overview tiles for the same range; the
+  popover's `includeUntracked` preference has no effect on this
+  surface; no per-row share rounding anywhere.
 - **AC6 — states & errors.** Loading/empty/error render the designed
   states; empty (capture off) and error (store failure) are
   distinguishable per the §4.1 envelope; a transient query failure
@@ -620,12 +683,16 @@ and never the merged `app time & runs since` copy (AC4/§6);
 session (`start → focus → idle poll`: closed `app.focused`/`app.engaged`
 spans, **no** `app.uptime` row) reports a non-null `appRetainedSinceMs`
 equal to the earliest span's `occurred_start`, and the state derivation
-does not choose the empty state (AC4/AC6); (f) **untracked
-aggregation** — a range fixture with tracked and untracked buckets and
-`includeUntracked: false` in the snapshot config: `byWorkspace`
-contains the untracked row, and
-`Σ byWorkspace.tokens = Σ days = Σ byProvider.tokens` — the displayed
-table total equals the tiles (AC5).
+does not choose the empty state (AC4/AC6); (f) **workspace view-model aggregation** — a
+`buildWorkspaceRows` fixture with two workspaces (one spanning two
+worktrees), three providers, untracked buckets, and
+`includeUntracked: false` in the snapshot config: the result has
+exactly one row per workspace plus one untracked row (no
+provider/worktree duplicates); every row satisfies
+`Σ mix[].tokens === tokens`; row costs sum to the range `cost.total`;
+a run group with no matching workspace folds into the untracked row;
+and `Σ rows.tokens = Σ days = Σ byProvider.tokens` with
+`totals` equal to the overview-tile sums (AC5).
 
 ## 9. Follow-up ledger (explicitly out of slice 1)
 
