@@ -1,11 +1,11 @@
 import type Database from "better-sqlite3";
+import type { CoverageAnchorsResult } from "../worker-protocol.js";
 import { getMeta } from "./meta.js";
 
-export interface CoverageAnchorsResult {
-	firstCaptureAt: number | null;
-	appRetainedSinceMs: number | null;
-	runsRetainedSinceMs: number | null;
-}
+// `CoverageAnchorsResult` is declared ONCE, in worker-protocol.ts (Task 4) —
+// it is the wire type. Re-exported here so callers can import it beside
+// getCoverageAnchors.
+export type { CoverageAnchorsResult };
 
 // Leftmost seek on idx_obs_kind_occstart (schema v3). MIN ignores NULL
 // occurred_start rows — exactly the rows the range predicates also exclude

@@ -5,6 +5,8 @@ import { utcDay } from "./store/time.js";
 import { insertObservation } from "./store/observations.js";
 import { getWhisperRuns } from "./store/views.js";
 import { getAppTime } from "./store/app-time-view.js";
+import { getAppTimeSeries } from "./store/app-time-series.js";
+import { getCoverageAnchors } from "./store/coverage-anchors.js";
 import { archiveOnce } from "./whisper/archiver.js";
 import { pruneRetention } from "./retention.js";
 import type {
@@ -87,15 +89,34 @@ export function createInsightsWorkerCore(deps: WorkerCoreDeps) {
 						});
 						return;
 					}
+					if (msg.query.name === "appTimeSeries") {
+						deps.post({
+							kind: "seriesResult",
+							requestId: msg.requestId,
+							result: getAppTimeSeries(deps.db, msg.query.bucketEdgesMs),
+						});
+						return;
+					}
+					if (msg.query.name === "coverageAnchors") {
+						deps.post({
+							kind: "anchorsResult",
+							requestId: msg.requestId,
+							result: getCoverageAnchors(deps.db),
+						});
+						return;
+					}
 					deps.post({
 						kind: "queryResult",
 						requestId: msg.requestId,
 						result: getWhisperRuns(deps.db, msg.query.range),
 					});
 				} catch (e) {
+					// Correlated failure (spec §4.1): the pending promise on the host
+					// side must learn about this — an uncorrelated {kind:"error"} is
+					// invisible to it.
 					deps.post({
-						kind: "error",
-						scope: "query",
+						kind: "queryError",
+						requestId: msg.requestId,
 						message: String((e as Error).message ?? e),
 					});
 				}

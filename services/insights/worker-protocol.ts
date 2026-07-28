@@ -23,9 +23,24 @@ export interface AppTimeResult {
 	completeness: Completeness;
 }
 
+/** Bucketed app-time series result (spec §4.3). */
+export interface AppTimeSeriesResult {
+	buckets: Array<{ startMs: number; focusedMs: number; engagedMs: number }>;
+	completeness: Completeness;
+}
+
+/** Retention/coverage anchors result (spec §4.5). */
+export interface CoverageAnchorsResult {
+	firstCaptureAt: number | null;
+	appRetainedSinceMs: number | null;
+	runsRetainedSinceMs: number | null;
+}
+
 export type InsightsQuery =
 	| { name: "whisperRuns"; range: { fromMs: number; toMs: number } }
-	| { name: "appTime"; range: { fromMs: number; toMs: number } };
+	| { name: "appTime"; range: { fromMs: number; toMs: number } }
+	| { name: "appTimeSeries"; bucketEdgesMs: number[] }
+	| { name: "coverageAnchors" };
 
 export type MainToInsightsWorker =
 	| { kind: "config"; config: InsightsWorkerConfig }
@@ -47,7 +62,13 @@ export type InsightsWorkerToMain =
 	// A separate kind (rather than widening `queryResult`) keeps the Phase-1
 	// whisper read contract and its tests untouched.
 	| { kind: "appTimeResult"; requestId: string; result: AppTimeResult }
+	| { kind: "seriesResult"; requestId: string; result: AppTimeSeriesResult }
+	| { kind: "anchorsResult"; requestId: string; result: CoverageAnchorsResult }
 	| { kind: "ack"; eventId: string }
 	| { kind: "storeClosed"; requestId: string }
 	| { kind: "firstCapture" }
-	| { kind: "error"; scope: string; message: string };
+	| { kind: "error"; scope: string; message: string }
+	// Correlated query failure (spec §4.1): the pending promise on the host
+	// side needs the requestId to resolve/reject the right call — an
+	// uncorrelated `error` is invisible to it.
+	| { kind: "queryError"; requestId: string; message: string };

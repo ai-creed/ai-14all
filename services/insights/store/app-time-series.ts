@@ -1,12 +1,12 @@
 import type Database from "better-sqlite3";
 import { APP_FOCUS_SOURCE } from "../app-focus/span-observation.js";
+import type { AppTimeSeriesResult } from "../worker-protocol.js";
 import { uptimeCompleteness } from "./app-time-view.js";
-import type { Completeness } from "./coverage.js";
 
-export interface AppTimeSeriesResult {
-	buckets: Array<{ startMs: number; focusedMs: number; engagedMs: number }>;
-	completeness: Completeness;
-}
+// `AppTimeSeriesResult` is declared ONCE, in worker-protocol.ts (Task 4) — it
+// is the wire type. Re-exported here so callers can import it beside
+// getAppTimeSeries.
+export type { AppTimeSeriesResult };
 
 interface SpanRow {
 	occurred_start: number | null;

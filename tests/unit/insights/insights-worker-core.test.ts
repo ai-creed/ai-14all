@@ -114,6 +114,98 @@ describe("insights worker core", () => {
 	});
 });
 
+describe("query dispatch: appTimeSeries, coverageAnchors, correlated queryError", () => {
+	// Seeds one focused span directly via insertObservation (same fixture
+	// pattern the "answers a query with whisper runs" test above uses for
+	// whisper.workflow rows).
+	function seededCore() {
+		const db = new Database(":memory:");
+		migrate(db);
+		insertObservation(db, {
+			eventId: "e1",
+			kind: "app.focused",
+			source: "app-focus-collector",
+			subjectId: "app",
+			eventTs: 2000,
+			tsPrecision: "exact",
+			occurredStart: 1000,
+			occurredEnd: 2000,
+			parserVersion: 1,
+			schemaVersion: 1,
+			ingestedAt: 1,
+			origin: "n/a",
+			appRunId: "run-1",
+			repoId: null,
+			workspaceRel: null,
+			branch: null,
+			payload: { reason: "poll" },
+		});
+		const posted: InsightsWorkerToMain[] = [];
+		const core = createInsightsWorkerCore({
+			db,
+			reader: stubReader(),
+			now: () => 1,
+			post: (m) => posted.push(m),
+		});
+		return { db, posted, core };
+	}
+
+	it("dispatches appTimeSeries and coverageAnchors as correlated results", () => {
+		const { posted, core } = seededCore();
+		core.handleMessage({
+			kind: "query",
+			requestId: "s-1",
+			query: { name: "appTimeSeries", bucketEdgesMs: [0, 60_000] },
+		});
+		core.handleMessage({
+			kind: "query",
+			requestId: "c-1",
+			query: { name: "coverageAnchors" },
+		});
+		const kinds = posted.map((m) => m.kind);
+		expect(kinds).toContain("seriesResult");
+		expect(kinds).toContain("anchorsResult");
+
+		const series = posted.find(
+			(m): m is Extract<InsightsWorkerToMain, { kind: "seriesResult" }> =>
+				m.kind === "seriesResult",
+		);
+		expect(series?.requestId).toBe("s-1");
+		expect(series?.result.buckets).toHaveLength(1);
+		expect(series?.result.buckets[0]).toEqual({
+			startMs: 0,
+			focusedMs: 1000,
+			engagedMs: 0,
+		});
+
+		const anchors = posted.find(
+			(m): m is Extract<InsightsWorkerToMain, { kind: "anchorsResult" }> =>
+				m.kind === "anchorsResult",
+		);
+		expect(anchors?.requestId).toBe("c-1");
+		expect(anchors?.result.appRetainedSinceMs).toBe(1000);
+	});
+
+	it("a throwing query posts queryError WITH the requestId (never uncorrelated error)", () => {
+		const { db, posted, core } = seededCore();
+		db.close(); // force any store read in the query handler to throw
+		core.handleMessage({
+			kind: "query",
+			requestId: "q-9",
+			query: { name: "whisperRuns", range: { fromMs: 0, toMs: 1 } },
+		});
+		const err = posted.find(
+			(m): m is Extract<InsightsWorkerToMain, { kind: "queryError" }> =>
+				m.kind === "queryError",
+		);
+		expect(err).toBeDefined();
+		expect(err?.requestId).toBe("q-9");
+		expect(posted.some((m) => m.kind === "error" && m.scope === "query")).toBe(
+			false,
+		);
+	});
+});
+
 describe("producerEvent (atomic write, ack after commit)", () => {
 	const obs = (id: string, start: number, end: number) => ({
 		eventId: id,
