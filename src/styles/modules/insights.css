@@ -1,0 +1,634 @@
+/* Insights dashboard module. Component rules in app.components; per-theme
+ * structural overrides in app.themes (spec §4.2). Theme COLOR variance
+ * belongs in tokens.css, not here. Selectors transcribed verbatim (values
+ * unchanged) from the approved prototype's Stage style block
+ * (docs/design-specs/2026-07-28-insights-dashboard-prototype.html) — the
+ * source of truth for values; prototype-only scaffolding (body, .controls*,
+ * .stage*, .ctl-btn, token blocks, prefers-reduced-motion, page-wash, and
+ * the prototype's static-markup #ov-body/#ws-body view-toggle IDs, which the
+ * real component switches via conditional rendering) is dropped. */
+@layer app.components {
+	.idb-shell {
+		width: min(1080px, 100%);
+	}
+	.idb-titlebar {
+		display: none;
+		align-items: center;
+		gap: var(--space-2);
+		padding: 5px var(--space-3);
+		background: var(--popover);
+		border: var(--shell-border-width) solid var(--border);
+		border-bottom: none;
+		font-size: 10px;
+		color: var(--muted-foreground);
+		letter-spacing: 0.04em;
+	}
+	.idb-shell.is-window .idb-titlebar {
+		display: flex;
+	}
+	.idb-titlebar .tb-title {
+		flex: 1;
+		text-align: center;
+	}
+	.tb-btn {
+		background: none;
+		border: none;
+		color: var(--muted-foreground);
+		cursor: pointer;
+		font-size: 10px;
+		padding: 1px 6px;
+		transition: color 150ms ease;
+	}
+	.tb-btn:hover {
+		color: var(--foreground);
+	}
+
+	/* Dashboard frame */
+	.idb-frame {
+		background: var(--card);
+		border: var(--shell-border-width) solid var(--border);
+		border-radius: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	.idb-head {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		padding: var(--space-2) var(--space-3);
+		border-bottom: var(--shell-border-width) solid var(--border);
+	}
+	.idb-title {
+		font-size: 11px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--muted-foreground);
+	}
+	.idb-title b {
+		color: var(--foreground);
+		font-weight: 600;
+	}
+	.idb-head .spacer {
+		flex: 1;
+	}
+	.idb-seg {
+		display: inline-flex;
+		background: var(--background);
+		border: var(--shell-border-width) solid var(--border);
+		border-radius: 0;
+		overflow: hidden;
+	}
+	.idb-seg button {
+		padding: 3px 10px;
+		font-size: 10px;
+		letter-spacing: 0.04em;
+		color: var(--muted-foreground);
+		background: none;
+		border: none;
+		cursor: pointer;
+		transition:
+			color 150ms ease,
+			background 150ms ease;
+	}
+	.idb-seg button.on {
+		background: var(--popover);
+		color: var(--foreground);
+	}
+	.idb-seg button:hover:not(.on) {
+		color: var(--foreground);
+	}
+	.idb-act {
+		background: none;
+		border: var(--shell-border-width) solid var(--border);
+		color: var(--muted-foreground);
+		border-radius: 0;
+		padding: 2px var(--space-2);
+		font-size: 10px;
+		cursor: pointer;
+		white-space: nowrap;
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		transition:
+			color 150ms ease,
+			border-color 150ms ease;
+	}
+	.idb-act:hover {
+		border-color: var(--muted-foreground);
+		color: var(--foreground);
+	}
+	.idb-shell.is-window .idb-act--detach {
+		display: none;
+	}
+
+	/* headline stat tiles */
+	.idb-stats {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		border-bottom: var(--shell-border-width) solid var(--border);
+	}
+	.idb-stat {
+		padding: var(--space-3);
+		border-right: var(--shell-border-width) solid var(--border);
+		min-width: 0;
+	}
+	.idb-stat:last-child {
+		border-right: none;
+	}
+	.idb-stat .k {
+		font-size: 9px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--muted-foreground);
+		margin-bottom: 6px;
+	}
+	.idb-stat .v {
+		font-size: 22px;
+		font-weight: 700;
+		color: var(--foreground);
+		font-variant-numeric: tabular-nums;
+		line-height: 1.1;
+	}
+	.idb-stat .s {
+		font-size: 10px;
+		color: var(--muted-foreground);
+		margin-top: 4px;
+		font-variant-numeric: tabular-nums;
+	}
+	.idb-stat .s .ok {
+		color: var(--success);
+	}
+	.idb-stat .s .warn {
+		color: var(--warning);
+	}
+	.idb-stat .s .bad {
+		color: var(--danger);
+	}
+
+	/* widget grid (overview) */
+	.idb-grid {
+		display: grid;
+		grid-template-columns: 2fr 1fr;
+	}
+	.idb-cell {
+		padding: var(--space-3);
+		border-bottom: var(--shell-border-width) solid var(--border);
+		border-right: var(--shell-border-width) solid var(--border);
+		min-width: 0;
+	}
+	.idb-cell:nth-child(2n) {
+		border-right: none;
+	}
+	.idb-grid--half {
+		grid-template-columns: 1fr 1fr;
+	}
+	.idb-grid--half .idb-cell {
+		border-bottom: none;
+	}
+	.idb-cell-h {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: var(--space-2);
+		gap: var(--space-2);
+	}
+	.idb-cell-h .k {
+		font-size: 9px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--muted-foreground);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.idb-legend {
+		display: flex;
+		gap: var(--space-2);
+		font-size: 9px;
+		color: var(--muted-foreground);
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		white-space: nowrap;
+	}
+	.idb-legend .sw {
+		display: inline-block;
+		width: 8px;
+		height: 8px;
+		margin-right: 3px;
+		vertical-align: -1px;
+		border-radius: 0;
+	}
+
+	/* area chart (implementation: shadcn ChartContainer + Recharts AreaChart) */
+	.idb-area {
+		width: 100%;
+		height: 150px;
+		display: block;
+	}
+	.idb-area .grid-line {
+		stroke: var(--border);
+		stroke-width: 1;
+	}
+	.idb-area .axis-t {
+		font-size: 8px;
+		fill: var(--muted-foreground);
+		font-family: var(--font-ui);
+	}
+	.idb-area .area-foc {
+		fill: var(--muted-foreground);
+		fill-opacity: 0.18;
+		stroke: var(--muted-foreground);
+		stroke-width: 1.5;
+	}
+	.idb-area .area-eng {
+		fill: var(--primary);
+		fill-opacity: 0.28;
+		stroke: var(--primary);
+		stroke-width: 2;
+	}
+	.idb-area .today-line {
+		stroke: var(--primary);
+		stroke-width: 1;
+	}
+	.idb-area .cap-line {
+		stroke: var(--border);
+		stroke-width: 1;
+	}
+	.idb-labels {
+		display: flex;
+		gap: 2px;
+		margin-top: 3px;
+	}
+	.idb-label {
+		flex: 1;
+		min-width: 2px;
+		overflow: hidden;
+		font-size: 8px;
+		line-height: 1.2;
+		text-align: center;
+		color: var(--muted-foreground);
+	}
+	.idb-label.is-today {
+		color: var(--primary);
+		font-weight: 700;
+	}
+	.idb-labels.is-sparse .idb-label {
+		overflow: visible;
+		white-space: nowrap;
+		text-align: left;
+	}
+
+	/* rhythm: 24 hour columns */
+	.idb-rhythm {
+		display: flex;
+		align-items: flex-end;
+		gap: 1px;
+		height: 150px;
+	}
+	.idb-rcol {
+		flex: 1;
+		min-width: 2px;
+		background: none;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		height: 100%;
+	}
+	.idb-rcol .fill {
+		width: 100%;
+		background: var(--primary);
+	}
+	.idb-rcol.is-off .fill {
+		background: var(--muted);
+	}
+	.idb-rlabels {
+		display: flex;
+		gap: 1px;
+		margin-top: 3px;
+	}
+	.idb-rlabel {
+		flex: 1;
+		min-width: 2px;
+		font-size: 8px;
+		text-align: center;
+		color: var(--muted-foreground);
+		overflow: visible;
+		white-space: nowrap;
+	}
+
+	/* stacked bar charts (implementation: shadcn BarChart, stacked) */
+	.idb-bars {
+		display: flex;
+		align-items: flex-end;
+		gap: 2px;
+		height: 110px;
+	}
+	.idb-bars.is-dense {
+		gap: 1px;
+	}
+	.idb-bcol {
+		flex: 1;
+		min-width: 2px;
+		display: flex;
+		flex-direction: column-reverse;
+		align-items: stretch;
+		height: 100%;
+		justify-content: flex-start;
+	}
+	.idb-bcol .seg {
+		width: 100%;
+	}
+	.idb-bcol.is-today {
+		min-height: 2px;
+		box-shadow: inset 0 -2px 0 0 var(--primary);
+	}
+	.idb-bcol.is-precapture {
+		min-height: 2px;
+		box-shadow: inset 0 -2px 0 0 var(--border);
+	}
+	.seg--done {
+		background: var(--success);
+	}
+	.seg--halted {
+		background: var(--warning);
+	}
+	.seg--failed {
+		background: var(--danger);
+	}
+	.seg--active {
+		background: var(--info);
+	}
+	.seg--other {
+		background: var(--muted-foreground);
+	}
+	.seg--claude {
+		background: var(--provider-claude);
+	}
+	.seg--codex {
+		background: var(--provider-codex);
+	}
+	.seg--ezio {
+		background: var(--provider-ezio);
+	}
+	.sw--done {
+		background: var(--success);
+	}
+	.sw--halted {
+		background: var(--warning);
+	}
+	.sw--failed {
+		background: var(--danger);
+	}
+	.sw--active {
+		background: var(--info);
+	}
+	.sw--other {
+		background: var(--muted-foreground);
+	}
+	.sw--claude {
+		background: var(--provider-claude);
+	}
+	.sw--codex {
+		background: var(--provider-codex);
+	}
+	.sw--ezio {
+		background: var(--provider-ezio);
+	}
+	.sw--eng {
+		background: var(--primary);
+	}
+	.sw--foc {
+		background: var(--muted-foreground);
+	}
+
+	/* workspace view */
+	.idb-ws {
+		padding: var(--space-3);
+	}
+	.idb-ws-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 1.5fr) auto minmax(140px, 1fr) 76px 76px;
+		gap: 0 var(--space-3);
+		align-items: center;
+	}
+	.idb-ws-grid .hd {
+		font-size: 9px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--muted-foreground);
+		padding-bottom: 6px;
+		border-bottom: var(--shell-border-width) solid var(--border);
+	}
+	.idb-ws-grid .hd.r,
+	.idb-ws-grid .cell.r {
+		text-align: right;
+	}
+	.idb-ws-grid .cell {
+		padding: 7px 0;
+		border-bottom: var(--shell-border-width) solid var(--border);
+		font-variant-numeric: tabular-nums;
+		font-size: 11px;
+		min-width: 0;
+	}
+	.idb-ws-grid .row-last .cell {
+		border-bottom: none;
+	}
+	.ws-name {
+		font-size: 12px;
+		color: var(--foreground);
+		font-weight: 600;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.ws-path {
+		font-size: 10px;
+		color: var(--muted-foreground);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.ws-runs {
+		white-space: nowrap;
+		color: var(--muted-foreground);
+	}
+	.ws-runs .ok {
+		color: var(--success);
+	}
+	.ws-runs .warn {
+		color: var(--warning);
+	}
+	.ws-runs .bad {
+		color: var(--danger);
+	}
+	.ws-share {
+		height: 6px;
+		background: none;
+		display: flex;
+	}
+	.ws-share .p {
+		height: 100%;
+	}
+	.ws-share .p--claude {
+		background: var(--provider-claude);
+	}
+	.ws-share .p--codex {
+		background: var(--provider-codex);
+	}
+	.ws-share .p--ezio {
+		background: var(--provider-ezio);
+	}
+	.ws-tok {
+		color: var(--foreground);
+		font-weight: 600;
+	}
+	.ws-cost {
+		color: var(--muted-foreground);
+	}
+	.idb-ws-total {
+		display: grid;
+		grid-template-columns: minmax(0, 1.5fr) auto minmax(140px, 1fr) 76px 76px;
+		gap: 0 var(--space-3);
+		border-top: var(--shell-border-width) solid var(--border);
+		margin-top: -1px;
+		padding: 8px 0 0;
+		font-variant-numeric: tabular-nums;
+		font-size: 11px;
+		font-weight: 700;
+		color: var(--foreground);
+	}
+	.idb-ws-total .r {
+		text-align: right;
+	}
+	.idb-ws-note {
+		margin-top: var(--space-3);
+		font-size: 10px;
+		color: var(--muted-foreground);
+	}
+	.idb-ws-note .g {
+		color: var(--info);
+	}
+
+	/* footer */
+	.idb-foot {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--space-2) var(--space-3);
+		border-top: var(--shell-border-width) solid var(--border);
+		font-size: 10px;
+		color: var(--muted-foreground);
+	}
+	.idb-foot .is-partial {
+		color: var(--warning);
+	}
+
+	/* data states */
+	.idb-state {
+		display: none;
+		padding: var(--space-6) var(--space-4);
+		text-align: center;
+	}
+	.idb-state .glyph {
+		font-size: 26px;
+		color: var(--muted-foreground);
+		display: block;
+		margin-bottom: var(--space-2);
+	}
+	.idb-state .h {
+		font-size: 13px;
+		color: var(--foreground);
+		font-weight: 600;
+		margin-bottom: 4px;
+	}
+	.idb-state .p {
+		font-size: 11px;
+		color: var(--muted-foreground);
+		margin: 0 auto var(--space-3);
+		max-width: 420px;
+		line-height: 1.5;
+	}
+	.idb-state--error .glyph,
+	.idb-state--error .h {
+		color: var(--danger);
+	}
+	.idb-shell.state-loading .idb-stat .v {
+		color: var(--muted-foreground);
+	}
+	.idb-shell.state-loading .idb-body {
+		display: none;
+	}
+	.idb-shell.state-loading .idb-loading-line {
+		display: block;
+	}
+	.idb-loading-line {
+		display: none;
+		font-size: 11px;
+		color: var(--muted-foreground);
+		padding: var(--space-6) 0;
+		text-align: center;
+	}
+	.idb-shell.state-empty .idb-stats,
+	.idb-shell.state-empty .idb-body,
+	.idb-shell.state-error .idb-stats,
+	.idb-shell.state-error .idb-body {
+		display: none;
+	}
+	.idb-shell.state-empty .idb-state--empty {
+		display: block;
+	}
+	.idb-shell.state-error .idb-state--error {
+		display: block;
+	}
+
+	/* Recharts tooltip (ChartTooltipContent, src/components/ui/chart.tsx) */
+	.idb-tooltip {
+		background: var(--popover);
+		border: var(--shell-border-width) solid var(--border);
+		font-size: 10px;
+		padding: var(--space-1) var(--space-2);
+		border-radius: 0;
+		font-variant-numeric: tabular-nums;
+	}
+	.idb-tooltip__label {
+		color: var(--muted-foreground);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		font-size: 9px;
+		margin-bottom: 3px;
+	}
+	.idb-tooltip__row {
+		display: flex;
+		align-items: center;
+		color: var(--foreground);
+		white-space: nowrap;
+	}
+	.idb-tooltip__sw {
+		display: inline-block;
+		width: 8px;
+		height: 8px;
+		margin-right: 5px;
+		border-radius: 0;
+		flex-shrink: 0;
+	}
+}
+
+@layer app.themes {
+	/* AC7/§2.11: tui renders with ZERO motion on this surface — extends the
+	   base.css tui teardown ([data-state] zeroing) to all idb controls. */
+	[data-theme="tui"] .idb-shell *,
+	[data-theme="tui"] .idb-shell *::before,
+	[data-theme="tui"] .idb-shell *::after {
+		transition-duration: 0s !important;
+		animation-duration: 0s !important;
+	}
+	/* usage.css precedent: tui kills the inset baseline-tick shadow */
+	[data-theme="tui"] .idb-bcol.is-today,
+	[data-theme="tui"] .idb-bcol.is-precapture {
+		box-shadow: none;
+		border-bottom: 2px solid var(--primary);
+	}
+	[data-theme="tui"] .idb-bcol.is-precapture {
+		border-bottom-color: var(--border);
+	}
+}
