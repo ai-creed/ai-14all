@@ -464,6 +464,18 @@ const api: Ai14AllDesktopApi = {
 			ipcRenderer.on("insights:notice", listener);
 			return () => ipcRenderer.removeListener("insights:notice", listener);
 		},
+		detach() {
+			return ipcRenderer.invoke("insights:openWindow");
+		},
+		reattach() {
+			return ipcRenderer.invoke("insights:reattach");
+		},
+		onWindowClosed(listener: (e: { reattach: boolean }) => void) {
+			const fn = (_e: unknown, payload: { reattach: boolean }) =>
+				listener(payload);
+			ipcRenderer.on("insights:windowClosed", fn);
+			return () => ipcRenderer.removeListener("insights:windowClosed", fn);
+		},
 	},
 	reviewComments: {
 		list(worktreeId) {

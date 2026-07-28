@@ -264,9 +264,26 @@ function AppContent() {
 			}),
 		[appWorkspaces],
 	);
-	// Task 14 wires this to insights.detach() (the preload method does not
-	// exist yet); the overlay's ⧉ detach button is a no-op until then.
-	const handleInsightsDetach = useCallback(() => {}, []);
+	// ⧉ detach: main creates/focuses the singleton window (never
+	// window.open() from the renderer — design spec §2 decision 4), and the
+	// overlay unmounts immediately so it isn't showing behind the new window.
+	// Optional-chained: same defensive pattern as InsightsNotice's
+	// `window.ai14all?.insights?.…` — some test harnesses stub a partial
+	// `window.ai14all` and this must not throw there.
+	const handleInsightsDetach = useCallback(() => {
+		void window.ai14all?.insights?.detach();
+		setInsightsOpen(false);
+	}, []);
+
+	// The detached window's close is reported here for EVERY close path
+	// (detach-close, explicit reattach, and the user's own OS chrome close
+	// alike). Only an explicit reattach (payload.reattach) reopens the
+	// overlay — an OS-driven close must not (decision 3: chip state only).
+	useEffect(() => {
+		return window.ai14all?.insights?.onWindowClosed((payload) => {
+			if (payload.reattach) setInsightsOpen(true);
+		});
+	}, []);
 
 	const samanthaSliceBuilder = useRef(createSamanthaSliceBuilder());
 	const outputPreviewBuffersRef = useRef<Map<string, string>>(new Map());

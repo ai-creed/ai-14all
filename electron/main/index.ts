@@ -34,6 +34,7 @@ import { startUpdateService } from "./services/update-service.js";
 import { UsageHost, USAGE_SNAPSHOT_CHANNEL } from "./services/usage-host.js";
 import { createUsageSettingsBridge } from "./services/usage-settings-bridge.js";
 import { InsightsHost } from "./services/insights-host.js";
+import { createInsightsWindowService } from "./services/insights-window.js";
 import {
 	AppFocusCollector,
 	spanEmitter,
@@ -886,6 +887,19 @@ app.whenReady().then(async () => {
 		onCancelled: quitState.resetAbortedUpdateQuit,
 	});
 	closeGate.attach(mainWindow, { isQuitting: quitState.isQuitting });
+
+	// Detached insights window (Task 14, design spec §2 decision 4): the
+	// singleton is created/focused/closed only from main (never
+	// `window.open()` from a renderer). Every window close — detach-close,
+	// reattach, or the user's own OS chrome close — notifies the main window;
+	// `payload.reattach` tells it whether to reopen the overlay (decision 3:
+	// an OS-driven close must NOT reopen it).
+	const insightsWindows = createInsightsWindowService((payload) => {
+		if (!mainWindow.isDestroyed()) {
+			mainWindow.webContents.send("insights:windowClosed", payload);
+		}
+	});
+
 	const { dispose, terminalService } = registerIpcHandlers(mainWindow, {
 		workspacePersistence,
 		settingsService,
@@ -902,6 +916,8 @@ app.whenReady().then(async () => {
 		usageSettingsBridge: usageSettings,
 		getPhoneBridgeApplier: () => xbpService,
 		insightsHost,
+		openInsightsWindow: () => insightsWindows.open(),
+		closeInsightsWindow: (reattach: boolean) => insightsWindows.close(reattach),
 		// Redundant with the gate inside registerInsightsIpc, and deliberately so:
 		// it closes the wiring hop between here and there, so the seam cannot be
 		// made live by a mistake at either end.

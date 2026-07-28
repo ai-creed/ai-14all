@@ -160,6 +160,8 @@ export function registerIpcHandlers(
 		getPhoneBridgeApplier,
 		insightsHost,
 		insightsTestSeam,
+		openInsightsWindow,
+		closeInsightsWindow,
 		installUpdate,
 		closeGate,
 		getCortexEnabled,
@@ -190,6 +192,10 @@ export function registerIpcHandlers(
 		// constructed. registerInsightsIpc still gates it on AI14ALL_E2E, so this
 		// being supplied never makes the channel reachable in a production build.
 		insightsTestSeam?: InsightsTestSeam;
+		// Detached insights window lifecycle (Task 14), threaded through to
+		// registerInsightsIpc — see createInsightsWindowService.
+		openInsightsWindow?: () => void;
+		closeInsightsWindow?: (reattach: boolean) => void;
 		installUpdate?: () => void;
 		closeGate?: import("./close-gate.js").CloseGate;
 		getCortexEnabled: () => boolean;
@@ -747,6 +753,8 @@ export function registerIpcHandlers(
 			insightsTestSeam
 				? { seam: insightsTestSeam, env: process.env }
 				: undefined,
+			openInsightsWindow,
+			closeInsightsWindow,
 		);
 	}
 

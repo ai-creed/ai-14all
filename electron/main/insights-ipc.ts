@@ -56,6 +56,13 @@ export function registerInsightsIpc(
 	>,
 	setInsightsEnabled: (enabled: boolean) => void | Promise<void>,
 	testSeam?: { seam: InsightsTestSeam; env: { AI14ALL_E2E?: string } },
+	// Detached-window lifecycle (Task 14, design spec §2 decision 4): open()
+	// creates/focuses the singleton BrowserWindow; close(true) closes it AND
+	// signals the main window to reopen the overlay (reattach). Optional so
+	// every existing caller/test that constructs registerInsightsIpc without
+	// window support keeps compiling unchanged.
+	openInsightsWindow?: () => void,
+	closeInsightsWindow?: (reattach: boolean) => void,
 ): void {
 	ipcMain.handle("insights:setEnabled", async (_event, enabled: unknown) => {
 		await setInsightsEnabled(Boolean(enabled));
@@ -85,6 +92,18 @@ export function registerInsightsIpc(
 		host.queryAppTimeSeries(edges as number[]),
 	);
 	ipcMain.handle("insights:coverageAnchors", () => host.coverageAnchors());
+
+	// Detached window (design spec §2 decision 4): opened/closed only by main,
+	// never `window.open()` from the renderer. reattach() closes the window
+	// AND asks main to reopen the overlay (see notifyMain in insights-window.ts);
+	// an OS-driven close notifies main too, but with reattach: false, so the
+	// overlay is deliberately NOT reopened (decision 3).
+	ipcMain.handle("insights:openWindow", () => {
+		openInsightsWindow?.();
+	});
+	ipcMain.handle("insights:reattach", () => {
+		closeInsightsWindow?.(true);
+	});
 
 	// Test seam: registered ONLY under the E2E flag, and then it accepts only the
 	// enumerated signals — anything else is rejected without touching the

@@ -22,12 +22,13 @@ import {
 } from "@playwright/test";
 import {
 	cpSync,
+	mkdirSync,
 	mkdtempSync,
 	realpathSync,
 	rmSync,
 	writeFileSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { createTestRepo, type TestRepo } from "./fixtures/create-test-repo";
@@ -54,6 +55,42 @@ let page: Page;
 let repo: TestRepo;
 let userDataDir: string;
 let whisperRoot: string;
+// AC2 harness: a fresh $HOME per test, seeded with ONE claude-format usage
+// event under ~/.claude/projects — the real usage worker sweeps it on boot
+// (os.homedir() honors $HOME on POSIX), giving the detached window a
+// deterministic LIVE pulled token value to assert against. Deliberately NOT
+// AI14ALL_E2E_USAGE_SNAPSHOT, which suppresses the worker and would turn
+// usage.queryRange into `disabled`.
+let tempHome: string;
+
+// 12,000,000 billable tokens (input_tokens + output_tokens +
+// cache_creation_input_tokens, per services/usage/token-math.ts's
+// claudeTokens — cache_read is excluded from billable) -> fmtTokens rounds
+// to exactly "12M". The line shape is copied from
+// tests/unit/usage/claude-source.test.ts (the format's source of truth).
+// cwd deliberately does NOT match the test repo's path, so this event folds
+// into the workspace table's "untracked" row, not the named workspace row —
+// AC5's zero-row assertion below depends on that separation.
+function seedClaudeUsage(home: string): void {
+	const dir = join(home, ".claude", "projects", "-tmp-proj");
+	mkdirSync(dir, { recursive: true });
+	const line = JSON.stringify({
+		type: "assistant",
+		timestamp: new Date().toISOString(),
+		cwd: "/tmp/-tmp-proj",
+		sessionId: "e2e-ac2-session",
+		message: {
+			model: "claude-opus-4-7",
+			usage: {
+				input_tokens: 12_000_000,
+				output_tokens: 0,
+				cache_creation_input_tokens: 0,
+				cache_read_input_tokens: 0,
+			},
+		},
+	});
+	writeFileSync(join(dir, "session.jsonl"), line + "\n");
+}
 
 const launch = (): Promise<ElectronApplication> =>
 	electron.launch({
@@ -64,6 +101,7 @@ const launch = (): Promise<ElectronApplication> =>
 			AI14ALL_E2E_PICK_PATH: repo.repoPath,
 			AI14ALL_USER_DATA_PATH: userDataDir,
 			AI14ALL_WHISPER_STATE_ROOT: whisperRoot,
+			HOME: tempHome,
 		},
 	});
 
@@ -103,6 +141,8 @@ test.beforeEach(async () => {
 	whisperRoot = realpathSync(
 		mkdtempSync(join(tmpdir(), "ofa-insights-db-wr-")),
 	);
+	tempHome = realpathSync(mkdtempSync(join(tmpdir(), "ofa-insights-db-home-")));
+	seedClaudeUsage(tempHome);
 	cpSync(
 		join(HERE, "fixtures", "whisper-state-v7.db"),
 		join(whisperRoot, "state.db"),
@@ -118,6 +158,7 @@ test.afterEach(async () => {
 	await closeApp(app);
 	rmSync(userDataDir, { recursive: true, force: true });
 	rmSync(whisperRoot, { recursive: true, force: true });
+	rmSync(tempHome, { recursive: true, force: true });
 	repo.cleanup();
 });
 
@@ -158,4 +199,79 @@ test("AC1: command palette entry opens the overlay", async () => {
 	await expect(
 		page.locator('[data-testid="insights-dashboard"]'),
 	).toBeVisible();
+});
+
+// AC2 (design spec §2 decision 4): ⧉ detach creates/focuses a SINGLETON
+// window (never window.open() from the renderer) sharing the same preload +
+// navigation guard; the overlay closes on detach; ⇱ reattach closes the
+// window and reopens the overlay; an OS-driven close just closes (no
+// overlay reopen). The detached host renders LIVE pulled token data (the
+// seeded 12M from tempHome's ~/.claude/projects) and seeds the same
+// workspace registry rows as the overlay (AC5).
+test("AC2: detach → singleton window with LIVE pulled token data; reattach reverses; OS-close never reopens", async () => {
+	const repoName = basename(repo.repoPath);
+
+	await page.click(".insights-entry-button");
+	await page.click('[title="Detach into its own window"]');
+	const dash = await app.waitForEvent("window"); // second BrowserWindow
+	await expect(page.locator('[data-testid="insights-dashboard"]')).toHaveCount(
+		0,
+	);
+	await expect(
+		dash.locator('[data-testid="insights-dashboard"]'),
+	).toBeVisible();
+
+	// AC2/§2.2: the DETACHED host pulls a KNOWN token value cross-window — the
+	// seeded 12M billable event must render in the tokens tile (fmtTokens ->
+	// "12M"). `.v` is the tile's value line; `[data-testid="tile-tokens"]`
+	// alone also contains the "tokens" label and cost/billable caption, so
+	// asserting on the whole block would never equal "12M" exactly.
+	await expect(dash.locator('[data-testid="tile-tokens"] .v')).toHaveText(
+		"12M",
+		{ timeout: 15_000 },
+	);
+	await expect(dash.locator(".idb-state--error")).toHaveCount(0);
+
+	// AC5 in the detached host: the NAMED persisted workspace (the harness's
+	// test repo, zero runs/tokens — its cwd never appears in the seeded usage
+	// log) renders as its own table row. repoName = basename(repo.repoPath),
+	// the same derivation workspaceIndex's mapper uses.
+	await dash.getByRole("button", { name: "workspaces" }).click();
+	await expect(
+		dash.locator(".idb-ws-grid .ws-name", { hasText: repoName }),
+	).toBeVisible();
+	// …and it is a ZERO row (seeded, not data-driven):
+	const zeroRow = dash.locator(".idb-ws-grid .cell.ws-runs", {
+		hasText: "0 done · 0 halted · 0 failed",
+	});
+	await expect(zeroRow.first()).toBeVisible();
+
+	// detach again focuses the SAME window (singleton — still exactly 2 windows):
+	await page.click(".insights-entry-button"); // overlay reopens in main
+	await page.click('[title="Detach into its own window"]');
+	expect(app.windows()).toHaveLength(2);
+
+	// reattach:
+	await dash.click('[title="Reattach to main window"]');
+	await expect(
+		page.locator('[data-testid="insights-dashboard"]'),
+	).toBeVisible();
+	expect(app.windows()).toHaveLength(1);
+});
+
+test("AC2: OS-close just closes — the overlay does NOT reopen", async () => {
+	await page.click(".insights-entry-button");
+	await page.click('[title="Detach into its own window"]');
+	const dash = await app.waitForEvent("window");
+	await expect(page.locator('[data-testid="insights-dashboard"]')).toHaveCount(
+		0,
+	);
+	// OS chrome close (Playwright page.close() drives the real window close path):
+	await dash.close();
+	await expect.poll(() => app.windows().length).toBe(1);
+	// the overlay must NOT auto-reopen (decision 3):
+	await page.waitForTimeout(500);
+	await expect(page.locator('[data-testid="insights-dashboard"]')).toHaveCount(
+		0,
+	);
 });

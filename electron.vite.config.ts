@@ -73,7 +73,10 @@ export default defineConfig({
 		},
 		build: {
 			rollupOptions: {
-				input: "./index.html",
+				// dashboard.html is the second renderer entry (Task 14): the detached
+				// insights window's root, loaded via ELECTRON_RENDERER_URL in dev or
+				// out/renderer/dashboard.html in a packaged build.
+				input: { index: "./index.html", dashboard: "./dashboard.html" },
 			},
 		},
 		plugins: [react(), tailwindcss()],

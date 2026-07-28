@@ -701,6 +701,16 @@ export type Ai14AllDesktopApi = {
 		// notice. Resolves true only while the notice is un-acknowledged (in
 		// process AND durably) after a first capture. See InsightsHost.isNoticePending.
 		checkNoticePending(): Promise<boolean>;
+		// Detached window (design spec §2 decision 4): detach() asks main to
+		// create/focus the singleton BrowserWindow (never window.open() from the
+		// renderer); reattach() closes it and signals the main window to reopen
+		// the overlay. onWindowClosed fires for EVERY window close (detach-close,
+		// reattach, and OS chrome close alike) — payload.reattach distinguishes an
+		// explicit reattach (main should reopen the overlay) from an OS close
+		// (main must NOT reopen it, decision 3).
+		detach(): Promise<void>;
+		reattach(): Promise<void>;
+		onWindowClosed(listener: (e: { reattach: boolean }) => void): () => void;
 	};
 	reviewComments: {
 		list(worktreeId: string): Promise<{ comments: ReviewComment[] }>;
