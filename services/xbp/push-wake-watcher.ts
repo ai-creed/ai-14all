@@ -1,10 +1,10 @@
 import type { WhisperWorktreeState } from "../../shared/models/ecosystem-plugin.js";
 import type { PushWakeAuditEntry } from "../diagnostics/push-wake-audit-logger.js";
-import {
-	detectPushWakeEvents,
-	type PushWakeSeenState,
-} from "./push-wake-detector.js";
-import type { PushWakeStateStore } from "./push-wake-state-store.js";
+import { detectPushWakeEvents } from "./push-wake-detector.js";
+import type {
+	PushWakeStateStore,
+	PushWakeWatcherStateV2,
+} from "./push-wake-state-store.js";
 import type { PushSendOutcome } from "./push-wake-sender.js";
 
 // Whisper-driver cadence (whisper-driver.ts:36); inside the spec's 2–5 s window.
@@ -27,7 +27,7 @@ export function createPushWakeWatcher(deps: {
 	const intervalMs = deps.intervalMs ?? PUSH_WAKE_POLL_INTERVAL_MS;
 	let timer: ReturnType<typeof setInterval> | null = null;
 	let ticking = false;
-	let seen: PushWakeSeenState | null | undefined; // undefined = not loaded yet
+	let composite: PushWakeWatcherStateV2 | null | undefined; // undefined = not loaded
 
 	async function tick(): Promise<void> {
 		if (ticking) return;
@@ -38,10 +38,19 @@ export function createPushWakeWatcher(deps: {
 			// Empty read = schema gate closed / db busy / genuinely nothing.
 			// Never advance or prune on it (mem-2026-07-03: blank ≠ vanished).
 			if (states.length === 0) return;
-			if (seen === undefined) seen = deps.stateStore.load();
-			const { events, next } = detectPushWakeEvents(seen, states);
-			deps.stateStore.save(next);
-			seen = next;
+			if (composite === undefined) composite = deps.stateStore.load();
+			const { events, next } = detectPushWakeEvents(
+				composite?.whisper ?? null,
+				states,
+			);
+			const candidate: PushWakeWatcherStateV2 = {
+				version: 2,
+				whisper: next,
+				attention: composite?.attention ?? null,
+				lastPingAt: composite?.lastPingAt ?? null,
+			};
+			deps.stateStore.save(candidate);
+			composite = candidate;
 			if (events.length === 0 || !deps.hasToken()) return;
 			for (const event of events) {
 				const outcome = await deps.send();

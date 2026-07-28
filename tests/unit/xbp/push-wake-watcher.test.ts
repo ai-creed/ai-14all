@@ -131,9 +131,14 @@ describe("push-wake watcher", () => {
 		const dir = mkdtempSync(join(tmpdir(), "pw-watch-en-"));
 		const stateStore = new PushWakeStateStore({ dir });
 		stateStore.save({
-			workflows: { "wf-1": "running" },
-			pingedWorkflows: [],
-			pingedChains: [],
+			version: 2,
+			whisper: {
+				workflows: { "wf-1": "running" },
+				pingedWorkflows: [],
+				pingedChains: [],
+			},
+			attention: null,
+			lastPingAt: null,
 		});
 		const send = vi.fn(async () => "sent" as const);
 		const watcher = createPushWakeWatcher({

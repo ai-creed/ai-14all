@@ -1,45 +1,115 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { PushWakeSeenState } from "./push-wake-detector.js";
 
 const FILE_NAME = "push-wake-state.json";
+const TMP_NAME = "push-wake-state.json.tmp";
 
-// Last-seen + last-pinged bookkeeping for the push-wake watcher. Lives in
-// ai-14all's own XBP dir — whisper's state.db is a read-only contract. On any
-// read problem we fall back to null (fresh baseline): the baseline never
-// re-pings, which is the required fail-direction.
+export type PushWakeAttentionSeenState = {
+	sessions: Record<string, "waiting" | "failed">;
+};
+
+// Composite watcher state (child spec §2). Each namespace is independently
+// nullable: null = "this detector never completed a successful baseline
+// pass" — durably distinct from established-but-empty, which fires
+// first-sight. lastPingAt is the §3 coalesce timestamp (last ATTEMPT).
+export type PushWakeWatcherStateV2 = {
+	version: 2;
+	whisper: PushWakeSeenState | null;
+	attention: PushWakeAttentionSeenState | null;
+	lastPingAt: number | null;
+};
+
+type FsSeam = {
+	mkdirSync: typeof mkdirSync;
+	readFileSync: typeof readFileSync;
+	writeFileSync: typeof writeFileSync;
+	renameSync: typeof renameSync;
+};
+
+function isLegacyV1(v: unknown): v is PushWakeSeenState {
+	if (typeof v !== "object" || v === null) return false;
+	const s = v as PushWakeSeenState;
+	return (
+		typeof s.workflows === "object" &&
+		s.workflows !== null &&
+		Array.isArray(s.pingedWorkflows) &&
+		Array.isArray(s.pingedChains)
+	);
+}
+
+function isAttentionNamespace(v: unknown): v is PushWakeAttentionSeenState {
+	if (typeof v !== "object" || v === null) return false;
+	const sessions = (v as PushWakeAttentionSeenState).sessions;
+	if (typeof sessions !== "object" || sessions === null) return false;
+	return Object.values(sessions).every(
+		(s) => s === "waiting" || s === "failed",
+	);
+}
+
+function isV2(v: unknown): v is PushWakeWatcherStateV2 {
+	if (typeof v !== "object" || v === null) return false;
+	const s = v as PushWakeWatcherStateV2;
+	if (s.version !== 2) return false;
+	if (s.whisper !== null && !isLegacyV1(s.whisper)) return false;
+	if (s.attention !== null && !isAttentionNamespace(s.attention)) return false;
+	return s.lastPingAt === null || typeof s.lastPingAt === "number";
+}
+
+// On any read problem we fall back to null: both namespaces read as
+// never-baselined, which records without firing (§2 null-baseline rule) —
+// the required fail-direction (never re-pings).
 export class PushWakeStateStore {
 	private readonly dir: string;
 	private readonly path: string;
-	constructor(opts: { dir: string }) {
+	private readonly tmpPath: string;
+	private readonly fs: FsSeam;
+	constructor(opts: { dir: string; fsImpl?: FsSeam }) {
 		this.dir = opts.dir;
 		this.path = join(opts.dir, FILE_NAME);
+		this.tmpPath = join(opts.dir, TMP_NAME);
+		this.fs = opts.fsImpl ?? {
+			mkdirSync,
+			readFileSync,
+			writeFileSync,
+			renameSync,
+		};
 	}
 
-	load(): PushWakeSeenState | null {
+	load(): PushWakeWatcherStateV2 | null {
 		try {
-			const parsed = JSON.parse(readFileSync(this.path, "utf8")) as unknown;
-			if (
-				typeof parsed !== "object" ||
-				parsed === null ||
-				typeof (parsed as PushWakeSeenState).workflows !== "object" ||
-				(parsed as PushWakeSeenState).workflows === null ||
-				!Array.isArray((parsed as PushWakeSeenState).pingedWorkflows) ||
-				!Array.isArray((parsed as PushWakeSeenState).pingedChains)
-			)
-				return null;
-			return parsed as PushWakeSeenState;
+			const parsed = JSON.parse(
+				this.fs.readFileSync(this.path, "utf8") as string,
+			) as unknown;
+			if (isV2(parsed)) return parsed;
+			if (isLegacyV1(parsed)) {
+				// v1 migration: attention is established-and-EMPTY, not null —
+				// nothing attention-related was ever pinged before v2, so
+				// first-sight firing there is a first ping, not a duplicate.
+				return {
+					version: 2,
+					whisper: parsed,
+					attention: { sessions: {} },
+					lastPingAt: null,
+				};
+			}
+			return null;
 		} catch {
 			return null;
 		}
 	}
 
-	save(state: PushWakeSeenState): void {
+	// Same-directory temp write + atomic rename: a crash at any point before
+	// the rename leaves the prior valid file intact (§2 atomic mechanism).
+	save(state: PushWakeWatcherStateV2): boolean {
 		try {
-			mkdirSync(this.dir, { recursive: true });
-			writeFileSync(this.path, JSON.stringify(state));
+			this.fs.mkdirSync(this.dir, { recursive: true });
+			this.fs.writeFileSync(this.tmpPath, JSON.stringify(state));
+			this.fs.renameSync(this.tmpPath, this.path);
+			return true;
 		} catch (e) {
 			console.warn("[push-wake] failed to persist watcher state:", e);
+			return false;
 		}
 	}
 }
