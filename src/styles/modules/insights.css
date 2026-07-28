@@ -326,6 +326,15 @@
 	.idb-bars.is-dense {
 		gap: 1px;
 	}
+	/* Task-12 review fix: the precapture/today baseline-tick chrome row
+	 * (widgets/PrecaptureChrome.tsx) reuses the .idb-bars/.idb-bcol markup so
+	 * every capture-bound zone (apptime included) shares one visual
+	 * technique, but it sits BELOW the real Recharts chart as a thin marker
+	 * strip, not a second full-height bar chart. */
+	.idb-bars--chrome {
+		height: 8px;
+		margin-top: 2px;
+	}
 	.idb-bcol {
 		flex: 1;
 		min-width: 2px;

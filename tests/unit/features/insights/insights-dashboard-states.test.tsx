@@ -6,7 +6,7 @@
 // rendered-equality regression (AC5/§4.9). Stubbing pattern copied from
 // tests/unit/usage/usage-popover.test.tsx.
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InsightsDashboard } from "../../../../src/features/insights/InsightsDashboard.js";
 
 const noop = () => {};
@@ -56,6 +56,10 @@ function stubApi(overrides: Partial<StubApi> = {}) {
 describe("InsightsDashboard", () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
 	});
 
 	it("empty: no anchors, no ledger days → the ◌ empty state", async () => {
@@ -182,7 +186,13 @@ describe("InsightsDashboard", () => {
 	});
 
 	it("(a, render half) short-history `all`: SIX rendered stubs per capture-bound zone, not seven plain zero columns", async () => {
-		// anchors put the first data inside the CURRENT week → 7-week floor domain.
+		// anchors put the first data inside the CURRENT week → 7-week floor
+		// domain. The precapture count depends on which local weekday `now`
+		// falls on (a Monday `now` puts "yesterday" in the PREVIOUS Monday-start
+		// week, shifting the count to 5) — pin the clock to a known Wednesday so
+		// the hardcoded 6 is deterministic regardless of the real run date.
+		vi.useFakeTimers({ shouldAdvanceTime: true });
+		vi.setSystemTime(new Date("2026-07-29T12:00:00"));
 		stubApi();
 		const api = (window as unknown as { ai14all: StubApi }).ai14all;
 		const now = Date.now();
@@ -330,6 +340,86 @@ describe("InsightsDashboard", () => {
 		const totals = await screen.findByTestId("ws-totals");
 		expect(totals.textContent).toContain(
 			"1 done · 2 halted · 1 failed · 2 active · 1 other",
+		);
+	});
+
+	it("stale-response guard: a superseded fetch cycle does not clobber the latest range's data", async () => {
+		stubApi();
+		const api = (window as unknown as { ai14all: StubApi }).ai14all;
+		// Non-null anchors so the dashboard reaches "live" (not "empty") status
+		// in both cycles — the empty state hides the runs zone entirely, which
+		// would make the DOM assertion below vacuous.
+		api.insights.coverageAnchors.mockResolvedValue({
+			ok: true,
+			data: {
+				firstCaptureAt: Date.now() - 30 * 86_400_000,
+				appRetainedSinceMs: Date.now() - 30 * 86_400_000,
+				runsRetainedSinceMs: Date.now() - 30 * 86_400_000,
+			},
+		});
+
+		function deferred<T>() {
+			let resolve!: (value: T) => void;
+			const promise = new Promise<T>((res) => {
+				resolve = res;
+			});
+			return { promise, resolve };
+		}
+
+		// Gate the two ranges' MAIN series calls independently by their own
+		// bucket count (7 for the initial 7d mount, 30 for the range we switch
+		// to) — robust regardless of which cycle's queries happen to resolve
+		// first; every OTHER call (both cycles' rhythm reads, which are hourly
+		// and never land on exactly 7 or 30 buckets) resolves immediately.
+		const sevenDay = deferred<void>();
+		const thirtyDay = deferred<void>();
+		api.insights.queryAppTimeSeries.mockImplementation(
+			async (edges: number[]) => {
+				const bucketCount = edges.length - 1;
+				if (bucketCount === 7) await sevenDay.promise;
+				else if (bucketCount === 30) await thirtyDay.promise;
+				return {
+					ok: true,
+					data: {
+						buckets: edges.slice(0, -1).map((startMs: number) => ({
+							startMs,
+							focusedMs: 0,
+							engagedMs: 0,
+						})),
+						completeness: "unknown",
+					},
+				};
+			},
+		);
+
+		const { container } = render(
+			<InsightsDashboard host="overlay" workspaces={[]} {...handlers} />,
+		);
+		// The initial 7d mount's fetch is now in-flight, blocked before its main
+		// series resolves. Switch to 30d before it does — this starts a second,
+		// independent fetch cycle for the SAME hook instance.
+		fireEvent.click(screen.getByRole("button", { name: "30d" }));
+
+		// Resolve the NEWER (30d) cycle first, then the STALE (7d) cycle after —
+		// out of order. Without the generation guard, the 7d cycle's response
+		// (arriving last) would overwrite the 30d result when it finally lands.
+		thirtyDay.resolve();
+		await waitFor(() => {
+			expect(
+				container.querySelectorAll("[data-zone='runs'] .idb-bcol").length,
+			).toBe(30);
+		});
+
+		sevenDay.resolve();
+		// Give the stale 7d resolution a turn to (wrongly) land, if it were
+		// going to — then re-assert the displayed domain is still the latest
+		// (30d) range's, not clobbered back to 7.
+		await new Promise((r) => setTimeout(r, 10));
+		expect(
+			container.querySelectorAll("[data-zone='runs'] .idb-bcol").length,
+		).toBe(30);
+		expect(screen.getByRole("button", { name: "30d" }).className).toContain(
+			"on",
 		);
 	});
 });

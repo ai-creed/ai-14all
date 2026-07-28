@@ -14,6 +14,8 @@ import {
 import { foldDaysToWeeks } from "../bucketEdges.js";
 import type { Domain } from "../useInsightsDashboardData.js";
 import { precaptureFlags } from "./precapture.js";
+import { PrecaptureChrome } from "./PrecaptureChrome.js";
+import { ChartLabels } from "./ChartLabels.js";
 import { AGENT_PROVIDERS } from "../../../../shared/models/agent-provider.js";
 import type { DailyPoint } from "../../../../shared/models/usage.js";
 
@@ -92,14 +94,8 @@ export function TokenBurnChart({
 							<ChartTooltip content={<ChartTooltipContent />} />
 						</BarChart>
 					</ChartContainer>
-					<div className="idb-bars-chrome" aria-hidden="true">
-						{domain.edges.slice(0, -1).map((startMs, i) => (
-							<div
-								key={startMs}
-								className={flags[i] ? "idb-bcol is-precapture" : "idb-bcol"}
-							/>
-						))}
-					</div>
+					<PrecaptureChrome edges={domain.edges} flags={flags} />
+					<ChartLabels domain={domain} anchorMs={earliestDayMs} />
 				</>
 			)}
 		</div>

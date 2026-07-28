@@ -48,24 +48,26 @@ export function WorkspaceTable({
 								<RunsBreakdown counts={r.runs} />
 							</div>
 							<div className={`cell${last}`}>
-								<div
-									className="ws-share"
-									style={{ width: `${widthPct.toFixed(1)}%` }}
-								>
-									{r.mix.map((m) => (
-										<span
-											key={m.provider}
-											className="p"
-											style={{
-												width: `${((m.tokens / (r.tokens || 1)) * 100).toFixed(1)}%`,
-												background: providerColor(m.provider),
-											}}
-										/>
-									))}
-								</div>
+								{usageDisabled ? null : (
+									<div
+										className="ws-share"
+										style={{ width: `${widthPct.toFixed(1)}%` }}
+									>
+										{r.mix.map((m) => (
+											<span
+												key={m.provider}
+												className="p"
+												style={{
+													width: `${((m.tokens / (r.tokens || 1)) * 100).toFixed(1)}%`,
+													background: providerColor(m.provider),
+												}}
+											/>
+										))}
+									</div>
+								)}
 							</div>
 							<div className={`cell r ws-tok${last}`}>
-								{fmtTokens(r.tokens)}
+								{usageDisabled ? "—" : fmtTokens(r.tokens)}
 							</div>
 							<div className={`cell r ws-cost${last}`}>
 								{usageDisabled ? "—" : fmtCostUsd(r.costUsd)}
@@ -80,7 +82,9 @@ export function WorkspaceTable({
 					<RunsBreakdown counts={totals.runs} />
 				</div>
 				<div />
-				<div className="r">{fmtTokens(totals.tokens)}</div>
+				<div className="r">
+					{usageDisabled ? "—" : fmtTokens(totals.tokens)}
+				</div>
 				<div className="r">
 					{usageDisabled ? "—" : fmtCostUsd(totals.costUsd)}
 				</div>

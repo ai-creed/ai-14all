@@ -14,6 +14,8 @@ import {
 	type ChartConfig,
 } from "../../../components/ui/chart.js";
 import { dataStartIndex, precaptureFlags } from "./precapture.js";
+import { PrecaptureChrome } from "./PrecaptureChrome.js";
+import { ChartLabels } from "./ChartLabels.js";
 import type { InsightsAppTimeSeries } from "../../../../shared/contracts/commands.js";
 import type { Domain } from "../useInsightsDashboardData.js";
 
@@ -44,6 +46,9 @@ export function AppTimeArea({
 			engagedMs: captured ? (b?.engagedMs ?? 0) : null,
 		};
 	});
+	// The last bucket always covers "now" (dayEdges/weekEdgesFrom both walk
+	// through `now`), so it doubles as the today marker.
+	const todayLabel = data[data.length - 1]?.label;
 
 	return (
 		<div className="idb-cell" data-zone="apptime">
@@ -73,6 +78,13 @@ export function AppTimeArea({
 							stroke="var(--border)"
 						/>
 					)}
+					{todayLabel !== undefined && (
+						<ReferenceLine
+							className="today-line"
+							x={todayLabel}
+							stroke="var(--primary)"
+						/>
+					)}
 					<Area
 						dataKey="focusedMs"
 						stroke="var(--color-focused)"
@@ -94,14 +106,8 @@ export function AppTimeArea({
 					<ChartTooltip content={<ChartTooltipContent />} />
 				</AreaChart>
 			</ChartContainer>
-			<div className="idb-chrome-ticks" aria-hidden="true">
-				{domain.edges.slice(0, -1).map((startMs, i) => (
-					<div
-						key={startMs}
-						className={flags[i] ? "idb-tick is-precapture" : "idb-tick"}
-					/>
-				))}
-			</div>
+			<PrecaptureChrome edges={domain.edges} flags={flags} />
+			<ChartLabels domain={domain} anchorMs={appRetainedSinceMs} />
 			{startIdx > 0 && <div className="cap-line" data-testid="capture-line" />}
 		</div>
 	);

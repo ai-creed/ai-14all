@@ -179,7 +179,24 @@ export function useInsightsDashboardData(
 	const workspacesRef = useRef(workspaces);
 	workspacesRef.current = workspaces;
 
+	// Stale-response guard: a range switch, the 30s poll, and retry can all
+	// start a NEW fetch cycle while an older one is still awaiting its
+	// network round-trip. Promises don't resolve in start order, so without
+	// this a slow, superseded cycle (e.g. the pre-switch range's queries)
+	// can land AFTER the fresh one and clobber it with stale data/status.
+	// Every `set*` call below is gated on `generationRef.current === my`,
+	// checked immediately before use (never cached across an `await`); the
+	// unmount effect also bumps the generation, so an in-flight cycle whose
+	// component has already unmounted is discarded the same way.
+	const generationRef = useRef(0);
+	useEffect(() => {
+		return () => {
+			generationRef.current += 1;
+		};
+	}, []);
+
 	const fetchAll = useCallback(async () => {
+		const my = ++generationRef.current;
 		const now = Date.now();
 		const currentRange = rangeRef.current;
 		const api = window.ai14all;
@@ -210,6 +227,7 @@ export function useInsightsDashboardData(
 		]);
 
 		if (!anchorsResult.ok) {
+			if (generationRef.current !== my) return; // superseded — discard
 			setStatus("error");
 			setUpdatedAt(Date.now());
 			return;
@@ -230,6 +248,7 @@ export function useInsightsDashboardData(
 			disabled = true;
 		} else {
 			// "timeout" -> error, per §4.1/§6.
+			if (generationRef.current !== my) return; // superseded — discard
 			setStatus("error");
 			setUpdatedAt(Date.now());
 			return;
@@ -254,6 +273,7 @@ export function useInsightsDashboardData(
 		]);
 
 		if (!seriesResult.ok || !runsResult.ok || !rhythmResult.ok) {
+			if (generationRef.current !== my) return; // superseded — discard
 			setStatus("error");
 			setUpdatedAt(Date.now());
 			return;
@@ -311,6 +331,7 @@ export function useInsightsDashboardData(
 			mode: dom.mode,
 		});
 
+		if (generationRef.current !== my) return; // superseded — discard
 		setAnchors(anchorsData);
 		setUsage(usageData);
 		setUsageDisabled(disabled);
